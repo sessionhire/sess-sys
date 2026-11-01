@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.74.3',
+    date: '2026-11-01',
+    title: 'Text sizes on one shared scale',
+    what: 'The text sizes the app shares with the studio\'s other tools now come from one scale, so lines sit evenly. On phones and tablets, card headings and the app's name grow a little (17 to 20), and buttons, tabs and a row\'s second line go from 15 to 16, so they read more easily at arm\'s length.',
+    prs: [0],
+  },
+  {
     version: '1.74.2',
     date: '2026-11-01',
     title: 'Shared design parts brought up to date',
