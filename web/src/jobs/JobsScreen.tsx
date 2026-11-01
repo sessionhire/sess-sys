@@ -38,6 +38,7 @@ import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
 import { Beside, Choices, clientNamed, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
+import { StageLine } from './StageLine.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
 import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
 import { JOB_PARTS, JobScreen, type JobPart } from './JobScreen.tsx'
@@ -388,7 +389,7 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
         {win.rows.map((r) =>
           'job' in r ? (
             <li key={r.job.id} ref={win.row(r.job.id)} data-place={r.job.id} aria-setsize={listedCount} aria-posinset={r.n + 1}>
-              <JobRow job={r.job} kit={view.kit.byJob.get(r.job.id)} current={false} />
+              <JobRow job={r.job} kit={view.kit.byJob.get(r.job.id)} view={view} current={false} />
             </li>
           ) : (
             <li key={rowKey(r)} ref={win.row(rowKey(r))} data-place={rowKey(r)} className="week-head">
@@ -418,7 +419,7 @@ const PROMPT_DAYS = 14
 
 const sameWord = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-export function JobRow({ job, kit, current }: { job: JobView; kit: readonly KitLineView[] | undefined; current: boolean }) {
+export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonly KitLineView[] | undefined; view: View; current: boolean }) {
   const crew = crewFill(job.calls)
   const short = kitShort(kit)
   const today = useToday()
@@ -435,6 +436,8 @@ export function JobRow({ job, kit, current }: { job: JobView; kit: readonly KitL
           {job.span ? spanLabel(job.span) : 'No dates yet'}
           {job.phases.length > 0 && ` · ${phaseNames(job.phases)}`}
         </p>
+        {/* Where the job is, under its dates (ADR 0104): the stage and what is short in it. */}
+        <StageLine job={job} view={view} />
       </div>
       <div className="side">
         <JobStatusPill status={job.status} pending={job.pending} />

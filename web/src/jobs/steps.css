@@ -101,3 +101,16 @@
 @media print {
   .next-dock { display: none; }
 }
+
+/*
+ * Where a job is on a list row (StageLine.tsx, ADR 0104 part 2): five short segments, passed in the done tone, the one the job
+ * is in in ink, then the stage's name and what is short in it. Late is the one thing in the bad tone.
+ */
+.stage-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1) var(--ds-space-2); margin-top: var(--ds-space-half); font-size: var(--text-small); color: var(--ink); }
+.stage-seg { display: inline-flex; gap: 2px; }
+.stage-seg i { display: block; width: 12px; height: 5px; border-radius: 3px; background: var(--line); }
+.stage-seg i[data-state='done'] { background: var(--muted); }
+.stage-seg i[data-state='now'] { background: var(--ink); }
+.stage-late { color: var(--bad); font-weight: 700; }
+.stage-line[data-compact] { margin: 0; font-size: var(--text-hint); color: var(--muted); white-space: nowrap; }
+.stage-line[data-compact] .stage-seg i { width: 8px; height: 4px; }

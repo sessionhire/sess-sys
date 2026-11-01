@@ -10,6 +10,7 @@ import { kitShort } from '../jobs/Kit.tsx'
 import { BelowZero } from '../jobs/Money.tsx'
 import { useToday, useView } from '../view.ts'
 import { addDays, departmentsIn, jobsOn, kitOf, narrower, SOON, TILES_FOR, tiles, weekAhead, type HomeFor, type Tile } from './standing.ts'
+import { StageLine } from '../jobs/StageLine.tsx'
 import { Heading } from '../Icon.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
 import { arrive } from '../arrival.ts'
@@ -199,6 +200,7 @@ function JobLine({ job, view, from }: { job: JobView; view: View; from?: boolean
       <b>{job.name}</b>
       <span className="side">
         {from && job.span && <small>{dayLabel(job.span.start)}</small>}
+        <StageLine job={job} view={view} compact />
         {job.status !== 'confirmed' && <small>{STATUS_LABELS[job.status]}</small>}
         {crew.needed > 0 && (
           <small>
