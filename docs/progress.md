@@ -17,7 +17,7 @@ waiting on someone.
   Notifications for whoever looks after stock; Admin › Connections ›
   Trackers turns it on, puts the warehouse on the map and lists every
   tracker. Off until turned on; staff crew and freelancers don't see where
-  kit is. App 1.76.0.
+  kit is. App 1.75.0 (1.76.0 if #196 merges first).
 - Checked: typecheck, the shared and server tests (new tracker tests for
   both of Digital Matter's report shapes, the key, late and repeated
   reports, each place and who sees them), and the screens in a browser
