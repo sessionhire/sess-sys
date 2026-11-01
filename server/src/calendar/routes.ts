@@ -3,7 +3,7 @@ import type { CalendarChoice, CalendarCheck, CalendarInvites, CalendarLink } fro
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { faultForLog, type Db } from '../db.ts'
 import { describeDevice } from '../devices.ts'
-import { clearCookie, publicOrigin, readCookie, setCookie } from '../http.ts'
+import { clearCookie, CONNECT_LIMIT, publicOrigin, readCookie, setCookie } from '../http.ts'
 import { serverChange, type ServerAction } from '../kernel.ts'
 import { open, seal } from './crypto.ts'
 import { CALENDAR_SCOPES, type Google } from './google.ts'
@@ -54,7 +54,7 @@ export function registerCalendarRoutes(app: FastifyInstance, { db, google, sync,
     device: describeDevice(req.headers['user-agent']),
   })
 
-  app.get<{ Querystring: { client?: string } }>('/api/calendar/connect', { config: { needs: 'settings' } }, async (req, reply) => {
+  app.get<{ Querystring: { client?: string } }>('/api/calendar/connect', { config: { needs: 'settings', rateLimit: CONNECT_LIMIT } }, async (req, reply) => {
     reply.header('cache-control', 'no-store')
     if (!google) return back(reply, 'off')
     const state = randomBytes(16).toString('base64url')
@@ -64,7 +64,7 @@ export function registerCalendarRoutes(app: FastifyInstance, { db, google, sync,
     return reply.redirect(google.authorizeUrl({ state, codeChallenge, redirectUri: callbackUrl(req), loginHint: req.user?.email }), 302)
   })
 
-  app.get<{ Querystring: { code?: string; state?: string; error?: string } }>('/api/calendar/callback', { config: { needs: 'settings' } }, async (req, reply) => {
+  app.get<{ Querystring: { code?: string; state?: string; error?: string } }>('/api/calendar/callback', { config: { needs: 'settings', rateLimit: CONNECT_LIMIT } }, async (req, reply) => {
     reply.header('cache-control', 'no-store')
     if (!google || !sync || !secret) return back(reply, 'off')
     const [state, verifier, client] = (readCookie(req, ATTEMPT_COOKIE) ?? '').split('.')

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.74.1',
+    date: '2026-11-01',
+    title: 'Safer sign-in and a few security fixes',
+    what: "Signing in, and connecting a calendar or the operations mailbox, now turn one address away after many tries in a minute, saying to wait a minute; the office never meets it in normal use. Job sheets from Google are read as text more carefully, and one with an odd character in it no longer stops a calendar bring-in. Very long quantities, prices and headings in a file are read in a moment rather than seconds. Fixes for what GitHub's security checks found.",
+    prs: [197],
+    adrs: [105],
+  },
+  {
     version: '1.74.0',
     date: '2026-11-01',
     title: 'Jobs › Board: a column for each stage',
