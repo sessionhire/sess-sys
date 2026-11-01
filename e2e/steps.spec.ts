@@ -76,6 +76,11 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await page.goto('/#jobs')
   await page.getByLabel('Find').fill(job)
   await expect(page.locator('.job-row', { hasText: job }).locator('.stage-line')).toHaveText('Planning · 0 of 2 booked · No kit on the job yet')
+  // On the Board (part 3), the job is a card in the Planning column, saying what is short; nothing drags.
+  await page.goto('/#jobs/board')
+  await page.getByRole('button', { name: 'All coming up' }).click()
+  const planning = page.getByRole('region', { name: 'Planning' })
+  await expect(planning.locator('.board-card', { hasText: job })).toContainText('0 of 2 booked')
   // On Home, the task she's to do now is on top, whichever view, with the day it's due; the ticked one isn't.
   await page.goto('/#home')
   const mine = page.getByRole('region', { name: /^Your tasks/ })

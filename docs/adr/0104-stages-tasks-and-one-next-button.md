@@ -140,3 +140,7 @@ thumb is).
 ## Part 2, 1 November 2026
 
 The stage line on list rows (`StageLine.tsx`): five segments and the stage's name with what is short in it, under the dates on every jobs-list row, and compact (segments and name) on Home's Today and week-ahead rows. Nothing on a stopped job, an errand or a meeting. A person's page keeps its rows as they are: they are calls, not jobs.
+
+## Part 3, 1 November 2026
+
+Jobs › Board (`BoardScreen.tsx`, `#jobs/board`), beside List, Week and Month: a column per stage and a sixth for the jobs through every stage in the last month, a card per job, soonest first, each with the one line that says what is short or waiting and for how long (warn when short, bad when a task is late or kit is still out days after the job). Next 8 weeks or all coming up. Read only, as Kanban's board is a view of the work, not the work: a job moves when its own records do. Everyone who sees Jobs sees it; nothing about money is on it.

@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.74.0',
+    version: '1.75.0',
     date: '2026-11-01',
     title: 'The logo, the stock code and a cable’s length and colour on labels',
     what: "The company logo can be put up under Admin › Company › Labels, and prints on every label in place of the name. An item’s label now carries its product’s stock code too. Each product can be given a length, and cable labels say it in big type with the colour for that length, such as 10 m GREEN, from a list the office can change under Admin. A label printer prints black only, so the colour is printed as a word for the tape or heat-shrink put on with it; on a colour printer it prints in the colour.",
     prs: [196],
     adrs: [105],
+  },
+  {
+    version: '1.74.0',
+    date: '2026-11-01',
+    title: 'Jobs › Board: a column for each stage',
+    what: "Jobs has a new Board page beside List, Week and Month: a column for each of the five stages and one for the jobs through every stage this month, a card for each job with what is short or waiting and for how long (\"Quote with the client since Thu 29 Oct\", \"3 still out, 4 days after\"), soonest first. Show the next eight weeks or everything coming up. It only reads: a job moves along the board when its own records do, never by dragging it.",
+    prs: [194],
+    adrs: [104],
   },
   {
     version: '1.73.0',

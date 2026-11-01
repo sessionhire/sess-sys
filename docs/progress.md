@@ -12,7 +12,7 @@ waiting on someone.
   the stock code on an item's own label; a length on each product; a
   colour for each length (resistor order to start, the office's to
   change); cable labels with the length in big type and its colour as a
-  word in a black band, in colour on a colour printer. App 1.74.0.
+  word in a black band, in colour on a colour printer. App 1.75.0.
 - Checked: typecheck, shared and server tests, and the browser tests for
   labels, cable labels and the new logo test.
 
