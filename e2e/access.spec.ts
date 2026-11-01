@@ -110,6 +110,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
     // A call shows its answers once its line is opened (audit finding 16): the load-in stagehands, which Laoise declined.
     await page.goto('/#crew')
     await expect(page.getByRole('status')).toHaveText('Up to date')
+    // The calls are a windowed list (ADR 0050), drawn only near the screen, and a new screen holds its place for a moment against
+    // anything but a hand (places.ts): so the page is wheeled down to Short of crew, as a person would, before its calls are reached.
+    await page.mouse.move(195, 400)
+    await page.mouse.wheel(0, 1200)
     await page.locator('.call-group', { hasText: 'Harbour Lights Festival' }).getByRole('button', { name: /× Stagehand · Load in/ }).click()
     await expect(page.locator('.pill.cancelled').first()).toBeVisible()
     expect(await textContrast(page, '.pill.cancelled')).toBeGreaterThanOrEqual(4.5)
