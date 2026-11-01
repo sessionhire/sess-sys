@@ -3,6 +3,32 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 1 November 2026: What the Security tab found
+
+**Done**
+
+- [ADR 0105](adr/0105-security-tab-and-limits-on-the-ways-in.md) (PR #196):
+  limits on the ways in (signing in with Google or the passcode, 60 a minute
+  from one address; connecting a calendar or the operations mailbox, 20),
+  by the address Railway's proxy saw, and never on the sync, which every
+  phone in the warehouse does from one address. HTML read tag by tag in one
+  place for emails, job sheets and the AA's page; a job sheet with an odd
+  character number no longer stops a bring-in. The device's copy refuses
+  "constructor" and "prototype" as well as "\_\_proto\_\_". Four patterns that
+  slowed down on long input now run in a straight line. The Blueprint checks
+  its markdown reader against cdnjs's hash and no longer reads its documents
+  back out of the page. glob held at 14.0.3 or later. App 1.73.1.
+- Checked: typecheck, the shared and server tests (new ones for each fix,
+  including a sign-in limit test and long-input timings), the web build and
+  its offline worker, and the Blueprint in a browser with the real script and
+  a tampered one.
+
+**Waiting**
+
+- Colly to look at the Security tab once main is scanned again and say
+  what's still open: the alerts from before the first pull request scan
+  can't be listed from here.
+
 ## 30 October 2026: Send a quote to the client by email
 
 **Done**
