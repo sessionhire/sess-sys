@@ -337,7 +337,7 @@ const ABOUT: Record<string, string> = {
   rms_opportunities: "Every opportunity read from Current RMS (enquiries, quotes, orders, lost and dead ones): its number, subject, client and venue by name, state, dates, totals in cents and the client's discount and price category there. No contacts.",
   rms_matches: 'Each opportunity read from Current RMS that the office linked to its job: the job, who linked it and when.',
   rms_reads: 'Each time Current RMS was read: when, how many opportunities and lines, and what went wrong if it did.',
-  job_steps: "Each job's steps given to someone or ticked by hand: the job, the step (quote, confirmed, crew, kit, prep, show, back, deprep), who it's down to, and when it was ticked and by whom. Steps the app ticks from the job's own records aren't kept.",
+  job_steps: "Each job's tasks given to someone, given a due date or ticked by hand: the job, the task (quote, confirmed, crew, kit, prep, show, back, deprep), who it's down to, the day it's due by, and when it was ticked and by whom. Tasks the app ticks from the job's own records aren't kept.",
   // Vans and drivers (ADR 0047).
   vehicle_bookings: 'Vehicles booked on jobs: the vehicle, the job and the phase (blank for the whole job), the days, who drives, a note, and whether it was booked despite a clash.',
   vehicles:

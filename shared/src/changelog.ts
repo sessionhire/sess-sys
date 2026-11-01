@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.72.0',
+    date: '2026-11-01',
+    title: 'Where a job is: five stages, the tasks inside each, and one Next button',
+    what: "A job's page now shows the five stages every job goes through, Selling, Planning, Going out, On the job and Back, with the one it is in ringed. The app works the stage out from the job itself: its status, its scans and its dates. Inside each stage are the tasks that get it through (the quote, the client's answer, the crew, the kit and vans, picking, the days out, back in, deprep), done in any order, each with who it's down to and, if you like, a day it's due by; a task left open follows the job into the next stage. One Next button sits in the same place on every job: top right on a laptop, above the bar on a phone, saying what to do next in plain words, and saying why when there is nothing to press. Your steps on Home are now Your tasks, with the day each is due.",
+    prs: [192],
+    adrs: [104],
+  },
+  {
     version: '1.71.1',
     date: '2026-10-30',
     title: 'A new typeface, more room between things, and Home fits a phone',

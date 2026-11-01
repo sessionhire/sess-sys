@@ -334,6 +334,7 @@ const CASES: Case[] = [
   // A job's steps (ADR 0073).
   c('jobStep.set', { projectId: 'gala', step: 'deprep', ownerId: 'aoife' }, { as: 'given to someone' }),
   c('jobStep.set', { projectId: 'gala', step: 'kit', done: true, by: 'cian' }, { as: 'ticked' }),
+  c('jobStep.set', { projectId: 'gala', step: 'kit', dueOn: '2026-10-06' }, { as: 'given a day it is due by' }),
   c('jobStep.set', { projectId: 'gala', step: 'kit', done: false, ownerId: null }, { as: 'the tick and the name taken off', before: [m('jobStep.set', { projectId: 'gala', step: 'kit', ownerId: 'cian', done: true })] }),
 
   // The purchase list (ADR 0077).

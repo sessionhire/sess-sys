@@ -405,8 +405,8 @@ export class SyncClient {
     )
     lazy.ownCalendars = part('ownCalendars', () => [], (e, o) => ownCalendarsView(e, o, cursor))
     lazy.vehicles = part('vehicles', () => [lazy.jobs(), lazy.crew()], (e, o) => vehiclesView(e, o, cursor, lazy.jobs(), lazy.crew(), today))
-    lazy.steps = part('steps', () => [lazy.jobs(), lazy.crew(), lazy.kit(), lazy.moves(), lazy.money(), lazy.vehicles()], (e, o) =>
-      stepsView(e, o, cursor, lazy.jobs(), lazy.crew(), lazy.kit(), lazy.moves(), lazy.money(), lazy.vehicles(), today)
+    lazy.steps = part('steps', () => [lazy.jobs(), lazy.crew(), lazy.kit(), lazy.moves(), lazy.money(), lazy.vehicles(), lazy.faults()], (e, o) =>
+      stepsView(e, o, cursor, lazy.jobs(), lazy.crew(), lazy.kit(), lazy.moves(), lazy.money(), lazy.vehicles(), lazy.faults(), today)
     )
 
     lazy.racks = part('racks', () => [lazy.warehouse()], (e, o) => racksView(e, o, cursor, lazy.warehouse()))

@@ -25,6 +25,7 @@ import {
   type CallView,
   type CertificateKind,
   type CommandInput,
+  type JobStep,
   type JobView,
   type PersonView,
   type PhaseOnCalendar,
@@ -49,13 +50,15 @@ import { KitCard, kitSummary } from './Kit.tsx'
 import { VansCard } from './Vans.tsx'
 import { QuoteCard } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
+import { NextDock } from './NextDock.tsx'
 import { StepsCard } from './Steps.tsx'
 import { Heading } from '../Icon.tsx'
 import { JOBS } from '../Up.tsx'
 
 /**
- * One job: what it is, the steps it goes through and who each is down to
- * (ADR 0073), then its parts one at a time (a tab each): its
+ * One job: what it is, the stage it's in and the tasks inside it, who each
+ * is down to (ADR 0073, ADR 0104), its one Next button in the page head,
+ * then its parts one at a time (a tab each): its
  * phases and how each will read on the calendar, its crew, its kit and
  * vans (ADR 0014, 0047), its show pack and its quote. Crew calls made here
  * belong to the job and its phase, so freelancers always see the job's
@@ -93,6 +96,9 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
   // The part the address names, else the one picked here, else the last one looked at; a link to another part starts there.
   const [picked, setPicked] = useState<JobPart | undefined>()
   useEffect(() => setPicked(undefined), [asked])
+  // The task opened on Where it is, from its list or from the Next dock (ADR 0104).
+  const [task, setTask] = useState<JobStep | undefined>()
+  useEffect(() => setTask(undefined), [id])
   const wanted = picked ?? asked ?? lastPart() ?? 'phases'
   const part = parts.includes(wanted) ? wanted : 'phases'
   const pick = (p: JobPart) => {
@@ -133,11 +139,12 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
       heading={job.name}
       badge={<JobStatusPill status={job.status} pending={job.pending} />}
       sub={<JobLines job={job} view={view} />}
+      actions={<NextDock job={job} view={view} onPart={pick} onOpenTask={setTask} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
-      {/* The way the job goes, from the quote to the kit put away, and who each step is down to (ADR 0073). */}
-      <StepsCard job={job} view={view} onPart={pick} onTell={setShare} />
+      {/* Where the job is: its five stages, the tasks inside each and who each is down to (ADR 0073, ADR 0104). */}
+      <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={pick} onTell={setShare} />
 
       <Tabs label="Parts of the job" id="job" parts={parts} labels={PART_LABELS} current={part} counts={counts} onPick={pick} />
       <div className="job-part" role="tabpanel" id="job-part" aria-labelledby={`job-tab-${part}`}>
@@ -281,37 +288,48 @@ function CrewPart({
 function JobLines({ job, view }: { job: JobView; view: View }) {
   const crew = crewFill(job.calls)
   const kit = kitSummary(job, view.kit.byJob.get(job.id) ?? [])
-  const dot = (
-    <span className="muted" aria-hidden="true">
-      {' · '}
-    </span>
-  )
-  const second = [
-    kindOf(job) !== 'gig' && KIND_LABELS[kindOf(job)],
-    crew.needed > 0 && `Crew ${crew.booked} of ${crew.needed} booked${crew.toConfirm > 0 ? `, ${crew.toConfirm} to confirm` : ''}`,
-    kit && `Kit: ${kit}`,
-  ].filter(Boolean)
+  // The facts of the job as labelled cells, on the system's facts list (the label over the value), rather than one long dotted line:
+  // the eye finds the venue or the dates by their label without reading the rest (Colly, 1 November 2026).
   return (
-    <>
-      <p className="job-line">
-        {job.client ? <a href={`#jobs/clients/${encodeURIComponent(job.client.id)}`}>{job.client.name}</a> : 'No client yet'}
-        {dot}
-        {job.venue ? (
-          <>
-            <a href={`#jobs/venues/${encodeURIComponent(job.venue.id)}`}>{venueLabel(job.venue)}</a> (
-            <a href={mapLink(job.venue)} target="_blank" rel="noreferrer">
-              map
-            </a>
-            )
-          </>
-        ) : (
-          'No venue yet'
-        )}
-        {dot}
-        {job.span ? spanLabel(job.span) : 'No dates yet'}
-      </p>
-      {second.length > 0 && <p className="job-line">{second.join(' · ')}</p>}
-    </>
+    <dl className="facts job-facts">
+      <div>
+        <dt>Client</dt>
+        <dd>{job.client ? <a href={`#jobs/clients/${encodeURIComponent(job.client.id)}`}>{job.client.name}</a> : <span className="muted">None yet</span>}</dd>
+      </div>
+      <div>
+        <dt>Venue</dt>
+        <dd>
+          {job.venue ? (
+            <>
+              <a href={`#jobs/venues/${encodeURIComponent(job.venue.id)}`}>{venueLabel(job.venue)}</a>{' '}
+              <a className="muted" href={mapLink(job.venue)} target="_blank" rel="noreferrer">
+                (map)
+              </a>
+            </>
+          ) : (
+            <span className="muted">None yet</span>
+          )}
+        </dd>
+      </div>
+      <div>
+        <dt>{kindOf(job) === 'gig' ? 'When' : KIND_LABELS[kindOf(job)]}</dt>
+        <dd>{job.span ? spanLabel(job.span) : <span className="muted">No dates yet</span>}</dd>
+      </div>
+      {crew.needed > 0 && (
+        <div>
+          <dt>Crew</dt>
+          <dd>
+            {crew.booked} of {crew.needed} booked{crew.toConfirm > 0 ? `, ${crew.toConfirm} to confirm` : ''}
+          </dd>
+        </div>
+      )}
+      {kit && (
+        <div>
+          <dt>Kit</dt>
+          <dd>{kit}</dd>
+        </div>
+      )}
+    </dl>
   )
 }
 

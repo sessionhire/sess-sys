@@ -1,53 +1,103 @@
 /*
- * A job's steps (ADR 0073): one line of steps across the job page, joined by a rule, each a dot, its name and who
- * it's down to. Done is quiet (a filled grey dot with a tick), the step the job is at is the one drawn in full ink
- * with a ring, steps to come are outlined, and a step not needed is dashed. The step opened below is selected, as a
- * tab is: the accent under it. On a phone the names give way to the dots, and the step opened below says its name.
+ * Where a job is (ADR 0073, ADR 0104): five stages across the job page, joined by a rule, each a dot and its name, at
+ * every width. Passed is quiet (a filled grey dot with a tick), the stage the job is in is the one drawn in full ink
+ * with a ring, stages to come are outlined. The stage opened below is selected, as a tab is: the accent under it. Under
+ * it the stage's tasks, each a row: a tick box, the name, how it stands, and a plain tag; a task opened below that.
  */
 .job-steps .steps-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--ds-space-1) var(--ds-space-3); }
 .job-steps .steps-head h2 { margin: 0; }
-/* The step the job is at, as one button beside where it's at (ADR 0103): pushed to the end of the head, under it on a phone. */
-.job-steps .steps-head .next-thing { margin-left: auto; }
 .clients-answer { display: grid; gap: var(--ds-space-2); justify-items: start; }
 .clients-answer > p { margin: 0; }
-.steps-flow { --dot: 30px; --gap: 4px; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
-.steps-flow li { position: relative; min-width: 0; }
-/* The rule joining each dot to the next, behind the dots: it runs from the edge of one dot to the edge of the next, a little clear of
-   each, and never through a number. The part of the way already come is drawn thicker, in the
-   done tone, up to the step the job is at, so how far along the job is reads at a glance. */
-.steps-flow li + li::before { content: ''; position: absolute; z-index: 0; top: calc(var(--ds-space-1) + var(--dot) / 2 - 1px); right: calc(50% + var(--dot) / 2 + var(--gap)); width: calc(100% - var(--dot) - 2 * var(--gap)); height: 2px; border-radius: 2px; background: var(--line); }
-.steps-flow li[data-come] + li::before { top: calc(var(--ds-space-1) + var(--dot) / 2 - 1.5px); height: 3px; background: var(--muted); }
-.app .steps-flow button {
+.stages-flow { --dot: 30px; --gap: 4px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.stages-flow li { position: relative; min-width: 0; }
+/* The rule joining each dot to the next, behind the dots, a little clear of each and never through a number. The way already come is
+   drawn thicker, in the done tone, up to the stage the job is in, so how far along the job is reads at a glance. */
+.stages-flow li + li::before { content: ''; position: absolute; z-index: 0; top: calc(var(--ds-space-1) + var(--dot) / 2 - 1px); right: calc(50% + var(--dot) / 2 + var(--gap)); width: calc(100% - var(--dot) - 2 * var(--gap)); height: 2px; border-radius: 2px; background: var(--line); }
+.stages-flow li[data-come] + li::before { top: calc(var(--ds-space-1) + var(--dot) / 2 - 1.5px); height: 3px; background: var(--muted); }
+.app .stages-flow button {
   position: relative; z-index: 1; display: grid; justify-items: center; align-content: start; gap: var(--ds-space-1); width: 100%; min-height: 44px;
   padding: var(--ds-space-1) var(--ds-space-half) var(--ds-space-2); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); text-align: center;
 }
-.app .steps-flow button[aria-expanded='true'] { border-bottom-color: var(--accent); color: var(--ink); }
+.app .stages-flow button[aria-expanded='true'] { border-bottom-color: var(--accent); color: var(--ink); }
 @media (hover: hover) {
-  .app .steps-flow button:hover { color: var(--ink); }
+  .app .stages-flow button:hover { color: var(--ink); }
 }
-.step-dot {
+.stage-dot {
   display: inline-flex; align-items: center; justify-content: center; width: var(--dot); height: var(--dot); border-radius: var(--radius-full);
   border: 2px solid var(--field-line); background: var(--panel); color: var(--muted); font-size: var(--text-small); font-weight: 700; font-variant-numeric: tabular-nums;
 }
-.step-dot .icon { width: 16px; height: 16px; }
-.steps-flow [data-state='done'] .step-dot { border-color: var(--muted); background: var(--muted); color: var(--panel); }
-.steps-flow [data-state='skipped'] .step-dot { border-style: dashed; }
-.steps-flow [data-state='now'] .step-dot { border-color: var(--ink); color: var(--ink); box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--ink); }
-.steps-flow[data-stopped] [data-state='now'] .step-dot { box-shadow: none; border-color: var(--field-line); color: var(--muted); }
-.step-label { font-size: var(--text-hint); font-weight: 700; line-height: 1.2; }
-.steps-flow [data-state='now'] .step-label { color: var(--ink); font-weight: 800; }
-.steps-flow [data-state='done'] .step-label { font-weight: 600; }
-.step-owner { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-pill); }
+.stage-dot .icon { width: 16px; height: 16px; }
+.stages-flow [data-state='done'] .stage-dot { border-color: var(--muted); background: var(--muted); color: var(--panel); }
+.stages-flow [data-state='now'] .stage-dot { border-color: var(--ink); color: var(--ink); box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--ink); }
+.stages-flow[data-stopped] .stage-dot { box-shadow: none; border-color: var(--field-line); color: var(--muted); }
+.stage-label { font-size: var(--text-hint); font-weight: 700; line-height: 1.2; }
+.stages-flow [data-state='now'] .stage-label { color: var(--ink); font-weight: 800; }
+.stages-flow [data-state='done'] .stage-label { font-weight: 600; }
+
+/* The stage opened: a line naming it, then its tasks. */
+.stage-open { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
+.stage-open > p { margin: 0; }
+.stage-open .stage-line { color: var(--muted); }
+.stage-open .stage-line b { color: var(--ink); }
+.stage-open .behind-head { margin-top: var(--ds-space-2); font-weight: 600; }
+.task-list { margin: 0; padding: 0; list-style: none; display: grid; }
+.task-list li + li { border-top: 1px solid var(--line); }
+.app .task-list button {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--ds-space-3); width: 100%; min-height: 48px;
+  padding: var(--ds-space-2) var(--ds-space-1); border: 0; border-radius: var(--radius-control); background: none; color: var(--ink); text-align: left;
+}
+.app .task-list button[aria-expanded='true'] { background: var(--ds-wash-hover); }
+.task-tick { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--radius-full); border: 2px solid var(--field-line); background: var(--panel); color: var(--panel); }
+.task-tick .icon { width: 14px; height: 14px; }
+.task-list [data-state='done'] .task-tick { border-color: var(--muted); background: var(--muted); }
+.task-list [data-state='skipped'] .task-tick { border-style: dashed; }
+.task-list [data-state='now'] .task-tick { border-color: var(--ink); }
+.task-words { display: grid; gap: 2px; min-width: 0; }
+.task-name { font-weight: 600; }
+.task-list [data-state='done'] .task-name, .task-list [data-state='skipped'] .task-name { color: var(--muted); font-weight: 500; }
+.task-how { font-size: var(--text-small); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.task-list [data-late] .task-how { color: var(--bad); }
+/* The plain tag at the end: Done, Not needed, To do, Next, Late. Quiet for the first three; Next in ink, Late in the bad tone. */
+.task-tag { font-size: var(--text-pill); font-weight: 700; color: var(--muted); white-space: nowrap; }
+.task-list [data-state='now'] .task-tag { color: var(--ink); }
+.task-list [data-late] .task-tag { color: var(--bad); }
+
 .step-open { display: grid; gap: var(--ds-space-2); justify-items: start; padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .step-open > * { margin: 0; }
-/* The step's name first and largest, then how it stands, then what it means: the order a glance reads them in. */
+/* The task's name first and largest, then how it stands, then what it means: the order a glance reads them in. */
 .step-open h3 { font-size: var(--text-heading); }
 .step-open .step-state { color: var(--ink); }
 .step-open .step-state[data-state='now'] { font-weight: 600; }
 .step-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--ds-space-2) var(--ds-space-3); }
 .step-actions .field { min-width: 12rem; }
-/* A phone: the dots alone, closer; the step opened below names itself. */
+/* A phone: the names stay, smaller, so the five stages read without opening one (ADR 0104). */
 @media (max-width: 639px) {
-  .steps-flow { --dot: 26px; --gap: 2px; }
-  .steps-flow .step-label, .steps-flow .step-owner { display: none; }
+  .stages-flow { --dot: 26px; --gap: 2px; }
+  .stage-label { font-size: 11px; }
+  .task-tag { display: none; }
+}
+
+/*
+ * The one Next button (NextDock.tsx, ADR 0104): a line saying where the job is and how far, the one filled button on the page, a
+ * quiet second choice. On a desk it sits in the page head, right of the title; on a phone it goes into the foot (foot.tsx), over
+ * the places as one footer, in the thumb's reach, and stays while the page scrolls. With nothing to press it says so in the same place: a quiet dashed box, never a
+ * greyed button, never gone.
+ */
+.next-dock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ds-space-half) var(--ds-space-3); align-items: center; }
+.next-dock .line { grid-column: 1 / -1; margin: 0; font-size: var(--text-small); color: var(--muted); }
+.next-dock .line b { color: var(--ink); }
+.app .next-dock .primary { min-height: 48px; padding-inline: var(--ds-space-4); font-size: var(--text-body); white-space: nowrap; text-align: center; justify-content: center; }
+.app .next-dock .second { font-size: var(--text-small); }
+.next-dock .rest { grid-column: 1 / -1; margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border: 1px dashed var(--field-line); border-radius: var(--radius-control); color: var(--muted); font-size: var(--text-small); }
+.next-dock .rest a { color: var(--accent); }
+@media (min-width: 640px) {
+  .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
+  .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
+  .page-head .next-dock .line { order: -1; }
+}
+/* A phone: the dock is in the foot (foot.tsx), over the places, one footer: the button full width with its words centred. */
+.foot .next-dock .primary { grid-column: 1 / -1; width: 100%; }
+.foot .next-dock .second { grid-column: 1 / -1; justify-self: center; min-height: 44px; padding: var(--ds-space-2) var(--ds-space-3); border: 0; background: none; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+@media print {
+  .next-dock { display: none; }
 }

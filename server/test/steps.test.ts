@@ -27,12 +27,12 @@ describe("a job's steps", () => {
   it('are given to staff, ticked by them, and tell them in the app, in the words the history uses', async () => {
     const { app, colly, aoife } = await office()
     expect(await colly.send('jobStep.set', { projectId: 'j1', step: 'deprep', ownerId: 'aoife' })).toMatchObject({ status: 'applied' })
-    expect(await colly.record<StepRecord>('jobStep', 'j1.deprep')).toEqual({ id: 'j1.deprep', projectId: 'j1', step: 'deprep', ownerId: 'aoife', doneAt: null, doneBy: null })
+    expect(await colly.record<StepRecord>('jobStep', 'j1.deprep')).toEqual({ id: 'j1.deprep', projectId: 'j1', step: 'deprep', ownerId: 'aoife', dueOn: null, doneAt: null, doneBy: null })
 
     // Steps are for staff, who have a list; a freelancer is refused by name.
     expect(await colly.send('jobStep.set', { projectId: 'j1', step: 'crew', ownerId: 'dara' })).toMatchObject({
       status: 'rejected',
-      reason: { message: 'Dara Kelly is a freelancer. Steps are for staff, who see them on Home.' },
+      reason: { message: 'Dara Kelly is a freelancer. Tasks are for staff, who see them on Home.' },
     })
 
     // Aoife ticks hers: the server knows it was her from her sign-in, whatever the device says.
@@ -43,20 +43,27 @@ describe("a job's steps", () => {
     // Aoife hears of the step given to her, as hers, while it's hers; never of her own tick.
     const hers: NoticesPage = (await app.inject({ url: '/api/notices', cookies: aoife.cookies })).json()
     const steps = hers.notices.filter((n) => n.about.entity === 'jobStep')
-    expect(steps.map((n) => [n.who.name, n.what, n.why])).toContainEqual(['Colly Hewson', 'Gave “Deprepped” on Electric Picnic to Aoife Byrne', 'you'])
+    expect(steps.map((n) => [n.who.name, n.what, n.why])).toContainEqual(['Colly Hewson', 'Gave “Checked and deprepped” on Electric Picnic to Aoife Byrne', 'you'])
     expect(steps.some((n) => n.who.name === 'Aoife Byrne')).toBe(false)
     // Ticked again is the same tick, and handing it on keeps it.
     await colly.send('jobStep.set', { projectId: 'j1', step: 'deprep', ownerId: 'colly', done: true })
     expect(await colly.record<StepRecord>('jobStep', 'j1.deprep')).toMatchObject({ ownerId: 'colly', doneAt: ticked.doneAt, doneBy: 'aoife' })
     await colly.send('jobStep.set', { projectId: 'j1', step: 'deprep', done: false })
     expect(await colly.record<StepRecord>('jobStep', 'j1.deprep')).toMatchObject({ ownerId: 'colly', doneAt: null, doneBy: null })
+    // A day it's due by (ADR 0104), set and taken off again; nothing else changes with it.
+    expect(await colly.send('jobStep.set', { projectId: 'j1', step: 'deprep', dueOn: '2026-10-06' })).toMatchObject({ status: 'applied' })
+    expect(await colly.record<StepRecord>('jobStep', 'j1.deprep')).toMatchObject({ ownerId: 'colly', dueOn: '2026-10-06', doneAt: null })
+    await colly.send('jobStep.set', { projectId: 'j1', step: 'deprep', dueOn: null })
+    expect(await colly.record<StepRecord>('jobStep', 'j1.deprep')).toMatchObject({ dueOn: null })
 
     const said = (await colly.history()).entries.filter((e) => e.command === 'jobStep.set' && e.outcome === 'done').map((e) => e.what)
     expect(said).toEqual([
-      'Took the tick off “Deprepped” on Electric Picnic',
-      'Gave “Deprepped” on Electric Picnic to Colly Hewson and ticked it',
-      'Ticked “Deprepped” on Electric Picnic',
-      'Gave “Deprepped” on Electric Picnic to Aoife Byrne',
+      'Took the due date off “Checked and deprepped” on Electric Picnic',
+      'Set “Checked and deprepped” on Electric Picnic due by Tue 6 Oct',
+      'Took the tick off “Checked and deprepped” on Electric Picnic',
+      'Gave “Checked and deprepped” on Electric Picnic to Colly Hewson and ticked it',
+      'Ticked “Checked and deprepped” on Electric Picnic',
+      'Gave “Checked and deprepped” on Electric Picnic to Aoife Byrne',
     ])
 
   })
@@ -67,11 +74,11 @@ describe("a job's steps", () => {
     await colly.send('project.update', { id: 'j1', status: 'cancelled' })
     expect(await colly.send('jobStep.set', { projectId: 'j1', step: 'crew', ownerId: 'aoife' })).toMatchObject({
       status: 'rejected',
-      reason: { message: 'Electric Picnic is cancelled, so its steps are stopped.' },
+      reason: { message: 'Electric Picnic is cancelled, so its tasks are stopped.' },
     })
     expect(await colly.send('jobStep.set', { projectId: 'j1', step: 'kit', ownerId: null })).toMatchObject({ status: 'applied' })
     await colly.send('project.create', { id: 'e1', name: 'Collect the hazers', clientId: null, venueId: null, status: 'confirmed', notes: '', kind: 'errand' })
-    expect(await colly.send('jobStep.set', { projectId: 'e1', step: 'prep', done: true })).toMatchObject({ status: 'rejected', reason: { message: 'Errands and meetings have no steps.' } })
+    expect(await colly.send('jobStep.set', { projectId: 'e1', step: 'prep', done: true })).toMatchObject({ status: 'rejected', reason: { message: 'Errands and meetings have no stages.' } })
   })
 
   it('are ticked by the app from the job itself, and each person has their own list, offline too', async () => {
@@ -85,7 +92,7 @@ describe("a job's steps", () => {
       ['crew', 'now', expect.stringMatching(/^\d+ of \d+ booked/)],
       ['kit', 'later', '2 lines of kit, 1 vehicle'],
       ['prep', 'later', '0 of 10 out'],
-      ['show', 'later', 'On now'],
+      ['show', 'later', expect.stringMatching(/^On until /)],
       ['back', 'later', 'Nothing out yet'],
       ['deprep', 'later', undefined],
     ])

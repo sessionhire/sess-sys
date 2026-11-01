@@ -566,8 +566,11 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
 @media print {
   html, body { background: #fff; }
   :root, :root[data-theme] { color-scheme: light; }
-  .tabs { display: none !important; }
+  .foot { display: none !important; }
 }
+
+/* Toasts clear the foot's dock when a page has one (ADR 0104). */
+body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px + env(safe-area-inset-bottom)); }
 
 /* Admin › What's changed (ADR 0071): one entry per version, newest first. */
 .release { display: grid; gap: var(--ds-space-1); }

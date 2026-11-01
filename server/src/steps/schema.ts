@@ -1,8 +1,8 @@
 import type { Module } from '../migrations.ts'
 
 /**
- * A job's steps (ADR 0073): one row for each step of a job that has been
- * given to someone or ticked by hand. A step the app can tell is done
+ * A job's tasks (ADR 0073, ADR 0104): one row for each task of a job that
+ * has been given to someone, given a day it's due by, or ticked by hand. A step the app can tell is done
  * from the job's own records (the quote sent, the calls booked, the kit
  * back) isn't kept here: devices work it out afresh. Versioned on their
  * own (steps_schema_version), and backed up and exported like every
@@ -21,6 +21,8 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS job_steps_owner ON job_steps (owner_id);
   `,
+  // The day a task is due by (ADR 0104).
+  `ALTER TABLE job_steps ADD COLUMN IF NOT EXISTS due_on date;`,
 ]
 
 export const STEPS: Module = { versionTable: 'steps_schema_version', migrations: MIGRATIONS }

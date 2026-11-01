@@ -97,3 +97,5 @@ The step opened below puts its name first and largest. Your steps on Home
 say "step 3 of 8" beside the job's name.
 
 **30 October 2026:** the Confirmed step is now the client's answer rather than a tick, and done only once the job is confirmed; the strip offers the next thing for the step the job is at ([ADR 0103](0103-how-a-job-moves-on.md)).
+
+**1 November 2026:** the eight steps are now the tasks inside five stages worked out from the records, with a day each is due by, and the Next button has one place, the page head ([ADR 0104](0104-stages-tasks-and-one-next-button.md)).

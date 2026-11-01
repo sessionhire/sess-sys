@@ -2,8 +2,9 @@ import type { CommandArgs, Mutation } from '../commands.ts'
 import { dayLabel } from '../crew.ts'
 import { kindOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
 import { plural } from '../stock.ts'
-import { JOB_STEPS, STEP_LABELS, STEP_LINES, stepId, type JobStep, type StepEntities, type StepRecord } from '../steps.ts'
+import { JOB_STAGES, JOB_STEPS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type StepRecord } from '../steps.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
+import type { FaultsView } from './faults-view.ts'
 import { crewFill, type JobsView, type JobView } from './jobs-view.ts'
 import type { KitView } from './kit-view.ts'
 import type { MoneyView } from './money-view.ts'
@@ -11,25 +12,34 @@ import type { MovesView } from './pick-view.ts'
 import type { VehiclesView } from './vehicles-view.ts'
 
 /**
- * A job's steps (ADR 0073) as a device sees them: who each is down to and
- * whether it's ticked, from what the server has sent with this device's own
- * waiting changes laid over it, and, for the steps the app can tell for
- * itself, whether it's done from the job's own records. Worked out on the
- * device, so the tracker and everyone's list hold with no signal, and a
- * tick the app gives can't go stale: it's read afresh each time.
+ * A job's stages and tasks (ADR 0073, ADR 0104) as a device sees them. The
+ * stage the job is in is read from the job's own records: an enquiry or a
+ * quote is Selling; confirmed, it's Planning until the first scan out or
+ * its first day, Going out until its first day, On the job until its last,
+ * then Back until everything is in and deprepped. The tasks inside each
+ * stage say who each is down to, the day it's due by and whether it's
+ * ticked, from what the server has sent with this device's own waiting
+ * changes laid over it, and, for the tasks the app can tell for itself,
+ * whether it's done from the job's own records. Worked out on the device,
+ * so the strip and everyone's list hold with no signal, and a tick the app
+ * gives can't go stale: it's read afresh each time.
  */
 
-/** Done, not needed on this job, the one the job is at, or one still to come. */
+/** Done, not needed on this job, the one to do next, or one still to come. */
 export type StepState = 'done' | 'skipped' | 'now' | 'later'
 
 export interface StepView {
   key: JobStep
   /** 1 to 8, in order. */
   number: number
+  stage: JobStage
   label: string
   line: string
   ownerId: string | null
   owner: PersonView | undefined
+  /** The day it's due by, if one was set; and whether that day has passed with the task still open. */
+  dueOn: string | null
+  late: boolean
   /** Ticked by hand: when, and by whom. */
   ticked: { at: string; by: PersonView | undefined } | undefined
   /** Done as the app can tell from the job's records, in words ("All 6 calls booked"); undefined when it can't tell. */
@@ -45,34 +55,58 @@ export interface StepView {
   pending: boolean
 }
 
+export interface StageView {
+  key: JobStage
+  /** 1 to 5, in order. */
+  number: number
+  label: string
+  line: string
+  /** Passed, the one the job is in, or still to come. */
+  state: 'done' | 'now' | 'later'
+  tasks: StepView[]
+  done: number
+  /** Of the tasks that apply. */
+  of: number
+  /** What's short or waiting in it, in a few words ("3 of 5 booked · 1 short"); undefined when nothing is. */
+  hint: string | undefined
+}
+
 export interface JobSteps {
   job: JobView
+  /** All eight tasks, in order. */
   steps: StepView[]
-  /** The step the job is at: the first not done and not passed over. Undefined once every step is done. */
+  stages: StageView[]
+  /** The stage the job is in. Undefined once it's through the last, or on a stopped job. */
+  stage: StageView | undefined
+  /** The task to do next: the first open in the stage the job is in, else one left open from before, else picking, which can start early. Undefined when there's none. */
   current: StepView | undefined
+  /** Tasks left open from a stage the job has passed. */
+  behind: StepView[]
   done: number
-  /** Of the steps that apply. */
+  /** Of the tasks that apply. */
   of: number
-  /** Why the job has no steps to do: it's cancelled or lost, or it's an errand or a meeting. */
+  /** Through every stage, with every task done. */
+  finished: boolean
+  /** Why the job has no tasks to do: it's cancelled or lost, or it's an errand or a meeting. */
   stopped: string | undefined
 }
 
 export interface MyStep {
   job: JobView
   step: StepView
-  /** It's the step the job is at, so it's theirs to do now. */
+  /** It's the task the job is at, so it's theirs to do now. */
   next: boolean
 }
 
 export interface StepsView {
   of(jobId: string): JobSteps | undefined
-  /** A person's steps not done yet, on jobs going ahead or pencilled in: the ones the job is at first, then by the job's first day. */
+  /** A person's tasks not done yet, on jobs going ahead or pencilled in: the ones to do now first, then by the day each is due, then by the job's first day. */
   mine(personId: string): MyStep[]
 }
 
 type Tables = { [E in keyof StepEntities]: Record<string, StepEntities[E]> }
 
-/** Jobs with steps: gigs and dry hires. Errands and meetings are done in a day and need none. */
+/** Jobs with stages: gigs and dry hires. Errands and meetings are done in a day and need none. */
 export const hasSteps = (job: Pick<JobView, 'kind'>) => kindOf(job) === 'gig' || kindOf(job) === 'hire'
 
 const PART: Record<JobStep, StepView['part']> = {
@@ -96,21 +130,23 @@ export function stepsView(
   moves: MovesView,
   money: MoneyView,
   vehicles: VehiclesView,
+  faults: FaultsView,
   today: string
 ): StepsView {
-  // Snapshots saved before steps have no table for them.
+  // Snapshots saved before steps have no table for them, and rows saved before due dates have none.
   const records = new Map<string, StepRecord & { pending: boolean }>()
-  for (const r of Object.values(entities.jobStep ?? {})) records.set(r.id, { ...r, pending: false })
+  for (const r of Object.values(entities.jobStep ?? {})) records.set(r.id, { ...r, dueOn: r.dueOn ?? null, pending: false })
   for (const m of outbox) {
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     if (m.name !== 'jobStep.set') continue
     const a = m.args as CommandArgs<'jobStep.set'>
     const key = stepId(a.projectId, a.step)
-    const was = records.get(key) ?? { id: key, projectId: a.projectId, step: a.step, ownerId: null, doneAt: null, doneBy: null }
+    const was = records.get(key) ?? { id: key, projectId: a.projectId, step: a.step, ownerId: null, dueOn: null, doneAt: null, doneBy: null }
     const ticked = a.done === undefined ? was.doneAt !== null : a.done
     records.set(key, {
       ...was,
       ownerId: a.ownerId === undefined ? was.ownerId : a.ownerId,
+      dueOn: a.dueOn === undefined ? was.dueOn : a.dueOn,
       // A tick kept stays as it was given: ticking again isn't a new tick.
       doneAt: ticked ? (was.doneAt ?? m.createdAt) : null,
       doneBy: ticked ? (was.doneAt ? was.doneBy : (a.by ?? null)) : null,
@@ -120,8 +156,8 @@ export function stepsView(
   const people = new Map(crew.people.map((p) => [p.id, p]))
   const jobById = new Map(jobs.jobs.map((j) => [j.id, j]))
 
-  /** What the app can tell of each step for itself: done, in words, or how far along, or not needed. */
-  function told(job: JobView): Record<JobStep, { auto?: string; hint?: string; skipped?: string }> {
+  /** Where the job is by its own records, and what the app can tell of each task for itself: done, in words, or how far along, or not needed. */
+  function told(job: JobView): { stage: JobStage | 'through'; tasks: Record<JobStep, { auto?: string; hint?: string; skipped?: string }> } {
     const quotes = money.quotesOf(job.id)
     const sent = quotes.find((q) => q.status === 'sent' || q.status === 'accepted')
     const accepted = quotes.find((q) => q.status === 'accepted')
@@ -136,14 +172,18 @@ export function stepsView(
     const anyOut = pick ? pick.stillOut + pick.back + pick.missing > 0 : false
     const over = job.span !== undefined && job.span.end < today
     const on = job.span !== undefined && job.span.start <= today && today <= job.span.end
-    return {
+    const openFaults = faults.ofJob(job.id).filter((f) => f.open).length
+    // The stage, from the records alone: the status says sold or not, the scans say the kit is moving, the dates say the rest.
+    const stage: JobStage | 'through' = job.status !== 'confirmed' ? 'selling' : over ? 'back' : on ? 'on' : wentOut > 0 ? 'going' : 'planning'
+    const past = (s: JobStage) => JOB_STAGES.indexOf(stage) > JOB_STAGES.indexOf(s)
+    const tasks = {
       quote: sent
         ? { auto: sent.sentOn ? `Sent ${dayLabel(sent.sentOn)}` : 'Sent' }
         : job.status === 'quoted' || job.status === 'confirmed'
           ? { auto: `The job is ${STATUS_LABELS[job.status].toLowerCase()}` }
           : { hint: draft ? 'A draft is started' : 'No quote yet' },
       // Only the job's own status is the yes (ADR 0103): it's what puts the job on the calendar and holds its kit, so a
-      // quote accepted on a job still an enquiry is the step to take, not a step done.
+      // quote accepted on a job still an enquiry is the task to do, not a task done.
       confirmed:
         job.status === 'confirmed'
           ? { auto: 'The job is confirmed' }
@@ -158,30 +198,37 @@ export function stepsView(
           : crewOn.booked >= crewOn.needed
             ? { auto: `All ${crewOn.needed} crew booked` }
             : { hint: `${crewOn.booked} of ${crewOn.needed} booked${crewOn.toConfirm ? `, ${crewOn.toConfirm} to confirm` : ''}` },
-      kit: {
-        hint: lines.length
-          ? [plural(lines.length, 'line') + ' of kit', short ? `${short} short` : '', vans ? plural(vans, 'vehicle') : ''].filter(Boolean).join(', ')
-          : 'No kit on the job yet',
-      },
+      // A job with no kit and no vans once it's under way (a crew-only shoot) had none to settle; before that they may still be coming.
+      kit: lines.length || vans
+        ? { hint: [lines.length ? plural(lines.length, 'line') + ' of kit' : '', short ? `${short} short` : '', vans ? plural(vans, 'vehicle') : ''].filter(Boolean).join(', ') }
+        : past('planning')
+          ? { skipped: 'No kit or vans on this job' }
+          : { hint: 'No kit on the job yet' },
+      // A job with no kit once it's under way (a crew-only gig) has nothing to pick or bring back; before that the kit may still be coming.
       prep:
         pick && pick.need > 0 && wentOut >= pick.need
           ? { auto: 'Everything went out' }
           : pick && pick.need > 0
             ? { hint: `${wentOut} of ${pick.need} out` }
-            : { hint: 'No kit to pick yet' },
+            : past('going')
+              ? { skipped: 'No kit went out on this job' }
+              : { hint: 'No kit to pick yet' },
       show: over
         ? { auto: `Finished ${dayLabel(job.span!.end)}` }
         : on
-          ? { hint: 'On now' }
+          ? { hint: `On until ${dayLabel(job.span!.end)}` }
           : { hint: job.span ? `Starts ${dayLabel(job.span.start)}` : 'No dates yet' },
       back:
         anyOut && pick!.stillOut === 0
           ? { auto: pick!.missing ? `All back but ${pick!.missing} missing` : 'All back' }
           : anyOut
             ? { hint: `${pick!.stillOut} still out` }
-            : { hint: 'Nothing out yet' },
-      deprep: {},
+            : past('on')
+              ? { skipped: 'Nothing went out to come back' }
+              : { hint: 'Nothing out yet' },
+      deprep: { hint: openFaults ? `${plural(openFaults, 'fault')} open on its kit` : undefined },
     }
+    return { stage, tasks }
   }
 
   const built = new Map<string, JobSteps>()
@@ -191,39 +238,83 @@ export function stepsView(
     const job = jobById.get(jobId)
     if (!job) return undefined
     const stopped = STOPPED.includes(job.status)
-      ? `This job is ${STATUS_LABELS[job.status].toLowerCase()}, so its steps are stopped.`
+      ? `This job is ${STATUS_LABELS[job.status].toLowerCase()}, so its tasks are stopped.`
       : !hasSteps(job)
-        ? 'Errands and meetings have no steps.'
+        ? 'Errands and meetings have no stages.'
         : undefined
     const what = told(job)
-    let current: StepView | undefined
     const steps = JOB_STEPS.map((key, i): StepView => {
       const r = records.get(stepId(job.id, key))
-      const t = what[key]
+      const t = what.tasks[key]
       const ticked = r?.doneAt ? { at: r.doneAt, by: r.doneBy ? people.get(r.doneBy) : undefined } : undefined
       const done = !!ticked || !!t.auto
       const skipped = done ? undefined : t.skipped
-      const step: StepView = {
+      const dueOn = r?.dueOn ?? null
+      return {
         key,
         number: i + 1,
+        stage: STAGE_OF[key],
         label: STEP_LABELS[key],
         line: STEP_LINES[key],
         ownerId: r?.ownerId ?? null,
         owner: r?.ownerId ? people.get(r.ownerId) : undefined,
+        dueOn,
+        late: !done && !skipped && dueOn !== null && dueOn < today,
         ticked,
         auto: t.auto,
         done,
         skipped,
         hint: done || skipped ? undefined : t.hint,
-        state: done ? 'done' : skipped ? 'skipped' : current ? 'later' : 'now',
+        state: done ? 'done' : skipped ? 'skipped' : 'later',
         part: PART[key],
         pending: r?.pending ?? false,
       }
-      if (step.state === 'now') current = step
-      return step
     })
+    const open = (s: StepView) => !s.done && !s.skipped
+    // Through the last stage once it's reached and everything in it is done.
+    const at: JobStage | 'through' = what.stage === 'back' && steps.filter((s) => s.stage === 'back').every((s) => !open(s)) ? 'through' : what.stage
+    const atIndex = at === 'through' ? JOB_STAGES.length : JOB_STAGES.indexOf(at)
+    const stages = JOB_STAGES.map((key, i): StageView => {
+      const tasks = steps.filter((s) => s.stage === key)
+      const applies = tasks.filter((s) => !s.skipped)
+      const hints = tasks.filter(open).map((s) => s.hint).filter((h): h is string => !!h)
+      return {
+        key,
+        number: i + 1,
+        label: STAGE_LABELS[key],
+        line: STAGE_LINES[key],
+        state: stopped ? 'later' : i < atIndex ? 'done' : i === atIndex ? 'now' : 'later',
+        tasks,
+        done: applies.filter((s) => s.done).length,
+        of: applies.length,
+        hint: hints.length ? hints.slice(0, 2).join(' · ') : undefined,
+      }
+    })
+    const stage = stopped || at === 'through' ? undefined : stages[atIndex]
+    const behind = stopped ? [] : steps.filter((s) => open(s) && JOB_STAGES.indexOf(s.stage) < atIndex)
+    // The task to do next: in the stage the job is in, else one left behind, else picking, which can start while it's still being
+    // planned. The show itself only happens, so it's next only when nothing else is open.
+    const show = steps.find((s) => s.key === 'show')!
+    const current = stopped
+      ? undefined
+      : (stage?.tasks.find((s) => open(s) && s.key !== 'show') ??
+        behind[0] ??
+        (at === 'planning' ? steps.find((s) => s.key === 'prep' && open(s) && !!s.hint && s.hint !== 'No kit to pick yet') : undefined) ??
+        (stage?.key === 'on' && open(show) ? show : undefined))
+    if (current) current.state = 'now'
     const applies = steps.filter((s) => !s.skipped)
-    const out: JobSteps = { job, steps, current: stopped ? undefined : current, done: applies.filter((s) => s.done).length, of: applies.length, stopped }
+    const out: JobSteps = {
+      job,
+      steps,
+      stages,
+      stage,
+      current,
+      behind,
+      done: applies.filter((s) => s.done).length,
+      of: applies.length,
+      finished: !stopped && at === 'through',
+      stopped,
+    }
     built.set(jobId, out)
     return out
   }
@@ -241,7 +332,10 @@ export function stepsView(
         for (const step of s.steps) if (step.ownerId === personId && !step.done && !step.skipped) out.push({ job: s.job, step, next: step === s.current })
       }
       const first = (j: JobView) => j.span?.start ?? '9999'
-      return out.sort((a, b) => Number(b.next) - Number(a.next) || first(a.job).localeCompare(first(b.job)) || a.job.name.localeCompare(b.job.name) || a.step.number - b.step.number)
+      const due = (s: StepView) => s.dueOn ?? '9999'
+      return out.sort(
+        (a, b) => Number(b.next) - Number(a.next) || due(a.step).localeCompare(due(b.step)) || first(a.job).localeCompare(first(b.job)) || a.job.name.localeCompare(b.job.name) || a.step.number - b.step.number
+      )
     },
   }
 }
