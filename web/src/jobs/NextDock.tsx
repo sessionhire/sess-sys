@@ -89,7 +89,7 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
     case 'crew': {
       const needed = job.calls.reduce((n, c) => n + c.needed, 0)
       const short = task.hint?.match(/^(\d+) of (\d+) booked/)
-      press = { label: needed === 0 ? 'Ask for crew' : short ? `Book ${Number(short[2]) - Number(short[1])} more crew` : 'Book the crew', onPress: () => onPart('crew') }
+      press = { label: needed === 0 ? 'Ask for the crew' : short ? `Book ${Number(short[2]) - Number(short[1])} more crew` : 'Book the crew', onPress: () => onPart('crew') }
       break
     }
     case 'kit': {
