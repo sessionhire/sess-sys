@@ -26,6 +26,7 @@ import type { VehiclesView } from './vehicles-view.ts'
 import type { StepsView } from './steps-view.ts'
 import type { RacksView } from './racks-view.ts'
 import type { PurchasesView } from './purchases-view.ts'
+import type { TrackersView } from './trackers-view.ts'
 import type { Reading } from '../reading.ts'
 
 /**
@@ -185,6 +186,8 @@ export interface View {
   racks: RacksView
   /** Kit the crew ask to be bought, with everyone's votes, and where each is at (ADR 0077). */
   purchases: PurchasesView
+  /** Trackers on expensive kit: where each last said it was, and what's away from where it should be (ADR 0107). */
+  trackers: TrackersView
   /**
    * What would keep a person's name were they erased on a day (today
    * unless said): their pay records and their leave records, each with

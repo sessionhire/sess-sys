@@ -6,6 +6,7 @@ import { Icon } from './Icon.tsx'
 import { Top } from './jobs/common.tsx'
 import { QuotesToChase } from './jobs/Money.tsx'
 import { SortOut } from './jobs/PlanScreen.tsx'
+import { KitToCheck } from './stock/Trackers.tsx'
 import { TodoCard } from './TodoCard.tsx'
 import {
   dismissToast,
@@ -151,6 +152,7 @@ export function NoticesScreen() {
 
       <TodoCard view={view} />
       {ahead && <SortOut problems={ahead.problems} vanProblems={ahead.vanProblems} hint="Clashes and checks from today to four weeks out. Each goes once it's sorted." />}
+      <KitToCheck view={view} />
       {seesMoney && <QuotesToChase view={view} />}
 
       {days.map((d) => lines.some((l) => l.day === d.day) && (

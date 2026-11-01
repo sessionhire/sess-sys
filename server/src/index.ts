@@ -63,6 +63,8 @@ async function main() {
     // Current RMS, read only (ADR 0078). Colly saved the key as CURRENT_CMS_KEY, 23 October 2026; the subdomain is the company's own.
     currentRms: currentRmsKey() ? { subdomain: process.env.CURRENT_RMS_SUBDOMAIN?.trim() || 'sessionhire', apiKey: currentRmsKey()! } : undefined,
     claude: claudeConfig(),
+    // Trackers' reports (ADR 0107) come in only with this key, which Digital Matter's connector sends.
+    trackersKey: process.env.TRACKERS_KEY?.trim() || undefined,
     calendar: google ? { ...google, appUrl: process.env.PUBLIC_URL?.replace(/\/$/, ''), writes: process.env.CALENDAR_WRITES?.trim().toLowerCase() === 'on' } : undefined,
   })
   await assertSignInKept(db, auth)
