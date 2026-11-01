@@ -5,6 +5,7 @@ import { ChangesCard } from './ChangesScreen.tsx'
 import { CurrentRmsCard } from './CurrentRmsCard.tsx'
 import { DataCard } from './DataCard.tsx'
 import { ExportCard } from './ExportCard.tsx'
+import { LabelsCard } from './LabelsCard.tsx'
 import { ListsCard } from './ListsCard.tsx'
 import { Top } from './jobs/common.tsx'
 import { MessagesCard } from './MessagesCard.tsx'
@@ -80,6 +81,7 @@ export function AccountScreen() {
                 {settings && <OfficeCard office={view.office} />}
                 {settings && access.can('money') && <QuotingCard money={view.money} />}
                 {settings && access.can('money') && <TravelCard money={view.money} />}
+                {settings && <LabelsCard office={view.office} />}
                 {settings && <MessagesCard office={view.office} />}
                 {settings && <TimesheetsUseCard office={view.office} />}
                 {settings && access.can('money') && <AssistantCard office={view.office} />}

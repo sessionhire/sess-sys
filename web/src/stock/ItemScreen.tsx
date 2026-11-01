@@ -230,7 +230,7 @@ function Summary({ a, w, view }: { a: AssetView; w: WarehouseView; view: View })
       {!retired &&
         mode === 'print' &&
         (a.number ? (
-          <PrintLabels numbers={[a.number]} caption={a.model?.name} />
+          <PrintLabels numbers={[a.number]} caption={a.model?.name} code={a.model?.code || undefined} />
         ) : (
           <p className="hint">It gets its number when it syncs, and its label can be printed then.</p>
         ))}
