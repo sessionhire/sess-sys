@@ -166,12 +166,15 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
     const routes = (o: {
       path: string
       table: 'people' | 'models' | 'settings'
+      /** Whose it is: the id in the address, or the one record a fixed address is for. */
+      idOf?: (req: Req) => string
       allowed: (req: Req) => boolean
       refusal: string
       reads: (req: Req) => Promise<boolean>
       put: (id: string, data: Buffer, type: PhotoType, who: Who) => Promise<unknown>
       remove: (id: string, who: Who) => Promise<unknown>
     }) => {
+      const idOf = o.idOf ?? ((req: Req) => req.params.id)
       scope.post(o.path, { bodyLimit: ROUTE_LIMIT }, async (req: Req, reply) => {
         if (!o.allowed(req)) return reply.code(403).send({ error: o.refusal })
         if (!files.on) return reply.code(409).send({ error: PHOTOS_WAIT })
@@ -181,7 +184,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
         const found = fileTypeOf(body.subarray(0, FILE_HEAD_BYTES))
         if ('refused' in found || !isPhotoType(found.type)) return reply.code(415).send({ error: NOT_A_PHOTO })
         try {
-          await o.put(req.params.id, body, found.type, who(req))
+          await o.put(idOf(req), body, found.type, who(req))
         } catch (err) {
           if (err instanceof Refused) return reply.code(409).send({ error: err.reason.message })
           if (err instanceof NotKept) return reply.code(502).send({ error: err.message })
@@ -194,7 +197,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
       scope.delete(o.path, async (req: Req, reply) => {
         if (!o.allowed(req)) return reply.code(403).send({ error: o.refusal })
         try {
-          await o.remove(req.params.id, who(req))
+          await o.remove(idOf(req), who(req))
         } catch (err) {
           if (err instanceof Refused) return reply.code(409).send({ error: err.reason.message })
           throw err
@@ -206,7 +209,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
       scope.get(o.path, async (req: Req, reply: FastifyReply) => {
         const notHere = () => reply.code(404).header('cache-control', 'no-store').send({ error: 'There is no photo here.' })
         if (!(await o.reads(req))) return notHere()
-        const photo = await photoOf(db.reads, req.params.id, o.table)
+        const photo = await photoOf(db.reads, idOf(req), o.table)
         if (!photo || !files.on) return notHere()
         let data: Buffer
         try {
@@ -247,11 +250,12 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
     })
     // The company's logo (ADR 0105): one, on the "logo" setting; everyone signed in reads it, as anyone prints labels.
     routes({
-      path: '/api/settings/:id/photo',
+      path: '/api/settings/logo/photo',
       table: 'settings',
-      allowed: (req) => req.params.id === LOGO_SETTING_ID && mayChangeLogo(req.role),
+      idOf: () => LOGO_SETTING_ID,
+      allowed: (req) => mayChangeLogo(req.role),
       refusal: LOGO_REFUSAL,
-      reads: async (req) => req.params.id === LOGO_SETTING_ID,
+      reads: async () => true,
       put: (_id, data, type, w) => putLogo(db, files, data, type, w),
       remove: (_id, w) => removeLogo(db, w),
     })
