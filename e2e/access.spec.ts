@@ -109,6 +109,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(await textContrast(page, '.tabs a[aria-current="page"]')).toBeGreaterThanOrEqual(4.5)
     // A call shows its answers once its line is opened (audit finding 16): the load-in stagehands, which Laoise declined.
     await page.goto('/#crew')
+    await expect(page.getByRole('status')).toHaveText('Up to date')
     await page.locator('.call-group', { hasText: 'Harbour Lights Festival' }).getByRole('button', { name: /× Stagehand · Load in/ }).click()
     await expect(page.locator('.pill.cancelled').first()).toBeVisible()
     expect(await textContrast(page, '.pill.cancelled')).toBeGreaterThanOrEqual(4.5)
