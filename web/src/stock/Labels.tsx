@@ -27,6 +27,8 @@ import { atLabel, findWhere, ProductChoices, useNewPlace, WhereChoices, whereNam
 import { LABELS, STOCK } from '../Up.tsx'
 import { StockViews } from '../Views.tsx'
 import { Split } from '../Split.tsx'
+import { logoOf } from '../Picture.tsx'
+import { useView } from '../view.ts'
 
 /**
  * Labels (ADR 0015). Numbers are set aside a run at a time (#stock/labels),
@@ -77,8 +79,12 @@ function Range({ r }: { r: LabelRunView }) {
   )
 }
 
-/** One label: the QR code, the number in large type, and whose it is. */
-export function Label({ number, caption, layout }: { number: string; caption?: string; layout: Layout }) {
+/**
+ * One label: the QR code, the number in large type, and whose it is: the
+ * company's logo once there is one (ADR 0106), its name in words until
+ * then; and on an item's own label, its product and stock code.
+ */
+export function Label({ number, caption, code, logo, layout }: { number: string; caption?: string; code?: string; logo?: string; layout: Layout }) {
   const { size, path } = useMemo(() => qrCode(labelPayload(number)), [number])
   // The white space a scanner needs round the code, in modules; the label's own margin adds to it.
   const quiet = 2
@@ -98,8 +104,9 @@ export function Label({ number, caption, layout }: { number: string; caption?: s
       </svg>
       <div className="words">
         <b>{number}</b>
-        {layout !== 'square' && <small>Session Hire</small>}
+        {layout !== 'square' && (logo ? <img className="logo" src={logo} alt="Session Hire" /> : <small>Session Hire</small>)}
         {layout !== 'square' && caption && <small className="caption">{caption}</small>}
+        {layout !== 'square' && code && <small className="code">{code}</small>}
       </div>
     </div>
   )
@@ -143,7 +150,8 @@ export function PrintSheet({ className, page, children }: { className: string; p
  * printing are they all on the page, and the printed page holds nothing
  * else.
  */
-export function PrintLabels({ numbers, caption }: { numbers: readonly string[]; caption?: string }) {
+export function PrintLabels({ numbers, caption, code }: { numbers: readonly string[]; caption?: string; code?: string }) {
+  const logo = logoOf(useView().office)
   const [layout, setLayout] = useState<Layout>(savedLayout)
   const [printing, setPrinting] = usePrinting()
   const choose = (l: Layout) => {
@@ -170,7 +178,7 @@ export function PrintLabels({ numbers, caption }: { numbers: readonly string[]; 
       </fieldset>
       <div className="preview" aria-label="Preview">
         {numbers.slice(0, 3).map((n) => (
-          <Label key={n} number={n} caption={caption} layout={layout} />
+          <Label key={n} number={n} caption={caption} code={code} logo={logo} layout={layout} />
         ))}
       </div>
       <p className="hint">Print at actual size, not fitted to the page.</p>
@@ -182,7 +190,7 @@ export function PrintLabels({ numbers, caption }: { numbers: readonly string[]; 
           {pages.map((p) => (
             <div key={p[0]} className="page">
               {p.map((n) => (
-                <Label key={n} number={n} caption={caption} layout={layout} />
+                <Label key={n} number={n} caption={caption} code={code} logo={logo} layout={layout} />
               ))}
             </div>
           ))}

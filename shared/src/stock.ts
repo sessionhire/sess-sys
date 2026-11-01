@@ -40,6 +40,12 @@ const kilos = z
   .min(0, 'The weight is a number of kilos, such as 12.5.')
   .max(5000, 'The weight can be up to 5,000 kg.')
   .transform((n) => Math.round(n * 10) / 10)
+/** A cable's length in metres to a tenth, as typed: "10" or "0.5" (ADR 0106). */
+const metres = z
+  .number(wrongType('The length is a number of metres, such as 10 or 0.5.'))
+  .min(0.1, 'The length is a number of metres, such as 10 or 0.5.')
+  .max(1000, 'The length can be up to 1,000 m.')
+  .transform((n) => Math.round(n * 10) / 10)
 /** A stock code as kept: trimmed, so the phone shows what the server keeps. */
 const stockCode = text(30, 'The stock code').transform((s) => s.trim())
 /** Money in euro cents, so sums never drift. */
@@ -171,6 +177,12 @@ export const model = z.object({
   powerLimitA: whole(1, 125, 'The amps').nullable().default(null),
   /** A rack part rather than kit (ADR 0079): a blank, a vent, a shelf or a drawer; null for kit. Only rack-mount products are. */
   rackPart: z.enum(RACK_PARTS).nullable().default(null),
+  /**
+   * How long one is, in metres, for a cable (ADR 0106): printed big on its
+   * cable labels with the colour the company gives that length. Null where
+   * not given, as for everything that isn't a cable.
+   */
+  lengthM: metres.nullable().default(null),
 })
 /** A product of our own that isn't a rack and has no size or stock code given (ADR 0074), as products made before racks read. */
 export const PLAIN_PRODUCT = {
@@ -191,6 +203,7 @@ export const PLAIN_PRODUCT = {
   castors: false,
   powerLimitA: null,
   rackPart: null,
+  lengthM: null,
 } as const
 
 export type Model = z.infer<typeof model> & {
@@ -366,6 +379,7 @@ export const stockCommandSchemas = {
       castors: z.boolean().optional(),
       powerLimitA: model.shape.powerLimitA.removeDefault().optional(),
       rackPart: model.shape.rackPart.removeDefault().optional(),
+      lengthM: model.shape.lengthM.removeDefault().optional(),
     })
     .refine(...somethingToChange)
     .refine(...caseIsNumbered)

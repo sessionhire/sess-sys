@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.75.1',
+    version: '1.76.1',
     date: '2026-11-01',
     title: 'The facts under a job\'s name line up',
     what: 'Client, venue, dates, crew and kit under a job\'s name now sit in even columns, with every heading on one line and every value starting on the next, however long a venue or a date runs.',
     prs: [200],
+  },
+  {
+    version: '1.76.0',
+    date: '2026-11-01',
+    title: 'The logo, the stock code and a cable’s length and colour on labels',
+    what: "The company logo can be put up under Admin › Company › Labels, and prints on every label in place of the name. An item’s label now carries its product’s stock code too. Each product can be given a length, and cable labels say it in big type with the colour for that length, such as 10 m GREEN, from a list the office can change under Admin, running up to 100 m pink and 150 m light blue. A label printer prints black only, so the colour is printed as a word for the tape or heat-shrink put on with it; on a colour printer it prints in the colour.",
+    prs: [196],
+    adrs: [106],
   },
   {
     version: '1.75.0',

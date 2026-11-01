@@ -168,11 +168,12 @@ export interface SizeTyped {
   amps: string
   /** A rack part rather than kit (ADR 0079); empty for kit. */
   part: RackPart | ''
+  length: string
 }
 
 const typed = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n))
 
-type Sizes = Pick<ModelView, 'code' | 'units' | 'depthMm' | 'weightKg' | 'powerW' | 'rackMount' | 'rackWidth' | 'caseWidthMm' | 'caseHeightMm' | 'caseDepthMm' | 'castors' | 'powerLimitA' | 'rackPart'>
+type Sizes = Pick<ModelView, 'code' | 'units' | 'depthMm' | 'weightKg' | 'powerW' | 'rackMount' | 'rackWidth' | 'caseWidthMm' | 'caseHeightMm' | 'caseDepthMm' | 'castors' | 'powerLimitA' | 'rackPart' | 'lengthM'>
 
 export const sizeTypedOf = (m?: Sizes): SizeTyped => ({
   code: m?.code ?? '',
@@ -188,6 +189,7 @@ export const sizeTypedOf = (m?: Sizes): SizeTyped => ({
   castors: m?.castors ?? false,
   amps: typed(m?.powerLimitA),
   part: m?.rackPart ?? '',
+  length: typed(m?.lengthM),
 })
 
 /**
@@ -213,6 +215,8 @@ export function sizeFrom(f: SizeTyped, models: readonly ModelView[], self?: stri
   if (outside.some((n) => Number.isNaN(n) || n === 0)) return { reason: 'The outside sizes are whole numbers of millimetres, up to 3,000, or blank.' }
   const powerLimitA = rack ? wholeTyped(f.amps, 125) : null
   if (Number.isNaN(powerLimitA) || powerLimitA === 0) return { reason: 'What its power can take is a whole number of amps, up to 125, or blank.' }
+  const lengthM = rack ? null : kilosTyped(f.length)
+  if (Number.isNaN(lengthM) || lengthM === 0 || (lengthM !== null && lengthM > 1000)) return { reason: 'The length is a number of metres, such as 10 or 0.5, or blank.' }
   const [caseWidthMm, caseHeightMm, caseDepthMm] = outside as (number | null)[]
   return {
     size: {
@@ -229,6 +233,7 @@ export function sizeFrom(f: SizeTyped, models: readonly ModelView[], self?: stri
       castors: rack && f.castors,
       powerLimitA,
       rackPart: !rack && f.rackMount && f.part ? f.part : null,
+      lengthM,
     },
   }
 }
@@ -273,6 +278,7 @@ export function SizeFields({ f, onChange, rack }: { f: SizeTyped; onChange: (f: 
         <>
           {field('weight', 'Weight, in kg', 'e.g. 12.5', 'decimal')}
           {field('power', 'Power at most, in watts', 'e.g. 1200')}
+          {field('length', 'Length, in m, for a cable', 'e.g. 10', 'decimal')}
           <label className="choice wide">
             <input type="checkbox" checked={f.rackMount} onChange={(e) => onChange({ ...f, rackMount: e.target.checked })} />
             <span>

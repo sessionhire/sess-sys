@@ -3,6 +3,10 @@ import {
   FILE_TOO_BIG,
   fileTypeOf,
   isPhotoType,
+  LOGO_ACTIONS,
+  LOGO_REFUSAL,
+  LOGO_SETTING_ID,
+  mayChangeLogo,
   MAX_FILE_BYTES,
   mayChangePhoto,
   mayChangeProductPhoto,
@@ -20,6 +24,7 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { getPerson } from '../crew/store.ts'
 import { getModel } from '../stock/store.ts'
+import { getSetting } from '../office/store.ts'
 import type { Db, Queryable } from '../db.ts'
 import { describeDevice } from '../devices.ts'
 import { emit, Refused, serverChange } from '../kernel.ts'
@@ -39,6 +44,8 @@ import { claimFile, queueFile } from './store.ts'
  *
  * A product's photo (ADR 0083) is kept and sent the same way, put up and
  * taken down by whoever changes stock, and read by everyone signed in.
+ * The company's logo (ADR 0106) is too, on the "logo" setting, put up and
+ * taken down by whoever changes settings.
  */
 
 const ROUTE_LIMIT = MAX_FILE_BYTES + 256 * 1024
@@ -46,7 +53,7 @@ const ROUTE_LIMIT = MAX_FILE_BYTES + 256 * 1024
 type Req = FastifyRequest<{ Params: { id: string }; Querystring: { client?: string } }>
 
 /** Where a person's or product's photo is kept and what it is, for the server alone. */
-async function photoOf(q: Queryable, id: string, table: 'people' | 'models' = 'people'): Promise<{ key: string; type: PhotoType } | undefined> {
+async function photoOf(q: Queryable, id: string, table: 'people' | 'models' | 'settings' = 'people'): Promise<{ key: string; type: PhotoType } | undefined> {
   const { rows } = await q.query<{ photo_key: string | null; photo_type: PhotoType | null }>(`SELECT photo_key, photo_type FROM ${table} WHERE id = $1`, [id])
   return rows[0]?.photo_key ? { key: rows[0].photo_key, type: rows[0].photo_type! } : undefined
 }
@@ -118,6 +125,37 @@ export function removeProductPhoto(db: Db, id: string, who: Who) {
   })
 }
 
+/** The company's logo put up (ADR 0106), in place of the one it had. */
+export function putLogo(db: Db, files: DocumentFiles, data: Buffer, type: PhotoType, who: Who) {
+  const args = { type, bytes: data.length }
+  return withFile(files, data, (key) =>
+    serverChange(db, { name: LOGO_ACTIONS.put, args, ...who }, async (ctx) => {
+      const old = await photoOf(ctx.tx, LOGO_SETTING_ID, 'settings')
+      await claimFile(ctx.tx, key)
+      await ctx.tx.query(
+        `INSERT INTO settings (id, photo_key, photo_type, photo_bytes, photo_at) VALUES ($1, $2, $3, $4, now())
+         ON CONFLICT (id) DO UPDATE SET photo_key = EXCLUDED.photo_key, photo_type = EXCLUDED.photo_type, photo_bytes = EXCLUDED.photo_bytes,
+           photo_at = EXCLUDED.photo_at, updated_at = now()`,
+        [LOGO_SETTING_ID, key, type, data.length]
+      )
+      if (old) await queueFile(ctx.tx, old.key, true)
+      await emit(ctx, 'setting', LOGO_SETTING_ID, await getSetting(ctx.tx, LOGO_SETTING_ID))
+      await recordArgs(ctx, { ...args, replaced: !!old })
+    })
+  )
+}
+
+/** The logo taken down: labels say the company's name in words again, and the file goes on the list to delete. */
+export function removeLogo(db: Db, who: Who) {
+  return serverChange(db, { name: LOGO_ACTIONS.remove, args: {}, ...who }, async (ctx) => {
+    const old = await photoOf(ctx.tx, LOGO_SETTING_ID, 'settings')
+    if (!old) return
+    await queueFile(ctx.tx, old.key, true)
+    await ctx.tx.query('UPDATE settings SET photo_key = NULL, photo_type = NULL, photo_bytes = NULL, photo_at = NULL, updated_at = now() WHERE id = $1', [LOGO_SETTING_ID])
+    await emit(ctx, 'setting', LOGO_SETTING_ID, await getSetting(ctx.tx, LOGO_SETTING_ID))
+  })
+}
+
 export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange }: { db: Db; files: DocumentFiles; onChange: () => void }) {
   void app.register(async (scope) => {
     scope.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: ROUTE_LIMIT }, (_req, body, done) => done(null, body))
@@ -127,13 +165,16 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
     /** Put up, taken down and sent back the same way for a person and a product; what differs is who, and where it's kept. */
     const routes = (o: {
       path: string
-      table: 'people' | 'models'
+      table: 'people' | 'models' | 'settings'
+      /** Whose it is: the id in the address, or the one record a fixed address is for. */
+      idOf?: (req: Req) => string
       allowed: (req: Req) => boolean
       refusal: string
       reads: (req: Req) => Promise<boolean>
       put: (id: string, data: Buffer, type: PhotoType, who: Who) => Promise<unknown>
       remove: (id: string, who: Who) => Promise<unknown>
     }) => {
+      const idOf = o.idOf ?? ((req: Req) => req.params.id)
       scope.post(o.path, { bodyLimit: ROUTE_LIMIT }, async (req: Req, reply) => {
         if (!o.allowed(req)) return reply.code(403).send({ error: o.refusal })
         if (!files.on) return reply.code(409).send({ error: PHOTOS_WAIT })
@@ -143,7 +184,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
         const found = fileTypeOf(body.subarray(0, FILE_HEAD_BYTES))
         if ('refused' in found || !isPhotoType(found.type)) return reply.code(415).send({ error: NOT_A_PHOTO })
         try {
-          await o.put(req.params.id, body, found.type, who(req))
+          await o.put(idOf(req), body, found.type, who(req))
         } catch (err) {
           if (err instanceof Refused) return reply.code(409).send({ error: err.reason.message })
           if (err instanceof NotKept) return reply.code(502).send({ error: err.message })
@@ -156,7 +197,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
       scope.delete(o.path, async (req: Req, reply) => {
         if (!o.allowed(req)) return reply.code(403).send({ error: o.refusal })
         try {
-          await o.remove(req.params.id, who(req))
+          await o.remove(idOf(req), who(req))
         } catch (err) {
           if (err instanceof Refused) return reply.code(409).send({ error: err.reason.message })
           throw err
@@ -168,7 +209,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
       scope.get(o.path, async (req: Req, reply: FastifyReply) => {
         const notHere = () => reply.code(404).header('cache-control', 'no-store').send({ error: 'There is no photo here.' })
         if (!(await o.reads(req))) return notHere()
-        const photo = await photoOf(db.reads, req.params.id, o.table)
+        const photo = await photoOf(db.reads, idOf(req), o.table)
         if (!photo || !files.on) return notHere()
         let data: Buffer
         try {
@@ -206,6 +247,17 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
       reads: async () => true,
       put: (id, data, type, w) => putProductPhoto(db, files, id, data, type, w),
       remove: (id, w) => removeProductPhoto(db, id, w),
+    })
+    // The company's logo (ADR 0106): one, on the "logo" setting; everyone signed in reads it, as anyone prints labels.
+    routes({
+      path: '/api/settings/logo/photo',
+      table: 'settings',
+      idOf: () => LOGO_SETTING_ID,
+      allowed: (req) => mayChangeLogo(req.role),
+      refusal: LOGO_REFUSAL,
+      reads: async () => true,
+      put: (_id, data, type, w) => putLogo(db, files, data, type, w),
+      remove: (_id, w) => removeLogo(db, w),
     })
   })
 }

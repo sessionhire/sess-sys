@@ -604,3 +604,14 @@ body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px +
 /* The line that says what it's doing keeps its room before it's said, so the shape under it never jumps. */
 .opening > .hint { margin: 0; min-height: 1.5em; }
 @keyframes skeleton-pulse { 50% { opacity: .4; } }
+
+/* Labels under Admin (ADR 0106): the logo as labels print it, and the colour for each cable length. */
+.swatch { flex: none; display: inline-block; width: 1.25rem; height: 1.25rem; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); vertical-align: middle; }
+.labels-card h3 { margin: var(--ds-space-3) 0 var(--ds-space-2); font-size: 1rem; }
+.labels-card .company-logo img.on-label { display: block; max-width: 12rem; max-height: 4rem; padding: var(--ds-space-2); background: #fff; border-radius: var(--radius-control); filter: grayscale(1); }
+.labels-card .colour-list { list-style: none; margin: 0 0 var(--ds-space-2); padding: 0; display: grid; gap: var(--ds-space-1); }
+.labels-card .colour-list li { display: flex; align-items: center; gap: var(--ds-space-2); }
+.labels-card .colour-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
+.labels-card .colour-rows li { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); }
+.labels-card .colour-rows input { width: 6rem; }
+.labels-card .actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
