@@ -1,3 +1,4 @@
+import { PageAction } from '../foot.tsx'
 import { newId, STATUS_LABELS, type ClientView, type ProjectStatus, type VenueView, type View } from '@sh/shared'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useSeenAs } from '../home/Preview.tsx'
@@ -204,7 +205,7 @@ function PageHead({ heading, badge, sub, picture, actions }: { heading: ReactNod
       ) : (
         words
       )}
-      {actions}
+      {actions && <PageAction>{actions}</PageAction>}
     </div>
   )
 }

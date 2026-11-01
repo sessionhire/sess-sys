@@ -79,8 +79,8 @@
 
 /*
  * The one Next button (NextDock.tsx, ADR 0104): a line saying where the job is and how far, the one filled button on the page, a
- * quiet second choice. On a desk it sits in the page head, right of the title; on a phone it docks above the bottom bar, in the
- * thumb's reach, and stays while the page scrolls. With nothing to press it says so in the same place: a quiet dashed box, never a
+ * quiet second choice. On a desk it sits in the page head, right of the title; on a phone it goes into the foot (foot.tsx), over
+ * the places as one footer, in the thumb's reach, and stays while the page scrolls. With nothing to press it says so in the same place: a quiet dashed box, never a
  * greyed button, never gone.
  */
 .next-dock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ds-space-half) var(--ds-space-3); align-items: center; }
@@ -95,14 +95,9 @@
   .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
   .page-head .next-dock .line { order: -1; }
 }
-@media (max-width: 639px) {
-  .page-head .next-dock { position: fixed; left: 0; right: 0; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 5; padding: var(--ds-space-2) var(--gutter) var(--ds-space-3); background: var(--panel); border-top: 1px solid var(--line); box-shadow: var(--ds-elevation-menu); }
-  .app .next-dock .primary { grid-column: 1 / -1; width: 100%; }
-  .next-dock .second { grid-column: 1 / -1; justify-self: center; }
-  /* The page ends above the dock, so its last card is never under it; the keyboard takes the bar away, and the dock with it. */
-  .app.job-page:has(.next-dock) { padding-bottom: calc(var(--ds-space-10) + 120px); }
-  body:has(.tabs[hidden]) .page-head .next-dock { display: none; }
-}
+/* A phone: the dock is in the foot (foot.tsx), over the places, one footer: the button full width with its words centred. */
+.foot .next-dock .primary { grid-column: 1 / -1; width: 100%; }
+.foot .next-dock .second { grid-column: 1 / -1; justify-self: center; min-height: 44px; padding: var(--ds-space-2) var(--ds-space-3); border: 0; background: none; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 @media print {
   .next-dock { display: none; }
 }

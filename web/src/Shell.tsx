@@ -9,6 +9,7 @@ import { AreaIcon } from './home/icons.tsx'
 import { PreviewSplash, useHoldPersona, usePreview } from './home/Preview.tsx'
 // Holds every change to the person's role (ADR 0034).
 import './role.ts'
+import { FootContext } from './foot.tsx'
 import { JobsScreen } from './jobs/JobsScreen.tsx'
 import { QuotesScreen } from './jobs/QuotesScreen.tsx'
 import { MenuScreen } from './MenuScreen.tsx'
@@ -122,6 +123,7 @@ export function Shell() {
   const persona = usePreview()
   const barAway = useBarAway()
   const desk = useDesk()
+  const [dock, setDock] = useState<HTMLElement | null>(null)
   const access = useAccess()
   const seesMoney = access.can('money')
   // A role without crew opens Crew on People: the calls and answers are the office's to-do list (audit, 20 October 2026, finding 34).
@@ -208,17 +210,23 @@ export function Shell() {
         Skip to content
       </a>
       <StorageBanner />
-      <nav className="tabs" aria-label="Areas" hidden={barAway}>
-        {shown.map((a) => (
-          <a key={a.hash} href={areaHref(a.hash)} aria-current={a === lit ? 'page' : undefined}>
-            <AreaIcon area={a.hash} />
-            <span className="tab-word">{a.label}</span>
-            {a.hash === '#crew' && <CrewBadge />}
-          </a>
-        ))}
-      </nav>
+      {/* The foot (foot.tsx): the page's one action, when it has one, over the places, as one footer; the rail on a desk. */}
+      <footer className="foot" hidden={barAway}>
+        <div className="foot-dock" ref={setDock} />
+        <nav className="tabs" aria-label="Areas">
+          {shown.map((a) => (
+            <a key={a.hash} href={areaHref(a.hash)} aria-current={a === lit ? 'page' : undefined}>
+              <AreaIcon area={a.hash} />
+              <span className="tab-word">{a.label}</span>
+              {a.hash === '#crew' && <CrewBadge />}
+            </a>
+          ))}
+        </nav>
+      </footer>
       <main ref={main}>
-        <Screen />
+        <FootContext.Provider value={dock}>
+          <Screen />
+        </FootContext.Provider>
       </main>
       <Toaster />
     </>

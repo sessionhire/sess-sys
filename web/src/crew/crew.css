@@ -1,8 +1,13 @@
-/* Area tabs, pinned to the bottom where a thumb reaches them: a picture over a word for each (ADR 0033). */
+/* The foot (foot.tsx), pinned to the bottom where a thumb reaches it: the page's one action when it has one (ADR 0104), then the area tabs, a
+   picture over a word for each (ADR 0033), as one footer with one edge. The page ends above it. */
 body { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
-.tabs { position: fixed; inset: auto 0 0 0; display: flex; justify-content: center; gap: var(--ds-space-1); padding: var(--ds-space-2) var(--ds-space-2) calc(var(--ds-space-2) + env(safe-area-inset-bottom)); background: var(--panel); border-top: 1px solid var(--line); z-index: 5; }
+body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-area-inset-bottom)); }
+.foot { position: fixed; inset: auto 0 0 0; z-index: 5; display: grid; background: var(--panel); border-top: 1px solid var(--line); }
+.foot[hidden] { display: none; }
+.foot-dock:empty { display: none; }
+.foot-dock { padding: var(--ds-space-2) var(--gutter) var(--ds-space-3); border-bottom: 1px solid var(--line); }
+.tabs { display: flex; justify-content: center; gap: var(--ds-space-1); padding: var(--ds-space-2) var(--ds-space-2) calc(var(--ds-space-2) + env(safe-area-inset-bottom)); }
 .tabs a { position: relative; flex: 1; max-width: 160px; min-height: 52px; display: grid; justify-items: center; align-content: center; gap: var(--ds-space-half); padding: var(--ds-space-1) var(--ds-space-half); border-radius: var(--radius-tab); font-weight: 700; font-size: var(--text-small); color: var(--muted); text-decoration: none; }
-.tabs[hidden] { display: none; }
 .tabs .area-icon { display: block; width: 24px; height: 24px; }
 /* The current tab is white on accent-fill, 5.7:1; on the brand red it was 4.0:1 (audit finding 22). */
 .tabs a[aria-current='page'] { background: var(--accent-fill); color: var(--on-accent); }
@@ -13,11 +18,13 @@ body { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
 @media (min-width: 900px) {
   body { padding-bottom: 0; padding-left: var(--rail); }
   :root { --rail: 208px; }
-  .tabs { inset: 0 auto 0 0; width: var(--rail); flex-direction: column; justify-content: flex-start; gap: var(--ds-space-1); padding: max(var(--ds-space-4), env(safe-area-inset-top)) var(--ds-space-3) var(--ds-space-4) max(var(--ds-space-3), env(safe-area-inset-left)); border-top: 0; border-right: 1px solid var(--line); overflow-y: auto; }
+  .foot { inset: 0 auto 0 0; width: var(--rail); border-top: 0; border-right: 1px solid var(--line); overflow-y: auto; }
+  .foot-dock { display: none; }
+  .tabs { flex-direction: column; justify-content: flex-start; gap: var(--ds-space-1); padding: max(var(--ds-space-4), env(safe-area-inset-top)) var(--ds-space-3) var(--ds-space-4) max(var(--ds-space-3), env(safe-area-inset-left)); }
   .tabs a { flex: none; max-width: none; min-height: 48px; display: flex; align-items: center; justify-content: flex-start; gap: var(--ds-space-3); padding: 0 var(--ds-space-3); font-size: var(--text-body); }
   .tabs .badge { position: static; margin-left: auto; }
   /* A new version's line runs across the top, the sidebar starting under it. */
-  .update ~ .tabs { top: calc(56px + env(safe-area-inset-top)); }
+  .update ~ .foot { top: calc(56px + env(safe-area-inset-top)); }
 }
 
 .crew .job { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
