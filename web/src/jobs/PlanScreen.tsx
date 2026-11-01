@@ -65,7 +65,7 @@ const daysOf = (scale: Scale, day: string) => (scale === 'week' ? weekOf(day) : 
  * then the clients and the venues they're for. From the planner, the other
  * scale opens on the same days.
  */
-export function JobViews({ place, current }: { place?: Place; current?: 'clients' | 'venues' | 'money' }) {
+export function JobViews({ place, current }: { place?: Place; current?: 'board' | 'clients' | 'venues' | 'money' }) {
   const now = useToday()
   // Money is the office's and directors' (ADR 0042): a role that isn't sent it has no page for it.
   const money = useAccess().can('money')
@@ -78,6 +78,7 @@ export function JobViews({ place, current }: { place?: Place; current?: 'clients
       current={current ?? place?.scale ?? 'list'}
       pages={[
         { key: 'list', href: '#jobs', label: 'List' },
+        { key: 'board', href: '#jobs/board', label: 'Board' },
         { key: 'week', href: hashOf({ scale: 'week', day, rows }), label: 'Week' },
         { key: 'month', href: hashOf({ scale: 'month', day, rows }), label: 'Month' },
         { key: 'clients', href: '#jobs/clients', label: 'Clients' },

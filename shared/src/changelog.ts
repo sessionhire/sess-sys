@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.74.0',
+    date: '2026-11-01',
+    title: 'Jobs › Board: a column for each stage',
+    what: "Jobs has a new Board page beside List, Week and Month: a column for each of the five stages and one for the jobs through every stage this month, a card for each job with what is short or waiting and for how long (\"Quote with the client since Thu 29 Oct\", \"3 still out, 4 days after\"), soonest first. Show the next eight weeks or everything coming up. It only reads: a job moves along the board when its own records do, never by dragging it.",
+    prs: [194],
+    adrs: [104],
+  },
+  {
     version: '1.73.0',
     date: '2026-11-01',
     title: 'The jobs list says where each job is',
