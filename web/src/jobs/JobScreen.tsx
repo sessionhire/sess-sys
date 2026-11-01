@@ -288,37 +288,48 @@ function CrewPart({
 function JobLines({ job, view }: { job: JobView; view: View }) {
   const crew = crewFill(job.calls)
   const kit = kitSummary(job, view.kit.byJob.get(job.id) ?? [])
-  const dot = (
-    <span className="muted" aria-hidden="true">
-      {' · '}
-    </span>
-  )
-  const second = [
-    kindOf(job) !== 'gig' && KIND_LABELS[kindOf(job)],
-    crew.needed > 0 && `Crew ${crew.booked} of ${crew.needed} booked${crew.toConfirm > 0 ? `, ${crew.toConfirm} to confirm` : ''}`,
-    kit && `Kit: ${kit}`,
-  ].filter(Boolean)
+  // The facts of the job as labelled cells, on the system's facts list (the label over the value), rather than one long dotted line:
+  // the eye finds the venue or the dates by their label without reading the rest (Colly, 1 November 2026).
   return (
-    <>
-      <p className="job-line">
-        {job.client ? <a href={`#jobs/clients/${encodeURIComponent(job.client.id)}`}>{job.client.name}</a> : 'No client yet'}
-        {dot}
-        {job.venue ? (
-          <>
-            <a href={`#jobs/venues/${encodeURIComponent(job.venue.id)}`}>{venueLabel(job.venue)}</a> (
-            <a href={mapLink(job.venue)} target="_blank" rel="noreferrer">
-              map
-            </a>
-            )
-          </>
-        ) : (
-          'No venue yet'
-        )}
-        {dot}
-        {job.span ? spanLabel(job.span) : 'No dates yet'}
-      </p>
-      {second.length > 0 && <p className="job-line">{second.join(' · ')}</p>}
-    </>
+    <dl className="facts job-facts">
+      <div>
+        <dt>Client</dt>
+        <dd>{job.client ? <a href={`#jobs/clients/${encodeURIComponent(job.client.id)}`}>{job.client.name}</a> : <span className="muted">None yet</span>}</dd>
+      </div>
+      <div>
+        <dt>Venue</dt>
+        <dd>
+          {job.venue ? (
+            <>
+              <a href={`#jobs/venues/${encodeURIComponent(job.venue.id)}`}>{venueLabel(job.venue)}</a>{' '}
+              <a className="muted" href={mapLink(job.venue)} target="_blank" rel="noreferrer">
+                (map)
+              </a>
+            </>
+          ) : (
+            <span className="muted">None yet</span>
+          )}
+        </dd>
+      </div>
+      <div>
+        <dt>{kindOf(job) === 'gig' ? 'When' : KIND_LABELS[kindOf(job)]}</dt>
+        <dd>{job.span ? spanLabel(job.span) : <span className="muted">No dates yet</span>}</dd>
+      </div>
+      {crew.needed > 0 && (
+        <div>
+          <dt>Crew</dt>
+          <dd>
+            {crew.booked} of {crew.needed} booked{crew.toConfirm > 0 ? `, ${crew.toConfirm} to confirm` : ''}
+          </dd>
+        </div>
+      )}
+      {kit && (
+        <div>
+          <dt>Kit</dt>
+          <dd>{kit}</dd>
+        </div>
+      )}
+    </dl>
   )
 }
 
