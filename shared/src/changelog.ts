@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-01',
     title: 'Trackers on expensive kit',
     what: "Trackers fixed inside the most expensive cases can now report where they are to the app. An item's page shows its tracker on a map, with when it was last heard from, and Notifications lists kit to check: kit away from the warehouse on no job, kit not back after its job, and trackers gone quiet. Off until the office turns it on under Admin › Connections, where the warehouse goes on the map and the trackers are named. Only the office, directors and heads see them.",
-    prs: [0],
+    prs: [199],
     adrs: [107],
   },
   {

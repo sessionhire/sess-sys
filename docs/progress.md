@@ -7,7 +7,7 @@ waiting on someone.
 
 **Done**
 
-- [ADR 0107](adr/0107-trackers-on-expensive-kit.md): Digital Matter
+- [ADR 0107](adr/0107-trackers-on-expensive-kit.md) (PR #199): Digital Matter
   trackers (the Yabby Edge Cellular recommended in the research) report
   into the app through Digital Matter's HTTP connector, with the server's
   key. Each tracker is made the first time it reports, every report is
