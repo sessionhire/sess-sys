@@ -23,6 +23,7 @@ import { vehicleCommandSchemas } from './vehicles.ts'
 import { stepCommandSchemas } from './steps.ts'
 import { rackCommandSchemas } from './racks.ts'
 import { purchaseCommandSchemas } from './purchases.ts'
+import { trackerCommandSchemas } from './trackers.ts'
 
 /**
  * Commands are what a device asks for, not rows it has already changed. The
@@ -58,6 +59,7 @@ export const commandSchemas = {
   ...stepCommandSchemas,
   ...rackCommandSchemas,
   ...purchaseCommandSchemas,
+  ...trackerCommandSchemas,
 } as const
 
 export type CommandName = keyof typeof commandSchemas

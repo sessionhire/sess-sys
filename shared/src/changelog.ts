@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.74.3',
+    version: '1.75.1',
     date: '2026-11-01',
     title: 'The facts under a job\'s name line up',
     what: 'Client, venue, dates, crew and kit under a job\'s name now sit in even columns, with every heading on one line and every value starting on the next, however long a venue or a date runs.',
     prs: [200],
+  },
+  {
+    version: '1.75.0',
+    date: '2026-11-01',
+    title: 'Trackers on expensive kit',
+    what: "Trackers fixed inside the most expensive cases can now report where they are to the app. An item's page shows its tracker on a map, with when it was last heard from, and Notifications lists kit to check: kit away from the warehouse on no job, kit not back after its job, and trackers gone quiet. Off until the office turns it on under Admin › Connections, where the warehouse goes on the map and the trackers are named. Only the office, directors and heads see them.",
+    prs: [199],
+    adrs: [107],
   },
   {
     version: '1.74.2',

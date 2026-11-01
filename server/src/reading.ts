@@ -5,6 +5,7 @@ import {
   readingFor,
   readsDocumentOf,
   readsEverything,
+  readsTrackers,
   notesAsRead,
   readsAttachmentOf,
   timesheetAsRead,
@@ -85,6 +86,9 @@ export async function asRead<C extends { entity: string; op: 'put' | 'delete'; d
         return readsDocumentOf(reading, c.data as Document) ? [c] : []
       case 'attachment':
         return readsAttachmentOf(reading, c.data as { owner: string }) ? [c] : []
+      case 'tracker':
+      case 'trackerSettings':
+        return readsTrackers(reading) ? [c] : []
       default:
         return [c]
     }
