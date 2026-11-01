@@ -12,7 +12,7 @@ waiting on someone.
   the stock code on an item's own label; a length on each product; a
   colour for each length (resistor order to start, the office's to
   change); cable labels with the length in big type and its colour as a
-  word in a black band, in colour on a colour printer. App 1.75.0.
+  word in a black band, in colour on a colour printer. 100 m pink and 150 m light blue added at Colly's ask. App 1.76.0.
 - Checked: typecheck, shared and server tests, and the browser tests for
   labels, cable labels and the new logo test.
 
@@ -21,6 +21,34 @@ waiting on someone.
 - Colly to put the logo up once this is live. Colour printers were
   researched in the thread "Print labels straight from the app"; the ZT411
   stays the suggestion, with tape by length.
+
+## 1 November 2026: Trackers on expensive kit
+
+**Done**
+
+- [ADR 0107](adr/0107-trackers-on-expensive-kit.md) (PR #199): Digital Matter
+  trackers (the Yabby Edge Cellular recommended in the research) report
+  into the app through Digital Matter's HTTP connector, with the server's
+  key. Each tracker is made the first time it reports, every report is
+  kept, and the app works out where the item is against where it should
+  be: the warehouse, a job's venue, with a job, away on no job, or not back
+  after its job. The item's page shows it on a map; Kit to check tops
+  Notifications for whoever looks after stock; Admin › Connections ›
+  Trackers turns it on, puts the warehouse on the map and lists every
+  tracker. Off until turned on; staff crew and freelancers don't see where
+  kit is. App 1.75.0.
+- Checked: typecheck, the shared and server tests (new tracker tests for
+  both of Digital Matter's report shapes, the key, late and repeated
+  reports, each place and who sees them), and the screens in a browser
+  with made-up reports.
+
+**Waiting**
+
+- Colly to buy the trackers, set `TRACKERS_KEY` in Railway and point
+  Digital Matter's connector at the app ([setup step
+  10](sign-in-setup.md#10-trackers-on-expensive-kit)). The first real
+  report should be checked against what the app expects.
+
 ## 1 November 2026: What the Security tab found
 
 **Done**

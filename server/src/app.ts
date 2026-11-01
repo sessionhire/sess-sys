@@ -59,6 +59,7 @@ import { Mailbox } from './assistant/mailbox.ts'
 import { registerMailboxRoutes } from './assistant/mailbox-routes.ts'
 import { registerQuoteEmailRoutes } from './finance/email-routes.ts'
 import { registerStatusRoutes, Status, type OutsideLooks } from './status.ts'
+import { registerTrackerRoutes } from './trackers/routes.ts'
 
 const PULL_LIMIT = 500
 /** The longest the server waits for a whole request to arrive. */
@@ -150,6 +151,8 @@ export interface AppOptions {
   gmail?: Gmail
   /** Where what the server notices about itself is reported: Sentry's (reportError) unless a test listens instead. */
   report?: typeof reportError
+  /** The key trackers' reports must carry (ADR 0107, TRACKERS_KEY). Without it, no report is taken. */
+  trackersKey?: string
   /** Admin › Status's looks outside the server (ADR 0093): the map search and GitHub. Without them, those two say so. */
   outside?: OutsideLooks
 }
@@ -652,6 +655,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('assistantMailbox', mailbox)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
   registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke() })
+  registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   registerStatusRoutes(
     app,
     new Status({ db, auth, passcode, errorReporting: !!errorReporting, backups, backupStore, documents, calendar: calendarSync, rms, assistant, mailbox, fuel, outside: options.outside ?? {}, commit, live: () => sockets.size })

@@ -1,6 +1,6 @@
 import { COMMAND_NAMES, newId, type CommandInput, type CommandName, type Mutation, type View } from '@sh/shared'
 import { describe, expect, it } from 'vitest'
-import { company, day, m, ok, person, phone, today, year, checks, leaveSpanFrom } from './company.ts'
+import { company, day, m, ok, TRACKERS_KEY, person, phone, today, year, checks, leaveSpanFrom } from './company.ts'
 
 /**
  * The device and the server can't drift (audit, 18 October 2026, finding
@@ -93,6 +93,8 @@ interface Case<N extends CommandName = CommandName> {
   before?: Mutation[]
   /** Made on the same phone with no signal just before the change, so both wait together. */
   queued?: Mutation[]
+  /** Trackers' reports taken in after `before` (ADR 0107): a tracker is made only by reporting. */
+  reports?: object[]
   /** Fields only the server can fill in, left out of the comparison. */
   ignore?: string[]
   /** Drift found and not put right yet: each must still be there, so whoever fixes it takes it off. */
@@ -108,6 +110,10 @@ const c = <N extends CommandName>(name: N, args: CommandInput<N>, more: Omit<Cas
 async function run(k: Case) {
   const { app } = await company()
   if (k.before?.length) await ok(app, ...k.before)
+  for (const payload of k.reports ?? []) {
+    const res = await app.inject({ method: 'POST', url: '/api/trackers/digital-matter', headers: { authorization: `Bearer ${TRACKERS_KEY}` }, payload })
+    expect(res.statusCode, res.body).toBe(200)
+  }
   const { client, signal } = await phone(app)
   signal.on = false
   for (const q of k.queued ?? []) await client.mutate(q.name, q.args as never)
@@ -134,6 +140,9 @@ async function run(k: Case) {
 const CALL_NAMES = /^\.crew\.calls\.\d+\.(project|phase|venue)$|\.worked\.\d+\.name$/
 
 const DELIVERY = { id: 'd1', kind: 'other' as const, what: 'Delivery', ref: null, group: '', qty: 1, days: 1, unitCents: 15000, vat: '13.5' as const }
+
+const TRACKERS_ON = [m('trackers.use', { on: true }), m('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 300 })]
+const REPORT = { date: new Date().toISOString(), device: { sn: '416581', imei: '351234567890123' }, sqn: 1, reason: 1, lat: 53.325, lng: -6.337, posAcc: 20, analogues: [{ id: 1, val: 3600 }] }
 
 const CASES: Case[] = [
   // People and crew.
@@ -239,6 +248,13 @@ const CASES: Case[] = [
   // Certificates on items (ADR 0094).
   c('itemCertificate.save', { id: 'pat-cert', kind: 'pat', title: 'PAT certificate', day: today, expires: null, assetIds: ['a1'], link: 'https://example.com/pat' }),
   c('itemCertificate.remove', { id: 'pat-cert' }, { before: [m('itemCertificate.save', { id: 'pat-cert', kind: 'pat', title: 'PAT certificate', day: today, expires: null, assetIds: ['a1'], link: 'https://example.com/pat' })] }),
+  // Trackers (ADR 0107): one reporting from the warehouse, with trackers on and the warehouse on the map.
+  c('trackers.use', { on: true }),
+  c('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 250 }, { before: TRACKERS_ON, reports: [REPORT] }),
+  c('tracker.attach', { id: 'digital-matter:416581', assetId: 'a1' }, { before: TRACKERS_ON, reports: [REPORT] }),
+  c('tracker.attach', { id: 'digital-matter:416581', assetId: null }, { as: 'taken off', before: TRACKERS_ON, reports: [REPORT], queued: [m('tracker.attach', { id: 'digital-matter:416581', assetId: 'a1' })] }),
+  c('tracker.name', { id: 'digital-matter:416581', name: ' Desk case ' }, { before: TRACKERS_ON, reports: [REPORT] }),
+  c('tracker.archive', { id: 'digital-matter:416581', archived: true }, { before: TRACKERS_ON, reports: [REPORT] }),
   c('count.record', {
     id: newId(),
     placeId: 'wh',

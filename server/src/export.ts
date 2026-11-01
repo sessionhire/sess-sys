@@ -319,6 +319,10 @@ const ABOUT: Record<string, string> = {
   stock: 'Counted stock: how many of a product are at a place or in a case.',
   timesheets: "Freelancers' timesheets, one for each booking: the days worked at the day rate, extras such as parking or mileage, what was sent and what the office approved.",
   unavailability: "Days people can't work.",
+  // Trackers on expensive kit (ADR 0107).
+  trackers: "Trackers on kit: the maker and serial number, the name the office gave it, the item it's on, when it was first and last heard from, where it last said it was and how accurately, its battery, where that is against where the item should be and since when, and whether it's been put away.",
+  tracker_reports: 'Every report a tracker sent, as it came: when, its number, where it was and how accurately, its battery and why it reported.',
+  tracker_settings: 'Whether the company uses trackers, where the warehouse is on the map, and how near counts as there.',
   users: 'Staff who have signed in with Google.',
   // A job's steps (ADR 0073).
   // The purchase list (ADR 0077).

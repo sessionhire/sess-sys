@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.75.0',
+    version: '1.76.0',
     date: '2026-11-01',
     title: 'The logo, the stock code and a cable’s length and colour on labels',
     what: "The company logo can be put up under Admin › Company › Labels, and prints on every label in place of the name. An item’s label now carries its product’s stock code too. Each product can be given a length, and cable labels say it in big type with the colour for that length, such as 10 m GREEN, from a list the office can change under Admin, running up to 100 m pink and 150 m light blue. A label printer prints black only, so the colour is printed as a word for the tape or heat-shrink put on with it; on a colour printer it prints in the colour.",
     prs: [196],
     adrs: [106],
+  },
+  {
+    version: '1.75.0',
+    date: '2026-11-01',
+    title: 'Trackers on expensive kit',
+    what: "Trackers fixed inside the most expensive cases can now report where they are to the app. An item's page shows its tracker on a map, with when it was last heard from, and Notifications lists kit to check: kit away from the warehouse on no job, kit not back after its job, and trackers gone quiet. Off until the office turns it on under Admin › Connections, where the warehouse goes on the map and the trackers are named. Only the office, directors and heads see them.",
+    prs: [199],
+    adrs: [107],
   },
   {
     version: '1.74.2',
