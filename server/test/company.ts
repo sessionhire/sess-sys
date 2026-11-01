@@ -91,9 +91,12 @@ export const NOTES = 'Kit list:\n4 x d&b Y10P\n10 x XLR 10 m\n2 x Mystery haze m
  * enquiry whose notes list kit; staff with leave open; a fault, a label
  * run, a document and a venue's floor plan.
  */
+/** The key the company's server takes trackers' reports with (ADR 0107). */
+export const TRACKERS_KEY = 'test-trackers-key'
+
 export async function company() {
   const db = await pgliteDb()
-  const app = await buildApp({ db })
+  const app = await buildApp({ db, trackersKey: TRACKERS_KEY })
   cleanup.push(async () => {
     await app.close()
     await db.close()

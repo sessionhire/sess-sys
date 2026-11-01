@@ -96,6 +96,13 @@ export function readsRatesIn(r: Reading, department: string | null | undefined):
   return r.rates && (r.ratesBy !== 'department' || sameDepartment(department, r.department))
 }
 
+/**
+ * Whether this reader is sent the trackers on kit (ADR 0107): where the
+ * company's most expensive kit is right now is for the office, directors
+ * and heads, who look after it, and not for staff crew or freelancers.
+ */
+export const readsTrackers = (r: Reading | undefined) => !r || r.links !== 'own'
+
 /** Whether every rate there is reaches this reader, as the history and the notices need to tell figures. */
 export const readsEveryRate = (r: Reading) => r.rates && r.ratesBy !== 'department'
 
