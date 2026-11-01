@@ -7,7 +7,7 @@ waiting on someone.
 
 **Done**
 
-- [ADR 0105](adr/0105-security-tab-and-limits-on-the-ways-in.md) (PR #196):
+- [ADR 0105](adr/0105-security-tab-and-limits-on-the-ways-in.md) (PR #197):
   limits on the ways in (signing in with Google or the passcode, 60 a minute
   from one address; connecting a calendar or the operations mailbox, 20),
   by the address Railway's proxy saw, and never on the sync, which every
