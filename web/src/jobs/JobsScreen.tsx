@@ -49,6 +49,7 @@ import { NotesKitListScreen, NotesKitNudge, NotesKitScreen } from './NotesKit.ts
 import { PickScreen } from './PickScreen.tsx'
 import { QuoteScreen } from './Quote.tsx'
 import { SheetScreen } from './SheetScreen.tsx'
+import { BoardScreen } from './BoardScreen.tsx'
 import { JobViews, PlanScreen } from './PlanScreen.tsx'
 import { ClientScreen } from './ClientScreen.tsx'
 import { jobsAt, VenueScreen } from './VenueScreen.tsx'
@@ -92,6 +93,7 @@ export function JobsScreen() {
   const hash = useHash()
   const wide = useWide()
   if (hash === '#jobs/plan' || hash.startsWith('#jobs/plan/')) return <PlanScreen view={view} hash={hash} />
+  if (hash === '#jobs/board') return <BoardScreen view={view} />
   if (hash === '#jobs/import') return <ImportScreen view={view} />
   if (hash === '#jobs/tidy') return <TidyScreen view={view} />
   if (hash === '#jobs/clients') return <ClientsScreen view={view} />

@@ -254,6 +254,17 @@ describe('a change named after an object’s own insides', () => {
     expect(({} as { polluted?: boolean }).polluted).toBeUndefined()
     expect(Object.keys(state.entities.place)).toEqual([])
   })
+
+  it('is dropped for "constructor" and "prototype" too, as a table or a row', () => {
+    const state = { ...emptySnapshot('phone') }
+    applyChange(state, { seq: 1, entity: 'constructor' as EntityName, id: 'prototype', op: 'put', data: { polluted: true } })
+    applyChange(state, { seq: 2, entity: 'prototype' as EntityName, id: 'x', op: 'put', data: { polluted: true } })
+    applyChange(state, { seq: 3, entity: 'place', id: 'constructor', op: 'put', data: { polluted: true } })
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined()
+    expect(Object.hasOwn(state.entities, 'constructor')).toBe(false)
+    expect(Object.hasOwn(state.entities, 'prototype')).toBe(false)
+    expect(Object.keys(state.entities.place)).toEqual([])
+  })
 })
 
 describe('a change for a table this build does not know', () => {

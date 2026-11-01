@@ -1,4 +1,5 @@
 import { GoogleError } from '../calendar/google.ts'
+import { decodeEntities, joinLines, textOfHtml } from '../html-text.ts'
 
 /**
  * The operations mailbox through Gmail's API: read for Claude (ADR 0098),
@@ -139,55 +140,16 @@ export function bodyOf(p: Part | undefined): string {
   const plain = found('text/plain', p)
   if (plain !== undefined) return plain.replace(/\r\n/g, '\n').trim()
   const html = found('text/html', p)
-  return html === undefined ? '' : textOfHtml(html)
+  return html === undefined ? '' : textOfEmail(html)
 }
 
-/** Tags whose contents are never text. */
-const HIDDEN = new Set(['style', 'script', 'head', 'title'])
 /** Tags that end a line: br where it stands, the rest where they close. */
-const BREAKS = new Set(['br', 'p', 'div', 'li', 'tr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-const ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", '#39': "'" }
+const LINE_ENDS = new Set(['p', 'div', 'li', 'tr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
 
-/**
- * The text of an HTML email, read tag by tag rather than by patching the markup with patterns: what's outside a tag is
- * text, what's inside style or script is not, and a line ends where a block does. Entities are decoded once, in one
- * pass, so "&amp;lt;" stays "&lt;". The result is only ever shown as text, never as HTML.
- */
-function textOfHtml(html: string): string {
-  let out = ''
-  let at = 0
-  let hidden: string | null = null
-  while (at < html.length) {
-    if (hidden) {
-      // Inside style or script, "<" is just a character: skip to the tag that closes it.
-      const ends = new RegExp(`</${hidden}\\b[^>]*>`, 'ig')
-      ends.lastIndex = at
-      const end = ends.exec(html)
-      if (!end) break
-      hidden = null
-      at = end.index + end[0].length
-      continue
-    }
-    const open = html.indexOf('<', at)
-    if (open < 0) {
-      out += html.slice(at)
-      break
-    }
-    out += html.slice(at, open)
-    const close = html.indexOf('>', open + 1)
-    if (close < 0) break // a tag never finished: nothing after it is text
-    const tag = html.slice(open + 1, close)
-    const closing = tag.startsWith('/')
-    const name = /^\/?\s*([a-z][a-z0-9]*)/i.exec(tag)?.[1]?.toLowerCase() ?? ''
-    if (!closing && HIDDEN.has(name)) hidden = name
-    else if (name === 'br' || (closing && BREAKS.has(name))) out += '\n'
-    at = close + 1
-  }
-  return out
-    .replace(/&(nbsp|amp|lt|gt|quot|apos|#39);/g, (_, e: string) => ENTITIES[e] ?? '')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n\s*\n\s*\n+/g, '\n\n')
-    .trim()
+/** The text of an HTML email, read tag by tag (html-text.ts). The result is only ever shown as text, never as HTML. */
+function textOfEmail(html: string): string {
+  const text = textOfHtml(html, (name, closing) => ((name === 'br' && !closing) || (closing && LINE_ENDS.has(name)) ? '\n' : ''))
+  return joinLines(decodeEntities(text).split('\n').map((l) => l.replace(/[ \t]+/g, ' ')))
 }
 
 /** An email without the earlier ones quoted under it, which the thread has already: "On … wrote:" and the lines starting ">". */

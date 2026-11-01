@@ -43,9 +43,10 @@ const DOCS = [
 
 const docs = DOCS.map(([title, path]) => ({ title, path, md: readFileSync(join(root, path), 'utf8') }));
 const built = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
-// Escape "<" so no document can close the <script> block early.
-const json = JSON.stringify(docs).replace(/</g, '\\u003c');
-const data = `<script type="application/json" id="docs-data" data-built="${built}">${json}</script>`;
+// A value in the page's own script, which the page never reads back out of itself as text (code scanning's "DOM text
+// reinterpreted as HTML"). "<" is escaped so no document can close the <script> block early.
+const json = JSON.stringify({ built, docs }).replace(/</g, '\\u003c');
+const data = `<script>window.SH_DOCS = ${json};</script>`;
 
 const template = readFileSync(join(root, 'docs/hub/template.html'), 'utf8');
 if (!template.includes('<!--DOCS-DATA-->')) throw new Error('template is missing <!--DOCS-DATA-->');

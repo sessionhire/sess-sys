@@ -1,5 +1,6 @@
 import compress from '@fastify/compress'
 import fastifyStatic from '@fastify/static'
+import rateLimit from '@fastify/rate-limit'
 import websocket from '@fastify/websocket'
 import { APP_VERSION, FEED, MONEY_ENTITY_NAMES, plural, pushRequest, documentsRead, readsEverything, readsEveryRate, roleSeesMoney, type Change, type Beat, type ClientConfig, type EntityName, type MutationResult, type Poke, type PullResponse, type PushResponse } from '@sh/shared'
 import Fastify, { LogController, type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
@@ -35,7 +36,7 @@ import { DueErasures } from './erasure/due.ts'
 import { ErasureList } from './erasure/list.ts'
 import { everythingJson, everythingZip, exportRowCount, readEverything, zipName } from './export.ts'
 import { BadCursor, readHistory, recordExport } from './history.ts'
-import { appShellPolicy, inlineScripts, pagePolicy, publicOrigin, requestForLog } from './http.ts'
+import { appShellPolicy, clientAddress, inlineScripts, pagePolicy, publicOrigin, requestForLog, TOO_MANY } from './http.ts'
 import { CHARACTERS, isCharacterError, isLockBusy } from './kernel.ts'
 import { migrateAll } from './modules.ts'
 import { registerNoticeRoutes } from './notices.ts'
@@ -296,6 +297,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     // What devices send stays as it is: nothing sends it compressed.
     globalDecompression: false,
   })
+  // Limits on the ways in, by the address a request came from (ADR 0105): only routes that ask for one in their config
+  // (http.ts says which and why), so the sync itself, which every phone in the warehouse does from one address, never
+  // meets one. Set before any route, so its own look at each route sees them.
+  await app.register(rateLimit, {
+    global: false,
+    keyGenerator: clientAddress,
+    errorResponseBuilder: (_req, context) => Object.assign(new Error(TOO_MANY), { statusCode: context.statusCode }),
+  })
 
   const sockets = new Set<WebSocket>()
   const feeds = new Feeds(db, options.feeds)
@@ -365,6 +374,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     const status = statusOf(err)
     if (isCharacterError(err)) {
       reply.code(status).send({ error: CHARACTERS })
+      return
+    }
+    // Too many tries says so in the words the app shows, as the passcode's own count does.
+    if (status === 429) {
+      reply.code(429).send({ error: err.message })
       return
     }
     if (status < 500) {

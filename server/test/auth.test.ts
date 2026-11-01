@@ -6,6 +6,7 @@ import { buildApp } from '../src/app.ts'
 import { assertSignInKept, authFromEnv, passcodeFromEnv, passcodeWarning, type AuthConfig } from '../src/auth/config.ts'
 import { googleProvider, identityFromIdToken, type Identity, type IdentityProvider } from '../src/auth/google.ts'
 import { pgliteDb } from '../src/db.ts'
+import { SIGN_IN_LIMIT, TOO_MANY } from '../src/http.ts'
 
 /**
  * Staff sign-in, as the people involved see it: nothing but the sign-in
@@ -505,5 +506,22 @@ describe('sign-in settings', () => {
     await expect(assertSignInKept(db, undefined, {})).rejects.toThrow('Refusing to start without sign-in')
     await expect(assertSignInKept(db, undefined, { AUTH_MODE: 'open' })).resolves.toBeUndefined()
     await expect(assertSignInKept(db, { provider: google.provider, domains: ['sessionhire.com'], emails: [] }, {})).resolves.toBeUndefined()
+  })
+})
+
+describe('the ways in, limited by address (ADR 0105)', () => {
+  it('turns one address away after a minute’s allowance of sign-ins, in words, and lets others in', async () => {
+    const { app } = await server()
+    const from = (address: string) => app.inject({ url: '/api/auth/google/start', headers: { 'x-forwarded-for': `10.0.0.1, ${address}` } })
+    for (let i = 0; i < SIGN_IN_LIMIT.max; i++) expect((await from('203.0.113.7')).statusCode).toBe(302)
+    const refused = await from('203.0.113.7')
+    expect(refused.statusCode).toBe(429)
+    expect(refused.json()).toEqual({ error: TOO_MANY })
+    expect(refused.headers['retry-after']).toBeDefined()
+    // Only the address the proxy saw counts: another phone is counted on its own, and writing another in front gets nowhere.
+    expect((await from('198.51.100.2')).statusCode).toBe(302)
+    expect((await app.inject({ url: '/api/auth/google/start', headers: { 'x-forwarded-for': '198.51.100.9, 203.0.113.7' } })).statusCode).toBe(429)
+    // Routes that don't ask for a limit have none: every phone in the warehouse shares one address.
+    expect((await app.inject({ url: '/api/health', headers: { 'x-forwarded-for': '203.0.113.7' } })).statusCode).toBe(200)
   })
 })
