@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { refusalFor, roleCan, ROLES, type Ability, type MeResponse, type ReaderOf, type Role, type StaffUser } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { faultForLog, type Db } from '../db.ts'
-import { clearCookie, publicOrigin, readCookie, setCookie } from '../http.ts'
+import { clearCookie, clientAddress, publicOrigin, readCookie, setCookie, SIGN_IN_LIMIT } from '../http.ts'
 import { isStaff, type AuthConfig } from './config.ts'
 import { roleOfAccount } from './roles.ts'
 import { createSession, endSession, SESSION_DAYS, sessionUser, upsertUser } from './sessions.ts'
@@ -126,16 +126,6 @@ class WrongTries {
   }
 }
 
-/**
- * Where a request came from. Behind Railway's proxy the socket is the proxy's, and the proxy adds the address it was
- * reached from at the end of x-forwarded-for: that last one, since anything before it the sender could have written.
- */
-function clientAddress(req: FastifyRequest): string {
-  const forwarded = req.headers['x-forwarded-for']
-  const last = (Array.isArray(forwarded) ? forwarded.at(-1) : forwarded)?.split(',').at(-1)?.trim()
-  return last || req.socket.remoteAddress || 'unknown'
-}
-
 /** What the passcode cookie holds: changes whenever the passcode does, so changing it locks every device out. */
 const passcodeProof = (passcode: string) => createHmac('sha256', passcode).update('session-hire demo').digest('base64url')
 const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
@@ -235,7 +225,7 @@ export function registerAuth(app: FastifyInstance, db: Db, auth: AuthConfig | un
 
   const callbackUrl = (req: FastifyRequest) => `${publicOrigin(req)}/api/auth/google/callback`
 
-  app.get<{ Querystring: { next?: string } }>('/api/auth/google/start', { config: { public: true } }, async (req, reply) => {
+  app.get<{ Querystring: { next?: string } }>('/api/auth/google/start', { config: { public: true, rateLimit: SIGN_IN_LIMIT } }, async (req, reply) => {
     reply.header('cache-control', 'no-store')
     if (!auth) return reply.redirect('/', 303)
     const state = randomBytes(16).toString('base64url')
@@ -247,7 +237,7 @@ export function registerAuth(app: FastifyInstance, db: Db, auth: AuthConfig | un
 
   app.get<{ Querystring: { code?: string; state?: string; error?: string } }>(
     '/api/auth/google/callback',
-    { config: { public: true } },
+    { config: { public: true, rateLimit: SIGN_IN_LIMIT } },
     async (req, reply) => {
       reply.header('cache-control', 'no-store')
       if (!auth) return reply.redirect('/', 303)
@@ -282,7 +272,7 @@ export function registerAuth(app: FastifyInstance, db: Db, auth: AuthConfig | un
     }
   )
 
-  app.post<{ Body: { passcode?: unknown } }>('/api/auth/passcode', { config: { public: true } }, async (req, reply) => {
+  app.post<{ Body: { passcode?: unknown } }>('/api/auth/passcode', { config: { public: true, rateLimit: SIGN_IN_LIMIT } }, async (req, reply) => {
     reply.header('cache-control', 'no-store')
     if (!proof) return reply.code(404).send({ error: 'This copy of the app has no passcode.' })
     // Too many wrong tries from one address, and even the right one is turned away till the window ends, so the answer

@@ -9,6 +9,26 @@ export function publicOrigin(req: FastifyRequest): string {
   return `${proto}://${req.headers['x-forwarded-host'] ?? req.headers.host}`
 }
 
+/**
+ * Where a request came from. Behind Railway's proxy the socket is the proxy's, and the proxy adds the address it was
+ * reached from at the end of x-forwarded-for: that last one, since anything before it the sender could have written.
+ */
+export function clientAddress(req: FastifyRequest): string {
+  const forwarded = req.headers['x-forwarded-for']
+  const last = (Array.isArray(forwarded) ? forwarded.at(-1) : forwarded)?.split(',').at(-1)?.trim()
+  return last || req.socket.remoteAddress || 'unknown'
+}
+
+/**
+ * How often one address may knock at each way in (ADR 0105): signing in with Google or the passcode, and connecting a
+ * calendar or the operations mailbox. A minute's allowance, far more than people need (the whole office signing in at
+ * once from the warehouse's one address is a few dozen), and few enough that nobody can hammer them. Everything else
+ * already needs someone signed in, and is left alone: every phone in the warehouse shares one address.
+ */
+export const SIGN_IN_LIMIT = { max: 60, timeWindow: 60_000 }
+export const CONNECT_LIMIT = { max: 20, timeWindow: 60_000 }
+export const TOO_MANY = 'Too many tries from here just now. Wait a minute and try again.'
+
 export function readCookie(req: FastifyRequest, name: string): string | undefined {
   for (const part of (req.headers.cookie ?? '').split(';')) {
     const eq = part.indexOf('=')
