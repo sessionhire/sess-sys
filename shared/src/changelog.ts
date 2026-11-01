@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-01',
     title: 'The facts under a job\'s name line up',
     what: 'Client, venue, dates, crew and kit under a job\'s name now sit in even columns, with every heading on one line and every value starting on the next, however long a venue or a date runs.',
-    prs: [196],
+    prs: [200],
   },
   {
     version: '1.74.2',
