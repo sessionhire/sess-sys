@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.73.1',
+    date: '2026-11-01',
+    title: 'Shared design parts brought up to date',
+    what: 'The colours, icons and checks the app shares with the studio\'s other tools are brought up to the latest copy. Nothing changes on screen; it keeps the app in step for the next improvements.',
+    prs: [0],
+  },
+  {
     version: '1.73.0',
     date: '2026-11-01',
     title: 'The jobs list says where each job is',
