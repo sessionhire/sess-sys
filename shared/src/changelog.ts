@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.76.1',
+    date: '2026-11-01',
+    title: 'The facts under a job\'s name line up',
+    what: 'Client, venue, dates, crew and kit under a job\'s name now sit in even columns, with every heading on one line and every value starting on the next, however long a venue or a date runs.',
+    prs: [200],
+  },
+  {
     version: '1.76.0',
     date: '2026-11-01',
     title: 'The logo, the stock code and a cable’s length and colour on labels',
