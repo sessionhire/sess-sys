@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.73.0',
+    date: '2026-11-01',
+    title: 'The jobs list says where each job is',
+    what: "Every row on the jobs list now carries a line under the dates: five short marks for the five stages, with the one the job is in darkest, then the stage's name and what is short or waiting in it (\"Planning · 5 of 10 booked, 1 short\"), and a word when a task is past its day. Two confirmed jobs no longer look the same. Home's Today and the week ahead show the stage too.",
+    prs: [193],
+    adrs: [104],
+  },
+  {
     version: '1.72.0',
     date: '2026-11-01',
     title: 'Where a job is: five stages, the tasks inside each, and one Next button',

@@ -136,3 +136,7 @@ thumb is).
 - The stage names and the lack of a gate at the end of Planning are the
   write-up's assumptions, open for Colly to change; renaming a stage is one
   line in `shared/src/steps.ts`.
+
+## Part 2, 1 November 2026
+
+The stage line on list rows (`StageLine.tsx`): five segments and the stage's name with what is short in it, under the dates on every jobs-list row, and compact (segments and name) on Home's Today and week-ahead rows. Nothing on a stopped job, an errand or a meeting. A person's page keeps its rows as they are: they are calls, not jobs.

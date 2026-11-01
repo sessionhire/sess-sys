@@ -72,6 +72,10 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await page.screenshot(shot('job-steps-phone'))
 
+  // The jobs list says where the job is, under its dates (part 2 of ADR 0104).
+  await page.goto('/#jobs')
+  await page.getByLabel('Find').fill(job)
+  await expect(page.locator('.job-row', { hasText: job }).locator('.stage-line')).toHaveText('Planning · 0 of 2 booked · No kit on the job yet')
   // On Home, the task she's to do now is on top, whichever view, with the day it's due; the ticked one isn't.
   await page.goto('/#home')
   const mine = page.getByRole('region', { name: /^Your tasks/ })
