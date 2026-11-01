@@ -66,3 +66,24 @@ export const productPhotoPath = (modelId: string, at: string) => `/api/models/${
 
 /** Whether someone can put up or take down a product's photo: whoever changes stock. No role is held to nothing. */
 export const mayChangeProductPhoto = (role: Role | null | undefined) => !role || roleCan(role, 'stock')
+
+/**
+ * The company's logo (ADR 0105), printed in black on every label: kept as
+ * a product's photo is, on the "logo" setting, and put up or taken down by
+ * whoever changes the company's settings. Everyone signed in reads it, as
+ * anyone prints labels. Sent as a PNG on white, so its edges stay sharp on
+ * a label printer.
+ */
+export const LOGO_ACTIONS = { put: 'logo.put', remove: 'logo.remove' } as const
+export type LogoAction = (typeof LOGO_ACTIONS)[keyof typeof LOGO_ACTIONS]
+
+/** The longer side of the logo as the device sends it: sharp at 300 dpi across a 100 mm label. */
+export const LOGO_SIDE = 1200
+
+export const LOGO_REFUSAL = 'Only the office and directors can change the company logo.'
+
+/** The address of the logo: a new one is a new address. */
+export const logoPath = (at: string) => `/api/settings/logo/photo?v=${encodeURIComponent(at)}`
+
+/** Whether someone can put up or take down the logo: whoever changes the company's settings. No role is held to nothing. */
+export const mayChangeLogo = (role: Role | null | undefined) => !role || roleCan(role, 'settings')

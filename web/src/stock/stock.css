@@ -91,6 +91,21 @@
 .label.cable .bars { display: grid; justify-items: center; width: 100%; }
 .label.cable .bars svg { display: block; width: 100%; height: 9mm; }
 .label.cable .bars small { font-size: 2.2mm; line-height: 1; margin-top: .4mm; }
+/* The length, its colour and the logo (ADR 0105): the colour a word in a black band, read in black alone; in its colour on a colour printer. */
+.label.cable .head { display: flex; align-items: center; justify-content: center; gap: 1.2mm; max-width: 100%; }
+.label.cable .face.with-qr .head { justify-content: flex-start; }
+.label.cable .length { font-size: 6mm; font-weight: 900; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.label.cable .band { font-size: 2.6mm; font-weight: 800; letter-spacing: .04em; line-height: 1; padding: .7mm 1.2mm; background: #000; color: #fff; border-radius: .6mm; white-space: nowrap; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.label.cable .band.in-colour { box-shadow: inset 0 0 0 .2mm #000; }
+.label.cable .logo { height: 4mm; max-width: 14mm; object-fit: contain; margin-left: auto; filter: grayscale(1); }
+.label.cable .face:not(.with-qr) .head .logo:only-child { margin-left: 0; }
+.label .words > .logo { height: 3.6mm; max-width: 24mm; object-fit: contain; object-position: left; filter: grayscale(1); }
+.label.sheet .words > .logo { height: 3mm; }
+.label .code { font-weight: 700; font-variant-numeric: tabular-nums; }
+.warehouse .cable-labels .layouts .tick .swatch { margin-left: auto; }
+/* With the length on top, a shorter barcode, so all three fit 25 mm. */
+.label.cable .words:has(> .head) { gap: .5mm; }
+.label.cable .words:has(> .head) .bars svg { height: 7mm; }
 .warehouse .cable-labels { display: grid; gap: var(--ds-space-3); }
 .warehouse .cable-labels > button { justify-self: start; }
 .warehouse .cable-labels .layouts small { display: block; color: var(--muted); font-size: var(--text-hint); }

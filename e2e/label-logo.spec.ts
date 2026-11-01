@@ -1,0 +1,96 @@
+import { expect, test } from '@playwright/test'
+
+/**
+ * What every label says of the company (ADR 0105): the logo put up under
+ * Admin › Company › Labels prints on cable labels, and a cable's length
+ * goes on in big type with the colour the company gives it, as a word in a
+ * black band unless the printer prints colour. The length is read from the
+ * name until one is given. The logo comes down again at the end, as other
+ * tests print labels on the same server.
+ */
+
+const phoneSize = { width: 390, height: 844 }
+const id = Math.random().toString(36).slice(2, 8)
+/** A small PNG, as a logo file would be. */
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGM4YWRDEmIY1TCqYfhqAABa5TYQf4CqjAAAAABJRU5ErkJggg==',
+  'base64'
+)
+
+test('the logo and a cable length with its colour go on cable labels', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: phoneSize })
+  const page = await context.newPage()
+  const name = `XLR 10m ${id}`
+  const res = await context.request.post('/api/sync/push', {
+    data: {
+      clientId: `logo-${id}`,
+      mutations: [
+        {
+          id: `m-${id}`,
+          name: 'model.create',
+          args: { id: `xlr-${id}`, name, department: 'audio', category: 'Cables', tracking: 'bulk', isCase: false, valueCents: null, notes: '', patMonths: null, liftingMonths: null, code: `XLR10-${id}` },
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    },
+  })
+  expect((await res.json()).results[0].status).toBe('applied')
+
+  // The logo, put up under Admin, as labels print it.
+  await page.goto('/#admin/company')
+  const card = page.getByRole('region', { name: 'Labels' })
+  await expect(card.getByText('None yet: labels say the company')).toBeVisible()
+  await card.getByText('Add the logo').locator('input[type=file]').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: PNG })
+  const shown = card.locator('img.on-label')
+  await expect(shown).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
+  // Made a PNG on white on the device, so its edges stay sharp.
+  expect((await context.request.get((await shown.getAttribute('src'))!)).headers()['content-type']).toBe('image/png')
+
+  // The usual colours, and 10 m made pink.
+  await expect(card.getByRole('listitem').filter({ hasText: 'Over 5 m, up to 10 m' })).toContainText('Green')
+  await card.getByRole('button', { name: 'Change colours' }).click()
+  const tenRow = card.getByRole('listitem').filter({ has: page.locator('input[value="10"]') })
+  await tenRow.getByLabel('Colour').selectOption('pink')
+  await card.getByRole('button', { name: 'Save colours' }).click()
+  await expect(card.getByRole('listitem').filter({ hasText: 'Over 5 m, up to 10 m' })).toContainText('Pink')
+
+  // The cable's labels: 10 m read from its name, pink as a word in a black band, and the logo.
+  await page.goto(`/#stock/product/xlr-${id}`)
+  await page.getByRole('tab', { name: 'Cable labels' }).click()
+  const labels = page.getByRole('region', { name: 'Cable labels' })
+  await expect(labels.getByText('Read from its name.')).toBeVisible()
+  const label = labels.locator('.preview .label.cable')
+  await expect(label.locator('.length')).toHaveText('10 m')
+  const band = label.locator('.band')
+  await expect(band).toHaveText('PINK')
+  expect(await band.evaluate((b) => getComputedStyle(b).backgroundColor)).toBe('rgb(0, 0, 0)')
+  await expect(label.locator('img.logo')).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
+  const [scroll, client] = await label.locator('.face').first().evaluate((f) => [f.scrollHeight, f.clientHeight])
+  expect(scroll).toBeLessThanOrEqual(client! + 1)
+
+  // On a colour printer, the band in its colour; remembered on this device.
+  await labels.getByLabel('This printer prints colour').check()
+  expect(await band.evaluate((b) => getComputedStyle(b).backgroundColor)).toBe('rgb(236, 111, 174)')
+
+  // Its own length, given under Details, is the one used.
+  await page.getByRole('tab', { name: 'Details' }).click()
+  await page.getByRole('button', { name: 'Change details' }).click()
+  await page.getByLabel('Length, in m, for a cable').fill('15')
+  await page.getByRole('button', { name: 'Save product' }).click()
+  await page.getByRole('tab', { name: 'Cable labels' }).click()
+  await expect(label.locator('.length')).toHaveText('15 m')
+  await expect(band).toHaveText('BLUE')
+  await expect(labels.getByText('Read from its name.')).toHaveCount(0)
+  await expect(labels.getByLabel('This printer prints colour')).toBeChecked()
+
+  // Back as it was, for the tests after this one.
+  await page.goto('/#admin/company')
+  await card.getByRole('button', { name: 'Change colours' }).click()
+  await card.getByRole('button', { name: 'Start again from the usual list' }).click()
+  await card.getByRole('button', { name: 'Save colours' }).click()
+  await expect(card.getByRole('listitem').filter({ hasText: 'Over 5 m, up to 10 m' })).toContainText('Green')
+  await card.getByRole('button', { name: 'Remove logo' }).click()
+  await card.getByRole('button', { name: 'Take it down' }).click()
+  await expect(card.getByText('None yet: labels say the company')).toBeVisible()
+  await context.close()
+})

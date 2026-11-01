@@ -216,6 +216,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'timesheets.use': 'settings',
   // Whether Claude is offered inside the app (ADR 0096): a setting like timesheets.
   'assistant.use': 'settings',
+  'cables.colours': 'settings',
 
   'person.role': 'company',
   'person.erase': 'company',

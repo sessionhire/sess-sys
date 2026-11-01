@@ -1,4 +1,4 @@
-import { ASSISTANT_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type CommandArgs } from '@sh/shared'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type CommandArgs } from '@sh/shared'
 import { emit, type Ctx } from '../kernel.ts'
 import { getSetting } from './store.ts'
 
@@ -7,7 +7,7 @@ import { getSetting } from './store.ts'
  * on every freelancer page. One office, so the command replaces them whole.
  */
 
-type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use'
+type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'cables.colours'
 type Handler<N extends OfficeCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
@@ -65,5 +65,15 @@ export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
       [ASSISTANT_SETTING_ID, a.on]
     )
     await emit(ctx, 'setting', ASSISTANT_SETTING_ID, await getSetting(ctx.tx, ASSISTANT_SETTING_ID))
+  },
+
+  /** The colour each cable length takes (ADR 0105), the whole list at once. Every device hears at its next sync. */
+  async 'cables.colours'(ctx, a) {
+    await ctx.tx.query(
+      `INSERT INTO settings (id, cable_colours) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET cable_colours = EXCLUDED.cable_colours, updated_at = now()`,
+      [CABLES_SETTING_ID, JSON.stringify(a.colours)]
+    )
+    await emit(ctx, 'setting', CABLES_SETTING_ID, await getSetting(ctx.tx, CABLES_SETTING_ID))
   },
 }

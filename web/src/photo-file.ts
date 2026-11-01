@@ -7,7 +7,7 @@ import { NOT_A_PHOTO } from '@sh/shared'
  * A person's is the middle square; a product's keeps its shape, as a rack
  * panel is wide. The browser turns it the right way up as it draws it.
  */
-export async function shrinkPhoto(file: File, { side, square }: { side: number; square: boolean }): Promise<Blob> {
+export async function shrinkPhoto(file: File, { side, square, png = false }: { side: number; square: boolean; png?: boolean }): Promise<Blob> {
   const url = URL.createObjectURL(file)
   try {
     const img = new Image()
@@ -27,8 +27,13 @@ export async function shrinkPhoto(file: File, { side, square }: { side: number; 
     canvas.height = Math.max(1, Math.round(crop.h * scale))
     const g = canvas.getContext('2d')
     if (!g) throw new Error(NOT_A_PHOTO)
+    // A logo goes on white, as the label is, so a see-through one doesn't turn black; and as a PNG, so its edges stay sharp.
+    if (png) {
+      g.fillStyle = '#fff'
+      g.fillRect(0, 0, canvas.width, canvas.height)
+    }
     g.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, canvas.width, canvas.height)
-    const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', 0.85))
+    const blob = await new Promise<Blob | null>((done) => (png ? canvas.toBlob(done, 'image/png') : canvas.toBlob(done, 'image/jpeg', 0.85)))
     if (!blob) throw new Error(NOT_A_PHOTO)
     return blob
   } finally {

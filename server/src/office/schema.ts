@@ -27,6 +27,12 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS use_timesheets boolean;`,
   // Whether Claude is offered inside the app (ADR 0096): on the "assistant" row, off until the office says.
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS use_assistant boolean;`,
+  // The colour each cable length takes (ADR 0105), on the "cables" row; and the company's logo on the "logo" row, kept as a photo is.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS cable_colours jsonb;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS photo_key text UNIQUE, ADD COLUMN IF NOT EXISTS photo_type text CHECK (photo_type IN ('jpeg', 'png', 'webp')),
+    ADD COLUMN IF NOT EXISTS photo_bytes integer, ADD COLUMN IF NOT EXISTS photo_at timestamptz;
+  `,
 ]
 
 export const OFFICE: Module = { versionTable: 'office_schema_version', migrations: MIGRATIONS }

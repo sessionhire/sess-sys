@@ -4,6 +4,7 @@ import { offerMessage, tellMessage, type CrewCall, type Offer, type Person } fro
 import { officeContact, officeLine, telHref } from '../src/office.ts'
 import { answersToCheck, crewView } from '../src/sync/crew-view.ts'
 import { officeView } from '../src/sync/office-view.ts'
+import { DEFAULT_CABLE_COLOURS } from '../src/cable-colours.ts'
 
 /**
  * Telling people (audit findings 9 and 10): which answers wait for the
@@ -237,10 +238,10 @@ describe('the office’s details', () => {
 
   it('lay this device’s own change over what the server said', () => {
     const entities = { setting: { office: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: null } } }
-    expect(officeView(entities, [], 0)).toEqual({ details: entities.setting.office, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false })
+    expect(officeView(entities, [], 0)).toEqual({ details: entities.setting.office, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
     const changed = officeView(entities, [m('office.update', { name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' })], 0)
-    expect(changed).toEqual({ details: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' }, pending: true, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false })
-    expect(officeView({}, [], 0)).toEqual({ details: undefined, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false })
+    expect(changed).toEqual({ details: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' }, pending: true, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    expect(officeView({}, [], 0)).toEqual({ details: undefined, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
   })
 
   it("say whether heads of department see rates (ADR 0046), with this device's own choice over the server's", () => {
@@ -268,5 +269,16 @@ describe('the office’s details', () => {
     const entities = { setting: { assistant: { id: 'assistant', name: '', phone: null, email: null, useAssistant: true } } }
     expect(officeView(entities, [], 0)).toMatchObject({ useAssistant: true, assistantPending: false })
     expect(officeView(entities, [m('assistant.use', { on: false })], 0)).toMatchObject({ useAssistant: false, assistantPending: true, timesheetsPending: false })
+  })
+
+  it('keeps the default cable colours until the office saves its own, and shows the logo once put up (ADR 0105)', () => {
+    expect(officeView({}, [], 0)).toMatchObject({ cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    const own = [{ upToM: 5, colour: 'red' as const }, { upToM: 10, colour: 'blue' as const }]
+    const entities = {
+      setting: { cables: { id: 'cables', name: '', phone: null, email: null, cableColours: own }, logo: { id: 'logo', name: '', phone: null, email: null, logo: { at: '2026-11-01T12:00:00.000Z' } } },
+    }
+    expect(officeView(entities, [], 0)).toMatchObject({ cableColours: own, cablesPending: false, logo: { at: '2026-11-01T12:00:00.000Z' } })
+    const mine = [{ upToM: 3, colour: 'green' as const }]
+    expect(officeView(entities, [m('cables.colours', { colours: mine })], 0)).toMatchObject({ cableColours: mine, cablesPending: true })
   })
 })

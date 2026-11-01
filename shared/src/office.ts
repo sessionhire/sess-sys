@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { cableColourList } from './cable-colours.ts'
 import { cleanText, text } from './plain.ts'
 
 /**
@@ -26,6 +27,10 @@ export const MESSAGES_SETTING_ID = 'messages'
 export const TIMESHEETS_SETTING_ID = 'timesheets'
 /** Whether Claude is offered inside the app (ADR 0096): the fifth setting, with only `useAssistant` to it. */
 export const ASSISTANT_SETTING_ID = 'assistant'
+/** The colour each cable length takes (ADR 0105): the sixth setting, with only `cableColours` to it. */
+export const CABLES_SETTING_ID = 'cables'
+/** The company's logo on labels (ADR 0105): the seventh setting, with only `logo` to it, put up as a photo is. */
+export const LOGO_SETTING_ID = 'logo'
 
 export const setting = z.object({
   id,
@@ -59,6 +64,10 @@ export const setting = z.object({
    * to Anthropic.
    */
   useAssistant: z.boolean().optional(),
+  /** On the "cables" setting (ADR 0105): the colour for each cable length, shortest first; the default list until the office saves one. */
+  cableColours: cableColourList.optional(),
+  /** On the "logo" setting (ADR 0105): when the logo was put up, which makes its address (logoPath). Set by the server alone. */
+  logo: z.object({ at: z.string() }).nullable().optional(),
 })
 export type Setting = z.infer<typeof setting>
 
@@ -88,6 +97,8 @@ export const officeCommandSchemas = {
   'timesheets.use': z.object({ on: z.boolean() }),
   /** Whether Claude is offered inside the app (ADR 0096). The office's to decide, under Admin. */
   'assistant.use': z.object({ on: z.boolean() }),
+  /** The colour for each cable length (ADR 0105), the whole list at once. The office's, under Admin. */
+  'cables.colours': z.object({ colours: cableColourList }),
 } as const
 
 /** The details when there is a way back in them: a phone or an email. A name alone is nothing to show. */

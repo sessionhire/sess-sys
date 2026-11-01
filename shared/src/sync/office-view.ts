@@ -1,5 +1,6 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
-import { ASSISTANT_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type Setting, type SettingEntities } from '../office.ts'
+import { DEFAULT_CABLE_COLOURS, type CableColourStep } from '../cable-colours.ts'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LOGO_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type Setting, type SettingEntities } from '../office.ts'
 
 /**
  * The office's details on a device: what the server has said, with this
@@ -26,6 +27,12 @@ export interface OfficeView {
   useAssistant: boolean
   /** That choice changed on this device and not yet on the server. */
   assistantPending: boolean
+  /** The colour each cable length takes (ADR 0105): the company's list, or the default until one is saved. */
+  cableColours: readonly CableColourStep[]
+  /** That list changed on this device and not yet on the server. */
+  cablesPending: boolean
+  /** When the company's logo was put up (ADR 0105), which makes its address; none until there is one. */
+  logo: { at: string } | null
 }
 
 type Tables = { [E in keyof SettingEntities]: Record<string, SettingEntities[E]> }
@@ -42,6 +49,9 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
   let timesheetsPending = false
   let useAssistant = entities.setting?.[ASSISTANT_SETTING_ID]?.useAssistant === true
   let assistantPending = false
+  let cableColours: readonly CableColourStep[] = entities.setting?.[CABLES_SETTING_ID]?.cableColours ?? DEFAULT_CABLE_COLOURS
+  let cablesPending = false
+  const logo = entities.setting?.[LOGO_SETTING_ID]?.logo ?? null
   for (const m of outbox) {
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     if (m.name === 'reading.heads') {
@@ -60,6 +70,10 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
       useAssistant = (m.args as CommandArgs<'assistant.use'>).on
       assistantPending = true
     }
+    if (m.name === 'cables.colours') {
+      cableColours = (m.args as CommandArgs<'cables.colours'>).colours
+      cablesPending = true
+    }
     if (m.name !== 'office.update') continue
     // Laid over what's known, so a change that doesn't say the VAT number or address keeps them, as the server does.
     const args = m.args as CommandArgs<'office.update'>
@@ -68,5 +82,5 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
     if (args.address === null || args.address === '') delete details.address
     pending = true
   }
-  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, useAssistant, assistantPending }
+  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, useAssistant, assistantPending, cableColours, cablesPending, logo }
 }

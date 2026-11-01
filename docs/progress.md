@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 1 November 2026: the logo, stock code, cable length and colour on labels
+
+**Done**
+
+- [ADR 0105](adr/0105-logo-length-and-colour-on-labels.md), at Colly's ask:
+  a company logo under Admin › Company › Labels, printed on every label;
+  the stock code on an item's own label; a length on each product; a
+  colour for each length (resistor order to start, the office's to
+  change); cable labels with the length in big type and its colour as a
+  word in a black band, in colour on a colour printer. App 1.74.0.
+- Checked: typecheck, shared and server tests, and the browser tests for
+  labels, cable labels and the new logo test.
+
+**Waiting**
+
+- Colly to put the logo up once this is live. Colour printers were
+  researched in the thread "Print labels straight from the app"; the ZT411
+  stays the suggestion, with tape by length.
+
 ## 30 October 2026: Send a quote to the client by email
 
 **Done**
