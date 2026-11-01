@@ -29,7 +29,7 @@ import { RATE_LABELS, type RateRule } from '@sh/shared'
 import { certificateName, certificateOf, DOCUMENT_ACTIONS, DOCUMENT_KINDS, DOCUMENT_TITLES, fileLabel, FILE_TYPES, titleInSentence, type FileType } from '@sh/shared'
 import { countSummaryWords, isCountSummary } from '@sh/shared'
 import { ROLE_LABELS, type Role } from '@sh/shared'
-import { OWN_CALENDAR_ACTIONS, PHOTO_ACTIONS, PRODUCT_PHOTO_ACTIONS } from '@sh/shared'
+import { lengthLabel, LOGO_ACTIONS, OWN_CALENDAR_ACTIONS, PHOTO_ACTIONS, PRODUCT_PHOTO_ACTIONS } from '@sh/shared'
 import { LEFT_OUT_REASONS, leftOutLabel, type LeftOutReason } from '@sh/shared'
 import { VEHICLE_KIND_LABELS, type VehicleKind } from '@sh/shared'
 import { STEP_LABELS, type JobStep } from '@sh/shared'
@@ -133,6 +133,11 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
   const phaseName = (id: unknown) => text(look('phase', id)?.name, 'a phase')
   const vehicle = (id: unknown) => text(look('vehicle', id)?.name, 'a vehicle')
   const purchase = (id: unknown) => text(look('purchaseRequest', id)?.title, 'a request')
+  /** "Desk case tracker", or "Digital Matter 416581" before it has a name (ADR 0107). */
+  const tracker = (id: unknown) => {
+    const t = look('tracker', id)
+    return t ? text(t.name, `tracker ${text(t.serial, '')}`.trim()) : 'a tracker'
+  }
   /** ", 2 subhired from PRG". */
   const subhired = (n: unknown, from: unknown) =>
     typeof n === 'number' && n > 0 ? `, ${n} subhired${typeof from === 'string' && from.trim() ? ` from ${clip(from.trim())}` : ''}` : ''
@@ -282,6 +287,24 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.on === true ? 'Turned on timesheets' : 'Turned off timesheets'
     case 'assistant.use':
       return a.on === true ? 'Turned on Claude' : 'Turned off Claude'
+    case 'cables.colours':
+      return `Set the colours for cable lengths${Array.isArray(a.colours) ? ` (${a.colours.length})` : ''}`
+    // The company's logo (ADR 0106): that it changed, never the picture.
+    case LOGO_ACTIONS.put:
+      return a.replaced ? 'Put up a new company logo' : 'Put up the company logo'
+    case LOGO_ACTIONS.remove:
+      return 'Took the company logo down'
+    // Trackers on kit (ADR 0107).
+    case 'trackers.use':
+      return a.on === true ? 'Turned on trackers' : 'Turned off trackers'
+    case 'trackers.home':
+      return a.home ? `Put the warehouse on the map for trackers, ${typeof a.radiusM === 'number' ? `${a.radiusM.toLocaleString('en-IE')} m` : 'a little'} around it` : 'Took the warehouse off the map for trackers'
+    case 'tracker.attach':
+      return a.assetId ? `Put ${tracker(a.id)} on ${item(a.assetId)}` : `Took ${tracker(a.id)} off its item`
+    case 'tracker.name':
+      return text(a.name, '').trim() ? `Called ${tracker(a.id)} “${clip(text(a.name, '').trim())}”` : `Took the name off ${tracker(a.id)}`
+    case 'tracker.archive':
+      return a.archived ? `Put ${tracker(a.id)} away` : `Brought ${tracker(a.id)} back into use`
     case 'offer.confirm': {
       const o = offer(a.id)
       return `Confirmed ${o.who} for ${o.what}`
@@ -414,6 +437,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (a.dryHire !== undefined) parts.push(a.dryHire ? 'dry hire' : 'ours')
       if (a.supplier !== undefined) parts.push(typeof a.supplier === 'string' && a.supplier.trim() ? `hired from ${clip(a.supplier.trim())}` : 'no supplier')
       if (a.hireDayCents !== undefined) parts.push(typeof a.hireDayCents === 'number' ? `hire price to ${valueLabel(a.hireDayCents)} a day` : 'no hire price')
+      if (a.lengthM !== undefined) parts.push(typeof a.lengthM === 'number' ? `length to ${lengthLabel(a.lengthM)}` : 'no length')
       if (a.listId !== undefined) parts.push(typeof a.listId === 'string' && a.listId ? `its id in the list it came from to ${a.listId}` : 'no id from a list')
       return `Changed the product ${model(a.id)}: ${inWords(parts)}`
     }

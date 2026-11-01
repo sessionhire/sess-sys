@@ -315,10 +315,14 @@ const ABOUT: Record<string, string> = {
     "Each quote emailed to a client from the operations mailbox: which quote, its version and number as sent, when, by whom, from and to which addresses, the subject and the message. The PDF that went is left out of this file; the app's own copy is on the quote's page.",
   role_prices: "The price list for crew: each role's price for a day, in cents. A role not here is quoted at the rate its crew were booked at.",
   running_late: "People saying on their private link that they're running late on a day they're booked, or the office noting it when they rang: how late or when they'll be there, their note, when they said they'd arrived, and when the office noted it. Shown only until the day is over, and deleted 30 days after it.",
-  settings: "The office's own details: the name, phone and email shown to freelancers on their pages, and the VAT number and address printed on quotes; whether heads of department see crew rates; and whether the app prompts messages to crew.",
+  settings: "The office's own details: the name, phone and email shown to freelancers on their pages, and the VAT number and address printed on quotes; whether heads of department see crew rates; and whether the app prompts messages to crew; the colour for each cable length, and the company logo printed on labels (its file kept with documents' files).",
   stock: 'Counted stock: how many of a product are at a place or in a case.',
   timesheets: "Freelancers' timesheets, one for each booking: the days worked at the day rate, extras such as parking or mileage, what was sent and what the office approved.",
   unavailability: "Days people can't work.",
+  // Trackers on expensive kit (ADR 0107).
+  trackers: "Trackers on kit: the maker and serial number, the name the office gave it, the item it's on, when it was first and last heard from, where it last said it was and how accurately, its battery, where that is against where the item should be and since when, and whether it's been put away.",
+  tracker_reports: 'Every report a tracker sent, as it came: when, its number, where it was and how accurately, its battery and why it reported.',
+  tracker_settings: 'Whether the company uses trackers, where the warehouse is on the map, and how near counts as there.',
   users: 'Staff who have signed in with Google.',
   // A job's steps (ADR 0073).
   // The purchase list (ADR 0077).

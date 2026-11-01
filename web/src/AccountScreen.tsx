@@ -5,6 +5,7 @@ import { ChangesCard } from './ChangesScreen.tsx'
 import { CurrentRmsCard } from './CurrentRmsCard.tsx'
 import { DataCard } from './DataCard.tsx'
 import { ExportCard } from './ExportCard.tsx'
+import { LabelsCard } from './LabelsCard.tsx'
 import { ListsCard } from './ListsCard.tsx'
 import { Top } from './jobs/common.tsx'
 import { MessagesCard } from './MessagesCard.tsx'
@@ -15,6 +16,7 @@ import { AssistantCard } from './AssistantCard.tsx'
 import { MailboxCard } from './MailboxCard.tsx'
 import { TravelCard } from './TravelCard.tsx'
 import { ReadingCard } from './ReadingCard.tsx'
+import { TrackersCard } from './stock/Trackers.tsx'
 import { StatusPanel } from './StatusPanel.tsx'
 import { useAccess } from './role.ts'
 import { TabPanel, Tabs, useTab } from './Tabs.tsx'
@@ -79,6 +81,7 @@ export function AccountScreen() {
                 {settings && <OfficeCard office={view.office} />}
                 {settings && access.can('money') && <QuotingCard money={view.money} />}
                 {settings && access.can('money') && <TravelCard money={view.money} />}
+                {settings && <LabelsCard office={view.office} />}
                 {settings && <MessagesCard office={view.office} />}
                 {settings && <TimesheetsUseCard office={view.office} />}
                 {settings && access.can('money') && <AssistantCard office={view.office} />}
@@ -90,6 +93,7 @@ export function AccountScreen() {
                 <CalendarCard view={view} available={auth.status === 'signed-in'} />
                 {access.can('money') && <MailboxCard money={view.money} />}
                 {access.can('money') && <CurrentRmsCard />}
+                {settings && <TrackersCard view={view} />}
               </>
             )}
             {part === 'data' && (

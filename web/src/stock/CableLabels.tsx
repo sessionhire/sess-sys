@@ -1,6 +1,9 @@
-import { barcode, barcodeFits, plural, qrCode, type ModelView } from '@sh/shared'
+import { barcode, barcodeFits, CABLE_COLOURS, colourForLength, lengthFromName, lengthLabel, plural, qrCode, type CableColour, type ModelView } from '@sh/shared'
 import { useMemo, useState } from 'react'
 import { Heading } from '../Icon.tsx'
+import { Swatch } from '../LabelsCard.tsx'
+import { logoOf } from '../Picture.tsx'
+import { useView } from '../view.ts'
 import { PrintSheet, usePrinting } from './Labels.tsx'
 
 /**
@@ -11,6 +14,12 @@ import { PrintSheet, usePrinting } from './Labels.tsx'
  * code as a QR code or as a long thin barcode, which scanned in the Stock
  * search opens the product. They print through the browser's print dialog
  * on a label printer, as an item's labels do (ADR 0015).
+ *
+ * Its length goes on in big type with the colour the company gives that
+ * length (ADR 0106), and the company's logo once there is one. A label
+ * printer prints black only, so the colour is a word in a black band, read
+ * in black alone; on a colour printer, ticked as one, the band prints in
+ * the colour itself.
  */
 
 /** The labels a cable takes, each one to a page on a label printer. */
@@ -29,13 +38,20 @@ export type CableCode = keyof typeof CABLE_CODES
 const MOST = 500
 
 const KEY = 'sh.cableLabels'
-/** The layout and code used last on this device, since it's usually the same printer and labels. */
-function saved(): { layout: CableLayout; code: CableCode } {
-  const out = { layout: 'wrap' as CableLayout, code: 'barcode' as CableCode }
+interface Saved {
+  layout: CableLayout
+  code: CableCode
+  /** This device's printer prints colour (ADR 0106), so the length's band is printed in its colour. */
+  colour: boolean
+}
+/** The layout, code and printer used last on this device, since it's usually the same printer and labels. */
+function saved(): Saved {
+  const out: Saved = { layout: 'wrap', code: 'barcode', colour: false }
   try {
-    const was = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, string>
-    if (was.layout && was.layout in CABLE_LAYOUTS) out.layout = was.layout as CableLayout
-    if (was.code && was.code in CABLE_CODES) out.code = was.code as CableCode
+    const was = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, unknown>
+    if (typeof was.layout === 'string' && was.layout in CABLE_LAYOUTS) out.layout = was.layout as CableLayout
+    if (typeof was.code === 'string' && was.code in CABLE_CODES) out.code = was.code as CableCode
+    out.colour = was.colour === true
   } catch {
     // Storage blocked or spoilt: the first of each, then.
   }
@@ -88,32 +104,64 @@ function Qr({ text }: { text: string }) {
   )
 }
 
-/** What one end of a label says: the words, and the code if there is one. */
-function Face({ words, code, kind, widthMm }: { words: string; code: string; kind: CableCode; widthMm: number }) {
-  const qr = kind === 'qr' && code
-  const bars = kind === 'barcode' && code
+/** What's on every label of a run: the words, the code, and the length with its colour. */
+interface Says {
+  words: string
+  code: string
+  kind: CableCode
+  /** The length in metres, when it's to go on. */
+  length: number | null
+  colour: CableColour | undefined
+  /** Print the band in its colour, on a colour printer; black otherwise. */
+  inColour: boolean
+  logo: string | undefined
+}
+
+/** The length's colour as a word in a band: black with white type on a label printer, the colour itself on a colour one. */
+function Band({ colour, inColour }: { colour: CableColour; inColour: boolean }) {
+  const { name, hex } = CABLE_COLOURS[colour]
+  const light = colour === 'white' || colour === 'yellow' || colour === 'pink' || colour === 'orange' || colour === 'grey' || colour === 'sky'
+  return (
+    <span className={`band${inColour ? ' in-colour' : ''}`} style={inColour ? { background: hex, color: light ? '#000' : '#fff' } : undefined}>
+      {name.toUpperCase()}
+    </span>
+  )
+}
+
+/** What one end of a label says: the length and its colour, the words, the code if there is one, and the logo. */
+function Face({ s, widthMm }: { s: Says; widthMm: number }) {
+  const qr = s.kind === 'qr' && s.code
+  const bars = s.kind === 'barcode' && s.code
   // A QR code takes 19 mm of the width; a barcode a row under the words.
   const room = qr ? widthMm - 21 : widthMm - 3
+  const head = s.length !== null || s.logo
   return (
     <div className={`face${qr ? ' with-qr' : ''}`}>
-      {qr && <Qr text={code} />}
+      {qr && <Qr text={s.code} />}
       <div className="words">
-        <b style={{ fontSize: `${fit(words, room, bars ? 6.5 : qr ? 7 : 10)}mm` }}>{words}</b>
-        {bars && <Bars text={code} />}
+        {head && (
+          <span className="head">
+            {s.length !== null && <span className="length">{lengthLabel(s.length)}</span>}
+            {s.length !== null && s.colour && <Band colour={s.colour} inColour={s.inColour} />}
+            {s.logo && <img className="logo" src={s.logo} alt="Session Hire" />}
+          </span>
+        )}
+        <b style={{ fontSize: `${fit(s.words, room, head ? (bars ? 4.2 : 5.5) : bars ? 6.5 : qr ? 7 : 10)}mm` }}>{s.words}</b>
+        {bars && <Bars text={s.code} />}
       </div>
     </div>
   )
 }
 
 /** One cable label, as it prints: a flag says it at both ends, the middle round the cable left blank. */
-export function CableLabel({ words, code, kind, layout }: { words: string; code: string; kind: CableCode; layout: CableLayout }) {
+export function CableLabel({ s, layout }: { s: Says; layout: CableLayout }) {
   return (
     <div className={`label cable ${layout}`}>
-      <Face words={words} code={code} kind={kind} widthMm={layout === 'flag' ? 40 : 50} />
+      <Face s={s} widthMm={layout === 'flag' ? 40 : 50} />
       {layout === 'flag' && (
         <>
           <span className="round" aria-hidden />
-          <Face words={words} code={code} kind={kind} widthMm={40} />
+          <Face s={s} widthMm={40} />
         </>
       )}
     </div>
@@ -122,15 +170,22 @@ export function CableLabel({ words, code, kind, layout }: { words: string; code:
 
 /** Cable labels for a product: what they say, which label, the code on them, how many, and Print. */
 export function CableLabels({ m }: { m: ModelView }) {
+  const office = useView().office
   const first = useMemo(saved, [])
   const [words, setWords] = useState(m.name)
   const [layout, setLayout] = useState<CableLayout>(first.layout)
   const [kind, setKind] = useState<CableCode>(first.code)
+  const [inColour, setInColour] = useState(first.colour)
+  // Its own length, or one read from its name, such as "XLR 10m", until one is given.
+  const named = m.lengthM === null ? lengthFromName(m.name) : null
+  const length = m.lengthM ?? named
+  const [showLength, setShowLength] = useState(true)
+  const colour = colourForLength(length, office.cableColours)
   const [count, setCount] = useState('2')
   const [printing, setPrinting] = usePrinting()
-  const remember = (next: { layout: CableLayout; code: CableCode }) => {
+  const remember = (next: Partial<Saved>) => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(next))
+      localStorage.setItem(KEY, JSON.stringify({ layout, code: kind, colour: inColour, ...next }))
     } catch {
       // Remembered for this page only.
     }
@@ -142,6 +197,7 @@ export function CableLabels({ m }: { m: ModelView }) {
   const said = words.trim()
   const n = Number(count)
   const many = Number.isInteger(n) && n >= 1 && n <= MOST ? n : 0
+  const says: Says = { words: said, code, kind, length: showLength ? length : null, colour, inColour, logo: logoOf(office) }
   return (
     <section className="card cable-labels" aria-label="Cable labels">
       <Heading icon="label">Cable labels</Heading>
@@ -165,7 +221,7 @@ export function CableLabels({ m }: { m: ModelView }) {
               checked={layout === l}
               onChange={() => {
                 setLayout(l)
-                remember({ layout: l, code: kind })
+                remember({ layout: l })
               }}
             />
             <span>
@@ -185,13 +241,49 @@ export function CableLabels({ m }: { m: ModelView }) {
               checked={kind === c}
               onChange={() => {
                 setKind(c)
-                remember({ layout, code: c })
+                remember({ code: c })
               }}
             />
             <span>{CABLE_CODES[c]}</span>
           </label>
         ))}
       </fieldset>
+      {length !== null && (
+        <fieldset className="layouts">
+          <legend>Length</legend>
+          <label className="tick">
+            <input type="checkbox" checked={showLength} onChange={(e) => setShowLength(e.target.checked)} />
+            <span>
+              {lengthLabel(length)} in big type{colour ? `, and ${CABLE_COLOURS[colour].name.toLowerCase()} for its length` : ''}
+              <small>
+                {named !== null
+                  ? 'Read from its name. Give its length under Details to be sure.'
+                  : colour
+                    ? `Put ${CABLE_COLOURS[colour].name.toLowerCase()} tape or heat-shrink on it too: the label says the colour, the tape shows it.`
+                    : 'Longer than any length given a colour under Admin › Company › Labels.'}
+              </small>
+            </span>
+            {colour && <Swatch colour={colour} />}
+          </label>
+          {colour && (
+            <label className="tick">
+              <input
+                type="checkbox"
+                checked={inColour}
+                onChange={(e) => {
+                  setInColour(e.target.checked)
+                  remember({ colour: e.target.checked })
+                }}
+              />
+              <span>
+                This printer prints colour
+                <small>Then the band prints in {CABLE_COLOURS[colour].name.toLowerCase()}. A label printer such as a Zebra prints black only, so leave this off.</small>
+              </span>
+            </label>
+          )}
+        </fieldset>
+      )}
+      {length === null && <p className="hint">Give it a length under Details, such as 10, and its labels say it in big type with its colour.</p>}
       {noBarcode ? (
         <p className="hint" role="note">
           {stockCode
@@ -206,7 +298,7 @@ export function CableLabels({ m }: { m: ModelView }) {
         </p>
       ) : null}
       <div className="preview" aria-label="Preview">
-        {said && <CableLabel words={said} code={code} kind={kind} layout={layout} />}
+        {said && <CableLabel s={says} layout={layout} />}
       </div>
       <p className="hint">Print at actual size, not fitted to the page.</p>
       <button type="button" className="primary" disabled={!said || !many || printing} onClick={() => setPrinting(true)}>
@@ -216,7 +308,7 @@ export function CableLabels({ m }: { m: ModelView }) {
         <PrintSheet className={`cable ${layout}`} page={CABLE_LAYOUTS[layout].page}>
           {Array.from({ length: many }, (_, i) => (
             <div key={i} className="page">
-              <CableLabel words={said} code={code} kind={kind} layout={layout} />
+              <CableLabel s={says} layout={layout} />
             </div>
           ))}
         </PrintSheet>

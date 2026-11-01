@@ -42,6 +42,7 @@ import { productPhotoOf, Thumb } from '../Picture.tsx'
 import { kitIcon } from './kitIcon.ts'
 import { STOCK } from '../Up.tsx'
 import { BuiltRackCheck } from './Racks.tsx'
+import { TrackerCard } from './Trackers.tsx'
 
 /**
  * One numbered item: its label, its product, where it's kept, the labels
@@ -50,7 +51,8 @@ import { BuiltRackCheck } from './Racks.tsx'
  * be brought back. Damage, or its going missing, is reported here, and
  * each fault is fixed, found or written off here too (ADR 0018), and its
  * electrical tests and thorough examinations are recorded (ADR 0020). Its
- * log says everything that happened to it (ADR 0026).
+ * log says everything that happened to it (ADR 0026). With trackers on, its
+ * tracker says where it is (ADR 0107).
  */
 export function ItemScreen({ view, id, bare }: { view: View; id: string; bare?: boolean }) {
   const w = view.warehouse
@@ -78,6 +80,7 @@ export function ItemScreen({ view, id, bare }: { view: View; id: string; bare?: 
       bare={bare}
     >
       <Summary a={a} w={w} view={view} />
+      <TrackerCard view={view} a={a} />
       <FaultsCard faults={view.faults.ofAsset(a.id)}>
         {a.status === 'active' && (
           <ReportButtons
@@ -227,7 +230,7 @@ function Summary({ a, w, view }: { a: AssetView; w: WarehouseView; view: View })
       {!retired &&
         mode === 'print' &&
         (a.number ? (
-          <PrintLabels numbers={[a.number]} caption={a.model?.name} />
+          <PrintLabels numbers={[a.number]} caption={a.model?.name} code={a.model?.code || undefined} />
         ) : (
           <p className="hint">It gets its number when it syncs, and its label can be printed then.</p>
         ))}

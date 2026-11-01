@@ -21,7 +21,8 @@ import type { default as MapPart, Mark } from './Map.tsx'
 /** Leaflet and the map's own styles load only on the pages with a map, and are kept from the first (lazyPart.tsx). */
 const MapView = lazyPart(() => import('./Map.tsx'))
 
-function LazyMap(props: ComponentProps<typeof MapPart>) {
+/** A map that loads Leaflet only when it's drawn; trackers' maps use it too (ADR 0107). */
+export function LazyMap(props: ComponentProps<typeof MapPart>) {
   const box = (words?: string) => (
     <div className={`map waiting${props.tall ? ' tall' : ''}`} aria-label={props.label} role="region">
       {words && <p className="hint map-missing">{words}</p>}
@@ -36,7 +37,7 @@ const markOf = (v: VenueView & { pin: Pin }, line?: string): Mark => ({ id: v.id
 const lookUp = (v: Pick<VenueView, 'name' | 'address'>) => ask<PlacesFound>(`/api/places?${new URLSearchParams({ name: v.name, address: v.address })}`)
 
 /** "53.13361, -7.15122": where a pin is, for anyone who needs the numbers. */
-const pinText = (p: Pin) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`
+export const pinText = (p: Pin) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`
 
 /** A venue's map, on its page. */
 export function VenueMapCard({ venue }: { venue: VenueView }) {

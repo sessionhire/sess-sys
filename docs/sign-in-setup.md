@@ -289,6 +289,39 @@ client mail to share a thread; leave it off to keep one private.
 To stop it, press **Disconnect** under Admin › Company (the app hands the
 key back to Google), or turn Claude off.
 
+## 10. Trackers on expensive kit
+
+Digital Matter trackers (the Yabby Edge Cellular) report where they are to
+Digital Matter's own server, which passes each report on to the app
+([Decision 0107](adr/0107-trackers-on-expensive-kit.md)). The app compares
+it with where the item should be and puts kit away from the warehouse on no
+job, or not back after its job, at the top of Notifications.
+
+1. **Give the server a key.** In Railway, **shserver**, **Variables**, add
+   `TRACKERS_KEY` with a long random value (a password manager's generator,
+   40 characters or more). Railway redeploys.
+2. **Turn trackers on.** In the app, **Admin**, **Connections**,
+   **Trackers**: tick **Use trackers**, then put the warehouse on the map
+   (tap it, drag the pin, or paste a Google Maps link) and **Save the
+   warehouse**. 300 m counts as there unless you change it.
+3. **Point Digital Matter at the app.** Open **Setting up Digital Matter**
+   on the same card: it says whether the key is set and gives the address.
+   In Digital Matter's portal (or ask the reseller who supplied the
+   trackers), add an **HTTP connector** to that address, method POST, JSON,
+   with **basic authentication**: any user name, and `TRACKERS_KEY` as the
+   password. Send the trackers' reports through it.
+4. **Put each tracker on its item.** A tracker shows on the card the first
+   time it reports. Put it on an item there by the item's number, or from
+   the item's page; name it if you like (where it's stuck, say).
+5. **Check it.** The tracker's line says when it was last heard from and
+   where. If nothing arrives, Digital Matter's connector log says why: 401
+   is the wrong key, 503 is the key not set or trackers off. Reports it
+   couldn't hand over are kept and sent again, so nothing is lost while you
+   sort it.
+
+To stop, untick **Use trackers**. Trackers carry on reporting to Digital
+Matter, which holds the reports until they're on again.
+
 ## Good to know
 
 - Google is the only way in for staff (ADR 0052). A member of staff's own
