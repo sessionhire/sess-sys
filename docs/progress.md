@@ -17,7 +17,7 @@ waiting on someone.
   "constructor" and "prototype" as well as "\_\_proto\_\_". Four patterns that
   slowed down on long input now run in a straight line. The Blueprint checks
   its markdown reader against cdnjs's hash and no longer reads its documents
-  back out of the page. glob held at 14.0.3 or later. App 1.73.1.
+  back out of the page. glob held at 14.0.3 or later. App 1.74.1.
 - Checked: typecheck, the shared and server tests (new ones for each fix,
   including a sign-in limit test and long-input timings), the web build and
   its offline worker, and the Blueprint in a browser with the real script and
