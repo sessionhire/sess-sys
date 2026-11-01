@@ -36,14 +36,19 @@ export class MemoryStorage implements Storage {
 }
 
 export function applyChange(state: Snapshot, change: Change) {
-  // A name a plain object treats specially would reach every object, not a table.
-  if ((change.entity as string) === '__proto__' || change.id === '__proto__') return
+  const entity: string = change.entity
+  const id: string = change.id
+  // A name a plain object treats specially would reach every object, not a table or a row.
+  if (entity === '__proto__' || entity === 'constructor' || entity === 'prototype') return
+  if (id === '__proto__' || id === 'constructor' || id === 'prototype') return
+  const tables = state.entities as Record<string, Record<string, unknown>>
   // A change for an entity this build doesn't know is kept under its name, not
   // dropped: a phone open during a deploy that adds one would otherwise move its
   // cursor past those rows and never see them. The views only read the tables
   // they know, and the next build reads the rest like any other table.
   // Snapshots saved before a module existed have no table for it yet.
-  const table = (state.entities[change.entity] ??= {} as never) as Record<string, unknown>
-  if (change.op === 'delete') delete table[change.id]
-  else table[change.id] = change.data
+  if (!Object.hasOwn(tables, entity)) tables[entity] = {}
+  const table = tables[entity]!
+  if (change.op === 'delete') delete table[id]
+  else table[id] = change.data
 }

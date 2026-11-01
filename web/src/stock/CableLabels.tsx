@@ -16,7 +16,7 @@ import { PrintSheet, usePrinting } from './Labels.tsx'
  * on a label printer, as an item's labels do (ADR 0015).
  *
  * Its length goes on in big type with the colour the company gives that
- * length (ADR 0105), and the company's logo once there is one. A label
+ * length (ADR 0106), and the company's logo once there is one. A label
  * printer prints black only, so the colour is a word in a black band, read
  * in black alone; on a colour printer, ticked as one, the band prints in
  * the colour itself.
@@ -41,7 +41,7 @@ const KEY = 'sh.cableLabels'
 interface Saved {
   layout: CableLayout
   code: CableCode
-  /** This device's printer prints colour (ADR 0105), so the length's band is printed in its colour. */
+  /** This device's printer prints colour (ADR 0106), so the length's band is printed in its colour. */
   colour: boolean
 }
 /** The layout, code and printer used last on this device, since it's usually the same printer and labels. */

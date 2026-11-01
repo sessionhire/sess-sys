@@ -44,7 +44,7 @@ import { claimFile, queueFile } from './store.ts'
  *
  * A product's photo (ADR 0083) is kept and sent the same way, put up and
  * taken down by whoever changes stock, and read by everyone signed in.
- * The company's logo (ADR 0105) is too, on the "logo" setting, put up and
+ * The company's logo (ADR 0106) is too, on the "logo" setting, put up and
  * taken down by whoever changes settings.
  */
 
@@ -125,7 +125,7 @@ export function removeProductPhoto(db: Db, id: string, who: Who) {
   })
 }
 
-/** The company's logo put up (ADR 0105), in place of the one it had. */
+/** The company's logo put up (ADR 0106), in place of the one it had. */
 export function putLogo(db: Db, files: DocumentFiles, data: Buffer, type: PhotoType, who: Who) {
   const args = { type, bytes: data.length }
   return withFile(files, data, (key) =>
@@ -248,7 +248,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
       put: (id, data, type, w) => putProductPhoto(db, files, id, data, type, w),
       remove: (id, w) => removeProductPhoto(db, id, w),
     })
-    // The company's logo (ADR 0105): one, on the "logo" setting; everyone signed in reads it, as anyone prints labels.
+    // The company's logo (ADR 0106): one, on the "logo" setting; everyone signed in reads it, as anyone prints labels.
     routes({
       path: '/api/settings/logo/photo',
       table: 'settings',

@@ -24,7 +24,7 @@ import { client } from './sync.ts'
 import { useLate } from './useLate.ts'
 
 /**
- * What every label says of the company (ADR 0105), for the office: the
+ * What every label says of the company (ADR 0106), for the office: the
  * logo printed on each label in black, and the colour each cable length
  * takes. The logo goes straight to the server, as a product's photo does;
  * the colours are a setting like any other, saved whole.

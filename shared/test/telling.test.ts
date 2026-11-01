@@ -271,7 +271,7 @@ describe('the office’s details', () => {
     expect(officeView(entities, [m('assistant.use', { on: false })], 0)).toMatchObject({ useAssistant: false, assistantPending: true, timesheetsPending: false })
   })
 
-  it('keeps the default cable colours until the office saves its own, and shows the logo once put up (ADR 0105)', () => {
+  it('keeps the default cable colours until the office saves its own, and shows the logo once put up (ADR 0106)', () => {
     expect(officeView({}, [], 0)).toMatchObject({ cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
     const own = [{ upToM: 5, colour: 'red' as const }, { upToM: 10, colour: 'blue' as const }]
     const entities = {

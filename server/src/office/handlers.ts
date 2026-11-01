@@ -67,7 +67,7 @@ export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
     await emit(ctx, 'setting', ASSISTANT_SETTING_ID, await getSetting(ctx.tx, ASSISTANT_SETTING_ID))
   },
 
-  /** The colour each cable length takes (ADR 0105), the whole list at once. Every device hears at its next sync. */
+  /** The colour each cable length takes (ADR 0106), the whole list at once. Every device hears at its next sync. */
   async 'cables.colours'(ctx, a) {
     await ctx.tx.query(
       `INSERT INTO settings (id, cable_colours) VALUES ($1, $2)

@@ -28,7 +28,7 @@ const base = import.meta.env.VITE_API_BASE ?? ''
 export const photoOf = (p: Pick<Person, 'id' | 'photo'> | undefined) => (p?.photo ? `${base}${photoPath(p.id, p.photo.at)}` : undefined)
 
 /** Where a product's photo is, once it has one (ADR 0083). */
-/** The company's logo (ADR 0105), for labels; none until one is put up. */
+/** The company's logo (ADR 0106), for labels; none until one is put up. */
 export const logoOf = (office: Pick<OfficeView, 'logo'>) => (office.logo ? `${base}${logoPath(office.logo.at)}` : undefined)
 
 export const productPhotoOf = (m: Pick<Model, 'id' | 'photo'> | null | undefined) => (m?.photo ? `${base}${productPhotoPath(m.id, m.photo.at)}` : undefined)

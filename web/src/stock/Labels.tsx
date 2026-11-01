@@ -81,7 +81,7 @@ function Range({ r }: { r: LabelRunView }) {
 
 /**
  * One label: the QR code, the number in large type, and whose it is: the
- * company's logo once there is one (ADR 0105), its name in words until
+ * company's logo once there is one (ADR 0106), its name in words until
  * then; and on an item's own label, its product and stock code.
  */
 export function Label({ number, caption, code, logo, layout }: { number: string; caption?: string; code?: string; logo?: string; layout: Layout }) {

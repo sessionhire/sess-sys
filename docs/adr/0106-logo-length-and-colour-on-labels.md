@@ -1,4 +1,4 @@
-# ADR 0105: The logo, stock code, cable length and its colour on labels
+# ADR 0106: The logo, stock code, cable length and its colour on labels
 
 - **Status:** accepted
 - **Date:** 1 November 2026

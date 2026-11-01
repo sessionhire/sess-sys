@@ -1235,7 +1235,7 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
 </div>
 
 <!--DOCS-DATA-->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" integrity="sha512-xeUh+KxNyTufZOje++oQHstlMQ8/rpyzPuM+gjMFYK3z5ILJGE7l2NvYL+XfliKURMpBIKKp1XoPN/qswlSMFA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 (function () {
   const $ = (s, r = document) => r.querySelector(s);
@@ -1510,10 +1510,18 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
   $('#dec').innerHTML = dec.map(([q, a, s]) => `<div class="row"><span class="q">${q}</span><span>${a}</span><span class="state ${s}">${label[s]}</span></div>`).join('');
 
   // library
-  let docs = [];
-  try { docs = JSON.parse(($('#docs-data') || {}).textContent || '[]'); } catch (e) { docs = []; }
+  // The documents, put in by scripts/build-hub.mjs as a value in the page's own script, never read back out of the page.
+  const embedded = window.SH_DOCS || {};
+  const docs = Array.isArray(embedded.docs) ? embedded.docs : [];
   const nav = $('#libNav'), view = $('#docView');
-  $('#builtAt').textContent = (($('#docs-data') || {}).dataset || {}).built || 'locally';
+  $('#builtAt').textContent = embedded.built || 'locally';
+  // Markdown as HTML, or as plain text when the script that reads it didn't load.
+  const showMd = (el, md) => {
+    if (window.marked) { el.innerHTML = window.marked.parse(md); return; }
+    const pre = document.createElement('pre');
+    pre.textContent = md;
+    el.replaceChildren(pre);
+  };
   // A link from one document to another (e.g. "adr/0001-sync-engine.md")
   // opens that document here instead of a page that doesn't exist.
   const resolve = (from, href) => {
@@ -1535,7 +1543,7 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
     $$('button', nav).forEach((b, j) => b.setAttribute('aria-selected', i === j));
     const d = docs[i];
     if (!d) { view.innerHTML = '<p class="small">No documents embedded. Run the build script to include them.</p>'; return; }
-    view.innerHTML = window.marked ? window.marked.parse(d.md) : `<pre>${d.md.replace(/[&<]/g, c => c === '&' ? '&amp;' : '&lt;')}</pre>`;
+    showMd(view, d.md);
     wireLinks(view, d.path);
     view.scrollTop = 0;
   };
@@ -1545,11 +1553,19 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
   if (prog) {
     const entry = prog.md.split(/^## /m)[1] || '';
     const md = '## ' + entry.trim();
-    $('#latest').innerHTML = window.marked ? window.marked.parse(md) : `<pre>${md.replace(/[&<]/g, c => c === '&' ? '&amp;' : '&lt;')}</pre>`;
+    showMd($('#latest'), md);
     wireLinks($('#latest'), prog.path);
   }
 
-  nav.innerHTML = docs.map((d, i) => `<button type="button" role="tab">${d.title}<small>${d.path}</small></button>`).join('');
+  nav.replaceChildren(...docs.map(d => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'tab');
+    const small = document.createElement('small');
+    small.textContent = d.path;
+    b.append(d.title, small);
+    return b;
+  }));
   $$('button', nav).forEach((b, i) => b.addEventListener('click', () => render(i)));
   render(0);
 

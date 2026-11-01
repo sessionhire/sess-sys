@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { cableColourList, colourForLength, DEFAULT_CABLE_COLOURS, lengthFromName, lengthLabel, stepRange } from '../src/cable-colours.ts'
 import { stockCommandSchemas } from '../src/stock.ts'
 
-describe('cable lengths and their colours (ADR 0105)', () => {
+describe('cable lengths and their colours (ADR 0106)', () => {
   it('gives a length the first colour it fits under, and none past the last or without a length', () => {
     expect(colourForLength(0.5, DEFAULT_CABLE_COLOURS)).toBe('brown')
     expect(colourForLength(1, DEFAULT_CABLE_COLOURS)).toBe('brown')

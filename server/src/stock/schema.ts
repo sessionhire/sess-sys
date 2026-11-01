@@ -351,7 +351,7 @@ const MIGRATIONS: string[] = [
   `
   CREATE INDEX IF NOT EXISTS identifiers_sh_number ON identifiers ((substr(value, 4)::int)) WHERE kind = 'sh';
   `,
-  // A cable's length (ADR 0105), printed big on its cable labels with the colour the company gives that length.
+  // A cable's length (ADR 0106), printed big on its cable labels with the colour the company gives that length.
   `
   ALTER TABLE models ADD COLUMN IF NOT EXISTS length_m numeric(5, 1) CHECK (length_m > 0);
   `,

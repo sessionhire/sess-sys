@@ -1,4 +1,5 @@
 import { departmentInWords, nameKey, KIND_PHASE, type ProjectKind } from '@sh/shared'
+import { decodeEntities, joinLines, textOfHtml } from '../html-text.ts'
 
 /**
  * Reading an event's title as a job, its phases and what kind of job it is
@@ -165,12 +166,15 @@ const PENCIL_ALONE = new RegExp(`^(?:${PENCIL})$`, 'i')
 const PENCIL_BRACKETED = new RegExp(`[([]\\s*(?:${PENCIL})\\s*[)\\]]`, 'gi')
 const PENCIL_WORD = /\b(?:tbc|pencil(?:led|ed)?|provisional)\b/gi
 
-/** A job's name as it will show: no stray dashes, colons or spaces at either end. */
+/** What a job's name doesn't end with. */
+const TRAILING_MARKS = new Set([' ', '-', '–', '—', ':', '|', ',', '/', '&', '+'])
+
+/** A job's name as it will show: no stray dashes, colons or spaces at either end. The end is cut by looking back from it, not with a pattern that would try every mark before it. */
 export function tidy(name: string): string {
-  return name
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s\-–—:|,.]+|[\s\-–—:|,/&+]+$/g, '')
-    .trim()
+  const one = name.replace(/\s+/g, ' ').replace(/^[\s\-–—:|,.]+/, '')
+  let end = one.length
+  while (end > 0 && TRAILING_MARKS.has(one.charAt(end - 1))) end--
+  return one.slice(0, end).trim()
 }
 
 /**
@@ -230,28 +234,20 @@ function parseJobAndPhases(title: string): Omit<ParsedTitle, 'kind'> {
   return { job: job(whole), phases: ['Show'], note: '', guessed: true, pencilled }
 }
 
-/** A job sheet as plain text: Google keeps descriptions written in its editor as simple HTML. */
+/** Tags that start and end a line in a job sheet; li also starts a bullet. */
+const SHEET_LINES = new Set(['p', 'div', 'li', 'ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr'])
+
+/** A job sheet as plain text: Google keeps descriptions written in its editor as simple HTML, read tag by tag (html-text.ts). */
 export function plainText(description: string): string {
-  if (!/<[a-z][\s\S]*>/i.test(description)) return description.replace(/\r\n?/g, '\n').trim()
-  const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
-  return description
-    .replace(/\r\n?/g, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '- ')
-    .replace(/<\/?(?:p|div|li|ul|ol|h[1-6]|tr)(?:\s[^>]*)?>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
-      if (e[0] === '#') {
-        const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
-        return Number.isFinite(code) ? String.fromCodePoint(code) : m
-      }
-      return entities[e.toLowerCase()] ?? m
-    })
-    .split('\n')
-    .map((l) => l.replace(/[ \t]+$/, ''))
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  const text = description.replace(/\r\n?/g, '\n')
+  const tag = /<[a-z]/i.exec(text)
+  if (!tag || !text.includes('>', tag.index)) return text.trim()
+  const read = textOfHtml(text, (name, closing) => {
+    if (name === 'br') return closing ? '' : '\n'
+    if (name === 'li' && !closing) return '- '
+    return SHEET_LINES.has(name) ? '\n' : ''
+  })
+  return joinLines(decodeEntities(read).split('\n'))
 }
 
 /** Cut to fit, saying so. */

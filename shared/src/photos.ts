@@ -68,7 +68,7 @@ export const productPhotoPath = (modelId: string, at: string) => `/api/models/${
 export const mayChangeProductPhoto = (role: Role | null | undefined) => !role || roleCan(role, 'stock')
 
 /**
- * The company's logo (ADR 0105), printed in black on every label: kept as
+ * The company's logo (ADR 0106), printed in black on every label: kept as
  * a product's photo is, on the "logo" setting, and put up or taken down by
  * whoever changes the company's settings. Everyone signed in reads it, as
  * anyone prints labels. Sent as a PNG on white, so its edges stay sharp on

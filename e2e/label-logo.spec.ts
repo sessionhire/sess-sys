@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 /**
- * What every label says of the company (ADR 0105): the logo put up under
+ * What every label says of the company (ADR 0106): the logo put up under
  * Admin › Company › Labels prints on cable labels, and a cable's length
  * goes on in big type with the colour the company gives it, as a word in a
  * black band unless the printer prints colour. The length is read from the

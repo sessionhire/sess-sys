@@ -40,7 +40,7 @@ const kilos = z
   .min(0, 'The weight is a number of kilos, such as 12.5.')
   .max(5000, 'The weight can be up to 5,000 kg.')
   .transform((n) => Math.round(n * 10) / 10)
-/** A cable's length in metres to a tenth, as typed: "10" or "0.5" (ADR 0105). */
+/** A cable's length in metres to a tenth, as typed: "10" or "0.5" (ADR 0106). */
 const metres = z
   .number(wrongType('The length is a number of metres, such as 10 or 0.5.'))
   .min(0.1, 'The length is a number of metres, such as 10 or 0.5.')
@@ -178,7 +178,7 @@ export const model = z.object({
   /** A rack part rather than kit (ADR 0079): a blank, a vent, a shelf or a drawer; null for kit. Only rack-mount products are. */
   rackPart: z.enum(RACK_PARTS).nullable().default(null),
   /**
-   * How long one is, in metres, for a cable (ADR 0105): printed big on its
+   * How long one is, in metres, for a cable (ADR 0106): printed big on its
    * cable labels with the colour the company gives that length. Null where
    * not given, as for everything that isn't a cable.
    */

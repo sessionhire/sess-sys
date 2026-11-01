@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /**
- * A colour for each cable length (ADR 0105), so a 10 m and a 15 m XLR are
+ * A colour for each cable length (ADR 0106), so a 10 m and a 15 m XLR are
  * told apart across a truck by the tape or heat-shrink at each end, and
  * crew coiling them back in put each on the right pile without reading.
  * There's no one standard across the trade, so the company keeps its own

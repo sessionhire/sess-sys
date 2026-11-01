@@ -27,11 +27,11 @@ export interface OfficeView {
   useAssistant: boolean
   /** That choice changed on this device and not yet on the server. */
   assistantPending: boolean
-  /** The colour each cable length takes (ADR 0105): the company's list, or the default until one is saved. */
+  /** The colour each cable length takes (ADR 0106): the company's list, or the default until one is saved. */
   cableColours: readonly CableColourStep[]
   /** That list changed on this device and not yet on the server. */
   cablesPending: boolean
-  /** When the company's logo was put up (ADR 0105), which makes its address; none until there is one. */
+  /** When the company's logo was put up (ADR 0106), which makes its address; none until there is one. */
   logo: { at: string } | null
 }
 

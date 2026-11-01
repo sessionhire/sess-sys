@@ -284,7 +284,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.on === true ? 'Turned on Claude' : 'Turned off Claude'
     case 'cables.colours':
       return `Set the colours for cable lengths${Array.isArray(a.colours) ? ` (${a.colours.length})` : ''}`
-    // The company's logo (ADR 0105): that it changed, never the picture.
+    // The company's logo (ADR 0106): that it changed, never the picture.
     case LOGO_ACTIONS.put:
       return a.replaced ? 'Put up a new company logo' : 'Put up the company logo'
     case LOGO_ACTIONS.remove:

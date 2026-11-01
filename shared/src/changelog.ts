@@ -33,6 +33,14 @@ export const CHANGELOG: readonly Release[] = [
     title: 'The logo, the stock code and a cable’s length and colour on labels',
     what: "The company logo can be put up under Admin › Company › Labels, and prints on every label in place of the name. An item’s label now carries its product’s stock code too. Each product can be given a length, and cable labels say it in big type with the colour for that length, such as 10 m GREEN, from a list the office can change under Admin. A label printer prints black only, so the colour is printed as a word for the tape or heat-shrink put on with it; on a colour printer it prints in the colour.",
     prs: [196],
+    adrs: [106],
+  },
+  {
+    version: '1.74.1',
+    date: '2026-11-01',
+    title: 'Safer sign-in and a few security fixes',
+    what: "Signing in, and connecting a calendar or the operations mailbox, now turn one address away after many tries in a minute, saying to wait a minute; the office never meets it in normal use. Job sheets from Google are read as text more carefully, and one with an odd character in it no longer stops a calendar bring-in. Very long quantities, prices and headings in a file are read in a moment rather than seconds. Fixes for what GitHub's security checks found.",
+    prs: [197],
     adrs: [105],
   },
   {

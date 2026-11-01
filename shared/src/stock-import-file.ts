@@ -57,7 +57,7 @@ const HEADERS: Record<StockField, readonly string[]> = {
 export const tidyHeader = (h: string) =>
   h
     .toLowerCase()
-    .replace(/\(.*?\)/g, ' ')
+    .replace(/\([^()]*\)/g, ' ')
     .replace(/[^a-z0-9/&]+/g, ' ')
     .trim()
 
@@ -185,13 +185,15 @@ export function stockRows(file: StockFile, columns: readonly (StockField | null)
 
 // Reading a cell.
 
+/** "12 pcs", "12x" and "12 off" as "12": the word after the number taken off, by finding it and cutting there rather than with a pattern that has to try every space before it. */
+const withoutCountWord = (t: string) => {
+  const word = /(?:x|pcs|pieces|units|off)\.?$/.exec(t)
+  return word ? t.slice(0, word.index).trimEnd() : t
+}
+
 /** "12", "x12", "12 pcs", "1,200": a whole number of things; null for nothing said. */
 export function readQuantity(cell: string): { qty: number | null; problem?: string } {
-  const t = cell
-    .trim()
-    .toLowerCase()
-    .replace(/^x\s*/, '')
-    .replace(/\s*(x|pcs|pieces|units|off)\.?$/, '')
+  const t = withoutCountWord(cell.trim().toLowerCase().replace(/^x\s*/, ''))
   if (!t) return { qty: null }
   const digits = /^\d{1,3}(,\d{3})+$/.test(t) ? t.replaceAll(',', '') : t
   if (/^\d+$/.test(digits) && Number(digits) <= MAX_QTY) return { qty: Number(digits) }
