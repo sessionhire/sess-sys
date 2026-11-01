@@ -120,7 +120,7 @@ interface Says {
 /** The length's colour as a word in a band: black with white type on a label printer, the colour itself on a colour one. */
 function Band({ colour, inColour }: { colour: CableColour; inColour: boolean }) {
   const { name, hex } = CABLE_COLOURS[colour]
-  const light = colour === 'white' || colour === 'yellow' || colour === 'pink' || colour === 'orange' || colour === 'grey'
+  const light = colour === 'white' || colour === 'yellow' || colour === 'pink' || colour === 'orange' || colour === 'grey' || colour === 'sky'
   return (
     <span className={`band${inColour ? ' in-colour' : ''}`} style={inColour ? { background: hex, color: light ? '#000' : '#fff' } : undefined}>
       {name.toUpperCase()}

@@ -7,7 +7,8 @@ import { z } from 'zod'
  * There's no one standard across the trade, so the company keeps its own
  * list under Admin, starting from the order of the colours on a resistor
  * (brown, red, orange, yellow, green, blue, violet, grey, white), which
- * many in the trade already know, shortest first.
+ * many in the trade already know, shortest first, then pink and light blue
+ * for the long runs of 100 m and 150 m.
  *
  * A label printer prints black only, so a cable label says the colour as a
  * word in a black band; the colour itself is the tape, sleeve or coloured
@@ -26,6 +27,7 @@ export const CABLE_COLOURS = {
   grey: { name: 'Grey', hex: '#8a8a8a' },
   white: { name: 'White', hex: '#ffffff' },
   pink: { name: 'Pink', hex: '#ec6fae' },
+  sky: { name: 'Light blue', hex: '#7cc4f0' },
 } as const
 export type CableColour = keyof typeof CABLE_COLOURS
 export const CABLE_COLOUR_KEYS = Object.keys(CABLE_COLOURS) as CableColour[]
@@ -56,6 +58,8 @@ export const DEFAULT_CABLE_COLOURS: readonly CableColourStep[] = [
   { upToM: 20, colour: 'violet' },
   { upToM: 30, colour: 'grey' },
   { upToM: 50, colour: 'white' },
+  { upToM: 100, colour: 'pink' },
+  { upToM: 150, colour: 'sky' },
 ]
 
 /** The colour a cable this long takes: the first step it fits under; none when it's longer than the last, or has no length. */

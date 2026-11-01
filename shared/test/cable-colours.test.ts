@@ -10,7 +10,9 @@ describe('cable lengths and their colours (ADR 0106)', () => {
     expect(colourForLength(10, DEFAULT_CABLE_COLOURS)).toBe('green')
     expect(colourForLength(15, DEFAULT_CABLE_COLOURS)).toBe('blue')
     expect(colourForLength(50, DEFAULT_CABLE_COLOURS)).toBe('white')
-    expect(colourForLength(100, DEFAULT_CABLE_COLOURS)).toBeUndefined()
+    expect(colourForLength(100, DEFAULT_CABLE_COLOURS)).toBe('pink')
+    expect(colourForLength(150, DEFAULT_CABLE_COLOURS)).toBe('sky')
+    expect(colourForLength(200, DEFAULT_CABLE_COLOURS)).toBeUndefined()
     expect(colourForLength(null, DEFAULT_CABLE_COLOURS)).toBeUndefined()
   })
 

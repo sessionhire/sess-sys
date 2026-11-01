@@ -39,8 +39,8 @@ black only, so a colour on the label itself needs a colour printer.
 4. **A colour for each length**, a company setting ("cables"): a list of
    up-to lengths and colours, shortest first, edited under Admin. It
    starts from the resistor order: up to 1 m brown, 2 m red, 3 m orange,
-   5 m yellow, 10 m green, 15 m blue, 20 m violet, 30 m grey, 50 m white;
-   longer has none.
+   5 m yellow, 10 m green, 15 m blue, 20 m violet, 30 m grey, 50 m white,
+   then 100 m pink and 150 m light blue (Colly's ask); longer has none.
 5. **Cable labels** put the length in big type with its colour as a word
    in a black band ("10 m [GREEN]"), so the label reads in black alone, and
    the logo beside them. The colour itself is the tape or sleeve put on
