@@ -25,6 +25,7 @@ import {
   type CallView,
   type CertificateKind,
   type CommandInput,
+  type JobStep,
   type JobView,
   type PersonView,
   type PhaseOnCalendar,
@@ -49,13 +50,15 @@ import { KitCard, kitSummary } from './Kit.tsx'
 import { VansCard } from './Vans.tsx'
 import { QuoteCard } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
+import { NextDock } from './NextDock.tsx'
 import { StepsCard } from './Steps.tsx'
 import { Heading } from '../Icon.tsx'
 import { JOBS } from '../Up.tsx'
 
 /**
- * One job: what it is, the steps it goes through and who each is down to
- * (ADR 0073), then its parts one at a time (a tab each): its
+ * One job: what it is, the stage it's in and the tasks inside it, who each
+ * is down to (ADR 0073, ADR 0104), its one Next button in the page head,
+ * then its parts one at a time (a tab each): its
  * phases and how each will read on the calendar, its crew, its kit and
  * vans (ADR 0014, 0047), its show pack and its quote. Crew calls made here
  * belong to the job and its phase, so freelancers always see the job's
@@ -93,6 +96,9 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
   // The part the address names, else the one picked here, else the last one looked at; a link to another part starts there.
   const [picked, setPicked] = useState<JobPart | undefined>()
   useEffect(() => setPicked(undefined), [asked])
+  // The task opened on Where it is, from its list or from the Next dock (ADR 0104).
+  const [task, setTask] = useState<JobStep | undefined>()
+  useEffect(() => setTask(undefined), [id])
   const wanted = picked ?? asked ?? lastPart() ?? 'phases'
   const part = parts.includes(wanted) ? wanted : 'phases'
   const pick = (p: JobPart) => {
@@ -133,11 +139,12 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
       heading={job.name}
       badge={<JobStatusPill status={job.status} pending={job.pending} />}
       sub={<JobLines job={job} view={view} />}
+      actions={<NextDock job={job} view={view} onPart={pick} onOpenTask={setTask} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
-      {/* The way the job goes, from the quote to the kit put away, and who each step is down to (ADR 0073). */}
-      <StepsCard job={job} view={view} onPart={pick} onTell={setShare} />
+      {/* Where the job is: its five stages, the tasks inside each and who each is down to (ADR 0073, ADR 0104). */}
+      <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={pick} onTell={setShare} />
 
       <Tabs label="Parts of the job" id="job" parts={parts} labels={PART_LABELS} current={part} counts={counts} onPick={pick} />
       <div className="job-part" role="tabpanel" id="job-part" aria-labelledby={`job-tab-${part}`}>

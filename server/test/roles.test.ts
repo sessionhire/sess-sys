@@ -173,7 +173,7 @@ describe('roles', () => {
     expect((await send(app, c, 'jobStep.set', { projectId: 'j1', step: 'deprep', ownerId: 'sean' })).status).toBe('applied')
     expect((await send(app, s, 'jobStep.set', { projectId: 'j1', step: 'deprep', done: true })).status).toBe('applied')
     expect((await send(app, s, 'jobStep.set', { projectId: 'j1', step: 'kit', done: true })).reason?.message).toBe(
-      'Staff crew can change only a step that is theirs. Ask the office or a head of department to give it to you.'
+      'Staff crew can change only a task that is theirs. Ask the office or a head of department to give it to you.'
     )
     // Handed on, it isn't his to change any more.
     expect((await send(app, s, 'jobStep.set', { projectId: 'j1', step: 'deprep', ownerId: 'colly' })).status).toBe('applied')

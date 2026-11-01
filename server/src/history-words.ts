@@ -754,6 +754,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       const step = typeof a.step === 'string' && a.step in STEP_LABELS ? `“${STEP_LABELS[a.step as JobStep]}”` : 'a step'
       const parts: string[] = []
       if (a.ownerId !== undefined) parts.push(a.ownerId ? `gave ${step} on ${job(a.projectId)} to ${person(a.ownerId)}` : `took whoever had ${step} on ${job(a.projectId)} off it`)
+      if (a.dueOn !== undefined) parts.push(a.dueOn ? `set ${parts.length ? 'it' : `${step} on ${job(a.projectId)}`} due by ${dayLabel(a.dueOn as string)}` : `took the due date off ${parts.length ? 'it' : `${step} on ${job(a.projectId)}`}`)
       if (a.done !== undefined) parts.push(`${a.done ? 'ticked' : 'took the tick off'} ${parts.length ? 'it' : `${step} on ${job(a.projectId)}`}`)
       const said = parts.join(' and ') || `changed ${step} on ${job(a.projectId)}`
       return said[0]!.toUpperCase() + said.slice(1)

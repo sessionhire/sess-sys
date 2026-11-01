@@ -3,7 +3,7 @@ import type { Queryable } from '../db.ts'
 
 /** Reading a job's steps back as devices see them (ADR 0073). */
 
-const STEP = `id, project_id, step, owner_id, to_char(done_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS done_at, done_by`
+const STEP = `id, project_id, step, owner_id, to_char(due_on, 'YYYY-MM-DD') AS due_on, to_char(done_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS done_at, done_by`
 
 type Row = Record<string, any>
 
@@ -12,6 +12,7 @@ export const toStep = (r: Row): StepRecord => ({
   projectId: r.project_id,
   step: r.step as JobStep,
   ownerId: r.owner_id ?? null,
+  dueOn: r.due_on ?? null,
   doneAt: r.done_at ?? null,
   doneBy: r.done_by ?? null,
 })

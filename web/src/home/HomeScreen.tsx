@@ -719,11 +719,12 @@ function YourDay({ view, today, me, mine }: { view: View; today: string; me: Per
 }
 
 /**
- * The job steps given to you (ADR 0073), not done yet: the ones the job is
- * at first, as they're yours to do now, then by the job's first day. Each
- * opens the job, whose steps are at the top. On Me, all of them; on the
- * other views, on top as they're yours whichever you look at, only the
- * first few to do now. Nothing at all while there are none.
+ * The job tasks given to you (ADR 0073, ADR 0104), not done yet: the ones
+ * to do now first, as the job is at them, then by the day each is due,
+ * then by the job's first day. Each opens the job, whose stages are at the
+ * top. On Me, all of them; on the other views, on top as they're yours
+ * whichever you look at, only the first few to do now. Nothing at all
+ * while there are none.
  */
 const STEPS_ON_TOP = 5
 
@@ -735,10 +736,10 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
   const more = steps.length - shown.length
   return (
     <section className="card my-steps" aria-labelledby="my-steps-title">
-      <Heading icon="done" id="my-steps-title">{all ? `Your steps (${steps.length})` : `Your steps to do now (${now.length})`}</Heading>
+      <Heading icon="done" id="my-steps-title">{all ? `Your tasks (${steps.length})` : `Your tasks to do now (${now.length})`}</Heading>
       <ul className="job-list">
         {shown.map(({ job, step, next }) => {
-          const at = view.steps.of(job.id)?.current
+          const at = view.steps.of(job.id)
           return (
             <li key={`${job.id}.${step.key}`}>
               <a className="job-row" href={`#jobs/${encodeURIComponent(job.id)}`}>
@@ -746,21 +747,21 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
                   <b>{step.label}</b>
                   <p>
                     {job.name}
-                    {/* Where the step sits in the job's way, so the list says how far along each job is (ADR 0073). */}
-                    {` · step ${step.number} of ${view.steps.of(job.id)?.steps.length ?? 8}`}
+                    {/* The stage the job is in, so the list says how far along each job is (ADR 0104). */}
+                    {at?.stage && ` · ${at.stage.label}`}
                     {step.hint && ` · ${step.hint}`}
                   </p>
                 </div>
                 <div className="side">
-                  {next ? <small className="flag">Now</small> : at && <small>After {at.label}</small>}
-                  {job.span && <small>{dayLabel(job.span.start)}</small>}
+                  {next ? <small className="flag">Now</small> : at?.current && <small>After {at.current.label.toLowerCase()}</small>}
+                  {step.dueOn ? <small className={step.late ? 'flag bad' : undefined}>{step.late ? 'Was due' : 'By'} {dayLabel(step.dueOn)}</small> : job.span && <small>{dayLabel(job.span.start)}</small>}
                 </div>
               </a>
             </li>
           )
         })}
       </ul>
-      {!all && more > 0 && <p className="hint">{plural(more, 'more step')} of yours on Me.</p>}
+      {!all && more > 0 && <p className="hint">{plural(more, 'more task')} of yours on Me.</p>}
     </section>
   )
 }

@@ -6,10 +6,10 @@ import { getProject } from '../projects/store.ts'
 import { getStep } from './store.ts'
 
 /**
- * A job's steps (ADR 0073). A step is given to a member of staff who isn't
- * archived or erased, on a gig or a dry hire going ahead or pencilled in;
- * taking a tick or a name off is always allowed, so a stopped job can be
- * tidied. Staff crew change only the steps that are theirs. Giving a step
+ * A job's tasks (ADR 0073, ADR 0104). A task is given to a member of staff
+ * who isn't archived or erased, or a day it's due by, on a gig or a dry hire
+ * going ahead or pencilled in; taking a tick, a name or a date off is always
+ * allowed, so a stopped job can be tidied. Staff crew change only the steps that are theirs. Giving a step
  * to someone tells them in the app only, through Notifications, which
  * read the history: nothing here emails, texts or messages anyone.
  */
@@ -22,10 +22,10 @@ export const stepHandlers: { 'jobStep.set': Handler<'jobStep.set'> } = {
     if (!job) throw new Refused({ code: 'not-found', message: 'That job is no longer in the app.' })
     const id = stepId(a.projectId, a.step)
     const was = await getStep(ctx.tx, id)
-    const adds = (a.ownerId !== undefined && a.ownerId !== null && a.ownerId !== was?.ownerId) || (a.done === true && !was?.doneAt)
+    const adds = (a.ownerId !== undefined && a.ownerId !== null && a.ownerId !== was?.ownerId) || (a.done === true && !was?.doneAt) || (!!a.dueOn && a.dueOn !== was?.dueOn)
     if (adds && STOPPED.includes(job.status))
-      throw new Refused({ code: 'conflict', message: `${job.name} is ${STATUS_LABELS[job.status].toLowerCase()}, so its steps are stopped.` })
-    if (adds && kindOf(job) !== 'gig' && kindOf(job) !== 'hire') throw new Refused({ code: 'conflict', message: 'Errands and meetings have no steps.' })
+      throw new Refused({ code: 'conflict', message: `${job.name} is ${STATUS_LABELS[job.status].toLowerCase()}, so its tasks are stopped.` })
+    if (adds && kindOf(job) !== 'gig' && kindOf(job) !== 'hire') throw new Refused({ code: 'conflict', message: 'Errands and meetings have no stages.' })
 
     // Who is doing it: the signed-in person; with sign-in off, whoever the device says, if they're in the app.
     const me = ctx.user ? await personByEmail(ctx.tx, ctx.user.email) : undefined
@@ -40,15 +40,16 @@ export const stepHandlers: { 'jobStep.set': Handler<'jobStep.set'> } = {
     const by = ctx.user ? (me?.id ?? null) : a.by ? ((await getPerson(ctx.tx, a.by))?.id ?? null) : null
 
     const owner = a.ownerId === undefined ? (was?.ownerId ?? null) : a.ownerId
+    const dueOn = a.dueOn === undefined ? (was?.dueOn ?? null) : a.dueOn
     const ticked = a.done === undefined ? !!was?.doneAt : a.done
     // Ticked again is the same tick: when and by whom stay as they were.
     const keep = ticked && !!was?.doneAt
     await ctx.tx.query(
-      `INSERT INTO job_steps (id, project_id, step, owner_id, done_at, done_by) VALUES ($1, $2, $3, $4, CASE WHEN $5::boolean THEN now() END, CASE WHEN $5::boolean THEN $6 END)
-       ON CONFLICT (id) DO UPDATE SET owner_id = EXCLUDED.owner_id,
+      `INSERT INTO job_steps (id, project_id, step, owner_id, due_on, done_at, done_by) VALUES ($1, $2, $3, $4, $8, CASE WHEN $5::boolean THEN now() END, CASE WHEN $5::boolean THEN $6 END)
+       ON CONFLICT (id) DO UPDATE SET owner_id = EXCLUDED.owner_id, due_on = EXCLUDED.due_on,
          done_at = CASE WHEN $7::boolean THEN job_steps.done_at ELSE EXCLUDED.done_at END,
          done_by = CASE WHEN $7::boolean THEN job_steps.done_by ELSE EXCLUDED.done_by END`,
-      [id, a.projectId, a.step, owner, ticked, by, keep]
+      [id, a.projectId, a.step, owner, ticked, by, keep, dueOn]
     )
     await emit(ctx, 'jobStep', id, await getStep(ctx.tx, id))
   },

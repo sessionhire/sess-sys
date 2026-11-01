@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 
 /**
- * How a job moves on (ADR 0103): the steps across the top of the job page
- * offer the one next thing for the step it's at, and the Confirmed step is
- * the client's answer itself, so yes confirms the job and records the yes on
+ * How a job moves on (ADR 0103, ADR 0104): the Next dock in the job's page
+ * head offers the one next thing for the task the job is at, and the
+ * Confirmed task is the client's answer itself, so yes confirms the job and records the yes on
  * the quote that went, and the two never say different things. A past quote
  * from Current RMS for a job already here goes on that job's quote rather
  * than making the same job twice. Uses the made-up data (ADR 0019), so it
@@ -18,22 +18,24 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
 
-  // Corrib Arts Week's quote is with the client, so the job is quoted and at Confirmed.
+  // Corrib Arts Week's quote is with the client, so the job is quoted, in Selling, and the client's answer is next (ADR 0104).
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
-  const steps = office.getByRole('region', { name: 'Steps' })
-  await expect(steps.getByText(/· at Confirmed$/)).toBeVisible()
+  const next = office.getByRole('region', { name: 'Next' })
+  const where = office.getByRole('region', { name: 'Where it is' })
+  await expect(next).toContainText('Next · Selling · Still quoted')
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-thing.png` })
-  await steps.getByRole('button', { name: "Record the client's answer" }).click()
-  await expect(steps.getByRole('heading', { name: '2. Confirmed' })).toBeVisible()
+  await next.getByRole('button', { name: "Record the client's answer" }).click()
+  await expect(where.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible()
   // No tick that would say it's going ahead while it stays quoted: the answer is the job's own.
-  await expect(steps.getByRole('button', { name: 'Mark confirmed done' })).toHaveCount(0)
-  await expect(steps).toContainText('records the yes on version 1 of the quote')
+  await expect(where.getByRole('button', { name: 'Mark it done' })).toHaveCount(0)
+  await expect(where).toContainText('records the yes on version 1 of the quote')
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/confirm-step.png` })
-  await steps.getByRole('button', { name: 'Confirm the job' }).click()
+  await where.getByRole('button', { name: 'Confirm the job' }).click()
 
-  await expect(steps.getByRole('button', { name: /^2\. Confirmed, done/ })).toBeVisible()
-  await expect(steps.getByText(/· at Confirmed$/)).toHaveCount(0)
+  // Confirmed, the job moves into Planning by its own status: the one gate between stages.
+  await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName(/^2\. Planning, the stage the job is in/)
+  await expect(next).toContainText('Next · Planning')
   await office.goto('/#jobs')
   await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' })).toContainText('Confirmed')
 

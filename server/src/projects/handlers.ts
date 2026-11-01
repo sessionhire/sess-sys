@@ -266,7 +266,7 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
       if (!taken.has(r.step)) {
         taken.add(r.step)
         const to = stepId(a.id, r.step)
-        await ctx.tx.query('INSERT INTO job_steps (id, project_id, step, owner_id, done_at, done_by) SELECT $2, $3, step, owner_id, done_at, done_by FROM job_steps WHERE id = $1', [r.id, to, a.id])
+        await ctx.tx.query('INSERT INTO job_steps (id, project_id, step, owner_id, due_on, done_at, done_by) SELECT $2, $3, step, owner_id, due_on, done_at, done_by FROM job_steps WHERE id = $1', [r.id, to, a.id])
         await emit(ctx, 'jobStep', to, await getStep(ctx.tx, to))
       }
       await ctx.tx.query('DELETE FROM job_steps WHERE id = $1', [r.id])

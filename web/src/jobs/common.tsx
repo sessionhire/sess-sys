@@ -52,11 +52,14 @@ export function Top({
   badge,
   sub,
   picture,
+  actions,
 }: {
   view: View
   title?: string
   root?: boolean
   aside?: ReactNode
+  /** The page's one next thing (NextDock.tsx, ADR 0104): right of the title on a desk, docked above the bar on a phone. */
+  actions?: ReactNode
   up?: Trail
   /** The area's row of pages (Views.tsx), first under the bar. */
   views?: ReactNode
@@ -109,7 +112,7 @@ export function Top({
         {notDone.list}
       </header>
       {views}
-      {(heading ?? root) && <PageHead heading={heading ?? title} badge={badge} sub={sub} picture={picture} />}
+      {(heading ?? root) && <PageHead heading={heading ?? title} badge={badge} sub={sub} picture={picture} actions={actions} />}
       <OnThisScreen />
     </>
   )
@@ -149,6 +152,7 @@ export function Page({
   badge,
   sub,
   picture,
+  actions,
   children,
 }: {
   view: View
@@ -156,6 +160,7 @@ export function Page({
   className: string
   up: Trail
   bare?: boolean
+  actions?: ReactNode
   /** The record's name as the page's title, its state beside it and what matters about it under (Top). Beside its list, they head its column. */
   heading?: ReactNode
   badge?: ReactNode
@@ -166,20 +171,20 @@ export function Page({
   if (bare)
     return (
       <>
-        {heading && <PageHead heading={heading} badge={badge} sub={sub} picture={picture} />}
+        {heading && <PageHead heading={heading} badge={badge} sub={sub} picture={picture} actions={actions} />}
         {children}
       </>
     )
   return (
     <div className={`app ${className}`}>
-      <Top view={view} title={title} up={up} heading={heading} badge={badge} sub={sub} picture={picture} />
+      <Top view={view} title={title} up={up} heading={heading} badge={badge} sub={sub} picture={picture} actions={actions} />
       {children}
     </div>
   )
 }
 
 /** The page's title, outside any card: the one h1, the biggest words on the screen (ADR 0082). */
-function PageHead({ heading, badge, sub, picture }: { heading: ReactNode; badge?: ReactNode; sub?: ReactNode; picture?: ReactNode }) {
+function PageHead({ heading, badge, sub, picture, actions }: { heading: ReactNode; badge?: ReactNode; sub?: ReactNode; picture?: ReactNode; actions?: ReactNode }) {
   const words = (
     <div className="page-words">
       <div className="page-title-row">
@@ -190,7 +195,7 @@ function PageHead({ heading, badge, sub, picture }: { heading: ReactNode; badge?
     </div>
   )
   return (
-    <div className="page-head">
+    <div className="page-head" data-actions={actions ? 'true' : undefined}>
       {picture ? (
         <div className="pictured">
           {picture}
@@ -199,6 +204,7 @@ function PageHead({ heading, badge, sub, picture }: { heading: ReactNode; badge?
       ) : (
         words
       )}
+      {actions}
     </div>
   )
 }
