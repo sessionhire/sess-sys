@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.77.0',
+    date: '2026-11-03',
+    title: 'Freelancers can use the purchase list',
+    what: "Freelancers don't sign in, so they couldn't reach the purchase list. Now their own page has a Kit to buy link that opens the same list: they can see what's been asked for and where it's at, ask for something themselves, and vote, all without signing in. What they ask for shows under their name and department, as it would from the app.",
+    prs: [201],
+    adrs: [108],
+  },
+  {
     version: '1.76.2',
     date: '2026-11-01',
     title: 'Text sizes on one shared scale',
