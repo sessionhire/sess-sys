@@ -107,6 +107,8 @@ export interface PageData {
   demo?: boolean
   /** Their own calendar, when they share it (ADR 0044): never its address, which the page doesn't show again. */
   ownCalendar?: OwnCalendar
+  /** How many requests on the purchase list are still to decide or to buy (ADR 0108); absent, the way to it isn't drawn. */
+  purchases?: number
 }
 
 const STATUS_TEXT: Record<Offer['status'], string> = {
@@ -531,6 +533,15 @@ function stillBooked(u: Unavailability, booked: PageData['jobs'], today: string)
   return `<p class="clash">You're booked on ${on}. Days off don't take you off it: use Can't make it any more on ${which}.</p>`
 }
 
+/** The way to the purchase list (ADR 0108): kit they'd find useful, asked for and voted on from their own link. */
+function purchasesBlock(base: string, open: number): string {
+  return `<section id="buy">
+    <h2>Kit to buy</h2>
+    <a class="sheet-link" href="${base}/buy">The purchase list${open ? `: ${open} asked for` : ''} ›</a>
+    <p class="small">Ask for kit you'd find useful on our jobs, and vote for what others have asked for.</p>
+  </section>`
+}
+
 export function renderPage(d: PageData): string {
   const current = d.jobs.filter((j) => j.call.end >= d.today && j.call.status === 'open')
   const waiting = current.filter((j) => j.offer.status === 'offered' || j.offer.status === 'countered')
@@ -611,6 +622,8 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   ${ownCalendarBlock(d)}
 
   ${d.documents ?? ''}
+
+  ${d.purchases === undefined ? '' : purchasesBlock(d.base, d.purchases)}
 
   ${details(d)}
 

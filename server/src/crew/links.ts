@@ -1,4 +1,4 @@
-import { eachDay, EURO_HINT, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
+import { eachDay, EURO_HINT, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
 import { FILE_TOO_BIG, NO_FILE, WEB_FILE, WRONG_FILE } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { applyMutation } from '../commands.ts'
@@ -19,6 +19,8 @@ import { renderTimesheet } from './timesheet-page.ts'
 import { getTimesheet, timesheetsFor } from './timesheets.ts'
 import { Refused } from '../kernel.ts'
 import { getOwnCalendar, type OwnCalendars } from './own-calendars.ts'
+import { getPurchase, openPurchases, purchasesFor } from '../purchases/store.ts'
+import { renderPurchases } from './purchase-page.ts'
 
 /**
  * A freelancer's private link, /f/<token>: their page, the answers they
@@ -102,6 +104,12 @@ const SAID = {
   // Their own calendar (ADR 0044).
   'calendar-shared': { ok: true, text: "Thanks. We've read your calendar, and the office can see when you're busy." },
   'calendar-stopped': { ok: true, text: "Stopped. We've deleted your calendar's address and the times we read from it." },
+  // The purchase list (ADR 0108).
+  'buy-asked': { ok: true, text: "Thanks, it's on the list. The office will see it, and you'll see here where it's at." },
+  'buy-voted': { ok: true, text: 'Thanks, your vote is in.' },
+  'buy-unvoted': { ok: true, text: 'Your vote is taken back.' },
+  'buy-gone': { ok: false, text: "That request isn't on the purchase list any more." },
+  'buy-settled': { ok: false, text: "That one's been ordered or settled, so it can't be voted for now." },
 } satisfies Record<string, { ok: boolean; text: string }>
 type Said = keyof typeof SAID
 /** The id the page gives a days-off form: one of the app's own (newId). */
@@ -223,6 +231,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       demo,
       ownCalendar: await getOwnCalendar(db, person.id),
       // Their documents (ADR 0029), with forms to send a new one where the server can keep files.
+      purchases: await openPurchases(db),
       documents: documentsSection({ person, list: await documentsOf(db, person.id), files: app.documents.on, base: base(req, person.linkToken), today: now, flash }),
     })
   }
@@ -406,6 +415,64 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     return inSection('details-saved')
   })
 
+  // The purchase list (ADR 0108): the same list as Stock › Purchase list in the app, to see, ask on and vote, as the link's person.
+  const buyPage = async (req: Req, person: Person, flash?: Parameters<typeof renderPurchases>[0]['flash'], kept?: URLSearchParams) =>
+    renderPurchases({ requests: await purchasesFor(db, person.id), base: base(req, person.linkToken), today: today(), office: await officeFor(db), flash, kept })
+
+  app.get('/f/:token/buy', async (req: Req, reply) => {
+    noStore(reply)
+    const person = await personByToken(db, req.params.token)
+    if (!person) return gone(reply)
+    const said = req.query.m && Object.hasOwn(SAID, req.query.m) && (req.query.m.startsWith('buy-') || req.query.m === 'try-again') ? SAID[req.query.m as Said] : undefined
+    return reply.type('text/html').send(await buyPage(req, person, said))
+  })
+
+  const toBuy = (reply: FastifyReply, token: string, what: Said, at?: string) =>
+    reply.redirect(`/f/${token}/buy?${new URLSearchParams({ m: what })}${at ? `#p-${at}` : ''}`, 303)
+
+  app.post('/f/:token/buy', async (req: Req, reply) => {
+    const person = await personByToken(db, req.params.token)
+    if (!person) return gone(reply)
+    const form = (req.body ?? new URLSearchParams()) as Form
+    // The page gives the form an id of its own, so the same form sent twice (a double tap, the browser resending it) asks once.
+    const given = form.get('id') ?? ''
+    const id = AWAY_ID.test(given) ? given : newId()
+    if (await getPurchase(db, id)) return toBuy(reply, person.linkToken, 'buy-asked', id)
+    const result = await run(req, person.id, 'purchase.ask', {
+      id,
+      title: form.get('title') ?? '',
+      details: form.get('details') ?? '',
+      link: form.get('link') ?? '',
+      // Theirs, as the Crew tab has it, so a head looking down their department's list sees it.
+      department: person.department ?? null,
+      by: person.id,
+    }).catch((err: unknown) => {
+      reportError(err, { route: '/f/:token/buy', method: 'POST' })
+      return undefined
+    })
+    // A refusal is said above the form, with everything typed still in it (rule 11).
+    if (!result || result.status === 'rejected')
+      return noStore(reply)
+        .code(422)
+        .type('text/html')
+        .send(await buyPage(req, person, { ok: false, text: reasonOf(result ?? 'try-again'), field: 'ask' }, form))
+    return toBuy(reply, person.linkToken, 'buy-asked', id)
+  })
+
+  app.post('/f/:token/buy/:id/vote', async (req: Req, reply) => {
+    const person = await personByToken(db, req.params.token)
+    if (!person) return gone(reply)
+    const form = (req.body ?? new URLSearchParams()) as Form
+    const r = await getPurchase(db, req.params.id!)
+    if (!r) return toBuy(reply, person.linkToken, 'buy-gone')
+    const vote = form.get('vote') !== 'no'
+    // Voting is for what's still to decide or to buy, as the page offers it; taking a vote back is always allowed.
+    if (vote && !PURCHASE_OPEN.includes(r.status)) return toBuy(reply, person.linkToken, 'buy-settled', r.id)
+    const result = await run(req, person.id, 'purchase.vote', { requestId: r.id, vote, by: person.id })
+    if (result.status === 'rejected') return toBuy(reply, person.linkToken, 'try-again', r.id)
+    return toBuy(reply, person.linkToken, vote ? 'buy-voted' : 'buy-unvoted', r.id)
+  })
+
   app.post('/f/:token/away', async (req: Req, reply) => {
     const person = await personByToken(db, req.params.token)
     if (!person) return gone(reply)
@@ -501,6 +568,11 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       documents: await documentsOf(db, person.id),
       // When they're busy, as read from their own calendar (ADR 0044); its address stays out, as their link does.
       ownCalendar: (await getOwnCalendar(db, person.id)) ?? null,
+      // What they asked to be bought, and what they voted for (ADR 0108).
+      purchases: await purchasesFor(db, person.id).then((all) => ({
+        asked: all.filter((r) => r.askedBy === person.id).map(({ askerName: _a, mine: _m, ...r }) => r),
+        votedFor: all.filter((r) => r.mine).map((r) => r.title),
+      })),
     })
   })
 }

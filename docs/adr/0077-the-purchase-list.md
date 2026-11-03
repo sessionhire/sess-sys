@@ -69,7 +69,8 @@ Taking a calendar bring-in back leaves alone anyone who asked or voted.
 
 - Requests and votes are read by every role: they hold no money or
   contact details.
-- Freelancers who don't sign in can't ask yet: their private link page has
-  no form. If the office wants one, it goes there next.
+- Freelancers who don't sign in couldn't ask at first: their private link
+  page had no form. Since [ADR 0108](0108-the-purchase-list-on-a-freelancers-link.md)
+  it has the list, with Ask and Vote.
 - No icon fits voting or buying in the shared set, so the list uses the
   kit icon and the vote is words and a number.
