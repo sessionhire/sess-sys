@@ -1,6 +1,6 @@
 import { newId, type NoticesPage, type StepRecord } from '@sh/shared'
 import { describe, expect, it } from 'vitest'
-import { company, m, ok, phone } from './company.ts'
+import { company, day, m, ok, phone } from './company.ts'
 import { IPHONE, server, staff, WINDOWS } from './people.ts'
 
 /**
@@ -85,12 +85,13 @@ describe("a job's steps", () => {
     const { app } = await company()
     const { client, signal } = await phone(app)
     let gala = client.view().steps.of('gala')!
-    // The gala is confirmed, so its quote went and the client said yes; crew and kit are under way.
+    // The gala is confirmed, so its quote went and the client said yes; crew is under way. It's on today with nothing short,
+    // so its kit and vans were settled (ADR 0109).
     expect(gala.steps.map((s) => [s.key, s.state, s.auto ?? s.hint ?? s.skipped])).toEqual([
       ['quote', 'done', expect.stringMatching(/^Sent /)],
       ['confirmed', 'done', 'The job is confirmed'],
       ['crew', 'now', expect.stringMatching(/^\d+ of \d+ booked/)],
-      ['kit', 'later', '2 lines of kit, 1 vehicle'],
+      ['kit', 'done', 'Settled: the job is under way'],
       ['prep', 'later', '0 of 10 out'],
       ['show', 'later', expect.stringMatching(/^On until /)],
       ['back', 'later', 'Nothing out yet'],
@@ -139,6 +140,49 @@ describe("a job's steps", () => {
     // Picked stays done once it's back: it went out.
     expect(gala.steps.filter((s) => s.done).map((s) => s.key)).toEqual(['quote', 'confirmed', 'kit', 'prep', 'back'])
     expect(gala.steps.find((s) => s.key === 'back')?.auto).toBe('All back')
+  })
+
+  it("tell the truth after the dates (ADR 0109): kit never scanned is still to check, a fortnight on it's through, and a sale gone by asks what happened", async () => {
+    const { app } = await company()
+    const job = (id: string, status: 'confirmed' | 'enquiry', from: number, to: number) => [
+      m('project.create', { id, name: id, clientId: null, venueId: null, status, notes: '' }),
+      m('phase.add', { id: `${id}-show`, projectId: id, name: 'Show', start: day(from), end: day(to), venueId: null, notes: '' }),
+    ]
+    await ok(
+      app,
+      ...job('unscanned', 'confirmed', -5, -4),
+      m('kit.add', { id: 'unscanned-xlr', projectId: 'unscanned', phaseId: null, modelId: 'xlr', qty: 4, subhireQty: 0, supplier: '', notes: '' }),
+      ...job('old', 'confirmed', -30, -29),
+      m('kit.add', { id: 'old-xlr', projectId: 'old', phaseId: null, modelId: 'xlr', qty: 4, subhireQty: 0, supplier: '', notes: '' }),
+      ...job('stale', 'enquiry', -10, -10)
+    )
+    const { client } = await phone(app)
+    const view = client.view().steps
+    const states = (id: string) => view.of(id)!.steps.map((s) => [s.key, s.state, s.auto ?? s.hint ?? s.skipped])
+
+    // Kit on the pick list and none scanned: not "nothing went out", but a check that it's back. The kit was settled once it was on.
+    const unscanned = view.of('unscanned')!
+    expect(unscanned.stage?.key).toBe('back')
+    expect(states('unscanned').slice(3)).toEqual([
+      ['kit', 'done', 'Settled: the job is over'],
+      ['prep', 'later', '0 of 4 out'],
+      ['show', 'done', expect.stringMatching(/^Finished /)],
+      ['back', 'now', "4 never scanned out: check they're back"],
+      ['deprep', 'later', undefined],
+    ])
+    expect(unscanned.stages.find((s) => s.key === 'going')).toMatchObject({ state: 'done', done: 0, of: 1 })
+
+    // Over a fortnight ago with nothing still out and no fault open: through, its open tasks taken as done by the app.
+    const old = view.of('old')!
+    expect(old.finished).toBe(true)
+    expect(old.behind).toEqual([])
+    expect(old.steps.find((s) => s.key === 'deprep')?.auto).toMatch(/^Taken as done: it ended .+ with nothing still out$/)
+
+    // Still an enquiry after its day: the one thing left is to say what happened.
+    const stale = view.of('stale')!
+    expect(stale.lapsed).toBe(true)
+    expect(stale.current).toMatchObject({ key: 'confirmed', hint: 'Its dates have passed with no answer' })
+    expect(view.of('enq')!.lapsed).toBe(false)
   })
 
   it('come along when two jobs or two people are made one, a job keeping one of each step', async () => {

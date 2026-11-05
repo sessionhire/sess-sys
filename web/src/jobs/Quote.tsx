@@ -299,7 +299,11 @@ function FirstQuote({ view, job }: { view: View; job: JobView }) {
     <section className="card" aria-label="Make a quote">
       <h2>Make a quote</h2>
       {source.kit.length + source.crew.length === 0 ? (
-        <Empty>The job has no kit or crew yet, so a quote would start empty. Add them first, or start one empty and type the lines.</Empty>
+        // Where to add them, from here (audit, 5 November 2026, finding 16): a quote is built from the job's kit and crew.
+        <Empty>
+          The job has no kit or crew yet, so a quote would start empty. <a href={`#jobs/${encodeURIComponent(job.id)}/kit`}>Add the kit</a> or{' '}
+          <a href={`#jobs/${encodeURIComponent(job.id)}/crew`}>ask for crew</a> first, or start one empty and type the lines.
+        </Empty>
       ) : (
         <p>
           {source.kit.length} kit line{source.kit.length === 1 ? '' : 's'} and {source.crew.length} crew call{source.crew.length === 1 ? '' : 's'}, each for the days

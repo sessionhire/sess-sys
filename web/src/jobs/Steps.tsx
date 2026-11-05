@@ -83,7 +83,7 @@ export function StepsCard({
       </header>
       <ol className="stages-flow" data-stopped={steps.stopped ? 'true' : undefined}>
         {steps.stages.map((s, i) => (
-          <li key={s.key} data-state={s.state} data-come={i < atIndex ? 'true' : undefined} aria-current={s.state === 'now' ? 'step' : undefined}>
+          <li key={s.key} data-state={s.state} data-come={i < atIndex ? 'true' : undefined} data-open={s.state === 'done' && s.done < s.of ? 'true' : undefined} aria-current={s.state === 'now' ? 'step' : undefined}>
             <button type="button" aria-expanded={s.key === open?.key} aria-controls="job-stage-open" aria-label={stageName(s, steps.stopped !== undefined)} onClick={() => pickStage(s.key)}>
               <span className="stage-dot" aria-hidden="true">
                 {s.state === 'done' ? <Icon name="done" /> : s.number}
@@ -118,7 +118,7 @@ export function StepsCard({
 
 /** What a screen reader hears for a stage: its number and name, how it stands, and how far through. */
 function stageName(s: StageView, stopped: boolean): string {
-  const how = stopped ? 'stopped' : s.state === 'done' ? 'passed' : s.state === 'now' ? 'the stage the job is in' : 'to come'
+  const how = stopped ? 'stopped' : s.state === 'done' ? (s.done < s.of ? `passed with ${s.of - s.done} left open` : 'passed') : s.state === 'now' ? 'the stage the job is in' : 'to come'
   return `${s.number}. ${s.label}, ${how}, ${s.done} of ${s.of} done`
 }
 
@@ -306,7 +306,8 @@ function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell
         />
       ) : (
         <div className="step-actions">
-          <button type="button" className="primary" onClick={() => answer(true)} disabled={job.pending}>
+          {/* Plain, as the card's other buttons are: the Next dock holds the page's one filled red (ADR 0104; audit, 5 November 2026, finding 19). */}
+          <button type="button" onClick={() => answer(true)} disabled={job.pending}>
             Confirm the job
           </button>
           <button type="button" onClick={() => (job.calls.some((c) => c.status === 'open') ? setAsking(true) : answer(false))} disabled={job.pending}>

@@ -380,6 +380,18 @@ describe('quotes to follow up (ADR 0081)', () => {
     ])
   })
 
+  it("puts a sent quote whose job's dates have passed with the jobs to mark lost, not the calls to make (ADR 0109)", () => {
+    const dated = (id: string, end: string) => ({ ...job(id, 'quoted'), span: { start: end, end } }) as JobView
+    const rows = [
+      { job: dated('Coming', '2026-11-20'), current: quote({ sentOn: '2026-10-01' }) },
+      { job: dated('Long gone', '2026-06-09'), current: quote({ sentOn: '2026-05-01' }) },
+      { job: dated('Just gone', '2026-10-25'), current: quote({ sentOn: '2026-10-20' }) },
+    ]
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, today)
+    expect(f.waiting.map((x) => x.job.name)).toEqual(['Coming'])
+    expect(f.passed.map((x) => x.job.name)).toEqual(['Just gone', 'Long gone'])
+  })
+
   it('leaves a sent quote out of waiting while a new version is being drafted', () => {
     const rows = [{ job: job('Second go', 'quoted'), current: quote({ sentOn: '2026-10-01' }) }]
     const f = quotesToFollow({ jobs: rows as never, draftOf: () => quote({ status: 'draft' }) }, today)

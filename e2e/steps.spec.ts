@@ -50,7 +50,13 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName('2. Planning, the stage the job is in, 0 of 2 done')
   // The one Next button (ADR 0104): a verb and its object, with the count on the line over it; the quiet second choice opens the task.
   await expect(next).toContainText('Next · Planning · 0 of 2 booked')
-  await expect(next.getByRole('button', { name: 'Book 2 more crew' })).toBeVisible()
+  // Pressed on a phone, it brings the part it opens to the top, under the bar, with the focus on its tab, so the press is seen to
+  // do something (audit, 5 November 2026, finding 1).
+  await next.getByRole('button', { name: 'Book 2 more crew' }).click()
+  const crewTab = page.getByRole('tab', { name: /^Crew/ })
+  await expect(crewTab).toHaveAttribute('aria-selected', 'true')
+  await expect(crewTab).toBeFocused()
+  await expect(crewTab).toBeInViewport()
   await next.getByRole('button', { name: 'Hand it to someone' }).click()
   await expect(where.getByRole('heading', { name: 'Crew booked' })).toBeVisible()
   await expect(where.getByText('0 of 2 booked. This is the task to do next.')).toBeVisible()
@@ -96,4 +102,31 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
     await expect(desk.getByRole('status')).toHaveText('Up to date')
     await desk.getByRole('region', { name: 'Where it is' }).screenshot(shot('job-steps'))
   }
+})
+
+test('an enquiry whose dates passed with no answer is counted on Home, folded on the Board, and asks what happened', async ({ browser, request }) => {
+  // Proves (ADR 0109; audit, 5 November 2026, finding 18): a job still being sold after its last day leaves the top of Selling for a
+  // fold of its own, Home counts it as housekeeping and opens that fold, and the job's Next asks what happened.
+  const id = Date.now().toString(36)
+  const job = `Brosna Concert ${id}`
+  await push(request, id, [
+    ['project.create', { id: `e-${id}`, name: job, clientId: null, venueId: null, status: 'enquiry', notes: '' }],
+    ['phase.add', { id: `ep-${id}`, projectId: `e-${id}`, name: 'Show', start: '2026-02-20', end: '2026-02-20', venueId: null, notes: '' }],
+  ])
+  const page = await (await browser.newContext({ viewport: deskSize })).newPage()
+  await page.goto('/#home')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' }).click()
+  await page.locator('.standing').getByRole('link', { name: /jobs? whose dates passed with no answer$/ }).click()
+  await expect(page).toHaveURL(/#jobs\/board$/)
+  const selling = page.getByRole('region', { name: 'Selling' })
+  const fold = selling.locator('details.board-lapsed')
+  await expect(fold).toHaveAttribute('open', '')
+  await expect(fold.locator('.board-card', { hasText: job })).toContainText('Dates passed, no answer: mark it lost?')
+  await expect(selling.locator(':scope > .board-card', { hasText: job })).toHaveCount(0)
+  await fold.locator('.board-card', { hasText: job }).click()
+  const next = page.getByRole('region', { name: 'Next' })
+  await expect(next).toContainText('Next · Selling · Its dates have passed with no answer')
+  await next.getByRole('button', { name: 'Record what happened' }).click()
+  await expect(page.getByRole('region', { name: 'Where it is' }).getByRole('button', { name: 'The client said no' })).toBeVisible()
 })

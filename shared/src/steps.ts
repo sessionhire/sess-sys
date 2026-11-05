@@ -79,6 +79,14 @@ export const STEP_LINES: Record<JobStep, string> = {
   deprep: 'The kit is checked, cleaned and put away, and any faults reported.',
 }
 
+/**
+ * How long after its last day a job with nothing still out and no fault
+ * open is taken as through (ADR 0109): its open tasks count as done by the
+ * app, so Back holds only the jobs with something still to sort, not every
+ * show nobody ticked off by hand.
+ */
+export const SETTLED_AFTER_DAYS = 14
+
 /** A task's record: who it's down to, the day it's due by, and the tick, when it was ticked by hand. */
 export interface StepRecord {
   /** The job and the step, together: one record each. */

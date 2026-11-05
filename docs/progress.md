@@ -3,7 +3,7 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
-## 5 November 2026: an audit of every flow, by role
+## 5 November 2026: an audit of every flow, by role, and batch 1 of its fixes
 
 **Done**
 
@@ -14,10 +14,24 @@ waiting on someone.
   every finding. 103 findings: no P0, 12 P1, 43 P2, 48 P3. Screenshots are
   in the project folder under screens/audit-ux/. Nothing live was touched.
 
+- Finding 12 fixed the same day (1.77.1, PR #202): the week ahead keeps
+  every job's name on a phone.
+- Batch 1, "Next and the stages tell the truth" (1.78.0,
+  [ADR 0109](adr/0109-next-and-the-stages-tell-the-truth.md)), on Colly's
+  "Start with batch 1": findings 1, 2, 3, 4, 16, 18, 19, 22 and 25. Next
+  brings what it opens into view and offers only what the role can do,
+  and it confirms the job in one press after a yes. A job is through a
+  fortnight after it ended with nothing out, kit never scanned is a check
+  rather than "not needed", and Kit and vans settled ticks itself once the
+  job is under way. Sales whose dates passed go in a fold on the Board, a
+  housekeeping count on Home and their own group on Quotes. On the
+  audit's copy, Back went from 108 jobs to 12 and the Board from 17,780 px
+  to 7,884 px at a desk.
+
 **Waiting**
 
-- Colly to choose what to fix. The audit ends with a suggested order in
-  eight batches. Nothing has been changed in the app.
+- Colly to choose the next batch. Batch 2 is "keep people where they
+  were" (findings 5, 7, 9, 31 and 87).
 
 ## 1 November 2026: the logo, stock code, cable length and colour on labels
 

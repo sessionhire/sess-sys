@@ -1,5 +1,7 @@
 import { dayLabel, firstName, type JobStep, type JobView, type View } from '@sh/shared'
+import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
+import { client } from '../sync.ts'
 import type { JobPart } from './JobScreen.tsx'
 
 /**
@@ -12,6 +14,13 @@ import type { JobPart } from './JobScreen.tsx'
  * greyed out and never gone: when there's nothing for this person to press
  * (the show is on, the task is another role's, the job is through) the
  * same place says so in plain words.
+ *
+ * It offers only what this person's role can do (ADR 0034, ADR 0109): booking
+ * crew needs the crew ability, the kit the kit one, picking and scanning the
+ * stock one; anyone else is told whose it is. Its label follows what has
+ * happened: once the client has said yes it confirms the job in one press,
+ * and once a job's dates pass while it's still being sold it asks what
+ * happened.
  */
 
 /** Whose a task is when this role can't act on it. */
@@ -28,6 +37,7 @@ const WHOSE: Record<JobStep, string> = {
 
 export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view: View; onPart: (p: JobPart) => void; onOpenTask: (t: JobStep) => void }) {
   const access = useAccess()
+  const { run, error } = useAct()
   const steps = view.steps.of(job.id)
   // Errands and meetings have no stages, so no Next: the page is as it was.
   if (!steps || (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands'))) return null
@@ -79,31 +89,45 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
     case 'quote': {
       if (!access.can('money')) break
       const quotes = view.money.quotesOf(job.id)
-      press = { label: quotes.length === 0 ? 'Make a quote' : quotes.some((q) => q.status === 'draft') ? 'Finish the quote' : 'Open the quote', href: `${href}/quote` }
+      // A quote is built from the kit and crew, so a job with neither starts there (audit, 5 November 2026, finding 16).
+      const empty = quotes.length === 0 && !(view.kit.byJob.get(job.id)?.length) && job.calls.length === 0
+      press =
+        empty && access.can('kit')
+          ? { label: 'Add the kit to quote', onPress: () => onPart('kit') }
+          : { label: quotes.length === 0 ? 'Make a quote' : quotes.some((q) => q.status === 'draft') ? 'Finish the quote' : 'Open the quote', href: `${href}/quote` }
       break
     }
-    case 'confirmed':
+    case 'confirmed': {
       if (!access.can('jobs')) break
-      press = { label: "Record the client's answer", onPress: () => onOpenTask('confirmed') }
+      // The client's yes is on the quote, so the one press left is the job's own (audit, 5 November 2026, finding 25).
+      const yes = access.can('money') && view.money.currentOf(job.id)?.status === 'accepted'
+      press = yes
+        ? { label: 'Confirm the job', onPress: () => void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })) }
+        : { label: steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }
       break
+    }
     case 'crew': {
+      if (!access.can('crew')) break
       const needed = job.calls.reduce((n, c) => n + c.needed, 0)
       const short = task.hint?.match(/^(\d+) of (\d+) booked/)
       press = { label: needed === 0 ? 'Ask for the crew' : short ? `Book ${Number(short[2]) - Number(short[1])} more crew` : 'Book the crew', onPress: () => onPart('crew') }
       break
     }
     case 'kit': {
+      if (!access.can('kit')) break
       const short = task.hint?.match(/(\d+) short/)
       press = { label: short ? `Sort ${short[1]} short on the kit` : task.hint === 'No kit on the job yet' ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
       break
     }
     case 'prep':
+      if (!access.can(task.hint === 'No kit to pick yet' ? 'kit' : 'stock')) break
       press = task.hint === 'No kit to pick yet' ? { label: 'Add the kit', onPress: () => onPart('kit') } : { label: 'Pick the kit', href: `${href}/pick` }
       break
     case 'show':
       why = `Nothing to press: ${task.hint?.startsWith('On until') ? `on the job until ${task.hint.slice('On until '.length)}` : task.hint?.toLowerCase() ?? 'the job is on'}.`
       break
     case 'back':
+      if (!access.can('stock')) break
       press = { label: 'Scan the kit back', href: `${href}/pick` }
       break
     case 'deprep':
@@ -131,6 +155,7 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
         </button>
       )}
       {second}
+      <Refusal error={error} />
     </div>
   )
 }

@@ -107,6 +107,7 @@ const NEEDS: Record<string, Ability | 'approve-leave'> = {
   'tests-soon': 'stock',
   vehicles: 'stock',
   counts: 'stock',
+  'no-answer': 'jobs',
 }
 
 /** Every count Home knows that this person can act on, narrowed to a department when one is given, keyed for picking. */
@@ -139,6 +140,8 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
   const vehicleChecks = view.vehicles.reminders
   const vehicleRanOut = vehicleChecks.some((r) => r.ranOut && r.kind !== 'service')
   const approver = canApproveLeave(me)
+  // Enquiries and quotes whose dates have passed with no answer (ADR 0109): housekeeping, to mark lost or confirm.
+  const noAnswer = department ? 0 : view.jobs.jobs.filter((j) => view.steps.of(j.id)?.lapsed).length
 
   const all: Tile[] = [
     { key: 'late', count: late, label: late === 1 ? 'person running late, not yet noted' : 'people running late, not yet noted', href: '#crew', part: 'Answers to check' },
@@ -155,6 +158,7 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
     { key: 'tests-soon', count: tests.length - cantGo, label: 'inspections due in 30 days', href: '#stock/testing', part: 'Inspections due' },
     { key: 'vehicles', count: vehicleChecks.length, label: vehicleChecks.length === 1 ? 'vehicle check running out' : 'vehicle checks running out', href: '#stock/vehicles', bad: vehicleRanOut, part: 'Vehicle checks running out' },
     { key: 'counts', count: counts, label: counts === 1 ? 'place to count this week' : 'places to count this week', href: '#stock/count' },
+    { key: 'no-answer', count: noAnswer, label: noAnswer === 1 ? 'job whose dates passed with no answer' : 'jobs whose dates passed with no answer', href: '#jobs/board', part: 'Dates passed, no answer' },
   ]
   // Timesheets only while the company uses them (ADR 0090).
   const offered = (t: Tile) => (t.key !== 'timesheets' || view.office.useTimesheets) && (NEEDS[t.key] === 'approve-leave' ? approver : can(NEEDS[t.key] as Ability))
@@ -170,7 +174,7 @@ export const SOON: ReadonlySet<string> = new Set(['late', 'crew-needed', 'kit-sh
 
 /** Which counts each view of Home shows, in order: the first is what that person reaches for first. */
 export const TILES_FOR: Record<HomeFor, readonly string[]> = {
-  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts'],
+  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'no-answer'],
   // Only what can be narrowed to a department: crew calls by their own department (ADR 0046); kit still out is the job's, not a department's.
   department: ['late', 'answers', 'crew-needed', 'leave', 'timesheets', 'certificates', 'kit-short', 'faults', 'cant-go', 'tests-soon'],
   warehouse: ['to-pick', 'still-out', 'kit-short', 'faults', 'cant-go', 'counts', 'tests-soon', 'vehicles'],

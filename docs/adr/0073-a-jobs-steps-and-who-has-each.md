@@ -1,6 +1,6 @@
 # ADR 0073: A job's steps, and who has each
 
-- **Status:** accepted
+- **Status:** accepted; amended by [ADR 0109](0109-next-and-the-stages-tell-the-truth.md) (Kit and vans settled ticks itself once a job is under way; a job is through a fortnight after it ends with nothing out)
 - **Date:** 22 October 2026
 - **Asked for by:** Colly, 22 October 2026 ("On each jobs page it would be
   good to get a linear flow illustrating the steps each job goes through
