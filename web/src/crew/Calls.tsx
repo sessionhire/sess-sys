@@ -3,6 +3,7 @@ import {
   daysLabel,
   departmentForRole,
   departmentOf,
+  sameDepartment,
   eachDay,
   euroText,
   firstName,
@@ -543,13 +544,24 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const today = useToday()
   const needs = needsOf(call)
   const gapsOf = (p: PersonView) => certificateGaps(p, needs, call.days, today)
-  const groups = needs.length
-    ? [
-        { label: `Hold ${needsLabel(needs)}`, people: candidates.filter((p) => gapsOf(p).length === 0) },
-        { label: 'Not known: check first', people: candidates.filter((p) => gapsOf(p).length > 0 && !gapsOf(p).some(blocks)) },
-        { label: 'Missing a certificate', people: candidates.filter((p) => gapsOf(p).some(blocks)) },
-      ].filter((g) => g.people.length)
-    : undefined
+  const byNeeds = (people: PersonView[], within = '') =>
+    needs.length
+      ? [
+          { label: `${within}Hold ${needsLabel(needs)}`, people: people.filter((p) => gapsOf(p).length === 0) },
+          { label: `${within}Not known: check first`, people: people.filter((p) => gapsOf(p).length > 0 && !gapsOf(p).some(blocks)) },
+          { label: `${within}Missing a certificate`, people: people.filter((p) => gapsOf(p).some(blocks)) },
+        ]
+      : [{ label: within.replace(/: $/, ''), people }]
+  // The call's own department first (audit, 5 November 2026, finding 62), so a head finds their people at the top; the
+  // certificate groups inside each. A call with no department, or nobody in it, lists everyone as before.
+  const callDept = departmentOf(call)
+  const ours = callDept ? candidates.filter((p) => !!p.department && sameDepartment(p.department, callDept)) : []
+  const groups =
+    callDept && ours.length && ours.length < candidates.length
+      ? [...byNeeds(ours, `${callDept}: `), ...byNeeds(candidates.filter((p) => !ours.includes(p)), 'Everyone else: ')].filter((g) => g.people.length)
+      : needs.length
+        ? byNeeds(candidates).filter((g) => g.people.length)
+        : undefined
   const option = (p: PersonView) => {
     const marks = gapMarks(gapsOf(p))
     return (

@@ -34,6 +34,9 @@ function savedSort(name: string): string {
  * filters as the list opens, such as the department a count on Home asked
  * for, over whatever was kept.
  */
+/** Whether this list's choices were made this visit, so a start a screen would give it doesn't undo them. */
+export const listChoicesKept = (name: string) => kept.has(name)
+
 export function useListChoices(name: string, start?: Readonly<Record<string, string>>): [ListChoices, (next: ListChoices) => void] {
   const [choices, setChoices] = useState<ListChoices>(() => {
     const was = kept.get(name) ?? { sort: savedSort(name), filters: {} }

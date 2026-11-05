@@ -105,7 +105,10 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .leave-screen .leave-row .hint { align-self: center; }
 .leave-screen .leave-warnings { list-style: none; margin: var(--ds-space-2) 0 0; padding: 0; display: grid; gap: var(--ds-space-1); }
 .leave-screen .decline-form { display: grid; grid-template-columns: 1fr auto auto; gap: var(--ds-space-2); align-items: center; flex-basis: 100%; }
-.leave-screen .allowance-row .actions { align-items: flex-end; }
+.leave-screen .allowance-row .actions { align-items: flex-end; padding: var(--ds-space-2) 0; }
+.leave-screen .allowance-fold { flex-basis: 100%; }
+.leave-screen .allowance-fold summary { cursor: pointer; min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--ds-space-2); }
+.leave-screen .allowance-fold summary span { color: var(--muted); font-size: var(--text-small); }
 .leave-screen .allowance-row .field input { width: 6em; }
 .leave-screen .allowance-row .alert { flex-basis: 100%; }
 .leave-screen button.link.start { justify-self: start; }

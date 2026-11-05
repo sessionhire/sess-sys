@@ -146,17 +146,28 @@ test('a head of department is told what is hidden for their role, and never show
   // Crew needed starts on their own department, and no rate is shown as one.
   await page.goto('/#crew/calls')
   await expect(page.getByLabel('Calls for department')).toHaveValue('Audio')
+  // So do the answers to check (audit, 5 November 2026, finding 6): none from Audio, said, with the way to the others' answers.
+  const answers = page.locator('section.card', { has: page.getByRole('heading', { name: /^Answers to check/ }) })
+  await expect(answers.getByRole('heading', { name: /^Answers to check/ })).toHaveText('Answers to check (0)')
+  await expect(answers).toContainText('Showing Audio only.')
+  await expect(answers).toContainText('Nothing waiting from Audio.')
+  await answers.getByRole('button', { name: 'Show all departments' }).click()
+  await expect(answers).toContainText("Tadhg Brady can't make it any more")
   await expect(page.locator('main')).not.toContainText('NaN')
   await expect(page.locator('main')).not.toContainText('€')
 
-  // Someone in Audio: their link is there to send. Someone in LX: said plainly, with nothing that would break their link.
+  // People starts on their own department too, said in the filter's chip, with the way to everyone (audit, 5 November 2026, finding 42).
   await page.goto('/#crew/people')
+  await expect(page.getByRole('button', { name: 'Take off the filter Department: Audio' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Fionn Gallagher/ })).toHaveCount(0)
+  // Someone in Audio: their link is there to send. Someone in LX: said plainly, with nothing that would break their link.
   await page.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Dara Quinn/ }).click()
   await page.getByRole('tab', { name: /^Details/ }).click()
   await expect(page.getByText('Hidden for your role')).toBeVisible()
   await page.getByRole('tab', { name: /^Their link/ }).click()
   await expect(page.getByRole('link', { name: 'Open their page' })).toBeVisible()
   await page.goto('/#crew/people')
+  await page.getByRole('button', { name: 'Take off the filter Department: Audio' }).click()
   await page.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Fionn Gallagher/ }).click()
   await page.getByRole('tab', { name: /^Their link/ }).click()
   await expect(page.getByText("Your role doesn't see Fionn Gallagher's link.", { exact: false })).toBeVisible()

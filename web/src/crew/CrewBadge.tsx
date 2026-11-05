@@ -1,7 +1,8 @@
 import { canApproveLeave } from '@sh/shared'
 import { useAccess } from '../role.ts'
 import { useToday, useView } from '../view.ts'
-import { crewToCheck } from './CrewViews.tsx'
+import { useMyDepartment } from '../Narrowed.tsx'
+import { crewToCheck, leaveToDecide } from './CrewViews.tsx'
 import { useMe } from './Leave.tsx'
 
 /**
@@ -24,9 +25,11 @@ export function CrewBadge() {
   const today = useToday()
   const { me } = useMe(view)
   const mayCrew = useAccess().can('crew')
+  // A head's own department's, as Calls starts on it; their own leave request is another approver's (audit, 5 November 2026, findings 6 and 28).
+  const department = useMyDepartment()
   // Not while the copy is still arriving: the count would climb under the tab (audit, 20 October 2026, finding 1).
   if (view.copying) return null
-  const n = (mayCrew ? crewToCheck(view, today) : 0) + (canApproveLeave(me) ? view.leave.queue.length : 0)
+  const n = (mayCrew ? crewToCheck(view, today, department) : 0) + (canApproveLeave(me) ? leaveToDecide(view, me).length : 0)
   if (n === 0) return null
   return (
     <span className="badge">
