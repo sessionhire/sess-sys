@@ -67,6 +67,10 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await call.getByRole('button', { name: 'Send' }).click()
   const share = office.getByRole('region', { name: 'Send offer to Aoife Byrne' })
   await expect(share.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', /^https:\/\/wa\.me\/353871234567\?text=/)
+  // It opens under the call that asked, in view with the focus on it, not at the foot of the page (audit, 5 November 2026, finding 5).
+  await expect(office.locator('.call-group', { hasText: 'Electric Picnic' }).getByRole('region', { name: 'Send offer to Aoife Byrne' })).toBeVisible()
+  await expect(share).toBeInViewport()
+  await expect(share).toBeFocused()
   await expect(office.getByRole('status')).toHaveText('Up to date')
   await office.screenshot(shot('crew-office-offer'))
   const message = await share.locator('textarea').inputValue()
@@ -81,12 +85,23 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await phone.getByLabel('Sat 31 Aug').uncheck()
   await phone.getByRole('button', { name: 'Accept these days' }).click()
   await expect(phone.getByText("Thanks, you're down for it.")).toBeVisible()
+  // The page lands on the card, with its thank-you below the glance that sticks at the top, not under it (audit, 5 November 2026, finding 7).
+  const under = await phone.evaluate(() => {
+    const glance = document.querySelector('.glance')?.getBoundingClientRect().bottom ?? 0
+    return [...document.querySelectorAll('.flash')].map((f) => f.getBoundingClientRect().top - glance)
+  })
+  expect(under.length).toBeGreaterThan(0)
+  expect(Math.min(...under)).toBeGreaterThanOrEqual(0)
 
   // The office sees the answer arrive and confirms it.
   const answers = office.locator('section').filter({ has: office.getByRole('heading', { name: 'Answers to check' }) })
   await expect(answers.getByText('Aoife Byrne accepted')).toBeVisible()
   await expect(answers.getByText('Thu 29 Aug to Fri 30 Aug', { exact: false })).toBeVisible()
   await answers.locator('.row', { hasText: 'Aoife Byrne' }).getByRole('button', { name: 'Confirm' }).click()
+  // The message to tell her opens in the answer's place, in view, rather than at the foot of the page (finding 5).
+  const tell = answers.getByRole('region', { name: /^Send .* to Aoife Byrne$/ })
+  await expect(tell).toBeInViewport()
+  await expect(tell).toBeFocused()
   await expect(call.getByText('Confirmed')).toBeVisible()
   await office.getByRole('link', { name: 'Done' }).or(office.getByRole('button', { name: 'Done' })).click()
   await office.evaluate(() => scrollTo(0, 0))

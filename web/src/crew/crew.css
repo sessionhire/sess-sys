@@ -220,3 +220,5 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .person-page .combine .field { display: grid; gap: var(--ds-space-1); }
 .person-page .combine .field input { width: 100%; }
 .person-page .combine .actions { margin: 0; }
+/* A Send or Tell card opens where it was asked for, in the answer's place or under the call (audit, 5 November 2026, finding 5). */
+.crew .share-here { display: contents; }

@@ -14,7 +14,7 @@ import {
 } from '@sh/shared'
 import { CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
 import { holdsARole, ROLE_LABELS, ROLE_LINES, ROLES, roleOfPerson, signInAbility, type Role } from '@sh/shared'
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
@@ -187,6 +187,13 @@ function Who({ person, view }: { person: PersonView; view: View }) {
   // Their main email is how they're written to; for someone with a role, only who changes settings changes it, as with the email itself.
   const mayMakeMain = mayEdit && (!holdsARole(person) || access.can(signInAbility(person.role)))
   const [editing, setEditing] = useState(false)
+  // Saved or left, the focus goes back to Change details, which the form stood in for.
+  const change = useRef<HTMLButtonElement>(null)
+  const wasEditing = useRef(false)
+  useEffect(() => {
+    if (wasEditing.current && !editing) change.current?.focus()
+    wasEditing.current = editing
+  }, [editing])
   const { run, error } = useAct()
   const phone = person.phone?.trim()
   const email = person.email?.trim()
@@ -205,6 +212,7 @@ function Who({ person, view }: { person: PersonView; view: View }) {
         <PersonForm
           initial={person}
           submitLabel="Save"
+          focusFirst
           onSubmit={(fields) => client.mutate('person.upsert', { id: person.id, ...fields })}
           onDone={() => setEditing(false)}
         />
@@ -314,7 +322,7 @@ function Who({ person, view }: { person: PersonView; view: View }) {
             />
           )}
           {mayEdit && (
-            <button type="button" onClick={() => setEditing(true)}>
+            <button type="button" ref={change} onClick={() => setEditing(true)}>
               Change details
             </button>
           )}

@@ -25,7 +25,7 @@ import {
   peopleSorts,
 } from '@sh/shared'
 import { VehicleReminders } from '../stock/Vehicles.tsx'
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { arrival } from '../arrival.ts'
 import { inDepartment, Narrowed, useNarrowed } from '../Narrowed.tsx'
 import { useWindowed } from '../windowed.ts'
@@ -159,6 +159,9 @@ export function calendarAnswersToSortOut(view: View, today: string) {
     )
 }
 
+/** Where a Send or Tell card opens when an answer to check asked for it: in the answer's place. */
+const ANSWERS = 'answers'
+
 export function CrewScreen() {
   const view = useView()
   // A role without crew sees who's on and what's waiting, without the ways to ask or add (ADR 0034).
@@ -166,7 +169,34 @@ export function CrewScreen() {
   const hash = useHash()
   const today = useToday()
   const crew = view.crew
-  const [share, setShare] = useState<Share | undefined>()
+  const [share, setShareNow] = useState<Share | undefined>()
+  // Where it was asked for, so it opens there and not at the foot of a long page (audit, 5 November 2026, finding 5): the answers
+  // to check, or the call whose button was pressed.
+  const [shareAt, setShareAt] = useState<string | undefined>()
+  const setShare = (s: Share | undefined, at?: string) => {
+    setShareNow(s)
+    setShareAt(s ? at : undefined)
+  }
+  // The answer's place in the list, as it was settled: the card takes it, and Done goes on to the answer that's there now.
+  const [answerAt, setAnswerAt] = useState(0)
+  const here = useRef<HTMLDivElement>(null)
+  const closeShare = () => {
+    const at = shareAt
+    const next = (at === ANSWERS ? here.current?.nextElementSibling : here.current?.previousElementSibling) as HTMLElement | null | undefined
+    setShare(undefined)
+    if (at === undefined || !next) return
+    requestAnimationFrame(() => {
+      if (!next.isConnected) return
+      const control = next.matches('button, a[href]') ? next : next.querySelector<HTMLElement>('button, a[href]')
+      control?.focus({ preventScroll: true })
+      control?.scrollIntoView?.({ block: 'nearest' })
+    })
+  }
+  const panel = share && (
+    <div className="share-here" ref={here}>
+      <SharePanelFor share={share} onClose={closeShare} />
+    </div>
+  )
   const people = new Map(crew.people.map((p) => [p.id, p]))
   // Archived people (leavers) are kept for the record but out of the way.
   const active = crew.people.filter((p) => !p.archived)
@@ -224,6 +254,10 @@ export function CrewScreen() {
   const late = view.late.toCheck.filter((n) => theirs(n.person))
   // Documents sent from a link, for the office to check (ADR 0029).
   const docs = view.documents.toCheck.filter((d) => theirs(d.person))
+  const markAnswer = (o: OfferView) => setAnswerAt(late.length + docs.length + toSortOut.length + Math.max(0, toCheck.findIndex((a) => a.offer.id === o.id)))
+  // The Send or Tell card for an answer just settled, in the row's place, kept in view under Show all wherever it falls.
+  const answerCard = shareAt === ANSWERS ? panel : undefined
+  const withAnswerCard = (rows: ReactNode[]) => (answerCard ? [...rows.slice(0, answerAt), answerCard, ...rows.slice(answerAt)] : rows)
   // What the device turned down, said in the card it was asked from.
   const answers = useAct()
   const roster = useAct()
@@ -260,7 +294,8 @@ export function CrewScreen() {
 
   /** Settle a yes or a counter, then tell them. */
   const settle = (o: OfferView, c: CallView, command: 'offer.confirm' | 'offer.cancel', event: TellEvent) => {
-    void answers.run(() => client.mutate(command, { id: o.id })).then((ok) => ok && o.person && setShare(promptFor(event, [tellTo(o.person, c, o)])))
+    markAnswer(o)
+    void answers.run(() => client.mutate(command, { id: o.id })).then((ok) => ok && o.person && setShare(promptFor(event, [tellTo(o.person, c, o)]), ANSWERS))
   }
 
   // Only the calls short of people at rest, with the filled ones a tap away under them (audit finding 10). A filled call with
@@ -278,6 +313,8 @@ export function CrewScreen() {
   // A call asked for here stays in view whatever its days.
   const soonEnd = addDays(today, SOON_DAYS)
   const soon = allCalls ? inView : inView.filter((c) => c.start <= soonEnd || madeHere.has(c.id))
+  // A call's Send card opens under it while it's drawn there; one that moved out of view as it was offered keeps it at the foot.
+  const underItsCall = shareAt !== undefined && [...onNow, ...soon].some((c) => c.id === shareAt)
   // A long list (audit finding 11, ADR 0050): only the jobs' groups near the screen are drawn, and Back finds its place by them (places.ts).
   const callGroups = (calls: readonly CallView[], list: string) => (
     <Groups name={list} groups={groupCalls(calls, view.jobs.jobs)}>
@@ -298,15 +335,17 @@ export function CrewScreen() {
             <div className="call-date" key={when}>
               <h3>{when}</h3>
               {calls.map((c) => (
-                <CallCard
-                  key={c.id}
-                  call={c}
-                  crew={crew}
-                  calendar={view.calendar}
-                  late={view.late}
-                  onShare={(person) => setShare({ kind: 'offer', person, call: c })}
-                  onTell={setShare}
-                />
+                <Fragment key={c.id}>
+                  <CallCard
+                    call={c}
+                    crew={crew}
+                    calendar={view.calendar}
+                    late={view.late}
+                    onShare={(person) => setShare({ kind: 'offer', person, call: c }, c.id)}
+                    onTell={(s) => setShare(s, c.id)}
+                  />
+                  {shareAt === c.id && underItsCall && panel}
+                </Fragment>
               ))}
             </div>
           ))}
@@ -343,14 +382,14 @@ export function CrewScreen() {
           side={
             // Answers are the office's to act on: a role without crew isn't shown them (audit, 20 October 2026, finding 34).
             access.can('crew') &&
-            (toCheck.length > 0 || toSortOut.length > 0 || late.length > 0 || docs.length > 0) && (
+            (answerCard || toCheck.length > 0 || toSortOut.length > 0 || late.length > 0 || docs.length > 0) && (
               <section className="card">
                 {/* Counted in full, so any past the first three are a tap away and never out of mind (audit finding 16). */}
                 <Heading icon="message">Answers to check ({late.length + docs.length + toSortOut.length + toCheck.length})</Heading>
                 <Narrowed department={answersFor} onWiden={allAnswers} />
                 <Refusal error={answers.error} />
                 <ShowAll
-                  items={[
+                  items={withAnswerCard([
                     ...late.map((l) => (
                       <LateRow
                         key={l.id}
@@ -482,7 +521,8 @@ export function CrewScreen() {
                                   onShare={(person) => {
                                     // Offering the call to someone else is acting on the answer, so it's noted without another tap.
                                     void answers.run(() => client.mutate('offer.seen', { id: o.id }))
-                                    setShare({ kind: 'offer', person, call: c })
+                                    markAnswer(o)
+                                    setShare({ kind: 'offer', person, call: c }, ANSWERS)
                                   }}
                                 />
                               </Fold>
@@ -491,8 +531,9 @@ export function CrewScreen() {
                         )}
                       </div>
                     )),
-                  ]}
+                  ])}
                   limit={3}
+                  keep={(row) => row === answerCard}
                   what="answers"
                 >
                   {(rows) => rows}
@@ -586,7 +627,7 @@ export function CrewScreen() {
         </Split>
       )}
 
-      {share && <SharePanelFor share={share} onClose={() => setShare(undefined)} />}
+      {share && (shareAt === undefined || (shareAt !== ANSWERS && !underItsCall)) && panel}
 
       {/* Certificates and documents running out, and vehicles' checks (ADR 0047), beside the people on a desk. */}
       {page === 'people' && (

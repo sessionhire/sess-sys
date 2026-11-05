@@ -180,8 +180,10 @@ test('the people list finds someone as the picker does, shows its first ten, and
   await list.getByRole('button', { name: 'Clear filters' }).click()
   await expect(list.getByLabel('Department')).toHaveValue('')
 
-  // Someone just added stays in view, whatever the search and the fold, until the tab is next opened.
-  await office.reload()
+  // Someone just added stays in view, whatever the search and the fold, until the tab is next opened. Opened afresh, the list is
+  // short again: Show all is kept only for Back and a reload (audit, 5 November 2026, finding 9).
+  await office.goto('/#crew')
+  await office.goto('/#crew/people')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   await find.fill(dept.toLowerCase())
   await expect(rows).toHaveCount(10)

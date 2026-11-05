@@ -172,6 +172,13 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await expect(main.getByRole('region', { name: 'Phases' })).toBeVisible()
   // Each part of the job in turn (ADR 0059), and no Quote for a role that doesn't see money.
   await expect(main.getByRole('tab')).toHaveText(['Phases 3', /^Crew/, 'Kit and vans', 'Show pack'])
+  // The quote's address, typed or kept from before, says what it refused under a heading of its own (audit, 5 November 2026, finding 87).
+  const jobAt = page.url()
+  expect(jobAt).toMatch(/#jobs\/[^/]+/)
+  await page.goto(jobAt.replace(/#jobs\/([^/]+).*/, '#jobs/$1/quote'))
+  await expect(page.getByRole('heading', { level: 1, name: 'Quote' })).toBeVisible()
+  await expect(main).toContainText('Quotes and prices are for the office and directors.')
+  await page.goto(jobAt)
   for (const part of ['Phases', 'Crew', 'Kit and vans', 'Show pack']) {
     await main.getByRole('tab', { name: new RegExp(`^${part}`) }).click()
     for (const name of ['Change', 'Change details', 'Add phase', 'Add kit', 'Ask for crew', 'Offer…', 'Running late…', 'Book a vehicle'])

@@ -135,7 +135,8 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   if (!job || !sees)
     return (
       <div className="app crew jobs quote-screen">
-        <Top view={view} up={up} />
+        {/* Named, as every screen is, so a move here lands on what was refused (audit, 5 November 2026, finding 87). */}
+        <Top view={view} up={up} heading="Quote" />
         <section className="card">
           <p className="empty">
             {!sees

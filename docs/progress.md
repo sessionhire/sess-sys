@@ -3,7 +3,7 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
-## 5 November 2026: an audit of every flow, by role, and batch 1 of its fixes
+## 5 November 2026: an audit of every flow, by role, and batches 1 and 2 of its fixes
 
 **Done**
 
@@ -27,11 +27,21 @@ waiting on someone.
   housekeeping count on Home and their own group on Quotes. On the
   audit's copy, Back went from 108 jobs to 12 and the Board from 17,780 px
   to 7,884 px at a desk.
+- Batch 2, "keep people where they were" (1.78.1, PR #204), on Colly's
+  "Start with the next ones": findings 5, 7, 9, 31 and 87. On Crew, the
+  card to send or tell opens in the answer's place or under its call, with
+  the focus on it, and Done goes on to the next answer: on the audit's copy
+  the page stayed at 2,345 px instead of jumping to the foot of a
+  16,000 px page. The freelancer's page leaves room for its sticky line, so
+  a thank-you lands below it, and days off come back to their list. Show
+  all is kept for Back and a reload. Change details focuses its first
+  field, and the quote's refusal has a heading. No ADR: none of it changes
+  a decision.
 
 **Waiting**
 
-- Colly to choose the next batch. Batch 2 is "keep people where they
-  were" (findings 5, 7, 9, 31 and 87).
+- Colly to choose the next batch. Batch 3 is "data right" (findings 8,
+  10, 23, 26, 43, 11, 39, 13 and 15).
 
 ## 1 November 2026: the logo, stock code, cable length and colour on labels
 

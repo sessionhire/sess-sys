@@ -297,3 +297,36 @@ test('a product added by mistake is hidden with its items and counts, and its la
   await expect(page.locator('.job-row', { hasText: spot })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '1 not done' })).toHaveCount(0)
 })
+
+test('Back from a product to the catalogue opened in full keeps it open, at the row that was opened', async ({ browser }) => {
+  // Proves (audit, 5 November 2026, finding 9): on a phone, Show all is kept for Back, so going down the catalogue product by product
+  // doesn't mean Show all and a long scroll each time; a new move to Stock starts short again.
+  const id = Math.random().toString(36).slice(2, 8)
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  const createdAt = new Date().toISOString()
+  const mutations = Array.from({ length: 8 }, (_, i) => ({
+    id: `back${id}${i}`,
+    createdAt,
+    name: 'model.create',
+    args: { id: `m${id}${i}`, name: `Back ${id} ${i}`, department: 'audio', category: 'Speakers', tracking: 'bulk', isCase: false, valueCents: null, notes: '' },
+  }))
+  await page.request.post('/api/sync/push', { data: { clientId: `back${id}`, mutations } })
+  await ready(page)
+  const catalogue = page.getByRole('region', { name: 'Catalogue', exact: true })
+  await catalogue.getByRole('button', { name: /^Show all \d+ products$/ }).click()
+  const rows = catalogue.locator('.job-row')
+  await expect.poll(() => rows.count()).toBeGreaterThan(7)
+  const opened = rows.nth(7)
+  await opened.scrollIntoViewIfNeeded()
+  const name = await opened.locator('b').innerText()
+  await opened.click()
+  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+  await page.goBack()
+  await expect(page).toHaveURL(/#stock$/)
+  await expect(catalogue.getByRole('button', { name: /^Show all \d+ products$/ })).toHaveCount(0)
+  await expect(catalogue.locator('.job-row', { hasText: name })).toBeInViewport()
+  // A new move to Stock is a list opened afresh: its first few.
+  await page.goto('/#home')
+  await page.goto('/#stock')
+  await expect(catalogue.getByRole('button', { name: /^Show all \d+ products$/ })).toBeVisible()
+})
