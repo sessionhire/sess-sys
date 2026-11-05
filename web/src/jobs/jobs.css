@@ -449,6 +449,14 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-table small { display: block; color: var(--muted); font-weight: 400; }
 .quote-table th a { color: var(--accent-ink); font-weight: 600; }
 .quote-table .bad { color: var(--bad); font-weight: 700; }
+/* A sent version on a phone (audit, 5 November 2026, finding 59): what and the amount, with how many, the price, the days and the VAT
+   in a line under the name, as a draft's lines read, so nothing is off the right edge. The A4 sheet and a desk keep the table. */
+.quote-table .line-sum { display: none; }
+@media screen and (max-width: 639px) {
+  .quote-table :is(th, td):not(:first-child, :last-child) { display: none; }
+  .quote-table .line-sum { display: block; }
+  .quote-table td .less { display: none; }
+}
 .quote-totals { margin: var(--ds-space-3) 0 0 auto; display: grid; gap: var(--ds-space-half); max-width: 22em; font-variant-numeric: tabular-nums; }
 .quote-totals div { display: flex; justify-content: space-between; gap: var(--ds-space-3); }
 .quote-totals dt { color: var(--muted); }
@@ -561,6 +569,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .map .leaflet-bar { border: 1px solid var(--line); box-shadow: none; }
 .jobs .map .leaflet-bar a { background: var(--panel); color: var(--ink); border-bottom-color: var(--line); }
 .jobs .map .leaflet-bar a:hover { background: var(--ds-surface-inset); }
+/* The zoom buttons as big as a thumb on a touch screen, where Leaflet draws them 30px (audit, 5 November 2026, finding 86). */
+.jobs .map.leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
 .jobs .map .leaflet-control-attribution { background: var(--panel); color: var(--muted); font-size: var(--text-footer); }
 .jobs .map .leaflet-control-attribution a, .jobs .map .leaflet-popup-content a { color: var(--ink); }
 .jobs .map .leaflet-popup-content-wrapper, .jobs .map .leaflet-popup-tip { background: var(--panel); color: var(--ink); border: 1px solid var(--line); }
@@ -582,7 +592,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .app .part-tabs [role='tab'] { flex: none; display: inline-flex; align-items: center; gap: var(--ds-space-2); min-height: 44px; margin-bottom: -1px; padding: var(--ds-space-2) var(--ds-space-3); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); font-weight: 700; white-space: nowrap; }
 .app .part-tabs [role='tab']:hover { color: var(--ink); }
 .app .part-tabs [role='tab'][aria-selected='true'] { color: var(--ink); border-bottom-color: var(--accent); }
-.part-count { font-weight: 600; font-variant-numeric: tabular-nums; opacity: .8; }
+.part-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 .job-part { display: grid; gap: var(--ds-space-4); min-width: 0; }
 .jobs .phase-crew { margin: 0; }
 /* A person's first and last name side by side (ADR 0066), wrapping to two lines on a narrow phone. */

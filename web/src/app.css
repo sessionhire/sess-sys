@@ -220,7 +220,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
 .views a { flex: 1 0 auto; display: grid; grid-auto-flow: column; place-items: center; place-content: center; gap: var(--ds-space-2); min-height: 44px; padding-inline: var(--ds-space-3); border-radius: var(--radius-control); font-weight: 700; color: var(--muted); text-decoration: none; white-space: nowrap; }
 .views a[aria-current='page'] { background: var(--ink); color: var(--bg); }
 .views a:not([aria-current]):hover { color: var(--ink); }
-.views-count { font-weight: 600; opacity: .8; }
+/* The count in the muted ink alone, never faded below it: it's what says whether a view needs a look (audit, 5 November 2026, finding 55). */
+.views-count { font-weight: 600; }
 /* The way up (Up.tsx), in the bar so it stays in view down a long page: one link to the parent on a phone, as tall as a thumb; from 900px, where the places are a sidebar, the whole way down as breadcrumbs, the page itself last and not a link. The separators are drawn here and not read out. */
 .top .up { grid-column: 1 / -1; min-width: 0; margin-top: calc(-1 * var(--ds-space-2)); }
 .top .up-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); font-weight: 600; text-decoration: none; }
@@ -543,7 +544,7 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
 :where(a:not([class])) { color: var(--accent-ink); font-weight: 600; text-underline-offset: 2px; }
 /* As tall as a thumb on a touch screen, a fact's Map or a line's "All jobs" alike, the words where they were: padding on a link in a line moves no line. */
 @media (pointer: coarse) {
-  :where(a:not([class])) { padding-block: var(--ds-space-4); }
+  :where(a:not([class]), a.muted) { padding-block: var(--ds-space-4); }
 }
 
 /* The way past the places to the screen (Shell.tsx, the design system's skip link): out of sight until a keyboard reaches it, first thing in the page. */

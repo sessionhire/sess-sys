@@ -20,7 +20,7 @@
    crew and kit stay whole beside it. Where they don't fit beside a name of about nine letters (a phone, a job short of crew and kit),
    the date, stage and flags go on a second line under the name, so the rows that need someone keep their names (audit, 5 November
    2026, finding 12). The stage's five segments go on a phone; its name stays. */
-.home .today-row { align-items: baseline; flex-wrap: wrap; row-gap: var(--ds-space-1); }
+.home .today-row { align-items: baseline; align-content: center; flex-wrap: wrap; row-gap: var(--ds-space-1); min-height: 44px; }
 .home .today-row > b { flex: 1 1 9em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home .today-row > .side { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-half) var(--ds-space-2); }
 @media (max-width: 479px) { .home .today-row .stage-line[data-compact] .stage-seg { display: none; } }

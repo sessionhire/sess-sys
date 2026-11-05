@@ -76,7 +76,9 @@
 @media (max-width: 639px) {
   .stages-flow { --dot: 26px; --gap: 2px; }
   .stage-label { font-size: 11px; }
-  .task-tag { display: none; }
+  /* The two tags that ask for something stay, Next and Late, so the word for the task to do is there on a phone too (audit,
+     5 November 2026, finding 56). Done, To do and Not needed go: the ring says those. */
+  .task-list li:not([data-state='now'], [data-late]) .task-tag { display: none; }
 }
 
 /*
@@ -91,15 +93,20 @@
 .app .next-dock .primary { min-height: 48px; padding-inline: var(--ds-space-4); font-size: var(--text-body); white-space: nowrap; text-align: center; justify-content: center; }
 .app .next-dock .second { font-size: var(--text-small); }
 .next-dock .rest { grid-column: 1 / -1; margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border: 1px dashed var(--field-line); border-radius: var(--radius-control); color: var(--muted); font-size: var(--text-small); }
-.next-dock .rest a { color: var(--accent); }
+.next-dock .rest a { color: var(--accent-ink); }
 @media (min-width: 640px) {
   .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
   .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
   .page-head .next-dock .line { order: -1; }
 }
 /* A phone: the dock is in the foot (foot.tsx), over the places, one footer: the button full width with its words centred. */
-.foot .next-dock .primary { grid-column: 1 / -1; width: 100%; }
-.foot .next-dock .second { grid-column: 1 / -1; justify-self: center; min-height: 44px; padding: var(--ds-space-2) var(--ds-space-3); border: 0; background: none; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+/* The quiet second choice sits beside it on the same row, so the dock keeps a row less of the screen (audit, 5 November 2026,
+   finding 56), in the accent's ink like every other link (finding 54). A long label wraps inside the button rather than pushing the
+   second choice off. */
+.foot .next-dock .primary { grid-column: 1; width: 100%; white-space: normal; }
+.foot .next-dock .second { grid-column: 2; justify-self: end; min-height: 44px; padding: var(--ds-space-2) 0 var(--ds-space-2) var(--ds-space-1); border: 0; background: none; color: var(--accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.foot .next-dock .primary:not(:has(+ .second)) { grid-column: 1 / -1; }
+.next-dock .alert { grid-column: 1 / -1; margin: 0; }
 @media print {
   .next-dock { display: none; }
 }

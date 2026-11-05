@@ -60,6 +60,16 @@ waiting on someone.
   approve moved from 2,209 px down to 320 px, and the page from 5,381 px to
   3,609 px. No ADR: it carries ADR 0046's start on a head's department to
   the lists that missed it.
+- Batch 5, "phone legibility" (1.79.2, PR #207), on Colly's "Go for batch
+  5": findings 54, 55, 56, 59 and 86 (12 went in with the audit). On a
+  phone, Next and Hand it to someone share one row, taking the dock from
+  116 px to 70 px, and the link is in the accent's ink (6.5:1 dark, 5.2:1
+  light, was 4.3 and 3.7). Tasks show Next and Late again. Counts on view
+  and part tabs are no longer faded (5.1 to 6.1:1, was 3.7 to 4.0). A sent
+  quote's lines fold to the name, a line of how many, price, days and VAT,
+  and the amount, so nothing is off the right edge. Home's rows, a job's
+  map link, the map's zoom, the rack designer's units and the freelancer
+  page's links and boxes are 44 px on a touch screen. No ADR.
 
 **Waiting**
 

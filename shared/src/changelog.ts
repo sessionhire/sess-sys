@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.79.2',
+    date: '2026-11-05',
+    title: 'Easier to read on a phone',
+    what: "On a phone, a job's Next button and Hand it to someone now share one row, which gives back a line of the screen, and the link is easier to read in daylight. The tasks say which one is Next or Late again. The counts on the page tabs (Timesheets 50, Crew 2 of 2) are no longer faded. A sent quote's lines fit the screen, with how many, the price, the days and the VAT under each name and the amount beside it, so there's no swiping sideways. Home's rows, a job's map link, the map's zoom buttons, the rack designer's units and the links and boxes on a freelancer's own page are all big enough for a thumb.",
+    prs: [207],
+  },
+  {
     version: '1.79.1',
     date: '2026-11-05',
     title: 'Heads start on their own department',
