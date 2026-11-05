@@ -119,3 +119,41 @@ test('archiving from the page goes back to the list, which says so with the way 
   await people.getByLabel('Find a person').fill(`tadhg page ${id}`)
   await expect(people.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
 })
+
+// Picking Director asks first, and any other role says what it became (ADR 0110, audit finding 39). The test server is shared,
+// so nobody is made a director here: that would switch roles on for every other test.
+test('making someone a director asks first, and a role picked says what they are now', async ({ browser }) => {
+  const name = `Saoirse Role ${id}`
+  const context = await browser.newContext({ viewport: phoneSize })
+  const res = await context.request.post('/api/sync/push', {
+    data: {
+      clientId: `person-role-${id}`,
+      mutations: [
+        {
+          id: `${k('r')}-0`,
+          name: 'person.upsert',
+          args: { id: k('saoirse'), name, kind: 'staff', email: `saoirse.${id}@example.com`, phone: null, skills: [], dayRateCents: null, notes: '' },
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    },
+  })
+  expect(res.ok()).toBe(true)
+  const office = await context.newPage()
+  await office.goto(`/#crew/person/${k('saoirse')}`)
+  await expect(office.getByRole('status')).toHaveText('Up to date')
+  await office.getByRole('tab', { name: /^Details/ }).click()
+  const role = office.getByRole('combobox', { name: `Role for ${name}` })
+  await role.selectOption('director')
+  const ask = office.getByText(`Make ${name} a director? Saoirse can then change roles, erase people and start fresh.`)
+  await expect(ask).toBeVisible()
+  await office.getByRole('button', { name: 'Keep Staff crew' }).click()
+  await expect(ask).toHaveCount(0)
+  await expect(role).toHaveValue('crew')
+
+  await role.selectOption('head')
+  await expect(office.getByText(`${name} is Head of department now.`)).toBeVisible()
+  await expect(office.getByRole('status')).toHaveText('Up to date')
+  await expect(role).toHaveValue('head')
+  await context.close()
+})

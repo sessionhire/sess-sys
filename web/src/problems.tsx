@@ -1,4 +1,4 @@
-import { dayLabel, levelLabel, normaliseNumber, spanLabel, type Mutation, type View } from '@sh/shared'
+import { dayLabel, DEPARTMENT_LABELS, levelLabel, normaliseNumber, quoteNumberLabel, ROLE_LABELS, spanLabel, STEP_LABELS, type JobStep, type Department, type Mutation, type Role, type View } from '@sh/shared'
 import { attachmentTitleInSentence, titleInSentence } from '@sh/shared'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { reasonOf } from './act.tsx'
@@ -80,6 +80,7 @@ function NotDoneList({ view }: { view: View }) {
 const TYPED: Record<string, string> = {
   name: 'Name',
   knownAs: 'Goes by',
+  // A crew call's role, typed; a person's role is picked from a list, so there is nothing to copy (audit, 5 November 2026, finding 11).
   role: 'Role',
   address: 'Address',
   notes: 'Notes',
@@ -89,6 +90,7 @@ const TYPED: Record<string, string> = {
 
 /** What was typed, ready to paste: the text alone when there's one piece, each under its name when there are more. */
 function typedOf(m: Mutation): string {
+  if (m.name === 'person.role') return ''
   const a = (m.args ?? {}) as Record<string, unknown>
   const typed = Object.entries(TYPED).flatMap(([k, label]) => (typeof a[k] === 'string' && a[k].trim() ? [[label, a[k]] as const] : []))
   return typed.length === 1 ? typed[0]![1] : typed.map(([label, text]) => `${label}:\n${text}`).join('\n\n')
@@ -180,9 +182,120 @@ function describer(view: View): (m: Mutation) => string {
     return d ? `${d.person?.name ?? 'someone'}'s ${titleInSentence(d.title)}` : 'a document'
   }
 
+  const vehicle = (id: unknown) => view.vehicles.vehicles.find((v) => v.id === id)?.name ?? 'a vehicle'
+  const purchase = (id: unknown) => (typeof id === 'string' ? view.purchases.get(id)?.title : undefined) ?? 'a request'
+  const quote = (id: unknown) => {
+    const q = typeof id === 'string' ? view.money.quote(id) : undefined
+    return q ? `quote ${quoteNumberLabel(q)} for ${job(q.projectId)}` : 'a quote'
+  }
+  const tracker = (id: unknown) => (typeof id === 'string' ? view.trackers.get(id)?.label : undefined) ?? 'a tracker'
+  const client = (id: unknown) => view.jobs.clients.find((c) => c.id === id)?.name ?? 'a client'
+  const pkg = (id: unknown) => view.money.packages.find((p) => p.id === id)?.name ?? 'a package'
+  const onOff = (on: unknown, what: string) => `${on ? 'Turn on' : 'Turn off'} ${what}`
+  const several = (ids: unknown, one: (id: unknown) => string, many: string) =>
+    Array.isArray(ids) ? (ids.length === 1 ? one(ids[0]) : `${ids.length.toLocaleString('en-IE')} ${many}`) : many
+
   return (m: Mutation) => {
     const a = m.args as Record<string, unknown>
     switch (m.name) {
+      // Each command a device can send has its own title (audit, 5 November 2026, finding 11), so a change turned down later says
+      // which it was, and the default below is kept for changes from an older version of the app.
+      case 'person.role':
+        return `Make ${person(a.id)} ${typeof a.role === 'string' && a.role in ROLE_LABELS ? ROLE_LABELS[a.role as Role] : 'another role'}`
+      case 'person.merge':
+        return `Combine ${several(a.from, person, 'people')} into ${person(a.id)}`
+      case 'project.merge':
+        return `Join ${several(a.from, job, 'jobs')} into ${str(a.name, job(a.id))}`
+      case 'call.department':
+        return `Give ${several(a.ids, call, 'calls')} the department ${typeof a.department === 'string' && a.department in DEPARTMENT_LABELS ? DEPARTMENT_LABELS[a.department as Department] : str(a.department, 'none')}`
+      case 'kit.fromNotes':
+        return Array.isArray(a.jobs) && a.jobs.length === 1 ? `Add the kit from ${job((a.jobs[0] as { projectId?: unknown }).projectId)}'s notes` : "Add the kit from jobs' notes"
+      case 'vehicle.save':
+        return `Save the vehicle ${str(a.name, 'a vehicle')}`
+      case 'vehicle.offRoad':
+        return a.out ? `Take ${vehicle(a.id)} off the road` : `Put ${vehicle(a.id)} back on the road`
+      case 'vehicle.archive':
+        return a.archived ? `Put ${vehicle(a.id)} away as sold or gone` : `Bring ${vehicle(a.id)} back`
+      case 'purchase.ask':
+        return `Ask to buy ${str(a.title, 'something')}`
+      case 'purchase.update':
+        return `Change the request for ${purchase(a.id)}`
+      case 'purchase.remove':
+        return `Take ${purchase(a.id)} off the purchase list`
+      case 'purchase.vote':
+        return a.vote ? `Vote for ${purchase(a.requestId)}` : `Take back a vote for ${purchase(a.requestId)}`
+      case 'purchase.status':
+        return `Say where ${purchase(a.id)} is at`
+      case 'purchase.bringIn':
+        return `Bring in ${Array.isArray(a.requests) ? a.requests.length.toLocaleString('en-IE') : 'some'} requests to the purchase list`
+      case 'quote.save':
+        return `Save the quote for ${job(a.projectId)}`
+      case 'quote.sent':
+        return `Mark ${quote(a.id)} as sent`
+      case 'quote.answer':
+        return a.answer === 'none' ? `Take back the answer on ${quote(a.id)}` : `Record the client's answer on ${quote(a.id)}`
+      case 'quote.invoiced':
+        return a.on ? `Mark ${quote(a.id)} as invoiced` : `Take back the invoice on ${quote(a.id)}`
+      case 'quote.paid':
+        return a.on ? `Mark ${quote(a.id)} as paid` : `Take back the payment on ${quote(a.id)}`
+      case 'quoting.update':
+        return "Change what every quote says: its number, terms and bank details"
+      case 'quoting.travel':
+        return 'Change how travel and subsistence are charged'
+      case 'quoting.email':
+        return onOff(a.on, 'sending quotes by email')
+      case 'price.product':
+        return a.dayCents === null ? `Take ${model(a.modelId)} off the price list` : `Price ${model(a.modelId)}`
+      case 'price.rulesFromRms':
+        return 'Give the price list the rules Current RMS charged by'
+      case 'package.save':
+        return `Save the package ${str(a.name, 'a package')}`
+      case 'package.remove':
+        return `Remove the package ${pkg(a.id)}`
+      case 'price.role':
+        return `Price ${str(a.role, 'a crew role')}`
+      case 'price.client':
+        return `Set ${client(a.clientId)}'s usual discount`
+      case 'cost.paid':
+        return a.on ? 'Mark a timesheet as paid' : "Take back a timesheet's payment"
+      case 'reading.heads':
+        return a.rates ? 'Let heads of department see rates' : "Stop heads of department seeing rates"
+      case 'messages.prompt':
+        return onOff(a.on, 'messages to crew')
+      case 'timesheets.use':
+        return onOff(a.on, 'timesheets')
+      case 'assistant.use':
+        return onOff(a.on, 'Claude in the app')
+      case 'cables.colours':
+        return 'Set the colours for cable lengths'
+      case 'trackers.use':
+        return onOff(a.on, 'trackers')
+      case 'trackers.home':
+        return 'Set where the warehouse is for trackers'
+      case 'tracker.attach':
+        return a.assetId ? `Put ${tracker(a.id)} on ${item(a.assetId)}` : `Take ${tracker(a.id)} off its item`
+      case 'tracker.name':
+        return `Name ${tracker(a.id)} ${str(a.name, '')}`.trim()
+      case 'ownCalendar.stop':
+        return `Stop reading ${person(a.personId)}'s own calendar`
+      case 'vehicleBooking.add':
+        return `Book ${vehicle(a.vehicleId)} on ${job(a.projectId)}${span(a)}`
+      case 'vehicleBooking.update': {
+        const b = view.vehicles.vehicles.flatMap((v) => v.bookings).find((x) => x.id === a.id)
+        return `Change ${b ? `${b.vehicle?.name ?? 'a vehicle'}'s booking on ${b.job?.name ?? 'a job'}` : 'a vehicle booking'}`
+      }
+      case 'vehicleBooking.remove': {
+        const b = view.vehicles.vehicles.flatMap((v) => v.bookings).find((x) => x.id === a.id)
+        return `Take ${b ? `${b.vehicle?.name ?? 'a vehicle'} off ${b.job?.name ?? 'a job'}` : 'a vehicle off a job'}`
+      }
+      case 'rackSlot.set':
+        return `Put ${model(a.modelId)} in ${model(a.rackId)}`
+      case 'rackSlot.remove':
+        return 'Take something out of a rack'
+      case 'jobStep.set':
+        return `Change ${typeof a.step === 'string' && a.step in STEP_LABELS ? STEP_LABELS[a.step as JobStep] : 'a step'} on ${job(a.projectId)}`
+      case 'tracker.archive':
+        return a.archived ? `Put ${tracker(a.id)} away` : `Bring ${tracker(a.id)} back into use`
       case 'person.upsert':
         return `Save ${str(a.name, 'someone')}'s details`
       case 'person.level':

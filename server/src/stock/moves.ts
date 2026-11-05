@@ -23,11 +23,12 @@ const toMovement = (r: Row): Movement => ({
   modelId: r.model_id,
   qty: r.qty,
   at: r.at,
+  undoes: r.undoes ?? null,
 })
 
 export async function getMovement(q: Queryable, id: string) {
   const { rows } = await q.query(
-    `SELECT id, project_id, direction, asset_id, model_id, qty,
+    `SELECT id, project_id, direction, asset_id, model_id, qty, undoes,
             to_char(at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at
        FROM movements WHERE id = $1`,
     [id]
@@ -138,8 +139,8 @@ export const moveHandlers: { [N in MoveCommand]: Handler<N> } = {
     if (!(await getModel(ctx.tx, modelId)))
       throw new Refused({ code: 'not-found', message: `${what} was counted ${way} as a product no longer in the stock list, so it wasn't kept.` })
     await ctx.tx.query(
-      `INSERT INTO movements (id, project_id, direction, asset_id, model_id, qty, at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [a.id, a.projectId, a.direction, a.assetId, modelId, a.qty, a.at]
+      `INSERT INTO movements (id, project_id, direction, asset_id, model_id, qty, at, undoes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [a.id, a.projectId, a.direction, a.assetId, modelId, a.qty, a.at, a.undoes ?? null]
     )
     await emit(ctx, 'movement', a.id, await getMovement(ctx.tx, a.id))
   },

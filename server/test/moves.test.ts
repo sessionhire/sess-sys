@@ -186,7 +186,7 @@ describe('scans', () => {
 
     const { moves } = await records(app)
     expect(moves.size).toBe(3)
-    expect(moves.get(first.id)).toEqual({ ...first, modelId: y10p.id, at: '2026-10-01T09:15:00.000Z' })
+    expect(moves.get(first.id)).toEqual({ ...first, modelId: y10p.id, at: '2026-10-01T09:15:00.000Z', undoes: null })
   })
 
   it('are turned down only when the job, the item or the product was never saved', async () => {
@@ -386,5 +386,49 @@ describe('what a device shows', () => {
     expect(moves.stillOut).toEqual([])
     // Neither out nor back: the one that came back is still back.
     expect(rows(moves.pickList(over))).toEqual([['d&b Y10P', 2, 0, 1]])
+  })
+})
+
+describe('an Undo', () => {
+  it("takes back the scan or count it names: neither is kit that went out or came back, and the history keeps both (audit, 5 November 2026, finding 8)", async () => {
+    // Proves: Undo after a scan out or a count out leaves the pick list as it was, with nothing counted as back and the job not
+    // under way; Not going does the same for an item scanned out by mistake; a real scan back still counts as back.
+    const { app, db, y10p, xlr, speakers, number } = await warehouse()
+    const gig = await job(app, 'Gig', 'confirmed', '2026-10-08', '2026-10-09')
+    await ok(app, 'kit.add', kit(gig, y10p.id, 2))
+    await ok(app, 'kit.add', kit(gig, xlr.id, 16))
+    const out = scan(gig, 'out', { assetId: speakers[0]!, modelId: y10p.id })
+    await ok(app, 'move.record', out)
+    await ok(app, 'move.record', { ...scan(gig, 'in', { assetId: speakers[0]!, modelId: y10p.id }), undoes: out.id })
+    const counted = scan(gig, 'out', { modelId: xlr.id, qty: 16 })
+    await ok(app, 'move.record', counted)
+    await ok(app, 'move.record', { ...scan(gig, 'in', { modelId: xlr.id, qty: 16 }), undoes: counted.id })
+    const office = await device(app)
+    let moves = office.client.view().moves
+    expect(rows(moves.pickList(gig))).toEqual([
+      ['d&b Y10P', 2, 0, 0],
+      ['XLR 10 m', 16, 0, 0],
+    ])
+    expect(moves.outOf(speakers[0]!)).toBeUndefined()
+    // Nothing went out, so the job is still being planned.
+    expect(office.client.view().steps.of(gig)?.stage?.key).toBe('planning')
+
+    // Out for real, then back for real: that counts.
+    const real = scan(gig, 'out', { assetId: speakers[1]!, modelId: y10p.id })
+    await ok(app, 'move.record', real)
+    await office.client.sync()
+    moves = office.client.view().moves
+    expect(moves.outOf(speakers[1]!)?.moveId).toBe(real.id)
+    await ok(app, 'move.record', scan(gig, 'in', { assetId: speakers[1]!, modelId: y10p.id }))
+    await office.client.sync()
+    expect(rows(office.client.view().moves.pickList(gig))).toEqual([
+      ['d&b Y10P', 2, 0, 1],
+      ['XLR 10 m', 16, 0, 0],
+    ])
+    const { entries } = await readHistory(db)
+    expect(entries.map((e) => e.what).filter((w) => w.startsWith('Undid'))).toEqual([
+      'Undid a count of 16 × XLR 10 m on Gig',
+      `Undid a scan of ${number(speakers[0]!)} (d&b Y10P) on Gig`,
+    ])
   })
 })

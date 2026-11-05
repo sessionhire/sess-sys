@@ -357,6 +357,14 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
         a.nameChecked === true || (was?.nameChecked ?? false),
       ]
     )
+    // The address replaced stays one they're found by, and the new one isn't listed twice (audit, 5 November 2026, finding 10).
+    const before = was?.email?.trim().toLowerCase()
+    const after = a.email?.trim().toLowerCase()
+    if (was && (a.keepEmail || (after && (was.otherEmails ?? []).includes(after)))) {
+      const others = (was.otherEmails ?? []).filter((e) => e !== after)
+      if (a.keepEmail && before && before !== after && !others.includes(before)) others.push(before)
+      await ctx.tx.query('UPDATE people SET other_emails = $2 WHERE id = $1', [a.id, JSON.stringify(others)])
+    }
     await emit(ctx, 'person', a.id, await getPerson(ctx.tx, a.id))
   },
 

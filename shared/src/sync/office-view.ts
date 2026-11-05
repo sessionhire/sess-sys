@@ -23,6 +23,8 @@ export interface OfficeView {
   useTimesheets: boolean
   /** That choice changed on this device and not yet on the server. */
   timesheetsPending: boolean
+  /** Bookings that started before this day aren't asked for a timesheet (ADR 0110); null when none is set. */
+  timesheetsFrom: string | null
   /** Claude is offered inside the app (ADR 0096). Off unless the office said. */
   useAssistant: boolean
   /** That choice changed on this device and not yet on the server. */
@@ -37,7 +39,7 @@ export interface OfficeView {
 
 type Tables = { [E in keyof SettingEntities]: Record<string, SettingEntities[E]> }
 
-export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation & { appliedSeq?: number })[], cursor: number): OfficeView {
+export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation & { appliedSeq?: number })[], cursor: number, today?: string): OfficeView {
   // Snapshots saved before settings existed have no table for them.
   let details = entities.setting?.[OFFICE_SETTING_ID]
   let pending = false
@@ -47,6 +49,7 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
   let messagesPending = false
   let useTimesheets = entities.setting?.[TIMESHEETS_SETTING_ID]?.useTimesheets === true
   let timesheetsPending = false
+  let timesheetsFrom = entities.setting?.[TIMESHEETS_SETTING_ID]?.timesheetsFrom ?? null
   let useAssistant = entities.setting?.[ASSISTANT_SETTING_ID]?.useAssistant === true
   let assistantPending = false
   let cableColours: readonly CableColourStep[] = entities.setting?.[CABLES_SETTING_ID]?.cableColours ?? DEFAULT_CABLE_COLOURS
@@ -63,7 +66,10 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
       messagesPending = true
     }
     if (m.name === 'timesheets.use') {
-      useTimesheets = (m.args as CommandArgs<'timesheets.use'>).on
+      const args = m.args as CommandArgs<'timesheets.use'>
+      // As the server sets it: the day given, or today when they go on, or the day already set.
+      timesheetsFrom = args.from ?? (useTimesheets && timesheetsFrom ? timesheetsFrom : args.on ? (today ?? timesheetsFrom) : timesheetsFrom)
+      useTimesheets = args.on
       timesheetsPending = true
     }
     if (m.name === 'assistant.use') {
@@ -82,5 +88,5 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
     if (args.address === null || args.address === '') delete details.address
     pending = true
   }
-  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, useAssistant, assistantPending, cableColours, cablesPending, logo }
+  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, cableColours, cablesPending, logo }
 }

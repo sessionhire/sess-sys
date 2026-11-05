@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.79.0',
+    date: '2026-11-05',
+    title: 'The records say what happened',
+    what: "Undo on a pick list now takes the scan or count back rather than recording the kit as returned, so a job that hasn't left no longer shows kit back. Scanning out something reported damaged but fit to go says so. Bringing in a crew list that changes someone's email keeps the old address so it still finds them, and combining two people keeps the other phone number in the notes. Anything the app couldn't save now says what it was, and making someone a director asks first. A quote line says whether its price is for a day or a week and asks you to check it when the charge changes, and a quote with an unpriced line asks before it goes to the client. Timesheets are only asked for bookings from the day they're turned on (you can move that day back under Admin), and not for anything that ended more than two months ago.",
+    prs: [205],
+    adrs: [110],
+  },
+  {
     version: '1.78.1',
     date: '2026-11-05',
     title: 'You stay where you were',

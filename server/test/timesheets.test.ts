@@ -71,7 +71,8 @@ async function gala() {
   await ok(
     app,
     // Off until the office says (ADR 0090); 'are off until the office turns them on' below starts from off.
-    m('timesheets.use', { on: true }),
+    // From a month back (ADR 0110): the gala that's over began once timesheets were on.
+    m('timesheets.use', { on: true, from: day(-30) }),
     m('project.create', { id: 'gala', name: 'Autumn Gala', clientId: null, venueId: null, status: 'confirmed', notes: '' }),
     m('phase.add', { id: 'show', projectId: 'gala', name: 'Show', start: day(-3), end: day(-1), venueId: null, notes: '' }),
     person('dara', 'Dara Quinn'),
@@ -146,6 +147,40 @@ describe('timesheets switched off (ADR 0090)', () => {
     await ok(app, person('dara', 'Dara Quinn'))
     const t = (await db.query<{ t: string }>(`SELECT link_token AS t FROM people WHERE id = 'dara'`)).rows[0]!.t
     expect((await page(app, `/f/${t}/timesheet/anything`)).status).toBe(404)
+  })
+})
+
+describe('timesheets turned on (ADR 0110)', () => {
+  it('ask only for bookings from the day they went on, and the office can still put one in for an older one', async () => {
+    const { app, db, token, timesheet } = await gala()
+    const dara = await token('dara')
+    expect((await page(app, `/f/${dara}`)).html).toContain('1 timesheet to send')
+    // Turned on today: the gala that's over began before, so it's no backlog to chase.
+    await ok(app, m('timesheets.use', { on: true, from: today }))
+    const home = await page(app, `/f/${dara}`)
+    expect(home.html).not.toContain('to send</a>')
+    expect(home.html).not.toContain('<h2>Timesheets</h2>')
+    expect((await page(app, `/f/${dara}/timesheet/dara-sound`)).html).toContain('This booking started before timesheets were used here')
+    const refused = await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-2)], ['note', '']])
+    expect(refused).toMatchObject({ ok: false, message: expect.stringContaining('started before timesheets were used here') })
+    expect(await timesheet('dara-sound')).toBeUndefined()
+    await ok(app, m('timesheet.send', { id: 'dara-sound', days: [day(-2)], extras: [], note: '' }))
+    expect(await timesheet('dara-sound')).toBe('sent')
+    const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
+    expect(history.entries.map((e) => e.what)).toContain(`Turned on timesheets for bookings from ${dayLabel(today)}`)
+    // The day is kept with the switch, for the office's lists.
+    const { rows } = await db.query<{ f: string }>(`SELECT timesheets_from AS f FROM settings WHERE id = 'timesheets'`)
+    expect(rows[0]?.f).toBe(today)
+  })
+
+  it('start from today when turned on with no day, and keep the day while they stay on', async () => {
+    const { app, db } = await gala()
+    const from = async () => (await db.query<{ f: string | null }>(`SELECT timesheets_from AS f FROM settings WHERE id = 'timesheets'`)).rows[0]?.f
+    expect(await from()).toBe(day(-30))
+    await ok(app, m('timesheets.use', { on: true }))
+    expect(await from()).toBe(day(-30))
+    await ok(app, m('timesheets.use', { on: false }), m('timesheets.use', { on: true }))
+    expect(await from()).toBe(today)
   })
 })
 

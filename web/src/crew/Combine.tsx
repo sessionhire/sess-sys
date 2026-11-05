@@ -1,4 +1,4 @@
-import { emailsOf, keptOf, mergedPerson, mergeRefusal, nameKey, plural, samePeople, SAME_BECAUSE_WORDS, type PersonView, type SamePerson, type View } from '@sh/shared'
+import { emailsOf, keptOf, mergedPerson, mergeRefusal, nameKey, otherPhones, plural, samePeople, SAME_BECAUSE_WORDS, type PersonView, type SamePerson, type View } from '@sh/shared'
 import { useMemo, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Heading } from '../Icon.tsx'
@@ -66,7 +66,9 @@ export function CombineButton({ into, from, onDone }: { into: PersonView | undef
           <p>
             Their bookings, offers, timesheets, days off, leave, documents and history become {one.name}'s, and {one.name} is found by{' '}
             {emailsOf(one).length ? emailsOf(one).join(', ') : 'no email yet'} when bringing in a calendar or signing in. {same ? 'These' : `${into.name}'s`} details are kept, filled
-            in from the others where they have none. {Listed} {from.length === 1 ? 'is' : 'are'} removed, and their private links open {one.name}'s page. It
+            in from the others where they have none.{' '}
+            {otherPhones(into, from).length > 0 && `${one.name} keeps ${one.phone}; ${otherPhones(into, from).join(' and ')} ${otherPhones(into, from).length === 1 ? 'goes' : 'go'} into the notes. `}
+            {Listed} {from.length === 1 ? 'is' : 'are'} removed, and their private links open {one.name}'s page. It
             can't be split again in one go.
           </p>
         </Confirm>

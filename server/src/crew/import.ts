@@ -104,6 +104,8 @@ function updated(r: CrewListRow, was: Person): CommandInput<'person.upsert'> {
     // The office set the kind and the level; the file's flags don't override them.
     kind: was.kind,
     email: r.email ?? was.email,
+    // A new address from the file replaces the main one, and the old one still finds them (audit, 5 November 2026, finding 10).
+    ...(r.email && was.email && r.email.trim().toLowerCase() !== was.email.trim().toLowerCase() ? { keepEmail: true } : {}),
     phone: r.phone ?? was.phone,
     skills: skills.slice(0, 30),
     dayRateCents: was.dayRateCents,

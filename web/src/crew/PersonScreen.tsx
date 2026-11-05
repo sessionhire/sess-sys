@@ -318,7 +318,9 @@ function Who({ person, view }: { person: PersonView; view: View }) {
               person={person}
               role={role}
               mayChange={access.can('company')}
-              onChange={(next) => void run(() => client.mutate('person.role', { id: person.id, role: next }))}
+              mine={access.personId === person.id}
+              otherDirectors={view.crew.people.filter((p) => p.id !== person.id && !p.archived && roleOfPerson(p) === 'director').length}
+              onChange={(next) => run(() => client.mutate('person.role', { id: person.id, role: next }))}
             />
           )}
           {mayEdit && (
@@ -565,14 +567,47 @@ function TheirLink({ person }: { person: PersonView }) {
  * A director picks it here, with what the role covers said under it; anyone
  * else sees it as a line. The server keeps at least one director.
  */
-function RolePick({ person, role, mayChange, onChange }: { person: PersonView; role: Role; mayChange: boolean; onChange: (role: Role) => void }) {
+function RolePick({
+  person,
+  role,
+  mayChange,
+  mine,
+  otherDirectors,
+  onChange,
+}: {
+  person: PersonView
+  role: Role
+  mayChange: boolean
+  /** The person signed in: taking Director off yourself is asked first, as you can't give it back. */
+  mine: boolean
+  otherDirectors: number
+  onChange: (role: Role) => Promise<boolean>
+}) {
   const hint = useId()
+  // A pick that gives everything, or takes it from yourself, is a pick and a press (audit, 5 November 2026, finding 39); the last
+  // director is kept on the device as the server keeps it, said here rather than snapping back (finding 11); and every change
+  // says it was made.
+  const [asking, setAsking] = useState<Role>()
+  const [said, setSaid] = useState<{ ok: boolean; text: string }>()
   if (!mayChange) return <p className="muted">Role: {ROLE_LABELS[role]}</p>
+  const make = (next: Role) => {
+    setAsking(undefined)
+    void onChange(next).then((ok) => ok && setSaid({ ok: true, text: `${person.name} is ${ROLE_LABELS[next]} now.` }))
+  }
+  const pick = (next: Role) => {
+    setSaid(undefined)
+    if (next === role) return
+    if (role === 'director' && otherDirectors === 0)
+      return setSaid({ ok: false, text: `${person.name} is the only director, and there has to be one. Make someone else a director first.` })
+    if (next === 'director' || (mine && role === 'director')) return setAsking(next)
+    make(next)
+  }
+  const first = person.name.split(/\s+/)[0] || person.name
   return (
     <div className="role-pick">
       <label className="level-pick">
         Role
-        <select value={role} onChange={(e) => onChange(e.target.value as Role)} aria-label={`Role for ${person.name}`} aria-describedby={hint}>
+        <select value={asking ?? role} onChange={(e) => pick(e.target.value as Role)} aria-label={`Role for ${person.name}`} aria-describedby={hint}>
           {ROLES.map((r) => (
             <option key={r} value={r}>
               {ROLE_LABELS[r]}
@@ -581,8 +616,22 @@ function RolePick({ person, role, mayChange, onChange }: { person: PersonView; r
         </select>
       </label>
       <p className="hint" id={hint}>
-        {ROLE_LINES[role]}
+        {ROLE_LINES[asking ?? role]}
       </p>
+      {asking && (
+        <Confirm
+          question={
+            asking === 'director'
+              ? `Make ${person.name} a director? ${first} can then change roles, erase people and start fresh.`
+              : `Make yourself ${ROLE_LABELS[asking]}? You'll no longer be a director, and only another director can give it back.`
+          }
+          yes={asking === 'director' ? `Make ${first} a director` : `Make me ${ROLE_LABELS[asking]}`}
+          no={`Keep ${ROLE_LABELS[role]}`}
+          onYes={() => make(asking)}
+          onNo={() => setAsking(undefined)}
+        />
+      )}
+      <div aria-live="polite">{said && <p className={said.ok ? 'added' : 'alert'}>{said.text}</p>}</div>
     </div>
   )
 }

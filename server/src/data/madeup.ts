@@ -90,7 +90,8 @@ export function madeUpData(today: string): Mutation[] {
   // Made-up people can be messaged: the demo shows the Send panel, which a real company turns on under Admin (ADR 0048).
   add('messages.prompt', { on: true })
   // And the demo shows timesheets, which a real company turns on under Admin when it uses them (ADR 0090).
-  add('timesheets.use', { on: true })
+  // From a month back (ADR 0110), so the gala that's over is asked for, as if they'd been on all along.
+  add('timesheets.use', { on: true, from: day(-30) })
 
   // Clients and venues.
   const client = (name: string, contact: string, role: string) =>

@@ -1,4 +1,4 @@
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LOGO_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, officeContact, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type OfficeDetails, type Setting } from '@sh/shared'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LOGO_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, officeContact, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type OfficeDetails, type Setting, type TimesheetAsking } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 
 /** Reading settings back as the entity devices see, and the office's details for the freelancer pages. */
@@ -15,14 +15,14 @@ const toSetting = (r: Row): Setting => ({
   ...(r.id === OFFICE_SETTING_ID && r.address ? { address: r.address } : {}),
   ...(r.id === READING_SETTING_ID ? { headsSeeRates: r.heads_see_rates === true } : {}),
   ...(r.id === MESSAGES_SETTING_ID ? { promptMessages: r.prompt_messages === true } : {}),
-  ...(r.id === TIMESHEETS_SETTING_ID ? { useTimesheets: r.use_timesheets === true } : {}),
+  ...(r.id === TIMESHEETS_SETTING_ID ? { useTimesheets: r.use_timesheets === true, timesheetsFrom: r.timesheets_from ?? null } : {}),
   ...(r.id === ASSISTANT_SETTING_ID ? { useAssistant: r.use_assistant === true } : {}),
   ...(r.id === CABLES_SETTING_ID && r.cable_colours ? { cableColours: r.cable_colours } : {}),
   ...(r.id === LOGO_SETTING_ID ? { logo: r.photo_at ? { at: new Date(r.photo_at).toISOString() } : null } : {}),
 })
 
 export async function getSetting(q: Queryable, id: string) {
-  const { rows } = await q.query(`SELECT id, name, phone, email, vat_number, address, heads_see_rates, prompt_messages, use_timesheets, use_assistant, cable_colours, photo_at FROM settings WHERE id = $1`, [id])
+  const { rows } = await q.query(`SELECT id, name, phone, email, vat_number, address, heads_see_rates, prompt_messages, use_timesheets, timesheets_from, use_assistant, cable_colours, photo_at FROM settings WHERE id = $1`, [id])
   return rows[0] ? toSetting(rows[0]) : undefined
 }
 
@@ -36,6 +36,15 @@ export async function headsSeeRates(q: Queryable): Promise<boolean> {
 export async function usesTimesheets(q: Queryable): Promise<boolean> {
   const { rows } = await q.query<{ use_timesheets: boolean | null }>(`SELECT use_timesheets FROM settings WHERE id = $1`, [TIMESHEETS_SETTING_ID])
   return rows[0]?.use_timesheets === true
+}
+
+/** Who is asked for a timesheet (ADR 0110): bookings from the day they went on, or none while they're off. */
+export async function timesheetAsking(q: Queryable): Promise<TimesheetAsking | null> {
+  const { rows } = await q.query<{ use_timesheets: boolean | null; timesheets_from: string | null }>(
+    `SELECT use_timesheets, timesheets_from FROM settings WHERE id = $1`,
+    [TIMESHEETS_SETTING_ID]
+  )
+  return rows[0]?.use_timesheets === true ? { from: rows[0].timesheets_from } : null
 }
 
 /** Whether Claude is offered inside the app (ADR 0096); off unless the office said. */
