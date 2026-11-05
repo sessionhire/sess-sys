@@ -29,7 +29,7 @@ import {
   sameEmail,
   whoSignsInRefusal,
 } from '@sh/shared'
-import { useId, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
@@ -156,8 +156,25 @@ function certificatesOf(fields: CertFields): Certificates {
   return out
 }
 
-export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial?: PersonView; submitLabel: string; onSubmit: (fields: PersonFields) => Promise<unknown>; onDone?: () => void }) {
+export function PersonForm({
+  initial,
+  submitLabel,
+  onSubmit,
+  onDone,
+  focusFirst = false,
+}: {
+  initial?: PersonView
+  submitLabel: string
+  onSubmit: (fields: PersonFields) => Promise<unknown>
+  onDone?: () => void
+  /** Opened by a press that goes as it opens (Change details): the focus goes to the first field rather than nowhere (audit, 5 November 2026, finding 87). */
+  focusFirst?: boolean
+}) {
   const access = useAccess()
+  const form = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (focusFirst) form.current?.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea')?.focus()
+  }, [focusFirst])
   // Who approves time off is a permission, so it's a director's to give once roles are on (ADR 0034); the form keeps it as it was.
   const mayApprove = access.can('company')
   // The email and type of someone who holds a role are how they sign in as it, so only the office and directors change them (audit finding 12).
@@ -250,7 +267,7 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
     })
   }
   return (
-    <form className="grid-form" onSubmit={submit} aria-label={initial ? `Edit ${initial.name}` : 'Add person'}>
+    <form className="grid-form" ref={form} onSubmit={submit} aria-label={initial ? `Edit ${initial.name}` : 'Add person'}>
       <label>
         First name <input value={f.firstName} onChange={set('firstName')} autoComplete="off" maxLength={100} required />
       </label>

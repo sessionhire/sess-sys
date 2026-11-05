@@ -60,6 +60,11 @@ test("a person's name opens their page, with what's ahead for them and the way b
   await office.getByRole('tab', { name: /^Details/ }).click()
   await expect(office).toHaveURL(new RegExp(`#crew/person/${k('ciara')}/details$`))
   await expect(office.locator('.person-page .notes')).toHaveText('Has her own van')
+  // Change details hands the focus to the form's first field, and back to the button when it's left (audit, 5 November 2026, finding 87).
+  await office.getByRole('button', { name: 'Change details' }).click()
+  await expect(office.getByLabel('First name')).toBeFocused()
+  await office.getByRole('button', { name: 'Cancel' }).click()
+  await expect(office.getByRole('button', { name: 'Change details' })).toBeFocused()
   await office.getByRole('tab', { name: /^Worked/ }).click()
   await expect(office.getByRole('region', { name: `Worked: ${name}` })).toContainText('No jobs worked yet.')
   await office.getByRole('tab', { name: /^Their link/ }).click()

@@ -604,7 +604,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
               (u) => `<li><span>${h(daysLabel(eachDay(u.start, u.end), d.today))}${u.note ? ` <small>${h(u.note)}</small>` : ''}</span>
           ${
             // Approved leave is cancelled in the app, never taken off here, so the two never disagree (ADR 0024).
-            u.source === 'leave' ? '<small>Approved leave</small>' : `<form method="post" action="${d.base}/away/${encodeURIComponent(u.id)}/remove"><button>Remove</button></form>`
+            u.source === 'leave' ? '<small>Approved leave</small>' : `<form method="post" action="${d.base}/away/${encodeURIComponent(u.id)}/remove#away"><button>Remove</button></form>`
           }${stillBooked(u, booked, d.today)}</li>`
             )
             .join('')}</ul>`
@@ -742,6 +742,9 @@ fieldset.days input{width:20px}
 .empty,.small{color:var(--muted);margin:0;font-size:.92rem}
 .demo-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0;padding:8px 16px;background:var(--ink);color:var(--bg);font-size:.9rem}
 .demo-bar a{color:inherit;font-weight:700;white-space:nowrap}
+/* A jump down the page (an answer's card, a section) lands under the glance, which sticks at the top: room for it as it wraps on a
+   phone to two or three lines, and for one line on a wider screen (audit, 5 November 2026, finding 7). */
+html:has(.glance){scroll-padding-top:104px}@media (min-width:600px){html:has(.glance){scroll-padding-top:76px}}
 .glance{display:flex;flex-wrap:wrap;gap:4px;font-weight:600;font-size:.95rem;position:sticky;top:0;z-index:1;margin:0 -16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
 details.later{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:0 12px}details.later[open]{padding-bottom:12px}
 details.later summary{color:var(--ink);font-size:.95rem;padding:12px 0}details.later summary .tag{margin-left:4px}details.later .offer{border:0;padding:0;background:none}

@@ -357,7 +357,7 @@ function StockCard({ view, current }: { view: View; current?: string }) {
         </Empty>
       )}
       {/* Search first; for a browse, twenty in the laptop's column, which has nothing under it, and five on a phone, where the pick lists are under it (audit, 20 October 2026, finding 97). */}
-      <ShowAll items={shown} limit={wide ? 20 : 5} what={department === 'all' ? 'products' : `${DEPARTMENT_LABELS[department].toLowerCase()} products`} keep={(m) => m.id === current}>
+      <ShowAll items={shown} limit={wide ? 20 : 5} name="catalogue" what={department === 'all' ? 'products' : `${DEPARTMENT_LABELS[department].toLowerCase()} products`} keep={(m) => m.id === current}>
         {(rows) => <ProductRows rows={rows} current={current} />}
       </ShowAll>
       {/* A new product starts in the department the list is narrowed to. */}

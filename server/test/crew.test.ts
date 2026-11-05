@@ -290,6 +290,14 @@ describe('freelancer link', () => {
       payload: 'start=2026-10-03&end=2026-10-05&note=On+tour',
     })
     expect(res.statusCode).toBe(303)
+    // Back at the list, with the thank-you drawn over it rather than at the top of the page (audit, 5 November 2026, finding 31).
+    expect(res.headers.location).toMatch(/[?&]s=away.*#away$/)
+    const added = (await app.inject({ url: String(res.headers.location).replace(/#.*/, '') })).body
+    expect(added.indexOf('<p class="flash')).toBeGreaterThan(added.indexOf('<section id="away">'))
+    const removeAt = added.match(/action="([^"]*\/away\/[^"]+\/remove)[^"]*"/)![1]!
+    const removed = await app.inject({ method: 'POST', url: removeAt, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: '' })
+    expect(removed.headers.location).toMatch(/[?&]s=away.*#away$/)
+    expect((await app.inject({ method: 'POST', url: `/f/${aoife.linkToken}/away`, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: 'start=2026-10-03&end=2026-10-05&note=On+tour' })).statusCode).toBe(303)
 
     // Dates it can't read are turned down beside the form, with what was typed still in it (rule 11).
     const bad = await app.inject({

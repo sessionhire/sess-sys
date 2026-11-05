@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { scrollerOf } from './windowed.ts'
+import { listOpened, openedList } from './places.ts'
 
 /**
  * Two ways to keep a screen short on a phone (audit finding 16): a form
@@ -69,15 +70,19 @@ export function ShowAll<T>({
   limit = 5,
   what,
   keep,
+  name,
   children,
 }: {
   items: readonly T[]
   limit?: number
   what: string
+  /** Which list it is, for Back to open it again; its `what` unless two lists on a screen share one. */
+  name?: string
   keep?: (item: T) => boolean
   children: (shown: readonly T[]) => ReactNode
 }) {
-  const [all, setAll] = useState(false)
+  // Back to a list opened in full opens it again, by its name on this step (places.ts).
+  const [all, setAll] = useState(() => listOpened(name ?? what))
   const shown = all || items.length <= limit ? items : items.filter((x, i) => i < limit || keep?.(x))
   // Where the page was when Show all was tapped (audit, 20 October 2026, finding 97): the rest of the list opens below what was
   // being read. Left to itself the browser keeps whatever was under the list on the screen, which carries the page to the list's end.
@@ -94,6 +99,7 @@ export function ShowAll<T>({
   const showAll = (button: HTMLElement) => {
     const scroller = scrollerOf(button)
     was.current = { scroller, top: scroller ? scroller.scrollTop : scrollY }
+    openedList(name ?? what)
     setAll(true)
   }
   return (

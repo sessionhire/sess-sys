@@ -168,6 +168,10 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
   const back = (reply: FastifyReply, token: string, what: Said | Refusal, offer?: string) =>
     reply.redirect(`/f/${token}?${new URLSearchParams({ ...told(what), ...(offer ? { o: offer } : {}) })}${offer ? `#o-${offer}` : ''}`, 303)
 
+  /** Back to Days you can't work, with the message over the list rather than at the top of the page (audit, 5 November 2026, finding 31). */
+  const toAway = (reply: FastifyReply, token: string, what: Said | Refusal) =>
+    reply.redirect(`/f/${token}?${new URLSearchParams({ ...told(what), s: 'away' })}#away`, 303)
+
   const noStore = (reply: FastifyReply) => reply.header('cache-control', 'no-store').header('x-robots-tag', 'noindex')
 
   /** A link that doesn't work any more, with the office's number and email to ask for a new one. */
@@ -498,17 +502,17 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       return undefined
     })
     if (!result || result.status === 'rejected') return turnedDown(result ?? 'try-again')
-    return back(reply, person.linkToken, 'days-off-added')
+    return toAway(reply, person.linkToken, 'days-off-added')
   })
 
   app.post('/f/:token/away/:id/remove', async (req: Req, reply) => {
     const person = await personByToken(db, req.params.token)
     if (!person) return gone(reply)
     const away = await getAway(db, req.params.id!)
-    if (!away || away.personId !== person.id) return back(reply, person.linkToken, 'days-off-gone')
+    if (!away || away.personId !== person.id) return toAway(reply, person.linkToken, 'days-off-gone')
     const result = await run(req, person.id, 'unavailability.remove', { id: away.id })
-    if (result.status === 'rejected') return back(reply, person.linkToken, result)
-    return back(reply, person.linkToken, 'days-off-removed')
+    if (result.status === 'rejected') return toAway(reply, person.linkToken, result)
+    return toAway(reply, person.linkToken, 'days-off-removed')
   })
 
   /**

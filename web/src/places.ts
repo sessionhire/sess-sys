@@ -82,6 +82,35 @@ function number(): string {
 }
 
 let current = ''
+
+/**
+ * The long lists opened with Show all, by step (audit, 5 November 2026, finding 9): Back to a list opens it again, so the row that
+ * was opened is there to come back to. A new move to the same screen is a new step, which starts with its lists short.
+ */
+const LISTS = 'session-hire-lists'
+let opened: Record<string, string[]> = {}
+try {
+  opened = JSON.parse(sessionStorage.getItem(LISTS) ?? '{}') as Record<string, string[]>
+} catch {
+  // As for the places.
+}
+
+/** Whether this list was opened in full on this step. */
+export const listOpened = (name: string): boolean => opened[current]?.includes(name) ?? false
+
+/** Says this list was opened in full on this step. */
+export function openedList(name: string) {
+  if (!current || listOpened(name)) return
+  opened[current] = [...(opened[current] ?? []), name]
+  // Kept to the latest steps, so a long visit doesn't fill the storage.
+  const steps = Object.keys(opened)
+  for (const old of steps.slice(0, Math.max(0, steps.length - 50))) delete opened[old]
+  try {
+    sessionStorage.setItem(LISTS, JSON.stringify(opened))
+  } catch {
+    // As above.
+  }
+}
 /** What to do once the next screen is drawn: go to a place, or nothing. */
 let next: Place | number | undefined
 

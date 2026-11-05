@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.78.1',
+    date: '2026-11-05',
+    title: 'You stay where you were',
+    what: "On Crew, after Confirm, Release or an offer, the message to send now opens in the answer's place or under the call, not at the bottom of a very long page, and Done takes you on to the next answer. On a freelancer's own page, the thank-you after answering an offer is no longer hidden under the line that stays at the top, and adding or removing days off comes back to that list with the message over it. Going back from a product to a catalogue you'd opened in full keeps it open where you were. Opening Change details on a person puts you in the first field, and a quote's page for a role that can't see quotes now says so under its own heading.",
+    prs: [204],
+  },
+  {
     version: '1.78.0',
     date: '2026-11-05',
     title: 'Next and the stages tell the truth',
