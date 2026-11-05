@@ -3,6 +3,22 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 5 November 2026: an audit of every flow, by role
+
+**Done**
+
+- [Audit, 5 November 2026: every flow, by role](audit-ux-2026-11-05.md),
+  at Colly's ask: a functionality, UI and UX audit of the whole app at
+  1.77.0. Ten reviews walked 142 flows as each role, on phone and desk, in
+  both themes, on a local copy with made-up data, and a sceptic checked
+  every finding. 103 findings: no P0, 12 P1, 43 P2, 48 P3. Screenshots are
+  in the project folder under screens/audit-ux/. Nothing live was touched.
+
+**Waiting**
+
+- Colly to choose what to fix. The audit ends with a suggested order in
+  eight batches. Nothing has been changed in the app.
+
 ## 1 November 2026: the logo, stock code, cable length and colour on labels
 
 **Done**

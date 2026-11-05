@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.77.1',
+    date: '2026-11-05',
+    title: "The week ahead keeps every job's name on a phone",
+    what: "On a phone, the jobs on Home's week ahead that are short of crew or kit showed only a date, their stage and the flags, with no name. Now the name always shows: where there isn't room beside it, the date, stage and flags go on a line underneath.",
+    prs: [202],
+  },
+  {
     version: '1.77.0',
     date: '2026-11-03',
     title: 'Freelancers can use the purchase list',

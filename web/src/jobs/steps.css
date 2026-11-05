@@ -112,7 +112,7 @@
 .stage-seg i[data-state='done'] { background: var(--muted); }
 .stage-seg i[data-state='now'] { background: var(--ink); }
 .stage-late { color: var(--bad); font-weight: 700; }
-.stage-line[data-compact] { margin: 0; font-size: var(--text-hint); color: var(--muted); white-space: nowrap; }
+.stage-line[data-compact] { flex-wrap: nowrap; margin: 0; font-size: var(--text-hint); color: var(--muted); white-space: nowrap; }
 .stage-line[data-compact] .stage-seg i { width: 8px; height: 4px; }
 
 /*

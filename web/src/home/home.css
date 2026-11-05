@@ -16,10 +16,14 @@
 .home .tile:active { background: var(--ds-wash-pressed); }
 .home .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .home .all-clear { margin: 0; color: var(--muted); }
-/* Today, a line a job (audit finding 22): the name takes what room there is, cut short with an ellipsis, and the crew and kit stay whole beside it. */
-.home .today-row { align-items: baseline; }
-.home .today-row > b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home .today-row > .side { display: flex; flex-wrap: nowrap; align-items: baseline; gap: var(--ds-space-2); }
+/* Today and the week ahead, a line a job (audit finding 22): the name takes what room there is, cut short with an ellipsis, and the
+   crew and kit stay whole beside it. Where they don't fit beside a name of about nine letters (a phone, a job short of crew and kit),
+   the date, stage and flags go on a second line under the name, so the rows that need someone keep their names (audit, 5 November
+   2026, finding 12). The stage's five segments go on a phone; its name stays. */
+.home .today-row { align-items: baseline; flex-wrap: wrap; row-gap: var(--ds-space-1); }
+.home .today-row > b { flex: 1 1 9em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home .today-row > .side { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-half) var(--ds-space-2); }
+@media (max-width: 479px) { .home .today-row .stage-line[data-compact] .stage-seg { display: none; } }
 
 /* The demo's choice of whose eyes to see it through (ADR 0033). */
 .preview .personas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--ds-space-3); }
