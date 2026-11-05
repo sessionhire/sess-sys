@@ -168,9 +168,9 @@ test('Home draws the weeks, days and months ahead as charts, each column said in
 })
 
 test("Home at a phone's size: the soon over the housekeeping, the week ahead a line a job, and Me their own day", async ({ browser }) => {
-  // Proves (audit, 20 October 2026, findings 32, 33, 62, 69, 70, 80): Needs attention puts the next fortnight's work over the
-  // housekeeping; the week ahead lists a line a job, no enquiry, counted as listed, with errands and meetings behind one line;
-  // the links under the charts are links a thumb can reach; Working this week leaves the role and job room; and Me shows
+  // Proves (audit, 20 October 2026, findings 32, 33, 62, 69, 70, 80; 5 November 2026, finding 12): Needs attention puts the next
+  // fortnight's work over the housekeeping; the week ahead lists a line a job (two at most, the name always showing), no enquiry,
+  // counted as listed, with errands and meetings behind one line; the links under the charts are links a thumb can reach; Working this week leaves the role and job room; and Me shows
   // their own day and the day in lieu waiting beside the leave request.
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/')
@@ -188,7 +188,12 @@ test("Home at a phone's size: the soon over the housekeeping, the week ahead a l
   if (count > 0) await expect(week.getByRole('heading', { name: `The week ahead (${count})` })).toBeVisible()
   await expect(week.locator('.job-row:not(.today-row)')).toHaveCount(0)
   await expect(week.getByText('Enquiry', { exact: true })).toHaveCount(0)
-  for (const row of await listed.locator('.job-row').all()) expect((await row.boundingBox())!.height).toBeLessThan(60)
+  // A job is a line, or two where the date, stage and flags don't fit beside it, and never loses its name to them (audit,
+  // 5 November 2026, finding 12: the jobs short of crew or kit showed no name at all on a phone).
+  for (const row of await listed.locator('.job-row').all()) {
+    expect((await row.boundingBox())!.height).toBeLessThan(80)
+    expect((await row.locator(':scope > b').boundingBox())!.width).toBeGreaterThan(120)
+  }
   const errands = week.locator('details.errands')
   if (await errands.count()) {
     await expect(errands.locator('summary')).toHaveText(/^(and )?\d+ (errands?|meetings?)/i)
