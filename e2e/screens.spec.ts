@@ -164,6 +164,11 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await as(page, 'crew', /^Staff crew/)
   await openJob(page, 'Harbour Lights Festival')
   const main = page.getByRole('main')
+  // Nor is the job's one Next button theirs to press: it says whose the task is (audit, 5 November 2026, finding 2).
+  const next = page.getByRole('region', { name: 'Next' })
+  await expect(next).toContainText(/Nothing (here for you )?to press/)
+  await expect(next.getByRole('button')).toHaveCount(0)
+  await expect(next.getByRole('link')).toHaveCount(0)
   await expect(main.getByRole('region', { name: 'Phases' })).toBeVisible()
   // Each part of the job in turn (ADR 0059), and no Quote for a role that doesn't see money.
   await expect(main.getByRole('tab')).toHaveText(['Phases 3', /^Crew/, 'Kit and vans', 'Show pack'])

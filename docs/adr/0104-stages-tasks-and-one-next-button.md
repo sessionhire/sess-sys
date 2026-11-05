@@ -1,6 +1,6 @@
 # ADR 0104: Stages, the tasks inside them, and one Next button
 
-- **Status:** accepted
+- **Status:** accepted; amended by [ADR 0109](0109-next-and-the-stages-tell-the-truth.md) (Next checks the role and brings what it opens into view; unscanned kit, past jobs and past sales read truthfully)
 - **Date:** 1 November 2026
 - **Asked for by:** Colly ("The multistep flow (of the enquiry to quote, to
   quote confirmed, to crew booking, to logistics planning, pick lists, to

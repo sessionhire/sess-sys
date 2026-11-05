@@ -111,6 +111,19 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
     // In the address, so a reload or a link keeps the part, without a step in the history: Back still goes up to the list.
     history.replaceState(history.state, '', `#jobs/${encodeURIComponent(id)}/${p}`)
   }
+  // Next, or a task's Open, picks a part far down the page: it comes to the top, under the bar, with the focus on its tab, so
+  // the press is seen to do something (audit, 5 November 2026, finding 1). A tab picked from the row itself is already in view.
+  const [went, setWent] = useState(0)
+  const go = (p: JobPart) => {
+    pick(p)
+    setWent((n) => n + 1)
+  }
+  useEffect(() => {
+    if (!went) return
+    const tab = document.getElementById(`job-tab-${part}`)
+    tab?.closest<HTMLElement>('[role="tablist"]')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    tab?.focus({ preventScroll: true })
+  }, [went])
   const up = { steps: [JOBS], here: job?.name }
   if (!job)
     return (
@@ -139,12 +152,12 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
       heading={job.name}
       badge={<JobStatusPill status={job.status} pending={job.pending} />}
       sub={<JobLines job={job} view={view} />}
-      actions={<NextDock job={job} view={view} onPart={pick} onOpenTask={setTask} />}
+      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
       {/* Where the job is: its five stages, the tasks inside each and who each is down to (ADR 0073, ADR 0104). */}
-      <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={pick} onTell={setShare} />
+      <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={go} onTell={setShare} />
 
       <Tabs label="Parts of the job" id="job" parts={parts} labels={PART_LABELS} current={part} counts={counts} onPick={pick} />
       <div className="job-part" role="tabpanel" id="job-part" aria-labelledby={`job-tab-${part}`}>
@@ -153,7 +166,7 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
             <Heading icon="time">Phases</Heading>
             {job.phases.length === 0 && <Empty>{mayJobs && 'Add the first phase below, so the job has dates.'}</Empty>}
             {job.phases.map((p) => (
-              <Phase key={p.id} job={job} phase={p} view={view} onTell={setShare} onCrew={() => pick('crew')} mayChange={mayJobs} />
+              <Phase key={p.id} job={job} phase={p} view={view} onTell={setShare} onCrew={() => go('crew')} mayChange={mayJobs} />
             ))}
             {mayJobs && (
               <Fold label="Add phase">

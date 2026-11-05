@@ -1,5 +1,6 @@
 import { addDays, dayLabel, daysBetween, firstName, JOB_STAGES, plural, spanLabel, STAGE_LABELS, type JobSteps, type JobView, type View } from '@sh/shared'
 import { useState } from 'react'
+import { arrival } from '../arrival.ts'
 import { useToday } from '../view.ts'
 import { Top } from './common.tsx'
 import { JobViews } from './PlanScreen.tsx'
@@ -13,6 +14,12 @@ import './steps.css'
  * a date), never by dragging a card, so what the board says is always what
  * the job says. The sixth column is the jobs through every stage this
  * month. Everyone who sees Jobs sees the board; money is not on it.
+ *
+ * Back holds only the jobs with something still to sort: a job over a
+ * fortnight ago with nothing still out and no fault open is through (ADR
+ * 0109). An enquiry or quote whose dates have passed with no answer goes
+ * under Selling's own fold, out of the way of the ones to chase, asking for
+ * it to be marked lost.
  */
 
 type Span = 'eight' | 'all'
@@ -20,6 +27,8 @@ type Span = 'eight' | 'all'
 export function BoardScreen({ view }: { view: View }) {
   const today = useToday()
   const [span, setSpan] = useState<Span>('eight')
+  // Opened from Home's count of them, the fold starts open.
+  const [toAnswer] = useState(() => arrival('#jobs/board')?.part === LAPSED)
   const until = addDays(today, 56)
   const monthAgo = addDays(today, -31)
   const all = view.jobs.jobs.map((j) => view.steps.of(j.id)).filter((s): s is JobSteps => !!s && !s.stopped)
@@ -28,8 +37,10 @@ export function BoardScreen({ view }: { view: View }) {
   const columns = JOB_STAGES.map((key) => ({
     key,
     label: STAGE_LABELS[key],
-    jobs: all.filter((s) => s.stage?.key === key && inSpan(s.job)).sort(bySoonest),
+    jobs: all.filter((s) => s.stage?.key === key && !s.lapsed && inSpan(s.job)).sort(bySoonest),
   }))
+  // The most recent first: the ones still worth a call before the ones long gone.
+  const lapsed = all.filter((s) => s.lapsed).sort((a, b) => bySoonest(b, a))
   const through = all.filter((s) => s.finished && s.job.span && s.job.span.end >= monthAgo).sort((a, b) => bySoonest(b, a))
   return (
     <div className="app crew jobs board-page">
@@ -53,6 +64,18 @@ export function BoardScreen({ view }: { view: View }) {
             {c.jobs.map((s) => (
               <BoardCard key={s.job.id} steps={s} today={today} />
             ))}
+            {c.key === 'selling' && lapsed.length > 0 && (
+              <details className="board-lapsed" open={toAnswer || undefined}>
+                <summary>
+                  <h3>
+                    {LAPSED} ({lapsed.length})
+                  </h3>
+                </summary>
+                {lapsed.map((s) => (
+                  <BoardCard key={s.job.id} steps={s} today={today} />
+                ))}
+              </details>
+            )}
           </section>
         ))}
         <section className="board-col" aria-labelledby="board-through">
@@ -69,6 +92,9 @@ export function BoardScreen({ view }: { view: View }) {
     </div>
   )
 }
+
+/** Selling's fold, by its heading, which Home's count lands on. */
+const LAPSED = 'Dates passed, no answer'
 
 const bySoonest = (a: JobSteps, b: JobSteps) => (a.job.span?.start ?? '').localeCompare(b.job.span?.start ?? '') || a.job.name.localeCompare(b.job.name)
 
@@ -90,8 +116,12 @@ function BoardCard({ steps, today }: { steps: JobSteps; today: string }) {
   const late = steps.steps.filter((t) => t.late)
   let line = ''
   let tone: 'warn' | 'bad' | undefined
-  if (steps.finished) line = `Deprepped${steps.steps.find((t) => t.key === 'deprep')?.ticked ? ` ${dayLabel(steps.steps.find((t) => t.key === 'deprep')!.ticked!.at.slice(0, 10))}` : ''}`
-  else if (late.length) {
+  const deprep = steps.steps.find((t) => t.key === 'deprep')
+  if (steps.finished) line = deprep?.ticked ? `Deprepped ${dayLabel(deprep.ticked.at.slice(0, 10))}` : deprep?.auto ? 'Through: nothing still out' : 'Deprepped'
+  else if (steps.lapsed) {
+    line = 'Dates passed, no answer: mark it lost?'
+    tone = 'bad'
+  } else if (late.length) {
     line = `${late[0]!.label} was due ${dayLabel(late[0]!.dueOn!)}${late.length > 1 ? `, and ${plural(late.length - 1, 'more task')}` : ''}`
     tone = 'bad'
   } else if (stage?.key === 'back' && current?.key === 'back' && job.span) {

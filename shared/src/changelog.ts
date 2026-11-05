@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.78.0',
+    date: '2026-11-05',
+    title: 'Next and the stages tell the truth',
+    what: "On a phone, pressing a job's Next now brings up what it opens, instead of switching a tab out of sight. Next offers only what your role can do, confirms the job in one press once the client has said yes, and on a new enquiry with nothing on it starts with the kit. A job is taken as finished two weeks after its last day if nothing is still out and no fault is open, so Back and the Board hold only the jobs with something to sort. Kit that was never scanned out is no longer 'not needed': you're asked to check it's back. Kit and vans tick themselves once the job is under way. Enquiries and quotes whose dates have passed with no answer get their own fold on the Board and a count on Home, and they're out of the quotes waiting for a call.",
+    prs: [203],
+    adrs: [109],
+  },
+  {
     version: '1.77.1',
     date: '2026-11-05',
     title: "The week ahead keeps every job's name on a phone",

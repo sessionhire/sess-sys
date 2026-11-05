@@ -1,8 +1,9 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { dayLabel } from '../crew.ts'
+import { daysBetween } from '../crew-days.ts'
 import { kindOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
 import { plural } from '../stock.ts'
-import { JOB_STAGES, JOB_STEPS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type StepRecord } from '../steps.ts'
+import { JOB_STAGES, JOB_STEPS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type StepRecord } from '../steps.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
 import type { FaultsView } from './faults-view.ts'
 import { crewFill, type JobsView, type JobView } from './jobs-view.ts'
@@ -89,6 +90,8 @@ export interface JobSteps {
   finished: boolean
   /** Why the job has no tasks to do: it's cancelled or lost, or it's an errand or a meeting. */
   stopped: string | undefined
+  /** Still an enquiry or quoted after its last day (ADR 0109): the answer to record is whether it happened, or it was lost. */
+  lapsed: boolean
 }
 
 export interface MyStep {
@@ -157,7 +160,7 @@ export function stepsView(
   const jobById = new Map(jobs.jobs.map((j) => [j.id, j]))
 
   /** Where the job is by its own records, and what the app can tell of each task for itself: done, in words, or how far along, or not needed. */
-  function told(job: JobView): { stage: JobStage | 'through'; tasks: Record<JobStep, { auto?: string; hint?: string; skipped?: string }> } {
+  function told(job: JobView): { stage: JobStage | 'through'; lapsed: boolean; settled: string | undefined; tasks: Record<JobStep, { auto?: string; hint?: string; skipped?: string }> } {
     const quotes = money.quotesOf(job.id)
     const sent = quotes.find((q) => q.status === 'sent' || q.status === 'accepted')
     const accepted = quotes.find((q) => q.status === 'accepted')
@@ -176,6 +179,14 @@ export function stepsView(
     // The stage, from the records alone: the status says sold or not, the scans say the kit is moving, the dates say the rest.
     const stage: JobStage | 'through' = job.status !== 'confirmed' ? 'selling' : over ? 'back' : on ? 'on' : wentOut > 0 ? 'going' : 'planning'
     const past = (s: JobStage) => JOB_STAGES.indexOf(stage) > JOB_STAGES.indexOf(s)
+    // Still selling after its last day: nobody recorded the answer (ADR 0109).
+    const lapsed = stage === 'selling' && over
+    // Over a fortnight ago with nothing still out and no fault open, a job is through whether or not its tasks were ticked
+    // (ADR 0109): the shows from before the stages existed, and the ones nobody ticked off, stop filling Back.
+    const settled =
+      stage === 'back' && daysBetween(job.span!.end, today) > SETTLED_AFTER_DAYS && (!pick || pick.stillOut === 0) && openFaults === 0
+        ? `Taken as done: it ended ${dayLabel(job.span!.end)} with nothing still out`
+        : undefined
     const tasks = {
       quote: sent
         ? { auto: sent.sentOn ? `Sent ${dayLabel(sent.sentOn)}` : 'Sent' }
@@ -189,7 +200,9 @@ export function stepsView(
           ? { auto: 'The job is confirmed' }
           : accepted
             ? { hint: `The client said yes${accepted.answeredOn ? ` ${dayLabel(accepted.answeredOn)}` : ''}, and the job is still ${STATUS_LABELS[job.status].toLowerCase()}` }
-            : { hint: `Still ${STATUS_LABELS[job.status].toLowerCase()}` },
+            : lapsed
+              ? { hint: `Its dates have passed with no answer` }
+              : { hint: `Still ${STATUS_LABELS[job.status].toLowerCase()}` },
       crew:
         crewOn.needed === 0
           ? kindOf(job) === 'hire'
@@ -199,11 +212,15 @@ export function stepsView(
             ? { auto: `All ${crewOn.needed} crew booked` }
             : { hint: `${crewOn.booked} of ${crewOn.needed} booked${crewOn.toConfirm ? `, ${crewOn.toConfirm} to confirm` : ''}` },
       // A job with no kit and no vans once it's under way (a crew-only shoot) had none to settle; before that they may still be coming.
-      kit: lines.length || vans
-        ? { hint: [lines.length ? plural(lines.length, 'line') + ' of kit' : '', short ? `${short} short` : '', vans ? plural(vans, 'vehicle') : ''].filter(Boolean).join(', ') }
-        : past('planning')
-          ? { skipped: 'No kit or vans on this job' }
-          : { hint: 'No kit on the job yet' },
+      // Once it's under way with nothing short, what it has was settled (ADR 0109): the tick by hand is for while it's planned.
+      kit:
+        (lines.length || vans) && past('planning') && !short
+          ? { auto: wentOut > 0 ? 'Settled: the kit went out' : over ? 'Settled: the job is over' : 'Settled: the job is under way' }
+          : lines.length || vans
+            ? { hint: [lines.length ? plural(lines.length, 'line') + ' of kit' : '', short ? `${short} short` : '', vans ? plural(vans, 'vehicle') : ''].filter(Boolean).join(', ') }
+            : past('planning')
+              ? { skipped: 'No kit or vans on this job' }
+              : { hint: 'No kit on the job yet' },
       // A job with no kit once it's under way (a crew-only gig) has nothing to pick or bring back; before that the kit may still be coming.
       prep:
         pick && pick.need > 0 && wentOut >= pick.need
@@ -223,12 +240,15 @@ export function stepsView(
           ? { auto: pick!.missing ? `All back but ${pick!.missing} missing` : 'All back' }
           : anyOut
             ? { hint: `${pick!.stillOut} still out` }
-            : past('on')
-              ? { skipped: 'Nothing went out to come back' }
-              : { hint: 'Nothing out yet' },
+            : pick && pick.need > 0 && past('on')
+              ? // Kit on the pick list and none of it scanned (ADR 0109): it may have gone out unscanned and still be at the venue.
+                { hint: `${pick.need} never scanned out: check they're back` }
+              : past('on')
+                ? { skipped: 'Nothing went out to come back' }
+                : { hint: 'Nothing out yet' },
       deprep: { hint: openFaults ? `${plural(openFaults, 'fault')} open on its kit` : undefined },
     }
-    return { stage, tasks }
+    return { stage, lapsed, settled, tasks }
   }
 
   const built = new Map<string, JobSteps>()
@@ -245,7 +265,9 @@ export function stepsView(
     const what = told(job)
     const steps = JOB_STEPS.map((key, i): StepView => {
       const r = records.get(stepId(job.id, key))
-      const t = what.tasks[key]
+      const own = what.tasks[key]
+      // A job settled long after it ended takes what's still open as done (ADR 0109); a tick given by hand still shows as given.
+      const t = what.settled && STAGE_OF[key] !== 'selling' && !own.auto && !own.skipped && !r?.doneAt ? { auto: what.settled } : own
       const ticked = r?.doneAt ? { at: r.doneAt, by: r.doneBy ? people.get(r.doneBy) : undefined } : undefined
       const done = !!ticked || !!t.auto
       const skipped = done ? undefined : t.skipped
@@ -295,9 +317,12 @@ export function stepsView(
     // The task to do next: in the stage the job is in, else one left behind, else picking, which can start while it's still being
     // planned. The show itself only happens, so it's next only when nothing else is open.
     const show = steps.find((s) => s.key === 'show')!
+    // A job whose dates passed while it was still being sold has one thing left to do: say what happened (ADR 0109).
+    const lapsedAnswer = what.lapsed ? steps.find((s) => s.key === 'confirmed' && open(s)) : undefined
     const current = stopped
       ? undefined
-      : (stage?.tasks.find((s) => open(s) && s.key !== 'show') ??
+      : (lapsedAnswer ??
+        stage?.tasks.find((s) => open(s) && s.key !== 'show') ??
         behind[0] ??
         (at === 'planning' ? steps.find((s) => s.key === 'prep' && open(s) && !!s.hint && s.hint !== 'No kit to pick yet') : undefined) ??
         (stage?.key === 'on' && open(show) ? show : undefined))
@@ -314,6 +339,7 @@ export function stepsView(
       of: applies.length,
       finished: !stopped && at === 'through',
       stopped,
+      lapsed: !stopped && what.lapsed,
     }
     built.set(jobId, out)
     return out

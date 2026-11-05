@@ -163,7 +163,7 @@ export function ToFollowUp({ view }: { view: View }) {
   const today = useToday()
   const [starting, setStarting] = useState(false)
   const f = quotesToFollow(view.money, today)
-  const none = f.drafts.length + f.waiting.length + f.outOfStep.length === 0
+  const none = f.drafts.length + f.waiting.length + f.passed.length + f.outOfStep.length === 0
   return (
     <section className="card quotes-to-follow" aria-label="To follow up">
       <Heading icon="document">To follow up</Heading>
@@ -201,6 +201,19 @@ function QuoteGroups({ f, chaseOnly }: { f: ReturnType<typeof quotesToFollow>; c
           <ul className="plain">
             {waiting.map((x) => (
               <FollowRow key={x.quote.id} f={x} what="Sent" chase={x.days >= CHASE_AFTER_DAYS} />
+            ))}
+          </ul>
+        </div>
+      )}
+      {/* Not a client to ring: the job happened without them, or went elsewhere (ADR 0109). */}
+      {!chaseOnly && f.passed.length > 0 && (
+        <div className="follow-group">
+          <h3>Dates passed with no answer</h3>
+          <ul className="plain">
+            {f.passed.map((x) => (
+              <FollowRow key={x.quote.id} f={x} what="Sent">
+                <InStep job={x.job} want="lost" compact />
+              </FollowRow>
             ))}
           </ul>
         </div>
