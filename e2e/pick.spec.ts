@@ -247,8 +247,8 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await page.getByRole('region', { name: 'Pick lists' }).locator('.job-row', { hasText: job }).click()
   await context.setOffline(true)
   await page.getByRole('button', { name: 'Coming back' }).click()
-  // The mic that wasn't going counts as back.
-  await expect(page.locator('.pick-total')).toHaveText('1 back, 14 still out')
+  // The mic that wasn't going never went, so it isn't counted as back (ADR 0110).
+  await expect(page.locator('.pick-total')).toHaveText('0 back, 14 still out')
   // Back and Missing each a 44 px target, apart, so a gloved tap for one doesn't land on the other (audit, 20 October 2026, finding 40).
   const outItem = speakerRow.getByRole('list', { name: 'Still out' }).getByRole('listitem').first()
   const back = (await outItem.getByRole('button', { name: 'Back' }).boundingBox())!
@@ -272,7 +272,7 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await countBack.getByLabel('How many').fill('10')
   await countBack.getByRole('button', { name: 'Count back', exact: true }).click()
   await expect(cableRow.locator('.count')).toHaveText('2 still out')
-  await expect(page.locator('.pick-total')).toHaveText('12 back, 3 still out')
+  await expect(page.locator('.pick-total')).toHaveText('11 back, 3 still out')
   await expect(page.locator('.conn')).toContainText('No signal')
   await page.getByRole('button', { name: 'Stop camera' }).click()
   await page.screenshot(shot('pick-back'))
@@ -286,7 +286,7 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await page.reload()
   await page.getByRole('button', { name: 'Coming back' }).click()
-  await expect(page.locator('.pick-total')).toHaveText('13 back, 2 still out')
+  await expect(page.locator('.pick-total')).toHaveText('12 back, 2 still out')
 })
 
 /**

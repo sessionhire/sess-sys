@@ -1,6 +1,6 @@
 # ADR 0034: Roles, and what each can change
 
-- **Status:** accepted
+- **Status:** accepted; amended by [ADR 0110](0110-getting-the-data-right.md) (Director is asked before it is given, and the last director is kept on the device)
 - **Date:** 11 October 2026
 - **Asked for by:** Colly, 11 October 2026 ("there's a note that the app
   needs roles and permissions. This is definitely required.")

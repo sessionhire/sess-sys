@@ -355,6 +355,11 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE models ADD COLUMN IF NOT EXISTS length_m numeric(5, 1) CHECK (length_m > 0);
   `,
+  // An Undo of a scan or a count (audit, 5 November 2026, finding 8): the movement it takes back, so neither counts as kit that
+  // went out or came back. No foreign key: the two may come in either order from a phone that was offline.
+  `
+  ALTER TABLE movements ADD COLUMN IF NOT EXISTS undoes text;
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

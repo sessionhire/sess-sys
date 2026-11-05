@@ -1,4 +1,4 @@
-import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, noTimesheetReason, timesheetTotal, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
+import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, TIMESHEET_ASKED_DAYS, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, newId, ownColours } from '@sh/shared'
 import { busyByDay, type OwnCalendar } from '@sh/shared'
@@ -97,6 +97,8 @@ export interface PageData {
   timesheets: ReadonlyMap<string, Timesheet>
   /** The company doesn't use timesheets (ADR 0090): none asked for, none shown. */
   noTimesheets?: boolean
+  /** Which bookings they're asked for a timesheet for (ADR 0110), while the company uses them. */
+  asking?: TimesheetAsking
   /** The office's phone and email, once set. */
   office?: OfficeDetails | null
   /** Bookings on today, or tomorrow from 6pm, for "Running late?" (ADR 0028). */
@@ -305,7 +307,7 @@ function lateForm(d: PageData, t: OnTheDay, last: RunningLate | undefined, ring:
 }
 
 /** How long an approved timesheet stays on the page. */
-const APPROVED_SHOWN_DAYS = 60
+const APPROVED_SHOWN_DAYS = TIMESHEET_ASKED_DAYS
 
 /** Bookings whose timesheet is to send, sent, or lately approved: to send first. */
 function timesheets(d: PageData): string {
@@ -313,7 +315,7 @@ function timesheets(d: PageData): string {
   const since = new Date(Date.now() - APPROVED_SHOWN_DAYS * 86_400_000).toISOString()
   const rows = d.jobs
     .map((j) => ({ ...j, t: d.timesheets.get(j.offer.id) }))
-    .filter((j) => (j.t ? j.t.status !== 'approved' || (j.t.approvedAt ?? '') >= since : noTimesheetReason(j.offer, j.call, d.person, d.today) === null))
+    .filter((j) => (j.t ? j.t.status !== 'approved' || (j.t.approvedAt ?? '') >= since : noTimesheetReason(j.offer, j.call, d.person, d.today, d.asking) === null))
     .sort((a, b) => rank(a.t) - rank(b.t) || a.call.start.localeCompare(b.call.start))
   if (!rows.length) return ''
   return `<section id="timesheets"><h2>Timesheets</h2><ul class="ts-list">${rows
@@ -335,7 +337,11 @@ function timesheets(d: PageData): string {
  * (audit, 20 October 2026, finding 48). Nothing when there's nothing to say.
  */
 function glance(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']): string {
-  const toSend = d.noTimesheets ? 0 : d.jobs.filter((j) => !d.timesheets.get(j.offer.id) && noTimesheetReason(j.offer, j.call, d.person, d.today) === null).length
+  // Counted from the evening of the booking's last day (ADR 0110), not while they're still on site; the list below still lets them send it.
+  const clock = irishClock()
+  const toSend = d.noTimesheets
+    ? 0
+    : d.jobs.filter((j) => !d.timesheets.get(j.offer.id) && noTimesheetReason(j.offer, j.call, d.person, d.today, d.asking) === null && timesheetDue(j.offer.days, d.today, clock)).length
   const firstDay = (j: PageData['jobs'][number]) => j.offer.days.find((x) => x >= d.today) ?? j.call.start
   const next = [...booked].sort((a, b) => firstDay(a).localeCompare(firstDay(b)))[0]
   const parts = [

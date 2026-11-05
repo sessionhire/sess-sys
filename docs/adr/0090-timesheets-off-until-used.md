@@ -1,6 +1,6 @@
 # ADR 0090: Timesheets are off until the company uses them
 
-- **Status:** accepted
+- **Status:** accepted; amended by [ADR 0110](0110-getting-the-data-right.md) (timesheets are asked for from the day they go on, and for two months after a booking)
 - **Date:** 28 October 2026
 - **Asked for by:** Colly, 28 October 2026 ("Can you make timesheets a toggle
   in the admin area? I don't think we'll need it for day 1 but might need it

@@ -49,12 +49,15 @@ type Step =
 /** The server takes up to this much; said here first, so a bigger file is told in words rather than by the server's cut-off. */
 const MOST_BYTES = 5_000_000
 
+const firstOf = (name: string) => name.trim().split(/\s+/)[0] || name
+
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString('en-IE')} ${n === 1 ? one : many}`
 
 const typedOf = (r: CrewListPreviewRow) => ({ name: r.name, email: r.email ?? '', phone: r.phone ?? '' })
 
 /** The people this device holds, as the rows are matched against them. */
-const knownOn = (view: View): KnownPerson[] => view.crew.people.map((p) => ({ id: p.id, name: p.name, email: p.email, phone: p.phone, archived: p.archived }))
+const knownOn = (view: View): KnownPerson[] =>
+  view.crew.people.map((p) => ({ id: p.id, name: p.name, email: p.email, otherEmails: p.otherEmails, phone: p.phone, archived: p.archived }))
 
 /** Which field a problem is said beside; null for one about the row as a whole. */
 function fieldOf(problem: string): 'name' | 'email' | 'phone' | null {
@@ -226,7 +229,7 @@ function Preview(p: {
       <section className="card" aria-label="Rows">
         <ul className="found people-rows">
           {rows.map((r) => (
-            <RowCard key={r.row} row={r} onTyped={(field, value) => typed(r.row, field, value)} onSkip={(on) => skip(r.row, on)} />
+            <RowCard key={r.row} row={r} was={r.matched ? p.view.crew.people.find((x) => x.id === r.matched!.id)?.email : undefined} onTyped={(field, value) => typed(r.row, field, value)} onSkip={(on) => skip(r.row, on)} />
           ))}
         </ul>
       </section>
@@ -257,7 +260,19 @@ function Preview(p: {
 }
 
 /** One row as the app read it, with its fields to fix where it couldn't, and Skip. */
-function RowCard({ row: r, onTyped, onSkip }: { row: Row; onTyped: (field: keyof Row['typed'], value: string) => void; onSkip: (on: boolean) => void }) {
+function RowCard({
+  row: r,
+  was,
+  onTyped,
+  onSkip,
+}: {
+  row: Row
+  /** The matched person's email now, to say when the file changes it. */
+  was: string | null | undefined
+  onTyped: (field: keyof Row['typed'], value: string) => void
+  onSkip: (on: boolean) => void
+}) {
+  const newEmail = r.matched && r.email && was && r.email.trim().toLowerCase() !== was.trim().toLowerCase() ? r.email : undefined
   const by = (field: 'name' | 'email' | 'phone' | null) => r.problems.filter((x) => fieldOf(x) === field)
   const rate = parseEuro(r.dayRate)
   const facts = [
@@ -283,6 +298,12 @@ function RowCard({ row: r, onTyped, onSkip }: { row: Row; onTyped: (field: keyof
       {r.matched && (
         <p className="updates">
           Updates <b>{r.matched.name}</b> (matched by {r.matched.by})
+        </p>
+      )}
+      {/* A new address is the main one from now on, and the old one still finds them, as on combining (audit, 5 November 2026, finding 10). */}
+      {newEmail && (
+        <p className="updates">
+          Email changes from {was} to {newEmail}; the old one still finds {firstOf(r.matched!.name)}.
         </p>
       )}
       {by(null).map((x) => (

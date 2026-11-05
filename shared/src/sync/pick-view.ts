@@ -32,6 +32,8 @@ export interface OutState {
   since: string
   /** The case it went out in, when the case was scanned rather than the item. */
   inCase: AssetView | undefined
+  /** The scan that took it out, for "Not going" to take back. */
+  moveId: string
 }
 
 /** Where to find more of a product that aren't out: a place, or a case, and what's there. */
@@ -180,6 +182,11 @@ export function moveTallies(
     events.push({ id: f.id, projectId: f.projectId, direction: 'in', assetId: f.assetId, modelId: f.modelId, qty: 1, at: f.at, pending: f.pending, missing: f.outcome !== 'found' })
   }
   const sorted = events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
+  // An Undo and the movement it takes back (audit, 5 November 2026, finding 8): the item's latest scan still says where it is, but
+  // neither is kit that went out with a job or came back from one.
+  const undone = new Set<string>()
+  for (const m of moves.values()) if (m.undoes) undone.add(m.undoes)
+  const counts = (m: Event) => !m.undoes && !undone.has(m.id)
 
   /** Everything in a case, however deep. */
   const contents = (a: AssetView | undefined, into: Set<string>) => {
@@ -203,13 +210,13 @@ export function moveTallies(
   for (const m of sorted) {
     if (m.assetId) {
       last.set(m.assetId, m)
-      if (m.direction === 'out') {
+      if (m.direction === 'out' && counts(m)) {
         let ids = sent.get(m.projectId)
         if (!ids) sent.set(m.projectId, (ids = new Set()))
         ids.add(m.assetId)
         contents(warehouse.assets.get(m.assetId), ids)
       }
-    } else {
+    } else if (counts(m)) {
       const c = tally(m.projectId, m.modelId)
       if (m.direction === 'out') c.out += m.qty
       else c.back += m.qty
@@ -246,7 +253,7 @@ export function moveTallies(
       gone.add(a.id)
       continue
     }
-    outState.set(a.id, { projectId: best.projectId, since: best.at, inCase: via })
+    outState.set(a.id, { projectId: best.projectId, since: best.at, inCase: via, moveId: best.id })
     const list = outByJob.get(best.projectId) ?? []
     list.push(a)
     outByJob.set(best.projectId, list)

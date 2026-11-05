@@ -258,6 +258,21 @@ describe('bringing the list in', () => {
   })
 })
 
+describe('a new email for someone matched by phone', () => {
+  it('becomes their email, and the old one still finds them, as on combining (audit, 5 November 2026, finding 10)', async () => {
+    const { app, colly } = await company()
+    const file = [HEADER, 'Dara,Quinn,Audio,+353871111111,dara.quinn@gmail.com,,,,,,,,,,,,'].join('\r\n')
+    const p = await preview(app, colly.cookies, file)
+    expect(p.rows[0]!.matched).toEqual({ id: 'dara', name: 'Dara Quinn', by: 'phone' })
+    expect((await bringIn(app, colly.cookies, p.rows.map((r) => ({ ...r, skip: false })))).json()).toMatchObject({ updated: 1 })
+    expect(await colly.record<Person>('person', 'dara')).toMatchObject({ email: 'dara.quinn@gmail.com', otherEmails: ['dara@example.ie'] })
+    // The same file again changes nothing, and the old address now matches him too.
+    expect((await bringIn(app, colly.cookies, (await preview(app, colly.cookies, file)).rows.map((r) => ({ ...r, skip: false })))).json()).toMatchObject({ unchanged: 1 })
+    const back = [HEADER, 'Dara,Quinn,Audio,,dara@example.ie,,,,,,,,,,,,'].join('\r\n')
+    expect((await preview(app, colly.cookies, back)).rows[0]!.matched).toEqual({ id: 'dara', name: 'Dara Quinn', by: 'email' })
+  })
+})
+
 describe('the profile', () => {
   it('keeps what an older app leaves out, moves a level with a command of its own, and refuses a level outside 0 to 5 in plain words', async () => {
     const { app, db } = await server()

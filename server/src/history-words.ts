@@ -284,6 +284,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'messages.prompt':
       return a.on === true ? 'Turned on messages to crew' : 'Turned off messages to crew'
     case 'timesheets.use':
+      if (a.on === true && typeof a.from === 'string') return `Turned on timesheets for bookings from ${dayLabel(a.from)}`
       return a.on === true ? 'Turned on timesheets' : 'Turned off timesheets'
     case 'assistant.use':
       return a.on === true ? 'Turned on Claude' : 'Turned off Claude'
@@ -538,6 +539,11 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return `Cancelled the labels ${runRange(look('labelRun', a.id)) ?? 'set aside'}`
     case 'move.record': {
       const way = a.direction === 'in' ? 'back in from' : 'out to'
+      // An Undo beside a scan's answer says what it took back, not that kit moved (audit, 5 November 2026, finding 8).
+      if (a.undoes) {
+        if (a.assetId) return `Undid a scan of ${item(a.assetId)} on ${job(a.projectId)}`
+        return `Undid a count of ${typeof a.qty === 'number' ? a.qty : 'some'} × ${model(a.modelId)} on ${job(a.projectId)}`
+      }
       if (a.assetId) return `Scanned ${item(a.assetId)} ${way} ${job(a.projectId)}`
       return `Counted ${typeof a.qty === 'number' ? a.qty : 'some'} × ${model(a.modelId)} ${way} ${job(a.projectId)}`
     }

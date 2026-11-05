@@ -34,7 +34,7 @@ import {
   MOST_LAST_CHARGED_NAMES,
 } from '@sh/shared'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Refusal, useAct } from '../act.tsx'
+import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Icon } from '../Icon.tsx'
 import { ProductPicker } from '../ProductPicker.tsx'
@@ -143,6 +143,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [discounting, setDiscounting] = useState<string>()
   const [sentOn, setSentOn] = useState(today)
   const [answering, setAnswering] = useState(false)
+  // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26).
+  const [free, setFree] = useState<'mark' | 'email'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
   const canEmail = !!m.quoting.emailQuotes
   const [sending, setSending] = useState<'email' | 'other'>()
@@ -741,14 +743,34 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                   Sent to the client on
                   <input type="date" value={sentOn} max={irishToday()} onChange={(e) => setSentOn(e.target.value)} />
                 </label>
-                <button type="button" className={canEmail ? undefined : 'primary'} onClick={() => void run(() => markSent(q.id, job, sentOn || today))}>
+                <button
+                  type="button"
+                  className={canEmail ? undefined : 'primary'}
+                  onClick={() => (unpricedLines.length ? setFree('mark') : void run(() => markSent(q.id, job, sentOn || today)))}
+                >
                   Mark as sent
                 </button>
               </div>
             )}
+            {free && unpricedLines.length > 0 && (
+              <Confirm
+                question={`${plural(unpricedLines.length, 'line')} ${unpricedLines.length === 1 ? 'has' : 'have'} no price and will go to the client as €0.00. ${free === 'email' ? 'Send it anyway?' : 'Mark it sent anyway?'}`}
+                yes={free === 'email' ? 'Send it anyway' : 'Mark it sent anyway'}
+                no="Price it first"
+                onYes={() => {
+                  setFree(undefined)
+                  if (free === 'email') setSending('email')
+                  else void run(() => markSent(q.id, job, sentOn || today))
+                }}
+                onNo={() => {
+                  setFree(undefined)
+                  openLine(unpricedLines[0]!.id, 'price')
+                }}
+              />
+            )}
             <div className="actions">
               {saved && q.lines.length > 0 && canEmail && (
-                <button type="button" className="primary" onClick={() => setSending('email')}>
+                <button type="button" className="primary" onClick={() => (unpricedLines.length ? setFree('email') : setSending('email'))}>
                   Send to the client
                 </button>
               )}

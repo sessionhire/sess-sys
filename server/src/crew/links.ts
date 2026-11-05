@@ -8,7 +8,7 @@ import { documentsSection } from '../documents/page.ts'
 import { documentsOf } from '../documents/store.ts'
 import { publicOrigin } from '../http.ts'
 import { reportError } from '../monitoring.ts'
-import { officeFor, usesTimesheets } from '../office/store.ts'
+import { officeFor, timesheetAsking, usesTimesheets } from '../office/store.ts'
 import { getPhase } from '../projects/store.ts'
 import { sendFeed, type Feeds } from './feeds.ts'
 import { getLate, lateFor, lateOf } from './late.ts'
@@ -229,7 +229,10 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       today: now,
       ended: await endedOn(db, rows.map((r) => r.offer)),
       timesheets: await timesheetsFor(db, person.id),
-      noTimesheets: !(await usesTimesheets(db)),
+      ...(await (async () => {
+        const asking = await timesheetAsking(db)
+        return { noTimesheets: !asking, asking: asking ?? undefined }
+      })()),
       office: await officeFor(db),
       onTheDay,
       demo,
@@ -263,7 +266,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       offer,
       call,
       timesheet: await getTimesheet(db, offer.id),
-      why: noTimesheetReason(offer, call, person, today()),
+      why: noTimesheetReason(offer, call, person, today(), (await timesheetAsking(db)) ?? undefined),
       staff: person.kind === 'staff',
       base: base(req, person.linkToken),
       flash,

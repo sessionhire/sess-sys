@@ -366,6 +366,11 @@ export const crewCommandSchemas = {
     company: company.nullable().optional(),
     /** True from Jobs › Tidy up when the office names someone (ADR 0068). Never unset: left out or false, what the server has stays. */
     nameChecked: z.boolean().optional(),
+    /**
+     * The email it replaces stays one they're found by (ADR 0055), as Make main and combining keep it: a crew list brought in
+     * again with a new address for someone (audit, 5 November 2026, finding 10). Left out, a changed email replaces the old one.
+     */
+    keepEmail: z.boolean().optional(),
   }),
   /** Move a person up or down a level from their card, so the history says so by name (ADR 0025). */
   'person.level': z.object({ id, level }),

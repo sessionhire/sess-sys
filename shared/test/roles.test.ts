@@ -69,3 +69,14 @@ describe('roles', () => {
     expect(emailTakenBy(people, 'x', null)).toBeUndefined()
   })
 })
+
+describe('the Not done list', () => {
+  it('gives every change a device can send a title of its own (audit, 5 November 2026, finding 11)', async () => {
+    // A change turned down later is told apart by its title alone: the default, "A change from an older version of the app", is for
+    // changes kept from versions that are gone, never for one this version sends.
+    const { readFileSync } = await import('node:fs')
+    const problems = readFileSync(new URL('../../web/src/problems.tsx', import.meta.url), 'utf8')
+    const titled = new Set([...problems.matchAll(/case '([a-zA-Z]+\.[a-zA-Z]+)'/g)].map((m) => m[1]))
+    expect(Object.keys(COMMAND_NEEDS).filter((c) => !titled.has(c))).toEqual([])
+  })
+})

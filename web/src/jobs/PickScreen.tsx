@@ -89,8 +89,19 @@ function inside(c: AssetView, seen = new Set<string>()): number {
 }
 
 /** One scan, or one count, as a change; whoever asks for it runs it through act(). */
-const record = (projectId: string, direction: Direction, what: { assetId: string; modelId: string } | { modelId: string; qty: number }) =>
-  client.mutate('move.record', { id: newId(), projectId, direction, assetId: null, qty: 1, ...what, at: new Date().toISOString() })
+/** An open report of an item damaged but fit to go out, if it has one. */
+const usableFault = (assetId: string) => client.view().faults.ofAsset(assetId).find((f) => f.open && f.kind === 'damaged' && f.usable)
+
+/**
+ * A scan or count, by its own id, so an Undo can name what it takes back: then neither counts as kit that went out or came back
+ * (audit, 5 November 2026, finding 8), and the history keeps both.
+ */
+const record = (
+  projectId: string,
+  direction: Direction,
+  what: { assetId: string; modelId: string } | { modelId: string; qty: number },
+  { id = newId(), undoes }: { id?: string; undoes?: string } = {}
+) => client.mutate('move.record', { id, projectId, direction, assetId: null, qty: 1, ...what, at: new Date().toISOString(), undoes: undoes ?? null })
 
 export function PickScreen({ view, id }: { view: View; id: string }) {
   const job = view.jobs.jobs.find((j) => j.id === id)
@@ -159,13 +170,17 @@ function Pick({ view, job }: { view: View; job: JobView }) {
     if (holder) notes.push(`${holder.number || 'The case'}, the case it's kept in, was reported missing; it's marked found since this was in it.`)
     else if (found) notes.push("It was reported missing, so it's marked found.")
     else if (fault && mode === 'out') notes.push(`It's reported ${faultState(fault).toLowerCase()}${fault.note ? `: ${fault.note}` : ''}. Check it before it goes.`)
+    // Damaged but fit to go out: it can go, and whoever picks it hears what's wrong, written for this moment (audit, 5 November 2026, finding 15).
+    const usable = !fault && mode === 'out' ? usableFault(a.id) : undefined
+    if (usable) notes.push(`Reported damaged but fit to go${usable.note.trim() ? `: ${usable.note.trim()}` : ''}. Pick another if it matters for this job.`)
     // Failed or overdue its PAT or examination (ADR 0020): it shouldn't go.
     const check = mode === 'out' ? view.inspections.blocks(a.id) : undefined
     if (check) notes.push(`${dueText(check)}. Test it before it goes.`)
 
     if (mode === 'out') {
       if (was && !other) return answer(holder ? 'warn' : 'quiet', `${name} is already out with ${job.name}${was.inCase ? `, in ${was.inCase.number}` : ''}.`)
-      await act(() => record(job.id, 'out', { assetId: a.id, modelId: a.modelId }))
+      const moved = newId()
+      await act(() => record(job.id, 'out', { assetId: a.id, modelId: a.modelId }, { id: moved }))
       const row = client.view().moves.pickList(job.id)?.rows.find((r) => r.modelId === a.modelId)
       const contents = a.model?.isCase ? inside(a) : 0
       const withIt = contents ? `, with ${plural(contents, 'item')} in it` : ''
@@ -176,18 +191,19 @@ function Pick({ view, job }: { view: View; job: JobView }) {
         notes.push(`It isn't on the kit for ${job.name}. Add it to the kit, or scan it back in if it isn't going.`)
       // Out with another job before: undoing puts it back out with that one, as it was.
       const undo: Undo = was
-        ? { run: () => record(was.projectId, 'out', { assetId: a.id, modelId: a.modelId }), said: `${name} is out with ${other} again, as it was.` }
-        : { run: () => record(job.id, 'in', { assetId: a.id, modelId: a.modelId }), said: `${name} isn't out: it's back in stock.` }
+        ? { run: () => record(was.projectId, 'out', { assetId: a.id, modelId: a.modelId }, { undoes: moved }), said: `${name} is out with ${other} again, as it was.` }
+        : { run: () => record(job.id, 'in', { assetId: a.id, modelId: a.modelId }, { undoes: moved }), said: `${name} isn't out: it's back in stock.` }
       return answer(notes.length || (row && row.out > row.need && row.need > 0) ? 'warn' : 'ok', [text, ...notes].join(' '), { undo })
     }
 
     if (!was) return answer(found ? 'warn' : 'quiet', [`${name} isn't out, so there's nothing to bring back.`, ...notes].join(' '))
-    await act(() => record(was.projectId, 'in', { assetId: a.id, modelId: a.modelId }))
+    const moved = newId()
+    await act(() => record(was.projectId, 'in', { assetId: a.id, modelId: a.modelId }, { id: moved }))
     const row = client.view().moves.pickList(job.id)?.rows.find((r) => r.modelId === a.modelId)
     let text = `${name} back.`
     if (!other && row) text = `${name} back: ${row.back} of ${row.back + row.out} back.`
     if (other) notes.push(`It went out with ${other}, not ${job.name}, so it's back from there.`)
-    const undo: Undo = { run: () => record(was.projectId, 'out', { assetId: a.id, modelId: a.modelId }), said: `${name} is out with ${other ?? job.name} again.` }
+    const undo: Undo = { run: () => record(was.projectId, 'out', { assetId: a.id, modelId: a.modelId }, { undoes: moved }), said: `${name} is out with ${other ?? job.name} again.` }
     return answer(notes.length ? 'warn' : 'ok', [text, ...notes].join(' '), { back: a, undo })
   }
 
@@ -645,6 +661,7 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
                       <span key={a.id}>
                         {i > 0 && ', '}
                         <span className="number">{a.number || 'no number yet'}</span>
+                        {usableFault(a.id) && <small className="fit-to-go"> (damaged, fit to go)</small>}
                       </span>
                     ))}
                   </p>
@@ -669,15 +686,19 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
               {/* Apart and at least 44 px wide, so a gloved tap for Back doesn't land on Missing; Missing is the quieter of the two,
                   and happens at once with Undo beside its answer (audit, 20 October 2026, finding 40). */}
               {mayMove && (
-                <button type="button" className="link" onClick={() =>
-                    void run(() => record(job.id, 'in', { assetId: a.id, modelId: a.modelId })).then(
+                <button type="button" className="link" onClick={() => {
+                    // Not going, before the job has left, takes the scan out back: it never went, so it isn't counted as back either.
+                    const out = client.view().moves.outOf(a.id)
+                    const notGoing = mode === 'out' && out?.projectId === job.id && !out.inCase ? out.moveId : undefined
+                    const moved = newId()
+                    void run(() => record(job.id, 'in', { assetId: a.id, modelId: a.modelId }, { id: moved, undoes: notGoing })).then(
                       (ok) =>
                         ok &&
                         say('ok', mode === 'out' ? `${a.number || name} isn't going: it's back in stock.` : `${a.number || name} back.`, {
-                          undo: { run: () => record(job.id, 'out', { assetId: a.id, modelId: a.modelId }), said: `${a.number || name} is out with ${job.name} again.` },
+                          undo: { run: () => record(job.id, 'out', { assetId: a.id, modelId: a.modelId }, { undoes: moved }), said: `${a.number || name} is out with ${job.name} again.` },
                         })
                     )
-                  }
+                  }}
                 >
                   {mode === 'out' ? 'Not going' : 'Back'}
                 </button>
@@ -749,16 +770,17 @@ function Count({ row, job, mode, say }: { row: PickRow; job: JobView; mode: Dire
   const go = (what: Direction | 'missing', all?: number) => {
     const n = all ?? Number(qty)
     if (!Number.isInteger(n) || n < 1 || n > MAX_QTY) return refuse('How many? A whole number, please.')
+    const moved = newId()
     void run(() =>
       what === 'missing'
         ? reportFault({ kind: 'missing', assetId: null, modelId: row.modelId, qty: n, projectId: job.id, usable: false, note: '' })
-        : record(job.id, what, { modelId: row.modelId, qty: n })
+        : record(job.id, what, { modelId: row.modelId, qty: n }, { id: moved })
     ).then((ok) => {
       if (!ok) return
       setQty('')
       const many = `${n.toLocaleString('en-IE')} × ${name}`
       if (what === 'missing') return say('warn', `${many} marked missing.`)
-      const undo: Undo = { run: () => record(job.id, what === 'out' ? 'in' : 'out', { modelId: row.modelId, qty: n }), said: what === 'out' ? `${many} not counted out.` : `${many} not counted back.` }
+      const undo: Undo = { run: () => record(job.id, what === 'out' ? 'in' : 'out', { modelId: row.modelId, qty: n }, { undoes: moved }), said: what === 'out' ? `${many} not counted out.` : `${many} not counted back.` }
       say('ok', what === 'out' ? `${many} counted out.` : `${many} counted back.`, { undo })
     })
   }

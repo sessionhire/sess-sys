@@ -3,7 +3,7 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
-## 5 November 2026: an audit of every flow, by role, and batches 1 and 2 of its fixes
+## 5 November 2026: an audit of every flow, by role, and batches 1 to 3 of its fixes
 
 **Done**
 
@@ -37,6 +37,18 @@ waiting on someone.
   all is kept for Back and a reload. Change details focuses its first
   field, and the quote's refusal has a heading. No ADR: none of it changes
   a decision.
+- Batch 3, "get the data right" (1.79.0,
+  [ADR 0110](adr/0110-getting-the-data-right.md)), on Colly's "Go for
+  batch 3": findings 8, 10, 11, 13, 15, 23, 26, 39 and 43. Undo on a pick
+  list is its own record, so it no longer reads as kit back. Scanning out
+  kit that's damaged but fit to go says so. A crew list that changes
+  someone's email keeps the old one among their other addresses, and
+  combining keeps the other phone in the notes. Every refused change has a
+  title in Not done, and Director is asked before it's given. A quote line
+  says whether its price is a day's or a week's and asks when the charge
+  changes, and a line with no price is asked about before the quote goes.
+  Timesheets are asked for only from the day they're turned on, and for
+  two months after a booking.
 
 **Waiting**
 

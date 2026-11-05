@@ -393,10 +393,14 @@ export class SyncClient {
     })
     lazy.moves = () => movesKit().moves
     lazy.kit = () => movesKit().kit
-    lazy.timesheets = part('timesheets', () => [lazy.crew()], (e, o) => timesheetsView(e, o, cursor, lazy.crew(), today))
+    lazy.timesheets = part('timesheets', () => [lazy.crew(), lazy.office()], (e, o) => {
+      // Who is asked for one (ADR 0110): the office's lists leave out what nobody is asked for.
+      const office = lazy.office()
+      return timesheetsView(e, o, cursor, lazy.crew(), today, office.useTimesheets ? { from: office.timesheetsFrom } : undefined)
+    })
     lazy.notesKit = part('notesKit', () => [lazy.jobs(), lazy.warehouse(), lazy.kit()], (e, o) => notesKitView(e, o, cursor, lazy.jobs(), lazy.warehouse(), lazy.kit(), today))
     lazy.labels = part('labels', () => [lazy.warehouse()], (e, o) => labelsView(e, o, cursor, lazy.warehouse()))
-    lazy.office = part('office', () => [], (e, o) => officeView(e, o, cursor))
+    lazy.office = part('office', () => [], (e, o) => officeView(e, o, cursor, today))
     lazy.leave = part('leave', () => [lazy.crew(), lazy.erasures()], (e, o) => leaveView(e, o, cursor, lazy.crew(), today, lazy.erasures()))
     lazy.late = part('late', () => [lazy.crew(), lazy.erasures()], (e, o) => lateView(e, o, cursor, lazy.crew(), today, lazy.erasures()))
     lazy.documents = part('documents', () => [lazy.crew(), lazy.erasures()], (e, o) => documentsView(e, o, cursor, lazy.crew(), lazy.erasures()))

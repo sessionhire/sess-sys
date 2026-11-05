@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { crewView, emailTakenBy, keptOf, mergedPerson, mergeRefusal, offerKept, personForEmail, samePeople, withMainEmail, type Mutation, type Person } from '../src/index.ts'
+import { crewView, emailTakenBy, keptOf, mergedPerson, mergeRefusal, offerKept, otherPhones, personForEmail, samePeople, withMainEmail, type Mutation, type Person } from '../src/index.ts'
 
 /**
  * Combining people brought in twice (ADR 0055): who looks like one person,
@@ -165,5 +165,18 @@ describe('making another address the main one (ADR 0064)', () => {
     const [p] = crewView({ person: { [a.id]: a } }, [swap], 0, '2026-10-20').people
     expect([p!.email, p!.otherEmails, p!.pending]).toEqual(['adam@gmail.com', ['adam@sessionhire.com'], true])
     for (const e of ['adam@gmail.com', 'adam@sessionhire.com']) expect(personForEmail([p!], e)?.id).toBe(a.id)
+  })
+})
+
+describe('the phones of people combined', () => {
+  it("keeps the other numbers in the notes, each once, and the question can say so (audit, 5 November 2026, finding 43)", () => {
+    const ben = person('Ben Quinn', { phone: '+44 7700 900255', notes: 'Has a van' })
+    const again = person('Ben Quinn', { phone: '+353 87 123 4567' })
+    const same = person('B Quinn', { phone: '087 123 4567' })
+    expect(otherPhones(ben, [again, same])).toEqual(['+353 87 123 4567'])
+    const one = mergedPerson(ben, [again, same])
+    expect(one.phone).toBe('+44 7700 900255')
+    expect(one.notes).toBe('Has a van\n\nAlso on +353 87 123 4567')
+    expect(otherPhones(ben, [person('Ben', { phone: '+447700900255' })])).toEqual([])
   })
 })

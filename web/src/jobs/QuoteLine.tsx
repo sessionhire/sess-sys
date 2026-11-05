@@ -18,6 +18,7 @@ import {
   type QuoteMargin,
   type RmsCharge,
   type RmsLastCharged,
+  RATE_UNIT,
 } from '@sh/shared'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { Icon } from '../Icon.tsx'
@@ -51,6 +52,10 @@ export function UnitBox({ unit, before, needs, children }: { unit: string; befor
     </span>
   )
 }
+
+type PriceUnit = 'day' | 'week' | 'once'
+/** What a line's price is for: a day's, a week's (ADR 0085), or once. */
+const unitOf = (l: Pick<LineDraft, 'per' | 'rate'>): PriceUnit => (l.per === 'once' ? 'once' : l.rate ? RATE_UNIT[l.rate] : 'day')
 
 /** Puts one discount on every line of a department, which each line can still change on its own. */
 export function GroupDiscount({ group, onApply, onCancel, refuse }: { group: string; onApply: (off: string) => void; onCancel: () => void; refuse: (why: string) => void }) {
@@ -333,6 +338,11 @@ export function LineEditor(p: {
       </p>
     ) : null
   const unpriced = done !== undefined && done.unitCents === 0
+  // What the price is for, in the field (audit, 5 November 2026, finding 23): a day's, a week's, or once. Moved between a day's and
+  // a week's, the same number means seven times more or less, so it's said under the line until the price is changed.
+  const unit = unitOf(l)
+  const [wasUnit, setWasUnit] = useState<{ price: string; unit: PriceUnit }>()
+  const unitMoved = wasUnit && wasUnit.unit !== unit && wasUnit.price === l.price && l.price.trim() !== '' ? wasUnit : undefined
   return (
     <div
       className={`quote-line${unpriced ? ' unpriced' : ''}`}
@@ -368,9 +378,9 @@ export function LineEditor(p: {
           </label>
         )}
         <label className={`price${l.per === 'once' ? ' wide' : ''}`}>
-          Price
+          {unit === 'once' ? 'Price, € once' : `Price, € a ${unit}`}
           <UnitBox unit="€" before needs={unpriced}>
-            <input inputMode="decimal" value={l.price} onChange={(e) => set({ price: e.target.value })} aria-label={`Line ${n}: price`} placeholder="0" autoFocus={p.focus === 'price'} onBlur={leave('price')} {...mark('price')} />
+            <input inputMode="decimal" value={l.price} onChange={(e) => set({ price: e.target.value })} aria-label={`Line ${n}: price, ${unit === 'once' ? 'once' : `a ${unit}`}`} placeholder="0" autoFocus={p.focus === 'price'} onBlur={leave('price')} {...mark('price')} />
           </UnitBox>
         </label>
         <label className="charged">
@@ -379,6 +389,7 @@ export function LineEditor(p: {
             value={chargeOf(l)}
             onChange={(e) => {
               const c = e.target.value as Charge
+              if (!wasUnit || wasUnit.price !== l.price) setWasUnit({ price: l.price, unit })
               // Moving to a rule starts its days out from the days charged so far.
               set(c === 'once' ? { per: 'once' } : c === 'daily' ? { per: 'day', rate: null } : { per: 'day', rate: c, out: l.rate ? l.out : l.days })
             }}
@@ -424,6 +435,11 @@ export function LineEditor(p: {
         </span>
       </div>
       {problem(['qty', 'out', 'days', 'price', 'discount'])}
+      {unitMoved && (
+        <p className="line-problem" role="status">
+          Was €{unitMoved.price} {unitMoved.unit === 'once' ? 'once' : `a ${unitMoved.unit}`}, now €{l.price} {unit === 'once' ? 'once' : `a ${unit}`}: change the price?
+        </p>
+      )}
       {p.kit}
       {p.last}
       <CostFields l={l} n={n} r={done} cost={p.cost} boss={p.boss} suppliers={p.suppliers} set={set} wantOpen={p.wantCost} left={leave} mark={mark} problem={problem(['subhire', 'cost'])} />
