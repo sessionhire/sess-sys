@@ -22,6 +22,7 @@ import {
 } from '@sh/shared'
 import { Empty } from '../Empty.tsx'
 import { Sideways } from '../more.tsx'
+import { chargeWords } from './QuoteLine.tsx'
 
 /**
  * The quote as the client is sent it (ADR 0042): the A4 page, its lines and
@@ -57,6 +58,10 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                 <td>
                   {l.what}
                   {l.includes && <small className="includes">{l.includes}</small>}
+                  {/* On a phone the four middle columns fold into this line under the name, so the amount stays in sight (audit, 5 November 2026, finding 59). */}
+                  <small className="line-sum">
+                    {chargeWords(l)} · VAT{"\u00a0"}{VAT_LABELS[l.vat]}
+                  </small>
                 </td>
                 <td className="n">{l.qty}</td>
                 <td className="n">{l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')}</td>

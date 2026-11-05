@@ -781,5 +781,6 @@ fieldset.choice input{width:20px;height:20px;accent-color:var(--accent)}
 .share-cal{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.share-cal input{font-size:.92rem}
 .where ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:.92rem}
 .again{border:0;padding:0}
-.glance a,.office a,a[href^="tel:"]{position:relative}.glance a::after,.office a::after,a[href^="tel:"]::after{content:'';position:absolute;inset:-12px -4px}
+.glance a,.office a,a[href^="tel:"],.facts a,.demo-bar a,footer a{position:relative}.glance a::after,.office a::after,a[href^="tel:"]::after,.facts a::after,.demo-bar a::after,footer a::after{content:'';position:absolute;inset:-12px -4px}
+input,select{min-height:44px}
 `
