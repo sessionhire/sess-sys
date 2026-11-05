@@ -25,11 +25,11 @@ import {
   peopleSorts,
 } from '@sh/shared'
 import { VehicleReminders } from '../stock/Vehicles.tsx'
-import { Fragment, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { arrival } from '../arrival.ts'
-import { inDepartment, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { inDepartment, Narrowed, useMyDepartment, useNarrowed } from '../Narrowed.tsx'
 import { useWindowed } from '../windowed.ts'
-import { ListTools, useListChoices } from '../ListTools.tsx'
+import { ListTools, listChoicesKept, useListChoices } from '../ListTools.tsx'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
@@ -46,7 +46,7 @@ import { lateNotesOn, LateRow, lateToNote } from './Late.tsx'
 import { LeaveScreen } from './Leave.tsx'
 import { PersonScreen } from './PersonScreen.tsx'
 import { TimesheetScreen, TimesheetsCard } from './Timesheets.tsx'
-import { CrewViews } from './CrewViews.tsx'
+import { crewToCheck, CrewViews } from './CrewViews.tsx'
 import { Split } from '../Split.tsx'
 import { ImportPeopleScreen } from './ImportPeople.tsx'
 import { Heading } from '../Icon.tsx'
@@ -204,8 +204,26 @@ export function CrewScreen() {
   // Filter and sort (ADR 0099): by department (the ones in use, ADR 0025), staff or freelancer, and level, in the order chosen. Opened
   // from a count on Home for a department, that one (audit, 20 October 2026, finding 4). A department whose last person was edited
   // or archived away is no choice any more, so it narrows nothing until it's back.
-  const [peopleChoices, setPeopleChoices] = useListChoices('people', startOn(arrival('#crew/people')?.department))
+  // A head of department starts on their own (audit, 5 November 2026, finding 42), as Crew needed does, unless they chose otherwise this visit.
+  const myDepartment = useMyDepartment()
+  const [peopleChoices, setPeopleChoices] = useListChoices(
+    'people',
+    startOn(arrival('#crew/people')?.department ?? (myDepartment && !listChoicesKept('people') ? myDepartment : undefined))
+  )
+  // Their department can come with the first copy, after the list first drew: it starts on it then, once.
+  const startedOn = useRef(!!myDepartment)
+  useEffect(() => {
+    if (startedOn.current || !myDepartment) return
+    startedOn.current = true
+    if (!listChoicesKept('people') && !peopleChoices.filters.department) setPeopleChoices({ ...peopleChoices, filters: { ...peopleChoices.filters, ...startOn(myDepartment) } })
+  }, [myDepartment])
   const peopleFilterList = useMemo(() => peopleFilters(active), [crew.people])
+  // The department the list is on, by name, for what's running out beside it; a filter for nobody's department isn't one.
+  const peopleDepartment = peopleFilterList[0]?.options.find((o) => o.key === peopleChoices.filters.department && o.key !== NO_DEPARTMENT_KEY)?.label
+  const allPeople = () => {
+    const { department: _, ...rest } = peopleChoices.filters
+    setPeopleChoices({ ...peopleChoices, filters: rest })
+  }
   const peopleSortList = useMemo(() => {
     const ahead = new Map<string, number>()
     for (const c of crew.calls)
@@ -225,7 +243,6 @@ export function CrewScreen() {
   const upcoming = crew.calls.filter((c) => c.end >= today && c.status === 'open')
   // Crew needed narrowed to a department (ADR 0046). A head of department starts on their own, everyone else on all.
   const access = useAccess()
-  const myDepartment = access.role === 'head' ? (access.personId && people.get(access.personId)?.department) || view.reading.department || '' : ''
   // Opened from a count on Home for a department (audit, 20 October 2026, finding 4), the calls start on that department too.
   const [narrowedTo, setNarrowedTo] = useState<string | undefined>(() => arrival('#crew')?.department)
   // Said after calls are given a department, which takes the list to it, so what was done stays in view (ADR 0046).
@@ -244,7 +261,8 @@ export function CrewScreen() {
   // A yes or a counter until Confirm or Withdraw; a decline or a pull-out until Noted. The Crew tab's count is the same list.
   // Opened from a count on Home for a department, the answers are that department's people's, as Home counted them (audit,
   // 20 October 2026, finding 4); answers on Google Calendar aren't anyone's department.
-  const [answersFor, allAnswers] = useNarrowed('#crew')
+  // A head of department's start on their own department's (audit, 5 November 2026, finding 6), as the Crew tab's count does.
+  const [answersFor, allAnswers] = useNarrowed('#crew', myDepartment)
   const theirs = inDepartment(answersFor)
   const toCheck = answersToCheck(crew, today)
     .filter((a) => theirs(a.offer.person))
@@ -382,11 +400,13 @@ export function CrewScreen() {
           side={
             // Answers are the office's to act on: a role without crew isn't shown them (audit, 20 October 2026, finding 34).
             access.can('crew') &&
-            (answerCard || toCheck.length > 0 || toSortOut.length > 0 || late.length > 0 || docs.length > 0) && (
+            (answerCard || toCheck.length > 0 || toSortOut.length > 0 || late.length > 0 || docs.length > 0 || (answersFor && crewToCheck(view, today) > 0)) && (
               <section className="card">
                 {/* Counted in full, so any past the first three are a tap away and never out of mind (audit finding 16). */}
                 <Heading icon="message">Answers to check ({late.length + docs.length + toSortOut.length + toCheck.length})</Heading>
                 <Narrowed department={answersFor} onWiden={allAnswers} />
+                {/* Nothing from their department while others wait: said, with the way to them, rather than no card at all. */}
+                {!answerCard && late.length + docs.length + toSortOut.length + toCheck.length === 0 && <p className="empty">Nothing waiting from {answersFor}.</p>}
                 <Refusal error={answers.error} />
                 <ShowAll
                   items={withAnswerCard([
@@ -634,7 +654,7 @@ export function CrewScreen() {
         <Split
           side={
             <>
-              <CertificateReminders view={view} />
+              <CertificateReminders view={view} department={peopleDepartment} onWiden={allPeople} />
               <VehicleReminders view={view} />
             </>
           }

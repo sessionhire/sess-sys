@@ -128,8 +128,9 @@ export function LeaveScreen({ view }: { view: View }) {
         </section>
       ) : (
         <>
-          <MyLeave view={view} me={me} year={year} onYear={setYear} onNotMe={signedIn ? undefined : clear} />
+          {/* For an approver, what waits on them first: the count on the Crew tab opens here (audit, 5 November 2026, finding 28). */}
           {approver && <ToApprove view={view} me={me} />}
+          <MyLeave view={view} me={me} year={year} onYear={setYear} onNotMe={signedIn ? undefined : clear} />
           {approver && <Allowances view={view} me={me} year={year} />}
         </>
       )}
@@ -533,13 +534,17 @@ function ToApprove({ view, me }: { view: View; me: PersonView }) {
   // Opened from a count on Home for a department, that department's requests, as Home counted them (audit, 20 October 2026, finding 4).
   const [department, widen] = useNarrowed('#crew/leave')
   const queue = view.leave.queue.filter((q) => inDepartment(department)(q.person))
+  // Theirs to decide first, counted in the heading as on the Crew tab; their own after, for another approver (audit, 5 November 2026, finding 28).
+  const others = queue.filter((q) => q.person?.id !== me.id)
+  const own = queue.filter((q) => q.person?.id === me.id)
+  const key = (item: LeaveQueueItem) => (item.kind === 'request' ? item.request.id : item.entry.id)
   return (
     <section className="card" aria-label="To approve">
-      <h2>To approve</h2>
+      <h2>To approve ({others.length})</h2>
       <Narrowed department={department} onWiden={widen} />
-      {queue.length === 0 && <Empty />}
-      {queue.map((item) => (
-        <QueueRow key={item.kind === 'request' ? item.request.id : item.entry.id} item={item} me={me} />
+      {others.length === 0 && <Empty />}
+      {[...others, ...own].map((item) => (
+        <QueueRow key={key(item)} item={item} me={me} />
       ))}
     </section>
   )
@@ -653,30 +658,33 @@ function AllowanceRow({ person, year, view, me, fixed, byAnother }: { person: Pe
   }
   return (
     <form className="row allowance-row" onSubmit={save} aria-label={`${person.name}'s allowance`}>
-      <div>
-        <b>{person.name}</b>
-        <p>
-          {days(b.annual.taken + b.annual.booked)} approved, {days(b.annual.left)} left
-          {set?.selfSet && ' · set by themselves'}
-          {byAnother && ' · another approver sets yours'}
-          {set?.pending && ' · waiting to sync'}
-        </p>
-      </div>
-      <div className="actions">
-        <label className="field">
-          Days
-          <input type="number" min={0} max={366} value={f.days} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, days: e.target.value }))} />
-        </label>
-        <label className="field">
-          Carried over
-          <input type="number" min={0} max={366} value={f.carried} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, carried: e.target.value }))} />
-        </label>
-        {!fixed && (
-          <button type="submit" disabled={!touched}>
-            Save allowance
-          </button>
-        )}
-      </div>
+      {/* A row each, opened to change it, so twelve staff aren't twelve open forms (audit, 5 November 2026, finding 28). */}
+      <details className="allowance-fold">
+        <summary>
+          <b>{person.name}</b>
+          <span>
+            {days(b.annual.taken + b.annual.booked)} approved, {days(b.annual.left)} left
+            {set?.selfSet && ' · set by themselves'}
+            {byAnother && ' · another approver sets yours'}
+            {set?.pending && ' · waiting to sync'}
+          </span>
+        </summary>
+        <div className="actions">
+          <label className="field">
+            Days
+            <input type="number" min={0} max={366} value={f.days} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, days: e.target.value }))} />
+          </label>
+          <label className="field">
+            Carried over
+            <input type="number" min={0} max={366} value={f.carried} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, carried: e.target.value }))} />
+          </label>
+          {!fixed && (
+            <button type="submit" disabled={!touched}>
+              Save allowance
+            </button>
+          )}
+        </div>
+      </details>
       <Refusal error={error} />
     </form>
   )

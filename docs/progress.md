@@ -3,7 +3,7 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
-## 5 November 2026: an audit of every flow, by role, and batches 1 to 3 of its fixes
+## 5 November 2026: an audit of every flow, by role, and batches 1 to 4 of its fixes
 
 **Done**
 
@@ -49,6 +49,17 @@ waiting on someone.
   changes, and a line with no price is asked about before the quote goes.
   Timesheets are asked for only from the day they're turned on, and for
   two months after a booking.
+- Batch 4, "heads start on their department" (1.79.1, PR #206), on Colly's
+  "Go with batch 4": findings 6, 28, 42, 47 and 62. A head's Answers to
+  check, the Crew count, People and Running out start on their own
+  department, with Show all departments; on the audit's copy the head of
+  LX's Crew count went from 76 to 8. Home's count of certificates running
+  out lands on that list. Offering a call lists its department's people
+  first. For an approver, To approve comes first on Leave with its count,
+  their own request isn't counted, and allowances fold to a row each: To
+  approve moved from 2,209 px down to 320 px, and the page from 5,381 px to
+  3,609 px. No ADR: it carries ADR 0046's start on a head's department to
+  the lists that missed it.
 
 **Waiting**
 

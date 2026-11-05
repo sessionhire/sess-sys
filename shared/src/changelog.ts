@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.79.1',
+    date: '2026-11-05',
+    title: 'Heads start on their own department',
+    what: "A head of department now opens Crew on their own department's answers to check, and the Crew count says how many of those are waiting, with Show all departments for the rest. People and what's running out start on their department too, and the count on Home for certificates running out lands on that list. Offering a call lists the call's own department's people first. For whoever approves leave, the requests to approve come first on the Leave page with their count, their own request no longer keeps the count lit, and each allowance is a row that opens to change it.",
+    prs: [206],
+  },
+  {
     version: '1.79.0',
     date: '2026-11-05',
     title: 'The records say what happened',

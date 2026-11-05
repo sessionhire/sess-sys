@@ -26,6 +26,7 @@ import { useToday } from '../view.ts'
 import { linkFor, QuietPanel, SendButtons, usePromptsMessages } from './Messages.tsx'
 import { useDocumentStorage } from './Documents.tsx'
 import { Heading } from '../Icon.tsx'
+import { inDepartment, Narrowed } from '../Narrowed.tsx'
 
 /**
  * Certificates on the Crew tab (ADR 0028): the ticks for what a call
@@ -75,17 +76,23 @@ export function certificateWarnings(call: CallView, today: string): string[] {
  * the Crew badge: they're known weeks ahead, and a badge always lit stops
  * being read.
  */
-export function CertificateReminders({ view }: { view: View }) {
+export function CertificateReminders({ view, department, onWiden }: { view: View; department?: string; onWiden?: () => void }) {
   const today = useToday()
-  const reminders = runningOut(view.crew.people, view.documents.all, today)
+  // The People list's department, so a head's count on Home lands on their own (audit, 5 November 2026, finding 47).
+  const theirs = inDepartment(department)
+  const every = runningOut(view.crew.people, view.documents.all, today)
+  const reminders = every.filter((r) => theirs(r.person))
   const [asking, setAsking] = useState<RunningOut<PersonView> | undefined>()
   // Asking for the new one is crew's (audit finding 9): a role without it sees what's running out.
   const mayAsk = useAccess().can('crew')
-  if (!reminders.length) return null
+  // Nothing at all, nothing to say; nothing in their department while others have some, said with the way to them.
+  if (!every.length || (!reminders.length && !onWiden)) return null
   const key = (r: RunningOut<PersonView>) => (r.what === 'certificate' ? `${r.person.id} ${r.kind}` : `document ${r.document.id}`)
   return (
     <section className="card reminders" aria-label="Certificates and documents running out">
       <Heading icon="certificate">Running out ({reminders.length})</Heading>
+      {onWiden && <Narrowed department={department} onWiden={onWiden} />}
+      {reminders.length === 0 && <p className="empty">Nothing running out in {department}.</p>}
       <ShowAll items={reminders} limit={3} what="certificates and documents" keep={(r) => !!asking && key(r) === key(asking)}>
         {(rows) =>
           rows.map((r) => (

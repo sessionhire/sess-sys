@@ -200,6 +200,9 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   await expect(leave).toHaveText('Leave 1')
   await leave.click()
   const queue = eoin.getByRole('region', { name: 'To approve' })
+  // First on the page, with its count, for the count on Crew's row to open (audit, 5 November 2026, finding 28).
+  await expect(queue.getByRole('heading', { level: 2 })).toHaveText('To approve (1)')
+  await expect(eoin.locator('main .card').first()).toHaveAttribute('aria-label', 'To approve')
   const request = queue.locator('.row', { hasText: `Nora Walsh ${id}` })
   await expect(request).toContainText('Annual leave')
   await expect(request).toContainText('(3 days)')
@@ -212,6 +215,9 @@ test('staff apply for leave, an approver approves it, and the planner and offers
 
   // Her allowance: a blanked field is turned down in place, keeping what was typed; a number is saved.
   const allowance = eoin.getByRole('form', { name: `Nora Walsh ${id}'s allowance` })
+  // A row each, opened to change it (audit, 5 November 2026, finding 28).
+  await expect(allowance.getByLabel('Days')).toBeHidden()
+  await allowance.locator('summary').click()
   await allowance.getByLabel('Days').fill('')
   await allowance.getByRole('button', { name: 'Save' }).click()
   await expect(allowance.getByRole('alert')).toHaveText('The allowance is a whole number from 0 to 366.')

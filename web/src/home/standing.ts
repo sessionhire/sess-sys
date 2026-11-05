@@ -125,7 +125,8 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
   ).length
   // Only the ones this person can decide: a timesheet whose amounts they aren't sent is the office's (ADR 0062).
   const timesheets = view.timesheets.toApprove.filter((r) => by.person(r.person) && !r.amountsHidden).length
-  const leave = view.leave.queue.filter((q) => by.person(q.person)).length
+  // Their own request is another approver's to decide (audit, 5 November 2026, finding 28).
+  const leave = view.leave.queue.filter((q) => by.person(q.person) && q.person?.id !== me?.id).length
   const certificates = runningOut(view.crew.people, view.documents.all, today).filter((r) => by.person(r.person)).length
   // Kit short for confirmed jobs whose kit is held in the fortnight, as crew needed is counted (audit, 20 October 2026, finding 33).
   const short = view.kit.short.filter((l) => by.kit(l.model?.department) && l.hold === 'held' && l.held && l.held.start <= fortnight)
@@ -149,7 +150,7 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
     { key: 'crew-needed', count: crewNeeded, label: crewNeeded === 1 ? 'call still needs crew' : 'calls still need crew', href: '#crew', part: 'Crew needed' },
     { key: 'timesheets', count: timesheets, label: timesheets === 1 ? 'timesheet to approve' : 'timesheets to approve', href: '#crew/timesheets', part: 'To approve' },
     { key: 'leave', count: leave, label: leave === 1 ? 'leave request waiting on you' : 'leave requests waiting on you', href: '#crew/leave', part: 'To approve' },
-    { key: 'certificates', count: certificates, label: certificates === 1 ? 'certificate or document running out' : 'certificates and documents running out', href: '#crew/people' },
+    { key: 'certificates', count: certificates, label: certificates === 1 ? 'certificate or document running out' : 'certificates and documents running out', href: '#crew/people', part: 'Running out' },
     { key: 'to-pick', count: toPick, label: toPick === 1 ? 'job to pick for today or tomorrow' : 'jobs to pick for today or tomorrow', href: '#stock', part: 'Pick lists' },
     { key: 'still-out', count: stillOut, label: stillOut === 1 ? 'job with kit still out after it' : 'jobs with kit still out after them', href: '#stock', bad: true, part: 'Still out after the job' },
     { key: 'kit-short', count: short.length, label: short.length === 1 ? 'kit line short for a confirmed job' : 'kit lines short for confirmed jobs', href: '#stock', bad: true, part: 'Kit short' },

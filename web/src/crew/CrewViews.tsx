@@ -1,5 +1,6 @@
 import { answersToCheck, canApproveLeave } from '@sh/shared'
 import type { View } from '@sh/shared'
+import { inDepartment, useMyDepartment } from '../Narrowed.tsx'
 import { useAccess } from '../role.ts'
 import { useToday } from '../view.ts'
 import { Views } from '../Views.tsx'
@@ -18,8 +19,11 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
   const today = useToday()
   const { me } = useMe(view)
   const mayCrew = useAccess().can('crew')
-  const calls = mayCrew ? crewToCheck(view, today) : 0
-  const leave = canApproveLeave(me) ? view.leave.queue.length : 0
+  // A head's own department's, as the page starts on them (audit, 5 November 2026, finding 6).
+  const department = useMyDepartment()
+  const calls = mayCrew ? crewToCheck(view, today, department) : 0
+  // What's theirs to decide: their own request is another approver's (audit, 5 November 2026, finding 28).
+  const leave = canApproveLeave(me) ? leaveToDecide(view, me).length : 0
   return (
     <Views
       label="Crew pages"
@@ -34,7 +38,19 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
   )
 }
 
-/** What waits on the office under Calls: answers to check or sort out, anyone running late, documents sent in. */
-export function crewToCheck(view: View, today: string): number {
-  return answersToCheck(view.crew, today).length + calendarAnswersToSortOut(view, today).length + view.late.toCheck.length + view.documents.toCheck.length
+/**
+ * What waits on the office under Calls: answers to check or sort out, anyone running late, documents sent in. For a department,
+ * its people's, as Answers to check lists them narrowed: an answer on Google Calendar isn't anyone's department.
+ */
+export function crewToCheck(view: View, today: string, department?: string): number {
+  const theirs = inDepartment(department || undefined)
+  return (
+    answersToCheck(view.crew, today).filter((a) => theirs(a.offer.person)).length +
+    (department ? 0 : calendarAnswersToSortOut(view, today).length) +
+    view.late.toCheck.filter((n) => theirs(n.person)).length +
+    view.documents.toCheck.filter((d) => theirs(d.person)).length
+  )
 }
+
+/** The leave waiting on an approver: everyone's but their own, which another approver decides. */
+export const leaveToDecide = (view: View, me: { id: string } | undefined) => view.leave.queue.filter((q) => q.person?.id !== me?.id)
