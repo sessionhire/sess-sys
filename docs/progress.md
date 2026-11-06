@@ -92,6 +92,17 @@ waiting on someone.
   search outage is "off", not a warning. Past quotes say where they come
   from when there are none. On this screen reads the open tab on Admin,
   and the Menu's Admin line names the switches. No ADR.
+- Batch 8a, the office's P2s (1.82.0, PR #210), on Colly's "Go for batch
+  8": findings 14, 17, 20, 21, 24, 29 and 30. Needs attention counts jobs
+  with a task late and jobs in Planning with the next task down to nobody
+  (73 of 131 on the audit's copy), each opening the Jobs list filtered to
+  them, and Filter gains Stage and Tasks. Your tasks open on the task
+  (#jobs/<id>/task/<key>). A client or venue a letter or two off one
+  already here asks "Did you mean", and a new one says it will be added.
+  A sent quote's margins are named apart. Timesheet dates carry the year
+  as the link's do. Leave for a year not open names who to ask. The link
+  page reads a form up to 40 MB, so an 11 MB photo gets the page's own
+  "over 10 MB" message. No ADR.
 
 **Waiting**
 

@@ -3,6 +3,8 @@ import type { QuoteRow } from './sync/money-view.ts'
 import type { PersonView } from './sync/crew-view.ts'
 import { DEPARTMENT_LABELS, type Department } from './stock.ts'
 import { KIND_LABELS, PROJECT_KINDS, PROJECT_STATUSES, STATUS_LABELS, STOPPED } from './jobs.ts'
+import { JOB_STAGES, STAGE_LABELS } from './steps.ts'
+import type { JobSteps } from './sync/steps-view.ts'
 import { APPLICANT_LEVEL, LEVELS, levelLine } from './crew-departments.ts'
 
 /**
@@ -132,8 +134,29 @@ export function jobSorts(newestFirst: boolean): ListSort<JobView>[] {
 }
 
 /** Jobs' filters. `kitShort` says whether a job has kit short, from the kit the device has. */
-export function jobFilters(kitShort: (job: JobView) => boolean, stopped: boolean): ListFilter<JobView>[] {
+export function jobFilters(kitShort: (job: JobView) => boolean, stopped: boolean, steps?: (job: JobView) => JobSteps | undefined): ListFilter<JobView>[] {
   const crew = (j: JobView) => crewFill(j.calls)
+  // Where each job is, and its tasks late or down to nobody, so a count of them on Home opens the jobs it counted (audit, 5 November 2026, finding 20).
+  const byTasks: ListFilter<JobView>[] =
+    steps && !stopped
+      ? [
+          {
+            key: 'stage',
+            label: 'Stage',
+            any: 'Any stage',
+            options: JOB_STAGES.map((k) => ({ key: k, label: STAGE_LABELS[k], test: (j: JobView) => steps(j)?.stage?.key === k && !steps(j)?.finished })),
+          },
+          {
+            key: 'tasks',
+            label: 'Tasks',
+            any: 'Any tasks',
+            options: [
+              { key: 'late', label: 'A task late', test: (j) => !!steps(j)?.steps.some((t) => t.late) },
+              { key: 'nobody', label: 'Next task down to nobody', test: (j) => isUnowned(steps(j)) },
+            ],
+          },
+        ]
+      : []
   return [
     {
       key: 'status',
@@ -168,8 +191,12 @@ export function jobFilters(kitShort: (job: JobView) => boolean, stopped: boolean
         { key: 'enough', label: 'No kit short', test: (j) => !kitShort(j) },
       ],
     },
+    ...byTasks,
   ]
 }
+
+/** A job whose next task nobody has been given yet. */
+export const isUnowned = (at: JobSteps | undefined) => !!at?.current && !at.finished && !at.stopped && !at.current.ownerId
 
 // Quotes
 

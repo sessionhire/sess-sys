@@ -127,7 +127,7 @@ function Tiles({ all, keys, title = 'Needs attention', clear, department, groupe
     <ul className={className}>
       {tiles.map((t) => (
         <li key={t.key}>
-          <a className={`tile${t.bad ? ' bad' : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department })}>
+          <a className={`tile${t.bad ? ' bad' : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department, filters: t.filters })}>
             <b>{t.count.toLocaleString('en-IE')}</b>
             <span>{t.label}</span>
           </a>
@@ -744,7 +744,7 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
           const at = view.steps.of(job.id)
           return (
             <li key={`${job.id}.${step.key}`}>
-              <a className="job-row" href={`#jobs/${encodeURIComponent(job.id)}`}>
+              <a className="job-row" href={`#jobs/${encodeURIComponent(job.id)}/task/${step.key}`}>
                 <div>
                   <b>{step.label}</b>
                   <p>
@@ -755,7 +755,8 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
                   </p>
                 </div>
                 <div className="side">
-                  {next ? <small className="flag">Now</small> : at?.current && <small>After {at.current.label.toLowerCase()}</small>}
+                  {/* No "After …": tasks don't wait on one another (ADR 0104), so the stage in the line above says how far along it is. */}
+                  {next && <small className="flag">Now</small>}
                   {step.dueOn ? <small className={step.late ? 'flag bad' : undefined}>{step.late ? 'Was due' : 'By'} {dayLabel(step.dueOn)}</small> : job.span && <small>{dayLabel(job.span.start)}</small>}
                 </div>
               </a>

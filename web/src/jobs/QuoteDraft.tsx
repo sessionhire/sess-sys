@@ -443,7 +443,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
             </span>
             {boss && (
               <span className={`figure${margin.margin < 0 ? ' bad' : ''}`}>
-                <small>Margin</small> <b>{money(margin.margin)}</b>
+                <small>Expected margin</small> <b>{money(margin.margin)}</b>
                 {margin.pct !== null && <span className="pct">{pctWord(margin.pct)}</span>}
               </span>
             )}

@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.82.0',
+    date: '2026-11-06',
+    title: 'Tasks counted on Home, and fewer slips in the office',
+    what: "Home counts jobs with a task late and jobs in Planning whose next task is down to nobody, and each opens the Jobs list showing just those; the list's Filter has Stage and Tasks. A task under Your tasks opens on that task. Typing a client or venue a letter off one already here asks Did you mean it, in one press, and a new one says it will be added. A sent quote names its two margins apart: the expected margin from its own costs, and what's left after freelancers so far. Timesheet dates more than half a year off carry their year. Leave for a year not open yet names who to ask to open it, and says how to split a request across New Year. A freelancer's photo over 10 MB now gets the page's own message, not the browser's 'connection reset'.",
+    prs: [210],
+  },
+  {
     version: '1.81.0',
     date: '2026-11-06',
     title: 'Switches only when something is behind them',

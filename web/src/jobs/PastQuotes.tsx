@@ -30,7 +30,7 @@ import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { JOBS, MONEY, type Step } from '../Up.tsx'
 import { pricingOf, Suggestions, takingWords } from './Claude.tsx'
-import { Choices, clientNamed, Top, venueNamed } from './common.tsx'
+import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { NotYours } from './Money.tsx'
 import { clientWords, getJson, postJson, useAsked, type Loaded } from './rms.ts'
@@ -437,9 +437,11 @@ function MakeJob({
         <label>
           Client <input list="rms-job-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
         </label>
+        <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
         <label>
           Venue <input list="rms-job-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
         </label>
+        <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
         <label>
           From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
         </label>

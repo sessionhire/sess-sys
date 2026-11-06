@@ -137,12 +137,14 @@ export function TimesheetsCard({ view }: { view: View }) {
 }
 
 function Row({ r, action }: { r: TimesheetRow; action: ReactNode }) {
+  // The year once a day is in another or half a year off, as the freelancer's link says it (audit, 5 November 2026, finding 29).
+  const today = useToday()
   return (
     <div className="row ts-row">
       <div>
         <b>{r.person?.name ?? 'Someone'}</b>
         <p>
-          {job(r)} · {r.call.role} · {daysLabel(r.timesheet?.days ?? r.offer.days)}
+          {job(r)} · {r.call.role} · {daysLabel(r.timesheet?.days ?? r.offer.days, today)}
         </p>
       </div>
       <div className="actions">
@@ -217,10 +219,10 @@ function Timesheet({ view, r, onTell, onRestart }: { view: View; r: TimesheetRow
           {job(r)} · {r.call.role}
           <br />
           {r.amountsHidden ? (
-            <>Booked {daysLabel(r.offer.days)}, {rateText(null, true)}</>
+            <>Booked {daysLabel(r.offer.days, today)}, {rateText(null, true)}</>
           ) : (
             <>
-              Booked {daysLabel(r.offer.days)} at {euro(r.offer.dayRateCents)}
+              Booked {daysLabel(r.offer.days, today)} at {euro(r.offer.dayRateCents)}
               {r.offer.dayRateCents !== null && ' a day'}
             </>
           )}
@@ -260,6 +262,7 @@ function Timesheet({ view, r, onTell, onRestart }: { view: View; r: TimesheetRow
  * decides it.
  */
 function Unpriced({ r }: { r: TimesheetRow }) {
+  const today = useToday()
   const t = r.timesheet!
   return (
     <section className="card" aria-label={t.status === 'approved' ? 'Approved' : 'Sent'}>
@@ -267,7 +270,7 @@ function Unpriced({ r }: { r: TimesheetRow }) {
       <ul className="ts-lines">
         <li>
           <span>
-            {t.days.length} day{t.days.length === 1 ? '' : 's'}, {daysLabel(t.days)}
+            {t.days.length} day{t.days.length === 1 ? '' : 's'}, {daysLabel(t.days, today)}
           </span>
         </li>
         {t.extras.map((e, i) => (
@@ -289,6 +292,7 @@ function Approved({ r, onTell }: { r: TimesheetRow; onTell: OnTell }) {
 }
 
 function ApprovedFigures({ r, onTell }: { r: TimesheetRow; onTell: OnTell }) {
+  const today = useToday()
   const t = r.timesheet!
   const changes = timesheetChanges(t)
   const { fees } = timesheetTotal(t)
@@ -304,7 +308,7 @@ function ApprovedFigures({ r, onTell }: { r: TimesheetRow; onTell: OnTell }) {
       <ul className="ts-lines">
         <li>
           <span>
-            {t.days.length} day{t.days.length === 1 ? '' : 's'} at {euro(t.dayRateCents)}, {daysLabel(t.days)}
+            {t.days.length} day{t.days.length === 1 ? '' : 's'} at {euro(t.dayRateCents)}, {daysLabel(t.days, today)}
           </span>
           <span>{euro(fees)}</span>
         </li>

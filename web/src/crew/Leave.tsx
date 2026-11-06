@@ -316,6 +316,18 @@ function MyLeave({ view, me, year, onYear, onNotMe }: { view: View; me: PersonVi
   )
 }
 
+/**
+ * Who to ask to open a year, by name, so a year not open yet is a step to
+ * take and not a wall (audit, 5 November 2026, finding 30). Nobody named
+ * when nobody approves leave yet.
+ */
+function askToOpen(view: View, me: PersonView, year: number): string {
+  const names = view.leave.approvers.filter((p) => p.id !== me.id).map((p) => p.name)
+  if (!names.length) return ''
+  const who = names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} or ${names[1]}` : `${names.slice(0, 2).join(', ')} or another approver`
+  return ` Ask ${who} to open ${year}.`
+}
+
 /** The years leave can be asked for in, and for an approver, the next to open, asked in place first. */
 function OpenYears({ view, me }: { view: View; me: PersonView }) {
   const near = nearYears(useToday())
@@ -329,7 +341,10 @@ function OpenYears({ view, me }: { view: View; me: PersonView }) {
     <>
       <p className="hint">
         {open.length > 0 && `Open for leave: ${open.join(' and ')}. `}
-        {shut.length > 0 && `${shut.join(' and ')} ${shut.length === 1 ? "isn't" : "aren't"} open yet: the office opens each year when it's ready.`}{' '}
+        {shut.length > 0 &&
+          (canApproveLeave(me) && next !== undefined && shut.includes(next)
+            ? `${shut.join(' and ')} ${shut.length === 1 ? "isn't" : "aren't"} open yet. You can open ${next} here, once staff can ask for leave in it.`
+            : `${shut.join(' and ')} ${shut.length === 1 ? "isn't" : "aren't"} open yet: the office opens each year when it's ready.${askToOpen(view, me, shut[0]!)}`)}{' '}
         <Pending pending={view.leave.years.some((y) => y.pending)} />
       </p>
       {canApproveLeave(me) &&
@@ -361,9 +376,16 @@ function Apply({ view, me }: { view: View; me: PersonView }) {
     e.preventDefault()
     setDone('')
     // The same checks as the server's, said here first so nothing waits on a sync to be refused.
-    if (crossesYear) return refuse("A request can't cross the year end: ask for December and January separately.")
+    if (crossesYear) {
+      const next = Number(end.slice(0, 4))
+      return refuse(
+        view.leave.isOpen(next)
+          ? "A request can't cross the year end: ask for December and January separately."
+          : `A request can't cross the year end, and ${next} isn't open yet: ask for the December days now, and January once ${next} is open.${askToOpen(view, me, next)}`,
+      )
+    }
     const shut = notOpenReason(year, view.leave.isOpen, today)
-    if (shut) return refuse(shut)
+    if (shut) return refuse(year >= Number(today.slice(0, 4)) ? shut + askToOpen(view, me, year) : shut)
     if (count === 0) return refuse("There are no working days in those dates: it's all weekend or public holidays.")
     const mine = view.leave.requestsFor(me.id, year).find((r) => HOLDS_DAYS.includes(r.status) && requestsOverlap(r, { start: f.start, end }))
     if (mine) return refuse(`That overlaps the ${leaveLabel(mine.type, mine.days).toLowerCase()} ${mine.status === 'approved' ? 'approved' : 'asked'} for ${leaveSpanLabel(mine)}.`)

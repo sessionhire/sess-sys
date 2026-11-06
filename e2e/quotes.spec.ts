@@ -404,7 +404,7 @@ test("a line short of kit hires in what it's short of, transport is added at a c
   await office.getByRole('button', { name: 'Build it from the job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   const summary = draft.getByRole('group', { name: 'What it comes to' })
-  await expect(summary).toContainText('Margin')
+  await expect(summary).toContainText('Expected margin')
 
   // Far more Spiiders than there are: the line says it's short, and hires in what it's short of.
   await draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' }).click()

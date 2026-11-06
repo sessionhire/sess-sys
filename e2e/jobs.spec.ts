@@ -40,6 +40,8 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   await form.getByLabel('Status').selectOption({ label: 'Confirmed' })
   await expect(form.getByText('A confirmed job goes on the jobs calendar and holds its kit.')).toBeVisible()
   await form.getByLabel('Client').fill(named('Nissan Ireland', id))
+  // A client not known yet says it will be added (audit, 5 November 2026, finding 21).
+  await expect(form.getByText(`“${named('Nissan Ireland', id)}” is added as a new client.`)).toBeVisible()
   await form.getByLabel('Venue').fill(named('The Heritage', id))
   await form.getByLabel('Phase 1', { exact: true }).fill('Build')
   await form.getByLabel('Phase 1 from').fill('2030-10-07')
@@ -143,4 +145,26 @@ test('a job added with no signal waits on the phone, then goes through', async (
   await ready(laptop)
   await laptop.getByLabel('Find').fill(job)
   await expect(laptop.locator('.job-row', { hasText: job })).toContainText('Sat 2 Nov to Sun 3 Nov · Show')
+})
+
+test('a client typed a letter off offers the one already here, in one press', async ({ browser }) => {
+  // Proves (audit, 5 November 2026, finding 21): "Shannonside Festival" against "Shannonside Festivals" asks "Did you mean",
+  // and taking it fills the field, so a typo doesn't quietly make a second client.
+  const id = tag()
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await ready(office)
+  const first = await newJobForm(office)
+  await first.getByLabel('Job').fill(`First ${id}`)
+  await first.getByLabel('Client').fill(`Shannonside Festivals ${id}`)
+  await first.getByRole('button', { name: 'Add job' }).click()
+  await expect(office.getByRole('heading', { name: `First ${id}` })).toBeVisible()
+  await expect(office.locator('.conn')).toHaveText('Up to date')
+
+  await ready(office)
+  const next = await newJobForm(office)
+  await next.getByLabel('Client').fill(`Shannonside Festival ${id}`)
+  await expect(next.locator('.new-or-near')).toHaveText(`Did you mean Shannonside Festivals ${id}? If not, “Shannonside Festival ${id}” is added as a new client.`)
+  await next.locator('.new-or-near').getByRole('button', { name: `Shannonside Festivals ${id}` }).click()
+  await expect(next.getByLabel('Client')).toHaveValue(`Shannonside Festivals ${id}`)
+  await expect(next.locator('.new-or-near')).toHaveCount(0)
 })
