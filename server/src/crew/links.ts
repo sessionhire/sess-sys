@@ -123,7 +123,12 @@ const SAID = {
 } satisfies Record<string, { ok: boolean; text: string }>
 type Said = keyof typeof SAID
 /** A link's token without anything a message stuck on its end: tokens are letters, digits, - and _ (newLinkToken). */
-const tokenOnly = (token: string) => token.replace(/[^A-Za-z0-9_-]+$/, '')
+const tokenOnly = (token: string) => {
+  // Walked back from the end rather than a regular expression, which a long run of punctuation would make slow.
+  let end = token.length
+  while (end > 0 && !/[A-Za-z0-9_-]/.test(token[end - 1]!)) end--
+  return token.slice(0, end)
+}
 /** The id the page gives a days-off form: one of the app's own (newId). */
 const AWAY_ID = /^[a-z0-9]{8,32}$/
 type Refusal = Extract<MutationResult, { status: 'rejected' }>
