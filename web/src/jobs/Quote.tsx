@@ -35,6 +35,7 @@ import { Lines, QuoteSheet, Totals } from './QuoteSheet.tsx'
 import { InCurrentRms, NewVersion, Records } from './QuoteRecords.tsx'
 import { Draft } from './QuoteDraft.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
+import { useQuotesByEmail } from '../MailboxCard.tsx'
 
 export { InStep, QuotePill } from './QuoteStatus.tsx'
 
@@ -130,6 +131,8 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
     }
   }, [printing])
   const today = useToday()
+  // Send by email only while the mailbox can send (audit, 5 November 2026, finding 49).
+  const byEmail = useQuotesByEmail(m)
   const up = { steps: job ? [JOBS, { href: `#jobs/${encodeURIComponent(job.id)}`, label: job.name }] : [JOBS], here: 'Quote' }
 
   if (!job || !sees)
@@ -203,12 +206,12 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
               <SendQuote q={q} onSent={() => setComposing(undefined)} onCancel={() => setComposing(undefined)} />
             ) : (
               <div className="actions">
-                {m.quoting.emailQuotes && q.latest && (
+                {byEmail && q.latest && (
                   <button type="button" className={q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
                     {q.emails.length ? 'Send again' : 'Send by email'}
                   </button>
                 )}
-                <button type="button" className={m.quoting.emailQuotes && q.latest && !q.emails.length ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
+                <button type="button" className={byEmail && q.latest && !q.emails.length ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
                   Print or save as PDF
                 </button>
                 {q.latest && !settled && <NewVersion q={q} onMade={setPicked} />}
@@ -216,7 +219,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             )}
             {settled && q.latest && <p className="hint">The quote is invoiced, so it's settled: no new version.</p>}
           </section>
-          {q.id === current?.id && <Records q={q} job={job} canEmail={!!m.quoting.emailQuotes} />}
+          {q.id === current?.id && <Records q={q} job={job} canEmail={byEmail} />}
         </>
       )}
 

@@ -101,7 +101,14 @@ export function PastQuotesScreen({ view }: { view: View }) {
         {loaded.state === 'ready' && (
           <>
             {loaded.data.total === 0 ? (
-              <Empty>{asked ? `No past quote matches “${asked}”.` : 'Nothing has been read from Current RMS yet. Bring it in from Admin.'}</Empty>
+              asked ? (
+                <Empty>{`No past quote matches “${asked}”.`}</Empty>
+              ) : (
+                <p className="empty">
+                  Nothing has been read from Current RMS yet. It's brought in under <a href="#admin/connections">Admin › Connections</a>, once Current RMS is
+                  connected there.
+                </p>
+              )
             ) : (
               <p className="hint">
                 {plural(loaded.data.total, 'past quote')}
@@ -630,9 +637,16 @@ export function MatchScreen({ view }: { view: View }) {
         </p>
         {loaded.state === 'ready' && (
           <>
-            <p>
-              {counts.linked} linked, {counts.check} to check, {counts.none} with no job of ours on those days.
-            </p>
+            {/* Nothing to count before anything is read: said once, rather than three noughts (audit, 5 November 2026, finding 82). */}
+            {counts.linked + counts.check + counts.none > 0 ? (
+              <p>
+                {counts.linked} linked, {counts.check} to check, {counts.none} with no job of ours on those days.
+              </p>
+            ) : (
+              <p className="empty">
+                No past quotes to match yet. They're brought in under <a href="#admin/connections">Admin › Connections</a>.
+              </p>
+            )}
             {sure.length > 0 && (
               <button
                 type="button"

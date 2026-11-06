@@ -46,6 +46,15 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(mailbox).toContainText('needs the Google key')
   const emailing = mailbox.getByRole('switch', { name: /Send quotes by email/ })
   await expect(emailing).not.toBeChecked()
+  // Not offered while the mailbox can't send, so it's never on with nothing behind it (audit, 5 November 2026, finding 49).
+  await expect(emailing).toBeDisabled()
+  await expect(mailbox).toContainText('Connect operations@ above, allowing sending, to turn this on.')
+  // Connected to read and send: stood in for, as this server has no Google key.
+  await office.route('**/api/assistant/mailbox', (route) =>
+    route.fulfill({ json: { available: true, state: 'on', account: 'operations@sessionhire.com', problem: null, connectedAt: '2026-11-01T09:00:00.000Z', lookedAt: null, threads: 0, canSend: true } })
+  )
+  await office.reload()
+  await expect(mailbox).toContainText('Connected as operations@sessionhire.com, to read and send')
   await emailing.click()
   await expect(emailing).toBeChecked()
   await expect(office.locator('.conn')).toHaveText('Up to date')

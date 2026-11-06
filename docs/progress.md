@@ -83,11 +83,20 @@ waiting on someone.
   and in its count (15,186 to 5,467 px). Answers to check puts calls in
   the next fortnight first, and declines on calls already full are noted
   in one press. No ADR.
+- Batch 7, "switches on with nothing behind them" (1.81.0, PR #209):
+  findings 49, 81, 82 and 50. Send quotes by email stays off and can't be
+  turned on until operations@ is connected allowing sending, and Send by
+  email on a quote needs both. The Claude switch waits for the server's
+  key and the to-do card hides until then. Status gives plain steps for
+  Claude and the mailbox, pointing at Admin › Connections, and a map
+  search outage is "off", not a warning. Past quotes say where they come
+  from when there are none. On this screen reads the open tab on Admin,
+  and the Menu's Admin line names the switches. No ADR.
 
 **Waiting**
 
-- Colly to choose the next batch. Batch 3 is "data right" (findings 8,
-  10, 23, 26, 43, 11, 39, 13 and 15).
+- Colly to choose the next batch: the rest of the P2s, then the P3s by
+  area.
 
 ## 1 November 2026: the logo, stock code, cable length and colour on labels
 

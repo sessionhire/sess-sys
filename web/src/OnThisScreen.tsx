@@ -22,13 +22,18 @@ interface Part {
   heading: HTMLElement
 }
 
-/** Cards straight in the screen, or in either column beside each other on a laptop. */
-const PARTS = '.app > section.card > h2, .app > .columns > .column > section.card > h2, .app > .split > * > section.card > h2'
+/**
+ * Cards straight in the screen, in either column beside each other on a laptop, or in the open tab of a screen in tabs (Admin's
+ * Company tab is eight cards: audit, 5 November 2026, finding 50).
+ */
+const PARTS = '.app > section.card > h2, .app > .columns > .column > section.card > h2, .app > .split > * > section.card > h2, .app > .tab-part > section.card > h2'
 const FEWEST = 3
 
 function partsIn(app: Element): Part[] {
+  // On a screen in tabs, the open tab's cards are the parts, so the strip sits under the tabs and names what's in this one.
+  const tab = app.querySelector(':scope > .tab-part')
   return [...app.querySelectorAll<HTMLElement>(PARTS)]
-    .filter((h) => h.closest('.app') === app && h.getClientRects().length > 0)
+    .filter((h) => h.closest('.app') === app && h.getClientRects().length > 0 && (!tab || tab.contains(h)))
     .map((heading) => {
       const text = heading.textContent?.replace(/\s+/g, ' ').trim() ?? ''
       const [, label, count] = /^(.*?)\s*\((\d[\d,]*)\)$/.exec(text) ?? [, text, undefined]

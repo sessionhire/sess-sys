@@ -50,6 +50,7 @@ import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.t
 import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
 import { Totals } from './QuoteSheet.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
+import { useQuotesByEmail } from '../MailboxCard.tsx'
 import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
 
 /**
@@ -146,7 +147,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26).
   const [free, setFree] = useState<'mark' | 'email'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
-  const canEmail = !!m.quoting.emailQuotes
+  const canEmail = useQuotesByEmail(m)
   const [sending, setSending] = useState<'email' | 'other'>()
   // One row is open to change at a time, a line's or a worked-out one's; the rest read as a list, as they'll print.
   const [open, setOpen] = useState<string>()
