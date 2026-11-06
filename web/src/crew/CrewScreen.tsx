@@ -268,6 +268,8 @@ export function CrewScreen() {
     .filter((a) => theirs(a.offer.person))
     .map((a) => ({ ...a, warning: onCalendar(a.offer)?.warning }))
   const toSortOut = answersFor ? [] : calendarAnswersToSortOut(view, today)
+  // Declines on calls that are full anyway need nothing but noting: one press for them all (audit, 5 November 2026, finding 27).
+  const fullDeclines = toCheck.filter((a) => a.kind === 'declined' && a.short === 0)
   // Running late, said on a link (ADR 0028): first in the queue, as it's about today.
   const late = view.late.toCheck.filter((n) => theirs(n.person))
   // Documents sent from a link, for the office to check (ADR 0029).
@@ -408,6 +410,19 @@ export function CrewScreen() {
                 {/* Nothing from their department while others wait: said, with the way to them, rather than no card at all. */}
                 {!answerCard && late.length + docs.length + toSortOut.length + toCheck.length === 0 && <p className="empty">Nothing waiting from {answersFor}.</p>}
                 <Refusal error={answers.error} />
+                {mayCrew && fullDeclines.length > 1 && (
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() =>
+                      void answers.run(async () => {
+                        for (const a of fullDeclines) await client.mutate('offer.seen', { id: a.offer.id })
+                      })
+                    }
+                  >
+                    Noted: all {fullDeclines.length} declines on calls already full
+                  </button>
+                )}
                 <ShowAll
                   items={withAnswerCard([
                     ...late.map((l) => (

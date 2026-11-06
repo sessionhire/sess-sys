@@ -287,11 +287,6 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
   )
   const certsDue = view.inspections.certificatesDue.filter((c) => inKitOf(department)(c.asset.model))
   const uncertified = view.inspections.uncertified.filter((d) => inKitOf(department)(d.asset.model))
-  const counted = new Map<string, number>()
-  for (const d of uncertified) counted.set(d.asset.model?.name ?? 'A product', (counted.get(d.asset.model?.name ?? 'A product') ?? 0) + 1)
-  const uncertifiedWords = [...counted].map(([name, n]) => `${n} × ${name}`).join(', ')
-  const byProduct = new Map<string, number>()
-  for (const d of unrecorded) byProduct.set(d.asset.model?.name ?? 'A product', (byProduct.get(d.asset.model?.name ?? 'A product') ?? 0) + 1)
   return (
     <section className="card inspections-due" aria-label="Inspections due">
       <Heading icon="inspection">Inspections due</Heading>
@@ -334,17 +329,13 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
           </ul>
         </>
       )}
-      {uncertified.length > 0 && (
-        <p className="hint">
-          No certificate kept yet for the last test of {uncertifiedWords}. They can still go out; add each from its page, or a round's from Testing.
-        </p>
-      )}
-      {unrecorded.length > 0 && (
-        <p className="hint">
-          Not recorded yet: {[...byProduct].map(([name, n]) => `${n} × ${name}`).join(', ')}. They can still go out; record their last test when you
-          have it.
-        </p>
-      )}
+      {/* Housekeeping, kit that can still go out: a count each, folded, opening to the products to open (audit, 5 November 2026, finding 36). */}
+      <ProductsFold
+        items={uncertified.map((d) => d.asset)}
+        title="No certificate for the last test"
+        hint="They can still go out. Add a certificate from an item's page, or for a whole round from Test a batch."
+      />
+      <ProductsFold items={unrecorded.map((d) => d.asset)} title="Last test not recorded" hint="They can still go out. Record their last test when you have it." />
     </section>
   )
 }
@@ -639,5 +630,38 @@ export function TestingScreen({ view }: { view: View }) {
         <InspectionsDue view={view} recent={new Set(done.map((d) => d.a.id))} />
       </Split>
     </div>
+  )
+}
+
+/** Items that need housekeeping, by product: "Last test not recorded (61)", opening to each product with how many, linked to its page. */
+function ProductsFold({ items, title, hint }: { items: readonly AssetView[]; title: string; hint: string }) {
+  if (!items.length) return null
+  const byModel = new Map<string, { id: string; name: string; n: number }>()
+  for (const a of items) {
+    const was = byModel.get(a.modelId)
+    if (was) was.n++
+    else byModel.set(a.modelId, { id: a.modelId, name: a.model?.name ?? 'A product', n: 1 })
+  }
+  const products = [...byModel.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))
+  return (
+    <details className="products-fold">
+      <summary>
+        {title} ({items.length.toLocaleString('en-IE')})
+      </summary>
+      <p className="hint">{hint}</p>
+      <ShowAll items={products} limit={20} what="products" name={title}>
+        {(shown) => (
+          <ul className="plain products-list">
+            {shown.map((m) => (
+              <li key={m.id}>
+                <a href={`#stock/product/${encodeURIComponent(m.id)}`}>
+                  {m.n.toLocaleString('en-IE')} × {m.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </ShowAll>
+    </details>
   )
 }

@@ -26,6 +26,11 @@
 .warehouse .numbers a { display: inline-flex; align-items: center; min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border: 1px solid var(--line); border-radius: var(--radius-full); color: var(--ink); text-decoration: none; font-weight: 600; font-size: var(--text-hint); }
 .warehouse .numbers a.is-pending { border-style: dashed; color: var(--warn); }
 .warehouse .numbers a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A product's numbers folded to its line in a long list (audit, 5 November 2026, finding 38). */
+.warehouse .number-fold { border-top: 1px solid var(--line); }
+.warehouse .number-fold > summary { min-height: 44px; padding: var(--ds-space-2) 0; color: var(--ink); line-height: 28px; }
+.warehouse .number-fold > summary small { color: var(--muted); font-weight: 400; }
+.warehouse .number-fold[open] { display: grid; gap: var(--ds-space-2); padding-bottom: var(--ds-space-2); }
 
 /* Counts. */
 .warehouse .count { align-items: center; }
@@ -176,6 +181,12 @@
 .warehouse .inspections .inspection { display: flex; justify-content: space-between; gap: var(--ds-space-2); padding: var(--ds-space-2) 0; border-top: 1px dashed var(--line); }
 .warehouse .inspections .inspection p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-hint); }
 .warehouse .inspections-due h3 { margin: var(--ds-space-3) 0 var(--ds-space-2); }
+/* Kit that can still go out but needs housekeeping (audit, 5 November 2026, finding 36): a line with its count, opening to the products. */
+.warehouse .products-fold { border-top: 1px solid var(--line); }
+.warehouse .products-fold > summary { min-height: 44px; padding: var(--ds-space-2) 0; color: var(--ink); line-height: 28px; }
+.warehouse .products-fold[open] > summary { margin-bottom: var(--ds-space-1); }
+.warehouse .products-list { display: grid; gap: 0; }
+.warehouse .products-list a { display: flex; align-items: center; min-height: 44px; }
 /* Certificates on items (ADR 0094): a line each, as a venue's documents are, in the warn tone when another runs out soon and the bad tone once it has; a test's own opens from its line. */
 .warehouse .certificates { display: grid; gap: var(--ds-space-2); }
 .warehouse .certificates .row.doc > div:first-child { flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }

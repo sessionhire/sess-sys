@@ -406,6 +406,24 @@ describe('freelancer link', () => {
     expect(page).toMatch(/\.glance\{[^}]*position:sticky/)
   })
 
+  it('draws the three offers to answer soonest in full and the rest as a line each with the reply-by day (audit, 5 November 2026, finding 32)', async () => {
+    // Proves: at volume the offers fold as bookings do, soonest reply-by first, so the bookings aren't five screens down.
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const made: string[] = []
+    for (const n of [9, 3, 7, 1, 5]) {
+      const dayOf = `2026-10-${String(10 + n).padStart(2, '0')}`
+      made[n] = (await offer(app, await call(app, { project: `Gig ${n}`, start: dayOf, end: dayOf, replyBy: dayOf }), aoife.id)).id
+    }
+    const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    const section = page.slice(page.indexOf('<section id="offers">'), page.indexOf('<section id="bookings">'))
+    const full = [...section.matchAll(/<article class="offer offered" id="o-(\w+)">/g)].map((m) => m[1])
+    expect(full.slice(0, 3)).toEqual([made[1], made[3], made[5]])
+    expect(section).toContain('2 more offers after these, a line each: tap one to answer it.')
+    expect(section.match(/<details class="later">/g)).toHaveLength(2)
+    expect(section).toContain('<summary><b>Gig 7</b> · Audio tech · Sat 17 Oct · reply by Sat 17 Oct <span class="tag offered">')
+  })
+
   it('publishes bookings as a calendar feed any calendar app can subscribe to', async () => {
     const app = await server()
     const aoife = await person(app, 'Aoife Byrne')

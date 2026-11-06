@@ -179,6 +179,9 @@ export function ToFollowUp({ view }: { view: View }) {
   )
 }
 
+/** How many rows of each group To follow up and Accepted, unpaid draw before Show all (audit, 5 November 2026, finding 53). */
+const FOLLOW_SHOWN = 8
+
 function QuoteGroups({ f, chaseOnly }: { f: ReturnType<typeof quotesToFollow>; chaseOnly?: boolean }) {
   const waiting = chaseOnly ? f.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS) : f.waiting
   return (
@@ -186,46 +189,62 @@ function QuoteGroups({ f, chaseOnly }: { f: ReturnType<typeof quotesToFollow>; c
       {f.outOfStep.length > 0 && (
         <div className="follow-group">
           <h3>Answered: put the job in step</h3>
-          <ul className="plain">
-            {f.outOfStep.map((x) => (
-              <FollowRow key={x.quote.id} f={x} what={x.want === 'confirmed' ? 'Accepted' : 'Turned down'}>
-                <InStep job={x.job} want={x.want} compact />
-              </FollowRow>
-            ))}
-          </ul>
+          <ShowAll items={f.outOfStep} limit={FOLLOW_SHOWN} what="quotes" name={`${chaseOnly ? 'chase' : 'follow'} in step`}>
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what={x.want === 'confirmed' ? 'Accepted' : 'Turned down'}>
+                    <InStep job={x.job} want={x.want} compact />
+                  </FollowRow>
+                ))}
+              </ul>
+            )}
+          </ShowAll>
         </div>
       )}
       {waiting.length > 0 && (
         <div className="follow-group">
           <h3>Waiting for an answer</h3>
-          <ul className="plain">
-            {waiting.map((x) => (
-              <FollowRow key={x.quote.id} f={x} what="Sent" chase={x.days >= CHASE_AFTER_DAYS} />
-            ))}
-          </ul>
+          <ShowAll items={waiting} limit={FOLLOW_SHOWN} what="quotes" name={`${chaseOnly ? 'chase' : 'follow'} waiting`}>
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Sent" chase={x.days >= CHASE_AFTER_DAYS} />
+                ))}
+              </ul>
+            )}
+          </ShowAll>
         </div>
       )}
       {/* Not a client to ring: the job happened without them, or went elsewhere (ADR 0109). */}
       {!chaseOnly && f.passed.length > 0 && (
         <div className="follow-group">
           <h3>Dates passed with no answer</h3>
-          <ul className="plain">
-            {f.passed.map((x) => (
-              <FollowRow key={x.quote.id} f={x} what="Sent">
-                <InStep job={x.job} want="lost" compact />
-              </FollowRow>
-            ))}
-          </ul>
+          <ShowAll items={f.passed} limit={FOLLOW_SHOWN} what="quotes" name="follow passed">
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Sent">
+                    <InStep job={x.job} want="lost" compact />
+                  </FollowRow>
+                ))}
+              </ul>
+            )}
+          </ShowAll>
         </div>
       )}
       {!chaseOnly && f.drafts.length > 0 && (
         <div className="follow-group">
           <h3>Not sent yet</h3>
-          <ul className="plain">
-            {f.drafts.map((x) => (
-              <FollowRow key={x.quote.id} f={x} what="Last changed" />
-            ))}
-          </ul>
+          <ShowAll items={f.drafts} limit={FOLLOW_SHOWN} what="quotes" name="follow drafts">
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Last changed" />
+                ))}
+              </ul>
+            )}
+          </ShowAll>
         </div>
       )}
     </>
@@ -416,29 +435,34 @@ function OwedGroup({ title, owed, invoiced, hint }: { title: string; owed: OwedB
       </h3>
       <p className="hint">{hint}</p>
       {/* One row a client, its quotes folded under it (audit finding 31). */}
-      {rows.map(({ o, quotes, cents }) => (
-        <details key={o.clientId ?? ''} className="owed">
-          <summary>
-            <b>{o.client}</b>
-            <span className="count">{plural(quotes.length, 'quote')}</span>
-            <span className="amount">{money(cents)}</span>
-          </summary>
-          <ul className="plain">
-            {quotes.map(({ job, quote }) => (
-              <li key={quote.id} className="row">
-                <div>
-                  <a href={`#jobs/${encodeURIComponent(job.id)}/quote`}>{job.name}</a>
-                  <p>
-                    Version {quote.version} · {money(quote.totals.gross)} with VAT
-                    {quote.invoicedOn ? ` · invoiced ${dayLabel(quote.invoicedOn)}${quote.invoiceRef ? ` as ${quote.invoiceRef}` : ''}` : ' · not invoiced yet'}
-                  </p>
-                </div>
-                <QuotePill q={quote} />
-              </li>
-            ))}
-          </ul>
-        </details>
-      ))}
+      {/* The biggest first, then Show all, so the freelancers' costs are in reach (audit, 5 November 2026, finding 53). */}
+      <ShowAll items={rows} limit={FOLLOW_SHOWN} what="clients" name={`owed ${invoiced ? 'invoiced' : 'to invoice'}`}>
+        {(shown) =>
+          shown.map(({ o, quotes, cents }) => (
+            <details key={o.clientId ?? ''} className="owed">
+              <summary>
+                <b>{o.client}</b>
+                <span className="count">{plural(quotes.length, 'quote')}</span>
+                <span className="amount">{money(cents)}</span>
+              </summary>
+              <ul className="plain">
+                {quotes.map(({ job, quote }) => (
+                  <li key={quote.id} className="row">
+                    <div>
+                      <a href={`#jobs/${encodeURIComponent(job.id)}/quote`}>{job.name}</a>
+                      <p>
+                        Version {quote.version} · {money(quote.totals.gross)} with VAT
+                        {quote.invoicedOn ? ` · invoiced ${dayLabel(quote.invoicedOn)}${quote.invoiceRef ? ` as ${quote.invoiceRef}` : ''}` : ' · not invoiced yet'}
+                      </p>
+                    </div>
+                    <QuotePill q={quote} />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))
+        }
+      </ShowAll>
     </div>
   )
 }

@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.80.0',
+    date: '2026-11-06',
+    title: 'Long pages made shorter',
+    what: "A pick list's counted kit now shows the one-tap Count out the N, with Type how many for part of a count, so a long list is rows to read rather than forms. A freelancer's page shows the three offers to answer soonest in full and the rest a line each with the reply-by day, and folds sent and approved timesheets under one line. To follow up and Accepted, unpaid show the first eight with Show all. Testing ends with two lines, No certificate for the last test and Last test not recorded, each opening to the products with links. A full bay's page and its count fold each product to a line that opens to its numbers. Answers to check puts calls in the next fortnight first, and Noted: all declines on calls already full clears those in one press.",
+    prs: [208],
+  },
+  {
     version: '1.79.2',
     date: '2026-11-05',
     title: 'Easier to read on a phone',

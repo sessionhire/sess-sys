@@ -11,9 +11,14 @@ import { jobName, keptWords } from './countWords.ts'
  * counted kit, a number per product.
  */
 
+/** Past this many numbers in a list, each product folds to its line, "Robe BMFL Spot · 16 to find", opening to its numbers. */
+export const NUMBERS_FOLD_PAST = 40
+
 /**
  * Items by product, each number a link to its page, as on a place's page: how many in each product's name, and its first
- * twenty numbers until Show all, as the catalogue does (audit, 20 October 2026, finding 43).
+ * twenty numbers until Show all, as the catalogue does (audit, 20 October 2026, finding 43). A long list, a full bay of
+ * dozens of products, folds each product to its line, so the list is the products to look through rather than every
+ * number (audit, 5 November 2026, finding 38).
  */
 export function Numbers({ title, items, view, each }: { title?: string; items: readonly CountItem[]; view: View; each: string }) {
   const w = view.warehouse
@@ -22,30 +27,54 @@ export function Numbers({ title, items, view, each }: { title?: string; items: r
     const a = w.assets.get(i.assetId)
     if (a) groups.set(a.modelId, [...(groups.get(a.modelId) ?? []), a])
   }
+  const fold = items.length > NUMBERS_FOLD_PAST
   return (
     <div className="group">
       {title && <h3>{title}</h3>}
       {[...groups.values()].map((list) => (
-        <div key={list[0]!.modelId}>
-          <p className="group-name">
-            {list[0]!.model?.name ?? 'A product since removed'}{' '}
-            <small>
-              · {list.length.toLocaleString('en-IE')} {each}
-            </small>
-          </p>
-          <ShowAll items={list} limit={20} what="numbers">
-            {(shown) => (
-              <ul className="numbers">
-                {shown.map((a) => (
-                  <li key={a.id}>
-                    <a href={`#stock/item/${a.id}`}>{numberLabel(a)}</a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </ShowAll>
-        </div>
+        <NumberGroup key={list[0]!.modelId} items={list} fold={fold} name={list[0]!.model?.name ?? 'A product since removed'} said={`· ${list.length.toLocaleString('en-IE')} ${each}`} />
       ))}
+    </div>
+  )
+}
+
+/** One product's numbers: its name and how many, then the numbers, each a link; folded to that line when the list is long. */
+export function NumberGroup({ items, fold, name, href, said, className }: { items: readonly AssetView[]; fold: boolean; name: string; href?: string; said: string; className?: string }) {
+  const numbers = (
+    <ShowAll items={items} limit={20} what="numbers">
+      {(shown) => (
+        <ul className="numbers">
+          {shown.map((a) => (
+            <li key={a.id}>
+              <a href={`#stock/item/${a.id}`} className={a.pending ? 'is-pending' : undefined}>
+                {numberLabel(a)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ShowAll>
+  )
+  if (fold)
+    return (
+      <details className="number-fold">
+        <summary>
+          {name} <small>{said}</small>
+        </summary>
+        {href && (
+          <p className="group-name">
+            <a href={href}>Open {name}</a>
+          </p>
+        )}
+        {numbers}
+      </details>
+    )
+  return (
+    <div className={className}>
+      <p className="group-name">
+        {href ? <a href={href}>{name}</a> : name} <small>{said}</small>
+      </p>
+      {numbers}
     </div>
   )
 }

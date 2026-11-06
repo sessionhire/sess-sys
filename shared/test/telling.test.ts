@@ -111,6 +111,18 @@ describe('answers to check', () => {
   })
 })
 
+describe('answers on calls soon', () => {
+  it('come first whatever their kind, so a pull-out for March waits under a yes for next week', () => {
+    // Proves: answers on calls in the next fortnight lead the list, each part pull-outs first and then by day (audit, 5 November 2026, finding 27).
+    const entities = {
+      person: { aoife: person('aoife', 'Aoife Byrne'), niall: person('niall', 'Niall Kerr'), dara: person('dara', 'Dara Kelly') },
+      crewCall: { soon: call('soon', '2026-10-08', '2026-10-08'), march: call('march', '2027-03-15', '2027-03-15'), edge: call('edge', '2026-10-15', '2026-10-15') },
+      offer: { out: offer('out', 'march', 'dara', 'pulled-out'), yes: offer('yes', 'soon', 'aoife', 'accepted'), no: offer('no', 'edge', 'niall', 'declined') },
+    }
+    expect(answersToCheck(crewView(entities, [], 0), today).map((a) => a.offer.id)).toEqual(['yes', 'no', 'out'])
+  })
+})
+
 describe('offers nobody has answered', () => {
   it('wait in the queue once their reply-by day has passed, until the office notes them or an answer comes', () => {
     // Proves: an offer still unanswered after its call's reply-by day is in "Answers to check" until Noted, and an answer
