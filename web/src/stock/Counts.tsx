@@ -271,12 +271,18 @@ type Tone = 'ok' | 'warn' | 'quiet'
 /** #stock/count: the count under way on this phone, or a line saying there's none. */
 export function CountScreen({ view }: { view: View }) {
   const d = useDraft()
+  const mayCount = useAccess().can('stock')
   if (!d)
     return (
       <div className="app warehouse counting">
         <Top view={view} title="Stock" views={<StockViews view={view} current="count" />} heading="Counting" />
         <section className="card plain">
-          <p className="empty">No count is under way on this phone. Start one from a place's page or a case's page, or from a place due below.</p>
+          {/* Only those who can count are told how to start one (audit, 5 November 2026, finding 74). */}
+          <p className="empty">
+            {mayCount
+              ? "No count is under way on this phone. Start one from a place's page or a case's page, or from a place due below."
+              : 'No count is under way on this phone. The warehouse and heads of department do the counts.'}
+          </p>
         </section>
         <CountsCard view={view} />
       </div>

@@ -25,6 +25,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { ShowAll } from '../Fold.tsx'
 import { Top } from '../jobs/common.tsx'
+import { useAccess } from '../role.ts'
 import { post } from '../server.ts'
 import { STOCK } from '../Up.tsx'
 
@@ -85,6 +86,10 @@ export function ImportStockScreen({ view }: { view: View }) {
   const [step, setStep] = useState<Step>({ at: 'choose' })
   const heading = useRef<HTMLHeadingElement>(null)
   const offline = view.connection === 'offline'
+  // Bringing a list in is the office's (ADR 0034): anyone else is told so
+  // before choosing a file and matching its columns, not after (audit,
+  // 5 November 2026, finding 74).
+  const mayBring = useAccess().can('settings')
   // A new step is announced by moving to its heading.
   useEffect(() => heading.current?.focus(), [step.at])
 
@@ -144,7 +149,14 @@ export function ImportStockScreen({ view }: { view: View }) {
           {step.at === 'done' ? 'Brought in' : 'Bring in the stock list'}
         </h1>
       </header>
-      {step.at === 'choose' || step.at === 'reading' ? (
+      {!mayBring ? (
+        <section className="card">
+          <p>The office brings the stock list in. Ask them if it needs bringing in again.</p>
+          <p>
+            <a href="#stock">Back to Stock</a>
+          </p>
+        </section>
+      ) : step.at === 'choose' || step.at === 'reading' ? (
         <Choose reading={step.at === 'reading'} offline={offline} problem={step.at === 'choose' ? step.problem : undefined} onChoose={choose} />
       ) : step.at === 'columns' ? (
         <Columns

@@ -34,9 +34,9 @@ export function amountLabel(m: ModelView): string {
   // Dry hire stock (ADR 0075) has none of its own.
   if (m.dryHire) return m.supplier ? `Dry hire from ${m.supplier}` : 'Dry hire'
   if (m.tracking === 'bulk') return `${m.countedTotal.toLocaleString('en-IE')} counted`
-  const parts = [plural(m.items.length, 'item')]
-  if (m.countedTotal > 0) parts.push(`${m.countedTotal.toLocaleString('en-IE')} not labelled yet`)
-  return parts.join(' · ')
+  // Labelled and not yet, as one number first: "3 items · 3 not labelled yet" didn't say whether that was 3 or 6 (audit, 5 November 2026, finding 93).
+  if (m.countedTotal > 0) return `${(m.items.length + m.countedTotal).toLocaleString('en-IE')} in all: ${m.countedTotal.toLocaleString('en-IE')} not labelled yet`
+  return plural(m.items.length, 'item')
 }
 
 /** "3 items and 20 counted in it", for a case. */

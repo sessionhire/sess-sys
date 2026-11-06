@@ -131,6 +131,12 @@ waiting on someone.
   and 91. Their page prints light in a dark theme; a link with a stray
   full stop or slash still opens; an old timesheet link says timesheets
   are off; small slips on the day picker, glance line and documents.
+  Batch 9c, warehouse and stock (1.85.0, PR #214): findings 68, 69, 70,
+  71, 74, 92 and 93. The scanner holds off a second read of the same item;
+  kit that can't go out says so on the catalogue and on Home; the 3D rack
+  lets a phone scroll and the kit being placed sits in the phone's dock;
+  staff crew aren't shown stock work that isn't theirs; a pick list says
+  back and still out, and Stock's lists say on now, today, tomorrow.
 
 **Waiting**
 

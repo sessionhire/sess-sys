@@ -200,6 +200,22 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await expect(main.getByRole('button', { name: 'Change details' })).toHaveCount(0)
 })
 
+test("staff crew are not shown how to do stock work that is the warehouse's or the office's", async ({ browser }) => {
+  // Proves: Counting doesn't tell staff to start a count they have no button for, Labels has no Set numbers aside card for them, and
+  // bringing in the stock list says it's the office's before a file is chosen, not after the columns are matched (audit, 5 November 2026, finding 74).
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await as(page, 'crew', /^Staff crew/)
+  await page.goto('/#stock/count')
+  await expect(page.getByRole('main')).toContainText('The warehouse and heads of department do the counts.')
+  await expect(page.getByRole('main')).not.toContainText("Start one from a place's page")
+  await page.goto('/#stock/labels')
+  await expect(page.getByRole('heading', { level: 1, name: 'Labels' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Set numbers aside' })).toHaveCount(0)
+  await page.goto('/#stock/import')
+  await expect(page.getByRole('main')).toContainText('The office brings the stock list in.')
+  await expect(page.getByLabel('Stock list file')).toHaveCount(0)
+})
+
 test('the warehouse can add kit to a job, but not change the job itself', async ({ browser }) => {
   // Proves: the warehouse, held to a head of department's role since ADR 0051, are offered Add kit and the kit lines' Change, and nothing of the job's own.
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()

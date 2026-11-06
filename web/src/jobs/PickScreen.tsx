@@ -487,16 +487,25 @@ function Brief({ view, job, today }: { view: View; job: JobView; today: string }
   if (!next) return null
   const days = daysBetween(today, next.start)
   const when = next.start < today ? 'On now' : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days.toLocaleString('en-IE')} days`
-  const vans = view.vehicles.ofJob(job.id).filter((b) => b.end >= today)
+  // Each van and driver once, with the phases it's booked for: one van for the load in and the load out was said twice (audit,
+  // 5 November 2026, finding 92).
+  const vans = new Map<string, { said: string; phases: string[] }>()
+  for (const b of view.vehicles.ofJob(job.id).filter((b) => b.end >= today)) {
+    const said = `${b.vehicle ? vehicleName(b.vehicle) : 'a vehicle since removed'}${b.driver ? `, ${b.driver.name} driving` : ''}`
+    const van = vans.get(said) ?? { said, phases: [] }
+    if (b.phase && !van.phases.includes(b.phase.name)) van.phases.push(b.phase.name)
+    vans.set(said, van)
+  }
   return (
     <ul className="pick-brief" aria-label="Before you start">
       <li>
         <b>{when}</b>: {next.name}, {dayLabel(next.start)}
         {next.venue && ` at ${next.venue.name}`}
       </li>
-      {vans.length > 0 && (
+      {vans.size > 0 && (
         <li>
-          <b>Going in</b>: {vans.map((b) => `${b.vehicle ? vehicleName(b.vehicle) : 'a vehicle since removed'}${b.driver ? `, ${b.driver.name} driving` : ''}`).join('; ')}
+          <b>Going in</b>:{' '}
+          {[...vans.values()].map((v) => (vans.size > 1 && v.phases.length ? `${v.said} (${v.phases.join(', ')})` : v.said)).join('; ')}
         </li>
       )}
     </ul>
@@ -614,14 +623,16 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
         ? `${row.out} out`
         : `${row.out} of ${row.need} out`
       : row.out
-        ? `${row.out} still out${missing}`
+        ? `${row.back ? `${row.back} back, ` : ''}${row.out} still out${missing}`
         : row.missing
           ? `${row.back} back${missing}`
           : `All ${row.back} back`
   const done = rowDone(row, mode)
   const [damage, setDamage] = useState(false)
   const { run, error } = useAct()
-  const countable = row.model?.tracking === 'bulk' || (row.model?.countedTotal ?? 0) > 0 || row.counted > 0 || row.countedBack > 0
+  // Coming back, a count only where something counted went out (audit, 5 November 2026, finding 92).
+  const countable =
+    mode === 'in' ? row.counted > 0 || row.countedBack > 0 : row.model?.tracking === 'bulk' || (row.model?.countedTotal ?? 0) > 0 || row.counted > 0 || row.countedBack > 0
   const lines = row.lines.length > 1 ? row.lines.map((l) => `${l.own} for ${l.phase?.name ?? (l.phaseId ? 'a phase' : 'the whole job')}`).join(', ') : ''
   // Whoever put the kit on knew why; whoever picks it may not (ADR 0072).
   const notes = row.lines.filter((l) => l.notes?.trim()).map((l) => (row.lines.length > 1 ? `${l.phase?.name ?? 'Whole job'}: ${l.notes!.trim()}` : l.notes!.trim()))

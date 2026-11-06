@@ -274,7 +274,7 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await countBack.getByRole('button', { name: 'Type how many' }).click()
   await countBack.getByLabel('How many').fill('10')
   await countBack.getByRole('button', { name: 'Count back', exact: true }).click()
-  await expect(cableRow.locator('.count')).toHaveText('2 still out')
+  await expect(cableRow.locator('.count')).toHaveText('10 back, 2 still out')
   await expect(page.locator('.pick-total')).toHaveText('11 back, 3 still out')
   await expect(page.locator('.conn')).toContainText('No signal')
   await page.getByRole('button', { name: 'Stop camera' }).click()
