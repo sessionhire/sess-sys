@@ -5,6 +5,7 @@ import { certificateOf, type Document } from '../documents.ts'
 import { STOPPED, type Phase, type Project } from '../jobs.ts'
 import { leaveLabel, type LeaveRequest } from '../leave.ts'
 import { mergedPerson, withMainEmail } from '../merge-people.ts'
+import { addDays } from './plan.ts'
 
 /**
  * The crew screen's view of a device's data: what the server has said, with
@@ -442,10 +443,22 @@ export function answersToCheck(crew: CrewView, today: string): AnswerToCheck[] {
       out.push({ call, offer, kind, short })
     }
   }
+  // Answers on calls in the next fortnight come first, whatever their kind, so a yes for next week isn't under a pull-out for
+  // March (audit, 5 November 2026, finding 27); within each, pull-outs first, then by the call's first day.
+  const soon = addDays(today, ANSWERS_SOON_DAYS)
+  const later = (a: AnswerToCheck) => (a.call.start <= soon ? 0 : 1)
   return out.sort(
-    (a, b) => ANSWER_ORDER.indexOf(a.kind) - ANSWER_ORDER.indexOf(b.kind) || a.call.start.localeCompare(b.call.start) || a.call.id.localeCompare(b.call.id) || a.offer.id.localeCompare(b.offer.id)
+    (a, b) =>
+      later(a) - later(b) ||
+      ANSWER_ORDER.indexOf(a.kind) - ANSWER_ORDER.indexOf(b.kind) ||
+      a.call.start.localeCompare(b.call.start) ||
+      a.call.id.localeCompare(b.call.id) ||
+      a.offer.id.localeCompare(b.offer.id)
   )
 }
+
+/** How far ahead an answer is on a call soon enough to come first in Answers to check. */
+export const ANSWERS_SOON_DAYS = 14
 
 /**
  * Why a person might not be right for these days: marked unavailable, or

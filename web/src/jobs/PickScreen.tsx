@@ -766,6 +766,8 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
 function Count({ row, job, mode, say }: { row: PickRow; job: JobView; mode: Direction; say: Say }) {
   const name = rowName(row)
   const [qty, setQty] = useState('')
+  // The field for part of a count waits behind "Type how many", so a long list is rows to read, not forms (audit, 5 November 2026, finding 35).
+  const [typing, setTyping] = useState(false)
   const { run, error, refuse } = useAct()
   const go = (what: Direction | 'missing', all?: number) => {
     const n = all ?? Number(qty)
@@ -806,16 +808,24 @@ function Count({ row, job, mode, say }: { row: PickRow; job: JobView; mode: Dire
             : `${row.countedBack.toLocaleString('en-IE')} counted back`}
         {mode === 'in' && row.countedMissing > 0 && `, ${row.countedMissing.toLocaleString('en-IE')} missing`}
       </p>
-      <input type="number" inputMode="numeric" min={1} max={MAX_QTY} value={qty} onChange={(e) => setQty(e.target.value)} aria-label="How many" placeholder="How many" />
-      <button type="submit">{label}</button>
-      {rest > 1 && (
+      {rest > 0 && (
         <button type="button" className="all" onClick={() => go(mode, rest)}>
-          {mode === 'out' ? `Count out the ${rest.toLocaleString('en-IE')}` : `Count back all ${rest.toLocaleString('en-IE')}`}
+          {mode === 'out' ? (rest > 1 ? `Count out the ${rest.toLocaleString('en-IE')}` : 'Count out 1') : rest > 1 ? `Count back all ${rest.toLocaleString('en-IE')}` : 'Count back 1'}
         </button>
       )}
-      {mode === 'in' && row.counted > 0 && (
-        <button type="button" onClick={() => go('missing')}>
-          Missing
+      {typing || error ? (
+        <>
+          <input type="number" inputMode="numeric" min={1} max={MAX_QTY} value={qty} onChange={(e) => setQty(e.target.value)} aria-label="How many" placeholder="How many" autoFocus />
+          <button type="submit">{label}</button>
+          {mode === 'in' && row.counted > 0 && (
+            <button type="button" onClick={() => go('missing')}>
+              Missing
+            </button>
+          )}
+        </>
+      ) : (
+        <button type="button" className="link" onClick={() => setTyping(true)}>
+          Type how many
         </button>
       )}
       <Refusal error={error} />

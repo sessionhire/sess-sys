@@ -318,8 +318,7 @@ function timesheets(d: PageData): string {
     .filter((j) => (j.t ? j.t.status !== 'approved' || (j.t.approvedAt ?? '') >= since : noTimesheetReason(j.offer, j.call, d.person, d.today, d.asking) === null))
     .sort((a, b) => rank(a.t) - rank(b.t) || a.call.start.localeCompare(b.call.start))
   if (!rows.length) return ''
-  return `<section id="timesheets"><h2>Timesheets</h2><ul class="ts-list">${rows
-    .map(({ offer, call, t }) => {
+  const row = ({ offer, call, t }: (typeof rows)[number]) => {
       const state = !t ? 'to-send' : t.status
       const text = !t
         ? 'Send your days and extras ›'
@@ -327,8 +326,13 @@ function timesheets(d: PageData): string {
           ? `Sent: ${euro(timesheetTotal(t).total)}. The office will check it ›`
           : `Approved: ${euro(timesheetTotal(t).total)} ›`
       return `<li><a class="${state}" href="${d.base}/timesheet/${encodeURIComponent(offer.id)}"><b>${h(call.project)}${call.phase ? ` <span>${h(call.phase)}</span>` : ''}</b><small>${h(call.role)} · ${h(daysLabel(offer.days, d.today))}</small><span>${h(text)}</span></a></li>`
-    })
-    .join('')}</ul></section>`
+  }
+  // The ones to send in full; those sent or approved, which need nothing from them, folded under one line (audit, 5 November 2026, finding 32).
+  const toSend = rows.filter((r) => !r.t)
+  const done = rows.filter((r) => r.t)
+  return `<section id="timesheets"><h2>Timesheets</h2>${toSend.length ? `<ul class="ts-list">${toSend.map(row).join('')}</ul>` : ''}${
+    done.length ? `<details class="later"><summary><b>Sent and approved (${done.length})</b></summary><ul class="ts-list">${done.map(row).join('')}</ul></details>` : ''
+  }</section>`
 }
 /**
  * What's waiting on them and what's next, in one line at the top, each part
@@ -503,6 +507,29 @@ function ownCalendarBlock(d: PageData): string {
 const BOOKINGS_IN_FULL = 3
 
 /**
+ * The offers waiting on them, the soonest to answer first: the first few as full cards, the rest a line each with the
+ * reply-by day, opening in place with its answers, as bookings are (audit, 5 November 2026, findings 32 and 53). One a
+ * message or a refused answer is about opens, so the page lands on it.
+ */
+function offers(d: PageData, waiting: PageData['jobs']): string {
+  const firstDay = (j: PageData['jobs'][number]) => j.offer.days.find((x) => x >= d.today) ?? j.call.start
+  const answerBy = (j: PageData['jobs'][number]) => j.call.replyBy ?? firstDay(j)
+  const sorted = [...waiting].sort((a, b) => answerBy(a).localeCompare(answerBy(b)) || firstDay(a).localeCompare(firstDay(b)))
+  const later = sorted.slice(BOOKINGS_IN_FULL)
+  return `${sorted.slice(0, BOOKINGS_IN_FULL).map((j) => offerCard(d, j)).join('')}${
+    later.length
+      ? `<p class="small">${later.length === 1 ? 'One more offer' : `${later.length} more offers`} after these, a line each: tap one to answer it.</p>${later
+          .map((j) => {
+            const about = d.flash?.offer === j.offer.id || d.kept?.form === `offer:${j.offer.id}`
+            const by = j.call.replyBy && j.offer.status === 'offered' ? ` · reply by ${h(dayLabel(j.call.replyBy, d.today))}` : ''
+            return `<details class="later"${about ? ' open' : ''}><summary><b>${h(j.call.project)}</b> · ${h(j.call.role)} · ${h(daysLabel(j.offer.days, d.today))}${by} <span class="tag ${j.offer.status}">${STATUS_TEXT[j.offer.status]}</span></summary>${offerCard(d, j)}</details>`
+          })
+          .join('')}`
+      : ''
+  }`
+}
+
+/**
  * Their bookings, soonest first (audit, 20 October 2026, finding 48): the next few as full cards, and the rest folded to
  * one line each, the job, the role, the days and where it stands, opening in place with no script. Forty bookings drawn
  * in full was a thirty-five-screen scroll. One a message or a refused post is about opens, so the page lands on it.
@@ -588,7 +615,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 
   <section id="offers">
     <h2>Offers waiting on you</h2>
-    ${waiting.length ? waiting.map((j) => offerCard(d, j)).join('') : '<p class="empty">Nothing waiting right now.</p>'}
+    ${waiting.length ? offers(d, waiting) : '<p class="empty">Nothing waiting right now.</p>'}
   </section>
 
   ${timesheets(d)}

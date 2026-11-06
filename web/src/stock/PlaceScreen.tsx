@@ -7,6 +7,7 @@ import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { contentsLabel, CountHere, CountRow, numberLabel, PutByNumber, SavedLine, WhereChoices } from './common.tsx'
+import { NumberGroup, NUMBERS_FOLD_PAST } from './CountKit.tsx'
 import { CountsOf } from './Counts.tsx'
 import { PLACES, STOCK } from '../Up.tsx'
 
@@ -127,6 +128,7 @@ function Here({ p, w }: { p: PlaceView; w: WarehouseView }) {
     groups.set(a.modelId, [...(groups.get(a.modelId) ?? []), a])
   }
   const byName = [...groups.values()].sort((a, b) => (a[0]!.model?.name ?? '').localeCompare(b[0]!.model?.name ?? ''))
+  const folded = p.items.length - cases.length > NUMBERS_FOLD_PAST
   const empty = p.items.length === 0 && p.counted.length === 0
   // What a count or a move of what's counted here just did.
   const [said, setSaid] = useState('')
@@ -150,23 +152,19 @@ function Here({ p, w }: { p: PlaceView; w: WarehouseView }) {
           ))}
         </ul>
       )}
+      {/* A full bay folds each product to its line (audit, 5 November 2026, finding 38): 592 numbers were 17,000 px on a phone. */}
       {byName.map((items) => {
         const m = items[0]!.model
         return (
-          <div className="group" key={items[0]!.modelId}>
-            <p className="group-name">
-              {m ? <a href={`#stock/product/${m.id}`}>{m.name}</a> : 'A product since removed'} <small>{plural(items.length, 'item')}</small>
-            </p>
-            <ul className="numbers">
-              {items.map((a) => (
-                <li key={a.id}>
-                  <a href={`#stock/item/${a.id}`} className={a.pending ? 'is-pending' : undefined}>
-                    {numberLabel(a)}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <NumberGroup
+            key={items[0]!.modelId}
+            items={items}
+            fold={folded}
+            name={m?.name ?? 'A product since removed'}
+            href={m ? `#stock/product/${m.id}` : undefined}
+            said={plural(items.length, 'item')}
+            className="group"
+          />
         )
       })}
       {p.counted.map((s) => (

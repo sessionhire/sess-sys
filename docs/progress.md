@@ -70,6 +70,19 @@ waiting on someone.
   and the amount, so nothing is off the right edge. Home's rows, a job's
   map link, the map's zoom, the rack designer's units and the freelancer
   page's links and boxes are 44 px on a touch screen. No ADR.
+- Batch 6, "long pages at real size" (1.80.0, PR #208), on Colly's
+  "Please do batch 6 & 7": findings 35, 32, 53, 36, 38 and 27. Counted
+  rows on a pick list show the one-tap count with "Type how many" behind
+  it. The freelancer page folds offers after the three to answer soonest,
+  and sent and approved timesheets under one line: on the audit's copy
+  the bookings now start at 2,280 px instead of 4,184. To follow up and
+  Accepted, unpaid stop at eight with Show all (Money 7,102 to 5,918 px).
+  Testing's two paragraphs of product names are two folds with counts,
+  opening to linked products (3,823 to 2,139 px). A bay of more than 40
+  numbers folds each product to a line, on its page (16,938 to 6,201 px)
+  and in its count (15,186 to 5,467 px). Answers to check puts calls in
+  the next fortnight first, and declines on calls already full are noted
+  in one press. No ADR.
 
 **Waiting**
 
