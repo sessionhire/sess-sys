@@ -160,7 +160,7 @@ test('a head of department is told what is hidden for their role, and never show
   await page.goto('/#crew/people')
   await expect(page.getByRole('button', { name: 'Take off the filter Department: Audio' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Fionn Gallagher/ })).toHaveCount(0)
-  // Someone in Audio: their link is there to send. Someone in LX: said plainly, with nothing that would break their link.
+  // Someone in Audio: their link is there to send. Someone in LX: no link tab, and nothing that would break their link.
   await page.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Dara Quinn/ }).click()
   await page.getByRole('tab', { name: /^Details/ }).click()
   await expect(page.getByText('Hidden for your role')).toBeVisible()
@@ -169,8 +169,9 @@ test('a head of department is told what is hidden for their role, and never show
   await page.goto('/#crew/people')
   await page.getByRole('button', { name: 'Take off the filter Department: Audio' }).click()
   await page.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Fionn Gallagher/ }).click()
-  await page.getByRole('tab', { name: /^Their link/ }).click()
-  await expect(page.getByText("Your role doesn't see Fionn Gallagher's link.", { exact: false })).toBeVisible()
+  // No tab holding only "your role doesn't see it" (audit, 5 November 2026, finding 94).
+  await expect(page.getByRole('tab', { name: /^Details/ })).toBeVisible()
+  await expect(page.getByRole('tab', { name: /^Their link/ })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Open their page' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'New link' })).toHaveCount(0)
   await expect(page.locator('main')).not.toContainText('€')
