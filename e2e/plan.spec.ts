@@ -228,9 +228,10 @@ test('a month on a laptop, whose dates open their week', async ({ browser }) => 
   await expect(row(laptop, named('Dublin Tech expo')).nth(24).locator('.blk')).toHaveClass(/dashed/)
   await laptop.screenshot(shot('plan-month'))
 
-  // A job's day opens the job, and so does anywhere in its name cell, not just the words.
+  // A job's day opens the job, at its crew while the day is short of crew (audit, 5 November 2026, finding 90), and so does anywhere in
+  // its name cell, not just the words.
   await paddys.nth(16).getByRole('link').click()
-  await expect(laptop).toHaveURL(/#jobs\/[^/]+$/)
+  await expect(laptop).toHaveURL(/#jobs\/[^/]+(\/crew)?$/)
   await expect(laptop.getByRole('heading', { name: named("St Patrick's Festival") })).toBeVisible()
   await laptop.goBack()
   const summitName = laptop.getByRole('rowheader', { name: named('Web Summit') })

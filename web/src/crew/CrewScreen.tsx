@@ -1,5 +1,6 @@
 import {
   addDays,
+  plural,
   answersToCheck,
   dayLabel,
   daysLabel,
@@ -630,7 +631,7 @@ export function CrewScreen() {
                   setAllCalls(true)
                 }}
               >
-                Show all {inView.length.toLocaleString('en-IE')} calls still to come
+                Show all {plural(inView.length, 'call')} still needing something
               </button>
             )}
             {/* Filled calls are folded under the ones short of people (audit finding 10), as the archived are under the people: there for a look, out of the way. */}

@@ -335,6 +335,12 @@ export interface Notice extends HistoryEntry {
   why: NoticeWhy
   /** The record of theirs it changed: the one nearest them, when it changed several. */
   about: { entity: string; id: string }
+  /**
+   * What it means for them, when the change was someone else's but closed
+   * their own offer: "Your offer for LX tech on … is closed: the call
+   * filled." (audit, 5 November 2026, finding 61).
+   */
+  forYou?: string
 }
 
 /** GET /api/notices: the last 30 days, newest first. */

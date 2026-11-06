@@ -137,6 +137,12 @@ waiting on someone.
   lets a phone scroll and the kit being placed sits in the phone's dock;
   staff crew aren't shown stock work that isn't theirs; a pick list says
   back and still out, and Stock's lists say on now, today, tomorrow.
+  Batch 9d, jobs, quotes and crew booking (1.86.0, PR #215): findings 57,
+  58, 61, 84, 88, 89, 90 and 95. Add kit stays open for the next product;
+  a freelancer is told when the call they were offered filled; a venue's
+  or client's jobs are grouped with years; the steps strip says late in
+  the bad colour; Admin pages named in words are links; the parts strip
+  no longer covers what it jumps to.
 
 **Waiting**
 

@@ -38,7 +38,7 @@ import {
   suggestionLine,
   type EnquiryReading,
 } from '@sh/shared'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { ShowAll } from '../Fold.tsx'
@@ -547,10 +547,17 @@ function Freelancers({ m }: { m: MoneyView }) {
 export function BelowZero({ jobs }: { jobs: readonly JobMoney[] }) {
   const losing = belowZero(jobs)
   if (!losing.length) return null
-  const named = losing.slice(0, 3).map((j) => `${j.job.name}, ${money(j.margin!)}`)
+  // Each job named is a link to its money (audit, 5 November 2026, finding 89): every count opens what explains it.
+  const named = losing.slice(0, 3)
   return (
     <p className="below-zero">
-      {plural(losing.length, 'job')} below zero: {named.join('; ')}
+      {plural(losing.length, 'job')} below zero:{' '}
+      {named.map((j, i) => (
+        <Fragment key={j.job.id}>
+          {i > 0 && '; '}
+          <a href={`#jobs/${encodeURIComponent(j.job.id)}/quote`}>{j.job.name}</a>, {money(j.margin!)}
+        </Fragment>
+      ))}
       {losing.length > named.length ? `; and ${losing.length - named.length} more` : ''}.
     </p>
   )

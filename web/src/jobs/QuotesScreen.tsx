@@ -22,6 +22,7 @@ import {
   quoteFilters,
 } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
+import { AdminWords } from '../AdminWords.tsx'
 import { Empty } from '../Empty.tsx'
 import { FromMailbox } from './Claude.tsx'
 import { ShowAll } from '../Fold.tsx'
@@ -186,7 +187,7 @@ function FromCurrentRms({ view, show, search }: { view: View; show: QuoteShow; s
       {loaded.state === 'offline' && <p className="hint">The quotes from Current RMS are kept on the server, so they need signal.</p>}
       {loaded.state === 'ready' &&
         (loaded.data.total === 0 ? (
-          <p className="hint">{asked || went !== 'all' ? 'None from Current RMS matches that.' : 'Nothing has been read from Current RMS yet. Bring it in from Admin › Connections.'}</p>
+          <p className="hint">{asked || went !== 'all' ? 'None from Current RMS matches that.' : <AdminWords>Nothing has been read from Current RMS yet. Bring it in from Admin › Connections.</AdminWords>}</p>
         ) : (
           <>
             <p className="hint">

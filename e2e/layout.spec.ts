@@ -228,7 +228,7 @@ test('a call says where it stands at rest, the picker only searches on Enter, an
   await office.goto('/#crew')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // Two months out is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
-  await office.getByRole('button', { name: /^Show all \d+ calls still to come$/ }).click()
+  await office.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
 
   // On the Crew tab the job's own venue heads its calls; the load in says it's at the Yard.
   const group = office.locator('.call-group', { hasText: job })

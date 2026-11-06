@@ -81,6 +81,21 @@ describe('notifications', () => {
     expect((await notices(aoife)).notices.some((n) => n.who.name === 'Aoife Byrne')).toBe(false)
   })
 
+  it("says what someone else's yes means for an offer of theirs it closed", async () => {
+    // Proves: Dara's yes filled the one place left, closing Aoife's open offer with it, and her list says her offer is closed, not only that
+    // Dara accepted (audit, 5 November 2026, finding 61).
+    const { app, colly, aoife, notices } = await setUp()
+    await colly.send('call.update', { id: 'c1', needed: 1 } as never)
+    await colly.send('offer.send', { id: 'o1', callId: 'c1', personId: 'aoife', override: false })
+    await colly.send('offer.send', { id: 'o2', callId: 'c1', personId: 'dara', override: false })
+    const dara = await colly.record<Person>('person', 'dara')
+    await onLink(app, `/f/${dara.linkToken}/offers/o2`, { answer: 'accept' })
+    const yes = (await notices(aoife)).notices.find((n) => n.who.name === 'Dara Kelly')
+    expect(yes).toMatchObject({ why: 'you', forYou: 'Your offer for Audio tech on Electric Picnic is closed: the call filled.' })
+    // Nobody else's list says it's theirs.
+    expect((await notices(colly)).notices.some((n) => n.forYou)).toBe(false)
+  })
+
   it('keeps how far each person has read, on every device, and never goes back', async () => {
     const { app, colly, aoife, notices } = await setUp()
     await colly.send('offer.send', { id: 'o1', callId: 'c1', personId: 'aoife', override: false })

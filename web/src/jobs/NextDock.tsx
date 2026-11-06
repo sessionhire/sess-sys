@@ -1,4 +1,4 @@
-import { dayLabel, firstName, type JobStep, type JobView, type View } from '@sh/shared'
+import { dayLabel, firstName, STATUS_LABELS, STOPPED, type JobStep, type JobView, type View } from '@sh/shared'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
@@ -53,7 +53,7 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
       {stage && ` · ${stage.label}`}
       {task?.hint && ` · ${task.hint}`}
       {task?.owner && ` · ${firstName(task.owner)}`}
-      {task?.dueOn && ` · ${task.late ? 'was due' : 'by'} ${dayLabel(task.dueOn)}`}
+      {task?.dueOn && (task.late ? <> · <span className="late">was due {dayLabel(task.dueOn)}</span></> : ` · by ${dayLabel(task.dueOn)}`)}
     </p>
   )
   const rest = (words: string, link?: { href: string; label: string }) => (
@@ -71,7 +71,16 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
     </div>
   )
 
-  if (steps.stopped) return rest(steps.stopped)
+  // The steps card says the tasks are stopped; the dock says how to take the job up again, rather than the same words twice (audit,
+  // 5 November 2026, finding 88).
+  if (steps.stopped)
+    return STOPPED.includes(job.status)
+      ? rest(
+          access.can('jobs')
+            ? `${STATUS_LABELS[job.status]}. To take it up again, change its status under Change details.`
+            : `${STATUS_LABELS[job.status]}: the office can take it up again.`
+        )
+      : rest(steps.stopped)
   if (steps.finished) {
     const deprep = steps.steps.find((s) => s.key === 'deprep')
     return rest(`All done${deprep?.ticked ? `: deprepped ${dayLabel(deprep.ticked.at.slice(0, 10))}` : ''}. Nothing left to press.`)

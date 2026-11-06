@@ -260,27 +260,43 @@ function AttachmentForm({ owner, doc, onDone }: { owner: Owner; doc?: Attachment
 /** The jobs at a venue or for a client: coming up first, soonest first, then the rest, newest first, each opening the job. */
 export function JobsCard({ jobs, title, client: showClient }: { jobs: readonly JobView[]; title: string; client?: boolean }) {
   const today = useToday()
-  const coming = jobs.filter((j) => !STOPPED.includes(j.status) && (!j.span || j.span.end >= today))
-  const rest = jobs.filter((j) => !coming.includes(j)).reverse()
+  // Coming up, then what's been, newest first, then what isn't going ahead; each under its own heading, and a date far from today
+  // with its year, so last year's job isn't read as next year's (audit, 5 November 2026, finding 84).
+  const ahead = (j: JobView) => !j.span || j.span.end >= today
+  const coming = jobs.filter((j) => !STOPPED.includes(j.status) && ahead(j))
+  const before = jobs.filter((j) => !ahead(j)).reverse()
+  const stopped = jobs.filter((j) => STOPPED.includes(j.status) && ahead(j))
+  const groups = (
+    [
+      ['Coming up', coming],
+      ['Before', before],
+      ['Not going ahead', stopped],
+    ] as const
+  ).filter(([, list]) => list.length > 0)
   return (
     <section className="card" aria-label={title}>
       <h2>{title}</h2>
       {jobs.length === 0 && <Empty>No jobs yet.</Empty>}
-      <ul className="job-list">
-        {[...coming, ...rest].map((j) => (
-          <li key={j.id}>
-            <a className="job-row" href={`#jobs/${j.id}`}>
-              <div>
-                <b>{j.name}</b>
-                <p>{[showClient ? j.client?.name : j.venue?.name, j.span ? spanLabel(j.span) : 'No dates yet'].filter(Boolean).join(' · ')}</p>
-              </div>
-              <div className="side">
-                <JobStatusPill status={j.status} pending={j.pending} />
-              </div>
-            </a>
-          </li>
-        ))}
-      </ul>
+      {groups.map(([heading, list]) => (
+        <div key={heading} className="job-group">
+          {groups.length > 1 && <h3>{heading}</h3>}
+          <ul className="job-list">
+            {list.map((j) => (
+              <li key={j.id}>
+                <a className="job-row" href={`#jobs/${j.id}`}>
+                  <div>
+                    <b>{j.name}</b>
+                    <p>{[showClient ? j.client?.name : j.venue?.name, j.span ? spanLabel(j.span, today) : 'No dates yet'].filter(Boolean).join(' · ')}</p>
+                  </div>
+                  <div className="side">
+                    <JobStatusPill status={j.status} pending={j.pending} />
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </section>
   )
 }

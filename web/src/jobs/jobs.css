@@ -46,6 +46,12 @@
 
 /* The jobs list (audit finding 22): New job at the top on a phone, and the jobs under their weeks, each week's heading kept in view under the top bar while its jobs scroll. */
 .jobs .jobs-card > button.new-job { justify-self: start; }
+/* On a phone the three chips share one row, their words wrapping inside them, rather than taking two rows over the list (audit,
+   5 November 2026, finding 57). */
+@media (max-width: 639px) {
+  .jobs .jobs-card > .filters { flex-wrap: nowrap; }
+  .jobs .jobs-card > .filters button { flex: 1 1 auto; min-width: 0; justify-content: center; white-space: normal; text-align: center; line-height: 1.2; padding-inline: var(--ds-space-2); }
+}
 .jobs .jobs-card .week-head { position: sticky; top: var(--under-top, 0px); z-index: 1; padding: var(--ds-space-2) 0 var(--ds-space-2); background: var(--panel); }
 .jobs .jobs-card .week-head h3 { margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .jobs .jobs-card .week-head + li .job-row { border-top: 0; padding-top: var(--ds-space-1); }
