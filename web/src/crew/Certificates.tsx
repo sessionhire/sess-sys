@@ -18,6 +18,8 @@ import {
   type PersonView,
   type RunningOut,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
 } from '@sh/shared'
 import { useState } from 'react'
 import { ShowAll } from '../Fold.tsx'
@@ -90,7 +92,7 @@ export function CertificateReminders({ view, department, onWiden }: { view: View
   const key = (r: RunningOut<PersonView>) => (r.what === 'certificate' ? `${r.person.id} ${r.kind}` : `document ${r.document.id}`)
   return (
     <section className="card reminders" aria-label="Certificates and documents running out">
-      <Heading icon="certificate">Running out ({reminders.length})</Heading>
+      <Heading icon="certificate">{listHeading(STANDING_HEADINGS.certificates, reminders.length)}</Heading>
       {onWiden && <Narrowed department={department} onWiden={onWiden} />}
       {reminders.length === 0 && <p className="empty">Nothing running out in {department}.</p>}
       <ShowAll items={reminders} limit={3} what="certificates and documents" keep={(r) => !!asking && key(r) === key(asking)}>

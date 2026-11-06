@@ -48,7 +48,8 @@ test('Home is where the app opens, and says how things stand for whoever is look
   await expect(page.getByRole('heading', { name: /^Answers to check/ })).toBeFocused()
   await bar.getByRole('link', { name: 'Home' }).click()
   await attention.getByRole('link', { name: /kit lines short/ }).click()
-  const short = page.getByRole('heading', { name: 'Kit short' })
+  // The part it counted, under Kit short: the confirmed jobs' lines in the next fortnight, with the same number.
+  const short = page.getByRole('heading', { name: /^For confirmed jobs in the next fortnight \(\d+\)$/ })
   await expect(short).toBeFocused()
   await expect(short).toBeInViewport()
   // Back to Home, and Back again comes to the part as it was left.
@@ -71,6 +72,37 @@ test('Home is where the app opens, and says how things stand for whoever is look
   await page.getByLabel('Department').selectOption('Audio')
   await expect(page.getByRole('heading', { name: 'Needs attention in Audio' })).toBeVisible()
   await expect(page.getByRole('heading', { name: /^Working this week/ })).toBeVisible()
+})
+
+test('every count on Home opens the list it counted, headed with the same number, for the company and the warehouse', async ({ browser }) => {
+  // Proves (Move 3 of the sweep of 6 November 2026): each count, tapped, lands on the part of the next screen that lists what it
+  // counted, focused, and that part's heading says the count's own number; the counts of jobs' tasks open the Jobs list on just
+  // those, which says how many it shows. Running late is said in Answers to check's heading, after the answers.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const show = page.getByRole('group', { name: 'Show for' })
+  const tiles = page.locator('.standing a.tile')
+  const landed = page.locator('main h2:focus, main h3:focus')
+  for (const shownFor of ['Company', 'Warehouse']) {
+    await show.getByRole('button', { name: shownFor, exact: true }).click()
+    await expect(tiles.first()).toBeVisible()
+    const n = await tiles.count()
+    for (let i = 0; i < n; i++) {
+      const tile = tiles.nth(i)
+      const count = (await tile.locator('b').textContent())!
+      const label = `${shownFor}: ${count} ${await tile.locator('span').textContent()}`
+      const tasks = (await tile.getAttribute('href')) === '#jobs'
+      const late = /running late/.test(label)
+      await tile.click()
+      if (tasks) await expect(page.locator('.list-count'), label).toHaveText(new RegExp(`^${count} of [\\d,]+ jobs\\.$`))
+      else if (late) await expect(landed, label).toHaveText(new RegExp(`^Answers to check \\((?:[\\d,]+\\) · ${count}\\srunning late|${count}\\))$`))
+      else await expect(landed, label).toHaveText(new RegExp(`\\(${count}\\)(?: · [\\d,]+\\srunning late)?$`))
+      if (!tasks) await expect(landed, label).toBeInViewport()
+      await page.goBack()
+      await expect(tiles.nth(i)).toBeVisible()
+    }
+  }
 })
 
 test('the Menu names every place, and Admin, History and You keep its tab with the way back', async ({ browser }) => {

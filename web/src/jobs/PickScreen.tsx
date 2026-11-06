@@ -5,6 +5,7 @@ import {
   DEPARTMENTS,
   holdOf,
   itemByCode,
+  kitOf,
   MAX_QTY,
   newId,
   normaliseNumber,
@@ -31,7 +32,6 @@ import { mistakeLabel } from '../stock/common.tsx'
 import { closeFault, faultState, reportFault, ReportFault } from '../stock/Faults.tsx'
 import { dueText } from '../stock/Inspections.tsx'
 import { CameraScanner, primeSound } from '../stock/Scanner.tsx'
-import { kitOf } from '../home/standing.ts'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'

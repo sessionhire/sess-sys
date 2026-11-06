@@ -241,7 +241,7 @@ test("a row's quiet button, and the yes of a question whose answer is a loss, re
   for (const [theme, color, behind] of await drawnInBothThemes(page.locator('#quiet-probe'))) expect(contrast(color, behind), `button.quiet, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
 
   await page.goto('/#stock/repairs')
-  const fault = page.getByRole('region', { name: 'Faults and repairs' }).locator('li.fault').first()
+  const fault = page.getByRole('region', { name: 'Repairs open' }).locator('li.fault').first()
   await fault.getByRole('button', { name: 'Sort it out' }).click()
   // Marking it fixed loses nothing: a plain yes.
   await fault.getByRole('button', { name: 'Mark fixed' }).click()

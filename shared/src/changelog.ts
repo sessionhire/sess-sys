@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.89.0',
+    date: '2026-11-06',
+    title: 'Every count on Home opens the list it counted',
+    what: "Kit to check back in after a job is now one list, the same on Home, Stock and the Board, and it includes kit on a pick list that was never scanned out, so the number of jobs with kit still out may go up. Each row says what isn't back and when the job ended, and turns amber once it's more than two days past when it was due back; the Board's Back column says how many are late. Each count on Home now opens the part of the page that lists what it counted, with the same number: what's to pick for today or tomorrow, kit short for confirmed jobs, and calls short of crew. Answers to check says who's running late, damaged kit that can't go out is counted a repair at a time, Repairs has one name everywhere, and the counts on Stock's row show only to those who look after stock.",
+    prs: [220],
+    adrs: [33, 104, 109],
+  },
+  {
     version: '1.88.1',
     date: '2026-11-06',
     title: 'One red button',

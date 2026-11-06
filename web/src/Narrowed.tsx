@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import type { Department } from '@sh/shared'
+import { narrower, type Department } from '@sh/shared'
 import { arrival } from './arrival.ts'
-import { narrower } from './home/standing.ts'
 import { useAccess } from './role.ts'
 import { useView } from './view.ts'
 

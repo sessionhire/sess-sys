@@ -1,15 +1,15 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { dayLabel } from '../crew.ts'
 import { daysBetween } from '../crew-days.ts'
-import { kindOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
+import { kindOf, kitDaysOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
 import { plural } from '../stock.ts'
-import { JOB_STAGES, JOB_STEPS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type StepRecord } from '../steps.ts'
+import { JOB_STAGES, JOB_STEPS, LATE_BACK_AFTER_DAYS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type StepRecord } from '../steps.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
 import type { FaultsView } from './faults-view.ts'
 import { crewFill, type JobsView, type JobView } from './jobs-view.ts'
 import type { KitView } from './kit-view.ts'
 import type { MoneyView } from './money-view.ts'
-import type { MovesView } from './pick-view.ts'
+import type { MovesView, PickList } from './pick-view.ts'
 import type { VehiclesView } from './vehicles-view.ts'
 
 /**
@@ -364,4 +364,66 @@ export function stepsView(
       )
     },
   }
+}
+
+/**
+ * A job with kit to check back in (ADR 0109): in Back with its Back in task
+ * open, its kit out and not scanned back, or on its pick list and never
+ * scanned out; or kit still out with a job that has no Back to be in, being
+ * cancelled, lost, an errand or with no dates, or whose Back in was ticked
+ * by hand. One list for every place that counts or lists it (Move 3 of the
+ * sweep of 6 November 2026): Home's count and Home › Warehouse, Stock's
+ * Still out after the job, and the Board's Back column.
+ */
+export interface KitToCheck {
+  job: JobView
+  pick: PickList
+  /** Out with it now, by the scans. */
+  out: number
+  /** Everything that went out by the scans, what's back and what's missing too. */
+  went: number
+  /** On its pick list and none of it ever scanned out: it may have gone out unscanned and still be at the venue. */
+  neverScanned: number
+  /** Whole days since its last day; undefined when it has none. */
+  after: number | undefined
+  /** Past its own days to come back plus LATE_BACK_AFTER_DAYS, stopped, or with no dates to go by: drawn amber. */
+  late: boolean
+  /** "3 of 27 not scanned back", or the Back in task's own "23 never scanned out: check they're back" (ADR 0109). */
+  said: string
+  /** "ended 4 days ago", "ended yesterday", "job cancelled", "job lost", "no dates": after what isn't back, so it's the job that's said to be cancelled, not the kit. */
+  when: string
+}
+
+/** The jobs with kit to check back in, the one that ended last first, as the one just back is the one being worked on (audit, 20 October 2026, finding 99), and any with no dates last. */
+export function kitToCheckBackIn(jobs: JobsView, steps: StepsView, moves: MovesView, today: string): KitToCheck[] {
+  const picks = new Map<string, PickList>()
+  for (const job of jobs.jobs) {
+    // Only a confirmed job past its last day can be in Back.
+    if (job.status !== 'confirmed' || !job.span || job.span.end >= today) continue
+    const at = steps.of(job.id)
+    const back = at?.stage?.key === 'back' ? at.steps.find((s) => s.key === 'back') : undefined
+    const pick = back && !back.done && !back.skipped ? moves.pickList(job.id) : undefined
+    if (pick) picks.set(job.id, pick)
+  }
+  for (const p of moves.stillOut) picks.set(p.job.id, p)
+  return [...picks.values()]
+    .map((pick): KitToCheck => {
+      const { job } = pick
+      const went = pick.stillOut + pick.back + pick.missing
+      const neverScanned = went === 0 ? pick.need : 0
+      const after = job.span ? daysBetween(job.span.end, today) : undefined
+      const stopped = STOPPED.includes(job.status)
+      return {
+        job,
+        pick,
+        out: pick.stillOut,
+        went,
+        neverScanned,
+        after,
+        late: stopped || after === undefined || after > kitDaysOf(job).back + LATE_BACK_AFTER_DAYS,
+        said: neverScanned ? `${neverScanned} never scanned out: check they're back` : `${pick.stillOut} of ${went} not scanned back`,
+        when: stopped ? `job ${STATUS_LABELS[job.status].toLowerCase()}` : after === undefined ? 'no dates' : after === 1 ? 'ended yesterday' : `ended ${after} days ago`,
+      }
+    })
+    .sort((a, b) => (b.job.span?.end ?? '').localeCompare(a.job.span?.end ?? '') || a.job.name.localeCompare(b.job.name) || a.job.id.localeCompare(b.job.id))
 }

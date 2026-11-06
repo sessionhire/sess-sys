@@ -24,6 +24,8 @@ import {
   type LieuEntryView,
   type PersonView,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
 } from '@sh/shared'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -563,7 +565,7 @@ function ToApprove({ view, me }: { view: View; me: PersonView }) {
   const key = (item: LeaveQueueItem) => (item.kind === 'request' ? item.request.id : item.entry.id)
   return (
     <section className="card" aria-label="To approve">
-      <h2>To approve ({others.length})</h2>
+      <h2>{listHeading(STANDING_HEADINGS.leave, others.length)}</h2>
       <Narrowed department={department} onWiden={widen} />
       {others.length === 0 && <Empty />}
       {[...others, ...own].map((item) => (

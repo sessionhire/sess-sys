@@ -19,6 +19,8 @@ import {
   type VehicleKind,
   type VehicleView,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -138,7 +140,7 @@ export function VehicleReminders({ view }: { view: View }) {
   if (!reminders.length) return null
   return (
     <section className="card reminders" aria-label="Vehicle checks running out">
-      <Heading icon="certificate">Vehicle checks running out ({reminders.length})</Heading>
+      <Heading icon="certificate">{listHeading(STANDING_HEADINGS.vehicles, reminders.length)}</Heading>
       <ShowAll items={reminders} limit={3} what="checks">
         {(rows) =>
           rows.map((r) => (

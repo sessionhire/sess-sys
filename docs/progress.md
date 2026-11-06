@@ -26,6 +26,19 @@ waiting on someone.
   it takes something away. Check on Timesheets is quiet; Checked and the
   leave queue's Approve and Decline are plain; every list opens with its
   add, and the add's form holds the page's one red.
+- Move 3, part 1, one count (1.89.0, PR #220): kit to check back in
+  after a job is one rule in shared (kitToCheckBackIn), read by Home,
+  Home › Warehouse's new "Still out after the job (n)", Stock and the
+  Board's Back head ("Back 12 · 6 late"). It follows ADR 0109's
+  never-scanned rule, so the count went from 3 to 7 jobs on the bench.
+  Every Home count is the length of the list it opens (standing() in
+  shared) and lands on that list's heading with the same number: a server
+  test builds all 18 lists through real mutations, and e2e taps every
+  tile. Pick lists, Kit short and Crew's calls start with the tile's
+  group; Answers to check reads "(73) · 1 running late"; damaged kit is
+  counted a repair at a time; Repairs has one name; Stock's row counts
+  show only to roles that look after stock. Late kit is amber, not bad
+  (ADR 0104 updated).
 
 **Waiting**
 

@@ -153,7 +153,7 @@ export const MENU: PlaceGroup[] = [
         icon: 'repair',
         href: '#stock/repairs',
         label: 'Repairs',
-        about: 'Faults and missing kit to sort out',
+        about: 'Damaged and missing kit to sort out',
       },
       {
         key: 'racks',

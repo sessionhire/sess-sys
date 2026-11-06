@@ -1,4 +1,4 @@
-import { canApproveLeave, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, plural, spanLabel, STATUS_LABELS, type Department, type JobView, type PersonView, type View } from '@sh/shared'
+import { canApproveLeave, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
 import { useState } from 'react'
 import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
@@ -9,7 +9,7 @@ import { Top } from '../jobs/common.tsx'
 import { kitShort } from '../jobs/Kit.tsx'
 import { BelowZero } from '../jobs/Money.tsx'
 import { useToday, useView } from '../view.ts'
-import { addDays, departmentsIn, jobsOn, kitOf, narrower, SOON, TILES_FOR, tiles, weekAhead, type HomeFor, type Tile } from './standing.ts'
+import { addDays, departmentsIn, jobsOn, SOON, TILES_FOR, tiles, weekAhead, type HomeFor, type Tile } from './standing.ts'
 import { StageLine } from '../jobs/StageLine.tsx'
 import { Heading } from '../Icon.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
@@ -18,6 +18,7 @@ import { useAccess } from '../role.ts'
 import { Chart, type Series } from './Chart.tsx'
 import { Copying, STILL_ARRIVING, useCopying } from './copying.ts'
 import { TodoCard } from '../TodoCard.tsx'
+import { StillOutRow } from '../stock/StillOut.tsx'
 
 /**
  * Home (ADR 0033): how things stand, for whoever is looking. One screen,
@@ -118,8 +119,22 @@ export function HomeScreen() {
  * stops the next fortnight's work comes first and the housekeeping after,
  * smaller (audit, 20 October 2026, finding 33).
  */
-function Tiles({ all, keys, title = 'Needs attention', clear, department, grouped = true }: { all: Record<string, Tile>; keys: readonly string[]; title?: string; clear: string; department?: string; grouped?: boolean }) {
-  const shown = keys.map((k) => all[k]!).filter((t) => t && t.count > 0)
+function Tiles({
+  all,
+  keys,
+  title = 'Needs attention',
+  clear,
+  department,
+  grouped = true,
+}: {
+  all: Partial<Record<StandingKey, Tile>>
+  keys: readonly StandingKey[]
+  title?: string
+  clear: string
+  department?: string
+  grouped?: boolean
+}) {
+  const shown = keys.map((k) => all[k]).filter((t): t is Tile => !!t && t.count > 0)
   // Counts this role can't act on aren't offered (ADR 0034), so all clear is only this person's to say, not the company's (audit, 5 November 2026, finding 46).
   const withheld = keys.some((k) => !all[k])
   const copying = useCopying()
@@ -129,7 +144,7 @@ function Tiles({ all, keys, title = 'Needs attention', clear, department, groupe
     <ul className={className}>
       {tiles.map((t) => (
         <li key={t.key}>
-          <a className={`tile${t.bad ? ' bad' : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department, filters: t.filters })}>
+          <a className={`tile${t.tone ? ` ${t.tone}` : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department, filters: t.filters })}>
             <b>{t.count.toLocaleString('en-IE')}</b>
             <span>{t.label}</span>
           </a>
@@ -351,7 +366,8 @@ function MoneyCard({ view, today }: { view: View; today: string }) {
       icon="document"
       series={MONEY}
       columns={moneyByMonth(m.months, today)}
-      format={wholeEuro}
+      // The sentence's own money words, so a month's column and the sentence under it say the same sum (Move 3 of the sweep of 6 November 2026).
+      format={money}
       empty="No quotes in the three months either side of this one."
       more={
         <>
@@ -390,8 +406,6 @@ const MONEY: Series[] = [
   { name: 'confirmed', tone: 'settled' },
   { name: 'still a quote', tone: 'pending' },
 ]
-/** A chart's money to the euro: the cents are in the money screen. */
-const wholeEuro = (cents: number) => `€${Math.round(cents / 100).toLocaleString('en-IE')}`
 
 /** Crew on each of the next fourteen days, for everyone or one department's calls. */
 function CrewChart({ view, today, department }: { view: View; today: string; department?: string }) {
@@ -541,6 +555,7 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
   const { can } = useAccess()
   const tomorrow = addDays(today, 1)
   const out = view.moves.soon.filter((p) => p.job.span && p.job.span.start <= addDays(today, 7))
+  const stillOut = standing(view, today)['still-out']
   const word = (start: string) => (start <= today ? 'Today · ' : start === tomorrow ? 'Tomorrow · ' : '')
   return (
     <>
@@ -573,23 +588,13 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
       </section>
       <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.warehouse} clear="Nothing back late, broken or due a test." />
       <KitChart view={view} today={today} />
-      {view.moves.stillOut.length > 0 && (
+      {stillOut.length > 0 && (
         <section className="card">
-          {/* Stock's name for the same list, and it says they're late (audit, 5 November 2026, finding 79). */}
-          <Heading icon="warehouse">Still out after the job ({view.moves.stillOut.length})</Heading>
+          {/* Stock's name for the same list (audit, 5 November 2026, finding 79), and the count's own list (ADR 0109). */}
+          <Heading icon="warehouse">{listHeading(STANDING_HEADINGS['still-out'], stillOut.length)}</Heading>
           <ul className="job-list">
-            {view.moves.stillOut.map((p) => (
-              <li key={p.job.id}>
-                <a className="job-row" href={`#jobs/${p.job.id}/pick`}>
-                  <div>
-                    <b>{p.job.name}</b>
-                    <p>{p.job.span ? `Ended ${dayLabel(p.job.span.end)}` : 'No dates'}</p>
-                  </div>
-                  <div className="side">
-                    <small className="flag bad">{p.stillOut} still out</small>
-                  </div>
-                </a>
-              </li>
+            {stillOut.map((k) => (
+              <StillOutRow key={k.job.id} k={k} />
             ))}
           </ul>
         </section>

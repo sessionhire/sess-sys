@@ -133,3 +133,45 @@ test('an enquiry whose dates passed with no answer is counted on Home, folded on
   await next.getByRole('button', { name: 'Record what happened' }).click()
   await expect(page.getByRole('region', { name: 'Where it is' }).getByRole('button', { name: 'The client said no' })).toBeVisible()
 })
+
+test('kit never scanned out after a job is still to check back in, said the same on Home and the Board, with how long ago it ended', async ({ browser, request }) => {
+  // Proves (ADR 0109; the sweep of 6 November 2026, Move 3): one list behind Home's count, Home › Warehouse and the Board's Back column,
+  // each saying what isn't back and when the job ended, late (amber) past the job's days to come back and two more.
+  const id = Date.now().toString(36)
+  const job = `Vartry Fair ${id}`
+  const today = new Date(`${new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' })}T12:00:00Z`)
+  const ended = new Date(today.getTime() - 4 * 86_400_000).toISOString().slice(0, 10)
+  await push(request, id, [
+    ['model.create', { id: `vx-${id}`, name: `Vartry cable ${id}`, department: 'audio', category: 'Cable', tracking: 'bulk', isCase: false, valueCents: null, notes: '' }],
+    ['project.create', { id: `v-${id}`, name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `vp-${id}`, projectId: `v-${id}`, name: 'Show', start: ended, end: ended, venueId: null, notes: '' }],
+    ['kit.add', { id: `vk-${id}`, projectId: `v-${id}`, phaseId: null, modelId: `vx-${id}`, qty: 5, subhireQty: 0, supplier: '', notes: '' }],
+  ])
+  const said = "5 never scanned out: check they're back · ended 4 days ago"
+
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/#home')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Warehouse' }).click()
+  const row = page.locator('.job-row', { hasText: job })
+  await expect(row).toContainText(said)
+  await expect(row.locator('.flag.warn')).toHaveText('Late')
+  // Home's count is the length of the list under it.
+  const heading = page.getByRole('heading', { level: 2, name: /^Still out after the job \(\d+\)$/ })
+  const listed = /\((\d+)\)/.exec((await heading.textContent()) ?? '')![1]!
+  const tile = page.locator('.standing').getByRole('link', { name: /with kit still out after/ })
+  await expect(tile.locator('b')).toHaveText(listed)
+  await expect(tile).toHaveClass(/\bwarn\b/)
+  // Never scanned out, it opens the job's Back in task, to check and tick off.
+  await row.click()
+  await expect(page).toHaveURL(new RegExp(`#jobs/v-${id}/task/back$`))
+  await expect(page.locator('.step-open h3')).toHaveText(/^Back in/)
+
+  // The Board's Back column says it in the same words, amber, and its head counts it late.
+  await page.goto('/#jobs/board')
+  const back = page.getByRole('region', { name: 'Back' })
+  const card = back.locator('.board-card', { hasText: job })
+  await expect(card.locator('.board-line')).toHaveText(said)
+  await expect(card.locator('.board-line')).toHaveAttribute('data-tone', 'warn')
+  await expect(back.locator('header small')).toHaveText(/^\d+ · [1-9]\d* late/)
+})

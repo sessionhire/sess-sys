@@ -2,6 +2,7 @@ import {
   addDays,
   plural,
   answersToCheck,
+  calendarAnswersToSortOut,
   dayLabel,
   daysLabel,
   departmentOf,
@@ -10,6 +11,10 @@ import {
   offerOnCalendar,
   telHref,
   sameDepartment,
+  standing,
+  STANDING_HEADINGS,
+  answersHeading,
+  listHeading,
   venueLabel,
   type AnswerKind,
   type CallView,
@@ -142,24 +147,6 @@ function groupCalls(calls: readonly CallView[], inJobs: readonly JobView[]) {
   return [...jobs.values()]
 }
 
-/**
- * Answers on Google Calendar the app couldn't act on, such as a No to a
- * booked day: for the office to sort out. Counted in "Answers to check" and
- * on the Crew badge alike, so neither says less is waiting than the other.
- */
-export function calendarAnswersToSortOut(view: View, today: string) {
-  return view.crew.calls
-    .filter((c) => c.end >= today && c.status === 'open')
-    .flatMap((c) =>
-      c.offers
-        .filter((o) => o.status === 'offered' || o.status === 'confirmed')
-        .flatMap((o) => {
-          const cal = offerOnCalendar(o, view.calendar.days, today)
-          return cal?.warning ? [{ c, o, text: o.status === 'confirmed' ? cal.warning : `${cal.line} ${cal.warning}` }] : []
-        }),
-    )
-}
-
 /** Where a Send or Tell card opens when an answer to check asked for it: in the answer's place. */
 const ANSWERS = 'answers'
 
@@ -276,6 +263,8 @@ export function CrewScreen() {
   const late = view.late.toCheck.filter((n) => theirs(n.person))
   // Documents sent from a link, for the office to check (ADR 0029).
   const docs = view.documents.toCheck.filter((d) => theirs(d.person))
+  // The heading's counts are Home's, from the same lists (Move 3 of the sweep of 6 November 2026): answers apart from anyone running late.
+  const waiting = standing(view, today, { department: answersFor })
   const markAnswer = (o: OfferView) => setAnswerAt(late.length + docs.length + toSortOut.length + Math.max(0, toCheck.findIndex((a) => a.offer.id === o.id)))
   // The Send or Tell card for an answer just settled, in the row's place, kept in view under Show all wherever it falls.
   const answerCard = shareAt === ANSWERS ? panel : undefined
@@ -335,6 +324,14 @@ export function CrewScreen() {
   // A call asked for here stays in view whatever its days.
   const soonEnd = addDays(today, SOON_DAYS)
   const soon = allCalls ? inView : inView.filter((c) => c.start <= soonEnd || madeHere.has(c.id))
+  // First, under Home's count's own words and number, the calls it counts, narrowed as the list is: in the next fortnight,
+  // with a day from today on still short (Move 3 of the sweep of 6 November 2026). Each is in the fortnight, so it's drawn
+  // whether or not Show all is. Then the rest of the fortnight's, filled from today on and kept for what's on them to sort
+  // out, such as someone short of a certificate it needs; then, under Show all or asked for here, the calls after it.
+  const counted = new Set(standing(view, today)['crew-needed'].map((c) => c.id))
+  const needing = soon.filter((c) => counted.has(c.id))
+  const filledOn = soon.filter((c) => !counted.has(c.id) && c.start <= soonEnd)
+  const later = soon.filter((c) => c.start > soonEnd)
   // A call's Send card opens under it while it's drawn there; one that moved out of view as it was offered keeps it at the foot.
   const underItsCall = shareAt !== undefined && [...onNow, ...soon].some((c) => c.id === shareAt)
   // A long list (audit finding 11, ADR 0050): only the jobs' groups near the screen are drawn, and Back finds its place by them (places.ts).
@@ -407,7 +404,7 @@ export function CrewScreen() {
             (answerCard || toCheck.length > 0 || toSortOut.length > 0 || late.length > 0 || docs.length > 0 || (answersFor && crewToCheck(view, today) > 0)) && (
               <section className="card">
                 {/* Counted in full, so any past the first three are a tap away and never out of mind (audit finding 16). */}
-                <Heading icon="message">Answers to check ({late.length + docs.length + toSortOut.length + toCheck.length})</Heading>
+                <Heading icon="message">{answersHeading(waiting.answers.length, waiting.late.length)}</Heading>
                 <Narrowed department={answersFor} onWiden={allAnswers} />
                 {/* Nothing from their department while others wait: said, with the way to them, rather than no card at all. */}
                 {!answerCard && late.length + docs.length + toSortOut.length + toCheck.length === 0 && <p className="empty">Nothing waiting from {answersFor}.</p>}
@@ -620,11 +617,27 @@ export function CrewScreen() {
               <>
                 <h3 className="calls-part">{onNow.every((c) => c.days.includes(today)) ? 'On today' : 'On today and tomorrow'}</h3>
                 {callGroups(onNow, 'now')}
-                {inView.length > 0 && <h3 className="calls-part">Short of crew</h3>}
               </>
             )}
-            {inView.length > 0 && soon.length === 0 && <p className="hint">Nothing short in the next fortnight.</p>}
-            {callGroups(soon, 'short')}
+            {short.length > 0 && needing.length === 0 && <p className="hint">Nothing short in the next fortnight.</p>}
+            {needing.length > 0 && (
+              <>
+                <h3 className="calls-part">{listHeading(STANDING_HEADINGS['crew-needed'], needing.length)}</h3>
+                {callGroups(needing, 'short')}
+              </>
+            )}
+            {filledOn.length > 0 && (
+              <>
+                <h3 className="calls-part">Filled from today, with something to sort out</h3>
+                {callGroups(filledOn, 'filled-on')}
+              </>
+            )}
+            {later.length > 0 && (
+              <>
+                <h3 className="calls-part">After the next fortnight</h3>
+                {callGroups(later, 'later')}
+              </>
+            )}
             {soon.length < inView.length && (
               <button
                 type="button"

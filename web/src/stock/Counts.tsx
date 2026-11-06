@@ -14,6 +14,8 @@ import {
   type CountView,
   type View,
   type Where,
+  STANDING_HEADINGS,
+  listHeading,
 } from '@sh/shared'
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useScanKeys } from '../scanKeys.ts'
@@ -191,7 +193,7 @@ export function CountsCard({ view }: { view: View }) {
       )}
       {week.due.length > 0 ? (
         <>
-          <h3>To count this week</h3>
+          <h3>{listHeading(STANDING_HEADINGS.counts, week.due.length)}</h3>
           {/* "places to count", not "places": the Places card below has its own "Show all 9 places". */}
           <ShowAll items={week.due} limit={5} what="places to count">
             {(rows) => <ul className="job-list">{rows.map(due)}</ul>}

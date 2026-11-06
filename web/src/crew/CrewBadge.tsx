@@ -29,7 +29,7 @@ export function CrewBadge() {
   const department = useMyDepartment()
   // Not while the copy is still arriving: the count would climb under the tab (audit, 20 October 2026, finding 1).
   if (view.copying) return null
-  const n = (mayCrew ? crewToCheck(view, today, department) : 0) + (canApproveLeave(me) ? leaveToDecide(view, me).length : 0)
+  const n = (mayCrew ? crewToCheck(view, today, department) : 0) + (canApproveLeave(me) ? leaveToDecide(view, today, me).length : 0)
   if (n === 0) return null
   return (
     <span className="badge">

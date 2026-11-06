@@ -12,9 +12,11 @@
  * edge with nothing to say so (audit P2 23).
  */
 
-import type { View } from '@sh/shared'
+import { standing, type View } from '@sh/shared'
 import { useLayoutEffect, useRef } from 'react'
 import { useMoreEdges } from './more.tsx'
+import { useAccess } from './role.ts'
+import { useToday } from './view.ts'
 
 export interface AreaPage {
   key: string
@@ -46,10 +48,15 @@ export function Views({ label, pages, current }: { label: string; pages: readonl
   )
 }
 
-/** Stock's row: what the warehouse looks at, each a page, with the tests overdue and the repairs open counted on theirs. */
+/**
+ * Stock's row: what the warehouse looks at, each a page, with the tests overdue, the repairs open and the places to count
+ * this week counted on theirs, each the list Home counts and the page lists (shared/src/sync/standing.ts). Counted only
+ * for a role that can act on them (ADR 0034), as Crew's row is: to anyone else they'd be a to-do list that isn't theirs.
+ */
 export function StockViews({ view, current }: { view: View; current: string }) {
-  const tests = view.inspections.attention.filter((d) => d.state !== 'soon').length
-  const repairs = view.faults.open.length
+  const lists = standing(view, useToday())
+  const mayStock = useAccess().can('stock')
+  const count = (n: number) => (mayStock ? n : 0)
   // Vehicles whose road checks have run out: they can't be booked until someone updates them (ADR 0047).
   const vehicles = new Set(view.vehicles.reminders.filter((r) => r.ranOut && r.kind !== 'service').map((r) => r.vehicle.id)).size
   return (
@@ -60,11 +67,11 @@ export function StockViews({ view, current }: { view: View; current: string }) {
         { key: 'catalogue', href: '#stock', label: 'Catalogue' },
         { key: 'places', href: '#stock/places', label: 'Places' },
         { key: 'labels', href: '#stock/labels', label: 'Labels' },
-        { key: 'count', href: '#stock/count', label: 'Counting' },
-        { key: 'testing', href: '#stock/testing', label: 'Testing', count: tests },
-        { key: 'repairs', href: '#stock/repairs', label: 'Repairs', count: repairs },
+        { key: 'count', href: '#stock/count', label: 'Counting', count: count(lists.counts.length) },
+        { key: 'testing', href: '#stock/testing', label: 'Testing', count: count(lists['cant-go'].length) },
+        { key: 'repairs', href: '#stock/repairs', label: 'Repairs', count: count(lists.faults.length) },
         { key: 'racks', href: '#stock/racks', label: 'Racks' },
-        { key: 'vehicles', href: '#stock/vehicles', label: 'Vehicles', count: vehicles },
+        { key: 'vehicles', href: '#stock/vehicles', label: 'Vehicles', count: count(vehicles) },
         { key: 'buy', href: '#stock/buy', label: 'Purchase list' },
       ]}
     />
