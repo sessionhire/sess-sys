@@ -503,7 +503,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
         {groups.map((g) => (
           <section key={g.group} className="quote-group" role="group" aria-label={g.group}>
             <div className="group-head">
-              <h3>{g.group}</h3>
+              <h3 className="group">{g.group}</h3>
               {g.lines.length > 1 && discounting !== g.group && (
                 <button type="button" className="link quiet" onClick={() => setDiscounting(g.group)}>
                   Discount every line…
@@ -664,7 +664,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       </section>
 
       <section className="card quote-side">
-        <h3 className="quote-head">Terms</h3>
+        <h3 className="quote-head group">Terms</h3>
         <div className="quote-terms quote-discount">
           {agreedCents === null ? (
             <label className="field">
@@ -757,7 +757,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
 
         <Totals totals={totals} agreed={agreedCents !== null} />
 
-        <h3 className="quote-head">Send</h3>
+        <h3 className="quote-head group">Send</h3>
         <Refusal error={error} />
         {!saved && problem && (problemShown ? <p className="warn-line">{problem} It saves once that's put right.</p> : <p className="hint">Not saved yet{faultAt >= 0 ? `: line ${faultAt + 1} isn't finished.` : '.'}</p>)}
         {saved && q.lines.length > 0 && sending === 'email' ? (

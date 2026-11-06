@@ -195,7 +195,7 @@ function WhoAreYou({ view, signedIn, email, onPick }: { view: View; signedIn: bo
 function Facts({ b }: { b: LeaveBalance }) {
   return (
     <>
-      <h3>Annual leave</h3>
+      <h3 className="group">Annual leave</h3>
       <dl className="facts">
         <div>
           <dt>Allowance</dt>
@@ -227,7 +227,7 @@ function Facts({ b }: { b: LeaveBalance }) {
           </dd>
         </div>
       </dl>
-      <h3>Time in lieu</h3>
+      <h3 className="group">Time in lieu</h3>
       <dl className="facts">
         <div>
           <dt>Earned</dt>

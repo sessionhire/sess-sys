@@ -62,6 +62,10 @@ test('jobs filter by status and kind, sort by name, and keep both on Back', asyn
   await expect(names).toHaveText([`Zebra gala ${id}`])
   await expect(list.getByRole('button', { name: 'Filter (2)' })).toBeVisible()
   await expect(list.locator('.list-count')).toHaveText('1 of 3 jobs.')
+  // Each chip as tall as a thumb, as every target is (UX sweep, 6 November 2026, move 2).
+  const chips = list.locator('.list-chip')
+  await expect(chips).toHaveCount(2)
+  for (const chip of await chips.all()) expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 
   // Back from the job finds the same order and filters.
   await names.first().click()

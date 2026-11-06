@@ -35,7 +35,7 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
   if (!lines.length) return <Empty>No lines.</Empty>
   return (
     <Sideways className="quote-table-wrap">
-      <table className="quote-table">
+      <table className="quote-table quote-lines">
         <thead>
           <tr>
             <th scope="col">What</th>

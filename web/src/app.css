@@ -46,7 +46,11 @@
   --section: var(--ds-space-6); /* between the parts of a page: card and card, the page's head and what's under it */
   --inset: var(--ds-space-4); /* inside a card or panel, from its edge */
   --gutter: var(--ds-space-4); /* the page's edge on a phone */
+  /* A row drawn as a box inside a card (a phase's or a call's box, a fault, a test due, a van, a Home tile, a card on the Board): one
+     shape wherever it is, its words a step in from its edge and its corner a step tighter than the card's. */
+  --inset-box: var(--ds-space-3);
   --radius-control: 8px;
+  --radius-box: var(--radius-control);
   --radius-tab: 10px;
   --radius-card: 12px;
   --radius-full: 999px;
@@ -127,7 +131,6 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .not-done-list .meta { font-size: var(--text-hint); }
 /* What was typed into a change turned down, folded under its reason, to copy (problems.tsx). */
 .not-done-list .typed { display: grid; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
-.not-done-list .typed summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .not-done-list .typed button { justify-self: start; }
 /* A question before something that can't be undone (act.tsx), where the action was: what will happen, in words, and the two ways on. */
 .warn-line { margin: 0; font-size: var(--text-hint); background: var(--warn-soft); color: var(--warn); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); }
@@ -139,9 +142,24 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .signal { display: flex; gap: var(--ds-space-3); align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--ds-space-3) var(--ds-space-4); cursor: pointer; }
 .signal input { width: 22px; height: 22px; accent-color: var(--accent); margin-top: var(--ds-space-half); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--inset); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--group); }
-.card h2 { margin: 0; font-size: var(--text-heading); font-weight: 700; }
+/* On the 4px grid: a card's heading on the system's title leading, 28px. */
+.card h2 { margin: 0; font-size: var(--text-heading); font-weight: 700; line-height: var(--ds-text-title-leading); }
 /* A heading and the line saying what it is are one group: the line sits under it, not a group away. */
 .card h2 + :is(p, .hint) { margin-top: calc(var(--stack) - var(--group)); }
+/*
+ * A head inside a card is one of two kinds, and which kind says what follows it (UX sweep, 6 November 2026, move 2), so the eye learns a
+ * group from a section:
+ * - A group (h3.group) names what follows and has no words of its own: a run of rows (a week's jobs, a department's kit, a day's
+ *   calls, the quotes waiting for an answer), a run of figures (a person's leave), or a part of one long form, as a quote's Terms and
+ *   Send follow its lines (ADR 0100). Label capitals, 12px tracked, in the muted ink: it names them and steps back for them.
+ * - A section (a plain h3) heads a part with words or a job of its own: a hint, prose or a total under it (Money's "Invoiced"), or a
+ *   form that stands alone ("Add kit"). ADR 0082's sentence case at 16px in ink, read as a heading.
+ * The design system's Section has the first alone; the second is Session Hire's own (ADR 0082). Where each sits is the area's to say.
+ * Two heads inside a card are neither, each the title of a record of its own at a card heading's 20px: an open task's name, first and
+ * largest (ADR 0073, steps.css), and a version on What's changed (below).
+ */
+.card h3 { font-size: var(--text-small); font-weight: 700; }
+.card h3.group { font-size: var(--text-pill); line-height: var(--ds-text-label-leading); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 /* The page's own main thing (its list, its form) stands straight on the page under its title, not in a box of its own: a box is for a part
    that stands beside it. Two levels of boxes at most, as the design system's navigation page has it. */
 .card.plain { background: none; border: 0; border-radius: 0; padding: 0; }
@@ -225,7 +243,9 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .more-edges[data-more='both'] { mask-image: linear-gradient(to right, #000 var(--more-at), transparent var(--more-at), #000 calc(var(--more-at) + 48px), #000 calc(100% - 48px), transparent); }
 .views a { flex: 1 0 auto; display: grid; grid-auto-flow: column; place-items: center; place-content: center; gap: var(--ds-space-2); min-height: 44px; padding-inline: var(--ds-space-3); border-radius: var(--radius-control); font-weight: 700; color: var(--muted); text-decoration: none; white-space: nowrap; }
 .views a[aria-current='page'] { background: var(--ink); color: var(--bg); }
-.views a:not([aria-current]):hover { color: var(--ink); }
+@media (hover: hover) {
+  .views a:not([aria-current]):hover { color: var(--ink); }
+}
 /* The count in the muted ink alone, never faded below it: it's what says whether a view needs a look (audit, 5 November 2026, finding 55). */
 .views-count { font-weight: 600; }
 /* The way up (Up.tsx), in the bar so it stays in view down a long page: one link to the parent on a phone, as tall as a thumb; from 900px, where the places are a sidebar, the whole way down as breadcrumbs, the page itself last and not a link. The separators are drawn here and not read out. */
@@ -243,7 +263,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
   .top .crumbs { display: block; }
 }
 .app .title { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; }
-.app h1 { margin: 0; font-size: var(--text-title); line-height: 1.25; }
+/* On the 4px grid: the system's heading leading, 32px. */
+.app h1 { margin: 0; font-size: var(--text-title); line-height: var(--ds-text-heading-leading); }
 /* Every page's head, in the same place on every screen and outside any card: its title, large, naming this page (Calls, Labels, Admin), so
    checking you're in the right place is one look in one place; and a line under it, quieter, saying what matters most about it. */
 .page-head { display: grid; gap: var(--ds-space-1); margin-top: var(--ds-space-1); }
@@ -295,7 +316,7 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .app .list-filters label { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .app .list-filters select { color: var(--ink); width: 100%; }
 .app .list-active { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-2); font-size: var(--text-small); }
-.app .list-chip { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-height: 36px; padding: var(--ds-space-1) var(--ds-space-3); border-radius: 999px; background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: var(--text-small); }
+.app .list-chip { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border-radius: 999px; background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: var(--text-small); }
 .app .list-chip .icon { width: 14px; height: 14px; }
 .app .list-count { color: var(--muted); }
 .menu .places { display: grid; gap: var(--section); }
@@ -323,8 +344,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .app .job-row small.flag { font-weight: 700; }
 .app .kit-short { border-color: var(--warn); }
 .app .kit-short h2 { color: var(--warn); }
-/* A card's groups on Stock, each under a small head of its own; the ones Home's counts land on carry their number. */
-.app .pick-lists h3, .app .kit-short h3 { margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+/* A card's groups on Stock, each under a group head of its own (h3.group); the ones Home's counts land on carry their number. */
+.app .pick-lists h3, .app .kit-short h3 { margin: 0; }
 /* Something just added: kit on a job, items and counts on Stock. */
 /* It worked, so it's quiet (the design system's "healthy is quiet", green never for "saved"): ink on the inset surface, the words saying what was done. */
 .app .added { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); background: var(--ds-surface-inset); color: var(--ink); font-size: var(--text-small); }
@@ -338,14 +359,18 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .skills-field { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .skills-anchor { position: relative; }
 .skills-box { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1); min-height: 44px; padding: var(--ds-space-1); border-radius: var(--radius-control); border: 1px solid var(--field-line); background: var(--bg); cursor: text; }
-.skills-box:hover { border-color: var(--ds-ink-tertiary); }
+@media (hover: hover) {
+  .skills-box:hover { border-color: var(--ds-ink-tertiary); }
+}
 .skills-box input { flex: 1 1 8em; min-height: 34px; border: 0; padding: var(--ds-space-1) var(--ds-space-2); background: transparent; }
 .skills-box input:focus-visible { outline: 0; }
 .skills-box:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .skill-chips { display: contents; list-style: none; margin: 0; padding: 0; }
 .skill-chip { display: inline-flex; align-items: center; gap: var(--ds-space-half); padding-inline-start: var(--ds-space-2); border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--panel); color: var(--ink); font-size: var(--text-small); }
 .skill-chip button { display: grid; place-items: center; width: 34px; height: 34px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--muted); }
-.skill-chip button:hover { color: var(--ink); background: var(--line); }
+@media (hover: hover) {
+  .skill-chip button:hover { color: var(--ink); background: var(--line); }
+}
 /* Drawn at 34px, as a chip's own control is, but a finger's 44px to hit (audit, 20 October 2026, finding 58). */
 .skill-chip button { position: relative; }
 .skill-chip button::after { content: ''; position: absolute; inset: -5px; }
@@ -395,6 +420,27 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 /* A form put away keeps what was typed (Fold.tsx), hidden rather than gone. */
 .fold[hidden] { display: none; }
 .fold > button.link, .app button.show-all { justify-self: start; }
+/*
+ * One fold (the design system's disclosure and states.md's Expanded; UX sweep, 6 November 2026, move 2): every summary a row as tall as
+ * a thumb, its words in ink at 600, after the shared chevron, the icon set's "next" (shared/src/ds/icons.js), drawn here so it takes the
+ * words' colour. It turns a quarter as the fold opens, at the base duration, and at once with reduced motion. A fold over a list says
+ * how many are in it, in its words ("Archived (4)", "3 done"). History's run of changes and a stage's task open the same way; the
+ * quote's cost fold draws the icon itself. Open is the turned chevron, never the hover wash, which says a pointer rests there.
+ * The chevron is a border cut to the icon's shape, not a fill: forced colours (a Windows contrast theme) paint a fill the page's own
+ * colour, so it would vanish, where a border takes its words' colour there as well.
+ */
+summary { display: flex; align-items: center; gap: var(--ds-space-2); min-height: 44px; padding-block: var(--ds-space-2); color: var(--ink); font-weight: 600; list-style: none; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+summary::before, .history .run-line .chevron, .app .task-list button::after {
+  content: ''; flex: none; box-sizing: border-box; width: 16px; height: 16px; border: 8px solid currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+summary:has(> .chevron)::before { content: none; }
+summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after { transition: rotate var(--ds-duration-base) var(--ds-ease-standard); }
+details[open] > summary::before, details[open] > summary > .chevron, .history .run-line[aria-expanded='true'] .chevron, .app .task-list button[aria-expanded='true']::after { rotate: 90deg; }
+@media (prefers-reduced-motion: reduce) {
+  summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after { transition: none; }
+}
 
 /* Sign-in and account. */
 a.button, label.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; text-align: center; font: 600 var(--text-button) var(--ds-font-sans); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; }
@@ -417,7 +463,7 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .account button.link { border: 0; background: none; padding: var(--ds-space-1) 0; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
 .account .invites { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .account .feed input { font-size: var(--text-hint); color: var(--muted); }
-.account .invites h3 { margin: 0; font-size: var(--text-subheading); }
+.account .invites h3 { margin: 0; }
 .choices { display: grid; gap: var(--ds-space-2); }
 .choices .signal b { display: block; overflow-wrap: anywhere; }
 
@@ -429,12 +475,10 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .entry p { margin: 0; }
 .entry .meta { color: var(--muted); font-size: var(--text-hint); }
 .history .card > button { justify-self: start; }
-/* A card for each day, and one person's changes one after another as one line that opens (ADR 0006, amended), with a triangle like the browser's own on a fold, kept out of what a screen reader says. */
+/* A card for each day, and one person's changes one after another as one line that opens (ADR 0006, amended), with the chevron every fold has (above), kept out of what a screen reader says. */
 .history .run-line { display: grid; gap: var(--ds-space-1); align-content: center; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.history .run-line .what { display: flex; font-weight: 600; }
-.history .run-line .chevron { flex: none; width: 1.1em; height: 1.5em; display: grid; place-items: center; color: var(--muted); transition: transform var(--ds-duration-fast); }
-.history .run-line[aria-expanded='true'] .chevron { transform: rotate(90deg); }
-.history .run-line .meta { padding-left: 1.1em; color: var(--muted); font-size: var(--text-hint); }
+.history .run-line .what { display: flex; align-items: center; gap: var(--ds-space-2); font-weight: 600; }
+.history .run-line .meta { padding-left: calc(16px + var(--ds-space-2)); color: var(--muted); font-size: var(--text-hint); }
 .history .run > .entries { margin-left: .4em; padding-left: var(--ds-space-3); border-left: 2px solid var(--line); }
 .history .older { display: grid; gap: var(--ds-space-3); justify-items: start; }
 
@@ -546,8 +590,7 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
 .notice.new p { font-weight: 600; }
 /* What someone else's change meant for them (finding 61), said under it. */
 .notice p.for-you { margin: 0; font-weight: 400; }
-/* A line of several changes (audit, 20 October 2026, finding 68): what they were, behind a tap. */
-.notice-fold summary { padding: var(--ds-space-2) 0; color: var(--muted); font-size: var(--text-small); font-weight: 600; cursor: pointer; }
+/* A line of several changes (audit, 20 October 2026, finding 68): what they were, behind a tap (the one fold, above). */
 .notice-fold ol { list-style: none; margin: 0; padding: 0 0 0 var(--ds-space-3); border-left: 2px solid var(--line); display: grid; gap: var(--ds-space-2); font-size: var(--text-small); }
 
 /*
@@ -592,14 +635,14 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
 /* Toasts clear the foot's dock when a page has one (ADR 0104). */
 body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px + env(safe-area-inset-bottom)); }
 
-/* Admin › What's changed (ADR 0071): one entry per version, newest first. */
+/* Admin › What's changed (ADR 0071): one entry per version, newest first. Each is a record of its own, so its title keeps a card
+   heading's 20px, under a month's fold too, rather than either kind of head inside a card. */
 .release { display: grid; gap: var(--ds-space-1); }
 .release + .release { padding-top: var(--ds-space-4); border-top: 1px solid var(--line); }
-.release h2, .release h3 { margin: 0; font-size: var(--text-subheading); text-transform: none; letter-spacing: 0; }
+.release h2, .release h3 { margin: 0; font-size: var(--text-subheading); line-height: var(--ds-text-title-leading); text-transform: none; letter-spacing: 0; }
 .release .new-word { color: var(--accent-ink); }
 /* The older versions, a month to a fold (finding 80). */
 .release-month { border-top: 1px solid var(--line); padding-top: var(--ds-space-3); }
-.release-month > summary { min-height: 44px; display: flex; align-items: center; font-weight: 600; cursor: pointer; }
 .release-month > .release { padding-top: var(--ds-space-3); }
 .release-version { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: var(--ds-space-1); }
 .release-refs { display: flex; flex-wrap: wrap; gap: var(--ds-space-1) var(--ds-space-3); }
@@ -632,7 +675,7 @@ body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px +
 
 /* Labels under Admin (ADR 0106): the logo as labels print it, and the colour for each cable length. */
 .swatch { flex: none; display: inline-block; width: 1.25rem; height: 1.25rem; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); vertical-align: middle; }
-.labels-card h3 { margin: var(--ds-space-3) 0 var(--ds-space-2); font-size: 1rem; }
+.labels-card h3 { margin: var(--ds-space-3) 0 var(--ds-space-2); }
 .labels-card .company-logo img.on-label { display: block; max-width: 12rem; max-height: 4rem; padding: var(--ds-space-2); background: #fff; border-radius: var(--radius-control); filter: grayscale(1); }
 .labels-card .colour-list { list-style: none; margin: 0 0 var(--ds-space-2); padding: 0; display: grid; gap: var(--ds-space-1); }
 .labels-card .colour-list li { display: flex; align-items: center; gap: var(--ds-space-2); }

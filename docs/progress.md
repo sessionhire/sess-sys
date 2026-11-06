@@ -49,6 +49,17 @@ waiting on someone.
   rate reads "Day rate you'd do it for" with the € in the box; From and
   Until are a pair; instructions are hints under their labels. Nothing
   the forms post changed.
+- Move 2, one look for heads, boxes and folds (1.89.2, PR #222): inside
+  a card a head is a group (small grey capitals naming a run of rows or
+  figures, or a part of one long form) or a section (the plain heading
+  over a part with words of its own); a row drawn as a box has one inset
+  and corner (--inset-box, --radius-box); every fold is one fold, the
+  shared chevron turning as it opens, drawn as a mask over a border so a
+  high-contrast theme still shows it; an open task is the turned chevron
+  and the picked chart column an ink bar; wrong takes the bad tone and a
+  number waiting to sync is grey; hovers only where a pointer hovers.
+  Money's By month and Margin by job stack each month or job on a phone,
+  every figure named.
 
 **Waiting**
 

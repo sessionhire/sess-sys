@@ -469,13 +469,13 @@ function ShortKit({ view }: { view: View }) {
       </p>
       {counted.length > 0 && (
         <>
-          <h3>{listHeading(STANDING_HEADINGS['kit-short'], counted.length)}</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['kit-short'], counted.length)}</h3>
           {lines(counted)}
         </>
       )}
       {rest.length > 0 && (
         <>
-          <h3>{listHeading('Later, or not confirmed yet', rest.length)}</h3>
+          <h3 className="group">{listHeading('Later, or not confirmed yet', rest.length)}</h3>
           {lines(rest)}
         </>
       )}
@@ -521,19 +521,19 @@ function PickLists({ view }: { view: View }) {
       {/* Today's work first, then what's late back, latest first with the rest on request (audit, 20 October 2026, finding 99; ADR 0017). */}
       {toPick.length > 0 && (
         <>
-          <h3>{listHeading(STANDING_HEADINGS['to-pick'], toPick.length)}</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['to-pick'], toPick.length)}</h3>
           <ul className="job-list">{toPick.map(row)}</ul>
         </>
       )}
       {later.length > 0 && (
         <>
-          <h3>Going out in the next two weeks</h3>
+          <h3 className="group">Going out in the next two weeks</h3>
           <ul className="job-list">{later.map(row)}</ul>
         </>
       )}
       {stillOut.length > 0 && (
         <>
-          <h3>{listHeading(STANDING_HEADINGS['still-out'], stillOut.length)}</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['still-out'], stillOut.length)}</h3>
           {/* Past its days to come back and two more stays in view, amber, under the fold too (ADR 0109). */}
           <ShowAll items={stillOut} limit={5} what="jobs" keep={(k) => k.late}>
             {(rows) => (

@@ -558,7 +558,7 @@ function AddSlot({ view, r }: { view: View; r: RackView }) {
 function Built({ r }: { r: RackView }) {
   return (
     <>
-      <h3>Built</h3>
+      <h3 className="group">Built</h3>
       {r.built.length === 0 ? (
         <p className="hint">None built yet. Label a rack case as {r.model.name} under Items below, then put the kit in it.</p>
       ) : (
@@ -608,7 +608,7 @@ export function BuiltRackCheck({ view, item }: { view: View; item: AssetView }) 
         <>
           {b.check.missing.length > 0 && (
             <>
-              <h3>Missing</h3>
+              <h3 className="group">Missing</h3>
               <ul className="rack-check">
                 {b.check.missing.map((x) => (
                   <li key={x.modelId}>
@@ -620,7 +620,7 @@ export function BuiltRackCheck({ view, item }: { view: View; item: AssetView }) 
           )}
           {b.check.extra.length > 0 && (
             <>
-              <h3>Not in its layout</h3>
+              <h3 className="group">Not in its layout</h3>
               <ul className="rack-check">
                 {b.check.extra.map((x) => (
                   <li key={x.modelId}>
@@ -713,7 +713,7 @@ function HireIn({ b, name }: { b: BuiltRack; name: (id: string) => string }) {
   if (!b.check.hireIn.length) return null
   return (
     <>
-      <h3>Hired in for each job</h3>
+      <h3 className="group">Hired in for each job</h3>
       <ul className="rack-check">
         {b.check.hireIn.map((x) => (
           <li key={x.modelId}>

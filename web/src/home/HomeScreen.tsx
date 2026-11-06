@@ -166,13 +166,13 @@ function Tiles({
           <p className="hint">What stops the next fortnight's work first, then the housekeeping. Each goes once it's sorted.</p>
           {soon.length > 0 && (
             <>
-              <h3>The next fortnight</h3>
+              <h3 className="group">The next fortnight</h3>
               {list(soon)}
             </>
           )}
           {rest.length > 0 && (
             <>
-              <h3>Housekeeping</h3>
+              <h3 className="group">Housekeeping</h3>
               {list(rest, 'tiles housekeeping')}
             </>
           )}

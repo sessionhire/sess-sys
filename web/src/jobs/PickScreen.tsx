@@ -357,7 +357,7 @@ function Pick({ view, job }: { view: View; job: JobView }) {
               <>
                 {walk(shown.filter((r) => !rowDone(r, mode))).map(([where, here]) => (
                   <div className="kit-group" key={where}>
-                    <h3>{where}</h3>
+                    <h3 className="group">{where}</h3>
                     {here.map(row)}
                   </div>
                 ))}
@@ -384,7 +384,7 @@ function Pick({ view, job }: { view: View; job: JobView }) {
               const done = here.filter((r) => rowDone(r, mode))
               return (
                 <div className="kit-group" key={d}>
-                  <h3>{label}</h3>
+                  <h3 className="group">{label}</h3>
                   {here.filter((r) => !rowDone(r, mode)).map(row)}
                   {done.length > 0 && (
                     <details className="pick-done">

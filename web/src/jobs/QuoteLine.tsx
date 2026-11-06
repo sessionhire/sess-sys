@@ -440,7 +440,7 @@ export function LineEditor(p: {
       </div>
       {problem(['qty', 'out', 'days', 'price', 'discount'])}
       {unitMoved && (
-        <p className="line-problem" role="status">
+        <p className="line-problem asks" role="status">
           Was €{unitMoved.price} {unitMoved.unit === 'once' ? 'once' : `a ${unitMoved.unit}`}, now €{l.price} {unit === 'once' ? 'once' : `a ${unit}`}: change the price?
         </p>
       )}

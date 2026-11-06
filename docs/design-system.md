@@ -59,24 +59,39 @@ it's next updated. Every colour token carries its CSS name (for example
   `--group` 12 (one group and the next inside a card), `--section` 24
   (card and card, the parts of a page), `--inset` 16 (inside a card) and
   `--gutter` 16 (the page's edge). The old 6, 10 and 14 steps were off the
-  grid and went to the next step up.
-- **Radius**: control 8, tab 10, card 12, full (pills).
+  grid and went to the next step up. A row drawn as a box inside a card (a
+  phase, a crew call, a fault, a test due, a van, a Home tile, a card on
+  the Board) is one shape wherever it is (UX sweep, 6 November 2026, move
+  2): `--inset-box` 12 inside it and `--radius-box` round it.
+- **Radius**: control 8, box 8, tab 10, card 12, full (pills).
 - **Type** (since 30 October 2026, Colly's call): the shared design
   system's, IBM Plex Sans with Plex Mono and Archivo for page titles,
   bundled in `web/src/fonts.ts` and kept offline by the service worker, at
   the touch density's sizes (`data-density="touch"` on `<html>`). The old
   13 names in `app.css` point at five of the system's text styles: label
-  12 (pills), caption 13 (hints, status), body 15 (a row's second line),
-  field 16 (fields and body, so iOS never zooms), title 17 (card headings),
-  and heading 24 (page and record titles). Printed sheets and labels keep
-  the system font.
+  12 (pills), caption 13 (hints, status), body 16 (a row's second line),
+  field 16 (fields and body, so iOS never zooms), title 20 on a 28px line
+  (card headings), and heading 24 on a 32px line (page and record titles),
+  so the headings sit on the 4px grid. A head inside a card is one of two
+  kinds (UX sweep, 6 November 2026, move 2): a **group** head (`h3.group`)
+  that names what follows and has no words of its own, a run of rows such
+  as a week's jobs, a department's kit or a day's calls, a run of figures
+  such as a person's leave, or a part of one long form such as a quote's
+  Terms and Send, in label capitals, 12px tracked, in the muted ink; and a
+  **section** head (a plain `h3`) over a part with words or a job of its
+  own, a hint, prose or a total under it, or a form that stands alone
+  ("Add kit"), in sentence case at 16px in ink
+  ([ADR 0082](adr/0082-one-page-head-and-calmer-pages.md)). An open task's
+  name and a version on What's changed keep a card heading's 20px, each
+  the title of a record of its own. Printed sheets and labels keep the
+  system font.
 
 Radius and type carry their CSS names the same way: `radius/card` is `var(--radius-card)` and the hint style is
 `var(--text-hint)`, set on `:root` in `app.css` next to the colours. The web
 app's stylesheets use them wherever a value is on the scale, and anything off
 it, such as a 1px line or a 3px nudge, stays in px. A radius is named for
-what it's on, so a 10px corner that isn't on a tab, such as the box round a
-crew call on a job's page, stays in px too. A size off the type scale moves
+what it's on, so a corner that is on none of them, such as the planner's
+6px blocks, stays in px too. A size off the type scale moves
 to the style that does its job when its rule is next changed (a muted .8rem
 line is the hint style); rules not changed since still carry a few of their
 own.
@@ -150,9 +165,12 @@ person's initials on the same grey for everyone, until there are photos.
   until the tab is next opened. A form that adds to a folded list says in
   a green line what was added, with the way to it ("Added Bay A3.").
   Details that are only sometimes wanted, such as a phase's running order,
-  calendar line, call sheet and contact, fold under the browser's own
-  triangle, named for what's in them; a line that needs acting on stays
-  out. Not in Figma yet.
+  calendar line, call sheet and contact, fold under one line drawn the
+  same way everywhere: as tall as a thumb, its words in ink at 600 after
+  the design system's chevron, which turns a quarter as it opens (at once
+  with reduced motion), named for what's in them with a count where it's
+  a list ("Archived (4)"). Open is the turned chevron, never a wash. A
+  line that needs acting on stays out. Not in Figma yet.
 - A crew call at rest is one line: the role in bold, then its phase, or on a
   job's page its days where they aren't the phase's, and under it who's on
   it, with any answer short of booked in brackets ("Dara Quinn, Niamh Kelly
@@ -211,13 +229,13 @@ person's initials on the same grey for everyone, until there are photos.
   shown.
 - Stock ([ADR 0013](adr/0013-warehouse-catalogue.md)) shows an item's
   number in bold with even-width digits. On a place's page each number is
-  a round chip that opens the item, dashed and amber while it waits to
-  sync. A form used over and over, such as adding items while labelling
-  or putting kit in a case, keeps where it's at, clears the number, puts
-  the cursor back in it, and says in a green line what was just done
-  ("Added SH-000102"). A choice between kinds (Numbered or Counted) is a
-  bordered row per option, each with a line saying when to pick it. Not
-  in Figma yet.
+  a round chip that opens the item, dashed and grey while it waits to
+  sync, as every waiting thing is. A form used over and over, such as
+  adding items while labelling or putting kit in a case, keeps where it's
+  at, clears the number, puts the cursor back in it, and says in a green
+  line what was just done ("Added SH-000102"). A choice between kinds
+  (Numbered or Counted) is a bordered row per option, each with a line
+  saying when to pick it. Not in Figma yet.
 - Kit on a job ([ADR 0014](adr/0014-kit-on-jobs.md)) is listed by
   department under small grey headings, each line saying in words under
   it whether there's enough: the **bad** tone on a tinted panel when a

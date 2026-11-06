@@ -60,6 +60,14 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await next.getByRole('button', { name: 'Hand it to someone' }).click()
   await expect(where.getByRole('heading', { name: 'Crew booked' })).toBeVisible()
   await expect(where.getByText('0 of 2 booked. This is the task to do next.')).toBeVisible()
+  // The open task is marked by the chevron every fold has, turned, never by the wash of a pointer resting on it; and on a phone the
+  // stage names are at the 12px floor, a long one wrapping rather than going under it (UX sweep, 6 November 2026, move 2).
+  const opened = where.locator('.task-list button[aria-expanded="true"]')
+  await expect(opened).toHaveCount(1)
+  await expect(opened).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await expect.poll(() => opened.evaluate((b) => getComputedStyle(b, '::after').rotate)).toBe('90deg')
+  expect(await where.locator('.task-list button[aria-expanded="false"]').first().evaluate((b) => getComputedStyle(b, '::after').rotate)).toBe('none')
+  expect(await where.locator('.stage-label').evaluateAll((labels) => labels.map((l) => getComputedStyle(l).fontSize))).toEqual(Array<string>(5).fill('12px'))
   // The app ticks this one itself once every call is booked; until then it can be ticked by hand, given to someone, and given a day it's due by.
   await expect(where.getByRole('button', { name: 'Mark it done' })).toBeVisible()
   await where.getByLabel('Down to').selectOption({ label: `${roisin} (you)` })

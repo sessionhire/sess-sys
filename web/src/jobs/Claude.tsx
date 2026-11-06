@@ -247,13 +247,13 @@ export function AdviceCard({
       {a.advice.note && <p>{a.advice.note}</p>}
       {a.add.length > 0 && (
         <>
-          <h3>To add</h3>
+          <h3 className="group">To add</h3>
           <Suggestions view={view} items={a.add} onChange={(add) => onChange({ ...a, add })} />
         </>
       )}
       {(removes.length > 0 || changes.length > 0 || a.advice.discountPct !== null) && (
         <>
-          <h3>To change</h3>
+          <h3 className="group">To change</h3>
           <ul className="plain claude-lines">
             {removes.map((id) => (
               <li key={`r-${id}`} className="claude-line">
@@ -346,7 +346,7 @@ export function MailOnQuote({ view, projectId, jobDays, lines, discountPct, onTa
             {t.summary && <p>{t.summary}</p>}
             {t.questions.length > 0 && (
               <>
-                <h3>To ask the client</h3>
+                <h3 className="group">To ask the client</h3>
                 <ul>
                   {t.questions.map((q) => (
                     <li key={q}>{q}</li>

@@ -296,7 +296,7 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
       {stopped.length === 0 && soon.length === 0 && certsDue.length === 0 && <p className="empty">Nothing failed, overdue or due in the next 30 days.</p>}
       {stopped.length > 0 && (
         <>
-          <h3>{listHeading(STANDING_HEADINGS['cant-go'], stopped.length)}</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['cant-go'], stopped.length)}</h3>
           <ShowAll items={stopped} limit={10} what="items" keep={keep}>
             {(shown) => <ul className="job-list">{shown.map(row)}</ul>}
           </ShowAll>
@@ -304,7 +304,7 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
       )}
       {soon.length > 0 && (
         <>
-          <h3>{listHeading(STANDING_HEADINGS['tests-soon'], soon.length)}</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['tests-soon'], soon.length)}</h3>
           <ShowAll items={soon} limit={10} what="items" keep={keep}>
             {(shown) => <ul className="job-list">{shown.map(row)}</ul>}
           </ShowAll>
@@ -312,7 +312,7 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
       )}
       {certsDue.length > 0 && (
         <>
-          <h3>Certificates running out</h3>
+          <h3 className="group">Certificates running out</h3>
           <ul className="job-list">
             {certsDue.map((c) => (
               <li key={`${c.asset.id}-${c.certificate.id}`}>

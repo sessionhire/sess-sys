@@ -16,6 +16,16 @@ const phoneSize = { width: 390, height: 844 }
 const fresh = { data: { confirm: 'delete everything' } }
 /** The browser's own print dialog would end printing at once and take the sheet away before it's read, so it's left out. */
 const noPrintDialog = (page: Page) => page.addInitScript(() => void (window.print = () => undefined))
+/** A colour role (`--bad`) as the browser draws it, read off a probe in the page. */
+const roleColour = (page: Page, role: string) =>
+  page.evaluate((role) => {
+    const probe = document.createElement('span')
+    probe.style.color = `var(${role})`
+    document.querySelector('.app')!.append(probe)
+    const colour = getComputedStyle(probe).color
+    probe.remove()
+    return colour
+  }, role)
 
 test('the office quotes a job, records the answer and the invoice, and sees who owes', async ({ browser, request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
@@ -140,6 +150,11 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await draft.getByRole('button', { name: 'Not saved yet' }).click()
   await expect(draft.getByLabel('Line 4: price')).toHaveValue('400')
   await expect(draft.locator('.line-problem')).toHaveText("Line 4: say what it's for.")
+  // Wrong is drawn as on every other form, the bad edge on the field and the fault by it in the bad ink, never amber (UX sweep,
+  // 6 November 2026, move 2).
+  const bad = await roleColour(office, '--bad')
+  await expect(draft.locator('.line-problem')).toHaveCSS('color', bad)
+  await expect(draft.getByLabel('Line 4: what')).toHaveCSS('border-top-color', bad)
   await draft.getByRole('button', { name: 'Remove line 4' }).click()
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
@@ -194,6 +209,12 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await draft.getByRole('button', { name: 'Mark as sent', exact: true }).click()
   const v1 = office.getByRole('region', { name: 'Version 1' })
   await expect(v1.getByText('Sent', { exact: true })).toBeVisible()
+  // On a phone the version as sent is what and the amount, the rest in a line under the name (audit, 5 November 2026, finding 59).
+  const sentLines = v1.locator('table.quote-lines')
+  await expect(sentLines.getByRole('columnheader', { name: 'What' })).toBeVisible()
+  await expect(sentLines.getByRole('columnheader', { name: 'Amount' })).toBeVisible()
+  for (const hidden of ['How many', 'Days', 'Price', 'VAT']) await expect(sentLines.getByRole('columnheader', { name: hidden })).toBeHidden()
+  await expect(sentLines.locator('.line-sum').first()).toBeVisible()
   await expect(v1.getByRole('button', { name: 'Send by email' })).toBeVisible()
   await expect(v1.locator('.quote-facts')).toContainText('Quote 1115 · Valid until')
   await v1.getByRole('button', { name: 'Print or save as PDF' }).click()

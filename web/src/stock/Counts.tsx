@@ -193,7 +193,7 @@ export function CountsCard({ view }: { view: View }) {
       )}
       {week.due.length > 0 ? (
         <>
-          <h3>{listHeading(STANDING_HEADINGS.counts, week.due.length)}</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS.counts, week.due.length)}</h3>
           {/* "places to count", not "places": the Places card below has its own "Show all 9 places". */}
           <ShowAll items={week.due} limit={5} what="places to count">
             {(rows) => <ul className="job-list">{rows.map(due)}</ul>}
@@ -205,7 +205,7 @@ export function CountsCard({ view }: { view: View }) {
             <p className="done-line">This week's counts are done.</p>
             {week.next && (
               <>
-                <h3>Next, to get ahead</h3>
+                <h3 className="group">Next, to get ahead</h3>
                 <ul className="job-list">{due(week.next)}</ul>
               </>
             )}
@@ -214,7 +214,7 @@ export function CountsCard({ view }: { view: View }) {
       )}
       {thisWeek.length > 0 && (
         <>
-          <h3>Counted this week</h3>
+          <h3 className="group">Counted this week</h3>
           <CountList counts={thisWeek} />
         </>
       )}
@@ -423,7 +423,7 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
         {toFind.length > 0 && <Numbers title={`Still to find (${toFind.length.toLocaleString('en-IE')})`} items={toFind} view={view} each="to find" />}
         {extra.length + d.unknown.length > 0 && (
           <div className="group">
-            <h3>Not as recorded ({extra.length + d.unknown.length})</h3>
+            <h3 className="group">Not as recorded ({extra.length + d.unknown.length})</h3>
             <ul className="said-list">
               {extra.map((i) => (
                 <li key={i.assetId}>

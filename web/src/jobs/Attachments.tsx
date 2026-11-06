@@ -280,7 +280,7 @@ export function JobsCard({ jobs, title, client: showClient }: { jobs: readonly J
       {jobs.length === 0 && <Empty>No jobs yet.</Empty>}
       {groups.map(([heading, list]) => (
         <div key={heading} className="job-group">
-          {groups.length > 1 && <h3>{heading}</h3>}
+          {groups.length > 1 && <h3 className="group">{heading}</h3>}
           <ul className="job-list">
             {list.map((j) => (
               <li key={j.id}>
