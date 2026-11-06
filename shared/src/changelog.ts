@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.84.1',
+    date: '2026-11-06',
+    title: "Small fixes to a freelancer's link",
+    what: "A freelancer's page prints in black on white even when their phone is dark. A link copied with a full stop or a slash on the end still opens their page. An old timesheet link says timesheets are off, when they are, rather than that it's gone. Changing the days of a booking already said yes to asks for at least one day, the glance line says today or tomorrow and opens that day's card, a document's run-out day can't be in the past, and each day's date in the day picker stays on one line.",
+    prs: [213],
+  },
+  {
     version: '1.84.0',
     date: '2026-11-06',
     title: 'Broken kit from the link, and the first P3s',

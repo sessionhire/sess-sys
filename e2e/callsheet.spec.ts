@@ -91,6 +91,10 @@ test('the office sends a call sheet, and the freelancer reads it on their link',
   await expect(phone.getByText('Fionn Gallagher')).toHaveCount(0)
   expect((await phone.content()).match(/\+44 7700 900\d{3}/g)?.length).toBe(1)
   await phone.screenshot(shot('sheet-crew'))
+  // Printed from a phone set to dark, it comes out dark on white, not the dark theme's pale ink (audit, 5 November 2026, finding 63).
+  await phone.emulateMedia({ media: 'print', colorScheme: 'dark' })
+  expect(await phone.evaluate(() => [getComputedStyle(document.body).color, getComputedStyle(document.body).backgroundColor])).toEqual(['rgb(28, 28, 30)', 'rgb(255, 255, 255)'])
+  await phone.emulateMedia({ media: 'screen' })
   // And back to the rest of their work.
   await phone.getByRole('link', { name: '‹ Your work' }).click()
   await expect(phone.getByRole('link', { name: /Call sheet: who's on/ }).first()).toBeVisible()

@@ -127,6 +127,10 @@ waiting on someone.
   invoice details wait for invoicing, 20 Oct 89). The feed says it carries
   rates (ADR 0012, Later). Cable labels with no stock code start on a QR
   code.
+  Batch 9b, the freelancer's link (1.84.1, PR #213): findings 63, 66, 67
+  and 91. Their page prints light in a dark theme; a link with a stray
+  full stop or slash still opens; an old timesheet link says timesheets
+  are off; small slips on the day picker, glance line and documents.
 
 **Waiting**
 

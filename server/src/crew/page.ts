@@ -1,4 +1,4 @@
-import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, TIMESHEET_ASKED_DAYS, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
+import { addDays, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, TIMESHEET_ASKED_DAYS, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, newId, ownColours } from '@sh/shared'
 import { busyByDay, type OwnCalendar } from '@sh/shared'
@@ -191,7 +191,7 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
             const open = openDays.includes(day) || (offer.status === 'accepted' && offer.days.includes(day))
             const checked = typed ? typed.getAll('days').includes(day) : (offer.status === 'offered' ? open : offer.days.includes(day)) && !busy[day]
             const note = !open ? 'filled' : busy[day] ? `booked on ${h(busy[day])}` : ''
-            return `<label class="${open ? '' : 'gone'}"><input type="checkbox" name="days" value="${day}"${checked ? ' checked' : ''}${open ? '' : ' disabled'}> ${h(dayLabel(day, d.today))}${note ? ` <small>${note}</small>` : ''}</label>`
+            return `<label class="${open ? '' : 'gone'}"><input type="checkbox" name="days" value="${day}"${checked ? ' checked' : ''}${open ? '' : ' disabled'}> <span class="day">${h(dayLabel(day, d.today))}</span>${note ? ` <small>${note}</small>` : ''}</label>`
           })
           .join('')}</fieldset>`
       : ''
@@ -252,7 +252,7 @@ function onTheDay(d: PageData): string {
   const list = d.onTheDay ?? []
   if (!list.length) return ''
   const heading = list.some((t) => t.days.includes(d.today)) ? 'Today' : 'Tomorrow'
-  return `<section class="today"><h2>${heading}</h2>${list.map((t) => todayCard(d, t)).join('')}</section>`
+  return `<section class="today" id="today"><h2>${heading}</h2>${list.map((t) => todayCard(d, t)).join('')}</section>`
 }
 
 function todayCard(d: PageData, t: OnTheDay): string {
@@ -344,6 +344,11 @@ function timesheets(d: PageData): string {
  * anyone scrolls, and it stays at the top of the screen while they do
  * (audit, 20 October 2026, finding 48). Nothing when there's nothing to say.
  */
+/** "Today" and "Tomorrow" by their words, as the card at the top says them (audit, 5 November 2026, finding 91); other days as dates. */
+const dayWord = (day: string, today: string) => (day === today ? 'today' : day === addDays(today, 1) ? 'tomorrow' : dayLabel(day, today))
+/** The next booking is in the Today card when it's on there, and under Your bookings otherwise. */
+const nextHref = (d: PageData, offerId: string) => ((d.onTheDay ?? []).some((t) => t.offer.id === offerId) ? '#today' : '#bookings')
+
 function glance(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']): string {
   // Counted from the evening of the booking's last day (ADR 0110), not while they're still on site; the list below still lets them send it.
   const clock = irishClock()
@@ -355,7 +360,7 @@ function glance(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']
   const parts = [
     waiting.length ? `<a href="#offers">${waiting.length === 1 ? '1 offer' : `${waiting.length} offers`} to answer</a>` : '',
     toSend ? `<a href="#timesheets">${toSend === 1 ? '1 timesheet' : `${toSend} timesheets`} to send</a>` : '',
-    next ? `<a href="#bookings">Next: ${h(next.call.project)}, ${h(dayLabel(firstDay(next), d.today))}${next.call.callTime ? `, call ${h(next.call.callTime)}` : ''}</a>` : '',
+    next ? `<a href="${nextHref(d, next.offer.id)}">Next: ${h(next.call.project)}, ${h(dayWord(firstDay(next), d.today))}${next.call.callTime ? `, call ${h(next.call.callTime)}` : ''}</a>` : '',
   ].filter(Boolean)
   return parts.length ? `<nav class="glance" aria-label="At a glance">${parts.join('<span aria-hidden="true"> · </span>')}</nav>` : ''
 }
@@ -752,6 +757,7 @@ const roles = (theme: keyof typeof ownColours) => {
 export const CSS = `
 :root{${roles('light')};color-scheme:light;font:16px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 @media (prefers-color-scheme:dark){:root{${roles('dark')};color-scheme:dark}}
+@media print{:root{${roles('light')};color-scheme:light}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}
 main{max-width:560px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 16px 48px;display:grid;gap:18px}
 a{color:inherit;text-decoration-color:var(--accent);text-underline-offset:2px}
@@ -773,7 +779,7 @@ h3{margin:0;font-size:1.1rem}h3 span{font-weight:500;color:var(--muted)}
 form{display:grid;gap:10px;margin:0}
 fieldset.days{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}fieldset.days legend{font-size:.85rem;color:var(--muted);margin-bottom:4px}
 fieldset.days label{display:flex;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
-fieldset.days label.gone{opacity:.55}fieldset.days input{width:20px;height:20px;accent-color:var(--accent)}
+fieldset.days label.gone{opacity:.55}fieldset.days label{flex-wrap:wrap}fieldset.days .day{white-space:nowrap}fieldset.days small{flex-basis:100%;padding-left:26px;color:var(--muted)}fieldset.days input{width:20px;height:20px;accent-color:var(--accent)}
 .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 button{font:600 1rem system-ui,sans-serif;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;min-height:48px}
 .on-enter{position:absolute;width:1px;height:1px;min-height:0;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
