@@ -71,17 +71,18 @@ export function VehiclesScreen({ view }: { view: View }) {
       <Split side={<VehicleReminders view={view} />}>
         <section className="card" aria-label="Vehicles">
           <Heading icon="van">Vans and the rest</Heading>
+          {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+          {mayChange && (
+            <Fold label="Add vehicle">
+              <VehicleForm onDone={(id) => (location.hash = vehicleHref(id))} />
+            </Fold>
+          )}
           {view.vehicles.vehicles.length === 0 && <Empty>Add the vans, so they can be booked on jobs with a driver.</Empty>}
           <ul className="vehicle-list">
             {view.vehicles.vehicles.map((v) => (
               <VehicleRow key={v.id} v={v} today={today} />
             ))}
           </ul>
-          {mayChange && (
-            <Fold label="Add vehicle">
-              <VehicleForm onDone={(id) => (location.hash = vehicleHref(id))} />
-            </Fold>
-          )}
           {retired.length > 0 && (
             <details className="retired">
               <summary>Retired ({retired.length})</summary>

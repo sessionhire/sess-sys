@@ -43,7 +43,9 @@ import { NotesKitLink } from './NotesKit.tsx'
  * enough on its days once the other jobs have theirs. Worked out on this
  * device (view.kit), so it works with no signal. Short is never a reason
  * to refuse a line: the count may be unfinished, or it's about to be
- * subhired.
+ * subhired. Every form here opens on the job's page, under its Next dock,
+ * so their submits are plain: the dock holds the page's one filled red
+ * (ADR 0104; UX sweep, 6 November 2026, move 1).
  */
 
 /** "Whole job · Mon 6 Oct to Sat 11 Oct", or the phase's name and days. */
@@ -307,7 +309,7 @@ function KitDays({ job, mayChange }: { job: JobView; mayChange: boolean }) {
           </p>
           <Refusal error={error} className="wide" />
           <div className="actions wide">
-            <button type="submit" className="primary">
+            <button type="submit">
               Save kit days
             </button>
             <button
@@ -416,7 +418,7 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
           </label>
           <Refusal error={error} className="wide" />
           <div className="actions wide">
-            <button type="submit" className="primary" disabled={chosen.length === 0}>
+            <button type="submit" disabled={chosen.length === 0}>
               {chosen.length === 0 ? 'Nothing ticked' : `Subhire ${plural(chosen.length, 'line')}`}
             </button>
             <button type="button" onClick={close}>
@@ -555,12 +557,13 @@ function EditKit({ line, job, onDone }: { line: KitLineView; job: JobView; onDon
           className="wide"
           question={`Take ${line.qty} × ${name} off the kit for ${job.name}? It's no longer held for the job, so it's free for others.`}
           yes="Take it off"
+          loss
           onYes={remove}
           onNo={() => setRemoving(false)}
         />
       ) : (
         <div className="actions wide">
-          <button type="submit" className="primary">
+          <button type="submit">
             Save line
           </button>
           <button type="button" onClick={onDone}>
@@ -661,7 +664,7 @@ function AddKit({ job, view, lines }: { job: JobView; view: View; lines: readonl
           {added}
         </p>
       )}
-      <button type="submit" className="primary wide">
+      <button type="submit" className="wide">
         Add to kit
       </button>
     </form>

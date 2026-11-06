@@ -96,17 +96,18 @@ export function RacksScreen({ view }: { view: View }) {
     <div className="app warehouse">
       <Top view={view} title="Stock" views={<StockViews view={view} current="racks" />} heading="Racks" />
       <section className="card plain" aria-label="Racks">
+        {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+        {mayChange && (
+          <Fold label="Add rack">
+            <NewRack view={view} />
+          </Fold>
+        )}
         {racks.length === 0 && <Empty>Add a rack, then lay out what goes in it. Each one built of it goes out and comes back as one.</Empty>}
         <ul className="job-list">
           {racks.map((r) => (
             <RackRow key={r.model.id} r={r} />
           ))}
         </ul>
-        {mayChange && (
-          <Fold label="Add rack">
-            <NewRack view={view} />
-          </Fold>
-        )}
       </section>
     </div>
   )

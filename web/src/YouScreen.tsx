@@ -89,6 +89,7 @@ export function YouScreen() {
             <Confirm
               question={`${still === 1 ? "1 change hasn't" : `${still} changes haven't`} synced yet. Signing out deletes ${still === 1 ? 'it' : 'them'} from this device.`}
               yes={`Sign out and delete ${still === 1 ? 'it' : 'them'}`}
+              loss
               no="Stay signed in"
               onYes={() => void out()}
               onNo={() => setAsking(false)}
@@ -193,6 +194,7 @@ function RoleCard() {
           <Confirm
             question="Make yourself the director and switch roles on? Everyone else becomes staff crew until you give them a role on the Crew tab."
             yes="Make me the director"
+            loss
             no="Not now"
             onYes={() => {
               setAsking(false)

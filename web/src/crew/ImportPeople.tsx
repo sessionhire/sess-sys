@@ -216,6 +216,7 @@ function Preview(p: {
           <Confirm
             question={`Drop ${plural(worked, 'row', 'rows')} fixed or skipped here and choose another file?`}
             yes="Choose another file"
+            loss
             no="Keep working on this one"
             onYes={p.onBack}
             onNo={() => setLeaving(false)}

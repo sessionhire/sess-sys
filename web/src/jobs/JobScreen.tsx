@@ -143,7 +143,8 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
     )
   const onShare = (call: CallView) => (person: PersonView) => setShare({ kind: 'offer', person, call })
   // Sending an offer opens under the calls it's for. People to tell open under the job's details, whichever part is open.
-  const panel = share && <SharePanelFor share={share} onClose={() => setShare(undefined)} />
+  // Its WhatsApp is plain, as the Next dock holds the page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1).
+  const panel = share && <SharePanelFor share={share} onClose={() => setShare(undefined)} inJob />
   const offerFor = (calls: readonly CallView[]) => share?.kind === 'offer' && calls.some((c) => c.id === share.call.id) && panel
   const telling = share?.kind === 'tell' && panel
   const fill = crewFill(job.calls)
@@ -459,13 +460,15 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
             people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see it's withdrawn` : ''
           }.`}
           yes={`Mark it ${STATUS_LABELS[f.status].toLowerCase()}`}
+          loss
           no="Keep it as it is"
           onYes={send}
           onNo={() => setAsking(false)}
         />
       ) : (
         <div className="actions wide">
-          <button type="submit" className="primary">
+          {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
+          <button type="submit">
             Save job
           </button>
           <button type="button" onClick={onDone}>
@@ -717,6 +720,7 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
           className="wide"
           question={`Remove ${phase.name}? Its days come off the job and the calendar.`}
           yes="Remove it"
+          loss
           onYes={() => {
             setRemoving(false)
             void run(() => client.mutate('phase.remove', { id: phase.id })).then((ok) => ok && onDone())
@@ -724,10 +728,11 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
           onNo={() => setRemoving(false)}
         />
       )}
+      {/* Plain, the question's yes and the Save alike: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
       <div className="actions wide" hidden={removing}>
         {ask ? (
           <>
-            <button type="button" className="primary" onClick={() => send({ ...ask, moveCrew: true })}>
+            <button type="button" onClick={() => send({ ...ask, moveCrew: true })}>
               Move them
             </button>
             <button type="button" onClick={() => send(ask)}>
@@ -739,7 +744,7 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
           </>
         ) : (
           <>
-            <button type="submit" className="primary">
+            <button type="submit">
               Save phase
             </button>
             <button type="button" onClick={onDone}>
@@ -946,7 +951,8 @@ function AskForCrew({ job }: { job: JobView }) {
           {asked}
         </p>
       )}
-      <button type="submit" className="primary wide">
+      {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
+      <button type="submit" className="wide">
         Ask for crew
       </button>
     </form>

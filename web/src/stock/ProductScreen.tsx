@@ -286,11 +286,12 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
       {!mayChange ? null : editing ? (
         <EditProduct m={m} w={w} view={view} onDone={() => setEditing(false)} />
       ) : removing ? (
-        <Confirm question={`Remove ${m.name} from the stock list? Nothing is counted or labelled as it, so nothing else changes.`} yes="Remove it" onYes={remove} onNo={() => setRemoving(false)} />
+        <Confirm question={`Remove ${m.name} from the stock list? Nothing is counted or labelled as it, so nothing else changes.`} yes="Remove it" loss onYes={remove} onNo={() => setRemoving(false)} />
       ) : mistaking ? (
         <Confirm
           question={`Mark ${m.name} as added by mistake? It leaves every list and count${hidden.length ? `, with its ${hidden.join(' and ')}` : ''}, and is kept only in the history. This can't be undone.`}
           yes="It was a mistake"
+          loss
           onYes={mistake}
           onNo={() => setMistaking(false)}
         />

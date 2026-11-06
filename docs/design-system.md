@@ -124,15 +124,23 @@ person's initials on the same grey for everyone, until there are photos.
   screen's own line: what to do about it, or where its things come from
   ("Nothing here yet. Add your crew below."). A record that isn't on the
   device says so in its own words. Not in Figma yet.
-- Red marks the one thing to do next and the current tab. Errors use the
-  burnt-orange **bad** tone, never the brand red, so red never means "broken".
+- Red marks the one thing to do next and the current tab (UX sweep,
+  6 November 2026, move 1): on a job's page the Next dock alone, so every
+  form opened under it submits with a plain button; elsewhere the page's
+  one next step, such as the submit of the form a list's add opened. An
+  ask's yes, a row's own action and the button that opens a list's add
+  are plain. A row's action repeated down a list, such as Check on each
+  timesheet, is the quiet button (no fill or edge until a pointer hovers),
+  the heading's count saying how many. Errors use the burnt-orange **bad**
+  tone, never the brand red, so red never means "broken".
 - Areas live in a tab bar at the bottom, where a thumb reaches, on a laptop
   as well: the office's phone and laptop work the same way, and the top bar
   keeps to the screen's name and what's waiting.
 - A screen stays short on a phone ([audit finding 16](audit-2026-09-30.md)):
   a form waits behind a button that names it ("Add person", "Ask for crew",
   "Add phase", "Add kit", "Add product", "Add place") and opens in place
-  with the cursor in its first field and Close under it; a long list shows
+  with the cursor in its first field and Close under it; a list's add is
+  first in it, a plain fold above its search and rows; a long list shows
   its first few with "Show all 9 products" as a link, keeping in view
   anything to act on, such as kit that's short or the product open beside
   the catalogue. Lists of things to act on ("Answers to check", each kind
@@ -265,7 +273,9 @@ person's initials on the same grey for everyone, until there are photos.
   when open) beside what's waiting, and opens the one list of them for
   every area, with Dismiss. An "are you sure?" is a question in place: the
   consequence in words in a warn line, the safe button first and focused,
-  the fields held still. Not in Figma yet.
+  the fields held still. Its yes is a plain button, never the red; where
+  the answer takes something away (writing off, removing, erasing,
+  withdrawing, cancelling) it's filled in the **bad** tone. Not in Figma yet.
 - The History tab ([ADR 0006](adr/0006-audit-trail-and-export.md)) is a
   card per day, the day as its heading ("Today", "Thursday 1 October").
   One person's changes one after another are one line in bold, after a
@@ -288,10 +298,11 @@ person's initials on the same grey for everyone, until there are photos.
   line says which of this year and next are open for leave and that the
   other isn't yet, with "Open 2027 for leave" under it for an approver,
   a question in place before it's done; the approvers' queue
-  puts what to weigh up in warn lines under the request, with Approve as
-  the primary button and Decline opening a reason field in place. In the
-  planner a public holiday is a faint band in the off tone, a shade
-  deeper than a weekend, named under its date. Not in Figma yet.
+  puts what to weigh up in warn lines under the request, with Approve and
+  Decline as plain buttons, a row's own actions, and Decline opening a
+  reason field in place. In the planner a public holiday is a faint band
+  in the off tone, a shade deeper than a weekend, named under its date.
+  Not in Figma yet.
 - A person's level ([ADR 0025](adr/0025-crew-profiles-and-bringing-in-the-list.md))
   is always written "Level 3", never a bare number, in the crew list,
   the Offer to… picker and the history ("Moved Dara Quinn to Level 3");
@@ -319,10 +330,10 @@ person's initials on the same grey for everyone, until there are photos.
 - Made-up data ([ADR 0019](adr/0019-made-up-data-and-starting-fresh.md))
   is named beside every screen's name in the top bar, "· made-up data" in
   the bold amber warn tone, on every phone while it's in. Deleting
-  everything is the one button in the **bad** tone, filled, with the
-  soft bad tone for its text (4.7:1 light, 6.9:1 dark): it stays off
-  until "delete everything" is typed in the field above it, and says what
-  it does, not "OK". Not in Figma yet.
+  everything is filled in the **bad** tone, as the yes of any loss is,
+  with the soft bad tone for its text (4.7:1 light, 6.9:1 dark): it stays
+  off until "delete everything" is typed in the field above it, and says
+  what it does, not "OK". Not in Figma yet.
 - A pick list ([ADR 0017](adr/0017-pick-lists-and-scanning-out-and-in.md))
   has **Going out** and **Coming back** as two buttons, the pressed one
   ink, over the total in bold ("12 of 40 out"), the scan field with
@@ -387,7 +398,7 @@ person's initials on the same grey for everyone, until there are photos.
   the certificate, and the file. With no storage on the server, a hint
   says files wait on the bucket and the file field isn't shown. One sent
   from a link is a row in "Answers to check" with Open, the day as a field
-  to correct, Checked as the primary button, and Not right. What's running
+  to correct, Checked, and Not right, all plain buttons. What's running
   out is one card, "Running out (6)", certificates and documents together.
   On the freelancer's page, "Your documents" is a card each, as an offer
   is, with a tag ("With the office to check" amber, "Runs out soon" amber,

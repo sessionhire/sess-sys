@@ -210,7 +210,7 @@ export function CallCard({
       ))}
       <LateLines call={call} late={late} today={today} />
       {/* Someone booked who rang to say they're late, noted where their line is (ADR 0028). */}
-      <NoteLate call={call} late={late} />
+      <NoteLate call={call} late={late} inJob={inJob} />
 
       {open && (
         <>
@@ -268,6 +268,7 @@ export function CallCard({
                             : `Withdraw the offer to ${o.person?.name ?? 'them'}? Their link says it's withdrawn at once.`
                         }
                         yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
+                        loss
                         no={o.status === 'confirmed' ? 'Keep them' : 'Keep it open'}
                         onYes={() => {
                           setWithdrawing(undefined)
@@ -304,6 +305,7 @@ export function CallCard({
           {editing && mayOffer && (
             <EditCall
               call={call}
+              inJob={inJob}
               onDone={() => setEditing(false)}
               onSaved={(after, datesMoved) => onTell?.(promptFor('call-changed', peopleOn(after).map((t) => neededBefore(datesMoved ? forCallDays(t) : t, call))))}
             />
@@ -313,6 +315,7 @@ export function CallCard({
             <Confirm
               question={`Cancel the call for ${call.needed} × ${call.role} on ${call.project}? Everyone offered is told it's withdrawn.`}
               yes="Cancel it"
+              loss
               onYes={cancel}
               onNo={() => setCancelling(false)}
             />
@@ -375,7 +378,18 @@ function afterChange(call: CallView, changes: CommandInput<'call.update'>): Call
   }
 }
 
-function EditCall({ call, onDone, onSaved }: { call: CallView; onDone: () => void; onSaved?: (after: CallView, datesMoved: boolean) => void }) {
+function EditCall({
+  call,
+  inJob = false,
+  onDone,
+  onSaved,
+}: {
+  call: CallView
+  /** On the job's page, under its Next dock, which holds the page's one filled red (ADR 0104): Save changes is plain there. */
+  inJob?: boolean
+  onDone: () => void
+  onSaved?: (after: CallView, datesMoved: boolean) => void
+}) {
   const tied = !!call.projectId
   const view = useView()
   // A rate this device isn't sent stays the office's to change (ADR 0046).
@@ -500,7 +514,7 @@ function EditCall({ call, onDone, onSaved }: { call: CallView; onDone: () => voi
       <Refusal error={error} className="wide" />
       {/* Not "Cancel", beside "Cancel crew call": this one only closes the form (rule 10). */}
       <div className="actions wide">
-        <button type="submit" className="primary">
+        <button type="submit" className={inJob ? undefined : 'primary'}>
           Save changes
         </button>
         <button type="button" onClick={onDone}>

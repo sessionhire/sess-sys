@@ -32,7 +32,7 @@ import { Top } from './common.tsx'
 import { QuotePill } from './QuoteStatus.tsx'
 import { MarginWords } from './QuoteLine.tsx'
 import { Lines, QuoteSheet, Totals } from './QuoteSheet.tsx'
-import { InCurrentRms, NewVersion, Records } from './QuoteRecords.tsx'
+import { InCurrentRms, NewVersion, nextRecord, Records } from './QuoteRecords.tsx'
 import { Draft } from './QuoteDraft.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
@@ -94,7 +94,8 @@ export function QuoteCard({ job, view }: { job: JobView; view: View }) {
           The job is {jm.job.status}, so its quote is set aside: it isn't counted as quoted, owed or in the margin unless it's invoiced, as a cancellation fee would be.
         </p>
       )}
-      <a className={`button${shown ? '' : ' primary'}`} href={`#jobs/${encodeURIComponent(job.id)}/quote`}>
+      {/* Plain: the Next dock holds the job page's one filled red, and says Make a quote itself when that's next (ADR 0104, 0109; UX sweep, 6 November 2026, move 1). */}
+      <a className="button" href={`#jobs/${encodeURIComponent(job.id)}/quote`}>
         {shown ? 'Open the quote' : 'Make a quote'}
       </a>
     </section>
@@ -156,6 +157,9 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   const current = m.currentOf(jobId)
   const settled = versions.some((v) => v.invoicedOn)
   const jm = m.job(jobId)
+  // The quote's one filled red is what to record next on the current version, under What happened (nextRecord). Sending or printing
+  // any version takes the red only once there's nothing left to record (UX sweep, 6 November 2026, move 1).
+  const recording = !!current && nextRecord(current, job) !== undefined
 
   return (
     <div className="app crew jobs quote-screen">
@@ -209,11 +213,11 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             ) : (
               <div className="actions">
                 {byEmail && q.latest && (
-                  <button type="button" className={q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
+                  <button type="button" className={recording || q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
                     {q.emails.length ? 'Send again' : 'Send by email'}
                   </button>
                 )}
-                <button type="button" className={byEmail && q.latest && !q.emails.length ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
+                <button type="button" className={recording || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
                   Print or save as PDF
                 </button>
                 {q.latest && !settled && <NewVersion q={q} onMade={setPicked} />}

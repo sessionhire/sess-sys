@@ -262,7 +262,7 @@ function FaultItem({ f, linked = false }: { f: FaultView; linked?: boolean }) {
       {!maySort ? null : editing ? (
         <EditFault f={f} onDone={() => setEditing(false)} />
       ) : closing ? (
-        <Confirm question={asks[closing].question} yes={asks[closing].yes} onYes={() => closeAs(closing)} onNo={() => setClosing(undefined)} />
+        <Confirm question={asks[closing].question} yes={asks[closing].yes} loss={closing === 'written-off'} onYes={() => closeAs(closing)} onNo={() => setClosing(undefined)} />
       ) : (
         f.open &&
         (!sorting ? (

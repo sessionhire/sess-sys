@@ -301,6 +301,7 @@ function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell
             people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see it's withdrawn` : ''
           }.`}
           yes="Mark it lost"
+          loss
           no="Keep it as it is"
           onYes={() => answer(false)}
           onNo={() => setAsking(false)}

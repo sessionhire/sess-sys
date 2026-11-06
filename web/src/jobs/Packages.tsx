@@ -36,6 +36,15 @@ export function PackagesCard({ view }: { view: View }) {
     <section className="card packages" aria-label="Packages">
       <Heading icon="kit">Packages</Heading>
       <p className="hint">Kit quoted together at one price, such as a mic package. On a quote it's one line, with what it holds printed under it.</p>
+      {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+      {open === 'new' ? (
+        <PackageEditor view={view} onDone={() => setOpen(undefined)} />
+      ) : (
+        <button type="button" onClick={() => setOpen('new')}>
+          Add a package
+        </button>
+      )}
+      {m.packages.length === 0 && open !== 'new' && <Empty>No packages yet.</Empty>}
       {m.packages.map((p) =>
         open === p.id ? (
           <PackageEditor key={p.id} view={view} was={p} onDone={() => setOpen(undefined)} />
@@ -57,14 +66,6 @@ export function PackagesCard({ view }: { view: View }) {
             </div>
           </div>
         )
-      )}
-      {m.packages.length === 0 && open !== 'new' && <Empty>No packages yet.</Empty>}
-      {open === 'new' ? (
-        <PackageEditor view={view} onDone={() => setOpen(undefined)} />
-      ) : (
-        <button type="button" onClick={() => setOpen('new')}>
-          Add a package
-        </button>
       )}
     </section>
   )

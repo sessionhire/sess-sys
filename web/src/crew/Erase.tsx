@@ -114,6 +114,7 @@ export function ArchivedPerson({ person, onBringBack }: { person: PersonView; on
               className="erase"
               question={`Erase ${person.name}'s details? This can't be undone.`}
               yes="Erase their details"
+              loss
               no="Keep them"
               onYes={() => {
                 setAsking(false)

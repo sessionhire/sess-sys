@@ -33,7 +33,10 @@ import { useToday } from '../view.ts'
  * van that day, the van off the road, a driver with no licence or one not
  * recorded. A road check run out or a driver who can't drive is refused
  * here before anything is sent, as the server would; a clash or a day off
- * the road asks first, and is booked anyway if the office says so.
+ * the road asks first, and is booked anyway if the office says so. Booking
+ * is done on the job's page, under its Next dock, so the form's submit is
+ * plain: the dock holds the page's one filled red (ADR 0104; UX sweep,
+ * 6 November 2026, move 1).
  */
 
 export function VansCard({ job, view }: { job: JobView; view: View }) {
@@ -97,6 +100,7 @@ function Booking({ b, job, view, mayBook }: { b: BookingView; job: JobView; view
         <Confirm
           question={`Take ${b.vehicle?.name ?? 'this vehicle'} off ${job.name}? It's free for other jobs on those days again.`}
           yes="Take it off"
+          loss
           onYes={() => {
             setDoing(undefined)
             void run(() => client.mutate('vehicleBooking.remove', { id: b.id }))
@@ -293,7 +297,7 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
         <Confirm className="wide" question={asking} yes="Book anyway" no="Don't book it" onYes={() => send(true)} onNo={() => setAsking('')} />
       ) : (
         <div className="actions wide">
-          <button type="submit" className="primary">
+          <button type="submit">
             {booking ? 'Save booking' : 'Book vehicle'}
           </button>
           {onDone && (

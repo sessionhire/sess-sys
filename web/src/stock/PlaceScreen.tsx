@@ -99,7 +99,7 @@ function Summary({ p, w }: { p: PlaceView; w: WarehouseView }) {
           </div>
         </form>
       ) : removing ? (
-        <Confirm question={`Remove ${p.name}? Nothing is kept there, so nothing moves.`} yes="Remove it" onYes={remove} onNo={() => setRemoving(false)} />
+        <Confirm question={`Remove ${p.name}? Nothing is kept there, so nothing moves.`} yes="Remove it" loss onYes={remove} onNo={() => setRemoving(false)} />
       ) : (
         <>
           <Refusal error={error} />

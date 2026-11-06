@@ -16,8 +16,8 @@ import { useLate } from './useLate.ts'
  */
 
 type Note = { ok: boolean; text: string }
-/** A question before something that reaches crew or Google: what will happen, what to do on yes, and whether it's about the crew invites, which are asked in their own group. */
-type Asking = { question: string; yes: string; no: string; go: () => void; invites?: true }
+/** A question before something that reaches crew or Google: what will happen, what to do on yes, whether it's about the crew invites, which are asked in their own group, and whether the yes is a loss. */
+type Asking = { question: string; yes: string; no: string; go: () => void; invites?: true; loss?: true }
 
 const OUTCOMES: Record<string, Note> = {
   connected: { ok: true, text: 'Connected to Google.' },
@@ -71,6 +71,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       question={asking.question}
       yes={asking.yes}
       no={asking.no}
+      loss={asking.loss}
       onYes={() => {
         setAsking(undefined)
         asking.go()
@@ -106,6 +107,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       question: `Disconnect Google Calendar? The app takes its days${where} from today on, and hands back its access. Days before today stay.${told}`,
       yes: 'Disconnect it',
       no: 'Stay connected',
+      loss: true,
       go: () =>
         void run(async () => {
           await post<CalendarLink>('/api/calendar/disconnect')

@@ -276,6 +276,13 @@ function StockCard({ view, current }: { view: View; current?: string }) {
 
   return (
     <section className="card plain" aria-label="Catalogue">
+      {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1): a plain fold where the eye lands, not after
+          two hundred products. A new product starts in the department the list is narrowed to. */}
+      {mayAdd && (
+        <Fold label="Add product">
+          <NewProduct view={view} department={department === 'all' ? 'audio' : department} />
+        </Fold>
+      )}
       <form role="search" className="scan-row" onSubmit={go}>
         <input
           ref={searchField}
@@ -365,7 +372,7 @@ function StockCard({ view, current }: { view: View; current?: string }) {
         <Empty>
           {w.models.length === 0 && mayAdd && (
             <>
-              Add the first product below{mayBring && <>, or <a href="#stock/import">bring in the stock list</a></>}.
+              Add the first one under Add product{mayBring && <>, or <a href="#stock/import">bring in the stock list</a></>}.
             </>
           )}
         </Empty>
@@ -374,12 +381,6 @@ function StockCard({ view, current }: { view: View; current?: string }) {
       <ShowAll items={shown} limit={wide ? 20 : 5} name="catalogue" what={department === 'all' ? 'products' : `${DEPARTMENT_LABELS[department].toLowerCase()} products`} keep={(m) => m.id === current}>
         {(rows) => <ProductRows rows={rows} current={current} />}
       </ShowAll>
-      {/* A new product starts in the department the list is narrowed to. */}
-      {mayAdd && (
-        <Fold label="Add product">
-          <NewProduct view={view} department={department === 'all' ? 'audio' : department} />
-        </Fold>
-      )}
     </section>
   )
 }
@@ -613,6 +614,24 @@ function Places({ view }: { view: View }) {
   }
   return (
     <section className="card plain" aria-label="Places">
+      {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+      {mayAdd && (
+        <Fold label="Add place">
+          <form className="inline-add" onSubmit={add}>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bay A3, Van 1" aria-label="New place" />
+            {/* The page's one next thing once the fold is open, as every list's add opens onto. */}
+            <button type="submit" className="primary">
+              Add place
+            </button>
+          </form>
+          {added && (
+            <p className="added" role="status">
+              Added <a href={`#stock/place/${added.id}`}>{added.name}</a>.
+            </p>
+          )}
+          <Refusal error={error} />
+        </Fold>
+      )}
       {w.places.length === 0 && <Empty>Where kit is kept: the warehouse, its bays and shelves, the vans. Places are also added as you type them in.</Empty>}
       <ShowAll items={w.places} limit={50} what="places">
         {(rows) => (
@@ -637,20 +656,6 @@ function Places({ view }: { view: View }) {
           </ul>
         )}
       </ShowAll>
-      {mayAdd && (
-        <Fold label="Add place">
-          <form className="inline-add" onSubmit={add}>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bay A3, Van 1" aria-label="New place" />
-            <button type="submit">Add place</button>
-          </form>
-          {added && (
-            <p className="added" role="status">
-              Added <a href={`#stock/place/${added.id}`}>{added.name}</a>.
-            </p>
-          )}
-          <Refusal error={error} />
-        </Fold>
-      )}
     </section>
   )
 }

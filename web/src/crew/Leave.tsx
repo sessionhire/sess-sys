@@ -503,7 +503,7 @@ function RequestRow({ r, me }: { r: LeaveRequestView; me: PersonView }) {
         )}
       </div>
       {canCancel && asking && (
-        <Confirm question={`Cancel your ${what}? It would need asking for and approving again.`} yes="Cancel the leave" no="Keep it" onYes={cancel} onNo={() => setAsking(false)} />
+        <Confirm question={`Cancel your ${what}? It would need asking for and approving again.`} yes="Cancel the leave" loss no="Keep it" onYes={cancel} onNo={() => setAsking(false)} />
       )}
     </div>
   )
@@ -542,6 +542,7 @@ function EntryRow({ e, me }: { e: LieuEntryView; me: PersonView }) {
         <Confirm
           question={`Cancel the ${e.days === 1 ? 'day' : `${e.days} days`} in lieu for ${dayLabel(e.day)}? It would need logging and approving again.`}
           yes="Cancel the day in lieu"
+          loss
           no="Keep it"
           onYes={cancel}
           onNo={() => setAsking(false)}
@@ -619,7 +620,7 @@ function QueueRow({ item, me }: { item: LeaveQueueItem; me: PersonView }) {
           aria-label={`Decline ${name}'s request`}
         >
           <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" maxLength={500} aria-label="Reason" />
-          <button type="submit" className="primary">
+          <button type="submit">
             Decline
           </button>
           <button type="button" onClick={() => setDeclining(false)}>
@@ -628,7 +629,8 @@ function QueueRow({ item, me }: { item: LeaveQueueItem; me: PersonView }) {
         </form>
       ) : (
         <div className="actions">
-          <button type="button" className="primary" onClick={() => decide(true)} aria-label={`Approve ${name}'s ${item.kind === 'request' ? 'request' : 'day in lieu'}`}>
+          {/* Plain, as a row's own action is, beside Decline: the heading counts what's to approve (UX sweep, 6 November 2026, move 1). */}
+          <button type="button" onClick={() => decide(true)} aria-label={`Approve ${name}'s ${item.kind === 'request' ? 'request' : 'day in lieu'}`}>
             Approve
           </button>
           <button type="button" onClick={() => setDeclining(true)} aria-label={`Decline ${name}'s ${item.kind === 'request' ? 'request' : 'day in lieu'}`}>

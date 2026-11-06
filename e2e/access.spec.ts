@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fillName } from './names.ts'
 
 /**
@@ -6,8 +6,9 @@ import { fillName } from './names.ts'
  * (audit finding 22): every field's border can be seen against its card, in
  * light and dark; each move lands on the screen's heading and names the tab
  * after it; there's one main landmark; the back link is tall enough to tap;
- * the current tab and the grey pill read at 4.5:1; the "not done" list is a
- * live region; and every field has a name. Uses the made-up data (ADR 0019),
+ * the current tab and the grey pill read at 4.5:1, as do a row's quiet button
+ * and the bad-filled yes of a question whose answer is a loss; the "not done"
+ * list is a live region; and every field has a name. Uses the made-up data (ADR 0019),
  * so it starts fresh before and after: the other tests share this server.
  */
 
@@ -71,6 +72,40 @@ async function textContrast(page: Page, selector: string): Promise<number> {
     return [cs.color, cs.backgroundColor]
   })
   return contrast(color!, background!)
+}
+
+/**
+ * The element's text colour on what is behind it, in the light theme and then the dark: its own fill, or, where it has none (a quiet
+ * button), the colours painted behind it laid over each other, as the eye sees them. The themes are switched at once, with nothing easing.
+ */
+async function drawnInBothThemes(el: Locator): Promise<(readonly [string, string, string])[]> {
+  return el.evaluate((node) => {
+    const still = document.createElement('style')
+    still.textContent = '* { transition: none !important; }'
+    document.head.append(still)
+    const rgba = (c: string) => c.match(/[\d.]+/g)!.map(Number)
+    const root = document.documentElement
+    const was = root.dataset.theme
+    const out: (readonly [string, string, string])[] = []
+    for (const theme of ['light', 'dark']) {
+      root.dataset.theme = theme
+      // Its own fill and each see-through one behind it, out to the first that is solid.
+      const layers: number[][] = []
+      for (let e: Element | null = node; e; e = e.parentElement) {
+        const c = rgba(getComputedStyle(e).backgroundColor)
+        if ((c[3] ?? 1) === 0) continue
+        layers.unshift(c)
+        if ((c[3] ?? 1) >= 1) break
+      }
+      let [r, g, b] = (layers[0]?.[3] ?? 1) >= 1 && layers.length ? layers.shift()! : [255, 255, 255]
+      for (const [lr, lg, lb, la = 1] of layers) [r, g, b] = [lr! * la + r! * (1 - la), lg! * la + g! * (1 - la), lb! * la + b! * (1 - la)]
+      out.push([theme, getComputedStyle(node).color, `rgb(${r}, ${g}, ${b})`] as const)
+    }
+    if (was === undefined) delete root.dataset.theme
+    else root.dataset.theme = was
+    still.remove()
+    return out
+  })
 }
 
 test.beforeAll(async ({ request }) => {
@@ -184,6 +219,45 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(await unnamedFields(page)).toEqual([])
   })
 }
+
+test("a row's quiet button, and the yes of a question whose answer is a loss, read at 4.5:1 in light and dark", async ({ browser }) => {
+  // Proves: one rule for the red fill (UX sweep, 6 November 2026, move 1) leaves nothing hard to read. A timesheet's Check is quiet, in
+  // the secondary ink with no fill; a quiet button is drawn the same; and Write it off, a loss, takes the bad fill, never the red, with
+  // Keep it focused; while a yes that loses nothing is plain. Each as the browser draws it, in both themes.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/#crew/timesheets')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const check = page.getByRole('region', { name: 'Timesheets' }).getByRole('group', { name: 'To approve' }).getByRole('link', { name: 'Check' }).first()
+  await expect(check).toHaveClass(/\bquiet\b/)
+  await expect(check).not.toHaveClass(/\bprimary\b/)
+  for (const [theme, color, behind] of await drawnInBothThemes(check)) expect(contrast(color, behind), `quiet Check, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+  // A quiet <button> follows the same rule; none is drawn on the made-up data, so one is put in a card for the measure.
+  await page.evaluate(() => {
+    const card = document.createElement('section')
+    card.className = 'card'
+    card.innerHTML = '<button type="button" class="quiet" id="quiet-probe">Check</button>'
+    document.querySelector('.app')!.append(card)
+  })
+  for (const [theme, color, behind] of await drawnInBothThemes(page.locator('#quiet-probe'))) expect(contrast(color, behind), `button.quiet, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+
+  await page.goto('/#stock/repairs')
+  const fault = page.getByRole('region', { name: 'Faults and repairs' }).locator('li.fault').first()
+  await fault.getByRole('button', { name: 'Sort it out' }).click()
+  // Marking it fixed loses nothing: a plain yes.
+  await fault.getByRole('button', { name: 'Mark fixed' }).click()
+  await expect(fault.getByRole('button', { name: 'Mark it fixed' })).not.toHaveClass(/\b(primary|danger)\b/)
+  await expect(fault.getByRole('button', { name: 'Keep it' })).toBeFocused()
+  await fault.getByRole('button', { name: 'Keep it' }).click()
+  // Writing it off is a loss: the bad fill, and the safe answer still the one focused.
+  await fault.getByRole('button', { name: 'Write off' }).click()
+  const yes = fault.getByRole('button', { name: 'Write it off' })
+  await expect(yes).toHaveClass(/\bdanger\b/)
+  await expect(yes).not.toHaveClass(/\bprimary\b/)
+  await expect(fault.getByRole('button', { name: 'Keep it' })).toBeFocused()
+  for (const [theme, color, behind] of await drawnInBothThemes(yes)) expect(contrast(color, behind), `Write it off, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+  await fault.getByRole('button', { name: 'Keep it' }).click()
+  await expect(yes).toHaveCount(0)
+})
 
 test('each move lands on the heading and names the tab, inside one main landmark, with a back link a thumb can hit', async ({ browser }) => {
   // Proves: the Shell moves focus to the new screen's heading and renames the tab on every move, for a tab, a record, the leave screen and the planner's next week, but not for a toggle, however the browser presses it.

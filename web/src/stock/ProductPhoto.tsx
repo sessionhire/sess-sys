@@ -58,6 +58,7 @@ export function ProductPhoto({ m }: { m: ModelView }) {
           <Confirm
             question={`Take the photo of ${m.name} off? It's deleted, and its icon comes back.`}
             yes="Take it off"
+            loss
             onYes={() => {
               setRemoving(false)
               void run(() => call(m.id, { method: 'DELETE' }))
