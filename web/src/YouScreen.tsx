@@ -1,4 +1,4 @@
-import { ROLE_LABELS, ROLE_LINES, readsEverything, roleOfPerson, type Reading } from '@sh/shared'
+import { APP_VERSION, ROLE_LABELS, ROLE_LINES, readsEverything, roleOfPerson, type Reading } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from './act.tsx'
 import { signOut, useAuth } from './auth.ts'
@@ -114,8 +114,13 @@ export function YouScreen() {
       <section className="card">
         <h2>This device</h2>
         <KeptLine />
+        {/* The app's version, which a person can name, rather than a change number, which they can't (audit, 5 November 2026, finding 97). */}
         <p className="hint">
-          Device {client.clientId.slice(-6)} · change #{view.cursor} · {waiting === 0 ? 'nothing waiting to sync' : `${waiting} waiting to sync`}
+          Device {client.clientId.slice(-6)} · version {APP_VERSION} · {waiting === 0 ? 'nothing waiting to sync' : `${waiting} waiting to sync`}
+        </p>
+        {/* What a new version changed, for everyone, not only those with Admin (finding 80). */}
+        <p>
+          <a href="#admin/changes">What's changed</a>
         </p>
       </section>
     </div>

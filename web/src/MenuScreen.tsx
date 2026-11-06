@@ -49,7 +49,8 @@ export const MENU: PlaceGroup[] = [
         key: 'plan',
         icon: 'planner',
         href: '#jobs/plan',
-        label: 'Planner',
+        // As the Jobs row names its views, so the word on the Menu is a word on the screen (audit, 5 November 2026, finding 79).
+        label: 'Week and month',
         about: 'The weeks and months ahead at a glance',
       },
       {

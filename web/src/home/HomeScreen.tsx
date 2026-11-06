@@ -269,6 +269,7 @@ function ForCompany({ view, today, me }: { view: View; today: string; me: Person
   const pencilled = view.jobs.jobs.filter((j) => (j.status === 'enquiry' || j.status === 'quoted') && (!j.span || j.span.end >= today)).length
   return (
     <>
+      <SetUp view={view} />
       {/* What needs someone first, then what's on (audit finding 22). */}
       <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.company} clear="Nothing waiting on anyone. Everything else is as it should be." />
       <TodoCard view={view} />
@@ -290,6 +291,48 @@ function ForCompany({ view, today, me }: { view: View; today: string; me: Person
       />
       <MoneyCard view={view} today={today} />
     </>
+  )
+}
+
+/**
+ * A new company's first steps, in the order that matters, while it has no crew or no stock yet: office details first, so
+ * freelancer links can ring the office, then the crew list, the stock list and the vans. Each goes once it's done, and the card
+ * with them (audit, 5 November 2026, finding 100). Only for who can set them up, and never while the copy is still arriving.
+ */
+function SetUp({ view }: { view: View }) {
+  const { can } = useAccess()
+  const copying = useCopying()
+  if (copying || !can('settings')) return null
+  const people = view.crew.people.length > 0
+  const stock = view.warehouse.models.length > 0
+  if (people && stock) return null
+  const steps = [
+    !view.office.details && { href: '#admin/company', what: 'Office details', why: 'So freelancer links can ring the office' },
+    !people && { href: '#crew/import', what: 'The crew list', why: 'From a spreadsheet, or one at a time under Crew' },
+    !stock && { href: '#stock/import', what: 'The stock list', why: 'From Current RMS or a spreadsheet, or one at a time under Stock' },
+    view.vehicles.vehicles.length === 0 && { href: '#stock/vehicles', what: 'The vans', why: 'So they can be booked on jobs with a driver' },
+  ].filter((x) => !!x)
+  return (
+    <section className="card set-up" aria-labelledby="set-up-title">
+      <Heading icon="company" id="set-up-title">
+        To set up
+      </Heading>
+      <ul className="job-list">
+        {steps.map((step) => (
+          <li key={step.href}>
+            <a className="job-row" href={step.href}>
+              <div>
+                <b>{step.what}</b>
+                <p>{step.why}</p>
+              </div>
+              <div className="side" aria-hidden="true">
+                ›
+              </div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -532,7 +575,8 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
       <KitChart view={view} today={today} />
       {view.moves.stillOut.length > 0 && (
         <section className="card">
-          <Heading icon="warehouse">Coming back ({view.moves.stillOut.length})</Heading>
+          {/* Stock's name for the same list, and it says they're late (audit, 5 November 2026, finding 79). */}
+          <Heading icon="warehouse">Still out after the job ({view.moves.stillOut.length})</Heading>
           <ul className="job-list">
             {view.moves.stillOut.map((p) => (
               <li key={p.job.id}>
@@ -602,8 +646,11 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
   const waiting = view.leave.requestsFor(me.id, year).filter((r) => r.status === 'waiting')
   const approver = canApproveLeave(me)
   const copying = useCopying()
+  const weeks = myWeeks(view.crew.calls, me.id, today)
   return (
     <>
+      {/* Today first, where a person looks first; leave after (audit, 5 November 2026, finding 97). */}
+      <YourDay view={view} today={today} me={me} mine={mine} />
       <section className="card">
         {/* Booked and only accepted said apart, as on their own page (audit, 20 October 2026, finding 36): an accepted day can still go to someone else. */}
         <Heading icon="calendar">Your work{mine.length > 0 && !copying ? ` (${workCount(mine)})` : ''}</Heading>
@@ -653,7 +700,10 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
           </p>
         )}
       </section>
-      <Chart title="Your weeks" icon="calendar" series={DAYS} columns={myWeeks(view.crew.calls, me.id, today)} format={(n) => plural(n, 'day')} empty="No days booked in the next eight weeks." />
+      {/* Only with something in it: an empty chart said nothing Your work hadn't (finding 97). */}
+      {weeks.some((w) => w.parts.some((n) => n > 0)) && (
+        <Chart title="Your weeks" icon="calendar" series={DAYS} columns={weeks} format={(n) => plural(n, 'day')} empty="No days booked in the next eight weeks." />
+      )}
       {balance && (
         <section className="card">
           <Heading icon="leave">Your leave</Heading>
@@ -672,7 +722,6 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
         </section>
       )}
       {approver && <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.me} title="Waiting on you" clear="No time off waiting on you." grouped={false} />}
-      <YourDay view={view} today={today} me={me} mine={mine} />
     </>
   )
 }

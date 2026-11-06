@@ -148,6 +148,12 @@ waiting on someone.
   reminders only for those who see to them; archiving someone booked says
   what to withdraw first; archived people can be found and opened; a
   same-name hint when adding someone.
+  Batch 9f, Home, Menu, Admin and across the app (1.88.0, PR #217):
+  findings 79, 80, 83, 85, 96 to 103. "To set up" on a new company's Home;
+  What's changed folds by month, marks what's new and links each decision
+  (/adr/<n>); an empty required field is refused in the app's words
+  (required.ts); the browser's own Print leaves the chrome out; Disconnect
+  asks; in-date checks quiet. That finishes the 5 November audit's P3s.
 
 **Waiting**
 
