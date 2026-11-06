@@ -55,7 +55,7 @@ export function AssistantCard({ office }: { office: OfficeView }) {
       {s && !s.configured && <p className="hint">Not set up on the server yet: whoever looks after the server adds the Anthropic key (ANTHROPIC_API_KEY in Railway).</p>}
       {s?.configured && (
         <p className="hint">
-          This month: {dollars(s.spentCents)} of {dollars(s.limitCents)}, asked {s.uses === 1 ? 'once' : `${s.uses} times`}. It stops for the month at the limit.
+          This month: {dollars(s.spentCents)} of {dollars(s.limitCents)}, asked {s.uses === 1 ? 'once' : `${s.uses} times`}. In US dollars, as Anthropic bills it. It stops for the month at the limit.
         </p>
       )}
       <p className="hint">

@@ -108,7 +108,7 @@ export function ImportPeopleScreen({ view }: { view: View }) {
         {/* Where it's up to (rule 13): choosing the file, then checking every row before anything is saved. */}
         {step.at !== 'done' && <p className="kicker">{step.at === 'preview' ? 'Step 2 of 2: check every row' : 'Step 1 of 2: choose the file'}</p>}
         <h1 ref={heading} tabIndex={-1}>
-          {step.at === 'done' ? 'Brought in' : 'Bring in a list'}
+          {step.at === 'done' ? 'Brought in' : 'Bring in the crew list'}
         </h1>
       </header>
       {step.at === 'choose' || step.at === 'reading' ? (

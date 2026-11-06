@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.88.0',
+    date: '2026-11-06',
+    title: 'Small fixes on Home, the Menu, Admin and across the app',
+    what: "A new company's Home lists what to set up first: office details, the crew list, the stock list and the vans. What's changed shows the latest few, folds the rest by month, marks what's new since you last looked, opens each decision itself, and is a tap from You. A field left empty is refused in the app's own words under it, not the browser's bubble. Printing a screen from the browser leaves out the top bar and buttons. Disconnecting the operations mailbox asks first. Quotes on a phone has a way back to the Menu, and Me starts with your day. Bringing jobs in says it only reads the calendar, too many tries at connecting Google comes back to Admin in words, Claude's monthly limit says it's in US dollars, and in-date checks are no longer edged green.",
+    prs: [217],
+  },
+  {
     version: '1.87.0',
     date: '2026-11-06',
     title: 'Small fixes for people',

@@ -304,6 +304,14 @@ describe('connecting a calendar', () => {
     expect(s.app.calendar).toBeUndefined()
   })
 
+  it('sends too many tries at connecting back to Admin in words, not a page of raw JSON', async () => {
+    const s = await setup({ calendar: false })
+    const visits = []
+    for (let i = 0; i < 22; i++) visits.push(await s.app.inject({ url: '/api/calendar/connect', cookies: s.colly.cookies }))
+    expect(visits.at(-1)!.statusCode).toBe(303)
+    expect(visits.at(-1)!.headers.location).toBe('/?calendar=busy#admin/connections')
+  })
+
   it('needs someone signed in, like the rest of the app', async () => {
     const s = await setup()
     for (const url of ['/api/calendar/connect', '/api/calendar/calendars', '/api/calendar/callback?code=x&state=y']) expect((await s.app.inject({ url })).statusCode).toBe(401)

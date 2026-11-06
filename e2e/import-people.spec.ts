@@ -72,7 +72,7 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   await expect(card).toContainText('Sign-in is off, so anyone who can reach the app can read whatever you bring in.')
   await card.getByRole('link', { name: /^The crew list/ }).click()
   await expect(office).toHaveURL(/#crew\/import$/)
-  await expect(office.getByRole('heading', { name: 'Bring in a list' })).toBeVisible()
+  await expect(office.getByRole('heading', { name: 'Bring in the crew list', level: 1 })).toBeVisible()
   await expect(office.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Crew' })).toHaveAttribute('aria-current', 'page')
 
   // The file, read on the phone and sent to the server for the preview.

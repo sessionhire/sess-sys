@@ -117,7 +117,7 @@ export function ImportScreen({ view }: { view: View }) {
             </p>
           ) : (
             <p>
-              Jobs are read from the Google calendars of the account connected on <a href="#admin/connections">Admin › Connections</a>. Connect one there first.
+              Jobs are read from the Google calendars of the account connected on <a href="#admin/connections">Admin › Connections</a>. Connect one there first. Bringing in only reads its calendars: nothing is written to Google until a calendar is chosen there for the jobs to go on.
             </p>
           )}
         </section>

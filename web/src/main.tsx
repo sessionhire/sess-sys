@@ -11,11 +11,13 @@ import { startErrorReporting } from './errors.ts'
 import { Opening } from './Opening.tsx'
 import { keepPlaces } from './places.ts'
 import { printLight } from './theme.ts'
+import { refuseEmptyFieldsInWords } from './required.ts'
 import { watchForUpdates } from './update.tsx'
 
 followMovedAddresses()
 keepPlaces()
 printLight()
+refuseEmptyFieldsInWords()
 void startErrorReporting()
 watchForUpdates()
 

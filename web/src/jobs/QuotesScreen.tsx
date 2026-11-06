@@ -23,6 +23,8 @@ import {
 } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
+import { useDesk } from '../foot.tsx'
+import { MENU } from '../Up.tsx'
 import { Empty } from '../Empty.tsx'
 import { FromMailbox } from './Claude.tsx'
 import { ShowAll } from '../Fold.tsx'
@@ -45,10 +47,14 @@ import { getJson, type Loaded } from './rms.ts'
  */
 export function QuotesScreen() {
   const view = useView()
-  if (!useAccess().can('money'))
+  // A place of its own on a desk; on a phone it's under the Menu, and says so as the Menu's other places do (audit, 5 November 2026,
+  // finding 96).
+  const desk = useDesk()
+  const access = useAccess()
+  if (!access.can('money'))
     return (
       <div className="app crew jobs money quotes">
-        <Top view={view} title="Quotes" root heading="Quotes" />
+        <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
         <section className="card">
           <p className="empty">Quotes are for the office and directors. A director can change your role on the Crew tab.</p>
         </section>
@@ -56,7 +62,7 @@ export function QuotesScreen() {
     )
   return (
     <div className="app crew jobs money quotes">
-      <Top view={view} title="Quotes" root heading="Quotes" />
+      <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
       <FromMailbox view={view} />
       <ToFollowUp view={view} />
       <AllQuotes view={view} />

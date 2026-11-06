@@ -81,7 +81,7 @@ test('the Menu names every place, and Admin, History and You keep its tab with t
   await expect(page.getByRole('heading', { level: 1, name: 'Menu' })).toBeVisible()
   const places = page.getByRole('navigation', { name: 'Every place' })
   for (const group of ['Jobs', 'Stock', 'Crew', 'Company', 'You']) await expect(places.getByRole('group', { name: group })).toBeVisible()
-  await expect(places.getByRole('link', { name: /^Planner/ })).toHaveAttribute('href', '#jobs/plan')
+  await expect(places.getByRole('link', { name: /^Week and month/ })).toHaveAttribute('href', '#jobs/plan')
 
   for (const [link, title] of [
     [/^History/, 'History'],

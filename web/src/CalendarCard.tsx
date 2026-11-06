@@ -28,6 +28,7 @@ const OUTCOMES: Record<string, Note> = {
     text: "Google Calendar wasn't connected, because a permission was left unticked on Google's page. Connect again and allow both: seeing the list of calendars, and changing events.",
   },
   off: { ok: false, text: 'Google Calendar needs the Google key on the server first.' },
+  busy: { ok: false, text: 'Too many tries from here just now. Wait a minute and try again.' },
 }
 
 /**
@@ -136,6 +137,10 @@ export function CalendarCard({ view, available }: { view: View; available: boole
         <p>
           Put every day of every confirmed job on a Google calendar, from today on, kept up to date as jobs change. Connect the Google account
           that should write them, then choose its calendar.
+        </p>
+        {/* Bringing old jobs in needs the same connection, and reading is all it does (audit, 5 November 2026, finding 98). */}
+        <p className="hint">
+          Connecting is also how jobs are brought in from its calendars. Bringing in only reads: nothing goes on a calendar until you choose one here.
         </p>
         {link?.problem && <p className="alert">{link.problem}</p>}
         {noteLine}

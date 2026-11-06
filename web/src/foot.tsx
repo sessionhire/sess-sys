@@ -31,3 +31,15 @@ export function PageAction({ children }: { children: ReactNode }) {
   if (phone && foot) return createPortal(children, foot)
   return <>{children}</>
 }
+
+/** From 900px across the places are a sidebar (ADR 0036), with room for more than a phone's bar. */
+const deskWide = typeof matchMedia === 'function' ? matchMedia('(min-width: 900px)') : undefined
+export function useDesk(): boolean {
+  const [desk, setDesk] = useState(deskWide?.matches ?? false)
+  useEffect(() => {
+    const on = () => setDesk(deskWide?.matches ?? false)
+    deskWide?.addEventListener('change', on)
+    return () => deskWide?.removeEventListener('change', on)
+  }, [])
+  return desk
+}

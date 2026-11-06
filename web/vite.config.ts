@@ -75,7 +75,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2}', 'version.json'],
         globIgnores: ['**/errorsSdk-*.js', ...ON_FIRST_USE.map((name) => `**/${name}-*.{js,css}`)],
         // Freelancer links and calendar feeds come from the server, never the app shell.
-        navigateFallbackDenylist: [/^\/api\//, /^\/f\//, /^\/cal\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/f\//, /^\/cal\//, /^\/adr\//],
         // Once Reload lets the new version in, it takes the open page straight away, so the reload lands on it.
         clientsClaim: true,
         // The map's pictures (ADR 0057), kept as they're seen, so a venue's map opened before still shows with no signal.
