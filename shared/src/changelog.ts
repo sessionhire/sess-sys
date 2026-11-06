@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.87.0',
+    date: '2026-11-06',
+    title: 'Small fixes for people',
+    what: "Combining two people keeps the record that's staff, then the one with offers, then the one with a real name, and the question names whose details are kept. People shows certificate and vehicle reminders only to those who look after them. Archiving someone still booked says to withdraw their booking first, with a link to that job's crew. Archived people can be searched and opened. Make main says which email is main now, a staff member's page doesn't offer a link tab they don't have, and freelancers' rows say so first. Adding someone with the same name as someone already there says so, Erase names everything that goes, and there's a way to bring the whole crew list in from People.",
+    prs: [216],
+  },
+  {
     version: '1.86.0',
     date: '2026-11-06',
     title: 'Small fixes for jobs, quotes and crew booking',

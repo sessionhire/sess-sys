@@ -92,11 +92,15 @@ describe('the one person', () => {
     expect(one).toMatchObject({ name: 'Ciarán Óg', archived: false })
   })
 
-  it('keeps staff first, then a real name, as the one kept to start with', () => {
+  it('keeps staff first, then whoever has more offers, then a real name, as the one kept to start with', () => {
     const free = person('Aoife Byrne', { email: 'aoife.byrne@gmail.com' })
     const staff = person('Aoife', { kind: 'staff', email: 'aoife@sessionhire.com' })
     expect(keptOf([free, staff]).id).toBe(staff.id)
     expect(keptOf([person('Craic', { email: 'craic@gmail.com' }), free]).id).toBe(free.id)
+    // Bookings before the name: the record with them is kept over a new one with nothing on it (audit, 5 November 2026, finding 76).
+    const booked = person('Nessa Walsh', { email: 'nessa.walsh@example.com' })
+    const stub = person('Nessa Walsh', { email: 'nessawalsh.rigging@gmail.com' })
+    expect(keptOf([stub, booked], (p) => (p.id === booked.id ? 53 : 0)).id).toBe(booked.id)
   })
 
   it('refuses two roles, or a role on a freelancer', () => {

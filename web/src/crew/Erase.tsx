@@ -5,6 +5,7 @@ import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
+import { personHref } from './PersonScreen.tsx'
 
 /**
  * Someone archived, on the Crew tab, and erasing their details when they
@@ -82,10 +83,11 @@ export function ArchivedPerson({ person, onBringBack }: { person: PersonView; on
 
   return (
     <div className="row person">
-      <span className="who">
+      {/* Their page opens from here, for their history and documents (audit, 5 November 2026, finding 94). */}
+      <a className="who" href={personHref(person.id)}>
         <b>{person.name}</b>
-        <small>{[person.kind === 'staff' ? 'Staff' : null, person.skills.join(', ')].filter(Boolean).join(' · ')}</small>
-      </span>
+        <small>{[person.kind === 'staff' ? 'Staff' : 'Freelancer', person.skills.join(', ')].filter(Boolean).join(' · ')}</small>
+      </a>
       {person.pending ? (
         <Pending pending />
       ) : (
@@ -120,8 +122,8 @@ export function ArchivedPerson({ person, onBringBack }: { person: PersonView; on
               onNo={() => setAsking(false)}
             >
               <p>
-                <b>Goes:</b> their phone, email, notes, skills, department, level, the name they go by, certificates, documents and their files, company with its VAT and CRO numbers, day rate,
-                days off{kept.leave ? '' : ', staff leave'} and what they said about running late. Their private link stops working and their calendar feed stops.{' '}
+                <b>Goes:</b> their phone, email and the other addresses they were found by, notes, skills, department, level, the name they go by, their photo, certificates, documents and their files, company with its VAT and CRO numbers, day rate,
+                days off{kept.leave ? '' : ', staff leave'} and what they said about running late. Their private link stops working, their calendar feed stops, and the busy times read from their own calendar go.{' '}
                 {person.kind === 'staff' && 'If they sign in to the app, they are signed out and their account is switched off. '}
                 {keptUntil ? 'Everything but their name goes.' : `Their name becomes “${ERASED_NAME}”.`}
               </p>

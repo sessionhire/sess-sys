@@ -53,7 +53,7 @@ test('archived, then erased through the question in place: the card says so and 
   await expect(question).toContainText("they can't be edited, so any made before now keep copies of their details until they age out")
   // The safe way out has the focus, as for every question in place, and what goes and stays is read out with the question.
   await expect(question.getByRole('button', { name: 'Keep them' })).toBeFocused()
-  await expect(question).toHaveAccessibleDescription(/^Goes: their phone, email, notes/)
+  await expect(question).toHaveAccessibleDescription(/^Goes: their phone, email and the other addresses they were found by, notes/)
   await question.getByRole('button', { name: 'Erase their details' }).click()
 
   const erased = people.locator('details.archived .row.erased')

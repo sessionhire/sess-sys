@@ -254,15 +254,17 @@ export const SAME_BECAUSE_WORDS: Record<SameBecause, string> = {
 
 /**
  * Which of a group is kept as the one person, to start with: staff over
- * freelancer (the company gave them an address), a real name over one
- * made from an address, then whoever has more offers.
+ * freelancer (the company gave them an address), then whoever has more
+ * offers, then a real name over one made from an address. Offers come
+ * before the name: a new, empty record with a typed name was kept over the
+ * one with a phone and every booking (audit, 5 November 2026, finding 76).
  */
 export function keptOf<P extends Pick<Person, 'id' | 'kind' | 'name' | 'email' | 'archived'>>(group: readonly P[], offers: (p: P) => number = () => 0): P {
   return [...group].sort(
     (a, b) =>
       Number(b.kind === 'staff') - Number(a.kind === 'staff') ||
-      Number(namedFromAddress(a)) - Number(namedFromAddress(b)) ||
       offers(b) - offers(a) ||
+      Number(namedFromAddress(a)) - Number(namedFromAddress(b)) ||
       a.id.localeCompare(b.id),
   )[0]!
 }

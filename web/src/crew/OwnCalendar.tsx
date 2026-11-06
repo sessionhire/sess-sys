@@ -61,7 +61,10 @@ export function OwnCalendarCard({ person, view }: { person: PersonView; view: Vi
       {!cal && (
         <>
           <p className="hint">
-            {first} hasn't shared when they're busy. They can from their link, by pasting their calendar's private address, or send it to you to add here. {promise}
+            {/* The how is for whoever can add it; anyone else is told only that it isn't shared (audit, 5 November 2026, finding 78). */}
+            {mayEdit
+              ? `${first} hasn't shared when they're busy. They can from their link, by pasting their calendar's private address, or send it to you to add here. ${promise}`
+              : `${first} hasn't shared when they're busy.`}
           </p>
           {mayEdit && (
             <Fold label="Add the address they sent">
