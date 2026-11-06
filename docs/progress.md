@@ -143,6 +143,11 @@ waiting on someone.
   or client's jobs are grouped with years; the steps strip says late in
   the bad colour; Admin pages named in words are links; the parts strip
   no longer covers what it jumps to.
+  Batch 9e, people (1.87.0, PR #216): findings 76, 78 and 94; 77 left as
+  ADR 0082 decided. Combining keeps staff, then offers, then a real name;
+  reminders only for those who see to them; archiving someone booked says
+  what to withdraw first; archived people can be found and opened; a
+  same-name hint when adding someone.
 
 **Waiting**
 

@@ -407,7 +407,7 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
       const hold = await holdsFrom(ctx.tx, person.id, irishToday())
       if (hold) {
         const what =
-          hold.status === 'confirmed' ? `is booked on ${hold.project}; release them first` : hold.status === 'accepted' ? `has accepted ${hold.project}; release them first` : `has an open offer for ${hold.project}; withdraw it first`
+          hold.status === 'confirmed' ? `is booked on ${hold.project}; withdraw their booking on the job's crew first` : hold.status === 'accepted' ? `has accepted ${hold.project}; release them first` : `has an open offer for ${hold.project}; withdraw it first`
         throw new Refused({ code: 'conflict', message: `${person.name} ${what}.` })
       }
     } else if (person.email?.trim()) {

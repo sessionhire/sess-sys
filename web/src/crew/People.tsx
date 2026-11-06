@@ -28,8 +28,9 @@ import {
   ROLE_LABELS,
   sameEmail,
   whoSignsInRefusal,
+  nameKey,
 } from '@sh/shared'
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
@@ -100,7 +101,8 @@ export function PersonRow({ person, crew }: { person: PersonView; crew: CrewView
           <small>
             {[
               // A role set says more than "Staff"; none set is staff crew, which is what "Staff" says (ADR 0034).
-              person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : null,
+              // Freelancer said too, so a department after it isn't read as a skill (audit, 5 November 2026, finding 94).
+              person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : 'Freelancer',
               person.department,
               // The office's, and not sent to staff crew or freelancers (audit, 5 November 2026, finding 44).
               person.levelHidden ? null : levelLine(person.level),
@@ -287,6 +289,23 @@ export function PersonForm({
       <label>
         Last name <input value={f.lastName} onChange={set('lastName')} autoComplete="off" maxLength={100} />
       </label>
+      {/* Said before a second one is made, not found later in Tidy up (audit, 5 November 2026, finding 94). */}
+      {!initial && (() => {
+        const typed = nameKey(fullName({ firstName: f.firstName.trim(), lastName: f.lastName.trim() }))
+        const already = f.lastName.trim() ? people.filter((p) => !p.archived && nameKey(p.name) === typed) : []
+        return already.length > 0 ? (
+          <p className="hint wide" role="status">
+            There's already {already.length === 1 ? 'a' : already.length} {already[0]!.name}:{' '}
+            {already.map((p, i) => (
+              <Fragment key={p.id}>
+                {i > 0 && ', '}
+                <a href={personHref(p.id)}>{p.email ?? p.phone ?? 'their page'}</a>
+              </Fragment>
+            ))}
+            . Add another only if it's someone else.
+          </p>
+        ) : null
+      })()}
       <label>
         Mobile <input type="tel" value={f.phone} onChange={set('phone')} placeholder="+353 87…" />
       </label>

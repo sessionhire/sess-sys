@@ -71,7 +71,8 @@ export function PersonScreen({
   const access = useAccess()
   // Their link is the office's to send; their own is anyone's to open (audit, 20 October 2026, finding 35).
   const own = !!person && person.id === access.personId
-  const parts = PERSON_PARTS.filter((p) => p !== 'link' || (person && !person.archived && (own || access.can('crew'))))
+  // Not a tab holding only "your role doesn't see it" either (audit, 5 November 2026, finding 94).
+  const parts = PERSON_PARTS.filter((p) => p !== 'link' || (person && !person.archived && (own || (access.can('crew') && !person.linkHidden))))
   const [part, pick] = useTab({ parts, asked, remember: 'sh.personPart', address: (p) => `${personHref(id)}/${p}` })
   if (!person)
     return (
@@ -174,8 +175,8 @@ function Warnings({ person, view }: { person: PersonView; view: View }) {
       )}
       {access.can('crew') && !person.archived && twice && twice.length > 0 && (
         <p className="warn-line">
-          {twice.map((p) => p.name).join(', ')} {twice.length === 1 ? 'looks' : 'look'} like the same person, brought in twice. Combine them under
-          Details.
+          {twice.map((p) => p.name).join(', ')} {twice.length === 1 ? 'looks' : 'look'} like the same person, brought in twice.{' '}
+          <a href={`${personHref(person.id)}/details`}>Combine them under Details</a>.
         </p>
       )}
     </>
@@ -199,6 +200,8 @@ function Who({ person, view }: { person: PersonView; view: View }) {
     wasEditing.current = editing
   }, [editing])
   const { run, error } = useAct()
+  // Make main said, not done in silence (audit, 5 November 2026, finding 94).
+  const [mainSaid, setMainSaid] = useState('')
   const phone = person.phone?.trim()
   const email = person.email?.trim()
   const kind = person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : 'Freelancer'
@@ -244,7 +247,9 @@ function Who({ person, view }: { person: PersonView; view: View }) {
                             type="button"
                             className="link"
                             aria-label={`Make ${e} ${person.name}'s main email`}
-                            onClick={() => void run(() => client.mutate('person.mainEmail', { id: person.id, email: e }))}
+                            onClick={() =>
+                              void run(() => client.mutate('person.mainEmail', { id: person.id, email: e })).then((ok) => ok && setMainSaid(`${e} is ${person.name}'s main email now.`))
+                            }
                           >
                             Make main
                           </button>
@@ -253,6 +258,11 @@ function Who({ person, view }: { person: PersonView; view: View }) {
                     </ul>
                   ) : (
                     person.otherEmails!.join(', ')
+                  )}
+                  {mainSaid && (
+                    <p className="added" role="status">
+                      {mainSaid}
+                    </p>
                   )}
                 </dd>
               </div>
@@ -351,6 +361,8 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
   const mayEdit = useAccess().can('crew') && !person.archived
   const { run, error, refuse } = useAct()
   const [away, setAway] = useState({ start: today, end: today, note: '' })
+  // The job holding them back, as a way to it beside the refusal (audit, 5 November 2026, finding 94).
+  const [heldOn, setHeldOn] = useState<{ href: string; name: string }>()
   const ahead = crew.calls.flatMap((c) =>
     c.status === 'open' && c.end >= today ? c.offers.filter((o) => o.personId === person.id).map((o) => ({ c, o })) : [],
   )
@@ -362,11 +374,13 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
   const archive = () => {
     // The same test as the server's: held days from today on, or any offer still waiting.
     const hold = booked.find(({ o }) => o.days.some((d) => d >= today)) ?? waiting[0]
+    setHeldOn(undefined)
     if (hold) {
       const job = hold.c.phase ? `${hold.c.project} (${hold.c.phase})` : hold.c.project
+      if (hold.c.projectId) setHeldOn({ href: `#jobs/${encodeURIComponent(hold.c.projectId)}/crew`, name: hold.c.project })
       return refuse(
         hold.o.status === 'confirmed'
-          ? `${person.name} is booked on ${job}; release them first.`
+          ? `${person.name} is booked on ${job}; withdraw their booking on the job's crew first.`
           : hold.o.status === 'accepted'
             ? `${person.name} has accepted ${job}; release them first.`
             : `${person.name} has an open offer for ${job}; withdraw it first.`,
@@ -470,6 +484,11 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
         </Fold>
       )}
       <Refusal error={error} />
+      {error && heldOn && (
+        <p>
+          <a href={heldOn.href}>Open {heldOn.name}'s crew</a>
+        </p>
+      )}
       {mayEdit && (
         // Reversible, so done at once: the list it goes back to says who was archived, with the way back (rule 10).
         <button type="button" className="link" onClick={archive}>

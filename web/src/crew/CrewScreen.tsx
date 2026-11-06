@@ -238,6 +238,7 @@ export function CrewScreen() {
   const [added, setAdded] = useState<readonly { id: string; name: string }[]>([])
   const justAdded = (p: PersonView) => added.some((a) => a.id === p.id)
   const words = wordsOf(find)
+  const archivedFound = words.length ? archived.filter((p) => found(p, words)) : archived
   const foundPeople = active.filter((p) => found(p, words))
   const listedPeople = listed(foundPeople, peopleFilterList, peopleSortList, peopleChoices)
   const shown = [...listedPeople, ...active.filter((p) => justAdded(p) && !listedPeople.includes(p))]
@@ -669,10 +670,14 @@ export function CrewScreen() {
       {page === 'people' && (
         <Split
           side={
-            <>
-              <CertificateReminders view={view} department={peopleDepartment} onWiden={allPeople} />
-              <VehicleReminders view={view} />
-            </>
+            // Only for a role that acts on them: staff crew opened People on two lists of other people's work, before the people
+            // (audit, 5 November 2026, finding 78). They can still look in each person's page and Stock › Vehicles.
+            (mayCrew || access.can('stock')) && (
+              <>
+                {mayCrew && <CertificateReminders view={view} department={peopleDepartment} onWiden={allPeople} />}
+                {access.can('stock') && <VehicleReminders view={view} />}
+              </>
+            )
           }
         >
           <section className="card" aria-label="People">
@@ -725,11 +730,12 @@ export function CrewScreen() {
             <ShowAll items={shown} limit={10} what="people" keep={justAdded}>
               {(rows) => rows.map((p) => <PersonRow key={p.id} person={p} crew={crew} />)}
             </ShowAll>
-            {archived.length > 0 && (
-              <details className="archived">
-                <summary>Archived ({archived.length})</summary>
+            {/* A search looks through the archived too, opened to show those it found (audit, 5 November 2026, finding 94). */}
+            {archived.length > 0 && (words.length === 0 || archivedFound.length > 0) && (
+              <details className="archived" key={words.length ? 'found' : 'all'} open={words.length > 0 || undefined}>
+                <summary>{words.length ? `Archived, matching (${archivedFound.length})` : `Archived (${archived.length})`}</summary>
                 {/* Each with "Erase details…" for when they ask (ADR 0027). */}
-                {archived.map((p) => (
+                {archivedFound.map((p) => (
                   <ArchivedPerson key={p.id} person={p} onBringBack={() => bringBack(p.id)} />
                 ))}
               </details>
@@ -740,6 +746,12 @@ export function CrewScreen() {
                 {/* Read out as it changes, as it's there from the form's opening; not a second "status", which is the top bar's. */}
                 <div aria-live="polite">{added.length > 0 && <p className="added">Added {added.at(-1)!.name}.</p>}</div>
               </Fold>
+            )}
+            {/* The way to bring many in, where people are added, not only under Menu and Admin (audit, 5 November 2026, finding 94). */}
+            {access.can('settings') && (
+              <p className="hint">
+                Many at once? <a href="#crew/import">Bring in the crew list</a> from a spreadsheet.
+              </p>
             )}
           </section>
         </Split>

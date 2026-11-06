@@ -1125,7 +1125,7 @@ describe('correcting people (audit finding 7)', () => {
     await answer(app, aoife.linkToken, o.id, { answer: 'accept' })
     expect(await archive()).toMatchObject({ status: 'rejected', reason: { message: 'Aoife Byrne has accepted Electric Picnic (Build); release them first.' } })
     await send(app, 'offer.confirm', { id: o.id })
-    expect(await archive()).toMatchObject({ status: 'rejected', reason: { message: 'Aoife Byrne is booked on Electric Picnic (Build); release them first.' } })
+    expect(await archive()).toMatchObject({ status: 'rejected', reason: { message: "Aoife Byrne is booked on Electric Picnic (Build); withdraw their booking on the job's crew first." } })
     expect((await entity<Person>(app, 'person', aoife.id)).archived).toBe(false)
 
     // Released, nothing holds them. A job long over never did.
