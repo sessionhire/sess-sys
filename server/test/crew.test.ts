@@ -497,8 +497,8 @@ describe('the freelancer page (audit finding 21)', () => {
 
     const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
     const card = cardOf(page, gig.id)
-    expect(card).toContain(`<input type="checkbox" name="days" value="${d3}"> ${dayLabel(d3)} <small>booked on Electric Picnic (Build)</small></label>`)
-    expect(card).toContain(`<input type="checkbox" name="days" value="${d4}" checked> ${dayLabel(d4)}</label>`)
+    expect(card).toContain(`<input type="checkbox" name="days" value="${d3}"> <span class="day">${dayLabel(d3)}</span> <small>booked on Electric Picnic (Build)</small></label>`)
+    expect(card).toContain(`<input type="checkbox" name="days" value="${d4}" checked> <span class="day">${dayLabel(d4)}</span></label>`)
     expect(cardOf(page, oneDay.id)).toContain("<p class=\"clash\">You're booked on Electric Picnic (Build) that day.</p>")
     expect(cardOf(page, picnic.id)).not.toContain('booked on')
     // Accepting as the page offers it, with the clashing day left out, goes through first time.
@@ -529,7 +529,7 @@ describe('the freelancer page (audit finding 21)', () => {
     const five = await reads()
     expect(five.offers).toBe(one.offers)
     for (const page of [one.page, five.page])
-      expect(cardOf(page, first.id)).toContain(`<input type="checkbox" name="days" value="${d1}"> ${dayLabel(d1)} <small>booked on Electric Picnic (Build)</small></label>`)
+      expect(cardOf(page, first.id)).toContain(`<input type="checkbox" name="days" value="${d1}"> <span class="day">${dayLabel(d1)}</span> <small>booked on Electric Picnic (Build)</small></label>`)
   })
 
   it('shows the message after a post from a short code, or as the refusal the server recorded, never from words in the address', async () => {

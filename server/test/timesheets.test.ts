@@ -126,7 +126,11 @@ describe('timesheets switched off (ADR 0090)', () => {
     expect(home.html).not.toContain('<h2>Timesheets</h2>')
     expect(home.html).not.toContain('to send</a>')
     expect(home.html).not.toContain(`/timesheet/`)
-    expect((await page(app, `/f/${dara}/timesheet/dara-sound`)).status).toBe(404)
+    const off = await page(app, `/f/${dara}/timesheet/dara-sound`)
+    expect(off.status).toBe(404)
+    // Said as the post says it, not as if the booking had gone (audit, 5 November 2026, finding 67).
+    expect(off.html).toContain('Timesheets aren&#39;t used here just now.')
+    expect(off.html).not.toContain('you may not be booked on it any more')
     const refused = await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)], ['note', 'Again']])
     expect(refused).toMatchObject({ ok: false, message: expect.stringContaining("Timesheets aren't used here") })
     // Kept as it was, and back on the page when they're turned on again.

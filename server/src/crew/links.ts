@@ -67,6 +67,8 @@ const SAID = {
   'tap-a-button': { ok: false, text: 'Tap Accept, Decline or Send rate.' },
   'tap-yes-or-no': { ok: false, text: 'Tap Accept or Decline.' },
   'tick-a-day': { ok: false, text: 'Tick at least one day, or press Decline.' },
+  // A booking they hold has no Decline, only Can't make it any more (audit, 5 November 2026, finding 91).
+  'tick-a-day-held': { ok: false, text: "Tick at least one day, or use Can't make it any more." },
   'no-rate': { ok: false, text: 'Put in the day rate you would do it for.' },
   'not-a-price': { ok: false, text: EURO_HINT },
   'not-your-offer': { ok: false, text: "That offer isn't one of yours." },
@@ -120,6 +122,8 @@ const SAID = {
   'broken-no-product': { ok: false, text: "There's no product called that. Give its number from the label, or the name as it's on our kit lists." },
 } satisfies Record<string, { ok: boolean; text: string }>
 type Said = keyof typeof SAID
+/** A link's token without anything a message stuck on its end: tokens are letters, digits, - and _ (newLinkToken). */
+const tokenOnly = (token: string) => token.replace(/[^A-Za-z0-9_-]+$/, '')
 /** The id the page gives a days-off form: one of the app's own (newId). */
 const AWAY_ID = /^[a-z0-9]{8,32}$/
 type Refusal = Extract<MutationResult, { status: 'rejected' }>
@@ -257,8 +261,25 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
   app.get('/f/:token', async (req: Req, reply) => {
     noStore(reply)
     const person = await personByToken(db, req.params.token)
+    // A full stop or bracket picked up with the link from a message isn't part of it (audit, 5 November 2026, finding 66).
+    const bare = tokenOnly(req.params.token)
+    if (!person && bare !== req.params.token && (await personByToken(db, bare))) return reply.redirect(`/f/${bare}`, 303)
     if (!person) return gone(reply)
     return reply.type('text/html').send(await home(req, person, await flashFor(person.id, req.query)))
+  })
+
+  // Anything else under a link: a slash on the end goes to the same place without it, and a part of the address that isn't
+  // one goes to their page, rather than a bare "Not found" in code (audit, 5 November 2026, finding 66).
+  app.get('/f/*', async (req: Req, reply) => {
+    noStore(reply)
+    const path = req.url.split('?')[0]!
+    const query = req.url.slice(path.length)
+    const trimmed = path.replace(/\/+$/, '')
+    if (trimmed !== path && trimmed.length > '/f/'.length) return reply.redirect(trimmed + query, 303)
+    const token = tokenOnly(decodeURIComponent(path.slice('/f/'.length).split('/')[0] ?? ''))
+    const person = await personByToken(db, token)
+    if (!person) return gone(reply)
+    return reply.redirect(`/f/${person.linkToken}`, 303)
   })
 
   // A booking's call sheet (ADR 0021): only the person's own, while it's going ahead.
@@ -292,7 +313,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     noStore(reply)
     const person = await personByToken(db, req.params.token)
     if (!person) return gone(reply)
-    if (!(await usesTimesheets(db))) return reply.code(404).type('text/html').send(renderNoSheet(base(req, person.linkToken), 'timesheet'))
+    // Said as the post says it, not as if the booking had gone (audit, 5 November 2026, finding 67).
+    if (!(await usesTimesheets(db))) return reply.code(404).type('text/html').send(renderNoSheet(base(req, person.linkToken), 'timesheet', SAID['no-timesheets'].text))
     const offer = await getOffer(db, req.params.id ?? '')
     const call = offer && offer.personId === person.id ? await getCall(db, offer.callId) : undefined
     if (!offer || !call) return reply.code(404).type('text/html').send(renderNoSheet(base(req, person.linkToken), 'timesheet'))
@@ -351,7 +373,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     }
     const note = (form.get('note') ?? '').slice(0, 1000)
     const picked = form.getAll('days')
-    if (form.get('picker') && picked.length === 0 && answer !== 'decline') return turnedDown('tick-a-day')
+    if (form.get('picker') && picked.length === 0 && answer !== 'decline')
+      return turnedDown(offer.status === 'accepted' || offer.status === 'confirmed' ? 'tick-a-day-held' : 'tick-a-day')
     const days = picked.length ? picked : null
 
     let result: MutationResult

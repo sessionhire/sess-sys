@@ -65,7 +65,7 @@ export function documentsSection(d: LinkDocuments): string {
         `${d.base}/documents`,
         `<label class="wide">What is it <select name="kind">${DOCUMENT_KINDS.map((k) => `<option value="${h(k)}">${h(DOCUMENT_KIND_LABELS[k])}</option>`).join('')}</select></label>
       <label class="wide">What it's called, if you like <input name="title" maxlength="100" placeholder="e.g. Public liability insurance"></label>
-      <label class="wide">Runs out <input type="date" name="expires"></label>`
+      <label class="wide">Runs out <input type="date" name="expires" min="${h(d.today)}"></label>`
       )}
     </details>`
     : `<p class="small">Sending documents here isn't switched on yet. For now, send a photo or a PDF of it to the office by WhatsApp or email.</p>`
