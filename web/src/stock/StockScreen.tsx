@@ -11,6 +11,9 @@ import {
   plural,
   RETIRED_LABELS,
   spanLabel,
+  standing,
+  STANDING_HEADINGS,
+  listHeading,
   type Department,
   type ModelView,
   type PickList,
@@ -53,6 +56,7 @@ import { productPhotoOf, Thumb } from '../Picture.tsx'
 import { departmentIcon, kitIcon } from './kitIcon.ts'
 import { Heading, Icon } from '../Icon.tsx'
 import { inKitOf, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { StillOutRow } from './StillOut.tsx'
 
 /**
  * Stock (ADR 0013): the catalogue of products, the numbered items of each,
@@ -416,11 +420,18 @@ function ProductRows({ rows, current }: { rows: readonly ModelView[]; current: s
   )
 }
 
-/** Every line of kit short on a day from today on, soonest first; the first few, then the rest on request. */
+/**
+ * Every line of kit short on a day from today on, soonest first: first the ones Home counts, under its count's words and
+ * number, then the rest; the first few of each, then the rest on request.
+ */
 function ShortKit({ view }: { view: View }) {
   // Opened from a count on Home for a department, that department's kit, as Home counted it (audit, 20 October 2026, finding 4).
   const [department, widen] = useNarrowed('#stock')
+  const today = useToday()
   const short = view.kit.short.filter((l) => inKitOf(department)(l.model))
+  // Home's count is of the confirmed jobs' lines whose kit is held in the next fortnight (Move 3 of the sweep of 6 November 2026).
+  const counted = standing(view, today, { department })['kit-short']
+  const rest = short.filter((l) => !counted.includes(l))
   if (short.length === 0) return null
   const row = (l: (typeof short)[number]) => (
     <li key={l.id}>
@@ -438,6 +449,17 @@ function ShortKit({ view }: { view: View }) {
       </a>
     </li>
   )
+  const lines = (ls: typeof short) => (
+    <>
+      <ul className="job-list">{ls.slice(0, 5).map(row)}</ul>
+      {ls.length > 5 && (
+        <details>
+          <summary>{ls.length - 5} more</summary>
+          <ul className="job-list">{ls.slice(5).map(row)}</ul>
+        </details>
+      )}
+    </>
+  )
   return (
     <section className="card kit-short" aria-label="Kit short">
       <Heading icon="attention">Kit short</Heading>
@@ -445,26 +467,37 @@ function ShortKit({ view }: { view: View }) {
       <p className="hint">
         On jobs from today on, once the confirmed jobs on the same days have theirs. Quotes and enquiries show what they'd need if they go ahead.
       </p>
-      <ul className="job-list">{short.slice(0, 5).map(row)}</ul>
-      {short.length > 5 && (
-        <details>
-          <summary>{short.length - 5} more</summary>
-          <ul className="job-list">{short.slice(5).map(row)}</ul>
-        </details>
+      {counted.length > 0 && (
+        <>
+          <h3>{listHeading(STANDING_HEADINGS['kit-short'], counted.length)}</h3>
+          {lines(counted)}
+        </>
+      )}
+      {rest.length > 0 && (
+        <>
+          <h3>{listHeading('Later, or not confirmed yet', rest.length)}</h3>
+          {lines(rest)}
+        </>
       )}
     </section>
   )
 }
 
-/** Jobs going out in the next two weeks or on now, and jobs over with kit still out, each opening its pick list (ADR 0017). */
+/** Jobs going out in the next two weeks or on now, each opening its pick list (ADR 0017), and the jobs with kit to check back in (ADR 0109). */
 function PickLists({ view }: { view: View }) {
-  const { soon, stillOut } = view.moves
+  const { soon } = view.moves
   const today = useToday()
+  // Home's counts of them are these lists' lengths, under the same words (Move 3 of the sweep of 6 November 2026): what's still
+  // to pick for today or tomorrow, the rest of the fortnight's, and what's to check back in.
+  const lists = standing(view, today)
+  const toPick = lists['to-pick']
+  const stillOut = lists['still-out']
+  const later = soon.filter((p) => !toPick.includes(p))
   if (soon.length === 0 && stillOut.length === 0) return null
   // The word Home used for the same jobs, so the tile's count is found here (audit, 5 November 2026, finding 92).
   const when = (s: { start: string; end: string } | undefined) =>
     !s || s.end < today ? '' : s.start < today ? 'On now: ' : s.start === today ? 'Today: ' : s.start === addDays(today, 1) ? 'Tomorrow: ' : ''
-  const row = (p: PickList, said: string, tone: string) => (
+  const row = (p: PickList) => (
     <li key={p.job.id}>
       <a className="job-row" href={`#jobs/${p.job.id}/pick`}>
         <div>
@@ -475,7 +508,9 @@ function PickLists({ view }: { view: View }) {
           </p>
         </div>
         <div className="side">
-          <small className={`flag ${tone}`}>{said}</small>
+          <small className={`flag ${p.out >= p.need ? 'ok' : ''}`}>
+            {p.out} of {p.need} out
+          </small>
         </div>
       </a>
     </li>
@@ -484,17 +519,30 @@ function PickLists({ view }: { view: View }) {
     <section className="card pick-lists" aria-label="Pick lists">
       <Heading icon="pick-list">Pick lists</Heading>
       {/* Today's work first, then what's late back, latest first with the rest on request (audit, 20 October 2026, finding 99; ADR 0017). */}
-      {soon.length > 0 && (
+      {toPick.length > 0 && (
+        <>
+          <h3>{listHeading(STANDING_HEADINGS['to-pick'], toPick.length)}</h3>
+          <ul className="job-list">{toPick.map(row)}</ul>
+        </>
+      )}
+      {later.length > 0 && (
         <>
           <h3>Going out in the next two weeks</h3>
-          <ul className="job-list">{soon.map((p) => row(p, `${p.out} of ${p.need} out`, p.out >= p.need ? 'ok' : ''))}</ul>
+          <ul className="job-list">{later.map(row)}</ul>
         </>
       )}
       {stillOut.length > 0 && (
         <>
-          <h3>Still out after the job</h3>
-          <ShowAll items={stillOut} limit={5} what="jobs">
-            {(rows) => <ul className="job-list">{rows.map((p) => row(p, `${p.stillOut} still out`, 'bad'))}</ul>}
+          <h3>{listHeading(STANDING_HEADINGS['still-out'], stillOut.length)}</h3>
+          {/* Past its days to come back and two more stays in view, amber, under the fold too (ADR 0109). */}
+          <ShowAll items={stillOut} limit={5} what="jobs" keep={(k) => k.late}>
+            {(rows) => (
+              <ul className="job-list">
+                {rows.map((k) => (
+                  <StillOutRow key={k.job.id} k={k} />
+                ))}
+              </ul>
+            )}
           </ShowAll>
         </>
       )}

@@ -36,8 +36,8 @@ addEventListener('hashchange', () => {
   if (asked && asked.hash !== location.hash) asked = undefined
 })
 
-/** A heading's words without the count it ends with: "Answers to check (24)" is "Answers to check". */
-export const partLabel = (text: string) => text.replace(/\s+/g, ' ').trim().replace(/\s*\(\d[\d,]*\)$/, '')
+/** A heading's words without its count and what's said after it: "Answers to check (24) · 1 running late" is "Answers to check". */
+export const partLabel = (text: string) => text.replace(/\s+/g, ' ').trim().replace(/\s*\(\d[\d,]*\)(?: · .*)?$/, '')
 
 /** The part's heading on the screen, once it's drawn: a card's heading or a heading inside one. */
 export function partHeading(part: string): HTMLElement | undefined {

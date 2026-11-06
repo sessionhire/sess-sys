@@ -323,7 +323,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .app .job-row small.flag { font-weight: 700; }
 .app .kit-short { border-color: var(--warn); }
 .app .kit-short h2 { color: var(--warn); }
-.app .pick-lists h3 { margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+/* A card's groups on Stock, each under a small head of its own; the ones Home's counts land on carry their number. */
+.app .pick-lists h3, .app .kit-short h3 { margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 /* Something just added: kit on a job, items and counts on Stock. */
 /* It worked, so it's quiet (the design system's "healthy is quiet", green never for "saved"): ink on the inset surface, the words saying what was done. */
 .app .added { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); background: var(--ds-surface-inset); color: var(--ink); font-size: var(--text-small); }

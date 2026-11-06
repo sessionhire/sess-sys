@@ -1,19 +1,20 @@
-import { answersToCheck, canApproveLeave } from '@sh/shared'
+import { canApproveLeave, standing } from '@sh/shared'
 import type { View } from '@sh/shared'
-import { inDepartment, useMyDepartment } from '../Narrowed.tsx'
+import { useMyDepartment } from '../Narrowed.tsx'
 import { useAccess } from '../role.ts'
 import { useToday } from '../view.ts'
 import { Views } from '../Views.tsx'
-import { calendarAnswersToSortOut } from './CrewScreen.tsx'
 import { useMe } from './Leave.tsx'
 
 /**
  * Crew's row (ADR 0041): the calls and the answers to check, the people,
  * staff leave and timesheets. Calls and Leave count what the Crew tab's
- * badge counts between them, so the badge says which page to open;
- * Timesheets counts those to approve. Calls and Timesheets count only for
- * a role that can act on them (audit of 18 October). Timesheets is left
- * off the row while the company doesn't use them (ADR 0090).
+ * badge counts between them, so the badge says which page to open, and
+ * each is the list its page heads with, read from the same place as Home's
+ * counts (shared/src/sync/standing.ts); Timesheets counts those to approve.
+ * Calls and Timesheets count only for a role that can act on them (audit of
+ * 18 October). Timesheets is left off the row while the company doesn't
+ * use them (ADR 0090).
  */
 export function CrewViews({ view, current }: { view: View; current: string }) {
   const today = useToday()
@@ -23,7 +24,7 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
   const department = useMyDepartment()
   const calls = mayCrew ? crewToCheck(view, today, department) : 0
   // What's theirs to decide: their own request is another approver's (audit, 5 November 2026, finding 28).
-  const leave = canApproveLeave(me) ? leaveToDecide(view, me).length : 0
+  const leave = canApproveLeave(me) ? leaveToDecide(view, today, me).length : 0
   return (
     <Views
       label="Crew pages"
@@ -39,18 +40,14 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
 }
 
 /**
- * What waits on the office under Calls: answers to check or sort out, anyone running late, documents sent in. For a department,
- * its people's, as Answers to check lists them narrowed: an answer on Google Calendar isn't anyone's department.
+ * What waits on the office under Calls, as Answers to check heads it: answers to check or sort out, documents sent in, and
+ * anyone running late. For a department, its people's, as Answers to check lists them narrowed: an answer on Google Calendar
+ * isn't anyone's department.
  */
 export function crewToCheck(view: View, today: string, department?: string): number {
-  const theirs = inDepartment(department || undefined)
-  return (
-    answersToCheck(view.crew, today).filter((a) => theirs(a.offer.person)).length +
-    (department ? 0 : calendarAnswersToSortOut(view, today).length) +
-    view.late.toCheck.filter((n) => theirs(n.person)).length +
-    view.documents.toCheck.filter((d) => theirs(d.person)).length
-  )
+  const waiting = standing(view, today, { department: department || undefined })
+  return waiting.answers.length + waiting.late.length
 }
 
 /** The leave waiting on an approver: everyone's but their own, which another approver decides. */
-export const leaveToDecide = (view: View, me: { id: string } | undefined) => view.leave.queue.filter((q) => q.person?.id !== me?.id)
+export const leaveToDecide = (view: View, today: string, me: { id: string } | undefined) => standing(view, today, { me }).leave

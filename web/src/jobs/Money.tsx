@@ -20,6 +20,7 @@ import {
   RATE_LABELS,
   RATE_RULES,
   RATE_UNIT,
+  standing,
   vatPeriodOf,
   vatSummaryCsv,
   type CostRow,
@@ -37,9 +38,11 @@ import {
   spanLabel,
   suggestionLine,
   type EnquiryReading,
+  STANDING_HEADINGS,
 } from '@sh/shared'
 import { Fragment, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
+import { arrive } from '../arrival.ts'
 import { Empty } from '../Empty.tsx'
 import { ShowAll } from '../Fold.tsx'
 import { Heading } from '../Icon.tsx'
@@ -175,7 +178,7 @@ export function ToFollowUp({ view }: { view: View }) {
       )}
       {starting && <NewQuote view={view} onCancel={() => setStarting(false)} />}
       {none && !starting && <Empty>No quote is waiting on anyone. Start a new one here, or from a job's page.</Empty>}
-      <QuoteGroups f={f} />
+      <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
     </section>
   )
 }
@@ -183,7 +186,11 @@ export function ToFollowUp({ view }: { view: View }) {
 /** How many rows of each group To follow up and Accepted, unpaid draw before Show all (audit, 5 November 2026, finding 53). */
 const FOLLOW_SHOWN = 8
 
-function QuoteGroups({ f, chaseOnly }: { f: ReturnType<typeof quotesToFollow>; chaseOnly?: boolean }) {
+/**
+ * `lapsed`: every job whose dates passed with no answer, Home's count of them (ADR 0109): the ones with a quote sent are
+ * here, and the Board's fold has them all, enquiries that never had a quote too.
+ */
+function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotesToFollow>; chaseOnly?: boolean; lapsed?: number }) {
   const waiting = chaseOnly ? f.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS) : f.waiting
   return (
     <>
@@ -220,7 +227,18 @@ function QuoteGroups({ f, chaseOnly }: { f: ReturnType<typeof quotesToFollow>; c
       {/* Not a client to ring: the job happened without them, or went elsewhere (ADR 0109). */}
       {!chaseOnly && f.passed.length > 0 && (
         <div className="follow-group">
-          <h3>Dates passed with no answer</h3>
+          <h3>
+            Dates passed with no answer ({f.passed.length}
+            {lapsed > f.passed.length && ` of ${plural(lapsed, 'job')}`})
+          </h3>
+          {lapsed > f.passed.length && (
+            <p className="hint">
+              <a href="#jobs/board" onClick={() => arrive({ hash: '#jobs/board', part: STANDING_HEADINGS['no-answer'] })}>
+                All {lapsed} on the Board
+              </a>
+              , enquiries with no quote sent too.
+            </p>
+          )}
           <ShowAll items={f.passed} limit={FOLLOW_SHOWN} what="quotes" name="follow passed">
             {(shown) => (
               <ul className="plain">

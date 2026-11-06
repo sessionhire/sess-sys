@@ -1,6 +1,6 @@
 # ADR 0104: Stages, the tasks inside them, and one Next button
 
-- **Status:** accepted; amended by [ADR 0109](0109-next-and-the-stages-tell-the-truth.md) (Next checks the role and brings what it opens into view; unscanned kit, past jobs and past sales read truthfully)
+- **Status:** accepted; amended by [ADR 0109](0109-next-and-the-stages-tell-the-truth.md) (Next checks the role and brings what it opens into view; unscanned kit, past jobs and past sales read truthfully), and by Move 3 of the [UX sweep of 6 November 2026](../ux-sweep-2026-11-06.md) (kit late back is drawn amber, not bad)
 - **Date:** 1 November 2026
 - **Asked for by:** Colly ("The multistep flow (of the enquiry to quote, to
   quote confirmed, to crew booking, to logistics planning, pick lists, to
@@ -143,4 +143,4 @@ The stage line on list rows (`StageLine.tsx`): five segments and the stage's nam
 
 ## Part 3, 1 November 2026
 
-Jobs › Board (`BoardScreen.tsx`, `#jobs/board`), beside List, Week and Month: a column per stage and a sixth for the jobs through every stage in the last month, a card per job, soonest first, each with the one line that says what is short or waiting and for how long (warn when short, bad when a task is late or kit is still out days after the job). Next 8 weeks or all coming up. Read only, as Kanban's board is a view of the work, not the work: a job moves when its own records do. Everyone who sees Jobs sees it; nothing about money is on it.
+Jobs › Board (`BoardScreen.tsx`, `#jobs/board`), beside List, Week and Month: a column per stage and a sixth for the jobs through every stage in the last month, a card per job, soonest first, each with the one line that says what is short or waiting and for how long (warn when short or when kit is late back, past the job's days to come back and two more; bad when a task is late). Next 8 weeks or all coming up. Read only, as Kanban's board is a view of the work, not the work: a job moves when its own records do. Everyone who sees Jobs sees it; nothing about money is on it.

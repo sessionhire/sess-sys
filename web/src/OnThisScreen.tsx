@@ -36,7 +36,8 @@ function partsIn(app: Element): Part[] {
     .filter((h) => h.closest('.app') === app && h.getClientRects().length > 0 && (!tab || tab.contains(h)))
     .map((heading) => {
       const text = heading.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-      const [, label, count] = /^(.*?)\s*\((\d[\d,]*)\)$/.exec(text) ?? [, text, undefined]
+      // The count in brackets, with anything said after it ("Answers to check (24) · 1 running late") left to the heading.
+      const [, label, count] = /^(.*?)\s*\((\d[\d,]*)\)(?: · .*)?$/.exec(text) ?? [, text, undefined]
       return { label: label ?? text, count, heading }
     })
     .filter((p) => p.label)

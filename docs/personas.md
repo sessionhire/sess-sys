@@ -185,7 +185,7 @@ step where. **Bold** is a step the app does today.
 | **Call sheet sent** | O | A job's call sheet |
 | **Kit picked and scanned out** | W | A job's pick list; Home for the warehouse |
 | **On the day: running late, call sheet** | F, S, O | Their link's day card; Crew › Answers to check |
-| **Kit scanned back, faults logged** | W | The pick list; Stock › Faults and repairs |
+| **Kit scanned back, faults logged** | W | The pick list; Stock › Repairs |
 | **Timesheet sent** | F | Their link › Timesheets |
 | **Timesheet approved** | O, H | Crew › Timesheets; Home |
 | **Invoiced, paid** | D, O | Recorded on the job's quote; owed and paid on Jobs › Money |

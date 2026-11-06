@@ -84,9 +84,12 @@ test('Home for a department counts the crew its calls still need', async ({ brow
   await expect(page.getByRole('heading', { name: 'Needs attention in Video' })).toBeVisible()
   await expect(page.locator('.standing').getByRole('link', { name: /call(s)? still need(s)? crew/ })).toBeVisible()
 
-  // The count opens the list it counted (audit, 20 October 2026, finding 4): Crew needed, in view, narrowed to Video.
-  await page.locator('.standing').getByRole('link', { name: /call(s)? still need(s)? crew/ }).click()
-  const needed = page.getByRole('heading', { name: 'Crew needed' })
+  // The count opens the list it counted (audit, 20 October 2026, finding 4): Crew needed's calls short of crew, in view,
+  // narrowed to Video, headed with the count's own number (Move 3 of the sweep of 6 November 2026).
+  const tile = page.locator('.standing').getByRole('link', { name: /call(s)? still need(s)? crew/ })
+  const count = (await tile.locator('b').textContent())!
+  await tile.click()
+  const needed = page.getByRole('heading', { name: `Short of crew (${count})`, exact: true })
   await expect(needed).toBeFocused()
   await expect(needed).toBeInViewport()
   await expect(page.getByLabel('Calls for department')).toHaveValue('Video')

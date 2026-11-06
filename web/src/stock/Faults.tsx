@@ -13,6 +13,8 @@ import {
   type FaultView,
   type Model,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
 } from '@sh/shared'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -349,13 +351,14 @@ export function RepairList({ view }: { view: View }) {
   const chosen = department !== 'all' && present.includes(department) ? department : 'all'
   const open = chosen === 'all' ? inNarrowed : inNarrowed.filter((f) => departmentOf(f) === chosen)
   const groups: [string, FaultView[]][] = [
-    ["Damaged, can't go out", open.filter((f) => f.kind === 'damaged' && f.stops)],
+    [STANDING_HEADINGS['damaged-stopped'], open.filter((f) => f.kind === 'damaged' && f.stops)],
     ['Damaged, fit to go out', open.filter((f) => f.kind === 'damaged' && !f.stops)],
     ['Missing', open.filter((f) => f.kind === 'missing')],
   ]
   return (
-    <section className="card faults repairs" aria-label="Faults and repairs" ref={card}>
-      <Heading icon="repair">Faults and repairs</Heading>
+    <section className="card faults repairs" aria-label="Repairs open" ref={card}>
+      {/* One name for the list on Stock's row, Home's count, the page and the Menu, with Home's count (Move 3 of the sweep of 6 November 2026). */}
+      <Heading icon="repair">{listHeading(STANDING_HEADINGS.faults, inNarrowed.length)}</Heading>
       <Narrowed department={narrowed} onWiden={widen} />
       <p className="hint">Kit that can't go out is taken off what's free for jobs until it's fixed or found.</p>
       {!narrowed && present.length > 1 && (
@@ -374,9 +377,7 @@ export function RepairList({ view }: { view: View }) {
         .filter(([, faults]) => faults.length > 0)
         .map(([title, faults]) => (
           <div className="repair-group" key={title}>
-            <h3>
-              {title} ({faults.length.toLocaleString('en-IE')})
-            </h3>
+            <h3>{listHeading(title, faults.length)}</h3>
             <ul className="fault-list">
               {faults.map((f) => (
                 <FaultItem key={f.id} f={f} linked />

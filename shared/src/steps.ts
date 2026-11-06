@@ -87,6 +87,15 @@ export const STEP_LINES: Record<JobStep, string> = {
  */
 export const SETTLED_AFTER_DAYS = 14
 
+/**
+ * Kit still to check back in this many days past a job's own days to bring
+ * it back (ADR 0031) is late, and drawn amber wherever it's listed: the
+ * day after the job is the warehouse's work, and two days' grace keeps a
+ * weekend from turning every Friday show amber (Move 3 of the sweep of 6
+ * November 2026).
+ */
+export const LATE_BACK_AFTER_DAYS = 2
+
 /** A task's record: who it's down to, the day it's due by, and the tick, when it was ticked by hand. */
 export interface StepRecord {
   /** The job and the step, together: one record each. */

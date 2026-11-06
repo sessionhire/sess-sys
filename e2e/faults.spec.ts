@@ -213,7 +213,8 @@ test('damaged and missing kit, reported on return, then fixed, found and written
 
   // Stock's Repairs page.
   await page.goto('/#stock/repairs')
-  const repairs = page.getByRole('region', { name: 'Faults and repairs' })
+  const repairs = page.getByRole('region', { name: 'Repairs open' })
+  await expect(repairs.getByRole('heading', { level: 2 })).toHaveText(/^Repairs open \(\d+\)$/)
   await expect(repairs.getByRole('listitem', { name: `${speakers[0]} ${speaker}` })).toContainText("Damaged, can't go out")
   await expect(repairs.getByRole('listitem', { name: `2 × ${cable}` })).toContainText('Cut near the plug')
   await expect(repairs.getByRole('listitem', { name: `3 × ${cable}` })).toContainText(`Missing · From ${job}`)
