@@ -7,9 +7,11 @@ import { expect, test } from '@playwright/test'
  * it; a rate it can't read is refused under the field, where the page
  * lands; Enter in the rate field sends the rate, never accepting the job
  * at the offered rate; the calendar address is a field to copy, with
- * Subscribe; and what's over is two dated lists. Uses the made-up data
- * (ADR 0019), so it starts fresh before and after: the other tests share
- * this server.
+ * Subscribe; and what's over is two dated lists. A member of staff's link
+ * has their leave in place of days off, with the way to ask for it in the
+ * app, and turns down days off posted from a page kept from before. Uses
+ * the made-up data (ADR 0019), so it starts fresh before and after: the
+ * other tests share this server.
  */
 
 const phoneSize = { width: 390, height: 844 }
@@ -109,6 +111,56 @@ test('a clash is shown before the server says it, a refusal shows in the offer�
   await copy.click()
   await expect(copy).toHaveText('Copied')
   expect(await scripted.evaluate(() => navigator.clipboard.readText())).toMatch(/\/cal\/[\w-]{24}\.ics$/)
+
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test("a member of staff's link lists their leave, with the way to ask for it in the app, and turns down days off in the app's words", async ({ browser, request }) => {
+  // Proves (UX sweep, 6 November 2026, move 6): staff time off is leave, approved in the app (ADR 0024), so a staff link lists
+  // what's asked for and approved under Leave, with the way to the app's Leave, and draws no Add days off; and a page kept from
+  // before, the form still on it, has its days off turned down in the app's words where it lands, with nothing marked.
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const { changes } = (await (await request.get('/api/sync/pull?after=0')).json()) as { changes: { entity: string; data: { name: string; linkToken: string } }[] }
+  const cian = changes.find((c) => c.entity === 'person' && c.data.name === 'Cian Murphy')!
+
+  // On his phone with no script: his week away, asked for in the app and waiting on Aoife, and no form to mark days off.
+  const phone = await (await browser.newContext({ viewport: phoneSize, javaScriptEnabled: false })).newPage()
+  await phone.goto(`/f/${cian.data.linkToken}`)
+  const leave = phone.locator('section', { has: phone.getByRole('heading', { level: 2, name: 'Leave', exact: true }) })
+  await expect(leave.getByRole('listitem')).toHaveCount(1)
+  await expect(leave.getByRole('listitem')).toContainText(/^\w{3} \d{1,2} \w{3}.* to \w{3} \d{1,2} \w{3}.* Annual leave · Flights booked, if that suits\./)
+  await expect(leave.locator('.tag')).toHaveText('Waiting')
+  await expect(leave.getByRole('link', { name: 'Ask for leave in the app ›' })).toHaveAttribute('href', /^http:\/\/localhost:\d+\/#crew\/leave$/)
+  await expect(phone.getByRole('heading', { name: "Days you can't work" })).toHaveCount(0)
+  await expect(phone.getByRole('button', { name: 'Add days off' })).toHaveCount(0)
+
+  // A page kept from before has the form still on it: drawn back in here, as it was, and sent. Turned down in the app's
+  // words, said in Leave where the page lands, and nothing marked.
+  const kept = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await kept.goto(`/f/${cian.data.linkToken}`)
+  expect(await kept.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(phoneSize.width)
+  await kept.locator('section#away').evaluate((section) => {
+    section.insertAdjacentHTML(
+      'beforeend',
+      `<form method="post" action="${location.pathname}/away#refused" class="add-away"><label>From <input type="date" name="start" required></label><label>Until <input type="date" name="end"></label><label>Note (optional) <input name="note"></label><button>Add days off</button></form>`
+    )
+  })
+  const form = kept.locator('form.add-away')
+  await form.getByLabel('From').fill(new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10))
+  await form.getByLabel('Note (optional)').fill('Gig in Galway')
+  await form.getByRole('button', { name: 'Add days off' }).click()
+  await expect(kept).toHaveTitle('Error: Session Hire: your work')
+  const said = kept.locator('section', { has: kept.getByRole('heading', { level: 2, name: 'Leave', exact: true }) })
+  await expect(said.getByRole('alert')).toHaveText('Staff ask for leave in the app, under Leave, where whoever approves time off sees it.')
+  await expect(said.getByRole('alert')).toBeInViewport()
+  await expect(said.getByRole('listitem')).toHaveCount(1)
+  await expect(said.getByRole('button', { name: 'Add days off' })).toHaveCount(0)
+
+  // Ask for leave in the app opens the app's Leave, where he asks and Aoife approves.
+  await said.getByRole('link', { name: 'Ask for leave in the app ›' }).click()
+  await expect(kept).toHaveURL(/\/#crew\/leave$/)
+  await expect(kept.getByRole('heading', { level: 1, name: 'Leave' })).toBeVisible()
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })

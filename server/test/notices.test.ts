@@ -81,6 +81,26 @@ describe('notifications', () => {
     expect((await notices(aoife)).notices.some((n) => n.who.name === 'Aoife Byrne')).toBe(false)
   })
 
+  it('leaves out what someone answered on their own link, which is their own change (UX sweep, 6 November 2026, move 6)', async () => {
+    // Proves: Aoife's yes on her own page is hers, so it isn't news to her, as her answer in the app isn't; it goes to Colly, who sent the offer.
+    const { app, colly, aoife, notices } = await setUp()
+    await colly.send('offer.send', { id: 'o1', callId: 'c1', personId: 'aoife', override: false })
+    const token = (await colly.record<Person>('person', 'aoife')).linkToken
+    // Hers is a member of staff's page, so it opens for her Google sign-in (ADR 0052).
+    const res = await app.inject({
+      method: 'POST',
+      url: `/f/${token}/offers/o1`,
+      cookies: aoife.cookies,
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: 'answer=accept',
+    })
+    expect(res.statusCode).toBe(303)
+    expect((await notices(colly)).notices[0]).toMatchObject({ who: { kind: 'link', name: 'Aoife Byrne' }, what: 'Aoife Byrne accepted Audio tech on Electric Picnic', why: 'sent' })
+    const hers = (await notices(aoife)).notices
+    expect(hers.find((n) => n.about.id === 'o1')).toMatchObject({ command: 'offer.send', why: 'you' })
+    expect(hers.some((n) => n.command === 'offer.respond' || n.who.name === 'Aoife Byrne')).toBe(false)
+  })
+
   it("says what someone else's yes means for an offer of theirs it closed", async () => {
     // Proves: Dara's yes filled the one place left, closing Aoife's open offer with it, and her list says her offer is closed, not only that
     // Dara accepted (audit, 5 November 2026, finding 61).

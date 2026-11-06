@@ -114,6 +114,9 @@ function cardOf(html: string, offerId: string) {
   return html.slice(from, html.indexOf('</article>', from))
 }
 
+/** A page as it reads, whichever of its spaces a line never breaks at. */
+const said = (html: string) => html.replace(/ /g, ' ')
+
 /**
  * Where a refused post's page lands: the forms post to an address ending in #refused, and the page drawn again gives
  * that id to one place, the field the refusal is about or the refusal itself. Its opening tag, and what follows it.
@@ -442,7 +445,8 @@ describe('freelancer link', () => {
 
   it('draws the next three bookings in full and the rest as a line each, opening in place (audit, 20 October 2026, finding 48)', async () => {
     // Proves: at volume the page doesn't draw every booking as a full card; the soonest three are, and the rest fold to
-    // the job, role, days and status, opening with no script; one a refused post is about opens by itself.
+    // the row the app draws, the job, then role · phase · days · call, then the status, opening with no script; one a
+    // refused post is about opens by itself.
     const app = await server()
     const aoife = await person(app, 'Aoife Byrne')
     const booked: string[] = []
@@ -460,7 +464,8 @@ describe('freelancer link', () => {
     expect(full.slice(0, 3)).toEqual([booked[1], booked[3], booked[5]])
     expect(section).toContain('2 more bookings after these, a line each: tap one to open it.')
     expect(section.match(/<details class="later">/g)).toHaveLength(2)
-    expect(section).toContain('<summary><b>Gig 7</b> · Audio tech · Sat 17 Oct <span class="tag confirmed">Confirmed</span></summary>')
+    // As it reads; the spaces a line never breaks at are the shared row's own (shared/test/bookings.test.ts).
+    expect(said(section)).toContain('<summary><b>Gig 7</b><span class="line">Audio tech · Build · Sat 17 Oct · call 08:00 <span class="tag confirmed">Confirmed</span></span></summary>')
     expect(section.indexOf('Gig 7')).toBeLessThan(section.indexOf('Gig 9'))
     // The glance line stays in view as the page scrolls.
     expect(page).toMatch(/\.glance\{[^}]*position:sticky/)
@@ -481,7 +486,7 @@ describe('freelancer link', () => {
     expect(full.slice(0, 3)).toEqual([made[1], made[3], made[5]])
     expect(section).toContain('2 more offers after these, a line each: tap one to answer it.')
     expect(section.match(/<details class="later">/g)).toHaveLength(2)
-    expect(section).toContain('<summary><b>Gig 7</b> · Audio tech · Sat 17 Oct · reply by Sat 17 Oct <span class="tag offered">')
+    expect(said(section)).toContain('<summary><b>Gig 7</b><span class="line">Audio tech · Build · Sat 17 Oct · call 08:00 · reply by Sat 17 Oct <span class="tag offered">')
   })
 
   it('publishes bookings as a calendar feed any calendar app can subscribe to', async () => {
@@ -645,6 +650,71 @@ describe('the freelancer page (audit finding 21)', () => {
     expect(timesheet).toContain('Staff are paid through payroll')
     expect(timesheet).not.toContain('€250')
     expect(timesheet).not.toContain('to agree')
+  })
+
+  it("gives a member of staff Leave in place of days off, with no form, and turns a days-off post down in the app's words", async () => {
+    // Proves (UX sweep, 6 November 2026, move 6): a staff link lists their leave to come, approved and waiting, from the
+    // requests, and the way to ask for more in the app, where it's approved (ADR 0024); it draws no Add days off, and a
+    // page kept from before that posts one anyway is turned down with nothing marked. Days off marked before stay, to read
+    // and take back, until they've passed. A freelancer's page keeps Days you can't work and its form.
+    const app = await server()
+    const id = newId()
+    await send(app, 'person.upsert', { id, name: 'Orla Hayes', kind: 'staff', email: null, phone: null, skills: ['LX'], dayRateCents: null, notes: '' })
+    const orla = await entity<Person>(app, 'person', id)
+    const today = irishToday()
+    // 2031, opened for leave as a migration opens a year, for its fixed weekdays: Monday 3 to Friday 7 March, and Tuesday the 18th.
+    await lastDb.query('INSERT INTO leave_years (year) VALUES (2031) ON CONFLICT DO NOTHING')
+    await send(app, 'person.upsert', { id: 'eoin', name: 'Eoin Byrne', kind: 'staff', email: null, phone: null, skills: [], dayRateCents: null, notes: '', approvesLeave: true })
+    expect(await send(app, 'leave.request', { id: 'away-week', personId: id, type: 'annual', start: '2031-03-03', end: '2031-03-07', note: 'Family wedding' })).toMatchObject({ status: 'applied' })
+    expect(await send(app, 'leave.request', { id: 'one-day', personId: id, type: 'annual', start: '2031-03-18', end: '2031-03-18', note: '' })).toMatchObject({ status: 'applied' })
+    expect(await send(app, 'leave.decide', { id: 'away-week', approved: true, reason: '', by: 'eoin' })).toMatchObject({ status: 'applied' })
+    // Days off marked before staff time off was leave, and a run of them already over.
+    await send(app, 'unavailability.add', { id: 'course', personId: id, start: addDays(today, 3), end: addDays(today, 3), note: 'First aid course' })
+    await send(app, 'unavailability.add', { id: 'over', personId: id, start: addDays(today, -9), end: addDays(today, -8), note: 'Old course' })
+
+    const page = (await app.inject({ url: `/f/${orla.linkToken}` })).body
+    const leave = page.slice(page.indexOf('<section id="away">'), page.indexOf('</section>', page.indexOf('<section id="away">')))
+    expect(leave).toContain('<h2>Leave</h2>')
+    expect(leave).not.toContain("Days you can't work")
+    expect(leave).not.toContain('Add days off')
+    expect(leave).not.toContain(`/f/${orla.linkToken}/away#refused`)
+    // Soonest first: the days off marked before and still to come, the approved week, then the day still waiting.
+    const rows = [...leave.matchAll(/<li><span>([^<]*) <small>([^<]*)<\/small><\/span>/g)].map((m) => [m[1], m[2]])
+    expect(rows).toEqual([
+      [dayLabel(addDays(today, 3), today), 'Days off · First aid course'],
+      ['Mon 3 Mar 2031 to Fri 7 Mar 2031', 'Annual leave · Family wedding'],
+      ['Tue 18 Mar 2031', 'Annual leave'],
+    ])
+    expect(leave.match(/<span class="tag (approved|waiting)">(Approved|Waiting)<\/span>/g)).toEqual(['<span class="tag approved">Approved</span>', '<span class="tag waiting">Waiting</span>'])
+    // Approved leave marks its days off too, and isn't said twice; the days off marked before keep their Remove.
+    expect(leave).not.toContain('Approved leave')
+    expect(leave).toContain(`/f/${orla.linkToken}/away/course/remove#away`)
+    expect(leave).not.toContain('Old course')
+    expect(leave).toMatch(/<a class="sheet-link" href="http:\/\/localhost[:\d]*\/#crew\/leave">Ask for leave in the app ›<\/a>/)
+    // Nor does sharing their own calendar offer itself in place of marking days here.
+    expect(page).toContain("You can let us see when you're busy in the calendar you already use")
+    expect(page).not.toContain('Rather than marking days here')
+
+    // A page kept from before, posting days off anyway: turned down in the app's words, over the list, and nothing marked.
+    const posted = await app.inject({
+      method: 'POST',
+      url: `/f/${orla.linkToken}/away`,
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: `start=${addDays(today, 40)}&end=${addDays(today, 41)}&note=Gig`,
+    })
+    expect(posted.statusCode).toBe(422)
+    expect(flashOf(posted.body)).toMatchObject({ ok: false, message: 'Staff ask for leave in the app, under Leave, where whoever approves time off sees it.' })
+    expect(posted.body.indexOf('<p class="flash bad" role="alert" id="refused">')).toBeGreaterThan(posted.body.indexOf('<h2>Leave</h2>'))
+    const { rows: marked } = await lastDb.query('SELECT 1 FROM unavailability WHERE person_id = $1 AND start_day = $2', [id, addDays(today, 40)])
+    expect(marked).toHaveLength(0)
+
+    // A freelancer's page is as it was.
+    const aoife = await person(app, 'Aoife Byrne')
+    const hers = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    expect(hers).toContain("<h2>Days you can't work</h2>")
+    expect(hers).toContain('<button>Add days off</button>')
+    expect(hers).toContain("Rather than marking days here, you can let us see when you're busy")
+    expect(hers).not.toContain('Ask for leave in the app')
   })
 
   it('splits what is over into past work and offers that ended another way, each with its days and the day it ended', async () => {

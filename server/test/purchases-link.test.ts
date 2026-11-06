@@ -36,6 +36,9 @@ describe('the purchase list on a freelancer’s link', () => {
     expect(await colly.send('purchase.vote', { requestId: 'gaff', vote: true })).toMatchObject({ status: 'applied' })
     const home = (await app.inject({ url: dara })).body
     expect(home).toMatch(/href="[^"]*\/buy">The purchase list: 2 asked for ›<\/a>/)
+    // The card's own words say what it is, with no kicker over them (UX sweep, 6 November 2026, Colly's question 12).
+    expect(home).toMatch(/<section id="buy">\s*<a class="sheet-link"/)
+    expect(home).not.toContain('Kit to buy</h2>')
     const page = await app.inject({ url: `${dara}/buy` })
     expect(page.statusCode).toBe(200)
     expect(page.headers['cache-control']).toBe('no-store')

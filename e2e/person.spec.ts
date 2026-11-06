@@ -6,7 +6,8 @@ import { expect, test } from '@playwright/test'
  * they're booked on and offered, their days off, what they hold, what
  * they've worked and their link. A booking's job opens from it, the call
  * card's name and the planner's lane open it, and archiving from it goes
- * back to the list, which says so with the way back. The test server is
+ * back to the list, which says so with the way back. Their own page says
+ * Your bookings, and an offer on it opens their link. The test server is
  * shared with the other browser tests, so every name here is this run's own.
  */
 
@@ -54,6 +55,8 @@ test("a person's name opens their page, with what's ahead for them and the way b
   // What's ahead: the offer waiting on her, opening its job, and her days off.
   const ahead = office.getByRole('region', { name: 'Coming up' })
   await expect(ahead.getByRole('link', { name: new RegExp(`^${job}`) })).toContainText('Offered')
+  // Hers to answer, not the office's: her offer opens its job here, with nothing asking the reader to answer it.
+  await expect(ahead.getByText('Answer it on your page ›')).toHaveCount(0)
   await expect(ahead).toContainText('Off ')
   await expect(ahead).toContainText('(On tour)')
   // The other parts, one at a time, each in the address.
@@ -87,6 +90,56 @@ test("a person's name opens their page, with what's ahead for them and the way b
   await office.getByRole('link', { name: '‹ All people' }).click()
   await expect(office).toHaveURL(/#crew\/people$/)
   await expect(people.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
+})
+
+test('their own page says Your bookings, as Home › Me does, and an offer there opens their link to answer it', async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, move 6): on the reader's own page the list of what's booked and offered is "Your
+  // bookings", the name Home › Me and their link give it, each row the job, then role · phase · days · call, then the pill;
+  // an offer reads "Answer it on your page ›" and opens their link at its offers, where it's answered (ADR 0034). Sign-in is
+  // off here, so who they are is who this device says, as on Home › Me.
+  const name = `Niamh Own ${id}`
+  const job = `Own page ${id}`
+  const on = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+  const mutations: M[] = [
+    ['project.create', { id: k('own-job'), name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: k('own-show'), projectId: k('own-job'), name: 'Show', start: on(70), end: on(70), venueId: null, notes: '' }],
+    [
+      'call.create',
+      { id: k('own-call'), projectId: k('own-job'), phaseId: k('own-show'), project: job, phase: 'Show', venue: '', role: 'Audio tech', start: on(70), end: on(70), callTime: '08:00', needed: 1, dayRateCents: null, details: '', replyBy: null },
+    ],
+    ['person.upsert', { id: k('niamh'), name, kind: 'staff', email: `niamh.${id}@example.com`, phone: null, skills: ['Audio'], dayRateCents: null, notes: '' }],
+    ['offer.send', { id: k('own-offer'), callId: k('own-call'), personId: k('niamh'), override: false }],
+  ]
+  const context = await browser.newContext({ viewport: phoneSize })
+  const res = await context.request.post('/api/sync/push', {
+    data: { clientId: `person-own-${id}`, mutations: mutations.map(([n, args], i) => ({ id: `${k('o')}-${i}`, name: n, args, createdAt: new Date().toISOString() })) },
+  })
+  expect((await res.json()).results.filter((r: { status: string }) => r.status !== 'applied')).toEqual([])
+
+  const page = await context.newPage()
+  await page.goto('/#home')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Me', exact: true }).click()
+  await page.getByLabel('Your name').selectOption({ label: name })
+  await page.getByRole('button', { name: "That's me" }).click()
+
+  await page.goto(`/#crew/person/${k('niamh')}`)
+  // The tab over the list says it too, and her link's tab is her page, as everything else in the app calls it: one name for
+  // each thing on the screen, by the one test of whose page it is.
+  const tabs = page.getByRole('tablist', { name: `About ${name}` })
+  await expect(tabs.getByRole('tab', { name: 'Your bookings' })).toHaveAttribute('aria-selected', 'true')
+  await expect(tabs.getByRole('tab', { name: 'Your page' })).toBeVisible()
+  await expect(tabs.getByRole('tab', { name: /^(Coming up|Their link)$/ })).toHaveCount(0)
+  const yours = page.getByRole('region', { name: 'Your bookings' })
+  await expect(yours.getByRole('heading', { level: 2 })).toHaveText('Your bookings')
+  await expect(page.getByRole('region', { name: 'Coming up' })).toHaveCount(0)
+  const offered = yours.getByRole('link', { name: new RegExp(`^${job}`) })
+  await expect(offered).toContainText(/Audio tech\s·\sShow\s·\s\w{3}\s\d{1,2}\s\w{3}(\s\d{4})?\s·\scall\s08:00/)
+  await expect(offered).toContainText('Offered')
+  await expect(offered).toContainText('Answer it on your page ›')
+  await expect(offered).toHaveAttribute('href', /\/f\/[\w-]{24}#offers$/)
+  await expect(offered).toHaveAttribute('target', '_blank')
+  await context.close()
 })
 
 test('archiving from the page goes back to the list, which says so with the way back', async ({ browser }) => {

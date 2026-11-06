@@ -30,6 +30,9 @@
 .home .today-row > .side { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-half) var(--ds-space-2); }
 @media (max-width: 479px) { .home .today-row .stage-line[data-compact] .stage-seg { display: none; } }
 
+/* Me's glance line, in the words at the top of their own page (UX sweep, 6 November 2026, move 6): each part a link, the room a thumb needs. */
+.home .my-glance { margin: 0; font-weight: 600; }
+
 /* The demo's choice of whose eyes to see it through (ADR 0033). */
 .preview .personas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--ds-space-3); }
 .preview .personas button { width: 100%; height: 100%; display: grid; align-content: start; gap: var(--ds-space-1); text-align: left; padding: var(--ds-space-4) var(--ds-space-4); border-radius: var(--radius-card); }

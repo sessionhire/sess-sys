@@ -15,6 +15,7 @@ import {
   linesOf,
   loadNotices,
   markAllRead,
+  offerToYou,
   pauseToast,
   placeOf,
   resumeToast,
@@ -64,7 +65,7 @@ export function Toaster() {
             </div>
             <div className="toast-actions">
               {t.href && (
-                <a className="button" href={t.href} onClick={() => dismissToast(t.id)}>
+                <a className="button" href={t.href} onClick={() => dismissToast(t.id)} {...(t.away ? { target: '_blank', rel: 'noreferrer' } : {})}>
                   {t.action}
                 </a>
               )}
@@ -170,7 +171,7 @@ export function NoticesScreen() {
               .filter((l) => l.day === d.day)
               .map((l) =>
                 l.kind === 'one' ? (
-                  <NoticeRow key={l.id} notice={l.notices[0]!} day={d.day} fresh={isNew(l.notices[0]!, mark)} href={placeOf(l.notices[0]!, view)} />
+                  <NoticeRow key={l.id} notice={l.notices[0]!} day={d.day} fresh={isNew(l.notices[0]!, mark)} view={view} />
                 ) : (
                   <LineRow key={l.id} line={l} day={d.day} mark={mark} view={view} />
                 ),
@@ -182,7 +183,11 @@ export function NoticesScreen() {
   )
 }
 
-function NoticeRow({ notice: n, day, fresh, href }: { notice: Notice; day: string; fresh: boolean; href?: string }) {
+function NoticeRow({ notice: n, day, fresh, view }: { notice: Notice; day: string; fresh: boolean; view: View }) {
+  // An offer to them is said to them, and opens their own page, where it's answered (UX sweep, 6 November 2026, move 6).
+  const yours = offerToYou(n, view)
+  const what = yours?.what ?? n.what
+  const href = yours?.href ?? placeOf(n, view)
   return (
     <li className={fresh ? 'entry notice new' : 'entry notice'}>
       <p>
@@ -193,7 +198,13 @@ function NoticeRow({ notice: n, day, fresh, href }: { notice: Notice; day: strin
             New<span className="sr-only">: </span>
           </span>
         )}
-        {href ? <a href={href}>{n.what}</a> : n.what}
+        {href ? (
+          <a href={href} {...(yours?.href ? { target: '_blank', rel: 'noreferrer' } : {})}>
+            {what}
+          </a>
+        ) : (
+          what
+        )}
       </p>
       {n.forYou && <p className="for-you">{n.forYou}</p>}
       <span className="meta">
