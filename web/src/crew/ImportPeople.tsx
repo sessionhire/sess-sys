@@ -1,4 +1,5 @@
 import {
+  type PersonView,
   bringInLabel,
   companyLine,
   EMAIL_HINT,
@@ -209,7 +210,7 @@ function Preview(p: {
         {p.preview.officeDomain === null ? (
           <p className="warn-line">No office email is set in Admin, so everyone comes in as a freelancer. Set it first to have company emails come in as staff.</p>
         ) : (
-          <p className="hint">Emails at {p.preview.officeDomain} come in as staff; the rest as freelancers. Levels come from Preferred and Onboarded; the office's own level is kept for anyone already here.</p>
+          <p className="hint">New people with emails at {p.preview.officeDomain} come in as staff; the rest as freelancers, their levels from Preferred and Onboarded. Anyone already here keeps the office's kind, level and day rate.</p>
         )}
         {leaving ? (
           <Confirm
@@ -229,7 +230,7 @@ function Preview(p: {
       <section className="card" aria-label="Rows">
         <ul className="found people-rows">
           {rows.map((r) => (
-            <RowCard key={r.row} row={r} was={r.matched ? p.view.crew.people.find((x) => x.id === r.matched!.id)?.email : undefined} onTyped={(field, value) => typed(r.row, field, value)} onSkip={(on) => skip(r.row, on)} />
+            <RowCard key={r.row} row={r} person={r.matched ? p.view.crew.people.find((x) => x.id === r.matched!.id) : undefined} onTyped={(field, value) => typed(r.row, field, value)} onSkip={(on) => skip(r.row, on)} />
           ))}
         </ul>
       </section>
@@ -262,28 +263,41 @@ function Preview(p: {
 /** One row as the app read it, with its fields to fix where it couldn't, and Skip. */
 function RowCard({
   row: r,
-  was,
+  person,
   onTyped,
   onSkip,
 }: {
   row: Row
-  /** The matched person's email now, to say when the file changes it. */
-  was: string | null | undefined
+  /** The matched person as they are now, to say what the file changes and what it keeps. */
+  person: PersonView | undefined
   onTyped: (field: keyof Row['typed'], value: string) => void
   onSkip: (on: boolean) => void
 }) {
+  const was = person?.email
   const newEmail = r.matched && r.email && was && r.email.trim().toLowerCase() !== was.trim().toLowerCase() ? r.email : undefined
   const by = (field: 'name' | 'email' | 'phone' | null) => r.problems.filter((x) => fieldOf(x) === field)
   const rate = parseEuro(r.dayRate)
-  const facts = [
-    r.kind === 'staff' ? 'Staff' : 'Freelancer',
-    r.department ?? 'no department',
-    levelLine(r.level),
-    r.skills.length ? plural(r.skills.length, 'skill', 'skills') : null,
-    rate.reason === undefined && rate.cents !== null ? `${euro(rate.cents)}/day` : null,
-    r.company ? companyLine(r) : null,
-    r.knownAs ? `goes by ${r.knownAs}` : null,
-  ].filter(Boolean)
+  // Someone already here keeps the office's kind, level and rate, whatever the file says (server/src/crew/import.ts), so their
+  // row says what changes and what stays, rather than the file's values as if they'd land (audit, 5 November 2026, finding 40).
+  const facts = (
+    person
+      ? [
+          r.department ?? null,
+          r.skills.length ? plural(r.skills.length, 'skill', 'skills') : null,
+          r.company ? companyLine(r) : null,
+          r.knownAs ? `goes by ${r.knownAs}` : null,
+        ]
+      : [
+          r.kind === 'staff' ? 'Staff' : 'Freelancer',
+          r.department ?? 'no department',
+          levelLine(r.level),
+          r.skills.length ? plural(r.skills.length, 'skill', 'skills') : null,
+          rate.reason === undefined && rate.cents !== null ? `${euro(rate.cents)}/day` : null,
+          r.company ? companyLine(r) : null,
+          r.knownAs ? `goes by ${r.knownAs}` : null,
+        ]
+  ).filter(Boolean)
+  const keeps = person && [person.kind === 'staff' ? 'Staff' : 'Freelancer', levelLine(person.level), person.dayRateCents != null ? `${euro(person.dayRateCents)}/day` : 'no day rate'].join(', ')
   return (
     <li className={r.skip ? 'is-off' : 'is-on'} aria-label={`Row ${r.row}`}>
       <div className="head">
@@ -293,11 +307,12 @@ function RowCard({
           Skip
         </label>
       </div>
-      <p>{facts.join(' · ')}</p>
+      {facts.length > 0 && <p>{person ? `From the file: ${facts.join(' · ')}` : facts.join(' · ')}</p>}
       {!r.fix && <p>{[r.email, r.phone].filter(Boolean).join(' · ') || 'No email or phone'}</p>}
       {r.matched && (
         <p className="updates">
           Updates <b>{r.matched.name}</b> (matched by {r.matched.by})
+          {keeps && `. Keeps ${keeps}: the office's.`}
         </p>
       )}
       {/* A new address is the main one from now on, and the old one still finds them, as on combining (audit, 5 November 2026, finding 10). */}

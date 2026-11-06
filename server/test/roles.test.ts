@@ -596,6 +596,9 @@ describe('what each role reads', () => {
     const s = { sh_session: await signIn(sean) }
     const feed = await pull(s)
     expect(feed.of('person', 'dara')).toMatchObject({ name: 'Dara Quinn', phone: '+353871234567', email: null, notes: '', detailsHidden: true })
+    // Her level is the office's: sent as the default, said to be hidden (audit, 5 November 2026, finding 44).
+    expect(feed.of('person', 'dara')).toMatchObject({ level: 1, levelHidden: true })
+    expect(feed.of('person', 'sean')?.levelHidden).toBeUndefined()
     expect(feed.of('document', 'd-dara')).toBeUndefined()
     expect(feed.of('document', 'd-sean')).toMatchObject({ personId: 'sean' })
     expect(feed.of('unavailability', 'away')).toMatchObject({ start: day(5), note: '' })

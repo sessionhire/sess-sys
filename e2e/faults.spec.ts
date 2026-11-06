@@ -140,6 +140,8 @@ test('damaged and missing kit, reported on return, then fixed, found and written
 
   // Back, with no signal.
   await context.setOffline(true)
+  // Said at once, not a minute later when the live connection is given up on (audit, 5 November 2026, finding 34).
+  await expect(page.locator('.conn')).toContainText('No signal', { timeout: 5_000 })
   await page.getByRole('button', { name: 'Coming back' }).click()
   await typeIn(speakers[0]!)
   await expect(said).toHaveText(`${speakers[0]} ${speaker} back: 1 of 3 back.`)
@@ -253,6 +255,6 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   await expect(cableFault.getByRole('group', { name: `Write off 3 × ${cable}? They're taken off the count, and it's kept in the history.` })).toBeVisible()
   await cableFault.getByRole('button', { name: 'Write it off' }).click()
   await page.getByRole('tab', { name: /^Details/ }).click()
-  await expect(page.locator('.facts')).toContainText("In all17 2 can't go out")
+  await expect(page.locator('.facts')).toContainText("In all17 · 2 can't go out")
   await expect(page.locator('.conn')).toHaveText('Up to date')
 })

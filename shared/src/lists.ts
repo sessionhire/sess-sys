@@ -239,14 +239,16 @@ export function quoteFilters(today: string): ListFilter<QuoteRow>[] {
 const surname = (p: PersonView) => (p.lastName?.trim() || p.name.trim().split(/\s+/).slice(1).join(' ') || p.name).trim()
 
 /** People's orders; `ahead` counts someone's bookings from today on, for "Most booked". */
-export function peopleSorts(ahead: (p: PersonView) => number): ListSort<PersonView>[] {
-  return [
+export function peopleSorts(ahead: (p: PersonView) => number, levels = true): ListSort<PersonView>[] {
+  const all: ListSort<PersonView>[] = [
     { key: 'name', label: 'First name, A to Z', compare: (a, b) => byName(a.name, b.name) },
     { key: 'surname', label: 'Last name, A to Z', compare: (a, b) => byName(surname(a), surname(b)) || byName(a.name, b.name) },
     { key: 'department', label: 'Department', compare: (a, b) => lastIfNone(a.department, b.department, byName) || byName(a.name, b.name) },
     { key: 'level', label: 'Highest level first', compare: (a, b) => b.level - a.level || byName(a.name, b.name) },
     { key: 'booked', label: 'Most booked ahead', compare: (a, b) => ahead(b) - ahead(a) || byName(a.name, b.name) },
   ]
+  // A reader the levels aren't sent to (audit, 5 November 2026, finding 44) isn't offered an order by them.
+  return levels ? all : all.filter((s) => s.key !== 'level')
 }
 
 /** No department, as a filter's choice; a department can't be typed with the tilde. */
@@ -271,13 +273,18 @@ export function peopleFilters(people: readonly PersonView[]): ListFilter<PersonV
         { key: 'freelancer', label: 'Freelancers', test: (p) => p.kind === 'freelancer' },
       ],
     },
-    {
+    // Not for a reader the levels aren't sent to (audit, 5 November 2026, finding 44).
+    ...(people.some((p) => p.levelHidden) ? [] : [levelFilter(people)]),
+  ]
+}
+
+function levelFilter(people: readonly PersonView[]): ListFilter<PersonView> {
+  return {
       key: 'level',
       label: 'Level',
       any: 'Any level',
       options: LEVELS.filter((l) => people.some((p) => p.level === l)).map((l) => ({ key: String(l), label: l === APPLICANT_LEVEL ? levelLine(l) : `Level ${l}`, test: (p) => p.level === l })),
-    },
-  ]
+  }
 }
 
 // The catalogue

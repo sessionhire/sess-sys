@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.83.0',
+    date: '2026-11-06',
+    title: "A job's and a person's own history, and quicker crew and warehouse work",
+    what: "A job and a person each have their own history, from a link at the foot of their page, holding only their changes. Damage can be reported on any item that's come back, not just the last one scanned. No signal shows as soon as the phone loses it. A product's In all line says how many can't go out, and opens them. The crew list preview says what a matched person keeps. People search finds a phone number or an email. Staff and freelancers no longer see crew levels, as with rates. Home waits while the phone is still catching up and says so, and the all clear says when there are tiles you don't see. Signing in opens Home. Tidy up's name boxes start with the name they have, so a right one is one press of Save, and Keep all these names as they are clears the rest.",
+    prs: [211],
+    adrs: [62],
+  },
+  {
     version: '1.82.0',
     date: '2026-11-06',
     title: 'Tasks counted on Home, and fewer slips in the office',

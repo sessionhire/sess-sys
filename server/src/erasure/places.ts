@@ -181,7 +181,7 @@ export const RECORDS: Record<PersonRecord, { table: string; madeBy: CommandName 
  * the hidden flags (ADR 0046) are only ever on what's sent, never stored.
  * Whether their name was checked (ADR 0068) says nothing about them, and stays.
  */
-const PERSON_COLUMNS: { [K in Exclude<keyof Person, 'id' | 'kind' | 'company' | 'rateHidden' | 'linkHidden' | 'detailsHidden' | 'photo' | 'nameChecked'>]: string } = {
+const PERSON_COLUMNS: { [K in Exclude<keyof Person, 'id' | 'kind' | 'company' | 'rateHidden' | 'linkHidden' | 'detailsHidden' | 'levelHidden' | 'photo' | 'nameChecked'>]: string } = {
   name: 'name',
   firstName: 'first_name',
   lastName: 'last_name',

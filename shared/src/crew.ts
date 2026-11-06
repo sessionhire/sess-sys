@@ -170,6 +170,11 @@ export const person = z.object({
    */
   detailsHidden: z.boolean().optional(),
   /**
+   * Set by the server alongside detailsHidden: their level is how much the office prefers them, and Level 0 is not vetted
+   * yet, so it's the office's, as the notes are, and sent as the default (audit, 5 November 2026, finding 44). Never stored.
+   */
+  levelHidden: z.boolean().optional(),
+  /**
    * Their photo (ADR 0065): when it was put up, which makes its address
    * (photoPath). Set by the server, never by an edit; none is their
    * initials. Not sent to a reader who doesn't read their details.

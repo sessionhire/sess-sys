@@ -151,3 +151,27 @@ test('downloads everything in one file, and the download shows in the history', 
   await page.getByRole('link', { name: /^History/ }).click()
   await expect(page.locator('.entry', { hasText: `Chrome on Linux, device ${code}` }).filter({ hasText: /^Downloaded everything \([\d,]+ rows\)/ })).not.toHaveCount(0)
 })
+
+test("a job's own history, from its page, holds that job's changes and no one else's", async ({ page, request }) => {
+  // Proves: History of this job opens #history/job/<id>, named for the job, with its change and not another made at the same time (audit, 5 November 2026, finding 51).
+  const code = unique()
+  const job = `Gig ${code}`
+  const createdAt = new Date().toISOString()
+  const mutations = [{ id: `hj${code}`, name: 'project.create', args: { id: `hj-${code}`, name: job, clientId: null, venueId: null, status: 'confirmed', kind: 'gig', notes: '' }, createdAt }]
+  const res = await request.post('/api/sync/push', { data: { clientId: `e2ehistoryjob${code}`, mutations, sentAt: createdAt } })
+  expect((await res.json()).results.map((r: { status: string }) => r.status)).toEqual(['applied'])
+  expect(await changesFrom(request, code, [`Rack ${code}`])).toEqual(['applied'])
+
+  await page.goto(`/#jobs/hj-${code}`)
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+  await page.getByRole('link', { name: 'History of this job' }).click()
+  await expect(page).toHaveURL(new RegExp(`#history/job/hj-${code}$`))
+  await expect(page.getByRole('heading', { level: 1, name: `History of ${job}` })).toBeVisible()
+  await expect(page.locator('.entry', { hasText: job }).first()).toBeVisible()
+  await expect(page.getByText(`Rack ${code}`)).toHaveCount(0)
+  // The whole history again: both, one device's run of two.
+  await page.getByRole('link', { name: 'All changes' }).click()
+  await expect(page).toHaveURL(/#history$/)
+  await page.getByRole('button', { name: new RegExp(`^Device ${code}, 2 changes`) }).click()
+  await expect(page.getByText(`Saved the place Rack ${code}`)).toBeVisible()
+})

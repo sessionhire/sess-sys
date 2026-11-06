@@ -598,7 +598,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
         onChange={(e) => setFind(e.target.value)}
         // Enter in a search box only searches: it mustn't send the offer to whoever is picked below, the trap of audit finding 5.
         onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
-        placeholder="Name, department or skill"
+        placeholder="Name, phone, email, department or skill"
         aria-label="Find someone"
       />
       <select

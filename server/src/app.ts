@@ -662,7 +662,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   )
 
   // The history (ADR 0006): newest first, a page at a time, for everyone, one person or one record.
-  app.get<{ Querystring: { before?: string; limit?: string; who?: string; entity?: string; id?: string } }>('/api/history', async (req, reply) => {
+  app.get<{ Querystring: { before?: string; limit?: string; who?: string; entity?: string; id?: string; job?: string } }>('/api/history', async (req, reply) => {
     try {
       // Read by every member of staff, so in words without crew pay for a role that doesn't see it (ADR 0046), nor for a
       // head who sees only their department's (ADR 0062): the history names everyone's.
