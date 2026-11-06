@@ -25,7 +25,7 @@ import {
   itemCertificateDetails,
 } from '@sh/shared'
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { renderGone } from '../crew/page.ts'
+import { REFUSED, renderGone } from '../crew/page.ts'
 import { getPerson, personByToken } from '../crew/store.ts'
 import type { Db } from '../db.ts'
 import { describeDevice } from '../devices.ts'
@@ -233,9 +233,12 @@ export function registerDocumentRoutes(app: FastifyInstance, { db, files, onChan
     })
 
     const noStore = (reply: FastifyReply) => reply.header('cache-control', 'no-store').header('x-robots-tag', 'noindex')
-    /** Back to the page, the message in their documents, and a refused renewal's form open again under its card (o). */
+    /**
+     * Back to the page, the message in their documents, and a refused renewal's form open again under its card (o). A
+     * refusal lands on what it's about, the field or its line, as the page's other forms' do; the thanks, on the section.
+     */
     const backTo = (reply: FastifyReply, token: string, said: Said, renews?: string | null) =>
-      reply.redirect(`/f/${encodeURIComponent(token)}?${new URLSearchParams({ m: said, s: 'documents', ...(renews ? { o: renews } : {}) })}#documents`, 303)
+      reply.redirect(`/f/${encodeURIComponent(token)}?${new URLSearchParams({ m: said, s: 'documents', ...(renews ? { o: renews } : {}) })}#${said === 'doc-sent' ? 'documents' : REFUSED}`, 303)
 
     /** Whose link a form is being sent on, found before its body is read. */
     const sender = new WeakMap<FastifyRequest, Person>()

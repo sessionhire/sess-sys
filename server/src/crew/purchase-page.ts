@@ -1,6 +1,6 @@
 import { dayLabel, PURCHASE_DETAILS_LENGTH, PURCHASE_LINK_LENGTH, PURCHASE_OPEN, PURCHASE_SETTLED, PURCHASE_STATUS_LABELS, PURCHASE_TITLE_LENGTH, newId, type OfficeDetails } from '@sh/shared'
 import type { PurchaseOnLink } from '../purchases/store.ts'
-import { CSS, flash, h, officeBlock } from './page.ts'
+import { CSS, fieldError, flash, h, invalid, landing, officeBlock, REFUSED, titled } from './page.ts'
 
 /**
  * The purchase list on a freelancer's private link, /f/<token>/buy (ADR
@@ -16,8 +16,8 @@ export interface PurchasePage {
   base: string
   today: string
   office?: OfficeDetails | null
-  /** A message after a post; `field` puts a refusal under the ask form rather than at the top. */
-  flash?: { ok: boolean; text: string; field?: 'ask' }
+  /** A message after a post; `field` puts a refusal of an ask under the field it's about, or above the form when it's about the whole of it ('ask'), rather than at the top. */
+  flash?: { ok: boolean; text: string; field?: 'ask' | 'title' | 'details' | 'link' }
   /** What a refused ask typed (rule 11), drawn back into the form. */
   kept?: URLSearchParams
 }
@@ -29,7 +29,11 @@ export function renderPurchases(d: PurchasePage): string {
   const ordered = d.requests.filter((r) => r.status === 'ordered')
   const settled = d.requests.filter((r) => PURCHASE_SETTLED.includes(r.status))
   const k = d.kept
-  const askRefused = d.flash && !d.flash.ok && d.flash.field === 'ask'
+  // A refused ask is drawn again with what was typed, and the page lands on what the refusal is about (rule 11).
+  const refusal = d.flash && !d.flash.ok && d.flash.field ? { field: d.flash.field, text: d.flash.text } : undefined
+  const wrong = (name: 'title' | 'details' | 'link') => (refusal?.field === name ? `ask-${name}-error` : undefined)
+  const [title, details, link] = [wrong('title'), wrong('details'), wrong('link')]
+  const under = (id: string | undefined) => (id ? fieldError(id, refusal!.text) : '')
   return `<!doctype html>
 <html lang="en-IE">
 <head>
@@ -38,7 +42,7 @@ export function renderPurchases(d: PurchasePage): string {
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#ee3744">
-<title>Session Hire: kit to buy</title>
+<title>${titled('Session Hire: kit to buy', d.flash)}</title>
 <style>${CSS}${BUY_CSS}</style>
 </head>
 <body>
@@ -46,18 +50,20 @@ export function renderPurchases(d: PurchasePage): string {
   <header class="top"><span class="mark">SH</span><div><b>Session Hire</b><h1>Kit to buy</h1><small>The purchase list, as the office and crew see it.</small></div></header>
   ${officeBlock(d.office)}
   <a class="back" href="${h(d.base)}">‹ Your work</a>
-  ${d.flash && !askRefused ? flash(d.flash) : ''}
+  ${d.flash && !refusal ? flash(d.flash) : ''}
 
   <section id="ask">
     <details class="ask"${k || !d.requests.length ? ' open' : ''}>
       <summary><h2>Ask for something to be bought</h2></summary>
       <p class="small">Something you'd find useful on our jobs. The office decides what's bought, and you'll see where it's at here.</p>
-      ${askRefused ? flash(d.flash!) : ''}
-      <form method="post" action="${h(d.base)}/buy#ask">
+      ${refusal?.field === 'ask' ? flash(d.flash!) : ''}
+      <form method="post" action="${h(d.base)}/buy#${REFUSED}">
         <input type="hidden" name="id" value="${h(k?.get('id') || newId())}">
-        <label>What to buy <input name="title" required maxlength="${PURCHASE_TITLE_LENGTH}" placeholder="e.g. NL4T connectors" value="${h(k?.get('title'))}"></label>
-        <label>How many, and details (optional) <textarea name="details" rows="3" maxlength="${PURCHASE_DETAILS_LENGTH}" placeholder="e.g. 20, for the amp racks">${h(k?.get('details'))}</textarea></label>
-        <label>Link to it (optional) <input name="link" inputmode="url" maxlength="${PURCHASE_LINK_LENGTH}" placeholder="Copy it from the shop's page" value="${h(k?.get('link'))}"></label>
+        <label${landing(title)}>What to buy <input name="title" required maxlength="${PURCHASE_TITLE_LENGTH}" placeholder="e.g. NL4T connectors"${title ? invalid(title) : ''} value="${h(k?.get('title'))}"></label>${under(title)}
+        <label${landing(details)}>How many, and details (optional) <textarea name="details" rows="3" maxlength="${PURCHASE_DETAILS_LENGTH}" placeholder="e.g. 20, for the amp racks"${details ? invalid(details) : ''}>${h(k?.get('details'))}</textarea></label>${under(details)}
+        <div class="field"${landing(link)}><label for="ask-link">Link to it (optional)</label>
+          <small class="hint" id="ask-link-hint">Copy it from the shop's page.</small>
+          <input id="ask-link" name="link" inputmode="url" maxlength="${PURCHASE_LINK_LENGTH}"${link ? invalid(link, 'ask-link-hint') : ' aria-describedby="ask-link-hint"'} value="${h(k?.get('link'))}"></div>${under(link)}
         <button class="yes">Ask for it</button>
       </form>
     </details>

@@ -39,6 +39,16 @@ waiting on someone.
   counted a repair at a time; Repairs has one name; Stock's row counts
   show only to roles that look after stock. Late kit is amber, not bad
   (ADR 0104 updated).
+- Move 5a, the link's forms (1.89.1, PR #221): the freelancer's link
+  takes the app's form look from the vendored tokens: 16px text and 44px
+  controls, one filled yes per card, a quiet No in the bad ink behind its
+  fold, and a refusal said under its field in the bad wash with "Error: "
+  first in the title. The redrawn page lands on the refused field through
+  #refused with no script (ADR 0002): the offer, timesheet, days off,
+  details, calendar, kit to buy, broken kit and documents forms. The day
+  rate reads "Day rate you'd do it for" with the € in the box; From and
+  Until are a pair; instructions are hints under their labels. Nothing
+  the forms post changed.
 
 **Waiting**
 

@@ -114,6 +114,16 @@ function cardOf(html: string, offerId: string) {
   return html.slice(from, html.indexOf('</article>', from))
 }
 
+/**
+ * Where a refused post's page lands: the forms post to an address ending in #refused, and the page drawn again gives
+ * that id to one place, the field the refusal is about or the refusal itself. Its opening tag, and what follows it.
+ */
+function landing(html: string) {
+  expect(html.match(/ id="refused"/g)).toHaveLength(1)
+  const at = html.search(/<[^<>]* id="refused"[^<>]*>/)
+  return html.slice(at)
+}
+
 describe('freelancer link', () => {
   it('shows the full offer without a login and accepts from a plain form', async () => {
     const app = await server()
@@ -168,7 +178,11 @@ describe('freelancer link', () => {
     const a = await offer(app, c, aoife.id)
     const n = await offer(app, c, niall.id)
 
-    expect(await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: [] })).toMatchObject({ ok: false })
+    // No day ticked: said under the days, which the refused page lands on, not at the top of the card.
+    const none = await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: [] })
+    expect(none).toMatchObject({ ok: false, message: 'Tick at least one day, or press Decline.' })
+    expect(landing(none.page)).toMatch(new RegExp(`^<fieldset class="days" aria-describedby="days-error-${a.id}" id="refused"><legend>Your days</legend>[^]*?</fieldset><p class="field-error" id="days-error-${a.id}" role="alert">Tick at least one day`))
+    expect(cardOf(none.page, a.id)).not.toContain('class="flash')
     expect(await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: ['2026-10-02', '2026-10-03'] })).toMatchObject({ ok: true })
     // Niall only asks for more money on the day still open.
     expect(await answer(app, niall.linkToken, n.id, { answer: 'counter', picker: '1', days: ['2026-10-04'], rate: '300' })).toMatchObject({ ok: true })
@@ -176,6 +190,22 @@ describe('freelancer link', () => {
 
     const confirmed = await send(app, 'offer.confirm', { id: n.id })
     expect(confirmed.status).toBe('applied')
+    expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'confirmed', dayRateCents: 30000 })
+
+    // A page from before the office confirmed it sends Update my days with none ticked, or a rate: the confirmed card has
+    // no days or rate to say it under, so it's said at the top of the card, which the page lands on.
+    const stale: [Record<string, string | string[]>, string][] = [
+      [{ answer: 'accept', picker: '1', days: [] }, "Tick at least one day, or use Can't make it any more."],
+      [{ answer: 'counter', picker: '1', days: ['2026-10-04'], rate: 'lots' }, 'Put in a price like 250 or 1,250.50.'],
+    ]
+    for (const [fields, message] of stale) {
+      const late = await answer(app, niall.linkToken, n.id, fields)
+      expect(late).toMatchObject({ ok: false, message })
+      expect(cardOf(late.page, n.id)).toContain(`<p class="flash bad" role="alert" id="refused">${message.replace(/'/g, '&#39;')}</p>`)
+      expect(landing(late.page)).toMatch(/^<p class="flash bad" role="alert" id="refused">/)
+      expect(late.page).not.toContain('class="field-error')
+      expect(late.page).toContain('<title>Error: Session Hire: your work</title>')
+    }
     expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'confirmed', dayRateCents: 30000 })
   })
 
@@ -220,10 +250,13 @@ describe('freelancer link', () => {
 
     const lots = await rate('lots')
     expect(lots).toMatchObject({ ok: false, message: 'Put in a price like 250 or 1,250.50.' })
-    // Said under the rate field, which is marked and joined to it, not at the top of the card (audit, 20 October 2026, finding 90).
+    // Said under the rate field, which is marked and joined to it, not at the top of the card (audit, 20 October 2026, finding 90),
+    // and the page drawn again lands on the field, with "Error: " first in its title.
     const refusedCard = cardOf(lots.page, o.id)
     expect(refusedCard).not.toContain('class="flash')
-    expect(refusedCard).toMatch(new RegExp(`<input name="rate" inputmode="decimal" aria-invalid="true" aria-describedby="rate-error-${o.id}" value="lots"></label><p class="field-error" id="rate-error-${o.id}" role="alert">`))
+    expect(refusedCard).toMatch(new RegExp(`<input name="rate" inputmode="decimal" aria-invalid="true" aria-describedby="rate-error-${o.id}" value="lots"></span></label><p class="field-error" id="rate-error-${o.id}" role="alert">`))
+    expect(landing(lots.page)).toMatch(/^<label id="refused">Day rate you'd do it for/)
+    expect(lots.page).toContain('<title>Error: Session Hire: your work</title>')
     expect(await rate('0')).toMatchObject({ ok: false, message: 'Put in the day rate you would do it for.' })
     expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'offered', counterRateCents: null })
 
@@ -239,6 +272,10 @@ describe('freelancer link', () => {
     const field = /<input name="rate"[^>]*>/.exec(card)?.[0]
     expect(field).toContain('inputmode="decimal"')
     expect(field).not.toContain('pattern=')
+    // The euro is drawn in the box, before the number, and is in the field's name, not "(€)" after the words.
+    expect(card).toContain(`<label>Day rate you'd do it for<span class="sr-only">, €</span> <span class="unit-box"><span class="unit" aria-hidden="true">€</span><input name="rate"`)
+    expect(card).not.toContain('(€)')
+    expect(card).toContain(`/offers/${o.id}#refused"`)
   })
 
   it('puts the message in the offer’s card, where the page lands after an answer', async () => {
@@ -253,13 +290,16 @@ describe('freelancer link', () => {
     let page = (await app.inject({ method: 'GET', url: thanks.to.pathname + thanks.to.search })).body
     expect(cardOf(page, picnic.id)).toContain('<p class="flash ok" role="status">Thanks, you&#39;re down for it.')
     expect(page.match(/class="flash/g)).toHaveLength(1)
+    expect(page).toContain('<title>Session Hire: your work</title>')
 
     // A refusal is an alert, in the card of the offer it's about, drawn at once with the note still in it (rule 11).
     const refused = await answer(app, aoife.linkToken, gig.id, { answer: 'accept', note: 'Can bring my own desk' })
     page = refused.page
     expect(cardOf(page, gig.id)).toContain('>Can bring my own desk</textarea>')
-    expect(cardOf(page, gig.id)).toContain('<p class="flash bad" role="alert">Already booked on Electric Picnic (Build)')
+    expect(cardOf(page, gig.id)).toContain('<p class="flash bad" role="alert" id="refused">Already booked on Electric Picnic (Build)')
+    expect(landing(page)).toMatch(/^<p class="flash bad" role="alert" id="refused">Already booked/)
     expect(page.match(/class="flash/g)).toHaveLength(1)
+    expect(page).toContain('<title>Error: Session Hire: your work</title>')
 
     // A declined offer has no card any more, so its message goes at the top.
     const off = await answer(app, aoife.linkToken, gig.id, { answer: 'decline' })
@@ -308,15 +348,30 @@ describe('freelancer link', () => {
     })
     expect(bad.statusCode).toBe(422)
     expect(flashOf(bad.body)).toMatchObject({ ok: false, message: "The first day off isn't a real date. Pick it again." })
-    expect(bad.body.indexOf('<p class="flash bad"')).toBeGreaterThan(bad.body.indexOf('<section id="away">'))
+    expect(bad.body.indexOf('<p class="field-error"')).toBeGreaterThan(bad.body.indexOf('<section id="away">'))
     expect(bad.body).toContain('value="At a wedding"')
+    // From and Until are a pair, the note under them, and the form is drawn again landing on the pair, with the date refused in it.
+    expect(bad.body).toContain('<div class="pair" id="refused"><div><label>From <input type="date" name="start" required')
+    expect(bad.body).toContain('<label>Until <input type="date" name="end"')
+    expect(bad.body).toContain('action="http://localhost:80/f/' + aoife.linkToken + '/away#refused"')
 
-    // Each error says which date (audit, P3: words).
+    // Each error says which date (audit, P3: words), under that date, which is marked and joined to it; the page lands on
+    // the pair, so From is in sight with Until.
     const away = (payload: string) =>
       app.inject({ method: 'POST', url: `/f/${aoife.linkToken}/away`, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload })
-    expect(flashOf((await away('note=Gig')).body)).toMatchObject({ ok: false, message: 'Put in the first day off.' })
-    expect(flashOf((await away('start=2026-10-03&end=2026-02-30')).body)).toMatchObject({ ok: false, message: expect.stringContaining("The last day off isn't a real date.") })
-    expect(flashOf((await away('start=2026-10-05&end=2026-10-03')).body)).toMatchObject({ ok: false, message: 'The days off end before they start.' })
+    const under = async (payload: string, name: 'start' | 'end', message: string) => {
+      const page = (await away(payload)).body
+      expect(flashOf(page)).toMatchObject({ ok: false, message })
+      expect(landing(page)).toMatch(/^<div class="pair" id="refused"><div><label>From <input type="date" name="start"/)
+      expect(page).toMatch(new RegExp(`<input type="date" name="${name}"[^>]* aria-invalid="true" aria-describedby="away-${name}-error"[^>]*></label><p class="field-error" id="away-${name}-error" role="alert">`))
+      expect(page.match(/aria-invalid="true"/g)).toHaveLength(1)
+      expect(page).not.toContain('<p class="flash')
+    }
+    await under('note=Gig', 'start', 'Put in the first day off.')
+    await under('start=2026-10-03&end=2026-02-30', 'end', "The last day off isn't a real date. Pick it again, or leave it empty for one day.")
+    await under('start=2026-10-05&end=2026-10-03', 'end', 'The days off end before they start.')
+    // A page left open over midnight: the first day has gone by, but the rules say first that the last is before it.
+    await under('start=2026-09-27&end=2026-09-26', 'end', 'The days off end before they start.')
 
     // The same form sent twice (a double tap, or the browser sending it again) adds the days once.
     const formId = (await app.inject({ url: `/f/${aoife.linkToken}` })).body.match(/name="id" value="([a-z0-9]+)"/)![1]!
@@ -345,7 +400,12 @@ describe('freelancer link', () => {
     expect(past.statusCode).toBe(422)
     expect(flashOf(past.body)).toMatchObject({ ok: false, message: 'The first day off has gone by. Pick today or a day after it.' })
     expect(past.body).toContain('value="2020-01-01"')
-    expect(flashOf((await away('start=2026-10-01&end=2999-12-31')).body)).toMatchObject({ ok: false, message: 'Days off can be at most 366 days at a time.' })
+    // Said under the date it's about: the first day, gone by; the last, too far after it.
+    expect(landing(past.body)).toMatch(/^<div class="pair" id="refused"><div><label>From <input type="date" name="start"[^>]* aria-invalid="true"/)
+    const long = (await away('start=2026-10-01&end=2999-12-31')).body
+    expect(flashOf(long)).toMatchObject({ ok: false, message: 'Days off can be at most 366 days at a time.' })
+    expect(landing(long)).toMatch(/^<div class="pair" id="refused">/)
+    expect(long).toMatch(/<label>Until <input type="date" name="end"[^>]* aria-invalid="true"/)
     // The office's own path can still backdate, but not for ever either.
     expect(await send(app, 'unavailability.add', { id: newId(), personId: aoife.id, start: '2026-09-01', end: '2026-09-02', note: '' })).toMatchObject({ status: 'applied' })
     expect(await send(app, 'unavailability.add', { id: newId(), personId: aoife.id, start: '2020-01-01', end: '2025-08-01', note: '' })).toMatchObject({ status: 'rejected' })
@@ -1173,6 +1233,8 @@ describe('correcting people (audit finding 7)', () => {
     const email = await post(app, details, { phone: '', email: 'aoife.byrne@example.com' })
     expect(email).toMatchObject({ ok: false, message: "Your email can't be changed here. Ask the office to change it." })
     expect(email.page).toContain('<details id="details" open>')
+    // The page has no email field to say it under, so it's said above the form, and landed on there.
+    expect(landing(email.page)).toMatch(/^<p class="flash bad" role="alert" id="refused">Your email can&#39;t be changed here/)
     expect(await colly.record<Person>('person', 'p1')).toMatchObject({ phone: '+353 87 999 8888', email: 'aoife@example.com' })
     // A number alone; then nothing, which sends nothing.
     expect(await post(app, details, { phone: '' })).toMatchObject({ ok: true })
@@ -1186,9 +1248,13 @@ describe('correcting people (audit finding 7)', () => {
     // The same checks as the office's form, with the reason in the section.
     const badPhone = await post(app, details, { phone: 'ring me' })
     expect(badPhone).toMatchObject({ ok: false, message: 'Phone numbers need digits only, ideally starting with +353.' })
-    // Drawn at once in the section, open, with what was typed still in it (rule 11).
+    // Drawn at once in the section, open, with what was typed still in it (rule 11), said under the number, which is
+    // described by its hint and then the refusal, and landed on.
     expect(badPhone.page).toContain('<details id="details" open>')
     expect(badPhone.page).toContain('value="ring me"')
+    expect(landing(badPhone.page)).toMatch(/^<div class="field" id="refused"><label for="phone">Mobile<\/label>\s*<small class="hint" id="phone-hint">Write your mobile with the country code/)
+    expect(badPhone.page).toMatch(/<input type="tel" id="phone" name="phone" aria-invalid="true" aria-describedby="phone-hint phone-error" value="ring me"[^>]*><\/div>\s*<p class="field-error" id="phone-error" role="alert">Phone numbers need digits only/)
+    expect(badPhone.page).not.toContain('<p class="flash')
     expect(await colly.record<Person>('person', 'p1')).toMatchObject({ phone: null, email: 'aoife@example.com' })
 
     // The office can run it from the app too, in its own words. A change with nothing in it is turned down, not quietly applied.

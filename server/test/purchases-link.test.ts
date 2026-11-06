@@ -62,6 +62,14 @@ describe('the purchase list on a freelancer’s link', () => {
     expect(flashOf(res.body)).toEqual({ ok: false, message: "The link isn't a web address. Copy it from the shop's page." })
     expect(res.body).toContain('value="Mics"')
     expect(res.body).toContain('>SM58s</textarea>')
+    // Under the field the rules name: marked, described by its hint and then the refusal, and landed on.
+    expect(res.body).toMatch(
+      /<div class="field" id="refused"><label for="ask-link">Link to it \(optional\)<\/label>\s*<small class="hint" id="ask-link-hint">Copy it from the shop's page.<\/small>\s*<input id="ask-link" name="link"[^>]* aria-invalid="true" aria-describedby="ask-link-hint ask-link-error" value="not a link"><\/div><p class="field-error" id="ask-link-error" role="alert">/
+    )
+    expect(res.body).toMatch(/\/buy#refused">/)
+    expect(res.body).toContain('<title>Error: Session Hire: kit to buy</title>')
+    // The hint is under the label, not a placeholder that goes on the first letter typed.
+    expect(res.body).not.toContain('placeholder="Copy it')
   })
 
   it('votes as them, once, and takes the vote back; nothing settled takes a vote', async () => {

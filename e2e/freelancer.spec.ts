@@ -4,8 +4,9 @@ import { expect, test } from '@playwright/test'
  * A freelancer answering an offer from their link on a phone, with no app
  * and no script: a day they hold on another job starts unticked and says
  * so; the office's refusal lands in the offer's card, where they can see
- * it; Enter in the rate field sends the rate, never accepting the job at
- * the offered rate; the calendar address is a field to copy, with
+ * it; a rate it can't read is refused under the field, where the page
+ * lands; Enter in the rate field sends the rate, never accepting the job
+ * at the offered rate; the calendar address is a field to copy, with
  * Subscribe; and what's over is two dated lists. Uses the made-up data
  * (ADR 0019), so it starts fresh before and after: the other tests share
  * this server.
@@ -15,7 +16,7 @@ const phoneSize = { width: 390, height: 844 }
 const fresh = { data: { confirm: 'delete everything' } }
 
 test('a clash is shown before the server says it, a refusal shows in the offer’s card, and Enter in the rate field sends the rate', async ({ browser, request }) => {
-  // Proves: on a phone with no script the page warns of a clash, keeps a refusal on screen in its card, never accepts on Enter, offers the calendar address to copy, and dates what's over.
+  // Proves: on a phone with no script the page warns of a clash, keeps a refusal on screen in its card or under its field, never accepts on Enter, offers the calendar address to copy, and dates what's over.
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
 
@@ -49,10 +50,33 @@ test('a clash is shown before the server says it, a refusal shows in the offer�
   await expect(card.getByRole('checkbox').first()).toBeChecked()
   await card.getByRole('checkbox').first().uncheck()
 
-  // Asks for a different rate for the day that's free, with Enter in the rate field: the rate goes to the office, nothing is accepted.
-  // Typed with a euro sign and a comma, as the audit found it (finding 15): the browser lets it through and the page reads it as €1,250.
+  // Asks for a different rate for the day that's free. The euro is drawn in the box, before the number, and is in the field's name.
   await card.getByText('Ask for a different rate or add a note').click()
-  const rate = card.getByLabel("Day rate you'd do it for")
+  const rate = card.getByLabel("Day rate you'd do it for, €")
+  await expect(card.locator('.unit-box .unit')).toHaveText('€')
+  // A rate it can't read is refused under the field in the page's words, the field marked and described by it, with "Error: "
+  // first in the tab's title; the page lands on the field, so both are on screen, with what was typed still in it.
+  await rate.fill('lots')
+  await rate.press('Enter')
+  await expect(phone).toHaveTitle('Error: Session Hire: your work')
+  const refusal = card.locator('.field-error')
+  await expect(refusal).toHaveText('Put in a price like 250 or 1,250.50.')
+  await expect(rate).toHaveAttribute('aria-invalid', 'true')
+  await expect(rate).toHaveAccessibleDescription('Put in a price like 250 or 1,250.50.')
+  await expect(rate).toHaveValue('lots')
+  for (const shown of [rate, refusal]) {
+    const at = (await shown.boundingBox())!
+    expect(at.y).toBeGreaterThanOrEqual(0)
+    expect(at.y + at.height).toBeLessThanOrEqual(phoneSize.height)
+  }
+  // It sits under the euro box, and the note's label under it, each clear of the one above (UX sweep, 6 November 2026, move 5).
+  const euroBox = (await card.locator('.unit-box').boundingBox())!
+  const said = (await refusal.boundingBox())!
+  expect(said.y).toBeGreaterThanOrEqual(euroBox.y + euroBox.height)
+  expect((await card.getByText('Note for the office').boundingBox())!.y).toBeGreaterThanOrEqual(said.y + said.height)
+
+  // Then with Enter in the rate field: the rate goes to the office, nothing is accepted.
+  // Typed with a euro sign and a comma, as the audit found it (finding 15): the browser lets it through and the page reads it as €1,250.
   await rate.fill('€1,250')
   await rate.press('Enter')
   await expect(card.getByRole('status')).toHaveText('Thanks, your rate has gone to the office.')

@@ -1,6 +1,6 @@
 import { addDays, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, TIMESHEET_ASKED_DAYS, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
-import { dsColor, newId, ownColours } from '@sh/shared'
+import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
 import { busyByDay, type OwnCalendar } from '@sh/shared'
 
 /**
@@ -24,16 +24,32 @@ export interface Flash {
   offer?: string
   /** Their details, the running-late card for the offer (ADR 0028), their documents (ADR 0029), their days off, or their own calendar (ADR 0044). */
   section?: 'details' | 'late' | 'documents' | 'away' | 'calendar'
-  /** A refusal about one field, said under it rather than at the top of the card (audit, 20 October 2026, finding 90): an offer's rate. */
-  field?: 'rate'
+  /**
+   * A refusal about one field, said under it rather than at the top of the card or section (audit, 20 October 2026,
+   * finding 90): an offer's rate or days, a day off's first or last day, their mobile, their calendar's address, or a
+   * document's file or the day it runs out.
+   */
+  field?: 'rate' | 'days' | 'start' | 'end' | 'phone' | 'address' | 'file' | 'expires'
   /** Or, on a timesheet, one extra, by its place among those filled in. */
   extra?: number
 }
 
-/** A refusal about one field, under it and joined to it, as the design system's invalid state is (audit, 20 October 2026, finding 90). */
+/**
+ * Where a refused post's page lands (rule 11). A form whose refusal can be about one of its fields posts to an address
+ * ending in #refused, and the page drawn again with the refusal gives that id to the field it's about, or to the
+ * refusal itself when it's about the whole form: a browser opens a page at the place its address names, with no
+ * script (ADR 0002).
+ */
+export const REFUSED = 'refused'
+/** The id that marks where a refused post's page lands, on the place it's given to when `here` is. */
+export const landing = (here: string | boolean | undefined) => (here ? ` id="${REFUSED}"` : '')
+
+/** A refusal about one field, under it and joined to it, in the bad wash, as the app's refusal line and the design system's invalid state are (audit, 20 October 2026, finding 90). */
 export const fieldError = (id: string, text: string) => `<p class="field-error" id="${id}" role="alert">${h(text)}</p>`
-/** The attributes a field takes while a refusal is about it. */
-export const invalid = (id: string) => ` aria-invalid="true" aria-describedby="${id}"`
+/** The attributes a field takes while a refusal is about it: described by its hint, if it has one, and the refusal. */
+export const invalid = (id: string, hint?: string) => ` aria-invalid="true" aria-describedby="${hint ? `${hint} ${id}` : id}"`
+/** A page's title, which starts "Error: " while the page says a refusal, so it's the first thing a screen reader says (GOV.UK's error summary). */
+export const titled = (title: string, f?: { ok: boolean }) => (f && !f.ok ? `Error: ${title}` : title)
 
 /**
  * What a refused post typed (rule 11), drawn back into the form it came
@@ -60,8 +76,8 @@ export interface OnTheDay {
   contact: { name: string; phone: string | null } | null
 }
 
-/** The message after a post. A refusal is an alert, so it's read out and looks like one; a thank-you is a status. */
-export const flash = (f: { ok: boolean; text: string }) => `<p class="flash ${f.ok ? 'ok' : 'bad'}" role="${f.ok ? 'status' : 'alert'}">${h(f.text)}</p>`
+/** The message after a post. A refusal is an alert, so it's read out and looks like one, and a refused post's page lands on it; a thank-you is a status. */
+export const flash = (f: { ok: boolean; text: string }) => `<p class="flash ${f.ok ? 'ok' : 'bad'}" role="${f.ok ? 'status' : 'alert'}"${landing(!f.ok)}>${h(f.text)}</p>`
 
 /**
  * The way back to the office (audit finding 10), on every page: the phone
@@ -174,34 +190,40 @@ function facts(call: CrewCall, offer: Offer, staff: boolean, today: string) {
 function offerCard(d: PageData, job: PageData['jobs'][number]) {
   const { offer, call, openDays, busy } = job
   const days = eachDay(call.start, call.end)
-  // Ending in the card's place, so a refusal drawn at this address lands on the card.
-  const action = `${d.base}/offers/${encodeURIComponent(offer.id)}#o-${h(offer.id)}`
+  // A refusal drawn at this address lands on what it's about: the field, or its line at the top of the card.
+  const action = `${d.base}/offers/${encodeURIComponent(offer.id)}#${REFUSED}`
   // What a refused answer typed, back in place of what's saved (rule 11).
   const typed = keptIn(d, `offer:${offer.id}`)
   const title = `${h(call.project)}${call.phase ? ` <span>${h(call.phase)}</span>` : ''}`
   // Someone who said yes can still change their days; on a one-day job there is nothing to change.
   const canAnswer = offer.status === 'offered' || offer.status === 'countered' || (offer.status === 'accepted' && days.length > 1)
+  // Staff are paid through payroll (audit finding 21): no rate to ask for, only a note to go with the answer.
+  const staff = isStaff(d.person)
+  // The page lands on the card after an answer, so the answer's message is in the card, not off the top of the screen.
+  // One about the rate or the days goes under that field where the card draws it, and at the top of the card where it
+  // doesn't: a page sent from before the office confirmed the booking has days to tick that this one has no form for.
+  const mine = d.flash?.offer === offer.id && !d.flash.section ? d.flash : undefined
+  const rateError = mine?.field === 'rate' && canAnswer && !staff ? `rate-error-${h(offer.id)}` : undefined
+  const daysError = mine?.field === 'days' && canAnswer && days.length > 1 ? `days-error-${h(offer.id)}` : undefined
   // Someone who said yes gives the place back with "Can't make it", not Decline.
   const holding = (offer.status === 'accepted' || offer.status === 'confirmed') && call.status === 'open'
   // A day they hold on another job is never ticked for them, and says so (audit finding 21), so the clash is seen before the server refuses it.
   const dayPicker =
     days.length > 1
-      ? `<input type="hidden" name="picker" value="1"><fieldset class="days"><legend>Your days</legend>${days
+      ? `<input type="hidden" name="picker" value="1"><fieldset class="days"${daysError ? ` aria-describedby="${daysError}"${landing(true)}` : ''}><legend>Your days</legend>${days
           .map((day) => {
             const open = openDays.includes(day) || (offer.status === 'accepted' && offer.days.includes(day))
             const checked = typed ? typed.getAll('days').includes(day) : (offer.status === 'offered' ? open : offer.days.includes(day)) && !busy[day]
             const note = !open ? 'filled' : busy[day] ? `booked on ${h(busy[day])}` : ''
             return `<label class="${open ? '' : 'gone'}"><input type="checkbox" name="days" value="${day}"${checked ? ' checked' : ''}${open ? '' : ' disabled'}> <span class="day">${h(dayLabel(day, d.today))}</span>${note ? ` <small>${note}</small>` : ''}</label>`
           })
-          .join('')}</fieldset>`
+          .join('')}</fieldset>${daysError && mine ? fieldError(daysError, mine.text) : ''}`
       : ''
   // Enter (or a phone keyboard's Go) in the rate field presses the form's first button. This one, so it's never Accept: the server sends the rate, or asks for a tap.
   // Drawn out of sight rather than hidden: Safari before 16.4 passes over a hidden button and presses the next, which is Accept.
   const onEnter = `<button class="on-enter" name="answer" value="implicit" tabindex="-1" aria-hidden="true"></button>`
   // A one-day job has no days to pick, so a clash with another job is said in words before the server has to say it.
   const clash = days.length === 1 && canAnswer && busy[days[0]!] ? `<p class="clash">You're booked on ${h(busy[days[0]!])} that day.</p>` : ''
-  // Staff are paid through payroll (audit finding 21): no rate to ask for, only a note to go with the answer.
-  const staff = isStaff(d.person)
   // After a counter, sending a rate is what they're doing, and Accept says what it agrees to (audit, 20 October 2026, finding 6):
   // a plain Accept under "Rate sent to the office" read as accepting their own rate, and booked them at the one offered.
   const countered = offer.status === 'countered' && !staff
@@ -209,12 +231,8 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
   const these = days.length > 1 ? 'Accept these days' : 'Accept'
   const accept =
     offer.status === 'accepted' ? 'Update my days' : countered ? `${these} at ${offered === null ? 'the rate the office sets' : `${euro(offered)} a day`} instead` : these
-  // The page lands on the card after an answer, so the answer's message is in the card, not off the top of the screen;
-  // one about the rate goes under the rate field instead.
-  const mine = d.flash?.offer === offer.id && !d.flash.section ? d.flash : undefined
-  const rateError = mine?.field === 'rate' ? `rate-error-${h(offer.id)}` : undefined
   return `<article class="offer ${offer.status}" id="o-${h(offer.id)}">
-    ${mine && !rateError ? flash(mine) : ''}
+    ${mine && !rateError && !daysError ? flash(mine) : ''}
     <header><h3>${title}</h3><span class="tag ${offer.status}">${STATUS_TEXT[offer.status]}</span></header>
     ${facts(call, offer, staff, d.today)}
     ${clash}
@@ -228,9 +246,16 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
         <button${countered ? '' : ' class="yes"'} name="answer" value="accept">${accept}</button>
       </div>
       <details${offer.status === 'countered' || rateError || typed?.get('rate')?.trim() || (typed?.get('note') ?? '') !== '' ? ' open' : ''}><summary>${staff ? 'Add a note for the office' : 'Ask for a different rate or add a note'}</summary>
-        ${staff ? '' : `<label>Day rate you'd do it for (€) <input name="rate" inputmode="decimal"${rateError ? invalid(rateError) : ''} value="${h(typed ? (typed.get('rate') ?? '') : offer.counterRateCents !== null ? (offer.counterRateCents / 100).toString() : '')}"></label>${rateError && mine ? fieldError(rateError, mine.text) : ''}`}
+        <div class="fold">
+        ${
+          // The euro is drawn in the box, before the number, as the app's quote does, and is in the field's name too, since what's drawn beside a field isn't read out with it.
+          staff
+            ? ''
+            : `<label${landing(rateError)}>Day rate you'd do it for<span class="sr-only">, €</span> <span class="unit-box"><span class="unit" aria-hidden="true">€</span><input name="rate" inputmode="decimal"${rateError ? invalid(rateError) : ''} value="${h(typed ? (typed.get('rate') ?? '') : offer.counterRateCents !== null ? (offer.counterRateCents / 100).toString() : '')}"></span></label>${rateError && mine ? fieldError(rateError, mine.text) : ''}`
+        }
         <label>Note for the office <textarea name="note" rows="2" maxlength="1000">${h(typed ? (typed.get('note') ?? '') : offer.note)}</textarea></label>
         ${staff ? '<p class="small">It goes with your answer.</p>' : `<button${countered ? ' class="yes"' : ''} name="answer" value="counter">Send rate</button>`}
+        </div>
       </details>
       ${holding ? '' : decline(call)}
     </form>`
@@ -374,17 +399,21 @@ const rank = (t: Timesheet | undefined) => (!t ? 0 : t.status === 'sent' ? 1 : 2
  * message after they save.
  */
 function details(d: PageData): string {
-  const mine = d.flash?.section === 'details'
-  // What a refused save typed, back in place of what's saved (rule 11).
+  const mine = d.flash?.section === 'details' ? d.flash : undefined
+  // What a refused save typed, back in place of what's saved (rule 11), and a refusal of the number said under it.
   const typed = keptIn(d, 'details')
+  const wrong = mine?.field === 'phone' ? 'phone-error' : undefined
+  // The way to write it is a hint under the label, read with the field, rather than words after it.
   return `<section class="me">
     <details id="details"${mine ? ' open' : ''}>
       <summary><h2>Your details</h2></summary>
-      ${mine && d.flash ? flash(d.flash) : ''}
-      <form method="post" action="${d.base}/details#details">
+      ${mine && !wrong ? flash(mine) : ''}
+      <form method="post" action="${d.base}/details#${REFUSED}">
         <p class="small">You're down as <b>${h(d.person.name)}</b>${d.person.email ? `, with the email <b>${h(d.person.email)}</b>` : ''}. Ask the office to change your name or email; your number you can fix here.</p>
-        <label>Mobile <input type="tel" name="phone" value="${h(typed ? typed.get('phone') : (d.person.phone ?? ''))}" maxlength="40" placeholder="+353 87 123 4567" autocomplete="tel"></label>
-        <p class="small">Write your mobile with the country code, +353 for Ireland, so WhatsApp messages and texts reach you.</p>
+        <div class="field"${landing(wrong)}><label for="phone">Mobile</label>
+          <small class="hint" id="phone-hint">Write your mobile with the country code, +353 for Ireland, so WhatsApp messages and texts reach you.</small>
+          <input type="tel" id="phone" name="phone"${wrong ? invalid(wrong, 'phone-hint') : ' aria-describedby="phone-hint"'} value="${h(typed ? typed.get('phone') : (d.person.phone ?? ''))}" maxlength="40" placeholder="e.g. +353 87 123 4567" autocomplete="tel"></div>
+        ${wrong && mine ? fieldError(wrong, mine.text) : ''}
         <button>Save my number</button>
       </form>
     </details>
@@ -472,13 +501,14 @@ const WHERE_TO_FIND = `<details class="where"><summary>Where do I find it?</summ
  */
 function ownCalendarBlock(d: PageData): string {
   const mine = d.flash?.section === 'calendar' ? d.flash : undefined
-  // What a refused share typed, back in the field (rule 11): it's their own page, kept from every cache.
+  // What a refused share typed, back in the field (rule 11): it's their own page, kept from every cache. Why it was refused is said under it.
   const typed = keptIn(d, 'calendar')
+  const wrong = mine?.field === 'address' ? 'address-error' : undefined
   const cal = d.ownCalendar
   // Its button is plain, never the red fill (audit, 20 October 2026, finding 92): the fill marks the thing to do next,
   // answering, arriving or sending, and sharing a calendar is something asked of them, not their next step.
-  const field = (label: string, button: string) => `<form method="post" action="${d.base}/calendar#calendar" class="share-cal">
-      <label>${label} <input name="address" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="2000" placeholder="e.g. webcal://… or https://….ics" value="${h(typed?.get('address'))}"></label>
+  const field = (label: string, button: string) => `<form method="post" action="${d.base}/calendar#${REFUSED}" class="share-cal">
+      <label${landing(wrong)}>${label} <input name="address" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="2000" placeholder="e.g. webcal://… or https://….ics"${wrong ? invalid(wrong) : ''} value="${h(typed?.get('address'))}"></label>${wrong && mine ? fieldError(wrong, mine.text) : ''}
       ${WHERE_TO_FIND}
       <button>${button}</button>
     </form>`
@@ -486,7 +516,7 @@ function ownCalendarBlock(d: PageData): string {
   if (!cal)
     return `<section id="calendar">
     <h2>Let us see when you're busy</h2>
-    ${mine ? flash(mine) : ''}
+    ${mine && !wrong ? flash(mine) : ''}
     <p class="small">Rather than marking days here, you can let us see when you're busy in the calendar you already use, so the office knows before it asks. ${promise} You can stop at any time.</p>
     ${field("Your calendar's private address", "Share when I'm busy")}
   </section>`
@@ -494,7 +524,7 @@ function ownCalendarBlock(d: PageData): string {
   const read = cal.readAt ? (new Date(cal.readAt).toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' }) === d.today ? 'today' : `on ${onDay(cal.readAt, d.today)}`) : ''
   return `<section id="calendar">
     <h2>Let us see when you're busy</h2>
-    ${mine ? flash(mine) : ''}
+    ${mine && !wrong ? flash(mine) : ''}
     <p class="small">You're sharing when you're busy${cal.addedBy === 'office' ? ', from the address you sent the office' : ''}. We read it every few hours${read ? `, last ${read}` : ''}. ${promise} The office sees "busy" on those days: you can still be offered work, and still say yes.</p>
     ${cal.problem ? `<p class="flash warn" role="status">We couldn't read it last time: ${h(cal.problem)} What we read before still shows.</p>` : ''}
     ${
@@ -575,6 +605,27 @@ function stillBooked(u: Unavailability, booked: PageData['jobs'], today: string)
   return `<p class="clash">You're booked on ${on}. Days off don't take you off it: use Can't make it any more on ${which}.</p>`
 }
 
+/**
+ * Add days off: From and Until as a pair, one under the other on a phone and side by side where both fit, then a note.
+ * What a refused one typed is back in the form (rule 11), and a refusal about one of the days is said under it. The
+ * page lands on the pair, as a refusal of the last day can be about both ("end before they start"): landing on Until
+ * alone would leave From, above it on a phone, under the bar at the top.
+ */
+function awayForm(d: PageData): string {
+  const away = keptIn(d, 'away')
+  const wrong = d.flash?.section === 'away' ? d.flash.field : undefined
+  const day = (name: 'start' | 'end', label: string, required: boolean) => {
+    const error = wrong === name ? `away-${name}-error` : undefined
+    return `<div><label>${label} <input type="date" name="${name}"${required ? ' required' : ''} min="${d.today}"${error ? invalid(error) : ''} value="${h(away?.get(name))}"></label>${error ? fieldError(error, d.flash!.text) : ''}</div>`
+  }
+  return `<form method="post" action="${d.base}/away#${REFUSED}" class="add-away">
+      <input type="hidden" name="id" value="${newId()}">
+      <div class="pair"${landing(wrong === 'start' || wrong === 'end')}>${day('start', 'From', true)}${day('end', 'Until', false)}</div>
+      <label>Note (optional) <input name="note" maxlength="500" placeholder="e.g. on tour" value="${h(away?.get('note'))}"></label>
+      <button>Add days off</button>
+    </form>`
+}
+
 /** The way to the purchase list (ADR 0108): kit they'd find useful, asked for and voted on from their own link. */
 function purchasesBlock(base: string, open: number): string {
   return `<section id="buy">
@@ -601,8 +652,6 @@ export function renderPage(d: PageData): string {
   const past = d.jobs.filter((j) => !booked.includes(j) && HOLDING.includes(j.offer.status)).slice(-8).reverse()
   const turned = d.jobs.filter((j) => !waiting.includes(j) && !booked.includes(j) && !HOLDING.includes(j.offer.status)).slice(-8).reverse()
   const first = firstName(d.person)
-  // What a refused "Add days off" typed, back in the form (rule 11).
-  const away = keptIn(d, 'away')
   // A message about an offer sits in that offer's card, one about their details in that section, one about running late in today's card; any other at the top.
   const inCard =
     d.flash?.section === 'late'
@@ -617,7 +666,7 @@ export function renderPage(d: PageData): string {
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#ee3744">
-<title>Session Hire: your work</title>
+<title>${titled('Session Hire: your work', d.flash)}</title>
 <style>${CSS}</style>
 </head>
 <body>
@@ -646,7 +695,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 
   <section id="away">
     <h2>Days you can't work</h2>
-    ${d.flash?.section === 'away' ? flash(d.flash) : ''}
+    ${d.flash?.section === 'away' && !d.flash.field ? flash(d.flash) : ''}
     ${
       d.away.length
         ? `<ul class="away">${d.away
@@ -661,13 +710,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
             .join('')}</ul>`
         : ''
     }
-    <form method="post" action="${d.base}/away#away" class="add-away">
-      <input type="hidden" name="id" value="${newId()}">
-      <label>From <input type="date" name="start" required min="${d.today}" value="${h(away?.get('start'))}"></label>
-      <label>To <input type="date" name="end" min="${d.today}" value="${h(away?.get('end'))}"></label>
-      <label class="wide">Note (optional) <input name="note" maxlength="500" placeholder="e.g. on tour" value="${h(away?.get('note'))}"></label>
-      <button>Add days off</button>
-    </form>
+    ${awayForm(d)}
   </section>
 
   ${ownCalendarBlock(d)}
@@ -748,11 +791,22 @@ const roles = (theme: keyof typeof ownColours) => {
     'good-soft': t.ok.soft,
     warn: t.warn.ink,
     'warn-soft': t.warn.soft,
+    'wash-hover': t.wash.hover,
+    'wash-pressed': t.wash.pressed,
     ...ownColours[theme],
   })
     .map(([name, value]) => `--${name}:${value}`)
     .join(';')
 }
+
+/**
+ * Fields and buttons as the app draws them, from the shared design system's touch density (UX sweep, 6 November 2026,
+ * move 5): what's typed is never under 16px, so a phone doesn't zoom the page into a field, and every control is as
+ * tall as a thumb.
+ */
+const FIELD_TEXT = `max(${dsText.touch.field.size}px,1rem)`
+const CONTROL = `${dsSize.touch.control}px`
+const CONTROL_PAD = `${dsSpace[2]}px ${dsSpace[3]}px`
 
 export const CSS = `
 :root{${roles('light')};color-scheme:light;font:16px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
@@ -778,19 +832,32 @@ h3{margin:0;font-size:1.1rem}h3 span{font-weight:500;color:var(--muted)}
 .details{margin:0;padding:10px;background:var(--bg);border-radius:8px;font-size:.92rem}
 form{display:grid;gap:10px;margin:0}
 fieldset.days{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}fieldset.days legend{font-size:.85rem;color:var(--muted);margin-bottom:4px}
-fieldset.days label{display:flex;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+fieldset.days label{display:flex;gap:6px;align-items:center;min-height:${CONTROL};padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 fieldset.days label.gone{opacity:.55}fieldset.days label{flex-wrap:wrap}fieldset.days .day{white-space:nowrap}fieldset.days small{flex-basis:100%;padding-left:26px;color:var(--muted)}fieldset.days input{width:20px;height:20px;accent-color:var(--accent)}
 .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-button{font:600 1rem system-ui,sans-serif;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;min-height:48px}
+button{font:600 1rem system-ui,sans-serif;padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;min-height:${CONTROL}}
 .on-enter{position:absolute;width:1px;height:1px;min-height:0;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
-button.yes{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
+/* The one thing to do next in a card is the app's primary, the brand red's fill. Giving a job up is quiet, in the bad tone, behind the fold that asks first. */
+button.yes,a.button.yes{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--on-accent)}
+button.no{background:transparent;border-color:transparent;color:var(--bad)}
 details{border-top:1px solid var(--line);padding-top:8px}summary{cursor:pointer;color:var(--muted);font-size:.92rem;padding:11px 0;min-height:44px}
 details[open]{display:grid;gap:8px}
-label{display:grid;gap:4px;font-size:.9rem}input,textarea,select{font:inherit;padding:10px;border-radius:8px;border:1px solid var(--field-line);background:var(--bg);color:var(--ink);min-width:0;width:100%}
-fieldset.days input{width:20px}
+/* The fields in a fold, spaced as a form's are: a browser draws what a fold holds as one box, so the fold's own gap falls only under its summary. */
+.fold{display:grid;gap:8px}
+label{display:grid;gap:4px;font-size:.9rem}input,textarea,select{font:inherit;font-size:${FIELD_TEXT};min-height:${CONTROL};padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--field-line);background:var(--bg);color:var(--ink);min-width:0;width:100%}
+input[type=checkbox],input[type=radio]{min-height:0}fieldset.days input{width:20px}
+/* A field with a hint: the hint under the label, read with the field. */
+.field{display:grid;gap:4px}.hint{margin:0;color:var(--muted);font-size:.85rem}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+/* A sum with its euro drawn in the box, before it, never typed, as the app's quote draws it. */
+.unit-box{display:flex;align-items:center;min-height:${CONTROL};border:1px solid var(--field-line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.unit-box .unit{flex:none;padding-inline-start:${dsSpace[3]}px;color:var(--muted);font-size:${FIELD_TEXT}}
+.unit-box input{flex:1;min-height:0;border:0;background:transparent;padding-inline-start:${dsSpace[1]}px}
+.unit-box input:focus-visible{outline:none}.unit-box:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .flash{margin:0;padding:12px 14px;border-radius:10px;font-weight:600}.flash.ok{background:var(--panel);color:var(--ink);border:1px solid var(--line)}.flash.bad{background:var(--bad-soft);color:var(--bad)}.flash.warn{background:var(--warn-soft);color:var(--warn)}
-.field-error{margin:-4px 0 0;color:var(--bad);font-weight:600;font-size:.92rem}input[aria-invalid=true]{border-color:var(--bad);border-width:2px}
+/* A refusal about one field is the app's refusal line, under it: the bad wash, never amber, with the field's edge in the bad tone, drawn twice as heavy inside the box so the field keeps its size beside its pair. */
+.field-error{margin:-4px 0 0;padding:${CONTROL_PAD};border-radius:8px;background:var(--bad-soft);color:var(--bad)}input[aria-invalid=true],textarea[aria-invalid=true],.unit-box:has([aria-invalid=true]){border-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad)}.unit-box input[aria-invalid=true]{box-shadow:none}
 .clash{margin:0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}
 .empty,.small{color:var(--muted);margin:0;font-size:.92rem}
 .demo-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0;padding:8px 16px;background:var(--ink);color:var(--bg);font-size:.9rem}
@@ -802,15 +869,20 @@ html:has(.glance){scroll-padding-top:104px}@media (min-width:600px){html:has(.gl
 details.later{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:0 12px}details.later[open]{padding-bottom:12px}
 details.later summary{color:var(--ink);font-size:.95rem;padding:12px 0}details.later summary .tag{margin-left:4px}details.later .offer{border:0;padding:0;background:none}
 .glance a{color:inherit}
-.feed{display:grid;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.feed input{font-size:.85rem;color:var(--muted)}
+.feed{display:grid;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.feed input{color:var(--muted)}
 .feed-buttons{display:flex;gap:8px}.feed-buttons>*{flex:1}.feed-buttons .copy[hidden]{display:none}
-a.button.yes{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
-a.button{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:600;text-decoration:none}
+a.button{display:inline-flex;align-items:center;justify-content:center;min-height:${CONTROL};padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--line);background:var(--panel);font-weight:600;text-decoration:none}
+/* Pressed, and hovered where there's a pointer, as the app's buttons are: a wash over a plain or quiet one, the primary's fill darkened. A quiet
+   bad one pressed keeps the lighter wash and takes an edge in its tone, as its words fall under 4.5:1 on the pressed wash. Colour only, so reduced motion has nothing to stop. */
+@media (hover:hover){button:not(.yes,.no,[aria-pressed=true]):hover,a.button:not(.yes):hover{background-image:linear-gradient(var(--wash-hover),var(--wash-hover));border-color:var(--field-line)}button.no:hover{background:var(--wash-hover)}button.yes:hover,a.button.yes:hover{filter:brightness(.92)}}
+button:not(.yes,.no):active,a.button:not(.yes):active{background-image:linear-gradient(var(--wash-pressed),var(--wash-pressed))}button.no:active{background:var(--wash-hover);border-color:var(--bad)}button.yes:active,a.button.yes:active{filter:brightness(.84)}
 .away,.closed{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .away li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 6px 6px 12px}
 .away li .clash{flex-basis:100%;margin-right:6px;font-size:.92rem}.away li button{min-height:44px;padding:6px 10px;font-size:.85rem}.away small,.closed small{color:var(--muted);display:block}
 .closed li{font-size:.92rem}
-.add-away{grid-template-columns:1fr 1fr;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.add-away .wide,.add-away button{grid-column:1/-1}
+.add-away{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+/* Two fields that belong together, such as From and Until: one under the other on a phone, side by side where both fit. */
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12em),1fr));gap:10px}.pair>div{display:grid;gap:10px;align-content:start}
 footer{display:grid;gap:6px;font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 .sheet-link{font-weight:600;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-decoration:none}
 .me details{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 14px}.me details[open]{padding-bottom:14px}
@@ -825,9 +897,8 @@ fieldset.choice{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}
 fieldset.choice label{display:flex;gap:6px;align-items:center;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 fieldset.choice input{width:20px;height:20px;accent-color:var(--accent)}
 .doc h3{overflow-wrap:anywhere}
-.share-cal{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.share-cal input{font-size:.92rem}
+.share-cal{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
 .where ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:.92rem}
 .again{border:0;padding:0}
 .glance a,.office a,a[href^="tel:"],.facts a,.demo-bar a,footer a{position:relative}.glance a::after,.office a::after,a[href^="tel:"]::after,.facts a::after,.demo-bar a::after,footer a::after{content:'';position:absolute;inset:-12px -4px}
-input,select{min-height:44px}
 `
