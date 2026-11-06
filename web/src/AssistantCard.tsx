@@ -31,13 +31,28 @@ export function AssistantCard({ office }: { office: OfficeView }) {
         days.
       </p>
       <label className="signal">
-        <input type="checkbox" role="switch" checked={on} onChange={(e) => void run(() => client.mutate('assistant.use', { on: e.target.checked }))} />
+        {/* Offered once the server is set up, so it's never on with nothing behind it; always there to turn off (audit, 5 November 2026, finding 81). */}
+        <input
+          type="checkbox"
+          role="switch"
+          checked={on}
+          disabled={!on && !!s && !s.configured}
+          onChange={(e) => void run(() => client.mutate('assistant.use', { on: e.target.checked }))}
+        />
         <span>
           <b>Turn Claude on</b>
-          <small>{on ? 'Reading the operations mailbox once it’s connected, and offered on New quote to read a pasted enquiry.' : 'Off: Claude reads nothing and isn’t offered anywhere.'}</small>
+          <small>
+            {on && s && !s.configured
+              ? 'On, but waiting for the server to be set up: Claude reads nothing and isn’t offered until it is.'
+              : on
+                ? 'Reading the operations mailbox once it’s connected, and offered on New quote to read a pasted enquiry.'
+                : s && !s.configured
+                  ? 'Off. It can be turned on once it’s set up on the server.'
+                  : 'Off: Claude reads nothing and isn’t offered anywhere.'}
+          </small>
         </span>
       </label>
-      {s && !s.configured && <p className="hint">It isn’t set up on the server yet: it needs ANTHROPIC_API_KEY in Railway.</p>}
+      {s && !s.configured && <p className="hint">Not set up on the server yet: whoever looks after the server adds the Anthropic key (ANTHROPIC_API_KEY in Railway).</p>}
       {s?.configured && (
         <p className="hint">
           This month: {dollars(s.spentCents)} of {dollars(s.limitCents)}, asked {s.uses === 1 ? 'once' : `${s.uses} times`}. It stops for the month at the limit.

@@ -237,7 +237,8 @@ export const MENU: PlaceGroup[] = [
         icon: 'settings',
         href: '#admin',
         label: 'Admin',
-        about: "The office, Google Calendar, backups, data and what's changed",
+        // The switches named, so a setting used once a month is found from here (audit, 5 November 2026, finding 50).
+        about: "The office, quotes and travel, labels, messages to crew, timesheets, Claude, the mailbox and calendar, backups, data and what's changed",
         needs: ['settings', 'company'],
       },
       {

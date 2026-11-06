@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.81.0',
+    date: '2026-11-06',
+    title: 'Switches only when something is behind them',
+    what: "Send quotes by email can only be turned on once the operations mailbox is connected and allowed to send, and a quote's Send by email waits for both. The Claude switch can't be turned on until the server has its key, and the to-do list stays hidden until then. Admin › Status says what to do in plain words for Claude and the mailbox, and the map search being down no longer counts as something to fix. Past quotes from Current RMS say where to bring them in when there are none. On this screen on Admin now lists the open tab's cards, under the tabs, and the Menu names what's under Admin.",
+    prs: [209],
+  },
+  {
     version: '1.80.0',
     date: '2026-11-06',
     title: 'Long pages made shorter',

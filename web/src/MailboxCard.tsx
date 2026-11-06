@@ -37,6 +37,19 @@ const outcome = (() => {
   return OUTCOMES[got] ?? OUTCOMES.failed
 })()
 
+/**
+ * Whether quotes can go by email now (audit, 5 November 2026, finding 49): the switch on, and the mailbox connected to send.
+ * Until the server says so, Send to the client isn't offered and Mark as sent stays the quote's main button, so the main
+ * button never leads to an email that can't go.
+ */
+export function useQuotesByEmail(money: MoneyView): boolean {
+  const on = !!money.quoting.emailQuotes
+  const loaded = useAsked(on, 'mailbox', () => getJson<MailboxStatus>('/api/assistant/mailbox'))
+  return on && loaded.state === 'ready' && mailboxSends(loaded.data)
+}
+
+const mailboxSends = (m: MailboxStatus) => m.available && m.state === 'on' && !!m.canSend
+
 export function MailboxCard({ money }: { money: MoneyView }) {
   const [again, setAgain] = useState(0)
   const loaded = useAsked(true, 'mailbox', () => getJson<MailboxStatus>('/api/assistant/mailbox'), again)
@@ -92,16 +105,27 @@ export function MailboxCard({ money }: { money: MoneyView }) {
           {note.text}
         </p>
       )}
+      {/* Offered once the mailbox can send, so it's never on with nothing behind it; always there to turn off (audit, 5 November 2026, finding 49). */}
       <label className="signal">
-        <input type="checkbox" role="switch" checked={on} onChange={(e) => void run(() => client.mutate('quoting.email', { on: e.target.checked }))} />
+        <input
+          type="checkbox"
+          role="switch"
+          checked={on}
+          disabled={!on && !(m && mailboxSends(m))}
+          onChange={(e) => void run(() => client.mutate('quoting.email', { on: e.target.checked }))}
+        />
         <span>
           <b>
             Send quotes by email from operations@ <Pending pending={money.quoting.pending} />
           </b>
           <small>
             {on
-              ? 'On: a quote has Send to the client, which emails it with the quote as a PDF and marks it sent. Replies come to whoever sent it and to the mailbox.'
-              : 'Off: quotes are printed as PDFs and sent by hand, and marked sent here.'}
+              ? m && !mailboxSends(m)
+                ? "On, but the mailbox can't send yet, so quotes are marked sent by hand until it's connected again to send."
+                : 'On: a quote has Send to the client, which emails it with the quote as a PDF and marks it sent. Replies come to whoever sent it and to the mailbox.'
+              : m && !mailboxSends(m)
+                ? 'Off. Connect operations@ above, allowing sending, to turn this on.'
+                : 'Off: quotes are printed as PDFs and sent by hand, and marked sent here.'}
           </small>
         </span>
       </label>
