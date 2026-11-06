@@ -1,7 +1,6 @@
 import {
   addDays,
   belowZero,
-  CHASE_AFTER_DAYS,
   costsCsv,
   dayLabel,
   daysLabel,
@@ -39,6 +38,7 @@ import {
   suggestionLine,
   type EnquiryReading,
   STANDING_HEADINGS,
+  waitingHeading,
 } from '@sh/shared'
 import { Fragment, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -191,7 +191,7 @@ const FOLLOW_SHOWN = 8
  * here, and the Board's fold has them all, enquiries that never had a quote too.
  */
 function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotesToFollow>; chaseOnly?: boolean; lapsed?: number }) {
-  const waiting = chaseOnly ? f.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS) : f.waiting
+  const waiting = chaseOnly ? f.chase : f.waiting
   return (
     <>
       {f.outOfStep.length > 0 && (
@@ -212,12 +212,14 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
       )}
       {waiting.length > 0 && (
         <div className="follow-group">
-          <h3 className="group">Waiting for an answer</h3>
+          {/* On Quotes, where Home's count of the quotes worth a call lands, how many are waiting and how many of them are worth a
+              call, the longest waiting at the top. Notifications lists only those, and no count lands there, so its heading has no number. */}
+          <h3 className="group">{chaseOnly ? STANDING_HEADINGS.quotes : waitingHeading(waiting.length, f.chase.length)}</h3>
           <ShowAll items={waiting} limit={FOLLOW_SHOWN} what="quotes" name={`${chaseOnly ? 'chase' : 'follow'} waiting`}>
             {(shown) => (
               <ul className="plain">
                 {shown.map((x) => (
-                  <FollowRow key={x.quote.id} f={x} what="Sent" chase={x.days >= CHASE_AFTER_DAYS} />
+                  <FollowRow key={x.quote.id} f={x} what="Sent" chase={f.chase.includes(x)} />
                 ))}
               </ul>
             )}
@@ -277,8 +279,7 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
 export function QuotesToChase({ view }: { view: View }) {
   const today = useToday()
   const f = quotesToFollow(view.money, today)
-  const chase = f.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS).length
-  if (chase + f.outOfStep.length === 0) return null
+  if (f.chase.length + f.outOfStep.length === 0) return null
   return (
     <section className="card quotes-to-follow" aria-label="Quotes to follow up">
       <Heading icon="document">Quotes to follow up</Heading>

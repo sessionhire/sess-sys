@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 /**
  * Home and finding your way around (ADR 0033): the bare address opens Home,
@@ -16,11 +16,41 @@ const fresh = { data: { confirm: 'delete everything' } }
 test.beforeAll(async ({ request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  // Beside the made-up quote sent three days ago, one sent nine days ago for a job in three weeks, with no answer yet: worth a
+  // call (ADR 0081), so Home counts it for whoever reads quotes.
+  const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+  const setUp: [string, Record<string, unknown>][] = [
+    ['project.create', { id: 'e2e-docklands', name: 'Docklands Awards', clientId: null, venueId: null, status: 'quoted', notes: '' }],
+    ['phase.add', { id: 'e2e-docklands-show', projectId: 'e2e-docklands', name: 'Show', start: day(21), end: day(21), venueId: null, notes: '' }],
+    [
+      'quote.save',
+      {
+        id: 'e2e-docklands-quote',
+        projectId: 'e2e-docklands',
+        lines: [{ id: 'e2e-docklands-pa', kind: 'other', what: 'PA for the awards', ref: null, group: 'Other', qty: 1, days: 1, unitCents: 90_000, vat: '23' }],
+        discountPct: 0,
+        notes: '',
+      },
+    ],
+    ['quote.sent', { id: 'e2e-docklands-quote', on: day(-9) }],
+  ]
+  const at = new Date().toISOString()
+  const res = await request.post('/api/sync/push', { data: { clientId: 'e2e-home', mutations: setUp.map(([name, args], i) => ({ id: `e2e-home-${i}`, name, args, createdAt: at })) } })
+  expect((await res.json()).results.map((r: { status: string }) => r.status)).toEqual(['applied', 'applied', 'applied', 'applied'])
 })
 
 test.afterAll(async ({ request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
+
+/** The demo copy, seen as one of its personas: this server has no passcode, so the test answers for it as a demo copy would. */
+async function as(page: Page, role: 'director' | 'office' | 'head', persona: RegExp) {
+  await page.route('**/api/me', (route) => route.fulfill({ json: { auth: 'passcode', role } }))
+  await page.route('**/api/auth/preview', (route) => route.fulfill({ json: { role } }))
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'See it as…' })).toBeVisible()
+  await page.getByRole('button', { name: persona }).click()
+}
 
 test('Home is where the app opens, and says how things stand for whoever is looking', async ({ browser }) => {
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
@@ -77,7 +107,8 @@ test('Home is where the app opens, and says how things stand for whoever is look
 test('every count on Home opens the list it counted, headed with the same number, for the company and the warehouse', async ({ browser }) => {
   // Proves (Move 3 of the sweep of 6 November 2026): each count, tapped, lands on the part of the next screen that lists what it
   // counted, focused, and that part's heading says the count's own number; the counts of jobs' tasks open the Jobs list on just
-  // those, which says how many it shows. Running late is said in Answers to check's heading, after the answers.
+  // those, which says how many it shows. Running late is said in Answers to check's heading, after the answers, and the quotes
+  // worth a call in Waiting for an answer's, after how many are waiting (Move 10).
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Up to date')
@@ -94,15 +125,96 @@ test('every count on Home opens the list it counted, headed with the same number
       const label = `${shownFor}: ${count} ${await tile.locator('span').textContent()}`
       const tasks = (await tile.getAttribute('href')) === '#jobs'
       const late = /running late/.test(label)
+      const call = /worth a call/.test(label)
       await tile.click()
       if (tasks) await expect(page.locator('.list-count'), label).toHaveText(new RegExp(`^${count} of [\\d,]+ jobs\\.$`))
       else if (late) await expect(landed, label).toHaveText(new RegExp(`^Answers to check \\((?:[\\d,]+\\) · ${count}\\srunning late|${count}\\))$`))
+      else if (call) await expect(landed, label).toHaveText(new RegExp(`^Waiting for an answer \\([\\d,]+\\) · ${count}\\sworth a call$`))
       else await expect(landed, label).toHaveText(new RegExp(`\\(${count}\\)(?: · [\\d,]+\\srunning late)?$`))
       if (!tasks) await expect(landed, label).toBeInViewport()
       await page.goBack()
       await expect(tiles.nth(i)).toBeVisible()
     }
   }
+})
+
+test("for the office, Home starts with what's waiting on the office, and the quotes worth a call open on Quotes", async ({ browser }) => {
+  // Proves (Move 10 of the sweep of 6 November 2026): the Company view orders its counts for whoever is looking. For the office,
+  // what's waiting on them comes first, in the order they work through it, under words that say so, and the warehouse's and the
+  // heads' counts are the housekeeping under it; the quotes worth a call, offered to whoever reads quotes, are amber as their
+  // rows are and open Quotes on Waiting for an answer, focused, its heading saying the same number, those quotes first.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await as(page, 'office', /^Office and production/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Calls' })).toBeVisible()
+  await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Home' }).click()
+  await expect(page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' })).toHaveAttribute('aria-pressed', 'true')
+
+  const attention = page.locator('.standing')
+  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['Waiting on the office', 'Housekeeping'])
+  await expect(attention.locator('.hint')).toHaveText("What's waiting on the office first, then the housekeeping. Each goes once it's sorted.")
+  const office = [/running late/, /answers? to check/, /calls? still needs? crew/, /timesheets? to approve/, /quotes? worth a call/, /dates passed with no answer/, /documents? running out/]
+  const ofOffice = (label: string) => office.findIndex((words) => words.test(label))
+  const first = await attention.locator('.tiles:not(.housekeeping) a.tile span').allTextContents()
+  const order = first.map(ofOffice)
+  expect(order, first.join(', ')).not.toContain(-1)
+  expect(order, first.join(', ')).toEqual([...order].sort((a, b) => a - b))
+  expect(order, first.join(', ')).toEqual(expect.arrayContaining([1, 4]))
+  // None of the office's own is left under the housekeeping, where what stops the next fortnight's work for the warehouse and
+  // the heads goes for the office.
+  const rest = await attention.locator('.tiles.housekeeping a.tile span').allTextContents()
+  expect(rest.map(ofOffice), rest.join(', ')).toEqual(rest.map(() => -1))
+  await expect(attention.locator('.tiles.housekeeping').getByRole('link', { name: /kit lines? short/ })).toBeVisible()
+
+  const quotes = attention.getByRole('link', { name: /quotes? worth a call/ })
+  await expect(quotes).toHaveClass(/\bwarn\b/)
+  const count = (await quotes.locator('b').textContent())!
+  await quotes.click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Quotes' })).toBeVisible()
+  const follow = page.getByRole('region', { name: 'To follow up' })
+  const heading = page.getByRole('heading', { name: /^Waiting for an answer/ })
+  const waiting = follow.locator(heading)
+  await expect(waiting).toBeFocused()
+  await expect(waiting).toBeInViewport()
+  await expect(waiting).toHaveText(new RegExp(`^Waiting for an answer \\(\\d+\\) · ${count}\\sworth a call$`))
+  // The group under that heading: `has` looks inside each group, so the heading is found from the page, not from the region.
+  const rows = follow.locator('.follow-group', { has: heading }).getByRole('listitem')
+  await expect(rows.first()).toContainText('Docklands Awards')
+  await expect(rows.locator('.warn')).toHaveCount(Number(count))
+  await expect(rows.locator('.warn').first()).toHaveText(/^Sent \d+ days ago: worth a call$/)
+
+  // Notifications lists only those quotes, under the heading as it was: no count lands there, so it has no number to say.
+  await page.goto('/#notifications')
+  const chase = page.getByRole('region', { name: 'Quotes to follow up', exact: true })
+  await expect(chase.getByRole('heading', { name: /^Waiting for an answer/ })).toHaveText('Waiting for an answer')
+  await expect(chase.locator('.follow-group', { has: heading }).getByRole('listitem')).toHaveCount(Number(count))
+})
+
+test("a director's Home keeps what stops the next fortnight first, with the quotes worth a call among the housekeeping", async ({ browser }) => {
+  // Proves (Move 10 of the sweep of 6 November 2026): only the office's order changed. A director's Company view is as it
+  // was, and the quotes worth a call, a count for whoever reads quotes, are offered to them too, amber, with the housekeeping.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await as(page, 'director', /^Director/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' })).toHaveAttribute('aria-pressed', 'true')
+  const attention = page.locator('.standing')
+  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', 'Housekeeping'])
+  await expect(attention.locator('.tiles:not(.housekeeping)').getByRole('link', { name: /kit lines? short/ })).toBeVisible()
+  const housekeeping = attention.locator('.tiles.housekeeping')
+  await expect(housekeeping.getByRole('link', { name: /answers? to check/ })).toBeVisible()
+  await expect(housekeeping.getByRole('link', { name: /quotes? worth a call/ })).toHaveClass(/\bwarn\b/)
+})
+
+test('a head of department is not offered the quotes worth a call, a count for whoever reads quotes', async ({ browser }) => {
+  // Proves (ADR 0034 and 0042): a count is offered only to a role that can act on it. This server isn't told the persona, so
+  // the device holds the quotes as a director's would: the app's own check keeps the count from a head while one is due.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await as(page, 'head', /^Head of department/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' }).click()
+  const attention = page.locator('.standing')
+  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', 'Housekeeping'])
+  await expect(attention.getByRole('link', { name: /answers? to check/ })).toBeVisible()
+  await expect(attention.getByRole('link', { name: /worth a call/ })).toHaveCount(0)
 })
 
 test('the Menu names every place, and Admin, History and You keep its tab with the way back', async ({ browser }) => {
@@ -114,6 +226,9 @@ test('the Menu names every place, and Admin, History and You keep its tab with t
   const places = page.getByRole('navigation', { name: 'Every place' })
   for (const group of ['Jobs', 'Stock', 'Crew', 'Company', 'You']) await expect(places.getByRole('group', { name: group })).toBeVisible()
   await expect(places.getByRole('link', { name: /^Week and month/ })).toHaveAttribute('href', '#jobs/plan')
+  // Home too, whose line says its counts come in the order of whoever is looking (Move 10 of the sweep of 6 November 2026).
+  await expect(places.getByRole('link', { name: /^Home/ })).toHaveAttribute('href', '#home')
+  await expect(places.getByRole('link', { name: /^Home/ })).toContainText('How things stand, its counts ordered for whoever is looking')
 
   for (const [link, title] of [
     [/^History/, 'History'],

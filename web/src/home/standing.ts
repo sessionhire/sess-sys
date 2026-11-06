@@ -1,4 +1,4 @@
-import { canApproveLeave, kindOf, standing, STANDING_HEADINGS, type Ability, type JobView, type PersonView, type Standing, type StandingKey, type View } from '@sh/shared'
+import { canApproveLeave, kindOf, standing, STANDING_HEADINGS, type Ability, type JobView, type PersonView, type Role, type Standing, type StandingKey, type View } from '@sh/shared'
 
 /**
  * How things stand, for Home (ADR 0033): every count Home can show, each
@@ -82,6 +82,8 @@ const NEEDS: Record<StandingKey, Ability | 'approve-leave'> = {
   'no-answer': 'jobs',
   'tasks-late': 'jobs',
   'tasks-nobody': 'jobs',
+  // Whoever reads quotes' money: the office and directors (ADR 0042).
+  quotes: 'money',
 }
 
 /**
@@ -135,6 +137,9 @@ const TILES: { [K in StandingKey]: TileSpec<K> } = {
     filters: { stage: 'planning', tasks: 'nobody' },
   },
   'no-answer': { one: 'job whose dates passed with no answer', many: 'jobs whose dates passed with no answer', href: '#jobs/board' },
+  // Sent a week or more ago with no answer (ADR 0081): amber, as each of its rows on Quotes is, at the top of Waiting for an
+  // answer, whose heading says this number after how many are waiting (Move 10 of the sweep of 6 November 2026).
+  quotes: { one: 'quote worth a call', many: 'quotes worth a call', href: '#quotes', tone: () => 'warn' },
 }
 
 function tile<K extends StandingKey>(key: K, all: Standing): Tile {
@@ -158,19 +163,54 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
   return out
 }
 
+/** The first of Needs attention's two groups, drawn full size over the housekeeping, with its heading and the sentence over both. */
+export interface FirstGroup {
+  heading: string
+  hint: string
+  keys: ReadonlySet<StandingKey>
+}
+
 /**
  * What stops the next fortnight's work, drawn first and full size; the rest
  * is housekeeping, smaller and under it (audit, 20 October 2026, finding
  * 33), so at volume, when nothing is zero, the soon still stands out.
  */
-export const SOON: ReadonlySet<StandingKey> = new Set(['late', 'crew-needed', 'kit-short', 'cant-go', 'still-out', 'to-pick'])
+export const SOON: FirstGroup = {
+  heading: 'The next fortnight',
+  hint: "What stops the next fortnight's work first, then the housekeeping. Each goes once it's sorted.",
+  keys: new Set(['late', 'crew-needed', 'kit-short', 'cant-go', 'still-out', 'to-pick']),
+}
+
+/**
+ * The office's own work, in the order they work through it (docs/personas.md, O; Move 10 of the sweep of 6 November
+ * 2026): anyone running late, the answers to check, the calls still needing crew, the timesheets to approve, the quotes
+ * worth a call, the jobs whose dates passed with no answer, and the documents running out. Named for what it is, as most
+ * of it isn't the next fortnight's: the warehouse's and the heads' counts are the housekeeping under it.
+ */
+const OFFICE_FIRST: readonly StandingKey[] = ['late', 'answers', 'crew-needed', 'timesheets', 'quotes', 'no-answer', 'certificates']
+const OFFICE: FirstGroup = {
+  heading: 'Waiting on the office',
+  hint: "What's waiting on the office first, then the housekeeping. Each goes once it's sorted.",
+  keys: new Set(OFFICE_FIRST),
+}
 
 /** Which counts each view of Home shows, in order: the first is what that person reaches for first. */
 export const TILES_FOR: Record<HomeFor, readonly StandingKey[]> = {
-  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'damaged-stopped', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'no-answer', 'tasks-late', 'tasks-nobody'],
+  // The quotes worth a call beside the dates passed with no answer, the other count of what's being sold.
+  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'damaged-stopped', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'quotes', 'no-answer', 'tasks-late', 'tasks-nobody'],
   // Only what can be narrowed to a department: crew calls by their own department (ADR 0046); kit still out is the job's, not a department's.
   // Leave is whoever's waits on them, as an approver is a person (ADR 0024).
   department: ['late', 'answers', 'crew-needed', 'leave', 'timesheets', 'certificates', 'kit-short', 'faults', 'damaged-stopped', 'cant-go', 'tests-soon'],
   warehouse: ['to-pick', 'still-out', 'kit-short', 'faults', 'damaged-stopped', 'cant-go', 'counts', 'tests-soon', 'vehicles'],
   me: ['leave'],
+}
+
+/**
+ * The Company view's counts for whoever is looking (Colly's question 5 of the sweep of 6 November 2026): the same counts
+ * in the viewer's order, in the one view, as the Menu's line for Home says. The office's own work comes first for the
+ * office; everyone else keeps what stops the next fortnight's work first.
+ */
+export function companyTiles(role: Role | undefined): { keys: readonly StandingKey[]; first: FirstGroup } {
+  if (role !== 'office') return { keys: TILES_FOR.company, first: SOON }
+  return { keys: [...OFFICE_FIRST, ...TILES_FOR.company.filter((k) => !OFFICE.keys.has(k))], first: OFFICE }
 }

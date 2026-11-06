@@ -92,6 +92,17 @@ waiting on someone.
   pill (MovesView.waiting and countWaiting), never amber. On a pick list
   only the number opens the item (audit of 5 November, finding 92), and
   Report damage opens under its row.
+- Move 10a, Home for whoever is looking (1.93.0, PR #226): the Company
+  view's first group follows the viewer's role (companyTiles). For the
+  office it is "Waiting on the office": late, answers, crew still
+  needed, timesheets, quotes worth a call, no answer and documents, with
+  the rest under Housekeeping; directors, heads and the warehouse keep
+  their order. The quotes worth a call count, for the money roles, is
+  Quotes' own chase list (quotesToFollow's chase, a week with no
+  answer) and lands on "Waiting for an answer (12) · 3 worth a call";
+  Notifications keeps its plain heading. The Menu lists Home under
+  Company with a line saying its order follows the viewer (ADRs 0033,
+  0035 and 0081 say so).
 
 **Waiting**
 

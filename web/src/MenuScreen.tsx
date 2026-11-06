@@ -234,6 +234,14 @@ export const MENU: PlaceGroup[] = [
     label: 'Company',
     places: [
       {
+        key: 'home',
+        icon: 'home',
+        href: '#home',
+        label: 'Home',
+        // Two people at one Company view can see its counts in different orders, so its line says so (Move 10 of the sweep of 6 November 2026).
+        about: 'How things stand, its counts ordered for whoever is looking',
+      },
+      {
         key: 'admin',
         icon: 'settings',
         href: '#admin',

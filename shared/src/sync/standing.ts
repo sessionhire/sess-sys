@@ -7,6 +7,7 @@ import { isUnowned } from '../lists.ts'
 import type { Department } from '../stock.ts'
 import type { View } from './client-types.ts'
 import { answersToCheck, type AnswerToCheck, type CallView, type OfferView, type PersonView } from './crew-view.ts'
+import { quotesToFollow, type QuoteToFollow } from './money-view.ts'
 import type { PickList } from './pick-view.ts'
 import { addDays } from './plan.ts'
 import { kitToCheckBackIn, type JobSteps, type KitToCheck } from './steps-view.ts'
@@ -123,6 +124,11 @@ export interface Standing {
   'tasks-nobody': JobSteps[]
   /** Enquiries and quotes whose dates have passed with no answer (ADR 0109), the most recent first, as the Board's fold has them. */
   'no-answer': JobSteps[]
+  /**
+   * Quotes sent a week or more ago with no answer: worth a call to the client (ADR 0081), the longest waiting first, as
+   * Quotes › To follow up marks them at the top of Waiting for an answer (Move 10 of the sweep of 6 November 2026).
+   */
+  quotes: QuoteToFollow[]
 }
 
 export type StandingKey = keyof Standing
@@ -130,8 +136,9 @@ export type StandingKey = keyof Standing
 /**
  * The heading of the list each count opens, without its number: the part of the screen Home's count lands on
  * (web/src/arrival.ts), and what that screen heads the list with, before the same number. Running late is said in the
- * answers' heading, after their number (answersHeading). The jobs' task counts open the Jobs list on its filters instead,
- * which says how many it shows.
+ * answers' heading, after their number (answersHeading), and the quotes worth a call in the heading of those waiting for
+ * an answer, after theirs (waitingHeading). The jobs' task counts open the Jobs list on its filters instead, which says
+ * how many it shows.
  */
 export const STANDING_HEADINGS = {
   late: 'Answers to check',
@@ -152,6 +159,7 @@ export const STANDING_HEADINGS = {
   'tasks-late': undefined,
   'tasks-nobody': undefined,
   'no-answer': 'Dates passed, no answer',
+  quotes: 'Waiting for an answer',
 } as const satisfies Record<StandingKey, string | undefined>
 
 /** A list's heading with how many are in it, the number its count on Home says: "Repairs open (15)". */
@@ -168,10 +176,19 @@ export function answersHeading(answers: number, late: number): string {
 }
 
 /**
+ * The quotes sent with no answer, on Quotes › To follow up, with how many of them are worth a call, Home's count of them:
+ * "Waiting for an answer (9) · 3 worth a call". Those are the longest waiting, so they're the first rows under it.
+ */
+export function waitingHeading(waiting: number, chase: number): string {
+  const heading = listHeading(STANDING_HEADINGS.quotes, waiting)
+  return chase ? `${heading} · ${chase.toLocaleString('en-IE')}\u00a0worth a call` : heading
+}
+
+/**
  * The lists, narrowed to a department when one is given. The jobs' own
- * counts (kit still out, tasks, dates passed) are the job's, not a
- * department's, so they're empty for one; leave waits on its approver
- * (ADR 0024), so it isn't narrowed.
+ * counts (kit still out, tasks, dates passed, quotes worth a call) are the
+ * job's, not a department's, so they're empty for one; leave waits on its
+ * approver (ADR 0024), so it isn't narrowed.
  */
 export function standing(view: View, today: string, { me, department }: StandingFor = {}): Standing {
   const by = narrower(department)
@@ -211,6 +228,8 @@ export function standing(view: View, today: string, { me, department }: Standing
         : stepsOf(view.jobs.jobs)
             .filter((s) => s.lapsed)
             .sort((a, b) => (b.job.span?.start ?? '').localeCompare(a.job.span?.start ?? '') || b.job.name.localeCompare(a.job.name)),
+    // Empty on a device that isn't sent money (ADR 0042), which has no quotes to count.
+    quotes: () => (department ? [] : quotesToFollow(view.money, today).chase),
   }
   const kept: Partial<Standing> = {}
   const out = {} as Standing

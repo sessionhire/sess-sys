@@ -71,9 +71,11 @@ yet?"*
   no way to see what's on it without scrolling (**3**), and nothing told
   them what was short across all three areas at once (**2**).
 - **Now:** every screen with several parts shows them as a strip under the
-  title (*On this screen*), with counts, which jumps to each. Home, shown
-  for the office, puts answers, crew needed, timesheets, documents and
-  running late first.
+  title (*On this screen*), with counts, which jumps to each. Home's
+  company view, for the office, puts what's waiting on them first: anyone
+  running late, answers, crew needed, timesheets, quotes worth a call,
+  dates passed with no answer and documents, with the warehouse's counts
+  under it as housekeeping (Move 10 of the sweep of 6 November 2026).
 
 ### H. Head of department
 

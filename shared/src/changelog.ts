@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.93.0',
+    date: '2026-11-07',
+    title: "Home in the office's order, and quotes worth a call",
+    what: "When the office opens Home's company view, what's waiting on the office now comes first: anyone running late, answers to check, calls still needing crew, timesheets, quotes worth a call, jobs whose dates passed with no answer, and documents running out, with the warehouse's counts under Housekeeping. A new count, quotes worth a call, shows the office and directors the quotes sent a week or more ago with no answer, and opens Quotes, whose Waiting for an answer now says how many are waiting and how many are worth a call. Directors, heads and the warehouse keep the order they had. The order follows the role you're signed in with, and the Menu now lists Home with a line saying so.",
+    prs: [226],
+    adrs: [33, 35, 81],
+  },
+  {
     version: '1.92.0',
     date: '2026-11-07',
     title: "Items say whether they're out, missing or waiting to sync",
