@@ -15,6 +15,8 @@ import {
   spanLabel,
   type ClientView,
   type JobView,
+  JOB_STEPS,
+  type JobStep,
   type KitLineView,
   type ProjectKind,
   type ProjectStatus,
@@ -37,7 +39,7 @@ import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { Beside, Choices, clientNamed, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
+import { Beside, Choices, clientNamed, NewOrNear, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
 import { StageLine } from './StageLine.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
 import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
@@ -59,6 +61,7 @@ import { plain, wordsOf } from '../crew/People.tsx'
 import { JOBS } from '../Up.tsx'
 import { useWindowed } from '../windowed.ts'
 import { ListTools, useListChoices } from '../ListTools.tsx'
+import { arrival } from '../arrival.ts'
 
 /**
  * Jobs (ADR 0007): every job, who it's for, where and when, made of phases.
@@ -114,6 +117,9 @@ export function JobsScreen() {
   if (pick) return <PickScreen view={view} id={decodeURIComponent(pick)} />
   const [, sheetJob, sheetPhase] = /^#jobs\/([^/]+)\/sheet\/([^/]+)$/.exec(hash) ?? []
   if (sheetJob && sheetPhase) return <SheetScreen view={view} jobId={decodeURIComponent(sheetJob)} phaseId={decodeURIComponent(sheetPhase)} />
+  // A job's page with one of its tasks open, as Your tasks on Home links it (audit, 5 November 2026, finding 17).
+  const [, taskOf, taskKey] = /^#jobs\/([^/]+)\/task\/([a-z]+)$/.exec(hash) ?? []
+  if (taskOf && JOB_STEPS.includes(taskKey as JobStep)) return <JobScreen key={taskOf} view={view} id={decodeURIComponent(taskOf)} task={taskKey as JobStep} />
   // A job's page, at a part of it when the address names one.
   const [, partOf, part] = /^#jobs\/([^/]+)\/([a-z]+)$/.exec(hash) ?? []
   const open = partOf && JOB_PARTS.includes(part as JobPart) ? decodeURIComponent(partOf) : hash.startsWith('#jobs/') ? decodeURIComponent(hash.slice('#jobs/'.length)) : undefined
@@ -341,9 +347,11 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   }, [jobs, day])
   const count = (f: Filter) => counts.get(f) ?? 0
   // Filter and sort (ADR 0099): the filters narrow the tab chosen above them, and the order is the tab's own until another is picked.
-  const [choices, setChoices] = useListChoices('jobs')
+  // A count on Home of jobs with a task late, or down to nobody, opens the list on just those, its other filters off (audit, 5 November 2026, finding 20).
+  const [asked] = useState(() => arrival()?.filters)
+  const [choices, setChoices] = useListChoices('jobs', asked && { status: '', kind: '', crew: '', kit: '', stage: '', tasks: '', ...asked })
   const sorts = useMemo(() => jobSorts(filter !== 'coming'), [filter])
-  const filters = useMemo(() => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped'), [view.kit.byJob, filter])
+  const filters = useMemo(() => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped', (j) => view.steps.of(j.id)), [view.kit.byJob, view.steps, filter])
   const { rows, shownCount, listedCount, searched } = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
     const matches = (j: JobView) => {
@@ -512,9 +520,11 @@ function NewJob({ view }: { view: View }) {
       <label>
         Client <input list="client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
       </label>
+      <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
       <label>
         Venue <input list="venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
       </label>
+      <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label className="wide">
         Status
         <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as ProjectStatus })}>

@@ -110,10 +110,10 @@ export function chargeWords(r: QuoteLine) {
 export const lineMargin = (l: QuoteLine, cost: number | undefined) => (cost === undefined ? undefined : lineCents(l) - cost)
 
 /** "Margin €3,400.00, 62%", with the lines whose cost isn't known yet unless told not to: on the screen only, never printed. */
-export function MarginWords({ margin, unknown = true }: { margin: QuoteMargin; unknown?: boolean }) {
+export function MarginWords({ margin, unknown = true, label = 'Margin' }: { margin: QuoteMargin; unknown?: boolean; label?: string }) {
   return (
     <span className={`margin-words${margin.margin < 0 ? ' bad' : ''}`}>
-      Margin <b>{money(margin.margin)}</b>
+      {label} <b>{money(margin.margin)}</b>
       {margin.pct !== null && `, ${pctWord(margin.pct)}`}
       {unknown && margin.unknown > 0 && <small> ({plural(margin.unknown, 'line')} with no cost yet)</small>}
     </span>

@@ -45,7 +45,7 @@ import { Tabs } from '../Tabs.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
-import { Choices, clientNamed, JobStatusPill, Page, venueNamed } from './common.tsx'
+import { Choices, clientNamed, NewOrNear, JobStatusPill, Page, venueNamed } from './common.tsx'
 import { KitCard, kitSummary } from './Kit.tsx'
 import { VansCard } from './Vans.tsx'
 import { QuoteCard } from './Quote.tsx'
@@ -83,7 +83,7 @@ function lastPart(): JobPart | undefined {
   }
 }
 
-export function JobScreen({ view, id, part: asked }: { view: View; id: string; part?: JobPart }) {
+export function JobScreen({ view, id, part: asked, task: askedTask }: { view: View; id: string; part?: JobPart; task?: JobStep }) {
   const job = view.jobs.jobs.find((j) => j.id === id)
   // An offer to send, or the people to tell after a withdrawal or a stopped job (audit finding 9): one panel at a time.
   const [share, setShare] = useState<Share | undefined>()
@@ -97,8 +97,9 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
   const [picked, setPicked] = useState<JobPart | undefined>()
   useEffect(() => setPicked(undefined), [asked])
   // The task opened on Where it is, from its list or from the Next dock (ADR 0104).
-  const [task, setTask] = useState<JobStep | undefined>()
-  useEffect(() => setTask(undefined), [id])
+  // Opened from Your tasks on Home, the page opens on that task, not on the job's own next one (audit, 5 November 2026, finding 17).
+  const [task, setTask] = useState<JobStep | undefined>(askedTask)
+  useEffect(() => setTask(askedTask), [id, askedTask])
   const wanted = picked ?? asked ?? lastPart() ?? 'phases'
   const part = parts.includes(wanted) ? wanted : 'phases'
   const pick = (p: JobPart) => {
@@ -411,9 +412,11 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
       <label>
         Client <input list="edit-client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} disabled={asking} />
       </label>
+      <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
       <label>
         Venue <input list="edit-venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} disabled={asking} />
       </label>
+      <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label className="wide">
         Status
         <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as ProjectStatus })} disabled={asking}>
@@ -671,6 +674,7 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
         Venue{' '}
         <input list="phase-venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="The job's venue" disabled={held} />
       </label>
+      {!held && <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />}
       <label>
         Local crew{' '}
         <input

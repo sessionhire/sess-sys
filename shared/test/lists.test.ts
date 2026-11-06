@@ -96,6 +96,19 @@ describe('jobs', () => {
     expect(listed(jobs, going, jobSorts(false), { sort: 'date', filters: { kit: 'short' } }).map((j) => j.id)).toEqual(['soon'])
   })
 
+  it('filters by stage and by tasks late or down to nobody, when told where each job is', () => {
+    // Proves (audit, 5 November 2026, finding 20): Home's counts of late and unowned tasks open a list of just those.
+    const at = (stage: string, late: boolean, ownerId: string | null) => ({ stage: { key: stage }, finished: false, stopped: undefined, current: { ownerId }, steps: [{ late }] })
+    const where: Record<string, unknown> = { soon: at('planning', true, null), later: at('planning', false, 'aoife'), undated: at('selling', false, null) }
+    const filters = jobFilters(() => false, false, (j) => where[j.id] as never)
+    expect(filters.map((f) => f.key)).toEqual(['status', 'kind', 'crew', 'kit', 'stage', 'tasks'])
+    const ids = (f: Record<string, string>) => listed(jobs, filters, jobSorts(false), { sort: 'date', filters: f }).map((j) => j.id)
+    expect(ids({ tasks: 'late' })).toEqual(['soon'])
+    expect(ids({ stage: 'planning', tasks: 'nobody' })).toEqual(['soon'])
+    expect(ids({ tasks: 'nobody' })).toEqual(['undated', 'soon'])
+    expect(jobFilters(() => false, true, () => undefined).map((f) => f.key)).toEqual(['status', 'kind', 'crew', 'kit'])
+  })
+
   it('a job with no calls asks for no crew', () => {
     const filters = jobFilters(() => false, false)
     expect(listed(jobs, filters, jobSorts(false), { sort: 'date', filters: { crew: 'none' } })).toHaveLength(3)

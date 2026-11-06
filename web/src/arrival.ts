@@ -16,6 +16,8 @@ export interface Arrival {
   part?: string
   /** The department Home counted for. */
   department?: string
+  /** The list filters the count was made with, to start the list on (audit, 5 November 2026, finding 20). */
+  filters?: Record<string, string>
 }
 
 let asked: Arrival | undefined

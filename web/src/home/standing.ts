@@ -1,4 +1,4 @@
-import { answersToCheck, canApproveLeave, departmentOf, kindOf, runningOut, sameDepartment, type Ability, type Department, type JobView, type PersonView, type View } from '@sh/shared'
+import { answersToCheck, canApproveLeave, departmentOf, isUnowned, kindOf, runningOut, sameDepartment, STOPPED, type Ability, type Department, type JobView, type PersonView, type View } from '@sh/shared'
 import { calendarAnswersToSortOut } from '../crew/CrewScreen.tsx'
 
 /**
@@ -21,6 +21,8 @@ export interface Tile {
   part?: string
   /** Something stopping work, drawn as bad; otherwise neutral. */
   bad?: boolean
+  /** The list's filters it counted with, so the list it opens shows just those (audit, 5 November 2026, finding 20). */
+  filters?: Record<string, string>
 }
 
 /**
@@ -108,6 +110,8 @@ const NEEDS: Record<string, Ability | 'approve-leave'> = {
   vehicles: 'stock',
   counts: 'stock',
   'no-answer': 'jobs',
+  'tasks-late': 'jobs',
+  'tasks-nobody': 'jobs',
 }
 
 /** Every count Home knows that this person can act on, narrowed to a department when one is given, keyed for picking. */
@@ -143,6 +147,14 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
   const approver = canApproveLeave(me)
   // Enquiries and quotes whose dates have passed with no answer (ADR 0109): housekeeping, to mark lost or confirm.
   const noAnswer = department ? 0 : view.jobs.jobs.filter((j) => view.steps.of(j.id)?.lapsed).length
+  // Tasks late, and jobs being planned that nobody has the next task of, on the jobs still to come: counted here as the Jobs
+  // list's Tasks filter counts them, which the count opens (audit, 5 November 2026, finding 20).
+  const coming = department ? [] : view.jobs.jobs.filter((j) => !STOPPED.includes(j.status) && !(j.span && j.span.end < today))
+  const tasksLate = coming.filter((j) => view.steps.of(j.id)?.steps.some((t) => t.late)).length
+  const tasksNobody = coming.filter((j) => {
+    const at = view.steps.of(j.id)
+    return at?.stage?.key === 'planning' && isUnowned(at)
+  }).length
 
   const all: Tile[] = [
     { key: 'late', count: late, label: late === 1 ? 'person running late, not yet noted' : 'people running late, not yet noted', href: '#crew', part: 'Answers to check' },
@@ -159,6 +171,14 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
     { key: 'tests-soon', count: tests.length - cantGo, label: 'inspections due in 30 days', href: '#stock/testing', part: 'Inspections due' },
     { key: 'vehicles', count: vehicleChecks.length, label: vehicleChecks.length === 1 ? 'vehicle check running out' : 'vehicle checks running out', href: '#stock/vehicles', bad: vehicleRanOut, part: 'Vehicle checks running out' },
     { key: 'counts', count: counts, label: counts === 1 ? 'place to count this week' : 'places to count this week', href: '#stock/count' },
+    { key: 'tasks-late', count: tasksLate, label: tasksLate === 1 ? 'job with a task late' : 'jobs with a task late', href: '#jobs', filters: { tasks: 'late' } },
+    {
+      key: 'tasks-nobody',
+      count: tasksNobody,
+      label: tasksNobody === 1 ? 'job in Planning with its next task down to nobody' : 'jobs in Planning with the next task down to nobody',
+      href: '#jobs',
+      filters: { stage: 'planning', tasks: 'nobody' },
+    },
     { key: 'no-answer', count: noAnswer, label: noAnswer === 1 ? 'job whose dates passed with no answer' : 'jobs whose dates passed with no answer', href: '#jobs/board', part: 'Dates passed, no answer' },
   ]
   // Timesheets only while the company uses them (ADR 0090).
@@ -175,7 +195,7 @@ export const SOON: ReadonlySet<string> = new Set(['late', 'crew-needed', 'kit-sh
 
 /** Which counts each view of Home shows, in order: the first is what that person reaches for first. */
 export const TILES_FOR: Record<HomeFor, readonly string[]> = {
-  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'no-answer'],
+  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'no-answer', 'tasks-late', 'tasks-nobody'],
   // Only what can be narrowed to a department: crew calls by their own department (ADR 0046); kit still out is the job's, not a department's.
   department: ['late', 'answers', 'crew-needed', 'leave', 'timesheets', 'certificates', 'kit-short', 'faults', 'cant-go', 'tests-soon'],
   warehouse: ['to-pick', 'still-out', 'kit-short', 'faults', 'cant-go', 'counts', 'tests-soon', 'vehicles'],

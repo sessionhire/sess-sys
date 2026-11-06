@@ -50,7 +50,7 @@ import { client } from '../sync.ts'
 import { JOBS, MONEY } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
-import { Choices, clientNamed, Top, venueNamed } from './common.tsx'
+import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
 import { JobViews } from './PlanScreen.tsx'
@@ -347,9 +347,11 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
       <label>
         Client <input list="new-quote-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
       </label>
+      <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
       <label>
         Venue <input list="new-quote-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
       </label>
+      <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label>
         From <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
       </label>
@@ -576,7 +578,7 @@ function Margins({ m, today }: { m: MoneyView; today: string }) {
                   <th scope="col">Job</th>
                   <th scope="col">Quoted</th>
                   <th scope="col">Freelancers</th>
-                  <th scope="col">Margin</th>
+                  <th scope="col">After freelancers</th>
                 </tr>
               </thead>
               <tbody>

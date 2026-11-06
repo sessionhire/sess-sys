@@ -286,6 +286,20 @@ describe('an address anyone can post to', () => {
     })
     expect(firstLine).toBe('HTTP/1.1 404 Not Found')
   })
+
+  it("reads a phone's 11 MB photo through before saying it's too big, so the browser shows the page and not 'connection reset'", async () => {
+    // Proves (audit, 5 November 2026, finding 14): the whole form is taken in from a real link, and only then answered with the page's own words.
+    const { app, token } = await office()
+    const dara = await token('dara')
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    const { port } = app.server.address() as AddressInfo
+    const { payload, headers } = form({ kind: 'other', title: 'Big photo', expires: '' }, Buffer.concat([JPEG, Buffer.alloc(11 * 1024 * 1024)]), 'IMG_2031.JPG')
+    const res = await fetch(`http://127.0.0.1:${port}/f/${dara}/documents`, { method: 'POST', body: payload, headers, redirect: 'manual' })
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toContain('m=doc-too-big')
+    // Turned away unread, the answer closes the connection while the browser is still sending, and Chrome drops it.
+    expect(res.headers.get('connection')).not.toBe('close')
+  })
 })
 
 describe("from the freelancer's link", () => {

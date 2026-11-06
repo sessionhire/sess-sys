@@ -104,8 +104,10 @@ export function QuoteCard({ job, view }: { job: JobView; view: View }) {
 function MarginLine({ margin, costs }: { margin: number; costs: number }) {
   return (
     <p className={`margin-line${margin < 0 ? ' bad' : ''}`}>
-      Margin after freelancers: <b>{money(margin)}</b>
-      {costs > 0 && <span className="muted"> ({money(costs)} of freelancers)</span>}
+      {/* What's left once the freelancers booked or approved so far are paid, as Money counts it; not the quote's own
+          expected margin, which is worked from its lines' costs, so the two are named apart (audit, 5 November 2026, finding 24). */}
+      Left after freelancers so far: <b>{money(margin)}</b>
+      {costs > 0 && <span className="muted"> ({money(costs)} of freelancers booked or approved)</span>}
     </p>
   )
 }
@@ -196,8 +198,8 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             <Totals totals={q.totals} agreed={q.agreedCents != null} />
             {boss && (
               <p className="quote-margin">
-                <MarginWords margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined)))} />
-                <small> Not printed.</small>
+                <MarginWords label="Expected margin" margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined)))} />
+                <small> From the quote's own costs. Not printed.</small>
               </p>
             )}
             {q.notes && <p className="notes">{q.notes}</p>}
