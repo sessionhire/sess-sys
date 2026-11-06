@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.84.0',
+    date: '2026-11-06',
+    title: 'Broken kit from the link, and the first P3s',
+    what: "A freelancer can tell the warehouse about broken or missing kit from their own link, by the number on its label or the product's name, and it lands on Repairs with their name on it. Calls still short of crew in the next three days come first in To sort out, on the planner and in Notifications. An offer on a call with no reply-by day is chased from the day before the call. Testing a batch asks who's testing before the first scan. An approved timesheet on the link says when it was paid. The calendar feed now says it shows what each booking pays. Cable labels for a product with no stock code start on a QR code, and Print says when a label has no code.",
+    prs: [212],
+    adrs: [12],
+  },
+  {
     version: '1.83.0',
     date: '2026-11-06',
     title: "A job's and a person's own history, and quicker crew and warehouse work",

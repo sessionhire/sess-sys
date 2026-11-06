@@ -189,7 +189,7 @@ test('testing a batch holds each pass for five seconds with Undo; a second read,
 
   await page.goto('/#stock/testing')
   await expect(page.locator('.hint').first()).toContainText('Each pass waits five seconds with Undo')
-  await page.getByLabel('By', { exact: true }).fill('Volt Testing Ltd')
+  await page.getByRole('textbox', { name: "Who's testing" }).fill('Volt Testing Ltd')
   const held = page.getByRole('status', { name: 'Held' })
   const said = page.getByRole('status', { name: 'Last scan' })
   const tested = page.getByRole('region', { name: 'Tested' })
@@ -226,7 +226,7 @@ test('testing a batch holds each pass for five seconds with Undo; a second read,
   // It failed, while held: the fail is recorded instead of the pass, by whoever was testing when it was read.
   await typeIn(a!)
   await expect(held).toContainText(`Passed: ${a}`)
-  await page.getByLabel('By', { exact: true }).fill('Someone else')
+  await page.getByRole('textbox', { name: "Who's testing" }).fill('Someone else')
   await held.getByRole('button', { name: 'It failed' }).click()
   await expect(said).toHaveText(`${a} ${speaker}: failed. It can't go out until it passes. Report what's wrong on its page.`)
   await expect(tested).toContainText('Tested here: 3')

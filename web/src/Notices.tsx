@@ -1,4 +1,4 @@
-import { historyDays, historyTime, makerOf, NOTICE_WHY_WORDS, plan, plural, sortOutDays, type Notice, type NoticeLine, type View } from '@sh/shared'
+import { historyDays, historyTime, makerOf, NOTICE_WHY_WORDS, plan, plural, shortSoon, sortOutDays, type Notice, type NoticeLine, type View } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from './auth.ts'
 import { Empty } from './Empty.tsx'
@@ -151,7 +151,14 @@ export function NoticesScreen() {
       </section>
 
       <TodoCard view={view} />
-      {ahead && <SortOut problems={ahead.problems} vanProblems={ahead.vanProblems} hint="Clashes and checks from today to four weeks out. Each goes once it's sorted." />}
+      {ahead && (
+        <SortOut
+          problems={ahead.problems}
+          vanProblems={ahead.vanProblems}
+          short={shortSoon(view.crew, today)}
+          hint="Calls short of crew in the next three days, then clashes and checks from today to four weeks out. Each goes once it's sorted."
+        />
+      )}
       <KitToCheck view={view} />
       {seesMoney && <QuotesToChase view={view} />}
 

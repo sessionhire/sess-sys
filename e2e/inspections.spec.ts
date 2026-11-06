@@ -100,12 +100,18 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
 
   // A batch tested by scanning; the last with no signal.
   await expect(page.getByRole('heading', { level: 2, name: 'Test a batch' })).toBeVisible()
-  await page.getByLabel('By', { exact: true }).fill('Volt Testing Ltd')
   const said = page.getByRole('status', { name: 'Last scan' })
   const typeIn = async (number: string) => {
     await page.getByLabel('Number or serial').fill(number)
     await page.getByLabel('Number or serial').press('Enter')
   }
+  // Nobody named, nothing recorded: the tester is asked for first (audit, 5 November 2026, finding 73).
+  const tester = page.getByRole('textbox', { name: "Who's testing" })
+  await tester.fill('')
+  await typeIn(speakers[0]!)
+  await expect(said).toHaveText(`${speakers[0]} ${speaker} wasn't recorded: type who's testing first, then scan it again.`)
+  await expect(tester).toBeFocused()
+  await tester.fill('Volt Testing Ltd')
   // Each pass is held with Undo for five seconds, then recorded.
   const held = page.getByRole('status', { name: 'Held' })
   await typeIn(speakers[0]!)

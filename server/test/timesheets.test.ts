@@ -322,6 +322,20 @@ describe('the office and timesheets', () => {
     expect(history.entries.map((e) => e.what)).toContain("Approved Dara Quinn's timesheet for Sound No.1 on Autumn Gala: 1 day at €320, and €18.10 of extras: €338.10")
   })
 
+  it('says on the link when an approved timesheet was paid', async () => {
+    // Proves: once the office records the payment, the timesheet's page and the link's list say Paid and the day (audit, 5 November 2026, finding 65).
+    const { app, token } = await gala()
+    const dara = await token('dara')
+    await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)]])
+    await ok(app, m('timesheet.approve', { id: 'dara-sound', days: [day(-1)], dayRateCents: 32000, extras: [], officeNote: '' }))
+    expect((await page(app, `/f/${dara}/timesheet/dara-sound`)).html).not.toContain('paid on')
+    await ok(app, m('cost.paid', { id: 'dara-sound', on: day(0) }))
+    const seen = (await page(app, `/f/${dara}/timesheet/dara-sound`)).html
+    expect(seen).toContain('Paid: €320')
+    expect(seen).toContain(`, paid on ${dayLabel(day(0))}. If something's wrong, ask the office.`)
+    expect((await page(app, `/f/${dara}`)).html).toContain(`Paid ${dayLabel(day(0))}: €320`)
+  })
+
   it('keeps the office\'s rate and added day when the freelancer resends after a reopen', async () => {
     // Proves: after a reopen, a resend from the link sends the booking's rate, so the page still says the office changed it, and keeps a day the office added beyond the booking (audit, 20 October 2026, findings 82 and 83).
     const { app, token } = await gala()

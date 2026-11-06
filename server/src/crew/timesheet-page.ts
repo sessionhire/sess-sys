@@ -21,6 +21,8 @@ export interface TimesheetPage {
   offer: Offer
   call: CrewCall
   timesheet: Timesheet | undefined
+  /** The day the office paid it, once it has said (audit, 5 November 2026, finding 65). */
+  paidOn?: string | null
   /** Why there's no timesheet to send, when there isn't. */
   why: string | null
   /** Staff are paid through payroll, so their page carries no rate (audit finding 21). */
@@ -64,7 +66,7 @@ export function renderTimesheet(d: TimesheetPage): string {
     <p class="when">${h(call.role)}, ${h(daysLabel(offer.days, irishToday()))}</p>
     ${d.staff ? '' : `<p class="small">${rate === null ? 'Day rate to agree with the office.' : `${h(euro(rate))} a day${t && t.dayRateCents !== offer.dayRateCents ? '' : ', as agreed'}.`}</p>`}
   </section>
-  ${!t && d.why ? `<p class="flash warn">${h(d.why)}</p>` : t?.status === 'approved' ? approved(t) : form(d, action)}
+  ${!t && d.why ? `<p class="flash warn">${h(d.why)}</p>` : t?.status === 'approved' ? approved(t, d.paidOn ?? null) : form(d, action)}
   <footer>
     <span>Keep this link to yourself: anyone with it can answer for you.</span>
   </footer>
@@ -73,18 +75,18 @@ export function renderTimesheet(d: TimesheetPage): string {
 </html>`
 }
 
-function approved(t: Timesheet): string {
+function approved(t: Timesheet, paidOn: string | null): string {
   const changes = timesheetChanges(t)
   const { fees, total } = timesheetTotal(t)
   const n = t.days.length
-  return `<section class="you"><h2>Approved: ${h(euro(total))}</h2>
+  return `<section class="you"><h2>${paidOn ? 'Paid' : 'Approved'}: ${h(euro(total))}</h2>
     <ul class="extras-list">
       <li>${n} day${n === 1 ? '' : 's'} at ${h(euro(t.dayRateCents))}, ${h(daysLabel(t.days, irishToday()))} <span>${h(euro(fees))}</span></li>
       ${t.extras.map((e) => `<li>${h(e.what)} <span>${h(euro(e.cents))}</span></li>`).join('')}
     </ul>
     ${changes.length ? `<p>The office changed what you sent:</p><ul class="changes">${changes.map((c) => `<li>${h(c)}</li>`).join('')}</ul>` : ''}
     ${t.officeNote ? `<p class="details">${lines(t.officeNote)}</p>` : ''}
-    <p class="small">Approved on ${h(on(t.approvedAt ?? t.sentAt))}. If something's wrong, ask the office to reopen it.</p>
+    <p class="small">Approved on ${h(on(t.approvedAt ?? t.sentAt))}${paidOn ? `, paid on ${h(dayLabel(paidOn, irishToday()))}` : ''}. If something's wrong, ask the office${paidOn ? '' : ' to reopen it'}.</p>
   </section>`
 }
 

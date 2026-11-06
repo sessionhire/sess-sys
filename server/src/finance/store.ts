@@ -72,6 +72,15 @@ export async function getCostPaid(q: Queryable, timesheetId: string): Promise<Co
   return rows[0] ? { id: rows[0].timesheet_id, paidOn: rows[0].paid_on } : undefined
 }
 
+/** The day each of these timesheets was paid, where the office has said (audit, 5 November 2026, finding 65). */
+export async function paidOnFor(q: Queryable, timesheetIds: readonly string[]): Promise<Map<string, string>> {
+  if (!timesheetIds.length) return new Map()
+  const { rows } = await q.query<{ timesheet_id: string; paid_on: string }>('SELECT timesheet_id, paid_on::text AS paid_on FROM cost_payments WHERE timesheet_id = ANY($1::text[])', [
+    [...timesheetIds],
+  ])
+  return new Map(rows.map((r) => [r.timesheet_id, r.paid_on]))
+}
+
 /** What every printed quote says (ADR 0084), once anything about it is saved or a number given. */
 export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | undefined> {
   const { rows } = await q.query<Row>(

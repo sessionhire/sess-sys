@@ -117,9 +117,20 @@ waiting on someone.
   from the foot of their page. Tidy up's name boxes start filled, with
   "Keep all these names as they are".
 
+- The P3s, all 41, on Colly's "Work on all" (6 November), in six PRs.
+  Batch 9a, the six that matter most (1.84.0, PR #212): findings 64, 73,
+  65, 75, 60 and 72. A freelancer reports broken or missing kit from their
+  link (/f/<token>/broken), onto Repairs with their name. Calls short in
+  the next three days lead To sort out; an offer with no reply-by day is
+  chased from the day before the call. Testing a batch asks who's testing
+  first. An approved timesheet on the link says when it was paid (the
+  invoice details wait for invoicing, 20 Oct 89). The feed says it carries
+  rates (ADR 0012, Later). Cable labels with no stock code start on a QR
+  code.
+
 **Waiting**
 
-- Colly to say whether to go on to the P3s, by area.
+- Nothing from Colly: the rest of the P3s are being worked through.
 
 ## 1 November 2026: the logo, stock code, cable length and colour on labels
 
