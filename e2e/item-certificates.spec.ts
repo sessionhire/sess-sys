@@ -63,7 +63,7 @@ test('a round’s report of thorough examination on every motor in it, and anoth
   // Both examined as a round on the Testing page.
   await page.goto('/#stock/testing')
   await page.getByRole('group', { name: 'Which test' }).getByRole('button', { name: 'Thorough examination' }).click()
-  await page.getByLabel('By', { exact: true }).fill('Rig Safe Ltd')
+  await page.getByRole('textbox', { name: "Who's testing" }).fill('Rig Safe Ltd')
   const said = page.getByRole('status', { name: 'Last scan' })
   for (const m of motors) {
     await page.getByLabel('Number or serial').fill(m)

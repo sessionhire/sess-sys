@@ -1,4 +1,4 @@
-import { eachDay, EURO_HINT, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
+import { eachDay, EURO_HINT, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
 import { FILE_TOO_BIG, NO_FILE, WEB_FILE, WRONG_FILE } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { applyMutation } from '../commands.ts'
@@ -16,11 +16,14 @@ import { renderGone, renderPage, type Flash, type Kept, type OnTheDay } from './
 import { renderNoSheet, renderSheet, sheetFor } from './sheet.ts'
 import { awayFor, endedOn, getAway, getCall, getOffer, getPerson, heldByCall, heldElsewhereIn, offersFor, personByToken } from './store.ts'
 import { renderTimesheet } from './timesheet-page.ts'
+import { paidOnFor } from '../finance/store.ts'
 import { getTimesheet, timesheetsFor } from './timesheets.ts'
 import { Refused } from '../kernel.ts'
 import { getOwnCalendar, type OwnCalendars } from './own-calendars.ts'
 import { getPurchase, openPurchases, purchasesFor } from '../purchases/store.ts'
 import { renderPurchases } from './purchase-page.ts'
+import { renderBroken } from './broken-page.ts'
+import { getAsset, numberUse } from '../stock/store.ts'
 
 /**
  * A freelancer's private link, /f/<token>: their page, the answers they
@@ -110,6 +113,11 @@ const SAID = {
   'buy-unvoted': { ok: true, text: 'Your vote is taken back.' },
   'buy-gone': { ok: false, text: "That request isn't on the purchase list any more." },
   'buy-settled': { ok: false, text: "That one's been ordered or settled, so it can't be voted for now." },
+  // Broken or missing kit (audit, 5 November 2026, finding 75).
+  'broken-told': { ok: true, text: "Thanks, the warehouse has it. It's on their repairs list with your name on it." },
+  'broken-what': { ok: false, text: "Give its number from the label, or the product's name if it has no label." },
+  'broken-no-number': { ok: false, text: "Nothing here has that number. Check the label, or give the product's name instead." },
+  'broken-no-product': { ok: false, text: "There's no product called that. Give its number from the label, or the name as it's on our kit lists." },
 } satisfies Record<string, { ok: boolean; text: string }>
 type Said = keyof typeof SAID
 /** The id the page gives a days-off form: one of the app's own (newId). */
@@ -228,7 +236,10 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       kept,
       today: now,
       ended: await endedOn(db, rows.map((r) => r.offer)),
-      timesheets: await timesheetsFor(db, person.id),
+      ...(await (async () => {
+        const timesheets = await timesheetsFor(db, person.id)
+        return { timesheets, paid: await paidOnFor(db, [...timesheets.keys()]) }
+      })()),
       ...(await (async () => {
         const asking = await timesheetAsking(db)
         return { noTimesheets: !asking, asking: asking ?? undefined }
@@ -266,6 +277,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       offer,
       call,
       timesheet: await getTimesheet(db, offer.id),
+      paidOn: (await paidOnFor(db, [offer.id])).get(offer.id) ?? null,
       why: noTimesheetReason(offer, call, person, today(), (await timesheetAsking(db)) ?? undefined),
       staff: person.kind === 'staff',
       base: base(req, person.linkToken),
@@ -478,6 +490,69 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const result = await run(req, person.id, 'purchase.vote', { requestId: r.id, vote, by: person.id })
     if (result.status === 'rejected') return toBuy(reply, person.linkToken, 'try-again', r.id)
     return toBuy(reply, person.linkToken, vote ? 'buy-voted' : 'buy-unvoted', r.id)
+  })
+
+  // Broken or missing kit, reported from the link (audit, 5 November 2026, finding 75): as the app's Report damage, onto Repairs.
+  const brokenPage = async (req: Req, person: Person, flash?: { ok: boolean; text: string }, kept?: URLSearchParams) =>
+    renderBroken({ base: base(req, person.linkToken), office: await officeFor(db), flash, kept })
+
+  app.get('/f/:token/broken', async (req: Req, reply) => {
+    noStore(reply)
+    const person = await personByToken(db, req.params.token)
+    if (!person) return gone(reply)
+    const said = req.query.m && Object.hasOwn(SAID, req.query.m) && req.query.m.startsWith('broken-') ? SAID[req.query.m as Said] : undefined
+    return reply.type('text/html').send(await brokenPage(req, person, said))
+  })
+
+  app.post('/f/:token/broken', async (req: Req, reply) => {
+    const person = await personByToken(db, req.params.token)
+    if (!person) return gone(reply)
+    const form = (req.body ?? new URLSearchParams()) as Form
+    // A refusal is said above the form, with everything typed still in it (rule 11).
+    const turnedDown = async (what: Said | Refusal) =>
+      noStore(reply)
+        .code(422)
+        .type('text/html')
+        .send(await brokenPage(req, person, { ok: false, text: reasonOf(what) }, form))
+    const typed = (form.get('number') ?? '').trim()
+    const named = (form.get('product') ?? '').trim()
+    if (!typed && !named) return turnedDown('broken-what')
+    let assetId: string | null = null
+    let modelId: string | undefined
+    if (typed) {
+      const n = normaliseNumber(typed)
+      const use = n ? await numberUse(db, n) : undefined
+      const asset = use?.current ? await getAsset(db, use.assetId) : undefined
+      if (!asset) return turnedDown('broken-no-number')
+      assetId = asset.id
+      modelId = asset.modelId
+    } else {
+      const { rows } = await db.query<{ id: string }>('SELECT id FROM models WHERE lower(name) = lower($1) AND NOT mistake LIMIT 1', [named])
+      modelId = rows[0]?.id
+      if (!modelId) return turnedDown('broken-no-product')
+    }
+    const kind = form.get('kind') === 'missing' ? 'missing' : 'damaged'
+    const note = (form.get('note') ?? '').trim().slice(0, 1500)
+    // The page gives the form an id of its own, so the same form sent twice reports once (fault.report keeps the first).
+    const given = form.get('id') ?? ''
+    const result = await run(req, person.id, 'fault.report', {
+      id: AWAY_ID.test(given) ? given : newId(),
+      kind,
+      assetId,
+      modelId,
+      qty: 1,
+      projectId: null,
+      usable: kind === 'damaged' && form.get('usable') === 'yes',
+      // Who said so, for the warehouse reading Repairs: a link has no signed-in name.
+      note: `From ${person.name}'s link${note ? `: ${note}` : '.'}`,
+      at: new Date().toISOString(),
+    }).catch((err: unknown) => {
+      reportError(err, { route: '/f/:token/broken', method: 'POST' })
+      return undefined
+    })
+    if (!result) return turnedDown('try-again')
+    if (result.status === 'rejected') return turnedDown(result)
+    return reply.redirect(`/f/${person.linkToken}/broken?${new URLSearchParams({ m: 'broken-told' })}`, 303)
   })
 
   app.post('/f/:token/away', async (req: Req, reply) => {

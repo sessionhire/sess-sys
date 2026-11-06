@@ -436,7 +436,10 @@ export function answersToCheck(crew: CrewView, today: string): AnswerToCheck[] {
     if (call.status !== 'open' || call.end < today) continue
     const short = Math.max(0, ...call.days.map((d) => call.needed - (call.heldByDay[d] ?? 0)))
     for (const offer of call.offers) {
-      const unanswered = offer.status === 'offered' && !!call.replyBy && call.replyBy < today
+      // With no reply-by day (cleared, or never set), it counts as unanswered from the day before the call, so it's still chased
+      // (audit, 5 November 2026, finding 60).
+      const replyBy = call.replyBy ?? addDays(call.start, -2)
+      const unanswered = offer.status === 'offered' && replyBy < today
       const kind = (unanswered ? 'no-reply' : offer.status) as AnswerKind
       if (!ANSWER_ORDER.includes(kind)) continue
       if ((kind === 'declined' || kind === 'pulled-out' || kind === 'no-reply') && offer.seenAt) continue
@@ -459,6 +462,33 @@ export function answersToCheck(crew: CrewView, today: string): AnswerToCheck[] {
 
 /** How far ahead an answer is on a call soon enough to come first in Answers to check. */
 export const ANSWERS_SOON_DAYS = 14
+
+/** How close a call still short of crew is called out first, in To sort out (audit, 5 November 2026, finding 60). */
+export const SHORT_SOON_DAYS = 3
+
+/** A call still short of crew on a day from today to three days out, how many short, and in how many days that day is. */
+export interface ShortSoon {
+  call: CallView
+  short: number
+  inDays: number
+}
+
+/**
+ * Calls still short of crew within three days, soonest first: within the
+ * fortnight, a call short in two days looked the same as one short in
+ * thirteen (audit, 5 November 2026, finding 60).
+ */
+export function shortSoon(crew: CrewView, today: string): ShortSoon[] {
+  const last = addDays(today, SHORT_SOON_DAYS)
+  const out: ShortSoon[] = []
+  for (const call of crew.calls) {
+    if (call.status !== 'open' || call.end < today || call.start > last) continue
+    const days = call.days.filter((d) => d >= today && d <= last && call.needed > (call.heldByDay[d] ?? 0))
+    if (!days.length) continue
+    out.push({ call, short: Math.max(...days.map((d) => call.needed - (call.heldByDay[d] ?? 0))), inDays: daysBetween(today, days[0]!) })
+  }
+  return out.sort((a, b) => a.inDays - b.inDays || a.call.start.localeCompare(b.call.start) || a.call.id.localeCompare(b.call.id))
+}
 
 /**
  * Why a person might not be right for these days: marked unavailable, or

@@ -460,7 +460,7 @@ export function CrewScreen() {
                         {kind === 'no-reply' ? (
                           // Past its reply-by day with no answer (audit, 20 October 2026, finding 24): theirs to chase, so a way to ring is to hand.
                           <div>
-                            No word from <b>{o.person?.name ?? 'someone'}</b> by {dayLabel(c.replyBy!)}
+                            No word from <b>{o.person?.name ?? 'someone'}</b> {c.replyBy ? `by ${dayLabel(c.replyBy)}` : `yet, and it starts ${dayLabel(c.start)}`}
                             <p>
                               {c.project} · {c.role} · {daysLabel(o.days)}
                               <br />

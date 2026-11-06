@@ -398,6 +398,7 @@ const itemName = (a: AssetView) => [numberLabel(a), a.model?.name].filter(Boolea
 export function TestingScreen({ view }: { view: View }) {
   const [kind, setKind] = useState<InspectionKind>('pat')
   const [by, setBy] = useState(savedTester)
+  const tester = useRef<HTMLInputElement>(null)
   const today = useToday()
   const [day, setDay] = useState(today)
   const [typed, setTyped] = useState('')
@@ -490,6 +491,11 @@ export function TestingScreen({ view }: { view: View }) {
     const name = itemName(a)
     if (a.retiredReason === 'mistake') return missed(`${mistakeLabel(a)} Nothing was recorded.`)
     if (a.status !== 'active') return missed(`${name} is retired, so it wasn't recorded. Bring it back first if it's still here.`)
+    // Each record says who tested it, as the register an inspector asks for (ADR 0020; audit, 5 November 2026, finding 73).
+    if (!by.trim()) {
+      tester.current?.focus()
+      return missed(`${name} wasn't recorded: type who's testing first, then scan it again.`)
+    }
     saveTester(by.trim())
     // The same label again while it's held: still held, not passed twice.
     if (heldRef.current?.a.id === a.id) return
@@ -537,8 +543,8 @@ export function TestingScreen({ view }: { view: View }) {
             <section className="card" aria-label="Test a batch">
               <h2>Test a batch</h2>
               <p className="hint">
-                Scan each item as it passes. Each pass waits five seconds with Undo, then it's recorded, with no signal too. If one fails, press It
-                failed.
+                Say who's testing, then scan each item as it passes. Each pass waits five seconds with Undo, then it's recorded, with no signal too.
+                If one fails, press It failed. A shared phone keeps the last name: change it if that isn't you.
               </p>
               {held && (
                 <div className="held" role="status" aria-label="Held">
@@ -566,7 +572,7 @@ export function TestingScreen({ view }: { view: View }) {
               </div>
               <div className="grid-form">
                 <label>
-                  By <input value={by} onChange={(e) => setBy(e.target.value)} maxLength={200} />
+                  Who's testing <input ref={tester} value={by} onChange={(e) => setBy(e.target.value)} placeholder="Your name" maxLength={200} required />
                 </label>
                 <label>
                   When <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value || today)} />

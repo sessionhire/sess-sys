@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Mutation } from '../src/commands.ts'
 import { offerMessage, tellMessage, type CrewCall, type Offer, type Person } from '../src/crew.ts'
 import { officeContact, officeLine, telHref } from '../src/office.ts'
-import { answersToCheck, crewView } from '../src/sync/crew-view.ts'
+import { answersToCheck, crewView, shortSoon } from '../src/sync/crew-view.ts'
 import { officeView } from '../src/sync/office-view.ts'
 import { DEFAULT_CABLE_COLOURS } from '../src/cable-colours.ts'
 
@@ -138,6 +138,28 @@ describe('offers nobody has answered', () => {
     expect(answersToCheck(noted, today)).toEqual([])
     const answered = crewView(entities, [m('offer.seen', { id: 'quiet' }), m('offer.respond', { id: 'quiet', answer: 'decline', note: '' })], 0)
     expect(answersToCheck(answered, today).map((a) => [a.offer.id, a.kind])).toEqual([['quiet', 'declined']])
+  })
+})
+
+describe('calls close to their day', () => {
+  it('chase an offer with no reply-by day from the day before the call, and list calls short within three days, soonest first', () => {
+    // Proves: a cleared reply-by no longer hides a silent offer, and a call short in two days isn't lost among the fortnight's
+    // (audit, 5 November 2026, finding 60).
+    const entities = {
+      person: { aoife: person('aoife', 'Aoife Byrne'), niall: person('niall', 'Niall Kerr') },
+      crewCall: {
+        tomorrow: { ...call('tomorrow', '2026-10-02', '2026-10-02'), replyBy: null },
+        later: { ...call('later', '2026-10-03', '2026-10-03'), replyBy: null },
+        week: call('week', '2026-10-08', '2026-10-08'),
+      },
+      offer: { quiet: offer('quiet', 'tomorrow', 'aoife', 'offered'), early: offer('early', 'later', 'niall', 'offered') },
+    }
+    const view = crewView(entities, [], 0)
+    expect(answersToCheck(view, today).map((a) => [a.offer.id, a.kind])).toEqual([['quiet', 'no-reply']])
+    expect(shortSoon(view, today).map((x) => [x.call.id, x.short, x.inDays])).toEqual([
+      ['tomorrow', 2, 1],
+      ['later', 2, 2],
+    ])
   })
 })
 

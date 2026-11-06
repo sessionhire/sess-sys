@@ -95,6 +95,8 @@ export interface PageData {
   ended: ReadonlyMap<string, string>
   /** Their timesheets (ADR 0022), by booking. */
   timesheets: ReadonlyMap<string, Timesheet>
+  /** The day the office paid each approved timesheet, by its booking, where it has said. */
+  paid?: ReadonlyMap<string, string>
   /** The company doesn't use timesheets (ADR 0090): none asked for, none shown. */
   noTimesheets?: boolean
   /** Which bookings they're asked for a timesheet for (ADR 0110), while the company uses them. */
@@ -324,7 +326,9 @@ function timesheets(d: PageData): string {
         ? 'Send your days and extras ›'
         : t.status === 'sent'
           ? `Sent: ${euro(timesheetTotal(t).total)}. The office will check it ›`
-          : `Approved: ${euro(timesheetTotal(t).total)} ›`
+          : d.paid?.get(t.id)
+            ? `Paid ${dayLabel(d.paid.get(t.id)!, d.today)}: ${euro(timesheetTotal(t).total)} ›`
+            : `Approved: ${euro(timesheetTotal(t).total)} ›`
       return `<li><a class="${state}" href="${d.base}/timesheet/${encodeURIComponent(offer.id)}"><b>${h(call.project)}${call.phase ? ` <span>${h(call.phase)}</span>` : ''}</b><small>${h(call.role)} · ${h(daysLabel(offer.days, d.today))}</small><span>${h(text)}</span></a></li>`
   }
   // The ones to send in full; those sent or approved, which need nothing from them, folded under one line (audit, 5 November 2026, finding 32).
@@ -435,7 +439,7 @@ export const COPY_SCRIPT = `
  */
 function feedBlock(feed: string): string {
   return `<div class="feed">
-      <p class="small">Put your bookings in your calendar, kept up to date. It only shows your bookings, so it's fine in a calendar you share. If our Google Calendar invites already reach you, you don't need it as well.</p>
+      <p class="small">Put your bookings in your calendar, kept up to date. It shows your bookings and what each pays, so share it only with people you'd tell that to. If our Google Calendar invites already reach you, you don't need it as well.</p>
       <label>Calendar address <input id="feed" readonly value="${h(feed)}"></label>
       <div class="feed-buttons"><a class="button" href="${h(feed.replace(/^https?:/, 'webcal:'))}">Subscribe</a><button type="button" class="copy" hidden>Copy address</button></div>
       <p class="small">On a phone, Subscribe adds it to your calendar app. Google Calendar can't take it on a phone: copy the address and add it on a laptop, under Other calendars, From URL.</p>
@@ -575,6 +579,15 @@ function purchasesBlock(base: string, open: number): string {
   </section>`
 }
 
+/** The way to report broken or missing kit (audit, 5 November 2026, finding 75), as their role allows. */
+function brokenBlock(base: string): string {
+  return `<section id="broken">
+    <h2>Broken or missing kit</h2>
+    <a class="sheet-link" href="${base}/broken">Tell the warehouse ›</a>
+    <p class="small">So it's checked before it goes out again.</p>
+  </section>`
+}
+
 export function renderPage(d: PageData): string {
   const current = d.jobs.filter((j) => j.call.end >= d.today && j.call.status === 'open')
   const waiting = current.filter((j) => j.offer.status === 'offered' || j.offer.status === 'countered')
@@ -657,6 +670,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   ${d.documents ?? ''}
 
   ${d.purchases === undefined ? '' : purchasesBlock(d.base, d.purchases)}
+  ${d.purchases === undefined ? '' : brokenBlock(d.base)}
 
   ${details(d)}
 
