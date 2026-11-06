@@ -6,18 +6,17 @@
 .jobs .phase:first-of-type { border-top: 0; padding-top: 0; }
 .jobs .phase > header { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; }
 .jobs .phase > header p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
-.jobs .phase .job { padding: var(--ds-space-3) var(--ds-space-3); border: 1px solid var(--line); border-radius: 10px; }
+.jobs .phase .job { padding: var(--inset-box); border: 1px solid var(--line); border-radius: var(--radius-box); }
 .jobs .cal { margin: 0; font-size: var(--text-hint); color: var(--muted); }
 .jobs .cal a { color: inherit; font-weight: 600; text-underline-offset: 2px; }
 .jobs .add-phase { padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
-/* A phase's running order, calendar line, call sheet and contact wait folded under its name (audit finding 16), behind the browser's own triangle; a calendar line to act on stays out. */
-.jobs .phase-details summary { padding: var(--ds-space-3) 0; color: var(--muted); font-size: var(--text-small); font-weight: 600; cursor: pointer; }
+/* A phase's running order, calendar line, call sheet and contact wait folded under its name (audit finding 16), behind the one fold (app.css); a calendar line to act on stays out. */
 .jobs .phase-details > div { display: grid; gap: var(--ds-space-2); }
 
 /* Kit on jobs (ADR 0014): lines by department, each saying whether there's enough; red when short on a confirmed job, amber when pencilled in. */
 .jobs .kit-group { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .jobs .kit .kit-group:first-of-type { padding-top: 0; border-top: 0; }
-.jobs .kit-group h3 { display: flex; align-items: center; gap: var(--ds-space-2); margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.jobs .kit-group h3 { display: flex; align-items: center; gap: var(--ds-space-2); margin: 0; }
 .jobs .kit-group h3 .icon { width: 16px; height: 16px; }
 .jobs .kit-line { display: grid; gap: var(--ds-space-2); }
 .jobs .kit-line + .kit-line { padding-top: var(--ds-space-2); border-top: 1px dashed var(--line); }
@@ -42,7 +41,7 @@
 .jobs .kit-state.brief { background: none; padding: 0; font-weight: 600; }
 .jobs .add-kit { padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .jobs .kit > h2 + .add-kit, .jobs .kit > .empty + .add-kit { padding-top: 0; border-top: 0; }
-.jobs .add-kit h3 { margin: 0; font-size: var(--text-subheading); }
+.jobs .add-kit h3 { margin: 0; }
 
 /* The jobs list (audit finding 22): New job at the top on a phone, and the jobs under their weeks, each week's heading kept in view under the top bar while its jobs scroll. */
 .jobs .jobs-card > button.new-job { justify-self: start; }
@@ -53,7 +52,7 @@
   .jobs .jobs-card > .filters button { flex: 1 1 auto; min-width: 0; justify-content: center; white-space: normal; text-align: center; line-height: 1.2; padding-inline: var(--ds-space-2); }
 }
 .jobs .jobs-card .week-head { position: sticky; top: var(--under-top, 0px); z-index: 1; padding: var(--ds-space-2) 0 var(--ds-space-2); background: var(--panel); }
-.jobs .jobs-card .week-head h3 { margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.jobs .jobs-card .week-head h3 { margin: 0; }
 .jobs .jobs-card .week-head + li .job-row { border-top: 0; padding-top: var(--ds-space-1); }
 
 /* List, Week and Month: the same jobs three ways (ADR 0010). */
@@ -103,7 +102,9 @@
 .plan .timeline tr > :nth-child(2) { border-left: 0; }
 .plan .timeline th[scope='row'] { font-weight: 700; overflow-wrap: anywhere; }
 .plan .timeline th[scope='row'] a { color: inherit; text-decoration: none; }
-.plan .timeline th[scope='row'] a:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .plan .timeline th[scope='row'] a:hover { text-decoration: underline; }
+}
 /* The whole name cell opens the job, not just the words. */
 .plan .timeline th[scope='row'] a::after { content: ''; position: absolute; inset: 0; }
 .plan .timeline th[scope='row'] a:focus-visible { outline: none; }
@@ -122,7 +123,9 @@
 .plan .timeline.month th, .plan .timeline.month td { text-align: center; vertical-align: middle; }
 .plan .timeline.month tr > :first-child { text-align: left; padding: var(--ds-space-1) var(--ds-space-2); }
 .plan .timeline.month thead a { display: grid; min-height: 44px; place-content: center; color: inherit; text-decoration: none; border-radius: 6px; font-variant-numeric: tabular-nums; }
-.plan .timeline.month thead a:hover { background: var(--bg); }
+@media (hover: hover) {
+  .plan .timeline.month thead a:hover { background: var(--bg); }
+}
 .plan .timeline.month thead small { font-size: var(--text-pill); font-weight: 500; }
 /* A job's day: solid when confirmed, dashed when pencilled in; amber while crew are still to find. Crew all found is the quiet case
    and has no colour of its own (healthy is quiet), so the amber days stand out. */
@@ -133,8 +136,10 @@
 .plan .blk.stray { border: 2px solid var(--warn); box-shadow: none; }
 .plan .blk.pending { opacity: .75; }
 a.blk { color: inherit; text-decoration: none; }
-a.blk:hover { border-color: var(--ink); filter: brightness(.96); }
-a.blk:hover b { text-decoration: underline; }
+@media (hover: hover) {
+  a.blk:hover { border-color: var(--ink); filter: brightness(.96); }
+  a.blk:hover b { text-decoration: underline; }
+}
 a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .plan .blk small { color: var(--muted); }
 .plan .blk.short small, .plan .blk.stray small { color: var(--warn); }
@@ -150,7 +155,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .plan .item { display: grid; padding: 3px var(--ds-space-2); border-radius: 6px; }
 .plan .item + .item { margin-top: var(--ds-space-1); }
 .plan .item a { color: inherit; font-weight: 700; text-decoration: none; }
-.plan .item a:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .plan .item a:hover { text-decoration: underline; }
+}
 .plan .item small { color: var(--muted); }
 .plan .item.booked, .plan .code.booked { background: var(--ds-surface-raised); box-shadow: inset 3px 0 0 var(--ink), inset 0 0 0 1px var(--line); }
 .plan .code.booked:is(.join-l, .join-lr) { box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line); }
@@ -200,7 +207,6 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 :is(.import, .combine) .tick .name { width: 100%; font-weight: 700; }
 :is(.import, .combine) .found .kind { display: flex; gap: var(--ds-space-2); align-items: center; font-size: var(--text-small); color: var(--muted); }
 :is(.import, .combine) .found .kind select { flex: none; width: auto; }
-.import details summary { display: flex; align-items: center; min-height: 44px; font-weight: 700; cursor: pointer; }
 .import .left-out { margin: var(--ds-space-1) 0 0; padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-2); font-size: var(--text-small); }
 .import .left-out small { display: block; color: var(--muted); overflow-wrap: anywhere; }
 /* Kept in reach above the area tabs while scrolling through what was found; kit from the notes keeps its Add in the same bar (audit, P3). */
@@ -218,9 +224,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .pick-link span { color: var(--muted); font-size: var(--text-small); }
 .pick .scan-dock.docked { position: sticky; top: var(--under-top, 0px); z-index: 1; }
 .pick .from details { display: inline; margin-left: var(--ds-space-2); font-size: var(--text-small); }
-.pick .from details > summary { display: inline; cursor: pointer; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+/* A fold inside a line of words is drawn as the link it reads as, with no chevron (audit, 20 October 2026, finding 5). */
+.pick .from details > summary { display: inline; min-height: 0; padding: 0; color: var(--accent-ink); font-weight: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.pick .from details > summary::before { content: none; }
 .pick .from details > p { margin: var(--ds-space-1) 0 0; color: var(--muted); }
-.pick .pick-done > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--muted); font-weight: 600; }
 .pick .pick-total { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
 .pick .said { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); font-size: var(--text-small); }
 .pick .said.ok { background: var(--good-soft); color: var(--good); }
@@ -245,7 +252,6 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .count-row p { margin: 0; color: var(--muted); font-size: var(--text-small); flex: 1 0 100%; }
 .app .pick .count-row input { width: 7.5rem; flex: none; }
 /* Numbers already back, each with Report damage, folded under one line on the row (audit, 5 November 2026, finding 33). */
-.app .pick .back-items > summary { min-height: 44px; padding: var(--ds-space-2) 0; line-height: 28px; color: var(--ink); }
 .app .pick .back-damage { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
 .pick .count-row .alert { flex: 1 0 100%; }
 /* Picking on the phone (ADR 0072): whose kit and in what order, what to know before starting, the kit's own notes, and Undo beside the answer. */
@@ -265,7 +271,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .kicker, .call-sheet .kicker { margin: 0; font-size: var(--text-pill); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .jobs .lines, .call-sheet .lines { white-space: pre-line; }
 .sheet-screen .card p { margin: 0; }
-.sheet-screen h3 { margin: var(--ds-space-2) 0 0; font-size: var(--text-small); }
+.sheet-screen h3 { margin: var(--ds-space-2) 0 0; }
 .sheet-screen .sheet-call { display: grid; gap: var(--ds-space-1); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .sheet-screen .sheet-call:first-of-type { border-top: 0; padding-top: 0; }
 .sheet-screen .sheet-call header { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: baseline; }
@@ -319,7 +325,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Label capitals head each group of lines, the terms and the sending; a rare action sits at a head's end as a quiet link. */
 .quote-screen .quote-group { display: grid; gap: 0; min-width: 0; }
 .quote-screen .group-head { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); min-height: 28px; padding-top: var(--ds-space-1); }
-.quote-screen .quote-group h3, .quote-screen .quote-head { margin: 0; font-size: var(--text-pill); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.quote-screen .quote-group h3, .quote-screen .quote-head { margin: 0; }
 .quote-screen .quote-head { padding-top: var(--ds-space-1); }
 .quote-screen .quote-side > .quote-head:first-child { padding-top: 0; }
 .quote-screen button.link.quiet { color: var(--on-line); font-weight: 600; font-size: var(--text-hint); text-decoration-color: var(--field-line); }
@@ -338,7 +344,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-line-shut.needs .how, .quote-screen .quote-line .warn { color: var(--warn); }
 .quote-screen .quote-line-row.open > .quote-line-shut { background-image: linear-gradient(var(--ds-wash-pressed), var(--ds-wash-pressed)); }
 /* Open, a line is a panel inset in the card: what it is across the top, its numbers in two rows of three on a phone and one row where there's the room. */
-.quote-screen .quote-line { display: grid; gap: var(--ds-space-3); min-width: 0; margin: var(--ds-space-1) 0 var(--ds-space-2); padding: var(--ds-space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--ds-surface-inset); }
+.quote-screen .quote-line { display: grid; gap: var(--ds-space-3); min-width: 0; margin: var(--ds-space-1) 0 var(--ds-space-2); padding: var(--inset-box); border: 1px solid var(--line); border-radius: var(--radius-box); background: var(--ds-surface-inset); }
 .quote-screen .quote-line > label, .quote-screen .quote-line .numbers label, .quote-screen .quote-line .vat-cell, .quote-screen .cost-fields label { display: grid; gap: var(--ds-space-half); min-width: 0; font-size: var(--text-hint); color: var(--muted); }
 .quote-screen .quote-line input, .quote-screen .quote-line select { min-width: 0; width: 100%; color: var(--ink); }
 .quote-screen .quote-line .numbers { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); grid-template-areas: 'qty days price' 'charged charged discount' 'vat vat amount'; gap: var(--ds-space-2); align-items: end; }
@@ -366,21 +372,24 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .unit-box .unit { flex: none; padding-inline: 0 var(--ds-space-3); color: var(--muted); font-size: var(--text-small); }
 .quote-screen .unit-box.before .unit { padding-inline: var(--ds-space-3) 0; }
 .quote-screen .unit-box.before input { padding-inline-start: var(--ds-space-1); }
-.quote-screen .unit-box.needs, .quote-screen .unit-box:has(input[aria-invalid='true']), .quote-screen .quote-line input[aria-invalid='true'] { border-color: var(--warn); }
-/* A fault sits by its cause, in the warn ink, once the field or the line has been left (rule 18). */
-.quote-screen .line-problem { margin: 0; font-size: var(--text-small); color: var(--warn); }
-.quote-screen small.error { color: var(--warn); }
+/* A price still to set is for someone to see to, so amber, as its row and its chip in the readout say. A field that's wrong is invalid,
+   as on every other form: the bad edge, and the fault by its cause in the bad ink, once the field or the line has been left (rule 18). A
+   question about the line (the price's unit moved) stays amber. */
+.quote-screen .unit-box.needs { border-color: var(--warn); }
+.quote-screen .unit-box:has(input[aria-invalid='true']), .quote-screen .quote-line input[aria-invalid='true'] { border-color: var(--bad); }
+.quote-screen .line-problem { margin: 0; font-size: var(--text-small); color: var(--bad); }
+.quote-screen .line-problem.asks { color: var(--warn); }
+.quote-screen small.error { color: var(--bad); }
 /* Whether there's kit enough, under a line; what it was last charged in Current RMS; and the cost side folded under the line (ADR 0089), never printed. */
 .quote-screen .kit-note { font-size: var(--text-hint); }
 .quote-screen .kit-note .link { font-weight: 600; }
 .quote-screen .quote-line .last-charged { font-size: var(--text-small); }
 .quote-screen .quote-line .last-charged p { margin: 0; }
 .quote-screen .line-cost { border-top: 1px dashed var(--line); padding-top: var(--ds-space-1); }
-.quote-screen .line-cost summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-half) var(--ds-space-2); min-height: 44px; padding: var(--ds-space-2) 0; list-style: none; cursor: pointer; font-size: var(--text-small); color: var(--muted); }
-.quote-screen .line-cost summary::-webkit-details-marker { display: none; }
-.quote-screen .line-cost summary .chevron { width: 16px; height: 16px; align-self: center; transition: transform var(--ds-duration-base) var(--ds-ease-standard); }
-.quote-screen .line-cost[open] summary .chevron { transform: rotate(90deg); }
-.quote-screen .line-cost summary b { color: var(--ink); font-weight: 600; }
+.quote-screen .line-cost summary { flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-half) var(--ds-space-2); font-size: var(--text-small); }
+.quote-screen .line-cost summary .chevron { width: 16px; height: 16px; align-self: center; }
+.quote-screen .line-cost summary b { font-weight: 600; }
+.quote-screen .line-cost summary :is(small, .words) { color: var(--muted); font-weight: 400; }
 .quote-screen .line-cost summary .bad { color: var(--bad); }
 .quote-screen .line-cost summary small { margin-left: auto; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; }
 .quote-screen .line-cost summary .words { flex: 1 1 100%; }
@@ -461,12 +470,26 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-table th a { color: var(--accent-ink); font-weight: 600; }
 .quote-table .bad { color: var(--bad); font-weight: 700; }
 /* A sent version on a phone (audit, 5 November 2026, finding 59): what and the amount, with how many, the price, the days and the VAT
-   in a line under the name, as a draft's lines read, so nothing is off the right edge. The A4 sheet and a desk keep the table. */
+   in a line under the name, as a draft's lines read, so nothing is off the right edge. The A4 sheet and a desk keep the table. Its own
+   table only (.quote-lines): written for every .quote-table, it hid three of the five columns of Money's tables (UX sweep, 6 November
+   2026, director-f1). */
 .quote-table .line-sum { display: none; }
 @media screen and (max-width: 639px) {
-  .quote-table :is(th, td):not(:first-child, :last-child) { display: none; }
-  .quote-table .line-sum { display: block; }
-  .quote-table td .less { display: none; }
+  .quote-lines :is(th, td):not(:first-child, :last-child) { display: none; }
+  .quote-lines .line-sum { display: block; }
+  .quote-lines td .less { display: none; }
+}
+/* Money's By month and Margin by job on a phone (the same finding): a row a month or a job, its name across the top and its figures
+   under it two to a line, each under its column's name, so every figure reads on a phone with nothing off the right edge. A month's
+   head stays across the rows it heads; a desk keeps the table. */
+@media screen and (max-width: 639px) {
+  :is(.money-months, .money-margins) thead { display: none; }
+  :is(.money-months, .money-margins), :is(.money-months, .money-margins) tbody { display: block; }
+  :is(.money-months, .money-margins) tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-2) var(--ds-space-3); padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--line); }
+  :is(.money-months, .money-margins) :is(th, td) { padding: 0; border: 0; }
+  :is(.money-months, .money-margins) th:is([scope='row'], [scope='colgroup']) { grid-column: 1 / -1; }
+  :is(.money-months, .money-margins) td.n { text-align: left; white-space: normal; }
+  :is(.money-months, .money-margins) td::before { content: attr(data-label); display: block; font-size: var(--text-pill); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 }
 .quote-totals { margin: var(--ds-space-3) 0 0 auto; display: grid; gap: var(--ds-space-half); max-width: 22em; font-variant-numeric: tabular-nums; }
 .quote-totals div { display: flex; justify-content: space-between; gap: var(--ds-space-3); }
@@ -485,7 +508,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .money .owed-group h3 { margin: 0; display: flex; justify-content: space-between; gap: var(--ds-space-2); }
 .money .owed-group .hint { margin: 0; }
 .money .owed { border-top: 1px solid var(--line); }
-.money .owed summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-half) var(--ds-space-2); min-height: 44px; padding: var(--ds-space-2) 0; cursor: pointer; }
+.money .owed summary { flex-wrap: wrap; gap: var(--ds-space-half) var(--ds-space-2); }
 .money .owed summary b { flex: 1 1 10em; }
 .money .owed summary .count { color: var(--muted); font-size: var(--text-small); }
 .below-zero { margin: 0 0 var(--ds-space-2); color: var(--bad); font-weight: 600; }
@@ -579,7 +602,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .map.placing { cursor: crosshair; }
 .jobs .map .leaflet-bar { border: 1px solid var(--line); box-shadow: none; }
 .jobs .map .leaflet-bar a { background: var(--panel); color: var(--ink); border-bottom-color: var(--line); }
-.jobs .map .leaflet-bar a:hover { background: var(--ds-surface-inset); }
+@media (hover: hover) {
+  .jobs .map .leaflet-bar a:hover { background: var(--ds-surface-inset); }
+}
 /* The zoom buttons as big as a thumb on a touch screen, where Leaflet draws them 30px (audit, 5 November 2026, finding 86). */
 .jobs .map.leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
 .jobs .map .leaflet-control-attribution { background: var(--panel); color: var(--muted); font-size: var(--text-footer); }
@@ -601,7 +626,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .part-tabs { display: flex; gap: var(--ds-space-1); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .part-tabs::-webkit-scrollbar { display: none; }
 .app .part-tabs [role='tab'] { flex: none; display: inline-flex; align-items: center; gap: var(--ds-space-2); min-height: 44px; margin-bottom: -1px; padding: var(--ds-space-2) var(--ds-space-3); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); font-weight: 700; white-space: nowrap; }
-.app .part-tabs [role='tab']:hover { color: var(--ink); }
+@media (hover: hover) {
+  .app .part-tabs [role='tab']:hover { color: var(--ink); }
+}
 .app .part-tabs [role='tab'][aria-selected='true'] { color: var(--ink); border-bottom-color: var(--accent); }
 .part-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 .job-part { display: grid; gap: var(--ds-space-4); min-width: 0; }
@@ -629,7 +656,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Quotes to follow up (ADR 0081): on Money and Notifications, each group a short list, the oldest waiting first. */
 /* Its lists sit flush under their heading, as every list here does, not indented by the browser's own 40px. */
 .quotes-to-follow .follow-group ul.plain { list-style: none; margin: 0; padding: 0; }
-.quotes-to-follow .follow-group h3 { margin: var(--ds-space-3) 0 var(--ds-space-1); font-size: var(--text-small); color: var(--muted); }
+.quotes-to-follow .follow-group h3 { margin: var(--ds-space-3) 0 var(--ds-space-1); }
 .quotes-to-follow .follow-group li { align-items: center; padding: var(--ds-space-2) 0; border-top: 1px solid var(--line); }
 .quotes-to-follow .follow-group li p { margin: var(--ds-space-half) 0 0; font-size: var(--text-small); color: var(--muted); }
 .quotes-to-follow .warn { color: var(--warn); }
@@ -669,7 +696,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .from-enquiry .actions, .ask-claude .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
 .ask-claude { margin: var(--ds-space-2) 0; }
 .claude-advice { border: 1px solid var(--line); border-radius: var(--radius-control); padding: var(--ds-space-2) var(--ds-space-3); background: var(--ds-surface-inset); margin: var(--ds-space-2) 0; }
-.claude-advice h3 { margin: var(--ds-space-2) 0 var(--ds-space-1); font-size: var(--text-body); }
+.claude-advice h3 { margin: var(--ds-space-2) 0 var(--ds-space-1); }
 .claude-advice p, .claude-advice ul { margin: 0 0 var(--ds-space-2); }
 .by-claude { color: var(--muted); font-size: var(--text-small); }
 .app .claude-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
@@ -688,7 +715,6 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .app .todo-item.done a { color: var(--muted); text-decoration: line-through; }
 
 /* The operations mailbox (ADR 0098): the paste box folded away as the second way in, and the threads on Quotes. */
-.app .paste-enquiry summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--muted); font-size: var(--text-small); font-weight: 600; }
 .app .from-mailbox ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-3); }
 .app .from-mailbox li { display: grid; gap: var(--ds-space-half); }
 .app .from-mailbox li small { color: var(--muted); font-size: var(--text-hint); }

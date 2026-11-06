@@ -1,6 +1,6 @@
 /* Vans and drivers (ADR 0047): the Vehicles page, a vehicle's page, and a job's Vehicles card. Roles only, both themes. */
 .vehicle-list { list-style: none; margin: 0 0 var(--ds-space-3); padding: 0; display: grid; gap: var(--ds-space-2); }
-.vehicle-row { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; padding: var(--ds-space-3) var(--ds-space-3); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius-control); color: var(--ink); text-decoration: none; }
+.vehicle-row { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; padding: var(--inset-box); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius-box); color: var(--ink); text-decoration: none; }
 .vehicle-row.warn { border-left-color: var(--warn); }
 .vehicle-row.bad { border-left-color: var(--bad); }
 .vehicle-row p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
@@ -15,7 +15,7 @@ p.van-state.bad, p.van-state.warn { font-weight: 600; }
 .van-line:first-of-type { border-top: 0; padding-top: 0; }
 .van-line p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
 .van-line .actions { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; }
-.vehicle-form fieldset.checks { border: 1px solid var(--line); border-radius: var(--radius-control); padding: var(--ds-space-3) var(--ds-space-3); display: grid; gap: var(--ds-space-2); }
+.vehicle-form fieldset.checks { border: 1px solid var(--line); border-radius: var(--radius-box); padding: var(--inset-box); display: grid; gap: var(--ds-space-2); }
 .vehicle-form .check-field { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2); align-items: center; }
 .warehouse .due.not-needed { border-left-color: var(--line); }
 .warehouse .due.not-needed b { color: var(--muted); }

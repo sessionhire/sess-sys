@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.89.2',
+    date: '2026-11-06',
+    title: "Money's tables read on a phone again, and headings and folds look the same everywhere",
+    what: "On a phone, Money's By month and Margin by job show every figure again: each month or job is a row with its figures under their names, so nothing is cut off. Inside a card, a heading over a list, such as a week's jobs or a day's calls, is always small grey capitals, and a heading over a part with its own words is the plain heading. Every fold opens the same way, with an arrow that turns, and the arrow still shows in a high-contrast theme. A box inside a card has the same shape everywhere. A wrong line on a quote is marked in the same colour as a mistake on any other form, and a number still waiting to sync is grey instead of amber. On a phone, a job's stage names are easier to read, and the filter chips and \"Use this tab\" are easier to tap. On Home's crew chart, the day you pick is underlined instead of shaded.",
+    prs: [222],
+  },
+  {
     version: '1.89.1',
     date: '2026-11-06',
     title: "Freelancers' forms are easier on a phone",

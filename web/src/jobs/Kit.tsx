@@ -201,7 +201,7 @@ export function KitCard({ job, view }: { job: JobView; view: View }) {
         {(shown) =>
           DEPARTMENTS.filter((d) => shown.some((l) => department(l) === d)).map((d) => (
             <div className="kit-group" key={d}>
-              <h3>
+              <h3 className="group">
                 <Icon name={departmentIcon(d)} />
                 {DEPARTMENT_LABELS[d]}
               </h3>

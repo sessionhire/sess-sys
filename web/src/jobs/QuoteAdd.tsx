@@ -59,7 +59,7 @@ export function TravelAndSubsistence(p: {
   return (
     <section className="quote-group quote-extras" role="group" aria-label="Travel and subsistence">
       <div className="group-head">
-        <h3>Travel and subsistence</h3>
+        <h3 className="group">Travel and subsistence</h3>
       </div>
       {row(
         TRAVEL_ROW,

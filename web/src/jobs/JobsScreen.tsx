@@ -403,7 +403,7 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
             </li>
           ) : (
             <li key={rowKey(r)} ref={win.row(rowKey(r))} data-place={rowKey(r)} className="week-head">
-              <h3>{r.label}</h3>
+              <h3 className="group">{r.label}</h3>
             </li>
           )
         )}

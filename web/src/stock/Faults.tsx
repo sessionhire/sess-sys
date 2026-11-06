@@ -377,7 +377,7 @@ export function RepairList({ view }: { view: View }) {
         .filter(([, faults]) => faults.length > 0)
         .map(([title, faults]) => (
           <div className="repair-group" key={title}>
-            <h3>{listHeading(title, faults.length)}</h3>
+            <h3 className="group">{listHeading(title, faults.length)}</h3>
             <ul className="fault-list">
               {faults.map((f) => (
                 <FaultItem key={f.id} f={f} linked />

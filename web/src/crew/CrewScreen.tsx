@@ -352,7 +352,7 @@ export function CrewScreen() {
           </header>
           {[...g.dates].map(([when, calls]) => (
             <div className="call-date" key={when}>
-              <h3>{when}</h3>
+              <h3 className="group">{when}</h3>
               {calls.map((c) => (
                 <Fragment key={c.id}>
                   <CallCard
@@ -615,26 +615,26 @@ export function CrewScreen() {
             )}
             {onNow.length > 0 && (
               <>
-                <h3 className="calls-part">{onNow.every((c) => c.days.includes(today)) ? 'On today' : 'On today and tomorrow'}</h3>
+                <h3 className="calls-part group">{onNow.every((c) => c.days.includes(today)) ? 'On today' : 'On today and tomorrow'}</h3>
                 {callGroups(onNow, 'now')}
               </>
             )}
             {short.length > 0 && needing.length === 0 && <p className="hint">Nothing short in the next fortnight.</p>}
             {needing.length > 0 && (
               <>
-                <h3 className="calls-part">{listHeading(STANDING_HEADINGS['crew-needed'], needing.length)}</h3>
+                <h3 className="calls-part group">{listHeading(STANDING_HEADINGS['crew-needed'], needing.length)}</h3>
                 {callGroups(needing, 'short')}
               </>
             )}
             {filledOn.length > 0 && (
               <>
-                <h3 className="calls-part">Filled from today, with something to sort out</h3>
+                <h3 className="calls-part group">Filled from today, with something to sort out</h3>
                 {callGroups(filledOn, 'filled-on')}
               </>
             )}
             {later.length > 0 && (
               <>
-                <h3 className="calls-part">After the next fortnight</h3>
+                <h3 className="calls-part group">After the next fortnight</h3>
                 {callGroups(later, 'later')}
               </>
             )}

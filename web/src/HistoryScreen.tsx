@@ -217,9 +217,7 @@ function Run({ run: r, day, open, onToggle }: { run: HistoryRun; day: string; op
     <li className="entry run">
       <button type="button" className="run-line" aria-expanded={open} aria-controls={open ? list : undefined} onClick={onToggle}>
         <span className="what">
-          <span className="chevron" aria-hidden="true">
-            ▸
-          </span>
+          <span className="chevron" aria-hidden="true" />
           {runLabel(r)}
         </span>
         {meta.length > 0 && <span className="meta">{meta.join(' · ')}</span>}

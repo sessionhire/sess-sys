@@ -22,7 +22,7 @@
 .purchases .purchase-votes p { margin: 0; color: var(--muted); }
 .purchases .said { white-space: pre-line; overflow-wrap: anywhere; }
 .purchases .purchase-link { overflow-wrap: anywhere; }
-.purchases .purchase-status { border: 1px solid var(--line); border-radius: var(--radius-control); padding: var(--ds-space-3) var(--ds-space-3); display: grid; gap: var(--ds-space-2); }
+.purchases .purchase-status { border: 1px solid var(--line); border-radius: var(--radius-box); padding: var(--inset-box); display: grid; gap: var(--ds-space-2); }
 .purchases .purchase-status .tick { display: flex; gap: var(--ds-space-2); align-items: flex-start; min-height: 44px; }
 .purchases .purchase-status .hint { display: inline; }
 

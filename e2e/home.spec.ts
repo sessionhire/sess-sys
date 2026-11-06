@@ -169,6 +169,28 @@ test('Home draws the weeks, days and months ahead as charts, each column said in
   await expect(days.nth(3)).toHaveAttribute('aria-pressed', 'true')
   await expect(crew.locator('.chart-readout')).toHaveText(/still needed/)
   await expect(crew.getByRole('listitem')).toHaveText(['booked', 'waiting to confirm', 'still needed'])
+  // The column being read is marked as the part of a page in view is, by a 2px bar in the ink under it, never by the wash of a pointer
+  // resting there; settled and not yet are the design system's chart marks (UX sweep, 6 November 2026, move 2).
+  const marked = (col: Element) => {
+    const bar = getComputedStyle(col, '::after')
+    return { wash: getComputedStyle(col).backgroundColor, bar: bar.content === 'none' ? null : bar.height, inInk: bar.backgroundColor === getComputedStyle(document.body).color }
+  }
+  expect(await days.nth(3).evaluate(marked)).toEqual({ wash: 'rgba(0, 0, 0, 0)', bar: '2px', inInk: true })
+  expect((await days.nth(2).evaluate(marked)).bar).toBeNull()
+  for (const [part, role] of [
+    ['settled', '--ds-chart-mark'],
+    ['pending', '--ds-chart-pending'],
+  ] as const) {
+    const [drawn, wanted] = await crew.locator(`.chart-swatch.${part}`).evaluate((swatch, role) => {
+      const probe = document.createElement('i')
+      probe.style.backgroundColor = `var(${role})`
+      swatch.after(probe)
+      const out = [getComputedStyle(swatch).backgroundColor, getComputedStyle(probe).backgroundColor]
+      probe.remove()
+      return out
+    }, role)
+    expect(drawn, part).toBe(wanted)
+  }
 
   // One stop for the keyboard; the arrows move along.
   await days.nth(3).focus()
@@ -211,6 +233,12 @@ test("Home at a phone's size: the soon over the housekeeping, the week ahead a l
 
   const attention = page.locator('.standing')
   await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', 'Housekeeping'])
+  // Each a group head over its tiles, in the label capitals every group head inside a card has (UX sweep, 6 November 2026, move 2).
+  for (const head of await attention.getByRole('heading', { level: 3 }).all()) {
+    await expect(head).toHaveClass(/\bgroup\b/)
+    await expect(head).toHaveCSS('font-size', '12px')
+    await expect(head).toHaveCSS('text-transform', 'uppercase')
+  }
   await expect(attention.locator('.tiles:not(.housekeeping)').getByRole('link', { name: /kit lines? short for confirmed jobs?/ })).toBeVisible()
   await expect(attention.locator('.tiles.housekeeping').getByRole('link', { name: /answers? to check/ })).toBeVisible()
 

@@ -30,7 +30,7 @@ export function Numbers({ title, items, view, each }: { title?: string; items: r
   const fold = items.length > NUMBERS_FOLD_PAST
   return (
     <div className="group">
-      {title && <h3>{title}</h3>}
+      {title && <h3 className="group">{title}</h3>}
       {[...groups.values()].map((list) => (
         <NumberGroup key={list[0]!.modelId} items={list} fold={fold} name={list[0]!.model?.name ?? 'A product since removed'} said={`· ${list.length.toLocaleString('en-IE')} ${each}`} />
       ))}

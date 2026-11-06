@@ -76,7 +76,7 @@ export function TimesheetsCard({ view }: { view: View }) {
       {/* Each kind counted in full and showing its first three (audit finding 16), so a long week's are a tap away and never out of mind. */}
       {toApprove.length > 0 && (
         <div className="ts-group" role="group" aria-label={toApprove.some(checks) ? 'To approve' : 'Waiting on the office'}>
-          <h3>{toApprove.some(checks) ? 'To approve' : 'Waiting on the office'} ({toApprove.length})</h3>
+          <h3 className="group">{toApprove.some(checks) ? 'To approve' : 'Waiting on the office'} ({toApprove.length})</h3>
           <ShowAll items={toApprove} limit={3} what="timesheets">
             {(rows) =>
               rows.map((r) => (
@@ -98,7 +98,7 @@ export function TimesheetsCard({ view }: { view: View }) {
       )}
       {notIn.length > 0 && (
         <div className="ts-group" role="group" aria-label="Not in yet">
-          <h3>Not in yet ({notIn.length})</h3>
+          <h3 className="group">Not in yet ({notIn.length})</h3>
           <ShowAll items={notIn} limit={3} what="bookings">
             {(rows) =>
               rows.map((r) => (
@@ -128,7 +128,7 @@ export function TimesheetsCard({ view }: { view: View }) {
       {remind?.person && <Ask r={remind} person={remind.person} onClose={() => setRemind(undefined)} />}
       {lately.length > 0 && (
         <div className="ts-group" role="group" aria-label="Approved lately">
-          <h3>Approved lately ({lately.length})</h3>
+          <h3 className="group">Approved lately ({lately.length})</h3>
           <ShowAll items={lately} limit={3} what="timesheets">
             {(rows) => rows.map((r) => <Row key={r.offer.id} r={r} action={<a className="link" href={`#crew/timesheet/${encodeURIComponent(r.offer.id)}`}>Open</a>} />)}
           </ShowAll>

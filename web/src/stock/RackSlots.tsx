@@ -160,7 +160,7 @@ export function Groups({ r }: { r: RackView }) {
   if (!groups.size) return null
   return (
     <div className="rack-groups">
-      <h3>Groups</h3>
+      <h3 className="group">Groups</h3>
       <ul>
         {[...groups].sort(([a], [b]) => a.localeCompare(b)).map(([name, g]) => (
           <li key={name}>

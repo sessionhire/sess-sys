@@ -196,7 +196,7 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
     <>
       {f.outOfStep.length > 0 && (
         <div className="follow-group">
-          <h3>Answered: put the job in step</h3>
+          <h3 className="group">Answered: put the job in step</h3>
           <ShowAll items={f.outOfStep} limit={FOLLOW_SHOWN} what="quotes" name={`${chaseOnly ? 'chase' : 'follow'} in step`}>
             {(shown) => (
               <ul className="plain">
@@ -212,7 +212,7 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
       )}
       {waiting.length > 0 && (
         <div className="follow-group">
-          <h3>Waiting for an answer</h3>
+          <h3 className="group">Waiting for an answer</h3>
           <ShowAll items={waiting} limit={FOLLOW_SHOWN} what="quotes" name={`${chaseOnly ? 'chase' : 'follow'} waiting`}>
             {(shown) => (
               <ul className="plain">
@@ -227,7 +227,7 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
       {/* Not a client to ring: the job happened without them, or went elsewhere (ADR 0109). */}
       {!chaseOnly && f.passed.length > 0 && (
         <div className="follow-group">
-          <h3>
+          <h3 className="group">
             Dates passed with no answer ({f.passed.length}
             {lapsed > f.passed.length && ` of ${plural(lapsed, 'job')}`})
           </h3>
@@ -254,7 +254,7 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
       )}
       {!chaseOnly && f.drafts.length > 0 && (
         <div className="follow-group">
-          <h3>Not sent yet</h3>
+          <h3 className="group">Not sent yet</h3>
           <ShowAll items={f.drafts} limit={FOLLOW_SHOWN} what="quotes" name="follow drafts">
             {(shown) => (
               <ul className="plain">
@@ -350,7 +350,7 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
           {read.summary && <p>{read.summary}</p>}
           {read.questions.length > 0 && (
             <>
-              <h3>To ask the client</h3>
+              <h3 className="group">To ask the client</h3>
               <ul>
                 {read.questions.map((q) => (
                   <li key={q}>{q}</li>
@@ -425,10 +425,10 @@ function ByMonth({ m }: { m: MoneyView }) {
             {m.months.map((x) => (
               <tr key={x.key}>
                 <th scope="row">{x.label}</th>
-                <td className="n">{money(x.quoted)}</td>
-                <td className="n">{money(x.confirmed)}</td>
-                <td className="n">{money(x.invoiced)}</td>
-                <td className="n">{money(x.costs)}</td>
+                <td className="n" data-label="Quoted">{money(x.quoted)}</td>
+                <td className="n" data-label="Confirmed">{money(x.confirmed)}</td>
+                <td className="n" data-label="Invoiced">{money(x.invoiced)}</td>
+                <td className="n" data-label="Freelancers">{money(x.costs)}</td>
               </tr>
             ))}
           </tbody>
@@ -553,7 +553,7 @@ function Freelancers({ m }: { m: MoneyView }) {
       )}
       {m.costsPaid.length > 0 && (
         <div className="ts-group" role="group" aria-label="Paid lately">
-          <h3>Paid lately</h3>
+          <h3 className="group">Paid lately</h3>
           {m.costsPaid.slice(0, 5).map((c) => row(c, true))}
         </div>
       )}
@@ -585,7 +585,8 @@ export function BelowZero({ jobs }: { jobs: readonly JobMoney[] }) {
 /**
  * Margin by job, under the month each job starts, this month first (audit finding 31): the first ten, with a job below
  * zero kept in view wherever it is, and a sentence above naming them. The month heads don't stay at the top as the page
- * scrolls: the table scrolls sideways on a phone, and a head can't stick inside that.
+ * scrolls: the table sits in a box that scrolls sideways when it's wider than the card, and a head can't stick inside that.
+ * On a phone each job is a stacked row, its figures under its name, each saying which it is (UX sweep, 6 November 2026).
  */
 function Margins({ m, today }: { m: MoneyView; today: string }) {
   const now = moneyMonth(today).key
@@ -623,12 +624,16 @@ function Margins({ m, today }: { m: MoneyView; today: string }) {
                       <a href={`#jobs/${encodeURIComponent(j.job.id)}/quote`}>{j.job.name}</a>
                       {j.job.span && <small>{dayLabel(j.job.span.start)}</small>}
                     </th>
-                    <td className="n">{j.setAside ? <small>Set aside: job {j.job.status}</small> : j.current ? money(j.quoted) : 'No quote'}</td>
-                    <td className="n">
+                    <td className="n" data-label="Quoted">
+                      {j.setAside ? <small>Set aside: job {j.job.status}</small> : j.current ? money(j.quoted) : 'No quote'}
+                    </td>
+                    <td className="n" data-label="Freelancers">
                       {money(j.costs)}
                       {j.toCome > 0 && <small>+ {money(j.toCome)} to come</small>}
                     </td>
-                    <td className={`n${j.margin !== null && j.margin < 0 ? ' bad' : ''}`}>{j.margin === null ? '–' : money(j.margin)}</td>
+                    <td className={`n${j.margin !== null && j.margin < 0 ? ' bad' : ''}`} data-label="After freelancers">
+                      {j.margin === null ? '–' : money(j.margin)}
+                    </td>
                   </tr>,
                 ])}
               </tbody>
@@ -736,7 +741,7 @@ export function PricesScreen({ view }: { view: View }) {
           if (!here.length) return null
           return (
             <div key={d} className="price-group" role="group" aria-label={DEPARTMENT_LABELS[d]}>
-              <h3>{DEPARTMENT_LABELS[d]}</h3>
+              <h3 className="group">{DEPARTMENT_LABELS[d]}</h3>
               <ShowAll items={here} limit={8} what="products">
                 {(rows) =>
                   rows.map((x) => (

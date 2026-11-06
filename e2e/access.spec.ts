@@ -87,6 +87,17 @@ async function smallControls(page: Page): Promise<string[]> {
   })
 }
 
+/** A colour role of the app's (a CSS variable) as the browser gives it, read on a probe in the app. */
+const roleColour = (page: Page, role: string) =>
+  page.evaluate((role) => {
+    const probe = document.createElement('span')
+    probe.style.color = `var(${role})`
+    document.querySelector('.app')!.append(probe)
+    const colour = getComputedStyle(probe).color
+    probe.remove()
+    return colour
+  }, role)
+
 /** The text colour against the background of the first element matching, as drawn. */
 async function textContrast(page: Page, selector: string): Promise<number> {
   const [color, background] = await page.locator(selector).first().evaluate((el) => {
@@ -99,9 +110,10 @@ async function textContrast(page: Page, selector: string): Promise<number> {
 /**
  * The element's text colour on what is behind it, in the light theme and then the dark: its own fill, or, where it has none (a quiet
  * button), the colours painted behind it laid over each other, as the eye sees them. The themes are switched at once, with nothing easing.
+ * Its edge is read against what is round it, from its parent out; a mark drawn after it (::after) against the element and what is behind.
  */
-async function drawnInBothThemes(el: Locator): Promise<(readonly [string, string, string])[]> {
-  return el.evaluate((node) => {
+async function drawnInBothThemes(el: Locator, of: 'text' | 'edge' | 'after' = 'text'): Promise<(readonly [string, string, string])[]> {
+  return el.evaluate((node, of) => {
     const still = document.createElement('style')
     still.textContent = '* { transition: none !important; }'
     document.head.append(still)
@@ -113,7 +125,7 @@ async function drawnInBothThemes(el: Locator): Promise<(readonly [string, string
       root.dataset.theme = theme
       // Its own fill and each see-through one behind it, out to the first that is solid.
       const layers: number[][] = []
-      for (let e: Element | null = node; e; e = e.parentElement) {
+      for (let e: Element | null = of === 'edge' ? node.parentElement : node; e; e = e.parentElement) {
         const c = rgba(getComputedStyle(e).backgroundColor)
         if ((c[3] ?? 1) === 0) continue
         layers.unshift(c)
@@ -121,13 +133,14 @@ async function drawnInBothThemes(el: Locator): Promise<(readonly [string, string
       }
       let [r, g, b] = (layers[0]?.[3] ?? 1) >= 1 && layers.length ? layers.shift()! : [255, 255, 255]
       for (const [lr, lg, lb, la = 1] of layers) [r, g, b] = [lr! * la + r! * (1 - la), lg! * la + g! * (1 - la), lb! * la + b! * (1 - la)]
-      out.push([theme, getComputedStyle(node).color, `rgb(${r}, ${g}, ${b})`] as const)
+      const drawn = of === 'edge' ? getComputedStyle(node).borderTopColor : of === 'after' ? getComputedStyle(node, '::after').backgroundColor : getComputedStyle(node).color
+      out.push([theme, drawn, `rgb(${r}, ${g}, ${b})`] as const)
     }
     if (was === undefined) delete root.dataset.theme
     else root.dataset.theme = was
     still.remove()
     return out
-  })
+  }, of)
 }
 
 /** The text colour against its own background, which may be see-through or none, laid over the first colour painted behind it, as the eye sees it. */
@@ -322,6 +335,49 @@ test("a row's quiet button, and the yes of a question whose answer is a loss, re
   for (const [theme, color, behind] of await drawnInBothThemes(yes)) expect(contrast(color, behind), `Write it off, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
   await fault.getByRole('button', { name: 'Keep it' }).click()
   await expect(yes).toHaveCount(0)
+})
+
+test('a group head, a fault in a quote line, a number waiting to sync and the chart column being read can be seen in light and dark', async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, move 2): a group head's muted label capitals read at 4.5:1 on its card; the column of a Home
+  // chart being read is marked by a bar in the ink at 3:1 or more against the card, not a wash; in a quote's open line a fault is the
+  // bad ink at 4.5:1 and the field that's wrong takes the bad edge at 3:1, while a question about the line stays amber at 4.5:1; and a
+  // number waiting to sync is grey at 4.5:1, its dashed edge 3:1. Each as the browser draws it, in both themes, and in its role.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/#home')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company', exact: true }).click()
+  const head = page.locator('.card h3.group').first()
+  await expect(head).toBeVisible()
+  for (const [theme, color, behind] of await drawnInBothThemes(head)) expect(contrast(color, behind), `group head, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+  const picked = page.locator('.chart-col[aria-pressed="true"]').first()
+  await expect(picked).toBeVisible()
+  for (const [theme, color, behind] of await drawnInBothThemes(picked, 'after')) expect(contrast(color, behind), `chart column read, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(3)
+
+  // Stock's sheet comes with its screens; none of these is drawn on the made-up data as it stands, so each is put in a card to measure.
+  await page.goto('/#stock')
+  await expect(page.getByRole('heading', { level: 1, name: 'Catalogue' })).toBeVisible()
+  await page.evaluate(() => {
+    const card = document.createElement('section')
+    card.className = 'card'
+    card.innerHTML = `<div class="quote-screen"><div class="quote-line">
+        <input id="wrong-probe" aria-label="Line 4: what" aria-invalid="true">
+        <p class="line-problem" id="fault-probe">Line 4: say what it's for.</p>
+        <p class="line-problem asks" id="asks-probe">Was €40 a day, now €40 a week: change the price?</p>
+      </div></div>
+      <div class="warehouse"><ul class="numbers"><li><a href="#stock" class="is-pending" id="waiting-probe">SH-000001</a></li></ul></div>`
+    document.querySelector('.app')!.append(card)
+  })
+  for (const id of ['fault-probe', 'asks-probe', 'waiting-probe'])
+    for (const [theme, color, behind] of await drawnInBothThemes(page.locator(`#${id}`))) expect(contrast(color, behind), `${id}, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+  for (const id of ['wrong-probe', 'waiting-probe'])
+    for (const [theme, color, behind] of await drawnInBothThemes(page.locator(`#${id}`), 'edge')) expect(contrast(color, behind), `${id} edge, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(3)
+  // And each in its role, not only a colour that reads: the fault and the wrong field's edge in the bad tone, the question amber, and
+  // a number waiting to sync in the muted ink on a field's edge, as every other waiting thing is.
+  await expect(page.locator('#fault-probe')).toHaveCSS('color', await roleColour(page, '--bad'))
+  await expect(page.locator('#wrong-probe')).toHaveCSS('border-top-color', await roleColour(page, '--bad'))
+  await expect(page.locator('#asks-probe')).toHaveCSS('color', await roleColour(page, '--warn'))
+  await expect(page.locator('#waiting-probe')).toHaveCSS('color', await roleColour(page, '--muted'))
+  await expect(page.locator('#waiting-probe')).toHaveCSS('border-top-color', await roleColour(page, '--field-line'))
 })
 
 test('each move lands on the heading and names the tab, inside one main landmark, with a back link a thumb can hit', async ({ browser }) => {

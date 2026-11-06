@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { iconFrame, icons } from '../shared/src/ds/icons.js'
 
 /**
  * Moving about the screens (audit findings 8, 9 and 10): a new screen
@@ -34,6 +35,15 @@ const letGo = (page: Page) =>
     const next = () => (frames-- > 0 ? requestAnimationFrame(next) : done(undefined))
     requestAnimationFrame(next)
   }))
+
+/** The shared icon set's "next", as a fold's chevron is cut to it: its paths and the stroke they are drawn at. */
+const next = { paths: icons.next.map(([, a]) => a.d), stroke: iconFrame['stroke-width'] }
+
+/** The same of an icon written into a stylesheet as a mask, read back from its data address. */
+function iconShape(mask: string): typeof next {
+  const svg = decodeURIComponent(mask)
+  return { paths: [...svg.matchAll(/\sd=['"]([^'"]+)['"]/g)].map((m) => m[1]), stroke: svg.match(/stroke-width=['"]([^'"]+)['"]/)?.[1] }
+}
 
 test('a new screen opens at its top, and Back finds the place the last one was left at', async ({ browser }) => {
   // Proves: moving on from a page scrolled down starts the next at its top, by a tab or a link; the browser's Back and Forward put each screen back where it was.
@@ -328,4 +338,195 @@ test('Crew needed shows the next fortnight at rest, and every call still to come
   await page.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^Calls/ }).click()
   await expect(needed.getByRole('heading', { name: 'Crew needed' })).toBeVisible()
   await expect(showAll).toHaveCount(0)
+})
+
+test("Money's By month and Margin by job read on a phone, every figure under its column's name and nothing off the right edge", async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, director-f1): the phone rule that folds a sent quote's middle columns is the quote's own, so
+  // Money's two tables keep every figure; on a phone each month and each job is a row with its figures under its name, each saying
+  // which it is, with nothing to scroll sideways in the page or in the card; and a desk keeps the table with its heads.
+  const tables = {
+    'By month': ['Quoted', 'Confirmed', 'Invoiced', 'Freelancers'],
+    'Margin by job': ['Quoted', 'Freelancers', 'After freelancers'],
+  }
+  const figures = (page: Page, name: string) =>
+    page
+      .getByRole('region', { name })
+      .locator('tbody tr:not(.group)')
+      .evaluateAll((rows) =>
+        rows.map((row) =>
+          [...row.querySelectorAll('td')].map((td) => {
+            const box = td.getBoundingClientRect()
+            const said = getComputedStyle(td, '::before').content
+            return { label: td.dataset.label, said: said !== 'none' && said !== 'normal', left: box.left, right: box.right, shown: box.width > 0 && box.height > 0 }
+          })
+        )
+      )
+  const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await phone.goto('/#jobs/money')
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  for (const [name, columns] of Object.entries(tables)) {
+    const region = phone.getByRole('region', { name })
+    await expect(region.locator('tbody td').first()).toBeVisible()
+    await expect(region.locator('thead')).toBeHidden()
+    const rows = await figures(phone, name)
+    expect(rows.length, name).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(row.map((c) => c.label)).toEqual(columns)
+      for (const c of row) {
+        expect(c.shown && c.said, `${name}: ${c.label} is shown and says which it is`).toBe(true)
+        expect(c.left, `${name}: ${c.label}`).toBeGreaterThanOrEqual(0)
+        expect(c.right, `${name}: ${c.label}`).toBeLessThanOrEqual(phoneSize.width)
+      }
+    }
+    expect(await region.locator('.quote-table-wrap').evaluate((wrap) => wrap.scrollWidth - wrap.clientWidth), `${name} scrolls sideways`).toBeLessThanOrEqual(0)
+  }
+  expect(await phone.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0)
+
+  const desk = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage()
+  await desk.goto('/#jobs/money')
+  await expect(desk.getByRole('status')).toHaveText('Up to date')
+  for (const [name, columns] of Object.entries(tables)) {
+    const head = desk.getByRole('region', { name }).locator('thead th')
+    await expect(head).toHaveText([name === 'By month' ? 'Month' : 'Job', ...columns])
+    await expect(head.first()).toBeVisible()
+    for (const row of await figures(desk, name)) for (const c of row) expect(c.said, `${name}: ${c.label} on a desk`).toBe(false)
+  }
+})
+
+test('inside a card a head is a group or a section, a boxed row has one shape, and every fold opens the same way', async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, move 2): across Home, Jobs, a job's kit, Quotes, Money, Stock, Repairs, Calls and Timesheets, a
+  // head over a run of rows is a group head (12px tracked capitals in the muted ink, with no box of its own) and any other head inside a
+  // card is a section at 16px in sentence case, but an open task's name at 20px (ADR 0073); a row drawn as a box inside a card has the
+  // one inset and corner; and every fold is a thumb-high line in the ink at 600 behind the one chevron, the shared icon set's "next",
+  // which app.css copies (so a change to the icon shows here). At a phone's size, dark. Then in forced colours (a Windows contrast
+  // theme), where a fill is painted the page's own colour: every chevron, a fold's, History's run line's and a task's, is still drawn,
+  // in the colour its words take.
+  const page = await (await browser.newContext({ viewport: phoneSize, colorScheme: 'dark' })).newPage()
+  await page.goto('/#home')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const roles = await page.evaluate(() => {
+    const probe = document.createElement('span')
+    document.querySelector('.app')!.append(probe)
+    const read = (role: string) => {
+      probe.style.color = `var(${role})`
+      return getComputedStyle(probe).color
+    }
+    const out = { ink: read('--ink'), muted: read('--muted') }
+    probe.remove()
+    return out
+  })
+  const pages: [string, (() => Promise<void>)?][] = [
+    [
+      '#home',
+      async () => {
+        await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company', exact: true }).click()
+        await expect(page.locator('.standing h3.group').first()).toBeVisible()
+      },
+    ],
+    ['#jobs'],
+    [
+      'a job’s kit',
+      async () => {
+        await page.goto('/#jobs')
+        await page.getByRole('link', { name: /Harbour Lights Festival/ }).first().click()
+        await page.getByRole('tab', { name: /^Kit/ }).click()
+        await expect(page.locator('.kit-group').first()).toBeVisible()
+      },
+    ],
+    ['#quotes'],
+    ['#jobs/money'],
+    ['#stock/repairs'],
+    ['#stock'],
+    ['#crew/calls'],
+    ['#crew/timesheets'],
+  ]
+  let groups = 0
+  let folds = 0
+  for (const [where, open] of pages) {
+    if (open) await open()
+    else await page.goto(`/${where}`)
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    const drawn = await page.evaluate(() => {
+      const shown = (el: Element) => el.getClientRects().length > 0
+      const heads = [...document.querySelectorAll('.card h3')].filter(shown).map((h) => {
+        const cs = getComputedStyle(h)
+        return { text: h.textContent!.trim(), group: h.classList.contains('group'), task: h.closest('.step-open') !== null, size: cs.fontSize, caps: cs.textTransform, colour: cs.color, edge: cs.borderTopWidth }
+      })
+      const boxes = [...document.querySelectorAll('.home .tile, .jobs .phase .job, .crew .call-date .job, .app .board-card, .warehouse .fault, .warehouse .due, .vehicle-row')].filter(shown).map((b) => {
+        const cs = getComputedStyle(b)
+        return { box: b.className, corner: cs.borderTopLeftRadius, inset: cs.paddingLeft }
+      })
+      const summaries = [...document.querySelectorAll('summary')].filter(shown).map((s) => {
+        const cs = getComputedStyle(s)
+        const chevron = s.querySelector(':scope > .chevron') ?? null
+        const mark = chevron ? getComputedStyle(chevron) : getComputedStyle(s, '::before')
+        return {
+          text: s.textContent!.trim(),
+          height: s.getBoundingClientRect().height,
+          weight: cs.fontWeight,
+          colour: cs.color,
+          chevron: chevron !== null || (mark.content !== 'none' && mark.maskImage !== 'none'),
+          mask: chevron ? undefined : mark.maskImage,
+        }
+      })
+      return { heads, boxes, summaries }
+    })
+    for (const h of drawn.heads) {
+      if (h.group) {
+        groups++
+        expect([h.size, h.caps, h.colour, h.edge], `${where}: group head ${h.text}`).toEqual(['12px', 'uppercase', roles.muted, '0px'])
+      } else {
+        expect(h.caps, `${where}: section head ${h.text}`).toBe('none')
+        expect(h.size, `${where}: section head ${h.text}`).toBe(h.task ? '20px' : '16px')
+      }
+    }
+    for (const b of drawn.boxes) expect([b.corner, b.inset], `${where}: ${b.box}`).toEqual(['8px', '12px'])
+    for (const s of drawn.summaries) {
+      folds++
+      expect(s.height, `${where}: fold ${s.text}`).toBeGreaterThanOrEqual(44)
+      expect([s.weight, s.colour, s.chevron], `${where}: fold ${s.text}`).toEqual(['600', roles.ink, true])
+      if (s.mask) expect(iconShape(s.mask), `${where}: fold ${s.text}`).toEqual(next)
+    }
+  }
+  expect(groups).toBeGreaterThan(8)
+  expect(folds).toBeGreaterThan(2)
+
+  const forced = await (await browser.newContext({ viewport: phoneSize, forcedColors: 'active' })).newPage()
+  const kinds = new Set<string>()
+  for (const where of ['#crew/calls', '#history', 'a job']) {
+    if (where === 'a job') {
+      await forced.goto('/#jobs')
+      await forced.getByRole('link', { name: /Harbour Lights Festival/ }).first().click()
+      await expect(forced.locator('.task-list button').first()).toBeVisible()
+    } else {
+      await forced.goto(`/${where}`)
+      await expect(forced.locator(where === '#history' ? '.history .run-line' : 'details.filled-calls > summary').first()).toBeVisible()
+    }
+    const marks = await forced.evaluate(() => {
+      const shown = (el: Element) => el.getClientRects().length > 0
+      // Cut to the icon's shape, a chevron is painted by its border where it has one, else by its fill; the cost fold's icon by its stroke.
+      const paint = (cs: CSSStyleDeclaration) => (parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopColor : cs.backgroundColor)
+      const out: { kind: string; text: string; paint: string; words: string; shaped: boolean }[] = []
+      for (const s of [...document.querySelectorAll('summary')].filter(shown)) {
+        const icon = s.querySelector(':scope > .chevron')
+        const cs = icon ? getComputedStyle(icon) : getComputedStyle(s, '::before')
+        out.push({ kind: 'fold', text: s.textContent!.trim(), paint: icon ? cs.stroke : paint(cs), words: getComputedStyle(s).color, shaped: icon !== null || cs.maskImage !== 'none' })
+      }
+      for (const c of [...document.querySelectorAll('.history .run-line .chevron')].filter(shown)) {
+        const cs = getComputedStyle(c)
+        out.push({ kind: 'run line', text: c.parentElement!.textContent!.trim(), paint: paint(cs), words: getComputedStyle(c.parentElement!).color, shaped: cs.maskImage !== 'none' })
+      }
+      for (const b of [...document.querySelectorAll('.task-list button')].filter(shown)) {
+        const cs = getComputedStyle(b, '::after')
+        out.push({ kind: 'task', text: b.querySelector('.task-name')!.textContent!.trim(), paint: paint(cs), words: getComputedStyle(b).color, shaped: cs.maskImage !== 'none' })
+      }
+      return { out, page: getComputedStyle(document.body).backgroundColor }
+    })
+    for (const m of marks.out) {
+      kinds.add(m.kind)
+      expect([m.paint, m.shaped], `${where}, forced colours: ${m.kind} ${m.text}`).toEqual([m.words, true])
+      expect(m.paint, `${where}, forced colours: ${m.kind} ${m.text} on the page`).not.toBe(marks.page)
+    }
+  }
+  expect([...kinds].sort()).toEqual(['fold', 'run line', 'task'])
 })

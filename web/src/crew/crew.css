@@ -41,7 +41,6 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .offer-form .alert { grid-column: 1 / -1; }
 /* "Offer…" beside a decline or a pull-out in Answers to check: opened, the picker takes its own line under the answer. */
 .crew .actions > .fold, .crew .row > .fold { flex-basis: 100%; }
-.crew .share { border-color: var(--accent); }
 .crew .away-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2); }
 .crew .away-form .wide, .crew .away-form button { grid-column: 1 / -1; }
 /* Their own calendar (ADR 0044): the address to add, and the busy days read from it, one line each. */
@@ -50,7 +49,6 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .busy-days { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
 /* Leavers, folded away under the list (audit finding 7), and filled calls under the ones short of people (audit finding 10). */
 .crew details.archived, .crew details.filled-calls { padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
-.crew details.archived summary, .crew details.filled-calls summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--muted); }
 .crew details.archived .row { padding-top: var(--ds-space-2); }
 /* Bring back and "Erase details…" beside the name where there's room (ADR 0027); under it on a phone. */
 .crew details.archived .row > .who { min-width: 50%; }
@@ -65,7 +63,6 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .dept-filter { justify-self: start; }
 .crew .level-pick { display: flex; gap: var(--ds-space-2); align-items: center; font-size: var(--text-hint); color: var(--muted); }
 .crew .level-pick select { min-width: 9em; }
-.crew .grid-form details.more summary { display: flex; align-items: center; min-height: 44px; font-weight: 600; color: var(--muted); cursor: pointer; }
 .crew .more-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2); align-items: end; padding-top: var(--ds-space-1); }
 .crew .more-grid .cert { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2); align-items: end; }
 .crew .offer-form .applicants { grid-column: 1 / -1; display: flex; gap: var(--ds-space-2); align-items: center; min-height: 44px; font-size: var(--text-hint); color: var(--muted); cursor: pointer; }
@@ -93,7 +90,7 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 /* Staff leave (ADR 0024): the Crew tab's card, and the Leave screen's balances, forms, requests and queue. */
 .crew .leave-card a.button { justify-self: start; }
 .leave-screen .card p { margin: 0; }
-.leave-screen h3 { margin: var(--ds-space-1) 0 0; font-size: var(--text-hint); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.leave-screen h3 { margin: var(--ds-space-1) 0 0; }
 .leave-screen .facts { grid-template-columns: 1fr 1fr 1fr; }
 .leave-screen .facts dd small { color: var(--muted); font-weight: 400; }
 .leave-screen .facts dd.bad { color: var(--bad); }
@@ -107,7 +104,7 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .leave-screen .decline-form { display: grid; grid-template-columns: 1fr auto auto; gap: var(--ds-space-2); align-items: center; flex-basis: 100%; }
 .leave-screen .allowance-row .actions { align-items: flex-end; padding: var(--ds-space-2) 0; }
 .leave-screen .allowance-fold { flex-basis: 100%; }
-.leave-screen .allowance-fold summary { cursor: pointer; min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--ds-space-2); }
+.leave-screen .allowance-fold summary { flex-wrap: wrap; row-gap: 0; }
 .leave-screen .allowance-fold summary span { color: var(--muted); font-size: var(--text-small); }
 .leave-screen .allowance-row .field input { width: 6em; }
 .leave-screen .allowance-row .alert { flex-basis: 100%; }
@@ -120,7 +117,7 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 /* Timesheets (ADR 0022): what's waiting on the office in the Crew tab, and a booking's timesheet to check and approve. */
 .crew .ts-group { display: grid; gap: var(--ds-space-2); }
 .crew .ts-group + .ts-group { padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
-.crew .ts-group h3, .timesheet-screen h3 { margin: 0; font-size: var(--text-hint); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.crew .ts-group h3 { margin: 0; }
 .crew .ts-group .row:first-of-type { border-top: 0; padding-top: 0; }
 .crew .ts-row > div:first-child { flex: 1 1 14em; }
 .crew .ts-row .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -148,9 +145,10 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .call-group > header { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; }
 .crew .call-group > header p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
 .crew .call-date { display: grid; gap: var(--ds-space-2); }
-.crew h3.calls-part { margin: var(--ds-space-3) 0 0; font-size: var(--text-hint); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.crew .call-date h3 { margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.crew .call-date .job { padding: var(--ds-space-1) var(--ds-space-3) var(--ds-space-2); border: 1px solid var(--line); border-radius: 10px; }
+.crew h3.calls-part { margin: var(--ds-space-3) 0 0; }
+.crew .call-date h3 { margin: 0; }
+/* A call's box: the one boxed row (app.css), a step tighter above and below, where the call's line is a 44px button with its own room. */
+.crew .call-date .job { padding: var(--ds-space-1) var(--inset-box) var(--ds-space-2); border: 1px solid var(--line); border-radius: var(--radius-box); }
 .crew .job.call { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-3); align-items: start; }
 .crew .call > * { grid-column: 1 / -1; }
 .crew .call > .call-line { grid-column: 1; grid-row: 1; }

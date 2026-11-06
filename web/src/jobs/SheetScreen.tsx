@@ -340,7 +340,7 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
           <Heading icon="kit">Kit</Heading>
           {sheet.kit.map((d) => (
             <div key={d.department} className="sheet-kit">
-              <h3>{d.department}</h3>
+              <h3 className="group">{d.department}</h3>
               <ul>
                 {d.lines.map((l) => (
                   <li key={`${l.name}${l.note}`}>
