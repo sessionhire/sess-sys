@@ -25,6 +25,7 @@ import {
 } from '@sh/shared'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
+import { AdminWords } from '../AdminWords.tsx'
 import { Empty } from '../Empty.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
@@ -692,7 +693,7 @@ export function MatchScreen({ view }: { view: View }) {
             {list.length === 0 ? (
               <Empty>
                 {rows.length === 0
-                  ? 'Nothing has been read from Current RMS yet. Bring it in from Admin.'
+                  ? <AdminWords>Nothing has been read from Current RMS yet. Bring it in from Admin › Connections.</AdminWords>
                   : showing === 'check'
                     ? 'Nothing left to check.'
                     : showing === 'linked'

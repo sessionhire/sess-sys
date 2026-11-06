@@ -355,8 +355,9 @@ export function jobSpan(phases: readonly Pick<Phase, 'start' | 'end'>[]): { star
 }
 
 /** "Fri 3 Oct", or "Fri 3 Oct to Sun 5 Oct". */
-export function spanLabel(s: { start: string; end: string }): string {
-  return s.start === s.end ? dayLabel(s.start) : `${dayLabel(s.start)} to ${dayLabel(s.end)}`
+/** With `today`, a day far from it says its year, as dayLabel does. */
+export function spanLabel(s: { start: string; end: string }, today?: string): string {
+  return s.start === s.end ? dayLabel(s.start, today) : `${dayLabel(s.start, today)} to ${dayLabel(s.end, today)}`
 }
 
 /**

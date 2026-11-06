@@ -62,7 +62,10 @@ function yOf(place: Place | number): number {
     // A card's heading brings its card, under the bar that stays at the top; a heading inside a card, itself.
     const at = heading && (heading.tagName === 'H2' ? (heading.parentElement ?? heading) : heading)
     const bar = document.querySelector('main .top')?.getBoundingClientRect().bottom ?? 0
-    return at ? Math.max(0, Math.round(scrollY + at.getBoundingClientRect().top - bar - 8)) : place.y
+    // And the On this screen strip that sticks under the bar, which covered most of the heading landed on (audit, 5 November 2026,
+    // finding 95): OnThisScreen keeps its height as --on-screen.
+    const strip = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--on-screen')) || 0
+    return at ? Math.max(0, Math.round(scrollY + at.getBoundingClientRect().top - bar - strip - 8)) : place.y
   }
   const row = place.row === undefined ? null : document.querySelector(`[data-place="${CSS.escape(place.row)}"]`)
   return row ? Math.max(0, Math.round(scrollY + row.getBoundingClientRect().top - (place.top ?? 0))) : place.y

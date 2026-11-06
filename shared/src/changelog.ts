@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.86.0',
+    date: '2026-11-06',
+    title: 'Small fixes for jobs, quotes and crew booking',
+    what: "Add kit on a quote keeps the cursor in the search and stays open for the next product, with Done to close it. A freelancer whose offer closed because the call filled sees it in their notifications. A venue's or client's jobs are grouped into coming up, before and not going ahead, with the year. The steps strip says how late a step is in the bad colour, a stopped job says how to take it up again, and an address with no job says so. Quotes and Current RMS link to the Admin page they mention, a job's kit note names its prep and return days, and names below zero on Home open their quote. Show all names how many calls, the planner's short cells open the job's crew, the Jobs list on a phone shows more rows, and a screen's parts strip no longer hides what it jumps to.",
+    prs: [215],
+  },
+  {
     version: '1.85.0',
     date: '2026-11-06',
     title: 'Small fixes for the warehouse and stock',

@@ -132,7 +132,7 @@ function BoardCard({ steps, today }: { steps: JobSteps; today: string }) {
     const sent = steps.steps.find((t) => t.key === 'quote')?.auto?.match(/^Sent (.+)$/)
     line = sent ? `Quote with the client since ${sent[1]}` : 'Waiting on the client'
   } else {
-    line = [stage?.hint ?? current?.hint ?? '', job.span && job.span.start > today ? `${daysBetween(today, job.span.start)} days left` : ''].filter(Boolean).join(' · ')
+    line = [stage?.hint ?? current?.hint ?? '', job.span && job.span.start > today ? `${plural(daysBetween(today, job.span.start), 'day')} left` : ''].filter(Boolean).join(' · ')
     if (stage?.hint?.includes('short')) tone = 'warn'
   }
   return (

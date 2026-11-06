@@ -172,6 +172,20 @@ export function OnThisScreen() {
   useLayoutEffect(() => {
     strip.hidden = !shown
   }, [strip, shown])
+  // Its height kept on the page as --on-screen, which the scroll padding adds to the bar's (app.css), so a heading landed on from a
+  // count on Home clears the strip as well as the bar (audit, 5 November 2026, finding 95).
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    if (!shown) return void root.style.removeProperty('--on-screen')
+    const set = () => root.style.setProperty('--on-screen', `${strip.offsetHeight}px`)
+    set()
+    const sized = new ResizeObserver(set)
+    sized.observe(strip)
+    return () => {
+      sized.disconnect()
+      root.style.removeProperty('--on-screen')
+    }
+  }, [strip, shown])
   return (
     <span ref={anchor} hidden>
       {shown &&

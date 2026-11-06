@@ -38,7 +38,7 @@ test('a big call says how many it holds in words, and names the first eight acro
   await office.goto('/#crew')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // Next June is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
-  await office.getByRole('button', { name: /^Show all \d+ calls still to come$/ }).click()
+  await office.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
   const call = office.locator('.call-group', { hasText: `Volume Fest ${id}` }).getByRole('article', { name: '40 × Stagehand' })
   await expect(call.locator('.pill').first()).toHaveText('25 of 40, both days')
   const who = call.locator('.who-line > span:last-child')

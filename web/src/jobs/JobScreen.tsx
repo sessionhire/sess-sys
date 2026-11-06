@@ -130,7 +130,14 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
     return (
       <Page view={view} className="crew jobs job-page" up={up}>
         <section className="card">
-          <p className="empty">This job isn't on this device. It may still be on its way: check again once it says “Up to date”.</p>
+          {/* Up to date, a job not here isn't on its way: the address is wrong or the job has gone (audit, 5 November 2026, finding 88). */}
+          {view.connection === 'idle' && !view.copying && view.cursor > 0 ? (
+            <p className="empty">
+              There's no job at this address: it may have been removed, or the address is mistyped. <a href="#jobs">All jobs</a>
+            </p>
+          ) : (
+            <p className="empty">This job isn't on this device. It may still be on its way: check again once it says “Up to date”.</p>
+          )}
         </section>
       </Page>
     )

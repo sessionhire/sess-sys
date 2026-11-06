@@ -39,6 +39,7 @@ export function ProductPicker({
   placeholder = 'Type to find a product',
   hint,
   className,
+  autoFocus,
 }: {
   label: string
   products: readonly Product[]
@@ -55,6 +56,8 @@ export function ProductPicker({
   placeholder?: string
   hint?: string
   className?: string
+  /** Takes the cursor when drawn, as when Add kit opens it (audit, 5 November 2026, finding 58). */
+  autoFocus?: boolean
 }) {
   const chosen = products.find((p) => p.id === value)
   const said = chosen?.name ?? shownAs ?? ''
@@ -139,6 +142,7 @@ export function ProductPicker({
           disabled={disabled}
           autoComplete="off"
           spellCheck={false}
+          autoFocus={autoFocus}
           onChange={(e) => {
             setText(e.target.value)
             setMoved(null)

@@ -97,7 +97,8 @@ export function StepsCard({
       </ol>
       {open && (
         <div className="stage-open" id="job-stage-open">
-          <p className="stage-line">
+          {/* Not .stage-line, the list rows' inline line, which broke this sentence at each part on a phone (audit, 5 November 2026, finding 88). */}
+          <p className="stage-said">
             <b>{open.label}</b>
             {open.state === 'now' ? ' · the stage the job is in. ' : open.state === 'done' ? ' · passed. ' : ' · to come. '}
             {open.line}

@@ -120,10 +120,20 @@ export async function readNotices(q: Queryable, reader: NoticeReader, rates = tr
   const { rows } = await q.query<Row>(`${SELECT} WHERE m.id = ANY($1::text[]) ORDER BY m.received_at DESC, m.id DESC`, [hits.map((h) => h.id)])
   const byId = new Map(hits.map((h) => [h.id, h]))
   const entries = await toEntries(q, rows, rates, notes, docs)
+  // Someone else's yes that filled the call closed the reader's own offer with it: said for them, not only as the history words it.
+  const { rows: closed } = person
+    ? await q.query<{ mutation_id: string; role: string; project: string }>(
+        `SELECT c.mutation_id, cl.role, cl.project FROM changes c JOIN crew_calls cl ON cl.id = c.data->>'callId'
+          WHERE c.mutation_id = ANY($1::text[]) AND c.entity = 'offer' AND c.data->>'personId' = $2 AND c.data->>'status' = 'filled'`,
+        [hits.map((h) => h.id), person],
+      )
+    : { rows: [] }
+  const filled = new Map(closed.map((c) => [c.mutation_id, `Your offer for ${c.role} on ${c.project} is closed: the call filled.`]))
   return entries.map((e) => {
     const hit = byId.get(e.id)!
     const [entity, ...rest] = hit.about.split(':')
-    return { ...e, why: NOTICE_WHY[Math.min(Number(hit.rank), NOTICE_WHY.length - 1)]!, about: { entity: entity!, id: rest.join(':') } }
+    const forYou = filled.get(e.id)
+    return { ...e, why: NOTICE_WHY[Math.min(Number(hit.rank), NOTICE_WHY.length - 1)]!, about: { entity: entity!, id: rest.join(':') }, ...(forYou ? { forYou } : {}) }
   })
 }
 

@@ -132,7 +132,7 @@ test('a freelancer shares when they are busy from their link, the office sees it
   await office.goto('/#crew/calls')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // The convention is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
-  await office.getByRole('button', { name: /^Show all \d+ calls still to come$/ }).click()
+  await office.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
   const call = office.locator('.call-group', { hasText: `Convention ${id}` }).getByRole('article', { name: '1 × Audio tech' })
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()

@@ -195,6 +195,7 @@ function NoticeRow({ notice: n, day, fresh, href }: { notice: Notice; day: strin
         )}
         {href ? <a href={href}>{n.what}</a> : n.what}
       </p>
+      {n.forYou && <p className="for-you">{n.forYou}</p>}
       <span className="meta">
         {makerOf(n)} · {NOTICE_WHY_WORDS[n.why]} · {historyTime(n.arrivedAt, day)}
       </span>
@@ -240,6 +241,7 @@ function LineRow({ line, day, mark, view }: { line: NoticeLine; day: string; mar
             return (
               <li key={n.id}>
                 {href ? <a href={href}>{n.what}</a> : n.what}
+                {n.forYou && <span className="for-you"> {n.forYou}</span>}
                 <span className="meta">
                   {' '}
                   · {makerOf(n)} · {historyTime(n.arrivedAt, day)}

@@ -138,15 +138,19 @@ export function KitNote(p: {
   names: (modelId: string) => string | undefined
   onHire?: (n: number) => void
   full: boolean
+  /** The job's days, so a day short around them says it's the prep or return day the kit is held for (audit, 5 November 2026, finding 89). */
+  span?: { start: string; end: string }
 }) {
   const { l, checks } = p
+  const on = (d: string) =>
+    p.span && d < p.span.start ? `${dayLabel(d)}, before the job, while it's prepped` : p.span && d > p.span.end ? `${dayLabel(d)}, after the job, while it comes back` : dayLabel(d)
   if (l.kind !== 'kit') return null
   if (!l.modelId) {
     const short = linesShort(l, checks, p.items)
     if (!short.length) return null
     return (
       <p className="kit-note warn-line">
-        Short on the job's days: {short.map((c) => `${c.short} × ${p.names(c.modelId) ?? 'a product'} on ${dayLabel(c.shortDay!)}`).join(', ')}. Hire them in, or quote fewer.
+        Short: {short.map((c) => `${c.short} × ${p.names(c.modelId) ?? 'a product'} on ${on(c.shortDay!)}`).join('; ')}. Hire them in, or quote fewer.
       </p>
     )
   }
@@ -157,7 +161,7 @@ export function KitNote(p: {
     const own = l.qty - (l.subhireQty ?? 0)
     return (
       <p className="kit-note warn-line">
-        Short by {c.short} on {dayLabel(c.shortDay!)}
+        Short by {c.short} on {on(c.shortDay!)}
         {c.wanted > own ? `, across the quote's ${c.wanted}` : ''}
         {c.others.length ? `: ${others(c.others)} out` : ''}.{' '}
         {p.onHire && own > 0 && (
@@ -173,7 +177,7 @@ export function KitNote(p: {
     const names = c.others.filter((o) => !o.held).map((o) => o.name).slice(0, 2)
     return (
       <p className="kit-note hint">
-        Enough, unless {names.join(' and ') || 'the jobs pencilled in'} {names.length === 1 ? 'goes' : 'go'} ahead: then {c.ifPencilled} short on {dayLabel(c.pencilledDay!)}.
+        Enough, unless {names.join(' and ') || 'the jobs pencilled in'} {names.length === 1 ? 'goes' : 'go'} ahead: then {c.ifPencilled} short on {on(c.pencilledDay!)}.
       </p>
     )
   }

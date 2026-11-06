@@ -380,7 +380,8 @@ function JobDay({ lane, cell, scale, join }: { lane: JobLane; cell: JobCell; sca
   const className = ['blk', lane.tentative ? 'dashed' : 'solid', tone(cell), cell.stray && 'stray', lane.pending && 'pending', joinClass(join)].filter(Boolean).join(' ')
   // The day opens its job, as the name does; a call from the Crew tab has no job to open.
   const Block = lane.jobId ? 'a' : 'div'
-  const href = lane.jobId ? `#jobs/${lane.jobId}` : undefined
+  // A day short of crew opens the job's crew, where it's sorted out, not the top of the job (audit, 5 November 2026, finding 90).
+  const href = lane.jobId ? `#jobs/${lane.jobId}${tone(cell) === 'short' ? '/crew' : ''}` : undefined
   if (scale === 'month')
     return (
       <Block className={className} href={href} title={`${lane.name}: ${words}`}>
