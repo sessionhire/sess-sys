@@ -229,7 +229,7 @@ export function CrewScreen() {
     for (const c of crew.calls)
       if (c.status === 'open' && c.end >= today)
         for (const o of c.offers) if (o.status === 'accepted' || o.status === 'confirmed') ahead.set(o.personId, (ahead.get(o.personId) ?? 0) + 1)
-    return peopleSorts((p) => ahead.get(p.id) ?? 0)
+    return peopleSorts((p) => ahead.get(p.id) ?? 0, !crew.people.some((p) => p.levelHidden))
   }, [crew.calls, today])
   // Found as in the picker, and folded to the first ten (audit finding 16). Whoever is added stays in view, whatever the
   // search, filter or fold, until the tab is next opened: on a phone the form pushes the list out of sight, so it says so too.
@@ -702,7 +702,7 @@ export function CrewScreen() {
               <input
                 className="search"
                 type="search"
-                placeholder="Name, department or skill"
+                placeholder="Name, phone, email, department or skill"
                 value={find}
                 onChange={(e) => setFind(e.target.value)}
                 aria-label="Find a person"

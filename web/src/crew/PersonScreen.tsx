@@ -113,6 +113,10 @@ export function PersonScreen({
         {part === 'worked' && <Worked person={person} />}
         {part === 'link' && <TheirLink person={person} />}
       </TabPanel>
+      {/* Who changed their details and when (audit, 5 November 2026, finding 51). */}
+      <p className="hint page-foot">
+        <a href={`#history/person/${person.id}`}>History of {person.name}'s details</a>
+      </p>
     </Page>
   )
 }
@@ -122,7 +126,7 @@ function WhoLine({ person }: { person: PersonView }) {
   const kind = person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : 'Freelancer'
   return (
     <>
-      <p>{[kind, person.department, levelLine(person.level)].filter(Boolean).join(' · ')}</p>
+      <p>{[kind, person.department, person.levelHidden ? null : levelLine(person.level)].filter(Boolean).join(' · ')}</p>
       {person.knownAs && <p>Goes by {person.knownAs}</p>}
     </>
   )

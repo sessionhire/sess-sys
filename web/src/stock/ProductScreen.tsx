@@ -262,7 +262,15 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
             {m.tracking === 'serialised' &&
               m.countedTotal > 0 &&
               `: ${m.items.length.toLocaleString('en-IE')} labelled, ${m.countedTotal.toLocaleString('en-IE')} not yet`}
-            {unusable > 0 && <span className="flag bad"> {unusable.toLocaleString('en-IE')} can't go out</span>}
+            {/* Apart from the total, and opening the ones it counts: "7 2 can't go out" read as 72 (audit, 5 November 2026, finding 37). */}
+            {unusable > 0 && (
+              <>
+                {' · '}
+                <a className="flag bad" href={`#stock/product/${encodeURIComponent(m.id)}/${m.tracking === 'serialised' && m.items.length > 0 ? 'items' : 'faults'}`}>
+                  {unusable.toLocaleString('en-IE')} can't go out
+                </a>
+              </>
+            )}
           </dd>
         </div>
         {m.tracking === 'serialised' && (

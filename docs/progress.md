@@ -103,11 +103,23 @@ waiting on someone.
   as the link's do. Leave for a year not open names who to ask. The link
   page reads a form up to 40 MB, so an 11 MB photo gets the page's own
   "over 10 MB" message. No ADR.
+- Batch 8b, the rest of the P2s (1.83.0, PR #211): findings 33, 34, 37,
+  40, 41, 44, 45, 46, 48, 51 and 52. Damage can be reported on any item
+  back, not only the last one scanned. "No signal" shows the moment the
+  phone loses it. A product's "In all" line says how many can't go out,
+  linked. The crew-list preview says what a matched person keeps (the
+  office's type, level and rate). People search finds a phone number or
+  email. Levels are the office's too: staff and freelancers no longer see
+  them (written into ADR 0062). Home holds its cards while the phone is
+  still catching up and says so, and the all-clear says when some tiles
+  aren't yours. Signing in lands on Home. A job and a person each have
+  their own history (#history/job/<id>, #history/person/<id>), linked
+  from the foot of their page. Tidy up's name boxes start filled, with
+  "Keep all these names as they are".
 
 **Waiting**
 
-- Colly to choose the next batch: the rest of the P2s, then the P3s by
-  area.
+- Colly to say whether to go on to the P3s, by area.
 
 ## 1 November 2026: the logo, stock code, cable length and colour on labels
 

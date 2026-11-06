@@ -1,4 +1,5 @@
 import type { CommandName } from './commands.ts'
+import { DEFAULT_LEVEL } from './crew-departments.ts'
 import { sameDepartment, type CrewCall, type Offer, type Person } from './crew.ts'
 import type { Document } from './documents.ts'
 import type { Role } from './roles.ts'
@@ -132,7 +133,7 @@ export function personAsRead(p: Person, r: Reading): Person {
   const details = r.details ?? 'all'
   if (details !== 'all') {
     const { otherEmails: _, ...rest } = out
-    Object.assign(rest, { email: null, notes: '', company: null, detailsHidden: true }, details === 'own' ? { phone: null } : {})
+    Object.assign(rest, { email: null, notes: '', company: null, detailsHidden: true, level: DEFAULT_LEVEL, levelHidden: true }, details === 'own' ? { phone: null } : {})
     // Their face goes with their phone (ADR 0065): staff crew see who they're ringing, a freelancer signed in neither.
     if (details === 'own') delete (rest as Person).photo
     return rest

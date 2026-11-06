@@ -163,6 +163,24 @@ describe('the history', () => {
     expect(stale.statusCode).toBe(400)
   })
 
+  it("narrows to one job with its parts, so who moved its dates is found on the phase (audit, 5 November 2026, finding 51)", async () => {
+    const { app, db } = await server()
+    const colly = await staff(app, db, 'Colly Hewson', IPHONE, 'phone-c0ffee')
+    const aoife = await staff(app, db, 'Aoife Byrne', WINDOWS, 'office-a1b2c3')
+    await colly.send('project.create', { id: 'croke', name: 'Croke Park', clientId: null, venueId: null, status: 'confirmed', kind: 'gig', notes: '' })
+    await colly.send('phase.add', { id: 'croke-show', projectId: 'croke', name: 'Show', start: '2030-06-01', end: '2030-06-01', venueId: null, notes: '' })
+    await colly.send('project.create', { id: 'other', name: 'Other gig', clientId: null, venueId: null, status: 'confirmed', kind: 'gig', notes: '' })
+    await colly.send('phase.add', { id: 'other-show', projectId: 'other', name: 'Show', start: '2030-06-02', end: '2030-06-02', venueId: null, notes: '' })
+    await aoife.send('phase.update', { id: 'croke-show', start: '2030-06-08', end: '2030-06-08' })
+    await aoife.send('phase.update', { id: 'other-show', start: '2030-06-09', end: '2030-06-09' })
+    const croke = await colly.history('?job=croke')
+    expect(croke.entries.map((e) => [e.who.name, e.command])).toEqual([
+      ['Aoife Byrne', 'phase.update'],
+      ['Colly Hewson', 'phase.add'],
+      ['Colly Hewson', 'project.create'],
+    ])
+  })
+
   it('is for signed-in staff only, and no device can pass itself off as a private link', async () => {
     const { app, db } = await server()
     expect((await app.inject('/api/history')).statusCode).toBe(401)

@@ -84,8 +84,11 @@ export function Chart({
   return (
     <section className="card chart">
       <Heading icon={icon}>{title}</Heading>
-      {max === 0 ? (
-        <p className="empty">{copying ? STILL_ARRIVING : empty}</p>
+      {/* While the copy arrives the columns and the line under them are part of the story, so neither is drawn (audit, 5 November 2026, finding 45). */}
+      {copying ? (
+        <p className="empty">{STILL_ARRIVING}</p>
+      ) : max === 0 ? (
+        <p className="empty">{empty}</p>
       ) : (
         <>
           <p className="chart-readout" aria-live="polite">
@@ -151,7 +154,7 @@ export function Chart({
           )}
         </>
       )}
-      {more}
+      {!copying && more}
     </section>
   )
 }

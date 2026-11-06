@@ -695,6 +695,8 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
                       (ok) =>
                         ok &&
                         say('ok', mode === 'out' ? `${a.number || name} isn't going: it's back in stock.` : `${a.number || name} back.`, {
+                          // Brought back from the list offers damage as a scan does (audit, 5 November 2026, finding 33).
+                          back: mode === 'in' ? a : undefined,
                           undo: { run: () => record(job.id, 'out', { assetId: a.id, modelId: a.modelId }, { undoes: moved }), said: `${a.number || name} is out with ${job.name} again.` },
                         })
                     )
@@ -741,6 +743,21 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
             </li>
           ))}
         </ul>
+      )}
+      {/* Damage found a few cases later is reported here, against any number already back, not only the last scan (audit, 5 November 2026, finding 33). */}
+      {mode === 'in' && mayMove && row.backItems.length > 0 && (
+        <details className="back-items">
+          <summary>
+            Back ({row.backItems.length.toLocaleString('en-IE')}): report damage
+          </summary>
+          <ul className="back-damage">
+            {row.backItems.map((a) => (
+              <li key={a.id}>
+                <DamageTo a={a} job={job} say={say} />
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
       {countable && mayMove && <Count row={row} job={job} mode={mode} say={say} />}
       {mode === 'in' && countable && row.countedBack > 0 && !damage && (

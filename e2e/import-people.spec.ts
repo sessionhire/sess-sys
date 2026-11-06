@@ -79,7 +79,7 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   await office.getByLabel('Crew list file').setInputFiles(file)
   const read = office.getByRole('region', { name: 'What was read' })
   await expect(read).toContainText('3 rows read: 3 new people, 1 with a problem.')
-  await expect(read).toContainText('Emails at sessionhire.com come in as staff')
+  await expect(read).toContainText('New people with emails at sessionhire.com come in as staff')
   const rows = office.getByRole('region', { name: 'Rows' })
   const nuala = rows.getByRole('listitem', { name: 'Row 2' })
   await expect(nuala).toContainText(`Nuala Breen ${id}`)
@@ -151,6 +151,9 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   await expect(read).toContainText('3 rows read: 0 new people, 3 updates, 1 with a problem.')
   await expect(rows.getByRole('listitem', { name: 'Row 2' })).toContainText(`Updates Nuala Breen ${id} (matched by email)`)
   await expect(rows.getByRole('listitem', { name: 'Row 4' })).toContainText(`Updates Ruth Devane ${id} (matched by phone)`)
+  // What stays the office's is said, not the file's values as if they'd land (audit, 5 November 2026, finding 40).
+  await expect(rows.getByRole('listitem', { name: 'Row 2' })).toContainText(`Updates Nuala Breen ${id} (matched by email). Keeps Staff, Level 3`)
+  await expect(rows.getByRole('listitem', { name: 'Row 2' })).toContainText(": the office's.")
   // Oisín's phone is still unreadable in the file; skipping the row is the other way past a problem.
   await rows.getByRole('listitem', { name: 'Row 3' }).getByLabel('Skip row 3').check()
   await expect(bring).toHaveText('Bring in 2 people')

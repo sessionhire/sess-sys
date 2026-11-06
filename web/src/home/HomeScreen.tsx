@@ -120,6 +120,8 @@ export function HomeScreen() {
  */
 function Tiles({ all, keys, title = 'Needs attention', clear, department, grouped = true }: { all: Record<string, Tile>; keys: readonly string[]; title?: string; clear: string; department?: string; grouped?: boolean }) {
   const shown = keys.map((k) => all[k]!).filter((t) => t && t.count > 0)
+  // Counts this role can't act on aren't offered (ADR 0034), so all clear is only this person's to say, not the company's (audit, 5 November 2026, finding 46).
+  const withheld = keys.some((k) => !all[k])
   const copying = useCopying()
   const soon = grouped ? shown.filter((t) => SOON.has(t.key)) : shown
   const rest = grouped ? shown.filter((t) => !SOON.has(t.key)) : []
@@ -141,7 +143,7 @@ function Tiles({ all, keys, title = 'Needs attention', clear, department, groupe
       {copying ? (
         <p className="all-clear">{STILL_ARRIVING}</p>
       ) : shown.length === 0 ? (
-        <p className="all-clear">{clear}</p>
+        <p className="all-clear">{withheld ? 'Nothing here for you to sort out.' : clear}</p>
       ) : !grouped ? (
         list(shown)
       ) : (
@@ -173,8 +175,9 @@ function Today({ view, today }: { view: View; today: string }) {
   const copying = useCopying()
   return (
     <section className="card">
-      <Heading icon="time">Today{on.length > 0 ? ` (${on.length})` : ''}</Heading>
-      {on.length === 0 && copying ? (
+      <Heading icon="time">Today{on.length > 0 && !copying ? ` (${on.length})` : ''}</Heading>
+      {/* Part of a copy is no answer at all, so nothing here is said as if it were (audit, 5 November 2026, finding 45). */}
+      {copying ? (
         <p className="empty">{STILL_ARRIVING}</p>
       ) : on.length === 0 ? (
         <p className="empty">Nothing on today.{next?.span && ` Next: ${next.name}, ${dayLabel(next.span.start)}.`}</p>
@@ -232,8 +235,8 @@ function WeekAhead({ view, today }: { view: View; today: string }) {
   )
   return (
     <section className="card week-ahead">
-      <Heading icon="calendar">The week ahead{work.length > 0 ? ` (${work.length})` : ''}</Heading>
-      {work.length === 0 && errands.length === 0 && copying ? (
+      <Heading icon="calendar">The week ahead{work.length > 0 && !copying ? ` (${work.length})` : ''}</Heading>
+      {copying ? (
         <p className="empty">{STILL_ARRIVING}</p>
       ) : work.length === 0 && errands.length === 0 ? (
         <Empty>Nothing starts in the next seven days.</Empty>
@@ -603,8 +606,8 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
     <>
       <section className="card">
         {/* Booked and only accepted said apart, as on their own page (audit, 20 October 2026, finding 36): an accepted day can still go to someone else. */}
-        <Heading icon="calendar">Your work{mine.length > 0 ? ` (${workCount(mine)})` : ''}</Heading>
-        {mine.length === 0 && copying ? (
+        <Heading icon="calendar">Your work{mine.length > 0 && !copying ? ` (${workCount(mine)})` : ''}</Heading>
+        {copying ? (
           <p className="empty">{STILL_ARRIVING}</p>
         ) : mine.length === 0 ? (
           <Empty>No bookings coming up.</Empty>
@@ -689,8 +692,8 @@ function YourDay({ view, today, me, mine }: { view: View; today: string; me: Per
   const next = on.length === 0 ? booked.map(({ c, o }) => ({ c, day: o.days.find((d) => d > today) })).filter((n) => n.day).sort((a, b) => a.day!.localeCompare(b.day!))[0] : undefined
   return (
     <section className="card your-day">
-      <Heading icon="time">Your day{on.length > 0 ? ` (${on.length})` : ''}</Heading>
-      {on.length === 0 && copying ? (
+      <Heading icon="time">Your day{on.length > 0 && !copying ? ` (${on.length})` : ''}</Heading>
+      {copying ? (
         <p className="empty">{STILL_ARRIVING}</p>
       ) : on.length === 0 ? (
         <p className="empty">

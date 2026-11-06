@@ -200,6 +200,10 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
         {/* Its quote, built from the kit and crew, for the roles that see money (ADR 0042). */}
         {part === 'money' && seesMoney && <QuoteCard job={job} view={view} />}
       </div>
+      {/* Who changed what on this job, without reading the whole company's history (audit, 5 November 2026, finding 51). */}
+      <p className="hint page-foot">
+        <a href={`#history/job/${job.id}`}>History of this job</a>
+      </p>
     </Page>
   )
 }

@@ -236,6 +236,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .count-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }
 .pick .count-row p { margin: 0; color: var(--muted); font-size: var(--text-small); flex: 1 0 100%; }
 .app .pick .count-row input { width: 7.5rem; flex: none; }
+/* Numbers already back, each with Report damage, folded under one line on the row (audit, 5 November 2026, finding 33). */
+.app .pick .back-items > summary { min-height: 44px; padding: var(--ds-space-2) 0; line-height: 28px; color: var(--ink); }
+.app .pick .back-damage { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
 .pick .count-row .alert { flex: 1 0 100%; }
 /* Picking on the phone (ADR 0072): whose kit and in what order, what to know before starting, the kit's own notes, and Undo beside the answer. */
 /* Done is settled, so it's ink: green stays for a scan that read (audit, 20 October 2026, finding 59). */

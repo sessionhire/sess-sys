@@ -49,19 +49,31 @@ import { SkillsField, withTyped } from './SkillsField.tsx'
 /** A department as compared: free text, so "audio" and "Audio" are one. */
 export const dept = (p: Pick<PersonView, 'department'>) => (p.department ?? '').toLowerCase()
 
-/** Lower case with the fadas off, so "padraig" finds Pádraig and "sean" finds Seán: names are often typed without them. */
-export const plain = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+/**
+ * Lower case with the fadas off, so "padraig" finds Pádraig and "sean" finds Seán: names are often typed without them.
+ * Apostrophes, straight or a phone's curly one, and hyphens go too, so "oconnor" and "o’connor" find O'Connor (audit,
+ * 5 November 2026, finding 41).
+ */
+export const plain = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/['’‘`´-]/g, '')
 
 /** The words typed into a search for someone. */
 export const wordsOf = (typed: string) => plain(typed).split(/\s+/).filter(Boolean)
 
 /**
  * Whether every word typed is in someone's name, the name they go by, their
- * department or a skill (audit finding 16): the picker's search and the
+ * department or a skill (audit finding 16), their email or phone: the picker's search and the
  * people list's find people the same way.
  */
 export function found(p: PersonView, words: readonly string[]): boolean {
-  const text = plain([p.name, p.knownAs, p.department, ...p.skills].filter(Boolean).join(' '))
+  // Their phone by its digits, as typed with or without the country code, and their addresses: "who's this number that rang?".
+  const digits = (p.phone ?? '').replace(/\D/g, '')
+  const phones = digits ? [digits, digits.startsWith('353') ? `0${digits.slice(3)}` : ''] : []
+  const text = plain([p.name, p.knownAs, p.department, ...p.skills, p.email, ...(p.otherEmails ?? []), ...phones].filter(Boolean).join(' '))
   return words.every((w) => text.includes(w))
 }
 
@@ -90,7 +102,8 @@ export function PersonRow({ person, crew }: { person: PersonView; crew: CrewView
               // A role set says more than "Staff"; none set is staff crew, which is what "Staff" says (ADR 0034).
               person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : null,
               person.department,
-              levelLine(person.level),
+              // The office's, and not sent to staff crew or freelancers (audit, 5 November 2026, finding 44).
+              person.levelHidden ? null : levelLine(person.level),
               person.kind === 'staff' && person.approvesLeave ? 'approves time off' : null,
               person.skills.join(', '),
               // A rate this device isn't sent (ADR 0046) isn't said in the list; their page says it's hidden.

@@ -190,6 +190,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: var(--b
 /* 16px in every field, whatever the label round it is set in: iOS zooms the page into a field set any smaller. */
 input, select { font: inherit; font-size: var(--text-body); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--field-line); background: var(--bg); color: var(--ink); min-width: 0; }
 .hint, .empty { margin: 0; color: var(--muted); font-size: var(--text-hint); }
+.page-foot { margin-top: var(--ds-space-4); text-align: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* Getting about (audit finding 22): each move within the app lands on the screen's heading (Shell.tsx), which shows the same ring as a button. */
