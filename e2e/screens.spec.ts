@@ -24,6 +24,16 @@ test.afterAll(async ({ request }) => {
 const scrollY = (page: Page) => page.evaluate(() => Math.round(window.scrollY))
 /** Two frames: the Shell settles the page a frame after the new screen is drawn. */
 const drawn = (page: Page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+/**
+ * Past the frames Back holds a place for against a screen still filling in (places.ts holds it twelve, until a hand moves the page).
+ * A hand's scroll lets go of it at once; one from a script doesn't, so the page is held back where it was if it's moved sooner.
+ */
+const letGo = (page: Page) =>
+  page.evaluate(() => new Promise((done) => {
+    let frames = 16
+    const next = () => (frames-- > 0 ? requestAnimationFrame(next) : done(undefined))
+    requestAnimationFrame(next)
+  }))
 
 test('a new screen opens at its top, and Back finds the place the last one was left at', async ({ browser }) => {
   // Proves: moving on from a page scrolled down starts the next at its top, by a tab or a link; the browser's Back and Forward put each screen back where it was.
@@ -47,10 +57,14 @@ test('a new screen opens at its top, and Back finds the place the last one was l
   await page.goBack()
   await expect(page).toHaveTitle('Calls · Session Hire')
   await expect.poll(() => scrollY(page)).toBe(far)
+  await letGo(page)
 
-  // A link from far down the page: the job opens at its top, with its title in view, and Back comes back to the link.
-  const link = page.getByRole('link', { name: 'Open job' }).last()
+  // A link from far down the page: the job opens at its top, with its title in view, and Back comes back to the link. The link is
+  // held by its node: the rows are drawn as they come near the screen (ADR 0050), so once the page moves the last link drawn may be
+  // another, further down, and pressing that one would move the page again. The place is kept a frame after the page moves.
+  const link = (await page.getByRole('link', { name: 'Open job' }).last().elementHandle())!
   await link.scrollIntoViewIfNeeded()
+  await drawn(page)
   const at = await scrollY(page)
   expect(at).toBeGreaterThan(0)
   await link.click()
