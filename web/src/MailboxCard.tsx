@@ -95,6 +95,7 @@ export function MailboxCard({ money }: { money: MoneyView }) {
             <Confirm
               question="Disconnect operations@? Claude stops reading it and quotes can't be emailed until it's connected again, signing in as operations@. What Claude read stays."
               yes="Disconnect it"
+              loss
               no="Stay connected"
               onYes={() => {
                 setAsking(false)

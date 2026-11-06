@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.88.1',
+    date: '2026-11-06',
+    title: 'One red button',
+    what: "Red now marks only the next thing to do. On a job that's the Next button, so the forms you open under it are plain, and on a quote it's the next thing to record. The yes of a question is plain, or orange when it takes something away. Check on a timesheet is quieter, and every list has its add at the top.",
+    prs: [219],
+  },
+  {
     version: '1.88.0',
     date: '2026-11-06',
     title: 'Small fixes on Home, the Menu, Admin and across the app',

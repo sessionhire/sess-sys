@@ -74,6 +74,26 @@ export function NewVersion({ q, onMade }: { q: QuoteView; onMade: (id: string) =
   )
 }
 
+/** What the office records next on a job's current quote: the client's answer, the job put in step with it, the invoice, the payment. */
+export type NextRecord = 'answer' | 'confirm' | 'lost' | 'invoice' | 'paid'
+
+/**
+ * What's next to record on the job's current quote under What happened, in the order it happens, or undefined once nothing is
+ * left: the client's answer; then the job put in step with it (ADR 0081), confirmed or lost, with confirming before the invoice,
+ * as the job's Next dock then says Confirm the job (ADR 0109); then the invoice; then the payment. The one place that says it:
+ * Records draws it as the quote's one filled red, except losing the job, a loss, which stays plain; and the quote page keeps
+ * sending and printing plain until nothing is left (UX sweep, 6 November 2026, move 1).
+ */
+export function nextRecord(q: QuoteView, job: JobView): NextRecord | undefined {
+  const stopped = STOPPED.includes(job.status)
+  if (q.status === 'sent') return 'answer'
+  if (q.status === 'accepted' && !stopped && job.status !== 'confirmed') return 'confirm'
+  if (q.status === 'declined' && !stopped) return 'lost'
+  if (q.status === 'accepted' && !q.invoicedOn) return 'invoice'
+  if (q.invoicedOn && !q.paidOn) return 'paid'
+  return undefined
+}
+
 /** The office's records of what happened outside the app: the client's answer, the invoice, the payment. */
 export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canEmail: boolean }) {
   const today = useToday()
@@ -81,6 +101,8 @@ export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canE
   const [ref, setRef] = useState('')
   const [undo, setUndo] = useState<'answer' | 'invoice' | 'paid'>()
   const { run, error } = useAct()
+  const next = nextRecord(q, job)
+  const primaryIfNext = (record: NextRecord) => (next === record ? 'primary' : undefined)
   const go = (fn: () => Promise<unknown>) => void run(fn).then((ok) => ok && setUndo(undefined))
   const when = (
     <label>
@@ -114,12 +136,12 @@ export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canE
         )}
       </dl>
       <Refusal error={error} />
-      {q.status === 'accepted' && !STOPPED.includes(job.status) && job.status !== 'confirmed' && <InStep job={job} want="confirmed" />}
-      {q.status === 'declined' && !STOPPED.includes(job.status) && <InStep job={job} want="lost" />}
+      {next === 'confirm' && <InStep job={job} want="confirmed" />}
+      {next === 'lost' && <InStep job={job} want="lost" />}
       {q.status === 'sent' && (
         <div className="quote-send">
           {when}
-          <button type="button" className="primary" onClick={() => go(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today }))}>
+          <button type="button" className={primaryIfNext('answer')} onClick={() => go(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today }))}>
             Client accepted
           </button>
           <button type="button" onClick={() => go(() => client.mutate('quote.answer', { id: q.id, answer: 'declined', on: on || today }))}>
@@ -134,7 +156,7 @@ export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canE
             Invoice number
             <input value={ref} onChange={(e) => setRef(e.target.value)} maxLength={60} placeholder="SH-1043" />
           </label>
-          <button type="button" className="primary" onClick={() => go(() => client.mutate('quote.invoiced', { id: q.id, on: on || today, ref }))}>
+          <button type="button" className={primaryIfNext('invoice')} onClick={() => go(() => client.mutate('quote.invoiced', { id: q.id, on: on || today, ref }))}>
             Mark invoiced
           </button>
         </div>
@@ -142,7 +164,7 @@ export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canE
       {q.invoicedOn && !q.paidOn && (
         <div className="quote-send">
           {when}
-          <button type="button" className="primary" onClick={() => go(() => client.mutate('quote.paid', { id: q.id, on: on || today }))}>
+          <button type="button" className={primaryIfNext('paid')} onClick={() => go(() => client.mutate('quote.paid', { id: q.id, on: on || today }))}>
             Mark paid
           </button>
         </div>

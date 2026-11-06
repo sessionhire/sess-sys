@@ -167,8 +167,9 @@ export function ToFollowUp({ view }: { view: View }) {
   return (
     <section className="card quotes-to-follow" aria-label="To follow up">
       <Heading icon="document">To follow up</Heading>
+      {/* Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1). */}
       {!starting && (
-        <button type="button" className="primary" onClick={() => setStarting(true)}>
+        <button type="button" onClick={() => setStarting(true)}>
           New quote
         </button>
       )}

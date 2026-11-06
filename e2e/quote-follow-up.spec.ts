@@ -53,11 +53,16 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await office.getByRole('region', { name: 'Quote' }).getByRole('link').first().click()
   await records.getByRole('button', { name: 'Client accepted' }).click()
   await expect(records).toContainText('The client accepted, and the job is still quoted.')
+  // The job's own yes comes before the invoice, so confirming it is the quote's one filled red (UX sweep, 6 November 2026, move 1).
+  await expect(records.getByRole('button', { name: 'Mark invoiced' })).toBeVisible()
+  const reds = await office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
+  expect(reds).toEqual(['Confirm the job'])
 
-  // Quotes lists it to put in step too, and confirming it from there takes it off.
+  // Quotes lists it to put in step too, and confirming it from there takes it off. One to a row, it's plain, as a row's own action is.
   await office.goto('/#quotes')
   const answered = quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })
   await expect(answered).toContainText('Accepted today')
+  await expect(answered.getByRole('button', { name: 'Confirm the job' })).not.toHaveClass(/\bprimary\b/)
   await answered.getByRole('button', { name: 'Confirm the job' }).click()
   await expect(quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })).toHaveCount(0)
   await office.goto('/#jobs')

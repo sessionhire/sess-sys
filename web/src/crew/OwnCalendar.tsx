@@ -132,6 +132,7 @@ export function OwnCalendarCard({ person, view }: { person: PersonView; view: Vi
             <Confirm
               question={`Stop reading ${person.name}'s calendar? Its address and busy times are deleted here. To read it again, they share it again or send you the address.`}
               yes="Stop reading it"
+              loss
               no="Keep reading it"
               onYes={() => {
                 setStopping(false)

@@ -329,7 +329,8 @@ function SetAside({ labels }: { labels: LabelsView }) {
           onNo={() => setAsking(undefined)}
         />
       ) : (
-        <button type="submit" className="primary wide">
+        // Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1).
+        <button type="submit" className="wide">
           Set numbers aside
         </button>
       )}
@@ -412,6 +413,7 @@ function RunSummary({ r }: { r: LabelRunView }) {
         <Confirm
           question={`Cancel the run ${rangeLabel(r)}? It comes off the list, and its ${r.count === 1 ? 'number is' : `${plural(r.count, 'number')} are`} never given out again.`}
           yes="Cancel the run"
+          loss
           no="Keep it"
           onYes={cancel}
           onNo={() => setCancelling(false)}

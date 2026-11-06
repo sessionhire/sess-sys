@@ -61,6 +61,29 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
+  // The Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1): the quote card's own link is plain,
+  // and so is the submit of every form opened under the dock, on Crew and on Kit and vans as well.
+  await expect(office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' })).not.toHaveClass(/\bprimary\b/)
+  const redsBesideTheDock = () =>
+    office.evaluate(() =>
+      [...document.querySelectorAll('.app button.primary, .app a.button.primary')].filter((b) => !b.closest('.next-dock') && b.getClientRects().length > 0).map((b) => b.textContent),
+    )
+  expect(await redsBesideTheDock()).toEqual([])
+  await office.getByRole('tab', { name: /^Crew/ }).click()
+  await office.getByRole('button', { name: 'Ask for crew' }).click()
+  await expect(office.getByRole('form', { name: 'Ask for crew' })).toBeVisible()
+  const lxOp = office.getByRole('article', { name: '1 × LX op' })
+  await lxOp.locator('.call-line').click()
+  await lxOp.getByRole('button', { name: 'Change', exact: true }).click()
+  await expect(office.getByRole('form', { name: 'Change the call for LX op' })).toBeVisible()
+  expect(await redsBesideTheDock()).toEqual([])
+  await office.getByRole('tab', { name: 'Kit and vans' }).click()
+  await office.locator('.kit-days').getByRole('button', { name: 'Change' }).click()
+  await office.getByRole('button', { name: 'Add kit' }).click()
+  await office.getByRole('button', { name: 'Book a vehicle' }).click()
+  for (const form of ['Days to get kit ready and back', 'Add kit', 'Book a vehicle']) await expect(office.getByRole('form', { name: form })).toBeVisible()
+  expect(await redsBesideTheDock()).toEqual([])
+  await office.getByRole('tab', { name: 'Quote' }).click()
   await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
 
   // Built from the job: its 12 Spiiders for the two days, and its LX op at the price list's €360 rather than the €280 they were booked at.
@@ -193,13 +216,21 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
 
   // The client said yes; the office invoiced it outside the app and records that here.
   const records = office.getByRole('region', { name: 'What happened' })
+  // The client's answer is what's next, so it's the quote's one filled red: sending it again and printing it are plain (move 1).
+  await expect(records.getByRole('button', { name: 'Client accepted' })).toHaveClass(/\bprimary\b/)
+  const sentV2 = office.getByRole('region', { name: 'Version 2' })
+  await expect(sentV2.getByRole('button', { name: 'Print or save as PDF' })).not.toHaveClass(/\bprimary\b/)
+  await expect(sentV2.getByRole('button', { name: 'Send by email' })).not.toHaveClass(/\bprimary\b/)
   await records.getByRole('button', { name: 'Client accepted' }).click()
   await records.getByLabel('Invoice number').fill('SH-1050')
   await records.getByRole('button', { name: 'Mark invoiced' }).click()
   await expect(records).toContainText('Not yet: €1,680.89 owed')
+  await expect(records.getByRole('button', { name: 'Mark paid' })).toHaveClass(/\bprimary\b/)
   await expect(office.getByText("The quote is invoiced, so it's settled: no new version.")).toBeVisible()
   await office.getByRole('button', { name: 'Version 1 · Sent' }).click()
   await expect(office.getByText('An older version, kept as it went to the client. The newest is version 2.')).toBeVisible()
+  // While the quote that counts still waits on its payment, printing an older version isn't the next thing either.
+  await expect(office.getByRole('region', { name: 'Version 1' }).getByRole('button', { name: 'Print or save as PDF' })).not.toHaveClass(/\bprimary\b/)
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
   // Money: what's accepted and unpaid, with VAT, invoiced apart from not invoiced yet (audit findings 29 and 71), a row
@@ -241,6 +272,39 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(kit.getByRole('button', { name: 'Save' })).toHaveCount(0)
   await expect(office.getByRole('region', { name: 'Crew' })).toContainText('LX op')
 
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test('a quote turned down: losing the job is left to record, and a loss, so nothing on the quote is red until it is recorded', async ({ browser, request }) => {
+  // Proves: the quote's one filled red is the next thing to record (UX sweep, 6 November 2026, move 1), which is never a loss, and
+  // printing takes it only once nothing is left.
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await noPrintDialog(office)
+  const reds = () =>
+    office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
+
+  // Corrib Arts Week's quote is with the client and the job is quoted: the client's answer is next.
+  await office.goto('/#jobs')
+  await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
+  await office.getByRole('tab', { name: 'Quote' }).click()
+  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Open the quote' }).click()
+  const records = office.getByRole('region', { name: 'What happened' })
+  await expect(records.getByRole('button', { name: 'Client accepted' })).toBeVisible()
+  expect(await reds()).toEqual(['Client accepted'])
+
+  // Turned down, with the job still quoted: marking it lost is left, which takes its crew calls, so it's plain, and printing waits.
+  await records.getByRole('button', { name: 'Client turned it down' }).click()
+  await expect(records).toContainText('The client turned it down, and the job is still quoted.')
+  await expect(records.getByRole('button', { name: 'Mark the job lost' })).toBeVisible()
+  expect(await reds()).toEqual([])
+
+  // Recorded, nothing is left: printing it is the page's one next thing.
+  await records.getByRole('button', { name: 'Mark the job lost' }).click()
+  await expect(records.getByRole('button', { name: 'Mark the job lost' })).toHaveCount(0)
+  await expect(office.getByRole('region', { name: 'Version 1' }).getByRole('button', { name: 'Print or save as PDF' })).toHaveClass(/\bprimary\b/)
+  expect(await reds()).toEqual(['Print or save as PDF'])
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 

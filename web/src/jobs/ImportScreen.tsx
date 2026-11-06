@@ -598,6 +598,7 @@ function Brought({ offline }: { offline: boolean }) {
           <Confirm
             question={`Take back ${plural(b.jobs, 'job', 'jobs')}, their crew bookings and offers${b.people ? ` and ${plural(b.people, 'person', 'people')} added from the invites` : ''}? Anything changed on those jobs in the app goes with them.${b.kept > 0 ? ` ${keptWords(b.kept)}` : ''} The history keeps a record.`}
             yes="Take it all back"
+            loss
             no="Keep it"
             onYes={take}
             onNo={() => setAsking(false)}

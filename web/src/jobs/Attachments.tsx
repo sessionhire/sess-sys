@@ -168,6 +168,7 @@ function AttachmentLine({ owner, doc, onChange }: { owner: Owner; doc: Attachmen
         <Confirm
           question={`Remove ${what}?${doc.file ? ' Its file is deleted too.' : ''}`}
           yes="Remove it"
+          loss
           onYes={() => {
             setRemoving(false)
             void run(() => client.mutate('attachment.remove', { id: doc.id }))

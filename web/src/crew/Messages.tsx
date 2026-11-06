@@ -64,20 +64,26 @@ export function peopleOn(call: CallView, statuses: readonly OfferView['status'][
   return call.offers.filter((o) => o.person && statuses.includes(o.status)).map((o) => tellTo(o.person as Person, call, o))
 }
 
-/** The panel for whatever is open: the offer to send, or the people to tell one at a time. */
-export function SharePanelFor({ share, onClose }: { share: Share; onClose: () => void }) {
-  if (share.kind === 'offer') return <SharePanel person={share.person} call={share.call} onClose={onClose} />
-  return <TellPanel key={share.tell.id} tell={share.tell} onClose={onClose} />
+/**
+ * The panel for whatever is open: the offer to send, or the people to tell one at a time. `inJob` is the job's page, under its
+ * Next dock, which holds the page's one filled red (ADR 0104), so WhatsApp is plain there (UX sweep, 6 November 2026, move 1).
+ */
+export function SharePanelFor({ share, onClose, inJob = false }: { share: Share; onClose: () => void; inJob?: boolean }) {
+  if (share.kind === 'offer') return <SharePanel person={share.person} call={share.call} onClose={onClose} inJob={inJob} />
+  return <TellPanel key={share.tell.id} tell={share.tell} onClose={onClose} inJob={inJob} />
 }
 
-/** WhatsApp, a text or an email with the words filled in, or a copy of them. Nothing is sent for you. */
-export function SendButtons({ person, text, subject }: { person: Pick<Person, 'phone' | 'email'>; text: string; subject: string }) {
+/**
+ * WhatsApp, a text or an email with the words filled in, or a copy of them. Nothing is sent for you. WhatsApp is the panel's
+ * red fill, except on the job's page (`inJob`), where the Next dock holds the page's one.
+ */
+export function SendButtons({ person, text, subject, inJob = false }: { person: Pick<Person, 'phone' | 'email'>; text: string; subject: string; inJob?: boolean }) {
   const [copied, setCopied] = useState(false)
   return (
     <>
       {person.phone && (
         <>
-          <a className="button primary" href={`https://wa.me/${whatsappNumber(person.phone)}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
+          <a className={inJob ? 'button' : 'button primary'} href={`https://wa.me/${whatsappNumber(person.phone)}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
             WhatsApp
           </a>
           <a className="button" href={`sms:${person.phone}?&body=${encodeURIComponent(text)}`}>
@@ -171,17 +177,20 @@ export function SharePanel({
   call,
   onClose,
   message,
+  inJob = false,
 }: {
   person: PersonView
   call: CallView
   onClose: () => void
   message?: (link: string) => { text: string; subject: string; what: string }
+  /** On the job's page, under its Next dock: WhatsApp is plain (SendButtons). */
+  inJob?: boolean
 }) {
   const prompts = usePromptsMessages()
   if (!prompts) return <QuietPanel names={[person.name]} what={message?.('').what ?? 'offer'} onClose={onClose} />
   const link = linkFor(person)
   if (!link) return <NoLinkYet person={person} onClose={onClose} />
-  return <SendTo person={person} call={call} link={link} message={message} onClose={onClose} />
+  return <SendTo person={person} call={call} link={link} message={message} onClose={onClose} inJob={inJob} />
 }
 
 function SendTo({
@@ -190,12 +199,14 @@ function SendTo({
   link,
   message,
   onClose,
+  inJob,
 }: {
   person: PersonView
   call: CallView
   link: string
   message?: (link: string) => { text: string; subject: string; what: string }
   onClose: () => void
+  inJob: boolean
 }) {
   const panel = useInView()
   const custom = message?.(link)
@@ -206,7 +217,7 @@ function SendTo({
       <h2>Send to {person.name}</h2>
       <textarea readOnly value={text} rows={6} />
       <div className="actions">
-        <SendButtons key={person.id} person={person} text={text} subject={subject} />
+        <SendButtons key={person.id} person={person} text={text} subject={subject} inJob={inJob} />
         <button type="button" className="link" onClick={onClose}>
           Done
         </button>
@@ -221,7 +232,7 @@ function SendTo({
  * to move to the next. "Tell 3 people" for a cancelled job; just the one
  * after a Confirm.
  */
-export function TellPanel({ tell, onClose }: { tell: Tell; onClose: () => void }) {
+export function TellPanel({ tell, onClose, inJob = false }: { tell: Tell; onClose: () => void; inJob?: boolean }) {
   const [at, setAt] = useState(0)
   const prompts = usePromptsMessages()
   const to = tell.to[at]
@@ -236,7 +247,7 @@ export function TellPanel({ tell, onClose }: { tell: Tell; onClose: () => void }
   return (
     <TellOne key={at} label={`Send ${what} to ${person.name}`} title={n === 1 ? `Tell ${person.name}` : `Tell ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next}>
       <textarea readOnly value={text} rows={6} />
-      <SendButtons key={person.id} person={person} text={text} subject={subject} />
+      <SendButtons key={person.id} person={person} text={text} subject={subject} inJob={inJob} />
     </TellOne>
   )
 }

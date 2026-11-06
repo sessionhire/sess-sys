@@ -84,7 +84,9 @@ export function TimesheetsCard({ view }: { view: View }) {
                   key={r.offer.id}
                   r={r}
                   action={
-                    <a className={checks(r) ? 'button primary' : 'link'} href={`#crew/timesheet/${encodeURIComponent(r.offer.id)}`}>
+                    // Quiet, as every row's own action is: fifty red Checks down a busy week said nothing, so the heading's count carries
+                    // how many there are (UX sweep, 6 November 2026, move 1).
+                    <a className={checks(r) ? 'button quiet' : 'link'} href={`#crew/timesheet/${encodeURIComponent(r.offer.id)}`}>
                       {checks(r) ? 'Check' : 'Open'}
                     </a>
                   }

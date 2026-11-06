@@ -74,6 +74,7 @@ function Logo({ office }: { office: OfficeView }) {
         <Confirm
           question="Take the logo down? Labels say the company's name in words again."
           yes="Take it down"
+          loss
           onYes={() => {
             setRemoving(false)
             void run(() => call({ method: 'DELETE' }))

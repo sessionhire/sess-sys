@@ -1,11 +1,13 @@
-import { expect, test, type APIRequestContext } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Locator } from '@playwright/test'
 
 /**
  * Filter and sort on the long lists (ADR 0099): one shared part under each
  * list's search. On Jobs a filter narrows the tab, says itself as a chip and
  * in the Filter button's count, with how many of how many; another order
  * drops the week headings; Back from a job finds the same choices; and
- * Clear filters puts the list back. Venues sort by most jobs. The test
+ * Clear filters puts the list back. Venues sort by most jobs. Every list
+ * opens with its add, a plain fold above its search and rows, whose form's
+ * submit is then the page's one red. The test
  * server is shared with the other browser tests, so every name here is this
  * run's own, and found by a search that only this run's match.
  */
@@ -88,4 +90,46 @@ test('jobs filter by status and kind, sort by name, and keep both on Back', asyn
   await expect(venues.locator('.job-row b')).toHaveText([`Barn ${id}`])
   await venues.getByRole('button', { name: 'Clear filters' }).click()
   await venues.getByLabel('Sort').selectOption('name')
+})
+
+test('every list opens with its add, a plain fold above its search and its rows, onto one red', async ({ browser, request }) => {
+  // Proves: the way to add to a list is where the eye lands, as New job is on Jobs, and in the plain look: the red fill marks the one
+  // thing to do next, so it isn't spent on an add, nor is the add left after two hundred rows (UX sweep, 6 November 2026, move 1).
+  // Opened, the form's submit is the page's one next thing, so it's the one red.
+  const id = tag()
+  const plate = `241-D-${1000 + Math.floor(Math.random() * 9000)}`
+  await push(request, `adds-${id}`, [
+    ['person.upsert', { id: `p-${id}`, name: `Nuala Adds ${id}`, kind: 'freelancer', email: null, phone: null, skills: [], dayRateCents: null, notes: '' }],
+    ['model.create', { id: `m-${id}`, name: `Speaker ${id}`, department: 'audio', category: 'Speakers', tracking: 'bulk', isCase: false, valueCents: null, notes: '' }],
+    ['place.upsert', { id: `a-${id}`, name: `Bay ${id}`, notes: '' }],
+    ['vehicle.save', { id: `v-${id}`, name: `Van ${id}`, registration: plate, kind: 'van', seats: 3, payloadKg: 1200, notes: '', checks: { test: { needed: true, expires: inDays(200) } } }],
+    ['model.create', { id: `r-${id}`, name: `Rack ${id}`, department: 'audio', category: 'Racks', tracking: 'serialised', isCase: true, isRack: true, valueCents: null, notes: '', units: 6, depthMm: 600 }],
+  ])
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  const top = async (l: Locator) => (await l.first().boundingBox())!.y
+  const reds = () => page.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
+  const lists: readonly (readonly [string, string, string, (list: Locator) => Locator])[] = [
+    ['#crew/people', 'People', 'Add person', (list) => list.getByLabel('Find a person')],
+    ['#stock', 'Catalogue', 'Add product', (list) => list.getByRole('search')],
+    ['#stock/places', 'Places', 'Add place', (list) => list.getByRole('link')],
+    ['#stock/vehicles', 'Vehicles', 'Add vehicle', (list) => list.locator('.vehicle-row')],
+    ['#stock/racks', 'Racks', 'Add rack', (list) => list.getByRole('link')],
+  ]
+  for (const [hash, name, add, rest] of lists) {
+    await page.goto(`/${hash}`)
+    await expect(page.getByRole('status')).toHaveText('Up to date')
+    const list = page.getByRole('region', { name, exact: true })
+    const opener = list.getByRole('button', { name: add, exact: true })
+    await expect(opener).toBeVisible()
+    await expect(opener).not.toHaveClass(/\bprimary\b/)
+    expect(await top(opener), `${hash}: ${add} comes before the list`).toBeLessThan(await top(rest(list)))
+    await opener.click()
+    await expect(list.locator('form').getByRole('button', { name: add, exact: true })).toHaveClass(/\bprimary\b/)
+    expect(await reds(), `${hash}: the reds with ${add} open`).toEqual([add])
+  }
+  // The purchase list's and the labels' adds are plain too.
+  await page.goto('/#stock/buy')
+  await expect(page.getByRole('button', { name: 'Ask for something to be bought' })).not.toHaveClass(/\bprimary\b/)
+  await page.goto('/#stock/labels')
+  await expect(page.getByRole('form', { name: 'Set numbers aside' }).getByRole('button', { name: 'Set numbers aside' })).not.toHaveClass(/\bprimary\b/)
 })

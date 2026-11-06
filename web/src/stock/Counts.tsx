@@ -132,6 +132,7 @@ export function StartCount({ view, where, label, className }: { view: View; wher
         className="wide"
         question={`A count of ${other} is under way on this phone${d.scanned.length ? `, with ${plural(d.scanned.length, 'item')} scanned` : ''}. Discard it to count ${targetName(w, where)}?`}
         yes="Discard it and start"
+        loss
         no={`Carry on with ${other}`}
         onYes={start}
         onNo={() => {
@@ -461,6 +462,7 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
           <Confirm
             question={`Discard the count of ${name}? What was scanned and typed goes, and nothing is recorded.`}
             yes="Discard it"
+            loss
             no="Keep counting"
             onYes={() => {
               saveDraft(undefined)

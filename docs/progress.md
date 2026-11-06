@@ -3,6 +3,36 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 6 November 2026: the UX cohesion sweep, and batch 1 of its moves
+
+**Done**
+
+- [UX cohesion sweep, 6 November 2026](ux-sweep-2026-11-06.md), at
+  Colly's ask (PR #218): what makes the app feel like several apps, and
+  twelve moves that make it one. Seven maps of the app, ten lenses each
+  checked by a sceptic, three programmes, two judges and a critic: 46
+  themes (5 P1, 29 P2, 12 P3) and 29 smaller findings kept, 9 dropped.
+  The moves are in five batches, with thirteen questions for Colly.
+  Screenshots are in the project folder under screens/ux-sweep/. Nothing
+  live was touched.
+- Batch 1, "Monday", on Colly's "Start with the first batch": moves 1,
+  2, 3, 5a, 6a, 8a and 10a, one PR each. Screenshots are in the project
+  folder under screens/ux-batch1/.
+- Move 1, one red button (1.88.1, PR #219): the red fill is only the
+  one next step on a screen. On a job that is the Next button, and the
+  forms opened under it are plain; on a quote it is the next thing to
+  record (one helper decides), and Send and Print turn red only once
+  nothing is left to record. An ask's yes is plain, or the bad fill when
+  it takes something away. Check on Timesheets is quiet; Checked and the
+  leave queue's Approve and Decline are plain; every list opens with its
+  add, and the add's form holds the page's one red.
+
+**Waiting**
+
+- Colly's answers to the sweep's thirteen questions (its section 9).
+  Each move follows the recommendation until then. Batches 2 to 5 wait
+  for Colly.
+
 ## 5 November 2026: an audit of every flow, by role, and batches 1 to 4 of its fixes
 
 **Done**

@@ -434,7 +434,9 @@ export function PersonForm({
         </div>
       </details>
       <Refusal error={error} className="wide" />
-      <button type="submit" className={initial ? 'primary' : 'wide'}>
+      {/* Red either way, as the page's one next thing: a change being saved, or a new person once Add person has opened the form,
+          as every list's add opens onto (UX sweep, 6 November 2026, move 1). */}
+      <button type="submit" className={initial ? 'primary' : 'primary wide'}>
         {submitLabel}
       </button>
       {initial && (

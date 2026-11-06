@@ -572,6 +572,7 @@ function TheirLink({ person }: { person: PersonView }) {
         <Confirm
           question={`Make a new link for ${person.name}? The old one stops working, so anything sent with it no longer opens.`}
           yes="Make a new link"
+          loss
           no="Keep the old one"
           onYes={() => {
             setRelinking(false)
@@ -649,6 +650,7 @@ function RolePick({
               : `Make yourself ${ROLE_LABELS[asking]}? You'll no longer be a director, and only another director can give it back.`
           }
           yes={asking === 'director' ? `Make ${first} a director` : `Make me ${ROLE_LABELS[asking]}`}
+          loss={asking !== 'director'}
           no={`Keep ${ROLE_LABELS[role]}`}
           onYes={() => make(asking)}
           onNo={() => setAsking(undefined)}

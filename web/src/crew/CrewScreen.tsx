@@ -512,6 +512,7 @@ export function CrewScreen() {
                                 : `Release ${o.person?.name ?? 'them'} from ${c.project}? Their place goes back to the call, and their link says so at once.`
                             }
                             yes={kind === 'countered' ? 'Withdraw the offer' : `Release ${o.person ? firstName(o.person) : 'them'}`}
+                            loss
                             no={kind === 'countered' ? 'Keep it open' : 'Keep them'}
                             onYes={() => {
                               setTurningDown(undefined)
@@ -529,7 +530,8 @@ export function CrewScreen() {
                           </div>
                         ) : kind === 'accepted' || kind === 'countered' ? (
                           <div className="actions">
-                            <button type="button" className="primary" onClick={() => settle(o, c, 'offer.confirm', 'confirmed')}>
+                            {/* Plain, as a row's own action is, beside its other answer (UX sweep, 6 November 2026, move 1). */}
+                            <button type="button" onClick={() => settle(o, c, 'offer.confirm', 'confirmed')}>
                               {kind === 'countered' ? `Agree ${euro(o.counterRateCents)}` : 'Confirm'}
                             </button>
                             <button type="button" onClick={() => setTurningDown(o.id)}>
@@ -704,6 +706,20 @@ export function CrewScreen() {
               )}
             </div>
             {active.length === 0 && archived.length === 0 && <Empty>Add your crew below.</Empty>}
+            {/* First in the list, under anything said about it, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+            {mayCrew && (
+              <Fold label="Add person">
+                <NewPerson onAdded={(p) => setAdded((was) => [...was, p])} />
+                {/* Read out as it changes, as it's there from the form's opening; not a second "status", which is the top bar's. */}
+                <div aria-live="polite">{added.length > 0 && <p className="added">Added {added.at(-1)!.name}.</p>}</div>
+              </Fold>
+            )}
+            {/* The way to bring many in, where people are added, not only under Menu and Admin (audit, 5 November 2026, finding 94). */}
+            {access.can('settings') && (
+              <p className="hint">
+                Many at once? <a href="#crew/import">Bring in the crew list</a> from a spreadsheet.
+              </p>
+            )}
             {active.length > 0 && (
               <input
                 className="search"
@@ -739,19 +755,6 @@ export function CrewScreen() {
                   <ArchivedPerson key={p.id} person={p} onBringBack={() => bringBack(p.id)} />
                 ))}
               </details>
-            )}
-            {mayCrew && (
-              <Fold label="Add person">
-                <NewPerson onAdded={(p) => setAdded((was) => [...was, p])} />
-                {/* Read out as it changes, as it's there from the form's opening; not a second "status", which is the top bar's. */}
-                <div aria-live="polite">{added.length > 0 && <p className="added">Added {added.at(-1)!.name}.</p>}</div>
-              </Fold>
-            )}
-            {/* The way to bring many in, where people are added, not only under Menu and Admin (audit, 5 November 2026, finding 94). */}
-            {access.can('settings') && (
-              <p className="hint">
-                Many at once? <a href="#crew/import">Bring in the crew list</a> from a spreadsheet.
-              </p>
             )}
           </section>
         </Split>
