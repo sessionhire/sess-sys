@@ -189,6 +189,19 @@ test('the rack designer: kit dragged in from ours and dry hire, moved, taken out
   await page.getByLabel('Find', { exact: true }).fill(id)
   await expect(page.getByRole('link', { name: new RegExp(`^${haze}`) })).toContainText('Dry hire from PRG')
   await expect(page.getByRole('link', { name: new RegExp(`^${amp}`) })).toHaveCount(0)
+
+  // On a phone the kit list is above the rack: picking one up brings the rack into view and says what's held in the foot (audit,
+  // 5 November 2026, finding 71).
+  const phone = await (await browser.newContext({ viewport: phoneSize, hasTouch: true })).newPage()
+  await phone.goto(`/#stock/racks/rack-${id}`)
+  await expect(phone.locator('.conn')).toHaveText('Up to date')
+  const phonePalette = phone.getByRole('region', { name: 'Kit to build with' })
+  await phonePalette.getByLabel('Find kit').fill(id)
+  await phonePalette.getByRole('button', { name: `Pick up ${amp}` }).click()
+  await expect(phone.locator('.foot-dock')).toContainText(`Holding ${amp}. Press where it goes.`)
+  await expect(phone.getByRole('region', { name: 'The rack' })).toBeInViewport()
+  await phone.locator('.foot-dock').getByRole('button', { name: 'Put down' }).click()
+  await expect(phone.locator('.foot-dock')).toBeEmpty()
 })
 
 test('building a rack up: half-width kit side by side, labels, groups and tape, a drawer, blanks, undo, and a copy', async ({ browser, request }) => {

@@ -232,7 +232,7 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
 
   // Two of the three counted are labelled now, and the next free number is past the run.
   await page.getByRole('link', { name: speaker }).first().click()
-  await expect(page.locator('.page-sub')).toContainText('2 items · 1 not labelled yet')
+  await expect(page.locator('.page-sub')).toContainText('3 in all: 1 not labelled yet')
   await page.getByRole('tab', { name: /^Items/ }).click()
   const add = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Add an item', exact: true }) })
   await add.getByRole('button', { name: 'Add item' }).click()

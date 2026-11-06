@@ -56,6 +56,8 @@
 .warehouse .rack-views { margin-bottom: var(--ds-space-3); }
 .warehouse .rack-3d { display: grid; gap: var(--ds-space-2); }
 .warehouse .rack-3d-scene { position: relative; height: clamp(320px, 62vh, 640px); border-radius: var(--radius-control); background: var(--bg); overflow: hidden; touch-action: none; cursor: grab; }
+/* On a touch phone it leaves room to scroll past it, and a swipe up or down scrolls (Rack3D.tsx; audit, 5 November 2026, finding 70). */
+@media (pointer: coarse) and (max-width: 899px) { .warehouse .rack-3d-scene { height: clamp(260px, 45vh, 420px); touch-action: pan-y; } }
 .warehouse .rack-3d-scene:active { cursor: grabbing; }
 .warehouse .rack-3d-scene.holding-one { cursor: copy; }
 .warehouse .rack-3d-scene canvas { display: block; width: 100%; height: 100%; }
@@ -117,3 +119,5 @@
   .rack-sheet .rack-sheet-table thead th { color: #444; font-weight: 600; }
   .rack-sheet .tape-swatch { margin-right: 3pt; }
 }
+/* On a phone the holding line sits in the foot, outside the warehouse page (finding 71). */
+.foot-dock .holding { margin: 0; font-weight: 600; }

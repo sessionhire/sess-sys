@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.85.0',
+    date: '2026-11-06',
+    title: 'Small fixes for the warehouse and stock',
+    what: "The scanner says when the same item was just read, rather than reading it twice. Kit that can't go out says so on the catalogue, and Home counts it. The rack in 3D lets a phone scroll past it, and on a phone the kit being placed shows above the tab bar with the rack in view. Staff crew aren't shown how to do counts, labels or bringing stock in, which are the warehouse's and the office's. A pick list says how many are back and how many still out, lists one van once, and Stock's pick lists say which are on now, today and tomorrow. Departments with one product fold behind \"more\", and a product's amount says how many aren't labelled yet.",
+    prs: [214],
+  },
+  {
     version: '1.84.1',
     date: '2026-11-06',
     title: "Small fixes to a freelancer's link",

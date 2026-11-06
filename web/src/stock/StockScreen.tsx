@@ -1,4 +1,5 @@
 import {
+  addDays,
   CATEGORY_IDEAS,
   dayLabel,
   DEPARTMENT_LABELS,
@@ -30,7 +31,7 @@ import { productName } from '../jobs/Kit.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
-import { useView, useWide } from '../view.ts'
+import { useToday, useView, useWide } from '../view.ts'
 import { amountLabel, atLabel, mistakeLabel, numberLabel, ScanResult, TrackingChoice, whereLabel } from './common.tsx'
 import { CountPage, CountScreen } from './Counts.tsx'
 import { ItemScreen } from './ItemScreen.tsx'
@@ -190,7 +191,9 @@ function RepairsScreen({ view }: { view: View }) {
 /** The catalogue: the search, the camera, the department filters, the products and adding one; `current` marks the one open beside it. */
 function StockCard({ view, current }: { view: View; current?: string }) {
   const w = view.warehouse
-  const mayAdd = useAccess().can('stock')
+  const access = useAccess()
+  const mayAdd = access.can('stock')
+  const mayBring = access.can('settings')
   const wide = useWide()
   const [department, setDepartment] = useState<Department | 'all'>('all')
   // Filter and sort (ADR 0099) under the department's chips: ours or dry hire (ADR 0075) once there's any dry hire to tell apart, the
@@ -229,6 +232,12 @@ function StockCard({ view, current }: { view: View; current?: string }) {
   const searched = w.models.filter((m) => (department === 'all' || m.department === department) && matches(m))
   const shown = listed(searched, filters, PRODUCT_SORTS, choices)
   const count = (d: Department) => w.models.filter((m) => m.department === d).length
+  // A department with one product takes a whole chip, and on a phone a row, to reach one thing (audit, 5 November 2026, finding 93):
+  // they wait behind More, unless one is the chosen department or every department has just one.
+  const [allChips, setAllChips] = useState(false)
+  const stocked = DEPARTMENTS.filter((d) => count(d) > 0)
+  const big = stocked.filter((d) => count(d) > 1 || d === department)
+  const chips = allChips || big.length === 0 || stocked.length - big.length < 2 ? stocked : big
 
   // A scanner types a label's number and Enter: straight to the item, or to saying what a new label is on.
   const go = (e: FormEvent) => {
@@ -316,12 +325,17 @@ function StockCard({ view, current }: { view: View; current?: string }) {
         <button type="button" aria-pressed={department === 'all'} onClick={() => setDepartment('all')}>
           All ({w.models.length})
         </button>
-        {DEPARTMENTS.filter((d) => count(d) > 0).map((d) => (
+        {chips.map((d) => (
           <button key={d} type="button" aria-pressed={department === d} onClick={() => setDepartment(d)}>
             <Icon name={departmentIcon(d)} />
             {DEPARTMENT_LABELS[d]} ({count(d)})
           </button>
         ))}
+        {chips.length < stocked.length && (
+          <button type="button" aria-expanded={false} onClick={() => setAllChips(true)}>
+            {stocked.length - chips.length} more
+          </button>
+        )}
       </div>
       {w.models.length > 0 && (
         <ListTools name="products" items={searched} filters={filters} sorts={PRODUCT_SORTS} choices={choices} onChange={setChoices} shown={shown.length} what="products" />
@@ -349,9 +363,9 @@ function StockCard({ view, current }: { view: View; current?: string }) {
       {shown.length === 0 && searched.length > 0 && !exact && !unclaimed && items.length === 0 && <p className="empty">No product here matches those filters.</p>}
       {searched.length === 0 && !exact && !unclaimed && items.length === 0 && (
         <Empty>
-          {w.models.length === 0 && (
+          {w.models.length === 0 && mayAdd && (
             <>
-              Add the first product below, or <a href="#stock/import">bring in the stock list</a>.
+              Add the first product below{mayBring && <>, or <a href="#stock/import">bring in the stock list</a></>}.
             </>
           )}
         </Empty>
@@ -377,6 +391,7 @@ function StockCard({ view, current }: { view: View; current?: string }) {
  */
 function ProductRows({ rows, current }: { rows: readonly ModelView[]; current: string | undefined }) {
   const win = useWindowed('products', rows, (m) => m.id, 64)
+  const faults = useView().faults
   return (
     <ul className="job-list windowed" ref={win.list} style={win.style}>
       {win.rows.map((m, i) => (
@@ -390,6 +405,8 @@ function ProductRows({ rows, current }: { rows: readonly ModelView[]; current: s
             <div className="side">
               <Pending pending={m.pending} />
               <small>{amountLabel(m)}</small>
+              {/* What can't go out, where people look for kit (audit, 5 November 2026, finding 69). */}
+              {faults.unusable(m.id) > 0 && <small className="flag bad">{faults.unusable(m.id).toLocaleString('en-IE')} can't go out</small>}
             </div>
           </a>
         </li>
@@ -441,13 +458,20 @@ function ShortKit({ view }: { view: View }) {
 /** Jobs going out in the next two weeks or on now, and jobs over with kit still out, each opening its pick list (ADR 0017). */
 function PickLists({ view }: { view: View }) {
   const { soon, stillOut } = view.moves
+  const today = useToday()
   if (soon.length === 0 && stillOut.length === 0) return null
+  // The word Home used for the same jobs, so the tile's count is found here (audit, 5 November 2026, finding 92).
+  const when = (s: { start: string; end: string } | undefined) =>
+    !s || s.end < today ? '' : s.start < today ? 'On now: ' : s.start === today ? 'Today: ' : s.start === addDays(today, 1) ? 'Tomorrow: ' : ''
   const row = (p: PickList, said: string, tone: string) => (
     <li key={p.job.id}>
       <a className="job-row" href={`#jobs/${p.job.id}/pick`}>
         <div>
           <b>{p.job.name}</b>
-          <p>{p.job.span ? spanLabel(p.job.span) : 'No dates yet'}</p>
+          <p>
+            {when(p.job.span)}
+            {p.job.span ? spanLabel(p.job.span) : 'No dates yet'}
+          </p>
         </div>
         <div className="side">
           <small className={`flag ${tone}`}>{said}</small>

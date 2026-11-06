@@ -211,14 +211,17 @@ export function LabelsScreen({ view }: { view: View }) {
       <Top view={view} title="Stock" views={<StockViews view={view} current="labels" />} heading="Labels" />
       <Split
         side={
+          // Not for a role that can't set them aside (audit, 5 November 2026, finding 74).
+          mayReserve && (
           <section className="card" aria-label="Set numbers aside">
             <h2>Set numbers aside</h2>
             <p className="hint">
               Numbers are set aside before their labels are printed, here or by a label maker, so no other item gets them. Once a label is stuck on,
               scan or type it in the Stock search to put it on its item.
             </p>
-            {mayReserve && <SetAside labels={view.labels} />}
+            <SetAside labels={view.labels} />
           </section>
+          )
         }
       >
         <section className="card" aria-label="Set aside">

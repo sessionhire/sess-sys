@@ -231,6 +231,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .out-items li { display: flex; align-items: center; gap: var(--ds-space-3); }
 .pick .out-items button.link { min-width: 44px; min-height: 44px; padding-inline: var(--ds-space-1); }
 .pick .out-items button.link.quiet { color: var(--muted); }
+/* The number is the quieter thing and sits apart from Back, so a gloved miss for Back doesn't open the item (audit, 5 November 2026, finding 92). */
+.warehouse.pick .out-items a { margin-inline-end: auto; border-color: transparent; padding-inline: 0; color: var(--muted); font-weight: 400; }
 /* A number never breaks at its hyphen (audit, 20 October 2026, finding 41). */
 .pick .from .number { white-space: nowrap; }
 .pick .count-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }

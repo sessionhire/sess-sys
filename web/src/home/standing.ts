@@ -106,6 +106,7 @@ const NEEDS: Record<string, Ability | 'approve-leave'> = {
   'kit-short': 'kit',
   faults: 'stock',
   'cant-go': 'stock',
+  'damaged-stopped': 'stock',
   'tests-soon': 'stock',
   vehicles: 'stock',
   counts: 'stock',
@@ -138,6 +139,7 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
   const toPick = view.moves.soon.filter((p) => p.job.span && p.job.span.start <= tomorrow && p.out < p.need).length
   const stillOut = view.moves.stillOut.length
   const faults = view.faults.open.filter((f) => by.kit(f.model?.department))
+  const damagedStopped = faults.filter((f) => f.kind === 'damaged' && f.stops).reduce((n, f) => n + f.qty, 0)
   const tests = view.inspections.attention.filter((d) => by.kit(d.asset.model?.department))
   const cantGo = tests.filter((d) => d.state !== 'soon').length
   const counts = view.counts.week.due.length
@@ -167,6 +169,15 @@ export function tiles(view: View, today: string, me: PersonView | undefined, can
     { key: 'still-out', count: stillOut, label: stillOut === 1 ? 'job with kit still out after it' : 'jobs with kit still out after them', href: '#stock', bad: true, part: 'Still out after the job' },
     { key: 'kit-short', count: short.length, label: short.length === 1 ? 'kit line short for a confirmed job' : 'kit lines short for confirmed jobs', href: '#stock', bad: true, part: 'Kit short' },
     { key: 'faults', count: faults.length, label: faults.length === 1 ? 'repair open' : 'repairs open', href: '#stock/repairs', bad: faults.some((f) => f.stops) },
+    // Damaged and held back, apart from the repairs that don't stop anything (audit, 5 November 2026, finding 69).
+    {
+      key: 'damaged-stopped',
+      count: damagedStopped,
+      label: damagedStopped === 1 ? "damaged item can't go out" : "damaged items can't go out",
+      href: '#stock/repairs',
+      bad: true,
+      part: "Damaged, can't go out",
+    },
     { key: 'cant-go', count: cantGo, label: cantGo === 1 ? "item can't go out until tested" : "items can't go out until tested", href: '#stock/testing', bad: true, part: 'Inspections due' },
     { key: 'tests-soon', count: tests.length - cantGo, label: 'inspections due in 30 days', href: '#stock/testing', part: 'Inspections due' },
     { key: 'vehicles', count: vehicleChecks.length, label: vehicleChecks.length === 1 ? 'vehicle check running out' : 'vehicle checks running out', href: '#stock/vehicles', bad: vehicleRanOut, part: 'Vehicle checks running out' },
@@ -195,9 +206,9 @@ export const SOON: ReadonlySet<string> = new Set(['late', 'crew-needed', 'kit-sh
 
 /** Which counts each view of Home shows, in order: the first is what that person reaches for first. */
 export const TILES_FOR: Record<HomeFor, readonly string[]> = {
-  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'no-answer', 'tasks-late', 'tasks-nobody'],
+  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'damaged-stopped', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'no-answer', 'tasks-late', 'tasks-nobody'],
   // Only what can be narrowed to a department: crew calls by their own department (ADR 0046); kit still out is the job's, not a department's.
-  department: ['late', 'answers', 'crew-needed', 'leave', 'timesheets', 'certificates', 'kit-short', 'faults', 'cant-go', 'tests-soon'],
-  warehouse: ['to-pick', 'still-out', 'kit-short', 'faults', 'cant-go', 'counts', 'tests-soon', 'vehicles'],
+  department: ['late', 'answers', 'crew-needed', 'leave', 'timesheets', 'certificates', 'kit-short', 'faults', 'damaged-stopped', 'cant-go', 'tests-soon'],
+  warehouse: ['to-pick', 'still-out', 'kit-short', 'faults', 'damaged-stopped', 'cant-go', 'counts', 'tests-soon', 'vehicles'],
   me: ['leave'],
 }
