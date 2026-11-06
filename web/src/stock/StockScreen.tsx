@@ -9,7 +9,6 @@ import {
   normaliseNumber,
   parseEuro,
   plural,
-  RETIRED_LABELS,
   spanLabel,
   standing,
   STANDING_HEADINGS,
@@ -35,8 +34,9 @@ import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { amountLabel, atLabel, mistakeLabel, numberLabel, ScanResult, TrackingChoice, whereLabel } from './common.tsx'
+import { amountLabel, atLabel, numberLabel, ScanResult, TrackingChoice } from './common.tsx'
 import { CountPage, CountScreen } from './Counts.tsx'
+import { ItemRow } from './ItemRow.tsx'
 import { ItemScreen } from './ItemScreen.tsx'
 import { RepairList } from './Faults.tsx'
 import { TestingScreen } from './Inspections.tsx'
@@ -310,17 +310,12 @@ function StockCard({ view, current }: { view: View; current?: string }) {
         </button>
       </form>
       {camera && <CameraScanner onRead={onRead} onStop={closeCamera} small={!!unclaimed} />}
+      {/* The item read, on the one item row: whether it's out, missing or can't go out, as well as where it's kept (UX sweep,
+          6 November 2026, move 3). */}
       {lastRead && (
         <ScanResult onClose={closeCamera}>
-          {lastRead.retiredReason === 'mistake' ? (
-            mistakeLabel(lastRead)
-          ) : (
-            <>
-              <a href={`#stock/item/${lastRead.id}`}>{numberLabel(lastRead)}</a> {lastRead.model?.name ?? 'an item'} ·{' '}
-              {lastRead.status === 'retired' ? `Retired${lastRead.retiredReason ? `: ${RETIRED_LABELS[lastRead.retiredReason].toLowerCase()}` : ''}` : whereLabel(lastRead, w)}
-              {lastRead.serial && ` · Serial ${lastRead.serial}`}. Scan the next label.
-            </>
-          )}
+          <ItemRow view={view} a={lastRead} />
+          <p>Scan the next label.</p>
         </ScanResult>
       )}
       {justClaimed && (
@@ -355,18 +350,7 @@ function StockCard({ view, current }: { view: View; current?: string }) {
         <ul className="item-list" aria-label="Items found">
           {[...(exact ? [exact] : []), ...items].map((a) => (
             <li key={a.id}>
-              <a className="item-row" href={`#stock/item/${a.id}`}>
-                <Thumb icon={kitIcon(a.model)} src={productPhotoOf(a.model)} />
-                <div>
-                  <b>{numberLabel(a)}</b> {a.model?.name}
-                  <p>
-                    {a.retiredReason === 'mistake' ? 'Added by mistake' : a.status === 'retired' ? 'Retired' : whereLabel(a, w)}
-                    {a.serial && ` · Serial ${a.serial}`}
-                    {a.number !== number && number && a.formerNumbers.includes(number) && ` · Had ${number} before`}
-                  </p>
-                </div>
-                <Pending pending={a.pending} />
-              </a>
+              <ItemRow view={view} a={a} note={a.number !== number && number && a.formerNumbers.includes(number) ? `Had ${number} before` : undefined} />
             </li>
           ))}
         </ul>

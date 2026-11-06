@@ -111,6 +111,13 @@ export interface MovesView {
    * along, as far as the stock list says what's in it.
    */
   ofItem(assetId: string): MovementView[]
+  /**
+   * Whether a scan of an item, or of a case it's in now, is still on this device and not synced: where the item is said to
+   * be comes from this phone until it has (UX sweep, 6 November 2026, move 3).
+   */
+  waiting(assetId: string): boolean
+  /** Whether a count of a product out with a job, or back from it, is still on this device and not synced. */
+  countWaiting(projectId: string, modelId: string): boolean
   pickList(jobId: string): PickList | undefined
   /** Confirmed jobs on now or starting in the next 14 days, with kit to go out; soonest first. */
   soon: PickList[]
@@ -432,10 +439,24 @@ export function movesView(
 
   const moved = new Set([...moves.values()].map((m) => m.modelId))
 
-  const ofItem = (assetId: string) => {
+  /** An item and the cases it's in now, however deep. */
+  const withCases = (assetId: string) => {
     const ids = new Set([assetId])
     for (let c = warehouse.assets.get(assetId)?.inCase; c && !ids.has(c.id); c = c.inCase) ids.add(c.id)
+    return ids
+  }
+  const ofItem = (assetId: string) => {
+    const ids = withCases(assetId)
     return [...moves.values()].filter((m) => m.assetId && ids.has(m.assetId)).sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id))
+  }
+  // What has a scan or a count not synced, gathered once, as a list asks it of every row: items and cases by id, counted kit
+  // by job and product.
+  let unsent: Set<string> | undefined
+  const unsentOf = () => (unsent ??= new Set([...moves.values()].flatMap((m) => (m.pending ? [m.assetId ?? `${m.projectId} ${m.modelId}`] : []))))
+  const waiting = (assetId: string) => {
+    if (unsentOf().size === 0) return false
+    for (const id of withCases(assetId)) if (unsentOf().has(id)) return true
+    return false
   }
 
   const countedOut = (modelId: string) =>
@@ -452,6 +473,8 @@ export function movesView(
     countedOut,
     everMoved: (id) => moved.has(id),
     ofItem,
+    waiting,
+    countWaiting: (projectId, modelId) => unsentOf().has(`${projectId} ${modelId}`),
     pickList,
     get soon() {
       return (soonList ??= soon())

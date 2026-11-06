@@ -230,7 +230,25 @@ person's initials on the same grey for everyone, until there are photos.
 - Stock ([ADR 0013](adr/0013-warehouse-catalogue.md)) shows an item's
   number in bold with even-width digits. On a place's page each number is
   a round chip that opens the item, dashed and grey while it waits to
-  sync, as every waiting thing is. A form used over and over, such as
+  sync, as every waiting thing is. An item is drawn as one row in four
+  places (UX sweep, 6 November 2026, move 3): on its product's page, in
+  the catalogue's search, under the Stock camera and on a pick list
+  coming back. A case's "In it" list and a place's cases still draw a
+  row of their own. It has the number, the product unless the list is
+  under it already, then one line of the state it's in and where it's
+  kept ("Out with Corporate AGM since 2 Nov · Bay C3", or "since 14 Oct
+  2025" when it went out in another year). Out with a job is said
+  plainly, as out is healthy; Missing, damaged so it can't go out, or a
+  test failed or overdue is the **bad** flag, and damaged but fit to go
+  out the warn, in the repair list's words. While a change to it or a
+  scan of it, or of the case it's in, is only on the phone, the row ends
+  in Waiting to sync, never amber; on the pick list so do the scan's
+  answer, the count of the product's row it changed and, once that row
+  is done, the line it folds under. On a pick list, where Back, Missing
+  or Report damage sit beside the row, only its number opens the item,
+  quiet, so a gloved miss stays on the list (audit, 5 November 2026,
+  finding 92). It reads only what the phone holds, so it works with no
+  signal. A form used over and over, such as
   adding items while labelling or putting kit in a case, keeps where it's
   at, clears the number, puts the cursor back in it, and says in a green
   line what was just done ("Added SH-000102"). A choice between kinds

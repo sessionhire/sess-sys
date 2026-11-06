@@ -11,8 +11,9 @@ const pickRow = (page: Page, name: string) => page.locator('article.pick-row').f
  * and one scanned again is already out), a microphone not on the kit goes
  * out with a warning and comes off with Not going, and the cables are
  * counted out. The item's page and the Stock tab say what's out. With no
- * signal, it all comes back: a speaker scanned in, the cables counted back,
- * the other speaker's label typed by a scanner. The phone's camera is
+ * signal, it all comes back: a speaker scanned in and reported damaged but
+ * fit to go out from beside its row, the cables counted back, the other
+ * speaker's label typed by a scanner. The phone's camera is
  * stood in for by a picture the test draws, as in scan.spec.ts. The test
  * server is shared with the other browser tests, so names are this run's
  * own and numbers are read off the screen. To refresh the blueprint
@@ -188,9 +189,10 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   // The first speaker, with the camera; held still, it's read once.
   await page.getByRole('button', { name: 'Scan' }).click()
   const said = page.getByRole('status', { name: 'Last scan' })
+  const answer = page.locator('.said', { has: said })
   await hold(page, speakers[0]!)
   await expect(said).toHaveText(`${speakers[0]} ${speaker}: 1 of 2 out.`)
-  await expect(said).toHaveClass(/ok/)
+  await expect(answer).toHaveClass(/ok/)
   await page.waitForTimeout(1500)
   await expect(page.locator('.pick-total')).toHaveText('1 of 14 out')
   // Out of sight and back again: it's already out.
@@ -208,7 +210,7 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await expect(page.getByLabel('Number or serial')).toHaveValue(micNumber!.toLowerCase())
   await page.keyboard.press('Enter')
   await expect(said).toHaveText(`${micNumber} ${mic} out. It isn't on the kit for ${job}. Add it to the kit, or scan it back in if it isn't going.`)
-  await expect(said).toHaveClass(/warn/)
+  await expect(answer).toHaveClass(/warn/)
   const micRow = pickRow(page, mic)
   await expect(micRow.locator('.kit-state')).toHaveText(`Not on the kit for ${job}.`)
 
@@ -243,6 +245,15 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await speakerRow.getByRole('link', { name: speakers[0]! }).click()
   await expect(page.locator('.facts')).toContainText(`OutWith ${job} since today at`)
   await page.goto('/#stock')
+  // Found by its number, or read by the Stock camera, it says so too, on the one item row (UX sweep, 6 November 2026, move 3).
+  await page.getByLabel('Find').fill(speakers[0]!)
+  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row p')).toHaveText(`Out with ${job} since today · ${bay}`)
+  await page.getByLabel('Find').fill('')
+  await page.getByRole('button', { name: 'Scan' }).click()
+  await hold(page, speakers[0]!)
+  await expect(said.locator('.item-row p')).toHaveText(`Out with ${job} since today · ${bay}`)
+  await hold(page, null)
+  await page.getByRole('button', { name: 'Close' }).click()
   await expect(page.getByRole('region', { name: 'Pick lists' }).locator('.job-row', { hasText: job })).toContainText('14 of 14 out')
 
   // Coming back, with no signal.
@@ -261,7 +272,32 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await page.getByRole('button', { name: 'Scan' }).click()
   await hold(page, speakers[0]!)
   await expect(said).toHaveText(`${speakers[0]} ${speaker} back: 1 of 2 back.`)
+  // Still only on this phone: the answer, the count it changed and the item's row say so in the dashed pill, never amber (UX sweep,
+  // 6 November 2026, move 3); the count does with the item's row folded out of sight.
+  await expect(answer.locator('.pill')).toHaveText('Waiting to sync')
+  await expect(speakerRow.locator('.tally .pill')).toHaveText('Waiting to sync')
+  await expect(speakerRow.locator('.tally .pill')).toHaveClass(/\bwaiting\b/)
+  await speakerRow.locator('.back-items summary').click()
+  const backRow = speakerRow.locator('.back-damage li', { hasText: speakers[0]! })
+  await expect(backRow.locator('.item-row p')).toHaveText(bay)
+  await expect(backRow.locator('.item-row .pill')).toHaveText('Waiting to sync')
+  await expect(backRow.getByRole('button', { name: `Report damage to ${speakers[0]}` })).toBeVisible()
+  // The one still out says where it goes back to; out with this job goes without saying, and nothing of it waits.
+  await expect(speakerRow.getByRole('list', { name: 'Still out' }).locator('.item-row')).toHaveText(`${speakers[1]}${bay}`)
   await hold(page, null)
+  // Damage found a few cases later is reported beside its row (audit, 5 November 2026, finding 33), its form under the row, never
+  // over it; fit to go out, the row says so in the warn flag.
+  await backRow.getByRole('button', { name: `Report damage to ${speakers[0]}` }).click()
+  const damage = backRow.getByRole('form', { name: `Report ${speakers[0]} damaged` })
+  await expect(damage).toBeVisible()
+  const rowBox = (await backRow.locator('.item-row').boundingBox())!
+  const formBox = (await damage.boundingBox())!
+  expect(formBox.y).toBeGreaterThanOrEqual(rowBox.y + rowBox.height)
+  await damage.getByLabel("What's wrong").fill('Grille dented')
+  await damage.getByLabel('It can still go out').check()
+  await damage.getByRole('button', { name: 'Report damage' }).click()
+  await expect(said).toHaveText(`${speakers[0]} reported damaged: it can still go out.`)
+  await expect(backRow.locator('.flag.warn')).toHaveText('Damaged, fit to go out')
   // One that never went out: nothing to bring back.
   await page.getByLabel('Number or serial').fill(speakers[2]!)
   await page.getByLabel('Number or serial').press('Enter')
@@ -275,6 +311,7 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await countBack.getByLabel('How many').fill('10')
   await countBack.getByRole('button', { name: 'Count back', exact: true }).click()
   await expect(cableRow.locator('.count')).toHaveText('10 back, 2 still out')
+  await expect(answer.locator('.pill')).toHaveText('Waiting to sync')
   await expect(page.locator('.pick-total')).toHaveText('11 back, 3 still out')
   await expect(page.locator('.conn')).toContainText('No signal')
   await page.getByRole('button', { name: 'Stop camera' }).click()
@@ -287,6 +324,10 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await expect(said).toHaveText(`${speakers[1]} ${speaker} back: 2 of 2 back.`)
   await expect(speakerRow.locator('.count')).toHaveText('All 2 back')
   await expect(page.locator('.conn')).toHaveText('Up to date')
+  // Synced, nothing waits.
+  await expect(answer.locator('.pill')).toHaveCount(0)
+  await expect(speakerRow.locator('.tally .pill')).toHaveCount(0)
+  await expect(backRow.locator('.pill')).toHaveCount(0)
   await page.reload()
   await page.getByRole('button', { name: 'Coming back' }).click()
   await expect(page.locator('.pick-total')).toHaveText('12 back, 2 still out')
