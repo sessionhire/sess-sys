@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.89.1',
+    date: '2026-11-06',
+    title: "Freelancers' forms are easier on a phone",
+    what: "On a freelancer's own page, what they type is bigger, so a phone no longer zooms in, and every box and button is easy to tap. Each card has one red button, the thing to do next; declining or pulling out is quieter, behind the question that already asks first. When something they send can't be taken, the page says why right under that box, in the app's words, and opens at it, and the tab's title starts \"Error:\". The day rate shows the euro in the box, the days-off dates sit one under the other as From and Until, and how to write a mobile is said under its label. Nothing they send has changed.",
+    prs: [221],
+  },
+  {
     version: '1.89.0',
     date: '2026-11-06',
     title: 'Every count on Home opens the list it counted',

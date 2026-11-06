@@ -50,7 +50,17 @@ describe('broken or missing kit from a freelancer’s link', () => {
     expect(flashOf(unknown.body)).toEqual({ ok: false, message: "Nothing here has that number. Check the label, or give the product's name instead." })
     expect(unknown.body).toContain('value="SH-999999"')
     expect(unknown.body).toContain('>Bent</textarea>')
-    expect(flashOf((await post({ id: 'abcdef8888', kind: 'damaged' })).body)).toMatchObject({ ok: false, message: "Give its number from the label, or the product's name if it has no label." })
+    // Said under the field it's about, which is marked and joined to it, and which the page drawn again lands on.
+    expect(unknown.body).toMatch(/<label id="refused">Its number, from the label <input name="number"[^>]* aria-invalid="true" aria-describedby="number-error" value="SH-999999"><\/label><p class="field-error" id="number-error" role="alert">Nothing here has that number/)
+    expect(unknown.body).toContain('action="http://localhost:80/f/')
+    expect(unknown.body).toMatch(/\/broken#refused">/)
+    expect(unknown.body).toContain('<title>Error: Session Hire: broken or missing kit</title>')
+    const noProduct = await post({ id: 'abcdef7777', product: 'Shure SM99', kind: 'damaged' })
+    expect(noProduct.body).toMatch(/<label id="refused">Or, with no label, the product <input name="product"[^>]* aria-invalid="true" aria-describedby="product-error" value="Shure SM99"><\/label><p class="field-error" id="product-error" role="alert">There&#39;s no product called that/)
+    // Neither given: said under the number, the first question, which says to give one or the other.
+    const neither = (await post({ id: 'abcdef8888', kind: 'damaged' })).body
+    expect(flashOf(neither)).toMatchObject({ ok: false, message: "Give its number from the label, or the product's name if it has no label." })
+    expect(neither).toContain('<p class="field-error" id="number-error" role="alert">')
     expect(await faults()).toHaveLength(1)
   })
 })

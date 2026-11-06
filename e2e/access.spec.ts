@@ -65,6 +65,28 @@ async function unnamedFields(page: Page): Promise<string[]> {
   })
 }
 
+/**
+ * Fields and buttons smaller than a phone needs (UX sweep, 6 November 2026, move 5): typed text under 16px, which a
+ * phone zooms the page into, or a control under 44px tall. Every fold is opened to measure the forms folded away in
+ * them, and closed again after. A field drawn in a box with its unit is the box; the button drawn out of sight for
+ * Enter in the rate field (.on-enter) is never tapped.
+ */
+async function smallControls(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const shut = [...document.querySelectorAll('details')].filter((d) => !d.open)
+    for (const d of shut) d.open = true
+    const out: string[] = []
+    for (const el of document.querySelectorAll<HTMLElement>('input, select, textarea, button, a.button')) {
+      if (el.getClientRects().length === 0 || el.matches('.on-enter') || ['checkbox', 'radio', 'hidden'].includes(el.getAttribute('type') ?? '')) continue
+      const box = (el.closest('.unit-box') ?? el).getBoundingClientRect()
+      const typed = el.matches('input, select, textarea') ? parseFloat(getComputedStyle(el).fontSize) : 16
+      if (typed < 16 || box.height < 44) out.push(`${el.outerHTML.slice(0, 100)}: ${typed}px text, ${box.height}px tall`)
+    }
+    for (const d of shut) d.open = false
+    return out
+  })
+}
+
 /** The text colour against the background of the first element matching, as drawn. */
 async function textContrast(page: Page, selector: string): Promise<number> {
   const [color, background] = await page.locator(selector).first().evaluate((el) => {
@@ -106,6 +128,25 @@ async function drawnInBothThemes(el: Locator): Promise<(readonly [string, string
     still.remove()
     return out
   })
+}
+
+/** The text colour against its own background, which may be see-through or none, laid over the first colour painted behind it, as the eye sees it. */
+async function seenContrast(target: Locator): Promise<number> {
+  const [color, background] = await target.evaluate((el) => {
+    const rgba = (c: string) => c.match(/[\d.]+/g)!.map(Number)
+    let under = getComputedStyle(document.body).backgroundColor
+    for (let e = el.parentElement; e; e = e.parentElement) {
+      const bg = getComputedStyle(e).backgroundColor
+      if ((rgba(bg)[3] ?? 1) > 0) {
+        under = bg
+        break
+      }
+    }
+    const [r, g, b, a = 1] = rgba(getComputedStyle(el).backgroundColor)
+    const [ur, ug, ub] = rgba(under)
+    return [getComputedStyle(el).color, `rgb(${[r! * a + ur! * (1 - a), g! * a + ug! * (1 - a), b! * a + ub! * (1 - a)].join(', ')})`]
+  })
+  return contrast(color!, background!)
 }
 
 test.beforeAll(async ({ request }) => {
@@ -201,6 +242,29 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(fields.length).toBeGreaterThan(3)
     for (const f of fields) expect(contrast(f.border, f.behind), `link page: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
     expect(await unnamedFields(page)).toEqual([])
+    // Its fields and buttons are the app's on a phone: what's typed at 16px, and every one 44px tall (UX sweep, 6 November 2026, move 5).
+    expect(await smallControls(page)).toEqual([])
+    // Giving a job up is the bad tone with no fill of its own, read at 4.5:1 on its card at rest and while it's pressed.
+    const giveUp = page.locator('button.no').first()
+    await giveUp.evaluate((el) => {
+      el.closest('details')!.open = true
+    })
+    expect(await seenContrast(giveUp), `${await giveUp.textContent()}, at rest`).toBeGreaterThanOrEqual(4.5)
+    await giveUp.hover()
+    await page.mouse.down()
+    expect(await seenContrast(giveUp), `${await giveUp.textContent()}, pressed`).toBeGreaterThanOrEqual(4.5)
+    // Let go away from it, so nothing is sent.
+    await page.mouse.move(0, 0)
+    await page.mouse.up()
+    // A field the server refuses is said under it in the bad wash, read at 4.5:1, with its edge in the bad tone at 3:1, and the title starts "Error: ".
+    await page.getByLabel('Mobile').fill('ring me')
+    await page.getByRole('button', { name: 'Save my number' }).click()
+    await expect(page).toHaveTitle('Error: Session Hire: your work')
+    await expect(page.locator('.field-error')).toHaveText('Phone numbers need digits only, ideally starting with +353.')
+    expect(await textContrast(page, '.field-error')).toBeGreaterThanOrEqual(4.5)
+    const refused = await fieldBorders(page)
+    expect(refused.map((f) => f.field)).toContain('input phone')
+    for (const f of refused) expect(contrast(f.border, f.behind), `refused link page: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
 
     await page.getByRole('link', { name: /^Call sheet/ }).first().click()
     await expect(page).toHaveTitle('Call sheet: Harbour Lights Festival, Show')
@@ -217,6 +281,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(sheetFields.length).toBeGreaterThan(3)
     for (const f of sheetFields) expect(contrast(f.border, f.behind), `timesheet: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
     expect(await unnamedFields(page)).toEqual([])
+    expect(await smallControls(page)).toEqual([])
   })
 }
 

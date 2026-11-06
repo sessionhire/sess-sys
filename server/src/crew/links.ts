@@ -1,4 +1,4 @@
-import { eachDay, EURO_HINT, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
+import { commandSchemas, eachDay, EURO_HINT, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
 import { FILE_TOO_BIG, NO_FILE, WEB_FILE, WRONG_FILE } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { applyMutation } from '../commands.ts'
@@ -15,14 +15,14 @@ import { getLate, lateFor, lateOf } from './late.ts'
 import { renderGone, renderPage, type Flash, type Kept, type OnTheDay } from './page.ts'
 import { renderNoSheet, renderSheet, sheetFor } from './sheet.ts'
 import { awayFor, endedOn, getAway, getCall, getOffer, getPerson, heldByCall, heldElsewhereIn, offersFor, personByToken } from './store.ts'
-import { renderTimesheet } from './timesheet-page.ts'
+import { renderTimesheet, type TimesheetPage } from './timesheet-page.ts'
 import { paidOnFor } from '../finance/store.ts'
 import { getTimesheet, timesheetsFor } from './timesheets.ts'
 import { Refused } from '../kernel.ts'
 import { getOwnCalendar, type OwnCalendars } from './own-calendars.ts'
 import { getPurchase, openPurchases, purchasesFor } from '../purchases/store.ts'
 import { renderPurchases } from './purchase-page.ts'
-import { renderBroken } from './broken-page.ts'
+import { renderBroken, type BrokenPage } from './broken-page.ts'
 import { getAsset, numberUse } from '../stock/store.ts'
 
 /**
@@ -122,6 +122,17 @@ const SAID = {
   'broken-no-product': { ok: false, text: "There's no product called that. Give its number from the label, or the name as it's on our kit lists." },
 } satisfies Record<string, { ok: boolean; text: string }>
 type Said = keyof typeof SAID
+/**
+ * A sent document comes back to the page by address (server/src/documents/routes.ts), so a refusal about its file or
+ * the day it runs out is said under that field by its code (UX sweep, 6 November 2026, move 5).
+ */
+const DOCUMENT_FIELDS = new Map<string, 'file' | 'expires'>([
+  ['doc-no-file', 'file'],
+  ['doc-too-big', 'file'],
+  ['doc-web-page', 'file'],
+  ['doc-not-a-file', 'file'],
+  ['check-the-dates', 'expires'],
+])
 /** A link's token without anything a message stuck on its end: tokens are letters, digits, - and _ (newLinkToken). */
 const tokenOnly = (token: string) => {
   // Walked back from the end rather than a regular expression, which a long run of punctuation would make slow.
@@ -150,7 +161,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
    * in the words the rules gave it (they name the job and the days). A code
    * it doesn't know, or someone else's change, shows nothing.
    */
-  async function flashFor(personId: string, q: Req['query']): Promise<Flash | undefined> {
+  async function flashFor(personId: string, q: Req['query']): Promise<Omit<Flash, 'field' | 'extra'> | undefined> {
     const said = q.m && Object.hasOwn(SAID, q.m) ? SAID[q.m as Said] : undefined
     let refused: string | undefined
     if (!said && q.r && /^[\w-]{1,64}$/.test(q.r)) {
@@ -270,7 +281,9 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const bare = tokenOnly(req.params.token)
     if (!person && bare !== req.params.token && (await personByToken(db, bare))) return reply.redirect(`/f/${bare}`, 303)
     if (!person) return gone(reply)
-    return reply.type('text/html').send(await home(req, person, await flashFor(person.id, req.query)))
+    const flash = await flashFor(person.id, req.query)
+    const field = flash?.section === 'documents' && !flash.ok ? DOCUMENT_FIELDS.get(req.query.m ?? '') : undefined
+    return reply.type('text/html').send(await home(req, person, flash && field ? { ...flash, field } : flash))
   })
 
   // Anything else under a link: a slash on the end goes to the same place without it, and a part of the address that isn't
@@ -298,7 +311,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
   })
 
   /** A booking's timesheet page, with a message, and with what a refused post typed drawn back into the form. */
-  async function timesheetPage(req: Req, person: Person, offer: Offer, call: CrewCall, flash: Flash | undefined, kept?: URLSearchParams) {
+  async function timesheetPage(req: Req, person: Person, offer: Offer, call: CrewCall, flash: TimesheetPage['flash'], kept?: URLSearchParams) {
     return renderTimesheet({
       offer,
       call,
@@ -336,11 +349,11 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const form = (req.body ?? new URLSearchParams()) as Form
     // A refusal keeps the days, extras and note as they were typed (rule 11).
     const call = await getCall(db, offer.callId)
-    // A refusal about one extra is said under that extra, by its place among the ones filled in (audit, 20 October 2026, finding 90).
-    const turnedDown = async (what: Said | Refusal, extra?: number) =>
-      call ? noStore(reply).code(422).type('text/html').send(await timesheetPage(req, person, offer, call, { ok: false, text: reasonOf(what), ...(extra !== undefined ? { extra } : {}) }, form)) : again(what)
+    // A refusal about the days, or about one extra, by its place among the ones filled in, is said under it (audit, 20 October 2026, finding 90).
+    const turnedDown = async (what: Said | Refusal, about: Pick<NonNullable<TimesheetPage['flash']>, 'extra' | 'field'> = {}) =>
+      call ? noStore(reply).code(422).type('text/html').send(await timesheetPage(req, person, offer, call, { ok: false, text: reasonOf(what), ...about }, form)) : again(what)
     const days = form.getAll('days')
-    if (days.length === 0) return turnedDown('tick-a-day-worked')
+    if (days.length === 0) return turnedDown('tick-a-day-worked', { field: 'days' })
     const whats = form.getAll('what')
     const euros = form.getAll('euro')
     const extras: TimesheetExtra[] = []
@@ -348,10 +361,10 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       const what = (whats[i] ?? '').trim().slice(0, 100)
       const typed = (euros[i] ?? '').trim()
       if (!what && !typed) continue
-      if (!what) return turnedDown('say-what-for', extras.length)
+      if (!what) return turnedDown('say-what-for', { extra: extras.length })
       // As typed on a phone: "€12.50", "12,50" or "1,250" all read as a person means them (audit finding 15).
       const amount = parseEuro(typed)
-      if (amount.reason !== undefined || !amount.cents) return turnedDown('extra-amount', extras.length)
+      if (amount.reason !== undefined || !amount.cents) return turnedDown('extra-amount', { extra: extras.length })
       extras.push({ what, cents: amount.cents })
     }
     if (extras.length > MAX_EXTRAS) return turnedDown('too-many-extras')
@@ -367,8 +380,10 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const offer = await getOffer(db, req.params.id!)
     if (!offer || offer.personId !== person.id) return back(reply, person.linkToken, 'not-your-offer')
     const form = (req.body ?? new URLSearchParams()) as Form
-    // A refusal keeps the days ticked, the rate and the note as they were typed, in the offer's card (rule 11).
-    const turnedDown = (what: Said | Refusal) => refused(req, reply, person, what, { form: `offer:${offer.id}`, values: form }, { offer: offer.id })
+    // A refusal keeps the days ticked, the rate and the note as they were typed, in the offer's card (rule 11), and one
+    // about the days or the rate is said under them, not at the top of the card (audit, 20 October 2026, finding 90).
+    const turnedDown = (what: Said | Refusal, field?: 'days' | 'rate') =>
+      refused(req, reply, person, what, { form: `offer:${offer.id}`, values: form }, { offer: offer.id, ...(field ? { field } : {}) })
     let answer = form.get('answer')
     // Enter in the rate field presses the form's hidden first button. With a rate that's a counter; without one there's only a tap to ask for. Never an accept.
     if (answer === 'implicit') {
@@ -379,7 +394,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const note = (form.get('note') ?? '').slice(0, 1000)
     const picked = form.getAll('days')
     if (form.get('picker') && picked.length === 0 && answer !== 'decline')
-      return turnedDown(offer.status === 'accepted' || offer.status === 'confirmed' ? 'tick-a-day-held' : 'tick-a-day')
+      return turnedDown(offer.status === 'accepted' || offer.status === 'confirmed' ? 'tick-a-day-held' : 'tick-a-day', 'days')
     const days = picked.length ? picked : null
 
     let result: MutationResult
@@ -392,10 +407,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       if (person.kind === 'staff') return turnedDown('tap-yes-or-no')
       // "€300", "1,250" or "1 250,50" read as the person means them (audit finding 15); anything else says what to put in.
       const rate = parseEuro(form.get('rate') ?? '')
-      // Said under the rate field, not at the top of the card (audit, 20 October 2026, finding 90).
-      const atRate = (what: Said) => refused(req, reply, person, what, { form: `offer:${offer.id}`, values: form }, { offer: offer.id, field: 'rate' })
-      if (rate.reason !== undefined) return atRate('not-a-price')
-      if (!rate.cents) return atRate('no-rate')
+      if (rate.reason !== undefined) return turnedDown('not-a-price', 'rate')
+      if (!rate.cents) return turnedDown('no-rate', 'rate')
       result = await run(req, person.id, 'offer.respond', { id: offer.id, answer: 'counter', counterRateCents: rate.cents, days, note })
     } else return back(reply, person.linkToken, 'try-again')
 
@@ -457,8 +470,10 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     if (phone !== undefined && phone !== person.phone) changes.phone = phone
     if (changes.email === undefined && changes.phone === undefined) return inSection('details-same')
     const result = await run(req, person.id, 'person.contact', changes)
-    // A refusal keeps the number as it was typed (rule 11).
-    if (result.status === 'rejected') return refused(req, reply, person, result, { form: 'details', values: form }, { section: 'details' })
+    // A refusal keeps the number as it was typed (rule 11), and one of the number is said under it. One about an email
+    // from an old page, which has no field for it, is said above the form.
+    if (result.status === 'rejected')
+      return refused(req, reply, person, result, { form: 'details', values: form }, { section: 'details', ...(result.reason.code === 'invalid' && changes.email === undefined ? { field: 'phone' } : {}) })
     return inSection('details-saved')
   })
 
@@ -485,7 +500,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const given = form.get('id') ?? ''
     const id = AWAY_ID.test(given) ? given : newId()
     if (await getPurchase(db, id)) return toBuy(reply, person.linkToken, 'buy-asked', id)
-    const result = await run(req, person.id, 'purchase.ask', {
+    const ask = {
       id,
       title: form.get('title') ?? '',
       details: form.get('details') ?? '',
@@ -493,16 +508,21 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       // Theirs, as the Crew tab has it, so a head looking down their department's list sees it.
       department: person.department ?? null,
       by: person.id,
-    }).catch((err: unknown) => {
+    }
+    const result = await run(req, person.id, 'purchase.ask', ask).catch((err: unknown) => {
       reportError(err, { route: '/f/:token/buy', method: 'POST' })
       return undefined
     })
-    // A refusal is said above the form, with everything typed still in it (rule 11).
-    if (!result || result.status === 'rejected')
+    // A refusal is said under the field the rules name, read as they read it, or else above the form, with everything
+    // typed still in it (rule 11).
+    if (!result || result.status === 'rejected') {
+      const named = result?.reason.code === 'invalid' ? commandSchemas['purchase.ask'].safeParse(ask).error?.issues[0]?.path[0] : undefined
+      const field = named === 'title' || named === 'details' || named === 'link' ? named : 'ask'
       return noStore(reply)
         .code(422)
         .type('text/html')
-        .send(await buyPage(req, person, { ok: false, text: reasonOf(result ?? 'try-again'), field: 'ask' }, form))
+        .send(await buyPage(req, person, { ok: false, text: reasonOf(result ?? 'try-again'), field }, form))
+    }
     return toBuy(reply, person.linkToken, 'buy-asked', id)
   })
 
@@ -521,7 +541,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
   })
 
   // Broken or missing kit, reported from the link (audit, 5 November 2026, finding 75): as the app's Report damage, onto Repairs.
-  const brokenPage = async (req: Req, person: Person, flash?: { ok: boolean; text: string }, kept?: URLSearchParams) =>
+  const brokenPage = async (req: Req, person: Person, flash?: BrokenPage['flash'], kept?: URLSearchParams) =>
     renderBroken({ base: base(req, person.linkToken), office: await officeFor(db), flash, kept })
 
   app.get('/f/:token/broken', async (req: Req, reply) => {
@@ -536,28 +556,30 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const person = await personByToken(db, req.params.token)
     if (!person) return gone(reply)
     const form = (req.body ?? new URLSearchParams()) as Form
-    // A refusal is said above the form, with everything typed still in it (rule 11).
-    const turnedDown = async (what: Said | Refusal) =>
+    // A refusal is said under the number or the product when it's about one, or else above the form, with everything
+    // typed still in it (rule 11).
+    const turnedDown = async (what: Said | Refusal, field?: 'number' | 'product') =>
       noStore(reply)
         .code(422)
         .type('text/html')
-        .send(await brokenPage(req, person, { ok: false, text: reasonOf(what) }, form))
+        .send(await brokenPage(req, person, { ok: false, text: reasonOf(what), ...(field ? { field } : {}) }, form))
     const typed = (form.get('number') ?? '').trim()
     const named = (form.get('product') ?? '').trim()
-    if (!typed && !named) return turnedDown('broken-what')
+    // Neither given: said under the number, the form's first question, which says to give one or the other.
+    if (!typed && !named) return turnedDown('broken-what', 'number')
     let assetId: string | null = null
     let modelId: string | undefined
     if (typed) {
       const n = normaliseNumber(typed)
       const use = n ? await numberUse(db, n) : undefined
       const asset = use?.current ? await getAsset(db, use.assetId) : undefined
-      if (!asset) return turnedDown('broken-no-number')
+      if (!asset) return turnedDown('broken-no-number', 'number')
       assetId = asset.id
       modelId = asset.modelId
     } else {
       const { rows } = await db.query<{ id: string }>('SELECT id FROM models WHERE lower(name) = lower($1) AND NOT mistake LIMIT 1', [named])
       modelId = rows[0]?.id
-      if (!modelId) return turnedDown('broken-no-product')
+      if (!modelId) return turnedDown('broken-no-product', 'product')
     }
     const kind = form.get('kind') === 'missing' ? 'missing' : 'damaged'
     const note = (form.get('note') ?? '').trim().slice(0, 1500)
@@ -589,11 +611,12 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const form = (req.body ?? new URLSearchParams()) as Form
     const start = form.get('start') ?? ''
     const end = form.get('end') || start
-    // A refusal keeps the dates and the note as they were typed, beside the form (rule 11), and says which date is wrong.
-    const turnedDown = (what: Said | Refusal) => refused(req, reply, person, what, { form: 'away', values: form }, { section: 'away' })
-    if (!start) return turnedDown('days-off-first')
-    if (!isDay(start)) return turnedDown('days-off-first-real')
-    if (!isDay(end)) return turnedDown('days-off-last-real')
+    // A refusal keeps the dates and the note as they were typed, beside the form (rule 11), and is said under the date it's about.
+    const turnedDown = (what: Said | Refusal, field?: 'start' | 'end') =>
+      refused(req, reply, person, what, { form: 'away', values: form }, { section: 'away', ...(field ? { field } : {}) })
+    if (!start) return turnedDown('days-off-first', 'start')
+    if (!isDay(start)) return turnedDown('days-off-first-real', 'start')
+    if (!isDay(end)) return turnedDown('days-off-last-real', 'end')
     // The page gives each form an id of its own, so the same form sent again (a double tap, or the browser resending it)
     // adds the days once (audit, P3: words). Sent from anywhere else, a new one.
     const given = form.get('id') ?? ''
@@ -607,7 +630,9 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       reportError(err, { route: '/f/:token/away', method: 'POST' })
       return undefined
     })
-    if (!result || result.status === 'rejected') return turnedDown(result ?? 'try-again')
+    if (!result) return turnedDown('try-again')
+    // The rules turn down a last day before the first, then a first day gone by, then a last day too far after it.
+    if (result.status === 'rejected') return turnedDown(result, result.reason.code === 'invalid' ? (end < start ? 'end' : start < today() ? 'start' : 'end') : undefined)
     return toAway(reply, person.linkToken, 'days-off-added')
   })
 
@@ -636,7 +661,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       await ownCalendars.share({ personId: person.id, address: form.get('address') ?? '', by: 'self', who: { link: person.id, device: describeDevice(req.headers['user-agent']) } })
     } catch (err) {
       if (!(err instanceof Refused)) throw err
-      return refused(req, reply, person, { id: '', status: 'rejected', reason: err.reason }, { form: 'calendar', values: form }, { section: 'calendar' })
+      // What's wrong with the address, or with reading it, is said under it.
+      return refused(req, reply, person, { id: '', status: 'rejected', reason: err.reason }, { form: 'calendar', values: form }, { section: 'calendar', ...(err.reason.code === 'invalid' ? { field: 'address' } : {}) })
     }
     return inSection('calendar-shared')
   })

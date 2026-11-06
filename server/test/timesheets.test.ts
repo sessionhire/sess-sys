@@ -249,6 +249,10 @@ describe('a timesheet from a private link', () => {
     const early = await post(app, `/f/${eimear}/timesheet/eimear-later`, [['days', day(5)]])
     expect(early).toMatchObject({ ok: false })
     expect(early.message).toContain('opens on')
+    // With no form to say it under yet, a refusal about the days is said at the top, where the page lands.
+    const notYet = await post(app, `/f/${eimear}/timesheet/eimear-later`, [['picker', '1']])
+    expect(notYet.back.html).toContain('<p class="flash bad" role="alert" id="refused">Tick at least one day you worked.</p>')
+    expect(notYet.back.html.match(/ id="refused"/g)).toHaveLength(1)
     // Only offered; staff; someone else's.
     expect((await post(app, `/f/${fionn}/timesheet/fionn-sound`, [['days', day(-1)]])).message).toBe('Only a confirmed booking has a timesheet.')
     expect((await post(app, `/f/${aoife}/timesheet/aoife-chief`, [['days', day(-1)]])).message).toContain('Staff are paid through payroll')
@@ -256,7 +260,13 @@ describe('a timesheet from a private link', () => {
     expect((await page(app, `/f/${dara}/timesheet/aoife-chief`)).status).toBe(404)
     // Days they weren't booked, none at all, and extras without a name or an amount.
     expect((await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-3)]])).message).toContain("wasn't one of your booked days")
-    expect((await post(app, `/f/${dara}/timesheet/dara-sound`, [['picker', '1']])).message).toBe('Tick at least one day you worked.')
+    const none = await post(app, `/f/${dara}/timesheet/dara-sound`, [['picker', '1']])
+    expect(none.message).toBe('Tick at least one day you worked.')
+    // Said under the days, which the page drawn again lands on, with "Error: " first in its title.
+    expect(none.back.html).toMatch(/<fieldset class="days" aria-describedby="days-error" id="refused"><legend>Days you worked<\/legend>[^]*?<\/fieldset><p class="field-error" id="days-error" role="alert">Tick at least one day you worked.<\/p>/)
+    expect(none.back.html).not.toContain('class="flash')
+    expect(none.back.html).toMatch(/<title>Error: Timesheet: /)
+    expect(none.back.html).toMatch(/\/timesheet\/dara-sound#refused" class="timesheet">/)
     expect((await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)], ['what', ''], ['euro', '12']])).message).toBe('Say what each extra is for.')
     // The message is one of the page's own, so it can't name the extra typed (audit finding 21).
     const lots = await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)], ['what', 'Tolls'], ['euro', 'lots'], ['note', 'Left at 2am']])
@@ -266,6 +276,7 @@ describe('a timesheet from a private link', () => {
     expect(lots.back.html).toContain(
       '<input name="euro" inputmode="decimal" aria-invalid="true" aria-describedby="extra-error-0" value="lots"></label></div><p class="field-error" id="extra-error-0" role="alert">Put in the amount for each extra, in euro.</p>'
     )
+    expect(lots.back.html).toContain('<div class="extra" id="refused">')
     const second = await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)], ['what', 'Tolls'], ['euro', '4'], ['what', ''], ['euro', '12']])
     expect(second.back.html).toContain('<input name="what" maxlength="100" aria-invalid="true" aria-describedby="extra-error-1" value="">')
     expect(second.back.html.match(/aria-invalid="true"/g)).toHaveLength(1)
@@ -314,6 +325,19 @@ describe('the office and timesheets', () => {
 
     // Settled: the freelancer can't change it, the same approval again changes nothing, and a different one is turned down.
     expect((await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)]])).message).toContain('already approved')
+    // A page from before it was approved, sent with no day ticked or an extra with no name: there's no form to say it
+    // under now, so it's said at the top, where the page lands, over what the office approved.
+    for (const [fields, message] of [
+      [[['picker', '1']], 'Tick at least one day you worked.'],
+      [[['days', day(-1)], ['what', ''], ['euro', '12']], 'Say what each extra is for.'],
+    ] as [[string, string][], string][]) {
+      const stale = await post(app, `/f/${dara}/timesheet/dara-sound`, fields)
+      expect(stale.message).toBe(message)
+      expect(stale.back.html).toContain(`<p class="flash bad" role="alert" id="refused">${message}</p>`)
+      expect(stale.back.html.match(/ id="refused"/g)).toHaveLength(1)
+      expect(stale.back.html).toMatch(/<title>Error: Timesheet: /)
+      expect(stale.back.html).toContain('Approved: €338.10')
+    }
     await ok(app, { ...approve, id: newId() })
     const [changed] = await send(app, m('timesheet.approve', { id: 'dara-sound', days: [day(-1)], dayRateCents: 30000, extras: [], officeNote: '' }))
     expect(changed).toMatchObject({ status: 'rejected', reason: { message: 'This timesheet has already been approved, with other figures. Reopen it to change it.' } })
