@@ -1,4 +1,5 @@
-import { addDays, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, TIMESHEET_ASKED_DAYS, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
+import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, TIMESHEET_ASKED_DAYS, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
+import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
 import { busyByDay, type OwnCalendar } from '@sh/shared'
@@ -129,6 +130,8 @@ export interface PageData {
   ownCalendar?: OwnCalendar
   /** How many requests on the purchase list are still to decide or to buy (ADR 0108); absent, the way to it isn't drawn. */
   purchases?: number
+  /** A member of staff's leave still to come, approved or waiting (ADR 0024); absent for a freelancer, whose time off is days off. */
+  leave?: LeaveRequest[]
 }
 
 const STATUS_TEXT: Record<Offer['status'], string> = {
@@ -363,31 +366,31 @@ function timesheets(d: PageData): string {
     done.length ? `<details class="later"><summary><b>Sent and approved (${done.length})</b></summary><ul class="ts-list">${done.map(row).join('')}</ul></details>` : ''
   }</section>`
 }
+/** The next booking is in the Today card when it's on there, and under Your bookings otherwise. */
+const nextHref = (d: PageData, offerId: string) => ((d.onTheDay ?? []).some((t) => t.offer.id === offerId) ? '#today' : '#bookings')
+/** A booking on the page as the shared order reads one (UX sweep, 6 November 2026, move 6): its offer and its call. */
+const asBooking: BookingOf<PageData['jobs'][number]> = (j) => [j.offer, j.call]
+
 /**
  * What's waiting on them and what's next, in one line at the top, each part
  * a link down the page (ADR 0033): a long page says what matters before
  * anyone scrolls, and it stays at the top of the screen while they do
  * (audit, 20 October 2026, finding 48). Nothing when there's nothing to say.
+ * In the words Home › Me says it in too (UX sweep, 6 November 2026, move 6).
  */
-/** "Today" and "Tomorrow" by their words, as the card at the top says them (audit, 5 November 2026, finding 91); other days as dates. */
-const dayWord = (day: string, today: string) => (day === today ? 'today' : day === addDays(today, 1) ? 'tomorrow' : dayLabel(day, today))
-/** The next booking is in the Today card when it's on there, and under Your bookings otherwise. */
-const nextHref = (d: PageData, offerId: string) => ((d.onTheDay ?? []).some((t) => t.offer.id === offerId) ? '#today' : '#bookings')
-
 function glance(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']): string {
   // Counted from the evening of the booking's last day (ADR 0110), not while they're still on site; the list below still lets them send it.
   const clock = irishClock()
   const toSend = d.noTimesheets
     ? 0
     : d.jobs.filter((j) => !d.timesheets.get(j.offer.id) && noTimesheetReason(j.offer, j.call, d.person, d.today, d.asking) === null && timesheetDue(j.offer.days, d.today, clock)).length
-  const firstDay = (j: PageData['jobs'][number]) => j.offer.days.find((x) => x >= d.today) ?? j.call.start
-  const next = [...booked].sort((a, b) => firstDay(a).localeCompare(firstDay(b)))[0]
-  const parts = [
-    waiting.length ? `<a href="#offers">${waiting.length === 1 ? '1 offer' : `${waiting.length} offers`} to answer</a>` : '',
-    toSend ? `<a href="#timesheets">${toSend === 1 ? '1 timesheet' : `${toSend} timesheets`} to send</a>` : '',
-    next ? `<a href="${nextHref(d, next.offer.id)}">Next: ${h(next.call.project)}, ${h(dayWord(firstDay(next), d.today))}${next.call.callTime ? `, call ${h(next.call.callTime)}` : ''}</a>` : '',
-  ].filter(Boolean)
-  return parts.length ? `<nav class="glance" aria-label="At a glance">${parts.join('<span aria-hidden="true"> · </span>')}</nav>` : ''
+  const next = nextBooking(booked, d.today, asBooking)
+  const parts = glanceParts(
+    { offers: waiting.length, timesheets: toSend, ...(next ? { next: { project: next.booking.call.project, callTime: next.booking.call.callTime, day: next.day } } : {}) },
+    d.today
+  )
+  const at: Record<GlancePart['key'], string> = { offers: '#offers', timesheets: '#timesheets', next: next ? nextHref(d, next.booking.offer.id) : '#bookings' }
+  return parts.length ? `<nav class="glance" aria-label="At a glance">${parts.map((p) => `<a href="${at[p.key]}">${h(p.text)}</a>`).join('<span aria-hidden="true"> · </span>')}</nav>` : ''
 }
 
 const rank = (t: Timesheet | undefined) => (!t ? 0 : t.status === 'sent' ? 1 : 2)
@@ -517,7 +520,10 @@ function ownCalendarBlock(d: PageData): string {
     return `<section id="calendar">
     <h2>Let us see when you're busy</h2>
     ${mine && !wrong ? flash(mine) : ''}
-    <p class="small">Rather than marking days here, you can let us see when you're busy in the calendar you already use, so the office knows before it asks. ${promise} You can stop at any time.</p>
+    <p class="small">${
+      // A member of staff marks no days here: their time off is leave, asked for in the app (UX sweep, 6 November 2026, move 6).
+      isStaff(d.person) ? 'You can' : 'Rather than marking days here, you can'
+    } let us see when you're busy in the calendar you already use, so the office knows before it asks. ${promise} You can stop at any time.</p>
     ${field("Your calendar's private address", "Share when I'm busy")}
   </section>`
   const busy = [...busyByDay(cal)].filter(([day]) => day >= d.today)
@@ -546,12 +552,20 @@ function ownCalendarBlock(d: PageData): string {
 const BOOKINGS_IN_FULL = 3
 
 /**
+ * A booking or an offer folded to its row, the row Home › Me and their own page in the app draw (UX sweep, 6 November
+ * 2026, move 6): the job, then role · phase · days · call, and anything more the row needs, then where it stands.
+ */
+const laterRow = (d: PageData, j: PageData['jobs'][number], more = '') =>
+  `<summary><b>${h(j.call.project)}</b><span class="line">${h(bookingLine(j.offer, j.call, d.today))}${more} <span class="tag ${j.offer.status}">${STATUS_TEXT[j.offer.status]}</span></span></summary>`
+
+/**
  * The offers waiting on them, the soonest to answer first: the first few as full cards, the rest a line each with the
  * reply-by day, opening in place with its answers, as bookings are (audit, 5 November 2026, findings 32 and 53). One a
  * message or a refused answer is about opens, so the page lands on it.
  */
 function offers(d: PageData, waiting: PageData['jobs']): string {
-  const firstDay = (j: PageData['jobs'][number]) => j.offer.days.find((x) => x >= d.today) ?? j.call.start
+  // Its first day still to come, or the call's first once the days it holds are over, as the soonest to answer.
+  const firstDay = (j: PageData['jobs'][number]) => nextDayOf(j.offer, j.call, d.today) ?? j.call.start
   const answerBy = (j: PageData['jobs'][number]) => j.call.replyBy ?? firstDay(j)
   const sorted = [...waiting].sort((a, b) => answerBy(a).localeCompare(answerBy(b)) || firstDay(a).localeCompare(firstDay(b)))
   const later = sorted.slice(BOOKINGS_IN_FULL)
@@ -560,8 +574,8 @@ function offers(d: PageData, waiting: PageData['jobs']): string {
       ? `<p class="small">${later.length === 1 ? 'One more offer' : `${later.length} more offers`} after these, a line each: tap one to answer it.</p>${later
           .map((j) => {
             const about = d.flash?.offer === j.offer.id || d.kept?.form === `offer:${j.offer.id}`
-            const by = j.call.replyBy && j.offer.status === 'offered' ? ` · reply by ${h(dayLabel(j.call.replyBy, d.today))}` : ''
-            return `<details class="later"${about ? ' open' : ''}><summary><b>${h(j.call.project)}</b> · ${h(j.call.role)} · ${h(daysLabel(j.offer.days, d.today))}${by} <span class="tag ${j.offer.status}">${STATUS_TEXT[j.offer.status]}</span></summary>${offerCard(d, j)}</details>`
+            const by = j.call.replyBy && j.offer.status === 'offered' ? `${FACT_GAP}${h(wholeFact(`reply by ${dayLabel(j.call.replyBy, d.today)}`))}` : ''
+            return `<details class="later"${about ? ' open' : ''}>${laterRow(d, j, by)}${offerCard(d, j)}</details>`
           })
           .join('')}`
       : ''
@@ -574,15 +588,15 @@ function offers(d: PageData, waiting: PageData['jobs']): string {
  * in full was a thirty-five-screen scroll. One a message or a refused post is about opens, so the page lands on it.
  */
 function bookings(d: PageData, booked: PageData['jobs']): string {
-  const firstDay = (j: PageData['jobs'][number]) => j.offer.days.find((x) => x >= d.today) ?? j.call.start
-  const sorted = [...booked].sort((a, b) => firstDay(a).localeCompare(firstDay(b)))
+  // In the order Home › Me and their page in the app list them (UX sweep, 6 November 2026, move 6).
+  const sorted = soonestFirst(booked, d.today, asBooking)
   const later = sorted.slice(BOOKINGS_IN_FULL)
   return `${sorted.slice(0, BOOKINGS_IN_FULL).map((j) => offerCard(d, j)).join('')}${
     later.length
       ? `<p class="small">${later.length === 1 ? 'One more booking' : `${later.length} more bookings`} after these, a line each: tap one to open it.</p>${later
           .map((j) => {
             const about = d.flash?.offer === j.offer.id || d.kept?.form === `offer:${j.offer.id}`
-            return `<details class="later"${about ? ' open' : ''}><summary><b>${h(j.call.project)}</b> · ${h(j.call.role)} · ${h(daysLabel(j.offer.days, d.today))} <span class="tag ${j.offer.status}">${STATUS_TEXT[j.offer.status]}</span></summary>${offerCard(d, j)}</details>`
+            return `<details class="later"${about ? ' open' : ''}>${laterRow(d, j)}${offerCard(d, j)}</details>`
           })
           .join('')}`
       : ''
@@ -626,10 +640,58 @@ function awayForm(d: PageData): string {
     </form>`
 }
 
+/** One run of days off: the days and what's said of them, and Remove, or "Approved leave", which is cancelled in the app. */
+function awayLine(d: PageData, u: Unavailability, booked: PageData['jobs'], said: string): string {
+  return `<li><span>${h(daysLabel(eachDay(u.start, u.end), d.today))}${said ? ` <small>${h(said)}</small>` : ''}</span>
+          ${
+            // Approved leave is cancelled in the app, never taken off here, so the two never disagree (ADR 0024).
+            u.source === 'leave' ? '<small>Approved leave</small>' : `<form method="post" action="${d.base}/away/${encodeURIComponent(u.id)}/remove#away"><button>Remove</button></form>`
+          }${stillBooked(u, booked, d.today)}</li>`
+}
+
+/** A freelancer's days they can't work, marked and taken off here, with the form to add more. */
+function awayBlock(d: PageData, booked: PageData['jobs']): string {
+  return `<section id="away">
+    <h2>Days you can't work</h2>
+    ${d.flash?.section === 'away' && !d.flash.field ? flash(d.flash) : ''}
+    ${
+      d.away.length
+        ? `<ul class="away">${d.away
+            .filter((u) => u.end >= d.today)
+            .map((u) => awayLine(d, u, booked, u.note))
+            .join('')}</ul>`
+        : ''
+    }
+    ${awayForm(d)}
+  </section>`
+}
+
+/**
+ * A member of staff's time off is their leave (ADR 0024; UX sweep, 6 November 2026, move 6): what's still to come,
+ * approved or waiting on a decision, read from the requests, with where each stands in the app's Leave words, and the way
+ * to ask for more there, where whoever approves time off sees it. No form: days off marked here went round the approval.
+ * Days off marked before, here or by the office, stay to read and take back until they've passed.
+ */
+function leaveBlock(d: PageData, leave: readonly LeaveRequest[], booked: PageData['jobs']): string {
+  const rows = [
+    ...leave.map((r) => ({
+      start: r.start,
+      html: `<li><span>${h(daysLabel(eachDay(r.start, r.end), d.today))} <small>${h([leaveLabel(r.type, r.days), r.note].filter(Boolean).join(' · '))}</small></span><span class="tag ${r.status}">${r.status === 'approved' ? 'Approved' : 'Waiting'}</span></li>`,
+    })),
+    // Approved leave marks its days off too: the request above says it once, with where it stands.
+    ...d.away.filter((u) => u.source !== 'leave' && u.end >= d.today).map((u) => ({ start: u.start, html: awayLine(d, u, booked, ['Days off', u.note].filter(Boolean).join(' · ')) })),
+  ].sort((a, b) => a.start.localeCompare(b.start))
+  return `<section id="away">
+    <h2>Leave</h2>
+    ${d.flash?.section === 'away' && !d.flash.field ? flash(d.flash) : ''}
+    ${rows.length ? `<ul class="away leave">${rows.map((r) => r.html).join('')}</ul>` : '<p class="empty">No leave coming up.</p>'}
+    <a class="sheet-link" href="${h(new URL('/#crew/leave', d.base).href)}">Ask for leave in the app ›</a>
+  </section>`
+}
+
 /** The way to the purchase list (ADR 0108): kit they'd find useful, asked for and voted on from their own link. */
 function purchasesBlock(base: string, open: number): string {
   return `<section id="buy">
-    <h2>Kit to buy</h2>
     <a class="sheet-link" href="${base}/buy">The purchase list${open ? `: ${open} asked for` : ''} ›</a>
     <p class="small">Ask for kit you'd find useful on our jobs, and vote for what others have asked for.</p>
   </section>`
@@ -693,25 +755,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
     ${feedBlock(d.feed)}
   </section>
 
-  <section id="away">
-    <h2>Days you can't work</h2>
-    ${d.flash?.section === 'away' && !d.flash.field ? flash(d.flash) : ''}
-    ${
-      d.away.length
-        ? `<ul class="away">${d.away
-            .filter((u) => u.end >= d.today)
-            .map(
-              (u) => `<li><span>${h(daysLabel(eachDay(u.start, u.end), d.today))}${u.note ? ` <small>${h(u.note)}</small>` : ''}</span>
-          ${
-            // Approved leave is cancelled in the app, never taken off here, so the two never disagree (ADR 0024).
-            u.source === 'leave' ? '<small>Approved leave</small>' : `<form method="post" action="${d.base}/away/${encodeURIComponent(u.id)}/remove#away"><button>Remove</button></form>`
-          }${stillBooked(u, booked, d.today)}</li>`
-            )
-            .join('')}</ul>`
-        : ''
-    }
-    ${awayForm(d)}
-  </section>
+  ${isStaff(d.person) ? leaveBlock(d, d.leave ?? [], booked) : awayBlock(d, booked)}
 
   ${ownCalendarBlock(d)}
 
@@ -768,7 +812,7 @@ export function renderStaffSignIn(name: string, start: string, said: StaffSignIn
   return `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Session Hire</title><style>${CSS}</style></head>
 <body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b><small>${first}'s page</small></div></header>
-${line}<p>Sign in with your Session Hire Google account to see your calls, days off and timesheets. You'll stay signed in on this device.</p>
+${line}<p>Sign in with your Session Hire Google account to see your calls and your leave. You'll stay signed in on this device.</p>
 <a class="button yes" href="${h(start)}">Sign in with Google</a>${officeBlock(office)}</main></body></html>`
 }
 
@@ -827,7 +871,7 @@ section{display:grid;gap:10px}
 .offer header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
 h3{margin:0;font-size:1.1rem}h3 span{font-weight:500;color:var(--muted)}
 .tag{font-size:.75rem;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--line);white-space:nowrap}
-.tag.offered{background:var(--accent-fill);color:#fff}.tag.confirmed{background:var(--line);color:var(--ink)}.tag.accepted,.tag.countered{background:var(--warn-soft);color:var(--warn)}
+.tag.offered{background:var(--accent-fill);color:#fff}.tag.confirmed,.tag.approved{background:var(--line);color:var(--ink)}.tag.accepted,.tag.countered,.tag.waiting{background:var(--warn-soft);color:var(--warn)}
 .facts{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin:0}.facts dt{color:var(--muted)}.facts dd{margin:0}
 .details{margin:0;padding:10px;background:var(--bg);border-radius:8px;font-size:.92rem}
 form{display:grid;gap:10px;margin:0}
@@ -868,6 +912,8 @@ html:has(.glance){scroll-padding-top:104px}@media (min-width:600px){html:has(.gl
 .glance{display:flex;flex-wrap:wrap;gap:4px;font-weight:600;font-size:.95rem;position:sticky;top:0;z-index:1;margin:0 -16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
 details.later{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:0 12px}details.later[open]{padding-bottom:12px}
 details.later summary{color:var(--ink);font-size:.95rem;padding:12px 0}details.later summary .tag{margin-left:4px}details.later .offer{border:0;padding:0;background:none}
+/* A folded row as the app draws one: the job, then role · phase · days · call under it, then where it stands. */
+details.later summary .line{display:block;margin-top:2px;color:var(--muted);font-size:.9rem;text-wrap:pretty}
 .glance a{color:inherit}
 .feed{display:grid;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.feed input{color:var(--muted)}
 .feed-buttons{display:flex;gap:8px}.feed-buttons>*{flex:1}.feed-buttons .copy[hidden]{display:none}
@@ -878,6 +924,8 @@ a.button{display:inline-flex;align-items:center;justify-content:center;min-heigh
 button:not(.yes,.no):active,a.button:not(.yes):active{background-image:linear-gradient(var(--wash-pressed),var(--wash-pressed))}button.no:active{background:var(--wash-hover);border-color:var(--bad)}button.yes:active,a.button.yes:active{filter:brightness(.84)}
 .away,.closed{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .away li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 6px 6px 12px}
+/* Leave keeps where it stands, or Remove, at the end of its first line, the days and what's said of them wrapping beside it. */
+.away.leave li>span:first-child{flex:1;min-width:0}
 .away li .clash{flex-basis:100%;margin-right:6px;font-size:.92rem}.away li button{min-height:44px;padding:6px 10px;font-size:.85rem}.away small,.closed small{color:var(--muted);display:block}
 .closed li{font-size:.92rem}
 .add-away{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}

@@ -96,4 +96,13 @@ test('asking, votes, where it is at, and a list brought in once', async ({ brows
   await expect(desk.getByRole('region', { name: /^Ordered/ }).getByRole('link', { name: new RegExp(`Mic stands ${id}`) })).toContainText(`Kyle Test ${id}`)
   await expect(desk.getByRole('region', { name: /^Asked for/ }).getByRole('link', { name: new RegExp(`Isolation feet ${id}`) })).toContainText('Someone Else, Fri 24 Apr')
   await desk.screenshot(shot('purchase-list'))
+
+  // From Róisín's own link the way to it is a card of its own, its link saying what it is, with no kicker over it (UX
+  // sweep, 6 November 2026, move 6).
+  await desk.goto(`/#crew/person/ro-${id}/link`)
+  await desk.goto((await desk.getByRole('region', { name: 'Their link' }).getByRole('link', { name: 'Open their page' }).getAttribute('href'))!)
+  const card = desk.locator('section#buy')
+  await expect(card.getByRole('heading')).toHaveCount(0)
+  await card.getByRole('link', { name: /^The purchase list(: \d+ asked for)? ›$/ }).click()
+  await expect(desk.getByRole('heading', { level: 1, name: 'Kit to buy' })).toBeVisible()
 })

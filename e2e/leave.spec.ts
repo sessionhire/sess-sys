@@ -5,7 +5,8 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
  * next year in place, and a request in it, turned down before, goes in; a
  * member of staff says who they are, applies for three days and sees the
  * count; an approver on another phone sees the Crew tab's badge count it
- * the moment he says who he is, approves it, and has a blanked allowance
+ * the moment he says who he is, approves it, and her link lists it under
+ * Leave, with no days-off form; he has a blanked allowance
  * turned down in place, and one the server turns down listed as not done
  * with its year as a year; the planner shows the days off; and an offer to
  * that person for those days warns. Signed in, someone archived since is
@@ -216,6 +217,20 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   await expect(queue).toContainText('Nothing here yet.')
   // Nora sees it approved without doing anything.
   await expect(mine.locator('.pill')).toHaveText('Approved')
+  // Her link says it too, under Leave where a freelancer's days off are: said once, though it marks her days off, with the
+  // way to ask for more in the app and nothing there to mark days off with (UX sweep, 6 November 2026, move 6).
+  // On her own device, which says it's her, her page in the app calls her link hers, as Home › Me does.
+  const hers = await nora.context().newPage()
+  await hers.goto(`/#crew/person/${k('nora')}/link`)
+  await expect(hers.getByRole('status')).toHaveText('Up to date')
+  await hers.goto((await hers.getByRole('region', { name: 'Your page' }).getByRole('link', { name: 'Open your page' }).getAttribute('href'))!)
+  const onHerLink = hers.locator('section', { has: hers.getByRole('heading', { level: 2, name: 'Leave', exact: true }) })
+  await expect(onHerLink.getByRole('listitem')).toHaveCount(1)
+  await expect(onHerLink.getByRole('listitem')).toContainText('Annual leave · Long weekend away')
+  await expect(onHerLink.locator('.tag')).toHaveText('Approved')
+  await expect(onHerLink.getByRole('link', { name: 'Ask for leave in the app ›' })).toHaveAttribute('href', /\/#crew\/leave$/)
+  await expect(hers.getByRole('button', { name: 'Add days off' })).toHaveCount(0)
+  await hers.close()
 
   // Her allowance: a blanked field is turned down in place, keeping what was typed; a number is saved.
   const allowance = eoin.getByRole('form', { name: `Nora Walsh ${id}'s allowance` })

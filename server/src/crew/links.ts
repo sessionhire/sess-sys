@@ -20,6 +20,7 @@ import { paidOnFor } from '../finance/store.ts'
 import { getTimesheet, timesheetsFor } from './timesheets.ts'
 import { Refused } from '../kernel.ts'
 import { getOwnCalendar, type OwnCalendars } from './own-calendars.ts'
+import { leaveAheadFor } from '../leave/store.ts'
 import { getPurchase, openPurchases, purchasesFor } from '../purchases/store.ts'
 import { renderPurchases } from './purchase-page.ts'
 import { renderBroken, type BrokenPage } from './broken-page.ts'
@@ -84,6 +85,8 @@ const SAID = {
   'days-off-first': { ok: false, text: 'Put in the first day off.' },
   'days-off-first-real': { ok: false, text: "The first day off isn't a real date. Pick it again." },
   'days-off-last-real': { ok: false, text: "The last day off isn't a real date. Pick it again, or leave it empty for one day." },
+  // Staff time off is leave, approved in the app (ADR 0024): a page kept from before can't mark days off around it (UX sweep, 6 November 2026, move 6).
+  'days-off-staff': { ok: false, text: 'Staff ask for leave in the app, under Leave, where whoever approves time off sees it.' },
   // A timesheet.
   'timesheet-sent': { ok: true, text: "Thanks, it's gone to the office. You can change it until they approve it." },
   'not-your-booking': { ok: false, text: "That booking isn't one of yours." },
@@ -268,6 +271,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       onTheDay,
       demo,
       ownCalendar: await getOwnCalendar(db, person.id),
+      // A member of staff's time off is their leave (ADR 0024), read from the requests rather than the days it marks off.
+      ...(person.kind === 'staff' ? { leave: await leaveAheadFor(db, person.id, now) } : {}),
       // Their documents (ADR 0029), with forms to send a new one where the server can keep files.
       purchases: await openPurchases(db),
       documents: documentsSection({ person, list: await documentsOf(db, person.id), files: app.documents.on, base: base(req, person.linkToken), today: now, flash }),
@@ -614,6 +619,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     // A refusal keeps the dates and the note as they were typed, beside the form (rule 11), and is said under the date it's about.
     const turnedDown = (what: Said | Refusal, field?: 'start' | 'end') =>
       refused(req, reply, person, what, { form: 'away', values: form }, { section: 'away', ...(field ? { field } : {}) })
+    if (person.kind === 'staff') return turnedDown('days-off-staff')
     if (!start) return turnedDown('days-off-first', 'start')
     if (!isDay(start)) return turnedDown('days-off-first-real', 'start')
     if (!isDay(end)) return turnedDown('days-off-last-real', 'end')

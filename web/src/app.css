@@ -342,6 +342,15 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 /* Enough is the quiet case (healthy is quiet; audit, 20 October 2026, finding 59), so the short lines beside it stand out. */
 .app .job-row .kit-note.ok, .app .job-row small.flag.ok { color: var(--muted); }
 .app .job-row small.flag { font-weight: 700; }
+/* An offer waiting on them says where it's answered, in the words of a link, since the row is the way there (UX sweep, 6 November 2026, move 6). */
+.app .job-row small.answer { color: var(--accent-ink); font-weight: 600; }
+/* A booking or an offer of theirs (UX sweep, 6 November 2026, move 6): the job, with where it stands at the end of its line, then
+   the facts across the whole row, so a phone has room for them on one line, then, under an offer, the way to answer it. */
+.app .booking-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--ds-space-3); align-items: start; }
+.app .booking-row > .pill { grid-area: 1 / 2; }
+.app .booking-row > :is(p, .answer) { grid-column: 1 / -1; }
+.app .booking-row > p { text-wrap: pretty; }
+.app .booking-row > .answer { margin-top: var(--ds-space-1); }
 .app .kit-short { border-color: var(--warn); }
 .app .kit-short h2 { color: var(--warn); }
 /* A card's groups on Stock, each under a group head of its own (h3.group); the ones Home's counts land on carry their number. */

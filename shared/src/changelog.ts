@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.91.0',
+    date: '2026-11-06',
+    title: 'Your bookings, said one way, and your leave on your link',
+    what: "On Home › Me, on your own person page in Crew and on your link, your work is now Your bookings, with the same line at the top (offers to answer, and your next job with its call time) and each booking shown the same way. An offer says Answer it on your page and opens your link, as does the notification of an offer made to you. If you're staff, your link now lists your leave, approved and waiting, and points you to the app to ask for more; it no longer has a form for days off, because those skipped whoever approves your leave.",
+    prs: [224],
+    adrs: [24],
+  },
+  {
     version: '1.90.0',
     date: '2026-11-06',
     title: "A head's own department, first on Stock and the job",

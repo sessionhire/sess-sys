@@ -13,7 +13,7 @@ import {
   type View,
 } from '@sh/shared'
 import { CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
-import { holdsARole, ROLE_LABELS, ROLE_LINES, ROLES, roleOfPerson, signInAbility, type Role } from '@sh/shared'
+import { holdsARole, ROLE_LABELS, ROLE_LINES, ROLES, roleOfPerson, signInAbility, soonestFirst, type Role } from '@sh/shared'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -22,13 +22,14 @@ import { Heading, Icon } from '../Icon.tsx'
 import { Page } from '../jobs/common.tsx'
 import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
-import { Pending, StatusPill } from '../StatusPill.tsx'
+import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { CREW, PEOPLE } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { CombineWith, useSamePeople } from './Combine.tsx'
-import { STATUS } from './Calls.tsx'
+import { asBooking, BookingRow } from './BookingRow.tsx'
+import { useMe } from './Leave.tsx'
 import { linkFor } from './Messages.tsx'
 import { PersonForm } from './People.tsx'
 import { Documents } from './Documents.tsx'
@@ -69,8 +70,11 @@ export function PersonScreen({
   const person = view.crew.people.find((p) => p.id === id)
   const up = { steps: [CREW, PEOPLE], here: person?.name }
   const access = useAccess()
-  // Their link is the office's to send; their own is anyone's to open (audit, 20 October 2026, finding 35).
-  const own = !!person && person.id === access.personId
+  // Their own page, by their account or, while sign-in is off, by who this device says it is, as Home › Me goes by: their
+  // link is anyone's own to open (audit, 20 October 2026, finding 35), and the page says theirs in their words, its bookings
+  // by the name Home › Me and their link give them (UX sweep, 6 November 2026, move 6).
+  const { me } = useMe(view)
+  const own = !!person && person.id === (access.personId ?? me?.id)
   // Not a tab holding only "your role doesn't see it" either (audit, 5 November 2026, finding 94).
   const parts = PERSON_PARTS.filter((p) => p !== 'link' || (person && !person.archived && (own || (access.can('crew') && !person.linkHidden))))
   const [part, pick] = useTab({ parts, asked, remember: 'sh.personPart', address: (p) => `${personHref(id)}/${p}` })
@@ -95,11 +99,19 @@ export function PersonScreen({
     >
       <Reach person={person} />
       <Warnings person={person} view={view} />
-      <Tabs label={`About ${person.name}`} id="person" parts={parts} labels={own ? { ...PERSON_LABELS, link: 'Your page' } : PERSON_LABELS} current={part} counts={{ worked: person.worked.length || undefined }} onPick={pick} />
+      <Tabs
+        label={`About ${person.name}`}
+        id="person"
+        parts={parts}
+        labels={own ? { ...PERSON_LABELS, coming: 'Your bookings', link: 'Your page' } : PERSON_LABELS}
+        current={part}
+        counts={{ worked: person.worked.length || undefined }}
+        onPick={pick}
+      />
       <TabPanel id="person" current={part}>
         {part === 'coming' && (
           <>
-            <ComingUp person={person} view={view} onArchived={onArchived} />
+            <ComingUp person={person} view={view} own={own} onArchived={onArchived} />
             <OwnCalendarCard person={person} view={view} />
           </>
         )}
@@ -112,7 +124,7 @@ export function PersonScreen({
           </section>
         )}
         {part === 'worked' && <Worked person={person} />}
-        {part === 'link' && <TheirLink person={person} />}
+        {part === 'link' && <TheirLink person={person} own={own} />}
       </TabPanel>
       {/* Who changed their details and when (audit, 5 November 2026, finding 51). */}
       <p className="hint page-foot">
@@ -354,11 +366,16 @@ function Who({ person, view }: { person: PersonView; view: View }) {
   )
 }
 
-/** What's ahead for them: bookings, offers still waiting on an answer, and days off, with marking more days off and archiving. */
-function ComingUp({ person, view, onArchived }: { person: PersonView; view: View; onArchived: (p: { id: string; name: string }) => void }) {
+/**
+ * What's ahead for them: bookings, offers still waiting on an answer, and days off, with marking more days off and archiving.
+ * On their own page, their bookings by the name Home › Me and their link give them, and an offer opens their link, where
+ * it's answered (UX sweep, 6 November 2026, move 6).
+ */
+function ComingUp({ person, view, own, onArchived }: { person: PersonView; view: View; own: boolean; onArchived: (p: { id: string; name: string }) => void }) {
   const crew = view.crew
   const today = useToday()
   const mayEdit = useAccess().can('crew') && !person.archived
+  const heading = own ? 'Your bookings' : 'Coming up'
   const { run, error, refuse } = useAct()
   const [away, setAway] = useState({ start: today, end: today, note: '' })
   // The job holding them back, as a way to it beside the refusal (audit, 5 November 2026, finding 94).
@@ -370,7 +387,8 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
   // Offers still waiting on them: like a booking, settled before they can be archived. The server checks the same.
   const waiting = ahead.filter(({ o }) => o.status === 'offered' || o.status === 'countered')
   const off = crew.unavailability.filter((u) => u.personId === person.id && u.end >= today)
-  const lines = [...booked, ...waiting].sort((a, b) => (a.o.days[0] ?? a.c.start).localeCompare(b.o.days[0] ?? b.c.start))
+  // In the order their link and Home › Me list them (UX sweep, 6 November 2026, move 6).
+  const lines = soonestFirst([...booked, ...waiting], today, asBooking)
   const archive = () => {
     // The same test as the server's: held days from today on, or any offer still waiting.
     const hold = booked.find(({ o }) => o.days.some((d) => d >= today)) ?? waiting[0]
@@ -393,45 +411,24 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
     })
   }
   return (
-    <section className="card" aria-label="Coming up">
-      <Heading icon="calendar">Coming up</Heading>
+    <section className="card" aria-label={heading}>
+      <Heading icon="calendar">{heading}</Heading>
       {lines.length === 0 && off.length === 0 && <Empty>Nothing booked or offered, and no days off.</Empty>}
       {lines.length > 0 && (
         <ul className="job-list">
-          {lines.map(({ c, o }) => {
-            const [label, tone] = STATUS[o.status]
-            const inner = (
-              <>
-                <div>
-                  <b>{c.project}</b>
-                  <p>{[c.phase, c.role, daysLabel(o.days)].filter(Boolean).join(' · ')}</p>
-                </div>
-                <div className="side">
-                  <StatusPill tone={tone} pending={o.pending}>
-                    {label}
-                  </StatusPill>
-                </div>
-              </>
-            )
-            return (
-              <li key={o.id}>
-                {c.projectId ? (
-                  <a className="job-row" href={`#jobs/${c.projectId}/crew`}>
-                    {inner}
-                  </a>
-                ) : (
-                  <div className="job-row">{inner}</div>
-                )}
-              </li>
-            )
-          })}
+          {lines.map(({ c, o }) => (
+            <li key={o.id}>
+              <BookingRow c={c} o={o} today={today} {...(c.projectId ? { href: `#jobs/${c.projectId}/crew` } : {})} {...(own ? { link: linkFor(person) } : {})} />
+            </li>
+          ))}
         </ul>
       )}
       {off.map((u) => (
         <p key={u.id}>
           Off {daysLabel(eachDay(u.start, u.end))}
           {u.note && ` (${u.note})`}
-          {u.source === 'self' && ' · said on their link'}
+          {/* Their link is "your page" when it's said to them, as the tab and its button say it. */}
+          {u.source === 'self' && (own ? ' · said on your page' : ' · said on their link')}
           {/* Approved leave is cancelled on the Leave screen, so the two never disagree (ADR 0024). */}
           {u.source === 'leave' || !mayEdit ? (
             u.source === 'leave' && (
@@ -499,12 +496,19 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
   )
 }
 
-/** Their private link and calendar feed (ADR 0002, ADR 0012): open it as they see it, copy it to send, or replace it. */
-function TheirLink({ person }: { person: PersonView }) {
-  const access = useAccess()
-  const mayEdit = access.can('crew')
-  // Their own page, for someone who doesn't send links: open it and take the calendar address, as the reading sends them both.
-  const own = person.id === access.personId
+/**
+ * What their own page is for, said to them. A member of staff's marks no days off, their time off being leave, asked for in
+ * the app (UX sweep, 6 November 2026, move 6).
+ */
+const yourPage = (person: PersonView) =>
+  `${person.kind === 'staff' ? 'Where you answer offers and send documents.' : 'Where you answer offers, mark days off and send documents.'} Your bookings go to your own calendar from there too.`
+
+/**
+ * Their private link and calendar feed (ADR 0002, ADR 0012): open it as they see it, copy it to send, or replace it. On
+ * their own page, said to them, as the tab over it is (UX sweep, 6 November 2026, move 6).
+ */
+function TheirLink({ person, own }: { person: PersonView; own: boolean }) {
+  const mayEdit = useAccess().can('crew')
   // Which address was just copied, said on its button (rule 10).
   const [copied, setCopied] = useState<'link' | 'feed' | undefined>()
   const copy = (what: 'link' | 'feed', text: string) => void navigator.clipboard?.writeText(text).then(() => setCopied(what))
@@ -512,12 +516,13 @@ function TheirLink({ person }: { person: PersonView }) {
   const { run, error } = useAct()
   const link = linkFor(person)
   const feed = useFeedAddress(person.linkToken)
+  // Their own page, for someone who doesn't send links: open it and take the calendar address, as the reading sends them both.
   if (!mayEdit && !own) return null
   if (!mayEdit)
     return (
       <section className="card" aria-label="Your page">
         <Heading icon="link">Your page</Heading>
-        <p className="hint">Where you answer offers, mark days off and send documents. Your bookings go to your own calendar from there too.</p>
+        <p className="hint">{yourPage(person)}</p>
         <div className="actions">
           {link && (
             <a className="button" href={link} target="_blank" rel="noreferrer">
@@ -533,15 +538,22 @@ function TheirLink({ person }: { person: PersonView }) {
         {!link && <p className="hint">Your page isn't made yet. The office can make it.</p>}
       </section>
     )
+  const heading = own ? 'Your page' : 'Their link'
   return (
-    <section className="card" aria-label="Their link">
-      <Heading icon="link">Their link</Heading>
+    <section className="card" aria-label={heading}>
+      <Heading icon="link">{heading}</Heading>
       <p className="hint">
-        {person.kind === 'staff'
-          ? // Staff sign in with Google only (ADR 0052): their page asks for it, so the link alone opens nothing.
-            'Where they answer calls, mark days off and send documents. It asks for their Google sign-in first, so it only opens for them, the office or a director.'
-          : 'Where they answer offers, mark days off and send documents, with no app or login.'}{' '}
-        Their bookings go to their own calendar from there too.
+        {own ? (
+          yourPage(person)
+        ) : (
+          <>
+            {person.kind === 'staff'
+              ? // Staff sign in with Google only (ADR 0052): their page asks for it, so the link alone opens nothing.
+                'Where they answer calls and send documents. It asks for their Google sign-in first, so it only opens for them, the office or a director.'
+              : 'Where they answer offers, mark days off and send documents, with no app or login.'}{' '}
+            Their bookings go to their own calendar from there too.
+          </>
+        )}
       </p>
       {/* Not sent to this role (ADR 0046): said plainly, so it isn't taken for a link not made yet. */}
       {person.linkHidden && <p className="hint">Your role doesn't see {person.name}'s link. The office or a director can open it or send it.</p>}
@@ -549,7 +561,7 @@ function TheirLink({ person }: { person: PersonView }) {
         {link && (
           <>
             <a className="button" href={link} target="_blank" rel="noreferrer">
-              Open their page
+              {own ? 'Open your page' : 'Open their page'}
             </a>
             <button type="button" onClick={() => copy('link', link)}>
               {copied === 'link' ? 'Copied' : 'Copy link'}

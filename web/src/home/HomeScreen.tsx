@@ -1,9 +1,9 @@
 import { canApproveLeave, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
-import { useState } from 'react'
+import { glanceParts, HOLDING, nextBooking, OPEN, soonestFirst, type CallView, type OfferView } from '@sh/shared'
+import { Fragment, useState } from 'react'
+import { asBooking, BookingRow } from '../crew/BookingRow.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
-import { STATUS } from '../crew/Calls.tsx'
-import { StatusPill } from '../StatusPill.tsx'
 import { Empty } from '../Empty.tsx'
 import { Top } from '../jobs/common.tsx'
 import { kitShort } from '../jobs/Kit.tsx'
@@ -642,11 +642,16 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
       </section>
     )
   }
-  const mine = view.crew.calls
-    .filter((c) => c.status === 'open' && c.end >= today)
-    .flatMap((c) => c.offers.filter((o) => o.personId === me.id && (o.status === 'confirmed' || o.status === 'accepted')).map((o) => ({ c, o })))
-    .sort((a, b) => (a.o.days.find((d) => d >= today) ?? '').localeCompare(b.o.days.find((d) => d >= today) ?? ''))
-  const asked = view.crew.calls.filter((c) => c.status === 'open' && c.end >= today && c.offers.some((o) => o.personId === me.id && (o.status === 'offered' || o.status === 'countered'))).length
+  // Their bookings and the offers waiting on them, in the order their link and their own page list them (UX sweep, 6 November 2026, move 6).
+  const mine = soonestFirst(
+    view.crew.calls
+      .filter((c) => c.status === 'open' && c.end >= today)
+      .flatMap((c) => c.offers.filter((o) => o.personId === me.id && (HOLDING.includes(o.status) || OPEN.includes(o.status))).map((o) => ({ c, o }))),
+    today,
+    asBooking,
+  )
+  const booked = mine.filter(({ o }) => HOLDING.includes(o.status))
+  const link = linkFor(me)
   const year = Number(today.slice(0, 4))
   const balance = me.kind === 'staff' ? view.leave.balance(me.id, year) : undefined
   const waiting = view.leave.requestsFor(me.id, year).filter((r) => r.status === 'waiting')
@@ -656,57 +661,31 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
   return (
     <>
       {/* Today first, where a person looks first; leave after (audit, 5 November 2026, finding 97). */}
-      <YourDay view={view} today={today} me={me} mine={mine} />
+      <YourDay view={view} today={today} me={me} mine={booked} />
       <section className="card">
-        {/* Booked and only accepted said apart, as on their own page (audit, 20 October 2026, finding 36): an accepted day can still go to someone else. */}
-        <Heading icon="calendar">Your work{mine.length > 0 && !copying ? ` (${workCount(mine)})` : ''}</Heading>
+        {/* One name and one row for them on Home › Me, their own page and their link (UX sweep, 6 November 2026, move 6); booked and only
+            accepted said apart, as on their own page (audit, 20 October 2026, finding 36): an accepted day can still go to someone else.
+            Only bookings are counted: the glance line under it says the offers, and the strip's name for the card stays on a phone. */}
+        <Heading icon="calendar">Your bookings{booked.length > 0 && !copying ? ` (${workCount(booked)})` : ''}</Heading>
         {copying ? (
           <p className="empty">{STILL_ARRIVING}</p>
         ) : mine.length === 0 ? (
           <Empty>No bookings coming up.</Empty>
         ) : (
-          <ul className="job-list">
-            {mine.map(({ c, o }) => (
-              <li key={o.id}>
-                <a className="job-row" href={c.projectId ? `#jobs/${c.projectId}` : '#crew'}>
-                  <div>
-                    <b>{c.project}</b>
-                    <p>
-                      {c.role}
-                      {c.phase && ` · ${c.phase}`}
-                      {c.venue && ` · ${c.venue}`}
-                    </p>
-                  </div>
-                  <div className="side">
-                    <StatusPill tone={STATUS[o.status][1]} pending={o.pending}>
-                      {STATUS[o.status][0]}
-                    </StatusPill>
-                    <small>{daysLabel(o.days.filter((d) => d >= today))}</small>
-                    {c.callTime && <small>Call {c.callTime}</small>}
-                  </div>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-        {/* Answered on their own page, so the way there is here (audit, 20 October 2026, finding 35). */}
-        {asked > 0 && (
-          <p className="hint">
-            {plural(asked, 'offer')} waiting on your answer
-            {linkFor(me) ? (
-              <>
-                {' · '}
-                <a className="link" href={linkFor(me)} target="_blank" rel="noreferrer">
-                  Open your page
-                </a>
-              </>
-            ) : (
-              ', on your own page.'
-            )}
-          </p>
+          <>
+            <MyGlance offers={mine.length - booked.length} next={nextBooking(booked, today, asBooking)} link={link} today={today} />
+            <ul className="job-list">
+              {mine.map(({ c, o }) => (
+                <li key={o.id}>
+                  {/* An offer is answered on their own page (audit, 20 October 2026, finding 35), so its row opens there. */}
+                  <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} />
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
-      {/* Only with something in it: an empty chart said nothing Your work hadn't (finding 97). */}
+      {/* Only with something in it: an empty chart said nothing Your bookings hadn't (finding 97). */}
       {weeks.some((w) => w.parts.some((n) => n > 0)) && (
         <Chart title="Your weeks" icon="calendar" series={DAYS} columns={weeks} format={(n) => plural(n, 'day')} empty="No days booked in the next eight weeks." />
       )}
@@ -735,7 +714,8 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
 /**
  * Their own day, under Me (audit, 20 October 2026, finding 69): the
  * bookings whose days take in today, with the call time and venue, or their
- * leave; otherwise "Nothing on today" and the next booking. Never the
+ * leave; otherwise "Nothing on today", the next booking being in the glance
+ * line over Your bookings (UX sweep, 6 November 2026, move 6). Never the
  * company's Today, whose jobs they may not be on (ADR 0033 §1: my bookings,
  * my leave).
  */
@@ -744,7 +724,6 @@ function YourDay({ view, today, me, mine }: { view: View; today: string; me: Per
   const booked = mine.filter(({ o }) => o.status === 'confirmed')
   const on = booked.filter(({ o }) => o.days.includes(today))
   const away = view.crew.unavailability.find((u) => u.personId === me.id && u.start <= today && u.end >= today)
-  const next = on.length === 0 ? booked.map(({ c, o }) => ({ c, day: o.days.find((d) => d > today) })).filter((n) => n.day).sort((a, b) => a.day!.localeCompare(b.day!))[0] : undefined
   return (
     <section className="card your-day">
       <Heading icon="time">Your day{on.length > 0 && !copying ? ` (${on.length})` : ''}</Heading>
@@ -752,8 +731,8 @@ function YourDay({ view, today, me, mine }: { view: View; today: string; me: Per
         <p className="empty">{STILL_ARRIVING}</p>
       ) : on.length === 0 ? (
         <p className="empty">
+          {/* What's next is in the glance line over Your bookings, with its call time. */}
           {away ? (away.source === 'leave' ? 'On leave today.' : `Away today${away.note ? `: ${away.note}` : ''}.`) : 'Nothing on today.'}
-          {next && ` Next: ${next.c.project}, ${dayLabel(next.day!)}.`}
         </p>
       ) : (
         <ul className="job-list">
@@ -832,6 +811,38 @@ function workCount(mine: readonly { o: { status: string } }[]) {
   const confirmed = mine.filter((m) => m.o.status === 'confirmed').length
   const accepted = mine.length - confirmed
   return [confirmed && `${confirmed} confirmed`, accepted && `${accepted} accepted`].filter(Boolean).join(', ')
+}
+
+/** Where a booking of theirs opens in the app: its job, or Crew for a call made before jobs. */
+const jobHref = (c: { projectId?: string | null }) => (c.projectId ? `#jobs/${c.projectId}` : '#crew')
+
+/**
+ * What's waiting on them and what's next, in the words of the glance line at the top of their own page (UX sweep, 6
+ * November 2026, move 6): the offers open their page, where they're answered; the next booking opens its job. No
+ * timesheets: Me is a member of staff's, and staff are paid through payroll.
+ */
+function MyGlance({ offers, next, link, today }: { offers: number; next: { booking: { c: CallView; o: OfferView }; day: string } | undefined; link: string; today: string }) {
+  const parts = glanceParts({ offers, ...(next ? { next: { project: next.booking.c.project, callTime: next.booking.c.callTime, day: next.day } } : {}) }, today)
+  if (parts.length === 0) return null
+  return (
+    <p className="my-glance">
+      {parts.map((p, i) => {
+        const href = p.key === 'next' ? next && jobHref(next.booking.c) : link && `${link}#${p.key}`
+        return (
+          <Fragment key={p.key}>
+            {i > 0 && <span aria-hidden="true"> · </span>}
+            {href ? (
+              <a className="link" href={href} {...(p.key === 'next' ? {} : { target: '_blank', rel: 'noreferrer' })}>
+                {p.text}
+              </a>
+            ) : (
+              p.text
+            )}
+          </Fragment>
+        )
+      })}
+    </p>
+  )
 }
 
 /** " 1 request and 1 day in lieu waiting to be approved.", or nothing while nothing is. */

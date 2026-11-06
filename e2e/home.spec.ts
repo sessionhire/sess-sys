@@ -278,3 +278,79 @@ test("Home at a phone's size: the soon over the housekeeping, the week ahead a l
   await expect(page.getByRole('heading', { name: /^Today/ })).toHaveCount(0)
   await expect(page.locator('section', { has: page.getByRole('heading', { name: 'Your leave' }) })).toContainText('1 request and 1 day in lieu waiting to be approved.')
 })
+
+test('Me says Your bookings as their own link does: its glance line, a row each, and an offer that opens the link to answer it', async ({ browser, request }) => {
+  // Proves (UX sweep, 6 November 2026, move 6): Home › Me's card and their link's section are both "Your bookings", with the
+  // same glance line over them, "1 offer to answer · Next: <job>, <day>, call <time>"; a row is the job, then role · phase ·
+  // days · call, then the pill; an offer reads "Answer it on your page ›" and opens their link at its offers, where it's
+  // answered (ADR 0034), and a booking opens its job. The heading counts the bookings, as before, and the glance line the
+  // offers, so the card's name in the strip at the top fits a phone.
+  const { changes } = (await (await request.get('/api/sync/pull?after=0')).json()) as { changes: { entity: string; id: string; data: { name: string; linkToken: string } }[] }
+  const aoife = changes.find((c) => c.entity === 'person' && c.data.name === 'Aoife Brennan')!
+  const run = Math.random().toString(36).slice(2, 8)
+  const day = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10)
+  const later = new Date(Date.now() + 41 * 86_400_000).toISOString().slice(0, 10)
+  const createdAt = new Date().toISOString()
+  const pushed = await request.post('/api/sync/push', {
+    data: {
+      clientId: `home-me-${run}`,
+      mutations: [
+        ['call.create', { id: `call-${run}`, project: `Bookings check ${run}`, phase: 'Show', venue: '', role: 'Crew chief', start: day, end: day, callTime: '09:00', needed: 1, dayRateCents: null, details: '', replyBy: null }],
+        ['offer.send', { id: `offer-${run}`, callId: `call-${run}`, personId: aoife.id, override: false }],
+        // One she has said yes to, which the office hasn't confirmed yet.
+        ['call.create', { id: `held-${run}`, project: `Held check ${run}`, phase: 'Build', venue: '', role: 'Crew chief', start: later, end: later, callTime: '08:00', needed: 1, dayRateCents: null, details: '', replyBy: null }],
+        ['offer.send', { id: `yes-${run}`, callId: `held-${run}`, personId: aoife.id, override: false }],
+        ['offer.respond', { id: `yes-${run}`, answer: 'accept', days: null, note: '' }],
+      ].map(([name, args], i) => ({ id: `m-${run}-${i}`, name, args, createdAt })),
+    },
+  })
+  expect((await pushed.json()).results.map((r: { status: string }) => r.status)).toEqual(['applied', 'applied', 'applied', 'applied', 'applied'])
+
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Me', exact: true }).click()
+  await page.getByLabel('Your name').selectOption({ label: 'Aoife Brennan' })
+  await page.getByRole('button', { name: "That's me" }).click()
+
+  // Her bookings, two confirmed with today's shoot first and one accepted, counted in the heading; the offer waiting on her
+  // is in the glance line and the list, not the count.
+  const card = page.locator('section', { has: page.getByRole('heading', { name: /^Your bookings/ }) })
+  await expect(card.getByRole('heading', { level: 2 })).toHaveText('Your bookings (2 confirmed, 1 accepted)')
+  // Each part's name in the strip fits inside a 390 phone's gutters, so the one in view is read whole.
+  const strip = page.getByRole('navigation', { name: 'On this screen' })
+  await expect(strip.getByRole('button', { name: 'Your bookings (2 confirmed, 1 accepted)' })).toBeVisible()
+  for (const part of await strip.getByRole('button').all()) expect((await part.boundingBox())!.width).toBeLessThanOrEqual(358)
+  const accepted = card.getByRole('link', { name: new RegExp(`^Held check ${run}`) })
+  await expect(accepted.locator('.pill')).toHaveText('Accepted')
+  await expect(accepted).not.toContainText('Answer it on your page')
+  const glance = card.locator('.my-glance')
+  await expect(glance).toHaveText('1 offer to answer · Next: Liffey Brands Shoot, today, call 07:30')
+  const link = `${new URL(page.url()).origin}/f/${aoife.data.linkToken}`
+  await expect(glance.getByRole('link', { name: '1 offer to answer' })).toHaveAttribute('href', `${link}#offers`)
+  await expect(glance.getByRole('link', { name: /^Next: / })).toHaveAttribute('href', /^#jobs\//)
+  const shoot = card.getByRole('link', { name: /^Liffey Brands Shoot/ })
+  await expect(shoot).toHaveAttribute('href', /^#jobs\//)
+  await expect(shoot).toContainText(/^Liffey Brands ShootCrew chief\s·\sShoot\s·\s\w{3}\s\d{1,2}\s\w{3}\s·\scall\s07:30Confirmed$/)
+  const offered = card.getByRole('link', { name: new RegExp(`^Bookings check ${run}`) })
+  await expect(offered).toContainText(/Crew chief\s·\sShow\s·\s\w{3}\s\d{1,2}\s\w{3}(\s\d{4})?\s·\scall\s09:00/)
+  await expect(offered).toContainText('Offered')
+  await expect(offered).toContainText('Answer it on your page ›')
+  await expect(offered).toHaveAttribute('href', `${link}#offers`)
+  await expect(offered).toHaveAttribute('target', '_blank')
+  // A booking is two lines: the job with where it stands at its end, then the facts across the whole row, past the pill.
+  // An offer has the way to answer it under them.
+  expect((await shoot.boundingBox())!.height).toBeLessThan(80)
+  const [job, facts, pill, answer] = await Promise.all(['b', 'p', '.pill', '.answer'].map(async (part) => (await offered.locator(part).boundingBox())!))
+  expect(pill!.y).toBeLessThan(job!.y + job!.height)
+  expect(facts!.y).toBeGreaterThanOrEqual(job!.y + job!.height)
+  expect(facts!.x + facts!.width).toBeGreaterThanOrEqual(pill!.x + pill!.width - 1)
+  expect(answer!.y).toBeGreaterThanOrEqual(facts!.y + facts!.height)
+
+  // Opened, it's her link, at the offer, with the same words over it.
+  const [hers] = await Promise.all([page.context().waitForEvent('page'), offered.click()])
+  await expect(hers).toHaveURL(`${link}#offers`)
+  await expect(hers.getByRole('heading', { level: 2, name: 'Your bookings' })).toBeVisible()
+  await expect(hers.getByRole('navigation', { name: 'At a glance' })).toHaveText('1 offer to answer · Next: Liffey Brands Shoot, today, call 07:30')
+  await expect(hers.getByRole('article').filter({ hasText: `Bookings check ${run}` }).locator('.tag')).toHaveText('Waiting on you')
+})

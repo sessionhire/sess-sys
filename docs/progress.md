@@ -71,6 +71,16 @@ waiting on someone.
   count leaves out the office's, a job's CREW fact reads "LX 0 of 1 · all
   5 of 10" with their crew first on the Crew tab, and where the device
   isn't sent money a job says "Quote: with the office".
+- Move 6a, part 1, one home for a staff member's leave and bookings
+  (1.91.0, PR #224): a staff member's link lists their waiting and
+  approved leave (ADR 0024) and ends "Ask for leave in the app ›" instead
+  of the days-off form, and the server turns down a days-off post from a
+  staff link in the app's words, so a kept page can't post. Home › Me,
+  the reader's own person page and the link all say "Your bookings" with
+  one glance line and one row shape, from shared/src/bookings.ts (one
+  next-booking rule: a held day from today on). An offer to the reader,
+  its row and its notification open their link, where it is answered,
+  and the link's purchase card loses its "Kit to buy" kicker.
 
 **Waiting**
 
