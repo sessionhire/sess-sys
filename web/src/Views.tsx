@@ -15,6 +15,7 @@
 import { standing, type View } from '@sh/shared'
 import { useLayoutEffect, useRef } from 'react'
 import { useMoreEdges } from './more.tsx'
+import { useMyKitDepartment } from './Narrowed.tsx'
 import { useAccess } from './role.ts'
 import { useToday } from './view.ts'
 
@@ -52,9 +53,12 @@ export function Views({ label, pages, current }: { label: string; pages: readonl
  * Stock's row: what the warehouse looks at, each a page, with the tests overdue, the repairs open and the places to count
  * this week counted on theirs, each the list Home counts and the page lists (shared/src/sync/standing.ts). Counted only
  * for a role that can act on them (ADR 0034), as Crew's row is: to anyone else they'd be a to-do list that isn't theirs.
+ * A head's are their own kit's, as Testing and Repairs start on it and Crew's row counts their people (Move 3 of the
+ * sweep of 6 November 2026); the places to count are nobody's department, so they're everyone's.
  */
 export function StockViews({ view, current }: { view: View; current: string }) {
-  const lists = standing(view, useToday())
+  const department = useMyKitDepartment()
+  const lists = standing(view, useToday(), { department: department || undefined })
   const mayStock = useAccess().can('stock')
   const count = (n: number) => (mayStock ? n : 0)
   // Vehicles whose road checks have run out: they can't be booked until someone updates them (ADR 0047).

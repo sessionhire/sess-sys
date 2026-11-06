@@ -119,6 +119,7 @@ export function CallCard({
   onTell,
   inJob = false,
   phaseDays = false,
+  phaseNamed = false,
 }: {
   call: CallView
   crew: CrewView
@@ -131,6 +132,8 @@ export function CallCard({
   inJob?: boolean
   /** Under a phase on the job's page, for the phase's own days, which its header says already. */
   phaseDays?: boolean
+  /** On the job's page away from its phase, as a head's own department's are, first: the phase is said with the days. */
+  phaseNamed?: boolean
 }) {
   const mayOffer = useAccess().can('crew')
   const [open, setOpen] = useState(false)
@@ -169,8 +172,8 @@ export function CallCard({
       <button type="button" className="call-line" aria-expanded={open} onClick={() => setOpen(!open)}>
         <b>
           {call.needed} × {call.role}
-          {/* On the Crew tab the days are the heading over it. On the job's page the phase shows only for a call across phases, and the days unless they're the phase's. */}
-          {(!inJob || !call.phaseId) && call.phase && <span className="muted"> · {call.phase}</span>}
+          {/* On the Crew tab the days are the heading over it. On the job's page the phase shows only for a call across phases or away from its phase, and the days unless they're the phase's. */}
+          {(!inJob || !call.phaseId || phaseNamed) && call.phase && <span className="muted"> · {call.phase}</span>}
           {inJob && !phaseDays && <span className="muted"> · {daysLabel(call.days)}</span>}
         </b>
       </button>

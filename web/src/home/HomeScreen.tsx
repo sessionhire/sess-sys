@@ -131,6 +131,7 @@ function Tiles({
   keys: readonly StandingKey[]
   title?: string
   clear: string
+  /** The department counted for; none for the company's or the warehouse's counts, whose lists then open on everyone's. */
   department?: string
   grouped?: boolean
 }) {
@@ -144,7 +145,7 @@ function Tiles({
     <ul className={className}>
       {tiles.map((t) => (
         <li key={t.key}>
-          <a className={`tile${t.tone ? ` ${t.tone}` : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department, filters: t.filters })}>
+          <a className={`tile${t.tone ? ` ${t.tone}` : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department: department ?? '', filters: t.filters })}>
             <b>{t.count.toLocaleString('en-IE')}</b>
             <span>{t.label}</span>
           </a>

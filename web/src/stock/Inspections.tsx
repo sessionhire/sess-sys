@@ -27,7 +27,7 @@ import { StockViews } from '../Views.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
 import { Split } from '../Split.tsx'
 import { Heading } from '../Icon.tsx'
-import { inKitOf, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { inKitOf, Narrowed, useMyKitDepartment, useNarrowed } from '../Narrowed.tsx'
 import { CertificateForm, OpenCertificate } from './Certificates.tsx'
 
 /**
@@ -266,10 +266,11 @@ function RecordOne({ a, kinds, onDone }: { a: AssetView; kinds: InspectionKind[]
  * Show all, anything just tested here kept in view (audit, 20 October 2026, finding 96).
  */
 export function InspectionsDue({ view, recent }: { view: View; recent?: ReadonlySet<string> }) {
-  // Opened from a count on Home for a department, that department's kit, as Home counted it (audit, 20 October 2026, finding 4).
-  const [department, widen] = useNarrowed('#stock/testing')
+  // Opened from a count on Home, the kit it counted, a department's or everyone's (audit, 20 October 2026, finding 4); from
+  // anywhere else, a head's own kit, as Stock's row counts it (Move 3 of the sweep of 6 November 2026).
+  const [department, widen] = useNarrowed('#stock/testing', useMyKitDepartment())
   const attention = view.inspections.attention.filter((d) => inKitOf(department)(d.asset.model))
-  const { unrecorded } = view.inspections
+  const unrecorded = view.inspections.unrecorded.filter((d) => inKitOf(department)(d.asset.model))
   const needed = view.warehouse.models.some((m) => m.patMonths || m.liftingMonths)
   if (!needed && view.inspections.certificatesDue.length === 0) return null
   const stopped = attention.filter((d) => d.state !== 'soon')

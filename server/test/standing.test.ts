@@ -130,5 +130,11 @@ describe('how things stand', () => {
     expect([lx.faults.length, lx['cant-go'].length, lx['tests-soon'].length, lx['kit-short'].length]).toEqual([0, 0, 0, 0])
     // Kit still out, tasks and dates passed are the job's, not a department's.
     for (const d of [audio, lx]) expect([d['still-out'].length, d['tasks-late'].length, d['tasks-nobody'].length, d['no-answer'].length]).toEqual([0, 0, 0, 0])
+    // Leave waits on whoever approves it, not on a department (ADR 0024): Aoife's request is Cian's to decide, whichever
+    // department he's looking at (Move 3 of the sweep of 6 November 2026).
+    for (const department of ['Audio', 'LX']) expect(standing(view, today, { me: { id: 'cian' }, department }).leave.map((q) => q.person?.id)).toEqual(['aoife'])
+    // A department's count is never more than the company's.
+    const all = standing(view, today)
+    for (const d of [audio, lx]) for (const key of Object.keys(all) as StandingKey[]) expect(d[key].length).toBeLessThanOrEqual(all[key].length)
   })
 })

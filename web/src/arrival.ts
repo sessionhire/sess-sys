@@ -14,7 +14,7 @@ export interface Arrival {
   hash: string
   /** The heading of the part to land on, without its count: "Answers to check". */
   part?: string
-  /** The department Home counted for. */
+  /** The department Home counted for: '' for everyone's, as the company's and the warehouse's counts are, so a head's list opens whole. */
   department?: string
   /** The list filters the count was made with, to start the list on (audit, 5 November 2026, finding 20). */
   filters?: Record<string, string>

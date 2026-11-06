@@ -92,7 +92,11 @@ export interface Standing {
   'crew-needed': CallView[]
   /** Only the timesheets this person can decide: one whose amounts they aren't sent is the office's (ADR 0062). */
   timesheets: View['timesheets']['toApprove']
-  /** Leave waiting, but their own request, which another approver decides (audit, 5 November 2026, finding 28). */
+  /**
+   * Leave waiting, but their own request, which another approver decides (audit, 5 November 2026, finding 28). Never a
+   * department's: approvers are people (ADR 0024), so what waits on a head is whoever's they approve (Move 3 of the sweep
+   * of 6 November 2026).
+   */
   leave: View['leave']['queue']
   certificates: RunningOut<PersonView>[]
   /** Confirmed jobs starting today or tomorrow with kit still to go out. */
@@ -166,7 +170,8 @@ export function answersHeading(answers: number, late: number): string {
 /**
  * The lists, narrowed to a department when one is given. The jobs' own
  * counts (kit still out, tasks, dates passed) are the job's, not a
- * department's, so they're empty for one.
+ * department's, so they're empty for one; leave waits on its approver
+ * (ADR 0024), so it isn't narrowed.
  */
 export function standing(view: View, today: string, { me, department }: StandingFor = {}): Standing {
   const by = narrower(department)
@@ -187,7 +192,7 @@ export function standing(view: View, today: string, { me, department }: Standing
         (c) => c.status === 'open' && c.end >= today && c.start <= fortnight && c.openDays.some((d) => d >= today) && (!department || sameDepartment(departmentOf(c), department)),
       ),
     timesheets: () => view.timesheets.toApprove.filter((r) => by.person(r.person) && !r.amountsHidden),
-    leave: () => view.leave.queue.filter((q) => by.person(q.person) && q.person?.id !== me?.id),
+    leave: () => view.leave.queue.filter((q) => q.person?.id !== me?.id),
     certificates: () => runningOut(view.crew.people, view.documents.all, today).filter((r) => by.person(r.person)),
     'to-pick': () => view.moves.soon.filter((p) => p.job.span && p.job.span.start <= addDays(today, 1) && p.out < p.need),
     'still-out': () => (department ? [] : kitToCheckBackIn(view.jobs, view.steps, view.moves, today)),

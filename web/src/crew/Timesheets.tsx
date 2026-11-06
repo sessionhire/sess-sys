@@ -11,6 +11,8 @@ import {
   timesheetMessage,
   timesheetSummary,
   timesheetTotal,
+  listHeading,
+  STANDING_HEADINGS,
   type PersonView,
   type TimesheetExtra,
   type TimesheetRow,
@@ -62,6 +64,12 @@ export function TimesheetsCard({ view }: { view: View }) {
   // Decided per timesheet, from what this device is sent (audit, 20 October 2026, finding 3): a head who reads their own
   // department's rates (ADR 0062) checks theirs and opens the rest.
   const checks = (r: TimesheetRow) => mayDecide && !r.amountsHidden
+  // What this role decides, then what waits on the office, each counted in its own heading: Crew's row and Home count only the
+  // first, so the number they say is the one here (Move 3 of the sweep of 6 November 2026).
+  const sent: [string, TimesheetRow[]][] = [
+    [STANDING_HEADINGS.timesheets, toApprove.filter(checks)],
+    ['Waiting on the office', toApprove.filter((r) => !checks(r))],
+  ]
   if (!toApprove.length && !notIn.length && !lately.length)
     return mayDecide ? null : (
       <section className="card">
@@ -74,27 +82,30 @@ export function TimesheetsCard({ view }: { view: View }) {
       <Narrowed department={department} onWiden={widen} />
       {!seesRates && mayDecide && <p className="hint">Your role doesn't see crew rates, so the amounts are hidden, and the office checks and approves timesheets.</p>}
       {/* Each kind counted in full and showing its first three (audit finding 16), so a long week's are a tap away and never out of mind. */}
-      {toApprove.length > 0 && (
-        <div className="ts-group" role="group" aria-label={toApprove.some(checks) ? 'To approve' : 'Waiting on the office'}>
-          <h3 className="group">{toApprove.some(checks) ? 'To approve' : 'Waiting on the office'} ({toApprove.length})</h3>
-          <ShowAll items={toApprove} limit={3} what="timesheets">
-            {(rows) =>
-              rows.map((r) => (
-                <Row
-                  key={r.offer.id}
-                  r={r}
-                  action={
-                    // Quiet, as every row's own action is: fifty red Checks down a busy week said nothing, so the heading's count carries
-                    // how many there are (UX sweep, 6 November 2026, move 1).
-                    <a className={checks(r) ? 'button quiet' : 'link'} href={`#crew/timesheet/${encodeURIComponent(r.offer.id)}`}>
-                      {checks(r) ? 'Check' : 'Open'}
-                    </a>
-                  }
-                />
-              ))
-            }
-          </ShowAll>
-        </div>
+      {sent.map(
+        ([title, group]) =>
+          group.length > 0 && (
+            <div key={title} className="ts-group" role="group" aria-label={title}>
+              <h3 className="group">{listHeading(title, group.length)}</h3>
+              <ShowAll items={group} limit={3} what="timesheets">
+                {(rows) =>
+                  rows.map((r) => (
+                    <Row
+                      key={r.offer.id}
+                      r={r}
+                      action={
+                        // Quiet, as every row's own action is: fifty red Checks down a busy week said nothing, so the heading's count carries
+                        // how many there are (UX sweep, 6 November 2026, move 1).
+                        <a className={checks(r) ? 'button quiet' : 'link'} href={`#crew/timesheet/${encodeURIComponent(r.offer.id)}`}>
+                          {checks(r) ? 'Check' : 'Open'}
+                        </a>
+                      }
+                    />
+                  ))
+                }
+              </ShowAll>
+            </div>
+          )
       )}
       {notIn.length > 0 && (
         <div className="ts-group" role="group" aria-label="Not in yet">
