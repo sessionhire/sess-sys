@@ -169,6 +169,7 @@ export const SOON: ReadonlySet<StandingKey> = new Set(['late', 'crew-needed', 'k
 export const TILES_FOR: Record<HomeFor, readonly StandingKey[]> = {
   company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'damaged-stopped', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'no-answer', 'tasks-late', 'tasks-nobody'],
   // Only what can be narrowed to a department: crew calls by their own department (ADR 0046); kit still out is the job's, not a department's.
+  // Leave is whoever's waits on them, as an approver is a person (ADR 0024).
   department: ['late', 'answers', 'crew-needed', 'leave', 'timesheets', 'certificates', 'kit-short', 'faults', 'damaged-stopped', 'cant-go', 'tests-soon'],
   warehouse: ['to-pick', 'still-out', 'kit-short', 'faults', 'damaged-stopped', 'cant-go', 'counts', 'tests-soon', 'vehicles'],
   me: ['leave'],

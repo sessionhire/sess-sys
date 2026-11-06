@@ -25,7 +25,7 @@ import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { numberLabel } from './common.tsx'
 import { Heading } from '../Icon.tsx'
-import { inKitOf, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { inKitOf, Narrowed, useMyKitDepartment, useNarrowed } from '../Narrowed.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
 
 /**
@@ -337,15 +337,15 @@ function EditFault({ f, onDone }: { f: FaultView; onDone: () => void }) {
 /**
  * The Stock tab's repair list: every open fault, by kind, what can't go out first and then oldest first, under a heading
  * that stays in view, and narrowed to a department as the catalogue is (audit, 20 October 2026, finding 93): before a
- * load-out it's what can't go out that's wanted.
+ * load-out it's what can't go out that's wanted. Drawn only while something is open: the page says when nothing is.
  */
 export function RepairList({ view }: { view: View }) {
-  // Opened from a count on Home for a department, that department's kit, as Home counted it (audit, 20 October 2026, finding 4).
-  const [narrowed, widen] = useNarrowed('#stock/repairs')
+  // Opened from a count on Home, the kit it counted, a department's or everyone's (audit, 20 October 2026, finding 4); from
+  // anywhere else, a head's own kit, as Stock's row counts it (Move 3 of the sweep of 6 November 2026).
+  const [narrowed, widen] = useNarrowed('#stock/repairs', useMyKitDepartment())
   const [department, setDepartment] = useState<Department | 'all'>('all')
   const card = useUnderTop<HTMLElement>(true)
   const inNarrowed = view.faults.open.filter((f) => inKitOf(narrowed)(f.model))
-  if (inNarrowed.length === 0) return null
   const departmentOf = (f: FaultView): Department => f.model?.department ?? 'other'
   const present = DEPARTMENTS.filter((d) => inNarrowed.some((f) => departmentOf(f) === d))
   const chosen = department !== 'all' && present.includes(department) ? department : 'all'
@@ -360,7 +360,12 @@ export function RepairList({ view }: { view: View }) {
       {/* One name for the list on Stock's row, Home's count, the page and the Menu, with Home's count (Move 3 of the sweep of 6 November 2026). */}
       <Heading icon="repair">{listHeading(STANDING_HEADINGS.faults, inNarrowed.length)}</Heading>
       <Narrowed department={narrowed} onWiden={widen} />
-      <p className="hint">Kit that can't go out is taken off what's free for jobs until it's fixed or found.</p>
+      {/* None of their department's while others wait: said, with the way to them, rather than no card at all. */}
+      {inNarrowed.length === 0 ? (
+        <p className="empty">None of this department's kit is waiting to be repaired or found.</p>
+      ) : (
+        <p className="hint">Kit that can't go out is taken off what's free for jobs until it's fixed or found.</p>
+      )}
       {!narrowed && present.length > 1 && (
         <div className="filters" role="group" aria-label="Department">
           <button type="button" aria-pressed={chosen === 'all'} onClick={() => setDepartment('all')}>

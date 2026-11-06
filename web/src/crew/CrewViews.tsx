@@ -25,6 +25,9 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
   const calls = mayCrew ? crewToCheck(view, today, department) : 0
   // What's theirs to decide: their own request is another approver's (audit, 5 November 2026, finding 28).
   const leave = canApproveLeave(me) ? leaveToDecide(view, today, me).length : 0
+  // Only those they can decide, as Home counts them: one whose amounts they aren't sent waits on the office (ADR 0062; Move 3 of
+  // the sweep of 6 November 2026).
+  const timesheets = mayCrew ? standing(view, today).timesheets.length : 0
   return (
     <Views
       label="Crew pages"
@@ -33,7 +36,7 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
         { key: 'calls', href: '#crew', label: 'Calls', count: calls },
         { key: 'people', href: '#crew/people', label: 'People' },
         { key: 'leave', href: '#crew/leave', label: 'Leave', count: leave },
-        ...(view.office.useTimesheets ? [{ key: 'timesheets', href: '#crew/timesheets', label: 'Timesheets', count: mayCrew ? view.timesheets.toApprove.length : 0 }] : []),
+        ...(view.office.useTimesheets ? [{ key: 'timesheets', href: '#crew/timesheets', label: 'Timesheets', count: timesheets }] : []),
       ]}
     />
   )

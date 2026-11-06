@@ -36,7 +36,6 @@ import { Pending, StatusPill, type PillTone } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 import { CrewViews } from './CrewViews.tsx'
-import { inDepartment, Narrowed, useNarrowed } from '../Narrowed.tsx'
 
 /**
  * Staff leave and time in lieu (ADR 0024), at #crew/leave: my year's
@@ -554,11 +553,13 @@ function EntryRow({ e, me }: { e: LieuEntryView; me: PersonView }) {
   )
 }
 
-/** The queue for whoever can approve time off, with what to weigh up, and the decision in place. */
+/**
+ * The queue for whoever can approve time off, with what to weigh up, and the decision in place. Approvers are people (ADR
+ * 0024), so it's everyone's waiting, from whatever department, as Home and the Crew tab count it (Move 3 of the sweep of 6
+ * November 2026).
+ */
 function ToApprove({ view, me }: { view: View; me: PersonView }) {
-  // Opened from a count on Home for a department, that department's requests, as Home counted them (audit, 20 October 2026, finding 4).
-  const [department, widen] = useNarrowed('#crew/leave')
-  const queue = view.leave.queue.filter((q) => inDepartment(department)(q.person))
+  const { queue } = view.leave
   // Theirs to decide first, counted in the heading as on the Crew tab; their own after, for another approver (audit, 5 November 2026, finding 28).
   const others = queue.filter((q) => q.person?.id !== me.id)
   const own = queue.filter((q) => q.person?.id === me.id)
@@ -566,7 +567,6 @@ function ToApprove({ view, me }: { view: View; me: PersonView }) {
   return (
     <section className="card" aria-label="To approve">
       <h2>{listHeading(STANDING_HEADINGS.leave, others.length)}</h2>
-      <Narrowed department={department} onWiden={widen} />
       {others.length === 0 && <Empty />}
       {[...others, ...own].map((item) => (
         <QueueRow key={key(item)} item={item} me={me} />

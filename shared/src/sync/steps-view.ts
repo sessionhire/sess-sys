@@ -134,7 +134,9 @@ export function stepsView(
   money: MoneyView,
   vehicles: VehiclesView,
   faults: FaultsView,
-  today: string
+  today: string,
+  /** Whether the server sends this device money (ADR 0042): a role it doesn't isn't sent the quotes either. */
+  sentMoney: boolean
 ): StepsView {
   // Snapshots saved before steps have no table for them, and rows saved before due dates have none.
   const records = new Map<string, StepRecord & { pending: boolean }>()
@@ -192,7 +194,9 @@ export function stepsView(
         ? { auto: sent.sentOn ? `Sent ${dayLabel(sent.sentOn)}` : 'Sent' }
         : job.status === 'quoted' || job.status === 'confirmed'
           ? { auto: `The job is ${STATUS_LABELS[job.status].toLowerCase()}` }
-          : { hint: draft ? 'A draft is started' : 'No quote yet' },
+          : // Not sent the quotes, a role can't tell a quote started from none: it's the office's, not missing (ADR 0046 §8;
+            // Move 3 of the sweep of 6 November 2026). Such a device holds no quote, so never a "Sent …" either.
+            { hint: !sentMoney ? 'Quote: with the office' : draft ? 'A draft is started' : 'No quote yet' },
       // Only the job's own status is the yes (ADR 0103): it's what puts the job on the calendar and holds its kit, so a
       // quote accepted on a job still an enquiry is the task to do, not a task done.
       confirmed:

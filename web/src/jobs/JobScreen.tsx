@@ -3,6 +3,7 @@ import {
   crewFill,
   daysLabel,
   departmentForRole,
+  departmentOf,
   eachDay,
   mapLink,
   movedCallSpan,
@@ -16,6 +17,7 @@ import {
   kindOf,
   PROJECT_KINDS,
   PROJECT_STATUSES,
+  sameDepartment,
   STATUS_LABELS,
   type ProjectKind,
   STOPPED,
@@ -53,6 +55,7 @@ import { ShowPackCard } from './ShowPack.tsx'
 import { NextDock } from './NextDock.tsx'
 import { StepsCard } from './Steps.tsx'
 import { Heading } from '../Icon.tsx'
+import { useMyDepartment } from '../Narrowed.tsx'
 import { JOBS } from '../Up.tsx'
 
 /**
@@ -219,7 +222,9 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
 /**
  * The job's crew: the calls of each phase under its name, then those
  * across phases, then asking for more. An offer being sent opens under
- * the calls it's for.
+ * the calls it's for. A head of department's own calls come first, under
+ * their department's name, so the one that's theirs isn't the fifth of
+ * seven (Move 3 of the sweep of 6 November 2026).
  */
 function CrewPart({
   job,
@@ -237,6 +242,11 @@ function CrewPart({
   mayCrew: boolean
 }) {
   const stopped = STOPPED.includes(job.status)
+  const department = useMyDepartment()
+  const theirs = (c: CallView) => sameDepartment(departmentOf(c), department)
+  const mine = job.calls.filter(theirs)
+  const others = (calls: readonly CallView[]) => calls.filter((c) => !theirs(c))
+  const across = others(job.otherCalls)
   const card = (c: CallView, phase?: PhaseView) => (
     <CallCard
       key={c.id}
@@ -248,38 +258,58 @@ function CrewPart({
       onTell={onTell}
       inJob
       phaseDays={phase ? c.start === phase.start && c.end === phase.end : undefined}
+      // Theirs are away from their phases, first, so each says its phase.
+      phaseNamed={theirs(c)}
     />
   )
+  /** The calls asked for on days outside their phase's, each said over the calls. */
+  const outside = (calls: readonly CallView[]) =>
+    calls.flatMap((c) => {
+      const phase = job.phases.find((p) => p.id === c.phaseId)
+      return phase && c.status === 'open' && (c.start < phase.start || c.end > phase.end)
+        ? [
+            <p className="warn-line" key={c.id}>
+              The {c.role} crew are asked for {daysLabel(c.days)}, outside {phase.name}.
+            </p>,
+          ]
+        : []
+    })
   return (
     <>
+      {mine.length > 0 && (
+        <>
+          <section className="card" aria-label={`${department} crew`}>
+            <Heading icon="people">{department} crew</Heading>
+            {outside(mine)}
+            {mine.map((c) => card(c))}
+          </section>
+          {offerFor(mine)}
+        </>
+      )}
       {job.phases
-        .filter((p) => p.calls.length > 0)
+        .filter((p) => others(p.calls).length > 0)
         .map((phase) => {
-          const outside = phase.calls.filter((c) => c.status === 'open' && (c.start < phase.start || c.end > phase.end))
+          const calls = others(phase.calls)
           return (
             <Fragment key={phase.id}>
               {/* Named for its phase, as the phase is on Phases: one part is open at a time. */}
               <article className="card" aria-label={phase.name}>
                 <Heading icon="people">{phase.name}</Heading>
                 <p className="hint">{spanLabel(phase)}</p>
-                {outside.map((c) => (
-                  <p className="warn-line" key={c.id}>
-                    The {c.role} crew are asked for {daysLabel(c.days)}, outside {phase.name}.
-                  </p>
-                ))}
-                {phase.calls.map((c) => card(c, phase))}
+                {outside(calls)}
+                {calls.map((c) => card(c, phase))}
               </article>
-              {offerFor(phase.calls)}
+              {offerFor(calls)}
             </Fragment>
           )
         })}
-      {job.otherCalls.length > 0 && (
+      {across.length > 0 && (
         <>
           <section className="card" aria-label="Crew across phases">
             <Heading icon="people">Across phases</Heading>
-            {job.otherCalls.map((c) => card(c))}
+            {across.map((c) => card(c))}
           </section>
-          {offerFor(job.otherCalls)}
+          {offerFor(across)}
         </>
       )}
       {/* Asking for more: last, under the calls it adds to; nothing for a role that can't ask, once there are calls to see. */}
@@ -313,6 +343,9 @@ function CrewPart({
  */
 function JobLines({ job, view }: { job: JobView; view: View }) {
   const crew = crewFill(job.calls)
+  // A head's own department's first, beside the whole job's (Move 3 of the sweep of 6 November 2026): "LX 0 of 1 · all 5 of 10".
+  const department = useMyDepartment()
+  const theirs = crewFill(job.calls.filter((c) => sameDepartment(departmentOf(c), department)))
   const kit = kitSummary(job, view.kit.byJob.get(job.id) ?? [])
   // The facts of the job as labelled cells, on the system's facts list (the label over the value), rather than one long dotted line:
   // the eye finds the venue or the dates by their label without reading the rest (Colly, 1 November 2026).
@@ -345,7 +378,9 @@ function JobLines({ job, view }: { job: JobView; view: View }) {
         <div>
           <dt>Crew</dt>
           <dd>
-            {crew.booked} of {crew.needed} booked{crew.toConfirm > 0 ? `, ${crew.toConfirm} to confirm` : ''}
+            {theirs.needed > 0
+              ? `${department} ${theirs.booked} of ${theirs.needed}${theirs.toConfirm > 0 ? `, ${theirs.toConfirm} to confirm` : ''} · all ${crew.booked} of ${crew.needed}`
+              : `${crew.booked} of ${crew.needed} booked${crew.toConfirm > 0 ? `, ${crew.toConfirm} to confirm` : ''}`}
           </dd>
         </div>
       )}

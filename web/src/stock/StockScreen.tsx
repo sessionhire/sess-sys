@@ -55,7 +55,7 @@ import { StockViews } from '../Views.tsx'
 import { productPhotoOf, Thumb } from '../Picture.tsx'
 import { departmentIcon, kitIcon } from './kitIcon.ts'
 import { Heading, Icon } from '../Icon.tsx'
-import { inKitOf, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { inKitOf, Narrowed, useMyKitDepartment, useNarrowed } from '../Narrowed.tsx'
 import { StillOutRow } from './StillOut.tsx'
 
 /**
@@ -425,14 +425,15 @@ function ProductRows({ rows, current }: { rows: readonly ModelView[]; current: s
  * number, then the rest; the first few of each, then the rest on request.
  */
 function ShortKit({ view }: { view: View }) {
-  // Opened from a count on Home for a department, that department's kit, as Home counted it (audit, 20 October 2026, finding 4).
-  const [department, widen] = useNarrowed('#stock')
+  // Opened from a count on Home, the kit it counted, a department's or everyone's (audit, 20 October 2026, finding 4); from
+  // anywhere else, a head's own kit (Move 3 of the sweep of 6 November 2026).
+  const [department, widen] = useNarrowed('#stock', useMyKitDepartment())
   const today = useToday()
   const short = view.kit.short.filter((l) => inKitOf(department)(l.model))
   // Home's count is of the confirmed jobs' lines whose kit is held in the next fortnight (Move 3 of the sweep of 6 November 2026).
   const counted = standing(view, today, { department })['kit-short']
   const rest = short.filter((l) => !counted.includes(l))
-  if (short.length === 0) return null
+  if (view.kit.short.length === 0) return null
   const row = (l: (typeof short)[number]) => (
     <li key={l.id}>
       <a className="job-row" href={`#jobs/${l.projectId}`}>
@@ -460,13 +461,19 @@ function ShortKit({ view }: { view: View }) {
       )}
     </>
   )
+  // None of their department's while others are short: said quietly, as healthy is, with the way to the others' rather than no
+  // card at all, as "Show all departments" is the one way to widen (ADR 0034).
   return (
-    <section className="card kit-short" aria-label="Kit short">
-      <Heading icon="attention">Kit short</Heading>
+    <section className={short.length > 0 ? 'card kit-short' : 'card'} aria-label="Kit short">
+      <Heading icon={short.length > 0 ? 'attention' : 'kit'}>Kit short</Heading>
       <Narrowed department={department} onWiden={widen} />
-      <p className="hint">
-        On jobs from today on, once the confirmed jobs on the same days have theirs. Quotes and enquiries show what they'd need if they go ahead.
-      </p>
+      {short.length === 0 ? (
+        <p className="empty">None of this department's kit is short.</p>
+      ) : (
+        <p className="hint">
+          On jobs from today on, once the confirmed jobs on the same days have theirs. Quotes and enquiries show what they'd need if they go ahead.
+        </p>
+      )}
       {counted.length > 0 && (
         <>
           <h3 className="group">{listHeading(STANDING_HEADINGS['kit-short'], counted.length)}</h3>

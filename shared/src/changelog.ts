@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.90.0',
+    date: '2026-11-06',
+    title: "A head's own department, first on Stock and the job",
+    what: "For a head of department, Stock's Testing and Repairs counts are now their own department's kit, as on Home, and Repairs, Testing and Kit short open on their department, with Show all departments for the rest. Back to a list finds it as it was left; opened again from Stock's row, it starts on their department, as the row counts it. When none of their department's kit is short, Kit short says so quietly. A count on Home's Company or Warehouse view opens the whole list it counted, on Stock and on Crew, so the tile's number is the list's. A job's Crew line shows their department beside the whole job, such as LX 0 of 1 · all 5 of 10, and the job's Crew tab lists their department's crew first. Leave waiting for them to approve is counted on Home whichever department it comes from, and the Timesheets count leaves out the ones only the office can decide. Where a role isn't shown quotes, a job now says Quote: with the office instead of No quote yet.",
+    prs: [223],
+  },
+  {
     version: '1.89.2',
     date: '2026-11-06',
     title: "Money's tables read on a phone again, and headings and folds look the same everywhere",

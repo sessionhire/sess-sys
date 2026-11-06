@@ -60,6 +60,17 @@ waiting on someone.
   number waiting to sync is grey; hovers only where a pointer hovers.
   Money's By month and Margin by job stack each month or job on a phone,
   every figure named.
+- Move 3, part 2, a head's own department (1.90.0, PR #223): for a head,
+  Stock's row counts and its Repairs, Testing and Kit short lists start
+  on their department's kit (LX through lighting) under "Showing LX only.
+  Show all departments"; widening is kept per step of the tab's history
+  (places.ts), so Back finds a list as it was left and the row's count is
+  the list's as it opens. A count on Home decides where its list starts,
+  everyone's included, and a narrowed list with nothing of theirs keeps
+  its card, quiet. Leave counts by approver (ADR 0024), the Timesheets
+  count leaves out the office's, a job's CREW fact reads "LX 0 of 1 · all
+  5 of 10" with their crew first on the Crew tab, and where the device
+  isn't sent money a job says "Quote: with the office".
 
 **Waiting**
 
