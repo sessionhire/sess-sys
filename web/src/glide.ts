@@ -45,7 +45,16 @@ function standard(t: number): number {
   return bez(y1, y2, (lo + hi) / 2)
 }
 
-const durationMs = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-duration-slow')) || 240
+/**
+ * The system's slow step in milliseconds. Safari gives the token back as ".24s" where Chrome gives "240ms": read as a number alone,
+ * Safari's was a quarter of a millisecond, and the whole glide happened in one frame (Colly's iPhone, 7 November 2026).
+ */
+export function durationMs(): number {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--ds-duration-slow').trim()
+  const n = parseFloat(raw)
+  if (!n || n < 0) return 240
+  return /ms$/i.test(raw) ? n : n * 1000
+}
 
 let stopLast: (() => void) | undefined
 

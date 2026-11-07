@@ -356,7 +356,9 @@ test('a long screen names its parts on them, and a tap goes to one', async ({ br
   const title = (await page.getByRole('heading', { level: 1, name: 'Calls' }).boundingBox())!
   expect((await parts.boundingBox())!.y).toBeGreaterThanOrEqual(title.y + title.height)
   // The page glides there, as it's the same page (glide.ts): it passes through places between, and the part's card is marked where it lands.
+  // The slow step is given as Safari gives it back (".24s", not "240ms"), which once made the glide a quarter of a millisecond long.
   await page.evaluate(() => {
+    document.documentElement.style.setProperty('--ds-duration-slow', '.24s')
     const w = window as unknown as { seen: number[] }
     w.seen = []
     const look = () => (w.seen.push(scrollY), w.seen.length < 40 && requestAnimationFrame(look))
@@ -369,7 +371,7 @@ test('a long screen names its parts on them, and a tap goes to one', async ({ br
   await settled(page)
   const seen = await page.evaluate(() => (window as unknown as { seen: number[] }).seen)
   const end = seen.at(-1)!
-  expect(seen.filter((y) => y > seen[0]! && y < end).length, 'places between the start and the end').toBeGreaterThan(1)
+  expect(seen.filter((y) => y > seen[0]! && y < end).length, 'places between the start and the end').toBeGreaterThanOrEqual(3)
   await expect(lists).toBeInViewport()
   await expect(parts.getByRole('button', { name: 'Coming up' })).toHaveAttribute('aria-current', 'location')
   // Scrolled to, a part clears the bar and the strip, which stays straight under the bar.
