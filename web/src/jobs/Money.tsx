@@ -89,37 +89,11 @@ export function MoneyScreen({ view }: { view: View }) {
   const today = useToday()
   if (!useAccess().can('money')) return <NotYours view={view} />
   const m = view.money
-  const month = moneyMonth(today)
-  const now = m.months.find((x) => x.key === month.key)
-  const owed = m.owed.reduce((s, o) => s + o.cents, 0)
-  const notInvoiced = owed - m.owed.reduce((s, o) => s + o.invoiced, 0)
-  const toFreelancers = m.costsOwed.reduce((s, c) => s + c.cents, 0)
   return (
     <div className="app crew jobs money">
       <Top view={view} views={<JobViews current="money" />} heading="Money" />
       <section className="card plain">
-        <dl className="facts money-facts">
-          <div>
-            <dt>Quoted for {month.label}</dt>
-            <dd>{money(now?.quoted ?? 0)}</dd>
-          </div>
-          <div>
-            <dt>Confirmed</dt>
-            <dd>{money(now?.confirmed ?? 0)}</dd>
-          </div>
-          {/* Named for what it is (audit finding 29): accepted and not paid, much of it not asked for yet. */}
-          <div>
-            <dt>Accepted, unpaid</dt>
-            <dd>
-              {money(owed)}
-              <small>with VAT{notInvoiced > 0 && `, of which ${money(notInvoiced)} not invoiced yet`}</small>
-            </dd>
-          </div>
-          <div>
-            <dt>Owed to freelancers</dt>
-            <dd>{money(toFreelancers)}</dd>
-          </div>
-        </dl>
+        <MoneyFacts view={view} today={today} />
         <p className="hint">
           Before VAT, by the month each job starts, except what's accepted and unpaid, which is with VAT, as an invoice asks. <a href="#quotes">Quotes</a> · <a href="#jobs/money/prices">Price list</a> ·{' '}
           <a href="#jobs/money/current-rms">Past quotes from Current RMS</a>
@@ -409,6 +383,59 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
   )
 }
 
+/**
+ * The month in Money's own words, one list for Money's head and Home's Money card, so the two never frame it differently
+ * (Move 10 of the sweep of 6 November 2026): quoted, confirmed, accepted and unpaid, owed to freelancers, and what was lost,
+ * with the jobs whose dates passed with no answer named under it, not summed, until someone marks them lost.
+ */
+export function MoneyFacts({ view, today }: { view: View; today: string }) {
+  const m = view.money
+  const month = moneyMonth(today)
+  const now = m.months.find((x) => x.key === month.key)
+  const owed = m.owed.reduce((s, o) => s + o.cents, 0)
+  const notInvoiced = owed - m.owed.reduce((s, o) => s + o.invoiced, 0)
+  const toFreelancers = m.costsOwed.reduce((s, c) => s + c.cents, 0)
+  const lapsed = view.jobs.jobs.filter((j) => view.steps.of(j.id)?.lapsed).length
+  return (
+    <dl className="facts money-facts">
+      <div>
+        <dt>Quoted for {month.label}</dt>
+        <dd>{money(now?.quoted ?? 0)}</dd>
+      </div>
+      <div>
+        <dt>Confirmed</dt>
+        <dd>{money(now?.confirmed ?? 0)}</dd>
+      </div>
+      {/* Named for what it is (audit finding 29): accepted and not paid, much of it not asked for yet. */}
+      <div>
+        <dt>Accepted, unpaid</dt>
+        <dd>
+          {money(owed)}
+          <small>with VAT{notInvoiced > 0 && `, of which ${money(notInvoiced)} not invoiced yet`}</small>
+        </dd>
+      </div>
+      <div>
+        <dt>Owed to freelancers</dt>
+        <dd>{money(toFreelancers)}</dd>
+      </div>
+      <div>
+        <dt>Lost or lapsed for {month.label}</dt>
+        <dd>
+          {money(now?.lost ?? 0)}
+          <small>
+            turned down or marked lost
+            {lapsed > 0 && (
+              <>
+                ; and <a href="#jobs/board">{plural(lapsed, 'job')} whose dates passed with no answer</a>, not in this
+              </>
+            )}
+          </small>
+        </dd>
+      </div>
+    </dl>
+  )
+}
+
 function ByMonth({ m }: { m: MoneyView }) {
   if (!m.months.length) return null
   return (
@@ -423,6 +450,7 @@ function ByMonth({ m }: { m: MoneyView }) {
               <th scope="col">Confirmed</th>
               <th scope="col">Invoiced</th>
               <th scope="col">Freelancers</th>
+              <th scope="col">Lost</th>
             </tr>
           </thead>
           <tbody>
@@ -433,6 +461,7 @@ function ByMonth({ m }: { m: MoneyView }) {
                 <td className="n" data-label="Confirmed">{money(x.confirmed)}</td>
                 <td className="n" data-label="Invoiced">{money(x.invoiced)}</td>
                 <td className="n" data-label="Freelancers">{money(x.costs)}</td>
+                <td className="n" data-label="Lost">{money(x.lost)}</td>
               </tr>
             ))}
           </tbody>
@@ -440,7 +469,7 @@ function ByMonth({ m }: { m: MoneyView }) {
       </Sideways>
       <p className="hint">
         Quoted counts the quote that stands on each job, sent or accepted; confirmed, the accepted ones. A quote turned down isn't counted, nor one on a job cancelled or lost
-        until it's invoiced.
+        until it's invoiced. Lost sums the quotes turned down and those on jobs marked lost.
       </p>
     </section>
   )

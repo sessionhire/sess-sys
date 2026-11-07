@@ -36,6 +36,7 @@ import {
   PLACE_SORTS,
   placeFilters,
   type PlaceForList,
+  stillInBack,
 } from '@sh/shared'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -420,9 +421,18 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
     const soonEnd = addDays(day, SOON_DAYS)
     const listedJobs = soonOnly ? shown.filter((j) => !j.span || j.span.start < soonEnd) : shown
     // Under the heading of their week while they're by date; in any other order a week heading would come round again and again.
-    const rows: Row[] = byDate ? byWeek(listedJobs, day) : listedJobs.map((job, n) => ({ job, n }))
+    // Past opens on the jobs still in Back with work open on them, under a head of their own, before the weeks (Move 10 of the
+    // sweep of 6 November 2026): a job whose dates passed isn't finished while its Back isn't.
+    const back = filter === 'past' && byDate ? listedJobs.filter((j) => stillInBack(view.steps.of(j.id))) : []
+    const rest = back.length ? listedJobs.filter((j) => !back.includes(j)) : listedJobs
+    const rows: Row[] = byDate
+      ? [
+          ...(back.length ? [{ week: 'back', label: `Still in Back (${back.length.toLocaleString('en-IE')})` }, ...back.map((job, n) => ({ job, n }))] : []),
+          ...byWeek(rest, day).map((r) => ('job' in r ? { ...r, n: r.n + back.length } : r)),
+        ]
+      : listedJobs.map((job, n) => ({ job, n }))
     return { rows, shownCount: shown.length, listedCount: listedJobs.length, searched }
-  }, [jobs, day, filter, search, all, filters, sorts, choices])
+  }, [jobs, day, filter, search, all, filters, sorts, choices, view.steps])
   const win = useWindowed('jobs', rows, rowKey, 110)
 
   return (

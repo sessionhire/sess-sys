@@ -1,5 +1,5 @@
 import { canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
-import { lookAgain, moreSince, sinceLabel, type Looks } from '@sh/shared'
+import { lookAgain, moreSince, sinceLabel, stillInBack, type Looks } from '@sh/shared'
 import { glanceParts, HOLDING, OFFER_WORDS, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asBooking, BookingRow, stoppedBookings } from '../crew/BookingRow.tsx'
@@ -7,7 +7,7 @@ import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
 import { Empty } from '../Empty.tsx'
 import { Top } from '../jobs/common.tsx'
-import { BelowZero } from '../jobs/Money.tsx'
+import { BelowZero, MoneyFacts } from '../jobs/Money.tsx'
 import { useToday, useView } from '../view.ts'
 import { addDays, companyTiles, departmentsIn, jobsOn, SOON, TILES_FOR, tiles, weekAhead, type FirstGroup, type HomeFor, type Tile } from './standing.ts'
 import { JobPosition } from '../jobs/JobPosition.tsx'
@@ -279,6 +279,7 @@ function Today({ view, today }: { view: View; today: string }) {
   const ahead = on.length === 0 ? weekAhead(view, today) : undefined
   const next = ahead && [...ahead.work, ...ahead.errands].sort((a, b) => a.span!.start.localeCompare(b.span!.start))[0]
   const copying = useCopying()
+  const finished = justFinished(view, today)
   return (
     <section className="card">
       <Heading icon="time">Today{on.length > 0 && !copying ? ` (${on.length})` : ''}</Heading>
@@ -296,8 +297,29 @@ function Today({ view, today }: { view: View; today: string }) {
           ))}
         </ul>
       )}
+      {/* A job whose dates passed is still someone's until its Back is done (Move 10 of the sweep of 6 November 2026). */}
+      {!copying && finished.length > 0 && (
+        <>
+          <h3 className="group">Just finished ({finished.length})</h3>
+          <ul className="job-list">
+            {finished.map((j) => (
+              <li key={j.id}>
+                <JobLine job={j} view={view} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   )
+}
+
+/** Jobs over in the last fortnight that are still in Back with work open on them, the latest first. */
+function justFinished(view: View, today: string): JobView[] {
+  const from = addDays(today, -14)
+  return view.jobs.jobs
+    .filter((j) => j.span && j.span.end < today && j.span.end >= from && stillInBack(view.steps.of(j.id)))
+    .sort((a, b) => b.span!.end.localeCompare(a.span!.end) || a.name.localeCompare(b.name))
 }
 
 /** A job in one line: its name, then (in the week ahead) its first day, a quote not yet confirmed, its crew and kit short, as the jobs list says them. */
@@ -490,10 +512,6 @@ function MoneyCard({ view, today }: { view: View; today: string }) {
   const sees = useAccess().can('money')
   const m = view.money
   if (!sees || !m.any) return null
-  const month = m.months.find((x) => x.key === moneyMonth(today).key)
-  const owed = m.owed.reduce((s, o) => s + o.cents, 0)
-  const notInvoiced = owed - m.owed.reduce((s, o) => s + o.invoiced, 0)
-  const toFreelancers = m.costsOwed.reduce((s, c) => s + c.cents, 0)
   return (
     <Chart
       title="Money"
@@ -505,11 +523,10 @@ function MoneyCard({ view, today }: { view: View; today: string }) {
       empty="No quotes in the three months either side of this one."
       more={
         <>
-          {/* What's accepted and unpaid says it's with VAT, and how much isn't invoiced yet (audit findings 29 and 71). */}
+          {/* Money's own list of the month, in its words, so Home and Money never frame it differently (Move 10 of the sweep of 6 November 2026). */}
+          <MoneyFacts view={view} today={today} />
           <p className="hint">
-            {money(month?.confirmed ?? 0)} confirmed of {money(month?.quoted ?? 0)} quoted for {moneyMonth(today).label}, before VAT. {money(owed)} with VAT accepted and
-            unpaid from {plural(m.owed.length, 'client')}
-            {notInvoiced > 0 ? `, ${money(notInvoiced)} of it not invoiced yet` : ''}; {money(toFreelancers)} owed to freelancers. <a href="#jobs/money">Money</a>
+            Before VAT, except what's accepted and unpaid. <a href="#jobs/money">Money</a>
           </p>
           <BelowZero jobs={m.jobs} />
         </>
