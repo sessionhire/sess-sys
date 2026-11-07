@@ -148,9 +148,27 @@ function Catalogue({ view }: { view: View }) {
   // While something is typed in the search, what it finds is all there is on a phone: the day's cards under it step aside, so the
   // finds aren't pushed down or followed by today's pick lists (UX sweep, 6 November 2026, move 8). Beside it on a laptop, they stay.
   const [searching, setSearching] = useState(false)
+  const mayStock = useAccess().can('stock')
+  const findToReport = () => {
+    const field = document.querySelector<HTMLInputElement>('.app.warehouse input[type="search"]')
+    field?.scrollIntoView({ block: 'center' })
+    field?.focus()
+  }
   return (
     <div className="app warehouse">
       <Top view={view} title="Stock" views={<StockViews view={view} current="catalogue" />} heading="Catalogue" />
+
+      {/* For a role that doesn't run the stock, the one thing it can do here first, in the link's words (Move 9 of the sweep of 6 November
+          2026): reporting broken or missing kit, from the item, found below or by its label (ADR 0034). */}
+      {!mayStock && !searching && (
+        <section className="card report-kit" aria-label="Broken or missing kit">
+          <h2>Broken or missing kit</h2>
+          <p>Find it below or scan its label, then report it from its page, so it's checked before it goes out again.</p>
+          <button type="button" className="link" onClick={findToReport}>
+            Report it ›
+          </button>
+        </section>
+      )}
 
       <StockCard view={view} onSearching={setSearching} />
 

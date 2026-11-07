@@ -1,5 +1,10 @@
 import {
   hasSteps,
+  HOLDING,
+  departmentKey,
+  departmentOf,
+  kitOf,
+  sameDepartment,
   crewFill,
   dayLabel,
   KIND_LABELS,
@@ -32,12 +37,14 @@ import {
   placeFilters,
   type PlaceForList,
 } from '@sh/shared'
-import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold } from '../Fold.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
+import { useMyDepartment } from '../Narrowed.tsx'
+import { useMe } from '../crew/Leave.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
 import { Beside, Choices, clientNamed, NewOrNear, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
@@ -331,6 +338,35 @@ function useUnderTop(phone: boolean) {
   return card
 }
 
+/** A head's department starts the Jobs list once a tab; widened, it stays so (Move 9 of the sweep of 6 November 2026). */
+let jobsLensSet = false
+
+/**
+ * Whose a job is, for the Jobs list's first filters (Move 9 of the sweep of 6 November 2026): the jobs someone is booked on, by
+ * their own bookings (a yes waiting to be confirmed counts), and each department named on a call, a job being a department's when
+ * one of its calls is, or a line of its kit is in that department's stock. Read from what this role is sent, so it never counts
+ * more than the list holds.
+ */
+function jobLens(jobs: readonly JobView[], view: View, me: string | undefined) {
+  const mine = me ? (j: JobView) => j.calls.some((c) => c.offers.some((o) => o.personId === me && HOLDING.includes(o.status))) : undefined
+  const names = new Map<string, string>()
+  for (const j of jobs) for (const c of j.calls) {
+    const d = departmentOf(c)?.trim()
+    if (d && !names.has(departmentKey(d))) names.set(departmentKey(d), d)
+  }
+  const departments = [...names.values()]
+    .sort((a, b) => a.localeCompare(b, 'en-IE'))
+    .map((name) => {
+      const stock = kitOf(name)
+      return {
+        name,
+        test: (j: JobView) =>
+          j.calls.some((c) => sameDepartment(departmentOf(c), name)) || (!!stock && (view.kit.byJob.get(j.id) ?? []).some((l) => l.model?.department === stock)),
+      }
+    })
+  return { ...(mine && jobs.some(mine) ? { mine } : {}), departments }
+}
+
 /** Every job, searched and filtered, by week. */
 function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   const { jobs } = view.jobs
@@ -350,9 +386,25 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   // Filter and sort (ADR 0099): the filters narrow the tab chosen above them, and the order is the tab's own until another is picked.
   // A count on Home of jobs with a task late, or down to nobody, opens the list on just those, its other filters off (audit, 5 November 2026, finding 20).
   const [asked] = useState(() => arrival()?.filters)
-  const [choices, setChoices] = useListChoices('jobs', asked && { status: '', kind: '', crew: '', kit: '', stage: '', tasks: '', ...asked })
+  // The lens (Move 9 of the sweep of 6 November 2026): a head's list opens on their department, once a tab, as Crew's and Stock's
+  // do; widened, it stays widened for the tab. A count on Home for a department passes it the same way.
+  const department = useMyDepartment()
+  const [choices, setChoices] = useListChoices('jobs', asked && { mine: '', department: '', status: '', kind: '', crew: '', kit: '', stage: '', tasks: '', ...asked })
+  // Read as it's known: a head's department can come with the first copy, after the list first drew.
+  useEffect(() => {
+    if (!department || jobsLensSet) return
+    jobsLensSet = true
+    if (!asked) setChoices({ ...choices, filters: { ...choices.filters, department: departmentKey(department) } })
+  })
   const sorts = useMemo(() => jobSorts(filter !== 'coming'), [filter])
-  const filters = useMemo(() => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped', (j) => view.steps.of(j.id)), [view.kit.byJob, view.steps, filter])
+  // Who they are as Home › Me and the job's "You on this job" read it: signed in, by their email; with sign-in off, their word.
+  const me = useMe(view).me?.id
+  const whose = useMemo(() => jobLens(jobs, view, me), [jobs, view, me])
+  const filters = useMemo(
+    () => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped', (j) => view.steps.of(j.id), whose),
+    [view.kit.byJob, view.steps, filter, whose]
+  )
+  const mineCount = useMemo(() => (whose.mine ? jobs.filter((j) => filterOf(j, day) === filter && whose.mine!(j)).length : 0), [jobs, whose, filter, day])
   const { rows, shownCount, listedCount, searched } = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
     const matches = (j: JobView) => {
@@ -391,6 +443,18 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
           </button>
         ))}
       </div>
+      {/* "Mine" first for anyone booked on a job (Move 9): the jobs they're on, a tap away, as Home › Me lists their bookings. */}
+      {whose.mine && (mineCount > 0 || choices.filters.mine === 'mine') && (
+        <div className="filters" role="group" aria-label="Whose">
+          <button
+            type="button"
+            aria-pressed={choices.filters.mine === 'mine'}
+            onClick={() => setChoices({ ...choices, filters: { ...choices.filters, mine: choices.filters.mine === 'mine' ? '' : 'mine' } })}
+          >
+            Mine ({mineCount})
+          </button>
+        </div>
+      )}
       {jobs.length > 0 && <ListTools name="jobs" items={searched} filters={filters} sorts={sorts} choices={choices} onChange={setChoices} shown={shownCount} what="jobs" />}
       {shownCount === 0 && searched.length > 0 && <p className="empty">No job here matches those filters.</p>}
       {searched.length === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}

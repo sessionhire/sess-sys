@@ -44,6 +44,21 @@ waiting on someone.
   the deprep). A line in ADR 0104 says the dock is drawn there too.
   pick.spec checks at 390px that the scan box and the dock never cover
   each other.
+- Move 9, each role's own app (1.100.0, PR #235): the Jobs list's filters gain
+  Whose (Mine) and Department (a job is a department's when a call is,
+  or a kit line is in its stock department); a head's list starts on
+  their department once a tab, widened with the chip's take-off; a
+  "Mine (n)" chip first for anyone booked (as Home › Me reads them).
+  `YouOnThisJob` on the job page for anyone with a booking or offer on
+  it, above Where it is for a role without jobs, crew or kit, under it
+  otherwise: role, phase, days, call, venue, details, call sheet, and
+  "Can't make it any more? ›" (or "Answer it on your page ›") to their
+  link at that booking. Plain #crew lands a role without crew on
+  People. Stock opens with "Broken or missing kit · Report it ›" for a
+  role without stock. Left for later: the planner's To sort out
+  narrowing, Home's views group by role and "The company's week ›",
+  the NotYours head and role-aware Empty states, the warehouse head's
+  first landing.
 
 ## 7 November 2026: batch 2 of the UX sweep, words, forms and the link
 

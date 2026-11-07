@@ -302,7 +302,9 @@ export function CrewScreen() {
 
   // Crew's row (ADR 0041): the calls and answers here, the people at #crew/people, the timesheets at #crew/timesheets.
   // A timesheet's address while they're not used (ADR 0090) opens their page, which says so.
-  const page = hash === '#crew/people' ? 'people' : hash === '#crew/timesheets' || timesheet ? 'timesheets' : 'calls'
+  // The plain address lands a role without crew on People, as the bar does (Shell.tsx), so the two never disagree (Move 9 of the sweep
+  // of 6 November 2026): Calls is the office's work, People is who's who.
+  const page = hash === '#crew/people' || (hash === '#crew' && !mayCrew) ? 'people' : hash === '#crew/timesheets' || timesheet ? 'timesheets' : 'calls'
 
   /** Settle a yes or a counter, then tell them. */
   const settle = (o: OfferView, c: CallView, command: 'offer.confirm' | 'offer.cancel', event: TellEvent) => {
