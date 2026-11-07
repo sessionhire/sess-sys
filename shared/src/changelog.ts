@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: 'Jobs through, not invoiced',
     what: "Quotes has a new group at the top, To invoice: every confirmed job that has finished on an accepted quote not yet marked invoiced, the longest waiting first, with the day it finished. The job's page ends its tasks with an Invoice row that says where the invoice stands and opens the quote, and Home counts the jobs through and not invoiced for the office. Jobs that finished before November are marked Not needed, as they were invoiced before the app listed invoices.",
-    prs: [0],
+    prs: [241],
   },
   {
     version: '1.105.0',

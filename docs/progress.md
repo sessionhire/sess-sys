@@ -19,7 +19,7 @@ waiting on someone.
   departments on its calls or kit and the warehouse's heads
   ("Confirmed: Harbour Lights, Mon 9 Nov"), and a job's first kit out,
   to the office ("Gone out: Harbour Lights"). Nobody is emailed.
-- Move 12, second part, the invoice tail (1.106.0, PR #0), on question 6's
+- Move 12, second part, the invoice tail (1.106.0, PR #241), on question 6's
   answer, the row and the group: `invoiceOf` in
   shared/src/sync/money-view.ts says where a job's invoice stands; Quotes
   gains "To invoice" (confirmed, finished, accepted, not invoiced, longest
