@@ -1,5 +1,7 @@
 import {
   CHECK_KINDS,
+  dayLabel,
+  plural,
   CHECK_SOON_DAYS,
   checkLabel,
   checkLine,
@@ -293,11 +295,34 @@ export function VehicleScreen({ view, id, bare }: { view: View; id: string; bare
       </Page>
     )
   return (
-    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare}>
+    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare} heading={v.name} badge={<VehiclePills v={v} />}
+      sub={<p>{vehicleLine(v)}</p>}
+    >
       <Summary v={v} />
       <Checks v={v} />
       <Bookings v={v} />
     </Page>
+  )
+}
+
+/** "Van · 241-D-100 · 3 seats": its kind, registration and seats under its name (Move 11 of the sweep of 6 November 2026). */
+function vehicleLine(v: VehicleView): string {
+  return [VEHICLE_KIND_LABELS[v.kind], v.registration || undefined, v.seats != null ? plural(v.seats, 'seat') : undefined].filter(Boolean).join(' · ')
+}
+
+/**
+ * Its state beside its name: pending, retired, or off the road until a day, with why under it, in words as well as the pill's
+ * tone (Move 11 of the sweep of 6 November 2026; states.md: a value not plainly true is said).
+ */
+function VehiclePills({ v }: { v: VehicleView }) {
+  const today = useToday()
+  const off = v.outOfService && (v.outOfService.until === null || v.outOfService.until >= today) ? v.outOfService : null
+  return (
+    <>
+      <Pending pending={v.pending} />
+      {v.archived && <StatusPill tone="cancelled">Retired</StatusPill>}
+      {off && <StatusPill tone="pending">{off.until ? `Off the road until ${dayLabel(off.until)}` : 'Off the road'}</StatusPill>}
+    </>
   )
 }
 
@@ -312,13 +337,7 @@ function Summary({ v }: { v: VehicleView }) {
     void run(() => client.mutate('vehicle.archive', { id: v.id, archived }))
   }
   return (
-    <section className="card">
-      <header className="title">
-        <h1>{v.name}</h1>
-        <Pending pending={v.pending} />
-        {v.archived && <StatusPill tone="cancelled">Retired</StatusPill>}
-        {off && <StatusPill tone="pending">Off the road</StatusPill>}
-      </header>
+    <section className="card" aria-label="Details">
       <dl className="facts">
         <div>
           <dt>Registration</dt>

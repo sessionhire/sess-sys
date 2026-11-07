@@ -1,6 +1,6 @@
 /* Stock (ADR 0013). The screens also carry the jobs and crew classes, so lists, facts and forms look the same here. */
-.warehouse h1.number, .warehouse .item-row b, .warehouse .numbers a, .warehouse .count .n { font-variant-numeric: tabular-nums; }
-.warehouse h1.number { letter-spacing: .02em; }
+.warehouse h1.number, .warehouse .page-title .number, .warehouse .item-row b, .warehouse .numbers a, .warehouse .count .n { font-variant-numeric: tabular-nums; }
+.warehouse h1.number, .warehouse .page-title .number { letter-spacing: .02em; }
 .warehouse h3 { margin: 0; }
 .warehouse .facts .wide { grid-column: 1 / -1; }
 .warehouse input[type='number'] { width: 100%; }

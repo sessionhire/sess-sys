@@ -44,6 +44,7 @@
   --stack: var(--ds-space-1); /* between the lines of one group: a label and its field, a heading and the line under it */
   --group: var(--ds-space-3); /* between groups inside a part: a card's heading and its list, one row or field and the next */
   --section: var(--ds-space-6); /* between the parts of a page: card and card, the page's head and what's under it */
+  --record: var(--ds-space-4); /* card and card inside a record's tab, its Split and Beside columns: calmer than a list's, as ADR 0082 reads (Colly's question 7 of the sweep of 6 November 2026) */
   --inset: var(--ds-space-4); /* inside a card or panel, from its edge */
   --gutter: var(--ds-space-4); /* the page's edge on a phone */
   /* A row drawn as a box inside a card (a phase's or a call's box, a fault, a test due, a van, a Home tile, a card on the Board): one
@@ -550,8 +551,8 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
  * one, each reading top to bottom, rather than every card zigzagging left and right in pairs as tall as the taller. A page with nothing for
  * the side is one column, the page's full width (ADR 0091).
  */
-.split { display: grid; gap: var(--ds-space-4); min-width: 0; }
-.split > .main, .split > .side { display: grid; gap: var(--ds-space-4); align-content: start; min-width: 0; }
+.split { display: grid; gap: var(--record); min-width: 0; }
+.split > .main, .split > .side { display: grid; gap: var(--record); align-content: start; min-width: 0; }
 .split > .side:empty { display: none; }
 @media (min-width: 1200px) {
   .split { grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); align-items: start; }
@@ -562,7 +563,7 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 
 /* Two columns on a laptop (audit finding 25, Beside in jobs/common.tsx): the list down the left, kept in reach as the record beside it scrolls. Below 960px nothing changes: the list and the record are separate pages. */
 .app.beside .columns { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--ds-space-4); align-items: start; }
-.app.beside .column { display: grid; gap: var(--ds-space-4); min-width: 0; }
+.app.beside .column { display: grid; gap: var(--record); min-width: 0; }
 /* 64px is the top bar's height and 80px the tab bar's with a margin, so the whole list scrolls between the two; with the sidebar there's no bar under it. */
 .app.beside .column.list { position: sticky; top: 64px; max-height: calc(100vh - 64px - 80px); overflow: auto; }
 @media (min-width: 900px) {
@@ -691,7 +692,7 @@ body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px +
 .card > a[href="#admin/changes"] { justify-self: start; }
 
 /* A page's parts as tabs (Tabs.tsx, ADR 0082): the open part's cards one after another under the row, as a job's (jobs.css draws the row). */
-.tab-part { display: grid; gap: var(--ds-space-4); min-width: 0; }
+.tab-part { display: grid; gap: var(--record); min-width: 0; }
 
 /* Admin › Status (ADR 0093): one row a check, its name and word on a line, then what it says and what to do. */
 .status-checks, .status-wrong { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ds-space-4); }

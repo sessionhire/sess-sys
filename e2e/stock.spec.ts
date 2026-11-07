@@ -126,6 +126,7 @@ test('counted, labelled, put in a case, found by number, and kept at a place', a
   await expect(page.locator('.facts')).toContainText(`Where${bay}`)
 
   // A speaker goes in the rack, and eight cables are counted in it.
+  await page.getByRole('tab', { name: 'In it' }).click()
   const inIt = page.getByRole('region', { name: 'In it' })
   await expect(inIt).toContainText('Nothing here yet.')
   const put = part(page, 'Put an item in')
@@ -182,10 +183,10 @@ test('counted, labelled, put in a case, found by number, and kept at a place', a
   await page.getByRole('radio', { name: 'Lost' }).check()
   await page.getByLabel('Note').fill('Not back from the Point')
   await page.getByRole('button', { name: `Retire ${sh(first + 51)}` }).click()
-  await expect(page.locator('.title .pill')).toHaveText('Retired')
+  await expect(page.locator('.page-title-row .pill')).toHaveText('Retired')
   await expect(page.locator('.facts')).toContainText('RetiredLost: Not back from the Point')
   await page.getByRole('button', { name: 'Bring back' }).click()
-  await expect(page.locator('.title .pill')).toHaveCount(0)
+  await expect(page.locator('.page-title-row .pill')).toHaveCount(0)
   await expect(page.locator('.facts')).toContainText('WhereNot placed yet')
   await expect(page.locator('.conn')).toHaveText('Up to date')
 

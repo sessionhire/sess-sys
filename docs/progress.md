@@ -40,6 +40,15 @@ waiting on someone.
   name in the head with "Quote · version 2 · <client> · <dates>" or
   "Pick list · <dates>" under it and the quote's pill or the job's
   position beside it; the QUOTE kicker and the first card's h1 go.
+- Move 11, second part, the Stock area's record heads (1.104.0): the item
+  (number and picture in the head, "Mic case 24 · Bay C2" under it, the
+  Details card and tracker over Tabs: Faults · Tests and certificates ·
+  In it · Counts · Log, as #stock/item/<id>/<part>), the place ("Place ·
+  576 items · counted …") and the vehicle ("Van · 241-D-100 · 3 seats",
+  "Off the road until …" as a pill beside its name) take the shared page
+  head; a fault drawn away from the Repairs list's state groups carries
+  its state as a pill; the record card gap is one role, `--record`
+  (16px, Colly's question 7), in app.css.
 
 **Left for later**
 

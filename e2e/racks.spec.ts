@@ -90,7 +90,7 @@ test('a rack, laid out, drawn, and a built one checked against its layout', asyn
     ['asset.add', { id: `a-${id}`, modelId: `amp-${id}`, number: null, serial: '', placeId: null, caseId: `r-${id}`, notes: '', fromCount: false }],
   ])
   await expect(layout.getByText('2 missing')).toBeVisible()
-  await page.goto(`/#stock/item/r-${id}`)
+  await page.goto(`/#stock/item/r-${id}/inside`)
   const check = page.getByRole('region', { name: 'Against its layout' })
   await expect(check.getByText(`2 × ${mon}`)).toBeVisible()
 

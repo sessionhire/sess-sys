@@ -1,4 +1,4 @@
-import { plural, type AssetView, type PlaceView, type View, type WarehouseView } from '@sh/shared'
+import { dayLabel, plural, type AssetView, type PlaceView, type View, type WarehouseView } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -30,8 +30,11 @@ export function PlaceScreen({ view, id, bare }: { view: View; id: string; bare?:
         </section>
       </Page>
     )
+  // Its name heads the page, with its kind, what's kept there and its last count under (Move 11 of the sweep of 6 November 2026).
+  const last = view.counts.of({ placeId: p.id, caseId: null })[0]
+  const line = ['Place', plural(p.itemTotal + p.countedTotal, 'item'), last ? `counted ${dayLabel(last.day)}` : 'not counted yet'].join(' · ')
   return (
-    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare}>
+    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare} heading={p.name} badge={<Pending pending={p.pending} />} sub={<p>{line}</p>}>
       <Summary p={p} w={w} />
       <CountsOf view={view} where={{ placeId: p.id, caseId: null }} />
       <Here p={p} w={w} />
@@ -64,11 +67,7 @@ function Summary({ p, w }: { p: PlaceView; w: WarehouseView }) {
     })
   }
   return (
-    <section className="card">
-      <header className="title">
-        <h1>{p.name}</h1>
-        <Pending pending={p.pending} />
-      </header>
+    <section className="card" aria-label="Details">
       <dl className="facts">
         <div>
           <dt>Items</dt>
