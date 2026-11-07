@@ -1,4 +1,5 @@
 import {
+  LEAVE_WORDS,
   canApproveLeave,
   dayLabel,
   daysLeft,
@@ -89,11 +90,12 @@ export function useMe(view: View): { me: PersonView | undefined; signedIn: boole
 
 const yearOf = (day: string) => Number(day.slice(0, 4))
 
+// Never a bare Waiting (UX sweep, 6 November 2026, move 4): the pill's slot can also say Waiting to sync.
 const STATUS: Record<LeaveStatus, [string, PillTone]> = {
-  waiting: ['Waiting', 'pending'],
-  approved: ['Approved', 'confirmed'],
-  declined: ['Declined', 'cancelled'],
-  cancelled: ['Cancelled', 'cancelled'],
+  waiting: [LEAVE_WORDS.waiting, 'pending'],
+  approved: [LEAVE_WORDS.approved, 'confirmed'],
+  declined: [LEAVE_WORDS.declined, 'cancelled'],
+  cancelled: [LEAVE_WORDS.cancelled, 'cancelled'],
 }
 
 function LeavePill({ status, pending }: { status: LeaveStatus; pending: boolean }) {
@@ -216,7 +218,7 @@ function Facts({ b }: { b: LeaveBalance }) {
           <dd>{days(b.annual.booked)}</dd>
         </div>
         <div>
-          <dt>Waiting</dt>
+          <dt>{LEAVE_WORDS.waiting}</dt>
           <dd>{days(b.annual.waiting)}</dd>
         </div>
         <div>
@@ -245,7 +247,7 @@ function Facts({ b }: { b: LeaveBalance }) {
           <dd>{days(b.lieu.booked)}</dd>
         </div>
         <div>
-          <dt>Waiting</dt>
+          <dt>{LEAVE_WORDS.waiting}</dt>
           <dd>{days(b.lieu.waiting)}</dd>
         </div>
         <div>

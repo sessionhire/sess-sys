@@ -16,6 +16,7 @@ import {
   type Where,
   STANDING_HEADINGS,
   listHeading,
+  NOT_YOURS
 } from '@sh/shared'
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useScanKeys } from '../scanKeys.ts'
@@ -284,7 +285,7 @@ export function CountScreen({ view }: { view: View }) {
           <p className="empty">
             {mayCount
               ? "No count is under way on this phone. Start one from a place's page or a case's page, or from a place due below."
-              : 'No count is under way on this phone. The warehouse and heads of department do the counts.'}
+              : `No count is under way on this phone. ${NOT_YOURS.counts}`}
           </p>
         </section>
         <CountsCard view={view} />

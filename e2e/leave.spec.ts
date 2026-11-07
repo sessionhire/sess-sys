@@ -155,7 +155,7 @@ test('an approver opens next year in place, and a request in it, turned down unt
   await siun.getByRole('button', { name: `${NEXT}, the year after` }).click()
   const mine = siun.getByRole('region', { name: `My requests, ${NEXT}` })
   await expect(mine).toContainText('1 day')
-  await expect(mine.locator('.pill')).toHaveText('Waiting')
+  await expect(mine.locator('.pill')).toHaveText('Waiting for approval')
   await eoin.getByRole('region', { name: 'To approve' }).getByRole('button', { name: `Approve Siún Keogh ${id}'s request` }).click()
   await expect(mine.locator('.pill')).toHaveText('Approved')
 })
@@ -188,7 +188,7 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   const mine = nora.getByRole('region', { name: /^My requests/ })
   await expect(mine).toContainText('Annual leave')
   await expect(mine).toContainText('3 days')
-  await expect(mine.locator('.pill')).toHaveText('Waiting')
+  await expect(mine.locator('.pill')).toHaveText('Waiting for approval')
 
   // Eoin, who can approve time off, on his: the Crew tab's badge counts her request the moment he says who he is, with no reload, and the queue says what to weigh up.
   const eoin = await (await browser.newContext({ viewport: phoneSize })).newPage()

@@ -1,4 +1,5 @@
 import {
+  OFFER_WORDS,
   APPLICANT_LEVEL,
   daysLabel,
   departmentForRole,
@@ -53,16 +54,8 @@ import { dept, found, wordsOf } from './People.tsx'
  * and asking for crew. The screen that lists them is CrewScreen.tsx.
  */
 
-export const STATUS: Record<OfferView['status'], [string, PillTone]> = {
-  offered: ['Offered', 'pending'],
-  countered: ['Asked for more', 'pending'],
-  accepted: ['Accepted', 'pending'],
-  confirmed: ['Confirmed', 'confirmed'],
-  declined: ['Declined', 'cancelled'],
-  filled: ['Filled', 'cancelled'],
-  cancelled: ['Withdrawn', 'cancelled'],
-  'pulled-out': ["Can't make it", 'cancelled'],
-}
+/** An offer's word and tone, from the one word table (UX sweep, 6 November 2026, move 4): a crew booking is Booked here as on the sheet and the link. */
+export const STATUS: Record<OfferView['status'], readonly [string, PillTone]> = OFFER_WORDS
 
 /** The other jobs someone holds on any of these days, and which days: what an offer over a booking can't have. */
 function heldOn(crew: CrewView, personId: string, days: readonly string[], exceptCallId: string) {

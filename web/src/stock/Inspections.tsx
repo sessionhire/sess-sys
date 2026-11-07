@@ -293,7 +293,7 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
   return (
     <section className="card inspections-due" aria-label="Inspections due">
       <Heading icon="inspection">Inspections due</Heading>
-      <Narrowed department={department} onWiden={widen} />
+      <Narrowed department={department} onWiden={widen} kit />
       {stopped.length === 0 && soon.length === 0 && certsDue.length === 0 && <p className="empty">Nothing failed, overdue or due in the next 30 days.</p>}
       {stopped.length > 0 && (
         <>

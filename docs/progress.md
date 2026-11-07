@@ -3,6 +3,30 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 7 November 2026: batch 2 of the UX sweep, words and forms
+
+**Done**
+
+- Batch 2, on Colly's "Do batch 2": moves 4, 5b and 6b, one PR each,
+  built in turn.
+- Move 4, one word table (1.96.0, PR #229): shared/src/words.ts holds
+  the words met on more than one surface, and the pills, the call sheet,
+  the link, the dock and the "not yours" sentences read it. A crew
+  booking is Booked on every surface (Colly's question 1 on its
+  recommendation), so Confirmed is only the client's yes (ADR 0103);
+  accepted is To confirm, filled is "Filled by someone else", the
+  office's take-back "Withdrawn by the office". Leave's waiting is
+  "Waiting for approval". "Still needs crew" is the one name for calls
+  short of people (Home's tile, Crew's list, the planner's key), under
+  Calls' "Coming up" card. Time groups are Coming up, Past and Not going
+  ahead (a person's Worked tab is Past). Someone else's work is one
+  sentence shape from STEP_OWNERS and NOT_YOURS (the dock's rest, Vans,
+  Counting, Quotes, the pick list, Timesheets); a colleague's hidden
+  details say "Hidden for your role". Kit lists narrowed for a head say
+  "Showing LX (Lighting) only". Menu lines have a reader's version for a
+  role without the ability; history says "Cancelled the job …". Keys,
+  wire names and stored rows are unchanged.
+
 ## 6 November 2026: the UX cohesion sweep, and batch 1 of its moves
 
 **Done**

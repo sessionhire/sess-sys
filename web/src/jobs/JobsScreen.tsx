@@ -453,7 +453,8 @@ export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonl
         <JobStatusPill status={job.status} pending={job.pending} />
         {crew.needed > 0 && (
           <small>
-            Crew {crew.booked} of {crew.needed}
+            {/* Booked, as the sheet, the link and Calls say it, so this line's Confirmed is only ever the job's (UX sweep, 6 November 2026, move 4). */}
+            Crew {crew.booked} of {crew.needed} booked
             {crew.toConfirm > 0 && `, ${crew.toConfirm} to confirm`}
           </small>
         )}

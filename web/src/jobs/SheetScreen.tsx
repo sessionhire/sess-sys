@@ -1,4 +1,5 @@
 import {
+  SHEET_WORDS,
   callSheet,
   callSheetText,
   HOLDING,
@@ -248,7 +249,7 @@ function Contact({ view, phase, sheet }: { view: View; phase: PhaseView; sheet: 
   )
 }
 
-const STATUS_PILL: Record<'booked' | 'to confirm' | 'offered', [PillTone, string]> = { booked: ['confirmed', 'Booked'], 'to confirm': ['pending', 'To confirm'], offered: ['cancelled', 'Offered'] }
+const STATUS_PILL: Record<keyof typeof SHEET_WORDS, readonly [PillTone, string]> = { booked: [SHEET_WORDS.booked[1], SHEET_WORDS.booked[0]], 'to confirm': [SHEET_WORDS['to confirm'][1], SHEET_WORDS['to confirm'][0]], offered: [SHEET_WORDS.offered[1], SHEET_WORDS.offered[0]] }
 
 function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: readonly CallView[]; onSend?: (call: CallView, personId: string) => void; print?: boolean }) {
   return (

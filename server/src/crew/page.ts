@@ -2,7 +2,7 @@ import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noT
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
-import { busyByDay, isNews, STOPPED_WORDS, type OwnCalendar, type SinceYes } from '@sh/shared'
+import { busyByDay, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, STOPPED_WORDS, type OwnCalendar, type SinceYes } from '@sh/shared'
 import type { Ended, EndedBy } from './store.ts'
 
 /**
@@ -139,16 +139,8 @@ export interface PageData {
   leave?: LeaveRequest[]
 }
 
-const STATUS_TEXT: Record<Offer['status'], string> = {
-  offered: 'Waiting on you',
-  countered: 'Rate sent to the office',
-  accepted: 'Accepted, the office will confirm',
-  confirmed: 'Confirmed',
-  declined: 'You declined',
-  filled: 'Filled by someone else',
-  cancelled: 'Withdrawn by the office',
-  'pulled-out': "Can't make it",
-}
+/** An offer's state as its person reads it, from the one word table (UX sweep, 6 November 2026, move 4): a booking is Booked here as in the office. */
+const STATUS_TEXT: Record<Offer['status'], string> = OFFER_WORDS_TO_YOU
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -749,7 +741,7 @@ function leaveBlock(d: PageData, leave: readonly LeaveRequest[], booked: PageDat
   const rows = [
     ...leave.map((r) => ({
       start: r.start,
-      html: `<li><span>${h(daysLabel(eachDay(r.start, r.end), d.today))} <small>${h([leaveLabel(r.type, r.days), r.note].filter(Boolean).join(' · '))}</small></span><span class="tag ${r.status}">${r.status === 'approved' ? 'Approved' : 'Waiting'}</span></li>`,
+      html: `<li><span>${h(daysLabel(eachDay(r.start, r.end), d.today))} <small>${h([leaveLabel(r.type, r.days), r.note].filter(Boolean).join(' · '))}</small></span><span class="tag ${r.status}">${r.status === 'approved' ? LEAVE_WORDS.approved : LEAVE_WORDS.waiting}</span></li>`,
     })),
     // Approved leave marks its days off too: the request above says it once, with where it stands.
     ...d.away.filter((u) => u.source !== 'leave' && u.end >= d.today).map((u) => ({ start: u.start, html: awayLine(d, u, booked, ['Days off', u.note].filter(Boolean).join(' · ')) })),
@@ -846,7 +838,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 
   ${details(d)}
 
-  ${past.length ? `<section><h2>Past work</h2>${overList(past.map((j) => earlierLine(j, j.offer.status === 'confirmed' ? 'Confirmed' : 'Accepted, never confirmed', d.today)))}</section>` : ''}
+  ${past.length ? `<section><h2>Past work</h2>${overList(past.map((j) => earlierLine(j, j.offer.status === 'confirmed' ? OFFER_WORDS_TO_YOU.confirmed : 'Accepted, never confirmed', d.today)))}</section>` : ''}
 
   ${turned.length ? `<section><h2>Declined and withdrawn</h2>${overList(turned.map((j) => earlierLine(j, ended(j.offer, d.ended.get(j.offer.id), d.today), d.today)))}</section>` : ''}
 

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.96.0',
+    date: '2026-11-07',
+    title: 'The same thing reads the same everywhere',
+    what: "A crew member who is booked is now Booked everywhere: on Calls, the call sheet, the jobs list (\"Crew 3 of 5 booked\"), Home and their own page, so Confirmed only ever means the client said yes. Someone who said yes and waits on the office is To confirm, an offer taken by someone else is Filled by someone else, and one the office took back is Withdrawn by the office, on both sides. Leave waiting for a decision says Waiting for approval. The calls that still need people are Still needs crew on Calls, Home and the planner's key, under Coming up. Lists that split by time say Coming up, Past and Not going ahead: a person's Worked tab is now Past. When something on a page is someone else's to do, it says who in one way, such as \"The warehouse scans the kit back.\", and the job's Vehicles no longer tells staff to book a van. A head's kit lists say both names, \"Showing LX (Lighting) only\". The Menu's lines are written for the person reading them, and the history says a job was cancelled instead of \"status to cancelled\".",
+    prs: [229],
+    adrs: [103],
+  },
+  {
     version: '1.95.0',
     date: '2026-11-07',
     title: 'Your link says what changed since you said yes',

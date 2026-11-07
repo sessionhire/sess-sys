@@ -43,7 +43,7 @@ test('a call starts on the department its role suggests, and Calls narrows to on
   // Narrowed to LX, the new call is there; narrowed to Audio, it isn't.
   const filter = page.getByLabel('Calls for department')
   await filter.selectOption('LX')
-  const needed = page.locator('section', { has: page.getByRole('heading', { name: 'Crew needed' }) })
+  const needed = page.locator('section', { has: page.getByRole('heading', { name: 'Coming up' }) })
   await expect(needed.getByText('Dept Test Gig')).toBeVisible()
   await filter.selectOption('Audio')
   await expect(needed.getByText('Dept Test Gig')).toHaveCount(0)
@@ -90,7 +90,7 @@ test('Home for a department counts the crew its calls still need', async ({ brow
   const tile = page.locator('.standing').getByRole('link', { name: /call(s)? still need(s)? crew/ })
   const count = (await tile.locator('b').textContent())!
   await tile.click()
-  const needed = page.getByRole('heading', { name: `Short of crew (${count})`, exact: true })
+  const needed = page.getByRole('heading', { name: `Still needs crew (${count})`, exact: true })
   await expect(needed).toBeFocused()
   await expect(needed).toBeInViewport()
   await expect(page.getByLabel('Calls for department')).toHaveValue('Video')
@@ -225,7 +225,7 @@ test("a head's own department is where Stock's lists and counts and the job's cr
   const repairs = page.getByRole('region', { name: 'Repairs open' })
   const repairsHead = repairs.getByRole('heading', { name: /^Repairs open/ })
   await expect(repairsHead).toHaveText('Repairs open (1)')
-  await expect(repairs).toContainText('Showing LX only.')
+  await expect(repairs).toContainText('Showing LX (Lighting) only.')
   await expect(repairs).toContainText('Lens Spot')
   await expect(repairs).not.toContainText('d&b Y10P')
   // One tap to the rest, which Back from one of them finds as it was left (navigation.md).
@@ -235,24 +235,24 @@ test("a head's own department is where Stock's lists and counts and the job's cr
   await expect(page).toHaveURL(/#stock\/item\//)
   await page.goBack()
   await expect(repairsHead).toHaveText('Repairs open (2)')
-  await expect(repairs).not.toContainText('Showing LX only.')
+  await expect(repairs).not.toContainText('Showing LX (Lighting) only.')
 
   // Kit short starts on LX's kit too: the moving heads the arts week would be short of, not Audio's speakers.
   await row.getByRole('link', { name: 'Catalogue' }).click()
   const short = page.getByRole('region', { name: 'Kit short' })
-  await expect(short).toContainText('Showing LX only.')
+  await expect(short).toContainText('Showing LX (Lighting) only.')
   await expect(short).toContainText('Robe Spiider')
   await expect(short).not.toContainText('d&b Y10P')
   // Opened again from the row, Repairs starts on LX's once more: the row's number is the list's as it opens.
   await rowRepairs.click()
   await expect(rowRepairs).toHaveText('Repairs 1')
   await expect(repairsHead).toHaveText('Repairs open (1)')
-  await expect(repairs).toContainText('Showing LX only.')
+  await expect(repairs).toContainText('Showing LX (Lighting) only.')
 
   // So does Testing.
   await row.getByRole('link', { name: /^Testing/ }).click()
   const due = page.getByRole('region', { name: 'Inspections due' })
-  await expect(due).toContainText('Showing LX only.')
+  await expect(due).toContainText('Showing LX (Lighting) only.')
   await expect(due.getByRole('heading', { name: /^Can't go out/ })).toHaveText("Can't go out (1)")
 
   // A count on Home opens the list it counted: LX's for Home for LX, everyone's for Home for the warehouse, each headed with the
@@ -266,26 +266,26 @@ test("a head's own department is where Stock's lists and counts and the job's cr
   await expect(tile.locator('b')).toHaveText('1')
   await tile.click()
   await expect(repairsHead).toHaveText('Repairs open (1)')
-  await expect(repairs).toContainText('Showing LX only.')
+  await expect(repairs).toContainText('Showing LX (Lighting) only.')
   await page.goto('/#home')
   await showFor.getByRole('button', { name: 'Warehouse' }).click()
   await expect(tile.locator('b')).toHaveText('2')
   await tile.click()
   await expect(repairsHead).toHaveText('Repairs open (2)')
-  await expect(repairs).not.toContainText('Showing LX only.')
+  await expect(repairs).not.toContainText('Showing LX (Lighting) only.')
   await page.goto('/#home')
   const shortTile = page.locator('.standing').getByRole('link', { name: /kit lines? short for confirmed jobs?/ })
   const shortCount = (await shortTile.locator('b').textContent())!
   await shortTile.click()
   await expect(short.getByRole('heading', { name: /^For confirmed jobs in the next fortnight/ })).toHaveText(`For confirmed jobs in the next fortnight (${shortCount})`)
-  await expect(short).not.toContainText('Showing LX only.')
+  await expect(short).not.toContainText('Showing LX (Lighting) only.')
   // And the company's on Crew: every department's calls short of crew, though Crew starts on LX's from the tab.
   await page.goto('/#home')
   await showFor.getByRole('button', { name: 'Company', exact: true }).click()
   const crewTile = page.locator('.standing').getByRole('link', { name: /calls? still needs? crew/ })
   const crewCount = (await crewTile.locator('b').textContent())!
   await crewTile.click()
-  await expect(page.getByRole('heading', { name: `Short of crew (${crewCount})`, exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: `Still needs crew (${crewCount})`, exact: true })).toBeVisible()
   await expect(page.getByLabel('Calls for department')).toHaveValue('')
 
   // A quote this role isn't sent is with the office, never missing, on the Jobs list and the Board alike.
@@ -356,5 +356,5 @@ test('Home for a department counts the leave waiting on the approver looking, wh
   await tile.click()
   await expect(queue.getByRole('heading', { level: 2 })).toHaveText('To approve (2)')
   await expect(queue).toContainText('Cian Murphy')
-  await expect(page.locator('main')).not.toContainText('Showing LX only.')
+  await expect(page.locator('main')).not.toContainText('Showing LX (Lighting) only.')
 })

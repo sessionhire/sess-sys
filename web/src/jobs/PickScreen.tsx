@@ -23,6 +23,7 @@ import {
   type PickList,
   type PickRow,
   type View,
+  NOT_YOURS
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useScanKeys } from '../scanKeys.ts'
@@ -267,7 +268,7 @@ function Pick({ view, job }: { view: View; job: JobView }) {
         </div>
         <p className={`pick-total${total.done ? ' done' : ''}`}>{total.text}</p>
         {mode === 'out' && <Brief view={view} job={job} today={today} />}
-        {!mayMove && <p className="hint">Whoever keeps the stock scans kit out and back here.</p>}
+        {!mayMove && <p className="hint">{NOT_YOURS.scanning}</p>}
       </section>
 
       {/* The scan box stays under the top bar while the list scrolls (audit, 20 October 2026, finding 5), as Jobs' week headings

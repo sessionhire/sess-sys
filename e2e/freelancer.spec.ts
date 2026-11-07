@@ -96,7 +96,7 @@ test('a clash is shown before the server says it, a refusal shows in the offer�
   // What's over is two lists, each line with its days: the gala Dara worked, and Laoise's no to the load-in.
   await expect(phone.getByRole('heading', { name: 'Earlier' })).toHaveCount(0)
   const past = phone.locator('section', { has: phone.getByRole('heading', { name: 'Past work' }) })
-  await expect(past.locator('li').first()).toContainText(/^Autumn Gala \(Show\) · Sound No\.1 · \w{3} \d{1,2} \w{3} to \w{3} \d{1,2} \w{3} Confirmed$/)
+  await expect(past.locator('li').first()).toContainText(/^Autumn Gala \(Show\) · Sound No\.1 · \w{3} \d{1,2} \w{3} to \w{3} \d{1,2} \w{3} Booked$/)
   const laoise = changes.find((c) => c.entity === 'person' && c.data.name === 'Laoise Keane')!
   await phone.goto(`/f/${laoise.data.linkToken}`)
   const turned = phone.locator('section', { has: phone.getByRole('heading', { name: 'Declined and withdrawn' }) })
@@ -199,7 +199,7 @@ test("a member of staff's link lists their leave, with the way to ask for it in 
   const leave = phone.locator('section', { has: phone.getByRole('heading', { level: 2, name: 'Leave', exact: true }) })
   await expect(leave.getByRole('listitem')).toHaveCount(1)
   await expect(leave.getByRole('listitem')).toContainText(/^\w{3} \d{1,2} \w{3}.* to \w{3} \d{1,2} \w{3}.* Annual leave · Flights booked, if that suits\./)
-  await expect(leave.locator('.tag')).toHaveText('Waiting')
+  await expect(leave.locator('.tag')).toHaveText('Waiting for approval')
   await expect(leave.getByRole('link', { name: 'Ask for leave in the app ›' })).toHaveAttribute('href', /^http:\/\/localhost:\d+\/#crew\/leave$/)
   await expect(phone.getByRole('heading', { name: "Days you can't work" })).toHaveCount(0)
   await expect(phone.getByRole('button', { name: 'Add days off' })).toHaveCount(0)

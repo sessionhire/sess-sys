@@ -1,4 +1,4 @@
-import { dayLabel, firstName, STATUS_LABELS, STOPPED, type JobStep, type JobView, type View } from '@sh/shared'
+import { dayLabel, firstName, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
@@ -24,16 +24,6 @@ import type { JobPart } from './JobScreen.tsx'
  */
 
 /** Whose a task is when this role can't act on it. */
-const WHOSE: Record<JobStep, string> = {
-  quote: 'the office',
-  confirmed: 'the office',
-  crew: 'whoever books the crew',
-  kit: 'the heads of department',
-  prep: 'the warehouse',
-  show: 'the crew on it',
-  back: 'the warehouse',
-  deprep: 'the warehouse',
-}
 
 export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view: View; onPart: (p: JobPart) => void; onOpenTask: (t: JobStep) => void }) {
   const access = useAccess()
@@ -144,7 +134,8 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
       press = { label: 'Tick off the deprep', onPress: () => onOpenTask('deprep') }
       break
   }
-  if (!press) return rest(why ?? `Next is ${task.label.toLowerCase()}, for ${task.owner ? task.owner.name : WHOSE[task.key]}. Nothing here for you to press.`)
+  // Someone else's, said in the one shape the word table writes (UX sweep, 6 November 2026, move 4): who does it, and nothing to press.
+  if (!press) return rest(why ?? `Next is ${task.label.toLowerCase()}. ${task.owner ? `It's down to ${task.owner.name}.` : whoDoes(task.key)} Nothing here for you to press.`)
   // The quiet second choice: hand the task on, or open it. Not for the client's answer, whose button already opens it.
   const second = mayTask && task.key !== 'confirmed' && task.key !== 'deprep' && (
     <button type="button" className="link second" onClick={() => onOpenTask(task.key)}>

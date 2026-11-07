@@ -21,6 +21,11 @@ export interface Place {
   label: string
   /** What's there, in a line. */
   about: string
+  /**
+   * What's there for a role that reads it but can't do its work, with the ability that does: the line is written for
+   * whoever opens it (UX sweep, 6 November 2026, move 4), so staff aren't told of work that isn't theirs.
+   */
+  reading?: { unless: Ability; about: string }
   /** Shown only to a role that can make one of these kinds of change. */
   needs?: readonly Ability[]
   /** Shown only while this holds, such as timesheets being used (ADR 0090). */
@@ -44,6 +49,7 @@ export const MENU: PlaceGroup[] = [
         href: '#jobs',
         label: 'Jobs',
         about: 'Every job, its phases, kit and crew',
+        reading: { unless: 'jobs', about: 'Every job, and the ones you are on' },
       },
       {
         key: 'plan',
@@ -133,6 +139,7 @@ export const MENU: PlaceGroup[] = [
         href: '#stock/labels',
         label: 'Labels',
         about: 'Print labels for kit',
+        reading: { unless: 'stock', about: 'The labels on the kit, and what they say' },
       },
       {
         key: 'count',
@@ -140,6 +147,7 @@ export const MENU: PlaceGroup[] = [
         href: '#stock/count',
         label: 'Counting',
         about: 'Stocktakes and rolling counts',
+        reading: { unless: 'stock', about: 'The counts under way, which the warehouse and heads of department do' },
       },
       {
         key: 'testing',
@@ -147,6 +155,7 @@ export const MENU: PlaceGroup[] = [
         href: '#stock/testing',
         label: 'Testing',
         about: 'Tests due, and testing a batch of kit',
+        reading: { unless: 'stock', about: 'When kit is due a test, and what failed' },
       },
       {
         key: 'repairs',
@@ -154,6 +163,7 @@ export const MENU: PlaceGroup[] = [
         href: '#stock/repairs',
         label: 'Repairs',
         about: 'Damaged and missing kit to sort out',
+        reading: { unless: 'stock', about: 'Broken or missing kit: report it from the item, by scanning it' },
       },
       {
         key: 'racks',
@@ -195,7 +205,8 @@ export const MENU: PlaceGroup[] = [
         icon: 'message',
         href: '#crew',
         label: 'Calls',
-        about: 'Crew needed, and answers to check',
+        about: 'Still needs crew, and answers to check',
+        reading: { unless: 'crew', about: 'The calls coming up, and who is on them' },
       },
       {
         key: 'people',
@@ -210,6 +221,7 @@ export const MENU: PlaceGroup[] = [
         href: '#crew/leave',
         label: 'Leave',
         about: 'Time off for staff',
+        reading: { unless: 'crew', about: 'Your own leave, and asking for more' },
       },
       {
         key: 'timesheets',
@@ -217,6 +229,7 @@ export const MENU: PlaceGroup[] = [
         href: '#crew/timesheets',
         label: 'Timesheets',
         about: 'To approve, and not in yet',
+        reading: { unless: 'crew', about: 'Your own timesheets, sent from your page' },
         when: (view) => view.office.useTimesheets,
       },
       {
@@ -304,7 +317,7 @@ export function MenuScreen() {
                       </span>
                       <div>
                         <b>{p.label}</b>
-                        <p>{p.about}</p>
+                        <p>{p.reading && !can(p.reading.unless) ? p.reading.about : p.about}</p>
                       </div>
                       <div className="side" aria-hidden="true">
                         <Icon name="next" />

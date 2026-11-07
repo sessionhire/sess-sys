@@ -13,6 +13,7 @@ import {
   type PersonView,
   type VehicleView,
   type View,
+  NOT_YOURS
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -47,7 +48,8 @@ export function VansCard({ job, view }: { job: JobView; view: View }) {
     <section className="card vans" aria-label="Vehicles">
       <Heading icon="van">Vehicles</Heading>
       {stopped && bookings.length > 0 && <p className="hint">This job is {job.status}, so its vehicles are free for other jobs.</p>}
-      {bookings.length === 0 && <Empty>Book a van for the job, or for one phase of it, with a driver from the crew.</Empty>}
+      {/* A role without a button is told who books them, not told to (UX sweep, 6 November 2026, move 4). */}
+      {bookings.length === 0 && <Empty>{mayBook ? 'Book a van for the job, or for one phase of it, with a driver from the crew.' : `No vans booked yet. ${NOT_YOURS.vans}`}</Empty>}
       {bookings.map((b) => (
         <Booking key={b.id} b={b} job={job} view={view} mayBook={mayBook} />
       ))}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { kitOf, narrower, type Department } from '@sh/shared'
+import { bothNames, DEPARTMENT_LABELS, kitOf, narrower, type Department } from '@sh/shared'
 import { arrival } from './arrival.ts'
 import { listOpened, openedList } from './places.ts'
 import { useAccess } from './role.ts'
@@ -65,11 +65,16 @@ export const inKitOf = (department: string | undefined) => {
   return (model: { department?: Department } | undefined) => kit(model?.department)
 }
 
-export function Narrowed({ department, onWiden }: { department: string | undefined; onWiden: () => void }) {
+/**
+ * The line over a narrowed list. On a list of kit, a department whose crew name isn't its stock name says both, "LX
+ * (Lighting)", so a head who reads LX on Crew knows it's the Lighting kit (UX sweep, 6 November 2026, move 4).
+ */
+export function Narrowed({ department, onWiden, kit = false }: { department: string | undefined; onWiden: () => void; kit?: boolean }) {
   if (!department) return null
+  const stock = kitOf(department)
   return (
     <p className="hint narrowed">
-      Showing {department} only.{' '}
+      Showing {kit ? bothNames(department, stock && DEPARTMENT_LABELS[stock]) : department} only.{' '}
       <button type="button" className="link" onClick={onWiden}>
         Show all departments
       </button>

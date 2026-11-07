@@ -14,6 +14,8 @@ import {
   type PersonView,
   type ProjectStatus,
   type View,
+  HIDDEN_FOR_YOUR_ROLE,
+  TIME_GROUPS,
 } from '@sh/shared'
 import { CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
 import { holdsARole, ROLE_LABELS, ROLE_LINES, ROLES, roleOfPerson, signInAbility, soonestFirst, type Role } from '@sh/shared'
@@ -57,7 +59,8 @@ const dateLabel = (d: string) => `${dayLabel(d)} ${d.slice(0, 4)}`
 /** A person's page in parts (ADR 0082), one at a time under their name. */
 export type PersonPart = 'coming' | 'details' | 'documents' | 'worked' | 'link'
 const PERSON_PARTS: readonly PersonPart[] = ['coming', 'details', 'documents', 'worked', 'link']
-const PERSON_LABELS: Record<PersonPart, string> = { coming: 'Coming up', details: 'Details', documents: 'Documents', worked: 'Worked', link: 'Their link' }
+// The time parts in the word table's names (UX sweep, 6 November 2026, move 4); the key stays 'worked' in addresses.
+const PERSON_LABELS: Record<PersonPart, string> = { coming: TIME_GROUPS.coming, details: 'Details', documents: 'Documents', worked: TIME_GROUPS.past, link: 'Their link' }
 
 export function PersonScreen({
   view,
@@ -227,7 +230,7 @@ function Who({ person, view }: { person: PersonView; view: View }) {
       {/* Not sent to staff crew or freelancers (ADR 0062): said, so it isn't taken for none. */}
       {person.detailsHidden && (
         <p className="hint">
-          Your role doesn't see {person.name}'s {person.phone ? 'email, notes or company' : 'phone, email, notes or company'}. The office has them.
+          {person.phone ? 'Email, notes and company' : 'Phone, email, notes and company'}: {HIDDEN_FOR_YOUR_ROLE.toLowerCase()}. The office has them.
         </p>
       )}
       {editing ? (
@@ -720,8 +723,8 @@ function CertificateLines({ person }: { person: PersonView }) {
 function Worked({ person }: { person: PersonView }) {
   const { worked } = person
   return (
-    <section className="card" aria-label={`Worked: ${person.name}`}>
-      <Heading icon="history">Worked{worked.length > 0 && ` (${worked.length === 1 ? '1 job' : `${worked.length} jobs`})`}</Heading>
+    <section className="card" aria-label={`${TIME_GROUPS.past}: ${person.name}`}>
+      <Heading icon="history">{TIME_GROUPS.past}{worked.length > 0 && ` (${worked.length === 1 ? '1 job' : `${worked.length} jobs`})`}</Heading>
       {worked.length === 0 && <Empty>No jobs worked yet. Each booking shows here from its first day.</Empty>}
       <ShowAll items={worked} limit={10} what="jobs">
         {(rows) => (

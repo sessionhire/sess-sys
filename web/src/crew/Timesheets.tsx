@@ -17,6 +17,7 @@ import {
   type TimesheetExtra,
   type TimesheetRow,
   type View,
+  NOT_YOURS
 } from '@sh/shared'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -73,7 +74,7 @@ export function TimesheetsCard({ view }: { view: View }) {
   if (!toApprove.length && !notIn.length && !lately.length)
     return mayDecide ? null : (
       <section className="card">
-        <Empty>No timesheets of yours yet. You send them from your own page once a booking's days are done.</Empty>
+        <Empty>{`No timesheets of yours yet. ${NOT_YOURS.timesheets}`}</Empty>
       </section>
     )
   return (
