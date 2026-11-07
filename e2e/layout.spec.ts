@@ -110,7 +110,7 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   await line.click()
   await expect(line).toHaveAttribute('aria-expanded', 'true')
   await expect(call).toContainText('€260')
-  await expect(call.locator('.offers li', { hasText: `Maeve Doyle ${id}` })).toContainText('Confirmed')
+  await expect(call.locator('.offers li', { hasText: `Maeve Doyle ${id}` })).toContainText('Booked')
 })
 
 /** Changes as a phone sends them, straight to the server; each must be taken. */

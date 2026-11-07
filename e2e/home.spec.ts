@@ -270,11 +270,11 @@ test('a long screen names its parts on them, and a tap goes to one', async ({ br
   expect(await parts.evaluate((nav) => nav.nextElementSibling?.querySelector('h2')?.textContent)).toMatch(/^Answers to check/)
   const title = (await page.getByRole('heading', { level: 1, name: 'Calls' }).boundingBox())!
   expect((await parts.boundingBox())!.y).toBeGreaterThanOrEqual(title.y + title.height)
-  await parts.getByRole('button', { name: 'Crew needed' }).click()
-  const lists = page.getByRole('heading', { name: 'Crew needed', exact: true })
+  await parts.getByRole('button', { name: 'Coming up' }).click()
+  const lists = page.getByRole('heading', { name: 'Coming up', exact: true })
   await expect(lists).toBeFocused()
   await expect(lists).toBeInViewport()
-  await expect(parts.getByRole('button', { name: 'Crew needed' })).toHaveAttribute('aria-current', 'location')
+  await expect(parts.getByRole('button', { name: 'Coming up' })).toHaveAttribute('aria-current', 'location')
   // Scrolled to, a part clears the bar and the strip, which stays straight under the bar.
   const [bar, strip, heading] = await Promise.all([page.locator('header.top'), parts, lists].map(async (l) => (await l.boundingBox())!))
   expect(Math.round(strip!.y)).toBe(Math.round(bar!.y + bar!.height))
@@ -448,13 +448,13 @@ test('Me says Your bookings as their own link does: its glance line, a row each,
   // Her bookings, two confirmed with today's shoot first and one accepted, counted in the heading; the offer waiting on her
   // is in the glance line and the list, not the count.
   const card = page.locator('section', { has: page.getByRole('heading', { name: /^Your bookings/ }) })
-  await expect(card.getByRole('heading', { level: 2 })).toHaveText('Your bookings (2 confirmed, 1 accepted)')
+  await expect(card.getByRole('heading', { level: 2 })).toHaveText('Your bookings (2 booked, 1 to confirm)')
   // Each part's name in the strip fits inside a 390 phone's gutters, so the one in view is read whole.
   const strip = page.getByRole('navigation', { name: 'On this screen' })
-  await expect(strip.getByRole('button', { name: 'Your bookings (2 confirmed, 1 accepted)' })).toBeVisible()
+  await expect(strip.getByRole('button', { name: 'Your bookings (2 booked, 1 to confirm)' })).toBeVisible()
   for (const part of await strip.getByRole('button').all()) expect((await part.boundingBox())!.width).toBeLessThanOrEqual(358)
   const accepted = card.getByRole('link', { name: new RegExp(`^Held check ${run}`) })
-  await expect(accepted.locator('.pill')).toHaveText('Accepted')
+  await expect(accepted.locator('.pill')).toHaveText('To confirm')
   await expect(accepted).not.toContainText('Answer it on your page')
   const glance = card.locator('.my-glance')
   await expect(glance).toHaveText('1 offer to answer · Next: Liffey Brands Shoot, today, call 07:30')

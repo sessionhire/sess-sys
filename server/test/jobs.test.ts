@@ -484,7 +484,7 @@ describe('the history of a job', () => {
       'Added Build to Nissan launch, Wed 7 Oct to Thu 8 Oct',
       'Added Show to Nissan launch, Fri 9 Oct',
       'Added Load out to Nissan launch, Fri 9 Oct',
-      'Changed the job Nissan launch: status to cancelled and the notes',
+      'Changed the job Nissan launch: now cancelled and the notes',
       'Changed Show on Nissan launch: dates to Sat 10 Oct',
       'Removed Load out from Nissan launch',
     ])

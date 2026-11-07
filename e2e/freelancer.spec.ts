@@ -199,7 +199,7 @@ test("a member of staff's link lists their leave, with the way to ask for it in 
   const leave = phone.locator('section', { has: phone.getByRole('heading', { level: 2, name: 'Leave', exact: true }) })
   await expect(leave.getByRole('listitem')).toHaveCount(1)
   await expect(leave.getByRole('listitem')).toContainText(/^\w{3} \d{1,2} \w{3}.* to \w{3} \d{1,2} \w{3}.* Annual leave · Flights booked, if that suits\./)
-  await expect(leave.locator('.tag')).toHaveText('Waiting')
+  await expect(leave.locator('.tag')).toHaveText('Waiting for approval')
   await expect(leave.getByRole('link', { name: 'Ask for leave in the app ›' })).toHaveAttribute('href', /^http:\/\/localhost:\d+\/#crew\/leave$/)
   await expect(phone.getByRole('heading', { name: "Days you can't work" })).toHaveCount(0)
   await expect(phone.getByRole('button', { name: 'Add days off' })).toHaveCount(0)

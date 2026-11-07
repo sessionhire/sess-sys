@@ -20,6 +20,7 @@ import {
   listed,
   QUOTE_SORTS,
   quoteFilters,
+  NOT_YOURS
 } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
@@ -56,7 +57,7 @@ export function QuotesScreen() {
       <div className="app crew jobs money quotes">
         <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
         <section className="card">
-          <p className="empty">Quotes are for the office and directors. A director can change your role on the Crew tab.</p>
+          <p className="empty">{NOT_YOURS.quotes} A director can change your role on the Crew tab.</p>
         </section>
       </div>
     )

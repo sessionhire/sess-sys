@@ -465,7 +465,7 @@ describe('freelancer link', () => {
     expect(section).toContain('2 more bookings after these, a line each: tap one to open it.')
     expect(section.match(/<details class="later">/g)).toHaveLength(2)
     // As it reads; the spaces a line never breaks at are the shared row's own (shared/test/bookings.test.ts).
-    expect(said(section)).toContain('<summary><b>Gig 7</b><span class="line">Audio tech · Build · Sat 17 Oct · call 08:00 <span class="tag confirmed">Confirmed</span></span></summary>')
+    expect(said(section)).toContain('<summary><b>Gig 7</b><span class="line">Audio tech · Build · Sat 17 Oct · call 08:00 <span class="tag confirmed">Booked</span></span></summary>')
     expect(section.indexOf('Gig 7')).toBeLessThan(section.indexOf('Gig 9'))
     // The glance line stays in view as the page scrolls.
     expect(page).toMatch(/\.glance\{[^}]*position:sticky/)
@@ -685,7 +685,7 @@ describe('the freelancer page (audit finding 21)', () => {
       ['Mon 3 Mar 2031 to Fri 7 Mar 2031', 'Annual leave · Family wedding'],
       ['Tue 18 Mar 2031', 'Annual leave'],
     ])
-    expect(leave.match(/<span class="tag (approved|waiting)">(Approved|Waiting)<\/span>/g)).toEqual(['<span class="tag approved">Approved</span>', '<span class="tag waiting">Waiting</span>'])
+    expect(leave.match(/<span class="tag (approved|waiting)">(Approved|Waiting for approval)<\/span>/g)).toEqual(['<span class="tag approved">Approved</span>', '<span class="tag waiting">Waiting for approval</span>'])
     // Approved leave marks its days off too, and isn't said twice; the days off marked before keep their Remove.
     expect(leave).not.toContain('Approved leave')
     expect(leave).toContain(`/f/${orla.linkToken}/away/course/remove#away`)
@@ -740,7 +740,7 @@ describe('the freelancer page (audit finding 21)', () => {
     const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
     expect(page).not.toContain('<h2>Earlier</h2>')
     const past = page.slice(page.indexOf('<h2>Past work</h2>'), page.indexOf('<h2>Declined and withdrawn</h2>'))
-    expect(past).toContain(`<li>Autumn Gala (Show) · Audio tech · ${daysLabel(galaDays)} <small>Confirmed</small></li>`)
+    expect(past).toContain(`<li>Autumn Gala (Show) · Audio tech · ${daysLabel(galaDays)} <small>Booked</small></li>`)
     expect(past).not.toContain('Electric Picnic')
     const turned = page.slice(page.indexOf('<h2>Declined and withdrawn</h2>'))
     expect(turned).toContain(`<li>Electric Picnic (Build) · Audio tech · ${daysLabel(['2026-10-02', '2026-10-03', '2026-10-04'])} <small>You declined on ${dayLabel(today)}</small></li>`)

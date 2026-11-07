@@ -363,7 +363,7 @@ export function RepairList({ view }: { view: View }) {
     <section className="card faults repairs" aria-label="Repairs open" ref={card}>
       {/* One name for the list on Stock's row, Home's count, the page and the Menu, with Home's count (Move 3 of the sweep of 6 November 2026). */}
       <Heading icon="repair">{listHeading(STANDING_HEADINGS.faults, inNarrowed.length)}</Heading>
-      <Narrowed department={narrowed} onWiden={widen} />
+      <Narrowed department={narrowed} onWiden={widen} kit />
       {/* None of their department's while others wait: said, with the way to them, rather than no card at all. */}
       {inNarrowed.length === 0 ? (
         <p className="empty">None of this department's kit is waiting to be repaired or found.</p>

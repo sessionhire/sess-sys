@@ -29,6 +29,7 @@ import {
   NO_DEPARTMENT_KEY,
   peopleFilters,
   peopleSorts,
+  TIME_GROUPS,
 } from '@sh/shared'
 import { VehicleReminders } from '../stock/Vehicles.tsx'
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
@@ -579,7 +580,7 @@ export function CrewScreen() {
           }
         >
           <section className="card">
-            <Heading icon="calendar">Crew needed</Heading>
+            <Heading icon="calendar">{TIME_GROUPS.coming}</Heading>
             {upcoming.length === 0 && <Empty>Ask for crew from a job in Jobs, or below.</Empty>}
             {/* Narrowed to a department (ADR 0046), the ones calls are in, and "No department" for the calls nobody has given one. */}
             {upcoming.length > 0 && (callDepts.length > 0 || upcoming.some((c) => !departmentOf(c))) && (

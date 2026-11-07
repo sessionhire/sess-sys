@@ -4,6 +4,7 @@ import { sameDepartment } from '../crew-departments.ts'
 import { runningOut, type RunningOut } from '../documents.ts'
 import { STOPPED } from '../jobs.ts'
 import { isUnowned } from '../lists.ts'
+import { STILL_NEEDS_CREW } from '../words.ts'
 import type { Department } from '../stock.ts'
 import type { View } from './client-types.ts'
 import { answersToCheck, type AnswerToCheck, type CallView, type OfferView, type PersonView } from './crew-view.ts'
@@ -143,7 +144,7 @@ export type StandingKey = keyof Standing
 export const STANDING_HEADINGS = {
   late: 'Answers to check',
   answers: 'Answers to check',
-  'crew-needed': 'Short of crew',
+  'crew-needed': STILL_NEEDS_CREW,
   timesheets: 'To approve',
   leave: 'To approve',
   certificates: 'Running out',

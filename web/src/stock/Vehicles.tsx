@@ -21,6 +21,7 @@ import {
   type View,
   STANDING_HEADINGS,
   listHeading,
+  TIME_GROUPS,
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -446,7 +447,7 @@ function Bookings({ v }: { v: VehicleView }) {
       ))}
       {gone.length > 0 && (
         <details>
-          <summary>Earlier ({gone.length})</summary>
+          <summary>{TIME_GROUPS.past} ({gone.length})</summary>
           {gone.map((b) => (
             <BookingLine key={b.id} b={b} />
           ))}

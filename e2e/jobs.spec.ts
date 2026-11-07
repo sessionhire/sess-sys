@@ -102,7 +102,7 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   await office.getByLabel('Find').fill(renamed)
   const row = office.locator('.job-row', { hasText: renamed })
   await expect(row).toContainText('Mon 7 Oct to Wed 9 Oct · Build, Show')
-  await expect(row).toContainText('Crew 0 of 2')
+  await expect(row).toContainText('Crew 0 of 2 booked')
   await office.getByLabel('Find').fill('')
   await office.getByLabel('Find').blur()
   await office.screenshot(shot('jobs-list'))

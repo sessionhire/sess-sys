@@ -1,5 +1,5 @@
 import { canApproveLeave, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
-import { glanceParts, HOLDING, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
+import { glanceParts, HOLDING, OFFER_WORDS, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
 import { Fragment, useState } from 'react'
 import { asBooking, BookingRow, stoppedBookings } from '../crew/BookingRow.tsx'
 import { useMe } from '../crew/Leave.tsx'
@@ -817,11 +817,11 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
   )
 }
 
-/** "3 confirmed, 2 accepted", or the one kind there is. */
+/** "3 booked, 2 to confirm", or the one kind there is, in the word table's words (UX sweep, 6 November 2026, move 4). */
 function workCount(mine: readonly { o: { status: string } }[]) {
-  const confirmed = mine.filter((m) => m.o.status === 'confirmed').length
-  const accepted = mine.length - confirmed
-  return [confirmed && `${confirmed} confirmed`, accepted && `${accepted} accepted`].filter(Boolean).join(', ')
+  const booked = mine.filter((m) => m.o.status === 'confirmed').length
+  const toConfirm = mine.length - booked
+  return [booked && `${booked} ${OFFER_WORDS.confirmed[0].toLowerCase()}`, toConfirm && `${toConfirm} ${OFFER_WORDS.accepted[0].toLowerCase()}`].filter(Boolean).join(', ')
 }
 
 /** Where a booking of theirs opens in the app: its job, or Crew for a call made before jobs. */

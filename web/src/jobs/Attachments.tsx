@@ -20,6 +20,7 @@ import {
   type AttachmentOwner,
   type AttachmentView,
   type JobView,
+  TIME_GROUPS,
 } from '@sh/shared'
 import { useRef, useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -269,9 +270,9 @@ export function JobsCard({ jobs, title, client: showClient }: { jobs: readonly J
   const stopped = jobs.filter((j) => STOPPED.includes(j.status) && ahead(j))
   const groups = (
     [
-      ['Coming up', coming],
-      ['Before', before],
-      ['Not going ahead', stopped],
+      [TIME_GROUPS.coming, coming],
+      [TIME_GROUPS.past, before],
+      [TIME_GROUPS.stopped, stopped],
     ] as const
   ).filter(([, list]) => list.length > 0)
   return (

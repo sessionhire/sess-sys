@@ -23,6 +23,7 @@ import {
   type ShortSoon,
   type VanProblem,
   type View,
+  STILL_NEEDS_CREW,
 } from '@sh/shared'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { personHref } from '../crew/PersonScreen.tsx'
@@ -517,7 +518,7 @@ function Legend({ rows }: { rows: Rows }) {
       ? [
           ['blk solid', 'Confirmed'],
           ['blk dashed', 'Enquiry or quote'],
-          ['blk solid short', 'Crew still to find'],
+          ['blk solid short', STILL_NEEDS_CREW],
           ['blk solid stray', 'Crew on a day their phase moved off'],
           ['swatch holiday', 'Public holiday'],
         ]

@@ -39,7 +39,7 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   await office.goto('/#crew')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // The calls are a windowed list (ADR 0050), drawn only near the screen, and a new screen holds its place for a moment against
-  // anything but a hand (places.ts): so the page is wheeled down to Short of crew, as a person would, before its calls are reached.
+  // anything but a hand (places.ts): so the page is wheeled down to Still needs crew, as a person would, before its calls are reached.
   await office.mouse.move(195, 400)
   await office.mouse.wheel(0, 1200)
   const call = office.locator('.call-group', { hasText: 'Harbour Lights Festival' }).getByRole('article', { name: '2 × Rigger' })

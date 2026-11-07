@@ -484,7 +484,7 @@ function ShortKit({ view }: { view: View }) {
   return (
     <section className={short.length > 0 ? 'card kit-short' : 'card'} aria-label="Kit short">
       <Heading icon={short.length > 0 ? 'attention' : 'kit'}>Kit short</Heading>
-      <Narrowed department={department} onWiden={widen} />
+      <Narrowed department={department} onWiden={widen} kit />
       {short.length === 0 ? (
         <p className="empty">None of this department's kit is short.</p>
       ) : (
