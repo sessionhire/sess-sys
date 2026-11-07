@@ -9,7 +9,7 @@ import { Top } from '../jobs/common.tsx'
 import { kitShort } from '../jobs/Kit.tsx'
 import { BelowZero } from '../jobs/Money.tsx'
 import { useToday, useView } from '../view.ts'
-import { addDays, departmentsIn, jobsOn, SOON, TILES_FOR, tiles, weekAhead, type HomeFor, type Tile } from './standing.ts'
+import { addDays, companyTiles, departmentsIn, jobsOn, SOON, TILES_FOR, tiles, weekAhead, type FirstGroup, type HomeFor, type Tile } from './standing.ts'
 import { StageLine } from '../jobs/StageLine.tsx'
 import { Heading } from '../Icon.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
@@ -117,11 +117,13 @@ export function HomeScreen() {
 /**
  * The counts that aren't nothing, as tiles; a word when all are. Grouped, what
  * stops the next fortnight's work comes first and the housekeeping after,
- * smaller (audit, 20 October 2026, finding 33).
+ * smaller (audit, 20 October 2026, finding 33); for the office, what's
+ * waiting on them comes first (Move 10 of the sweep of 6 November 2026).
  */
 function Tiles({
   all,
   keys,
+  first = SOON,
   title = 'Needs attention',
   clear,
   department,
@@ -129,6 +131,8 @@ function Tiles({
 }: {
   all: Partial<Record<StandingKey, Tile>>
   keys: readonly StandingKey[]
+  /** The group drawn first and full size, in the order of `keys`; the rest are the housekeeping. */
+  first?: FirstGroup
   title?: string
   clear: string
   /** The department counted for; none for the company's or the warehouse's counts, whose lists then open on everyone's. */
@@ -139,8 +143,8 @@ function Tiles({
   // Counts this role can't act on aren't offered (ADR 0034), so all clear is only this person's to say, not the company's (audit, 5 November 2026, finding 46).
   const withheld = keys.some((k) => !all[k])
   const copying = useCopying()
-  const soon = grouped ? shown.filter((t) => SOON.has(t.key)) : shown
-  const rest = grouped ? shown.filter((t) => !SOON.has(t.key)) : []
+  const soon = grouped ? shown.filter((t) => first.keys.has(t.key)) : shown
+  const rest = grouped ? shown.filter((t) => !first.keys.has(t.key)) : []
   const list = (tiles: Tile[], className = 'tiles') => (
     <ul className={className}>
       {tiles.map((t) => (
@@ -164,10 +168,10 @@ function Tiles({
         list(shown)
       ) : (
         <>
-          <p className="hint">What stops the next fortnight's work first, then the housekeeping. Each goes once it's sorted.</p>
+          <p className="hint">{first.hint}</p>
           {soon.length > 0 && (
             <>
-              <h3 className="group">The next fortnight</h3>
+              <h3 className="group">{first.heading}</h3>
               {list(soon)}
             </>
           )}
@@ -280,14 +284,16 @@ function errandsLine(jobs: readonly JobView[], after: boolean): string {
 }
 
 function ForCompany({ view, today, me }: { view: View; today: string; me: PersonView | undefined }) {
-  const { can } = useAccess()
+  const { can, role } = useAccess()
+  // The same counts in the order of whoever is looking: the office's own work first for the office (Move 10 of the sweep of 6 November 2026).
+  const { keys, first } = companyTiles(role)
   const confirmed = view.jobs.jobs.filter((j) => j.status === 'confirmed' && j.span && j.span.end >= today).length
   const pencilled = view.jobs.jobs.filter((j) => (j.status === 'enquiry' || j.status === 'quoted') && (!j.span || j.span.end >= today)).length
   return (
     <>
       <SetUp view={view} />
       {/* What needs someone first, then what's on (audit finding 22). */}
-      <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.company} clear="Nothing waiting on anyone. Everything else is as it should be." />
+      <Tiles all={tiles(view, today, me, can)} keys={keys} first={first} clear="Nothing waiting on anyone. Everything else is as it should be." />
       <TodoCard view={view} />
       <Today view={view} today={today} />
       <Chart title="Jobs by week" icon="calendar" series={JOBS} columns={jobsByWeek(view.jobs.jobs, today)} empty="No gigs or hires in the next eight weeks." />

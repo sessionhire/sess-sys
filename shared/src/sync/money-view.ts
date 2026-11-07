@@ -506,6 +506,12 @@ export interface QuotesToFollow {
   drafts: QuoteToFollow[]
   /** Sent, with no answer yet: the longest waiting first. */
   waiting: QuoteToFollow[]
+  /**
+   * Of those waiting, the ones sent a week or more ago (`CHASE_AFTER_DAYS`): worth a call to the client, the longest
+   * waiting first. Quotes marks them, Notifications lists them and Home counts them, each from this one list (Move 10 of
+   * the sweep of 6 November 2026).
+   */
+  chase: QuoteToFollow[]
   /** Sent, with no answer, and the job's dates have passed (ADR 0109): not a call to make, a job to mark lost. The most recent first. */
   passed: QuoteToFollow[]
   /** Answered, but the job doesn't say so yet: accepted and not confirmed, or turned down and not marked lost. */
@@ -513,7 +519,7 @@ export interface QuotesToFollow {
 }
 
 export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: string): QuotesToFollow {
-  const out: QuotesToFollow = { drafts: [], waiting: [], passed: [], outOfStep: [] }
+  const out: QuotesToFollow = { drafts: [], waiting: [], chase: [], passed: [], outOfStep: [] }
   const since = (d: string | null | undefined) => (d ? Math.max(0, daysBetween(d, today)) : 0)
   for (const { job, current } of m.jobs) {
     const stopped = STOPPED.includes(job.status)
@@ -527,6 +533,7 @@ export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: st
   const longest = (a: QuoteToFollow, b: QuoteToFollow) => b.days - a.days || a.job.name.localeCompare(b.job.name, 'en-IE')
   out.drafts.sort(longest)
   out.waiting.sort(longest)
+  out.chase = out.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS)
   out.passed.sort((a, b) => a.days - b.days || a.job.name.localeCompare(b.job.name, 'en-IE'))
   out.outOfStep.sort(longest)
   return out

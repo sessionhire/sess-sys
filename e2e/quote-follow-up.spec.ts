@@ -17,12 +17,20 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
 
-  // Corrib Arts Week's quote went three days ago, so it's waiting, but not yet worth a call.
+  // Corrib Arts Week's quote went three days ago, so it's waiting, but not yet worth a call: Home counts none, and a count of
+  // nothing isn't shown (ADR 0033).
+  await office.goto('/')
+  await expect(office.getByRole('status')).toHaveText('Up to date')
+  const attention = office.locator('.standing')
+  await expect(attention.getByRole('link', { name: /answers? to check/ })).toBeVisible()
+  await expect(attention.getByRole('link', { name: /worth a call/ })).toHaveCount(0)
   await office.goto('/#quotes')
   const quotes = office.getByRole('region', { name: 'To follow up' })
   await expect(quotes).toContainText('Waiting for an answer')
   await expect(quotes).toContainText('Sent 3 days ago')
   await expect(quotes).not.toContainText('worth a call')
+  // Its heading says how many are waiting, and how many are worth a call only once one is, as Home counts them (Move 10).
+  await expect(quotes.getByRole('heading', { name: /^Waiting for an answer/ })).toHaveText('Waiting for an answer (1)')
 
   // A phone call turns into a quote: the job in a few words.
   await quotes.getByRole('button', { name: 'New quote' }).click()

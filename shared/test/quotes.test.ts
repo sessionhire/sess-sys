@@ -374,6 +374,8 @@ describe('quotes to follow up (ADR 0081)', () => {
       ['Sent long ago', 17],
       ['Sent lately', 2],
     ])
+    // Only the one sent over a week ago is worth a call.
+    expect(f.chase.map((x) => x.job.name)).toEqual(['Sent long ago'])
     expect(f.outOfStep.map((x) => [x.job.name, x.want])).toEqual([
       ['Said yes', 'confirmed'],
       ['Said no', 'lost'],
@@ -390,6 +392,21 @@ describe('quotes to follow up (ADR 0081)', () => {
     const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, today)
     expect(f.waiting.map((x) => x.job.name)).toEqual(['Coming'])
     expect(f.passed.map((x) => x.job.name)).toEqual(['Just gone', 'Long gone'])
+  })
+
+  it('counts a quote worth a call from a week after it was sent, the longest waiting first, as the first of those waiting', () => {
+    // Proves (Move 10 of the sweep of 6 November 2026): one list, which Quotes marks, Notifications lists and Home counts.
+    const rows = [
+      { job: job('Six days', 'quoted'), current: quote({ sentOn: '2026-10-21' }) },
+      { job: job('A week', 'quoted'), current: quote({ sentOn: '2026-10-20' }) },
+      { job: job('A fortnight', 'quoted'), current: quote({ sentOn: '2026-10-13' }) },
+    ]
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, today)
+    expect(f.chase.map((x) => [x.job.name, x.days])).toEqual([
+      ['A fortnight', 14],
+      ['A week', 7],
+    ])
+    expect(f.waiting.slice(0, f.chase.length)).toEqual(f.chase)
   })
 
   it('leaves a sent quote out of waiting while a new version is being drafted', () => {

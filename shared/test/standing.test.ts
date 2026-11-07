@@ -5,7 +5,7 @@ import type { Change, PullResponse, PushRequest, PushResponse } from '../src/pro
 import { stepId } from '../src/steps.ts'
 import { PLAIN_PRODUCT } from '../src/stock.ts'
 import { MemoryStorage, SyncClient, type Transport, type View } from '../src/sync/client.ts'
-import { answersHeading, listHeading, standing, STANDING_HEADINGS, type StandingKey } from '../src/sync/standing.ts'
+import { answersHeading, listHeading, standing, STANDING_HEADINGS, waitingHeading, type StandingKey } from '../src/sync/standing.ts'
 import { kitToCheckBackIn } from '../src/sync/steps-view.ts'
 
 /**
@@ -171,6 +171,9 @@ describe('how things stand', () => {
     expect(answersHeading(73, 0)).toBe('Answers to check (73)')
     expect(answersHeading(0, 2)).toBe('Answers to check (2)')
     expect(answersHeading(0, 0)).toBe('Answers to check (0)')
+    // Waiting for an answer carries Home's count of the quotes worth a call after how many are waiting, and nothing with none.
+    expect(waitingHeading(9, 3)).toBe('Waiting for an answer (9) · 3\u00a0worth a call')
+    expect(waitingHeading(2, 0)).toBe('Waiting for an answer (2)')
     // Every count lands on a heading of its own but the jobs' tasks, which open the Jobs list on its filters.
     const unheaded = (Object.keys(STANDING_HEADINGS) as StandingKey[]).filter((k) => !STANDING_HEADINGS[k])
     expect(unheaded).toEqual(['tasks-late', 'tasks-nobody'])

@@ -1,4 +1,4 @@
-import { answersHeading, jobFilters, jobSorts, listed, quotesToFollow, standing, STOPPED, type StandingKey } from '@sh/shared'
+import { answersHeading, jobFilters, jobSorts, listed, quotesToFollow, standing, STOPPED, waitingHeading, type StandingKey } from '@sh/shared'
 import { describe, expect, it } from 'vitest'
 import { call, checks, company, day, m, ok, person, phone, today } from './company.ts'
 
@@ -53,7 +53,12 @@ async function everythingWaiting() {
     m('project.create', { id: 'gone', name: 'Quay Awards', clientId: 'bw', venueId: null, status: 'quoted', notes: '' }),
     m('phase.add', { id: 'awards', projectId: 'gone', name: 'Show', start: day(-4), end: day(-4), venueId: null, notes: '' }),
     m('quote.save', { id: 'q2', projectId: 'gone', lines: [{ id: 'l2', kind: 'kit', what: 'XLR 10 m', ref: 'xlr', group: 'Audio', qty: 10, days: 1, unitCents: 500, vat: '23' }], discountPct: 0, notes: '' }),
-    m('quote.sent', { id: 'q2', on: day(-12) })
+    m('quote.sent', { id: 'q2', on: day(-12) }),
+    // A quote sent nine days ago for a job in a fortnight, with no answer: worth a call. The gala's, sent yesterday, is only waiting.
+    m('project.create', { id: 'docks', name: 'Docklands Awards', clientId: 'bw', venueId: null, status: 'quoted', notes: '' }),
+    m('phase.add', { id: 'docks-show', projectId: 'docks', name: 'Show', start: day(15), end: day(15), venueId: null, notes: '' }),
+    m('quote.save', { id: 'q3', projectId: 'docks', lines: [{ id: 'l3', kind: 'kit', what: 'XLR 10 m', ref: 'xlr', group: 'Audio', qty: 20, days: 1, unitCents: 500, vat: '23' }], discountPct: 0, notes: '' }),
+    m('quote.sent', { id: 'q3', on: day(-9) })
   )
   const { client } = await phone(app)
   return client.view()
@@ -102,6 +107,10 @@ describe('how things stand', () => {
     expect(lists['tasks-late'].map((s) => s.job.id)).toEqual(['gala'])
     expect(lists['tasks-nobody'].map((s) => s.job.id)).toEqual(['later'])
     expect(lists['no-answer'].map((s) => s.job.id)).toEqual(['gone', 'old'])
+
+    // Money: the quote sent nine days ago with no answer, worth a call; not the gala's, sent yesterday, nor the Quay Awards',
+    // whose dates have passed.
+    expect(lists.quotes.map((q) => [q.job.id, q.days])).toEqual([['docks', 9]])
   })
 
   it('is the list the screen it opens shows, where that screen reads a rule of its own', async () => {
@@ -117,6 +126,13 @@ describe('how things stand', () => {
     const passed = quotesToFollow(view.money, today).passed.map((q) => q.job.id)
     expect(passed).toEqual(['gone'])
     for (const id of passed) expect(lists['no-answer'].map((s) => s.job.id)).toContain(id)
+    // Quotes' Waiting for an answer: the quotes worth a call are its longest waiting, the first rows, and its heading says how
+    // many after how many are waiting (Move 10 of the sweep of 6 November 2026).
+    const follow = quotesToFollow(view.money, today)
+    expect(lists.quotes.map((q) => q.quote.id)).toEqual(follow.chase.map((q) => q.quote.id))
+    expect(follow.waiting.slice(0, lists.quotes.length).map((q) => q.quote.id)).toEqual(lists.quotes.map((q) => q.quote.id))
+    expect(follow.waiting.map((q) => q.quote.id)).toEqual(['q3', 'q1'])
+    expect(waitingHeading(follow.waiting.length, follow.chase.length)).toBe('Waiting for an answer (2) · 1\u00a0worth a call')
     // Answers to check heads the answers and says who's running late after them, each a count Home shows.
     expect(answersHeading(lists.answers.length, lists.late.length)).toBe('Answers to check (1) · 1 running late')
   })
@@ -128,8 +144,8 @@ describe('how things stand', () => {
     // The cables and speakers are Audio's kit, so its repairs, tests and kit short are Audio's and none of LX's.
     expect(ids(audio.faults).sort()).toEqual(['f1', 'f3'])
     expect([lx.faults.length, lx['cant-go'].length, lx['tests-soon'].length, lx['kit-short'].length]).toEqual([0, 0, 0, 0])
-    // Kit still out, tasks and dates passed are the job's, not a department's.
-    for (const d of [audio, lx]) expect([d['still-out'].length, d['tasks-late'].length, d['tasks-nobody'].length, d['no-answer'].length]).toEqual([0, 0, 0, 0])
+    // Kit still out, tasks, dates passed and quotes worth a call are the job's, not a department's.
+    for (const d of [audio, lx]) expect([d['still-out'].length, d['tasks-late'].length, d['tasks-nobody'].length, d['no-answer'].length, d.quotes.length]).toEqual([0, 0, 0, 0, 0])
     // Leave waits on whoever approves it, not on a department (ADR 0024): Aoife's request is Cian's to decide, whichever
     // department he's looking at (Move 3 of the sweep of 6 November 2026).
     for (const department of ['Audio', 'LX']) expect(standing(view, today, { me: { id: 'cian' }, department }).leave.map((q) => q.person?.id)).toEqual(['aoife'])

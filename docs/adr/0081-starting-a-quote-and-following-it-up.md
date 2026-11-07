@@ -66,3 +66,14 @@ From the plan's walk through the quote screens:
 - `quotesToFollow` in the money view; no new records or commands. Starting a
   quote is the same three changes the app already makes (a job, a phase, a
   quote), queued on the device.
+
+## Later: worth a call on Home (6 November 2026)
+
+Home's Company view counts the quotes worth a call for the office and
+directors ([Decision 0033](0033-home-and-finding-your-way-around.md)), from
+the one list `quotesToFollow` keeps of them (`chase`), which Quotes marks
+and Notifications lists. The count opens Quotes on *Waiting for an answer*,
+whose heading says how many are waiting and how many of those are worth a
+call: "Waiting for an answer (9) · 3 worth a call". Notifications lists
+only those, under the heading as it was, with no number: no count lands
+there. Still nothing is sent to anyone.
