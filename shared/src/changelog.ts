@@ -33,6 +33,9 @@ export const CHANGELOG: readonly Release[] = [
     title: 'The glide to a part of the page now shows on an iPhone',
     what: 'On an iPhone the page still jumped to a part rather than gliding: Safari reports the length of the glide in a different form from other browsers, and the app read it as a quarter of a millisecond, so the whole move happened in one frame. It now reads it properly and the glide takes its quarter of a second on every phone.',
     prs: [250],
+    title: 'A long choice no longer stretches the page',
+    what: "On Match past quotes to our jobs, a job with a long name made its drop-down list wider than the phone, so the page could be zoomed in and out and slid sideways. A drop-down now keeps to the width of the page and cuts the chosen words short; the full names are there when it opens. The Sort lists and the price list's drop-downs keep to the page the same way.",
+    prs: [249],
   },
   {
     version: '1.109.1',
