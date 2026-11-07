@@ -38,15 +38,25 @@ test('the office matches past quotes to jobs and prices a line from what it was 
         rows: [
           { opportunity: opp(1, '1043', 'Liffey Brands launch', 'Liffey Brands', 'Order', 'Completed', '2026-03-01', 204000), linked: null, suggested: { opportunityId: 1, projectId: 'p1', sure: true, candidates: [{ projectId: 'p1', score: 7 }, { projectId: 'p2', score: 0 }] } },
           { opportunity: opp(2, '1001', 'Expo stand', 'Other Co', 'Quotation', 'Provisional', '2026-02-01', 50000), linked: null, suggested: { opportunityId: 2, projectId: null, sure: false, candidates: [] } },
+          { opportunity: opp(3, '1077', 'Awards night', 'Long Name Co', 'Quotation', 'Provisional', '2026-03-01', 90000), linked: null, suggested: { opportunityId: 3, projectId: null, sure: false, candidates: [{ projectId: 'p3', score: 2 }, { projectId: 'p2', score: 0 }] } },
         ],
-        jobs: { p1: { name: 'Liffey Brands Launch', client: 'Liffey Brands', start: '2026-03-01', end: '2026-03-02' }, p2: { name: 'Gala', client: '', start: '2026-03-01', end: '2026-03-01' } },
+        jobs: {
+          p1: { name: 'Liffey Brands Launch', client: 'Liffey Brands', start: '2026-03-01', end: '2026-03-02' },
+          p2: { name: 'Gala', client: '', start: '2026-03-01', end: '2026-03-01' },
+          p3: { name: 'The Annual Dublin Hospitality and Tourism Industry Awards Night Gala Dinner and After Party', client: 'The Irish Hospitality Institute Events Department', start: '2026-03-01', end: '2026-03-03' },
+        },
       },
     })
   })
   await office.goto('/#jobs/money/current-rms/match')
   await expect(office.getByRole('heading', { name: 'Match past quotes to our jobs' })).toBeVisible()
-  await expect(office.getByText('0 linked, 1 to check, 1 with no job of ours on those days.')).toBeVisible()
+  await expect(office.getByText('0 linked, 2 to check, 1 with no job of ours on those days.')).toBeVisible()
   await expect(office.getByLabel('Job for Liffey Brands launch')).toHaveValue('p1')
+  // A job with a long name makes a long choice; the choice keeps to the page, so the page never grows wider than the phone.
+  const long = office.getByLabel('Job for Awards night')
+  await expect(long).toBeVisible()
+  expect((await long.boundingBox())!.width).toBeLessThanOrEqual(phoneSize.width)
+  expect(await office.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(phoneSize.width)
   await office.getByRole('button', { name: 'Link the 1 sure one' }).click()
   await expect(office.getByRole('status').filter({ hasText: 'Linked' })).toHaveText('Linked 1 sure one.')
   expect(posted).toEqual({ links: [{ opportunityId: 1, projectId: 'p1' }] })
