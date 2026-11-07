@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto'
-import { certificateRefusal, certificatesAfter, daysBetween, daysLabel, DEFAULT_LEVEL, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
+import { certificateRefusal, certificatesAfter, daysBetween, daysLabel, DEFAULT_LEVEL, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getPhase, getProject, namesForCall } from '../projects/store.ts'
 import { stopOwnCalendar } from './own-calendars.ts'
-import { awayFor, awayOn, getAway, getCall, getCalls, getOffer, getPerson, HAS_EMAIL, heldElsewhere, holdsFrom, offersForCall, openCallsFor } from './store.ts'
+import { awayFor, awayOn, getAway, getCall, getCalls, getOffer, getPerson, HAS_EMAIL, heldElsewhere, holdsFrom, offersForCall, openCallsFor, personByEmail } from './store.ts'
 
 /**
  * The crew rules the server enforces, whatever device or link a request
@@ -562,6 +562,11 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
   async 'offer.respond'(ctx, a) {
     const offer = await getOffer(ctx.tx, a.id)
     if (!offer) throw new Refused({ code: 'not-found', message: 'That offer no longer exists.' })
+    // Signed in without the crew ability, only their own (ADR 0111): the link and the office answer as before.
+    if (ctx.role && !roleCan(ctx.role, 'crew')) {
+      const me = ctx.user ? await personByEmail(ctx.tx, ctx.user.email) : undefined
+      if (!me || me.id !== offer.personId) throw new Refused({ code: 'forbidden', message: OFFER_NOT_YOURS })
+    }
     const call = await openCall(ctx, offer.callId)
     // Every answer is new to the office, so it goes back into "Answers to check".
     const answered = { responded_at: new Date().toISOString(), responded_via: ctx.via, note: a.note, seen_at: null }

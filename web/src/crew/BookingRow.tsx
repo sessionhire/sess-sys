@@ -28,12 +28,15 @@ export function stoppedBookings(view: View, personId: string, today: string): { 
  * (UX sweep, 6 November 2026, move 6): the job, then role · phase · days · call, then where it stands. Read in that order;
  * drawn with where it stands at the end of the job's line, so the facts have the row's width (app.css). A booking opens
  * `href`. An offer waiting on them opens their own page, `link`, where it's answered (ADR 0034), and says so under the
- * facts; without it, an offer opens `href` like a booking. One on a job that was stopped says so beside its word, `job`,
- * and under it on a phone.
+ * facts; without it, an offer opens `href` like a booking. Someone who answers in the app (ADR 0111) is given `answerAt`, the
+ * job's page, whose "You on this job" answers it, and the row opens that instead. One on a job that was stopped says so
+ * beside its word, `job`, and under it on a phone.
  */
-export function BookingRow({ c, o, today, href, link, job }: { c: CallView; o: OfferView; today: string; href?: string; link?: string; job?: ProjectStatus }) {
+export function BookingRow({ c, o, today, href, link, answerAt, job }: { c: CallView; o: OfferView; today: string; href?: string; link?: string; answerAt?: string; job?: ProjectStatus }) {
   const [label, tone] = STATUS[o.status]
-  const answer = link && OPEN.includes(o.status) ? `${link}#offers` : undefined
+  const waiting = OPEN.includes(o.status)
+  const here = waiting && answerAt ? answerAt : undefined
+  const answer = !here && link && waiting ? `${link}#offers` : undefined
   const pill = (
     <StatusPill tone={tone} pending={o.pending}>
       {label}
@@ -53,8 +56,15 @@ export function BookingRow({ c, o, today, href, link, job }: { c: CallView; o: O
         pill
       )}
       {answer && <small className="answer">Answer it on your page ›</small>}
+      {here && <small className="answer">Answer it ›</small>}
     </>
   )
+  if (here)
+    return (
+      <a className="job-row booking-row" href={here}>
+        {inner}
+      </a>
+    )
   if (answer)
     return (
       <a className="job-row booking-row" href={answer} target="_blank" rel="noreferrer">

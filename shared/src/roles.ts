@@ -40,12 +40,12 @@ export const ROLE_LINES: Record<Role, string> = {
   director: 'Everything, and the things only a director does: roles, erasing a person, starting fresh.',
   office: 'Jobs, crew, kit and stock, money, and the settings: calendar, office details, bringing lists in, downloads.',
   head: "Crew and their bookings, kit on jobs, stock and the warehouse, the purchase list, and jobs' steps. Not jobs themselves, nor settings.",
-  crew: "Their own leave and days in lieu, the job steps given to them, asking for kit to be bought and voting for it, and reporting a fault. They can look at the rest, but nobody else's pay, link, email, notes or documents.",
+  crew: "Their own leave and days in lieu, answering their own offers, the job steps given to them, asking for kit to be bought and voting for it, and reporting a fault. They can look at the rest, but nobody else's pay, link, email, notes or documents.",
   freelancer: "Reporting a fault, and asking for kit to be bought and voting for it. Their offers, bookings, timesheets and days off go through their private link; they can look at the rest, but nobody else's pay, link, phone, email, notes or documents.",
 }
 
 /** The kinds of change a role can make. Each command needs exactly one. */
-export const ABILITIES = ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'money', 'settings', 'company'] as const
+export const ABILITIES = ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'money', 'settings', 'company'] as const
 export type Ability = (typeof ABILITIES)[number]
 
 /** Each kind of change, as "Only … can ___". */
@@ -58,6 +58,7 @@ const ABILITY_WORDS: Record<Ability, string> = {
   leave: 'ask for leave',
   steps: "tick off and give out a job's steps",
   ask: 'ask for kit to be bought, or vote for it',
+  answer: 'answer their own offers in the app',
   money: 'see and change prices, quotes and what is owed',
   settings: 'change settings, bring lists in or download everything',
   company: 'change roles, erase a person or start fresh',
@@ -66,10 +67,11 @@ const ABILITY_WORDS: Record<Ability, string> = {
 /** What each role can change. A director can change everything. */
 export const ROLE_CAN: Record<Role, readonly Ability[]> = {
   director: ABILITIES,
-  office: ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'money', 'settings'],
-  head: ['crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask'],
+  office: ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'money', 'settings'],
+  head: ['crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer'],
   // Staff crew tick or hand on their own steps only (ADR 0073), which the step's handler checks on top.
-  crew: ['fault', 'leave', 'steps', 'ask'],
+  // and answer their own offers in the app (ADR 0111), which offer.respond's handler checks on top.
+  crew: ['fault', 'leave', 'steps', 'ask', 'answer'],
   // Anyone signed in can ask for kit to be bought and vote for it (ADR 0077); changing someone else's request needs stock, checked by the handler.
   freelancer: ['fault', 'ask'],
 }
@@ -110,7 +112,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'call.cancel': 'crew',
   'call.department': 'crew',
   'offer.send': 'crew',
-  'offer.respond': 'crew',
+  // Anyone with a role but a freelancer answers their own offers in the app (ADR 0111); the crew ability answers for anyone, as the link and the office always could.
+  'offer.respond': 'answer',
   'offer.confirm': 'crew',
   'offer.cancel': 'crew',
   'offer.seen': 'crew',
@@ -229,6 +232,9 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
 }
 
 export const roleCan = (role: Role, ability: Ability) => ROLE_CAN[role].includes(ability)
+
+/** Said to someone answering another person's offer without the crew ability (ADR 0111). */
+export const OFFER_NOT_YOURS = 'You can only answer your own offers. The office answers for someone else.'
 
 /** Whether a role sees money at all (ADR 0042): without it, its devices are sent no prices or quotes. None is held to nothing. */
 export const roleSeesMoney = (role: Role | null | undefined) => !role || roleCan(role, 'money')

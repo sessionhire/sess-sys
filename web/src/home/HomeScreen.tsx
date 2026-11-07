@@ -756,6 +756,7 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
 
 function ForMe({ view, today, me, onPick }: { view: View; today: string; me: PersonView | undefined; onPick: (id: string) => void }) {
   const { can } = useAccess()
+  const answers = can('answer')
   const [id, setId] = useState('')
   if (!me) {
     const staff = view.leave.staff
@@ -832,8 +833,9 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
             <ul className="job-list">
               {mine.map(({ c, o, job }) => (
                 <li key={o.id}>
-                  {/* An offer is answered on their own page (audit, 20 October 2026, finding 35), so its row opens there. */}
-                  <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} {...(job ? { job } : {})} />
+                  {/* An offer is answered on the job's page in the app by staff (ADR 0111), otherwise on their own page (audit, 20 October
+                      2026, finding 35), so its row opens there. */}
+                  <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} {...(answers && c.projectId ? { answerAt: jobHref(c) } : {})} {...(job ? { job } : {})} />
                 </li>
               ))}
             </ul>

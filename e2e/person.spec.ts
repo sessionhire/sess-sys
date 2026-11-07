@@ -95,11 +95,11 @@ test("a person's name opens their page, with what's ahead for them and the way b
   await expect(people.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
 })
 
-test('their own page says Your bookings, as Home › Me does, and an offer there opens their link to answer it', async ({ browser }) => {
+test('their own page says Your bookings, as Home › Me does, and an offer there opens its job to answer it', async ({ browser }) => {
   // Proves (UX sweep, 6 November 2026, move 6): on the reader's own page the list of what's booked and offered is "Your
   // bookings", the name Home › Me and their link give it, each row the job, then role · phase · days · call, then the pill;
-  // an offer reads "Answer it on your page ›" and opens their link at its offers, where it's answered (ADR 0034). Sign-in is
-  // off here, so who they are is who this device says, as on Home › Me.
+  // an offer on a job reads "Answer it ›" and opens the job, whose "You on this job" answers it (ADR 0111). Sign-in is off
+  // here, so who they are is who this device says, as on Home › Me.
   const name = `Niamh Own ${id}`
   const job = `Own page ${id}`
   const on = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
@@ -139,9 +139,9 @@ test('their own page says Your bookings, as Home › Me does, and an offer there
   const offered = yours.getByRole('link', { name: new RegExp(`^${job}`) })
   await expect(offered).toContainText(/Audio tech\s·\sShow\s·\s\w{3}\s\d{1,2}\s\w{3}(\s\d{4})?\s·\scall\s08:00/)
   await expect(offered).toContainText('Offered')
-  await expect(offered).toContainText('Answer it on your page ›')
-  await expect(offered).toHaveAttribute('href', /\/f\/[\w-]{24}#offers$/)
-  await expect(offered).toHaveAttribute('target', '_blank')
+  await expect(offered).toContainText('Answer it ›')
+  await expect(offered).toHaveAttribute('href', /^#jobs\//)
+  await expect(offered).not.toHaveAttribute('target', '_blank')
   await context.close()
 })
 

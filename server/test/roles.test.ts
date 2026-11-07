@@ -183,6 +183,27 @@ describe('roles', () => {
     expect((await send(app, s, 'jobStep.set', { projectId: 'j1', step: 'deprep', done: false })).reason?.message).toMatch(/^Only the office, heads of department, staff crew and directors can tick off and give out a job's steps\./)
   })
 
+  it('let staff answer their own offers in the app, and nobody else\'s (ADR 0111)', async () => {
+    const { app, signIn, c } = await company()
+    const s = { sh_session: await signIn(sean) }
+    expect((await send(app, c, 'person.upsert', staff('aoife', 'Aoife Byrne', 'aoife@sessionhire.com'))).status).toBe('applied')
+    const call = { id: 'k1', projectId: null, phaseId: null, project: 'Culture Night', phase: '', venue: 'Northbank', role: 'Stagehand', start: '2099-09-18', end: '2099-09-18', callTime: '08:00', needed: 2, dayRateCents: null, details: '', replyBy: null }
+    expect((await send(app, c, 'call.create', call)).status).toBe('applied')
+    expect((await send(app, c, 'offer.send', { id: 'o-sean', callId: 'k1', personId: 'sean', override: false })).status).toBe('applied')
+    expect((await send(app, c, 'offer.send', { id: 'o-aoife', callId: 'k1', personId: 'aoife', override: false })).status).toBe('applied')
+    // Seán, staff crew, says yes to his own; Aoife's isn't his to answer.
+    expect((await send(app, s, 'offer.respond', { id: 'o-sean', answer: 'accept', days: null, note: '' })).status).toBe('applied')
+    expect((await send(app, s, 'offer.respond', { id: 'o-aoife', answer: 'decline', note: '' })).reason).toEqual({
+      code: 'forbidden',
+      message: 'You can only answer your own offers. The office answers for someone else.',
+    })
+    // The office answers for anyone, as it always could.
+    expect((await send(app, c, 'offer.respond', { id: 'o-aoife', answer: 'decline', note: 'Rang to say no' })).status).toBe('applied')
+    // A freelancer's offers go through their link (ADR 0051), not the app.
+    expect((await send(app, c, 'person.role', { id: 'sean', role: 'freelancer' })).status).toBe('applied')
+    expect((await send(app, s, 'offer.respond', { id: 'o-sean', answer: 'decline', note: '' })).reason?.code).toBe('forbidden')
+  })
+
   it("let a system admin named in the server's settings change everything, whatever their own role (ADR 0060)", async () => {
     const { app, signIn, c } = await company(['sean@sessionhire.com'])
     const s = { sh_session: await signIn(sean) }

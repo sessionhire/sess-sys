@@ -31,7 +31,7 @@ export const PERSONAS: readonly Persona[] = [
   { key: 'office', name: 'Office and production', who: 'Booking jobs and crew all day', sees: 'Crew: the answers to check, crew still needed, timesheets.' },
   { key: 'head', name: 'Head of department', who: 'Audio, LX, video or rigging', sees: 'Home for one department: its people, its kit, its leave and certificates.' },
   { key: 'warehouse', name: 'Warehouse', who: 'Getting the kit out and back', sees: "Home for the warehouse: what's going out, what's still out, what's broken." },
-  { key: 'staff', name: 'Staff crew', who: 'Employed technicians', sees: 'Home for me: my bookings, my leave.' },
+  { key: 'staff', name: 'Staff crew', who: 'Employed technicians', sees: 'Home for me: my bookings and offers to answer, my leave.' },
   { key: 'freelancer', name: 'Freelancer', who: 'Their own phone, no app, no login', sees: 'Their private page: offers to answer, bookings, timesheets.' },
 ]
 

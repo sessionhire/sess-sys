@@ -152,3 +152,10 @@ down.
   that they read their own department's links (ADR 0046).
 - The office trial will show whether five roles fit; anything crew did
   that the roles didn't predict goes in the design system's learnings.
+
+## Later: answering in the app (7 November 2026)
+
+Staff now answer their own offers in the app as well as on their link, with
+a new ability, `answer`, that every role but freelancer has, and the server
+holding anyone without `crew` to their own offers:
+[ADR 0111](0111-staff-answer-offers-in-the-app.md).
