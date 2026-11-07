@@ -739,7 +739,7 @@ describe('the freelancer page (audit finding 21)', () => {
 
     const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
     expect(page).not.toContain('<h2>Earlier</h2>')
-    const past = page.slice(page.indexOf('<h2>Past work</h2>'), page.indexOf('<h2>Declined and withdrawn</h2>'))
+    const past = page.slice(page.indexOf('<h2>Work done</h2>'), page.indexOf('<h2>Declined and withdrawn</h2>'))
     expect(past).toContain(`<li>Autumn Gala (Show) · Audio tech · ${daysLabel(galaDays)} <small>Booked</small></li>`)
     expect(past).not.toContain('Electric Picnic')
     const turned = page.slice(page.indexOf('<h2>Declined and withdrawn</h2>'))
@@ -903,7 +903,7 @@ describe('the freelancer page (audit finding 21)', () => {
       await answer(app, aoife.linkToken, o.id, { answer: 'decline' })
     }
     const page = said((await app.inject({ url: `/f/${aoife.linkToken}` })).body)
-    const past = page.slice(page.indexOf('<h2>Past work</h2>'), page.indexOf('<h2>Declined and withdrawn</h2>'))
+    const past = page.slice(page.indexOf('<h2>Work done</h2>'), page.indexOf('<h2>Declined and withdrawn</h2>'))
     const [shown, folded] = past.split('<details class="later">') as [string, string]
     expect(shown.match(/<li>/g)).toHaveLength(3)
     expect(shown.indexOf('Gig 2026-09-05')).toBeLessThan(shown.indexOf('Gig 2026-09-03'))

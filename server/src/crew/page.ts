@@ -1,4 +1,4 @@
-import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, TIMESHEET_ASKED_DAYS, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
+import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
@@ -384,35 +384,43 @@ function lateForm(d: PageData, t: OnTheDay, last: RunningLate | undefined, ring:
       </form>`
 }
 
-/** How long an approved timesheet stays on the page. */
-const APPROVED_SHOWN_DAYS = TIMESHEET_ASKED_DAYS
-
 /** Bookings whose timesheet is to send, sent, or lately approved: to send first. */
-function timesheets(d: PageData): string {
-  if (d.noTimesheets) return ''
-  const since = new Date(Date.now() - APPROVED_SHOWN_DAYS * 86_400_000).toISOString()
-  const rows = d.jobs
-    .map((j) => ({ ...j, t: d.timesheets.get(j.offer.id) }))
-    .filter((j) => (j.t ? j.t.status !== 'approved' || (j.t.approvedAt ?? '') >= since : noTimesheetReason(j.offer, j.call, d.person, d.today, d.asking) === null))
-    .sort((a, b) => rank(a.t) - rank(b.t) || a.call.start.localeCompare(b.call.start))
-  if (!rows.length) return ''
-  const row = ({ offer, call, t }: (typeof rows)[number]) => {
-      const state = !t ? 'to-send' : t.status
-      const text = !t
-        ? 'Send your days and extras ›'
-        : t.status === 'sent'
-          ? `Sent: ${euro(timesheetTotal(t).total)}. The office will check it ›`
-          : d.paid?.get(t.id)
-            ? `Paid ${dayLabel(d.paid.get(t.id)!, d.today)}: ${euro(timesheetTotal(t).total)} ›`
-            : `Approved: ${euro(timesheetTotal(t).total)} ›`
-      return `<li><a class="${state}" href="${d.base}/timesheet/${encodeURIComponent(offer.id)}"><b>${h(call.project)}${call.phase ? ` <span>${h(call.phase)}</span>` : ''}</b><small>${h(call.role)} · ${h(daysLabel(offer.days, d.today))}</small><span>${h(text)}</span></a></li>`
+/**
+ * "Work done" (UX sweep, 6 November 2026, move 6b): one list of the work that's over, or whose timesheet is out, from
+ * the days through to paid, in place of Timesheets and Past work, which drew one job twice with two words. Each row is
+ * the job's line with where it stands third: "Send your days and extras ›", "Sent €200, with the office ›", "Approved
+ * €263, not paid yet ›", "Paid Sat 31 Oct, €200 ›". With timesheets off (ADR 0090) the rows carry only the days, so the
+ * page is ready for the switch and costs nothing now. The ones to send come first, then the latest; the first few
+ * show and the rest fold under "Earlier (n)".
+ */
+function workDone(d: PageData, past: PageData['jobs']): string {
+  const rows = new Map<string, { j: PageData['jobs'][number]; t?: Timesheet }>()
+  for (const j of past) rows.set(j.offer.id, { j })
+  if (!d.noTimesheets)
+    for (const j of d.jobs) {
+      const t = d.timesheets.get(j.offer.id)
+      if (t || noTimesheetReason(j.offer, j.call, d.person, d.today, d.asking) === null) rows.set(j.offer.id, { j, ...(t ? { t } : {}) })
+    }
+  if (!rows.size) return ''
+  const toSend = (r: { j: PageData['jobs'][number]; t?: Timesheet }) =>
+    !d.noTimesheets && !r.t && noTimesheetReason(r.j.offer, r.j.call, d.person, d.today, d.asking) === null
+  const sorted = [...rows.values()].sort((a, b) => Number(toSend(b)) - Number(toSend(a)) || b.j.call.start.localeCompare(a.j.call.start))
+  const line = ({ j, t }: { j: PageData['jobs'][number]; t?: Timesheet }) => {
+    const { offer, call } = j
+    const what = `${h(call.project)}${call.phase ? ` (${h(call.phase)})` : ''} · ${h(call.role)} · ${h(daysLabel(offer.days, d.today))}`
+    const href = `${d.base}/timesheet/${encodeURIComponent(offer.id)}`
+    if (d.noTimesheets || (!t && !toSend({ j }))) return `<li>${what} <small>${h(offer.status === 'confirmed' ? OFFER_WORDS_TO_YOU.confirmed : 'Accepted, never confirmed')}</small></li>`
+    const paidOn = t ? d.paid?.get(t.id) : undefined
+    const state = !t
+      ? 'Send your days and extras ›'
+      : t.status === 'sent'
+        ? `Sent ${euro(timesheetTotal(t).total)}, with the office ›`
+        : paidOn
+          ? `Paid ${dayLabel(paidOn, d.today)}, ${euro(timesheetTotal(t).total)} ›`
+          : `Approved ${euro(timesheetTotal(t).total)}, not paid yet ›`
+    return `<li><a class="${!t ? 'to-send' : paidOn ? 'paid' : t.status}" href="${href}">${what} <small>${h(state)}</small></a></li>`
   }
-  // The ones to send in full; those sent or approved, which need nothing from them, folded under one line (audit, 5 November 2026, finding 32).
-  const toSend = rows.filter((r) => !r.t)
-  const done = rows.filter((r) => r.t)
-  return `<section id="timesheets"><h2>Timesheets</h2>${toSend.length ? `<ul class="ts-list">${toSend.map(row).join('')}</ul>` : ''}${
-    done.length ? `<details class="later"><summary><b>Sent and approved (${done.length})</b></summary><ul class="ts-list">${done.map(row).join('')}</ul></details>` : ''
-  }</section>`
+  return `<section id="timesheets"><h2>Work done</h2>${overList(sorted.map(line))}</section>`
 }
 /** The next booking is in the Today card when it's on there, and under Your bookings otherwise. */
 const nextHref = (d: PageData, offerId: string) => ((d.onTheDay ?? []).some((t) => t.offer.id === offerId) ? '#today' : '#bookings')
@@ -440,8 +448,6 @@ function glance(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']
   const at: Record<GlancePart['key'], string> = { offers: '#offers', timesheets: '#timesheets', next: next ? nextHref(d, next.booking.offer.id) : '#bookings' }
   return parts.length ? `<nav class="glance" aria-label="At a glance">${parts.map((p) => `<a href="${at[p.key]}">${h(p.text)}</a>`).join('<span aria-hidden="true"> · </span>')}</nav>` : ''
 }
-
-const rank = (t: Timesheet | undefined) => (!t ? 0 : t.status === 'sent' ? 1 : 2)
 
 /**
  * Their own phone, to fix themselves (audit finding 7), and the email the
@@ -540,12 +546,13 @@ export const COPY_SCRIPT = `
  * and found a clipboard to write to.
  */
 function feedBlock(feed: string): string {
-  return `<div class="feed">
+  // Set up once, so folded to a line (UX sweep, 6 November 2026, move 6b): the address is needed the day it's added, not on every visit.
+  return `<details class="later feed-fold"><summary><b>Your calendar feed</b><span class="line">Your bookings in your own calendar app</span></summary><div class="feed">
       <p class="small">Put your bookings in your calendar, kept up to date. It shows your bookings and what each pays, so share it only with people you'd tell that to. If our Google Calendar invites already reach you, you don't need it as well.</p>
       <label>Calendar address <input id="feed" readonly value="${h(feed)}"></label>
       <div class="feed-buttons"><a class="button" href="${h(feed.replace(/^https?:/, 'webcal:'))}">Subscribe</a><button type="button" class="copy" hidden>Copy address</button></div>
       <p class="small">On a phone, Subscribe adds it to your calendar app. Google Calendar can't take it on a phone: copy the address and add it on a laptop, under Other calendars, From URL.</p>
-    </div>
+    </div></details>
     <script>${COPY_SCRIPT}</script>`
 }
 
@@ -581,20 +588,21 @@ function ownCalendarBlock(d: PageData): string {
       <button>${button}</button>
     </form>`
   const promise = 'We keep only the times you\'re busy: never what, where or who with. Nothing is ever added to your calendar, and Session Hire bookings in it aren\'t counted.'
+  // Set-once prose folded to its state (UX sweep, 6 November 2026, move 6b), open on its own when there's news in it.
+  const fold = (state: string, open: boolean) =>
+    `<section id="calendar" class="me"><details${open || mine || typed ? ' open' : ''}><summary><h2>Let us see when you're busy</h2> <span class="line">${h(state)}</span></summary>`
   if (!cal)
-    return `<section id="calendar">
-    <h2>Let us see when you're busy</h2>
+    return `${fold('Not shared', false)}
     ${mine && !wrong ? flash(mine) : ''}
     <p class="small">${
       // A member of staff marks no days here: their time off is leave, asked for in the app (UX sweep, 6 November 2026, move 6).
       isStaff(d.person) ? 'You can' : 'Rather than marking days here, you can'
     } let us see when you're busy in the calendar you already use, so the office knows before it asks. ${promise} You can stop at any time.</p>
     ${field("Your calendar's private address", "Share when I'm busy")}
-  </section>`
+  </details></section>`
   const busy = [...busyByDay(cal)].filter(([day]) => day >= d.today)
   const read = cal.readAt ? (new Date(cal.readAt).toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' }) === d.today ? 'today' : `on ${onDay(cal.readAt, d.today)}`) : ''
-  return `<section id="calendar">
-    <h2>Let us see when you're busy</h2>
+  return `${fold(cal.problem ? "Shared, but we couldn't read it last time" : `Shared${busy.length ? `, ${busy.length === 1 ? '1 busy day' : `${busy.length} busy days`} ahead` : ''}`, !!cal.problem)}
     ${mine && !wrong ? flash(mine) : ''}
     <p class="small">You're sharing when you're busy${cal.addedBy === 'office' ? ', from the address you sent the office' : ''}. We read it every few hours${read ? `, last ${read}` : ''}. ${promise} The office sees "busy" on those days: you can still be offered work, and still say yes.</p>
     ${cal.problem ? `<p class="flash warn" role="status">We couldn't read it last time: ${h(cal.problem)} What we read before still shows.</p>` : ''}
@@ -610,7 +618,31 @@ function ownCalendarBlock(d: PageData): string {
     <details class="again"${typed ? ' open' : ''}><summary>Share a different calendar</summary>
       ${field('Its private address', 'Share this one instead')}
     </details>
-  </section>`
+  </details></section>`
+}
+
+/**
+ * "Since you said yes" (UX sweep, 6 November 2026, move 6b): one line for each booking the office changed or ended while
+ * it's news, above the bookings, each a link to its card. Drawn only when there's something to say, so the glance line
+ * keeps its three parts and a quiet week adds nothing to the page. Nothing is sent: the page reads differently the next
+ * time it's opened.
+ */
+function sinceYes(d: PageData, booked: PageData['jobs'], ending: readonly Ending[]): string {
+  const lines: string[] = []
+  for (const j of soonestFirst(booked, d.today, asBooking)) {
+    const since = d.since?.get(j.offer.id)
+    if (!since) continue
+    const was = since.was
+    const parts = [
+      was.callTime !== undefined && j.call.callTime ? `call ${j.call.callTime} (was ${was.callTime})` : '',
+      was.days ? `${daysLabel(j.offer.days, d.today)} (was ${daysLabel(was.days, d.today)})` : '',
+      was.venue !== undefined && j.call.venue ? `at ${j.call.venue} (was ${was.venue})` : '',
+    ].filter(Boolean)
+    const what = parts.length && !since.unclear ? parts.join(', ') : 'changed: check the call'
+    lines.push(`<li><a href="#o-${h(j.offer.id)}"><b>${h(j.call.project)}</b> ${h(what)} ›</a></li>`)
+  }
+  for (const j of ending) lines.push(`<li><a href="#o-${h(j.offer.id)}"><b>${h(j.call.project)}</b> ${h(ENDED_TEXT[j.end.by].toLowerCase())} ›</a></li>`)
+  return lines.length ? `<section id="since" class="since"><h2>Since you said yes</h2><ul class="since-list">${lines.join('')}</ul></section>` : ''
 }
 
 /** How many of the next bookings are drawn as full cards; the rest are a line each, opening in place. */
@@ -818,7 +850,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
     ${waiting.length ? offers(d, waiting) : '<p class="empty">Nothing waiting right now.</p>'}
   </section>
 
-  ${timesheets(d)}
+  ${sinceYes(d, booked, ending)}
 
   <section id="bookings">
     <h2>Your bookings</h2>
@@ -826,6 +858,8 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
     ${booked.length ? '' : '<p class="empty">No upcoming bookings.</p>'}
     ${feedBlock(d.feed)}
   </section>
+
+  ${workDone(d, past)}
 
   ${isStaff(d.person) ? leaveBlock(d, d.leave ?? [], booked) : awayBlock(d, booked)}
 
@@ -838,7 +872,6 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 
   ${details(d)}
 
-  ${past.length ? `<section><h2>Past work</h2>${overList(past.map((j) => earlierLine(j, j.offer.status === 'confirmed' ? OFFER_WORDS_TO_YOU.confirmed : 'Accepted, never confirmed', d.today)))}</section>` : ''}
 
   ${turned.length ? `<section><h2>Declined and withdrawn</h2>${overList(turned.map((j) => earlierLine(j, ended(j.offer, d.ended.get(j.offer.id), d.today), d.today)))}</section>` : ''}
 
@@ -989,7 +1022,7 @@ details.later summary{color:var(--ink);font-size:.95rem;padding:12px 0}details.l
 /* Giving a job up keeps its bad tone inside a folded booking too, where the row's summary rule would draw it in ink. */
 details.later :is(.pull-out,.decline) summary{color:var(--bad)}
 /* A folded row as the app draws one: the job, then role · phase · days · call under it, then where it stands. */
-details.later summary .line{display:block;margin-top:2px;color:var(--muted);font-size:.9rem;text-wrap:pretty}
+details.later summary .line{display:block;margin-top:2px;color:var(--muted);font-size:.9rem;text-wrap:pretty}.me summary .line{display:block;margin-top:2px;color:var(--muted);font-size:.9rem;text-wrap:pretty}.since-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.since-list a{display:block;padding:12px;border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;background:var(--panel);color:var(--ink);text-decoration:none}.feed-fold{margin-top:12px}
 .glance a{color:inherit}
 .feed{display:grid;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.feed input{color:var(--muted)}
 .feed-buttons{display:flex;gap:8px}.feed-buttons>*{flex:1}.feed-buttons .copy[hidden]{display:none}

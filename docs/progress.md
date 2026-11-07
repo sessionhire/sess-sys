@@ -3,7 +3,7 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
-## 7 November 2026: batch 2 of the UX sweep, words and forms
+## 7 November 2026: batch 2 of the UX sweep, words, forms and the link
 
 **Done**
 
@@ -39,6 +39,15 @@ waiting on someone.
   refuses a number under its min, over its max or off its step in the
   app's words, and a wheel over a focused number blurs it. Add phase's
   name is required.
+- Move 6b, the freelancer's page as a whole (1.97.0, PR #231): "Since
+  you said yes" opens the link with each booking whose call, days or
+  venue moved since the yes (with "was …") and each that ended, linking
+  to its card; no script. Past work and the timesheet rows are one "Work
+  done" list after the bookings, rows to send first, each with its state
+  (send, sent, approved, paid) when timesheets are on. The feed, "Let us
+  see when you're busy" and "Your documents" fold to a state line ("Not
+  shared", "Shared, 2 busy days ahead", "one runs out in 9 days") and
+  open on a flash, a problem or a typed value.
 
 ## 6 November 2026: the UX cohesion sweep, and batch 1 of its moves
 

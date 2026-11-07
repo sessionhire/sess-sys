@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.97.0',
+    date: '2026-11-07',
+    title: "A freelancer's page in one read",
+    what: "A freelancer's own page now opens on what changed since they said yes: a new call time, different days or a new venue, with what it was before, and any booking that's ended. Their past work is one list, Work done, where each job says what's left: send your days and extras, sent and with the office, approved, or paid. The things set once, their calendar feed, sharing when they're busy and their documents, fold down to one line that says where they stand, and open by themselves when something needs them.",
+    prs: [231],
+  },
+  {
     version: '1.96.1',
     date: '2026-11-07',
     title: 'Forms read the same way everywhere',

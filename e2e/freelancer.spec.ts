@@ -87,16 +87,17 @@ test('a clash is shown before the server says it, a refusal shows in the offer�
   await expect(card.getByText('€1250 a day asked (offered €320)')).toBeVisible()
 
   // The calendar address is a field to copy by hand, with Subscribe for the calendar apps that take a webcal: link. Without script there's no Copy button to press for nothing.
+  await phone.locator('details.feed-fold > summary').click()
   const address = phone.getByLabel('Calendar address')
   await expect(address).toHaveValue(/^http:\/\/localhost:\d+\/cal\/[\w-]{24}\.ics$/)
   await expect(address).toHaveAttribute('readonly', '')
   await expect(phone.getByRole('link', { name: 'Subscribe' })).toHaveAttribute('href', /^webcal:\/\/localhost:\d+\/cal\/[\w-]{24}\.ics$/)
   await expect(phone.getByRole('button', { name: 'Copy address' })).toBeHidden()
 
-  // What's over is two lists, each line with its days: the gala Dara worked, and Laoise's no to the load-in.
+  // What's over is two lists, each line with its days: the gala Dara worked, under Work done, and Laoise's no to the load-in.
   await expect(phone.getByRole('heading', { name: 'Earlier' })).toHaveCount(0)
-  const past = phone.locator('section', { has: phone.getByRole('heading', { name: 'Past work' }) })
-  await expect(past.locator('li').first()).toContainText(/^Autumn Gala \(Show\) · Sound No\.1 · \w{3} \d{1,2} \w{3} to \w{3} \d{1,2} \w{3} Booked$/)
+  const past = phone.locator('section', { has: phone.getByRole('heading', { name: 'Work done' }) })
+  await expect(past.locator('li').first()).toContainText(/^Autumn Gala \(Show\) · Sound No\.1 · \w{3} \d{1,2} \w{3} to \w{3} \d{1,2} \w{3} (Booked|Sent €[\d.,]+, with the office ›)$/)
   const laoise = changes.find((c) => c.entity === 'person' && c.data.name === 'Laoise Keane')!
   await phone.goto(`/f/${laoise.data.linkToken}`)
   const turned = phone.locator('section', { has: phone.getByRole('heading', { name: 'Declined and withdrawn' }) })
@@ -107,6 +108,7 @@ test('a clash is shown before the server says it, a refusal shows in the offer�
   const scripted = await withScript.newPage()
   await scripted.goto(`/f/${dara.data.linkToken}`)
   // Found by its place, not its words: pressed, it says "Copied".
+  await scripted.locator('details.feed-fold > summary').click()
   const copy = scripted.locator('button.copy')
   await expect(copy).toHaveText('Copy address')
   await copy.click()

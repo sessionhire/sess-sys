@@ -108,12 +108,21 @@ export function documentsSection(d: LinkDocuments): string {
       )}
     </details>`
     : `<p class="small">Sending documents here isn't switched on yet. For now, send a photo or a PDF of it to the office by WhatsApp or email.</p>`
-  return `<section id="documents">
-    <h2>Your documents</h2>
+  // Folded to its state, and open on its own only when something needs them (UX sweep, 6 November 2026, move 6b): a
+  // message about it, or a document that has run out or runs out soon.
+  const outs = d.list.map((doc) => documentRunsOut(doc, d.person)).filter((x): x is string => x !== null)
+  const ranOut = outs.filter((x) => x < d.today).length
+  const next = outs.filter((x) => x >= d.today).sort()[0]
+  const soon = next !== undefined && daysBetween(d.today, next) <= CERTIFICATE_SOON_DAYS
+  const state = !d.list.length
+    ? 'None yet'
+    : [d.list.length === 1 ? 'One document' : `${d.list.length} documents`, ranOut ? `${ranOut === 1 ? 'one has' : `${ranOut} have`} run out` : '', next ? `one runs out in ${daysBetween(d.today, next)} day${daysBetween(d.today, next) === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')
+  return `<section id="documents" class="me"><details${mine || ranOut || soon ? ' open' : ''}>
+    <summary><h2>Your documents</h2> <span class="line">${h(state)}</span></summary>
     ${mine && !underField ? flash(mine) : ''}
     ${d.list.length ? d.list.map((doc) => card(d, doc, underField && doc === renewal ? wrong : undefined)).join('') : '<p class="empty">None yet. Your insurance and certificate cards go here once the office has them.</p>'}
     ${send}
-  </section>`
+  </details></section>`
 }
 
 /** A file that can't be shown, in words, with the way back to their page. */

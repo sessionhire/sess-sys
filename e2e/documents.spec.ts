@@ -163,6 +163,9 @@ test("a title typed as one long word wraps on a phone, on the person's card and 
 
   const phone = await (await browser.newContext({ viewport: phoneSize, javaScriptEnabled: false })).newPage()
   await phone.goto(dara.link)
+  // Folded to its state line until something in it needs them (UX sweep, move 6b).
+  await expect(phone.locator('#documents > details > summary')).toContainText('Your documents')
+  if ((await phone.locator('#documents > details').getAttribute('open')) === null) await phone.locator('#documents > details > summary').click()
   await expect(phone.locator('#documents article', { hasText: title })).toBeVisible()
   expect(await wide(phone)).toBeLessThanOrEqual(phoneSize.width)
 })
