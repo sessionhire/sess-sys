@@ -299,9 +299,12 @@ export interface HistoryPage {
  * Why a change is news to someone (ADR 0058), most their own first: it's
  * about them (their details, bookings, leave, timesheets, documents, the
  * van they drive), an offer they sent, a job they're on (as crew, the
- * contact on the day or a driver), or a job they made in the app.
+ * contact on the day or a driver), or a job they made in the app; or, last,
+ * a hand-off that makes it their department's turn (UX sweep, 6 November
+ * 2026, move 12): a job confirmed, to the heads of its departments and the
+ * warehouse's, and a job's first kit out, to the office.
  */
-export const NOTICE_WHY = ['you', 'sent', 'on', 'made'] as const
+export const NOTICE_WHY = ['you', 'sent', 'on', 'made', 'turn'] as const
 /**
  * The tables a notification can be about: the server's notifications are changes to these (server/src/notices.ts). A pull
  * that lands a change in none of them can't have brought one, so a phone needn't ask (audit, 20 October 2026, finding 14).
@@ -321,6 +324,8 @@ export const NOTICE_ENTITIES: readonly EntityName[] = [
   'project',
   'phase',
   'crewCall',
+  // A job's first kit out, told to the office as "Gone out" (UX sweep, 6 November 2026, move 12).
+  'movement',
 ]
 export type NoticeWhy = (typeof NOTICE_WHY)[number]
 export const NOTICE_WHY_WORDS: Record<NoticeWhy, string> = {
@@ -328,6 +333,7 @@ export const NOTICE_WHY_WORDS: Record<NoticeWhy, string> = {
   sent: 'An offer you sent',
   on: "A job you're on",
   made: 'A job you made',
+  turn: "Your department's turn",
 }
 
 /** A change someone else made to something of theirs: a history entry, with why it's theirs. */

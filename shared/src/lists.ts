@@ -161,10 +161,10 @@ export function jobFilters(
             any: 'Any tasks',
             options: [
               { key: 'late', label: 'A task late', test: (j) => !!steps(j)?.steps.some((t) => t.late) },
-              { key: 'nobody', label: 'Next task down to nobody', test: (j) => isUnowned(steps(j)) },
+              { key: 'nobody', label: 'Next task: nobody named', test: (j) => isUnowned(steps(j)) },
               // What Home counts (Move 10 of the sweep of 6 November 2026): a job that starts within a fortnight with nobody on
               // its next task is a signal; one months off is how the company works.
-              { key: 'nobody-soon', label: 'Down to nobody, starting within a fortnight', test: (j) => nobodySoon(steps(j)) },
+              { key: 'nobody-soon', label: 'Next task: nobody named, starting within a fortnight', test: (j) => nobodySoon(steps(j)) },
             ],
           },
         ]

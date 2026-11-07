@@ -60,6 +60,9 @@ export function useAccess(): Access & { can: (ability: Ability) => boolean } {
  */
 export const useSeesRates = () => useView().reading.rates
 
+/** This device's role now, outside a screen. */
+export const roleNow = (view: View): Role | undefined => accessOf(currentAuth(), view, previewKey()).role
+
 // Every change goes through the client, so a role's limits hold on every screen, offline too, before anything is kept.
 client.guard = (name, args) => {
   const view = client.view()

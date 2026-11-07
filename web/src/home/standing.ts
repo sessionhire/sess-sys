@@ -133,8 +133,8 @@ const TILES: { [K in StandingKey]: TileSpec<K> } = {
   'tasks-nobody': {
     // Only the jobs starting within a fortnight (Move 10 of the sweep of 6 November 2026): one months off is how the company
     // works, not a signal.
-    one: 'job starting within a fortnight with its next task down to nobody',
-    many: 'jobs starting within a fortnight with the next task down to nobody',
+    one: 'job starting within a fortnight with nobody named on its next task',
+    many: 'jobs starting within a fortnight with nobody named on the next task',
     href: '#jobs',
     filters: { tasks: 'nobody-soon' },
   },

@@ -87,6 +87,13 @@ const sentence = (who: string, what: string) => `${who.charAt(0).toUpperCase()}$
 export const whoDoes = (step: JobStep) => sentence(STEP_OWNERS[step], STEP_ACTS[step])
 
 /**
+ * Whose a task is when nobody is named on it: the role that does it, from the one table (UX sweep, 6 November 2026,
+ * move 12). "For the warehouse (nobody named)." A default nobody has to set, said the same on the task card and in
+ * the task filter's words.
+ */
+export const ownerByRole = (step: JobStep) => `For ${STEP_OWNERS[step]} (nobody named).`
+
+/**
  * The "not yours" sentences for whole views a role reads but doesn't do (UX sweep, 6 November 2026, move 4): one
  * shape, the owner first and the act after, so no screen invents its own. An action that was tried and refused keeps
  * roles.ts's refusal, which says how a role changes.

@@ -2,6 +2,7 @@ import { dsDuration, dsTiming, HOLDING, irishToday, makerOf, noticeLines, NOTICE
 import { useSyncExternalStore } from 'react'
 import { currentAuth, markSignedOut, onAuth } from './auth.ts'
 import { linkFor } from './crew/Messages.tsx'
+import { roleNow } from './role.ts'
 import { client } from './sync.ts'
 
 /**
@@ -301,7 +302,9 @@ client.subscribe((view) => {
   const pulled = client.takePulled()
   const first = lookedAt === undefined
   lookedAt = view.cursor
-  if (first || NOTICE_ENTITIES.some((e) => pulled.has(e))) void loadNotices()
+  // A scan is news only to the office, as a job's first kit out (move 12): the warehouse's phones, scanning all day, don't ask after each.
+  const news = NOTICE_ENTITIES.filter((e) => e !== 'movement' || roleNow(view) === 'office')
+  if (first || news.some((e) => pulled.has(e))) void loadNotices()
 })
 // Signed in after the app opened, or back from the sign-in page: look now rather than at the next change.
 let wasIn = signedIn()

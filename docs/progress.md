@@ -3,6 +3,23 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 7 November 2026: batch 5 of the UX sweep, what the small moves prepared
+
+**Done**
+
+- Batch 5, on Colly's "move on to the next batch" after batch 4, built on
+  section 9's recommendations: move 12, move 5c and question 2.
+- Move 12, first part, whose turn it is (1.105.0, PR #0): a task with
+  nobody named on it says whose it is by role, from the one owner table
+  ("For the warehouse (nobody named).", `ownerByRole` in
+  shared/src/words.ts), and the Tasks filter and Home's tile say
+  "nobody named"; two hand-offs reach the people whose turn it is as
+  notifications in the app only (ADR 0058's fifth reason, "Your
+  department's turn"): a job going confirmed, to the heads of the
+  departments on its calls or kit and the warehouse's heads
+  ("Confirmed: Harbour Lights, Mon 9 Nov"), and a job's first kit out,
+  to the office ("Gone out: Harbour Lights"). Nobody is emailed.
+
 ## 7 November 2026: batch 4 of the UX sweep, the pages that are someone's own
 
 **Done**
