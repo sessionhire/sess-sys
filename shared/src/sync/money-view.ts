@@ -94,6 +94,12 @@ export interface MonthMoney {
   invoiced: number
   /** Freelancers' approved timesheets, by the month of their last day. */
   costs: number
+  /**
+   * What was lost, net, by the month the job starts (Move 10 of the sweep of 6 November 2026): quotes turned down, and the
+   * quote on a job marked lost that wasn't invoiced. Never in Quoted. A job whose dates passed with no answer isn't in it until
+   * someone marks it lost: Money names those apart.
+   */
+  lost: number
 }
 
 export interface OwedBy {
@@ -388,11 +394,13 @@ export function moneyView(
   const monthFor = (d: string) => {
     const { key, label } = moneyMonth(d)
     let m = months.get(key)
-    if (!m) months.set(key, (m = { key, label, quoted: 0, confirmed: 0, invoiced: 0, costs: 0 }))
+    if (!m) months.set(key, (m = { key, label, quoted: 0, confirmed: 0, invoiced: 0, costs: 0, lost: 0 }))
     return m
   }
   for (const jm of jobList) {
     const q = jm.current
+    const lost = !!q && (q.status === 'declined' || (jm.job.status === 'lost' && !q.invoicedOn))
+    if (q && lost) monthFor(jm.job.span?.start ?? q.sentOn ?? irishToday(new Date(q.madeAt))).lost += q.totals.net
     if (!q || q.status === 'declined' || jm.setAside) continue
     const m = monthFor(jm.job.span?.start ?? q.sentOn ?? irishToday(new Date(q.madeAt)))
     m.quoted += q.totals.net

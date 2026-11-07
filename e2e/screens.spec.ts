@@ -361,7 +361,7 @@ test("Money's By month and Margin by job read on a phone, every figure under its
   // Money's two tables keep every figure; on a phone each month and each job is a row with its figures under its name, each saying
   // which it is, with nothing to scroll sideways in the page or in the card; and a desk keeps the table with its heads.
   const tables = {
-    'By month': ['Quoted', 'Confirmed', 'Invoiced', 'Freelancers'],
+    'By month': ['Quoted', 'Confirmed', 'Invoiced', 'Freelancers', 'Lost'],
     'Margin by job': ['Quoted', 'Freelancers', 'After freelancers'],
   }
   const figures = (page: Page, name: string) =>

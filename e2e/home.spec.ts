@@ -256,6 +256,43 @@ test('each count says how many more there are since the last look at Home on an 
   await expect(page.locator('.standing .hint')).toContainText('"More since" counts from your last look at Home on this phone.')
 })
 
+test("a job whose dates passed stays in reach while its Back is open: Just finished on Home, Still in Back first on Past", async ({ browser }) => {
+  // Proves (Move 10 of the sweep of 6 November 2026): a job over in the last fortnight with work still open in Back is listed
+  // under Today as Just finished, with its position, and the Jobs list's Past opens on Still in Back before the weeks, counted
+  // as listed; Money names what was lost beside the month, with the jobs whose dates passed with no answer apart.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' }).click()
+  const today = page.locator('section.card', { has: page.getByRole('heading', { name: /^Today/ }) })
+  const head = today.getByRole('heading', { name: /^Just finished \(\d+\)$/ })
+  await expect(head).toBeVisible()
+  const n = Number((await head.textContent())!.match(/\d+/)![0])
+  const finished = today.locator('.job-list').last().locator(':scope > li')
+  await expect(finished).toHaveCount(n)
+  await expect(finished.first().locator('.job-position')).toContainText('Back')
+
+  await page.goto('/#jobs')
+  await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Past/ }).click()
+  const heads = page.locator('.jobs-card .week-head h3')
+  await expect(heads.first()).toHaveText(/^Still in Back \(\d+\)$/)
+  const inBack = Number((await heads.first().textContent())!.match(/\d+/)![0])
+  expect(inBack).toBeGreaterThanOrEqual(n)
+  const rows = await page.locator('.jobs-card .job-list > li').evaluateAll((lis) => {
+    const out: string[] = []
+    for (const li of lis.slice(1)) {
+      if (li.classList.contains('week-head')) break
+      out.push(li.querySelector('.job-position')?.textContent ?? '')
+    }
+    return out
+  })
+  expect(rows).toHaveLength(inBack)
+  for (const r of rows) expect(r).toMatch(/^Back/)
+
+  await page.goto('/#jobs/money')
+  await expect(page.locator('.money-facts')).toContainText(/Lost or lapsed for \w+ \d{4}€[\d,.]+turned down or marked lost/)
+})
+
 test('a head of department is not offered the quotes worth a call, a count for whoever reads quotes', async ({ browser }) => {
   // Proves (ADR 0034 and 0042): a count is offered only to a role that can act on it. This server isn't told the persona, so
   // the device holds the quotes as a director's would: the app's own check keeps the count from a head while one is due.

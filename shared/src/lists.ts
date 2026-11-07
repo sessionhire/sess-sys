@@ -229,6 +229,11 @@ export function nobodySoon(s: JobSteps | undefined): boolean {
   return !!s && !!s.job.span && s.daysAfter === undefined && (s.daysTo ?? 0) <= NOBODY_SOON_DAYS && s.stage?.key === 'planning' && !s.finished && isUnowned(s)
 }
 
+/** Its dates passed but the job is still in Back with work open on it (Move 10 of the sweep of 6 November 2026): not finished yet. */
+export function stillInBack(s: JobSteps | undefined): boolean {
+  return !!s && s.stage?.key === 'back' && !s.finished && !s.stopped
+}
+
 /** A job whose next task nobody has been given yet. */
 export const isUnowned = (at: JobSteps | undefined) => !!at?.current && !at.finished && !at.stopped && !at.current.ownerId
 

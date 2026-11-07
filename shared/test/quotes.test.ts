@@ -325,6 +325,25 @@ describe('money on the device', () => {
     expect(m.months.reduce((s, x) => s + x.confirmed, 0)).toBe(360000)
   })
 
+  it("sums what was lost by month: quotes turned down and a lost job's uninvoiced quote, never a cancelled one", async () => {
+    // Move 10 of the sweep of 6 November 2026: Money's "Lost or lapsed" and By month's Lost column.
+    const server = new Server()
+    server.put('client', 'bw', { id: 'bw', name: 'Brightwater Events', contacts: [], notes: '' })
+    server.put('project', 'gala', project)
+    server.put('project', 'fair', { ...project, id: 'fair', name: 'Craft Fair' })
+    server.put('project', 'lost', { ...project, id: 'lost', name: 'Went Elsewhere', status: 'lost' })
+    server.put('project', 'gone', { ...project, id: 'gone', name: 'Called Off', status: 'cancelled' })
+    server.put('quote', 'q1', quote({}))
+    server.put('quote', 'q2', quote({ id: 'q2', projectId: 'fair', status: 'declined', invoicedOn: null, invoiceRef: '' }))
+    server.put('quote', 'q3', quote({ id: 'q3', projectId: 'lost', invoicedOn: null, invoiceRef: '' }))
+    server.put('quote', 'q4', quote({ id: 'q4', projectId: 'gone', invoicedOn: null, invoiceRef: '' }))
+    const phone = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone' }).open()
+    await phone.sync()
+    const m = phone.view().money
+    expect(m.months.reduce((s, x) => s + x.lost, 0)).toBe(2 * 120000)
+    expect(m.months.reduce((s, x) => s + x.quoted, 0)).toBe(120000)
+  })
+
   it('drops money it held when its role loses it, and reads again from the start when given it back', async () => {
     const server = new Server()
     server.put('project', 'gala', project)

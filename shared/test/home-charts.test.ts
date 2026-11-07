@@ -92,7 +92,7 @@ describe('my weeks', () => {
 
 describe('money by month', () => {
   it('splits quoted into confirmed and still a quote, three months back to two ahead', () => {
-    const cols = moneyByMonth([{ key: '2026-10', label: '', quoted: 5000, confirmed: 3000, invoiced: 0, costs: 0 }], today)
+    const cols = moneyByMonth([{ key: '2026-10', label: '', quoted: 5000, confirmed: 3000, invoiced: 0, costs: 0, lost: 0 }], today)
     expect(cols.map((c) => c.key)).toEqual(['2026-07', '2026-08', '2026-09', '2026-10', '2026-11', '2026-12'])
     expect(cols[3]!.parts).toEqual([3000, 2000])
     expect(cols[0]!.parts).toEqual([0, 0])
