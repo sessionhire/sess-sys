@@ -237,11 +237,13 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 @media (min-width: 900px) { html { scroll-padding-bottom: var(--ds-space-2); } }
 /* A part of this screen jumped to (glide.ts): the page glides there, and the part is marked where it lands by an edge in the accent, the
    app's "you are here", held long enough to be found at the end of the glide and then faded at the system's slow step (240ms of 1200).
-   A colour, not movement, so it stays under reduced motion, where it's the only sign of the jump. Outside the box, so nothing shifts. */
+   A colour, not movement, so it stays under reduced motion, where it's the only sign of the jump. Drawn just inside the card's edge:
+   outside it, the edge sat in the page's gutters, which the bar doesn't cover, so a card scrolled under the bar showed two red lines
+   either side of it (Colly, 7 November 2026). Inside, the bar covers it, and nothing shifts. */
 .landed { animation: landed 1200ms var(--ds-ease-standard); }
 @keyframes landed {
-  0%, 80% { outline: 2px solid var(--accent); outline-offset: 2px; }
-  100% { outline: 2px solid transparent; outline-offset: 2px; }
+  0%, 80% { outline: 2px solid var(--accent); outline-offset: -2px; }
+  100% { outline: 2px solid transparent; outline-offset: -2px; }
 }
 /* More this way (more.tsx): wherever a row or a table scrolls sideways, the edge with more past it fades, the same on every screen (audit P2 23;
    20 October 2026, finding 13). A fade, not a shadow, so it reads the same on any surface. --more-from keeps a column that stays put (the

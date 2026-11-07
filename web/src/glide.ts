@@ -67,18 +67,27 @@ export interface GlideOptions {
   mark?: HTMLElement
 }
 
-/** Glides the page to `el`, on the screen already open. */
+/**
+ * Glides the page to `el`, on the screen already open. The focus is given
+ * once the page has arrived, not before: Safari on an iPhone scrolls to
+ * what takes the focus whatever it's asked, which put the page at the part
+ * before the glide could start, so nothing was seen to move.
+ */
 export function glideTo(el: HTMLElement, { block = 'start', focus, mark }: GlideOptions = {}) {
   stopLast?.()
-  if (focus) {
+  if (mark) markLanded(mark)
+  const take = () => {
+    if (!focus) return
     if (!focus.matches('a[href], button, input, select, textarea, [tabindex]')) focus.tabIndex = -1
     focus.focus({ preventScroll: true })
   }
-  if (mark) markLanded(mark)
   const from = scrollY
   const to = placeFor(el, block)
-  if (Math.abs(to - from) < 2) return
-  if (reduced()) return void scrollTo(0, to)
+  if (Math.abs(to - from) < 2) return take()
+  if (reduced()) {
+    scrollTo(0, to)
+    return take()
+  }
   // At most about a screen of travel: further than that is jumped, the rest glided, so the direction is seen.
   const reach = Math.round(innerHeight * 0.75)
   const start = Math.abs(to - from) > reach ? to - Math.sign(to - from) * reach : from
@@ -101,7 +110,11 @@ export function glideTo(el: HTMLElement, { block = 'start', focus, mark }: Glide
     const end = placeFor(el, block)
     scrollTo(0, Math.round(start + (end - start) * standard(t)))
     if (t < 1) frame = requestAnimationFrame(step)
-    else stop()
+    else {
+      stop()
+      // Arrived: the focus goes with the eye. A hand that stopped the glide keeps the page where it put it, and the focus stays.
+      take()
+    }
   }
   frame = requestAnimationFrame(step)
 }
