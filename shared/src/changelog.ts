@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: "Whose turn it is, said and told",
     what: "A job's task with nobody named on it now says whose it is, such as For the warehouse (nobody named), and the Tasks filter and Home's count say nobody named. When the office confirms a job, the heads of the departments on its calls or kit and the head of the warehouse get a notification in the app, Confirmed: Harbour Lights, Mon 9 Nov, and when a job's first kit is scanned out the office gets Gone out: Harbour Lights. These are in the app only: nobody is emailed or texted.",
-    prs: [0],
+    prs: [240],
     adrs: [58],
   },
   {

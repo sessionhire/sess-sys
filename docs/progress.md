@@ -9,7 +9,7 @@ waiting on someone.
 
 - Batch 5, on Colly's "move on to the next batch" after batch 4, built on
   section 9's recommendations: move 12, move 5c and question 2.
-- Move 12, first part, whose turn it is (1.105.0, PR #0): a task with
+- Move 12, first part, whose turn it is (1.105.0, PR #240): a task with
   nobody named on it says whose it is by role, from the one owner table
   ("For the warehouse (nobody named).", `ownerByRole` in
   shared/src/words.ts), and the Tasks filter and Home's tile say
