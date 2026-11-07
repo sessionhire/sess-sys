@@ -870,7 +870,7 @@ describe('the freelancer page (audit finding 21)', () => {
       [harvest, 'Withdrawn by the office'],
     ] as const) {
       const card = cardOf(bookings, o.id)
-      expect(card, first).toContain(`<h3><span class="news">${first.replace("'", '&#39;')}</span> ${name}</h3>`)
+      expect(card, first).toContain(`<h3><span class="news">${first.replaceAll("'", '&#39;')}</span> ${name}</h3>`)
       // Nothing to answer on it, and no call sheet for a job that isn't going ahead.
       expect(card).not.toContain('<form')
       expect(card).not.toContain('Call sheet')
