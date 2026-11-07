@@ -18,7 +18,6 @@
 .warehouse .size-fields legend { font-weight: 600; margin-bottom: var(--ds-space-2); }
 .warehouse .size-fields .hint { grid-column: 1 / -1; }
 .warehouse .flag.ok { color: var(--muted); }
-.warehouse .flag.warn { color: var(--warn); font-weight: 600; }
 .warehouse .rack-thing.hired { font-style: italic; color: var(--muted); }
 
 /* The rack designer (ADR 0075): the kit beside the rack on a desk, above it on a phone. */

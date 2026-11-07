@@ -132,7 +132,11 @@ test('scanning labels with the camera: looking one up, and labelling a shelf', a
   await expect(camera.getByRole('button', { name: 'Sound', pressed: true })).toBeVisible()
   await hold(page, item)
   const lastScan = page.getByRole('status', { name: 'Last scan' })
-  await expect(lastScan).toHaveText(`${item} ${speaker} · ${bay} · Serial ${serial}. Scan the next label.`)
+  // On the one item row (UX sweep, 6 November 2026, move 3): the number and product, then where it's kept and its serial.
+  await expect(lastScan.locator('.item-row')).toContainText(`${item} ${speaker}`)
+  await expect(lastScan.locator('.item-row p')).toHaveText(`${bay} · Serial ${serial}`)
+  await expect(lastScan.locator('.item-row .pill')).toHaveCount(0)
+  await expect(lastScan).toContainText('Scan the next label.')
   await expect(camera).toBeVisible()
   await expect(page).toHaveURL(/#stock$/)
   // A maker's serial finds its item too.
@@ -201,7 +205,8 @@ test('scanning labels with the camera: looking one up, and labelling a shelf', a
   await hold(page, null)
   await page.waitForTimeout(1500)
   await hold(page, one)
-  await expect(lastScan).toHaveText(`${one} ${speaker} · ${bay}. Scan the next label.`)
+  await expect(lastScan.locator('.item-row')).toContainText(`${one} ${speaker}`)
+  await expect(lastScan.locator('.item-row p')).toHaveText(bay)
   await expect(page.getByRole('form', { name: /^Put / })).toHaveCount(0)
 
   // Stop camera turns it off. (The camera is still on from the last read, so the page is left and come back to first.)

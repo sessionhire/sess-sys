@@ -81,6 +81,17 @@ waiting on someone.
   next-booking rule: a held day from today on). An offer to the reader,
   its row and its notification open their link, where it is answered,
   and the link's purchase card loses its "Kit to buy" kicker.
+- Move 3, part 3, one item row (1.92.0, PR #225): ItemRow draws an
+  item one way on its product's Items tab, the catalogue's Items found,
+  the Stock camera's last read and the pick list coming back: its state
+  (Missing, Damaged can't go out, a failed or overdue test as bad;
+  Damaged fit to go out as warn), "Out with <job> since <day>" (with the
+  year when it's another), where it's kept and its serial. While a scan
+  of it, or of a case it's in, is unsent, the row, the scan's answer and
+  the pick list's row and done line carry the dashed "Waiting to sync"
+  pill (MovesView.waiting and countWaiting), never amber. On a pick list
+  only the number opens the item (audit of 5 November, finding 92), and
+  Report damage opens under its row.
 
 **Waiting**
 

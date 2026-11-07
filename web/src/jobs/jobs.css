@@ -229,7 +229,11 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .from details > summary::before { content: none; }
 .pick .from details > p { margin: var(--ds-space-1) 0 0; color: var(--muted); }
 .pick .pick-total { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
-.pick .said { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); font-size: var(--text-small); }
+/* While what it says is still only on this phone, the answer ends in Waiting to sync (UX sweep, 6 November 2026, move 3), on the panel
+   so its ink keeps its contrast on the answer's wash; under the words when they need the width. */
+.pick .said { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--ds-space-1) var(--ds-space-2); margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); font-size: var(--text-small); }
+.pick .said p { flex: 1 1 12rem; margin: 0; }
+.pick .said .pill { margin-inline-start: auto; background: var(--panel); }
 .pick .said.ok { background: var(--good-soft); color: var(--good); }
 .pick .said.warn { background: var(--warn-soft); color: var(--warn); }
 .pick .said.quiet { background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
@@ -238,21 +242,34 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .pick-row > header { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; }
 .pick .pick-row > header p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
 .pick .pick-row .count { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Waiting to sync under the count while anything it counts is still only on this phone (UX sweep, 6 November 2026, move 3). */
+.pick .pick-row .tally { display: grid; justify-items: end; gap: var(--ds-space-1); }
 .pick .pick-row.done .count { color: var(--ink); }
 .pick .from { margin: 0; padding-left: var(--ds-space-4); font-size: var(--text-small); font-variant-numeric: tabular-nums; }
 /* Back and Missing apart, each a 44 px target, Missing the quieter (audit, 20 October 2026, finding 40). */
-.pick .out-items li { display: flex; align-items: center; gap: var(--ds-space-3); }
+.pick .out-items li, .warehouse.pick .item-list li { display: flex; align-items: center; gap: var(--ds-space-3); }
 .pick .out-items button.link { min-width: 44px; min-height: 44px; padding-inline: var(--ds-space-1); }
 .pick .out-items button.link.quiet { color: var(--muted); }
-/* The number is the quieter thing and sits apart from Back, so a gloved miss for Back doesn't open the item (audit, 5 November 2026, finding 92). */
-.warehouse.pick .out-items a { margin-inline-end: auto; border-color: transparent; padding-inline: 0; color: var(--muted); font-weight: 400; }
+/* Going out, the number is the quieter thing and sits apart from Not going, so a gloved miss doesn't open the item (audit, 5 November 2026,
+   finding 92); Waiting to sync stays beside it. */
+.warehouse.pick .numbers.out-items a { border-color: transparent; padding-inline: 0; color: var(--muted); font-weight: 400; }
+.pick .numbers.out-items button { margin-inline-start: auto; }
+/* Coming back, each item is the one item row (UX sweep, 6 November 2026, move 3) with its buttons beside it, a line between. On a narrow
+   phone its Waiting to sync goes under its words, so the buttons keep their place. */
+.warehouse.pick .item-list li + li { border-top: 1px solid var(--line); }
+.warehouse.pick .item-list .item-row { flex: 1; min-width: 0; flex-wrap: wrap; padding: var(--ds-space-2) 0; border-top: 0; }
+/* The number is the quieter thing, and the only part of the row that opens the item, apart from Back, so a gloved miss for Back doesn't
+   open the item (audit, 5 November 2026, finding 92). On a touch screen it's as tall as a thumb, as every link in words is (app.css),
+   and lies over the line under it, so all of that opens it. */
+.warehouse.pick .item-list .item-row a { position: relative; color: var(--muted); font-weight: 400; text-decoration: none; font-variant-numeric: tabular-nums; }
 /* A number never breaks at its hyphen (audit, 20 October 2026, finding 41). */
 .pick .from .number { white-space: nowrap; }
 .pick .count-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }
 .pick .count-row p { margin: 0; color: var(--muted); font-size: var(--text-small); flex: 1 0 100%; }
 .app .pick .count-row input { width: 7.5rem; flex: none; }
-/* Numbers already back, each with Report damage, folded under one line on the row (audit, 5 November 2026, finding 33). */
-.app .pick .back-damage { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
+/* Numbers already back, each with Report damage, folded under one line on the row (audit, 5 November 2026, finding 33); its form opens under the row. */
+.pick .back-damage li { flex-wrap: wrap; }
+.pick .back-damage li > form { flex: 1 0 100%; }
 .pick .count-row .alert { flex: 1 0 100%; }
 /* Picking on the phone (ADR 0072): whose kit and in what order, what to know before starting, the kit's own notes, and Undo beside the answer. */
 /* Done is settled, so it's ink: green stays for a scan that read (audit, 20 October 2026, finding 59). */

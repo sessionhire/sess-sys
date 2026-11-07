@@ -168,8 +168,7 @@
 .warehouse .faults details { margin-top: var(--ds-space-3); }
 .warehouse .faults details .fault-list { margin-top: var(--ds-space-2); }
 .warehouse .facts dd.bad, .warehouse .flag.bad { color: var(--bad); font-weight: 600; }
-.warehouse .numbers.missing-items a { border-style: dashed; border-color: var(--bad); color: var(--bad); }
-.warehouse .numbers.missing-items::before { content: 'Missing:'; align-self: center; color: var(--bad); font-size: var(--text-hint); font-weight: 600; }
+.warehouse .flag.warn { color: var(--warn); font-weight: 600; }
 
 /* Inspections (ADR 0020): where an item stands on each test, the same stripes as faults. In date is quiet, edged as a line like not needed:
    only soon and overdue take a colour (audit, 5 November 2026, finding 103). */
@@ -207,6 +206,9 @@
 .warehouse .held .actions { margin: 0; }
 .warehouse .scan-result { display: grid; grid-template-columns: 1fr auto; gap: var(--ds-space-2); align-items: center; }
 .warehouse .scan-result .added { margin: 0; }
+/* The item read is the one item row (UX sweep, 6 November 2026, move 3), with what to do next under it. */
+.warehouse .scan-result .item-row { padding: 0; border-top: 0; }
+.warehouse .scan-result .added > p { margin: var(--ds-space-1) 0 0; }
 .warehouse .scan-misses h4 { margin: 0 0 var(--ds-space-1); font-size: var(--text-small); color: var(--warn); }
 .warehouse .scan-misses li { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); color: var(--ink); }
 .warehouse .grid-form .scan-row { align-items: end; }

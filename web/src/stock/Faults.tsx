@@ -10,6 +10,7 @@ import {
   type Department,
   type FaultKind,
   type FaultOutcome,
+  type FaultsView,
   type FaultView,
   type Model,
   type View,
@@ -48,6 +49,9 @@ export function faultState(f: FaultView): string {
   if (f.kind === 'missing') return 'Missing'
   return f.usable ? 'Damaged, fit to go out' : "Damaged, can't go out"
 }
+
+/** An open report of an item damaged but fit to go out, if it has one. */
+export const usableFault = (faults: FaultsView, assetId: string) => faults.ofAsset(assetId).find((f) => f.open && f.kind === 'damaged' && f.usable)
 
 /** Closes a fault, and with an item's missing report the others like it (audit, 20 October 2026, finding 45); run through act(). */
 export async function closeFault(f: FaultView, outcome: FaultOutcome) {

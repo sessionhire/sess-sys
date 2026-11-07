@@ -156,6 +156,16 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   // Said where the eye already is, and not offered again (audit, 20 October 2026, finding 42).
   await expect(said).toHaveText(`${speakers[0]} reported damaged: can't go out until it's fixed.`)
   await expect(page.getByRole('button', { name: `Report damage to ${speakers[0]}` })).toHaveCount(0)
+  // Its row among what's back says so in the bad flag, and that it's still only on this phone, as the answer does (UX sweep,
+  // 6 November 2026, move 3).
+  await expect(page.locator('.said', { has: said }).locator('.pill')).toHaveText('Waiting to sync')
+  await speakerRow.locator('.back-items summary').click()
+  const backRow = speakerRow.locator('.back-damage .item-row', { hasText: speakers[0]! })
+  await expect(backRow.locator('p')).toHaveText(`Damaged, can't go out · ${bay}`)
+  await expect(backRow.locator('.flag.bad')).toHaveText("Damaged, can't go out")
+  await expect(backRow.locator('.pill')).toHaveText('Waiting to sync')
+  // The grey dashed one, not amber.
+  await expect(backRow.locator('.pill')).toHaveClass(/\bwaiting\b/)
   // The second speaker didn't come back.
   await speakerRow
     .getByRole('list', { name: 'Still out' })
@@ -163,7 +173,10 @@ test('damaged and missing kit, reported on return, then fixed, found and written
     .getByRole('button', { name: 'Missing' })
     .click()
   await expect(speakerRow.locator('.count')).toHaveText('1 back, 1 still out, 1 missing')
-  await expect(speakerRow.getByRole('list', { name: 'Missing' })).toHaveText(speakers[1]!)
+  const missingRow = speakerRow.getByRole('list', { name: 'Missing' }).locator('.item-row')
+  await expect(missingRow.getByRole('link')).toHaveText(speakers[1]!)
+  await expect(missingRow.locator('.flag.bad')).toHaveText('Missing')
+  await expect(missingRow.locator('.pill')).toHaveText('Waiting to sync')
   await expect(said).toHaveText(`${speakers[1]} marked missing. Scan it when it turns up and it's marked found.`)
   // At once, with Undo rather than a question first (audit, 20 October 2026, finding 40): undone, it's out again; then missing after all.
   await page.getByRole('button', { name: 'Undo' }).click()
@@ -198,12 +211,20 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   // Signal back; the missing speaker turns up in the van and is scanned: found.
   await context.setOffline(false)
   await expect(page.locator('.conn')).toHaveText('Up to date')
+  await expect(missingRow.locator('.pill')).toHaveCount(0)
+  await expect(backRow.locator('.pill')).toHaveCount(0)
+  await expect(backRow.locator('.flag.bad')).toHaveText("Damaged, can't go out")
   await typeIn(speakers[1]!)
   await expect(said).toHaveText(`${speakers[1]} ${speaker} isn't out, so there's nothing to bring back. It was reported missing, so it's marked found.`)
   await expect(speakerRow.locator('.count')).toHaveText('2 back, 1 still out')
   await typeIn(speakers[2]!)
   await expect(speakerRow.locator('.count')).toHaveText('All 3 back')
   await expect(page.locator('.conn')).toHaveText('Up to date')
+
+  // Found by its number, its row says it can't go out, not only where it's kept (UX sweep, 6 November 2026, move 3).
+  await page.goto('/#stock')
+  await page.getByLabel('Find').fill(speakers[0]!)
+  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row .flag.bad')).toHaveText("Damaged, can't go out")
 
   // The job's kit is short by what can't go out.
   await page.goto('/#jobs')

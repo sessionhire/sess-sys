@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.92.0',
+    date: '2026-11-07',
+    title: "Items say whether they're out, missing or waiting to sync",
+    what: "An item now looks the same wherever it's listed: on its product's page, when you search the catalogue for a number, under the Stock camera, and on a pick list as kit comes back. It says where it's kept and the state it's in: out with a job and since when, missing, damaged, or a test failed or overdue. When you scan with no signal, the item, the answer to the scan and its row on the pick list say Waiting to sync until the phone has sent it. On a pick list only the item's number opens it, so a near miss for Back or Missing doesn't, and Report damage opens under its item.",
+    prs: [225],
+  },
+  {
     version: '1.91.0',
     date: '2026-11-06',
     title: 'Your bookings, said one way, and your leave on your link',

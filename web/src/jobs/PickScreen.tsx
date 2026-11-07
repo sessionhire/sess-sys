@@ -29,10 +29,12 @@ import { useScanKeys } from '../scanKeys.ts'
 import { act, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { mistakeLabel } from '../stock/common.tsx'
-import { closeFault, faultState, reportFault, ReportFault } from '../stock/Faults.tsx'
+import { closeFault, faultState, reportFault, ReportFault, usableFault } from '../stock/Faults.tsx'
 import { dueText } from '../stock/Inspections.tsx'
+import { ItemRow, itemWaiting } from '../stock/ItemRow.tsx'
 import { CameraScanner, primeSound } from '../stock/Scanner.tsx'
 import { useAccess } from '../role.ts'
+import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 import { JobStatusPill, Top } from './common.tsx'
@@ -61,7 +63,11 @@ interface Said {
   undo?: Undo
   /** Found because the case it's kept in was reported missing and is marked found with it: it may have been taken out of that case. */
   outOf?: OutOfCase
+  /** What it's about, so it says "Waiting to sync" while what was recorded is still only on this phone (UX sweep, 6 November 2026, move 3). */
+  about?: About
 }
+/** An item, by id, or a product counted for a job. */
+type About = string | { projectId: string; modelId: string }
 interface OutOfCase {
   item: AssetView
   holder: AssetView
@@ -88,9 +94,16 @@ function inside(c: AssetView, seen = new Set<string>()): number {
   return n
 }
 
-/** One scan, or one count, as a change; whoever asks for it runs it through act(). */
-/** An open report of an item damaged but fit to go out, if it has one. */
-const usableFault = (assetId: string) => client.view().faults.ofAsset(assetId).find((f) => f.open && f.kind === 'damaged' && f.usable)
+/** Whether what an answer reports is still only on this phone: the item's scan or report, or the count and what was reported of it. */
+function answerWaiting(view: View, about: About | undefined): boolean {
+  if (about === undefined) return false
+  if (typeof about === 'string') return itemWaiting(view, about)
+  return view.moves.countWaiting(about.projectId, about.modelId) || view.faults.ofJob(about.projectId).some((f) => f.pending && !f.assetId && f.modelId === about.modelId)
+}
+
+/** Whether anything a row counts is still only on this phone: a scan or report of one of its items, or a count of it and what was reported of that. */
+const rowWaiting = (view: View, row: PickRow, projectId: string) =>
+  [row.items, row.backItems, row.missingItems].some((items) => items.some((a) => itemWaiting(view, a.id))) || answerWaiting(view, { projectId, modelId: row.modelId })
 
 /**
  * A scan or count, by its own id, so an Undo can name what it takes back: then neither counts as kit that went out or came back
@@ -166,12 +179,13 @@ function Pick({ view, job }: { view: View; job: JobView }) {
     // Missing because the case it's kept in is: that case is marked found with it, as a sealed case is (ADR 0018), and saying
     // so offers the other answer, that it was taken out of that case (audit, 20 October 2026, finding 102).
     const holder = found && fault.assetId && fault.assetId !== a.id ? w.assets.get(fault.assetId) : undefined
-    const answer: Say = holder && fault ? (tone, text, more) => say(tone, text, { ...more, outOf: { item: a, holder, fault } }) : say
+    // Every answer from here is about the item scanned.
+    const answer: Say = (tone, text, more) => say(tone, text, { ...more, about: a.id, ...(holder && fault ? { outOf: { item: a, holder, fault } } : {}) })
     if (holder) notes.push(`${holder.number || 'The case'}, the case it's kept in, was reported missing; it's marked found since this was in it.`)
     else if (found) notes.push("It was reported missing, so it's marked found.")
     else if (fault && mode === 'out') notes.push(`It's reported ${faultState(fault).toLowerCase()}${fault.note ? `: ${fault.note}` : ''}. Check it before it goes.`)
     // Damaged but fit to go out: it can go, and whoever picks it hears what's wrong, written for this moment (audit, 5 November 2026, finding 15).
-    const usable = !fault && mode === 'out' ? usableFault(a.id) : undefined
+    const usable = !fault && mode === 'out' ? usableFault(view.faults, a.id) : undefined
     if (usable) notes.push(`Reported damaged but fit to go${usable.note.trim() ? `: ${usable.note.trim()}` : ''}. Pick another if it matters for this job.`)
     // Failed or overdue its PAT or examination (ADR 0020): it shouldn't go.
     const check = mode === 'out' ? view.inspections.blocks(a.id) : undefined
@@ -286,10 +300,14 @@ function Pick({ view, job }: { view: View; job: JobView }) {
           {camera && <CameraScanner onRead={read} onStop={() => setCamera(false)} small />}
           {said && (
             <div className="said-row">
-              <p key={said.at} className={`said ${said.tone}`} role="status" aria-label="Last scan">
-                {said.text}
-              </p>
-              {said.undo && <UndoButton undo={said.undo} say={say} />}
+              {/* While what it says is still only on this phone, the answer says so too (UX sweep, 6 November 2026, move 3). */}
+              <div className={`said ${said.tone}`}>
+                <p key={said.at} role="status" aria-label="Last scan">
+                  {said.text}
+                </p>
+                <Pending pending={answerWaiting(view, said.about)} />
+              </div>
+              {said.undo && <UndoButton undo={said.undo} about={said.about} say={say} />}
               {said.outOf && <NotInCase key={`out-of-${said.at}`} {...said.outOf} say={say} />}
             </div>
           )}
@@ -349,7 +367,14 @@ function Pick({ view, job }: { view: View; job: JobView }) {
         )}
         {mode === 'in' && rows.length > 0 && inMode.length === 0 && <Empty>Kit shows here once it has gone out with this job.</Empty>}
         {(() => {
-          const row = (r: PickRow) => <Row key={r.modelId} row={r} job={job} mode={mode} say={say} mayMove={mayMove} />
+          const row = (r: PickRow) => <Row key={r.modelId} view={view} row={r} job={job} mode={mode} say={say} mayMove={mayMove} />
+          // What's done folds under one line, which says when anything in it is still only on this phone.
+          const doneLine = (done: PickRow[], of: number) => (
+            <summary>
+              {done.length === of ? `All ${done.length.toLocaleString('en-IE')} done` : `${done.length.toLocaleString('en-IE')} done`}
+              <Pending pending={done.some((r) => rowWaiting(view, r, job.id))} />
+            </summary>
+          )
           if (byPlace) {
             // A walk round the warehouse: what's left, under the place most of it is kept; what's done, folded at the end.
             const done = shown.filter((r) => rowDone(r, mode))
@@ -363,7 +388,7 @@ function Pick({ view, job }: { view: View; job: JobView }) {
                 ))}
                 {done.length > 0 && (
                   <details className="pick-done">
-                    <summary>{done.length === shown.length ? `All ${done.length.toLocaleString('en-IE')} done` : `${done.length.toLocaleString('en-IE')} done`}</summary>
+                    {doneLine(done, shown.length)}
                     {done.map(row)}
                   </details>
                 )}
@@ -388,7 +413,7 @@ function Pick({ view, job }: { view: View; job: JobView }) {
                   {here.filter((r) => !rowDone(r, mode)).map(row)}
                   {done.length > 0 && (
                     <details className="pick-done">
-                      <summary>{done.length === here.length ? `All ${done.length.toLocaleString('en-IE')} done` : `${done.length.toLocaleString('en-IE')} done`}</summary>
+                      {doneLine(done, here.length)}
                       {done.map(row)}
                     </details>
                   )}
@@ -536,11 +561,11 @@ function useWakeLock(on: boolean) {
 }
 
 /** Takes back the last scan or count, by recording the opposite: what was recorded stays in the history. */
-function UndoButton({ undo, say }: { undo: Undo; say: Say }) {
+function UndoButton({ undo, about, say }: { undo: Undo; about: About | undefined; say: Say }) {
   const { run, error } = useAct()
   return (
     <>
-      <button type="button" className="undo" onClick={() => void run(undo.run).then((ok) => ok && say('quiet', `Undone: ${undo.said}`))}>
+      <button type="button" className="undo" onClick={() => void run(undo.run).then((ok) => ok && say('quiet', `Undone: ${undo.said}`, { about }))}>
         Undo
       </button>
       <Refusal error={error} />
@@ -564,7 +589,7 @@ function NotInCase({ item, holder, fault, say }: OutOfCase & { say: Say }) {
     <>
       <button
         type="button"
-        onClick={() => void run(separate).then((ok) => ok && say('warn', `${item.number || 'It'} is out of ${number}, and ${number} is reported missing again.`))}
+        onClick={() => void run(separate).then((ok) => ok && say('warn', `${item.number || 'It'} is out of ${number}, and ${number} is reported missing again.`, { about: item.id }))}
       >
         It's not in {number} any more
       </button>
@@ -573,17 +598,20 @@ function NotInCase({ item, holder, fault, say }: OutOfCase & { say: Say }) {
   )
 }
 
-/** Coming back: report damage to the item just scanned. Once it's reported, the scan line says so and the button goes (audit, 20 October 2026, finding 42). */
-function DamageTo({ a, job, say }: { a: AssetView; job: JobView; say: Say }) {
+/**
+ * Coming back: report damage to an item. Under the scan line, to the item just scanned: once it's reported, the scan line says
+ * so and the button goes (audit, 20 October 2026, finding 42). Beside an item's row, which names it, it says only what it does.
+ */
+function DamageTo({ a, job, say, beside = false }: { a: AssetView; job: JobView; say: Say; beside?: boolean }) {
   const [open, setOpen] = useState(false)
-  if (!open)
-    return (
-      <div className="actions">
-        <button type="button" onClick={() => setOpen(true)}>
-          Report damage to {a.number || 'it'}
-        </button>
-      </div>
+  if (!open) {
+    const button = (
+      <button type="button" onClick={() => setOpen(true)}>
+        Report damage{beside ? <span className="sr-only"> to {a.number || 'it'}</span> : ` to ${a.number || 'it'}`}
+      </button>
     )
+    return beside ? button : <div className="actions">{button}</div>
+  }
   return (
     <ReportFault
       kind="damaged"
@@ -591,7 +619,7 @@ function DamageTo({ a, job, say }: { a: AssetView; job: JobView; say: Say }) {
       model={a.model}
       projectId={job.id}
       onDone={() => setOpen(false)}
-      onReported={({ usable }) => say('warn', damagedText(a.number || itemName(a), usable))}
+      onReported={({ usable }) => say('warn', damagedText(a.number || itemName(a), usable), { about: a.id })}
     />
   )
 }
@@ -608,12 +636,12 @@ function heldText(h: PickRow['held'][number]): string {
 }
 
 /** What a scan or a tap on the list did, said in the scan line at the top, where the eye already goes. */
-type Say = (tone: Tone, text: string, more?: { back?: AssetView; undo?: Undo; outOf?: OutOfCase }) => void
+type Say = (tone: Tone, text: string, more?: { back?: AssetView; undo?: Undo; outOf?: OutOfCase; about?: About }) => void
 
 /** All out that's needed, or all back: nothing left to do on the row. */
 const rowDone = (row: PickRow, mode: Direction) => (mode === 'out' ? row.lines.length > 0 && row.out >= row.need : row.out === 0 && row.missing === 0)
 
-function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mode: Direction; say: Say; mayMove: boolean }) {
+function Row({ view, row, job, mode, say, mayMove }: { view: View; row: PickRow; job: JobView; mode: Direction; say: Say; mayMove: boolean }) {
   const name = rowName(row)
   const extra = row.lines.length === 0
   const missing = row.missing ? `, ${row.missing} missing` : ''
@@ -643,7 +671,12 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
           <b>{name}</b>
           {lines && <p>{lines}</p>}
         </div>
-        <span className="count">{count}</span>
+        {/* Under the count, while anything it counts is still only on this phone, so a scan whose item has folded out of sight
+            says so where the count changed (UX sweep, 6 November 2026, move 3). */}
+        <div className="tally">
+          <span className="count">{count}</span>
+          <Pending pending={rowWaiting(view, row, job.id)} />
+        </div>
       </header>
       {notes.map((n, i) => (
         <p className="pick-note" key={i}>
@@ -672,7 +705,7 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
                       <span key={a.id}>
                         {i > 0 && ', '}
                         <span className="number">{a.number || 'no number yet'}</span>
-                        {usableFault(a.id) && <small className="fit-to-go"> (damaged, fit to go)</small>}
+                        {usableFault(view.faults, a.id) && <small className="fit-to-go"> (damaged, fit to go)</small>}
                       </span>
                     ))}
                   </p>
@@ -690,10 +723,19 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
         </p>
       )}
       {row.items.length > 0 && (
-        <ul className="numbers out-items" aria-label={mode === 'out' ? 'Out' : 'Still out'}>
+        <ul className={`${mode === 'out' ? 'numbers' : 'item-list'} out-items`} aria-label={mode === 'out' ? 'Out' : 'Still out'}>
           {row.items.map((a) => (
             <li key={a.id}>
-              <a href={`#stock/item/${a.id}`}>{a.number || 'no number yet'}</a>
+              {/* Going out, its number; coming back, the one item row (UX sweep, 6 November 2026, move 3), saying where it goes back
+                  to and what's wrong with it. Either way it says when its scan is still only on this phone. */}
+              {mode === 'out' ? (
+                <>
+                  <a href={`#stock/item/${a.id}`}>{a.number || 'no number yet'}</a>
+                  <Pending pending={itemWaiting(view, a.id)} />
+                </>
+              ) : (
+                <ItemRow view={view} a={a} product={false} job={job.id} />
+              )}
               {/* Apart and at least 44 px wide, so a gloved tap for Back doesn't land on Missing; Missing is the quieter of the two,
                   and happens at once with Undo beside its answer (audit, 20 October 2026, finding 40). */}
               {mayMove && (
@@ -706,6 +748,7 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
                       (ok) =>
                         ok &&
                         say('ok', mode === 'out' ? `${a.number || name} isn't going: it's back in stock.` : `${a.number || name} back.`, {
+                          about: a.id,
                           // Brought back from the list offers damage as a scan does (audit, 5 November 2026, finding 33).
                           back: mode === 'in' ? a : undefined,
                           undo: { run: () => record(job.id, 'out', { assetId: a.id, modelId: a.modelId }, { undoes: moved }), said: `${a.number || name} is out with ${job.name} again.` },
@@ -726,6 +769,7 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
                       (ok) =>
                         ok &&
                         say('warn', `${a.number || name} marked missing. Scan it when it turns up and it's marked found.`, {
+                          about: a.id,
                           // Taken back as the opposite (ADR 0072): the report closed as found, and the item out with the job again.
                           undo: {
                             run: async () => {
@@ -746,11 +790,12 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
         </ul>
       )}
       <Refusal error={error} />
+      {/* Each says Missing in the bad flag, on the one item row. */}
       {mode === 'in' && row.missingItems.length > 0 && (
-        <ul className="numbers missing-items" aria-label="Missing">
+        <ul className="item-list" aria-label="Missing">
           {row.missingItems.map((a) => (
             <li key={a.id}>
-              <a href={`#stock/item/${a.id}`}>{a.number || 'no number yet'}</a>
+              <ItemRow view={view} a={a} product={false} job={job.id} />
             </li>
           ))}
         </ul>
@@ -761,10 +806,11 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
           <summary>
             Back ({row.backItems.length.toLocaleString('en-IE')}): report damage
           </summary>
-          <ul className="back-damage">
+          <ul className="item-list back-damage">
             {row.backItems.map((a) => (
               <li key={a.id}>
-                <DamageTo a={a} job={job} say={say} />
+                <ItemRow view={view} a={a} product={false} job={job.id} />
+                <DamageTo a={a} job={job} say={say} beside />
               </li>
             ))}
           </ul>
@@ -783,7 +829,7 @@ function Row({ row, job, mode, say, mayMove }: { row: PickRow; job: JobView; mod
           projectId={job.id}
           most={row.countedBack}
           onDone={() => setDamage(false)}
-          onReported={({ usable, qty }) => say('warn', damagedText(`${qty.toLocaleString('en-IE')} × ${name}`, usable, qty > 1))}
+          onReported={({ usable, qty }) => say('warn', damagedText(`${qty.toLocaleString('en-IE')} × ${name}`, usable, qty > 1), { about: { projectId: job.id, modelId: row.modelId } })}
         />
       )}
     </article>
@@ -809,9 +855,10 @@ function Count({ row, job, mode, say }: { row: PickRow; job: JobView; mode: Dire
       if (!ok) return
       setQty('')
       const many = `${n.toLocaleString('en-IE')} × ${name}`
-      if (what === 'missing') return say('warn', `${many} marked missing.`)
+      const about = { projectId: job.id, modelId: row.modelId }
+      if (what === 'missing') return say('warn', `${many} marked missing.`, { about })
       const undo: Undo = { run: () => record(job.id, what === 'out' ? 'in' : 'out', { modelId: row.modelId, qty: n }, { undoes: moved }), said: what === 'out' ? `${many} not counted out.` : `${many} not counted back.` }
-      say('ok', what === 'out' ? `${many} counted out.` : `${many} counted back.`, { undo })
+      say('ok', what === 'out' ? `${many} counted out.` : `${many} counted back.`, { undo, about })
     })
   }
   const submit = (e: FormEvent) => {

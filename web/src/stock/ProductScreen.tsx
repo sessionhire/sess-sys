@@ -12,14 +12,11 @@ import {
   normaliseNumber,
   parseEuro,
   plural,
-  RETIRED_LABELS,
   stillOutReason,
   stockId,
   valueLabel,
   type CommandInput,
   type Department,
-  type FaultsView,
-  type InspectionsView,
   type KitLineView,
   type ModelView,
   type View,
@@ -49,8 +46,8 @@ import {
   whereProblem,
   whereText,
 } from './common.tsx'
-import { faultState, FaultsCard, ReportButtons } from './Faults.tsx'
-import { dueText } from './Inspections.tsx'
+import { FaultsCard, ReportButtons } from './Faults.tsx'
+import { ItemRow } from './ItemRow.tsx'
 import { Heading } from '../Icon.tsx'
 import { Thumb } from '../Picture.tsx'
 import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
@@ -127,7 +124,7 @@ export function ProductScreen({ view, id, part: asked, bare }: { view: View; id:
         {part === 'jobs' && <OnJobs m={m} lines={onJobs} />}
         {part === 'items' && (
           <>
-            {m.tracking === 'serialised' && <Items m={m} w={w} faults={view.faults} inspections={view.inspections} />}
+            {m.tracking === 'serialised' && <Items m={m} view={view} />}
             <Counted m={m} w={w} />
           </>
         )}
@@ -529,7 +526,8 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
   )
 }
 
-function Items({ m, w, faults, inspections }: { m: ModelView; w: WarehouseView; faults: FaultsView; inspections: InspectionsView }) {
+/** The product's items, each on the one item row (UX sweep, 6 November 2026, move 3): where it's kept, and whether it's out, missing or can't go out. */
+function Items({ m, view }: { m: ModelView; view: View }) {
   const mayAdd = useAccess().can('stock')
   return (
     <section className="card" aria-label="Items">
@@ -538,18 +536,7 @@ function Items({ m, w, faults, inspections }: { m: ModelView; w: WarehouseView; 
       <ul className="item-list">
         {m.items.map((a) => (
           <li key={a.id}>
-            <a className="item-row" href={`#stock/item/${a.id}`}>
-              <div>
-                <b>{numberLabel(a)}</b>
-                <p>
-                  {whereLabel(a, w)}
-                  {a.serial && ` · Serial ${a.serial}`}
-                  {faults.stopping(a.id) && <span className="flag bad"> {faultState(faults.stopping(a.id)!)}</span>}
-                  {inspections.blocks(a.id) && <span className="flag bad"> {dueText(inspections.blocks(a.id)!)}</span>}
-                </p>
-              </div>
-              <Pending pending={a.pending} />
-            </a>
+            <ItemRow view={view} a={a} product={false} />
           </li>
         ))}
       </ul>
@@ -559,19 +546,13 @@ function Items({ m, w, faults, inspections }: { m: ModelView; w: WarehouseView; 
           <ul className="item-list">
             {m.retired.map((a) => (
               <li key={a.id}>
-                <a className="item-row" href={`#stock/item/${a.id}`}>
-                  <div>
-                    <b>{numberLabel(a)}</b>
-                    <p>{a.retiredReason ? RETIRED_LABELS[a.retiredReason] : 'Retired'}</p>
-                  </div>
-                  <Pending pending={a.pending} />
-                </a>
+                <ItemRow view={view} a={a} product={false} />
               </li>
             ))}
           </ul>
         </details>
       )}
-      {mayAdd && <AddItem m={m} w={w} />}
+      {mayAdd && <AddItem m={m} w={view.warehouse} />}
     </section>
   )
 }
