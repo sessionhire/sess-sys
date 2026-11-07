@@ -437,7 +437,7 @@ describe('quotes to follow up (ADR 0081)', () => {
       { job: dated('Through', 'confirmed', '2026-11-10'), current: yes() },
       { job: dated('Through longer', 'confirmed', '2026-11-08'), current: yes() },
       { job: dated('Invoiced', 'confirmed', '2026-11-09'), current: yes({ invoicedOn: '2026-11-12' }) },
-      { job: dated('Before the list', 'confirmed', '2026-11-02'), current: yes() },
+      { job: dated('Before the list', 'confirmed', '2026-10-30'), current: yes() },
       { job: dated('Still to come', 'confirmed', '2026-11-25'), current: yes() },
       { job: dated('Lost after all', 'lost', '2026-11-10'), current: yes() },
     ]
