@@ -60,6 +60,7 @@ import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
 import { Heading } from '../Icon.tsx'
 import { useMyDepartment } from '../Narrowed.tsx'
+import { glideTo } from '../glide.ts'
 import { landOn } from '../places.ts'
 import { JOBS } from '../Up.tsx'
 
@@ -150,9 +151,11 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   }
   useEffect(() => {
     if (!went) return
+    // Glided to, as it's the same page, with the part's card under the tabs marked where it lands (glide.ts).
     const tab = document.getElementById(`job-tab-${part}`)
-    tab?.closest<HTMLElement>('[role="tablist"]')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
-    tab?.focus({ preventScroll: true })
+    const row = tab?.closest<HTMLElement>('[role="tablist"]')
+    const card = document.getElementById('job-part')?.firstElementChild
+    if (row && tab) glideTo(row, { focus: tab, mark: card instanceof HTMLElement ? card : undefined })
   }, [went])
   const up = { steps: [JOBS], here: job?.name }
   if (!job)
