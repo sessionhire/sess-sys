@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.109.2',
+    date: '2026-11-07',
+    title: 'A long choice no longer stretches the page',
+    what: "On Match past quotes to our jobs, a job with a long name made its drop-down list wider than the phone, so the page could be zoomed in and out and slid sideways. A drop-down now keeps to the width of the page and cuts the chosen words short; the full names are there when it opens. The Sort lists and the price list's drop-downs keep to the page the same way.",
+    prs: [249],
+  },
+  {
     version: '1.109.1',
     date: '2026-11-07',
     title: 'The glide to a part of the page works on an iPhone',
