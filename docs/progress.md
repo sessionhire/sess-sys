@@ -44,7 +44,7 @@ waiting on someone.
   the deprep). A line in ADR 0104 says the dock is drawn there too.
   pick.spec checks at 390px that the scan box and the dock never cover
   each other.
-- Move 9, each role's own app (1.100.0): the Jobs list's filters gain
+- Move 9, each role's own app (1.100.0, PR #235): the Jobs list's filters gain
   Whose (Mine) and Department (a job is a department's when a call is,
   or a kit line is in its stock department); a head's list starts on
   their department once a tab, widened with the chip's take-off; a

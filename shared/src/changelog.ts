@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: 'Each person meets their own jobs first',
     what: "Anyone booked on jobs now has \"Mine\" at the top of the Jobs list, and a job they're on opens with a \"You on this job\" card: their role, days and call time, the venue, the call's details, the call sheet, and the way to their own page if they can't make it any more. A head of department's Jobs list starts on their department, as Crew and Stock already do, with one tap to see every job, and the list's filters have a Department choice for everyone. Opening Crew from a link takes people who don't book crew to People, as the bar already did, and Stock starts with how to report broken or missing kit for anyone who doesn't run the stock.",
-    prs: [0],
+    prs: [235],
   },
   {
     version: '1.99.0',
