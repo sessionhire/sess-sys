@@ -170,3 +170,12 @@
   .board { grid-template-columns: repeat(6, 78vw); scroll-snap-type: x proximity; }
   .board-col { scroll-snap-align: start; }
 }
+
+/* The invoice, under the tasks for whoever reads money (UX sweep, 6 November 2026, move 12): the task-list shape as a link to the Quote
+   tab, apart from the stages by a rule, amber once the job is through and not invoiced (the office's to do, not a late task). */
+.invoice-row { margin-top: var(--ds-space-2); border-top: 1px solid var(--line); }
+.app .invoice-row a {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--ds-space-3); min-height: 48px;
+  padding: var(--ds-space-2) var(--ds-space-1); color: var(--ink); text-decoration: none;
+}
+.invoice-row [data-due] .task-how, .invoice-row [data-due] .task-tag { color: var(--warn); }

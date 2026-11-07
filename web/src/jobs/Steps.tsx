@@ -1,4 +1,4 @@
-import { dayLabel, firstName, irishToday, ownerByRole, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { dayLabel, firstName, invoiceOf, irishToday, ownerByRole, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { peopleOn, promptFor, type Share } from '../crew/CrewScreen.tsx'
@@ -112,8 +112,48 @@ export function StepsCard({
           )}
         </div>
       )}
+      <InvoiceRow job={job} view={view} />
       {shownTask && <OpenStep key={`${job.id}.${shownTask.key}`} job={job} view={view} step={shownTask} stopped={steps.stopped !== undefined} onPart={onPart} onTell={onTell} />}
     </section>
+  )
+}
+
+/**
+ * The office's last step, under the tasks, for whoever reads money (UX sweep, 6 November 2026, move 12): one row in the
+ * task-list shape, worked out from the quote and never ticked, opening the Quote tab. Quiet before the job is through,
+ * amber once it is and not invoiced, "Invoiced Mon 2 Nov · paid" when done; never an amount (ADR 0042). Not a ninth task:
+ * nothing here holds a job in Back (ADR 0109).
+ */
+function InvoiceRow({ job, view }: { job: JobView; view: View }) {
+  const access = useAccess()
+  const today = irishToday()
+  if (!access.can('money')) return null
+  const at = invoiceOf(job, view.money.currentOf(job.id), today)
+  if (at.state === 'none') return null
+  const how =
+    at.state === 'invoiced'
+      ? `Invoiced ${dayLabel(at.on, today)}${at.paidOn ? ' · paid' : ''}`
+      : at.state === 'not-needed'
+        ? 'Not needed: before the app listed invoices'
+        : at.state === 'due'
+          ? `Not invoiced yet · through since ${dayLabel(at.since, today)}`
+          : 'Not invoiced yet'
+  const done = at.state === 'invoiced' || at.state === 'not-needed'
+  return (
+    <ul className="task-list invoice-row" aria-label="Invoice">
+      <li data-state={done ? 'done' : 'to-come'} data-due={at.state === 'due' ? 'true' : undefined}>
+        <a href={`#jobs/${encodeURIComponent(job.id)}/quote`}>
+          <span className="task-tick" aria-hidden="true">
+            {done ? <Icon name="done" /> : null}
+          </span>
+          <span className="task-words">
+            <span className="task-name">Invoice</span>
+            <span className="task-how">{how}</span>
+          </span>
+          <span className="task-tag">{at.state === 'invoiced' ? (at.paidOn ? 'Paid' : 'Invoiced') : at.state === 'not-needed' ? 'Not needed' : at.state === 'due' ? 'To invoice' : 'After'}</span>
+        </a>
+      </li>
+    </ul>
   )
 }
 

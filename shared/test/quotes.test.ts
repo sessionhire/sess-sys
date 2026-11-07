@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PullResponse, PushRequest, PushResponse } from '../src/protocol.ts'
 import { chargedFor, packageIncludes, changesFromJob, csvText, depositCents, quoteNumberLabel, validUntil, versionChanges, lineCents, linesFor, quoteLine, linesByGroup, money, quoteTotals, vatPeriodOf, type Quote, type QuoteLine } from '../src/quotes.ts'
 import { MemoryStorage, SyncClient, type Transport } from '../src/sync/client.ts'
-import { belowZero, invoicesCsv, marginsByMonth, quoteRows, quoteRowShown, quotesToFollow, vatSummaryCsv, type JobMoney, type QuoteView } from '../src/sync/money-view.ts'
+import { belowZero, invoiceOf, invoicesCsv, marginsByMonth, quoteRows, quoteRowShown, quotesToFollow, vatSummaryCsv, type JobMoney, type QuoteView } from '../src/sync/money-view.ts'
 import type { JobView } from '../src/sync/jobs-view.ts'
 
 /**
@@ -426,6 +426,35 @@ describe('quotes to follow up (ADR 0081)', () => {
       ['A week', 7],
     ])
     expect(f.waiting.slice(0, f.chase.length)).toEqual(f.chase)
+  })
+
+  it('lists the confirmed jobs through their dates with the accepted quote not invoiced, and says where each invoice stands', () => {
+    // Proves: move 12 of the UX sweep of 6 November 2026: the office's last step, by job, from the day the list began.
+    const later = '2026-11-20'
+    const dated = (id: string, status: JobView['status'], end: string) => ({ ...job(id, status), span: { start: end, end } }) as JobView
+    const yes = (over: Partial<QuoteView> = {}) => quote({ status: 'accepted', answeredOn: '2026-11-01', paidOn: null, ...over } as Partial<QuoteView>)
+    const rows = [
+      { job: dated('Through', 'confirmed', '2026-11-10'), current: yes() },
+      { job: dated('Through longer', 'confirmed', '2026-11-08'), current: yes() },
+      { job: dated('Invoiced', 'confirmed', '2026-11-09'), current: yes({ invoicedOn: '2026-11-12' }) },
+      { job: dated('Before the list', 'confirmed', '2026-11-02'), current: yes() },
+      { job: dated('Still to come', 'confirmed', '2026-11-25'), current: yes() },
+      { job: dated('Lost after all', 'lost', '2026-11-10'), current: yes() },
+    ]
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, later)
+    expect(f.toInvoice.map((x) => [x.job.name, x.days])).toEqual([
+      ['Through longer', 12],
+      ['Through', 10],
+    ])
+    const at = (i: number) => invoiceOf(rows[i]!.job, rows[i]!.current, later)
+    expect([0, 2, 3, 4, 5].map(at)).toEqual([
+      { state: 'due', since: '2026-11-10' },
+      { state: 'invoiced', on: '2026-11-12', paidOn: null },
+      { state: 'not-needed' },
+      { state: 'to-come' },
+      { state: 'none' },
+    ])
+    expect(invoiceOf(rows[0]!.job, quote({}), later)).toEqual({ state: 'none' })
   })
 
   it('leaves a sent quote out of waiting while a new version is being drafted', () => {

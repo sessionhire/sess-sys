@@ -254,6 +254,14 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(office.getByRole('region', { name: 'Version 1' }).getByRole('button', { name: 'Print or save as PDF' })).not.toHaveClass(/\bprimary\b/)
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
+  // The job's tasks end on the invoice, said the same as here and a tap from it (batch 5, Q6).
+  const quoteAt = office.url()
+  await office.goto(quoteAt.replace(/\/quote$/, ''))
+  const invoiceRow = office.getByRole('list', { name: 'Invoice' })
+  await expect(invoiceRow).toContainText(/Invoiced \w+/)
+  await invoiceRow.getByRole('link').click()
+  await expect(office).toHaveURL(quoteAt)
+
   // Money: what's accepted and unpaid, with VAT, invoiced apart from not invoiced yet (audit findings 29 and 71), a row
   // a client with its quotes folded under it (finding 31); freelancers to pay, and the accountant's file.
   await office.goto('/#jobs/money')

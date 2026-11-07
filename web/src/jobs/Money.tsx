@@ -40,6 +40,7 @@ import {
   type EnquiryReading,
   STANDING_HEADINGS,
   waitingHeading,
+  listHeading,
 } from '@sh/shared'
 import { Fragment, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -113,7 +114,7 @@ export function MoneyScreen({ view }: { view: View }) {
 const ago = (days: number) => (days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`)
 
 /** One quote waiting on the office: the job, what's waiting and for how long, and what it comes to. */
-function FollowRow({ f, what, chase, children }: { f: QuoteToFollow; what: string; chase?: boolean; children?: ReactNode }) {
+function FollowRow({ f, what, chase, when, children }: { f: QuoteToFollow; what: string; chase?: boolean; when?: string; children?: ReactNode }) {
   return (
     <li className="row">
       <div>
@@ -122,7 +123,7 @@ function FollowRow({ f, what, chase, children }: { f: QuoteToFollow; what: strin
           {[f.job.client?.name, `version ${f.quote.version}`, money(f.quote.totals.net)].filter(Boolean).join(' · ')}
           <br />
           <span className={chase ? 'warn' : undefined}>
-            {what} {ago(f.days)}
+            {what} {when ?? ago(f.days)}
             {chase ? ': worth a call' : ''}
           </span>
         </p>
@@ -141,7 +142,7 @@ export function ToFollowUp({ view }: { view: View }) {
   const today = useToday()
   const [starting, setStarting] = useState(false)
   const f = quotesToFollow(view.money, today)
-  const none = f.drafts.length + f.waiting.length + f.passed.length + f.outOfStep.length === 0
+  const none = f.drafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
   return (
     <section className="card quotes-to-follow" aria-label="To follow up">
       <Heading icon="document">To follow up</Heading>
@@ -167,6 +168,7 @@ const FOLLOW_SHOWN = 8
  */
 function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotesToFollow>; chaseOnly?: boolean; lapsed?: number }) {
   const waiting = chaseOnly ? f.chase : f.waiting
+  const today = useToday()
   return (
     <>
       {f.outOfStep.length > 0 && (
@@ -179,6 +181,21 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
                   <FollowRow key={x.quote.id} f={x} what={x.want === 'confirmed' ? 'Accepted' : 'Turned down'}>
                     <InStep job={x.job} want={x.want} compact />
                   </FollowRow>
+                ))}
+              </ul>
+            )}
+          </ShowAll>
+        </div>
+      )}
+      {/* The office's last step (UX sweep, 6 November 2026, move 12): the jobs through, their accepted quote not invoiced. */}
+      {!chaseOnly && f.toInvoice.length > 0 && (
+        <div className="follow-group">
+          <h3 className="group">{listHeading(STANDING_HEADINGS['to-invoice'], f.toInvoice.length)}</h3>
+          <ShowAll items={f.toInvoice} limit={FOLLOW_SHOWN} what="jobs" name="follow to invoice">
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Through since" when={dayLabel(x.job.span!.end, today)} />
                 ))}
               </ul>
             )}
