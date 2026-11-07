@@ -129,7 +129,7 @@
 .stage-late { color: var(--bad); font-weight: 700; }
 /* The job's position (JobPosition.tsx): quiet when nothing is short, the warn ink when crew or kit is, the bad ink when a task is late.
    Ink, not a wash, so a list of jobs isn't a wall of colour: the tone is on the words and the segment of the stage it's in. */
-.job-position .stage-words b { font-weight: 700; }
+.job-position .stage-name { font-weight: 700; }
 .job-position[data-tone='warn'] .stage-words { color: var(--warn); }
 .job-position[data-tone='warn'] .stage-seg i[data-state='now'] { background: var(--warn); }
 .job-position[data-tone='bad'] .stage-words { color: var(--bad); }

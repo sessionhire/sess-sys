@@ -29,7 +29,7 @@ export function JobPosition({ job, view, compact, bare }: { job: JobView; view: 
         </span>
       )}
       <span className="stage-words">
-        <b>{p.stage}</b>
+        <span className="stage-name">{p.stage}</span>
         {words.map((w) => ` · ${w}`)}
       </span>
     </span>
