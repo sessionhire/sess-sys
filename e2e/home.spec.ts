@@ -388,7 +388,7 @@ test('asked for less motion, a part on the same screen is gone to at once, and s
   const parts = page.getByRole('navigation', { name: 'On this screen' })
   const button = parts.getByRole('button', { name: 'Coming up' })
   const at = await button.evaluate(async (b) => {
-    b.click()
+    (b as HTMLElement).click()
     await new Promise((r) => requestAnimationFrame(r))
     return scrollY
   })
