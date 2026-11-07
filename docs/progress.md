@@ -26,6 +26,19 @@ waiting on someone.
   "Showing LX (Lighting) only". Menu lines have a reader's version for a
   role without the ability; history says "Cancelled the job …". Keys,
   wire names and stored rows are unchanged.
+- Move 5b, the app's forms (1.96.1, PR #230): `.grid-form` and the
+  Admin office form are one column under 640px, with `.pair` for From
+  and To, First and Last name and the like (ten pairs); at a desk a
+  submit spanning the grid sits at the start, as wide as its words.
+  "(optional)" is written in the label (`.optional`), and instruction
+  placeholders moved under the label as hints read with the field.
+  UnitBox moved out of the quote into `web/src/UnitBox.tsx` and app.css,
+  and the day rate fields carry € in the box. No submit is disabled:
+  Offer, That's me, Save allowance, Subhire, Give a department and Tidy's
+  Give press into a refusal in required.ts's voice; required.ts also
+  refuses a number under its min, over its max or off its step in the
+  app's words, and a wheel over a focused number blurs it. Add phase's
+  name is required.
 
 ## 6 November 2026: the UX cohesion sweep, and batch 1 of its moves
 

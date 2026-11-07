@@ -1,3 +1,4 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   calendarTitles,
   crewFill,
@@ -850,14 +851,16 @@ function AddPhase({ job }: { job: JobView }) {
   return (
     <form className="grid-form add-phase" onSubmit={submit} aria-label="Add a phase">
       <label className="wide">
-        New phase <input list="phase-names-add" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Build, Show…" />
+        New phase <input list="phase-names-add" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Build" required />
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} />
+        </label>
+      </div>
       <Refusal error={error} className="wide" />
       {added && !error && (
         <p className="added wide" role="status">
@@ -979,18 +982,20 @@ function AskForCrew({ job }: { job: JobView }) {
       <label>
         How many <input type="number" min={1} value={f.needed} onChange={(e) => setF({ ...f, needed: Number(e.target.value) })} />
       </label>
-      <label>
-        From <input type="date" value={start} onChange={(e) => setDates({ start: e.target.value, end: end < e.target.value ? e.target.value : end })} />
-      </label>
-      <label>
-        To <input type="date" value={end} min={start} onChange={(e) => setDates({ start, end: e.target.value })} />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={start} onChange={(e) => setDates({ start: e.target.value, end: end < e.target.value ? e.target.value : end })} />
+        </label>
+        <label>
+          To <input type="date" value={end} min={start} onChange={(e) => setDates({ start, end: e.target.value })} />
+        </label>
+      </div>
       <label>
         Call time <input type="time" value={f.callTime} onChange={(e) => setF({ ...f, callTime: e.target.value })} />
       </label>
       {seesRates ? (
         <label>
-          Day rate € <input inputMode="decimal" value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} placeholder="250" />
+          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} placeholder="250" /></UnitBox>
         </label>
       ) : (
         <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>

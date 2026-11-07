@@ -277,7 +277,8 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   await call.getByRole('button', { name: 'Offer…' }).click()
   await call.getByLabel('Offer to').selectOption({ label: `Nora Walsh ${id} · Level 1 ⚠` })
   await expect(call.locator('.warn')).toContainText(`Marked unavailable ${FROM} to ${MIDDLE} (Annual leave)`)
-  await expect(call.getByRole('button', { name: 'Offer', exact: true })).toBeDisabled()
+  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  await expect(call.getByRole('alert')).toHaveText('Tick Offer anyway first, or choose someone else.')
 })
 
 test('someone archived who signs in is told so on the Leave screen, not to put on their email', async ({ browser }) => {

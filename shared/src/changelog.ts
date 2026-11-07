@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.96.1',
+    date: '2026-11-07',
+    title: 'Forms read the same way everywhere',
+    what: "On a phone every form is now one column, with the pairs that belong together, such as From and To or First and Last name, side by side. Fields you can leave empty say \"(optional)\" in their name, and the help for a field sits under its name instead of vanishing as you type. Day rates have the euro sign in the box. A button is never greyed out any more: pressing Offer, That's me, Save allowance, Subhire or Give a department with something missing says what's missing. A number below or above what's allowed, such as 0 where at least 1 is needed, is now turned down in the app's words beside the field, and scrolling over a number no longer changes it. A new phase needs its name. At a desk a form's main button is as wide as its words.",
+    prs: [230],
+  },
+  {
     version: '1.96.0',
     date: '2026-11-07',
     title: 'The same thing reads the same everywhere',

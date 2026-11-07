@@ -247,12 +247,14 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
           ))}
         </select>
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} required />
-      </label>
-      <label>
-        To <input type="date" value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} required />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} required />
+        </label>
+        <label>
+          To <input type="date" value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} required />
+        </label>
+      </div>
       <label className="wide">
         Driver
         <select value={f.driverId} onChange={(e) => setF({ ...f, driverId: e.target.value })}>

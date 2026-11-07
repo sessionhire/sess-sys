@@ -385,18 +385,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .quote-screen .quote-line .numbers { grid-template-columns: minmax(4.5em, .8fr) minmax(4.5em, .8fr) minmax(6.5em, 1.1fr) minmax(8em, 1.3fr) minmax(5em, .9fr) minmax(4.5em, .8fr) minmax(6em, auto); grid-template-areas: 'qty days price charged discount vat amount'; }
 }
 /* A number with its unit in the box: € before it, % or km or days after, never typed. */
-.quote-screen .unit-box { display: flex; align-items: center; min-width: 0; min-height: 44px; border: 1px solid var(--field-line); border-radius: var(--radius-control); background: var(--bg); color: var(--ink); }
-.quote-screen .unit-box input:not([type='checkbox']) { flex: 1 1 0; width: 100%; min-width: 0; min-height: 42px; border: 0; background: transparent; }
-.quote-screen .unit-box input:focus-visible { outline: none; }
-.quote-screen .unit-box:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-.quote-screen .unit-box .unit { flex: none; padding-inline: 0 var(--ds-space-3); color: var(--muted); font-size: var(--text-small); }
-.quote-screen .unit-box.before .unit { padding-inline: var(--ds-space-3) 0; }
-.quote-screen .unit-box.before input { padding-inline-start: var(--ds-space-1); }
 /* A price still to set is for someone to see to, so amber, as its row and its chip in the readout say. A field that's wrong is invalid,
    as on every other form: the bad edge, and the fault by its cause in the bad ink, once the field or the line has been left (rule 18). A
    question about the line (the price's unit moved) stays amber. */
-.quote-screen .unit-box.needs { border-color: var(--warn); }
-.quote-screen .unit-box:has(input[aria-invalid='true']), .quote-screen .quote-line input[aria-invalid='true'] { border-color: var(--bad); }
+.quote-screen .quote-line input[aria-invalid='true'] { border-color: var(--bad); }
 .quote-screen .line-problem { margin: 0; font-size: var(--text-small); color: var(--bad); }
 .quote-screen .line-problem.asks { color: var(--warn); }
 .quote-screen small.error { color: var(--bad); }

@@ -369,6 +369,34 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .app .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--group); align-items: end; }
 .app .grid-form label { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .app .grid-form .wide { grid-column: 1 / -1; }
+/*
+ * One form family (UX sweep, 6 November 2026, move 5). On a phone every form is one column: two inputs share a line
+ * only inside a .pair, when they are one thing (From and To, First and Last name). At a desk a short answer (a count, a
+ * rate, a date) is as wide as its answer, not half the grid. The footer is the submit first, the quiet way out after
+ * it, each a full row under 640px. "(optional)" sits in the label in the label's muted colour.
+ */
+.app .grid-form .pair { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: var(--group); align-items: end; }
+.app .grid-form label.short input, .app .grid-form label.short select { max-width: 10em; }
+.optional { color: var(--muted); font-weight: normal; }
+/* A number's unit in its box, € before or % and km after (UX sweep, move 5), on every form as on the quote. */
+.unit-box { display: flex; align-items: center; min-width: 0; min-height: 44px; border: 1px solid var(--field-line); border-radius: var(--radius-control); background: var(--bg); color: var(--ink); }
+.unit-box input:not([type='checkbox']) { flex: 1 1 0; width: 100%; min-width: 0; min-height: 42px; border: 0; background: transparent; }
+.unit-box input:focus-visible { outline: none; }
+.unit-box:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.unit-box .unit { flex: none; padding-inline: 0 var(--ds-space-3); color: var(--muted); font-size: var(--text-small); }
+.unit-box.before .unit { padding-inline: var(--ds-space-3) 0; }
+.unit-box.before input { padding-inline-start: var(--ds-space-1); }
+.unit-box.needs { border-color: var(--warn); }
+.unit-box:has(input[aria-invalid='true']) { border-color: var(--bad); }
+.app .grid-form .unit-box { max-width: 10em; }
+/* At a desk the submit sits at the start of the form's column, as wide as its words, not across the whole grid. */
+@media (min-width: 640px) { .app .grid-form > button.wide { justify-self: start; min-width: 12em; } }
+@media (max-width: 639px) {
+  .app .grid-form, .account .office-form { grid-template-columns: minmax(0, 1fr); }
+  .app .grid-form label.short input, .app .grid-form label.short select { max-width: none; }
+  .app .grid-form > .actions { flex-direction: column; align-items: stretch; }
+  .app .grid-form > .actions > button, .app .grid-form > .actions > a.button { width: 100%; }
+}
 /* Skills as picks (ADR 0063, SkillsField.tsx): chips in a box drawn as a field, the skills in use offered in the overlay under it. */
 .skills-field { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .skills-anchor { position: relative; }

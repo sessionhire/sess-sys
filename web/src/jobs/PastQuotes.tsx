@@ -436,19 +436,21 @@ function MakeJob({
           What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
         </label>
         <label>
-          Client <input list="rms-job-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
+          Client <span className="optional">(optional)</span> <input list="rms-job-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
         </label>
         <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
         <label>
-          Venue <input list="rms-job-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
+          Venue <span className="optional">(optional)</span> <input list="rms-job-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
         </label>
         <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
-        <label>
-          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
-        </label>
-        <label>
-          To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} required />
-        </label>
+        <div className="pair">
+          <label>
+            From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+          </label>
+          <label>
+            To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} required />
+          </label>
+        </div>
         <label>
           Make it
           <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as 'enquiry' | 'confirmed' })}>

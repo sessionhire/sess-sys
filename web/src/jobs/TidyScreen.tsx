@@ -511,7 +511,7 @@ function Clients({ view, words }: { view: View; words: readonly { word: string; 
         )}
         <Refusal error={error} className="wide" />
         <div className="actions wide">
-          <button type="submit" className="primary" disabled={!word.trim() || chosen.length === 0}>
+          <button type="submit" className="primary">
             Give {plural(chosen.length, 'job')} the client {who.trim() || '…'}
           </button>
         </div>

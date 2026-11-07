@@ -519,11 +519,11 @@ function NewJob({ view }: { view: View }) {
         Job <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required />
       </label>
       <label>
-        Client <input list="client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
+        Client <span className="optional">(optional)</span> <input list="client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
       </label>
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
       <label>
-        Venue <input list="venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
+        Venue <span className="optional">(optional)</span> <input list="venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
       </label>
       <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label className="wide">

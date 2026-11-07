@@ -388,12 +388,14 @@ function OffRoadForm({ v, onDone }: { v: VehicleView; onDone: () => void }) {
   }
   return (
     <form className="grid-form" onSubmit={save} aria-label={`Take ${v.name} off the road`}>
-      <label>
-        Off the road from <input type="date" value={f.since} onChange={(e) => setF({ ...f, since: e.target.value })} required />
-      </label>
-      <label>
-        Back on <input type="date" value={f.until} onChange={(e) => setF({ ...f, until: e.target.value })} />
-      </label>
+      <div className="pair">
+        <label>
+          Off the road from <input type="date" value={f.since} onChange={(e) => setF({ ...f, since: e.target.value })} required />
+        </label>
+        <label>
+          Back on <input type="date" value={f.until} onChange={(e) => setF({ ...f, until: e.target.value })} />
+        </label>
+      </div>
       <label className="wide">
         Why <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. In for a new clutch" />
       </label>
