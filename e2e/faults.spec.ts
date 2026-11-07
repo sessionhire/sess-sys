@@ -221,10 +221,11 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   await expect(speakerRow.locator('.count')).toHaveText('All 3 back')
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
-  // Found by its number, its row says it can't go out, not only where it's kept (UX sweep, 6 November 2026, move 3).
+  // Found by its number, its row says it can't go out, not only where it's kept (UX sweep, 6 November 2026, move 3). Part of the
+  // number lists it; the whole number would open its page (move 8).
   await page.goto('/#stock')
-  await page.getByLabel('Find').fill(speakers[0]!)
-  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row .flag.bad')).toHaveText("Damaged, can't go out")
+  await page.getByLabel('Find').fill(speakers[0]!.slice(-5))
+  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row', { hasText: speakers[0]! }).locator('.flag.bad')).toHaveText("Damaged, can't go out")
 
   // The job's kit is short by what can't go out.
   await page.goto('/#jobs')

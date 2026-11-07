@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 /**
  * Home and finding your way around (ADR 0033): the bare address opens Home,
@@ -51,6 +51,23 @@ async function as(page: Page, role: 'director' | 'office' | 'head', persona: Reg
   await expect(page.getByRole('heading', { name: 'See it as…' })).toBeVisible()
   await page.getByRole('button', { name: persona }).click()
 }
+
+async function push(request: APIRequestContext, id: string, mutations: [string, Record<string, unknown>][]) {
+  const res = await request.post('/api/sync/push', {
+    data: { clientId: `home-${id}`, mutations: mutations.map(([name, args], i) => ({ id: `home-${id}-${i}`, name, args, createdAt: new Date().toISOString() })) },
+  })
+  const { results } = (await res.json()) as { results: { status: string; reason?: { message: string } }[] }
+  expect(results.map((r) => r.reason?.message ?? r.status)).toEqual(mutations.map(() => 'applied'))
+}
+
+/** Whether what was landed on is at the top, just under the bar, or as near it as the page goes when it ends first. */
+const landedOn = (page: Page, selector: string) =>
+  page.evaluate((selector) => {
+    const bar = document.querySelector('main .top')!.getBoundingClientRect().bottom
+    const top = document.querySelector(selector)!.getBoundingClientRect().top
+    const end = innerHeight + scrollY >= document.documentElement.scrollHeight - 2
+    return top >= bar && (top - bar < 24 || end) && scrollY > 0
+  }, selector)
 
 test('Home is where the app opens, and says how things stand for whoever is looking', async ({ browser }) => {
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
@@ -468,4 +485,69 @@ test('Me says Your bookings as their own link does: its glance line, a row each,
   await expect(hers.getByRole('heading', { level: 2, name: 'Your bookings' })).toBeVisible()
   await expect(hers.getByRole('navigation', { name: 'At a glance' })).toHaveText('1 offer to answer · Next: Liffey Brands Shoot, today, call 07:30')
   await expect(hers.getByRole('article').filter({ hasText: `Bookings check ${run}` }).locator('.tag')).toHaveText('Waiting on you')
+})
+
+test("a row on Home that names a job's part lands on that part, in view, with its tab open", async ({ browser, request }) => {
+  // Proves (UX sweep, 6 November 2026, move 8): an address that names a part of a job lands on it however it's reached, as Next brings
+  // its part (ADR 0109). A task from Your tasks comes to the top under the bar with the focus on its name and the part it's about open
+  // under it, whichever part was looked at last; a link to the job's crew, as Crew needed and the planner have, brings the tab row up
+  // with the focus on Crew, in the app or opened anew in a tab of its own. Neither is a step of its own: Back goes back to where it came
+  // from.
+  const id = Date.now().toString(36)
+  const job = `Landing Gala ${id}`
+  const aoife = `Aoife Lands${id}`
+  const soon = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)
+  await push(request, id, [
+    ['person.upsert', { id: `p-${id}`, name: aoife, kind: 'staff', email: null, phone: null, skills: [], dayRateCents: null, notes: '' }],
+    ['project.create', { id: `j-${id}`, name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `ph-${id}`, projectId: `j-${id}`, name: 'Show', start: soon, end: soon, venueId: null, notes: '' }],
+    [
+      'call.create',
+      { id: `c-${id}`, projectId: `j-${id}`, phaseId: `ph-${id}`, project: job, phase: 'Show', venue: '', role: 'Audio tech', start: soon, end: soon, callTime: '08:00', needed: 2, dayRateCents: null, details: '', replyBy: null },
+    ],
+    ['jobStep.set', { projectId: `j-${id}`, step: 'crew', ownerId: `p-${id}`, by: null }],
+  ])
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  // With sign-in off, the device takes the person's word for who they are.
+  await page.goto('/#crew/leave')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByLabel('Your name').selectOption({ label: aoife })
+  await page.getByRole('button', { name: "That's me" }).click()
+  // Kit was the part last looked at; the task's own part is Crew.
+  await page.evaluate(() => localStorage.setItem('sh.jobPart', 'kit'))
+
+  await page.goto('/#home')
+  await page.getByRole('region', { name: /^Your tasks/ }).getByRole('link', { name: new RegExp(`^Crew booked ${job}`) }).click()
+  await expect(page).toHaveURL(new RegExp(`#jobs/j-${id}/task/crew$`))
+  const task = page.getByRole('heading', { level: 3, name: /^Crew booked/ })
+  await expect(task).toBeFocused()
+  await expect(task).toBeInViewport()
+  await expect.poll(() => landedOn(page, '#job-step-open')).toBe(true)
+  await expect(page.getByRole('tab', { name: /^Crew/ })).toHaveAttribute('aria-selected', 'true')
+  await page.goBack()
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+
+  // A link to the job's crew: the tab row under the bar, Crew open and focused.
+  await page.goto(`/#jobs/j-${id}/crew`)
+  const crew = page.getByRole('tab', { name: /^Crew/ })
+  await expect(crew).toBeFocused()
+  await expect(crew).toHaveAttribute('aria-selected', 'true')
+  await expect(crew).toBeInViewport()
+  await expect.poll(() => landedOn(page, '[role="tablist"]:has(#job-tab-crew)')).toBe(true)
+  // The job's own address, naming no part, opens at its top as it always has.
+  await page.goto(`/#jobs/j-${id}`)
+  await expect(page.getByRole('heading', { level: 1, name: job })).toBeFocused()
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0)
+  await page.goBack()
+  await page.goBack()
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+
+  // The same link opened anew, in a tab of its own, as one from outside the app is: the page starts there, landed on Crew.
+  const anew = await page.context().newPage()
+  await anew.goto(`/#jobs/j-${id}/crew`)
+  const crewAnew = anew.getByRole('tab', { name: /^Crew/ })
+  await expect(crewAnew).toBeFocused()
+  await expect(crewAnew).toHaveAttribute('aria-selected', 'true')
+  await expect(crewAnew).toBeInViewport()
+  await expect.poll(() => landedOn(anew, '[role="tablist"]:has(#job-tab-crew)')).toBe(true)
 })

@@ -103,6 +103,15 @@ waiting on someone.
   Notifications keeps its plain heading. The Menu lists Home under
   Company with a line saying its order follows the viewer (ADRs 0033,
   0035 and 0081 say so).
+- Move 8a, arrive on the part (1.94.0, PR #227): an address that names
+  a job's part or task lands on it however it's reached (places.ts
+  landOn, as Next does, ADR 0109): the tab row under the bar with the
+  part's tab focused, or the task's card with its name focused and its
+  own part open. Back, Forward and a reload still return to where the
+  screen was left. On a phone Stock's catalogue is headed "Catalogue
+  (n)", so the strip is back, and a typed search draws the catalogue
+  alone; a label's whole six-digit number on one item opens it
+  (wholeNumber). Coming back, Back is as wide as Missing, 16px apart.
 
 **Waiting**
 

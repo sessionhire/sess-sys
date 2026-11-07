@@ -311,6 +311,19 @@ export function normaliseNumber(text: string): string | undefined {
 /** Written in Session Hire's own form, "SH-000123" or "sh 123", as against digits alone, which could be any old tag (ADR 0026). */
 export const inShForm = (text: string) => /^\s*sh[\s-]*\d{1,6}\s*$/i.test(text) && normaliseNumber(text) !== undefined
 
+/**
+ * A label's number in full, all six of its digits, as a scanner reads it or
+ * a person copies it off the label: "SH-000123", "sh 000123", "000123", or
+ * the label's link ending in /a/000123. Undefined for one that's shorter,
+ * "123" or "SH-12", which may still be on its way to a longer one, so the
+ * Stock search opens an item on its own only for a whole number (UX sweep,
+ * 6 November 2026, move 8).
+ */
+export function wholeNumber(text: string): string | undefined {
+  const t = text.trim().toUpperCase()
+  return /^(?:SH[\s-]*)?\d{6}$/.test(t) || /\/A\/\d{6}\/?$/.test(t) ? normaliseNumber(t) : undefined
+}
+
 const oneOrNone = [(w: Where) => !(w.placeId && w.caseId), { message: 'Something lives at a place or in a case, not both.' }] as const
 const exactlyOne = [(w: Where) => !!w.placeId !== !!w.caseId, { message: 'Say where: a place or a case.' }] as const
 const caseIsNumbered = [

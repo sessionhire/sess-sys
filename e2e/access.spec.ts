@@ -444,8 +444,9 @@ test('someone already typing on the new screen keeps the focus', async ({ browse
   })
   await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Stock' }).click()
   // Stock's own search: for a moment the Jobs screen, with a search of its own, is still there.
+  // A short number, which waits for Enter: a whole one opens its item as soon as it's typed (UX sweep, 6 November 2026, move 8).
   const find = page.getByRole('region', { name: 'Catalogue' }).getByLabel('Find')
-  await find.fill('SH-000001')
+  await find.fill('SH-1')
   await page.evaluate(() => {
     const w = window as unknown as Held
     window.requestAnimationFrame = w.raf

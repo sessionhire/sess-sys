@@ -103,9 +103,12 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(mine.getByText('Checked and deprepped')).toHaveCount(0)
   await mine.getByRole('link', { name: new RegExp(`^Crew booked ${job}`) }).click()
   await expect(page.getByRole('heading', { name: job })).toBeVisible()
-  // It opens on her task, not only the job (audit, 5 November 2026, finding 17).
+  // It opens on her task, not only the job (audit, 5 November 2026, finding 17): landed on, with the focus on its name and the part it's
+  // about open under it (UX sweep, 6 November 2026, move 8).
   await expect(page).toHaveURL(/\/task\/crew$/)
   await expect(page.getByRole('heading', { level: 3, name: /^Crew booked/ })).toBeInViewport()
+  await expect(page.getByRole('heading', { level: 3, name: /^Crew booked/ })).toBeFocused()
+  await expect(page.getByRole('tab', { name: /^Crew/ })).toHaveAttribute('aria-selected', 'true')
 
   if (process.env.SHOTS) {
     const desk = await (await browser.newContext({ viewport: deskSize })).newPage()

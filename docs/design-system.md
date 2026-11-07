@@ -221,7 +221,15 @@ person's initials on the same grey for everyone, until there are photos.
   so what they type and their Enter still land. The screen sits in one
   `<main>` landmark. A link that is the way back ("‹ All jobs") is at
   least 44px tall, like a button. The "not done" count is read out as it
-  changes, and takes no room in the top bar while there's none.
+  changes, and takes no room in the top bar while there's none. An
+  address that names a part of a job (its crew, its kit, or a task in
+  it) lands on that part however it was reached, from a row on Home, the
+  planner, Crew or a typed link, as the job's Next does (ADR 0109): the
+  tab row comes up under the bar with the focus on the part's tab, or
+  the task's card with the focus on its name and the task's part open
+  under it. It adds no step to the history, and Back, Forward and a
+  reload still come back to where the screen was left (UX sweep, 6
+  November 2026, move 8).
 - Every field has a name over it, so it's still there once something is
   typed, and a placeholder only gives an example ("e.g. on tour"). Only a
   field in a tight row (a phase beside its dates, a number beside Out), a
@@ -248,7 +256,19 @@ person's initials on the same grey for everyone, until there are photos.
   or Report damage sit beside the row, only its number opens the item,
   quiet, so a gloved miss stays on the list (audit, 5 November 2026,
   finding 92). It reads only what the phone holds, so it works with no
-  signal. A form used over and over, such as
+  signal. Coming back on a pick list, Back is as wide as Missing beside
+  it, the two 16px apart, so neither is the smaller target (UX sweep, 6
+  November 2026, move 8). On a phone the catalogue card has a heading of
+  its own, "Catalogue (n)", so the strip of parts names it with Pick lists
+  and Kit short; on a laptop it's the column beside them, which keeps its
+  place as the page scrolls, and stays unheaded like every list beside a
+  record, so no strip comes over it. While anything is typed in its
+  search, the day's cards under it step aside on a phone, and the strip
+  with them, as one part leaves nothing to jump to. A label's whole
+  number (all six digits, as a scanner reads it) on one item opens that
+  item with nothing to press. A shorter number may be on its way to a
+  longer one, and a number the item had before is said on its row first,
+  so those wait for Go. A form used over and over, such as
   adding items while labelling or putting kit in a case, keeps where it's
   at, clears the number, puts the cursor back in it, and says in a green
   line what was just done ("Added SH-000102"). A choice between kinds

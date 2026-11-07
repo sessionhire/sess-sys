@@ -21,6 +21,7 @@ import {
   listed,
   PRODUCT_SORTS,
   productFilters,
+  wholeNumber,
 } from '@sh/shared'
 import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -144,13 +145,16 @@ function recordTrail(view: View, kind: string | undefined, id: string): Trail {
 }
 
 function Catalogue({ view }: { view: View }) {
+  // While something is typed in the search, what it finds is all there is on a phone: the day's cards under it step aside, so the
+  // finds aren't pushed down or followed by today's pick lists (UX sweep, 6 November 2026, move 8). Beside it on a laptop, they stay.
+  const [searching, setSearching] = useState(false)
   return (
     <div className="app warehouse">
       <Top view={view} title="Stock" views={<StockViews view={view} current="catalogue" />} heading="Catalogue" />
 
-      <StockCard view={view} />
+      <StockCard view={view} onSearching={setSearching} />
 
-      <StockRest view={view} />
+      {!searching && <StockRest view={view} />}
     </div>
   )
 }
@@ -192,8 +196,30 @@ function RepairsScreen({ view }: { view: View }) {
   )
 }
 
-/** The catalogue: the search, the camera, the department filters, the products and adding one; `current` marks the one open beside it. */
-function StockCard({ view, current }: { view: View; current?: string }) {
+/**
+ * What a search finds among the numbered items: the one its number or old tag names exactly, an old tag from before Session Hire's
+ * labels first, as a scan reads it (ADR 0026); and the others it's part of, once there's enough typed to mean something, one added
+ * by mistake only by its exact number.
+ */
+function itemsFound(w: View['warehouse'], search: string) {
+  const q = search.trim().toLowerCase()
+  const number = normaliseNumber(search)
+  const exact = w.byOldNumber.get(q) ?? (number ? w.byNumber.get(number) : undefined)
+  const items =
+    q.length >= 3
+      ? [...w.assets.values()]
+          .filter((a) => a !== exact && a.retiredReason !== 'mistake' && [a.number, a.serial, a.oldNumber, ...a.formerNumbers].some((t) => t.toLowerCase().includes(q)))
+          .sort((a, b) => a.number.localeCompare(b.number))
+          .slice(0, 20)
+      : []
+  return { q, number, exact, items }
+}
+
+/**
+ * The catalogue: the search, the camera, the department filters, the products and adding one; `current` marks the one open beside
+ * it, and `onSearching` hears whether anything is typed in the search.
+ */
+function StockCard({ view, current, onSearching }: { view: View; current?: string; onSearching?: (searching: boolean) => void }) {
   const w = view.warehouse
   const access = useAccess()
   const mayAdd = access.can('stock')
@@ -204,12 +230,13 @@ function StockCard({ view, current }: { view: View; current?: string }) {
   // category, and whether any is in stock; in the order chosen.
   const [choices, setChoices] = useListChoices('products')
   const filters = useMemo(() => productFilters(w.models), [w.models])
-  const [search, setSearch] = useState('')
-  const q = search.trim().toLowerCase()
+  const [search, setTyped] = useState('')
+  const setSearch = (typed: string) => {
+    setTyped(typed)
+    onSearching?.(typed.trim() !== '')
+  }
+  const { q, number, exact, items } = itemsFound(w, search)
   const words = q.split(/\s+/).filter(Boolean)
-  const number = normaliseNumber(search)
-  // An old tag from before Session Hire's labels first, as a scan reads it (ADR 0026).
-  const exact = w.byOldNumber.get(q) ?? (number ? w.byNumber.get(number) : undefined)
   // A label that isn't on anything yet (ADR 0015): one from a run, or anything typed as a label rather than a bare number.
   const unclaimed = number && !exact && (view.labels.runOf(number) || /^\s*sh|\/a\//i.test(search)) ? number : undefined
   const searchField = useRef<HTMLInputElement>(null)
@@ -221,14 +248,6 @@ function StockCard({ view, current }: { view: View; current?: string }) {
   const [scanned, setScanned] = useState('')
   const lastRead = camera && scanned ? w.assets.get(scanned) : undefined
   const justClaimed = claimed && !search.trim() ? w.assets.get(claimed) : undefined
-  // Items by number or serial, once there's enough typed to mean something; one added by mistake only by its exact number.
-  const items =
-    q.length >= 3
-      ? [...w.assets.values()]
-          .filter((a) => a !== exact && a.retiredReason !== 'mistake' && [a.number, a.serial, a.oldNumber, ...a.formerNumbers].some((t) => t.toLowerCase().includes(q)))
-          .sort((a, b) => a.number.localeCompare(b.number))
-          .slice(0, 20)
-      : []
   const matches = (m: ModelView) => {
     const text = `${m.name} ${m.code} ${m.category} ${DEPARTMENT_LABELS[m.department]}`.toLowerCase()
     return words.every((x) => text.includes(x))
@@ -280,6 +299,11 @@ function StockCard({ view, current }: { view: View; current?: string }) {
 
   return (
     <section className="card plain" aria-label="Catalogue">
+      {/* On a phone, a heading of its own, so the strip of parts names it with the day's cards under it (ADR 0033; UX sweep, 6 November
+          2026, move 8), with its count once there's one and the copy has arrived, as Home's headed counts have. On a laptop it's the
+          column beside them that keeps its place as the page scrolls, unheaded as every list beside a record is, so no strip comes over
+          it. */}
+      {!wide && <Heading icon="kit">Catalogue{w.models.length > 0 && !view.copying ? ` (${w.models.length})` : ''}</Heading>}
       {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1): a plain fold where the eye lands, not after
           two hundred products. A new product starts in the department the list is narrowed to. */}
       {mayAdd && (
@@ -295,7 +319,16 @@ function StockCard({ view, current }: { view: View; current?: string }) {
           enterKeyHint="go"
           placeholder="Find a product, number or serial"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            const typed = e.target.value
+            setSearch(typed)
+            // A label's whole number, on one item and nothing else, opens that item as it's typed or read, with no Go to press (UX
+            // sweep, 6 November 2026, move 8). A shorter one may be on its way to another, and a number the item had before is said
+            // on its row first, so those wait for Go.
+            const whole = wholeNumber(typed)
+            const found = whole ? itemsFound(w, typed) : undefined
+            if (found?.exact && found.exact.number === whole && found.items.length === 0) location.hash = `#stock/item/${found.exact.id}`
+          }}
           aria-label="Find"
         />
         <button
@@ -365,8 +398,9 @@ function StockCard({ view, current }: { view: View; current?: string }) {
           )}
         </Empty>
       )}
-      {/* Search first; for a browse, twenty in the laptop's column, which has nothing under it, and five on a phone, where the pick lists are under it (audit, 20 October 2026, finding 97). */}
-      <ShowAll items={shown} limit={wide ? 20 : 5} name="catalogue" what={department === 'all' ? 'products' : `${DEPARTMENT_LABELS[department].toLowerCase()} products`} keep={(m) => m.id === current}>
+      {/* Search first; for a browse, twenty in the laptop's column, which has nothing under it, and five on a phone, where the pick
+          lists are under it (audit, 20 October 2026, finding 97). A search on a phone has nothing under it either. */}
+      <ShowAll items={shown} limit={wide || q ? 20 : 5} name="catalogue" what={department === 'all' ? 'products' : `${DEPARTMENT_LABELS[department].toLowerCase()} products`} keep={(m) => m.id === current}>
         {(rows) => <ProductRows rows={rows} current={current} />}
       </ShowAll>
     </section>

@@ -724,69 +724,77 @@ function Row({ view, row, job, mode, say, mayMove }: { view: View; row: PickRow;
       )}
       {row.items.length > 0 && (
         <ul className={`${mode === 'out' ? 'numbers' : 'item-list'} out-items`} aria-label={mode === 'out' ? 'Out' : 'Still out'}>
-          {row.items.map((a) => (
-            <li key={a.id}>
-              {/* Going out, its number; coming back, the one item row (UX sweep, 6 November 2026, move 3), saying where it goes back
-                  to and what's wrong with it. Either way it says when its scan is still only on this phone. */}
-              {mode === 'out' ? (
-                <>
-                  <a href={`#stock/item/${a.id}`}>{a.number || 'no number yet'}</a>
-                  <Pending pending={itemWaiting(view, a.id)} />
-                </>
-              ) : (
-                <ItemRow view={view} a={a} product={false} job={job.id} />
-              )}
-              {/* Apart and at least 44 px wide, so a gloved tap for Back doesn't land on Missing; Missing is the quieter of the two,
-                  and happens at once with Undo beside its answer (audit, 20 October 2026, finding 40). */}
-              {mayMove && (
-                <button type="button" className="link" onClick={() => {
-                    // Not going, before the job has left, takes the scan out back: it never went, so it isn't counted as back either.
-                    const out = client.view().moves.outOf(a.id)
-                    const notGoing = mode === 'out' && out?.projectId === job.id && !out.inCase ? out.moveId : undefined
-                    const moved = newId()
-                    void run(() => record(job.id, 'in', { assetId: a.id, modelId: a.modelId }, { id: moved, undoes: notGoing })).then(
-                      (ok) =>
-                        ok &&
-                        say('ok', mode === 'out' ? `${a.number || name} isn't going: it's back in stock.` : `${a.number || name} back.`, {
-                          about: a.id,
-                          // Brought back from the list offers damage as a scan does (audit, 5 November 2026, finding 33).
-                          back: mode === 'in' ? a : undefined,
-                          undo: { run: () => record(job.id, 'out', { assetId: a.id, modelId: a.modelId }, { undoes: moved }), said: `${a.number || name} is out with ${job.name} again.` },
-                        })
-                    )
-                  }}
-                >
-                  {mode === 'out' ? 'Not going' : 'Back'}
-                </button>
-              )}
-              {mode === 'in' && (
-                <button
-                  type="button"
-                  className="link quiet"
-                  onClick={() => {
-                    const id = newId()
-                    void run(() => reportFault({ id, kind: 'missing', assetId: a.id, modelId: a.modelId, qty: 1, projectId: job.id, usable: false, note: '' })).then(
-                      (ok) =>
-                        ok &&
-                        say('warn', `${a.number || name} marked missing. Scan it when it turns up and it's marked found.`, {
-                          about: a.id,
-                          // Taken back as the opposite (ADR 0072): the report closed as found, and the item out with the job again.
-                          undo: {
-                            run: async () => {
-                              await client.mutate('fault.close', { id, outcome: 'found', at: new Date().toISOString() })
-                              await record(job.id, 'out', { assetId: a.id, modelId: a.modelId })
-                            },
-                            said: `${a.number || name} isn't missing: it's out with ${job.name} again.`,
-                          },
-                        })
-                    )
-                  }}
-                >
-                  Missing
-                </button>
-              )}
-            </li>
-          ))}
+          {row.items.map((a) => {
+            // Apart and at least 44 px wide, so a gloved tap for Back doesn't land on Missing; Missing is the quieter of the two, and
+            // happens at once with Undo beside its answer (audit, 20 October 2026, finding 40).
+            const back = mayMove && (
+              <button type="button" className="link" onClick={() => {
+                  // Not going, before the job has left, takes the scan out back: it never went, so it isn't counted as back either.
+                  const out = client.view().moves.outOf(a.id)
+                  const notGoing = mode === 'out' && out?.projectId === job.id && !out.inCase ? out.moveId : undefined
+                  const moved = newId()
+                  void run(() => record(job.id, 'in', { assetId: a.id, modelId: a.modelId }, { id: moved, undoes: notGoing })).then(
+                    (ok) =>
+                      ok &&
+                      say('ok', mode === 'out' ? `${a.number || name} isn't going: it's back in stock.` : `${a.number || name} back.`, {
+                        about: a.id,
+                        // Brought back from the list offers damage as a scan does (audit, 5 November 2026, finding 33).
+                        back: mode === 'in' ? a : undefined,
+                        undo: { run: () => record(job.id, 'out', { assetId: a.id, modelId: a.modelId }, { undoes: moved }), said: `${a.number || name} is out with ${job.name} again.` },
+                      })
+                  )
+                }}
+              >
+                {mode === 'out' ? 'Not going' : 'Back'}
+              </button>
+            )
+            return (
+              <li key={a.id}>
+                {/* Going out, its number; coming back, the one item row (UX sweep, 6 November 2026, move 3), saying where it goes back
+                    to and what's wrong with it. Either way it says when its scan is still only on this phone. */}
+                {mode === 'out' ? (
+                  <>
+                    <a href={`#stock/item/${a.id}`}>{a.number || 'no number yet'}</a>
+                    <Pending pending={itemWaiting(view, a.id)} />
+                    {back}
+                  </>
+                ) : (
+                  <>
+                    <ItemRow view={view} a={a} product={false} job={job.id} />
+                    {/* Coming back, Back is as wide as Missing beside it, the two 16 px apart, so neither is the smaller target (UX
+                        sweep, 6 November 2026, move 8). */}
+                    <span className="back-or-missing">
+                      {back}
+                      <button
+                        type="button"
+                        className="link quiet"
+                        onClick={() => {
+                          const id = newId()
+                          void run(() => reportFault({ id, kind: 'missing', assetId: a.id, modelId: a.modelId, qty: 1, projectId: job.id, usable: false, note: '' })).then(
+                            (ok) =>
+                              ok &&
+                              say('warn', `${a.number || name} marked missing. Scan it when it turns up and it's marked found.`, {
+                                about: a.id,
+                                // Taken back as the opposite (ADR 0072): the report closed as found, and the item out with the job again.
+                                undo: {
+                                  run: async () => {
+                                    await client.mutate('fault.close', { id, outcome: 'found', at: new Date().toISOString() })
+                                    await record(job.id, 'out', { assetId: a.id, modelId: a.modelId })
+                                  },
+                                  said: `${a.number || name} isn't missing: it's out with ${job.name} again.`,
+                                },
+                              })
+                          )
+                        }}
+                      >
+                        Missing
+                      </button>
+                    </span>
+                  </>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
       <Refusal error={error} />

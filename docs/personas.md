@@ -123,7 +123,9 @@ waiting on me?"*
 - **Now:** Home, shown for *the warehouse*: going out today and tomorrow,
   still out after the job, faults, inspections that stop kit going out,
   counts due this week, each opening the list that sorts it. Stock keeps
-  its order, and its strip jumps straight to *Pick lists* or *Faults*.
+  its order, and its strip names *Catalogue*, *Pick lists* and *Kit
+  short*, each a tap away. A search has the phone to itself while it's
+  typed, and a label's whole number opens its item without Go.
 
 ### S. Staff crew
 

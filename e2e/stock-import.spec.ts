@@ -104,9 +104,10 @@ test('brings the made-up stock list in, fixing a row in place, and shows its ite
   await expect(office.getByRole('region', { name: 'Inspections' })).toContainText('PAT due 30 Sept 2027, as the stock list says')
 
   // An old tag puts its item in a case too, typed or scanned.
+  // The case's own number, whole, opens it with nothing to press (UX sweep, 6 November 2026, move 8).
   await ready(office, '#stock')
   await stock.getByRole('searchbox', { name: 'Find' }).fill('SH-000503')
-  await stock.getByRole('searchbox', { name: 'Find' }).press('Enter')
+  await expect(office.getByRole('heading', { level: 1, name: 'SH-000503' })).toBeVisible()
   const put = office.locator('form').filter({ has: office.getByRole('heading', { name: 'Put an item in', exact: true }) })
   await put.getByLabel('Its number').fill('a-0102')
   await put.getByRole('button', { name: 'Put it in SH-000503' }).click()
