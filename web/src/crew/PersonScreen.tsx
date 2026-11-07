@@ -380,7 +380,10 @@ function Who({ person, view }: { person: PersonView; view: View }) {
 function ComingUp({ person, view, own, onArchived }: { person: PersonView; view: View; own: boolean; onArchived: (p: { id: string; name: string }) => void }) {
   const crew = view.crew
   const today = useToday()
-  const mayEdit = useAccess().can('crew') && !person.archived
+  const access = useAccess()
+  const mayEdit = access.can('crew') && !person.archived
+  // Staff answer their own offers on the job's page in the app (ADR 0111); a freelancer's own open their link.
+  const answers = access.can('answer')
   const heading = own ? 'Your bookings' : 'Coming up'
   const { run, error, refuse } = useAct()
   const [away, setAway] = useState({ start: today, end: today, note: '' })
@@ -424,7 +427,7 @@ function ComingUp({ person, view, own, onArchived }: { person: PersonView; view:
         <ul className="job-list">
           {lines.map(({ c, o, job }) => (
             <li key={o.id}>
-              <BookingRow c={c} o={o} today={today} {...(c.projectId ? { href: `#jobs/${c.projectId}/crew` } : {})} {...(own ? { link: linkFor(person) } : {})} {...(job ? { job } : {})} />
+              <BookingRow c={c} o={o} today={today} {...(c.projectId ? { href: `#jobs/${c.projectId}/crew` } : {})} {...(own ? { link: linkFor(person) } : {})} {...(own && answers && c.projectId ? { answerAt: `#jobs/${c.projectId}` } : {})} {...(job ? { job } : {})} />
             </li>
           ))}
         </ul>

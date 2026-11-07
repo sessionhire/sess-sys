@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.108.0',
+    date: '2026-11-07',
+    title: 'Staff answer their offers in the app',
+    what: "Staff can now answer an offer without leaving the app. On the job's page, You on this job has Yes, I can do it and No, I can't (which asks first, as no can't be taken back). On Home › Me and their own page, an offer on a job opens that job to answer it. Saying yes to only some of the days, and pulling out of a booking, are still on their own page, linked from there. Freelancers answer on their page as before. Nobody is sent anything when an offer is answered.",
+    prs: [0],
+    adrs: [111],
+  },
+  {
     version: '1.107.0',
     date: '2026-11-07',
     title: 'Offer to… is one box you type in',

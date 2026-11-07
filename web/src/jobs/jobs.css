@@ -741,3 +741,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .you-on-job ul { display: grid; gap: var(--ds-space-3); margin: 0; padding: 0; list-style: none; }
 .you-on-job li > p { margin: 0; }
 .you-on-job .you-links { display: flex; flex-wrap: wrap; gap: var(--ds-space-1) var(--ds-space-4); margin-top: var(--ds-space-1); }
+.you-on-job .you-answer { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
+@media (max-width: 639px) {
+  .you-on-job .you-answer > button { flex: 1 1 100%; }
+}

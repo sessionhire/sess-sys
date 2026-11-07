@@ -38,6 +38,14 @@ waiting on someone.
   Eight offers at most, and on a phone the list grows with the page
   rather than scrolling inside it. Client, venue, place and supplier wait
   for a month of use, as the sweep says.
+- Question 2, staff answer offers in the app (1.108.0, PR #0,
+  [ADR 0111](adr/0111-staff-answer-offers-in-the-app.md)): a new ability,
+  `answer`, every role but freelancer; `offer.respond` needs it and its
+  handler holds anyone without `crew` to their own offers. "You on this
+  job" has Yes / No (no asks first); some of the days and pulling out stay
+  on the link. Offer rows on Home › Me and their own page open the job.
+  Timesheets wait for their switch (ADR 0090). That ends the sweep's
+  twelve moves.
 
 ## 7 November 2026: batch 4 of the UX sweep, the pages that are someone's own
 

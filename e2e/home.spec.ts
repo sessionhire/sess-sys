@@ -623,3 +623,56 @@ test("a row on Home that names a job's part lands on that part, in view, with it
   await expect(crewAnew).toBeInViewport()
   await expect.poll(() => landedOn(anew, '[role="tablist"]:has(#job-tab-crew)')).toBe(true)
 })
+
+test('staff answer an offer on the job in the app: its row on Home opens the job, yes in one press, no after asking (ADR 0111)', async ({ browser, request }) => {
+  // Proves: an offer on a job opens that job from Home › Me, where "You on this job" answers it with the link's own command;
+  // no asks first, in the link's words, and the part-days answer stays on their page.
+  const { changes } = (await (await request.get('/api/sync/pull?after=0')).json()) as { changes: { entity: string; id: string; data: { name: string } }[] }
+  const aoife = changes.find((c) => c.entity === 'person' && c.data.name === 'Aoife Brennan')!
+  const run = Math.random().toString(36).slice(2, 8)
+  const day = new Date(Date.now() + 50 * 86_400_000).toISOString().slice(0, 10)
+  const createdAt = new Date().toISOString()
+  const job = `Answer check ${run}`
+  const pushed = await request.post('/api/sync/push', {
+    data: {
+      clientId: `answer-${run}`,
+      mutations: [
+        ['project.create', { id: `job-${run}`, name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+        ['phase.add', { id: `show-${run}`, projectId: `job-${run}`, name: 'Show', start: day, end: day, venueId: null, notes: '' }],
+        ['call.create', { id: `a-${run}`, projectId: `job-${run}`, phaseId: `show-${run}`, project: job, phase: 'Show', venue: '', role: 'Stage manager', start: day, end: day, callTime: '09:00', needed: 1, dayRateCents: null, details: '', replyBy: null }],
+        ['offer.send', { id: `oa-${run}`, callId: `a-${run}`, personId: aoife.id, override: false }],
+        ['call.create', { id: `b-${run}`, projectId: `job-${run}`, phaseId: `show-${run}`, project: job, phase: 'Show', venue: '', role: 'Runner', start: day, end: day, callTime: '07:00', needed: 1, dayRateCents: null, details: '', replyBy: null }],
+        ['offer.send', { id: `ob-${run}`, callId: `b-${run}`, personId: aoife.id, override: false }],
+      ].map(([name, args], i) => ({ id: `m-${run}-${i}`, name, args, createdAt })),
+    },
+  })
+  expect((await pushed.json()).results.map((r: { status: string }) => r.status)).toEqual(['applied', 'applied', 'applied', 'applied', 'applied', 'applied'])
+
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Me', exact: true }).click()
+  await page.getByLabel('Your name').selectOption({ label: 'Aoife Brennan' })
+  await page.getByRole('button', { name: "That's me" }).click()
+
+  const card = page.locator('section', { has: page.getByRole('heading', { name: /^Your bookings/ }) })
+  const offered = card.getByRole('link', { name: new RegExp(`^${job}.*Stage manager`) })
+  await expect(offered).toContainText('Answer it ›')
+  await expect(offered).toHaveAttribute('href', `#jobs/job-${run}`)
+  await offered.click()
+
+  const you = page.getByRole('region', { name: 'You on this job' })
+  const stage = you.getByRole('listitem').filter({ hasText: 'Stage manager' })
+  await expect(stage.getByRole('link', { name: 'Only some of the days? On your page ›' })).toBeVisible()
+  await stage.getByRole('button', { name: 'Yes, I can do it' }).click()
+  await expect(stage.getByRole('button', { name: 'Yes, I can do it' })).toHaveCount(0)
+  await expect(stage.getByRole('link', { name: "Can't make it any more? ›" })).toBeVisible()
+
+  const runner = you.getByRole('listitem').filter({ hasText: 'Runner' })
+  await runner.getByRole('button', { name: "No, I can't" }).click()
+  await expect(runner).toContainText(`Say no to Runner on ${job}?`)
+  await expect(runner.getByRole('button', { name: 'Keep the offer' })).toBeFocused()
+  await runner.getByRole('button', { name: 'Say no' }).click()
+  await expect(you.getByRole('listitem').filter({ hasText: 'Runner' })).toHaveCount(0)
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+})
