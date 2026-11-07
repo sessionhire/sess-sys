@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { glideTo } from './glide.ts'
 import { useMoreEdges } from './more.tsx'
 
 /**
@@ -158,12 +159,11 @@ export function OnThisScreen() {
     else if (at.right > room.right) strip.scrollLeft += at.right - room.right + 16
   }, [current])
 
+  // The page glides to the part, as it's on this screen, not another, and the part's card is marked for a moment where it lands
+  // (glide.ts). Focus goes with the eye, so a screen reader and a keyboard carry on from the part, not from the strip.
   const go = (p: Part) => {
     const card = p.heading.parentElement ?? p.heading
-    scrollTo({ top: card.getBoundingClientRect().top + scrollY - heldBottom(nav.current) - 8 })
-    // Focus goes with the eye, so a screen reader and a keyboard carry on from the part, not from the strip.
-    p.heading.tabIndex = -1
-    p.heading.focus({ preventScroll: true })
+    glideTo(card, { focus: p.heading, mark: card })
   }
 
   const shown = parts.length >= FEWEST

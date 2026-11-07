@@ -27,6 +27,7 @@ import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
+import { glideTo } from '../glide.ts'
 import { useWindowed } from '../windowed.ts'
 import { ListTools, useListChoices } from '../ListTools.tsx'
 import { Beside, JobStatusPill, Top, useHash } from '../jobs/common.tsx'
@@ -151,8 +152,8 @@ function Catalogue({ view }: { view: View }) {
   const mayStock = useAccess().can('stock')
   const findToReport = () => {
     const field = document.querySelector<HTMLInputElement>('.app.warehouse input[type="search"]')
-    field?.scrollIntoView({ block: 'center' })
-    field?.focus()
+    // Up this page to the search, glided to as it's the same page; the field's own focus ring says where it landed.
+    if (field) glideTo(field, { block: 'center', focus: field })
   }
   return (
     <div className="app warehouse">

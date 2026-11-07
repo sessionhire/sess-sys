@@ -35,6 +35,7 @@ import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { NotYours } from './Money.tsx'
 import { clientWords, getJson, postJson, useAsked, type Loaded } from './rms.ts'
+import { glideTo } from '../glide.ts'
 
 /**
  * Past quotes from Current RMS (ADR 0078), #jobs/money/current-rms, for
@@ -375,10 +376,10 @@ function MakeJob({
   // Matched once, when the form opens, so the choices made on each line stay as the stock list syncs.
   const [lines, setLines] = useState<RmsOffered[]>(() => rmsSuggestions(past.lines, pricing))
   const { run, error } = useAct()
-  // Brought into view as it opens, below the past quote's lines.
+  // Brought into view as it opens, below the past quote's lines: glided to, as it opened on this page (glide.ts).
   const here = useRef<HTMLElement>(null)
   useEffect(() => {
-    here.current?.scrollIntoView({ block: 'start' })
+    if (here.current) glideTo(here.current)
   }, [])
   const taking = lines.filter((x) => x.take)
   const matched = taking.filter((x) => x.s.modelId).length
@@ -516,7 +517,7 @@ function OntoJob({ view, past, first, onCancel }: { view: View; past: RmsOpportu
   const { run, error } = useAct()
   const here = useRef<HTMLElement>(null)
   useEffect(() => {
-    here.current?.scrollIntoView({ block: 'start' })
+    if (here.current) glideTo(here.current)
   }, [])
   const taking = lines.filter((x) => x.take)
   // A job picked by its name, as the client and venue fields do; the list is the jobs still going ahead or pencilled in.

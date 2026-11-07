@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.109.0',
+    date: '2026-11-07',
+    title: 'Jumps within a page glide there',
+    what: 'Tapping a part on "On this screen", a job\'s Next, a problem on the Status page or "find it to report" in Stock now moves the page smoothly to the part instead of jumping, so it\'s clear you\'re still on the same page, and the part you landed on is outlined for a moment so your eye finds it. Opening another page still opens it at once. If your phone is set to reduce motion, the page goes straight there and only the outline shows.',
+    prs: [246],
+  },
+  {
     version: '1.108.2',
     date: '2026-11-07',
     title: 'The planner no longer catches your thumb on a phone',

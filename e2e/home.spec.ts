@@ -44,6 +44,19 @@ test.afterAll(async ({ request }) => {
 })
 
 /** The demo copy, seen as one of its personas: this server has no passcode, so the test answers for it as a demo copy would. */
+/** Until the page has stopped moving: a glide to a part of the same screen (glide.ts) takes a few frames. */
+async function settled(page: Page) {
+  let was = -1
+  await expect
+    .poll(async () => {
+      const y = await page.evaluate(() => new Promise<number>((r) => setTimeout(() => r(scrollY), 100)))
+      const still = y === was
+      was = y
+      return still
+    })
+    .toBe(true)
+}
+
 async function as(page: Page, role: 'director' | 'office' | 'head', persona: RegExp) {
   await page.route('**/api/me', (route) => route.fulfill({ json: { auth: 'passcode', role } }))
   await page.route('**/api/auth/preview', (route) => route.fulfill({ json: { role } }))
@@ -342,9 +355,21 @@ test('a long screen names its parts on them, and a tap goes to one', async ({ br
   expect(await parts.evaluate((nav) => nav.nextElementSibling?.querySelector('h2')?.textContent)).toMatch(/^Answers to check/)
   const title = (await page.getByRole('heading', { level: 1, name: 'Calls' }).boundingBox())!
   expect((await parts.boundingBox())!.y).toBeGreaterThanOrEqual(title.y + title.height)
+  // The page glides there, as it's the same page (glide.ts): it passes through places between, and the part's card is marked where it lands.
+  await page.evaluate(() => {
+    const w = window as unknown as { seen: number[] }
+    w.seen = []
+    const look = () => (w.seen.push(scrollY), w.seen.length < 40 && requestAnimationFrame(look))
+    requestAnimationFrame(look)
+  })
   await parts.getByRole('button', { name: 'Coming up' }).click()
   const lists = page.getByRole('heading', { name: 'Coming up', exact: true })
   await expect(lists).toBeFocused()
+  await expect(page.locator('section.card.landed', { has: lists })).toHaveCount(1)
+  await settled(page)
+  const seen = await page.evaluate(() => (window as unknown as { seen: number[] }).seen)
+  const end = seen.at(-1)!
+  expect(seen.filter((y) => y > seen[0]! && y < end).length, 'places between the start and the end').toBeGreaterThan(1)
   await expect(lists).toBeInViewport()
   await expect(parts.getByRole('button', { name: 'Coming up' })).toHaveAttribute('aria-current', 'location')
   // Scrolled to, a part clears the bar and the strip, which stays straight under the bar.
@@ -353,6 +378,23 @@ test('a long screen names its parts on them, and a tap goes to one', async ({ br
   expect(heading!.y).toBeGreaterThanOrEqual(strip!.y + strip!.height)
   // A heading's count is the part's count.
   await expect(parts.getByRole('button', { name: /^Answers to check/ }).locator('.count')).toHaveText(/^\d+$/)
+})
+
+test('asked for less motion, a part on the same screen is gone to at once, and still marked', async ({ browser }) => {
+  // Proves: under reduced motion nothing travels (motion.md): the page is at the part on the next frame, and the outline (a colour) still shows where.
+  const page = await (await browser.newContext({ viewport: phoneSize, reducedMotion: 'reduce' })).newPage()
+  await page.goto('/#crew')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const parts = page.getByRole('navigation', { name: 'On this screen' })
+  const button = parts.getByRole('button', { name: 'Coming up' })
+  const at = await button.evaluate(async (b) => {
+    b.click()
+    await new Promise((r) => requestAnimationFrame(r))
+    return scrollY
+  })
+  await settled(page)
+  expect(await page.evaluate(() => scrollY)).toBe(at)
+  await expect(page.locator('section.card.landed', { has: page.getByRole('heading', { name: 'Coming up', exact: true }) })).toHaveCount(1)
 })
 
 test('Home draws the weeks, days and months ahead as charts, each column said in words (ADR 0054)', async ({ browser }) => {
