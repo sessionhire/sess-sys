@@ -1,4 +1,4 @@
-import { dayLabel, jobPosition, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
+import { dayLabel, jobPosition, plural, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
@@ -23,7 +23,8 @@ import type { JobPart } from './JobScreen.tsx'
  * happened.
  */
 
-/** Whose a task is when this role can't act on it. */
+/** How many days before a job goes out its pick list takes the dock's quiet slot, for a role that picks (Move 8). */
+const PICK_SOON_DAYS = 7
 
 export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view: View; onPart: (p: JobPart) => void; onOpenTask: (t: JobStep) => void }) {
   const access = useAccess()
@@ -139,13 +140,29 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
       press = { label: 'Tick off the deprep', onPress: () => onOpenTask('deprep') }
       break
   }
+  // Within a week of going out, the warehouse's own way in (Move 8 of the sweep of 6 November 2026): the pick list, with how far it
+  // has got, in the quiet slot, while the filled verb stays the planner's. Not when picking is the task, which the button already is.
+  const prep = steps.steps.find((s) => s.key === 'prep')
+  const pickSoon =
+    access.can('stock') && task.key !== 'prep' && task.key !== 'back' && !!prep?.facts.of && !prep.done && steps.daysTo !== undefined && steps.daysTo <= PICK_SOON_DAYS
+      ? { href: `${href}/pick`, label: `Pick the kit · ${prep.facts.out} of ${prep.facts.of} out` }
+      : undefined
   // Someone else's, said in the one shape the word table writes (UX sweep, 6 November 2026, move 4): who does it, and nothing to press.
-  if (!press) return rest(why ?? `Next is ${task.label.toLowerCase()}. ${task.owner ? `It's down to ${task.owner.name}.` : whoDoes(task.key)} Nothing here for you to press.`)
+  if (!press)
+    return rest(why ?? `Next is ${task.label.toLowerCase()}. ${task.owner ? `It's down to ${task.owner.name}.` : whoDoes(task.key)} ${pickSoon ? '' : 'Nothing here for you to press.'}`.trim(), pickSoon)
   // The quiet second choice: hand the task on, or open it. Not for the client's answer, whose button already opens it.
-  const second = mayTask && task.key !== 'confirmed' && task.key !== 'deprep' && (
-    <button type="button" className="link second" onClick={() => onOpenTask(task.key)}>
-      {task.owner ? 'Hand it on' : 'Hand it to someone'}
-    </button>
+  const second = pickSoon ? (
+    <a className="link second" href={pickSoon.href}>
+      {pickSoon.label}
+    </a>
+  ) : (
+    mayTask &&
+    task.key !== 'confirmed' &&
+    task.key !== 'deprep' && (
+      <button type="button" className="link second" onClick={() => onOpenTask(task.key)}>
+        {task.owner ? 'Hand it on' : 'Hand it to someone'}
+      </button>
+    )
   )
   return (
     <div className="next-dock" role="region" aria-label="Next">
@@ -161,6 +178,51 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
       )}
       {second}
       <Refusal error={error} />
+    </div>
+  )
+}
+
+/**
+ * The same dock on the pick list (Move 8 of the sweep of 6 November 2026; ADR 0104 names it the dock's second place): the
+ * warehouse reads where the job stands from the floor, in four wordings, and after the last scan what comes next rather than a
+ * list that just stops. The scan is the act here, so while picking or bringing back there's no button; the deprep is ticked
+ * on the job, so that one opens it. Drawn in the foot on a phone, as the job page's is, kept short so the list keeps its room.
+ */
+export function PickDock({ job, view }: { job: JobView; view: View }) {
+  const steps = view.steps.of(job.id)
+  if (!steps || steps.stopped) return null
+  const prep = steps.steps.find((s) => s.key === 'prep')!
+  const back = steps.steps.find((s) => s.key === 'back')!
+  const deprep = steps.steps.find((s) => s.key === 'deprep')!
+  const open = (s: (typeof steps.steps)[number]) => !s.done && !s.skipped
+  const started = steps.stage?.key === 'on' || steps.stage?.key === 'back' || steps.finished
+  let line: string | undefined
+  let rest: string | undefined
+  let link: { href: string; label: string } | undefined
+  if (!started && open(prep) && prep.facts.of) line = `Pick the kit · ${prep.facts.out} of ${prep.facts.of} out`
+  else if (!started && prep.facts.of) rest = `All ${prep.facts.of} out: ready to load.${job.span ? ` On the job from ${dayLabel(job.span.start)}.` : ''}`
+  else if (open(back) && back.facts.stillOut) line = `Scan the kit back · ${back.facts.stillOut} still out`
+  else if (open(back) && back.facts.neverScanned) line = `Check the kit is back · ${back.facts.neverScanned} never scanned out`
+  else if (open(deprep) && steps.stage?.key === 'back') {
+    line = `Tick off the deprep${deprep.facts.faults ? ` · ${plural(deprep.facts.faults, 'fault')} open on its kit` : ''}`
+    link = { href: `#jobs/${encodeURIComponent(job.id)}`, label: 'Open the job' }
+  } else if (steps.stage?.key === 'on') rest = `Out on the job${job.span ? ` until ${dayLabel(job.span.end)}` : ''}.`
+  else if (steps.finished) rest = 'All back and done. Nothing left to scan.'
+  if (!line && !rest) return null
+  return (
+    <div className="next-dock pick-dock" role="region" aria-label="Next" data-rest={rest ? 'true' : undefined}>
+      {line ? (
+        <p className="line">
+          <b>Next</b> · {line}
+        </p>
+      ) : (
+        <p className="rest">{rest}</p>
+      )}
+      {link && (
+        <a className="button" href={link.href}>
+          {link.label}
+        </a>
+      )}
     </div>
   )
 }
