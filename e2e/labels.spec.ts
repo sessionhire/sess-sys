@@ -212,10 +212,9 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   await expect(added).toHaveText(`Added ${sh(first + 5)} (${speaker}) at ${bay}. Scan the next label.`)
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
-  // A number already on an item opens it, as before; one it had before says so.
+  // A number already on an item opens it, whole as a scanner reads it, with nothing to press (UX sweep, 6 November 2026, move 8).
   await find.fill(sh(first + 4))
   await expect(page.getByRole('form', { name: /^Put / })).toHaveCount(0)
-  await find.press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: sh(first + 4) })).toBeVisible()
 
   // Its own label, with its product's name, printed from its page.

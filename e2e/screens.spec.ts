@@ -3,7 +3,8 @@ import { iconFrame, icons } from '../shared/src/ds/icons.js'
 
 /**
  * Moving about the screens (audit findings 8, 9 and 10): a new screen
- * opens at its top, and Back finds the place it was left at; a button the
+ * opens at its top, or at the part its address names (UX sweep, 6 November
+ * 2026, move 8), and Back finds the place it was left at; a button the
  * role can't use isn't drawn, for staff crew and the warehouse on a job
  * and on Crew; and Crew's calls show only those short of people, with the
  * filled ones folded under them. Uses the made-up data (ADR 0019), so it
@@ -35,6 +36,16 @@ const letGo = (page: Page) =>
     const next = () => (frames-- > 0 ? requestAnimationFrame(next) : done(undefined))
     requestAnimationFrame(next)
   }))
+/** Twenty frames: a page landed on a part is held there for twelve against what is still filling in (places.ts), then left be. */
+const settled = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise((done) => {
+        let frames = 20
+        const wait = () => (frames-- > 0 ? requestAnimationFrame(wait) : done(undefined))
+        wait()
+      })
+  )
 
 /** The shared icon set's "next", as a fold's chevron is cut to it: its paths and the stroke they are drawn at. */
 const next = { paths: icons.next.map(([, a]) => a.d), stroke: iconFrame['stroke-width'] }
@@ -46,7 +57,7 @@ function iconShape(mask: string): typeof next {
 }
 
 test('a new screen opens at its top, and Back finds the place the last one was left at', async ({ browser }) => {
-  // Proves: moving on from a page scrolled down starts the next at its top, by a tab or a link; the browser's Back and Forward put each screen back where it was.
+  // Proves: moving on from a page scrolled down starts the next at its top, by a tab or a link, or at the part a link names; the browser's Back and Forward put each screen back where it was.
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#crew/calls')
   await expect(page.getByRole('status')).toHaveText('Up to date')
@@ -69,23 +80,28 @@ test('a new screen opens at its top, and Back finds the place the last one was l
   await expect.poll(() => scrollY(page)).toBe(far)
   await letGo(page)
 
-  // A link from far down the page: the job opens at its top, with its title in view, and Back comes back to the link. The link is
-  // held by its node: the rows are drawn as they come near the screen (ADR 0050), so once the page moves the last link drawn may be
-  // another, further down, and pressing that one would move the page again. The place is kept a frame after the page moves.
+  // A link from far down the page to a job's crew lands on the part it names, as the job's Next does (UX sweep, 6 November 2026,
+  // move 8): the tab row under the bar, the focus on Crew. Back comes back to the link. The link is held by its node: the rows are
+  // drawn as they come near the screen (ADR 0050), so once the page moves the last link drawn may be another, further down, and
+  // pressing that one would move the page again. The place is kept a frame after the page moves.
   const link = (await page.getByRole('link', { name: 'Open job' }).last().elementHandle())!
   await link.scrollIntoViewIfNeeded()
   await drawn(page)
   const at = await scrollY(page)
   expect(at).toBeGreaterThan(0)
   await link.click()
-  await expect(page.getByRole('heading', { level: 1 })).toBeInViewport()
-  await drawn(page)
-  expect(await scrollY(page)).toBe(0)
+  const crew = page.getByRole('tab', { name: /^Crew/ })
+  await expect(crew).toBeFocused()
+  await expect(crew).toHaveAttribute('aria-selected', 'true')
+  await expect(crew).toBeInViewport()
+  await settled(page)
+  const landed = await scrollY(page)
+  expect(landed).toBeGreaterThan(0)
   await page.goBack()
   await expect.poll(() => scrollY(page)).toBe(at)
-  // And Forward to the job, at the top where it was left.
+  // And Forward to the job, where it was left.
   await page.goForward()
-  await expect.poll(() => scrollY(page)).toBe(0)
+  await expect.poll(() => scrollY(page)).toBe(landed)
 })
 
 test('a long list draws only the rows near the screen, and Back finds a place deep in it', async ({ browser, request }) => {

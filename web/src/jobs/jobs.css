@@ -250,6 +250,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .out-items li, .warehouse.pick .item-list li { display: flex; align-items: center; gap: var(--ds-space-3); }
 .pick .out-items button.link { min-width: 44px; min-height: 44px; padding-inline: var(--ds-space-1); }
 .pick .out-items button.link.quiet { color: var(--muted); }
+/* Coming back, Back is as wide as Missing beside it, so neither is the smaller target, and the two are 16 px apart, twice the room
+   between buttons in a row, so a gloved tap for one doesn't land on the other (UX sweep, 6 November 2026, move 8). */
+.pick .out-items .back-or-missing { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: calc(2 * var(--inline)); }
 /* Going out, the number is the quieter thing and sits apart from Not going, so a gloved miss doesn't open the item (audit, 5 November 2026,
    finding 92); Waiting to sync stays beside it. */
 .warehouse.pick .numbers.out-items a { border-color: transparent; padding-inline: 0; color: var(--muted); font-weight: 400; }

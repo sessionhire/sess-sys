@@ -245,9 +245,10 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await speakerRow.getByRole('link', { name: speakers[0]! }).click()
   await expect(page.locator('.facts')).toContainText(`OutWith ${job} since today at`)
   await page.goto('/#stock')
-  // Found by its number, or read by the Stock camera, it says so too, on the one item row (UX sweep, 6 November 2026, move 3).
-  await page.getByLabel('Find').fill(speakers[0]!)
-  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row p')).toHaveText(`Out with ${job} since today · ${bay}`)
+  // Found by its number, or read by the Stock camera, it says so too, on the one item row (UX sweep, 6 November 2026, move 3). Part of
+  // the number lists it; the whole number would open its page, which says the same (move 8).
+  await page.getByLabel('Find').fill(speakers[0]!.slice(-5))
+  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row', { hasText: speakers[0]! }).locator('p')).toHaveText(`Out with ${job} since today · ${bay}`)
   await page.getByLabel('Find').fill('')
   await page.getByRole('button', { name: 'Scan' }).click()
   await hold(page, speakers[0]!)
@@ -262,13 +263,17 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await page.getByRole('button', { name: 'Coming back' }).click()
   // The mic that wasn't going never went, so it isn't counted as back (ADR 0110).
   await expect(page.locator('.pick-total')).toHaveText('0 back, 14 still out')
-  // Back and Missing each a 44 px target, apart, so a gloved tap for one doesn't land on the other (audit, 20 October 2026, finding 40).
+  // Back and Missing each a 44 px target, apart, so a gloved tap for one doesn't land on the other (audit, 20 October 2026, finding 40):
+  // Back as wide as Missing, and 16 px between them (UX sweep, 6 November 2026, move 8).
   const outItem = speakerRow.getByRole('list', { name: 'Still out' }).getByRole('listitem').first()
   const back = (await outItem.getByRole('button', { name: 'Back' }).boundingBox())!
   const missing = (await outItem.getByRole('button', { name: 'Missing' }).boundingBox())!
   expect(back.width).toBeGreaterThanOrEqual(44)
-  expect(missing.width).toBeGreaterThanOrEqual(44)
-  expect(missing.x - (back.x + back.width)).toBeGreaterThanOrEqual(12)
+  expect(back.height).toBeGreaterThanOrEqual(44)
+  expect(Math.round(back.width)).toBe(Math.round(missing.width))
+  expect(Math.round(missing.x - (back.x + back.width))).toBe(16)
+  // Nothing on the row is pushed past a 390 px phone's edge by the wider pair.
+  expect(missing.x + missing.width).toBeLessThanOrEqual(390)
   await page.getByRole('button', { name: 'Scan' }).click()
   await hold(page, speakers[0]!)
   await expect(said).toHaveText(`${speakers[0]} ${speaker} back: 1 of 2 back.`)

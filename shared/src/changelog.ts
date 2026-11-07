@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.94.0',
+    date: '2026-11-07',
+    title: 'Links take you to the part they name',
+    what: "A link to a job's crew, its kit or one of its tasks, from Home, the planner or Crew, or typed in, now opens the job at that part with its tab open, instead of at the top of the page. Back still takes you to where you were. On a phone, Stock's catalogue has its own heading again, so On this screen names Catalogue, Pick lists and Kit short, and while you type a search only the catalogue shows. Typing or scanning a label's full number opens that item straight away, with nothing to press. On a pick list coming back, Back is now as wide as Missing, with more room between them.",
+    prs: [227],
+  },
+  {
     version: '1.93.0',
     date: '2026-11-07',
     title: "Home in the office's order, and quotes worth a call",

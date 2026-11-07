@@ -56,6 +56,7 @@ import { NextDock } from './NextDock.tsx'
 import { StepsCard } from './Steps.tsx'
 import { Heading } from '../Icon.tsx'
 import { useMyDepartment } from '../Narrowed.tsx'
+import { landOn } from '../places.ts'
 import { JOBS } from '../Up.tsx'
 
 /**
@@ -98,13 +99,33 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   const parts = JOB_PARTS.filter((p) => p !== 'money' || seesMoney)
   // The part the address names, else the one picked here, else the last one looked at; a link to another part starts there.
   const [picked, setPicked] = useState<JobPart | undefined>()
-  useEffect(() => setPicked(undefined), [asked])
+  useEffect(() => setPicked(undefined), [asked, askedTask])
   // The task opened on Where it is, from its list or from the Next dock (ADR 0104).
-  // Opened from Your tasks on Home, the page opens on that task, not on the job's own next one (audit, 5 November 2026, finding 17).
+  // Opened from Your tasks on Home, the page opens on that task, not on the job's own next one (audit, 5 November 2026, finding 17),
+  // with the task's own part as the tab under it, so what the task is about is the next thing down (UX sweep, 6 November 2026, move 8).
   const [task, setTask] = useState<JobStep | undefined>(askedTask)
   useEffect(() => setTask(askedTask), [id, askedTask])
-  const wanted = picked ?? asked ?? lastPart() ?? 'phases'
+  const stepPart = askedTask ? view.steps.of(id)?.steps.find((s) => s.key === askedTask)?.part : undefined
+  const wanted = picked ?? asked ?? parts.find((p) => p === stepPart) ?? lastPart() ?? 'phases'
   const part = parts.includes(wanted) ? wanted : 'phases'
+  // An address that names a part of the job, or a task in it, lands on it however it was reached: a row on Home, the planner, Crew or a
+  // typed link (UX sweep, 6 November 2026, move 8). A part's tab row comes to the top with the focus on its tab, as Next brings it (ADR
+  // 0109); a task's card with the focus on its name. A part this role doesn't see isn't landed on.
+  const named = asked && parts.includes(asked) ? asked : undefined
+  useEffect(() => {
+    if (askedTask)
+      landOn(() => {
+        const box = document.getElementById('job-step-open')
+        const heading = box?.querySelector<HTMLElement>('h3')
+        return box && heading ? { top: box, focus: heading } : undefined
+      })
+    else if (named)
+      landOn(() => {
+        const tab = document.getElementById(`job-tab-${named}`)
+        const row = tab?.closest<HTMLElement>('[role="tablist"]')
+        return tab && row ? { top: row, focus: tab } : undefined
+      })
+  }, [id, askedTask, named])
   const pick = (p: JobPart) => {
     setPicked(p)
     try {

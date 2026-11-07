@@ -63,11 +63,10 @@ async function newItems(page: Page, where: string, count: number) {
   return numbers
 }
 
-/** An item's page, found by its number as a scanner would type it. */
+/** An item's page, found by its number as a scanner would type it: the whole number opens it (UX sweep, 6 November 2026, move 8). */
 async function openItem(page: Page, number: string) {
   await page.goto('/#stock')
   await page.getByRole('searchbox', { name: 'Find' }).fill(number)
-  await page.getByRole('searchbox', { name: 'Find' }).press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: number })).toBeVisible()
 }
 
@@ -187,9 +186,7 @@ test('a place counted with no signal, its differences put right, and the week mo
   await expect(page.locator('.count', { hasText: cable })).toContainText('17')
 
   // The speaker not found: its log says so, and that it was reported missing.
-  await page.goto('/#stock')
-  await page.getByRole('searchbox', { name: 'Find' }).fill(speakers[2]!)
-  await page.getByRole('searchbox', { name: 'Find' }).press('Enter')
+  await openItem(page, speakers[2]!)
   const log = page.getByRole('region', { name: 'Log' })
   await expect(log).toContainText(`Not found in the count at ${bay}`)
   await expect(log).toContainText(`Reported missing: Not found in the count of ${bay}.`)
