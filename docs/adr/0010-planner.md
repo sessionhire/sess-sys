@@ -106,3 +106,17 @@ what the planner works out:
   day can have.
 - **Room for names on a desk** (12rem, from 900px), and a month's days
   narrow enough that 31 fit a laptop without scrolling sideways.
+
+## Note, 7 November 2026: sideways only, on anything touched (1.108.2)
+
+Colly found the planner still held a swipe on a phone. Two causes. A box
+that scrolls sideways is, to a browser, a box that scrolls both ways, so a
+month by person whose table came out a pixel taller than its box scrolled
+up and down inside it; and a phone on its side is 900px or wider, so it got
+the desk's framed planner. Now the planner's up and down is hidden below the
+desk, and the framed planner (and the desk's hidden days row) needs a mouse
+as well as the width: `(min-width: 900px) and (pointer: fine)`. Every other
+part that slides sideways (the views strip, "On this screen", the job page
+tabs, the Board, the quote tables, the cable label preview) hides its up and
+down the same way. The e2e tests check `overflow-y: hidden` rather than
+measuring heights, which a real phone's fonts can tip by a pixel.

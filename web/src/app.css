@@ -229,7 +229,7 @@ input, select { font: inherit; font-size: var(--text-body); padding: var(--ds-sp
 /* An area's pages in one row (Views.tsx), first under the bar: the current one filled. Each takes an equal share where they fit; where they don't,
    as on a phone, the row stays one line and scrolls sideways, the current page brought into view, and the edge with more past it fades, so no
    page is hidden with nothing to say it's there (audit P2 23). It used to wrap: Stock's nine took four lines, a third of a phone, before any stock. */
-.views { display: flex; flex-wrap: nowrap; gap: var(--ds-space-1); padding: var(--ds-space-1); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.views { display: flex; flex-wrap: nowrap; gap: var(--ds-space-1); padding: var(--ds-space-1); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; }
 .views::-webkit-scrollbar { display: none; }
 /* Where Tab or a link brings something into view: clear of the bar at the top (its height kept by useUnderTop.ts) and of the tabs along the
    foot of a phone, not half under either (audit, 20 October 2026, finding 78). A desk's tabs are down the side. */
@@ -281,7 +281,7 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
    sits straight above the first part, under the screen's title and its choices, so it belongs to what it lists; scrolled up to the bar it
    stays there (top set by OnThisScreen.tsx to the bar's height). Its parts never widen the screen: they scroll inside it. */
 .app > .on-screen { position: sticky; z-index: 1; contain: inline-size; margin: 0 calc(-1 * var(--gutter)) calc(var(--stack) - var(--section)); background: var(--bg); }
-.on-screen ul { list-style: none; margin: 0; padding: 0 var(--gutter); display: flex; gap: var(--ds-space-half); overflow-x: auto; scrollbar-width: none; scroll-padding-inline: var(--gutter); border-bottom: 1px solid var(--line); }
+.on-screen ul { list-style: none; margin: 0; padding: 0 var(--gutter); display: flex; gap: var(--ds-space-half); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-padding-inline: var(--gutter); border-bottom: 1px solid var(--line); }
 .on-screen ul::-webkit-scrollbar { display: none; }
 .on-screen button { min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border: 0; border-bottom: 2px solid transparent; border-radius: 0; white-space: nowrap; font-size: var(--text-small); font-weight: 600; color: var(--muted); background: transparent; display: inline-flex; align-items: center; gap: var(--ds-space-2); }
 .on-screen button[aria-current] { color: var(--ink); border-bottom-color: var(--ink); }

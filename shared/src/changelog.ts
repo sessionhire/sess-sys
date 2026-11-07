@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.108.2',
+    date: '2026-11-07',
+    title: 'The planner no longer catches your thumb on a phone',
+    what: 'Swiping up or down over the week or month planner on a phone now always moves the page; the planner itself only moves sideways. Before, a month shown by person could still scroll a little inside its own box and hold on to the swipe, and a phone turned on its side got the laptop\'s boxed planner. The Board, the quote tables and the rows of tabs that slide sideways now only slide sideways too.',
+    prs: [245],
+    adrs: [10],
+  },
+  {
     version: '1.108.1',
     date: '2026-11-07',
     title: 'The first stage is called Quoting',
