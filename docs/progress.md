@@ -112,6 +112,17 @@ waiting on someone.
   (n)", so the strip is back, and a typed search draws the catalogue
   alone; a label's whole six-digit number on one item opens it
   (wholeNumber). Coming back, Back is as wide as Missing, 16px apart.
+- Move 6a, part 2, the link says what changed (1.95.0, PR #228): a
+  booking's call time, days and venue read as they are now with what
+  was said yes to in brackets, "07:30 (was 09:00)", for a week or until
+  the call (CHANGE_SHOWN_DAYS, shared since-yes.ts, Colly's question
+  10 on its recommendation), from one bounded read of the change log
+  per page draw and no write. A booking that ended says how as its
+  card's first line, from one table (STOPPED_WORDS) that the question
+  before stopping a job reads too; the app's person page and Home › Me
+  say "Job cancelled" or "Job lost" with it. Pulling out is "Can't make
+  it" on both sides and in the history; Past work and Declined fold
+  under "Earlier (n)".
 
 **Waiting**
 

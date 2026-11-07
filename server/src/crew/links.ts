@@ -1,4 +1,4 @@
-import { commandSchemas, eachDay, EURO_HINT, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
+import { commandSchemas, eachDay, EURO_HINT, sinceYes, type SinceYes, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
 import { FILE_TOO_BIG, NO_FILE, WEB_FILE, WRONG_FILE } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { applyMutation } from '../commands.ts'
@@ -14,7 +14,7 @@ import { sendFeed, type Feeds } from './feeds.ts'
 import { getLate, lateFor, lateOf } from './late.ts'
 import { renderGone, renderPage, type Flash, type Kept, type OnTheDay } from './page.ts'
 import { renderNoSheet, renderSheet, sheetFor } from './sheet.ts'
-import { awayFor, endedOn, getAway, getCall, getOffer, getPerson, heldByCall, heldElsewhereIn, offersFor, personByToken } from './store.ts'
+import { awayFor, endedOn, getAway, getCall, getOffer, getPerson, heldByCall, heldElsewhereIn, offersFor, personByToken, yesLogs } from './store.ts'
 import { renderTimesheet, type TimesheetPage } from './timesheet-page.ts'
 import { paidOnFor } from '../finance/store.ts'
 import { getTimesheet, timesheetsFor } from './timesheets.ts'
@@ -49,7 +49,7 @@ type Req = FastifyRequest<{ Params: { token: string; id?: string }; Querystring:
 /** Where a post's message goes: a section of its own, the running-late card (ADR 0028), their documents (ADR 0029), their days off, their own calendar (ADR 0044), or else the offer's card. */
 const SECTIONS = ['details', 'late', 'documents', 'away', 'calendar'] as const
 
-const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' })
+const today = (at = new Date()) => at.toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' })
 
 /**
  * Everything the pages say after a post, by the short code the address
@@ -63,13 +63,14 @@ const SAID = {
   // Accepted after asking a different rate (audit, 20 October 2026, finding 6): said plainly which rate stands.
   'accepted-instead': { ok: true, text: "You're down for it at the rate offered, shown here; the rate you asked for is withdrawn. The office will confirm." },
   declined: { ok: true, text: "Thanks for letting us know. You're off this one." },
-  'pulled-out': { ok: true, text: "Thanks for telling us. You're off this one, and the office will find cover." },
+  // "Can't make it", the one name for it on both sides (UX sweep, 6 November 2026, move 6).
+  'pulled-out': { ok: true, text: "Thanks for telling us you can't make it. You're off this one, and the office will find cover." },
   'rate-sent': { ok: true, text: 'Thanks, your rate has gone to the office.' },
   'tap-a-button': { ok: false, text: 'Tap Accept, Decline or Send rate.' },
   'tap-yes-or-no': { ok: false, text: 'Tap Accept or Decline.' },
   'tick-a-day': { ok: false, text: 'Tick at least one day, or press Decline.' },
-  // A booking they hold has no Decline, only Can't make it any more (audit, 5 November 2026, finding 91).
-  'tick-a-day-held': { ok: false, text: "Tick at least one day, or use Can't make it any more." },
+  // A booking they hold has no Decline, only Can't make it (audit, 5 November 2026, finding 91).
+  'tick-a-day-held': { ok: false, text: "Tick at least one day, or use Can't make it." },
   'no-rate': { ok: false, text: 'Put in the day rate you would do it for.' },
   'not-a-price': { ok: false, text: EURO_HINT },
   'not-your-offer': { ok: false, text: "That offer isn't one of yours." },
@@ -223,11 +224,26 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       .type('text/html')
       .send(await home(req, person, { ok: false, text: reasonOf(what), ...where }, kept))
 
+  /**
+   * What changed on each of these bookings since its person said yes, while it's news, by offer (UX sweep, 6 November
+   * 2026, move 6): one read of the log for them all, and nothing written for the opening.
+   */
+  async function sinceYesFor(booked: readonly { offer: Offer; call: CrewCall }[], at: Date): Promise<Map<string, SinceYes>> {
+    const since = new Map<string, SinceYes>()
+    for (const [id, log] of await yesLogs(db, booked, at)) {
+      const said = sinceYes(log.yes, log.before, log.steps, at)
+      if (said) since.set(id, said)
+    }
+    return since
+  }
+
   /** Their page, with a message, and with what a refused post typed drawn back into its form. */
   async function home(req: Req, person: Person, flash: Flash | undefined, kept?: Kept): Promise<string> {
     const rows = await offersFor(db, person.id)
     const held = await heldByCall(db, rows.map((r) => r.call))
-    const now = today()
+    // One moment for the whole page: its day, and what's still news on it.
+    const at = new Date()
+    const now = today(at)
     const jobs = rows.map(({ offer, call }) => {
       const byDay = held.get(call.id)!
       // Days they hold on another job, for the picker to leave unticked and say so (audit finding 21), where there's still an answer to give.
@@ -258,7 +274,9 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       flash,
       kept,
       today: now,
+      now: at,
       ended: await endedOn(db, rows.map((r) => r.offer)),
+      since: await sinceYesFor(rows.filter(({ offer, call }) => HOLDING.includes(offer.status) && call.status === 'open' && call.end >= now), at),
       ...(await (async () => {
         const timesheets = await timesheetsFor(db, person.id)
         return { timesheets, paid: await paidOnFor(db, [...timesheets.keys()]) }
@@ -405,7 +423,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     let result: MutationResult
     if (answer === 'accept') result = await run(req, person.id, 'offer.respond', { id: offer.id, answer: 'accept', days, note })
     else if (answer === 'decline') result = await run(req, person.id, 'offer.respond', { id: offer.id, answer: 'decline', note })
-    // "Can't make it any more" (audit finding 10): a job they had said yes to, given back.
+    // "Can't make it" (audit finding 10): a job they had said yes to, given back.
     else if (answer === 'pullOut') result = await run(req, person.id, 'offer.respond', { id: offer.id, answer: 'pullOut', note })
     else if (answer === 'counter') {
       // Staff are paid through payroll, so their page has no rate to send (audit finding 21), and a post that sends one anyway is asked for a tap.

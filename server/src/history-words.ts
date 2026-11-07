@@ -266,7 +266,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       const o = offer(a.id)
       if (a.answer === 'decline') return `${o.who} declined ${o.what}`
       if (a.answer === 'counter') return rates ? `${o.who} asked for ${euro(a.counterRateCents as number)} a day for ${o.what}` : `${o.who} asked for a different rate for ${o.what}`
-      if (a.answer === 'pullOut') return `${o.who} can't make it any more: ${o.what}${said(a.note, ' (', ')')}`
+      if (a.answer === 'pullOut') return `${o.who} can't make it: ${o.what}${said(a.note, ' (', ')')}`
       return `${o.who} accepted ${o.what}${Array.isArray(a.days) && a.days.length ? `, ${daysLabel(a.days as string[])}` : ''}`
     }
     case 'offer.seen': {

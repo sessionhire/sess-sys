@@ -7,8 +7,11 @@ import { expect, test } from '@playwright/test'
  * they've worked and their link. A booking's job opens from it, the call
  * card's name and the planner's lane open it, and archiving from it goes
  * back to the list, which says so with the way back. Their own page says
- * Your bookings, and an offer on it opens their link. The test server is
- * shared with the other browser tests, so every name here is this run's own.
+ * Your bookings, and an offer on it opens their link. A booking on a job
+ * that was cancelled or lost says so with its word, beside it at a desk and
+ * under it on a phone, and the question before stopping the job says what
+ * their link will say. The test server is shared with the other browser
+ * tests, so every name here is this run's own.
  */
 
 const phoneSize = { width: 390, height: 844 }
@@ -139,6 +142,81 @@ test('their own page says Your bookings, as Home › Me does, and an offer there
   await expect(offered).toContainText('Answer it on your page ›')
   await expect(offered).toHaveAttribute('href', /\/f\/[\w-]{24}#offers$/)
   await expect(offered).toHaveAttribute('target', '_blank')
+  await context.close()
+})
+
+test('a booking on a job that was cancelled or lost stays in its place, saying so with its word', async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, move 6): stopping a job takes its calls, and with them her bookings, and the office's
+  // question before it says what her link will say, in its words; her page keeps each booking in its place while its day is
+  // to come, "Job cancelled" or "Job lost" with "Withdrawn", as her link says it as the booking's first line; a booking on
+  // a job still going ahead says nothing of the kind.
+  const name = `Siún Stop ${id}`
+  const on = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+  const job = (key: string, title: string, day: string, status = 'confirmed'): M[] => [
+    ['project.create', { id: k(key), name: title, clientId: null, venueId: null, status, notes: '' }],
+    [
+      'call.create',
+      { id: k(`${key}-call`), projectId: k(key), phaseId: null, project: title, phase: '', venue: '', role: 'Audio tech', start: day, end: day, callTime: null, needed: 1, dayRateCents: 25000, details: '', replyBy: null },
+    ],
+    ['offer.send', { id: k(`${key}-offer`), callId: k(`${key}-call`), personId: k('siun'), override: false }],
+    ['offer.respond', { id: k(`${key}-offer`), answer: 'accept', days: null, note: '' }],
+  ]
+  const mutations: M[] = [
+    ['person.upsert', { id: k('siun'), name, kind: 'freelancer', email: null, phone: '087 765 4321', skills: ['Audio'], dayRateCents: 25000, notes: '' }],
+    ...job('called-off', `Called off ${id}`, on(40)),
+    // Still with the client, so its Confirmed task asks for their answer.
+    ...job('elsewhere', `Went elsewhere ${id}`, on(41), 'quoted'),
+    ...job('still-on', `Still on ${id}`, on(42)),
+  ]
+  const context = await browser.newContext({ viewport: phoneSize })
+  const res = await context.request.post('/api/sync/push', {
+    data: { clientId: `person-stop-${id}`, mutations: mutations.map(([n, args], i) => ({ id: `${k('s')}-${i}`, name: n, args, createdAt: new Date().toISOString() })) },
+  })
+  expect((await res.json()).results.filter((r: { status: string }) => r.status !== 'applied')).toEqual([])
+
+  // The office cancels one from its details, and marks the other lost on the client's no: each asks first, saying what her
+  // link will say in its words.
+  const office = await context.newPage()
+  await office.goto(`/#jobs/${k('called-off')}`)
+  await expect(office.locator('.conn')).toHaveText('Up to date')
+  const details = office.getByRole('region', { name: 'Details', exact: true })
+  await details.getByRole('button', { name: 'Change details' }).click()
+  await details.getByLabel('Status').selectOption('cancelled')
+  await details.getByRole('button', { name: 'Save job' }).click()
+  await details
+    .getByRole('group', { name: `Marking Called off ${id} cancelled also cancels its crew calls: 1 person offered or booked will see the job was cancelled.` })
+    .getByRole('button', { name: 'Mark it cancelled' })
+    .click()
+  await expect(office.locator('.conn')).toHaveText('Up to date')
+  await office.goto(`/#jobs/${k('elsewhere')}`)
+  const where = office.getByRole('region', { name: 'Where it is' })
+  await where.getByRole('button', { name: /^Confirmed/ }).click()
+  await where.getByRole('button', { name: 'The client said no' }).click()
+  await where
+    .getByRole('group', { name: `Marking Went elsewhere ${id} lost also cancels its crew calls: 1 person offered or booked will see the job didn't go ahead.` })
+    .getByRole('button', { name: 'Mark it lost' })
+    .click()
+  await expect(office.locator('.conn')).toHaveText('Up to date')
+
+  await office.goto(`/#crew/person/${k('siun')}`)
+  await expect(office.getByRole('status')).toHaveText('Up to date')
+  const ahead = office.getByRole('region', { name: 'Coming up' })
+  const row = (title: string) => ahead.getByRole('link', { name: new RegExp(`^${title}`) })
+  await expect(row(`Called off ${id}`).locator('.pill')).toHaveText('Withdrawn')
+  await expect(row(`Called off ${id}`).locator('.booking-state small')).toHaveText('Job cancelled')
+  await expect(row(`Went elsewhere ${id}`).locator('.booking-state small')).toHaveText('Job lost')
+  await expect(row(`Still on ${id}`)).not.toContainText('Job ')
+  // Each opens its job, as any booking does, and nothing is wider than the phone.
+  await expect(row(`Called off ${id}`)).toHaveAttribute('href', `#jobs/${k('called-off')}/crew`)
+  expect(await office.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(phoneSize.width)
+  // On a phone the job's word goes under the booking's, so the job's name keeps its room beside them; at a desk, beside it.
+  const under = async () => {
+    const [pill, word] = await Promise.all(['.pill', '.booking-state small'].map((part) => row(`Called off ${id}`).locator(part).boundingBox()))
+    return word!.y >= pill!.y + pill!.height - 1
+  }
+  expect(await under()).toBe(true)
+  await office.setViewportSize({ width: 1440, height: 900 })
+  expect(await under()).toBe(false)
   await context.close()
 })
 

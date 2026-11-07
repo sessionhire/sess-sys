@@ -79,6 +79,13 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
 export const STOPPED: readonly ProjectStatus[] = ['cancelled', 'lost']
 
 /**
+ * A stopped job as the link of everyone offered or booked on it says it (UX sweep, 6 November 2026, move 6): the first
+ * line of a booking's card and its line in Declined and withdrawn, as the client cancelling and a job that didn't go ahead
+ * are different news. The office's question before stopping a job reads what they'll see from here, so the two say one thing.
+ */
+export const STOPPED_WORDS = { cancelled: 'the job was cancelled', lost: "the job didn't go ahead" } as const satisfies Partial<Record<ProjectStatus, string>>
+
+/**
  * What kind of job it is (ADR 0037): a gig needs crew and kit on days; a
  * dry hire is kit going out with no crew; an errand is a van run or a
  * collection; a meeting is people and no kit. A job with no kind is a gig,

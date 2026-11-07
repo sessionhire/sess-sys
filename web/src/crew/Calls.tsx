@@ -534,7 +534,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const [override, setOverride] = useState(false)
   const [applicants, setApplicants] = useState(false)
   const [find, setFind] = useState('')
-  // Someone who declined, pulled out or was told it's filled can be offered it again.
+  // Someone who declined, couldn't make it or was told it's filled can be offered it again.
   const offered = new Set(call.offers.filter((o) => !['declined', 'filled', 'cancelled', 'pulled-out'].includes(o.status)).map((o) => o.personId))
   // Narrowed as you type (audit finding 16), as the people list is.
   const words = wordsOf(find)
@@ -550,8 +550,8 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const onlyFree =
     chosen && bookedOn.jobs.length > 0
       ? bookedOn.days.length >= call.days.length
-        ? `${firstName(chosen)} can't take any of it unless they pull out of ${bookedOn.jobs.join(' and ')}.`
-        : `${firstName(chosen)} can only take the days not on ${bookedOn.jobs.join(' or ')} unless they pull out of ${bookedOn.jobs.length === 1 ? 'it' : 'them'}.`
+        ? `${firstName(chosen)} can't take any of it unless they say they can't make ${bookedOn.jobs.join(' and ')}.`
+        : `${firstName(chosen)} can only take the days not on ${bookedOn.jobs.join(' or ')} unless they say they can't make ${bookedOn.jobs.length === 1 ? 'it' : 'them'}.`
       : ''
   // Busy in their own calendar (ADR 0044): said, never in the way. It may be something they can move, and they may still say yes.
   const own = useView().ownCalendars

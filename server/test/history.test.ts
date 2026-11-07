@@ -117,6 +117,20 @@ describe('the history', () => {
     expect(hers.entries.map((e) => e.command)).toEqual(['unavailability.add', 'offer.respond'])
   })
 
+  it("words a booking given back by the one name both sides give it, Can't make it", async () => {
+    // Proves (UX sweep, 6 November 2026, move 6): the history says it as the link's button and pill and the office's pill do.
+    const { app, db } = await server()
+    const colly = await staff(app, db, 'Colly Hewson', IPHONE, 'phone-c0ffee')
+    await colly.send('person.upsert', { id: 'p1', name: 'Dara Kelly', kind: 'freelancer', email: null, phone: '+353871234567', skills: [], dayRateCents: 25000, notes: '' })
+    const day = addDays(irishToday(), 20)
+    await colly.send('call.create', { id: 'c1', project: 'Electric Picnic', phase: 'Build', venue: 'Stradbally Hall', role: 'Audio tech', start: day, end: day, callTime: '08:00', needed: 1, dayRateCents: 25000, details: '', replyBy: null })
+    await colly.send('offer.send', { id: 'o1', callId: 'c1', personId: 'p1', override: false })
+    const dara = await colly.record<Person>('person', 'p1')
+    await onLink(app, `/f/${dara.linkToken}/offers/o1`, { answer: 'accept' })
+    await onLink(app, `/f/${dara.linkToken}/offers/o1`, { answer: 'pullOut', note: 'Sick' })
+    expect((await colly.history()).entries[0]).toMatchObject({ who: { name: 'Dara Kelly', kind: 'link' }, what: "Dara Kelly can't make it: Audio tech on Electric Picnic (Sick)" })
+  })
+
   it('pages back through all of it, and narrows it to one person or one record', async () => {
     const { app, db } = await server()
     const colly = await staff(app, db, 'Colly Hewson', IPHONE, 'phone-c0ffee')
