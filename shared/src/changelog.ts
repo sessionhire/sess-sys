@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: 'Offer to… is one box you type in',
     what: "Offering a call to someone is now one box, as choosing a product is: type any part of their name, number, email, department or skill and pick them from the list, each with their department, level, skills and anything to know first (a missing certificate, not free then, busy in their own calendar) under their name. With nothing typed it lists the call's own department first. Enter picks the one highlighted and never sends the offer. Show applicants stays under it.",
-    prs: [0],
+    prs: [242],
   },
   {
     version: '1.106.0',

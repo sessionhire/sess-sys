@@ -28,7 +28,7 @@ waiting on someone.
   ended before November 2026 (`INVOICES_FROM`) are "Not needed", so the
   group starts honest rather than with every old quote. Question 9's
   answer (tone and count, no "At risk" state) needed no change.
-- Move 5c, the record picker's half step (1.107.0, PR #0): `ProductPicker`
+- Move 5c, the record picker's half step (1.107.0, PR #242): `ProductPicker`
   becomes `RecordPicker` (web/src/RecordPicker.tsx) with the system's
   combobox keys, `find` and `meta` given by each use, and Offer to… on a
   call is it: the search box and the select are one, the department,
