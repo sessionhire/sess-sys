@@ -9,7 +9,7 @@ waiting on someone.
 
 - Batch 3, on Colly's "And then proceed to the next batch" after batch 2:
   moves 7, 8b and 9, in four PRs built in turn.
-- Move 7, first part, the task's fields (1.97.1): each task of a job
+- Move 7, first part, the task's fields (1.97.1, PR #232): each task of a job
   carries its facts as fields beside its hint (booked, needed, short,
   out of, still out, the show's days, the quote's sent day, faults), and
   the Next dock and the Board choose a button or a tone from the fields,

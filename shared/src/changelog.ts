@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: 'A quote reads the same wherever a job is listed',
     what: "Where a job's selling stands is now one sentence on the Board and the Jobs list: no quote yet, a draft started (and how many lines still need a price), with the client for so many days, worth a call once it's been a week, or dates passed with no answer. Behind the scenes, the Next button now works out what to offer from the job's numbers rather than from its wording, so changing how something is worded can't change what the button does.",
-    prs: [0],
+    prs: [232],
   },
   {
     version: '1.97.0',
