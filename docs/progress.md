@@ -38,7 +38,7 @@ waiting on someone.
   Eight offers at most, and on a phone the list grows with the page
   rather than scrolling inside it. Client, venue, place and supplier wait
   for a month of use, as the sweep says.
-- Question 2, staff answer offers in the app (1.108.0, PR #0,
+- Question 2, staff answer offers in the app (1.108.0, PR #243,
   [ADR 0111](adr/0111-staff-answer-offers-in-the-app.md)): a new ability,
   `answer`, every role but freelancer; `offer.respond` needs it and its
   handler holds anyone without `crew` to their own offers. "You on this
