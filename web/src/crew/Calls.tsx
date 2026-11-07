@@ -1,3 +1,4 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   OFFER_WORDS,
   APPLICANT_LEVEL,
@@ -465,18 +466,20 @@ function EditCall({
       <label>
         How many <input type="number" min={Math.max(1, booked)} value={f.needed} onChange={set('needed')} />
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
+        </label>
+      </div>
       <label>
         Call time <input type="time" value={f.callTime} onChange={set('callTime')} />
       </label>
       {seesRates ? (
         <label>
-          Day rate € <input inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" />
+          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" /></UnitBox>
         </label>
       ) : (
         <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>
@@ -586,7 +589,9 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
 
   const send = (e: FormEvent) => {
     e.preventDefault()
-    if (!chosen) return
+    // Never a dead Offer (UX sweep, 6 November 2026, move 5): a press says what's missing.
+    if (!chosen) return refuse('Choose someone to offer it to first.')
+    if (conflicts.length > 0 && !override) return refuse('Tick Offer anyway first, or choose someone else.')
     const p = chosen
     // Said here, in the server's own words, rather than after a round trip; "Offer anyway" doesn't pass it.
     const short = certificateRefusal(p, needs, call.days, today)
@@ -629,7 +634,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
             ))
           : candidates.map(option)}
       </select>
-      <button type="submit" disabled={!chosen || (conflicts.length > 0 && !override)}>
+      <button type="submit">
         Offer
       </button>
       {(hidden > 0 || applicants) && (
@@ -640,7 +645,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       )}
       {conflicts.length > 0 && (
         <label className="warn">
-          <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
+          <input type="checkbox" checked={override} onChange={(e) => (setOverride(e.target.checked), refuse(''))} />
           <span>
             {conflicts.join('. ')}. {onlyFree && `${onlyFree} `}
             <b>Offer anyway</b>
@@ -727,12 +732,14 @@ export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
       <label>
         Role <input value={f.role} onChange={set('role')} placeholder="Audio tech" required />
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={set('start')} />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={set('start')} />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
+        </label>
+      </div>
       <label>
         Call time <input type="time" value={f.callTime} onChange={set('callTime')} />
       </label>
@@ -741,7 +748,7 @@ export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
       </label>
       {seesRates ? (
         <label>
-          Day rate € <input inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" />
+          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" /></UnitBox>
         </label>
       ) : (
         <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>

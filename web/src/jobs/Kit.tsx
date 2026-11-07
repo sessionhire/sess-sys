@@ -341,7 +341,7 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
   const [supplier, setSupplier] = useState('')
   const [done, setDone] = useState('')
-  const { run, error } = useAct()
+  const { run, error, refuse } = useAct()
   const opener = useRef<HTMLButtonElement>(null)
   const first = useRef<HTMLInputElement>(null)
   const closed = useRef(false)
@@ -368,7 +368,8 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
   }
   const save = (e: FormEvent) => {
     e.preventDefault()
-    if (chosen.length === 0) return
+    // Never greyed out (UX sweep, 6 November 2026, move 5): a press with nothing ticked says so.
+    if (chosen.length === 0) return refuse('Tick what to subhire first.')
     const from = supplier.trim()
     const said = `Subhired what's short on ${plural(chosen.length, 'line')}${from ? ` from ${from}` : ''}.`
     void run(async () => {
@@ -418,8 +419,8 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
           </label>
           <Refusal error={error} className="wide" />
           <div className="actions wide">
-            <button type="submit" disabled={chosen.length === 0}>
-              {chosen.length === 0 ? 'Nothing ticked' : `Subhire ${plural(chosen.length, 'line')}`}
+            <button type="submit">
+              {chosen.length === 0 ? 'Subhire' : `Subhire ${plural(chosen.length, 'line')}`}
             </button>
             <button type="button" onClick={close}>
               Cancel

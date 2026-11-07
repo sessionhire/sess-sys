@@ -808,13 +808,15 @@ function TimesheetsOff() {
 function GiveDepartment({ view, calls, onGiven }: { view: View; calls: readonly CallView[]; onGiven: (said: string, department: string) => void }) {
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
   const [department, setDepartment] = useState<string | null>(null)
-  const { run, error } = useAct()
+  const { run, error, refuse } = useAct()
   // Only calls still shown: one given a department elsewhere leaves the list, and its tick with it.
   const chosen = calls.filter((c) => ticked.has(c.id))
   const tick = (id: string, on: boolean) => setTicked((was) => (on ? new Set([...was, id]) : new Set([...was].filter((x) => x !== id))))
   const give = (e: FormEvent) => {
     e.preventDefault()
-    if (!chosen.length || !department) return
+    // Never greyed out (UX sweep, 6 November 2026, move 5): a press says what's missing.
+    if (!chosen.length) return refuse('Tick the calls to give a department first.')
+    if (!department) return refuse('Choose the department first.')
     const n = chosen.length
     void run(() => client.mutate('call.department', { ids: chosen.map((c) => c.id), department })).then((ok) => {
       if (!ok) return
@@ -849,12 +851,8 @@ function GiveDepartment({ view, calls, onGiven }: { view: View; calls: readonly 
         </fieldset>
         <DepartmentField view={view} value={department} onChange={setDepartment} />
         <Refusal error={error} className="wide" />
-        <button type="submit" className="primary wide" disabled={!chosen.length || !department}>
-          {!chosen.length
-            ? 'Tick the calls to give it'
-            : !department
-              ? 'Pick a department'
-              : `Give ${chosen.length === 1 ? '1 call' : `${chosen.length} calls`} ${department}`}
+        <button type="submit" className="primary wide">
+          {chosen.length && department ? `Give ${chosen.length === 1 ? '1 call' : `${chosen.length} calls`} ${department}` : 'Give them the department'}
         </button>
       </form>
     </Fold>

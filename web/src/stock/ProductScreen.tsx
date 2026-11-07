@@ -606,12 +606,16 @@ function AddItem({ m, w }: { m: ModelView; w: WarehouseView }) {
     <form className="grid-form add-item" onSubmit={submit}>
       <h3 className="wide">Add an item</h3>
       <label className="wide">
-        Number
+        Number <span className="optional">(optional)</span>
+        {/* A hint under the label, read as the field's description, not its name (UX sweep, 6 November 2026, move 5). */}
+        <span className="hint" id="item-number-hint" aria-hidden="true">
+          From its label; left empty, it takes the next free one.
+        </span>
         <input
           ref={numberField}
+          aria-describedby="item-number-hint"
           value={f.number}
           onChange={(e) => setF({ ...f, number: e.target.value })}
-          placeholder="From its label; empty for the next free one"
           autoComplete="off"
           autoCapitalize="characters"
           enterKeyHint="done"

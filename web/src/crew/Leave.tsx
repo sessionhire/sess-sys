@@ -174,7 +174,7 @@ function WhoAreYou({ view, signedIn, email, onPick }: { view: View; signedIn: bo
         >
           <label className="field">
             Your name
-            <select value={id} onChange={(e) => setId(e.target.value)}>
+            <select value={id} onChange={(e) => setId(e.target.value)} required>
               <option value="">Pick your name…</option>
               {staff.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -184,7 +184,7 @@ function WhoAreYou({ view, signedIn, email, onPick }: { view: View; signedIn: bo
             </select>
           </label>
           <p className="hint">Until sign-in is on, this device takes your word for it, and remembers the answer.</p>
-          <button type="submit" className="primary" disabled={!id}>
+          <button type="submit" className="primary">
             That's me
           </button>
         </form>
@@ -409,12 +409,14 @@ function Apply({ view, me }: { view: View; me: PersonView }) {
           <option value="lieu">Days in lieu</option>
         </select>
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} required />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} required />
+        </label>
+      </div>
       <label className="wide">
         Note <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Anything whoever approves should know" maxLength={500} />
       </label>
@@ -623,7 +625,10 @@ function QueueRow({ item, me }: { item: LeaveQueueItem; me: PersonView }) {
           }}
           aria-label={`Decline ${name}'s request`}
         >
-          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" maxLength={500} aria-label="Reason" />
+          <label>
+            Reason <span className="optional">(optional)</span>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+          </label>
           <button type="submit">
             Decline
           </button>
@@ -677,6 +682,8 @@ function AllowanceRow({ person, year, view, me, fixed, byAnother }: { person: Pe
   const { run, error, refuse } = useAct()
   const save = (e: FormEvent) => {
     e.preventDefault()
+    // Never greyed out (UX sweep, 6 November 2026, move 5): a press with nothing changed says so.
+    if (!touched) return refuse('Change the days or carried over first.')
     // A blanked field would read as nothing and wipe the year, so it's turned down here in the schema's own words.
     if (!isWhole(f.days)) return refuse('The allowance is a whole number from 0 to 366.')
     if (!isWhole(f.carried)) return refuse('Carried over is a whole number from 0 to 366.')
@@ -707,7 +714,7 @@ function AllowanceRow({ person, year, view, me, fixed, byAnother }: { person: Pe
             <input type="number" min={0} max={366} value={f.carried} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, carried: e.target.value }))} />
           </label>
           {!fixed && (
-            <button type="submit" disabled={!touched}>
+            <button type="submit">
               Save allowance
             </button>
           )}

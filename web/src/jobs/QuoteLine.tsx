@@ -1,3 +1,4 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   dayLabel,
   daysWord,
@@ -31,27 +32,7 @@ import { CHARGE_LABELS, chargeOf, num, type Charge, type LineDraft, type LineFau
  * department.
  */
 
-/**
- * A number with its unit in the box (€ before it, % or km after), never typed. The unit stays in the field's accessible
- * name, since what's drawn beside the input isn't read out with it.
- */
-export function UnitBox({ unit, before, needs, children }: { unit: string; before?: boolean; needs?: boolean; children: ReactNode }) {
-  return (
-    <span className={`unit-box${before ? ' before' : ''}${needs ? ' needs' : ''}`}>
-      {before && (
-        <span className="unit" aria-hidden="true">
-          {unit}
-        </span>
-      )}
-      {children}
-      {!before && (
-        <span className="unit" aria-hidden="true">
-          {unit}
-        </span>
-      )}
-    </span>
-  )
-}
+export { UnitBox }
 
 type PriceUnit = 'day' | 'week' | 'once'
 /** What a line's price is for: a day's, a week's (ADR 0085), or once. */

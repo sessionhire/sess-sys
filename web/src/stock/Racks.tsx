@@ -544,7 +544,7 @@ function AddSlot({ view, r }: { view: View; r: RackView }) {
         </label>
       )}
       <label className="wide">
-        Note <input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="Optional, e.g. Patched to the stage box" />
+        Note <span className="optional">(optional)</span> <input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="e.g. Patched to the stage box" />
       </label>
       <Refusal error={error} className="wide" />
       <button type="submit" className="primary wide">
@@ -688,7 +688,7 @@ export function WhoseFields({ f, onChange, suppliers }: { f: WhoseTyped; onChang
             Hired from <input list="dry-hire-suppliers" value={f.supplier} onChange={(e) => onChange({ ...f, supplier: e.target.value })} placeholder="e.g. PRG" />
           </label>
           <label>
-            Their price a day, in euro <input inputMode="decimal" value={f.hire} onChange={(e) => onChange({ ...f, hire: e.target.value })} placeholder="Optional" />
+            Their price a day, in euro <span className="optional">(optional)</span> <input inputMode="decimal" value={f.hire} onChange={(e) => onChange({ ...f, hire: e.target.value })} />
           </label>
           <datalist id="dry-hire-suppliers">
             {suppliers.map((s) => (

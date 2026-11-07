@@ -1,3 +1,4 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   addDays,
   belowZero,
@@ -365,19 +366,21 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
         What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required autoFocus />
       </label>
       <label>
-        Client <input list="new-quote-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
+        Client <span className="optional">(optional)</span> <input list="new-quote-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
       </label>
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
       <label>
-        Venue <input list="new-quote-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
+        Venue <span className="optional">(optional)</span> <input list="new-quote-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
       </label>
       <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
+        </label>
+      </div>
       {phases.length > 0 && (
         <p className="hint wide">
           In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
@@ -940,7 +943,7 @@ function AddRole() {
         Role <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Rigger" maxLength={100} />
       </label>
       <label>
-        € a day <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="380" />
+        Price a day <UnitBox unit="€" before><input aria-label="€ a day" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="380" /></UnitBox>
       </label>
       <Refusal error={error} className="wide" />
       <button type="submit" className="wide">

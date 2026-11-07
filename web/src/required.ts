@@ -19,7 +19,7 @@ function nameOf(field: Field): string {
   let words = ''
   if (label) {
     const copy = label.cloneNode(true) as HTMLElement
-    copy.querySelectorAll('input, select, textarea, small, .hint').forEach((n) => n.remove())
+    copy.querySelectorAll('input, select, textarea, small, .hint, .optional').forEach((n) => n.remove())
     words = copy.textContent ?? ''
   }
   words = (words || field.getAttribute('aria-label') || '').replace(/\s+/g, ' ').replace(/[\s:*]+$/, '').trim()
@@ -35,6 +35,24 @@ export function sayWhatsNeeded(field: Field): string {
   if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio')) return words ? `Tick ${the(words)} first.` : 'Tick it first.'
   if (field instanceof HTMLInputElement && field.type === 'file') return 'Choose a file first.'
   return words ? `Fill in ${the(words)} first.` : 'Fill this in first.'
+}
+
+/**
+ * A number out of its bounds, said in the same voice (UX sweep, 6 November 2026, move 5): a 0 in "How many" was let
+ * through the browser's bubble with nothing said in the app's words. The field's own min, max and step say what's
+ * wanted, so each form needs nothing new.
+ */
+export function sayWhatsWrong(field: Field): string | undefined {
+  if (!(field instanceof HTMLInputElement) || field.type !== 'number') return undefined
+  const v = field.validity
+  const words = nameOf(field)
+  const name = words ? `${words[0]!.toUpperCase()}${words.slice(1)}` : 'This'
+  const whole = field.step === '' || field.step === '1'
+  if (v.badInput) return `${name} has to be a number.`
+  if (v.rangeUnderflow) return `${name} has to be at least ${field.min}.`
+  if (v.rangeOverflow) return `${name} can be ${field.max} at most.`
+  if (v.stepMismatch) return whole ? `${name} has to be a whole number.` : `${name} goes up in steps of ${field.step}.`
+  return undefined
 }
 
 let count = 0
@@ -60,14 +78,14 @@ function sweep() {
   })
 }
 
-function refuse(field: Field) {
+function refuse(field: Field, words = sayWhatsNeeded(field)) {
   clear(field)
   sweep()
   const line = document.createElement('span')
   line.id = `${LINE}-${++count}`
   line.className = `alert ${LINE}`
   line.setAttribute('role', 'alert')
-  line.textContent = sayWhatsNeeded(field)
+  line.textContent = words
   // After the field, or after the label round it, so the line sits under what it's about.
   const label = field.closest('label')
   ;(label ?? field).after(line)
@@ -81,9 +99,10 @@ export function refuseEmptyFieldsInWords() {
     'invalid',
     (e) => {
       const field = e.target as Field
-      if (!field.validity?.valueMissing) return
+      const wrong = field.validity?.valueMissing ? undefined : sayWhatsWrong(field)
+      if (!field.validity?.valueMissing && !wrong) return
       e.preventDefault()
-      refuse(field)
+      refuse(field, wrong)
       // The browser fires one for every empty field at once: the focus goes to the first.
       if (!focusedOne) {
         focusedOne = true
@@ -102,4 +121,13 @@ export function refuseEmptyFieldsInWords() {
   // A form emptied takes its lines with it, and moving to another screen any left behind.
   document.addEventListener('reset', (e) => (e.target as HTMLFormElement).querySelectorAll<Field>('[data-refusal]').forEach(clear), true)
   addEventListener('hashchange', sweep)
+  // A wheel over a focused number field scrolls the page, never changes the number under the pointer (UX sweep, move 5).
+  document.addEventListener(
+    'wheel',
+    (e) => {
+      const t = e.target
+      if (t instanceof HTMLInputElement && t.type === 'number' && t === document.activeElement) t.blur()
+    },
+    { passive: true, capture: true },
+  )
 }

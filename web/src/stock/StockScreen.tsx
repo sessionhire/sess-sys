@@ -641,12 +641,15 @@ function NewProduct({ view, department }: { view: View; department: Department }
       <TrackingChoice tracking={f.tracking} isCase={f.isCase} onChange={(t) => setF({ ...f, ...t })} />
       <WhoseFields f={whose} onChange={setWhose} suppliers={suppliersOf(view)} />
       <label className="wide">
-        {whose.dryHire ? 'To buy one, in euro' : 'Value of one, in euro'}{' '}
+        {whose.dryHire ? 'To buy one, in euro' : 'Value of one, in euro'} <span className="optional">(optional)</span>
+        <span className="hint" id="product-value-hint" aria-hidden="true">
+          What it would cost to replace.
+        </span>
         <input
+          aria-describedby="product-value-hint"
           inputMode="decimal"
           value={f.value}
           onChange={(e) => setF({ ...f, value: e.target.value })}
-          placeholder="What it would cost to replace; optional"
         />
       </label>
       <SizeFields f={size} onChange={setSize} rack={false} />

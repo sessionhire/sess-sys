@@ -1,3 +1,4 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   APPLICANT_LEVEL,
   CERTIFICATE_KINDS,
@@ -283,12 +284,14 @@ export function PersonForm({
   }
   return (
     <form className="grid-form" ref={form} onSubmit={submit} aria-label={initial ? `Edit ${initial.name}` : 'Add person'}>
-      <label>
-        First name <input value={f.firstName} onChange={set('firstName')} autoComplete="off" maxLength={100} required />
-      </label>
-      <label>
-        Last name <input value={f.lastName} onChange={set('lastName')} autoComplete="off" maxLength={100} />
-      </label>
+      <div className="pair">
+        <label>
+          First name <input value={f.firstName} onChange={set('firstName')} autoComplete="off" spellCheck={false} maxLength={100} required />
+        </label>
+        <label>
+          Last name <span className="optional">(optional)</span> <input value={f.lastName} onChange={set('lastName')} autoComplete="off" spellCheck={false} maxLength={100} />
+        </label>
+      </div>
       {/* Said before a second one is made, not found later in Tidy up (audit, 5 November 2026, finding 94). */}
       {!initial && (() => {
         const typed = nameKey(fullName({ firstName: f.firstName.trim(), lastName: f.lastName.trim() }))
@@ -341,7 +344,7 @@ export function PersonForm({
       />
       {seesRates && (
         <label>
-          Usual day rate € <input inputMode="decimal" value={f.rate} onChange={set('rate')} />
+          Usual day rate <UnitBox unit="€" before><input aria-label="Usual day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} /></UnitBox>
         </label>
       )}
       <label>

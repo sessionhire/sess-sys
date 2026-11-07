@@ -484,8 +484,8 @@ function Check({ view, r, onTell, onRestart }: { view: View; r: TimesheetRow; on
         )}
       </fieldset>
       <label className="field">
-        Note for {r.person?.name.split(' ')[0] ?? 'them'} (optional)
-        <textarea rows={2} value={note} onChange={(e) => (setTouched(true), setNote(e.target.value))} placeholder="Why anything changed" maxLength={1000} />
+        Note for {r.person?.name.split(' ')[0] ?? 'them'} <span className="optional">(optional)</span>
+        <textarea rows={2} value={note} onChange={(e) => (setTouched(true), setNote(e.target.value))} placeholder="e.g. Finished at 01:00, not 23:00" maxLength={1000} />
       </label>
       {changes.length > 0 && (
         <div className="warn-line">
