@@ -86,7 +86,7 @@ freelancer's link, and going public on both stores is a later step.
 
 - **Apple Developer Program**: about €99 a year, enrolled as the company
   (needs a D-U-N-S number, which is free but can take days to weeks). Colly
-  or someone at Session Hire has to enrol; Claude can't.
+  is enrolling the company.
 - **Google Play Console**: a one-off $25. Enrol as an **organisation**: a
   new personal account has to run a 14-day test with 12 testers before it
   can publish.
@@ -119,8 +119,8 @@ freelancer's link, and going public on both stores is a later step.
 2. At launch, which notifications should reach a phone (offers answered,
    jobs moved, kit to check), and should freelancers get them too, or stay
    with messages and their links?
-3. Who enrols the company with Apple and Google (and is there a D-U-N-S
-   number already)?
+3. Colly enrols the company with Apple and Google (7 November 2026). Is
+   there a D-U-N-S number already?
 4. Which phones does the warehouse use, and is a Zebra handheld likely?
 5. Which label printer: still the Zebra ZT411?
 
