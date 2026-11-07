@@ -19,11 +19,13 @@ In order:
    phone to keep the app's copy for good (so a phone short of space doesn't
    clear it), and try the phone field test on real iPhones and Androids,
    which is still to do. Push notifications to installed web apps work on
-   both (an iPhone needs it added to the Home Screen first), but they reach
-   people outside the app, so they wait for Colly's say under the standing
-   rule.
+   both (an iPhone needs it added to the Home Screen first). The app contacts
+   nobody only until launch (Colly, 7 November 2026: "When we launch we will
+   definitely be contacting people"), so push can be built now and switched
+   on at launch, like messages to crew.
 2. **Then a Capacitor app for staff**, warehouse first: the phone's own
-   barcode reader, one-tap label printing to the Zebra, notifications, NFC
+   barcode reader, one-tap label printing to the Zebra, notifications on the
+   lock screen from launch, NFC
    tags on iPhones, and staying signed in. Given to staff through TestFlight
    and Google Play's internal testing, then unlisted on the App Store and a
    closed track on Play, so it never shows in a public search.
@@ -38,7 +40,7 @@ In order:
 |---|---|---|---|
 | **Scanning QR labels** | Works: Android reads with the phone's own reader, iPhones with a slower one in the page (ADR 0016) | Apple's and Google's own readers on both: faster, in poor light, several codes at once, and the torch | **Yes**, for the warehouse; the biggest everyday gain |
 | **Label printing** | Print from the browser, or a spreadsheet into ZebraDesigner (ADR 0015). One-tap printing waits on the printer choice | Send the label straight to a Zebra over Wi-Fi or Bluetooth, no print dialog | **Yes**, once the printer is picked |
-| **Notifications** | In the app only: the bell and pop-ups (ADR 0058) | Pushed to the lock screen. The web can do this too now, so it's not a reason on its own | Only once Colly lets the app contact people |
+| **Notifications** | In the app only: the bell and pop-ups (ADR 0058) | Pushed to the lock screen. The web can do this too now, so it's not a reason on its own | **Yes, from launch**: built behind a switch, on when the app launches |
 | **Working with no signal** | Already works: the app keeps its own copy and a queue of changes (ADR 0001). The queue sends only while the app is open | Can send the queue soon after signal comes back, even closed (within limits) | Small gain |
 | **NFC tags** | Android Chrome only | iPhones too | Only if NFC tags are used; QR is the system of record |
 | **RFID** | Not from a browser | Zebra handhelds' own software types into the page anyway; an app could talk to the sled directly | Later, if RFID comes |
@@ -114,8 +116,9 @@ freelancer's link, and going public on both stores is a later step.
 ## Open questions for Colly
 
 1. Staff only first, as recommended, or freelancers too from the start?
-2. Can notifications go to staff phones, or does that wait under the
-   standing rule?
+2. At launch, which notifications should reach a phone (offers answered,
+   jobs moved, kit to check), and should freelancers get them too, or stay
+   with messages and their links?
 3. Who enrols the company with Apple and Google (and is there a D-U-N-S
    number already)?
 4. Which phones does the warehouse use, and is a Zebra handheld likely?
