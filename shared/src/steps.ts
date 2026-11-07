@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 /**
  * A job's way through the company (ADR 0073, ADR 0104): five stages every
- * gig and dry hire passes through, Selling, Planning, Going out, On the
+ * gig and dry hire passes through, Quoting, Planning, Going out, On the
  * job and Back, and inside each the tasks that get it through, each with
  * a member of staff it's down to and, if wanted, a day it's due by. The
  * stage a job is in is worked out from the job's own records (its status,
@@ -27,7 +27,7 @@ export const JOB_STAGES = ['selling', 'planning', 'going', 'on', 'back'] as cons
 export type JobStage = (typeof JOB_STAGES)[number]
 
 export const STAGE_LABELS: Record<JobStage, string> = {
-  selling: 'Selling',
+  selling: 'Quoting',
   planning: 'Planning',
   going: 'Going out',
   on: 'On the job',

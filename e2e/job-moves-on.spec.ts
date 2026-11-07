@@ -18,12 +18,12 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
 
-  // Corrib Arts Week's quote is with the client, so the job is quoted, in Selling, and the client's answer is next (ADR 0104).
+  // Corrib Arts Week's quote is with the client, so the job is quoted, in Quoting, and the client's answer is next (ADR 0104).
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
   const next = office.getByRole('region', { name: 'Next' })
   const where = office.getByRole('region', { name: 'Where it is' })
-  await expect(next).toContainText('Next · Selling · Quote with the client')
+  await expect(next).toContainText('Next · Quoting · Quote with the client')
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-thing.png` })
   await next.getByRole('button', { name: "Record the client's answer" }).click()
   await expect(where.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible()

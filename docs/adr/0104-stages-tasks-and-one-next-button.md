@@ -148,3 +148,7 @@ Jobs › Board (`BoardScreen.tsx`, `#jobs/board`), beside List, Week and Month: 
 ## The position part and the pick list's dock, 7 November 2026
 
 Move 7 of the UX sweep of 6 November 2026 replaced the stage line with one position part (`JobPosition.tsx`, `jobPosition()` in `shared/src/sync/position.ts`) drawn the same on the job head once confirmed, the dock's line, the Jobs row, Home's rows, the Board card and the pick list's head: stage · what's short or waiting · owner · when, quiet, warn when crew or kit is short, bad when a task is late. The dock and the Board read the tasks' fields, not their words. Move 8 draws the dock on the pick list too, its second place as the 1 November research named it, in the floor's words ("Next · Pick the kit · 6 of 122 out", "All 122 out: ready to load", "Next · Scan the kit back · 2 still out", "Next · Tick off the deprep"); still one dock a page. Within seven days of going out, for a role that picks, the job page's quiet second slot is the pick list with how far it has got, while the filled verb stays the planner's.
+
+## Renamed, 7 November 2026
+
+The first stage is called Quoting, not Selling (Colly). The stored key stays `selling`, as storage names never change for a label.

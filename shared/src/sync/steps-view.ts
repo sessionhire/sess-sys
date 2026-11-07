@@ -15,7 +15,7 @@ import type { VehiclesView } from './vehicles-view.ts'
 /**
  * A job's stages and tasks (ADR 0073, ADR 0104) as a device sees them. The
  * stage the job is in is read from the job's own records: an enquiry or a
- * quote is Selling; confirmed, it's Planning until the first scan out or
+ * quote is Quoting; confirmed, it's Planning until the first scan out or
  * its first day, Going out until its first day, On the job until its last,
  * then Back until everything is in and deprepped. The tasks inside each
  * stage say who each is down to, the day it's due by and whether it's
@@ -412,7 +412,7 @@ export function stepsView(
         tasks,
         done: applies.filter((s) => s.done).length,
         of: applies.length,
-        // Selling says where the quote stands in its one sentence; the other stages, what's open in them.
+        // Quoting says where the quote stands in its one sentence; the other stages, what's open in them.
         hint: key === 'selling' && what.selling ? what.selling : hints.length ? hints.slice(0, 2).join(' · ') : undefined,
       }
     })
