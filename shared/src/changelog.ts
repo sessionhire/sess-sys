@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.109.1',
+    date: '2026-11-07',
+    title: 'The glide to a part of the page works on an iPhone',
+    what: 'On an iPhone, and in the app installed from Safari, a tap on a part of the page jumped there with no glide: the phone moved the page to the part the moment it was picked, before the glide could start. It now glides. The red outline round the part landed on is drawn just inside its edge, so it no longer shows either side of the bar when the part scrolls under it.',
+    prs: [247],
+  },
+  {
     version: '1.109.0',
     date: '2026-11-07',
     title: 'Jumps within a page glide there',
