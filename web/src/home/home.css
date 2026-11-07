@@ -7,19 +7,31 @@
 .home .home-department select { width: 100%; }
 @media (max-width: 479px) { .home .home-for { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Counts as tiles: the number first and large, what it's of under it. Two across on a phone, more on a laptop. */
+.home .tiles > li { display: grid; }
 .home .tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--ds-space-2); }
-.home .tile { display: grid; align-content: start; gap: var(--ds-space-half); min-height: 88px; padding: var(--ds-space-3) var(--ds-space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--bg); color: inherit; text-decoration: none; }
+.home .tile { display: grid; align-content: start; gap: var(--ds-space-half); min-height: 88px; padding: var(--inset-box); border: 1px solid var(--line); border-radius: var(--radius-box); background: var(--bg); color: inherit; text-decoration: none; }
 .home .tile b { font-size: var(--ds-text-heading-size); line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; }
 .home .tile span { color: var(--muted); font-size: var(--text-small); line-height: 1.3; }
 .home .tile.bad b { color: var(--bad); }
-.home .tile:hover { background: var(--ds-wash-hover); }
+/* Late, wanting a look rather than stopping anything: kit to check back in past its days (ADR 0109). */
+.home .tile.warn b { color: var(--warn); }
+@media (hover: hover) {
+  .home .tile:hover { background: var(--ds-wash-hover); }
+}
 .home .tile:active { background: var(--ds-wash-pressed); }
 .home .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .home .all-clear { margin: 0; color: var(--muted); }
-/* Today, a line a job (audit finding 22): the name takes what room there is, cut short with an ellipsis, and the crew and kit stay whole beside it. */
-.home .today-row { align-items: baseline; }
-.home .today-row > b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home .today-row > .side { display: flex; flex-wrap: nowrap; align-items: baseline; gap: var(--ds-space-2); }
+/* Today and the week ahead, a line a job (audit finding 22): the name takes what room there is, cut short with an ellipsis, and the
+   crew and kit stay whole beside it. Where they don't fit beside a name of about nine letters (a phone, a job short of crew and kit),
+   the date, stage and flags go on a second line under the name, so the rows that need someone keep their names (audit, 5 November
+   2026, finding 12). The stage's five segments go on a phone; its name stays. */
+.home .today-row { align-items: baseline; align-content: center; flex-wrap: wrap; row-gap: var(--ds-space-1); min-height: 44px; }
+.home .today-row > b { flex: 1 1 9em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home .today-row > .side { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-half) var(--ds-space-2); }
+@media (max-width: 479px) { .home .today-row .stage-line[data-compact] .stage-seg { display: none; } }
+
+/* Me's glance line, in the words at the top of their own page (UX sweep, 6 November 2026, move 6): each part a link, the room a thumb needs. */
+.home .my-glance { margin: 0; font-weight: 600; }
 
 /* The demo's choice of whose eyes to see it through (ADR 0033). */
 .preview .personas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--ds-space-3); }
@@ -28,14 +40,15 @@
 .preview .personas small { color: var(--muted); font-size: var(--text-hint); font-weight: 600; }
 .preview .personas span { color: var(--ink); font-weight: 400; font-size: var(--text-small); }
 
-/* Charts (ADR 0054): columns in HTML, coloured by the grammar. Settled is ink, not yet a lighter grey, short is amber. */
-.home .chart { --chart-settled: var(--on-line); --chart-pending: var(--field-line); --chart-short: var(--ds-warn); }
+/* Charts (ADR 0054): columns in HTML, coloured by the grammar from the design system's chart roles. Settled is the mark, not yet the
+   pending grey, short is amber. */
+.home .chart { --chart-settled: var(--ds-chart-mark); --chart-pending: var(--ds-chart-pending); --chart-short: var(--ds-warn); }
 .home .chart-readout { margin: 0; font-size: var(--text-small); color: var(--on-line); min-height: 1.3em; }
 .home .chart-plot { position: relative; padding-top: var(--ds-space-4); }
 .home .chart-max { position: absolute; top: 0; left: 0; font-size: var(--text-pill); color: var(--muted); font-variant-numeric: tabular-nums; }
 /* A hairline at the top of the scale and one along the baseline: the only grid. */
 .home .chart-columns { display: grid; gap: var(--ds-space-half); background: linear-gradient(var(--line), var(--line)) top / 100% 1px no-repeat; }
-.home .chart-col { display: grid; grid-template-rows: 120px auto; gap: var(--ds-space-1); min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
+.home .chart-col { position: relative; display: grid; grid-template-rows: 120px auto; gap: var(--ds-space-1); min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
 .home .chart-bar { display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--field-line); }
 .home .chart-stack { display: flex; flex-direction: column-reverse; gap: var(--ds-space-half); width: min(24px, 70%); min-height: 3px; border-radius: 4px 4px 0 0; overflow: hidden; }
 .home .chart-part { min-height: 2px; }
@@ -44,9 +57,10 @@
 .home .chart-part.short, .home .chart-swatch.short { background: var(--chart-short); }
 .home .chart-tick { font-size: var(--text-pill); line-height: 1.2; text-align: center; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
 .home .chart-col.now .chart-tick { color: var(--ink); font-weight: 700; }
-/* The column being read: a wash behind it, as a hovered row has. */
-.home .chart-col[aria-pressed='true'] { background: var(--ds-wash-hover); }
+/* The column being read: its month in ink with a 2px ink bar under it, as the part of a page in view is marked, not the wash a pointer
+   resting on it gives (UX sweep, 6 November 2026, ds-2). */
 .home .chart-col[aria-pressed='true'] .chart-tick { color: var(--ink); }
+.home .chart-col[aria-pressed='true']::after { content: ''; position: absolute; inset: auto var(--ds-space-1) calc(-1 * var(--ds-space-1)); height: 2px; border-radius: 1px; background: var(--ink); }
 .home .chart-col:active { background: var(--ds-wash-pressed); }
 .home .chart-col:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .home .chart-key { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ds-space-1) var(--ds-space-4); font-size: var(--text-hint); color: var(--on-line); }
@@ -57,6 +71,7 @@
   .home .chart-part.settled, .home .chart-swatch.settled { background: CanvasText; }
   .home .chart-part.pending, .home .chart-swatch.pending { background: GrayText; }
   .home .chart-part.short, .home .chart-swatch.short { background: Highlight; }
+  .home .chart-col[aria-pressed='true']::after { forced-color-adjust: none; background: CanvasText; }
 }
 .home .chart-more { justify-self: start; font-size: var(--text-link); }
 /* Working this week on a phone (audit, 20 October 2026, finding 80): the days go under the name, so the role and job aren't squeezed to a word a line beside them. */
@@ -64,12 +79,20 @@
   .home .working-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--ds-space-half) var(--ds-space-3); }
   .home .working-row .side { grid-column: 2; justify-items: start; text-align: left; }
 }
-/* The week ahead's errands and meetings, folded behind one line (audit, 20 October 2026, finding 32). */
-.home .errands summary { padding: var(--ds-space-3) 0; color: var(--muted); font-size: var(--text-small); font-weight: 600; cursor: pointer; }
+/* The week ahead's errands and meetings, folded behind one line (audit, 20 October 2026, finding 32), the one fold (app.css). */
 .home .errands[open] summary { margin-bottom: var(--ds-space-1); }
 /* Needs attention in two groups (audit, 20 October 2026, finding 33): the next fortnight's full size, the housekeeping smaller under it. */
-.home .standing h3 { margin: var(--ds-space-2) 0 0; color: var(--muted); font-size: var(--text-small); font-weight: 700; }
+.home .standing h3 { margin: var(--ds-space-2) 0 0; }
 .home .standing .hint { margin: 0; }
 .home .tiles.housekeeping { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-.home .tiles.housekeeping .tile { min-height: 64px; padding: var(--ds-space-2) var(--ds-space-3); }
+.home .tiles.housekeeping .tile { min-height: 64px; padding: var(--ds-space-2) var(--inset-box); }
 .home .tiles.housekeeping .tile b { font-size: 1.25rem; }
+
+/* The stat tile's delta, from the last look on this phone; quiet, as the count above it carries the tone (Move 10 of the sweep of 6 November 2026). */
+.home .tile .delta { color: var(--muted); font-size: var(--text-hint); line-height: 1.3; }
+/* Housekeeping as a fold: its group head is the summary, at the group head's size. */
+.home .housekeeping-fold > summary { min-height: 44px; }
+.home .housekeeping-fold > summary h3.group { margin: 0; }
+.home .housekeeping-fold[open] > summary { margin-bottom: var(--ds-space-2); }
+/* The week's line above the counts: the hint when the week is all right, the warn line when something stops work. */
+.home .verdict { margin: 0; }

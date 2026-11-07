@@ -142,3 +142,29 @@ From the audit of 20 October (findings 32, 33, 69, 70):
   call time and venue, or their leave), or "Nothing on today" and the next
   booking, never the company's Today; and its leave line says a day in lieu
   waiting to be approved beside the requests.
+
+## Later: the company in the order of whoever is looking (6 November 2026)
+
+From Move 10 of the UX sweep of 6 November 2026, on the recommendation of
+Colly's question 5 there:
+
+- **The same counts, the viewer's order.** The Company view orders its
+  counts for whoever is looking, inside the one view: no fifth view,
+  nothing hidden, and anyone can still switch. For the office, what's
+  waiting on them comes first, under *Waiting on the office*: anyone
+  running late, the answers to check, the calls still needing crew, the
+  timesheets to approve, the quotes worth a call, the jobs whose dates
+  passed with no answer, and the documents running out. The warehouse's
+  and the heads' counts are the housekeeping under it. Directors, heads
+  and the warehouse keep what stops the next fortnight's work first.
+  Roles came after the "Considered" above ruled out roles deciding what
+  Home shows; this is an order, not a lock.
+- **Quotes worth a call** ([Decision 0081](0081-starting-a-quote-and-following-it-up.md))
+  are a count for whoever reads quotes, the office and directors: the
+  quotes sent a week or more ago with no answer, the list Quotes and
+  Notifications read. It opens Quotes on *Waiting for an answer*, whose
+  heading says the same number after how many are waiting, and it is
+  amber, as each of its rows there is.
+- **The Menu names Home**, under Company, with a line saying its counts
+  are ordered for whoever is looking, as two people at one Company view
+  can see them in different orders.

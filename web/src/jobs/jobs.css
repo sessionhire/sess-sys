@@ -6,18 +6,17 @@
 .jobs .phase:first-of-type { border-top: 0; padding-top: 0; }
 .jobs .phase > header { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; }
 .jobs .phase > header p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
-.jobs .phase .job { padding: var(--ds-space-3) var(--ds-space-3); border: 1px solid var(--line); border-radius: 10px; }
+.jobs .phase .job { padding: var(--inset-box); border: 1px solid var(--line); border-radius: var(--radius-box); }
 .jobs .cal { margin: 0; font-size: var(--text-hint); color: var(--muted); }
 .jobs .cal a { color: inherit; font-weight: 600; text-underline-offset: 2px; }
 .jobs .add-phase { padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
-/* A phase's running order, calendar line, call sheet and contact wait folded under its name (audit finding 16), behind the browser's own triangle; a calendar line to act on stays out. */
-.jobs .phase-details summary { padding: var(--ds-space-3) 0; color: var(--muted); font-size: var(--text-small); font-weight: 600; cursor: pointer; }
+/* A phase's running order, calendar line, call sheet and contact wait folded under its name (audit finding 16), behind the one fold (app.css); a calendar line to act on stays out. */
 .jobs .phase-details > div { display: grid; gap: var(--ds-space-2); }
 
 /* Kit on jobs (ADR 0014): lines by department, each saying whether there's enough; red when short on a confirmed job, amber when pencilled in. */
 .jobs .kit-group { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .jobs .kit .kit-group:first-of-type { padding-top: 0; border-top: 0; }
-.jobs .kit-group h3 { display: flex; align-items: center; gap: var(--ds-space-2); margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.jobs .kit-group h3 { display: flex; align-items: center; gap: var(--ds-space-2); margin: 0; }
 .jobs .kit-group h3 .icon { width: 16px; height: 16px; }
 .jobs .kit-line { display: grid; gap: var(--ds-space-2); }
 .jobs .kit-line + .kit-line { padding-top: var(--ds-space-2); border-top: 1px dashed var(--line); }
@@ -42,12 +41,18 @@
 .jobs .kit-state.brief { background: none; padding: 0; font-weight: 600; }
 .jobs .add-kit { padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .jobs .kit > h2 + .add-kit, .jobs .kit > .empty + .add-kit { padding-top: 0; border-top: 0; }
-.jobs .add-kit h3 { margin: 0; font-size: var(--text-subheading); }
+.jobs .add-kit h3 { margin: 0; }
 
 /* The jobs list (audit finding 22): New job at the top on a phone, and the jobs under their weeks, each week's heading kept in view under the top bar while its jobs scroll. */
 .jobs .jobs-card > button.new-job { justify-self: start; }
+/* On a phone the three chips share one row, their words wrapping inside them, rather than taking two rows over the list (audit,
+   5 November 2026, finding 57). */
+@media (max-width: 639px) {
+  .jobs .jobs-card > .filters { flex-wrap: nowrap; }
+  .jobs .jobs-card > .filters button { flex: 1 1 auto; min-width: 0; justify-content: center; white-space: normal; text-align: center; line-height: 1.2; padding-inline: var(--ds-space-2); }
+}
 .jobs .jobs-card .week-head { position: sticky; top: var(--under-top, 0px); z-index: 1; padding: var(--ds-space-2) 0 var(--ds-space-2); background: var(--panel); }
-.jobs .jobs-card .week-head h3 { margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.jobs .jobs-card .week-head h3 { margin: 0; }
 .jobs .jobs-card .week-head + li .job-row { border-top: 0; padding-top: var(--ds-space-1); }
 
 /* List, Week and Month: the same jobs three ways (ADR 0010). */
@@ -64,15 +69,18 @@
 .plan .problem p { color: var(--ink); }
 /* Positioned, so the words kept for screen readers scroll with their cells instead of widening the page. On a phone it only scrolls
    sideways: the rows add to the page's height, so a thumb moving down the planner moves the page and is never caught in a box inside it.
-   On a desk it ends at the foot of the screen, so a long month scrolls inside it with its days and names kept in view. */
-.plan .scroller { position: relative; overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid var(--line); border-radius: 10px; }
-@media (min-width: 900px) { .plan .scroller { overflow: auto; overscroll-behavior: contain; max-height: calc(100dvh - var(--under-top, 72px) - var(--ds-space-10)); } }
+   Its up and down is hidden, not left to the browser: a sideways scroller is otherwise a box that scrolls both ways, and a table a pixel
+   taller than its box (a month by person was) caught the thumb (1.108.2). On a desk with a mouse it ends at the foot of the screen, so a
+   long month scrolls inside it with its days and names kept in view; a phone on its side or a tablet is as wide but has only a thumb, so
+   it keeps the phone's planner. */
+.plan .scroller { position: relative; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; border: 1px solid var(--line); border-radius: 10px; }
+@media (min-width: 900px) and (pointer: fine) { .plan .scroller { overflow: auto; overscroll-behavior: contain; max-height: calc(100dvh - var(--under-top, 72px) - var(--ds-space-10)); } }
 /* Its days row can't stick to the page from inside a sideways scroller, so on a phone a copy (PlanScreen) waits at the bar's foot, taking no
    room, and shows once the real row has gone under the bar; it scrolls sideways with the days. The desk's framed planner keeps its own. */
 .plan .days-float { position: sticky; top: var(--under-top, 72px); z-index: 4; height: 0; visibility: hidden; }
 .plan .days-float.on { visibility: visible; }
 .plan .days-clip { position: absolute; left: 0; right: 0; overflow: hidden; border: 1px solid var(--line); border-top: 0; background: var(--panel); box-shadow: var(--ds-elevation-menu); }
-@media (min-width: 900px) { .plan .days-float { display: none; } }
+@media (min-width: 900px) and (pointer: fine) { .plan .days-float { display: none; } }
 /* The names stay put as the days scroll, so the left fade starts past them (more.tsx). */
 .plan .scroller { --more-from: 7rem; }
 @media (min-width: 900px) { .plan .scroller { --more-from: 12rem; } }
@@ -97,7 +105,9 @@
 .plan .timeline tr > :nth-child(2) { border-left: 0; }
 .plan .timeline th[scope='row'] { font-weight: 700; overflow-wrap: anywhere; }
 .plan .timeline th[scope='row'] a { color: inherit; text-decoration: none; }
-.plan .timeline th[scope='row'] a:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .plan .timeline th[scope='row'] a:hover { text-decoration: underline; }
+}
 /* The whole name cell opens the job, not just the words. */
 .plan .timeline th[scope='row'] a::after { content: ''; position: absolute; inset: 0; }
 .plan .timeline th[scope='row'] a:focus-visible { outline: none; }
@@ -116,7 +126,9 @@
 .plan .timeline.month th, .plan .timeline.month td { text-align: center; vertical-align: middle; }
 .plan .timeline.month tr > :first-child { text-align: left; padding: var(--ds-space-1) var(--ds-space-2); }
 .plan .timeline.month thead a { display: grid; min-height: 44px; place-content: center; color: inherit; text-decoration: none; border-radius: 6px; font-variant-numeric: tabular-nums; }
-.plan .timeline.month thead a:hover { background: var(--bg); }
+@media (hover: hover) {
+  .plan .timeline.month thead a:hover { background: var(--bg); }
+}
 .plan .timeline.month thead small { font-size: var(--text-pill); font-weight: 500; }
 /* A job's day: solid when confirmed, dashed when pencilled in; amber while crew are still to find. Crew all found is the quiet case
    and has no colour of its own (healthy is quiet), so the amber days stand out. */
@@ -127,8 +139,10 @@
 .plan .blk.stray { border: 2px solid var(--warn); box-shadow: none; }
 .plan .blk.pending { opacity: .75; }
 a.blk { color: inherit; text-decoration: none; }
-a.blk:hover { border-color: var(--ink); filter: brightness(.96); }
-a.blk:hover b { text-decoration: underline; }
+@media (hover: hover) {
+  a.blk:hover { border-color: var(--ink); filter: brightness(.96); }
+  a.blk:hover b { text-decoration: underline; }
+}
 a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .plan .blk small { color: var(--muted); }
 .plan .blk.short small, .plan .blk.stray small { color: var(--warn); }
@@ -144,7 +158,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .plan .item { display: grid; padding: 3px var(--ds-space-2); border-radius: 6px; }
 .plan .item + .item { margin-top: var(--ds-space-1); }
 .plan .item a { color: inherit; font-weight: 700; text-decoration: none; }
-.plan .item a:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .plan .item a:hover { text-decoration: underline; }
+}
 .plan .item small { color: var(--muted); }
 .plan .item.booked, .plan .code.booked { background: var(--ds-surface-raised); box-shadow: inset 3px 0 0 var(--ink), inset 0 0 0 1px var(--line); }
 .plan .code.booked:is(.join-l, .join-lr) { box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line); }
@@ -194,7 +210,6 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 :is(.import, .combine) .tick .name { width: 100%; font-weight: 700; }
 :is(.import, .combine) .found .kind { display: flex; gap: var(--ds-space-2); align-items: center; font-size: var(--text-small); color: var(--muted); }
 :is(.import, .combine) .found .kind select { flex: none; width: auto; }
-.import details summary { display: flex; align-items: center; min-height: 44px; font-weight: 700; cursor: pointer; }
 .import .left-out { margin: var(--ds-space-1) 0 0; padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-2); font-size: var(--text-small); }
 .import .left-out small { display: block; color: var(--muted); overflow-wrap: anywhere; }
 /* Kept in reach above the area tabs while scrolling through what was found; kit from the notes keeps its Add in the same bar (audit, P3). */
@@ -212,11 +227,16 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .pick-link span { color: var(--muted); font-size: var(--text-small); }
 .pick .scan-dock.docked { position: sticky; top: var(--under-top, 0px); z-index: 1; }
 .pick .from details { display: inline; margin-left: var(--ds-space-2); font-size: var(--text-small); }
-.pick .from details > summary { display: inline; cursor: pointer; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+/* A fold inside a line of words is drawn as the link it reads as, with no chevron (audit, 20 October 2026, finding 5). */
+.pick .from details > summary { display: inline; min-height: 0; padding: 0; color: var(--accent-ink); font-weight: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.pick .from details > summary::before { content: none; }
 .pick .from details > p { margin: var(--ds-space-1) 0 0; color: var(--muted); }
-.pick .pick-done > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--muted); font-weight: 600; }
 .pick .pick-total { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
-.pick .said { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); font-size: var(--text-small); }
+/* While what it says is still only on this phone, the answer ends in Waiting to sync (UX sweep, 6 November 2026, move 3), on the panel
+   so its ink keeps its contrast on the answer's wash; under the words when they need the width. */
+.pick .said { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--ds-space-1) var(--ds-space-2); margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); font-size: var(--text-small); }
+.pick .said p { flex: 1 1 12rem; margin: 0; }
+.pick .said .pill { margin-inline-start: auto; background: var(--panel); }
 .pick .said.ok { background: var(--good-soft); color: var(--good); }
 .pick .said.warn { background: var(--warn-soft); color: var(--warn); }
 .pick .said.quiet { background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
@@ -225,17 +245,37 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .pick-row > header { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; }
 .pick .pick-row > header p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
 .pick .pick-row .count { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Waiting to sync under the count while anything it counts is still only on this phone (UX sweep, 6 November 2026, move 3). */
+.pick .pick-row .tally { display: grid; justify-items: end; gap: var(--ds-space-1); }
 .pick .pick-row.done .count { color: var(--ink); }
 .pick .from { margin: 0; padding-left: var(--ds-space-4); font-size: var(--text-small); font-variant-numeric: tabular-nums; }
 /* Back and Missing apart, each a 44 px target, Missing the quieter (audit, 20 October 2026, finding 40). */
-.pick .out-items li { display: flex; align-items: center; gap: var(--ds-space-3); }
+.pick .out-items li, .warehouse.pick .item-list li { display: flex; align-items: center; gap: var(--ds-space-3); }
 .pick .out-items button.link { min-width: 44px; min-height: 44px; padding-inline: var(--ds-space-1); }
 .pick .out-items button.link.quiet { color: var(--muted); }
+/* Coming back, Back is as wide as Missing beside it, so neither is the smaller target, and the two are 16 px apart, twice the room
+   between buttons in a row, so a gloved tap for one doesn't land on the other (UX sweep, 6 November 2026, move 8). */
+.pick .out-items .back-or-missing { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: calc(2 * var(--inline)); }
+/* Going out, the number is the quieter thing and sits apart from Not going, so a gloved miss doesn't open the item (audit, 5 November 2026,
+   finding 92); Waiting to sync stays beside it. */
+.warehouse.pick .numbers.out-items a { border-color: transparent; padding-inline: 0; color: var(--muted); font-weight: 400; }
+.pick .numbers.out-items button { margin-inline-start: auto; }
+/* Coming back, each item is the one item row (UX sweep, 6 November 2026, move 3) with its buttons beside it, a line between. On a narrow
+   phone its Waiting to sync goes under its words, so the buttons keep their place. */
+.warehouse.pick .item-list li + li { border-top: 1px solid var(--line); }
+.warehouse.pick .item-list .item-row { flex: 1; min-width: 0; flex-wrap: wrap; padding: var(--ds-space-2) 0; border-top: 0; }
+/* The number is the quieter thing, and the only part of the row that opens the item, apart from Back, so a gloved miss for Back doesn't
+   open the item (audit, 5 November 2026, finding 92). On a touch screen it's as tall as a thumb, as every link in words is (app.css),
+   and lies over the line under it, so all of that opens it. */
+.warehouse.pick .item-list .item-row a { position: relative; color: var(--muted); font-weight: 400; text-decoration: none; font-variant-numeric: tabular-nums; }
 /* A number never breaks at its hyphen (audit, 20 October 2026, finding 41). */
 .pick .from .number { white-space: nowrap; }
 .pick .count-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }
 .pick .count-row p { margin: 0; color: var(--muted); font-size: var(--text-small); flex: 1 0 100%; }
-.pick .count-row input { width: 7.5rem; }
+.app .pick .count-row input { width: 7.5rem; flex: none; }
+/* Numbers already back, each with Report damage, folded under one line on the row (audit, 5 November 2026, finding 33); its form opens under the row. */
+.pick .back-damage li { flex-wrap: wrap; }
+.pick .back-damage li > form { flex: 1 0 100%; }
 .pick .count-row .alert { flex: 1 0 100%; }
 /* Picking on the phone (ADR 0072): whose kit and in what order, what to know before starting, the kit's own notes, and Undo beside the answer. */
 /* Done is settled, so it's ink: green stays for a scan that read (audit, 20 October 2026, finding 59). */
@@ -254,7 +294,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .kicker, .call-sheet .kicker { margin: 0; font-size: var(--text-pill); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .jobs .lines, .call-sheet .lines { white-space: pre-line; }
 .sheet-screen .card p { margin: 0; }
-.sheet-screen h3 { margin: var(--ds-space-2) 0 0; font-size: var(--text-small); }
+.sheet-screen h3 { margin: var(--ds-space-2) 0 0; }
 .sheet-screen .sheet-call { display: grid; gap: var(--ds-space-1); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .sheet-screen .sheet-call:first-of-type { border-top: 0; padding-top: 0; }
 .sheet-screen .sheet-call header { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: baseline; }
@@ -308,7 +348,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Label capitals head each group of lines, the terms and the sending; a rare action sits at a head's end as a quiet link. */
 .quote-screen .quote-group { display: grid; gap: 0; min-width: 0; }
 .quote-screen .group-head { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); min-height: 28px; padding-top: var(--ds-space-1); }
-.quote-screen .quote-group h3, .quote-screen .quote-head { margin: 0; font-size: var(--text-pill); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.quote-screen .quote-group h3, .quote-screen .quote-head { margin: 0; }
 .quote-screen .quote-head { padding-top: var(--ds-space-1); }
 .quote-screen .quote-side > .quote-head:first-child { padding-top: 0; }
 .quote-screen button.link.quiet { color: var(--on-line); font-weight: 600; font-size: var(--text-hint); text-decoration-color: var(--field-line); }
@@ -327,7 +367,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-line-shut.needs .how, .quote-screen .quote-line .warn { color: var(--warn); }
 .quote-screen .quote-line-row.open > .quote-line-shut { background-image: linear-gradient(var(--ds-wash-pressed), var(--ds-wash-pressed)); }
 /* Open, a line is a panel inset in the card: what it is across the top, its numbers in two rows of three on a phone and one row where there's the room. */
-.quote-screen .quote-line { display: grid; gap: var(--ds-space-3); min-width: 0; margin: var(--ds-space-1) 0 var(--ds-space-2); padding: var(--ds-space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--ds-surface-inset); }
+.quote-screen .quote-line { display: grid; gap: var(--ds-space-3); min-width: 0; margin: var(--ds-space-1) 0 var(--ds-space-2); padding: var(--inset-box); border: 1px solid var(--line); border-radius: var(--radius-box); background: var(--ds-surface-inset); }
 .quote-screen .quote-line > label, .quote-screen .quote-line .numbers label, .quote-screen .quote-line .vat-cell, .quote-screen .cost-fields label { display: grid; gap: var(--ds-space-half); min-width: 0; font-size: var(--text-hint); color: var(--muted); }
 .quote-screen .quote-line input, .quote-screen .quote-line select { min-width: 0; width: 100%; color: var(--ink); }
 .quote-screen .quote-line .numbers { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); grid-template-areas: 'qty days price' 'charged charged discount' 'vat vat amount'; gap: var(--ds-space-2); align-items: end; }
@@ -348,28 +388,23 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .quote-screen .quote-line .numbers { grid-template-columns: minmax(4.5em, .8fr) minmax(4.5em, .8fr) minmax(6.5em, 1.1fr) minmax(8em, 1.3fr) minmax(5em, .9fr) minmax(4.5em, .8fr) minmax(6em, auto); grid-template-areas: 'qty days price charged discount vat amount'; }
 }
 /* A number with its unit in the box: € before it, % or km or days after, never typed. */
-.quote-screen .unit-box { display: flex; align-items: center; min-width: 0; min-height: 44px; border: 1px solid var(--field-line); border-radius: var(--radius-control); background: var(--bg); color: var(--ink); }
-.quote-screen .unit-box input:not([type='checkbox']) { flex: 1 1 0; width: 100%; min-width: 0; min-height: 42px; border: 0; background: transparent; }
-.quote-screen .unit-box input:focus-visible { outline: none; }
-.quote-screen .unit-box:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-.quote-screen .unit-box .unit { flex: none; padding-inline: 0 var(--ds-space-3); color: var(--muted); font-size: var(--text-small); }
-.quote-screen .unit-box.before .unit { padding-inline: var(--ds-space-3) 0; }
-.quote-screen .unit-box.before input { padding-inline-start: var(--ds-space-1); }
-.quote-screen .unit-box.needs, .quote-screen .unit-box:has(input[aria-invalid='true']), .quote-screen .quote-line input[aria-invalid='true'] { border-color: var(--warn); }
-/* A fault sits by its cause, in the warn ink, once the field or the line has been left (rule 18). */
-.quote-screen .line-problem { margin: 0; font-size: var(--text-small); color: var(--warn); }
-.quote-screen small.error { color: var(--warn); }
+/* A price still to set is for someone to see to, so amber, as its row and its chip in the readout say. A field that's wrong is invalid,
+   as on every other form: the bad edge, and the fault by its cause in the bad ink, once the field or the line has been left (rule 18). A
+   question about the line (the price's unit moved) stays amber. */
+.quote-screen .quote-line input[aria-invalid='true'] { border-color: var(--bad); }
+.quote-screen .line-problem { margin: 0; font-size: var(--text-small); color: var(--bad); }
+.quote-screen .line-problem.asks { color: var(--warn); }
+.quote-screen small.error { color: var(--bad); }
 /* Whether there's kit enough, under a line; what it was last charged in Current RMS; and the cost side folded under the line (ADR 0089), never printed. */
 .quote-screen .kit-note { font-size: var(--text-hint); }
 .quote-screen .kit-note .link { font-weight: 600; }
 .quote-screen .quote-line .last-charged { font-size: var(--text-small); }
 .quote-screen .quote-line .last-charged p { margin: 0; }
 .quote-screen .line-cost { border-top: 1px dashed var(--line); padding-top: var(--ds-space-1); }
-.quote-screen .line-cost summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-half) var(--ds-space-2); min-height: 44px; padding: var(--ds-space-2) 0; list-style: none; cursor: pointer; font-size: var(--text-small); color: var(--muted); }
-.quote-screen .line-cost summary::-webkit-details-marker { display: none; }
-.quote-screen .line-cost summary .chevron { width: 16px; height: 16px; align-self: center; transition: transform var(--ds-duration-base) var(--ds-ease-standard); }
-.quote-screen .line-cost[open] summary .chevron { transform: rotate(90deg); }
-.quote-screen .line-cost summary b { color: var(--ink); font-weight: 600; }
+.quote-screen .line-cost summary { flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-half) var(--ds-space-2); font-size: var(--text-small); }
+.quote-screen .line-cost summary .chevron { width: 16px; height: 16px; align-self: center; }
+.quote-screen .line-cost summary b { font-weight: 600; }
+.quote-screen .line-cost summary :is(small, .words) { color: var(--muted); font-weight: 400; }
 .quote-screen .line-cost summary .bad { color: var(--bad); }
 .quote-screen .line-cost summary small { margin-left: auto; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; }
 .quote-screen .line-cost summary .words { flex: 1 1 100%; }
@@ -440,7 +475,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .compose .actions .link.quiet { margin-left: auto; }
 .quote-screen .quote-emails { display: grid; gap: var(--ds-space-2); margin: 0 0 var(--ds-space-3); font-size: var(--text-small); }
 .quote-screen .quote-emails small { display: block; color: var(--muted); }
-.quote-table-wrap { overflow-x: auto; }
+.quote-table-wrap { overflow-x: auto; overflow-y: hidden; }
 .quote-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .quote-table th, .quote-table td { text-align: left; padding: var(--ds-space-1) var(--ds-space-2); border-bottom: 1px solid var(--line); vertical-align: top; }
 .quote-table thead th { font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
@@ -449,6 +484,28 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-table small { display: block; color: var(--muted); font-weight: 400; }
 .quote-table th a { color: var(--accent-ink); font-weight: 600; }
 .quote-table .bad { color: var(--bad); font-weight: 700; }
+/* A sent version on a phone (audit, 5 November 2026, finding 59): what and the amount, with how many, the price, the days and the VAT
+   in a line under the name, as a draft's lines read, so nothing is off the right edge. The A4 sheet and a desk keep the table. Its own
+   table only (.quote-lines): written for every .quote-table, it hid three of the five columns of Money's tables (UX sweep, 6 November
+   2026, director-f1). */
+.quote-table .line-sum { display: none; }
+@media screen and (max-width: 639px) {
+  .quote-lines :is(th, td):not(:first-child, :last-child) { display: none; }
+  .quote-lines .line-sum { display: block; }
+  .quote-lines td .less { display: none; }
+}
+/* Money's By month and Margin by job on a phone (the same finding): a row a month or a job, its name across the top and its figures
+   under it two to a line, each under its column's name, so every figure reads on a phone with nothing off the right edge. A month's
+   head stays across the rows it heads; a desk keeps the table. */
+@media screen and (max-width: 639px) {
+  :is(.money-months, .money-margins) thead { display: none; }
+  :is(.money-months, .money-margins), :is(.money-months, .money-margins) tbody { display: block; }
+  :is(.money-months, .money-margins) tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-2) var(--ds-space-3); padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--line); }
+  :is(.money-months, .money-margins) :is(th, td) { padding: 0; border: 0; }
+  :is(.money-months, .money-margins) th:is([scope='row'], [scope='colgroup']) { grid-column: 1 / -1; }
+  :is(.money-months, .money-margins) td.n { text-align: left; white-space: normal; }
+  :is(.money-months, .money-margins) td::before { content: attr(data-label); display: block; font-size: var(--text-pill); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+}
 .quote-totals { margin: var(--ds-space-3) 0 0 auto; display: grid; gap: var(--ds-space-half); max-width: 22em; font-variant-numeric: tabular-nums; }
 .quote-totals div { display: flex; justify-content: space-between; gap: var(--ds-space-3); }
 .quote-totals dt { color: var(--muted); }
@@ -466,7 +523,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .money .owed-group h3 { margin: 0; display: flex; justify-content: space-between; gap: var(--ds-space-2); }
 .money .owed-group .hint { margin: 0; }
 .money .owed { border-top: 1px solid var(--line); }
-.money .owed summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-half) var(--ds-space-2); min-height: 44px; padding: var(--ds-space-2) 0; cursor: pointer; }
+.money .owed summary { flex-wrap: wrap; gap: var(--ds-space-half) var(--ds-space-2); }
 .money .owed summary b { flex: 1 1 10em; }
 .money .owed summary .count { color: var(--muted); font-size: var(--text-small); }
 .below-zero { margin: 0 0 var(--ds-space-2); color: var(--bad); font-weight: 600; }
@@ -560,7 +617,11 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .map.placing { cursor: crosshair; }
 .jobs .map .leaflet-bar { border: 1px solid var(--line); box-shadow: none; }
 .jobs .map .leaflet-bar a { background: var(--panel); color: var(--ink); border-bottom-color: var(--line); }
-.jobs .map .leaflet-bar a:hover { background: var(--ds-surface-inset); }
+@media (hover: hover) {
+  .jobs .map .leaflet-bar a:hover { background: var(--ds-surface-inset); }
+}
+/* The zoom buttons as big as a thumb on a touch screen, where Leaflet draws them 30px (audit, 5 November 2026, finding 86). */
+.jobs .map.leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
 .jobs .map .leaflet-control-attribution { background: var(--panel); color: var(--muted); font-size: var(--text-footer); }
 .jobs .map .leaflet-control-attribution a, .jobs .map .leaflet-popup-content a { color: var(--ink); }
 .jobs .map .leaflet-popup-content-wrapper, .jobs .map .leaflet-popup-tip { background: var(--panel); color: var(--ink); border: 1px solid var(--line); }
@@ -577,12 +638,14 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
  * underlined in the accent, the rest muted). One column, as its forms and
  * calls read down, at the same width as every other page (ADR 0091).
  */
-.part-tabs { display: flex; gap: var(--ds-space-1); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.part-tabs { display: flex; gap: var(--ds-space-1); border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .part-tabs::-webkit-scrollbar { display: none; }
 .app .part-tabs [role='tab'] { flex: none; display: inline-flex; align-items: center; gap: var(--ds-space-2); min-height: 44px; margin-bottom: -1px; padding: var(--ds-space-2) var(--ds-space-3); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); font-weight: 700; white-space: nowrap; }
-.app .part-tabs [role='tab']:hover { color: var(--ink); }
+@media (hover: hover) {
+  .app .part-tabs [role='tab']:hover { color: var(--ink); }
+}
 .app .part-tabs [role='tab'][aria-selected='true'] { color: var(--ink); border-bottom-color: var(--accent); }
-.part-count { font-weight: 600; font-variant-numeric: tabular-nums; opacity: .8; }
+.part-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 .job-part { display: grid; gap: var(--ds-space-4); min-width: 0; }
 .jobs .phase-crew { margin: 0; }
 /* A person's first and last name side by side (ADR 0066), wrapping to two lines on a narrow phone. */
@@ -608,7 +671,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Quotes to follow up (ADR 0081): on Money and Notifications, each group a short list, the oldest waiting first. */
 /* Its lists sit flush under their heading, as every list here does, not indented by the browser's own 40px. */
 .quotes-to-follow .follow-group ul.plain { list-style: none; margin: 0; padding: 0; }
-.quotes-to-follow .follow-group h3 { margin: var(--ds-space-3) 0 var(--ds-space-1); font-size: var(--text-small); color: var(--muted); }
+.quotes-to-follow .follow-group h3 { margin: var(--ds-space-3) 0 var(--ds-space-1); }
 .quotes-to-follow .follow-group li { align-items: center; padding: var(--ds-space-2) 0; border-top: 1px solid var(--line); }
 .quotes-to-follow .follow-group li p { margin: var(--ds-space-half) 0 0; font-size: var(--text-small); color: var(--muted); }
 .quotes-to-follow .warn { color: var(--warn); }
@@ -648,7 +711,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .from-enquiry .actions, .ask-claude .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
 .ask-claude { margin: var(--ds-space-2) 0; }
 .claude-advice { border: 1px solid var(--line); border-radius: var(--radius-control); padding: var(--ds-space-2) var(--ds-space-3); background: var(--ds-surface-inset); margin: var(--ds-space-2) 0; }
-.claude-advice h3 { margin: var(--ds-space-2) 0 var(--ds-space-1); font-size: var(--text-body); }
+.claude-advice h3 { margin: var(--ds-space-2) 0 var(--ds-space-1); }
 .claude-advice p, .claude-advice ul { margin: 0 0 var(--ds-space-2); }
 .by-claude { color: var(--muted); font-size: var(--text-small); }
 .app .claude-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
@@ -667,7 +730,6 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .app .todo-item.done a { color: var(--muted); text-decoration: line-through; }
 
 /* The operations mailbox (ADR 0098): the paste box folded away as the second way in, and the threads on Quotes. */
-.app .paste-enquiry summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--muted); font-size: var(--text-small); font-weight: 600; }
 .app .from-mailbox ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-3); }
 .app .from-mailbox li { display: grid; gap: var(--ds-space-half); }
 .app .from-mailbox li small { color: var(--muted); font-size: var(--text-hint); }
@@ -677,3 +739,12 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* The quotes from before the app, under the app's own on Quotes (ADR 0092). */
 .quotes .from-rms { margin-top: var(--ds-space-5); padding-top: var(--ds-space-4); border-top: 1px solid var(--line); }
 .quotes .from-rms h3 { margin: 0 0 var(--ds-space-2); }
+
+/* "You on this job" (YouOnThisJob.tsx, Move 9 of the sweep of 6 November 2026): what someone is on, a row each, its links under it. */
+.you-on-job ul { display: grid; gap: var(--ds-space-3); margin: 0; padding: 0; list-style: none; }
+.you-on-job li > p { margin: 0; }
+.you-on-job .you-links { display: flex; flex-wrap: wrap; gap: var(--ds-space-1) var(--ds-space-4); margin-top: var(--ds-space-1); }
+.you-on-job .you-answer { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
+@media (max-width: 639px) {
+  .you-on-job .you-answer > button { flex: 1 1 100%; }
+}

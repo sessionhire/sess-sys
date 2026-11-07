@@ -83,13 +83,25 @@ function betterCertificate(a: Certificate | undefined, b: Certificate | undefine
  * Every field is named, so one added to a person fails to compile here
  * until someone says how it combines.
  */
+/**
+ * The numbers the people combined have that the kept one doesn't, each once (audit, 5 November 2026, finding 43): a person has
+ * one phone, so these go into the notes rather than nowhere, and the question says so first.
+ */
+export function otherPhones(into: Pick<Person, 'phone'>, from: readonly Pick<Person, 'phone'>[]): string[] {
+  const all = [into, ...from].map((p) => p.phone?.trim()).filter((p): p is string => !!p)
+  const digits = phoneDigits
+  const kept = all[0]
+  return all.filter((p, i) => digits(p) !== digits(kept ?? '') && all.findIndex((q) => digits(q) === digits(p)) === i)
+}
+
 export function mergedPerson(into: Person, from: readonly Person[]): Person {
   const all = [into, ...from]
   const first = <T,>(pick: (p: Person) => T | null | undefined): T | null => all.map(pick).find((v) => v !== null && v !== undefined && v !== '') ?? null
   const realName = namedFromAddress(into) ? from.find((p) => !namedFromAddress(p) && p.name.trim()) : undefined
   const email = first((p) => p.email?.trim())
   const emails = all.flatMap(emailsOf)
-  const notes = [...new Set(all.map((p) => p.notes.trim()).filter(Boolean))].join('\n\n')
+  const phones = otherPhones(into, from)
+  const notes = [...new Set([...all.map((p) => p.notes.trim()), phones.length ? `Also on ${phones.join(', ')}` : ''].filter(Boolean))].join('\n\n')
   const certificates: Certificates = {}
   for (const kind of CERTIFICATE_KINDS) {
     const best = all.reduce<Certificate | undefined>((b, p) => betterCertificate(b, p.certificates[kind]), undefined)
@@ -242,15 +254,17 @@ export const SAME_BECAUSE_WORDS: Record<SameBecause, string> = {
 
 /**
  * Which of a group is kept as the one person, to start with: staff over
- * freelancer (the company gave them an address), a real name over one
- * made from an address, then whoever has more offers.
+ * freelancer (the company gave them an address), then whoever has more
+ * offers, then a real name over one made from an address. Offers come
+ * before the name: a new, empty record with a typed name was kept over the
+ * one with a phone and every booking (audit, 5 November 2026, finding 76).
  */
 export function keptOf<P extends Pick<Person, 'id' | 'kind' | 'name' | 'email' | 'archived'>>(group: readonly P[], offers: (p: P) => number = () => 0): P {
   return [...group].sort(
     (a, b) =>
       Number(b.kind === 'staff') - Number(a.kind === 'staff') ||
-      Number(namedFromAddress(a)) - Number(namedFromAddress(b)) ||
       offers(b) - offers(a) ||
+      Number(namedFromAddress(a)) - Number(namedFromAddress(b)) ||
       a.id.localeCompare(b.id),
   )[0]!
 }

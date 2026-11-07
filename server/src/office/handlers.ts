@@ -1,4 +1,4 @@
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type CommandArgs } from '@sh/shared'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
 import { emit, type Ctx } from '../kernel.ts'
 import { getSetting } from './store.ts'
 
@@ -49,10 +49,13 @@ export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
 
   /** Whether the company uses timesheets (ADR 0090). Only shows or hides them: every timesheet kept stays as it was. */
   async 'timesheets.use'(ctx, a) {
+    // From the day they're turned on, or the day the office gives (ADR 0110): turning them on isn't a backlog of every booking since the calendar came in.
+    const was = await getSetting(ctx.tx, TIMESHEETS_SETTING_ID)
+    const from = a.from ?? (was?.useTimesheets && was.timesheetsFrom ? was.timesheetsFrom : a.on ? irishToday() : (was?.timesheetsFrom ?? null))
     await ctx.tx.query(
-      `INSERT INTO settings (id, use_timesheets) VALUES ($1, $2)
-       ON CONFLICT (id) DO UPDATE SET use_timesheets = EXCLUDED.use_timesheets, updated_at = now()`,
-      [TIMESHEETS_SETTING_ID, a.on]
+      `INSERT INTO settings (id, use_timesheets, timesheets_from) VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET use_timesheets = EXCLUDED.use_timesheets, timesheets_from = EXCLUDED.timesheets_from, updated_at = now()`,
+      [TIMESHEETS_SETTING_ID, a.on, from]
     )
     await emit(ctx, 'setting', TIMESHEETS_SETTING_ID, await getSetting(ctx.tx, TIMESHEETS_SETTING_ID))
   },

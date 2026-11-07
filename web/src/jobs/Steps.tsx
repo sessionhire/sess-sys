@@ -1,4 +1,4 @@
-import { dayLabel, firstName, irishToday, STAGE_OF, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { dayLabel, firstName, invoiceOf, irishToday, ownerByRole, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { peopleOn, promptFor, type Share } from '../crew/CrewScreen.tsx'
@@ -12,7 +12,7 @@ import './steps.css'
 
 /**
  * Where a job is (ADR 0073, ADR 0104): five stages across the top of the
- * job page, Selling, Planning, Going out, On the job and Back, the one the
+ * job page, Quoting, Planning, Going out, On the job and Back, the one the
  * job is in ringed, worked out from the job's own records and never ticked.
  * Under the strip, the stage opened lists its tasks, each a row saying how
  * it stands, whose it is and when it's due, done in any order; a task left
@@ -83,7 +83,7 @@ export function StepsCard({
       </header>
       <ol className="stages-flow" data-stopped={steps.stopped ? 'true' : undefined}>
         {steps.stages.map((s, i) => (
-          <li key={s.key} data-state={s.state} data-come={i < atIndex ? 'true' : undefined} aria-current={s.state === 'now' ? 'step' : undefined}>
+          <li key={s.key} data-state={s.state} data-come={i < atIndex ? 'true' : undefined} data-open={s.state === 'done' && s.done < s.of ? 'true' : undefined} aria-current={s.state === 'now' ? 'step' : undefined}>
             <button type="button" aria-expanded={s.key === open?.key} aria-controls="job-stage-open" aria-label={stageName(s, steps.stopped !== undefined)} onClick={() => pickStage(s.key)}>
               <span className="stage-dot" aria-hidden="true">
                 {s.state === 'done' ? <Icon name="done" /> : s.number}
@@ -97,7 +97,8 @@ export function StepsCard({
       </ol>
       {open && (
         <div className="stage-open" id="job-stage-open">
-          <p className="stage-line">
+          {/* Not .stage-line, the list rows' inline line, which broke this sentence at each part on a phone (audit, 5 November 2026, finding 88). */}
+          <p className="stage-said">
             <b>{open.label}</b>
             {open.state === 'now' ? ' · the stage the job is in. ' : open.state === 'done' ? ' · passed. ' : ' · to come. '}
             {open.line}
@@ -111,14 +112,54 @@ export function StepsCard({
           )}
         </div>
       )}
+      <InvoiceRow job={job} view={view} />
       {shownTask && <OpenStep key={`${job.id}.${shownTask.key}`} job={job} view={view} step={shownTask} stopped={steps.stopped !== undefined} onPart={onPart} onTell={onTell} />}
     </section>
   )
 }
 
+/**
+ * The office's last step, under the tasks, for whoever reads money (UX sweep, 6 November 2026, move 12): one row in the
+ * task-list shape, worked out from the quote and never ticked, opening the Quote tab. Quiet before the job is through,
+ * amber once it is and not invoiced, "Invoiced Mon 2 Nov · paid" when done; never an amount (ADR 0042). Not a ninth task:
+ * nothing here holds a job in Back (ADR 0109).
+ */
+function InvoiceRow({ job, view }: { job: JobView; view: View }) {
+  const access = useAccess()
+  const today = irishToday()
+  if (!access.can('money')) return null
+  const at = invoiceOf(job, view.money.currentOf(job.id), today)
+  if (at.state === 'none') return null
+  const how =
+    at.state === 'invoiced'
+      ? `Invoiced ${dayLabel(at.on, today)}${at.paidOn ? ' · paid' : ''}`
+      : at.state === 'not-needed'
+        ? 'Not needed: before the app listed invoices'
+        : at.state === 'due'
+          ? `Not invoiced yet · through since ${dayLabel(at.since, today)}`
+          : 'Not invoiced yet'
+  const done = at.state === 'invoiced' || at.state === 'not-needed'
+  return (
+    <ul className="task-list invoice-row" aria-label="Invoice">
+      <li data-state={done ? 'done' : 'to-come'} data-due={at.state === 'due' ? 'true' : undefined}>
+        <a href={`#jobs/${encodeURIComponent(job.id)}/quote`}>
+          <span className="task-tick" aria-hidden="true">
+            {done ? <Icon name="done" /> : null}
+          </span>
+          <span className="task-words">
+            <span className="task-name">Invoice</span>
+            <span className="task-how">{how}</span>
+          </span>
+          <span className="task-tag">{at.state === 'invoiced' ? (at.paidOn ? 'Paid' : 'Invoiced') : at.state === 'not-needed' ? 'Not needed' : at.state === 'due' ? 'To invoice' : 'After'}</span>
+        </a>
+      </li>
+    </ul>
+  )
+}
+
 /** What a screen reader hears for a stage: its number and name, how it stands, and how far through. */
 function stageName(s: StageView, stopped: boolean): string {
-  const how = stopped ? 'stopped' : s.state === 'done' ? 'passed' : s.state === 'now' ? 'the stage the job is in' : 'to come'
+  const how = stopped ? 'stopped' : s.state === 'done' ? (s.done < s.of ? `passed with ${s.of - s.done} left open` : 'passed') : s.state === 'now' ? 'the stage the job is in' : 'to come'
   return `${s.number}. ${s.label}, ${how}, ${s.done} of ${s.of} done`
 }
 
@@ -203,12 +244,14 @@ function OpenStep({
       </p>
       {/* The answer first, where the eye is: who it's down to can wait under it. */}
       {answering ? <ClientsAnswer job={job} view={view} onTell={onTell} /> : <p className="hint">{step.line}</p>}
+      {/* Whose it is when nobody is named: the role, from the one table (UX sweep, 6 November 2026, move 12). */}
+      {!step.owner && !step.done && !step.skipped && <p className="step-owner-line">{ownerByRole(step.key)}</p>}
       {mayChange ? (
         <div className="step-actions">
           <label className="field">
             Down to
             <select value={step.ownerId ?? ''} onChange={(e) => void set({ ownerId: e.target.value || null })}>
-              <option value="">Nobody yet</option>
+              <option value="">Nobody named</option>
               {step.owner && !staff.some((p) => p.id === step.ownerId) && <option value={step.owner.id}>{step.owner.name}</option>}
               {staff.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -246,7 +289,7 @@ function OpenStep({
             ))}
         </div>
       ) : (
-        <p className="step-owner-line">{step.owner ? `Down to ${step.owner.name}.` : 'Not given to anyone yet.'}</p>
+        step.owner && <p className="step-owner-line">Down to {step.owner.name}.</p>
       )}
       <Refusal error={error} />
       {step.part === 'pick' && (
@@ -296,17 +339,20 @@ function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell
       </p>
       {asking ? (
         <Confirm
+          // What their link says once the job is lost, in its own words (UX sweep, 6 November 2026, move 6).
           question={`Marking ${job.name} lost also cancels its crew calls${
-            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see it's withdrawn` : ''
+            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${STOPPED_WORDS.lost}` : ''
           }.`}
           yes="Mark it lost"
+          loss
           no="Keep it as it is"
           onYes={() => answer(false)}
           onNo={() => setAsking(false)}
         />
       ) : (
         <div className="step-actions">
-          <button type="button" className="primary" onClick={() => answer(true)} disabled={job.pending}>
+          {/* Plain, as the card's other buttons are: the Next dock holds the page's one filled red (ADR 0104; audit, 5 November 2026, finding 19). */}
+          <button type="button" onClick={() => answer(true)} disabled={job.pending}>
             Confirm the job
           </button>
           <button type="button" onClick={() => (job.calls.some((c) => c.status === 'open') ? setAsking(true) : answer(false))} disabled={job.pending}>

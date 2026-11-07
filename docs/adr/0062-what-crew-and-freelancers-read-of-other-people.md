@@ -132,3 +132,13 @@ chose to close them before staff sign in.
   page when offers wait there, their person page has "Your page" to open
   it and copy their calendar address, and Your work says which bookings
   are confirmed and which only accepted.
+
+## Later: levels are the office's too (6 November 2026)
+
+The 5 November audit (finding 44) found staff crew reading every
+colleague's level, applicants included, and sorting by it. A level is how
+much the office prefers someone (ADR 0025), and Level 0 means not vetted
+yet, so it is the office's, as the notes are. Readers who don't get
+others' details are sent the default level with `levelHidden`, never the
+real one. Their lists don't show it, sort by it or filter by it. Their own
+level still reaches them, as the rest of their own record does.

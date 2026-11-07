@@ -61,7 +61,10 @@ export function OwnCalendarCard({ person, view }: { person: PersonView; view: Vi
       {!cal && (
         <>
           <p className="hint">
-            {first} hasn't shared when they're busy. They can from their link, by pasting their calendar's private address, or send it to you to add here. {promise}
+            {/* The how is for whoever can add it; anyone else is told only that it isn't shared (audit, 5 November 2026, finding 78). */}
+            {mayEdit
+              ? `${first} hasn't shared when they're busy. They can from their link, by pasting their calendar's private address, or send it to you to add here. ${promise}`
+              : `${first} hasn't shared when they're busy.`}
           </p>
           {mayEdit && (
             <Fold label="Add the address they sent">
@@ -129,6 +132,7 @@ export function OwnCalendarCard({ person, view }: { person: PersonView; view: Vi
             <Confirm
               question={`Stop reading ${person.name}'s calendar? Its address and busy times are deleted here. To read it again, they share it again or send you the address.`}
               yes="Stop reading it"
+              loss
               no="Keep reading it"
               onYes={() => {
                 setStopping(false)

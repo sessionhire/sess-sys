@@ -1,6 +1,8 @@
 import {
   addDays,
+  plural,
   answersToCheck,
+  calendarAnswersToSortOut,
   dayLabel,
   daysLabel,
   departmentOf,
@@ -9,6 +11,10 @@ import {
   offerOnCalendar,
   telHref,
   sameDepartment,
+  standing,
+  STANDING_HEADINGS,
+  answersHeading,
+  listHeading,
   venueLabel,
   type AnswerKind,
   type CallView,
@@ -23,13 +29,14 @@ import {
   NO_DEPARTMENT_KEY,
   peopleFilters,
   peopleSorts,
+  TIME_GROUPS,
 } from '@sh/shared'
 import { VehicleReminders } from '../stock/Vehicles.tsx'
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { arrival } from '../arrival.ts'
-import { inDepartment, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { inDepartment, Narrowed, useMyDepartment, useNarrowed } from '../Narrowed.tsx'
 import { useWindowed } from '../windowed.ts'
-import { ListTools, useListChoices } from '../ListTools.tsx'
+import { ListTools, listChoicesKept, useListChoices } from '../ListTools.tsx'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
@@ -46,7 +53,7 @@ import { lateNotesOn, LateRow, lateToNote } from './Late.tsx'
 import { LeaveScreen } from './Leave.tsx'
 import { PersonScreen } from './PersonScreen.tsx'
 import { TimesheetScreen, TimesheetsCard } from './Timesheets.tsx'
-import { CrewViews } from './CrewViews.tsx'
+import { crewToCheck, CrewViews } from './CrewViews.tsx'
 import { Split } from '../Split.tsx'
 import { ImportPeopleScreen } from './ImportPeople.tsx'
 import { Heading } from '../Icon.tsx'
@@ -141,23 +148,8 @@ function groupCalls(calls: readonly CallView[], inJobs: readonly JobView[]) {
   return [...jobs.values()]
 }
 
-/**
- * Answers on Google Calendar the app couldn't act on, such as a No to a
- * booked day: for the office to sort out. Counted in "Answers to check" and
- * on the Crew badge alike, so neither says less is waiting than the other.
- */
-export function calendarAnswersToSortOut(view: View, today: string) {
-  return view.crew.calls
-    .filter((c) => c.end >= today && c.status === 'open')
-    .flatMap((c) =>
-      c.offers
-        .filter((o) => o.status === 'offered' || o.status === 'confirmed')
-        .flatMap((o) => {
-          const cal = offerOnCalendar(o, view.calendar.days, today)
-          return cal?.warning ? [{ c, o, text: o.status === 'confirmed' ? cal.warning : `${cal.line} ${cal.warning}` }] : []
-        }),
-    )
-}
+/** Where a Send or Tell card opens when an answer to check asked for it: in the answer's place. */
+const ANSWERS = 'answers'
 
 export function CrewScreen() {
   const view = useView()
@@ -166,7 +158,34 @@ export function CrewScreen() {
   const hash = useHash()
   const today = useToday()
   const crew = view.crew
-  const [share, setShare] = useState<Share | undefined>()
+  const [share, setShareNow] = useState<Share | undefined>()
+  // Where it was asked for, so it opens there and not at the foot of a long page (audit, 5 November 2026, finding 5): the answers
+  // to check, or the call whose button was pressed.
+  const [shareAt, setShareAt] = useState<string | undefined>()
+  const setShare = (s: Share | undefined, at?: string) => {
+    setShareNow(s)
+    setShareAt(s ? at : undefined)
+  }
+  // The answer's place in the list, as it was settled: the card takes it, and Done goes on to the answer that's there now.
+  const [answerAt, setAnswerAt] = useState(0)
+  const here = useRef<HTMLDivElement>(null)
+  const closeShare = () => {
+    const at = shareAt
+    const next = (at === ANSWERS ? here.current?.nextElementSibling : here.current?.previousElementSibling) as HTMLElement | null | undefined
+    setShare(undefined)
+    if (at === undefined || !next) return
+    requestAnimationFrame(() => {
+      if (!next.isConnected) return
+      const control = next.matches('button, a[href]') ? next : next.querySelector<HTMLElement>('button, a[href]')
+      control?.focus({ preventScroll: true })
+      control?.scrollIntoView?.({ block: 'nearest' })
+    })
+  }
+  const panel = share && (
+    <div className="share-here" ref={here}>
+      <SharePanelFor share={share} onClose={closeShare} />
+    </div>
+  )
   const people = new Map(crew.people.map((p) => [p.id, p]))
   // Archived people (leavers) are kept for the record but out of the way.
   const active = crew.people.filter((p) => !p.archived)
@@ -174,14 +193,32 @@ export function CrewScreen() {
   // Filter and sort (ADR 0099): by department (the ones in use, ADR 0025), staff or freelancer, and level, in the order chosen. Opened
   // from a count on Home for a department, that one (audit, 20 October 2026, finding 4). A department whose last person was edited
   // or archived away is no choice any more, so it narrows nothing until it's back.
-  const [peopleChoices, setPeopleChoices] = useListChoices('people', startOn(arrival('#crew/people')?.department))
+  // A head of department starts on their own (audit, 5 November 2026, finding 42), as Crew needed does, unless they chose otherwise this visit.
+  const myDepartment = useMyDepartment()
+  const [peopleChoices, setPeopleChoices] = useListChoices(
+    'people',
+    startOn(arrival('#crew/people')?.department ?? (myDepartment && !listChoicesKept('people') ? myDepartment : undefined))
+  )
+  // Their department can come with the first copy, after the list first drew: it starts on it then, once.
+  const startedOn = useRef(!!myDepartment)
+  useEffect(() => {
+    if (startedOn.current || !myDepartment) return
+    startedOn.current = true
+    if (!listChoicesKept('people') && !peopleChoices.filters.department) setPeopleChoices({ ...peopleChoices, filters: { ...peopleChoices.filters, ...startOn(myDepartment) } })
+  }, [myDepartment])
   const peopleFilterList = useMemo(() => peopleFilters(active), [crew.people])
+  // The department the list is on, by name, for what's running out beside it; a filter for nobody's department isn't one.
+  const peopleDepartment = peopleFilterList[0]?.options.find((o) => o.key === peopleChoices.filters.department && o.key !== NO_DEPARTMENT_KEY)?.label
+  const allPeople = () => {
+    const { department: _, ...rest } = peopleChoices.filters
+    setPeopleChoices({ ...peopleChoices, filters: rest })
+  }
   const peopleSortList = useMemo(() => {
     const ahead = new Map<string, number>()
     for (const c of crew.calls)
       if (c.status === 'open' && c.end >= today)
         for (const o of c.offers) if (o.status === 'accepted' || o.status === 'confirmed') ahead.set(o.personId, (ahead.get(o.personId) ?? 0) + 1)
-    return peopleSorts((p) => ahead.get(p.id) ?? 0)
+    return peopleSorts((p) => ahead.get(p.id) ?? 0, !crew.people.some((p) => p.levelHidden))
   }, [crew.calls, today])
   // Found as in the picker, and folded to the first ten (audit finding 16). Whoever is added stays in view, whatever the
   // search, filter or fold, until the tab is next opened: on a phone the form pushes the list out of sight, so it says so too.
@@ -189,13 +226,13 @@ export function CrewScreen() {
   const [added, setAdded] = useState<readonly { id: string; name: string }[]>([])
   const justAdded = (p: PersonView) => added.some((a) => a.id === p.id)
   const words = wordsOf(find)
+  const archivedFound = words.length ? archived.filter((p) => found(p, words)) : archived
   const foundPeople = active.filter((p) => found(p, words))
   const listedPeople = listed(foundPeople, peopleFilterList, peopleSortList, peopleChoices)
   const shown = [...listedPeople, ...active.filter((p) => justAdded(p) && !listedPeople.includes(p))]
   const upcoming = crew.calls.filter((c) => c.end >= today && c.status === 'open')
   // Crew needed narrowed to a department (ADR 0046). A head of department starts on their own, everyone else on all.
   const access = useAccess()
-  const myDepartment = access.role === 'head' ? (access.personId && people.get(access.personId)?.department) || view.reading.department || '' : ''
   // Opened from a count on Home for a department (audit, 20 October 2026, finding 4), the calls start on that department too.
   const [narrowedTo, setNarrowedTo] = useState<string | undefined>(() => arrival('#crew')?.department)
   // Said after calls are given a department, which takes the list to it, so what was done stays in view (ADR 0046).
@@ -214,16 +251,25 @@ export function CrewScreen() {
   // A yes or a counter until Confirm or Withdraw; a decline or a pull-out until Noted. The Crew tab's count is the same list.
   // Opened from a count on Home for a department, the answers are that department's people's, as Home counted them (audit,
   // 20 October 2026, finding 4); answers on Google Calendar aren't anyone's department.
-  const [answersFor, allAnswers] = useNarrowed('#crew')
+  // A head of department's start on their own department's (audit, 5 November 2026, finding 6), as the Crew tab's count does.
+  const [answersFor, allAnswers] = useNarrowed('#crew', myDepartment)
   const theirs = inDepartment(answersFor)
   const toCheck = answersToCheck(crew, today)
     .filter((a) => theirs(a.offer.person))
     .map((a) => ({ ...a, warning: onCalendar(a.offer)?.warning }))
   const toSortOut = answersFor ? [] : calendarAnswersToSortOut(view, today)
+  // Declines on calls that are full anyway need nothing but noting: one press for them all (audit, 5 November 2026, finding 27).
+  const fullDeclines = toCheck.filter((a) => a.kind === 'declined' && a.short === 0)
   // Running late, said on a link (ADR 0028): first in the queue, as it's about today.
   const late = view.late.toCheck.filter((n) => theirs(n.person))
   // Documents sent from a link, for the office to check (ADR 0029).
   const docs = view.documents.toCheck.filter((d) => theirs(d.person))
+  // The heading's counts are Home's, from the same lists (Move 3 of the sweep of 6 November 2026): answers apart from anyone running late.
+  const waiting = standing(view, today, { department: answersFor })
+  const markAnswer = (o: OfferView) => setAnswerAt(late.length + docs.length + toSortOut.length + Math.max(0, toCheck.findIndex((a) => a.offer.id === o.id)))
+  // The Send or Tell card for an answer just settled, in the row's place, kept in view under Show all wherever it falls.
+  const answerCard = shareAt === ANSWERS ? panel : undefined
+  const withAnswerCard = (rows: ReactNode[]) => (answerCard ? [...rows.slice(0, answerAt), answerCard, ...rows.slice(answerAt)] : rows)
   // What the device turned down, said in the card it was asked from.
   const answers = useAct()
   const roster = useAct()
@@ -256,11 +302,14 @@ export function CrewScreen() {
 
   // Crew's row (ADR 0041): the calls and answers here, the people at #crew/people, the timesheets at #crew/timesheets.
   // A timesheet's address while they're not used (ADR 0090) opens their page, which says so.
-  const page = hash === '#crew/people' ? 'people' : hash === '#crew/timesheets' || timesheet ? 'timesheets' : 'calls'
+  // The plain address lands a role without crew on People, as the bar does (Shell.tsx), so the two never disagree (Move 9 of the sweep
+  // of 6 November 2026): Calls is the office's work, People is who's who.
+  const page = hash === '#crew/people' || (hash === '#crew' && !mayCrew) ? 'people' : hash === '#crew/timesheets' || timesheet ? 'timesheets' : 'calls'
 
   /** Settle a yes or a counter, then tell them. */
   const settle = (o: OfferView, c: CallView, command: 'offer.confirm' | 'offer.cancel', event: TellEvent) => {
-    void answers.run(() => client.mutate(command, { id: o.id })).then((ok) => ok && o.person && setShare(promptFor(event, [tellTo(o.person, c, o)])))
+    markAnswer(o)
+    void answers.run(() => client.mutate(command, { id: o.id })).then((ok) => ok && o.person && setShare(promptFor(event, [tellTo(o.person, c, o)]), ANSWERS))
   }
 
   // Only the calls short of people at rest, with the filled ones a tap away under them (audit finding 10). A filled call with
@@ -278,6 +327,16 @@ export function CrewScreen() {
   // A call asked for here stays in view whatever its days.
   const soonEnd = addDays(today, SOON_DAYS)
   const soon = allCalls ? inView : inView.filter((c) => c.start <= soonEnd || madeHere.has(c.id))
+  // First, under Home's count's own words and number, the calls it counts, narrowed as the list is: in the next fortnight,
+  // with a day from today on still short (Move 3 of the sweep of 6 November 2026). Each is in the fortnight, so it's drawn
+  // whether or not Show all is. Then the rest of the fortnight's, filled from today on and kept for what's on them to sort
+  // out, such as someone short of a certificate it needs; then, under Show all or asked for here, the calls after it.
+  const counted = new Set(standing(view, today)['crew-needed'].map((c) => c.id))
+  const needing = soon.filter((c) => counted.has(c.id))
+  const filledOn = soon.filter((c) => !counted.has(c.id) && c.start <= soonEnd)
+  const later = soon.filter((c) => c.start > soonEnd)
+  // A call's Send card opens under it while it's drawn there; one that moved out of view as it was offered keeps it at the foot.
+  const underItsCall = shareAt !== undefined && [...onNow, ...soon].some((c) => c.id === shareAt)
   // A long list (audit finding 11, ADR 0050): only the jobs' groups near the screen are drawn, and Back finds its place by them (places.ts).
   const callGroups = (calls: readonly CallView[], list: string) => (
     <Groups name={list} groups={groupCalls(calls, view.jobs.jobs)}>
@@ -296,17 +355,19 @@ export function CrewScreen() {
           </header>
           {[...g.dates].map(([when, calls]) => (
             <div className="call-date" key={when}>
-              <h3>{when}</h3>
+              <h3 className="group">{when}</h3>
               {calls.map((c) => (
-                <CallCard
-                  key={c.id}
-                  call={c}
-                  crew={crew}
-                  calendar={view.calendar}
-                  late={view.late}
-                  onShare={(person) => setShare({ kind: 'offer', person, call: c })}
-                  onTell={setShare}
-                />
+                <Fragment key={c.id}>
+                  <CallCard
+                    call={c}
+                    crew={crew}
+                    calendar={view.calendar}
+                    late={view.late}
+                    onShare={(person) => setShare({ kind: 'offer', person, call: c }, c.id)}
+                    onTell={(s) => setShare(s, c.id)}
+                  />
+                  {shareAt === c.id && underItsCall && panel}
+                </Fragment>
               ))}
             </div>
           ))}
@@ -343,14 +404,29 @@ export function CrewScreen() {
           side={
             // Answers are the office's to act on: a role without crew isn't shown them (audit, 20 October 2026, finding 34).
             access.can('crew') &&
-            (toCheck.length > 0 || toSortOut.length > 0 || late.length > 0 || docs.length > 0) && (
+            (answerCard || toCheck.length > 0 || toSortOut.length > 0 || late.length > 0 || docs.length > 0 || (answersFor && crewToCheck(view, today) > 0)) && (
               <section className="card">
                 {/* Counted in full, so any past the first three are a tap away and never out of mind (audit finding 16). */}
-                <Heading icon="message">Answers to check ({late.length + docs.length + toSortOut.length + toCheck.length})</Heading>
+                <Heading icon="message">{answersHeading(waiting.answers.length, waiting.late.length)}</Heading>
                 <Narrowed department={answersFor} onWiden={allAnswers} />
+                {/* Nothing from their department while others wait: said, with the way to them, rather than no card at all. */}
+                {!answerCard && late.length + docs.length + toSortOut.length + toCheck.length === 0 && <p className="empty">Nothing waiting from {answersFor}.</p>}
                 <Refusal error={answers.error} />
+                {mayCrew && fullDeclines.length > 1 && (
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() =>
+                      void answers.run(async () => {
+                        for (const a of fullDeclines) await client.mutate('offer.seen', { id: a.offer.id })
+                      })
+                    }
+                  >
+                    Noted: all {fullDeclines.length} declines on calls already full
+                  </button>
+                )}
                 <ShowAll
-                  items={[
+                  items={withAnswerCard([
                     ...late.map((l) => (
                       <LateRow
                         key={l.id}
@@ -386,7 +462,7 @@ export function CrewScreen() {
                         {kind === 'no-reply' ? (
                           // Past its reply-by day with no answer (audit, 20 October 2026, finding 24): theirs to chase, so a way to ring is to hand.
                           <div>
-                            No word from <b>{o.person?.name ?? 'someone'}</b> by {dayLabel(c.replyBy!)}
+                            No word from <b>{o.person?.name ?? 'someone'}</b> {c.replyBy ? `by ${dayLabel(c.replyBy)}` : `yet, and it starts ${dayLabel(c.start)}`}
                             <p>
                               {c.project} · {c.role} · {daysLabel(o.days)}
                               <br />
@@ -404,7 +480,7 @@ export function CrewScreen() {
                                   : `asks ${euro(o.counterRateCents)} a day (offered ${rateText(c.dayRateCents, c.rateHidden)})`
                                 : kind === 'declined'
                                   ? 'declined'
-                                  : "can't make it any more"}
+                                  : "can't make it"}
                             <p>
                               {c.project} · {c.role} · {daysLabel(o.days)}
                               {(kind === 'declined' || kind === 'pulled-out') && (
@@ -436,6 +512,7 @@ export function CrewScreen() {
                                 : `Release ${o.person?.name ?? 'them'} from ${c.project}? Their place goes back to the call, and their link says so at once.`
                             }
                             yes={kind === 'countered' ? 'Withdraw the offer' : `Release ${o.person ? firstName(o.person) : 'them'}`}
+                            loss
                             no={kind === 'countered' ? 'Keep it open' : 'Keep them'}
                             onYes={() => {
                               setTurningDown(undefined)
@@ -453,7 +530,8 @@ export function CrewScreen() {
                           </div>
                         ) : kind === 'accepted' || kind === 'countered' ? (
                           <div className="actions">
-                            <button type="button" className="primary" onClick={() => settle(o, c, 'offer.confirm', 'confirmed')}>
+                            {/* Plain, as a row's own action is, beside its other answer (UX sweep, 6 November 2026, move 1). */}
+                            <button type="button" onClick={() => settle(o, c, 'offer.confirm', 'confirmed')}>
                               {kind === 'countered' ? `Agree ${euro(o.counterRateCents)}` : 'Confirm'}
                             </button>
                             <button type="button" onClick={() => setTurningDown(o.id)}>
@@ -482,7 +560,8 @@ export function CrewScreen() {
                                   onShare={(person) => {
                                     // Offering the call to someone else is acting on the answer, so it's noted without another tap.
                                     void answers.run(() => client.mutate('offer.seen', { id: o.id }))
-                                    setShare({ kind: 'offer', person, call: c })
+                                    markAnswer(o)
+                                    setShare({ kind: 'offer', person, call: c }, ANSWERS)
                                   }}
                                 />
                               </Fold>
@@ -491,8 +570,9 @@ export function CrewScreen() {
                         )}
                       </div>
                     )),
-                  ]}
+                  ])}
                   limit={3}
+                  keep={(row) => row === answerCard}
                   what="answers"
                 >
                   {(rows) => rows}
@@ -502,7 +582,7 @@ export function CrewScreen() {
           }
         >
           <section className="card">
-            <Heading icon="calendar">Crew needed</Heading>
+            <Heading icon="calendar">{TIME_GROUPS.coming}</Heading>
             {upcoming.length === 0 && <Empty>Ask for crew from a job in Jobs, or below.</Empty>}
             {/* Narrowed to a department (ADR 0046), the ones calls are in, and "No department" for the calls nobody has given one. */}
             {upcoming.length > 0 && (callDepts.length > 0 || upcoming.some((c) => !departmentOf(c))) && (
@@ -538,13 +618,29 @@ export function CrewScreen() {
             )}
             {onNow.length > 0 && (
               <>
-                <h3 className="calls-part">{onNow.every((c) => c.days.includes(today)) ? 'On today' : 'On today and tomorrow'}</h3>
+                <h3 className="calls-part group">{onNow.every((c) => c.days.includes(today)) ? 'On today' : 'On today and tomorrow'}</h3>
                 {callGroups(onNow, 'now')}
-                {inView.length > 0 && <h3 className="calls-part">Short of crew</h3>}
               </>
             )}
-            {inView.length > 0 && soon.length === 0 && <p className="hint">Nothing short in the next fortnight.</p>}
-            {callGroups(soon, 'short')}
+            {short.length > 0 && needing.length === 0 && <p className="hint">Nothing short in the next fortnight.</p>}
+            {needing.length > 0 && (
+              <>
+                <h3 className="calls-part group">{listHeading(STANDING_HEADINGS['crew-needed'], needing.length)}</h3>
+                {callGroups(needing, 'short')}
+              </>
+            )}
+            {filledOn.length > 0 && (
+              <>
+                <h3 className="calls-part group">Filled from today, with something to sort out</h3>
+                {callGroups(filledOn, 'filled-on')}
+              </>
+            )}
+            {later.length > 0 && (
+              <>
+                <h3 className="calls-part group">After the next fortnight</h3>
+                {callGroups(later, 'later')}
+              </>
+            )}
             {soon.length < inView.length && (
               <button
                 type="button"
@@ -554,7 +650,7 @@ export function CrewScreen() {
                   setAllCalls(true)
                 }}
               >
-                Show all {inView.length.toLocaleString('en-IE')} calls still to come
+                Show all {plural(inView.length, 'call')} still needing something
               </button>
             )}
             {/* Filled calls are folded under the ones short of people (audit finding 10), as the archived are under the people: there for a look, out of the way. */}
@@ -586,16 +682,20 @@ export function CrewScreen() {
         </Split>
       )}
 
-      {share && <SharePanelFor share={share} onClose={() => setShare(undefined)} />}
+      {share && (shareAt === undefined || (shareAt !== ANSWERS && !underItsCall)) && panel}
 
       {/* Certificates and documents running out, and vehicles' checks (ADR 0047), beside the people on a desk. */}
       {page === 'people' && (
         <Split
           side={
-            <>
-              <CertificateReminders view={view} />
-              <VehicleReminders view={view} />
-            </>
+            // Only for a role that acts on them: staff crew opened People on two lists of other people's work, before the people
+            // (audit, 5 November 2026, finding 78). They can still look in each person's page and Stock › Vehicles.
+            (mayCrew || access.can('stock')) && (
+              <>
+                {mayCrew && <CertificateReminders view={view} department={peopleDepartment} onWiden={allPeople} />}
+                {access.can('stock') && <VehicleReminders view={view} />}
+              </>
+            )
           }
         >
           <section className="card" aria-label="People">
@@ -622,11 +722,25 @@ export function CrewScreen() {
               )}
             </div>
             {active.length === 0 && archived.length === 0 && <Empty>Add your crew below.</Empty>}
+            {/* First in the list, under anything said about it, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+            {mayCrew && (
+              <Fold label="Add person">
+                <NewPerson onAdded={(p) => setAdded((was) => [...was, p])} />
+                {/* Read out as it changes, as it's there from the form's opening; not a second "status", which is the top bar's. */}
+                <div aria-live="polite">{added.length > 0 && <p className="added">Added {added.at(-1)!.name}.</p>}</div>
+              </Fold>
+            )}
+            {/* The way to bring many in, where people are added, not only under Menu and Admin (audit, 5 November 2026, finding 94). */}
+            {access.can('settings') && (
+              <p className="hint">
+                Many at once? <a href="#crew/import">Bring in the crew list</a> from a spreadsheet.
+              </p>
+            )}
             {active.length > 0 && (
               <input
                 className="search"
                 type="search"
-                placeholder="Name, department or skill"
+                placeholder="Name, phone, email, department or skill"
                 value={find}
                 onChange={(e) => setFind(e.target.value)}
                 aria-label="Find a person"
@@ -648,21 +762,15 @@ export function CrewScreen() {
             <ShowAll items={shown} limit={10} what="people" keep={justAdded}>
               {(rows) => rows.map((p) => <PersonRow key={p.id} person={p} crew={crew} />)}
             </ShowAll>
-            {archived.length > 0 && (
-              <details className="archived">
-                <summary>Archived ({archived.length})</summary>
+            {/* A search looks through the archived too, opened to show those it found (audit, 5 November 2026, finding 94). */}
+            {archived.length > 0 && (words.length === 0 || archivedFound.length > 0) && (
+              <details className="archived" key={words.length ? 'found' : 'all'} open={words.length > 0 || undefined}>
+                <summary>{words.length ? `Archived, matching (${archivedFound.length})` : `Archived (${archived.length})`}</summary>
                 {/* Each with "Erase details…" for when they ask (ADR 0027). */}
-                {archived.map((p) => (
+                {archivedFound.map((p) => (
                   <ArchivedPerson key={p.id} person={p} onBringBack={() => bringBack(p.id)} />
                 ))}
               </details>
-            )}
-            {mayCrew && (
-              <Fold label="Add person">
-                <NewPerson onAdded={(p) => setAdded((was) => [...was, p])} />
-                {/* Read out as it changes, as it's there from the form's opening; not a second "status", which is the top bar's. */}
-                <div aria-live="polite">{added.length > 0 && <p className="added">Added {added.at(-1)!.name}.</p>}</div>
-              </Fold>
             )}
           </section>
         </Split>
@@ -702,13 +810,15 @@ function TimesheetsOff() {
 function GiveDepartment({ view, calls, onGiven }: { view: View; calls: readonly CallView[]; onGiven: (said: string, department: string) => void }) {
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
   const [department, setDepartment] = useState<string | null>(null)
-  const { run, error } = useAct()
+  const { run, error, refuse } = useAct()
   // Only calls still shown: one given a department elsewhere leaves the list, and its tick with it.
   const chosen = calls.filter((c) => ticked.has(c.id))
   const tick = (id: string, on: boolean) => setTicked((was) => (on ? new Set([...was, id]) : new Set([...was].filter((x) => x !== id))))
   const give = (e: FormEvent) => {
     e.preventDefault()
-    if (!chosen.length || !department) return
+    // Never greyed out (UX sweep, 6 November 2026, move 5): a press says what's missing.
+    if (!chosen.length) return refuse('Tick the calls to give a department first.')
+    if (!department) return refuse('Choose the department first.')
     const n = chosen.length
     void run(() => client.mutate('call.department', { ids: chosen.map((c) => c.id), department })).then((ok) => {
       if (!ok) return
@@ -743,12 +853,8 @@ function GiveDepartment({ view, calls, onGiven }: { view: View; calls: readonly 
         </fieldset>
         <DepartmentField view={view} value={department} onChange={setDepartment} />
         <Refusal error={error} className="wide" />
-        <button type="submit" className="primary wide" disabled={!chosen.length || !department}>
-          {!chosen.length
-            ? 'Tick the calls to give it'
-            : !department
-              ? 'Pick a department'
-              : `Give ${chosen.length === 1 ? '1 call' : `${chosen.length} calls`} ${department}`}
+        <button type="submit" className="primary wide">
+          {chosen.length && department ? `Give ${chosen.length === 1 ? '1 call' : `${chosen.length} calls`} ${department}` : 'Give them the department'}
         </button>
       </form>
     </Fold>

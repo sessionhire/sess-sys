@@ -32,6 +32,8 @@ export interface OutState {
   since: string
   /** The case it went out in, when the case was scanned rather than the item. */
   inCase: AssetView | undefined
+  /** The scan that took it out, for "Not going" to take back. */
+  moveId: string
 }
 
 /** Where to find more of a product that aren't out: a place, or a case, and what's there. */
@@ -109,6 +111,13 @@ export interface MovesView {
    * along, as far as the stock list says what's in it.
    */
   ofItem(assetId: string): MovementView[]
+  /**
+   * Whether a scan of an item, or of a case it's in now, is still on this device and not synced: where the item is said to
+   * be comes from this phone until it has (UX sweep, 6 November 2026, move 3).
+   */
+  waiting(assetId: string): boolean
+  /** Whether a count of a product out with a job, or back from it, is still on this device and not synced. */
+  countWaiting(projectId: string, modelId: string): boolean
   pickList(jobId: string): PickList | undefined
   /** Confirmed jobs on now or starting in the next 14 days, with kit to go out; soonest first. */
   soon: PickList[]
@@ -180,6 +189,11 @@ export function moveTallies(
     events.push({ id: f.id, projectId: f.projectId, direction: 'in', assetId: f.assetId, modelId: f.modelId, qty: 1, at: f.at, pending: f.pending, missing: f.outcome !== 'found' })
   }
   const sorted = events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
+  // An Undo and the movement it takes back (audit, 5 November 2026, finding 8): the item's latest scan still says where it is, but
+  // neither is kit that went out with a job or came back from one.
+  const undone = new Set<string>()
+  for (const m of moves.values()) if (m.undoes) undone.add(m.undoes)
+  const counts = (m: Event) => !m.undoes && !undone.has(m.id)
 
   /** Everything in a case, however deep. */
   const contents = (a: AssetView | undefined, into: Set<string>) => {
@@ -203,13 +217,13 @@ export function moveTallies(
   for (const m of sorted) {
     if (m.assetId) {
       last.set(m.assetId, m)
-      if (m.direction === 'out') {
+      if (m.direction === 'out' && counts(m)) {
         let ids = sent.get(m.projectId)
         if (!ids) sent.set(m.projectId, (ids = new Set()))
         ids.add(m.assetId)
         contents(warehouse.assets.get(m.assetId), ids)
       }
-    } else {
+    } else if (counts(m)) {
       const c = tally(m.projectId, m.modelId)
       if (m.direction === 'out') c.out += m.qty
       else c.back += m.qty
@@ -246,7 +260,7 @@ export function moveTallies(
       gone.add(a.id)
       continue
     }
-    outState.set(a.id, { projectId: best.projectId, since: best.at, inCase: via })
+    outState.set(a.id, { projectId: best.projectId, since: best.at, inCase: via, moveId: best.id })
     const list = outByJob.get(best.projectId) ?? []
     list.push(a)
     outByJob.set(best.projectId, list)
@@ -425,10 +439,24 @@ export function movesView(
 
   const moved = new Set([...moves.values()].map((m) => m.modelId))
 
-  const ofItem = (assetId: string) => {
+  /** An item and the cases it's in now, however deep. */
+  const withCases = (assetId: string) => {
     const ids = new Set([assetId])
     for (let c = warehouse.assets.get(assetId)?.inCase; c && !ids.has(c.id); c = c.inCase) ids.add(c.id)
+    return ids
+  }
+  const ofItem = (assetId: string) => {
+    const ids = withCases(assetId)
     return [...moves.values()].filter((m) => m.assetId && ids.has(m.assetId)).sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id))
+  }
+  // What has a scan or a count not synced, gathered once, as a list asks it of every row: items and cases by id, counted kit
+  // by job and product.
+  let unsent: Set<string> | undefined
+  const unsentOf = () => (unsent ??= new Set([...moves.values()].flatMap((m) => (m.pending ? [m.assetId ?? `${m.projectId} ${m.modelId}`] : []))))
+  const waiting = (assetId: string) => {
+    if (unsentOf().size === 0) return false
+    for (const id of withCases(assetId)) if (unsentOf().has(id)) return true
+    return false
   }
 
   const countedOut = (modelId: string) =>
@@ -445,6 +473,8 @@ export function movesView(
     countedOut,
     everMoved: (id) => moved.has(id),
     ofItem,
+    waiting,
+    countWaiting: (projectId, modelId) => unsentOf().has(`${projectId} ${modelId}`),
     pickList,
     get soon() {
       return (soonList ??= soon())

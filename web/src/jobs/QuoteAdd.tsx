@@ -1,5 +1,6 @@
 import { lineCents, money, type JobChanges, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS } from '@sh/shared'
 import { useId, useState, type ReactNode } from 'react'
+import { AdminWords } from '../AdminWords.tsx'
 import { Icon } from '../Icon.tsx'
 import { toDraft, type LineDraft } from './lineDraft.ts'
 import { UnitBox } from './QuoteLine.tsx'
@@ -58,7 +59,7 @@ export function TravelAndSubsistence(p: {
   return (
     <section className="quote-group quote-extras" role="group" aria-label="Travel and subsistence">
       <div className="group-head">
-        <h3>Travel and subsistence</h3>
+        <h3 className="group">Travel and subsistence</h3>
       </div>
       {row(
         TRAVEL_ROW,
@@ -90,7 +91,7 @@ export function TravelAndSubsistence(p: {
           )}
         </label>
       )}
-      {old && <p className="kit-note warn-line">The fuel price was set {daysSince(p.fuelSetOn!, p.today)} days ago. Check it in Admin › Company.</p>}
+      {old && <p className="kit-note warn-line">The fuel price was set {daysSince(p.fuelSetOn!, p.today)} days ago. Check it in <a href="#admin/company">Admin › Company</a>.</p>}
       {row(
         SUBSISTENCE_ROW,
         s ? s.what : 'No subsistence',
@@ -104,6 +105,12 @@ export function TravelAndSubsistence(p: {
             <small>{p.meals ? 'The job gives the crew their meals, so no subsistence is charged.' : 'On if the job gives the crew their meals.'}</small>
           </span>
         </label>
+      )}
+      {/* The way to the per diem, as a link: the row above is a button, so it can't hold one. */}
+      {!s && subsistence.none?.includes('Admin ›') && (
+        <p className="hint">
+          <AdminWords>{subsistence.none}</AdminWords>
+        </p>
       )}
     </section>
   )

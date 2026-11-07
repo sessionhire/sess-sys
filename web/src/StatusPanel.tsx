@@ -1,6 +1,7 @@
 import { STATUS_GROUPS, type StatusCheck, type StatusGroup, type StatusState, type SystemStatus } from '@sh/shared'
 import { useEffect, useState } from 'react'
 import { markSignedOut } from './auth.ts'
+import { glideTo } from './glide.ts'
 import { when } from './format.ts'
 import { StatusPill, type PillTone } from './StatusPill.tsx'
 import { useLate } from './useLate.ts'
@@ -76,7 +77,15 @@ export function StatusPanel() {
           <ul className="status-wrong">
             {wrong.map((c) => (
               <li key={c.id}>
-                <a href={`#admin/status`} onClick={(e) => (e.preventDefault(), document.getElementById(`status-${c.id}`)?.scrollIntoView({ block: 'start' }))}>
+                <a
+                  href={`#admin/status`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    // Further down this page: glided to and marked (glide.ts), with the focus on it so a keyboard carries on from there.
+                    const check = document.getElementById(`status-${c.id}`)
+                    if (check) glideTo(check, { focus: check, mark: check })
+                  }}
+                >
                   {c.name}
                 </a>
                 : {WORD[c.state].toLowerCase()}

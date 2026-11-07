@@ -43,7 +43,9 @@ import { NotesKitLink } from './NotesKit.tsx'
  * enough on its days once the other jobs have theirs. Worked out on this
  * device (view.kit), so it works with no signal. Short is never a reason
  * to refuse a line: the count may be unfinished, or it's about to be
- * subhired.
+ * subhired. Every form here opens on the job's page, under its Next dock,
+ * so their submits are plain: the dock holds the page's one filled red
+ * (ADR 0104; UX sweep, 6 November 2026, move 1).
  */
 
 /** "Whole job · Mon 6 Oct to Sat 11 Oct", or the phase's name and days. */
@@ -199,7 +201,7 @@ export function KitCard({ job, view }: { job: JobView; view: View }) {
         {(shown) =>
           DEPARTMENTS.filter((d) => shown.some((l) => department(l) === d)).map((d) => (
             <div className="kit-group" key={d}>
-              <h3>
+              <h3 className="group">
                 <Icon name={departmentIcon(d)} />
                 {DEPARTMENT_LABELS[d]}
               </h3>
@@ -307,7 +309,7 @@ function KitDays({ job, mayChange }: { job: JobView; mayChange: boolean }) {
           </p>
           <Refusal error={error} className="wide" />
           <div className="actions wide">
-            <button type="submit" className="primary">
+            <button type="submit">
               Save kit days
             </button>
             <button
@@ -339,7 +341,7 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
   const [supplier, setSupplier] = useState('')
   const [done, setDone] = useState('')
-  const { run, error } = useAct()
+  const { run, error, refuse } = useAct()
   const opener = useRef<HTMLButtonElement>(null)
   const first = useRef<HTMLInputElement>(null)
   const closed = useRef(false)
@@ -366,7 +368,8 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
   }
   const save = (e: FormEvent) => {
     e.preventDefault()
-    if (chosen.length === 0) return
+    // Never greyed out (UX sweep, 6 November 2026, move 5): a press with nothing ticked says so.
+    if (chosen.length === 0) return refuse('Tick what to subhire first.')
     const from = supplier.trim()
     const said = `Subhired what's short on ${plural(chosen.length, 'line')}${from ? ` from ${from}` : ''}.`
     void run(async () => {
@@ -416,8 +419,8 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
           </label>
           <Refusal error={error} className="wide" />
           <div className="actions wide">
-            <button type="submit" className="primary" disabled={chosen.length === 0}>
-              {chosen.length === 0 ? 'Nothing ticked' : `Subhire ${plural(chosen.length, 'line')}`}
+            <button type="submit">
+              {chosen.length === 0 ? 'Subhire' : `Subhire ${plural(chosen.length, 'line')}`}
             </button>
             <button type="button" onClick={close}>
               Cancel
@@ -555,12 +558,13 @@ function EditKit({ line, job, onDone }: { line: KitLineView; job: JobView; onDon
           className="wide"
           question={`Take ${line.qty} × ${name} off the kit for ${job.name}? It's no longer held for the job, so it's free for others.`}
           yes="Take it off"
+          loss
           onYes={remove}
           onNo={() => setRemoving(false)}
         />
       ) : (
         <div className="actions wide">
-          <button type="submit" className="primary">
+          <button type="submit">
             Save line
           </button>
           <button type="button" onClick={onDone}>
@@ -661,7 +665,7 @@ function AddKit({ job, view, lines }: { job: JobView; view: View; lines: readonl
           {added}
         </p>
       )}
-      <button type="submit" className="primary wide">
+      <button type="submit" className="wide">
         Add to kit
       </button>
     </form>

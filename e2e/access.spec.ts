@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fillName } from './names.ts'
 
 /**
@@ -6,8 +6,9 @@ import { fillName } from './names.ts'
  * (audit finding 22): every field's border can be seen against its card, in
  * light and dark; each move lands on the screen's heading and names the tab
  * after it; there's one main landmark; the back link is tall enough to tap;
- * the current tab and the grey pill read at 4.5:1; the "not done" list is a
- * live region; and every field has a name. Uses the made-up data (ADR 0019),
+ * the current tab and the grey pill read at 4.5:1, as do a row's quiet button
+ * and the bad-filled yes of a question whose answer is a loss; the "not done"
+ * list is a live region; and every field has a name. Uses the made-up data (ADR 0019),
  * so it starts fresh before and after: the other tests share this server.
  */
 
@@ -64,11 +65,99 @@ async function unnamedFields(page: Page): Promise<string[]> {
   })
 }
 
+/**
+ * Fields and buttons smaller than a phone needs (UX sweep, 6 November 2026, move 5): typed text under 16px, which a
+ * phone zooms the page into, or a control under 44px tall. Every fold is opened to measure the forms folded away in
+ * them, and closed again after. A field drawn in a box with its unit is the box; the button drawn out of sight for
+ * Enter in the rate field (.on-enter) is never tapped.
+ */
+async function smallControls(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const shut = [...document.querySelectorAll('details')].filter((d) => !d.open)
+    for (const d of shut) d.open = true
+    const out: string[] = []
+    for (const el of document.querySelectorAll<HTMLElement>('input, select, textarea, button, a.button')) {
+      if (el.getClientRects().length === 0 || el.matches('.on-enter') || ['checkbox', 'radio', 'hidden'].includes(el.getAttribute('type') ?? '')) continue
+      const box = (el.closest('.unit-box') ?? el).getBoundingClientRect()
+      const typed = el.matches('input, select, textarea') ? parseFloat(getComputedStyle(el).fontSize) : 16
+      if (typed < 16 || box.height < 44) out.push(`${el.outerHTML.slice(0, 100)}: ${typed}px text, ${box.height}px tall`)
+    }
+    for (const d of shut) d.open = false
+    return out
+  })
+}
+
+/** A colour role of the app's (a CSS variable) as the browser gives it, read on a probe in the app. */
+const roleColour = (page: Page, role: string) =>
+  page.evaluate((role) => {
+    const probe = document.createElement('span')
+    probe.style.color = `var(${role})`
+    document.querySelector('.app')!.append(probe)
+    const colour = getComputedStyle(probe).color
+    probe.remove()
+    return colour
+  }, role)
+
 /** The text colour against the background of the first element matching, as drawn. */
 async function textContrast(page: Page, selector: string): Promise<number> {
   const [color, background] = await page.locator(selector).first().evaluate((el) => {
     const cs = getComputedStyle(el)
     return [cs.color, cs.backgroundColor]
+  })
+  return contrast(color!, background!)
+}
+
+/**
+ * The element's text colour on what is behind it, in the light theme and then the dark: its own fill, or, where it has none (a quiet
+ * button), the colours painted behind it laid over each other, as the eye sees them. The themes are switched at once, with nothing easing.
+ * Its edge is read against what is round it, from its parent out; a mark drawn after it (::after) against the element and what is behind.
+ */
+async function drawnInBothThemes(el: Locator, of: 'text' | 'edge' | 'after' = 'text'): Promise<(readonly [string, string, string])[]> {
+  return el.evaluate((node, of) => {
+    const still = document.createElement('style')
+    still.textContent = '* { transition: none !important; }'
+    document.head.append(still)
+    const rgba = (c: string) => c.match(/[\d.]+/g)!.map(Number)
+    const root = document.documentElement
+    const was = root.dataset.theme
+    const out: (readonly [string, string, string])[] = []
+    for (const theme of ['light', 'dark']) {
+      root.dataset.theme = theme
+      // Its own fill and each see-through one behind it, out to the first that is solid.
+      const layers: number[][] = []
+      for (let e: Element | null = of === 'edge' ? node.parentElement : node; e; e = e.parentElement) {
+        const c = rgba(getComputedStyle(e).backgroundColor)
+        if ((c[3] ?? 1) === 0) continue
+        layers.unshift(c)
+        if ((c[3] ?? 1) >= 1) break
+      }
+      let [r, g, b] = (layers[0]?.[3] ?? 1) >= 1 && layers.length ? layers.shift()! : [255, 255, 255]
+      for (const [lr, lg, lb, la = 1] of layers) [r, g, b] = [lr! * la + r! * (1 - la), lg! * la + g! * (1 - la), lb! * la + b! * (1 - la)]
+      const drawn = of === 'edge' ? getComputedStyle(node).borderTopColor : of === 'after' ? getComputedStyle(node, '::after').backgroundColor : getComputedStyle(node).color
+      out.push([theme, drawn, `rgb(${r}, ${g}, ${b})`] as const)
+    }
+    if (was === undefined) delete root.dataset.theme
+    else root.dataset.theme = was
+    still.remove()
+    return out
+  }, of)
+}
+
+/** The text colour against its own background, which may be see-through or none, laid over the first colour painted behind it, as the eye sees it. */
+async function seenContrast(target: Locator): Promise<number> {
+  const [color, background] = await target.evaluate((el) => {
+    const rgba = (c: string) => c.match(/[\d.]+/g)!.map(Number)
+    let under = getComputedStyle(document.body).backgroundColor
+    for (let e = el.parentElement; e; e = e.parentElement) {
+      const bg = getComputedStyle(e).backgroundColor
+      if ((rgba(bg)[3] ?? 1) > 0) {
+        under = bg
+        break
+      }
+    }
+    const [r, g, b, a = 1] = rgba(getComputedStyle(el).backgroundColor)
+    const [ur, ug, ub] = rgba(under)
+    return [getComputedStyle(el).color, `rgb(${[r! * a + ur! * (1 - a), g! * a + ug! * (1 - a), b! * a + ub! * (1 - a)].join(', ')})`]
   })
   return contrast(color!, background!)
 }
@@ -111,7 +200,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.goto('/#crew')
     await expect(page.getByRole('status')).toHaveText('Up to date')
     // The calls are a windowed list (ADR 0050), drawn only near the screen, and a new screen holds its place for a moment against
-    // anything but a hand (places.ts): so the page is wheeled down to Short of crew, as a person would, before its calls are reached.
+    // anything but a hand (places.ts): so the page is wheeled down to Still needs crew, as a person would, before its calls are reached.
     await page.mouse.move(195, 400)
     await page.mouse.wheel(0, 1200)
     await page.locator('.call-group', { hasText: 'Harbour Lights Festival' }).getByRole('button', { name: /× Stagehand · Load in/ }).click()
@@ -166,6 +255,29 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(fields.length).toBeGreaterThan(3)
     for (const f of fields) expect(contrast(f.border, f.behind), `link page: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
     expect(await unnamedFields(page)).toEqual([])
+    // Its fields and buttons are the app's on a phone: what's typed at 16px, and every one 44px tall (UX sweep, 6 November 2026, move 5).
+    expect(await smallControls(page)).toEqual([])
+    // Giving a job up is the bad tone with no fill of its own, read at 4.5:1 on its card at rest and while it's pressed.
+    const giveUp = page.locator('button.no').first()
+    await giveUp.evaluate((el) => {
+      el.closest('details')!.open = true
+    })
+    expect(await seenContrast(giveUp), `${await giveUp.textContent()}, at rest`).toBeGreaterThanOrEqual(4.5)
+    await giveUp.hover()
+    await page.mouse.down()
+    expect(await seenContrast(giveUp), `${await giveUp.textContent()}, pressed`).toBeGreaterThanOrEqual(4.5)
+    // Let go away from it, so nothing is sent.
+    await page.mouse.move(0, 0)
+    await page.mouse.up()
+    // A field the server refuses is said under it in the bad wash, read at 4.5:1, with its edge in the bad tone at 3:1, and the title starts "Error: ".
+    await page.getByLabel('Mobile').fill('ring me')
+    await page.getByRole('button', { name: 'Save my number' }).click()
+    await expect(page).toHaveTitle('Error: Session Hire: your work')
+    await expect(page.locator('.field-error')).toHaveText('Phone numbers need digits only, ideally starting with +353.')
+    expect(await textContrast(page, '.field-error')).toBeGreaterThanOrEqual(4.5)
+    const refused = await fieldBorders(page)
+    expect(refused.map((f) => f.field)).toContain('input phone')
+    for (const f of refused) expect(contrast(f.border, f.behind), `refused link page: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
 
     await page.getByRole('link', { name: /^Call sheet/ }).first().click()
     await expect(page).toHaveTitle('Call sheet: Harbour Lights Festival, Show')
@@ -173,15 +285,99 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect((await page.getByRole('link', { name: '‹ Your work' }).boundingBox())!.height).toBeGreaterThanOrEqual(44)
 
     await page.goto(`/f/${dara.data.linkToken}`)
-    await page.locator('.ts-list a').filter({ hasText: 'Autumn Gala' }).click()
+    // One Work done list through to paid (UX sweep, move 6b).
+    await page.locator('#timesheets a').filter({ hasText: 'Autumn Gala' }).first().click()
     await expect(page).toHaveTitle('Timesheet: Autumn Gala, Show')
     await expect(page.getByRole('main')).toHaveCount(1)
     const sheetFields = await fieldBorders(page)
     expect(sheetFields.length).toBeGreaterThan(3)
     for (const f of sheetFields) expect(contrast(f.border, f.behind), `timesheet: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
     expect(await unnamedFields(page)).toEqual([])
+    expect(await smallControls(page)).toEqual([])
   })
 }
+
+test("a row's quiet button, and the yes of a question whose answer is a loss, read at 4.5:1 in light and dark", async ({ browser }) => {
+  // Proves: one rule for the red fill (UX sweep, 6 November 2026, move 1) leaves nothing hard to read. A timesheet's Check is quiet, in
+  // the secondary ink with no fill; a quiet button is drawn the same; and Write it off, a loss, takes the bad fill, never the red, with
+  // Keep it focused; while a yes that loses nothing is plain. Each as the browser draws it, in both themes.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/#crew/timesheets')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const check = page.getByRole('region', { name: 'Timesheets' }).getByRole('group', { name: 'To approve' }).getByRole('link', { name: 'Check' }).first()
+  await expect(check).toHaveClass(/\bquiet\b/)
+  await expect(check).not.toHaveClass(/\bprimary\b/)
+  for (const [theme, color, behind] of await drawnInBothThemes(check)) expect(contrast(color, behind), `quiet Check, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+  // A quiet <button> follows the same rule; none is drawn on the made-up data, so one is put in a card for the measure.
+  await page.evaluate(() => {
+    const card = document.createElement('section')
+    card.className = 'card'
+    card.innerHTML = '<button type="button" class="quiet" id="quiet-probe">Check</button>'
+    document.querySelector('.app')!.append(card)
+  })
+  for (const [theme, color, behind] of await drawnInBothThemes(page.locator('#quiet-probe'))) expect(contrast(color, behind), `button.quiet, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+
+  await page.goto('/#stock/repairs')
+  const fault = page.getByRole('region', { name: 'Repairs open' }).locator('li.fault').first()
+  await fault.getByRole('button', { name: 'Sort it out' }).click()
+  // Marking it fixed loses nothing: a plain yes.
+  await fault.getByRole('button', { name: 'Mark fixed' }).click()
+  await expect(fault.getByRole('button', { name: 'Mark it fixed' })).not.toHaveClass(/\b(primary|danger)\b/)
+  await expect(fault.getByRole('button', { name: 'Keep it' })).toBeFocused()
+  await fault.getByRole('button', { name: 'Keep it' }).click()
+  // Writing it off is a loss: the bad fill, and the safe answer still the one focused.
+  await fault.getByRole('button', { name: 'Write off' }).click()
+  const yes = fault.getByRole('button', { name: 'Write it off' })
+  await expect(yes).toHaveClass(/\bdanger\b/)
+  await expect(yes).not.toHaveClass(/\bprimary\b/)
+  await expect(fault.getByRole('button', { name: 'Keep it' })).toBeFocused()
+  for (const [theme, color, behind] of await drawnInBothThemes(yes)) expect(contrast(color, behind), `Write it off, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+  await fault.getByRole('button', { name: 'Keep it' }).click()
+  await expect(yes).toHaveCount(0)
+})
+
+test('a group head, a fault in a quote line, a number waiting to sync and the chart column being read can be seen in light and dark', async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, move 2): a group head's muted label capitals read at 4.5:1 on its card; the column of a Home
+  // chart being read is marked by a bar in the ink at 3:1 or more against the card, not a wash; in a quote's open line a fault is the
+  // bad ink at 4.5:1 and the field that's wrong takes the bad edge at 3:1, while a question about the line stays amber at 4.5:1; and a
+  // number waiting to sync is grey at 4.5:1, its dashed edge 3:1. Each as the browser draws it, in both themes, and in its role.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/#home')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company', exact: true }).click()
+  const head = page.locator('.card h3.group').first()
+  await expect(head).toBeVisible()
+  for (const [theme, color, behind] of await drawnInBothThemes(head)) expect(contrast(color, behind), `group head, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+  const picked = page.locator('.chart-col[aria-pressed="true"]').first()
+  await expect(picked).toBeVisible()
+  for (const [theme, color, behind] of await drawnInBothThemes(picked, 'after')) expect(contrast(color, behind), `chart column read, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(3)
+
+  // Stock's sheet comes with its screens; none of these is drawn on the made-up data as it stands, so each is put in a card to measure.
+  await page.goto('/#stock')
+  await expect(page.getByRole('heading', { level: 1, name: 'Catalogue' })).toBeVisible()
+  await page.evaluate(() => {
+    const card = document.createElement('section')
+    card.className = 'card'
+    card.innerHTML = `<div class="quote-screen"><div class="quote-line">
+        <input id="wrong-probe" aria-label="Line 4: what" aria-invalid="true">
+        <p class="line-problem" id="fault-probe">Line 4: say what it's for.</p>
+        <p class="line-problem asks" id="asks-probe">Was €40 a day, now €40 a week: change the price?</p>
+      </div></div>
+      <div class="warehouse"><ul class="numbers"><li><a href="#stock" class="is-pending" id="waiting-probe">SH-000001</a></li></ul></div>`
+    document.querySelector('.app')!.append(card)
+  })
+  for (const id of ['fault-probe', 'asks-probe', 'waiting-probe'])
+    for (const [theme, color, behind] of await drawnInBothThemes(page.locator(`#${id}`))) expect(contrast(color, behind), `${id}, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(4.5)
+  for (const id of ['wrong-probe', 'waiting-probe'])
+    for (const [theme, color, behind] of await drawnInBothThemes(page.locator(`#${id}`), 'edge')) expect(contrast(color, behind), `${id} edge, ${theme}: ${color} on ${behind}`).toBeGreaterThanOrEqual(3)
+  // And each in its role, not only a colour that reads: the fault and the wrong field's edge in the bad tone, the question amber, and
+  // a number waiting to sync in the muted ink on a field's edge, as every other waiting thing is.
+  await expect(page.locator('#fault-probe')).toHaveCSS('color', await roleColour(page, '--bad'))
+  await expect(page.locator('#wrong-probe')).toHaveCSS('border-top-color', await roleColour(page, '--bad'))
+  await expect(page.locator('#asks-probe')).toHaveCSS('color', await roleColour(page, '--warn'))
+  await expect(page.locator('#waiting-probe')).toHaveCSS('color', await roleColour(page, '--muted'))
+  await expect(page.locator('#waiting-probe')).toHaveCSS('border-top-color', await roleColour(page, '--field-line'))
+})
 
 test('each move lands on the heading and names the tab, inside one main landmark, with a back link a thumb can hit', async ({ browser }) => {
   // Proves: the Shell moves focus to the new screen's heading and renames the tab on every move, for a tab, a record, the leave screen and the planner's next week, but not for a toggle, however the browser presses it.
@@ -247,8 +443,9 @@ test('someone already typing on the new screen keeps the focus', async ({ browse
   })
   await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Stock' }).click()
   // Stock's own search: for a moment the Jobs screen, with a search of its own, is still there.
+  // A short number, which waits for Enter: a whole one opens its item as soon as it's typed (UX sweep, 6 November 2026, move 8).
   const find = page.getByRole('region', { name: 'Catalogue' }).getByLabel('Find')
-  await find.fill('SH-000001')
+  await find.fill('SH-1')
   await page.evaluate(() => {
     const w = window as unknown as Held
     window.requestAnimationFrame = w.raf

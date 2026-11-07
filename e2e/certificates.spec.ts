@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
+import { pickRecord } from './names.ts'
 
 /**
  * The certificates a call needs, and running late (ADR 0028), end to end
@@ -39,7 +40,7 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   await office.goto('/#crew')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // The calls are a windowed list (ADR 0050), drawn only near the screen, and a new screen holds its place for a moment against
-  // anything but a hand (places.ts): so the page is wheeled down to Short of crew, as a person would, before its calls are reached.
+  // anything but a hand (places.ts): so the page is wheeled down to Still needs crew, as a person would, before its calls are reached.
   await office.mouse.move(195, 400)
   await office.mouse.wheel(0, 1200)
   const call = office.locator('.call-group', { hasText: 'Harbour Lights Festival' }).getByRole('article', { name: '2 × Rigger' })
@@ -47,14 +48,11 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   await expect(call).toContainText('needs working at height and IPAF')
   await call.getByRole('button', { name: 'Offer…' }).click()
 
-  const picker = call.getByLabel('Offer to')
-  const missing = picker.locator('optgroup[label="Missing a certificate"] option', { hasText: 'Laoise Keane' })
-  await expect(missing).toHaveCount(1)
-  await expect(missing).toContainText('no IPAF')
-  // Those not known come before those missing one.
-  await expect(picker.locator('optgroup').first()).toHaveAttribute('label', 'Not known: check first')
-
-  await picker.selectOption({ label: (await missing.textContent())!.trim() })
+  // The picker lists those holding what the call needs first, and says under each name what they're missing.
+  await expect(call.getByRole('listbox')).toHaveAccessibleName('Those holding working at height and IPAF first')
+  await call.getByRole('combobox', { name: 'Offer to' }).fill('Laoise Keane')
+  await expect(call.getByRole('option', { name: /^Laoise Keane/ })).toContainText('no IPAF')
+  await pickRecord(call, 'Offer to', 'Laoise Keane')
   await call.getByRole('button', { name: 'Offer', exact: true }).click()
   await expect(call.getByRole('alert')).toHaveText("Laoise Keane has no IPAF, which this call needs. Update their card if that's changed.")
   // Nothing was sent: the call still lists only Pádraig and Róisín, and nothing waits to sync.
@@ -62,8 +60,7 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
   // Someone whose certificates aren't known can be offered it, with a warning first.
-  const dara = picker.locator('option', { hasText: 'Dara Quinn' })
-  await picker.selectOption({ label: (await dara.textContent())!.trim() })
+  await pickRecord(call, 'Offer to', 'Dara Quinn')
   await expect(call.getByRole('alert')).toHaveCount(0)
   await expect(call.locator('.offer-form .warn-line')).toHaveText('Working at height and IPAF not known for Dara Quinn: check before the job.')
 })

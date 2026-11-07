@@ -80,11 +80,18 @@ export function Refusal({ error, className }: { error: string; className?: strin
  * was, so the fields round it hold still. On a keyboard the safe way out has
  * the focus as it opens, and the focus goes back to the buttons that take
  * the question's place when it closes, rather than being lost.
+ *
+ * The yes is a plain button, not the red fill, which marks the one thing to
+ * do next (ADR 0104): the loudest button is the one pressed by habit, and a
+ * yes here can't be taken back (UX sweep, 6 November 2026, move 1). A yes
+ * that is a loss takes the bad fill, as the design system draws an armed
+ * button, so the loss looks like one before it's pressed.
  */
 export function Confirm({
   question,
   yes,
   no = 'Keep it',
+  loss = false,
   onYes,
   onNo,
   className,
@@ -93,6 +100,8 @@ export function Confirm({
   question: string
   yes: string
   no?: string
+  /** The yes destroys something or takes it from someone: removes, deletes, discards, erases or writes off, withdraws, releases or cancels. */
+  loss?: boolean
   onYes: () => void
   onNo: () => void
   className?: string
@@ -120,7 +129,7 @@ export function Confirm({
         </div>
       )}
       <div className="actions">
-        <button type="button" className="primary" onClick={onYes}>
+        <button type="button" className={loss ? 'danger' : undefined} onClick={onYes}>
           {yes}
         </button>
         <button type="button" onClick={onNo} ref={safe}>

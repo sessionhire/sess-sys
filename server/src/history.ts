@@ -36,6 +36,11 @@ export interface HistoryQuery {
   /** Only entries about this record: the ones that changed it, or were aimed at it and turned down. */
   id?: string
   entity?: string
+  /**
+   * Only entries about this job and its parts: its phases, calls and their offers, kit lines, quotes and tasks, since a
+   * job's dates are its phases' (audit, 5 November 2026, finding 51).
+   */
+  job?: string
 }
 
 /** A `before` that this server didn't hand out. */
@@ -106,6 +111,21 @@ export async function readHistory(q: Queryable, query: HistoryQuery = {}, rates 
     const id = param(query.id)
     const entity = query.entity ? ` AND c.entity = ${param(query.entity)}` : ''
     where.push(`(EXISTS (SELECT 1 FROM changes c WHERE c.mutation_id = m.id AND c.entity_id = ${id}${entity}) OR m.args->>'id' = ${id})`)
+  }
+
+  if (query.job) {
+    const id = param(query.job)
+    const parts = [
+      `SELECT id FROM phases WHERE project_id = ${id}`,
+      `SELECT id FROM crew_calls WHERE project_id = ${id}`,
+      `SELECT o.id FROM offers o JOIN crew_calls cc ON cc.id = o.call_id WHERE cc.project_id = ${id}`,
+      `SELECT id FROM kit_lines WHERE project_id = ${id}`,
+      `SELECT id FROM quotes WHERE project_id = ${id}`,
+      `SELECT id FROM job_steps WHERE project_id = ${id}`,
+    ].join(' UNION ')
+    where.push(
+      `(EXISTS (SELECT 1 FROM changes c WHERE c.mutation_id = m.id AND (c.entity_id = ${id} OR c.entity_id IN (${parts}))) OR m.args->>'id' = ${id} OR m.args->>'projectId' = ${id})`
+    )
   }
 
   const { rows } = await q.query<Row>(

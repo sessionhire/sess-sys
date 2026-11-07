@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../src/app.ts'
 import { readApp } from '../src/calendar/import.ts'
-import { pgliteDb } from '../src/db.ts'
+import { pgliteDb, type Db } from '../src/db.ts'
 import { flashOf, IPHONE, server as signedIn, staff } from './people.ts'
 
 /**
@@ -114,6 +114,19 @@ function cardOf(html: string, offerId: string) {
   return html.slice(from, html.indexOf('</article>', from))
 }
 
+/** A page as it reads, whichever of its spaces a line never breaks at. */
+const said = (html: string) => html.replace(/ /g, ' ')
+
+/**
+ * Where a refused post's page lands: the forms post to an address ending in #refused, and the page drawn again gives
+ * that id to one place, the field the refusal is about or the refusal itself. Its opening tag, and what follows it.
+ */
+function landing(html: string) {
+  expect(html.match(/ id="refused"/g)).toHaveLength(1)
+  const at = html.search(/<[^<>]* id="refused"[^<>]*>/)
+  return html.slice(at)
+}
+
 describe('freelancer link', () => {
   it('shows the full offer without a login and accepts from a plain form', async () => {
     const app = await server()
@@ -168,7 +181,11 @@ describe('freelancer link', () => {
     const a = await offer(app, c, aoife.id)
     const n = await offer(app, c, niall.id)
 
-    expect(await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: [] })).toMatchObject({ ok: false })
+    // No day ticked: said under the days, which the refused page lands on, not at the top of the card.
+    const none = await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: [] })
+    expect(none).toMatchObject({ ok: false, message: 'Tick at least one day, or press Decline.' })
+    expect(landing(none.page)).toMatch(new RegExp(`^<fieldset class="days" aria-describedby="days-error-${a.id}" id="refused"><legend>Your days</legend>[^]*?</fieldset><p class="field-error" id="days-error-${a.id}" role="alert">Tick at least one day`))
+    expect(cardOf(none.page, a.id)).not.toContain('class="flash')
     expect(await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: ['2026-10-02', '2026-10-03'] })).toMatchObject({ ok: true })
     // Niall only asks for more money on the day still open.
     expect(await answer(app, niall.linkToken, n.id, { answer: 'counter', picker: '1', days: ['2026-10-04'], rate: '300' })).toMatchObject({ ok: true })
@@ -176,6 +193,22 @@ describe('freelancer link', () => {
 
     const confirmed = await send(app, 'offer.confirm', { id: n.id })
     expect(confirmed.status).toBe('applied')
+    expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'confirmed', dayRateCents: 30000 })
+
+    // A page from before the office confirmed it sends Update my days with none ticked, or a rate: the confirmed card has
+    // no days or rate to say it under, so it's said at the top of the card, which the page lands on.
+    const stale: [Record<string, string | string[]>, string][] = [
+      [{ answer: 'accept', picker: '1', days: [] }, "Tick at least one day, or use Can't make it."],
+      [{ answer: 'counter', picker: '1', days: ['2026-10-04'], rate: 'lots' }, 'Put in a price like 250 or 1,250.50.'],
+    ]
+    for (const [fields, message] of stale) {
+      const late = await answer(app, niall.linkToken, n.id, fields)
+      expect(late).toMatchObject({ ok: false, message })
+      expect(cardOf(late.page, n.id)).toContain(`<p class="flash bad" role="alert" id="refused">${message.replace(/'/g, '&#39;')}</p>`)
+      expect(landing(late.page)).toMatch(/^<p class="flash bad" role="alert" id="refused">/)
+      expect(late.page).not.toContain('class="field-error')
+      expect(late.page).toContain('<title>Error: Session Hire: your work</title>')
+    }
     expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'confirmed', dayRateCents: 30000 })
   })
 
@@ -220,10 +253,13 @@ describe('freelancer link', () => {
 
     const lots = await rate('lots')
     expect(lots).toMatchObject({ ok: false, message: 'Put in a price like 250 or 1,250.50.' })
-    // Said under the rate field, which is marked and joined to it, not at the top of the card (audit, 20 October 2026, finding 90).
+    // Said under the rate field, which is marked and joined to it, not at the top of the card (audit, 20 October 2026, finding 90),
+    // and the page drawn again lands on the field, with "Error: " first in its title.
     const refusedCard = cardOf(lots.page, o.id)
     expect(refusedCard).not.toContain('class="flash')
-    expect(refusedCard).toMatch(new RegExp(`<input name="rate" inputmode="decimal" aria-invalid="true" aria-describedby="rate-error-${o.id}" value="lots"></label><p class="field-error" id="rate-error-${o.id}" role="alert">`))
+    expect(refusedCard).toMatch(new RegExp(`<input name="rate" inputmode="decimal" aria-invalid="true" aria-describedby="rate-error-${o.id}" value="lots"></span></label><p class="field-error" id="rate-error-${o.id}" role="alert">`))
+    expect(landing(lots.page)).toMatch(/^<label id="refused">Day rate you'd do it for/)
+    expect(lots.page).toContain('<title>Error: Session Hire: your work</title>')
     expect(await rate('0')).toMatchObject({ ok: false, message: 'Put in the day rate you would do it for.' })
     expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'offered', counterRateCents: null })
 
@@ -239,6 +275,10 @@ describe('freelancer link', () => {
     const field = /<input name="rate"[^>]*>/.exec(card)?.[0]
     expect(field).toContain('inputmode="decimal"')
     expect(field).not.toContain('pattern=')
+    // The euro is drawn in the box, before the number, and is in the field's name, not "(€)" after the words.
+    expect(card).toContain(`<label>Day rate you'd do it for<span class="sr-only">, €</span> <span class="unit-box"><span class="unit" aria-hidden="true">€</span><input name="rate"`)
+    expect(card).not.toContain('(€)')
+    expect(card).toContain(`/offers/${o.id}#refused"`)
   })
 
   it('puts the message in the offer’s card, where the page lands after an answer', async () => {
@@ -253,13 +293,16 @@ describe('freelancer link', () => {
     let page = (await app.inject({ method: 'GET', url: thanks.to.pathname + thanks.to.search })).body
     expect(cardOf(page, picnic.id)).toContain('<p class="flash ok" role="status">Thanks, you&#39;re down for it.')
     expect(page.match(/class="flash/g)).toHaveLength(1)
+    expect(page).toContain('<title>Session Hire: your work</title>')
 
     // A refusal is an alert, in the card of the offer it's about, drawn at once with the note still in it (rule 11).
     const refused = await answer(app, aoife.linkToken, gig.id, { answer: 'accept', note: 'Can bring my own desk' })
     page = refused.page
     expect(cardOf(page, gig.id)).toContain('>Can bring my own desk</textarea>')
-    expect(cardOf(page, gig.id)).toContain('<p class="flash bad" role="alert">Already booked on Electric Picnic (Build)')
+    expect(cardOf(page, gig.id)).toContain('<p class="flash bad" role="alert" id="refused">Already booked on Electric Picnic (Build)')
+    expect(landing(page)).toMatch(/^<p class="flash bad" role="alert" id="refused">Already booked/)
     expect(page.match(/class="flash/g)).toHaveLength(1)
+    expect(page).toContain('<title>Error: Session Hire: your work</title>')
 
     // A declined offer has no card any more, so its message goes at the top.
     const off = await answer(app, aoife.linkToken, gig.id, { answer: 'decline' })
@@ -290,6 +333,14 @@ describe('freelancer link', () => {
       payload: 'start=2026-10-03&end=2026-10-05&note=On+tour',
     })
     expect(res.statusCode).toBe(303)
+    // Back at the list, with the thank-you drawn over it rather than at the top of the page (audit, 5 November 2026, finding 31).
+    expect(res.headers.location).toMatch(/[?&]s=away.*#away$/)
+    const added = (await app.inject({ url: String(res.headers.location).replace(/#.*/, '') })).body
+    expect(added.indexOf('<p class="flash')).toBeGreaterThan(added.indexOf('<section id="away">'))
+    const removeAt = added.match(/action="([^"]*\/away\/[^"]+\/remove)[^"]*"/)![1]!
+    const removed = await app.inject({ method: 'POST', url: removeAt, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: '' })
+    expect(removed.headers.location).toMatch(/[?&]s=away.*#away$/)
+    expect((await app.inject({ method: 'POST', url: `/f/${aoife.linkToken}/away`, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: 'start=2026-10-03&end=2026-10-05&note=On+tour' })).statusCode).toBe(303)
 
     // Dates it can't read are turned down beside the form, with what was typed still in it (rule 11).
     const bad = await app.inject({
@@ -300,15 +351,30 @@ describe('freelancer link', () => {
     })
     expect(bad.statusCode).toBe(422)
     expect(flashOf(bad.body)).toMatchObject({ ok: false, message: "The first day off isn't a real date. Pick it again." })
-    expect(bad.body.indexOf('<p class="flash bad"')).toBeGreaterThan(bad.body.indexOf('<section id="away">'))
+    expect(bad.body.indexOf('<p class="field-error"')).toBeGreaterThan(bad.body.indexOf('<section id="away">'))
     expect(bad.body).toContain('value="At a wedding"')
+    // From and Until are a pair, the note under them, and the form is drawn again landing on the pair, with the date refused in it.
+    expect(bad.body).toContain('<div class="pair" id="refused"><div><label>From <input type="date" name="start" required')
+    expect(bad.body).toContain('<label>Until <input type="date" name="end"')
+    expect(bad.body).toContain('action="http://localhost:80/f/' + aoife.linkToken + '/away#refused"')
 
-    // Each error says which date (audit, P3: words).
+    // Each error says which date (audit, P3: words), under that date, which is marked and joined to it; the page lands on
+    // the pair, so From is in sight with Until.
     const away = (payload: string) =>
       app.inject({ method: 'POST', url: `/f/${aoife.linkToken}/away`, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload })
-    expect(flashOf((await away('note=Gig')).body)).toMatchObject({ ok: false, message: 'Put in the first day off.' })
-    expect(flashOf((await away('start=2026-10-03&end=2026-02-30')).body)).toMatchObject({ ok: false, message: expect.stringContaining("The last day off isn't a real date.") })
-    expect(flashOf((await away('start=2026-10-05&end=2026-10-03')).body)).toMatchObject({ ok: false, message: 'The days off end before they start.' })
+    const under = async (payload: string, name: 'start' | 'end', message: string) => {
+      const page = (await away(payload)).body
+      expect(flashOf(page)).toMatchObject({ ok: false, message })
+      expect(landing(page)).toMatch(/^<div class="pair" id="refused"><div><label>From <input type="date" name="start"/)
+      expect(page).toMatch(new RegExp(`<input type="date" name="${name}"[^>]* aria-invalid="true" aria-describedby="away-${name}-error"[^>]*></label><p class="field-error" id="away-${name}-error" role="alert">`))
+      expect(page.match(/aria-invalid="true"/g)).toHaveLength(1)
+      expect(page).not.toContain('<p class="flash')
+    }
+    await under('note=Gig', 'start', 'Put in the first day off.')
+    await under('start=2026-10-03&end=2026-02-30', 'end', "The last day off isn't a real date. Pick it again, or leave it empty for one day.")
+    await under('start=2026-10-05&end=2026-10-03', 'end', 'The days off end before they start.')
+    // A page left open over midnight: the first day has gone by, but the rules say first that the last is before it.
+    await under('start=2026-09-27&end=2026-09-26', 'end', 'The days off end before they start.')
 
     // The same form sent twice (a double tap, or the browser sending it again) adds the days once.
     const formId = (await app.inject({ url: `/f/${aoife.linkToken}` })).body.match(/name="id" value="([a-z0-9]+)"/)![1]!
@@ -328,7 +394,7 @@ describe('freelancer link', () => {
   it('checks days off from the link: none gone by, none past a year, overlaps as one row, and a booking said beside them', async () => {
     // Proves (audit, 20 October 2026, finding 50): the link refuses a first day already gone and a span past a year, while
     // the office can still backdate; overlapping days off become one row with both notes; and days off over a booking they
-    // hold say beside the row that they're still booked and where to pull out, the booking staying as it was.
+    // hold say beside the row that they're still booked and where to say they can't make it, the booking staying as it was.
     const app = await server()
     const aoife = await person(app, 'Aoife Byrne')
     const away = (payload: string) =>
@@ -337,7 +403,12 @@ describe('freelancer link', () => {
     expect(past.statusCode).toBe(422)
     expect(flashOf(past.body)).toMatchObject({ ok: false, message: 'The first day off has gone by. Pick today or a day after it.' })
     expect(past.body).toContain('value="2020-01-01"')
-    expect(flashOf((await away('start=2026-10-01&end=2999-12-31')).body)).toMatchObject({ ok: false, message: 'Days off can be at most 366 days at a time.' })
+    // Said under the date it's about: the first day, gone by; the last, too far after it.
+    expect(landing(past.body)).toMatch(/^<div class="pair" id="refused"><div><label>From <input type="date" name="start"[^>]* aria-invalid="true"/)
+    const long = (await away('start=2026-10-01&end=2999-12-31')).body
+    expect(flashOf(long)).toMatchObject({ ok: false, message: 'Days off can be at most 366 days at a time.' })
+    expect(landing(long)).toMatch(/^<div class="pair" id="refused">/)
+    expect(long).toMatch(/<label>Until <input type="date" name="end"[^>]* aria-invalid="true"/)
     // The office's own path can still backdate, but not for ever either.
     expect(await send(app, 'unavailability.add', { id: newId(), personId: aoife.id, start: '2026-09-01', end: '2026-09-02', note: '' })).toMatchObject({ status: 'applied' })
     expect(await send(app, 'unavailability.add', { id: newId(), personId: aoife.id, start: '2020-01-01', end: '2025-08-01', note: '' })).toMatchObject({ status: 'rejected' })
@@ -356,7 +427,7 @@ describe('freelancer link', () => {
     expect((await away('start=2026-10-21&end=2026-10-22')).statusCode).toBe(303)
     const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
     const list = page.slice(page.indexOf('<section id="away">'), page.indexOf('class="add-away"'))
-    expect(list).toContain(`You're booked on <a href="#o-${o.id}">Electric Picnic</a> that day. Days off don't take you off it: use Can't make it any more on that booking.`)
+    expect(list).toContain(`You're booked on <a href="#o-${o.id}">Electric Picnic</a> that day. Days off don't take you off it: use Can't make it on that booking.`)
     expect(list.match(/class="clash"/g)).toHaveLength(1)
     expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'confirmed' })
   })
@@ -374,7 +445,8 @@ describe('freelancer link', () => {
 
   it('draws the next three bookings in full and the rest as a line each, opening in place (audit, 20 October 2026, finding 48)', async () => {
     // Proves: at volume the page doesn't draw every booking as a full card; the soonest three are, and the rest fold to
-    // the job, role, days and status, opening with no script; one a refused post is about opens by itself.
+    // the row the app draws, the job, then role · phase · days · call, then the status, opening with no script; one a
+    // refused post is about opens by itself.
     const app = await server()
     const aoife = await person(app, 'Aoife Byrne')
     const booked: string[] = []
@@ -392,10 +464,29 @@ describe('freelancer link', () => {
     expect(full.slice(0, 3)).toEqual([booked[1], booked[3], booked[5]])
     expect(section).toContain('2 more bookings after these, a line each: tap one to open it.')
     expect(section.match(/<details class="later">/g)).toHaveLength(2)
-    expect(section).toContain('<summary><b>Gig 7</b> · Audio tech · Sat 17 Oct <span class="tag confirmed">Confirmed</span></summary>')
+    // As it reads; the spaces a line never breaks at are the shared row's own (shared/test/bookings.test.ts).
+    expect(said(section)).toContain('<summary><b>Gig 7</b><span class="line">Audio tech · Build · Sat 17 Oct · call 08:00 <span class="tag confirmed">Booked</span></span></summary>')
     expect(section.indexOf('Gig 7')).toBeLessThan(section.indexOf('Gig 9'))
     // The glance line stays in view as the page scrolls.
     expect(page).toMatch(/\.glance\{[^}]*position:sticky/)
+  })
+
+  it('draws the three offers to answer soonest in full and the rest as a line each with the reply-by day (audit, 5 November 2026, finding 32)', async () => {
+    // Proves: at volume the offers fold as bookings do, soonest reply-by first, so the bookings aren't five screens down.
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const made: string[] = []
+    for (const n of [9, 3, 7, 1, 5]) {
+      const dayOf = `2026-10-${String(10 + n).padStart(2, '0')}`
+      made[n] = (await offer(app, await call(app, { project: `Gig ${n}`, start: dayOf, end: dayOf, replyBy: dayOf }), aoife.id)).id
+    }
+    const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    const section = page.slice(page.indexOf('<section id="offers">'), page.indexOf('<section id="bookings">'))
+    const full = [...section.matchAll(/<article class="offer offered" id="o-(\w+)">/g)].map((m) => m[1])
+    expect(full.slice(0, 3)).toEqual([made[1], made[3], made[5]])
+    expect(section).toContain('2 more offers after these, a line each: tap one to answer it.')
+    expect(section.match(/<details class="later">/g)).toHaveLength(2)
+    expect(said(section)).toContain('<summary><b>Gig 7</b><span class="line">Audio tech · Build · Sat 17 Oct · call 08:00 · reply by Sat 17 Oct <span class="tag offered">')
   })
 
   it('publishes bookings as a calendar feed any calendar app can subscribe to', async () => {
@@ -471,8 +562,8 @@ describe('the freelancer page (audit finding 21)', () => {
 
     const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
     const card = cardOf(page, gig.id)
-    expect(card).toContain(`<input type="checkbox" name="days" value="${d3}"> ${dayLabel(d3)} <small>booked on Electric Picnic (Build)</small></label>`)
-    expect(card).toContain(`<input type="checkbox" name="days" value="${d4}" checked> ${dayLabel(d4)}</label>`)
+    expect(card).toContain(`<input type="checkbox" name="days" value="${d3}"> <span class="day">${dayLabel(d3)}</span> <small>booked on Electric Picnic (Build)</small></label>`)
+    expect(card).toContain(`<input type="checkbox" name="days" value="${d4}" checked> <span class="day">${dayLabel(d4)}</span></label>`)
     expect(cardOf(page, oneDay.id)).toContain("<p class=\"clash\">You're booked on Electric Picnic (Build) that day.</p>")
     expect(cardOf(page, picnic.id)).not.toContain('booked on')
     // Accepting as the page offers it, with the clashing day left out, goes through first time.
@@ -503,7 +594,7 @@ describe('the freelancer page (audit finding 21)', () => {
     const five = await reads()
     expect(five.offers).toBe(one.offers)
     for (const page of [one.page, five.page])
-      expect(cardOf(page, first.id)).toContain(`<input type="checkbox" name="days" value="${d1}"> ${dayLabel(d1)} <small>booked on Electric Picnic (Build)</small></label>`)
+      expect(cardOf(page, first.id)).toContain(`<input type="checkbox" name="days" value="${d1}"> <span class="day">${dayLabel(d1)}</span> <small>booked on Electric Picnic (Build)</small></label>`)
   })
 
   it('shows the message after a post from a short code, or as the refusal the server recorded, never from words in the address', async () => {
@@ -561,6 +652,71 @@ describe('the freelancer page (audit finding 21)', () => {
     expect(timesheet).not.toContain('to agree')
   })
 
+  it("gives a member of staff Leave in place of days off, with no form, and turns a days-off post down in the app's words", async () => {
+    // Proves (UX sweep, 6 November 2026, move 6): a staff link lists their leave to come, approved and waiting, from the
+    // requests, and the way to ask for more in the app, where it's approved (ADR 0024); it draws no Add days off, and a
+    // page kept from before that posts one anyway is turned down with nothing marked. Days off marked before stay, to read
+    // and take back, until they've passed. A freelancer's page keeps Days you can't work and its form.
+    const app = await server()
+    const id = newId()
+    await send(app, 'person.upsert', { id, name: 'Orla Hayes', kind: 'staff', email: null, phone: null, skills: ['LX'], dayRateCents: null, notes: '' })
+    const orla = await entity<Person>(app, 'person', id)
+    const today = irishToday()
+    // 2031, opened for leave as a migration opens a year, for its fixed weekdays: Monday 3 to Friday 7 March, and Tuesday the 18th.
+    await lastDb.query('INSERT INTO leave_years (year) VALUES (2031) ON CONFLICT DO NOTHING')
+    await send(app, 'person.upsert', { id: 'eoin', name: 'Eoin Byrne', kind: 'staff', email: null, phone: null, skills: [], dayRateCents: null, notes: '', approvesLeave: true })
+    expect(await send(app, 'leave.request', { id: 'away-week', personId: id, type: 'annual', start: '2031-03-03', end: '2031-03-07', note: 'Family wedding' })).toMatchObject({ status: 'applied' })
+    expect(await send(app, 'leave.request', { id: 'one-day', personId: id, type: 'annual', start: '2031-03-18', end: '2031-03-18', note: '' })).toMatchObject({ status: 'applied' })
+    expect(await send(app, 'leave.decide', { id: 'away-week', approved: true, reason: '', by: 'eoin' })).toMatchObject({ status: 'applied' })
+    // Days off marked before staff time off was leave, and a run of them already over.
+    await send(app, 'unavailability.add', { id: 'course', personId: id, start: addDays(today, 3), end: addDays(today, 3), note: 'First aid course' })
+    await send(app, 'unavailability.add', { id: 'over', personId: id, start: addDays(today, -9), end: addDays(today, -8), note: 'Old course' })
+
+    const page = (await app.inject({ url: `/f/${orla.linkToken}` })).body
+    const leave = page.slice(page.indexOf('<section id="away">'), page.indexOf('</section>', page.indexOf('<section id="away">')))
+    expect(leave).toContain('<h2>Leave</h2>')
+    expect(leave).not.toContain("Days you can't work")
+    expect(leave).not.toContain('Add days off')
+    expect(leave).not.toContain(`/f/${orla.linkToken}/away#refused`)
+    // Soonest first: the days off marked before and still to come, the approved week, then the day still waiting.
+    const rows = [...leave.matchAll(/<li><span>([^<]*) <small>([^<]*)<\/small><\/span>/g)].map((m) => [m[1], m[2]])
+    expect(rows).toEqual([
+      [dayLabel(addDays(today, 3), today), 'Days off · First aid course'],
+      ['Mon 3 Mar 2031 to Fri 7 Mar 2031', 'Annual leave · Family wedding'],
+      ['Tue 18 Mar 2031', 'Annual leave'],
+    ])
+    expect(leave.match(/<span class="tag (approved|waiting)">(Approved|Waiting for approval)<\/span>/g)).toEqual(['<span class="tag approved">Approved</span>', '<span class="tag waiting">Waiting for approval</span>'])
+    // Approved leave marks its days off too, and isn't said twice; the days off marked before keep their Remove.
+    expect(leave).not.toContain('Approved leave')
+    expect(leave).toContain(`/f/${orla.linkToken}/away/course/remove#away`)
+    expect(leave).not.toContain('Old course')
+    expect(leave).toMatch(/<a class="sheet-link" href="http:\/\/localhost[:\d]*\/#crew\/leave">Ask for leave in the app ›<\/a>/)
+    // Nor does sharing their own calendar offer itself in place of marking days here.
+    expect(page).toContain("You can let us see when you're busy in the calendar you already use")
+    expect(page).not.toContain('Rather than marking days here')
+
+    // A page kept from before, posting days off anyway: turned down in the app's words, over the list, and nothing marked.
+    const posted = await app.inject({
+      method: 'POST',
+      url: `/f/${orla.linkToken}/away`,
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: `start=${addDays(today, 40)}&end=${addDays(today, 41)}&note=Gig`,
+    })
+    expect(posted.statusCode).toBe(422)
+    expect(flashOf(posted.body)).toMatchObject({ ok: false, message: 'Staff ask for leave in the app, under Leave, where whoever approves time off sees it.' })
+    expect(posted.body.indexOf('<p class="flash bad" role="alert" id="refused">')).toBeGreaterThan(posted.body.indexOf('<h2>Leave</h2>'))
+    const { rows: marked } = await lastDb.query('SELECT 1 FROM unavailability WHERE person_id = $1 AND start_day = $2', [id, addDays(today, 40)])
+    expect(marked).toHaveLength(0)
+
+    // A freelancer's page is as it was.
+    const aoife = await person(app, 'Aoife Byrne')
+    const hers = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    expect(hers).toContain("<h2>Days you can't work</h2>")
+    expect(hers).toContain('<button>Add days off</button>')
+    expect(hers).toContain("Rather than marking days here, you can let us see when you're busy")
+    expect(hers).not.toContain('Ask for leave in the app')
+  })
+
   it('splits what is over into past work and offers that ended another way, each with its days and the day it ended', async () => {
     // Proves: "Earlier" is now "Past work" and "Declined and withdrawn", and each line says the job, the role, the days and how it ended, with the day: declined, withdrawn or filled.
     const app = await server()
@@ -583,14 +739,179 @@ describe('the freelancer page (audit finding 21)', () => {
 
     const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
     expect(page).not.toContain('<h2>Earlier</h2>')
-    const past = page.slice(page.indexOf('<h2>Past work</h2>'), page.indexOf('<h2>Declined and withdrawn</h2>'))
-    expect(past).toContain(`<li>Autumn Gala (Show) · Audio tech · ${daysLabel(galaDays)} <small>Confirmed</small></li>`)
+    const past = page.slice(page.indexOf('<h2>Work done</h2>'), page.indexOf('<h2>Declined and withdrawn</h2>'))
+    expect(past).toContain(`<li>Autumn Gala (Show) · Audio tech · ${daysLabel(galaDays)} <small>Booked</small></li>`)
     expect(past).not.toContain('Electric Picnic')
     const turned = page.slice(page.indexOf('<h2>Declined and withdrawn</h2>'))
     expect(turned).toContain(`<li>Electric Picnic (Build) · Audio tech · ${daysLabel(['2026-10-02', '2026-10-03', '2026-10-04'])} <small>You declined on ${dayLabel(today)}</small></li>`)
-    expect(turned).toContain(`<li>Vicar Street (Build) · Audio tech · ${dayLabel('2026-10-06')} <small>Withdrawn on ${dayLabel(today)}</small></li>`)
+    expect(turned).toContain(`<li>Vicar Street (Build) · Audio tech · ${dayLabel('2026-10-06')} <small>Withdrawn by the office on ${dayLabel(today)}</small></li>`)
     expect(turned).toContain(`<li>Olympia (Show) · Audio tech · ${dayLabel('2026-10-08')} <small>Filled by someone else on ${dayLabel(today)}</small></li>`)
     expect(turned).not.toContain('Autumn Gala')
+  })
+
+  it('marks what changed on a booking since the yes, for a week or until its call, reading the log once a page and writing nothing', async () => {
+    // Proves (UX sweep, 6 November 2026, move 6): nothing is sent when the office moves a call (ADR 0048), so the card says it
+    // the next time the page is opened: the call time, the days and the venue as they are now, with what she said yes to in
+    // brackets, until the call after the change; a change it can't put in brackets is said plainly; and drawing the page
+    // reads the log once, whatever the number of bookings, and writes nothing.
+    const db = await pgliteDb()
+    const read: string[] = []
+    const counted: Db = { ...db, query: (sql, params) => (read.push(sql), db.query(sql, params)) }
+    const app = await buildApp({ db: counted })
+    cleanup.push(async () => {
+      await app.close()
+      await db.close()
+    })
+    const aoife = await person(app, 'Aoife Byrne')
+    const picnic = await call(app, { callTime: '09:00' })
+    const o = await offer(app, picnic, aoife.id)
+    await answer(app, aoife.linkToken, o.id, { answer: 'accept' })
+    await send(app, 'offer.confirm', { id: o.id })
+    const later = await call(app, { project: 'Vicar Street', venue: 'Vicar Street', start: '2026-10-20', end: '2026-10-20', callTime: '10:00' })
+    const v = await offer(app, later, aoife.id)
+    await answer(app, aoife.linkToken, v.id, { answer: 'accept' })
+    const page = async () => (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    // Confirming it is no change to say.
+    expect(await page()).not.toContain('class="was"')
+
+    // The office moves Electric Picnic a day later, to 07:30 and to Punchestown, and drops Vicar Street's call time.
+    await send(app, 'call.update', { id: picnic, start: '2026-10-03', end: '2026-10-05', callTime: '07:30', venue: 'Punchestown' })
+    await send(app, 'call.update', { id: later, callTime: null })
+    const [{ n: logged }] = (await db.query<{ n: string }>('SELECT count(*) AS n FROM changes')).rows as [{ n: string }]
+    read.length = 0
+    let card = cardOf(said(await page()), o.id)
+    expect(card).toContain(`<dt>Dates</dt><dd>${said(daysLabel(['2026-10-03', '2026-10-04', '2026-10-05']))} <span class="was">(was ${said(daysLabel(['2026-10-02', '2026-10-03', '2026-10-04']))})</span></dd>`)
+    expect(card).toContain('<dt>Call time</dt><dd>07:30 <span class="was">(was 09:00)</span></dd>')
+    expect(card).toContain('>Punchestown</a> <span class="was">(was Stradbally Hall)</span></dd>')
+    expect(card).not.toContain('Changed since you said yes')
+    // A call time taken away has no row to put a bracket on: said plainly, with no bracket.
+    const vicar = cardOf(said(await page()), v.id)
+    expect(vicar).toContain('<p class="news">Changed since you said yes · check the call</p>')
+    expect(vicar).not.toContain('class="was"')
+    // One read of the log for both bookings on each drawing, and nothing written by opening the page.
+    expect(read.filter((sql) => /\bchanges\b/.test(sql))).toHaveLength(2)
+    expect((await db.query<{ n: string }>('SELECT count(*) AS n FROM changes')).rows[0]!.n).toBe(logged)
+
+    // News until the call after the change, Saturday's at 07:30 in Ireland, then the page says it plainly.
+    vi.setSystemTime(new Date('2026-10-03T06:29:00Z'))
+    expect(cardOf(await page(), o.id)).toContain('(was 09:00)')
+    vi.setSystemTime(new Date('2026-10-03T06:30:00Z'))
+    card = cardOf(await page(), o.id)
+    expect(card).toContain('<dt>Call time</dt><dd>07:30</dd>')
+    expect(card).not.toContain('class="was"')
+    // Vicar Street's is news for a week, its call being further off: until 10:00 in Ireland a week after the change.
+    vi.setSystemTime(new Date('2026-10-05T08:59:00Z'))
+    expect(cardOf(await page(), v.id)).toContain('Changed since you said yes')
+    vi.setSystemTime(new Date('2026-10-05T09:00:00Z'))
+    expect(cardOf(await page(), v.id)).not.toContain('Changed since you said yes')
+  })
+
+  it("says a change it can't put in brackets on the day's card too, as on the booking's", async () => {
+    // Proves (UX sweep, 6 November 2026, move 6): from 6pm the evening before, the card at the top is the one they look at, so a
+    // change that can't be said as now and was, a call time set where there was none, is said there as on the booking's card.
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const c = await call(app, { callTime: null })
+    const o = await offer(app, c, aoife.id)
+    await answer(app, aoife.linkToken, o.id, { answer: 'accept' })
+    await send(app, 'call.update', { id: c, callTime: '07:00' })
+    // The evening before its first day, Friday 2 October: after 6pm in Ireland on Thursday.
+    vi.setSystemTime(new Date('2026-10-01T17:30:00Z'))
+    const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    expect(page).toContain('<h2>Tomorrow</h2>')
+    const from = page.indexOf(`id="late-${o.id}"`)
+    const tomorrow = page.slice(from, page.indexOf('</article>', from))
+    expect(tomorrow).toContain('call 07:00')
+    expect(tomorrow).toContain('<p class="news">Changed since you said yes · check the call</p>')
+    expect(tomorrow).not.toContain('class="was"')
+    expect(cardOf(page, o.id)).toContain('<p class="news">Changed since you said yes · check the call</p>')
+  })
+
+  it("says how a booking ended as its card's first line, in its place, while that's news, then in Declined and withdrawn", async () => {
+    // Proves (UX sweep, 6 November 2026, move 6): the client cancelling, a job not going ahead and the office taking her off
+    // are three different news, each its booking card's first line, and its heading's, where the booking was among the rest,
+    // in place of "Withdrawn" far down the page; a stopped job is said as it stands now, so one cancelled and then marked
+    // lost didn't go ahead, and one started again since is the office's doing; an offer she never answered goes straight to
+    // the list; after a week the bookings join it, in the same words.
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    // On days of their own, as nobody holds two jobs on a day.
+    const booked = async (name: string, day: string) => {
+      const job = newId()
+      await send(app, 'project.create', { id: job, name, clientId: null, venueId: null, status: 'confirmed', notes: '' })
+      const c = await call(app, { projectId: job, project: name, start: day, end: day })
+      const o = await offer(app, c, aoife.id)
+      await answer(app, aoife.linkToken, o.id, { answer: 'accept' })
+      return { job, c, o, name }
+    }
+    const gala = await booked('Autumn Gala', '2026-10-20')
+    const olympia = await booked('Olympia', '2026-10-21')
+    const fair = await booked('Craft Fair', '2026-10-22')
+    const vicar = await booked('Vicar Street', '2026-10-23')
+    const harvest = await booked('Harvest Fair', '2026-10-24')
+    await offer(app, await call(app, { projectId: gala.job, project: 'Autumn Gala', role: 'Stagehand', start: '2026-10-26', end: '2026-10-26' }), aoife.id)
+    await send(app, 'project.update', { id: gala.job, status: 'cancelled' })
+    await send(app, 'project.update', { id: fair.job, status: 'cancelled' })
+    await send(app, 'project.update', { id: fair.job, status: 'lost' })
+    await send(app, 'offer.cancel', { id: vicar.o.id })
+    await send(app, 'project.update', { id: harvest.job, status: 'cancelled' })
+    await send(app, 'project.update', { id: harvest.job, status: 'confirmed' })
+
+    const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    const bookings = page.slice(page.indexOf('<h2>Your bookings</h2>'), page.indexOf('</section>', page.indexOf('<h2>Your bookings</h2>')))
+    // In date order with the booking still on, as her page in the app lists them.
+    const order = [gala, olympia, fair, vicar, harvest].map(({ o }) => bookings.indexOf(`id="o-${o.id}"`))
+    expect(order[0]).toBeGreaterThan(-1)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    for (const [{ o, name }, first] of [
+      [gala, 'The job was cancelled'],
+      [fair, "The job didn't go ahead"],
+      [vicar, 'Withdrawn by the office'],
+      [harvest, 'Withdrawn by the office'],
+    ] as const) {
+      const card = cardOf(bookings, o.id)
+      expect(card, first).toContain(`<h3><span class="news">${first.replaceAll("'", '&#39;')}</span> ${name}</h3>`)
+      // Nothing to answer on it, and no call sheet for a job that isn't going ahead.
+      expect(card).not.toContain('<form')
+      expect(card).not.toContain('Call sheet')
+    }
+    const turned = page.slice(page.indexOf('<h2>Declined and withdrawn</h2>'))
+    expect(turned).toContain(`<li>Autumn Gala (Build) · Stagehand · ${dayLabel('2026-10-26')} <small>The job was cancelled on ${dayLabel(irishToday())}</small></li>`)
+    expect(turned).not.toContain('Audio tech')
+
+    // A week on, they're over as news: each in the list, in its card's words, with the day it ended.
+    vi.setSystemTime(new Date('2026-10-05T09:00:00Z'))
+    const after = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    expect(after).not.toContain('class="offer ended"')
+    const list = said(after.slice(after.indexOf('<h2>Declined and withdrawn</h2>')))
+    expect(list).toContain(`<small>The job was cancelled on ${dayLabel('2026-09-28', '2026-10-05')}</small>`)
+    expect(list).toContain(`<small>The job didn&#39;t go ahead, as of ${dayLabel('2026-09-28', '2026-10-05')}</small>`)
+    expect(list).toContain(`<small>Withdrawn by the office on ${dayLabel('2026-09-28', '2026-10-05')}</small>`)
+  })
+
+  it('folds what is over after the latest three under Earlier, with its count, never cutting it off', async () => {
+    // Proves (UX sweep, 6 November 2026, move 6): Past work and Declined and withdrawn stopped silently at eight; now every
+    // one is there, the latest three in full and the rest under "Earlier (n)", shut until opened.
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    for (const day of ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']) {
+      const o = await offer(app, await call(app, { project: `Gig ${day}`, phase: '', start: day, end: day }), aoife.id)
+      await answer(app, aoife.linkToken, o.id, { answer: 'accept' })
+    }
+    for (const day of ['2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13']) {
+      const o = await offer(app, await call(app, { project: `Show ${day}`, phase: '', start: day, end: day }), aoife.id)
+      await answer(app, aoife.linkToken, o.id, { answer: 'decline' })
+    }
+    const page = said((await app.inject({ url: `/f/${aoife.linkToken}` })).body)
+    const past = page.slice(page.indexOf('<h2>Work done</h2>'), page.indexOf('<h2>Declined and withdrawn</h2>'))
+    const [shown, folded] = past.split('<details class="later">') as [string, string]
+    expect(shown.match(/<li>/g)).toHaveLength(3)
+    expect(shown.indexOf('Gig 2026-09-05')).toBeLessThan(shown.indexOf('Gig 2026-09-03'))
+    expect(folded).toMatch(/^<summary><b>Earlier \(2\)<\/b><\/summary>/)
+    expect(folded).toContain('Gig 2026-09-02')
+    expect(folded).toContain('Gig 2026-09-01')
+    const turned = page.slice(page.indexOf('<h2>Declined and withdrawn</h2>'))
+    expect(turned).toContain('<summary><b>Earlier (1)</b></summary><ul class="closed"><li>Show 2026-10-10')
   })
 })
 
@@ -717,7 +1038,8 @@ describe('changing a call', () => {
     expect(nialls).toContain('€280 a day')
     expect(nialls).toContain('<dt>Reply by</dt><dd>Wed 30 Sep</dd>')
     const aoifes = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
-    expect(aoifes).toContain('<dt>Call time</dt><dd>09:00</dd>')
+    // Aoife said yes at 08:00, so her card says what moved since (UX sweep, 6 November 2026, move 6); Niall's offer just reads as it is.
+    expect(aoifes).toContain('<dt>Call time</dt><dd>09:00 <span class="was">(was 08:00)</span></dd>')
     expect(aoifes).toContain('€250 a day')
     expect(aoifes).toContain('Parking at gate B.')
     const sheet = (await app.inject({ url: `/f/${aoife.linkToken}/sheet/${c}` })).body
@@ -894,17 +1216,19 @@ describe('telling the office', () => {
 
     // Her page offers the way out on a booking, folded away, and takes the pull-out from its own form.
     let page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
-    expect(cardOf(page, o.id)).toContain("Can't make it any more?")
+    // One name for it on both sides (UX sweep, 6 November 2026, move 6): the fold, the button, the pill after and the office's pill.
+    expect(cardOf(page, o.id)).toContain("<summary>Can't make it?</summary>")
+    expect(cardOf(page, o.id)).toContain(`<button class="no" name="answer" value="pullOut">Can't make it</button>`)
     expect(cardOf(page, o.id)).toContain('name="answer" value="pullOut"')
     expect(cardOf(page, o.id)).not.toContain('value="decline"')
     const out = await answer(app, aoife.linkToken, o.id, { answer: 'pullOut', note: 'Double booked, sorry.' })
-    expect(out).toMatchObject({ ok: true, message: "Thanks for telling us. You're off this one, and the office will find cover." })
+    expect(out).toMatchObject({ ok: true, message: "Thanks for telling us you can't make it. You're off this one, and the office will find cover." })
     // A pull-out is new to the office, so it waits to be noted even though the booking had been.
     expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'pulled-out', note: 'Double booked, sorry.', respondedVia: 'link', seenAt: null })
 
     // The card has gone to "Declined and withdrawn", with the message at the top; the place is free, so Niall can be offered it and the sheet leaves her out.
     page = (await app.inject({ url: out.to.pathname + out.to.search })).body
-    expect(page).toContain('You pulled out on')
+    expect(page).toContain(`<small>Can&#39;t make it: you told us on ${dayLabel(irishToday())}</small>`)
     expect(page).not.toContain(`id="o-${o.id}"`)
     expect(page.indexOf('class="flash ok"')).toBeLessThan(page.indexOf('<section>'))
     const n = await offer(app, c, niall.id)
@@ -919,7 +1243,7 @@ describe('telling the office', () => {
 
     const history = (await app.inject({ url: '/api/history' })).json() as { entries: { what: string; who: { kind: string; name: string } }[] }
     expect(history.entries.find((e) => e.what.startsWith('Aoife Byrne can'))).toMatchObject({
-      what: "Aoife Byrne can't make it any more: Audio tech on Electric Picnic (Double booked, sorry.)",
+      what: "Aoife Byrne can't make it: Audio tech on Electric Picnic (Double booked, sorry.)",
       who: { kind: 'link', name: 'Aoife Byrne' },
     })
   })
@@ -930,22 +1254,35 @@ describe('telling the office', () => {
     const c = await call(app)
     const o = await offer(app, c, aoife.id)
     const early = await answer(app, aoife.linkToken, o.id, { answer: 'pullOut' })
-    expect(early).toMatchObject({ ok: false, message: "You can only pull out of a job you've said yes to." })
+    expect(early).toMatchObject({ ok: false, message: "You can only say you can't make it to a job you've said yes to." })
     expect((await entity<Offer>(app, 'offer', o.id)).status).toBe('offered')
 
     // Accepted, not yet confirmed: the office records a pull-out that came by phone.
     await answer(app, aoife.linkToken, o.id, { answer: 'accept' })
     expect((await send(app, 'offer.respond', { id: o.id, answer: 'pullOut', note: 'Rang to say so.' })).status).toBe('applied')
     expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'pulled-out', respondedVia: 'app' })
-    // Pulled out is over: no answering it again.
-    expect(await answer(app, aoife.linkToken, o.id, { answer: 'accept' })).toMatchObject({ ok: false, message: "You've pulled out of this one. Ask the office if you can do it after all." })
+    // Can't make it is over: no answering it again.
+    expect(await answer(app, aoife.linkToken, o.id, { answer: 'accept' })).toMatchObject({ ok: false, message: "You've told us you can't make this one. Ask the office if you can do it after all." })
     const history = (await app.inject({ url: '/api/history' })).json() as { entries: { what: string }[] }
-    expect(history.entries[1]!.what).toBe("Aoife Byrne can't make it any more: Audio tech on Electric Picnic (Rang to say so.)")
+    expect(history.entries[1]!.what).toBe("Aoife Byrne can't make it: Audio tech on Electric Picnic (Rang to say so.)")
     await send(app, 'offer.seen', { id: o.id })
     expect((await app.inject({ url: '/api/history' })).json().entries[0].what).toBe("Noted that Aoife Byrne can't make Audio tech on Electric Picnic")
     // A Withdraw queued on another device changes nothing: the pull-out stays for the office to see.
     expect((await send(app, 'offer.cancel', { id: o.id })).status).toBe('applied')
     expect((await entity<Offer>(app, 'offer', o.id)).status).toBe('pulled-out')
+
+    // A page left open from before still has the button on a booking the office has since taken her off: said so, not that
+    // she never said yes; and on a job that isn't going ahead, that its call is off, whichever way it stopped.
+    const gone = await offer(app, await call(app, { project: 'Vicar Street', start: '2026-10-20', end: '2026-10-20' }), aoife.id)
+    await answer(app, aoife.linkToken, gone.id, { answer: 'accept' })
+    await send(app, 'offer.cancel', { id: gone.id })
+    expect(await answer(app, aoife.linkToken, gone.id, { answer: 'pullOut' })).toMatchObject({ ok: false, message: "The office has already taken you off this one, so there's nothing to do." })
+    const fair = newId()
+    await send(app, 'project.create', { id: fair, name: 'Craft Fair', clientId: null, venueId: null, status: 'confirmed', notes: '' })
+    const lost = await offer(app, await call(app, { projectId: fair, project: 'Craft Fair', start: '2026-10-21', end: '2026-10-21' }), aoife.id)
+    await answer(app, aoife.linkToken, lost.id, { answer: 'accept' })
+    await send(app, 'project.update', { id: fair, status: 'lost' })
+    expect(await answer(app, aoife.linkToken, lost.id, { answer: 'pullOut' })).toMatchObject({ ok: false, message: 'Audio tech on Craft Fair is off.' })
 
     // Once the job has happened the page shows no way out, and a crafted post is refused, so the timesheet stays.
     const past = await call(app, { start: '2026-09-01', end: '2026-09-02' })
@@ -1099,7 +1436,7 @@ describe('correcting people (audit finding 7)', () => {
     await answer(app, aoife.linkToken, o.id, { answer: 'accept' })
     expect(await archive()).toMatchObject({ status: 'rejected', reason: { message: 'Aoife Byrne has accepted Electric Picnic (Build); release them first.' } })
     await send(app, 'offer.confirm', { id: o.id })
-    expect(await archive()).toMatchObject({ status: 'rejected', reason: { message: 'Aoife Byrne is booked on Electric Picnic (Build); release them first.' } })
+    expect(await archive()).toMatchObject({ status: 'rejected', reason: { message: "Aoife Byrne is booked on Electric Picnic (Build); withdraw their booking on the job's crew first." } })
     expect((await entity<Person>(app, 'person', aoife.id)).archived).toBe(false)
 
     // Released, nothing holds them. A job long over never did.
@@ -1147,6 +1484,8 @@ describe('correcting people (audit finding 7)', () => {
     const email = await post(app, details, { phone: '', email: 'aoife.byrne@example.com' })
     expect(email).toMatchObject({ ok: false, message: "Your email can't be changed here. Ask the office to change it." })
     expect(email.page).toContain('<details id="details" open>')
+    // The page has no email field to say it under, so it's said above the form, and landed on there.
+    expect(landing(email.page)).toMatch(/^<p class="flash bad" role="alert" id="refused">Your email can&#39;t be changed here/)
     expect(await colly.record<Person>('person', 'p1')).toMatchObject({ phone: '+353 87 999 8888', email: 'aoife@example.com' })
     // A number alone; then nothing, which sends nothing.
     expect(await post(app, details, { phone: '' })).toMatchObject({ ok: true })
@@ -1160,9 +1499,13 @@ describe('correcting people (audit finding 7)', () => {
     // The same checks as the office's form, with the reason in the section.
     const badPhone = await post(app, details, { phone: 'ring me' })
     expect(badPhone).toMatchObject({ ok: false, message: 'Phone numbers need digits only, ideally starting with +353.' })
-    // Drawn at once in the section, open, with what was typed still in it (rule 11).
+    // Drawn at once in the section, open, with what was typed still in it (rule 11), said under the number, which is
+    // described by its hint and then the refusal, and landed on.
     expect(badPhone.page).toContain('<details id="details" open>')
     expect(badPhone.page).toContain('value="ring me"')
+    expect(landing(badPhone.page)).toMatch(/^<div class="field" id="refused"><label for="phone">Mobile<\/label>\s*<small class="hint" id="phone-hint">Write your mobile with the country code/)
+    expect(badPhone.page).toMatch(/<input type="tel" id="phone" name="phone" aria-invalid="true" aria-describedby="phone-hint phone-error" value="ring me"[^>]*><\/div>\s*<p class="field-error" id="phone-error" role="alert">Phone numbers need digits only/)
+    expect(badPhone.page).not.toContain('<p class="flash')
     expect(await colly.record<Person>('person', 'p1')).toMatchObject({ phone: null, email: 'aoife@example.com' })
 
     // The office can run it from the app too, in its own words. A change with nothing in it is turned down, not quietly applied.

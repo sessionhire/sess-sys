@@ -56,7 +56,8 @@ export function SignIn() {
               </p>
             )}
             <p>Use your Session Hire Google account.</p>
-            <a className="button primary" href={signInUrl(location.hash || '#jobs')}>
+            {/* Back to where they were, or Home, which starts each role on its own view; not the office's Jobs (audit, 5 November 2026, finding 48). */}
+            <a className="button primary" href={signInUrl(location.hash || '#home')}>
               Sign in with Google
             </a>
           </>

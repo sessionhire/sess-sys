@@ -131,6 +131,8 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   const speakerRow = pickRow(page, speaker)
   const cableRow = pickRow(page, cable)
   const countOut = cableRow.getByRole('form', { name: `Count out ${cable}` })
+  // Part of a count is typed behind its own press, so a long list is rows to read (audit, 5 November 2026, finding 35).
+  await countOut.getByRole('button', { name: 'Type how many' }).click()
   await countOut.getByLabel('How many').fill('20')
   await countOut.getByRole('button', { name: 'Count out', exact: true }).click()
   await expect(page.locator('.pick-total')).toHaveText('All 23 out: ready to load.')
@@ -138,6 +140,8 @@ test('damaged and missing kit, reported on return, then fixed, found and written
 
   // Back, with no signal.
   await context.setOffline(true)
+  // Said at once, not a minute later when the live connection is given up on (audit, 5 November 2026, finding 34).
+  await expect(page.locator('.conn')).toContainText('No signal', { timeout: 5_000 })
   await page.getByRole('button', { name: 'Coming back' }).click()
   await typeIn(speakers[0]!)
   await expect(said).toHaveText(`${speakers[0]} ${speaker} back: 1 of 3 back.`)
@@ -152,30 +156,44 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   // Said where the eye already is, and not offered again (audit, 20 October 2026, finding 42).
   await expect(said).toHaveText(`${speakers[0]} reported damaged: can't go out until it's fixed.`)
   await expect(page.getByRole('button', { name: `Report damage to ${speakers[0]}` })).toHaveCount(0)
+  // Its row among what's back says so in the bad flag, and that it's still only on this phone, as the answer does (UX sweep,
+  // 6 November 2026, move 3).
+  await expect(page.locator('.said', { has: said }).locator('.pill')).toHaveText('Waiting to sync')
+  await speakerRow.locator('.back-items summary').click()
+  const backRow = speakerRow.locator('.back-damage .item-row', { hasText: speakers[0]! })
+  await expect(backRow.locator('p')).toHaveText(`Damaged, can't go out · ${bay}`)
+  await expect(backRow.locator('.flag.bad')).toHaveText("Damaged, can't go out")
+  await expect(backRow.locator('.pill')).toHaveText('Waiting to sync')
+  // The grey dashed one, not amber.
+  await expect(backRow.locator('.pill')).toHaveClass(/\bwaiting\b/)
   // The second speaker didn't come back.
   await speakerRow
     .getByRole('list', { name: 'Still out' })
     .locator('li', { hasText: speakers[1]! })
     .getByRole('button', { name: 'Missing' })
     .click()
-  await expect(speakerRow.locator('.count')).toHaveText('1 still out, 1 missing')
-  await expect(speakerRow.getByRole('list', { name: 'Missing' })).toHaveText(speakers[1]!)
+  await expect(speakerRow.locator('.count')).toHaveText('1 back, 1 still out, 1 missing')
+  const missingRow = speakerRow.getByRole('list', { name: 'Missing' }).locator('.item-row')
+  await expect(missingRow.getByRole('link')).toHaveText(speakers[1]!)
+  await expect(missingRow.locator('.flag.bad')).toHaveText('Missing')
+  await expect(missingRow.locator('.pill')).toHaveText('Waiting to sync')
   await expect(said).toHaveText(`${speakers[1]} marked missing. Scan it when it turns up and it's marked found.`)
   // At once, with Undo rather than a question first (audit, 20 October 2026, finding 40): undone, it's out again; then missing after all.
   await page.getByRole('button', { name: 'Undo' }).click()
   await expect(said).toHaveText(`Undone: ${speakers[1]} isn't missing: it's out with ${job} again.`)
-  await expect(speakerRow.locator('.count')).toHaveText('2 still out')
+  await expect(speakerRow.locator('.count')).toHaveText('1 back, 2 still out')
   await speakerRow
     .getByRole('list', { name: 'Still out' })
     .locator('li', { hasText: speakers[1]! })
     .getByRole('button', { name: 'Missing' })
     .click()
-  await expect(speakerRow.locator('.count')).toHaveText('1 still out, 1 missing')
+  await expect(speakerRow.locator('.count')).toHaveText('1 back, 1 still out, 1 missing')
   // 17 cables back, 3 missing, and 2 of those back are cut.
   const countBack = cableRow.getByRole('form', { name: `Count back ${cable}` })
+  await countBack.getByRole('button', { name: 'Type how many' }).click()
   await countBack.getByLabel('How many').fill('17')
   await countBack.getByRole('button', { name: 'Count back', exact: true }).click()
-  await expect(cableRow.locator('.count')).toHaveText('3 still out')
+  await expect(cableRow.locator('.count')).toHaveText('17 back, 3 still out')
   await countBack.getByLabel('How many').fill('3')
   await countBack.getByRole('button', { name: 'Missing' }).click()
   await expect(cableRow.locator('.count')).toHaveText('17 back, 3 missing')
@@ -193,12 +211,21 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   // Signal back; the missing speaker turns up in the van and is scanned: found.
   await context.setOffline(false)
   await expect(page.locator('.conn')).toHaveText('Up to date')
+  await expect(missingRow.locator('.pill')).toHaveCount(0)
+  await expect(backRow.locator('.pill')).toHaveCount(0)
+  await expect(backRow.locator('.flag.bad')).toHaveText("Damaged, can't go out")
   await typeIn(speakers[1]!)
   await expect(said).toHaveText(`${speakers[1]} ${speaker} isn't out, so there's nothing to bring back. It was reported missing, so it's marked found.`)
-  await expect(speakerRow.locator('.count')).toHaveText('1 still out')
+  await expect(speakerRow.locator('.count')).toHaveText('2 back, 1 still out')
   await typeIn(speakers[2]!)
   await expect(speakerRow.locator('.count')).toHaveText('All 3 back')
   await expect(page.locator('.conn')).toHaveText('Up to date')
+
+  // Found by its number, its row says it can't go out, not only where it's kept (UX sweep, 6 November 2026, move 3). Part of the
+  // number lists it; the whole number would open its page (move 8).
+  await page.goto('/#stock')
+  await page.getByLabel('Find').fill(speakers[0]!.slice(-5))
+  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row', { hasText: speakers[0]! }).locator('.flag.bad')).toHaveText("Damaged, can't go out")
 
   // The job's kit is short by what can't go out.
   await page.goto('/#jobs')
@@ -208,7 +235,8 @@ test('damaged and missing kit, reported on return, then fixed, found and written
 
   // Stock's Repairs page.
   await page.goto('/#stock/repairs')
-  const repairs = page.getByRole('region', { name: 'Faults and repairs' })
+  const repairs = page.getByRole('region', { name: 'Repairs open' })
+  await expect(repairs.getByRole('heading', { level: 2 })).toHaveText(/^Repairs open \(\d+\)$/)
   await expect(repairs.getByRole('listitem', { name: `${speakers[0]} ${speaker}` })).toContainText("Damaged, can't go out")
   await expect(repairs.getByRole('listitem', { name: `2 × ${cable}` })).toContainText('Cut near the plug')
   await expect(repairs.getByRole('listitem', { name: `3 × ${cable}` })).toContainText(`Missing · From ${job}`)
@@ -224,6 +252,7 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   // Fixed on the bench.
   await repairs.getByRole('link', { name: `${speakers[0]} ${speaker}` }).click()
   await expect(page.locator('.facts')).toContainText("FaultDamaged, can't go out: Blown driver")
+  await page.getByRole('tab', { name: /^Faults/ }).click()
   const faults = page.getByRole('region', { name: 'Faults' })
   await faults.getByRole('button', { name: 'Change details' }).click()
   await faults.getByLabel("What's wrong").fill('Blown driver, rattles at high level')
@@ -250,6 +279,6 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   await expect(cableFault.getByRole('group', { name: `Write off 3 × ${cable}? They're taken off the count, and it's kept in the history.` })).toBeVisible()
   await cableFault.getByRole('button', { name: 'Write it off' }).click()
   await page.getByRole('tab', { name: /^Details/ }).click()
-  await expect(page.locator('.facts')).toContainText("In all17 2 can't go out")
+  await expect(page.locator('.facts')).toContainText("In all17 · 2 can't go out")
   await expect(page.locator('.conn')).toHaveText('Up to date')
 })

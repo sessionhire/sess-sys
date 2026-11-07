@@ -181,11 +181,11 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
 }
 
 /** Not this person's, or the job's changed since the link was sent. */
-export function renderNoSheet(base: string, what: 'call sheet' | 'timesheet' = 'call sheet'): string {
+export function renderNoSheet(base: string, what: 'call sheet' | 'timesheet' = 'call sheet', words?: string): string {
   return `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Session Hire</title><style>${CSS}${SHEET_CSS}</style></head>
 <body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b></div></header>
-<p class="flash warn">There's no ${what} here for you: you may not be booked on it any more, or the job has changed.</p>
+<p class="flash warn">${words ? h(words) : `There's no ${what} here for you: you may not be booked on it any more, or the job has changed.`}</p>
 <a class="back" href="${h(base)}">‹ Your work</a></main></body></html>`
 }
 

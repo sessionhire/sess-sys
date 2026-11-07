@@ -1,4 +1,4 @@
-import { ROLE_LABELS, ROLE_LINES, readsEverything, roleOfPerson, type Reading } from '@sh/shared'
+import { APP_VERSION, ROLE_LABELS, ROLE_LINES, readsEverything, roleOfPerson, type Reading } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from './act.tsx'
 import { signOut, useAuth } from './auth.ts'
@@ -89,6 +89,7 @@ export function YouScreen() {
             <Confirm
               question={`${still === 1 ? "1 change hasn't" : `${still} changes haven't`} synced yet. Signing out deletes ${still === 1 ? 'it' : 'them'} from this device.`}
               yes={`Sign out and delete ${still === 1 ? 'it' : 'them'}`}
+              loss
               no="Stay signed in"
               onYes={() => void out()}
               onNo={() => setAsking(false)}
@@ -114,8 +115,13 @@ export function YouScreen() {
       <section className="card">
         <h2>This device</h2>
         <KeptLine />
+        {/* The app's version, which a person can name, rather than a change number, which they can't (audit, 5 November 2026, finding 97). */}
         <p className="hint">
-          Device {client.clientId.slice(-6)} · change #{view.cursor} · {waiting === 0 ? 'nothing waiting to sync' : `${waiting} waiting to sync`}
+          Device {client.clientId.slice(-6)} · version {APP_VERSION} · {waiting === 0 ? 'nothing waiting to sync' : `${waiting} waiting to sync`}
+        </p>
+        {/* What a new version changed, for everyone, not only those with Admin (finding 80). */}
+        <p>
+          <a href="#admin/changes">What's changed</a>
         </p>
       </section>
     </div>
@@ -188,6 +194,7 @@ function RoleCard() {
           <Confirm
             question="Make yourself the director and switch roles on? Everyone else becomes staff crew until you give them a role on the Crew tab."
             yes="Make me the director"
+            loss
             no="Not now"
             onYes={() => {
               setAsking(false)

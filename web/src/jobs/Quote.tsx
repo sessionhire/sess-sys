@@ -32,9 +32,10 @@ import { Top } from './common.tsx'
 import { QuotePill } from './QuoteStatus.tsx'
 import { MarginWords } from './QuoteLine.tsx'
 import { Lines, QuoteSheet, Totals } from './QuoteSheet.tsx'
-import { InCurrentRms, NewVersion, Records } from './QuoteRecords.tsx'
+import { InCurrentRms, NewVersion, nextRecord, Records } from './QuoteRecords.tsx'
 import { Draft } from './QuoteDraft.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
+import { useQuotesByEmail } from '../MailboxCard.tsx'
 
 export { InStep, QuotePill } from './QuoteStatus.tsx'
 
@@ -93,7 +94,8 @@ export function QuoteCard({ job, view }: { job: JobView; view: View }) {
           The job is {jm.job.status}, so its quote is set aside: it isn't counted as quoted, owed or in the margin unless it's invoiced, as a cancellation fee would be.
         </p>
       )}
-      <a className={`button${shown ? '' : ' primary'}`} href={`#jobs/${encodeURIComponent(job.id)}/quote`}>
+      {/* Plain: the Next dock holds the job page's one filled red, and says Make a quote itself when that's next (ADR 0104, 0109; UX sweep, 6 November 2026, move 1). */}
+      <a className="button" href={`#jobs/${encodeURIComponent(job.id)}/quote`}>
         {shown ? 'Open the quote' : 'Make a quote'}
       </a>
     </section>
@@ -103,8 +105,10 @@ export function QuoteCard({ job, view }: { job: JobView; view: View }) {
 function MarginLine({ margin, costs }: { margin: number; costs: number }) {
   return (
     <p className={`margin-line${margin < 0 ? ' bad' : ''}`}>
-      Margin after freelancers: <b>{money(margin)}</b>
-      {costs > 0 && <span className="muted"> ({money(costs)} of freelancers)</span>}
+      {/* What's left once the freelancers booked or approved so far are paid, as Money counts it; not the quote's own
+          expected margin, which is worked from its lines' costs, so the two are named apart (audit, 5 November 2026, finding 24). */}
+      Left after freelancers so far: <b>{money(margin)}</b>
+      {costs > 0 && <span className="muted"> ({money(costs)} of freelancers booked or approved)</span>}
     </p>
   )
 }
@@ -130,12 +134,15 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
     }
   }, [printing])
   const today = useToday()
+  // Send by email only while the mailbox can send (audit, 5 November 2026, finding 49).
+  const byEmail = useQuotesByEmail(m)
   const up = { steps: job ? [JOBS, { href: `#jobs/${encodeURIComponent(job.id)}`, label: job.name }] : [JOBS], here: 'Quote' }
 
   if (!job || !sees)
     return (
       <div className="app crew jobs quote-screen">
-        <Top view={view} up={up} />
+        {/* Named, as every screen is, so a move here lands on what was refused (audit, 5 November 2026, finding 87). */}
+        <Top view={view} up={up} heading="Quote" />
         <section className="card">
           <p className="empty">
             {!sees
@@ -150,14 +157,23 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   const current = m.currentOf(jobId)
   const settled = versions.some((v) => v.invoicedOn)
   const jm = m.job(jobId)
+  // The quote's one filled red is what to record next on the current version, under What happened (nextRecord). Sending or printing
+  // any version takes the red only once there's nothing left to record (UX sweep, 6 November 2026, move 1).
+  const recording = !!current && nextRecord(current, job) !== undefined
 
   return (
     <div className="app crew jobs quote-screen">
-      <Top view={view} up={up} />
-      <section className="card">
-        <p className="kicker">Quote</p>
-        <h1>{job.name}</h1>
-        <p>{[job.client?.name ?? 'No client yet', job.span ? spanLabel(job.span) : 'No dates yet'].join(' · ')}</p>
+      {/* The job's name heads its quote, as it heads the job (Move 11 of the sweep of 6 November 2026): the kind of page, the
+          version and the client and dates under it, the version's state beside it. */}
+      <Top
+        view={view}
+        up={up}
+        heading={job.name}
+        badge={q && q.status !== 'draft' ? <QuotePill q={q} /> : undefined}
+        sub={[q ? `Quote · version ${q.version}${q.status === 'draft' ? ' · draft' : ''}` : 'Quote', job.client?.name ?? 'No client yet', job.span ? spanLabel(job.span) : 'No dates yet'].join(' · ')}
+      />
+      {(versions.length > 1 || (q && !q.latest) || (jm && jm.margin !== null && q?.id === current?.id)) && (
+      <section className="card plain quote-versions">
         {versions.length > 1 && (
           <div className="filters" role="group" aria-label="Versions">
             {versions.map((v) => (
@@ -170,6 +186,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
         {q && !q.latest && <p className="hint">An older version, kept as it went to the client. The newest is version {versions[0]!.version}.</p>}
         {jm && jm.margin !== null && q?.id === current?.id && <MarginLine margin={jm.margin} costs={jm.costs + jm.toCome} />}
       </section>
+      )}
 
       {q && <SinceBefore q={q} versions={versions} />}
 
@@ -192,8 +209,8 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             <Totals totals={q.totals} agreed={q.agreedCents != null} />
             {boss && (
               <p className="quote-margin">
-                <MarginWords margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined)))} />
-                <small> Not printed.</small>
+                <MarginWords label="Expected margin" margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined)))} />
+                <small> From the quote's own costs. Not printed.</small>
               </p>
             )}
             {q.notes && <p className="notes">{q.notes}</p>}
@@ -202,12 +219,12 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
               <SendQuote q={q} onSent={() => setComposing(undefined)} onCancel={() => setComposing(undefined)} />
             ) : (
               <div className="actions">
-                {m.quoting.emailQuotes && q.latest && (
-                  <button type="button" className={q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
+                {byEmail && q.latest && (
+                  <button type="button" className={recording || q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
                     {q.emails.length ? 'Send again' : 'Send by email'}
                   </button>
                 )}
-                <button type="button" className={m.quoting.emailQuotes && q.latest && !q.emails.length ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
+                <button type="button" className={recording || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
                   Print or save as PDF
                 </button>
                 {q.latest && !settled && <NewVersion q={q} onMade={setPicked} />}
@@ -215,7 +232,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             )}
             {settled && q.latest && <p className="hint">The quote is invoiced, so it's settled: no new version.</p>}
           </section>
-          {q.id === current?.id && <Records q={q} job={job} canEmail={!!m.quoting.emailQuotes} />}
+          {q.id === current?.id && <Records q={q} job={job} canEmail={byEmail} />}
         </>
       )}
 
@@ -299,7 +316,11 @@ function FirstQuote({ view, job }: { view: View; job: JobView }) {
     <section className="card" aria-label="Make a quote">
       <h2>Make a quote</h2>
       {source.kit.length + source.crew.length === 0 ? (
-        <Empty>The job has no kit or crew yet, so a quote would start empty. Add them first, or start one empty and type the lines.</Empty>
+        // Where to add them, from here (audit, 5 November 2026, finding 16): a quote is built from the job's kit and crew.
+        <Empty>
+          The job has no kit or crew yet, so a quote would start empty. <a href={`#jobs/${encodeURIComponent(job.id)}/kit`}>Add the kit</a> or{' '}
+          <a href={`#jobs/${encodeURIComponent(job.id)}/crew`}>ask for crew</a> first, or start one empty and type the lines.
+        </Empty>
       ) : (
         <p>
           {source.kit.length} kit line{source.kit.length === 1 ? '' : 's'} and {source.crew.length} crew call{source.crew.length === 1 ? '' : 's'}, each for the days

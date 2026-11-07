@@ -25,15 +25,17 @@ import {
 } from '@sh/shared'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
+import { AdminWords } from '../AdminWords.tsx'
 import { Empty } from '../Empty.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { JOBS, MONEY, type Step } from '../Up.tsx'
 import { pricingOf, Suggestions, takingWords } from './Claude.tsx'
-import { Choices, clientNamed, Top, venueNamed } from './common.tsx'
+import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { NotYours } from './Money.tsx'
 import { clientWords, getJson, postJson, useAsked, type Loaded } from './rms.ts'
+import { glideTo } from '../glide.ts'
 
 /**
  * Past quotes from Current RMS (ADR 0078), #jobs/money/current-rms, for
@@ -101,7 +103,14 @@ export function PastQuotesScreen({ view }: { view: View }) {
         {loaded.state === 'ready' && (
           <>
             {loaded.data.total === 0 ? (
-              <Empty>{asked ? `No past quote matches “${asked}”.` : 'Nothing has been read from Current RMS yet. Bring it in from Admin.'}</Empty>
+              asked ? (
+                <Empty>{`No past quote matches “${asked}”.`}</Empty>
+              ) : (
+                <p className="empty">
+                  Nothing has been read from Current RMS yet. It's brought in under <a href="#admin/connections">Admin › Connections</a>, once Current RMS is
+                  connected there.
+                </p>
+              )
             ) : (
               <p className="hint">
                 {plural(loaded.data.total, 'past quote')}
@@ -367,10 +376,10 @@ function MakeJob({
   // Matched once, when the form opens, so the choices made on each line stay as the stock list syncs.
   const [lines, setLines] = useState<RmsOffered[]>(() => rmsSuggestions(past.lines, pricing))
   const { run, error } = useAct()
-  // Brought into view as it opens, below the past quote's lines.
+  // Brought into view as it opens, below the past quote's lines: glided to, as it opened on this page (glide.ts).
   const here = useRef<HTMLElement>(null)
   useEffect(() => {
-    here.current?.scrollIntoView({ block: 'start' })
+    if (here.current) glideTo(here.current)
   }, [])
   const taking = lines.filter((x) => x.take)
   const matched = taking.filter((x) => x.s.modelId).length
@@ -428,17 +437,21 @@ function MakeJob({
           What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
         </label>
         <label>
-          Client <input list="rms-job-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
+          Client <span className="optional">(optional)</span> <input list="rms-job-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
         </label>
+        <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
         <label>
-          Venue <input list="rms-job-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
+          Venue <span className="optional">(optional)</span> <input list="rms-job-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
         </label>
-        <label>
-          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
-        </label>
-        <label>
-          To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} required />
-        </label>
+        <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
+        <div className="pair">
+          <label>
+            From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+          </label>
+          <label>
+            To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} required />
+          </label>
+        </div>
         <label>
           Make it
           <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as 'enquiry' | 'confirmed' })}>
@@ -504,7 +517,7 @@ function OntoJob({ view, past, first, onCancel }: { view: View; past: RmsOpportu
   const { run, error } = useAct()
   const here = useRef<HTMLElement>(null)
   useEffect(() => {
-    here.current?.scrollIntoView({ block: 'start' })
+    if (here.current) glideTo(here.current)
   }, [])
   const taking = lines.filter((x) => x.take)
   // A job picked by its name, as the client and venue fields do; the list is the jobs still going ahead or pencilled in.
@@ -630,9 +643,16 @@ export function MatchScreen({ view }: { view: View }) {
         </p>
         {loaded.state === 'ready' && (
           <>
-            <p>
-              {counts.linked} linked, {counts.check} to check, {counts.none} with no job of ours on those days.
-            </p>
+            {/* Nothing to count before anything is read: said once, rather than three noughts (audit, 5 November 2026, finding 82). */}
+            {counts.linked + counts.check + counts.none > 0 ? (
+              <p>
+                {counts.linked} linked, {counts.check} to check, {counts.none} with no job of ours on those days.
+              </p>
+            ) : (
+              <p className="empty">
+                No past quotes to match yet. They're brought in under <a href="#admin/connections">Admin › Connections</a>.
+              </p>
+            )}
             {sure.length > 0 && (
               <button
                 type="button"
@@ -676,7 +696,7 @@ export function MatchScreen({ view }: { view: View }) {
             {list.length === 0 ? (
               <Empty>
                 {rows.length === 0
-                  ? 'Nothing has been read from Current RMS yet. Bring it in from Admin.'
+                  ? <AdminWords>Nothing has been read from Current RMS yet. Bring it in from Admin › Connections.</AdminWords>
                   : showing === 'check'
                     ? 'Nothing left to check.'
                     : showing === 'linked'

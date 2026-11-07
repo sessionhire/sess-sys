@@ -197,6 +197,7 @@ function CertificateLine({ view, a, c, onChange }: { view: View; a: AssetView; c
         <Confirm
           question={`Remove ${what}?${c.assetIds.length > 1 ? ` It comes off all ${c.assetIds.length} items it covers.` : ''}${c.file ? ' Its file is deleted too.' : ''} The tests stay recorded.`}
           yes="Remove it"
+          loss
           onYes={() => {
             setRemoving(false)
             void run(() => client.mutate('itemCertificate.remove', { id: c.id }))

@@ -32,6 +32,10 @@ test('names typed for several people named from their address are each saved', a
   await page.goto('/#jobs/tidy')
   await expect(page.getByRole('status').first()).toHaveText('Up to date')
   const names = page.getByRole('region', { name: 'People named from their address' })
+  // All of them kept at once asks first, and Not now leaves them listed.
+  await names.getByRole('button', { name: 'Keep all these names as they are' }).click()
+  await expect(names.getByText(/^Keep all \d+ names as they are\?$/)).toBeVisible()
+  await names.getByRole('button', { name: 'Not now' }).click()
   const given = [
     ['Sorcha', 'Box'],
     // What their addresses already spell.
@@ -40,8 +44,16 @@ test('names typed for several people named from their address are each saved', a
   ] as const
   for (const [i, h] of handles.entries()) {
     const row = names.getByRole('form', { name: `Name for ${h}@gmail.com` })
-    await row.getByRole('textbox', { name: `First name for ${h}@gmail.com` }).fill(given[i]![0])
-    await row.getByRole('textbox', { name: `Last name for ${h}@gmail.com` }).fill(given[i]![1])
+    const first = row.getByRole('textbox', { name: `First name for ${h}@gmail.com` })
+    const last = row.getByRole('textbox', { name: `Last name for ${h}@gmail.com` })
+    // Filled from the name they have, so one already right is just Save (audit, 5 November 2026, finding 52).
+    if (i === 1) {
+      await expect(first).toHaveValue('Liam')
+      await expect(last).toHaveValue(`Rig${id}`)
+    } else {
+      await first.fill(given[i]![0])
+      await last.fill(given[i]![1])
+    }
     await row.getByRole('button', { name: 'Save' }).click()
     await expect(row).toHaveCount(0)
   }

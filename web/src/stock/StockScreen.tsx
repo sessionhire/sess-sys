@@ -1,4 +1,5 @@
 import {
+  addDays,
   CATEGORY_IDEAS,
   dayLabel,
   DEPARTMENT_LABELS,
@@ -8,8 +9,10 @@ import {
   normaliseNumber,
   parseEuro,
   plural,
-  RETIRED_LABELS,
   spanLabel,
+  standing,
+  STANDING_HEADINGS,
+  listHeading,
   type Department,
   type ModelView,
   type PickList,
@@ -18,11 +21,13 @@ import {
   listed,
   PRODUCT_SORTS,
   productFilters,
+  wholeNumber,
 } from '@sh/shared'
 import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
+import { glideTo } from '../glide.ts'
 import { useWindowed } from '../windowed.ts'
 import { ListTools, useListChoices } from '../ListTools.tsx'
 import { Beside, JobStatusPill, Top, useHash } from '../jobs/common.tsx'
@@ -30,9 +35,10 @@ import { productName } from '../jobs/Kit.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
-import { useView, useWide } from '../view.ts'
-import { amountLabel, atLabel, mistakeLabel, numberLabel, ScanResult, TrackingChoice, whereLabel } from './common.tsx'
+import { useToday, useView, useWide } from '../view.ts'
+import { amountLabel, atLabel, numberLabel, ScanResult, TrackingChoice } from './common.tsx'
 import { CountPage, CountScreen } from './Counts.tsx'
+import { ItemRow } from './ItemRow.tsx'
 import { ItemScreen } from './ItemScreen.tsx'
 import { RepairList } from './Faults.tsx'
 import { TestingScreen } from './Inspections.tsx'
@@ -51,7 +57,8 @@ import { StockViews } from '../Views.tsx'
 import { productPhotoOf, Thumb } from '../Picture.tsx'
 import { departmentIcon, kitIcon } from './kitIcon.ts'
 import { Heading, Icon } from '../Icon.tsx'
-import { inKitOf, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { inKitOf, Narrowed, useMyKitDepartment, useNarrowed } from '../Narrowed.tsx'
+import { StillOutRow } from './StillOut.tsx'
 
 /**
  * Stock (ADR 0013): the catalogue of products, the numbered items of each,
@@ -102,7 +109,7 @@ export function StockScreen() {
     kind === 'product' ? (
       <ProductScreen key={open} view={view} id={open} part={part} bare={wide} />
     ) : kind === 'item' ? (
-      <ItemScreen key={open} view={view} id={open} bare={wide} />
+      <ItemScreen key={open} view={view} id={open} part={part} bare={wide} />
     ) : kind === 'place' ? (
       <PlaceScreen key={open} view={view} id={open} bare={wide} />
     ) : undefined
@@ -139,13 +146,34 @@ function recordTrail(view: View, kind: string | undefined, id: string): Trail {
 }
 
 function Catalogue({ view }: { view: View }) {
+  // While something is typed in the search, what it finds is all there is on a phone: the day's cards under it step aside, so the
+  // finds aren't pushed down or followed by today's pick lists (UX sweep, 6 November 2026, move 8). Beside it on a laptop, they stay.
+  const [searching, setSearching] = useState(false)
+  const mayStock = useAccess().can('stock')
+  const findToReport = () => {
+    const field = document.querySelector<HTMLInputElement>('.app.warehouse input[type="search"]')
+    // Up this page to the search, glided to as it's the same page; the field's own focus ring says where it landed.
+    if (field) glideTo(field, { block: 'center', focus: field })
+  }
   return (
     <div className="app warehouse">
       <Top view={view} title="Stock" views={<StockViews view={view} current="catalogue" />} heading="Catalogue" />
 
-      <StockCard view={view} />
+      {/* For a role that doesn't run the stock, the one thing it can do here first, in the link's words (Move 9 of the sweep of 6 November
+          2026): reporting broken or missing kit, from the item, found below or by its label (ADR 0034). */}
+      {!mayStock && !searching && (
+        <section className="card report-kit" aria-label="Broken or missing kit">
+          <h2>Broken or missing kit</h2>
+          <p>Find it below or scan its label, then report it from its page, so it's checked before it goes out again.</p>
+          <button type="button" className="link" onClick={findToReport}>
+            Report it ›
+          </button>
+        </section>
+      )}
 
-      <StockRest view={view} />
+      <StockCard view={view} onSearching={setSearching} />
+
+      {!searching && <StockRest view={view} />}
     </div>
   )
 }
@@ -187,22 +215,47 @@ function RepairsScreen({ view }: { view: View }) {
   )
 }
 
-/** The catalogue: the search, the camera, the department filters, the products and adding one; `current` marks the one open beside it. */
-function StockCard({ view, current }: { view: View; current?: string }) {
+/**
+ * What a search finds among the numbered items: the one its number or old tag names exactly, an old tag from before Session Hire's
+ * labels first, as a scan reads it (ADR 0026); and the others it's part of, once there's enough typed to mean something, one added
+ * by mistake only by its exact number.
+ */
+function itemsFound(w: View['warehouse'], search: string) {
+  const q = search.trim().toLowerCase()
+  const number = normaliseNumber(search)
+  const exact = w.byOldNumber.get(q) ?? (number ? w.byNumber.get(number) : undefined)
+  const items =
+    q.length >= 3
+      ? [...w.assets.values()]
+          .filter((a) => a !== exact && a.retiredReason !== 'mistake' && [a.number, a.serial, a.oldNumber, ...a.formerNumbers].some((t) => t.toLowerCase().includes(q)))
+          .sort((a, b) => a.number.localeCompare(b.number))
+          .slice(0, 20)
+      : []
+  return { q, number, exact, items }
+}
+
+/**
+ * The catalogue: the search, the camera, the department filters, the products and adding one; `current` marks the one open beside
+ * it, and `onSearching` hears whether anything is typed in the search.
+ */
+function StockCard({ view, current, onSearching }: { view: View; current?: string; onSearching?: (searching: boolean) => void }) {
   const w = view.warehouse
-  const mayAdd = useAccess().can('stock')
+  const access = useAccess()
+  const mayAdd = access.can('stock')
+  const mayBring = access.can('settings')
   const wide = useWide()
   const [department, setDepartment] = useState<Department | 'all'>('all')
   // Filter and sort (ADR 0099) under the department's chips: ours or dry hire (ADR 0075) once there's any dry hire to tell apart, the
   // category, and whether any is in stock; in the order chosen.
   const [choices, setChoices] = useListChoices('products')
   const filters = useMemo(() => productFilters(w.models), [w.models])
-  const [search, setSearch] = useState('')
-  const q = search.trim().toLowerCase()
+  const [search, setTyped] = useState('')
+  const setSearch = (typed: string) => {
+    setTyped(typed)
+    onSearching?.(typed.trim() !== '')
+  }
+  const { q, number, exact, items } = itemsFound(w, search)
   const words = q.split(/\s+/).filter(Boolean)
-  const number = normaliseNumber(search)
-  // An old tag from before Session Hire's labels first, as a scan reads it (ADR 0026).
-  const exact = w.byOldNumber.get(q) ?? (number ? w.byNumber.get(number) : undefined)
   // A label that isn't on anything yet (ADR 0015): one from a run, or anything typed as a label rather than a bare number.
   const unclaimed = number && !exact && (view.labels.runOf(number) || /^\s*sh|\/a\//i.test(search)) ? number : undefined
   const searchField = useRef<HTMLInputElement>(null)
@@ -214,14 +267,6 @@ function StockCard({ view, current }: { view: View; current?: string }) {
   const [scanned, setScanned] = useState('')
   const lastRead = camera && scanned ? w.assets.get(scanned) : undefined
   const justClaimed = claimed && !search.trim() ? w.assets.get(claimed) : undefined
-  // Items by number or serial, once there's enough typed to mean something; one added by mistake only by its exact number.
-  const items =
-    q.length >= 3
-      ? [...w.assets.values()]
-          .filter((a) => a !== exact && a.retiredReason !== 'mistake' && [a.number, a.serial, a.oldNumber, ...a.formerNumbers].some((t) => t.toLowerCase().includes(q)))
-          .sort((a, b) => a.number.localeCompare(b.number))
-          .slice(0, 20)
-      : []
   const matches = (m: ModelView) => {
     const text = `${m.name} ${m.code} ${m.category} ${DEPARTMENT_LABELS[m.department]}`.toLowerCase()
     return words.every((x) => text.includes(x))
@@ -229,6 +274,12 @@ function StockCard({ view, current }: { view: View; current?: string }) {
   const searched = w.models.filter((m) => (department === 'all' || m.department === department) && matches(m))
   const shown = listed(searched, filters, PRODUCT_SORTS, choices)
   const count = (d: Department) => w.models.filter((m) => m.department === d).length
+  // A department with one product takes a whole chip, and on a phone a row, to reach one thing (audit, 5 November 2026, finding 93):
+  // they wait behind More, unless one is the chosen department or every department has just one.
+  const [allChips, setAllChips] = useState(false)
+  const stocked = DEPARTMENTS.filter((d) => count(d) > 0)
+  const big = stocked.filter((d) => count(d) > 1 || d === department)
+  const chips = allChips || big.length === 0 || stocked.length - big.length < 2 ? stocked : big
 
   // A scanner types a label's number and Enter: straight to the item, or to saying what a new label is on.
   const go = (e: FormEvent) => {
@@ -267,6 +318,18 @@ function StockCard({ view, current }: { view: View; current?: string }) {
 
   return (
     <section className="card plain" aria-label="Catalogue">
+      {/* On a phone, a heading of its own, so the strip of parts names it with the day's cards under it (ADR 0033; UX sweep, 6 November
+          2026, move 8), with its count once there's one and the copy has arrived, as Home's headed counts have. On a laptop it's the
+          column beside them that keeps its place as the page scrolls, unheaded as every list beside a record is, so no strip comes over
+          it. */}
+      {!wide && <Heading icon="kit">Catalogue{w.models.length > 0 && !view.copying ? ` (${w.models.length})` : ''}</Heading>}
+      {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1): a plain fold where the eye lands, not after
+          two hundred products. A new product starts in the department the list is narrowed to. */}
+      {mayAdd && (
+        <Fold label="Add product">
+          <NewProduct view={view} department={department === 'all' ? 'audio' : department} />
+        </Fold>
+      )}
       <form role="search" className="scan-row" onSubmit={go}>
         <input
           ref={searchField}
@@ -275,7 +338,16 @@ function StockCard({ view, current }: { view: View; current?: string }) {
           enterKeyHint="go"
           placeholder="Find a product, number or serial"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            const typed = e.target.value
+            setSearch(typed)
+            // A label's whole number, on one item and nothing else, opens that item as it's typed or read, with no Go to press (UX
+            // sweep, 6 November 2026, move 8). A shorter one may be on its way to another, and a number the item had before is said
+            // on its row first, so those wait for Go.
+            const whole = wholeNumber(typed)
+            const found = whole ? itemsFound(w, typed) : undefined
+            if (found?.exact && found.exact.number === whole && found.items.length === 0) location.hash = `#stock/item/${found.exact.id}`
+          }}
           aria-label="Find"
         />
         <button
@@ -290,17 +362,12 @@ function StockCard({ view, current }: { view: View; current?: string }) {
         </button>
       </form>
       {camera && <CameraScanner onRead={onRead} onStop={closeCamera} small={!!unclaimed} />}
+      {/* The item read, on the one item row: whether it's out, missing or can't go out, as well as where it's kept (UX sweep,
+          6 November 2026, move 3). */}
       {lastRead && (
         <ScanResult onClose={closeCamera}>
-          {lastRead.retiredReason === 'mistake' ? (
-            mistakeLabel(lastRead)
-          ) : (
-            <>
-              <a href={`#stock/item/${lastRead.id}`}>{numberLabel(lastRead)}</a> {lastRead.model?.name ?? 'an item'} ·{' '}
-              {lastRead.status === 'retired' ? `Retired${lastRead.retiredReason ? `: ${RETIRED_LABELS[lastRead.retiredReason].toLowerCase()}` : ''}` : whereLabel(lastRead, w)}
-              {lastRead.serial && ` · Serial ${lastRead.serial}`}. Scan the next label.
-            </>
-          )}
+          <ItemRow view={view} a={lastRead} />
+          <p>Scan the next label.</p>
         </ScanResult>
       )}
       {justClaimed && (
@@ -316,12 +383,17 @@ function StockCard({ view, current }: { view: View; current?: string }) {
         <button type="button" aria-pressed={department === 'all'} onClick={() => setDepartment('all')}>
           All ({w.models.length})
         </button>
-        {DEPARTMENTS.filter((d) => count(d) > 0).map((d) => (
+        {chips.map((d) => (
           <button key={d} type="button" aria-pressed={department === d} onClick={() => setDepartment(d)}>
             <Icon name={departmentIcon(d)} />
             {DEPARTMENT_LABELS[d]} ({count(d)})
           </button>
         ))}
+        {chips.length < stocked.length && (
+          <button type="button" aria-expanded={false} onClick={() => setAllChips(true)}>
+            {stocked.length - chips.length} more
+          </button>
+        )}
       </div>
       {w.models.length > 0 && (
         <ListTools name="products" items={searched} filters={filters} sorts={PRODUCT_SORTS} choices={choices} onChange={setChoices} shown={shown.length} what="products" />
@@ -330,18 +402,7 @@ function StockCard({ view, current }: { view: View; current?: string }) {
         <ul className="item-list" aria-label="Items found">
           {[...(exact ? [exact] : []), ...items].map((a) => (
             <li key={a.id}>
-              <a className="item-row" href={`#stock/item/${a.id}`}>
-                <Thumb icon={kitIcon(a.model)} src={productPhotoOf(a.model)} />
-                <div>
-                  <b>{numberLabel(a)}</b> {a.model?.name}
-                  <p>
-                    {a.retiredReason === 'mistake' ? 'Added by mistake' : a.status === 'retired' ? 'Retired' : whereLabel(a, w)}
-                    {a.serial && ` · Serial ${a.serial}`}
-                    {a.number !== number && number && a.formerNumbers.includes(number) && ` · Had ${number} before`}
-                  </p>
-                </div>
-                <Pending pending={a.pending} />
-              </a>
+              <ItemRow view={view} a={a} note={a.number !== number && number && a.formerNumbers.includes(number) ? `Had ${number} before` : undefined} />
             </li>
           ))}
         </ul>
@@ -349,23 +410,18 @@ function StockCard({ view, current }: { view: View; current?: string }) {
       {shown.length === 0 && searched.length > 0 && !exact && !unclaimed && items.length === 0 && <p className="empty">No product here matches those filters.</p>}
       {searched.length === 0 && !exact && !unclaimed && items.length === 0 && (
         <Empty>
-          {w.models.length === 0 && (
+          {w.models.length === 0 && mayAdd && (
             <>
-              Add the first product below, or <a href="#stock/import">bring in the stock list</a>.
+              Add the first one under Add product{mayBring && <>, or <a href="#stock/import">bring in the stock list</a></>}.
             </>
           )}
         </Empty>
       )}
-      {/* Search first; for a browse, twenty in the laptop's column, which has nothing under it, and five on a phone, where the pick lists are under it (audit, 20 October 2026, finding 97). */}
-      <ShowAll items={shown} limit={wide ? 20 : 5} what={department === 'all' ? 'products' : `${DEPARTMENT_LABELS[department].toLowerCase()} products`} keep={(m) => m.id === current}>
+      {/* Search first; for a browse, twenty in the laptop's column, which has nothing under it, and five on a phone, where the pick
+          lists are under it (audit, 20 October 2026, finding 97). A search on a phone has nothing under it either. */}
+      <ShowAll items={shown} limit={wide || q ? 20 : 5} name="catalogue" what={department === 'all' ? 'products' : `${DEPARTMENT_LABELS[department].toLowerCase()} products`} keep={(m) => m.id === current}>
         {(rows) => <ProductRows rows={rows} current={current} />}
       </ShowAll>
-      {/* A new product starts in the department the list is narrowed to. */}
-      {mayAdd && (
-        <Fold label="Add product">
-          <NewProduct view={view} department={department === 'all' ? 'audio' : department} />
-        </Fold>
-      )}
     </section>
   )
 }
@@ -377,6 +433,7 @@ function StockCard({ view, current }: { view: View; current?: string }) {
  */
 function ProductRows({ rows, current }: { rows: readonly ModelView[]; current: string | undefined }) {
   const win = useWindowed('products', rows, (m) => m.id, 64)
+  const faults = useView().faults
   return (
     <ul className="job-list windowed" ref={win.list} style={win.style}>
       {win.rows.map((m, i) => (
@@ -390,6 +447,8 @@ function ProductRows({ rows, current }: { rows: readonly ModelView[]; current: s
             <div className="side">
               <Pending pending={m.pending} />
               <small>{amountLabel(m)}</small>
+              {/* What can't go out, where people look for kit (audit, 5 November 2026, finding 69). */}
+              {faults.unusable(m.id) > 0 && <small className="flag bad">{faults.unusable(m.id).toLocaleString('en-IE')} can't go out</small>}
             </div>
           </a>
         </li>
@@ -398,12 +457,20 @@ function ProductRows({ rows, current }: { rows: readonly ModelView[]; current: s
   )
 }
 
-/** Every line of kit short on a day from today on, soonest first; the first few, then the rest on request. */
+/**
+ * Every line of kit short on a day from today on, soonest first: first the ones Home counts, under its count's words and
+ * number, then the rest; the first few of each, then the rest on request.
+ */
 function ShortKit({ view }: { view: View }) {
-  // Opened from a count on Home for a department, that department's kit, as Home counted it (audit, 20 October 2026, finding 4).
-  const [department, widen] = useNarrowed('#stock')
+  // Opened from a count on Home, the kit it counted, a department's or everyone's (audit, 20 October 2026, finding 4); from
+  // anywhere else, a head's own kit (Move 3 of the sweep of 6 November 2026).
+  const [department, widen] = useNarrowed('#stock', useMyKitDepartment())
+  const today = useToday()
   const short = view.kit.short.filter((l) => inKitOf(department)(l.model))
-  if (short.length === 0) return null
+  // Home's count is of the confirmed jobs' lines whose kit is held in the next fortnight (Move 3 of the sweep of 6 November 2026).
+  const counted = standing(view, today, { department })['kit-short']
+  const rest = short.filter((l) => !counted.includes(l))
+  if (view.kit.short.length === 0) return null
   const row = (l: (typeof short)[number]) => (
     <li key={l.id}>
       <a className="job-row" href={`#jobs/${l.projectId}`}>
@@ -420,37 +487,74 @@ function ShortKit({ view }: { view: View }) {
       </a>
     </li>
   )
-  return (
-    <section className="card kit-short" aria-label="Kit short">
-      <Heading icon="attention">Kit short</Heading>
-      <Narrowed department={department} onWiden={widen} />
-      <p className="hint">
-        On jobs from today on, once the confirmed jobs on the same days have theirs. Quotes and enquiries show what they'd need if they go ahead.
-      </p>
-      <ul className="job-list">{short.slice(0, 5).map(row)}</ul>
-      {short.length > 5 && (
+  const lines = (ls: typeof short) => (
+    <>
+      <ul className="job-list">{ls.slice(0, 5).map(row)}</ul>
+      {ls.length > 5 && (
         <details>
-          <summary>{short.length - 5} more</summary>
-          <ul className="job-list">{short.slice(5).map(row)}</ul>
+          <summary>{ls.length - 5} more</summary>
+          <ul className="job-list">{ls.slice(5).map(row)}</ul>
         </details>
+      )}
+    </>
+  )
+  // None of their department's while others are short: said quietly, as healthy is, with the way to the others' rather than no
+  // card at all, as "Show all departments" is the one way to widen (ADR 0034).
+  return (
+    <section className={short.length > 0 ? 'card kit-short' : 'card'} aria-label="Kit short">
+      <Heading icon={short.length > 0 ? 'attention' : 'kit'}>Kit short</Heading>
+      <Narrowed department={department} onWiden={widen} kit />
+      {short.length === 0 ? (
+        <p className="empty">None of this department's kit is short.</p>
+      ) : (
+        <p className="hint">
+          On jobs from today on, once the confirmed jobs on the same days have theirs. Quotes and enquiries show what they'd need if they go ahead.
+        </p>
+      )}
+      {counted.length > 0 && (
+        <>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['kit-short'], counted.length)}</h3>
+          {lines(counted)}
+        </>
+      )}
+      {rest.length > 0 && (
+        <>
+          <h3 className="group">{listHeading('Later, or not confirmed yet', rest.length)}</h3>
+          {lines(rest)}
+        </>
       )}
     </section>
   )
 }
 
-/** Jobs going out in the next two weeks or on now, and jobs over with kit still out, each opening its pick list (ADR 0017). */
+/** Jobs going out in the next two weeks or on now, each opening its pick list (ADR 0017), and the jobs with kit to check back in (ADR 0109). */
 function PickLists({ view }: { view: View }) {
-  const { soon, stillOut } = view.moves
+  const { soon } = view.moves
+  const today = useToday()
+  // Home's counts of them are these lists' lengths, under the same words (Move 3 of the sweep of 6 November 2026): what's still
+  // to pick for today or tomorrow, the rest of the fortnight's, and what's to check back in.
+  const lists = standing(view, today)
+  const toPick = lists['to-pick']
+  const stillOut = lists['still-out']
+  const later = soon.filter((p) => !toPick.includes(p))
   if (soon.length === 0 && stillOut.length === 0) return null
-  const row = (p: PickList, said: string, tone: string) => (
+  // The word Home used for the same jobs, so the tile's count is found here (audit, 5 November 2026, finding 92).
+  const when = (s: { start: string; end: string } | undefined) =>
+    !s || s.end < today ? '' : s.start < today ? 'On now: ' : s.start === today ? 'Today: ' : s.start === addDays(today, 1) ? 'Tomorrow: ' : ''
+  const row = (p: PickList) => (
     <li key={p.job.id}>
       <a className="job-row" href={`#jobs/${p.job.id}/pick`}>
         <div>
           <b>{p.job.name}</b>
-          <p>{p.job.span ? spanLabel(p.job.span) : 'No dates yet'}</p>
+          <p>
+            {when(p.job.span)}
+            {p.job.span ? spanLabel(p.job.span) : 'No dates yet'}
+          </p>
         </div>
         <div className="side">
-          <small className={`flag ${tone}`}>{said}</small>
+          <small className={`flag ${p.out >= p.need ? 'ok' : ''}`}>
+            {p.out} of {p.need} out
+          </small>
         </div>
       </a>
     </li>
@@ -459,17 +563,30 @@ function PickLists({ view }: { view: View }) {
     <section className="card pick-lists" aria-label="Pick lists">
       <Heading icon="pick-list">Pick lists</Heading>
       {/* Today's work first, then what's late back, latest first with the rest on request (audit, 20 October 2026, finding 99; ADR 0017). */}
-      {soon.length > 0 && (
+      {toPick.length > 0 && (
         <>
-          <h3>Going out in the next two weeks</h3>
-          <ul className="job-list">{soon.map((p) => row(p, `${p.out} of ${p.need} out`, p.out >= p.need ? 'ok' : ''))}</ul>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['to-pick'], toPick.length)}</h3>
+          <ul className="job-list">{toPick.map(row)}</ul>
+        </>
+      )}
+      {later.length > 0 && (
+        <>
+          <h3 className="group">Going out in the next two weeks</h3>
+          <ul className="job-list">{later.map(row)}</ul>
         </>
       )}
       {stillOut.length > 0 && (
         <>
-          <h3>Still out after the job</h3>
-          <ShowAll items={stillOut} limit={5} what="jobs">
-            {(rows) => <ul className="job-list">{rows.map((p) => row(p, `${p.stillOut} still out`, 'bad'))}</ul>}
+          <h3 className="group">{listHeading(STANDING_HEADINGS['still-out'], stillOut.length)}</h3>
+          {/* Past its days to come back and two more stays in view, amber, under the fold too (ADR 0109). */}
+          <ShowAll items={stillOut} limit={5} what="jobs" keep={(k) => k.late}>
+            {(rows) => (
+              <ul className="job-list">
+                {rows.map((k) => (
+                  <StillOutRow key={k.job.id} k={k} />
+                ))}
+              </ul>
+            )}
           </ShowAll>
         </>
       )}
@@ -543,12 +660,15 @@ function NewProduct({ view, department }: { view: View; department: Department }
       <TrackingChoice tracking={f.tracking} isCase={f.isCase} onChange={(t) => setF({ ...f, ...t })} />
       <WhoseFields f={whose} onChange={setWhose} suppliers={suppliersOf(view)} />
       <label className="wide">
-        {whose.dryHire ? 'To buy one, in euro' : 'Value of one, in euro'}{' '}
+        {whose.dryHire ? 'To buy one, in euro' : 'Value of one, in euro'} <span className="optional">(optional)</span>
+        <span className="hint" id="product-value-hint" aria-hidden="true">
+          What it would cost to replace.
+        </span>
         <input
+          aria-describedby="product-value-hint"
           inputMode="decimal"
           value={f.value}
           onChange={(e) => setF({ ...f, value: e.target.value })}
-          placeholder="What it would cost to replace; optional"
         />
       </label>
       <SizeFields f={size} onChange={setSize} rack={false} />
@@ -589,6 +709,24 @@ function Places({ view }: { view: View }) {
   }
   return (
     <section className="card plain" aria-label="Places">
+      {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+      {mayAdd && (
+        <Fold label="Add place">
+          <form className="inline-add" onSubmit={add}>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bay A3, Van 1" aria-label="New place" />
+            {/* The page's one next thing once the fold is open, as every list's add opens onto. */}
+            <button type="submit" className="primary">
+              Add place
+            </button>
+          </form>
+          {added && (
+            <p className="added" role="status">
+              Added <a href={`#stock/place/${added.id}`}>{added.name}</a>.
+            </p>
+          )}
+          <Refusal error={error} />
+        </Fold>
+      )}
       {w.places.length === 0 && <Empty>Where kit is kept: the warehouse, its bays and shelves, the vans. Places are also added as you type them in.</Empty>}
       <ShowAll items={w.places} limit={50} what="places">
         {(rows) => (
@@ -613,20 +751,6 @@ function Places({ view }: { view: View }) {
           </ul>
         )}
       </ShowAll>
-      {mayAdd && (
-        <Fold label="Add place">
-          <form className="inline-add" onSubmit={add}>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bay A3, Van 1" aria-label="New place" />
-            <button type="submit">Add place</button>
-          </form>
-          {added && (
-            <p className="added" role="status">
-              Added <a href={`#stock/place/${added.id}`}>{added.name}</a>.
-            </p>
-          )}
-          <Refusal error={error} />
-        </Fold>
-      )}
     </section>
   )
 }

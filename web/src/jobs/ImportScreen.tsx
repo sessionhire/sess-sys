@@ -117,7 +117,7 @@ export function ImportScreen({ view }: { view: View }) {
             </p>
           ) : (
             <p>
-              Jobs are read from the Google calendars of the account connected on <a href="#admin/connections">Admin › Connections</a>. Connect one there first.
+              Jobs are read from the Google calendars of the account connected on <a href="#admin/connections">Admin › Connections</a>. Connect one there first. Bringing in only reads its calendars: nothing is written to Google until a calendar is chosen there for the jobs to go on.
             </p>
           )}
         </section>
@@ -598,6 +598,7 @@ function Brought({ offline }: { offline: boolean }) {
           <Confirm
             question={`Take back ${plural(b.jobs, 'job', 'jobs')}, their crew bookings and offers${b.people ? ` and ${plural(b.people, 'person', 'people')} added from the invites` : ''}? Anything changed on those jobs in the app goes with them.${b.kept > 0 ? ` ${keptWords(b.kept)}` : ''} The history keeps a record.`}
             yes="Take it all back"
+            loss
             no="Keep it"
             onYes={take}
             onNo={() => setAsking(false)}

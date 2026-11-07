@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
+import { PageAction, usePhone } from '../foot.tsx'
 import { lazyPart } from '../lazyPart.tsx'
 import { Page } from '../jobs/common.tsx'
 import { useAccess } from '../role.ts'
@@ -137,6 +138,15 @@ function Designer({ view, r }: { view: View; r: RackView }) {
   const today = useToday()
   const [day, setDay] = useState(today)
   const [held, setHeld] = useState<Held>()
+  const phone = usePhone()
+  const rackCard = useRef<HTMLElement>(null)
+  // On a phone the palette sits above the rack, so picking a thing left
+  // both the rack and the line saying what's held out of view (audit,
+  // 5 November 2026, finding 71): the line goes in the foot, and the rack
+  // comes up to meet it.
+  useEffect(() => {
+    if (phone && held && !held.drag && held.kind === 'new') rackCard.current?.scrollIntoView({ block: 'start' })
+  }, [phone, held])
   const { run, error, refuse } = useAct()
   const models = new Map(view.warehouse.models.map((m) => [m.id, m]))
   const heldModel = held ? (held.kind === 'new' ? models.get(held.modelId) : r.slots.find((s) => s.id === held.slotId)?.model) : undefined
@@ -273,17 +283,19 @@ function Designer({ view, r }: { view: View; r: RackView }) {
         <Refusal error={error} />
         {/* Not while dragging: the line coming in would move the rack out from under the pointer. */}
         {held && heldModel && !held.drag && (
-          <p className="holding" role="status">
-            Holding {heldSlot?.label || heldModel.name}. Press where it goes{held.kind === 'slot' ? ', or Take out' : ''}.{' '}
-            {held.kind === 'slot' && (
-              <button type="button" className="link" onClick={() => takeOut(held.slotId)}>
-                Take out
+          <PageAction>
+            <p className="holding" role="status">
+              Holding {heldSlot?.label || heldModel.name}. Press where it goes{held.kind === 'slot' ? ', or Take out' : ''}.{' '}
+              {held.kind === 'slot' && (
+                <button type="button" className="link" onClick={() => takeOut(held.slotId)}>
+                  Take out
+                </button>
+              )}{' '}
+              <button type="button" className="link" onClick={() => setHeld(undefined)}>
+                Put down
               </button>
-            )}{' '}
-            <button type="button" className="link" onClick={() => setHeld(undefined)}>
-              Put down
-            </button>
-          </p>
+            </p>
+          </PageAction>
         )}
         {heldSlot && !held?.drag && mayChange && (
           <SlotDetails
@@ -299,7 +311,7 @@ function Designer({ view, r }: { view: View; r: RackView }) {
       </section>
       <div className="designer-body">
         {mayChange && <Palette view={view} r={r} day={day} onDay={setDay} today={today} held={held} onHold={setHeld} onTakeOut={takeOut} />}
-        <section className="card designer-rack" aria-label="The rack">
+        <section ref={rackCard} className="card designer-rack" aria-label="The rack">
           <div className="filters rack-views" role="group" aria-label="How it's drawn">
             {VIEWS.map(([k, label]) => (
               <button key={k} type="button" aria-pressed={drawn === k} onClick={() => setDrawn(k)}>

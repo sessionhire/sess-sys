@@ -16,8 +16,8 @@ import { useLate } from './useLate.ts'
  */
 
 type Note = { ok: boolean; text: string }
-/** A question before something that reaches crew or Google: what will happen, what to do on yes, and whether it's about the crew invites, which are asked in their own group. */
-type Asking = { question: string; yes: string; no: string; go: () => void; invites?: true }
+/** A question before something that reaches crew or Google: what will happen, what to do on yes, whether it's about the crew invites, which are asked in their own group, and whether the yes is a loss. */
+type Asking = { question: string; yes: string; no: string; go: () => void; invites?: true; loss?: true }
 
 const OUTCOMES: Record<string, Note> = {
   connected: { ok: true, text: 'Connected to Google.' },
@@ -28,6 +28,7 @@ const OUTCOMES: Record<string, Note> = {
     text: "Google Calendar wasn't connected, because a permission was left unticked on Google's page. Connect again and allow both: seeing the list of calendars, and changing events.",
   },
   off: { ok: false, text: 'Google Calendar needs the Google key on the server first.' },
+  busy: { ok: false, text: 'Too many tries from here just now. Wait a minute and try again.' },
 }
 
 /**
@@ -70,6 +71,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       question={asking.question}
       yes={asking.yes}
       no={asking.no}
+      loss={asking.loss}
       onYes={() => {
         setAsking(undefined)
         asking.go()
@@ -105,6 +107,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       question: `Disconnect Google Calendar? The app takes its days${where} from today on, and hands back its access. Days before today stay.${told}`,
       yes: 'Disconnect it',
       no: 'Stay connected',
+      loss: true,
       go: () =>
         void run(async () => {
           await post<CalendarLink>('/api/calendar/disconnect')
@@ -136,6 +139,10 @@ export function CalendarCard({ view, available }: { view: View; available: boole
         <p>
           Put every day of every confirmed job on a Google calendar, from today on, kept up to date as jobs change. Connect the Google account
           that should write them, then choose its calendar.
+        </p>
+        {/* Bringing old jobs in needs the same connection, and reading is all it does (audit, 5 November 2026, finding 98). */}
+        <p className="hint">
+          Connecting is also how jobs are brought in from its calendars. Bringing in only reads: nothing goes on a calendar until you choose one here.
         </p>
         {link?.problem && <p className="alert">{link.problem}</p>}
         {noteLine}

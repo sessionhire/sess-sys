@@ -211,6 +211,7 @@ function DocumentLine({ doc, onChange }: { doc: DocumentView; onChange?: () => v
         <Confirm
           question={`Remove ${name}'s ${titleInSentence(doc.title)}?${doc.file ? ' Its file is deleted too.' : ''}`}
           yes="Remove it"
+          loss
           onYes={() => {
             setRemoving(false)
             void run(() => client.mutate('document.remove', { id: doc.id }))
@@ -347,7 +348,9 @@ export function DocumentToCheck({ doc }: { doc: DocumentView }) {
             <label className="field">
               Runs out <input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} aria-label={`Runs out: the ${what} ${name} sent`} />
             </label>
-            <button type="button" className="primary" onClick={() => void run(() => client.mutate('document.check', { id: doc.id, expires: expires || null }))} aria-label={`Checked: the ${what} ${name} sent`}>
+            {/* Plain like Open and Not right beside it, not the red fill, which is for the one next thing (UX sweep, 6 November 2026, move 1).
+                Not quiet: with no edge among edged buttons, the past-tense word read as the answer's state rather than as something to press. */}
+            <button type="button" onClick={() => void run(() => client.mutate('document.check', { id: doc.id, expires: expires || null }))} aria-label={`Checked: the ${what} ${name} sent`}>
               Checked
             </button>
           </>
@@ -362,6 +365,7 @@ export function DocumentToCheck({ doc }: { doc: DocumentView }) {
         <Confirm
           question={`Remove the ${what} ${name} sent? Its file is deleted, and they aren't told: ask them for the right one yourself.`}
           yes="Remove it"
+          loss
           onYes={() => {
             setWrong(false)
             void run(() => client.mutate('document.remove', { id: doc.id }))

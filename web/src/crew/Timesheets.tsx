@@ -11,10 +11,13 @@ import {
   timesheetMessage,
   timesheetSummary,
   timesheetTotal,
+  listHeading,
+  STANDING_HEADINGS,
   type PersonView,
   type TimesheetExtra,
   type TimesheetRow,
   type View,
+  NOT_YOURS
 } from '@sh/shared'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -62,10 +65,16 @@ export function TimesheetsCard({ view }: { view: View }) {
   // Decided per timesheet, from what this device is sent (audit, 20 October 2026, finding 3): a head who reads their own
   // department's rates (ADR 0062) checks theirs and opens the rest.
   const checks = (r: TimesheetRow) => mayDecide && !r.amountsHidden
+  // What this role decides, then what waits on the office, each counted in its own heading: Crew's row and Home count only the
+  // first, so the number they say is the one here (Move 3 of the sweep of 6 November 2026).
+  const sent: [string, TimesheetRow[]][] = [
+    [STANDING_HEADINGS.timesheets, toApprove.filter(checks)],
+    ['Waiting on the office', toApprove.filter((r) => !checks(r))],
+  ]
   if (!toApprove.length && !notIn.length && !lately.length)
     return mayDecide ? null : (
       <section className="card">
-        <Empty>No timesheets of yours yet. You send them from your own page once a booking's days are done.</Empty>
+        <Empty>{`No timesheets of yours yet. ${NOT_YOURS.timesheets}`}</Empty>
       </section>
     )
   return (
@@ -74,29 +83,34 @@ export function TimesheetsCard({ view }: { view: View }) {
       <Narrowed department={department} onWiden={widen} />
       {!seesRates && mayDecide && <p className="hint">Your role doesn't see crew rates, so the amounts are hidden, and the office checks and approves timesheets.</p>}
       {/* Each kind counted in full and showing its first three (audit finding 16), so a long week's are a tap away and never out of mind. */}
-      {toApprove.length > 0 && (
-        <div className="ts-group" role="group" aria-label={toApprove.some(checks) ? 'To approve' : 'Waiting on the office'}>
-          <h3>{toApprove.some(checks) ? 'To approve' : 'Waiting on the office'} ({toApprove.length})</h3>
-          <ShowAll items={toApprove} limit={3} what="timesheets">
-            {(rows) =>
-              rows.map((r) => (
-                <Row
-                  key={r.offer.id}
-                  r={r}
-                  action={
-                    <a className={checks(r) ? 'button primary' : 'link'} href={`#crew/timesheet/${encodeURIComponent(r.offer.id)}`}>
-                      {checks(r) ? 'Check' : 'Open'}
-                    </a>
-                  }
-                />
-              ))
-            }
-          </ShowAll>
-        </div>
+      {sent.map(
+        ([title, group]) =>
+          group.length > 0 && (
+            <div key={title} className="ts-group" role="group" aria-label={title}>
+              <h3 className="group">{listHeading(title, group.length)}</h3>
+              <ShowAll items={group} limit={3} what="timesheets">
+                {(rows) =>
+                  rows.map((r) => (
+                    <Row
+                      key={r.offer.id}
+                      r={r}
+                      action={
+                        // Quiet, as every row's own action is: fifty red Checks down a busy week said nothing, so the heading's count carries
+                        // how many there are (UX sweep, 6 November 2026, move 1).
+                        <a className={checks(r) ? 'button quiet' : 'link'} href={`#crew/timesheet/${encodeURIComponent(r.offer.id)}`}>
+                          {checks(r) ? 'Check' : 'Open'}
+                        </a>
+                      }
+                    />
+                  ))
+                }
+              </ShowAll>
+            </div>
+          )
       )}
       {notIn.length > 0 && (
         <div className="ts-group" role="group" aria-label="Not in yet">
-          <h3>Not in yet ({notIn.length})</h3>
+          <h3 className="group">Not in yet ({notIn.length})</h3>
           <ShowAll items={notIn} limit={3} what="bookings">
             {(rows) =>
               rows.map((r) => (
@@ -126,7 +140,7 @@ export function TimesheetsCard({ view }: { view: View }) {
       {remind?.person && <Ask r={remind} person={remind.person} onClose={() => setRemind(undefined)} />}
       {lately.length > 0 && (
         <div className="ts-group" role="group" aria-label="Approved lately">
-          <h3>Approved lately ({lately.length})</h3>
+          <h3 className="group">Approved lately ({lately.length})</h3>
           <ShowAll items={lately} limit={3} what="timesheets">
             {(rows) => rows.map((r) => <Row key={r.offer.id} r={r} action={<a className="link" href={`#crew/timesheet/${encodeURIComponent(r.offer.id)}`}>Open</a>} />)}
           </ShowAll>
@@ -137,12 +151,14 @@ export function TimesheetsCard({ view }: { view: View }) {
 }
 
 function Row({ r, action }: { r: TimesheetRow; action: ReactNode }) {
+  // The year once a day is in another or half a year off, as the freelancer's link says it (audit, 5 November 2026, finding 29).
+  const today = useToday()
   return (
     <div className="row ts-row">
       <div>
         <b>{r.person?.name ?? 'Someone'}</b>
         <p>
-          {job(r)} · {r.call.role} · {daysLabel(r.timesheet?.days ?? r.offer.days)}
+          {job(r)} · {r.call.role} · {daysLabel(r.timesheet?.days ?? r.offer.days, today)}
         </p>
       </div>
       <div className="actions">
@@ -217,10 +233,10 @@ function Timesheet({ view, r, onTell, onRestart }: { view: View; r: TimesheetRow
           {job(r)} · {r.call.role}
           <br />
           {r.amountsHidden ? (
-            <>Booked {daysLabel(r.offer.days)}, {rateText(null, true)}</>
+            <>Booked {daysLabel(r.offer.days, today)}, {rateText(null, true)}</>
           ) : (
             <>
-              Booked {daysLabel(r.offer.days)} at {euro(r.offer.dayRateCents)}
+              Booked {daysLabel(r.offer.days, today)} at {euro(r.offer.dayRateCents)}
               {r.offer.dayRateCents !== null && ' a day'}
             </>
           )}
@@ -260,6 +276,7 @@ function Timesheet({ view, r, onTell, onRestart }: { view: View; r: TimesheetRow
  * decides it.
  */
 function Unpriced({ r }: { r: TimesheetRow }) {
+  const today = useToday()
   const t = r.timesheet!
   return (
     <section className="card" aria-label={t.status === 'approved' ? 'Approved' : 'Sent'}>
@@ -267,7 +284,7 @@ function Unpriced({ r }: { r: TimesheetRow }) {
       <ul className="ts-lines">
         <li>
           <span>
-            {t.days.length} day{t.days.length === 1 ? '' : 's'}, {daysLabel(t.days)}
+            {t.days.length} day{t.days.length === 1 ? '' : 's'}, {daysLabel(t.days, today)}
           </span>
         </li>
         {t.extras.map((e, i) => (
@@ -289,6 +306,7 @@ function Approved({ r, onTell }: { r: TimesheetRow; onTell: OnTell }) {
 }
 
 function ApprovedFigures({ r, onTell }: { r: TimesheetRow; onTell: OnTell }) {
+  const today = useToday()
   const t = r.timesheet!
   const changes = timesheetChanges(t)
   const { fees } = timesheetTotal(t)
@@ -304,7 +322,7 @@ function ApprovedFigures({ r, onTell }: { r: TimesheetRow; onTell: OnTell }) {
       <ul className="ts-lines">
         <li>
           <span>
-            {t.days.length} day{t.days.length === 1 ? '' : 's'} at {euro(t.dayRateCents)}, {daysLabel(t.days)}
+            {t.days.length} day{t.days.length === 1 ? '' : 's'} at {euro(t.dayRateCents)}, {daysLabel(t.days, today)}
           </span>
           <span>{euro(fees)}</span>
         </li>
@@ -466,8 +484,8 @@ function Check({ view, r, onTell, onRestart }: { view: View; r: TimesheetRow; on
         )}
       </fieldset>
       <label className="field">
-        Note for {r.person?.name.split(' ')[0] ?? 'them'} (optional)
-        <textarea rows={2} value={note} onChange={(e) => (setTouched(true), setNote(e.target.value))} placeholder="Why anything changed" maxLength={1000} />
+        Note for {r.person?.name.split(' ')[0] ?? 'them'} <span className="optional">(optional)</span>
+        <textarea rows={2} value={note} onChange={(e) => (setTouched(true), setNote(e.target.value))} placeholder="e.g. Finished at 01:00, not 23:00" maxLength={1000} />
       </label>
       {changes.length > 0 && (
         <div className="warn-line">

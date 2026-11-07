@@ -25,7 +25,7 @@ import {
   itemCertificateDetails,
 } from '@sh/shared'
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { renderGone } from '../crew/page.ts'
+import { REFUSED, renderGone } from '../crew/page.ts'
 import { getPerson, personByToken } from '../crew/store.ts'
 import type { Db } from '../db.ts'
 import { describeDevice } from '../devices.ts'
@@ -51,6 +51,13 @@ import { certificateItemName, getItemCertificate, itemCertificateFile, itemCerti
 
 /** Room for the form round a 10 MB file, so a file just under it isn't turned away for its wrapping. */
 const ROUTE_LIMIT = MAX_FILE_BYTES + 256 * 1024
+
+/**
+ * The link page's form is read up to 40 MB and then refused over 10 MB in words (audit, 5 November 2026, finding 14).
+ * Turned away before it is read, a phone's 11 MB photo ended in the browser's "connection reset" page instead, since a
+ * browser that is still sending drops an answer that comes early. Only a real link gets this far (onRequest below).
+ */
+const LINK_ROUTE_LIMIT = 40 * 1024 * 1024 + 256 * 1024
 
 /** What the link page says after a post, by code, as its other forms do (crew/links.ts). */
 type Said = 'doc-sent' | 'doc-no-file' | 'doc-too-big' | 'doc-web-page' | 'doc-not-a-file' | 'doc-not-on' | 'doc-not-yours' | 'doc-not-kept' | 'check-the-dates' | 'try-again'
@@ -226,9 +233,12 @@ export function registerDocumentRoutes(app: FastifyInstance, { db, files, onChan
     })
 
     const noStore = (reply: FastifyReply) => reply.header('cache-control', 'no-store').header('x-robots-tag', 'noindex')
-    /** Back to the page, the message in their documents, and a refused renewal's form open again under its card (o). */
+    /**
+     * Back to the page, the message in their documents, and a refused renewal's form open again under its card (o). A
+     * refusal lands on what it's about, the field or its line, as the page's other forms' do; the thanks, on the section.
+     */
     const backTo = (reply: FastifyReply, token: string, said: Said, renews?: string | null) =>
-      reply.redirect(`/f/${encodeURIComponent(token)}?${new URLSearchParams({ m: said, s: 'documents', ...(renews ? { o: renews } : {}) })}#documents`, 303)
+      reply.redirect(`/f/${encodeURIComponent(token)}?${new URLSearchParams({ m: said, s: 'documents', ...(renews ? { o: renews } : {}) })}#${said === 'doc-sent' ? 'documents' : REFUSED}`, 303)
 
     /** Whose link a form is being sent on, found before its body is read. */
     const sender = new WeakMap<FastifyRequest, Person>()
@@ -241,9 +251,9 @@ export function registerDocumentRoutes(app: FastifyInstance, { db, files, onChan
     scope.post(
       '/f/:token/documents',
       {
-        bodyLimit: ROUTE_LIMIT,
+        bodyLimit: LINK_ROUTE_LIMIT,
         // The link is looked up before the body is read, so a made-up link, or one with nowhere to keep files, never has
-        // 10 MB read into the server's memory for it: anyone can post to an address.
+        // a file read into the server's memory for it: anyone can post to an address.
         onRequest: async (req: LinkReq, reply) => {
           const person = await personByToken(db, req.params.token)
           if (!person) return reply.code(404).type('text/html').send(renderGone())

@@ -1,8 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
+import { iconFrame, icons } from '../shared/src/ds/icons.js'
 
 /**
  * Moving about the screens (audit findings 8, 9 and 10): a new screen
- * opens at its top, and Back finds the place it was left at; a button the
+ * opens at its top, or at the part its address names (UX sweep, 6 November
+ * 2026, move 8), and Back finds the place it was left at; a button the
  * role can't use isn't drawn, for staff crew and the warehouse on a job
  * and on Crew; and Crew's calls show only those short of people, with the
  * filled ones folded under them. Uses the made-up data (ADR 0019), so it
@@ -24,9 +26,38 @@ test.afterAll(async ({ request }) => {
 const scrollY = (page: Page) => page.evaluate(() => Math.round(window.scrollY))
 /** Two frames: the Shell settles the page a frame after the new screen is drawn. */
 const drawn = (page: Page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+/**
+ * Past the frames Back holds a place for against a screen still filling in (places.ts holds it twelve, until a hand moves the page).
+ * A hand's scroll lets go of it at once; one from a script doesn't, so the page is held back where it was if it's moved sooner.
+ */
+const letGo = (page: Page) =>
+  page.evaluate(() => new Promise((done) => {
+    let frames = 16
+    const next = () => (frames-- > 0 ? requestAnimationFrame(next) : done(undefined))
+    requestAnimationFrame(next)
+  }))
+/** Twenty frames: a page landed on a part is held there for twelve against what is still filling in (places.ts), then left be. */
+const settled = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise((done) => {
+        let frames = 20
+        const wait = () => (frames-- > 0 ? requestAnimationFrame(wait) : done(undefined))
+        wait()
+      })
+  )
+
+/** The shared icon set's "next", as a fold's chevron is cut to it: its paths and the stroke they are drawn at. */
+const next = { paths: icons.next.map(([, a]) => a.d), stroke: iconFrame['stroke-width'] }
+
+/** The same of an icon written into a stylesheet as a mask, read back from its data address. */
+function iconShape(mask: string): typeof next {
+  const svg = decodeURIComponent(mask)
+  return { paths: [...svg.matchAll(/\sd=['"]([^'"]+)['"]/g)].map((m) => m[1]), stroke: svg.match(/stroke-width=['"]([^'"]+)['"]/)?.[1] }
+}
 
 test('a new screen opens at its top, and Back finds the place the last one was left at', async ({ browser }) => {
-  // Proves: moving on from a page scrolled down starts the next at its top, by a tab or a link; the browser's Back and Forward put each screen back where it was.
+  // Proves: moving on from a page scrolled down starts the next at its top, by a tab or a link, or at the part a link names; the browser's Back and Forward put each screen back where it was.
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#crew/calls')
   await expect(page.getByRole('status')).toHaveText('Up to date')
@@ -47,21 +78,30 @@ test('a new screen opens at its top, and Back finds the place the last one was l
   await page.goBack()
   await expect(page).toHaveTitle('Calls · Session Hire')
   await expect.poll(() => scrollY(page)).toBe(far)
+  await letGo(page)
 
-  // A link from far down the page: the job opens at its top, with its title in view, and Back comes back to the link.
-  const link = page.getByRole('link', { name: 'Open job' }).last()
+  // A link from far down the page to a job's crew lands on the part it names, as the job's Next does (UX sweep, 6 November 2026,
+  // move 8): the tab row under the bar, the focus on Crew. Back comes back to the link. The link is held by its node: the rows are
+  // drawn as they come near the screen (ADR 0050), so once the page moves the last link drawn may be another, further down, and
+  // pressing that one would move the page again. The place is kept a frame after the page moves.
+  const link = (await page.getByRole('link', { name: 'Open job' }).last().elementHandle())!
   await link.scrollIntoViewIfNeeded()
+  await drawn(page)
   const at = await scrollY(page)
   expect(at).toBeGreaterThan(0)
   await link.click()
-  await expect(page.getByRole('heading', { level: 1 })).toBeInViewport()
-  await drawn(page)
-  expect(await scrollY(page)).toBe(0)
+  const crew = page.getByRole('tab', { name: /^Crew/ })
+  await expect(crew).toBeFocused()
+  await expect(crew).toHaveAttribute('aria-selected', 'true')
+  await expect(crew).toBeInViewport()
+  await settled(page)
+  const landed = await scrollY(page)
+  expect(landed).toBeGreaterThan(0)
   await page.goBack()
   await expect.poll(() => scrollY(page)).toBe(at)
-  // And Forward to the job, at the top where it was left.
+  // And Forward to the job, where it was left.
   await page.goForward()
-  await expect.poll(() => scrollY(page)).toBe(0)
+  await expect.poll(() => scrollY(page)).toBe(landed)
 })
 
 test('a long list draws only the rows near the screen, and Back finds a place deep in it', async ({ browser, request }) => {
@@ -164,9 +204,21 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await as(page, 'crew', /^Staff crew/)
   await openJob(page, 'Harbour Lights Festival')
   const main = page.getByRole('main')
+  // Nor is the job's one Next button theirs to press: it says whose the task is (audit, 5 November 2026, finding 2).
+  const next = page.getByRole('region', { name: 'Next' })
+  await expect(next).toContainText(/Nothing (here for you )?to press/)
+  await expect(next.getByRole('button')).toHaveCount(0)
+  await expect(next.getByRole('link')).toHaveCount(0)
   await expect(main.getByRole('region', { name: 'Phases' })).toBeVisible()
   // Each part of the job in turn (ADR 0059), and no Quote for a role that doesn't see money.
   await expect(main.getByRole('tab')).toHaveText(['Phases 3', /^Crew/, 'Kit and vans', 'Show pack'])
+  // The quote's address, typed or kept from before, says what it refused under a heading of its own (audit, 5 November 2026, finding 87).
+  const jobAt = page.url()
+  expect(jobAt).toMatch(/#jobs\/[^/]+/)
+  await page.goto(jobAt.replace(/#jobs\/([^/]+).*/, '#jobs/$1/quote'))
+  await expect(page.getByRole('heading', { level: 1, name: 'Quote' })).toBeVisible()
+  await expect(main).toContainText('Quotes and prices are for the office and directors.')
+  await page.goto(jobAt)
   for (const part of ['Phases', 'Crew', 'Kit and vans', 'Show pack']) {
     await main.getByRole('tab', { name: new RegExp(`^${part}`) }).click()
     for (const name of ['Change', 'Change details', 'Add phase', 'Add kit', 'Ask for crew', 'Offer…', 'Running late…', 'Book a vehicle'])
@@ -186,6 +238,22 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await page.goto('/#stock')
   await page.getByRole('link', { name: /Shure SM58|d&b/ }).first().click()
   await expect(main.getByRole('button', { name: 'Change details' })).toHaveCount(0)
+})
+
+test("staff crew are not shown how to do stock work that is the warehouse's or the office's", async ({ browser }) => {
+  // Proves: Counting doesn't tell staff to start a count they have no button for, Labels has no Set numbers aside card for them, and
+  // bringing in the stock list says it's the office's before a file is chosen, not after the columns are matched (audit, 5 November 2026, finding 74).
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await as(page, 'crew', /^Staff crew/)
+  await page.goto('/#stock/count')
+  await expect(page.getByRole('main')).toContainText('The warehouse and heads of department do the counts.')
+  await expect(page.getByRole('main')).not.toContainText("Start one from a place's page")
+  await page.goto('/#stock/labels')
+  await expect(page.getByRole('heading', { level: 1, name: 'Labels' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Set numbers aside' })).toHaveCount(0)
+  await page.goto('/#stock/import')
+  await expect(page.getByRole('main')).toContainText('The office brings the stock list in.')
+  await expect(page.getByLabel('Stock list file')).toHaveCount(0)
 })
 
 test('the warehouse can add kit to a job, but not change the job itself', async ({ browser }) => {
@@ -209,7 +277,7 @@ test('Crew needed lists only the calls short of people, with the filled ones fol
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#crew/calls')
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  const needed = page.locator('section.card', { has: page.getByRole('heading', { name: 'Crew needed' }) })
+  const needed = page.locator('section.card', { has: page.getByRole('heading', { name: 'Coming up' }) })
   const fold = needed.locator('details.filled-calls')
   const summary = fold.locator('summary')
   await expect(summary).toHaveText(/^Show \d+ filled calls?$/)
@@ -250,7 +318,7 @@ test('Crew needed lists only the calls short of people, with the filled ones fol
 })
 
 test('Crew needed shows the next fortnight at rest, and every call still to come a tap away, kept while the tab is open', async ({ browser, request }) => {
-  // Proves: at rest the short calls are the next fortnight's; "Show all N calls still to come" says how many and shows them all; it stays
+  // Proves: at rest the short calls are the next fortnight's; "Show all N calls still needing something" says how many and shows them all; it stays
   // shown after going to another Crew page and back (audit, 20 October 2026, finding 23).
   const later = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10)
   const res = await request.post('/api/sync/push', {
@@ -270,9 +338,9 @@ test('Crew needed shows the next fortnight at rest, and every call still to come
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#crew/calls')
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  const needed = page.locator('section.card', { has: page.getByRole('heading', { name: 'Crew needed' }) })
+  const needed = page.locator('section.card', { has: page.getByRole('heading', { name: 'Coming up' }) })
   const shortCalls = needed.locator(':scope > .call-groups > .call-group article.call').filter({ hasNot: page.locator(':scope > .pill', { hasText: /^Filled/ }) })
-  const showAll = needed.getByRole('button', { name: /^Show all \d+ calls still to come$/ })
+  const showAll = needed.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ })
   await expect(showAll).toBeVisible()
   const total = Number((await showAll.textContent())!.match(/\d+/)![0])
   const atRest = await shortCalls.count()
@@ -284,6 +352,197 @@ test('Crew needed shows the next fortnight at rest, and every call still to come
   await expect.poll(() => shortCalls.count()).toBeGreaterThan(atRest)
   await page.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^People/ }).click()
   await page.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^Calls/ }).click()
-  await expect(needed.getByRole('heading', { name: 'Crew needed' })).toBeVisible()
+  await expect(needed.getByRole('heading', { name: 'Coming up' })).toBeVisible()
   await expect(showAll).toHaveCount(0)
+})
+
+test("Money's By month and Margin by job read on a phone, every figure under its column's name and nothing off the right edge", async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, director-f1): the phone rule that folds a sent quote's middle columns is the quote's own, so
+  // Money's two tables keep every figure; on a phone each month and each job is a row with its figures under its name, each saying
+  // which it is, with nothing to scroll sideways in the page or in the card; and a desk keeps the table with its heads.
+  const tables = {
+    'By month': ['Quoted', 'Confirmed', 'Invoiced', 'Freelancers', 'Lost'],
+    'Margin by job': ['Quoted', 'Freelancers', 'After freelancers'],
+  }
+  const figures = (page: Page, name: string) =>
+    page
+      .getByRole('region', { name })
+      .locator('tbody tr:not(.group)')
+      .evaluateAll((rows) =>
+        rows.map((row) =>
+          [...row.querySelectorAll('td')].map((td) => {
+            const box = td.getBoundingClientRect()
+            const said = getComputedStyle(td, '::before').content
+            return { label: td.dataset.label, said: said !== 'none' && said !== 'normal', left: box.left, right: box.right, shown: box.width > 0 && box.height > 0 }
+          })
+        )
+      )
+  const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await phone.goto('/#jobs/money')
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  for (const [name, columns] of Object.entries(tables)) {
+    const region = phone.getByRole('region', { name })
+    await expect(region.locator('tbody td').first()).toBeVisible()
+    await expect(region.locator('thead')).toBeHidden()
+    const rows = await figures(phone, name)
+    expect(rows.length, name).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(row.map((c) => c.label)).toEqual(columns)
+      for (const c of row) {
+        expect(c.shown && c.said, `${name}: ${c.label} is shown and says which it is`).toBe(true)
+        expect(c.left, `${name}: ${c.label}`).toBeGreaterThanOrEqual(0)
+        expect(c.right, `${name}: ${c.label}`).toBeLessThanOrEqual(phoneSize.width)
+      }
+    }
+    expect(await region.locator('.quote-table-wrap').evaluate((wrap) => wrap.scrollWidth - wrap.clientWidth), `${name} scrolls sideways`).toBeLessThanOrEqual(0)
+  }
+  expect(await phone.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0)
+
+  const desk = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage()
+  await desk.goto('/#jobs/money')
+  await expect(desk.getByRole('status')).toHaveText('Up to date')
+  for (const [name, columns] of Object.entries(tables)) {
+    const head = desk.getByRole('region', { name }).locator('thead th')
+    await expect(head).toHaveText([name === 'By month' ? 'Month' : 'Job', ...columns])
+    await expect(head.first()).toBeVisible()
+    for (const row of await figures(desk, name)) for (const c of row) expect(c.said, `${name}: ${c.label} on a desk`).toBe(false)
+  }
+})
+
+test('inside a card a head is a group or a section, a boxed row has one shape, and every fold opens the same way', async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, move 2): across Home, Jobs, a job's kit, Quotes, Money, Stock, Repairs, Calls and Timesheets, a
+  // head over a run of rows is a group head (12px tracked capitals in the muted ink, with no box of its own) and any other head inside a
+  // card is a section at 16px in sentence case, but an open task's name at 20px (ADR 0073); a row drawn as a box inside a card has the
+  // one inset and corner; and every fold is a thumb-high line in the ink at 600 behind the one chevron, the shared icon set's "next",
+  // which app.css copies (so a change to the icon shows here). At a phone's size, dark. Then in forced colours (a Windows contrast
+  // theme), where a fill is painted the page's own colour: every chevron, a fold's, History's run line's and a task's, is still drawn,
+  // in the colour its words take.
+  const page = await (await browser.newContext({ viewport: phoneSize, colorScheme: 'dark' })).newPage()
+  await page.goto('/#home')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const roles = await page.evaluate(() => {
+    const probe = document.createElement('span')
+    document.querySelector('.app')!.append(probe)
+    const read = (role: string) => {
+      probe.style.color = `var(${role})`
+      return getComputedStyle(probe).color
+    }
+    const out = { ink: read('--ink'), muted: read('--muted') }
+    probe.remove()
+    return out
+  })
+  const pages: [string, (() => Promise<void>)?][] = [
+    [
+      '#home',
+      async () => {
+        await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company', exact: true }).click()
+        await expect(page.locator('.standing h3.group').first()).toBeVisible()
+      },
+    ],
+    ['#jobs'],
+    [
+      'a job’s kit',
+      async () => {
+        await page.goto('/#jobs')
+        await page.getByRole('link', { name: /Harbour Lights Festival/ }).first().click()
+        await page.getByRole('tab', { name: /^Kit/ }).click()
+        await expect(page.locator('.kit-group').first()).toBeVisible()
+      },
+    ],
+    ['#quotes'],
+    ['#jobs/money'],
+    ['#stock/repairs'],
+    ['#stock'],
+    ['#crew/calls'],
+    ['#crew/timesheets'],
+  ]
+  let groups = 0
+  let folds = 0
+  for (const [where, open] of pages) {
+    if (open) await open()
+    else await page.goto(`/${where}`)
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    const drawn = await page.evaluate(() => {
+      const shown = (el: Element) => el.getClientRects().length > 0
+      const heads = [...document.querySelectorAll('.card h3')].filter(shown).map((h) => {
+        const cs = getComputedStyle(h)
+        return { text: h.textContent!.trim(), group: h.classList.contains('group'), task: h.closest('.step-open') !== null, size: cs.fontSize, caps: cs.textTransform, colour: cs.color, edge: cs.borderTopWidth }
+      })
+      const boxes = [...document.querySelectorAll('.home .tile, .jobs .phase .job, .crew .call-date .job, .app .board-card, .warehouse .fault, .warehouse .due, .vehicle-row')].filter(shown).map((b) => {
+        const cs = getComputedStyle(b)
+        return { box: b.className, corner: cs.borderTopLeftRadius, inset: cs.paddingLeft }
+      })
+      const summaries = [...document.querySelectorAll('summary')].filter(shown).map((s) => {
+        const cs = getComputedStyle(s)
+        const chevron = s.querySelector(':scope > .chevron') ?? null
+        const mark = chevron ? getComputedStyle(chevron) : getComputedStyle(s, '::before')
+        return {
+          text: s.textContent!.trim(),
+          height: s.getBoundingClientRect().height,
+          weight: cs.fontWeight,
+          colour: cs.color,
+          chevron: chevron !== null || (mark.content !== 'none' && mark.maskImage !== 'none'),
+          mask: chevron ? undefined : mark.maskImage,
+        }
+      })
+      return { heads, boxes, summaries }
+    })
+    for (const h of drawn.heads) {
+      if (h.group) {
+        groups++
+        expect([h.size, h.caps, h.colour, h.edge], `${where}: group head ${h.text}`).toEqual(['12px', 'uppercase', roles.muted, '0px'])
+      } else {
+        expect(h.caps, `${where}: section head ${h.text}`).toBe('none')
+        expect(h.size, `${where}: section head ${h.text}`).toBe(h.task ? '20px' : '16px')
+      }
+    }
+    for (const b of drawn.boxes) expect([b.corner, b.inset], `${where}: ${b.box}`).toEqual(['8px', '12px'])
+    for (const s of drawn.summaries) {
+      folds++
+      expect(s.height, `${where}: fold ${s.text}`).toBeGreaterThanOrEqual(44)
+      expect([s.weight, s.colour, s.chevron], `${where}: fold ${s.text}`).toEqual(['600', roles.ink, true])
+      if (s.mask) expect(iconShape(s.mask), `${where}: fold ${s.text}`).toEqual(next)
+    }
+  }
+  expect(groups).toBeGreaterThan(8)
+  expect(folds).toBeGreaterThan(2)
+
+  const forced = await (await browser.newContext({ viewport: phoneSize, forcedColors: 'active' })).newPage()
+  const kinds = new Set<string>()
+  for (const where of ['#crew/calls', '#history', 'a job']) {
+    if (where === 'a job') {
+      await forced.goto('/#jobs')
+      await forced.getByRole('link', { name: /Harbour Lights Festival/ }).first().click()
+      await expect(forced.locator('.task-list button').first()).toBeVisible()
+    } else {
+      await forced.goto(`/${where}`)
+      await expect(forced.locator(where === '#history' ? '.history .run-line' : 'details.filled-calls > summary').first()).toBeVisible()
+    }
+    const marks = await forced.evaluate(() => {
+      const shown = (el: Element) => el.getClientRects().length > 0
+      // Cut to the icon's shape, a chevron is painted by its border where it has one, else by its fill; the cost fold's icon by its stroke.
+      const paint = (cs: CSSStyleDeclaration) => (parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopColor : cs.backgroundColor)
+      const out: { kind: string; text: string; paint: string; words: string; shaped: boolean }[] = []
+      for (const s of [...document.querySelectorAll('summary')].filter(shown)) {
+        const icon = s.querySelector(':scope > .chevron')
+        const cs = icon ? getComputedStyle(icon) : getComputedStyle(s, '::before')
+        out.push({ kind: 'fold', text: s.textContent!.trim(), paint: icon ? cs.stroke : paint(cs), words: getComputedStyle(s).color, shaped: icon !== null || cs.maskImage !== 'none' })
+      }
+      for (const c of [...document.querySelectorAll('.history .run-line .chevron')].filter(shown)) {
+        const cs = getComputedStyle(c)
+        out.push({ kind: 'run line', text: c.parentElement!.textContent!.trim(), paint: paint(cs), words: getComputedStyle(c.parentElement!).color, shaped: cs.maskImage !== 'none' })
+      }
+      for (const b of [...document.querySelectorAll('.task-list button')].filter(shown)) {
+        const cs = getComputedStyle(b, '::after')
+        out.push({ kind: 'task', text: b.querySelector('.task-name')!.textContent!.trim(), paint: paint(cs), words: getComputedStyle(b).color, shaped: cs.maskImage !== 'none' })
+      }
+      return { out, page: getComputedStyle(document.body).backgroundColor }
+    })
+    for (const m of marks.out) {
+      kinds.add(m.kind)
+      expect([m.paint, m.shaped], `${where}, forced colours: ${m.kind} ${m.text}`).toEqual([m.words, true])
+      expect(m.paint, `${where}, forced colours: ${m.kind} ${m.text} on the page`).not.toBe(marks.page)
+    }
+  }
+  expect([...kinds].sort()).toEqual(['fold', 'run line', 'task'])
 })

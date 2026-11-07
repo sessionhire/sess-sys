@@ -28,6 +28,8 @@
 }
 .stage-dot .icon { width: 16px; height: 16px; }
 .stages-flow [data-state='done'] .stage-dot { border-color: var(--muted); background: var(--muted); color: var(--panel); }
+/* Passed with a task still open (audit, 5 November 2026, finding 4): the tick hollow, so it doesn't read as finished. */
+.stages-flow [data-state='done'][data-open] .stage-dot { border-color: var(--muted); background: var(--panel); color: var(--muted); }
 .stages-flow [data-state='now'] .stage-dot { border-color: var(--ink); color: var(--ink); box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--ink); }
 .stages-flow[data-stopped] .stage-dot { box-shadow: none; border-color: var(--field-line); color: var(--muted); }
 .stage-label { font-size: var(--text-hint); font-weight: 700; line-height: 1.2; }
@@ -37,16 +39,17 @@
 /* The stage opened: a line naming it, then its tasks. */
 .stage-open { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .stage-open > p { margin: 0; }
-.stage-open .stage-line { color: var(--muted); }
-.stage-open .stage-line b { color: var(--ink); }
+.stage-open .stage-said { margin: 0; color: var(--muted); }
+.stage-open .stage-said b { color: var(--ink); }
 .stage-open .behind-head { margin-top: var(--ds-space-2); font-weight: 600; }
 .task-list { margin: 0; padding: 0; list-style: none; display: grid; }
 .task-list li + li { border-top: 1px solid var(--line); }
+/* The row ends in the chevron every fold has (app.css), turned while the task is open below it: open is the turn, not a wash, so the
+   open task never looks like one a pointer rests on (UX sweep, 6 November 2026, ds-2). Its tag, where a phone shows one, sits before it. */
 .app .task-list button {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--ds-space-3); width: 100%; min-height: 48px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; align-items: center; gap: var(--ds-space-3); width: 100%; min-height: 48px;
   padding: var(--ds-space-2) var(--ds-space-1); border: 0; border-radius: var(--radius-control); background: none; color: var(--ink); text-align: left;
 }
-.app .task-list button[aria-expanded='true'] { background: var(--ds-wash-hover); }
 .task-tick { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--radius-full); border: 2px solid var(--field-line); background: var(--panel); color: var(--panel); }
 .task-tick .icon { width: 14px; height: 14px; }
 .task-list [data-state='done'] .task-tick { border-color: var(--muted); background: var(--muted); }
@@ -64,17 +67,21 @@
 
 .step-open { display: grid; gap: var(--ds-space-2); justify-items: start; padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .step-open > * { margin: 0; }
-/* The task's name first and largest, then how it stands, then what it means: the order a glance reads them in. */
+/* The task's name first and largest, then how it stands, then what it means: the order a glance reads them in (ADR 0073). It keeps a
+   card heading's size, as the title of a record of its own, beside the two kinds of head inside a card (app.css). */
 .step-open h3 { font-size: var(--text-heading); }
 .step-open .step-state { color: var(--ink); }
 .step-open .step-state[data-state='now'] { font-weight: 600; }
 .step-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--ds-space-2) var(--ds-space-3); }
 .step-actions .field { min-width: 12rem; }
-/* A phone: the names stay, smaller, so the five stages read without opening one (ADR 0104). */
+/* A phone: the names stay, smaller, so the five stages read without opening one (ADR 0104): at the 12px floor, a long one ("On the
+   job") wrapping to a second line rather than going under it (UX sweep, 6 November 2026, ds-f1). */
 @media (max-width: 639px) {
   .stages-flow { --dot: 26px; --gap: 2px; }
-  .stage-label { font-size: 11px; }
-  .task-tag { display: none; }
+  .stage-label { font-size: var(--text-pill); }
+  /* The two tags that ask for something stay, Next and Late, so the word for the task to do is there on a phone too (audit,
+     5 November 2026, finding 56). Done, To do and Not needed go: the ring says those. */
+  .task-list li:not([data-state='now'], [data-late]) .task-tag { display: none; }
 }
 
 /*
@@ -86,18 +93,26 @@
 .next-dock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ds-space-half) var(--ds-space-3); align-items: center; }
 .next-dock .line { grid-column: 1 / -1; margin: 0; font-size: var(--text-small); color: var(--muted); }
 .next-dock .line b { color: var(--ink); }
+.next-dock .position-words[data-tone='warn'] { color: var(--warn); }
+.next-dock .position-words[data-tone='bad'] { color: var(--bad); }
 .app .next-dock .primary { min-height: 48px; padding-inline: var(--ds-space-4); font-size: var(--text-body); white-space: nowrap; text-align: center; justify-content: center; }
 .app .next-dock .second { font-size: var(--text-small); }
 .next-dock .rest { grid-column: 1 / -1; margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border: 1px dashed var(--field-line); border-radius: var(--radius-control); color: var(--muted); font-size: var(--text-small); }
-.next-dock .rest a { color: var(--accent); }
+.next-dock .rest a { color: var(--accent-ink); }
 @media (min-width: 640px) {
   .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
   .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
   .page-head .next-dock .line { order: -1; }
 }
 /* A phone: the dock is in the foot (foot.tsx), over the places, one footer: the button full width with its words centred. */
-.foot .next-dock .primary { grid-column: 1 / -1; width: 100%; }
-.foot .next-dock .second { grid-column: 1 / -1; justify-self: center; min-height: 44px; padding: var(--ds-space-2) var(--ds-space-3); border: 0; background: none; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+/* The quiet second choice sits beside it on the same row, so the dock keeps a row less of the screen (audit, 5 November 2026,
+   finding 56), in the accent's ink like every other link (finding 54). A long label wraps inside the button rather than pushing the
+   second choice off. */
+.foot .next-dock .primary { grid-column: 1; width: 100%; white-space: normal; }
+.foot .next-dock .second { grid-column: 2; justify-self: end; min-height: 44px; padding: var(--ds-space-2) 0 var(--ds-space-2) var(--ds-space-1); border: 0; background: none; color: var(--accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.foot .next-dock .primary:not(:has(+ .second)) { grid-column: 1 / -1; }
+.next-dock .alert { grid-column: 1 / -1; margin: 0; }
+/* A due day passed, in the bad tone (ADR 0104), with the words saying so too. */
 @media print {
   .next-dock { display: none; }
 }
@@ -112,20 +127,36 @@
 .stage-seg i[data-state='done'] { background: var(--muted); }
 .stage-seg i[data-state='now'] { background: var(--ink); }
 .stage-late { color: var(--bad); font-weight: 700; }
-.stage-line[data-compact] { margin: 0; font-size: var(--text-hint); color: var(--muted); white-space: nowrap; }
+/* The job's position (JobPosition.tsx): quiet when nothing is short, the warn ink when crew or kit is, the bad ink when a task is late.
+   Ink, not a wash, so a list of jobs isn't a wall of colour: the tone is on the words and the segment of the stage it's in. */
+.job-position .stage-name { font-weight: 700; }
+.job-position[data-tone='warn'] .stage-words { color: var(--warn); }
+.job-position[data-tone='warn'] .stage-seg i[data-state='now'] { background: var(--warn); }
+.job-position[data-tone='bad'] .stage-words { color: var(--bad); }
+.job-position[data-tone='bad'] .stage-seg i[data-state='now'] { background: var(--bad); }
+.stage-line[data-compact] { flex-wrap: nowrap; margin: 0; font-size: var(--text-hint); color: var(--muted); white-space: nowrap; }
 .stage-line[data-compact] .stage-seg i { width: 8px; height: 4px; }
 
 /*
  * Jobs › Board (BoardScreen.tsx, ADR 0104 part 3): a column a stage, cards soonest first, the whole row scrolling sideways where the
  * screen is narrower than six columns (a phone shows one and a bit, so the row says it goes on). Read only: nothing drags.
  */
-.board { display: grid; grid-template-columns: repeat(6, minmax(160px, 1fr)); gap: var(--ds-space-3); overflow-x: auto; padding-bottom: var(--ds-space-2); margin: 0 calc(-1 * var(--gutter)); padding-inline: var(--gutter); scroll-padding-inline: var(--gutter); }
+.board { display: grid; grid-template-columns: repeat(6, minmax(160px, 1fr)); gap: var(--ds-space-3); overflow-x: auto; overflow-y: hidden; padding-bottom: var(--ds-space-2); margin: 0 calc(-1 * var(--gutter)); padding-inline: var(--gutter); scroll-padding-inline: var(--gutter); }
 .board-col { display: grid; align-content: start; gap: var(--ds-space-2); min-height: 320px; padding: var(--ds-space-2); background: var(--panel); border-radius: var(--radius-card); }
 .board-col > header { display: grid; gap: 2px; padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-2); }
 .board-col > header b { font-size: var(--text-body); }
+/* Quoting's enquiries and quotes whose dates passed with no answer (ADR 0109): folded under the column, out of the way of the ones to chase. */
+.board-lapsed { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-2); border-top: 1px solid var(--line); }
+.board-lapsed[open] > summary { margin-bottom: var(--ds-space-1); }
+/* The one fold (app.css), its words a heading for the cards under it. */
+.board-lapsed > summary h3 { margin: 0; font: inherit; }
+/* Planning's bands by when each job starts (Move 7 of the sweep of 6 November 2026): This week and Next week open, Later folded. */
+.board-band { display: grid; gap: var(--ds-space-2); }
+.board-band + .board-band, .board-band + .board-later { padding-top: var(--ds-space-2); border-top: 1px solid var(--line); }
+.board-band-head { margin: 0; padding: 0 var(--ds-space-2); font: inherit; font-weight: 600; color: var(--muted); }
 .board-col > header small { color: var(--muted); font-variant-numeric: tabular-nums; }
 .board-col .board-empty { margin: 0; padding: 0 var(--ds-space-2); }
-.app .board-card { display: grid; gap: 2px; padding: var(--ds-space-2) var(--ds-space-3); background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-control); color: inherit; text-decoration: none; }
+.app .board-card { display: grid; gap: 2px; padding: var(--ds-space-2) var(--inset-box); background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); color: inherit; text-decoration: none; }
 .app .board-card b { font-size: var(--text-body); line-height: 1.25; }
 .app .board-card p { margin: 0; font-size: var(--text-small); color: var(--muted); }
 .board-line { margin-top: var(--ds-space-1); font-size: var(--text-small); color: var(--muted); }
@@ -139,3 +170,12 @@
   .board { grid-template-columns: repeat(6, 78vw); scroll-snap-type: x proximity; }
   .board-col { scroll-snap-align: start; }
 }
+
+/* The invoice, under the tasks for whoever reads money (UX sweep, 6 November 2026, move 12): the task-list shape as a link to the Quote
+   tab, apart from the stages by a rule, amber once the job is through and not invoiced (the office's to do, not a late task). */
+.invoice-row { margin-top: var(--ds-space-2); border-top: 1px solid var(--line); }
+.app .invoice-row a {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--ds-space-3); min-height: 48px;
+  padding: var(--ds-space-2) var(--ds-space-1); color: var(--ink); text-decoration: none;
+}
+.invoice-row [data-due] .task-how, .invoice-row [data-due] .task-tag { color: var(--warn); }

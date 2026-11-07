@@ -40,9 +40,11 @@ test('the office copies a freelancer their calendar address, the same one their 
   const phone = await (await browser.newContext({ viewport: phoneSize, javaScriptEnabled: false })).newPage()
   await phone.goto(link)
   const bookings = phone.locator('section').filter({ has: phone.getByRole('heading', { name: 'Your bookings' }) })
+  // Set up once, so folded to a line (UX sweep, move 6b).
+  await bookings.locator('details.feed-fold > summary').click()
   await expect(bookings.getByLabel('Calendar address')).toHaveValue(feed)
   await expect(bookings.getByRole('link', { name: 'Subscribe' })).toHaveAttribute('href', feed.replace(/^http:/, 'webcal:'))
-  await expect(bookings).toContainText("It only shows your bookings, so it's fine in a calendar you share.")
+  await expect(bookings).toContainText("It shows your bookings and what each pays, so share it only with people you'd tell that to.")
   await bookings.scrollIntoViewIfNeeded()
   await phone.screenshot(shot('feed-freelancer'))
 

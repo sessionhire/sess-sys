@@ -44,9 +44,14 @@
   --stack: var(--ds-space-1); /* between the lines of one group: a label and its field, a heading and the line under it */
   --group: var(--ds-space-3); /* between groups inside a part: a card's heading and its list, one row or field and the next */
   --section: var(--ds-space-6); /* between the parts of a page: card and card, the page's head and what's under it */
+  --record: var(--ds-space-4); /* card and card inside a record's tab, its Split and Beside columns: calmer than a list's, as ADR 0082 reads (Colly's question 7 of the sweep of 6 November 2026) */
   --inset: var(--ds-space-4); /* inside a card or panel, from its edge */
   --gutter: var(--ds-space-4); /* the page's edge on a phone */
+  /* A row drawn as a box inside a card (a phase's or a call's box, a fault, a test due, a van, a Home tile, a card on the Board): one
+     shape wherever it is, its words a step in from its edge and its corner a step tighter than the card's. */
+  --inset-box: var(--ds-space-3);
   --radius-control: 8px;
+  --radius-box: var(--radius-control);
   --radius-tab: 10px;
   --radius-card: 12px;
   --radius-full: 999px;
@@ -127,7 +132,6 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .not-done-list .meta { font-size: var(--text-hint); }
 /* What was typed into a change turned down, folded under its reason, to copy (problems.tsx). */
 .not-done-list .typed { display: grid; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
-.not-done-list .typed summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .not-done-list .typed button { justify-self: start; }
 /* A question before something that can't be undone (act.tsx), where the action was: what will happen, in words, and the two ways on. */
 .warn-line { margin: 0; font-size: var(--text-hint); background: var(--warn-soft); color: var(--warn); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); }
@@ -139,9 +143,24 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .signal { display: flex; gap: var(--ds-space-3); align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--ds-space-3) var(--ds-space-4); cursor: pointer; }
 .signal input { width: 22px; height: 22px; accent-color: var(--accent); margin-top: var(--ds-space-half); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--inset); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--group); }
-.card h2 { margin: 0; font-size: var(--text-heading); font-weight: 700; }
+/* On the 4px grid: a card's heading on the system's title leading, 28px. */
+.card h2 { margin: 0; font-size: var(--text-heading); font-weight: 700; line-height: var(--ds-text-title-leading); }
 /* A heading and the line saying what it is are one group: the line sits under it, not a group away. */
 .card h2 + :is(p, .hint) { margin-top: calc(var(--stack) - var(--group)); }
+/*
+ * A head inside a card is one of two kinds, and which kind says what follows it (UX sweep, 6 November 2026, move 2), so the eye learns a
+ * group from a section:
+ * - A group (h3.group) names what follows and has no words of its own: a run of rows (a week's jobs, a department's kit, a day's
+ *   calls, the quotes waiting for an answer), a run of figures (a person's leave), or a part of one long form, as a quote's Terms and
+ *   Send follow its lines (ADR 0100). Label capitals, 12px tracked, in the muted ink: it names them and steps back for them.
+ * - A section (a plain h3) heads a part with words or a job of its own: a hint, prose or a total under it (Money's "Invoiced"), or a
+ *   form that stands alone ("Add kit"). ADR 0082's sentence case at 16px in ink, read as a heading.
+ * The design system's Section has the first alone; the second is Session Hire's own (ADR 0082). Where each sits is the area's to say.
+ * Two heads inside a card are neither, each the title of a record of its own at a card heading's 20px: an open task's name, first and
+ * largest (ADR 0073, steps.css), and a version on What's changed (below).
+ */
+.card h3 { font-size: var(--text-small); font-weight: 700; }
+.card h3.group { font-size: var(--text-pill); line-height: var(--ds-text-label-leading); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 /* The page's own main thing (its list, its form) stands straight on the page under its title, not in a box of its own: a box is for a part
    that stands beside it. Two levels of boxes at most, as the design system's navigation page has it. */
 .card.plain { background: none; border: 0; border-radius: 0; padding: 0; }
@@ -183,13 +202,19 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .pill.waiting { background: transparent; color: var(--muted); border: 1px dashed var(--field-line); }
 button { font: 600 var(--text-button) var(--ds-font-sans); min-height: 44px; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
 button.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
-/* Deleting everything (ADR 0019): the bad tone, never the brand red, which marks the one thing to do next. 4.7:1 light, 6.9:1 dark. */
+/* A loss: deleting everything (ADR 0019), and the yes of a question whose answer takes something away (act.tsx), as the design system
+   draws an armed button. The bad tone, never the brand red, which marks the one thing to do next. 4.7:1 light, 6.9:1 dark. */
 button.danger { background: var(--bad); border-color: var(--bad); color: var(--bad-soft); }
+/* A row's own action, the same on every row down a list, such as Check on each timesheet (the design system's quiet button): no fill
+   and no edge until a pointer hovers, in the secondary ink, so fifty of them don't outshout the one next thing, and the heading's count
+   says how many. Still 44px to hit, with the same focus ring. A quiet link (button.link.quiet) is a link, drawn as links are. */
+button.quiet:not(.link), a.button.quiet { background: transparent; border-color: transparent; color: var(--on-line); }
 /* Focus on everything a keyboard reaches, links, text boxes and folds included: the same 2px ring outside the edge (design system rule 4). */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* 16px in every field, whatever the label round it is set in: iOS zooms the page into a field set any smaller. */
 input, select { font: inherit; font-size: var(--text-body); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--field-line); background: var(--bg); color: var(--ink); min-width: 0; }
 .hint, .empty { margin: 0; color: var(--muted); font-size: var(--text-hint); }
+.page-foot { margin-top: var(--ds-space-4); text-align: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* Getting about (audit finding 22): each move within the app lands on the screen's heading (Shell.tsx), which shows the same ring as a button. */
@@ -204,12 +229,22 @@ input, select { font: inherit; font-size: var(--text-body); padding: var(--ds-sp
 /* An area's pages in one row (Views.tsx), first under the bar: the current one filled. Each takes an equal share where they fit; where they don't,
    as on a phone, the row stays one line and scrolls sideways, the current page brought into view, and the edge with more past it fades, so no
    page is hidden with nothing to say it's there (audit P2 23). It used to wrap: Stock's nine took four lines, a third of a phone, before any stock. */
-.views { display: flex; flex-wrap: nowrap; gap: var(--ds-space-1); padding: var(--ds-space-1); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.views { display: flex; flex-wrap: nowrap; gap: var(--ds-space-1); padding: var(--ds-space-1); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; }
 .views::-webkit-scrollbar { display: none; }
 /* Where Tab or a link brings something into view: clear of the bar at the top (its height kept by useUnderTop.ts) and of the tabs along the
    foot of a phone, not half under either (audit, 20 October 2026, finding 78). A desk's tabs are down the side. */
-html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll-padding-bottom: calc(68px + env(safe-area-inset-bottom) + var(--ds-space-2)); }
+html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + var(--ds-space-2)); scroll-padding-bottom: calc(68px + env(safe-area-inset-bottom) + var(--ds-space-2)); }
 @media (min-width: 900px) { html { scroll-padding-bottom: var(--ds-space-2); } }
+/* A part of this screen jumped to (glide.ts): the page glides there, and the part is marked where it lands by an edge in the accent, the
+   app's "you are here", held long enough to be found at the end of the glide and then faded at the system's slow step (240ms of 1200).
+   A colour, not movement, so it stays under reduced motion, where it's the only sign of the jump. Drawn just inside the card's edge:
+   outside it, the edge sat in the page's gutters, which the bar doesn't cover, so a card scrolled under the bar showed two red lines
+   either side of it (Colly, 7 November 2026). Inside, the bar covers it, and nothing shifts. */
+.landed { animation: landed 1200ms var(--ds-ease-standard); }
+@keyframes landed {
+  0%, 80% { outline: 2px solid var(--accent); outline-offset: -2px; }
+  100% { outline: 2px solid transparent; outline-offset: -2px; }
+}
 /* More this way (more.tsx): wherever a row or a table scrolls sideways, the edge with more past it fades, the same on every screen (audit P2 23;
    20 October 2026, finding 13). A fade, not a shadow, so it reads the same on any surface. --more-from keeps a column that stays put (the
    planner's names) out of the left fade. */
@@ -219,8 +254,11 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
 .more-edges[data-more='both'] { mask-image: linear-gradient(to right, #000 var(--more-at), transparent var(--more-at), #000 calc(var(--more-at) + 48px), #000 calc(100% - 48px), transparent); }
 .views a { flex: 1 0 auto; display: grid; grid-auto-flow: column; place-items: center; place-content: center; gap: var(--ds-space-2); min-height: 44px; padding-inline: var(--ds-space-3); border-radius: var(--radius-control); font-weight: 700; color: var(--muted); text-decoration: none; white-space: nowrap; }
 .views a[aria-current='page'] { background: var(--ink); color: var(--bg); }
-.views a:not([aria-current]):hover { color: var(--ink); }
-.views-count { font-weight: 600; opacity: .8; }
+@media (hover: hover) {
+  .views a:not([aria-current]):hover { color: var(--ink); }
+}
+/* The count in the muted ink alone, never faded below it: it's what says whether a view needs a look (audit, 5 November 2026, finding 55). */
+.views-count { font-weight: 600; }
 /* The way up (Up.tsx), in the bar so it stays in view down a long page: one link to the parent on a phone, as tall as a thumb; from 900px, where the places are a sidebar, the whole way down as breadcrumbs, the page itself last and not a link. The separators are drawn here and not read out. */
 .top .up { grid-column: 1 / -1; min-width: 0; margin-top: calc(-1 * var(--ds-space-2)); }
 .top .up-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); font-weight: 600; text-decoration: none; }
@@ -236,7 +274,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
   .top .crumbs { display: block; }
 }
 .app .title { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; }
-.app h1 { margin: 0; font-size: var(--text-title); line-height: 1.25; }
+/* On the 4px grid: the system's heading leading, 32px. */
+.app h1 { margin: 0; font-size: var(--text-title); line-height: var(--ds-text-heading-leading); }
 /* Every page's head, in the same place on every screen and outside any card: its title, large, naming this page (Calls, Labels, Admin), so
    checking you're in the right place is one look in one place; and a line under it, quieter, saying what matters most about it. */
 .page-head { display: grid; gap: var(--ds-space-1); margin-top: var(--ds-space-1); }
@@ -252,7 +291,7 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
    sits straight above the first part, under the screen's title and its choices, so it belongs to what it lists; scrolled up to the bar it
    stays there (top set by OnThisScreen.tsx to the bar's height). Its parts never widen the screen: they scroll inside it. */
 .app > .on-screen { position: sticky; z-index: 1; contain: inline-size; margin: 0 calc(-1 * var(--gutter)) calc(var(--stack) - var(--section)); background: var(--bg); }
-.on-screen ul { list-style: none; margin: 0; padding: 0 var(--gutter); display: flex; gap: var(--ds-space-half); overflow-x: auto; scrollbar-width: none; scroll-padding-inline: var(--gutter); border-bottom: 1px solid var(--line); }
+.on-screen ul { list-style: none; margin: 0; padding: 0 var(--gutter); display: flex; gap: var(--ds-space-half); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-padding-inline: var(--gutter); border-bottom: 1px solid var(--line); }
 .on-screen ul::-webkit-scrollbar { display: none; }
 .on-screen button { min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border: 0; border-bottom: 2px solid transparent; border-radius: 0; white-space: nowrap; font-size: var(--text-small); font-weight: 600; color: var(--muted); background: transparent; display: inline-flex; align-items: center; gap: var(--ds-space-2); }
 .on-screen button[aria-current] { color: var(--ink); border-bottom-color: var(--ink); }
@@ -278,6 +317,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
 .app .list-tools-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
 .app .list-sort { display: inline-flex; align-items: center; gap: var(--ds-space-2); color: var(--muted); font-size: var(--text-small); }
 .app .list-sort select { color: var(--ink); }
+/* On a phone the icon says Sort (the select is named Sort), so Sort and Filter share one row over the list (audit, 5 November 2026, finding 57). */
+@media (max-width: 639px) { .app .list-sort > span { display: none; } }
 .app .list-filter-button { display: inline-flex; align-items: center; gap: var(--ds-space-2); }
 .app .list-filter-button[aria-expanded='true'] { background: var(--ds-surface-inset); }
 .app .list-tools .icon { width: 18px; height: 18px; flex: none; }
@@ -286,7 +327,7 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
 .app .list-filters label { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .app .list-filters select { color: var(--ink); width: 100%; }
 .app .list-active { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-2); font-size: var(--text-small); }
-.app .list-chip { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-height: 36px; padding: var(--ds-space-1) var(--ds-space-3); border-radius: 999px; background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: var(--text-small); }
+.app .list-chip { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border-radius: 999px; background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: var(--text-small); }
 .app .list-chip .icon { width: 14px; height: 14px; }
 .app .list-count { color: var(--muted); }
 .menu .places { display: grid; gap: var(--section); }
@@ -312,9 +353,24 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
 /* Enough is the quiet case (healthy is quiet; audit, 20 October 2026, finding 59), so the short lines beside it stand out. */
 .app .job-row .kit-note.ok, .app .job-row small.flag.ok { color: var(--muted); }
 .app .job-row small.flag { font-weight: 700; }
+/* An offer waiting on them says where it's answered, in the words of a link, since the row is the way there (UX sweep, 6 November 2026, move 6). */
+.app .job-row small.answer { color: var(--accent-ink); font-weight: 600; }
+/* A booking or an offer of theirs (UX sweep, 6 November 2026, move 6): the job, with where it stands at the end of its line, then
+   the facts across the whole row, so a phone has room for them on one line, then, under an offer, the way to answer it. */
+.app .booking-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--ds-space-3); align-items: start; }
+.app .booking-row > :is(.pill, .booking-state) { grid-area: 1 / 2; }
+/* A booking on a stopped job: its word with "Job cancelled" beside it, quiet, as nothing is asked of the reader. On a phone it goes
+   under the word, so the job's name keeps its room beside them: what can grow never takes the narrow space (the design system's rows). */
+.app .booking-state { display: flex; flex-wrap: wrap; justify-content: end; align-items: center; gap: var(--ds-space-1) var(--ds-space-2); }
+@media (max-width: 479px) { .app .booking-state { flex-direction: column; align-items: end; gap: var(--ds-space-1); } }
+.app .booking-state small { color: var(--muted); font-size: var(--text-small); white-space: nowrap; }
+.app .booking-row > :is(p, .answer) { grid-column: 1 / -1; }
+.app .booking-row > p { text-wrap: pretty; }
+.app .booking-row > .answer { margin-top: var(--ds-space-1); }
 .app .kit-short { border-color: var(--warn); }
 .app .kit-short h2 { color: var(--warn); }
-.app .pick-lists h3 { margin: 0; font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+/* A card's groups on Stock, each under a group head of its own (h3.group); the ones Home's counts land on carry their number. */
+.app .pick-lists h3, .app .kit-short h3 { margin: 0; }
 /* Something just added: kit on a job, items and counts on Stock. */
 /* It worked, so it's quiet (the design system's "healthy is quiet", green never for "saved"): ink on the inset surface, the words saying what was done. */
 .app .added { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); background: var(--ds-surface-inset); color: var(--ink); font-size: var(--text-small); }
@@ -324,18 +380,50 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
 .app .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--group); align-items: end; }
 .app .grid-form label { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .app .grid-form .wide { grid-column: 1 / -1; }
+/*
+ * One form family (UX sweep, 6 November 2026, move 5). On a phone every form is one column: two inputs share a line
+ * only inside a .pair, when they are one thing (From and To, First and Last name). At a desk a short answer (a count, a
+ * rate, a date) is as wide as its answer, not half the grid. The footer is the submit first, the quiet way out after
+ * it, each a full row under 640px. "(optional)" sits in the label in the label's muted colour.
+ */
+.app .grid-form .pair { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: var(--group); align-items: end; }
+.app .grid-form label.short input, .app .grid-form label.short select { max-width: 10em; }
+.optional { color: var(--muted); font-weight: normal; }
+/* A number's unit in its box, € before or % and km after (UX sweep, move 5), on every form as on the quote. */
+.unit-box { display: flex; align-items: center; min-width: 0; min-height: 44px; border: 1px solid var(--field-line); border-radius: var(--radius-control); background: var(--bg); color: var(--ink); }
+.unit-box input:not([type='checkbox']) { flex: 1 1 0; width: 100%; min-width: 0; min-height: 42px; border: 0; background: transparent; }
+.unit-box input:focus-visible { outline: none; }
+.unit-box:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.unit-box .unit { flex: none; padding-inline: 0 var(--ds-space-3); color: var(--muted); font-size: var(--text-small); }
+.unit-box.before .unit { padding-inline: var(--ds-space-3) 0; }
+.unit-box.before input { padding-inline-start: var(--ds-space-1); }
+.unit-box.needs { border-color: var(--warn); }
+.unit-box:has(input[aria-invalid='true']) { border-color: var(--bad); }
+.app .grid-form .unit-box { max-width: 10em; }
+/* At a desk the submit sits at the start of the form's column, as wide as its words, not across the whole grid. */
+@media (min-width: 640px) { .app .grid-form > button.wide { justify-self: start; min-width: 12em; } }
+@media (max-width: 639px) {
+  .app .grid-form, .account .office-form { grid-template-columns: minmax(0, 1fr); }
+  .app .grid-form label.short input, .app .grid-form label.short select { max-width: none; }
+  .app .grid-form > .actions { flex-direction: column; align-items: stretch; }
+  .app .grid-form > .actions > button, .app .grid-form > .actions > a.button { width: 100%; }
+}
 /* Skills as picks (ADR 0063, SkillsField.tsx): chips in a box drawn as a field, the skills in use offered in the overlay under it. */
 .skills-field { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .skills-anchor { position: relative; }
 .skills-box { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1); min-height: 44px; padding: var(--ds-space-1); border-radius: var(--radius-control); border: 1px solid var(--field-line); background: var(--bg); cursor: text; }
-.skills-box:hover { border-color: var(--ds-ink-tertiary); }
+@media (hover: hover) {
+  .skills-box:hover { border-color: var(--ds-ink-tertiary); }
+}
 .skills-box input { flex: 1 1 8em; min-height: 34px; border: 0; padding: var(--ds-space-1) var(--ds-space-2); background: transparent; }
 .skills-box input:focus-visible { outline: 0; }
 .skills-box:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .skill-chips { display: contents; list-style: none; margin: 0; padding: 0; }
 .skill-chip { display: inline-flex; align-items: center; gap: var(--ds-space-half); padding-inline-start: var(--ds-space-2); border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--panel); color: var(--ink); font-size: var(--text-small); }
 .skill-chip button { display: grid; place-items: center; width: 34px; height: 34px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--muted); }
-.skill-chip button:hover { color: var(--ink); background: var(--line); }
+@media (hover: hover) {
+  .skill-chip button:hover { color: var(--ink); background: var(--line); }
+}
 /* Drawn at 34px, as a chip's own control is, but a finger's 44px to hit (audit, 20 October 2026, finding 58). */
 .skill-chip button { position: relative; }
 .skill-chip button::after { content: ''; position: absolute; inset: -5px; }
@@ -357,6 +445,10 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
    and where it belongs; notes in the list ("Most like it", "40 more") aren't offers, so they're quiet and never highlight. */
 .picker-field { display: grid; gap: var(--ds-space-1); font-size: var(--text-hint); color: var(--muted); }
 .picker-field input { width: 100%; }
+/* The record picker offers eight at most, so on a phone its list grows with the page rather than scrolling inside it (no captive scroll). */
+@media (max-width: 639px) {
+  .picker-options { max-height: none; overflow-y: visible; }
+}
 .picker-options li[role='option'] { flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--ds-space-half); padding-block: var(--ds-space-1); }
 .picker-options li small { color: var(--ds-ink-secondary); font-size: var(--text-hint); }
 .picker-options li.note { min-height: 0; padding-block: var(--ds-space-2) var(--ds-space-half); color: var(--ds-ink-secondary); font-size: var(--text-hint); cursor: default; }
@@ -385,6 +477,27 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--ds-space-2)); scroll
 /* A form put away keeps what was typed (Fold.tsx), hidden rather than gone. */
 .fold[hidden] { display: none; }
 .fold > button.link, .app button.show-all { justify-self: start; }
+/*
+ * One fold (the design system's disclosure and states.md's Expanded; UX sweep, 6 November 2026, move 2): every summary a row as tall as
+ * a thumb, its words in ink at 600, after the shared chevron, the icon set's "next" (shared/src/ds/icons.js), drawn here so it takes the
+ * words' colour. It turns a quarter as the fold opens, at the base duration, and at once with reduced motion. A fold over a list says
+ * how many are in it, in its words ("Archived (4)", "3 done"). History's run of changes and a stage's task open the same way; the
+ * quote's cost fold draws the icon itself. Open is the turned chevron, never the hover wash, which says a pointer rests there.
+ * The chevron is a border cut to the icon's shape, not a fill: forced colours (a Windows contrast theme) paint a fill the page's own
+ * colour, so it would vanish, where a border takes its words' colour there as well.
+ */
+summary { display: flex; align-items: center; gap: var(--ds-space-2); min-height: 44px; padding-block: var(--ds-space-2); color: var(--ink); font-weight: 600; list-style: none; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+summary::before, .history .run-line .chevron, .app .task-list button::after {
+  content: ''; flex: none; box-sizing: border-box; width: 16px; height: 16px; border: 8px solid currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+summary:has(> .chevron)::before { content: none; }
+summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after { transition: rotate var(--ds-duration-base) var(--ds-ease-standard); }
+details[open] > summary::before, details[open] > summary > .chevron, .history .run-line[aria-expanded='true'] .chevron, .app .task-list button[aria-expanded='true']::after { rotate: 90deg; }
+@media (prefers-reduced-motion: reduce) {
+  summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after { transition: none; }
+}
 
 /* Sign-in and account. */
 a.button, label.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; text-align: center; font: 600 var(--text-button) var(--ds-font-sans); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; }
@@ -393,6 +506,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* 44px touch targets: easier with gloves on or in a dark venue. */
 input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .alert { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); background: var(--bad-soft); color: var(--bad); font-size: var(--text-small); }
+/* An empty field a form needs, said under it in the app's words (required.ts; audit, 5 November 2026, finding 85): a line of its own, the whole width of a form's grid. */
+.field-refusal { display: block; grid-column: 1 / -1; margin-block-start: var(--ds-space-1); }
 .signin .card { gap: var(--ds-space-4); padding: var(--ds-space-5) var(--ds-space-4); }
 .signin p { margin: 0; }
 .signin .button { padding: var(--ds-space-3) var(--ds-space-4); font-size: var(--text-body); }
@@ -405,7 +520,7 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .account button.link { border: 0; background: none; padding: var(--ds-space-1) 0; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
 .account .invites { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .account .feed input { font-size: var(--text-hint); color: var(--muted); }
-.account .invites h3 { margin: 0; font-size: var(--text-subheading); }
+.account .invites h3 { margin: 0; }
 .choices { display: grid; gap: var(--ds-space-2); }
 .choices .signal b { display: block; overflow-wrap: anywhere; }
 
@@ -417,12 +532,10 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .entry p { margin: 0; }
 .entry .meta { color: var(--muted); font-size: var(--text-hint); }
 .history .card > button { justify-self: start; }
-/* A card for each day, and one person's changes one after another as one line that opens (ADR 0006, amended), with a triangle like the browser's own on a fold, kept out of what a screen reader says. */
+/* A card for each day, and one person's changes one after another as one line that opens (ADR 0006, amended), with the chevron every fold has (above), kept out of what a screen reader says. */
 .history .run-line { display: grid; gap: var(--ds-space-1); align-content: center; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.history .run-line .what { display: flex; font-weight: 600; }
-.history .run-line .chevron { flex: none; width: 1.1em; height: 1.5em; display: grid; place-items: center; color: var(--muted); transition: transform .15s; }
-.history .run-line[aria-expanded='true'] .chevron { transform: rotate(90deg); }
-.history .run-line .meta { padding-left: 1.1em; color: var(--muted); font-size: var(--text-hint); }
+.history .run-line .what { display: flex; align-items: center; gap: var(--ds-space-2); font-weight: 600; }
+.history .run-line .meta { padding-left: calc(16px + var(--ds-space-2)); color: var(--muted); font-size: var(--text-hint); }
 .history .run > .entries { margin-left: .4em; padding-left: var(--ds-space-3); border-left: 2px solid var(--line); }
 .history .older { display: grid; gap: var(--ds-space-3); justify-items: start; }
 
@@ -452,8 +565,8 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
  * one, each reading top to bottom, rather than every card zigzagging left and right in pairs as tall as the taller. A page with nothing for
  * the side is one column, the page's full width (ADR 0091).
  */
-.split { display: grid; gap: var(--ds-space-4); min-width: 0; }
-.split > .main, .split > .side { display: grid; gap: var(--ds-space-4); align-content: start; min-width: 0; }
+.split { display: grid; gap: var(--record); min-width: 0; }
+.split > .main, .split > .side { display: grid; gap: var(--record); align-content: start; min-width: 0; }
 .split > .side:empty { display: none; }
 @media (min-width: 1200px) {
   .split { grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); align-items: start; }
@@ -464,7 +577,7 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 
 /* Two columns on a laptop (audit finding 25, Beside in jobs/common.tsx): the list down the left, kept in reach as the record beside it scrolls. Below 960px nothing changes: the list and the record are separate pages. */
 .app.beside .columns { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--ds-space-4); align-items: start; }
-.app.beside .column { display: grid; gap: var(--ds-space-4); min-width: 0; }
+.app.beside .column { display: grid; gap: var(--record); min-width: 0; }
 /* 64px is the top bar's height and 80px the tab bar's with a margin, so the whole list scrolls between the two; with the sidebar there's no bar under it. */
 .app.beside .column.list { position: sticky; top: 64px; max-height: calc(100vh - 64px - 80px); overflow: auto; }
 @media (min-width: 900px) {
@@ -484,6 +597,8 @@ button, a.button, label.button, .tabs a, .app .job-row, .app .who, .app a.link, 
 @media (hover: hover) {
   button:not(:disabled, .primary, .danger, .link, .who, .run-line, [aria-pressed='true']):hover, a.button:not(.primary):hover, label.button:not([aria-busy='true']):hover { background-image: linear-gradient(var(--ds-wash-hover), var(--ds-wash-hover)); border-color: var(--field-line); }
   button.primary:not(:disabled):hover, a.button.primary:hover, button.danger:not(:disabled):hover { filter: brightness(.92); }
+  /* A quiet button shows its wash, and its words come up to ink, with no edge (the design system's quiet hover). */
+  button.quiet:not(:disabled, .link):hover, a.button.quiet:hover { border-color: transparent; color: var(--ink); }
   .app .back:hover, .top .up-link:hover, .crumbs a:hover { color: var(--ink); }
   .app button.link:not(:disabled):hover, .app a.link:hover, .account button.link:not(:disabled):hover, :where(a:not([class])):hover { text-decoration-thickness: 2px; }
   .tabs a:not([aria-current='page']):hover { background: var(--ds-wash-hover); color: var(--ink); }
@@ -530,8 +645,9 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
 .notice .new-mark { display: inline-flex; align-items: center; gap: var(--ds-space-1); margin-right: var(--ds-space-2); color: var(--accent-ink); font-size: var(--text-hint); font-weight: 700; }
 .notice .new-mark .dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--accent-fill); }
 .notice.new p { font-weight: 600; }
-/* A line of several changes (audit, 20 October 2026, finding 68): what they were, behind a tap. */
-.notice-fold summary { padding: var(--ds-space-2) 0; color: var(--muted); font-size: var(--text-small); font-weight: 600; cursor: pointer; }
+/* What someone else's change meant for them (finding 61), said under it. */
+.notice p.for-you { margin: 0; font-weight: 400; }
+/* A line of several changes (audit, 20 October 2026, finding 68): what they were, behind a tap (the one fold, above). */
 .notice-fold ol { list-style: none; margin: 0; padding: 0 0 0 var(--ds-space-3); border-left: 2px solid var(--line); display: grid; gap: var(--ds-space-2); font-size: var(--text-small); }
 
 /*
@@ -543,7 +659,7 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
 :where(a:not([class])) { color: var(--accent-ink); font-weight: 600; text-underline-offset: 2px; }
 /* As tall as a thumb on a touch screen, a fact's Map or a line's "All jobs" alike, the words where they were: padding on a link in a line moves no line. */
 @media (pointer: coarse) {
-  :where(a:not([class])) { padding-block: var(--ds-space-4); }
+  :where(a:not([class]), a.muted) { padding-block: var(--ds-space-4); }
 }
 
 /* The way past the places to the screen (Shell.tsx, the design system's skip link): out of sight until a keyboard reaches it, first thing in the page. */
@@ -567,21 +683,30 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
   html, body { background: #fff; }
   :root, :root[data-theme] { color-scheme: light; }
   .foot { display: none !important; }
+  /* The browser's own Print (Ctrl+P, Share › Print) on a screen gives the screen's content, not its way round it: no skip link, top bar,
+     strip of views or buttons (audit, 5 November 2026, finding 101). A print sheet keeps whatever it draws. */
+  .skip-to-content, .app > .top, .app .views, .on-screen, button:not(.print-sheet *) { display: none !important; }
+  :focus { outline: none !important; }
 }
 
 /* Toasts clear the foot's dock when a page has one (ADR 0104). */
 body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px + env(safe-area-inset-bottom)); }
 
-/* Admin › What's changed (ADR 0071): one entry per version, newest first. */
+/* Admin › What's changed (ADR 0071): one entry per version, newest first. Each is a record of its own, so its title keeps a card
+   heading's 20px, under a month's fold too, rather than either kind of head inside a card. */
 .release { display: grid; gap: var(--ds-space-1); }
 .release + .release { padding-top: var(--ds-space-4); border-top: 1px solid var(--line); }
-.release h2, .release h3 { margin: 0; font-size: var(--text-subheading); text-transform: none; letter-spacing: 0; }
+.release h2, .release h3 { margin: 0; font-size: var(--text-subheading); line-height: var(--ds-text-title-leading); text-transform: none; letter-spacing: 0; }
+.release .new-word { color: var(--accent-ink); }
+/* The older versions, a month to a fold (finding 80). */
+.release-month { border-top: 1px solid var(--line); padding-top: var(--ds-space-3); }
+.release-month > .release { padding-top: var(--ds-space-3); }
 .release-version { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: var(--ds-space-1); }
 .release-refs { display: flex; flex-wrap: wrap; gap: var(--ds-space-1) var(--ds-space-3); }
 .card > a[href="#admin/changes"] { justify-self: start; }
 
 /* A page's parts as tabs (Tabs.tsx, ADR 0082): the open part's cards one after another under the row, as a job's (jobs.css draws the row). */
-.tab-part { display: grid; gap: var(--ds-space-4); min-width: 0; }
+.tab-part { display: grid; gap: var(--record); min-width: 0; }
 
 /* Admin › Status (ADR 0093): one row a check, its name and word on a line, then what it says and what to do. */
 .status-checks, .status-wrong { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ds-space-4); }
@@ -607,7 +732,7 @@ body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px +
 
 /* Labels under Admin (ADR 0106): the logo as labels print it, and the colour for each cable length. */
 .swatch { flex: none; display: inline-block; width: 1.25rem; height: 1.25rem; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); vertical-align: middle; }
-.labels-card h3 { margin: var(--ds-space-3) 0 var(--ds-space-2); font-size: 1rem; }
+.labels-card h3 { margin: var(--ds-space-3) 0 var(--ds-space-2); }
 .labels-card .company-logo img.on-label { display: block; max-width: 12rem; max-height: 4rem; padding: var(--ds-space-2); background: #fff; border-radius: var(--radius-control); filter: grayscale(1); }
 .labels-card .colour-list { list-style: none; margin: 0 0 var(--ds-space-2); padding: 0; display: grid; gap: var(--ds-space-1); }
 .labels-card .colour-list li { display: flex; align-items: center; gap: var(--ds-space-2); }

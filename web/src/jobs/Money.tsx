@@ -1,7 +1,7 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   addDays,
   belowZero,
-  CHASE_AFTER_DAYS,
   costsCsv,
   dayLabel,
   daysLabel,
@@ -20,6 +20,7 @@ import {
   RATE_LABELS,
   RATE_RULES,
   RATE_UNIT,
+  standing,
   vatPeriodOf,
   vatSummaryCsv,
   type CostRow,
@@ -37,9 +38,13 @@ import {
   spanLabel,
   suggestionLine,
   type EnquiryReading,
+  STANDING_HEADINGS,
+  waitingHeading,
+  listHeading,
 } from '@sh/shared'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
+import { arrive } from '../arrival.ts'
 import { Empty } from '../Empty.tsx'
 import { ShowAll } from '../Fold.tsx'
 import { Heading } from '../Icon.tsx'
@@ -50,7 +55,7 @@ import { client } from '../sync.ts'
 import { JOBS, MONEY } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
-import { Choices, clientNamed, Top, venueNamed } from './common.tsx'
+import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
 import { JobViews } from './PlanScreen.tsx'
@@ -85,37 +90,11 @@ export function MoneyScreen({ view }: { view: View }) {
   const today = useToday()
   if (!useAccess().can('money')) return <NotYours view={view} />
   const m = view.money
-  const month = moneyMonth(today)
-  const now = m.months.find((x) => x.key === month.key)
-  const owed = m.owed.reduce((s, o) => s + o.cents, 0)
-  const notInvoiced = owed - m.owed.reduce((s, o) => s + o.invoiced, 0)
-  const toFreelancers = m.costsOwed.reduce((s, c) => s + c.cents, 0)
   return (
     <div className="app crew jobs money">
       <Top view={view} views={<JobViews current="money" />} heading="Money" />
       <section className="card plain">
-        <dl className="facts money-facts">
-          <div>
-            <dt>Quoted for {month.label}</dt>
-            <dd>{money(now?.quoted ?? 0)}</dd>
-          </div>
-          <div>
-            <dt>Confirmed</dt>
-            <dd>{money(now?.confirmed ?? 0)}</dd>
-          </div>
-          {/* Named for what it is (audit finding 29): accepted and not paid, much of it not asked for yet. */}
-          <div>
-            <dt>Accepted, unpaid</dt>
-            <dd>
-              {money(owed)}
-              <small>with VAT{notInvoiced > 0 && `, of which ${money(notInvoiced)} not invoiced yet`}</small>
-            </dd>
-          </div>
-          <div>
-            <dt>Owed to freelancers</dt>
-            <dd>{money(toFreelancers)}</dd>
-          </div>
-        </dl>
+        <MoneyFacts view={view} today={today} />
         <p className="hint">
           Before VAT, by the month each job starts, except what's accepted and unpaid, which is with VAT, as an invoice asks. <a href="#quotes">Quotes</a> · <a href="#jobs/money/prices">Price list</a> ·{' '}
           <a href="#jobs/money/current-rms">Past quotes from Current RMS</a>
@@ -135,7 +114,7 @@ export function MoneyScreen({ view }: { view: View }) {
 const ago = (days: number) => (days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`)
 
 /** One quote waiting on the office: the job, what's waiting and for how long, and what it comes to. */
-function FollowRow({ f, what, chase, children }: { f: QuoteToFollow; what: string; chase?: boolean; children?: ReactNode }) {
+function FollowRow({ f, what, chase, when, children }: { f: QuoteToFollow; what: string; chase?: boolean; when?: string; children?: ReactNode }) {
   return (
     <li className="row">
       <div>
@@ -144,7 +123,7 @@ function FollowRow({ f, what, chase, children }: { f: QuoteToFollow; what: strin
           {[f.job.client?.name, `version ${f.quote.version}`, money(f.quote.totals.net)].filter(Boolean).join(' · ')}
           <br />
           <span className={chase ? 'warn' : undefined}>
-            {what} {ago(f.days)}
+            {what} {when ?? ago(f.days)}
             {chase ? ': worth a call' : ''}
           </span>
         </p>
@@ -163,56 +142,122 @@ export function ToFollowUp({ view }: { view: View }) {
   const today = useToday()
   const [starting, setStarting] = useState(false)
   const f = quotesToFollow(view.money, today)
-  const none = f.drafts.length + f.waiting.length + f.outOfStep.length === 0
+  const none = f.drafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
   return (
     <section className="card quotes-to-follow" aria-label="To follow up">
       <Heading icon="document">To follow up</Heading>
+      {/* Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1). */}
       {!starting && (
-        <button type="button" className="primary" onClick={() => setStarting(true)}>
+        <button type="button" onClick={() => setStarting(true)}>
           New quote
         </button>
       )}
       {starting && <NewQuote view={view} onCancel={() => setStarting(false)} />}
       {none && !starting && <Empty>No quote is waiting on anyone. Start a new one here, or from a job's page.</Empty>}
-      <QuoteGroups f={f} />
+      <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
     </section>
   )
 }
 
-function QuoteGroups({ f, chaseOnly }: { f: ReturnType<typeof quotesToFollow>; chaseOnly?: boolean }) {
-  const waiting = chaseOnly ? f.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS) : f.waiting
+/** How many rows of each group To follow up and Accepted, unpaid draw before Show all (audit, 5 November 2026, finding 53). */
+const FOLLOW_SHOWN = 8
+
+/**
+ * `lapsed`: every job whose dates passed with no answer, Home's count of them (ADR 0109): the ones with a quote sent are
+ * here, and the Board's fold has them all, enquiries that never had a quote too.
+ */
+function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotesToFollow>; chaseOnly?: boolean; lapsed?: number }) {
+  const waiting = chaseOnly ? f.chase : f.waiting
+  const today = useToday()
   return (
     <>
       {f.outOfStep.length > 0 && (
         <div className="follow-group">
-          <h3>Answered: put the job in step</h3>
-          <ul className="plain">
-            {f.outOfStep.map((x) => (
-              <FollowRow key={x.quote.id} f={x} what={x.want === 'confirmed' ? 'Accepted' : 'Turned down'}>
-                <InStep job={x.job} want={x.want} compact />
-              </FollowRow>
-            ))}
-          </ul>
+          <h3 className="group">Answered: put the job in step</h3>
+          <ShowAll items={f.outOfStep} limit={FOLLOW_SHOWN} what="quotes" name={`${chaseOnly ? 'chase' : 'follow'} in step`}>
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what={x.want === 'confirmed' ? 'Accepted' : 'Turned down'}>
+                    <InStep job={x.job} want={x.want} compact />
+                  </FollowRow>
+                ))}
+              </ul>
+            )}
+          </ShowAll>
+        </div>
+      )}
+      {/* The office's last step (UX sweep, 6 November 2026, move 12): the jobs through, their accepted quote not invoiced. */}
+      {!chaseOnly && f.toInvoice.length > 0 && (
+        <div className="follow-group">
+          <h3 className="group">{listHeading(STANDING_HEADINGS['to-invoice'], f.toInvoice.length)}</h3>
+          <ShowAll items={f.toInvoice} limit={FOLLOW_SHOWN} what="jobs" name="follow to invoice">
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Through since" when={dayLabel(x.job.span!.end, today)} />
+                ))}
+              </ul>
+            )}
+          </ShowAll>
         </div>
       )}
       {waiting.length > 0 && (
         <div className="follow-group">
-          <h3>Waiting for an answer</h3>
-          <ul className="plain">
-            {waiting.map((x) => (
-              <FollowRow key={x.quote.id} f={x} what="Sent" chase={x.days >= CHASE_AFTER_DAYS} />
-            ))}
-          </ul>
+          {/* On Quotes, where Home's count of the quotes worth a call lands, how many are waiting and how many of them are worth a
+              call, the longest waiting at the top. Notifications lists only those, and no count lands there, so its heading has no number. */}
+          <h3 className="group">{chaseOnly ? STANDING_HEADINGS.quotes : waitingHeading(waiting.length, f.chase.length)}</h3>
+          <ShowAll items={waiting} limit={FOLLOW_SHOWN} what="quotes" name={`${chaseOnly ? 'chase' : 'follow'} waiting`}>
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Sent" chase={f.chase.includes(x)} />
+                ))}
+              </ul>
+            )}
+          </ShowAll>
+        </div>
+      )}
+      {/* Not a client to ring: the job happened without them, or went elsewhere (ADR 0109). */}
+      {!chaseOnly && f.passed.length > 0 && (
+        <div className="follow-group">
+          <h3 className="group">
+            Dates passed with no answer ({f.passed.length}
+            {lapsed > f.passed.length && ` of ${plural(lapsed, 'job')}`})
+          </h3>
+          {lapsed > f.passed.length && (
+            <p className="hint">
+              <a href="#jobs/board" onClick={() => arrive({ hash: '#jobs/board', part: STANDING_HEADINGS['no-answer'] })}>
+                All {lapsed} on the Board
+              </a>
+              , enquiries with no quote sent too.
+            </p>
+          )}
+          <ShowAll items={f.passed} limit={FOLLOW_SHOWN} what="quotes" name="follow passed">
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Sent">
+                    <InStep job={x.job} want="lost" compact />
+                  </FollowRow>
+                ))}
+              </ul>
+            )}
+          </ShowAll>
         </div>
       )}
       {!chaseOnly && f.drafts.length > 0 && (
         <div className="follow-group">
-          <h3>Not sent yet</h3>
-          <ul className="plain">
-            {f.drafts.map((x) => (
-              <FollowRow key={x.quote.id} f={x} what="Last changed" />
-            ))}
-          </ul>
+          <h3 className="group">Not sent yet</h3>
+          <ShowAll items={f.drafts} limit={FOLLOW_SHOWN} what="quotes" name="follow drafts">
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Last changed" />
+                ))}
+              </ul>
+            )}
+          </ShowAll>
         </div>
       )}
     </>
@@ -226,8 +271,7 @@ function QuoteGroups({ f, chaseOnly }: { f: ReturnType<typeof quotesToFollow>; c
 export function QuotesToChase({ view }: { view: View }) {
   const today = useToday()
   const f = quotesToFollow(view.money, today)
-  const chase = f.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS).length
-  if (chase + f.outOfStep.length === 0) return null
+  if (f.chase.length + f.outOfStep.length === 0) return null
   return (
     <section className="card quotes-to-follow" aria-label="Quotes to follow up">
       <Heading icon="document">Quotes to follow up</Heading>
@@ -299,7 +343,7 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
           {read.summary && <p>{read.summary}</p>}
           {read.questions.length > 0 && (
             <>
-              <h3>To ask the client</h3>
+              <h3 className="group">To ask the client</h3>
               <ul>
                 {read.questions.map((q) => (
                   <li key={q}>{q}</li>
@@ -313,17 +357,21 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
         What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required autoFocus />
       </label>
       <label>
-        Client <input list="new-quote-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
+        Client <span className="optional">(optional)</span> <input list="new-quote-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
       </label>
+      <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
       <label>
-        Venue <input list="new-quote-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
+        Venue <span className="optional">(optional)</span> <input list="new-quote-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
-      </label>
+      <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
+        </label>
+      </div>
       {phases.length > 0 && (
         <p className="hint wide">
           In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
@@ -352,6 +400,59 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
   )
 }
 
+/**
+ * The month in Money's own words, one list for Money's head and Home's Money card, so the two never frame it differently
+ * (Move 10 of the sweep of 6 November 2026): quoted, confirmed, accepted and unpaid, owed to freelancers, and what was lost,
+ * with the jobs whose dates passed with no answer named under it, not summed, until someone marks them lost.
+ */
+export function MoneyFacts({ view, today }: { view: View; today: string }) {
+  const m = view.money
+  const month = moneyMonth(today)
+  const now = m.months.find((x) => x.key === month.key)
+  const owed = m.owed.reduce((s, o) => s + o.cents, 0)
+  const notInvoiced = owed - m.owed.reduce((s, o) => s + o.invoiced, 0)
+  const toFreelancers = m.costsOwed.reduce((s, c) => s + c.cents, 0)
+  const lapsed = view.jobs.jobs.filter((j) => view.steps.of(j.id)?.lapsed).length
+  return (
+    <dl className="facts money-facts">
+      <div>
+        <dt>Quoted for {month.label}</dt>
+        <dd>{money(now?.quoted ?? 0)}</dd>
+      </div>
+      <div>
+        <dt>Confirmed</dt>
+        <dd>{money(now?.confirmed ?? 0)}</dd>
+      </div>
+      {/* Named for what it is (audit finding 29): accepted and not paid, much of it not asked for yet. */}
+      <div>
+        <dt>Accepted, unpaid</dt>
+        <dd>
+          {money(owed)}
+          <small>with VAT{notInvoiced > 0 && `, of which ${money(notInvoiced)} not invoiced yet`}</small>
+        </dd>
+      </div>
+      <div>
+        <dt>Owed to freelancers</dt>
+        <dd>{money(toFreelancers)}</dd>
+      </div>
+      <div>
+        <dt>Lost or lapsed for {month.label}</dt>
+        <dd>
+          {money(now?.lost ?? 0)}
+          <small>
+            turned down or marked lost
+            {lapsed > 0 && (
+              <>
+                ; and <a href="#jobs/board">{plural(lapsed, 'job')} whose dates passed with no answer</a>, not in this
+              </>
+            )}
+          </small>
+        </dd>
+      </div>
+    </dl>
+  )
+}
+
 function ByMonth({ m }: { m: MoneyView }) {
   if (!m.months.length) return null
   return (
@@ -366,16 +467,18 @@ function ByMonth({ m }: { m: MoneyView }) {
               <th scope="col">Confirmed</th>
               <th scope="col">Invoiced</th>
               <th scope="col">Freelancers</th>
+              <th scope="col">Lost</th>
             </tr>
           </thead>
           <tbody>
             {m.months.map((x) => (
               <tr key={x.key}>
                 <th scope="row">{x.label}</th>
-                <td className="n">{money(x.quoted)}</td>
-                <td className="n">{money(x.confirmed)}</td>
-                <td className="n">{money(x.invoiced)}</td>
-                <td className="n">{money(x.costs)}</td>
+                <td className="n" data-label="Quoted">{money(x.quoted)}</td>
+                <td className="n" data-label="Confirmed">{money(x.confirmed)}</td>
+                <td className="n" data-label="Invoiced">{money(x.invoiced)}</td>
+                <td className="n" data-label="Freelancers">{money(x.costs)}</td>
+                <td className="n" data-label="Lost">{money(x.lost)}</td>
               </tr>
             ))}
           </tbody>
@@ -383,7 +486,7 @@ function ByMonth({ m }: { m: MoneyView }) {
       </Sideways>
       <p className="hint">
         Quoted counts the quote that stands on each job, sent or accepted; confirmed, the accepted ones. A quote turned down isn't counted, nor one on a job cancelled or lost
-        until it's invoiced.
+        until it's invoiced. Lost sums the quotes turned down and those on jobs marked lost.
       </p>
     </section>
   )
@@ -403,29 +506,34 @@ function OwedGroup({ title, owed, invoiced, hint }: { title: string; owed: OwedB
       </h3>
       <p className="hint">{hint}</p>
       {/* One row a client, its quotes folded under it (audit finding 31). */}
-      {rows.map(({ o, quotes, cents }) => (
-        <details key={o.clientId ?? ''} className="owed">
-          <summary>
-            <b>{o.client}</b>
-            <span className="count">{plural(quotes.length, 'quote')}</span>
-            <span className="amount">{money(cents)}</span>
-          </summary>
-          <ul className="plain">
-            {quotes.map(({ job, quote }) => (
-              <li key={quote.id} className="row">
-                <div>
-                  <a href={`#jobs/${encodeURIComponent(job.id)}/quote`}>{job.name}</a>
-                  <p>
-                    Version {quote.version} · {money(quote.totals.gross)} with VAT
-                    {quote.invoicedOn ? ` · invoiced ${dayLabel(quote.invoicedOn)}${quote.invoiceRef ? ` as ${quote.invoiceRef}` : ''}` : ' · not invoiced yet'}
-                  </p>
-                </div>
-                <QuotePill q={quote} />
-              </li>
-            ))}
-          </ul>
-        </details>
-      ))}
+      {/* The biggest first, then Show all, so the freelancers' costs are in reach (audit, 5 November 2026, finding 53). */}
+      <ShowAll items={rows} limit={FOLLOW_SHOWN} what="clients" name={`owed ${invoiced ? 'invoiced' : 'to invoice'}`}>
+        {(shown) =>
+          shown.map(({ o, quotes, cents }) => (
+            <details key={o.clientId ?? ''} className="owed">
+              <summary>
+                <b>{o.client}</b>
+                <span className="count">{plural(quotes.length, 'quote')}</span>
+                <span className="amount">{money(cents)}</span>
+              </summary>
+              <ul className="plain">
+                {quotes.map(({ job, quote }) => (
+                  <li key={quote.id} className="row">
+                    <div>
+                      <a href={`#jobs/${encodeURIComponent(job.id)}/quote`}>{job.name}</a>
+                      <p>
+                        Version {quote.version} · {money(quote.totals.gross)} with VAT
+                        {quote.invoicedOn ? ` · invoiced ${dayLabel(quote.invoicedOn)}${quote.invoiceRef ? ` as ${quote.invoiceRef}` : ''}` : ' · not invoiced yet'}
+                      </p>
+                    </div>
+                    <QuotePill q={quote} />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))
+        }
+      </ShowAll>
     </div>
   )
 }
@@ -495,7 +603,7 @@ function Freelancers({ m }: { m: MoneyView }) {
       )}
       {m.costsPaid.length > 0 && (
         <div className="ts-group" role="group" aria-label="Paid lately">
-          <h3>Paid lately</h3>
+          <h3 className="group">Paid lately</h3>
           {m.costsPaid.slice(0, 5).map((c) => row(c, true))}
         </div>
       )}
@@ -508,10 +616,17 @@ function Freelancers({ m }: { m: MoneyView }) {
 export function BelowZero({ jobs }: { jobs: readonly JobMoney[] }) {
   const losing = belowZero(jobs)
   if (!losing.length) return null
-  const named = losing.slice(0, 3).map((j) => `${j.job.name}, ${money(j.margin!)}`)
+  // Each job named is a link to its money (audit, 5 November 2026, finding 89): every count opens what explains it.
+  const named = losing.slice(0, 3)
   return (
     <p className="below-zero">
-      {plural(losing.length, 'job')} below zero: {named.join('; ')}
+      {plural(losing.length, 'job')} below zero:{' '}
+      {named.map((j, i) => (
+        <Fragment key={j.job.id}>
+          {i > 0 && '; '}
+          <a href={`#jobs/${encodeURIComponent(j.job.id)}/quote`}>{j.job.name}</a>, {money(j.margin!)}
+        </Fragment>
+      ))}
       {losing.length > named.length ? `; and ${losing.length - named.length} more` : ''}.
     </p>
   )
@@ -520,7 +635,8 @@ export function BelowZero({ jobs }: { jobs: readonly JobMoney[] }) {
 /**
  * Margin by job, under the month each job starts, this month first (audit finding 31): the first ten, with a job below
  * zero kept in view wherever it is, and a sentence above naming them. The month heads don't stay at the top as the page
- * scrolls: the table scrolls sideways on a phone, and a head can't stick inside that.
+ * scrolls: the table sits in a box that scrolls sideways when it's wider than the card, and a head can't stick inside that.
+ * On a phone each job is a stacked row, its figures under its name, each saying which it is (UX sweep, 6 November 2026).
  */
 function Margins({ m, today }: { m: MoneyView; today: string }) {
   const now = moneyMonth(today).key
@@ -539,7 +655,7 @@ function Margins({ m, today }: { m: MoneyView; today: string }) {
                   <th scope="col">Job</th>
                   <th scope="col">Quoted</th>
                   <th scope="col">Freelancers</th>
-                  <th scope="col">Margin</th>
+                  <th scope="col">After freelancers</th>
                 </tr>
               </thead>
               <tbody>
@@ -558,12 +674,16 @@ function Margins({ m, today }: { m: MoneyView; today: string }) {
                       <a href={`#jobs/${encodeURIComponent(j.job.id)}/quote`}>{j.job.name}</a>
                       {j.job.span && <small>{dayLabel(j.job.span.start)}</small>}
                     </th>
-                    <td className="n">{j.setAside ? <small>Set aside: job {j.job.status}</small> : j.current ? money(j.quoted) : 'No quote'}</td>
-                    <td className="n">
+                    <td className="n" data-label="Quoted">
+                      {j.setAside ? <small>Set aside: job {j.job.status}</small> : j.current ? money(j.quoted) : 'No quote'}
+                    </td>
+                    <td className="n" data-label="Freelancers">
                       {money(j.costs)}
                       {j.toCome > 0 && <small>+ {money(j.toCome)} to come</small>}
                     </td>
-                    <td className={`n${j.margin !== null && j.margin < 0 ? ' bad' : ''}`}>{j.margin === null ? '–' : money(j.margin)}</td>
+                    <td className={`n${j.margin !== null && j.margin < 0 ? ' bad' : ''}`} data-label="After freelancers">
+                      {j.margin === null ? '–' : money(j.margin)}
+                    </td>
                   </tr>,
                 ])}
               </tbody>
@@ -671,7 +791,7 @@ export function PricesScreen({ view }: { view: View }) {
           if (!here.length) return null
           return (
             <div key={d} className="price-group" role="group" aria-label={DEPARTMENT_LABELS[d]}>
-              <h3>{DEPARTMENT_LABELS[d]}</h3>
+              <h3 className="group">{DEPARTMENT_LABELS[d]}</h3>
               <ShowAll items={here} limit={8} what="products">
                 {(rows) =>
                   rows.map((x) => (
@@ -869,7 +989,7 @@ function AddRole() {
         Role <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Rigger" maxLength={100} />
       </label>
       <label>
-        € a day <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="380" />
+        Price a day <UnitBox unit="€" before><input aria-label="€ a day" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="380" /></UnitBox>
       </label>
       <Refusal error={error} className="wide" />
       <button type="submit" className="wide">

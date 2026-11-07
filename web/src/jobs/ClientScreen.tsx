@@ -1,4 +1,4 @@
-import { type ClientView, type Contact, type View } from '@sh/shared'
+import { plural, type ClientView, type Contact, type View } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -6,17 +6,26 @@ import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { Attachments, JobsCard } from './Attachments.tsx'
 import { Page } from './common.tsx'
+import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
 import { CLIENTS, JOBS } from '../Up.tsx'
 
 /**
  * One client on a page of its own (ADR 0032, #jobs/clients/<id>): who to talk
  * to there, the notes, the documents kept for them (their contract,
- * purchase orders, a brief…), and their jobs.
+ * purchase orders, a brief…), and their jobs. Its name heads the page as a
+ * job's and a person's do, with its kind, jobs and first contact under it,
+ * and its three parts are tabs (Move 11 of the sweep of 6 November 2026).
  */
 
-export function ClientScreen({ view, id }: { view: View; id: string }) {
+type ClientPart = 'details' | 'documents' | 'jobs'
+const CLIENT_PARTS: readonly ClientPart[] = ['details', 'documents', 'jobs']
+const CLIENT_LABELS: Record<ClientPart, string> = { details: 'Details', documents: 'Documents', jobs: 'Jobs' }
+const clientHref = (id: string) => `#jobs/clients/${encodeURIComponent(id)}`
+
+export function ClientScreen({ view, id, part: asked }: { view: View; id: string; part?: string }) {
   const found = view.jobs.clients.find((c) => c.id === id)
   const up = { steps: [JOBS, CLIENTS], here: found?.name }
+  const [part, pick] = useTab({ parts: CLIENT_PARTS, asked, remember: 'sh.clientPart', address: (p) => `${clientHref(id)}/${p}` })
   if (!found)
     return (
       <Page view={view} title="Client" className="crew jobs" up={up}>
@@ -25,24 +34,29 @@ export function ClientScreen({ view, id }: { view: View; id: string }) {
         </section>
       </Page>
     )
+  const jobs = view.jobs.jobs.filter((j) => j.clientId === found.id)
   return (
-    <Page view={view} title="Client" className="crew jobs" up={up}>
-      <ClientSummary c={found} />
-      <Attachments owner={{ owner: 'client', id: found.id, name: found.name }} />
-      <JobsCard jobs={view.jobs.jobs.filter((j) => j.clientId === found.id)} title="Their jobs" />
+    <Page view={view} title="Client" className="crew jobs" up={up} heading={found.name} badge={<Pending pending={found.pending} />} sub={clientLine(found, jobs.length)}>
+      <Tabs label={`About ${found.name}`} id="client" parts={CLIENT_PARTS} labels={CLIENT_LABELS} current={part} counts={{ jobs: jobs.length || undefined }} onPick={pick} />
+      <TabPanel id="client" current={part}>
+        {part === 'details' && <ClientSummary c={found} />}
+        {part === 'documents' && <Attachments owner={{ owner: 'client', id: found.id, name: found.name }} />}
+        {part === 'jobs' && <JobsCard jobs={jobs} title="Their jobs" />}
+      </TabPanel>
     </Page>
   )
+}
+
+/** "Client · 12 jobs · Shane Lynch": its kind, its jobs and who to ask for first, as a person's page says who they are. */
+function clientLine(c: ClientView, jobs: number): string {
+  return ['Client', plural(jobs, 'job'), c.contacts.find((x) => x.name.trim())?.name].filter(Boolean).join(' · ')
 }
 
 function ClientSummary({ c }: { c: ClientView }) {
   const [editing, setEditing] = useState(false)
   const mayChange = useAccess().can('jobs')
   return (
-    <section className="card">
-      <header className="title">
-        <h1>{c.name}</h1>
-        <Pending pending={c.pending} />
-      </header>
+    <section className="card" aria-label="Details">
       <dl className="facts">
         {c.contacts.length === 0 && (
           <div>

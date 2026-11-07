@@ -33,6 +33,20 @@ const MIGRATIONS: string[] = [
   ALTER TABLE settings ADD COLUMN IF NOT EXISTS photo_key text UNIQUE, ADD COLUMN IF NOT EXISTS photo_type text CHECK (photo_type IN ('jpeg', 'png', 'webp')),
     ADD COLUMN IF NOT EXISTS photo_bytes integer, ADD COLUMN IF NOT EXISTS photo_at timestamptz;
   `,
+  // The first day whose bookings are asked for a timesheet (ADR 0110), on the "timesheets" row. A company already using them starts
+  // from the day it last changed the switch, its best record of when they went on, and devices hear of it as the server's own bookkeeping.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS timesheets_from text;
+  WITH dated AS (
+    UPDATE settings SET timesheets_from = to_char(updated_at AT TIME ZONE 'Europe/Dublin', 'YYYY-MM-DD')
+    WHERE id = 'timesheets' AND use_timesheets AND timesheets_from IS NULL
+    RETURNING id, name, phone, email, timesheets_from
+  )
+  INSERT INTO changes (entity, entity_id, op, data)
+  SELECT 'setting', id, 'put',
+    jsonb_build_object('id', id, 'name', name, 'phone', phone, 'email', email, 'useTimesheets', true, 'timesheetsFrom', timesheets_from)
+  FROM dated;
+  `,
 ]
 
 export const OFFICE: Module = { versionTable: 'office_schema_version', migrations: MIGRATIONS }

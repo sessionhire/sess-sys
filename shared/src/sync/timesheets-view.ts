@@ -1,5 +1,5 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
-import { noTimesheetReason, timesheetTotal, type Timesheet, type TimesheetEntities } from '../timesheets.ts'
+import { noTimesheetReason, timesheetTotal, type Timesheet, type TimesheetAsking, type TimesheetEntities } from '../timesheets.ts'
 import type { CallView, CrewView, OfferView, PersonView } from './crew-view.ts'
 
 /**
@@ -47,7 +47,9 @@ export function timesheetsView(
   outbox: readonly (Mutation & { appliedSeq?: number })[],
   cursor: number,
   crew: CrewView,
-  today: string
+  today: string,
+  /** Who is asked for a timesheet (ADR 0110); left out, every booking that can have one is listed. */
+  asking?: TimesheetAsking
 ): TimesheetsView {
   const sheets = new Map<string, TimesheetView>()
   // Snapshots saved before timesheets have no table for them.
@@ -124,7 +126,7 @@ export function timesheetsView(
   // Every booking with a timesheet, whatever has happened to it since, and every one that could have one.
   const all: TimesheetRow[] = []
   for (const { offer, call } of offers.values()) {
-    if (!sheets.has(offer.id) && noTimesheetReason(offer, call, people.get(offer.personId), today) !== null) continue
+    if (!sheets.has(offer.id) && noTimesheetReason(offer, call, people.get(offer.personId), today, asking) !== null) continue
     all.push(rowOf(offer.id)!)
   }
   const lastDay = (r: TimesheetRow) => [...r.offer.days].sort().at(-1) ?? r.call.end

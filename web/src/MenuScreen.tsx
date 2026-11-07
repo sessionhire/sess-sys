@@ -21,6 +21,11 @@ export interface Place {
   label: string
   /** What's there, in a line. */
   about: string
+  /**
+   * What's there for a role that reads it but can't do its work, with the ability that does: the line is written for
+   * whoever opens it (UX sweep, 6 November 2026, move 4), so staff aren't told of work that isn't theirs.
+   */
+  reading?: { unless: Ability; about: string }
   /** Shown only to a role that can make one of these kinds of change. */
   needs?: readonly Ability[]
   /** Shown only while this holds, such as timesheets being used (ADR 0090). */
@@ -44,12 +49,14 @@ export const MENU: PlaceGroup[] = [
         href: '#jobs',
         label: 'Jobs',
         about: 'Every job, its phases, kit and crew',
+        reading: { unless: 'jobs', about: 'Every job, and the ones you are on' },
       },
       {
         key: 'plan',
         icon: 'planner',
         href: '#jobs/plan',
-        label: 'Planner',
+        // As the Jobs row names its views, so the word on the Menu is a word on the screen (audit, 5 November 2026, finding 79).
+        label: 'Week and month',
         about: 'The weeks and months ahead at a glance',
       },
       {
@@ -132,6 +139,7 @@ export const MENU: PlaceGroup[] = [
         href: '#stock/labels',
         label: 'Labels',
         about: 'Print labels for kit',
+        reading: { unless: 'stock', about: 'The labels on the kit, and what they say' },
       },
       {
         key: 'count',
@@ -139,6 +147,7 @@ export const MENU: PlaceGroup[] = [
         href: '#stock/count',
         label: 'Counting',
         about: 'Stocktakes and rolling counts',
+        reading: { unless: 'stock', about: 'The counts under way, which the warehouse and heads of department do' },
       },
       {
         key: 'testing',
@@ -146,13 +155,15 @@ export const MENU: PlaceGroup[] = [
         href: '#stock/testing',
         label: 'Testing',
         about: 'Tests due, and testing a batch of kit',
+        reading: { unless: 'stock', about: 'When kit is due a test, and what failed' },
       },
       {
         key: 'repairs',
         icon: 'repair',
         href: '#stock/repairs',
         label: 'Repairs',
-        about: 'Faults and missing kit to sort out',
+        about: 'Damaged and missing kit to sort out',
+        reading: { unless: 'stock', about: 'Broken or missing kit: report it from the item, by scanning it' },
       },
       {
         key: 'racks',
@@ -194,7 +205,8 @@ export const MENU: PlaceGroup[] = [
         icon: 'message',
         href: '#crew',
         label: 'Calls',
-        about: 'Crew needed, and answers to check',
+        about: 'Still needs crew, and answers to check',
+        reading: { unless: 'crew', about: 'The calls coming up, and who is on them' },
       },
       {
         key: 'people',
@@ -209,6 +221,7 @@ export const MENU: PlaceGroup[] = [
         href: '#crew/leave',
         label: 'Leave',
         about: 'Time off for staff',
+        reading: { unless: 'crew', about: 'Your own leave, and asking for more' },
       },
       {
         key: 'timesheets',
@@ -216,6 +229,7 @@ export const MENU: PlaceGroup[] = [
         href: '#crew/timesheets',
         label: 'Timesheets',
         about: 'To approve, and not in yet',
+        reading: { unless: 'crew', about: 'Your own timesheets, sent from your page' },
         when: (view) => view.office.useTimesheets,
       },
       {
@@ -233,11 +247,20 @@ export const MENU: PlaceGroup[] = [
     label: 'Company',
     places: [
       {
+        key: 'home',
+        icon: 'home',
+        href: '#home',
+        label: 'Home',
+        // Two people at one Company view can see its counts in different orders, so its line says so (Move 10 of the sweep of 6 November 2026).
+        about: 'How things stand: the week in a line, its counts ordered for whoever is looking',
+      },
+      {
         key: 'admin',
         icon: 'settings',
         href: '#admin',
         label: 'Admin',
-        about: "The office, Google Calendar, backups, data and what's changed",
+        // The switches named, so a setting used once a month is found from here (audit, 5 November 2026, finding 50).
+        about: "The office, quotes and travel, labels, messages to crew, timesheets, Claude, the mailbox and calendar, backups, data and what's changed",
         needs: ['settings', 'company'],
       },
       {
@@ -294,7 +317,7 @@ export function MenuScreen() {
                       </span>
                       <div>
                         <b>{p.label}</b>
-                        <p>{p.about}</p>
+                        <p>{p.reading && !can(p.reading.unless) ? p.reading.about : p.about}</p>
                       </div>
                       <div className="side" aria-hidden="true">
                         <Icon name="next" />

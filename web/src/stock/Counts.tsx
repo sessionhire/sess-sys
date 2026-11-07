@@ -14,6 +14,9 @@ import {
   type CountView,
   type View,
   type Where,
+  STANDING_HEADINGS,
+  listHeading,
+  NOT_YOURS
 } from '@sh/shared'
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useScanKeys } from '../scanKeys.ts'
@@ -132,6 +135,7 @@ export function StartCount({ view, where, label, className }: { view: View; wher
         className="wide"
         question={`A count of ${other} is under way on this phone${d.scanned.length ? `, with ${plural(d.scanned.length, 'item')} scanned` : ''}. Discard it to count ${targetName(w, where)}?`}
         yes="Discard it and start"
+        loss
         no={`Carry on with ${other}`}
         onYes={start}
         onNo={() => {
@@ -190,7 +194,7 @@ export function CountsCard({ view }: { view: View }) {
       )}
       {week.due.length > 0 ? (
         <>
-          <h3>To count this week</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS.counts, week.due.length)}</h3>
           {/* "places to count", not "places": the Places card below has its own "Show all 9 places". */}
           <ShowAll items={week.due} limit={5} what="places to count">
             {(rows) => <ul className="job-list">{rows.map(due)}</ul>}
@@ -202,7 +206,7 @@ export function CountsCard({ view }: { view: View }) {
             <p className="done-line">This week's counts are done.</p>
             {week.next && (
               <>
-                <h3>Next, to get ahead</h3>
+                <h3 className="group">Next, to get ahead</h3>
                 <ul className="job-list">{due(week.next)}</ul>
               </>
             )}
@@ -211,7 +215,7 @@ export function CountsCard({ view }: { view: View }) {
       )}
       {thisWeek.length > 0 && (
         <>
-          <h3>Counted this week</h3>
+          <h3 className="group">Counted this week</h3>
           <CountList counts={thisWeek} />
         </>
       )}
@@ -271,12 +275,18 @@ type Tone = 'ok' | 'warn' | 'quiet'
 /** #stock/count: the count under way on this phone, or a line saying there's none. */
 export function CountScreen({ view }: { view: View }) {
   const d = useDraft()
+  const mayCount = useAccess().can('stock')
   if (!d)
     return (
       <div className="app warehouse counting">
         <Top view={view} title="Stock" views={<StockViews view={view} current="count" />} heading="Counting" />
         <section className="card plain">
-          <p className="empty">No count is under way on this phone. Start one from a place's page or a case's page, or from a place due below.</p>
+          {/* Only those who can count are told how to start one (audit, 5 November 2026, finding 74). */}
+          <p className="empty">
+            {mayCount
+              ? "No count is under way on this phone. Start one from a place's page or a case's page, or from a place due below."
+              : `No count is under way on this phone. ${NOT_YOURS.counts}`}
+          </p>
         </section>
         <CountsCard view={view} />
       </div>
@@ -414,7 +424,7 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
         {toFind.length > 0 && <Numbers title={`Still to find (${toFind.length.toLocaleString('en-IE')})`} items={toFind} view={view} each="to find" />}
         {extra.length + d.unknown.length > 0 && (
           <div className="group">
-            <h3>Not as recorded ({extra.length + d.unknown.length})</h3>
+            <h3 className="group">Not as recorded ({extra.length + d.unknown.length})</h3>
             <ul className="said-list">
               {extra.map((i) => (
                 <li key={i.assetId}>
@@ -455,6 +465,7 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
           <Confirm
             question={`Discard the count of ${name}? What was scanned and typed goes, and nothing is recorded.`}
             yes="Discard it"
+            loss
             no="Keep counting"
             onYes={() => {
               saveDraft(undefined)

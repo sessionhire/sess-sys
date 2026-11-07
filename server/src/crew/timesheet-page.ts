@@ -1,5 +1,5 @@
 import { dayLabel, daysLabel, euro, irishToday, MAX_EXTRAS, timesheetChanges, timesheetTotal, type CrewCall, type Offer, type OfficeDetails, type Timesheet } from '@sh/shared'
-import { CSS, fieldError, flash, invalid, officeBlock } from './page.ts'
+import { CSS, fieldError, flash, invalid, landing, officeBlock, REFUSED, titled } from './page.ts'
 import { SHEET_CSS } from './sheet.ts'
 
 /**
@@ -21,13 +21,15 @@ export interface TimesheetPage {
   offer: Offer
   call: CrewCall
   timesheet: Timesheet | undefined
+  /** The day the office paid it, once it has said (audit, 5 November 2026, finding 65). */
+  paidOn?: string | null
   /** Why there's no timesheet to send, when there isn't. */
   why: string | null
   /** Staff are paid through payroll, so their page carries no rate (audit finding 21). */
   staff: boolean
   base: string
-  /** A message; a refusal about one extra says which, by its place among those filled in, to be said under it. */
-  flash?: { ok: boolean; text: string; extra?: number }
+  /** A message; a refusal about the days, or about one extra, by its place among those filled in, is said under it. */
+  flash?: { ok: boolean; text: string; extra?: number; field?: 'days' }
   /** What a refused post typed (rule 11), drawn back into the form so nothing is lost. */
   kept?: URLSearchParams
   /** The office's phone and email, once set. */
@@ -36,8 +38,15 @@ export interface TimesheetPage {
 
 export function renderTimesheet(d: TimesheetPage): string {
   const { offer, call, timesheet: t } = d
-  const action = `${d.base}/timesheet/${encodeURIComponent(offer.id)}`
+  // A refusal drawn at this address lands on what it's about: the days, an extra, or its line at the top.
+  const action = `${d.base}/timesheet/${encodeURIComponent(offer.id)}#${REFUSED}`
   const rate = t?.dayRateCents ?? offer.dayRateCents
+  // Under the heading: why there's nothing to send yet, what the office approved, or the form to send or change it.
+  const why = t ? null : d.why
+  const sending = !why && t?.status !== 'approved'
+  // A refusal about the days or one extra is said under it in the form (audit, 20 October 2026, finding 90). With no form
+  // drawn, as when the office approved it after the page was opened, it's said at the top like any other.
+  const underField = sending && (d.flash?.field !== undefined || d.flash?.extra !== undefined)
   return `<!doctype html>
 <html lang="en-IE">
 <head>
@@ -46,7 +55,7 @@ export function renderTimesheet(d: TimesheetPage): string {
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#ee3744">
-<title>Timesheet: ${h(call.project)}${call.phase ? `, ${h(call.phase)}` : ''}</title>
+<title>${titled(`Timesheet: ${h(call.project)}${call.phase ? `, ${h(call.phase)}` : ''}`, d.flash)}</title>
 <style>${CSS}${SHEET_CSS}${TIMESHEET_CSS}</style>
 </head>
 <body>
@@ -56,15 +65,15 @@ export function renderTimesheet(d: TimesheetPage): string {
   <a class="back" href="${h(d.base)}">‹ Your work</a>
   ${
     // Once sent, the line under the heading says so with the total; the thanks after Send would say it again
-    // (audit, 20 October 2026, finding 91). A refusal about one extra is said under that extra (finding 90).
-    d.flash && !(d.flash.ok && t?.status === 'sent') && d.flash.extra === undefined ? flash(d.flash) : ''
+    // (audit, 20 October 2026, finding 91).
+    d.flash && !(d.flash.ok && t?.status === 'sent') && !underField ? flash(d.flash) : ''
   }
   <section class="head">
     <h1>${h(call.project)}${call.phase ? ` <span>${h(call.phase)}</span>` : ''}</h1>
     <p class="when">${h(call.role)}, ${h(daysLabel(offer.days, irishToday()))}</p>
     ${d.staff ? '' : `<p class="small">${rate === null ? 'Day rate to agree with the office.' : `${h(euro(rate))} a day${t && t.dayRateCents !== offer.dayRateCents ? '' : ', as agreed'}.`}</p>`}
   </section>
-  ${!t && d.why ? `<p class="flash warn">${h(d.why)}</p>` : t?.status === 'approved' ? approved(t) : form(d, action)}
+  ${why ? `<p class="flash warn">${h(why)}</p>` : t?.status === 'approved' ? approved(t, d.paidOn ?? null) : form(d, action)}
   <footer>
     <span>Keep this link to yourself: anyone with it can answer for you.</span>
   </footer>
@@ -73,18 +82,18 @@ export function renderTimesheet(d: TimesheetPage): string {
 </html>`
 }
 
-function approved(t: Timesheet): string {
+function approved(t: Timesheet, paidOn: string | null): string {
   const changes = timesheetChanges(t)
   const { fees, total } = timesheetTotal(t)
   const n = t.days.length
-  return `<section class="you"><h2>Approved: ${h(euro(total))}</h2>
+  return `<section class="you"><h2>${paidOn ? 'Paid' : 'Approved'}: ${h(euro(total))}</h2>
     <ul class="extras-list">
       <li>${n} day${n === 1 ? '' : 's'} at ${h(euro(t.dayRateCents))}, ${h(daysLabel(t.days, irishToday()))} <span>${h(euro(fees))}</span></li>
       ${t.extras.map((e) => `<li>${h(e.what)} <span>${h(euro(e.cents))}</span></li>`).join('')}
     </ul>
     ${changes.length ? `<p>The office changed what you sent:</p><ul class="changes">${changes.map((c) => `<li>${h(c)}</li>`).join('')}</ul>` : ''}
     ${t.officeNote ? `<p class="details">${lines(t.officeNote)}</p>` : ''}
-    <p class="small">Approved on ${h(on(t.approvedAt ?? t.sentAt))}. If something's wrong, ask the office to reopen it.</p>
+    <p class="small">Approved on ${h(on(t.approvedAt ?? t.sentAt))}${paidOn ? `, paid on ${h(dayLabel(paidOn, irishToday()))}` : ''}. If something's wrong, ask the office${paidOn ? '' : ' to reopen it'}.</p>
   </section>`
 }
 
@@ -100,6 +109,7 @@ function form(d: TimesheetPage, action: string): string {
     : (t?.extras ?? []).map((e) => ({ what: e.what, euro: euroInput(e.cents) }))
   const blanks = Math.max(0, Math.min(MAX_EXTRAS, Math.max(3, extras.length + 1)) - extras.length)
   const rows = [...extras, ...Array.from({ length: blanks }, () => ({ what: '', euro: '' }))]
+  const daysError = d.flash && !d.flash.ok && d.flash.field === 'days' ? 'days-error' : undefined
   return `${
     t
       ? `<p class="flash ok" role="status">Sent to the office on ${h(on(t.sentAt))}: ${h(euro(timesheetTotal(t).total))} in all. They'll check it; you can change it until they approve it.</p>`
@@ -107,19 +117,19 @@ function form(d: TimesheetPage, action: string): string {
   }
   <form method="post" action="${action}" class="timesheet">
     <input type="hidden" name="picker" value="1">
-    <fieldset class="days"><legend>Days you worked</legend>${[...new Set([...d.offer.days, ...(t?.days ?? [])])]
+    <fieldset class="days"${daysError ? ` aria-describedby="${daysError}"${landing(true)}` : ''}><legend>Days you worked</legend>${[...new Set([...d.offer.days, ...(t?.days ?? [])])]
       .sort()
       .map((day) => `<label><input type="checkbox" name="days" value="${day}"${ticked.has(day) ? ' checked' : ''}> ${h(dayLabel(day, irishToday()))}</label>`)
-      .join('')}</fieldset>
-    <fieldset class="extras"><legend>Extras</legend>
-      <p class="small">Parking, tolls, mileage, or anything else the office agreed. Keep the receipts. Leave a row empty if you don't need it.</p>
+      .join('')}</fieldset>${daysError ? fieldError(daysError, d.flash!.text) : ''}
+    <fieldset class="extras" aria-describedby="extras-hint"><legend>Extras</legend>
+      <p class="small" id="extras-hint">Parking, tolls, mileage, or anything else the office agreed. Keep the receipts. Leave a row empty if you don't need it.</p>
       ${rows
         .map(
           (r, i) => {
             // The extra a refusal is about: the field it names marked, and the words under the row.
             const wrong = d.flash && !d.flash.ok && d.flash.extra === i ? `extra-error-${i}` : undefined
             const which = wrong ? (r.what.trim() ? 'euro' : 'what') : undefined
-            return `<div class="extra"><label><span>What</span> <input name="what" maxlength="100"${which === 'what' ? invalid(wrong!) : ''} value="${h(r.what)}"${i === 0 && !r.what ? ' placeholder="e.g. Parking"' : ''}></label><label><span>€</span> <input name="euro" inputmode="decimal"${which === 'euro' ? invalid(wrong!) : ''} value="${h(r.euro)}"></label></div>${wrong ? fieldError(wrong, d.flash!.text) : ''}`
+            return `<div class="extra"${landing(wrong)}><label><span>What</span> <input name="what" maxlength="100"${which === 'what' ? invalid(wrong!) : ''} value="${h(r.what)}"${i === 0 && !r.what ? ' placeholder="e.g. Parking"' : ''}></label><label><span>€</span> <input name="euro" inputmode="decimal"${which === 'euro' ? invalid(wrong!) : ''} value="${h(r.euro)}"></label></div>${wrong ? fieldError(wrong, d.flash!.text) : ''}`
           }
         )
         .join('')}

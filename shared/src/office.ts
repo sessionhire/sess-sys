@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { cableColourList } from './cable-colours.ts'
+import { day } from './day.ts'
 import { cleanText, text } from './plain.ts'
 
 /**
@@ -57,6 +58,8 @@ export const setting = z.object({
    * no freelancer is asked for one. What's kept stays kept.
    */
   useTimesheets: z.boolean().optional(),
+  /** On the "timesheets" setting (ADR 0110): bookings that started before this day aren't asked for one. Set by the server when they're turned on. */
+  timesheetsFrom: day.nullable().optional(),
   /**
    * On the "assistant" setting (ADR 0096): whether Claude is offered to the
    * office and directors, to read an enquiry into a quote and suggest
@@ -94,7 +97,15 @@ export const officeCommandSchemas = {
   /** Whether the app prompts messages to crew (ADR 0048). The office's to decide, under Admin. */
   'messages.prompt': z.object({ on: z.boolean() }),
   /** Whether the company uses timesheets (ADR 0090). The office's to decide, under Admin. */
-  'timesheets.use': z.object({ on: z.boolean() }),
+  'timesheets.use': z.object({
+    on: z.boolean(),
+    /**
+     * The first day whose bookings are asked for a timesheet (ADR 0110).
+     * Left out, turning them on starts from today, and changing nothing
+     * else keeps the day already set.
+     */
+    from: day.optional(),
+  }),
   /** Whether Claude is offered inside the app (ADR 0096). The office's to decide, under Admin. */
   'assistant.use': z.object({ on: z.boolean() }),
   /** The colour for each cable length (ADR 0106), the whole list at once. The office's, under Admin. */

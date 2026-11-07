@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
-import { fillName } from './names.ts'
+import { fillName, pickRecord } from './names.ts'
 
 /**
  * The screens fit the device (audit findings 16, 25 and 26). On a phone a
@@ -62,25 +62,29 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   await expect(line).toHaveAttribute('aria-expanded', 'false')
   await expect(call).toContainText('0 of 1')
   await expect(call).not.toContainText('€260')
-  await expect(call.getByLabel('Offer to')).toHaveCount(0)
+  await expect(call.getByRole('combobox', { name: 'Offer to' })).toHaveCount(0)
 
   // The picker is behind "Offer…", and narrows as you type: by a skill, then by a name.
   await call.getByRole('button', { name: 'Offer…' }).click()
-  await expect(call.getByLabel('Find someone')).toBeFocused()
-  const picker = call.getByLabel('Offer to')
-  const maeve = picker.locator('option', { hasText: `Maeve Doyle ${id}` })
-  const ronan = picker.locator('option', { hasText: `Ronan Burke ${id}` })
+  const picker = call.getByRole('combobox', { name: 'Offer to' })
+  await expect(picker).toBeFocused()
+  await expect(call.getByRole('listbox')).toBeVisible()
+  const maeve = call.getByRole('option', { name: new RegExp(`^Maeve Doyle ${id}`) })
+  const ronan = call.getByRole('option', { name: new RegExp(`^Ronan Burke ${id}`) })
+  await picker.fill(id)
   await expect(maeve).toHaveCount(1)
   await expect(ronan).toHaveCount(1)
-  await call.getByLabel('Find someone').fill('rigger')
+  await picker.fill(`rigger ${id}`)
   await expect(ronan).toHaveCount(1)
   await expect(maeve).toHaveCount(0)
-  await call.getByLabel('Find someone').fill(`doyle ${id}`)
+  await picker.fill(`doyle ${id}`)
   await expect(maeve).toHaveCount(1)
   await expect(ronan).toHaveCount(0)
 
   // Offered to Maeve, who takes it on her link; confirmed, the call is filled.
-  await picker.selectOption({ label: `Maeve Doyle ${id} · Level 1 (audio, monitors)` })
+  await expect(maeve.locator('small')).toHaveText('Level 1 (audio, monitors)')
+  await maeve.click()
+  await expect(picker).toHaveValue(`Maeve Doyle ${id}`)
   await call.getByRole('button', { name: 'Offer', exact: true }).click()
   const share = office.getByRole('region', { name: `Send offer to Maeve Doyle ${id}` })
   const link = (await share.locator('textarea').inputValue()).match(/https?:\/\/\S+\/f\/\S+/)![0]
@@ -110,7 +114,7 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   await line.click()
   await expect(line).toHaveAttribute('aria-expanded', 'true')
   await expect(call).toContainText('€260')
-  await expect(call.locator('.offers li', { hasText: `Maeve Doyle ${id}` })).toContainText('Confirmed')
+  await expect(call.locator('.offers li', { hasText: `Maeve Doyle ${id}` })).toContainText('Booked')
 })
 
 /** Changes as a phone sends them, straight to the server; each must be taken. */
@@ -180,8 +184,10 @@ test('the people list finds someone as the picker does, shows its first ten, and
   await list.getByRole('button', { name: 'Clear filters' }).click()
   await expect(list.getByLabel('Department')).toHaveValue('')
 
-  // Someone just added stays in view, whatever the search and the fold, until the tab is next opened.
-  await office.reload()
+  // Someone just added stays in view, whatever the search and the fold, until the tab is next opened. Opened afresh, the list is
+  // short again: Show all is kept only for Back and a reload (audit, 5 November 2026, finding 9).
+  await office.goto('/#crew')
+  await office.goto('/#crew/people')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   await find.fill(dept.toLowerCase())
   await expect(rows).toHaveCount(10)
@@ -226,7 +232,7 @@ test('a call says where it stands at rest, the picker only searches on Enter, an
   await office.goto('/#crew')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // Two months out is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
-  await office.getByRole('button', { name: /^Show all \d+ calls still to come$/ }).click()
+  await office.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
 
   // On the Crew tab the job's own venue heads its calls; the load in says it's at the Yard.
   const group = office.locator('.call-group', { hasText: job })
@@ -237,10 +243,14 @@ test('a call says where it stands at rest, the picker only searches on Enter, an
   // Enter in the picker's search only searches, even with someone picked.
   const sound = group.getByRole('article', { name: '1 × Sound No.1' })
   await sound.getByRole('button', { name: 'Offer…' }).click()
-  await sound.getByLabel('Offer to').selectOption({ label: `Úna Layout ${id} · Level 1 (Audio)` })
-  await sound.getByLabel('Find someone').fill(`una ${id}`)
-  await sound.getByLabel('Find someone').press('Enter')
-  await expect(sound.getByLabel('Offer to').locator('option', { hasText: `Úna Layout ${id}` })).toHaveCount(1)
+  const soundPicker = sound.getByRole('combobox', { name: 'Offer to' })
+  await pickRecord(sound, 'Offer to', `Úna Layout ${id}`)
+  // Enter takes the highlighted offer, and with nothing found does nothing: neither sends the offer.
+  await soundPicker.fill(`una ${id}`)
+  await soundPicker.press('Enter')
+  await expect(soundPicker).toHaveValue(`Úna Layout ${id}`)
+  await soundPicker.fill('nobody by this name')
+  await soundPicker.press('Enter')
   await expect(office.getByRole('region', { name: /^Send offer to/ })).toHaveCount(0)
   await expect(sound.locator('.who-line')).toHaveCount(0)
 

@@ -52,6 +52,9 @@ try {
   // A browser that won't open a WebSocket here: the 30-second tick still syncs.
 }
 addEventListener('online', syncSoon)
+// The signal gone: a sync now fails at once and the bar says No signal, rather than Up to date for the minute the live
+// connection takes to be given up on (audit, 5 November 2026, finding 34).
+addEventListener('offline', syncSoon)
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && syncSoon())
 // Only while the live connection is down: while it's up, every change is said on it, and a poll every 30 seconds from
 // every device only kept the database awake (audit finding 15). Changes made here go at once, and a failed sync retries.

@@ -18,7 +18,6 @@
 .warehouse .size-fields legend { font-weight: 600; margin-bottom: var(--ds-space-2); }
 .warehouse .size-fields .hint { grid-column: 1 / -1; }
 .warehouse .flag.ok { color: var(--muted); }
-.warehouse .flag.warn { color: var(--warn); font-weight: 600; }
 .warehouse .rack-thing.hired { font-style: italic; color: var(--muted); }
 
 /* The rack designer (ADR 0075): the kit beside the rack on a desk, above it on a phone. */
@@ -30,6 +29,8 @@
   .warehouse .designer-palette { position: sticky; top: 72px; max-height: calc(100vh - 96px); overflow: auto; }
 }
 .warehouse .designer-rack .rack-sides { --rack-u: 34px; }
+/* A unit as tall as a thumb on a touch screen, so a press lands in the unit meant (audit, 5 November 2026, finding 86). */
+@media (pointer: coarse) { .warehouse .designer-rack .rack-sides { --rack-u: 44px; } }
 .warehouse .designer-palette.over, .warehouse .designer-loose.over { outline: 2px dashed var(--accent); outline-offset: 2px; }
 .warehouse .palette-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
 .warehouse .palette-item { display: grid; gap: var(--ds-space-half); width: 100%; min-height: 44px; text-align: left; padding: var(--ds-space-2) var(--ds-space-3); cursor: grab; }
@@ -54,6 +55,8 @@
 .warehouse .rack-views { margin-bottom: var(--ds-space-3); }
 .warehouse .rack-3d { display: grid; gap: var(--ds-space-2); }
 .warehouse .rack-3d-scene { position: relative; height: clamp(320px, 62vh, 640px); border-radius: var(--radius-control); background: var(--bg); overflow: hidden; touch-action: none; cursor: grab; }
+/* On a touch phone it leaves room to scroll past it, and a swipe up or down scrolls (Rack3D.tsx; audit, 5 November 2026, finding 70). */
+@media (pointer: coarse) and (max-width: 899px) { .warehouse .rack-3d-scene { height: clamp(260px, 45vh, 420px); touch-action: pan-y; } }
 .warehouse .rack-3d-scene:active { cursor: grabbing; }
 .warehouse .rack-3d-scene.holding-one { cursor: copy; }
 .warehouse .rack-3d-scene canvas { display: block; width: 100%; height: 100%; }
@@ -115,3 +118,5 @@
   .rack-sheet .rack-sheet-table thead th { color: #444; font-weight: 600; }
   .rack-sheet .tape-swatch { margin-right: 3pt; }
 }
+/* On a phone the holding line sits in the foot, outside the warehouse page (finding 71). */
+.foot-dock .holding { margin: 0; font-weight: 600; }

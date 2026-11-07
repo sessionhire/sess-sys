@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Mutation } from '../src/commands.ts'
 import { offerMessage, tellMessage, type CrewCall, type Offer, type Person } from '../src/crew.ts'
 import { officeContact, officeLine, telHref } from '../src/office.ts'
-import { answersToCheck, crewView } from '../src/sync/crew-view.ts'
+import { answersToCheck, crewView, shortSoon } from '../src/sync/crew-view.ts'
 import { officeView } from '../src/sync/office-view.ts'
 import { DEFAULT_CABLE_COLOURS } from '../src/cable-colours.ts'
 
@@ -111,6 +111,18 @@ describe('answers to check', () => {
   })
 })
 
+describe('answers on calls soon', () => {
+  it('come first whatever their kind, so a pull-out for March waits under a yes for next week', () => {
+    // Proves: answers on calls in the next fortnight lead the list, each part pull-outs first and then by day (audit, 5 November 2026, finding 27).
+    const entities = {
+      person: { aoife: person('aoife', 'Aoife Byrne'), niall: person('niall', 'Niall Kerr'), dara: person('dara', 'Dara Kelly') },
+      crewCall: { soon: call('soon', '2026-10-08', '2026-10-08'), march: call('march', '2027-03-15', '2027-03-15'), edge: call('edge', '2026-10-15', '2026-10-15') },
+      offer: { out: offer('out', 'march', 'dara', 'pulled-out'), yes: offer('yes', 'soon', 'aoife', 'accepted'), no: offer('no', 'edge', 'niall', 'declined') },
+    }
+    expect(answersToCheck(crewView(entities, [], 0), today).map((a) => a.offer.id)).toEqual(['yes', 'no', 'out'])
+  })
+})
+
 describe('offers nobody has answered', () => {
   it('wait in the queue once their reply-by day has passed, until the office notes them or an answer comes', () => {
     // Proves: an offer still unanswered after its call's reply-by day is in "Answers to check" until Noted, and an answer
@@ -126,6 +138,28 @@ describe('offers nobody has answered', () => {
     expect(answersToCheck(noted, today)).toEqual([])
     const answered = crewView(entities, [m('offer.seen', { id: 'quiet' }), m('offer.respond', { id: 'quiet', answer: 'decline', note: '' })], 0)
     expect(answersToCheck(answered, today).map((a) => [a.offer.id, a.kind])).toEqual([['quiet', 'declined']])
+  })
+})
+
+describe('calls close to their day', () => {
+  it('chase an offer with no reply-by day from the day before the call, and list calls short within three days, soonest first', () => {
+    // Proves: a cleared reply-by no longer hides a silent offer, and a call short in two days isn't lost among the fortnight's
+    // (audit, 5 November 2026, finding 60).
+    const entities = {
+      person: { aoife: person('aoife', 'Aoife Byrne'), niall: person('niall', 'Niall Kerr') },
+      crewCall: {
+        tomorrow: { ...call('tomorrow', '2026-10-02', '2026-10-02'), replyBy: null },
+        later: { ...call('later', '2026-10-03', '2026-10-03'), replyBy: null },
+        week: call('week', '2026-10-08', '2026-10-08'),
+      },
+      offer: { quiet: offer('quiet', 'tomorrow', 'aoife', 'offered'), early: offer('early', 'later', 'niall', 'offered') },
+    }
+    const view = crewView(entities, [], 0)
+    expect(answersToCheck(view, today).map((a) => [a.offer.id, a.kind])).toEqual([['quiet', 'no-reply']])
+    expect(shortSoon(view, today).map((x) => [x.call.id, x.short, x.inDays])).toEqual([
+      ['tomorrow', 2, 1],
+      ['later', 2, 2],
+    ])
   })
 })
 
@@ -238,10 +272,10 @@ describe('the office’s details', () => {
 
   it('lay this device’s own change over what the server said', () => {
     const entities = { setting: { office: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: null } } }
-    expect(officeView(entities, [], 0)).toEqual({ details: entities.setting.office, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    expect(officeView(entities, [], 0)).toEqual({ details: entities.setting.office, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
     const changed = officeView(entities, [m('office.update', { name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' })], 0)
-    expect(changed).toEqual({ details: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' }, pending: true, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
-    expect(officeView({}, [], 0)).toEqual({ details: undefined, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    expect(changed).toEqual({ details: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' }, pending: true, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    expect(officeView({}, [], 0)).toEqual({ details: undefined, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
   })
 
   it("say whether heads of department see rates (ADR 0046), with this device's own choice over the server's", () => {

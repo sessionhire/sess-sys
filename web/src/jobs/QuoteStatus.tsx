@@ -35,7 +35,9 @@ export function InStep({ job, want, compact }: { job: JobView; want: 'confirmed'
             : `The client turned it down, and the job is still ${job.status === 'enquiry' ? 'an enquiry' : 'quoted'}. Marking it lost cancels any crew calls on it.`}
         </p>
       )}
-      <button type="button" className={want === 'confirmed' ? 'primary' : undefined} onClick={go} disabled={job.pending}>
+      {/* On the quote, confirming is the one thing to record next, its filled red (nextRecord); on a list (compact), one to a row,
+          it's plain, as a row's own action is (UX sweep, 6 November 2026, move 1). Losing the job is a loss, so never the red. */}
+      <button type="button" className={want === 'confirmed' && !compact ? 'primary' : undefined} onClick={go} disabled={job.pending}>
         {want === 'confirmed' ? 'Confirm the job' : 'Mark the job lost'}
       </button>
       <Refusal error={error} />

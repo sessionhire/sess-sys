@@ -117,6 +117,20 @@ describe('the history', () => {
     expect(hers.entries.map((e) => e.command)).toEqual(['unavailability.add', 'offer.respond'])
   })
 
+  it("words a booking given back by the one name both sides give it, Can't make it", async () => {
+    // Proves (UX sweep, 6 November 2026, move 6): the history says it as the link's button and pill and the office's pill do.
+    const { app, db } = await server()
+    const colly = await staff(app, db, 'Colly Hewson', IPHONE, 'phone-c0ffee')
+    await colly.send('person.upsert', { id: 'p1', name: 'Dara Kelly', kind: 'freelancer', email: null, phone: '+353871234567', skills: [], dayRateCents: 25000, notes: '' })
+    const day = addDays(irishToday(), 20)
+    await colly.send('call.create', { id: 'c1', project: 'Electric Picnic', phase: 'Build', venue: 'Stradbally Hall', role: 'Audio tech', start: day, end: day, callTime: '08:00', needed: 1, dayRateCents: 25000, details: '', replyBy: null })
+    await colly.send('offer.send', { id: 'o1', callId: 'c1', personId: 'p1', override: false })
+    const dara = await colly.record<Person>('person', 'p1')
+    await onLink(app, `/f/${dara.linkToken}/offers/o1`, { answer: 'accept' })
+    await onLink(app, `/f/${dara.linkToken}/offers/o1`, { answer: 'pullOut', note: 'Sick' })
+    expect((await colly.history()).entries[0]).toMatchObject({ who: { name: 'Dara Kelly', kind: 'link' }, what: "Dara Kelly can't make it: Audio tech on Electric Picnic (Sick)" })
+  })
+
   it('pages back through all of it, and narrows it to one person or one record', async () => {
     const { app, db } = await server()
     const colly = await staff(app, db, 'Colly Hewson', IPHONE, 'phone-c0ffee')
@@ -161,6 +175,24 @@ describe('the history', () => {
 
     const stale = await app.inject({ url: '/api/history?before=not-a-page', cookies: colly.cookies })
     expect(stale.statusCode).toBe(400)
+  })
+
+  it("narrows to one job with its parts, so who moved its dates is found on the phase (audit, 5 November 2026, finding 51)", async () => {
+    const { app, db } = await server()
+    const colly = await staff(app, db, 'Colly Hewson', IPHONE, 'phone-c0ffee')
+    const aoife = await staff(app, db, 'Aoife Byrne', WINDOWS, 'office-a1b2c3')
+    await colly.send('project.create', { id: 'croke', name: 'Croke Park', clientId: null, venueId: null, status: 'confirmed', kind: 'gig', notes: '' })
+    await colly.send('phase.add', { id: 'croke-show', projectId: 'croke', name: 'Show', start: '2030-06-01', end: '2030-06-01', venueId: null, notes: '' })
+    await colly.send('project.create', { id: 'other', name: 'Other gig', clientId: null, venueId: null, status: 'confirmed', kind: 'gig', notes: '' })
+    await colly.send('phase.add', { id: 'other-show', projectId: 'other', name: 'Show', start: '2030-06-02', end: '2030-06-02', venueId: null, notes: '' })
+    await aoife.send('phase.update', { id: 'croke-show', start: '2030-06-08', end: '2030-06-08' })
+    await aoife.send('phase.update', { id: 'other-show', start: '2030-06-09', end: '2030-06-09' })
+    const croke = await colly.history('?job=croke')
+    expect(croke.entries.map((e) => [e.who.name, e.command])).toEqual([
+      ['Aoife Byrne', 'phase.update'],
+      ['Colly Hewson', 'phase.add'],
+      ['Colly Hewson', 'project.create'],
+    ])
   })
 
   it('is for signed-in staff only, and no device can pass itself off as a private link', async () => {

@@ -1,4 +1,4 @@
-import { DEFAULT_LEVEL, eachDay, HOLDING, splitName, tidyNeeds, type CrewCall, type Offer, type Person, type Unavailability } from '@sh/shared'
+import { CHANGE_SHOWN_DAYS, crewCall as callSchema, DEFAULT_LEVEL, eachDay, HOLDING, offer as offerSchema, splitName, tidyNeeds, type CrewCall, type Offer, type Person, type Unavailability, type Watched, type WatchedStep } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { sortByIds } from '../projects/store.ts'
 
@@ -195,24 +195,134 @@ export async function offersFor(q: Queryable, personId: string) {
 }
 
 /**
- * When each of these offers ended, if it was withdrawn or filled, by offer,
- * from the change log: the offer keeps when its person answered, but not
- * when the office withdrew it or someone else took the place. The first
- * change to give it the status it has now. Read from the change log alone,
- * for offers the page has already read, so the page reads the offers table
- * no more for it.
+ * How an offer ended on the office's side (UX sweep, 6 November 2026, move 6): the job was cancelled, or didn't go ahead
+ * (lost), taking its calls with it; the office withdrew it, cancelled its call, or stopped a job it has since started
+ * again; or someone else took the last place.
  */
-export async function endedOn(q: Queryable, offers: readonly Pick<Offer, 'id' | 'status'>[]): Promise<Map<string, string>> {
+export type EndedBy = 'job-cancelled' | 'job-lost' | 'withdrawn' | 'filled'
+
+/** When and how an offer ended, and whether it was a booking then: they'd said yes, or were booked. */
+export interface Ended {
+  at: string
+  by: EndedBy
+  held: boolean
+}
+
+/**
+ * When and how each of these offers ended, if it was withdrawn or filled, by offer, from the change log: the offer keeps
+ * when its person answered, but not when the office withdrew it or someone else took the place. The first change to give
+ * it the status it has now, the command that made it, which says whether a job was stopped, and the status it had before.
+ * Read from the log, with the stopped job's status as it is now, in one read for offers the page has already read.
+ */
+export async function endedOn(q: Queryable, offers: readonly Pick<Offer, 'id' | 'status'>[]): Promise<Map<string, Ended>> {
   const status = new Map(offers.filter((o) => o.status === 'cancelled' || o.status === 'filled').map((o) => [o.id, o.status]))
   if (status.size === 0) return new Map()
-  const { rows } = await q.query<{ id: string; status: string; at: Date | string }>(
-    `SELECT entity_id AS id, data->>'status' AS status, min(at) AS at
-       FROM changes
-      WHERE entity = 'offer' AND entity_id = ANY($1::text[]) AND data->>'status' IN ('cancelled', 'filled')
-      GROUP BY entity_id, data->>'status'`,
+  const { rows } = await q.query<{ id: string; status: string; at: Date | string; command: string | null; job: string | null; now: string | null; was: string | null }>(
+    `SELECT e.id, e.status, e.at, m.name AS command, m.args->>'status' AS job, j.status AS now,
+            (SELECT p.data->>'status' FROM changes p
+              WHERE p.entity_id = e.id AND p.entity = 'offer' AND p.seq < e.seq
+              ORDER BY p.seq DESC LIMIT 1) AS was
+       FROM (SELECT DISTINCT ON (entity_id) entity_id AS id, data->>'status' AS status, data->>'callId' AS call_id, seq, at, mutation_id
+               FROM changes
+              WHERE entity = 'offer' AND entity_id = ANY($1::text[]) AND data->>'status' IN ('cancelled', 'filled')
+              ORDER BY entity_id, seq) e
+       LEFT JOIN mutations m ON m.id = e.mutation_id
+       LEFT JOIN crew_calls c ON c.id = e.call_id
+       LEFT JOIN projects j ON j.id = c.project_id`,
     [[...status.keys()]]
   )
-  return new Map(rows.filter((r) => status.get(r.id) === r.status).map((r) => [r.id, new Date(r.at).toISOString()]))
+  // A stopped job is said as it stands now, as the app's person page reads it: cancelled and then marked lost, it didn't go
+  // ahead; started again since, it's going ahead without them, which is the office's doing.
+  const by = (r: (typeof rows)[number]): EndedBy => {
+    if (r.status === 'filled') return 'filled'
+    const stopped = r.command === 'project.update' && (r.job === 'cancelled' || r.job === 'lost')
+    return stopped && r.now === 'cancelled' ? 'job-cancelled' : stopped && r.now === 'lost' ? 'job-lost' : 'withdrawn'
+  }
+  return new Map(
+    rows
+      .filter((r) => status.get(r.id) === r.status)
+      .map((r) => [r.id, { at: new Date(r.at).toISOString(), by: by(r), held: HOLDING.some((s) => s === r.was) }])
+  )
+}
+
+/** A booking as the log has it since its person said yes (UX sweep, 6 November 2026, move 6), for `sinceYes`. */
+export interface YesLog {
+  yes: Watched
+  before: Watched
+  steps: WatchedStep[]
+}
+
+/** The facts the link watches in a logged offer or call, or nothing where the log holds a shape these can't read. */
+const offerFacts = offerSchema.pick({ days: true })
+const callFacts = callSchema.pick({ callTime: true, venue: true })
+
+/**
+ * What the log holds of each of these bookings since its yes, by offer, in one bounded read per page whatever the
+ * number of bookings, reading nothing it writes: the offer's change that recorded their answer, the call as it stood
+ * then, both as they stood a week ago, and every change to either since. Changes older than a week are no longer news,
+ * so they're never read one by one. The yes is the change that gave the offer the answer it holds now. A booking from
+ * before the log, with no answer or no call in it, isn't watched.
+ */
+export async function yesLogs(q: Queryable, bookings: readonly { offer: Offer; call: CrewCall }[], now = new Date()): Promise<Map<string, YesLog>> {
+  const watched = bookings.filter((b) => b.offer.respondedAt !== null)
+  if (watched.length === 0) return new Map()
+  const { rows } = await q.query<{ offer_id: string; kind: 'yes' | 'then' | 'before' | 'step'; entity: string; seq: string; at: Date | string; data: unknown }>(
+    `WITH yes AS (
+       SELECT b.offer_id, b.call_id, y.seq, y.at, y.data
+         FROM unnest($1::text[], $2::text[], $3::text[]) AS b(offer_id, call_id, responded_at)
+         JOIN LATERAL (SELECT seq, at, data FROM changes
+                        WHERE entity_id = b.offer_id AND entity = 'offer' AND data->>'respondedAt' = b.responded_at
+                        ORDER BY seq LIMIT 1) y ON true
+     )
+     SELECT offer_id, 'yes' AS kind, 'offer' AS entity, seq, at, data FROM yes
+     UNION ALL
+     SELECT yes.offer_id, 'then', 'crewCall', t.seq, t.at, t.data FROM yes
+       JOIN LATERAL (SELECT seq, at, data FROM changes
+                      WHERE entity_id = yes.call_id AND entity = 'crewCall' AND seq < yes.seq
+                      ORDER BY seq DESC LIMIT 1) t ON true
+     UNION ALL
+     SELECT yes.offer_id, 'before', w.entity, w.seq, w.at, w.data FROM yes
+       JOIN LATERAL ((SELECT entity, seq, at, data FROM changes
+                       WHERE entity_id = yes.offer_id AND entity = 'offer' AND seq > yes.seq AND at <= $4
+                       ORDER BY seq DESC LIMIT 1)
+                     UNION ALL
+                     (SELECT entity, seq, at, data FROM changes
+                       WHERE entity_id = yes.call_id AND entity = 'crewCall' AND seq > yes.seq AND at <= $4
+                       ORDER BY seq DESC LIMIT 1)) w ON true
+     UNION ALL
+     SELECT yes.offer_id, 'step', s.entity, s.seq, s.at, s.data FROM yes
+       JOIN changes s ON s.entity_id IN (yes.offer_id, yes.call_id) AND s.entity IN ('offer', 'crewCall') AND s.seq > yes.seq AND s.at > $4`,
+    [watched.map((b) => b.offer.id), watched.map((b) => b.call.id), watched.map((b) => b.offer.respondedAt), new Date(now.getTime() - CHANGE_SHOWN_DAYS * 86_400_000).toISOString()]
+  )
+  const byOffer = new Map<string, typeof rows>()
+  for (const r of rows) byOffer.set(r.offer_id, [...(byOffer.get(r.offer_id) ?? []), r])
+  const logs = new Map<string, YesLog>()
+  for (const [id, list] of byOffer) {
+    list.sort((a, b) => Number(a.seq) - Number(b.seq))
+    const days = offerFacts.safeParse(list.find((r) => r.kind === 'yes')?.data)
+    const then = callFacts.safeParse(list.find((r) => r.kind === 'then')?.data)
+    if (!days.success || !then.success) continue
+    const yes: Watched = { days: days.data.days, callTime: then.data.callTime, venue: then.data.venue }
+    // A change read is laid over the booking as it stood; one this can't read leaves it as it was.
+    const over = (w: Watched, r: (typeof rows)[number]): Watched | undefined => {
+      if (r.entity === 'offer') {
+        const o = offerFacts.safeParse(r.data)
+        return o.success ? { ...w, days: o.data.days } : undefined
+      }
+      const c = callFacts.safeParse(r.data)
+      return c.success ? { ...w, callTime: c.data.callTime, venue: c.data.venue } : undefined
+    }
+    const before = list.filter((r) => r.kind === 'before').reduce((w, r) => over(w, r) ?? w, yes)
+    const steps: WatchedStep[] = []
+    let state = before
+    for (const r of list.filter((x) => x.kind === 'step')) {
+      const after = over(state, r)
+      steps.push({ at: new Date(r.at), after })
+      state = after ?? state
+    }
+    logs.set(id, { yes, before, steps })
+  }
+  return logs
 }
 
 /** Everyone, and every job anyone holds, for building all the calendar feeds at once (ADR 0012). */

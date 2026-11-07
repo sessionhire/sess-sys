@@ -1,4 +1,4 @@
-import type { OfficeView } from '@sh/shared'
+import { dayLabel, irishToday, isDay, TIMESHEET_ASKED_DAYS, type OfficeView } from '@sh/shared'
 import { Refusal, useAct } from './act.tsx'
 import { Pending } from './StatusPill.tsx'
 import { client } from './sync.ts'
@@ -8,7 +8,9 @@ import { client } from './sync.ts'
  * own records has no use for them on day one, so they start off: no
  * Timesheets page, count or notification, and no freelancer is asked to
  * send one from their link. Turning them on brings back every timesheet
- * already kept, as it was; turning them off deletes nothing.
+ * already kept, as it was; turning them off deletes nothing. Crew are asked
+ * only for bookings that start from the day they go on (ADR 0110), which the
+ * office can move back, so the switch isn't a backlog of every past job.
  */
 export function TimesheetsUseCard({ office }: { office: OfficeView }) {
   const { run, error } = useAct()
@@ -36,6 +38,26 @@ export function TimesheetsUseCard({ office }: { office: OfficeView }) {
           </small>
         </span>
       </label>
+      {on && (
+        <>
+          <label className="field">
+            <span>Ask for bookings from</span>
+            <input
+              type="date"
+              value={office.timesheetsFrom ?? ''}
+              max={irishToday()}
+              aria-describedby="timesheets-from-hint"
+              onChange={(e) => isDay(e.target.value) && void run(() => client.mutate('timesheets.use', { on: true, from: e.target.value }))}
+            />
+          </label>
+          <p className="hint" id="timesheets-from-hint">
+            {office.timesheetsFrom
+              ? `Bookings that started before ${dayLabel(office.timesheetsFrom)}, or ended more than ${TIMESHEET_ASKED_DAYS} days ago, aren’t asked for.`
+              : `Bookings that ended more than ${TIMESHEET_ASKED_DAYS} days ago aren’t asked for.`}{' '}
+            You can still put one in for any of them.
+          </p>
+        </>
+      )}
       <Refusal error={error} />
     </section>
   )

@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 /**
  * A job's way through the company (ADR 0073, ADR 0104): five stages every
- * gig and dry hire passes through, Selling, Planning, Going out, On the
+ * gig and dry hire passes through, Quoting, Planning, Going out, On the
  * job and Back, and inside each the tasks that get it through, each with
  * a member of staff it's down to and, if wanted, a day it's due by. The
  * stage a job is in is worked out from the job's own records (its status,
@@ -27,7 +27,7 @@ export const JOB_STAGES = ['selling', 'planning', 'going', 'on', 'back'] as cons
 export type JobStage = (typeof JOB_STAGES)[number]
 
 export const STAGE_LABELS: Record<JobStage, string> = {
-  selling: 'Selling',
+  selling: 'Quoting',
   planning: 'Planning',
   going: 'Going out',
   on: 'On the job',
@@ -78,6 +78,23 @@ export const STEP_LINES: Record<JobStep, string> = {
   back: 'Everything that went out is back in the warehouse.',
   deprep: 'The kit is checked, cleaned and put away, and any faults reported.',
 }
+
+/**
+ * How long after its last day a job with nothing still out and no fault
+ * open is taken as through (ADR 0109): its open tasks count as done by the
+ * app, so Back holds only the jobs with something still to sort, not every
+ * show nobody ticked off by hand.
+ */
+export const SETTLED_AFTER_DAYS = 14
+
+/**
+ * Kit still to check back in this many days past a job's own days to bring
+ * it back (ADR 0031) is late, and drawn amber wherever it's listed: the
+ * day after the job is the warehouse's work, and two days' grace keeps a
+ * weekend from turning every Friday show amber (Move 3 of the sweep of 6
+ * November 2026).
+ */
+export const LATE_BACK_AFTER_DAYS = 2
 
 /** A task's record: who it's down to, the day it's due by, and the tick, when it was ticked by hand. */
 export interface StepRecord {

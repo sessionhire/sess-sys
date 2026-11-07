@@ -133,7 +133,7 @@ export function SlotDetails({ r, s, onSave }: { r: RackView; s: SlotView; onSave
         </>
       )}
       <label className="wide">
-        Note <input value={f.notes} maxLength={200} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="Optional, e.g. Patched to the stage box" />
+        Note <span className="optional">(optional)</span> <input value={f.notes} maxLength={200} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="e.g. Patched to the stage box" />
       </label>
       {why && (
         <p className="alert wide" role="alert">
@@ -160,7 +160,7 @@ export function Groups({ r }: { r: RackView }) {
   if (!groups.size) return null
   return (
     <div className="rack-groups">
-      <h3>Groups</h3>
+      <h3 className="group">Groups</h3>
       <ul>
         {[...groups].sort(([a], [b]) => a.localeCompare(b)).map(([name, g]) => (
           <li key={name}>

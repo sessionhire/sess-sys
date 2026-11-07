@@ -187,7 +187,7 @@ test('the office makes a job from a past quote, its lines matched to the stock l
   // The job page, on its quote, with the Next dock saying what's next (ADR 0103, ADR 0104); the draft is a press away.
   await expect(office).toHaveURL(/#jobs\/[^/]+\/money$/)
   const next = office.getByRole('region', { name: 'Next' })
-  await expect(next).toContainText('Next · Selling · A draft is started')
+  await expect(next).toContainText('Next · Quoting · Draft started')
   await next.getByRole('link', { name: 'Finish the quote' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await expect(draft).toContainText('Shure SM58')

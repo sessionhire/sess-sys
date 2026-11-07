@@ -58,6 +58,7 @@ export function PersonPhoto({ person }: { person: PersonView }) {
         <Confirm
           question={`Take ${what} off? It's deleted, and the initials come back.`}
           yes="Take it off"
+          loss
           onYes={() => {
             setRemoving(false)
             void run(() => call(person.id, { method: 'DELETE' }))

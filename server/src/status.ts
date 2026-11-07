@@ -315,7 +315,7 @@ export class Status {
   private async claude(): Promise<StatusCheck> {
     const base = { id: 'claude', group: 'outside' as const, name: 'Claude' }
     const a = this.s.assistant
-    if (!a?.config) return { ...base, state: 'off', says: 'Not set up.', todo: 'Set ANTHROPIC_API_KEY in Railway to offer Claude on the quote screens.' }
+    if (!a?.config) return { ...base, state: 'off', says: 'Not set up.', todo: 'Set ANTHROPIC_API_KEY in Railway, for Claude to read the operations mailbox, draft quotes from enquiries and write the to-do list.' }
     const s = await a.status()
     const spent = `$${(s.spentCents / 100).toFixed(2)} of $${(s.limitCents / 100).toFixed(2)} this month, asked ${plural(s.uses, 'time')}`
     if (!s.on) return { ...base, state: 'off', says: `Set up, and turned off. ${spent}.`, todo: 'Turn it on under Admin › Company to offer it.' }
@@ -327,10 +327,10 @@ export class Status {
   private async mailbox(): Promise<StatusCheck> {
     const base = { id: 'mailbox', group: 'outside' as const, name: 'Operations mailbox' }
     const m = this.s.mailbox
-    if (!m?.available) return { ...base, state: 'off', says: 'Not set up: it needs the Google key and Claude.' }
+    if (!m?.available) return { ...base, state: 'off', says: 'Not set up: it needs the Google key on the server, as sign-in does.', todo: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Railway.' }
     const s = await m.status()
-    if (s.state === 'reconnect') return { ...base, state: 'bad', says: s.problem ?? 'Google stopped letting the app read it.', todo: 'Connect operations@ again under Admin › Company.', at: s.lookedAt }
-    if (s.state !== 'on') return { ...base, state: 'off', says: 'Not connected.', todo: 'Connect operations@ under Admin › Company for Claude to draft quotes from its mail.' }
+    if (s.state === 'reconnect') return { ...base, state: 'bad', says: s.problem ?? 'Google stopped letting the app read it.', todo: 'Connect operations@ again under Admin › Connections.', at: s.lookedAt }
+    if (s.state !== 'on') return { ...base, state: 'off', says: 'Not connected.', todo: 'Connect operations@ under Admin › Connections, for Claude to read its mail and for quotes to be sent from it.' }
     const looked = s.lookedAt ? `last read ${new Date(s.lookedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'not read yet'
     if (s.problem) return { ...base, state: 'warn', says: `Reading ${s.account}, ${looked}, but the last look stopped: ${s.problem}`, todo: 'It tries again every five minutes.', at: s.lookedAt }
     return { ...base, state: 'ok', says: `Reading ${s.account}, ${looked}${s.canSend ? ', and quotes can be sent from it' : '; connected to read only, so quotes can’t be sent from it'}.`, at: s.lookedAt }
@@ -358,7 +358,8 @@ export class Status {
       const { ms } = await timed(this.s.outside.maps)
       return { ...base, state: 'ok', says: 'OpenStreetMap’s search answers, for finding venues on the map.', ms }
     } catch (err) {
-      return { ...base, state: 'warn', says: `OpenStreetMap’s search isn’t answering (${why(err)}). Venues already pinned still show; finding new ones waits.`, todo: 'Nothing to do: it’s theirs, and usually back within the hour.' }
+      // Theirs to fix, not ours, so it isn't counted among what needs a look (audit, 5 November 2026, finding 82).
+      return { ...base, state: 'off', says: `OpenStreetMap’s search isn’t answering (${why(err)}), so finding new venues on the map waits. Venues already pinned still show. Nothing to do: it’s theirs, and usually back within the hour.` }
     }
   }
 }

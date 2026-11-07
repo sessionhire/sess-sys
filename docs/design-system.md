@@ -59,24 +59,39 @@ it's next updated. Every colour token carries its CSS name (for example
   `--group` 12 (one group and the next inside a card), `--section` 24
   (card and card, the parts of a page), `--inset` 16 (inside a card) and
   `--gutter` 16 (the page's edge). The old 6, 10 and 14 steps were off the
-  grid and went to the next step up.
-- **Radius**: control 8, tab 10, card 12, full (pills).
+  grid and went to the next step up. A row drawn as a box inside a card (a
+  phase, a crew call, a fault, a test due, a van, a Home tile, a card on
+  the Board) is one shape wherever it is (UX sweep, 6 November 2026, move
+  2): `--inset-box` 12 inside it and `--radius-box` round it.
+- **Radius**: control 8, box 8, tab 10, card 12, full (pills).
 - **Type** (since 30 October 2026, Colly's call): the shared design
   system's, IBM Plex Sans with Plex Mono and Archivo for page titles,
   bundled in `web/src/fonts.ts` and kept offline by the service worker, at
   the touch density's sizes (`data-density="touch"` on `<html>`). The old
   13 names in `app.css` point at five of the system's text styles: label
-  12 (pills), caption 13 (hints, status), body 15 (a row's second line),
-  field 16 (fields and body, so iOS never zooms), title 17 (card headings),
-  and heading 24 (page and record titles). Printed sheets and labels keep
-  the system font.
+  12 (pills), caption 13 (hints, status), body 16 (a row's second line),
+  field 16 (fields and body, so iOS never zooms), title 20 on a 28px line
+  (card headings), and heading 24 on a 32px line (page and record titles),
+  so the headings sit on the 4px grid. A head inside a card is one of two
+  kinds (UX sweep, 6 November 2026, move 2): a **group** head (`h3.group`)
+  that names what follows and has no words of its own, a run of rows such
+  as a week's jobs, a department's kit or a day's calls, a run of figures
+  such as a person's leave, or a part of one long form such as a quote's
+  Terms and Send, in label capitals, 12px tracked, in the muted ink; and a
+  **section** head (a plain `h3`) over a part with words or a job of its
+  own, a hint, prose or a total under it, or a form that stands alone
+  ("Add kit"), in sentence case at 16px in ink
+  ([ADR 0082](adr/0082-one-page-head-and-calmer-pages.md)). An open task's
+  name and a version on What's changed keep a card heading's 20px, each
+  the title of a record of its own. Printed sheets and labels keep the
+  system font.
 
 Radius and type carry their CSS names the same way: `radius/card` is `var(--radius-card)` and the hint style is
 `var(--text-hint)`, set on `:root` in `app.css` next to the colours. The web
 app's stylesheets use them wherever a value is on the scale, and anything off
 it, such as a 1px line or a 3px nudge, stays in px. A radius is named for
-what it's on, so a 10px corner that isn't on a tab, such as the box round a
-crew call on a job's page, stays in px too. A size off the type scale moves
+what it's on, so a corner that is on none of them, such as the planner's
+6px blocks, stays in px too. A size off the type scale moves
 to the style that does its job when its rule is next changed (a muted .8rem
 line is the hint style); rules not changed since still carry a few of their
 own.
@@ -124,15 +139,23 @@ person's initials on the same grey for everyone, until there are photos.
   screen's own line: what to do about it, or where its things come from
   ("Nothing here yet. Add your crew below."). A record that isn't on the
   device says so in its own words. Not in Figma yet.
-- Red marks the one thing to do next and the current tab. Errors use the
-  burnt-orange **bad** tone, never the brand red, so red never means "broken".
+- Red marks the one thing to do next and the current tab (UX sweep,
+  6 November 2026, move 1): on a job's page the Next dock alone, so every
+  form opened under it submits with a plain button; elsewhere the page's
+  one next step, such as the submit of the form a list's add opened. An
+  ask's yes, a row's own action and the button that opens a list's add
+  are plain. A row's action repeated down a list, such as Check on each
+  timesheet, is the quiet button (no fill or edge until a pointer hovers),
+  the heading's count saying how many. Errors use the burnt-orange **bad**
+  tone, never the brand red, so red never means "broken".
 - Areas live in a tab bar at the bottom, where a thumb reaches, on a laptop
   as well: the office's phone and laptop work the same way, and the top bar
   keeps to the screen's name and what's waiting.
 - A screen stays short on a phone ([audit finding 16](audit-2026-09-30.md)):
   a form waits behind a button that names it ("Add person", "Ask for crew",
   "Add phase", "Add kit", "Add product", "Add place") and opens in place
-  with the cursor in its first field and Close under it; a long list shows
+  with the cursor in its first field and Close under it; a list's add is
+  first in it, a plain fold above its search and rows; a long list shows
   its first few with "Show all 9 products" as a link, keeping in view
   anything to act on, such as kit that's short or the product open beside
   the catalogue. Lists of things to act on ("Answers to check", each kind
@@ -142,9 +165,12 @@ person's initials on the same grey for everyone, until there are photos.
   until the tab is next opened. A form that adds to a folded list says in
   a green line what was added, with the way to it ("Added Bay A3.").
   Details that are only sometimes wanted, such as a phase's running order,
-  calendar line, call sheet and contact, fold under the browser's own
-  triangle, named for what's in them; a line that needs acting on stays
-  out. Not in Figma yet.
+  calendar line, call sheet and contact, fold under one line drawn the
+  same way everywhere: as tall as a thumb, its words in ink at 600 after
+  the design system's chevron, which turns a quarter as it opens (at once
+  with reduced motion), named for what's in them with a count where it's
+  a list ("Archived (4)"). Open is the turned chevron, never a wash. A
+  line that needs acting on stays out. Not in Figma yet.
 - A crew call at rest is one line: the role in bold, then its phase, or on a
   job's page its days where they aren't the phase's, and under it who's on
   it, with any answer short of booked in brackets ("Dara Quinn, Niamh Kelly
@@ -195,7 +221,15 @@ person's initials on the same grey for everyone, until there are photos.
   so what they type and their Enter still land. The screen sits in one
   `<main>` landmark. A link that is the way back ("‹ All jobs") is at
   least 44px tall, like a button. The "not done" count is read out as it
-  changes, and takes no room in the top bar while there's none.
+  changes, and takes no room in the top bar while there's none. An
+  address that names a part of a job (its crew, its kit, or a task in
+  it) lands on that part however it was reached, from a row on Home, the
+  planner, Crew or a typed link, as the job's Next does (ADR 0109): the
+  tab row comes up under the bar with the focus on the part's tab, or
+  the task's card with the focus on its name and the task's part open
+  under it. It adds no step to the history, and Back, Forward and a
+  reload still come back to where the screen was left (UX sweep, 6
+  November 2026, move 8).
 - Every field has a name over it, so it's still there once something is
   typed, and a placeholder only gives an example ("e.g. on tour"). Only a
   field in a tight row (a phase beside its dates, a number beside Out), a
@@ -203,13 +237,43 @@ person's initials on the same grey for everyone, until there are photos.
   shown.
 - Stock ([ADR 0013](adr/0013-warehouse-catalogue.md)) shows an item's
   number in bold with even-width digits. On a place's page each number is
-  a round chip that opens the item, dashed and amber while it waits to
-  sync. A form used over and over, such as adding items while labelling
-  or putting kit in a case, keeps where it's at, clears the number, puts
-  the cursor back in it, and says in a green line what was just done
-  ("Added SH-000102"). A choice between kinds (Numbered or Counted) is a
-  bordered row per option, each with a line saying when to pick it. Not
-  in Figma yet.
+  a round chip that opens the item, dashed and grey while it waits to
+  sync, as every waiting thing is. An item is drawn as one row in four
+  places (UX sweep, 6 November 2026, move 3): on its product's page, in
+  the catalogue's search, under the Stock camera and on a pick list
+  coming back. A case's "In it" list and a place's cases still draw a
+  row of their own. It has the number, the product unless the list is
+  under it already, then one line of the state it's in and where it's
+  kept ("Out with Corporate AGM since 2 Nov · Bay C3", or "since 14 Oct
+  2025" when it went out in another year). Out with a job is said
+  plainly, as out is healthy; Missing, damaged so it can't go out, or a
+  test failed or overdue is the **bad** flag, and damaged but fit to go
+  out the warn, in the repair list's words. While a change to it or a
+  scan of it, or of the case it's in, is only on the phone, the row ends
+  in Waiting to sync, never amber; on the pick list so do the scan's
+  answer, the count of the product's row it changed and, once that row
+  is done, the line it folds under. On a pick list, where Back, Missing
+  or Report damage sit beside the row, only its number opens the item,
+  quiet, so a gloved miss stays on the list (audit, 5 November 2026,
+  finding 92). It reads only what the phone holds, so it works with no
+  signal. Coming back on a pick list, Back is as wide as Missing beside
+  it, the two 16px apart, so neither is the smaller target (UX sweep, 6
+  November 2026, move 8). On a phone the catalogue card has a heading of
+  its own, "Catalogue (n)", so the strip of parts names it with Pick lists
+  and Kit short; on a laptop it's the column beside them, which keeps its
+  place as the page scrolls, and stays unheaded like every list beside a
+  record, so no strip comes over it. While anything is typed in its
+  search, the day's cards under it step aside on a phone, and the strip
+  with them, as one part leaves nothing to jump to. A label's whole
+  number (all six digits, as a scanner reads it) on one item opens that
+  item with nothing to press. A shorter number may be on its way to a
+  longer one, and a number the item had before is said on its row first,
+  so those wait for Go. A form used over and over, such as
+  adding items while labelling or putting kit in a case, keeps where it's
+  at, clears the number, puts the cursor back in it, and says in a green
+  line what was just done ("Added SH-000102"). A choice between kinds
+  (Numbered or Counted) is a bordered row per option, each with a line
+  saying when to pick it. Not in Figma yet.
 - Kit on a job ([ADR 0014](adr/0014-kit-on-jobs.md)) is listed by
   department under small grey headings, each line saying in words under
   it whether there's enough: the **bad** tone on a tinted panel when a
@@ -265,7 +329,9 @@ person's initials on the same grey for everyone, until there are photos.
   when open) beside what's waiting, and opens the one list of them for
   every area, with Dismiss. An "are you sure?" is a question in place: the
   consequence in words in a warn line, the safe button first and focused,
-  the fields held still. Not in Figma yet.
+  the fields held still. Its yes is a plain button, never the red; where
+  the answer takes something away (writing off, removing, erasing,
+  withdrawing, cancelling) it's filled in the **bad** tone. Not in Figma yet.
 - The History tab ([ADR 0006](adr/0006-audit-trail-and-export.md)) is a
   card per day, the day as its heading ("Today", "Thursday 1 October").
   One person's changes one after another are one line in bold, after a
@@ -288,10 +354,11 @@ person's initials on the same grey for everyone, until there are photos.
   line says which of this year and next are open for leave and that the
   other isn't yet, with "Open 2027 for leave" under it for an approver,
   a question in place before it's done; the approvers' queue
-  puts what to weigh up in warn lines under the request, with Approve as
-  the primary button and Decline opening a reason field in place. In the
-  planner a public holiday is a faint band in the off tone, a shade
-  deeper than a weekend, named under its date. Not in Figma yet.
+  puts what to weigh up in warn lines under the request, with Approve and
+  Decline as plain buttons, a row's own actions, and Decline opening a
+  reason field in place. In the planner a public holiday is a faint band
+  in the off tone, a shade deeper than a weekend, named under its date.
+  Not in Figma yet.
 - A person's level ([ADR 0025](adr/0025-crew-profiles-and-bringing-in-the-list.md))
   is always written "Level 3", never a bare number, in the crew list,
   the Offer to… picker and the history ("Moved Dara Quinn to Level 3");
@@ -319,10 +386,10 @@ person's initials on the same grey for everyone, until there are photos.
 - Made-up data ([ADR 0019](adr/0019-made-up-data-and-starting-fresh.md))
   is named beside every screen's name in the top bar, "· made-up data" in
   the bold amber warn tone, on every phone while it's in. Deleting
-  everything is the one button in the **bad** tone, filled, with the
-  soft bad tone for its text (4.7:1 light, 6.9:1 dark): it stays off
-  until "delete everything" is typed in the field above it, and says what
-  it does, not "OK". Not in Figma yet.
+  everything is filled in the **bad** tone, as the yes of any loss is,
+  with the soft bad tone for its text (4.7:1 light, 6.9:1 dark): it stays
+  off until "delete everything" is typed in the field above it, and says
+  what it does, not "OK". Not in Figma yet.
 - A pick list ([ADR 0017](adr/0017-pick-lists-and-scanning-out-and-in.md))
   has **Going out** and **Coming back** as two buttons, the pressed one
   ink, over the total in bold ("12 of 40 out"), the scan field with
@@ -387,7 +454,7 @@ person's initials on the same grey for everyone, until there are photos.
   the certificate, and the file. With no storage on the server, a hint
   says files wait on the bucket and the file field isn't shown. One sent
   from a link is a row in "Answers to check" with Open, the day as a field
-  to correct, Checked as the primary button, and Not right. What's running
+  to correct, Checked, and Not right, all plain buttons. What's running
   out is one card, "Running out (6)", certificates and documents together.
   On the freelancer's page, "Your documents" is a card each, as an offer
   is, with a tag ("With the office to check" amber, "Runs out soon" amber,

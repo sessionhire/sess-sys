@@ -1,4 +1,5 @@
 import {
+  LEAVE_WORDS,
   canApproveLeave,
   dayLabel,
   daysLeft,
@@ -24,6 +25,8 @@ import {
   type LieuEntryView,
   type PersonView,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
 } from '@sh/shared'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -34,7 +37,6 @@ import { Pending, StatusPill, type PillTone } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 import { CrewViews } from './CrewViews.tsx'
-import { inDepartment, Narrowed, useNarrowed } from '../Narrowed.tsx'
 
 /**
  * Staff leave and time in lieu (ADR 0024), at #crew/leave: my year's
@@ -88,11 +90,12 @@ export function useMe(view: View): { me: PersonView | undefined; signedIn: boole
 
 const yearOf = (day: string) => Number(day.slice(0, 4))
 
+// Never a bare Waiting (UX sweep, 6 November 2026, move 4): the pill's slot can also say Waiting to sync.
 const STATUS: Record<LeaveStatus, [string, PillTone]> = {
-  waiting: ['Waiting', 'pending'],
-  approved: ['Approved', 'confirmed'],
-  declined: ['Declined', 'cancelled'],
-  cancelled: ['Cancelled', 'cancelled'],
+  waiting: [LEAVE_WORDS.waiting, 'pending'],
+  approved: [LEAVE_WORDS.approved, 'confirmed'],
+  declined: [LEAVE_WORDS.declined, 'cancelled'],
+  cancelled: [LEAVE_WORDS.cancelled, 'cancelled'],
 }
 
 function LeavePill({ status, pending }: { status: LeaveStatus; pending: boolean }) {
@@ -128,8 +131,9 @@ export function LeaveScreen({ view }: { view: View }) {
         </section>
       ) : (
         <>
-          <MyLeave view={view} me={me} year={year} onYear={setYear} onNotMe={signedIn ? undefined : clear} />
+          {/* For an approver, what waits on them first: the count on the Crew tab opens here (audit, 5 November 2026, finding 28). */}
           {approver && <ToApprove view={view} me={me} />}
+          <MyLeave view={view} me={me} year={year} onYear={setYear} onNotMe={signedIn ? undefined : clear} />
           {approver && <Allowances view={view} me={me} year={year} />}
         </>
       )}
@@ -170,7 +174,7 @@ function WhoAreYou({ view, signedIn, email, onPick }: { view: View; signedIn: bo
         >
           <label className="field">
             Your name
-            <select value={id} onChange={(e) => setId(e.target.value)}>
+            <select value={id} onChange={(e) => setId(e.target.value)} required>
               <option value="">Pick your name…</option>
               {staff.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -180,7 +184,7 @@ function WhoAreYou({ view, signedIn, email, onPick }: { view: View; signedIn: bo
             </select>
           </label>
           <p className="hint">Until sign-in is on, this device takes your word for it, and remembers the answer.</p>
-          <button type="submit" className="primary" disabled={!id}>
+          <button type="submit" className="primary">
             That's me
           </button>
         </form>
@@ -192,7 +196,7 @@ function WhoAreYou({ view, signedIn, email, onPick }: { view: View; signedIn: bo
 function Facts({ b }: { b: LeaveBalance }) {
   return (
     <>
-      <h3>Annual leave</h3>
+      <h3 className="group">Annual leave</h3>
       <dl className="facts">
         <div>
           <dt>Allowance</dt>
@@ -214,7 +218,7 @@ function Facts({ b }: { b: LeaveBalance }) {
           <dd>{days(b.annual.booked)}</dd>
         </div>
         <div>
-          <dt>Waiting</dt>
+          <dt>{LEAVE_WORDS.waiting}</dt>
           <dd>{days(b.annual.waiting)}</dd>
         </div>
         <div>
@@ -224,7 +228,7 @@ function Facts({ b }: { b: LeaveBalance }) {
           </dd>
         </div>
       </dl>
-      <h3>Time in lieu</h3>
+      <h3 className="group">Time in lieu</h3>
       <dl className="facts">
         <div>
           <dt>Earned</dt>
@@ -243,7 +247,7 @@ function Facts({ b }: { b: LeaveBalance }) {
           <dd>{days(b.lieu.booked)}</dd>
         </div>
         <div>
-          <dt>Waiting</dt>
+          <dt>{LEAVE_WORDS.waiting}</dt>
           <dd>{days(b.lieu.waiting)}</dd>
         </div>
         <div>
@@ -315,6 +319,18 @@ function MyLeave({ view, me, year, onYear, onNotMe }: { view: View; me: PersonVi
   )
 }
 
+/**
+ * Who to ask to open a year, by name, so a year not open yet is a step to
+ * take and not a wall (audit, 5 November 2026, finding 30). Nobody named
+ * when nobody approves leave yet.
+ */
+function askToOpen(view: View, me: PersonView, year: number): string {
+  const names = view.leave.approvers.filter((p) => p.id !== me.id).map((p) => p.name)
+  if (!names.length) return ''
+  const who = names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} or ${names[1]}` : `${names.slice(0, 2).join(', ')} or another approver`
+  return ` Ask ${who} to open ${year}.`
+}
+
 /** The years leave can be asked for in, and for an approver, the next to open, asked in place first. */
 function OpenYears({ view, me }: { view: View; me: PersonView }) {
   const near = nearYears(useToday())
@@ -328,7 +344,10 @@ function OpenYears({ view, me }: { view: View; me: PersonView }) {
     <>
       <p className="hint">
         {open.length > 0 && `Open for leave: ${open.join(' and ')}. `}
-        {shut.length > 0 && `${shut.join(' and ')} ${shut.length === 1 ? "isn't" : "aren't"} open yet: the office opens each year when it's ready.`}{' '}
+        {shut.length > 0 &&
+          (canApproveLeave(me) && next !== undefined && shut.includes(next)
+            ? `${shut.join(' and ')} ${shut.length === 1 ? "isn't" : "aren't"} open yet. You can open ${next} here, once staff can ask for leave in it.`
+            : `${shut.join(' and ')} ${shut.length === 1 ? "isn't" : "aren't"} open yet: the office opens each year when it's ready.${askToOpen(view, me, shut[0]!)}`)}{' '}
         <Pending pending={view.leave.years.some((y) => y.pending)} />
       </p>
       {canApproveLeave(me) &&
@@ -360,9 +379,16 @@ function Apply({ view, me }: { view: View; me: PersonView }) {
     e.preventDefault()
     setDone('')
     // The same checks as the server's, said here first so nothing waits on a sync to be refused.
-    if (crossesYear) return refuse("A request can't cross the year end: ask for December and January separately.")
+    if (crossesYear) {
+      const next = Number(end.slice(0, 4))
+      return refuse(
+        view.leave.isOpen(next)
+          ? "A request can't cross the year end: ask for December and January separately."
+          : `A request can't cross the year end, and ${next} isn't open yet: ask for the December days now, and January once ${next} is open.${askToOpen(view, me, next)}`,
+      )
+    }
     const shut = notOpenReason(year, view.leave.isOpen, today)
-    if (shut) return refuse(shut)
+    if (shut) return refuse(year >= Number(today.slice(0, 4)) ? shut + askToOpen(view, me, year) : shut)
     if (count === 0) return refuse("There are no working days in those dates: it's all weekend or public holidays.")
     const mine = view.leave.requestsFor(me.id, year).find((r) => HOLDS_DAYS.includes(r.status) && requestsOverlap(r, { start: f.start, end }))
     if (mine) return refuse(`That overlaps the ${leaveLabel(mine.type, mine.days).toLowerCase()} ${mine.status === 'approved' ? 'approved' : 'asked'} for ${leaveSpanLabel(mine)}.`)
@@ -383,12 +409,14 @@ function Apply({ view, me }: { view: View; me: PersonView }) {
           <option value="lieu">Days in lieu</option>
         </select>
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} required />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} required />
+        </label>
+      </div>
       <label className="wide">
         Note <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Anything whoever approves should know" maxLength={500} />
       </label>
@@ -480,7 +508,7 @@ function RequestRow({ r, me }: { r: LeaveRequestView; me: PersonView }) {
         )}
       </div>
       {canCancel && asking && (
-        <Confirm question={`Cancel your ${what}? It would need asking for and approving again.`} yes="Cancel the leave" no="Keep it" onYes={cancel} onNo={() => setAsking(false)} />
+        <Confirm question={`Cancel your ${what}? It would need asking for and approving again.`} yes="Cancel the leave" loss no="Keep it" onYes={cancel} onNo={() => setAsking(false)} />
       )}
     </div>
   )
@@ -519,6 +547,7 @@ function EntryRow({ e, me }: { e: LieuEntryView; me: PersonView }) {
         <Confirm
           question={`Cancel the ${e.days === 1 ? 'day' : `${e.days} days`} in lieu for ${dayLabel(e.day)}? It would need logging and approving again.`}
           yes="Cancel the day in lieu"
+          loss
           no="Keep it"
           onYes={cancel}
           onNo={() => setAsking(false)}
@@ -528,18 +557,23 @@ function EntryRow({ e, me }: { e: LieuEntryView; me: PersonView }) {
   )
 }
 
-/** The queue for whoever can approve time off, with what to weigh up, and the decision in place. */
+/**
+ * The queue for whoever can approve time off, with what to weigh up, and the decision in place. Approvers are people (ADR
+ * 0024), so it's everyone's waiting, from whatever department, as Home and the Crew tab count it (Move 3 of the sweep of 6
+ * November 2026).
+ */
 function ToApprove({ view, me }: { view: View; me: PersonView }) {
-  // Opened from a count on Home for a department, that department's requests, as Home counted them (audit, 20 October 2026, finding 4).
-  const [department, widen] = useNarrowed('#crew/leave')
-  const queue = view.leave.queue.filter((q) => inDepartment(department)(q.person))
+  const { queue } = view.leave
+  // Theirs to decide first, counted in the heading as on the Crew tab; their own after, for another approver (audit, 5 November 2026, finding 28).
+  const others = queue.filter((q) => q.person?.id !== me.id)
+  const own = queue.filter((q) => q.person?.id === me.id)
+  const key = (item: LeaveQueueItem) => (item.kind === 'request' ? item.request.id : item.entry.id)
   return (
     <section className="card" aria-label="To approve">
-      <h2>To approve</h2>
-      <Narrowed department={department} onWiden={widen} />
-      {queue.length === 0 && <Empty />}
-      {queue.map((item) => (
-        <QueueRow key={item.kind === 'request' ? item.request.id : item.entry.id} item={item} me={me} />
+      <h2>{listHeading(STANDING_HEADINGS.leave, others.length)}</h2>
+      {others.length === 0 && <Empty />}
+      {[...others, ...own].map((item) => (
+        <QueueRow key={key(item)} item={item} me={me} />
       ))}
     </section>
   )
@@ -591,8 +625,11 @@ function QueueRow({ item, me }: { item: LeaveQueueItem; me: PersonView }) {
           }}
           aria-label={`Decline ${name}'s request`}
         >
-          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" maxLength={500} aria-label="Reason" />
-          <button type="submit" className="primary">
+          <label>
+            Reason <span className="optional">(optional)</span>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+          </label>
+          <button type="submit">
             Decline
           </button>
           <button type="button" onClick={() => setDeclining(false)}>
@@ -601,7 +638,8 @@ function QueueRow({ item, me }: { item: LeaveQueueItem; me: PersonView }) {
         </form>
       ) : (
         <div className="actions">
-          <button type="button" className="primary" onClick={() => decide(true)} aria-label={`Approve ${name}'s ${item.kind === 'request' ? 'request' : 'day in lieu'}`}>
+          {/* Plain, as a row's own action is, beside Decline: the heading counts what's to approve (UX sweep, 6 November 2026, move 1). */}
+          <button type="button" onClick={() => decide(true)} aria-label={`Approve ${name}'s ${item.kind === 'request' ? 'request' : 'day in lieu'}`}>
             Approve
           </button>
           <button type="button" onClick={() => setDeclining(true)} aria-label={`Decline ${name}'s ${item.kind === 'request' ? 'request' : 'day in lieu'}`}>
@@ -644,6 +682,8 @@ function AllowanceRow({ person, year, view, me, fixed, byAnother }: { person: Pe
   const { run, error, refuse } = useAct()
   const save = (e: FormEvent) => {
     e.preventDefault()
+    // Never greyed out (UX sweep, 6 November 2026, move 5): a press with nothing changed says so.
+    if (!touched) return refuse('Change the days or carried over first.')
     // A blanked field would read as nothing and wipe the year, so it's turned down here in the schema's own words.
     if (!isWhole(f.days)) return refuse('The allowance is a whole number from 0 to 366.')
     if (!isWhole(f.carried)) return refuse('Carried over is a whole number from 0 to 366.')
@@ -653,30 +693,33 @@ function AllowanceRow({ person, year, view, me, fixed, byAnother }: { person: Pe
   }
   return (
     <form className="row allowance-row" onSubmit={save} aria-label={`${person.name}'s allowance`}>
-      <div>
-        <b>{person.name}</b>
-        <p>
-          {days(b.annual.taken + b.annual.booked)} approved, {days(b.annual.left)} left
-          {set?.selfSet && ' · set by themselves'}
-          {byAnother && ' · another approver sets yours'}
-          {set?.pending && ' · waiting to sync'}
-        </p>
-      </div>
-      <div className="actions">
-        <label className="field">
-          Days
-          <input type="number" min={0} max={366} value={f.days} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, days: e.target.value }))} />
-        </label>
-        <label className="field">
-          Carried over
-          <input type="number" min={0} max={366} value={f.carried} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, carried: e.target.value }))} />
-        </label>
-        {!fixed && (
-          <button type="submit" disabled={!touched}>
-            Save allowance
-          </button>
-        )}
-      </div>
+      {/* A row each, opened to change it, so twelve staff aren't twelve open forms (audit, 5 November 2026, finding 28). */}
+      <details className="allowance-fold">
+        <summary>
+          <b>{person.name}</b>
+          <span>
+            {days(b.annual.taken + b.annual.booked)} approved, {days(b.annual.left)} left
+            {set?.selfSet && ' · set by themselves'}
+            {byAnother && ' · another approver sets yours'}
+            {set?.pending && ' · waiting to sync'}
+          </span>
+        </summary>
+        <div className="actions">
+          <label className="field">
+            Days
+            <input type="number" min={0} max={366} value={f.days} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, days: e.target.value }))} />
+          </label>
+          <label className="field">
+            Carried over
+            <input type="number" min={0} max={366} value={f.carried} disabled={fixed} onChange={(e) => (setTouched(true), setF({ ...f, carried: e.target.value }))} />
+          </label>
+          {!fixed && (
+            <button type="submit">
+              Save allowance
+            </button>
+          )}
+        </div>
+      </details>
       <Refusal error={error} />
     </form>
   )

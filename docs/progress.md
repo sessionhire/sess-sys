@@ -3,6 +3,488 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 7 November 2026: batch 5 of the UX sweep, what the small moves prepared
+
+**Done**
+
+- Batch 5, on Colly's "move on to the next batch" after batch 4, built on
+  section 9's recommendations: move 12, move 5c and question 2.
+- Move 12, first part, whose turn it is (1.105.0, PR #240): a task with
+  nobody named on it says whose it is by role, from the one owner table
+  ("For the warehouse (nobody named).", `ownerByRole` in
+  shared/src/words.ts), and the Tasks filter and Home's tile say
+  "nobody named"; two hand-offs reach the people whose turn it is as
+  notifications in the app only (ADR 0058's fifth reason, "Your
+  department's turn"): a job going confirmed, to the heads of the
+  departments on its calls or kit and the warehouse's heads
+  ("Confirmed: Harbour Lights, Mon 9 Nov"), and a job's first kit out,
+  to the office ("Gone out: Harbour Lights"). Nobody is emailed.
+- Move 12, second part, the invoice tail (1.106.0, PR #241), on question 6's
+  answer, the row and the group: `invoiceOf` in
+  shared/src/sync/money-view.ts says where a job's invoice stands; Quotes
+  gains "To invoice" (confirmed, finished, accepted, not invoiced, longest
+  first), the job's tasks end on an Invoice row that opens the quote, and
+  Home has the office a "jobs through, not invoiced" count. Jobs that
+  ended before November 2026 (`INVOICES_FROM`) are "Not needed", so the
+  group starts honest rather than with every old quote. Question 9's
+  answer (tone and count, no "At risk" state) needed no change.
+- Move 5c, the record picker's half step (1.107.0, PR #242): `ProductPicker`
+  becomes `RecordPicker` (web/src/RecordPicker.tsx) with the system's
+  combobox keys, `find` and `meta` given by each use, and Offer to… on a
+  call is it: the search box and the select are one, the department,
+  level and skills the meta line with a certificate gap, "⚠ not free then"
+  and "busy in own calendar", the call's department first at rest, Show
+  applicants a checkbox under it. Enter while typing never sends the form.
+  Eight offers at most, and on a phone the list grows with the page
+  rather than scrolling inside it. Client, venue, place and supplier wait
+  for a month of use, as the sweep says.
+- Question 2, staff answer offers in the app (1.108.0, PR #243,
+  [ADR 0111](adr/0111-staff-answer-offers-in-the-app.md)): a new ability,
+  `answer`, every role but freelancer; `offer.respond` needs it and its
+  handler holds anyone without `crew` to their own offers. "You on this
+  job" has Yes / No (no asks first); some of the days and pulling out stay
+  on the link. Offer rows on Home › Me and their own page open the job.
+  Timesheets wait for their switch (ADR 0090). That ends the sweep's
+  twelve moves.
+
+## 7 November 2026: batch 4 of the UX sweep, the pages that are someone's own
+
+**Done**
+
+- Batch 4, straight after batch 3 on Colly's "And then proceed to the next
+  batch": moves 10b and 11.
+- Move 10b, first part, Home for whoever is looking (1.101.0, PR #236): one line on
+  the week above the Company view's counts ("The next seven days: 4 confirmed jobs
+  on, 2 short of crew or kit · €19,189 confirmed of €22,729 quoted for
+  November 2026", the money for whoever sees it, from Money's own
+  figures), quiet unless something in the first group stops work; the
+  Money card straight after the week ahead; Housekeeping a fold with its
+  count, closed for a director and open for everyone else, kept per
+  phone (`sh.home.housekeeping`); each count's "N more since Tuesday" from
+  this phone's last look on an earlier day (shared/src/last-look.ts,
+  `sh.home.looks`); the down-to-nobody count only for jobs starting
+  within a fortnight (the Jobs list's Tasks filter gains that option);
+  the head of the warehouse lands on the Warehouse view.
+- Move 10b, second part, what's over but not finished, and what was lost
+  (1.102.0, PR #237): Home's Today lists Just finished (n), the jobs over in the
+  last fortnight still in Back with work open (`stillInBack` in
+  shared/src/lists.ts); the Jobs list's Past opens on Still in Back (n)
+  before the weeks; Money's head gains Lost or lapsed for the month
+  (quotes turned down and lost jobs' uninvoiced quotes, `MonthMoney.lost`),
+  with the jobs whose dates passed unanswered named apart and not summed;
+  By month gains Lost; Home's Money card shows Money's own list
+  (`MoneyFacts`) in place of its sentence.
+
+- Move 11, first part, the Jobs area's record heads (1.103.0, PR #238): the client
+  and the venue take the shared page head (name, Pending beside it, a sub
+  line "Client · 2 jobs · Declan Moore" / "Venue · Dublin 1 · 2 jobs
+  here") and the shared Tabs (client: Details · Documents · Jobs; venue:
+  Details · On the map · Documents · Jobs here), addressed as
+  #jobs/clients/<id>/<part>; the quote and the pick list take the job's
+  name in the head with "Quote · version 2 · <client> · <dates>" or
+  "Pick list · <dates>" under it and the quote's pill or the job's
+  position beside it; the QUOTE kicker and the first card's h1 go.
+- Move 11, second part, the Stock area's record heads (1.104.0, PR #239): the item
+  (number and picture in the head, "Mic case 24 · Bay C2" under it, the
+  Details card and tracker over Tabs: Faults · Tests and certificates ·
+  In it · Counts · Log, as #stock/item/<id>/<part>), the place ("Place ·
+  576 items · counted …") and the vehicle ("Van · 241-D-100 · 3 seats",
+  "Off the road until …" as a pill beside its name) take the shared page
+  head; a fault drawn away from the Repairs list's state groups carries
+  its state as a pill; the record card gap is one role, `--record`
+  (16px, Colly's question 7), in app.css.
+
+**Left for later**
+
+- A Company count narrowed for a head naming their department ("2 LX
+  calls still need crew").
+
+## 7 November 2026: batch 3 of the UX sweep, where a job stands
+
+**Done**
+
+- Batch 3, on Colly's "And then proceed to the next batch" after batch 2:
+  moves 7, 8b and 9, in four PRs built in turn.
+- Move 7, first part, the task's fields (1.97.1, PR #232): each task of a job
+  carries its facts as fields beside its hint (booked, needed, short,
+  out of, still out, the show's days, the quote's sent day, faults), and
+  the Next dock and the Board choose a button or a tone from the fields,
+  never by reading the hint back. One selling sentence (`sellingLine`)
+  for the Board's card and the Jobs list's stage line: "Draft started ·
+  1 line needs a price", "Quote with the client 12 days · worth a call"
+  at Quotes' threshold, "Dates passed, no answer", "Quote: with the
+  office". A server test reads every made-up job's hints back and holds
+  each number against its field.
+- Move 7, second part, the position part (1.98.0, PR #233): `jobPosition()` in
+  shared/src/sync/position.ts and `JobPosition` (web/src/jobs/
+  JobPosition.tsx, which replaces StageLine) draw "stage · what's short
+  or waiting · owner · when" on the job head (in place of the pill once
+  confirmed), the dock's line, the Jobs row (in place of the stage line,
+  the Confirmed pill and the Kit short flag on a confirmed job), Home's
+  rows (compact), the Board's card and the pick list's head. Quiet when
+  nothing is short, warn ink when crew or kit is, bad ink when a task is
+  late or the dates passed unsold. The Board's Planning column is banded
+  This week, Next week and a folded Later (n); a column's "short" counts
+  crew as well as kit. Departures: a sale keeps its Kit short flag on the
+  row, as its position is the quote's; an errand or meeting row keeps its
+  line and draws no position. Left for later: the "In Planning since"
+  line on Where it is (no stage dates are stored), the quote's What
+  happened card, folding a meeting's Kit, Show pack and Quote.
+- Move 8b, arriving on the kit (1.99.0, PR #234): the job head's Kit fact says
+  "· 0 of 27 out" and links to the pick list for a role with the stock
+  ability; within seven days of going out the dock's quiet second slot
+  is "Pick the kit · 0 of 27 out" for that role (also on the rest line
+  when the task is another role's), the filled verb staying the
+  planner's; the pick list draws `PickDock` in the foot on a phone in
+  four wordings (pick, all out and ready to load, scan back, tick off
+  the deprep). A line in ADR 0104 says the dock is drawn there too.
+  pick.spec checks at 390px that the scan box and the dock never cover
+  each other.
+- Move 9, each role's own app (1.100.0, PR #235): the Jobs list's filters gain
+  Whose (Mine) and Department (a job is a department's when a call is,
+  or a kit line is in its stock department); a head's list starts on
+  their department once a tab, widened with the chip's take-off; a
+  "Mine (n)" chip first for anyone booked (as Home › Me reads them).
+  `YouOnThisJob` on the job page for anyone with a booking or offer on
+  it, above Where it is for a role without jobs, crew or kit, under it
+  otherwise: role, phase, days, call, venue, details, call sheet, and
+  "Can't make it any more? ›" (or "Answer it on your page ›") to their
+  link at that booking. Plain #crew lands a role without crew on
+  People. Stock opens with "Broken or missing kit · Report it ›" for a
+  role without stock. Left for later: the planner's To sort out
+  narrowing, Home's views group by role and "The company's week ›",
+  the NotYours head and role-aware Empty states, the warehouse head's
+  first landing.
+
+## 7 November 2026: batch 2 of the UX sweep, words, forms and the link
+
+**Done**
+
+- Batch 2, on Colly's "Do batch 2": moves 4, 5b and 6b, one PR each,
+  built in turn.
+- Move 4, one word table (1.96.0, PR #229): shared/src/words.ts holds
+  the words met on more than one surface, and the pills, the call sheet,
+  the link, the dock and the "not yours" sentences read it. A crew
+  booking is Booked on every surface (Colly's question 1 on its
+  recommendation), so Confirmed is only the client's yes (ADR 0103);
+  accepted is To confirm, filled is "Filled by someone else", the
+  office's take-back "Withdrawn by the office". Leave's waiting is
+  "Waiting for approval". "Still needs crew" is the one name for calls
+  short of people (Home's tile, Crew's list, the planner's key), under
+  Calls' "Coming up" card. Time groups are Coming up, Past and Not going
+  ahead (a person's Worked tab is Past). Someone else's work is one
+  sentence shape from STEP_OWNERS and NOT_YOURS (the dock's rest, Vans,
+  Counting, Quotes, the pick list, Timesheets); a colleague's hidden
+  details say "Hidden for your role". Kit lists narrowed for a head say
+  "Showing LX (Lighting) only". Menu lines have a reader's version for a
+  role without the ability; history says "Cancelled the job …". Keys,
+  wire names and stored rows are unchanged.
+- Move 5b, the app's forms (1.96.1, PR #230): `.grid-form` and the
+  Admin office form are one column under 640px, with `.pair` for From
+  and To, First and Last name and the like (ten pairs); at a desk a
+  submit spanning the grid sits at the start, as wide as its words.
+  "(optional)" is written in the label (`.optional`), and instruction
+  placeholders moved under the label as hints read with the field.
+  UnitBox moved out of the quote into `web/src/UnitBox.tsx` and app.css,
+  and the day rate fields carry € in the box. No submit is disabled:
+  Offer, That's me, Save allowance, Subhire, Give a department and Tidy's
+  Give press into a refusal in required.ts's voice; required.ts also
+  refuses a number under its min, over its max or off its step in the
+  app's words, and a wheel over a focused number blurs it. Add phase's
+  name is required.
+- Move 6b, the freelancer's page as a whole (1.97.0, PR #231): "Since
+  you said yes" opens the link with each booking whose call, days or
+  venue moved since the yes (with "was …") and each that ended, linking
+  to its card; no script. Past work and the timesheet rows are one "Work
+  done" list after the bookings, rows to send first, each with its state
+  (send, sent, approved, paid) when timesheets are on. The feed, "Let us
+  see when you're busy" and "Your documents" fold to a state line ("Not
+  shared", "Shared, 2 busy days ahead", "one runs out in 9 days") and
+  open on a flash, a problem or a typed value.
+
+## 6 November 2026: the UX cohesion sweep, and batch 1 of its moves
+
+**Done**
+
+- [UX cohesion sweep, 6 November 2026](ux-sweep-2026-11-06.md), at
+  Colly's ask (PR #218): what makes the app feel like several apps, and
+  twelve moves that make it one. Seven maps of the app, ten lenses each
+  checked by a sceptic, three programmes, two judges and a critic: 46
+  themes (5 P1, 29 P2, 12 P3) and 29 smaller findings kept, 9 dropped.
+  The moves are in five batches, with thirteen questions for Colly.
+  Screenshots are in the project folder under screens/ux-sweep/. Nothing
+  live was touched.
+- Batch 1, "Monday", on Colly's "Start with the first batch": moves 1,
+  2, 3, 5a, 6a, 8a and 10a, one PR each. Screenshots are in the project
+  folder under screens/ux-batch1/.
+- Move 1, one red button (1.88.1, PR #219): the red fill is only the
+  one next step on a screen. On a job that is the Next button, and the
+  forms opened under it are plain; on a quote it is the next thing to
+  record (one helper decides), and Send and Print turn red only once
+  nothing is left to record. An ask's yes is plain, or the bad fill when
+  it takes something away. Check on Timesheets is quiet; Checked and the
+  leave queue's Approve and Decline are plain; every list opens with its
+  add, and the add's form holds the page's one red.
+- Move 3, part 1, one count (1.89.0, PR #220): kit to check back in
+  after a job is one rule in shared (kitToCheckBackIn), read by Home,
+  Home › Warehouse's new "Still out after the job (n)", Stock and the
+  Board's Back head ("Back 12 · 6 late"). It follows ADR 0109's
+  never-scanned rule, so the count went from 3 to 7 jobs on the bench.
+  Every Home count is the length of the list it opens (standing() in
+  shared) and lands on that list's heading with the same number: a server
+  test builds all 18 lists through real mutations, and e2e taps every
+  tile. Pick lists, Kit short and Crew's calls start with the tile's
+  group; Answers to check reads "(73) · 1 running late"; damaged kit is
+  counted a repair at a time; Repairs has one name; Stock's row counts
+  show only to roles that look after stock. Late kit is amber, not bad
+  (ADR 0104 updated).
+- Move 5a, the link's forms (1.89.1, PR #221): the freelancer's link
+  takes the app's form look from the vendored tokens: 16px text and 44px
+  controls, one filled yes per card, a quiet No in the bad ink behind its
+  fold, and a refusal said under its field in the bad wash with "Error: "
+  first in the title. The redrawn page lands on the refused field through
+  #refused with no script (ADR 0002): the offer, timesheet, days off,
+  details, calendar, kit to buy, broken kit and documents forms. The day
+  rate reads "Day rate you'd do it for" with the € in the box; From and
+  Until are a pair; instructions are hints under their labels. Nothing
+  the forms post changed.
+- Move 2, one look for heads, boxes and folds (1.89.2, PR #222): inside
+  a card a head is a group (small grey capitals naming a run of rows or
+  figures, or a part of one long form) or a section (the plain heading
+  over a part with words of its own); a row drawn as a box has one inset
+  and corner (--inset-box, --radius-box); every fold is one fold, the
+  shared chevron turning as it opens, drawn as a mask over a border so a
+  high-contrast theme still shows it; an open task is the turned chevron
+  and the picked chart column an ink bar; wrong takes the bad tone and a
+  number waiting to sync is grey; hovers only where a pointer hovers.
+  Money's By month and Margin by job stack each month or job on a phone,
+  every figure named.
+- Move 3, part 2, a head's own department (1.90.0, PR #223): for a head,
+  Stock's row counts and its Repairs, Testing and Kit short lists start
+  on their department's kit (LX through lighting) under "Showing LX only.
+  Show all departments"; widening is kept per step of the tab's history
+  (places.ts), so Back finds a list as it was left and the row's count is
+  the list's as it opens. A count on Home decides where its list starts,
+  everyone's included, and a narrowed list with nothing of theirs keeps
+  its card, quiet. Leave counts by approver (ADR 0024), the Timesheets
+  count leaves out the office's, a job's CREW fact reads "LX 0 of 1 · all
+  5 of 10" with their crew first on the Crew tab, and where the device
+  isn't sent money a job says "Quote: with the office".
+- Move 6a, part 1, one home for a staff member's leave and bookings
+  (1.91.0, PR #224): a staff member's link lists their waiting and
+  approved leave (ADR 0024) and ends "Ask for leave in the app ›" instead
+  of the days-off form, and the server turns down a days-off post from a
+  staff link in the app's words, so a kept page can't post. Home › Me,
+  the reader's own person page and the link all say "Your bookings" with
+  one glance line and one row shape, from shared/src/bookings.ts (one
+  next-booking rule: a held day from today on). An offer to the reader,
+  its row and its notification open their link, where it is answered,
+  and the link's purchase card loses its "Kit to buy" kicker.
+- Move 3, part 3, one item row (1.92.0, PR #225): ItemRow draws an
+  item one way on its product's Items tab, the catalogue's Items found,
+  the Stock camera's last read and the pick list coming back: its state
+  (Missing, Damaged can't go out, a failed or overdue test as bad;
+  Damaged fit to go out as warn), "Out with <job> since <day>" (with the
+  year when it's another), where it's kept and its serial. While a scan
+  of it, or of a case it's in, is unsent, the row, the scan's answer and
+  the pick list's row and done line carry the dashed "Waiting to sync"
+  pill (MovesView.waiting and countWaiting), never amber. On a pick list
+  only the number opens the item (audit of 5 November, finding 92), and
+  Report damage opens under its row.
+- Move 10a, Home for whoever is looking (1.93.0, PR #226): the Company
+  view's first group follows the viewer's role (companyTiles). For the
+  office it is "Waiting on the office": late, answers, crew still
+  needed, timesheets, quotes worth a call, no answer and documents, with
+  the rest under Housekeeping; directors, heads and the warehouse keep
+  their order. The quotes worth a call count, for the money roles, is
+  Quotes' own chase list (quotesToFollow's chase, a week with no
+  answer) and lands on "Waiting for an answer (12) · 3 worth a call";
+  Notifications keeps its plain heading. The Menu lists Home under
+  Company with a line saying its order follows the viewer (ADRs 0033,
+  0035 and 0081 say so).
+- Move 8a, arrive on the part (1.94.0, PR #227): an address that names
+  a job's part or task lands on it however it's reached (places.ts
+  landOn, as Next does, ADR 0109): the tab row under the bar with the
+  part's tab focused, or the task's card with its name focused and its
+  own part open. Back, Forward and a reload still return to where the
+  screen was left. On a phone Stock's catalogue is headed "Catalogue
+  (n)", so the strip is back, and a typed search draws the catalogue
+  alone; a label's whole six-digit number on one item opens it
+  (wholeNumber). Coming back, Back is as wide as Missing, 16px apart.
+- Move 6a, part 2, the link says what changed (1.95.0, PR #228): a
+  booking's call time, days and venue read as they are now with what
+  was said yes to in brackets, "07:30 (was 09:00)", for a week or until
+  the call (CHANGE_SHOWN_DAYS, shared since-yes.ts, Colly's question
+  10 on its recommendation), from one bounded read of the change log
+  per page draw and no write. A booking that ended says how as its
+  card's first line, from one table (STOPPED_WORDS) that the question
+  before stopping a job reads too; the app's person page and Home › Me
+  say "Job cancelled" or "Job lost" with it. Pulling out is "Can't make
+  it" on both sides and in the history; Past work and Declined fold
+  under "Earlier (n)".
+
+**Waiting**
+
+- Colly's answers to the sweep's thirteen questions (its section 9).
+  Each move follows the recommendation until then. Batches 2 to 5 wait
+  for Colly.
+
+## 5 November 2026: an audit of every flow, by role, and batches 1 to 4 of its fixes
+
+**Done**
+
+- [Audit, 5 November 2026: every flow, by role](audit-ux-2026-11-05.md),
+  at Colly's ask: a functionality, UI and UX audit of the whole app at
+  1.77.0. Ten reviews walked 142 flows as each role, on phone and desk, in
+  both themes, on a local copy with made-up data, and a sceptic checked
+  every finding. 103 findings: no P0, 12 P1, 43 P2, 48 P3. Screenshots are
+  in the project folder under screens/audit-ux/. Nothing live was touched.
+
+- Finding 12 fixed the same day (1.77.1, PR #202): the week ahead keeps
+  every job's name on a phone.
+- Batch 1, "Next and the stages tell the truth" (1.78.0,
+  [ADR 0109](adr/0109-next-and-the-stages-tell-the-truth.md)), on Colly's
+  "Start with batch 1": findings 1, 2, 3, 4, 16, 18, 19, 22 and 25. Next
+  brings what it opens into view and offers only what the role can do,
+  and it confirms the job in one press after a yes. A job is through a
+  fortnight after it ended with nothing out, kit never scanned is a check
+  rather than "not needed", and Kit and vans settled ticks itself once the
+  job is under way. Sales whose dates passed go in a fold on the Board, a
+  housekeeping count on Home and their own group on Quotes. On the
+  audit's copy, Back went from 108 jobs to 12 and the Board from 17,780 px
+  to 7,884 px at a desk.
+- Batch 2, "keep people where they were" (1.78.1, PR #204), on Colly's
+  "Start with the next ones": findings 5, 7, 9, 31 and 87. On Crew, the
+  card to send or tell opens in the answer's place or under its call, with
+  the focus on it, and Done goes on to the next answer: on the audit's copy
+  the page stayed at 2,345 px instead of jumping to the foot of a
+  16,000 px page. The freelancer's page leaves room for its sticky line, so
+  a thank-you lands below it, and days off come back to their list. Show
+  all is kept for Back and a reload. Change details focuses its first
+  field, and the quote's refusal has a heading. No ADR: none of it changes
+  a decision.
+- Batch 3, "get the data right" (1.79.0,
+  [ADR 0110](adr/0110-getting-the-data-right.md)), on Colly's "Go for
+  batch 3": findings 8, 10, 11, 13, 15, 23, 26, 39 and 43. Undo on a pick
+  list is its own record, so it no longer reads as kit back. Scanning out
+  kit that's damaged but fit to go says so. A crew list that changes
+  someone's email keeps the old one among their other addresses, and
+  combining keeps the other phone in the notes. Every refused change has a
+  title in Not done, and Director is asked before it's given. A quote line
+  says whether its price is a day's or a week's and asks when the charge
+  changes, and a line with no price is asked about before the quote goes.
+  Timesheets are asked for only from the day they're turned on, and for
+  two months after a booking.
+- Batch 4, "heads start on their department" (1.79.1, PR #206), on Colly's
+  "Go with batch 4": findings 6, 28, 42, 47 and 62. A head's Answers to
+  check, the Crew count, People and Running out start on their own
+  department, with Show all departments; on the audit's copy the head of
+  LX's Crew count went from 76 to 8. Home's count of certificates running
+  out lands on that list. Offering a call lists its department's people
+  first. For an approver, To approve comes first on Leave with its count,
+  their own request isn't counted, and allowances fold to a row each: To
+  approve moved from 2,209 px down to 320 px, and the page from 5,381 px to
+  3,609 px. No ADR: it carries ADR 0046's start on a head's department to
+  the lists that missed it.
+- Batch 5, "phone legibility" (1.79.2, PR #207), on Colly's "Go for batch
+  5": findings 54, 55, 56, 59 and 86 (12 went in with the audit). On a
+  phone, Next and Hand it to someone share one row, taking the dock from
+  116 px to 70 px, and the link is in the accent's ink (6.5:1 dark, 5.2:1
+  light, was 4.3 and 3.7). Tasks show Next and Late again. Counts on view
+  and part tabs are no longer faded (5.1 to 6.1:1, was 3.7 to 4.0). A sent
+  quote's lines fold to the name, a line of how many, price, days and VAT,
+  and the amount, so nothing is off the right edge. Home's rows, a job's
+  map link, the map's zoom, the rack designer's units and the freelancer
+  page's links and boxes are 44 px on a touch screen. No ADR.
+- Batch 6, "long pages at real size" (1.80.0, PR #208), on Colly's
+  "Please do batch 6 & 7": findings 35, 32, 53, 36, 38 and 27. Counted
+  rows on a pick list show the one-tap count with "Type how many" behind
+  it. The freelancer page folds offers after the three to answer soonest,
+  and sent and approved timesheets under one line: on the audit's copy
+  the bookings now start at 2,280 px instead of 4,184. To follow up and
+  Accepted, unpaid stop at eight with Show all (Money 7,102 to 5,918 px).
+  Testing's two paragraphs of product names are two folds with counts,
+  opening to linked products (3,823 to 2,139 px). A bay of more than 40
+  numbers folds each product to a line, on its page (16,938 to 6,201 px)
+  and in its count (15,186 to 5,467 px). Answers to check puts calls in
+  the next fortnight first, and declines on calls already full are noted
+  in one press. No ADR.
+- Batch 7, "switches on with nothing behind them" (1.81.0, PR #209):
+  findings 49, 81, 82 and 50. Send quotes by email stays off and can't be
+  turned on until operations@ is connected allowing sending, and Send by
+  email on a quote needs both. The Claude switch waits for the server's
+  key and the to-do card hides until then. Status gives plain steps for
+  Claude and the mailbox, pointing at Admin › Connections, and a map
+  search outage is "off", not a warning. Past quotes say where they come
+  from when there are none. On this screen reads the open tab on Admin,
+  and the Menu's Admin line names the switches. No ADR.
+- Batch 8a, the office's P2s (1.82.0, PR #210), on Colly's "Go for batch
+  8": findings 14, 17, 20, 21, 24, 29 and 30. Needs attention counts jobs
+  with a task late and jobs in Planning with the next task down to nobody
+  (73 of 131 on the audit's copy), each opening the Jobs list filtered to
+  them, and Filter gains Stage and Tasks. Your tasks open on the task
+  (#jobs/<id>/task/<key>). A client or venue a letter or two off one
+  already here asks "Did you mean", and a new one says it will be added.
+  A sent quote's margins are named apart. Timesheet dates carry the year
+  as the link's do. Leave for a year not open names who to ask. The link
+  page reads a form up to 40 MB, so an 11 MB photo gets the page's own
+  "over 10 MB" message. No ADR.
+- Batch 8b, the rest of the P2s (1.83.0, PR #211): findings 33, 34, 37,
+  40, 41, 44, 45, 46, 48, 51 and 52. Damage can be reported on any item
+  back, not only the last one scanned. "No signal" shows the moment the
+  phone loses it. A product's "In all" line says how many can't go out,
+  linked. The crew-list preview says what a matched person keeps (the
+  office's type, level and rate). People search finds a phone number or
+  email. Levels are the office's too: staff and freelancers no longer see
+  them (written into ADR 0062). Home holds its cards while the phone is
+  still catching up and says so, and the all-clear says when some tiles
+  aren't yours. Signing in lands on Home. A job and a person each have
+  their own history (#history/job/<id>, #history/person/<id>), linked
+  from the foot of their page. Tidy up's name boxes start filled, with
+  "Keep all these names as they are".
+
+- The P3s, all 41, on Colly's "Work on all" (6 November), in six PRs.
+  Batch 9a, the six that matter most (1.84.0, PR #212): findings 64, 73,
+  65, 75, 60 and 72. A freelancer reports broken or missing kit from their
+  link (/f/<token>/broken), onto Repairs with their name. Calls short in
+  the next three days lead To sort out; an offer with no reply-by day is
+  chased from the day before the call. Testing a batch asks who's testing
+  first. An approved timesheet on the link says when it was paid (the
+  invoice details wait for invoicing, 20 Oct 89). The feed says it carries
+  rates (ADR 0012, Later). Cable labels with no stock code start on a QR
+  code.
+  Batch 9b, the freelancer's link (1.84.1, PR #213): findings 63, 66, 67
+  and 91. Their page prints light in a dark theme; a link with a stray
+  full stop or slash still opens; an old timesheet link says timesheets
+  are off; small slips on the day picker, glance line and documents.
+  Batch 9c, warehouse and stock (1.85.0, PR #214): findings 68, 69, 70,
+  71, 74, 92 and 93. The scanner holds off a second read of the same item;
+  kit that can't go out says so on the catalogue and on Home; the 3D rack
+  lets a phone scroll and the kit being placed sits in the phone's dock;
+  staff crew aren't shown stock work that isn't theirs; a pick list says
+  back and still out, and Stock's lists say on now, today, tomorrow.
+  Batch 9d, jobs, quotes and crew booking (1.86.0, PR #215): findings 57,
+  58, 61, 84, 88, 89, 90 and 95. Add kit stays open for the next product;
+  a freelancer is told when the call they were offered filled; a venue's
+  or client's jobs are grouped with years; the steps strip says late in
+  the bad colour; Admin pages named in words are links; the parts strip
+  no longer covers what it jumps to.
+  Batch 9e, people (1.87.0, PR #216): findings 76, 78 and 94; 77 left as
+  ADR 0082 decided. Combining keeps staff, then offers, then a real name;
+  reminders only for those who see to them; archiving someone booked says
+  what to withdraw first; archived people can be found and opened; a
+  same-name hint when adding someone.
+  Batch 9f, Home, Menu, Admin and across the app (1.88.0, PR #217):
+  findings 79, 80, 83, 85, 96 to 103. "To set up" on a new company's Home;
+  What's changed folds by month, marks what's new and links each decision
+  (/adr/<n>); an empty required field is refused in the app's words
+  (required.ts); the browser's own Print leaves the chrome out; Disconnect
+  asks; in-date checks quiet. That finishes the 5 November audit's P3s.
+
+**Waiting**
+
+- Nothing from Colly: the rest of the P3s are being worked through.
+
 ## 1 November 2026: the logo, stock code, cable length and colour on labels
 
 **Done**

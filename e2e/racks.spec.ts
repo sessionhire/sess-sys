@@ -43,7 +43,14 @@ test('a rack, laid out, drawn, and a built one checked against its layout', asyn
   await page.goto('/#stock/racks')
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await page.getByRole('button', { name: 'Add rack' }).click()
+  // Sent with no name, it's refused in the app's words under the field, which keeps the focus, not in the browser's bubble (finding 85).
+  await page.getByRole('button', { name: 'Add rack' }).click()
+  await expect(page.getByLabel('Name')).toBeFocused()
+  await expect(page.getByLabel('Name')).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByRole('alert').filter({ hasText: 'Fill in the name first.' })).toBeVisible()
   await page.getByLabel('Name').fill(`Monitor rack ${id}`)
+  await expect(page.getByLabel('Name')).not.toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByText('Fill in the name first.')).toHaveCount(0)
   await page.getByLabel('Stock code').fill(`RK-${id}`)
   await page.getByLabel('Room in it, in rack units').fill('4')
   await page.getByLabel('Rail to rail depth, in mm').fill('800')
@@ -83,7 +90,7 @@ test('a rack, laid out, drawn, and a built one checked against its layout', asyn
     ['asset.add', { id: `a-${id}`, modelId: `amp-${id}`, number: null, serial: '', placeId: null, caseId: `r-${id}`, notes: '', fromCount: false }],
   ])
   await expect(layout.getByText('2 missing')).toBeVisible()
-  await page.goto(`/#stock/item/r-${id}`)
+  await page.goto(`/#stock/item/r-${id}/inside`)
   const check = page.getByRole('region', { name: 'Against its layout' })
   await expect(check.getByText(`2 × ${mon}`)).toBeVisible()
 
@@ -189,6 +196,19 @@ test('the rack designer: kit dragged in from ours and dry hire, moved, taken out
   await page.getByLabel('Find', { exact: true }).fill(id)
   await expect(page.getByRole('link', { name: new RegExp(`^${haze}`) })).toContainText('Dry hire from PRG')
   await expect(page.getByRole('link', { name: new RegExp(`^${amp}`) })).toHaveCount(0)
+
+  // On a phone the kit list is above the rack: picking one up brings the rack into view and says what's held in the foot (audit,
+  // 5 November 2026, finding 71).
+  const phone = await (await browser.newContext({ viewport: phoneSize, hasTouch: true })).newPage()
+  await phone.goto(`/#stock/racks/rack-${id}`)
+  await expect(phone.locator('.conn')).toHaveText('Up to date')
+  const phonePalette = phone.getByRole('region', { name: 'Kit to build with' })
+  await phonePalette.getByLabel('Find kit').fill(id)
+  await phonePalette.getByRole('button', { name: `Pick up ${amp}` }).click()
+  await expect(phone.locator('.foot-dock')).toContainText(`Holding ${amp}. Press where it goes.`)
+  await expect(phone.getByRole('region', { name: 'The rack' })).toBeInViewport()
+  await phone.locator('.foot-dock').getByRole('button', { name: 'Put down' }).click()
+  await expect(phone.locator('.foot-dock')).toBeEmpty()
 })
 
 test('building a rack up: half-width kit side by side, labels, groups and tape, a drawer, blanks, undo, and a copy', async ({ browser, request }) => {

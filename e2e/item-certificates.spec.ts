@@ -63,7 +63,7 @@ test('a round’s report of thorough examination on every motor in it, and anoth
   // Both examined as a round on the Testing page.
   await page.goto('/#stock/testing')
   await page.getByRole('group', { name: 'Which test' }).getByRole('button', { name: 'Thorough examination' }).click()
-  await page.getByLabel('By', { exact: true }).fill('Rig Safe Ltd')
+  await page.getByRole('textbox', { name: "Who's testing" }).fill('Rig Safe Ltd')
   const said = page.getByRole('status', { name: 'Last scan' })
   for (const m of motors) {
     await page.getByLabel('Number or serial').fill(m)
@@ -84,6 +84,7 @@ test('a round’s report of thorough examination on every motor in it, and anoth
 
   // Each motor's page shows it beside the examination, and on its Certificates card.
   await tested.getByRole('link', { name: motors[0] }).click()
+  await page.getByRole('tab', { name: 'Tests and certificates' }).click()
   const inspections = page.getByRole('region', { name: 'Inspections' })
   await expect(inspections.locator('.due')).toContainText('certificate kept')
   await expect(inspections.locator('.inspection')).toContainText('Rig Safe Ltd · Rig Safe report 4471')

@@ -71,9 +71,11 @@ yet?"*
   no way to see what's on it without scrolling (**3**), and nothing told
   them what was short across all three areas at once (**2**).
 - **Now:** every screen with several parts shows them as a strip under the
-  title (*On this screen*), with counts, which jumps to each. Home, shown
-  for the office, puts answers, crew needed, timesheets, documents and
-  running late first.
+  title (*On this screen*), with counts, which jumps to each. Home's
+  company view, for the office, puts what's waiting on them first: anyone
+  running late, answers, crew needed, timesheets, quotes worth a call,
+  dates passed with no answer and documents, with the warehouse's counts
+  under it as housekeeping (Move 10 of the sweep of 6 November 2026).
 
 ### H. Head of department
 
@@ -121,7 +123,9 @@ waiting on me?"*
 - **Now:** Home, shown for *the warehouse*: going out today and tomorrow,
   still out after the job, faults, inspections that stop kit going out,
   counts due this week, each opening the list that sorts it. Stock keeps
-  its order, and its strip jumps straight to *Pick lists* or *Faults*.
+  its order, and its strip names *Catalogue*, *Pick lists* and *Kit
+  short*, each a tap away. A search has the phone to itself while it's
+  typed, and a label's whole number opens its item without Go.
 
 ### S. Staff crew
 
@@ -185,7 +189,7 @@ step where. **Bold** is a step the app does today.
 | **Call sheet sent** | O | A job's call sheet |
 | **Kit picked and scanned out** | W | A job's pick list; Home for the warehouse |
 | **On the day: running late, call sheet** | F, S, O | Their link's day card; Crew › Answers to check |
-| **Kit scanned back, faults logged** | W | The pick list; Stock › Faults and repairs |
+| **Kit scanned back, faults logged** | W | The pick list; Stock › Repairs |
 | **Timesheet sent** | F | Their link › Timesheets |
 | **Timesheet approved** | O, H | Crew › Timesheets; Home |
 | **Invoiced, paid** | D, O | Recorded on the job's quote; owed and paid on Jobs › Money |

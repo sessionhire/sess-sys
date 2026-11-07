@@ -96,17 +96,18 @@ export function RacksScreen({ view }: { view: View }) {
     <div className="app warehouse">
       <Top view={view} title="Stock" views={<StockViews view={view} current="racks" />} heading="Racks" />
       <section className="card plain" aria-label="Racks">
+        {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+        {mayChange && (
+          <Fold label="Add rack">
+            <NewRack view={view} />
+          </Fold>
+        )}
         {racks.length === 0 && <Empty>Add a rack, then lay out what goes in it. Each one built of it goes out and comes back as one.</Empty>}
         <ul className="job-list">
           {racks.map((r) => (
             <RackRow key={r.model.id} r={r} />
           ))}
         </ul>
-        {mayChange && (
-          <Fold label="Add rack">
-            <NewRack view={view} />
-          </Fold>
-        )}
       </section>
     </div>
   )
@@ -543,7 +544,7 @@ function AddSlot({ view, r }: { view: View; r: RackView }) {
         </label>
       )}
       <label className="wide">
-        Note <input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="Optional, e.g. Patched to the stage box" />
+        Note <span className="optional">(optional)</span> <input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="e.g. Patched to the stage box" />
       </label>
       <Refusal error={error} className="wide" />
       <button type="submit" className="primary wide">
@@ -557,7 +558,7 @@ function AddSlot({ view, r }: { view: View; r: RackView }) {
 function Built({ r }: { r: RackView }) {
   return (
     <>
-      <h3>Built</h3>
+      <h3 className="group">Built</h3>
       {r.built.length === 0 ? (
         <p className="hint">None built yet. Label a rack case as {r.model.name} under Items below, then put the kit in it.</p>
       ) : (
@@ -607,7 +608,7 @@ export function BuiltRackCheck({ view, item }: { view: View; item: AssetView }) 
         <>
           {b.check.missing.length > 0 && (
             <>
-              <h3>Missing</h3>
+              <h3 className="group">Missing</h3>
               <ul className="rack-check">
                 {b.check.missing.map((x) => (
                   <li key={x.modelId}>
@@ -619,7 +620,7 @@ export function BuiltRackCheck({ view, item }: { view: View; item: AssetView }) 
           )}
           {b.check.extra.length > 0 && (
             <>
-              <h3>Not in its layout</h3>
+              <h3 className="group">Not in its layout</h3>
               <ul className="rack-check">
                 {b.check.extra.map((x) => (
                   <li key={x.modelId}>
@@ -687,7 +688,7 @@ export function WhoseFields({ f, onChange, suppliers }: { f: WhoseTyped; onChang
             Hired from <input list="dry-hire-suppliers" value={f.supplier} onChange={(e) => onChange({ ...f, supplier: e.target.value })} placeholder="e.g. PRG" />
           </label>
           <label>
-            Their price a day, in euro <input inputMode="decimal" value={f.hire} onChange={(e) => onChange({ ...f, hire: e.target.value })} placeholder="Optional" />
+            Their price a day, in euro <span className="optional">(optional)</span> <input inputMode="decimal" value={f.hire} onChange={(e) => onChange({ ...f, hire: e.target.value })} />
           </label>
           <datalist id="dry-hire-suppliers">
             {suppliers.map((s) => (
@@ -712,7 +713,7 @@ function HireIn({ b, name }: { b: BuiltRack; name: (id: string) => string }) {
   if (!b.check.hireIn.length) return null
   return (
     <>
-      <h3>Hired in for each job</h3>
+      <h3 className="group">Hired in for each job</h3>
       <ul className="rack-check">
         {b.check.hireIn.map((x) => (
           <li key={x.modelId}>

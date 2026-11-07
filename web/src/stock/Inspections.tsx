@@ -10,6 +10,8 @@ import {
   type InspectionKind,
   type InspectionView,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useScanKeys } from '../scanKeys.ts'
@@ -25,7 +27,7 @@ import { StockViews } from '../Views.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
 import { Split } from '../Split.tsx'
 import { Heading } from '../Icon.tsx'
-import { inKitOf, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { inKitOf, Narrowed, useMyKitDepartment, useNarrowed } from '../Narrowed.tsx'
 import { CertificateForm, OpenCertificate } from './Certificates.tsx'
 
 /**
@@ -264,10 +266,11 @@ function RecordOne({ a, kinds, onDone }: { a: AssetView; kinds: InspectionKind[]
  * Show all, anything just tested here kept in view (audit, 20 October 2026, finding 96).
  */
 export function InspectionsDue({ view, recent }: { view: View; recent?: ReadonlySet<string> }) {
-  // Opened from a count on Home for a department, that department's kit, as Home counted it (audit, 20 October 2026, finding 4).
-  const [department, widen] = useNarrowed('#stock/testing')
+  // Opened from a count on Home, the kit it counted, a department's or everyone's (audit, 20 October 2026, finding 4); from
+  // anywhere else, a head's own kit, as Stock's row counts it (Move 3 of the sweep of 6 November 2026).
+  const [department, widen] = useNarrowed('#stock/testing', useMyKitDepartment())
   const attention = view.inspections.attention.filter((d) => inKitOf(department)(d.asset.model))
-  const { unrecorded } = view.inspections
+  const unrecorded = view.inspections.unrecorded.filter((d) => inKitOf(department)(d.asset.model))
   const needed = view.warehouse.models.some((m) => m.patMonths || m.liftingMonths)
   if (!needed && view.inspections.certificatesDue.length === 0) return null
   const stopped = attention.filter((d) => d.state !== 'soon')
@@ -287,19 +290,14 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
   )
   const certsDue = view.inspections.certificatesDue.filter((c) => inKitOf(department)(c.asset.model))
   const uncertified = view.inspections.uncertified.filter((d) => inKitOf(department)(d.asset.model))
-  const counted = new Map<string, number>()
-  for (const d of uncertified) counted.set(d.asset.model?.name ?? 'A product', (counted.get(d.asset.model?.name ?? 'A product') ?? 0) + 1)
-  const uncertifiedWords = [...counted].map(([name, n]) => `${n} × ${name}`).join(', ')
-  const byProduct = new Map<string, number>()
-  for (const d of unrecorded) byProduct.set(d.asset.model?.name ?? 'A product', (byProduct.get(d.asset.model?.name ?? 'A product') ?? 0) + 1)
   return (
     <section className="card inspections-due" aria-label="Inspections due">
       <Heading icon="inspection">Inspections due</Heading>
-      <Narrowed department={department} onWiden={widen} />
+      <Narrowed department={department} onWiden={widen} kit />
       {stopped.length === 0 && soon.length === 0 && certsDue.length === 0 && <p className="empty">Nothing failed, overdue or due in the next 30 days.</p>}
       {stopped.length > 0 && (
         <>
-          <h3>Can't go out ({stopped.length.toLocaleString('en-IE')})</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['cant-go'], stopped.length)}</h3>
           <ShowAll items={stopped} limit={10} what="items" keep={keep}>
             {(shown) => <ul className="job-list">{shown.map(row)}</ul>}
           </ShowAll>
@@ -307,7 +305,7 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
       )}
       {soon.length > 0 && (
         <>
-          <h3>Due in the next 30 days ({soon.length.toLocaleString('en-IE')})</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['tests-soon'], soon.length)}</h3>
           <ShowAll items={soon} limit={10} what="items" keep={keep}>
             {(shown) => <ul className="job-list">{shown.map(row)}</ul>}
           </ShowAll>
@@ -315,7 +313,7 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
       )}
       {certsDue.length > 0 && (
         <>
-          <h3>Certificates running out</h3>
+          <h3 className="group">Certificates running out</h3>
           <ul className="job-list">
             {certsDue.map((c) => (
               <li key={`${c.asset.id}-${c.certificate.id}`}>
@@ -334,17 +332,13 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
           </ul>
         </>
       )}
-      {uncertified.length > 0 && (
-        <p className="hint">
-          No certificate kept yet for the last test of {uncertifiedWords}. They can still go out; add each from its page, or a round's from Testing.
-        </p>
-      )}
-      {unrecorded.length > 0 && (
-        <p className="hint">
-          Not recorded yet: {[...byProduct].map(([name, n]) => `${n} × ${name}`).join(', ')}. They can still go out; record their last test when you
-          have it.
-        </p>
-      )}
+      {/* Housekeeping, kit that can still go out: a count each, folded, opening to the products to open (audit, 5 November 2026, finding 36). */}
+      <ProductsFold
+        items={uncertified.map((d) => d.asset)}
+        title="No certificate for the last test"
+        hint="They can still go out. Add a certificate from an item's page, or for a whole round from Test a batch."
+      />
+      <ProductsFold items={unrecorded.map((d) => d.asset)} title="Last test not recorded" hint="They can still go out. Record their last test when you have it." />
     </section>
   )
 }
@@ -407,6 +401,7 @@ const itemName = (a: AssetView) => [numberLabel(a), a.model?.name].filter(Boolea
 export function TestingScreen({ view }: { view: View }) {
   const [kind, setKind] = useState<InspectionKind>('pat')
   const [by, setBy] = useState(savedTester)
+  const tester = useRef<HTMLInputElement>(null)
   const today = useToday()
   const [day, setDay] = useState(today)
   const [typed, setTyped] = useState('')
@@ -499,6 +494,11 @@ export function TestingScreen({ view }: { view: View }) {
     const name = itemName(a)
     if (a.retiredReason === 'mistake') return missed(`${mistakeLabel(a)} Nothing was recorded.`)
     if (a.status !== 'active') return missed(`${name} is retired, so it wasn't recorded. Bring it back first if it's still here.`)
+    // Each record says who tested it, as the register an inspector asks for (ADR 0020; audit, 5 November 2026, finding 73).
+    if (!by.trim()) {
+      tester.current?.focus()
+      return missed(`${name} wasn't recorded: type who's testing first, then scan it again.`)
+    }
     saveTester(by.trim())
     // The same label again while it's held: still held, not passed twice.
     if (heldRef.current?.a.id === a.id) return
@@ -546,8 +546,8 @@ export function TestingScreen({ view }: { view: View }) {
             <section className="card" aria-label="Test a batch">
               <h2>Test a batch</h2>
               <p className="hint">
-                Scan each item as it passes. Each pass waits five seconds with Undo, then it's recorded, with no signal too. If one fails, press It
-                failed.
+                Say who's testing, then scan each item as it passes. Each pass waits five seconds with Undo, then it's recorded, with no signal too.
+                If one fails, press It failed. A shared phone keeps the last name: change it if that isn't you.
               </p>
               {held && (
                 <div className="held" role="status" aria-label="Held">
@@ -575,7 +575,7 @@ export function TestingScreen({ view }: { view: View }) {
               </div>
               <div className="grid-form">
                 <label>
-                  By <input value={by} onChange={(e) => setBy(e.target.value)} maxLength={200} />
+                  Who's testing <input ref={tester} value={by} onChange={(e) => setBy(e.target.value)} placeholder="Your name" maxLength={200} required />
                 </label>
                 <label>
                   When <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value || today)} />
@@ -639,5 +639,38 @@ export function TestingScreen({ view }: { view: View }) {
         <InspectionsDue view={view} recent={new Set(done.map((d) => d.a.id))} />
       </Split>
     </div>
+  )
+}
+
+/** Items that need housekeeping, by product: "Last test not recorded (61)", opening to each product with how many, linked to its page. */
+function ProductsFold({ items, title, hint }: { items: readonly AssetView[]; title: string; hint: string }) {
+  if (!items.length) return null
+  const byModel = new Map<string, { id: string; name: string; n: number }>()
+  for (const a of items) {
+    const was = byModel.get(a.modelId)
+    if (was) was.n++
+    else byModel.set(a.modelId, { id: a.modelId, name: a.model?.name ?? 'A product', n: 1 })
+  }
+  const products = [...byModel.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))
+  return (
+    <details className="products-fold">
+      <summary>
+        {title} ({items.length.toLocaleString('en-IE')})
+      </summary>
+      <p className="hint">{hint}</p>
+      <ShowAll items={products} limit={20} what="products" name={title}>
+        {(shown) => (
+          <ul className="plain products-list">
+            {shown.map((m) => (
+              <li key={m.id}>
+                <a href={`#stock/product/${encodeURIComponent(m.id)}`}>
+                  {m.n.toLocaleString('en-IE')} × {m.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </ShowAll>
+    </details>
   )
 }

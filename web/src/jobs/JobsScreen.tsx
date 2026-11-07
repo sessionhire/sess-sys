@@ -1,4 +1,10 @@
 import {
+  hasSteps,
+  HOLDING,
+  departmentKey,
+  departmentOf,
+  kitOf,
+  sameDepartment,
   crewFill,
   dayLabel,
   KIND_LABELS,
@@ -15,6 +21,8 @@ import {
   spanLabel,
   type ClientView,
   type JobView,
+  JOB_STEPS,
+  type JobStep,
   type KitLineView,
   type ProjectKind,
   type ProjectStatus,
@@ -28,17 +36,20 @@ import {
   PLACE_SORTS,
   placeFilters,
   type PlaceForList,
+  stillInBack,
 } from '@sh/shared'
-import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold } from '../Fold.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
+import { useMyDepartment } from '../Narrowed.tsx'
+import { useMe } from '../crew/Leave.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { Beside, Choices, clientNamed, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
-import { StageLine } from './StageLine.tsx'
+import { Beside, Choices, clientNamed, NewOrNear, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
+import { JobPosition } from './JobPosition.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
 import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
 import { JOB_PARTS, JobScreen, type JobPart } from './JobScreen.tsx'
@@ -59,6 +70,7 @@ import { plain, wordsOf } from '../crew/People.tsx'
 import { JOBS } from '../Up.tsx'
 import { useWindowed } from '../windowed.ts'
 import { ListTools, useListChoices } from '../ListTools.tsx'
+import { arrival } from '../arrival.ts'
 
 /**
  * Jobs (ADR 0007): every job, who it's for, where and when, made of phases.
@@ -104,8 +116,15 @@ export function JobsScreen() {
   if (hash === '#jobs/money/current-rms/match') return <MatchScreen view={view} />
   if (hash.startsWith('#jobs/money/current-rms/')) return <PastQuoteScreen view={view} id={decodeURIComponent(hash.slice('#jobs/money/current-rms/'.length))} />
   if (hash === '#jobs/notes-kit') return <NotesKitListScreen view={view} />
-  if (hash.startsWith('#jobs/venues/')) return <VenueScreen view={view} id={decodeURIComponent(hash.slice('#jobs/venues/'.length))} />
-  if (hash.startsWith('#jobs/clients/')) return <ClientScreen view={view} id={decodeURIComponent(hash.slice('#jobs/clients/'.length))} />
+  // A record and the tab it's on: #jobs/venues/<id>/<part> (Move 11 of the sweep of 6 November 2026).
+  if (hash.startsWith('#jobs/venues/')) {
+    const [id = '', part] = hash.slice('#jobs/venues/'.length).split('/')
+    return <VenueScreen view={view} id={decodeURIComponent(id)} part={part} />
+  }
+  if (hash.startsWith('#jobs/clients/')) {
+    const [id = '', part] = hash.slice('#jobs/clients/'.length).split('/')
+    return <ClientScreen view={view} id={decodeURIComponent(id)} part={part} />
+  }
   const [, fromNotes] = /^#jobs\/([^/]+)\/notes-kit$/.exec(hash) ?? []
   if (fromNotes) return <NotesKitScreen view={view} jobId={decodeURIComponent(fromNotes)} />
   const [, quote] = /^#jobs\/([^/]+)\/quote$/.exec(hash) ?? []
@@ -114,6 +133,9 @@ export function JobsScreen() {
   if (pick) return <PickScreen view={view} id={decodeURIComponent(pick)} />
   const [, sheetJob, sheetPhase] = /^#jobs\/([^/]+)\/sheet\/([^/]+)$/.exec(hash) ?? []
   if (sheetJob && sheetPhase) return <SheetScreen view={view} jobId={decodeURIComponent(sheetJob)} phaseId={decodeURIComponent(sheetPhase)} />
+  // A job's page with one of its tasks open, as Your tasks on Home links it (audit, 5 November 2026, finding 17).
+  const [, taskOf, taskKey] = /^#jobs\/([^/]+)\/task\/([a-z]+)$/.exec(hash) ?? []
+  if (taskOf && JOB_STEPS.includes(taskKey as JobStep)) return <JobScreen key={taskOf} view={view} id={decodeURIComponent(taskOf)} task={taskKey as JobStep} />
   // A job's page, at a part of it when the address names one.
   const [, partOf, part] = /^#jobs\/([^/]+)\/([a-z]+)$/.exec(hash) ?? []
   const open = partOf && JOB_PARTS.includes(part as JobPart) ? decodeURIComponent(partOf) : hash.startsWith('#jobs/') ? decodeURIComponent(hash.slice('#jobs/'.length)) : undefined
@@ -324,6 +346,35 @@ function useUnderTop(phone: boolean) {
   return card
 }
 
+/** A head's department starts the Jobs list once a tab; widened, it stays so (Move 9 of the sweep of 6 November 2026). */
+let jobsLensSet = false
+
+/**
+ * Whose a job is, for the Jobs list's first filters (Move 9 of the sweep of 6 November 2026): the jobs someone is booked on, by
+ * their own bookings (a yes waiting to be confirmed counts), and each department named on a call, a job being a department's when
+ * one of its calls is, or a line of its kit is in that department's stock. Read from what this role is sent, so it never counts
+ * more than the list holds.
+ */
+function jobLens(jobs: readonly JobView[], view: View, me: string | undefined) {
+  const mine = me ? (j: JobView) => j.calls.some((c) => c.offers.some((o) => o.personId === me && HOLDING.includes(o.status))) : undefined
+  const names = new Map<string, string>()
+  for (const j of jobs) for (const c of j.calls) {
+    const d = departmentOf(c)?.trim()
+    if (d && !names.has(departmentKey(d))) names.set(departmentKey(d), d)
+  }
+  const departments = [...names.values()]
+    .sort((a, b) => a.localeCompare(b, 'en-IE'))
+    .map((name) => {
+      const stock = kitOf(name)
+      return {
+        name,
+        test: (j: JobView) =>
+          j.calls.some((c) => sameDepartment(departmentOf(c), name)) || (!!stock && (view.kit.byJob.get(j.id) ?? []).some((l) => l.model?.department === stock)),
+      }
+    })
+  return { ...(mine && jobs.some(mine) ? { mine } : {}), departments }
+}
+
 /** Every job, searched and filtered, by week. */
 function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   const { jobs } = view.jobs
@@ -341,9 +392,27 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   }, [jobs, day])
   const count = (f: Filter) => counts.get(f) ?? 0
   // Filter and sort (ADR 0099): the filters narrow the tab chosen above them, and the order is the tab's own until another is picked.
-  const [choices, setChoices] = useListChoices('jobs')
+  // A count on Home of jobs with a task late, or down to nobody, opens the list on just those, its other filters off (audit, 5 November 2026, finding 20).
+  const [asked] = useState(() => arrival()?.filters)
+  // The lens (Move 9 of the sweep of 6 November 2026): a head's list opens on their department, once a tab, as Crew's and Stock's
+  // do; widened, it stays widened for the tab. A count on Home for a department passes it the same way.
+  const department = useMyDepartment()
+  const [choices, setChoices] = useListChoices('jobs', asked && { mine: '', department: '', status: '', kind: '', crew: '', kit: '', stage: '', tasks: '', ...asked })
+  // Read as it's known: a head's department can come with the first copy, after the list first drew.
+  useEffect(() => {
+    if (!department || jobsLensSet) return
+    jobsLensSet = true
+    if (!asked) setChoices({ ...choices, filters: { ...choices.filters, department: departmentKey(department) } })
+  })
   const sorts = useMemo(() => jobSorts(filter !== 'coming'), [filter])
-  const filters = useMemo(() => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped'), [view.kit.byJob, filter])
+  // Who they are as Home › Me and the job's "You on this job" read it: signed in, by their email; with sign-in off, their word.
+  const me = useMe(view).me?.id
+  const whose = useMemo(() => jobLens(jobs, view, me), [jobs, view, me])
+  const filters = useMemo(
+    () => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped', (j) => view.steps.of(j.id), whose),
+    [view.kit.byJob, view.steps, filter, whose]
+  )
+  const mineCount = useMemo(() => (whose.mine ? jobs.filter((j) => filterOf(j, day) === filter && whose.mine!(j)).length : 0), [jobs, whose, filter, day])
   const { rows, shownCount, listedCount, searched } = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
     const matches = (j: JobView) => {
@@ -359,9 +428,18 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
     const soonEnd = addDays(day, SOON_DAYS)
     const listedJobs = soonOnly ? shown.filter((j) => !j.span || j.span.start < soonEnd) : shown
     // Under the heading of their week while they're by date; in any other order a week heading would come round again and again.
-    const rows: Row[] = byDate ? byWeek(listedJobs, day) : listedJobs.map((job, n) => ({ job, n }))
+    // Past opens on the jobs still in Back with work open on them, under a head of their own, before the weeks (Move 10 of the
+    // sweep of 6 November 2026): a job whose dates passed isn't finished while its Back isn't.
+    const back = filter === 'past' && byDate ? listedJobs.filter((j) => stillInBack(view.steps.of(j.id))) : []
+    const rest = back.length ? listedJobs.filter((j) => !back.includes(j)) : listedJobs
+    const rows: Row[] = byDate
+      ? [
+          ...(back.length ? [{ week: 'back', label: `Still in Back (${back.length.toLocaleString('en-IE')})` }, ...back.map((job, n) => ({ job, n }))] : []),
+          ...byWeek(rest, day).map((r) => ('job' in r ? { ...r, n: r.n + back.length } : r)),
+        ]
+      : listedJobs.map((job, n) => ({ job, n }))
     return { rows, shownCount: shown.length, listedCount: listedJobs.length, searched }
-  }, [jobs, day, filter, search, all, filters, sorts, choices])
+  }, [jobs, day, filter, search, all, filters, sorts, choices, view.steps])
   const win = useWindowed('jobs', rows, rowKey, 110)
 
   return (
@@ -382,6 +460,18 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
           </button>
         ))}
       </div>
+      {/* "Mine" first for anyone booked on a job (Move 9): the jobs they're on, a tap away, as Home › Me lists their bookings. */}
+      {whose.mine && (mineCount > 0 || choices.filters.mine === 'mine') && (
+        <div className="filters" role="group" aria-label="Whose">
+          <button
+            type="button"
+            aria-pressed={choices.filters.mine === 'mine'}
+            onClick={() => setChoices({ ...choices, filters: { ...choices.filters, mine: choices.filters.mine === 'mine' ? '' : 'mine' } })}
+          >
+            Mine ({mineCount})
+          </button>
+        </div>
+      )}
       {jobs.length > 0 && <ListTools name="jobs" items={searched} filters={filters} sorts={sorts} choices={choices} onChange={setChoices} shown={shownCount} what="jobs" />}
       {shownCount === 0 && searched.length > 0 && <p className="empty">No job here matches those filters.</p>}
       {searched.length === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}
@@ -395,7 +485,7 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
             </li>
           ) : (
             <li key={rowKey(r)} ref={win.row(rowKey(r))} data-place={rowKey(r)} className="week-head">
-              <h3>{r.label}</h3>
+              <h3 className="group">{r.label}</h3>
             </li>
           )
         )}
@@ -423,7 +513,8 @@ const sameWord = (a: string, b: string) => a.trim().toLowerCase() === b.trim().t
 
 export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonly KitLineView[] | undefined; view: View; current: boolean }) {
   const crew = crewFill(job.calls)
-  const short = kitShort(kit)
+  // A sale's kit would only be short if it went ahead, which its position (the quote's) doesn't say: the flag stays for it.
+  const short = job.status !== 'confirmed' ? kitShort(kit) : undefined
   const today = useToday()
   const where = [job.client?.name, job.venue?.name].filter(Boolean).join(' · ')
   const soon = !!job.span && job.span.end >= today && job.span.start <= addDays(today, PROMPT_DAYS)
@@ -438,14 +529,18 @@ export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonl
           {job.span ? spanLabel(job.span) : 'No dates yet'}
           {job.phases.length > 0 && ` · ${phaseNames(job.phases)}`}
         </p>
-        {/* Where the job is, under its dates (ADR 0104): the stage and what is short in it. */}
-        <StageLine job={job} view={view} />
+        {/* Where the job stands, under its dates (ADR 0104; Move 7 of the sweep of 6 November 2026): the one position part, the
+            same as the job's head, Home and the Board say it, which carries a kit shortfall in its words and its tone. */}
+        {/* An errand or a meeting already says its kind and day on the line above. */}
+        {hasSteps(job) && <JobPosition job={job} view={view} />}
       </div>
       <div className="side">
-        <JobStatusPill status={job.status} pending={job.pending} />
+        {/* The pill for a sale or a stopped job; once confirmed, the position says where it stands, so Confirmed isn't the biggest word. */}
+        {(job.status !== 'confirmed' || job.pending || !hasSteps(job)) && <JobStatusPill status={job.status} pending={job.pending} />}
         {crew.needed > 0 && (
           <small>
-            Crew {crew.booked} of {crew.needed}
+            {/* Booked, as the sheet, the link and Calls say it, so this line's Confirmed is only ever the job's (UX sweep, 6 November 2026, move 4). */}
+            Crew {crew.booked} of {crew.needed} booked
             {crew.toConfirm > 0 && `, ${crew.toConfirm} to confirm`}
           </small>
         )}
@@ -510,11 +605,13 @@ function NewJob({ view }: { view: View }) {
         Job <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required />
       </label>
       <label>
-        Client <input list="client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
+        Client <span className="optional">(optional)</span> <input list="client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
       </label>
+      <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
       <label>
-        Venue <input list="venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
+        Venue <span className="optional">(optional)</span> <input list="venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
       </label>
+      <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label className="wide">
         Status
         <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as ProjectStatus })}>

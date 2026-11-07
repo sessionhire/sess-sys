@@ -38,7 +38,7 @@ test('a big call says how many it holds in words, and names the first eight acro
   await office.goto('/#crew')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // Next June is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
-  await office.getByRole('button', { name: /^Show all \d+ calls still to come$/ }).click()
+  await office.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
   const call = office.locator('.call-group', { hasText: `Volume Fest ${id}` }).getByRole('article', { name: '40 × Stagehand' })
   await expect(call.locator('.pill').first()).toHaveText('25 of 40, both days')
   const who = call.locator('.who-line > span:last-child')
@@ -84,4 +84,8 @@ test("staff crew aren't shown counts of what only the office can act on", async 
   const row = page.getByRole('navigation', { name: 'Crew pages' })
   await expect(row.getByRole('link', { name: /^Calls/ }).locator('.views-count')).toHaveCount(0)
   await expect(row.getByRole('link', { name: /^Timesheets/ }).locator('.views-count')).toHaveCount(0)
+  // Nor Stock's: the repairs, tests, counting and vehicles are the warehouse's to sort out (ADR 0034).
+  await page.goto('/#stock/repairs')
+  await expect(page.getByRole('heading', { level: 1, name: 'Repairs' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Stock pages' }).locator('.views-count')).toHaveCount(0)
 })

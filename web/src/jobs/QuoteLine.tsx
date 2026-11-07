@@ -1,3 +1,4 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   dayLabel,
   daysWord,
@@ -18,6 +19,7 @@ import {
   type QuoteMargin,
   type RmsCharge,
   type RmsLastCharged,
+  RATE_UNIT,
 } from '@sh/shared'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { Icon } from '../Icon.tsx'
@@ -30,27 +32,11 @@ import { CHARGE_LABELS, chargeOf, num, type Charge, type LineDraft, type LineFau
  * department.
  */
 
-/**
- * A number with its unit in the box (€ before it, % or km after), never typed. The unit stays in the field's accessible
- * name, since what's drawn beside the input isn't read out with it.
- */
-export function UnitBox({ unit, before, needs, children }: { unit: string; before?: boolean; needs?: boolean; children: ReactNode }) {
-  return (
-    <span className={`unit-box${before ? ' before' : ''}${needs ? ' needs' : ''}`}>
-      {before && (
-        <span className="unit" aria-hidden="true">
-          {unit}
-        </span>
-      )}
-      {children}
-      {!before && (
-        <span className="unit" aria-hidden="true">
-          {unit}
-        </span>
-      )}
-    </span>
-  )
-}
+export { UnitBox }
+
+type PriceUnit = 'day' | 'week' | 'once'
+/** What a line's price is for: a day's, a week's (ADR 0085), or once. */
+const unitOf = (l: Pick<LineDraft, 'per' | 'rate'>): PriceUnit => (l.per === 'once' ? 'once' : l.rate ? RATE_UNIT[l.rate] : 'day')
 
 /** Puts one discount on every line of a department, which each line can still change on its own. */
 export function GroupDiscount({ group, onApply, onCancel, refuse }: { group: string; onApply: (off: string) => void; onCancel: () => void; refuse: (why: string) => void }) {
@@ -105,10 +91,10 @@ export function chargeWords(r: QuoteLine) {
 export const lineMargin = (l: QuoteLine, cost: number | undefined) => (cost === undefined ? undefined : lineCents(l) - cost)
 
 /** "Margin €3,400.00, 62%", with the lines whose cost isn't known yet unless told not to: on the screen only, never printed. */
-export function MarginWords({ margin, unknown = true }: { margin: QuoteMargin; unknown?: boolean }) {
+export function MarginWords({ margin, unknown = true, label = 'Margin' }: { margin: QuoteMargin; unknown?: boolean; label?: string }) {
   return (
     <span className={`margin-words${margin.margin < 0 ? ' bad' : ''}`}>
-      Margin <b>{money(margin.margin)}</b>
+      {label} <b>{money(margin.margin)}</b>
       {margin.pct !== null && `, ${pctWord(margin.pct)}`}
       {unknown && margin.unknown > 0 && <small> ({plural(margin.unknown, 'line')} with no cost yet)</small>}
     </span>
@@ -133,15 +119,19 @@ export function KitNote(p: {
   names: (modelId: string) => string | undefined
   onHire?: (n: number) => void
   full: boolean
+  /** The job's days, so a day short around them says it's the prep or return day the kit is held for (audit, 5 November 2026, finding 89). */
+  span?: { start: string; end: string }
 }) {
   const { l, checks } = p
+  const on = (d: string) =>
+    p.span && d < p.span.start ? `${dayLabel(d)}, before the job, while it's prepped` : p.span && d > p.span.end ? `${dayLabel(d)}, after the job, while it comes back` : dayLabel(d)
   if (l.kind !== 'kit') return null
   if (!l.modelId) {
     const short = linesShort(l, checks, p.items)
     if (!short.length) return null
     return (
       <p className="kit-note warn-line">
-        Short on the job's days: {short.map((c) => `${c.short} × ${p.names(c.modelId) ?? 'a product'} on ${dayLabel(c.shortDay!)}`).join(', ')}. Hire them in, or quote fewer.
+        Short: {short.map((c) => `${c.short} × ${p.names(c.modelId) ?? 'a product'} on ${on(c.shortDay!)}`).join('; ')}. Hire them in, or quote fewer.
       </p>
     )
   }
@@ -152,7 +142,7 @@ export function KitNote(p: {
     const own = l.qty - (l.subhireQty ?? 0)
     return (
       <p className="kit-note warn-line">
-        Short by {c.short} on {dayLabel(c.shortDay!)}
+        Short by {c.short} on {on(c.shortDay!)}
         {c.wanted > own ? `, across the quote's ${c.wanted}` : ''}
         {c.others.length ? `: ${others(c.others)} out` : ''}.{' '}
         {p.onHire && own > 0 && (
@@ -168,7 +158,7 @@ export function KitNote(p: {
     const names = c.others.filter((o) => !o.held).map((o) => o.name).slice(0, 2)
     return (
       <p className="kit-note hint">
-        Enough, unless {names.join(' and ') || 'the jobs pencilled in'} {names.length === 1 ? 'goes' : 'go'} ahead: then {c.ifPencilled} short on {dayLabel(c.pencilledDay!)}.
+        Enough, unless {names.join(' and ') || 'the jobs pencilled in'} {names.length === 1 ? 'goes' : 'go'} ahead: then {c.ifPencilled} short on {on(c.pencilledDay!)}.
       </p>
     )
   }
@@ -333,6 +323,11 @@ export function LineEditor(p: {
       </p>
     ) : null
   const unpriced = done !== undefined && done.unitCents === 0
+  // What the price is for, in the field (audit, 5 November 2026, finding 23): a day's, a week's, or once. Moved between a day's and
+  // a week's, the same number means seven times more or less, so it's said under the line until the price is changed.
+  const unit = unitOf(l)
+  const [wasUnit, setWasUnit] = useState<{ price: string; unit: PriceUnit }>()
+  const unitMoved = wasUnit && wasUnit.unit !== unit && wasUnit.price === l.price && l.price.trim() !== '' ? wasUnit : undefined
   return (
     <div
       className={`quote-line${unpriced ? ' unpriced' : ''}`}
@@ -368,9 +363,9 @@ export function LineEditor(p: {
           </label>
         )}
         <label className={`price${l.per === 'once' ? ' wide' : ''}`}>
-          Price
+          {unit === 'once' ? 'Price, € once' : `Price, € a ${unit}`}
           <UnitBox unit="€" before needs={unpriced}>
-            <input inputMode="decimal" value={l.price} onChange={(e) => set({ price: e.target.value })} aria-label={`Line ${n}: price`} placeholder="0" autoFocus={p.focus === 'price'} onBlur={leave('price')} {...mark('price')} />
+            <input inputMode="decimal" value={l.price} onChange={(e) => set({ price: e.target.value })} aria-label={`Line ${n}: price, ${unit === 'once' ? 'once' : `a ${unit}`}`} placeholder="0" autoFocus={p.focus === 'price'} onBlur={leave('price')} {...mark('price')} />
           </UnitBox>
         </label>
         <label className="charged">
@@ -379,6 +374,7 @@ export function LineEditor(p: {
             value={chargeOf(l)}
             onChange={(e) => {
               const c = e.target.value as Charge
+              if (!wasUnit || wasUnit.price !== l.price) setWasUnit({ price: l.price, unit })
               // Moving to a rule starts its days out from the days charged so far.
               set(c === 'once' ? { per: 'once' } : c === 'daily' ? { per: 'day', rate: null } : { per: 'day', rate: c, out: l.rate ? l.out : l.days })
             }}
@@ -424,6 +420,11 @@ export function LineEditor(p: {
         </span>
       </div>
       {problem(['qty', 'out', 'days', 'price', 'discount'])}
+      {unitMoved && (
+        <p className="line-problem asks" role="status">
+          Was €{unitMoved.price} {unitMoved.unit === 'once' ? 'once' : `a ${unitMoved.unit}`}, now €{l.price} {unit === 'once' ? 'once' : `a ${unit}`}: change the price?
+        </p>
+      )}
       {p.kit}
       {p.last}
       <CostFields l={l} n={n} r={done} cost={p.cost} boss={p.boss} suppliers={p.suppliers} set={set} wantOpen={p.wantCost} left={leave} mark={mark} problem={problem(['subhire', 'cost'])} />

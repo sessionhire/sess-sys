@@ -275,10 +275,73 @@ export function JobStatusPill({ status, pending }: { status: ProjectStatus; pend
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
+/** A name with its case, fadas, spaces and punctuation set aside: "Ó Sé's Bar" and "o ses bar" are one. */
+const bare = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+
+/** How many letters to add, drop or change to turn one into the other. */
+function distance(a: string, b: string): number {
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i]
+    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j]! + 1, next[j - 1]! + 1, row[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1))
+    row = next
+  }
+  return row[b.length]!
+}
+
+/** The one already here under this name, set aside how it's spelt in case, fadas, spaces and punctuation. */
+const known = <T extends { name: string }>(name: string, all: readonly T[]) => all.find((c) => same(c.name, name)) ?? all.find((c) => bare(c.name) === bare(name) && bare(name) !== '')
+
+/**
+ * The one already here that what's typed is a slip away from: a letter or
+ * two off, as "Shannonside Festival" is from "Shannonside Festivals" (audit,
+ * 5 November 2026, finding 21). Short names allow one letter, longer two.
+ */
+export function nearly<T extends { name: string }>(name: string, all: readonly T[]): T | undefined {
+  const typed = bare(name)
+  if (typed.length < 4 || known(name, all)) return undefined
+  const room = typed.length >= 8 ? 2 : 1
+  let best: { one: T; d: number } | undefined
+  for (const one of all) {
+    const other = bare(one.name)
+    if (Math.abs(other.length - typed.length) > room) continue
+    const d = distance(typed, other)
+    if (d <= room && (!best || d < best.d)) best = { one, d }
+  }
+  return best?.one
+}
+
+/**
+ * Under a client or venue field: a name a slip away from one already here
+ * offers it in one press, and a name not here says it will be added, so a
+ * typo doesn't quietly make a second client (audit, 5 November 2026,
+ * finding 21). Nothing while it's one already here.
+ */
+export function NewOrNear({ value, names, what, onPick }: { value: string; names: readonly { id: string; name: string }[]; what: 'client' | 'venue'; onPick: (name: string) => void }) {
+  const typed = value.trim()
+  if (!typed || known(typed, names)) return null
+  const near = nearly(typed, names)
+  return (
+    <p className="hint wide new-or-near" aria-live="polite">
+      {near ? (
+        <>
+          Did you mean{' '}
+          <button type="button" className="link" onClick={() => onPick(near.name)}>
+            {near.name}
+          </button>
+          ? If not, “{typed}” is added as a new {what}.
+        </>
+      ) : (
+        <>“{typed}” is added as a new {what}.</>
+      )}
+    </p>
+  )
+}
+
 /** The client with this name, added if there isn't one yet; null for no name. */
 export async function clientNamed(name: string, clients: readonly ClientView[]): Promise<string | null> {
   if (!name.trim()) return null
-  const found = clients.find((c) => same(c.name, name))
+  const found = known(name, clients)
   if (found) return found.id
   const id = newId()
   await client.mutate('client.upsert', { id, name: name.trim(), contacts: [], notes: '' })
@@ -288,7 +351,7 @@ export async function clientNamed(name: string, clients: readonly ClientView[]):
 /** The venue with this name, added if there isn't one yet; null for no name. */
 export async function venueNamed(name: string, venues: readonly VenueView[]): Promise<string | null> {
   if (!name.trim()) return null
-  const found = venues.find((v) => same(v.name, name))
+  const found = known(name, venues)
   if (found) return found.id
   const id = newId()
   await client.mutate('venue.upsert', { id, name: name.trim(), address: '', notes: '' })

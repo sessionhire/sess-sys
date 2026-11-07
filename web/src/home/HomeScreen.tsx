@@ -1,16 +1,17 @@
-import { canApproveLeave, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, plural, spanLabel, STATUS_LABELS, type Department, type JobView, type PersonView, type View } from '@sh/shared'
-import { useState } from 'react'
+import { canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
+import { lookAgain, moreSince, sinceLabel, stillInBack, type Looks } from '@sh/shared'
+import { glanceParts, HOLDING, OFFER_WORDS, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { asBooking, BookingRow, stoppedBookings } from '../crew/BookingRow.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
-import { STATUS } from '../crew/Calls.tsx'
-import { StatusPill } from '../StatusPill.tsx'
 import { Empty } from '../Empty.tsx'
 import { Top } from '../jobs/common.tsx'
-import { kitShort } from '../jobs/Kit.tsx'
-import { BelowZero } from '../jobs/Money.tsx'
+import { BelowZero, MoneyFacts } from '../jobs/Money.tsx'
 import { useToday, useView } from '../view.ts'
-import { addDays, departmentsIn, jobsOn, kitOf, narrower, SOON, TILES_FOR, tiles, weekAhead, type HomeFor, type Tile } from './standing.ts'
-import { StageLine } from '../jobs/StageLine.tsx'
+import { addDays, companyTiles, departmentsIn, jobsOn, SOON, TILES_FOR, tiles, weekAhead, type FirstGroup, type HomeFor, type Tile } from './standing.ts'
+import { JobPosition } from '../jobs/JobPosition.tsx'
+import { kitShort } from '../jobs/Kit.tsx'
 import { Heading } from '../Icon.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
 import { arrive } from '../arrival.ts'
@@ -18,6 +19,7 @@ import { useAccess } from '../role.ts'
 import { Chart, type Series } from './Chart.tsx'
 import { Copying, STILL_ARRIVING, useCopying } from './copying.ts'
 import { TodoCard } from '../TodoCard.tsx'
+import { StillOutRow } from '../stock/StillOut.tsx'
 
 /**
  * Home (ADR 0033): how things stand, for whoever is looking. One screen,
@@ -69,7 +71,8 @@ export function HomeScreen() {
   // Nothing chosen yet: a role without crew (staff crew, a freelancer) starts on Me, their own work (audit, 20 October 2026,
   // finding 34); a head of department on their own; everyone else on the company.
   const mayCrew = useAccess().can('crew')
-  const shownFor: HomeFor = saved?.for ?? (!mayCrew ? 'me' : me?.department ? 'department' : 'company')
+  // The head of the warehouse lands on the Warehouse view, which is their department's work (Move 10 of the sweep of 6 November 2026).
+  const shownFor: HomeFor = saved?.for ?? (!mayCrew ? 'me' : me?.department ? (/^warehouse$/i.test(me.department.trim()) ? 'warehouse' : 'department') : 'company')
   const department = saved?.department ?? me?.department ?? departments[0]
   const choose = (next: Saved) => {
     saveHomeFor(next)
@@ -116,20 +119,54 @@ export function HomeScreen() {
 /**
  * The counts that aren't nothing, as tiles; a word when all are. Grouped, what
  * stops the next fortnight's work comes first and the housekeeping after,
- * smaller (audit, 20 October 2026, finding 33).
+ * smaller (audit, 20 October 2026, finding 33); for the office, what's
+ * waiting on them comes first (Move 10 of the sweep of 6 November 2026).
  */
-function Tiles({ all, keys, title = 'Needs attention', clear, department, grouped = true }: { all: Record<string, Tile>; keys: readonly string[]; title?: string; clear: string; department?: string; grouped?: boolean }) {
-  const shown = keys.map((k) => all[k]!).filter((t) => t && t.count > 0)
+function Tiles({
+  all,
+  keys,
+  first = SOON,
+  title = 'Needs attention',
+  clear,
+  department,
+  grouped = true,
+  folded = false,
+  scope,
+}: {
+  all: Partial<Record<StandingKey, Tile>>
+  keys: readonly StandingKey[]
+  /** The group drawn first and full size, in the order of `keys`; the rest are the housekeeping. */
+  first?: FirstGroup
+  title?: string
+  clear: string
+  /** The department counted for; none for the company's or the warehouse's counts, whose lists then open on everyone's. */
+  department?: string
+  grouped?: boolean
+  /** Housekeeping starts folded on this phone until it's opened (a director's Company view); open otherwise. */
+  folded?: boolean
+  /** Which counts these are, for the last look on this phone: the view, and its department. */
+  scope: string
+}) {
+  const shown = keys.map((k) => all[k]).filter((t): t is Tile => !!t && t.count > 0)
   const copying = useCopying()
-  const soon = grouped ? shown.filter((t) => SOON.has(t.key)) : shown
-  const rest = grouped ? shown.filter((t) => !SOON.has(t.key)) : []
+  const since = useLastLook(scope, shown, !copying)
+  // Counts this role can't act on aren't offered (ADR 0034), so all clear is only this person's to say, not the company's (audit, 5 November 2026, finding 46).
+  const withheld = keys.some((k) => !all[k])
+  const soon = grouped ? shown.filter((t) => first.keys.has(t.key)) : shown
+  const rest = grouped ? shown.filter((t) => !first.keys.has(t.key)) : []
   const list = (tiles: Tile[], className = 'tiles') => (
     <ul className={className}>
       {tiles.map((t) => (
         <li key={t.key}>
-          <a className={`tile${t.bad ? ' bad' : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department })}>
+          <a className={`tile${t.tone ? ` ${t.tone}` : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department: department ?? '', filters: t.filters })}>
             <b>{t.count.toLocaleString('en-IE')}</b>
             <span>{t.label}</span>
+            {/* The stat tile's delta, from the last look on this phone (Move 10 of the sweep of 6 November 2026); nothing when nothing rose. */}
+            {since && since.more(t) > 0 && (
+              <small className="delta">
+                {since.more(t).toLocaleString('en-IE')} more {since.label}
+              </small>
+            )}
           </a>
         </li>
       ))}
@@ -141,28 +178,99 @@ function Tiles({ all, keys, title = 'Needs attention', clear, department, groupe
       {copying ? (
         <p className="all-clear">{STILL_ARRIVING}</p>
       ) : shown.length === 0 ? (
-        <p className="all-clear">{clear}</p>
+        <p className="all-clear">{withheld ? 'Nothing here for you to sort out.' : clear}</p>
       ) : !grouped ? (
         list(shown)
       ) : (
         <>
-          <p className="hint">What stops the next fortnight's work first, then the housekeeping. Each goes once it's sorted.</p>
+          <p className="hint">
+            {first.hint}
+            {since?.any && ' "More since" counts from your last look at Home on this phone.'}
+          </p>
           {soon.length > 0 && (
             <>
-              <h3>The next fortnight</h3>
+              <h3 className="group">{first.heading}</h3>
               {list(soon)}
             </>
           )}
-          {rest.length > 0 && (
-            <>
-              <h3>Housekeeping</h3>
-              {list(rest, 'tiles housekeeping')}
-            </>
-          )}
+          {rest.length > 0 && <Housekeeping tiles={rest} folded={folded} list={list} />}
         </>
       )}
     </section>
   )
+}
+
+const FOLD_KEY = 'sh.home.housekeeping'
+
+/**
+ * The housekeeping under the first group, as a fold (Move 10 of the sweep of 6 November 2026; Colly's question 5): closed
+ * for a director, whose Home is the week and the money, and open for everyone else; opened or closed, this phone keeps it.
+ */
+function Housekeeping({ tiles, folded, list }: { tiles: Tile[]; folded: boolean; list: (tiles: Tile[], className?: string) => ReactNode }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      const kept = localStorage.getItem(FOLD_KEY)
+      if (kept === 'open' || kept === 'closed') return kept === 'open'
+    } catch {
+      // Storage blocked: the role's default.
+    }
+    return !folded
+  })
+  return (
+    <details
+      className="housekeeping-fold"
+      open={open}
+      onToggle={(e) => {
+        const now = e.currentTarget.open
+        if (now === open) return
+        setOpen(now)
+        try {
+          localStorage.setItem(FOLD_KEY, now ? 'open' : 'closed')
+        } catch {
+          // Private browsing: it lasts this visit.
+        }
+      }}
+    >
+      <summary>
+        <h3 className="group">Housekeeping ({tiles.length})</h3>
+      </summary>
+      {list(tiles, 'tiles housekeeping')}
+    </details>
+  )
+}
+
+const LOOK_KEY = 'sh.home.looks'
+
+/**
+ * The last look at these counts on this phone (shared/src/last-look.ts): held a day at a time, so a count says how many
+ * more there are since an earlier day's look. Kept once the copy has arrived, never from part of one.
+ */
+function useLastLook(scope: string, shown: readonly Tile[], ready: boolean): { more: (t: Tile) => number; label: string; any: boolean } | undefined {
+  const today = useToday()
+  const counts = Object.fromEntries(shown.map((t) => [t.key, t.count]))
+  const said = JSON.stringify(counts)
+  const stored = useMemo(() => {
+    try {
+      return (JSON.parse(localStorage.getItem(LOOK_KEY) ?? '{}') as Record<string, Looks>)[scope]
+    } catch {
+      return undefined
+    }
+  }, [scope])
+  const { base, next } = lookAgain(stored, today, counts)
+  useEffect(() => {
+    if (!ready) return
+    try {
+      const all = JSON.parse(localStorage.getItem(LOOK_KEY) ?? '{}') as Record<string, Looks>
+      all[scope] = next
+      localStorage.setItem(LOOK_KEY, JSON.stringify(all))
+    } catch {
+      // Storage blocked: no "more since" on this phone.
+    }
+    // `next` is made from `said`, `today` and what was stored when this scope was opened.
+  }, [scope, today, said, ready])
+  if (!ready || !base) return undefined
+  const more = (t: Tile) => moreSince(base, t.key, t.count)
+  return { more, label: sinceLabel(base.day, today), any: shown.some((t) => more(t) > 0) }
 }
 
 /** What's on today, a line a job with its crew (audit finding 22); the next one when nothing is. */
@@ -171,10 +279,12 @@ function Today({ view, today }: { view: View; today: string }) {
   const ahead = on.length === 0 ? weekAhead(view, today) : undefined
   const next = ahead && [...ahead.work, ...ahead.errands].sort((a, b) => a.span!.start.localeCompare(b.span!.start))[0]
   const copying = useCopying()
+  const finished = justFinished(view, today)
   return (
     <section className="card">
-      <Heading icon="time">Today{on.length > 0 ? ` (${on.length})` : ''}</Heading>
-      {on.length === 0 && copying ? (
+      <Heading icon="time">Today{on.length > 0 && !copying ? ` (${on.length})` : ''}</Heading>
+      {/* Part of a copy is no answer at all, so nothing here is said as if it were (audit, 5 November 2026, finding 45). */}
+      {copying ? (
         <p className="empty">{STILL_ARRIVING}</p>
       ) : on.length === 0 ? (
         <p className="empty">Nothing on today.{next?.span && ` Next: ${next.name}, ${dayLabel(next.span.start)}.`}</p>
@@ -187,20 +297,45 @@ function Today({ view, today }: { view: View; today: string }) {
           ))}
         </ul>
       )}
+      {/* A job whose dates passed is still someone's until its Back is done (Move 10 of the sweep of 6 November 2026). */}
+      {!copying && finished.length > 0 && (
+        <>
+          <h3 className="group">Just finished ({finished.length})</h3>
+          <ul className="job-list">
+            {finished.map((j) => (
+              <li key={j.id}>
+                <JobLine job={j} view={view} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   )
+}
+
+/** Jobs over in the last fortnight that are still in Back with work open on them, the latest first. */
+function justFinished(view: View, today: string): JobView[] {
+  const from = addDays(today, -14)
+  return view.jobs.jobs
+    .filter((j) => j.span && j.span.end < today && j.span.end >= from && stillInBack(view.steps.of(j.id)))
+    .sort((a, b) => b.span!.end.localeCompare(a.span!.end) || a.name.localeCompare(b.name))
 }
 
 /** A job in one line: its name, then (in the week ahead) its first day, a quote not yet confirmed, its crew and kit short, as the jobs list says them. */
 function JobLine({ job, view, from }: { job: JobView; view: View; from?: boolean }) {
   const crew = crewFill(job.calls)
-  const short = kitShort(view.kit.byJob.get(job.id))
+  // A sale's kit would only be short if it went ahead, which its position (the quote's) doesn't say: the flag stays for it.
+  const short = job.status !== 'confirmed' ? kitShort(view.kit.byJob.get(job.id)) : undefined
   return (
     <a className="job-row today-row" href={`#jobs/${job.id}`}>
       <b>{job.name}</b>
       <span className="side">
         {from && job.span && <small>{dayLabel(job.span.start)}</small>}
-        <StageLine job={job} view={view} compact />
+        {/* The job's position, compact, as the Jobs list, the Board and its head say it (Move 7 of the sweep of 6 November 2026):
+            its tone carries a crew or kit shortfall, and its title the whole line. */}
+        {/* An errand's or a meeting's position is its day, which the week ahead has just said. */}
+        {(hasSteps(job) || !from) && <JobPosition job={job} view={view} compact />}
         {job.status !== 'confirmed' && <small>{STATUS_LABELS[job.status]}</small>}
         {crew.needed > 0 && (
           <small>
@@ -232,8 +367,8 @@ function WeekAhead({ view, today }: { view: View; today: string }) {
   )
   return (
     <section className="card week-ahead">
-      <Heading icon="calendar">The week ahead{work.length > 0 ? ` (${work.length})` : ''}</Heading>
-      {work.length === 0 && errands.length === 0 && copying ? (
+      <Heading icon="calendar">The week ahead{work.length > 0 && !copying ? ` (${work.length})` : ''}</Heading>
+      {copying ? (
         <p className="empty">{STILL_ARRIVING}</p>
       ) : work.length === 0 && errands.length === 0 ? (
         <Empty>Nothing starts in the next seven days.</Empty>
@@ -261,18 +396,27 @@ function errandsLine(jobs: readonly JobView[], after: boolean): string {
 }
 
 function ForCompany({ view, today, me }: { view: View; today: string; me: PersonView | undefined }) {
-  const { can } = useAccess()
+  const { can, role } = useAccess()
+  // The same counts in the order of whoever is looking: the office's own work first for the office (Move 10 of the sweep of 6 November 2026).
+  const { keys, first } = companyTiles(role)
   const confirmed = view.jobs.jobs.filter((j) => j.status === 'confirmed' && j.span && j.span.end >= today).length
   const pencilled = view.jobs.jobs.filter((j) => (j.status === 'enquiry' || j.status === 'quoted') && (!j.span || j.span.end >= today)).length
+  const all = tiles(view, today, me, can)
+  // Something in the first group stopping work turns the week's line into a notice.
+  const bad = keys.some((k) => first.keys.has(k) && (all[k]?.count ?? 0) > 0 && all[k]?.tone === 'bad')
   return (
     <>
-      {/* What needs someone first, then what's on (audit finding 22). */}
-      <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.company} clear="Nothing waiting on anyone. Everything else is as it should be." />
+      <SetUp view={view} />
+      <Verdict view={view} today={today} bad={bad} />
+      {/* What needs someone first, then what's on (audit finding 22). Housekeeping folds for a director (Move 10 of the sweep of 6 November 2026). */}
+      <Tiles all={all} keys={keys} first={first} folded={role === 'director'} scope="company" clear="Nothing waiting on anyone. Everything else is as it should be." />
       <TodoCard view={view} />
       <Today view={view} today={today} />
+      <WeekAhead view={view} today={today} />
+      {/* Money on the second screen for whoever sees it, not the fifth (Move 10 of the sweep of 6 November 2026). */}
+      <MoneyCard view={view} today={today} />
       <Chart title="Jobs by week" icon="calendar" series={JOBS} columns={jobsByWeek(view.jobs.jobs, today)} empty="No gigs or hires in the next eight weeks." />
       <CrewChart view={view} today={today} />
-      <WeekAhead view={view} today={today} />
       <Chart
         title="The season"
         icon="calendar"
@@ -285,8 +429,81 @@ function ForCompany({ view, today, me }: { view: View; today: string; me: Person
           </p>
         }
       />
-      <MoneyCard view={view} today={today} />
     </>
+  )
+}
+
+/**
+ * Whether the week is all right, in one line above the counts (Move 10 of the sweep of 6 November 2026; Colly's question
+ * 13): the confirmed gigs and hires on in the next seven days and how many are short of crew or kit, and for whoever sees
+ * money, this month's confirmed of quoted in Money's own figures. Quiet when nothing in the first group stops work, a
+ * notice when something does; nothing while the copy is still arriving.
+ */
+function Verdict({ view, today, bad }: { view: View; today: string; bad: boolean }) {
+  const sees = useAccess().can('money')
+  if (useCopying()) return null
+  const end = addDays(today, 6)
+  const on = view.jobs.jobs.filter(
+    (j) => j.status === 'confirmed' && (kindOf(j) === 'gig' || kindOf(j) === 'hire') && j.phases.some((p) => p.start <= end && p.end >= today)
+  )
+  const short = on.filter((j) => {
+    const crew = crewFill(j.calls)
+    return crew.booked < crew.needed || !!kitShort(view.kit.byJob.get(j.id))
+  }).length
+  const week =
+    on.length === 0
+      ? 'The next seven days: no confirmed gigs or hires on'
+      : `The next seven days: ${plural(on.length, 'confirmed job')} on, ${short === 0 ? (on.length === 1 ? 'crewed and kitted' : 'all crewed and kitted') : `${short.toLocaleString('en-IE')} short of crew or kit`}`
+  const m = view.money
+  const month = sees && m.any ? m.months.find((x) => x.key === moneyMonth(today).key) : undefined
+  const said = sees && m.any ? ` · ${money(month?.confirmed ?? 0)} confirmed of ${money(month?.quoted ?? 0)} quoted for ${moneyMonth(today).label}` : ''
+  return (
+    <p className={bad ? 'warn-line verdict' : 'hint verdict'}>
+      {week}
+      {said}
+    </p>
+  )
+}
+
+/**
+ * A new company's first steps, in the order that matters, while it has no crew or no stock yet: office details first, so
+ * freelancer links can ring the office, then the crew list, the stock list and the vans. Each goes once it's done, and the card
+ * with them (audit, 5 November 2026, finding 100). Only for who can set them up, and never while the copy is still arriving.
+ */
+function SetUp({ view }: { view: View }) {
+  const { can } = useAccess()
+  const copying = useCopying()
+  if (copying || !can('settings')) return null
+  const people = view.crew.people.length > 0
+  const stock = view.warehouse.models.length > 0
+  if (people && stock) return null
+  const steps = [
+    !view.office.details && { href: '#admin/company', what: 'Office details', why: 'So freelancer links can ring the office' },
+    !people && { href: '#crew/import', what: 'The crew list', why: 'From a spreadsheet, or one at a time under Crew' },
+    !stock && { href: '#stock/import', what: 'The stock list', why: 'From Current RMS or a spreadsheet, or one at a time under Stock' },
+    view.vehicles.vehicles.length === 0 && { href: '#stock/vehicles', what: 'The vans', why: 'So they can be booked on jobs with a driver' },
+  ].filter((x) => !!x)
+  return (
+    <section className="card set-up" aria-labelledby="set-up-title">
+      <Heading icon="company" id="set-up-title">
+        To set up
+      </Heading>
+      <ul className="job-list">
+        {steps.map((step) => (
+          <li key={step.href}>
+            <a className="job-row" href={step.href}>
+              <div>
+                <b>{step.what}</b>
+                <p>{step.why}</p>
+              </div>
+              <div className="side" aria-hidden="true">
+                ›
+              </div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -295,25 +512,21 @@ function MoneyCard({ view, today }: { view: View; today: string }) {
   const sees = useAccess().can('money')
   const m = view.money
   if (!sees || !m.any) return null
-  const month = m.months.find((x) => x.key === moneyMonth(today).key)
-  const owed = m.owed.reduce((s, o) => s + o.cents, 0)
-  const notInvoiced = owed - m.owed.reduce((s, o) => s + o.invoiced, 0)
-  const toFreelancers = m.costsOwed.reduce((s, c) => s + c.cents, 0)
   return (
     <Chart
       title="Money"
       icon="document"
       series={MONEY}
       columns={moneyByMonth(m.months, today)}
-      format={wholeEuro}
+      // The sentence's own money words, so a month's column and the sentence under it say the same sum (Move 3 of the sweep of 6 November 2026).
+      format={money}
       empty="No quotes in the three months either side of this one."
       more={
         <>
-          {/* What's accepted and unpaid says it's with VAT, and how much isn't invoiced yet (audit findings 29 and 71). */}
+          {/* Money's own list of the month, in its words, so Home and Money never frame it differently (Move 10 of the sweep of 6 November 2026). */}
+          <MoneyFacts view={view} today={today} />
           <p className="hint">
-            {money(month?.confirmed ?? 0)} confirmed of {money(month?.quoted ?? 0)} quoted for {moneyMonth(today).label}, before VAT. {money(owed)} with VAT accepted and
-            unpaid from {plural(m.owed.length, 'client')}
-            {notInvoiced > 0 ? `, ${money(notInvoiced)} of it not invoiced yet` : ''}; {money(toFreelancers)} owed to freelancers. <a href="#jobs/money">Money</a>
+            Before VAT, except what's accepted and unpaid. <a href="#jobs/money">Money</a>
           </p>
           <BelowZero jobs={m.jobs} />
         </>
@@ -344,8 +557,6 @@ const MONEY: Series[] = [
   { name: 'confirmed', tone: 'settled' },
   { name: 'still a quote', tone: 'pending' },
 ]
-/** A chart's money to the euro: the cents are in the money screen. */
-const wholeEuro = (cents: number) => `€${Math.round(cents / 100).toLocaleString('en-IE')}`
 
 /** Crew on each of the next fourteen days, for everyone or one department's calls. */
 function CrewChart({ view, today, department }: { view: View; today: string; department?: string }) {
@@ -432,7 +643,7 @@ function ForDepartment({
           ))}
         </select>
       </label>
-      <Tiles all={tiles(view, today, me, can, department)} keys={TILES_FOR.department} department={department} title={`Needs attention in ${department}`} clear={`Nothing waiting in ${department}.`} />
+      <Tiles all={tiles(view, today, me, can, department)} keys={TILES_FOR.department} department={department} scope={`department:${department}`} title={`Needs attention in ${department}`} clear={`Nothing waiting in ${department}.`} />
       <p className="hint">
         {noDepartment > 0 &&
           `${plural(noDepartment, 'call')} still needing crew in the next fortnight ${noDepartment === 1 ? "has no department, so it isn't" : "have no department, so they aren't"} counted here: give ${noDepartment === 1 ? 'it' : 'them'} one on Crew. `}
@@ -495,6 +706,7 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
   const { can } = useAccess()
   const tomorrow = addDays(today, 1)
   const out = view.moves.soon.filter((p) => p.job.span && p.job.span.start <= addDays(today, 7))
+  const stillOut = standing(view, today)['still-out']
   const word = (start: string) => (start <= today ? 'Today · ' : start === tomorrow ? 'Tomorrow · ' : '')
   return (
     <>
@@ -525,24 +737,15 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
           </ul>
         )}
       </section>
-      <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.warehouse} clear="Nothing back late, broken or due a test." />
+      <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.warehouse} scope="warehouse" clear="Nothing back late, broken or due a test." />
       <KitChart view={view} today={today} />
-      {view.moves.stillOut.length > 0 && (
+      {stillOut.length > 0 && (
         <section className="card">
-          <Heading icon="warehouse">Coming back ({view.moves.stillOut.length})</Heading>
+          {/* Stock's name for the same list (audit, 5 November 2026, finding 79), and the count's own list (ADR 0109). */}
+          <Heading icon="warehouse">{listHeading(STANDING_HEADINGS['still-out'], stillOut.length)}</Heading>
           <ul className="job-list">
-            {view.moves.stillOut.map((p) => (
-              <li key={p.job.id}>
-                <a className="job-row" href={`#jobs/${p.job.id}/pick`}>
-                  <div>
-                    <b>{p.job.name}</b>
-                    <p>{p.job.span ? `Ended ${dayLabel(p.job.span.end)}` : 'No dates'}</p>
-                  </div>
-                  <div className="side">
-                    <small className="flag bad">{p.stillOut} still out</small>
-                  </div>
-                </a>
-              </li>
+            {stillOut.map((k) => (
+              <StillOutRow key={k.job.id} k={k} />
             ))}
           </ul>
         </section>
@@ -553,6 +756,7 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
 
 function ForMe({ view, today, me, onPick }: { view: View; today: string; me: PersonView | undefined; onPick: (id: string) => void }) {
   const { can } = useAccess()
+  const answers = can('answer')
   const [id, setId] = useState('')
   if (!me) {
     const staff = view.leave.staff
@@ -589,68 +793,59 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
       </section>
     )
   }
-  const mine = view.crew.calls
-    .filter((c) => c.status === 'open' && c.end >= today)
-    .flatMap((c) => c.offers.filter((o) => o.personId === me.id && (o.status === 'confirmed' || o.status === 'accepted')).map((o) => ({ c, o })))
-    .sort((a, b) => (a.o.days.find((d) => d >= today) ?? '').localeCompare(b.o.days.find((d) => d >= today) ?? ''))
-  const asked = view.crew.calls.filter((c) => c.status === 'open' && c.end >= today && c.offers.some((o) => o.personId === me.id && (o.status === 'offered' || o.status === 'countered'))).length
+  // Their bookings and the offers waiting on them, in the order their link and their own page list them, with theirs on a job
+  // that was stopped in its place (UX sweep, 6 November 2026, move 6).
+  const mine = soonestFirst<{ c: CallView; o: OfferView; job?: ProjectStatus }>(
+    [
+      ...view.crew.calls
+        .filter((c) => c.status === 'open' && c.end >= today)
+        .flatMap((c) => c.offers.filter((o) => o.personId === me.id && (HOLDING.includes(o.status) || OPEN.includes(o.status))).map((o) => ({ c, o }))),
+      ...stoppedBookings(view, me.id, today),
+    ],
+    today,
+    asBooking,
+  )
+  const booked = mine.filter(({ o }) => HOLDING.includes(o.status))
+  const offered = mine.filter(({ o }) => OPEN.includes(o.status))
+  const link = linkFor(me)
   const year = Number(today.slice(0, 4))
   const balance = me.kind === 'staff' ? view.leave.balance(me.id, year) : undefined
   const waiting = view.leave.requestsFor(me.id, year).filter((r) => r.status === 'waiting')
   const approver = canApproveLeave(me)
   const copying = useCopying()
+  const weeks = myWeeks(view.crew.calls, me.id, today)
   return (
     <>
+      {/* Today first, where a person looks first; leave after (audit, 5 November 2026, finding 97). */}
+      <YourDay view={view} today={today} me={me} mine={booked} />
       <section className="card">
-        {/* Booked and only accepted said apart, as on their own page (audit, 20 October 2026, finding 36): an accepted day can still go to someone else. */}
-        <Heading icon="calendar">Your work{mine.length > 0 ? ` (${workCount(mine)})` : ''}</Heading>
-        {mine.length === 0 && copying ? (
+        {/* One name and one row for them on Home › Me, their own page and their link (UX sweep, 6 November 2026, move 6); booked and only
+            accepted said apart, as on their own page (audit, 20 October 2026, finding 36): an accepted day can still go to someone else.
+            Only bookings are counted: the glance line under it says the offers, and the strip's name for the card stays on a phone. */}
+        <Heading icon="calendar">Your bookings{booked.length > 0 && !copying ? ` (${workCount(booked)})` : ''}</Heading>
+        {copying ? (
           <p className="empty">{STILL_ARRIVING}</p>
         ) : mine.length === 0 ? (
           <Empty>No bookings coming up.</Empty>
         ) : (
-          <ul className="job-list">
-            {mine.map(({ c, o }) => (
-              <li key={o.id}>
-                <a className="job-row" href={c.projectId ? `#jobs/${c.projectId}` : '#crew'}>
-                  <div>
-                    <b>{c.project}</b>
-                    <p>
-                      {c.role}
-                      {c.phase && ` · ${c.phase}`}
-                      {c.venue && ` · ${c.venue}`}
-                    </p>
-                  </div>
-                  <div className="side">
-                    <StatusPill tone={STATUS[o.status][1]} pending={o.pending}>
-                      {STATUS[o.status][0]}
-                    </StatusPill>
-                    <small>{daysLabel(o.days.filter((d) => d >= today))}</small>
-                    {c.callTime && <small>Call {c.callTime}</small>}
-                  </div>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-        {/* Answered on their own page, so the way there is here (audit, 20 October 2026, finding 35). */}
-        {asked > 0 && (
-          <p className="hint">
-            {plural(asked, 'offer')} waiting on your answer
-            {linkFor(me) ? (
-              <>
-                {' · '}
-                <a className="link" href={linkFor(me)} target="_blank" rel="noreferrer">
-                  Open your page
-                </a>
-              </>
-            ) : (
-              ', on your own page.'
-            )}
-          </p>
+          <>
+            <MyGlance offers={offered.length} next={nextBooking(booked, today, asBooking)} link={link} today={today} />
+            <ul className="job-list">
+              {mine.map(({ c, o, job }) => (
+                <li key={o.id}>
+                  {/* An offer is answered on the job's page in the app by staff (ADR 0111), otherwise on their own page (audit, 20 October
+                      2026, finding 35), so its row opens there. */}
+                  <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} {...(answers && c.projectId ? { answerAt: jobHref(c) } : {})} {...(job ? { job } : {})} />
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
-      <Chart title="Your weeks" icon="calendar" series={DAYS} columns={myWeeks(view.crew.calls, me.id, today)} format={(n) => plural(n, 'day')} empty="No days booked in the next eight weeks." />
+      {/* Only with something in it: an empty chart said nothing Your bookings hadn't (finding 97). */}
+      {weeks.some((w) => w.parts.some((n) => n > 0)) && (
+        <Chart title="Your weeks" icon="calendar" series={DAYS} columns={weeks} format={(n) => plural(n, 'day')} empty="No days booked in the next eight weeks." />
+      )}
       {balance && (
         <section className="card">
           <Heading icon="leave">Your leave</Heading>
@@ -668,8 +863,7 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
           </a>
         </section>
       )}
-      {approver && <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.me} title="Waiting on you" clear="No time off waiting on you." grouped={false} />}
-      <YourDay view={view} today={today} me={me} mine={mine} />
+      {approver && <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.me} scope="me" title="Waiting on you" clear="No time off waiting on you." grouped={false} />}
     </>
   )
 }
@@ -677,7 +871,8 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
 /**
  * Their own day, under Me (audit, 20 October 2026, finding 69): the
  * bookings whose days take in today, with the call time and venue, or their
- * leave; otherwise "Nothing on today" and the next booking. Never the
+ * leave; otherwise "Nothing on today", the next booking being in the glance
+ * line over Your bookings (UX sweep, 6 November 2026, move 6). Never the
  * company's Today, whose jobs they may not be on (ADR 0033 §1: my bookings,
  * my leave).
  */
@@ -686,16 +881,15 @@ function YourDay({ view, today, me, mine }: { view: View; today: string; me: Per
   const booked = mine.filter(({ o }) => o.status === 'confirmed')
   const on = booked.filter(({ o }) => o.days.includes(today))
   const away = view.crew.unavailability.find((u) => u.personId === me.id && u.start <= today && u.end >= today)
-  const next = on.length === 0 ? booked.map(({ c, o }) => ({ c, day: o.days.find((d) => d > today) })).filter((n) => n.day).sort((a, b) => a.day!.localeCompare(b.day!))[0] : undefined
   return (
     <section className="card your-day">
-      <Heading icon="time">Your day{on.length > 0 ? ` (${on.length})` : ''}</Heading>
-      {on.length === 0 && copying ? (
+      <Heading icon="time">Your day{on.length > 0 && !copying ? ` (${on.length})` : ''}</Heading>
+      {copying ? (
         <p className="empty">{STILL_ARRIVING}</p>
       ) : on.length === 0 ? (
         <p className="empty">
+          {/* What's next is in the glance line over Your bookings, with its call time. */}
           {away ? (away.source === 'leave' ? 'On leave today.' : `Away today${away.note ? `: ${away.note}` : ''}.`) : 'Nothing on today.'}
-          {next && ` Next: ${next.c.project}, ${dayLabel(next.day!)}.`}
         </p>
       ) : (
         <ul className="job-list">
@@ -744,7 +938,7 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
           const at = view.steps.of(job.id)
           return (
             <li key={`${job.id}.${step.key}`}>
-              <a className="job-row" href={`#jobs/${encodeURIComponent(job.id)}`}>
+              <a className="job-row" href={`#jobs/${encodeURIComponent(job.id)}/task/${step.key}`}>
                 <div>
                   <b>{step.label}</b>
                   <p>
@@ -755,7 +949,8 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
                   </p>
                 </div>
                 <div className="side">
-                  {next ? <small className="flag">Now</small> : at?.current && <small>After {at.current.label.toLowerCase()}</small>}
+                  {/* No "After …": tasks don't wait on one another (ADR 0104), so the stage in the line above says how far along it is. */}
+                  {next && <small className="flag">Now</small>}
                   {step.dueOn ? <small className={step.late ? 'flag bad' : undefined}>{step.late ? 'Was due' : 'By'} {dayLabel(step.dueOn)}</small> : job.span && <small>{dayLabel(job.span.start)}</small>}
                 </div>
               </a>
@@ -768,11 +963,43 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
   )
 }
 
-/** "3 confirmed, 2 accepted", or the one kind there is. */
+/** "3 booked, 2 to confirm", or the one kind there is, in the word table's words (UX sweep, 6 November 2026, move 4). */
 function workCount(mine: readonly { o: { status: string } }[]) {
-  const confirmed = mine.filter((m) => m.o.status === 'confirmed').length
-  const accepted = mine.length - confirmed
-  return [confirmed && `${confirmed} confirmed`, accepted && `${accepted} accepted`].filter(Boolean).join(', ')
+  const booked = mine.filter((m) => m.o.status === 'confirmed').length
+  const toConfirm = mine.length - booked
+  return [booked && `${booked} ${OFFER_WORDS.confirmed[0].toLowerCase()}`, toConfirm && `${toConfirm} ${OFFER_WORDS.accepted[0].toLowerCase()}`].filter(Boolean).join(', ')
+}
+
+/** Where a booking of theirs opens in the app: its job, or Crew for a call made before jobs. */
+const jobHref = (c: { projectId?: string | null }) => (c.projectId ? `#jobs/${c.projectId}` : '#crew')
+
+/**
+ * What's waiting on them and what's next, in the words of the glance line at the top of their own page (UX sweep, 6
+ * November 2026, move 6): the offers open their page, where they're answered; the next booking opens its job. No
+ * timesheets: Me is a member of staff's, and staff are paid through payroll.
+ */
+function MyGlance({ offers, next, link, today }: { offers: number; next: { booking: { c: CallView; o: OfferView }; day: string } | undefined; link: string; today: string }) {
+  const parts = glanceParts({ offers, ...(next ? { next: { project: next.booking.c.project, callTime: next.booking.c.callTime, day: next.day } } : {}) }, today)
+  if (parts.length === 0) return null
+  return (
+    <p className="my-glance">
+      {parts.map((p, i) => {
+        const href = p.key === 'next' ? next && jobHref(next.booking.c) : link && `${link}#${p.key}`
+        return (
+          <Fragment key={p.key}>
+            {i > 0 && <span aria-hidden="true"> · </span>}
+            {href ? (
+              <a className="link" href={href} {...(p.key === 'next' ? {} : { target: '_blank', rel: 'noreferrer' })}>
+                {p.text}
+              </a>
+            ) : (
+              p.text
+            )}
+          </Fragment>
+        )
+      })}
+    </p>
+  )
 }
 
 /** " 1 request and 1 day in lieu waiting to be approved.", or nothing while nothing is. */

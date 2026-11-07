@@ -1,8 +1,10 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   calendarTitles,
   crewFill,
   daysLabel,
   departmentForRole,
+  departmentOf,
   eachDay,
   mapLink,
   movedCallSpan,
@@ -16,9 +18,11 @@ import {
   kindOf,
   PROJECT_KINDS,
   PROJECT_STATUSES,
+  sameDepartment,
   STATUS_LABELS,
   type ProjectKind,
   STOPPED,
+  STOPPED_WORDS,
   spanLabel,
   suggestedReplyBy,
   venueLabel,
@@ -45,14 +49,19 @@ import { Tabs } from '../Tabs.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
-import { Choices, clientNamed, JobStatusPill, Page, venueNamed } from './common.tsx'
+import { Choices, clientNamed, NewOrNear, JobStatusPill, Page, venueNamed } from './common.tsx'
 import { KitCard, kitSummary } from './Kit.tsx'
 import { VansCard } from './Vans.tsx'
 import { QuoteCard } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
+import { JobPosition } from './JobPosition.tsx'
 import { NextDock } from './NextDock.tsx'
+import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
 import { Heading } from '../Icon.tsx'
+import { useMyDepartment } from '../Narrowed.tsx'
+import { glideTo } from '../glide.ts'
+import { landOn } from '../places.ts'
 import { JOBS } from '../Up.tsx'
 
 /**
@@ -83,24 +92,46 @@ function lastPart(): JobPart | undefined {
   }
 }
 
-export function JobScreen({ view, id, part: asked }: { view: View; id: string; part?: JobPart }) {
+export function JobScreen({ view, id, part: asked, task: askedTask }: { view: View; id: string; part?: JobPart; task?: JobStep }) {
   const job = view.jobs.jobs.find((j) => j.id === id)
   // An offer to send, or the people to tell after a withdrawal or a stopped job (audit finding 9): one panel at a time.
   const [share, setShare] = useState<Share | undefined>()
   const access = useAccess()
   const seesMoney = access.can('money')
+  const runsJobs = access.can('jobs') || access.can('crew') || access.can('kit')
   // A button the role can't use isn't drawn (audit finding 9): phases are the job's, asking for crew is crew's.
   const mayJobs = access.can('jobs')
   const mayCrew = access.can('crew')
   const parts = JOB_PARTS.filter((p) => p !== 'money' || seesMoney)
   // The part the address names, else the one picked here, else the last one looked at; a link to another part starts there.
   const [picked, setPicked] = useState<JobPart | undefined>()
-  useEffect(() => setPicked(undefined), [asked])
+  useEffect(() => setPicked(undefined), [asked, askedTask])
   // The task opened on Where it is, from its list or from the Next dock (ADR 0104).
-  const [task, setTask] = useState<JobStep | undefined>()
-  useEffect(() => setTask(undefined), [id])
-  const wanted = picked ?? asked ?? lastPart() ?? 'phases'
+  // Opened from Your tasks on Home, the page opens on that task, not on the job's own next one (audit, 5 November 2026, finding 17),
+  // with the task's own part as the tab under it, so what the task is about is the next thing down (UX sweep, 6 November 2026, move 8).
+  const [task, setTask] = useState<JobStep | undefined>(askedTask)
+  useEffect(() => setTask(askedTask), [id, askedTask])
+  const stepPart = askedTask ? view.steps.of(id)?.steps.find((s) => s.key === askedTask)?.part : undefined
+  const wanted = picked ?? asked ?? parts.find((p) => p === stepPart) ?? lastPart() ?? 'phases'
   const part = parts.includes(wanted) ? wanted : 'phases'
+  // An address that names a part of the job, or a task in it, lands on it however it was reached: a row on Home, the planner, Crew or a
+  // typed link (UX sweep, 6 November 2026, move 8). A part's tab row comes to the top with the focus on its tab, as Next brings it (ADR
+  // 0109); a task's card with the focus on its name. A part this role doesn't see isn't landed on.
+  const named = asked && parts.includes(asked) ? asked : undefined
+  useEffect(() => {
+    if (askedTask)
+      landOn(() => {
+        const box = document.getElementById('job-step-open')
+        const heading = box?.querySelector<HTMLElement>('h3')
+        return box && heading ? { top: box, focus: heading } : undefined
+      })
+    else if (named)
+      landOn(() => {
+        const tab = document.getElementById(`job-tab-${named}`)
+        const row = tab?.closest<HTMLElement>('[role="tablist"]')
+        return tab && row ? { top: row, focus: tab } : undefined
+      })
+  }, [id, askedTask, named])
   const pick = (p: JobPart) => {
     setPicked(p)
     try {
@@ -111,18 +142,41 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
     // In the address, so a reload or a link keeps the part, without a step in the history: Back still goes up to the list.
     history.replaceState(history.state, '', `#jobs/${encodeURIComponent(id)}/${p}`)
   }
+  // Next, or a task's Open, picks a part far down the page: it comes to the top, under the bar, with the focus on its tab, so
+  // the press is seen to do something (audit, 5 November 2026, finding 1). A tab picked from the row itself is already in view.
+  const [went, setWent] = useState(0)
+  const go = (p: JobPart) => {
+    pick(p)
+    setWent((n) => n + 1)
+  }
+  useEffect(() => {
+    if (!went) return
+    // Glided to, as it's the same page, with the part's card under the tabs marked where it lands (glide.ts).
+    const tab = document.getElementById(`job-tab-${part}`)
+    const row = tab?.closest<HTMLElement>('[role="tablist"]')
+    const card = document.getElementById('job-part')?.firstElementChild
+    if (row && tab) glideTo(row, { focus: tab, mark: card instanceof HTMLElement ? card : undefined })
+  }, [went])
   const up = { steps: [JOBS], here: job?.name }
   if (!job)
     return (
       <Page view={view} className="crew jobs job-page" up={up}>
         <section className="card">
-          <p className="empty">This job isn't on this device. It may still be on its way: check again once it says “Up to date”.</p>
+          {/* Up to date, a job not here isn't on its way: the address is wrong or the job has gone (audit, 5 November 2026, finding 88). */}
+          {view.connection === 'idle' && !view.copying && view.cursor > 0 ? (
+            <p className="empty">
+              There's no job at this address: it may have been removed, or the address is mistyped. <a href="#jobs">All jobs</a>
+            </p>
+          ) : (
+            <p className="empty">This job isn't on this device. It may still be on its way: check again once it says “Up to date”.</p>
+          )}
         </section>
       </Page>
     )
   const onShare = (call: CallView) => (person: PersonView) => setShare({ kind: 'offer', person, call })
   // Sending an offer opens under the calls it's for. People to tell open under the job's details, whichever part is open.
-  const panel = share && <SharePanelFor share={share} onClose={() => setShare(undefined)} />
+  // Its WhatsApp is plain, as the Next dock holds the page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1).
+  const panel = share && <SharePanelFor share={share} onClose={() => setShare(undefined)} inJob />
   const offerFor = (calls: readonly CallView[]) => share?.kind === 'offer' && calls.some((c) => c.id === share.call.id) && panel
   const telling = share?.kind === 'tell' && panel
   const fill = crewFill(job.calls)
@@ -137,14 +191,20 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
       className="crew jobs job-page"
       up={up}
       heading={job.name}
-      badge={<JobStatusPill status={job.status} pending={job.pending} />}
+      // A sale or a stopped job keeps its pill; once confirmed, the head says where the job stands, as the dock's line does (Move 7
+      // of the sweep of 6 November 2026), so "Confirmed" isn't the biggest word on a job two days into Back.
+      badge={job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
       sub={<JobLines job={job} view={view} />}
-      actions={<NextDock job={job} view={view} onPart={pick} onOpenTask={setTask} />}
+      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
+      {/* What you're on, first for someone whose work on the job is their own booking, under Where it is for whoever runs the job
+          (Move 9 of the sweep of 6 November 2026). */}
+      {!runsJobs && <YouOnThisJob job={job} view={view} />}
       {/* Where the job is: its five stages, the tasks inside each and who each is down to (ADR 0073, ADR 0104). */}
-      <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={pick} onTell={setShare} />
+      <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={go} onTell={setShare} />
+      {runsJobs && <YouOnThisJob job={job} view={view} />}
 
       <Tabs label="Parts of the job" id="job" parts={parts} labels={PART_LABELS} current={part} counts={counts} onPick={pick} />
       <div className="job-part" role="tabpanel" id="job-part" aria-labelledby={`job-tab-${part}`}>
@@ -153,7 +213,7 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
             <Heading icon="time">Phases</Heading>
             {job.phases.length === 0 && <Empty>{mayJobs && 'Add the first phase below, so the job has dates.'}</Empty>}
             {job.phases.map((p) => (
-              <Phase key={p.id} job={job} phase={p} view={view} onTell={setShare} onCrew={() => pick('crew')} mayChange={mayJobs} />
+              <Phase key={p.id} job={job} phase={p} view={view} onTell={setShare} onCrew={() => go('crew')} mayChange={mayJobs} />
             ))}
             {mayJobs && (
               <Fold label="Add phase">
@@ -186,6 +246,10 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
         {/* Its quote, built from the kit and crew, for the roles that see money (ADR 0042). */}
         {part === 'money' && seesMoney && <QuoteCard job={job} view={view} />}
       </div>
+      {/* Who changed what on this job, without reading the whole company's history (audit, 5 November 2026, finding 51). */}
+      <p className="hint page-foot">
+        <a href={`#history/job/${job.id}`}>History of this job</a>
+      </p>
     </Page>
   )
 }
@@ -193,7 +257,9 @@ export function JobScreen({ view, id, part: asked }: { view: View; id: string; p
 /**
  * The job's crew: the calls of each phase under its name, then those
  * across phases, then asking for more. An offer being sent opens under
- * the calls it's for.
+ * the calls it's for. A head of department's own calls come first, under
+ * their department's name, so the one that's theirs isn't the fifth of
+ * seven (Move 3 of the sweep of 6 November 2026).
  */
 function CrewPart({
   job,
@@ -211,6 +277,11 @@ function CrewPart({
   mayCrew: boolean
 }) {
   const stopped = STOPPED.includes(job.status)
+  const department = useMyDepartment()
+  const theirs = (c: CallView) => sameDepartment(departmentOf(c), department)
+  const mine = job.calls.filter(theirs)
+  const others = (calls: readonly CallView[]) => calls.filter((c) => !theirs(c))
+  const across = others(job.otherCalls)
   const card = (c: CallView, phase?: PhaseView) => (
     <CallCard
       key={c.id}
@@ -222,38 +293,58 @@ function CrewPart({
       onTell={onTell}
       inJob
       phaseDays={phase ? c.start === phase.start && c.end === phase.end : undefined}
+      // Theirs are away from their phases, first, so each says its phase.
+      phaseNamed={theirs(c)}
     />
   )
+  /** The calls asked for on days outside their phase's, each said over the calls. */
+  const outside = (calls: readonly CallView[]) =>
+    calls.flatMap((c) => {
+      const phase = job.phases.find((p) => p.id === c.phaseId)
+      return phase && c.status === 'open' && (c.start < phase.start || c.end > phase.end)
+        ? [
+            <p className="warn-line" key={c.id}>
+              The {c.role} crew are asked for {daysLabel(c.days)}, outside {phase.name}.
+            </p>,
+          ]
+        : []
+    })
   return (
     <>
+      {mine.length > 0 && (
+        <>
+          <section className="card" aria-label={`${department} crew`}>
+            <Heading icon="people">{department} crew</Heading>
+            {outside(mine)}
+            {mine.map((c) => card(c))}
+          </section>
+          {offerFor(mine)}
+        </>
+      )}
       {job.phases
-        .filter((p) => p.calls.length > 0)
+        .filter((p) => others(p.calls).length > 0)
         .map((phase) => {
-          const outside = phase.calls.filter((c) => c.status === 'open' && (c.start < phase.start || c.end > phase.end))
+          const calls = others(phase.calls)
           return (
             <Fragment key={phase.id}>
               {/* Named for its phase, as the phase is on Phases: one part is open at a time. */}
               <article className="card" aria-label={phase.name}>
                 <Heading icon="people">{phase.name}</Heading>
                 <p className="hint">{spanLabel(phase)}</p>
-                {outside.map((c) => (
-                  <p className="warn-line" key={c.id}>
-                    The {c.role} crew are asked for {daysLabel(c.days)}, outside {phase.name}.
-                  </p>
-                ))}
-                {phase.calls.map((c) => card(c, phase))}
+                {outside(calls)}
+                {calls.map((c) => card(c, phase))}
               </article>
-              {offerFor(phase.calls)}
+              {offerFor(calls)}
             </Fragment>
           )
         })}
-      {job.otherCalls.length > 0 && (
+      {across.length > 0 && (
         <>
           <section className="card" aria-label="Crew across phases">
             <Heading icon="people">Across phases</Heading>
-            {job.otherCalls.map((c) => card(c))}
+            {across.map((c) => card(c))}
           </section>
-          {offerFor(job.otherCalls)}
+          {offerFor(across)}
         </>
       )}
       {/* Asking for more: last, under the calls it adds to; nothing for a role that can't ask, once there are calls to see. */}
@@ -287,7 +378,13 @@ function CrewPart({
  */
 function JobLines({ job, view }: { job: JobView; view: View }) {
   const crew = crewFill(job.calls)
+  // A head's own department's first, beside the whole job's (Move 3 of the sweep of 6 November 2026): "LX 0 of 1 · all 5 of 10".
+  const department = useMyDepartment()
+  const theirs = crewFill(job.calls.filter((c) => sameDepartment(departmentOf(c), department)))
   const kit = kitSummary(job, view.kit.byJob.get(job.id) ?? [])
+  const prep = view.steps.of(job.id)?.steps.find((s) => s.key === 'prep')
+  const out = prep?.facts.of ? ` · ${prep.facts.out} of ${prep.facts.of} out` : ''
+  const mayPick = useAccess().can('stock')
   // The facts of the job as labelled cells, on the system's facts list (the label over the value), rather than one long dotted line:
   // the eye finds the venue or the dates by their label without reading the rest (Colly, 1 November 2026).
   return (
@@ -319,14 +416,17 @@ function JobLines({ job, view }: { job: JobView; view: View }) {
         <div>
           <dt>Crew</dt>
           <dd>
-            {crew.booked} of {crew.needed} booked{crew.toConfirm > 0 ? `, ${crew.toConfirm} to confirm` : ''}
+            {theirs.needed > 0
+              ? `${department} ${theirs.booked} of ${theirs.needed}${theirs.toConfirm > 0 ? `, ${theirs.toConfirm} to confirm` : ''} · all ${crew.booked} of ${crew.needed}`
+              : `${crew.booked} of ${crew.needed} booked${crew.toConfirm > 0 ? `, ${crew.toConfirm} to confirm` : ''}`}
           </dd>
         </div>
       )}
       {kit && (
         <div>
           <dt>Kit</dt>
-          <dd>{kit}</dd>
+          {/* How far the pick has got, and the pick list a tap away for whoever picks (Move 8 of the sweep of 6 November 2026). */}
+          <dd>{mayPick && !STOPPED.includes(job.status) ? <a href={`#jobs/${encodeURIComponent(job.id)}/pick`}>{kit + out}</a> : kit + out}</dd>
         </div>
       )}
     </dl>
@@ -365,6 +465,8 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
   const stopping = STOPPED.includes(f.status) && !STOPPED.includes(job.status)
   // Everyone offered or booked on the job's open calls: told it's off once it's stopped.
   const people = job.calls.filter((c) => c.status === 'open').flatMap((c) => peopleOn(c))
+  // What their link says once it's stopped, in its own words (UX sweep, 6 November 2026, move 6).
+  const theySee = f.status === 'lost' ? STOPPED_WORDS.lost : STOPPED_WORDS.cancelled
   const send = () => {
     setAsking(false)
     void run(async () => {
@@ -398,9 +500,11 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
       <label>
         Client <input list="edit-client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} disabled={asking} />
       </label>
+      <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
       <label>
         Venue <input list="edit-venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} disabled={asking} />
       </label>
+      <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label className="wide">
         Status
         <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as ProjectStatus })} disabled={asking}>
@@ -429,16 +533,18 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
         <Confirm
           className="wide"
           question={`Marking ${job.name} ${STATUS_LABELS[f.status].toLowerCase()} also cancels its crew calls${
-            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see it's withdrawn` : ''
+            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${theySee}` : ''
           }.`}
           yes={`Mark it ${STATUS_LABELS[f.status].toLowerCase()}`}
+          loss
           no="Keep it as it is"
           onYes={send}
           onNo={() => setAsking(false)}
         />
       ) : (
         <div className="actions wide">
-          <button type="submit" className="primary">
+          {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
+          <button type="submit">
             Save job
           </button>
           <button type="button" onClick={onDone}>
@@ -658,6 +764,7 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
         Venue{' '}
         <input list="phase-venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="The job's venue" disabled={held} />
       </label>
+      {!held && <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />}
       <label>
         Local crew{' '}
         <input
@@ -689,6 +796,7 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
           className="wide"
           question={`Remove ${phase.name}? Its days come off the job and the calendar.`}
           yes="Remove it"
+          loss
           onYes={() => {
             setRemoving(false)
             void run(() => client.mutate('phase.remove', { id: phase.id })).then((ok) => ok && onDone())
@@ -696,10 +804,11 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
           onNo={() => setRemoving(false)}
         />
       )}
+      {/* Plain, the question's yes and the Save alike: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
       <div className="actions wide" hidden={removing}>
         {ask ? (
           <>
-            <button type="button" className="primary" onClick={() => send({ ...ask, moveCrew: true })}>
+            <button type="button" onClick={() => send({ ...ask, moveCrew: true })}>
               Move them
             </button>
             <button type="button" onClick={() => send(ask)}>
@@ -711,7 +820,7 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
           </>
         ) : (
           <>
-            <button type="submit" className="primary">
+            <button type="submit">
               Save phase
             </button>
             <button type="button" onClick={onDone}>
@@ -758,14 +867,16 @@ function AddPhase({ job }: { job: JobView }) {
   return (
     <form className="grid-form add-phase" onSubmit={submit} aria-label="Add a phase">
       <label className="wide">
-        New phase <input list="phase-names-add" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Build, Show…" />
+        New phase <input list="phase-names-add" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Build" required />
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} />
+        </label>
+      </div>
       <Refusal error={error} className="wide" />
       {added && !error && (
         <p className="added wide" role="status">
@@ -887,18 +998,20 @@ function AskForCrew({ job }: { job: JobView }) {
       <label>
         How many <input type="number" min={1} value={f.needed} onChange={(e) => setF({ ...f, needed: Number(e.target.value) })} />
       </label>
-      <label>
-        From <input type="date" value={start} onChange={(e) => setDates({ start: e.target.value, end: end < e.target.value ? e.target.value : end })} />
-      </label>
-      <label>
-        To <input type="date" value={end} min={start} onChange={(e) => setDates({ start, end: e.target.value })} />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={start} onChange={(e) => setDates({ start: e.target.value, end: end < e.target.value ? e.target.value : end })} />
+        </label>
+        <label>
+          To <input type="date" value={end} min={start} onChange={(e) => setDates({ start, end: e.target.value })} />
+        </label>
+      </div>
       <label>
         Call time <input type="time" value={f.callTime} onChange={(e) => setF({ ...f, callTime: e.target.value })} />
       </label>
       {seesRates ? (
         <label>
-          Day rate € <input inputMode="decimal" value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} placeholder="250" />
+          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} placeholder="250" /></UnitBox>
         </label>
       ) : (
         <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>
@@ -918,7 +1031,8 @@ function AskForCrew({ job }: { job: JobView }) {
           {asked}
         </p>
       )}
-      <button type="submit" className="primary wide">
+      {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
+      <button type="submit" className="wide">
         Ask for crew
       </button>
     </form>

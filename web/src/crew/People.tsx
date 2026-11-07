@@ -1,3 +1,4 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   APPLICANT_LEVEL,
   CERTIFICATE_KINDS,
@@ -28,8 +29,9 @@ import {
   ROLE_LABELS,
   sameEmail,
   whoSignsInRefusal,
+  nameKey,
 } from '@sh/shared'
-import { useId, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
@@ -49,19 +51,31 @@ import { SkillsField, withTyped } from './SkillsField.tsx'
 /** A department as compared: free text, so "audio" and "Audio" are one. */
 export const dept = (p: Pick<PersonView, 'department'>) => (p.department ?? '').toLowerCase()
 
-/** Lower case with the fadas off, so "padraig" finds Pádraig and "sean" finds Seán: names are often typed without them. */
-export const plain = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+/**
+ * Lower case with the fadas off, so "padraig" finds Pádraig and "sean" finds Seán: names are often typed without them.
+ * Apostrophes, straight or a phone's curly one, and hyphens go too, so "oconnor" and "o’connor" find O'Connor (audit,
+ * 5 November 2026, finding 41).
+ */
+export const plain = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/['’‘`´-]/g, '')
 
 /** The words typed into a search for someone. */
 export const wordsOf = (typed: string) => plain(typed).split(/\s+/).filter(Boolean)
 
 /**
  * Whether every word typed is in someone's name, the name they go by, their
- * department or a skill (audit finding 16): the picker's search and the
+ * department or a skill (audit finding 16), their email or phone: the picker's search and the
  * people list's find people the same way.
  */
 export function found(p: PersonView, words: readonly string[]): boolean {
-  const text = plain([p.name, p.knownAs, p.department, ...p.skills].filter(Boolean).join(' '))
+  // Their phone by its digits, as typed with or without the country code, and their addresses: "who's this number that rang?".
+  const digits = (p.phone ?? '').replace(/\D/g, '')
+  const phones = digits ? [digits, digits.startsWith('353') ? `0${digits.slice(3)}` : ''] : []
+  const text = plain([p.name, p.knownAs, p.department, ...p.skills, p.email, ...(p.otherEmails ?? []), ...phones].filter(Boolean).join(' '))
   return words.every((w) => text.includes(w))
 }
 
@@ -88,9 +102,11 @@ export function PersonRow({ person, crew }: { person: PersonView; crew: CrewView
           <small>
             {[
               // A role set says more than "Staff"; none set is staff crew, which is what "Staff" says (ADR 0034).
-              person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : null,
+              // Freelancer said too, so a department after it isn't read as a skill (audit, 5 November 2026, finding 94).
+              person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : 'Freelancer',
               person.department,
-              levelLine(person.level),
+              // The office's, and not sent to staff crew or freelancers (audit, 5 November 2026, finding 44).
+              person.levelHidden ? null : levelLine(person.level),
               person.kind === 'staff' && person.approvesLeave ? 'approves time off' : null,
               person.skills.join(', '),
               // A rate this device isn't sent (ADR 0046) isn't said in the list; their page says it's hidden.
@@ -156,8 +172,25 @@ function certificatesOf(fields: CertFields): Certificates {
   return out
 }
 
-export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial?: PersonView; submitLabel: string; onSubmit: (fields: PersonFields) => Promise<unknown>; onDone?: () => void }) {
+export function PersonForm({
+  initial,
+  submitLabel,
+  onSubmit,
+  onDone,
+  focusFirst = false,
+}: {
+  initial?: PersonView
+  submitLabel: string
+  onSubmit: (fields: PersonFields) => Promise<unknown>
+  onDone?: () => void
+  /** Opened by a press that goes as it opens (Change details): the focus goes to the first field rather than nowhere (audit, 5 November 2026, finding 87). */
+  focusFirst?: boolean
+}) {
   const access = useAccess()
+  const form = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (focusFirst) form.current?.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea')?.focus()
+  }, [focusFirst])
   // Who approves time off is a permission, so it's a director's to give once roles are on (ADR 0034); the form keeps it as it was.
   const mayApprove = access.can('company')
   // The email and type of someone who holds a role are how they sign in as it, so only the office and directors change them (audit finding 12).
@@ -250,13 +283,32 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
     })
   }
   return (
-    <form className="grid-form" onSubmit={submit} aria-label={initial ? `Edit ${initial.name}` : 'Add person'}>
-      <label>
-        First name <input value={f.firstName} onChange={set('firstName')} autoComplete="off" maxLength={100} required />
-      </label>
-      <label>
-        Last name <input value={f.lastName} onChange={set('lastName')} autoComplete="off" maxLength={100} />
-      </label>
+    <form className="grid-form" ref={form} onSubmit={submit} aria-label={initial ? `Edit ${initial.name}` : 'Add person'}>
+      <div className="pair">
+        <label>
+          First name <input value={f.firstName} onChange={set('firstName')} autoComplete="off" spellCheck={false} maxLength={100} required />
+        </label>
+        <label>
+          Last name <span className="optional">(optional)</span> <input value={f.lastName} onChange={set('lastName')} autoComplete="off" spellCheck={false} maxLength={100} />
+        </label>
+      </div>
+      {/* Said before a second one is made, not found later in Tidy up (audit, 5 November 2026, finding 94). */}
+      {!initial && (() => {
+        const typed = nameKey(fullName({ firstName: f.firstName.trim(), lastName: f.lastName.trim() }))
+        const already = f.lastName.trim() ? people.filter((p) => !p.archived && nameKey(p.name) === typed) : []
+        return already.length > 0 ? (
+          <p className="hint wide" role="status">
+            There's already {already.length === 1 ? 'a' : already.length} {already[0]!.name}:{' '}
+            {already.map((p, i) => (
+              <Fragment key={p.id}>
+                {i > 0 && ', '}
+                <a href={personHref(p.id)}>{p.email ?? p.phone ?? 'their page'}</a>
+              </Fragment>
+            ))}
+            . Add another only if it's someone else.
+          </p>
+        ) : null
+      })()}
       <label>
         Mobile <input type="tel" value={f.phone} onChange={set('phone')} placeholder="+353 87…" />
       </label>
@@ -292,7 +344,7 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
       />
       {seesRates && (
         <label>
-          Usual day rate € <input inputMode="decimal" value={f.rate} onChange={set('rate')} />
+          Usual day rate <UnitBox unit="€" before><input aria-label="Usual day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} /></UnitBox>
         </label>
       )}
       <label>
@@ -385,7 +437,9 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
         </div>
       </details>
       <Refusal error={error} className="wide" />
-      <button type="submit" className={initial ? 'primary' : 'wide'}>
+      {/* Red either way, as the page's one next thing: a change being saved, or a new person once Add person has opened the form,
+          as every list's add opens onto (UX sweep, 6 November 2026, move 1). */}
+      <button type="submit" className={initial ? 'primary' : 'primary wide'}>
         {submitLabel}
       </button>
       {initial && (

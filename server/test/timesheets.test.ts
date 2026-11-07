@@ -71,7 +71,8 @@ async function gala() {
   await ok(
     app,
     // Off until the office says (ADR 0090); 'are off until the office turns them on' below starts from off.
-    m('timesheets.use', { on: true }),
+    // From a month back (ADR 0110): the gala that's over began once timesheets were on.
+    m('timesheets.use', { on: true, from: day(-30) }),
     m('project.create', { id: 'gala', name: 'Autumn Gala', clientId: null, venueId: null, status: 'confirmed', notes: '' }),
     m('phase.add', { id: 'show', projectId: 'gala', name: 'Show', start: day(-3), end: day(-1), venueId: null, notes: '' }),
     person('dara', 'Dara Quinn'),
@@ -122,10 +123,14 @@ describe('timesheets switched off (ADR 0090)', () => {
 
     await ok(app, m('timesheets.use', { on: false }))
     const home = await page(app, `/f/${dara}`)
-    expect(home.html).not.toContain('<h2>Timesheets</h2>')
+    expect(home.html).not.toContain('/timesheet/')
     expect(home.html).not.toContain('to send</a>')
     expect(home.html).not.toContain(`/timesheet/`)
-    expect((await page(app, `/f/${dara}/timesheet/dara-sound`)).status).toBe(404)
+    const off = await page(app, `/f/${dara}/timesheet/dara-sound`)
+    expect(off.status).toBe(404)
+    // Said as the post says it, not as if the booking had gone (audit, 5 November 2026, finding 67).
+    expect(off.html).toContain('Timesheets aren&#39;t used here just now.')
+    expect(off.html).not.toContain('you may not be booked on it any more')
     const refused = await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)], ['note', 'Again']])
     expect(refused).toMatchObject({ ok: false, message: expect.stringContaining("Timesheets aren't used here") })
     // Kept as it was, and back on the page when they're turned on again.
@@ -133,7 +138,7 @@ describe('timesheets switched off (ADR 0090)', () => {
     const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
     expect(history.entries[0]).toMatchObject({ what: 'Turned off timesheets' })
     await ok(app, m('timesheets.use', { on: true }))
-    expect((await page(app, `/f/${dara}`)).html).toContain('<h2>Timesheets</h2>')
+    expect((await page(app, `/f/${dara}`)).html).toContain('<h2>Work done</h2>')
   })
 
   it('are off on a fresh company', async () => {
@@ -149,12 +154,46 @@ describe('timesheets switched off (ADR 0090)', () => {
   })
 })
 
+describe('timesheets turned on (ADR 0110)', () => {
+  it('ask only for bookings from the day they went on, and the office can still put one in for an older one', async () => {
+    const { app, db, token, timesheet } = await gala()
+    const dara = await token('dara')
+    expect((await page(app, `/f/${dara}`)).html).toContain('1 timesheet to send')
+    // Turned on today: the gala that's over began before, so it's no backlog to chase.
+    await ok(app, m('timesheets.use', { on: true, from: today }))
+    const home = await page(app, `/f/${dara}`)
+    expect(home.html).not.toContain('to send</a>')
+    expect(home.html).not.toContain('/timesheet/')
+    expect((await page(app, `/f/${dara}/timesheet/dara-sound`)).html).toContain('This booking started before timesheets were used here')
+    const refused = await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-2)], ['note', '']])
+    expect(refused).toMatchObject({ ok: false, message: expect.stringContaining('started before timesheets were used here') })
+    expect(await timesheet('dara-sound')).toBeUndefined()
+    await ok(app, m('timesheet.send', { id: 'dara-sound', days: [day(-2)], extras: [], note: '' }))
+    expect(await timesheet('dara-sound')).toBe('sent')
+    const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
+    expect(history.entries.map((e) => e.what)).toContain(`Turned on timesheets for bookings from ${dayLabel(today)}`)
+    // The day is kept with the switch, for the office's lists.
+    const { rows } = await db.query<{ f: string }>(`SELECT timesheets_from AS f FROM settings WHERE id = 'timesheets'`)
+    expect(rows[0]?.f).toBe(today)
+  })
+
+  it('start from today when turned on with no day, and keep the day while they stay on', async () => {
+    const { app, db } = await gala()
+    const from = async () => (await db.query<{ f: string | null }>(`SELECT timesheets_from AS f FROM settings WHERE id = 'timesheets'`)).rows[0]?.f
+    expect(await from()).toBe(day(-30))
+    await ok(app, m('timesheets.use', { on: true }))
+    expect(await from()).toBe(day(-30))
+    await ok(app, m('timesheets.use', { on: false }), m('timesheets.use', { on: true }))
+    expect(await from()).toBe(today)
+  })
+})
+
 describe('a timesheet from a private link', () => {
   it('is sent with the days worked and the extras, and shows on the freelancer\'s page', async () => {
     const { app, token } = await gala()
     const dara = await token('dara')
     const home = await page(app, `/f/${dara}`)
-    expect(home.html).toContain('<h2>Timesheets</h2>')
+    expect(home.html).toContain('<h2>Work done</h2>')
     expect(home.html).toContain(`/f/${dara}/timesheet/dara-sound`)
     expect(home.html).toContain('Send your days and extras')
 
@@ -184,7 +223,7 @@ describe('a timesheet from a private link', () => {
     expect(sent.back.html).toContain('value="Mileage"')
     expect(sent.back.html).toContain('value="25.50"')
     expect(sent.back.html).toContain('Update what you sent')
-    expect((await page(app, `/f/${dara}`)).html).toContain('Sent: €683.50. The office will check it')
+    expect((await page(app, `/f/${dara}`)).html).toContain('Sent €683.50, with the office')
 
     // It reached the office's devices, and the history says who sent it.
     const pulled = (await app.inject({ url: '/api/sync/pull?after=0' })).json()
@@ -205,11 +244,15 @@ describe('a timesheet from a private link', () => {
     const { app, token, timesheet } = await gala()
     const [dara, eimear, fionn, aoife] = [await token('dara'), await token('eimear'), await token('fionn'), await token('aoife')]
     // Not started yet: nothing to send.
-    expect((await page(app, `/f/${eimear}`)).html).not.toContain('<h2>Timesheets</h2>')
+    expect((await page(app, `/f/${eimear}`)).html).not.toContain('<h2>Work done</h2>')
     expect((await page(app, `/f/${eimear}/timesheet/eimear-later`)).html).toContain(`The timesheet opens on`)
     const early = await post(app, `/f/${eimear}/timesheet/eimear-later`, [['days', day(5)]])
     expect(early).toMatchObject({ ok: false })
     expect(early.message).toContain('opens on')
+    // With no form to say it under yet, a refusal about the days is said at the top, where the page lands.
+    const notYet = await post(app, `/f/${eimear}/timesheet/eimear-later`, [['picker', '1']])
+    expect(notYet.back.html).toContain('<p class="flash bad" role="alert" id="refused">Tick at least one day you worked.</p>')
+    expect(notYet.back.html.match(/ id="refused"/g)).toHaveLength(1)
     // Only offered; staff; someone else's.
     expect((await post(app, `/f/${fionn}/timesheet/fionn-sound`, [['days', day(-1)]])).message).toBe('Only a confirmed booking has a timesheet.')
     expect((await post(app, `/f/${aoife}/timesheet/aoife-chief`, [['days', day(-1)]])).message).toContain('Staff are paid through payroll')
@@ -217,7 +260,13 @@ describe('a timesheet from a private link', () => {
     expect((await page(app, `/f/${dara}/timesheet/aoife-chief`)).status).toBe(404)
     // Days they weren't booked, none at all, and extras without a name or an amount.
     expect((await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-3)]])).message).toContain("wasn't one of your booked days")
-    expect((await post(app, `/f/${dara}/timesheet/dara-sound`, [['picker', '1']])).message).toBe('Tick at least one day you worked.')
+    const none = await post(app, `/f/${dara}/timesheet/dara-sound`, [['picker', '1']])
+    expect(none.message).toBe('Tick at least one day you worked.')
+    // Said under the days, which the page drawn again lands on, with "Error: " first in its title.
+    expect(none.back.html).toMatch(/<fieldset class="days" aria-describedby="days-error" id="refused"><legend>Days you worked<\/legend>[^]*?<\/fieldset><p class="field-error" id="days-error" role="alert">Tick at least one day you worked.<\/p>/)
+    expect(none.back.html).not.toContain('class="flash')
+    expect(none.back.html).toMatch(/<title>Error: Timesheet: /)
+    expect(none.back.html).toMatch(/\/timesheet\/dara-sound#refused" class="timesheet">/)
     expect((await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)], ['what', ''], ['euro', '12']])).message).toBe('Say what each extra is for.')
     // The message is one of the page's own, so it can't name the extra typed (audit finding 21).
     const lots = await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)], ['what', 'Tolls'], ['euro', 'lots'], ['note', 'Left at 2am']])
@@ -227,6 +276,7 @@ describe('a timesheet from a private link', () => {
     expect(lots.back.html).toContain(
       '<input name="euro" inputmode="decimal" aria-invalid="true" aria-describedby="extra-error-0" value="lots"></label></div><p class="field-error" id="extra-error-0" role="alert">Put in the amount for each extra, in euro.</p>'
     )
+    expect(lots.back.html).toContain('<div class="extra" id="refused">')
     const second = await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)], ['what', 'Tolls'], ['euro', '4'], ['what', ''], ['euro', '12']])
     expect(second.back.html).toContain('<input name="what" maxlength="100" aria-invalid="true" aria-describedby="extra-error-1" value="">')
     expect(second.back.html.match(/aria-invalid="true"/g)).toHaveLength(1)
@@ -271,10 +321,23 @@ describe('the office and timesheets', () => {
       expect(seen).toContain(change)
     expect(seen).toContain('Food was on site.')
     expect(seen).not.toContain('<form')
-    expect((await page(app, `/f/${dara}`)).html).toContain('Approved: €338.10')
+    expect((await page(app, `/f/${dara}`)).html).toContain('Approved €338.10, not paid yet')
 
     // Settled: the freelancer can't change it, the same approval again changes nothing, and a different one is turned down.
     expect((await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)]])).message).toContain('already approved')
+    // A page from before it was approved, sent with no day ticked or an extra with no name: there's no form to say it
+    // under now, so it's said at the top, where the page lands, over what the office approved.
+    for (const [fields, message] of [
+      [[['picker', '1']], 'Tick at least one day you worked.'],
+      [[['days', day(-1)], ['what', ''], ['euro', '12']], 'Say what each extra is for.'],
+    ] as [[string, string][], string][]) {
+      const stale = await post(app, `/f/${dara}/timesheet/dara-sound`, fields)
+      expect(stale.message).toBe(message)
+      expect(stale.back.html).toContain(`<p class="flash bad" role="alert" id="refused">${message}</p>`)
+      expect(stale.back.html.match(/ id="refused"/g)).toHaveLength(1)
+      expect(stale.back.html).toMatch(/<title>Error: Timesheet: /)
+      expect(stale.back.html).toContain('Approved: €338.10')
+    }
     await ok(app, { ...approve, id: newId() })
     const [changed] = await send(app, m('timesheet.approve', { id: 'dara-sound', days: [day(-1)], dayRateCents: 30000, extras: [], officeNote: '' }))
     expect(changed).toMatchObject({ status: 'rejected', reason: { message: 'This timesheet has already been approved, with other figures. Reopen it to change it.' } })
@@ -285,6 +348,20 @@ describe('the office and timesheets', () => {
     const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
     expect(history.entries.slice(0, 1).map((e) => e.what)).toEqual(["Reopened Dara Quinn's timesheet for Sound No.1 on Autumn Gala, to change it"])
     expect(history.entries.map((e) => e.what)).toContain("Approved Dara Quinn's timesheet for Sound No.1 on Autumn Gala: 1 day at €320, and €18.10 of extras: €338.10")
+  })
+
+  it('says on the link when an approved timesheet was paid', async () => {
+    // Proves: once the office records the payment, the timesheet's page and the link's list say Paid and the day (audit, 5 November 2026, finding 65).
+    const { app, token } = await gala()
+    const dara = await token('dara')
+    await post(app, `/f/${dara}/timesheet/dara-sound`, [['days', day(-1)]])
+    await ok(app, m('timesheet.approve', { id: 'dara-sound', days: [day(-1)], dayRateCents: 32000, extras: [], officeNote: '' }))
+    expect((await page(app, `/f/${dara}/timesheet/dara-sound`)).html).not.toContain('paid on')
+    await ok(app, m('cost.paid', { id: 'dara-sound', on: day(0) }))
+    const seen = (await page(app, `/f/${dara}/timesheet/dara-sound`)).html
+    expect(seen).toContain('Paid: €320')
+    expect(seen).toContain(`, paid on ${dayLabel(day(0))}. If something's wrong, ask the office.`)
+    expect((await page(app, `/f/${dara}`)).html).toContain(`Paid ${dayLabel(day(0))}, €320`)
   })
 
   it('keeps the office\'s rate and added day when the freelancer resends after a reopen', async () => {

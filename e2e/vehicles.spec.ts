@@ -64,11 +64,11 @@ test('Stock › Vehicles lists the vans and their checks, and a van off the road
   // Its own page, under Stock › Vehicles.
   await luton.click()
   await expect(phone.getByRole('heading', { name: 'The Luton', level: 1 })).toBeVisible()
-  await expect(phone.locator('.title').getByText('Off the road')).toBeVisible()
+  await expect(phone.locator('.page-title-row').getByText('Off the road')).toBeVisible()
   await expect(phone.getByRole('region', { name: 'Booked on' })).toContainText('Liffey Brands Launch')
   await phone.getByRole('button', { name: 'Back on the road' }).click()
   await expect(phone.getByRole('status')).toHaveText('Up to date')
-  await expect(phone.locator('.title').getByText('Off the road')).toHaveCount(0)
+  await expect(phone.locator('.page-title-row').getByText('Off the road')).toHaveCount(0)
   await expect(phone.getByRole('button', { name: 'Off the road…' })).toBeVisible()
 
   // A van added with its CVRT already run out: counted on Stock's row, and marked in the list.

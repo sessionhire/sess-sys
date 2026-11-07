@@ -9,7 +9,7 @@ import { AreaIcon } from './home/icons.tsx'
 import { PreviewSplash, useHoldPersona, usePreview } from './home/Preview.tsx'
 // Holds every change to the person's role (ADR 0034).
 import './role.ts'
-import { FootContext } from './foot.tsx'
+import { FootContext, useDesk } from './foot.tsx'
 import { JobsScreen } from './jobs/JobsScreen.tsx'
 import { QuotesScreen } from './jobs/QuotesScreen.tsx'
 import { MenuScreen } from './MenuScreen.tsx'
@@ -105,17 +105,6 @@ function useBarAway(): boolean {
   return away
 }
 
-/** From 900px across the places are a sidebar (ADR 0036), with room for more than a phone's bar. */
-const deskWide = typeof matchMedia === 'function' ? matchMedia('(min-width: 900px)') : undefined
-function useDesk(): boolean {
-  const [desk, setDesk] = useState(deskWide?.matches ?? false)
-  useEffect(() => {
-    const on = () => setDesk(deskWide?.matches ?? false)
-    deskWide?.addEventListener('change', on)
-    return () => deskWide?.removeEventListener('change', on)
-  }, [])
-  return desk
-}
 
 export function Shell() {
   const auth = useAuth()

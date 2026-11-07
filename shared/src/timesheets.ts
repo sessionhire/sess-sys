@@ -114,15 +114,36 @@ export function timesheetChanges(t: Pick<Timesheet, 'days' | 'dayRateCents' | 'e
 }
 
 /**
+ * How long after its last day a booking with no timesheet is still asked
+ * for: as long as an approved one stays on the freelancer's page (ADR 0110).
+ * Older than that, it was paid some other way or it's a matter for the office.
+ */
+export const TIMESHEET_ASKED_DAYS = 60
+
+/** A day so many days before another, at noon so no clock change moves it. */
+const daysBefore = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10)
+
+/**
+ * Which bookings are asked for a timesheet (ADR 0110): those that started on
+ * or after the day the company turned timesheets on, and ended in the last
+ * two months. Given only where someone is asked (the freelancer's link and
+ * the office's lists), so the office can still put one in for any booking.
+ */
+export type TimesheetAsking = { from: string | null }
+
+/**
  * Why a booking can't have a timesheet (yet), or null when it can: it's a
  * freelancer's, confirmed, on a job going ahead, and its first day has come.
+ * Where someone is asked for it (`asking`), also that it began once
+ * timesheets were on and ended within TIMESHEET_ASKED_DAYS.
  * The server, the app and the freelancer's page all ask this, so they agree.
  */
 export function noTimesheetReason(
   offer: Pick<Offer, 'status' | 'days'> & Partial<Pick<Offer, 'respondedVia' | 'respondedAt'>>,
   call: Pick<CrewCall, 'status'>,
   person: Pick<Person, 'kind'> | undefined,
-  today: string
+  today: string,
+  asking?: TimesheetAsking
 ): string | null {
   if (person?.kind === 'staff') return "Staff are paid through payroll, so there's no timesheet for this."
   if (call.status !== 'open') return 'This job was cancelled, so there is no timesheet for it. Talk to the office about any cancellation fee.'
@@ -134,8 +155,26 @@ export function noTimesheetReason(
   const last = sorted.at(-1)
   if (offer.respondedVia === 'calendar' && last && offer.respondedAt && offer.respondedAt.slice(0, 10) > last)
     return 'This booking was brought in from the calendar after it happened, so it has no timesheet.'
+  // Not a backlog of every booking since the calendar came in, on the day timesheets go on (ADR 0110).
+  if (asking?.from && first && first < asking.from)
+    return 'This booking started before timesheets were used here, so there is no timesheet for it. Talk to the office if it has not been paid.'
+  if (asking && last && last < daysBefore(today, TIMESHEET_ASKED_DAYS))
+    return 'This booking ended more than two months ago, so there is no timesheet for it now. Talk to the office if it has not been paid.'
   return null
 }
+
+/**
+ * Whether a booking's days are done, to count it as a timesheet to send
+ * (ADR 0110): from the evening of its last day, so one that starts today
+ * isn't "to send" while they're still on site. The page still lets them send it.
+ */
+export function timesheetDue(days: readonly string[], today: string, clock: string): boolean {
+  const last = [...days].sort().at(-1)
+  return !!last && (last < today || (last === today && clock >= TIMESHEET_EVENING))
+}
+
+/** When a day's work is counted as done, in Ireland, for timesheetDue. */
+export const TIMESHEET_EVENING = '18:00'
 
 /** Asking for a timesheet, for WhatsApp, a text or an email. */
 export function timesheetMessage(p: Pick<Person, 'name'> & Partial<Pick<Person, 'knownAs'>>, c: Pick<CrewCall, 'project' | 'phase'>, link: string): { text: string; subject: string } {

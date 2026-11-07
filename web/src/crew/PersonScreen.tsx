@@ -9,12 +9,17 @@ import {
   levelLine,
   LEVELS,
   newId,
+  type CallView,
+  type OfferView,
   type PersonView,
+  type ProjectStatus,
   type View,
+  HIDDEN_FOR_YOUR_ROLE,
+  TIME_GROUPS,
 } from '@sh/shared'
 import { CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
-import { holdsARole, ROLE_LABELS, ROLE_LINES, ROLES, roleOfPerson, signInAbility, type Role } from '@sh/shared'
-import { useId, useState } from 'react'
+import { holdsARole, ROLE_LABELS, ROLE_LINES, ROLES, roleOfPerson, signInAbility, soonestFirst, type Role } from '@sh/shared'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
@@ -22,13 +27,14 @@ import { Heading, Icon } from '../Icon.tsx'
 import { Page } from '../jobs/common.tsx'
 import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
-import { Pending, StatusPill } from '../StatusPill.tsx'
+import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { CREW, PEOPLE } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { CombineWith, useSamePeople } from './Combine.tsx'
-import { STATUS } from './Calls.tsx'
+import { asBooking, BookingRow, stoppedBookings } from './BookingRow.tsx'
+import { useMe } from './Leave.tsx'
 import { linkFor } from './Messages.tsx'
 import { PersonForm } from './People.tsx'
 import { Documents } from './Documents.tsx'
@@ -53,7 +59,8 @@ const dateLabel = (d: string) => `${dayLabel(d)} ${d.slice(0, 4)}`
 /** A person's page in parts (ADR 0082), one at a time under their name. */
 export type PersonPart = 'coming' | 'details' | 'documents' | 'worked' | 'link'
 const PERSON_PARTS: readonly PersonPart[] = ['coming', 'details', 'documents', 'worked', 'link']
-const PERSON_LABELS: Record<PersonPart, string> = { coming: 'Coming up', details: 'Details', documents: 'Documents', worked: 'Worked', link: 'Their link' }
+// The time parts in the word table's names (UX sweep, 6 November 2026, move 4); the key stays 'worked' in addresses.
+const PERSON_LABELS: Record<PersonPart, string> = { coming: TIME_GROUPS.coming, details: 'Details', documents: 'Documents', worked: TIME_GROUPS.past, link: 'Their link' }
 
 export function PersonScreen({
   view,
@@ -69,9 +76,13 @@ export function PersonScreen({
   const person = view.crew.people.find((p) => p.id === id)
   const up = { steps: [CREW, PEOPLE], here: person?.name }
   const access = useAccess()
-  // Their link is the office's to send; their own is anyone's to open (audit, 20 October 2026, finding 35).
-  const own = !!person && person.id === access.personId
-  const parts = PERSON_PARTS.filter((p) => p !== 'link' || (person && !person.archived && (own || access.can('crew'))))
+  // Their own page, by their account or, while sign-in is off, by who this device says it is, as Home › Me goes by: their
+  // link is anyone's own to open (audit, 20 October 2026, finding 35), and the page says theirs in their words, its bookings
+  // by the name Home › Me and their link give them (UX sweep, 6 November 2026, move 6).
+  const { me } = useMe(view)
+  const own = !!person && person.id === (access.personId ?? me?.id)
+  // Not a tab holding only "your role doesn't see it" either (audit, 5 November 2026, finding 94).
+  const parts = PERSON_PARTS.filter((p) => p !== 'link' || (person && !person.archived && (own || (access.can('crew') && !person.linkHidden))))
   const [part, pick] = useTab({ parts, asked, remember: 'sh.personPart', address: (p) => `${personHref(id)}/${p}` })
   if (!person)
     return (
@@ -94,11 +105,19 @@ export function PersonScreen({
     >
       <Reach person={person} />
       <Warnings person={person} view={view} />
-      <Tabs label={`About ${person.name}`} id="person" parts={parts} labels={own ? { ...PERSON_LABELS, link: 'Your page' } : PERSON_LABELS} current={part} counts={{ worked: person.worked.length || undefined }} onPick={pick} />
+      <Tabs
+        label={`About ${person.name}`}
+        id="person"
+        parts={parts}
+        labels={own ? { ...PERSON_LABELS, coming: 'Your bookings', link: 'Your page' } : PERSON_LABELS}
+        current={part}
+        counts={{ worked: person.worked.length || undefined }}
+        onPick={pick}
+      />
       <TabPanel id="person" current={part}>
         {part === 'coming' && (
           <>
-            <ComingUp person={person} view={view} onArchived={onArchived} />
+            <ComingUp person={person} view={view} own={own} onArchived={onArchived} />
             <OwnCalendarCard person={person} view={view} />
           </>
         )}
@@ -111,8 +130,12 @@ export function PersonScreen({
           </section>
         )}
         {part === 'worked' && <Worked person={person} />}
-        {part === 'link' && <TheirLink person={person} />}
+        {part === 'link' && <TheirLink person={person} own={own} />}
       </TabPanel>
+      {/* Who changed their details and when (audit, 5 November 2026, finding 51). */}
+      <p className="hint page-foot">
+        <a href={`#history/person/${person.id}`}>History of {person.name}'s details</a>
+      </p>
     </Page>
   )
 }
@@ -122,7 +145,7 @@ function WhoLine({ person }: { person: PersonView }) {
   const kind = person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : 'Freelancer'
   return (
     <>
-      <p>{[kind, person.department, levelLine(person.level)].filter(Boolean).join(' · ')}</p>
+      <p>{[kind, person.department, person.levelHidden ? null : levelLine(person.level)].filter(Boolean).join(' · ')}</p>
       {person.knownAs && <p>Goes by {person.knownAs}</p>}
     </>
   )
@@ -170,8 +193,8 @@ function Warnings({ person, view }: { person: PersonView; view: View }) {
       )}
       {access.can('crew') && !person.archived && twice && twice.length > 0 && (
         <p className="warn-line">
-          {twice.map((p) => p.name).join(', ')} {twice.length === 1 ? 'looks' : 'look'} like the same person, brought in twice. Combine them under
-          Details.
+          {twice.map((p) => p.name).join(', ')} {twice.length === 1 ? 'looks' : 'look'} like the same person, brought in twice.{' '}
+          <a href={`${personHref(person.id)}/details`}>Combine them under Details</a>.
         </p>
       )}
     </>
@@ -187,7 +210,16 @@ function Who({ person, view }: { person: PersonView; view: View }) {
   // Their main email is how they're written to; for someone with a role, only who changes settings changes it, as with the email itself.
   const mayMakeMain = mayEdit && (!holdsARole(person) || access.can(signInAbility(person.role)))
   const [editing, setEditing] = useState(false)
+  // Saved or left, the focus goes back to Change details, which the form stood in for.
+  const change = useRef<HTMLButtonElement>(null)
+  const wasEditing = useRef(false)
+  useEffect(() => {
+    if (wasEditing.current && !editing) change.current?.focus()
+    wasEditing.current = editing
+  }, [editing])
   const { run, error } = useAct()
+  // Make main said, not done in silence (audit, 5 November 2026, finding 94).
+  const [mainSaid, setMainSaid] = useState('')
   const phone = person.phone?.trim()
   const email = person.email?.trim()
   const kind = person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : 'Freelancer'
@@ -198,13 +230,14 @@ function Who({ person, view }: { person: PersonView; view: View }) {
       {/* Not sent to staff crew or freelancers (ADR 0062): said, so it isn't taken for none. */}
       {person.detailsHidden && (
         <p className="hint">
-          Your role doesn't see {person.name}'s {person.phone ? 'email, notes or company' : 'phone, email, notes or company'}. The office has them.
+          {person.phone ? 'Email, notes and company' : 'Phone, email, notes and company'}: {HIDDEN_FOR_YOUR_ROLE.toLowerCase()}. The office has them.
         </p>
       )}
       {editing ? (
         <PersonForm
           initial={person}
           submitLabel="Save"
+          focusFirst
           onSubmit={(fields) => client.mutate('person.upsert', { id: person.id, ...fields })}
           onDone={() => setEditing(false)}
         />
@@ -232,7 +265,9 @@ function Who({ person, view }: { person: PersonView; view: View }) {
                             type="button"
                             className="link"
                             aria-label={`Make ${e} ${person.name}'s main email`}
-                            onClick={() => void run(() => client.mutate('person.mainEmail', { id: person.id, email: e }))}
+                            onClick={() =>
+                              void run(() => client.mutate('person.mainEmail', { id: person.id, email: e })).then((ok) => ok && setMainSaid(`${e} is ${person.name}'s main email now.`))
+                            }
                           >
                             Make main
                           </button>
@@ -241,6 +276,11 @@ function Who({ person, view }: { person: PersonView; view: View }) {
                     </ul>
                   ) : (
                     person.otherEmails!.join(', ')
+                  )}
+                  {mainSaid && (
+                    <p className="added" role="status">
+                      {mainSaid}
+                    </p>
                   )}
                 </dd>
               </div>
@@ -310,11 +350,13 @@ function Who({ person, view }: { person: PersonView; view: View }) {
               person={person}
               role={role}
               mayChange={access.can('company')}
-              onChange={(next) => void run(() => client.mutate('person.role', { id: person.id, role: next }))}
+              mine={access.personId === person.id}
+              otherDirectors={view.crew.people.filter((p) => p.id !== person.id && !p.archived && roleOfPerson(p) === 'director').length}
+              onChange={(next) => run(() => client.mutate('person.role', { id: person.id, role: next }))}
             />
           )}
           {mayEdit && (
-            <button type="button" onClick={() => setEditing(true)}>
+            <button type="button" ref={change} onClick={() => setEditing(true)}>
               Change details
             </button>
           )}
@@ -330,13 +372,23 @@ function Who({ person, view }: { person: PersonView; view: View }) {
   )
 }
 
-/** What's ahead for them: bookings, offers still waiting on an answer, and days off, with marking more days off and archiving. */
-function ComingUp({ person, view, onArchived }: { person: PersonView; view: View; onArchived: (p: { id: string; name: string }) => void }) {
+/**
+ * What's ahead for them: bookings, offers still waiting on an answer, and days off, with marking more days off and archiving.
+ * On their own page, their bookings by the name Home › Me and their link give them, and an offer opens their link, where
+ * it's answered (UX sweep, 6 November 2026, move 6).
+ */
+function ComingUp({ person, view, own, onArchived }: { person: PersonView; view: View; own: boolean; onArchived: (p: { id: string; name: string }) => void }) {
   const crew = view.crew
   const today = useToday()
-  const mayEdit = useAccess().can('crew') && !person.archived
+  const access = useAccess()
+  const mayEdit = access.can('crew') && !person.archived
+  // Staff answer their own offers on the job's page in the app (ADR 0111); a freelancer's own open their link.
+  const answers = access.can('answer')
+  const heading = own ? 'Your bookings' : 'Coming up'
   const { run, error, refuse } = useAct()
   const [away, setAway] = useState({ start: today, end: today, note: '' })
+  // The job holding them back, as a way to it beside the refusal (audit, 5 November 2026, finding 94).
+  const [heldOn, setHeldOn] = useState<{ href: string; name: string }>()
   const ahead = crew.calls.flatMap((c) =>
     c.status === 'open' && c.end >= today ? c.offers.filter((o) => o.personId === person.id).map((o) => ({ c, o })) : [],
   )
@@ -344,15 +396,18 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
   // Offers still waiting on them: like a booking, settled before they can be archived. The server checks the same.
   const waiting = ahead.filter(({ o }) => o.status === 'offered' || o.status === 'countered')
   const off = crew.unavailability.filter((u) => u.personId === person.id && u.end >= today)
-  const lines = [...booked, ...waiting].sort((a, b) => (a.o.days[0] ?? a.c.start).localeCompare(b.o.days[0] ?? b.c.start))
+  // In the order their link and Home › Me list them, with theirs on a job that was stopped in its place (UX sweep, 6 November 2026, move 6).
+  const lines = soonestFirst<{ c: CallView; o: OfferView; job?: ProjectStatus }>([...booked, ...waiting, ...stoppedBookings(view, person.id, today)], today, asBooking)
   const archive = () => {
     // The same test as the server's: held days from today on, or any offer still waiting.
     const hold = booked.find(({ o }) => o.days.some((d) => d >= today)) ?? waiting[0]
+    setHeldOn(undefined)
     if (hold) {
       const job = hold.c.phase ? `${hold.c.project} (${hold.c.phase})` : hold.c.project
+      if (hold.c.projectId) setHeldOn({ href: `#jobs/${encodeURIComponent(hold.c.projectId)}/crew`, name: hold.c.project })
       return refuse(
         hold.o.status === 'confirmed'
-          ? `${person.name} is booked on ${job}; release them first.`
+          ? `${person.name} is booked on ${job}; withdraw their booking on the job's crew first.`
           : hold.o.status === 'accepted'
             ? `${person.name} has accepted ${job}; release them first.`
             : `${person.name} has an open offer for ${job}; withdraw it first.`,
@@ -365,45 +420,24 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
     })
   }
   return (
-    <section className="card" aria-label="Coming up">
-      <Heading icon="calendar">Coming up</Heading>
+    <section className="card" aria-label={heading}>
+      <Heading icon="calendar">{heading}</Heading>
       {lines.length === 0 && off.length === 0 && <Empty>Nothing booked or offered, and no days off.</Empty>}
       {lines.length > 0 && (
         <ul className="job-list">
-          {lines.map(({ c, o }) => {
-            const [label, tone] = STATUS[o.status]
-            const inner = (
-              <>
-                <div>
-                  <b>{c.project}</b>
-                  <p>{[c.phase, c.role, daysLabel(o.days)].filter(Boolean).join(' · ')}</p>
-                </div>
-                <div className="side">
-                  <StatusPill tone={tone} pending={o.pending}>
-                    {label}
-                  </StatusPill>
-                </div>
-              </>
-            )
-            return (
-              <li key={o.id}>
-                {c.projectId ? (
-                  <a className="job-row" href={`#jobs/${c.projectId}/crew`}>
-                    {inner}
-                  </a>
-                ) : (
-                  <div className="job-row">{inner}</div>
-                )}
-              </li>
-            )
-          })}
+          {lines.map(({ c, o, job }) => (
+            <li key={o.id}>
+              <BookingRow c={c} o={o} today={today} {...(c.projectId ? { href: `#jobs/${c.projectId}/crew` } : {})} {...(own ? { link: linkFor(person) } : {})} {...(own && answers && c.projectId ? { answerAt: `#jobs/${c.projectId}` } : {})} {...(job ? { job } : {})} />
+            </li>
+          ))}
         </ul>
       )}
       {off.map((u) => (
         <p key={u.id}>
           Off {daysLabel(eachDay(u.start, u.end))}
           {u.note && ` (${u.note})`}
-          {u.source === 'self' && ' · said on their link'}
+          {/* Their link is "your page" when it's said to them, as the tab and its button say it. */}
+          {u.source === 'self' && (own ? ' · said on your page' : ' · said on their link')}
           {/* Approved leave is cancelled on the Leave screen, so the two never disagree (ADR 0024). */}
           {u.source === 'leave' || !mayEdit ? (
             u.source === 'leave' && (
@@ -456,6 +490,11 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
         </Fold>
       )}
       <Refusal error={error} />
+      {error && heldOn && (
+        <p>
+          <a href={heldOn.href}>Open {heldOn.name}'s crew</a>
+        </p>
+      )}
       {mayEdit && (
         // Reversible, so done at once: the list it goes back to says who was archived, with the way back (rule 10).
         <button type="button" className="link" onClick={archive}>
@@ -466,12 +505,19 @@ function ComingUp({ person, view, onArchived }: { person: PersonView; view: View
   )
 }
 
-/** Their private link and calendar feed (ADR 0002, ADR 0012): open it as they see it, copy it to send, or replace it. */
-function TheirLink({ person }: { person: PersonView }) {
-  const access = useAccess()
-  const mayEdit = access.can('crew')
-  // Their own page, for someone who doesn't send links: open it and take the calendar address, as the reading sends them both.
-  const own = person.id === access.personId
+/**
+ * What their own page is for, said to them. A member of staff's marks no days off, their time off being leave, asked for in
+ * the app (UX sweep, 6 November 2026, move 6).
+ */
+const yourPage = (person: PersonView) =>
+  `${person.kind === 'staff' ? 'Where you answer offers and send documents.' : 'Where you answer offers, mark days off and send documents.'} Your bookings go to your own calendar from there too.`
+
+/**
+ * Their private link and calendar feed (ADR 0002, ADR 0012): open it as they see it, copy it to send, or replace it. On
+ * their own page, said to them, as the tab over it is (UX sweep, 6 November 2026, move 6).
+ */
+function TheirLink({ person, own }: { person: PersonView; own: boolean }) {
+  const mayEdit = useAccess().can('crew')
   // Which address was just copied, said on its button (rule 10).
   const [copied, setCopied] = useState<'link' | 'feed' | undefined>()
   const copy = (what: 'link' | 'feed', text: string) => void navigator.clipboard?.writeText(text).then(() => setCopied(what))
@@ -479,12 +525,13 @@ function TheirLink({ person }: { person: PersonView }) {
   const { run, error } = useAct()
   const link = linkFor(person)
   const feed = useFeedAddress(person.linkToken)
+  // Their own page, for someone who doesn't send links: open it and take the calendar address, as the reading sends them both.
   if (!mayEdit && !own) return null
   if (!mayEdit)
     return (
       <section className="card" aria-label="Your page">
         <Heading icon="link">Your page</Heading>
-        <p className="hint">Where you answer offers, mark days off and send documents. Your bookings go to your own calendar from there too.</p>
+        <p className="hint">{yourPage(person)}</p>
         <div className="actions">
           {link && (
             <a className="button" href={link} target="_blank" rel="noreferrer">
@@ -500,15 +547,22 @@ function TheirLink({ person }: { person: PersonView }) {
         {!link && <p className="hint">Your page isn't made yet. The office can make it.</p>}
       </section>
     )
+  const heading = own ? 'Your page' : 'Their link'
   return (
-    <section className="card" aria-label="Their link">
-      <Heading icon="link">Their link</Heading>
+    <section className="card" aria-label={heading}>
+      <Heading icon="link">{heading}</Heading>
       <p className="hint">
-        {person.kind === 'staff'
-          ? // Staff sign in with Google only (ADR 0052): their page asks for it, so the link alone opens nothing.
-            'Where they answer calls, mark days off and send documents. It asks for their Google sign-in first, so it only opens for them, the office or a director.'
-          : 'Where they answer offers, mark days off and send documents, with no app or login.'}{' '}
-        Their bookings go to their own calendar from there too.
+        {own ? (
+          yourPage(person)
+        ) : (
+          <>
+            {person.kind === 'staff'
+              ? // Staff sign in with Google only (ADR 0052): their page asks for it, so the link alone opens nothing.
+                'Where they answer calls and send documents. It asks for their Google sign-in first, so it only opens for them, the office or a director.'
+              : 'Where they answer offers, mark days off and send documents, with no app or login.'}{' '}
+            Their bookings go to their own calendar from there too.
+          </>
+        )}
       </p>
       {/* Not sent to this role (ADR 0046): said plainly, so it isn't taken for a link not made yet. */}
       {person.linkHidden && <p className="hint">Your role doesn't see {person.name}'s link. The office or a director can open it or send it.</p>}
@@ -516,7 +570,7 @@ function TheirLink({ person }: { person: PersonView }) {
         {link && (
           <>
             <a className="button" href={link} target="_blank" rel="noreferrer">
-              Open their page
+              {own ? 'Open your page' : 'Open their page'}
             </a>
             <button type="button" onClick={() => copy('link', link)}>
               {copied === 'link' ? 'Copied' : 'Copy link'}
@@ -539,6 +593,7 @@ function TheirLink({ person }: { person: PersonView }) {
         <Confirm
           question={`Make a new link for ${person.name}? The old one stops working, so anything sent with it no longer opens.`}
           yes="Make a new link"
+          loss
           no="Keep the old one"
           onYes={() => {
             setRelinking(false)
@@ -557,14 +612,47 @@ function TheirLink({ person }: { person: PersonView }) {
  * A director picks it here, with what the role covers said under it; anyone
  * else sees it as a line. The server keeps at least one director.
  */
-function RolePick({ person, role, mayChange, onChange }: { person: PersonView; role: Role; mayChange: boolean; onChange: (role: Role) => void }) {
+function RolePick({
+  person,
+  role,
+  mayChange,
+  mine,
+  otherDirectors,
+  onChange,
+}: {
+  person: PersonView
+  role: Role
+  mayChange: boolean
+  /** The person signed in: taking Director off yourself is asked first, as you can't give it back. */
+  mine: boolean
+  otherDirectors: number
+  onChange: (role: Role) => Promise<boolean>
+}) {
   const hint = useId()
+  // A pick that gives everything, or takes it from yourself, is a pick and a press (audit, 5 November 2026, finding 39); the last
+  // director is kept on the device as the server keeps it, said here rather than snapping back (finding 11); and every change
+  // says it was made.
+  const [asking, setAsking] = useState<Role>()
+  const [said, setSaid] = useState<{ ok: boolean; text: string }>()
   if (!mayChange) return <p className="muted">Role: {ROLE_LABELS[role]}</p>
+  const make = (next: Role) => {
+    setAsking(undefined)
+    void onChange(next).then((ok) => ok && setSaid({ ok: true, text: `${person.name} is ${ROLE_LABELS[next]} now.` }))
+  }
+  const pick = (next: Role) => {
+    setSaid(undefined)
+    if (next === role) return
+    if (role === 'director' && otherDirectors === 0)
+      return setSaid({ ok: false, text: `${person.name} is the only director, and there has to be one. Make someone else a director first.` })
+    if (next === 'director' || (mine && role === 'director')) return setAsking(next)
+    make(next)
+  }
+  const first = person.name.split(/\s+/)[0] || person.name
   return (
     <div className="role-pick">
       <label className="level-pick">
         Role
-        <select value={role} onChange={(e) => onChange(e.target.value as Role)} aria-label={`Role for ${person.name}`} aria-describedby={hint}>
+        <select value={asking ?? role} onChange={(e) => pick(e.target.value as Role)} aria-label={`Role for ${person.name}`} aria-describedby={hint}>
           {ROLES.map((r) => (
             <option key={r} value={r}>
               {ROLE_LABELS[r]}
@@ -573,8 +661,23 @@ function RolePick({ person, role, mayChange, onChange }: { person: PersonView; r
         </select>
       </label>
       <p className="hint" id={hint}>
-        {ROLE_LINES[role]}
+        {ROLE_LINES[asking ?? role]}
       </p>
+      {asking && (
+        <Confirm
+          question={
+            asking === 'director'
+              ? `Make ${person.name} a director? ${first} can then change roles, erase people and start fresh.`
+              : `Make yourself ${ROLE_LABELS[asking]}? You'll no longer be a director, and only another director can give it back.`
+          }
+          yes={asking === 'director' ? `Make ${first} a director` : `Make me ${ROLE_LABELS[asking]}`}
+          loss={asking !== 'director'}
+          no={`Keep ${ROLE_LABELS[role]}`}
+          onYes={() => make(asking)}
+          onNo={() => setAsking(undefined)}
+        />
+      )}
+      <div aria-live="polite">{said && <p className={said.ok ? 'added' : 'alert'}>{said.text}</p>}</div>
     </div>
   )
 }
@@ -623,8 +726,8 @@ function CertificateLines({ person }: { person: PersonView }) {
 function Worked({ person }: { person: PersonView }) {
   const { worked } = person
   return (
-    <section className="card" aria-label={`Worked: ${person.name}`}>
-      <Heading icon="history">Worked{worked.length > 0 && ` (${worked.length === 1 ? '1 job' : `${worked.length} jobs`})`}</Heading>
+    <section className="card" aria-label={`${TIME_GROUPS.past}: ${person.name}`}>
+      <Heading icon="history">{TIME_GROUPS.past}{worked.length > 0 && ` (${worked.length === 1 ? '1 job' : `${worked.length} jobs`})`}</Heading>
       {worked.length === 0 && <Empty>No jobs worked yet. Each booking shows here from its first day.</Empty>}
       <ShowAll items={worked} limit={10} what="jobs">
         {(rows) => (

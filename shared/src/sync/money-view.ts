@@ -94,6 +94,12 @@ export interface MonthMoney {
   invoiced: number
   /** Freelancers' approved timesheets, by the month of their last day. */
   costs: number
+  /**
+   * What was lost, net, by the month the job starts (Move 10 of the sweep of 6 November 2026): quotes turned down, and the
+   * quote on a job marked lost that wasn't invoiced. Never in Quoted. A job whose dates passed with no answer isn't in it until
+   * someone marks it lost: Money names those apart.
+   */
+  lost: number
 }
 
 export interface OwedBy {
@@ -388,11 +394,13 @@ export function moneyView(
   const monthFor = (d: string) => {
     const { key, label } = moneyMonth(d)
     let m = months.get(key)
-    if (!m) months.set(key, (m = { key, label, quoted: 0, confirmed: 0, invoiced: 0, costs: 0 }))
+    if (!m) months.set(key, (m = { key, label, quoted: 0, confirmed: 0, invoiced: 0, costs: 0, lost: 0 }))
     return m
   }
   for (const jm of jobList) {
     const q = jm.current
+    const lost = !!q && (q.status === 'declined' || (jm.job.status === 'lost' && !q.invoicedOn))
+    if (q && lost) monthFor(jm.job.span?.start ?? q.sentOn ?? irishToday(new Date(q.madeAt))).lost += q.totals.net
     if (!q || q.status === 'declined' || jm.setAside) continue
     const m = monthFor(jm.job.span?.start ?? q.sentOn ?? irishToday(new Date(q.madeAt)))
     m.quoted += q.totals.net
@@ -506,26 +514,67 @@ export interface QuotesToFollow {
   drafts: QuoteToFollow[]
   /** Sent, with no answer yet: the longest waiting first. */
   waiting: QuoteToFollow[]
+  /**
+   * Of those waiting, the ones sent a week or more ago (`CHASE_AFTER_DAYS`): worth a call to the client, the longest
+   * waiting first. Quotes marks them, Notifications lists them and Home counts them, each from this one list (Move 10 of
+   * the sweep of 6 November 2026).
+   */
+  chase: QuoteToFollow[]
+  /** Sent, with no answer, and the job's dates have passed (ADR 0109): not a call to make, a job to mark lost. The most recent first. */
+  passed: QuoteToFollow[]
   /** Answered, but the job doesn't say so yet: accepted and not confirmed, or turned down and not marked lost. */
   outOfStep: (QuoteToFollow & { want: 'confirmed' | 'lost' })[]
+  /**
+   * The office's last step (UX sweep, 6 November 2026, move 12): confirmed jobs through their dates whose accepted quote
+   * isn't invoiced yet, the longest through first. `days` is since the job's last day.
+   */
+  toInvoice: QuoteToFollow[]
+}
+
+/**
+ * The month the invoice row and To invoice began (November 2026, shipped on the 7th): a job that ended before it was invoiced in the accounts
+ * package, so it's "Not needed" here rather than listed, and the group starts honest instead of with every old accepted
+ * quote on day one.
+ */
+export const INVOICES_FROM = '2026-11-01'
+
+/** Where a job's invoice stands, for the quiet row under its tasks: never an amount (ADR 0042). */
+export type InvoiceState =
+  | { state: 'none' }
+  | { state: 'not-needed' }
+  | { state: 'to-come' }
+  | { state: 'due'; since: string }
+  | { state: 'invoiced'; on: string; paidOn: string | null }
+
+/** Where the invoice stands for a job and its quote that counts: nothing to say without an accepted quote. */
+export function invoiceOf(job: Pick<JobView, 'status' | 'span'>, current: Pick<QuoteView, 'status' | 'invoicedOn' | 'paidOn'> | undefined, today: string): InvoiceState {
+  if (!current || current.status !== 'accepted' || STOPPED.includes(job.status)) return { state: 'none' }
+  if (current.invoicedOn) return { state: 'invoiced', on: current.invoicedOn, paidOn: current.paidOn }
+  if (job.span && job.span.end < INVOICES_FROM) return { state: 'not-needed' }
+  if (job.status === 'confirmed' && job.span && job.span.end < today) return { state: 'due', since: job.span.end }
+  return { state: 'to-come' }
 }
 
 export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: string): QuotesToFollow {
-  const out: QuotesToFollow = { drafts: [], waiting: [], outOfStep: [] }
+  const out: QuotesToFollow = { drafts: [], waiting: [], chase: [], passed: [], outOfStep: [], toInvoice: [] }
   const since = (d: string | null | undefined) => (d ? Math.max(0, daysBetween(d, today)) : 0)
   for (const { job, current } of m.jobs) {
     const stopped = STOPPED.includes(job.status)
     const draft = m.draftOf(job.id)
     if (draft && !stopped) out.drafts.push({ job, quote: draft, days: since(irishToday(new Date(draft.savedAt))) })
     if (!current) continue
-    if (current.status === 'sent' && !stopped && !draft) out.waiting.push({ job, quote: current, days: since(current.sentOn) })
+    if (current.status === 'sent' && !stopped && !draft) (job.span && job.span.end < today && job.status !== 'confirmed' ? out.passed : out.waiting).push({ job, quote: current, days: since(current.sentOn) })
     if (current.status === 'accepted' && !stopped && job.status !== 'confirmed') out.outOfStep.push({ job, quote: current, days: since(current.answeredOn), want: 'confirmed' })
     if (current.status === 'declined' && !stopped && !draft) out.outOfStep.push({ job, quote: current, days: since(current.answeredOn), want: 'lost' })
+    if (invoiceOf(job, current, today).state === 'due') out.toInvoice.push({ job, quote: current, days: since(job.span!.end) })
   }
   const longest = (a: QuoteToFollow, b: QuoteToFollow) => b.days - a.days || a.job.name.localeCompare(b.job.name, 'en-IE')
   out.drafts.sort(longest)
   out.waiting.sort(longest)
+  out.chase = out.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS)
+  out.passed.sort((a, b) => a.days - b.days || a.job.name.localeCompare(b.job.name, 'en-IE'))
   out.outOfStep.sort(longest)
+  out.toInvoice.sort(longest)
   return out
 }
 

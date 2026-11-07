@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { fillName } from './names.ts'
+import { fillName, pickRecord } from './names.ts'
 
 /**
  * Google Calendar in the browser (ADR 0008, 0009). The test server runs
@@ -324,7 +324,7 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   await call.getByRole('button', { name: '2 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()
   for (const name of [niamh, conor, sean]) {
-    await call.getByLabel('Offer to').selectOption({ label: `${name} · Level 1` })
+    await pickRecord(call, 'Offer to', name)
     await call.getByRole('button', { name: 'Offer', exact: true }).click()
     await expect(build.locator('.offers')).toContainText(name)
   }

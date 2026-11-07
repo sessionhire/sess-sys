@@ -174,7 +174,9 @@ export function CableLabels({ m }: { m: ModelView }) {
   const first = useMemo(saved, [])
   const [words, setWords] = useState(m.name)
   const [layout, setLayout] = useState<CableLayout>(first.layout)
-  const [kind, setKind] = useState<CableCode>(first.code)
+  // A barcode with nothing to hold prints no code, so a product without a stock code a barcode takes starts on a QR code,
+  // keeping the device's own choice otherwise (audit, 5 November 2026, finding 72).
+  const [kind, setKind] = useState<CableCode>(() => (first.code === 'barcode' && !barcodeFits(m.code.trim()) ? 'qr' : first.code))
   const [inColour, setInColour] = useState(first.colour)
   // Its own length, or one read from its name, such as "XLR 10m", until one is given.
   const named = m.lengthM === null ? lengthFromName(m.name) : null
@@ -302,7 +304,7 @@ export function CableLabels({ m }: { m: ModelView }) {
       </div>
       <p className="hint">Print at actual size, not fitted to the page.</p>
       <button type="button" className="primary" disabled={!said || !many || printing} onClick={() => setPrinting(true)}>
-        {many === 1 ? 'Print the label' : `Print ${plural(many || 0, 'label')}`}
+        {(many === 1 ? 'Print the label' : `Print ${plural(many || 0, 'label')}`) + (code ? '' : ' without a code')}
       </button>
       {printing && (
         <PrintSheet className={`cable ${layout}`} page={CABLE_LAYOUTS[layout].page}>

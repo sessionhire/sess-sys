@@ -266,7 +266,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       const o = offer(a.id)
       if (a.answer === 'decline') return `${o.who} declined ${o.what}`
       if (a.answer === 'counter') return rates ? `${o.who} asked for ${euro(a.counterRateCents as number)} a day for ${o.what}` : `${o.who} asked for a different rate for ${o.what}`
-      if (a.answer === 'pullOut') return `${o.who} can't make it any more: ${o.what}${said(a.note, ' (', ')')}`
+      if (a.answer === 'pullOut') return `${o.who} can't make it: ${o.what}${said(a.note, ' (', ')')}`
       return `${o.who} accepted ${o.what}${Array.isArray(a.days) && a.days.length ? `, ${daysLabel(a.days as string[])}` : ''}`
     }
     case 'offer.seen': {
@@ -284,6 +284,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'messages.prompt':
       return a.on === true ? 'Turned on messages to crew' : 'Turned off messages to crew'
     case 'timesheets.use':
+      if (a.on === true && typeof a.from === 'string') return `Turned on timesheets for bookings from ${dayLabel(a.from)}`
       return a.on === true ? 'Turned on timesheets' : 'Turned off timesheets'
     case 'assistant.use':
       return a.on === true ? 'Turned on Claude' : 'Turned off Claude'
@@ -326,12 +327,15 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'project.update': {
       const parts: string[] = []
       if (a.name !== undefined) parts.push(`name to ${text(a.name, 'a job')}`)
-      if (a.status !== undefined) parts.push(`status to ${status(a.status)}`)
+      // The job's new state in the office's words, not the command's "status to" (UX sweep, 6 November 2026, move 4).
+      if (a.status !== undefined) parts.push(`now ${status(a.status)}`)
       if (a.clientId !== undefined) parts.push(a.clientId ? `client to ${client(a.clientId)}` : 'no client')
       if (a.venueId !== undefined) parts.push(a.venueId ? `venue to ${venue(a.venueId)}` : 'no venue')
       if (a.notes !== undefined) parts.push('the notes')
       if (a.prepDays !== undefined) parts.push(`kit held ${a.prepDays ? plural(Number(a.prepDays), 'day') : 'no days'} before, to get it ready`)
       if (a.returnDays !== undefined) parts.push(`kit held ${a.returnDays ? plural(Number(a.returnDays), 'day') : 'no days'} after, to check it back in`)
+      if (parts.length === 1 && a.status === 'cancelled') return `Cancelled the job ${job(a.id)}`
+      if (parts.length === 1 && a.status === 'confirmed') return `Confirmed the job ${job(a.id)}`
       return `Changed the job ${job(a.id)}: ${inWords(parts)}`
     }
     case 'phase.add':
@@ -538,6 +542,11 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return `Cancelled the labels ${runRange(look('labelRun', a.id)) ?? 'set aside'}`
     case 'move.record': {
       const way = a.direction === 'in' ? 'back in from' : 'out to'
+      // An Undo beside a scan's answer says what it took back, not that kit moved (audit, 5 November 2026, finding 8).
+      if (a.undoes) {
+        if (a.assetId) return `Undid a scan of ${item(a.assetId)} on ${job(a.projectId)}`
+        return `Undid a count of ${typeof a.qty === 'number' ? a.qty : 'some'} × ${model(a.modelId)} on ${job(a.projectId)}`
+      }
       if (a.assetId) return `Scanned ${item(a.assetId)} ${way} ${job(a.projectId)}`
       return `Counted ${typeof a.qty === 'number' ? a.qty : 'some'} × ${model(a.modelId)} ${way} ${job(a.projectId)}`
     }

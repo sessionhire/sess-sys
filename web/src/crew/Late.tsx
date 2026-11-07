@@ -93,20 +93,22 @@ export function LateLines({ call, late, today }: { call: CallView; late: LateVie
  * link, in the same record, so it reaches the queue, the badge, the
  * planner and the contact's call sheet as theirs would. Only for the days
  * it can be said for now, as on the link: today, and tomorrow from 6pm.
+ * On the job's page (`inJob`) its submit is plain, as the Next dock holds
+ * the page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1).
  */
-export function NoteLate({ call, late }: { call: CallView; late: LateView | undefined }) {
+export function NoteLate({ call, late, inJob = false }: { call: CallView; late: LateView | undefined; inJob?: boolean }) {
   const mayNote = useAccess().can('crew')
   const booked = mayNote ? lateToNote(call) : []
   if (!booked.length) return null
   return (
     <Fold label="Running late…" className="link late-open">
-      <LateForm call={call} booked={booked} late={late} />
+      <LateForm call={call} booked={booked} late={late} inJob={inJob} />
     </Fold>
   )
 }
 
 /** Who rang and for which day, when there's a choice, over the form for that person and day. */
-function LateForm({ call, booked, late }: { call: CallView; booked: OfferView[]; late: LateView | undefined }) {
+function LateForm({ call, booked, late, inJob }: { call: CallView; booked: OfferView[]; late: LateView | undefined; inJob: boolean }) {
   const today = useToday()
   const [offerId, setOfferId] = useState(booked[0]!.id)
   const offer = booked.find((o) => o.id === offerId) ?? booked[0]!
@@ -145,12 +147,12 @@ function LateForm({ call, booked, late }: { call: CallView; booked: OfferView[];
         </div>
       )}
       {/* A fresh form for each person and day, filled in with what's on record, to change it. */}
-      <LateFields key={`${offer.id} ${day}`} call={call} offer={offer} day={day} said={late?.forOffer(offer.id).find((l) => l.day === day)} />
+      <LateFields key={`${offer.id} ${day}`} call={call} offer={offer} day={day} said={late?.forOffer(offer.id).find((l) => l.day === day)} inJob={inJob} />
     </>
   )
 }
 
-function LateFields({ call, offer, day, said }: { call: CallView; offer: OfferView; day: string; said: LateNote | undefined }) {
+function LateFields({ call, offer, day, said, inJob }: { call: CallView; offer: OfferView; day: string; said: LateNote | undefined; inJob: boolean }) {
   const name = offer.person!.name
   const first = firstName(offer.person!)
   const [by, setBy] = useState<LateBy | ''>(said?.by ?? '')
@@ -200,7 +202,7 @@ function LateFields({ call, offer, day, said }: { call: CallView; offer: OfferVi
         {done && <p className="added">{done}</p>}
       </div>
       <div className="actions wide">
-        <button type="submit" className="primary">
+        <button type="submit" className={inJob ? undefined : 'primary'}>
           {said ? 'Change how late' : `Note ${first} as late`}
         </button>
         {said && !said.arrivedAt && (

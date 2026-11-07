@@ -1,8 +1,11 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
+  OFFER_WORDS,
   APPLICANT_LEVEL,
   daysLabel,
   departmentForRole,
   departmentOf,
+  sameDepartment,
   eachDay,
   euroText,
   firstName,
@@ -46,22 +49,15 @@ import { personHref } from './PersonScreen.tsx'
 import { Avatars } from '../Picture.tsx'
 import { type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
 import { dept, found, wordsOf } from './People.tsx'
+import { RecordPicker } from '../RecordPicker.tsx'
 
 /**
  * Crew › Calls' parts: a call's card, changing it, offering it to someone
  * and asking for crew. The screen that lists them is CrewScreen.tsx.
  */
 
-export const STATUS: Record<OfferView['status'], [string, PillTone]> = {
-  offered: ['Offered', 'pending'],
-  countered: ['Asked for more', 'pending'],
-  accepted: ['Accepted', 'pending'],
-  confirmed: ['Confirmed', 'confirmed'],
-  declined: ['Declined', 'cancelled'],
-  filled: ['Filled', 'cancelled'],
-  cancelled: ['Withdrawn', 'cancelled'],
-  'pulled-out': ["Can't make it", 'cancelled'],
-}
+/** An offer's word and tone, from the one word table (UX sweep, 6 November 2026, move 4): a crew booking is Booked here as on the sheet and the link. */
+export const STATUS: Record<OfferView['status'], readonly [string, PillTone]> = OFFER_WORDS
 
 /** The other jobs someone holds on any of these days, and which days: what an offer over a booking can't have. */
 function heldOn(crew: CrewView, personId: string, days: readonly string[], exceptCallId: string) {
@@ -90,9 +86,9 @@ function byDepartmentThenLevel(a: PersonView, b: PersonView): number {
   return b.level - a.level || a.name.localeCompare(b.name)
 }
 
-/** "Dara Quinn · Audio · Level 3 (Sound No.1, Audio)", as the picker lists someone. */
-function pickerLabel(p: PersonView): string {
-  return `${p.name}${p.department ? ` · ${p.department}` : ''} · ${levelLabel(p.level)}${p.skills.length ? ` (${p.skills.join(', ')})` : ''}`
+/** "Audio · Level 3 (Sound No.1, Audio)", the line under someone's name in the Offer to picker. */
+function pickerLine(p: PersonView): string {
+  return `${p.department ? `${p.department} · ` : ''}${levelLabel(p.level)}${p.skills.length ? ` (${p.skills.join(', ')})` : ''}`
 }
 
 /** Offered, holding or booked: the people a call's one line names. */
@@ -118,6 +114,7 @@ export function CallCard({
   onTell,
   inJob = false,
   phaseDays = false,
+  phaseNamed = false,
 }: {
   call: CallView
   crew: CrewView
@@ -130,6 +127,8 @@ export function CallCard({
   inJob?: boolean
   /** Under a phase on the job's page, for the phase's own days, which its header says already. */
   phaseDays?: boolean
+  /** On the job's page away from its phase, as a head's own department's are, first: the phase is said with the days. */
+  phaseNamed?: boolean
 }) {
   const mayOffer = useAccess().can('crew')
   const [open, setOpen] = useState(false)
@@ -168,8 +167,8 @@ export function CallCard({
       <button type="button" className="call-line" aria-expanded={open} onClick={() => setOpen(!open)}>
         <b>
           {call.needed} × {call.role}
-          {/* On the Crew tab the days are the heading over it. On the job's page the phase shows only for a call across phases, and the days unless they're the phase's. */}
-          {(!inJob || !call.phaseId) && call.phase && <span className="muted"> · {call.phase}</span>}
+          {/* On the Crew tab the days are the heading over it. On the job's page the phase shows only for a call across phases or away from its phase, and the days unless they're the phase's. */}
+          {(!inJob || !call.phaseId || phaseNamed) && call.phase && <span className="muted"> · {call.phase}</span>}
           {inJob && !phaseDays && <span className="muted"> · {daysLabel(call.days)}</span>}
         </b>
       </button>
@@ -209,7 +208,7 @@ export function CallCard({
       ))}
       <LateLines call={call} late={late} today={today} />
       {/* Someone booked who rang to say they're late, noted where their line is (ADR 0028). */}
-      <NoteLate call={call} late={late} />
+      <NoteLate call={call} late={late} inJob={inJob} />
 
       {open && (
         <>
@@ -267,6 +266,7 @@ export function CallCard({
                             : `Withdraw the offer to ${o.person?.name ?? 'them'}? Their link says it's withdrawn at once.`
                         }
                         yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
+                        loss
                         no={o.status === 'confirmed' ? 'Keep them' : 'Keep it open'}
                         onYes={() => {
                           setWithdrawing(undefined)
@@ -303,6 +303,7 @@ export function CallCard({
           {editing && mayOffer && (
             <EditCall
               call={call}
+              inJob={inJob}
               onDone={() => setEditing(false)}
               onSaved={(after, datesMoved) => onTell?.(promptFor('call-changed', peopleOn(after).map((t) => neededBefore(datesMoved ? forCallDays(t) : t, call))))}
             />
@@ -312,6 +313,7 @@ export function CallCard({
             <Confirm
               question={`Cancel the call for ${call.needed} × ${call.role} on ${call.project}? Everyone offered is told it's withdrawn.`}
               yes="Cancel it"
+              loss
               onYes={cancel}
               onNo={() => setCancelling(false)}
             />
@@ -374,7 +376,18 @@ function afterChange(call: CallView, changes: CommandInput<'call.update'>): Call
   }
 }
 
-function EditCall({ call, onDone, onSaved }: { call: CallView; onDone: () => void; onSaved?: (after: CallView, datesMoved: boolean) => void }) {
+function EditCall({
+  call,
+  inJob = false,
+  onDone,
+  onSaved,
+}: {
+  call: CallView
+  /** On the job's page, under its Next dock, which holds the page's one filled red (ADR 0104): Save changes is plain there. */
+  inJob?: boolean
+  onDone: () => void
+  onSaved?: (after: CallView, datesMoved: boolean) => void
+}) {
   const tied = !!call.projectId
   const view = useView()
   // A rate this device isn't sent stays the office's to change (ADR 0046).
@@ -454,18 +467,20 @@ function EditCall({ call, onDone, onSaved }: { call: CallView; onDone: () => voi
       <label>
         How many <input type="number" min={Math.max(1, booked)} value={f.needed} onChange={set('needed')} />
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
+        </label>
+      </div>
       <label>
         Call time <input type="time" value={f.callTime} onChange={set('callTime')} />
       </label>
       {seesRates ? (
         <label>
-          Day rate € <input inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" />
+          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" /></UnitBox>
         </label>
       ) : (
         <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>
@@ -499,7 +514,7 @@ function EditCall({ call, onDone, onSaved }: { call: CallView; onDone: () => voi
       <Refusal error={error} className="wide" />
       {/* Not "Cancel", beside "Cancel crew call": this one only closes the form (rule 10). */}
       <div className="actions wide">
-        <button type="submit" className="primary">
+        <button type="submit" className={inJob ? undefined : 'primary'}>
           Save changes
         </button>
         <button type="button" onClick={onDone}>
@@ -515,12 +530,9 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const [personId, setPersonId] = useState('')
   const [override, setOverride] = useState(false)
   const [applicants, setApplicants] = useState(false)
-  const [find, setFind] = useState('')
-  // Someone who declined, pulled out or was told it's filled can be offered it again.
+  // Someone who declined, couldn't make it or was told it's filled can be offered it again.
   const offered = new Set(call.offers.filter((o) => !['declined', 'filled', 'cancelled', 'pulled-out'].includes(o.status)).map((o) => o.personId))
-  // Narrowed as you type (audit finding 16), as the people list is.
-  const words = wordsOf(find)
-  const everyone = crew.people.filter((p) => !offered.has(p.id) && !p.archived && found(p, words))
+  const everyone = crew.people.filter((p) => !offered.has(p.id) && !p.archived)
   // Applicants nobody has vetted (Level 0) stay out of the way unless asked for (ADR 0025).
   const hidden = everyone.filter((p) => p.level === APPLICANT_LEVEL).length
   const candidates = everyone.filter((p) => applicants || p.level !== APPLICANT_LEVEL).sort(byDepartmentThenLevel)
@@ -532,8 +544,8 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const onlyFree =
     chosen && bookedOn.jobs.length > 0
       ? bookedOn.days.length >= call.days.length
-        ? `${firstName(chosen)} can't take any of it unless they pull out of ${bookedOn.jobs.join(' and ')}.`
-        : `${firstName(chosen)} can only take the days not on ${bookedOn.jobs.join(' or ')} unless they pull out of ${bookedOn.jobs.length === 1 ? 'it' : 'them'}.`
+        ? `${firstName(chosen)} can't take any of it unless they say they can't make ${bookedOn.jobs.join(' and ')}.`
+        : `${firstName(chosen)} can only take the days not on ${bookedOn.jobs.join(' or ')} unless they say they can't make ${bookedOn.jobs.length === 1 ? 'it' : 'them'}.`
       : ''
   // Busy in their own calendar (ADR 0044): said, never in the way. It may be something they can move, and they may still say yes.
   const own = useView().ownCalendars
@@ -543,28 +555,54 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const today = useToday()
   const needs = needsOf(call)
   const gapsOf = (p: PersonView) => certificateGaps(p, needs, call.days, today)
-  const groups = needs.length
-    ? [
-        { label: `Hold ${needsLabel(needs)}`, people: candidates.filter((p) => gapsOf(p).length === 0) },
-        { label: 'Not known: check first', people: candidates.filter((p) => gapsOf(p).length > 0 && !gapsOf(p).some(blocks)) },
-        { label: 'Missing a certificate', people: candidates.filter((p) => gapsOf(p).some(blocks)) },
-      ].filter((g) => g.people.length)
-    : undefined
-  const option = (p: PersonView) => {
-    const marks = gapMarks(gapsOf(p))
-    return (
-      <option key={p.id} value={p.id}>
-        {pickerLabel(p)}
-        {marks && ` · ${marks}`}
-        {personConflicts(crew, p.id, call.days, call.id).length ? ' ⚠' : ''}
-        {own.busyOn(p.id, call.days).size ? ' · busy in own calendar' : ''}
-      </option>
-    )
+  const byNeeds = (people: PersonView[], within = '') =>
+    needs.length
+      ? [
+          { label: `${within}Hold ${needsLabel(needs)}`, people: people.filter((p) => gapsOf(p).length === 0) },
+          { label: `${within}Not known: check first`, people: people.filter((p) => gapsOf(p).length > 0 && !gapsOf(p).some(blocks)) },
+          { label: `${within}Missing a certificate`, people: people.filter((p) => gapsOf(p).some(blocks)) },
+        ]
+      : [{ label: within.replace(/: $/, ''), people }]
+  // The call's own department first (audit, 5 November 2026, finding 62), so a head finds their people at the top; the
+  // certificate groups inside each. A call with no department, or nobody in it, lists everyone as before.
+  const callDept = departmentOf(call)
+  const ours = callDept ? candidates.filter((p) => !!p.department && sameDepartment(p.department, callDept)) : []
+  const groups =
+    callDept && ours.length && ours.length < candidates.length
+      ? [...byNeeds(ours, `${callDept}: `), ...byNeeds(candidates.filter((p) => !ours.includes(p)), 'Everyone else: ')].filter((g) => g.people.length)
+      : needs.length
+        ? byNeeds(candidates).filter((g) => g.people.length)
+        : undefined
+  // One list in the order above: with nothing typed its first eight are offered, and typing narrows it (audit finding 16), as the
+  // people list is, by name, the name they go by, department, skill, email or phone (UX sweep, move 5c).
+  const ordered = groups ? groups.flatMap((g) => g.people) : candidates
+  const firstLabel =
+    callDept && ours.length && ours.length < candidates.length
+      ? `${callDept} first, then everyone else`
+      : needs.length
+        ? `Those holding ${needsLabel(needs)} first`
+        : 'By department, then level'
+  const findIn = (_: readonly PersonView[], text: string) => {
+    const words = wordsOf(text)
+    return ordered.filter((p) => found(p, words)).map((record) => ({ record }))
   }
+  // What tells two people apart and what to know before offering: their department, level and skills, what they hold of what the
+  // call needs, a clash and their own calendar.
+  const metaOf = ({ record: p }: { record: PersonView }) =>
+    [
+      pickerLine(p),
+      gapMarks(gapsOf(p)),
+      personConflicts(crew, p.id, call.days, call.id).length ? '⚠ not free then' : '',
+      own.busyOn(p.id, call.days).size ? 'busy in own calendar' : '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
 
   const send = (e: FormEvent) => {
     e.preventDefault()
-    if (!chosen) return
+    // Never a dead Offer (UX sweep, 6 November 2026, move 5): a press says what's missing.
+    if (!chosen) return refuse('Choose someone to offer it to first.')
+    if (conflicts.length > 0 && !override) return refuse('Tick Offer anyway first, or choose someone else.')
     const p = chosen
     // Said here, in the server's own words, rather than after a round trip; "Offer anyway" doesn't pass it.
     const short = certificateRefusal(p, needs, call.days, today)
@@ -579,35 +617,23 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
 
   return (
     <form className="offer-form" onSubmit={send}>
-      <input
-        type="search"
-        className="find"
-        value={find}
-        onChange={(e) => setFind(e.target.value)}
-        // Enter in a search box only searches: it mustn't send the offer to whoever is picked below, the trap of audit finding 5.
-        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
-        placeholder="Name, department or skill"
-        aria-label="Find someone"
-      />
-      <select
+      <RecordPicker
+        label="Offer to"
+        records={candidates}
         value={personId}
-        onChange={(e) => {
-          setPersonId(e.target.value)
+        find={findIn}
+        meta={metaOf}
+        first={ordered}
+        firstLabel={firstLabel}
+        nothingFound={(t) => `Nobody matches “${t}”${!applicants && hidden > 0 ? ': applicants are left out unless shown' : ''}`}
+        onPick={(id) => {
+          setPersonId(id)
           // A reason given for someone else no longer applies.
           refuse('')
         }}
-        aria-label="Offer to"
-      >
-        <option value="">{candidates.length || !words.length ? 'Offer to…' : 'Nobody matches'}</option>
-        {groups
-          ? groups.map((g) => (
-              <optgroup key={g.label} label={g.label}>
-                {g.people.map(option)}
-              </optgroup>
-            ))
-          : candidates.map(option)}
-      </select>
-      <button type="submit" disabled={!chosen || (conflicts.length > 0 && !override)}>
+        placeholder="Name, phone, email, department or skill"
+      />
+      <button type="submit">
         Offer
       </button>
       {(hidden > 0 || applicants) && (
@@ -618,7 +644,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       )}
       {conflicts.length > 0 && (
         <label className="warn">
-          <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
+          <input type="checkbox" checked={override} onChange={(e) => (setOverride(e.target.checked), refuse(''))} />
           <span>
             {conflicts.join('. ')}. {onlyFree && `${onlyFree} `}
             <b>Offer anyway</b>
@@ -705,12 +731,14 @@ export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
       <label>
         Role <input value={f.role} onChange={set('role')} placeholder="Audio tech" required />
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={set('start')} />
-      </label>
-      <label>
-        To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={set('start')} />
+        </label>
+        <label>
+          To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
+        </label>
+      </div>
       <label>
         Call time <input type="time" value={f.callTime} onChange={set('callTime')} />
       </label>
@@ -719,7 +747,7 @@ export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
       </label>
       {seesRates ? (
         <label>
-          Day rate € <input inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" />
+          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" /></UnitBox>
         </label>
       ) : (
         <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>

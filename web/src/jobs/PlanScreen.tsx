@@ -9,6 +9,7 @@ import {
   monthOf,
   phaseCode,
   plan,
+  shortSoon,
   spanLabel,
   STATUS_LABELS,
   weekOf,
@@ -19,8 +20,10 @@ import {
   type VanLane,
   type Plan,
   type PlanProblem,
+  type ShortSoon,
   type VanProblem,
   type View,
+  STILL_NEEDS_CREW,
 } from '@sh/shared'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { personHref } from '../crew/PersonScreen.tsx'
@@ -207,7 +210,7 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
         </div>
       </div>
 
-      <SortOut problems={p.problems} vanProblems={p.vanProblems} />
+      <SortOut problems={p.problems} vanProblems={p.vanProblems} short={shortSoon(view.crew, now)} />
 
       <section className="card timeline-card" ref={card}>
         {lanes === 0 && (
@@ -378,7 +381,8 @@ function JobDay({ lane, cell, scale, join }: { lane: JobLane; cell: JobCell; sca
   const className = ['blk', lane.tentative ? 'dashed' : 'solid', tone(cell), cell.stray && 'stray', lane.pending && 'pending', joinClass(join)].filter(Boolean).join(' ')
   // The day opens its job, as the name does; a call from the Crew tab has no job to open.
   const Block = lane.jobId ? 'a' : 'div'
-  const href = lane.jobId ? `#jobs/${lane.jobId}` : undefined
+  // A day short of crew opens the job's crew, where it's sorted out, not the top of the job (audit, 5 November 2026, finding 90).
+  const href = lane.jobId ? `#jobs/${lane.jobId}${tone(cell) === 'short' ? '/crew' : ''}` : undefined
   if (scale === 'month')
     return (
       <Block className={className} href={href} title={`${lane.name}: ${words}`}>
@@ -514,7 +518,7 @@ function Legend({ rows }: { rows: Rows }) {
       ? [
           ['blk solid', 'Confirmed'],
           ['blk dashed', 'Enquiry or quote'],
-          ['blk solid short', 'Crew still to find'],
+          ['blk solid short', STILL_NEEDS_CREW],
           ['blk solid stray', 'Crew on a day their phase moved off'],
           ['swatch holiday', 'Public holiday'],
         ]
@@ -544,13 +548,38 @@ function Legend({ rows }: { rows: Rows }) {
  * to open. Days gone are left out (ADR 0069). The planner shows it for the
  * days on screen, the notifications for the next four weeks.
  */
-export function SortOut({ problems, vanProblems, hint }: { problems: readonly PlanProblem[]; vanProblems: readonly VanProblem[]; hint?: string }) {
-  if (problems.length + vanProblems.length === 0) return null
+export function SortOut({
+  problems,
+  vanProblems,
+  short = [],
+  hint,
+}: {
+  problems: readonly PlanProblem[]
+  vanProblems: readonly VanProblem[]
+  /** Calls still short of crew within three days, first: they need someone now (audit, 5 November 2026, finding 60). */
+  short?: readonly ShortSoon[]
+  hint?: string
+}) {
+  if (problems.length + vanProblems.length + short.length === 0) return null
   const clashes = [...problems, ...vanProblems].filter((x) => x.severity === 'clash').length
   return (
-    <section className={`card ${clashes ? 'attention' : 'checks'}`}>
+    <section className={`card ${clashes || short.length ? 'attention' : 'checks'}`}>
       <h2>To sort out</h2>
       {hint && <p className="hint">{hint}</p>}
+      {short.map(({ call, short: n, inDays }) => (
+        <div className="row problem" key={`short ${call.id}`}>
+          <div>
+            <b>{call.project}</b> <StatusPill tone="bad">{n} short</StatusPill>
+            <p>
+              {call.role}
+              {call.phase ? ` · ${call.phase}` : ''} · {inDays === 0 ? 'today' : inDays === 1 ? 'tomorrow' : `in ${inDays} days`}
+            </p>
+          </div>
+          <a className="button" href={call.projectId ? `#jobs/${call.projectId}/crew` : '#crew'}>
+            Find crew
+          </a>
+        </div>
+      ))}
       {problems.map((x) => (
         <div className="row problem" key={`${x.person.id} ${x.day}`}>
           <div>

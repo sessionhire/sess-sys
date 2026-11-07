@@ -71,7 +71,7 @@ describe('the status of everything the app relies on (ADR 0093)', () => {
     const app = await server({ outside: { latest: down, maps: down }, fuel: down })
     const s = await read(app)
     expect(check(s, 'updates').state).toBe('off')
-    expect(check(s, 'maps')).toMatchObject({ state: 'warn', says: expect.stringMatching(/Venues already pinned still show/) })
+    expect(check(s, 'maps')).toMatchObject({ state: 'off', says: expect.stringMatching(/Venues already pinned still show/) })
     expect(check(s, 'fuel')).toMatchObject({ state: 'warn', says: expect.stringMatching(/quotes still use it/) })
   })
 

@@ -40,6 +40,7 @@ import { appShellPolicy, clientAddress, inlineScripts, pagePolicy, publicOrigin,
 import { CHARACTERS, isCharacterError, isLockBusy } from './kernel.ts'
 import { migrateAll } from './modules.ts'
 import { registerNoticeRoutes } from './notices.ts'
+import { registerAdrLink } from './adr-link.ts'
 import { reportError, reportNowAndThen, type ErrorReporting } from './monitoring.ts'
 import { keptSyncTestTables } from './schema.ts'
 import { asRead, readingOf } from './reading.ts'
@@ -381,6 +382,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     }
     // Too many tries says so in the words the app shows, as the passcode's own count does.
     if (status === 429) {
+      // Connecting Google is a page visit, not a call from the app: sent back to Admin with the same words, never a page of
+      // raw JSON (audit, 5 November 2026, finding 99).
+      const visit = { '/api/calendar/connect': 'calendar', '/api/assistant/mailbox/connect': 'mailbox' }[req.routeOptions.url ?? '']
+      if (visit) {
+        reply.redirect(`/?${visit}=busy#admin/connections`, 303)
+        return
+      }
       reply.code(429).send({ error: err.message })
       return
     }
@@ -640,6 +648,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   registerStockImportRoutes(app, { db, onChange: changed, round: options.stockImport })
   registerItemLogRoutes(app, { db })
   registerNoticeRoutes(app, { db })
+  registerAdrLink(app)
   registerPlaceRoutes(app, { search: options.places ?? nominatim() })
   registerFuelRoutes(app, { lookup: fuel })
   registerCalendarRoutes(app, { db, google, sync: calendarSync, secret: calendar?.clientSecret, onChange: () => void poke() })
@@ -662,7 +671,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   )
 
   // The history (ADR 0006): newest first, a page at a time, for everyone, one person or one record.
-  app.get<{ Querystring: { before?: string; limit?: string; who?: string; entity?: string; id?: string } }>('/api/history', async (req, reply) => {
+  app.get<{ Querystring: { before?: string; limit?: string; who?: string; entity?: string; id?: string; job?: string } }>('/api/history', async (req, reply) => {
     try {
       // Read by every member of staff, so in words without crew pay for a role that doesn't see it (ADR 0046), nor for a
       // head who sees only their department's (ADR 0062): the history names everyone's.

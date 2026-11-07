@@ -3,6 +3,8 @@ import type { QuoteRow } from './sync/money-view.ts'
 import type { PersonView } from './sync/crew-view.ts'
 import { DEPARTMENT_LABELS, type Department } from './stock.ts'
 import { KIND_LABELS, PROJECT_KINDS, PROJECT_STATUSES, STATUS_LABELS, STOPPED } from './jobs.ts'
+import { JOB_STAGES, STAGE_LABELS } from './steps.ts'
+import type { JobSteps } from './sync/steps-view.ts'
 import { APPLICANT_LEVEL, LEVELS, levelLine } from './crew-departments.ts'
 
 /**
@@ -132,9 +134,56 @@ export function jobSorts(newestFirst: boolean): ListSort<JobView>[] {
 }
 
 /** Jobs' filters. `kitShort` says whether a job has kit short, from the kit the device has. */
-export function jobFilters(kitShort: (job: JobView) => boolean, stopped: boolean): ListFilter<JobView>[] {
+/** A department as a filter's key: its name in lower case, so "LX" and "lx" are one. */
+export const departmentKey = (name: string) => name.trim().toLowerCase()
+
+export function jobFilters(
+  kitShort: (job: JobView) => boolean,
+  stopped: boolean,
+  steps?: (job: JobView) => JobSteps | undefined,
+  /** Whose (Move 9 of the sweep of 6 November 2026): the jobs someone is booked on, and each department's, first in the list. */
+  lens?: { mine?: (job: JobView) => boolean; departments?: readonly { name: string; test: (job: JobView) => boolean }[] }
+): ListFilter<JobView>[] {
   const crew = (j: JobView) => crewFill(j.calls)
+  // Where each job is, and its tasks late or down to nobody, so a count of them on Home opens the jobs it counted (audit, 5 November 2026, finding 20).
+  const byTasks: ListFilter<JobView>[] =
+    steps && !stopped
+      ? [
+          {
+            key: 'stage',
+            label: 'Stage',
+            any: 'Any stage',
+            options: JOB_STAGES.map((k) => ({ key: k, label: STAGE_LABELS[k], test: (j: JobView) => steps(j)?.stage?.key === k && !steps(j)?.finished })),
+          },
+          {
+            key: 'tasks',
+            label: 'Tasks',
+            any: 'Any tasks',
+            options: [
+              { key: 'late', label: 'A task late', test: (j) => !!steps(j)?.steps.some((t) => t.late) },
+              { key: 'nobody', label: 'Next task: nobody named', test: (j) => isUnowned(steps(j)) },
+              // What Home counts (Move 10 of the sweep of 6 November 2026): a job that starts within a fortnight with nobody on
+              // its next task is a signal; one months off is how the company works.
+              { key: 'nobody-soon', label: 'Next task: nobody named, starting within a fortnight', test: (j) => nobodySoon(steps(j)) },
+            ],
+          },
+        ]
+      : []
+  const whose: ListFilter<JobView>[] = [
+    ...(lens?.mine ? [{ key: 'mine', label: 'Whose', any: "Anyone's", options: [{ key: 'mine', label: 'Mine', test: lens.mine }] }] : []),
+    ...(lens?.departments?.length
+      ? [
+          {
+            key: 'department',
+            label: 'Department',
+            any: 'Any department',
+            options: lens.departments.map((d) => ({ key: departmentKey(d.name), label: d.name, test: d.test })),
+          },
+        ]
+      : []),
+  ]
   return [
+    ...whose,
     {
       key: 'status',
       label: 'Status',
@@ -168,8 +217,25 @@ export function jobFilters(kitShort: (job: JobView) => boolean, stopped: boolean
         { key: 'enough', label: 'No kit short', test: (j) => !kitShort(j) },
       ],
     },
+    ...byTasks,
   ]
 }
+
+/** Within how many days a job starts for its next task down to nobody to be a signal on Home. */
+export const NOBODY_SOON_DAYS = 14
+
+/** Being planned, starting within a fortnight (or begun), with its next task down to nobody: what Home counts. */
+export function nobodySoon(s: JobSteps | undefined): boolean {
+  return !!s && !!s.job.span && s.daysAfter === undefined && (s.daysTo ?? 0) <= NOBODY_SOON_DAYS && s.stage?.key === 'planning' && !s.finished && isUnowned(s)
+}
+
+/** Its dates passed but the job is still in Back with work open on it (Move 10 of the sweep of 6 November 2026): not finished yet. */
+export function stillInBack(s: JobSteps | undefined): boolean {
+  return !!s && s.stage?.key === 'back' && !s.finished && !s.stopped
+}
+
+/** A job whose next task nobody has been given yet. */
+export const isUnowned = (at: JobSteps | undefined) => !!at?.current && !at.finished && !at.stopped && !at.current.ownerId
 
 // Quotes
 
@@ -212,14 +278,16 @@ export function quoteFilters(today: string): ListFilter<QuoteRow>[] {
 const surname = (p: PersonView) => (p.lastName?.trim() || p.name.trim().split(/\s+/).slice(1).join(' ') || p.name).trim()
 
 /** People's orders; `ahead` counts someone's bookings from today on, for "Most booked". */
-export function peopleSorts(ahead: (p: PersonView) => number): ListSort<PersonView>[] {
-  return [
+export function peopleSorts(ahead: (p: PersonView) => number, levels = true): ListSort<PersonView>[] {
+  const all: ListSort<PersonView>[] = [
     { key: 'name', label: 'First name, A to Z', compare: (a, b) => byName(a.name, b.name) },
     { key: 'surname', label: 'Last name, A to Z', compare: (a, b) => byName(surname(a), surname(b)) || byName(a.name, b.name) },
     { key: 'department', label: 'Department', compare: (a, b) => lastIfNone(a.department, b.department, byName) || byName(a.name, b.name) },
     { key: 'level', label: 'Highest level first', compare: (a, b) => b.level - a.level || byName(a.name, b.name) },
     { key: 'booked', label: 'Most booked ahead', compare: (a, b) => ahead(b) - ahead(a) || byName(a.name, b.name) },
   ]
+  // A reader the levels aren't sent to (audit, 5 November 2026, finding 44) isn't offered an order by them.
+  return levels ? all : all.filter((s) => s.key !== 'level')
 }
 
 /** No department, as a filter's choice; a department can't be typed with the tilde. */
@@ -244,13 +312,18 @@ export function peopleFilters(people: readonly PersonView[]): ListFilter<PersonV
         { key: 'freelancer', label: 'Freelancers', test: (p) => p.kind === 'freelancer' },
       ],
     },
-    {
+    // Not for a reader the levels aren't sent to (audit, 5 November 2026, finding 44).
+    ...(people.some((p) => p.levelHidden) ? [] : [levelFilter(people)]),
+  ]
+}
+
+function levelFilter(people: readonly PersonView[]): ListFilter<PersonView> {
+  return {
       key: 'level',
       label: 'Level',
       any: 'Any level',
       options: LEVELS.filter((l) => people.some((p) => p.level === l)).map((l) => ({ key: String(l), label: l === APPLICANT_LEVEL ? levelLine(l) : `Level ${l}`, test: (p) => p.level === l })),
-    },
-  ]
+  }
 }
 
 // The catalogue

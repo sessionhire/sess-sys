@@ -1,4 +1,4 @@
-import { plural, type AssetView, type PlaceView, type View, type WarehouseView } from '@sh/shared'
+import { dayLabel, plural, type AssetView, type PlaceView, type View, type WarehouseView } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -7,6 +7,7 @@ import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { contentsLabel, CountHere, CountRow, numberLabel, PutByNumber, SavedLine, WhereChoices } from './common.tsx'
+import { NumberGroup, NUMBERS_FOLD_PAST } from './CountKit.tsx'
 import { CountsOf } from './Counts.tsx'
 import { PLACES, STOCK } from '../Up.tsx'
 
@@ -29,8 +30,11 @@ export function PlaceScreen({ view, id, bare }: { view: View; id: string; bare?:
         </section>
       </Page>
     )
+  // Its name heads the page, with its kind, what's kept there and its last count under (Move 11 of the sweep of 6 November 2026).
+  const last = view.counts.of({ placeId: p.id, caseId: null })[0]
+  const line = ['Place', plural(p.itemTotal + p.countedTotal, 'item'), last ? `counted ${dayLabel(last.day)}` : 'not counted yet'].join(' · ')
   return (
-    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare}>
+    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare} heading={p.name} badge={<Pending pending={p.pending} />} sub={<p>{line}</p>}>
       <Summary p={p} w={w} />
       <CountsOf view={view} where={{ placeId: p.id, caseId: null }} />
       <Here p={p} w={w} />
@@ -63,11 +67,7 @@ function Summary({ p, w }: { p: PlaceView; w: WarehouseView }) {
     })
   }
   return (
-    <section className="card">
-      <header className="title">
-        <h1>{p.name}</h1>
-        <Pending pending={p.pending} />
-      </header>
+    <section className="card" aria-label="Details">
       <dl className="facts">
         <div>
           <dt>Items</dt>
@@ -98,7 +98,7 @@ function Summary({ p, w }: { p: PlaceView; w: WarehouseView }) {
           </div>
         </form>
       ) : removing ? (
-        <Confirm question={`Remove ${p.name}? Nothing is kept there, so nothing moves.`} yes="Remove it" onYes={remove} onNo={() => setRemoving(false)} />
+        <Confirm question={`Remove ${p.name}? Nothing is kept there, so nothing moves.`} yes="Remove it" loss onYes={remove} onNo={() => setRemoving(false)} />
       ) : (
         <>
           <Refusal error={error} />
@@ -127,6 +127,7 @@ function Here({ p, w }: { p: PlaceView; w: WarehouseView }) {
     groups.set(a.modelId, [...(groups.get(a.modelId) ?? []), a])
   }
   const byName = [...groups.values()].sort((a, b) => (a[0]!.model?.name ?? '').localeCompare(b[0]!.model?.name ?? ''))
+  const folded = p.items.length - cases.length > NUMBERS_FOLD_PAST
   const empty = p.items.length === 0 && p.counted.length === 0
   // What a count or a move of what's counted here just did.
   const [said, setSaid] = useState('')
@@ -150,23 +151,19 @@ function Here({ p, w }: { p: PlaceView; w: WarehouseView }) {
           ))}
         </ul>
       )}
+      {/* A full bay folds each product to its line (audit, 5 November 2026, finding 38): 592 numbers were 17,000 px on a phone. */}
       {byName.map((items) => {
         const m = items[0]!.model
         return (
-          <div className="group" key={items[0]!.modelId}>
-            <p className="group-name">
-              {m ? <a href={`#stock/product/${m.id}`}>{m.name}</a> : 'A product since removed'} <small>{plural(items.length, 'item')}</small>
-            </p>
-            <ul className="numbers">
-              {items.map((a) => (
-                <li key={a.id}>
-                  <a href={`#stock/item/${a.id}`} className={a.pending ? 'is-pending' : undefined}>
-                    {numberLabel(a)}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <NumberGroup
+            key={items[0]!.modelId}
+            items={items}
+            fold={folded}
+            name={m?.name ?? 'A product since removed'}
+            href={m ? `#stock/product/${m.id}` : undefined}
+            said={plural(items.length, 'item')}
+            className="group"
+          />
         )
       })}
       {p.counted.map((s) => (

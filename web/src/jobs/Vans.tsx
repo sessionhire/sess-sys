@@ -13,6 +13,7 @@ import {
   type PersonView,
   type VehicleView,
   type View,
+  NOT_YOURS
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -33,7 +34,10 @@ import { useToday } from '../view.ts'
  * van that day, the van off the road, a driver with no licence or one not
  * recorded. A road check run out or a driver who can't drive is refused
  * here before anything is sent, as the server would; a clash or a day off
- * the road asks first, and is booked anyway if the office says so.
+ * the road asks first, and is booked anyway if the office says so. Booking
+ * is done on the job's page, under its Next dock, so the form's submit is
+ * plain: the dock holds the page's one filled red (ADR 0104; UX sweep,
+ * 6 November 2026, move 1).
  */
 
 export function VansCard({ job, view }: { job: JobView; view: View }) {
@@ -44,7 +48,8 @@ export function VansCard({ job, view }: { job: JobView; view: View }) {
     <section className="card vans" aria-label="Vehicles">
       <Heading icon="van">Vehicles</Heading>
       {stopped && bookings.length > 0 && <p className="hint">This job is {job.status}, so its vehicles are free for other jobs.</p>}
-      {bookings.length === 0 && <Empty>Book a van for the job, or for one phase of it, with a driver from the crew.</Empty>}
+      {/* A role without a button is told who books them, not told to (UX sweep, 6 November 2026, move 4). */}
+      {bookings.length === 0 && <Empty>{mayBook ? 'Book a van for the job, or for one phase of it, with a driver from the crew.' : `No vans booked yet. ${NOT_YOURS.vans}`}</Empty>}
       {bookings.map((b) => (
         <Booking key={b.id} b={b} job={job} view={view} mayBook={mayBook} />
       ))}
@@ -97,6 +102,7 @@ function Booking({ b, job, view, mayBook }: { b: BookingView; job: JobView; view
         <Confirm
           question={`Take ${b.vehicle?.name ?? 'this vehicle'} off ${job.name}? It's free for other jobs on those days again.`}
           yes="Take it off"
+          loss
           onYes={() => {
             setDoing(undefined)
             void run(() => client.mutate('vehicleBooking.remove', { id: b.id }))
@@ -241,12 +247,14 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
           ))}
         </select>
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} required />
-      </label>
-      <label>
-        To <input type="date" value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} required />
-      </label>
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} required />
+        </label>
+        <label>
+          To <input type="date" value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} required />
+        </label>
+      </div>
       <label className="wide">
         Driver
         <select value={f.driverId} onChange={(e) => setF({ ...f, driverId: e.target.value })}>
@@ -293,7 +301,7 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
         <Confirm className="wide" question={asking} yes="Book anyway" no="Don't book it" onYes={() => send(true)} onNo={() => setAsking('')} />
       ) : (
         <div className="actions wide">
-          <button type="submit" className="primary">
+          <button type="submit">
             {booking ? 'Save booking' : 'Book vehicle'}
           </button>
           {onDone && (

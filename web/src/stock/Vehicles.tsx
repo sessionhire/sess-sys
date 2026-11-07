@@ -1,5 +1,7 @@
 import {
   CHECK_KINDS,
+  dayLabel,
+  plural,
   CHECK_SOON_DAYS,
   checkLabel,
   checkLine,
@@ -19,6 +21,9 @@ import {
   type VehicleKind,
   type VehicleView,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
+  TIME_GROUPS,
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -71,17 +76,18 @@ export function VehiclesScreen({ view }: { view: View }) {
       <Split side={<VehicleReminders view={view} />}>
         <section className="card" aria-label="Vehicles">
           <Heading icon="van">Vans and the rest</Heading>
+          {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+          {mayChange && (
+            <Fold label="Add vehicle">
+              <VehicleForm onDone={(id) => (location.hash = vehicleHref(id))} />
+            </Fold>
+          )}
           {view.vehicles.vehicles.length === 0 && <Empty>Add the vans, so they can be booked on jobs with a driver.</Empty>}
           <ul className="vehicle-list">
             {view.vehicles.vehicles.map((v) => (
               <VehicleRow key={v.id} v={v} today={today} />
             ))}
           </ul>
-          {mayChange && (
-            <Fold label="Add vehicle">
-              <VehicleForm onDone={(id) => (location.hash = vehicleHref(id))} />
-            </Fold>
-          )}
           {retired.length > 0 && (
             <details className="retired">
               <summary>Retired ({retired.length})</summary>
@@ -137,7 +143,7 @@ export function VehicleReminders({ view }: { view: View }) {
   if (!reminders.length) return null
   return (
     <section className="card reminders" aria-label="Vehicle checks running out">
-      <Heading icon="certificate">Vehicle checks running out ({reminders.length})</Heading>
+      <Heading icon="certificate">{listHeading(STANDING_HEADINGS.vehicles, reminders.length)}</Heading>
       <ShowAll items={reminders} limit={3} what="checks">
         {(rows) =>
           rows.map((r) => (
@@ -289,11 +295,34 @@ export function VehicleScreen({ view, id, bare }: { view: View; id: string; bare
       </Page>
     )
   return (
-    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare}>
+    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare} heading={v.name} badge={<VehiclePills v={v} />}
+      sub={<p>{vehicleLine(v)}</p>}
+    >
       <Summary v={v} />
       <Checks v={v} />
       <Bookings v={v} />
     </Page>
+  )
+}
+
+/** "Van · 241-D-100 · 3 seats": its kind, registration and seats under its name (Move 11 of the sweep of 6 November 2026). */
+function vehicleLine(v: VehicleView): string {
+  return [VEHICLE_KIND_LABELS[v.kind], v.registration || undefined, v.seats != null ? plural(v.seats, 'seat') : undefined].filter(Boolean).join(' · ')
+}
+
+/**
+ * Its state beside its name: pending, retired, or off the road until a day, with why under it, in words as well as the pill's
+ * tone (Move 11 of the sweep of 6 November 2026; states.md: a value not plainly true is said).
+ */
+function VehiclePills({ v }: { v: VehicleView }) {
+  const today = useToday()
+  const off = v.outOfService && (v.outOfService.until === null || v.outOfService.until >= today) ? v.outOfService : null
+  return (
+    <>
+      <Pending pending={v.pending} />
+      {v.archived && <StatusPill tone="cancelled">Retired</StatusPill>}
+      {off && <StatusPill tone="pending">{off.until ? `Off the road until ${dayLabel(off.until)}` : 'Off the road'}</StatusPill>}
+    </>
   )
 }
 
@@ -308,13 +337,7 @@ function Summary({ v }: { v: VehicleView }) {
     void run(() => client.mutate('vehicle.archive', { id: v.id, archived }))
   }
   return (
-    <section className="card">
-      <header className="title">
-        <h1>{v.name}</h1>
-        <Pending pending={v.pending} />
-        {v.archived && <StatusPill tone="cancelled">Retired</StatusPill>}
-        {off && <StatusPill tone="pending">Off the road</StatusPill>}
-      </header>
+    <section className="card" aria-label="Details">
       <dl className="facts">
         <div>
           <dt>Registration</dt>
@@ -384,12 +407,14 @@ function OffRoadForm({ v, onDone }: { v: VehicleView; onDone: () => void }) {
   }
   return (
     <form className="grid-form" onSubmit={save} aria-label={`Take ${v.name} off the road`}>
-      <label>
-        Off the road from <input type="date" value={f.since} onChange={(e) => setF({ ...f, since: e.target.value })} required />
-      </label>
-      <label>
-        Back on <input type="date" value={f.until} onChange={(e) => setF({ ...f, until: e.target.value })} />
-      </label>
+      <div className="pair">
+        <label>
+          Off the road from <input type="date" value={f.since} onChange={(e) => setF({ ...f, since: e.target.value })} required />
+        </label>
+        <label>
+          Back on <input type="date" value={f.until} onChange={(e) => setF({ ...f, until: e.target.value })} />
+        </label>
+      </div>
       <label className="wide">
         Why <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. In for a new clutch" />
       </label>
@@ -443,7 +468,7 @@ function Bookings({ v }: { v: VehicleView }) {
       ))}
       {gone.length > 0 && (
         <details>
-          <summary>Earlier ({gone.length})</summary>
+          <summary>{TIME_GROUPS.past} ({gone.length})</summary>
           {gone.map((b) => (
             <BookingLine key={b.id} b={b} />
           ))}

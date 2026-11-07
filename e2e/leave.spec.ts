@@ -1,11 +1,13 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { pickRecord } from './names.ts'
 
 /**
  * Staff leave (ADR 0024) end to end, with sign-in off: an approver opens
  * next year in place, and a request in it, turned down before, goes in; a
  * member of staff says who they are, applies for three days and sees the
  * count; an approver on another phone sees the Crew tab's badge count it
- * the moment he says who he is, approves it, and has a blanked allowance
+ * the moment he says who he is, approves it, and her link lists it under
+ * Leave, with no days-off form; he has a blanked allowance
  * turned down in place, and one the server turns down listed as not done
  * with its year as a year; the planner shows the days off; and an offer to
  * that person for those days warns. Signed in, someone archived since is
@@ -120,12 +122,15 @@ test('an approver opens next year in place, and a request in it, turned down unt
   await siun.getByLabel('Your name').selectOption({ label: `Siún Keogh ${id}` })
   await siun.getByRole('button', { name: "That's me" }).click()
   const apply = siun.getByRole('region', { name: 'Apply for leave' })
-  await expect(apply).toContainText(`Open for leave: ${YEAR}. ${NEXT} isn't open yet: the office opens each year when it's ready.`)
+  await expect(apply).toContainText(`Open for leave: ${YEAR}. ${NEXT} isn't open yet: the office opens each year when it's ready. Ask `)
+  // Who to ask is named, so a year not open is a step to take (audit, 5 November 2026, finding 30).
+  await expect(apply).toContainText(`to open ${NEXT}.`)
   await expect(apply.getByRole('button', { name: `Open ${NEXT} for leave` })).toHaveCount(0)
   await apply.getByLabel('From').fill(WEDNESDAY)
   await apply.getByLabel('To', { exact: true }).fill(WEDNESDAY)
   await apply.getByRole('button', { name: 'Apply' }).click()
-  await expect(apply.getByRole('alert')).toHaveText(`Leave for ${NEXT} isn't open yet. The office opens each year when it's ready.`)
+  await expect(apply.getByRole('alert')).toContainText(`Leave for ${NEXT} isn't open yet. The office opens each year when it's ready. Ask `)
+  await expect(apply.getByRole('alert')).toContainText(`to open ${NEXT}.`)
 
   const eoin = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await eoin.goto('/#crew/leave')
@@ -133,6 +138,7 @@ test('an approver opens next year in place, and a request in it, turned down unt
   await eoin.getByLabel('Your name').selectOption({ label: `Eoin Byrne ${id}` })
   await eoin.getByRole('button', { name: "That's me" }).click()
   const his = eoin.getByRole('region', { name: 'Apply for leave' })
+  await expect(his).toContainText(`You can open ${NEXT} here, once staff can ask for leave in it.`)
   await his.getByRole('button', { name: `Open ${NEXT} for leave` }).click()
   const question = his.getByRole('group', { name: `Open ${NEXT} for leave? Staff can ask for leave in ${NEXT} from then on, and it can't be closed again.` })
   await expect(question.getByRole('button', { name: 'Not yet' })).toBeFocused()
@@ -150,7 +156,7 @@ test('an approver opens next year in place, and a request in it, turned down unt
   await siun.getByRole('button', { name: `${NEXT}, the year after` }).click()
   const mine = siun.getByRole('region', { name: `My requests, ${NEXT}` })
   await expect(mine).toContainText('1 day')
-  await expect(mine.locator('.pill')).toHaveText('Waiting')
+  await expect(mine.locator('.pill')).toHaveText('Waiting for approval')
   await eoin.getByRole('region', { name: 'To approve' }).getByRole('button', { name: `Approve Siún Keogh ${id}'s request` }).click()
   await expect(mine.locator('.pill')).toHaveText('Approved')
 })
@@ -183,7 +189,7 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   const mine = nora.getByRole('region', { name: /^My requests/ })
   await expect(mine).toContainText('Annual leave')
   await expect(mine).toContainText('3 days')
-  await expect(mine.locator('.pill')).toHaveText('Waiting')
+  await expect(mine.locator('.pill')).toHaveText('Waiting for approval')
 
   // Eoin, who can approve time off, on his: the Crew tab's badge counts her request the moment he says who he is, with no reload, and the queue says what to weigh up.
   const eoin = await (await browser.newContext({ viewport: phoneSize })).newPage()
@@ -200,6 +206,9 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   await expect(leave).toHaveText('Leave 1')
   await leave.click()
   const queue = eoin.getByRole('region', { name: 'To approve' })
+  // First on the page, with its count, for the count on Crew's row to open (audit, 5 November 2026, finding 28).
+  await expect(queue.getByRole('heading', { level: 2 })).toHaveText('To approve (1)')
+  await expect(eoin.locator('main .card').first()).toHaveAttribute('aria-label', 'To approve')
   const request = queue.locator('.row', { hasText: `Nora Walsh ${id}` })
   await expect(request).toContainText('Annual leave')
   await expect(request).toContainText('(3 days)')
@@ -209,9 +218,26 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   await expect(queue).toContainText('Nothing here yet.')
   // Nora sees it approved without doing anything.
   await expect(mine.locator('.pill')).toHaveText('Approved')
+  // Her link says it too, under Leave where a freelancer's days off are: said once, though it marks her days off, with the
+  // way to ask for more in the app and nothing there to mark days off with (UX sweep, 6 November 2026, move 6).
+  // On her own device, which says it's her, her page in the app calls her link hers, as Home › Me does.
+  const hers = await nora.context().newPage()
+  await hers.goto(`/#crew/person/${k('nora')}/link`)
+  await expect(hers.getByRole('status')).toHaveText('Up to date')
+  await hers.goto((await hers.getByRole('region', { name: 'Your page' }).getByRole('link', { name: 'Open your page' }).getAttribute('href'))!)
+  const onHerLink = hers.locator('section', { has: hers.getByRole('heading', { level: 2, name: 'Leave', exact: true }) })
+  await expect(onHerLink.getByRole('listitem')).toHaveCount(1)
+  await expect(onHerLink.getByRole('listitem')).toContainText('Annual leave · Long weekend away')
+  await expect(onHerLink.locator('.tag')).toHaveText('Approved')
+  await expect(onHerLink.getByRole('link', { name: 'Ask for leave in the app ›' })).toHaveAttribute('href', /\/#crew\/leave$/)
+  await expect(hers.getByRole('button', { name: 'Add days off' })).toHaveCount(0)
+  await hers.close()
 
   // Her allowance: a blanked field is turned down in place, keeping what was typed; a number is saved.
   const allowance = eoin.getByRole('form', { name: `Nora Walsh ${id}'s allowance` })
+  // A row each, opened to change it (audit, 5 November 2026, finding 28).
+  await expect(allowance.getByLabel('Days')).toBeHidden()
+  await allowance.locator('summary').click()
   await allowance.getByLabel('Days').fill('')
   await allowance.getByRole('button', { name: 'Save' }).click()
   await expect(allowance.getByRole('alert')).toHaveText('The allowance is a whole number from 0 to 366.')
@@ -247,12 +273,15 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   await eoin.goto('/#crew')
   await expect(eoin.getByRole('status')).toHaveText('Up to date')
   // Three weeks out is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
-  await eoin.getByRole('button', { name: /^Show all \d+ calls still to come$/ }).click()
+  await eoin.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
   const call = eoin.locator('.call-group', { hasText: `Leave check ${id}` }).getByRole('article', { name: 'Driver' })
   await call.getByRole('button', { name: 'Offer…' }).click()
-  await call.getByLabel('Offer to').selectOption({ label: `Nora Walsh ${id} · Level 1 ⚠` })
+  await call.getByRole('combobox', { name: 'Offer to' }).fill(`Nora Walsh ${id}`)
+  await expect(call.getByRole('option', { name: new RegExp(`^Nora Walsh ${id}`) })).toContainText('⚠ not free then')
+  await pickRecord(call, 'Offer to', `Nora Walsh ${id}`)
   await expect(call.locator('.warn')).toContainText(`Marked unavailable ${FROM} to ${MIDDLE} (Annual leave)`)
-  await expect(call.getByRole('button', { name: 'Offer', exact: true })).toBeDisabled()
+  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  await expect(call.getByRole('alert')).toHaveText('Tick Offer anyway first, or choose someone else.')
 })
 
 test('someone archived who signs in is told so on the Leave screen, not to put on their email', async ({ browser }) => {

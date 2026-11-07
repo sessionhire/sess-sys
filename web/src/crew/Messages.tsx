@@ -13,7 +13,7 @@ import {
   type TellContext,
   type TellEvent,
 } from '@sh/shared'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAccess } from '../role.ts'
 import { useView } from '../view.ts'
 
@@ -64,20 +64,26 @@ export function peopleOn(call: CallView, statuses: readonly OfferView['status'][
   return call.offers.filter((o) => o.person && statuses.includes(o.status)).map((o) => tellTo(o.person as Person, call, o))
 }
 
-/** The panel for whatever is open: the offer to send, or the people to tell one at a time. */
-export function SharePanelFor({ share, onClose }: { share: Share; onClose: () => void }) {
-  if (share.kind === 'offer') return <SharePanel person={share.person} call={share.call} onClose={onClose} />
-  return <TellPanel key={share.tell.id} tell={share.tell} onClose={onClose} />
+/**
+ * The panel for whatever is open: the offer to send, or the people to tell one at a time. `inJob` is the job's page, under its
+ * Next dock, which holds the page's one filled red (ADR 0104), so WhatsApp is plain there (UX sweep, 6 November 2026, move 1).
+ */
+export function SharePanelFor({ share, onClose, inJob = false }: { share: Share; onClose: () => void; inJob?: boolean }) {
+  if (share.kind === 'offer') return <SharePanel person={share.person} call={share.call} onClose={onClose} inJob={inJob} />
+  return <TellPanel key={share.tell.id} tell={share.tell} onClose={onClose} inJob={inJob} />
 }
 
-/** WhatsApp, a text or an email with the words filled in, or a copy of them. Nothing is sent for you. */
-export function SendButtons({ person, text, subject }: { person: Pick<Person, 'phone' | 'email'>; text: string; subject: string }) {
+/**
+ * WhatsApp, a text or an email with the words filled in, or a copy of them. Nothing is sent for you. WhatsApp is the panel's
+ * red fill, except on the job's page (`inJob`), where the Next dock holds the page's one.
+ */
+export function SendButtons({ person, text, subject, inJob = false }: { person: Pick<Person, 'phone' | 'email'>; text: string; subject: string; inJob?: boolean }) {
   const [copied, setCopied] = useState(false)
   return (
     <>
       {person.phone && (
         <>
-          <a className="button primary" href={`https://wa.me/${whatsappNumber(person.phone)}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
+          <a className={inJob ? 'button' : 'button primary'} href={`https://wa.me/${whatsappNumber(person.phone)}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
             WhatsApp
           </a>
           <a className="button" href={`sms:${person.phone}?&body=${encodeURIComponent(text)}`}>
@@ -111,16 +117,24 @@ export const usePromptsMessages = () => useView().office.promptMessages
  * where it's turned on. The mode shows itself where it bites, not only on
  * Admin (rule 14).
  */
-export function QuietPanel({ names, what, onLink = true, onClose }: { names: readonly string[]; what: string; onLink?: boolean; onClose: () => void }) {
-  const admin = useAccess().can('settings')
-  const who = names.length === 1 ? names[0] : `${names.length} people`
-  // Opened by Offer or Send, perhaps below the fold on a desk: brought into view, and focus with it, so it's seen and read rather than
-  // left under the fold with focus nowhere (audit, 20 October 2026, finding 77c).
+/**
+ * A panel opened by a press (Offer, Send, Confirm, Release) comes into view with the focus on it, so it's seen and read rather than
+ * left under the fold with focus nowhere (audit, 20 October 2026, finding 77c; 5 November 2026, finding 5). The screens open it where
+ * the press was, so this is a nudge, not a jump.
+ */
+function useInView() {
   const panel = useRef<HTMLElement>(null)
   useEffect(() => {
     panel.current?.scrollIntoView?.({ block: 'nearest' })
     panel.current?.focus({ preventScroll: true })
   }, [])
+  return panel
+}
+
+export function QuietPanel({ names, what, onLink = true, onClose }: { names: readonly string[]; what: string; onLink?: boolean; onClose: () => void }) {
+  const admin = useAccess().can('settings')
+  const who = names.length === 1 ? names[0] : `${names.length} people`
+  const panel = useInView()
   return (
     <section className="card share" aria-label={`Messages to crew are off: ${what} for ${who}`} ref={panel} tabIndex={-1}>
       <h2>Messages to crew are off</h2>
@@ -141,8 +155,9 @@ export function QuietPanel({ names, what, onLink = true, onClose }: { names: rea
  * the office sends it, and whatever was done is already on their page.
  */
 function NoLinkYet({ person, onClose }: { person: Pick<Person, 'name'> & Partial<Pick<Person, 'linkHidden'>>; onClose: () => void }) {
+  const panel = useInView()
   return (
-    <section className="card share">
+    <section className="card share" ref={panel} tabIndex={-1}>
       <h2>Send to {person.name}</h2>
       <p className="empty">
         {person.linkHidden
@@ -162,25 +177,47 @@ export function SharePanel({
   call,
   onClose,
   message,
+  inJob = false,
 }: {
   person: PersonView
   call: CallView
   onClose: () => void
   message?: (link: string) => { text: string; subject: string; what: string }
+  /** On the job's page, under its Next dock: WhatsApp is plain (SendButtons). */
+  inJob?: boolean
 }) {
   const prompts = usePromptsMessages()
   if (!prompts) return <QuietPanel names={[person.name]} what={message?.('').what ?? 'offer'} onClose={onClose} />
   const link = linkFor(person)
   if (!link) return <NoLinkYet person={person} onClose={onClose} />
+  return <SendTo person={person} call={call} link={link} message={message} onClose={onClose} inJob={inJob} />
+}
+
+function SendTo({
+  person,
+  call,
+  link,
+  message,
+  onClose,
+  inJob,
+}: {
+  person: PersonView
+  call: CallView
+  link: string
+  message?: (link: string) => { text: string; subject: string; what: string }
+  onClose: () => void
+  inJob: boolean
+}) {
+  const panel = useInView()
   const custom = message?.(link)
   const text = custom?.text ?? offerMessage(person, call, link)
   const subject = custom?.subject ?? `Work: ${call.project}, ${daysLabel(call.days)}`
   return (
-    <section className="card share" aria-label={`Send ${custom?.what ?? 'offer'} to ${person.name}`}>
+    <section className="card share" aria-label={`Send ${custom?.what ?? 'offer'} to ${person.name}`} ref={panel} tabIndex={-1}>
       <h2>Send to {person.name}</h2>
       <textarea readOnly value={text} rows={6} />
       <div className="actions">
-        <SendButtons key={person.id} person={person} text={text} subject={subject} />
+        <SendButtons key={person.id} person={person} text={text} subject={subject} inJob={inJob} />
         <button type="button" className="link" onClick={onClose}>
           Done
         </button>
@@ -195,7 +232,7 @@ export function SharePanel({
  * to move to the next. "Tell 3 people" for a cancelled job; just the one
  * after a Confirm.
  */
-export function TellPanel({ tell, onClose }: { tell: Tell; onClose: () => void }) {
+export function TellPanel({ tell, onClose, inJob = false }: { tell: Tell; onClose: () => void; inJob?: boolean }) {
   const [at, setAt] = useState(0)
   const prompts = usePromptsMessages()
   const to = tell.to[at]
@@ -208,16 +245,28 @@ export function TellPanel({ tell, onClose }: { tell: Tell; onClose: () => void }
   if (!link) return <NoLinkYet person={person} onClose={next} />
   const { text, subject, what } = tellMessage(tell.event, person, context, link)
   return (
-    <section className="card share" aria-label={`Send ${what} to ${person.name}`}>
-      <h2>{n === 1 ? `Tell ${person.name}` : `Tell ${n} people: ${person.name} (${at + 1} of ${n})`}</h2>
+    <TellOne key={at} label={`Send ${what} to ${person.name}`} title={n === 1 ? `Tell ${person.name}` : `Tell ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next}>
       <textarea readOnly value={text} rows={6} />
+      <SendButtons key={person.id} person={person} text={text} subject={subject} inJob={inJob} />
+    </TellOne>
+  )
+}
+
+/** One person to tell, brought into view as it opens. */
+function TellOne({ label, title, more, onNext, children }: { label: string; title: string; more: boolean; onNext: () => void; children: [ReactNode, ReactNode] }) {
+  const panel = useInView()
+  const [message, buttons] = children
+  return (
+    <section className="card share" aria-label={label} ref={panel} tabIndex={-1}>
+      <h2>{title}</h2>
+      {message}
       <div className="actions">
-        <SendButtons key={person.id} person={person} text={text} subject={subject} />
-        <button type="button" className="link" onClick={next}>
-          {at + 1 < n ? 'Done, next' : 'Done'}
+        {buttons}
+        <button type="button" className="link" onClick={onNext}>
+          {more ? 'Done, next' : 'Done'}
         </button>
-        {at + 1 < n && (
-          <button type="button" className="link" onClick={next}>
+        {more && (
+          <button type="button" className="link" onClick={onNext}>
             Skip
           </button>
         )}

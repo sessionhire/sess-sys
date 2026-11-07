@@ -162,7 +162,7 @@ const CASES: Case[] = [
   c('offer.respond', { id: 'eimear-sound', answer: 'accept', days: null, note: 'See you there' }, { as: 'accepted' }),
   c('offer.respond', { id: 'eimear-sound', answer: 'decline', note: 'Away' }, { as: 'declined' }),
   c('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: '' }, { as: 'countered' }),
-  c('offer.respond', { id: 'dara-sound', answer: 'pullOut', note: 'Sick' }, { as: 'pulled out' }),
+  c('offer.respond', { id: 'dara-sound', answer: 'pullOut', note: 'Sick' }, { as: "can't make it" }),
   c('offer.confirm', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'accept', days: null, note: '' })] }),
   c('offer.confirm', { id: 'eimear-sound' }, { as: 'a counter noted and agreed with no signal', queued: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: 'Long days' })] }),
   c('offer.cancel', { id: 'eimear-sound' }),

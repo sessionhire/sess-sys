@@ -17,7 +17,7 @@ import { useLate } from './useLate.ts'
 const WRITING_MS = 100_000
 
 export function TodoCard({ view }: { view: View }) {
-  const { offered } = useClaude(view)
+  const { offered, status } = useClaude(view)
   const loaded = useAsked(offered, 'todo', () => getJson<{ list: TodoList | null }>('/api/assistant/todo'))
   const [list, setList] = useState<TodoList | null>(null)
   const [busy, setBusy] = useState(false)
@@ -26,7 +26,8 @@ export function TodoCard({ view }: { view: View }) {
   useEffect(() => {
     if (loaded.state === 'ready') setList(loaded.data.list)
   }, [loaded])
-  if (!offered) return null
+  // Not while the server isn't set up for Claude: Write it now could only fail (audit, 5 November 2026, finding 81).
+  if (!offered || (status.state === 'ready' && !status.data.configured)) return null
 
   const write = async () => {
     setBusy(true)

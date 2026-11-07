@@ -14,6 +14,7 @@ import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Page } from '../jobs/common.tsx'
+import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
 import { when } from '../format.ts'
 import { useAccess } from '../role.ts'
 import { Pending, StatusPill } from '../StatusPill.tsx'
@@ -54,9 +55,26 @@ import { TrackerCard } from './Trackers.tsx'
  * log says everything that happened to it (ADR 0026). With trackers on, its
  * tracker says where it is (ADR 0107).
  */
-export function ItemScreen({ view, id, bare }: { view: View; id: string; bare?: boolean }) {
+/**
+ * An item's page in parts (Move 11 of the sweep of 6 November 2026, ADR 0082): what it is and where stays over the tabs, as a
+ * person's way to reach them does; its faults, its tests and certificates, what's in it (a case or a rack), its counts (a
+ * case) and its log are tabs, one at a time.
+ */
+type ItemPart = 'faults' | 'certificates' | 'inside' | 'counts' | 'log'
+const ITEM_LABELS: Record<ItemPart, string> = { faults: 'Faults', certificates: 'Tests and certificates', inside: 'In it', counts: 'Counts', log: 'Log' }
+
+export function ItemScreen({ view, id, part: asked, bare }: { view: View; id: string; part?: string; bare?: boolean }) {
   const w = view.warehouse
   const a = w.assets.get(id)
+  const active = a?.status === 'active'
+  const parts: ItemPart[] = [
+    'faults',
+    'certificates',
+    ...(active && (a?.model?.isCase || a?.model?.isRack) ? (['inside'] as const) : []),
+    ...(active && a?.model?.isCase ? (['counts'] as const) : []),
+    'log',
+  ]
+  const [part, pick] = useTab({ parts, asked, remember: 'sh.itemPart', address: (p) => `#stock/item/${encodeURIComponent(id)}/${p}` })
   if (!a)
     return (
       <Page
@@ -78,28 +96,59 @@ export function ItemScreen({ view, id, bare }: { view: View; id: string; bare?: 
       className="warehouse"
       up={{ steps: a.model && !a.model.mistake ? [STOCK, { href: `#stock/product/${a.model.id}`, label: a.model.name }] : [STOCK], here: numberLabel(a) }}
       bare={bare}
+      picture={<Thumb icon={kitIcon(a.model)} src={productPhotoOf(a.model)} size="large" />}
+      heading={<span className="number">{numberLabel(a)}</span>}
+      badge={a.pending ? <Pending pending /> : a.status === 'retired' ? <StatusPill tone="cancelled">Retired</StatusPill> : undefined}
+      sub={<p>{itemLine(a, w)}</p>}
     >
       <Summary a={a} w={w} view={view} />
       <TrackerCard view={view} a={a} />
-      <FaultsCard faults={view.faults.ofAsset(a.id)}>
-        {a.status === 'active' && (
-          <ReportButtons
-            asset={a}
-            model={a.model}
-            projectId={view.moves.outOf(a.id)?.projectId ?? null}
-            kinds={view.faults.ofAsset(a.id).some((f) => f.open && f.kind === 'missing') ? ['damaged'] : undefined}
-          />
+      <Tabs
+        label={`About ${numberLabel(a)}`}
+        id="item"
+        parts={parts}
+        labels={ITEM_LABELS}
+        current={part}
+        counts={{ faults: view.faults.ofAsset(a.id).filter((f) => f.open).length || undefined }}
+        onPick={pick}
+      />
+      <TabPanel id="item" current={part}>
+        {part === 'faults' && (
+          <FaultsCard faults={view.faults.ofAsset(a.id)}>
+            {a.status === 'active' && (
+              <ReportButtons
+                asset={a}
+                model={a.model}
+                projectId={view.moves.outOf(a.id)?.projectId ?? null}
+                kinds={view.faults.ofAsset(a.id).some((f) => f.open && f.kind === 'missing') ? ['damaged'] : undefined}
+              />
+            )}
+          </FaultsCard>
         )}
-      </FaultsCard>
-      <InspectionsCard view={view} a={a} />
-      <CertificatesCard view={view} a={a} />
-      {a.model?.isRack && a.status === 'active' && <BuiltRackCheck view={view} item={a} />}
-      {a.model?.isCase && a.status === 'active' && <Inside c={a} w={w} />}
-      {a.model?.isCase && a.status === 'active' && <CountsOf view={view} where={{ placeId: null, caseId: a.id }} />}
-      <ItemLog view={view} a={a} />
+        {part === 'certificates' && (
+          <>
+            <InspectionsCard view={view} a={a} />
+            <CertificatesCard view={view} a={a} />
+          </>
+        )}
+        {part === 'inside' && (
+          <>
+            {a.model?.isRack && <BuiltRackCheck view={view} item={a} />}
+            {a.model?.isCase && <Inside c={a} w={w} />}
+          </>
+        )}
+        {part === 'counts' && <CountsOf view={view} where={{ placeId: null, caseId: a.id }} />}
+        {part === 'log' && <ItemLog view={view} a={a} />}
+      </TabPanel>
       <WhereChoices w={w} />
     </Page>
   )
+}
+
+/** "Mic case 24 · Bay C2": what it is and where, under its number, as a product's page says its department and kind. */
+function itemLine(a: AssetView, w: WarehouseView): string {
+  const where = a.status === 'retired' ? undefined : a.inCase ? `in ${a.inCase.number || 'a case'}` : a.at ? a.at.name : whereLabel(a, w)
+  return [a.model?.name ?? 'Removed', where].filter(Boolean).join(' · ')
 }
 
 type Mode = 'move' | 'details' | 'label' | 'print' | 'retire'
@@ -119,14 +168,7 @@ function Summary({ a, w, view }: { a: AssetView; w: WarehouseView; view: View })
   const mayChange = useAccess().can('stock')
   const modes = mayChange ? (['move', 'details', 'label', 'print', 'retire'] as const) : (['print'] as const)
   return (
-    <section className="card">
-      <header className="title">
-        <div className="pictured">
-          <Thumb icon={kitIcon(a.model)} src={productPhotoOf(a.model)} size="large" />
-          <h1 className="number">{numberLabel(a)}</h1>
-        </div>
-        {a.pending ? <Pending pending /> : retired && <StatusPill tone="cancelled">Retired</StatusPill>}
-      </header>
+    <section className="card" aria-label="Details">
       <dl className="facts">
         <div>
           <dt>Product</dt>

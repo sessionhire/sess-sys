@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { pickRecord } from './names.ts'
 import { createServer, type Server } from 'node:http'
 
 /**
@@ -100,6 +101,9 @@ test('a freelancer shares when they are busy from their link, the office sees it
   const section = phone.locator('section#calendar')
   await expect(section.getByRole('heading', { name: "Let us see when you're busy" })).toBeVisible()
   await expect(section).toContainText("We keep only the times you're busy: never what, where or who with. Nothing is ever added to your calendar")
+  // Set once, so it's folded to its state line until opened.
+  await expect(section.locator('details > summary').first()).toContainText('Not shared')
+  await section.locator('details > summary').first().click()
   await section.getByLabel("Your calendar's private address").fill(`http://127.0.0.1:${standInPort}${secretPath}`)
   await section.getByRole('button', { name: "Share when I'm busy" }).click()
   await expect(section.getByRole('status')).toHaveText("Thanks. We've read your calendar, and the office can see when you're busy.")
@@ -132,14 +136,13 @@ test('a freelancer shares when they are busy from their link, the office sees it
   await office.goto('/#crew/calls')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // The convention is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
-  await office.getByRole('button', { name: /^Show all \d+ calls still to come$/ }).click()
+  await office.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
   const call = office.locator('.call-group', { hasText: `Convention ${id}` }).getByRole('article', { name: '1 × Audio tech' })
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()
-  const picker = call.getByLabel('Offer to')
-  const option = picker.locator('option', { hasText: name })
-  await expect(option).toContainText('busy in own calendar')
-  await picker.selectOption({ value: `orla-${id}` })
+  await call.getByRole('combobox', { name: 'Offer to' }).fill(name)
+  await expect(call.getByRole('option', { name: new RegExp(`^${name}`) })).toContainText('busy in own calendar')
+  await pickRecord(call, 'Offer to', name)
   await expect(call.locator('.warn-line', { hasText: 'Busy in their own calendar' })).toHaveText(
     `Busy in their own calendar on ${label(busyDay)} (all day). The offer can still go: it may be something they can move, and they can still say yes.`
   )
@@ -148,6 +151,8 @@ test('a freelancer shares when they are busy from their link, the office sees it
 
   // One tap on her link stops it, and it's gone from her page in the app.
   await phone.goto(`/f/${token}`)
+  await expect(section.locator('details > summary').first()).toContainText('Shared, 1 busy day ahead')
+  await section.locator('details > summary').first().click()
   await section.getByRole('button', { name: 'Stop sharing my calendar' }).click()
   await expect(section.getByRole('button', { name: "Share when I'm busy" })).toBeVisible()
   await office.goto(`/#crew/person/orla-${id}`)

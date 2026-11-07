@@ -72,14 +72,14 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   await expect(card).toContainText('Sign-in is off, so anyone who can reach the app can read whatever you bring in.')
   await card.getByRole('link', { name: /^The crew list/ }).click()
   await expect(office).toHaveURL(/#crew\/import$/)
-  await expect(office.getByRole('heading', { name: 'Bring in a list' })).toBeVisible()
+  await expect(office.getByRole('heading', { name: 'Bring in the crew list', level: 1 })).toBeVisible()
   await expect(office.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Crew' })).toHaveAttribute('aria-current', 'page')
 
   // The file, read on the phone and sent to the server for the preview.
   await office.getByLabel('Crew list file').setInputFiles(file)
   const read = office.getByRole('region', { name: 'What was read' })
   await expect(read).toContainText('3 rows read: 3 new people, 1 with a problem.')
-  await expect(read).toContainText('Emails at sessionhire.com come in as staff')
+  await expect(read).toContainText('New people with emails at sessionhire.com come in as staff')
   const rows = office.getByRole('region', { name: 'Rows' })
   const nuala = rows.getByRole('listitem', { name: 'Row 2' })
   await expect(nuala).toContainText(`Nuala Breen ${id}`)
@@ -136,14 +136,19 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   // The applicant is out of the Offer to… picker until asked for, on Calls.
   await office.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^Calls/ }).click()
   // The call is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
-  await office.getByRole('button', { name: /^Show all \d+ calls still to come$/ }).click()
+  await office.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
   const call = office.locator('.call-group', { hasText: `Import check ${id}` }).getByRole('article', { name: 'Stagehand' })
   await call.getByRole('button', { name: 'Offer…' }).click()
-  const picker = call.getByLabel('Offer to')
-  await expect(picker.locator('option', { hasText: `Nuala Breen ${id}` })).toHaveText(`Nuala Breen ${id} · Production · Level 3 (Production: Crew chief)`)
-  await expect(picker.locator('option', { hasText: `Ruth Devane ${id}` })).toHaveCount(0)
+  const picker = call.getByRole('combobox', { name: 'Offer to' })
+  await picker.fill(`Nuala Breen ${id}`)
+  await expect(call.getByRole('option', { name: new RegExp(`^Nuala Breen ${id}`) }).locator('small')).toHaveText('Production · Level 3 (Production: Crew chief)')
+  await picker.fill(`Ruth Devane ${id}`)
+  await expect(call.getByRole('option')).toHaveCount(0)
+  await expect(call.getByRole('listbox')).toContainText(`Nobody matches “Ruth Devane ${id}”: applicants are left out unless shown`)
+  await picker.press('Escape')
   await call.getByLabel(/^Show applicants/).check()
-  await expect(picker.locator('option', { hasText: `Ruth Devane ${id}` })).toHaveText(`Ruth Devane ${id} · LX · Level 0 (LX)`)
+  await picker.fill(`Ruth Devane ${id}`)
+  await expect(call.getByRole('option', { name: new RegExp(`^Ruth Devane ${id}`) }).locator('small')).toHaveText('LX · Level 0 (LX)')
 
   // The same file again: everyone matches, so nobody is added.
   await office.goto('/#crew/import')
@@ -151,6 +156,9 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   await expect(read).toContainText('3 rows read: 0 new people, 3 updates, 1 with a problem.')
   await expect(rows.getByRole('listitem', { name: 'Row 2' })).toContainText(`Updates Nuala Breen ${id} (matched by email)`)
   await expect(rows.getByRole('listitem', { name: 'Row 4' })).toContainText(`Updates Ruth Devane ${id} (matched by phone)`)
+  // What stays the office's is said, not the file's values as if they'd land (audit, 5 November 2026, finding 40).
+  await expect(rows.getByRole('listitem', { name: 'Row 2' })).toContainText(`Updates Nuala Breen ${id} (matched by email). Keeps Staff, Level 3`)
+  await expect(rows.getByRole('listitem', { name: 'Row 2' })).toContainText(": the office's.")
   // Oisín's phone is still unreadable in the file; skipping the row is the other way past a problem.
   await rows.getByRole('listitem', { name: 'Row 3' }).getByLabel('Skip row 3').check()
   await expect(bring).toHaveText('Bring in 2 people')

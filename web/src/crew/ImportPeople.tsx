@@ -1,4 +1,5 @@
 import {
+  type PersonView,
   bringInLabel,
   companyLine,
   EMAIL_HINT,
@@ -49,12 +50,15 @@ type Step =
 /** The server takes up to this much; said here first, so a bigger file is told in words rather than by the server's cut-off. */
 const MOST_BYTES = 5_000_000
 
+const firstOf = (name: string) => name.trim().split(/\s+/)[0] || name
+
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString('en-IE')} ${n === 1 ? one : many}`
 
 const typedOf = (r: CrewListPreviewRow) => ({ name: r.name, email: r.email ?? '', phone: r.phone ?? '' })
 
 /** The people this device holds, as the rows are matched against them. */
-const knownOn = (view: View): KnownPerson[] => view.crew.people.map((p) => ({ id: p.id, name: p.name, email: p.email, phone: p.phone, archived: p.archived }))
+const knownOn = (view: View): KnownPerson[] =>
+  view.crew.people.map((p) => ({ id: p.id, name: p.name, email: p.email, otherEmails: p.otherEmails, phone: p.phone, archived: p.archived }))
 
 /** Which field a problem is said beside; null for one about the row as a whole. */
 function fieldOf(problem: string): 'name' | 'email' | 'phone' | null {
@@ -104,7 +108,7 @@ export function ImportPeopleScreen({ view }: { view: View }) {
         {/* Where it's up to (rule 13): choosing the file, then checking every row before anything is saved. */}
         {step.at !== 'done' && <p className="kicker">{step.at === 'preview' ? 'Step 2 of 2: check every row' : 'Step 1 of 2: choose the file'}</p>}
         <h1 ref={heading} tabIndex={-1}>
-          {step.at === 'done' ? 'Brought in' : 'Bring in a list'}
+          {step.at === 'done' ? 'Brought in' : 'Bring in the crew list'}
         </h1>
       </header>
       {step.at === 'choose' || step.at === 'reading' ? (
@@ -206,12 +210,13 @@ function Preview(p: {
         {p.preview.officeDomain === null ? (
           <p className="warn-line">No office email is set in Admin, so everyone comes in as a freelancer. Set it first to have company emails come in as staff.</p>
         ) : (
-          <p className="hint">Emails at {p.preview.officeDomain} come in as staff; the rest as freelancers. Levels come from Preferred and Onboarded; the office's own level is kept for anyone already here.</p>
+          <p className="hint">New people with emails at {p.preview.officeDomain} come in as staff; the rest as freelancers, their levels from Preferred and Onboarded. Anyone already here keeps the office's kind, level and day rate.</p>
         )}
         {leaving ? (
           <Confirm
             question={`Drop ${plural(worked, 'row', 'rows')} fixed or skipped here and choose another file?`}
             yes="Choose another file"
+            loss
             no="Keep working on this one"
             onYes={p.onBack}
             onNo={() => setLeaving(false)}
@@ -226,7 +231,7 @@ function Preview(p: {
       <section className="card" aria-label="Rows">
         <ul className="found people-rows">
           {rows.map((r) => (
-            <RowCard key={r.row} row={r} onTyped={(field, value) => typed(r.row, field, value)} onSkip={(on) => skip(r.row, on)} />
+            <RowCard key={r.row} row={r} person={r.matched ? p.view.crew.people.find((x) => x.id === r.matched!.id) : undefined} onTyped={(field, value) => typed(r.row, field, value)} onSkip={(on) => skip(r.row, on)} />
           ))}
         </ul>
       </section>
@@ -257,18 +262,43 @@ function Preview(p: {
 }
 
 /** One row as the app read it, with its fields to fix where it couldn't, and Skip. */
-function RowCard({ row: r, onTyped, onSkip }: { row: Row; onTyped: (field: keyof Row['typed'], value: string) => void; onSkip: (on: boolean) => void }) {
+function RowCard({
+  row: r,
+  person,
+  onTyped,
+  onSkip,
+}: {
+  row: Row
+  /** The matched person as they are now, to say what the file changes and what it keeps. */
+  person: PersonView | undefined
+  onTyped: (field: keyof Row['typed'], value: string) => void
+  onSkip: (on: boolean) => void
+}) {
+  const was = person?.email
+  const newEmail = r.matched && r.email && was && r.email.trim().toLowerCase() !== was.trim().toLowerCase() ? r.email : undefined
   const by = (field: 'name' | 'email' | 'phone' | null) => r.problems.filter((x) => fieldOf(x) === field)
   const rate = parseEuro(r.dayRate)
-  const facts = [
-    r.kind === 'staff' ? 'Staff' : 'Freelancer',
-    r.department ?? 'no department',
-    levelLine(r.level),
-    r.skills.length ? plural(r.skills.length, 'skill', 'skills') : null,
-    rate.reason === undefined && rate.cents !== null ? `${euro(rate.cents)}/day` : null,
-    r.company ? companyLine(r) : null,
-    r.knownAs ? `goes by ${r.knownAs}` : null,
-  ].filter(Boolean)
+  // Someone already here keeps the office's kind, level and rate, whatever the file says (server/src/crew/import.ts), so their
+  // row says what changes and what stays, rather than the file's values as if they'd land (audit, 5 November 2026, finding 40).
+  const facts = (
+    person
+      ? [
+          r.department ?? null,
+          r.skills.length ? plural(r.skills.length, 'skill', 'skills') : null,
+          r.company ? companyLine(r) : null,
+          r.knownAs ? `goes by ${r.knownAs}` : null,
+        ]
+      : [
+          r.kind === 'staff' ? 'Staff' : 'Freelancer',
+          r.department ?? 'no department',
+          levelLine(r.level),
+          r.skills.length ? plural(r.skills.length, 'skill', 'skills') : null,
+          rate.reason === undefined && rate.cents !== null ? `${euro(rate.cents)}/day` : null,
+          r.company ? companyLine(r) : null,
+          r.knownAs ? `goes by ${r.knownAs}` : null,
+        ]
+  ).filter(Boolean)
+  const keeps = person && [person.kind === 'staff' ? 'Staff' : 'Freelancer', levelLine(person.level), person.dayRateCents != null ? `${euro(person.dayRateCents)}/day` : 'no day rate'].join(', ')
   return (
     <li className={r.skip ? 'is-off' : 'is-on'} aria-label={`Row ${r.row}`}>
       <div className="head">
@@ -278,11 +308,18 @@ function RowCard({ row: r, onTyped, onSkip }: { row: Row; onTyped: (field: keyof
           Skip
         </label>
       </div>
-      <p>{facts.join(' · ')}</p>
+      {facts.length > 0 && <p>{person ? `From the file: ${facts.join(' · ')}` : facts.join(' · ')}</p>}
       {!r.fix && <p>{[r.email, r.phone].filter(Boolean).join(' · ') || 'No email or phone'}</p>}
       {r.matched && (
         <p className="updates">
           Updates <b>{r.matched.name}</b> (matched by {r.matched.by})
+          {keeps && `. Keeps ${keeps}: the office's.`}
+        </p>
+      )}
+      {/* A new address is the main one from now on, and the old one still finds them, as on combining (audit, 5 November 2026, finding 10). */}
+      {newEmail && (
+        <p className="updates">
+          Email changes from {was} to {newEmail}; the old one still finds {firstOf(r.matched!.name)}.
         </p>
       )}
       {by(null).map((x) => (

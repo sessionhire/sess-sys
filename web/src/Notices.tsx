@@ -1,4 +1,4 @@
-import { historyDays, historyTime, makerOf, NOTICE_WHY_WORDS, plan, plural, sortOutDays, type Notice, type NoticeLine, type View } from '@sh/shared'
+import { historyDays, historyTime, makerOf, NOTICE_WHY_WORDS, plan, plural, shortSoon, sortOutDays, type Notice, type NoticeLine, type View } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from './auth.ts'
 import { Empty } from './Empty.tsx'
@@ -15,6 +15,7 @@ import {
   linesOf,
   loadNotices,
   markAllRead,
+  offerToYou,
   pauseToast,
   placeOf,
   resumeToast,
@@ -64,7 +65,7 @@ export function Toaster() {
             </div>
             <div className="toast-actions">
               {t.href && (
-                <a className="button" href={t.href} onClick={() => dismissToast(t.id)}>
+                <a className="button" href={t.href} onClick={() => dismissToast(t.id)} {...(t.away ? { target: '_blank', rel: 'noreferrer' } : {})}>
                   {t.action}
                 </a>
               )}
@@ -151,7 +152,14 @@ export function NoticesScreen() {
       </section>
 
       <TodoCard view={view} />
-      {ahead && <SortOut problems={ahead.problems} vanProblems={ahead.vanProblems} hint="Clashes and checks from today to four weeks out. Each goes once it's sorted." />}
+      {ahead && (
+        <SortOut
+          problems={ahead.problems}
+          vanProblems={ahead.vanProblems}
+          short={shortSoon(view.crew, today)}
+          hint="Calls short of crew in the next three days, then clashes and checks from today to four weeks out. Each goes once it's sorted."
+        />
+      )}
       <KitToCheck view={view} />
       {seesMoney && <QuotesToChase view={view} />}
 
@@ -163,7 +171,7 @@ export function NoticesScreen() {
               .filter((l) => l.day === d.day)
               .map((l) =>
                 l.kind === 'one' ? (
-                  <NoticeRow key={l.id} notice={l.notices[0]!} day={d.day} fresh={isNew(l.notices[0]!, mark)} href={placeOf(l.notices[0]!, view)} />
+                  <NoticeRow key={l.id} notice={l.notices[0]!} day={d.day} fresh={isNew(l.notices[0]!, mark)} view={view} />
                 ) : (
                   <LineRow key={l.id} line={l} day={d.day} mark={mark} view={view} />
                 ),
@@ -175,7 +183,11 @@ export function NoticesScreen() {
   )
 }
 
-function NoticeRow({ notice: n, day, fresh, href }: { notice: Notice; day: string; fresh: boolean; href?: string }) {
+function NoticeRow({ notice: n, day, fresh, view }: { notice: Notice; day: string; fresh: boolean; view: View }) {
+  // An offer to them is said to them, and opens their own page, where it's answered (UX sweep, 6 November 2026, move 6).
+  const yours = offerToYou(n, view)
+  const what = yours?.what ?? n.what
+  const href = yours?.href ?? placeOf(n, view)
   return (
     <li className={fresh ? 'entry notice new' : 'entry notice'}>
       <p>
@@ -186,8 +198,15 @@ function NoticeRow({ notice: n, day, fresh, href }: { notice: Notice; day: strin
             New<span className="sr-only">: </span>
           </span>
         )}
-        {href ? <a href={href}>{n.what}</a> : n.what}
+        {href ? (
+          <a href={href} {...(yours?.href ? { target: '_blank', rel: 'noreferrer' } : {})}>
+            {what}
+          </a>
+        ) : (
+          what
+        )}
       </p>
+      {n.forYou && <p className="for-you">{n.forYou}</p>}
       <span className="meta">
         {makerOf(n)} · {NOTICE_WHY_WORDS[n.why]} · {historyTime(n.arrivedAt, day)}
       </span>
@@ -233,6 +252,7 @@ function LineRow({ line, day, mark, view }: { line: NoticeLine; day: string; mar
             return (
               <li key={n.id}>
                 {href ? <a href={href}>{n.what}</a> : n.what}
+                {n.forYou && <span className="for-you"> {n.forYou}</span>}
                 <span className="meta">
                   {' '}
                   · {makerOf(n)} · {historyTime(n.arrivedAt, day)}

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 /**
  * Stock end to end (ADR 0013), at phone size: a product counted at a new
@@ -15,15 +15,26 @@ import { expect, test, type Page } from '@playwright/test'
 
 const shot = (name: string) => (process.env.SHOTS ? { path: `docs/hub/img/${name}.png` } : undefined)
 const phoneSize = { width: 390, height: 844 }
+const deskSize = { width: 1440, height: 900 }
 const tag = () => Math.random().toString(36).slice(2, 8)
 const named = (name: string, id: string) => (process.env.SHOTS ? name : `${name} ${id}`)
 const sh = (n: number) => `SH-${String(n).padStart(6, '0')}`
 /** From the top of the page, for a screenshot. */
 const top = (page: Page) => page.evaluate(() => scrollTo(0, 0))
+/** Two frames: the strip of parts is found a frame after the screen changes. */
+const drawn = (page: Page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
 
 async function ready(page: Page, hash = '#stock') {
   await page.goto(`/${hash}`)
   await expect(page.locator('.conn')).toHaveText('Up to date')
+}
+
+async function push(request: APIRequestContext, id: string, mutations: [string, Record<string, unknown>][]) {
+  const res = await request.post('/api/sync/push', {
+    data: { clientId: `stock-${id}`, mutations: mutations.map(([name, args], i) => ({ id: `stock-${id}-${i}`, name, args, createdAt: new Date().toISOString() })) },
+  })
+  const { results } = (await res.json()) as { results: { status: string; reason?: { message: string } }[] }
+  expect(results.map((r) => r.reason?.message ?? r.status)).toEqual(mutations.map(() => 'applied'))
 }
 
 const part = (page: Page, heading: string) => page.locator('form').filter({ has: page.getByRole('heading', { name: heading, exact: true }) })
@@ -83,17 +94,17 @@ test('counted, labelled, put in a case, found by number, and kept at a place', a
   const add = part(page, 'Add an item')
   await add.getByLabel("Where it's kept").fill(bay)
   await expect(add.getByRole('checkbox', { name: /One of the 6 counted at/ })).toBeChecked()
-  await add.getByLabel('Number', { exact: true }).fill(`sh ${first}`)
+  await add.getByRole('textbox', { name: 'Number (optional)', exact: true }).fill(`sh ${first}`)
   await add.getByRole('button', { name: 'Add item' }).click()
   await expect(add.locator('.added')).toHaveText(`Added ${sh(first)}.`)
   await expect(notLabelled.locator('.count', { hasText: bay })).toContainText('5')
-  await expect(add.getByLabel('Number', { exact: true })).toBeFocused()
+  await expect(add.getByRole('textbox', { name: 'Number (optional)', exact: true })).toBeFocused()
   await add.getByRole('button', { name: 'Add item' }).click()
   await expect(add.locator('.added')).toHaveText(`Added ${sh(first + 1)}.`)
   await expect(notLabelled.locator('.count', { hasText: bay })).toContainText('4')
   const items = page.getByRole('region', { name: 'Items' })
   await expect(items.locator('.item-row')).toHaveText([new RegExp(`^${sh(first)}${bay}`), new RegExp(`^${sh(first + 1)}${bay}`)])
-  await expect(page.locator('.page-sub')).toContainText('2 items · 4 not labelled yet')
+  await expect(page.locator('.page-sub')).toContainText('6 in all: 4 not labelled yet')
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await top(page)
   await page.screenshot(shot('stock-product'))
@@ -103,19 +114,19 @@ test('counted, labelled, put in a case, found by number, and kept at a place', a
   await page.locator('.job-row', { hasText: rack }).click()
   await page.getByRole('tab', { name: /^Items/ }).click()
   const addRack = part(page, 'Add an item')
-  await addRack.getByLabel('Number', { exact: true }).fill(rackNumber)
+  await addRack.getByRole('textbox', { name: 'Number (optional)', exact: true }).fill(rackNumber)
   await addRack.getByLabel("Where it's kept").fill(bay)
   await addRack.getByRole('button', { name: 'Add item' }).click()
   await expect(addRack.locator('.added')).toHaveText(`Added ${rackNumber}.`)
 
-  // Scanned or typed: the number and Enter opens the item.
+  // Scanned or typed, the whole number opens the item, with nothing to press (UX sweep, 6 November 2026, move 8).
   await page.goto('/#stock')
   await page.getByLabel('Find').fill(rackNumber.toLowerCase())
-  await page.getByLabel('Find').press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: rackNumber })).toBeVisible()
   await expect(page.locator('.facts')).toContainText(`Where${bay}`)
 
   // A speaker goes in the rack, and eight cables are counted in it.
+  await page.getByRole('tab', { name: 'In it' }).click()
   const inIt = page.getByRole('region', { name: 'In it' })
   await expect(inIt).toContainText('Nothing here yet.')
   const put = part(page, 'Put an item in')
@@ -172,10 +183,10 @@ test('counted, labelled, put in a case, found by number, and kept at a place', a
   await page.getByRole('radio', { name: 'Lost' }).check()
   await page.getByLabel('Note').fill('Not back from the Point')
   await page.getByRole('button', { name: `Retire ${sh(first + 51)}` }).click()
-  await expect(page.locator('.title .pill')).toHaveText('Retired')
+  await expect(page.locator('.page-title-row .pill')).toHaveText('Retired')
   await expect(page.locator('.facts')).toContainText('RetiredLost: Not back from the Point')
   await page.getByRole('button', { name: 'Bring back' }).click()
-  await expect(page.locator('.title .pill')).toHaveCount(0)
+  await expect(page.locator('.page-title-row .pill')).toHaveCount(0)
   await expect(page.locator('.facts')).toContainText('WhereNot placed yet')
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
@@ -186,7 +197,7 @@ test('counted, labelled, put in a case, found by number, and kept at a place', a
     const all = page.getByRole('button', { name: /^Show all \d+ products$/ })
     if (await all.count()) await all.click()
   } else await page.getByLabel('Find').fill(id)
-  await expect(page.locator('.job-row', { hasText: speaker })).toContainText('2 items · 4 not labelled yet')
+  await expect(page.locator('.job-row', { hasText: speaker })).toContainText('6 in all: 4 not labelled yet')
   await expect(page.locator('.job-row', { hasText: cable })).toContainText('8 counted')
   await page.screenshot(shot('stock-list'))
 })
@@ -237,13 +248,13 @@ test('a product added by mistake is hidden with its items and counts, and its la
   // The number comes back with a sync round trip, slower when the machine is busy (audit, 20 October 2026, finding 109).
   await expect(add.locator('.added')).toHaveText(/^Added SH-\d{6}\.$/, { timeout: 20_000 })
   // The question answered, the number field is ready for the next label.
-  await expect(add.getByLabel('Number', { exact: true })).toBeFocused()
+  await expect(add.getByRole('textbox', { name: 'Number (optional)', exact: true })).toBeFocused()
   const number = (await add.locator('.added').textContent())!.slice(6, -1)
   const count = part(page, 'Add a count')
   await count.getByLabel('Counted at').fill(bay)
   await count.getByLabel('How many').fill('2')
   await count.getByRole('button', { name: 'Save count' }).click()
-  await expect(page.locator('.page-sub')).toContainText('1 item · 2 not labelled yet')
+  await expect(page.locator('.page-sub')).toContainText('3 in all: 2 not labelled yet')
   await page.getByRole('tab', { name: /^Details/ }).click()
   await expect(page.getByRole('button', { name: 'Remove product' })).toHaveCount(0)
 
@@ -264,9 +275,11 @@ test('a product added by mistake is hidden with its items and counts, and its la
   const places = page.getByRole('button', { name: /^Show all \d+ places$/ })
   if (await places.count()) await places.click()
   await expect(page.locator('.job-row', { hasText: bay })).toContainText('Nothing here yet')
+  // Its whole number opens it, saying so (UX sweep, 6 November 2026, move 8).
   await page.goto('/#stock')
   await page.getByLabel('Find').fill(number)
-  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row')).toHaveText(new RegExp(`^${number} ${light}Added by mistake`))
+  await expect(page.getByRole('heading', { level: 1, name: number })).toBeVisible()
+  await expect(page.getByText(`${light} was marked as added by mistake, so this is kept for the history only.`)).toBeVisible()
   await page.goto('/#stock/places')
   if (await places.count()) await places.click()
   await page.locator('.job-row', { hasText: bay }).click()
@@ -296,4 +309,103 @@ test('a product added by mistake is hidden with its items and counts, and its la
   await showAll(page)
   await expect(page.locator('.job-row', { hasText: spot })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '1 not done' })).toHaveCount(0)
+})
+
+test('Back from a product to the catalogue opened in full keeps it open, at the row that was opened', async ({ browser }) => {
+  // Proves (audit, 5 November 2026, finding 9): on a phone, Show all is kept for Back, so going down the catalogue product by product
+  // doesn't mean Show all and a long scroll each time; a new move to Stock starts short again.
+  const id = Math.random().toString(36).slice(2, 8)
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  const createdAt = new Date().toISOString()
+  const mutations = Array.from({ length: 8 }, (_, i) => ({
+    id: `back${id}${i}`,
+    createdAt,
+    name: 'model.create',
+    args: { id: `m${id}${i}`, name: `Back ${id} ${i}`, department: 'audio', category: 'Speakers', tracking: 'bulk', isCase: false, valueCents: null, notes: '' },
+  }))
+  await page.request.post('/api/sync/push', { data: { clientId: `back${id}`, mutations } })
+  await ready(page)
+  const catalogue = page.getByRole('region', { name: 'Catalogue', exact: true })
+  await catalogue.getByRole('button', { name: /^Show all \d+ products$/ }).click()
+  const rows = catalogue.locator('.job-row')
+  await expect.poll(() => rows.count()).toBeGreaterThan(7)
+  const opened = rows.nth(7)
+  await opened.scrollIntoViewIfNeeded()
+  const name = await opened.locator('b').innerText()
+  await opened.click()
+  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+  await page.goBack()
+  await expect(page).toHaveURL(/#stock$/)
+  await expect(catalogue.getByRole('button', { name: /^Show all \d+ products$/ })).toHaveCount(0)
+  await expect(catalogue.locator('.job-row', { hasText: name })).toBeInViewport()
+  // A new move to Stock is a list opened afresh: its first few.
+  await page.goto('/#home')
+  await page.goto('/#stock')
+  await expect(catalogue.getByRole('button', { name: /^Show all \d+ products$/ })).toBeVisible()
+})
+
+test('on a phone the catalogue is a part the strip names and a search has the screen to itself; a whole number opens its item', async ({ browser, request }) => {
+  // Proves (UX sweep, 6 November 2026, move 8): on a phone the catalogue has a heading of its own, so On this screen names Catalogue,
+  // Pick lists and Kit short (ADR 0033); while anything is typed in the search, the day's cards under it step aside, and come back once
+  // it's cleared; part of a number lists the items it's part of, and a label's whole number on one item opens it, with nothing to press.
+  // On a laptop the catalogue is the column beside the day's cards or a record, which keeps its place as the page scrolls: unheaded, so
+  // no strip is drawn over it.
+  const id = tag()
+  const speaker = named('Strip speaker', id)
+  const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+  await push(request, id, [
+    ['model.create', { id: `m-${id}`, name: speaker, department: 'audio', category: 'Speakers', tracking: 'serialised', isCase: false, valueCents: null, notes: '' }],
+    ['place.upsert', { id: `b-${id}`, name: named('Bay S1', id), notes: '' }],
+    ['asset.add', { id: `a-${id}`, modelId: `m-${id}`, number: null, serial: '', placeId: `b-${id}`, caseId: null, notes: '', fromCount: false }],
+    ['project.create', { id: `j-${id}`, name: named('Strip gala', id), clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `p-${id}`, projectId: `j-${id}`, name: 'Show', start: day(2), end: day(3), venueId: null, notes: '' }],
+    ['kit.add', { id: `k-${id}`, projectId: `j-${id}`, phaseId: null, modelId: `m-${id}`, qty: 3, subhireQty: 0, supplier: '', notes: '' }],
+  ])
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await ready(page, `#stock/item/a-${id}`)
+  const number = (await page.getByRole('heading', { level: 1 }).textContent())!.match(/SH-\d{6}/)![0]
+
+  await ready(page)
+  const strip = page.getByRole('navigation', { name: 'On this screen' })
+  await expect(strip.getByRole('button')).toHaveText([/^Catalogue\d/, /^Pick lists/, /^Kit short/])
+  await expect(page.getByRole('heading', { level: 2, name: /^Catalogue \(\d+\)$/ })).toBeVisible()
+  const pickLists = page.getByRole('region', { name: 'Pick lists' })
+  const short = page.getByRole('region', { name: 'Kit short' })
+  await expect(pickLists).toBeVisible()
+  await expect(short.locator('.job-row', { hasText: speaker })).toContainText('short 2')
+
+  const find = page.getByLabel('Find')
+  await find.fill(speaker)
+  await expect(page.locator('.job-row', { hasText: speaker })).toBeVisible()
+  await expect(pickLists).toHaveCount(0)
+  await expect(short).toHaveCount(0)
+  await expect(strip).toBeHidden()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await find.fill('')
+  await expect(pickLists).toBeVisible()
+  await expect(short).toBeVisible()
+  await expect(strip).toBeVisible()
+
+  // Part of the number: what it's part of, on the one item row, and nothing opens.
+  await find.fill(number.slice(-5))
+  await expect(page.getByRole('list', { name: 'Items found' }).locator('.item-row', { hasText: number })).toBeVisible()
+  await expect(page).toHaveURL(/#stock$/)
+  // The whole number: its item, with nothing to press.
+  await find.fill(number)
+  await expect(page).toHaveURL(new RegExp(`#stock/item/a-${id}$`))
+  await expect(page.getByRole('heading', { level: 1, name: number })).toBeVisible()
+
+  // On a laptop, beside the day's cards and beside a place: the catalogue's column has no heading, and no strip comes over it.
+  const desk = await (await browser.newContext({ viewport: deskSize })).newPage()
+  for (const [hash, open] of [
+    ['#stock', desk.getByRole('region', { name: 'Kit short' }).locator('.job-row', { hasText: speaker })],
+    [`#stock/place/b-${id}`, desk.getByRole('heading', { level: 1, name: named('Bay S1', id) })],
+  ] as const) {
+    await ready(desk, hash)
+    await expect(open).toBeVisible()
+    await expect(desk.getByRole('region', { name: 'Catalogue', exact: true }).getByLabel('Find')).toBeVisible()
+    await drawn(desk)
+    await expect(desk.getByRole('heading', { level: 2, name: /^Catalogue/ })).toHaveCount(0)
+    await expect(desk.getByRole('navigation', { name: 'On this screen' })).toBeHidden()
+  }
 })

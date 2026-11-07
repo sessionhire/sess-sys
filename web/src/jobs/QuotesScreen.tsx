@@ -20,8 +20,12 @@ import {
   listed,
   QUOTE_SORTS,
   quoteFilters,
+  NOT_YOURS
 } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
+import { AdminWords } from '../AdminWords.tsx'
+import { useDesk } from '../foot.tsx'
+import { MENU } from '../Up.tsx'
 import { Empty } from '../Empty.tsx'
 import { FromMailbox } from './Claude.tsx'
 import { ShowAll } from '../Fold.tsx'
@@ -44,18 +48,22 @@ import { getJson, type Loaded } from './rms.ts'
  */
 export function QuotesScreen() {
   const view = useView()
-  if (!useAccess().can('money'))
+  // A place of its own on a desk; on a phone it's under the Menu, and says so as the Menu's other places do (audit, 5 November 2026,
+  // finding 96).
+  const desk = useDesk()
+  const access = useAccess()
+  if (!access.can('money'))
     return (
       <div className="app crew jobs money quotes">
-        <Top view={view} title="Quotes" root heading="Quotes" />
+        <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
         <section className="card">
-          <p className="empty">Quotes are for the office and directors. A director can change your role on the Crew tab.</p>
+          <p className="empty">{NOT_YOURS.quotes} A director can change your role on the Crew tab.</p>
         </section>
       </div>
     )
   return (
     <div className="app crew jobs money quotes">
-      <Top view={view} title="Quotes" root heading="Quotes" />
+      <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
       <FromMailbox view={view} />
       <ToFollowUp view={view} />
       <AllQuotes view={view} />
@@ -186,7 +194,7 @@ function FromCurrentRms({ view, show, search }: { view: View; show: QuoteShow; s
       {loaded.state === 'offline' && <p className="hint">The quotes from Current RMS are kept on the server, so they need signal.</p>}
       {loaded.state === 'ready' &&
         (loaded.data.total === 0 ? (
-          <p className="hint">{asked || went !== 'all' ? 'None from Current RMS matches that.' : 'Nothing has been read from Current RMS yet. Bring it in from Admin › Connections.'}</p>
+          <p className="hint">{asked || went !== 'all' ? 'None from Current RMS matches that.' : <AdminWords>Nothing has been read from Current RMS yet. Bring it in from Admin › Connections.</AdminWords>}</p>
         ) : (
           <>
             <p className="hint">

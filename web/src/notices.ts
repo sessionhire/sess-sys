@@ -1,6 +1,8 @@
-import { dsDuration, dsTiming, makerOf, noticeLines, NOTICE_ENTITIES, NOTICE_WHY_WORDS, plural, type Notice, type NoticeLine, type NoticesPage, type View } from '@sh/shared'
+import { dsDuration, dsTiming, HOLDING, irishToday, makerOf, noticeLines, NOTICE_ENTITIES, NOTICE_WHY_WORDS, OPEN, plural, type Notice, type NoticeLine, type NoticesPage, type View } from '@sh/shared'
 import { useSyncExternalStore } from 'react'
 import { currentAuth, markSignedOut, onAuth } from './auth.ts'
+import { linkFor } from './crew/Messages.tsx'
+import { roleNow } from './role.ts'
 import { client } from './sync.ts'
 
 /**
@@ -38,6 +40,8 @@ export interface Toast {
   body: string
   /** Where its one action, Open, goes. */
   href?: string
+  /** Its place is a page of its own, their link, opened beside the app as Home opens it. */
+  away?: boolean
   action?: string
   leaving?: boolean
 }
@@ -164,6 +168,26 @@ export async function markAllRead() {
   }
 }
 
+/**
+ * An offer made to the reader themselves, said to them ("You've been offered Audio tech on …") and, while it's still
+ * theirs to answer, leading to their own page, where it's answered (ADR 0034), rather than to the office's job page,
+ * where it can't be (UX sweep, 6 November 2026, move 6); once they hold it, to its card there. One that ended another
+ * way, filled, withdrawn or declined, or whose job is over, leads where any other change does: it isn't on their page
+ * to land on. Worked out from this device's copy: the offer is theirs, so the call and their link are on it.
+ */
+export function offerToYou(n: Pick<Notice, 'command' | 'why' | 'about'>, view: View): { what: string; href?: string } | undefined {
+  if (n.command !== 'offer.send' || n.why !== 'you' || n.about.entity !== 'offer') return undefined
+  for (const c of view.crew.calls) {
+    const o = c.offers.find((x) => x.id === n.about.id)
+    if (!o) continue
+    // Their page draws it while its call is open and not over: under the offers waiting on them, or as its own card once held.
+    const link = o.person && c.status === 'open' && c.end >= irishToday() ? linkFor(o.person) : ''
+    const at = !link ? undefined : OPEN.includes(o.status) ? `${link}#offers` : HOLDING.includes(o.status) ? `${link}#o-${o.id}` : undefined
+    return { what: `You've been offered ${c.role} on ${c.project}`, ...(at ? { href: at } : {}) }
+  }
+  return undefined
+}
+
 /** Where a change leads: the page of the thing of theirs it changed, from this device's own copy. */
 export function placeOf(n: Pick<Notice, 'about' | 'records'>, view: View): string | undefined {
   for (const r of [n.about, ...n.records]) {
@@ -222,8 +246,9 @@ function arrived(news: Notice[]) {
     return
   }
   for (const n of [...news].reverse()) {
-    const href = placeOf(n, view)
-    showToast({ id: n.id, title: n.what, body: `${makerOf(n)} · ${NOTICE_WHY_WORDS[n.why]}`, ...(href ? { href, action: 'Open' } : {}) })
+    const yours = offerToYou(n, view)
+    const href = yours?.href ?? placeOf(n, view)
+    showToast({ id: n.id, title: yours?.what ?? n.what, body: `${makerOf(n)} · ${NOTICE_WHY_WORDS[n.why]}`, ...(href ? { href, action: 'Open', ...(yours?.href ? { away: true } : {}) } : {}) })
   }
 }
 
@@ -277,7 +302,9 @@ client.subscribe((view) => {
   const pulled = client.takePulled()
   const first = lookedAt === undefined
   lookedAt = view.cursor
-  if (first || NOTICE_ENTITIES.some((e) => pulled.has(e))) void loadNotices()
+  // A scan is news only to the office, as a job's first kit out (move 12): the warehouse's phones, scanning all day, don't ask after each.
+  const news = NOTICE_ENTITIES.filter((e) => e !== 'movement' || roleNow(view) === 'office')
+  if (first || news.some((e) => pulled.has(e))) void loadNotices()
 })
 // Signed in after the app opened, or back from the sign-in page: look now rather than at the next change.
 let wasIn = signedIn()

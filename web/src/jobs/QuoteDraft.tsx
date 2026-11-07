@@ -34,7 +34,7 @@ import {
   MOST_LAST_CHARGED_NAMES,
 } from '@sh/shared'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Refusal, useAct } from '../act.tsx'
+import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Icon } from '../Icon.tsx'
 import { ProductPicker } from '../ProductPicker.tsx'
@@ -50,6 +50,7 @@ import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.t
 import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
 import { Totals } from './QuoteSheet.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
+import { useQuotesByEmail } from '../MailboxCard.tsx'
 import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
 
 /**
@@ -132,7 +133,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [lines, setLines] = useState<LineDraft[]>(() => kept?.lines ?? q.lines.filter((l) => !l.extra).map(toDraft))
   const [meals, setMeals] = useState(kept?.meals ?? q.mealsProvided ?? false)
   const [kmTyped, setKmTyped] = useState(kept?.kmTyped ?? (q.travelKm == null ? '' : String(q.travelKm)))
-  const [discount, setDiscount] = useState(kept?.discount ?? String(q.discountPct))
+  const [discount, setDiscount] = useState(kept?.discount ?? (q.discountPct ? String(q.discountPct) : ''))
   // A price agreed for the whole (ADR 0085) stands in for the discount percentage while it's there.
   const [agreed, setAgreed] = useState(kept?.agreed ?? (q.agreedCents == null ? '' : euroText(q.agreedCents)))
   const [notes, setNotes] = useState(kept?.notes ?? q.notes)
@@ -143,8 +144,10 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [discounting, setDiscounting] = useState<string>()
   const [sentOn, setSentOn] = useState(today)
   const [answering, setAnswering] = useState(false)
+  // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26).
+  const [free, setFree] = useState<'mark' | 'email'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
-  const canEmail = !!m.quoting.emailQuotes
+  const canEmail = useQuotesByEmail(m)
   const [sending, setSending] = useState<'email' | 'other'>()
   // One row is open to change at a time, a line's or a worked-out one's; the rest read as a list, as they'll print.
   const [open, setOpen] = useState<string>()
@@ -154,7 +157,13 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   // The line just shut, which keeps the focus so the keyboard carries on from it.
   const [shut, setShut] = useState<string>()
   const [removed, setRemoved] = useState<{ line: LineDraft; at: number }>()
-  const [adding, setAdding] = useState<'kit' | 'crew' | 'package' | 'transport'>()
+  const [adding, setAddingTo] = useState<'kit' | 'crew' | 'package' | 'transport'>()
+  // Kit lines added since Add kit was pressed, while its picker stays open for the next.
+  const [kitPicks, setKitPicks] = useState(0)
+  const setAdding = (to: typeof adding) => {
+    setKitPicks(0)
+    setAddingTo(to)
+  }
   // A fault shows only once what holds it has been left (design system rule 18): a line left, or a terms field left. What
   // came back from the device's keeping was left when the screen was, so it shows at once.
   const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set(kept ? [...kept.lines.map((l) => l.id), ...TERM_KEYS] : []))
@@ -277,10 +286,14 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
 
   const days = jobDays(job)
   const addLine = (
-    l: Omit<LineDraft, 'id' | 'rate' | 'out' | 'discount' | 'packageId' | 'includes' | 'subhire' | 'supplier' | 'cost'> & Partial<Pick<LineDraft, 'rate' | 'packageId' | 'includes' | 'cost'>>
+    l: Omit<LineDraft, 'id' | 'rate' | 'out' | 'discount' | 'packageId' | 'includes' | 'subhire' | 'supplier' | 'cost'> & Partial<Pick<LineDraft, 'rate' | 'packageId' | 'includes' | 'cost'>>,
+    keepAdding = false
   ) => {
     const id = newId()
     setLines((ls) => [...ls, { rate: null, out: l.days, discount: '', packageId: null, includes: '', subhire: '', supplier: '', cost: '', id, ...l }])
+    // Kit is picked one product after another (audit, 5 November 2026, finding 58): the picker stays open with the cursor in it for the
+    // next, and the line it added waits closed, its How many a tap away.
+    if (keepAdding) return setKitPicks((n) => n + 1)
     openLine(id)
     setAdding(undefined)
   }
@@ -302,7 +315,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       vat: STANDARD_VAT,
       per: 'day',
       rate: rate && rate !== 'daily' ? rate : null,
-    })
+    }, true)
   }
   // A package (ADR 0087) goes on as one line at its price and rule, with what it holds now written on the line, so the
   // quote prints as it was made however the package changes after.
@@ -440,7 +453,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
             </span>
             {boss && (
               <span className={`figure${margin.margin < 0 ? ' bad' : ''}`}>
-                <small>Margin</small> <b>{money(margin.margin)}</b>
+                <small>Expected margin</small> <b>{money(margin.margin)}</b>
                 {margin.pct !== null && <span className="pct">{pctWord(margin.pct)}</span>}
               </span>
             )}
@@ -490,7 +503,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
         {groups.map((g) => (
           <section key={g.group} className="quote-group" role="group" aria-label={g.group}>
             <div className="group-head">
-              <h3>{g.group}</h3>
+              <h3 className="group">{g.group}</h3>
               {g.lines.length > 1 && discounting !== g.group && (
                 <button type="button" className="link quiet" onClick={() => setDiscounting(g.group)}>
                   Discount every line…
@@ -502,7 +515,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               const n = lines.indexOf(l) + 1
               const c = parsed[n - 1]!
               const done = c.line
-              const kit = done && <KitNote l={done} checks={checks} items={m.package(l.packageId ?? '')?.items} names={(id) => view.warehouse.models.find((x) => x.id === id)?.name} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} />
+              const kit = done && <KitNote l={done} checks={checks} items={m.package(l.packageId ?? '')?.items} names={(id) => view.warehouse.models.find((x) => x.id === id)?.name} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} span={job.span} />
               const cost = done ? costOf(done) : undefined
               return open !== l.id ? (
                 <div key={l.id} className="quote-line-row">
@@ -556,10 +569,24 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
 
         <div className="quote-add" role="group" aria-label="Add to the quote">
           {adding === 'kit' ? (
-            <div className="adding">
-              <ProductPicker label="Kit to add" products={view.warehouse.models} value="" onPick={addKit} hint="Priced from the price list, for the job's days." />
+            <div
+              className="adding"
+              onKeyDown={(e) => {
+                // An Escape the picker didn't use (nothing typed, its list shut) closes it.
+                if (e.key === 'Escape') setAdding(undefined)
+              }}
+            >
+              <ProductPicker
+                key={kitPicks}
+                autoFocus
+                label="Kit to add"
+                products={view.warehouse.models}
+                value=""
+                onPick={addKit}
+                hint={kitPicks ? `${plural(kitPicks, 'line')} added. Pick the next, or Done.` : "Priced from the price list, for the job's days."}
+              />
               <button type="button" className="link" onClick={() => setAdding(undefined)}>
-                Cancel
+                {kitPicks ? 'Done' : 'Cancel'}
               </button>
             </div>
           ) : adding === 'package' ? (
@@ -637,7 +664,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       </section>
 
       <section className="card quote-side">
-        <h3 className="quote-head">Terms</h3>
+        <h3 className="quote-head group">Terms</h3>
         <div className="quote-terms quote-discount">
           {agreedCents === null ? (
             <label className="field">
@@ -651,6 +678,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                   ref={(el) => {
                     termRefs.current.discount = el
                   }}
+                  // None, as Deposit says it, rather than a 0 (audit, 5 November 2026, finding 89).
+                  placeholder="None"
                   aria-label="Discount, %"
                   {...bad('discount')}
                 />
@@ -728,7 +757,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
 
         <Totals totals={totals} agreed={agreedCents !== null} />
 
-        <h3 className="quote-head">Send</h3>
+        <h3 className="quote-head group">Send</h3>
         <Refusal error={error} />
         {!saved && problem && (problemShown ? <p className="warn-line">{problem} It saves once that's put right.</p> : <p className="hint">Not saved yet{faultAt >= 0 ? `: line ${faultAt + 1} isn't finished.` : '.'}</p>)}
         {saved && q.lines.length > 0 && sending === 'email' ? (
@@ -741,14 +770,34 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                   Sent to the client on
                   <input type="date" value={sentOn} max={irishToday()} onChange={(e) => setSentOn(e.target.value)} />
                 </label>
-                <button type="button" className={canEmail ? undefined : 'primary'} onClick={() => void run(() => markSent(q.id, job, sentOn || today))}>
+                <button
+                  type="button"
+                  className={canEmail ? undefined : 'primary'}
+                  onClick={() => (unpricedLines.length ? setFree('mark') : void run(() => markSent(q.id, job, sentOn || today)))}
+                >
                   Mark as sent
                 </button>
               </div>
             )}
+            {free && unpricedLines.length > 0 && (
+              <Confirm
+                question={`${plural(unpricedLines.length, 'line')} ${unpricedLines.length === 1 ? 'has' : 'have'} no price and will go to the client as €0.00. ${free === 'email' ? 'Send it anyway?' : 'Mark it sent anyway?'}`}
+                yes={free === 'email' ? 'Send it anyway' : 'Mark it sent anyway'}
+                no="Price it first"
+                onYes={() => {
+                  setFree(undefined)
+                  if (free === 'email') setSending('email')
+                  else void run(() => markSent(q.id, job, sentOn || today))
+                }}
+                onNo={() => {
+                  setFree(undefined)
+                  openLine(unpricedLines[0]!.id, 'price')
+                }}
+              />
+            )}
             <div className="actions">
               {saved && q.lines.length > 0 && canEmail && (
-                <button type="button" className="primary" onClick={() => setSending('email')}>
+                <button type="button" className="primary" onClick={() => (unpricedLines.length ? setFree('email') : setSending('email'))}>
                   Send to the client
                 </button>
               )}

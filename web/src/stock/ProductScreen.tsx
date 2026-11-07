@@ -12,14 +12,11 @@ import {
   normaliseNumber,
   parseEuro,
   plural,
-  RETIRED_LABELS,
   stillOutReason,
   stockId,
   valueLabel,
   type CommandInput,
   type Department,
-  type FaultsView,
-  type InspectionsView,
   type KitLineView,
   type ModelView,
   type View,
@@ -49,8 +46,8 @@ import {
   whereProblem,
   whereText,
 } from './common.tsx'
-import { faultState, FaultsCard, ReportButtons } from './Faults.tsx'
-import { dueText } from './Inspections.tsx'
+import { FaultsCard, ReportButtons } from './Faults.tsx'
+import { ItemRow } from './ItemRow.tsx'
 import { Heading } from '../Icon.tsx'
 import { Thumb } from '../Picture.tsx'
 import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
@@ -127,7 +124,7 @@ export function ProductScreen({ view, id, part: asked, bare }: { view: View; id:
         {part === 'jobs' && <OnJobs m={m} lines={onJobs} />}
         {part === 'items' && (
           <>
-            {m.tracking === 'serialised' && <Items m={m} w={w} faults={view.faults} inspections={view.inspections} />}
+            {m.tracking === 'serialised' && <Items m={m} view={view} />}
             <Counted m={m} w={w} />
           </>
         )}
@@ -262,7 +259,15 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
             {m.tracking === 'serialised' &&
               m.countedTotal > 0 &&
               `: ${m.items.length.toLocaleString('en-IE')} labelled, ${m.countedTotal.toLocaleString('en-IE')} not yet`}
-            {unusable > 0 && <span className="flag bad"> {unusable.toLocaleString('en-IE')} can't go out</span>}
+            {/* Apart from the total, and opening the ones it counts: "7 2 can't go out" read as 72 (audit, 5 November 2026, finding 37). */}
+            {unusable > 0 && (
+              <>
+                {' · '}
+                <a className="flag bad" href={`#stock/product/${encodeURIComponent(m.id)}/${m.tracking === 'serialised' && m.items.length > 0 ? 'items' : 'faults'}`}>
+                  {unusable.toLocaleString('en-IE')} can't go out
+                </a>
+              </>
+            )}
           </dd>
         </div>
         {m.tracking === 'serialised' && (
@@ -278,11 +283,12 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
       {!mayChange ? null : editing ? (
         <EditProduct m={m} w={w} view={view} onDone={() => setEditing(false)} />
       ) : removing ? (
-        <Confirm question={`Remove ${m.name} from the stock list? Nothing is counted or labelled as it, so nothing else changes.`} yes="Remove it" onYes={remove} onNo={() => setRemoving(false)} />
+        <Confirm question={`Remove ${m.name} from the stock list? Nothing is counted or labelled as it, so nothing else changes.`} yes="Remove it" loss onYes={remove} onNo={() => setRemoving(false)} />
       ) : mistaking ? (
         <Confirm
           question={`Mark ${m.name} as added by mistake? It leaves every list and count${hidden.length ? `, with its ${hidden.join(' and ')}` : ''}, and is kept only in the history. This can't be undone.`}
           yes="It was a mistake"
+          loss
           onYes={mistake}
           onNo={() => setMistaking(false)}
         />
@@ -520,7 +526,8 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
   )
 }
 
-function Items({ m, w, faults, inspections }: { m: ModelView; w: WarehouseView; faults: FaultsView; inspections: InspectionsView }) {
+/** The product's items, each on the one item row (UX sweep, 6 November 2026, move 3): where it's kept, and whether it's out, missing or can't go out. */
+function Items({ m, view }: { m: ModelView; view: View }) {
   const mayAdd = useAccess().can('stock')
   return (
     <section className="card" aria-label="Items">
@@ -529,18 +536,7 @@ function Items({ m, w, faults, inspections }: { m: ModelView; w: WarehouseView; 
       <ul className="item-list">
         {m.items.map((a) => (
           <li key={a.id}>
-            <a className="item-row" href={`#stock/item/${a.id}`}>
-              <div>
-                <b>{numberLabel(a)}</b>
-                <p>
-                  {whereLabel(a, w)}
-                  {a.serial && ` · Serial ${a.serial}`}
-                  {faults.stopping(a.id) && <span className="flag bad"> {faultState(faults.stopping(a.id)!)}</span>}
-                  {inspections.blocks(a.id) && <span className="flag bad"> {dueText(inspections.blocks(a.id)!)}</span>}
-                </p>
-              </div>
-              <Pending pending={a.pending} />
-            </a>
+            <ItemRow view={view} a={a} product={false} />
           </li>
         ))}
       </ul>
@@ -550,19 +546,13 @@ function Items({ m, w, faults, inspections }: { m: ModelView; w: WarehouseView; 
           <ul className="item-list">
             {m.retired.map((a) => (
               <li key={a.id}>
-                <a className="item-row" href={`#stock/item/${a.id}`}>
-                  <div>
-                    <b>{numberLabel(a)}</b>
-                    <p>{a.retiredReason ? RETIRED_LABELS[a.retiredReason] : 'Retired'}</p>
-                  </div>
-                  <Pending pending={a.pending} />
-                </a>
+                <ItemRow view={view} a={a} product={false} />
               </li>
             ))}
           </ul>
         </details>
       )}
-      {mayAdd && <AddItem m={m} w={w} />}
+      {mayAdd && <AddItem m={m} w={view.warehouse} />}
     </section>
   )
 }
@@ -616,12 +606,16 @@ function AddItem({ m, w }: { m: ModelView; w: WarehouseView }) {
     <form className="grid-form add-item" onSubmit={submit}>
       <h3 className="wide">Add an item</h3>
       <label className="wide">
-        Number
+        Number <span className="optional">(optional)</span>
+        {/* A hint under the label, read as the field's description, not its name (UX sweep, 6 November 2026, move 5). */}
+        <span className="hint" id="item-number-hint" aria-hidden="true">
+          From its label; left empty, it takes the next free one.
+        </span>
         <input
           ref={numberField}
+          aria-describedby="item-number-hint"
           value={f.number}
           onChange={(e) => setF({ ...f, number: e.target.value })}
-          placeholder="From its label; empty for the next free one"
           autoComplete="off"
           autoCapitalize="characters"
           enterKeyHint="done"

@@ -189,9 +189,10 @@ test('a week by job on a phone, then by person with its clashes', async ({ brows
   await expect(phone.getByRole('rowheader', { name: named('Seán Murphy') })).toHaveCount(0)
   await phone.getByLabel(/Show everyone/).check()
   await expect(phone.getByRole('rowheader', { name: named('Seán Murphy') })).toBeVisible()
-  // Its rows add to the page's height: the planner has no box of its own to scroll up and down, however many rows it has.
-  const frame = await phone.locator('.scroller').evaluate(el => ({ cap: getComputedStyle(el).maxHeight, inner: el.scrollHeight - el.clientHeight }))
-  expect(frame).toEqual({ cap: 'none', inner: 0 })
+  // Its rows add to the page's height: the planner has no box of its own to scroll up and down, however many rows it has, and a table a
+  // pixel taller than its box doesn't make one either (1.108.2).
+  const frame = await phone.locator('.scroller').evaluate(el => ({ cap: getComputedStyle(el).maxHeight, upDown: getComputedStyle(el).overflowY }))
+  expect(frame).toEqual({ cap: 'none', upDown: 'hidden' })
   // So the days row can't stick by itself: a copy of it shows under the bar once the real one has scrolled away, and moves sideways with the days.
   const days = phone.locator('.days-float')
   await phone.evaluate(() => scrollTo(0, 0))
@@ -228,9 +229,10 @@ test('a month on a laptop, whose dates open their week', async ({ browser }) => 
   await expect(row(laptop, named('Dublin Tech expo')).nth(24).locator('.blk')).toHaveClass(/dashed/)
   await laptop.screenshot(shot('plan-month'))
 
-  // A job's day opens the job, and so does anywhere in its name cell, not just the words.
+  // A job's day opens the job, at its crew while the day is short of crew (audit, 5 November 2026, finding 90), and so does anywhere in
+  // its name cell, not just the words.
   await paddys.nth(16).getByRole('link').click()
-  await expect(laptop).toHaveURL(/#jobs\/[^/]+$/)
+  await expect(laptop).toHaveURL(/#jobs\/[^/]+(\/crew)?$/)
   await expect(laptop.getByRole('heading', { name: named("St Patrick's Festival") })).toBeVisible()
   await laptop.goBack()
   const summitName = laptop.getByRole('rowheader', { name: named('Web Summit') })
@@ -259,4 +261,14 @@ test('a month on a laptop, whose dates open their week', async ({ browser }) => 
   await expect(laptop).toHaveURL(/#jobs\/plan\/month\/2031-03-01\/people$/)
   await laptop.getByRole('navigation', { name: 'Jobs pages' }).getByRole('link', { name: 'List' }).click()
   await expect(laptop.getByRole('heading', { level: 1, name: 'Jobs' })).toBeVisible()
+})
+
+test('a phone on its side keeps the planner in the page, with no box to scroll up and down', async ({ browser }) => {
+  // As wide as a laptop but with only a thumb: the desk's framed planner would catch it (1.108.2).
+  const side = await (await browser.newContext({ viewport: { width: 932, height: 430 }, hasTouch: true, isMobile: true })).newPage()
+  for (const hash of ['#jobs/plan/week/2031-03-05/people', '#jobs/plan/month/2031-03-20/people']) {
+    await ready(side, hash)
+    const frame = await side.locator('.scroller').evaluate(el => ({ cap: getComputedStyle(el).maxHeight, upDown: getComputedStyle(el).overflowY }))
+    expect(frame).toEqual({ cap: 'none', upDown: 'hidden' })
+  }
 })

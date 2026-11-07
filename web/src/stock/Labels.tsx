@@ -211,14 +211,17 @@ export function LabelsScreen({ view }: { view: View }) {
       <Top view={view} title="Stock" views={<StockViews view={view} current="labels" />} heading="Labels" />
       <Split
         side={
+          // Not for a role that can't set them aside (audit, 5 November 2026, finding 74).
+          mayReserve && (
           <section className="card" aria-label="Set numbers aside">
             <h2>Set numbers aside</h2>
             <p className="hint">
               Numbers are set aside before their labels are printed, here or by a label maker, so no other item gets them. Once a label is stuck on,
               scan or type it in the Stock search to put it on its item.
             </p>
-            {mayReserve && <SetAside labels={view.labels} />}
+            <SetAside labels={view.labels} />
           </section>
+          )
         }
       >
         <section className="card" aria-label="Set aside">
@@ -326,7 +329,8 @@ function SetAside({ labels }: { labels: LabelsView }) {
           onNo={() => setAsking(undefined)}
         />
       ) : (
-        <button type="submit" className="primary wide">
+        // Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1).
+        <button type="submit" className="wide">
           Set numbers aside
         </button>
       )}
@@ -409,6 +413,7 @@ function RunSummary({ r }: { r: LabelRunView }) {
         <Confirm
           question={`Cancel the run ${rangeLabel(r)}? It comes off the list, and its ${r.count === 1 ? 'number is' : `${plural(r.count, 'number')} are`} never given out again.`}
           yes="Cancel the run"
+          loss
           no="Keep it"
           onYes={cancel}
           onNo={() => setCancelling(false)}
