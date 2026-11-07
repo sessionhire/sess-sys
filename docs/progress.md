@@ -22,7 +22,7 @@ waiting on someone.
   within a fortnight (the Jobs list's Tasks filter gains that option);
   the head of the warehouse lands on the Warehouse view.
 - Move 10b, second part, what's over but not finished, and what was lost
-  (1.102.0): Home's Today lists Just finished (n), the jobs over in the
+  (1.102.0, PR #237): Home's Today lists Just finished (n), the jobs over in the
   last fortnight still in Back with work open (`stillInBack` in
   shared/src/lists.ts); the Jobs list's Past opens on Still in Back (n)
   before the weeks; Money's head gains Lost or lapsed for the month

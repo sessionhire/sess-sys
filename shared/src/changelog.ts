@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: 'A job over but not finished stays in reach, and Money sums what was lost',
     what: "A job whose dates passed in the last fortnight but still has work open in Back, such as kit to scan back, is now listed under Today on Home as Just finished, with where it stands. The Jobs list's Past opens on Still in Back with those jobs first, before the weeks. Money has Lost or lapsed for this month: the quotes turned down and the quotes on jobs marked lost. Jobs whose dates passed with no answer are named under it but not added in until someone marks them lost. By month has a Lost column, and Home's Money card now lists the month in the same words as Money's own head.",
-    prs: [0],
+    prs: [237],
   },
   {
     version: '1.101.0',
