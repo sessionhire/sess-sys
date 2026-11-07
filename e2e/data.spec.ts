@@ -27,7 +27,9 @@ test('puts in made-up data, then starts fresh on every phone', async ({ browser,
   await office.goto('/#jobs')
   await expect(office.locator('.brand small')).toHaveText('Jobs · made-up data')
   const harbour = office.locator('.job-row', { hasText: 'Harbour Lights Festival' })
-  await expect(harbour.getByText('Kit short')).toBeVisible()
+  // Its position says the kit is short, in the warn tone, where the flag was (Move 7 of the sweep of 6 November 2026).
+  await expect(harbour.locator('.job-position')).toContainText('1 short')
+  await expect(harbour.locator('.job-position')).toHaveAttribute('data-tone', 'warn')
   await office.evaluate(() => scrollTo(0, 0))
   await office.screenshot(shot('data-jobs'))
   await office.goto('/#crew/people')

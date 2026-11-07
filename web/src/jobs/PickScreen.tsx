@@ -39,6 +39,7 @@ import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 import { JobStatusPill, Top } from './common.tsx'
+import { JobPosition } from './JobPosition.tsx'
 import { JOBS } from '../Up.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
 
@@ -252,7 +253,7 @@ function Pick({ view, job }: { view: View; job: JobView }) {
       <section className="card" aria-label="Scanning">
         <header className="title">
           <h1>Pick list</h1>
-          <JobStatusPill status={job.status} pending={job.pending} />
+          {job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
         </header>
         <p className="hint">
           {job.name} · {job.span ? spanLabel(job.span) : 'No dates yet'}

@@ -72,7 +72,7 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(where.getByRole('button', { name: 'Mark it done' })).toBeVisible()
   await where.getByLabel('Down to').selectOption({ label: `${roisin} (you)` })
   await where.getByLabel('Due by').fill('2030-06-01')
-  await expect(next).toContainText('Next · Planning · 0 of 2 booked · Róisín · by Sat 1 Jun')
+  await expect(next).toContainText('Next · Planning · 0 of 2 booked · No kit on the job yet · Róisín · by Sat 1 Jun')
   await expect(next.getByRole('button', { name: 'Hand it on' })).toBeVisible()
 
   // The last stage's last task, given to herself and ticked by hand.
@@ -89,7 +89,7 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   // The jobs list says where the job is, under its dates (part 2 of ADR 0104).
   await page.goto('/#jobs')
   await page.getByLabel('Find').fill(job)
-  await expect(page.locator('.job-row', { hasText: job }).locator('.stage-line')).toHaveText('Planning · 0 of 2 booked · No kit on the job yet')
+  await expect(page.locator('.job-row', { hasText: job }).locator('.job-position')).toContainText('Planning · 0 of 2 booked · No kit on the job yet')
   // On the Board (part 3), the job is a card in the Planning column, saying what is short; nothing drags.
   await page.goto('/#jobs/board')
   await page.getByRole('button', { name: 'All coming up' }).click()
@@ -140,7 +140,7 @@ test('an enquiry whose dates passed with no answer is counted on Home, folded on
   await expect(selling.locator(':scope > .board-card', { hasText: job })).toHaveCount(0)
   await fold.locator('.board-card', { hasText: job }).click()
   const next = page.getByRole('region', { name: 'Next' })
-  await expect(next).toContainText('Next · Selling · Its dates have passed with no answer')
+  await expect(next).toContainText('Next · Selling · Dates passed, no answer')
   await next.getByRole('button', { name: 'Record what happened' }).click()
   await expect(page.getByRole('region', { name: 'Where it is' }).getByRole('button', { name: 'The client said no' })).toBeVisible()
 })

@@ -23,7 +23,7 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
   const next = office.getByRole('region', { name: 'Next' })
   const where = office.getByRole('region', { name: 'Where it is' })
-  await expect(next).toContainText('Next · Selling · Still quoted')
+  await expect(next).toContainText('Next · Selling · Quote with the client')
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-thing.png` })
   await next.getByRole('button', { name: "Record the client's answer" }).click()
   await expect(where.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible()
@@ -37,7 +37,7 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName(/^2\. Planning, the stage the job is in/)
   await expect(next).toContainText('Next · Planning')
   await office.goto('/#jobs')
-  await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' })).toContainText('Confirmed')
+  await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' }).locator('.job-position')).toContainText('Planning')
 
   // The quote says the same: accepted today, and nothing left to put in step.
   await office.goto('/#quotes')

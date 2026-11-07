@@ -6,11 +6,10 @@ import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
 import { Empty } from '../Empty.tsx'
 import { Top } from '../jobs/common.tsx'
-import { kitShort } from '../jobs/Kit.tsx'
 import { BelowZero } from '../jobs/Money.tsx'
 import { useToday, useView } from '../view.ts'
 import { addDays, companyTiles, departmentsIn, jobsOn, SOON, TILES_FOR, tiles, weekAhead, type FirstGroup, type HomeFor, type Tile } from './standing.ts'
-import { StageLine } from '../jobs/StageLine.tsx'
+import { JobPosition } from '../jobs/JobPosition.tsx'
 import { Heading } from '../Icon.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
 import { arrive } from '../arrival.ts'
@@ -217,20 +216,20 @@ function Today({ view, today }: { view: View; today: string }) {
 /** A job in one line: its name, then (in the week ahead) its first day, a quote not yet confirmed, its crew and kit short, as the jobs list says them. */
 function JobLine({ job, view, from }: { job: JobView; view: View; from?: boolean }) {
   const crew = crewFill(job.calls)
-  const short = kitShort(view.kit.byJob.get(job.id))
   return (
     <a className="job-row today-row" href={`#jobs/${job.id}`}>
       <b>{job.name}</b>
       <span className="side">
         {from && job.span && <small>{dayLabel(job.span.start)}</small>}
-        <StageLine job={job} view={view} compact />
+        {/* The job's position, compact, as the Jobs list, the Board and its head say it (Move 7 of the sweep of 6 November 2026):
+            its tone carries a crew or kit shortfall, and its title the whole line. */}
+        <JobPosition job={job} view={view} compact />
         {job.status !== 'confirmed' && <small>{STATUS_LABELS[job.status]}</small>}
         {crew.needed > 0 && (
           <small>
             Crew {crew.booked} of {crew.needed}
           </small>
         )}
-        {short && <small className={`flag ${short}`}>Kit short</small>}
       </span>
     </a>
   )

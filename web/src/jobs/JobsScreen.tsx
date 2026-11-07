@@ -1,4 +1,5 @@
 import {
+  hasSteps,
   crewFill,
   dayLabel,
   KIND_LABELS,
@@ -40,7 +41,7 @@ import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
 import { Beside, Choices, clientNamed, NewOrNear, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
-import { StageLine } from './StageLine.tsx'
+import { JobPosition } from './JobPosition.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
 import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
 import { JOB_PARTS, JobScreen, type JobPart } from './JobScreen.tsx'
@@ -431,7 +432,8 @@ const sameWord = (a: string, b: string) => a.trim().toLowerCase() === b.trim().t
 
 export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonly KitLineView[] | undefined; view: View; current: boolean }) {
   const crew = crewFill(job.calls)
-  const short = kitShort(kit)
+  // A sale's kit would only be short if it went ahead, which its position (the quote's) doesn't say: the flag stays for it.
+  const short = job.status !== 'confirmed' ? kitShort(kit) : undefined
   const today = useToday()
   const where = [job.client?.name, job.venue?.name].filter(Boolean).join(' · ')
   const soon = !!job.span && job.span.end >= today && job.span.start <= addDays(today, PROMPT_DAYS)
@@ -446,11 +448,14 @@ export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonl
           {job.span ? spanLabel(job.span) : 'No dates yet'}
           {job.phases.length > 0 && ` · ${phaseNames(job.phases)}`}
         </p>
-        {/* Where the job is, under its dates (ADR 0104): the stage and what is short in it. */}
-        <StageLine job={job} view={view} />
+        {/* Where the job stands, under its dates (ADR 0104; Move 7 of the sweep of 6 November 2026): the one position part, the
+            same as the job's head, Home and the Board say it, which carries a kit shortfall in its words and its tone. */}
+        {/* An errand or a meeting already says its kind and day on the line above. */}
+        {hasSteps(job) && <JobPosition job={job} view={view} />}
       </div>
       <div className="side">
-        <JobStatusPill status={job.status} pending={job.pending} />
+        {/* The pill for a sale or a stopped job; once confirmed, the position says where it stands, so Confirmed isn't the biggest word. */}
+        {(job.status !== 'confirmed' || job.pending) && <JobStatusPill status={job.status} pending={job.pending} />}
         {crew.needed > 0 && (
           <small>
             {/* Booked, as the sheet, the link and Calls say it, so this line's Confirmed is only ever the job's (UX sweep, 6 November 2026, move 4). */}

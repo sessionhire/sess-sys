@@ -1,4 +1,4 @@
-import { addDays, dayLabel, firstName, JOB_STAGES, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
+import { addDays, dayLabel, firstName, JOB_STAGES, jobPosition, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
 import { useState } from 'react'
 import { arrival } from '../arrival.ts'
 import { useToday } from '../view.ts'
@@ -65,9 +65,11 @@ export function BoardScreen({ view }: { view: View }) {
               <small>{columnWord(c.jobs, c.key === 'back' ? toCheck : undefined)}</small>
             </header>
             {c.jobs.length === 0 && <p className="hint board-empty">None</p>}
-            {c.jobs.map((s) => (
-              <BoardCard key={s.job.id} steps={s} today={today} kit={c.key === 'back' ? toCheck.get(s.job.id) : undefined} />
-            ))}
+            {c.key === 'planning' ? (
+              <PlanningBands jobs={c.jobs} today={today} />
+            ) : (
+              c.jobs.map((s) => <BoardCard key={s.job.id} steps={s} today={today} kit={c.key === 'back' ? toCheck.get(s.job.id) : undefined} />)
+            )}
             {c.key === 'selling' && lapsed.length > 0 && (
               <details className="board-lapsed" open={toAnswer || undefined}>
                 <summary>
@@ -95,6 +97,50 @@ export function BoardScreen({ view }: { view: View }) {
   )
 }
 
+/**
+ * Planning is where a confirmed job lives for months, so its column is banded by when each starts (Move 7 of the sweep of 6
+ * November 2026): This week and Next week open, everything after folded under Later with its count, and a band with none
+ * left out. Weeks run Monday to Sunday, as the planner's do; a job with no dates goes under Later.
+ */
+function PlanningBands({ jobs, today }: { jobs: JobSteps[]; today: string }) {
+  const dow = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7
+  const thisEnd = addDays(today, 6 - dow)
+  const nextEnd = addDays(thisEnd, 7)
+  const start = (s: JobSteps) => s.job.span?.start
+  const bands = [
+    { key: 'this', label: 'This week', jobs: jobs.filter((s) => !!start(s) && start(s)! <= thisEnd) },
+    { key: 'next', label: 'Next week', jobs: jobs.filter((s) => !!start(s) && start(s)! > thisEnd && start(s)! <= nextEnd) },
+  ]
+  const later = jobs.filter((s) => !start(s) || start(s)! > nextEnd)
+  return (
+    <>
+      {bands.map(
+        (b) =>
+          b.jobs.length > 0 && (
+            <div key={b.key} className="board-band">
+              <h3 className="board-band-head">
+                {b.label} ({b.jobs.length})
+              </h3>
+              {b.jobs.map((s) => (
+                <BoardCard key={s.job.id} steps={s} today={today} />
+              ))}
+            </div>
+          )
+      )}
+      {later.length > 0 && (
+        <details className="board-lapsed board-later">
+          <summary>
+            <h3>Later ({later.length})</h3>
+          </summary>
+          {later.map((s) => (
+            <BoardCard key={s.job.id} steps={s} today={today} />
+          ))}
+        </details>
+      )}
+    </>
+  )
+}
+
 /** Selling's fold, by its heading, which Home's count lands on. */
 const LAPSED = STANDING_HEADINGS['no-answer']
 
@@ -103,7 +149,8 @@ const bySoonest = (a: JobSteps, b: JobSteps) => (a.job.span?.start ?? '').locale
 /** "3 · 1 waiting a while", "10 · 3 late": the count, and how many want a look: a task late, or kit late back (ADR 0109). */
 function columnWord(jobs: JobSteps[], kit?: ReadonlyMap<string, KitToCheck>): string {
   const late = jobs.filter((s) => s.steps.some((t) => t.late) || kit?.get(s.job.id)?.late).length
-  const short = jobs.filter((s) => s.stage?.tasks.some((t) => t.state === 'now' && !!t.facts.short)).length
+  // Short as the position part says it: crew or kit short in the stage the job is in (Move 7 of the sweep of 6 November 2026).
+  const short = jobs.filter((s) => jobPosition(s)?.tone === 'warn').length
   return [String(jobs.length), late ? `${late} late` : '', short && !late ? `${short} short` : ''].filter(Boolean).join(' · ')
 }
 
@@ -119,6 +166,7 @@ function BoardCard({ steps, today, kit }: { steps: JobSteps; today: string; kit?
   const late = steps.steps.filter((t) => t.late)
   let line = ''
   let tone: 'warn' | 'bad' | undefined
+  let owner = true
   const deprep = steps.steps.find((t) => t.key === 'deprep')
   if (steps.finished) line = deprep?.ticked ? `Deprepped ${dayLabel(deprep.ticked.at.slice(0, 10))}` : deprep?.auto ? 'Through: nothing still out' : 'Deprepped'
   else if (steps.lapsed) {
@@ -130,12 +178,13 @@ function BoardCard({ steps, today, kit }: { steps: JobSteps; today: string; kit?
   } else if (kit) {
     line = `${kit.said} · ${kit.when}`
     if (kit.late) tone = 'warn'
-  } else if (stage?.key === 'selling' && steps.selling) {
-    // The one selling sentence, as the Jobs list and the dock say it (Move 7 of the sweep of 6 November 2026).
-    line = steps.selling
   } else {
-    line = [stage?.hint ?? current?.hint ?? '', steps.daysTo !== undefined ? `${plural(steps.daysTo, 'day')} left` : ''].filter(Boolean).join(' · ')
-    if (stage?.tasks.some((t) => !t.done && !t.skipped && !!t.facts.short)) tone = 'warn'
+    // The position's own words and tone, as the job's head, the Jobs list and Home say them (Move 7 of the sweep of 6 November
+    // 2026): the column already names the stage, so the card says what's short or waiting, whose it is, and when.
+    const p = jobPosition(steps)
+    line = [p?.hint, p?.owner, p?.time].filter(Boolean).join(' · ')
+    tone = p?.tone
+    owner = false
   }
   return (
     <a className="board-card" href={`#jobs/${encodeURIComponent(job.id)}`}>
@@ -144,7 +193,7 @@ function BoardCard({ steps, today, kit }: { steps: JobSteps; today: string; kit?
       {line && (
         <span className="board-line" data-tone={tone}>
           {line}
-          {current?.owner && ` · ${firstName(current.owner)}`}
+          {owner && current?.owner && ` · ${firstName(current.owner)}`}
         </span>
       )}
     </a>

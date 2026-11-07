@@ -74,7 +74,10 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await answered.getByRole('button', { name: 'Confirm the job' }).click()
   await expect(quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })).toHaveCount(0)
   await office.goto('/#jobs')
-  await expect(office.locator('.job-row', { hasText: 'Docklands Awards' })).toContainText('Confirmed')
+  // Confirmed, its row says where it stands rather than the pill (Move 7 of the sweep of 6 November 2026).
+  const docklands = office.locator('.job-row', { hasText: 'Docklands Awards' })
+  await expect(docklands.locator('.job-position')).toBeVisible()
+  await expect(docklands.locator('.pill')).toHaveCount(0)
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
