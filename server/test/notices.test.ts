@@ -1,6 +1,6 @@
 import { NOTICE_ENTITIES, type NoticesPage, type Person } from '@sh/shared'
 import { describe, expect, it } from 'vitest'
-import { readNotices } from '../src/notices.ts'
+import { handOffs, readNotices } from '../src/notices.ts'
 import { IPHONE, onLink, server, staff, WINDOWS } from './people.ts'
 
 /**
@@ -116,6 +116,49 @@ describe('notifications', () => {
     expect((await notices(colly)).notices.some((n) => n.forYou)).toBe(false)
   })
 
+  it("tells the heads of a job's departments and the warehouse's that it's confirmed, and the office that its kit went out, once each", async () => {
+    // Proves: move 12 of the UX sweep of 6 November 2026: the two hand-offs reach the people whose turn it is, in the app, once per transition per job, never to the one who did it.
+    const { app, db, colly, notices } = await setUp()
+    const sean = await staff(app, db, 'Sean Walsh', IPHONE, 'phone-5ea4')
+    const nora = await staff(app, db, 'Nora Quinn', IPHONE, 'phone-n0ra')
+    const liam = await staff(app, db, 'Liam Doyle', IPHONE, 'phone-l1am')
+    const person = { phone: null, skills: [], dayRateCents: 25000, notes: '' }
+    await colly.send('person.upsert', { id: 'sean', name: 'Seán Walsh', kind: 'staff', email: 'sean@sessionhire.com', ...person, department: 'Audio' } as never)
+    await colly.send('person.upsert', { id: 'nora', name: 'Nora Quinn', kind: 'staff', email: 'nora@sessionhire.com', ...person, department: 'Warehouse' } as never)
+    await colly.send('person.upsert', { id: 'liam', name: 'Liam Doyle', kind: 'staff', email: 'liam@sessionhire.com', ...person, department: 'Video' } as never)
+    for (const id of ['sean', 'nora', 'liam']) expect((await colly.send('person.role', { id, role: 'head' })).status).toBe('applied')
+    // An enquiry with an audio call: confirmed, back to quoted, confirmed again.
+    await colly.send('project.create', { id: 'j3', name: 'Harbour Lights', clientId: null, venueId: null, status: 'enquiry', notes: '' })
+    await colly.send('phase.add', { id: 'show3', projectId: 'j3', name: 'Show', start: '2026-11-09', end: '2026-11-09', venueId: null, notes: '' })
+    expect((await colly.send('call.create', { ...call, id: 'c3', projectId: 'j3', phaseId: 'show3', project: 'Harbour Lights', department: 'Audio' } as never)).status).toBe('applied')
+    await colly.send('project.update', { id: 'j3', status: 'confirmed' })
+    await colly.send('project.update', { id: 'j3', name: 'Harbour Lights Festival' })
+    await colly.send('project.update', { id: 'j3', status: 'quoted' })
+    await colly.send('project.update', { id: 'j3', status: 'confirmed' })
+    const confirmed = (n: { forYou?: string }) => n.forYou?.startsWith('Confirmed: Harbour')
+    const seans = (await notices(sean)).notices.filter(confirmed)
+    expect(seans.map((n) => [n.forYou, n.why])).toEqual([
+      ['Confirmed: Harbour Lights Festival, Mon 9 Nov', 'turn'],
+      ['Confirmed: Harbour Lights Festival, Mon 9 Nov', 'turn'],
+    ])
+    expect((await notices(nora)).notices.filter(confirmed)).toHaveLength(2)
+    // Video has nothing on it.
+    expect((await notices(liam)).notices.filter(confirmed)).toHaveLength(0)
+
+    // The first kit out, by the warehouse, is the office's news; the second scan isn't, and Nora's own isn't hers.
+    const scan = (id: string) => ({ id, projectId: 'j3', direction: 'out', assetId: null, modelId: 'm1', qty: 1, at: '2026-11-08T08:00:00.000Z' })
+    await colly.send('person.upsert', { id: 'colly', name: 'Colly Hewson', kind: 'staff', email: 'colly@sessionhire.com', ...person } as never)
+    expect((await colly.send('person.role', { id: 'colly', role: 'office' })).status).toBe('applied')
+    const rm = await colly.send('model.create', { id: 'm1', name: 'Shure SM58', department: 'audio', category: '', tracking: 'bulk', isCase: false, valueCents: null, notes: '' } as never)
+    expect(rm, JSON.stringify(rm)).toMatchObject({ status: 'applied' })
+    const r1 = await nora.send('move.record', scan('s1') as never)
+    expect(r1, JSON.stringify(r1)).toMatchObject({ status: 'applied' })
+    await nora.send('move.record', scan('s2') as never)
+    const gone = (await notices(colly)).notices.filter((n) => n.forYou?.startsWith('Gone out'))
+    expect(gone.map((n) => n.forYou)).toEqual(['Gone out: Harbour Lights Festival'])
+    expect((await notices(nora)).notices.filter((n) => n.forYou?.startsWith('Gone out'))).toHaveLength(0)
+  })
+
   it('keeps how far each person has read, on every device, and never goes back', async () => {
     const { app, colly, aoife, notices } = await setUp()
     await colly.send('offer.send', { id: 'o1', callId: 'c1', personId: 'aoife', override: false })
@@ -141,7 +184,10 @@ describe('notifications', () => {
 
   it('reads changes to the tables the phone is told to look again for, and to no others', () => {
     // Proves: the list of tables a notification can be about, which a phone uses to skip looking after a pull that brought none of them (audit, 20 October 2026, finding 14), is the one the server's query reads: a table added there and not here would be news the phone never looked for.
-    const read = new Set([...readNotices.toString().matchAll(/SELECT '(\w+)'/g)].map((m) => m[1]))
+    const read = new Set([
+      ...[...readNotices.toString().matchAll(/SELECT '(\w+)'/g)].map((m) => m[1]),
+      ...[...handOffs.toString().matchAll(/c\.entity = '(\w+)'/g)].map((m) => m[1]),
+    ])
     expect(read).toEqual(new Set(NOTICE_ENTITIES))
   })
 })

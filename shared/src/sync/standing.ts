@@ -31,7 +31,7 @@ import { kitToCheckBackIn, type JobSteps, type KitToCheck } from './steps-view.t
  * with no kit of their own (production, transport, stage managers) have
  * none.
  */
-const KIT_OF: Record<string, Department> = {
+export const KIT_OF: Record<string, Department> = {
   audio: 'audio',
   backline: 'audio',
   lx: 'lighting',

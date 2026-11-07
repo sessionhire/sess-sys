@@ -1,4 +1,4 @@
-import { dayLabel, firstName, irishToday, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { dayLabel, firstName, irishToday, ownerByRole, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { peopleOn, promptFor, type Share } from '../crew/CrewScreen.tsx'
@@ -204,12 +204,14 @@ function OpenStep({
       </p>
       {/* The answer first, where the eye is: who it's down to can wait under it. */}
       {answering ? <ClientsAnswer job={job} view={view} onTell={onTell} /> : <p className="hint">{step.line}</p>}
+      {/* Whose it is when nobody is named: the role, from the one table (UX sweep, 6 November 2026, move 12). */}
+      {!step.owner && !step.done && !step.skipped && <p className="step-owner-line">{ownerByRole(step.key)}</p>}
       {mayChange ? (
         <div className="step-actions">
           <label className="field">
             Down to
             <select value={step.ownerId ?? ''} onChange={(e) => void set({ ownerId: e.target.value || null })}>
-              <option value="">Nobody yet</option>
+              <option value="">Nobody named</option>
               {step.owner && !staff.some((p) => p.id === step.ownerId) && <option value={step.owner.id}>{step.owner.name}</option>}
               {staff.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -247,7 +249,7 @@ function OpenStep({
             ))}
         </div>
       ) : (
-        <p className="step-owner-line">{step.owner ? `Down to ${step.owner.name}.` : 'Not given to anyone yet.'}</p>
+        step.owner && <p className="step-owner-line">Down to {step.owner.name}.</p>
       )}
       <Refusal error={error} />
       {step.part === 'pick' && (

@@ -1,4 +1,4 @@
-import { documentsRead, LIVE, NOTICE_WHY, readsEveryRate, type Notice, type NoticesPage } from '@sh/shared'
+import { dayLabel, documentsRead, irishToday, KIT_OF, LIVE, NOTICE_WHY, readsEveryRate, type Notice, type NoticesPage } from '@sh/shared'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { HAS_EMAIL } from './crew/store.ts'
 import type { Db, Queryable } from './db.ts'
@@ -28,6 +28,13 @@ import { readingOf } from './reading.ts'
  *
  * With nobody signed in (a demo copy, or sign-in off), the device is the
  * person: the jobs made and offers sent on it are its own.
+ *
+ * And, last, the hand-offs that make it their department's turn (UX sweep,
+ * 6 November 2026, move 12), once per job each, read from history rows that
+ * exist: a job going confirmed, to the heads of the departments on its calls
+ * and kit and the warehouse's heads ("Confirmed: Harbour Lights, Mon 9
+ * Nov"); and a job's first kit scanned out, to the office ("Gone out:
+ * Harbour Lights").
  *
  * Their own changes are never news to them, on any device, nor on their
  * private link or in Google Calendar. Noting an answer (`offer.seen`) is
@@ -116,6 +123,9 @@ export async function readNotices(q: Queryable, reader: NoticeReader, rates = tr
       LIMIT ${NOTICE_LIMIT}`,
     [user, person, LIVE, own, NOTICE_DAYS, timesheets ? QUIET : [...QUIET, ...TIMESHEET_CHANGES], reader.clientId ?? null],
   )
+  const turns = person ? await handOffs(q, person, user, own) : []
+  const told = new Map(turns.map((t) => [t.id, t.say]))
+  for (const t of turns) if (!hits.some((h) => h.id === t.id)) hits.push({ id: t.id, rank: NOTICE_WHY.indexOf('turn'), about: `project:${t.project}` })
   if (hits.length === 0) return []
   const { rows } = await q.query<Row>(`${SELECT} WHERE m.id = ANY($1::text[]) ORDER BY m.received_at DESC, m.id DESC`, [hits.map((h) => h.id)])
   const byId = new Map(hits.map((h) => [h.id, h]))
@@ -132,9 +142,69 @@ export async function readNotices(q: Queryable, reader: NoticeReader, rates = tr
   return entries.map((e) => {
     const hit = byId.get(e.id)!
     const [entity, ...rest] = hit.about.split(':')
-    const forYou = filled.get(e.id)
+    const forYou = filled.get(e.id) ?? told.get(e.id)
     return { ...e, why: NOTICE_WHY[Math.min(Number(hit.rank), NOTICE_WHY.length - 1)]!, about: { entity: entity!, id: rest.join(':') }, ...(forYou ? { forYou } : {}) }
   })
+}
+
+interface HandOff {
+  /** The change that handed it over. */
+  id: string
+  project: string
+  say: string
+}
+
+/**
+ * The hand-offs that make it this person's department's turn, in the last month, by others (move 12): the change that
+ * confirmed a job, once per time it went confirmed, for a head of a department on its calls or kit or of the
+ * warehouse; and the change that scanned a job's first kit out, for the office. In the app only: nobody is emailed
+ * (ADR 0048).
+ */
+export async function handOffs(q: Queryable, person: string, user: string | null, own: string[]): Promise<HandOff[]> {
+  const { rows: me } = await q.query<{ role: string | null; department: string | null }>('SELECT role, department FROM people WHERE id = $1 AND NOT archived', [person])
+  const role = me[0]?.role
+  const department = me[0]?.department?.trim().toLowerCase() || null
+  const head = role === 'head' && department
+  if (!head && role !== 'office') return []
+  const notMine = `m.status = 'applied' AND NOT ($1::text IS NOT NULL AND m.user_id IS NOT DISTINCT FROM $1::text) AND m.client_id <> ALL($2::text[])`
+  const out: HandOff[] = []
+  if (head) {
+    const { rows } = await q.query<{ id: string; project: string; name: string; starts: string | null }>(
+      `WITH went AS (
+         SELECT c.mutation_id AS id, c.entity_id AS project, c.at,
+                c.data->>'status' AS status, lag(c.data->>'status') OVER (PARTITION BY c.entity_id ORDER BY c.seq) AS was
+           FROM changes c
+          WHERE c.entity = 'project' AND c.op = 'put'
+            AND c.entity_id IN (SELECT entity_id FROM changes WHERE entity = 'project' AND data->>'status' = 'confirmed' AND at > now() - make_interval(days => $3::int))
+       )
+       SELECT w.id, w.project, p.name, to_char(min(ph.start_day), 'YYYY-MM-DD') AS starts
+         FROM went w JOIN mutations m ON m.id = w.id JOIN projects p ON p.id = w.project LEFT JOIN phases ph ON ph.project_id = w.project
+        WHERE w.status = 'confirmed' AND w.was IS DISTINCT FROM 'confirmed' AND w.at > now() - make_interval(days => $3::int) AND ${notMine}
+          AND (
+            $4::text = 'warehouse'
+            OR EXISTS (SELECT 1 FROM crew_calls cc WHERE cc.project_id = w.project AND lower(trim(cc.department)) = $4::text)
+            OR EXISTS (SELECT 1 FROM kit_lines k JOIN models md ON md.id = k.model_id WHERE k.project_id = w.project AND md.department = $5::text)
+          )
+        GROUP BY w.id, w.project, p.name`,
+      [user, own, NOTICE_DAYS, department, KIT_OF[department as string] ?? null],
+    )
+    out.push(...rows.map((r) => ({ id: r.id, project: r.project, say: `Confirmed: ${r.name}${r.starts ? `, ${dayLabel(r.starts, irishToday())}` : ''}` })))
+  }
+  if (role === 'office') {
+    const { rows } = await q.query<{ id: string; project: string; name: string }>(
+      `WITH first AS (
+         SELECT DISTINCT ON (c.data->>'projectId') c.mutation_id AS id, c.data->>'projectId' AS project, c.at
+           FROM changes c
+          WHERE c.entity = 'movement' AND c.op = 'put' AND c.data->>'direction' = 'out' AND c.data->>'undoes' IS NULL
+          ORDER BY c.data->>'projectId', c.seq
+       )
+       SELECT f.id, f.project, p.name FROM first f JOIN mutations m ON m.id = f.id JOIN projects p ON p.id = f.project
+        WHERE f.at > now() - make_interval(days => $3::int) AND ${notMine}`,
+      [user, own, NOTICE_DAYS],
+    )
+    out.push(...rows.map((r) => ({ id: r.id, project: r.project, say: `Gone out: ${r.name}` })))
+  }
+  return out
 }
 
 /** Who reads the list: the account, or, with nobody signed in, this device. */
