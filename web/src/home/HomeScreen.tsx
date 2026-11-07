@@ -1,4 +1,4 @@
-import { canApproveLeave, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
+import { canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
 import { glanceParts, HOLDING, OFFER_WORDS, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
 import { Fragment, useState } from 'react'
 import { asBooking, BookingRow, stoppedBookings } from '../crew/BookingRow.tsx'
@@ -10,6 +10,7 @@ import { BelowZero } from '../jobs/Money.tsx'
 import { useToday, useView } from '../view.ts'
 import { addDays, companyTiles, departmentsIn, jobsOn, SOON, TILES_FOR, tiles, weekAhead, type FirstGroup, type HomeFor, type Tile } from './standing.ts'
 import { JobPosition } from '../jobs/JobPosition.tsx'
+import { kitShort } from '../jobs/Kit.tsx'
 import { Heading } from '../Icon.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
 import { arrive } from '../arrival.ts'
@@ -216,6 +217,8 @@ function Today({ view, today }: { view: View; today: string }) {
 /** A job in one line: its name, then (in the week ahead) its first day, a quote not yet confirmed, its crew and kit short, as the jobs list says them. */
 function JobLine({ job, view, from }: { job: JobView; view: View; from?: boolean }) {
   const crew = crewFill(job.calls)
+  // A sale's kit would only be short if it went ahead, which its position (the quote's) doesn't say: the flag stays for it.
+  const short = job.status !== 'confirmed' ? kitShort(view.kit.byJob.get(job.id)) : undefined
   return (
     <a className="job-row today-row" href={`#jobs/${job.id}`}>
       <b>{job.name}</b>
@@ -223,13 +226,15 @@ function JobLine({ job, view, from }: { job: JobView; view: View; from?: boolean
         {from && job.span && <small>{dayLabel(job.span.start)}</small>}
         {/* The job's position, compact, as the Jobs list, the Board and its head say it (Move 7 of the sweep of 6 November 2026):
             its tone carries a crew or kit shortfall, and its title the whole line. */}
-        <JobPosition job={job} view={view} compact />
+        {/* An errand's or a meeting's position is its day, which the week ahead has just said. */}
+        {(hasSteps(job) || !from) && <JobPosition job={job} view={view} compact />}
         {job.status !== 'confirmed' && <small>{STATUS_LABELS[job.status]}</small>}
         {crew.needed > 0 && (
           <small>
             Crew {crew.booked} of {crew.needed}
           </small>
         )}
+        {short && <small className={`flag ${short}`}>Kit short</small>}
       </span>
     </a>
   )

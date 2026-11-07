@@ -11,14 +11,14 @@ import './steps.css'
  * read from the job's steps, which hold only what this role is sent, so it
  * never says what the reading limits hide.
  *
- * `compact` keeps the segments, the stage and the time, for a row of one
- * line. Nothing on a cancelled or lost job: the status pill says it.
+ * `compact` keeps the segments, the stage, the time and, when there's a
+ * tone, its one word (late, short), for a row of one line. Nothing on a cancelled or lost job: the status pill says it.
  */
 export function JobPosition({ job, view, compact, bare }: { job: JobView; view: View; compact?: boolean; bare?: boolean }) {
   const steps = view.steps.of(job.id)
   const p = steps && jobPosition(steps)
   if (!steps || !p) return null
-  const words = compact ? [p.time].filter(Boolean) : [p.hint, p.owner, p.time].filter(Boolean)
+  const words = compact ? [p.flag, p.time].filter(Boolean) : [p.hint, p.owner, p.time].filter(Boolean)
   return (
     <span className="stage-line job-position" data-compact={compact ? 'true' : undefined} data-tone={p.tone} title={compact ? p.text : undefined}>
       {!bare && !steps.stopped && (

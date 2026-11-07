@@ -455,7 +455,7 @@ export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonl
       </div>
       <div className="side">
         {/* The pill for a sale or a stopped job; once confirmed, the position says where it stands, so Confirmed isn't the biggest word. */}
-        {(job.status !== 'confirmed' || job.pending) && <JobStatusPill status={job.status} pending={job.pending} />}
+        {(job.status !== 'confirmed' || job.pending || !hasSteps(job)) && <JobStatusPill status={job.status} pending={job.pending} />}
         {crew.needed > 0 && (
           <small>
             {/* Booked, as the sheet, the link and Calls say it, so this line's Confirmed is only ever the job's (UX sweep, 6 November 2026, move 4). */}

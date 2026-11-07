@@ -27,6 +27,8 @@ export interface JobPosition {
   /** "in 6 days", "tomorrow", "until Fri 13 Nov", "2 days after", "by Wed 4 Nov", "was due Wed 4 Nov". */
   time: string | undefined
   tone: 'warn' | 'bad' | undefined
+  /** The tone in one word, for a compact row where the hint isn't drawn, so it's never said by colour alone. */
+  flag: 'late' | 'short' | 'no answer' | undefined
   /** All of it in one line, as a screen reader and a test read it. */
   text: string
 }
@@ -52,10 +54,12 @@ export function jobPosition(steps: JobSteps): JobPosition | undefined {
   const short = open.some((t) => (t.key === 'crew' && (t.facts.booked ?? 0) < (t.facts.needed ?? 0)) || (t.facts.short ?? 0) > 0)
   // The show's own hint is its dates, which the time already says.
   const hint = stage?.key === 'selling' ? steps.selling : stage?.key === 'on' ? undefined : (stage?.hint ?? (task?.key === 'show' ? undefined : task?.hint))
-  const time = task?.dueOn
-    ? task.late
-      ? `was due ${dayLabel(task.dueOn)}`
-      : `by ${dayLabel(task.dueOn)}`
+  // A task late says so, and which, when it isn't the one to do next: the tone alone would leave it unsaid.
+  const lateOne = task?.late ? task : late[0]
+  const time = lateOne
+    ? `${lateOne === task ? '' : `${lateOne.label.toLowerCase()} `}was due ${dayLabel(lateOne.dueOn!)}`
+    : task?.dueOn
+      ? `by ${dayLabel(task.dueOn)}`
     : steps.daysTo !== undefined
       ? steps.daysTo === 1
         ? 'tomorrow'
@@ -66,11 +70,12 @@ export function jobPosition(steps: JobSteps): JobPosition | undefined {
           : `until ${dayLabel(job.span.end)}`
         : after(steps.daysAfter)
   const tone = late.length || steps.lapsed ? 'bad' : short ? 'warn' : undefined
-  return make(stage?.label ?? 'Through', hint, task?.owner ? firstName(task.owner) : undefined, time, tone)
+  const flag = late.length ? 'late' : steps.lapsed ? 'no answer' : short ? 'short' : undefined
+  return make(stage?.label ?? 'Through', hint, task?.owner ? firstName(task.owner) : undefined, time, tone, flag)
 }
 
 const after = (days: number | undefined) => (days === undefined ? undefined : days === 1 ? 'the day after' : `${plural(days, 'day')} after`)
 
-function make(stage: string, hint: string | undefined, owner: string | undefined, time: string | undefined, tone: JobPosition['tone']): JobPosition {
-  return { stage, hint, owner, time, tone, text: [stage, hint, owner, time].filter(Boolean).join(' · ') }
+function make(stage: string, hint: string | undefined, owner: string | undefined, time: string | undefined, tone: JobPosition['tone'], flag?: JobPosition['flag']): JobPosition {
+  return { stage, hint, owner, time, tone, flag, text: [stage, hint, owner, time].filter(Boolean).join(' · ') }
 }
