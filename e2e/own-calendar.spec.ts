@@ -100,6 +100,9 @@ test('a freelancer shares when they are busy from their link, the office sees it
   const section = phone.locator('section#calendar')
   await expect(section.getByRole('heading', { name: "Let us see when you're busy" })).toBeVisible()
   await expect(section).toContainText("We keep only the times you're busy: never what, where or who with. Nothing is ever added to your calendar")
+  // Set once, so it's folded to its state line until opened.
+  await expect(section.locator('details > summary').first()).toContainText('Not shared')
+  await section.locator('details > summary').first().click()
   await section.getByLabel("Your calendar's private address").fill(`http://127.0.0.1:${standInPort}${secretPath}`)
   await section.getByRole('button', { name: "Share when I'm busy" }).click()
   await expect(section.getByRole('status')).toHaveText("Thanks. We've read your calendar, and the office can see when you're busy.")
@@ -148,6 +151,8 @@ test('a freelancer shares when they are busy from their link, the office sees it
 
   // One tap on her link stops it, and it's gone from her page in the app.
   await phone.goto(`/f/${token}`)
+  await expect(section.locator('details > summary').first()).toContainText('Shared, 1 busy day ahead')
+  await section.locator('details > summary').first().click()
   await section.getByRole('button', { name: 'Stop sharing my calendar' }).click()
   await expect(section.getByRole('button', { name: "Share when I'm busy" })).toBeVisible()
   await office.goto(`/#crew/person/orla-${id}`)

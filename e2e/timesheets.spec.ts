@@ -73,9 +73,8 @@ test('the office approves timesheets, and a freelancer sends theirs from their l
   const daraLink = await office.evaluate(() => navigator.clipboard.readText())
   const dara = await (await browser.newContext({ viewport: phoneSize, javaScriptEnabled: false })).newPage()
   await dara.goto(daraLink)
-  // Sent and approved need nothing from them, so they're folded under one line (audit, 5 November 2026, finding 32).
-  await dara.locator('#timesheets summary', { hasText: 'Sent and approved (1)' }).click()
-  await dara.getByRole('link', { name: /Approved: €678/ }).click()
+  // One Work done list through to paid (UX sweep, move 6b): its row says where it stands.
+  await dara.getByRole('link', { name: /Approved €678(\.00)?, not paid yet/ }).click()
   await expect(dara.getByRole('heading', { name: 'Approved: €678' })).toBeVisible()
   await expect(dara.getByText('Mileage: €20, not €25.50')).toBeVisible()
   await expect(dara.getByText('Mileage at the civil service rate.')).toBeVisible()

@@ -285,9 +285,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect((await page.getByRole('link', { name: '‹ Your work' }).boundingBox())!.height).toBeGreaterThanOrEqual(44)
 
     await page.goto(`/f/${dara.data.linkToken}`)
-    // Sent and approved timesheets are folded under one line (audit, 5 November 2026, finding 32).
-    await page.locator('#timesheets summary', { hasText: 'Sent and approved' }).click()
-    await page.locator('.ts-list a').filter({ hasText: 'Autumn Gala' }).click()
+    // One Work done list through to paid (UX sweep, move 6b).
+    await page.locator('#timesheets a').filter({ hasText: 'Autumn Gala' }).first().click()
     await expect(page).toHaveTitle('Timesheet: Autumn Gala, Show')
     await expect(page.getByRole('main')).toHaveCount(1)
     const sheetFields = await fieldBorders(page)
