@@ -4,6 +4,7 @@ import {
   byName,
   jobFilters,
   jobSorts,
+  nobodySoon,
   listed,
   NO_DEPARTMENT_KEY,
   optionCounts,
@@ -106,6 +107,13 @@ describe('jobs', () => {
     expect(ids({ tasks: 'late' })).toEqual(['soon'])
     expect(ids({ stage: 'planning', tasks: 'nobody' })).toEqual(['soon'])
     expect(ids({ tasks: 'nobody' })).toEqual(['undated', 'soon'])
+  })
+
+  it("counts a job down to nobody on Home only when it starts within a fortnight", () => {
+    // Move 10 of the sweep of 6 November 2026: one months off is how the company works, not a signal.
+    const at = (daysTo: number | undefined, span = true) => ({ job: { span: span ? {} : undefined }, daysTo, daysAfter: undefined, stage: { key: 'planning' }, finished: false, current: { ownerId: null } }) as never
+    expect([at(3), at(14), at(15), at(undefined), at(undefined, false)].map(nobodySoon)).toEqual([true, true, false, true, false])
+    expect(nobodySoon({ ...(at(3) as object), current: { ownerId: 'aoife' } } as never)).toBe(false)
     expect(jobFilters(() => false, true, () => undefined).map((f) => f.key)).toEqual(['status', 'kind', 'crew', 'kit'])
   })
 

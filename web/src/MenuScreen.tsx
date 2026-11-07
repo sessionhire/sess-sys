@@ -252,7 +252,7 @@ export const MENU: PlaceGroup[] = [
         href: '#home',
         label: 'Home',
         // Two people at one Company view can see its counts in different orders, so its line says so (Move 10 of the sweep of 6 November 2026).
-        about: 'How things stand, its counts ordered for whoever is looking',
+        about: 'How things stand: the week in a line, its counts ordered for whoever is looking',
       },
       {
         key: 'admin',

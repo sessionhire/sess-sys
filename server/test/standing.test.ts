@@ -121,7 +121,7 @@ describe('how things stand', () => {
     const filters = jobFilters(() => false, false, (j) => view.steps.of(j.id))
     const jobsList = (chosen: Record<string, string>) => listed(coming, filters, jobSorts(false), { sort: 'date', filters: chosen }).map((j) => j.id)
     expect(lists['tasks-late'].map((s) => s.job.id).sort()).toEqual(jobsList({ tasks: 'late' }).sort())
-    expect(lists['tasks-nobody'].map((s) => s.job.id).sort()).toEqual(jobsList({ stage: 'planning', tasks: 'nobody' }).sort())
+    expect(lists['tasks-nobody'].map((s) => s.job.id).sort()).toEqual(jobsList({ tasks: 'nobody-soon' }).sort())
     // Quotes' "Dates passed with no answer" is the quotes sent among them, the Board's fold all of them.
     const passed = quotesToFollow(view.money, today).passed.map((q) => q.job.id)
     expect(passed).toEqual(['gone'])

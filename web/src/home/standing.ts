@@ -131,10 +131,12 @@ const TILES: { [K in StandingKey]: TileSpec<K> } = {
   counts: { one: 'place to count this week', many: 'places to count this week', href: '#stock/count' },
   'tasks-late': { one: 'job with a task late', many: 'jobs with a task late', href: '#jobs', filters: { tasks: 'late' } },
   'tasks-nobody': {
-    one: 'job in Planning with its next task down to nobody',
-    many: 'jobs in Planning with the next task down to nobody',
+    // Only the jobs starting within a fortnight (Move 10 of the sweep of 6 November 2026): one months off is how the company
+    // works, not a signal.
+    one: 'job starting within a fortnight with its next task down to nobody',
+    many: 'jobs starting within a fortnight with the next task down to nobody',
     href: '#jobs',
-    filters: { stage: 'planning', tasks: 'nobody' },
+    filters: { tasks: 'nobody-soon' },
   },
   'no-answer': { one: 'job whose dates passed with no answer', many: 'jobs whose dates passed with no answer', href: '#jobs/board' },
   // Sent a week or more ago with no answer (ADR 0081): amber, as each of its rows on Quotes is, at the top of Waiting for an
