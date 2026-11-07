@@ -316,7 +316,9 @@ faults reported on site are waiting in the warehouse repair queue on return.
   Vehicles with their checks, booked on jobs with a driver, in the
   planner and on call sheets. Licence categories are left.
 - Client portal (view quotes, sign, pay deposit).
-- RFID, native app store builds if the PWA falls short.
+- RFID. Native iPhone and Android apps: researched 7 November 2026
+  ([native apps](research/native-apps.md)); recommended a Capacitor app for
+  staff, warehouse first, waiting on Colly's pick.
 - Turn off calendar-led mode once no live projects use it.
 - Claude inside the app, planned 29 October 2026 ([plan](https://claude.ai/artifact/6z9f5bSSAMGtZRvqmckD3h)):
   Colly chose inside the app only, no mailbox for now: Claude reads an
