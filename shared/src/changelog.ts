@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: 'The glide to a part of the page now shows on an iPhone',
     what: 'On an iPhone the page still jumped to a part rather than gliding: Safari reports the length of the glide in a different form from other browsers, and the app read it as a quarter of a millisecond, so the whole move happened in one frame. It now reads it properly and the glide takes its quarter of a second on every phone.',
-    prs: [248],
+    prs: [250],
   },
   {
     version: '1.109.1',
