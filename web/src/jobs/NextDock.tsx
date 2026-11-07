@@ -1,4 +1,4 @@
-import { dayLabel, firstName, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
+import { dayLabel, jobPosition, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
@@ -36,14 +36,19 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
   const stage = steps.stage
   const mayTask = access.can('steps') && (access.role !== 'crew' || (!!access.personId && task?.ownerId === access.personId))
 
-  /** The line over the button: where the job is, and how far. */
+  /** The line over the button: where the job stands, the head's own words (Move 7 of the sweep of 6 November 2026), so the two agree. */
+  const position = jobPosition(steps)
   const line = (
     <p className="line">
       <b>Next</b>
-      {stage && ` · ${stage.label}`}
-      {task?.hint && ` · ${task.hint}`}
-      {task?.owner && ` · ${firstName(task.owner)}`}
-      {task?.dueOn && (task.late ? <> · <span className="late">was due {dayLabel(task.dueOn)}</span></> : ` · by ${dayLabel(task.dueOn)}`)}
+      {position && (
+        <>
+          {' · '}
+          <span className="position-words" data-tone={position.tone}>
+            {[position.stage === 'Through' ? undefined : position.stage, position.hint, position.owner, position.time].filter(Boolean).join(' · ')}
+          </span>
+        </>
+      )}
     </p>
   )
   const rest = (words: string, link?: { href: string; label: string }) => (

@@ -160,8 +160,8 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await page.getByRole('link', { name: '‹ All jobs' }).click()
   await expect(page.locator('.job-row', { hasText: festival })).toHaveCount(0)
   await page.getByRole('button', { name: /^Show all [\d,]+ coming up$/ }).click()
-  await expect(page.locator('.job-row', { hasText: festival }).locator('.flag')).toHaveText('Kit short')
-  await expect(page.locator('.job-row', { hasText: launch }).locator('.flag')).toHaveText('Kit short')
+  await expect(page.locator('.job-row', { hasText: festival }).locator('.job-position[data-tone="warn"]')).toContainText('short')
+  await expect(page.locator('.job-row', { hasText: launch }).locator('.job-position[data-tone="warn"]')).toContainText('short')
 
   // Two subhired for the launch sorts both.
   await page.locator('.job-row', { hasText: launch }).click()

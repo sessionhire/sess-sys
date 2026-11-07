@@ -19,6 +19,21 @@ waiting on someone.
   at Quotes' threshold, "Dates passed, no answer", "Quote: with the
   office". A server test reads every made-up job's hints back and holds
   each number against its field.
+- Move 7, second part, the position part (1.98.0, PR #233): `jobPosition()` in
+  shared/src/sync/position.ts and `JobPosition` (web/src/jobs/
+  JobPosition.tsx, which replaces StageLine) draw "stage · what's short
+  or waiting · owner · when" on the job head (in place of the pill once
+  confirmed), the dock's line, the Jobs row (in place of the stage line,
+  the Confirmed pill and the Kit short flag on a confirmed job), Home's
+  rows (compact), the Board's card and the pick list's head. Quiet when
+  nothing is short, warn ink when crew or kit is, bad ink when a task is
+  late or the dates passed unsold. The Board's Planning column is banded
+  This week, Next week and a folded Later (n); a column's "short" counts
+  crew as well as kit. Departures: a sale keeps its Kit short flag on the
+  row, as its position is the quote's; an errand or meeting row keeps its
+  line and draws no position. Left for later: the "In Planning since"
+  line on Where it is (no stage dates are stored), the quote's What
+  happened card, folding a meeting's Kit, Show pack and Quote.
 
 ## 7 November 2026: batch 2 of the UX sweep, words, forms and the link
 

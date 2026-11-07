@@ -55,7 +55,7 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   // The job opens on its own page, with each day as it will read on the calendar.
   await expect(office.getByRole('heading', { name: job })).toBeVisible()
   await expect(office.locator('.conn')).toHaveText('Up to date')
-  await expect(office.locator('.page-title-row .pill')).toHaveText('Confirmed')
+  await expect(office.locator('.page-title-row .job-position')).toContainText('Planning')
   await expect(office.locator('.page-sub')).toContainText(named('Nissan Ireland', id))
   await expect(office.locator('.page-sub')).toContainText('Mon 7 Oct to Wed 9 Oct')
   // A phase's call sheet and calendar line wait behind a tap on its details (audit finding 16).

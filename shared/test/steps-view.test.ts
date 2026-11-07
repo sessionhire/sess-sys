@@ -5,6 +5,7 @@ import type { Change, PullResponse, PushRequest, PushResponse } from '../src/pro
 import type { QuoteStatus } from '../src/quotes.ts'
 import { MONEY_ENTITY_NAMES } from '../src/quotes.ts'
 import { MemoryStorage, SyncClient, type Transport, type View } from '../src/sync/client.ts'
+import { jobPosition } from '../src/sync/position.ts'
 import { sellingLine } from '../src/sync/steps-view.ts'
 
 /**
@@ -108,5 +109,15 @@ describe('the selling line', () => {
     expect(sellingLine({ lapsed: false, quoteHidden: false, answered: false, sentDays: undefined, draft: true, unpriced: 1 })).toBe('Draft started · 1 line needs a price')
     expect(sellingLine({ lapsed: true, quoteHidden: true, answered: false, sentDays: 3, draft: false, unpriced: 0 })).toBe('Dates passed, no answer')
     expect((await phone(false)).steps.of('quoted')!.selling).toBe('Quote: with the office')
+  })
+})
+
+describe("a job's position", () => {
+  it('says the stage, what is waiting and when, in one order (Move 7 of the sweep of 6 November 2026)', async () => {
+    const office = await phone(true)
+    expect(jobPosition(office.steps.of('quoted')!)).toMatchObject({ stage: 'Selling', time: 'in 10 days', tone: undefined, text: 'Selling · Quote with the client 2 days · in 10 days' })
+    expect(jobPosition(office.steps.of('bare')!)!.text).toBe('Selling · No quote yet · in 10 days')
+    // A role sent no money reads the quote as the office's, never as missing.
+    expect(jobPosition((await phone(false)).steps.of('bare')!)!.text).toBe('Selling · Quote: with the office · in 10 days')
   })
 })

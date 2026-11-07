@@ -93,6 +93,8 @@
 .next-dock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ds-space-half) var(--ds-space-3); align-items: center; }
 .next-dock .line { grid-column: 1 / -1; margin: 0; font-size: var(--text-small); color: var(--muted); }
 .next-dock .line b { color: var(--ink); }
+.next-dock .position-words[data-tone='warn'] { color: var(--warn); }
+.next-dock .position-words[data-tone='bad'] { color: var(--bad); }
 .app .next-dock .primary { min-height: 48px; padding-inline: var(--ds-space-4); font-size: var(--text-body); white-space: nowrap; text-align: center; justify-content: center; }
 .app .next-dock .second { font-size: var(--text-small); }
 .next-dock .rest { grid-column: 1 / -1; margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border: 1px dashed var(--field-line); border-radius: var(--radius-control); color: var(--muted); font-size: var(--text-small); }
@@ -111,7 +113,6 @@
 .foot .next-dock .primary:not(:has(+ .second)) { grid-column: 1 / -1; }
 .next-dock .alert { grid-column: 1 / -1; margin: 0; }
 /* A due day passed, in the bad tone (ADR 0104), with the words saying so too. */
-.next-dock .line .late { color: var(--bad); font-weight: 600; }
 @media print {
   .next-dock { display: none; }
 }
@@ -126,6 +127,13 @@
 .stage-seg i[data-state='done'] { background: var(--muted); }
 .stage-seg i[data-state='now'] { background: var(--ink); }
 .stage-late { color: var(--bad); font-weight: 700; }
+/* The job's position (JobPosition.tsx): quiet when nothing is short, the warn ink when crew or kit is, the bad ink when a task is late.
+   Ink, not a wash, so a list of jobs isn't a wall of colour: the tone is on the words and the segment of the stage it's in. */
+.job-position .stage-name { font-weight: 700; }
+.job-position[data-tone='warn'] .stage-words { color: var(--warn); }
+.job-position[data-tone='warn'] .stage-seg i[data-state='now'] { background: var(--warn); }
+.job-position[data-tone='bad'] .stage-words { color: var(--bad); }
+.job-position[data-tone='bad'] .stage-seg i[data-state='now'] { background: var(--bad); }
 .stage-line[data-compact] { flex-wrap: nowrap; margin: 0; font-size: var(--text-hint); color: var(--muted); white-space: nowrap; }
 .stage-line[data-compact] .stage-seg i { width: 8px; height: 4px; }
 
@@ -142,6 +150,10 @@
 .board-lapsed[open] > summary { margin-bottom: var(--ds-space-1); }
 /* The one fold (app.css), its words a heading for the cards under it. */
 .board-lapsed > summary h3 { margin: 0; font: inherit; }
+/* Planning's bands by when each job starts (Move 7 of the sweep of 6 November 2026): This week and Next week open, Later folded. */
+.board-band { display: grid; gap: var(--ds-space-2); }
+.board-band + .board-band, .board-band + .board-later { padding-top: var(--ds-space-2); border-top: 1px solid var(--line); }
+.board-band-head { margin: 0; padding: 0 var(--ds-space-2); font: inherit; font-weight: 600; color: var(--muted); }
 .board-col > header small { color: var(--muted); font-variant-numeric: tabular-nums; }
 .board-col .board-empty { margin: 0; padding: 0 var(--ds-space-2); }
 .app .board-card { display: grid; gap: 2px; padding: var(--ds-space-2) var(--inset-box); background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); color: inherit; text-decoration: none; }
