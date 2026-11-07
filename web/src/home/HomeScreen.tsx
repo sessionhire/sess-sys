@@ -1,6 +1,7 @@
 import { canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
+import { lookAgain, moreSince, sinceLabel, type Looks } from '@sh/shared'
 import { glanceParts, HOLDING, OFFER_WORDS, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asBooking, BookingRow, stoppedBookings } from '../crew/BookingRow.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
@@ -70,7 +71,8 @@ export function HomeScreen() {
   // Nothing chosen yet: a role without crew (staff crew, a freelancer) starts on Me, their own work (audit, 20 October 2026,
   // finding 34); a head of department on their own; everyone else on the company.
   const mayCrew = useAccess().can('crew')
-  const shownFor: HomeFor = saved?.for ?? (!mayCrew ? 'me' : me?.department ? 'department' : 'company')
+  // The head of the warehouse lands on the Warehouse view, which is their department's work (Move 10 of the sweep of 6 November 2026).
+  const shownFor: HomeFor = saved?.for ?? (!mayCrew ? 'me' : me?.department ? (/^warehouse$/i.test(me.department.trim()) ? 'warehouse' : 'department') : 'company')
   const department = saved?.department ?? me?.department ?? departments[0]
   const choose = (next: Saved) => {
     saveHomeFor(next)
@@ -128,6 +130,8 @@ function Tiles({
   clear,
   department,
   grouped = true,
+  folded = false,
+  scope,
 }: {
   all: Partial<Record<StandingKey, Tile>>
   keys: readonly StandingKey[]
@@ -138,11 +142,16 @@ function Tiles({
   /** The department counted for; none for the company's or the warehouse's counts, whose lists then open on everyone's. */
   department?: string
   grouped?: boolean
+  /** Housekeeping starts folded on this phone until it's opened (a director's Company view); open otherwise. */
+  folded?: boolean
+  /** Which counts these are, for the last look on this phone: the view, and its department. */
+  scope: string
 }) {
   const shown = keys.map((k) => all[k]).filter((t): t is Tile => !!t && t.count > 0)
+  const copying = useCopying()
+  const since = useLastLook(scope, shown, !copying)
   // Counts this role can't act on aren't offered (ADR 0034), so all clear is only this person's to say, not the company's (audit, 5 November 2026, finding 46).
   const withheld = keys.some((k) => !all[k])
-  const copying = useCopying()
   const soon = grouped ? shown.filter((t) => first.keys.has(t.key)) : shown
   const rest = grouped ? shown.filter((t) => !first.keys.has(t.key)) : []
   const list = (tiles: Tile[], className = 'tiles') => (
@@ -152,6 +161,12 @@ function Tiles({
           <a className={`tile${t.tone ? ` ${t.tone}` : ''}`} href={t.href} onClick={() => arrive({ hash: t.href, part: t.part, department: department ?? '', filters: t.filters })}>
             <b>{t.count.toLocaleString('en-IE')}</b>
             <span>{t.label}</span>
+            {/* The stat tile's delta, from the last look on this phone (Move 10 of the sweep of 6 November 2026); nothing when nothing rose. */}
+            {since && since.more(t) > 0 && (
+              <small className="delta">
+                {since.more(t).toLocaleString('en-IE')} more {since.label}
+              </small>
+            )}
           </a>
         </li>
       ))}
@@ -168,23 +183,94 @@ function Tiles({
         list(shown)
       ) : (
         <>
-          <p className="hint">{first.hint}</p>
+          <p className="hint">
+            {first.hint}
+            {since?.any && ' "More since" counts from your last look at Home on this phone.'}
+          </p>
           {soon.length > 0 && (
             <>
               <h3 className="group">{first.heading}</h3>
               {list(soon)}
             </>
           )}
-          {rest.length > 0 && (
-            <>
-              <h3 className="group">Housekeeping</h3>
-              {list(rest, 'tiles housekeeping')}
-            </>
-          )}
+          {rest.length > 0 && <Housekeeping tiles={rest} folded={folded} list={list} />}
         </>
       )}
     </section>
   )
+}
+
+const FOLD_KEY = 'sh.home.housekeeping'
+
+/**
+ * The housekeeping under the first group, as a fold (Move 10 of the sweep of 6 November 2026; Colly's question 5): closed
+ * for a director, whose Home is the week and the money, and open for everyone else; opened or closed, this phone keeps it.
+ */
+function Housekeeping({ tiles, folded, list }: { tiles: Tile[]; folded: boolean; list: (tiles: Tile[], className?: string) => ReactNode }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      const kept = localStorage.getItem(FOLD_KEY)
+      if (kept === 'open' || kept === 'closed') return kept === 'open'
+    } catch {
+      // Storage blocked: the role's default.
+    }
+    return !folded
+  })
+  return (
+    <details
+      className="housekeeping-fold"
+      open={open}
+      onToggle={(e) => {
+        const now = e.currentTarget.open
+        if (now === open) return
+        setOpen(now)
+        try {
+          localStorage.setItem(FOLD_KEY, now ? 'open' : 'closed')
+        } catch {
+          // Private browsing: it lasts this visit.
+        }
+      }}
+    >
+      <summary>
+        <h3 className="group">Housekeeping ({tiles.length})</h3>
+      </summary>
+      {list(tiles, 'tiles housekeeping')}
+    </details>
+  )
+}
+
+const LOOK_KEY = 'sh.home.looks'
+
+/**
+ * The last look at these counts on this phone (shared/src/last-look.ts): held a day at a time, so a count says how many
+ * more there are since an earlier day's look. Kept once the copy has arrived, never from part of one.
+ */
+function useLastLook(scope: string, shown: readonly Tile[], ready: boolean): { more: (t: Tile) => number; label: string; any: boolean } | undefined {
+  const today = useToday()
+  const counts = Object.fromEntries(shown.map((t) => [t.key, t.count]))
+  const said = JSON.stringify(counts)
+  const stored = useMemo(() => {
+    try {
+      return (JSON.parse(localStorage.getItem(LOOK_KEY) ?? '{}') as Record<string, Looks>)[scope]
+    } catch {
+      return undefined
+    }
+  }, [scope])
+  const { base, next } = lookAgain(stored, today, counts)
+  useEffect(() => {
+    if (!ready) return
+    try {
+      const all = JSON.parse(localStorage.getItem(LOOK_KEY) ?? '{}') as Record<string, Looks>
+      all[scope] = next
+      localStorage.setItem(LOOK_KEY, JSON.stringify(all))
+    } catch {
+      // Storage blocked: no "more since" on this phone.
+    }
+    // `next` is made from `said`, `today` and what was stored when this scope was opened.
+  }, [scope, today, said, ready])
+  if (!ready || !base) return undefined
+  const more = (t: Tile) => moreSince(base, t.key, t.count)
+  return { more, label: sinceLabel(base.day, today), any: shown.some((t) => more(t) > 0) }
 }
 
 /** What's on today, a line a job with its crew (audit finding 22); the next one when nothing is. */
@@ -293,16 +379,22 @@ function ForCompany({ view, today, me }: { view: View; today: string; me: Person
   const { keys, first } = companyTiles(role)
   const confirmed = view.jobs.jobs.filter((j) => j.status === 'confirmed' && j.span && j.span.end >= today).length
   const pencilled = view.jobs.jobs.filter((j) => (j.status === 'enquiry' || j.status === 'quoted') && (!j.span || j.span.end >= today)).length
+  const all = tiles(view, today, me, can)
+  // Something in the first group stopping work turns the week's line into a notice.
+  const bad = keys.some((k) => first.keys.has(k) && (all[k]?.count ?? 0) > 0 && all[k]?.tone === 'bad')
   return (
     <>
       <SetUp view={view} />
-      {/* What needs someone first, then what's on (audit finding 22). */}
-      <Tiles all={tiles(view, today, me, can)} keys={keys} first={first} clear="Nothing waiting on anyone. Everything else is as it should be." />
+      <Verdict view={view} today={today} bad={bad} />
+      {/* What needs someone first, then what's on (audit finding 22). Housekeeping folds for a director (Move 10 of the sweep of 6 November 2026). */}
+      <Tiles all={all} keys={keys} first={first} folded={role === 'director'} scope="company" clear="Nothing waiting on anyone. Everything else is as it should be." />
       <TodoCard view={view} />
       <Today view={view} today={today} />
+      <WeekAhead view={view} today={today} />
+      {/* Money on the second screen for whoever sees it, not the fifth (Move 10 of the sweep of 6 November 2026). */}
+      <MoneyCard view={view} today={today} />
       <Chart title="Jobs by week" icon="calendar" series={JOBS} columns={jobsByWeek(view.jobs.jobs, today)} empty="No gigs or hires in the next eight weeks." />
       <CrewChart view={view} today={today} />
-      <WeekAhead view={view} today={today} />
       <Chart
         title="The season"
         icon="calendar"
@@ -315,8 +407,39 @@ function ForCompany({ view, today, me }: { view: View; today: string; me: Person
           </p>
         }
       />
-      <MoneyCard view={view} today={today} />
     </>
+  )
+}
+
+/**
+ * Whether the week is all right, in one line above the counts (Move 10 of the sweep of 6 November 2026; Colly's question
+ * 13): the confirmed gigs and hires on in the next seven days and how many are short of crew or kit, and for whoever sees
+ * money, this month's confirmed of quoted in Money's own figures. Quiet when nothing in the first group stops work, a
+ * notice when something does; nothing while the copy is still arriving.
+ */
+function Verdict({ view, today, bad }: { view: View; today: string; bad: boolean }) {
+  const sees = useAccess().can('money')
+  if (useCopying()) return null
+  const end = addDays(today, 6)
+  const on = view.jobs.jobs.filter(
+    (j) => j.status === 'confirmed' && (kindOf(j) === 'gig' || kindOf(j) === 'hire') && j.phases.some((p) => p.start <= end && p.end >= today)
+  )
+  const short = on.filter((j) => {
+    const crew = crewFill(j.calls)
+    return crew.booked < crew.needed || !!kitShort(view.kit.byJob.get(j.id))
+  }).length
+  const week =
+    on.length === 0
+      ? 'The next seven days: no confirmed gigs or hires on'
+      : `The next seven days: ${plural(on.length, 'confirmed job')} on, ${short === 0 ? (on.length === 1 ? 'crewed and kitted' : 'all crewed and kitted') : `${short.toLocaleString('en-IE')} short of crew or kit`}`
+  const m = view.money
+  const month = sees && m.any ? m.months.find((x) => x.key === moneyMonth(today).key) : undefined
+  const said = sees && m.any ? ` · ${money(month?.confirmed ?? 0)} confirmed of ${money(month?.quoted ?? 0)} quoted for ${moneyMonth(today).label}` : ''
+  return (
+    <p className={bad ? 'warn-line verdict' : 'hint verdict'}>
+      {week}
+      {said}
+    </p>
   )
 }
 
@@ -503,7 +626,7 @@ function ForDepartment({
           ))}
         </select>
       </label>
-      <Tiles all={tiles(view, today, me, can, department)} keys={TILES_FOR.department} department={department} title={`Needs attention in ${department}`} clear={`Nothing waiting in ${department}.`} />
+      <Tiles all={tiles(view, today, me, can, department)} keys={TILES_FOR.department} department={department} scope={`department:${department}`} title={`Needs attention in ${department}`} clear={`Nothing waiting in ${department}.`} />
       <p className="hint">
         {noDepartment > 0 &&
           `${plural(noDepartment, 'call')} still needing crew in the next fortnight ${noDepartment === 1 ? "has no department, so it isn't" : "have no department, so they aren't"} counted here: give ${noDepartment === 1 ? 'it' : 'them'} one on Crew. `}
@@ -597,7 +720,7 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
           </ul>
         )}
       </section>
-      <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.warehouse} clear="Nothing back late, broken or due a test." />
+      <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.warehouse} scope="warehouse" clear="Nothing back late, broken or due a test." />
       <KitChart view={view} today={today} />
       {stillOut.length > 0 && (
         <section className="card">
@@ -721,7 +844,7 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
           </a>
         </section>
       )}
-      {approver && <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.me} title="Waiting on you" clear="No time off waiting on you." grouped={false} />}
+      {approver && <Tiles all={tiles(view, today, me, can)} keys={TILES_FOR.me} scope="me" title="Waiting on you" clear="No time off waiting on you." grouped={false} />}
     </>
   )
 }

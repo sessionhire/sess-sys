@@ -167,7 +167,7 @@ test("for the office, Home starts with what's waiting on the office, and the quo
   await expect(page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' })).toHaveAttribute('aria-pressed', 'true')
 
   const attention = page.locator('.standing')
-  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['Waiting on the office', 'Housekeeping'])
+  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['Waiting on the office', /^Housekeeping \(\d+\)$/])
   await expect(attention.locator('.hint')).toHaveText("What's waiting on the office first, then the housekeeping. Each goes once it's sorted.")
   const office = [/running late/, /answers? to check/, /calls? still needs? crew/, /timesheets? to approve/, /quotes? worth a call/, /dates passed with no answer/, /documents? running out/]
   const ofOffice = (label: string) => office.findIndex((words) => words.test(label))
@@ -206,19 +206,54 @@ test("for the office, Home starts with what's waiting on the office, and the quo
   await expect(chase.locator('.follow-group', { has: heading }).getByRole('listitem')).toHaveCount(Number(count))
 })
 
-test("a director's Home keeps what stops the next fortnight first, with the quotes worth a call among the housekeeping", async ({ browser }) => {
-  // Proves (Move 10 of the sweep of 6 November 2026): only the office's order changed. A director's Company view is as it
-  // was, and the quotes worth a call, a count for whoever reads quotes, are offered to them too, amber, with the housekeeping.
-  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+test("a director's Home opens on the week in a line, the housekeeping folded and Money on the second screen", async ({ browser }) => {
+  // Proves (Move 10 of the sweep of 6 November 2026): a director's Company view keeps what stops the next fortnight first, under
+  // one line on the week and the month's money in Money's own figures; the housekeeping is folded for them, its count in its
+  // head, and this phone keeps it open once opened; the Money card comes straight after the week ahead.
+  const context = await browser.newContext({ viewport: phoneSize })
+  const page = await context.newPage()
   await as(page, 'director', /^Director/)
   await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
   await expect(page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.verdict')).toHaveText(/^The next seven days: (no confirmed gigs or hires on|[\d,]+ confirmed jobs? on, .+) · €[\d,.]+ confirmed of €[\d,.]+ quoted for \w+ \d{4}$/)
   const attention = page.locator('.standing')
-  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', 'Housekeeping'])
+  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', /^Housekeeping \(\d+\)$/])
   await expect(attention.locator('.tiles:not(.housekeeping)').getByRole('link', { name: /kit lines? short/ })).toBeVisible()
+  const fold = attention.locator('details.housekeeping-fold')
+  await expect(fold).not.toHaveAttribute('open', '')
   const housekeeping = attention.locator('.tiles.housekeeping')
+  await expect(housekeeping.getByRole('link', { name: /answers? to check/ })).toBeHidden()
+  await fold.locator('summary').click()
   await expect(housekeeping.getByRole('link', { name: /answers? to check/ })).toBeVisible()
   await expect(housekeeping.getByRole('link', { name: /quotes? worth a call/ })).toHaveClass(/\bwarn\b/)
+  const order = await page.locator('.home h2').allTextContents()
+  const at = (name: string) => order.findIndex((h) => h.startsWith(name))
+  expect(at('Money')).toBeGreaterThan(at('The week ahead'))
+  expect(at('Money')).toBeLessThan(at('Jobs by week'))
+  await page.reload()
+  await expect(attention.locator('details.housekeeping-fold')).toHaveAttribute('open', '')
+})
+
+test('each count says how many more there are since the last look at Home on an earlier day, on this phone', async ({ browser }) => {
+  // Proves (Move 10 of the sweep of 6 November 2026): the stat tile's delta from this phone's last look. A look kept from an
+  // earlier day with fewer answers to check reads "N more since …" on that tile; a count that fell or held says nothing.
+  const context = await browser.newContext({ viewport: phoneSize })
+  const page = await context.newPage()
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' }).click()
+  const answers = page.locator('.standing a.tile', { hasText: /answers? to check/ })
+  const count = Number((await answers.locator('b').textContent())!.replace(/,/g, ''))
+  expect(count).toBeGreaterThan(1)
+  await page.evaluate((n) => {
+    const big = 1_000_000
+    localStorage.setItem('sh.home.looks', JSON.stringify({ company: { last: { day: '2026-01-05', counts: { answers: n - 2, late: big, 'crew-needed': big, 'kit-short': big, 'still-out': big, 'to-pick': big, faults: big, 'damaged-stopped': big, 'cant-go': big, timesheets: big, leave: big, certificates: big, vehicles: big, counts: big, quotes: big, 'no-answer': big, 'tasks-late': big, 'tasks-nobody': big } } } }))
+  }, count)
+  await page.reload()
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await expect(answers.locator('.delta')).toHaveText(/^2 more since Mon 5 Jan( 2026)?$/)
+  await expect(page.locator('.standing .delta')).toHaveCount(1)
+  await expect(page.locator('.standing .hint')).toContainText('"More since" counts from your last look at Home on this phone.')
 })
 
 test('a head of department is not offered the quotes worth a call, a count for whoever reads quotes', async ({ browser }) => {
@@ -229,7 +264,7 @@ test('a head of department is not offered the quotes worth a call, a count for w
   await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
   await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' }).click()
   const attention = page.locator('.standing')
-  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', 'Housekeeping'])
+  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', /^Housekeeping \(\d+\)$/])
   await expect(attention.getByRole('link', { name: /answers? to check/ })).toBeVisible()
   await expect(attention.getByRole('link', { name: /worth a call/ })).toHaveCount(0)
 })
@@ -245,7 +280,7 @@ test('the Menu names every place, and Admin, History and You keep its tab with t
   await expect(places.getByRole('link', { name: /^Week and month/ })).toHaveAttribute('href', '#jobs/plan')
   // Home too, whose line says its counts come in the order of whoever is looking (Move 10 of the sweep of 6 November 2026).
   await expect(places.getByRole('link', { name: /^Home/ })).toHaveAttribute('href', '#home')
-  await expect(places.getByRole('link', { name: /^Home/ })).toContainText('How things stand, its counts ordered for whoever is looking')
+  await expect(places.getByRole('link', { name: /^Home/ })).toContainText('How things stand: the week in a line, its counts ordered for whoever is looking')
 
   for (const [link, title] of [
     [/^History/, 'History'],
@@ -364,7 +399,7 @@ test("Home at a phone's size: the soon over the housekeeping, the week ahead a l
   await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' }).click()
 
   const attention = page.locator('.standing')
-  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', 'Housekeeping'])
+  await expect(attention.getByRole('heading', { level: 3 })).toHaveText(['The next fortnight', /^Housekeeping \(\d+\)$/])
   // Each a group head over its tiles, in the label capitals every group head inside a card has (UX sweep, 6 November 2026, move 2).
   for (const head of await attention.getByRole('heading', { level: 3 }).all()) {
     await expect(head).toHaveClass(/\bgroup\b/)

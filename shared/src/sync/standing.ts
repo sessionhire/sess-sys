@@ -3,7 +3,7 @@ import { departmentOf } from '../crew.ts'
 import { sameDepartment } from '../crew-departments.ts'
 import { runningOut, type RunningOut } from '../documents.ts'
 import { STOPPED } from '../jobs.ts'
-import { isUnowned } from '../lists.ts'
+import { nobodySoon } from '../lists.ts'
 import { STILL_NEEDS_CREW } from '../words.ts'
 import type { Department } from '../stock.ts'
 import type { View } from './client-types.ts'
@@ -121,7 +121,7 @@ export interface Standing {
   counts: View['counts']['week']['due']
   /** Jobs still to come with a task late, as the Jobs list's Tasks filter counts them (audit, 5 November 2026, finding 20). */
   'tasks-late': JobSteps[]
-  /** Jobs still to come, being planned, with the next task down to nobody. */
+  /** Jobs being planned that start within a fortnight with the next task down to nobody (Move 10 of the sweep of 6 November 2026). */
   'tasks-nobody': JobSteps[]
   /** Enquiries and quotes whose dates have passed with no answer (ADR 0109), the most recent first, as the Board's fold has them. */
   'no-answer': JobSteps[]
@@ -222,7 +222,7 @@ export function standing(view: View, today: string, { me, department }: Standing
     vehicles: () => view.vehicles.reminders,
     counts: () => view.counts.week.due,
     'tasks-late': () => stepsOf(coming()).filter((s) => s.steps.some((t) => t.late)),
-    'tasks-nobody': () => stepsOf(coming()).filter((s) => s.stage?.key === 'planning' && isUnowned(s)),
+    'tasks-nobody': () => stepsOf(coming()).filter(nobodySoon),
     'no-answer': () =>
       department
         ? []

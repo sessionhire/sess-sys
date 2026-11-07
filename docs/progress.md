@@ -3,6 +3,30 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 7 November 2026: batch 4 of the UX sweep, the pages that are someone's own
+
+**Done**
+
+- Batch 4, straight after batch 3 on Colly's "And then proceed to the next
+  batch": moves 10b and 11.
+- Move 10b, first part, Home for whoever is looking (1.101.0, PR #236): one line on
+  the week above the Company view's counts ("The next seven days: 4 confirmed jobs
+  on, 2 short of crew or kit · €19,189 confirmed of €22,729 quoted for
+  November 2026", the money for whoever sees it, from Money's own
+  figures), quiet unless something in the first group stops work; the
+  Money card straight after the week ahead; Housekeeping a fold with its
+  count, closed for a director and open for everyone else, kept per
+  phone (`sh.home.housekeeping`); each count's "N more since Tuesday" from
+  this phone's last look on an earlier day (shared/src/last-look.ts,
+  `sh.home.looks`); the down-to-nobody count only for jobs starting
+  within a fortnight (the Jobs list's Tasks filter gains that option);
+  the head of the warehouse lands on the Warehouse view.
+
+**Left for later**
+
+- A Company count narrowed for a head naming their department ("2 LX
+  calls still need crew").
+
 ## 7 November 2026: batch 3 of the UX sweep, where a job stands
 
 **Done**
