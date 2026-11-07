@@ -3,6 +3,23 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 7 November 2026: batch 3 of the UX sweep, where a job stands
+
+**Done**
+
+- Batch 3, on Colly's "And then proceed to the next batch" after batch 2:
+  moves 7, 8b and 9, in four PRs built in turn.
+- Move 7, first part, the task's fields (1.97.1, PR #232): each task of a job
+  carries its facts as fields beside its hint (booked, needed, short,
+  out of, still out, the show's days, the quote's sent day, faults), and
+  the Next dock and the Board choose a button or a tone from the fields,
+  never by reading the hint back. One selling sentence (`sellingLine`)
+  for the Board's card and the Jobs list's stage line: "Draft started ·
+  1 line needs a price", "Quote with the client 12 days · worth a call"
+  at Quotes' threshold, "Dates passed, no answer", "Quote: with the
+  office". A server test reads every made-up job's hints back and holds
+  each number against its field.
+
 ## 7 November 2026: batch 2 of the UX sweep, words, forms and the link
 
 **Done**

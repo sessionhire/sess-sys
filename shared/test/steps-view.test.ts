@@ -5,6 +5,7 @@ import type { Change, PullResponse, PushRequest, PushResponse } from '../src/pro
 import type { QuoteStatus } from '../src/quotes.ts'
 import { MONEY_ENTITY_NAMES } from '../src/quotes.ts'
 import { MemoryStorage, SyncClient, type Transport, type View } from '../src/sync/client.ts'
+import { sellingLine } from '../src/sync/steps-view.ts'
 
 /**
  * A job's quote task as a device reads it (ADR 0104), on one that's sent
@@ -80,7 +81,7 @@ describe("a job's quote task", () => {
   it("says what the office has started, on a device that's sent the quotes", async () => {
     const office = await phone(true)
     expect(['drafted', 'bare', 'quoted'].map((id) => quoteTask(office, id))).toEqual(['A draft is started', 'No quote yet', 'Sent Sun 18 Oct'])
-    expect(office.steps.of('bare')!.stage?.hint).toBe('No quote yet · Still enquiry')
+    expect(office.steps.of('bare')!.stage?.hint).toBe('No quote yet')
   })
 
   it("says it's with the office, never missing, on a device that isn't sent them", async () => {
@@ -89,9 +90,23 @@ describe("a job's quote task", () => {
     expect(head.money.quotesOf('drafted')).toEqual([])
     expect(['drafted', 'bare'].map((id) => quoteTask(head, id))).toEqual(['Quote: with the office', 'Quote: with the office'])
     // The line on the Jobs list and the Board's card, which read the stage's hint: the client's answer is still the job's own.
-    expect(head.steps.of('bare')!.stage?.hint).toBe('Quote: with the office · Still enquiry')
+    expect(head.steps.of('bare')!.stage?.hint).toBe('Quote: with the office')
     expect(head.steps.of('drafted')!.current).toMatchObject({ key: 'quote', hint: 'Quote: with the office' })
     // A quoted job is done by its own status, never "Sent …", which the Board reads as the day the client was sent it.
     expect(quoteTask(head, 'quoted')).toBe('The job is quoted')
+  })
+})
+
+describe('the selling line', () => {
+  it('reads one sentence for where the quote stands, wherever the job is listed (Move 7 of the sweep of 6 November 2026)', async () => {
+    const office = await phone(true)
+    expect(office.steps.of('drafted')!.selling).toBe('Draft started')
+    // Sent two days ago: with the client, not yet worth a call.
+    expect(office.steps.of('quoted')!.selling).toBe('Quote with the client 2 days')
+    expect(office.steps.of('quoted')!.stage?.hint).toBe('Quote with the client 2 days')
+    expect(sellingLine({ lapsed: false, quoteHidden: false, answered: false, sentDays: 12, draft: false, unpriced: 0 })).toBe('Quote with the client 12 days · worth a call')
+    expect(sellingLine({ lapsed: false, quoteHidden: false, answered: false, sentDays: undefined, draft: true, unpriced: 1 })).toBe('Draft started · 1 line needs a price')
+    expect(sellingLine({ lapsed: true, quoteHidden: true, answered: false, sentDays: 3, draft: false, unpriced: 0 })).toBe('Dates passed, no answer')
+    expect((await phone(false)).steps.of('quoted')!.selling).toBe('Quote: with the office')
   })
 })

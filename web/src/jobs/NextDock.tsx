@@ -107,23 +107,23 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
     }
     case 'crew': {
       if (!access.can('crew')) break
-      const needed = job.calls.reduce((n, c) => n + c.needed, 0)
-      const short = task.hint?.match(/^(\d+) of (\d+) booked/)
-      press = { label: needed === 0 ? 'Ask for the crew' : short ? `Book ${Number(short[2]) - Number(short[1])} more crew` : 'Book the crew', onPress: () => onPart('crew') }
+      // From the task's fields, never its words read back (Move 7 of the sweep of 6 November 2026).
+      const { booked = 0, needed = 0 } = task.facts
+      press = { label: needed === 0 ? 'Ask for the crew' : booked < needed ? `Book ${needed - booked} more crew` : 'Book the crew', onPress: () => onPart('crew') }
       break
     }
     case 'kit': {
       if (!access.can('kit')) break
-      const short = task.hint?.match(/(\d+) short/)
-      press = { label: short ? `Sort ${short[1]} short on the kit` : task.hint === 'No kit on the job yet' ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
+      const { short = 0, nothingYet } = task.facts
+      press = { label: short ? `Sort ${short} short on the kit` : nothingYet ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
       break
     }
     case 'prep':
-      if (!access.can(task.hint === 'No kit to pick yet' ? 'kit' : 'stock')) break
-      press = task.hint === 'No kit to pick yet' ? { label: 'Add the kit', onPress: () => onPart('kit') } : { label: 'Pick the kit', href: `${href}/pick` }
+      if (!access.can(task.facts.nothingYet ? 'kit' : 'stock')) break
+      press = task.facts.nothingYet ? { label: 'Add the kit', onPress: () => onPart('kit') } : { label: 'Pick the kit', href: `${href}/pick` }
       break
     case 'show':
-      why = `Nothing to press: ${task.hint?.startsWith('On until') ? `on the job until ${task.hint.slice('On until '.length)}` : task.hint?.toLowerCase() ?? 'the job is on'}.`
+      why = `Nothing to press: ${stage?.key === 'on' && task.facts.until ? `on the job until ${dayLabel(task.facts.until)}` : (task.hint?.toLowerCase() ?? 'the job is on')}.`
       break
     case 'back':
       if (!access.can('stock')) break

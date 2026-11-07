@@ -1,4 +1,4 @@
-import { addDays, dayLabel, daysBetween, firstName, JOB_STAGES, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
+import { addDays, dayLabel, firstName, JOB_STAGES, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
 import { useState } from 'react'
 import { arrival } from '../arrival.ts'
 import { useToday } from '../view.ts'
@@ -103,7 +103,7 @@ const bySoonest = (a: JobSteps, b: JobSteps) => (a.job.span?.start ?? '').locale
 /** "3 · 1 waiting a while", "10 · 3 late": the count, and how many want a look: a task late, or kit late back (ADR 0109). */
 function columnWord(jobs: JobSteps[], kit?: ReadonlyMap<string, KitToCheck>): string {
   const late = jobs.filter((s) => s.steps.some((t) => t.late) || kit?.get(s.job.id)?.late).length
-  const short = jobs.filter((s) => s.stage?.tasks.some((t) => t.state === 'now' && t.hint?.includes('short'))).length
+  const short = jobs.filter((s) => s.stage?.tasks.some((t) => t.state === 'now' && !!t.facts.short)).length
   return [String(jobs.length), late ? `${late} late` : '', short && !late ? `${short} short` : ''].filter(Boolean).join(' · ')
 }
 
@@ -130,12 +130,12 @@ function BoardCard({ steps, today, kit }: { steps: JobSteps; today: string; kit?
   } else if (kit) {
     line = `${kit.said} · ${kit.when}`
     if (kit.late) tone = 'warn'
-  } else if (stage?.key === 'selling' && current?.key === 'confirmed') {
-    const sent = steps.steps.find((t) => t.key === 'quote')?.auto?.match(/^Sent (.+)$/)
-    line = sent ? `Quote with the client since ${sent[1]}` : 'Waiting on the client'
+  } else if (stage?.key === 'selling' && steps.selling) {
+    // The one selling sentence, as the Jobs list and the dock say it (Move 7 of the sweep of 6 November 2026).
+    line = steps.selling
   } else {
-    line = [stage?.hint ?? current?.hint ?? '', job.span && job.span.start > today ? `${plural(daysBetween(today, job.span.start), 'day')} left` : ''].filter(Boolean).join(' · ')
-    if (stage?.hint?.includes('short')) tone = 'warn'
+    line = [stage?.hint ?? current?.hint ?? '', steps.daysTo !== undefined ? `${plural(steps.daysTo, 'day')} left` : ''].filter(Boolean).join(' · ')
+    if (stage?.tasks.some((t) => !t.done && !t.skipped && !!t.facts.short)) tone = 'warn'
   }
   return (
     <a className="board-card" href={`#jobs/${encodeURIComponent(job.id)}`}>
