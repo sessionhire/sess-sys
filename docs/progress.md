@@ -19,7 +19,7 @@ waiting on someone.
   at Quotes' threshold, "Dates passed, no answer", "Quote: with the
   office". A server test reads every made-up job's hints back and holds
   each number against its field.
-- Move 7, second part, the position part (1.98.0): `jobPosition()` in
+- Move 7, second part, the position part (1.98.0, PR #233): `jobPosition()` in
   shared/src/sync/position.ts and `JobPosition` (web/src/jobs/
   JobPosition.tsx, which replaces StageLine) draw "stage · what's short
   or waiting · owner · when" on the job head (in place of the pill once

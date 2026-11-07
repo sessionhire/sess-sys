@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: 'Where a job stands, said the same everywhere',
     what: "A job now says where it stands in one line, the same on its own page, on the Jobs list, on Home and on the Board: the stage, what's short or waiting, whose the next thing is, and when (\"Planning · 5 of 10 booked · 7 lines of kit, 1 short · in 3 days\"). It's quiet when all is well, amber when crew or kit is short, and red when something is late. Once a job is confirmed, that line takes the place of the Confirmed label, so a job back from the show no longer says Confirmed in big letters. The Next button's line reads the same as the job's head. On the Board, Planning is split into This week, Next week, and Later, which is folded.",
-    prs: [0],
+    prs: [233],
   },
   {
     version: '1.97.1',
