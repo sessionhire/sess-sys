@@ -6,12 +6,13 @@ yet; this page is for choosing.
 
 ## Recommendation
 
-**Wrap the app we have with Capacitor, for staff first, and give it the
-few things a phone app can do that a web page can't.** Keep one app: the
-same screens, the same code and the same releases, inside an iPhone and an
-Android shell. Freelancers keep their links, which need no app and no
-sign-in, as decided at the start; an app for them can come later if they
-ask for one.
+**Wrap the app we have with Capacitor, one app for staff and freelancers,
+and give it the few things a phone app can do that a web page can't.** Keep
+one app: the same screens, the same code and the same releases, inside an
+iPhone and an Android shell. Colly chose staff and freelancers on
+7 November 2026. Staff sign in with Google; a freelancer opens their link
+once in the app and it stays their way in. The app is never required: the
+links keep working in any browser, as decided at the start.
 
 In order:
 
@@ -23,12 +24,14 @@ In order:
    nobody only until launch (Colly, 7 November 2026: "When we launch we will
    definitely be contacting people"), so push can be built now and switched
    on at launch, like messages to crew.
-2. **Then a Capacitor app for staff**, warehouse first: the phone's own
+2. **Then a Capacitor app for staff and freelancers**, warehouse first for
+   staff: the phone's own
    barcode reader, one-tap label printing to the Zebra, notifications on the
    lock screen from launch, NFC
-   tags on iPhones, and staying signed in. Given to staff through TestFlight
-   and Google Play's internal testing, then unlisted on the App Store and a
-   closed track on Play, so it never shows in a public search.
+   tags on iPhones, and staying signed in. For freelancers: offers, their
+   days and call sheets with a notification when something changes. Tried
+   by a few staff and freelancers through TestFlight and Google Play's
+   testing tracks, then on both stores for everyone (see below).
 3. **Not** React Native or two fully native apps. Both mean drawing every
    screen again (the web app's screens are about 43,000 lines today) and
    then building every new feature two or three times. Nothing Session Hire
@@ -65,22 +68,27 @@ there's no iPhone equivalent, so it isn't worth a step of its own.
 
 ## Getting it onto phones
 
-**Staff (the office, heads, the warehouse).** The app is for them.
+One app for both, Colly decided on 7 November 2026. 100+ freelancers on
+their own phones rules out anything managed or capped, so:
 
-- *iPhone*: TestFlight first (up to 100 staff who are added to the Apple
-  account, no review, builds last 90 days), then **unlisted** on the App
-  Store: reviewed once, reached only by its link, works on personal phones.
-  Apple's "custom apps" through Apple Business Manager suit company-owned,
-  managed phones, which Session Hire doesn't have.
-- *Android*: Google Play internal testing (up to 100, no review), then a
-  closed track or a private listing; or the app file straight onto a
-  company handheld such as a Zebra.
-
-**Freelancers (100+).** Their links stay the way in: no app, no sign-in,
-one tap from a message or their calendar, as the start of the project
-decided (freelancers found Rentman's and TeamTrack's apps a chore). If
-staff use the app and freelancers want it too, the same app can open a
-freelancer's link, and going public on both stores is a later step.
+- **Trying it** (a handful of staff and freelancers): TestFlight on iPhone
+  (staff added to the Apple account need no review; freelancers join by a
+  public TestFlight link after a light review; builds last 90 days) and
+  Google Play's internal or closed testing on Android.
+- **Everyone**: **unlisted on the App Store** (reviewed like any app, found
+  only by its link, works on personal phones) and a **listing on Google
+  Play** that isn't promoted. Apple's "custom apps" through Apple Business
+  Manager suit company-owned, managed phones, which freelancers' phones
+  aren't. A Zebra handheld in the warehouse can have the app file put on
+  directly.
+- **How a freelancer gets in.** Their offer or call-sheet link opens the
+  app if it's installed (an app link on the app's own web address) and in
+  the browser if not, so nobody has to install anything. Opened once in the
+  app, the link is remembered and becomes their way in, with notifications
+  for new offers and changes to their days. Staff sign in with Google.
+- **Nothing extra for review.** Apple asks for a way to try an app that
+  needs signing in; a demo freelancer link and a demo staff account (on
+  made-up data, never the live company's) cover that.
 
 ## Costs and accounts
 
@@ -115,7 +123,9 @@ freelancer's link, and going public on both stores is a later step.
 
 ## Open questions for Colly
 
-1. Staff only first, as recommended, or freelancers too from the start?
+1. Staff and freelancers, decided 7 November 2026. Which comes first in
+   the build: the warehouse (scanning, printing) or freelancers' offers and
+   notifications?
 2. At launch, which notifications should reach a phone (offers answered,
    jobs moved, kit to check), and should freelancers get them too, or stay
    with messages and their links?
