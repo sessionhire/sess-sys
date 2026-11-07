@@ -31,7 +31,7 @@ waiting on someone.
   By month gains Lost; Home's Money card shows Money's own list
   (`MoneyFacts`) in place of its sentence.
 
-- Move 11, first part, the Jobs area's record heads (1.103.0): the client
+- Move 11, first part, the Jobs area's record heads (1.103.0, PR #238): the client
   and the venue take the shared page head (name, Pending beside it, a sub
   line "Client · 2 jobs · Declan Moore" / "Venue · Dublin 1 · 2 jobs
   here") and the shared Tabs (client: Details · Documents · Jobs; venue:
