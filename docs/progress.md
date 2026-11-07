@@ -34,7 +34,7 @@ waiting on someone.
   line and draws no position. Left for later: the "In Planning since"
   line on Where it is (no stage dates are stored), the quote's What
   happened card, folding a meeting's Kit, Show pack and Quote.
-- Move 8b, arriving on the kit (1.99.0): the job head's Kit fact says
+- Move 8b, arriving on the kit (1.99.0, PR #234): the job head's Kit fact says
   "· 0 of 27 out" and links to the pick list for a role with the stock
   ability; within seven days of going out the dock's quiet second slot
   is "Pick the kit · 0 of 27 out" for that role (also on the rest line

@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: 'The pick list a tap away, and what comes next after it',
     what: "A job's Kit line at the top now says how far the pick has got (\"0 of 27 out\") and opens the pick list for whoever picks. In the week before a job goes out, the Next button's quiet second choice for the warehouse is \"Pick the kit · 0 of 27 out\", while the main button stays the office's. The pick list now has the same Next line at the foot of a phone: how many are out, then \"ready to load\" with the day it goes, then the kit to scan back, then the deprep to tick off.",
-    prs: [0],
+    prs: [234],
     adrs: [104],
   },
   {
