@@ -115,7 +115,7 @@
 .warehouse .cable-labels { display: grid; gap: var(--ds-space-3); }
 .warehouse .cable-labels > button { justify-self: start; }
 .warehouse .cable-labels .layouts small { display: block; color: var(--muted); font-size: var(--text-hint); }
-.warehouse .cable-labels .preview { overflow-x: auto; }
+.warehouse .cable-labels .preview { overflow-x: auto; overflow-y: hidden; }
 
 /* Printing: only the print sheet, where its Print button has drawn one (labels a label to a page on a label printer or 65 to an A4 sheet, a
    call sheet, a quote, a rack sheet). Any other screen prints as it is: hiding everything on every screen printed Cmd-P on a job as a blank

@@ -69,15 +69,18 @@
 .plan .problem p { color: var(--ink); }
 /* Positioned, so the words kept for screen readers scroll with their cells instead of widening the page. On a phone it only scrolls
    sideways: the rows add to the page's height, so a thumb moving down the planner moves the page and is never caught in a box inside it.
-   On a desk it ends at the foot of the screen, so a long month scrolls inside it with its days and names kept in view. */
-.plan .scroller { position: relative; overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid var(--line); border-radius: 10px; }
-@media (min-width: 900px) { .plan .scroller { overflow: auto; overscroll-behavior: contain; max-height: calc(100dvh - var(--under-top, 72px) - var(--ds-space-10)); } }
+   Its up and down is hidden, not left to the browser: a sideways scroller is otherwise a box that scrolls both ways, and a table a pixel
+   taller than its box (a month by person was) caught the thumb (1.108.2). On a desk with a mouse it ends at the foot of the screen, so a
+   long month scrolls inside it with its days and names kept in view; a phone on its side or a tablet is as wide but has only a thumb, so
+   it keeps the phone's planner. */
+.plan .scroller { position: relative; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; border: 1px solid var(--line); border-radius: 10px; }
+@media (min-width: 900px) and (pointer: fine) { .plan .scroller { overflow: auto; overscroll-behavior: contain; max-height: calc(100dvh - var(--under-top, 72px) - var(--ds-space-10)); } }
 /* Its days row can't stick to the page from inside a sideways scroller, so on a phone a copy (PlanScreen) waits at the bar's foot, taking no
    room, and shows once the real row has gone under the bar; it scrolls sideways with the days. The desk's framed planner keeps its own. */
 .plan .days-float { position: sticky; top: var(--under-top, 72px); z-index: 4; height: 0; visibility: hidden; }
 .plan .days-float.on { visibility: visible; }
 .plan .days-clip { position: absolute; left: 0; right: 0; overflow: hidden; border: 1px solid var(--line); border-top: 0; background: var(--panel); box-shadow: var(--ds-elevation-menu); }
-@media (min-width: 900px) { .plan .days-float { display: none; } }
+@media (min-width: 900px) and (pointer: fine) { .plan .days-float { display: none; } }
 /* The names stay put as the days scroll, so the left fade starts past them (more.tsx). */
 .plan .scroller { --more-from: 7rem; }
 @media (min-width: 900px) { .plan .scroller { --more-from: 12rem; } }
@@ -472,7 +475,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .compose .actions .link.quiet { margin-left: auto; }
 .quote-screen .quote-emails { display: grid; gap: var(--ds-space-2); margin: 0 0 var(--ds-space-3); font-size: var(--text-small); }
 .quote-screen .quote-emails small { display: block; color: var(--muted); }
-.quote-table-wrap { overflow-x: auto; }
+.quote-table-wrap { overflow-x: auto; overflow-y: hidden; }
 .quote-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .quote-table th, .quote-table td { text-align: left; padding: var(--ds-space-1) var(--ds-space-2); border-bottom: 1px solid var(--line); vertical-align: top; }
 .quote-table thead th { font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
@@ -635,7 +638,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
  * underlined in the accent, the rest muted). One column, as its forms and
  * calls read down, at the same width as every other page (ADR 0091).
  */
-.part-tabs { display: flex; gap: var(--ds-space-1); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.part-tabs { display: flex; gap: var(--ds-space-1); border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .part-tabs::-webkit-scrollbar { display: none; }
 .app .part-tabs [role='tab'] { flex: none; display: inline-flex; align-items: center; gap: var(--ds-space-2); min-height: 44px; margin-bottom: -1px; padding: var(--ds-space-2) var(--ds-space-3); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); font-weight: 700; white-space: nowrap; }
 @media (hover: hover) {
