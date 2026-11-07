@@ -163,11 +163,17 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
 
   return (
     <div className="app crew jobs quote-screen">
-      <Top view={view} up={up} />
-      <section className="card">
-        <p className="kicker">Quote</p>
-        <h1>{job.name}</h1>
-        <p>{[job.client?.name ?? 'No client yet', job.span ? spanLabel(job.span) : 'No dates yet'].join(' · ')}</p>
+      {/* The job's name heads its quote, as it heads the job (Move 11 of the sweep of 6 November 2026): the kind of page, the
+          version and the client and dates under it, the version's state beside it. */}
+      <Top
+        view={view}
+        up={up}
+        heading={job.name}
+        badge={q && q.status !== 'draft' ? <QuotePill q={q} /> : undefined}
+        sub={[q ? `Quote · version ${q.version}${q.status === 'draft' ? ' · draft' : ''}` : 'Quote', job.client?.name ?? 'No client yet', job.span ? spanLabel(job.span) : 'No dates yet'].join(' · ')}
+      />
+      {(versions.length > 1 || (q && !q.latest) || (jm && jm.margin !== null && q?.id === current?.id)) && (
+      <section className="card plain quote-versions">
         {versions.length > 1 && (
           <div className="filters" role="group" aria-label="Versions">
             {versions.map((v) => (
@@ -180,6 +186,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
         {q && !q.latest && <p className="hint">An older version, kept as it went to the client. The newest is version {versions[0]!.version}.</p>}
         {jm && jm.margin !== null && q?.id === current?.id && <MarginLine margin={jm.margin} costs={jm.costs + jm.toCome} />}
       </section>
+      )}
 
       {q && <SinceBefore q={q} versions={versions} />}
 

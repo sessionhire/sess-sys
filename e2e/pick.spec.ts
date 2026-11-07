@@ -170,7 +170,9 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await kit.getByRole('link', { name: 'Pick list' }).click()
 
   // What's needed, and where to find it.
-  await expect(page.getByRole('heading', { level: 1, name: 'Pick list' })).toBeVisible()
+  // The job's name heads its pick list, with what the page is under it (Move 11 of the sweep of 6 November 2026).
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(job)
+  await expect(page.locator('.page-sub')).toHaveText(/^Pick list · /)
   await expect(page.locator('.pick-total')).toHaveText('0 of 14 out')
   // The job page's dock, in the floor's words, in the foot (Move 8 of the sweep of 6 November 2026); the scan box under the top
   // bar and the dock never cover each other at 390px.
