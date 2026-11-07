@@ -22,7 +22,7 @@ import { Confirm, Refusal, useAct } from '../act.tsx'
 import { when } from '../format.ts'
 import { Empty } from '../Empty.tsx'
 import { useAccess } from '../role.ts'
-import { Pending } from '../StatusPill.tsx'
+import { Pending, StatusPill } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { numberLabel } from './common.tsx'
 import { Heading } from '../Icon.tsx'
@@ -204,6 +204,12 @@ export function FaultsCard({ faults, children, title = 'Faults' }: { faults: Fau
   )
 }
 
+/** A fault's state in a word: can't go out, fit to go out, or how it ended. */
+function FaultPill({ f }: { f: FaultView }) {
+  if (!f.open) return <StatusPill tone="cancelled">{f.outcome ? OUTCOME_LABELS[f.outcome] : 'Closed'}</StatusPill>
+  return f.stops ? <StatusPill tone="bad">Can't go out</StatusPill> : <StatusPill tone="pending">Fit to go out</StatusPill>
+}
+
 /** Each way of closing a fault, as a button: a verb, where OUTCOME_LABELS says how it ended. */
 const CLOSE_LABELS: Record<FaultOutcome, string> = { fixed: 'Mark fixed', 'not-faulty': 'Mark not faulty', found: 'Mark found', 'written-off': 'Write off' }
 
@@ -241,7 +247,7 @@ function FaultItem({ f, linked = false }: { f: FaultView; linked?: boolean }) {
               <b>{faultWhat(f)}</b>
             </a>
           ) : (
-            <b>{f.assetId ? faultState(f) : `${faultWhat(f)}: ${faultState(f).toLowerCase()}`}</b>
+            <b>{f.assetId ? (f.kind === 'missing' ? 'Missing' : 'Damaged') : faultWhat(f)}</b>
           )}
           <p>
             {linked && `${faultState(f)} · `}
@@ -254,10 +260,12 @@ function FaultItem({ f, linked = false }: { f: FaultView; linked?: boolean }) {
               ''
             )}
             reported {when(f.at)}
-            {!f.open && f.outcome && ` · ${OUTCOME_LABELS[f.outcome]}${f.closedAt ? ` ${when(f.closedAt)}` : ''}`}
+            {!f.open && f.outcome && (linked ? ` · ${OUTCOME_LABELS[f.outcome]}${f.closedAt ? ` ${when(f.closedAt)}` : ''}` : f.closedAt ? ` · closed ${when(f.closedAt)}` : '')}
           </p>
         </div>
-        <Pending pending={f.pending} />
+        {/* Away from the Repairs list's state groups, the state is a pill in words as well as the stripe's colour (Move 11 of the
+            sweep of 6 November 2026). */}
+        {f.pending ? <Pending pending /> : !linked && <FaultPill f={f} />}
       </header>
       {f.note && !editing && <p className="notes">{f.note}</p>}
       {f.repair && !editing && (

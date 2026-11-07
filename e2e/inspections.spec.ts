@@ -70,6 +70,7 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
   // The first one's last PAT was on paper, over a year ago: overdue.
   await page.getByRole('tab', { name: /^Items/ }).click()
   await page.getByRole('link', { name: speakers[0] }).click()
+  await page.getByRole('tab', { name: 'Tests and certificates' }).click()
   const card = page.getByRole('region', { name: 'Inspections' })
   await expect(card.locator('.due')).toContainText('PAT not recorded yet')
   await card.getByRole('button', { name: 'Record a test' }).click()

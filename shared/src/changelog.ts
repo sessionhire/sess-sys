@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.104.0',
+    date: '2026-11-07',
+    title: 'Items, places and vans open like a product',
+    what: "An item's page now has its number at the top with its picture, and a line under it with what it is and where, such as Mic case 24 · Bay C2. What it is and where stays at the top, and its faults, its tests and certificates, what's in it, its counts and its log are tabs. A place's page has its name at the top with Place · 576 items · counted Tue 27 Oct, and a van's has Van · 241-D-100 · 3 seats, with Off the road until Tue 10 Nov beside its name when it is. On an item's or a product's page each fault says its state in words, such as Can't go out, Fit to go out or Fixed, as well as by its colour.",
+    prs: [239],
+  },
+  {
     version: '1.103.0',
     date: '2026-11-07',
     title: 'Clients, venues, quotes and pick lists open like a job',

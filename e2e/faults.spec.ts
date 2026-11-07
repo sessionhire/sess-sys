@@ -252,6 +252,7 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   // Fixed on the bench.
   await repairs.getByRole('link', { name: `${speakers[0]} ${speaker}` }).click()
   await expect(page.locator('.facts')).toContainText("FaultDamaged, can't go out: Blown driver")
+  await page.getByRole('tab', { name: /^Faults/ }).click()
   const faults = page.getByRole('region', { name: 'Faults' })
   await faults.getByRole('button', { name: 'Change details' }).click()
   await faults.getByLabel("What's wrong").fill('Blown driver, rattles at high level')

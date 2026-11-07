@@ -108,7 +108,7 @@ export function StockScreen() {
     kind === 'product' ? (
       <ProductScreen key={open} view={view} id={open} part={part} bare={wide} />
     ) : kind === 'item' ? (
-      <ItemScreen key={open} view={view} id={open} bare={wide} />
+      <ItemScreen key={open} view={view} id={open} part={part} bare={wide} />
     ) : kind === 'place' ? (
       <PlaceScreen key={open} view={view} id={open} bare={wide} />
     ) : undefined

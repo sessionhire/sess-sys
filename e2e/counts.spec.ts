@@ -187,6 +187,7 @@ test('a place counted with no signal, its differences put right, and the week mo
 
   // The speaker not found: its log says so, and that it was reported missing.
   await openItem(page, speakers[2]!)
+  await page.getByRole('tab', { name: 'Log' }).click()
   const log = page.getByRole('region', { name: 'Log' })
   await expect(log).toContainText(`Not found in the count at ${bay}`)
   await expect(log).toContainText(`Reported missing: Not found in the count of ${bay}.`)
@@ -242,6 +243,7 @@ test('a case is found by what is in it, an item in it is marked found where it i
 
   // What's in the rack, counted as it's opened: its own label first.
   await openItem(page, rackNumber!)
+  await page.getByRole('tab', { name: 'Counts' }).click()
   await page.getByRole('button', { name: "Count what's in it" }).click()
   await expect(page.getByRole('heading', { level: 1, name: `Counting ${rackNumber} (${rack})` })).toBeVisible()
   await typeIn(page, rackNumber!)

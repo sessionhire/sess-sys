@@ -101,6 +101,7 @@ test('brings the made-up stock list in, fixing a row in place, and shows its ite
   await stock.getByRole('searchbox', { name: 'Find' }).press('Enter')
   await expect(office.getByRole('heading', { level: 1, name: 'SH-000506' })).toBeVisible()
   await expect(office.locator('.facts')).toContainText('Old numberA-0102')
+  await office.getByRole('tab', { name: 'Tests and certificates' }).click()
   await expect(office.getByRole('region', { name: 'Inspections' })).toContainText('PAT due 30 Sept 2027, as the stock list says')
 
   // An old tag puts its item in a case too, typed or scanned.
@@ -108,6 +109,7 @@ test('brings the made-up stock list in, fixing a row in place, and shows its ite
   await ready(office, '#stock')
   await stock.getByRole('searchbox', { name: 'Find' }).fill('SH-000503')
   await expect(office.getByRole('heading', { level: 1, name: 'SH-000503' })).toBeVisible()
+  await office.getByRole('tab', { name: 'In it' }).click()
   const put = office.locator('form').filter({ has: office.getByRole('heading', { name: 'Put an item in', exact: true }) })
   await put.getByLabel('Its number').fill('a-0102')
   await put.getByRole('button', { name: 'Put it in SH-000503' }).click()
@@ -134,17 +136,19 @@ test('shows an item’s log: scanned out and back, a fault with no signal, and w
 
   const context = await browser.newContext({ viewport: phoneSize })
   const page = await context.newPage()
-  await ready(page, `#stock/item/${speaker}`)
+  await ready(page, `#stock/item/${speaker}/log`)
   const log = page.getByRole('region', { name: 'Log' })
   const entries = log.locator('.log li .what')
   await expect(entries).toHaveText(['Back in from Harbour gig', 'Out to Harbour gig', 'Added as SH-000505 at Bay A1'])
 
   // No signal: a fault reported here waits, and the log says so.
   await context.setOffline(true)
+  await page.getByRole('tab', { name: /^Faults/ }).click()
   await page.getByRole('button', { name: 'Report damage' }).click()
   const damage = page.getByRole('form', { name: /damaged$/ })
   await damage.getByLabel("What's wrong").fill('Grille dented')
   await damage.getByRole('button', { name: 'Report damage' }).click()
+  await page.getByRole('tab', { name: 'Log' }).click()
   await expect(entries.first()).toHaveText("Reported damaged, can't go out: Grille dented")
   await expect(log.locator('.log li').first()).toContainText('Waiting to sync')
   await expect(page.locator('.conn')).toContainText('No signal')
@@ -177,7 +181,7 @@ test('keeps an item’s long log whole when a change arrives after older entries
   await send(1, 105)
 
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
-  await ready(page, `#stock/item/${item}`)
+  await ready(page, `#stock/item/${item}/log`)
   const log = page.getByRole('region', { name: 'Log' })
   await expect(log.getByRole('button', { name: 'Show all 100 entries' })).toBeVisible()
   await log.getByRole('button', { name: 'Show older' }).click()

@@ -69,7 +69,7 @@ test('on a desk the way up is breadcrumbs, from the area down to the page', asyn
   await expect(crumbs.getByRole('listitem')).toHaveCount(3)
   await expect(crumbs.getByRole('link')).toHaveCount(2)
   await expect(crumbs.getByRole('link').first()).toHaveText('Stock')
-  await expect(crumbs.locator('[aria-current="page"]')).toHaveText((await page.locator('h1.number').textContent())!)
+  await expect(crumbs.locator('[aria-current="page"]')).toHaveText((await page.locator('h1 .number').textContent())!)
   await expect(page.getByRole('link', { name: '‹ All stock' })).toHaveCount(0)
 
   // Beside the list, an open job says where it is too, though the list is its way back.

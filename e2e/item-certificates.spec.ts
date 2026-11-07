@@ -84,6 +84,7 @@ test('a round’s report of thorough examination on every motor in it, and anoth
 
   // Each motor's page shows it beside the examination, and on its Certificates card.
   await tested.getByRole('link', { name: motors[0] }).click()
+  await page.getByRole('tab', { name: 'Tests and certificates' }).click()
   const inspections = page.getByRole('region', { name: 'Inspections' })
   await expect(inspections.locator('.due')).toContainText('certificate kept')
   await expect(inspections.locator('.inspection')).toContainText('Rig Safe Ltd · Rig Safe report 4471')
