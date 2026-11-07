@@ -373,6 +373,9 @@ function JobLines({ job, view }: { job: JobView; view: View }) {
   const department = useMyDepartment()
   const theirs = crewFill(job.calls.filter((c) => sameDepartment(departmentOf(c), department)))
   const kit = kitSummary(job, view.kit.byJob.get(job.id) ?? [])
+  const prep = view.steps.of(job.id)?.steps.find((s) => s.key === 'prep')
+  const out = prep?.facts.of ? ` · ${prep.facts.out} of ${prep.facts.of} out` : ''
+  const mayPick = useAccess().can('stock')
   // The facts of the job as labelled cells, on the system's facts list (the label over the value), rather than one long dotted line:
   // the eye finds the venue or the dates by their label without reading the rest (Colly, 1 November 2026).
   return (
@@ -413,7 +416,8 @@ function JobLines({ job, view }: { job: JobView; view: View }) {
       {kit && (
         <div>
           <dt>Kit</dt>
-          <dd>{kit}</dd>
+          {/* How far the pick has got, and the pick list a tap away for whoever picks (Move 8 of the sweep of 6 November 2026). */}
+          <dd>{mayPick && !STOPPED.includes(job.status) ? <a href={`#jobs/${encodeURIComponent(job.id)}/pick`}>{kit + out}</a> : kit + out}</dd>
         </div>
       )}
     </dl>

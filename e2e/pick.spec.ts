@@ -172,6 +172,15 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   // What's needed, and where to find it.
   await expect(page.getByRole('heading', { level: 1, name: 'Pick list' })).toBeVisible()
   await expect(page.locator('.pick-total')).toHaveText('0 of 14 out')
+  // The job page's dock, in the floor's words, in the foot (Move 8 of the sweep of 6 November 2026); the scan box under the top
+  // bar and the dock never cover each other at 390px.
+  const dock = page.getByRole('region', { name: 'Next' })
+  await expect(dock).toHaveText('Next · Pick the kit · 0 of 14 out')
+  const apart = async () => {
+    const [scan, foot] = await Promise.all([page.locator('.scan-dock').boundingBox(), dock.boundingBox()])
+    expect(scan!.y + scan!.height).toBeLessThanOrEqual(foot!.y)
+  }
+  await apart()
   const speakerRow = pickRow(page, speaker)
   const cableRow = pickRow(page, cable)
   await expect(speakerRow.locator('.count')).toHaveText('0 of 2 out')
@@ -232,6 +241,8 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await hold(page, speakers[1]!)
   await expect(said).toHaveText(`${speakers[1]} ${speaker}: 2 of 2 out.`)
   await expect(page.locator('.pick-total')).toHaveText('All 14 out: ready to load.')
+  await expect(dock).toContainText('All 14 out: ready to load. On the job from')
+  await apart()
   await expect(speakerRow.locator('.out-items')).toContainText(speakers[1]!)
   await hold(page, null)
   await page.getByRole('button', { name: 'Stop camera' }).click()

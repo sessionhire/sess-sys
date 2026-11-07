@@ -40,6 +40,8 @@ import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 import { JobStatusPill, Top } from './common.tsx'
 import { JobPosition } from './JobPosition.tsx'
+import { PickDock } from './NextDock.tsx'
+import { PageAction } from '../foot.tsx'
 import { JOBS } from '../Up.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
 
@@ -270,6 +272,10 @@ function Pick({ view, job }: { view: View; job: JobView }) {
         <p className={`pick-total${total.done ? ' done' : ''}`}>{total.text}</p>
         {mode === 'out' && <Brief view={view} job={job} today={today} />}
         {!mayMove && <p className="hint">{NOT_YOURS.scanning}</p>}
+        {/* The job page's dock, in the floor's words (Move 8 of the sweep of 6 November 2026): in the foot on a phone. */}
+        <PageAction>
+          <PickDock job={job} view={view} />
+        </PageAction>
       </section>
 
       {/* The scan box stays under the top bar while the list scrolls (audit, 20 October 2026, finding 5), as Jobs' week headings
