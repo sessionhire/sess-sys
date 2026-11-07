@@ -463,7 +463,7 @@ test('Me says Your bookings as their own link does: its glance line, a row each,
   await expect(glance.getByRole('link', { name: /^Next: / })).toHaveAttribute('href', /^#jobs\//)
   const shoot = card.getByRole('link', { name: /^Liffey Brands Shoot/ })
   await expect(shoot).toHaveAttribute('href', /^#jobs\//)
-  await expect(shoot).toContainText(/^Liffey Brands ShootCrew chief\s·\sShoot\s·\s\w{3}\s\d{1,2}\s\w{3}\s·\scall\s07:30Confirmed$/)
+  await expect(shoot).toContainText(/^Liffey Brands ShootCrew chief\s·\sShoot\s·\s\w{3}\s\d{1,2}\s\w{3}\s·\scall\s07:30Booked$/)
   const offered = card.getByRole('link', { name: new RegExp(`^Bookings check ${run}`) })
   await expect(offered).toContainText(/Crew chief\s·\sShow\s·\s\w{3}\s\d{1,2}\s\w{3}(\s\d{4})?\s·\scall\s09:00/)
   await expect(offered).toContainText('Offered')

@@ -135,7 +135,7 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
       break
   }
   // Someone else's, said in the one shape the word table writes (UX sweep, 6 November 2026, move 4): who does it, and nothing to press.
-  if (!press) return rest(why ?? `Next is ${task.label.toLowerCase()}. ${task.owner ? `It's down to ${task.owner.name}.` : whoDoes(task.key)}`)
+  if (!press) return rest(why ?? `Next is ${task.label.toLowerCase()}. ${task.owner ? `It's down to ${task.owner.name}.` : whoDoes(task.key)} Nothing here for you to press.`)
   // The quiet second choice: hand the task on, or open it. Not for the client's answer, whose button already opens it.
   const second = mayTask && task.key !== 'confirmed' && task.key !== 'deprep' && (
     <button type="button" className="link second" onClick={() => onOpenTask(task.key)}>

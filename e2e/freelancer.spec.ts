@@ -96,7 +96,7 @@ test('a clash is shown before the server says it, a refusal shows in the offer鈥
   // What's over is two lists, each line with its days: the gala Dara worked, and Laoise's no to the load-in.
   await expect(phone.getByRole('heading', { name: 'Earlier' })).toHaveCount(0)
   const past = phone.locator('section', { has: phone.getByRole('heading', { name: 'Past work' }) })
-  await expect(past.locator('li').first()).toContainText(/^Autumn Gala \(Show\) 路 Sound No\.1 路 \w{3} \d{1,2} \w{3} to \w{3} \d{1,2} \w{3} Confirmed$/)
+  await expect(past.locator('li').first()).toContainText(/^Autumn Gala \(Show\) 路 Sound No\.1 路 \w{3} \d{1,2} \w{3} to \w{3} \d{1,2} \w{3} Booked$/)
   const laoise = changes.find((c) => c.entity === 'person' && c.data.name === 'Laoise Keane')!
   await phone.goto(`/f/${laoise.data.linkToken}`)
   const turned = phone.locator('section', { has: phone.getByRole('heading', { name: 'Declined and withdrawn' }) })
