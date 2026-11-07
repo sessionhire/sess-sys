@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { fillName } from './names.ts'
+import { fillName, pickRecord } from './names.ts'
 
 /**
  * Crew booking end to end: the office adds a freelancer and a job and makes
@@ -50,7 +50,7 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   const call = office.locator('.call-group', { hasText: 'Electric Picnic' }).getByRole('article', { name: '1 × Audio tech' })
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()
-  await call.getByLabel('Offer to').selectOption({ label: 'Aoife Byrne · Level 1 (audio, monitors)' })
+  await pickRecord(call, 'Offer to', 'Aoife Byrne')
   await call.getByRole('button', { name: 'Offer', exact: true }).click()
   // The offer is made, but with messages to crew off nothing opens to send it (ADR 0048): the card says so, and where to turn them on.
   const quietCard = office.getByRole('region', { name: 'Messages to crew are off: offer for Aoife Byrne' })

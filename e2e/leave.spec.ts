@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { pickRecord } from './names.ts'
 
 /**
  * Staff leave (ADR 0024) end to end, with sign-in off: an approver opens
@@ -275,7 +276,9 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   await eoin.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
   const call = eoin.locator('.call-group', { hasText: `Leave check ${id}` }).getByRole('article', { name: 'Driver' })
   await call.getByRole('button', { name: 'Offer…' }).click()
-  await call.getByLabel('Offer to').selectOption({ label: `Nora Walsh ${id} · Level 1 ⚠` })
+  await call.getByRole('combobox', { name: 'Offer to' }).fill(`Nora Walsh ${id}`)
+  await expect(call.getByRole('option', { name: new RegExp(`^Nora Walsh ${id}`) })).toContainText('⚠ not free then')
+  await pickRecord(call, 'Offer to', `Nora Walsh ${id}`)
   await expect(call.locator('.warn')).toContainText(`Marked unavailable ${FROM} to ${MIDDLE} (Annual leave)`)
   await call.getByRole('button', { name: 'Offer', exact: true }).click()
   await expect(call.getByRole('alert')).toHaveText('Tick Offer anyway first, or choose someone else.')

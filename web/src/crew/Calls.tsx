@@ -49,6 +49,7 @@ import { personHref } from './PersonScreen.tsx'
 import { Avatars } from '../Picture.tsx'
 import { type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
 import { dept, found, wordsOf } from './People.tsx'
+import { RecordPicker } from '../RecordPicker.tsx'
 
 /**
  * Crew › Calls' parts: a call's card, changing it, offering it to someone
@@ -85,9 +86,9 @@ function byDepartmentThenLevel(a: PersonView, b: PersonView): number {
   return b.level - a.level || a.name.localeCompare(b.name)
 }
 
-/** "Dara Quinn · Audio · Level 3 (Sound No.1, Audio)", as the picker lists someone. */
-function pickerLabel(p: PersonView): string {
-  return `${p.name}${p.department ? ` · ${p.department}` : ''} · ${levelLabel(p.level)}${p.skills.length ? ` (${p.skills.join(', ')})` : ''}`
+/** "Audio · Level 3 (Sound No.1, Audio)", the line under someone's name in the Offer to picker. */
+function pickerLine(p: PersonView): string {
+  return `${p.department ? `${p.department} · ` : ''}${levelLabel(p.level)}${p.skills.length ? ` (${p.skills.join(', ')})` : ''}`
 }
 
 /** Offered, holding or booked: the people a call's one line names. */
@@ -529,12 +530,9 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const [personId, setPersonId] = useState('')
   const [override, setOverride] = useState(false)
   const [applicants, setApplicants] = useState(false)
-  const [find, setFind] = useState('')
   // Someone who declined, couldn't make it or was told it's filled can be offered it again.
   const offered = new Set(call.offers.filter((o) => !['declined', 'filled', 'cancelled', 'pulled-out'].includes(o.status)).map((o) => o.personId))
-  // Narrowed as you type (audit finding 16), as the people list is.
-  const words = wordsOf(find)
-  const everyone = crew.people.filter((p) => !offered.has(p.id) && !p.archived && found(p, words))
+  const everyone = crew.people.filter((p) => !offered.has(p.id) && !p.archived)
   // Applicants nobody has vetted (Level 0) stay out of the way unless asked for (ADR 0025).
   const hidden = everyone.filter((p) => p.level === APPLICANT_LEVEL).length
   const candidates = everyone.filter((p) => applicants || p.level !== APPLICANT_LEVEL).sort(byDepartmentThenLevel)
@@ -575,17 +573,30 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       : needs.length
         ? byNeeds(candidates).filter((g) => g.people.length)
         : undefined
-  const option = (p: PersonView) => {
-    const marks = gapMarks(gapsOf(p))
-    return (
-      <option key={p.id} value={p.id}>
-        {pickerLabel(p)}
-        {marks && ` · ${marks}`}
-        {personConflicts(crew, p.id, call.days, call.id).length ? ' ⚠' : ''}
-        {own.busyOn(p.id, call.days).size ? ' · busy in own calendar' : ''}
-      </option>
-    )
+  // One list in the order above: with nothing typed its first eight are offered, and typing narrows it (audit finding 16), as the
+  // people list is, by name, the name they go by, department, skill, email or phone (UX sweep, move 5c).
+  const ordered = groups ? groups.flatMap((g) => g.people) : candidates
+  const firstLabel =
+    callDept && ours.length && ours.length < candidates.length
+      ? `${callDept} first, then everyone else`
+      : needs.length
+        ? `Those holding ${needsLabel(needs)} first`
+        : 'By department, then level'
+  const findIn = (_: readonly PersonView[], text: string) => {
+    const words = wordsOf(text)
+    return ordered.filter((p) => found(p, words)).map((record) => ({ record }))
   }
+  // What tells two people apart and what to know before offering: their department, level and skills, what they hold of what the
+  // call needs, a clash and their own calendar.
+  const metaOf = ({ record: p }: { record: PersonView }) =>
+    [
+      pickerLine(p),
+      gapMarks(gapsOf(p)),
+      personConflicts(crew, p.id, call.days, call.id).length ? '⚠ not free then' : '',
+      own.busyOn(p.id, call.days).size ? 'busy in own calendar' : '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
 
   const send = (e: FormEvent) => {
     e.preventDefault()
@@ -606,34 +617,22 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
 
   return (
     <form className="offer-form" onSubmit={send}>
-      <input
-        type="search"
-        className="find"
-        value={find}
-        onChange={(e) => setFind(e.target.value)}
-        // Enter in a search box only searches: it mustn't send the offer to whoever is picked below, the trap of audit finding 5.
-        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
-        placeholder="Name, phone, email, department or skill"
-        aria-label="Find someone"
-      />
-      <select
+      <RecordPicker
+        label="Offer to"
+        records={candidates}
         value={personId}
-        onChange={(e) => {
-          setPersonId(e.target.value)
+        find={findIn}
+        meta={metaOf}
+        first={ordered}
+        firstLabel={firstLabel}
+        nothingFound={(t) => `Nobody matches “${t}”${!applicants && hidden > 0 ? ': applicants are left out unless shown' : ''}`}
+        onPick={(id) => {
+          setPersonId(id)
           // A reason given for someone else no longer applies.
           refuse('')
         }}
-        aria-label="Offer to"
-      >
-        <option value="">{candidates.length || !words.length ? 'Offer to…' : 'Nobody matches'}</option>
-        {groups
-          ? groups.map((g) => (
-              <optgroup key={g.label} label={g.label}>
-                {g.people.map(option)}
-              </optgroup>
-            ))
-          : candidates.map(option)}
-      </select>
+        placeholder="Name, phone, email, department or skill"
+      />
       <button type="submit">
         Offer
       </button>

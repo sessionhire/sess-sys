@@ -435,6 +435,10 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
    and where it belongs; notes in the list ("Most like it", "40 more") aren't offers, so they're quiet and never highlight. */
 .picker-field { display: grid; gap: var(--ds-space-1); font-size: var(--text-hint); color: var(--muted); }
 .picker-field input { width: 100%; }
+/* The record picker offers eight at most, so on a phone its list grows with the page rather than scrolling inside it (no captive scroll). */
+@media (max-width: 639px) {
+  .picker-options { max-height: none; overflow-y: visible; }
+}
 .picker-options li[role='option'] { flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--ds-space-half); padding-block: var(--ds-space-1); }
 .picker-options li small { color: var(--ds-ink-secondary); font-size: var(--text-hint); }
 .picker-options li.note { min-height: 0; padding-block: var(--ds-space-2) var(--ds-space-half); color: var(--ds-ink-secondary); font-size: var(--text-hint); cursor: default; }

@@ -164,7 +164,7 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .call-line { display: grid; gap: var(--ds-space-half); justify-items: start; width: 100%; min-height: 44px; padding: var(--ds-space-2) 0; border: 0; border-radius: 0; background: none; color: inherit; text-align: left; font: inherit; }
 .crew .call .facts-line { margin: 0; color: var(--muted); font-size: var(--text-small); }
 /* The picker (ADR 0025) narrowed as you type: the search over the select, the select and Offer side by side. */
-.crew .offer-form .find { grid-column: 1 / -1; }
+.crew .offer-form > button[type='submit'] { align-self: end; }
 
 /* The certificates a call needs, and running late (ADR 0028). The ticks for what a call needs wrap as chips; a certificate's note sits beside its expiry, or under it on a phone. */
 .app .grid-form .needs > div, .app .grid-form .chips > div { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }

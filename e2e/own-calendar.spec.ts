@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { pickRecord } from './names.ts'
 import { createServer, type Server } from 'node:http'
 
 /**
@@ -139,10 +140,9 @@ test('a freelancer shares when they are busy from their link, the office sees it
   const call = office.locator('.call-group', { hasText: `Convention ${id}` }).getByRole('article', { name: '1 × Audio tech' })
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()
-  const picker = call.getByLabel('Offer to')
-  const option = picker.locator('option', { hasText: name })
-  await expect(option).toContainText('busy in own calendar')
-  await picker.selectOption({ value: `orla-${id}` })
+  await call.getByRole('combobox', { name: 'Offer to' }).fill(name)
+  await expect(call.getByRole('option', { name: new RegExp(`^${name}`) })).toContainText('busy in own calendar')
+  await pickRecord(call, 'Offer to', name)
   await expect(call.locator('.warn-line', { hasText: 'Busy in their own calendar' })).toHaveText(
     `Busy in their own calendar on ${label(busyDay)} (all day). The offer can still go: it may be something they can move, and they can still say yes.`
   )
