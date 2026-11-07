@@ -130,6 +130,8 @@ export interface Standing {
    * Quotes › To follow up marks them at the top of Waiting for an answer (Move 10 of the sweep of 6 November 2026).
    */
   quotes: QuoteToFollow[]
+  /** Confirmed jobs through their dates with the accepted quote not invoiced (move 12), as Quotes › To follow up lists them. */
+  'to-invoice': QuoteToFollow[]
 }
 
 export type StandingKey = keyof Standing
@@ -161,6 +163,7 @@ export const STANDING_HEADINGS = {
   'tasks-nobody': undefined,
   'no-answer': 'Dates passed, no answer',
   quotes: 'Waiting for an answer',
+  'to-invoice': 'To invoice',
 } as const satisfies Record<StandingKey, string | undefined>
 
 /** A list's heading with how many are in it, the number its count on Home says: "Repairs open (15)". */
@@ -231,6 +234,7 @@ export function standing(view: View, today: string, { me, department }: Standing
             .sort((a, b) => (b.job.span?.start ?? '').localeCompare(a.job.span?.start ?? '') || b.job.name.localeCompare(a.job.name)),
     // Empty on a device that isn't sent money (ADR 0042), which has no quotes to count.
     quotes: () => (department ? [] : quotesToFollow(view.money, today).chase),
+    'to-invoice': () => (department ? [] : quotesToFollow(view.money, today).toInvoice),
   }
   const kept: Partial<Standing> = {}
   const out = {} as Standing

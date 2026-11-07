@@ -58,7 +58,13 @@ async function everythingWaiting() {
     m('project.create', { id: 'docks', name: 'Docklands Awards', clientId: 'bw', venueId: null, status: 'quoted', notes: '' }),
     m('phase.add', { id: 'docks-show', projectId: 'docks', name: 'Show', start: day(15), end: day(15), venueId: null, notes: '' }),
     m('quote.save', { id: 'q3', projectId: 'docks', lines: [{ id: 'l3', kind: 'kit', what: 'XLR 10 m', ref: 'xlr', group: 'Audio', qty: 20, days: 1, unitCents: 500, vat: '23' }], discountPct: 0, notes: '' }),
-    m('quote.sent', { id: 'q3', on: day(-9) })
+    m('quote.sent', { id: 'q3', on: day(-9) }),
+    // A job that went ahead three days ago on an accepted quote, not invoiced yet.
+    m('project.create', { id: 'done', name: 'Harbour Dinner', clientId: 'bw', venueId: null, status: 'confirmed', notes: '' }),
+    m('phase.add', { id: 'dinner', projectId: 'done', name: 'Show', start: day(-3), end: day(-3), venueId: null, notes: '' }),
+    m('quote.save', { id: 'q4', projectId: 'done', lines: [{ id: 'l4', kind: 'kit', what: 'XLR 10 m', ref: 'xlr', group: 'Audio', qty: 4, days: 1, unitCents: 500, vat: '23' }], discountPct: 0, notes: '' }),
+    m('quote.sent', { id: 'q4', on: day(-20) }),
+    m('quote.answer', { id: 'q4', answer: 'accepted', on: day(-18) })
   )
   const { client } = await phone(app)
   return client.view()
