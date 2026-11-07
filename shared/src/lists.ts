@@ -134,7 +134,16 @@ export function jobSorts(newestFirst: boolean): ListSort<JobView>[] {
 }
 
 /** Jobs' filters. `kitShort` says whether a job has kit short, from the kit the device has. */
-export function jobFilters(kitShort: (job: JobView) => boolean, stopped: boolean, steps?: (job: JobView) => JobSteps | undefined): ListFilter<JobView>[] {
+/** A department as a filter's key: its name in lower case, so "LX" and "lx" are one. */
+export const departmentKey = (name: string) => name.trim().toLowerCase()
+
+export function jobFilters(
+  kitShort: (job: JobView) => boolean,
+  stopped: boolean,
+  steps?: (job: JobView) => JobSteps | undefined,
+  /** Whose (Move 9 of the sweep of 6 November 2026): the jobs someone is booked on, and each department's, first in the list. */
+  lens?: { mine?: (job: JobView) => boolean; departments?: readonly { name: string; test: (job: JobView) => boolean }[] }
+): ListFilter<JobView>[] {
   const crew = (j: JobView) => crewFill(j.calls)
   // Where each job is, and its tasks late or down to nobody, so a count of them on Home opens the jobs it counted (audit, 5 November 2026, finding 20).
   const byTasks: ListFilter<JobView>[] =
@@ -157,7 +166,21 @@ export function jobFilters(kitShort: (job: JobView) => boolean, stopped: boolean
           },
         ]
       : []
+  const whose: ListFilter<JobView>[] = [
+    ...(lens?.mine ? [{ key: 'mine', label: 'Whose', any: "Anyone's", options: [{ key: 'mine', label: 'Mine', test: lens.mine }] }] : []),
+    ...(lens?.departments?.length
+      ? [
+          {
+            key: 'department',
+            label: 'Department',
+            any: 'Any department',
+            options: lens.departments.map((d) => ({ key: departmentKey(d.name), label: d.name, test: d.test })),
+          },
+        ]
+      : []),
+  ]
   return [
+    ...whose,
     {
       key: 'status',
       label: 'Status',

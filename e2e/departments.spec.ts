@@ -293,6 +293,8 @@ test("a head's own department is where Stock's lists and counts and the job's cr
 
   // A quote this role isn't sent is with the office, never missing, on the Jobs list and the Board alike.
   await page.goto('/#jobs')
+  // The list starts on LX (Move 9 of the sweep of 6 November 2026); the wedding is everyone's.
+  await page.getByRole('button', { name: 'Take off the filter Department: LX' }).click()
   // The wedding is three weeks off, past the fortnight the list starts on.
   await page.getByRole('button', { name: /^Show all \d+ coming up$/ }).click()
   await expect(page.getByRole('link', { name: /Clonmore Wedding/ }).first()).toContainText('Quote: with the office')
@@ -360,4 +362,38 @@ test('Home for a department counts the leave waiting on the approver looking, wh
   await expect(queue.getByRole('heading', { level: 2 })).toHaveText('To approve (2)')
   await expect(queue).toContainText('Cian Murphy')
   await expect(page.locator('main')).not.toContainText('Showing LX (Lighting) only.')
+})
+
+test("each role meets its own app: a head's Jobs list starts on their department, and someone booked finds theirs first", async ({ browser }) => {
+  // A head of LX: the Jobs list opens on LX, said in the filter's chip, with the way to every job (Move 9 of the sweep of 6 November 2026).
+  const head = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await asHeadOf(head, 'LX')
+  await head.goto('/')
+  await head.getByRole('button', { name: /^Head of department/ }).click()
+  await expect(head.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+  await head.goto('/#jobs')
+  const off = head.getByRole('button', { name: 'Take off the filter Department: LX' })
+  await expect(off).toBeVisible()
+  await expect(head.locator('.job-row', { hasText: 'Liffey Brands Launch' })).toBeVisible()
+  await expect(head.locator('.job-row', { hasText: 'Brightwater Tech Summit' })).toHaveCount(0)
+  await off.click()
+  await expect(head.locator('.job-row', { hasText: 'Brightwater Tech Summit' })).toBeVisible()
+
+  // Aoife, booked as crew chief on two jobs: "Mine" on Jobs, and the job opens with what she's on.
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/#crew/leave')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByLabel('Your name').selectOption({ label: 'Aoife Brennan' })
+  await page.getByRole('button', { name: "That's me" }).click()
+  await page.goto('/#jobs')
+  const mine = page.getByRole('group', { name: 'Whose' }).getByRole('button', { name: /^Mine \(\d+\)$/ })
+  await expect(mine).toBeVisible()
+  await mine.click()
+  await expect(page.locator('.job-row', { hasText: 'Harbour Lights Festival' })).toBeVisible()
+  await expect(page.locator('.job-row', { hasText: 'Corrib Arts Week' })).toHaveCount(0)
+  await page.locator('.job-row', { hasText: 'Harbour Lights Festival' }).click()
+  const you = page.getByRole('region', { name: 'You on this job' })
+  await expect(you).toContainText('Crew chief')
+  await expect(you).toContainText('call 11:00')
+  await expect(you.getByRole('link', { name: 'Call sheet ›' })).toBeVisible()
 })

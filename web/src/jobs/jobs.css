@@ -736,3 +736,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* The quotes from before the app, under the app's own on Quotes (ADR 0092). */
 .quotes .from-rms { margin-top: var(--ds-space-5); padding-top: var(--ds-space-4); border-top: 1px solid var(--line); }
 .quotes .from-rms h3 { margin: 0 0 var(--ds-space-2); }
+
+/* "You on this job" (YouOnThisJob.tsx, Move 9 of the sweep of 6 November 2026): what someone is on, a row each, its links under it. */
+.you-on-job ul { display: grid; gap: var(--ds-space-3); margin: 0; padding: 0; list-style: none; }
+.you-on-job li > p { margin: 0; }
+.you-on-job .you-links { display: flex; flex-wrap: wrap; gap: var(--ds-space-1) var(--ds-space-4); margin-top: var(--ds-space-1); }

@@ -56,6 +56,7 @@ import { QuoteCard } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { NextDock } from './NextDock.tsx'
+import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
 import { Heading } from '../Icon.tsx'
 import { useMyDepartment } from '../Narrowed.tsx'
@@ -96,6 +97,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   const [share, setShare] = useState<Share | undefined>()
   const access = useAccess()
   const seesMoney = access.can('money')
+  const runsJobs = access.can('jobs') || access.can('crew') || access.can('kit')
   // A button the role can't use isn't drawn (audit finding 9): phases are the job's, asking for crew is crew's.
   const mayJobs = access.can('jobs')
   const mayCrew = access.can('crew')
@@ -194,8 +196,12 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
+      {/* What you're on, first for someone whose work on the job is their own booking, under Where it is for whoever runs the job
+          (Move 9 of the sweep of 6 November 2026). */}
+      {!runsJobs && <YouOnThisJob job={job} view={view} />}
       {/* Where the job is: its five stages, the tasks inside each and who each is down to (ADR 0073, ADR 0104). */}
       <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={go} onTell={setShare} />
+      {runsJobs && <YouOnThisJob job={job} view={view} />}
 
       <Tabs label="Parts of the job" id="job" parts={parts} labels={PART_LABELS} current={part} counts={counts} onPick={pick} />
       <div className="job-part" role="tabpanel" id="job-part" aria-labelledby={`job-tab-${part}`}>
