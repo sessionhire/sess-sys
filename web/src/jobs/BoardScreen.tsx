@@ -20,7 +20,7 @@ import './steps.css'
  * 0109). Its cards with kit to check back in say so in the words Home and
  * Stock list them in, from the same list, and its head counts the late
  * ones. An enquiry or quote whose dates have passed with no answer goes
- * under Selling's own fold, out of the way of the ones to chase, asking for
+ * under Quoting's own fold, out of the way of the ones to chase, asking for
  * it to be marked lost: the list Home counts.
  */
 
@@ -141,7 +141,7 @@ function PlanningBands({ jobs, today }: { jobs: JobSteps[]; today: string }) {
   )
 }
 
-/** Selling's fold, by its heading, which Home's count lands on. */
+/** Quoting's fold, by its heading, which Home's count lands on. */
 const LAPSED = STANDING_HEADINGS['no-answer']
 
 const bySoonest = (a: JobSteps, b: JobSteps) => (a.job.span?.start ?? '').localeCompare(b.job.span?.start ?? '') || a.job.name.localeCompare(b.job.name)

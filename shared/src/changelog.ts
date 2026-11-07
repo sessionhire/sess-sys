@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.108.1',
+    date: '2026-11-07',
+    title: 'The first stage is called Quoting',
+    what: 'The first of the five stages a job goes through, from enquiry to the client\'s answer, is now called Quoting rather than Selling, on the job page, the jobs list, Home and the Board. Nothing else about it changes.',
+    prs: [244],
+    adrs: [104],
+  },
+  {
     version: '1.108.0',
     date: '2026-11-07',
     title: 'Staff answer their offers in the app',

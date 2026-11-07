@@ -12,7 +12,7 @@ import './steps.css'
 
 /**
  * Where a job is (ADR 0073, ADR 0104): five stages across the top of the
- * job page, Selling, Planning, Going out, On the job and Back, the one the
+ * job page, Quoting, Planning, Going out, On the job and Back, the one the
  * job is in ringed, worked out from the job's own records and never ticked.
  * Under the strip, the stage opened lists its tasks, each a row saying how
  * it stands, whose it is and when it's due, done in any order; a task left

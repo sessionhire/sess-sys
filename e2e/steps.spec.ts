@@ -119,7 +119,7 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
 })
 
 test('an enquiry whose dates passed with no answer is counted on Home, folded on the Board, and asks what happened', async ({ browser, request }) => {
-  // Proves (ADR 0109; audit, 5 November 2026, finding 18): a job still being sold after its last day leaves the top of Selling for a
+  // Proves (ADR 0109; audit, 5 November 2026, finding 18): a job still being sold after its last day leaves the top of Quoting for a
   // fold of its own, Home counts it as housekeeping and opens that fold, and the job's Next asks what happened.
   const id = Date.now().toString(36)
   const job = `Brosna Concert ${id}`
@@ -133,14 +133,14 @@ test('an enquiry whose dates passed with no answer is counted on Home, folded on
   await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Company' }).click()
   await page.locator('.standing').getByRole('link', { name: /jobs? whose dates passed with no answer$/ }).click()
   await expect(page).toHaveURL(/#jobs\/board$/)
-  const selling = page.getByRole('region', { name: 'Selling' })
+  const selling = page.getByRole('region', { name: 'Quoting' })
   const fold = selling.locator('details.board-lapsed')
   await expect(fold).toHaveAttribute('open', '')
   await expect(fold.locator('.board-card', { hasText: job })).toContainText('Dates passed, no answer: mark it lost?')
   await expect(selling.locator(':scope > .board-card', { hasText: job })).toHaveCount(0)
   await fold.locator('.board-card', { hasText: job }).click()
   const next = page.getByRole('region', { name: 'Next' })
-  await expect(next).toContainText('Next · Selling · Dates passed, no answer')
+  await expect(next).toContainText('Next · Quoting · Dates passed, no answer')
   await next.getByRole('button', { name: 'Record what happened' }).click()
   await expect(page.getByRole('region', { name: 'Where it is' }).getByRole('button', { name: 'The client said no' })).toBeVisible()
 })

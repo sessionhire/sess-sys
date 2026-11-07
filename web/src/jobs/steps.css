@@ -145,7 +145,7 @@
 .board-col { display: grid; align-content: start; gap: var(--ds-space-2); min-height: 320px; padding: var(--ds-space-2); background: var(--panel); border-radius: var(--radius-card); }
 .board-col > header { display: grid; gap: 2px; padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-2); }
 .board-col > header b { font-size: var(--text-body); }
-/* Selling's enquiries and quotes whose dates passed with no answer (ADR 0109): folded under the column, out of the way of the ones to chase. */
+/* Quoting's enquiries and quotes whose dates passed with no answer (ADR 0109): folded under the column, out of the way of the ones to chase. */
 .board-lapsed { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-2); border-top: 1px solid var(--line); }
 .board-lapsed[open] > summary { margin-bottom: var(--ds-space-1); }
 /* The one fold (app.css), its words a heading for the cards under it. */

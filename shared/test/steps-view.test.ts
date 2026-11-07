@@ -115,9 +115,9 @@ describe('the selling line', () => {
 describe("a job's position", () => {
   it('says the stage, what is waiting and when, in one order (Move 7 of the sweep of 6 November 2026)', async () => {
     const office = await phone(true)
-    expect(jobPosition(office.steps.of('quoted')!)).toMatchObject({ stage: 'Selling', time: 'in 10 days', tone: undefined, text: 'Selling · Quote with the client 2 days · in 10 days' })
-    expect(jobPosition(office.steps.of('bare')!)!.text).toBe('Selling · No quote yet · in 10 days')
+    expect(jobPosition(office.steps.of('quoted')!)).toMatchObject({ stage: 'Quoting', time: 'in 10 days', tone: undefined, text: 'Quoting · Quote with the client 2 days · in 10 days' })
+    expect(jobPosition(office.steps.of('bare')!)!.text).toBe('Quoting · No quote yet · in 10 days')
     // A role sent no money reads the quote as the office's, never as missing.
-    expect(jobPosition((await phone(false)).steps.of('bare')!)!.text).toBe('Selling · Quote: with the office · in 10 days')
+    expect(jobPosition((await phone(false)).steps.of('bare')!)!.text).toBe('Quoting · Quote: with the office · in 10 days')
   })
 })
