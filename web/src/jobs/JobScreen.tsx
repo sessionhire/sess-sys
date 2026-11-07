@@ -21,6 +21,7 @@ import {
   STATUS_LABELS,
   type ProjectKind,
   STOPPED,
+  STOPPED_WORDS,
   spanLabel,
   suggestedReplyBy,
   venueLabel,
@@ -447,6 +448,8 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
   const stopping = STOPPED.includes(f.status) && !STOPPED.includes(job.status)
   // Everyone offered or booked on the job's open calls: told it's off once it's stopped.
   const people = job.calls.filter((c) => c.status === 'open').flatMap((c) => peopleOn(c))
+  // What their link says once it's stopped, in its own words (UX sweep, 6 November 2026, move 6).
+  const theySee = f.status === 'lost' ? STOPPED_WORDS.lost : STOPPED_WORDS.cancelled
   const send = () => {
     setAsking(false)
     void run(async () => {
@@ -513,7 +516,7 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
         <Confirm
           className="wide"
           question={`Marking ${job.name} ${STATUS_LABELS[f.status].toLowerCase()} also cancels its crew calls${
-            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see it's withdrawn` : ''
+            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${theySee}` : ''
           }.`}
           yes={`Mark it ${STATUS_LABELS[f.status].toLowerCase()}`}
           loss

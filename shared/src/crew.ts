@@ -282,7 +282,7 @@ export const OFFER_STATUSES = [
   'filled',
   /** Ops withdrew it, or the call was cancelled. */
   'cancelled',
-  /** Had accepted, or was booked, then said they can't make it any more. The office finds cover. */
+  /** Had accepted, or was booked, then said they can't make it. The office finds cover. */
   'pulled-out',
 ] as const
 export type OfferStatus = (typeof OFFER_STATUSES)[number]
@@ -473,7 +473,7 @@ export const crewCommandSchemas = {
       days: offerDays,
       note: text(1000, 'The note'),
     }),
-    /** Can't make it any more, having accepted or been booked: the place is free again and the office finds cover. */
+    /** Can't make it, having accepted or been booked: the place is free again and the office finds cover. */
     z.object({ id, answer: z.literal('pullOut'), note: text(1000, 'The note') }),
   ]),
   /** Ops confirm an acceptance, or agree a counter-offer at the asked rate. */
@@ -619,7 +619,7 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
       return {
         text: lines([
           `Hi ${first}, sorry, we no longer need you for ${job}: ${c.role}, ${when}.`,
-          `It's off your page and your calendar feed, so there's nothing to do. Thanks for holding the days, and ${next}`,
+          `It's off your bookings and your calendar feed, so there's nothing to do. Thanks for holding the days, and ${next}`,
         ]),
         subject: `No longer needed: ${job}, ${when}`,
         what: 'release',
@@ -628,7 +628,7 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
       return {
         text: lines([
           `Hi ${first}, ${c.project} isn't going ahead, so ${c.role} on ${when} is off. Sorry about that.`,
-          `It's off your page and your calendar feed. Thanks, and ${next}`,
+          `It's off your bookings and your calendar feed. Thanks, and ${next}`,
         ]),
         subject: `Not going ahead: ${c.project}, ${when}`,
         what: 'cancellation',
@@ -637,7 +637,7 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
       return {
         text: lines([
           `Hi ${first}, we no longer need ${c.role} on ${job}, ${when}, so that's off. Sorry about that.`,
-          `It's off your page and your calendar feed. Thanks, and ${next}`,
+          `It's off your bookings and your calendar feed. Thanks, and ${next}`,
         ]),
         subject: `Cancelled: ${job}, ${when}`,
         what: 'cancellation',

@@ -158,7 +158,8 @@ test('a head of department is told what is hidden for their role, and never show
   await expect(answers).toContainText('Showing Audio only.')
   await expect(answers).toContainText('Nothing waiting from Audio.')
   await answers.getByRole('button', { name: 'Show all departments' }).click()
-  await expect(answers).toContainText("Tadhg Brady can't make it any more")
+  await expect(answers).toContainText("Tadhg Brady can't make it")
+  await expect(answers).not.toContainText('any more')
   await expect(page.locator('main')).not.toContainText('NaN')
   await expect(page.locator('main')).not.toContainText('€')
 

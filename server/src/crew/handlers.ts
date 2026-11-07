@@ -271,7 +271,8 @@ function refuseRates(ctx: Ctx) {
 async function openCall(ctx: Ctx, callId: string) {
   const call = await getCall(ctx.tx, callId, true)
   if (!call) throw new Refused({ code: 'not-found', message: 'That job no longer exists.' })
-  if (call.status !== 'open') throw new Refused({ code: 'conflict', message: `${call.project} has been cancelled.` })
+  // Off, whatever stopped it: the job cancelled or not going ahead, or the call cancelled. The crew's link says which (UX sweep, 6 November 2026, move 6).
+  if (call.status !== 'open') throw new Refused({ code: 'conflict', message: `${call.role} on ${call.project} is off.` })
   return call
 }
 
@@ -565,10 +566,12 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     // Every answer is new to the office, so it goes back into "Answers to check".
     const answered = { responded_at: new Date().toISOString(), responded_via: ctx.via, note: a.note, seen_at: null }
     if (a.answer === 'pullOut') {
+      // A page left open from before still has the button on a booking the office has since taken them off.
+      if (offer.status === 'cancelled') throw new Refused({ code: 'conflict', message: "The office has already taken you off this one, so there's nothing to do." })
       // Only a place they hold can be given back. The held count drops with the
       // status, so the call is short again, and the office hears of it in
       // "Answers to check" until they note it (audit finding 10).
-      if (!HOLDING.includes(offer.status)) throw new Refused({ code: 'conflict', message: "You can only pull out of a job you've said yes to." })
+      if (!HOLDING.includes(offer.status)) throw new Refused({ code: 'conflict', message: "You can only say you can't make it to a job you've said yes to." })
       // The page never offers it after the job, but a crafted post could reach here and lose the timesheet.
       if (call.end < irishToday()) throw new Refused({ code: 'conflict', message: 'That job has already happened; talk to the office.' })
       await setOffer(ctx, offer.id, { ...answered, status: 'pulled-out' })
@@ -576,8 +579,8 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     }
     if (offer.status === 'filled') throw new Refused({ code: 'filled', message: `Sorry, ${jobNamed(call, offer.days)} has just been filled by someone else.` })
     if (offer.status === 'cancelled') throw new Refused({ code: 'conflict', message: `Sorry, the office has withdrawn ${jobNamed(call, offer.days)}.` })
-    // Pulled out is over: the office offers it afresh if they can do it after all.
-    if (offer.status === 'pulled-out') throw new Refused({ code: 'conflict', message: "You've pulled out of this one. Ask the office if you can do it after all." })
+    // Can't make it is over: the office offers it afresh if they can do it after all.
+    if (offer.status === 'pulled-out') throw new Refused({ code: 'conflict', message: "You've told us you can't make this one. Ask the office if you can do it after all." })
     if (offer.status === 'confirmed')
       throw new Refused({ code: 'conflict', message: 'You are confirmed for this job. Please contact the office to change it.' })
     // Declined is over, as the page promises: an old tab's Accept can't bring it back (audit, 20 October 2026, finding 25).

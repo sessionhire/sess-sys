@@ -7,11 +7,12 @@ import { expect, test } from '@playwright/test'
  * it; a rate it can't read is refused under the field, where the page
  * lands; Enter in the rate field sends the rate, never accepting the job
  * at the offered rate; the calendar address is a field to copy, with
- * Subscribe; and what's over is two dated lists. A member of staff's link
- * has their leave in place of days off, with the way to ask for it in the
- * app, and turns down days off posted from a page kept from before. Uses
- * the made-up data (ADR 0019), so it starts fresh before and after: the
- * other tests share this server.
+ * Subscribe; what's over is two dated lists; and what changed on a
+ * booking since the yes is said on it, as is a job that was cancelled. A
+ * member of staff's link has their leave in place of days off, with the
+ * way to ask for it in the app, and turns down days off posted from a page
+ * kept from before. Uses the made-up data (ADR 0019), so it starts fresh
+ * before and after: the other tests share this server.
  */
 
 const phoneSize = { width: 390, height: 844 }
@@ -111,6 +112,74 @@ test('a clash is shown before the server says it, a refusal shows in the offerâ€
   await copy.click()
   await expect(copy).toHaveText('Copied')
   expect(await scripted.evaluate(() => navigator.clipboard.readText())).toMatch(/\/cal\/[\w-]{24}\.ics$/)
+
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test("the link says what changed on a booking since the yes, and a booking on a cancelled job says so first", async ({ browser, request }) => {
+  // Proves (UX sweep, 6 November 2026, move 6): moving a call sends nothing (ADR 0048), so the next time the link is opened
+  // the booking says the new call time with what was said yes to in brackets; a booking on a job the client cancelled says
+  // so as its card's first line, where the booking was; and giving a booking back is "Can't make it" on the fold, the
+  // button and the message after.
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  const id = Math.random().toString(36).slice(2, 8)
+  const on = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+  let sent = 0
+  const office = async (mutations: [string, Record<string, unknown>][]) => {
+    const res = await request.post('/api/sync/push', {
+      data: { clientId: `office-${id}`, mutations: mutations.map(([name, args]) => ({ id: `${id}-${sent++}`, name, args, createdAt: new Date().toISOString() })) },
+    })
+    expect(res.ok()).toBe(true)
+    expect((await res.json()).results.filter((r: { status: string }) => r.status !== 'applied')).toEqual([])
+  }
+  const job = (key: string, name: string, day: string): [string, Record<string, unknown>][] => [
+    ['project.create', { id: `${key}-${id}`, name, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    [
+      'call.create',
+      { id: `${key}-call-${id}`, projectId: `${key}-${id}`, phaseId: null, project: name, phase: '', venue: '', role: 'Audio tech', start: day, end: day, callTime: '09:00', needed: 1, dayRateCents: 25000, details: '', replyBy: null },
+    ],
+    ['offer.send', { id: `${key}-offer-${id}`, callId: `${key}-call-${id}`, personId: `nora-${id}`, override: false }],
+  ]
+  await office([
+    ['person.upsert', { id: `nora-${id}`, name: 'Nora Lynch', kind: 'freelancer', email: null, phone: '+353871234567', skills: ['Audio'], dayRateCents: 25000, notes: '' }],
+    ...job('gala', 'Autumn Gala', on(20)),
+    ...job('fair', 'Craft Fair', on(21)),
+  ])
+  const { changes } = (await (await request.get('/api/sync/pull?after=0')).json()) as { changes: { entity: string; id: string; data: { linkToken: string } }[] }
+  const nora = changes.find((c) => c.entity === 'person' && c.id === `nora-${id}`)!
+
+  // She says yes to both on her phone, with no script.
+  const phone = await (await browser.newContext({ viewport: phoneSize, javaScriptEnabled: false })).newPage()
+  await phone.goto(`/f/${nora.data.linkToken}`)
+  for (const name of ['Autumn Gala', 'Craft Fair']) {
+    await phone.getByRole('article').filter({ hasText: name }).getByRole('button', { name: 'Accept', exact: true }).click()
+    await expect(phone.getByRole('article').filter({ hasText: name }).locator('.tag')).toHaveText('Accepted, the office will confirm')
+  }
+
+  // The office moves the gala's call to 07:30, and the client cancels the fair. Nothing is sent.
+  await office([
+    ['call.update', { id: `gala-call-${id}`, callTime: '07:30' }],
+    ['project.update', { id: `fair-${id}`, status: 'cancelled' }],
+  ])
+  await phone.goto(`/f/${nora.data.linkToken}`)
+  const bookings = phone.locator('#bookings')
+  const gala = bookings.getByRole('article').filter({ hasText: 'Autumn Gala' })
+  await expect(gala.locator('dd').filter({ hasText: '07:30' })).toHaveText('07:30 (was 09:00)')
+  // The fair's card is where the booking was, after the gala's, and how it ended is its first line and its heading's, so
+  // moving through the page by headings hears it too.
+  const fair = bookings.getByRole('article').nth(1)
+  await expect(fair.locator(':scope > :first-child .news')).toHaveText('The job was cancelled')
+  await expect(fair.getByRole('heading', { level: 3 })).toHaveText('The job was cancelled Craft Fair')
+  await expect(fair.getByRole('button')).toHaveCount(0)
+  // Nothing on it is wider than the phone.
+  expect(await phone.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(phoneSize.width)
+
+  // Giving the gala back is "Can't make it", on the fold, the button and the message after.
+  await gala.getByText("Can't make it?").click()
+  await gala.getByRole('button', { name: "Can't make it", exact: true }).click()
+  await expect(phone.getByRole('status').first()).toHaveText("Thanks for telling us you can't make it. You're off this one, and the office will find cover.")
+  const turned = phone.locator('section', { has: phone.getByRole('heading', { name: 'Declined and withdrawn' }) })
+  await expect(turned.locator('li').filter({ hasText: 'Autumn Gala' })).toContainText(/Can't make it: you told us on \w{3} \d{1,2} \w{3}$/)
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })

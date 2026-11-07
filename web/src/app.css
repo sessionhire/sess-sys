@@ -347,7 +347,12 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 /* A booking or an offer of theirs (UX sweep, 6 November 2026, move 6): the job, with where it stands at the end of its line, then
    the facts across the whole row, so a phone has room for them on one line, then, under an offer, the way to answer it. */
 .app .booking-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--ds-space-3); align-items: start; }
-.app .booking-row > .pill { grid-area: 1 / 2; }
+.app .booking-row > :is(.pill, .booking-state) { grid-area: 1 / 2; }
+/* A booking on a stopped job: its word with "Job cancelled" beside it, quiet, as nothing is asked of the reader. On a phone it goes
+   under the word, so the job's name keeps its room beside them: what can grow never takes the narrow space (the design system's rows). */
+.app .booking-state { display: flex; flex-wrap: wrap; justify-content: end; align-items: center; gap: var(--ds-space-1) var(--ds-space-2); }
+@media (max-width: 479px) { .app .booking-state { flex-direction: column; align-items: end; gap: var(--ds-space-1); } }
+.app .booking-state small { color: var(--muted); font-size: var(--text-small); white-space: nowrap; }
 .app .booking-row > :is(p, .answer) { grid-column: 1 / -1; }
 .app .booking-row > p { text-wrap: pretty; }
 .app .booking-row > .answer { margin-top: var(--ds-space-1); }

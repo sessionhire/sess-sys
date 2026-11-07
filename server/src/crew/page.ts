@@ -2,7 +2,8 @@ import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noT
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
-import { busyByDay, type OwnCalendar } from '@sh/shared'
+import { busyByDay, isNews, STOPPED_WORDS, type OwnCalendar, type SinceYes } from '@sh/shared'
+import type { Ended, EndedBy } from './store.ts'
 
 /**
  * The freelancer's private page. Plain server-rendered HTML with ordinary
@@ -108,8 +109,12 @@ export interface PageData {
   /** What a refused post typed, to draw back into its form. */
   kept?: Kept
   today: string
-  /** When each withdrawn or filled offer ended, by offer, for "Declined and withdrawn". */
-  ended: ReadonlyMap<string, string>
+  /** The moment the page is drawn for, `today` being its day in Ireland: what's still news on it is read against this one instant. */
+  now: Date
+  /** When and how each withdrawn or filled offer ended, by offer: a booking that ended says so on its card, and the rest in "Declined and withdrawn". */
+  ended: ReadonlyMap<string, Ended>
+  /** What changed on each booking since its person said yes, by offer, while it's news (UX sweep, 6 November 2026, move 6); none where nothing did. */
+  since?: ReadonlyMap<string, SinceYes>
   /** Their timesheets (ADR 0022), by booking. */
   timesheets: ReadonlyMap<string, Timesheet>
   /** The day the office paid each approved timesheet, by its booking, where it has said. */
@@ -141,22 +146,39 @@ const STATUS_TEXT: Record<Offer['status'], string> = {
   confirmed: 'Confirmed',
   declined: 'You declined',
   filled: 'Filled by someone else',
-  cancelled: 'Withdrawn',
-  'pulled-out': "You've pulled out",
+  cancelled: 'Withdrawn by the office',
+  'pulled-out': "Can't make it",
+}
+
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+/**
+ * How a booking ended on the office's side, as its card's first line and in "Declined and withdrawn" (UX sweep, 6
+ * November 2026, move 6): the client's cancelling, a job that didn't go ahead and the office taking someone off are three
+ * different news, and "Withdrawn", the office's word for the last, said all three. A stopped job's words are the ones
+ * the office's question before stopping it says they'll see.
+ */
+const ENDED_TEXT: Record<EndedBy, string> = {
+  'job-cancelled': capital(STOPPED_WORDS.cancelled),
+  'job-lost': capital(STOPPED_WORDS.lost),
+  withdrawn: 'Withdrawn by the office',
+  filled: 'Filled by someone else',
 }
 
 /**
  * The way out of a job they said yes to (audit finding 10), folded away so
  * it's never pressed by accident: a note and one button, in a form of its
- * own so the day picker and the rate stay out of it.
+ * own so the day picker and the rate stay out of it. "Can't make it" on the
+ * fold, the button, the pill after and the office's pill, one name for it on
+ * both sides (UX sweep, 6 November 2026, move 6).
  */
 function pullOut(d: PageData, action: string) {
   const phone = officeContact(d.office)?.phone
-  return `<details class="pull-out"><summary>Can't make it any more?</summary>
+  return `<details class="pull-out"><summary>Can't make it?</summary>
       <form method="post" action="${action}">
         <p class="small">Tell us as soon as you can, so we can find cover.${phone ? ` Ringing ${h(phone)} is quickest.` : ''}</p>
         <label>Why, if you like <textarea name="note" rows="2" maxlength="1000"></textarea></label>
-        <button class="no" name="answer" value="pullOut">I can't make it</button>
+        <button class="no" name="answer" value="pullOut">Can't make it</button>
       </form>
     </details>`
 }
@@ -176,13 +198,24 @@ function decline(call: CrewCall) {
 /** Staff are paid through payroll, so their page carries no rate (audit finding 21). */
 const isStaff = (p: Pick<Person, 'kind'>) => p.kind === 'staff'
 
-function facts(call: CrewCall, offer: Offer, staff: boolean, today: string) {
+/**
+ * What one of a booking's watched facts was when they said yes, in brackets after it as it is now, "07:30 (was 09:00)",
+ * while the change is news (UX sweep, 6 November 2026, move 6): in the attention tone, as it needs a look, and in words,
+ * so it doesn't rest on the colour.
+ */
+const was = (then: string | undefined) => (then === undefined ? '' : ` <span class="was">(was ${h(then)})</span>`)
+
+/** A change to a booking that can't be said as now and was: plainly, with no bracket, rather than a guess. */
+const UNCLEAR = 'Changed since you said yes · check the call'
+
+function facts(call: CrewCall, offer: Offer, staff: boolean, today: string, since?: SinceYes) {
   const rate = offer.status === 'countered' ? `${euro(offer.counterRateCents)} a day asked (offered ${euro(call.dayRateCents)})` : `${euro(offer.dayRateCents)}${offer.dayRateCents !== null ? ' a day' : ''}`
+  const then = since?.was
   return `<dl class="facts">
     <dt>Role</dt><dd>${h(call.role)}</dd>
-    <dt>Dates</dt><dd>${h(daysLabel(offer.status === 'offered' ? eachDay(call.start, call.end) : offer.days, today))}</dd>
-    ${call.callTime ? `<dt>Call time</dt><dd>${h(call.callTime)}</dd>` : ''}
-    ${call.venue ? `<dt>Venue</dt><dd><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(call.venue)}">${h(call.venue)}</a></dd>` : ''}
+    <dt>Dates</dt><dd>${h(daysLabel(offer.status === 'offered' ? eachDay(call.start, call.end) : offer.days, today))}${was(then?.days && daysLabel(then.days, today))}</dd>
+    ${call.callTime ? `<dt>Call time</dt><dd>${h(call.callTime)}${was(then?.callTime)}</dd>` : ''}
+    ${call.venue ? `<dt>Venue</dt><dd><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(call.venue)}">${h(call.venue)}</a>${was(then?.venue)}</dd>` : ''}
     ${needsOf(call).length ? `<dt>Needs</dt><dd>${h(capital(needsLabel(needsOf(call))))}</dd>` : ''}
     ${staff ? '' : `<dt>Rate</dt><dd>${h(rate)}</dd>`}
     ${call.replyBy && offer.status === 'offered' ? `<dt>Reply by</dt><dd>${h(dayLabel(call.replyBy, today))}</dd>` : ''}
@@ -206,6 +239,8 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
   // One about the rate or the days goes under that field where the card draws it, and at the top of the card where it
   // doesn't: a page sent from before the office confirmed the booking has days to tick that this one has no form for.
   const mine = d.flash?.offer === offer.id && !d.flash.section ? d.flash : undefined
+  // What changed since they said yes, while it's news (UX sweep, 6 November 2026, move 6).
+  const since = d.since?.get(offer.id)
   const rateError = mine?.field === 'rate' && canAnswer && !staff ? `rate-error-${h(offer.id)}` : undefined
   const daysError = mine?.field === 'days' && canAnswer && days.length > 1 ? `days-error-${h(offer.id)}` : undefined
   // Someone who said yes gives the place back with "Can't make it", not Decline.
@@ -237,7 +272,8 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
   return `<article class="offer ${offer.status}" id="o-${h(offer.id)}">
     ${mine && !rateError && !daysError ? flash(mine) : ''}
     <header><h3>${title}</h3><span class="tag ${offer.status}">${STATUS_TEXT[offer.status]}</span></header>
-    ${facts(call, offer, staff, d.today)}
+    ${since?.unclear ? `<p class="news">${h(UNCLEAR)}</p>` : ''}
+    ${facts(call, offer, staff, d.today, since)}
     ${clash}
     ${holding ? `<a class="sheet-link" href="${d.base}/sheet/${encodeURIComponent(call.id)}">Call sheet: who's on, where, and who to ring ›</a>` : ''}
     ${
@@ -268,7 +304,23 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
   </article>`
 }
 
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+/** A booking that ended on the office's side, and how, while that's news. */
+type Ending = PageData['jobs'][number] & { end: Ended }
+
+/**
+ * A booking that ended on the office's side, in its place among their bookings while that's news (UX sweep, 6 November
+ * 2026, move 6): how it ended as the card's first line, in its heading with the job, so moving through the page by its
+ * headings hears it too; then the row's line. Nothing to answer or open.
+ */
+function endedCard(d: PageData, j: PageData['jobs'][number], end: Ended) {
+  const { offer, call } = j
+  const mine = d.flash?.offer === offer.id && !d.flash.section ? d.flash : undefined
+  return `<article class="offer ended" id="o-${h(offer.id)}">
+    ${mine ? flash(mine) : ''}
+    <h3><span class="news">${h(ENDED_TEXT[end.by])}</span> ${h(call.project)}</h3>
+    <p class="small">${h(bookingLine(offer, call, d.today))}</p>
+  </article>`
+}
 
 /**
  * Today's work (ADR 0028), or tomorrow's from 6pm: at the top, since on the
@@ -288,7 +340,10 @@ function todayCard(d: PageData, t: OnTheDay): string {
   const mine = d.flash?.section === 'late' && d.flash.offer === offer.id ? d.flash : undefined
   const late = t.said.filter((l) => !l.arrivedAt)
   const there = t.said.filter((l) => l.arrivedAt)
-  const facts = [call.role, call.callTime && `call ${call.callTime}`, call.venue].filter(Boolean).join(' · ')
+  // The call time and venue with what they said yes to, and a change that can't be said that way, as on the booking's card, so the two never disagree.
+  const since = d.since?.get(offer.id)
+  const then = since?.was
+  const facts = [h(call.role), call.callTime && `call ${h(call.callTime)}${was(then?.callTime)}`, call.venue && `${h(call.venue)}${was(then?.venue)}`].filter(Boolean).join(' · ')
   const office = officeContact(d.office)
   const ring = t.contact?.phone ? { name: t.contact.name, phone: t.contact.phone } : office?.phone ? { name: 'the office', phone: office.phone } : null
   // With two days open (the evening of one booked day before another), each line says which day it's for.
@@ -296,7 +351,8 @@ function todayCard(d: PageData, t: OnTheDay): string {
   return `<article class="offer today-card" id="late-${h(offer.id)}">
     ${mine ? flash(mine) : ''}
     <header><h3>${h(call.project)}${call.phase ? ` <span>${h(call.phase)}</span>` : ''}</h3><span class="tag confirmed">${h(capital(t.days.map((x) => lateDayWord(x, d.today)).join(' and ')))}</span></header>
-    <p class="small">${h(facts)}</p>
+    ${since?.unclear ? `<p class="news">${h(UNCLEAR)}</p>` : ''}
+    <p class="small">${facts}</p>
     <a class="sheet-link" href="${d.base}/sheet/${encodeURIComponent(call.id)}">Call sheet: who's on, where, and who to ring ›</a>
     ${late
       .map(
@@ -423,24 +479,41 @@ function details(d: PageData): string {
   </section>`
 }
 
-/** How an offer in "Declined and withdrawn" ended, and the day it did: when they answered, or when the office withdrew it or the place went. */
-function ended(o: Offer, endedAt: string | undefined, today: string): string {
+/**
+ * How an offer in "Declined and withdrawn" ended, and the day it did: when they answered, or when it ended on the
+ * office's side, in the words its card says it in.
+ */
+function ended(o: Offer, end: Ended | undefined, today: string): string {
   const on = (iso: string | null | undefined) => (iso ? ` on ${onDay(iso, today)}` : '')
   switch (o.status) {
     case 'declined':
       return `You declined${on(o.respondedAt)}`
+    // The one name for it on both sides (UX sweep, 6 November 2026, move 6), with the day they told us.
     case 'pulled-out':
-      return `You pulled out${on(o.respondedAt)}`
+      return `Can't make it: you told us${on(o.respondedAt)}`
     case 'cancelled':
-      return `Withdrawn${on(endedAt)}`
-    case 'filled':
-      return `Filled by someone else${on(endedAt)}`
+    case 'filled': {
+      const how = ENDED_TEXT[end?.by ?? (o.status === 'filled' ? 'filled' : 'withdrawn')]
+      // "As of", so the day it was known isn't read as the job's own day.
+      return end?.by === 'job-lost' ? `${how}, as of ${onDay(end.at, today)}` : `${how}${on(end?.at)}`
+    }
     // The job went by while the office still had their rate to decide on.
     case 'countered':
       return "Your rate wasn't agreed"
     default:
       return 'Not answered'
   }
+}
+
+/** What's over shows its latest three, as bookings show their next three; the rest fold, never cut off (UX sweep, 6 November 2026, move 6). */
+const OVER_SHOWN = 3
+
+/** One list of what's over, latest first: the first few, and the rest under "Earlier (n)", shut until opened. */
+function overList(lines: readonly string[]): string {
+  const rest = lines.slice(OVER_SHOWN)
+  return `<ul class="closed">${lines.slice(0, OVER_SHOWN).join('')}</ul>${
+    rest.length ? `<details class="later"><summary><b>Earlier (${rest.length})</b></summary><ul class="closed">${rest.join('')}</ul></details>` : ''
+  }`
 }
 
 /** One line of "Past work" or "Declined and withdrawn": the job, the role, the days, and how it ended. */
@@ -587,20 +660,20 @@ function offers(d: PageData, waiting: PageData['jobs']): string {
  * one line each, the job, the role, the days and where it stands, opening in place with no script. Forty bookings drawn
  * in full was a thirty-five-screen scroll. One a message or a refused post is about opens, so the page lands on it.
  */
-function bookings(d: PageData, booked: PageData['jobs']): string {
+function bookings(d: PageData, booked: PageData['jobs'], ending: readonly Ending[]): string {
   // In the order Home › Me and their page in the app list them (UX sweep, 6 November 2026, move 6).
-  const sorted = soonestFirst(booked, d.today, asBooking)
-  const later = sorted.slice(BOOKINGS_IN_FULL)
-  return `${sorted.slice(0, BOOKINGS_IN_FULL).map((j) => offerCard(d, j)).join('')}${
-    later.length
-      ? `<p class="small">${later.length === 1 ? 'One more booking' : `${later.length} more bookings`} after these, a line each: tap one to open it.</p>${later
-          .map((j) => {
-            const about = d.flash?.offer === j.offer.id || d.kept?.form === `offer:${j.offer.id}`
-            return `<details class="later"${about ? ' open' : ''}>${laterRow(d, j)}${offerCard(d, j)}</details>`
-          })
-          .join('')}`
-      : ''
-  }`
+  const later = soonestFirst(booked, d.today, asBooking).slice(BOOKINGS_IN_FULL)
+  const more = `<p class="small">${later.length === 1 ? 'One more booking' : `${later.length} more bookings`} after these, a line each: tap one to open it.</p>`
+  // One that ended on the office's side is in its place among them, as their page in the app has it: a card wherever it falls, as it's news.
+  return soonestFirst<PageData['jobs'][number] & { end?: Ended }>([...booked, ...ending], d.today, asBooking)
+    .map((j) => {
+      if (j.end) return endedCard(d, j, j.end)
+      if (!later.includes(j)) return offerCard(d, j)
+      // Open on its own when a message is about it, or it changed since they said yes (the design system's Disclosure).
+      const about = d.flash?.offer === j.offer.id || d.kept?.form === `offer:${j.offer.id}` || d.since?.has(j.offer.id)
+      return `${j === later[0] ? more : ''}<details class="later"${about ? ' open' : ''}>${laterRow(d, j)}${offerCard(d, j)}</details>`
+    })
+    .join('')
 }
 
 /**
@@ -616,7 +689,7 @@ function stillBooked(u: Unavailability, booked: PageData['jobs'], today: string)
   if (!hits.length) return ''
   const on = hits.map(({ j, days }) => `<a href="#o-${h(j.offer.id)}">${h(j.call.project)}</a> ${days.length === 1 && hits.length === 1 ? 'that day' : `on ${h(daysLabel(days, today))}`}`).join(' and ')
   const which = hits.length === 1 ? 'that booking' : 'each booking'
-  return `<p class="clash">You're booked on ${on}. Days off don't take you off it: use Can't make it any more on ${which}.</p>`
+  return `<p class="clash">You're booked on ${on}. Days off don't take you off it: use Can't make it on ${which}.</p>`
 }
 
 /**
@@ -710,15 +783,21 @@ export function renderPage(d: PageData): string {
   const current = d.jobs.filter((j) => j.call.end >= d.today && j.call.status === 'open')
   const waiting = current.filter((j) => j.offer.status === 'offered' || j.offer.status === 'countered')
   const booked = current.filter((j) => j.offer.status === 'accepted' || j.offer.status === 'confirmed')
-  // Jobs they held that are over, apart from offers that ended another way: declined, withdrawn, filled, pulled out of, or never answered.
-  const past = d.jobs.filter((j) => !booked.includes(j) && HOLDING.includes(j.offer.status)).slice(-8).reverse()
-  const turned = d.jobs.filter((j) => !waiting.includes(j) && !booked.includes(j) && !HOLDING.includes(j.offer.status)).slice(-8).reverse()
+  // Bookings that ended on the office's side, said in their place while that's news, as a change to one is: a week, or until the call.
+  const ending: Ending[] = d.jobs.flatMap((j) => {
+    const end = d.ended.get(j.offer.id)
+    return j.offer.status === 'cancelled' && end?.held && isNews(new Date(end.at), { days: j.offer.days, callTime: j.call.callTime }, d.now) ? [{ ...j, end }] : []
+  })
+  const endingIds = new Set(ending.map((j) => j.offer.id))
+  // Jobs they held that are over, apart from offers that ended another way: declined, withdrawn, filled, can't make it, or never answered. Latest first, all of them.
+  const past = d.jobs.filter((j) => !booked.includes(j) && HOLDING.includes(j.offer.status)).reverse()
+  const turned = d.jobs.filter((j) => !waiting.includes(j) && !booked.includes(j) && !endingIds.has(j.offer.id) && !HOLDING.includes(j.offer.status)).reverse()
   const first = firstName(d.person)
   // A message about an offer sits in that offer's card, one about their details in that section, one about running late in today's card; any other at the top.
   const inCard =
     d.flash?.section === 'late'
       ? (d.onTheDay ?? []).some((t) => t.offer.id === d.flash?.offer)
-      : [...waiting, ...booked].some((j) => j.offer.id === d.flash?.offer) || d.flash?.section === 'details' || d.flash?.section === 'documents' || d.flash?.section === 'away' || d.flash?.section === 'calendar'
+      : [...waiting, ...booked, ...ending].some((j) => j.offer.id === d.flash?.offer) || d.flash?.section === 'details' || d.flash?.section === 'documents' || d.flash?.section === 'away' || d.flash?.section === 'calendar'
 
   return `<!doctype html>
 <html lang="en-IE">
@@ -751,7 +830,8 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 
   <section id="bookings">
     <h2>Your bookings</h2>
-    ${booked.length ? bookings(d, booked) : '<p class="empty">No upcoming bookings.</p>'}
+    ${bookings(d, booked, ending)}
+    ${booked.length ? '' : '<p class="empty">No upcoming bookings.</p>'}
     ${feedBlock(d.feed)}
   </section>
 
@@ -766,9 +846,9 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 
   ${details(d)}
 
-  ${past.length ? `<section><h2>Past work</h2><ul class="closed">${past.map((j) => earlierLine(j, j.offer.status === 'confirmed' ? 'Confirmed' : 'Accepted, never confirmed', d.today)).join('')}</ul></section>` : ''}
+  ${past.length ? `<section><h2>Past work</h2>${overList(past.map((j) => earlierLine(j, j.offer.status === 'confirmed' ? 'Confirmed' : 'Accepted, never confirmed', d.today)))}</section>` : ''}
 
-  ${turned.length ? `<section><h2>Declined and withdrawn</h2><ul class="closed">${turned.map((j) => earlierLine(j, ended(j.offer, d.ended.get(j.offer.id), d.today), d.today)).join('')}</ul></section>` : ''}
+  ${turned.length ? `<section><h2>Declined and withdrawn</h2>${overList(turned.map((j) => earlierLine(j, ended(j.offer, d.ended.get(j.offer.id), d.today), d.today)))}</section>` : ''}
 
   <footer>
     <a href="${d.base}/data.json">Download everything we hold on you</a>
@@ -902,7 +982,9 @@ input[type=checkbox],input[type=radio]{min-height:0}fieldset.days input{width:20
 .flash{margin:0;padding:12px 14px;border-radius:10px;font-weight:600}.flash.ok{background:var(--panel);color:var(--ink);border:1px solid var(--line)}.flash.bad{background:var(--bad-soft);color:var(--bad)}.flash.warn{background:var(--warn-soft);color:var(--warn)}
 /* A refusal about one field is the app's refusal line, under it: the bad wash, never amber, with the field's edge in the bad tone, drawn twice as heavy inside the box so the field keeps its size beside its pair. */
 .field-error{margin:-4px 0 0;padding:${CONTROL_PAD};border-radius:8px;background:var(--bad-soft);color:var(--bad)}input[aria-invalid=true],textarea[aria-invalid=true],.unit-box:has([aria-invalid=true]){border-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad)}.unit-box input[aria-invalid=true]{box-shadow:none}
-.clash{margin:0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}
+.clash,.news{margin:0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}
+/* A booking's change since the yes, "07:30 (was 09:00)", and how one that ended went, as its first line: attention, as each needs a look (UX sweep, 6 November 2026, move 6). */
+.was{color:var(--warn);font-weight:600}.offer.ended{border-left-color:var(--warn)}.offer.ended h3 .news{display:block;margin-bottom:10px;font-size:1rem}
 .empty,.small{color:var(--muted);margin:0;font-size:.92rem}
 .demo-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0;padding:8px 16px;background:var(--ink);color:var(--bg);font-size:.9rem}
 .demo-bar a{color:inherit;font-weight:700;white-space:nowrap}
@@ -912,6 +994,8 @@ html:has(.glance){scroll-padding-top:104px}@media (min-width:600px){html:has(.gl
 .glance{display:flex;flex-wrap:wrap;gap:4px;font-weight:600;font-size:.95rem;position:sticky;top:0;z-index:1;margin:0 -16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
 details.later{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:0 12px}details.later[open]{padding-bottom:12px}
 details.later summary{color:var(--ink);font-size:.95rem;padding:12px 0}details.later summary .tag{margin-left:4px}details.later .offer{border:0;padding:0;background:none}
+/* Giving a job up keeps its bad tone inside a folded booking too, where the row's summary rule would draw it in ink. */
+details.later :is(.pull-out,.decline) summary{color:var(--bad)}
 /* A folded row as the app draws one: the job, then role · phase · days · call under it, then where it stands. */
 details.later summary .line{display:block;margin-top:2px;color:var(--muted);font-size:.9rem;text-wrap:pretty}
 .glance a{color:inherit}

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.95.0',
+    date: '2026-11-07',
+    title: 'Your link says what changed since you said yes',
+    what: "A freelancer's own page now shows what the office changed on a booking after they said yes: the new call time, days or venue, with what they agreed to in brackets, for a week or until the call. A booking on a job that was cancelled or didn't go ahead says so at the top of its card, the app says \"Job cancelled\" or \"Job lost\" beside it on their page and on Home, and the question you're asked before stopping a job now uses the same words. Pulling out is called \"Can't make it\" everywhere: on their page, in the office's lists and in the history. Older work and offers fold under \"Earlier\" instead of stopping at eight.",
+    prs: [228],
+    adrs: [2, 48],
+  },
+  {
     version: '1.94.0',
     date: '2026-11-07',
     title: 'Links take you to the part they name',

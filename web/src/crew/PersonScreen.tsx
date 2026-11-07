@@ -9,7 +9,10 @@ import {
   levelLine,
   LEVELS,
   newId,
+  type CallView,
+  type OfferView,
   type PersonView,
+  type ProjectStatus,
   type View,
 } from '@sh/shared'
 import { CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
@@ -28,7 +31,7 @@ import { client } from '../sync.ts'
 import { CREW, PEOPLE } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { CombineWith, useSamePeople } from './Combine.tsx'
-import { asBooking, BookingRow } from './BookingRow.tsx'
+import { asBooking, BookingRow, stoppedBookings } from './BookingRow.tsx'
 import { useMe } from './Leave.tsx'
 import { linkFor } from './Messages.tsx'
 import { PersonForm } from './People.tsx'
@@ -387,8 +390,8 @@ function ComingUp({ person, view, own, onArchived }: { person: PersonView; view:
   // Offers still waiting on them: like a booking, settled before they can be archived. The server checks the same.
   const waiting = ahead.filter(({ o }) => o.status === 'offered' || o.status === 'countered')
   const off = crew.unavailability.filter((u) => u.personId === person.id && u.end >= today)
-  // In the order their link and Home › Me list them (UX sweep, 6 November 2026, move 6).
-  const lines = soonestFirst([...booked, ...waiting], today, asBooking)
+  // In the order their link and Home › Me list them, with theirs on a job that was stopped in its place (UX sweep, 6 November 2026, move 6).
+  const lines = soonestFirst<{ c: CallView; o: OfferView; job?: ProjectStatus }>([...booked, ...waiting, ...stoppedBookings(view, person.id, today)], today, asBooking)
   const archive = () => {
     // The same test as the server's: held days from today on, or any offer still waiting.
     const hold = booked.find(({ o }) => o.days.some((d) => d >= today)) ?? waiting[0]
@@ -416,9 +419,9 @@ function ComingUp({ person, view, own, onArchived }: { person: PersonView; view:
       {lines.length === 0 && off.length === 0 && <Empty>Nothing booked or offered, and no days off.</Empty>}
       {lines.length > 0 && (
         <ul className="job-list">
-          {lines.map(({ c, o }) => (
+          {lines.map(({ c, o, job }) => (
             <li key={o.id}>
-              <BookingRow c={c} o={o} today={today} {...(c.projectId ? { href: `#jobs/${c.projectId}/crew` } : {})} {...(own ? { link: linkFor(person) } : {})} />
+              <BookingRow c={c} o={o} today={today} {...(c.projectId ? { href: `#jobs/${c.projectId}/crew` } : {})} {...(own ? { link: linkFor(person) } : {})} {...(job ? { job } : {})} />
             </li>
           ))}
         </ul>

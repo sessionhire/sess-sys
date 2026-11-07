@@ -477,7 +477,7 @@ export function CrewScreen() {
                                   : `asks ${euro(o.counterRateCents)} a day (offered ${rateText(c.dayRateCents, c.rateHidden)})`
                                 : kind === 'declined'
                                   ? 'declined'
-                                  : "can't make it any more"}
+                                  : "can't make it"}
                             <p>
                               {c.project} · {c.role} · {daysLabel(o.days)}
                               {(kind === 'declined' || kind === 'pulled-out') && (

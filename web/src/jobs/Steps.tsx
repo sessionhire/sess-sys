@@ -1,4 +1,4 @@
-import { dayLabel, firstName, irishToday, STAGE_OF, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { dayLabel, firstName, irishToday, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { peopleOn, promptFor, type Share } from '../crew/CrewScreen.tsx'
@@ -297,8 +297,9 @@ function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell
       </p>
       {asking ? (
         <Confirm
+          // What their link says once the job is lost, in its own words (UX sweep, 6 November 2026, move 6).
           question={`Marking ${job.name} lost also cancels its crew calls${
-            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see it's withdrawn` : ''
+            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${STOPPED_WORDS.lost}` : ''
           }.`}
           yes="Mark it lost"
           loss

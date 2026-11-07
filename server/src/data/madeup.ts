@@ -30,7 +30,7 @@ import { addDays, newId, venueLabel, type CertificateKind, type CommandInput, ty
  * - timesheets (ADR 0022) for the gala that's over: one sent with extras,
  *   waiting on the office; one approved with a change; and one not in yet;
  * - the office's own details, on every freelancer page, and a freelancer
- *   who was booked and can't make it any more, waiting in "Answers to
+ *   who was booked and can't make it, waiting in "Answers to
  *   check" beside the decline;
  * - staff leave (ADR 0024): this year open for leave and next year not, so
  *   opening it can be tried; the staff's allowances for this year, Aoife

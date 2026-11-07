@@ -1,7 +1,7 @@
 import { canApproveLeave, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
-import { glanceParts, HOLDING, nextBooking, OPEN, soonestFirst, type CallView, type OfferView } from '@sh/shared'
+import { glanceParts, HOLDING, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
 import { Fragment, useState } from 'react'
-import { asBooking, BookingRow } from '../crew/BookingRow.tsx'
+import { asBooking, BookingRow, stoppedBookings } from '../crew/BookingRow.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
 import { Empty } from '../Empty.tsx'
@@ -648,15 +648,20 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
       </section>
     )
   }
-  // Their bookings and the offers waiting on them, in the order their link and their own page list them (UX sweep, 6 November 2026, move 6).
-  const mine = soonestFirst(
-    view.crew.calls
-      .filter((c) => c.status === 'open' && c.end >= today)
-      .flatMap((c) => c.offers.filter((o) => o.personId === me.id && (HOLDING.includes(o.status) || OPEN.includes(o.status))).map((o) => ({ c, o }))),
+  // Their bookings and the offers waiting on them, in the order their link and their own page list them, with theirs on a job
+  // that was stopped in its place (UX sweep, 6 November 2026, move 6).
+  const mine = soonestFirst<{ c: CallView; o: OfferView; job?: ProjectStatus }>(
+    [
+      ...view.crew.calls
+        .filter((c) => c.status === 'open' && c.end >= today)
+        .flatMap((c) => c.offers.filter((o) => o.personId === me.id && (HOLDING.includes(o.status) || OPEN.includes(o.status))).map((o) => ({ c, o }))),
+      ...stoppedBookings(view, me.id, today),
+    ],
     today,
     asBooking,
   )
   const booked = mine.filter(({ o }) => HOLDING.includes(o.status))
+  const offered = mine.filter(({ o }) => OPEN.includes(o.status))
   const link = linkFor(me)
   const year = Number(today.slice(0, 4))
   const balance = me.kind === 'staff' ? view.leave.balance(me.id, year) : undefined
@@ -679,12 +684,12 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
           <Empty>No bookings coming up.</Empty>
         ) : (
           <>
-            <MyGlance offers={mine.length - booked.length} next={nextBooking(booked, today, asBooking)} link={link} today={today} />
+            <MyGlance offers={offered.length} next={nextBooking(booked, today, asBooking)} link={link} today={today} />
             <ul className="job-list">
-              {mine.map(({ c, o }) => (
+              {mine.map(({ c, o, job }) => (
                 <li key={o.id}>
                   {/* An offer is answered on their own page (audit, 20 October 2026, finding 35), so its row opens there. */}
-                  <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} />
+                  <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} {...(job ? { job } : {})} />
                 </li>
               ))}
             </ul>
