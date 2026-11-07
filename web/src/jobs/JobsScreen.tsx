@@ -116,8 +116,15 @@ export function JobsScreen() {
   if (hash === '#jobs/money/current-rms/match') return <MatchScreen view={view} />
   if (hash.startsWith('#jobs/money/current-rms/')) return <PastQuoteScreen view={view} id={decodeURIComponent(hash.slice('#jobs/money/current-rms/'.length))} />
   if (hash === '#jobs/notes-kit') return <NotesKitListScreen view={view} />
-  if (hash.startsWith('#jobs/venues/')) return <VenueScreen view={view} id={decodeURIComponent(hash.slice('#jobs/venues/'.length))} />
-  if (hash.startsWith('#jobs/clients/')) return <ClientScreen view={view} id={decodeURIComponent(hash.slice('#jobs/clients/'.length))} />
+  // A record and the tab it's on: #jobs/venues/<id>/<part> (Move 11 of the sweep of 6 November 2026).
+  if (hash.startsWith('#jobs/venues/')) {
+    const [id = '', part] = hash.slice('#jobs/venues/'.length).split('/')
+    return <VenueScreen view={view} id={decodeURIComponent(id)} part={part} />
+  }
+  if (hash.startsWith('#jobs/clients/')) {
+    const [id = '', part] = hash.slice('#jobs/clients/'.length).split('/')
+    return <ClientScreen view={view} id={decodeURIComponent(id)} part={part} />
+  }
   const [, fromNotes] = /^#jobs\/([^/]+)\/notes-kit$/.exec(hash) ?? []
   if (fromNotes) return <NotesKitScreen view={view} jobId={decodeURIComponent(fromNotes)} />
   const [, quote] = /^#jobs\/([^/]+)\/quote$/.exec(hash) ?? []

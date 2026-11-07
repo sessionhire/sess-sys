@@ -31,6 +31,16 @@ waiting on someone.
   By month gains Lost; Home's Money card shows Money's own list
   (`MoneyFacts`) in place of its sentence.
 
+- Move 11, first part, the Jobs area's record heads (1.103.0): the client
+  and the venue take the shared page head (name, Pending beside it, a sub
+  line "Client · 2 jobs · Declan Moore" / "Venue · Dublin 1 · 2 jobs
+  here") and the shared Tabs (client: Details · Documents · Jobs; venue:
+  Details · On the map · Documents · Jobs here), addressed as
+  #jobs/clients/<id>/<part>; the quote and the pick list take the job's
+  name in the head with "Quote · version 2 · <client> · <dates>" or
+  "Pick list · <dates>" under it and the quote's pill or the job's
+  position beside it; the QUOTE kicker and the first card's h1 go.
+
 **Left for later**
 
 - A Company count narrowed for a head naming their department ("2 LX

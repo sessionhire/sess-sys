@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.103.0',
+    date: '2026-11-07',
+    title: 'Clients, venues, quotes and pick lists open like a job',
+    what: "A client's page and a venue's page now have the name at the top as a job does, with a line under it, such as Client · 12 jobs · Shane Lynch or Venue · Dublin 1 · 8 jobs here. Their parts are tabs: a client has Details, Documents and Jobs, and a venue has Details, On the map, Documents and Jobs here. A venue's address offers On the map once it has a pin. A quote and a pick list are headed by the job's name, with Quote · version 2 or Pick list and the dates under it, and the quote's state or the job's position beside it, in place of the QUOTE and Pick list headings inside their first card.",
+    prs: [0],
+  },
+  {
     version: '1.102.0',
     date: '2026-11-07',
     title: 'A job over but not finished stays in reach, and Money sums what was lost',

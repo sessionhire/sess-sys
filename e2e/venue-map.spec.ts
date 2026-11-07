@@ -76,6 +76,9 @@ test("a venue's own map gives directions, and its pin is moved by a pasted link 
   await page.goto('/#jobs/venues')
   await expect(page.getByRole('status')).toHaveText('Up to date')
   await page.getByRole('link', { name: /^Northbank Conference Centre/ }).click()
+  // On the venue's Details, a pinned address offers its tab (Move 11 of the sweep of 6 November 2026).
+  await page.getByRole('region', { name: 'Details' }).getByRole('button', { name: 'On the map' }).click()
+  await expect(page.getByRole('tab', { name: 'On the map' })).toHaveAttribute('aria-selected', 'true')
   const card = page.getByRole('region', { name: 'On the map' })
   await expect(card.getByRole('region', { name: 'Map of Northbank Conference Centre' })).toBeVisible()
   await expect(card.locator('.map-pin')).toHaveCount(1)

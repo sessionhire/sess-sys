@@ -250,17 +250,21 @@ function Pick({ view, job }: { view: View; job: JobView }) {
 
   return (
     <div className="app jobs warehouse pick">
-      <Top view={view} up={{ steps: [JOBS, { href: `#jobs/${job.id}`, label: job.name }], here: 'Pick list' }} />
+      {/* The job's name heads its pick list, as it heads the job and its quote (Move 11 of the sweep of 6 November 2026). */}
+      <Top
+        view={view}
+        up={{ steps: [JOBS, { href: `#jobs/${job.id}`, label: job.name }], here: 'Pick list' }}
+        heading={job.name}
+        badge={job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
+        sub={
+          <p>
+            Pick list · {job.span ? spanLabel(job.span) : 'No dates yet'}
+            {holdOf(job.status) !== 'held' && ` · ${STATUS_LABELS[job.status]}, not confirmed, but its kit can still go out.`}
+          </p>
+        }
+      />
 
       <section className="card" aria-label="Scanning">
-        <header className="title">
-          <h1>Pick list</h1>
-          {job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
-        </header>
-        <p className="hint">
-          {job.name} · {job.span ? spanLabel(job.span) : 'No dates yet'}
-          {holdOf(job.status) !== 'held' && ` · ${STATUS_LABELS[job.status]}, not confirmed, but its kit can still go out.`}
-        </p>
         <div className="filters" role="group" aria-label="Going out or coming back">
           <button type="button" aria-pressed={mode === 'out'} onClick={() => setMode('out')}>
             Going out
