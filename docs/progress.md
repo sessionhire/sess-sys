@@ -28,6 +28,16 @@ waiting on someone.
   ended before November 2026 (`INVOICES_FROM`) are "Not needed", so the
   group starts honest rather than with every old quote. Question 9's
   answer (tone and count, no "At risk" state) needed no change.
+- Move 5c, the record picker's half step (1.107.0, PR #242): `ProductPicker`
+  becomes `RecordPicker` (web/src/RecordPicker.tsx) with the system's
+  combobox keys, `find` and `meta` given by each use, and Offer to… on a
+  call is it: the search box and the select are one, the department,
+  level and skills the meta line with a certificate gap, "⚠ not free then"
+  and "busy in own calendar", the call's department first at rest, Show
+  applicants a checkbox under it. Enter while typing never sends the form.
+  Eight offers at most, and on a phone the list grows with the page
+  rather than scrolling inside it. Client, venue, place and supplier wait
+  for a month of use, as the sweep says.
 
 ## 7 November 2026: batch 4 of the UX sweep, the pages that are someone's own
 
