@@ -9,7 +9,7 @@ waiting on someone.
 
 - Batch 4, straight after batch 3 on Colly's "And then proceed to the next
   batch": moves 10b and 11.
-- Move 10b, first part, Home for whoever is looking (1.101.0): one line on
+- Move 10b, first part, Home for whoever is looking (1.101.0, PR #236): one line on
   the week above the Company view's counts ("The next seven days: 4 confirmed jobs
   on, 2 short of crew or kit · €19,189 confirmed of €22,729 quoted for
   November 2026", the money for whoever sees it, from Money's own

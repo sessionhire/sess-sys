@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-07',
     title: "Home's Company view opens on the week in one line",
     what: "Home's Company view now opens with one line on the next seven days: how many confirmed jobs are on and how many are short of crew or kit, and for whoever sees money, this month's confirmed of quoted, the same figures Money shows. It turns amber when something stops work. The Money card now comes straight after the week ahead, not at the bottom. Housekeeping is a fold with its count, closed for a director and open for everyone else, and this phone remembers how you left it. Each count says how many more there are since you last looked at Home on an earlier day on this phone, such as 2 more since Tuesday, and says nothing when nothing went up. The count of jobs whose next task is down to nobody now takes only the jobs starting within a fortnight. The head of the warehouse starts on the Warehouse view.",
-    prs: [0],
+    prs: [236],
   },
   {
     version: '1.100.0',
