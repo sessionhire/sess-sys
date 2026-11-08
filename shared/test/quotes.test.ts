@@ -413,6 +413,20 @@ describe('quotes to follow up (ADR 0081)', () => {
     expect(f.passed.map((x) => x.job.name)).toEqual(['Just gone', 'Long gone'])
   })
 
+  it('says when a quote waiting for an answer held its prices until a day that has passed (research/quoting.md, feature 4)', () => {
+    const rows = [
+      { job: job('Held to the 30th', 'quoted'), current: quote({ sentOn: '2026-09-27', validDays: 33 }) },
+      { job: job('Ran out', 'quoted'), current: quote({ sentOn: '2026-09-20' }) },
+      { job: job('Still holds', 'quoted'), current: quote({ sentOn: '2026-10-01', validDays: 30 }) },
+    ]
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, today)
+    expect(f.waiting.map((x) => [x.job.name, x.ranOut])).toEqual([
+      ['Ran out', '2026-10-20'],
+      ['Held to the 30th', undefined],
+      ['Still holds', undefined],
+    ])
+  })
+
   it('counts a quote worth a call from a week after it was sent, the longest waiting first, as the first of those waiting', () => {
     // Proves (Move 10 of the sweep of 6 November 2026): one list, which Quotes marks, Notifications lists and Home counts.
     const rows = [

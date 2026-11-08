@@ -146,7 +146,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [discounting, setDiscounting] = useState<string>()
   const [sentOn, setSentOn] = useState(today)
   const [answering, setAnswering] = useState(false)
-  // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26).
+  // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26),
+  // and so is anything else on the list of what to look at before it goes (research/quoting.md, feature 3).
   const [free, setFree] = useState<'mark' | 'email'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
   const canEmail = useQuotesByEmail(m)
@@ -268,6 +269,16 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const costOf = (l: QuoteLine) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined)
   const margin = quoteMargin(totals.net, all.map(costOf))
   const noCostLines = boss ? good.filter((l) => costOf(l) === undefined) : []
+  // What to look at before a quote goes (research/quoting.md, feature 3), gathered at the moment it's sent or marked
+  // sent, each opening where it's put right: what the client would see wrong, not the cost side, which isn't printed.
+  const beforeItGoes: { key: string; words: string; look?: () => void }[] = []
+  if (unpricedLines.length)
+    beforeItGoes.push({ key: 'price', words: `${plural(unpricedLines.length, 'line')} with no price, which ${unpricedLines.length === 1 ? 'goes' : 'go'} to the client as €0.00`, look: () => openLine(unpricedLines[0]!.id, 'price') })
+  if (shortLines.length)
+    beforeItGoes.push({ key: 'short', words: `${plural(shortLines.length, 'line')} short of kit on the job's days`, look: () => openLine(shortLines[0]!.id) })
+  if (extras.travel.km === null && good.some((l) => l.kind === 'crew'))
+    beforeItGoes.push({ key: 'travel', words: "No travel for the crew: the venue isn't on the map, so the distance isn't known", look: () => openLine(TRAVEL_ROW) })
+  if (job.span && job.span.start < today) beforeItGoes.push({ key: 'past', words: `The job's first day, ${dayLabel(job.span.start)}, has passed` })
   // What each line was last charged in Current RMS (ADR 0092), by the names it goes by there.
   const namesOf = (l: LineDraft) => rmsNames(l, (id) => view.warehouse.models.find((x) => x.id === id))
   const last = useLastCharged(boss, job.id, lines.flatMap(namesOf).slice(0, MOST_LAST_CHARGED_NAMES))
@@ -793,17 +804,18 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 <button
                   type="button"
                   className={canEmail ? undefined : 'primary'}
-                  onClick={() => (unpricedLines.length ? setFree('mark') : void run(() => markSent(q.id, job, sentOn || today)))}
+                  onClick={() => (beforeItGoes.length ? setFree('mark') : void run(() => markSent(q.id, job, sentOn || today)))}
                 >
                   Mark as sent
                 </button>
               </div>
             )}
-            {free && unpricedLines.length > 0 && (
+            {free && beforeItGoes.length > 0 && (
               <Confirm
-                question={`${plural(unpricedLines.length, 'line')} ${unpricedLines.length === 1 ? 'has' : 'have'} no price and will go to the client as €0.00. ${free === 'email' ? 'Send it anyway?' : 'Mark it sent anyway?'}`}
+                className="before-it-goes"
+                question={beforeItGoes.length === 1 ? `Before it goes: ${beforeItGoes[0]!.words}.` : `Before it goes, ${beforeItGoes.length} things to look at.`}
                 yes={free === 'email' ? 'Send it anyway' : 'Mark it sent anyway'}
-                no="Price it first"
+                no="Look first"
                 onYes={() => {
                   setFree(undefined)
                   if (free === 'email') setSending('email')
@@ -811,13 +823,36 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 }}
                 onNo={() => {
                   setFree(undefined)
-                  openLine(unpricedLines[0]!.id, 'price')
+                  beforeItGoes.find((b) => b.look)?.look?.()
                 }}
-              />
+              >
+                {beforeItGoes.length > 1 && (
+                  <ul>
+                    {beforeItGoes.map((b) => (
+                      <li key={b.key}>
+                        {b.look ? (
+                          <button
+                            type="button"
+                            className="link"
+                            onClick={() => {
+                              setFree(undefined)
+                              b.look!()
+                            }}
+                          >
+                            {b.words}
+                          </button>
+                        ) : (
+                          b.words
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Confirm>
             )}
             <div className="actions">
               {saved && q.lines.length > 0 && canEmail && (
-                <button type="button" className="primary" onClick={() => (unpricedLines.length ? setFree('email') : setSending('email'))}>
+                <button type="button" className="primary" onClick={() => (beforeItGoes.length ? setFree('email') : setSending('email'))}>
                   Send to the client
                 </button>
               )}

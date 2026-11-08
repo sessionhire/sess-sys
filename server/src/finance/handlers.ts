@@ -170,13 +170,22 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (q.invoicedOn) throw new Refused({ code: 'conflict', message: "This quote is invoiced, so the client's answer stays. Take the invoice back first." })
     if (a.answer === 'none') {
       if (q.status !== 'accepted' && q.status !== 'declined') return
-      await ctx.tx.query(`UPDATE quotes SET status = 'sent', answered_on = NULL WHERE id = $1`, [a.id])
+      await ctx.tx.query(`UPDATE quotes SET status = 'sent', answered_on = NULL, declined_why = NULL, declined_note = '' WHERE id = $1`, [a.id])
       return emitQuote(ctx, a.id)
     }
-    if (q.status === a.answer && q.answeredOn === a.on) return
+    // Why it was turned down is kept with a "turned down" only, and a quick "no" says nothing of why.
+    const why = a.answer === 'declined' ? (a.why ?? null) : null
+    const note = a.answer === 'declined' ? (a.note ?? '').trim() : ''
+    if (q.status === a.answer && q.answeredOn === a.on && (q.declinedWhy ?? null) === why && (q.declinedNote ?? '') === note) return
     await refuseIfReplaced(ctx, q)
     if (q.status === 'draft' && q.lines.length === 0) throw new Refused({ code: 'invalid', message: 'This quote has no lines yet. Add what it is for first.' })
-    await ctx.tx.query(`UPDATE quotes SET status = $2, answered_on = $3, sent_on = coalesce(sent_on, $3) WHERE id = $1`, [a.id, a.answer, a.on])
+    await ctx.tx.query(`UPDATE quotes SET status = $2, answered_on = $3, sent_on = coalesce(sent_on, $3), declined_why = $4, declined_note = $5 WHERE id = $1`, [
+      a.id,
+      a.answer,
+      a.on,
+      why,
+      note,
+    ])
     // Answered straight from a draft, it went to the client all the same, so it's numbered as if marked sent.
     if (q.status === 'draft') await numberIt(ctx, q)
     await emitQuote(ctx, a.id)

@@ -40,6 +40,8 @@ const reading: EnquiryReading = {
   other: [],
   questions: ['What time are doors?'],
   summary: 'A car launch.',
+  asker: 'Aoife Byrne',
+  quoteBy: '2027-02-20',
 }
 
 async function setup({ answer = reading as unknown, limitCents = 5_000, key = true, fail }: { answer?: unknown; limitCents?: number; key?: boolean; fail?: Error } = {}) {

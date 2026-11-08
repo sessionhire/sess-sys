@@ -33,6 +33,8 @@ const reading = {
   other: [{ qty: 1, what: 'Delivery and collection' }],
   questions: ['What time can we get in?'],
   summary: 'A product launch for about 300 people over two days.',
+  asker: 'Niamh Kelly',
+  quoteBy: `${year}-02-20`,
 }
 
 let standIn: Server
@@ -111,6 +113,9 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await expect(form.getByLabel("What's the job?")).toHaveValue('Harbour launch')
   await expect(form.getByLabel('Client')).toHaveValue('Liffey Brands')
   await expect(form.getByLabel('From', { exact: true })).toHaveValue(`${year}-03-04`)
+  // Who asked and when they want it by, as the enquiry said (research/quoting.md, feature 6).
+  await expect(form.getByLabel('Who asked')).toHaveValue('Niamh Kelly')
+  await expect(form.getByLabel('Quote wanted by')).toHaveValue(`${year}-02-20`)
   // The client's list of names went to Claude to match against.
   expect(asked[0]!.system).toContain('Liffey Brands')
 

@@ -1,4 +1,4 @@
-import { addDays, irishToday, newId, type CommandInput, type CommandName, type HistoryPage, type Mutation, type MutationResult, type Quote, type QuoteLine } from '@sh/shared'
+import { addDays, dayLabel, irishToday, newId, type CommandInput, type CommandName, type HistoryPage, type Mutation, type MutationResult, type Quote, type QuoteLine } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.ts'
@@ -97,8 +97,17 @@ describe('a quote', () => {
 
     // The same change twice, as a phone may send it, changes nothing more.
     await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0) }), m('quote.answer', { id: 'v2', answer: 'declined', on: day(0) }))
+    expect(await quote('v2')).toMatchObject({ status: 'declined', declinedWhy: null, declinedNote: '' })
+
+    // Why it was turned down (research/quoting.md, feature 5): kept with the answer, said in the history, gone with it.
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0), why: 'elsewhere', note: ' Went with a cheaper PA ' }))
+    expect(await quote('v2')).toMatchObject({ status: 'declined', declinedWhy: 'elsewhere', declinedNote: 'Went with a cheaper PA' })
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'none', on: day(0) }))
+    expect(await quote('v2')).toMatchObject({ status: 'sent', declinedWhy: null, declinedNote: '' })
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0), why: 'price' }))
     const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
     expect(history.entries.map((e) => e.what).join('\n')).not.toMatch(/€/)
+    expect(history.entries.map((e) => e.what)).toContain(`Recorded that the client turned down version 2 of the quote for Autumn Gala on ${dayLabel(day(0))}: went with someone else`)
   })
 
   it("won't go to the client with nothing on it, or onto another job", async () => {

@@ -81,3 +81,52 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
+
+test('before a quote goes it says what to look at, and a quote whose prices ran out says so (research/quoting.md, features 3 and 4)', async ({ browser, request }) => {
+  // Proves: Mark as sent with crew on a quote whose venue isn't on the map asks first, Look first opens the travel row, and
+  // marking it sent anyway sends it; sent forty days ago, Quotes says its prices held until a day that has passed, and so
+  // does the quote above Client accepted.
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.goto('/#quotes')
+  await expect(office.getByRole('status')).toHaveText('Up to date')
+  const quotes = office.getByRole('region', { name: 'To follow up' })
+  await quotes.getByRole('button', { name: 'New quote' }).click()
+  const form = quotes.getByRole('form', { name: 'New quote' })
+  await form.getByLabel("What's the job?").fill('Quayside Gala')
+  // Who asked, how, and the day they want it by (research/quoting.md, feature 6): a line in the job's notes, and the Quote sent task's due day.
+  const quoteBy = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)
+  await form.getByLabel('Quote wanted by').fill(quoteBy)
+  await form.getByLabel('How it came').selectOption('Phone')
+  await form.getByLabel('Who asked').fill('Aoife Byrne')
+  await form.getByRole('button', { name: 'Start the quote' }).click()
+  await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  const job = office.url().replace(/\/quote$/, '')
+  await office.goto(job)
+  await expect(office.locator('main')).toContainText('Enquiry by phone from Aoife Byrne.')
+  await expect(office.locator('main')).toContainText(/Due by|· by /)
+  await office.goto(`${job}/quote`)
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await draft.getByRole('button', { name: 'Add crew' }).click()
+  await draft.getByLabel('Crew role to add').fill('Rigger')
+  await draft.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+
+  const sentOn = new Date(Date.now() - 40 * 86_400_000).toISOString().slice(0, 10)
+  await draft.getByLabel('Sent to the client on').fill(sentOn)
+  await draft.getByRole('button', { name: 'Mark as sent' }).click()
+  const ask = draft.locator('.before-it-goes')
+  await expect(ask).toContainText("Before it goes: No travel for the crew: the venue isn't on the map, so the distance isn't known.")
+  await ask.getByRole('button', { name: 'Look first' }).click()
+  await expect(draft.getByRole('button', { name: /^No travel/ })).toHaveAttribute('aria-expanded', 'true')
+  await draft.getByRole('button', { name: 'Mark as sent' }).click()
+  await ask.getByRole('button', { name: 'Mark it sent anyway' }).click()
+  const records = office.getByRole('region', { name: 'What happened' })
+  await expect(records).toBeVisible()
+  await expect(records).toContainText(/Its prices held until .+\. If the client accepts now, check they still stand/)
+
+  await office.goto('/#quotes')
+  await expect(quotes.getByRole('listitem').filter({ hasText: 'Quayside Gala' })).toContainText(/Prices held until .+: check they stand, or start a new version/)
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})

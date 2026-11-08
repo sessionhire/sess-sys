@@ -178,6 +178,9 @@ export interface Quote {
   sentOn: string | null
   /** The day the client's answer was recorded. */
   answeredOn: string | null
+  /** Turned down, why, as the office heard it, and a note (research/quoting.md, feature 5); none for any other answer. */
+  declinedWhy?: TurnDownReason | null
+  declinedNote?: string
   /** The invoice the office wrote for it, elsewhere: the day, and its number as they wrote it. */
   invoicedOn: string | null
   invoiceRef: string
@@ -335,6 +338,19 @@ export const roleKey = (role: string) => role.trim().replace(/\s+/g, ' ').toLowe
 
 const lines = z.array(quoteLine).max(MAX_LINES, `A quote has room for ${MAX_LINES} lines.`)
 const answer = z.enum(['accepted', 'declined', 'none'])
+
+/** Why a client turned a quote down (research/quoting.md, feature 5), as the office heard it. */
+export const TURN_DOWN_REASONS = ['price', 'dates', 'elsewhere', 'off', 'unsaid'] as const
+export type TurnDownReason = (typeof TURN_DOWN_REASONS)[number]
+export const TURN_DOWN_LABELS: Record<TurnDownReason, string> = {
+  price: 'The price',
+  dates: 'The dates',
+  elsewhere: 'Went with someone else',
+  off: 'The event is off',
+  unsaid: 'No reason given',
+}
+/** The longest note on why a quote was turned down. */
+export const TURN_DOWN_NOTE_LENGTH = 300
 const VALID_HINT = 'Prices hold for a whole number of days from 1 to 365.'
 const validDays = z.number(wrongType(VALID_HINT)).int(VALID_HINT).min(1, VALID_HINT).max(365, VALID_HINT)
 const DEPOSIT_HINT = 'A deposit is a whole percentage from 1 to 100, such as 25 or 50.'
@@ -381,7 +397,14 @@ export const quoteCommandSchemas = {
   /** The office sent it to the client themselves (the app sends nothing): from now on it stays as it is. */
   'quote.sent': z.object({ id, on: day }),
   /** What the client said, as the office heard it, or "none" to take a mistaken answer back. */
-  'quote.answer': z.object({ id, answer, on: day }),
+  'quote.answer': z.object({
+    id,
+    answer,
+    on: day,
+    // Turned down, why (research/quoting.md, feature 5): optional, so an app older than it, and a quick "no", still answer.
+    why: z.enum(TURN_DOWN_REASONS).optional(),
+    note: text(TURN_DOWN_NOTE_LENGTH, 'Why it was turned down').optional(),
+  }),
   /** The invoice for an accepted quote, written outside the app: the day and its number, or null to take it back. */
   'quote.invoiced': z.object({ id, on: day.nullable(), ref: text(60, 'The invoice number') }),
   /** The day an invoiced quote was paid, or null to take it back. */
