@@ -12,6 +12,10 @@ on:
     paths: ['app/**', 'web/src/native.ts', 'web/src/stock/NativeScanner.tsx', '.github/workflows/app.yml', 'package-lock.json']
   workflow_dispatch:
 
+# Reads the code, nothing more.
+permissions:
+  contents: read
+
 concurrency:
   group: app-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
