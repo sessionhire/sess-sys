@@ -255,10 +255,11 @@ function arrived(news: Notice[]) {
 // Each pop-up's timer: how long it has left, and when it last started counting, so a pause picks up where it stopped (WCAG 2.2.1).
 const timers = new Map<string, { left: number; since: number; handle?: ReturnType<typeof setTimeout> }>()
 
-function showToast(t: Toast) {
+/** A pop-up at the screen's edge, for `stay` (news leaves after `timing.notice`) unless the pointer or the keyboard is on it. */
+export function showToast(t: Toast, stay: number = dsTiming.notice) {
   if (toasts.some((x) => x.id === t.id)) return
   toasts = [...toasts, t]
-  timers.set(t.id, { left: dsTiming.notice, since: Date.now() })
+  timers.set(t.id, { left: stay, since: Date.now() })
   resumeToast(t.id)
   tell()
 }

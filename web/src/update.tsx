@@ -14,10 +14,24 @@ import { registerSW } from 'virtual:pwa-register'
 const RELOADED = 'sh.reloadedAt'
 /** Set as the page starts again on its own, read once as it comes back, so the bar can say why. */
 const RESTARTED = 'sh.restarted'
+/** The version this tab was on as it went to load the new one, read once as it comes back, so a toast can say what changed. */
+const LOADED_FROM = 'sh.loadedFrom'
 const listeners = new Set<(ready: boolean) => void>()
 let ready = false
 let reload: (() => Promise<void>) | undefined
 let restarted = false
+/**
+ * The changelog's version this page is on, told by the bar as it's drawn. Not imported from the shared code here:
+ * this file is in the page's first script, and the shared code there would make its schemas before noEval.ts runs.
+ */
+let running: string | undefined
+const remember = () => {
+  try {
+    if (running) sessionStorage.setItem(LOADED_FROM, running)
+  } catch {
+    // Storage blocked: the new version loads all the same, without saying what changed.
+  }
+}
 
 export function watchForUpdates() {
   // The page started again on its own a moment ago: say so, once.
@@ -69,6 +83,7 @@ export function watchForUpdates() {
     } catch {
       // Storage blocked: nothing to remember the reload by, but reload anyway.
     }
+    remember()
     location.reload()
   })
 }
@@ -90,7 +105,8 @@ function useUpdateReady() {
  * before they press. And when the page started again on its own, the same
  * line says so until it's dismissed.
  */
-export function UpdateBar({ unkept = 0 }: { unkept?: number }) {
+export function UpdateBar({ unkept = 0, version }: { unkept?: number; version: string }) {
+  running = version
   const ready = useUpdateReady()
   const [said, setSaid] = useState(restarted)
   if (!ready && said)
@@ -110,6 +126,7 @@ export function UpdateBar({ unkept = 0 }: { unkept?: number }) {
     )
   if (!ready) return null
   const onReload = () => {
+    remember()
     void reload?.()
     // The new version takes the page over and reloads it. Should it not (an older browser, say), start again anyway.
     setTimeout(() => location.reload(), 2000)
@@ -127,4 +144,19 @@ export function UpdateBar({ unkept = 0 }: { unkept?: number }) {
       </button>
     </div>
   )
+}
+
+let told = false
+
+/** The version this tab was on before it loaded this one, once, as the page comes back; null after, or when it wasn't loaded that way. */
+export function takeLoadedFrom(): string | null {
+  if (told) return null
+  told = true
+  try {
+    const from = sessionStorage.getItem(LOADED_FROM)
+    sessionStorage.removeItem(LOADED_FROM)
+    return from
+  } catch {
+    return null
+  }
 }

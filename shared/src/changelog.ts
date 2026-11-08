@@ -28,12 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.114.0',
+    version: '1.115.0',
     date: '2026-11-08',
     title: 'Packages add their kit, listed under them on the quote',
     what: "Adding a package to a quote now adds its kit: the package's line, with each thing in it as a line underneath, to change for that job. On screen the kit is folded under the package, a tap away; on the printed and emailed quote it's listed under it. A package with its own price is charged at that, its kit included; one without a price is its kit at price-list prices, and the package's line adds them up. Racks work the same way, with what's built into them listed underneath. A draft's kit can be saved as a new package, and a package's kit can be added to a job's kit list in one go.",
     prs: [261],
     adrs: [116],
+  },
+  {
+    version: '1.114.0',
+    date: '2026-11-08',
+    title: 'Loading a new version says what changed',
+    what: "After you tap Load the new version, a note at the bottom of the screen says the version you're now on and what came in since the one you had: the newest change by name, and how many more. What's changed in it opens the whole list, with the new ones marked. Every pop-up now reads top to bottom: the title, what it says, then its button at the right, with the close cross in the top corner.",
+    prs: [258],
   },
   {
     version: '1.113.0',
@@ -1679,3 +1686,20 @@ export const CHANGELOG: readonly Release[] = [
 
 /** The app's version: the newest entry's. */
 export const APP_VERSION = CHANGELOG[0]!.version
+
+/** "1.84.1" before "1.85.0": versions compared number by number. */
+export function isNewerVersion(a: string, b: string): boolean {
+  const [x, y] = [a, b].map((v) => v.split('.').map(Number))
+  for (let i = 0; i < 3; i++) if (x![i] !== y![i]) return (x![i] ?? 0) > (y![i] ?? 0)
+  return false
+}
+
+/**
+ * What came in after `from`, up to and including `to`, newest first: what a
+ * device that was on `from` gets by loading `to`. Nothing when `from` isn't a
+ * version this list knows, or isn't older.
+ */
+export function releasesSince(from: string, to: string = APP_VERSION): Release[] {
+  if (!CHANGELOG.some((r) => r.version === from)) return []
+  return CHANGELOG.filter((r) => isNewerVersion(r.version, from) && !isNewerVersion(r.version, to))
+}
