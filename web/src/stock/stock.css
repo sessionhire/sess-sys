@@ -66,6 +66,12 @@
 .label.square { width: 25mm; height: 25mm; flex-direction: column; justify-content: center; gap: .4mm; padding: 1mm; }
 .label.square .qr { width: 19mm; height: 19mm; }
 .label.square b { font-size: 3mm; }
+/* The logo and stock code on a 25 mm square (Colly, 8 Nov): a smaller QR code, still 0.6 mm a module, and one line under the number. */
+.label.square.with-foot .qr { width: 15mm; height: 15mm; }
+.label.square .words { justify-items: center; }
+.label.square .foot { display: flex; align-items: center; gap: 1mm; max-width: 23mm; }
+.label.square .foot .logo { height: 2.6mm; max-width: 11mm; object-fit: contain; filter: grayscale(1); }
+.label.square .foot small { font-size: 2mm; }
 .label.sheet { width: 38.1mm; height: 21.2mm; gap: .8mm; padding: 1mm 1.5mm; }
 .label.sheet .qr { width: 17mm; height: 17mm; }
 .label.sheet b { font-size: 3mm; }
@@ -97,6 +103,7 @@
 .label.cable .bars { display: grid; justify-items: center; width: 100%; }
 .label.cable .bars svg { display: block; width: 100%; height: 9mm; }
 .label.cable .bars small { font-size: 2.2mm; line-height: 1; margin-top: .4mm; }
+.label.cable .face.with-qr .code { font-size: 2.4mm; line-height: 1; }
 /* The length, its colour and the logo (ADR 0106): the colour a word in a black band, read in black alone; in its colour on a colour printer. */
 .label.cable .head { display: flex; align-items: center; justify-content: center; gap: 1.2mm; max-width: 100%; }
 .label.cable .face.with-qr .head { justify-content: flex-start; }

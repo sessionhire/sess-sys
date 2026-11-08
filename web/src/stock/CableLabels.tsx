@@ -128,7 +128,7 @@ function Band({ colour, inColour }: { colour: CableColour; inColour: boolean }) 
   )
 }
 
-/** What one end of a label says: the length and its colour, the words, the code if there is one, and the logo. */
+/** What one end of a label says: the length and its colour, the words, the code if there is one (written out too, under a barcode or beside a QR code), and the logo. */
 function Face({ s, widthMm }: { s: Says; widthMm: number }) {
   const qr = s.kind === 'qr' && s.code
   const bars = s.kind === 'barcode' && s.code
@@ -148,6 +148,7 @@ function Face({ s, widthMm }: { s: Says; widthMm: number }) {
         )}
         <b style={{ fontSize: `${fit(s.words, room, head ? (bars ? 4.2 : 5.5) : bars ? 6.5 : qr ? 7 : 10)}mm` }}>{s.words}</b>
         {bars && <Bars text={s.code} />}
+        {qr && <small className="code">{s.code}</small>}
       </div>
     </div>
   )

@@ -82,7 +82,9 @@ function Range({ r }: { r: LabelRunView }) {
 /**
  * One label: the QR code, the number in large type, and whose it is: the
  * company's logo once there is one (ADR 0106), its name in words until
- * then; and on an item's own label, its product and stock code.
+ * then; and on an item's own label, its product and stock code. A 25 mm
+ * square has room for the logo and stock code on one line under a smaller
+ * QR code, and no name or product.
  */
 export function Label({ number, caption, code, logo, layout }: { number: string; caption?: string; code?: string; logo?: string; layout: Layout }) {
   const { size, path } = useMemo(() => qrCode(labelPayload(number)), [number])
@@ -90,7 +92,7 @@ export function Label({ number, caption, code, logo, layout }: { number: string;
   const quiet = 2
   const side = size + quiet * 2
   return (
-    <div className={`label ${layout}`}>
+    <div className={`label ${layout}${layout === 'square' && (logo || code) ? ' with-foot' : ''}`}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         className="qr"
@@ -104,9 +106,21 @@ export function Label({ number, caption, code, logo, layout }: { number: string;
       </svg>
       <div className="words">
         <b>{number}</b>
-        {layout !== 'square' && (logo ? <img className="logo" src={logo} alt="Session Hire" /> : <small>Session Hire</small>)}
-        {layout !== 'square' && caption && <small className="caption">{caption}</small>}
-        {layout !== 'square' && code && <small className="code">{code}</small>}
+        {layout === 'square' ? (
+          // Room for one short line under the code: the logo and the stock code side by side.
+          (logo || code) && (
+            <span className="foot">
+              {logo && <img className="logo" src={logo} alt="Session Hire" />}
+              {code && <small className="code">{code}</small>}
+            </span>
+          )
+        ) : (
+          <>
+            {logo ? <img className="logo" src={logo} alt="Session Hire" /> : <small>Session Hire</small>}
+            {caption && <small className="caption">{caption}</small>}
+            {code && <small className="code">{code}</small>}
+          </>
+        )}
       </div>
     </div>
   )

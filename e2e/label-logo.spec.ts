@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test'
 
 /**
  * What every label says of the company (ADR 0106): the logo put up under
- * Admin › Company › Labels prints on cable labels, and a cable's length
+ * Admin › Company › Labels prints on item and cable labels, with an item's
+ * stock code in words, and a cable's length
  * goes on in big type with the colour the company gives it, as a word in a
  * black band unless the printer prints colour. The length is read from the
  * name until one is given. The logo comes down again at the end, as other
@@ -31,10 +32,22 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
           args: { id: `xlr-${id}`, name, department: 'audio', category: 'Cables', tracking: 'bulk', isCase: false, valueCents: null, notes: '', patMonths: null, liftingMonths: null, code: `XLR10-${id}` },
           createdAt: new Date().toISOString(),
         },
+        {
+          id: `m2-${id}`,
+          name: 'model.create',
+          args: { id: `amp-${id}`, name: `Amp ${id}`, department: 'audio', category: 'Amps', tracking: 'serialised', isCase: false, valueCents: null, notes: '', patMonths: null, liftingMonths: null, code: `D80-${id}` },
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: `m3-${id}`,
+          name: 'asset.add',
+          args: { id: `amp1-${id}`, modelId: `amp-${id}`, number: null, serial: '', placeId: null, caseId: null, notes: '', fromCount: false },
+          createdAt: new Date().toISOString(),
+        },
       ],
     },
   })
-  expect((await res.json()).results[0].status).toBe('applied')
+  expect((await res.json()).results.map((r: { status: string }) => r.status)).toEqual(['applied', 'applied', 'applied'])
 
   // The logo, put up under Admin, as labels print it.
   await page.goto('/#admin/company')
@@ -45,6 +58,20 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   await expect(shown).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
   // Made a PNG on white on the device, so its edges stay sharp.
   expect((await context.request.get((await shown.getAttribute('src'))!)).headers()['content-type']).toBe('image/png')
+
+  // An item's own label carries the logo and its stock code in words, on a 25 mm square too (Colly, 8 November 2026).
+  await page.goto(`/#stock/item/amp1-${id}`)
+  await page.getByRole('button', { name: 'Print label' }).click()
+  const own = page.getByLabel('Preview').locator('.label')
+  for (const layout of ['Label printer, 50 × 25 mm', 'Label printer, 25 × 25 mm']) {
+    await page.getByRole('radio', { name: layout }).check()
+    await expect(own.locator('img.logo')).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
+    await expect(own.locator('.code')).toHaveText(`D80-${id}`)
+    const [sh, ch, sw, cw] = await own.evaluate((l) => [l.scrollHeight, l.clientHeight, l.scrollWidth, l.clientWidth])
+    expect(sh).toBeLessThanOrEqual(ch! + 1)
+    expect(sw).toBeLessThanOrEqual(cw! + 1)
+  }
+  await page.goto('/#admin/company')
 
   // The usual colours, and 10 m made pink.
   await expect(card.getByRole('listitem').filter({ hasText: 'Over 5 m, up to 10 m' })).toContainText('Green')
