@@ -300,6 +300,10 @@ export async function erasePerson(ctx: Ctx, personId: string, how: EraseHow): Pr
   values.other_emails = JSON.stringify(after.otherEmails ?? [])
   values.certificates = JSON.stringify(after.certificates)
   values.link_token = `erased-${randomBytes(18).toString('base64url')}`
+  // The phones their link remembered, and any code waiting (ADR 0114): secrets of a link that no longer opens.
+  await tx.query(`DELETE FROM link_devices WHERE person_id = $1`, [personId])
+  await tx.query(`DELETE FROM link_codes WHERE person_id = $1`, [personId])
+  await tx.query(`DELETE FROM link_lost WHERE person_id = $1`, [personId])
   Object.assign(values, { company_name: null, company_vat_number: null, company_cro_number: null })
   // Their photo (ADR 0065): its file went on the list of files to delete with their documents' (queueFilesOf).
   Object.assign(values, { photo_key: null, photo_type: null, photo_bytes: null, photo_at: null })

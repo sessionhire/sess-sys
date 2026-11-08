@@ -47,6 +47,8 @@ const MIGRATIONS: string[] = [
     jsonb_build_object('id', id, 'name', name, 'phone', phone, 'email', email, 'useTimesheets', true, 'timesheetsFrom', timesheets_from)
   FROM dated;
   `,
+  // Whether freelancers' links check a new phone with a code, and can be emailed when lost (ADR 0114): on the "links" row, off until the office says.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS check_links boolean;`,
 ]
 
 export const OFFICE: Module = { versionTable: 'office_schema_version', migrations: MIGRATIONS }

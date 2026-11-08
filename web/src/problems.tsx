@@ -266,6 +266,8 @@ function describer(view: View): (m: Mutation) => string {
         return onOff(a.on, 'timesheets')
       case 'assistant.use':
         return onOff(a.on, 'Claude in the app')
+      case 'links.check':
+        return onOff(a.on, "checking new phones on freelancers' links")
       case 'cables.colours':
         return 'Set the colours for cable lengths'
       case 'trackers.use':

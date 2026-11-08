@@ -288,6 +288,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.on === true ? 'Turned on timesheets' : 'Turned off timesheets'
     case 'assistant.use':
       return a.on === true ? 'Turned on Claude' : 'Turned off Claude'
+    case 'links.check':
+      return a.on === true ? "Turned on checking new phones on freelancers' links" : "Turned off checking new phones on freelancers' links"
     case 'cables.colours':
       return `Set the colours for cable lengths${Array.isArray(a.colours) ? ` (${a.colours.length})` : ''}`
     // The company's logo (ADR 0106): that it changed, never the picture.

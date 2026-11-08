@@ -32,6 +32,8 @@ export const ASSISTANT_SETTING_ID = 'assistant'
 export const CABLES_SETTING_ID = 'cables'
 /** The company's logo on labels (ADR 0106): the seventh setting, with only `logo` to it, put up as a photo is. */
 export const LOGO_SETTING_ID = 'logo'
+/** Whether a freelancer's link asks for a code on a phone it hasn't seen (ADR 0114): the eighth setting, with only `checkLinks` to it. */
+export const LINKS_SETTING_ID = 'links'
 
 export const setting = z.object({
   id,
@@ -67,6 +69,13 @@ export const setting = z.object({
    * to Anthropic.
    */
   useAssistant: z.boolean().optional(),
+  /**
+   * On the "links" setting (ADR 0114): whether a freelancer's private link,
+   * opened on a phone it hasn't seen before, asks for a code sent to their
+   * email, and whether a freelancer who has lost their link can have it
+   * emailed. Off until the office says, since both send an email.
+   */
+  checkLinks: z.boolean().optional(),
   /** On the "cables" setting (ADR 0106): the colour for each cable length, shortest first; the default list until the office saves one. */
   cableColours: cableColourList.optional(),
   /** On the "logo" setting (ADR 0106): when the logo was put up, which makes its address (logoPath). Set by the server alone. */
@@ -108,6 +117,8 @@ export const officeCommandSchemas = {
   }),
   /** Whether Claude is offered inside the app (ADR 0096). The office's to decide, under Admin. */
   'assistant.use': z.object({ on: z.boolean() }),
+  /** Whether freelancers' links check new phones and can be emailed when lost (ADR 0114). The office's to decide, under Admin. */
+  'links.check': z.object({ on: z.boolean() }),
   /** The colour for each cable length (ADR 0106), the whole list at once. The office's, under Admin. */
   'cables.colours': z.object({ colours: cableColourList }),
 } as const

@@ -889,7 +889,7 @@ export function renderGone(office?: OfficeDetails | null): string {
   return `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Session Hire</title><style>${CSS}</style></head>
 <body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b></div></header>
-<p class="flash bad">This link doesn't work any more. Ask the office to send you a new one.</p>${officeBlock(office)}</main></body></html>`
+<p class="flash bad">This link doesn't work any more. Ask the office to send you a new one.</p>${officeBlock(office)}<p class="small"><a href="/link">Lost your link?</a></p></main></body></html>`
 }
 
 /** Why a member of staff's page didn't open, and what to do (ADR 0052). */

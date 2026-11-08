@@ -3,6 +3,28 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 8 November 2026: freelancers' access
+
+**Done**
+
+- Colly asked what the rules allow for freelancers' access. Today: the
+  private link is the whole way in (ADR 0002); Google sign-in takes only
+  Session Hire's Workspace, so freelancers can't sign in; a link never runs
+  out, isn't tied to a phone, and a lost one comes back only through the
+  office. Colly picked "Link, made safer" from three ways.
+- Built ([ADR 0114](adr/0114-freelancer-links-remember-phones.md)): every
+  link remembers the phones it opens on (a cookie scoped to the link, only
+  hashes kept). A switch under Admin › Company, Freelancers' links, starts
+  off; on, a new phone needs a six-digit code emailed from the operations
+  mailbox, and `/link` emails a lost link. A never-used link opens on the
+  first phone, which is also the way back for someone with no email: the
+  office's New link.
+
+**Waiting**
+
+- Colly: turn on Check new phones at launch, with the operations mailbox
+  connected and allowed to send.
+
 ## 8 November 2026: what would make quoting faster, easier and more reliable
 
 **Done**

@@ -214,12 +214,14 @@ export interface Message {
   replyTo: Address[]
   subject: string
   text: string
-  attachment: { name: string; type: string; bytes: Buffer }
+  /** Left out for a plain email, such as a freelancer's code (ADR 0114). */
+  attachment?: { name: string; type: string; bytes: Buffer }
   date: Date
 }
 
-/** An email with a text part and one attachment, headers folded and encoded as the standards ask. */
+/** An email with a text part and, when there is one, an attachment, headers folded and encoded as the standards ask. */
 export function mime(msg: Message): Buffer {
+  if (!msg.attachment) return plainMime(msg)
   const boundary = `sh-${randomBytes(12).toString('hex')}`
   const headers = [
     `From: ${addressLine(msg.from)}`,
@@ -243,6 +245,21 @@ export function mime(msg: Message): Buffer {
     ].join('\r\n'),
   ]
   return Buffer.from([...headers, '', `--${boundary}`, parts.join(`\r\n--${boundary}\r\n`), `--${boundary}--`, ''].join('\r\n'), 'utf8')
+}
+
+/** An email with only text in it. */
+function plainMime(msg: Message): Buffer {
+  const headers = [
+    `From: ${addressLine(msg.from)}`,
+    fold('To: ', msg.to.map((a) => addressLine({ address: a }))),
+    msg.replyTo.length ? fold('Reply-To: ', msg.replyTo.map(addressLine)) : '',
+    `Subject: ${encodedWord(msg.subject)}`,
+    `Date: ${msg.date.toUTCString()}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+  ].filter(Boolean)
+  return Buffer.from([...headers, '', lines(Buffer.from(msg.text.replace(/\r?\n/g, '\r\n'), 'utf8')), ''].join('\r\n'), 'utf8')
 }
 
 /** "Session Hire <operations@sessionhire.com>", the name encoded when it needs to be. */
