@@ -1,7 +1,5 @@
-import { APP_VERSION, dsTiming, plural, releasesSince } from '@sh/shared'
 import { useEffect, useState } from 'react'
 import { registerSW } from 'virtual:pwa-register'
-import type { Toast } from './notices.ts'
 
 /**
  * A deploy while the app is open. The new version is fetched in the
@@ -22,6 +20,18 @@ const listeners = new Set<(ready: boolean) => void>()
 let ready = false
 let reload: (() => Promise<void>) | undefined
 let restarted = false
+/**
+ * The changelog's version this page is on, told by the bar as it's drawn. Not imported from the shared code here:
+ * this file is in the page's first script, and the shared code there would make its schemas before noEval.ts runs.
+ */
+let running: string | undefined
+const remember = () => {
+  try {
+    if (running) sessionStorage.setItem(LOADED_FROM, running)
+  } catch {
+    // Storage blocked: the new version loads all the same, without saying what changed.
+  }
+}
 
 export function watchForUpdates() {
   // The page started again on its own a moment ago: say so, once.
@@ -70,10 +80,10 @@ export function watchForUpdates() {
     try {
       sessionStorage.setItem(RELOADED, String(Date.now()))
       sessionStorage.setItem(RESTARTED, '1')
-      sessionStorage.setItem(LOADED_FROM, APP_VERSION)
     } catch {
       // Storage blocked: nothing to remember the reload by, but reload anyway.
     }
+    remember()
     location.reload()
   })
 }
@@ -95,7 +105,8 @@ function useUpdateReady() {
  * before they press. And when the page started again on its own, the same
  * line says so until it's dismissed.
  */
-export function UpdateBar({ unkept = 0 }: { unkept?: number }) {
+export function UpdateBar({ unkept = 0, version }: { unkept?: number; version: string }) {
+  running = version
   const ready = useUpdateReady()
   const [said, setSaid] = useState(restarted)
   if (!ready && said)
@@ -115,11 +126,7 @@ export function UpdateBar({ unkept = 0 }: { unkept?: number }) {
     )
   if (!ready) return null
   const onReload = () => {
-    try {
-      sessionStorage.setItem(LOADED_FROM, APP_VERSION)
-    } catch {
-      // Storage blocked: the new version loads all the same, without saying what changed.
-    }
+    remember()
     void reload?.()
     // The new version takes the page over and reloads it. Should it not (an older browser, say), start again anyway.
     setTimeout(() => location.reload(), 2000)
@@ -141,38 +148,15 @@ export function UpdateBar({ unkept = 0 }: { unkept?: number }) {
 
 let told = false
 
-/**
- * Back from loading a new version: the toast at the screen's edge with what
- * came in since the version this tab was on, from the changelog (ADR 0071),
- * the newest by name and how many more, and What's changed for the whole
- * of each. Asked for as the toaster first draws, so its timer starts when it
- * can be seen. It stays `timing.undo` rather than `timing.notice`: a
- * sentence of news someone asked for takes longer than four seconds to
- * read, and it waits while the pointer or the keyboard is on it. Nothing
- * when the version didn't change (a rebuild with no entry).
- */
-export function whatChanged(): { toast: Toast; stay: number } | undefined {
-  if (told) return undefined
+/** The version this tab was on before it loaded this one, once, as the page comes back; null after, or when it wasn't loaded that way. */
+export function takeLoadedFrom(): string | null {
+  if (told) return null
   told = true
-  let from: string | null = null
   try {
-    from = sessionStorage.getItem(LOADED_FROM)
+    const from = sessionStorage.getItem(LOADED_FROM)
     sessionStorage.removeItem(LOADED_FROM)
+    return from
   } catch {
-    return undefined
-  }
-  if (!from) return undefined
-  const came = releasesSince(from)
-  if (came.length === 0) return undefined
-  const more = came.length - 1
-  return {
-    toast: {
-      id: `version-${APP_VERSION}`,
-      title: `Updated to ${APP_VERSION}`,
-      body: more === 0 ? came[0]!.title : `${came[0]!.title}, and ${plural(more, 'other change')}`,
-      href: '#admin/changes',
-      action: "What's changed",
-    },
-    stay: dsTiming.undo,
+    return null
   }
 }
