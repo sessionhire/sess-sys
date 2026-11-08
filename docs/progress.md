@@ -3,7 +3,6 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
-<<<<<<< HEAD
 ## 8 November 2026: packages as a shortcut for their kit
 
 **Done**
@@ -24,8 +23,6 @@ waiting on someone.
 - The thread finding package templates in Current RMS quotes proposes a
   starter list, loaded only once Colly approves it.
 
-=======
->>>>>>> origin/claude/project-thread-jglxdd
 ## 8 November 2026: start a quote from a past job
 
 **Done**
