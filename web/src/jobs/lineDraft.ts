@@ -33,6 +33,8 @@ export interface LineDraft {
   under?: string | null
   /** A package priced as a whole: its items' total, which its price is a discount from (ADR 0116). */
   full?: number
+  /** Given at no charge on purpose: shown and printed as Included, its price not asked for (audit of the quote flow, 8 November 2026, finding 1). */
+  included?: boolean
 }
 export const toDraft = (l: QuoteLine): LineDraft => ({
   id: l.id,
@@ -56,6 +58,7 @@ export const toDraft = (l: QuoteLine): LineDraft => ({
   cost: l.costCents === undefined ? '' : euroText(l.costCents),
   under: l.under ?? null,
   ...(l.fullCents ? { full: l.fullCents } : {}),
+  ...(l.included ? { included: true } : {}),
 })
 /** The same line, saved as what's typed reads: a field the app before this didn't write counts as its default. */
 export const sameLine = (a: QuoteLine, b: QuoteLine) =>
@@ -80,7 +83,8 @@ export const sameLine = (a: QuoteLine, b: QuoteLine) =>
   (a.costCents ?? null) === (b.costCents ?? null) &&
   (a.extra ?? null) === (b.extra ?? null) &&
   (a.under ?? null) === (b.under ?? null) &&
-  (a.fullCents ?? 0) === (b.fullCents ?? 0)
+  (a.fullCents ?? 0) === (b.fullCents ?? 0) &&
+  !!a.included === !!b.included
 export const num = (s: string) => Number(s.trim().replace(',', '.'))
 
 /** The field of a typed line that stops it saving, so the error can sit by its cause (design system rule 18). */
@@ -96,7 +100,8 @@ export function checkLine(d: LineDraft, n: number): { line: QuoteLine; fault?: u
   const where = `Line ${n}${d.what.trim() ? ` (${d.what.trim()})` : ''}`
   const fault = (field: LineField, why: string) => ({ fault: { field, why } })
   if (!d.what.trim()) return fault('what', `Line ${n}: say what it's for.`)
-  if (price.reason) return fault('price', `${where}: ${price.reason}`)
+  // Included, it's at nothing whatever was in the price before.
+  if (price.reason && !d.included) return fault('price', `${where}: ${price.reason}`)
   const qty = num(d.qty)
   if (!Number.isInteger(qty) || qty < 1 || qty > 10_000) return fault('qty', `${where}: how many is a whole number from 1 to 10,000.`)
   // Charged by a rule (ADR 0085), the days charged are what the rule makes of the days out.
@@ -122,7 +127,7 @@ export function checkLine(d: LineDraft, n: number): { line: QuoteLine; fault?: u
       group: d.group,
       qty,
       days,
-      unitCents: price.cents ?? 0,
+      unitCents: d.included ? 0 : (price.cents ?? 0),
       vat: d.vat,
       per: d.per,
       modelId: d.modelId,
@@ -135,6 +140,7 @@ export function checkLine(d: LineDraft, n: number): { line: QuoteLine; fault?: u
       ...(cost?.cents != null ? { costCents: cost.cents } : {}),
       ...(d.under ? { under: d.under } : {}),
       ...(d.full && d.packageId ? { fullCents: d.full } : {}),
+      ...(d.included ? { included: true as const } : {}),
     },
   }
 }

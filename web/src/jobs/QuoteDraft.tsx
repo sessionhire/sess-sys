@@ -337,7 +337,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const aboutKit = (modelId: string) => {
     const cents = m.productPrice(modelId)
     const rate = m.productRate(modelId)
-    const price = cents === undefined ? 'No price yet' : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
+    const price = cents === undefined ? 'No price yet' : cents === 0 ? 'Included at no charge' : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
     const free = kitFree(job, modelId, wantedNow.get(modelId) ?? 0, today, kitInputs)
     const freeWords = free === undefined ? '' : free === 0 ? (wantedNow.get(modelId) ? 'no more free' : 'none free') : wantedNow.get(modelId) ? `${free} more free` : `${free} free`
     return [price, freeWords].filter(Boolean).join(' · ')
@@ -415,10 +415,12 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       group: DEPARTMENT_LABELS[model.department],
       qty: String(count),
       days: String(days),
-      price: cents === undefined ? '' : euroText(cents),
+      price: cents === undefined || cents === 0 ? '' : euroText(cents),
       vat: STANDARD_VAT,
       per: 'day',
       rate: rate && rate !== 'daily' ? rate : null,
+      // Priced at €0 on the price list, it's given at no charge (audit of the quote flow, 8 November 2026, finding 1).
+      ...(cents === 0 ? { included: true } : {}),
     }, true)
     // A rack (ADR 0074) goes with what's built into it, listed under it as a package's kit is (ADR 0116), included in its price.
     const slots = view.racks.of(modelId)?.slots ?? []
@@ -479,10 +481,11 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
           modelId: i.modelId,
           group: DEPARTMENT_LABELS[model.department],
           qty: String(i.qty),
-          price: cents === undefined ? '' : euroText(cents),
+          price: cents === undefined || cents === 0 ? '' : euroText(cents),
           rate: rate && rate !== 'daily' ? rate : null,
           packageId: null,
           under: titleId,
+          ...(!whole && cents === 0 ? { included: true } : {}),
         },
       ]
     })

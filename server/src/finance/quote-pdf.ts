@@ -149,7 +149,9 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
       const under = linesUnder(q.lines, l.id)
       // A package with its kit under it (ADR 0116) comes to its own price and its kit's, and its kit is printed under it.
       const byKit = under.length > 0 && !l.unitCents && !!l.packageId
-      const amount = `${money(under.length ? setCents(l, q.lines) : lineCents(l))}${l.discountPct ? `\nless ${pctWord(l.discountPct)}` : ''}`
+      // Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1).
+      const free = !!l.included && !under.length
+      const amount = free ? 'Included' : `${money(under.length ? setCents(l, q.lines) : lineCents(l))}${l.discountPct ? `\nless ${pctWord(l.discountPct)}` : ''}`
       // Priced below what its items come to (ADR 0116): the client sees what the package saves them.
       const saved = lineSaving(l)
       const words = [l.what, l.includes, saved ? `${money(saved)} off its items’ ${money(lineCents({ ...l, discountPct: undefined, unitCents: l.fullCents! }))}` : ''].filter(Boolean).join('\n')
@@ -157,13 +159,13 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
         cell(words),
         cell(String(l.qty), right),
         cell(byKit ? '' : days, right),
-        cell(byKit ? '' : price, right),
+        cell(byKit || free ? '' : price, right),
         cell(VAT_LABELS[l.vat], right),
         cell(amount, right),
       ])
       const small = { font: { src: REGULAR, size: SMALL }, textColor: MUTED }
       for (const u of under) {
-        const priced = u.unitCents > 0
+        const priced = u.unitCents > 0 && !u.included
         const uDays = u.per === 'once' ? '' : u.rate === 'weekly' ? `${u.days} wk` : u.days.toLocaleString('en-IE')
         rows.push([
           cell(`    ${u.what}`, small),

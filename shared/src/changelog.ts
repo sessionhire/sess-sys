@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.119.0',
+    date: '2026-11-08',
+    title: 'Lines given free, counts and client names on quotes',
+    what: "A quote line can now be given as included at no charge: a line with no price offers it in one press, it reads Included on screen and on the printed and emailed quote, and it's no longer counted or asked about as a line with no price before the quote goes. A product priced at €0 on the price list goes on a quote this way by itself, so cables and power can be set once. A number typed before a product in Add kit is now always how many, even when the product's name has numbers in it: \"2 d20\" adds two D20s. And typing the start of a client or venue, such as \"bright\", then moving on now takes Brightwater Conferences rather than making a new client called \"bright\"; it says so under the box, with a press to keep what you typed as new instead.",
+    prs: [266],
+  },
+  {
     version: '1.118.0',
     date: '2026-11-08',
     title: 'Client, venue and who asked find as you type',

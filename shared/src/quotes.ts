@@ -155,6 +155,12 @@ export const quoteLine = z.object({
    */
   fullCents: dayPrice.optional(),
   /**
+   * Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1): cables, power, stands. Its price
+   * is nothing, it's shown and printed as Included, and it's never asked about as a line with no price. A product priced
+   * at €0 on the price list goes on a quote this way.
+   */
+  included: z.literal(true).optional(),
+  /**
    * The cost side (ADR 0089), never printed: how many of a kit line are hired in from another company, and who from,
    * as a job's kit line has it (ADR 0014); and what the whole line costs Session Hire, before VAT. Left out, a crew line
    * costs its booked rate and our own kit nothing.
@@ -792,11 +798,11 @@ export function linesUnder<L extends { id: string; under?: string | null }>(line
 }
 
 /**
- * Whether a line still wants a price: one at nothing, unless it's a package's line whose kit is priced under it, or kit
- * in a package priced as a whole (ADR 0116).
+ * Whether a line still wants a price: one at nothing, unless it's given as included, a package's line whose kit is
+ * priced under it, or kit in a package priced as a whole (ADR 0116).
  */
-export function needsPrice<L extends { id: string; unitCents: number; under?: string | null; modelId?: string | null; packageId?: string }>(l: L, lines: readonly L[]): boolean {
-  if (l.unitCents !== 0) return false
+export function needsPrice<L extends { id: string; unitCents: number; under?: string | null; modelId?: string | null; packageId?: string; included?: true }>(l: L, lines: readonly L[]): boolean {
+  if (l.unitCents !== 0 || l.included) return false
   // A package charged by its kit: the kit under it has the prices.
   if (l.packageId && lines.some((x) => x.under === l.id && x.id !== l.id)) return false
   const head = l.under ? lines.find((x) => x.id === l.under) : undefined
