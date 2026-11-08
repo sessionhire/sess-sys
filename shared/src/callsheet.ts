@@ -67,7 +67,7 @@ export interface SheetInput {
   client: { name: string; contacts: readonly Contact[] } | null
   /** Null for a crew call that isn't for one phase. */
   phase: { name: string; start: string; end: string; notes: string } | null
-  venue: Pick<Venue, 'name' | 'address' | 'notes'> | null
+  venue: Pick<Venue, 'name' | 'address' | 'notes' | 'contact'> | null
   contact: SheetPerson | null
   calls: readonly SheetCall[]
   people: ReadonlyMap<string, SheetPerson>
@@ -120,7 +120,11 @@ export interface CallSheet {
   days: string[]
   /** "Sat 3 Oct to Sun 4 Oct". */
   when: string
-  venue: { name: string; address: string; notes: string; map: string } | null
+  /**
+   * With who to ask for there (ADR 0119), for everyone: the venue's own person, whom crew ring at the door, as its
+   * notes on access already are. Their number but never their email, which is the office's to use.
+   */
+  venue: { name: string; address: string; notes: string; map: string; contact?: { name: string; role: string; phone: string | null } } | null
   contact: { name: string; phone: string | null; me: boolean } | null
   notes: { job: string; phase: string }
   calls: SheetCallView[]
@@ -207,7 +211,13 @@ export function callSheet(input: SheetInput, reader: SheetReader): CallSheet {
     days,
     when: daysLabel(days),
     venue: input.venue
-      ? { name: input.venue.name, address: addressAfter(input.venue.name, input.venue.address), notes: input.venue.notes.trim(), map: mapLink(input.venue) }
+      ? {
+          name: input.venue.name,
+          address: addressAfter(input.venue.name, input.venue.address),
+          notes: input.venue.notes.trim(),
+          map: mapLink(input.venue),
+          ...(input.venue.contact ? { contact: { name: input.venue.contact.name, role: input.venue.contact.role, phone: input.venue.contact.phone } } : {}),
+        }
       : null,
     contact: input.contact ? { name: input.contact.name, phone: input.contact.phone, me: input.contact.id === input.readerId } : null,
     notes: { job: input.job.notes.trim(), phase: input.phase?.notes.trim() ?? '' },
@@ -245,6 +255,11 @@ export function callSheet(input: SheetInput, reader: SheetReader): CallSheet {
   return sheet
 }
 
+/** "At the venue, ask for Aoife Byrne (Production manager) on 087 123 4567." The same words wherever the sheet is read. */
+export function venueContactLine(c: { name: string; role: string; phone: string | null }): string {
+  return `At the venue, ask for ${c.name}${c.role ? ` (${c.role})` : ''}${c.phone ? ` on ${c.phone}` : ''}.`
+}
+
 /**
  * The sheet as a message, to paste into a crew's WhatsApp group: what
  * everyone on it may see, whoever copies it, so never anyone's number but
@@ -254,6 +269,7 @@ export function callSheetText(s: CallSheet): string {
   const lines: string[] = [`${s.job}${s.phase ? `: ${s.phase}` : ''}`, s.when]
   if (s.venue) lines.push('', `At ${s.venue.name}${s.venue.address ? `, ${s.venue.address.replace(/\s*\r?\n\s*/g, ', ')}` : ''}`, s.venue.map)
   if (s.venue?.notes) lines.push(s.venue.notes)
+  if (s.venue?.contact) lines.push(venueContactLine(s.venue.contact))
   if (s.contact) lines.push('', `On the day, ring ${s.contact.name}${s.contact.phone ? ` on ${s.contact.phone}` : ''}`)
   lines.push('')
   for (const c of s.calls) {

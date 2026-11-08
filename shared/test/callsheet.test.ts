@@ -155,4 +155,18 @@ describe('a call sheet', () => {
     expect(text).not.toMatch(/9001(02|03|04)|900200/)
     expect(text).not.toContain('Eimear')
   })
+
+  it("names who to ask for at the venue (ADR 0119) for everyone, with their number but never their email", () => {
+    const i = input('tadhg')
+    const venue = { ...i.venue!, contact: { name: 'Gráinne Nolan', role: 'Venue technical manager', email: 'grainne@example.com', phone: '+353 87 123 4567' } }
+    for (const reader of ['office', 'contact', 'crew'] as const) {
+      const s = callSheet({ ...i, venue }, reader)
+      expect(s.venue!.contact).toEqual({ name: 'Gráinne Nolan', role: 'Venue technical manager', phone: '+353 87 123 4567' })
+    }
+    const text = callSheetText(callSheet({ ...i, venue }, 'crew'))
+    expect(text).toContain('At the venue, ask for Gráinne Nolan (Venue technical manager) on +353 87 123 4567.')
+    expect(text).not.toContain('grainne@example.com')
+    // None named, nothing said.
+    expect(callSheet(i, 'crew').venue).not.toHaveProperty('contact')
+  })
 })

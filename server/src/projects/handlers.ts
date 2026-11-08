@@ -7,7 +7,7 @@ import { getFault } from '../stock/faults.ts'
 import { getMovement } from '../stock/moves.ts'
 import { dayEntity, readDaysById } from '../calendar/store.ts'
 import { getQuote } from '../finance/store.ts'
-import { getClient, getPhase, getPhases, getProject, getVenue, namesForCall } from './store.ts'
+import { getClient, paymentTermsColumn, getPhase, getPhases, getProject, getVenue, namesForCall } from './store.ts'
 import { getBooking, vehiclesOnPhase } from '../vehicles/store.ts'
 import { getStep } from '../steps/store.ts'
 
@@ -107,6 +107,8 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
       [a.id, a.name, JSON.stringify(a.contacts), a.notes]
     )
     if (a.address !== undefined) await ctx.tx.query('UPDATE clients SET address = $2 WHERE id = $1', [a.id, a.address.trim()])
+    // Only when the save says (ADR 0119), so an app older than payment terms leaves them as they were.
+    if (a.paymentTerms !== undefined) await ctx.tx.query('UPDATE clients SET payment_terms = $2 WHERE id = $1', [a.id, paymentTermsColumn(a.paymentTerms)])
     await emit(ctx, 'client', a.id, await getClient(ctx.tx, a.id))
   },
 
@@ -116,6 +118,7 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, address = EXCLUDED.address, notes = EXCLUDED.notes`,
       [a.id, a.name, a.address, a.notes]
     )
+    if (a.contact !== undefined) await ctx.tx.query('UPDATE venues SET contact = $2 WHERE id = $1', [a.id, a.contact ? JSON.stringify(a.contact) : null])
     await emit(ctx, 'venue', a.id, await getVenue(ctx.tx, a.id))
     await renameCalls(ctx, { venueId: a.id })
   },

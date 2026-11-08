@@ -267,6 +267,20 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
             </a>
           )}
           {sheet.venue.notes && <p className="lines">{sheet.venue.notes}</p>}
+          {/* Who to ask for there (ADR 0119), with a number to press on a phone. */}
+          {sheet.venue.contact && (
+            <p>
+              At the venue, ask for <b>{sheet.venue.contact.name}</b>
+              {sheet.venue.contact.role && ` (${sheet.venue.contact.role})`}
+              {sheet.venue.contact.phone && (
+                <>
+                  {' on '}
+                  {print ? sheet.venue.contact.phone : <a href={`tel:${sheet.venue.contact.phone.replace(/[^+\d]/g, '')}`}>{sheet.venue.contact.phone}</a>}
+                </>
+              )}
+              .
+            </p>
+          )}
         </section>
       )}
 

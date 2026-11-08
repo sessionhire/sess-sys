@@ -24,6 +24,33 @@ export const contact = z.object({
 })
 export type Contact = z.infer<typeof contact>
 
+/**
+ * When a client pays (ADR 0119): before the job, or within so many days of the invoice (0 is "when the invoice
+ * arrives"). Printed on their quotes. None means the company's own terms, which the quote prints anyway.
+ */
+export const MAX_PAYMENT_DAYS = 120
+const PAYMENT_HINT = `Payment terms are "before the job" or a whole number of days from 0 to ${MAX_PAYMENT_DAYS}.`
+export const paymentTerms = z.union([z.literal('before'), z.number({ error: PAYMENT_HINT }).int(PAYMENT_HINT).min(0, PAYMENT_HINT).max(MAX_PAYMENT_DAYS, PAYMENT_HINT)], {
+  error: PAYMENT_HINT,
+})
+export type PaymentTerms = z.infer<typeof paymentTerms>
+/** The days offered in the picker; any other the client already has is offered too. */
+export const PAYMENT_DAYS = [0, 7, 14, 30, 60] as const
+
+/** "Payment is due within 30 days of the invoice." As the quote prints it. */
+export function paymentTermsLine(t: PaymentTerms | null | undefined): string | undefined {
+  if (t === null || t === undefined) return undefined
+  if (t === 'before') return 'Payment is due before the job.'
+  if (t === 0) return 'Payment is due when the invoice arrives.'
+  return `Payment is due within ${t} day${t === 1 ? '' : 's'} of the invoice.`
+}
+/** "30 days", as a picker or the client's page says it. */
+export function paymentTermsLabel(t: PaymentTerms): string {
+  if (t === 'before') return 'Before the job'
+  if (t === 0) return 'When the invoice arrives'
+  return `Within ${t} day${t === 1 ? '' : 's'} of the invoice`
+}
+
 export const client = z.object({
   id,
   name: needed(200, "The client's name", "The client's name"),
@@ -34,6 +61,8 @@ export const client = z.object({
    * it as it was.
    */
   address: text(500, 'The address').optional(),
+  /** When they pay (ADR 0119); null for the company's own terms. Optional, so an older app's save leaves it as it was. */
+  paymentTerms: paymentTerms.nullable().optional(),
 })
 export type Client = z.infer<typeof client>
 
@@ -44,6 +73,11 @@ export const venue = z.object({
   address: text(500, 'The address'),
   /** Access, load-in, power, parking. */
   notes: text(4000, 'The notes'),
+  /**
+   * Who to ask for on site (ADR 0119): the venue's own person, such as the production manager. Printed on every call
+   * sheet for a job there, for the crew. Null for none; optional, so an older app's save leaves it as it was.
+   */
+  contact: contact.nullable().optional(),
 })
 /** Where a venue is on the map (ADR 0057), in degrees as GPS gives them. */
 export const pin = z.object({

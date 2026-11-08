@@ -18,6 +18,7 @@ import {
   RATE_UNIT,
   lineSaving,
   depositCents,
+  paymentTermsLine,
   letterDay,
   quoteNumberLabel,
   validUntil,
@@ -218,6 +219,8 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
           A deposit of {pctWord(q.depositPct)}, <b>{money(depositCents(q.totals.gross, q.depositPct))}</b>, confirms the booking.
         </p>
       ) : null}
+      {/* When this client pays (ADR 0119), under the deposit, as the PDF has it. */}
+      {paymentTermsLine(to?.paymentTerms) && <p className="deposit">{paymentTermsLine(to?.paymentTerms)}</p>}
       {q.notes && <p className="notes">{q.notes}</p>}
       {quoting.terms.trim() && (
         <section className="sheet-terms">

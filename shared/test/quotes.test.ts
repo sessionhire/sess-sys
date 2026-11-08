@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PullResponse, PushRequest, PushResponse } from '../src/protocol.ts'
+import { paymentTerms, paymentTermsLabel, paymentTermsLine } from '../src/jobs.ts'
 import { chargedFor, packageIncludes, changesFromJob, csvText, depositCents, quoteNumberLabel, validUntil, versionChanges, lineCents, linesFor, quoteLine, linesByGroup, money, quoteTotals, vatPeriodOf, type Quote, type QuoteLine } from '../src/quotes.ts'
 import { MemoryStorage, SyncClient, type Transport } from '../src/sync/client.ts'
 import { belowZero, invoiceOf, invoicesCsv, marginsByMonth, quoteRows, quoteRowShown, quotesToFollow, vatSummaryCsv, type JobMoney, type QuoteView } from '../src/sync/money-view.ts'
@@ -530,5 +531,25 @@ describe('every quote in one list (ADR 0088)', () => {
     expect(rows.filter((r) => quoteRowShown(r, 'all', '1116')).map((r) => r.job.name)).toEqual(['Second go'])
     expect(rows.filter((r) => quoteRowShown(r, 'all', 'sh-1050')).map((r) => r.job.name)).toEqual(['Paid lately'])
     expect(rows.filter((r) => quoteRowShown(r, 'sent', 'liffey'))).toEqual([])
+  })
+})
+
+describe("a client's payment terms (ADR 0119)", () => {
+  it('reads as the quote prints it, and the company\'s own terms say nothing', () => {
+    expect(paymentTermsLine(undefined)).toBeUndefined()
+    expect(paymentTermsLine(null)).toBeUndefined()
+    expect(paymentTermsLine('before')).toBe('Payment is due before the job.')
+    expect(paymentTermsLine(0)).toBe('Payment is due when the invoice arrives.')
+    expect(paymentTermsLine(1)).toBe('Payment is due within 1 day of the invoice.')
+    expect(paymentTermsLine(30)).toBe('Payment is due within 30 days of the invoice.')
+    expect(paymentTermsLabel(14)).toBe('Within 14 days of the invoice')
+  })
+  it('takes before the job or whole days up to 120, in plain words otherwise', () => {
+    for (const ok of ['before', 0, 30, 120]) expect(paymentTerms.safeParse(ok).success).toBe(true)
+    for (const bad of [-1, 121, 2.5, 'after', '30']) {
+      const r = paymentTerms.safeParse(bad)
+      expect(r.success).toBe(false)
+      expect(r.error!.issues[0]!.message).toBe('Payment terms are "before the job" or a whole number of days from 0 to 120.')
+    }
   })
 })

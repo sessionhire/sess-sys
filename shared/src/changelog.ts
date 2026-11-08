@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.120.0',
+    date: '2026-11-08',
+    title: 'When a client pays, and who to ask for at a venue',
+    what: "A client's page now says when they pay: before the job, when the invoice arrives, or within 7, 14, 30 or 60 days of it. Their quotes print it under the deposit, on paper and in the emailed PDF. Leave it on the company's terms and nothing extra prints. A venue's page now has one person to ask for on site, with their role, mobile and email. Every call sheet for a job there names them for the crew, with a number to press, but never their email.",
+    prs: [268],
+    adrs: [119],
+  },
+  {
     version: '1.119.0',
     date: '2026-11-08',
     title: 'Lines given free, counts and client names on quotes',

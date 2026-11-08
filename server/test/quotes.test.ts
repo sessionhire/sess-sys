@@ -176,6 +176,35 @@ describe('a quote number (ADR 0084)', () => {
     await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', address: '' }))
     expect(await client()).not.toHaveProperty('address')
   })
+
+  it('keeps when a client pays (ADR 0119), which a save from an older app leaves as it was', async () => {
+    const { app } = await gala()
+    const client = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string; id: string }) => c.entity === 'client' && c.id === 'bw').at(-1).data
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events', contacts: [], notes: '', paymentTerms: 30 }))
+    expect(await client()).toMatchObject({ paymentTerms: 30 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '' }))
+    expect(await client()).toMatchObject({ name: 'Brightwater Events Ltd', paymentTerms: 30 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 'before' }))
+    expect(await client()).toMatchObject({ paymentTerms: 'before' })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 0 }))
+    expect(await client()).toMatchObject({ paymentTerms: 0 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: null }))
+    expect(await client()).not.toHaveProperty('paymentTerms')
+    const [r] = await send(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 400 }))
+    expect(r).toMatchObject({ status: 'rejected' })
+  })
+
+  it("keeps who to ask for at a venue (ADR 0119), which a save from an older app leaves as it was", async () => {
+    const { app } = await gala()
+    const venue = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string; id: string }) => c.entity === 'venue' && c.id === 'hall').at(-1).data
+    const grainne = { name: 'Gráinne Nolan', role: 'Venue technical manager', email: null, phone: '+353 87 123 4567' }
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Hall', address: '', notes: '', contact: grainne }))
+    expect(await venue()).toMatchObject({ contact: grainne })
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Great Hall', address: '', notes: '' }))
+    expect(await venue()).toMatchObject({ name: 'The Great Hall', contact: grainne })
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Great Hall', address: '', notes: '', contact: null }))
+    expect(await venue()).not.toHaveProperty('contact')
+  })
 })
 
 describe('travel and subsistence (ADR 0086)', () => {

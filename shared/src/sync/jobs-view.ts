@@ -74,14 +74,22 @@ export function jobsView(
       case 'client.upsert': {
         const a = m.args as CommandArgs<'client.upsert'>
         // A save that doesn't say the address keeps it, as the server does (ADR 0084).
-        const was = clients.get(a.id)?.address
-        clients.set(a.id, { ...a, ...(a.address === undefined && was ? { address: was } : {}), pending: true })
+        const was = clients.get(a.id)
+        clients.set(a.id, {
+          ...a,
+          ...(a.address === undefined && was?.address ? { address: was.address } : {}),
+          // And the payment terms (ADR 0119).
+          ...(a.paymentTerms === undefined && was?.paymentTerms !== undefined ? { paymentTerms: was.paymentTerms } : {}),
+          pending: true,
+        })
         break
       }
       case 'venue.upsert': {
         const a = m.args as CommandArgs<'venue.upsert'>
         // Saving the details leaves the pin where it is (ADR 0057).
-        venues.set(a.id, { ...a, pin: venues.get(a.id)?.pin ?? null, pending: true })
+        // A save that doesn't say the contact keeps it (ADR 0119).
+        const was = venues.get(a.id)
+        venues.set(a.id, { ...a, ...(a.contact === undefined && was?.contact ? { contact: was.contact } : {}), pin: was?.pin ?? null, pending: true })
         break
       }
       case 'venue.pin': {
