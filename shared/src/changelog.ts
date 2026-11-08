@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.109.4',
+    date: '2026-11-08',
+    title: 'The stock code in words and the logo on every item label',
+    what: "An item’s label on the small 25 mm square now carries the company logo and the product’s stock code on a line under the number, with a slightly smaller QR code to make room; the 50 × 25 mm and A4 labels already had both. A cable label with a QR code now has its stock code written out beside it too, as a barcode one already did. Blank labels printed before they go on anything still have no stock code, as they aren’t anything’s yet.",
+    prs: [252],
+    adrs: [106],
+  },
+  {
     version: '1.109.3',
     date: '2026-11-07',
     title: 'The glide to a part of the page now shows on an iPhone',
