@@ -12,6 +12,7 @@ import {
   marginsByMonth,
   money,
   moneyMonth,
+  namedExactly,
   newId,
   parseEuro,
   pctWord,
@@ -42,7 +43,7 @@ import {
   waitingHeading,
   listHeading,
 } from '@sh/shared'
-import { Fragment, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { arrive } from '../arrival.ts'
 import { Empty } from '../Empty.tsx'
@@ -55,7 +56,8 @@ import { client } from '../sync.ts'
 import { JOBS, MONEY } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
-import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
+import { ClientField, clientNamed, contactAdded, NewOrNear, Top, VenueField, venueNamed } from './common.tsx'
+import { NameField } from '../NameField.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
 import { StarterPackagesCard } from './StarterPackages.tsx'
@@ -316,7 +318,13 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
   // Who asked, how it came and when they want it by (research/quoting.md, feature 6): the first two go in the job's notes as
   // a line, the day is the Quote sent task's due day, so it's on someone's list and late shows as late.
   const [asked, setAsked] = useState<{ by: string; how: EnquiryWay | ''; quoteBy: string }>({ by: '', how: '', quoteBy: '' })
-  const contacts = clients.find((c) => c.name.trim().toLowerCase() === f.client.trim().toLowerCase())?.contacts ?? []
+  // Who asked is someone at the client, or anyone at any client while no client is chosen; a new name is added to the
+  // client's contacts when the quote is started.
+  const chosenClient = namedExactly(clients, f.client)
+  const askers = useMemo(
+    () => (chosenClient ? [chosenClient] : clients).flatMap((c) => c.contacts.map((p) => ({ name: p.name, role: p.role, client: c.name }))),
+    [chosenClient, clients]
+  )
   // What Claude read of an enquiry (ADR 0096): the job's parts and lines, until the dates are changed by hand.
   const claude = useClaude(view)
   const [read, setRead] = useState<EnquiryReading>()
@@ -347,6 +355,7 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
     const id = newId()
     void run(async () => {
       const clientId = await clientNamed(f.client, clients)
+      await contactAdded(clientId, f.client, asked.by, clients)
       const venueId = await venueNamed(f.venue, venues)
       await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind: 'gig', notes: enquiryLine(asked.by, asked.how) })
       if (asked.quoteBy) await client.mutate('jobStep.set', { projectId: id, step: 'quote', dueOn: asked.quoteBy })
@@ -386,13 +395,9 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
       <label className="wide">
         What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required autoFocus />
       </label>
-      <label>
-        Client <span className="optional">(optional)</span> <input list="new-quote-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
-      </label>
+      <ClientField jobs={view.jobs} optional value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-      <label>
-        Venue <span className="optional">(optional)</span> <input list="new-quote-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
-      </label>
+      <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />
       <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <div className="pair">
         <label>
@@ -419,10 +424,19 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
           </select>
         </label>
       </div>
-      <label>
-        Who asked <span className="optional">(optional)</span>
-        <input list="new-quote-contacts" value={asked.by} onChange={(e) => setAsked({ ...asked, by: e.target.value })} maxLength={200} autoComplete="off" />
-      </label>
+      <NameField
+        label="Who asked"
+        optional
+        what={f.client.trim() ? `contact for ${chosenClient?.name ?? f.client.trim()}` : 'contact'}
+        value={asked.by}
+        onChange={(by) => setAsked((now) => ({ ...now, by }))}
+        records={askers}
+        first={chosenClient ? askers : []}
+        firstLabel="Their people"
+        meta={(o) => [o.record.role, !chosenClient && o.record.client].filter(Boolean).join(' · ')}
+        // Someone at a client, picked with no client yet, brings their client with them.
+        onPick={(o) => !f.client.trim() && setF((now) => ({ ...now, client: o.client }))}
+      />
       {phases.length > 0 && (
         <p className="hint wide">
           In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
@@ -459,13 +473,6 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
           Cancel
         </button>
       </div>
-      <Choices id="new-quote-clients" names={clients} />
-      <Choices id="new-quote-venues" names={venues} />
-      <datalist id="new-quote-contacts">
-        {contacts.map((c) => (
-          <option key={c.name} value={c.name} />
-        ))}
-      </datalist>
     </form>
   )
 }

@@ -48,7 +48,7 @@ import { useMyDepartment } from '../Narrowed.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { Beside, Choices, clientNamed, NewOrNear, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
+import { Beside, ClientField, clientNamed, NewOrNear, JobStatusPill, Top, useHash, VenueField, venueNamed } from './common.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
 import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
@@ -604,13 +604,9 @@ function NewJob({ view }: { view: View }) {
       <label className="wide">
         Job <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required />
       </label>
-      <label>
-        Client <span className="optional">(optional)</span> <input list="client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
-      </label>
+      <ClientField jobs={view.jobs} optional value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-      <label>
-        Venue <span className="optional">(optional)</span> <input list="venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
-      </label>
+      <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />
       <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label className="wide">
         Status
@@ -659,8 +655,6 @@ function NewJob({ view }: { view: View }) {
       <button type="submit" className="primary wide">
         Add job
       </button>
-      <Choices id="client-names" names={clients} />
-      <Choices id="venue-names" names={venues} />
       <datalist id="phase-names">
         {PHASE_NAMES.map((n) => (
           <option key={n} value={n} />

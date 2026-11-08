@@ -451,6 +451,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
    and where it belongs; notes in the list ("Most like it", "40 more") aren't offers, so they're quiet and never highlight. */
 .picker-field { display: grid; gap: var(--ds-space-1); font-size: var(--text-hint); color: var(--muted); }
 .picker-field input { width: 100%; }
+/* A name that is a record or a new one (NameField.tsx), in a form: spaced as the form's own labels are. */
+.app .grid-form .name-field { gap: var(--stack); }
 /* The record picker offers eight at most, so on a phone its list grows with the page rather than scrolling inside it (no captive scroll). */
 @media (max-width: 639px) {
   .picker-options { max-height: none; overflow-y: visible; }
