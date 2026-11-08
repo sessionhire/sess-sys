@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit'
 import {
   depositCents,
+  paymentTermsLine,
   letterDay,
   lineCents,
   lineSaving,
@@ -214,6 +215,12 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
 
   if (q.depositPct) {
     text(`A deposit of ${pctWord(q.depositPct)}, ${money(depositCents(totals.gross, q.depositPct))}, confirms the booking.`, { width })
+    doc.moveDown(0.5)
+  }
+  // When this client pays (ADR 0119), under the deposit, as the printed page has it.
+  const pays = paymentTermsLine(job.client?.paymentTerms)
+  if (pays) {
+    text(pays, { width })
     doc.moveDown(0.5)
   }
   if (q.notes.trim()) {

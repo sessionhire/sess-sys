@@ -87,6 +87,31 @@ function VenueSummary({ venue, onMap }: { venue: VenueView; onMap: () => void })
             )}
           </dd>
         </div>
+        {/* Who to ask for there (ADR 0119): on every call sheet for a job here. */}
+        <div>
+          <dt>{venue.contact ? venue.contact.role || 'On site' : 'On site'}</dt>
+          <dd>
+            {venue.contact ? (
+              <>
+                {venue.contact.name}
+                {venue.contact.phone && (
+                  <>
+                    <br />
+                    <a href={`tel:${venue.contact.phone.replace(/[^+\d]/g, '')}`}>{venue.contact.phone}</a>
+                  </>
+                )}
+                {venue.contact.email && (
+                  <>
+                    <br />
+                    <a href={`mailto:${venue.contact.email}`}>{venue.contact.email}</a>
+                  </>
+                )}
+              </>
+            ) : (
+              'Nobody named yet'
+            )}
+          </dd>
+        </div>
       </dl>
       {venue.notes && <p className="notes">{venue.notes}</p>}
       {/* Changing it is the jobs' (audit finding 9): a role without them reads it. */}
@@ -102,12 +127,25 @@ function VenueSummary({ venue, onMap }: { venue: VenueView; onMap: () => void })
 }
 
 function EditVenue({ venue, onDone }: { venue: VenueView; onDone: () => void }) {
-  const [f, setF] = useState({ name: venue.name, address: venue.address, notes: venue.notes })
+  const was = venue.contact
+  const [f, setF] = useState({
+    name: venue.name,
+    address: venue.address,
+    notes: venue.notes,
+    who: was?.name ?? '',
+    role: was?.role ?? '',
+    phone: was?.phone ?? '',
+    email: was?.email ?? '',
+  })
   const { run, error } = useAct()
   const save = (e: FormEvent) => {
     e.preventDefault()
     if (!f.name.trim()) return
-    void run(() => client.mutate('venue.upsert', { id: venue.id, name: f.name.trim(), address: f.address.trim(), notes: f.notes.trim() })).then((ok) => ok && onDone())
+    // No name, nobody: the other fields alone aren't someone to ask for.
+    const contact = f.who.trim() ? { name: f.who.trim(), role: f.role.trim(), phone: f.phone.trim() || null, email: f.email.trim() || null } : null
+    void run(() => client.mutate('venue.upsert', { id: venue.id, name: f.name.trim(), address: f.address.trim(), notes: f.notes.trim(), contact })).then(
+      (ok) => ok && onDone()
+    )
   }
   return (
     <form className="grid-form" onSubmit={save} aria-label={`Change ${venue.name}`}>
@@ -120,6 +158,22 @@ function EditVenue({ venue, onDone }: { venue: VenueView; onDone: () => void }) 
       <label className="wide">
         Notes <textarea rows={3} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="Access, load-in, power, parking" />
       </label>
+      <fieldset className="wide contact">
+        <legend>Who to ask for on site</legend>
+        <label>
+          Name <input value={f.who} onChange={(e) => setF({ ...f, who: e.target.value })} />
+        </label>
+        <label>
+          Role <input value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} placeholder="e.g. Production manager" />
+        </label>
+        <label>
+          Mobile <input type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+        </label>
+        <label>
+          Email <input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+        </label>
+        <small>On every call sheet for a job here, for the crew. Clear the name to take them off.</small>
+      </fieldset>
       <Refusal error={error} className="wide" />
       <button type="submit" className="primary">
         Save venue

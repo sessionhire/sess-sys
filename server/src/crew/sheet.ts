@@ -78,6 +78,9 @@ const h = (s: unknown) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 const lines = (s: string) => h(s).replace(/\n/g, '<br>')
 const tel = (phone: string) => `<a href="tel:${h(phone.replace(/[^\d+]/g, ''))}">${h(phone)}</a>`
+/** Who to ask for at the venue (ADR 0119), in the words the app and the message use, with their number to press. */
+const venueContactHtml = (c: { name: string; role: string; phone: string | null }) =>
+  `At the venue, ask for <b>${h(c.name)}</b>${c.role ? ` (${h(c.role)})` : ''}${c.phone ? ` on ${tel(c.phone)}` : ''}.`
 
 export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails | null): string {
   const mine = s.calls.filter((c) => c.crew.some((p) => p.me))
@@ -133,7 +136,9 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
   ${
     s.venue
       ? `<section><h2>Where</h2><p><b>${h(s.venue.name)}</b>${s.venue.address ? `<br>${lines(s.venue.address)}` : ''}</p>
-    <p><a class="map" href="${h(s.venue.map)}">Open the map</a></p>${s.venue.notes ? `<p class="details">${lines(s.venue.notes)}</p>` : ''}</section>`
+    <p><a class="map" href="${h(s.venue.map)}">Open the map</a></p>${s.venue.notes ? `<p class="details">${lines(s.venue.notes)}</p>` : ''}${
+      s.venue.contact ? `<p>${venueContactHtml(s.venue.contact)}</p>` : ''
+    }</section>`
       : ''
   }
 

@@ -3,8 +3,8 @@ import type { Queryable } from '../db.ts'
 
 /** Reading job rows back as the records devices see. */
 
-const CLIENT = `id, name, contacts, notes, address`
-const VENUE = `id, name, address, notes, lat, lng`
+const CLIENT = `id, name, contacts, notes, address, payment_terms`
+const VENUE = `id, name, address, notes, lat, lng, contact`
 const PROJECT = `id, name, client_id, venue_id, status, kind, notes, source_calendar, prep_days, return_days`
 const PHASE = `id, project_id, name, start_day::text, end_day::text, venue_id, notes, contact_id, local_crew`
 
@@ -17,13 +17,18 @@ export const toClient = (r: Row): Client => ({
   notes: r.notes,
   // Only once set, so a device or a test that knows nothing of it sees the client as before.
   ...(r.address ? { address: r.address } : {}),
+  ...(r.payment_terms ? { paymentTerms: r.payment_terms === 'before' ? 'before' : Number(r.payment_terms) } : {}),
 })
+/** Payment terms as the column keeps them (ADR 0119). */
+export const paymentTermsColumn = (t: Client['paymentTerms']) => (t === null || t === undefined ? null : String(t))
 export const toVenue = (r: Row): Venue => ({
   id: r.id,
   name: r.name,
   address: r.address,
   notes: r.notes,
   pin: r.lat === null || r.lat === undefined ? null : { lat: Number(r.lat), lng: Number(r.lng) },
+  // Only once set, as a client's address.
+  ...(r.contact ? { contact: r.contact } : {}),
 })
 export const toProject = (r: Row): Project => ({
   id: r.id,

@@ -76,6 +76,12 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE clients ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
   `,
+  // When a client pays, and who to ask for at a venue (ADR 0119). Payment terms: null for the company's own, 'before', or
+  // a number of days from the invoice. The venue's contact is one contact as a client keeps them, or null.
+  `
+  ALTER TABLE clients ADD COLUMN IF NOT EXISTS payment_terms text CHECK (payment_terms = 'before' OR payment_terms ~ '^[0-9]{1,3}$');
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS contact jsonb;
+  `,
 ]
 
 export const PROJECTS: Module = { versionTable: 'projects_schema_version', migrations: MIGRATIONS }
