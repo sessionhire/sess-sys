@@ -1,4 +1,4 @@
-import { QUOTE_SETTINGS_ID, roleKey, type CommandArgs, type Quote, type RateRule } from '@sh/shared'
+import { mergeDraft, QUOTE_SETTINGS_ID, roleKey, type CommandArgs, type Quote, type RateRule } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getTimesheet } from '../crew/timesheets.ts'
 import { getClient, getProject } from '../projects/store.ts'
@@ -71,6 +71,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (was) {
       if (was.projectId !== a.projectId) throw new Refused({ code: 'invalid', message: 'That quote belongs to another job.' })
       if (was.status !== 'draft') throw new Refused({ code: 'conflict', message: `${settled(was)}, so it stays as it was. Start a new version to change it.` })
+      // Two people on one draft (ADR 0113): what changed elsewhere since this save's base, and it didn't touch, stays.
+      if (a.base) a = { ...a, ...mergeDraft(was, a, a.base).save }
       await ctx.tx.query(`UPDATE quotes SET lines = $2, discount_pct = $3, notes = $4, saved_at = now() WHERE id = $1`, [
         a.id,
         JSON.stringify(a.lines),

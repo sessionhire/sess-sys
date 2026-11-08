@@ -249,6 +249,8 @@ export async function notOverwriting<A extends Record<string, unknown>>(
   const checked = CHECKED[m.name as CommandName]
   const id = checked?.idOf ? checked.idOf(args) : args.id
   if (!checked || m.seen === undefined || typeof id !== 'string') return args
+  // A draft's save that says what it began from is merged with what changed since, line by line (ADR 0113), not turned down.
+  if (m.name === 'quote.save' && args.base !== undefined) return args
   const fields = Object.keys(checked.fields).filter((f) => args[f] !== undefined && (f !== 'dayRateCents' || opts.seesRates))
   if (!fields.length) return args
 

@@ -34,6 +34,7 @@ import {
   suggestionLine,
   type AskedLine,
   MOST_LAST_CHARGED_NAMES,
+  draftBase,
 } from '@sh/shared'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -118,6 +119,17 @@ function keepTyped(id: string, t: Typed | undefined) {
   }
 }
 
+/** A draft's terms as they're typed, to tell one changed here from one left as it was (ADR 0113). */
+const termsText = (q: QuoteView) => ({
+  meals: q.mealsProvided ?? false,
+  kmTyped: q.travelKm == null ? '' : String(q.travelKm),
+  discount: q.discountPct ? String(q.discountPct) : '',
+  agreed: q.agreedCents == null ? '' : euroText(q.agreedCents),
+  notes: q.notes,
+  validFor: String(q.validDays ?? DEFAULT_VALID_DAYS),
+  deposit: q.depositPct ? String(q.depositPct) : '',
+})
+
 /** The job's days, which a line added on the quote is charged for until changed. */
 const jobDays = (job: JobView) => (job.span ? Math.max(1, eachDay(job.span.start, job.span.end).length) : 1)
 
@@ -173,6 +185,56 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const touch = (k: string) => setTouched((s) => (s.has(k) ? s : new Set(s).add(k)))
   const { run, error, refuse } = useAct()
   const set = (id: string, changes: Partial<LineDraft>) => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...changes } : l)))
+
+  // Two people on one draft (ADR 0113). `opened` is the draft as this device's typing began from: when the draft changes
+  // elsewhere, what wasn't touched here takes the change, and what was is kept, so neither person's work is lost. A line
+  // changed on both keeps what's typed here, and says so. Saves carry `opened` so the server does the same.
+  const opened = useRef(q)
+  const [bothChanged, setBothChanged] = useState<string[]>([])
+  const drawn = baseOf(q)
+  useEffect(() => {
+    const was = opened.current
+    if (baseOf(was) === drawn) return
+    opened.current = q
+    // As saving reads it: a line typed here reads as the saved one when it would save as it.
+    const same = (d: LineDraft, l: QuoteLine) => {
+      const c = checkLine(d, 1)
+      return !!c.line && sameLine(c.line, l)
+    }
+    const before = new Map(was.lines.filter((l) => !l.extra).map((l) => [l.id, l]))
+    const now = q.lines.filter((l) => !l.extra)
+    const theirs = new Map(now.map((l) => [l.id, l]))
+    const here = new Set(lines.map((d) => d.id))
+    const clash: string[] = []
+    const next: LineDraft[] = []
+    for (const d of lines) {
+      const b = before.get(d.id)
+      const t = theirs.get(d.id)
+      if (!b) next.push(d) // added here, not saved yet
+      else if (same(d, b)) {
+        if (t) next.push(toDraft(t)) // untouched here: theirs, or gone if they took it off
+      } else {
+        next.push(d)
+        if (t && !same(d, t) && !sameLine(t, b)) clash.push(d.what.trim() || 'A line')
+      }
+    }
+    now.forEach((t, i) => {
+      if (here.has(t.id) || before.has(t.id)) return
+      const after = now.slice(0, i).reverse().find((x) => next.some((d) => d.id === x.id))
+      next.splice(after ? next.findIndex((d) => d.id === after.id) + 1 : 0, 0, toDraft(t))
+    })
+    setLines(next)
+    const a = termsText(was)
+    const z = termsText(q)
+    if (meals === a.meals) setMeals(z.meals)
+    if (kmTyped === a.kmTyped) setKmTyped(z.kmTyped)
+    if (discount === a.discount) setDiscount(z.discount)
+    if (agreed === a.agreed) setAgreed(z.agreed)
+    if (notes.trim() === a.notes.trim()) setNotes(z.notes)
+    if (validFor === a.validFor) setValidFor(z.validFor)
+    if (deposit === a.deposit) setDeposit(z.deposit)
+    if (clash.length) setBothChanged(clash)
+  }, [drawn])
   const openLine = (id: string | undefined, focus: 'what' | 'price' = 'what', cost = false) => {
     if (open && open !== id) touch(open)
     setFocusField(focus)
@@ -287,7 +349,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   // the page saves what's waiting at once. Saving goes through the device's queue, so it works with no signal.
   const payload =
     !saved && !problem
-      ? { id: q.id, projectId: job.id, lines: all.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead }
+      ? { id: q.id, projectId: job.id, lines: all.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead, base: draftBase(opened.current) }
       : undefined
   const waiting = useRef(payload)
   waiting.current = payload
@@ -522,6 +584,14 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
         </div>
 
         <JobChangesCard changes={changes} quoteId={q.id} onTake={(next) => setLines((ls) => next(ls))} />
+        {bothChanged.length > 0 && (
+          <p className="warn-line both-changed" role="status">
+            Someone else changed {bothChanged.length === 1 ? `“${bothChanged[0]}”` : `${bothChanged.length} of the same lines`} while you were on it. Yours is kept, and the rest of their changes are in.{' '}
+            <button type="button" className="link" onClick={() => setBothChanged([])}>
+              OK
+            </button>
+          </p>
+        )}
         {claude.offered && <MailOnQuote view={view} projectId={job.id} jobDays={days} lines={asked} discountPct={pctOk ? pct : 0} onTake={takeAdvice} />}
 
         {lines.length === 0 && <Empty>No lines yet. Add kit, crew or anything else the quote is for.</Empty>}
