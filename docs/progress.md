@@ -3,6 +3,37 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 8 November 2026: packages as a shortcut for their kit
+
+**Done**
+
+- Colly asked for named sets of kit as templates, then for a package to be
+  a shortcut for its gear, itemised under it (folded on screen, printed
+  open), and racks the same.
+- Built ([ADR 0116](adr/0116-a-package-is-a-shortcut-for-its-kit.md)):
+  adding a package adds its line and each product as a line under it; a
+  priced package includes its kit, an unpriced one is its kit's prices;
+  racks bring their layout's kit, included; save a quote's kit as a
+  package; add a package's kit on a job's Kit.
+
+**Waiting**
+
+- Colly chose "either, set per package" for pricing, as built.
+- The thread finding package templates in Current RMS quotes proposes a
+  starter list, loaded only once Colly approves it.
+
+## 8 November 2026: start a quote from a past job
+
+**Done**
+
+- Colly asked for old quotes as templates for related new ones, by venue
+  and client, based on what actually went out rather than what was quoted.
+- Built ([ADR 0115](adr/0115-start-a-quote-from-a-past-job.md)): New quote
+  offers up to six past jobs once the client or venue is known (both
+  first), and picking one fills the ticked lines: kit at what went out,
+  marked where it differed from the quote or went beyond it, priced from
+  today's price list.
+
 ## 8 November 2026: freelancers' access
 
 **Done**

@@ -452,7 +452,7 @@ test("the crew's travel to a venue far from Dublin, and their subsistence unless
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
-test('a package made on the price list goes on a quote as one line, with what it holds under it (ADR 0087)', async ({ browser, request }) => {
+test('a package made on the price list goes on a quote at its price, with its kit under it (ADR 0087, ADR 0116)', async ({ browser, request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
@@ -481,12 +481,21 @@ test('a package made on the price list goes on a quote as one line, with what it
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await draft.getByRole('button', { name: 'Add a package' }).click()
   await draft.getByRole('button', { name: 'Add', exact: true }).click()
-  await expect(draft.getByLabel('Line 3: includes')).toHaveValue('4 × Shure SM58, with clips and stands')
+  // Its line at its price, and the four mics under it, included, shown as it's just been added.
+  await expect(draft.getByLabel('Line 3: includes')).toHaveValue('with clips and stands')
+  await draft.getByRole('button', { name: 'Done' }).click()
+  const set = draft.locator('.quote-set')
+  await expect(set.getByRole('button', { name: 'Hide what’s in it' })).toBeVisible()
+  await expect(set.locator('.set-lines')).toContainText('Shure SM58')
+  await expect(set.locator('.set-lines')).toContainText('Included')
+  await expect(draft.getByRole('button', { name: /with no price/ })).toHaveCount(0)
   await expect(draft.getByRole('group', { name: 'What it comes to' })).toContainText('Before VAT €2,140.00')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
   await draft.getByRole('button', { name: 'Print a draft' }).click()
+  // On paper, its kit is printed under it.
   const printed = office.locator('.print-sheet.quote-sheet')
-  await expect(printed).toContainText('Mic package4 × Shure SM58, with clips and stands')
+  await expect(printed).toContainText('Mic packagewith clips and stands')
+  await expect(printed.locator('tr.set-line', { hasText: 'Shure SM58' })).toContainText('Included')
   await office.evaluate(() => dispatchEvent(new Event('afterprint')))
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)

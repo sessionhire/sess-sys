@@ -15,7 +15,7 @@ import {
   type RateRule,
   type View,
 } from '@sh/shared'
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Heading } from '../Icon.tsx'
@@ -24,9 +24,10 @@ import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 
 /**
- * Packages on the price list (ADR 0087): kit quoted together at one price, as the office's "Mic package" and "Cable
- * package" were in Current RMS. Each has a name, the department it's listed under, a price and its rule, and what it
- * holds, which is printed under its line on a quote. One is open to change at a time.
+ * Packages on the price list (ADR 0087, ADR 0116): named sets of kit, as the office's "Mic package" and "Cable package"
+ * were in Current RMS. Each has a name, the department it's listed under, what it holds and, if it's charged as a whole,
+ * a price and its rule. On a quote it's a shortcut for its kit: its line, with each product a line under it. One is open
+ * to change at a time.
  */
 export function PackagesCard({ view }: { view: View }) {
   const m = view.money
@@ -35,7 +36,10 @@ export function PackagesCard({ view }: { view: View }) {
   return (
     <section className="card packages" aria-label="Packages">
       <Heading icon="kit">Packages</Heading>
-      <p className="hint">Kit quoted together at one price, such as a mic package. On a quote it's one line, with what it holds printed under it.</p>
+      <p className="hint">
+        Named sets of kit, such as a mic package or a small PA: a shortcut for adding the kit. On a quote it's one line with its kit listed under it, each to change for the
+        job. With a price, it's charged at that and its kit is included; with none, its kit is charged at the price list's prices.
+      </p>
       {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
       {open === 'new' ? (
         <PackageEditor view={view} onDone={() => setOpen(undefined)} />
@@ -55,9 +59,7 @@ export function PackagesCard({ view }: { view: View }) {
               <p>{packageIncludes(p, nameOf) || 'Holds nothing yet'}</p>
             </div>
             <div className="actions">
-              <span className="amount">
-                {money(p.dayCents)} a {RATE_UNIT[p.rate ?? 'daily']}
-              </span>
+              <span className="amount">{p.dayCents ? `${money(p.dayCents)} a ${RATE_UNIT[p.rate ?? 'daily']}` : 'Its products’ own prices'}</span>
               <span className="muted">{DEPARTMENT_LABELS[p.department]}</span>
               <Pending pending={p.pending} />
               <button type="button" onClick={() => setOpen(p.id)} aria-label={`Change ${p.name}`}>
@@ -76,12 +78,20 @@ interface ItemDraft {
   qty: string
 }
 
-function PackageEditor({ view, was, onDone }: { view: View; was?: Package; onDone: () => void }) {
+/** The products and how many a new package starts with: a quote's kit, saved as a package (ADR 0116). */
+export interface PackageStart {
+  items: readonly { modelId: string; qty: number }[]
+  department: Department
+}
+
+export function PackageEditor({ view, was, start, onDone }: { view: View; was?: Package; start?: PackageStart; onDone: (saved?: string) => void }) {
+  // Inside a quote's own form when saved from one (ADR 0116), where a form can't sit: a group, saved by its button or Enter.
+  const nested = !!start
   const [name, setName] = useState(was?.name ?? '')
-  const [department, setDepartment] = useState<Department>(was?.department ?? 'audio')
-  const [price, setPrice] = useState(was ? euroText(was.dayCents) : '')
+  const [department, setDepartment] = useState<Department>(was?.department ?? start?.department ?? 'audio')
+  const [price, setPrice] = useState(was?.dayCents ? euroText(was.dayCents) : '')
   const [rate, setRate] = useState<RateRule>(was?.rate ?? 'daily')
-  const [items, setItems] = useState<ItemDraft[]>(was?.items.map((i) => ({ modelId: i.modelId, qty: String(i.qty) })) ?? [])
+  const [items, setItems] = useState<ItemDraft[]>((was?.items ?? start?.items ?? []).map((i) => ({ modelId: i.modelId, qty: String(i.qty) })))
   const [notes, setNotes] = useState(was?.notes ?? '')
   const { run, error, refuse } = useAct()
   const models = view.warehouse.models
@@ -91,22 +101,24 @@ function PackageEditor({ view, was, onDone }: { view: View; was?: Package; onDon
     if (!modelId) return
     if (items.some((i) => i.modelId === modelId)) return refuse(`${nameOf(modelId)} is in the package already: change how many.`)
     // The first product says where the package is listed, unless that's been chosen.
-    if (!was && items.length === 0) {
+    if (!was && !start && items.length === 0) {
       const d = models.find((x) => x.id === modelId)?.department
       if (d) setDepartment(d)
     }
     setItems((is) => [...is, { modelId, qty: '1' }])
   }
-  const save = (e: FormEvent) => {
+  const save = (e: FormEvent | KeyboardEvent | MouseEvent) => {
     e.preventDefault()
     const p = parseEuro(price)
     if (p.reason) return refuse(p.reason)
-    if (p.cents === undefined) return refuse('A package needs a price.')
     const read = items.map((i) => ({ modelId: i.modelId, qty: Number(i.qty.trim()) }))
     if (read.some((i) => !Number.isInteger(i.qty) || i.qty < 1 || i.qty > 10_000)) return refuse('How many of each is a whole number from 1 to 10,000.')
+    // No price: charged by its kit (ADR 0116), so it needs some.
+    if (!p.cents && read.length === 0) return refuse('A package with no price of its own is charged by its kit: add at least one product.')
+    const id = was?.id ?? newId()
     void run(async () => {
-      await client.mutate('package.save', { id: was?.id ?? newId(), name, department, dayCents: p.cents!, rate, items: read, notes })
-      onDone()
+      await client.mutate('package.save', { id, name, department, dayCents: p.cents ?? 0, rate, items: read, notes })
+      onDone(id)
     })
   }
   const remove = () =>
@@ -115,8 +127,15 @@ function PackageEditor({ view, was, onDone }: { view: View; was?: Package; onDon
       onDone()
     })
 
+  const Form = nested ? 'div' : 'form'
   return (
-    <form className="package-editor" onSubmit={save} aria-label={was ? `Change ${was.name}` : 'New package'}>
+    <Form
+      className="package-editor"
+      role={nested ? 'form' : undefined}
+      onSubmit={nested ? undefined : save}
+      onKeyDown={nested ? (e: KeyboardEvent) => e.key === 'Enter' && e.target instanceof HTMLInputElement && save(e) : undefined}
+      aria-label={was ? `Change ${was.name}` : start ? 'Save as a package' : 'New package'}
+    >
       <div className="package-fields">
         <label className="field">
           Name
@@ -133,8 +152,9 @@ function PackageEditor({ view, was, onDone }: { view: View; was?: Package; onDon
           </select>
         </label>
         <label className="field">
-          Price, € a {RATE_UNIT[rate]}
+          Price, € a {RATE_UNIT[rate]} <span className="optional">(optional)</span>
           <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="100" />
+          <small>Empty: its kit is priced from the price list.</small>
         </label>
         <label className="field">
           Charged
@@ -175,10 +195,10 @@ function PackageEditor({ view, was, onDone }: { view: View; was?: Package; onDon
       </label>
       <Refusal error={error} />
       <div className="actions">
-        <button type="submit" className="primary">
+        <button type={nested ? 'button' : 'submit'} className="primary" onClick={nested ? save : undefined}>
           {was ? 'Save the package' : 'Add the package'}
         </button>
-        <button type="button" className="link" onClick={onDone}>
+        <button type="button" className="link" onClick={() => onDone()}>
           Cancel
         </button>
         {was && (
@@ -187,6 +207,6 @@ function PackageEditor({ view, was, onDone }: { view: View; was?: Package; onDon
           </button>
         )}
       </div>
-    </form>
+    </Form>
   )
 }

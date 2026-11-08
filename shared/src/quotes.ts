@@ -145,6 +145,11 @@ export const quoteLine = z.object({
   packageId: id.optional(),
   includes: text(PACKAGE_INCLUDES_LENGTH, 'What a package includes').optional(),
   /**
+   * The package's line this one is part of (ADR 0116): a package goes on as its line and the kit it holds, each a line
+   * under it, shown folded under it on screen and printed under it on paper.
+   */
+  under: id.optional(),
+  /**
    * The cost side (ADR 0089), never printed: how many of a kit line are hired in from another company, and who from,
    * as a job's kit line has it (ADR 0014); and what the whole line costs Session Hire, before VAT. Left out, a crew line
    * costs its booked rate and our own kit nothing.
@@ -336,6 +341,7 @@ export const MONEY_ENTITY_NAMES: readonly string[] = QUOTE_ENTITY_NAMES
 /** The same role however it's typed: "Audio Tech " and "audio tech" are one price. */
 export const roleKey = (role: string) => role.trim().replace(/\s+/g, ' ').toLowerCase()
 
+// A line under a package's line that has gone (two people on one draft, ADR 0113) is kept, listed as a line of its own.
 const lines = z.array(quoteLine).max(MAX_LINES, `A quote has room for ${MAX_LINES} lines.`)
 const answer = z.enum(['accepted', 'declined', 'none'])
 
@@ -726,11 +732,46 @@ export function changesFromJob(
   return { added: fresh, gone, changed }
 }
 
-/** The groups a quote lists its lines under, in its order: kit by department first, then crew, then anything else. */
-export function linesByGroup<L extends Pick<QuoteLine, 'kind' | 'group'>>(lines: readonly L[]): { group: string; lines: L[] }[] {
+/** What a package's line comes to with the lines under it (ADR 0116): its own price, and its kit's where that's priced. */
+export function setCents(title: QuoteLine, lines: readonly QuoteLine[]): number {
+  return lineCents(title) + linesUnder(lines, title.id).reduce((n, l) => n + lineCents(l), 0)
+}
+
+/** The lines under a package's line (ADR 0116), in the quote's order. */
+export function linesUnder<L extends { id: string; under?: string | null }>(lines: readonly L[], titleId: string): L[] {
+  return lines.filter((l) => l.under === titleId && l.id !== titleId)
+}
+
+/**
+ * Whether a line still wants a price: one at nothing, unless it's a package's line whose kit is priced under it, or kit
+ * in a package priced as a whole (ADR 0116).
+ */
+export function needsPrice<L extends { id: string; unitCents: number; under?: string | null; modelId?: string | null; packageId?: string }>(l: L, lines: readonly L[]): boolean {
+  if (l.unitCents !== 0) return false
+  // A package charged by its kit: the kit under it has the prices.
+  if (l.packageId && lines.some((x) => x.under === l.id && x.id !== l.id)) return false
+  const head = l.under ? lines.find((x) => x.id === l.under) : undefined
+  // Built into a rack: the rack's price is for it, whatever that is.
+  if (head && (head.unitCents > 0 || head.modelId)) return false
+  return true
+}
+
+/** A quote's lines with new ids, as a new version or a copy takes them, each still under its package's line (ADR 0116). */
+export function withNewIds<L extends { id: string; under?: string | null }>(lines: readonly L[], newId: () => string): L[] {
+  const ids = new Map(lines.map((l) => [l.id, newId()]))
+  return lines.map((l) => ({ ...l, id: ids.get(l.id)!, ...(l.under ? { under: ids.get(l.under) ?? l.under } : {}) }))
+}
+
+/**
+ * The groups a quote lists its lines under, in its order: kit by department first, then crew, then anything else. Lines
+ * under a package's line (ADR 0116) are listed under it, not in a group of their own.
+ */
+export function linesByGroup<L extends Pick<QuoteLine, 'kind' | 'group'> & { id?: string; under?: string | null }>(lines: readonly L[]): { group: string; lines: L[] }[] {
   const order = (l: L) => (l.kind === 'kit' ? 0 : l.kind === 'crew' ? 1 : 2)
   const out: { group: string; lines: L[]; at: number }[] = []
+  const heads = new Set(lines.filter((l) => !l.under).map((l) => l.id))
   for (const l of lines) {
+    if (l.under && heads.has(l.under)) continue
     const group = l.group || (l.kind === 'crew' ? 'Crew' : l.kind === 'other' ? 'Other' : 'Kit')
     let g = out.find((x) => x.group === group)
     if (!g) out.push((g = { group, lines: [], at: order(l) }))

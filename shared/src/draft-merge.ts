@@ -30,6 +30,8 @@ export function lineMark(l: QuoteLine): string {
     l.supplier ?? '',
     l.costCents ?? null,
     l.extra ?? null,
+    // Only when there is one, so a line marked before packages had lines under them reads the same.
+    ...(l.under ? [l.under] : []),
   ]
   return hash(JSON.stringify(fields))
 }

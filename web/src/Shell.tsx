@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { APP_VERSION } from '@sh/shared'
 import { AccountScreen } from './AccountScreen.tsx'
 import { useAuth } from './auth.ts'
 import { CrewBadge } from './crew/CrewBadge.tsx'
@@ -166,7 +167,7 @@ export function Shell() {
   if (auth.status === 'signed-out')
     return (
       <>
-        <UpdateBar unkept={unkept} />
+        <UpdateBar unkept={unkept} version={APP_VERSION} />
         <main ref={main}>
           <SignIn />
         </main>
@@ -175,7 +176,7 @@ export function Shell() {
   if (demo && (!persona || persona.key === 'freelancer' || hash === '#preview'))
     return (
       <>
-        <UpdateBar unkept={unkept} />
+        <UpdateBar unkept={unkept} version={APP_VERSION} />
         <main ref={main}>
           <PreviewSplash />
         </main>
@@ -194,7 +195,7 @@ export function Shell() {
   // the foot of a phone's screen wherever it is in the page.
   return (
     <>
-      <UpdateBar unkept={unkept} />
+      <UpdateBar unkept={unkept} version={APP_VERSION} />
       <a className="skip-to-content" href={hash || '#home'} onClick={skip}>
         Skip to content
       </a>

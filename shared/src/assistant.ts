@@ -204,6 +204,13 @@ export interface Suggestion {
   charged?: number
   /** Off this line alone, as that past quote had it. */
   discountPct?: number
+  /** Where a line from a past job came from, in a few words: "4 quoted, 6 went out" (ADR 0115). */
+  note?: string
+  /** Went out on the past job beyond what its quote had: added on site or after the quote (ADR 0115). */
+  beyond?: boolean
+  /** A package's line (ADR 0087) taken from a past quote: the package, and what it held, printed under it. */
+  packageId?: string
+  includes?: string
 }
 
 /** A kit line: matched to the stock list, named and priced as the product is when it's found. */
@@ -272,6 +279,7 @@ export function suggestionLine(s: Suggestion, id: string): QuoteLine {
     modelId: s.modelId,
     ...(s.rate && s.per === 'day' ? { rate: s.rate, out: s.days } : {}),
     ...(s.discountPct ? { discountPct: s.discountPct } : {}),
+    ...(s.packageId ? { packageId: s.packageId, includes: s.includes ?? '' } : {}),
   }
 }
 
