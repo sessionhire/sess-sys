@@ -32,6 +32,7 @@ const DOCS = [
   ['Starter packages from past quotes', 'docs/research/package-starter-list.md'],
   ['Native iPhone and Android apps', 'docs/research/native-apps.md'],
   ['Stock tracking', 'docs/research/stock-tracking.md'],
+  ['Rentdeck, set beside the app', 'docs/research/competitor-rentdeck.md'],
   ['Competitor audit', 'docs/research/competitor-audit.md'],
   ['How booking works today', 'docs/research/current-process.md'],
   ['Crewbox handoff', 'docs/research/crewbox-handoff.md'],
