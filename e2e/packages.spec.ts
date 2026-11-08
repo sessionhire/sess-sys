@@ -91,7 +91,7 @@ test('a package and a rack go on a quote with their kit under them, and a quote�
   await save.getByLabel('Name').press('Enter')
   await expect(save).toHaveCount(0)
   await ready(office, '#jobs/money/prices')
-  await expect(office.getByRole('region', { name: 'Packages' }).locator('.package-row', { hasText: `Launch kit ${id}` })).toContainText('Its products’ own prices')
+  await expect(office.getByRole('region', { name: 'Packages' }).locator('.package-row', { hasText: `Launch kit ${id}` })).toContainText('€210.00 a day, its items')
 
   // A package's kit on the job's kit list in one press.
   await ready(office, `#jobs/job-${id}/kit`)
@@ -101,4 +101,49 @@ test('a package and a rack go on a quote with their kit under them, and a quote�
   await addPackage.getByRole('button', { name: 'Add its kit' }).click()
   await expect(addPackage.getByRole('status')).toHaveText(`Added what Small PA ${id} holds: 2 products.`)
   await expect(office.getByRole('region', { name: 'Kit' })).toContainText(`DI box ${id}`)
+})
+
+test('a package starts at its items’ total, and a price of its own is a discount the quote shows', async ({ browser, request }) => {
+  const id = Date.now().toString(36)
+  const day = new Date(Date.now() + 21 * 86_400_000).toISOString().slice(0, 10)
+  const bulk = { department: 'audio', category: 'Sound', tracking: 'bulk', isCase: false, valueCents: null, notes: '' }
+  await push(request, id, [
+    ['model.create', { id: `mic-${id}`, name: `Shure SM58 ${id}`, ...bulk }],
+    ['model.create', { id: `di-${id}`, name: `DI box ${id}`, ...bulk }],
+    ['price.product', { modelId: `mic-${id}`, dayCents: 1_000 }],
+    ['price.product', { modelId: `di-${id}`, dayCents: 500 }],
+    ['package.save', { id: `pkg-${id}`, name: `Mic package ${id}`, department: 'audio', dayCents: 0, rate: 'daily', items: [{ modelId: `mic-${id}`, qty: 4 }, { modelId: `di-${id}`, qty: 2 }], notes: '' }],
+    ['project.create', { id: `job-${id}`, name: `Gig ${id}`, clientId: null, venueId: null, status: 'enquiry', notes: '' }],
+    ['phase.add', { id: `ph-${id}`, projectId: `job-${id}`, name: 'Show', start: day, end: day, venueId: null, notes: '' }],
+    ['quote.save', { id: `q-${id}`, projectId: `job-${id}`, lines: [], discountPct: 0, notes: '' }],
+  ])
+
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await ready(office, '#jobs/money/prices')
+  const card = office.getByRole('region', { name: 'Packages' })
+  const row = card.locator('.package-row', { hasText: `Mic package ${id}` })
+  await expect(row).toContainText('€50.00 a day, its items')
+  await row.getByRole('button', { name: `Change Mic package ${id}` }).click()
+  const editor = card.getByRole('form', { name: `Change Mic package ${id}` })
+  await expect(editor.getByText('Empty: its items’ total, €50.00 a day.')).toBeVisible()
+  await editor.getByLabel(/^Price/).fill('40')
+  await expect(editor.getByText('€10.00 off its items’ €50.00 (20%).')).toBeVisible()
+  await editor.getByRole('button', { name: 'Save the package' }).click()
+  await expect(row).toContainText('€40.00 a day · €10.00 off its items’ €50.00')
+
+  // On the quote it's charged at its price, its kit included, and the saving shows on screen and on paper.
+  await ready(office, `#jobs/job-${id}/quote`)
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await draft.getByRole('button', { name: 'Add a package' }).click()
+  await draft.getByLabel('Package to add').selectOption({ value: `pkg-${id}` })
+  await draft.getByRole('button', { name: 'Add', exact: true }).click()
+  await draft.getByRole('button', { name: 'Done' }).click()
+  const head = draft.locator('.quote-set', { hasText: `Mic package ${id}` }).locator('.quote-line-shut').first()
+  await expect(head).toContainText('€40.00')
+  await expect(head).toContainText('€10.00 off its items')
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+  await office.evaluate(() => (window.print = () => undefined))
+  await draft.getByRole('button', { name: 'Print a draft' }).click()
+  await expect(office.locator('.print-sheet.quote-sheet tr.set-head')).toContainText('€10.00 off its items’ €50.00')
+  await office.evaluate(() => dispatchEvent(new Event('afterprint')))
 })

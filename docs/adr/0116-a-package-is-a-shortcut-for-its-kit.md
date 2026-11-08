@@ -31,7 +31,19 @@ one line with nothing to say what was built into them.
    its kit is included ("Included"). A package with no price is its kit at
    the price list's prices, and its line comes to what they do. The price
    on a package is now optional. Colly chose this, "either, set per
-   package", on 8 November 2026.
+   package", on 8 November 2026. Later the same day Colly set how the
+   two read together: "Start with the price for the total for all items in
+   package and then allow a discount to a set price." So a package's price
+   **starts at its items' total** at the price list's prices (shown in the
+   editor as the field's placeholder and under it, and on the list), and a
+   price of its own is **a discount to a set price** from that total: the
+   editor says what it takes off, in euro and per cent, and the quote line
+   keeps the total it was a discount from (`fullCents`, when added), so the
+   screen, the printed sheet and the PDF say "€N off its items' €T". The
+   total counts items priced in the package's own unit (a day, or a week
+   under Weekly); any others are named as not counted, and then no saving
+   is claimed on the quote. A price at or above the total is allowed and
+   claims no saving.
 3. **On screen** a package's kit is folded under its line, "What's in it
    (n lines)" a press away; it's shown as it's added. **On paper**, and in
    the emailed PDF, it's printed under its line, smaller, always.

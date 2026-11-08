@@ -2,6 +2,8 @@ import {
   changesFromJob,
   dayLabel,
   DEPARTMENT_LABELS,
+  packageSaving,
+  packageWorth,
   eachDay,
   euroText,
   irishToday,
@@ -444,6 +446,9 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     const p = m.package(packageId)
     if (!p) return
     const whole = p.dayCents > 0
+    // What its items come to, which its own price is a discount from (ADR 0116): kept on its line for the quote to show.
+    const worth = packageWorth(p, (id) => ({ cents: m.productPrice(id), rate: m.productRate(id) }))
+    const full = whole && !worth.unpriced && packageSaving(worth.cents, p.dayCents) ? worth.cents : undefined
     const titleId = newId()
     const blank = { ref: null, vat: STANDARD_VAT, per: 'day' as const, discount: '', includes: '', subhire: '', supplier: '', cost: '', days: String(days), out: String(days) }
     const title: LineDraft = {
@@ -458,6 +463,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       rate: whole && p.rate && p.rate !== 'daily' ? p.rate : null,
       packageId: p.id,
       includes: p.notes.trim(),
+      ...(full ? { full } : {}),
     }
     const kids = p.items.flatMap((i): LineDraft[] => {
       const model = view.warehouse.models.find((x) => x.id === i.modelId)

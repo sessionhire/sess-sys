@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inRacks, kitFromQuote, linesByGroup, linesUnder, needsPrice, quoteWants, setCents, withNewIds, type QuoteLine } from '../src/index.ts'
+import { inRacks, kitFromQuote, linesByGroup, linesUnder, lineSaving, needsPrice, packageSaving, packageWorth, quoteWants, setCents, withNewIds, type QuoteLine } from '../src/index.ts'
 
 /**
  * A package is a shortcut for its kit (ADR 0116): its line on the quote with each product a line under it, and a rack
@@ -66,5 +66,33 @@ describe('a rack with what is built into it under it', () => {
   it('needs no price for what is built into it, whatever the rack’s', () => {
     const unpriced = [{ ...lines[0]!, unitCents: 0 }, lines[1]!]
     expect(unpriced.filter((l) => needsPrice(l, unpriced)).map((l) => l.id)).toEqual(['rack'])
+  })
+})
+
+describe('a package starts at its items’ total, and its own price is a discount from it', () => {
+  const prices: Record<string, { cents?: number; rate?: 'daily' | 'week3' | 'weekly' }> = {
+    sm58: { cents: 1_000 },
+    di: { cents: 500, rate: 'week3' },
+    sub: { cents: 20_000, rate: 'weekly' },
+    gaff: {},
+  }
+  const priceOf = (id: string) => prices[id] ?? {}
+  it('adds up its items for its own unit, a day or a week', () => {
+    expect(packageWorth({ items: [{ modelId: 'sm58', qty: 4 }, { modelId: 'di', qty: 2 }] }, priceOf)).toEqual({ cents: 5_000, unpriced: 0 })
+    expect(packageWorth({ rate: 'weekly', items: [{ modelId: 'sub', qty: 2 }, { modelId: 'sm58', qty: 1 }] }, priceOf)).toEqual({ cents: 40_000, unpriced: 1 })
+    expect(packageWorth({ items: [{ modelId: 'gaff', qty: 1 }, { modelId: 'sub', qty: 1 }] }, priceOf)).toEqual({ cents: 0, unpriced: 2 })
+  })
+  it('says what a lower price takes off, and nothing for one at or above the total', () => {
+    expect(packageSaving(5_000, 4_000)).toEqual({ cents: 1_000, pct: 20 })
+    expect(packageSaving(3_000, 2_000)).toEqual({ cents: 1_000, pct: 33.3 })
+    expect(packageSaving(5_000, 5_000)).toBeUndefined()
+    expect(packageSaving(5_000, 0)).toBeUndefined()
+  })
+  it('saves on its line for its days and how many, before the line’s own discount', () => {
+    const l = line({ id: 'pkg', packageId: 'mics', unitCents: 4_000, fullCents: 5_000, qty: 2, days: 3 })
+    expect(lineSaving(l)).toBe(6_000)
+    expect(lineSaving({ ...l, per: 'once' })).toBe(2_000)
+    expect(lineSaving({ ...l, unitCents: 6_000 })).toBe(0)
+    expect(lineSaving({ ...l, fullCents: undefined })).toBe(0)
   })
 })
