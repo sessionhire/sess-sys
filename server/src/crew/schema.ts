@@ -253,6 +253,35 @@ const MIGRATIONS: string[] = [
      AND (string_to_array(first_name, ' '))[cardinality(string_to_array(first_name, ' ')) - 1] = ANY(ARRAY[${NAME_PARTICLES.map((w) => `'${w}'`).join(', ')}]::text[]);
   DROP FUNCTION sh_resplit_name(text, text, text[]);
   `,
+  // The phones a freelancer's link has been opened on, and the codes that let a new one in (ADR 0114), and when a lost link was last emailed. Only hashes are kept:
+  // the cookie's secret and the code are never stored. A phone is remembered under the link it was opened with (link_hash),
+  // so a new link from the office forgets every phone. `seen` is false until the phone comes back with its cookie, which a
+  // preview fetched by WhatsApp or Mail never does.
+  `
+  CREATE TABLE IF NOT EXISTS link_devices (
+    id           text PRIMARY KEY,
+    person_id    text NOT NULL,
+    link_hash    text NOT NULL,
+    secret_hash  text NOT NULL UNIQUE,
+    device       text NOT NULL DEFAULT '',
+    seen         boolean NOT NULL DEFAULT false,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    used_at      timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS link_devices_person ON link_devices (person_id, link_hash);
+  CREATE TABLE IF NOT EXISTS link_codes (
+    person_id   text PRIMARY KEY,
+    link_hash   text NOT NULL,
+    code_hash   text NOT NULL,
+    sent_at     timestamptz NOT NULL DEFAULT now(),
+    expires_at  timestamptz NOT NULL,
+    tries       integer NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS link_lost (
+    person_id  text PRIMARY KEY,
+    sent_at    timestamptz NOT NULL
+  );
+  `,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }

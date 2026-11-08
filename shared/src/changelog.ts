@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.112.0',
+    date: '2026-11-08',
+    title: "Freelancers' links remember their phones, and can check a new one",
+    what: "A freelancer's private link now remembers each phone it's opened on. A new switch under Admin › Company, Freelancers' links, starts off: with it on, opening a link on a phone it hasn't seen asks for a six-digit code, emailed to the freelancer from the operations mailbox, so a forwarded link can't be used by someone else; and a freelancer who has lost their link can have it emailed from a new Lost your link? page. With no email for them, the office makes them a new link, which opens on the first phone that uses it. While it's off, links work exactly as before and nothing is sent.",
+    prs: [257],
+    adrs: [114],
+  },
+  {
     version: '1.111.1',
     date: '2026-11-08',
     title: 'Two people on one draft quote keep both their changes',

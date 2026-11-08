@@ -1,4 +1,4 @@
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
 import { emit, type Ctx } from '../kernel.ts'
 import { getSetting } from './store.ts'
 
@@ -7,7 +7,7 @@ import { getSetting } from './store.ts'
  * on every freelancer page. One office, so the command replaces them whole.
  */
 
-type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'cables.colours'
+type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'links.check' | 'cables.colours'
 type Handler<N extends OfficeCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
@@ -68,6 +68,16 @@ export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
       [ASSISTANT_SETTING_ID, a.on]
     )
     await emit(ctx, 'setting', ASSISTANT_SETTING_ID, await getSetting(ctx.tx, ASSISTANT_SETTING_ID))
+  },
+
+  /** Whether freelancers' links check new phones and can be emailed when lost (ADR 0114). Phones already remembered stay remembered either way. */
+  async 'links.check'(ctx, a) {
+    await ctx.tx.query(
+      `INSERT INTO settings (id, check_links) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET check_links = EXCLUDED.check_links, updated_at = now()`,
+      [LINKS_SETTING_ID, a.on]
+    )
+    await emit(ctx, 'setting', LINKS_SETTING_ID, await getSetting(ctx.tx, LINKS_SETTING_ID))
   },
 
   /** The colour each cable length takes (ADR 0106), the whole list at once. Every device hears at its next sync. */

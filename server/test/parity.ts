@@ -282,6 +282,7 @@ const CASES: Case[] = [
   c('messages.prompt', { on: false }),
   c('timesheets.use', { on: true }),
   c('assistant.use', { on: true }),
+  c('links.check', { on: true }),
   c('cables.colours', { colours: [{ upToM: 2, colour: 'red' }, { upToM: 10, colour: 'green' }] }),
 
   // Leave and time in lieu.

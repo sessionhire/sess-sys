@@ -272,10 +272,10 @@ describe('the office’s details', () => {
 
   it('lay this device’s own change over what the server said', () => {
     const entities = { setting: { office: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: null } } }
-    expect(officeView(entities, [], 0)).toEqual({ details: entities.setting.office, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    expect(officeView(entities, [], 0)).toEqual({ details: entities.setting.office, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, checkLinks: false, linksPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
     const changed = officeView(entities, [m('office.update', { name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' })], 0)
-    expect(changed).toEqual({ details: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' }, pending: true, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
-    expect(officeView({}, [], 0)).toEqual({ details: undefined, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    expect(changed).toEqual({ details: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' }, pending: true, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, checkLinks: false, linksPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    expect(officeView({}, [], 0)).toEqual({ details: undefined, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, checkLinks: false, linksPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
   })
 
   it("say whether heads of department see rates (ADR 0046), with this device's own choice over the server's", () => {
@@ -303,6 +303,11 @@ describe('the office’s details', () => {
     const entities = { setting: { assistant: { id: 'assistant', name: '', phone: null, email: null, useAssistant: true } } }
     expect(officeView(entities, [], 0)).toMatchObject({ useAssistant: true, assistantPending: false })
     expect(officeView(entities, [m('assistant.use', { on: false })], 0)).toMatchObject({ useAssistant: false, assistantPending: true, timesheetsPending: false })
+  })
+
+  it('checks new phones on freelancers’ links only once the office says so (ADR 0114)', () => {
+    expect(officeView({}, [], 0)).toMatchObject({ checkLinks: false, linksPending: false })
+    expect(officeView({}, [m('links.check', { on: true })], 0)).toMatchObject({ checkLinks: true, linksPending: true })
   })
 
   it('keeps the default cable colours until the office saves its own, and shows the logo once put up (ADR 0106)', () => {
