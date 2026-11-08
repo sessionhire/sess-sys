@@ -34,14 +34,17 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      # Gradle itself, fetched with retries and kept between runs: the wrapper's own download has been turned away (504).
+      # Gradle itself, fetched by the action (with retries) and kept between runs, the same version
+      # the wrapper names: the wrapper's own download has been turned away (504) again and again.
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
       - run: npm ci
       - name: Copy the shell's settings and plugins in
         run: npx cap sync android
         working-directory: app
       - name: Build
-        run: ./gradlew assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon
         working-directory: app/android
       # For trying on an Android phone by hand: Settings may ask to allow apps from this source.
       - uses: actions/upload-artifact@v4
