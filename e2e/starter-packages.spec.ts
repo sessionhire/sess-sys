@@ -31,7 +31,7 @@ test('the starter packages go on the price list in one press, with the mics and 
   await card.getByRole('button', { name: 'Add the 41 packages' }).click()
   await expect(card).toHaveCount(0)
 
-  const packages = page.getByRole('region', { name: 'Packages' })
+  const packages = page.getByRole('region', { name: 'Packages', exact: true })
   // Other tests' packages may be there too.
   await expect(packages.locator('.package-row b')).toContainText(STARTER_PACKAGES.map((p) => p.name).sort((a, b) => a.localeCompare(b, 'en-IE')))
   const band = packages.locator('.package-row', { hasText: 'Mic package, band' })

@@ -91,7 +91,7 @@ test('a package and a rack go on a quote with their kit under them, and a quote�
   await save.getByLabel('Name').press('Enter')
   await expect(save).toHaveCount(0)
   await ready(office, '#jobs/money/prices')
-  await expect(office.getByRole('region', { name: 'Packages' }).locator('.package-row', { hasText: `Launch kit ${id}` })).toContainText('Its products’ own prices')
+  await expect(office.getByRole('region', { name: 'Packages', exact: true }).locator('.package-row', { hasText: `Launch kit ${id}` })).toContainText('Its products’ own prices')
 
   // A package's kit on the job's kit list in one press.
   await ready(office, `#jobs/job-${id}/kit`)
