@@ -34,6 +34,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # Gradle itself, fetched with retries and kept between runs: the wrapper's own download has been turned away (504).
+      - uses: gradle/actions/setup-gradle@v4
       - run: npm ci
       - name: Copy the shell's settings and plugins in
         run: npx cap sync android
