@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.110.0',
+    date: '2026-11-08',
+    title: 'Say how many as you add kit and crew to a quote',
+    what: "On a quote, Add kit takes how many with the product: type 12 y10 and the list offers 12 × d&b Y10P, and the line goes on at 12 instead of 1. Each product in the list also says its price and how many are free on the job's days, past what the quote already has, so one that's short is seen before it's added. Add crew has a How many box beside the role.",
+    prs: [254],
+  },
+  {
     version: '1.109.4',
     date: '2026-11-08',
     title: 'The stock code in words and the logo on every item label',

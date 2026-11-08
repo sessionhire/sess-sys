@@ -140,3 +140,31 @@ export function kitFromQuote(
   }
   return out
 }
+
+/**
+ * How many of a product are free on a job's days (research/quoting.md, feature 2), for the product picker on a quote:
+ * the fewest of our own that no confirmed job holds on any of the days, with the job's days to get kit ready and check
+ * it back, from today on, as `quoteKit` counts them, less what the quote already wants of it. Undefined for a job with
+ * no dates or whose days are past, and for dry hire stock, which is all hired in.
+ */
+export function kitFree(
+  job: Pick<JobView, 'id' | 'span' | 'prepDays' | 'returnDays'>,
+  modelId: string,
+  wanted: number,
+  today: string,
+  x: QuoteKitInputs
+): number | undefined {
+  // One wanted, so quoteKit checks it; the tightest day's free count is what's owned less the most held on any day.
+  const check = quoteKit(job, new Map([[modelId, 1]]), today, x).get(modelId)
+  if (!check) return undefined
+  const held = heldAround(job, job.span!)
+  const days = eachDay(held.start < today ? today : held.start, held.end)
+  const lines = (x.kit.byModel.get(modelId) ?? []).filter((l) => l.projectId !== job.id && l.hold === 'held' && l.own > 0 && l.held)
+  let most = 0
+  for (const d of days) {
+    let on = 0
+    for (const l of lines) if (l.held!.start <= d && l.held!.end >= d) on += l.own
+    if (on > most) most = on
+  }
+  return Math.max(0, check.owned - most - wanted)
+}

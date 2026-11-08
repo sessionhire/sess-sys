@@ -564,6 +564,39 @@ test('Add kit takes the cursor and stays open for the next product, Done closing
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
+test("how many is typed with the product or the role, and the picker says the price and how many are free (research/quoting.md, features 1 and 2)", async ({ browser, request }) => {
+  // Proves: "12 SM58" in Add kit offers 12 × the product with its price and free count and adds a line of 12; Add crew takes how many beside the role; a name that starts with a number is still found by it.
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.goto('/#jobs')
+  await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
+  await office.getByRole('tab', { name: 'Quote' }).click()
+  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
+  await office.getByRole('button', { name: 'Start one empty' }).click()
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await expect(draft).toContainText('Type how many first, as 12 y10.')
+  await office.keyboard.type('12 SM58')
+  const offer = draft.getByRole('option', { name: /^12 × Shure SM58/ })
+  await expect(offer).toBeVisible()
+  await expect(offer).toContainText(/(a day|a week|No price yet)/)
+  await expect(offer).toContainText(/free/)
+  await expect(draft.getByRole('listbox')).toContainText('12 of the one you pick')
+  await office.keyboard.press('Enter')
+  await expect(draft).toContainText('1 line added.')
+  await expect(draft.getByRole('button', { name: /Shure SM58, change it$/ })).toContainText('12 ×')
+  await draft.getByRole('button', { name: 'Done', exact: true }).click()
+
+  await draft.getByRole('button', { name: 'Add crew' }).click()
+  await draft.getByLabel('How many').fill('2')
+  await draft.getByLabel('Crew role to add').fill('Rigger')
+  await draft.getByLabel('Crew role to add').press('Enter')
+  // The crew line opens for its price as before, at two.
+  await expect(draft.getByRole('textbox', { name: 'Line 2: how many' })).toHaveValue('2')
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
 test("on a desk a line's amount and Remove sit inside the quote's card at every width (audit finding 28)", async ({ browser, request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
