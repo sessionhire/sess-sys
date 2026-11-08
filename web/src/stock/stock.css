@@ -147,6 +147,22 @@
 .warehouse .scanner .alert { display: grid; gap: var(--ds-space-2); justify-items: start; }
 .warehouse .scanner .alert p { margin: 0; }
 
+/*
+ * Scanning in the phone app (ADR 0112): the phone draws its camera behind the page, so while it's on the page lets it show
+ * through a band at the top and carries on below it, scrolling on its own under the band. Nothing paints over the band.
+ */
+:root { --cam-band: min(42vh, 92vw); }
+html:has(body.native-scan), body.native-scan { background: transparent; }
+body.native-scan #root { position: fixed; inset: var(--cam-band) 0 0 0; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); }
+.cam-band { position: fixed; inset: 0 0 auto 0; height: var(--cam-band); z-index: 4; display: grid; grid-template-rows: 1fr auto; padding-top: env(safe-area-inset-top); }
+.cam-band .frame { justify-self: center; align-self: center; width: min(58vw, calc(var(--cam-band) - 120px)); aspect-ratio: 1; border: 3px solid #fff8; border-radius: 10px; pointer-events: none; }
+.cam-band .frame[data-read] { animation: scan-read var(--ds-duration-slow) ease-out; }
+.cam-band .cam-strip { display: grid; gap: var(--ds-space-2); padding: var(--ds-space-2) var(--ds-space-4); background: var(--panel); border-bottom: 1px solid var(--line); }
+.cam-band .scan-status { margin: 0; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cam-band .scan-controls { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); justify-content: center; }
+.cam-band .scan-controls button[aria-pressed='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.warehouse .scanner.native .scan-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
 /* Faults and missing kit (ADR 0018): a stripe down the side says whether it stops the kit going out. */
 .warehouse .fault-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
 .warehouse .fault { display: grid; gap: var(--ds-space-2); padding: var(--inset-box); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius-box); }

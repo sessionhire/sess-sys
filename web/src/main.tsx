@@ -9,6 +9,7 @@ import './home/home.css'
 import { followMovedAddresses } from './addresses.ts'
 import { startErrorReporting } from './errors.ts'
 import { Opening } from './Opening.tsx'
+import { listenForSignIn } from './native.ts'
 import { keepPlaces } from './places.ts'
 import { printLight } from './theme.ts'
 import { refuseEmptyFieldsInWords } from './required.ts'
@@ -20,6 +21,10 @@ printLight()
 refuseEmptyFieldsInWords()
 void startErrorReporting()
 watchForUpdates()
+// The phone app's sign-in comes back by the app's own address (ADR 0112); the page starts again signed in, or saying why not.
+void listenForSignIn((outcome) =>
+  location.replace('next' in outcome ? (outcome.next.startsWith('/') ? outcome.next : `/${outcome.next}`) : `/?signin=${outcome.problem}${location.hash}`)
+)
 
 const root = createRoot(document.getElementById('root')!)
 

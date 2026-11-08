@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { inApp } from '../native.ts'
+import { NativeScanner } from './NativeScanner.tsx'
 
 /**
  * Scanning with the phone's camera in the app (ADR 0016). The camera stays
@@ -170,7 +172,13 @@ function cameraProblem(err: unknown): string {
  * new code as it's read. Small, when there's a form under it to fill in.
  * It turns itself off while the app is out of sight, and back on when it's back.
  */
-export function CameraScanner({ onRead, onStop, small = false }: { onRead: (code: string) => void; onStop: () => void; small?: boolean }) {
+export function CameraScanner(props: { onRead: (code: string) => void; onStop: () => void; small?: boolean }) {
+  // In the iPhone or Android app, the phone's own reader (ADR 0112).
+  return inApp() ? <NativeScanner onRead={props.onRead} onStop={props.onStop} beep={beep} /> : <PageScanner {...props} />
+}
+
+/** The camera in the page, for a browser. */
+function PageScanner({ onRead, onStop, small = false }: { onRead: (code: string) => void; onStop: () => void; small?: boolean }) {
   const video = useRef<HTMLVideoElement>(null)
   const latest = useRef(onRead)
   latest.current = onRead

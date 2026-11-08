@@ -1,0 +1,65 @@
+name: Phone app
+
+# Builds the iPhone and Android apps (ADR 0112) whenever their shell, or the
+# web app's part that talks to it, changes: proof they still build. Not
+# signed, so not for phones yet: signing and the stores wait on the
+# company's Apple and Google accounts.
+on:
+  push:
+    branches: [main]
+    paths: ['app/**', 'web/src/native.ts', 'web/src/stock/NativeScanner.tsx', '.github/workflows/app.yml', 'package-lock.json']
+  pull_request:
+    paths: ['app/**', 'web/src/native.ts', 'web/src/stock/NativeScanner.tsx', '.github/workflows/app.yml', 'package-lock.json']
+  workflow_dispatch:
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  android:
+    name: Android app builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Copy the shell's settings and plugins in
+        run: npx cap sync android
+        working-directory: app
+      - name: Build
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: app/android
+      # For trying on an Android phone by hand: Settings may ask to allow apps from this source.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: session-hire-android-debug
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+  ios:
+    name: iPhone app builds
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Copy the shell's settings and plugins in
+        run: npx cap sync ios
+        working-directory: app
+      - name: Build for the simulator, unsigned
+        run: >-
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug
+          -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build
+        working-directory: app/ios/App

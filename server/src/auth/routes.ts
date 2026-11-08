@@ -42,6 +42,15 @@ const PASSCODE_COOKIE = 'sh_passcode'
 const PREVIEW_COOKIE = 'sh_preview'
 /** How long a demo copy remembers a browser's passcode and persona: the 60 days staff sessions had before ADR 0052. */
 const DEMO_DAYS = 60
+/**
+ * The phone app (ADR 0112) signs in through the phone's own browser, as Google won't sign in inside an app. The browser
+ * comes back to the app by this address, with a one-time code the app swaps for its session.
+ */
+export const APP_SCHEME = 'com.sessionhire.app'
+/** How long the phone app has to swap its code: it does so the moment the phone hands the address back. */
+const HANDOVER_MS = 120_000
+/** A PKCE challenge as the app sends it: the base64url SHA-256 of a secret only the app holds. */
+const CHALLENGE = /^[A-Za-z0-9_-]{43}$/
 const asRole = (v: unknown): Role | undefined => (ROLES as readonly unknown[]).includes(v) ? (v as Role) : undefined
 
 /**
@@ -225,12 +234,24 @@ export function registerAuth(app: FastifyInstance, db: Db, auth: AuthConfig | un
 
   const callbackUrl = (req: FastifyRequest) => `${publicOrigin(req)}/api/auth/google/callback`
 
-  app.get<{ Querystring: { next?: string } }>('/api/auth/google/start', { config: { public: true, rateLimit: SIGN_IN_LIMIT } }, async (req, reply) => {
+  /**
+   * Sessions made in the phone's browser for the phone app, waiting for the app to fetch them (ADR 0112): by the code
+   * handed back, with the challenge the app left with, so only the app that asked can take it, once. Kept in memory,
+   * as the server runs as one process; a code lost to a restart just means signing in again.
+   */
+  const handovers = new Map<string, { token: string; challenge: string; next: string; until: number }>()
+  const tidyHandovers = (now: number) => {
+    for (const [code, h] of handovers) if (h.until < now) handovers.delete(code)
+  }
+
+  app.get<{ Querystring: { next?: string; app?: string } }>('/api/auth/google/start', { config: { public: true, rateLimit: SIGN_IN_LIMIT } }, async (req, reply) => {
     reply.header('cache-control', 'no-store')
     if (!auth) return reply.redirect('/', 303)
     const state = randomBytes(16).toString('base64url')
     const verifier = randomBytes(32).toString('base64url')
-    setCookie(req, reply, ATTEMPT_COOKIE, [state, verifier, landing(req.query.next)].join('.'), { maxAge: 600, path: ATTEMPT_PATH })
+    // From the phone app: its challenge rides along, and the session goes back to the app rather than to this browser.
+    const forApp = typeof req.query.app === 'string' && CHALLENGE.test(req.query.app) ? req.query.app : ''
+    setCookie(req, reply, ATTEMPT_COOKIE, [state, verifier, landing(req.query.next), forApp].join('.'), { maxAge: 600, path: ATTEMPT_PATH })
     const codeChallenge = createHash('sha256').update(verifier).digest('base64url')
     return reply.redirect(auth.provider.authorizeUrl({ state, codeChallenge, redirectUri: callbackUrl(req) }), 302)
   })
@@ -241,12 +262,15 @@ export function registerAuth(app: FastifyInstance, db: Db, auth: AuthConfig | un
     async (req, reply) => {
       reply.header('cache-control', 'no-store')
       if (!auth) return reply.redirect('/', 303)
-      const [state, verifier, next] = (readCookie(req, ATTEMPT_COOKIE) ?? '').split('.')
+      const [state, verifier, next, forApp] = (readCookie(req, ATTEMPT_COOKIE) ?? '').split('.')
       clearCookie(req, reply, ATTEMPT_COOKIE, ATTEMPT_PATH)
       const back = landing(next)
-      // A staff page is gone back to with what happened; anywhere in the app, the sign-in screen says it.
+      // A staff page is gone back to with what happened; anywhere in the app, the sign-in screen says it. The phone app
+      // is gone back to by its own address, which it reads the same way.
       const page = back.startsWith('/')
-      const fail = (why: 'cancelled' | 'failed' | 'denied') => reply.redirect(page ? `${back}?signin=${why}` : `/?signin=${why}${back}`, 303)
+      const toApp = !!forApp && CHALLENGE.test(forApp)
+      const fail = (why: 'cancelled' | 'failed' | 'denied') =>
+        reply.redirect(toApp ? `${APP_SCHEME}://signed-in?signin=${why}` : page ? `${back}?signin=${why}` : `/?signin=${why}${back}`, 303)
 
       if (req.query.error) return fail(req.query.error === 'access_denied' ? 'cancelled' : 'failed')
       // The state must match the one this browser left with, or someone is
@@ -267,10 +291,36 @@ export function registerAuth(app: FastifyInstance, db: Db, auth: AuthConfig | un
       const user = await upsertUser(db, identity)
       if (user.disabled) return fail('denied')
       const token = await createSession(db, user.id, String(req.headers['user-agent'] ?? '').slice(0, 300))
+      if (toApp) {
+        // Not this browser's session: the app's, kept for the app to fetch with the secret behind its challenge.
+        const now = Date.now()
+        tidyHandovers(now)
+        const code = randomBytes(32).toString('base64url')
+        handovers.set(code, { token, challenge: forApp, next: back, until: now + HANDOVER_MS })
+        return reply.redirect(`${APP_SCHEME}://signed-in?code=${code}`, 303)
+      }
       setCookie(req, reply, SESSION_COOKIE, token, { maxAge: SESSION_DAYS * 86_400 })
       return reply.redirect(page ? back : `/${back}`, 303)
     }
   )
+
+  /**
+   * The phone app swaps the code it was handed back for its session (ADR 0112): once, within two minutes, and only with
+   * the secret whose hash it left with, so a code caught by anything else on the phone is no use to it.
+   */
+  app.post<{ Body: { code?: unknown; verifier?: unknown } }>('/api/auth/app/claim', { config: { public: true, rateLimit: SIGN_IN_LIMIT } }, async (req, reply) => {
+    reply.header('cache-control', 'no-store')
+    const code = typeof req.body?.code === 'string' ? req.body.code : ''
+    const verifier = typeof req.body?.verifier === 'string' ? req.body.verifier : ''
+    const now = Date.now()
+    tidyHandovers(now)
+    const h = handovers.get(code)
+    handovers.delete(code)
+    if (!h || !verifier || !same(createHash('sha256').update(verifier).digest('base64url'), h.challenge))
+      return reply.code(403).send({ error: "That sign-in didn't come back to this app. Sign in again." })
+    setCookie(req, reply, SESSION_COOKIE, h.token, { maxAge: SESSION_DAYS * 86_400 })
+    return { next: h.next }
+  })
 
   app.post<{ Body: { passcode?: unknown } }>('/api/auth/passcode', { config: { public: true, rateLimit: SIGN_IN_LIMIT } }, async (req, reply) => {
     reply.header('cache-control', 'no-store')

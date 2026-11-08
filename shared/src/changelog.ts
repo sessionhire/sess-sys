@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.110.0',
+    date: '2026-11-08',
+    title: 'The first part of the iPhone and Android app, for the warehouse',
+    what: "The start of a Session Hire app for iPhone and Android, the same app inside the phone's own: scanning a label in it uses the phone's own barcode reader, faster and better in poor light, with the camera across the top of the screen and the page carrying on below it; and signing in opens Google in the phone's browser and comes back. It isn't on the App Store or Google Play yet. Nothing changes in a browser.",
+    prs: [0],
+    adrs: [112],
+  },
+  {
     version: '1.109.3',
     date: '2026-11-07',
     title: 'The glide to a part of the page now shows on an iPhone',
