@@ -3,6 +3,29 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 8 November 2026: an audit of the quote flow, and quoting from scratch
+
+**Done**
+
+- [Audit, 8 November 2026: the quote flow](audit-quote-flow-2026-11-08.md),
+  at Colly's ask: the quote from enquiry to confirmed job, as the office
+  person fills it in, on a phone and at a desk, offline too, at 1.118.0,
+  weighed against what 1,072 Current RMS quotes look like (counted, none
+  named). 21 findings: no P0, 4 P1 (free lines can only be "needs a
+  price", a count lost when the product's name has digits, a part-typed
+  client becomes a new one, a draft's kit isn't held or seen by other
+  quotes), 13 P2, 4 P3, in seven suggested batches. Screenshots in the
+  project folder under `screens/quote-audit/`. Nothing live was touched.
+- Its second half answers "if we did it again from scratch": the quote as
+  the job's plan (its kit pencilled, its crew as calls), starting from the
+  client, one Add box, Included lines and the office's own groups, due
+  today first, dry hire as its own shape, sending as one act. Reachable in
+  steps, not a rebuild.
+
+**Waiting on**
+
+- Colly to pick what to fix, and the page's six questions.
+
 ## 8 November 2026: a package's price starts at its items' total
 
 **Done**
