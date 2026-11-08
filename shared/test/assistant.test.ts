@@ -35,7 +35,7 @@ const pricing: Pricing = {
 }
 
 const read = (r: Partial<EnquiryReading>): EnquiryReading =>
-  enquiryReading.parse({ name: 'Launch', client: '', venue: '', start: '', end: '', phases: [], kit: [], crew: [], other: [], questions: [], summary: '', ...r })
+  enquiryReading.parse({ name: 'Launch', client: '', venue: '', start: '', end: '', phases: [], kit: [], crew: [], other: [], questions: [], summary: '', asker: '', quoteBy: '', ...r })
 
 describe('an enquiry read by Claude', () => {
   it('matches kit to the stock list, priced and named as the product is, and leaves the rest to choose', () => {

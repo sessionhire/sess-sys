@@ -78,7 +78,7 @@ function fakeGoogle(mails: FakeMail[]) {
   return { fetch, asked }
 }
 
-const empty = { name: '', client: '', venue: '', start: '', end: '', phases: [], kit: [], crew: [], other: [], questions: [], summary: '' }
+const empty = { name: '', client: '', venue: '', start: '', end: '', phases: [], kit: [], crew: [], other: [], questions: [], summary: '', asker: '', quoteBy: '' }
 const noAdvice: QuoteAdvice = { note: '', add: [], remove: [], change: [], discountPct: null }
 const year = new Date().getFullYear() + 1
 const launch: EnquiryReading = {

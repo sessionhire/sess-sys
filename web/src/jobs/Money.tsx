@@ -126,6 +126,13 @@ function FollowRow({ f, what, chase, when, children }: { f: QuoteToFollow; what:
             {what} {when ?? ago(f.days)}
             {chase ? ': worth a call' : ''}
           </span>
+          {/* Its prices held until a day that has passed (research/quoting.md, feature 4): a new version, or a word with the client that they stand. */}
+          {f.ranOut && (
+            <>
+              <br />
+              <span className="warn">Prices held until {dayLabel(f.ranOut)}: check they stand, or start a new version</span>
+            </>
+          )}
         </p>
       </div>
       {children}
@@ -288,10 +295,26 @@ export function QuotesToChase({ view }: { view: View }) {
  * A quote from nothing (ADR 0081): the job in a few words, made as an enquiry with its days as one Show, and its
  * first draft opened, so a phone call can turn into a quote without making the job first.
  */
+const ENQUIRY_WAYS = ['email', 'phone', 'person', 'other'] as const
+type EnquiryWay = (typeof ENQUIRY_WAYS)[number]
+const ENQUIRY_WAY_LABELS: Record<EnquiryWay, string> = { email: 'Email', phone: 'Phone', person: 'In person', other: 'Another way' }
+const ENQUIRY_WAY_WORDS: Record<EnquiryWay, string> = { email: ' by email', phone: ' by phone', person: ' in person', other: '' }
+
+/** The job's first line of notes, when who asked or how was said: "Enquiry by phone from Aoife Byrne." */
+function enquiryLine(by: string, how: EnquiryWay | ''): string {
+  const who = by.trim().replace(/\s+/g, ' ').slice(0, 200)
+  if (!who && !how) return ''
+  return `Enquiry${how ? ENQUIRY_WAY_WORDS[how] : ''}${who ? ` from ${who}` : ''}.`
+}
+
 function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
   const today = useToday()
   const { clients, venues } = view.jobs
   const [f, setF] = useState({ name: '', client: '', venue: '', start: today, end: today })
+  // Who asked, how it came and when they want it by (research/quoting.md, feature 6): the first two go in the job's notes as
+  // a line, the day is the Quote sent task's due day, so it's on someone's list and late shows as late.
+  const [asked, setAsked] = useState<{ by: string; how: EnquiryWay | ''; quoteBy: string }>({ by: '', how: '', quoteBy: '' })
+  const contacts = clients.find((c) => c.name.trim().toLowerCase() === f.client.trim().toLowerCase())?.contacts ?? []
   // What Claude read of an enquiry (ADR 0096): the job's parts and lines, until the dates are changed by hand.
   const claude = useClaude(view)
   const [read, setRead] = useState<EnquiryReading>()
@@ -303,6 +326,7 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
     const start = parts[0]?.start ?? f.start
     const end = parts.reduce((e, ph) => (ph.end > e ? ph.end : e), start)
     setF({ name: r.name || f.name, client: r.client || f.client, venue: r.venue || f.venue, start, end })
+    setAsked({ by: r.asker || asked.by, how: asked.how, quoteBy: r.quoteBy && r.quoteBy >= today ? r.quoteBy : asked.quoteBy })
     setPhases(parts.length > 1 ? parts : [])
     setLines(offer(enquirySuggestions(r, pricingOf(view), eachDay(start, end).length)))
     setRead(r)
@@ -319,7 +343,8 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
     void run(async () => {
       const clientId = await clientNamed(f.client, clients)
       const venueId = await venueNamed(f.venue, venues)
-      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind: 'gig', notes: '' })
+      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind: 'gig', notes: enquiryLine(asked.by, asked.how) })
+      if (asked.quoteBy) await client.mutate('jobStep.set', { projectId: id, step: 'quote', dueOn: asked.quoteBy })
       for (const ph of phases.length ? phases : [{ name: 'Show', start: f.start, end: f.end < f.start ? f.start : f.end }])
         await client.mutate('phase.add', { id: newId(), projectId: id, name: ph.name, start: ph.start, end: ph.end, venueId: null, notes: '' })
       const quoteLines = taking.map((x) => suggestionLine(x.s, newId())).slice(0, MAX_LINES)
@@ -372,6 +397,27 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
           To <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
         </label>
       </div>
+      <div className="pair">
+        <label>
+          Quote wanted by <span className="optional">(optional)</span>
+          <input type="date" value={asked.quoteBy} min={today} onChange={(e) => setAsked({ ...asked, quoteBy: e.target.value })} />
+        </label>
+        <label>
+          How it came <span className="optional">(optional)</span>
+          <select value={asked.how} onChange={(e) => setAsked({ ...asked, how: e.target.value as EnquiryWay | '' })}>
+            <option value="">Not said</option>
+            {ENQUIRY_WAYS.map((w) => (
+              <option key={w} value={w}>
+                {ENQUIRY_WAY_LABELS[w]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label>
+        Who asked <span className="optional">(optional)</span>
+        <input list="new-quote-contacts" value={asked.by} onChange={(e) => setAsked({ ...asked, by: e.target.value })} maxLength={200} autoComplete="off" />
+      </label>
       {phases.length > 0 && (
         <p className="hint wide">
           In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
@@ -384,7 +430,9 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
         </section>
       )}
       {read && lines.length === 0 && <p className="hint wide">Claude found no kit or crew to put on the quote. Add them on the quote.</p>}
-      <p className="hint wide">It's added to Jobs as an enquiry, and moves to quoted when you mark the quote sent. Kit, crew and the rest can be added on the quote.</p>
+      <p className="hint wide">
+        It's added to Jobs as an enquiry, and moves to quoted when you mark the quote sent. Who asked and how go in the job's notes; the day they want it by is when the Quote sent task is due. Kit, crew and the rest can be added on the quote.
+      </p>
       <Refusal error={error} className="wide" />
       <div className="actions wide">
         <button type="submit" className="primary">
@@ -396,6 +444,11 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
       </div>
       <Choices id="new-quote-clients" names={clients} />
       <Choices id="new-quote-venues" names={venues} />
+      <datalist id="new-quote-contacts">
+        {contacts.map((c) => (
+          <option key={c.name} value={c.name} />
+        ))}
+      </datalist>
     </form>
   )
 }

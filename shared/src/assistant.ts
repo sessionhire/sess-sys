@@ -83,6 +83,9 @@ export const enquiryReading = z.object({
   /** What the office needs to ask the client before quoting. */
   questions: some(words(300), 8),
   summary: text(1000),
+  /** Who asked, as they signed it, and the day they want the quote by (research/quoting.md, feature 6). "" when not said. */
+  asker: words(200),
+  quoteBy: dayOrNone,
 })
 export type EnquiryReading = z.infer<typeof enquiryReading>
 
@@ -151,6 +154,8 @@ export const ENQUIRY_SCHEMA = obj({
   other: list(obj({ qty: int, what: str })),
   questions: list(str),
   summary: str,
+  asker: str,
+  quoteBy: date,
 })
 
 export const ADVICE_SCHEMA = obj({

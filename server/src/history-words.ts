@@ -25,7 +25,7 @@ import {
   type ProjectStatus,
   type RetiredReason,
 } from '@sh/shared'
-import { RATE_LABELS, type RateRule } from '@sh/shared'
+import { RATE_LABELS, TURN_DOWN_LABELS, type RateRule, type TurnDownReason } from '@sh/shared'
 import { certificateName, certificateOf, DOCUMENT_ACTIONS, DOCUMENT_KINDS, DOCUMENT_TITLES, fileLabel, FILE_TYPES, titleInSentence, type FileType } from '@sh/shared'
 import { countSummaryWords, isCountSummary } from '@sh/shared'
 import { ROLE_LABELS, type Role } from '@sh/shared'
@@ -710,7 +710,9 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (command === 'quote.save') return `Saved ${of}`
       if (command === 'quote.sent') return `Marked ${of} as sent to the client${on}`
       if (command === 'quote.answer')
-        return a.answer === 'none' ? `Took back the client's answer to ${of}` : `Recorded that the client ${a.answer === 'accepted' ? 'accepted' : 'turned down'} ${of}${on}`
+        return a.answer === 'none'
+          ? `Took back the client's answer to ${of}`
+          : `Recorded that the client ${a.answer === 'accepted' ? 'accepted' : 'turned down'} ${of}${on}${a.answer === 'declined' && typeof a.why === 'string' && a.why in TURN_DOWN_LABELS ? `: ${TURN_DOWN_LABELS[a.why as TurnDownReason].toLowerCase()}` : ''}`
       if (command === 'quote.invoiced') return a.on === null ? `Took back the invoice for ${of}` : `Marked ${of} invoiced${on}${typeof a.ref === 'string' && a.ref.trim() ? `, as ${clip(a.ref.trim())}` : ''}`
       return a.on === null ? `Took back the payment for ${of}` : `Marked ${of} paid${on}`
     }

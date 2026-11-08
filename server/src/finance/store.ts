@@ -6,7 +6,7 @@ import type { Queryable } from '../db.ts'
 type Row = Record<string, any>
 
 const QUOTE = `id, project_id, version, status, lines, discount_pct, notes, made_at, saved_at,
-  sent_on::text AS sent_on, answered_on::text AS answered_on, invoiced_on::text AS invoiced_on, invoice_ref, paid_on::text AS paid_on, number, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km`
+  sent_on::text AS sent_on, answered_on::text AS answered_on, invoiced_on::text AS invoiced_on, invoice_ref, paid_on::text AS paid_on, number, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, declined_why, declined_note`
 
 const toQuote = (r: Row): Quote => ({
   id: r.id,
@@ -29,6 +29,8 @@ const toQuote = (r: Row): Quote => ({
   agreedCents: r.agreed_cents === null || r.agreed_cents === undefined ? null : Number(r.agreed_cents),
   mealsProvided: r.meals_provided,
   travelKm: r.travel_km ?? null,
+  declinedWhy: r.declined_why ?? null,
+  declinedNote: r.declined_note ?? '',
 })
 
 export async function getQuote(q: Queryable, id: string, lock = false): Promise<Quote | undefined> {

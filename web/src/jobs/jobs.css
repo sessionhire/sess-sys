@@ -750,3 +750,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (max-width: 639px) {
   .you-on-job .you-answer > button { flex: 1 1 100%; }
 }
+/* Turned down: why, asked in place (research/quoting.md, feature 5). */
+.turn-down { display: grid; gap: var(--ds-space-3); margin-block-start: var(--ds-space-3); }
+.turn-down legend { font-weight: 600; margin-block-end: var(--ds-space-2); }
+.turn-down .choices { grid-template-columns: repeat(auto-fit, minmax(12em, 1fr)); }
+.turn-down .choice { display: flex; gap: var(--ds-space-2); align-items: center; }
+.turn-down .actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-3); align-items: center; }
+.why-note { display: block; color: var(--muted); }

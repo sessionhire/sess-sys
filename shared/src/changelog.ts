@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.111.0',
+    date: '2026-11-08',
+    title: 'A check before a quote goes, why it was turned down, and who asked',
+    what: "Before a quote is sent or marked sent, it says what to look at first: lines with no price, kit the job is short of, crew with no travel, or a first day already gone. You can look first or send it anyway. A sent quote whose prices have run out says so, on Quotes and on the quote, so a late yes gets its prices checked. Client turned it down now asks why (the price, the dates, someone else, the event is off) with room for a note, and the quote and its history show it. New quote takes who asked, how it came and the day they want the quote by: the first two go in the job's notes, and the day becomes when the Quote sent task is due. Claude fills them in from a pasted enquiry where it says.",
+    prs: [255],
+  },
+  {
     version: '1.110.0',
     date: '2026-11-08',
     title: 'Say how many as you add kit and crew to a quote',

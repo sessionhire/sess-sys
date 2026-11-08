@@ -28,6 +28,7 @@ import {
   type QuoteTotals,
   type RolePrice,
   type VatRate,
+  validUntil,
 } from '../quotes.ts'
 import { DEPARTMENT_LABELS } from '../stock.ts'
 import { timesheetTotal } from '../timesheets.ts'
@@ -246,8 +247,18 @@ export function moneyView(
         const a = m.args as CommandArgs<'quote.answer'>
         const was = quotes.get(a.id)
         if (!was || was.invoicedOn) break
-        if (a.answer === 'none') quotes.set(a.id, { ...was, status: was.status === 'draft' ? 'draft' : 'sent', answeredOn: null, pending: true })
-        else quotes.set(a.id, { ...was, status: a.answer, answeredOn: a.on, sentOn: was.sentOn ?? a.on, number: was.status === 'draft' ? numberOf(was) : (was.number ?? null), pending: true })
+        if (a.answer === 'none') quotes.set(a.id, { ...was, status: was.status === 'draft' ? 'draft' : 'sent', answeredOn: null, declinedWhy: null, declinedNote: '', pending: true })
+        else
+          quotes.set(a.id, {
+            ...was,
+            status: a.answer,
+            answeredOn: a.on,
+            sentOn: was.sentOn ?? a.on,
+            number: was.status === 'draft' ? numberOf(was) : (was.number ?? null),
+            declinedWhy: a.answer === 'declined' ? (a.why ?? null) : null,
+            declinedNote: a.answer === 'declined' ? (a.note ?? '').trim() : '',
+            pending: true,
+          })
         break
       }
       case 'quote.invoiced': {
@@ -507,6 +518,11 @@ export interface QuoteToFollow {
   quote: QuoteView
   /** Days since it was last saved (a draft), sent (waiting) or answered (out of step). */
   days: number
+  /**
+   * Sent and waiting, the last day its prices held when that day has passed (research/quoting.md, feature 4): the
+   * quote's valid-until, which nothing acted on before.
+   */
+  ranOut?: string
 }
 
 export interface QuotesToFollow {
@@ -563,7 +579,15 @@ export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: st
     const draft = m.draftOf(job.id)
     if (draft && !stopped) out.drafts.push({ job, quote: draft, days: since(irishToday(new Date(draft.savedAt))) })
     if (!current) continue
-    if (current.status === 'sent' && !stopped && !draft) (job.span && job.span.end < today && job.status !== 'confirmed' ? out.passed : out.waiting).push({ job, quote: current, days: since(current.sentOn) })
+    if (current.status === 'sent' && !stopped && !draft) {
+      const held = current.sentOn ? validUntil(current, today) : undefined
+      ;(job.span && job.span.end < today && job.status !== 'confirmed' ? out.passed : out.waiting).push({
+        job,
+        quote: current,
+        days: since(current.sentOn),
+        ...(held && held < today ? { ranOut: held } : {}),
+      })
+    }
     if (current.status === 'accepted' && !stopped && job.status !== 'confirmed') out.outOfStep.push({ job, quote: current, days: since(current.answeredOn), want: 'confirmed' })
     if (current.status === 'declined' && !stopped && !draft) out.outOfStep.push({ job, quote: current, days: since(current.answeredOn), want: 'lost' })
     if (invoiceOf(job, current, today).state === 'due') out.toInvoice.push({ job, quote: current, days: since(job.span!.end) })

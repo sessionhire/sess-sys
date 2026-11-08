@@ -128,6 +128,12 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS quote_emails_quote ON quote_emails (quote_id);
   `,
+  // Why the client turned a quote down (research/quoting.md, feature 5): one of a few reasons, and a note, kept only
+  // while the answer is "turned down".
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS declined_why text CHECK (declined_why IN ('price', 'dates', 'elsewhere', 'off', 'unsaid'));
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS declined_note text NOT NULL DEFAULT '';
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

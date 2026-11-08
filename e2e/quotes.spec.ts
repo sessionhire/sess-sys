@@ -324,7 +324,15 @@ test('a quote turned down: losing the job is left to record, and a loss, so noth
   expect(await reds()).toEqual(['Client accepted'])
 
   // Turned down, with the job still quoted: marking it lost is left, which takes its crew calls, so it's plain, and printing waits.
+  // Why is asked in place before it's recorded (research/quoting.md, feature 5), and shows on the answer.
   await records.getByRole('button', { name: 'Client turned it down' }).click()
+  const why = records.getByRole('group', { name: 'Why did they say no?' })
+  await why.getByRole('radio', { name: 'Went with someone else' }).check()
+  await why.getByRole('textbox', { name: /Anything more/ }).fill('A cheaper PA from Galway')
+  await why.getByRole('button', { name: 'Record it as turned down' }).click()
+  await expect(why).toHaveCount(0)
+  await expect(records).toContainText('went with someone else')
+  await expect(records).toContainText('A cheaper PA from Galway')
   await expect(records).toContainText('The client turned it down, and the job is still quoted.')
   await expect(records.getByRole('button', { name: 'Mark the job lost' })).toBeVisible()
   expect(await reds()).toEqual([])
