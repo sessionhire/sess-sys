@@ -722,6 +722,13 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .app .claude-lines label.take input { width: 22px; height: 22px; flex: none; margin-top: var(--ds-space-half); accent-color: var(--accent); }
 .app .claude-lines label.take small { display: block; color: var(--muted); font-size: var(--text-hint); }
 .app .claude-line.left b { color: var(--muted); font-weight: normal; }
+.app .claude-lines label.take small.beyond { color: var(--warn); }
+/* Start from a past job (ADR 0115): the jobs like this one, each a press to start from. */
+.app .past-job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
+.app .past-job { display: grid; gap: var(--ds-space-half); width: 100%; min-height: 44px; text-align: left; padding: var(--ds-space-2) var(--ds-space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+.app .past-job:hover { background: var(--ds-wash-hover); }
+.app .past-job small { color: var(--muted); font-size: var(--text-hint); }
+.app .past-job.chosen { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .app .claude-line .grid-form { margin: 0 0 var(--ds-space-2) calc(22px + var(--ds-space-3)); }
 
 /* Claude's to-do list (ADR 0097): the shared tick's 44px rows, the box beside a link to the job. */

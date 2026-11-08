@@ -138,6 +138,7 @@ export function Suggestions({ view, items, onChange }: { view: View; items: Offe
                 <b>
                   {s.qty} × {s.what}
                 </b>
+                {s.note && <small className={s.beyond ? 'line-note beyond' : 'line-note'}>{s.note}</small>}
                 <small>
                   {[
                     s.group || 'Other',
