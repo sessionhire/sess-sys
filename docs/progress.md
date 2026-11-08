@@ -38,9 +38,15 @@ waiting on someone.
   today first, dry hire as its own shape, sending as one act. Reachable in
   steps, not a rebuild.
 
+- Colly picked batch 1, "the first 3 small ones" (#266, 1.119.0): a quote
+  line can be given as Included at no charge, and a product at €0 on the
+  price list arrives that way; a number typed before a product is how many
+  first ("2 d20" adds two); the start of one client or venue left in the
+  box takes that one, said under it with a press to keep it new.
+
 **Waiting on**
 
-- Colly to pick what to fix, and the page's six questions.
+- Colly to pick the next batch, and the page's six questions.
 
 ## 8 November 2026: a package's price starts at its items' total
 
