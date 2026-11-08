@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { APP_VERSION, CHANGELOG } from '../src/index.ts'
+import { APP_VERSION, CHANGELOG, isNewerVersion, releasesSince } from '../src/index.ts'
 
 /** The changelog every change to the app adds to (ADR 0071). */
 describe('the changelog', () => {
@@ -30,5 +30,25 @@ describe('the changelog', () => {
       expect(r.prs.length, r.version).toBeGreaterThan(0)
       for (const n of r.adrs ?? []) expect(adrs.has(n), `ADR ${n} in ${r.version}`).toBe(true)
     }
+  })
+})
+
+/** What a "Load the new version" says came in. */
+describe('releasesSince', () => {
+  const [a, b, c] = [CHANGELOG[0]!, CHANGELOG[1]!, CHANGELOG[2]!]
+  it('lists the versions after the one they had, up to the one loaded, newest first', () => {
+    expect(releasesSince(c.version, a.version).map((r) => r.version)).toEqual([a.version, b.version])
+    expect(releasesSince(c.version, b.version).map((r) => r.version)).toEqual([b.version])
+  })
+  it('says nothing for the same version, an older one loaded, or one it does not know', () => {
+    expect(releasesSince(a.version, a.version)).toEqual([])
+    expect(releasesSince(a.version, c.version)).toEqual([])
+    expect(releasesSince('dev')).toEqual([])
+    expect(releasesSince('9.9.9')).toEqual([])
+  })
+  it('compares number by number, not as text', () => {
+    expect(isNewerVersion('1.10.0', '1.9.9')).toBe(true)
+    expect(isNewerVersion('1.9.9', '1.10.0')).toBe(false)
+    expect(isNewerVersion('1.2.3', '1.2.3')).toBe(false)
   })
 })

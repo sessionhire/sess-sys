@@ -1,4 +1,4 @@
-import { historyDays, historyTime, makerOf, NOTICE_WHY_WORDS, plan, plural, shortSoon, sortOutDays, type Notice, type NoticeLine, type View } from '@sh/shared'
+import { APP_VERSION, dsTiming, historyDays, historyTime, makerOf, NOTICE_WHY_WORDS, plan, plural, releasesSince, shortSoon, sortOutDays, type Notice, type NoticeLine, type View } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from './auth.ts'
 import { Empty } from './Empty.tsx'
@@ -20,11 +20,13 @@ import {
   placeOf,
   resumeToast,
   setToastsOn,
+  showToast,
   toastsOn,
   useNotices,
   useToasts,
 } from './notices.ts'
 import { useAccess } from './role.ts'
+import { takeLoadedFrom } from './update.tsx'
 import { MENU } from './Up.tsx'
 import { useLate } from './useLate.ts'
 import { useToday, useView } from './view.ts'
@@ -40,11 +42,13 @@ import { useToday, useView } from './view.ts'
 /**
  * Where pop-ups arrive: one region, there from the start so a screen reader
  * hears each as it's added, at the bottom corner, above the phone's bar.
- * Each has one action (Open, or See them) and Dismiss, and waits while the
+ * Each has one action (Open, See them, or What's changed) and Dismiss, and waits while the
  * pointer or the keyboard is on it.
  */
 export function Toaster() {
   const toasts = useToasts()
+  // Back from loading a new version: what it changed, as the first pop-up (update.tsx).
+  useEffect(() => sayWhatChanged(), [])
   return (
     <section className="toaster" aria-label="Notifications">
       {/* Polite, as role="status" is, without being a second status on the page beside the sync state. */}
@@ -63,20 +67,47 @@ export function Toaster() {
               <b>{t.title}</b>
               <small>{t.body}</small>
             </div>
-            <div className="toast-actions">
-              {t.href && (
+            {t.href && (
+              <div className="toast-actions">
                 <a className="button" href={t.href} onClick={() => dismissToast(t.id)} {...(t.away ? { target: '_blank', rel: 'noreferrer' } : {})}>
                   {t.action}
                 </a>
-              )}
-              <button type="button" className="toast-dismiss" onClick={() => dismissToast(t.id)} aria-label={`Dismiss: ${t.title}`}>
-                <Icon name="close" />
-              </button>
-            </div>
+              </div>
+            )}
+            {/* Last in reading order, after the action, though it sits in the top corner. */}
+            <button type="button" className="toast-dismiss" onClick={() => dismissToast(t.id)} aria-label={`Dismiss: ${t.title}`}>
+              <Icon name="close" />
+            </button>
           </div>
         ))}
       </div>
     </section>
+  )
+}
+
+/**
+ * Back from loading a new version: a toast with what came in since the version this tab was on, from the changelog
+ * (ADR 0071): the newest by name and how many more, and What's changed for the whole of each. Asked for as the toaster
+ * first draws, so its timer starts when it can be seen. It stays `timing.undo` rather than `timing.notice`: a sentence
+ * of news someone asked for takes longer than four seconds to read, and it waits while the pointer or the keyboard is
+ * on it. It shows with news pop-ups turned off, being the result of their own tap. Nothing when the version didn't
+ * change (a rebuild with no entry).
+ */
+function sayWhatChanged() {
+  const from = takeLoadedFrom()
+  if (!from) return
+  const came = releasesSince(from)
+  if (came.length === 0) return
+  const more = came.length - 1
+  showToast(
+    {
+      id: `version-${APP_VERSION}`,
+      title: `Updated to ${APP_VERSION}`,
+      body: more === 0 ? came[0]!.title : `${came[0]!.title}, and ${plural(more, 'other change')}`,
+      href: '#admin/changes',
+      action: "What's changed",
+    },
+    dsTiming.undo,
   )
 }
 
