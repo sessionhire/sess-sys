@@ -124,6 +124,7 @@
 /* Today's column, faintly, all the way down, so it can be found in the middle of a long month. */
 .plan .timeline td.today { background-color: color-mix(in srgb, var(--ink) 5%, var(--panel)); }
 .plan .timeline .today-word { display: block; font-size: var(--text-pill); font-weight: 700; }
+.plan .timeline .day-quote { color: var(--accent-ink); text-underline-offset: 2px; display: inline-flex; align-items: center; min-height: 24px; margin-top: var(--ds-space-half); font-size: var(--text-pill); font-weight: 600; white-space: nowrap; }
 .plan .timeline.month th, .plan .timeline.month td { text-align: center; vertical-align: middle; }
 .plan .timeline.month tr > :first-child { text-align: left; padding: var(--ds-space-1) var(--ds-space-2); }
 .plan .timeline.month thead a { display: grid; min-height: 44px; place-content: center; color: inherit; text-decoration: none; border-radius: 6px; font-variant-numeric: tabular-nums; }

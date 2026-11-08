@@ -34,7 +34,7 @@ import { useAccess } from '../role.ts'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { useToday, useView } from '../view.ts'
 import { ListTools, useListChoices } from '../ListTools.tsx'
-import { Top } from './common.tsx'
+import { newQuoteAsked, Top, useHash } from './common.tsx'
 import { ToFollowUp } from './Money.tsx'
 import { QuotePill } from './Quote.tsx'
 import { getJson, type Loaded } from './rms.ts'
@@ -52,6 +52,7 @@ export function QuotesScreen() {
   // finding 96).
   const desk = useDesk()
   const access = useAccess()
+  const hash = useHash()
   if (!access.can('money'))
     return (
       <div className="app crew jobs money quotes">
@@ -65,7 +66,7 @@ export function QuotesScreen() {
     <div className="app crew jobs money quotes">
       <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
       <FromMailbox view={view} />
-      <ToFollowUp view={view} />
+      <ToFollowUp view={view} on={newQuoteAsked(hash)} />
       <AllQuotes view={view} />
     </div>
   )

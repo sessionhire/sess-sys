@@ -32,7 +32,7 @@ import { useAccess } from '../role.ts'
 import { StatusPill, WAITING_TO_SYNC } from '../StatusPill.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
 import { useToday } from '../view.ts'
-import { Top } from './common.tsx'
+import { newQuoteHref, Top } from './common.tsx'
 import { Views } from '../Views.tsx'
 import { vehicleHref } from '../stock/Vehicles.tsx'
 
@@ -111,6 +111,8 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   const people = everyone ? p.people : busy
   const lanes = rows === 'jobs' ? p.jobs.length : rows === 'people' ? people.length : p.vans.length
   const rowWord = rows === 'jobs' ? 'job' : rows === 'people' ? 'person' : 'vehicle'
+  // A quote can start from a day of the week (ADR 0120), for those who make quotes, on the jobs' rows where the work is.
+  const quoting = useAccess().can('money') && rows === 'jobs'
 
   // On a phone the days start at today, so the day that matters most is in view: when the days change, and once there is something to show.
   const scroller = useRef<HTMLDivElement>(null)
@@ -135,6 +137,11 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
                   {d === now && <small className="today-word">Today</small>}
                   {/* A public holiday (ADR 0024) is named on its day, so nobody counts it as a working day. */}
                   {p.holidays[d] && <small className="holiday-name">{p.holidays[d]}</small>}
+                  {quoting && d >= now && (
+                    <a className="day-quote" href={newQuoteHref(d)} aria-label={`New quote starting ${dayLabel(d)}`} title={`New quote starting ${dayLabel(d)}`}>
+                      + Quote
+                    </a>
+                  )}
                 </>
               ) : (
                 <a href={at({ scale: 'week', day: d })} aria-label={`${dayLabel(d)}${p.holidays[d] ? `, ${p.holidays[d]}` : ''}: open its week`}>
