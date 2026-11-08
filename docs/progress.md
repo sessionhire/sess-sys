@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 8 November 2026: what would make quoting faster, easier and more reliable
+
+**Done**
+
+- Research on Colly's ask to focus on the quoting stage:
+  [research/quoting.md](research/quoting.md). The quote flow walked on
+  made-up data, desk and phone, at 1.109.3 (screenshots in the project
+  folder under `screens/quoting-research/`), the quoting ADRs and code
+  read. Fifteen features ranked by value and effort: six small ones first
+  (quantity as kit is picked, price and free count in the picker, one
+  check before a quote goes, prices that have run out, why a quote was
+  turned down, a day the quote is due by), then starting from a past
+  quote and a product's usual companions, and a fix so two people on one
+  draft don't wipe each other's lines. No invoicing work proposed.
+
+**Waiting on**
+
+- Colly's answers to the page's seven questions, and which to build first.
+
 ## 7 November 2026: batch 5 of the UX sweep, what the small moves prepared
 
 **Done**
