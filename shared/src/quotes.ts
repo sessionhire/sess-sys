@@ -150,6 +150,11 @@ export const quoteLine = z.object({
    */
   under: id.optional(),
   /**
+   * A package priced as a whole (ADR 0116): what its items come to at the price list's prices, for one, a day or a week
+   * as the line is charged, when it was added. Its price is a discount from this, and the quote says how much.
+   */
+  fullCents: dayPrice.optional(),
+  /**
    * The cost side (ADR 0089), never printed: how many of a kit line are hired in from another company, and who from,
    * as a job's kit line has it (ADR 0014); and what the whole line costs Session Hire, before VAT. Left out, a crew line
    * costs its booked rate and our own kit nothing.
@@ -526,6 +531,50 @@ export function packageIncludes(p: Pick<Package, 'items' | 'notes'>, nameOf: (mo
   const items = p.items.map((i) => `${i.qty} × ${nameOf(i.modelId) ?? 'a product no longer listed'}`).join(', ')
   const notes = p.notes.trim()
   return (items && notes ? `${items}, ${notes}` : items || notes).slice(0, PACKAGE_INCLUDES_LENGTH)
+}
+
+/** What a package's items come to at the price list's prices (ADR 0116), and how many of them have no price to count. */
+export interface PackageWorth {
+  /** For a day, or for a week when the package is charged weekly. */
+  cents: number
+  /** Items with no price, or priced for a week when the package is by the day (or the other way), left out of `cents`. */
+  unpriced: number
+}
+
+/**
+ * What a package's items come to (ADR 0116): each product's price times how many, for the package's own unit, a day or a
+ * week. A package starts at this, and a price of its own is a discount from it.
+ */
+export function packageWorth(
+  p: Pick<Package, 'items'> & { rate?: RateRule },
+  priceOf: (modelId: string) => { cents?: number; rate?: RateRule }
+): PackageWorth {
+  const unit = RATE_UNIT[p.rate ?? 'daily']
+  let cents = 0
+  let unpriced = 0
+  for (const i of p.items) {
+    const price = priceOf(i.modelId)
+    if (price.cents === undefined || RATE_UNIT[price.rate ?? 'daily'] !== unit) unpriced++
+    else cents += price.cents * i.qty
+  }
+  return { cents, unpriced }
+}
+
+/** What a package's own price takes off its items' total (ADR 0116): the euro and the percentage, to one place. */
+export function packageSaving(fullCents: number, priceCents: number): { cents: number; pct: number } | undefined {
+  if (!(fullCents > 0 && priceCents > 0 && priceCents < fullCents)) return undefined
+  const cents = fullCents - priceCents
+  return { cents, pct: Math.round((cents / fullCents) * 1000) / 10 }
+}
+
+/**
+ * What a package's line saves on its items (ADR 0116), for its days and how many, before any discount off the line or the
+ * quote: nothing unless it was priced below them.
+ */
+export function lineSaving(l: Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per' | 'fullCents'>): number {
+  if (!l.fullCents || !(l.unitCents > 0) || l.unitCents >= l.fullCents) return 0
+  const plain = { qty: l.qty, days: l.days, per: l.per }
+  return lineCents({ ...plain, unitCents: l.fullCents }) - lineCents({ ...plain, unitCents: l.unitCents })
 }
 
 export interface RateTotal {

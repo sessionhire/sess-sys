@@ -20,6 +20,7 @@ import {
   type RmsCharge,
   type RmsLastCharged,
   RATE_UNIT,
+  lineSaving,
 } from '@sh/shared'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { Icon } from '../Icon.tsx'
@@ -294,6 +295,7 @@ export function LineSummary({
       <span className="how">
         {unpriced ? `${how}: needs a price` : how}
         {done?.subhireQty ? `, ${done.subhireQty} hired in${done.supplier ? ` from ${done.supplier}` : ''}` : ''}
+        {done && lineSaving(done) > 0 && <small className="package-saving">{money(lineSaving(done))} off its items</small>}
       </span>
       <span className="amount">
         {done === undefined ? '–' : included ? 'Included' : money(total ?? lineCents(done))}

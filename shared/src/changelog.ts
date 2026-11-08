@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.116.0',
+    date: '2026-11-08',
+    title: 'A package starts at what its kit comes to',
+    what: "A package's price now starts at what everything in it comes to at the price list's prices, shown on the package and as you change it. Give it a lower price of its own and it says how much that takes off, in euro and per cent. A package added to a quote at a lower price says what it saves on the quote too, on screen and on the printed and emailed quote.",
+    prs: [262],
+    adrs: [116],
+  },
+  {
     version: '1.115.0',
     date: '2026-11-08',
     title: 'Packages add their kit, listed under them on the quote',

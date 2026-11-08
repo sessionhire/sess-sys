@@ -16,6 +16,7 @@ import {
   type QuoteView,
   type View,
   RATE_UNIT,
+  lineSaving,
   depositCents,
   letterDay,
   quoteNumberLabel,
@@ -74,6 +75,11 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                     <td>
                       {l.what}
                       {l.includes && <small className="includes">{l.includes}</small>}
+                      {lineSaving(l) > 0 && (
+                        <small className="package-saving">
+                          {money(lineSaving(l))} off its items’ {money(lineCents({ ...l, discountPct: undefined, unitCents: l.fullCents! }))}
+                        </small>
+                      )}
                       {/* On a phone the four middle columns fold into this line under the name, so the amount stays in sight (audit, 5 November 2026, finding 59). */}
                       <small className="line-sum">
                         {byKit ? 'Its kit, priced below' : chargeWords(l)} · VAT{"\u00a0"}{VAT_LABELS[l.vat]}
