@@ -36,6 +36,14 @@ export const CHANGELOG: readonly Release[] = [
     adrs: [114],
   },
   {
+    version: '1.111.1',
+    date: '2026-11-08',
+    title: 'Two people on one draft quote keep both their changes',
+    what: "With a draft quote open in two places, each now takes in what the other changes as it happens, and keeps what's being typed. Before, whichever saved last put back the lines it opened with, and the other person's change was lost without a word. Changes made with no signal join the draft when signal is back, instead of being turned down. Where two people changed the same line, the later one's is kept, and the person typing is told.",
+    prs: [256],
+    adrs: [113],
+  },
+  {
     version: '1.111.0',
     date: '2026-11-08',
     title: 'A check before a quote goes, why it was turned down, and who asked',

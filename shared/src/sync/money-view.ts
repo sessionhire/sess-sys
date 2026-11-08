@@ -30,6 +30,7 @@ import {
   type VatRate,
   validUntil,
 } from '../quotes.ts'
+import { mergeDraft } from '../draft-merge.ts'
 import { DEPARTMENT_LABELS } from '../stock.ts'
 import { timesheetTotal } from '../timesheets.ts'
 import type { CrewView } from './crew-view.ts'
@@ -204,13 +205,16 @@ export function moneyView(
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     switch (m.name) {
       case 'quote.save': {
-        const a = m.args as CommandArgs<'quote.save'>
-        const was = quotes.get(a.id)
+        const said = m.args as CommandArgs<'quote.save'>
+        const was = quotes.get(said.id)
         if (was && was.status !== 'draft') break
+        // As the server takes in what changed elsewhere since the save's base (ADR 0113).
+        const a = was && said.base ? mergeDraft(was, said, said.base).save : said
         if (!was && [...quotes.values()].some((q) => q.projectId === a.projectId && q.status === 'draft')) break
         const versions = [...quotes.values()].filter((q) => q.projectId === a.projectId)
         const version = was?.version ?? Math.max(0, ...versions.map((q) => q.version)) + 1
         const before = was ?? versions.sort((x, y) => y.version - x.version)[0]
+        // As the server takes in what changed elsewhere since the save's base (ADR 0113).
         quotes.set(a.id, {
           id: a.id,
           projectId: was?.projectId ?? a.projectId,

@@ -627,3 +627,60 @@ test("on a desk a line's amount and Remove sit inside the quote's card at every 
   }
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
+
+test('two people on one draft keep both their changes, one of them with no signal (ADR 0113)', async ({ browser, request }) => {
+  // Proves: a save made from an older draft keeps the change made elsewhere since, on the server and on both devices, and
+  // a draft left open takes in the other's change instead of saving its own old copy over it.
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const one = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await one.goto('/#jobs')
+  await one.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
+  await one.getByRole('tab', { name: 'Quote' }).click()
+  await one.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
+  await one.getByRole('button', { name: 'Start one empty' }).click()
+  const draftOne = one.getByRole('form', { name: 'Version 1, a draft' })
+  await draftOne.getByRole('button', { name: 'Add kit' }).click()
+  await one.keyboard.type('4 SM58')
+  await one.keyboard.press('Enter')
+  await expect(draftOne).toContainText('1 line added.')
+  await one.keyboard.type('2 y10')
+  await one.keyboard.press('Enter')
+  await expect(draftOne).toContainText('2 lines added.')
+  await draftOne.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(draftOne.locator('.save-state')).toHaveText('Saved')
+
+  // The other device opens the same draft, then loses signal and changes the second line.
+  const twoContext = await browser.newContext({ viewport: phoneSize })
+  const two = await twoContext.newPage()
+  await two.goto(one.url())
+  const draftTwo = two.getByRole('form', { name: 'Version 1, a draft' })
+  await expect(draftTwo).toContainText('Shure SM58')
+  await twoContext.setOffline(true)
+  await draftTwo.getByRole('button', { name: /^Line 2: .*, change it$/ }).click()
+  await draftTwo.getByLabel('Line 2: how many').fill('3')
+  await draftTwo.getByLabel('Line 2: how many').press('Tab')
+
+  // Meanwhile the first changes the first line, and the second, with signal back, keeps it.
+  await draftOne.getByRole('button', { name: /^Line 1: .*, change it$/ }).click()
+  await draftOne.getByLabel('Line 1: how many').fill('6')
+  await draftOne.getByLabel('Line 1: how many').press('Tab')
+  await expect(draftOne.locator('.save-state')).toHaveText('Saved')
+  await twoContext.setOffline(false)
+
+  // Each takes in the other's line live, keeping its own, open as it was.
+  await expect(draftOne.getByRole('button', { name: 'Line 2: d&b Y10P, change it' })).toContainText('3 ×')
+  await expect(draftOne.getByLabel('Line 1: how many')).toHaveValue('6')
+  await expect(draftTwo.getByRole('button', { name: 'Line 1: Shure SM58, change it' })).toContainText('6 ×')
+  await expect(draftTwo.getByLabel('Line 2: how many')).toHaveValue('3')
+  // And neither saved its old copy back over the other's: both read so from the server.
+  await expect(draftOne.locator('.save-state')).toHaveText('Saved')
+  await expect(draftTwo.locator('.save-state')).toHaveText('Saved')
+  for (const page of [one, two]) {
+    await page.reload()
+    const draft = page.getByRole('form', { name: 'Version 1, a draft' })
+    await expect(draft.getByRole('button', { name: 'Line 1: Shure SM58, change it' })).toContainText('6 ×')
+    await expect(draft.getByRole('button', { name: 'Line 2: d&b Y10P, change it' })).toContainText('3 ×')
+  }
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})

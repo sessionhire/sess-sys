@@ -393,6 +393,22 @@ export const quoteCommandSchemas = {
     // Travel and subsistence (ADR 0086), left as they were by a save from an app older than them.
     mealsProvided: z.boolean().optional(),
     travelKm: travelKm.nullable().optional(),
+    /**
+     * What the draft held when this device's changes began (ADR 0113): each line's mark and the terms. The server keeps
+     * what changed elsewhere since and the save didn't touch. Left out, by an app older than it, the save is the draft.
+     */
+    base: z
+      .object({
+        lines: z.record(z.string().max(64), z.string().max(16)).refine((r) => Object.keys(r).length <= MAX_LINES, 'Too many lines.'),
+        discountPct: z.number(),
+        notes: z.string().max(2000),
+        validDays: z.number().nullable(),
+        depositPct: z.number().nullable(),
+        agreedCents: z.number().nullable(),
+        mealsProvided: z.boolean(),
+        travelKm: z.number().nullable(),
+      })
+      .optional(),
   }),
   /** The office sent it to the client themselves (the app sends nothing): from now on it stays as it is. */
   'quote.sent': z.object({ id, on: day }),

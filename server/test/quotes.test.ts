@@ -1,4 +1,4 @@
-import { addDays, dayLabel, irishToday, newId, type CommandInput, type CommandName, type HistoryPage, type Mutation, type MutationResult, type Quote, type QuoteLine } from '@sh/shared'
+import { addDays, dayLabel, draftBase, irishToday, newId, type CommandInput, type CommandName, type HistoryPage, type Mutation, type MutationResult, type Quote, type QuoteLine } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.ts'
@@ -75,6 +75,27 @@ describe('a quote', () => {
     await ok(app, save('v2', [line({ days: 3 })]))
     expect(await quote('v2')).toMatchObject({ version: 2, status: 'draft' })
     expect((await quote('v1')).lines[0]).toMatchObject({ qty: 10 })
+  })
+
+  it('keeps what two people changed on one draft, each from what they had open (ADR 0113)', async () => {
+    const { app, quote } = await gala()
+    const a = line({ id: 'a' })
+    const b = line({ id: 'b', what: 'Shure SM58', qty: 4 })
+    await ok(app, save('v1', [a, b]))
+    const opened = draftBase(await quote('v1'))
+    // Someone else changes the first line and the discount; this save, from what was open before, changes the second.
+    await ok(app, m('quote.save', { id: 'v1', projectId: 'gala', lines: [{ ...a, qty: 12 }, b], discountPct: 10, notes: '', base: opened }))
+    await ok(app, m('quote.save', { id: 'v1', projectId: 'gala', lines: [a, { ...b, qty: 6 }, line({ id: 'c', what: 'DI box' })], discountPct: 0, notes: '', base: opened }))
+    const q = await quote('v1')
+    expect(q.lines.map((l) => [l.id, l.qty])).toEqual([
+      ['a', 12],
+      ['b', 6],
+      ['c', 8],
+    ])
+    expect(q.discountPct).toBe(10)
+    // A save with no base, from an app older than it, is the draft as it says.
+    await ok(app, save('v1', [a]))
+    expect((await quote('v1')).lines).toHaveLength(1)
   })
 
   it("takes the client's answer, the invoice and the payment in turn, and on the version that counts", async () => {

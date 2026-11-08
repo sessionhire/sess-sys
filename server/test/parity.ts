@@ -1,4 +1,4 @@
-import { COMMAND_NAMES, newId, type CommandInput, type CommandName, type Mutation, type View } from '@sh/shared'
+import { COMMAND_NAMES, draftBase, newId, type CommandInput, type CommandName, type Mutation, type View } from '@sh/shared'
 import { describe, expect, it } from 'vitest'
 import { company, day, m, ok, TRACKERS_KEY, person, phone, today, year, checks, leaveSpanFrom } from './company.ts'
 
@@ -313,6 +313,12 @@ const CASES: Case[] = [
   c('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' }, { as: 'a first draft' }),
   c('quote.save', { id: 'q3', projectId: 'enq', lines: [{ ...DELIVERY, discountPct: 20 }], discountPct: 0, agreedCents: 10000, notes: '' }, { as: 'a price agreed' }),
   c('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' }, { as: 'keeping the price agreed', before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, agreedCents: 10000, notes: '' })] }),
+  // Two people on one draft (ADR 0113): a change made elsewhere since this save's base stays, with this save's own.
+  c(
+    'quote.save',
+    { id: 'q3', projectId: 'enq', lines: [DELIVERY, { ...DELIVERY, id: 'd2', what: 'Collection' }], discountPct: 0, notes: '', base: draftBase({ lines: [DELIVERY], discountPct: 0, notes: '', validDays: 30, depositPct: null, agreedCents: null, mealsProvided: false, travelKm: null }) },
+    { as: 'taking in a change made elsewhere', before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' }), m('quote.save', { id: 'q3', projectId: 'enq', lines: [{ ...DELIVERY, qty: 2 }], discountPct: 5, notes: 'Doors at 7' })] }
+  ),
   c('quote.sent', { id: 'q3', on: today }, { before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' })] }),
   c('quote.sent', { id: 'q3', on: today }, { as: 'numbered after the next number set', before: [m('quoting.update', { nextNumber: 1115, terms: 'Half up front.', bank: 'IBAN IE00 0000' }), m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '', validDays: 14, depositPct: 50 })] }),
   c('quoting.update', { nextNumber: 1115, terms: 'Half up front.', bank: 'IBAN IE00 0000' }),
