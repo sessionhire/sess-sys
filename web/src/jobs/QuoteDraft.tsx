@@ -27,6 +27,8 @@ import {
   type Pin,
   lineCostOf,
   quoteKit,
+  kitFree,
+  RATE_LABELS,
   quoteMargin,
   quoteWants,
   suggestionLine,
@@ -248,6 +250,18 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     unusable: view.faults.unusable,
     lateOut: view.moves.lateOut,
   })
+  // What the kit picker says of each product (research/quoting.md, feature 2): its price and rule, and how many are free
+  // on the job's days beyond what the quote already wants, so a product that's short is seen before it's added.
+  const kitInputs = { kit: view.kit, models: (id: string) => view.warehouse.models.find((x) => x.id === id), unusable: view.faults.unusable, lateOut: view.moves.lateOut }
+  const wantedNow = quoteWants(good, (id) => m.package(id)?.items)
+  const aboutKit = (modelId: string) => {
+    const cents = m.productPrice(modelId)
+    const rate = m.productRate(modelId)
+    const price = cents === undefined ? 'No price yet' : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
+    const free = kitFree(job, modelId, wantedNow.get(modelId) ?? 0, today, kitInputs)
+    const freeWords = free === undefined ? '' : free === 0 ? (wantedNow.get(modelId) ? 'no more free' : 'none free') : wantedNow.get(modelId) ? `${free} more free` : `${free} free`
+    return [price, freeWords].filter(Boolean).join(' · ')
+  }
   const shortLines = good.filter((l) => linesShort(l, checks, m.package(l.packageId ?? '')?.items).length > 0)
   // What it makes (ADR 0089), for the office and directors, who see quotes at all.
   const boss = useAccess().can('money')
@@ -297,7 +311,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     openLine(id)
     setAdding(undefined)
   }
-  const addKit = (modelId: string) => {
+  const addKit = (modelId: string, count = 1) => {
     const model = view.warehouse.models.find((x) => x.id === modelId)
     if (!model) return
     const cents = m.productPrice(modelId)
@@ -309,7 +323,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       ref: null,
       modelId,
       group: DEPARTMENT_LABELS[model.department],
-      qty: '1',
+      qty: String(count),
       days: String(days),
       price: cents === undefined ? '' : euroText(cents),
       vat: STANDARD_VAT,
@@ -338,10 +352,10 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       includes: packageIncludes(p, (id) => view.warehouse.models.find((x) => x.id === id)?.name),
     })
   }
-  const addCrew = (role: string) => {
+  const addCrew = (role: string, count = 1) => {
     const r = m.roles.find((x) => x.role === role)
     const cents = r?.cents ?? r?.booked
-    addLine({ kind: 'crew', what: role, ref: null, modelId: null, group: 'Crew', qty: '1', days: String(days), price: cents === undefined ? '' : euroText(cents), vat: STANDARD_VAT, per: 'day' })
+    addLine({ kind: 'crew', what: role, ref: null, modelId: null, group: 'Crew', qty: String(count), days: String(days), price: cents === undefined ? '' : euroText(cents), vat: STANDARD_VAT, per: 'day' })
   }
   const addOther = () => addLine({ kind: 'other', what: '', ref: null, modelId: null, group: '', qty: '1', days: '1', price: '', vat: STANDARD_VAT, per: 'once' })
   // Transport (ADR 0089): charged once, with what it costs us beside it; named for a van booked on the job when there is one.
@@ -583,7 +597,13 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 products={view.warehouse.models}
                 value=""
                 onPick={addKit}
-                hint={kitPicks ? `${plural(kitPicks, 'line')} added. Pick the next, or Done.` : "Priced from the price list, for the job's days."}
+                counted
+                about={aboutKit}
+                hint={
+                  kitPicks
+                    ? `${plural(kitPicks, 'line')} added. Pick the next, or Done.`
+                    : "Type how many first, as 12 y10. Priced from the price list; free counts are for the job's days."
+                }
               />
               <button type="button" className="link" onClick={() => setAdding(undefined)}>
                 {kitPicks ? 'Done' : 'Cancel'}

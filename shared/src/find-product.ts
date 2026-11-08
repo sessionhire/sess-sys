@@ -61,3 +61,19 @@ export function findProducts<P extends Findable>(products: readonly P[], typed: 
   }
   return out.sort((a, b) => a.rank - b.rank || a.f.product.name.localeCompare(b.f.product.name)).map((x) => x.f)
 }
+
+/** The most a count typed before a product's name can be, as a quote line's How many (lineDraft's 10,000). */
+export const MOST_COUNTED = 10_000
+
+/**
+ * How many, typed before what's looked for (research/quoting.md, feature 1): "12 y10", "12x y10", "12 × y10" and
+ * "12 * y10" are 12 of whatever "y10" finds; "12xlr" is not a count. A number and a space alone are not yet a search. Whether the number is a
+ * count or part of a name ("4 way box") is for the picker to say, by whether the whole text finds anything.
+ */
+export function leadingCount(typed: string): { count: number; rest: string } | undefined {
+  const m = /^\s*(\d{1,5})(?:\s*[x×*]\s+|\s+)(\S.*)$/i.exec(typed)
+  if (!m) return undefined
+  const count = Number(m[1])
+  if (count < 1 || count > MOST_COUNTED) return undefined
+  return { count, rest: (m[2] ?? '').trim() }
+}

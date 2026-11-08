@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aliasesOf, findProducts, KitMatcher } from '../src/index.ts'
+import { aliasesOf, findProducts, KitMatcher, leadingCount } from '../src/index.ts'
 
 const p = (id: string, name: string, department: 'audio' | 'lighting' | 'power', category = '', aliases: string[] = []) => ({
   id,
@@ -73,5 +73,27 @@ describe('Kit from the notes and other names', () => {
   it('never lets another name take the place of a product so named', () => {
     const m = new KitMatcher([p('a', 'Wedge', 'audio'), ...STOCK])
     expect(m.match('wedge').modelId).toBe('a')
+  })
+})
+
+describe('how many, typed before the product (research/quoting.md, feature 1)', () => {
+  it('reads a number and a space, or a number and x, × or *, as how many of what follows', () => {
+    expect(leadingCount('12 y10')).toEqual({ count: 12, rest: 'y10' })
+    expect(leadingCount(' 12x y10 ')).toEqual({ count: 12, rest: 'y10' })
+    expect(leadingCount('12 × spiider')).toEqual({ count: 12, rest: 'spiider' })
+    expect(leadingCount('4 * 16a extension')).toEqual({ count: 4, rest: '16a extension' })
+  })
+
+  it('leaves a name that only starts with a number, a number alone, and counts out of range', () => {
+    expect(leadingCount('12xlr')).toBeUndefined()
+    expect(leadingCount('16a extension')).toBeUndefined()
+    expect(leadingCount('12 ')).toBeUndefined()
+    expect(leadingCount('0 y10')).toBeUndefined()
+    expect(leadingCount('10001 y10')).toBeUndefined()
+  })
+
+  it("finds nothing with the number, so the picker takes it as a count; a name with the number in it still finds by it", () => {
+    expect(names('12 y10')).toEqual([])
+    expect(names('10 m xlr')).toEqual(['xlr10'])
   })
 })

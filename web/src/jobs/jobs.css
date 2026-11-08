@@ -445,6 +445,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-add > button .icon { width: 16px; height: 16px; }
 .quote-screen .quote-add .adding { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); width: 100%; }
 .quote-screen .quote-add .adding > :first-child { flex: 1 1 16em; }
+.quote-screen .quote-add .adding-crew > .count { flex: 0 0 6em; }
+.quote-screen .quote-add .adding-crew > .count + .field { flex: 1 1 14em; }
 .quote-screen .quote-add .adding.ask { display: grid; justify-items: start; }
 .quote-screen .quote-add .ask-claude, .quote-screen .quote-add .claude-advice { width: 100%; margin: 0; }
 .quote-screen .job-changes { border: 1px solid var(--warn); border-radius: var(--radius-control); padding: var(--ds-space-2) var(--ds-space-3); background: var(--warn-soft); }

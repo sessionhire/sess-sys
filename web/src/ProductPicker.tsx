@@ -20,6 +20,7 @@ const nothing = (text: string) => `Nothing in the stock list has “${text}” i
 export function ProductPicker({
   products,
   placeholder = 'Type to find a product',
+  about,
   ...rest
 }: {
   label: string
@@ -29,7 +30,10 @@ export function ProductPicker({
   first?: readonly Product[]
   firstLabel?: string
   actions?: readonly PickerAction[]
-  onPick: (id: string) => void
+  onPick: (id: string, count?: number) => void
+  /** More to say of a product where it's being picked, after its department: on a quote, its price and how many are free. */
+  about?: (id: string) => string
+  counted?: boolean
   onAction?: (key: string) => void
   disabled?: boolean
   placeholder?: string
@@ -37,5 +41,6 @@ export function ProductPicker({
   className?: string
   autoFocus?: boolean
 }) {
-  return <RecordPicker {...rest} records={products} placeholder={placeholder} find={findIn} meta={metaOf} nothingFound={nothing} />
+  const meta = about ? (f: RecordOffer<Product>) => [metaOf(f), about(f.record.id)].filter(Boolean).join(' · ') : metaOf
+  return <RecordPicker {...rest} records={products} placeholder={placeholder} find={findIn} meta={meta} nothingFound={nothing} />
 }
