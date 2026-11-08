@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-08',
     title: 'Loading a new version says what changed',
     what: "After you tap Load the new version, a note at the bottom of the screen says the version you're now on and what came in since the one you had: the newest change by name, and how many more. What's changed in it opens the whole list, with the new ones marked.",
-    prs: [0],
+    prs: [258],
   },
   {
     version: '1.112.0',
