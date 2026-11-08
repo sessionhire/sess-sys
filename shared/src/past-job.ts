@@ -1,4 +1,5 @@
 import { crewSuggestion, otherSuggestion, withModel, type Pricing, type Suggestion } from './assistant.ts'
+import { inRacks } from './sync/quote-kit.ts'
 import { STOPPED, type ProjectStatus } from './jobs.ts'
 import { MAX_LINES, type QuoteLine } from './quotes.ts'
 import { DEPARTMENT_LABELS } from './stock.ts'
@@ -83,8 +84,13 @@ export function pastJobSuggestions(input: PastJobLines, p: Pricing): { s: Sugges
   for (const l of input.quoteLines) if (l.kind === 'kit' && l.modelId) quoted.set(l.modelId, (quoted.get(l.modelId) ?? 0) + l.qty)
   // A package's products went on the kit list with it: they're on the quote, inside the package's line.
   const packaged = new Map<string, number>()
+  // A package with its kit under it (ADR 0116) charged by that kit comes as the kit, each product a line of its own; one
+  // charged as a whole comes as its line, as one with no kit under it does. What's built into a rack comes with it.
+  const byKit = new Set(input.quoteLines.filter((l) => l.packageId && !l.unitCents && input.quoteLines.some((x) => x.under === l.id)).map((l) => l.id))
+  const skip = new Set(input.quoteLines.filter((l) => l.under && !byKit.has(l.under)))
+  for (const l of inRacks(input.quoteLines)) skip.add(l)
   for (const l of input.quoteLines)
-    if (l.packageId) for (const i of input.packageItems?.(l.packageId) ?? []) packaged.set(i.modelId, (packaged.get(i.modelId) ?? 0) + i.qty * l.qty)
+    if (l.packageId && !byKit.has(l.id)) for (const i of input.packageItems?.(l.packageId) ?? []) packaged.set(i.modelId, (packaged.get(i.modelId) ?? 0) + i.qty * l.qty)
   const used = (modelId: string) => {
     const k = kit.get(modelId)
     if (!k) return input.scanned ? 0 : (quoted.get(modelId) ?? 0)
@@ -111,7 +117,7 @@ export function pastJobSuggestions(input: PastJobLines, p: Pricing): { s: Sugges
   }
 
   input.quoteLines.forEach((l, i) => {
-    if (l.extra) return
+    if (l.extra || skip.has(l) || byKit.has(l.id)) return
     if (l.kind === 'kit' && l.modelId) {
       if (done.has(l.modelId)) return
       done.add(l.modelId)

@@ -4,6 +4,8 @@ import {
   letterDay,
   lineCents,
   linesByGroup,
+  linesUnder,
+  setCents,
   money,
   pctWord,
   quoteNumberLabel,
@@ -143,15 +145,31 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
     for (const l of g.lines) {
       const days = l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')
       const price = `${money(l.unitCents)} ${l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}`
-      const amount = `${money(lineCents(l))}${l.discountPct ? `\nless ${pctWord(l.discountPct)}` : ''}`
+      const under = linesUnder(q.lines, l.id)
+      // A package with its kit under it (ADR 0116) comes to its own price and its kit's, and its kit is printed under it.
+      const byKit = under.length > 0 && !l.unitCents && !!l.packageId
+      const amount = `${money(under.length ? setCents(l, q.lines) : lineCents(l))}${l.discountPct ? `\nless ${pctWord(l.discountPct)}` : ''}`
       rows.push([
         cell(l.includes ? `${l.what}\n${l.includes}` : l.what),
         cell(String(l.qty), right),
-        cell(days, right),
-        cell(price, right),
+        cell(byKit ? '' : days, right),
+        cell(byKit ? '' : price, right),
         cell(VAT_LABELS[l.vat], right),
         cell(amount, right),
       ])
+      const small = { font: { src: REGULAR, size: SMALL }, textColor: MUTED }
+      for (const u of under) {
+        const priced = u.unitCents > 0
+        const uDays = u.per === 'once' ? '' : u.rate === 'weekly' ? `${u.days} wk` : u.days.toLocaleString('en-IE')
+        rows.push([
+          cell(`    ${u.what}`, small),
+          cell(String(u.qty), { ...small, ...right }),
+          cell(priced ? uDays : '', { ...small, ...right }),
+          cell(priced ? `${money(u.unitCents)} a ${RATE_UNIT[u.rate ?? 'daily']}` : '', { ...small, ...right }),
+          cell('', small),
+          cell(priced ? money(lineCents(u)) : 'Included', { ...small, ...right }),
+        ])
+      }
     }
   }
   doc.font(REGULAR).fontSize(BODY).fillColor(INK)

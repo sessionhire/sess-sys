@@ -6,7 +6,13 @@ import {
   euroText,
   irishToday,
   linesByGroup,
+  linesUnder,
+  inRacks,
+  lineCents,
+  needsPrice,
   MAX_LINES,
+  MOST_PACKAGE_ITEMS,
+  type Department,
   money,
   newId,
   parseEuro,
@@ -54,6 +60,7 @@ import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, li
 import { Totals } from './QuoteSheet.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
+import { PackageEditor, type PackageStart } from './Packages.tsx'
 import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
 
 /**
@@ -171,8 +178,16 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [wantCost, setWantCost] = useState(false)
   // The line just shut, which keeps the focus so the keyboard carries on from it.
   const [shut, setShut] = useState<string>()
-  const [removed, setRemoved] = useState<{ line: LineDraft; at: number }>()
-  const [adding, setAddingTo] = useState<'kit' | 'crew' | 'package' | 'transport'>()
+  const [removed, setRemoved] = useState<{ line: LineDraft; at: number; under: LineDraft[] }>()
+  // The packages whose kit is shown under their line (ADR 0116); folded otherwise.
+  const [shownSets, setShownSets] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleSet = (id: string) =>
+    setShownSets((now) => {
+      const next = new Set(now)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  const [adding, setAddingTo] = useState<'kit' | 'crew' | 'package' | 'transport' | 'save-package'>()
   // Kit lines added since Add kit was pressed, while its picker stays open for the next.
   const [kitPicks, setKitPicks] = useState(0)
   const setAdding = (to: typeof adding) => {
@@ -305,7 +320,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     q.notes.trim() === notes.trim() &&
     valid === (q.validDays ?? DEFAULT_VALID_DAYS) &&
     dep === (q.depositPct ?? null)
-  const unpricedLines = good.filter((l) => l.unitCents === 0)
+  const unpricedLines = good.filter((l) => needsPrice(l, good))
   // Whether there's enough of each product on the job's days (ADR 0089), as the job's kit is checked.
   const checks = quoteKit(job, quoteWants(good, (id) => m.package(id)?.items), today, {
     kit: view.kit,
@@ -403,27 +418,84 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       per: 'day',
       rate: rate && rate !== 'daily' ? rate : null,
     }, true)
+    // A rack (ADR 0074) goes with what's built into it, listed under it as a package's kit is (ADR 0116), included in its price.
+    const slots = view.racks.of(modelId)?.slots ?? []
+    if (model.isRack && slots.length) {
+      const inIt = new Map<string, number>()
+      for (const sl of slots) inIt.set(sl.modelId, (inIt.get(sl.modelId) ?? 0) + sl.qty)
+      setLines((ls) => {
+        const rackLine = ls.at(-1)
+        if (!rackLine || rackLine.modelId !== modelId) return ls
+        const kids = [...inIt].flatMap(([id, n]): LineDraft[] => {
+          const x = view.warehouse.models.find((y) => y.id === id)
+          if (!x) return []
+          return [
+            { ...rackLine, id: newId(), what: x.name, modelId: id, group: DEPARTMENT_LABELS[x.department], qty: String(n * count), price: euroText(0), rate: null, under: rackLine.id },
+          ]
+        })
+        return [...ls, ...kids].slice(0, MAX_LINES)
+      })
+    }
   }
-  // A package (ADR 0087) goes on as one line at its price and rule, with what it holds now written on the line, so the
-  // quote prints as it was made however the package changes after.
+  // A package (ADR 0087) is a shortcut for adding its kit (ADR 0116): its line, named for it, and each product it holds as a
+  // line under it, to change for this job. A package with its own price is charged at that, with its kit included; one
+  // without is its kit at the price list's prices. What else it includes in words is written on its line.
   const addPackage = (packageId: string) => {
     const p = m.package(packageId)
     if (!p) return
-    addLine({
+    const whole = p.dayCents > 0
+    const titleId = newId()
+    const blank = { ref: null, vat: STANDARD_VAT, per: 'day' as const, discount: '', includes: '', subhire: '', supplier: '', cost: '', days: String(days), out: String(days) }
+    const title: LineDraft = {
+      ...blank,
+      id: titleId,
       kind: 'kit',
       what: p.name,
-      ref: null,
       modelId: null,
       group: DEPARTMENT_LABELS[p.department],
       qty: '1',
-      days: String(days),
-      price: euroText(p.dayCents),
-      vat: STANDARD_VAT,
-      per: 'day',
-      rate: p.rate && p.rate !== 'daily' ? p.rate : null,
+      price: euroText(whole ? p.dayCents : 0),
+      rate: whole && p.rate && p.rate !== 'daily' ? p.rate : null,
       packageId: p.id,
-      includes: packageIncludes(p, (id) => view.warehouse.models.find((x) => x.id === id)?.name),
+      includes: p.notes.trim(),
+    }
+    const kids = p.items.flatMap((i): LineDraft[] => {
+      const model = view.warehouse.models.find((x) => x.id === i.modelId)
+      if (!model) return []
+      const cents = whole ? 0 : m.productPrice(i.modelId)
+      const rate = whole ? undefined : m.productRate(i.modelId)
+      return [
+        {
+          ...blank,
+          id: newId(),
+          kind: 'kit',
+          what: model.name,
+          modelId: i.modelId,
+          group: DEPARTMENT_LABELS[model.department],
+          qty: String(i.qty),
+          price: cents === undefined ? '' : euroText(cents),
+          rate: rate && rate !== 'daily' ? rate : null,
+          packageId: null,
+          under: titleId,
+        },
+      ]
     })
+    setLines((ls) => [...ls, title, ...kids].slice(0, MAX_LINES))
+    setShownSets((now) => new Set(now).add(titleId))
+    openLine(titleId)
+    setAdding(undefined)
+  }
+  // The quote's kit, as a package to start the next one from (ADR 0116): each product once, with how many.
+  const kitStart = (): PackageStart => {
+    const qty = new Map<string, number>()
+    for (const l of lines) if (l.kind === 'kit' && l.modelId) qty.set(l.modelId, (qty.get(l.modelId) ?? 0) + Math.max(1, Math.round(Number(l.qty)) || 1))
+    const items = [...qty].map(([modelId, n]) => ({ modelId, qty: Math.min(10_000, n) })).slice(0, MOST_PACKAGE_ITEMS)
+    const depts = new Map<Department, number>()
+    for (const i of items) {
+      const d = view.warehouse.models.find((x) => x.id === i.modelId)?.department
+      if (d) depts.set(d, (depts.get(d) ?? 0) + 1)
+    }
+    return { items, department: [...depts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'audio' }
   }
   const addCrew = (role: string, count = 1) => {
     const r = m.roles.find((x) => x.role === role)
@@ -435,9 +507,11 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const addTransport = (what: string, ref: string | null) =>
     addLine({ kind: 'other', what, ref, modelId: null, group: 'Transport', qty: '1', days: '1', price: '', vat: STANDARD_VAT, per: 'once' })
   const vans = view.vehicles.ofJob(job.id).filter((b) => b.vehicle && !lines.some((l) => l.ref === b.id))
+  // A package's line goes with its kit, and comes back with it.
   const remove = (l: LineDraft) => {
-    setRemoved({ line: l, at: lines.indexOf(l) })
-    setLines((ls) => ls.filter((x) => x.id !== l.id))
+    const under = linesUnder(lines, l.id)
+    setRemoved({ line: l, at: lines.indexOf(l), under })
+    setLines((ls) => ls.filter((x) => x.id !== l.id && x.under !== l.id))
     if (open === l.id) setOpen(undefined)
   }
   // A short line hires in what it's short of (ADR 0089), then opens for who from and what it costs.
@@ -447,7 +521,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   }
   const undoRemove = () => {
     if (!removed) return
-    setLines((ls) => [...ls.slice(0, removed.at), removed.line, ...ls.slice(removed.at)])
+    setLines((ls) => [...ls.slice(0, removed.at), removed.line, ...removed.under, ...ls.slice(removed.at)])
     setRemoved(undefined)
   }
   const allKitDays = () => {
@@ -467,7 +541,9 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const kitLines = lines.filter((l) => l.kind === 'kit' && l.per === 'day' && !l.rate).length
   const source = m.sourceOf(job.id)
   // Every line counts here, finished or not, so one being typed isn't offered again as new on the job.
-  const asLines = lines.map((l): QuoteLine => ({ id: l.id, kind: l.kind, what: l.what, ref: l.ref, group: l.group, qty: num(l.qty), days: 1, unitCents: 0, vat: l.vat, modelId: l.modelId }))
+  // What's built into a rack goes with the rack (ADR 0116), so isn't kit of its own to keep up with the job.
+  const racked = inRacks(lines)
+  const asLines = lines.filter((l) => !racked.has(l)).map((l): QuoteLine => ({ id: l.id, kind: l.kind, what: l.what, ref: l.ref, group: l.group, qty: num(l.qty), days: 1, unitCents: 0, vat: l.vat, modelId: l.modelId }))
   // The products in the quote's packages, so kit put on the job from them isn't offered again (ADR 0102).
   const packaged = new Set(lines.flatMap((l) => (l.packageId ? (m.package(l.packageId)?.items ?? []).map((i) => i.modelId) : [])))
   const changes = changesFromJob(asLines, source.kit, source.crew, { product: m.productPrice, role: m.rolePrice, rate: m.productRate }, newId, packaged)
@@ -504,6 +580,50 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   }
   const full = lines.length >= MAX_LINES
   const nextNumber = m.quotesOf(job.id).find((v) => v.number)?.number ?? m.nextNumber
+  // One line, shut or open to change. A package's line (ADR 0116) comes to its own price and its kit's, and kit in a package
+  // priced as a whole is included in it.
+  const row = (l: LineDraft, under: readonly LineDraft[] = []) => {
+    const n = lines.indexOf(l) + 1
+    const c = parsed[n - 1]!
+    const done = c.line
+    const underDone = under.map((u) => parsed[lines.indexOf(u)]?.line)
+    const setTotal = done && under.length && underDone.every(Boolean) ? lineCents(done) + underDone.reduce((t, u) => t + lineCents(u!), 0) : undefined
+    const included = !!done && !needsPrice(done, good) && done.unitCents === 0 && !!l.under
+    const kit = done && <KitNote l={done} checks={checks} items={under.length ? undefined : m.package(l.packageId ?? '')?.items} names={(id) => view.warehouse.models.find((x) => x.id === id)?.name} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} span={job.span} />
+    const cost = done ? costOf(done) : undefined
+    return open !== l.id ? (
+      <div key={l.id} className="quote-line-row">
+        <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} margin={boss && done ? lineMargin(done, cost) : undefined} total={setTotal} included={included} heads={under.length > 0} />
+        {kit}
+      </div>
+    ) : (
+      <div key={l.id} className="quote-line-row open">
+        <LineEditor
+          l={l}
+          n={n}
+          done={done}
+          fault={c.fault}
+          left={touched.has(l.id)}
+          focus={focusField}
+          set={(ch) => set(l.id, ch)}
+          onRemove={() => remove(l)}
+          onDone={() => {
+            touch(l.id)
+            setShut(l.id)
+            setOpen(undefined)
+          }}
+          onLeave={() => touch(l.id)}
+          kit={kit}
+          last={<LastCharged found={lastOf(last, namesOf(l))} n={n} price={l.price} onUse={(cents) => set(l.id, { price: euroText(cents) })} />}
+          cost={cost}
+          boss={boss}
+          suppliers={view.kit.suppliers}
+          wantCost={wantCost}
+          included={included || (under.length > 0 && !!l.packageId)}
+        />
+      </div>
+    )
+  }
   const undoLine = removed && (
     <p className="undo-line" aria-live="polite">
       Removed “{removed.line.what || 'a line'}”.{' '}
@@ -607,40 +727,16 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
             </div>
             {discounting === g.group && <GroupDiscount group={g.group} onApply={(off) => groupDiscount(g.group, off)} onCancel={() => setDiscounting(undefined)} refuse={refuse} />}
             {g.lines.map((l) => {
-              const n = lines.indexOf(l) + 1
-              const c = parsed[n - 1]!
-              const done = c.line
-              const kit = done && <KitNote l={done} checks={checks} items={m.package(l.packageId ?? '')?.items} names={(id) => view.warehouse.models.find((x) => x.id === id)?.name} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} span={job.span} />
-              const cost = done ? costOf(done) : undefined
-              return open !== l.id ? (
-                <div key={l.id} className="quote-line-row">
-                  <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} margin={boss && done ? lineMargin(done, cost) : undefined} />
-                  {kit}
-                </div>
-              ) : (
-                <div key={l.id} className="quote-line-row open">
-                  <LineEditor
-                    l={l}
-                    n={n}
-                    done={done}
-                    fault={c.fault}
-                    left={touched.has(l.id)}
-                    focus={focusField}
-                    set={(ch) => set(l.id, ch)}
-                    onRemove={() => remove(l)}
-                    onDone={() => {
-                      touch(l.id)
-                      setShut(l.id)
-                      setOpen(undefined)
-                    }}
-                    onLeave={() => touch(l.id)}
-                    kit={kit}
-                    last={<LastCharged found={lastOf(last, namesOf(l))} n={n} price={l.price} onUse={(cents) => set(l.id, { price: euroText(cents) })} />}
-                    cost={cost}
-                    boss={boss}
-                    suppliers={view.kit.suppliers}
-                    wantCost={wantCost}
-                  />
+              const under = linesUnder(lines, l.id)
+              if (!under.length) return row(l)
+              const shown = shownSets.has(l.id) || under.some((u) => u.id === open)
+              return (
+                <div key={l.id} className="quote-set">
+                  {row(l, under)}
+                  <button type="button" className="link quiet set-toggle" aria-expanded={shown} onClick={() => toggleSet(l.id)}>
+                    {shown ? 'Hide what’s in it' : `What’s in it (${plural(under.length, 'line')})`}
+                  </button>
+                  {shown && <div className="set-lines">{under.map((u) => row(u))}</div>}
                 </div>
               )
             })}
@@ -692,6 +788,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
             </div>
           ) : adding === 'package' ? (
             <AddPackage packages={m.packages} onAdd={addPackage} onCancel={() => setAdding(undefined)} />
+          ) : adding === 'save-package' ? (
+            <PackageEditor view={view} start={kitStart()} onDone={() => setAdding(undefined)} />
           ) : adding === 'transport' ? (
             <AddTransport
               vans={vans.map((b) => ({ id: b.id, what: transportWords(b.vehicle!.kind, !!b.driver), name: `${b.vehicle!.name}${b.driver ? `, ${b.driver.name} driving` : ''}` }))}
@@ -724,6 +822,11 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 <Icon name="add" />
                 Add something else
               </button>
+              {lines.some((l) => l.kind === 'kit' && l.modelId) && (
+                <button type="button" className="link" onClick={() => setAdding('save-package')}>
+                  Save the kit as a package
+                </button>
+              )}
             </>
           )}
         </div>

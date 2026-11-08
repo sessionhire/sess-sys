@@ -2,6 +2,8 @@ import {
   irishToday,
   lineCents,
   linesByGroup,
+  linesUnder,
+  setCents,
   money,
   pctWord,
   spanLabel,
@@ -20,6 +22,7 @@ import {
   validUntil,
   type QuoteSettings,
 } from '@sh/shared'
+import { Fragment, useState } from 'react'
 import { Empty } from '../Empty.tsx'
 import { Sideways } from '../more.tsx'
 import { chargeWords } from './QuoteLine.tsx'
@@ -32,7 +35,15 @@ import { chargeWords } from './QuoteLine.tsx'
 const KIND_WORDS: Record<LineKind, string> = { kit: 'Kit', crew: 'Crew', other: 'Other' }
 
 export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
+  // A package's kit (ADR 0116) is folded under its line on screen, a press away, and printed under it on paper.
+  const [shown, setShown] = useState<ReadonlySet<string>>(() => new Set())
   if (!lines.length) return <Empty>No lines.</Empty>
+  const toggle = (id: string) =>
+    setShown((now) => {
+      const next = new Set(now)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
   return (
     <Sideways className="quote-table-wrap">
       <table className="quote-table quote-lines">
@@ -53,28 +64,54 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                 {g.group || KIND_WORDS[g.lines[0]!.kind]}
               </th>
             </tr>
-            {g.lines.map((l) => (
-              <tr key={l.id}>
-                <td>
-                  {l.what}
-                  {l.includes && <small className="includes">{l.includes}</small>}
-                  {/* On a phone the four middle columns fold into this line under the name, so the amount stays in sight (audit, 5 November 2026, finding 59). */}
-                  <small className="line-sum">
-                    {chargeWords(l)} · VAT{"\u00a0"}{VAT_LABELS[l.vat]}
-                  </small>
-                </td>
-                <td className="n">{l.qty}</td>
-                <td className="n">{l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')}</td>
-                <td className="n">
-                  {money(l.unitCents)} {l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}
-                </td>
-                <td className="n">{VAT_LABELS[l.vat]}</td>
-                <td className="n">
-                  {money(lineCents(l))}
-                  {l.discountPct ? <small className="less"> less {pctWord(l.discountPct)}</small> : null}
-                </td>
-              </tr>
-            ))}
+            {g.lines.map((l) => {
+              const under = linesUnder(lines, l.id)
+              const byKit = under.length > 0 && !l.unitCents && !!l.packageId
+              const open = shown.has(l.id)
+              return (
+                <Fragment key={l.id}>
+                  <tr className={under.length ? 'set-head' : undefined}>
+                    <td>
+                      {l.what}
+                      {l.includes && <small className="includes">{l.includes}</small>}
+                      {/* On a phone the four middle columns fold into this line under the name, so the amount stays in sight (audit, 5 November 2026, finding 59). */}
+                      <small className="line-sum">
+                        {byKit ? 'Its kit, priced below' : chargeWords(l)} · VAT{"\u00a0"}{VAT_LABELS[l.vat]}
+                      </small>
+                      {under.length > 0 && (
+                        <button type="button" className="link quiet set-toggle" aria-expanded={open} onClick={() => toggle(l.id)}>
+                          {open ? 'Hide what’s in it' : `What’s in it (${under.length})`}
+                        </button>
+                      )}
+                    </td>
+                    <td className="n">{l.qty}</td>
+                    <td className="n">{byKit ? '' : l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')}</td>
+                    <td className="n">{byKit ? '' : `${money(l.unitCents)} ${l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}`}</td>
+                    <td className="n">{VAT_LABELS[l.vat]}</td>
+                    <td className="n">
+                      {money(under.length ? setCents(l, lines) : lineCents(l))}
+                      {l.discountPct ? <small className="less"> less {pctWord(l.discountPct)}</small> : null}
+                    </td>
+                  </tr>
+                  {under.map((u) => {
+                    const priced = u.unitCents > 0
+                    return (
+                      <tr key={u.id} className={open ? 'set-line' : 'set-line folded'}>
+                        <td>
+                          {u.what}
+                          <small className="line-sum">{priced ? chargeWords(u) : 'Included'}</small>
+                        </td>
+                        <td className="n">{u.qty}</td>
+                        <td className="n">{priced && u.per !== 'once' ? (u.rate === 'weekly' ? `${u.days} wk` : u.days.toLocaleString('en-IE')) : ''}</td>
+                        <td className="n">{priced ? `${money(u.unitCents)} a ${RATE_UNIT[u.rate ?? 'daily']}` : ''}</td>
+                        <td className="n" />
+                        <td className="n">{priced ? money(lineCents(u)) : 'Included'}</td>
+                      </tr>
+                    )
+                  })}
+                </Fragment>
+              )
+            })}
           </tbody>
         ))}
       </table>

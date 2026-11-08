@@ -1,4 +1,4 @@
-import { addDays, irishToday, quoteTotals, TODO_SCHEMA, todoAnswer, type QuoteLine, type TodoItem, type TodoList } from '@sh/shared'
+import { addDays, irishToday, needsPrice, quoteTotals, TODO_SCHEMA, todoAnswer, type QuoteLine, type TodoItem, type TodoList } from '@sh/shared'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
 import type { Assistant } from './routes.ts'
@@ -54,7 +54,7 @@ export async function factsFor(q: Queryable, today: string): Promise<Record<stri
 
   const noQuote = live
     .filter((r) => r.status === 'enquiry' && (!r.quote || r.quote === 'draft') && (!r.last_day || day(r.last_day)! >= today))
-    .map((r) => ({ ...job(r), quote: r.quote ? `draft, version ${r.version}, ${(r.lines as unknown[]).length} lines, ${(r.lines as QuoteLine[]).filter((l) => !l.unitCents).length} with no price` : 'none yet' }))
+    .map((r) => ({ ...job(r), quote: r.quote ? `draft, version ${r.version}, ${(r.lines as unknown[]).length} lines, ${(r.lines as QuoteLine[]).filter((l, _, all) => needsPrice(l, all)).length} with no price` : 'none yet' }))
   const waiting = live
     .filter((r) => r.quote === 'sent')
     .map((r) => ({ ...job(r), sentOn: day(r.sent_on), total: euro(total(r)) }))

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.114.0',
+    date: '2026-11-08',
+    title: 'Packages add their kit, listed under them on the quote',
+    what: "Adding a package to a quote now adds its kit: the package's line, with each thing in it as a line underneath, to change for that job. On screen the kit is folded under the package, a tap away; on the printed and emailed quote it's listed under it. A package with its own price is charged at that, its kit included; one without a price is its kit at price-list prices, and the package's line adds them up. Racks work the same way, with what's built into them listed underneath. A draft's kit can be saved as a new package, and a package's kit can be added to a job's kit list in one go.",
+    prs: [0],
+    adrs: [116],
+  },
+  {
     version: '1.113.0',
     date: '2026-11-08',
     title: 'Start a quote from a past job for the same client or venue',
