@@ -3,6 +3,30 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 8 November 2026: quoting, the six small ones and the draft fix
+
+**Done**
+
+- Colly picked the six small features and the draft fix from
+  [research/quoting.md](research/quoting.md).
+- Quantity typed with the product in Add kit ("12 y10"), and How many
+  beside the role in Add crew; each product in the picker says its price,
+  rule and how many are free on the job's days (#254, 1.110.0).
+- One check before a quote goes (no price, short of kit, no travel, first
+  day gone); a sent quote whose prices have run out says so; why a quote
+  was turned down, with a note, on the quote and in history; who asked,
+  how it came and the day the quote's wanted by on New quote, the day as
+  the Quote sent task's due day (#255, 1.111.0).
+- Two people on one draft keep both their changes: saves carry what they
+  began from and are merged line by line on the server and the device,
+  and an open draft takes in changes from elsewhere
+  ([ADR 0113](adr/0113-two-people-on-one-draft.md), #256, 1.111.1).
+
+**Waiting on**
+
+- Colly's answers to the research's seven questions, and whether to go on
+  to starting from a past quote and product companions.
+
 ## 8 November 2026: what would make quoting faster, easier and more reliable
 
 **Done**
