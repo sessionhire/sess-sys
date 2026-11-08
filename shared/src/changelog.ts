@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.117.0',
+    date: '2026-11-08',
+    title: 'Starter packages from Current RMS',
+    what: "Money's price list offers 41 ready-made packages, drawn from what went out together on the quotes in Current RMS: speech and party PAs, line-array systems, monitor wedges, in-ears and radio mics, mic packages, cable packs in two sizes, lighting, staging, truss and an LED wall. One tap adds them, each priced at what its kit adds up to (Decor LX at its usual €1,800 a week), and each can be changed or taken off like any package. The mic packages bring the mics and DI boxes the stock list didn't have, added with nothing counted for the warehouse to count.",
+    prs: [260],
+    adrs: [117],
+  },
+  {
     version: '1.116.0',
     date: '2026-11-08',
     title: 'A package starts at what its kit comes to',

@@ -91,7 +91,7 @@ test('a package and a rack go on a quote with their kit under them, and a quote�
   await save.getByLabel('Name').press('Enter')
   await expect(save).toHaveCount(0)
   await ready(office, '#jobs/money/prices')
-  await expect(office.getByRole('region', { name: 'Packages' }).locator('.package-row', { hasText: `Launch kit ${id}` })).toContainText('€210.00 a day, its items')
+  await expect(office.getByRole('region', { name: 'Packages', exact: true }).locator('.package-row', { hasText: `Launch kit ${id}` })).toContainText('€210.00 a day, its items')
 
   // A package's kit on the job's kit list in one press.
   await ready(office, `#jobs/job-${id}/kit`)
@@ -120,7 +120,7 @@ test('a package starts at its items’ total, and a price of its own is a discou
 
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await ready(office, '#jobs/money/prices')
-  const card = office.getByRole('region', { name: 'Packages' })
+  const card = office.getByRole('region', { name: 'Packages', exact: true })
   const row = card.locator('.package-row', { hasText: `Mic package ${id}` })
   await expect(row).toContainText('€50.00 a day, its items')
   await row.getByRole('button', { name: `Change Mic package ${id}` }).click()

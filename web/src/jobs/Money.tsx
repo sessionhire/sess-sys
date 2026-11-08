@@ -58,6 +58,7 @@ import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useC
 import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
+import { StarterPackagesCard } from './StarterPackages.tsx'
 import { FromPastJob } from './PastJobs.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import { InStep, QuotePill } from './Quote.tsx'
@@ -881,6 +882,7 @@ export function PricesScreen({ view }: { view: View }) {
         {view.warehouse.models.length === 0 && <Empty>No products yet: they come from the Stock tab.</Empty>}
       </section>
 
+      <StarterPackagesCard view={view} />
       <PackagesCard view={view} />
 
       <section className="card" aria-label="Crew">

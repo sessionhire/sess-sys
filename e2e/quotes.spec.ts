@@ -459,7 +459,7 @@ test('a package made on the price list goes on a quote at its price, with its ki
   await noPrintDialog(office)
 
   await office.goto('/#jobs/money/prices')
-  const packages = office.getByRole('region', { name: 'Packages' })
+  const packages = office.getByRole('region', { name: 'Packages', exact: true })
   await packages.getByRole('button', { name: 'Add a package' }).click()
   const editor = packages.getByRole('form', { name: 'New package' })
   await editor.getByLabel('Name').fill('Mic package')
