@@ -28,6 +28,7 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+<<<<<<< HEAD
     version: '1.114.0',
     date: '2026-11-08',
     title: 'Packages add their kit, listed under them on the quote',
@@ -36,6 +37,8 @@ export const CHANGELOG: readonly Release[] = [
     adrs: [116],
   },
   {
+=======
+>>>>>>> origin/claude/project-thread-jglxdd
     version: '1.113.0',
     date: '2026-11-08',
     title: 'Start a quote from a past job for the same client or venue',
