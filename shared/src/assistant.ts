@@ -280,6 +280,8 @@ export function suggestionLine(s: Suggestion, id: string): QuoteLine {
     ...(s.rate && s.per === 'day' ? { rate: s.rate, out: s.days } : {}),
     ...(s.discountPct ? { discountPct: s.discountPct } : {}),
     ...(s.packageId ? { packageId: s.packageId, includes: s.includes ?? '' } : {}),
+    // A product priced at €0 on the price list is given at no charge (audit of the quote flow, 8 November 2026, finding 1).
+    ...(s.kind === 'kit' && s.modelId && s.cents === 0 && !s.packageId ? { included: true as const } : {}),
   }
 }
 

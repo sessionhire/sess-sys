@@ -15,9 +15,13 @@ const SHOWN = 8
  * adds it to the list. While something is typed one row is highlighted, the
  * one Enter takes: the name spelt as typed, else the first starting with it,
  * else the new one, so "verv" and Enter is Verve, never a new client called
- * "verv". What's typed is the value: leaving the field keeps it, in the
- * list's spelling when it's a name already here in another case. With
- * nothing typed it offers `first`, the most used, with nothing highlighted.
+ * "verv". The first arrow key goes to that name, never past it. Leaving the
+ * field with the start of one name here, "bright" for Brightwater
+ * Conferences, takes that one and says so, with a press to keep what was
+ * typed as new (audit of the quote flow, 8 November 2026, finding 3); a name
+ * already here in another case takes the list's spelling. Otherwise what's
+ * typed is the value. With nothing typed it offers `first`, the most used,
+ * with nothing highlighted.
  */
 export function NameField<T extends Named>({
   label,
@@ -62,6 +66,9 @@ export function NameField<T extends Named>({
   const [open, setOpen] = useState(false)
   const [moved, setMoved] = useState<number | null>(null)
   const [heard, setHeard] = useState('')
+  // A name taken on leaving the field, with what was typed, so it can be kept as new instead; and a name kept as new.
+  const [took, setTook] = useState<{ typed: string; name: string }>()
+  const [keptNew, setKeptNew] = useState('')
   const list = useRef<HTMLUListElement>(null)
   const id = useId()
 
@@ -78,6 +85,8 @@ export function NameField<T extends Named>({
   const starting = offers.findIndex((f) => kitKey(f.record.name).startsWith(key))
   const highlight = !typed ? -1 : exact ? offers.findIndex((f) => f.record === exact) : starting >= 0 ? starting : fresh ? offers.length : -1
   const active = shown ? (moved ?? highlight) : -1
+  // The names here that start with what's typed, or have a word that does: one of them is taken on leaving the field.
+  const starters = fresh && key.length >= 3 && keptNew !== key ? startingWith(records, key) : []
 
   useEffect(() => {
     if (active >= 0) list.current?.querySelector(`[id="${id}-${active}"]`)?.scrollIntoView({ block: 'nearest' })
@@ -97,6 +106,7 @@ export function NameField<T extends Named>({
     } else if (fresh) {
       const name = value.trim().replace(/\s+/g, ' ')
       onChange(name)
+      setKeptNew(kitKey(name))
       setHeard(`${name} is added as a new ${what} when this is saved.`)
     }
   }
@@ -104,6 +114,8 @@ export function NameField<T extends Named>({
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       if (!shown) return setOpen(true)
+      // The first arrow goes to a highlighted name, so "bright", down and Enter is Brightwater, never past it to a new one.
+      if (moved === null && highlight >= 0 && highlight < offers.length) return setMoved(highlight)
       const last = rows - 1
       setMoved(e.key === 'ArrowDown' ? (active >= last ? 0 : active + 1) : active <= 0 ? last : active - 1)
       return
@@ -146,6 +158,7 @@ export function NameField<T extends Named>({
             onChange(e.target.value)
             setMoved(null)
             setOpen(true)
+            setTook(undefined)
           }}
           onKeyDown={keys}
           onFocus={() => setOpen(true)}
@@ -153,6 +166,14 @@ export function NameField<T extends Named>({
           onBlur={() => {
             // A name already here, typed in another case or spacing, takes the list's spelling.
             if (exact && exact.name !== value) onChange(exact.name)
+            // The start of one name here is that one, said under the field with a way to keep what was typed.
+            const one = starters.length === 1 ? starters[0]! : undefined
+            if (one) {
+              onChange(one.name)
+              onPick?.(one)
+              setTook({ typed: value.trim().replace(/\s+/g, ' '), name: one.name })
+              setHeard(`Took ${one.name}, the one ${what} starting “${value.trim()}”.`)
+            }
             close()
           }}
         />
@@ -204,9 +225,38 @@ export function NameField<T extends Named>({
           )}
         </ul>
       </div>
+      {took && took.name === value && (
+        <small className="hint name-took">
+          Took {took.name}, the one {what} starting “{took.typed}”.{' '}
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              onChange(took.typed)
+              setKeptNew(kitKey(took.typed))
+              setTook(undefined)
+              setHeard(`${took.typed} is added as a new ${what} when this is saved.`)
+            }}
+          >
+            Keep “{took.typed}” as a new {what}
+          </button>
+        </small>
+      )}
       <span className="sr-only" aria-live="polite">
         {heard}
       </span>
     </div>
   )
+}
+
+/** The records whose name starts with what's typed, or has a word that does, one to a name. */
+function startingWith<T extends Named>(records: readonly T[], key: string): T[] {
+  const squashed = key.replace(/ /g, '')
+  const out = new Map<string, T>()
+  for (const r of records) {
+    const name = kitKey(r.name)
+    if (!name || out.has(name)) continue
+    if (name.startsWith(key) || name.replace(/ /g, '').startsWith(squashed) || name.includes(` ${key}`)) out.set(name, r)
+  }
+  return [...out.values()]
 }

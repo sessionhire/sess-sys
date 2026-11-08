@@ -92,15 +92,15 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                     </td>
                     <td className="n">{l.qty}</td>
                     <td className="n">{byKit ? '' : l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')}</td>
-                    <td className="n">{byKit ? '' : `${money(l.unitCents)} ${l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}`}</td>
+                    <td className="n">{byKit || l.included ? '' : `${money(l.unitCents)} ${l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}`}</td>
                     <td className="n">{VAT_LABELS[l.vat]}</td>
                     <td className="n">
-                      {money(under.length ? setCents(l, lines) : lineCents(l))}
+                      {l.included && !under.length ? 'Included' : money(under.length ? setCents(l, lines) : lineCents(l))}
                       {l.discountPct ? <small className="less"> less {pctWord(l.discountPct)}</small> : null}
                     </td>
                   </tr>
                   {under.map((u) => {
-                    const priced = u.unitCents > 0
+                    const priced = u.unitCents > 0 && !u.included
                     return (
                       <tr key={u.id} className={open ? 'set-line' : 'set-line folded'}>
                         <td>

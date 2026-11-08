@@ -1,4 +1,4 @@
-import { kitKey, leadingCount } from '@sh/shared'
+import { countedFind, kitKey, leadingCount } from '@sh/shared'
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 
 /** Offers shown at once; past these a line says how many more, to type more and narrow. */
@@ -98,11 +98,10 @@ export function RecordPicker<T extends PickRecord>({
   const id = useId()
 
   const typed = text !== null && kitKey(text) !== ''
-  const whole: RecordOffer<T>[] = typed ? find(records, text) : first.map((record) => ({ record }))
-  // "12 y10": twelve of what "y10" finds, when the whole of it finds nothing.
-  const counting = counted && typed && whole.length === 0 ? leadingCount(text) : undefined
-  const found = counting ? find(records, counting.rest) : whole
-  const count = counting && found.length ? counting.count : undefined
+  // "2 d20": two of what "d20" finds, the number read as a count first (audit of the quote flow, 8 November 2026, finding 2).
+  const read: { count?: number; found: RecordOffer<T>[] } = !typed ? { found: first.map((record) => ({ record })) } : counted ? countedFind(text, (t) => find(records, t), (f) => f.record.name) : { found: find(records, text) }
+  const found: RecordOffer<T>[] = read.found
+  const count = read.count
   const offers = found.slice(0, SHOWN)
   const more = found.length - offers.length
   const rows: ({ kind: 'record'; f: RecordOffer<T> } | { kind: 'action'; a: PickerAction })[] = [
@@ -209,7 +208,7 @@ export function RecordPicker<T extends PickRecord>({
           )}
           {typed && offers.length === 0 && (
             <li className="note" role="presentation">
-              {nothingFound((counting?.rest ?? text).trim())}
+              {nothingFound(((counted ? leadingCount(text)?.rest : undefined) ?? text).trim())}
             </li>
           )}
           {count && (

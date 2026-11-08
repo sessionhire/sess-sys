@@ -32,6 +32,8 @@ export function lineMark(l: QuoteLine): string {
     l.extra ?? null,
     // Only when there is one, so a line marked before packages had lines under them reads the same.
     ...(l.under ? [l.under] : []),
+    // The same, for a line given as included (audit of the quote flow, 8 November 2026, finding 1).
+    ...(l.included ? ['included'] : []),
   ]
   return hash(JSON.stringify(fields))
 }

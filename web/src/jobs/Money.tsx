@@ -859,7 +859,7 @@ export function PricesScreen({ view }: { view: View }) {
       <section className="card" aria-label="Kit">
         <Heading icon="kit">Kit</Heading>
         <p className="hint">
-          {priced} of {plural(view.warehouse.models.length, 'product')} priced. A product with no price goes on a quote at nothing, for you to price there.
+          {priced} of {plural(view.warehouse.models.length, 'product')} priced. A product with no price goes on a quote for you to price there. One priced at €0 goes on as included, at no charge, as cables and power usually are.
         </p>
         <RateRules view={view} />
         <input className="search" type="search" placeholder="Find a product" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find a product" />

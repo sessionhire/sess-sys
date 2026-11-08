@@ -96,3 +96,11 @@ describe('a package starts at its items’ total, and its own price is a discoun
     expect(lineSaving({ ...l, fullCents: undefined })).toBe(0)
   })
 })
+
+describe('a line given as included (audit of the quote flow, 8 November 2026, finding 1)', () => {
+  const line = (id: string, unitCents: number, included?: true): QuoteLine => ({ id, kind: 'kit', what: id, ref: null, group: 'Audio', qty: 1, days: 1, unitCents, vat: '23', ...(included ? { included } : {}) })
+  it('wants no price, while a line at nothing that is not included still does', () => {
+    const lines = [line('cables', 0, true), line('desk', 0), line('mics', 1000)]
+    expect(lines.filter((l) => needsPrice(l, lines)).map((l) => l.id)).toEqual(['desk'])
+  })
+})

@@ -78,3 +78,38 @@ test('New quote finds clients, venues and who asked as they are typed, and keeps
   await expect(form.getByRole('listbox', { name: 'Their people' }).getByRole('option')).toHaveCount(2)
   await expect(form.getByRole('listbox', { name: 'Their people' })).toContainText('Orla Byrne')
 })
+
+test('the start of a client left in the field is that client, said so with a way to keep it new (audit of the quote flow, 8 November 2026, finding 3)', async ({ browser, request }) => {
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.goto('/#quotes')
+  await expect(office.getByRole('status')).toHaveText('Up to date')
+  const quotes = office.getByRole('region', { name: 'To follow up' })
+  await quotes.getByRole('button', { name: 'New quote' }).click()
+  const form = quotes.getByRole('form', { name: 'New quote' })
+  const clientBox = form.getByRole('combobox', { name: 'Client' })
+  const found = form.getByRole('listbox', { name: 'Found' })
+
+  // Down and Enter on the highlighted name takes it, never the "Add as new" past it.
+  await clientBox.fill('bright')
+  await expect(found.getByRole('option', { name: /Brightwater Conferences/ })).toHaveAttribute('aria-selected', 'true')
+  await clientBox.press('ArrowDown')
+  await clientBox.press('Enter')
+  await expect(clientBox).toHaveValue('Brightwater Conferences')
+
+  // Left with the start of one name, the field takes that name and says so.
+  await clientBox.fill('bright')
+  await clientBox.press('Tab')
+  await expect(clientBox).toHaveValue('Brightwater Conferences')
+  const took = form.locator('.name-took')
+  await expect(took).toContainText('Took Brightwater Conferences, the one client starting “bright”.')
+
+  // Keeping what was typed makes it new, and leaving the field again keeps it.
+  await took.getByRole('button', { name: 'Keep “bright” as a new client' }).click()
+  await expect(clientBox).toHaveValue('bright')
+  await clientBox.focus()
+  await clientBox.press('Tab')
+  await expect(clientBox).toHaveValue('bright')
+  await expect(form).toContainText('“bright” is added as a new client.')
+})
