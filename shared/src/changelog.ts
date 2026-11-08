@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-08',
     title: 'Start a quote from a past job for the same client or venue',
     what: "New quote now offers past jobs for the same client and venue, then the same venue, then the same client, once you've typed one in. Pick one and its lines are filled in, ready to change: kit as much as actually went out on the night, not just what was quoted, so anything added on site comes back too, marked \"Not on the quote\". Kit quoted but never taken is offered unticked. Prices are today's.",
-    prs: [0],
+    prs: [259],
     adrs: [115],
   },
   {
