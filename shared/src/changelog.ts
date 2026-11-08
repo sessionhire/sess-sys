@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-08',
     title: 'The first part of the iPhone and Android app, for the warehouse',
     what: "The start of a Session Hire app for iPhone and Android, the same app inside the phone's own: scanning a label in it uses the phone's own barcode reader, faster and better in poor light, with the camera across the top of the screen and the page carrying on below it; and signing in opens Google in the phone's browser and comes back. It isn't on the App Store or Google Play yet. Nothing changes in a browser.",
-    prs: [0],
+    prs: [251],
     adrs: [112],
   },
   {
