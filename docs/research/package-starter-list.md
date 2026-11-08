@@ -2,10 +2,15 @@
 
 Research date: 8 November 2026, asked for by Colly ("Can we analyse the
 previous quotes from current RMS to try find a pattern for creating a list
-of these templates to start off?"). Nothing is loaded yet; this page is for
-choosing. The list is also kept as data in
-[package-starter-list.json](package-starter-list.json), ready to load the
-packages Colly ticks.
+of these templates to start off?"). The list is also kept as data in
+[package-starter-list.json](package-starter-list.json).
+
+**Colly's answers, 8 November 2026:** load them all, but only the generic
+ones (not IPSC or NAMA); add mics and DIs to the stock list; price each
+package at what its items add up to, with a discount to a set price
+allowed. Built as [ADR 0117](../adr/0117-starter-packages-from-current-rms.md):
+Money's price list offers the 41 to add in one go, and the mic packages
+now hold real mics and DIs (first guesses, for the office to change).
 
 ## Recommendation
 
