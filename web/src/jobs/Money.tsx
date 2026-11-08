@@ -58,6 +58,7 @@ import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useC
 import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
+import { FromPastJob } from './PastJobs.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import { InStep, QuotePill } from './Quote.tsx'
 
@@ -320,6 +321,8 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
   const [read, setRead] = useState<EnquiryReading>()
   const [phases, setPhases] = useState<{ name: string; start: string; end: string }[]>([])
   const [lines, setLines] = useState<Offered[]>([])
+  // The past job the lines were started from (ADR 0115), until another is picked or it's picked again to clear them.
+  const [fromJob, setFromJob] = useState<string>()
   const { run, error } = useAct()
   const onRead = (r: EnquiryReading) => {
     const parts = enquiryPhases(r)
@@ -329,6 +332,7 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
     setAsked({ by: r.asker || asked.by, how: asked.how, quoteBy: r.quoteBy && r.quoteBy >= today ? r.quoteBy : asked.quoteBy })
     setPhases(parts.length > 1 ? parts : [])
     setLines(offer(enquirySuggestions(r, pricingOf(view), eachDay(start, end).length)))
+    setFromJob(undefined)
     setRead(r)
   }
   const dates = (next: { start: string; end: string }) => {
@@ -423,6 +427,18 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
           In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
         </p>
       )}
+      <FromPastJob
+        view={view}
+        client={f.client}
+        venue={f.venue}
+        days={eachDay(f.start, f.end < f.start ? f.start : f.end).length}
+        today={today}
+        chosen={fromJob}
+        onPick={(jobId, offered) => {
+          setFromJob(jobId)
+          setLines(offered)
+        }}
+      />
       {lines.length > 0 && (
         <section className="wide" aria-label="Lines for the quote">
           <h3>Lines for the quote</h3>

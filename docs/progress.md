@@ -3,6 +3,18 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 8 November 2026: start a quote from a past job
+
+**Done**
+
+- Colly asked for old quotes as templates for related new ones, by venue
+  and client, based on what actually went out rather than what was quoted.
+- Built ([ADR 0115](adr/0115-start-a-quote-from-a-past-job.md)): New quote
+  offers up to six past jobs once the client or venue is known (both
+  first), and picking one fills the ticked lines: kit at what went out,
+  marked where it differed from the quote or went beyond it, priced from
+  today's price list.
+
 ## 8 November 2026: freelancers' access
 
 **Done**
