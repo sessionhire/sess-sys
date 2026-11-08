@@ -3,6 +3,22 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 8 November 2026: Rentdeck, set beside the app
+
+**Done**
+
+- [Rentdeck, set beside Session Hire's app](research/competitor-rentdeck.md),
+  at Colly's ask: a new Dutch tool at €9.95 a month for one user, for small
+  hire firms leaving Excel. Read from its site, wiki and terms; no trial
+  opened. It is ahead on invoices, the client signing a quote online and
+  paperwork the office can redraw; the app is ahead on crew, the calendar,
+  the warehouse, jobs and quoting. Eight ideas worth taking, all small
+  except online acceptance and invoicing (paused). Nothing built.
+
+**Waiting on**
+
+- Colly to pick any of the ideas, and the page's four questions.
+
 ## 8 November 2026: an audit of the quote flow, and quoting from scratch
 
 **Done**
