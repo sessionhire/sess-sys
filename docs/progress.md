@@ -18,8 +18,7 @@ waiting on someone.
 
 **Waiting**
 
-- Colly: how packages are priced (card in the thread); built on the
-  recommended "either, set per package".
+- Colly chose "either, set per package" for pricing, as built.
 - The thread finding package templates in Current RMS quotes proposes a
   starter list, loaded only once Colly approves it.
 

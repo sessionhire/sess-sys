@@ -30,8 +30,8 @@ one line with nothing to say what was built into them.
 2. **Price.** A package with a price of its own is charged at that, and
    its kit is included ("Included"). A package with no price is its kit at
    the price list's prices, and its line comes to what they do. The price
-   on a package is now optional. Which way to take it was put to Colly; this
-   is the recommended option, built while he decides.
+   on a package is now optional. Colly chose this, "either, set per
+   package", on 8 November 2026.
 3. **On screen** a package's kit is folded under its line, "What's in it
    (n lines)" a press away; it's shown as it's added. **On paper**, and in
    the emailed PDF, it's printed under its line, smaller, always.
