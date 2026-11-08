@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.113.0',
+    version: '1.114.0',
     date: '2026-11-08',
     title: 'Loading a new version says what changed',
     what: "After you tap Load the new version, a note at the bottom of the screen says the version you're now on and what came in since the one you had: the newest change by name, and how many more. What's changed in it opens the whole list, with the new ones marked. Every pop-up now reads top to bottom: the title, what it says, then its button at the right, with the close cross in the top corner.",
     prs: [258],
+  },
+  {
+    version: '1.113.0',
+    date: '2026-11-08',
+    title: 'Start a quote from a past job for the same client or venue',
+    what: "New quote now offers past jobs for the same client and venue, then the same venue, then the same client, once you've typed one in. Pick one and its lines are filled in, ready to change: kit as much as actually went out on the night, not just what was quoted, so anything added on site comes back too, marked \"Not on the quote\". Kit quoted but never taken is offered unticked. Prices are today's.",
+    prs: [259],
+    adrs: [115],
   },
   {
     version: '1.112.0',
