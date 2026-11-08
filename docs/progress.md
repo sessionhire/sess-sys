@@ -3,6 +3,16 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 8 November 2026: a package's price starts at its items' total
+
+**Done**
+
+- Colly: "Start with the price for the total for all items in package and
+  then allow a discount to a set price." The package editor and list show
+  what its items come to; a price of its own shows as what it takes off;
+  a package added to a quote keeps that total, and the quote on screen and
+  on paper says "€N off its items' €T" ([ADR 0116](adr/0116-a-package-is-a-shortcut-for-its-kit.md), point 2).
+
 ## 8 November 2026: packages as a shortcut for their kit
 
 **Done**

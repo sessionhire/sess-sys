@@ -6,12 +6,15 @@ import {
   money,
   newId,
   packageIncludes,
+  packageSaving,
+  packageWorth,
   parseEuro,
   RATE_LABELS,
   RATE_RULES,
   RATE_UNIT,
   type Department,
   type Package,
+  type PackageWorth,
   type RateRule,
   type View,
 } from '@sh/shared'
@@ -25,20 +28,21 @@ import { client } from '../sync.ts'
 
 /**
  * Packages on the price list (ADR 0087, ADR 0116): named sets of kit, as the office's "Mic package" and "Cable package"
- * were in Current RMS. Each has a name, the department it's listed under, what it holds and, if it's charged as a whole,
- * a price and its rule. On a quote it's a shortcut for its kit: its line, with each product a line under it. One is open
+ * were in Current RMS. Each has a name, the department it's listed under, what it holds and its rule. Its price starts
+ * at what its items come to on the price list; one of its own is a discount from that. On a quote it's a shortcut for its kit: its line, with each product a line under it. One is open
  * to change at a time.
  */
 export function PackagesCard({ view }: { view: View }) {
   const m = view.money
   const [open, setOpen] = useState<string>()
   const nameOf = (id: string) => view.warehouse.models.find((x) => x.id === id)?.name
+  const worthOf = (p: Package) => packageWorth(p, (id) => ({ cents: m.productPrice(id), rate: m.productRate(id) }))
   return (
     <section className="card packages" aria-label="Packages">
       <Heading icon="kit">Packages</Heading>
       <p className="hint">
         Named sets of kit, such as a mic package or a small PA: a shortcut for adding the kit. On a quote it's one line with its kit listed under it, each to change for the
-        job. With a price, it's charged at that and its kit is included; with none, its kit is charged at the price list's prices.
+        job. It starts at what its kit comes to at the price list's prices; a price of its own is a discount from that, and the quote shows the saving.
       </p>
       {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
       {open === 'new' ? (
@@ -59,7 +63,7 @@ export function PackagesCard({ view }: { view: View }) {
               <p>{packageIncludes(p, nameOf) || 'Holds nothing yet'}</p>
             </div>
             <div className="actions">
-              <span className="amount">{p.dayCents ? `${money(p.dayCents)} a ${RATE_UNIT[p.rate ?? 'daily']}` : 'Its products’ own prices'}</span>
+              <PackagePrice dayCents={p.dayCents} rate={p.rate} worth={worthOf(p)} />
               <span className="muted">{DEPARTMENT_LABELS[p.department]}</span>
               <Pending pending={p.pending} />
               <button type="button" onClick={() => setOpen(p.id)} aria-label={`Change ${p.name}`}>
@@ -71,6 +75,30 @@ export function PackagesCard({ view }: { view: View }) {
       )}
     </section>
   )
+}
+
+/** A package's price on the list (ADR 0116): its items' total, or its own price with what it takes off that. */
+function PackagePrice({ dayCents, rate, worth }: { dayCents: number; rate?: RateRule; worth: PackageWorth }) {
+  const unit = RATE_UNIT[rate ?? 'daily']
+  if (!dayCents) return <span className="amount">{worth.cents ? `${money(worth.cents)} a ${unit}, its items` : 'Its items’ prices'}</span>
+  const off = worth.unpriced ? undefined : packageSaving(worth.cents, dayCents)
+  return (
+    <span className="amount">
+      {money(dayCents)} a {unit}
+      {off && <span className="muted package-saving"> · {money(off.cents)} off its items’ {money(worth.cents)}</span>}
+    </span>
+  )
+}
+
+/** What the price field says under it (ADR 0116): what the items come to, and what a price of its own takes off. */
+function priceNote(price: string, worth: PackageWorth, unit: string): string {
+  const unpriced = worth.unpriced ? ` ${worth.unpriced === 1 ? 'One item has' : `${worth.unpriced} items have`} no price a ${unit} to count.` : ''
+  if (worth.cents === 0 && !worth.unpriced) return 'Empty: its items’ total, at the price list’s prices.'
+  const own = parseEuro(price)
+  if (own.reason || !own.cents) return `Empty: its items’ total, ${money(worth.cents)} a ${unit}.${unpriced}`
+  const off = packageSaving(worth.cents, own.cents)
+  if (off) return `${money(off.cents)} off its items’ ${money(worth.cents)} (${off.pct}%).${unpriced}`
+  return `Its items come to ${money(worth.cents)}, so this is no saving.${unpriced}`
 }
 
 interface ItemDraft {
@@ -96,6 +124,11 @@ export function PackageEditor({ view, was, start, onDone }: { view: View; was?: 
   const { run, error, refuse } = useAct()
   const models = view.warehouse.models
   const nameOf = (id: string) => models.find((x) => x.id === id)?.name ?? 'A product no longer listed'
+  // What its items come to as typed, which the price starts at and is a discount from (ADR 0116).
+  const worth = packageWorth(
+    { rate, items: items.map((i) => ({ modelId: i.modelId, qty: Number(i.qty.trim()) })).filter((i) => Number.isInteger(i.qty) && i.qty > 0) },
+    (id) => ({ cents: view.money.productPrice(id), rate: view.money.productRate(id) })
+  )
 
   const add = (modelId: string) => {
     if (!modelId) return
@@ -153,8 +186,8 @@ export function PackageEditor({ view, was, start, onDone }: { view: View; was?: 
         </label>
         <label className="field">
           Price, € a {RATE_UNIT[rate]} <span className="optional">(optional)</span>
-          <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="100" />
-          <small>Empty: its kit is priced from the price list.</small>
+          <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={worth.cents ? euroText(worth.cents) : '100'} />
+          <small aria-live="polite">{priceNote(price, worth, RATE_UNIT[rate])}</small>
         </label>
         <label className="field">
           Charged

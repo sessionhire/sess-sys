@@ -3,6 +3,7 @@ import {
   depositCents,
   letterDay,
   lineCents,
+  lineSaving,
   linesByGroup,
   linesUnder,
   setCents,
@@ -149,8 +150,11 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
       // A package with its kit under it (ADR 0116) comes to its own price and its kit's, and its kit is printed under it.
       const byKit = under.length > 0 && !l.unitCents && !!l.packageId
       const amount = `${money(under.length ? setCents(l, q.lines) : lineCents(l))}${l.discountPct ? `\nless ${pctWord(l.discountPct)}` : ''}`
+      // Priced below what its items come to (ADR 0116): the client sees what the package saves them.
+      const saved = lineSaving(l)
+      const words = [l.what, l.includes, saved ? `${money(saved)} off its items’ ${money(lineCents({ ...l, discountPct: undefined, unitCents: l.fullCents! }))}` : ''].filter(Boolean).join('\n')
       rows.push([
-        cell(l.includes ? `${l.what}\n${l.includes}` : l.what),
+        cell(words),
         cell(String(l.qty), right),
         cell(byKit ? '' : days, right),
         cell(byKit ? '' : price, right),

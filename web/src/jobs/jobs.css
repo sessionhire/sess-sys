@@ -690,6 +690,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Packages (ADR 0087): what one holds, under its line and on the price list. */
 .quote-screen .includes, .quote-sheet .includes { display: block; font-size: var(--text-small); color: var(--muted); font-weight: 400; }
+/* What a package priced below its items saves (ADR 0116): in the good role, as money the client keeps. */
+.quote-screen .package-saving, .quote-sheet .package-saving { display: block; font-size: var(--text-small); color: var(--good); font-weight: 400; }
+.package-row .package-saving { font-weight: 400; }
 .money .package-row { align-items: center; }
 .money .package-row > div:first-child { flex: 1 1 14em; }
 .money .package-row p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
