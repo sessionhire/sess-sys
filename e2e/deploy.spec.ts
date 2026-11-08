@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { brotliCompressSync, gzipSync } from 'node:zlib'
+import { APP_VERSION, CHANGELOG } from '../shared/src/changelog.ts'
 
 /**
  * A deploy while the app is open (audit findings 4 and 27), in a real
@@ -74,7 +75,29 @@ test('a new version waits for Load the new version, which brings it in with an u
   const row = tab.locator('.job-row', { hasText: bay })
   await expect(row).toContainText('Nothing here yet')
   await expect(row).not.toContainText('Waiting to sync')
+  // The same version number either side (only the page changed here): nothing to say, so no toast.
+  await expect(tab.locator('.toast')).toHaveCount(0)
   await context.close()
+})
+
+test('back from loading a new version, a toast says what changed since the one the tab had', async ({ page }) => {
+  // Proves: Load the new version is followed by what came in (Colly, 8 November 2026), from the changelog, linking to What's changed.
+  await page.goto('/#stock/places')
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+  // As Load the new version leaves it: the tab was three versions back.
+  const had = CHANGELOG[3]!
+  await page.evaluate((v) => sessionStorage.setItem('sh.loadedFrom', v), had.version)
+  await page.reload()
+  const toast = page.locator('.toast')
+  await expect(toast).toContainText(`Updated to ${APP_VERSION}`)
+  await expect(toast).toContainText(`${CHANGELOG[0]!.title}, and 2 other changes`)
+  await toast.getByRole('link', { name: "What's changed" }).click()
+  await expect(page).toHaveURL(/#admin\/changes$/)
+  await expect(page.getByRole('heading', { name: "What's changed", level: 1 })).toBeVisible()
+  // Said once: a reload after doesn't say it again.
+  await page.reload()
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+  await expect(page.locator('.toast')).toHaveCount(0)
 })
 
 test('a tab brought back to the front looks for a new version, without waiting for the hour', async ({ browser }) => {

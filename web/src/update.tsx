@@ -1,5 +1,7 @@
+import { APP_VERSION, dsTiming, plural, releasesSince } from '@sh/shared'
 import { useEffect, useState } from 'react'
 import { registerSW } from 'virtual:pwa-register'
+import type { Toast } from './notices.ts'
 
 /**
  * A deploy while the app is open. The new version is fetched in the
@@ -14,6 +16,8 @@ import { registerSW } from 'virtual:pwa-register'
 const RELOADED = 'sh.reloadedAt'
 /** Set as the page starts again on its own, read once as it comes back, so the bar can say why. */
 const RESTARTED = 'sh.restarted'
+/** The version this tab was on as it went to load the new one, read once as it comes back, so a toast can say what changed. */
+const LOADED_FROM = 'sh.loadedFrom'
 const listeners = new Set<(ready: boolean) => void>()
 let ready = false
 let reload: (() => Promise<void>) | undefined
@@ -66,6 +70,7 @@ export function watchForUpdates() {
     try {
       sessionStorage.setItem(RELOADED, String(Date.now()))
       sessionStorage.setItem(RESTARTED, '1')
+      sessionStorage.setItem(LOADED_FROM, APP_VERSION)
     } catch {
       // Storage blocked: nothing to remember the reload by, but reload anyway.
     }
@@ -110,6 +115,11 @@ export function UpdateBar({ unkept = 0 }: { unkept?: number }) {
     )
   if (!ready) return null
   const onReload = () => {
+    try {
+      sessionStorage.setItem(LOADED_FROM, APP_VERSION)
+    } catch {
+      // Storage blocked: the new version loads all the same, without saying what changed.
+    }
     void reload?.()
     // The new version takes the page over and reloads it. Should it not (an older browser, say), start again anyway.
     setTimeout(() => location.reload(), 2000)
@@ -127,4 +137,42 @@ export function UpdateBar({ unkept = 0 }: { unkept?: number }) {
       </button>
     </div>
   )
+}
+
+let told = false
+
+/**
+ * Back from loading a new version: the toast at the screen's edge with what
+ * came in since the version this tab was on, from the changelog (ADR 0071),
+ * the newest by name and how many more, and What's changed for the whole
+ * of each. Asked for as the toaster first draws, so its timer starts when it
+ * can be seen. It stays `timing.undo` rather than `timing.notice`: a
+ * sentence of news someone asked for takes longer than four seconds to
+ * read, and it waits while the pointer or the keyboard is on it. Nothing
+ * when the version didn't change (a rebuild with no entry).
+ */
+export function whatChanged(): { toast: Toast; stay: number } | undefined {
+  if (told) return undefined
+  told = true
+  let from: string | null = null
+  try {
+    from = sessionStorage.getItem(LOADED_FROM)
+    sessionStorage.removeItem(LOADED_FROM)
+  } catch {
+    return undefined
+  }
+  if (!from) return undefined
+  const came = releasesSince(from)
+  if (came.length === 0) return undefined
+  const more = came.length - 1
+  return {
+    toast: {
+      id: `version-${APP_VERSION}`,
+      title: `Updated to ${APP_VERSION}`,
+      body: more === 0 ? came[0]!.title : `${came[0]!.title}, and ${plural(more, 'other change')}`,
+      href: '#admin/changes',
+      action: "What's changed",
+    },
+    stay: dsTiming.undo,
+  }
 }

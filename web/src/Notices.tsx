@@ -20,11 +20,13 @@ import {
   placeOf,
   resumeToast,
   setToastsOn,
+  showToast,
   toastsOn,
   useNotices,
   useToasts,
 } from './notices.ts'
 import { useAccess } from './role.ts'
+import { whatChanged } from './update.tsx'
 import { MENU } from './Up.tsx'
 import { useLate } from './useLate.ts'
 import { useToday, useView } from './view.ts'
@@ -40,11 +42,16 @@ import { useToday, useView } from './view.ts'
 /**
  * Where pop-ups arrive: one region, there from the start so a screen reader
  * hears each as it's added, at the bottom corner, above the phone's bar.
- * Each has one action (Open, or See them) and Dismiss, and waits while the
+ * Each has one action (Open, See them, or What's changed) and Dismiss, and waits while the
  * pointer or the keyboard is on it.
  */
 export function Toaster() {
   const toasts = useToasts()
+  // Back from loading a new version: what it changed, as the first pop-up (update.tsx).
+  useEffect(() => {
+    const said = whatChanged()
+    if (said) showToast(said.toast, said.stay)
+  }, [])
   return (
     <section className="toaster" aria-label="Notifications">
       {/* Polite, as role="status" is, without being a second status on the page beside the sync state. */}
