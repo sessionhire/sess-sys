@@ -316,6 +316,9 @@ faults reported on site are waiting in the warehouse repair queue on return.
   Vehicles with their checks, booked on jobs with a driver, in the
   planner and on call sheets. Licence categories are left.
 - Client portal (view quotes, sign, pay deposit).
+- Quoting faster, easier and more reliable: researched 8 November 2026
+  ([quoting](research/quoting.md)); fifteen features ranked, six small
+  ones first, waiting on Colly's pick.
 - RFID. Native iPhone and Android apps: researched 7 November 2026
   ([native apps](research/native-apps.md)); recommended a Capacitor app for
   staff, warehouse first, waiting on Colly's pick.

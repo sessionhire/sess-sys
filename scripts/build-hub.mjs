@@ -27,6 +27,7 @@ const DOCS = [
   ['Architecture', 'docs/architecture.md'],
   ['Roadmap', 'docs/roadmap.md'],
   ['Bringing in the crew list', 'docs/research/crew-import.md'],
+  ['Quoting: faster, easier, more reliable', 'docs/research/quoting.md'],
   ['Native iPhone and Android apps', 'docs/research/native-apps.md'],
   ['Stock tracking', 'docs/research/stock-tracking.md'],
   ['Competitor audit', 'docs/research/competitor-audit.md'],
