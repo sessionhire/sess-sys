@@ -150,18 +150,23 @@ export function AddTransport({ vans, onAdd, onCancel }: { vans: { id: string; wh
 /** A package from the price list to add (ADR 0087). */
 export function AddPackage({ packages, onAdd, onCancel }: { packages: readonly Package[]; onAdd: (id: string) => void; onCancel: () => void }) {
   const [chosen, setChosen] = useState(packages[0]?.id ?? '')
+  const p = packages.find((x) => x.id === chosen)
   return (
     <div className="adding">
       <label className="field">
         Package to add
         <select value={chosen} onChange={(e) => setChosen(e.target.value)} autoFocus>
-          {packages.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}, {money(p.dayCents)} a {RATE_UNIT[p.rate ?? 'daily']}
+          {packages.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.dayCents ? `${x.name}, ${money(x.dayCents)} a ${RATE_UNIT[x.rate ?? 'daily']}` : x.name}
             </option>
           ))}
         </select>
-        <small>At its price on the price list, for the job's days, with what it holds printed under it.</small>
+        <small>
+          {p?.dayCents
+            ? "At its price, with the kit it holds listed under it, each to change for this job."
+            : "Its kit, each at the price list's price, listed under its name to change for this job."}
+        </small>
       </label>
       <button type="button" onClick={() => onAdd(chosen)} disabled={!chosen}>
         Add

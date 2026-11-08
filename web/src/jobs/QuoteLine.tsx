@@ -260,9 +260,31 @@ export function CostFields({
 }
 
 /** A line, shut: what it is, how it's charged and what it comes to, with the mark that says it opens; pressing it opens it to change. */
-export function LineSummary({ l, n, done, onOpen, focus, margin }: { l: LineDraft; n: number; done: QuoteLine | undefined; onOpen: () => void; focus: boolean; margin?: number | undefined }) {
-  const unpriced = done !== undefined && done.unitCents === 0
-  const how = done === undefined ? 'Not finished' : chargeWords(done)
+export function LineSummary({
+  l,
+  n,
+  done,
+  onOpen,
+  focus,
+  margin,
+  total,
+  included,
+  heads,
+}: {
+  l: LineDraft
+  n: number
+  done: QuoteLine | undefined
+  onOpen: () => void
+  focus: boolean
+  margin?: number | undefined
+  /** A package's line with its kit under it (ADR 0116): what they come to together, and that its price is theirs. */
+  total?: number | undefined
+  heads?: boolean
+  /** Kit in a package priced as a whole: no price of its own wanted. */
+  included?: boolean
+}) {
+  const unpriced = done !== undefined && done.unitCents === 0 && !included && !(heads && l.packageId)
+  const how = done === undefined ? 'Not finished' : heads && !done.unitCents && l.packageId ? 'Its kit at its own prices' : included ? `${done.qty} in the package` : chargeWords(done)
   return (
     <button type="button" className={`quote-line-shut${done === undefined || unpriced ? ' needs' : ''}`} onClick={onOpen} autoFocus={focus} aria-label={`Line ${n}: ${l.what || 'not named yet'}, change it`}>
       <span className="what">
@@ -274,7 +296,7 @@ export function LineSummary({ l, n, done, onOpen, focus, margin }: { l: LineDraf
         {done?.subhireQty ? `, ${done.subhireQty} hired in${done.supplier ? ` from ${done.supplier}` : ''}` : ''}
       </span>
       <span className="amount">
-        {done === undefined ? '–' : money(lineCents(done))}
+        {done === undefined ? '–' : included ? 'Included' : money(total ?? lineCents(done))}
         {margin !== undefined && <small className={`line-margin${margin < 0 ? ' bad' : ''}`}>makes {money(margin)}</small>}
       </span>
       <Icon name="edit" className="opener" />
@@ -305,6 +327,8 @@ export function LineEditor(p: {
   boss: boolean
   suppliers: readonly string[]
   wantCost: boolean
+  /** No price of its own wanted: a package's line priced by its kit, or kit in a package priced as a whole (ADR 0116). */
+  included?: boolean
 }) {
   const { l, n, done, fault, set, onRemove, onDone } = p
   const [vatOpen, setVatOpen] = useState(false)
@@ -322,7 +346,7 @@ export function LineEditor(p: {
         {fault.why}
       </p>
     ) : null
-  const unpriced = done !== undefined && done.unitCents === 0
+  const unpriced = done !== undefined && done.unitCents === 0 && !p.included
   // What the price is for, in the field (audit, 5 November 2026, finding 23): a day's, a week's, or once. Moved between a day's and
   // a week's, the same number means seven times more or less, so it's said under the line until the price is changed.
   const unit = unitOf(l)

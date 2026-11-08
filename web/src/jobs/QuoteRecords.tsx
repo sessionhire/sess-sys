@@ -1,4 +1,4 @@
-import { dayLabel, irishToday, money, newId, QUOTE_STATUS_LABELS, STOPPED, TURN_DOWN_LABELS, TURN_DOWN_NOTE_LENGTH, TURN_DOWN_REASONS, validUntil, type JobView, type QuoteView, type TurnDownReason } from '@sh/shared'
+import { dayLabel, irishToday, money, newId, withNewIds, QUOTE_STATUS_LABELS, STOPPED, TURN_DOWN_LABELS, TURN_DOWN_NOTE_LENGTH, TURN_DOWN_REASONS, validUntil, type JobView, type QuoteView, type TurnDownReason } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -61,7 +61,7 @@ export function NewVersion({ q, onMade }: { q: QuoteView; onMade: (id: string) =
   const make = () => {
     const id = newId()
     void run(() =>
-      client.mutate('quote.save', { id, projectId: q.projectId, lines: q.lines.map((l) => ({ ...l, id: newId() })), discountPct: q.discountPct, agreedCents: q.agreedCents ?? null, notes: q.notes })
+      client.mutate('quote.save', { id, projectId: q.projectId, lines: withNewIds(q.lines, newId), discountPct: q.discountPct, agreedCents: q.agreedCents ?? null, notes: q.notes })
     ).then((ok) => ok && onMade(id))
   }
   return (

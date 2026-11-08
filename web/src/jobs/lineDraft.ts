@@ -29,6 +29,8 @@ export interface LineDraft {
   subhire: string
   supplier: string
   cost: string
+  /** The package's line it's under (ADR 0116). */
+  under?: string | null
 }
 export const toDraft = (l: QuoteLine): LineDraft => ({
   id: l.id,
@@ -50,6 +52,7 @@ export const toDraft = (l: QuoteLine): LineDraft => ({
   subhire: l.subhireQty ? String(l.subhireQty) : '',
   supplier: l.supplier ?? '',
   cost: l.costCents === undefined ? '' : euroText(l.costCents),
+  under: l.under ?? null,
 })
 /** The same line, saved as what's typed reads: a field the app before this didn't write counts as its default. */
 export const sameLine = (a: QuoteLine, b: QuoteLine) =>
@@ -72,7 +75,8 @@ export const sameLine = (a: QuoteLine, b: QuoteLine) =>
   (a.subhireQty ?? 0) === (b.subhireQty ?? 0) &&
   (a.supplier ?? '') === (b.supplier ?? '') &&
   (a.costCents ?? null) === (b.costCents ?? null) &&
-  (a.extra ?? null) === (b.extra ?? null)
+  (a.extra ?? null) === (b.extra ?? null) &&
+  (a.under ?? null) === (b.under ?? null)
 export const num = (s: string) => Number(s.trim().replace(',', '.'))
 
 /** The field of a typed line that stops it saving, so the error can sit by its cause (design system rule 18). */
@@ -125,6 +129,7 @@ export function checkLine(d: LineDraft, n: number): { line: QuoteLine; fault?: u
       ...(hired ? { subhireQty: hired } : {}),
       ...(supplier ? { supplier } : {}),
       ...(cost?.cents != null ? { costCents: cost.cents } : {}),
+      ...(d.under ? { under: d.under } : {}),
     },
   }
 }

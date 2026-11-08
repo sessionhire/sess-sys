@@ -85,17 +85,27 @@ export function quoteKit(job: Pick<JobView, 'id' | 'span' | 'prepDays' | 'return
 }
 
 /** How many of each product a quote's lines want from our own stock: a kit line's, less those hired in, and each package's pieces. */
+/** The lines under a rack's line on a quote (ADR 0116): what's built into it, which goes where the rack goes. */
+export function inRacks<L extends { id?: string; modelId?: string | null; under?: string | null }>(lines: readonly L[]): Set<L> {
+  const racks = new Set(lines.filter((l) => l.modelId && !l.under && l.id).map((l) => l.id))
+  return new Set(lines.filter((l) => l.under && racks.has(l.under)))
+}
+
 export function quoteWants(
-  lines: readonly { kind: string; modelId?: string | null; qty: number; subhireQty?: number; packageId?: string }[],
+  lines: readonly { id?: string; kind: string; modelId?: string | null; qty: number; subhireQty?: number; packageId?: string; under?: string | null }[],
   packageItems: (packageId: string) => readonly { modelId: string; qty: number }[] | undefined
 ): Map<string, number> {
   const wanted = new Map<string, number>()
+  // A package with its kit as lines under it (ADR 0116) wants that kit, not what the package holds now; what's built into
+  // a rack goes with the rack, so isn't wanted on its own.
+  const heads = new Set(lines.map((l) => l.under).filter(Boolean))
+  const racked = inRacks(lines)
   const add = (modelId: string, n: number) => n > 0 && wanted.set(modelId, (wanted.get(modelId) ?? 0) + n)
   for (const l of lines) {
-    if (l.kind !== 'kit') continue
+    if (l.kind !== 'kit' || racked.has(l)) continue
     const own = Math.max(0, l.qty - (l.subhireQty ?? 0))
     if (l.modelId) add(l.modelId, own)
-    else if (l.packageId) for (const i of packageItems(l.packageId) ?? []) add(i.modelId, i.qty * own)
+    else if (l.packageId && !(l.id && heads.has(l.id))) for (const i of packageItems(l.packageId) ?? []) add(i.modelId, i.qty * own)
   }
   return wanted
 }
@@ -115,10 +125,12 @@ export interface KitToAdd {
  * kit on the list that isn't on the quote, or more of it, stays, since the list is the warehouse's to change.
  */
 export function kitFromQuote(
-  lines: readonly { kind: string; modelId?: string | null; qty: number; subhireQty?: number; supplier?: string; packageId?: string }[],
+  lines: readonly { id?: string; kind: string; modelId?: string | null; qty: number; subhireQty?: number; supplier?: string; packageId?: string; under?: string | null }[],
   packageItems: (packageId: string) => readonly { modelId: string; qty: number }[] | undefined,
   kit: readonly { modelId: string; qty: number; subhireQty: number }[]
 ): KitToAdd[] {
+  const heads = new Set(lines.map((l) => l.under).filter(Boolean))
+  const racked = inRacks(lines)
   const wanted = new Map<string, { qty: number; subhireQty: number; supplier: string }>()
   const want = (modelId: string, qty: number, subhireQty = 0, supplier = '') => {
     if (qty <= 0) return
@@ -126,9 +138,9 @@ export function kitFromQuote(
     wanted.set(modelId, { qty: w.qty + qty, subhireQty: w.subhireQty + subhireQty, supplier: w.supplier || supplier })
   }
   for (const l of lines) {
-    if (l.kind !== 'kit') continue
+    if (l.kind !== 'kit' || racked.has(l)) continue
     if (l.modelId) want(l.modelId, l.qty, Math.min(l.qty, l.subhireQty ?? 0), l.supplier ?? '')
-    else if (l.packageId) for (const i of packageItems(l.packageId) ?? []) want(i.modelId, i.qty * l.qty)
+    else if (l.packageId && !(l.id && heads.has(l.id))) for (const i of packageItems(l.packageId) ?? []) want(i.modelId, i.qty * l.qty)
   }
   const out: KitToAdd[] = []
   for (const [modelId, w] of wanted) {
