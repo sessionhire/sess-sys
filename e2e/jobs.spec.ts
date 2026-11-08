@@ -163,6 +163,11 @@ test('a client typed a letter off offers the one already here, in one press', as
   await ready(office)
   const next = await newJobForm(office)
   await next.getByLabel('Client').fill(`Shannonside Festival ${id}`)
+  // As it's typed, the one already here is offered first; adding a new one is last, in words.
+  const offers = next.getByRole('listbox', { name: 'Found' })
+  await expect(offers.getByRole('option').first()).toContainText(`Shannonside Festivals ${id}`)
+  await expect(offers.getByRole('option').last()).toHaveText(`Add “Shannonside Festival ${id}” as a new client`)
+  await next.getByLabel('Client').press('Escape')
   await expect(next.locator('.new-or-near')).toHaveText(`Did you mean Shannonside Festivals ${id}? If not, “Shannonside Festival ${id}” is added as a new client.`)
   await next.locator('.new-or-near').getByRole('button', { name: `Shannonside Festivals ${id}` }).click()
   await expect(next.getByLabel('Client')).toHaveValue(`Shannonside Festivals ${id}`)

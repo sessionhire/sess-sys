@@ -31,7 +31,7 @@ import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { JOBS, MONEY, type Step } from '../Up.tsx'
 import { pricingOf, Suggestions, takingWords } from './Claude.tsx'
-import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
+import { ClientField, clientNamed, NewOrNear, Top, VenueField, venueNamed } from './common.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { NotYours } from './Money.tsx'
 import { clientWords, getJson, postJson, useAsked, type Loaded } from './rms.ts'
@@ -436,13 +436,9 @@ function MakeJob({
         <label className="wide">
           What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
         </label>
-        <label>
-          Client <span className="optional">(optional)</span> <input list="rms-job-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
-        </label>
+        <ClientField jobs={view.jobs} optional value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
         <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-        <label>
-          Venue <span className="optional">(optional)</span> <input list="rms-job-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
-        </label>
+        <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />
         <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
         <div className="pair">
           <label>
@@ -490,8 +486,6 @@ function MakeJob({
             Cancel
           </button>
         </div>
-        <Choices id="rms-job-clients" names={clients} />
-        <Choices id="rms-job-venues" names={venues} />
       </form>
     </section>
   )

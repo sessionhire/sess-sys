@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.118.0',
+    date: '2026-11-08',
+    title: 'Client, venue and who asked find as you type',
+    what: "On New quote, New job, a job's and a part's details and a job from Current RMS, the client and venue boxes now show a list as you type, finding any part of the name (a venue by its town too), with how many jobs each has had and the most used offered first. The last line adds what you typed as a new one, so it's plain before you save. Who asked on New quote offers the client's own people, or anyone at any client before one is chosen, which fills in their client; a new name is kept among the client's contacts for next time.",
+    prs: [263],
+  },
+  {
     version: '1.117.0',
     date: '2026-11-08',
     title: 'Starter packages from Current RMS',

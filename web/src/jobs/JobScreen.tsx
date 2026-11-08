@@ -49,7 +49,7 @@ import { Tabs } from '../Tabs.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
-import { Choices, clientNamed, NewOrNear, JobStatusPill, Page, venueNamed } from './common.tsx'
+import { ClientField, clientNamed, NewOrNear, JobStatusPill, Page, VenueField, venueNamed } from './common.tsx'
 import { KitCard, kitSummary } from './Kit.tsx'
 import { VansCard } from './Vans.tsx'
 import { QuoteCard } from './Quote.tsx'
@@ -497,13 +497,9 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
       <label className="wide">
         Job <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required disabled={asking} />
       </label>
-      <label>
-        Client <input list="edit-client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} disabled={asking} />
-      </label>
+      <ClientField jobs={view.jobs} value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} disabled={asking} />
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-      <label>
-        Venue <input list="edit-venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} disabled={asking} />
-      </label>
+      <VenueField jobs={view.jobs} value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} disabled={asking} />
       <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label className="wide">
         Status
@@ -552,8 +548,6 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
           </button>
         </div>
       )}
-      <Choices id="edit-client-names" names={clients} />
-      <Choices id="edit-venue-names" names={venues} />
     </form>
   )
 }
@@ -760,10 +754,7 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
       <label>
         To <input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} disabled={held} />
       </label>
-      <label className="wide">
-        Venue{' '}
-        <input list="phase-venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="The job's venue" disabled={held} />
-      </label>
+      <VenueField jobs={view.jobs} className="wide" value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} placeholder="The job's venue" disabled={held} />
       {!held && <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />}
       <label>
         Local crew{' '}
@@ -832,7 +823,6 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
           </>
         )}
       </div>
-      <Choices id="phase-venue-names" names={venues} />
       <datalist id="phase-names-edit">
         {PHASE_NAMES.map((n) => (
           <option key={n} value={n} />
