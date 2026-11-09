@@ -214,3 +214,22 @@ test('the office makes a job from a past quote, its lines matched to the stock l
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
+
+test('an open past quote with no job here is taken off the calendar when it isn’t going ahead, and put back (ADR 0134)', async ({ browser }) => {
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  const open = { ...opp(8, '1200', 'Summer party', 'Acme', 'Quotation', 'Provisional', '2099-06-01', 65000), venue: '', grossCents: 0, rentalCents: 0, saleCents: 0, serviceCents: 0, surchargeCents: 0, taxCents: 0, undiscountedCents: 0, chargeableDays: 1, discountCategory: '', priceCategory: '', tags: [], createdAt: null, updatedAt: null }
+  await office.route('**/api/rms/opportunities/8', (route) => route.fulfill({ json: { opportunity: open, lines: [], job: null, aside: false } }))
+  const posted: unknown[] = []
+  await office.route('**/api/rms/opportunities/8/aside', (route) => {
+    const body = route.request().postDataJSON() as { aside: boolean }
+    posted.push(body)
+    return route.fulfill({ json: { aside: body.aside } })
+  })
+  await office.goto('/#jobs/money/current-rms/8')
+  await expect(office.getByText('Still open, so it’s on the calendar as a potential job.')).toBeVisible()
+  await office.getByRole('button', { name: 'Not going ahead' }).click()
+  await expect(office.getByRole('status').filter({ hasText: 'Off the calendar.' })).toBeVisible()
+  await office.getByRole('button', { name: 'Put it back on the calendar' }).click()
+  await expect(office.getByRole('status').filter({ hasText: 'Back on the calendar.' })).toBeVisible()
+  expect(posted).toEqual([{ aside: true }, { aside: false }])
+})

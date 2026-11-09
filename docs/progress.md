@@ -3,6 +3,22 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: open Current RMS quotes on the calendar
+
+**Done**
+
+- Jobs › Calendar shows the quotes still open in Current RMS (not an order,
+  not lost, days still to come) as potentials, dashed and marked Current RMS
+  quote with number and client, opening the past quote. Ones linked to a job
+  here, or that look like one, stay off. "Not going ahead" on the past quote
+  takes one off; "Put it back on the calendar" undoes it. Nothing changes in
+  Current RMS (1.134.0, ADR 0134).
+- Checked: server, shared and browser tests for the calendar and past quotes.
+
+**Waiting on**
+
+- Nothing.
+
 ## 9 November 2026: the calendar looks like Google Calendar
 
 **Done**

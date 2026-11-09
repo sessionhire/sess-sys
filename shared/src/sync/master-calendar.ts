@@ -2,6 +2,7 @@ import { eachDay } from '../crew-days.ts'
 import { publicHolidaysAmong } from '../holidays.ts'
 import { STOPPED, type ProjectStatus } from '../jobs.ts'
 import type { QuoteStatus } from '../quotes.ts'
+import type { RmsOnCalendar } from '../rms-history.ts'
 import type { JobsView, JobView } from './jobs-view.ts'
 import { addDays, addMonths, mondayOf } from './plan.ts'
 
@@ -35,6 +36,8 @@ export interface MonthEntry {
   /** Its first and last day of all, so a run of days reads as one. */
   first: boolean
   last: boolean
+  /** An open quote in Current RMS with no job here yet (ADR 0134): its id there and number; jobId is then "rms-<id>". */
+  rms?: { id: number; number: string; client: string }
 }
 
 export interface MonthDay {
@@ -61,9 +64,16 @@ export const showsJob = (show: CalendarShow, status: ProjectStatus) => show === 
 /**
  * The month `month` is in, as a calendar. `quoteOf` says where a job's
  * newest quote stands; it is left out, or answers nothing, for a role the
- * server sends no money to (ADR 0042).
+ * server sends no money to (ADR 0042). `rms` are the open quotes in Current
+ * RMS with no job here (ADR 0134), potentials too, for those same roles.
  */
-export function masterCalendar(jobs: JobsView, month: string, show: CalendarShow = 'all', quoteOf?: (jobId: string) => QuoteStatus | undefined): MasterCalendar {
+export function masterCalendar(
+  jobs: JobsView,
+  month: string,
+  show: CalendarShow = 'all',
+  quoteOf?: (jobId: string) => QuoteStatus | undefined,
+  rms: readonly RmsOnCalendar[] = []
+): MasterCalendar {
   const first = addMonths(month, 0)
   const last = addDays(addMonths(month, 1), -1)
   const days = eachDay(mondayOf(first), addDays(mondayOf(last), 6))
@@ -100,8 +110,28 @@ export function masterCalendar(jobs: JobsView, month: string, show: CalendarShow
       if (day.inMonth) inMonth[tentative ? 'potential' : 'confirmed'].add(job.id)
     }
   }
+  if (show !== 'confirmed')
+    for (const q of rms) {
+      const jobId = `rms-${q.id}`
+      for (const d of eachDay(q.start, q.end)) {
+        const day = at.get(d)
+        if (!day) continue
+        day.entries.push({
+          jobId,
+          name: q.subject || q.number,
+          status: 'quoted',
+          tentative: true,
+          pending: false,
+          phases: [],
+          first: d === q.start,
+          last: d === q.end,
+          rms: { id: q.id, number: q.number, client: q.client },
+        })
+        if (day.inMonth) inMonth.potential.add(jobId)
+      }
+    }
   // The same order every day, so a job that runs over several sits at the same height where it can: the confirmed, then by when they start.
-  const start = new Map(going.map((j) => [j.id, j.span?.start ?? '']))
+  const start = new Map([...going.map((j) => [j.id, j.span?.start ?? ''] as const), ...rms.map((q) => [`rms-${q.id}`, q.start] as const)])
   for (const day of at.values())
     day.entries.sort(
       (a, b) => Number(a.tentative) - Number(b.tentative) || start.get(a.jobId)!.localeCompare(start.get(b.jobId)!) || a.name.localeCompare(b.name) || a.jobId.localeCompare(b.jobId)
@@ -126,6 +156,7 @@ export interface WeekBar {
   quote?: QuoteStatus
   /** Its phases over the run, each once: "Build", "Show". */
   phases: string[]
+  rms?: MonthEntry['rms']
   /** The column it starts in, Monday 0, and how many days it runs. */
   from: number
   span: number
@@ -171,6 +202,7 @@ export function weekBars(week: readonly MonthDay[]): { bars: WeekBar[]; lanes: n
           tentative: e.tentative,
           pending: e.pending,
           ...(e.quote ? { quote: e.quote } : {}),
+          ...(e.rms ? { rms: e.rms } : {}),
           phases,
           from,
           span: i - from,

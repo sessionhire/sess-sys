@@ -146,7 +146,8 @@ export function registerRmsRoutes(app: FastifyInstance, { db, reader }: { db: Db
     if (!rows[0]) return reply.code(404).send({ error: 'There’s no such opportunity. It may not have been read from Current RMS yet.' })
     const { rows: lines } = await db.reads.query<Row>(`SELECT ${LINE} FROM rms_lines WHERE opportunity_id = $1 ORDER BY path COLLATE "C", id`, [id])
     const { rows: job } = await db.reads.query<Row>('SELECT p.id, p.name FROM rms_matches m JOIN projects p ON p.id = m.project_id WHERE m.opportunity_id = $1', [id])
-    return { opportunity: toOpportunity(rows[0]), lines: lines.map(toLine), job: job[0] ? { id: job[0].id, name: job[0].name } : null }
+    const { rows: aside } = await db.reads.query('SELECT 1 FROM rms_set_aside WHERE opportunity_id = $1', [id])
+    return { opportunity: toOpportunity(rows[0]), lines: lines.map(toLine), job: job[0] ? { id: job[0].id, name: job[0].name } : null, aside: aside.length > 0 }
   })
 
   /** What came in, as two spreadsheets: one row an opportunity, and one row a line. */

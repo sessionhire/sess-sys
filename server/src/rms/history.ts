@@ -9,6 +9,7 @@ import {
   type RmsLastCharged,
   type RmsMatches,
   type RmsMatchRow,
+  type RmsOnCalendar,
 } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
@@ -53,6 +54,8 @@ async function allOpportunities(q: Queryable) {
 }
 
 const MOST_LINKS = 2000
+/** How alike a job here must be to an open quote to be taken as the same one: the same client, or most of its name. */
+const LOOKS_LIKE = 3
 
 export function registerRmsHistoryRoutes(app: FastifyInstance, { db }: { db: Db }) {
   app.get('/api/rms/matches', { config: { needs: 'money' } }, async (_req, reply): Promise<RmsMatches> => {
@@ -111,6 +114,58 @@ export function registerRmsHistoryRoutes(app: FastifyInstance, { db }: { db: Db 
       return n
     })
     return { linked: done }
+  })
+
+  /**
+   * The open quotes in Current RMS between two days, for the master calendar (ADR 0134): still to come, not an order,
+   * not lost, dead or cancelled (ADR 0092's rule), and not one the office set aside. One linked to a job here, or that
+   * looks like one (the same client or most of its name, on the same days), is left out, as the job is on already.
+   */
+  app.get<{ Querystring: { from?: string; to?: string } }>('/api/rms/calendar', { config: { needs: 'money' } }, async (req, reply): Promise<RmsOnCalendar[] | void> => {
+    reply.header('cache-control', 'no-store')
+    const isDay = (d: unknown): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
+    const { from, to } = req.query
+    if (!isDay(from) || !isDay(to) || to < from) return reply.code(400).send({ error: 'Ask for the days from and to, as YYYY-MM-DD.' })
+    const today = irishToday()
+    const { rows } = await db.reads.query<Row>(
+      `SELECT o.id, o.number, o.subject, o.client, o.state, o.status, o.starts_at, o.ends_at
+         FROM rms_opportunities o
+        WHERE o.starts_at IS NOT NULL
+          AND lower(o.status) NOT IN ('lost', 'dead', 'cancelled') AND lower(o.state) <> 'order'
+          AND (COALESCE(o.ends_at, o.starts_at) AT TIME ZONE 'Europe/Dublin')::date >= GREATEST($1::date, $3::date)
+          AND (o.starts_at AT TIME ZONE 'Europe/Dublin')::date <= $2::date
+          AND NOT EXISTS (SELECT 1 FROM rms_matches m JOIN projects p ON p.id = m.project_id WHERE m.opportunity_id = o.id)
+          AND NOT EXISTS (SELECT 1 FROM rms_set_aside a WHERE a.opportunity_id = o.id)
+        ORDER BY o.starts_at, o.id
+        LIMIT 500`,
+      [from, to, today]
+    )
+    if (!rows.length) return []
+    const opps = rows.map((r) => ({ id: r.id as number, subject: r.subject as string, client: r.client as string, startsAt: iso(r.starts_at), endsAt: iso(r.ends_at) }))
+    const looksLike = new Set(
+      matchOpportunities(opps, await jobsToMatch(db.reads))
+        .filter((m) => (m.candidates[0]?.score ?? 0) >= LOOKS_LIKE)
+        .map((m) => m.opportunityId)
+    )
+    return rows
+      .filter((r) => !looksLike.has(r.id))
+      .map((r) => {
+        const start = irishToday(new Date(r.starts_at))
+        const end = r.ends_at ? irishToday(new Date(r.ends_at)) : start
+        return { id: r.id, number: r.number, subject: r.subject, client: r.client, status: r.status, start, end: end < start ? start : end }
+      })
+  })
+
+  /** The office's word that an open quote isn't going ahead, so it's off the calendar (ADR 0134), or that it is after all. */
+  app.post<{ Params: { id: string }; Body: { aside?: unknown } }>('/api/rms/opportunities/:id/aside', { config: { needs: 'money' } }, async (req, reply) => {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!Number.isSafeInteger(id) || typeof req.body?.aside !== 'boolean') return reply.code(400).send({ error: 'Say whether it is set aside.' })
+    const { rows } = await db.reads.query('SELECT 1 FROM rms_opportunities WHERE id = $1', [id])
+    if (!rows.length) return reply.code(404).send({ error: 'There’s no such opportunity.' })
+    if (req.body.aside)
+      await db.query('INSERT INTO rms_set_aside (opportunity_id, set_by) VALUES ($1, $2) ON CONFLICT (opportunity_id) DO NOTHING', [id, req.user?.email ?? ''])
+    else await db.query('DELETE FROM rms_set_aside WHERE opportunity_id = $1', [id])
+    return { aside: req.body.aside }
   })
 
   /** A job's past quotes from Current RMS, and how its client's quotes went there. */
