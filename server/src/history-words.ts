@@ -764,6 +764,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.dayCents === null
         ? `Took ${model(a.modelId)} off the price list`
         : `Set the price of ${model(a.modelId)}${typeof a.rate === 'string' && a.rate in RATE_LABELS ? `, charged ${RATE_LABELS[a.rate as RateRule]}` : ''}`
+    case 'rms.fillMembers':
+      return a.add === true ? 'Filled in clients and venues from Current RMS, and added the ones on its quotes' : 'Filled in clients and venues from Current RMS'
     case 'price.fromRms':
       return a.overwrite === true ? 'Filled in hire prices from Current RMS, over prices set here too' : 'Filled in hire prices from Current RMS'
     case 'price.rulesFromRms':

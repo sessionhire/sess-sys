@@ -395,9 +395,11 @@ const CASES: Case[] = [
  * freelancer's own calendar is read by the server only (ownCalendar.stop);
  * and filling prices in from Current RMS works from the copy of its prices
  * kept on the server only (price.fromRms, ADR 0132, tested in
- * rms-prices.test.ts), so the device waits for the server's answer.
+ * rms-prices.test.ts), as does filling clients and venues in from it
+ * (rms.fillMembers, ADR 0136, rms-members.test.ts), so the device waits for
+ * the server's answer.
  */
-const NOT_LAID_OVER: CommandName[] = ['person.newLink', 'person.erase', 'ownCalendar.stop', 'price.fromRms']
+const NOT_LAID_OVER: CommandName[] = ['person.newLink', 'person.erase', 'ownCalendar.stop', 'price.fromRms', 'rms.fillMembers']
 
 /**
  * Each case builds a company of its own, a few seconds apiece, so the cases

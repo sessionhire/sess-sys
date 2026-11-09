@@ -10,6 +10,7 @@ import { getQuote } from '../finance/store.ts'
 import { getClient, paymentTermsColumn, getPhase, getPhases, getProject, getVenue, namesForCall } from './store.ts'
 import { getBooking, vehiclesOnPhase } from '../vehicles/store.ts'
 import { getStep } from '../steps/store.ts'
+import { memberPlan } from '../rms/members.ts'
 
 /**
  * The job rules the server keeps, whichever device a change comes from
@@ -24,7 +25,7 @@ import { getStep } from '../steps/store.ts'
  *   them, and the others go (ADR 0050).
  */
 
-type JobCommand = 'client.upsert' | 'venue.upsert' | 'venue.pin' | 'project.create' | 'project.update' | 'phase.add' | 'phase.update' | 'phase.remove' | 'project.merge'
+type JobCommand = 'client.upsert' | 'venue.upsert' | 'venue.pin' | 'rms.fillMembers' | 'project.create' | 'project.update' | 'phase.add' | 'phase.update' | 'phase.remove' | 'project.merge'
 type Handler<N extends JobCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 /** The columns each field of a job or phase is kept in. */
@@ -128,6 +129,44 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     await checkVenue(ctx, a.id)
     await ctx.tx.query('UPDATE venues SET lat = $2, lng = $3 WHERE id = $1', [a.id, a.pin?.lat ?? null, a.pin?.lng ?? null])
     await emit(ctx, 'venue', a.id, await getVenue(ctx.tx, a.id))
+  },
+
+  /**
+   * Clients and venues filled in from Current RMS (ADR 0136), worked out here from the copy kept on the server just as
+   * the preview showed it: an address where there was none, contacts not on a client yet, a venue's contact where it
+   * had none; and, ticked, those on Current RMS's quotes not here yet. Nothing set here is changed.
+   */
+  async 'rms.fillMembers'(ctx, a) {
+    const plan = await memberPlan(ctx.tx)
+    if (!plan) throw new Refused({ code: 'conflict', message: 'Read the clients and venues from Current RMS first, under Admin.' })
+    for (const f of plan.clients.fill) {
+      if (f.address) await ctx.tx.query("UPDATE clients SET address = $2 WHERE id = $1 AND address = ''", [f.id, f.address])
+      if (f.contacts.length)
+        await ctx.tx.query('UPDATE clients SET contacts = contacts || $2::jsonb WHERE id = $1', [f.id, JSON.stringify(f.contacts)])
+      await emit(ctx, 'client', f.id, await getClient(ctx.tx, f.id))
+    }
+    for (const f of plan.venues.fill) {
+      if (f.address) await ctx.tx.query("UPDATE venues SET address = $2 WHERE id = $1 AND address = ''", [f.id, f.address])
+      if (f.contacts[0]) await ctx.tx.query('UPDATE venues SET contact = $2 WHERE id = $1 AND contact IS NULL', [f.id, JSON.stringify(f.contacts[0])])
+      await emit(ctx, 'venue', f.id, await getVenue(ctx.tx, f.id))
+    }
+    if (!a.add) return
+    for (const n of plan.clients.add) {
+      const id = `rms-client-${n.rmsId}`
+      const { rows: made } = await ctx.tx.query(
+        "INSERT INTO clients (id, name, contacts, notes, address) VALUES ($1, $2, $3, '', $4) ON CONFLICT (id) DO NOTHING RETURNING id",
+        [id, n.name, JSON.stringify(n.contacts), n.address]
+      )
+      if (made.length) await emit(ctx, 'client', id, await getClient(ctx.tx, id))
+    }
+    for (const n of plan.venues.add) {
+      const id = `rms-venue-${n.rmsId}`
+      const { rows: made } = await ctx.tx.query(
+        "INSERT INTO venues (id, name, address, notes, contact) VALUES ($1, $2, $3, '', $4) ON CONFLICT (id) DO NOTHING RETURNING id",
+        [id, n.name, n.address, n.contacts[0] ? JSON.stringify(n.contacts[0]) : null]
+      )
+      if (made.length) await emit(ctx, 'venue', id, await getVenue(ctx.tx, id))
+    }
   },
 
   async 'project.create'(ctx, a) {
