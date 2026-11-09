@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.137.0',
+    version: '1.138.0',
     date: '2026-11-09',
     title: 'Show only the jobs with a department on them',
     what: "The Jobs list, the calendar, the week and month planner and the Board now have a row of departments: Audio, Lighting, Video, Lasers and Staging. Press Lighting and only the jobs with lighting on them stay, by their crew or their kit; press Lasers as well and the jobs with either stay. All departments shows everything again. The choice holds as you move between them, on this device. Lasers is now a department of its own for kit too, so move any laser products filed under Lighting on their page. While a department is picked, quotes still open in Current RMS are left off the calendar, since what's on them isn't known here.",
     prs: [291],
     adrs: [137],
+  },
+  {
+    version: '1.137.0',
+    date: '2026-11-09',
+    title: 'Clients and venues filled in from Current RMS',
+    what: "Admin › Connections has a new card, Clients and venues from Current RMS. Read them reads Current RMS's organisations, venues and the people at each, which takes a minute or two. The card then shows what filling in would do before anything changes: a client's or venue's address where there's none here, contacts a client hasn't got yet, and who to ask for at a venue that has nobody. Clients and venues are found by name, and anything typed here is never changed. Ones on Current RMS's quotes that aren't here yet are listed, and added only if you tick. Fill in does just that, and it's in the history. Nothing is changed in Current RMS.",
+    prs: [290],
+    adrs: [136],
   },
   {
     version: '1.136.0',
