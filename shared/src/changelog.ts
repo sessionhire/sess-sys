@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-09',
     title: 'A quote from Current RMS shows its gear after a read',
     what: "Some quotes from Current RMS showed no gear: when lines were added to a quote there after it was first read, Current RMS didn't always say the quote had changed, so its lines weren't read again. Now each read of Current RMS reads the gear again for every quote whose days are still to come, and for any that had none. Read Current RMS again under Admin › Connections to fill in the ones that are blank.",
-    prs: [],
+    prs: [294],
   },
   {
     version: '1.140.0',
