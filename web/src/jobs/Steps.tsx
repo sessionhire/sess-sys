@@ -1,4 +1,4 @@
-import { dayLabel, firstName, invoiceOf, irishToday, ownerByRole, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { dayLabel, firstName, invoiceOf, irishToday, jobPosition, ownerByRole, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { peopleOn, promptFor, type Share } from '../crew/CrewScreen.tsx'
@@ -73,6 +73,8 @@ export function StepsCard({
   }
   // The tasks left open from an earlier stage are listed with the stage the job is in, so they're seen where the work is.
   const behind = open && open.state === 'now' ? steps.behind : []
+  // The stage the job is in takes the job's tone when something in it is short or late, as its line on a list does.
+  const tone = steps.stopped ? undefined : jobPosition(steps)?.tone
   return (
     <section className="card job-steps" aria-labelledby="job-steps-title">
       <header className="steps-head">
@@ -81,7 +83,7 @@ export function StepsCard({
           {steps.stopped ?? (steps.finished ? `Through every stage · all ${steps.of} tasks done` : `${steps.stage ? `In ${steps.stage.label}` : ''} · ${steps.done} of ${steps.of} tasks done`)}
         </p>
       </header>
-      <ol className="stages-flow" data-stopped={steps.stopped ? 'true' : undefined}>
+      <ol className="stages-flow" data-stopped={steps.stopped ? 'true' : undefined} data-tone={tone}>
         {steps.stages.map((s, i) => (
           <li key={s.key} data-state={s.state} data-come={i < atIndex ? 'true' : undefined} data-open={s.state === 'done' && s.done < s.of ? 'true' : undefined} aria-current={s.state === 'now' ? 'step' : undefined}>
             <button type="button" aria-expanded={s.key === open?.key} aria-controls="job-stage-open" aria-label={stageName(s, steps.stopped !== undefined)} onClick={() => pickStage(s.key)}>
