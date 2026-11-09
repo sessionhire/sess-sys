@@ -5,7 +5,7 @@ import { kitOf } from '../src/sync/standing.ts'
 import { departmentNamed } from '../src/stock-import-file.ts'
 
 /**
- * The departments a job involves (ADR 0136): by its crew calls' departments,
+ * The departments a job involves (ADR 0137): by its crew calls' departments,
  * or their roles' words, and by its kit's stock departments; several picked
  * keep a job involving any of them.
  */

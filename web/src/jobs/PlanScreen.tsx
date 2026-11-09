@@ -104,7 +104,7 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   const place = placeOf(hash, now)
   const { scale, day, rows } = place
   const days = useMemo(() => daysOf(scale, day), [scale, day])
-  // The departments picked (ADR 0136) narrow the job rows to the jobs involving one of them; people and vans stay whole.
+  // The departments picked (ADR 0137) narrow the job rows to the jobs involving one of them; people and vans stay whole.
   const { picked, setPicked, involves } = useJobDepartments(view)
   const p = useMemo(() => {
     const all = plan(view, days, now)

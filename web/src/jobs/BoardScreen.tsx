@@ -34,7 +34,7 @@ export function BoardScreen({ view }: { view: View }) {
   const [toAnswer] = useState(() => arrival('#jobs/board')?.part === LAPSED)
   const until = addDays(today, 56)
   const monthAgo = addDays(today, -31)
-  // The departments picked (ADR 0136), as on the Jobs list and the calendar: only the jobs involving one of them, in every column.
+  // The departments picked (ADR 0137), as on the Jobs list and the calendar: only the jobs involving one of them, in every column.
   const { picked, setPicked, involves } = useJobDepartments(view)
   const all = view.jobs.jobs
     .filter(involves)

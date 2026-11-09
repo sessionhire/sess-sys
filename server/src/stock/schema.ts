@@ -360,7 +360,7 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE movements ADD COLUMN IF NOT EXISTS undoes text;
   `,
-  // Lasers, a department of their own (ADR 0136), so a job's lasers can be told from its lighting.
+  // Lasers, a department of their own (ADR 0137), so a job's lasers can be told from its lighting.
   `
   ALTER TABLE models DROP CONSTRAINT IF EXISTS models_department_check;
   ALTER TABLE models ADD CONSTRAINT models_department_check CHECK (department IN ('audio', 'lighting', 'video', 'lasers', 'staging', 'rigging', 'power', 'other'));

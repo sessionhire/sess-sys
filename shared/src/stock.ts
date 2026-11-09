@@ -51,7 +51,7 @@ const stockCode = text(30, 'The stock code').transform((s) => s.trim())
 /** Money in euro cents, so sums never drift. */
 const cents = euroCents(1_000_000_00, 'A value')
 
-/** Lasers have their own since 9 November 2026 (ADR 0136), so a job's lasers can be told from its lighting. */
+/** Lasers have their own since 9 November 2026 (ADR 0137), so a job's lasers can be told from its lighting. */
 export const DEPARTMENTS = ['audio', 'lighting', 'video', 'lasers', 'staging', 'rigging', 'power', 'other'] as const
 export type Department = (typeof DEPARTMENTS)[number]
 export const DEPARTMENT_LABELS: Record<Department, string> = {

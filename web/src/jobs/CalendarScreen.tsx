@@ -77,7 +77,7 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
   const from = mondayOf(addMonths(month, 0))
   const to = addDays(mondayOf(addDays(addMonths(month, 1), -1)), 6)
   const rms = useAsked<RmsOnCalendar[]>(seesMoney, from, () => getJson(`/api/rms/calendar?from=${from}&to=${to}`))
-  // The departments picked (ADR 0136): only the jobs involving one of them. What's on a quote in Current RMS isn't known here, so
+  // The departments picked (ADR 0137): only the jobs involving one of them. What's on a quote in Current RMS isn't known here, so
   // those are left out while any is picked, and the key says so.
   const { picked, setPicked, involves } = useJobDepartments(view)
   const quotes = rms.state === 'ready' && picked.length === 0 ? rms.data : NONE

@@ -3,6 +3,7 @@ import { BackupsCard } from './BackupsCard.tsx'
 import { CalendarCard } from './CalendarCard.tsx'
 import { ChangesCard } from './ChangesScreen.tsx'
 import { CurrentRmsCard } from './CurrentRmsCard.tsx'
+import { RmsPricesCard } from './RmsPricesCard.tsx'
 import { DataCard } from './DataCard.tsx'
 import { ExportCard } from './ExportCard.tsx'
 import { LabelsCard } from './LabelsCard.tsx'
@@ -101,6 +102,7 @@ export function AccountScreen() {
                 {access.can('money') && <MailboxCard money={view.money} />}
                 {settings && <WhatsAppCard office={view.office} />}
                 {access.can('money') && <CurrentRmsCard />}
+                {access.can('money') && <RmsPricesCard view={view} canRead={settings} />}
                 {settings && <TrackersCard view={view} />}
               </>
             )}

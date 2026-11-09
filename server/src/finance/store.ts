@@ -62,9 +62,14 @@ export async function quotesOf(q: Queryable, projectId: string): Promise<Quote[]
 }
 
 export async function getProductPrice(q: Queryable, modelId: string): Promise<ProductPrice | undefined> {
-  const { rows } = await q.query<{ model_id: string; day_cents: number; rate: RateRule | null }>('SELECT model_id, day_cents, rate FROM product_prices WHERE model_id = $1', [modelId])
-  // The rule only once set, so a device or a test that knows nothing of rules sees the price as before.
-  return rows[0] ? { id: rows[0].model_id, dayCents: rows[0].day_cents, ...(rows[0].rate ? { rate: rows[0].rate } : {}) } : undefined
+  const { rows } = await q.query<{ model_id: string; day_cents: number; rate: RateRule | null; from_rms: boolean }>(
+    'SELECT model_id, day_cents, rate, from_rms FROM product_prices WHERE model_id = $1',
+    [modelId]
+  )
+  // The rule only once set, and where it came from only for Current RMS (ADR 0132), so a device or a test that knows
+  // nothing of either sees the price as before.
+  const r = rows[0]
+  return r ? { id: r.model_id, dayCents: r.day_cents, ...(r.rate ? { rate: r.rate } : {}), ...(r.from_rms ? { fromRms: true } : {}) } : undefined
 }
 
 export async function getPackage(q: Queryable, id: string): Promise<Package | undefined> {

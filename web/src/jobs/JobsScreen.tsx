@@ -391,7 +391,7 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   const mayAdd = useAccess().can('jobs')
   const card = useUnderTop(phone)
   const day = useToday()
-  // The departments picked (ADR 0136), as on the calendar, the planner and the Board.
+  // The departments picked (ADR 0137), as on the calendar, the planner and the Board.
   const { picked, setPicked, involves } = useJobDepartments(view)
   // Worked out again only when the jobs, the day or what's asked for change, not on every render (audit, 20 October 2026, finding 2).
   const counts = useMemo(() => {
@@ -429,7 +429,7 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
       return words.every((w) => text.includes(w))
     }
     const inTab = jobs.filter((j) => filterOf(j, day) === filter && matches(j))
-    // The departments row (ADR 0136) narrows before the filters, so their counts are of the jobs it leaves.
+    // The departments row (ADR 0137) narrows before the filters, so their counts are of the jobs it leaves.
     const searched = inTab.filter(involves)
     const shown = listed(searched, filters, sorts, choices)
     const byDate = sortOf(sorts, choices.sort)?.key === 'date'
