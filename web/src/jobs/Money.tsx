@@ -64,6 +64,7 @@ import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
 import { StarterPackagesCard } from './StarterPackages.tsx'
 import { FromPastJob } from './PastJobs.tsx'
+import { takeQuickDraft } from './QuickQuote.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import { InStep, QuotePill } from './Quote.tsx'
 
@@ -330,7 +331,11 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
   const { clients, venues } = view.jobs
   // From a day on the planner (ADR 0120), the job's days start there; a day gone starts today, as New quote does.
   const first = on && on >= today ? on : today
-  const [f, setF] = useState({ name: '', client: '', venue: '', start: first, end: first })
+  // Started from the planner's card with More options (ADR 0124), what was typed there comes along; otherwise empty, on the day.
+  const [f, setF] = useState(() => {
+    const quick = takeQuickDraft()
+    return quick ? { ...quick, start: quick.start >= today ? quick.start : today, end: quick.end >= today ? quick.end : today } : { name: '', client: '', venue: '', start: first, end: first }
+  })
   // Who asked, how it came and when they want it by (research/quoting.md, feature 6): the first two go in the job's notes as
   // a line, the day is the Quote sent task's due day, so it's on someone's list and late shows as late.
   const [asked, setAsked] = useState<{ by: string; how: EnquiryWay | ''; quoteBy: string }>({ by: '', how: '', quoteBy: '' })

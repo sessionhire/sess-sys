@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.125.0',
+    date: '2026-11-09',
+    title: 'A quote starts on the planner\'s day, and a tidier Home',
+    what: "Pressing + Quote on a day of the planner now opens a small card on that day, the way a calendar makes an event: type the job's name, check the days, pick the client and venue, and press Start the quote. The week stays where it was behind it. More options takes what you've typed to the full New quote form. On a phone the card comes up from the bottom of the screen. Also tidied: Home's Company, Department, Warehouse and Me switch stays on one line on a phone, its two groups of counts line up on the same columns, and Stock › Testing says why nothing is listed instead of leaving the page half empty.",
+    prs: [274],
+    adrs: [124],
+  },
+  {
     version: '1.124.0',
     date: '2026-11-09',
     title: 'A calendar of every job, and every one that might be',

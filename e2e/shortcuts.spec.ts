@@ -8,23 +8,43 @@ import { expect, test } from '@playwright/test'
 const deskSize = { width: 1280, height: 900 }
 const fresh = { data: { confirm: 'delete everything' } }
 
-test('a day on the planner starts a quote on that day', async ({ browser, request }) => {
+test('a day on the planner starts a quote on that day, from a card on the day', async ({ browser, request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
   const desk = await (await browser.newContext({ viewport: deskSize })).newPage()
   // This week, whose days from today on each offer one (made-up jobs fill it).
   await desk.goto('/#jobs/plan')
-  const day = desk.getByRole('link', { name: /^New quote starting/ }).last()
-  const href = (await day.getAttribute('href'))!
-  const on = /^#quotes\/new\/(\d{4}-\d{2}-\d{2})$/.exec(href)![1]!
+  const day = desk.getByRole('button', { name: /^New quote starting/ }).last()
+  const on = /starting (.+)$/.exec((await day.getAttribute('aria-label'))!)![1]!
   await day.click()
-  await expect(desk).toHaveURL(new RegExp(`#quotes/new/${on}$`))
+  // The card opens on the day (ADR 0123), with the day filled in and the job's name waiting to be typed; the week stays where it was.
+  const card = desk.getByRole('dialog', { name: `Quote starting ${on}` })
+  await expect(card).toBeVisible()
+  await expect(desk).toHaveURL(/#jobs\/plan/)
+  await expect(card.getByLabel("What's the job?")).toBeFocused()
+  const from = await card.getByLabel('From').inputValue()
+  expect(from).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  await expect(card.getByLabel('To')).toHaveValue(from)
+  // Escape closes it and puts focus back on the day's button, as the design system's dialog does.
+  await desk.keyboard.press('Escape')
+  await expect(card).toHaveCount(0)
+  await expect(day).toBeFocused()
+  // More options carries what was typed to the full form on that day.
+  await day.click()
+  await card.getByLabel("What's the job?").fill('Quick launch')
+  await card.getByRole('link', { name: 'More options' }).click()
+  await expect(desk).toHaveURL(new RegExp(`#quotes/new/${from}$`))
   const form = desk.getByRole('form', { name: 'New quote' })
-  await expect(form.getByLabel('From')).toHaveValue(on)
-  await expect(form.getByLabel('To')).toHaveValue(on)
+  await expect(form.getByLabel("What's the job?")).toHaveValue('Quick launch')
+  await expect(form.getByLabel('From')).toHaveValue(from)
   await form.getByRole('button', { name: 'Cancel' }).click()
-  await expect(desk).toHaveURL(/#quotes$/)
-  await expect(form).toHaveCount(0)
+  // Starting from the card makes the job and its quote, and opens the quote, as the full form does.
+  await desk.goto('/#jobs/plan')
+  await day.click()
+  await card.getByLabel("What's the job?").fill('Card launch')
+  await card.getByRole('button', { name: 'Start the quote' }).click()
+  await expect(desk).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  await expect(desk.getByRole('heading', { name: 'Card launch' })).toBeVisible()
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
