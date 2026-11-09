@@ -295,6 +295,12 @@ export interface QuoteSettings {
    * before it.
    */
   acceptOnline?: boolean
+  /**
+   * What our own kit costs us to run, as a share of what it's charged at (audit of the quote flow, 8 November 2026,
+   * finding 19): wear, repairs, testing and the store. Null or left out until the office sets it, and then own kit is
+   * left out of the margin's cost, and the margin says so.
+   */
+  ownKitCostPct?: number | null
 }
 export const QUOTE_SETTINGS_ID = 'quoting'
 
@@ -420,6 +426,8 @@ const CAR_HINT = 'How many share a car is a whole number from 1 to 8.'
 const KM_HINT = 'The distance is a whole number of km from 0 to 2,000.'
 const travelKm = z.number(wrongType(KM_HINT)).int(KM_HINT).min(0, KM_HINT).max(2000, KM_HINT)
 const FROM_HINT = 'Travel starts at a whole number of km from 0 to 1,000.'
+/** Said when the share own kit costs to run isn't a whole number from 0 to 90. */
+const OWN_KIT_HINT = 'What own kit costs to run is a whole percentage from 0 to 90.'
 const FUEL_HINT = 'The fuel price is in cent a litre, from 50 to 500, such as 174.9.'
 const fuelPrice = z.number(wrongType(FUEL_HINT)).min(50, FUEL_HINT).max(500, FUEL_HINT).refine((n) => Number.isInteger(Math.round(n * 1000) / 100), FUEL_HINT)
 const USE_HINT = 'What a vehicle uses is in litres for 100 km, from 1 to 40, such as 9.5.'
@@ -508,6 +516,8 @@ export const quoteCommandSchemas = {
   'quoting.email': z.object({ on: z.boolean() }),
   /** Whether a client can accept a quote on its own link (ADR 0121). The office's to decide, under Admin. */
   'quoting.online': z.object({ on: z.boolean() }),
+  /** What own kit costs us to run, as a share of its price (finding 19 of the quote flow audit); null for not set. */
+  'quoting.ownKit': z.object({ costPct: z.number(wrongType(OWN_KIT_HINT)).int(OWN_KIT_HINT).min(0, OWN_KIT_HINT).max(90, OWN_KIT_HINT).nullable() }),
   /** A product's day price; null takes it off the price list. */
   'price.product': z.object({ modelId: id, dayCents: dayPrice.nullable(), rate: z.enum(RATE_RULES).optional() }),
   /**
@@ -546,13 +556,20 @@ export const lineCents = (l: Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per
 
 /**
  * What a line costs Session Hire (ADR 0089), before VAT: what's typed on it, or else, for crew, what they're booked
- * at for the days charged, and for our own kit nothing. Undefined while it isn't known: kit hired in, or anything
+ * at for the days charged, and for our own kit the share of its price it costs to run, once that's set, or nothing. Undefined while it isn't known: kit hired in, or anything
  * else, with no cost typed yet, or crew at a role nobody's been booked at.
  */
-export function lineCostOf(l: Pick<QuoteLine, 'kind' | 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'subhireQty' | 'costCents' | 'extra'>, bookedCents?: number): number | undefined {
+export function lineCostOf(
+  l: Pick<QuoteLine, 'kind' | 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'subhireQty' | 'costCents' | 'extra' | 'words'>,
+  bookedCents?: number,
+  ownKitPct?: number | null
+): number | undefined {
   if (l.costCents !== undefined) return l.costCents
   if (l.kind === 'crew') return bookedCents === undefined ? undefined : Math.round(l.qty * (l.per === 'once' ? 1 : l.days) * bookedCents)
-  if (l.kind === 'kit') return l.subhireQty ? undefined : 0
+  // Own kit costs the share the office has set of what it's charged at (finding 19 of the quote flow audit), or nothing.
+  if (l.kind === 'kit') return l.subhireQty ? undefined : ownKitPct ? Math.round((lineCents(l) * ownKitPct) / 100) : 0
+  // Words between lines charge and cost nothing.
+  if (l.words) return 0
   // Travel and subsistence go on to the crew as they're charged (ADR 0086): fuel and their per diem.
   return l.extra ? lineCents(l) : undefined
 }
@@ -566,14 +583,20 @@ export interface QuoteMargin {
   pct: number | null
   /** Lines whose cost isn't known yet, left out of the cost. */
   unknown: number
+  /** Whether own kit is on it at no cost because what it costs to run isn't set, so the margin says so. */
+  ownUncosted?: true
 }
 
 /** What a quote makes (ADR 0089): what it's charged before VAT, after every discount, less what its lines cost. */
-export function quoteMargin(net: number, costs: readonly (number | undefined)[]): QuoteMargin {
+export function quoteMargin(net: number, costs: readonly (number | undefined)[], ownUncosted = false): QuoteMargin {
   const cost = costs.reduce<number>((sum, c) => sum + (c ?? 0), 0)
   const margin = net - cost
-  return { cost, margin, pct: net ? Math.round((margin / net) * 1000) / 10 : null, unknown: costs.filter((c) => c === undefined).length }
+  return { cost, margin, pct: net ? Math.round((margin / net) * 1000) / 10 : null, unknown: costs.filter((c) => c === undefined).length, ...(ownUncosted ? { ownUncosted: true as const } : {}) }
 }
+
+/** Whether a quote's margin leaves own kit uncosted: own kit is on it, with nothing typed, and no share set to cost it by. */
+export const ownKitUncosted = (lines: readonly Pick<QuoteLine, 'kind' | 'subhireQty' | 'costCents'>[], ownKitPct: number | null | undefined) =>
+  !ownKitPct && lines.some((l) => l.kind === 'kit' && !l.subhireQty && l.costCents === undefined)
 
 /** What a package holds, as printed under its line: "4 × Shure SM58, 2 × DI box, with clips and stands". */
 export function packageIncludes(p: Pick<Package, 'items' | 'notes'>, nameOf: (modelId: string) => string | undefined): string {

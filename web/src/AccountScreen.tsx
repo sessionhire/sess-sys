@@ -18,6 +18,7 @@ import { MailboxCard } from './MailboxCard.tsx'
 import { WhatsAppCard } from './WhatsAppCard.tsx'
 import { OnlineCard } from './OnlineCard.tsx'
 import { TravelCard } from './TravelCard.tsx'
+import { OwnKitCard } from './OwnKitCard.tsx'
 import { ReadingCard } from './ReadingCard.tsx'
 import { TrackersCard } from './stock/Trackers.tsx'
 import { StatusPanel } from './StatusPanel.tsx'
@@ -84,6 +85,7 @@ export function AccountScreen() {
                 {settings && <OfficeCard office={view.office} />}
                 {settings && access.can('money') && <QuotingCard money={view.money} />}
                 {settings && access.can('money') && <TravelCard money={view.money} />}
+                {settings && access.can('money') && <OwnKitCard money={view.money} />}
                 {settings && <LabelsCard office={view.office} />}
                 {settings && <MessagesCard office={view.office} />}
                 {settings && <LinksCard office={view.office} />}

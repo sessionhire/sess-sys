@@ -212,9 +212,17 @@ waiting on someone.
   turned down, it stays a draft with its number and says so; Send waits
   for the device's changes. Needed before email is turned on in live.
 
+- Batch 7, the last rough edges (ADR 0133, 1.134.0): a half-made line
+  holds back only itself; a long draft on a phone opens folded to its
+  groups, and picking there gets the screen; Admin › Company › Own kit in
+  the margin costs own kit at a share of its price, and until it's set the
+  margin says "own kit not costed"; a number guessed offline says so and
+  prints as a draft; the per diem said once, "Wanted by", and short words
+  found only at a word's start in the picker.
+
 **Waiting on**
 
-- Batch 7, being built; the page's six questions.
+- The page's six questions; every finding of the audit is now fixed.
 
 ## 8 November 2026: a package's price starts at its items' total
 

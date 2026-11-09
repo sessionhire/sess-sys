@@ -246,6 +246,8 @@ function describer(view: View): (m: Mutation) => string {
         return onOff(a.on, 'sending quotes by email')
       case 'quoting.online':
         return onOff(a.on, 'accepting quotes online')
+      case 'quoting.ownKit':
+        return "Change what own kit costs to run, for the margin"
       case 'price.product':
         return a.dayCents === null ? `Take ${model(a.modelId)} off the price list` : `Price ${model(a.modelId)}`
       case 'price.rulesFromRms':
