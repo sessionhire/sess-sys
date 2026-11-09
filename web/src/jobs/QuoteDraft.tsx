@@ -59,6 +59,7 @@ import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useLate } from '../useLate.ts'
 import { useToday } from '../view.ts'
+import { glideTo } from '../glide.ts'
 import { useUnderTop } from '../useUnderTop.ts'
 import { usePhone } from '../foot.tsx'
 import { MailOnQuote, useClaude, type Advice } from './Claude.tsx'
@@ -666,12 +667,45 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const goToProblem = () => {
     if (problemKey === undefined) return
     touch(problemKey)
-    if (faultAt >= 0) return openLine(problemKey)
+    if (faultAt >= 0) {
+      if (open !== problemKey) return openLine(problemKey)
+      // Already open, perhaps scrolled away (Send in the strip leads here too): to its first field at fault, once said.
+      const n = faultAt + 1
+      return void requestAnimationFrame(() => {
+        const at = under.current?.querySelector<HTMLElement>(`[aria-invalid="true"][aria-label^="Line ${n}:"]`) ?? under.current?.querySelector<HTMLElement>(`[aria-label="Line ${n}: what"]`)
+        if (at) glideTo(at, { block: 'center', focus: at })
+      })
+    }
     if (problemKey === 'km') return openLine(TRAVEL_ROW)
     termRefs.current[problemKey as TermKey]?.focus()
   }
   const full = lines.length >= MAX_LINES
   const nextNumber = m.quotesOf(job.id).find((v) => v.number)?.number ?? m.nextNumber
+  // Send never leaves the strip (ADR 0140, part 2): one press does it, or says what stops it and takes you there. What
+  // it starts, the last look or the email box, opens under Send at the foot, and the page glides there to show it.
+  const sendHead = useRef<HTMLHeadingElement>(null)
+  const [toFoot, setToFoot] = useState(0)
+  useEffect(() => {
+    if (toFoot && sendHead.current) glideTo(sendHead.current, { mark: sendHead.current })
+  }, [toFoot])
+  const send = () => {
+    if (canEmail) {
+      if (beforeItGoes.length) setFree('email')
+      else setSending('email')
+    } else if (beforeItGoes.length) setFree('mark')
+    else return markAndPrint()
+    setToFoot((n) => n + 1)
+  }
+  // Pressed while the last change is still saving: it saves at once, and sends once it has.
+  const [sendSaved, setSendSaved] = useState(false)
+  useEffect(() => {
+    if (sendSaved && saved) {
+      setSendSaved(false)
+      send()
+    } else if (sendSaved && (error || problem)) setSendSaved(false)
+  }, [sendSaved, saved, error, problem])
+  const sendWord = canEmail ? 'Send to the client' : 'Get the PDF to send'
+  const unfinished = parsed.filter((c) => !c.line).length
   // One line, shut or open to change. A package's line (ADR 0116) comes to its own price and its kit's, and kit in a package
   // priced as a whole is included in it.
   const row = (l: LineDraft, under: readonly LineDraft[] = []) => {
@@ -763,15 +797,12 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 )}
               </span>
             )}
+            <span className="send-state">
             <span className="save-state" aria-live="polite">
               {termKey ? (
-                <button type="button" className="link quiet" onClick={goToProblem}>
-                  Not saved yet
-                </button>
+                'Not saved yet'
               ) : faultAt >= 0 ? (
-                <button type="button" className="link quiet" onClick={goToProblem}>
-                  Line {faultAt + 1} not saved
-                </button>
+                `Line ${faultAt + 1} not saved`
               ) : payload ? (
                 late ? (
                   'Saving…'
@@ -783,6 +814,26 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               ) : (
                 'Saved'
               )}
+            </span>
+            {lines.length > 0 &&
+              (problem ? (
+                <button type="button" className="send-now" onClick={goToProblem}>
+                  {termKey ? 'Send: a term to put right' : `Send: ${plural(unfinished, 'line')} to finish`}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="primary send-now"
+                  disabled={sendSaved}
+                  onClick={() => {
+                    if (saved) return send()
+                    flush()
+                    setSendSaved(true)
+                  }}
+                >
+                  {sendSaved ? 'Saving…' : sendWord}
+                </button>
+              ))}
             </span>
           </div>
           {unpricedLines.length + shortLines.length + noCostLines.length > 0 && (
@@ -1112,7 +1163,9 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
 
         <Totals totals={totals} agreed={agreedCents !== null} />
 
-        <h3 className="quote-head group">Send</h3>
+        <h3 className="quote-head group" ref={sendHead}>
+          Send
+        </h3>
         <Refusal error={error} />
         {!saved &&
           problem &&
@@ -1133,9 +1186,11 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                   Sent to the client on
                   <input type="date" value={sentOn} max={irishToday()} onChange={(e) => setSentOn(e.target.value)} />
                 </label>
-                <button type="button" className={canEmail ? undefined : 'primary'} onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())}>
-                  {canEmail ? 'Mark as sent' : 'Get the PDF to send'}
-                </button>
+                {canEmail && (
+                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())}>
+                    Mark as sent
+                  </button>
+                )}
               </div>
             )}
             {free && beforeItGoes.length > 0 && (
@@ -1180,11 +1235,6 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               </Confirm>
             )}
             <div className="actions">
-              {saved && q.lines.length > 0 && canEmail && (
-                <button type="button" className="primary" onClick={() => (beforeItGoes.length ? setFree('email') : setSending('email'))}>
-                  Send to the client
-                </button>
-              )}
               <button type="button" onClick={onPrint} disabled={!saved}>
                 Print a draft
               </button>
@@ -1209,7 +1259,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               <p className="hint">
                 {canEmail
                   ? `Sent to the client, it goes by email from the operations mailbox with the quote as a PDF, becomes quote ${nextNumber}, and stays as it is.`
-                  : `Get the PDF to send marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
+                  : `${sendWord}, at the top, marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
               </p>
             )}
           </>

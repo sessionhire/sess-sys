@@ -495,8 +495,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-summary .figure.lead b { font-size: var(--text-title); }
 .quote-screen .quote-summary .figure.bad b { color: var(--bad); }
 .quote-screen .quote-summary .figure .pct { color: var(--muted); font-size: var(--text-small); }
-.quote-screen .quote-summary .save-state { margin-left: auto; font-size: var(--text-small); color: var(--muted); }
+.quote-screen .quote-summary .send-state { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--ds-space-2) var(--ds-space-3); }
+.quote-screen .quote-summary .save-state { font-size: var(--text-small); color: var(--muted); }
 .quote-screen .quote-summary .save-state .link.quiet { margin-block: calc(-1 * var(--ds-space-3)); font-size: var(--text-small); }
+.quote-screen .quote-summary .send-now { margin-block: 0; }
 .quote-screen .quote-summary .chips { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
 .quote-screen .quote-summary .chip { position: relative; min-height: 32px; padding: var(--ds-space-half) var(--ds-space-3); border: 1px solid var(--warn); border-radius: var(--radius-full); background: var(--warn-soft); color: var(--warn); font-size: var(--text-pill); font-weight: 700; }
 .quote-screen .quote-summary .chip::before { content: ''; position: absolute; inset: -6px 0; }

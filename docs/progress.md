@@ -3,6 +3,24 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: one job, one path, part 2: Send stays in view
+
+**Done (part 2, 1.142.1)**
+
+- A draft quote's Send (or Get the PDF to send) sits in the sticky strip
+  with the totals and never disappears. With a line unfinished it reads
+  "Send: 1 line to finish" and takes you to the line, even one already open
+  and scrolled away; pressed mid-save, it saves and then sends. The last
+  look and the email box still open under Send at the foot, and the page
+  glides there.
+- The foot keeps the date it was sent on, Print a draft, Sent another way
+  and Accepted by phone; the duplicate red button there is gone.
+
+**Checked:** the quote, quote polish and follow-up browser tests; a walk on
+a phone and a desk (screens in project files, one-path-2).
+
+**Next:** part 3, the job's head says where it stands once.
+
 ## 9 November 2026: one job, one path, part 1: Next does what it says
 
 Colly walked the journey from quote to crew and the pick list and found it
