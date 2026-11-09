@@ -34,6 +34,7 @@ import { useUnderTop } from '../useUnderTop.ts'
 import { useToday } from '../view.ts'
 import { newQuoteHref, Top } from './common.tsx'
 import { Views } from '../Views.tsx'
+import { calendarHref } from './CalendarScreen.tsx'
 import { vehicleHref } from '../stock/Vehicles.tsx'
 
 /**
@@ -68,7 +69,7 @@ const daysOf = (scale: Scale, day: string) => (scale === 'week' ? weekOf(day) : 
  * then the clients and the venues they're for. From the planner, the other
  * scale opens on the same days.
  */
-export function JobViews({ place, current }: { place?: Place; current?: 'board' | 'clients' | 'venues' | 'money' }) {
+export function JobViews({ place, current }: { place?: Place; current?: 'board' | 'calendar' | 'clients' | 'venues' | 'money' }) {
   const now = useToday()
   // Money is the office's and directors' (ADR 0042): a role that isn't sent it has no page for it.
   const money = useAccess().can('money')
@@ -82,6 +83,8 @@ export function JobViews({ place, current }: { place?: Place; current?: 'board' 
       pages={[
         { key: 'list', href: '#jobs', label: 'List' },
         { key: 'board', href: '#jobs/board', label: 'Board' },
+        // Everything on and everything that might be, a month at a time (ADR 0123).
+        { key: 'calendar', href: calendarHref({ month: place ? place.day : now }), label: 'Calendar' },
         { key: 'week', href: hashOf({ scale: 'week', day, rows }), label: 'Week' },
         { key: 'month', href: hashOf({ scale: 'month', day, rows }), label: 'Month' },
         { key: 'clients', href: '#jobs/clients', label: 'Clients' },
