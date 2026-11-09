@@ -62,9 +62,10 @@ export interface DraftBase {
   agreedCents: number | null
   mealsProvided: boolean
   travelKm: number | null
+  forName?: string
 }
 
-type DraftTerms = Pick<Quote, 'lines' | 'discountPct' | 'notes' | 'validDays' | 'depositPct' | 'agreedCents' | 'mealsProvided' | 'travelKm'>
+type DraftTerms = Pick<Quote, 'lines' | 'discountPct' | 'notes' | 'validDays' | 'depositPct' | 'agreedCents' | 'mealsProvided' | 'travelKm' | 'forName'>
 
 export function draftBase(q: DraftTerms): DraftBase {
   return {
@@ -76,6 +77,7 @@ export function draftBase(q: DraftTerms): DraftBase {
     agreedCents: q.agreedCents ?? null,
     mealsProvided: q.mealsProvided ?? false,
     travelKm: q.travelKm ?? null,
+    forName: q.forName ?? '',
   }
 }
 
@@ -89,6 +91,7 @@ export interface DraftSave {
   agreedCents?: number | null
   mealsProvided?: boolean
   travelKm?: number | null
+  forName?: string
 }
 
 /**
@@ -148,5 +151,6 @@ export function mergeDraft<S extends DraftSave>(now: DraftTerms, save: S, base: 
   if (save.agreedCents !== undefined) merged.agreedCents = pick(save.agreedCents, base.agreedCents, nowBase.agreedCents)
   if (save.mealsProvided !== undefined) merged.mealsProvided = pick(save.mealsProvided, base.mealsProvided, nowBase.mealsProvided)
   if (save.travelKm !== undefined) merged.travelKm = pick(save.travelKm, base.travelKm, nowBase.travelKm)
+  if (save.forName !== undefined) merged.forName = base.forName === undefined ? save.forName : pick(save.forName, base.forName, nowBase.forName ?? '')
   return { save: merged, both }
 }

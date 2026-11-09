@@ -11,6 +11,8 @@ import {
   irishToday,
   linesByGroup,
   linesUnder,
+  moveGroup,
+  moveLine,
   inRacks,
   lineCents,
   needsPrice,
@@ -34,6 +36,7 @@ import {
   packageIncludes,
   extrasFor,
   travelSettingsOf,
+  kindOf,
   type Pin,
   lineCostOf,
   quoteKit,
@@ -105,9 +108,10 @@ interface Typed {
   notes: string
   validFor: string
   deposit: string
+  forName?: string
 }
 const baseOf = (q: QuoteView) =>
-  JSON.stringify([q.lines, q.discountPct, q.agreedCents ?? null, q.notes, q.validDays ?? null, q.depositPct ?? null, q.mealsProvided ?? false, q.travelKm ?? null])
+  JSON.stringify([q.lines, q.discountPct, q.agreedCents ?? null, q.notes, q.validDays ?? null, q.depositPct ?? null, q.mealsProvided ?? false, q.travelKm ?? null, q.forName ?? ''])
 function readTyped(): Record<string, Typed> {
   try {
     return JSON.parse(sessionStorage.getItem(TYPED_STORE) ?? '{}') as Record<string, Typed>
@@ -140,6 +144,7 @@ const termsText = (q: QuoteView) => ({
   notes: q.notes,
   validFor: String(q.validDays ?? DEFAULT_VALID_DAYS),
   deposit: q.depositPct ? String(q.depositPct) : '',
+  forName: q.forName ?? '',
 })
 
 /**
@@ -168,6 +173,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [notes, setNotes] = useState(kept?.notes ?? q.notes)
   const [validFor, setValidFor] = useState(kept?.validFor ?? String(q.validDays ?? DEFAULT_VALID_DAYS))
   const [deposit, setDeposit] = useState(kept?.deposit ?? (q.depositPct ? String(q.depositPct) : ''))
+  // Who at the client it's for (ADR 0128): one of their contacts, printed under the client's name.
+  const [forName, setForName] = useState(kept?.forName ?? q.forName ?? '')
   const [kitDays, setKitDays] = useState('')
   const [kitDaysOpen, setKitDaysOpen] = useState(false)
   const [discounting, setDiscounting] = useState<string>()
@@ -256,6 +263,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     if (notes.trim() === a.notes.trim()) setNotes(z.notes)
     if (validFor === a.validFor) setValidFor(z.validFor)
     if (deposit === a.deposit) setDeposit(z.deposit)
+    if (forName === a.forName) setForName(z.forName)
     if (clash.length) setBothChanged(clash)
   }, [drawn])
   const openLine = (id: string | undefined, focus: 'what' | 'price' = 'what', cost = false) => {
@@ -327,7 +335,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     agreedCents === (q.agreedCents ?? null) &&
     q.notes.trim() === notes.trim() &&
     valid === (q.validDays ?? DEFAULT_VALID_DAYS) &&
-    dep === (q.depositPct ?? null)
+    dep === (q.depositPct ?? null) &&
+    forName.trim() === (q.forName ?? '')
   const unpricedLines = good.filter((l) => needsPrice(l, good))
   // Whether there's enough of each product on the job's days (ADR 0089), as the job's kit is checked.
   const checks = quoteKit(job, quoteWants(good, (id) => m.package(id)?.items), today, {
@@ -374,7 +383,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   // the page saves what's waiting at once. Saving goes through the device's queue, so it works with no signal.
   const payload =
     !saved && !problem
-      ? { id: q.id, projectId: job.id, lines: all.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead, base: draftBase(opened.current) }
+      ? { id: q.id, projectId: job.id, lines: all.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
       : undefined
   const waiting = useRef(payload)
   waiting.current = payload
@@ -407,7 +416,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: sentOn || today }))
   const late = useLate(!!payload)
   // Kept on the device while it can't save (finding 27), and let go once it can.
-  const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, kmTyped, discount, agreed, notes, validFor, deposit } satisfies Typed) : ''
+  const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, kmTyped, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
   useEffect(() => keepTyped(q.id, typed ? (JSON.parse(typed) as Typed) : undefined), [typed])
 
   const days = jobDays(job)
@@ -534,6 +543,10 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     addLine({ kind: 'crew', what: role, ref: null, modelId: null, group: 'Crew', qty: String(count), days: String(days), price: cents === undefined ? '' : euroText(cents), vat: STANDARD_VAT, per: 'day' })
   }
   const addOther = () => addLine({ kind: 'other', what: '', ref: null, modelId: null, group: '', qty: '1', days: '1', price: '', vat: STANDARD_VAT, per: 'once' })
+  // Words only (ADR 0128; finding 11): a heading or a note, under the last group until it's moved.
+  const addWords = () => addLine({ kind: 'other', what: '', ref: null, modelId: null, group: groups.at(-1)?.group ?? '', qty: '1', days: '1', price: '', vat: STANDARD_VAT, per: 'once', words: true })
+  // The office's order (ADR 0128): a line up or down its group, a group up or down among its kind.
+  const moved = (next: LineDraft[] | undefined) => (next ? () => setLines(next) : undefined)
   // Transport (ADR 0089): charged once, with what it costs us beside it; named for a van booked on the job when there is one.
   const addTransport = (what: string, ref: string | null) =>
     addLine({ kind: 'other', what, ref, modelId: null, group: 'Transport', qty: '1', days: '1', price: '', vat: STANDARD_VAT, per: 'once' })
@@ -569,6 +582,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     setDiscounting(undefined)
   }
   const groups = linesByGroup(lines)
+  // Groups to pick from for a line: the quote's own, then the departments not used yet.
+  const groupNames = [...new Set([...groups.map((g) => g.group), ...Object.values(DEPARTMENT_LABELS), 'Crew', 'Transport'])]
   const kitLines = lines.filter((l) => l.kind === 'kit' && l.per === 'day' && !l.rate).length
   const source = m.sourceOf(job.id)
   // Every line counts here, finished or not, so one being typed isn't offered again as new on the job.
@@ -651,6 +666,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
           suppliers={view.kit.suppliers}
           wantCost={wantCost}
           included={included || (under.length > 0 && !!l.packageId)}
+          {...(l.under ? {} : { groups: groupNames, onMove: { up: moved(moveLine(lines, l.id, -1)), down: moved(moveLine(lines, l.id, 1)) } })}
         />
       </div>
     )
@@ -750,6 +766,16 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
           <section key={g.group} className="quote-group" role="group" aria-label={g.group}>
             <div className="group-head">
               <h3 className="group">{g.group}</h3>
+              {groups.length > 1 && (moveGroup(lines, g.group, -1) || moveGroup(lines, g.group, 1)) && (
+                <span className="group-move">
+                  <button type="button" className="link quiet" onClick={moved(moveGroup(lines, g.group, -1))} disabled={!moveGroup(lines, g.group, -1)} aria-label={`Move ${g.group} up`}>
+                    Up
+                  </button>
+                  <button type="button" className="link quiet" onClick={moved(moveGroup(lines, g.group, 1))} disabled={!moveGroup(lines, g.group, 1)} aria-label={`Move ${g.group} down`}>
+                    Down
+                  </button>
+                </span>
+              )}
               {g.lines.length > 1 && discounting !== g.group && (
                 <button type="button" className="link quiet" onClick={() => setDiscounting(g.group)}>
                   Discount every line…
@@ -775,19 +801,22 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
           </section>
         ))}
         {removed && !groups.some((g) => g.group === removedGroup) && undoLine}
-        <TravelAndSubsistence
-          extras={extras}
-          meals={meals}
-          setMeals={setMeals}
-          km={kmTyped}
-          setKm={setKmTyped}
-          kmProblem={termErr('km')}
-          onLeaveKm={() => touch('km')}
-          fuelSetOn={m.quoting.fuelSetOn ?? null}
-          today={today}
-          open={open}
-          setOpen={openLine}
-        />
+        {/* A dry hire has no travel or subsistence to charge (ADR 0128; finding 10), until it has crew on it after all. */}
+        {(kindOf(job) !== 'hire' || good.some((l) => l.kind === 'crew')) && (
+          <TravelAndSubsistence
+            extras={extras}
+            meals={meals}
+            setMeals={setMeals}
+            km={kmTyped}
+            setKm={setKmTyped}
+            kmProblem={termErr('km')}
+            onLeaveKm={() => touch('km')}
+            fuelSetOn={m.quoting.fuelSetOn ?? null}
+            today={today}
+            open={open}
+            setOpen={openLine}
+          />
+        )}
 
         <div className="quote-add" role="group" aria-label="Add to the quote">
           {adding === 'kit' ? (
@@ -852,6 +881,10 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               <button type="button" onClick={addOther} disabled={full}>
                 <Icon name="add" />
                 Add something else
+              </button>
+              <button type="button" onClick={addWords} disabled={full}>
+                <Icon name="add" />
+                Add words
               </button>
               {lines.some((l) => l.kind === 'kit' && l.modelId) && (
                 <button type="button" className="link" onClick={() => setAdding('save-package')}>
@@ -985,6 +1018,22 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
             {termNote('deposit', dep !== null && depOk && `${money(depositCents(totals.gross, dep))} before the job, of ${money(totals.gross)}.`)}
           </label>
         </div>
+        {/* Who at the client it's for (ADR 0128; audit of the quote flow, finding 6): printed under the client's name. */}
+        {job.client && (job.client.contacts.length > 0 || forName) && (
+          <label className="field">
+            For
+            <select value={forName} onChange={(e) => setForName(e.target.value)} aria-label="Who at the client it's for">
+              <option value="">{job.client.contacts[0] ? `${job.client.contacts[0].name} (their first contact)` : 'Nobody named'}</option>
+              {job.client.contacts.slice(1).map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                  {c.role ? `, ${c.role}` : ''}
+                </option>
+              ))}
+              {forName && !job.client.contacts.slice(1).some((c) => c.name === forName) && <option value={forName}>{forName}</option>}
+            </select>
+          </label>
+        )}
         <label className="field">
           Notes for the client
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} placeholder="Load in from 8am. Prices include delivery to the venue." />

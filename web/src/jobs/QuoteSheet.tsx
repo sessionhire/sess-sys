@@ -23,7 +23,9 @@ import {
   quoteNumberLabel,
   validUntil,
   type QuoteSettings,
+  quoteContact,
 } from '@sh/shared'
+import { logoOf } from '../Picture.tsx'
 import { Fragment, useState } from 'react'
 import { Empty } from '../Empty.tsx'
 import { Sideways } from '../more.tsx'
@@ -67,6 +69,13 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
               </th>
             </tr>
             {g.lines.map((l) => {
+              // Words only (ADR 0128): a heading or a note as written, across the row, with no numbers.
+              if (l.words)
+                return (
+                  <tr key={l.id} className="words">
+                    <td colSpan={6}>{l.what}</td>
+                  </tr>
+                )
               const under = linesUnder(lines, l.id)
               const byKit = under.length > 0 && !l.unitCents && !!l.packageId
               const open = shown.has(l.id)
@@ -171,14 +180,16 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
   const address = office.details?.address?.trim()
   const vat = office.details?.vatNumber?.trim()
   const to = job.client
-  const contact = to?.contacts[0]
+  const contact = to ? quoteContact(to.contacts, q.forName) : undefined
+  const logo = logoOf(office)
   const number = quoteNumberLabel(q)
   const draft = q.status === 'draft'
   return (
     <>
       <header className="sheet-head">
         <div className="from">
-          <p className="company">Session Hire</p>
+          {/* The company's logo from Admin › Company › Labels, as the emailed PDF has it (ADR 0128; finding 16). */}
+          {logo ? <img className="logo" src={logo} alt="Session Hire" /> : <p className="company">Session Hire</p>}
           {address && <p className="lines">{address}</p>}
           {reach && <p>{reach}</p>}
           {vat && <p>VAT number {vat}</p>}

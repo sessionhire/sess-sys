@@ -58,6 +58,21 @@ async function photoOf(q: Queryable, id: string, table: 'people' | 'models' | 's
   return rows[0]?.photo_key ? { key: rows[0].photo_key, type: rows[0].photo_type! } : undefined
 }
 
+/**
+ * The company's logo (ADR 0106) as its file, for the quote's PDF (ADR 0128): undefined while there's none, or while the
+ * files can't be read, so the PDF says the company's name in words instead.
+ */
+export async function readLogo(q: Queryable, files: DocumentFiles): Promise<{ data: Buffer; type: PhotoType } | undefined> {
+  if (!files.on) return undefined
+  const photo = await photoOf(q, LOGO_SETTING_ID, 'settings')
+  if (!photo) return undefined
+  try {
+    return { data: await files.read(photo.key), type: photo.type }
+  } catch {
+    return undefined
+  }
+}
+
 /** The person whose photo is being changed, there and not erased. */
 async function photoOwner(q: Queryable, id: string) {
   const person = await getPerson(q, id)

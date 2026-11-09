@@ -237,6 +237,7 @@ export function moneyView(
           agreedCents: a.agreedCents !== undefined ? a.agreedCents : (was?.agreedCents ?? null),
           mealsProvided: a.mealsProvided ?? before?.mealsProvided ?? false,
           travelKm: a.travelKm !== undefined ? a.travelKm : (before?.travelKm ?? null),
+          forName: a.forName !== undefined ? a.forName : (was?.forName ?? before?.forName ?? ''),
           pending: true,
         })
         break

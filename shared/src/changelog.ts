@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.131.0',
+    date: '2026-11-09',
+    title: 'Quotes the way the office writes them, and a dry hire of its own',
+    what: "Each line on a quote now says what it's under, the kit's department until you change it to your own heading, like FOH, Monitors or Cables and power. Lines move up and down their group, and groups up and down, a press each. Add words puts a heading or a note on the quote, printed as written with no price. The quote is now for whoever asked, printed under the client's name, and you can change who it's for on the draft. The company's logo heads the printed quote and the PDF. And New quote asks first if it's a show or a dry hire: a dry hire asks for no venue, its days are when it's collected and brought back, and it has no crew or travel.",
+    prs: [281],
+    adrs: [128],
+  },
+  {
     version: '1.130.0',
     date: '2026-11-09',
     title: 'The first part of the iPhone and Android app, for the warehouse',

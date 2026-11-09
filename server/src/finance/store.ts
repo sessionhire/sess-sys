@@ -8,7 +8,7 @@ type Row = Record<string, any>
 
 const QUOTE = `id, project_id, version, status, lines, discount_pct, notes, made_at, saved_at,
   sent_on::text AS sent_on, answered_on::text AS answered_on, invoiced_on::text AS invoiced_on, invoice_ref, paid_on::text AS paid_on, number, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, declined_why, declined_note,
-  accept_token, accepted_name, accepted_at`
+  accept_token, accepted_name, accepted_at, for_name`
 
 const toQuote = (r: Row): Quote => ({
   id: r.id,
@@ -33,6 +33,8 @@ const toQuote = (r: Row): Quote => ({
   travelKm: r.travel_km ?? null,
   declinedWhy: r.declined_why ?? null,
   declinedNote: r.declined_note ?? '',
+  // Who it's for (ADR 0128), only once set, so a device or a test that knows nothing of it sees the quote as before.
+  ...(r.for_name ? { forName: r.for_name } : {}),
   // The client's link and their online yes (ADR 0121), only once there is one, so a device or a test that knows nothing of them sees the quote as before.
   ...(r.accept_token ? { acceptToken: r.accept_token } : {}),
   ...(r.accepted_name ? { acceptedOnline: { name: r.accepted_name, at: new Date(r.accepted_at).toISOString() } } : {}),

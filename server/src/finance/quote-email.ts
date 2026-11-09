@@ -31,6 +31,8 @@ export interface Mailer {
   /** Told once a record is written, so devices come for it. */
   onChange?: () => void
   now?: () => Date
+  /** The company's logo for the top of the PDF (ADR 0128), if there is one. */
+  logo?: () => Promise<{ data: Buffer; type: string } | undefined>
 }
 
 /** Who pressed Send, as the push route knows them, and the device code for the history. */
@@ -147,7 +149,8 @@ export async function sendQuote(m: Mailer, quoteId: string, body: QuoteEmailSend
     return { ok: false, code: 409, error: `This went out as quote ${quote.number}, not ${body.number}: another quote took that number first. Check the subject and the message, then press Send again.` }
 
   const sheet = await sheetFor(m.db.reads, quote, today)
-  const pdf = await quotePdf(sheet)
+  const logo = await m.logo?.().catch(() => undefined)
+  const pdf = await quotePdf({ ...sheet, ...(logo ? { logo } : {}) })
   const fileName = fileNameFor(quote.number ?? null, sheet.job.name)
   const staff = who.staff ?? undefined
   const raw = mime({

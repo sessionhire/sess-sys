@@ -286,7 +286,17 @@ export function LineSummary({
   /** Kit in a package priced as a whole: no price of its own wanted. */
   included?: boolean
 }) {
-  const unpriced = done !== undefined && done.unitCents === 0 && !included && !done.included && !(heads && l.packageId)
+  const unpriced = done !== undefined && done.unitCents === 0 && !included && !done.included && !done.words && !(heads && l.packageId)
+  // Words only (ADR 0128): printed as written, with nothing to count.
+  if (l.words)
+    return (
+      <button type="button" className={`quote-line-shut words${done === undefined ? ' needs' : ''}`} onClick={onOpen} autoFocus={focus} aria-label={`Line ${n}: ${l.what || 'no words yet'}, change it`}>
+        <span className="what">{l.what || 'No words yet'}</span>
+        <span className="how">Words on the quote</span>
+        <span className="amount" />
+        <Icon name="edit" className="opener" />
+      </button>
+    )
   const how = done === undefined ? 'Not finished' : heads && !done.unitCents && l.packageId ? 'Its kit at its own prices' : included ? `${done.qty} in the package` : chargeWords(done)
   return (
     <button type="button" className={`quote-line-shut${done === undefined || unpriced ? ' needs' : ''}`} onClick={onOpen} autoFocus={focus} aria-label={`Line ${n}: ${l.what || 'not named yet'}, change it`}>
@@ -333,8 +343,13 @@ export function LineEditor(p: {
   wantCost: boolean
   /** No price of its own wanted: a package's line priced by its kit, or kit in a package priced as a whole (ADR 0116). */
   included?: boolean
+  /** The quote's groups, to pick one or type a new (ADR 0128); none for a line in a package, which goes with its line. */
+  groups?: readonly string[]
+  /** Moving it up or down its group (ADR 0128), where it can go. */
+  onMove?: { up?: (() => void) | undefined; down?: (() => void) | undefined }
 }) {
   const { l, n, done, fault, set, onRemove, onDone } = p
+  const groupId = useId()
   const [vatOpen, setVatOpen] = useState(false)
   const [leftFields, setLeftFields] = useState<ReadonlySet<LineField>>(() => new Set())
   const leave = (f: LineField) => () => setLeftFields((s) => (s.has(f) ? s : new Set(s).add(f)))
@@ -364,16 +379,37 @@ export function LineEditor(p: {
       }}
     >
       <label className="what">
-        What
-        <input value={l.what} onChange={(e) => set({ what: e.target.value })} maxLength={200} aria-label={`Line ${n}: what`} autoFocus={p.focus === 'what'} onBlur={leave('what')} {...mark('what')} />
+        {l.words ? 'Words' : 'What'}
+        <input
+          value={l.what}
+          onChange={(e) => set({ what: e.target.value })}
+          maxLength={200}
+          aria-label={l.words ? `Line ${n}: words` : `Line ${n}: what`}
+          placeholder={l.words ? 'e.g. All cabling and power included' : undefined}
+          autoFocus={p.focus === 'what'}
+          onBlur={leave('what')}
+          {...mark('what')}
+        />
       </label>
       {problem(['what'])}
-      {l.packageId !== null && (
+      {p.groups && (
+        <label className="what group-field">
+          Under
+          <input value={l.group} onChange={(e) => set({ group: e.target.value.slice(0, 60) })} list={groupId} maxLength={60} placeholder={l.kind === 'crew' ? 'Crew' : l.kind === 'other' ? 'Other' : 'Kit'} aria-label={`Line ${n}: the group it's under`} />
+          <datalist id={groupId}>
+            {p.groups.map((g) => (
+              <option key={g} value={g} />
+            ))}
+          </datalist>
+        </label>
+      )}
+      {l.packageId !== null && !l.words && (
         <label className="what">
           It includes
           <input value={l.includes} onChange={(e) => set({ includes: e.target.value })} maxLength={PACKAGE_INCLUDES_LENGTH} aria-label={`Line ${n}: includes`} />
         </label>
       )}
+      {!l.words && (
       <div className="numbers">
         <label className="qty">
           How many
@@ -466,6 +502,7 @@ export function LineEditor(p: {
           {l.rate && l.per === 'day' && done !== undefined && <small>Charged {l.rate === 'weekly' ? `${done.days} week${done.days === 1 ? '' : 's'}` : daysWord(done.days)}</small>}
         </span>
       </div>
+      )}
       {problem(['qty', 'out', 'days', 'price', 'discount'])}
       {unitMoved && (
         <p className="line-problem asks" role="status">
@@ -474,11 +511,22 @@ export function LineEditor(p: {
       )}
       {p.kit}
       {p.last}
-      <CostFields l={l} n={n} r={done} cost={p.cost} boss={p.boss} suppliers={p.suppliers} set={set} wantOpen={p.wantCost} left={leave} mark={mark} problem={problem(['subhire', 'cost'])} />
+      {!l.words && <CostFields l={l} n={n} r={done} cost={p.cost} boss={p.boss} suppliers={p.suppliers} set={set} wantOpen={p.wantCost} left={leave} mark={mark} problem={problem(['subhire', 'cost'])} />}
       <div className="line-actions">
         <button type="button" className="link quiet" onClick={onRemove} aria-label={`Remove line ${n}`}>
           Remove
         </button>
+        {/* Put in the office's order (ADR 0128; finding 11): up or down its group, a press each, on a phone as on a desk. */}
+        {p.onMove && (p.onMove.up || p.onMove.down) && (
+          <span className="line-move">
+            <button type="button" className="link quiet" onClick={p.onMove.up} disabled={!p.onMove.up} aria-label={`Move line ${n} up`}>
+              Move up
+            </button>
+            <button type="button" className="link quiet" onClick={p.onMove.down} disabled={!p.onMove.down} aria-label={`Move line ${n} down`}>
+              Move down
+            </button>
+          </span>
+        )}
         <button type="button" onClick={onDone}>
           Done
         </button>

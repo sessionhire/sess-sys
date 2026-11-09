@@ -10,6 +10,7 @@ import {
   setCents,
   money,
   pctWord,
+  quoteContact,
   quoteNumberLabel,
   RATE_UNIT,
   spanLabel,
@@ -43,6 +44,8 @@ export interface Sheet {
   quoting: Pick<QuoteSettings, 'terms' | 'bank'>
   /** Today in Ireland, for a draft's date and how long it holds. */
   today: string
+  /** The company's logo (ADR 0128): drawn in place of its name when it's a PNG or a JPEG, which is what a PDF can carry. */
+  logo?: { data: Buffer; type: string }
 }
 
 const KIND_WORDS: Record<LineKind, string> = { kit: 'Kit', crew: 'Crew', other: 'Other' }
@@ -96,7 +99,20 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   // Who it's from, at the left; the quote's facts at the right.
   const top = doc.y
   const half = width * 0.55
-  text('Session Hire', { x: left, y: top, size: 15, font: BOLD, width: half })
+  const logo = d.logo && (d.logo.type === 'png' || d.logo.type === 'jpeg') ? d.logo.data : undefined
+  let drawn = false
+  if (logo) {
+    try {
+      // As tall as the name's line and the address under it, at most, and never wider than its half.
+      doc.image(logo, left, top, { fit: [Math.min(half, 170), 48] })
+      doc.y = top + 52
+      drawn = true
+    } catch {
+      // A file pdfkit can't read: the name in words, as with none.
+    }
+  }
+  if (!drawn) text('Session Hire', { x: left, y: top, size: 15, font: BOLD, width: half })
+  doc.x = left
   const address = office?.address?.trim()
   const reach = [office?.phone, office?.email].filter(Boolean).join(' · ')
   const vat = office?.vatNumber?.trim()
@@ -122,7 +138,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   const toTop = doc.y
   const col = width / 2 - 8
   const client = job.client
-  const contact = client?.contacts[0]
+  const contact = client ? quoteContact(client.contacts, q.forName) : undefined
   if (client) {
     text('For', { x: left, y: toTop, size: SMALL, color: MUTED, width: col })
     text(client.name, { font: BOLD, width: col })
@@ -145,6 +161,11 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   for (const g of linesByGroup(q.lines)) {
     rows.push([cell(g.group || KIND_WORDS[g.lines[0]!.kind], { colSpan: 6, font: { src: BOLD, size: BODY }, padding: [7, 4, 3, 4] })])
     for (const l of g.lines) {
+      // Words only (ADR 0128): a heading or a note as written, across the row, with no numbers.
+      if (l.words) {
+        rows.push([cell(l.what, { colSpan: 6 })])
+        continue
+      }
       const days = l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')
       const price = `${money(l.unitCents)} ${l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}`
       const under = linesUnder(q.lines, l.id)

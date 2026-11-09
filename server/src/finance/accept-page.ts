@@ -3,6 +3,7 @@ import {
   depositCents,
   letterDay,
   lineCents,
+  linesByGroup,
   linesUnder,
   money,
   paymentTermsLine,
@@ -65,17 +66,14 @@ const QUOTE_CSS = `
 
 /** The quote's lines as on the printed page: each line, a package's kit under it, by group. */
 function lines(s: Sheet): string {
-  const top = s.q.lines.filter((l) => !l.under || l.under === l.id)
-  const groups = new Map<string, typeof top>()
-  for (const l of top) {
-    const g = l.group || { kit: 'Kit', crew: 'Crew', other: 'Other' }[l.kind]
-    groups.set(g, [...(groups.get(g) ?? []), l])
-  }
-  const rows = [...groups].map(
-    ([g, ls]) =>
+  // In the groups and order the printed page has (ADR 0128).
+  const rows = linesByGroup(s.q.lines).map(
+    ({ group: g, lines: ls }) =>
       `<tr class="group"><th colspan="3" scope="rowgroup">${h(g)}</th></tr>` +
       ls
         .map((l) => {
+          // Words only (ADR 0128): as written, across the row.
+          if (l.words) return `<tr class="words"><td colspan="3">${h(l.what)}</td></tr>`
           const under = linesUnder(s.q.lines, l.id)
           const amount = l.included && !under.length ? 'Included' : money(under.length ? setCents(l, s.q.lines) : lineCents(l))
           const inIt = under.length ? `<small>With ${h(under.map((u) => `${u.qty} × ${u.what}`).join(', '))}</small>` : l.includes ? `<small>${h(l.includes)}</small>` : ''

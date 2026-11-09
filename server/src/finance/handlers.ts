@@ -85,6 +85,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
       if (a.agreedCents !== undefined) await ctx.tx.query('UPDATE quotes SET agreed_cents = $2 WHERE id = $1', [a.id, a.agreedCents])
       if (a.mealsProvided !== undefined) await ctx.tx.query('UPDATE quotes SET meals_provided = $2 WHERE id = $1', [a.id, a.mealsProvided])
       if (a.travelKm !== undefined) await ctx.tx.query('UPDATE quotes SET travel_km = $2 WHERE id = $1', [a.id, a.travelKm])
+      if (a.forName !== undefined) await ctx.tx.query('UPDATE quotes SET for_name = $2 WHERE id = $1', [a.id, a.forName.trim()])
       return emitQuote(ctx, a.id)
     }
     const versions = await quotesOf(ctx.tx, a.projectId)
@@ -95,8 +96,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     // A new version holds its prices as long as the one before, and asks the same deposit, unless it says otherwise.
     const before = versions[0]
     await ctx.tx.query(
-      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token)
-       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name)
+       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         a.id,
         a.projectId,
@@ -113,6 +114,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
         a.travelKm !== undefined ? a.travelKm : (before?.travelKm ?? null),
         // The key to the client's link (ADR 0121): there from the start, answering only once the office turns it on.
         newAcceptToken(),
+        // Who it's for (ADR 0128): a new version is for the same person unless it says.
+        (a.forName ?? before?.forName ?? '').trim(),
       ]
     )
     await emitQuote(ctx, a.id)
