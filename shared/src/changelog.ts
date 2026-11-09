@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.135.0',
+    version: '1.136.0',
     date: '2026-11-09',
     title: 'Hire prices filled in from Current RMS',
     what: "Admin › Connections has a new card under Current RMS: Read the prices reads each product's rental price there, and how it's charged (Daily, 3 Day Week or Weekly), which takes a few minutes. The card then shows what filling in would do before anything changes: prices to fill in where there's none, ones from Current RMS to bring up to date, ones set here by hand that differ (kept unless you tick to use Current RMS's), and anything in Current RMS not found on the stock list. Fill in does just that, quotes pick the prices up, and it's in the history. It can be run again whenever prices change in Current RMS. Nothing is changed in Current RMS.",
     prs: [288],
     adrs: [132],
+  },
+  {
+    version: '1.135.0',
+    date: '2026-11-09',
+    title: 'Quotes still open in Current RMS are on the calendar',
+    what: "Jobs › Calendar now shows the quotes still open in Current RMS as potential jobs, dashed like an enquiry and marked Current RMS quote with its number and client. Any linked to a job here, or that look like one (the same client or name on the same days), stay off so nothing shows twice. Pressing one opens it, where you can make a job from it, or press Not going ahead to take it off the calendar if it's gone nowhere. Put it back on the calendar undoes that. Nothing changes in Current RMS. Only those who see money see them, and they need signal.",
+    prs: [289],
+    adrs: [134],
   },
   {
     version: '1.134.0',

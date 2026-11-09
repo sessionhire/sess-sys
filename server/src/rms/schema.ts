@@ -87,6 +87,15 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS rms_matches_project ON rms_matches (project_id);
   `,
+  // An open quote the office says isn't going ahead, taken off the master calendar (ADR 0134): Current RMS's statuses
+  // can't be trusted, so this is the office's word here. Nothing in Current RMS changes.
+  `
+  CREATE TABLE IF NOT EXISTS rms_set_aside (
+    opportunity_id  integer PRIMARY KEY REFERENCES rms_opportunities(id) ON DELETE CASCADE,
+    set_by          text NOT NULL DEFAULT '',
+    set_at          timestamptz NOT NULL DEFAULT now()
+  );
+  `,
   // Each product's hire price as Current RMS has it (ADR 0132), from the last read of its products and their rates, for
   // filling the price list in. A copy to read: replaced whole by each read that finishes.
   `

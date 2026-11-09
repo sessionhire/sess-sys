@@ -342,6 +342,7 @@ const ABOUT: Record<string, string> = {
   rms_lines: "The lines of each opportunity read from Current RMS: its group, product or service, how many, the price, the discount, the chargeable days and rate, the total and VAT in cents, and whether it was subhired.",
   rms_opportunities: "Every opportunity read from Current RMS (enquiries, quotes, orders, lost and dead ones): its number, subject, client and venue by name, state, dates, totals in cents and the client's discount and price category there. No contacts.",
   rms_matches: 'Each opportunity read from Current RMS that the office linked to its job: the job, who linked it and when.',
+  rms_set_aside: 'Each open quote from Current RMS the office said is not going ahead, so it is off the master calendar: who said so and when.',
   rms_reads: 'Each time Current RMS was read: when, how many opportunities and lines, and what went wrong if it did.',
   rms_products: "Each product's hire price as Current RMS had it at the last whole read of its prices (ADR 0132): Current RMS's id and name, the price in cents and its rate definition.",
   rms_price_reads: "Each time Current RMS's hire prices were read: when, how many products, and what went wrong if it did.",

@@ -114,3 +114,26 @@ test('a phone sees the days with something on as a list that adds to the page', 
   expect(await page.locator('.cal-card').evaluate((el) => getComputedStyle(el).overflowY)).toBe('visible')
   await page.screenshot({ ...shot('master-calendar-phone'), fullPage: true })
 })
+
+test('an open quote in Current RMS with no job here is on the calendar as a potential, and opens its past quote', async ({ page }) => {
+  // The server's copy of Current RMS comes from a real account, so its answer is stood in for, as in rms-history.spec.ts.
+  let asked = ''
+  await page.route('**/api/rms/calendar?*', (route) => {
+    asked = new URL(route.request().url()).search
+    return route.fulfill({ json: [{ id: 77, number: '0000001200', subject: 'Summer party', client: 'Acme Ltd', status: 'Provisional', start: '2033-03-15', end: '2033-03-16' }] })
+  })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await ready(page, '#jobs/calendar/2033-03-01')
+  // Asked for the weeks shown: Monday 28 February to Sunday 3 April.
+  await expect.poll(() => asked).toBe('?from=2033-02-28&to=2033-04-03')
+  const quote = page.locator('.cal-grid .cal-span', { hasText: 'Summer party' })
+  await expect(quote).toHaveCount(1)
+  await expect(quote).toHaveClass(/dashed/)
+  await expect(quote).toContainText('Current RMS quote 0000001200 · Acme Ltd')
+  await expect(quote).toContainText('Tue 15 Mar to Wed 16 Mar')
+  await expect(quote).toHaveAttribute('href', '#jobs/money/current-rms/77')
+  await expect(page.locator('.cal-key')).toContainText('or a quote still open in Current RMS with no job here yet')
+  // Confirmed only leaves it out, as it does the enquiries.
+  await page.getByRole('group', { name: 'Which jobs' }).getByRole('button', { name: 'Confirmed' }).click()
+  await expect(page.locator('.cal-grid .cal-span', { hasText: 'Summer party' })).toHaveCount(0)
+})

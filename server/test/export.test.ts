@@ -159,6 +159,7 @@ describe('download everything', () => {
       'rms_price_reads',
       'rms_products',
       'rms_reads',
+      'rms_set_aside',
       'role_prices',
       'running_late',
       'settings',

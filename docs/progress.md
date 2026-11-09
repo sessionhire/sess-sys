@@ -8,7 +8,7 @@ waiting on someone.
 **Done**
 
 - Admin › Connections has a Hire prices from Current RMS card (ADR 0132,
-  1.135.0). Read the prices reads each product's rental price and rule
+  1.136.0). Read the prices reads each product's rental price and rule
   from Current RMS through the API, a few minutes in the background.
 - Before anything changes, it says what filling in would do: to fill in,
   to bring up to date, set here by hand and different (kept unless
@@ -21,6 +21,22 @@ waiting on someone.
 **Waiting on**
 
 - The office: Read the prices, look over the list, and Fill in, on live.
+
+## 9 November 2026: open Current RMS quotes on the calendar
+
+**Done**
+
+- Jobs › Calendar shows the quotes still open in Current RMS (not an order,
+  not lost, days still to come) as potentials, dashed and marked Current RMS
+  quote with number and client, opening the past quote. Ones linked to a job
+  here, or that look like one, stay off. "Not going ahead" on the past quote
+  takes one off; "Put it back on the calendar" undoes it. Nothing changes in
+  Current RMS (1.135.0, ADR 0134).
+- Checked: server, shared and browser tests for the calendar and past quotes.
+
+**Waiting on**
+
+- Nothing.
 
 ## 9 November 2026: the calendar looks like Google Calendar
 

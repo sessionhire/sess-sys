@@ -7,6 +7,7 @@ import {
   plural,
   rmsDepth,
   rmsJobDraft,
+  rmsOutcome,
   rmsSuggestions,
   spanLabel,
   STATUS_LABELS,
@@ -299,6 +300,7 @@ export function PastQuoteScreen({ view, id: asked }: { view: View; id: string })
                 </button>
               </div>
             )}
+            {!loaded.data.job && rmsOutcome(o, irishToday()) === 'open' && <SetAside id={o.id} aside={!!loaded.data.aside} />}
             <dl className="facts money-facts">
               <div>
                 <dt>Before VAT</dt>
@@ -342,6 +344,44 @@ export function PastQuoteScreen({ view, id: asked }: { view: View; id: string })
           {doing === 'onto' && <OntoJob view={view} past={loaded.data} first={forJob?.job} onCancel={() => setDoing(undefined)} />}
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * An open quote with no job here is on the master calendar as a potential (ADR 0134). Current RMS's statuses can't be
+ * trusted, so the office says when one isn't going ahead, which takes it off; it can go back on. Current RMS is left as
+ * it was.
+ */
+function SetAside({ id, aside: was }: { id: number; aside: boolean }) {
+  const [aside, setAside] = useState(was)
+  const [busy, setBusy] = useState(false)
+  const [said, setSaid] = useState('')
+  useEffect(() => setAside(was), [was])
+  const set = async (to: boolean) => {
+    setBusy(true)
+    const l = await postJson<{ aside: boolean }>(`/api/rms/opportunities/${id}/aside`, { aside: to })
+    setBusy(false)
+    if (l.state === 'ready') {
+      setAside(l.data.aside)
+      setSaid(l.data.aside ? 'Off the calendar.' : 'Back on the calendar.')
+    } else setSaid(l.state === 'gone' ? l.error : 'Not saved: this needs signal. Try again when you have it.')
+  }
+  return (
+    <div className="rms-aside">
+      <p className="hint">
+        {aside
+          ? 'Not going ahead, so it’s off the calendar. Current RMS still has it as it was.'
+          : 'Still open, so it’s on the calendar as a potential job. If it isn’t going ahead, take it off.'}
+      </p>
+      <div className="actions">
+        <button type="button" disabled={busy} onClick={() => void set(!aside)}>
+          {aside ? 'Put it back on the calendar' : 'Not going ahead'}
+        </button>
+      </div>
+      <p className="hint" role="status">
+        {said}
+      </p>
     </div>
   )
 }

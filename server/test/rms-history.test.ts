@@ -119,4 +119,60 @@ describe("Current RMS's history (ADR 0092)", () => {
     expect((await page('open')).total).toBe(1)
     expect(numbers(await page('sideways'))).toHaveLength(5)
   })
+
+  it('puts the open quotes with no job here on the master calendar, and the office takes one off and puts it back (ADR 0134)', async () => {
+    const { app, db } = await setup()
+    const push = await app.inject({
+      method: 'POST',
+      url: '/api/sync/push',
+      payload: {
+        clientId: 'office',
+        mutations: [
+          m('project.create', { id: 'ball', name: 'Brightwater ball', clientId: 'bw', venueId: null, status: 'enquiry', notes: '' }),
+          m('phase.add', { id: 'ball-show', projectId: 'ball', name: 'Show', start: '2099-02-01', end: '2099-02-01', venueId: null, notes: '' }),
+        ],
+      },
+    })
+    expect(push.json().results.every((r: { status: string }) => r.status === 'applied')).toBe(true)
+    const opp = (id: number, subject: string, client: string, state: string, status: string, start: string, end = start) =>
+      db.query(`INSERT INTO rms_opportunities (id, number, subject, client, state, status, starts_at, ends_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [
+        id,
+        `0000001${id}`,
+        subject,
+        client,
+        state,
+        status,
+        `${start}T10:00:00Z`,
+        `${end}T22:00:00Z`,
+      ])
+    await opp(10, 'Winter party', 'Nobody Ltd', 'Quotation', 'Provisional', '2099-01-10', '2099-01-11')
+    await opp(11, 'Lost one', 'Nobody Ltd', 'Quotation', 'Lost', '2099-01-12')
+    await opp(12, 'An order', 'Nobody Ltd', 'Order', 'Active', '2099-01-13')
+    await opp(13, 'Long past', 'Nobody Ltd', 'Quotation', 'Provisional', '2024-01-14')
+    await opp(14, 'Spring ball', 'Brightwater Events', 'Quotation', 'Provisional', '2099-02-01')
+    await opp(15, 'Linked one', 'Nobody Ltd', 'Quotation', 'Reserved', '2099-01-15')
+    await opp(16, 'Next year', 'Nobody Ltd', 'Quotation', 'Provisional', '2100-01-15')
+    await app.inject({ method: 'POST', url: '/api/rms/matches', payload: { links: [{ opportunityId: 15, projectId: 'gala' }] } })
+
+    const shown = async (from = '2020-01-01', to = '2099-12-31') => {
+      const res = await app.inject({ url: `/api/rms/calendar?from=${from}&to=${to}` })
+      if (res.statusCode !== 200) throw new Error(res.body)
+      return res.json() as { id: number; start: string; end: string }[]
+    }
+    // Only the open one with no job like it: not lost, not an order, not past, not linked, not the ball we have, not outside the days asked.
+    expect(await shown()).toEqual([{ id: 10, number: '000000110', subject: 'Winter party', client: 'Nobody Ltd', status: 'Provisional', start: '2099-01-10', end: '2099-01-11' }])
+    expect(await shown('2099-01-11', '2099-01-11')).toHaveLength(1)
+    expect(await shown('2099-01-12', '2099-01-31')).toEqual([])
+    expect((await app.inject({ url: '/api/rms/calendar?from=2099-02-01&to=2099-01-01' })).statusCode).toBe(400)
+
+    const aside = (id: number, to: unknown) => app.inject({ method: 'POST', url: `/api/rms/opportunities/${id}/aside`, payload: { aside: to } })
+    expect((await aside(10, true)).json()).toEqual({ aside: true })
+    expect(await shown()).toEqual([])
+    expect((await app.inject({ url: '/api/rms/opportunities/10' })).json().aside).toBe(true)
+    expect((await aside(10, 'yes')).statusCode).toBe(400)
+    expect((await aside(999, true)).statusCode).toBe(404)
+    expect((await aside(10, false)).json()).toEqual({ aside: false })
+    expect((await shown()).map((q) => q.id)).toEqual([10])
+    expect((await app.inject({ url: '/api/rms/opportunities/10' })).json().aside).toBe(false)
+  })
 })

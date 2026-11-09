@@ -115,6 +115,18 @@ export interface RmsMatchRow {
   suggested: RmsMatch
 }
 
+/** An open quote in Current RMS with no job here, as the master calendar draws it (ADR 0134): its days in Ireland. */
+export interface RmsOnCalendar {
+  id: number
+  number: string
+  subject: string
+  client: string
+  /** Current RMS's own word for it: Provisional, Reserved, Open. */
+  status: string
+  start: string
+  end: string
+}
+
 export interface RmsMatches {
   rows: RmsMatchRow[]
   /** The jobs that come up, by id, so the screen can name them. */
