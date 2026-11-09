@@ -299,7 +299,7 @@ describe('answers on WhatsApp (ADR 0125, part 3)', () => {
     await hook(app, wrote('353871234567', 'Running late, sorry'))
     expect(said()[0].text.body).toContain('Nobody reads messages written to this number')
     expect((await db.query('SELECT whatsapp_off FROM people WHERE id = $1', [aoife])).rows[0]).toEqual({ whatsapp_off: false })
-    await hook(app, wrote('353871234567', 'STOP'))
+    await hook(app, wrote('353871234567', ' Stop! '))
     expect((await db.query('SELECT whatsapp_off FROM people WHERE id = $1', [aoife])).rows[0]).toEqual({ whatsapp_off: true })
     expect(said()[1].text.body).toContain('no more offers on WhatsApp')
     // Someone the app never messaged hears nothing.

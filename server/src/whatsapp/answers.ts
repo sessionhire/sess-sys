@@ -60,7 +60,9 @@ interface Receipt {
 const RANK: Record<string, number> = { queued: 0, sent: 1, delivered: 2, read: 3, failed: 4 }
 
 /** Writing this turns offers on WhatsApp off, as their page's button does. */
-const STOP = /^\s*(stop|stop offers|stop all|unsubscribe|opt out)\s*[.!]*\s*$/i
+const STOP = new Set(['stop', 'stop offers', 'stop all', 'unsubscribe', 'opt out'])
+/** "Stop!", " STOP. " and "stop  offers" all read as STOP; worked out in one pass over what they wrote, whatever its length. */
+const isStop = (text: string) => STOP.has(text.toLowerCase().replace(/[.!]/g, '').split(/\s+/).filter(Boolean).join(' '))
 
 export interface AnswersOptions {
   onChange: () => void
@@ -170,7 +172,7 @@ export class WhatsAppAnswers {
     const person = rows[0] && (await getPerson(this.db, rows[0].person_id))
     if (!person) return
     const page = pageOf(origin, person)
-    if (STOP.test(text)) {
+    if (isStop(text)) {
       const result = await this.run(wamid, person.id, 'person.whatsapp', { id: person.id, on: false })
       if (result.duplicate) return
       return this.say(from, `Done: no more offers on WhatsApp. They’ll still be on your page, where you can turn this back on: ${page}`)
