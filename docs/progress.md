@@ -3,6 +3,30 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: one job, one path, part 1: Next does what it says
+
+Colly walked the journey from quote to crew and the pick list and found it
+hard to follow between steps. A walk on a phone and a desk found ten places
+it loses the thread ([proposal](https://claude.ai/artifact/D9cXTUpDZPSoMBz5RoNzDP));
+Colly chose to make the job page the one path through a job, in eight parts
+(ADR 0140).
+
+**Done (part 1, 1.142.0)**
+
+- The job's Next makes the crew calls from the quote rather than opening the
+  Crew tab; Book N more crew opens the first call's Offer; Settle the kit
+  and vans lands on a tick card at the top of Kit and vans.
+- The quote page shows the job's Next once the job is past Quoting, so it
+  points on to crew and kit rather than to the invoice.
+
+**Next:** part 2, Send never disappears from the quote; then the job's head
+said once, the quote as the Quoting stage, crew and kit steps, the pick
+list, New quote as a sheet, tabs in stage order.
+
+**Assumed until Colly says otherwise:** the client's yes is the moment the
+job is confirmed; crew may be pencilled before the yes; the warehouse picks;
+invoicing stays out of the path while paused.
+
 ## 9 November 2026: the quote looks like the company's own document
 
 **Done**

@@ -36,6 +36,8 @@
 .jobs .short-kit > .kit-state, .jobs .short-kit > form { justify-self: stretch; }
 .jobs .kit-from-quote { display: grid; gap: var(--ds-space-2); justify-items: start; padding-block: var(--ds-space-2); border-bottom: 1px solid var(--line); }
 .jobs .kit-from-quote > * { margin: 0; }
+.jobs .settle-kit { display: grid; gap: var(--ds-space-2); justify-items: start; }
+.jobs .settle-kit > * { margin: 0; }
 .jobs .short-kit .short-list { border: 0; margin: 0; padding: 0; display: grid; gap: var(--ds-space-half); }
 .jobs .short-kit .short-list legend { padding: 0; margin-bottom: var(--ds-space-1); font-weight: 700; }
 .jobs .short-kit .short-list .hint { margin: 0 0 var(--ds-space-1); }

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.142.0',
+    date: '2026-11-09',
+    title: "A job's Next button does what it says",
+    what: "On a job, the Next button now does the thing it names rather than only taking you to a tab. \"Make the call for 2 × Audio tech\" makes the crew calls from the quote. \"Book 3 more crew\" opens the first call with a place to fill, with its Offer already open. \"Settle the kit and vans\" takes you to a new \"Is the kit list final?\" card where you tick it settled. Once a job is confirmed, its quote page shows the job's Next too, so it points on to the crew and kit rather than to the invoice. Nobody is contacted: calls are made with nobody offered.",
+    prs: [299],
+    adrs: [140],
+  },
+  {
     version: '1.141.0',
     date: '2026-11-09',
     title: 'The quote looks like a proper company document',

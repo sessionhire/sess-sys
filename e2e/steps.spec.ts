@@ -50,13 +50,15 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName('2. Planning, the stage the job is in, 0 of 2 done')
   // The one Next button (ADR 0104): a verb and its object, with the count on the line over it; the quiet second choice opens the task.
   await expect(next).toContainText('Next · Planning · 0 of 2 booked')
-  // Pressed on a phone, it brings the part it opens to the top, under the bar, with the focus on its tab, so the press is seen to
-  // do something (audit, 5 November 2026, finding 1).
+  // Pressed on a phone, it does what it says (ADR 0140): the Crew part opens on the first call with a place to fill, its Offer
+  // already open with the cursor in it and in view, rather than a tab with the Offers still to find (audit, 5 November 2026, finding 1).
   await next.getByRole('button', { name: 'Book 2 more crew' }).click()
   const crewTab = page.getByRole('tab', { name: /^Crew/ })
   await expect(crewTab).toHaveAttribute('aria-selected', 'true')
-  await expect(crewTab).toBeFocused()
-  await expect(crewTab).toBeInViewport()
+  const offerTo = page.getByRole('combobox', { name: 'Offer to' })
+  await expect(offerTo).toHaveCount(1)
+  await expect(offerTo).toBeFocused()
+  await expect(offerTo).toBeInViewport()
   await next.getByRole('button', { name: 'Hand it to someone' }).click()
   await expect(where.getByRole('heading', { name: 'Crew booked' })).toBeVisible()
   await expect(where.getByText('0 of 2 booked. This is the task to do next.')).toBeVisible()
