@@ -16,6 +16,8 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  // Printing is counted, not shown: Get the PDF to send opens the print dialog (audit of the quote flow, finding 14).
+  await office.addInitScript(() => void (window.print = () => void ((window as unknown as { printed: number }).printed = ((window as unknown as { printed?: number }).printed ?? 0) + 1)))
 
   // Corrib Arts Week's quote went three days ago, so it's waiting, but not yet worth a call: Home counts none, and a count of
   // nothing isn't shown (ADR 0033).
@@ -37,6 +39,8 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   const form = quotes.getByRole('form', { name: 'New quote' })
   await form.getByLabel("What's the job?").fill('Docklands Awards')
   await form.getByLabel('Client').fill('Liffey Brands')
+  const today = await office.evaluate(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Dublin' }))
+  await form.getByLabel(/Quote wanted by/).fill(today)
   await form.getByRole('button', { name: 'Start the quote' }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
@@ -46,10 +50,23 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await draft.getByLabel('Line 1: price').fill('900')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
+  // Wanted today, it leads Quotes and Home counts it, until it's sent (ADR 0127; audit of the quote flow, finding 7).
+  const back = office.url()
+  await office.goto('/#quotes')
+  await expect(quotes.getByRole('heading', { name: /^Wanted today/ })).toHaveText('Wanted today (1)')
+  await expect(quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })).toContainText('Wanted today')
+  await office.goto('/')
+  await expect(attention.getByRole('link', { name: /quote wanted today/ })).toBeVisible()
+  await office.goto(back)
+
   // Sent: the job is quoted now, and Quotes lists it as waiting.
-  await draft.getByRole('button', { name: 'Mark as sent' }).click()
+  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
   const records = office.getByRole('region', { name: 'What happened' })
   await expect(records).toBeVisible()
+  // It's numbered and opened to print or save at once; until it has been printed, printing it is the one red press, not the answer.
+  await expect.poll(() => office.evaluate(() => (window as unknown as { printed?: number }).printed ?? 0)).toBe(1)
+  await expect(office.getByRole('button', { name: 'Print or save as PDF' })).toHaveClass(/\bprimary\b/)
+  await expect(records.getByRole('button', { name: 'Client accepted' })).not.toHaveClass(/\bprimary\b/)
   await office.goto('/#quotes')
   await expect(quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })).toContainText('Sent today')
   await office.goto('/#jobs')
@@ -89,6 +106,8 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  // Printing is counted, not shown: Get the PDF to send opens the print dialog (audit of the quote flow, finding 14).
+  await office.addInitScript(() => void (window.print = () => void ((window as unknown as { printed: number }).printed = ((window as unknown as { printed?: number }).printed ?? 0) + 1)))
   await office.goto('/#quotes')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   const quotes = office.getByRole('region', { name: 'To follow up' })
@@ -115,13 +134,13 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
 
   const sentOn = new Date(Date.now() - 40 * 86_400_000).toISOString().slice(0, 10)
   await draft.getByLabel('Sent to the client on').fill(sentOn)
-  await draft.getByRole('button', { name: 'Mark as sent' }).click()
+  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
   const ask = draft.locator('.before-it-goes')
   await expect(ask).toContainText("Before it goes: No travel for the crew: the venue isn't on the map, so the distance isn't known.")
   await ask.getByRole('button', { name: 'Look first' }).click()
   await expect(draft.getByRole('button', { name: /^No travel/ })).toHaveAttribute('aria-expanded', 'true')
-  await draft.getByRole('button', { name: 'Mark as sent' }).click()
-  await ask.getByRole('button', { name: 'Mark it sent anyway' }).click()
+  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
+  await ask.getByRole('button', { name: 'Get the PDF anyway' }).click()
   const records = office.getByRole('region', { name: 'What happened' })
   await expect(records).toBeVisible()
   await expect(records).toContainText(/Its prices held until .+\. If the client accepts now, check they still stand/)

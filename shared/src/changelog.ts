@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.128.0',
+    version: '1.129.0',
     date: '2026-11-09',
     title: 'The first part of the iPhone and Android app, for the warehouse',
     what: "The start of a Session Hire app for iPhone and Android, the same app inside the phone's own: scanning a label in it uses the phone's own barcode reader, faster and better in poor light, with the camera across the top of the screen and the page carrying on below it; and signing in opens Google in the phone's browser and comes back. It isn't on the App Store or Google Play yet. Nothing changes in a browser.",
     prs: [251],
     adrs: [112],
+  },
+  {
+    version: '1.128.0',
+    date: '2026-11-09',
+    title: 'The quote wanted today comes first, and sending gets you the PDF',
+    what: "Quotes now leads with the quotes the client wants today, or wanted already, and Home counts them. The rest of the quotes not sent yet are in the order they're wanted, then by when the job is, and each says the day it's wanted. A quote for a job that's already over moves to its own group underneath. Whoever starts a quote is now on its Quote sent task. With email off, the red button on a draft is Get the PDF to send: it marks the quote sent, gives it its number and opens it to print or save, and printing stays the red button until it's done. Recording a quote as accepted by phone now gets the same last look as sending it.",
+    prs: [279],
+    adrs: [127],
   },
   {
     version: '1.127.0',

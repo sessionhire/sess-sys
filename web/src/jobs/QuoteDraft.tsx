@@ -175,7 +175,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [answering, setAnswering] = useState(false)
   // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26),
   // and so is anything else on the list of what to look at before it goes (research/quoting.md, feature 3).
-  const [free, setFree] = useState<'mark' | 'email'>()
+  const [free, setFree] = useState<'mark' | 'email' | 'accept'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
   const canEmail = useQuotesByEmail(m)
   const [sending, setSending] = useState<'email' | 'other'>()
@@ -400,6 +400,11 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     return () => clearTimeout(t)
   }, [key])
   useEffect(() => () => flush(), [])
+  // With email off, sending is getting the numbered PDF (audit of the quote flow, 8 November 2026, finding 14): one press
+  // marks it sent, which gives it its number, and opens it to print or save, so it's never marked sent with nothing to send.
+  const markAndPrint = () => void run(() => markSent(q.id, job, sentOn || today)).then((ok) => ok && !canEmail && onPrint())
+  // Accepted by phone gets the same last look as sending (finding 18): it's the quote that becomes the invoice.
+  const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: sentOn || today }))
   const late = useLate(!!payload)
   // Kept on the device while it can't save (finding 27), and let go once it can.
   const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, kmTyped, discount, agreed, notes, validFor, deposit } satisfies Typed) : ''
@@ -1000,12 +1005,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                   Sent to the client on
                   <input type="date" value={sentOn} max={irishToday()} onChange={(e) => setSentOn(e.target.value)} />
                 </label>
-                <button
-                  type="button"
-                  className={canEmail ? undefined : 'primary'}
-                  onClick={() => (beforeItGoes.length ? setFree('mark') : void run(() => markSent(q.id, job, sentOn || today)))}
-                >
-                  Mark as sent
+                <button type="button" className={canEmail ? undefined : 'primary'} onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())}>
+                  {canEmail ? 'Mark as sent' : 'Get the PDF to send'}
                 </button>
               </div>
             )}
@@ -1013,12 +1014,13 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               <Confirm
                 className="before-it-goes"
                 question={beforeItGoes.length === 1 ? `Before it goes: ${beforeItGoes[0]!.words}.` : `Before it goes, ${beforeItGoes.length} things to look at.`}
-                yes={free === 'email' ? 'Send it anyway' : 'Mark it sent anyway'}
+                yes={free === 'email' ? 'Send it anyway' : free === 'accept' ? 'Record it anyway' : canEmail ? 'Mark it sent anyway' : 'Get the PDF anyway'}
                 no="Look first"
                 onYes={() => {
                   setFree(undefined)
                   if (free === 'email') setSending('email')
-                  else void run(() => markSent(q.id, job, sentOn || today))
+                  else if (free === 'accept') accept()
+                  else markAndPrint()
                 }}
                 onNo={() => {
                   setFree(undefined)
@@ -1070,7 +1072,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                     Accepted already, by phone?
                   </button>
                 ) : (
-                  <button type="button" onClick={() => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: sentOn || today }))}>
+                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('accept') : accept())}>
                     Record it as accepted
                   </button>
                 ))}
@@ -1079,7 +1081,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               <p className="hint">
                 {canEmail
                   ? `Sent to the client, it goes by email from the operations mailbox with the quote as a PDF, becomes quote ${nextNumber}, and stays as it is.`
-                  : `Marked sent, it becomes quote ${nextNumber} and stays as it is. Print it as a PDF and send it yourself: the app sends nothing.`}
+                  : `Get the PDF to send marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
               </p>
             )}
           </>
