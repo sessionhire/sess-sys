@@ -193,10 +193,14 @@ waiting on someone.
   in Add kit with their price and what they hold; New quote's Start from
   is one search over this app's past jobs and Current RMS's quotes, the
   client's last three first.
+- Batch 6, an emailed quote is sent only once Gmail has it (ADR 0130,
+  1.132.1): numbered, drawn and handed to Gmail first, marked sent after;
+  turned down, it stays a draft with its number and says so; Send waits
+  for the device's changes. Needed before email is turned on in live.
 
 **Waiting on**
 
-- Batches 6 and 7, being built in order; the page's six questions.
+- Batch 7, being built; the page's six questions.
 
 ## 8 November 2026: a package's price starts at its items' total
 
