@@ -1,8 +1,10 @@
-import { callsFromQuote, dayLabel, jobPosition, plural, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
+import { dayLabel, jobPosition, plural, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import type { JobPart } from './JobScreen.tsx'
+import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
+import { useToday } from '../view.ts'
 
 /**
  * The one Next button of a job (ADR 0104): drawn the same on every job and
@@ -26,9 +28,21 @@ import type { JobPart } from './JobScreen.tsx'
 /** How many days before a job goes out its pick list takes the dock's quiet slot, for a role that picks (Move 8). */
 const PICK_SOON_DAYS = 7
 
-export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view: View; onPart: (p: JobPart) => void; onOpenTask: (t: JobStep) => void }) {
+export function NextDock({
+  job,
+  view,
+  onPart,
+  onOpenTask,
+}: {
+  job: JobView
+  view: View
+  /** Opens a part of the job, and with a call's id, that call's Offer (ADR 0140). */
+  onPart: (p: JobPart, offer?: string) => void
+  onOpenTask: (t: JobStep) => void
+}) {
   const access = useAccess()
   const { run, error } = useAct()
+  const today = useToday()
   const steps = view.steps.of(job.id)
   // Errands and meetings have no stages, so no Next: the page is as it was.
   if (!steps || (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands'))) return null
@@ -115,13 +129,19 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
       if (!access.can('crew')) break
       // From the task's fields, never its words read back (Move 7 of the sweep of 6 November 2026).
       const { booked = 0, needed = 0 } = task.facts
-      // Crew already on the quote are made calls in one press on Crew (ADR 0126), not typed again.
-      const quote = needed === 0 ? view.money.quotesOf(job.id)[0] : undefined
-      const fromQuote = quote ? callsFromQuote(quote.lines, job.calls).length > 0 : false
-      press = {
-        label: fromQuote ? 'Make the calls from the quote' : needed === 0 ? 'Ask for the crew' : booked < needed ? `Book ${needed - booked} more crew` : 'Book the crew',
-        onPress: () => onPart('crew'),
-      }
+      // Each press does what it says (ADR 0140): crew on the quote are made calls here, in the one press (ADR 0126), and the page
+      // lands on them; booking opens the Offer of the first call with a place to fill, rather than a tab with the Offers to find.
+      const fromQuote = needed === 0 ? crewToCall(view, job) : []
+      const toFill = job.calls.find((c) => c.status === 'open' && c.openDays.length > 0)
+      press = fromQuote.length
+        ? {
+            label: fromQuote.length === 1 ? `Make the call for ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make the ${fromQuote.length} crew calls from the quote`,
+            onPress: () => void run(() => makeCallsFromQuote(view, job, today)).then((ok) => ok && onPart('crew')),
+          }
+        : {
+            label: needed === 0 ? 'Ask for the crew' : booked < needed ? `Book ${needed - booked} more crew` : 'Book the crew',
+            onPress: () => onPart('crew', needed > 0 ? toFill?.id : undefined),
+          }
       break
     }
     case 'kit': {

@@ -247,7 +247,10 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await records.getByLabel('Invoice number').fill('SH-1050')
   await records.getByRole('button', { name: 'Mark invoiced' }).click()
   await expect(records).toContainText('Not yet: €1,680.89 owed')
-  await expect(records.getByRole('button', { name: 'Mark paid' })).toHaveClass(/\bprimary\b/)
+  // The job is confirmed and has its own work ahead, so its Next is on the quote page too and holds the one red (ADR 0140): the
+  // payment is recorded, plain, once it comes.
+  await expect(office.getByRole('region', { name: 'Next' })).toBeVisible()
+  await expect(records.getByRole('button', { name: 'Mark paid' })).not.toHaveClass(/\bprimary\b/)
   await expect(office.getByText("The quote is invoiced, so it's settled: no new version.")).toBeVisible()
   await office.getByRole('button', { name: 'Version 1 · Sent' }).click()
   await expect(office.getByText('An older version, kept as it went to the client. The newest is version 2.')).toBeVisible()

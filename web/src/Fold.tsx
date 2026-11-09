@@ -14,10 +14,26 @@ import { listOpened, openedList } from './places.ts'
  * once opened the form stays, hidden, so whatever was typed is still there
  * when it opens again.
  */
-export function Fold({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
-  const [open, setOpen] = useState(false)
+export function Fold({
+  label,
+  children,
+  className,
+  opened,
+}: {
+  label: string
+  children: ReactNode
+  className?: string
+  /** Opens it from outside, each time it changes to a new number: the job's Next button opening the offer it names (ADR 0140). */
+  opened?: number
+}) {
+  const [open, setOpen] = useState(!!opened)
   // Opened at least once: from then on the form is kept, open or not.
-  const [kept, setKept] = useState(false)
+  const [kept, setKept] = useState(!!opened)
+  useEffect(() => {
+    if (!opened) return
+    setKept(true)
+    setOpen(true)
+  }, [opened])
   const box = useRef<HTMLDivElement>(null)
   const opener = useRef<HTMLButtonElement>(null)
   const closed = useRef(false)

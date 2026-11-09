@@ -9,8 +9,6 @@ import {
   mapLink,
   movedCallSpan,
   newId,
-  callsFromQuote,
-  type CallToMake,
   parseEuro,
   phaseOnCalendar,
   phaseOnlyGrew,
@@ -58,8 +56,10 @@ import { QuoteCard } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { NextDock } from './NextDock.tsx'
+import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
+import { useMe } from '../crew/Leave.tsx'
 import { Heading } from '../Icon.tsx'
 import { useMyDepartment } from '../Narrowed.tsx'
 import { glideTo } from '../glide.ts'
@@ -147,13 +147,21 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   // Next, or a task's Open, picks a part far down the page: it comes to the top, under the bar, with the focus on its tab, so
   // the press is seen to do something (audit, 5 November 2026, finding 1). A tab picked from the row itself is already in view.
   const [went, setWent] = useState(0)
-  const go = (p: JobPart) => {
+  // The call whose Offer Next opened (ADR 0140): "Book 3 more crew" lands on the first place to fill with its picker open, not on a
+  // tab with the Offer buttons still to find. Counted, so pressing Next again opens it again.
+  const [offering, setOffering] = useState<{ id: string; n: number }>()
+  const go = (p: JobPart, offer?: string) => {
     pick(p)
     setWent((n) => n + 1)
+    if (offer) setOffering((was) => ({ id: offer, n: (was?.n ?? 0) + 1 }))
+    else setOffering(undefined)
   }
   useEffect(() => {
     if (!went) return
-    // Glided to, as it's the same page, with the part's card under the tabs marked where it lands (glide.ts).
+    // Glided to, as it's the same page, with the part's card under the tabs marked where it lands (glide.ts); or, opening an offer, to
+    // its call, whose picker takes the focus.
+    const call = offering && document.getElementById(`call-${offering.id}`)
+    if (call) return void glideTo(call, { mark: call })
     const tab = document.getElementById(`job-tab-${part}`)
     const row = tab?.closest<HTMLElement>('[role="tablist"]')
     const card = document.getElementById('job-part')?.firstElementChild
@@ -225,10 +233,11 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           </section>
         )}
 
-        {part === 'crew' && <CrewPart job={job} view={view} onShare={onShare} onTell={setShare} offerFor={offerFor} mayCrew={mayCrew} />}
+        {part === 'crew' && <CrewPart job={job} view={view} onShare={onShare} onTell={setShare} offerFor={offerFor} mayCrew={mayCrew} offering={offering} />}
 
         {part === 'kit' && (
           <>
+            <SettleKit job={job} view={view} />
             <KitCard job={job} view={view} />
             <VansCard job={job} view={view} />
           </>
@@ -270,6 +279,7 @@ function CrewPart({
   onTell,
   offerFor,
   mayCrew,
+  offering,
 }: {
   job: JobView
   view: View
@@ -277,6 +287,8 @@ function CrewPart({
   onTell: (share: Share | undefined) => void
   offerFor: (calls: readonly CallView[]) => ReactNode
   mayCrew: boolean
+  /** The call whose Offer the Next button opened, and how many times. */
+  offering?: { id: string; n: number }
 }) {
   const stopped = STOPPED.includes(job.status)
   const department = useMyDepartment()
@@ -294,6 +306,7 @@ function CrewPart({
       onShare={onShare(c)}
       onTell={onTell}
       inJob
+      offerOpened={offering?.id === c.id ? offering.n : undefined}
       phaseDays={phase ? c.start === phase.start && c.end === phase.end : undefined}
       // Theirs are away from their phases, first, so each says its phase.
       phaseNamed={theirs(c)}
@@ -889,44 +902,38 @@ function AddPhase({ job }: { job: JobView }) {
 }
 
 /**
- * The crew on the job's quote that it hasn't asked for yet (ADR 0126; audit of the quote flow, 8 November 2026, finding
- * 8), made calls in one press rather than typed again: each role for the job's days, for its one phase or across its
- * phases, with no rate and nobody offered yet. Quotes are only on the devices of those who see money.
+ * Kit and vans settled (ADR 0140): the one task the app can't tell is done by itself, ticked where the kit is, so the job's
+ * Next button, "Settle the kit and vans", lands on something that settles it. Shown while the task is open with kit on the
+ * job and none of it short; short kit is sorted first, on the card under it.
  */
-export function crewToCall(view: View, job: JobView): CallToMake[] {
-  const quote = view.money.quotesOf(job.id)[0]
-  return quote ? callsFromQuote(quote.lines, job.calls) : []
+function SettleKit({ job, view }: { job: JobView; view: View }) {
+  const access = useAccess()
+  const { me } = useMe(view)
+  const { run, error } = useAct()
+  const step = view.steps.of(job.id)?.steps.find((s) => s.key === 'kit')
+  const mayTick = access.can('steps') && (access.role !== 'crew' || (!!access.personId && step?.ownerId === access.personId))
+  if (!step || step.done || step.skipped || !mayTick || job.status !== 'confirmed' || step.facts.nothingYet || step.facts.short) return null
+  return (
+    <section className="card settle-kit" aria-label="Kit and vans settled">
+      <p>
+        <b>Is the kit list final?</b> Once the kit and vans are as they'll go, mark it settled: the job moves on to picking.
+      </p>
+      <Refusal error={error} />
+      <button type="button" onClick={() => void run(() => client.mutate('jobStep.set', { projectId: job.id, step: 'kit', done: true, by: me?.id ?? null }))}>
+        The kit and vans are settled
+      </button>
+    </section>
+  )
 }
 
+/** The crew on the job's quote not asked for yet (ADR 0126), made calls in one press here or from the job's Next button (ADR 0140). */
 function CrewFromQuote({ job, view }: { job: JobView; view: View }) {
   const { run, error } = useAct()
   const today = useToday()
   const toMake = crewToCall(view, job)
   if (!toMake.length || !job.span) return null
-  const span = job.span
   const only = job.phases.length === 1 ? job.phases[0] : undefined
-  const across = job.phases.map((p) => p.name).join(', ')
-  const venue = only?.venue ?? job.venue
-  const make = async () => {
-    for (const c of toMake)
-      await client.mutate('call.create', {
-        id: newId(),
-        projectId: job.id,
-        phaseId: only?.id ?? null,
-        project: job.name,
-        phase: only?.name ?? across.slice(0, 100),
-        venue: venue ? venueLabel(venue) : '',
-        role: c.role.slice(0, 100),
-        start: only?.start ?? span.start,
-        end: only?.end ?? span.end,
-        callTime: null,
-        needed: c.needed,
-        dayRateCents: null,
-        details: '',
-        replyBy: suggestedReplyBy(only?.start ?? span.start, only?.end ?? span.end, today) ?? null,
-        department: departmentForRole(c.role, { calls: view.crew.calls, people: view.crew.people }),
-      })
-  }
+  const make = () => makeCallsFromQuote(view, job, today)
   return (
     <div className="kit-from-quote" role="group" aria-label="Crew on the quote">
       <p>

@@ -116,6 +116,7 @@ export function CallCard({
   inJob = false,
   phaseDays = false,
   phaseNamed = false,
+  offerOpened,
 }: {
   call: CallView
   crew: CrewView
@@ -130,6 +131,8 @@ export function CallCard({
   phaseDays?: boolean
   /** On the job's page away from its phase, as a head's own department's are, first: the phase is said with the days. */
   phaseNamed?: boolean
+  /** Opens its Offer from outside each time it changes: the job's Next button landing on the first place to fill (ADR 0140). */
+  offerOpened?: number
 }) {
   const mayOffer = useAccess().can('crew')
   const [open, setOpen] = useState(false)
@@ -164,7 +167,7 @@ export function CallCard({
   }
 
   return (
-    <article className={`job call${call.pending ? ' is-pending' : ''}`} aria-label={`${call.needed} × ${call.role}`}>
+    <article className={`job call${call.pending ? ' is-pending' : ''}`} id={`call-${call.id}`} aria-label={`${call.needed} × ${call.role}`}>
       <button type="button" className="call-line" aria-expanded={open} onClick={() => setOpen(!open)}>
         <b>
           {call.needed} × {call.role}
@@ -301,7 +304,7 @@ export function CallCard({
       )}
 
       {live && !filled && mayOffer && (
-        <Fold label="Offer…" className="offer">
+        <Fold label="Offer…" className="offer" opened={offerOpened}>
           <OfferForm call={call} crew={crew} onShare={onShare} />
         </Fold>
       )}

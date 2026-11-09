@@ -39,6 +39,7 @@ import { Draft } from './QuoteDraft.tsx'
 import { DeleteQuote } from './QuoteDelete.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
+import { NextDock } from './NextDock.tsx'
 
 export { InStep, QuotePill } from './QuoteStatus.tsx'
 
@@ -176,8 +177,15 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   const jm = m.job(jobId)
   // The quote's one filled red is what to record next on the current version, under What happened (nextRecord). Sending or printing
   // any version takes the red only once there's nothing left to record (UX sweep, 6 November 2026, move 1).
+  // Once the job is past Quoting (ADR 0140), its own Next is here too, so the quote isn't a page that ends: the job's next step (the
+  // crew, the kit, the pick) holds the one red, and the invoice and payment records wait plain until the work is done.
+  const jobNext = view.steps.of(job.id)?.current
+  const onTheJob = !!jobNext && jobNext.key !== 'quote' && jobNext.key !== 'confirmed'
   const toSend = !!q && q.status === 'sent' && q.id === current?.id && q.sentOn === today && !q.emails.length && !byEmail && !printed.has(q.id)
-  const recording = !toSend && !!current && nextRecord(current, job) !== undefined
+  const next = current ? nextRecord(current, job) : undefined
+  const recording = !toSend && next !== undefined && !(onTheJob && (next === 'invoice' || next === 'paid'))
+  // Sending and printing take the red only when nothing else holds it: not a record to make, nor the job's own Next.
+  const plainSend = recording || onTheJob
   shownId.current = q?.id
   fileName.current = q ? `${q.number && q.status !== 'draft' && !q.numberPending ? `Quote ${q.number}` : 'Draft quote'} - ${job.name}` : ''
 
@@ -190,6 +198,16 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
         up={up}
         heading={job.name}
         badge={q && q.status !== 'draft' ? <QuotePill q={q} /> : undefined}
+        actions={
+          onTheJob ? (
+            <NextDock
+              job={job}
+              view={view}
+              onPart={(p) => (location.hash = `#jobs/${encodeURIComponent(job.id)}/${p}`)}
+              onOpenTask={(t) => (location.hash = `#jobs/${encodeURIComponent(job.id)}/task/${t}`)}
+            />
+          ) : undefined
+        }
         sub={[q ? `Quote · version ${q.version}${q.status === 'draft' ? ' · draft' : ''}` : 'Quote', job.client?.name ?? 'No client yet', job.span ? spanLabel(job.span) : 'No dates yet'].join(' · ')}
       />
       {(versions.length > 1 || (q && !q.latest) || (jm && jm.margin !== null && q?.id === current?.id)) && (
@@ -241,11 +259,11 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             ) : (
               <div className="actions">
                 {byEmail && q.latest && (
-                  <button type="button" className={recording || q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
+                  <button type="button" className={plainSend || q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
                     {q.emails.length ? 'Send again' : 'Send by email'}
                   </button>
                 )}
-                <button type="button" className={recording || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
+                <button type="button" className={plainSend || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
                   Print or save as PDF
                 </button>
                 {q.latest && !settled && <NewVersion q={q} onMade={setPicked} />}
@@ -253,7 +271,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             )}
             {settled && q.latest && <p className="hint">The quote is invoiced, so it's settled: no new version.</p>}
           </section>
-          {q.id === current?.id && <Records q={q} job={job} canEmail={byEmail} quiet={toSend} />}
+          {q.id === current?.id && <Records q={q} job={job} canEmail={byEmail} quiet={toSend || (onTheJob && (next === 'invoice' || next === 'paid'))} />}
         </>
       )}
 
