@@ -83,9 +83,9 @@ export const SELECT = `
     ) w
     LEFT JOIN users u ON u.id = m.user_id
     -- Someone combined with another (ADR 0055) answered as the one person, whose name it now is.
-    LEFT JOIN person_merges pm ON pm.from_id = CASE WHEN m.client_id LIKE 'link:%' THEN substr(m.client_id, 6) WHEN m.client_id LIKE 'calendar:%' THEN substr(m.client_id, 10) END
+    LEFT JOIN person_merges pm ON pm.from_id = CASE WHEN m.client_id LIKE 'link:%' THEN substr(m.client_id, 6) WHEN m.client_id LIKE 'calendar:%' OR m.client_id LIKE 'whatsapp:%' THEN substr(m.client_id, 10) END
     LEFT JOIN people p ON (m.client_id LIKE 'link:%' AND p.id = coalesce(pm.into_id, substr(m.client_id, 6)))
-                       OR (m.client_id LIKE 'calendar:%' AND p.id = coalesce(pm.into_id, substr(m.client_id, 10)))`
+                       OR ((m.client_id LIKE 'calendar:%' OR m.client_id LIKE 'whatsapp:%') AND p.id = coalesce(pm.into_id, substr(m.client_id, 10)))`
 
 /** One page of the history, newest first. */
 
@@ -104,7 +104,7 @@ export async function readHistory(q: Queryable, query: HistoryQuery = {}, rates 
   else if (query.who?.startsWith('link:')) {
     // With the answers of anyone combined with them (ADR 0055): they were the same person.
     const id = param(query.who.slice(5))
-    where.push(`m.client_id IN (SELECT k || i FROM (SELECT ${id}::text AS i UNION SELECT from_id FROM person_merges WHERE into_id = ${id}) ids, (VALUES ('link:'), ('calendar:')) v(k))`)
+    where.push(`m.client_id IN (SELECT k || i FROM (SELECT ${id}::text AS i UNION SELECT from_id FROM person_merges WHERE into_id = ${id}) ids, (VALUES ('link:'), ('calendar:'), ('whatsapp:')) v(k))`)
   }
   else if (query.who) where.push('false')
   if (query.id) {
@@ -157,7 +157,7 @@ async function historyPeople(q: Queryable): Promise<{ key: string; name: string 
     `SELECT 'user:' || id AS key, name FROM users
      UNION ALL
      SELECT 'link:' || p.id AS key, p.name FROM people p
-      WHERE EXISTS (SELECT 1 FROM mutations m WHERE m.client_id IN ('link:' || p.id, 'calendar:' || p.id))
+      WHERE EXISTS (SELECT 1 FROM mutations m WHERE m.client_id IN ('link:' || p.id, 'calendar:' || p.id, 'whatsapp:' || p.id))
      ORDER BY name, key`
   )
   return rows
@@ -196,10 +196,11 @@ export async function toEntries(q: Queryable, rows: Row[], rates = true, notes =
     const args = r.args ?? {}
     const link = r.client_id.startsWith('link:')
     const calendar = r.client_id.startsWith('calendar:')
+    const whatsapp = r.client_id.startsWith('whatsapp:')
     const waited = r.waited === null ? undefined : Math.round(r.waited)
     return {
       id: r.id,
-      what: describe(r.name, args, look, left.get(r.id), link ? 'link' : calendar ? 'calendar' : 'app', rates, notes, docs),
+      what: describe(r.name, args, look, left.get(r.id), link ? 'link' : calendar ? 'calendar' : whatsapp ? 'whatsapp' : 'app', rates, notes, docs),
       command: r.name,
       outcome: r.status === 'applied' ? 'done' : 'turned-down',
       ...(r.status === 'rejected' ? { reason: r.result?.reason?.message ?? 'No reason given.' } : {}),
@@ -207,6 +208,8 @@ export async function toEntries(q: Queryable, rows: Row[], rates = true, notes =
         ? { kind: 'link', name: r.link_name ?? 'A freelancer', key: r.client_id }
         : calendar
           ? { kind: 'calendar', name: r.link_name ?? 'A freelancer', key: `link:${r.client_id.slice(9)}` }
+          : whatsapp
+            ? { kind: 'whatsapp', name: r.link_name ?? 'A freelancer', key: `link:${r.client_id.slice(9)}` }
           : r.client_id === CLAUDE_CLIENT
             ? { kind: 'claude', name: 'Claude', key: 'claude' }
             : r.user_id

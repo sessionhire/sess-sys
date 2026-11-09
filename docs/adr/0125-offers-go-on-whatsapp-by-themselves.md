@@ -1,6 +1,6 @@
 # ADR 0125: Offers go on WhatsApp by themselves
 
-- **Status:** accepted; parts 1 and 2 built, part 3 (answers) next
+- **Status:** accepted; built in three parts (the last, answers, on 9 November 2026)
 - **Date:** 9 November 2026
 - **Asked for by:** Colly, 9 November 2026 ("I would like it that the system
   does this automatically"), after the research in
@@ -71,6 +71,36 @@ Twilio or 360dialog and chose to go straight to Meta.
    Admin › Status reads the number's state and quality from Meta and sends
    nothing. Steps for setting it up are in [whatsapp-setup.md](../whatsapp-setup.md).
 
+6. **Answers come back (part 3).** Meta posts to `/whatsapp/hook`, which
+   answers its one-off check with `WHATSAPP_VERIFY_TOKEN` and believes a
+   post only when it's signed with `WHATSAPP_APP_SECRET`. Only posts for
+   this number count.
+   - **Receipts.** Sent, delivered, read, or not delivered and why, go on
+     the message and show on the offer's row in Crew while it waits for an
+     answer ("read on WhatsApp"). A receipt never takes a message back.
+   - **Yes, I can do it** accepts the offer, all its days, as their own
+     answer on their page would (`offer.respond`, `respondedVia:
+     'whatsapp'`), and they're told they're down for it and the office will
+     confirm. Turned down (filled, withdrawn, a clash), they're told why in
+     the same words their page uses.
+   - **No, I can't** asks once more, *Decline it* or *Keep it open*, as
+     their page does, so a slip of the thumb doesn't lose them a job.
+   - **Old buttons.** Pressed after they've said yes, nothing changes: Yes
+     says they're already down for it, No points to their page to say they
+     can't make it, so the office hears through "Answers to check".
+   - **Only theirs.** A button counts only from the number its offer went
+     to. Meta sends again when unsure; each message is acted on once
+     (`whatsapp_inbound`, Meta's id only), and the answer's id comes from
+     Meta's, so it's never taken twice.
+   - **Written messages.** STOP (or *unsubscribe*, *opt out*) turns their
+     offers on WhatsApp off, as their page's button does. Anything else
+     written, or a photo or voice note, is answered with where to answer and
+     the office's number: nobody reads this number. A number the app never
+     messaged hears nothing.
+   - **In the history** each is theirs, "on WhatsApp", with the person's
+     other answers (client `whatsapp:<person>`), and Download everything
+     says WhatsApp.
+
 ## Considered
 
 - **Twilio or another provider.** Each adds a fee or a monthly charge, and
@@ -89,18 +119,19 @@ Twilio or 360dialog and chose to go straight to Meta.
 
 ## Consequences
 
-- One new table, `whatsapp_messages`, holding the number each message went
+- Two new tables: `whatsapp_messages`, holding the number each message went
   to and Meta's id for it; in the backups and Download everything, and
   deleted with the person on erasure. Combining two people moves theirs.
+  And `whatsapp_inbound`, Meta's id of each message received and when,
+  nothing else, so each is acted on once.
 - `people.whatsapp_off`, and the "whatsapp" row of `settings`.
 - Nothing reaches anyone until Colly sets up the Meta side and turns the
   switch on (launch), or puts a number in test mode.
 
 ## Still to do
 
-- **Part 3: answers.** Meta's receipts (delivered, read) on the offer row,
-  Yes and No answering the offer through `offer.respond` (`respondedVia:
-  'whatsapp'`), a typed reply to the office as a notification, and STOP.
-  Until then the buttons do nothing but open WhatsApp's reply.
 - **Which number** sends: a new one, or the office's own through Meta's
   coexistence. Colly to decide.
+- **Written messages to the office.** Today a written message gets an
+  answer saying nobody reads the number. If crew write there a lot, the
+  office could get them as a notification instead.

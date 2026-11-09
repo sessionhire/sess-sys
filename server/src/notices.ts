@@ -73,7 +73,7 @@ export async function readNotices(q: Queryable, reader: NoticeReader, rates = tr
   const user = reader.userId ?? null
   const person = reader.personId ?? null
   // What they did themselves, wherever they did it.
-  const own = [...(person ? [`link:${person}`, `calendar:${person}`] : []), ...(reader.clientId ? [reader.clientId] : [])]
+  const own = [...(person ? [`link:${person}`, `calendar:${person}`, `whatsapp:${person}`] : []), ...(reader.clientId ? [reader.clientId] : [])]
   const { rows: hits } = await q.query<Hit>(
     `WITH made AS (
        SELECT m.args->>'id' AS id FROM mutations m

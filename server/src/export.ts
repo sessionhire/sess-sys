@@ -239,7 +239,7 @@ function historyCsv(history: HistoryEntry[]): string {
     history.map((h) => [
       irishTime(h.madeAt),
       h.who.name,
-      h.who.kind === 'link' ? 'Private link' : h.who.kind === 'calendar' ? 'Google Calendar' : h.who.kind === 'claude' ? 'Claude, from the operations mailbox' : h.deviceCode ? `App, device ${h.deviceCode}` : '',
+      h.who.kind === 'link' ? 'Private link' : h.who.kind === 'calendar' ? 'Google Calendar' : h.who.kind === 'whatsapp' ? 'WhatsApp' : h.who.kind === 'claude' ? 'Claude, from the operations mailbox' : h.deviceCode ? `App, device ${h.deviceCode}` : '',
       h.device ?? '',
       h.what,
       h.outcome === 'done' ? 'Done' : 'Turned down',

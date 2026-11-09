@@ -3,6 +3,28 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: answers on WhatsApp (off until launch)
+
+**Done**
+
+- The WhatsApp offer's buttons now answer it (1.129.0, ADR 0125 part 3).
+  *Yes, I can do it* accepts it, as their page would, and they get a reply
+  saying they're down for it. *No, I can't* asks once more (*Decline it* or
+  *Keep it open*). A filled or withdrawn job says so. A button counts only
+  from the number the offer went to, and once however often Meta sends it.
+- Each offer's row in Crew says "sent", "delivered" or "read on WhatsApp"
+  while it waits for an answer, or "not sent" and why.
+- STOP turns their offers on WhatsApp off; anything else written gets a
+  reply pointing to their page and the office's number.
+- The history shows these answers as theirs, "on WhatsApp".
+- Checked: 16 tests with a stand-in for Meta, including the signature,
+  repeats, a stranger's number and receipts arriving out of order.
+
+**Waiting on**
+
+- Colly: Meta's side ([steps](whatsapp-setup.md)) and which number. Then
+  test mode on Colly's phone.
+
 ## 9 November 2026: a master calendar of jobs and enquiries
 
 **Done**
@@ -37,8 +59,6 @@ waiting on someone.
 
 **Waiting on**
 
-- Part 3, being built: the buttons answering the offer, delivered and read
-  on the offer, typed replies to the office.
 - Colly: Meta business verification, the number (new, or the office's own),
   the template, and the four Railway variables. Then test mode on Colly's
   phone.

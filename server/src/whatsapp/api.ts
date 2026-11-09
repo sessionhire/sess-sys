@@ -2,7 +2,8 @@
  * Meta's WhatsApp Cloud API (ADR 0125), straight to Meta with no provider in between: the number's state, and, from
  * part 2, sending an offer's template. Everything it is given comes from Railway: the token of a system user in Session
  * Hire's Meta business account, the WhatsApp number's id, the app's secret (to check that what Meta posts back is
- * Meta's) and the word Meta echoes when the web address is registered.
+ * Meta's) and the word Meta echoes when the web address is registered. Part 3 adds the short answers sent back when
+ * someone presses a button or writes.
  */
 
 export interface WhatsAppConfig {
@@ -98,6 +99,34 @@ export class WhatsAppApi {
       to,
       type: 'template',
       template: { name, language: { code: this.config.language }, components },
+    })
+    const id = r.messages?.[0]?.id
+    if (!id) throw new WhatsAppRefused('Meta took the message but gave no id for it.', 200)
+    return id
+  }
+
+  /**
+   * A plain message, in answer to one of theirs: free and allowed for a day after they last wrote or pressed a button
+   * (Meta's service window), which every answer here is.
+   */
+  async sendText(to: string, body: string): Promise<string> {
+    return this.message(to, { type: 'text', text: { body, preview_url: false } })
+  }
+
+  /** A question with up to three buttons, each carrying its own id back, also only inside the service window. */
+  async sendButtons(to: string, body: string, buttons: { id: string; title: string }[]): Promise<string> {
+    return this.message(to, {
+      type: 'interactive',
+      interactive: { type: 'button', body: { text: body }, action: { buttons: buttons.map((b) => ({ type: 'reply', reply: b })) } },
+    })
+  }
+
+  private async message(to: string, content: object): Promise<string> {
+    const r = await this.request<{ messages?: { id: string }[] }>('POST', `${encodeURIComponent(this.config.phoneNumberId)}/messages`, {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      ...content,
     })
     const id = r.messages?.[0]?.id
     if (!id) throw new WhatsAppRefused('Meta took the message but gave no id for it.', 200)
