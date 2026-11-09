@@ -239,6 +239,11 @@ export const jobCommandSchemas = {
   'venue.upsert': venue,
   /** Put a venue on the map, move its pin, or (null) take it off (ADR 0057). */
   'venue.pin': z.object({ id, pin: pin.nullable() }),
+  /**
+   * Fill clients and venues in from the copy of Current RMS's kept on the server (ADR 0136): gaps only, and those on
+   * its quotes not here yet added when `add` is ticked. Worked out on the server, as the preview showed it.
+   */
+  'rms.fillMembers': z.object({ add: z.boolean() }),
   'project.create': project,
   /**
    * Only the fields the person changed, so two people changing different

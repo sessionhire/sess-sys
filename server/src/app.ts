@@ -51,6 +51,7 @@ import { registerItemLogRoutes } from './stock/log.ts'
 import { nominatim, registerPlaceRoutes, type PlaceSearch } from './projects/places.ts'
 import { aaFuel, FuelUpdates, registerFuelRoutes, type FuelLookup } from './finance/fuel.ts'
 import { RmsApi, type RmsConfig } from './rms/api.ts'
+import { RmsMemberReader } from './rms/members.ts'
 import { RmsPriceReader } from './rms/prices.ts'
 import { RmsReader } from './rms/reader.ts'
 import { registerRmsRoutes } from './rms/routes.ts'
@@ -195,6 +196,7 @@ declare module 'fastify' {
     rms: RmsReader
     /** Reading Current RMS's hire prices (ADR 0132), run from Admin. */
     rmsPrices: RmsPriceReader
+    rmsMembers: RmsMemberReader
     /** Claude's to-do list each weekday morning (ADR 0097); the caller starts it once the server is listening. */
     assistantTodo: Todo
     /** Claude reading the operations mailbox (ADR 0098); the caller starts it once the server is listening. */
@@ -682,7 +684,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('rms', rms)
   const rmsPrices = new RmsPriceReader(db, rmsApi, app.log)
   app.decorate('rmsPrices', rmsPrices)
-  registerRmsRoutes(app, { db, reader: rms, prices: rmsPrices })
+  const rmsMembers = new RmsMemberReader(db, rmsApi, app.log)
+  app.decorate('rmsMembers', rmsMembers)
+  registerRmsRoutes(app, { db, reader: rms, prices: rmsPrices, members: rmsMembers })
   const assistant = new Assistant(db, options.claude)
   const todo = new Todo(db, assistant, app.log)
   app.decorate('assistantTodo', todo)
@@ -785,7 +789,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     rms.stop()
     await rms.done?.catch(() => {})
     rmsPrices.stop()
+    rmsMembers.stop()
     await rmsPrices.done?.catch(() => {})
+    await rmsMembers.done?.catch(() => {})
     // A backup under way is given a while to finish, or marked stopped so the next server makes it up (audit finding 54).
     await backups.close()
     app.dueErasures.stop()

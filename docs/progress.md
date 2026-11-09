@@ -3,6 +3,24 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: clients and venues filled in from Current RMS
+
+**Done**
+
+- Admin › Connections has a Clients and venues from Current RMS card (ADR
+  0136, 1.137.0). Read them reads Current RMS's organisations, venues and
+  the contacts who belong to them.
+- Before anything changes, it says what filling in would do: addresses
+  where there are none, contacts a client hasn't got, a contact for a venue
+  with nobody, and those on Current RMS's quotes not here yet (added only
+  when ticked). Nothing typed here is changed.
+- Checked: server tests with a stand-in for Current RMS, and the card at
+  phone width.
+
+**Waiting on**
+
+- The office: Read them, look over the lists, and Fill in, on live.
+
 ## 9 November 2026: hire prices filled in from Current RMS
 
 **Done**

@@ -91,6 +91,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'venue.upsert': 'jobs',
   'venue.pin': 'jobs',
   'client.upsert': 'jobs',
+  'rms.fillMembers': 'jobs',
   'attachment.save': 'jobs',
   'attachment.remove': 'jobs',
 
