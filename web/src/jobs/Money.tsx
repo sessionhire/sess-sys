@@ -556,11 +556,11 @@ function ByMonth({ m }: { m: MoneyView }) {
           <thead>
             <tr>
               <th scope="col">Month</th>
-              <th scope="col">Quoted</th>
-              <th scope="col">Confirmed</th>
-              <th scope="col">Invoiced</th>
-              <th scope="col">Freelancers</th>
-              <th scope="col">Lost</th>
+              <th scope="col" className="n">Quoted</th>
+              <th scope="col" className="n">Confirmed</th>
+              <th scope="col" className="n">Invoiced</th>
+              <th scope="col" className="n">Freelancers</th>
+              <th scope="col" className="n">Lost</th>
             </tr>
           </thead>
           <tbody>
@@ -746,9 +746,9 @@ function Margins({ m, today }: { m: MoneyView; today: string }) {
               <thead>
                 <tr>
                   <th scope="col">Job</th>
-                  <th scope="col">Quoted</th>
-                  <th scope="col">Freelancers</th>
-                  <th scope="col">After freelancers</th>
+                  <th scope="col" className="n">Quoted</th>
+                  <th scope="col" className="n">Freelancers</th>
+                  <th scope="col" className="n">After freelancers</th>
                 </tr>
               </thead>
               <tbody>

@@ -17,6 +17,22 @@ waiting on someone.
 **Waiting on**
 
 - Nothing.
+## 9 November 2026: job offers over WhatsApp, researched
+
+**Done**
+
+- [Job offers over WhatsApp](research/whatsapp-offers.md), at Colly's ask
+  that the app send offers itself. Recommended: Meta's WhatsApp Cloud API
+  direct (no provider, about €80 a year), an offer that sends itself when
+  the office makes it, with Yes, No and See the details buttons; Yes and
+  No answer the offer as the link does. Freelancers tick "Send my offers on
+  WhatsApp" on their link first. Behind a switch, off until launch. A plan
+  in four parts. Nothing built.
+
+**Waiting on**
+
+- Colly to pick the plan and answer the page's five questions; Meta
+  business verification and a number when building starts.
 
 ## 9 November 2026: the logo goes Home, and a start screen for each person
 

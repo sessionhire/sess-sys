@@ -52,11 +52,11 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
         <thead>
           <tr>
             <th scope="col">What</th>
-            <th scope="col">How many</th>
-            <th scope="col">Days</th>
-            <th scope="col">Price</th>
-            <th scope="col">VAT</th>
-            <th scope="col">Amount</th>
+            <th scope="col" className="n">How many</th>
+            <th scope="col" className="n">Days</th>
+            <th scope="col" className="n">Price</th>
+            <th scope="col" className="n">VAT</th>
+            <th scope="col" className="n">Amount</th>
           </tr>
         </thead>
         {linesByGroup(lines).map((g) => (

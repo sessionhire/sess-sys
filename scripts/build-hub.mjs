@@ -31,6 +31,7 @@ const DOCS = [
   ['Quoting: faster, easier, more reliable', 'docs/research/quoting.md'],
   ['Starter packages from past quotes', 'docs/research/package-starter-list.md'],
   ['Native iPhone and Android apps', 'docs/research/native-apps.md'],
+  ['Job offers over WhatsApp', 'docs/research/whatsapp-offers.md'],
   ['Stock tracking', 'docs/research/stock-tracking.md'],
   ['Rentdeck, set beside the app', 'docs/research/competitor-rentdeck.md'],
   ['Competitor audit', 'docs/research/competitor-audit.md'],
