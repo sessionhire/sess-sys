@@ -61,6 +61,12 @@ export function BoardScreen({ view }: { view: View }) {
         {columns.map((c) => (
           <section key={c.key} className="board-col" aria-labelledby={`board-${c.key}`}>
             <header>
+              {/* The column's place in the five, drawn as a job's own line draws it, so the Board and a job page read alike. */}
+              <span className="stage-seg" aria-hidden="true">
+                {JOB_STAGES.map((k, i) => (
+                  <i key={k} data-state={i < JOB_STAGES.indexOf(c.key) ? 'done' : k === c.key ? 'now' : undefined} />
+                ))}
+              </span>
               <b id={`board-${c.key}`}>{c.label}</b>
               <small>{columnWord(c.jobs, c.key === 'back' ? toCheck : undefined)}</small>
             </header>
@@ -84,6 +90,11 @@ export function BoardScreen({ view }: { view: View }) {
         ))}
         <section className="board-col" aria-labelledby="board-through">
           <header>
+            <span className="stage-seg" aria-hidden="true">
+              {JOB_STAGES.map((k) => (
+                <i key={k} data-state="done" />
+              ))}
+            </span>
             <b id="board-through">Through</b>
             <small>{through.length ? `${through.length} this month` : 'this month'}</small>
           </header>

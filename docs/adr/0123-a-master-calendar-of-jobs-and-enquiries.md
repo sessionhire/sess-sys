@@ -53,7 +53,7 @@ enquiries and quotes stay off it), and the app must not write to it anyway.
 - Office and directors see how full a month is and could get, at a glance.
 - Everyone who sees Jobs sees the calendar; only money roles see quote states.
 
-## Later: drawn like Google Calendar (9 November 2026, 1.132.2)
+## Later: drawn like Google Calendar (9 November 2026, 1.133.1)
 
 Colly asked for it to "look a bit more like google calendar", with smaller
 type and shows drawn joined over their days. The month is now a row a week:

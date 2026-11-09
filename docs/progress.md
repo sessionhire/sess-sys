@@ -11,11 +11,29 @@ waiting on someone.
   reads: smaller type, a job of several days drawn as one bar across its
   days, today circled, Today and arrows at the top. Confirmed still solid,
   potential still dashed. On a phone it reads like Google's schedule
-  (1.132.2, ADR 0123).
+  (1.133.1, ADR 0123).
 
 **Waiting on**
 
 - Nothing.
+
+## 9 November 2026: colour on the stage line
+
+**Done**
+
+- A job's five stages fill in red up to where it is: passed stages red with
+  a tick, the line between them red, the stage it's in ringed in red, or
+  amber when crew or kit is short and orange when something is late
+  (1.133.0, ADR 0131). The small bar on the Jobs list, Home and the job's
+  head does the same, and each Board column carries the bar too.
+- One colour for progress, not one per stage: the stage's name already
+  says which, and other colours already mean short, late and healthy.
+- Checked: before and after on phone and desk, dark and light; the stages,
+  Home and Jobs tests.
+
+**Waiting on**
+
+- Colly: merging the learning in design-system #47.
 
 ## 9 November 2026: answers on WhatsApp (off until launch)
 
