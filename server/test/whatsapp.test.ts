@@ -26,7 +26,7 @@ interface Sent {
 function fakeMeta() {
   const sent: Sent[] = []
   let answer: { status: number; error?: string } = { status: 200 }
-  const fetch = (async (url: string | URL, init?: RequestInit) => {
+  const fetch: typeof globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
     const u = String(url)
     if (init?.method === 'POST') {
       const body = JSON.parse(String(init.body))
@@ -35,7 +35,7 @@ function fakeMeta() {
       return new Response(JSON.stringify({ messages: [{ id: `wamid.${sent.length}` }] }), { status: 200 })
     }
     return new Response(JSON.stringify({ display_phone_number: '+353 1 555 0100', verified_name: 'Session Hire', quality_rating: 'GREEN', name_status: 'APPROVED' }), { status: 200 })
-  }) as typeof fetch
+  }) as typeof globalThis.fetch
   return { fetch, sent, answer: (a: typeof answer) => (answer = a) }
 }
 
