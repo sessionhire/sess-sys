@@ -37,7 +37,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 /** What each role is for, in a line, where a role is chosen. */
 export const ROLE_LINES: Record<Role, string> = {
-  director: 'Everything, and the things only a director does: roles, erasing a person, starting fresh.',
+  director: 'Everything, and the things only a director does: roles, erasing a person, deleting a quote, starting fresh.',
   office: 'Jobs, crew, kit and stock, money, and the settings: calendar, office details, bringing lists in, downloads.',
   head: "Crew and their bookings, kit on jobs, stock and the warehouse, the purchase list, and jobs' steps. Not jobs themselves, nor settings.",
   crew: "Their own leave and days in lieu, answering their own offers, the job steps given to them, asking for kit to be bought and voting for it, and reporting a fault. They can look at the rest, but nobody else's pay, link, email, notes or documents.",
@@ -61,7 +61,7 @@ const ABILITY_WORDS: Record<Ability, string> = {
   answer: 'answer their own offers in the app',
   money: 'see and change prices, quotes and what is owed',
   settings: 'change settings, bring lists in or download everything',
-  company: 'change roles, erase a person or start fresh',
+  company: 'change roles, erase a person, delete a quote or start fresh',
 }
 
 /** What each role can change. A director can change everything. */
@@ -200,6 +200,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'quote.save': 'money',
   'quote.sent': 'money',
   'quote.answer': 'money',
+  // Deleting a quote is an admin's (ADR 0135): a director or a system admin, as erasing a person is. Putting it back is a server route that needs company too.
+  'quote.delete': 'company',
   'quote.invoiced': 'money',
   'quote.paid': 'money',
   'quoting.update': 'money',

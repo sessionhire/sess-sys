@@ -7,6 +7,7 @@ import {
   amount,
   csvText,
   DEFAULT_VALID_DAYS,
+  deleteTyped,
   QUOTE_SETTINGS_ID,
   moneyMonth,
   quoteTotals,
@@ -274,6 +275,13 @@ export function moneyView(
             declinedNote: a.answer === 'declined' ? (a.note ?? '').trim() : '',
             pending: true,
           })
+        break
+      }
+      // Gone from this device at once (ADR 0135); putting one back waits for the server, which has it.
+      case 'quote.delete': {
+        const a = m.args as CommandArgs<'quote.delete'>
+        const was = quotes.get(a.id)
+        if (was && deleteTyped(was, a.typed)) quotes.delete(a.id)
         break
       }
       case 'quote.invoiced': {

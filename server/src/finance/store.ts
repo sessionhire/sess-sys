@@ -43,22 +43,45 @@ const toQuote = (r: Row): Quote => ({
 /** The version a client's link opens (ADR 0121), by its key. */
 export async function quoteByToken(q: Queryable, token: string): Promise<Quote | undefined> {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return undefined
-  const { rows } = await q.query(`SELECT ${QUOTE} FROM quotes WHERE accept_token = $1`, [token])
+  // A deleted version's link opens nothing (ADR 0135).
+  const { rows } = await q.query(`SELECT ${QUOTE} FROM quotes WHERE accept_token = $1 AND deleted_at IS NULL`, [token])
   return rows[0] ? toQuote(rows[0]) : undefined
 }
 
 /** A new key for a client's link: 144 random bits, written as a link carries them. */
 export const newAcceptToken = () => randomBytes(18).toString('base64url')
 
-export async function getQuote(q: Queryable, id: string, lock = false): Promise<Quote | undefined> {
-  const { rows } = await q.query(`SELECT ${QUOTE} FROM quotes WHERE id = $1${lock ? ' FOR UPDATE' : ''}`, [id])
+/** A version, unless it's been deleted (ADR 0135): then it's as if it weren't there, but to put it back. */
+export async function getQuote(q: Queryable, id: string, lock = false, deleted = false): Promise<Quote | undefined> {
+  const { rows } = await q.query(`SELECT ${QUOTE} FROM quotes WHERE id = $1${deleted ? '' : ' AND deleted_at IS NULL'}${lock ? ' FOR UPDATE' : ''}`, [id])
   return rows[0] ? toQuote(rows[0]) : undefined
 }
 
-/** A job's versions, newest first. */
+/** Whether a version has been deleted (ADR 0135). */
+export async function isDeleted(q: Queryable, id: string): Promise<boolean> {
+  const { rows } = await q.query('SELECT 1 FROM quotes WHERE id = $1 AND deleted_at IS NOT NULL', [id])
+  return rows.length > 0
+}
+
+/** A job's versions, newest first, leaving out any deleted. */
 export async function quotesOf(q: Queryable, projectId: string): Promise<Quote[]> {
-  const { rows } = await q.query(`SELECT ${QUOTE} FROM quotes WHERE project_id = $1 ORDER BY version DESC`, [projectId])
+  const { rows } = await q.query(`SELECT ${QUOTE} FROM quotes WHERE project_id = $1 AND deleted_at IS NULL ORDER BY version DESC`, [projectId])
   return rows.map(toQuote)
+}
+
+/**
+ * A job's highest version and its quote number, counting deleted ones (ADR 0135): a new version is numbered after a
+ * deleted one, so putting that back never finds its number taken, and the job keeps its one quote number.
+ */
+export async function versionsEver(q: Queryable, projectId: string): Promise<{ top: number; number: number | null }> {
+  const { rows } = await q.query<{ top: number | null; number: number | null }>('SELECT max(version) AS top, max(number) AS number FROM quotes WHERE project_id = $1', [projectId])
+  return { top: Number(rows[0]?.top ?? 0), number: rows[0]?.number ?? null }
+}
+
+/** The emails that went with a version (ADR 0101), so they go and come back with it (ADR 0135). */
+export async function emailsOf(q: Queryable, quoteId: string): Promise<string[]> {
+  const { rows } = await q.query<{ id: string }>('SELECT id FROM quote_emails WHERE quote_id = $1 ORDER BY sent_at', [quoteId])
+  return rows.map((r) => r.id)
 }
 
 export async function getProductPrice(q: Queryable, modelId: string): Promise<ProductPrice | undefined> {
@@ -132,7 +155,7 @@ export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | un
   }
 }
 
-/** The highest quote number given so far, or 0. */
+/** The highest quote number given so far, or 0: a deleted version's too, so no number is given twice (ADR 0135). */
 export async function highestNumber(q: Queryable): Promise<number> {
   const { rows } = await q.query<{ n: number | null }>('SELECT max(number) AS n FROM quotes')
   return Number(rows[0]?.n ?? 0)

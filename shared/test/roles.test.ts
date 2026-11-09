@@ -54,7 +54,7 @@ describe('roles', () => {
   it('say who can, and who to ask', () => {
     expect(refusalFor('freelancer', 'jobs')).toBe('Only the office and directors can change jobs, clients and venues. Your role is Freelancer; a director can change it on your person on the Crew tab.')
     expect(refusalFor('crew', 'stock')).toMatch(/^Only the office, heads of department and directors can change stock and the warehouse\./)
-    expect(refusalFor('office', 'company')).toMatch(/^Only directors can change roles, erase a person or start fresh\./)
+    expect(refusalFor('office', 'company')).toMatch(/^Only directors can change roles, erase a person, delete a quote or start fresh\./)
   })
 
   it("keep the email and type of someone who holds a role to the office and directors, and each email to one person (audit finding 12)", () => {

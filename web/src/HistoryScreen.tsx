@@ -1,11 +1,15 @@
 import { deviceWords, historyDays, historyTime, runLabel, waitLabel, type HistoryEntry, type HistoryPage, type HistoryRun } from '@sh/shared'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { markSignedOut, useAuth } from './auth.ts'
+import { Refusal, useAct } from './act.tsx'
 import { Empty } from './Empty.tsx'
+import { Icon } from './Icon.tsx'
 import { Top, useHash } from './jobs/common.tsx'
 import { useToday, useView } from './view.ts'
 import { useLate } from './useLate.ts'
 import { MENU } from './Up.tsx'
+import { useAccess } from './role.ts'
+import { post } from './server.ts'
 
 /**
  * The history (ADR 0006): who did what, when, on which device, whether it
@@ -248,6 +252,38 @@ function Entry({ entry: e, day, inRun }: { entry: HistoryEntry; day: string; inR
         <p className="meta">Made offline; it reached the server {waitLabel(e.waitedSeconds)} later.</p>
       )}
       {e.outcome === 'turned-down' && <p className="alert">Turned down: {e.reason}</p>}
+      {e.command === 'quote.delete' && e.outcome === 'done' && <PutBack entry={e} />}
     </li>
+  )
+}
+
+/**
+ * A deleted quote is put back from the history (ADR 0135): the server kept it. An admin's, as deleting it was, and only
+ * while it isn't back on this device already.
+ */
+function PutBack({ entry }: { entry: HistoryEntry }) {
+  const view = useView()
+  const may = useAccess().can('company')
+  const { run, error } = useAct()
+  const [putting, setPutting] = useState(false)
+  const id = entry.records.find((r) => r.entity === 'quote')?.id
+  if (!may || !id || view.money.quote(id)) return null
+  return (
+    <div className="put-back">
+      <button
+        type="button"
+        disabled={putting}
+        aria-busy={putting}
+        onClick={() => {
+          setPutting(true)
+          // Needs signal: the server has the quote, and sends it back to every device.
+          void run(() => post(`/api/quotes/${encodeURIComponent(id)}/restore`)).finally(() => setPutting(false))
+        }}
+      >
+        <Icon name="undo" />
+        Put the quote back
+      </button>
+      <Refusal error={error} />
+    </div>
   )
 }

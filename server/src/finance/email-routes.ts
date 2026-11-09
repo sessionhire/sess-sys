@@ -5,6 +5,9 @@ import { publicOrigin } from '../http.ts'
 import { fileNameFor, prefillFor, sendQuote, sheetFor, type Mailer } from './quote-email.ts'
 import { quotePdf } from './quote-pdf.ts'
 import { getQuote, getQuoteEmailPdf } from './store.ts'
+import { Refused, serverChange } from '../kernel.ts'
+import { QUOTE_PUT_BACK_ACTION } from '../history-words.ts'
+import { restoreQuote } from './handlers.ts'
 
 /**
  * Sending a quote by email (ADR 0101), and the quote as a PDF: for those
@@ -39,6 +42,28 @@ export function registerQuoteEmailRoutes(app: FastifyInstance, m: Mailer) {
   })
 
   /** The quote as it stands, as the PDF that would go: to look at before sending, or to save and send another way. */
+  /**
+   * Put a deleted version back (ADR 0135), from the history: an admin's, as deleting it was. Recorded in the history as
+   * the server's own change, by whoever asked; every device is sent it back.
+   */
+  app.post<{ Params: { id: string }; Querystring: { client?: string } }>('/api/quotes/:id/restore', { config: { needs: 'company' } }, async (req, reply) => {
+    noStore(reply)
+    const quoteId = id(req.params.id)
+    const clientId = typeof req.query.client === 'string' ? req.query.client : undefined
+    try {
+      const q = await serverChange(
+        m.db,
+        { name: QUOTE_PUT_BACK_ACTION, args: { id: quoteId }, clientId, userId: req.user?.id, device: describeDevice(req.headers['user-agent']) },
+        (ctx) => restoreQuote(ctx, quoteId)
+      )
+      m.onChange?.()
+      return { id: q.id, projectId: q.projectId, version: q.version }
+    } catch (err) {
+      if (err instanceof Refused) return reply.code(err.reason.code === 'not-found' ? 404 : 409).send({ error: err.reason.message })
+      throw err
+    }
+  })
+
   app.get<{ Params: { id: string } }>('/api/quotes/:id/pdf', { config: { needs: 'money' } }, async (req, reply) => {
     const quote = await getQuote(m.db.reads, id(req.params.id))
     if (!quote) return reply.code(404).send({ error: 'That quote is no longer here.' })
