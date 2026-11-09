@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.142.1',
+    date: '2026-11-09',
+    title: 'Send stays at the top of a quote',
+    what: "On a draft quote, the button to send it (or get the PDF to send) now sits in the strip at the top with the totals, and stays there as you scroll and change lines. It no longer disappears while a line is unfinished: it says what's stopping it, such as \"Send: 1 line to finish\", and takes you to that line. Pressed while a change is still saving, it waits for the save and then goes.",
+    prs: [300],
+    adrs: [140],
+  },
+  {
     version: '1.142.0',
     date: '2026-11-09',
     title: "A job's Next button does what it says",

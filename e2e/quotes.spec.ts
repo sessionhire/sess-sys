@@ -145,10 +145,12 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(draft.locator('.warn-line')).toHaveCount(0)
   await office.goto('/#crew')
   await office.goBack()
-  // Back, the line was left, so what stops it saving is said, and "Line 4 not saved" leads to the line.
+  // Back, the line was left, so what stops it saving is said. Send stays in the strip and says what stops it (ADR 0140,
+  // part 2), and leads to the line.
   await expect(draft.getByRole('button', { name: 'Line 4: not named yet, change it' })).toBeVisible()
   await expect(draft.locator('.warn-line')).toContainText("Line 4: say what it's for. The rest is saved")
-  await draft.getByRole('button', { name: 'Line 4 not saved' }).click()
+  await expect(draft.getByRole('group', { name: 'What it comes to' }).getByRole('button', { name: 'Send: 1 line to finish' })).toBeVisible()
+  await draft.getByRole('button', { name: 'Send: 1 line to finish' }).click()
   await expect(draft.getByLabel('Line 4: price')).toHaveValue('400')
   await expect(draft.locator('.line-problem')).toHaveText("Line 4: say what it's for.")
   // Wrong is drawn as on every other form, the bad edge on the field and the fault by it in the bad ink, never amber (UX sweep,
