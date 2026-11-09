@@ -254,7 +254,17 @@ client mail to share a thread; leave it off to keep one private.
    **operations@sessionhire.com**. It needs a licence like any user. Not a
    group or an alias: the app can't read a group, and an alias would let
    Claude read that person's own mail. Sign in as it once to set its
-   password.
+   password, and set up 2-Step Verification if the company asks for it.
+   Keep the password in the company password manager: it's only needed
+   again to reconnect.
+
+   Optional, and the app doesn't need it: for the office to read and answer
+   operations@ mail in their own Gmail without its password, turn on
+   **Apps**, **Google Workspace**, **Gmail**, **User settings**, **Mail
+   delegation** in the Admin console. Then, signed in to Gmail as
+   operations@, **Settings**, **Accounts**, **Grant access to your
+   account**, and add each person. They switch to it from their photo, top
+   right of their own Gmail.
 2. **Let the Google key at Gmail.** In
    [console.cloud.google.com](https://console.cloud.google.com), project
    **Session Hire**:
@@ -262,7 +272,10 @@ client mail to share a thread; leave it off to keep one private.
    - **Google Auth Platform**, **Clients**, **Session Hire app**: under
      **Authorised redirect URIs** add
      `https://shserver-production.up.railway.app/api/assistant/mailbox/callback`
-     and save. The Client ID and secret stay the same.
+     and save. The Client ID and secret stay the same. If the app has its
+     own address (server.letissier.ie, say), add the same path on that
+     address too, and set `PUBLIC_URL` to it in Railway so Google is always
+     sent back to the one it knows.
    - Keep the audience **Internal**, so only company accounts can be
      connected and Google doesn't need to review the app.
 3. **Connect it.** In the app, **Admin**, **Connections**, **The
@@ -286,8 +299,14 @@ client mail to share a thread; leave it off to keep one private.
    enquiries from the last week show on **Quotes** under "From the
    operations mailbox", each with a draft quote.
 
-To stop it, press **Disconnect** under Admin › Company (the app hands the
-key back to Google), or turn Claude off.
+Nothing needs adding in Railway for the mailbox itself: it uses the same
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as sign-in. If Google shows
+"redirect_uri_mismatch" when you press Connect, the address in step 2 is
+missing or mistyped. If the app says reading was left unticked, connect
+again and tick both boxes.
+
+To stop it, press **Disconnect** under Admin › Connections, The operations
+mailbox (the app hands the key back to Google), or turn Claude off.
 
 ## 10. Trackers on expensive kit
 
