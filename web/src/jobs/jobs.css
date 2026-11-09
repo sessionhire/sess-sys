@@ -124,7 +124,33 @@
 /* Today's column, faintly, all the way down, so it can be found in the middle of a long month. */
 .plan .timeline td.today { background-color: color-mix(in srgb, var(--ink) 5%, var(--panel)); }
 .plan .timeline .today-word { display: block; font-size: var(--text-pill); font-weight: 700; }
-.plan .timeline .day-quote { color: var(--accent-ink); text-underline-offset: 2px; display: inline-flex; align-items: center; min-height: 24px; margin-top: var(--ds-space-half); font-size: var(--text-pill); font-weight: 600; white-space: nowrap; }
+.plan .timeline .day-quote { color: var(--accent-ink); display: inline-flex; align-items: center; min-height: 24px; margin-top: var(--ds-space-half); padding: 0 var(--ds-space-1); border: 0; border-radius: var(--radius-control); background: transparent; font-size: var(--text-pill); font-weight: 600; white-space: nowrap; }
+
+/* The quote started on a day of the planner (ADR 0124): a card on the day, as a calendar makes an event. At a desk it hangs under the day,
+   placed by QuickQuote.tsx from the day's rect, with no veil, so the week stays readable behind it and a click outside closes it (the
+   design system's popover); on a phone it's a sheet up from the foot, over the veil, with the same fields. The job's name is the big
+   field, as the event's title is, and the rest follow in the form's own rows. */
+dialog.quick-quote { margin: 0; width: min(380px, calc(100vw - 2 * var(--ds-space-4))); max-height: calc(100dvh - 2 * var(--ds-space-4)); overflow: auto; padding: var(--ds-space-3) var(--ds-space-4) var(--ds-space-4); border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); color: var(--ink); box-shadow: var(--ds-elevation-modal); }
+dialog.quick-quote::backdrop { background: transparent; }
+dialog.quick-quote[open] { animation: quick-in var(--ds-duration-base) var(--ds-ease-emphasized-enter); }
+@keyframes quick-in { from { opacity: 0; translate: 0 calc(-1 * var(--ds-motion-offset-small)); } }
+.quick-quote form { display: grid; gap: var(--stack); }
+.quick-quote .quick-head { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); }
+.quick-quote h2 { margin: 0; font-size: var(--text-small); font-weight: 600; color: var(--muted); }
+.quick-quote .quick-close { min-width: 36px; min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 1.25rem; line-height: 1; }
+.quick-quote .quick-title { width: 100%; padding: var(--ds-space-1) 0; border: 0; border-bottom: 2px solid var(--line); border-radius: 0; background: transparent; font-size: var(--text-heading); font-weight: 700; }
+.quick-quote .quick-title:focus-visible { outline: none; border-bottom-color: var(--accent); }
+.quick-quote .quick-dates { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2); }
+.quick-quote .quick-dates label { display: grid; gap: var(--ds-space-half); font-size: var(--text-small); color: var(--muted); }
+.quick-quote .quick-dates input { width: 100%; }
+.quick-quote .actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--ds-space-3); margin-top: var(--ds-space-1); }
+.quick-quote .hint { margin: 0; }
+@media (max-width: 599px) {
+  dialog.quick-quote { position: fixed; inset: auto 0 0 0 !important; width: 100%; max-width: none; max-height: calc(100dvh - var(--ds-space-6)); border-radius: var(--ds-radius-overlay) var(--ds-radius-overlay) 0 0; border-bottom: 0; padding-bottom: calc(var(--ds-space-4) + env(safe-area-inset-bottom)); }
+  dialog.quick-quote::backdrop { background: var(--ds-veil); }
+  @keyframes quick-in { from { translate: 0 calc(100% * var(--ds-motion-travel)); } }
+}
+@media (prefers-reduced-motion: reduce) { dialog.quick-quote[open] { animation: none; } }
 .plan .timeline.month th, .plan .timeline.month td { text-align: center; vertical-align: middle; }
 .plan .timeline.month tr > :first-child { text-align: left; padding: var(--ds-space-1) var(--ds-space-2); }
 .plan .timeline.month thead a { display: grid; min-height: 44px; place-content: center; color: inherit; text-decoration: none; border-radius: 6px; font-variant-numeric: tabular-nums; }
@@ -791,7 +817,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .accepted-online { margin: 0; }
 
 /*
- * Jobs › Calendar (ADR 0123): the master calendar. Confirmed solid and enquiries and quotes dashed with their word, the planner's
+ * Jobs › Calendar (ADR 0124): the master calendar. Confirmed solid and enquiries and quotes dashed with their word, the planner's
  * grammar; healthy is quiet, so neither has a colour of its own. On a phone the days with something on, one under another, adding
  * to the page's height; from 900px across, a month grid that grows with what is on rather than scrolling inside itself.
  */

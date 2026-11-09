@@ -32,7 +32,8 @@ import { useAccess } from '../role.ts'
 import { StatusPill, WAITING_TO_SYNC } from '../StatusPill.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
 import { useToday } from '../view.ts'
-import { newQuoteHref, Top } from './common.tsx'
+import { Top } from './common.tsx'
+import { QuickQuote, type QuickAt } from './QuickQuote.tsx'
 import { Views } from '../Views.tsx'
 import { calendarHref } from './CalendarScreen.tsx'
 import { vehicleHref } from '../stock/Vehicles.tsx'
@@ -83,7 +84,7 @@ export function JobViews({ place, current }: { place?: Place; current?: 'board' 
       pages={[
         { key: 'list', href: '#jobs', label: 'List' },
         { key: 'board', href: '#jobs/board', label: 'Board' },
-        // Everything on and everything that might be, a month at a time (ADR 0123).
+        // Everything on and everything that might be, a month at a time (ADR 0124).
         { key: 'calendar', href: calendarHref({ month: place ? place.day : now }), label: 'Calendar' },
         { key: 'week', href: hashOf({ scale: 'week', day, rows }), label: 'Week' },
         { key: 'month', href: hashOf({ scale: 'month', day, rows }), label: 'Month' },
@@ -114,8 +115,10 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   const people = everyone ? p.people : busy
   const lanes = rows === 'jobs' ? p.jobs.length : rows === 'people' ? people.length : p.vans.length
   const rowWord = rows === 'jobs' ? 'job' : rows === 'people' ? 'person' : 'vehicle'
-  // A quote can start from a day of the week (ADR 0120), for those who make quotes, on the jobs' rows where the work is.
+  // A quote can start from a day of the week (ADR 0120), for those who make quotes, on the jobs' rows where the work is: a card
+  // opens on the day, as a calendar makes an event, and the day stays in view behind it (ADR 0124).
   const quoting = useAccess().can('money') && rows === 'jobs'
+  const [quick, setQuick] = useState<QuickAt>()
 
   // On a phone the days start at today, so the day that matters most is in view: when the days change, and once there is something to show.
   const scroller = useRef<HTMLDivElement>(null)
@@ -141,9 +144,16 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
                   {/* A public holiday (ADR 0024) is named on its day, so nobody counts it as a working day. */}
                   {p.holidays[d] && <small className="holiday-name">{p.holidays[d]}</small>}
                   {quoting && d >= now && (
-                    <a className="day-quote" href={newQuoteHref(d)} aria-label={`New quote starting ${dayLabel(d)}`} title={`New quote starting ${dayLabel(d)}`}>
+                    <button
+                      type="button"
+                      className="day-quote"
+                      aria-label={`New quote starting ${dayLabel(d)}`}
+                      title={`New quote starting ${dayLabel(d)}`}
+                      aria-haspopup="dialog"
+                      onClick={(e) => setQuick({ day: d, anchor: e.currentTarget })}
+                    >
                       + Quote
-                    </a>
+                    </button>
                   )}
                 </>
               ) : (
@@ -313,6 +323,7 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
         )}
         <Legend rows={rows} />
       </section>
+      {quick && <QuickQuote view={view} at={quick} onClose={() => setQuick(undefined)} />}
     </div>
   )
 }
