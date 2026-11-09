@@ -66,3 +66,9 @@ Confirmed bars are filled in ink and potential ones a dashed ink outline, so
 the solid and dashed grammar holds. Today, back and next sit at the top as
 Google has them. On a phone it is Google's schedule: the weekday and date on
 the left, today circled, the jobs to the right, still in the page.
+
+## Later: open quotes from Current RMS (9 November 2026, 1.135.0)
+
+Quotes still open in Current RMS with no job here are on the calendar as
+potentials too, and the office can take one off when it isn't going ahead:
+[ADR 0134](0134-open-current-rms-quotes-on-the-calendar.md).

@@ -157,6 +157,7 @@ describe('download everything', () => {
       'rms_matches',
       'rms_opportunities',
       'rms_reads',
+      'rms_set_aside',
       'role_prices',
       'running_late',
       'settings',
