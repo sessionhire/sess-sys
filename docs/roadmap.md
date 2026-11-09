@@ -322,6 +322,11 @@ faults reported on site are waiting in the warehouse repair queue on return.
 - RFID. Native iPhone and Android apps: researched 7 November 2026
   ([native apps](research/native-apps.md)); recommended a Capacitor app for
   staff, warehouse first, waiting on Colly's pick.
+- Job offers to freelancers sent by the app on WhatsApp: researched
+  9 November 2026 ([WhatsApp offers](research/whatsapp-offers.md));
+  recommended Meta's Cloud API direct, offers that send themselves with
+  Yes and No buttons, behind a switch off until launch; waiting on Colly's
+  pick.
 - Turn off calendar-led mode once no live projects use it.
 - Claude inside the app, planned 29 October 2026 ([plan](https://claude.ai/artifact/6z9f5bSSAMGtZRvqmckD3h)):
   Colly chose inside the app only, no mailbox for now: Claude reads an
