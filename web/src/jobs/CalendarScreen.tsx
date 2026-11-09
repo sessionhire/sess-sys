@@ -17,6 +17,8 @@ import {
   type RmsOnCalendar,
   type View,
   addDays,
+  jobDepartmentsInWords,
+  type JobDepartment,
 } from '@sh/shared'
 import { useMemo, type CSSProperties, type MouseEvent } from 'react'
 import { Icon } from '../Icon.tsx'
@@ -26,6 +28,7 @@ import { useToday } from '../view.ts'
 import { Top } from './common.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import { getJson, useAsked } from './rms.ts'
+import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
 
 /**
  * Jobs › Calendar (ADR 0123): the master calendar. A month, every job that
@@ -74,8 +77,13 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
   const from = mondayOf(addMonths(month, 0))
   const to = addDays(mondayOf(addDays(addMonths(month, 1), -1)), 6)
   const rms = useAsked<RmsOnCalendar[]>(seesMoney, from, () => getJson(`/api/rms/calendar?from=${from}&to=${to}`))
-  const quotes = rms.state === 'ready' ? rms.data : NONE
-  const cal = useMemo(() => masterCalendar(view.jobs, month, show, (id) => view.money.currentOf(id)?.status, quotes), [view.jobs, view.money, month, show, quotes])
+  // The departments picked (ADR 0137): only the jobs involving one of them. What's on a quote in Current RMS isn't known here, so
+  // those are left out while any is picked, and the key says so.
+  const { picked, setPicked, involves } = useJobDepartments(view)
+  const quotes = rms.state === 'ready' && picked.length === 0 ? rms.data : NONE
+  const hiddenRms = picked.length > 0 && rms.state === 'ready' && rms.data.some((q) => q.start <= to && q.end >= from)
+  const jobs = useMemo(() => (picked.length ? { ...view.jobs, jobs: view.jobs.jobs.filter(involves) } : view.jobs), [view.jobs, picked, involves])
+  const cal = useMemo(() => masterCalendar(jobs, month, show, (id) => view.money.currentOf(id)?.status, quotes), [jobs, view.money, month, show, quotes])
   const fromRms = quotes.some((q) => q.start <= to && q.end >= from)
   const at = (changes: Partial<Place>) => calendarHref({ ...place, ...changes })
   // Which jobs is a toggle, not a move, so it keeps focus, as the planner's rows do.
@@ -89,7 +97,7 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
 
   return (
     <div className="app crew jobs master-cal">
-      <Top view={view} views={<JobViews current="calendar" />} heading={monthLabel(month)} sub={<p>{summary(cal.confirmed, cal.potential, show)}</p>} />
+      <Top view={view} views={<JobViews current="calendar" />} heading={monthLabel(month)} sub={<p>{summary(cal.confirmed, cal.potential, show, picked)}</p>} />
 
       {/* Google Calendar's bar: Today, then back and on a month, then which jobs. */}
       <div className="cal-bar-top">
@@ -112,15 +120,17 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
           ))}
         </div>
       </div>
+      <DepartmentFilter picked={picked} onChange={setPicked} />
 
       <p className="cal-key hint">
         <span className="cal-swatch solid" aria-hidden="true" /> Confirmed <span className="cal-swatch dashed" aria-hidden="true" /> Potential: an enquiry or a quote
         {fromRms && ', or a quote still open in Current RMS with no job here yet'}
-        {seesMoney && rms.state === 'offline' && '. Quotes still open in Current RMS show when there’s signal'}
+        {seesMoney && rms.state === 'offline' && picked.length === 0 && '. Quotes still open in Current RMS show when there’s signal'}
+        {hiddenRms && `. Quotes still open in Current RMS are left out while ${picked.length > 1 ? 'departments are' : 'a department is'} picked, as what’s on them isn’t known here`}
       </p>
 
       <section className="card cal-card" aria-label={`${monthLabel(month)}, a day at a time`}>
-        {!anything && <p className="empty">{emptyWords(show)}</p>}
+        {!anything && <p className="empty">{emptyWords(show, picked)}</p>}
         {/* A desk: the month as Google draws it, a row a week, each job one bar over its days. */}
         <div className="cal-grid">
           <div className="cal-weekdays" aria-hidden="true">
@@ -255,12 +265,14 @@ function Entry({ e }: { e: MonthEntry }) {
   )
 }
 
-function summary(confirmed: number, potential: number, show: CalendarShow): string {
+function summary(confirmed: number, potential: number, show: CalendarShow, picked: readonly JobDepartment[]): string {
   const on = `${plural(confirmed, 'confirmed job')}`
   const maybe = `${plural(potential, 'potential job')}: enquiries and quotes`
-  return show === 'confirmed' ? `${on}.` : show === 'potential' ? `${maybe}.` : `${on}, ${maybe}.`
+  const said = show === 'confirmed' ? on : show === 'potential' ? maybe : `${on}, ${maybe}`
+  return picked.length ? `${said}, with ${jobDepartmentsInWords(picked)}.` : `${said}.`
 }
 
-function emptyWords(show: CalendarShow): string {
-  return show === 'confirmed' ? 'No confirmed jobs this month.' : show === 'potential' ? 'No enquiries or quotes this month.' : 'Nothing on this month, confirmed or potential.'
+function emptyWords(show: CalendarShow, picked: readonly JobDepartment[]): string {
+  const said = show === 'confirmed' ? 'No confirmed jobs this month' : show === 'potential' ? 'No enquiries or quotes this month' : 'Nothing on this month, confirmed or potential'
+  return picked.length ? `${said} with ${jobDepartmentsInWords(picked)}.` : `${said}.`
 }
