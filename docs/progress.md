@@ -12,7 +12,7 @@ waiting on someone.
   quote with number and client, opening the past quote. Ones linked to a job
   here, or that look like one, stay off. "Not going ahead" on the past quote
   takes one off; "Put it back on the calendar" undoes it. Nothing changes in
-  Current RMS (1.134.0, ADR 0134).
+  Current RMS (1.135.0, ADR 0134).
 - Checked: server, shared and browser tests for the calendar and past quotes.
 
 **Waiting on**
@@ -228,9 +228,17 @@ waiting on someone.
   turned down, it stays a draft with its number and says so; Send waits
   for the device's changes. Needed before email is turned on in live.
 
+- Batch 7, the last rough edges (ADR 0133, 1.134.0): a half-made line
+  holds back only itself; a long draft on a phone opens folded to its
+  groups, and picking there gets the screen; Admin › Company › Own kit in
+  the margin costs own kit at a share of its price, and until it's set the
+  margin says "own kit not costed"; a number guessed offline says so and
+  prints as a draft; the per diem said once, "Wanted by", and short words
+  found only at a word's start in the picker.
+
 **Waiting on**
 
-- Batch 7, being built; the page's six questions.
+- The page's six questions; every finding of the audit is now fixed.
 
 ## 8 November 2026: a package's price starts at its items' total
 

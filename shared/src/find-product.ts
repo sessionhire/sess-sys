@@ -25,6 +25,12 @@ export interface Found<P> {
 const squash = (key: string) => key.replace(/ /g, '')
 /** Found in a field: as typed, or with the spaces out of both ("sm 58" in "sm58"). */
 const within = (field: string, word: string) => field.includes(word) || squash(field).includes(squash(word))
+/**
+ * A few letters alone are the start of a word, not a piece of one (audit of the quote flow, 8 November 2026, finding
+ * 21): "das" finds DAS speakers, not Midas consoles. Longer, or with a number in it, it's found anywhere ("58" in SM58,
+ * "wedge" in Sidewedges).
+ */
+const holds = (field: string, word: string) => (/^[a-z]{1,3}$/.test(word) ? field.split(' ').some((w) => w.startsWith(word)) : within(field, word))
 
 /**
  * The products what's typed finds, best first: the name as typed, then names
@@ -43,19 +49,19 @@ export function findProducts<P extends Findable>(products: readonly P[], typed: 
     const meta = `${kitKey(p.category)} ${kitKey(DEPARTMENT_LABELS[p.department] ?? '')}`
     let rank: number
     let via: string | undefined
-    const other = others.find((o) => o.key === key) ?? others.find((o) => within(o.key, key))
+    const other = others.find((o) => o.key === key) ?? others.find((o) => holds(o.key, key))
     if (name === key || squash(name) === squash(key)) rank = 0
     else if (name.startsWith(key) || squash(name).startsWith(squash(key))) rank = 1
     else if (name.split(' ').some((w) => w.startsWith(key))) rank = 2
-    else if (within(name, key)) rank = 3
+    else if (holds(name, key)) rank = 3
     else if (other) {
       rank = other.key === key ? 0.5 : 4
       via = other.a
     } else {
       const all = [name, ...others.map((o) => o.key), meta]
-      if (!words.every((w) => all.some((f) => within(f, w)))) continue
+      if (!words.every((w) => all.some((f) => holds(f, w)))) continue
       rank = 5
-      via = others.find((o) => words.some((w) => within(o.key, w)))?.a
+      via = others.find((o) => words.some((w) => holds(o.key, w)))?.a
     }
     out.push({ f: via ? { product: p, via } : { product: p }, rank })
   }

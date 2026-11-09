@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PullResponse, PushRequest, PushResponse } from '../src/protocol.ts'
 import { paymentTerms, paymentTermsLabel, paymentTermsLine } from '../src/jobs.ts'
-import { chargedFor, packageIncludes, changesFromJob, csvText, depositCents, quoteNumberLabel, validUntil, versionChanges, lineCents, linesFor, quoteLine, linesByGroup, money, quoteTotals, vatPeriodOf, type Quote, type QuoteLine } from '../src/quotes.ts'
+import { chargedFor, lineCostOf, ownKitUncosted, quoteMargin, packageIncludes, changesFromJob, csvText, depositCents, quoteNumberLabel, validUntil, versionChanges, lineCents, linesFor, quoteLine, linesByGroup, money, quoteTotals, vatPeriodOf, type Quote, type QuoteLine } from '../src/quotes.ts'
 import { MemoryStorage, SyncClient, type Transport } from '../src/sync/client.ts'
 import { belowZero, invoiceOf, invoicesCsv, marginsByMonth, quoteRows, quoteRowShown, quotesToFollow, vatSummaryCsv, type JobMoney, type QuoteView } from '../src/sync/money-view.ts'
 import type { JobView } from '../src/sync/jobs-view.ts'
@@ -279,6 +279,23 @@ describe('money on the device', () => {
     expect(phone.view().money.currentOf('gala')).toMatchObject({ id: 'q2', status: 'sent', pending: true })
   })
 
+  it("marks a number guessed with no signal as unsure until the server gives it, and an earlier version's as sure (finding 20)", async () => {
+    const server = new Server()
+    server.put('project', 'gala', project)
+    server.put('project', 'fair', { ...project, id: 'fair', name: 'Craft Fair' })
+    server.put('quote', 'q1', quote({ status: 'sent', answeredOn: null, invoicedOn: null, invoiceRef: '', number: 1042 }))
+    const phone = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone' }).open()
+    await phone.sync()
+    await phone.mutate('quote.save', { id: 'q2', projectId: 'gala', lines: [line({})], discountPct: 0, notes: '' })
+    await phone.mutate('quote.save', { id: 'q9', projectId: 'fair', lines: [line({})], discountPct: 0, notes: '' })
+    await phone.mutate('quote.sent', { id: 'q2', on: '2026-10-17' })
+    await phone.mutate('quote.sent', { id: 'q9', on: '2026-10-17' })
+    const m = phone.view().money
+    expect(m.quotesOf('gala')[0]).toMatchObject({ id: 'q2', number: 1042, pending: true })
+    expect(m.quotesOf('gala')[0]!.numberPending).toBeUndefined()
+    expect(m.quotesOf('fair')[0]).toMatchObject({ id: 'q9', number: 1043, numberPending: true })
+  })
+
   it("counts what's owed until it's paid, and makes the accountant's files from what's invoiced", async () => {
     const server = new Server()
     server.put('client', 'bw', { id: 'bw', name: 'Brightwater Events', contacts: [], notes: '' })
@@ -490,6 +507,22 @@ describe('quotes to follow up (ADR 0081)', () => {
     const f = quotesToFollow({ jobs: rows as never, draftOf: () => quote({ status: 'draft' }) }, today)
     expect(f.waiting).toEqual([])
     expect(f.drafts).toHaveLength(1)
+  })
+})
+
+describe("own kit in a quote's margin (finding 19 of the quote flow audit)", () => {
+  it("costs own kit at the share set of its price, hired-in kit and words as before, and says when own kit isn't costed", () => {
+    const kit = line({ kind: 'kit', qty: 2, days: 1, unitCents: 10000, per: 'day' })
+    expect(lineCostOf(kit)).toBe(0)
+    expect(lineCostOf(kit, undefined, 15)).toBe(3000)
+    expect(lineCostOf({ ...kit, costCents: 500 }, undefined, 15)).toBe(500)
+    expect(lineCostOf({ ...kit, subhireQty: 1 }, undefined, 15)).toBeUndefined()
+    expect(lineCostOf(line({ words: true, unitCents: 0 }))).toBe(0)
+    expect(ownKitUncosted([kit], null)).toBe(true)
+    expect(ownKitUncosted([kit], 15)).toBe(false)
+    expect(ownKitUncosted([{ ...kit, subhireQty: 2 }, line({})], undefined)).toBe(false)
+    expect(quoteMargin(20000, [3000], false)).toEqual({ cost: 3000, margin: 17000, pct: 85, unknown: 0 })
+    expect(quoteMargin(20000, [0], true)).toMatchObject({ pct: 100, ownUncosted: true })
   })
 })
 
