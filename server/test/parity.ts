@@ -326,6 +326,7 @@ const CASES: Case[] = [
   c('quoting.update', { nextNumber: 1115, terms: 'Half up front.', bank: 'IBAN IE00 0000' }),
   c('quoting.email', { on: true }),
   c('quoting.online', { on: true }),
+  c('quoting.ownKit', { costPct: 15 }),
   c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today }),
   c('quoting.travel', { travelFromKm: 80, fuelCentsPerLitre: 174.9, litresPer100Km: 9.5, perDiemCents: null, on: today }, { as: 'the fuel price the same', before: [m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: day(-3) })] }),
   c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 214.8, litresPer100Km: 10, perDiemCents: null, on: today, fuelMonth: 'October 2026', fuelAuto: false }, { as: 'read from the AA, kept from then on' }),
@@ -340,7 +341,7 @@ const CASES: Case[] = [
   c('quote.answer', { id: 'q1', answer: 'none', on: today }, { as: 'taken back', before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
   c('quote.invoiced', { id: 'q1', on: today, ref: 'SH-1042' }, { before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
   c('quote.invoiced', { id: 'q1', on: today, ref: '  SH-77  ' }, { as: 'untidy text', before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
-  // Deleting a version (ADR 0131): gone from the device at once, as from the server, once its number or "delete" is typed.
+  // Deleting a version (ADR 0135): gone from the device at once, as from the server, once its number or "delete" is typed.
   c('quote.delete', { id: 'q1', typed: ' 1 ' }, { as: 'a sent one, by its number' }),
   c('quote.delete', { id: 'q3', typed: 'Delete' }, { as: 'a draft, by the word', before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' })] }),
   c('quote.paid', { id: 'q1', on: today }, { before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today }), m('quote.invoiced', { id: 'q1', on: today, ref: 'SH-1042' })] }),

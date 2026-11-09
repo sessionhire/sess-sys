@@ -258,7 +258,7 @@ function Entry({ entry: e, day, inRun }: { entry: HistoryEntry; day: string; inR
 }
 
 /**
- * A deleted quote is put back from the history (ADR 0131): the server kept it. An admin's, as deleting it was, and only
+ * A deleted quote is put back from the history (ADR 0135): the server kept it. An admin's, as deleting it was, and only
  * while it isn't back on this device already.
  */
 function PutBack({ entry }: { entry: HistoryEntry }) {

@@ -60,31 +60,42 @@ test('a laptop sees the month as a grid, confirmed and potential together and to
   await expect(page.getByRole('heading', { level: 1, name: 'March 2033' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Jobs pages' }).getByRole('link', { name: 'Calendar' })).toHaveAttribute('aria-current', 'page')
 
-  // The 9th: the confirmed job's last day first, solid; the quote dashed with its word and where the quote is; the lost job not at all.
-  const ninth = day(page, 9).locator('.cal-job')
-  await expect(ninth.filter({ hasText: named('Arena tour') })).toHaveClass(/solid/)
-  await expect(ninth.filter({ hasText: named('Brand launch') })).toHaveClass(/dashed/)
-  await expect(ninth.filter({ hasText: named('Brand launch') })).toContainText('Quoted, quote sent · Show')
-  await expect(ninth.filter({ hasText: named('Gala that fell through') })).toHaveCount(0)
-  await expect(ninth.first()).toContainText(named('Arena tour'))
-  await expect(day(page, 7).locator('.cal-job', { hasText: named('Arena tour') })).toContainText('Build 1/2')
-  await expect(day(page, 17)).toContainText("St Patrick's Day")
+  // Google's shape: each job one bar over its days. The arena tour is one solid bar, Monday 7 to Wednesday 9; the quote dashed with
+  // its word and where the quote is; the lost job not at all.
+  const grid = page.locator('.cal-grid')
+  const bar = (name: string) => grid.locator('.cal-span', { hasText: named(name) })
+  await expect(bar('Arena tour')).toHaveCount(1)
+  await expect(bar('Arena tour')).toHaveClass(/solid/)
+  await expect(bar('Arena tour')).toContainText('Build, Show')
+  await expect(bar('Arena tour')).toContainText('Mon 7 Mar to Wed 9 Mar')
+  await expect(bar('Brand launch')).toHaveClass(/dashed/)
+  await expect(bar('Brand launch')).toContainText('Quoted, quote sent · Show')
+  await expect(bar('Gala that fell through')).toHaveCount(0)
+  await expect(bar('Medical conference')).toHaveCount(1)
+  await expect(bar('Medical conference')).toContainText('Thu 24 Mar to Fri 25 Mar')
+  // The bars sit side by side in a week, never on top of each other: the quote is a line below the tour.
+  const top = async (name: string) => (await bar(name).boundingBox())!.y
+  expect(await top('Brand launch')).toBeGreaterThan(await top('Arena tour'))
+  await expect(grid.locator('.cal-cell', { hasText: "St Patrick's Day" })).toHaveCount(1)
   await expect(page.locator('.cal-undated')).toContainText(named('Wedding, dates to come'))
   await page.screenshot(shot('master-calendar-desk'))
 
   // Only the confirmed: the address keeps it, the enquiries go, from the days and from the ones with no dates.
   await page.getByRole('group', { name: 'Which jobs' }).getByRole('button', { name: 'Confirmed' }).click()
   await expect(page).toHaveURL(/#jobs\/calendar\/2033-03-01\/confirmed$/)
-  await expect(day(page, 9).locator('.cal-job', { hasText: named('Brand launch') })).toHaveCount(0)
-  await expect(day(page, 9).locator('.cal-job', { hasText: named('Arena tour') })).toBeVisible()
+  await expect(bar('Brand launch')).toHaveCount(0)
+  await expect(bar('Arena tour')).toBeVisible()
   await expect(page.locator('.cal-undated', { hasText: named('Wedding, dates to come') })).toHaveCount(0)
 
-  // A day opens its week on the planner; a job, its page.
+  // Today and the arrows move by a month; a day opens its week on the planner; a job, its page.
   await page.getByRole('button', { name: 'Everything' }).click()
-  await day(page, 24).getByRole('link', { name: /Thu 24 Mar/ }).click()
+  await page.getByRole('link', { name: 'Next month' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'April 2033' })).toBeVisible()
+  await page.getByRole('link', { name: 'Previous month' }).click()
+  await grid.getByRole('link', { name: 'Thu 24 Mar', exact: true }).click()
   await expect(page).toHaveURL(/#jobs\/plan\/week\/2033-03-21$/)
   await page.goBack()
-  await day(page, 24).getByRole('link', { name: new RegExp(named('Medical conference')) }).click()
+  await bar('Medical conference').click()
   await expect(page).toHaveURL(new RegExp(`#jobs/${k('conf')}$`))
 })
 

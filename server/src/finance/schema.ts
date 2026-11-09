@@ -148,7 +148,11 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE quotes ADD COLUMN IF NOT EXISTS for_name text NOT NULL DEFAULT '';
   `,
-  // Deleting a quote (ADR 0131): an admin's, kept on the server with when, so it can be put back from the history. A
+  // What own kit costs to run, as a share of its price (finding 19 of the quote flow audit), for the margin; null until set.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS own_kit_cost_pct integer CHECK (own_kit_cost_pct BETWEEN 0 AND 90);
+  `,
+  // Deleting a quote (ADR 0135): an admin's, kept on the server with when, so it can be put back from the history. A
   // deleted draft no longer holds the job's one draft, so a new one can be started.
   `
   ALTER TABLE quotes ADD COLUMN IF NOT EXISTS deleted_at timestamptz;

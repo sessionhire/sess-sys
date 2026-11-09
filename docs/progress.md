@@ -3,6 +3,38 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: the calendar looks like Google Calendar
+
+**Done**
+
+- Jobs › Calendar now looks like the Google Calendar the office already
+  reads: smaller type, a job of several days drawn as one bar across its
+  days, today circled, Today and arrows at the top. Confirmed still solid,
+  potential still dashed. On a phone it reads like Google's schedule
+  (1.133.1, ADR 0123).
+
+**Waiting on**
+
+- Nothing.
+
+## 9 November 2026: colour on the stage line
+
+**Done**
+
+- A job's five stages fill in red up to where it is: passed stages red with
+  a tick, the line between them red, the stage it's in ringed in red, or
+  amber when crew or kit is short and orange when something is late
+  (1.133.0, ADR 0131). The small bar on the Jobs list, Home and the job's
+  head does the same, and each Board column carries the bar too.
+- One colour for progress, not one per stage: the stage's name already
+  says which, and other colours already mean short, late and healthy.
+- Checked: before and after on phone and desk, dark and light; the stages,
+  Home and Jobs tests.
+
+**Waiting on**
+
+- Colly: merging the learning in design-system #47.
+
 ## 9 November 2026: answers on WhatsApp (off until launch)
 
 **Done**
@@ -180,9 +212,17 @@ waiting on someone.
   turned down, it stays a draft with its number and says so; Send waits
   for the device's changes. Needed before email is turned on in live.
 
+- Batch 7, the last rough edges (ADR 0133, 1.134.0): a half-made line
+  holds back only itself; a long draft on a phone opens folded to its
+  groups, and picking there gets the screen; Admin › Company › Own kit in
+  the margin costs own kit at a share of its price, and until it's set the
+  margin says "own kit not costed"; a number guessed offline says so and
+  prints as a draft; the per diem said once, "Wanted by", and short words
+  found only at a word's start in the picker.
+
 **Waiting on**
 
-- Batch 7, being built; the page's six questions.
+- The page's six questions; every finding of the audit is now fixed.
 
 ## 8 November 2026: a package's price starts at its items' total
 

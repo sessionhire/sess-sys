@@ -257,7 +257,7 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     for (const id of await move('faults')) await emit(ctx, 'fault', id, await getFault(ctx.tx, id))
     for (const id of await move('movements')) await emit(ctx, 'movement', id, await getMovement(ctx.tx, id))
     for (const id of await move('vehicle_bookings')) await emit(ctx, 'vehicleBooking', id, await getBooking(ctx.tx, id))
-    // A deleted version moves too, but isn't sent to the devices (ADR 0131).
+    // A deleted version moves too, but isn't sent to the devices (ADR 0135).
     for (const id of await move('quotes')) {
       const q = await getQuote(ctx.tx, id)
       if (q) await emit(ctx, 'quote', id, q)

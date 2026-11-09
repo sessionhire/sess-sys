@@ -23,8 +23,11 @@ a finding that is already fixed. Where one from the
 [5 November audit](audit-ux-2026-11-05.md) is still open, or has come back
 in a new form, it says so.
 
-Nothing has been fixed. Colly chooses what to fix, and the
-[order to fix things](#the-order-to-fix-things) is a suggestion.
+**Since:** every finding is fixed, in the
+[order to fix things](#the-order-to-fix-things): batch 1 in #266 (1.119.0),
+2 in #278 (ADR 0126), 3 in #279 (ADR 0127), 4 in #281 (ADR 0128), 5 in
+#283 (ADR 0129), 6 in #284 (ADR 0130) and 7 in #287 (ADR 0133). The six
+questions at the end are still open.
 
 **How it was done.** A local copy of the app at 1.118.0, filled with the
 made-up data, plus the 309 products and 221 prices of the company's real

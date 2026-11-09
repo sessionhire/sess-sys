@@ -36,7 +36,7 @@ test('a day on the planner starts a quote on that day, from a card on the day', 
   await expect(desk).toHaveURL(new RegExp(`#quotes/new/${from}$`))
   const form = desk.getByRole('form', { name: 'New quote' })
   await expect(form.getByLabel("What's the job?")).toHaveValue('Quick launch')
-  await expect(form.getByLabel('From')).toHaveValue(from)
+  await expect(form.getByLabel('From', { exact: true })).toHaveValue(from)
   await form.getByRole('button', { name: 'Cancel' }).click()
   // Starting from the card makes the job and its quote, and opens the quote, as the full form does.
   await desk.goto('/#jobs/plan')

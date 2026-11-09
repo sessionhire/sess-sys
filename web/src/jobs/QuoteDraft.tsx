@@ -42,6 +42,7 @@ import {
   quoteKit,
   kitFree,
   RATE_LABELS,
+  ownKitUncosted,
   quoteMargin,
   quoteWants,
   suggestionLine,
@@ -59,6 +60,7 @@ import { client } from '../sync.ts'
 import { useLate } from '../useLate.ts'
 import { useToday } from '../view.ts'
 import { useUnderTop } from '../useUnderTop.ts'
+import { usePhone } from '../foot.tsx'
 import { MailOnQuote, useClaude, type Advice } from './Claude.tsx'
 import { useLastCharged } from './rms.ts'
 import { QuotePill } from './QuoteStatus.tsx'
@@ -78,6 +80,9 @@ import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAV
  * them, saving itself as it's typed, and marked sent when it goes to the
  * client.
  */
+
+/** More lines than this on a phone, and the draft opens with its groups folded (finding 15 of the quote flow audit). */
+const FOLD_FROM = 12
 
 /**
  * Sent to the client, and so the job is quoted (ADR 0081): an enquiry moves on by itself, since that's all "quoted"
@@ -199,6 +204,16 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [removed, setRemoved] = useState<{ line: LineDraft; at: number; under: LineDraft[] }>()
   // The packages whose kit is shown under their line (ADR 0116); folded otherwise.
   const [shownSets, setShownSets] = useState<ReadonlySet<string>>(() => new Set())
+  // A long draft on a phone opens with each group folded to its title and total, a tap to open (audit of the quote flow,
+  // 8 November 2026, finding 15): checking a festival's quote is then a screen of groups, not eight of lines.
+  // A group a line has been added to since opens, unless it's folded again by hand.
+  const phone = usePhone()
+  const [firstLines] = useState(() => q.lines.filter((l) => !l.extra))
+  const [autoFolded] = useState<ReadonlySet<string>>(() => (phone && firstLines.length > FOLD_FROM ? new Set(linesByGroup(firstLines).map((g) => g.group)) : new Set()))
+  const [foldedByHand, setFoldedByHand] = useState<ReadonlyMap<string, boolean>>(() => new Map())
+  const fold = (group: string, shut: boolean) => setFoldedByHand((f) => new Map(f).set(group, shut))
+  const isFolded = (group: string, groupLines: readonly LineDraft[]) =>
+    foldedByHand.get(group) ?? (autoFolded.has(group) && groupLines.every((l) => firstLines.some((f) => f.id === l.id)))
   const toggleSet = (id: string) =>
     setShownSets((now) => {
       const next = new Set(now)
@@ -327,11 +342,18 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       )
     return hint ? <small>{hint}</small> : null
   }
-  // Saved: what's typed comes to what the draft holds.
-  const saved =
-    parsed.length + extras.lines.length === q.lines.length &&
-    faultAt < 0 &&
-    all.every((l, i) => sameLine(l, q.lines[i]!)) &&
+  // What saves (audit of the quote flow, 8 November 2026, finding 13): every whole line, and for one not finished, what it
+  // was when last saved, or nothing if it's new. So one half-made line holds back only itself, never the rest.
+  const sendable = parsed.flatMap((c, i) => {
+    if (c.line) return [c.line]
+    const was = q.lines.find((l) => !l.extra && l.id === lines[i]!.id)
+    return was ? [was] : []
+  })
+  const stored = [...sendable, ...extras.lines]
+  // Stored: what can save is what the draft holds. Saved: and nothing is held back.
+  const storedSame =
+    stored.length === q.lines.length &&
+    stored.every((l, i) => sameLine(l, q.lines[i]!)) &&
     meals === (q.mealsProvided ?? false) &&
     kmRead === (q.travelKm ?? null) &&
     pct === q.discountPct &&
@@ -340,6 +362,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     valid === (q.validDays ?? DEFAULT_VALID_DAYS) &&
     dep === (q.depositPct ?? null) &&
     forName.trim() === (q.forName ?? '')
+  const saved = storedSame && faultAt < 0
   const unpricedLines = good.filter((l) => needsPrice(l, good))
   // Whether there's enough of each product on the job's days (ADR 0089), as the job's kit is checked.
   const checks = quoteKit(job, quoteWants(good, (id) => m.package(id)?.items), today, {
@@ -376,8 +399,9 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const shortLines = good.filter((l) => linesShort(l, checks, m.package(l.packageId ?? '')?.items).length > 0)
   // What it makes (ADR 0089), for the office and directors, who see quotes at all.
   const boss = useAccess().can('money')
-  const costOf = (l: QuoteLine) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined)
-  const margin = quoteMargin(totals.net, all.map(costOf))
+  const ownPct = m.quoting.ownKitCostPct
+  const costOf = (l: QuoteLine) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined, ownPct)
+  const margin = quoteMargin(totals.net, all.map(costOf), ownKitUncosted(all, ownPct))
   const noCostLines = boss ? good.filter((l) => costOf(l) === undefined) : []
   // What to look at before a quote goes (research/quoting.md, feature 3), gathered at the moment it's sent or marked
   // sent, each opening where it's put right: what the client would see wrong, not the cost side, which isn't printed.
@@ -396,8 +420,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   // The draft saves itself a moment after typing stops, once it reads as a quote: there's no Save to forget. Leaving
   // the page saves what's waiting at once. Saving goes through the device's queue, so it works with no signal.
   const payload =
-    !saved && !problem
-      ? { id: q.id, projectId: job.id, lines: all.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
+    !storedSame && !termKey
+      ? { id: q.id, projectId: job.id, lines: stored.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
       : undefined
   const waiting = useRef(payload)
   waiting.current = payload
@@ -706,7 +730,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   return (
     <form
       ref={under}
-      className="quote-draft"
+      className={`quote-draft${adding === 'kit' || adding === 'crew' ? ' picking' : ''}`}
       aria-label={`Version ${q.version}, a draft`}
       onSubmit={(e: FormEvent) => {
         e.preventDefault()
@@ -731,12 +755,22 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               <span className={`figure${margin.margin < 0 ? ' bad' : ''}`}>
                 <small>Expected margin</small> <b>{money(margin.margin)}</b>
                 {margin.pct !== null && <span className="pct">{pctWord(margin.pct)}</span>}
+                {/* Said beside it, so own kit at no cost doesn't read as a margin that high (finding 19 of the quote flow audit). */}
+                {margin.ownUncosted && (
+                  <a className="pct" href="#admin/company">
+                    own kit not costed
+                  </a>
+                )}
               </span>
             )}
             <span className="save-state" aria-live="polite">
-              {problem ? (
+              {termKey ? (
                 <button type="button" className="link quiet" onClick={goToProblem}>
                   Not saved yet
+                </button>
+              ) : faultAt >= 0 ? (
+                <button type="button" className="link quiet" onClick={goToProblem}>
+                  Line {faultAt + 1} not saved
                 </button>
               ) : payload ? (
                 late ? (
@@ -784,10 +818,24 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
         {claude.offered && <MailOnQuote view={view} projectId={job.id} jobDays={days} lines={asked} discountPct={pctOk ? pct : 0} onTake={takeAdvice} />}
 
         {lines.length === 0 && <Empty>No lines yet. Add kit, crew or anything else the quote is for.</Empty>}
-        {groups.map((g) => (
-          <section key={g.group} className="quote-group" role="group" aria-label={g.group}>
+        {groups.map((g) => {
+          // Folded, unless a line in it is open: one being changed, or just added, is never hidden.
+          const shut = isFolded(g.group, g.lines) && !g.lines.some((l) => l.id === open)
+          const groupCents = g.lines.reduce((t, l) => t + (parsed[lines.indexOf(l)]?.line ? lineCents(parsed[lines.indexOf(l)]!.line!) : 0), 0)
+          return (
+          <section key={g.group} className={`quote-group${shut ? ' folded' : ''}`} role="group" aria-label={g.group}>
             <div className="group-head">
-              <h3 className="group">{g.group}</h3>
+              <h3 className="group">
+                <button type="button" className="fold" aria-expanded={!shut} onClick={() => fold(g.group, !shut)}>
+                  {g.group}
+                  {shut && (
+                    <small>
+                      {' '}
+                      {plural(g.lines.length, 'line')} · {money(groupCents)}
+                    </small>
+                  )}
+                </button>
+              </h3>
               {groups.length > 1 && (moveGroup(lines, g.group, -1) || moveGroup(lines, g.group, 1)) && (
                 <span className="group-move">
                   <button type="button" className="link quiet" onClick={moved(moveGroup(lines, g.group, -1))} disabled={!moveGroup(lines, g.group, -1)} aria-label={`Move ${g.group} up`}>
@@ -805,7 +853,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               )}
             </div>
             {discounting === g.group && <GroupDiscount group={g.group} onApply={(off) => groupDiscount(g.group, off)} onCancel={() => setDiscounting(undefined)} refuse={refuse} />}
-            {g.lines.map((l) => {
+            {!shut && g.lines.map((l) => {
               const under = linesUnder(lines, l.id)
               if (!under.length) return row(l)
               const shown = shownSets.has(l.id) || under.some((u) => u.id === open)
@@ -821,7 +869,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
             })}
             {removedGroup === g.group && undoLine}
           </section>
-        ))}
+          )
+        })}
         {removed && !groups.some((g) => g.group === removedGroup) && undoLine}
         {/* A dry hire has no travel or subsistence to charge (ADR 0128; finding 10), until it has crew on it after all. */}
         {(kindOf(job) !== 'hire' || good.some((l) => l.kind === 'crew')) && (
@@ -1065,7 +1114,15 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
 
         <h3 className="quote-head group">Send</h3>
         <Refusal error={error} />
-        {!saved && problem && (problemShown ? <p className="warn-line">{problem} It saves once that's put right.</p> : <p className="hint">Not saved yet{faultAt >= 0 ? `: line ${faultAt + 1} isn't finished.` : '.'}</p>)}
+        {!saved &&
+          problem &&
+          (termKey ? (
+            problemShown ? <p className="warn-line">{problem} It saves once that's put right.</p> : <p className="hint">Not saved yet.</p>
+          ) : problemShown ? (
+            <p className="warn-line">{problem} The rest is saved; this line saves once it's put right.</p>
+          ) : (
+            <p className="hint">Line {faultAt + 1} isn't finished, so it isn't saved. The rest is.</p>
+          ))}
         {saved && q.lines.length > 0 && sending === 'email' ? (
           <SendQuote q={q} onSent={() => setSending(undefined)} onCancel={() => setSending(undefined)} />
         ) : (

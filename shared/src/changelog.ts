@@ -28,11 +28,35 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.133.0',
+    version: '1.135.0',
     date: '2026-11-09',
     title: 'An admin can delete a quote, and put it back',
     what: "A director, or a system admin, can now delete a version of a quote from the foot of its page. It's hard on purpose: it says first what makes that version matter, such as it having gone to the client, been accepted or invoiced, or being the job's only one, and Delete only works once you type the quote's number (or the word delete, for one never sent). It goes from everyone's phones and computers and the client's link stops working, but nothing is lost: History says who deleted it, and an admin can put it back from there as it was.",
     prs: [286],
+    adrs: [135],
+  },
+  {
+    version: '1.134.0',
+    date: '2026-11-09',
+    title: 'One unfinished line no longer holds back the rest of a quote',
+    what: "A quote now saves every finished line even while one isn't finished: the top says which line isn't saved yet, and takes you to it. On a phone, a long quote opens with each group folded to its name, how many lines and what they come to: tap one to open it. Picking kit on a phone gives the list more of the screen. Admin › Company has a new Own kit in the margin: say what our own kit costs to run as a share of its price, and every quote's margin takes it off; until then the margin says own kit isn't costed. A quote marked sent with no signal shows its number as \"once it's saved\", and prints as a draft until it is. And small things: No subsistence says where to set the per diem once, Wanted by fits its row, and typing \"das\" in Add kit finds DAS, not Midas.",
+    prs: [287],
+    adrs: [133],
+  },
+  {
+    version: '1.133.1',
+    date: '2026-11-09',
+    title: 'The calendar looks like Google Calendar',
+    what: "Jobs › Calendar now looks like the Google Calendar the office already reads. The writing is smaller, and a job of several days is one bar across its days, not a box on each. Today's date is circled. Today and the arrows at the top move between months. Confirmed jobs are still filled in, and enquiries and quotes are still a dashed outline with their word on them. On a phone it reads like Google's schedule, with the date on the left and the jobs to the right.",
+    prs: [282],
+    adrs: [123],
+  },
+  {
+    version: '1.133.0',
+    date: '2026-11-09',
+    title: 'The stage line shows how far along a job is in colour',
+    what: "A job's five stages now fill in red up to where it is: passed stages are red with a tick, the line between them is red, and the stage it's in is ringed in red, or amber when crew or kit is short and orange when something is late. The small bar on the Jobs list, Home and the job's head does the same, and each column on the Board has the bar too, so a column reads as a place on the line.",
+    prs: [285],
     adrs: [131],
   },
   {

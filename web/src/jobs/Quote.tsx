@@ -18,6 +18,7 @@ import {
   validUntil,
   versionChanges,
   lineCostOf,
+  ownKitUncosted,
   quoteMargin,
 } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
@@ -214,14 +215,14 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
               <QuotePill q={q} />
             </header>
             <p className="quote-facts">
-              {q.number ? `Quote ${q.number}` : 'Sent before quotes had numbers'} · Valid until {dayLabel(validUntil(q, today))}
+              {q.number ? `Quote ${q.number}${q.numberPending ? " (once it's saved)" : ''}` : 'Sent before quotes had numbers'} · Valid until {dayLabel(validUntil(q, today))}
               {q.depositPct ? ` · A deposit of ${pctWord(q.depositPct)}, ${money(depositCents(q.totals.gross, q.depositPct))}` : ''}
             </p>
             <Lines lines={q.lines} />
             <Totals totals={q.totals} agreed={q.agreedCents != null} />
             {boss && (
               <p className="quote-margin">
-                <MarginWords label="Expected margin" margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined)))} />
+                <MarginWords label="Expected margin" margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined, m.quoting.ownKitCostPct)), ownKitUncosted(q.lines, m.quoting.ownKitCostPct))} />
                 <small> From the quote's own costs. Not printed.</small>
               </p>
             )}
@@ -249,7 +250,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
         </>
       )}
 
-      {/* At the foot, away from everything done every day: an admin's alone, and hard on purpose (ADR 0131). */}
+      {/* At the foot, away from everything done every day: an admin's alone, and hard on purpose (ADR 0135). */}
       {q && <DeleteQuote q={q} job={job} versions={versions} onDeleted={() => setPicked(undefined)} />}
 
       <InCurrentRms jobId={job.id} />

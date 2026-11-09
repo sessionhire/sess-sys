@@ -62,7 +62,7 @@ export const FUEL_FROM_AA_ACTION = 'quoting.fuel-from-aa'
 export const QUOTE_EMAIL_ACTION = 'quote.email'
 /** A client accepting a quote on its link (ADR 0121): the server's own change, by nobody signed in. */
 export const QUOTE_ONLINE_ACTION = 'quote.acceptedOnline'
-/** A deleted quote put back from the history (ADR 0131): a server route, since no device still has it to show while it waits. */
+/** A deleted quote put back from the history (ADR 0135): a server route, since no device still has it to show while it waits. */
 export const QUOTE_PUT_BACK_ACTION = 'quote.putBack'
 
 /**
@@ -724,7 +724,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       const of = `${version}the quote for ${job(q?.projectId ?? a.projectId)}`
       const on = typeof a.on === 'string' ? ` on ${dayLabel(a.on)}` : ''
       if (command === 'quote.save') return `Saved ${of}`
-      // Deleted and put back (ADR 0131): the history is where a deleted one is found again.
+      // Deleted and put back (ADR 0135): the history is where a deleted one is found again.
       if (command === 'quote.delete') return `Deleted ${of}${typeof q?.number === 'number' ? `, quote ${q.number}` : ''}`
       if (command === QUOTE_PUT_BACK_ACTION) return `Put back ${of}, deleted before`
       if (command === 'quote.sent') return `Marked ${of} as sent to the client${on}`
@@ -743,6 +743,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     }
     case 'quoting.email':
       return a.on === true ? 'Turned on sending quotes to clients by email from the operations mailbox' : 'Turned off sending quotes by email'
+    case 'quoting.ownKit':
+      return typeof a.costPct === 'number' ? `Set own kit's running cost at ${a.costPct}% of its price, for the margin` : "Took off own kit's running cost, so the margin leaves own kit out"
     case 'quoting.online':
       return a.on === true ? 'Turned on clients accepting quotes online' : 'Turned off clients accepting quotes online'
     case QUOTE_ONLINE_ACTION: {

@@ -135,19 +135,20 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(draft.locator('.save-state')).toHaveText('Saved')
   await expect(draft).toContainText('becomes quote 1115')
 
-  // A line half typed when a call comes in can't save yet, but going to Crew and back keeps it (audit finding 27).
+  // A line half typed when a call comes in can't save yet, but going to Crew and back keeps it (audit finding 27). The rest
+  // of the draft saves without it (audit of the quote flow, 8 November 2026, finding 13).
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByLabel('Line 4: price').fill('400')
   // Nothing faults the line while it's still being typed (design system rule 18): the readout says it's not saved, quietly.
-  await expect(draft.locator('.save-state')).toHaveText('Not saved yet')
+  await expect(draft.locator('.save-state')).toHaveText('Line 4 not saved')
   await expect(draft.locator('.line-problem')).toHaveCount(0)
   await expect(draft.locator('.warn-line')).toHaveCount(0)
   await office.goto('/#crew')
   await office.goBack()
-  // Back, the line was left, so what stops the draft saving is said, and "Not saved yet" leads to the line.
+  // Back, the line was left, so what stops it saving is said, and "Line 4 not saved" leads to the line.
   await expect(draft.getByRole('button', { name: 'Line 4: not named yet, change it' })).toBeVisible()
-  await expect(draft.locator('.warn-line')).toContainText("Line 4: say what it's for.")
-  await draft.getByRole('button', { name: 'Not saved yet' }).click()
+  await expect(draft.locator('.warn-line')).toContainText("Line 4: say what it's for. The rest is saved")
+  await draft.getByRole('button', { name: 'Line 4 not saved' }).click()
   await expect(draft.getByLabel('Line 4: price')).toHaveValue('400')
   await expect(draft.locator('.line-problem')).toHaveText("Line 4: say what it's for.")
   // Wrong is drawn as on every other form, the bad edge on the field and the fault by it in the bad ink, never amber (UX sweep,

@@ -144,7 +144,8 @@ test('a place counted with no signal, its differences put right, and the week mo
   await typeIn(page, speakers[1]!)
   await expect(tally).toHaveText('2 of 3 found')
   const kit = page.getByRole('region', { name: 'Counted kit' })
-  await expect(kit).not.toContainText('20')
+  // The record's 20 isn't shown; the random tag in the names is left out, as it can hold a 20 itself.
+  expect((await kit.innerText()).replaceAll(id, '')).not.toContain('20')
   await kit.getByLabel(cable).fill('17')
   await page.getByRole('button', { name: 'Finish the count' }).click()
 

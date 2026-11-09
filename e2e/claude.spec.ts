@@ -115,7 +115,7 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await expect(form.getByLabel('From', { exact: true })).toHaveValue(`${year}-03-04`)
   // Who asked and when they want it by, as the enquiry said (research/quoting.md, feature 6).
   await expect(form.getByLabel('Who asked')).toHaveValue('Niamh Kelly')
-  await expect(form.getByLabel('Quote wanted by')).toHaveValue(`${year}-02-20`)
+  await expect(form.getByLabel('Wanted by')).toHaveValue(`${year}-02-20`)
   // The client's list of names went to Claude to match against.
   expect(asked[0]!.system).toContain('Liffey Brands')
 

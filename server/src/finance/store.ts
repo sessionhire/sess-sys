@@ -43,7 +43,7 @@ const toQuote = (r: Row): Quote => ({
 /** The version a client's link opens (ADR 0121), by its key. */
 export async function quoteByToken(q: Queryable, token: string): Promise<Quote | undefined> {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return undefined
-  // A deleted version's link opens nothing (ADR 0131).
+  // A deleted version's link opens nothing (ADR 0135).
   const { rows } = await q.query(`SELECT ${QUOTE} FROM quotes WHERE accept_token = $1 AND deleted_at IS NULL`, [token])
   return rows[0] ? toQuote(rows[0]) : undefined
 }
@@ -51,13 +51,13 @@ export async function quoteByToken(q: Queryable, token: string): Promise<Quote |
 /** A new key for a client's link: 144 random bits, written as a link carries them. */
 export const newAcceptToken = () => randomBytes(18).toString('base64url')
 
-/** A version, unless it's been deleted (ADR 0131): then it's as if it weren't there, but to put it back. */
+/** A version, unless it's been deleted (ADR 0135): then it's as if it weren't there, but to put it back. */
 export async function getQuote(q: Queryable, id: string, lock = false, deleted = false): Promise<Quote | undefined> {
   const { rows } = await q.query(`SELECT ${QUOTE} FROM quotes WHERE id = $1${deleted ? '' : ' AND deleted_at IS NULL'}${lock ? ' FOR UPDATE' : ''}`, [id])
   return rows[0] ? toQuote(rows[0]) : undefined
 }
 
-/** Whether a version has been deleted (ADR 0131). */
+/** Whether a version has been deleted (ADR 0135). */
 export async function isDeleted(q: Queryable, id: string): Promise<boolean> {
   const { rows } = await q.query('SELECT 1 FROM quotes WHERE id = $1 AND deleted_at IS NOT NULL', [id])
   return rows.length > 0
@@ -70,7 +70,7 @@ export async function quotesOf(q: Queryable, projectId: string): Promise<Quote[]
 }
 
 /**
- * A job's highest version and its quote number, counting deleted ones (ADR 0131): a new version is numbered after a
+ * A job's highest version and its quote number, counting deleted ones (ADR 0135): a new version is numbered after a
  * deleted one, so putting that back never finds its number taken, and the job keeps its one quote number.
  */
 export async function versionsEver(q: Queryable, projectId: string): Promise<{ top: number; number: number | null }> {
@@ -78,7 +78,7 @@ export async function versionsEver(q: Queryable, projectId: string): Promise<{ t
   return { top: Number(rows[0]?.top ?? 0), number: rows[0]?.number ?? null }
 }
 
-/** The emails that went with a version (ADR 0101), so they go and come back with it (ADR 0131). */
+/** The emails that went with a version (ADR 0101), so they go and come back with it (ADR 0135). */
 export async function emailsOf(q: Queryable, quoteId: string): Promise<string[]> {
   const { rows } = await q.query<{ id: string }>('SELECT id FROM quote_emails WHERE quote_id = $1 ORDER BY sent_at', [quoteId])
   return rows.map((r) => r.id)
@@ -126,14 +126,14 @@ export async function paidOnFor(q: Queryable, timesheetIds: readonly string[]): 
 /** What every printed quote says (ADR 0084), once anything about it is saved or a number given. */
 export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | undefined> {
   const { rows } = await q.query<Row>(
-    `SELECT id, next_number, terms, bank, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on::text AS fuel_set_on, fuel_auto, fuel_month, crew_per_car, email_quotes, accept_online
+    `SELECT id, next_number, terms, bank, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on::text AS fuel_set_on, fuel_auto, fuel_month, crew_per_car, email_quotes, accept_online, own_kit_cost_pct
      FROM quote_settings WHERE id = $1`,
     [QUOTE_SETTINGS_ID]
   )
   const r = rows[0]
   if (!r) return undefined
   // Sending quotes by email (ADR 0101) only once it's on, so a device or a test that knows nothing of it sees the settings as before.
-  const settings: QuoteSettings = { id: r.id, nextNumber: r.next_number, terms: r.terms, bank: r.bank, ...(r.email_quotes ? { emailQuotes: true } : {}), ...(r.accept_online ? { acceptOnline: true } : {}) }
+  const settings: QuoteSettings = { id: r.id, nextNumber: r.next_number, terms: r.terms, bank: r.bank, ...(r.email_quotes ? { emailQuotes: true } : {}), ...(r.accept_online ? { acceptOnline: true } : {}), ...(r.own_kit_cost_pct !== null && r.own_kit_cost_pct !== undefined ? { ownKitCostPct: r.own_kit_cost_pct } : {}) }
   // Travel and subsistence (ADR 0086) once they've been set, which sets them all: until then each takes its default.
   if (r.travel_from_km === null) return settings
   const n = (v: unknown) => (v === null ? null : Number(v))
@@ -150,7 +150,7 @@ export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | un
   }
 }
 
-/** The highest quote number given so far, or 0: a deleted version's too, so no number is given twice (ADR 0131). */
+/** The highest quote number given so far, or 0: a deleted version's too, so no number is given twice (ADR 0135). */
 export async function highestNumber(q: Queryable): Promise<number> {
   const { rows } = await q.query<{ n: number | null }>('SELECT max(number) AS n FROM quotes')
   return Number(rows[0]?.n ?? 0)

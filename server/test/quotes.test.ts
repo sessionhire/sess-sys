@@ -342,7 +342,7 @@ describe("a freelancer's cost", () => {
   })
 })
 
-describe('deleting a quote (ADR 0131)', () => {
+describe('deleting a quote (ADR 0135)', () => {
   const putBack = async (app: FastifyInstance, id: string) => {
     const res = await app.inject({ method: 'POST', url: `/api/quotes/${id}/restore` })
     return res.statusCode === 200 ? 'done' : (res.json().error as string)

@@ -17,13 +17,13 @@ import { emailsOf, getClientDiscount, getCostPaid, getPackage, getProductPrice, 
  *   each is a record of what happened outside the app, so it can be taken
  *   back, in the opposite order;
  * - once a quote is invoiced, the job's quote is settled: no new version;
- * - an admin can delete a version (ADR 0131), which the server keeps, out of
+ * - an admin can delete a version (ADR 0135), which the server keeps, out of
  *   sight, so it can be put back as it was.
  *
  * Sending the same change twice, as a phone may, changes nothing.
  */
 
-type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
+type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
@@ -48,7 +48,7 @@ async function refuseIfReplaced(ctx: Ctx, q: Quote) {
  */
 export async function numberIt(ctx: Ctx, q: Quote) {
   if (q.number) return
-  // A deleted version's number too (ADR 0131): it's still the job's.
+  // A deleted version's number too (ADR 0135): it's still the job's.
   const had = (await versionsEver(ctx.tx, q.projectId)).number
   let n = had ?? 0
   if (!n) {
@@ -71,7 +71,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     const job = await getProject(ctx.tx, a.projectId, true)
     if (!job) throw new Refused({ code: 'not-found', message: 'That job no longer exists.' })
     const was = await getQuote(ctx.tx, a.id, true)
-    // A draft open on a phone while an admin deleted it (ADR 0131): the save doesn't bring it back.
+    // A draft open on a phone while an admin deleted it (ADR 0135): the save doesn't bring it back.
     if (!was && (await isDeleted(ctx.tx, a.id))) throw new Refused({ code: 'conflict', message: 'This quote has been deleted. An admin can put it back from the history.' })
     if (was) {
       if (was.projectId !== a.projectId) throw new Refused({ code: 'invalid', message: 'That quote belongs to another job.' })
@@ -100,7 +100,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (draft) throw new Refused({ code: 'conflict', message: `There's already a draft of this quote, version ${draft.version}: change that one.` })
     // A new version holds its prices as long as the one before, and asks the same deposit, unless it says otherwise.
     const before = versions[0]
-    // Numbered after every version the job has had, a deleted one too (ADR 0131).
+    // Numbered after every version the job has had, a deleted one too (ADR 0135).
     const top = (await versionsEver(ctx.tx, a.projectId)).top
     await ctx.tx.query(
       `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name)
@@ -175,6 +175,12 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
   },
 
   /** Whether quotes can be sent to the client by email from the operations mailbox (ADR 0101): off until the office says. */
+  /** What own kit costs to run, as a share of its price (finding 19 of the quote flow audit): the margin's cost for it. */
+  async 'quoting.ownKit'(ctx, a) {
+    await ctx.tx.query(`INSERT INTO quote_settings (id, own_kit_cost_pct) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET own_kit_cost_pct = EXCLUDED.own_kit_cost_pct`, [QUOTE_SETTINGS_ID, a.costPct])
+    await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
+  },
+
   async 'quoting.email'(ctx, a) {
     await ctx.tx.query(`INSERT INTO quote_settings (id, email_quotes) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET email_quotes = EXCLUDED.email_quotes`, [QUOTE_SETTINGS_ID, a.on])
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
@@ -224,7 +230,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
   },
 
   /**
-   * Delete a version (ADR 0131): an admin's, once they've typed its number (or "delete", for one never sent), which is
+   * Delete a version (ADR 0135): an admin's, once they've typed its number (or "delete", for one never sent), which is
    * checked here too, so nothing deletes one by a slip. It goes from every device with the emails that went with it, and
    * its link to the client stops; the server keeps it, out of sight, so it can be put back from the history.
    */
@@ -363,7 +369,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
 }
 
 /**
- * Put a deleted version back (ADR 0131), as it was, unless the job has a draft of its own since or is settled. A server
+ * Put a deleted version back (ADR 0135), as it was, unless the job has a draft of its own since or is settled. A server
  * route (finance/email-routes.ts), not a command: no device has the version any more to show while it waits.
  */
 export async function restoreQuote(ctx: Ctx, id: string): Promise<Quote> {

@@ -51,6 +51,11 @@ import type { TimesheetRow, TimesheetsView } from './timesheets-view.ts'
 
 export interface QuoteView extends Quote {
   pending: boolean
+  /**
+   * Its number is this device's guess, made with no signal, until the server gives it (audit of the quote flow,
+   * 8 November 2026, finding 20): another device's quote sent first takes it, and this one gets the next.
+   */
+  numberPending?: true
   totals: QuoteTotals
   /** The job's newest version. An older one is kept to read, as it went to the client. */
   latest: boolean
@@ -194,9 +199,14 @@ export function moneyView(
 
   // The number a quote going out now will have, worked out as the server does (ADR 0084): an earlier version's, or the
   // next, which moves on. Another device's quote sent first can take it, and then the server's number is shown once it's in.
+  const unsure = new Set<string>()
   const numberOf = (q: Quote) => {
-    const had = q.number ?? [...quotes.values()].find((v) => v.projectId === q.projectId && v.number)?.number
+    const had = q.number ?? [...quotes.values()].find((v) => v.projectId === q.projectId && v.number && !unsure.has(v.id))?.number
     if (had) return had
+    // A number already guessed for another version of this job's quote is the same guess.
+    const guessed = [...quotes.values()].find((v) => v.projectId === q.projectId && v.number && unsure.has(v.id))?.number
+    unsure.add(q.id)
+    if (guessed) return guessed
     const n = Math.max(quoting.nextNumber ?? 1, Math.max(0, ...[...quotes.values()].map((v) => v.number ?? 0)) + 1)
     quoting = { ...quoting, nextNumber: n + 1, pending: true }
     return n
@@ -267,7 +277,7 @@ export function moneyView(
           })
         break
       }
-      // Gone from this device at once (ADR 0131); putting one back waits for the server, which has it.
+      // Gone from this device at once (ADR 0135); putting one back waits for the server, which has it.
       case 'quote.delete': {
         const a = m.args as CommandArgs<'quote.delete'>
         const was = quotes.get(a.id)
@@ -332,6 +342,11 @@ export function moneyView(
         quoting = { ...quoting, emailQuotes: a.on, pending: true }
         break
       }
+      case 'quoting.ownKit': {
+        const a = m.args as CommandArgs<'quoting.ownKit'>
+        quoting = { ...quoting, ownKitCostPct: a.costPct, pending: true }
+        break
+      }
       case 'quoting.online': {
         const a = m.args as CommandArgs<'quoting.online'>
         quoting = { ...quoting, acceptOnline: a.on, pending: true }
@@ -372,7 +387,7 @@ export function moneyView(
   const byJob = new Map<string, QuoteView[]>()
   for (const q of quotes.values()) {
     const list = byJob.get(q.projectId) ?? []
-    list.push({ ...q, totals: quoteTotals(q), latest: false, emails: emails.get(q.id) ?? [] })
+    list.push({ ...q, totals: quoteTotals(q), latest: false, emails: emails.get(q.id) ?? [], ...(unsure.has(q.id) && q.pending ? { numberPending: true as const } : {}) })
     byJob.set(q.projectId, list)
   }
   const views = new Map<string, QuoteView>()

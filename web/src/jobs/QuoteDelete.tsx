@@ -6,7 +6,7 @@ import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 
 /**
- * Deleting a version of a quote (ADR 0131), for admins only: a director or a
+ * Deleting a version of a quote (ADR 0135), for admins only: a director or a
  * system admin, as erasing a person is, and the server holds to it. It's
  * meant to be hard. The button sits at the foot of the quote, away from
  * everything done every day, and opens a dialog that names the version,

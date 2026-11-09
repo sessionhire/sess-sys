@@ -43,7 +43,7 @@ export function registerQuoteEmailRoutes(app: FastifyInstance, m: Mailer) {
 
   /** The quote as it stands, as the PDF that would go: to look at before sending, or to save and send another way. */
   /**
-   * Put a deleted version back (ADR 0131), from the history: an admin's, as deleting it was. Recorded in the history as
+   * Put a deleted version back (ADR 0135), from the history: an admin's, as deleting it was. Recorded in the history as
    * the server's own change, by whoever asked; every device is sent it back.
    */
   app.post<{ Params: { id: string }; Querystring: { client?: string } }>('/api/quotes/:id/restore', { config: { needs: 'company' } }, async (req, reply) => {

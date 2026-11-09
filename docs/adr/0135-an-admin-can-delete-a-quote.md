@@ -1,4 +1,4 @@
-# ADR 0131: An admin can delete a quote, and put it back from the history
+# ADR 0135: An admin can delete a quote, and put it back from the history
 
 - **Status:** accepted
 - **Date:** 9 November 2026

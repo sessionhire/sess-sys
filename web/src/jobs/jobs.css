@@ -152,7 +152,7 @@ dialog.quick-quote[open] { animation: quick-in var(--ds-duration-base) var(--ds-
 }
 @media (prefers-reduced-motion: reduce) { dialog.quick-quote[open] { animation: none; } }
 
-/* Deleting a version of a quote (ADR 0131), an admin's alone. The opener is a quiet danger at the foot of the quote: the bad ink, no fill,
+/* Deleting a version of a quote (ADR 0135), an admin's alone. The opener is a quiet danger at the foot of the quote: the bad ink, no fill,
    so it never competes with the page's one red. It opens the design system's dialog (a blocking decision, the safe answer focused), a
    sheet up from the foot on a phone; what makes this version matter is listed first, and Delete waits for its number to be typed. */
 .app .delete-quote { display: flex; justify-content: flex-end; }
@@ -848,55 +848,84 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .jobs .accepted-online { margin: 0; }
 
 /*
- * Jobs › Calendar (ADR 0124): the master calendar. Confirmed solid and enquiries and quotes dashed with their word, the planner's
- * grammar; healthy is quiet, so neither has a colour of its own. On a phone the days with something on, one under another, adding
- * to the page's height; from 900px across, a month grid that grows with what is on rather than scrolling inside itself.
+ * Jobs › Calendar (ADR 0123): the master calendar, drawn the way Google Calendar draws a month (Colly, 9 November 2026): small type, a
+ * row a week, each job one bar over its days, today's number in a filled circle (now is the accent). Confirmed solid and enquiries and
+ * quotes dashed with their word, the planner's grammar; healthy is quiet, so neither has a colour of its own. On a phone, Google's
+ * schedule: the date on the left, what's on to the right, adding to the page's height. Nothing scrolls inside the page.
  */
+.master-cal .cal-bar-top { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; }
+.master-cal .cal-steps { display: flex; align-items: center; gap: var(--ds-space-2); }
+.master-cal .cal-steps .cal-step { display: inline-grid; place-items: center; width: 2.75rem; padding-inline: 0; border-radius: 999px; }
+.master-cal .cal-steps [aria-current] { color: var(--muted); }
 .master-cal .cal-key { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); margin: 0; }
-.master-cal .cal-swatch { display: inline-block; width: 1.4rem; height: .9rem; border-radius: 4px; border: 1px solid var(--ink); box-shadow: inset 3px 0 0 var(--ink); background: var(--ds-surface-raised); }
-.master-cal .cal-swatch.dashed { border: 1px dashed var(--muted); box-shadow: none; background: var(--panel); margin-left: var(--ds-space-3); }
+.master-cal .cal-swatch { display: inline-block; width: 1.4rem; height: .9rem; border-radius: 4px; background: var(--ink); }
+.master-cal .cal-swatch.dashed { border: 1px dashed var(--ink); background: transparent; margin-left: var(--ds-space-3); }
 .master-cal .cal-days, .master-cal .cal-days ul, .master-cal .cal-undated ul { list-style: none; margin: 0; padding: 0; }
 .master-cal .cal-days ul, .master-cal .cal-undated ul { display: grid; gap: var(--ds-space-1); }
-.master-cal .cal-days { display: grid; gap: var(--ds-space-3); }
-.master-cal .cal-day h3 { display: flex; align-items: baseline; gap: var(--ds-space-2); flex-wrap: wrap; margin: 0 0 var(--ds-space-1); font-size: var(--text-body); }
-.master-cal .cal-day h3 a { color: inherit; text-decoration: none; display: inline-flex; align-items: baseline; gap: var(--ds-space-2); }
-.master-cal .cal-day h3 a:hover { text-decoration: underline; }
-.master-cal .cal-day .today-word { font-size: var(--text-pill); font-weight: 700; }
-.master-cal .cal-day .holiday-name { font-size: var(--text-pill); font-weight: 600; color: var(--muted); }
-.master-cal .cal-num, .master-cal .cal-weekdays { display: none; }
-.master-cal .cal-job { display: grid; gap: 1px; padding: var(--ds-space-1) var(--ds-space-2); border-radius: 6px; border: 1px solid var(--ink); box-shadow: inset 3px 0 0 var(--ink); background: var(--ds-surface-raised); color: inherit; text-decoration: none; min-width: 0; }
-.master-cal .cal-job.dashed { border-style: dashed; border-color: var(--muted); box-shadow: none; background: var(--panel); }
-.master-cal .cal-job.pending { opacity: .75; }
-.master-cal .cal-job b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.master-cal .cal-job small { color: var(--muted); font-size: var(--text-pill); }
-@media (hover: hover) { .master-cal a.cal-job:hover { border-color: var(--ink); filter: brightness(.96); } .master-cal a.cal-job:hover b { text-decoration: underline; } }
-.master-cal a.cal-job:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .master-cal .cal-undated h2 { margin: 0; }
 
-/* A phone: only this month's days with something on, and today, so where you are is always in the list. */
-@media (max-width: 899px) {
-  .master-cal .cal-day:is(.out, .free:not(.today)) { display: none; }
-  .master-cal .cal-day.today h3 { color: var(--ink); }
-}
+/* A job: a small block, as Google's events. Confirmed is filled; potential is its outline, dashed, the words in ink. */
+.master-cal .cal-job { display: flex; align-items: baseline; gap: var(--ds-space-2); min-width: 0; padding: 2px var(--ds-space-2); border-radius: 4px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); text-decoration: none; font-size: var(--text-pill); line-height: 1.35; }
+.master-cal .cal-job.dashed { border-style: dashed; background: var(--panel); color: var(--ink); }
+.master-cal .cal-job.pending { opacity: .75; }
+.master-cal .cal-job b { flex: 0 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.master-cal .cal-job small { flex: 1 1 0; min-width: 0; font-size: inherit; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: hover) { .master-cal a.cal-job:hover { filter: brightness(.9); } .master-cal a.cal-job.dashed:hover { background: color-mix(in srgb, var(--ink) 6%, var(--panel)); filter: none; } }
+.master-cal a.cal-job:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* A desk: Monday to Sunday, a box a day, today shaded as on the planner, the days of the months either side faint. */
+/* A phone: the schedule. */
+.master-cal .cal-grid { display: none; }
+.master-cal .cal-days { display: grid; gap: var(--ds-space-3); }
+.master-cal .cal-day { display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: var(--ds-space-3); align-items: start; }
+.master-cal .cal-day:is(.out, .free:not(.today)) { display: none; }
+.master-cal .cal-day h3 { margin: 0; font-size: var(--text-hint); }
+.master-cal .cal-day h3 a { display: grid; justify-items: center; gap: 2px; color: inherit; text-decoration: none; }
+.master-cal .cal-day h3 small { font-size: var(--text-pill); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.master-cal .cal-day .cal-num { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; font-size: 1.15rem; font-weight: 600; }
+.master-cal .cal-day.today .cal-num { background: var(--accent-fill); color: var(--on-accent); }
+.master-cal .cal-day .holiday-name { display: block; text-align: center; font-size: var(--text-pill); color: var(--muted); }
+.master-cal .cal-day .hint { margin: var(--ds-space-2) 0 0; }
+.master-cal .cal-day .cal-job { padding-block: var(--ds-space-1); }
+.master-cal .cal-day ul { padding-top: var(--ds-space-1); }
+
+/* A desk: the month grid. */
 @media (min-width: 900px) {
+  .master-cal .cal-days { display: none; }
+  .master-cal .cal-grid { display: block; }
   .master-cal .cal-card { padding: 0; overflow: hidden; }
   .master-cal .cal-card > .empty { padding: var(--ds-space-3) var(--ds-space-4) 0; }
-  .master-cal .cal-weekdays, .master-cal .cal-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; }
-  .master-cal .cal-weekdays span { padding: var(--ds-space-2); font-size: var(--text-pill); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--line); }
-  .master-cal .cal-day { min-height: 7.5rem; padding: var(--ds-space-1) var(--ds-space-1) var(--ds-space-2); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
-  .master-cal .cal-day:nth-child(7n) { border-right: 0; }
-  .master-cal .cal-day h3 { padding: 0 var(--ds-space-1); font-size: var(--text-hint); }
-  /* The full date stays for screen readers; the eye has the weekday along the top. */
-  .master-cal .cal-full { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .master-cal .cal-day { position: relative; }
-  .master-cal .cal-num { display: inline; font-weight: 700; }
-  .master-cal .cal-day.out { background: color-mix(in srgb, var(--ink) 3%, var(--panel)); }
-  .master-cal .cal-day.out :is(h3, ul) { opacity: .55; }
-  .master-cal .cal-day.today { background-color: color-mix(in srgb, var(--ink) 5%, var(--panel)); box-shadow: inset 0 3px 0 var(--ink); }
-  /* A run of days reads as one: a day that carries on squares its edge towards the next. */
-  .master-cal .cal-day .cal-job.cont-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-  .master-cal .cal-day .cal-job.cont-l { border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: none; }
-  .master-cal .cal-day .cal-job.solid.cont-l { border-left-style: dotted; }
+  .master-cal .cal-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .master-cal .cal-weekdays span { padding: var(--ds-space-2) 0 var(--ds-space-1); text-align: center; font-size: var(--text-pill); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; border-right: 1px solid var(--line); }
+  .master-cal .cal-weekdays span:last-child { border-right: 0; }
+  /* A week: the day boxes behind, filling every row; the bars on top, a line each, then room to spare. */
+  .master-cal .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: 2.25rem repeat(var(--lanes, 0), auto) minmax(var(--ds-space-6), 1fr); row-gap: 2px; min-height: 7rem; border-top: 1px solid var(--line); }
+  .master-cal .cal-cell { grid-row: 1 / -1; display: flex; justify-content: center; align-items: flex-start; gap: var(--ds-space-1); padding-top: var(--ds-space-1); border-right: 1px solid var(--line); min-width: 0; }
+  .master-cal .cal-cell:nth-child(7) { border-right: 0; }
+  .master-cal .cal-cell.out { background: color-mix(in srgb, var(--ink) 3%, var(--panel)); }
+  .master-cal .cal-cell.out .cal-date { color: var(--muted); }
+  .master-cal .cal-date { display: grid; place-items: center; min-width: 1.75rem; height: 1.75rem; padding-inline: var(--ds-space-1); border-radius: 999px; color: var(--ink); text-decoration: none; font-size: var(--text-pill); font-weight: 600; }
+  .master-cal .cal-date:hover { background: color-mix(in srgb, var(--ink) 8%, var(--panel)); }
+  .master-cal .cal-cell.today .cal-date { background: var(--accent-fill); color: var(--on-accent); }
+  .master-cal .cal-cell .holiday-name { line-height: 1.75rem; font-size: var(--text-pill); color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-inline: var(--ds-space-1); }
+  /* A bar starts just inside its first day and ends just inside its last; one carrying on from or into the next week runs to the edge, square. */
+  .master-cal .cal-span { position: relative; margin-inline: var(--ds-space-1); }
+  .master-cal .cal-span.cont-l { margin-left: 0; border-left-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .master-cal .cal-span.cont-r { margin-right: 0; border-right-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+}
+/* A group folds to its title, how many lines and what they come to (finding 15 of the quote flow audit): the title is the press. */
+.quote-screen .group-head .group .fold { all: unset; cursor: pointer; display: inline-flex; align-items: baseline; gap: var(--ds-space-1); min-height: 32px; }
+.quote-screen .group-head .group .fold::after { content: ''; width: .45em; height: .45em; margin-left: var(--ds-space-1); border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-.15em) rotate(45deg); transition: transform var(--ds-duration-fast) var(--ds-ease-standard); }
+.quote-screen .group-head .group .fold[aria-expanded='false']::after { transform: rotate(-45deg); }
+.quote-screen .group-head .group .fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.quote-screen .group-head .group .fold small { font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.quote-screen .quote-group.folded .group-head { border-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .quote-screen .group-head .group .fold::after { transition: none; }
+}
+/* While kit or crew is picked on a phone, the readout is one line and the bar steps aside, so the list has the room (finding 15). */
+@media (max-width: 639px) {
+  .quote-screen .quote-draft.picking .quote-summary .chips,
+  .quote-screen .quote-draft.picking .quote-summary .figure:not(.lead) { display: none; }
+  .quote-screen .quote-draft.picking .quote-summary .figure.lead b { font-size: inherit; }
+  html:has(.quote-draft.picking) .foot { display: none; }
 }
