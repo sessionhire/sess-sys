@@ -1,5 +1,5 @@
 import { dayLabel, newId, type View } from '@sh/shared'
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
@@ -92,13 +92,15 @@ export function QuickQuote({ view, at, onClose }: { view: View; at: QuickAt; onC
   const dates = (start: string, end: string) => setF({ ...f, start, end: end < start ? start : end })
   const draft = { ...f, name: f.name.trim(), client: f.client.trim(), venue: f.venue.trim() }
 
-  /** The full form, with what's typed here carried over. */
-  const more = () => {
+  /** The full form, on the day, with what's typed here carried over. The day goes in the address only as a date, never as typed. */
+  const more = (e: MouseEvent) => {
+    e.preventDefault()
     try {
       sessionStorage.setItem(DRAFT, JSON.stringify(draft))
     } catch {
       /* then the form starts on the day alone */
     }
+    location.hash = newQuoteHref(/^\d{4}-\d{2}-\d{2}$/.test(draft.start) ? draft.start : at.day)
   }
 
   /** The job as an enquiry with one Show across the days, and an empty quote on it, as New quote makes them, then the quote. */
@@ -152,7 +154,7 @@ export function QuickQuote({ view, at, onClose }: { view: View; at: QuickAt; onC
         <p className="hint">Added to Jobs as an enquiry. Kit, crew, who asked and the rest go on the quote.</p>
         <Refusal error={error} />
         <div className="actions">
-          <a className="link" href={newQuoteHref(f.start)} onClick={more}>
+          <a className="link" href={newQuoteHref()} onClick={more}>
             More options
           </a>
           <button type="submit" className="primary">
