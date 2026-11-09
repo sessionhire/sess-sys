@@ -9,6 +9,8 @@ import {
   mapLink,
   movedCallSpan,
   newId,
+  callsFromQuote,
+  type CallToMake,
   parseEuro,
   phaseOnCalendar,
   phaseOnlyGrew,
@@ -359,6 +361,7 @@ function CrewPart({
             <p className="empty">Add a phase first: crew are asked for by phase and day.</p>
           ) : (
             <>
+              <CrewFromQuote job={job} view={view} />
               {job.calls.length === 0 && <p className="hint">No crew asked for yet.</p>}
               <Fold label="Ask for crew">
                 <AskForCrew job={job} />
@@ -882,6 +885,60 @@ function AddPhase({ job }: { job: JobView }) {
         ))}
       </datalist>
     </form>
+  )
+}
+
+/**
+ * The crew on the job's quote that it hasn't asked for yet (ADR 0126; audit of the quote flow, 8 November 2026, finding
+ * 8), made calls in one press rather than typed again: each role for the job's days, for its one phase or across its
+ * phases, with no rate and nobody offered yet. Quotes are only on the devices of those who see money.
+ */
+export function crewToCall(view: View, job: JobView): CallToMake[] {
+  const quote = view.money.quotesOf(job.id)[0]
+  return quote ? callsFromQuote(quote.lines, job.calls) : []
+}
+
+function CrewFromQuote({ job, view }: { job: JobView; view: View }) {
+  const { run, error } = useAct()
+  const today = useToday()
+  const toMake = crewToCall(view, job)
+  if (!toMake.length || !job.span) return null
+  const span = job.span
+  const only = job.phases.length === 1 ? job.phases[0] : undefined
+  const across = job.phases.map((p) => p.name).join(', ')
+  const venue = only?.venue ?? job.venue
+  const make = async () => {
+    for (const c of toMake)
+      await client.mutate('call.create', {
+        id: newId(),
+        projectId: job.id,
+        phaseId: only?.id ?? null,
+        project: job.name,
+        phase: only?.name ?? across.slice(0, 100),
+        venue: venue ? venueLabel(venue) : '',
+        role: c.role.slice(0, 100),
+        start: only?.start ?? span.start,
+        end: only?.end ?? span.end,
+        callTime: null,
+        needed: c.needed,
+        dayRateCents: null,
+        details: '',
+        replyBy: suggestedReplyBy(only?.start ?? span.start, only?.end ?? span.end, today) ?? null,
+        department: departmentForRole(c.role, { calls: view.crew.calls, people: view.crew.people }),
+      })
+  }
+  return (
+    <div className="kit-from-quote" role="group" aria-label="Crew on the quote">
+      <p>
+        {job.calls.length ? 'On the quote but not asked for yet: ' : 'The quote has crew to ask for: '}
+        {toMake.map((c) => `${c.needed} × ${c.role}`).join(', ')}.
+      </p>
+      <Refusal error={error} />
+      <button type="button" className="secondary" onClick={() => void run(make)}>
+        {toMake.length === 1 ? 'Make the call' : `Make all ${toMake.length} calls`}
+      </button>
+      <p className="hint">For {only ? only.name : "the job's days"}, with nobody offered yet. Change the days, time or rate on each after.</p>
+    </div>
   )
 }
 

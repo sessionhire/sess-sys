@@ -136,10 +136,15 @@ waiting on someone.
   price list arrives that way; a number typed before a product is how many
   first ("2 d20" adds two); the start of one client or venue left in the
   box takes that one, said under it with a press to keep it new.
+- On 9 November Colly asked for the rest, in order. Batch 2, the quote is
+  the job's plan (ADR 0126, 1.127.0): a draft's kit is on the job's kit
+  list as it's typed, pencilled, so other quotes see it and confirming
+  holds it; the quote's crew are made calls in one press; a line's days
+  are the days the job works, not the gap between build and show.
 
 **Waiting on**
 
-- Colly to pick the next batch, and the page's six questions.
+- Batches 3 to 7, being built in order; the page's six questions.
 
 ## 8 November 2026: a package's price starts at its items' total
 

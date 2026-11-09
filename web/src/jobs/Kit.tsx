@@ -1,5 +1,7 @@
 import {
+  FROM_THE_QUOTE,
   kitFromQuote,
+  kitToMatch,
   packageIncludes,
   type KitToAdd,
   type QuoteLine,
@@ -589,7 +591,18 @@ export function kitToAdd(view: View, lines: readonly QuoteLine[], jobId: string)
 /** Puts what the quote wants on the job's kit list, for the whole job, each as a line of its own. */
 export async function addKitFromQuote(jobId: string, adds: readonly KitToAdd[]): Promise<void> {
   for (const a of adds)
-    await client.mutate('kit.add', { id: newId(), projectId: jobId, phaseId: null, modelId: a.modelId, qty: Math.min(MAX_QTY, a.qty), subhireQty: Math.min(MAX_QTY, a.subhireQty), supplier: a.supplier, notes: 'From the quote' })
+    await client.mutate('kit.add', { id: newId(), projectId: jobId, phaseId: null, modelId: a.modelId, qty: Math.min(MAX_QTY, a.qty), subhireQty: Math.min(MAX_QTY, a.subhireQty), supplier: a.supplier, notes: FROM_THE_QUOTE })
+}
+
+/**
+ * The job's kit list made to follow its draft quote while the job is pencilled in (ADR 0126): what the quote wants goes
+ * on, and what the quote put on and no longer wants comes off. Kit added or changed by hand stays as it is.
+ */
+export async function matchKitToQuote(view: View, jobId: string, lines: readonly QuoteLine[]): Promise<void> {
+  const m = kitToMatch(lines, (id) => view.money.package(id)?.items, view.kit.byJob.get(jobId) ?? [])
+  await addKitFromQuote(jobId, m.add)
+  for (const c of m.change) await client.mutate('kit.update', { id: c.id, qty: c.qty, subhireQty: c.subhireQty })
+  for (const id of m.remove) await client.mutate('kit.remove', { id })
 }
 
 /**
