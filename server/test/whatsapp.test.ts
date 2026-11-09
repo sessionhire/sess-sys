@@ -1,0 +1,197 @@
+import { newId, type CommandInput, type CommandName, type MutationResult } from '@sh/shared'
+import type { FastifyInstance } from 'fastify'
+import { afterEach, describe, expect, it } from 'vitest'
+import { buildApp } from '../src/app.ts'
+import { pgliteDb, type Db } from '../src/db.ts'
+import type { WhatsAppConfig } from '../src/whatsapp/api.ts'
+
+/**
+ * Offers on WhatsApp (ADR 0125): with the office's switch on, an offer goes to its person on WhatsApp by itself as
+ * it's made, straight to Meta. Off, which is how it starts, nothing goes; in test mode only the numbers listed get
+ * them; and each person can turn them off, and only they can turn them back on. Meta is a stand-in here.
+ */
+
+let cleanup: (() => Promise<void>)[] = []
+afterEach(async () => {
+  for (const fn of cleanup.reverse()) await fn()
+  cleanup = []
+})
+
+interface Sent {
+  url: string
+  body: any
+}
+
+/** Meta, as far as the app talks to it: the number's state, and taking a message, or saying no as told. */
+function fakeMeta() {
+  const sent: Sent[] = []
+  let answer: { status: number; error?: string } = { status: 200 }
+  const fetch = (async (url: string | URL, init?: RequestInit) => {
+    const u = String(url)
+    if (init?.method === 'POST') {
+      const body = JSON.parse(String(init.body))
+      sent.push({ url: u, body })
+      if (answer.status !== 200) return new Response(JSON.stringify({ error: { message: answer.error ?? 'No', code: 131026 } }), { status: answer.status })
+      return new Response(JSON.stringify({ messages: [{ id: `wamid.${sent.length}` }] }), { status: 200 })
+    }
+    return new Response(JSON.stringify({ display_phone_number: '+353 1 555 0100', verified_name: 'Session Hire', quality_rating: 'GREEN', name_status: 'APPROVED' }), { status: 200 })
+  }) as typeof fetch
+  return { fetch, sent, answer: (a: typeof answer) => (answer = a) }
+}
+
+async function setUp({ configured = true }: { configured?: boolean } = {}) {
+  const db = await pgliteDb()
+  const meta = fakeMeta()
+  const config: WhatsAppConfig = { token: 't', phoneNumberId: '1234', apiUrl: 'https://meta.test/v23.0', language: 'en_GB', appSecret: 's', verifyToken: 'v', fetch: meta.fetch }
+  const app = await buildApp({ db, ...(configured ? { whatsapp: config } : {}) })
+  cleanup.push(async () => {
+    await app.close()
+    await db.close()
+  })
+  const send = async <N extends CommandName>(name: N, args: CommandInput<N>): Promise<MutationResult> => {
+    const res = await app.inject({ method: 'POST', url: '/api/sync/push', payload: { clientId: 'ops-laptop', mutations: [{ id: newId(), name, args, createdAt: new Date().toISOString() }] } })
+    // What the push queued goes now: wait for it, as the office never has to.
+    await app.whatsappSender.kick()
+    return res.json().results[0]
+  }
+  const person = async (name: string, phone: string | null) => {
+    const id = newId()
+    expect(await send('person.upsert', { id, name, kind: 'freelancer', email: null, phone, skills: [], dayRateCents: 25000, notes: '' })).toMatchObject({ status: 'applied' })
+    return id
+  }
+  const call = async () => {
+    const id = newId()
+    const at = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10)
+    expect(
+      await send('call.create', { id, project: 'Electric Picnic', phase: 'Build', venue: 'Stradbally Hall', role: 'Audio tech', start: at, end: at, callTime: '08:00', needed: 2, dayRateCents: 25000, details: '', replyBy: null })
+    ).toMatchObject({ status: 'applied' })
+    return id
+  }
+  const offer = async (callId: string, personId: string) => {
+    const id = newId()
+    expect(await send('offer.send', { id, callId, personId, override: false })).toMatchObject({ status: 'applied' })
+    return id
+  }
+  const messages = async () =>
+    (await db.query<{ offer_id: string; to_number: string; state: string; wamid: string | null; problem: string | null; tries: number }>(`SELECT offer_id, to_number, state, wamid, problem, tries FROM whatsapp_messages ORDER BY made_at`)).rows
+  const token = async (id: string) => (await db.query<{ link_token: string }>('SELECT link_token FROM people WHERE id = $1', [id])).rows[0]!.link_token
+  return { app, db, meta, send, person, call, offer, messages, token }
+}
+
+const page = async (app: FastifyInstance, token: string) => (await app.inject({ url: `/f/${token}` })).body
+const post = (app: FastifyInstance, url: string, fields: Record<string, string>) =>
+  app.inject({ method: 'POST', url, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: new URLSearchParams(fields).toString() })
+
+describe('offers on WhatsApp (ADR 0125)', () => {
+  it('sends nothing while the switch is off, as it starts, and says nothing about WhatsApp on their page', async () => {
+    const { app, meta, person, call, offer, messages, token } = await setUp()
+    const aoife = await person('Aoife Byrne', '087 123 4567')
+    await offer(await call(), aoife)
+    expect(await messages()).toEqual([])
+    expect(meta.sent).toEqual([])
+    expect(await page(app, await token(aoife))).not.toContain('Offers on WhatsApp')
+  })
+
+  it('in test mode sends only to the numbers listed, with the job in the blanks and the offer in the buttons', async () => {
+    const { app, meta, send, person, call, offer, messages, token } = await setUp()
+    const aoife = await person('Aoife Byrne', '087 123 4567')
+    const dara = await person('Dara Kelly', '+353 86 765 4321')
+    expect(await send('whatsapp.use', { mode: 'test', testTo: ['+353871234567'] })).toMatchObject({ status: 'applied' })
+    const c = await call()
+    const toAoife = await offer(c, aoife)
+    await offer(c, dara)
+    expect(await messages()).toEqual([expect.objectContaining({ offer_id: toAoife, to_number: '353871234567', state: 'sent', wamid: 'wamid.1' })])
+    const body = meta.sent[0]!.body
+    expect(meta.sent[0]!.url).toBe('https://meta.test/v23.0/1234/messages')
+    expect(body).toMatchObject({ to: '353871234567', type: 'template', template: { name: 'job_offer', language: { code: 'en_GB' } } })
+    const blanks = body.template.components[0].parameters.map((p: { text: string }) => p.text)
+    expect(blanks.slice(0, 3)).toEqual(['Aoife', 'Electric Picnic (Build)', 'Audio tech'])
+    expect(blanks).toContain('€250 a day')
+    expect(blanks.every((t: string) => t.length > 0 && !t.includes('\n'))).toBe(true)
+    expect(body.template.components.slice(1)).toEqual([
+      { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: `yes:${toAoife}` }] },
+      { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: `no:${toAoife}` }] },
+      { type: 'button', sub_type: 'url', index: '2', parameters: [{ type: 'text', text: await token(aoife) }] },
+    ])
+    // Only the number being tried sees it on their page.
+    expect(await page(app, await token(aoife))).toContain('Offers on WhatsApp')
+    expect(await page(app, await token(dara))).not.toContain('Offers on WhatsApp')
+  })
+
+  it('is theirs to turn off on their page, and only theirs to turn back on', async () => {
+    const { app, meta, send, person, call, offer, messages, token } = await setUp()
+    const aoife = await person('Aoife Byrne', '087 123 4567')
+    await send('whatsapp.use', { mode: 'on', testTo: [] })
+    const link = await token(aoife)
+    expect(await page(app, link)).toContain('Stop offers on WhatsApp')
+    const off = await post(app, `/f/${link}/whatsapp`, { on: 'no' })
+    expect(off.statusCode).toBe(303)
+    expect(await page(app, link)).toContain('Send my offers on WhatsApp')
+    const c = await call()
+    await offer(c, aoife)
+    expect(meta.sent).toEqual([])
+    expect(await messages()).toEqual([])
+    // The office can't put them back on.
+    expect(await send('person.whatsapp', { id: aoife, on: true })).toMatchObject({ status: 'rejected', reason: { code: 'forbidden' } })
+    await post(app, `/f/${link}/whatsapp`, { on: 'yes' })
+    await offer(await call(), aoife)
+    expect(meta.sent).toHaveLength(1)
+    // The office can turn them off, when someone asks.
+    expect(await send('person.whatsapp', { id: aoife, on: false })).toMatchObject({ status: 'applied' })
+    const history = await app.inject({ url: '/api/history' })
+    const said = history.json().entries.map((e: { what: string }) => e.what)
+    expect(said).toEqual(expect.arrayContaining(['Aoife Byrne turned off offers on WhatsApp', 'Aoife Byrne turned on offers on WhatsApp', 'Turned off offers on WhatsApp for Aoife Byrne', 'Turned on offers on WhatsApp']))
+  })
+
+  it('leaves out anyone with no mobile, and sends nothing for an offer withdrawn before it went', async () => {
+    const { db, app, meta, send, person, call, offer, messages } = await setUp()
+    await send('whatsapp.use', { mode: 'on', testTo: [] })
+    const noel = await person('Noel Byrne', null)
+    await offer(await call(), noel)
+    expect(await messages()).toEqual([])
+    // Queued, then withdrawn before the server got to it.
+    const aoife = await person('Aoife Byrne', '087 123 4567')
+    const c = await call()
+    await app.whatsappSender.kick()
+    const id = newId()
+    await db.query(`INSERT INTO offers (id, call_id, person_id, status, days) VALUES ($1, $2, $3, 'cancelled', '[]')`, [id, c, aoife])
+    await db.query(`INSERT INTO whatsapp_messages (id, offer_id, person_id, kind, to_number, state) VALUES ($1, $2, $3, 'offer', '353871234567', 'queued')`, [`offer-${id}`, id, aoife])
+    await app.whatsappSender.kick()
+    expect(await messages()).toEqual([expect.objectContaining({ state: 'failed', problem: 'The offer was answered or withdrawn before it went.' })])
+    expect(meta.sent).toEqual([])
+  })
+
+  it('keeps trying while Meta is away, and stops at Meta’s no', async () => {
+    const { db, meta, send, person, call, offer, messages } = await setUp()
+    await send('whatsapp.use', { mode: 'on', testTo: [] })
+    const aoife = await person('Aoife Byrne', '087 123 4567')
+    meta.answer({ status: 503, error: 'Service unavailable' })
+    await offer(await call(), aoife)
+    expect(await messages()).toEqual([expect.objectContaining({ state: 'queued', problem: 'Service unavailable', tries: 1 })])
+    // Tried again a minute on, not at once.
+    await send('messages.prompt', { on: false })
+    expect(await messages()).toEqual([expect.objectContaining({ tries: 1 })])
+    await db.query(`UPDATE whatsapp_messages SET tried_at = tried_at - interval '1 minute'`)
+    meta.answer({ status: 400, error: 'Recipient phone number not in allowed list' })
+    await send('messages.prompt', { on: false })
+    expect(await messages()).toEqual([expect.objectContaining({ state: 'failed', problem: 'Recipient phone number not in allowed list', tries: 2 })])
+  })
+
+  it('says how the number is under Admin, and that it isn’t set up without the key', async () => {
+    const set = await setUp()
+    expect((await set.app.inject({ url: '/api/whatsapp' })).json()).toMatchObject({ configured: true, number: '+353 1 555 0100', name: 'Session Hire', quality: 'GREEN', missing: [] })
+    const bare = await setUp({ configured: false })
+    expect((await bare.app.inject({ url: '/api/whatsapp' })).json()).toMatchObject({ configured: false })
+    // Without the key the switch stays off in practice: nothing is queued that could ever go, and nothing is looked for.
+    await bare.send('whatsapp.use', { mode: 'on', testTo: [] })
+    const aoife = await bare.person('Aoife Byrne', '087 123 4567')
+    await bare.offer(await bare.call(), aoife)
+    expect(await bare.messages()).toEqual([expect.objectContaining({ state: 'queued' })])
+    expect(bare.meta.sent).toEqual([])
+  })
+
+  it('refuses a test number with no country code it can work out', async () => {
+    const { send } = await setUp()
+    expect(await send('whatsapp.use', { mode: 'test', testTo: ['12'] })).toMatchObject({ status: 'rejected', reason: { code: 'invalid' } })
+  })
+})

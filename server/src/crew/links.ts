@@ -12,7 +12,7 @@ import { officeFor, timesheetAsking, usesTimesheets } from '../office/store.ts'
 import { getPhase } from '../projects/store.ts'
 import { sendFeed, type Feeds } from './feeds.ts'
 import { getLate, lateFor, lateOf } from './late.ts'
-import { renderGone, renderPage, type Flash, type Kept, type OnTheDay } from './page.ts'
+import { renderGone, renderPage, type Flash, type Kept, type OnTheDay, type PageWhatsApp } from './page.ts'
 import { renderNoSheet, renderSheet, sheetFor } from './sheet.ts'
 import { awayFor, endedOn, getAway, getCall, getOffer, getPerson, heldByCall, heldElsewhereIn, offersFor, personByToken, yesLogs } from './store.ts'
 import { renderTimesheet, type TimesheetPage } from './timesheet-page.ts'
@@ -25,6 +25,7 @@ import { getPurchase, openPurchases, purchasesFor } from '../purchases/store.ts'
 import { renderPurchases } from './purchase-page.ts'
 import { renderBroken, type BrokenPage } from './broken-page.ts'
 import { getAsset, numberUse } from '../stock/store.ts'
+import type { WhatsApp } from '../whatsapp/whatsapp.ts'
 
 /**
  * A freelancer's private link, /f/<token>: their page, the answers they
@@ -78,6 +79,8 @@ const SAID = {
   // Their own details.
   'details-same': { ok: true, text: 'Nothing to change: those are the details we have.' },
   'details-saved': { ok: true, text: 'Saved. The office has your new details.' },
+  'whatsapp-on': { ok: true, text: 'Done: your offers will come on WhatsApp too.' },
+  'whatsapp-off': { ok: true, text: "Done: no more offers on WhatsApp. They'll still be here, and the office may still message you itself." },
   // Days they can't work.
   'days-off-added': { ok: true, text: "Got it. We won't offer you work on those days." },
   'days-off-removed': { ok: true, text: 'Removed. You can be offered work on those days again.' },
@@ -152,7 +155,7 @@ type Refusal = Extract<MutationResult, { status: 'rejected' }>
 const told = (what: Said | Refusal): Record<string, string> => (typeof what === 'string' ? { m: what } : { r: what.id })
 
 /** `demo`: the passcode-locked demo copy (ADR 0033), whose freelancer pages say so and lead back to choosing whose eyes to see the app through. */
-export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => void, feeds: Feeds, { demo = false, ownCalendars }: { demo?: boolean; ownCalendars?: OwnCalendars } = {}) {
+export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => void, feeds: Feeds, { demo = false, ownCalendars, whatsapp }: { demo?: boolean; ownCalendars?: OwnCalendars; whatsapp?: WhatsApp } = {}) {
   app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) =>
     done(null, new URLSearchParams(String(body)))
   )
@@ -289,12 +292,24 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       onTheDay,
       demo,
       ownCalendar: await getOwnCalendar(db, person.id),
+      // Offers on WhatsApp (ADR 0125): said, with the way to turn them off or on, once the office sends them to this person's number.
+      whatsapp: await whatsappFor(person),
       // A member of staff's time off is their leave (ADR 0024), read from the requests rather than the days it marks off.
       ...(person.kind === 'staff' ? { leave: await leaveAheadFor(db, person.id, now) } : {}),
       // Their documents (ADR 0029), with forms to send a new one where the server can keep files.
       purchases: await openPurchases(db),
       documents: documentsSection({ person, list: await documentsOf(db, person.id), files: app.documents.on, base: base(req, person.linkToken), today: now, flash }),
     })
+  }
+
+  /**
+   * Offers on WhatsApp on their page (ADR 0125): drawn once the office sends offers there and this person's mobile would
+   * get them, whether or not they've turned them off; in test mode, only for the numbers being tried.
+   */
+  async function whatsappFor(person: Person): Promise<PageWhatsApp | undefined> {
+    if (!whatsapp?.configured || person.archived) return undefined
+    const to = await whatsapp.reach(db, { ...person, whatsappOff: false })
+    return to ? { on: !person.whatsappOff, to: person.phone ?? '' } : undefined
   }
 
   app.get('/f/:token', async (req: Req, reply) => {
@@ -498,6 +513,17 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     if (result.status === 'rejected')
       return refused(req, reply, person, result, { form: 'details', values: form }, { section: 'details', ...(result.reason.code === 'invalid' && changes.email === undefined ? { field: 'phone' } : {}) })
     return inSection('details-saved')
+  })
+
+  // Offers on WhatsApp, on or off (ADR 0125): theirs to choose, said in their details.
+  app.post('/f/:token/whatsapp', async (req: Req, reply) => {
+    const person = await personByToken(db, req.params.token)
+    if (!person) return gone(reply)
+    const form = (req.body ?? new URLSearchParams()) as Form
+    const on = form.get('on') === 'yes'
+    const result = await run(req, person.id, 'person.whatsapp', { id: person.id, on })
+    if (result.status === 'rejected') return refused(req, reply, person, result, { form: 'whatsapp', values: form }, { section: 'details' })
+    return reply.redirect(`/f/${person.linkToken}?${new URLSearchParams({ m: on ? 'whatsapp-on' : 'whatsapp-off', s: 'details' })}#details`, 303)
   })
 
   // The purchase list (ADR 0108): the same list as Stock › Purchase list in the app, to see, ask on and vote, as the link's person.

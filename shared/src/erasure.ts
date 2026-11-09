@@ -225,6 +225,8 @@ export const PERSON_COMMANDS: Partial<Record<CommandName | DocumentAction | OwnC
     keep: (a) => ({ id: a.id, ...(a.email !== undefined ? { email: null } : {}), ...(a.phone !== undefined ? { phone: null } : {}) }),
   },
   'person.level': { names: { field: 'id' }, refused: true, keep: only('id') },
+  // Whether they get offers on WhatsApp (ADR 0125): a choice, kept as it was.
+  'person.whatsapp': { names: { field: 'id' }, refused: true, keep: as },
   'person.newLink': { names: { field: 'id' }, refused: true, keep: as },
   'person.role': { names: { field: 'id' }, refused: true, keep: as },
   'person.archive': { names: { field: 'id' }, refused: true, keep: as },

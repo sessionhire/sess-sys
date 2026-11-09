@@ -179,9 +179,10 @@ export const RECORDS: Record<PersonRecord, { table: string; madeBy: CommandName 
  * added to a person fails to compile here until it has a column (and
  * `erasedPerson` says whether it goes). The company is three columns;
  * the hidden flags (ADR 0046) are only ever on what's sent, never stored.
- * Whether their name was checked (ADR 0068) says nothing about them, and stays.
+ * Whether their name was checked (ADR 0068) says nothing about them, and stays; so does whether they turned off offers
+ * on WhatsApp (ADR 0125), with no number left to send them to.
  */
-const PERSON_COLUMNS: { [K in Exclude<keyof Person, 'id' | 'kind' | 'company' | 'rateHidden' | 'linkHidden' | 'detailsHidden' | 'levelHidden' | 'photo' | 'nameChecked'>]: string } = {
+const PERSON_COLUMNS: { [K in Exclude<keyof Person, 'id' | 'kind' | 'company' | 'rateHidden' | 'linkHidden' | 'detailsHidden' | 'levelHidden' | 'photo' | 'nameChecked' | 'whatsappOff'>]: string } = {
   name: 'name',
   firstName: 'first_name',
   lastName: 'last_name',
@@ -304,6 +305,8 @@ export async function erasePerson(ctx: Ctx, personId: string, how: EraseHow): Pr
   await tx.query(`DELETE FROM link_devices WHERE person_id = $1`, [personId])
   await tx.query(`DELETE FROM link_codes WHERE person_id = $1`, [personId])
   await tx.query(`DELETE FROM link_lost WHERE person_id = $1`, [personId])
+  // What went to them on WhatsApp (ADR 0125), with the number it went to.
+  await tx.query(`DELETE FROM whatsapp_messages WHERE person_id = $1`, [personId])
   Object.assign(values, { company_name: null, company_vat_number: null, company_cro_number: null })
   // Their photo (ADR 0065): its file went on the list of files to delete with their documents' (queueFilesOf).
   Object.assign(values, { photo_key: null, photo_type: null, photo_bytes: null, photo_at: null })

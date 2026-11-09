@@ -282,6 +282,30 @@ const MIGRATIONS: string[] = [
     sent_at    timestamptz NOT NULL
   );
   `,
+  // Offers on WhatsApp, for one person (ADR 0125): on unless they, or the office when asked, turned them off.
+  `ALTER TABLE people ADD COLUMN IF NOT EXISTS whatsapp_off boolean NOT NULL DEFAULT false;`,
+  // What went to crew on WhatsApp (ADR 0125): queued as the offer is made, sent by the server just after, then
+  // delivered and read as Meta says. The number it went to is kept, as it was then; Meta's id finds it again.
+  `
+  CREATE TABLE IF NOT EXISTS whatsapp_messages (
+    id            text PRIMARY KEY,
+    offer_id      text REFERENCES offers(id),
+    person_id     text NOT NULL,
+    kind          text NOT NULL,
+    to_number     text NOT NULL,
+    state         text NOT NULL CHECK (state IN ('queued', 'sent', 'delivered', 'read', 'failed')),
+    wamid         text UNIQUE,
+    problem       text,
+    made_at       timestamptz NOT NULL DEFAULT now(),
+    sent_at       timestamptz,
+    delivered_at  timestamptz,
+    read_at       timestamptz,
+    tries         integer NOT NULL DEFAULT 0,
+    tried_at      timestamptz
+  );
+  CREATE INDEX IF NOT EXISTS whatsapp_messages_queued ON whatsapp_messages (made_at) WHERE state = 'queued';
+  CREATE INDEX IF NOT EXISTS whatsapp_messages_offer ON whatsapp_messages (offer_id);
+  `,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }

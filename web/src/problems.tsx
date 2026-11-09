@@ -270,6 +270,8 @@ function describer(view: View): (m: Mutation) => string {
         return onOff(a.on, 'Claude in the app')
       case 'links.check':
         return onOff(a.on, "checking new phones on freelancers' links")
+      case 'whatsapp.use':
+        return a.mode === 'test' ? 'Try offers on WhatsApp on the test numbers' : onOff(a.mode === 'on', 'offers on WhatsApp')
       case 'cables.colours':
         return 'Set the colours for cable lengths'
       case 'trackers.use':
@@ -311,6 +313,8 @@ function describer(view: View): (m: Mutation) => string {
         return a.archived ? `Archive ${person(a.id)}` : `Bring ${person(a.id)} back`
       case 'person.contact':
         return `Change ${person(a.id)}'s contact details`
+      case 'person.whatsapp':
+        return a.on ? `Turn on offers on WhatsApp for ${person(a.id)}` : `Turn off offers on WhatsApp for ${person(a.id)}`
       case 'person.mainEmail':
         return `Change ${person(a.id)}'s main email`
       case 'person.erase':

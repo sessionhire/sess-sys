@@ -9,6 +9,13 @@ The app contacts nobody until launch (Colly's standing rule). Everything
 below is built behind a switch that starts **off**, and stays off until
 Colly turns it on at launch.
 
+**Colly's answers, 9 November 2026:** send when the office presses Offer,
+at the same moment as the calendar invite; everyone on by default, with a
+toggle on their own page (rather than asking each person first); staff too;
+test mode may send to Colly's own phone; the number isn't decided yet.
+Built as [ADR 0125](../adr/0125-offers-go-on-whatsapp-by-themselves.md),
+with the steps in [whatsapp-setup.md](../whatsapp-setup.md).
+
 ## Recommendation
 
 **Connect the app straight to Meta's WhatsApp Cloud API, with a Session

@@ -59,6 +59,10 @@ import { Todo } from './assistant/todo.ts'
 import type { Gmail } from './assistant/gmail.ts'
 import { Mailbox } from './assistant/mailbox.ts'
 import { registerMailboxRoutes } from './assistant/mailbox-routes.ts'
+import type { WhatsAppConfig } from './whatsapp/api.ts'
+import { registerWhatsAppRoutes } from './whatsapp/routes.ts'
+import { WhatsApp } from './whatsapp/whatsapp.ts'
+import { WhatsAppSender } from './whatsapp/sender.ts'
 import { registerQuoteEmailRoutes } from './finance/email-routes.ts'
 import { registerAcceptRoutes } from './finance/accept-routes.ts'
 import { registerStatusRoutes, Status, type OutsideLooks } from './status.ts'
@@ -150,6 +154,8 @@ export interface AppOptions {
   currentRms?: RmsConfig
   /** Claude inside the app (ADR 0096): Anthropic's key, the model and the monthly limit. Without it, Admin says it isn't set up. */
   claude?: ClaudeConfig
+  /** Meta's WhatsApp Cloud API (ADR 0125): the token and the number's id, and the rest. Without it, Admin says it isn't set up. */
+  whatsapp?: WhatsAppConfig
   /** Gmail for the operations mailbox (ADR 0098), when a test stands one in. */
   gmail?: Gmail
   /** Where what the server notices about itself is reported: Sentry's (reportError) unless a test listens instead. */
@@ -189,6 +195,8 @@ declare module 'fastify' {
     assistantTodo: Todo
     /** Claude reading the operations mailbox (ADR 0098); the caller starts it once the server is listening. */
     assistantMailbox: Mailbox
+    /** Sends offers on WhatsApp as they're made (ADR 0125); the caller starts its once-a-minute look. */
+    whatsappSender: WhatsAppSender
   }
 }
 
@@ -351,10 +359,16 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // Documents' files go in the same storage as the backups, under a prefix of their own (ADR 0029).
   const documents = new DocumentFiles(db, options.documentStore ?? backupStore, { key: backupKey, log: app.log, report: (err) => reportError(err, { area: 'documents' }) })
   app.decorate('documents', documents)
+  // Offers on WhatsApp (ADR 0125): sent as they're made, and their own page says whether theirs go there.
+  const whatsapp = new WhatsApp(options.whatsapp)
+  const whatsappSender = new WhatsAppSender(db, whatsapp, { log: app.log, report: (err) => reportError(err, { area: 'whatsapp' }) })
+  app.decorate('whatsappSender', whatsappSender)
   /** Something changed in the app: devices pull it, the calendar catches up, an erasure is written beside the backups, and files no document has any more are deleted. */
   const changed = () => {
     void poke()
     calendarSync?.kick()
+    // An offer just made goes on WhatsApp at the same moment as its calendar invite (ADR 0125).
+    void whatsappSender.kick()
     void erasures?.keep()
     void documents.tidy()
   }
@@ -643,7 +657,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   })
 
   // Freelancers' private links: no app or login needed to answer an offer.
-  registerCrewLinks(app, db, changed, feeds, { demo: !auth && !!passcode, ownCalendars })
+  registerCrewLinks(app, db, changed, feeds, { demo: !auth && !!passcode, ownCalendars, whatsapp })
   registerOwnCalendarRoutes(app, { ownCalendars })
   registerDocumentRoutes(app, { db, files: documents, onChange: changed })
   registerPhotoRoutes(app, { db, files: documents, onChange: changed })
@@ -669,12 +683,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('assistantMailbox', mailbox)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
   registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke() })
+  registerWhatsAppRoutes(app, { whatsapp })
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.
   registerAcceptRoutes(app, db, { onChange: () => void poke() })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   registerStatusRoutes(
     app,
-    new Status({ db, auth, passcode, errorReporting: !!errorReporting, backups, backupStore, documents, calendar: calendarSync, rms, assistant, mailbox, fuel, outside: options.outside ?? {}, commit, live: () => sockets.size })
+    new Status({ db, auth, passcode, errorReporting: !!errorReporting, backups, backupStore, documents, calendar: calendarSync, rms, assistant, mailbox, whatsapp, fuel, outside: options.outside ?? {}, commit, live: () => sockets.size })
   )
 
   // The history (ADR 0006): newest first, a page at a time, for everyone, one person or one record.
@@ -766,6 +781,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     app.fuelUpdates.stop()
     app.assistantTodo.stop()
     app.assistantMailbox.stop()
+    whatsappSender.stop()
     documents.stop()
     calendarSync?.stop()
     ownCalendars.stop()

@@ -99,6 +99,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'person.newLink': 'crew',
   'person.archive': 'crew',
   'person.contact': 'crew',
+  // Offers on WhatsApp, for one person (ADR 0125): the office can only turn them off, and their link either way.
+  'person.whatsapp': 'crew',
   // Combining people brought in twice (ADR 0055): the crew's records, like an edit. One who signs in with a role needs settings too, on the server.
   'person.merge': 'crew',
   // Which of their addresses is the main one (ADR 0064): an edit of their details. For someone with a role, settings too, on the server.
@@ -221,6 +223,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   // Whether Claude is offered inside the app (ADR 0096): a setting like timesheets.
   'assistant.use': 'settings',
   'links.check': 'settings',
+  // Offers on WhatsApp (ADR 0125): a setting like messages to crew.
+  'whatsapp.use': 'settings',
   'cables.colours': 'settings',
   // Trackers (ADR 0107): using them, and where the warehouse is, are settings; which item each is on is stock's.
   'trackers.use': 'settings',

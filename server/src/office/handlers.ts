@@ -1,4 +1,4 @@
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, MESSAGES_SETTING_ID, WHATSAPP_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
 import { emit, type Ctx } from '../kernel.ts'
 import { getSetting } from './store.ts'
 
@@ -7,7 +7,7 @@ import { getSetting } from './store.ts'
  * on every freelancer page. One office, so the command replaces them whole.
  */
 
-type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'links.check' | 'cables.colours'
+type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'links.check' | 'whatsapp.use' | 'cables.colours'
 type Handler<N extends OfficeCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
@@ -78,6 +78,19 @@ export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
       [LINKS_SETTING_ID, a.on]
     )
     await emit(ctx, 'setting', LINKS_SETTING_ID, await getSetting(ctx.tx, LINKS_SETTING_ID))
+  },
+
+  /**
+   * Whether offers go on WhatsApp by themselves (ADR 0125), and the numbers to try it on. Turning it on sends nothing
+   * at once: only offers made from then on go, as they're made.
+   */
+  async 'whatsapp.use'(ctx, a) {
+    await ctx.tx.query(
+      `INSERT INTO settings (id, whatsapp_mode, whatsapp_test_to) VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET whatsapp_mode = EXCLUDED.whatsapp_mode, whatsapp_test_to = EXCLUDED.whatsapp_test_to, updated_at = now()`,
+      [WHATSAPP_SETTING_ID, a.mode, a.testTo]
+    )
+    await emit(ctx, 'setting', WHATSAPP_SETTING_ID, await getSetting(ctx.tx, WHATSAPP_SETTING_ID))
   },
 
   /** The colour each cable length takes (ADR 0106), the whole list at once. Every device hears at its next sync. */
