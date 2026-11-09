@@ -17,6 +17,7 @@ import {
   type RmsOpportunityPage,
   type RmsOpportunityWithLines,
   type View,
+  rmsDay as irishDayOf,
 } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { useAccess } from '../role.ts'
@@ -137,7 +138,7 @@ export function FromPastJob({
     [m && PAST_MATCH_WORDS[m], job.span ? spanLabel(job.span, today) : '', m === 'client' ? job.venue?.name : m === 'venue' ? job.client?.name : [job.client?.name, job.venue?.name].filter(Boolean).join(', ')]
       .filter(Boolean)
       .join(' · ')
-  const rmsDay = (o: RmsOpportunity) => (o.startsAt ? spanLabel({ start: o.startsAt.slice(0, 10), end: (o.endsAt ?? o.startsAt).slice(0, 10) }, today) : '')
+  const rmsDay = (o: RmsOpportunity) => (o.startsAt ? spanLabel({ start: irishDayOf(o.startsAt)!, end: irishDayOf(o.endsAt ?? o.startsAt)! }, today) : '')
   return (
     <section className="wide past-jobs" aria-label="Start from">
       <h3>Start from a past job or quote</h3>

@@ -3,6 +3,28 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: correcting the days of a Current RMS quote
+
+**Done**
+
+- A past quote from Current RMS has Correct the days (ADR 0138, 1.140.0):
+  the office's first and last day are the days to go by everywhere, kept
+  when Current RMS is read again, with what Current RMS has said beside
+  them, and Use Current RMS's days to go back. Each change is in the
+  history. Nothing in Current RMS changes.
+- Times from Current RMS are taken as their day in Ireland everywhere: some
+  places took the UTC date, so a summer job from midnight showed (and
+  matched) a day early.
+- The show days Current RMS keeps are read too, and said on the quote when
+  they aren't its days. They show after the next read of Current RMS.
+
+**Checked:** server tests for correcting, a read keeping it, the history and
+going back (including summer time); shared tests for the Irish day; a
+browser test of the page.
+
+**Waiting on:** Colly, for an example of a quote that came in wrong, to
+confirm which of the causes it was.
+
 ## 9 November 2026: clients and venues filled in from Current RMS
 
 **Done**

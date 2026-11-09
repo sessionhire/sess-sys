@@ -25,6 +25,8 @@ interface ApiOpportunity {
   status_name?: string | null
   starts_at?: string | null
   ends_at?: string | null
+  show_starts_at?: string | null
+  show_ends_at?: string | null
   charge_excluding_tax_total?: Num
   charge_including_tax_total?: Num
   rental_charge_total?: Num
@@ -98,6 +100,8 @@ export function opportunityOf(o: ApiOpportunity): RmsOpportunity {
     status: words(o.status_name, 60),
     startsAt: when(o.starts_at),
     endsAt: when(o.ends_at),
+    showStartsAt: when(o.show_starts_at),
+    showEndsAt: when(o.show_ends_at),
     netCents: cents(o.charge_excluding_tax_total),
     grossCents: cents(o.charge_including_tax_total),
     rentalCents: cents(o.rental_charge_total),
@@ -142,17 +146,28 @@ export function lineOf(opportunityId: number, l: ApiLine): RmsLine {
 }
 
 async function keepOpportunity(q: Queryable, o: RmsOpportunity) {
+  // What Current RMS says goes in rms_starts_at and rms_ends_at every time; starts_at and ends_at follow it unless the
+  // office corrected the days here (ADR 0138), when the correction stands: its first day from midnight, its last to 23:59.
   await q.query(
     `INSERT INTO rms_opportunities (id, number, subject, client, venue, state, status, starts_at, ends_at, net_cents, gross_cents, rental_cents,
-       sale_cents, service_cents, surcharge_cents, tax_cents, undiscounted_cents, chargeable_days, discount_category, price_category, tags, created_at, updated_at, read_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, now())
-     ON CONFLICT (id) DO UPDATE SET number = $2, subject = $3, client = $4, venue = $5, state = $6, status = $7, starts_at = $8, ends_at = $9,
+       sale_cents, service_cents, surcharge_cents, tax_cents, undiscounted_cents, chargeable_days, discount_category, price_category, tags, created_at, updated_at,
+       rms_starts_at, rms_ends_at, show_starts_at, show_ends_at, read_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $8, $9, $24, $25, now())
+     ON CONFLICT (id) DO UPDATE SET number = $2, subject = $3, client = $4, venue = $5, state = $6, status = $7,
+       starts_at = COALESCE((SELECT ${FIXED_START} FROM rms_dates_fixed f WHERE f.opportunity_id = $1), $8),
+       ends_at = COALESCE((SELECT ${FIXED_END} FROM rms_dates_fixed f WHERE f.opportunity_id = $1), $9),
        net_cents = $10, gross_cents = $11, rental_cents = $12, sale_cents = $13, service_cents = $14, surcharge_cents = $15, tax_cents = $16,
-       undiscounted_cents = $17, chargeable_days = $18, discount_category = $19, price_category = $20, tags = $21, created_at = $22, updated_at = $23, read_at = now()`,
+       undiscounted_cents = $17, chargeable_days = $18, discount_category = $19, price_category = $20, tags = $21, created_at = $22, updated_at = $23,
+       rms_starts_at = $8, rms_ends_at = $9, show_starts_at = $24, show_ends_at = $25, read_at = now()`,
     [o.id, o.number, o.subject, o.client, o.venue, o.state, o.status, o.startsAt, o.endsAt, o.netCents, o.grossCents, o.rentalCents, o.saleCents, o.serviceCents,
-      o.surchargeCents, o.taxCents, o.undiscountedCents, o.chargeableDays, o.discountCategory, o.priceCategory, JSON.stringify(o.tags), o.createdAt, o.updatedAt]
+      o.surchargeCents, o.taxCents, o.undiscountedCents, o.chargeableDays, o.discountCategory, o.priceCategory, JSON.stringify(o.tags), o.createdAt, o.updatedAt,
+      o.showStartsAt, o.showEndsAt]
   )
 }
+
+/** A corrected first day from midnight in Ireland, and its last day to 23:59, as SQL over rms_dates_fixed f. */
+export const FIXED_START = `(f.starts_on::timestamp AT TIME ZONE 'Europe/Dublin')`
+export const FIXED_END = `((f.ends_on + time '23:59')::timestamp AT TIME ZONE 'Europe/Dublin')`
 
 async function keepLines(db: Db, opportunityId: number, updatedAt: string | null, lines: RmsLine[]) {
   await db.transaction(async (tx) => {

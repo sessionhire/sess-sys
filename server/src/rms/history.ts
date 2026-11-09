@@ -13,6 +13,10 @@ import {
 } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
+import { describeDevice } from '../devices.ts'
+import { RMS_DATES_ACTION } from '../history-words.ts'
+import { serverChange } from '../kernel.ts'
+import { FIXED_END, FIXED_START } from './reader.ts'
 
 /**
  * Current RMS's history put to use (ADR 0092), for the office and
@@ -25,7 +29,7 @@ import type { Db, Queryable } from '../db.ts'
 
 type Row = Record<string, any>
 const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null)
-const day = (v: unknown) => (v ? new Date(v as string).toISOString().slice(0, 10) : null)
+const day = (v: unknown) => (v ? irishToday(new Date(v as string)) : null)
 
 async function jobsToMatch(q: Queryable) {
   const { rows } = await q.query<Row>(
@@ -157,6 +161,47 @@ export function registerRmsHistoryRoutes(app: FastifyInstance, { db }: { db: Db 
   })
 
   /** The office's word that an open quote isn't going ahead, so it's off the calendar (ADR 0134), or that it is after all. */
+  /**
+   * Correct a quote's days here (ADR 0138), when Current RMS has them wrong and it's easier not to change them there:
+   * { start, end } as YYYY-MM-DD, or { start: null } to go back to Current RMS's. Reading Current RMS again keeps the
+   * correction; Current RMS itself is never changed. In the history as the person's.
+   */
+  app.post<{ Params: { id: string }; Body: { start?: unknown; end?: unknown }; Querystring: { client?: string } }>(
+    '/api/rms/opportunities/:id/dates',
+    { config: { needs: 'money' } },
+    async (req, reply) => {
+      reply.header('cache-control', 'no-store')
+      const id = Number.parseInt(req.params.id, 10)
+      const isDay = (d: unknown): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T12:00:00Z`))
+      const { start, end } = req.body ?? {}
+      const back = start === null
+      if (!Number.isSafeInteger(id) || (!back && (!isDay(start) || !isDay(end))))
+        return reply.code(400).send({ error: 'Give the first and last day, as YYYY-MM-DD.' })
+      if (!back && (end as string) < (start as string)) return reply.code(400).send({ error: 'The last day can’t be before the first.' })
+      const { rows } = await db.reads.query<Row>('SELECT number FROM rms_opportunities WHERE id = $1', [id])
+      if (!rows[0]) return reply.code(404).send({ error: 'There’s no such opportunity.' })
+      const clientId = typeof req.query?.client === 'string' ? req.query.client : undefined
+      const args = back ? { id, number: rows[0].number } : { id, number: rows[0].number, start, end }
+      await serverChange(db, { name: RMS_DATES_ACTION, args, clientId, userId: req.user?.id, device: describeDevice(req.headers['user-agent']) }, async ({ tx }) => {
+        if (back) {
+          await tx.query('DELETE FROM rms_dates_fixed WHERE opportunity_id = $1', [id])
+          await tx.query('UPDATE rms_opportunities SET starts_at = rms_starts_at, ends_at = rms_ends_at WHERE id = $1', [id])
+        } else {
+          await tx.query(
+            `INSERT INTO rms_dates_fixed (opportunity_id, starts_on, ends_on, set_by) VALUES ($1, $2, $3, $4)
+             ON CONFLICT (opportunity_id) DO UPDATE SET starts_on = $2, ends_on = $3, set_by = $4, set_at = now()`,
+            [id, start, end, req.user?.email ?? '']
+          )
+          await tx.query(
+            `UPDATE rms_opportunities o SET starts_at = ${FIXED_START}, ends_at = ${FIXED_END} FROM rms_dates_fixed f WHERE f.opportunity_id = o.id AND o.id = $1`,
+            [id]
+          )
+        }
+      })
+      const { rows: now } = await db.reads.query<Row>('SELECT starts_at, ends_at FROM rms_opportunities WHERE id = $1', [id])
+      return { startsAt: iso(now[0]?.starts_at), endsAt: iso(now[0]?.ends_at), corrected: !back }
+    }
+  )
   app.post<{ Params: { id: string }; Body: { aside?: unknown } }>('/api/rms/opportunities/:id/aside', { config: { needs: 'money' } }, async (req, reply) => {
     const id = Number.parseInt(req.params.id, 10)
     if (!Number.isSafeInteger(id) || typeof req.body?.aside !== 'boolean') return reply.code(400).send({ error: 'Say whether it is set aside.' })

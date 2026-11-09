@@ -72,7 +72,7 @@ const lines = (id: number) => [
 ]
 
 /** A stand-in for Current RMS holding `count` opportunities, with every request it was asked, in order. */
-function fakeRms(count: number, opts: { refuse?: boolean; tooManyOnce?: boolean; updated?: (id: number) => string } = {}) {
+function fakeRms(count: number, opts: { refuse?: boolean; tooManyOnce?: boolean; updated?: (id: number) => string; shape?: (o: ReturnType<typeof opportunity>) => object } = {}) {
   const asked: Asked[] = []
   let tooMany = opts.tooManyOnce ?? false
   const fetch = (async (input: URL | string, init?: RequestInit) => {
@@ -88,7 +88,7 @@ function fakeRms(count: number, opts: { refuse?: boolean; tooManyOnce?: boolean;
       const page = Number(url.searchParams.get('page'))
       const per = Number(url.searchParams.get('per_page'))
       const ids = Array.from({ length: count }, (_, i) => i + 1).slice((page - 1) * per, page * per)
-      return Response.json({ opportunities: ids.map((id) => opportunity(id, opts.updated?.(id))), meta: { total_row_count: count, row_count: ids.length, page, per_page: per } })
+      return Response.json({ opportunities: ids.map((id) => (opts.shape ?? ((o) => o))(opportunity(id, opts.updated?.(id)))), meta: { total_row_count: count, row_count: ids.length, page, per_page: per } })
     }
     const m = /^\/opportunities\/(\d+)\/opportunity_items$/.exec(path)
     if (m) return Response.json({ opportunity_items: lines(Number(m[1])) })
@@ -179,6 +179,44 @@ describe('reading Current RMS', () => {
     await app.rms.done
     expect(rms.asked.filter((a) => a.path.endsWith('/opportunity_items')).map((a) => a.path)).toEqual(['/opportunities/3/opportunity_items'])
     expect((await get<RmsStatus>('/api/rms')).last).toMatchObject({ opportunities: 5, lines: 3 })
+  })
+
+  it('keeps days the office corrected here when Current RMS is read again, and goes back to its days on a press (ADR 0138)', async () => {
+    // Proves: show days are read; a correction is the days to go by from midnight to 23:59 in Ireland, survives a read that
+    // brings new days from Current RMS (kept as Current RMS's), is in the history, and going back takes Current RMS's latest.
+    let starts = '2026-03-10T08:00:00.000Z'
+    const rms = fakeRms(3, {
+      shape: (o) => (o.id === 2 ? { ...o, starts_at: starts, show_starts_at: '2026-03-11T09:00:00.000Z', show_ends_at: '2026-03-11T23:00:00.000Z' } : o),
+    })
+    const { app, get, cookies } = await office(rms)
+    const read = async () => {
+      await app.inject({ method: 'POST', url: '/api/rms/read', cookies })
+      await app.rms.done
+    }
+    await read()
+    const was = (await get<RmsOpportunityWithLines>('/api/rms/opportunities/2')).opportunity
+    expect(was).toMatchObject({ startsAt: '2026-03-10T08:00:00.000Z', showStartsAt: '2026-03-11T09:00:00.000Z', showEndsAt: '2026-03-11T23:00:00.000Z', corrected: null })
+
+    const dates = (payload: unknown, id = 2) => app.inject({ method: 'POST', url: `/api/rms/opportunities/${id}/dates`, payload: payload as object, cookies })
+    expect((await dates({ start: '2026-03-21', end: '2026-03-20' })).statusCode).toBe(400)
+    expect((await dates({ start: 'soon', end: '2026-03-20' })).statusCode).toBe(400)
+    expect((await dates({ start: '2026-03-20', end: '2026-03-21' }, 999)).statusCode).toBe(404)
+    // Summer time in Ireland: midnight on 4 July is 23:00 the day before in UTC.
+    expect((await dates({ start: '2026-07-04', end: '2026-07-05' })).json()).toEqual({ startsAt: '2026-07-03T23:00:00.000Z', endsAt: '2026-07-05T22:59:00.000Z', corrected: true })
+    expect((await dates({ start: '2026-03-20', end: '2026-03-21' })).json()).toEqual({ startsAt: '2026-03-20T00:00:00.000Z', endsAt: '2026-03-21T23:59:00.000Z', corrected: true })
+
+    starts = '2026-03-15T08:00:00.000Z'
+    await read()
+    const kept = (await get<RmsOpportunityWithLines>('/api/rms/opportunities/2')).opportunity
+    expect(kept).toMatchObject({ startsAt: '2026-03-20T00:00:00.000Z', endsAt: '2026-03-21T23:59:00.000Z', corrected: { startsAt: '2026-03-15T08:00:00.000Z', endsAt: '2026-03-12T18:00:00.000Z' } })
+    expect((await get<RmsOpportunityWithLines>('/api/rms/opportunities/1')).opportunity.corrected).toBeNull()
+
+    const history = await get<{ entries: { what: string }[] }>('/api/history')
+    expect(history.entries.map((e) => e.what)).toContain('Corrected the days of Current RMS quote OP-1002 to Fri 20 Mar to Sat 21 Mar 2026, here only')
+
+    expect((await dates({ start: null })).json()).toEqual({ startsAt: '2026-03-15T08:00:00.000Z', endsAt: '2026-03-12T18:00:00.000Z', corrected: false })
+    expect((await get<RmsOpportunityWithLines>('/api/rms/opportunities/2')).opportunity).toMatchObject({ startsAt: '2026-03-15T08:00:00.000Z', corrected: null })
+    expect((await get<{ entries: { what: string }[] }>('/api/history')).entries[0]!.what).toBe('Put the days of Current RMS quote OP-1002 back to the ones Current RMS gives')
   })
 
   it('waits out "too many" and carries on', async () => {

@@ -153,6 +153,7 @@ describe('download everything', () => {
       'quote_settings',
       'quotes',
       'rack_slots',
+      'rms_dates_fixed',
       'rms_lines',
       'rms_matches',
       'rms_member_links',

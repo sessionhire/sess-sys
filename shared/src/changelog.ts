@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.140.0',
+    date: '2026-11-09',
+    title: 'Correct the days of a quote from Current RMS',
+    what: "A past quote from Current RMS now has Correct the days: give the first and last day and they're the days the app goes by, on the quote, the calendar and when matching it to a job. Reading Current RMS again keeps them, the quote says what Current RMS has, and Use Current RMS's days goes back. Each change is in the history. Nothing changes in Current RMS. Some quotes also showed a day early, for anything starting just after midnight in summer: they now show the right day everywhere. And the show days Current RMS keeps are read too, and shown on the quote when they're not its days.",
+    prs: [],
+    adrs: [138],
+  },
+  {
     version: '1.138.0',
     date: '2026-11-09',
     title: 'An admin can delete a quote, and put it back',

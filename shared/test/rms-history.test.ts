@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchOpportunities, rmsClients, rmsOutcome, sameClient } from '../src/rms-history.ts'
+import { matchOpportunities, rmsClients, rmsDay, rmsOutcome, sameClient } from '../src/rms-history.ts'
 
 /**
  * Current RMS's history put to use (ADR 0092): what went ahead, a client
@@ -25,6 +25,14 @@ describe('what went ahead in Current RMS', () => {
     expect(sameClient('Fuel', 'Fuel Events & Co')).toBe(true)
     expect(sameClient('Pod', 'Podium')).toBe(false)
     expect(sameClient('', 'Pod')).toBe(false)
+  })
+
+  it('takes a time from Current RMS as its day in Ireland, so a summer job from midnight is that day, not the one before', () => {
+    expect(rmsDay('2026-07-03T23:00:00.000Z')).toBe('2026-07-04')
+    expect(rmsDay('2026-03-20T00:00:00.000Z')).toBe('2026-03-20')
+    expect(rmsDay(null)).toBeUndefined()
+    // A quote whose last day in Ireland is today is still open, though it's yesterday in UTC.
+    expect(rmsOutcome(opp({ startsAt: '2026-07-03T23:00:00Z', endsAt: '2026-07-03T23:30:00Z' }), '2026-07-04')).toBe('open')
   })
 })
 

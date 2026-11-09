@@ -21,7 +21,8 @@ const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null)
 const numOrNull = (v: unknown) => (v == null ? null : Number(v))
 
 const OPPORTUNITY = `id, number, subject, client, venue, state, status, starts_at, ends_at, net_cents, gross_cents, rental_cents, sale_cents, service_cents,
-  surcharge_cents, tax_cents, undiscounted_cents, chargeable_days, discount_category, price_category, tags, created_at, updated_at`
+  surcharge_cents, tax_cents, undiscounted_cents, chargeable_days, discount_category, price_category, tags, created_at, updated_at,
+  show_starts_at, show_ends_at, rms_starts_at, rms_ends_at, EXISTS (SELECT 1 FROM rms_dates_fixed f WHERE f.opportunity_id = rms_opportunities.id) AS corrected`
 
 const toOpportunity = (r: Row): RmsOpportunity => ({
   id: r.id,
@@ -33,6 +34,9 @@ const toOpportunity = (r: Row): RmsOpportunity => ({
   status: r.status,
   startsAt: iso(r.starts_at),
   endsAt: iso(r.ends_at),
+  showStartsAt: iso(r.show_starts_at),
+  showEndsAt: iso(r.show_ends_at),
+  corrected: r.corrected ? { startsAt: iso(r.rms_starts_at), endsAt: iso(r.rms_ends_at) } : null,
   netCents: Number(r.net_cents),
   grossCents: Number(r.gross_cents),
   rentalCents: Number(r.rental_cents),
@@ -77,7 +81,7 @@ const toLine = (r: Row): RmsLine => ({
 })
 
 const euro = (cents: number) => (cents / 100).toFixed(2)
-const day = (at: string | null) => (at ? at.slice(0, 10) : '')
+const day = (at: string | null) => (at ? irishToday(new Date(at)) : '')
 
 // Whether each went ahead (ADR 0092), as rmsOutcome in shared/src/rms-history.ts says it, for asking by it.
 const STOPPED = `lower(status) IN ('lost', 'dead', 'cancelled')`

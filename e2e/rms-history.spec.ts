@@ -233,3 +233,29 @@ test('an open past quote with no job here is taken off the calendar when it isn�
   await expect(office.getByRole('status').filter({ hasText: 'Back on the calendar.' })).toBeVisible()
   expect(posted).toEqual([{ aside: true }, { aside: false }])
 })
+
+test('a past quote’s days are corrected here when Current RMS has them wrong, and put back to its days (ADR 0138)', async ({ browser }) => {
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  const quote = { ...opp(9, '1300', 'Winter ball', 'Acme', 'Quotation', 'Provisional', '2099-01-10', 50000), venue: '', grossCents: 0, rentalCents: 0, saleCents: 0, serviceCents: 0, surchargeCents: 0, taxCents: 0, undiscountedCents: 0, chargeableDays: 1, discountCategory: '', priceCategory: '', tags: [], createdAt: null, updatedAt: null, corrected: null }
+  await office.route('**/api/rms/opportunities/9', (route) => route.fulfill({ json: { opportunity: quote, lines: [], job: null, aside: false } }))
+  const posted: unknown[] = []
+  await office.route('**/api/rms/opportunities/9/dates', (route) => {
+    const body = route.request().postDataJSON() as { start: string | null; end?: string }
+    posted.push(body)
+    return route.fulfill({
+      json: body.start ? { startsAt: `${body.start}T00:00:00.000Z`, endsAt: `${body.end}T23:59:00.000Z`, corrected: true } : { startsAt: quote.startsAt, endsAt: quote.endsAt, corrected: false },
+    })
+  })
+  await office.goto('/#jobs/money/current-rms/9')
+  await office.getByRole('button', { name: 'Correct the days' }).click()
+  await office.getByLabel('First day').fill('2099-01-17')
+  await office.getByLabel('Last day').fill('2099-01-18')
+  await office.getByRole('button', { name: 'Save the days' }).click()
+  await expect(office.getByRole('status').filter({ hasText: 'Days corrected here.' })).toBeVisible()
+  await expect(office.getByText('17 Jan 2099 to 18 Jan 2099')).toBeVisible()
+  await expect(office.getByText('Days corrected here. Current RMS has 10 Jan 2099')).toBeVisible()
+  await office.getByRole('button', { name: 'Use Current RMS’s days' }).click()
+  await expect(office.getByRole('status').filter({ hasText: 'Back to the days Current RMS gives.' })).toBeVisible()
+  await expect(office.getByRole('button', { name: 'Use Current RMS’s days' })).toHaveCount(0)
+  expect(posted).toEqual([{ start: '2099-01-17', end: '2099-01-18' }, { start: null }])
+})

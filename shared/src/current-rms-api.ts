@@ -60,8 +60,14 @@ export interface RmsOpportunity {
   /** Draft, Quotation, Order and so on, and where it's at within that (Open, Provisional, Lost, Dead, Cancelled…). */
   state: string
   status: string
+  /** The days to go by: Current RMS's, or the office's correction of them here (ADR 0138). */
   startsAt: string | null
   endsAt: string | null
+  /** The show's own days in Current RMS, when it has them, beside the whole hire's. */
+  showStartsAt?: string | null
+  showEndsAt?: string | null
+  /** When the office corrected the days here: Current RMS's own, as it still has them. */
+  corrected?: { startsAt: string | null; endsAt: string | null } | null
   /** Before VAT, after discounts, and with VAT. */
   netCents: number
   grossCents: number

@@ -141,6 +141,23 @@ const MIGRATIONS: string[] = [
     stopped      boolean NOT NULL DEFAULT false
   );
   `,
+  // Dates the office corrected here (ADR 0138): what Current RMS says is kept in rms_starts_at and rms_ends_at, read
+  // again each time, and starts_at and ends_at are the dates to go by, the correction's when there is one. The show
+  // days Current RMS keeps beside the hire's are read too.
+  `
+  ALTER TABLE rms_opportunities ADD COLUMN IF NOT EXISTS rms_starts_at timestamptz;
+  ALTER TABLE rms_opportunities ADD COLUMN IF NOT EXISTS rms_ends_at timestamptz;
+  ALTER TABLE rms_opportunities ADD COLUMN IF NOT EXISTS show_starts_at timestamptz;
+  ALTER TABLE rms_opportunities ADD COLUMN IF NOT EXISTS show_ends_at timestamptz;
+  UPDATE rms_opportunities SET rms_starts_at = starts_at, rms_ends_at = ends_at WHERE rms_starts_at IS NULL AND rms_ends_at IS NULL;
+  CREATE TABLE IF NOT EXISTS rms_dates_fixed (
+    opportunity_id  integer PRIMARY KEY REFERENCES rms_opportunities(id) ON DELETE CASCADE,
+    starts_on       date NOT NULL,
+    ends_on         date NOT NULL CHECK (ends_on >= starts_on),
+    set_by          text NOT NULL DEFAULT '',
+    set_at          timestamptz NOT NULL DEFAULT now()
+  );
+  `,
 ]
 
 export const RMS: Module = { versionTable: 'rms_schema_version', migrations: MIGRATIONS }
