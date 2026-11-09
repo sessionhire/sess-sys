@@ -36,7 +36,7 @@ test('a dry hire is quoted without venue or travel, for who asked, under the off
 
   // A dry hire: no venue to ask for, and the days are when it's collected and brought back.
   await expect(form.getByRole('combobox', { name: 'Venue' })).toBeVisible()
-  await form.getByRole('radio', { name: /A dry hire/ }).check()
+  await form.getByRole('radio', { name: 'A dry hire' }).check()
   await expect(form.getByRole('combobox', { name: 'Venue' })).toHaveCount(0)
   await expect(form.getByRole('textbox', { name: 'Collected' })).toBeVisible()
   await expect(form.getByRole('textbox', { name: 'Brought back' })).toBeVisible()

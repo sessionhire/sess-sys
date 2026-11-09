@@ -45,7 +45,7 @@ import {
   listHeading,
   KIND_PHASE,
 } from '@sh/shared'
-import { Fragment, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { arrive } from '../arrival.ts'
 import { Empty } from '../Empty.tsx'
@@ -376,6 +376,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
   // Two shapes of quote (ADR 0128; audit of the quote flow, finding 10): a show has a venue, crew and travel; a dry hire is
   // collected and returned, so it asks for neither and its days are one Hire.
   const [hire, setHire] = useState(false)
+  const shapeId = useId()
   // Who asked is someone at the client, or anyone at any client while no client is chosen; a new name is added to the
   // client's contacts when the quote is started.
   const chosenClient = namedExactly(clients, f.client)
@@ -456,16 +457,17 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       )}
       <fieldset className="choices quote-shape wide">
         <legend>What kind of job</legend>
+        {/* Each named by its shape alone, with what it means said as its description. */}
         <label className="signal">
-          <input type="radio" name="quote-shape" checked={!hire} onChange={() => setHire(false)} />
+          <input type="radio" name="quote-shape" checked={!hire} onChange={() => setHire(false)} aria-labelledby={`${shapeId}-show-name`} aria-describedby={`${shapeId}-show`} />
           <span>
-            <b>A show</b> At a venue, with crew and travel
+            <b id={`${shapeId}-show-name`}>A show</b> <span id={`${shapeId}-show`}>At a venue, with crew and travel</span>
           </span>
         </label>
         <label className="signal">
-          <input type="radio" name="quote-shape" checked={hire} onChange={() => setHire(true)} />
+          <input type="radio" name="quote-shape" checked={hire} onChange={() => setHire(true)} aria-labelledby={`${shapeId}-hire-name`} aria-describedby={`${shapeId}-hire`} />
           <span>
-            <b>A dry hire</b> Kit collected and brought back, no crew
+            <b id={`${shapeId}-hire-name`}>A dry hire</b> <span id={`${shapeId}-hire`}>Kit collected and brought back, no crew</span>
           </span>
         </label>
       </fieldset>
