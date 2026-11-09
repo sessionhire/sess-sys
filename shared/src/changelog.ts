@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-09',
     title: 'The stage line shows how far along a job is in colour',
     what: "A job's five stages now fill in red up to where it is: passed stages are red with a tick, the line between them is red, and the stage it's in is ringed in red, or amber when crew or kit is short and orange when something is late. The small bar on the Jobs list, Home and the job's head does the same, and each column on the Board has the bar too, so a column reads as a place on the line.",
-    prs: [0],
+    prs: [285],
     adrs: [131],
   },
   {
