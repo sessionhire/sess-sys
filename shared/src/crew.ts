@@ -306,7 +306,7 @@ export const offer = z.object({
   /** What the freelancer said when answering, for ops to read. */
   note: text(1000, 'The note'),
   respondedAt: z.string().nullable(),
-  respondedVia: z.enum(['link', 'app', 'calendar', 'ops']).nullable(),
+  respondedVia: z.enum(['link', 'app', 'calendar', 'ops', 'whatsapp']).nullable(),
   /** Sent despite a clash or marked day off; kept for the audit trail. */
   override: z.boolean(),
   /**
@@ -315,6 +315,11 @@ export const offer = z.object({
    * through Confirm and Withdraw instead. Missing on offers synced before.
    */
   seenAt: z.string().nullable(),
+  /**
+   * Where the offer's WhatsApp message has got to (ADR 0125): queued, sent, delivered to their phone, read, or not sent
+   * and why. Set by the server from Meta's receipts; absent when nothing went on WhatsApp.
+   */
+  whatsapp: z.object({ state: z.enum(['queued', 'sent', 'delivered', 'read', 'failed']), at: z.string(), problem: z.string().nullable() }).optional(),
   /** Set by the server on what it sends a role that doesn't read rates (ADR 0046): both rates are left out. Never stored. */
   rateHidden: z.boolean().optional(),
 })
@@ -524,6 +529,11 @@ export function offerMessage(p: Addressee, c: CrewCall, link: string): string {
 
 /** The name the offer's template is approved under in Meta's WhatsApp Manager (ADR 0125); its words are in docs/whatsapp-setup.md. */
 export const WHATSAPP_OFFER_TEMPLATE = 'job_offer'
+
+/** Where an offer's WhatsApp message has got to, in a few words for the offer's row (ADR 0125). */
+export function whatsappWords(w: NonNullable<Offer['whatsapp']>): string {
+  return { queued: 'going on WhatsApp', sent: 'sent on WhatsApp', delivered: 'delivered on WhatsApp', read: 'read on WhatsApp', failed: 'not sent on WhatsApp' }[w.state]
+}
 
 /**
  * The blanks in the offer's WhatsApp template (ADR 0125), in order, the same facts as offerMessage's: their first name,

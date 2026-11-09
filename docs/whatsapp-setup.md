@@ -98,7 +98,8 @@ In the Meta app, **WhatsApp › Configuration › Webhook**, **Edit**:
 
 Then **Manage** the webhook fields and subscribe to **messages**. This is
 how a Yes or No pressed on WhatsApp comes back to the app, with "delivered"
-and "read" for each offer. (Answers come in part 3, being built now.)
+and "read" for each offer. Meta checks the address as you save it: if it
+says it couldn't, make sure Railway has redeployed with the verify token.
 
 ## 9. The offer's template
 
@@ -139,7 +140,11 @@ Session Hire, about a job they're being booked for.
 1. Under **Admin › Connections › Offers on WhatsApp**, put your own mobile in
    **Numbers to try it on**, save, and choose **Only to the numbers below**.
    Make sure you're a person in Crew with that mobile.
-2. Offer yourself a call. The WhatsApp should arrive within a few seconds.
+2. Offer yourself a call. The WhatsApp should arrive within a few seconds,
+   and the offer's row in Crew says "sent", then "delivered" and "read".
+   Press **Yes, I can do it**: the offer shows as accepted on WhatsApp, and
+   you get a reply saying so. Try **No, I can't** on another, and write
+   STOP to check it turns you off.
 3. When you're ready (launch), choose **On**. Everyone with a mobile gets
    their offers on WhatsApp from then on, unless they turn them off on their
    own page.

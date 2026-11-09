@@ -473,7 +473,7 @@ export function CrewScreen() {
                           <div>
                             <b>{o.person?.name ?? 'Someone'}</b>{' '}
                             {kind === 'accepted'
-                              ? `accepted${o.respondedVia === 'calendar' ? ' on Google Calendar' : ''}`
+                              ? `accepted${o.respondedVia === 'calendar' ? ' on Google Calendar' : o.respondedVia === 'whatsapp' ? ' on WhatsApp' : ''}`
                               : kind === 'countered'
                                 ? o.rateHidden
                                   ? 'asks for a different rate'
