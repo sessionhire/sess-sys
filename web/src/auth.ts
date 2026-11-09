@@ -65,6 +65,8 @@ export function useAuth(): Auth {
 
 /** Ask the server who this device is signed in as. With no signal, keep what we knew. */
 export async function checkAuth() {
+  // A start screen chosen while this was asked is newer than the answer, which keeps the old one (ADR 0122).
+  const chosenBefore = startChosen
   try {
     const res = await fetch(`${base}/api/me`, { cache: 'no-store', signal: AbortSignal.timeout(8_000) })
     if (res.status === 401) {
@@ -73,6 +75,10 @@ export async function checkAuth() {
     }
     if (!res.ok) return
     const me = (await res.json()) as MeResponse
+    if (me.auth === 'google' && startChosen !== chosenBefore && current.status === 'signed-in') {
+      const { start: _stale, ...user } = me.user
+      me.user = current.user.start ? { ...user, start: current.user.start } : user
+    }
     set(me.auth === 'off' ? { status: 'open' } : me.auth === 'passcode' ? { status: 'open', passcode: true } : { status: 'signed-in', user: me.user, ...(me.admin ? { admin: true as const } : {}) })
   } catch {
     // No signal or server down: carry on as before.
@@ -120,8 +126,14 @@ export async function signOut() {
  * The screen the app opens on for the person signed in (ADR 0122). Kept with their account, so it needs signal; this
  * device has it at once, and the server's answer is what every other device gets. Says what went wrong, or nothing.
  */
+let startChosen = 0
+let leaving = false
+addEventListener('pagehide', () => void (leaving = true))
+addEventListener('pageshow', () => void (leaving = false))
+
 export async function setStartScreen(start: StartScreen): Promise<string | undefined> {
   const was = current
+  startChosen++
   if (was.status !== 'signed-in') return 'Sign in with Google to choose where the app opens.'
   const { start: _old, ...user } = was.user
   const chosen = asStartScreen(start)
@@ -137,6 +149,8 @@ export async function setStartScreen(start: StartScreen): Promise<string | undef
     set(was)
     return `The server answered ${res.status}, so it's as it was. Please try again.`
   } catch {
+    // Leaving the page cuts the request short: the server may well have it, so the choice isn't taken back.
+    if (leaving) return undefined
     set(was)
     return "Couldn't reach the server, so it's as it was. Try again when you have signal."
   }
