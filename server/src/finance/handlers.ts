@@ -1,4 +1,4 @@
-import { deleteTyped, deleteWord, mergeDraft, QUOTE_SETTINGS_ID, roleKey, type CommandArgs, type Quote, type RateRule } from '@sh/shared'
+import { deleteTyped, deleteWord, mergeDraft, QUOTE_SETTINGS_ID, rmsPricePlan, rmsPriceWrites, roleKey, type CommandArgs, type PriceHere, type Quote, type RateRule, type RmsProductPrice } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getTimesheet } from '../crew/timesheets.ts'
 import { getClient, getProject } from '../projects/store.ts'
@@ -23,7 +23,7 @@ import { emailsOf, getClientDiscount, getCostPaid, getPackage, getProductPrice, 
  * Sending the same change twice, as a phone may, changes nothing.
  */
 
-type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
+type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'price.fromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
@@ -276,7 +276,11 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
       if (gone.length) await emitRemoved(ctx, 'productPrice', a.modelId)
       return
     }
-    await ctx.tx.query(`INSERT INTO product_prices (model_id, day_cents) VALUES ($1, $2) ON CONFLICT (model_id) DO UPDATE SET day_cents = EXCLUDED.day_cents`, [a.modelId, a.dayCents])
+    // Set here by hand, so a fill-in from Current RMS keeps it (ADR 0132).
+    await ctx.tx.query(
+      `INSERT INTO product_prices (model_id, day_cents) VALUES ($1, $2) ON CONFLICT (model_id) DO UPDATE SET day_cents = EXCLUDED.day_cents, from_rms = false`,
+      [a.modelId, a.dayCents]
+    )
     // Left as it was by a change that doesn't say it, as one from an app older than rules doesn't (ADR 0085).
     if (a.rate !== undefined) await ctx.tx.query('UPDATE product_prices SET rate = $2 WHERE model_id = $1', [a.modelId, a.rate])
     await emit(ctx, 'productPrice', a.modelId, await getProductPrice(ctx.tx, a.modelId))
@@ -308,6 +312,36 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
       const rule = RULE[r.rule]!
       const { rows: changed } = await ctx.tx.query('UPDATE product_prices SET rate = $2 WHERE model_id = $1 AND rate IS DISTINCT FROM $2 RETURNING 1', [r.model_id, rule])
       if (changed.length) await emit(ctx, 'productPrice', r.model_id, await getProductPrice(ctx.tx, r.model_id))
+    }
+  },
+
+  /**
+   * The price list filled in from Current RMS's hire prices (ADR 0132), as Admin last read them, worked out the way the
+   * preview showed it (rmsPricePlan): products with no price, and those whose price came from Current RMS before; one
+   * set here by hand only when asked to. Each written is marked as from Current RMS.
+   */
+  async 'price.fromRms'(ctx, a) {
+    const { rows: rms } = await ctx.tx.query<{ id: number; name: string; price_cents: number | null; rate_definition: string }>(
+      'SELECT id, name, price_cents, rate_definition FROM rms_products'
+    )
+    if (!rms.length) throw new Refused({ code: 'conflict', message: 'Read the prices from Current RMS first, under Admin.' })
+    const { rows: models } = await ctx.tx.query<{ id: string; name: string; aliases: string[]; list_id: string }>('SELECT id, name, aliases, list_id FROM models')
+    const { rows: had } = await ctx.tx.query<{ model_id: string; day_cents: number; rate: RateRule | null; from_rms: boolean }>(
+      'SELECT model_id, day_cents, rate, from_rms FROM product_prices'
+    )
+    const prices = new Map<string, PriceHere>(had.map((p) => [p.model_id, { dayCents: p.day_cents, ...(p.rate ? { rate: p.rate } : {}), fromRms: p.from_rms }]))
+    const plan = rmsPricePlan(
+      rms.map((r): RmsProductPrice => ({ id: r.id, name: r.name, priceCents: r.price_cents, rateDefinition: r.rate_definition })),
+      models.map((m) => ({ id: m.id, name: m.name, aliases: m.aliases, listId: m.list_id })),
+      (id) => prices.get(id)
+    )
+    for (const w of rmsPriceWrites(plan, a.overwrite)) {
+      await ctx.tx.query(
+        `INSERT INTO product_prices (model_id, day_cents, rate, from_rms) VALUES ($1, $2, $3, true)
+         ON CONFLICT (model_id) DO UPDATE SET day_cents = EXCLUDED.day_cents, rate = EXCLUDED.rate, from_rms = true`,
+        [w.modelId, w.dayCents, w.rate]
+      )
+      await emit(ctx, 'productPrice', w.modelId, await getProductPrice(ctx.tx, w.modelId))
     }
   },
 

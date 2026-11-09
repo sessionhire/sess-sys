@@ -152,6 +152,11 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS own_kit_cost_pct integer CHECK (own_kit_cost_pct BETWEEN 0 AND 90);
   `,
+  // Hire prices filled in from Current RMS (ADR 0132): whether a product's price came from there, so a later fill-in
+  // follows Current RMS's changes to it and leaves one the office set by hand as it is.
+  `
+  ALTER TABLE product_prices ADD COLUMN IF NOT EXISTS from_rms boolean NOT NULL DEFAULT false;
+  `,
   // Deleting a quote (ADR 0135): an admin's, kept on the server with when, so it can be put back from the history. A
   // deleted draft no longer holds the job's one draft, so a new one can be started.
   `

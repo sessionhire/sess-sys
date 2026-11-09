@@ -210,6 +210,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'quoting.ownKit': 'money',
   'price.product': 'money',
   'price.rulesFromRms': 'money',
+  'price.fromRms': 'money',
   'package.save': 'money',
   'package.remove': 'money',
   'price.role': 'money',
