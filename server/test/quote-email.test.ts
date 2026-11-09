@@ -102,6 +102,10 @@ describe('sending a quote to the client by email (ADR 0101)', () => {
     expect(first.message).toContain(`quote 1115, €204.30 including VAT`)
     expect(first.message).toContain('A deposit of €102.15 confirms the booking.')
     expect(first.message).toContain('Adam Byrne\nSession Hire · +353 1 234 5678')
+    // No link for the client to accept while that's off (ADR 0121); once on, the version's own link, on the app's address.
+    expect(first.message).not.toContain('/q/')
+    await s.send(m('quoting.online', { on: true }))
+    expect(((await s.prefill()).json() as QuoteEmailPrefill).message).toMatch(/To accept it, use this link: http:\/\/[^/]+\/q\/[A-Za-z0-9_-]{24}\n/)
 
     const res = await s.post({ to: ['ruairi@example.com', 'accounts@example.com'], subject: first.subject, message: 'Hi Ruairí,\n\nQuote attached as discussed.\n\nAdam', number: 1115 })
     expect(res.statusCode, res.body).toBe(200)

@@ -219,7 +219,19 @@ export interface Quote {
   mealsProvided?: boolean
   /** How far the venue is from Dublin city centre by road, each way, in km, as the office typed it; none takes it from the map. */
   travelKm?: number | null
+  /**
+   * The key in the client's link to this version (ADR 0121), /q/<key>: given by the server when the version is started.
+   * The link answers only while the office has accepting online on. None on a version from before it, until then.
+   */
+  acceptToken?: string
+  /** Accepted by the client on their link (ADR 0121): the name they typed, and when. None for an answer the office recorded. */
+  acceptedOnline?: { name: string; at: string } | null
 }
+
+/** The client's link to a quote (ADR 0121), as a path on the app's own address. */
+export const acceptPath = (token: string) => `/q/${token}`
+/** The longest name a client can type to accept. */
+export const ACCEPT_NAME_LENGTH = 120
 
 /** Prices hold this long unless the quote says otherwise. */
 export const DEFAULT_VALID_DAYS = 30
@@ -257,6 +269,12 @@ export interface QuoteSettings {
    * a server from before it.
    */
   emailQuotes?: boolean
+  /**
+   * Whether a client can accept a quote on its own link (ADR 0121), and whether the link goes in the email. Off until the
+   * office turns it on under Admin, as every way the app reaches anyone outside is (ADR 0048). Left out by a server from
+   * before it.
+   */
+  acceptOnline?: boolean
 }
 export const QUOTE_SETTINGS_ID = 'quoting'
 
@@ -465,6 +483,8 @@ export const quoteCommandSchemas = {
   }),
   /** Whether quotes can be sent to the client by email from the operations mailbox (ADR 0101). The office's to decide, under Admin. */
   'quoting.email': z.object({ on: z.boolean() }),
+  /** Whether a client can accept a quote on its own link (ADR 0121). The office's to decide, under Admin. */
+  'quoting.online': z.object({ on: z.boolean() }),
   /** A product's day price; null takes it off the price list. */
   'price.product': z.object({ modelId: id, dayCents: dayPrice.nullable(), rate: z.enum(RATE_RULES).optional() }),
   /**

@@ -323,6 +323,11 @@ export function moneyView(
         quoting = { ...quoting, emailQuotes: a.on, pending: true }
         break
       }
+      case 'quoting.online': {
+        const a = m.args as CommandArgs<'quoting.online'>
+        quoting = { ...quoting, acceptOnline: a.on, pending: true }
+        break
+      }
       case 'quoting.travel': {
         const a = m.args as CommandArgs<'quoting.travel'>
         // The day the fuel price was set moves only when the price does, as on the server.

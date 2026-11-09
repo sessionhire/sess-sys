@@ -1,4 +1,5 @@
 import {
+  acceptPath,
   dayLabel,
   daysWord,
   linesFor,
@@ -215,6 +216,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             )}
             {q.notes && <p className="notes">{q.notes}</p>}
             <Emails emails={q.emails} />
+            <ClientLink q={q} on={!!m.quoting.acceptOnline} />
             {composing === q.id ? (
               <SendQuote q={q} onSent={() => setComposing(undefined)} onCancel={() => setComposing(undefined)} />
             ) : (
@@ -247,6 +249,39 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
           </div>,
           document.body
         )}
+    </div>
+  )
+}
+
+/**
+ * The client's link (ADR 0121): while the office takes answers online, a version with the client has it to copy, for a
+ * quote sent another way than the email that carries it. An accept there is said here, with the name typed and when,
+ * whether or not it's still on.
+ */
+function ClientLink({ q, on }: { q: QuoteView; on: boolean }) {
+  const [copied, setCopied] = useState(false)
+  if (q.acceptedOnline) {
+    const at = new Date(q.acceptedOnline.at)
+    const day = at.toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' })
+    return (
+      <p className="accepted-online">
+        Accepted online by <b>{q.acceptedOnline.name}</b>, {dayLabel(day)} at {at.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Dublin' })}.
+      </p>
+    )
+  }
+  if (!on || !q.acceptToken || !q.latest || q.status !== 'sent') return null
+  const link = `${location.origin}${acceptPath(q.acceptToken)}`
+  return (
+    <div className="client-link">
+      <p className="hint">The client can accept this version online, with their name and a tick, at its own link. An emailed quote carries it.</p>
+      <div className="actions">
+        <button type="button" onClick={() => void navigator.clipboard?.writeText(link).then(() => setCopied(true))}>
+          {copied ? 'Copied' : "Copy the client's link"}
+        </button>
+        <a className="button quiet" href={link} target="_blank" rel="noreferrer">
+          Open it as they see it
+        </a>
+      </div>
     </div>
   )
 }

@@ -28,12 +28,13 @@ const NOT_EXPORTED = new Set(['sessions', 'link_devices', 'link_codes', 'link_lo
  * though it is stored locked; devices never see it, so the feed has no copies.
  * And a freelancer's own calendar's private address (ADR 0044): whoever held
  * it could read their whole calendar. Devices never see it either; the busy
- * times stay in.
+ * times stay in. And a quote's link for its client (ADR 0121): whoever held
+ * it could accept the quote.
  */
-const SECRET_COLUMNS: Record<string, string[]> = { people: ['link_token'], person_merges: ['link_token'], calendar_link: ['refresh_token'], assistant_mailbox: ['refresh_token'], own_calendars: ['address'] }
+const SECRET_COLUMNS: Record<string, string[]> = { people: ['link_token'], quotes: ['accept_token'], person_merges: ['link_token'], calendar_link: ['refresh_token'], assistant_mailbox: ['refresh_token'], own_calendars: ['address'] }
 /** Not secret, but no use in a spreadsheet and far too big for one: the PDF that went with each emailed quote (ADR 0101). The backups keep it. */
 SECRET_COLUMNS.quote_emails = ['pdf_base64']
-const SECRET_FIELDS: Record<string, string[]> = { person: ['linkToken'] }
+const SECRET_FIELDS: Record<string, string[]> = { person: ['linkToken'], quote: ['acceptToken'] }
 
 type Row = Record<string, unknown>
 
@@ -310,8 +311,8 @@ const ABOUT: Record<string, string> = {
   product_prices: "The price list: each product's price for a day, in cents.",
   projects: 'Jobs: who for, where, whether they are going ahead, and the calendar a job was brought in from.',
   quotes:
-    "Each job's quotes, a row for each version: its lines (what, how many, days charged, the price for a day in cents and the VAT rate), the discount, the notes for the client, how many days its prices hold and any deposit, when it was sent and the quote number it was given then, the client's answer, and the invoice and payment the office recorded for it.",
-  quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details; and whether quotes can be emailed to clients from the operations mailbox.",
+    "Each job's quotes, a row for each version: its lines (what, how many, days charged, the price for a day in cents and the VAT rate), the discount, the notes for the client, how many days its prices hold and any deposit, when it was sent and the quote number it was given then, the client's answer, with the name typed when they accepted it online and when, and the invoice and payment the office recorded for it. The key in each quote's link for the client is left out.",
+  quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details; and whether quotes can be emailed to clients from the operations mailbox, and accepted by them online.",
   quote_emails:
     "Each quote emailed to a client from the operations mailbox: which quote, its version and number as sent, when, by whom, from and to which addresses, the subject and the message. The PDF that went is left out of this file; the app's own copy is on the quote's page.",
   role_prices: "The price list for crew: each role's price for a day, in cents. A role not here is quoted at the rate its crew were booked at.",
@@ -378,7 +379,8 @@ ${tables.join('\n')}
 
 Left out on purpose
 -------------------
-- The secrets in freelancers' private links, old and current, staff
+- The secrets in freelancers' private links, old and current, and in
+  quotes' links for clients, staff
   sign-in sessions, and the app's key to Google Calendar: whoever held this
   file could otherwise act as them.
 - The server's own bookkeeping: schema versions, and which copy of the data

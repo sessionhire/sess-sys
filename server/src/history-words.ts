@@ -60,6 +60,8 @@ export const LATE_CLEARED_ACTION = 'late.clear-old'
 export const FUEL_FROM_AA_ACTION = 'quoting.fuel-from-aa'
 /** A quote emailed to the client from the operations mailbox (ADR 0101): the server's own record of the send. */
 export const QUOTE_EMAIL_ACTION = 'quote.email'
+/** A client accepting a quote on its link (ADR 0121): the server's own change, by nobody signed in. */
+export const QUOTE_ONLINE_ACTION = 'quote.acceptedOnline'
 
 /**
  * Whose documents a reader reads in full in the history (ADR 0062, audit, 20 October 2026, finding 38): true for everyone's,
@@ -726,6 +728,13 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     }
     case 'quoting.email':
       return a.on === true ? 'Turned on sending quotes to clients by email from the operations mailbox' : 'Turned off sending quotes by email'
+    case 'quoting.online':
+      return a.on === true ? 'Turned on clients accepting quotes online' : 'Turned off clients accepting quotes online'
+    case QUOTE_ONLINE_ACTION: {
+      const q = look('quote', a.id)
+      const version = typeof q?.version === 'number' ? `version ${q.version} of ` : ''
+      return `${text(a.name, 'The client')} accepted ${version}the quote for ${job(q?.projectId ?? a.projectId)} online, for the client`
+    }
     case 'quoting.update':
       return `Set what printed quotes say: ${typeof a.nextNumber === 'number' ? `the next is number ${a.nextNumber}` : 'numbers carry on from the highest'}, with the terms and bank details`
     case FUEL_FROM_AA_ACTION:
