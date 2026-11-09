@@ -914,7 +914,7 @@ function SettleKit({ job, view }: { job: JobView; view: View }) {
   const mayTick = access.can('steps') && (access.role !== 'crew' || (!!access.personId && step?.ownerId === access.personId))
   if (!step || step.done || step.skipped || !mayTick || job.status !== 'confirmed' || step.facts.nothingYet || step.facts.short) return null
   return (
-    <section className="card settle-kit" aria-label="Kit and vans settled">
+    <section className="card settle-kit" aria-label="Ready to pick">
       <p>
         <b>Is the kit list final?</b> Once the kit and vans are as they'll go, mark it settled: the job moves on to picking.
       </p>
