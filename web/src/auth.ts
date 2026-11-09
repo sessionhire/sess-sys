@@ -1,4 +1,5 @@
-import { asStartScreen, type MeResponse, type StaffUser, type StartScreen } from '@sh/shared'
+// Types only: main.tsx loads this before noEval.ts has set Zod up, so no shared code may run from here.
+import type { MeResponse, StaffUser, StartScreen } from '@sh/shared'
 import { useEffect, useState } from 'react'
 import { askToKeep } from './kept.ts'
 
@@ -136,8 +137,7 @@ export async function setStartScreen(start: StartScreen): Promise<string | undef
   startChosen++
   if (was.status !== 'signed-in') return 'Sign in with Google to choose where the app opens.'
   const { start: _old, ...user } = was.user
-  const chosen = asStartScreen(start)
-  set({ ...was, user: chosen ? { ...user, start: chosen } : user })
+  set({ ...was, user: start === '#home' ? user : { ...user, start } })
   try {
     const res = await fetch(`${base}/api/me/start`, {
       method: 'POST',

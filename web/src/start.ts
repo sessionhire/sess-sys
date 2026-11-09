@@ -1,4 +1,3 @@
-import { asStartScreen } from '@sh/shared'
 import { currentAuth, onAuth } from './auth.ts'
 
 /** The app's own address with nothing after it: what a phone's icon, a bookmark of the app and typing its name open. */
@@ -17,8 +16,10 @@ export function openOnStart() {
   const go = (): boolean => {
     const auth = currentAuth()
     if (auth.status !== 'signed-in') return false
-    const start = asStartScreen(auth.user.start)
-    if (start && bare()) location.replace(start)
+    // The server keeps only screens on the list (ADR 0122); checked here without the shared code, which main.tsx mustn't load
+    // before noEval.ts has set Zod up.
+    const start = auth.user.start
+    if (start && start !== '#home' && /^#[a-z/]+$/.test(start) && bare()) location.replace(start)
     return true
   }
   if (go()) return
