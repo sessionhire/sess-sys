@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.124.0',
+    date: '2026-11-09',
+    title: 'A calendar of every job, and every one that might be',
+    what: "Jobs › Calendar shows a month a box a day, with the confirmed jobs and the enquiries and quotes together. Confirmed jobs are solid; enquiries and quotes are dashed and say which they are, and for those who see money, whether the quote has been sent. Choose Everything, Confirmed or Potential at the top. Jobs with no dates yet are listed underneath. Press a day to plan its week, or a job to open it. On a phone it lists the days with something on. Nothing goes to Google Calendar.",
+    prs: [275],
+    adrs: [123],
+  },
+  {
     version: '1.123.1',
     date: '2026-11-09',
     title: 'A tidier finish',

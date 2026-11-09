@@ -62,6 +62,7 @@ import { QuoteScreen } from './Quote.tsx'
 import { SheetScreen } from './SheetScreen.tsx'
 import { BoardScreen } from './BoardScreen.tsx'
 import { JobViews, PlanScreen } from './PlanScreen.tsx'
+import { CalendarScreen } from './CalendarScreen.tsx'
 import { ClientScreen } from './ClientScreen.tsx'
 import { jobsAt, VenueScreen } from './VenueScreen.tsx'
 import { VenuesMapCard } from './VenueMaps.tsx'
@@ -77,7 +78,8 @@ import { arrival } from '../arrival.ts'
  * A job opens on its own page (#jobs/<id>) with its phases, kit and crew,
  * its pick list on another (#jobs/<id>/pick, ADR 0017), each phase's call
  * sheet on another (#jobs/<id>/sheet/<phase>, ADR 0021), the
- * planner (#jobs/plan, ADR 0010) shows them by week or month, the clients
+ * planner (#jobs/plan, ADR 0010) shows them by week or month, the master
+ * calendar (#jobs/calendar, ADR 0123) a month with enquiries and quotes, the clients
  * and venues have a list each (#jobs/clients, #jobs/venues, ADR 0041) and
  * a page each with its documents (#jobs/venues/<id>, ADR 0032), each job's
  * quote is on #jobs/<id>/quote and money on #jobs/money (ADR 0042), jobs
@@ -106,6 +108,7 @@ export function JobsScreen() {
   const wide = useWide()
   if (hash === '#jobs/plan' || hash.startsWith('#jobs/plan/')) return <PlanScreen view={view} hash={hash} />
   if (hash === '#jobs/board') return <BoardScreen view={view} />
+  if (hash === '#jobs/calendar' || hash.startsWith('#jobs/calendar/')) return <CalendarScreen view={view} hash={hash} />
   if (hash === '#jobs/import') return <ImportScreen view={view} />
   if (hash === '#jobs/tidy') return <TidyScreen view={view} />
   if (hash === '#jobs/clients') return <ClientsScreen view={view} />

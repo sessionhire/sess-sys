@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: a master calendar of jobs and enquiries
+
+**Done**
+
+- Jobs › Calendar shows a month a box a day, with confirmed jobs solid and
+  enquiries and quotes dashed and named, all together. Everything, Confirmed
+  or Potential at the top; jobs with no dates yet listed underneath; a day
+  opens its week on the planner. Those who see money also see whether a
+  quote has gone out. On a phone it lists the days with something on. It
+  reads only and writes nothing to Google (1.124.0, ADR 0123).
+
+**Waiting on**
+
+- Nothing.
+
 ## 9 November 2026: job offers over WhatsApp, researched
 
 **Done**
