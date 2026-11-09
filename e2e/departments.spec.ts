@@ -294,7 +294,7 @@ test("a head's own department is where Stock's lists and counts and the job's cr
   // A quote this role isn't sent is with the office, never missing, on the Jobs list and the Board alike.
   await page.goto('/#jobs')
   // The list starts on LX (Move 9 of the sweep of 6 November 2026); the wedding is everyone's.
-  await page.getByRole('button', { name: 'Take off the filter Department: LX' }).click()
+  await page.getByRole('button', { name: 'Take off the filter Crew department: LX' }).click()
   // The wedding is three weeks off, past the fortnight the list starts on.
   await page.getByRole('button', { name: /^Show all \d+ coming up$/ }).click()
   await expect(page.getByRole('link', { name: /Clonmore Wedding/ }).first()).toContainText('Quote: with the office')
@@ -372,7 +372,7 @@ test("each role meets its own app: a head's Jobs list starts on their department
   await head.getByRole('button', { name: /^Head of department/ }).click()
   await expect(head.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
   await head.goto('/#jobs')
-  const off = head.getByRole('button', { name: 'Take off the filter Department: LX' })
+  const off = head.getByRole('button', { name: 'Take off the filter Crew department: LX' })
   await expect(off).toBeVisible()
   await expect(head.locator('.job-row', { hasText: 'Liffey Brands Launch' })).toBeVisible()
   await expect(head.locator('.job-row', { hasText: 'Brightwater Tech Summit' })).toHaveCount(0)
