@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.123.1',
+    date: '2026-11-09',
+    title: 'A tidier finish',
+    what: "A few things that made the app look rough are smoothed out. Moving to a screen by key no longer draws a red box round its title. At a desk, the strip of \"On this screen\" links lines up with the cards under it, and wraps onto a second line instead of hiding links past the edge. Quotes, Waiting for an answer and the Current RMS list show each job's name in bold, as Jobs does, instead of as red underlined links. And on a quote and in Money's tables, the column headings for amounts sit over their numbers on the right.",
+    prs: [273],
+  },
+  {
     version: '1.123.0',
     date: '2026-11-09',
     title: 'The logo goes Home, and you choose where the app opens',
