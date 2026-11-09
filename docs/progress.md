@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: hire prices filled in from Current RMS
+
+**Done**
+
+- Admin › Connections has a Hire prices from Current RMS card (ADR 0131,
+  1.133.0). Read the prices reads each product's rental price and rule
+  from Current RMS through the API, a few minutes in the background.
+- Before anything changes, it says what filling in would do: to fill in,
+  to bring up to date, set here by hand and different (kept unless
+  ticked), already the same, no hire price there, and not found here.
+- Fill in is one change in the history; the price list now knows which
+  prices came from Current RMS, so a later run follows Current RMS for
+  those and keeps the office's own.
+- Checked: 7 server tests with a stand-in for Current RMS.
+
+**Waiting on**
+
+- The office: Read the prices, look over the list, and Fill in, on live.
+
 ## 9 November 2026: answers on WhatsApp (off until launch)
 
 **Done**

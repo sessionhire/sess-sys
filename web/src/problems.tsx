@@ -250,6 +250,8 @@ function describer(view: View): (m: Mutation) => string {
         return a.dayCents === null ? `Take ${model(a.modelId)} off the price list` : `Price ${model(a.modelId)}`
       case 'price.rulesFromRms':
         return 'Give the price list the rules Current RMS charged by'
+      case 'price.fromRms':
+        return 'Fill in hire prices from Current RMS'
       case 'package.save':
         return `Save the package ${str(a.name, 'a package')}`
       case 'package.remove':

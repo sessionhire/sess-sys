@@ -304,6 +304,8 @@ export interface ProductPrice {
   dayCents: number
   /** How the price is charged (ADR 0085); Daily unless set. Under Weekly, `dayCents` is the price for a week. */
   rate?: RateRule
+  /** Filled in from Current RMS (ADR 0131) rather than set here by hand; left out for one set here. */
+  fromRms?: boolean
 }
 
 /** A crew role's price for a day, by the role as `roleKey` writes it, with the role as it was typed. */
@@ -515,6 +517,12 @@ export const quoteCommandSchemas = {
    * from it. Products with a rule already set keep it unless `all`.
    */
   'price.rulesFromRms': z.object({ all: z.boolean() }),
+  /**
+   * Fill the price list in with each product's hire price from Current RMS (ADR 0131), as last read there: products
+   * with no price, and those whose price came from Current RMS before. A price set here by hand is kept unless
+   * `overwrite`.
+   */
+  'price.fromRms': z.object({ overwrite: z.boolean() }),
   /** Add or change a package (ADR 0087): its name, where it's listed, its price and rule, and what it holds. */
   'package.save': z.object({
     id,

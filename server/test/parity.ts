@@ -388,9 +388,12 @@ const CASES: Case[] = [
  * secret to show (person.newLink); an erasure takes a person's details from
  * every table on the server, and a device shows them erased while it waits
  * (person.erase, ADR 0027, tested in erasure.test.ts); and stopping a
- * freelancer's own calendar is read by the server only (ownCalendar.stop).
+ * freelancer's own calendar is read by the server only (ownCalendar.stop);
+ * and filling prices in from Current RMS works from the copy of its prices
+ * kept on the server only (price.fromRms, ADR 0131, tested in
+ * rms-prices.test.ts), so the device waits for the server's answer.
  */
-const NOT_LAID_OVER: CommandName[] = ['person.newLink', 'person.erase', 'ownCalendar.stop']
+const NOT_LAID_OVER: CommandName[] = ['person.newLink', 'person.erase', 'ownCalendar.stop', 'price.fromRms']
 
 /**
  * Each case builds a company of its own, a few seconds apiece, so the cases

@@ -87,6 +87,25 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS rms_matches_project ON rms_matches (project_id);
   `,
+  // Each product's hire price as Current RMS has it (ADR 0131), from the last read of its products and their rates, for
+  // filling the price list in. A copy to read: replaced whole by each read that finishes.
+  `
+  CREATE TABLE IF NOT EXISTS rms_products (
+    id               integer PRIMARY KEY,
+    name             text NOT NULL,
+    price_cents      integer CHECK (price_cents > 0),
+    rate_definition  text NOT NULL DEFAULT '',
+    read_at          timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS rms_price_reads (
+    id           bigserial PRIMARY KEY,
+    started_at   timestamptz NOT NULL,
+    finished_at  timestamptz,
+    products     integer NOT NULL DEFAULT 0,
+    error        text,
+    stopped      boolean NOT NULL DEFAULT false
+  );
+  `,
 ]
 
 export const RMS: Module = { versionTable: 'rms_schema_version', migrations: MIGRATIONS }
