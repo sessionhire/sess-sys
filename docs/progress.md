@@ -17,6 +17,7 @@ waiting on someone.
 **Waiting on**
 
 - Nothing.
+
 ## 9 November 2026: job offers over WhatsApp, researched
 
 **Done**
