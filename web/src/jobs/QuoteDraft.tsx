@@ -49,7 +49,7 @@ import {
   MOST_LAST_CHARGED_NAMES,
   draftBase,
 } from '@sh/shared'
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Icon } from '../Icon.tsx'
@@ -152,6 +152,9 @@ const termsText = (q: QuoteView) => ({
  * gap between a build and a show (ADR 0126; audit of the quote flow, 8 November 2026, finding 9).
  */
 const jobDays = (job: JobView) => workDays(job)
+
+/** A package offered in Add kit (ADR 0129), told from a product by the start of its id. */
+const PACKAGE_PICK = 'package:'
 
 /** The fields of the terms that can be wrong, in the order their faults are said; `km` is the distance on the travel row. */
 type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
@@ -350,6 +353,17 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const kitInputs = { kit: view.kit, models: (id: string) => view.warehouse.models.find((x) => x.id === id), unusable: view.faults.unusable, lateOut: view.moves.lateOut }
   const wantedNow = quoteWants(good, (id) => m.package(id)?.items)
   const aboutKit = (modelId: string) => {
+    // A package (ADR 0129): what it holds and what it's charged.
+    if (modelId.startsWith(PACKAGE_PICK)) {
+      const p = m.package(modelId.slice(PACKAGE_PICK.length))
+      if (!p) return ''
+      const holds = packageIncludes(p, (id) => view.warehouse.models.find((x) => x.id === id)?.name)
+      const price = p.dayCents ? `${money(p.dayCents)} ${p.rate === 'weekly' ? 'a week' : 'a day'}` : 'its kit at its own prices'
+      return [price, holds && `holds ${holds}`].filter(Boolean).join(' · ')
+    }
+    // A rack (ADR 0074) says what's built into it.
+    const built = view.racks.of(modelId)?.slots ?? []
+    const rack = built.length ? `a rack with ${plural(built.reduce((n, s) => n + s.qty, 0), 'thing')} in it` : ''
     const cents = m.productPrice(modelId)
     const rate = m.productRate(modelId)
     const price = cents === undefined ? 'No price yet' : cents === 0 ? 'Included at no charge' : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
@@ -357,7 +371,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     const freeWords = free === undefined ? '' : free === 0 ? (wantedNow.get(modelId) ? 'no more free' : 'none free') : wantedNow.get(modelId) ? `${free} more free` : `${free} free`
     // Other quotes for the same days (ADR 0126): said beside what's free, since pencilled kit isn't taken until confirmed.
     const pencilled = free === undefined ? 0 : kitPencilled(job, modelId, today, kitInputs)
-    return [price, freeWords, pencilled ? `${pencilled} pencilled for other quotes` : ''].filter(Boolean).join(' · ')
+    return [rack, price, freeWords, pencilled ? `${pencilled} pencilled for other quotes` : ''].filter(Boolean).join(' · ')
   }
   const shortLines = good.filter((l) => linesShort(l, checks, m.package(l.packageId ?? '')?.items).length > 0)
   // What it makes (ADR 0089), for the office and directors, who see quotes at all.
@@ -475,7 +489,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   // A package (ADR 0087) is a shortcut for adding its kit (ADR 0116): its line, named for it, and each product it holds as a
   // line under it, to change for this job. A package with its own price is charged at that, with its kit included; one
   // without is its kit at the price list's prices. What else it includes in words is written on its line.
-  const addPackage = (packageId: string) => {
+  const addPackage = (packageId: string, count = 1, keepAdding = false) => {
     const p = m.package(packageId)
     if (!p) return
     const whole = p.dayCents > 0
@@ -491,7 +505,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       what: p.name,
       modelId: null,
       group: DEPARTMENT_LABELS[p.department],
-      qty: '1',
+      qty: String(count),
       price: euroText(whole ? p.dayCents : 0),
       rate: whole && p.rate && p.rate !== 'daily' ? p.rate : null,
       packageId: p.id,
@@ -511,7 +525,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
           what: model.name,
           modelId: i.modelId,
           group: DEPARTMENT_LABELS[model.department],
-          qty: String(i.qty),
+          qty: String(i.qty * count),
           price: cents === undefined || cents === 0 ? '' : euroText(cents),
           rate: rate && rate !== 'daily' ? rate : null,
           packageId: null,
@@ -521,10 +535,18 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       ]
     })
     setLines((ls) => [...ls, title, ...kids].slice(0, MAX_LINES))
+    // Found in Add kit (ADR 0129), it waits closed like any kit picked there, the picker open for the next.
+    if (keepAdding) return setKitPicks((n) => n + 1)
     setShownSets((now) => new Set(now).add(titleId))
     openLine(titleId)
     setAdding(undefined)
   }
+  // Packages are found in Add kit with the products (ADR 0129; audit of the quote flow, finding 12), each marked as one.
+  const kitFinds = useMemo(
+    () => [...view.warehouse.models, ...m.packages.map((p) => ({ id: PACKAGE_PICK + p.id, name: p.name, department: p.department, category: 'Package', aliases: [] }))],
+    [view.warehouse.models, m.packages]
+  )
+  const pickKit = (id: string, count = 1) => (id.startsWith(PACKAGE_PICK) ? addPackage(id.slice(PACKAGE_PICK.length), count, true) : addKit(id, count))
   // The quote's kit, as a package to start the next one from (ADR 0116): each product once, with how many.
   const kitStart = (): PackageStart => {
     const qty = new Map<string, number>()
@@ -831,15 +853,15 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 key={kitPicks}
                 autoFocus
                 label="Kit to add"
-                products={view.warehouse.models}
+                products={kitFinds}
                 value=""
-                onPick={addKit}
+                onPick={pickKit}
                 counted
                 about={aboutKit}
                 hint={
                   kitPicks
                     ? `${plural(kitPicks, 'line')} added. Pick the next, or Done.`
-                    : "Type how many first, as 12 y10. Priced from the price list; free counts are for the job's days."
+                    : `Type how many first, as 12 y10. Priced from the price list; free counts are for the job's days.${m.packages.length ? ' Packages are found here too.' : ''}`
                 }
               />
               <button type="button" className="link" onClick={() => setAdding(undefined)}>
