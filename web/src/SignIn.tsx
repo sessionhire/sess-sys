@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { enterPasscode, signInProblem, signInUrl, useAuth } from './auth.ts'
+import { inApp, signInFromApp } from './native.ts'
 import { client } from './sync.ts'
 import { ThemeButton } from './ThemeButton.tsx'
 
@@ -57,7 +58,16 @@ export function SignIn() {
             )}
             <p>Use your Session Hire Google account.</p>
             {/* Back to where they were, or Home, which starts each role on its own view; not the office's Jobs (audit, 5 November 2026, finding 48). */}
-            <a className="button primary" href={signInUrl(location.hash || '#home')}>
+            {/* In the phone app, Google opens in the phone's own browser and comes back to the app (ADR 0112). */}
+            <a
+              className="button primary"
+              href={signInUrl(location.hash || '#home')}
+              onClick={(e) => {
+                if (!inApp()) return
+                e.preventDefault()
+                void signInFromApp(location.hash || '#home')
+              }}
+            >
               Sign in with Google
             </a>
           </>

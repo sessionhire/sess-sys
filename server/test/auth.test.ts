@@ -270,6 +270,54 @@ describe('staff sign-in', () => {
   })
 })
 
+describe("the phone app's sign-in (ADR 0112)", () => {
+  /** The app opens Google in the phone's browser with a challenge, and the browser is sent back to the app with a code. */
+  async function viaPhone(app: FastifyInstance, google: ReturnType<typeof fakeGoogle>, identity: Identity) {
+    const verifier = randomBytes(32).toString('base64url')
+    const challenge = createHash('sha256').update(verifier).digest('base64url')
+    const start = await app.inject(`/api/auth/google/start?next=${encodeURIComponent('#stock')}&app=${challenge}`)
+    const attempt = cookie(start, 'sh_signin')!
+    const { code, state } = google.pick(identity)
+    const back = await app.inject({ url: `/api/auth/google/callback?code=${code}&state=${state}`, cookies: { sh_signin: attempt.value } })
+    return { back, verifier }
+  }
+  const claim = (app: FastifyInstance, code: string, verifier: string) =>
+    app.inject({ method: 'POST', url: '/api/auth/app/claim', payload: { code, verifier } })
+
+  it("hands the session to the app, not to the phone's browser, and the app swaps it once", async () => {
+    const { app, google } = await server()
+    const { back, verifier } = await viaPhone(app, google, aoife)
+    expect(back.statusCode).toBe(303)
+    expect(cookie(back, 'sh_session')).toBeUndefined()
+    const to = new URL(back.headers.location as string)
+    expect(to.protocol).toBe('com.sessionhire.app:')
+    const code = to.searchParams.get('code')!
+    const swapped = await claim(app, code, verifier)
+    expect(swapped.statusCode).toBe(200)
+    expect(swapped.json()).toEqual({ next: '#stock' })
+    const session = cookie(swapped, 'sh_session')!.value
+    expect((await pull(app, session)).statusCode).toBe(200)
+    // Once only.
+    expect((await claim(app, code, verifier)).statusCode).toBe(403)
+  })
+
+  it('refuses a code without the secret behind its challenge, and forgets it', async () => {
+    const { app, google } = await server()
+    const { back, verifier } = await viaPhone(app, google, aoife)
+    const code = new URL(back.headers.location as string).searchParams.get('code')!
+    const caught = await claim(app, code, randomBytes(32).toString('base64url'))
+    expect(caught.statusCode).toBe(403)
+    expect(cookie(caught, 'sh_session')).toBeUndefined()
+    expect((await claim(app, code, verifier)).statusCode).toBe(403)
+  })
+
+  it('tells the app when Google turned the account away', async () => {
+    const { app, google } = await server()
+    const { back } = await viaPhone(app, google, { ...aoife, email: 'someone@gmail.com', hostedDomain: undefined })
+    expect(back.headers.location).toBe('com.sessionhire.app://signed-in?signin=denied')
+  })
+})
+
 describe("staff's own pages (ADR 0052)", () => {
   const niamh: Identity = { subject: '1002', email: 'niamh@sessionhire.com', emailVerified: true, name: 'Niamh Walsh', hostedDomain: 'sessionhire.com' }
 
