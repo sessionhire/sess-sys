@@ -7,6 +7,10 @@ waiting on someone.
 
 **Done**
 
+- A Current RMS quote's lines are matched to the stock list by the product
+  Current RMS quoted (its id, kept on each product by the stock bring-in)
+  before the name (1.140.2). Colly: putting the MSF quote's lines on its
+  job brought only the audio gear onto the kit list.
 - Each read of Current RMS reads the lines again of every quote still to
   come (or up to a week past) and of any with no lines (1.140.1). Current
   RMS doesn't always move a quote's updated time when lines are added, so

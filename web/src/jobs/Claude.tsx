@@ -60,6 +60,7 @@ export function pricingOf(view: View): Pricing {
     productRate: view.money.productRate,
     rolePrice: view.money.rolePrice,
     roles: view.money.roles.map((r) => r.role),
+    byListId: (listId) => models.find((x) => x.listId === listId && !x.mistake)?.id,
   }
 }
 

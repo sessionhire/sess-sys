@@ -116,3 +116,19 @@ describe('the job a past quote makes', () => {
     expect(rmsJobDraft(opp({ startsAt: null, endsAt: null, subject: '' }), [], [], '2026-10-30')).toMatchObject({ name: '0000001043', start: '2026-10-30', end: '2026-10-30' })
   })
 })
+
+describe('a past quote line matched by its Current RMS id', () => {
+  const ids: Pricing = { ...pricing, byListId: (listId) => (listId === '77' ? 'p5' : undefined) }
+
+  it('goes with the product the stock bring-in kept that id on, whatever the name on the quote', () => {
+    const [s] = rmsSuggestions([line({ name: 'LED wash (renamed on the quote)', itemId: 77, priceCents: 8_000 })], ids)
+    expect(s!.s).toMatchObject({ kind: 'kit', modelId: 'p5', what: 'SGM P5', how: 'code', cents: 8_000 })
+  })
+
+  it('falls back to the name when no product here has the id', () => {
+    const [s] = rmsSuggestions([line({ name: 'Avolites Tiger Touch 2', itemId: 12, priceCents: 15_000 })], ids)
+    expect(s!.s).toMatchObject({ modelId: 'tiger', how: 'name' })
+    const [t] = rmsSuggestions([line({ name: 'Something we never had', itemId: 12, priceCents: 1_000 })], ids)
+    expect(t!.s.modelId).toBeNull()
+  })
+})
