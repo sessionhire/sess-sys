@@ -30,6 +30,9 @@ import {
   type View,
   activeFilters,
   jobFilters,
+  departmentsOfJob,
+  JOB_DEPARTMENTS,
+  jobDepartmentsInWords,
   jobSorts,
   listed,
   sortOf,
@@ -71,6 +74,7 @@ import { plain, wordsOf } from '../crew/People.tsx'
 import { JOBS } from '../Up.tsx'
 import { useWindowed } from '../windowed.ts'
 import { ListTools, useListChoices } from '../ListTools.tsx'
+import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
 import { arrival } from '../arrival.ts'
 
 /**
@@ -387,12 +391,14 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   const mayAdd = useAccess().can('jobs')
   const card = useUnderTop(phone)
   const day = useToday()
+  // The departments picked (ADR 0136), as on the calendar, the planner and the Board.
+  const { picked, setPicked, involves } = useJobDepartments(view)
   // Worked out again only when the jobs, the day or what's asked for change, not on every render (audit, 20 October 2026, finding 2).
   const counts = useMemo(() => {
     const counted = new Map<Filter, number>()
-    for (const j of jobs) counted.set(filterOf(j, day), (counted.get(filterOf(j, day)) ?? 0) + 1)
+    for (const j of jobs) if (involves(j)) counted.set(filterOf(j, day), (counted.get(filterOf(j, day)) ?? 0) + 1)
     return counted
-  }, [jobs, day])
+  }, [jobs, day, involves])
   const count = (f: Filter) => counts.get(f) ?? 0
   // Filter and sort (ADR 0099): the filters narrow the tab chosen above them, and the order is the tab's own until another is picked.
   // A count on Home of jobs with a task late, or down to nobody, opens the list on just those, its other filters off (audit, 5 November 2026, finding 20).
@@ -416,16 +422,18 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
     [view.kit.byJob, view.steps, filter, whose]
   )
   const mineCount = useMemo(() => (whose.mine ? jobs.filter((j) => filterOf(j, day) === filter && whose.mine!(j)).length : 0), [jobs, whose, filter, day])
-  const { rows, shownCount, listedCount, searched } = useMemo(() => {
+  const { rows, shownCount, listedCount, searched, byDepartment } = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
     const matches = (j: JobView) => {
       const text = [j.name, j.client?.name, j.venue?.name, ...j.phases.map((p) => p.venue?.name)].filter(Boolean).join(' ').toLowerCase()
       return words.every((w) => text.includes(w))
     }
-    const searched = jobs.filter((j) => filterOf(j, day) === filter && matches(j))
+    const inTab = jobs.filter((j) => filterOf(j, day) === filter && matches(j))
+    // The departments row (ADR 0136) narrows before the filters, so their counts are of the jobs it leaves.
+    const searched = inTab.filter(involves)
     const shown = listed(searched, filters, sorts, choices)
     const byDate = sortOf(sorts, choices.sort)?.key === 'date'
-    const narrowed = activeFilters(filters, choices.filters).length > 0
+    const narrowed = activeFilters(filters, choices.filters).length > 0 || picked.length > 0
     // The next fortnight, and the ones with no dates yet, until Show all; a search or a filter looks through them all, as does another order.
     const soonOnly = filter === 'coming' && !all && words.length === 0 && !narrowed && byDate
     const soonEnd = addDays(day, SOON_DAYS)
@@ -441,8 +449,9 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
           ...byWeek(rest, day).map((r) => ('job' in r ? { ...r, n: r.n + back.length } : r)),
         ]
       : listedJobs.map((job, n) => ({ job, n }))
-    return { rows, shownCount: shown.length, listedCount: listedJobs.length, searched }
-  }, [jobs, day, filter, search, all, filters, sorts, choices, view.steps])
+    const byDepartment = new Map(JOB_DEPARTMENTS.map((d) => [d, inTab.filter((j) => departmentsOfJob(j, view.kit.byJob.get(j.id)).has(d)).length]))
+    return { rows, shownCount: shown.length, listedCount: listedJobs.length, searched, byDepartment }
+  }, [jobs, day, filter, search, all, filters, sorts, choices, view.steps, view.kit.byJob, involves, picked])
   const win = useWindowed('jobs', rows, rowKey, 110)
 
   return (
@@ -463,6 +472,7 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
           </button>
         ))}
       </div>
+      {jobs.length > 0 && <DepartmentFilter picked={picked} onChange={setPicked} count={(d) => byDepartment.get(d) ?? 0} />}
       {/* "Mine" first for anyone booked on a job (Move 9): the jobs they're on, a tap away, as Home › Me lists their bookings. */}
       {whose.mine && (mineCount > 0 || choices.filters.mine === 'mine') && (
         <div className="filters" role="group" aria-label="Whose">
@@ -477,7 +487,8 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
       )}
       {jobs.length > 0 && <ListTools name="jobs" items={searched} filters={filters} sorts={sorts} choices={choices} onChange={setChoices} shown={shownCount} what="jobs" />}
       {shownCount === 0 && searched.length > 0 && <p className="empty">No job here matches those filters.</p>}
-      {searched.length === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}
+      {searched.length === 0 && picked.length > 0 && jobs.length > 0 && <p className="empty">No job here involves {jobDepartmentsInWords(picked)}.</p>}
+      {searched.length === 0 && picked.length === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}
       {shownCount > 0 && listedCount === 0 && <p className="hint">Nothing in the next fortnight.</p>}
       {/* A long list (audit finding 11, ADR 0050): only the rows near the screen are drawn, and Back finds its place by them (places.ts). */}
       <ul className="job-list windowed" ref={win.list} style={win.style}>

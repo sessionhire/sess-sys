@@ -5,6 +5,7 @@ import { useToday } from '../view.ts'
 import { Top } from './common.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import './steps.css'
+import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
 
 /**
  * Jobs › Board (ADR 0104, part 3): a column per stage, a card per job,
@@ -33,7 +34,12 @@ export function BoardScreen({ view }: { view: View }) {
   const [toAnswer] = useState(() => arrival('#jobs/board')?.part === LAPSED)
   const until = addDays(today, 56)
   const monthAgo = addDays(today, -31)
-  const all = view.jobs.jobs.map((j) => view.steps.of(j.id)).filter((s): s is JobSteps => !!s && !s.stopped)
+  // The departments picked (ADR 0136), as on the Jobs list and the calendar: only the jobs involving one of them, in every column.
+  const { picked, setPicked, involves } = useJobDepartments(view)
+  const all = view.jobs.jobs
+    .filter(involves)
+    .map((j) => view.steps.of(j.id))
+    .filter((s): s is JobSteps => !!s && !s.stopped)
   const lists = standing(view, today)
   const toCheck = new Map(lists['still-out'].map((k) => [k.job.id, k]))
   // Jobs with no dates are kept, so an enquiry isn't lost for having none yet.
@@ -57,6 +63,7 @@ export function BoardScreen({ view }: { view: View }) {
           All coming up
         </button>
       </div>
+      <DepartmentFilter picked={picked} onChange={setPicked} />
       <div className="board">
         {columns.map((c) => (
           <section key={c.key} className="board-col" aria-labelledby={`board-${c.key}`}>

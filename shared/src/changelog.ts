@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.136.0',
+    date: '2026-11-09',
+    title: 'Show only the jobs with a department on them',
+    what: "The Jobs list, the calendar, the week and month planner and the Board now have a row of departments: Audio, Lighting, Video, Lasers and Staging. Press Lighting and only the jobs with lighting on them stay, by their crew or their kit; press Lasers as well and the jobs with either stay. All departments shows everything again. The choice holds as you move between them, on this device. Lasers is now a department of its own for kit too, so move any laser products filed under Lighting on their page. While a department is picked, quotes still open in Current RMS are left off the calendar, since what's on them isn't known here.",
+    prs: [0],
+    adrs: [136],
+  },
+  {
     version: '1.135.0',
     date: '2026-11-09',
     title: 'Quotes still open in Current RMS are on the calendar',
