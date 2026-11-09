@@ -306,6 +306,14 @@ const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS whatsapp_messages_queued ON whatsapp_messages (made_at) WHERE state = 'queued';
   CREATE INDEX IF NOT EXISTS whatsapp_messages_offer ON whatsapp_messages (offer_id);
   `,
+  // Each message Meta passes on from crew is acted on once (ADR 0125, part 3): Meta sends again when it isn't sure it
+  // got through. Only Meta's id for it and when, nothing of who or what.
+  `
+  CREATE TABLE IF NOT EXISTS whatsapp_inbound (
+    wamid        text PRIMARY KEY,
+    received_at  timestamptz NOT NULL DEFAULT now()
+  );
+  `,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }

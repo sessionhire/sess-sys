@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.128.0',
+    date: '2026-11-09',
+    title: 'WhatsApp offers can be answered with their buttons (off until launch)',
+    what: "When offers on WhatsApp are on, pressing Yes, I can do it on the message now accepts the offer, just as answering on their page does, and they get a reply saying they're down for it and that the office will confirm. No, I can't asks once more before it declines, in case of a slip of the thumb. If the job was filled or withdrawn first, the reply says so. Each offer's row in Crew shows whether its WhatsApp was sent, delivered or read while it waits for an answer, or why it wasn't sent. Anyone who writes STOP gets no more offers there; anything else written is answered with a link to their page and the office's number, as nobody reads that number. Answers on WhatsApp show in the history as theirs. Still nothing is sent until Session Hire's WhatsApp number is set up with Meta and switched on.",
+    prs: [],
+    adrs: [125],
+  },
+  {
     version: '1.127.0',
     date: '2026-11-09',
     title: "A quote's kit is pencilled on its job, and its crew become calls",

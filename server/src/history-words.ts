@@ -99,7 +99,7 @@ const inWords = (parts: string[]) => (parts.length < 2 ? (parts[0] ?? 'nothing')
  * role doesn't see it: the history says a rate changed, never to what.
  * `docs` says whose documents it names in full (DocumentsRead).
  */
-export function describe(command: string, a: Data, look: Look, left?: Data, from?: 'app' | 'link' | 'calendar', rates = true, notes = true, docs: DocumentsRead = true): string {
+export function describe(command: string, a: Data, look: Look, left?: Data, from?: 'app' | 'link' | 'calendar' | 'whatsapp', rates = true, notes = true, docs: DocumentsRead = true): string {
   const person = (id: unknown) => text(look('person', id)?.name, 'someone')
   const call = (id: unknown) => {
     const c = look('crewCall', id)
@@ -223,7 +223,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     // Offers on WhatsApp (ADR 0125): theirs to choose, or turned off by the office when they asked.
     case 'person.whatsapp': {
       const who = person(a.id)
-      if (from === 'link') return a.on === true ? `${who} turned on offers on WhatsApp` : `${who} turned off offers on WhatsApp`
+      if (from === 'link' || from === 'whatsapp') return a.on === true ? `${who} turned on offers on WhatsApp` : `${who} turned off offers on WhatsApp`
       return `Turned off offers on WhatsApp for ${who}`
     }
     // Their own calendar (ADR 0044), never with its address, which no entry carries.

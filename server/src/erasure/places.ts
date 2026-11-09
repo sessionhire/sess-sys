@@ -496,5 +496,5 @@ async function stripHistory(
     )
     await tx.query(`UPDATE changes SET data = regexp_replace(data::text, $1, '', 'gi')::jsonb WHERE entity = 'calendarLink' AND op = 'put' AND data::text ~* $1`, [found])
   }
-  await tx.query(`UPDATE mutations SET device = NULL WHERE client_id = ANY($1::text[])`, [[`link:${personId}`, `calendar:${personId}`]])
+  await tx.query(`UPDATE mutations SET device = NULL WHERE client_id = ANY($1::text[])`, [[`link:${personId}`, `calendar:${personId}`, `whatsapp:${personId}`]])
 }

@@ -326,8 +326,8 @@ faults reported on site are waiting in the warehouse repair queue on return.
   9 November 2026 ([WhatsApp offers](research/whatsapp-offers.md));
   recommended Meta's Cloud API direct, offers that send themselves with
   Yes and No buttons, behind a switch off until launch. Colly said go the
-  same day: sending built ([ADR 0125](adr/0125-offers-go-on-whatsapp-by-themselves.md)),
-  answers from the buttons next; Meta's side to set up
+  same day: sending and answers built ([ADR 0125](adr/0125-offers-go-on-whatsapp-by-themselves.md)),
+  off until launch; Meta's side to set up
   ([steps](whatsapp-setup.md)).
 - Turn off calendar-led mode once no live projects use it.
 - Claude inside the app, planned 29 October 2026 ([plan](https://claude.ai/artifact/6z9f5bSSAMGtZRvqmckD3h)):

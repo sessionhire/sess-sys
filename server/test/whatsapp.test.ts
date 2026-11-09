@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { newId, type CommandInput, type CommandName, type MutationResult } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -193,5 +194,116 @@ describe('offers on WhatsApp (ADR 0125)', () => {
   it('refuses a test number with no country code it can work out', async () => {
     const { send } = await setUp()
     expect(await send('whatsapp.use', { mode: 'test', testTo: ['12'] })).toMatchObject({ status: 'rejected', reason: { code: 'invalid' } })
+  })
+})
+
+/** What Meta posts to the hook, signed with the app's secret ('s' here) unless told otherwise. */
+const hook = (app: FastifyInstance, value: object, secret = 's') => {
+  const payload = JSON.stringify({ object: 'whatsapp_business_account', entry: [{ id: 'waba', changes: [{ field: 'messages', value: { messaging_product: 'whatsapp', metadata: { phone_number_id: '1234' }, ...value } }] }] })
+  const signature = `sha256=${createHmac('sha256', secret).update(payload).digest('hex')}`
+  return app.inject({ method: 'POST', url: '/whatsapp/hook', headers: { 'content-type': 'application/json', 'x-hub-signature-256': signature }, payload })
+}
+let inbound = 0
+const pressed = (from: string, payload: string) => ({ messages: [{ id: `wamid.in.${++inbound}`, from, timestamp: '1', type: 'button', button: { payload, text: 'x' } }] })
+const replied = (from: string, id: string) => ({ messages: [{ id: `wamid.in.${++inbound}`, from, timestamp: '1', type: 'interactive', interactive: { type: 'button_reply', button_reply: { id, title: 'x' } } }] })
+const wrote = (from: string, body: string) => ({ messages: [{ id: `wamid.in.${++inbound}`, from, timestamp: '1', type: 'text', text: { body } }] })
+
+describe('answers on WhatsApp (ADR 0125, part 3)', () => {
+  const offered = async () => {
+    const set = await setUp()
+    await set.send('whatsapp.use', { mode: 'on', testTo: [] })
+    const aoife = await set.person('Aoife Byrne', '087 123 4567')
+    const callId = await set.call()
+    const offerId = await set.offer(callId, aoife)
+    const offerRow = async () => (await set.db.query<{ status: string; responded_via: string | null }>('SELECT status, responded_via FROM offers WHERE id = $1', [offerId])).rows[0]!
+    const said = () => set.meta.sent.slice(1).map((s) => s.body)
+    return { ...set, aoife, callId, offerId, offerRow, said }
+  }
+
+  it('lets Meta register the address only with the verify token', async () => {
+    const { app } = await setUp()
+    const ok = await app.inject({ url: '/whatsapp/hook?hub.mode=subscribe&hub.verify_token=v&hub.challenge=12345' })
+    expect(ok.statusCode).toBe(200)
+    expect(ok.body).toBe('12345')
+    expect((await app.inject({ url: '/whatsapp/hook?hub.mode=subscribe&hub.verify_token=no&hub.challenge=1' })).statusCode).toBe(403)
+  })
+
+  it('believes nothing not signed with the app’s secret', async () => {
+    const { app, offerId, offerRow, meta } = await offered()
+    const res = await hook(app, pressed('353871234567', `yes:${offerId}`), 'not-the-secret')
+    expect(res.statusCode).toBe(403)
+    expect((await offerRow()).status).toBe('offered')
+    expect(meta.sent).toHaveLength(1)
+  })
+
+  it('shows sent, delivered and read on the offer, never going back', async () => {
+    const { app, offerId, db } = await offered()
+    const state = async () => (await db.query<{ state: string }>('SELECT state FROM whatsapp_messages WHERE offer_id = $1', [offerId])).rows[0]!.state
+    const offerView = async () => (await app.inject({ url: '/api/sync/pull?since=0' })).json().changes.filter((c: { entity: string; id: string }) => c.entity === 'offer' && c.id === offerId).at(-1).data
+    expect((await offerView()).whatsapp).toMatchObject({ state: 'sent', problem: null })
+    await hook(app, { statuses: [{ id: 'wamid.1', status: 'read', timestamp: '1700000000', recipient_id: '353871234567' }] })
+    expect(await state()).toBe('read')
+    await hook(app, { statuses: [{ id: 'wamid.1', status: 'delivered', timestamp: '1700000001', recipient_id: '353871234567' }] })
+    expect(await state()).toBe('read')
+    expect((await offerView()).whatsapp).toMatchObject({ state: 'read' })
+  })
+
+  it('says why a message wasn’t delivered', async () => {
+    const { app, db, offerId } = await offered()
+    await hook(app, { statuses: [{ id: 'wamid.1', status: 'failed', timestamp: '1700000000', errors: [{ code: 131026, title: 'Message undeliverable', error_data: { details: 'Not on WhatsApp' } }] }] })
+    expect((await db.query('SELECT state, problem FROM whatsapp_messages WHERE offer_id = $1', [offerId])).rows[0]).toEqual({ state: 'failed', problem: 'Not on WhatsApp' })
+  })
+
+  it('takes Yes as accepting the offer, once, as their answer on WhatsApp', async () => {
+    const { app, offerId, offerRow, said } = await offered()
+    const yes = pressed('353871234567', `yes:${offerId}`)
+    expect((await hook(app, yes)).statusCode).toBe(200)
+    expect(await offerRow()).toEqual({ status: 'accepted', responded_via: 'whatsapp' })
+    expect(said()).toEqual([expect.objectContaining({ to: '353871234567', type: 'text', text: expect.objectContaining({ body: expect.stringContaining('You’re down for Electric Picnic (Build)') }) })])
+    // Meta sending it again changes nothing and says nothing more.
+    await hook(app, yes)
+    expect(said()).toHaveLength(1)
+    const history = (await app.inject({ url: '/api/history' })).json().entries
+    expect(history).toContainEqual(expect.objectContaining({ what: expect.stringContaining('Aoife Byrne accepted'), who: expect.objectContaining({ kind: 'whatsapp', name: 'Aoife Byrne' }) }))
+  })
+
+  it('asks again on No, and declines only on Decline it', async () => {
+    const { app, offerId, offerRow, said } = await offered()
+    await hook(app, pressed('353871234567', `no:${offerId}`))
+    expect((await offerRow()).status).toBe('offered')
+    expect(said()[0]).toMatchObject({ type: 'interactive', interactive: { action: { buttons: [{ reply: { id: `decline:${offerId}`, title: 'Decline it' } }, { reply: { id: `keep:${offerId}`, title: 'Keep it open' } }] } } })
+    await hook(app, replied('353871234567', `keep:${offerId}`))
+    expect((await offerRow()).status).toBe('offered')
+    await hook(app, replied('353871234567', `decline:${offerId}`))
+    expect(await offerRow()).toEqual({ status: 'declined', responded_via: 'whatsapp' })
+    expect(said().at(-1)!.text.body).toContain('You’ve declined Electric Picnic (Build)')
+  })
+
+  it('ignores a press from any number but the one the offer went to', async () => {
+    const { app, offerId, offerRow, said } = await offered()
+    await hook(app, pressed('353860000000', `yes:${offerId}`))
+    expect((await offerRow()).status).toBe('offered')
+    expect(said()).toEqual([])
+  })
+
+  it('tells them when the job was filled before they said yes', async () => {
+    const { app, send, offerId, offerRow, said } = await offered()
+    await send('offer.cancel', { id: offerId })
+    await hook(app, pressed('353871234567', `yes:${offerId}`))
+    expect((await offerRow()).status).toBe('cancelled')
+    expect(said()[0].text.body).toContain('the office has withdrawn')
+  })
+
+  it('turns them off on STOP, and answers anything else with where to answer', async () => {
+    const { app, db, aoife, said } = await offered()
+    await hook(app, wrote('353871234567', 'Running late, sorry'))
+    expect(said()[0].text.body).toContain('Nobody reads messages written to this number')
+    expect((await db.query('SELECT whatsapp_off FROM people WHERE id = $1', [aoife])).rows[0]).toEqual({ whatsapp_off: false })
+    await hook(app, wrote('353871234567', 'STOP'))
+    expect((await db.query('SELECT whatsapp_off FROM people WHERE id = $1', [aoife])).rows[0]).toEqual({ whatsapp_off: true })
+    expect(said()[1].text.body).toContain('no more offers on WhatsApp')
+    // Someone the app never messaged hears nothing.
+    await hook(app, wrote('353860000000', 'Hello?'))
+    expect(said()).toHaveLength(2)
   })
 })

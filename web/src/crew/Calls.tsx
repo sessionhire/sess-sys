@@ -33,6 +33,7 @@ import {
   needsLabel,
   needsOf,
   type LateView,
+  whatsappWords,
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -242,6 +243,13 @@ export function CallCard({
                       )}
                       {partial && <small> {daysLabel(o.days)}</small>}
                       {o.override && <small> (override)</small>}
+                      {o.status === 'offered' && o.whatsapp && (
+                        <small className={o.whatsapp.state === 'failed' ? 'bad' : undefined} title={o.whatsapp.problem ?? undefined}>
+                          {' '}
+                          · {whatsappWords(o.whatsapp)}
+                          {o.whatsapp.state === 'failed' && o.whatsapp.problem ? `: ${o.whatsapp.problem}` : ''}
+                        </small>
+                      )}
                     </span>
                     <span className="actions">
                       <StatusPill tone={tone} pending={o.pending}>

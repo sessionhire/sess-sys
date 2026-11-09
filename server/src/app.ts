@@ -60,6 +60,7 @@ import type { Gmail } from './assistant/gmail.ts'
 import { Mailbox } from './assistant/mailbox.ts'
 import { registerMailboxRoutes } from './assistant/mailbox-routes.ts'
 import type { WhatsAppConfig } from './whatsapp/api.ts'
+import { WhatsAppAnswers } from './whatsapp/answers.ts'
 import { registerWhatsAppRoutes } from './whatsapp/routes.ts'
 import { WhatsApp } from './whatsapp/whatsapp.ts'
 import { WhatsAppSender } from './whatsapp/sender.ts'
@@ -361,7 +362,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('documents', documents)
   // Offers on WhatsApp (ADR 0125): sent as they're made, and their own page says whether theirs go there.
   const whatsapp = new WhatsApp(options.whatsapp)
-  const whatsappSender = new WhatsAppSender(db, whatsapp, { log: app.log, report: (err) => reportError(err, { area: 'whatsapp' }) })
+  const whatsappSender = new WhatsAppSender(db, whatsapp, { log: app.log, report: (err) => reportError(err, { area: 'whatsapp' }), onSent: () => void poke() })
   app.decorate('whatsappSender', whatsappSender)
   /** Something changed in the app: devices pull it, the calendar catches up, an erasure is written beside the backups, and files no document has any more are deleted. */
   const changed = () => {
@@ -683,7 +684,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('assistantMailbox', mailbox)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
   registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke() })
-  registerWhatsAppRoutes(app, { whatsapp })
+  // What comes back from WhatsApp (ADR 0125, part 3): receipts, and Yes and No pressed on an offer.
+  registerWhatsAppRoutes(app, { whatsapp, answers: new WhatsAppAnswers(db, whatsapp, { onChange: changed, log: app.log }) })
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.
   registerAcceptRoutes(app, db, { onChange: () => void poke() })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })

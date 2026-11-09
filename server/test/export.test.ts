@@ -170,6 +170,7 @@ describe('download everything', () => {
       'vehicle_bookings',
       'vehicles',
       'venues',
+      'whatsapp_inbound',
       'whatsapp_messages',
     ]
     expect(Object.keys(files).sort()).toEqual(['README.txt', 'everything.json', 'history.csv', ...tables.map((t) => `tables/${t}.csv`)].sort())

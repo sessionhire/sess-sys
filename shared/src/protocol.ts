@@ -287,7 +287,7 @@ export interface HistoryEntry {
      * A member of staff; a freelancer on their private link, or answering in Google Calendar (ADR 0009); Claude, from
      * the operations mailbox (ADR 0098); or nobody known.
      */
-    kind: 'staff' | 'link' | 'calendar' | 'claude' | 'unknown'
+    kind: 'staff' | 'link' | 'calendar' | 'whatsapp' | 'claude' | 'unknown'
     /** The person's name; "Someone" when sign-in was off. */
     name: string
     /** The filter value for this person, as in `HistoryPage.people`. */

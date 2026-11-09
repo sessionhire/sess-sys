@@ -1,5 +1,6 @@
 import { offerTemplateValues, WHATSAPP_OFFER_TEMPLATE } from '@sh/shared'
 import type { Db, Queryable } from '../db.ts'
+import { emit, serverChange } from '../kernel.ts'
 import { getCall, getOffer, getPerson } from '../crew/store.ts'
 import { whatsappSetting } from '../office/store.ts'
 import { WhatsAppRefused, type TemplateComponent } from './api.ts'
@@ -37,6 +38,8 @@ export interface SenderOptions {
   log?: { warn: (o: object, msg: string) => void }
   report?: (err: unknown) => void
   now?: () => Date
+  /** A message went, or won't: its offer's row says so on devices. */
+  onSent?: () => void
 }
 
 export class WhatsAppSender {
@@ -77,7 +80,7 @@ export class WhatsAppSender {
       do {
         this.again = false
         try {
-          while (await this.sendOne());
+          for (let done = await this.sendOne(); done; done = await this.sendOne()) await this.show(done.offerId)
         } catch (err) {
           this.options.log?.warn({ err: err instanceof Error ? err.message : String(err) }, 'WhatsApp messages could not be sent')
           this.options.report?.(err)
@@ -87,8 +90,21 @@ export class WhatsAppSender {
     return this.running
   }
 
-  /** Takes the oldest queued message and sends it, or says why not. False when there's none left to take. */
-  private async sendOne(): Promise<boolean> {
+  /** The offer's row as it now is, for devices: "sent on WhatsApp", or not and why. */
+  private async show(offerId: string | null) {
+    if (!offerId) return
+    await serverChange(this.db, undefined, async (ctx) => {
+      const o = await getOffer(ctx.tx, offerId)
+      if (o) await emit(ctx, 'offer', o.id, o)
+    })
+    this.options.onSent?.()
+  }
+
+  /**
+   * Takes the oldest queued message and sends it, or says why not, answering its offer to show. False when there's
+   * none left to take, or when Meta is away and the rest wait.
+   */
+  private async sendOne(): Promise<false | { offerId: string | null }> {
     return this.db.transaction(async (tx) => {
       const { rows } = await tx.query<Queued>(
         `SELECT id, offer_id, person_id, kind, to_number, made_at, tries FROM whatsapp_messages
@@ -101,7 +117,7 @@ export class WhatsAppSender {
       const ready = await this.ready(tx, m)
       if (typeof ready === 'string') {
         await fail(ready)
-        return true
+        return { offerId: m.offer_id }
       }
       try {
         const wamid = await this.whatsapp.api!.sendTemplate(m.to_number, WHATSAPP_OFFER_TEMPLATE, ready)
@@ -115,7 +131,7 @@ export class WhatsAppSender {
         // A passing problem leaves the rest for the next round, rather than trying each in turn against a Meta that's away.
         if (passing) return false
       }
-      return true
+      return { offerId: m.offer_id }
     })
   }
 

@@ -33,6 +33,7 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .offers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
 .crew .offers li { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); flex-wrap: wrap; padding: var(--ds-space-1) 0; }
 .crew .offers small, .crew .who small { color: var(--muted); }
+.crew .offers small.bad { color: var(--bad); }
 .crew .offers .on-cal { flex-basis: 100%; margin-top: calc(-1 * var(--ds-space-1)); font-size: var(--text-hint); }
 .crew .offers .warn-line { flex-basis: 100%; font-size: var(--text-hint); background: var(--warn-soft); color: var(--warn); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); }
 .crew .offer-form { display: grid; grid-template-columns: 1fr auto; gap: var(--ds-space-2); }
