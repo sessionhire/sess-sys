@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.142.2',
+    date: '2026-11-09',
+    title: "A job's page says where it stands once",
+    what: "On a confirmed job, where it stands (the stage, what's short, whose it is and when) is said once, beside its name. The Next button no longer repeats it. Where it is now shows just the five stages, with \"2 tasks to do in Planning\" under them: press it, or a stage, to see the tasks. Next and Home still open a task straight away. The invoice line shows there only once it has something to say.",
+    prs: [301],
+    adrs: [140],
+  },
+  {
     version: '1.142.1',
     date: '2026-11-09',
     title: 'Send stays at the top of a quote',

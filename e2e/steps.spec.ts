@@ -46,10 +46,15 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   const where = page.getByRole('region', { name: 'Where it is' })
   const next = page.getByRole('region', { name: 'Next' })
   // Confirmed, so the quote and the yes are done and the job is in Planning; the crew is next, which the app ticks once every call is booked.
-  await expect(where.getByText('In Planning · 2 of 8 tasks done')).toBeVisible()
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName('2. Planning, the stage the job is in, 0 of 2 done')
-  // The one Next button (ADR 0104): a verb and its object, with the count on the line over it; the quiet second choice opens the task.
-  await expect(next).toContainText('Next · Planning · 0 of 2 booked')
+  // Where the job stands is said once, in the head, and Where it is folds to its stepper with the stage's tasks a tap away (ADR 0140,
+  // part 3): Next's line says only Next.
+  const head = page.locator('.job-position').first()
+  await expect(head).toContainText('Planning · 0 of 2 booked')
+  await expect(next.locator('.line')).toHaveText('Next')
+  const tasksFold = where.getByRole('button', { name: '2 tasks to do in Planning' })
+  await expect(tasksFold).toHaveAttribute('aria-expanded', 'false')
+  await expect(where.locator('.task-list')).toHaveCount(0)
   // Pressed on a phone, it does what it says (ADR 0140): the Crew part opens on the first call with a place to fill, its Offer
   // already open with the cursor in it and in view, rather than a tab with the Offers still to find (audit, 5 November 2026, finding 1).
   await next.getByRole('button', { name: 'Book 2 more crew' }).click()
@@ -74,7 +79,8 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(where.getByRole('button', { name: 'Mark it done' })).toBeVisible()
   await where.getByLabel('Down to').selectOption({ label: `${roisin} (you)` })
   await where.getByLabel('Due by').fill('2030-06-01')
-  await expect(next).toContainText('Next · Planning · 0 of 2 booked · No kit on the job yet · Róisín · by Sat 1 Jun')
+  await expect(head).toContainText('Planning · 0 of 2 booked · No kit on the job yet · Róisín · by Sat 1 Jun')
+  await expect(tasksFold).toHaveAttribute('aria-expanded', 'true')
   await expect(next.getByRole('button', { name: 'Hand it on' })).toBeVisible()
 
   // The last stage's last task, given to herself and ticked by hand.

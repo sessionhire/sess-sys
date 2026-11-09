@@ -33,9 +33,12 @@ export function NextDock({
   view,
   onPart,
   onOpenTask,
+  headSays,
 }: {
   job: JobView
   view: View
+  /** The page's head already says where the job stands (ADR 0140, part 3): the line says only Next, so it's said once. */
+  headSays?: boolean
   /** Opens a part of the job, and with a call's id, that call's Offer (ADR 0140). */
   onPart: (p: JobPart, offer?: string) => void
   onOpenTask: (t: JobStep) => void
@@ -51,12 +54,13 @@ export function NextDock({
   const stage = steps.stage
   const mayTask = access.can('steps') && (access.role !== 'crew' || (!!access.personId && task?.ownerId === access.personId))
 
-  /** The line over the button: where the job stands, the head's own words (Move 7 of the sweep of 6 November 2026), so the two agree. */
+  /** The line over the button: where the job stands, the head's own words (Move 7 of the sweep of 6 November 2026), so the two agree;
+   * left to the head where it says them (ADR 0140, part 3), and said here where it doesn't, as on the quote. */
   const position = jobPosition(steps)
   const line = (
     <p className="line">
       <b>Next</b>
-      {position && (
+      {position && !headSays && (
         <>
           {' · '}
           <span className="position-words" data-tone={position.tone}>

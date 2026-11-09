@@ -190,6 +190,8 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   const offerFor = (calls: readonly CallView[]) => share?.kind === 'offer' && calls.some((c) => c.id === share.call.id) && panel
   const telling = share?.kind === 'tell' && panel
   const fill = crewFill(job.calls)
+  // Where the job stands is said once, in the head (ADR 0140, part 3); Next's line then says only Next.
+  const positioned = job.status === 'confirmed' && !job.pending
   const counts: Partial<Record<JobPart, string>> = {
     phases: job.phases.length ? String(job.phases.length) : undefined,
     crew: fill.needed ? `${fill.booked}/${fill.needed}` : undefined,
@@ -203,9 +205,9 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
       heading={job.name}
       // A sale or a stopped job keeps its pill; once confirmed, the head says where the job stands, as the dock's line does (Move 7
       // of the sweep of 6 November 2026), so "Confirmed" isn't the biggest word on a job two days into Back.
-      badge={job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
+      badge={positioned ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
       sub={<JobLines job={job} view={view} />}
-      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} />}
+      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} headSays={positioned} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}

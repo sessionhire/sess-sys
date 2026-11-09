@@ -9,6 +9,8 @@
  */
 .job-steps .steps-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--ds-space-1) var(--ds-space-3); }
 .job-steps .steps-head h2 { margin: 0; }
+/* The stage's tasks, a tap away under the stepper (ADR 0140, part 3): drawn as every fold's summary is, its chevron turned when open. */
+.app .job-steps .stage-fold, .app .job-steps .stage-fold:hover, .app .job-steps .stage-fold:active { display: flex; align-items: center; gap: var(--ds-space-2); justify-self: start; min-height: 44px; margin: 0; padding: var(--ds-space-2) 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
 .clients-answer { display: grid; gap: var(--ds-space-2); justify-items: start; }
 .clients-answer > p { margin: 0; }
 .stages-flow { --dot: 30px; --gap: 4px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }

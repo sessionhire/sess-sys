@@ -3,6 +3,24 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: one job, one path, part 3: said once
+
+**Done (part 3, 1.142.2)**
+
+- On a confirmed job, where it stands is said beside its name only; Next's
+  line says just Next. On the quote page and on a job still being sold,
+  Next's line still says it, as nothing else there does.
+- Where it is folds to its five stages and "2 tasks to do in Planning";
+  that, a stage, or a task opened from Next or Home opens them. The open
+  stage pressed again folds it. The invoice row shows folded only once it's
+  invoiced or due.
+
+**Checked:** steps, job-moves-on, person, quotes, RMS history, home,
+screens, pick, kit, crew and departments browser tests; a walk on a phone
+and a desk (project files, one-path-3).
+
+**Next:** part 4, the quote as the Quoting stage on the job page.
+
 ## 9 November 2026: one job, one path, part 2: Send stays in view
 
 **Done (part 2, 1.142.1)**
