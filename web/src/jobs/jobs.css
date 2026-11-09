@@ -787,3 +787,5 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 }
 .app .quote-set .set-toggle { display: inline-flex; align-items: center; min-height: 44px; margin-left: var(--ds-space-3); font-size: var(--text-small); }
 .app .quote-set .set-lines { margin-left: var(--ds-space-5); border-left: 2px solid var(--line); padding-left: var(--ds-space-3); display: grid; gap: var(--ds-space-1); }
+.jobs .client-link { display: grid; gap: var(--ds-space-2); }
+.jobs .accepted-online { margin: 0; }

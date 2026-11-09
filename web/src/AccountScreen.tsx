@@ -15,6 +15,7 @@ import { QuotingCard } from './QuotingCard.tsx'
 import { TimesheetsUseCard } from './TimesheetsUseCard.tsx'
 import { AssistantCard } from './AssistantCard.tsx'
 import { MailboxCard } from './MailboxCard.tsx'
+import { OnlineCard } from './OnlineCard.tsx'
 import { TravelCard } from './TravelCard.tsx'
 import { ReadingCard } from './ReadingCard.tsx'
 import { TrackersCard } from './stock/Trackers.tsx'
@@ -85,6 +86,7 @@ export function AccountScreen() {
                 {settings && <LabelsCard office={view.office} />}
                 {settings && <MessagesCard office={view.office} />}
                 {settings && <LinksCard office={view.office} />}
+                {settings && access.can('money') && <OnlineCard money={view.money} />}
                 {settings && <TimesheetsUseCard office={view.office} />}
                 {settings && access.can('money') && <AssistantCard office={view.office} />}
                 {company && !access.rolesOff && <ReadingCard office={view.office} />}

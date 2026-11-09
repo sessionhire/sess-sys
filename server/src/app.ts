@@ -60,6 +60,7 @@ import type { Gmail } from './assistant/gmail.ts'
 import { Mailbox } from './assistant/mailbox.ts'
 import { registerMailboxRoutes } from './assistant/mailbox-routes.ts'
 import { registerQuoteEmailRoutes } from './finance/email-routes.ts'
+import { registerAcceptRoutes } from './finance/accept-routes.ts'
 import { registerStatusRoutes, Status, type OutsideLooks } from './status.ts'
 import { registerTrackerRoutes } from './trackers/routes.ts'
 
@@ -668,6 +669,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('assistantMailbox', mailbox)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
   registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke() })
+  // The client accepts a quote on its own link (ADR 0121), while the office has it on.
+  registerAcceptRoutes(app, db, { onChange: () => void poke() })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   registerStatusRoutes(
     app,

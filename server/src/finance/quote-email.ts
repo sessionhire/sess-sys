@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { depositCents, irishToday, letterDay, money, newId, OFFICE_SETTING_ID, quoteTotals, spanLabel, validUntil, type Quote, type QuoteEmail, type QuoteEmailPrefill, type QuoteEmailSend, type StaffUser } from '@sh/shared'
+import { acceptPath, depositCents, irishToday, letterDay, money, newId, OFFICE_SETTING_ID, quoteTotals, spanLabel, validUntil, type Quote, type QuoteEmail, type QuoteEmailPrefill, type QuoteEmailSend, type StaffUser } from '@sh/shared'
 import { GoogleError } from '../calendar/google.ts'
 import { applyMutation, type From } from '../commands.ts'
 import type { Db, Queryable } from '../db.ts'
@@ -87,7 +87,7 @@ export function fileNameFor(number: number | null, jobName: string): string {
 }
 
 /** The compose box as it opens: the client's contacts, a subject with the number, a message that says what the quote comes to. */
-export async function prefillFor(m: Mailer, quote: Quote, staff: StaffUser | null | undefined): Promise<QuoteEmailPrefill> {
+export async function prefillFor(m: Mailer, quote: Quote, staff: StaffUser | null | undefined, origin?: string): Promise<QuoteEmailPrefill> {
   const today = irishToday(m.now?.())
   const sheet = await sheetFor(m.db.reads, quote, today)
   const number = await numberFor(m.db.reads, quote)
@@ -100,11 +100,13 @@ export async function prefillFor(m: Mailer, quote: Quote, staff: StaffUser | nul
   const when = sheet.job.span ? ` on ${spanLabel(sheet.job.span)}` : ''
   const holds = `, with prices held until ${letterDay(validUntil({ sentOn: quote.sentOn, validDays: quote.validDays }, today))}`
   const deposit = quote.depositPct ? `A deposit of ${money(depositCents(sheet.totals.gross, quote.depositPct))} confirms the booking.\n\n` : ''
+  // The client's link (ADR 0121), only while the office takes answers online and the version has its key.
+  const online = settings?.acceptOnline && quote.acceptToken && origin ? `To accept it, use this link: ${origin}${acceptPath(quote.acceptToken)}\n\n` : ''
   const signed = [staff?.name, `${COMPANY}${sheet.office?.phone ? ` · ${sheet.office.phone}` : ''}`].filter(Boolean).join('\n')
   return {
     to,
     subject: `Quote ${number} from ${COMPANY}: ${sheet.job.name}`.slice(0, 200),
-    message: `Hi ${first || 'there'},\n\nPlease find our quote for ${sheet.job.name}${when} attached: quote ${number}, ${money(sheet.totals.gross)} including VAT${holds}.\n\n${deposit}Any questions, just reply to this email.\n\nKind regards,\n${signed}`.slice(0, 4000),
+    message: `Hi ${first || 'there'},\n\nPlease find our quote for ${sheet.job.name}${when} attached: quote ${number}, ${money(sheet.totals.gross)} including VAT${holds}.\n\n${deposit}${online}Any questions, just reply to this email.\n\nKind regards,\n${signed}`.slice(0, 4000),
     from: sender.ok ? sender.account : null,
     fileName: fileNameFor(number, sheet.job.name),
     number,

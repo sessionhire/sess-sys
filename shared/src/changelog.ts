@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.122.0',
+    date: '2026-11-09',
+    title: 'Clients can accept a quote online, once it is turned on',
+    what: "Each quote now has its own link for the client, where they can see the quote and accept it by typing their name and ticking a box. The quote is then marked accepted, with their name and the time. It stays off until the office turns on \"Let clients accept quotes online\" under Admin › Company: until then the link shows nothing. Once it's on, an emailed quote carries the link, and a quote's page has it to copy.",
+    prs: [270],
+    adrs: [121],
+  },
+  {
     version: '1.121.0',
     date: '2026-11-08',
     title: 'A quote from a day on the planner, and keys at a desk',
