@@ -11,7 +11,7 @@ waiting on someone.
   reads: smaller type, a job of several days drawn as one bar across its
   days, today circled, Today and arrows at the top. Confirmed still solid,
   potential still dashed. On a phone it reads like Google's schedule
-  (1.130.1, ADR 0123).
+  (1.131.1, ADR 0123).
 
 **Waiting on**
 
