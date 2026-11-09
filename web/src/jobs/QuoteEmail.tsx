@@ -2,7 +2,7 @@ import { QUOTE_EMAIL_LIMITS, type QuoteEmail, type QuoteEmailPrefill, type Quote
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { when } from '../format.ts'
 import { post, serverUrl } from '../server.ts'
-import { syncSoon } from '../sync.ts'
+import { client, syncSoon } from '../sync.ts'
 import { useLate } from '../useLate.ts'
 import { getJson, useAsked } from './rms.ts'
 
@@ -86,6 +86,13 @@ function Compose({ q, start, onSent, onCancel, onAgain }: { q: QuoteView; start:
     if (problem || !start.canSend) return
     setSending(true)
     setError('')
+    // What's typed on this device goes first (ADR 0130), so the PDF the server draws has it all.
+    if (client.pendingCount) await client.sync().catch(() => undefined)
+    if (client.pendingCount) {
+      setError('Changes made on this device haven’t reached the server yet, so the quote would go without them. Send it once it says Up to date.')
+      setSending(false)
+      return
+    }
     try {
       const { email } = await post<{ email: QuoteEmail }>(`/api/quotes/${encodeURIComponent(q.id)}/email`, { to: addresses, subject: subject.trim(), message, number: start.number }, 60_000)
       syncSoon()

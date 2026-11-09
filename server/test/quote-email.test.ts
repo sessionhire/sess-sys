@@ -180,12 +180,15 @@ describe('sending a quote to the client by email (ADR 0101)', () => {
     expect(s.gmail.sent).toHaveLength(0)
     expect(await s.adam.record('quote', 'q1')).toMatchObject({ status: 'draft', number: null })
 
-    // Gmail down: the quote is marked sent (it has its number) but nothing went and no record is kept, so Send again is offered.
+    // Gmail down (ADR 0130): the quote has its number but is still a draft, nothing went and no record is kept, and it says
+    // so, so Send again or printing it uses the same number.
     s.gmail.fail(503)
     const down = await s.post(body)
     expect(down.statusCode).toBe(502)
     expect(down.json().error).toContain('Nothing was sent')
-    expect(await s.adam.record('quote', 'q1')).toMatchObject({ status: 'sent', number: 1115 })
+    expect(down.json().error).toContain('It keeps number 1115 and is still a draft')
+    expect(await s.adam.record('quote', 'q1')).toMatchObject({ status: 'draft', number: 1115 })
+    expect((await s.prefill()).json()).toMatchObject({ number: 1115 })
     expect((await s.db.query('SELECT 1 FROM quote_emails')).rows).toHaveLength(0)
     // Google no longer lets the app at the mailbox: said so until it's connected again.
     s.gmail.fail(403)
