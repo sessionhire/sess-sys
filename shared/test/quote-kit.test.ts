@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { lineCostOf, linesFor, quoteMargin, type QuoteLine } from '../src/quotes.ts'
 import type { KitLineView, KitView } from '../src/sync/kit-view.ts'
-import { kitFree, kitFromQuote, quoteKit, quoteWants } from '../src/sync/quote-kit.ts'
+import { kitFree, kitFromQuote, kitPencilled, quoteKit, quoteWants } from '../src/sync/quote-kit.ts'
 import type { ModelView } from '../src/sync/stock-view.ts'
 
 /**
@@ -39,6 +39,12 @@ describe('enough kit for a quote', () => {
     expect(kitFree(job, 'y10', 3, '2026-11-01', inputs(lines, {}, 1))).toBe(0)
     expect(kitFree(job, 'y10', 0, '2026-11-01', inputs([], { dryHire: true }))).toBeUndefined()
     expect(kitFree({ ...job, span: undefined }, 'y10', 0, '2026-11-01', inputs([]))).toBeUndefined()
+  })
+
+  it('says how many other quotes have pencilled in on the days, the most on one day, beside what is free (ADR 0126)', () => {
+    const lines = [other('expo', 3, 'pencilled', '2026-11-11', '2026-11-11'), other('fair', 2, 'pencilled', '2026-11-11', '2026-11-12'), other('wedding', 6, 'held', '2026-11-09', '2026-11-09'), other('gala', 4, 'pencilled', '2026-11-10', '2026-11-11')]
+    expect(kitPencilled(job, 'y10', '2026-11-01', inputs(lines))).toBe(5)
+    expect(kitPencilled({ ...job, span: undefined }, 'y10', '2026-11-01', inputs(lines))).toBe(0)
   })
 
   it("wants each kit line's own, less those hired in, and a package's pieces for each one quoted", () => {

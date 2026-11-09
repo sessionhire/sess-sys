@@ -4,7 +4,9 @@ import {
   DEPARTMENT_LABELS,
   packageSaving,
   packageWorth,
-  eachDay,
+  holdOf,
+  kitPencilled,
+  workDays,
   euroText,
   irishToday,
   linesByGroup,
@@ -58,6 +60,7 @@ import { MailOnQuote, useClaude, type Advice } from './Claude.tsx'
 import { useLastCharged } from './rms.ts'
 import { QuotePill } from './QuoteStatus.tsx'
 import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.ts'
+import { matchKitToQuote } from './Kit.tsx'
 import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
 import { Totals } from './QuoteSheet.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
@@ -139,8 +142,11 @@ const termsText = (q: QuoteView) => ({
   deposit: q.depositPct ? String(q.depositPct) : '',
 })
 
-/** The job's days, which a line added on the quote is charged for until changed. */
-const jobDays = (job: JobView) => (job.span ? Math.max(1, eachDay(job.span.start, job.span.end).length) : 1)
+/**
+ * The days the job works, which a line added on the quote is charged for until changed: each day of its phases, not the
+ * gap between a build and a show (ADR 0126; audit of the quote flow, 8 November 2026, finding 9).
+ */
+const jobDays = (job: JobView) => workDays(job)
 
 /** The fields of the terms that can be wrong, in the order their faults are said; `km` is the distance on the travel row. */
 type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
@@ -340,7 +346,9 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     const price = cents === undefined ? 'No price yet' : cents === 0 ? 'Included at no charge' : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
     const free = kitFree(job, modelId, wantedNow.get(modelId) ?? 0, today, kitInputs)
     const freeWords = free === undefined ? '' : free === 0 ? (wantedNow.get(modelId) ? 'no more free' : 'none free') : wantedNow.get(modelId) ? `${free} more free` : `${free} free`
-    return [price, freeWords].filter(Boolean).join(' · ')
+    // Other quotes for the same days (ADR 0126): said beside what's free, since pencilled kit isn't taken until confirmed.
+    const pencilled = free === undefined ? 0 : kitPencilled(job, modelId, today, kitInputs)
+    return [price, freeWords, pencilled ? `${pencilled} pencilled for other quotes` : ''].filter(Boolean).join(' · ')
   }
   const shortLines = good.filter((l) => linesShort(l, checks, m.package(l.packageId ?? '')?.items).length > 0)
   // What it makes (ADR 0089), for the office and directors, who see quotes at all.
@@ -370,11 +378,20 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       : undefined
   const waiting = useRef(payload)
   waiting.current = payload
+  // While the job is pencilled in, its kit list follows the draft (ADR 0126), so another quote for the same days sees it
+  // and confirming the job holds it. Done by whoever may change the kit, as they save; the rest leave it to the Kit tab.
+  const mayKit = useAccess().can('kit')
+  const following = useRef({ view, job, mayKit })
+  following.current = { view, job, mayKit }
   const flush = () => {
     const p = waiting.current
     if (!p) return
     waiting.current = undefined
-    void run(() => client.mutate('quote.save', p))
+    void run(async () => {
+      await client.mutate('quote.save', p)
+      const f = following.current
+      if (f.mayKit && holdOf(f.job.status) === 'pencilled') await matchKitToQuote(f.view, f.job.id, p.lines)
+    })
   }
   const key = payload ? JSON.stringify(payload) : ''
   useEffect(() => {

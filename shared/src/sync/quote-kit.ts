@@ -180,3 +180,23 @@ export function kitFree(
   }
   return Math.max(0, check.owned - most - wanted)
 }
+
+/**
+ * How many of a product other jobs that aren't confirmed yet have pencilled in on a job's days (ADR 0126): the most on
+ * any one day, from today on. Pencilled kit is never counted as taken (ADR 0014), so it's said beside what's free rather
+ * than taken from it: two quotes for the same days can then see each other.
+ */
+export function kitPencilled(job: Pick<JobView, 'id' | 'span' | 'prepDays' | 'returnDays'>, modelId: string, today: string, x: Pick<QuoteKitInputs, 'kit'>): number {
+  if (!job.span) return 0
+  const held = heldAround(job, job.span)
+  if (held.end < today) return 0
+  const lines = (x.kit.byModel.get(modelId) ?? []).filter((l) => l.projectId !== job.id && l.hold === 'pencilled' && l.own > 0 && l.held)
+  if (!lines.length) return 0
+  let most = 0
+  for (const d of eachDay(held.start < today ? today : held.start, held.end)) {
+    let on = 0
+    for (const l of lines) if (l.held!.start <= d && l.held!.end >= d) on += l.own
+    if (on > most) most = on
+  }
+  return most
+}
