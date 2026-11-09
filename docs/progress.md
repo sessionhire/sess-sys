@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: the logo goes Home, and a start screen for each person
+
+**Done**
+
+- Pressing the Session Hire logo top left goes Home from any screen, on a
+  phone and at a desk.
+- Menu › You has "Open the app on": Home, Jobs, Board, Planner, Quotes,
+  Stock or Crew. It's kept with the person's account, so every device they
+  sign in on opens there; Home stays the default, and a link still opens
+  where it points (1.123.0, ADR 0122, PR #272).
+
+**Waiting on**
+
+- Nothing.
+
 ## 9 November 2026: five ideas from Rentdeck, built
 
 **Done**

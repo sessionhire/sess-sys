@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.123.0',
+    date: '2026-11-09',
+    title: 'The logo goes Home, and you choose where the app opens',
+    what: "Pressing the Session Hire logo top left now takes you Home from any screen. And under Menu › You, \"Open the app on\" lets each person choose the screen the app opens on: Home, Jobs, the Board, the Planner, Quotes, Stock or Crew. It's kept with your account, so every phone and computer you sign in on opens there. Home is still the default, and a link to a job or a page still opens where it points.",
+    prs: [272],
+    adrs: [122],
+  },
+  {
     version: '1.122.0',
     date: '2026-11-09',
     title: 'Clients can accept a quote online, once it is turned on',

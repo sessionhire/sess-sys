@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { newId, type StaffUser } from '@sh/shared'
+import { asStartScreen, newId, type StaffUser } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { Identity } from './google.ts'
 
@@ -45,8 +45,8 @@ export async function createSession(db: Queryable, userId: string, userAgent: st
  * forward and `renewed` says the cookie should be sent again to match.
  */
 export async function sessionUser(db: Queryable, token: string): Promise<{ user: StaffUser; renewed: boolean } | undefined> {
-  const { rows } = await db.query<{ id: string; email: string; name: string; picture: string | null; stale: boolean }>(
-    `SELECT u.id, u.email, u.name, u.picture, s.last_seen_at < now() - interval '1 day' AS stale
+  const { rows } = await db.query<{ id: string; email: string; name: string; picture: string | null; start: string | null; stale: boolean }>(
+    `SELECT u.id, u.email, u.name, u.picture, u.start_screen AS start, s.last_seen_at < now() - interval '1 day' AS stale
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.id = $1 AND s.expires_at > now() AND NOT u.disabled`,
     [hash(token)]
@@ -56,7 +56,13 @@ export async function sessionUser(db: Queryable, token: string): Promise<{ user:
   if (r.stale) {
     await db.query('UPDATE sessions SET last_seen_at = now(), expires_at = now() + make_interval(days => $2::int) WHERE id = $1', [hash(token), SESSION_DAYS])
   }
-  return { user: { id: r.id, email: r.email, name: r.name, ...(r.picture ? { picture: r.picture } : {}) }, renewed: r.stale }
+  const start = asStartScreen(r.start)
+  return { user: { id: r.id, email: r.email, name: r.name, ...(r.picture ? { picture: r.picture } : {}), ...(start ? { start } : {}) }, renewed: r.stale }
+}
+
+/** The screen the app opens on for this person (ADR 0122); Home, or anything not on the list, clears it back to the default. */
+export async function setStartScreen(db: Queryable, userId: string, start: unknown) {
+  await db.query('UPDATE users SET start_screen = $2 WHERE id = $1', [userId, asStartScreen(start) ?? null])
 }
 
 export async function endSession(db: Queryable, token: string) {

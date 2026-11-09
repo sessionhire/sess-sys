@@ -191,6 +191,29 @@ export interface StaffUser {
   email: string
   name: string
   picture?: string
+  /** The screen the app opens on for them (ADR 0122), when they chose one other than Home. */
+  start?: StartScreen
+}
+
+/**
+ * The screens a member of staff can have the app open on (ADR 0122), by their address: Home first, the default. Only the
+ * app's opening load goes there; a link to anywhere else still lands where it points.
+ */
+export const START_SCREENS = [
+  { hash: '#home', label: 'Home', line: 'The day at a glance, as it is now.' },
+  { hash: '#jobs', label: 'Jobs', line: 'The list of jobs, coming up first.' },
+  { hash: '#jobs/board', label: 'Board', line: 'Every job by the stage it is at.' },
+  { hash: '#jobs/plan', label: 'Planner', line: 'The week, job by job or person by person.' },
+  { hash: '#quotes', label: 'Quotes', line: 'Quotes being written, sent and waiting.', money: true },
+  { hash: '#stock', label: 'Stock', line: 'The catalogue of kit.' },
+  { hash: '#crew', label: 'Crew', line: 'Calls, answers and the crew still needed.' },
+] as const
+
+export type StartScreen = (typeof START_SCREENS)[number]['hash']
+
+/** A screen the app can open on, or undefined for anything else (Home, the default, among them). */
+export function asStartScreen(v: unknown): StartScreen | undefined {
+  return v !== '#home' && START_SCREENS.some((s) => s.hash === v) ? (v as StartScreen) : undefined
 }
 
 /**

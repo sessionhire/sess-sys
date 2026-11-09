@@ -39,8 +39,8 @@ export function useHash(): string {
  * the two stick to the top as one block and the list never covers the bar.
  */
 /**
- * The bar at the top of every screen: the company's mark and name, the
- * sync state and dark or light (ADR 0036); after it, the parts of the
+ * The bar at the top of every screen: the company's mark and name, which go
+ * Home (ADR 0122), the sync state and dark or light (ADR 0036); after it, the parts of the
  * screen (ADR 0033), which put themselves on the parts. Under the name, the area; on the demo copy, whose
  * eyes it's seen through instead, the name taking you back to choose
  * again. Then the page's head, the same on every screen and outside any
@@ -92,7 +92,8 @@ export function Top({
         <div className="brand">
           <span className="mark">SH</span>
           <span>
-            <b>Session Hire</b>
+            {/* The company's mark and name go Home from every screen, as an app's logo does (ADR 0122): the whole block is the target. */}
+            <b>{seenAs ? 'Session Hire' : <a className="home-link" href="#home" aria-label="Session Hire: Home">Session Hire</a>}</b>
             {seenAs ? (
               <small className="seen-as">
                 Seeing it as{' '}
