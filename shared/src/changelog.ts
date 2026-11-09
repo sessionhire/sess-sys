@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-09',
     title: 'Offers can go on WhatsApp by themselves (off until launch)',
     what: "The app can now send an offer on WhatsApp by itself the moment someone here makes it, at the same time as the calendar invite, with the job, the days, the call time, the venue and the rate, and buttons to answer. It goes straight to Meta, who run WhatsApp, at about 1.5 cent a message. It's off until launch: Admin › Connections › Offers on WhatsApp has Off, On, and a setting that sends only to up to five numbers you list, for trying it on your own phone first. Everyone gets offers there once it's on, and each person can turn them off on their own page; the office can turn someone off when asked, but only they can turn it back on. Nothing is sent until Session Hire's WhatsApp number is set up with Meta.",
-    prs: [0],
+    prs: [277],
     adrs: [125],
   },
   {
