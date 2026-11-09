@@ -36,6 +36,14 @@ export const CHANGELOG: readonly Release[] = [
     adrs: [131],
   },
   {
+    version: '1.132.1',
+    date: '2026-11-09',
+    title: 'An emailed quote is marked sent only once it has gone',
+    what: "When sending quotes by email is turned on, a quote is now marked sent only once Gmail has taken it. If Gmail turns it down, the quote stays a draft and keeps the number it was given, and the message says so, so you can send it again or print it. Send also waits for anything you've just changed on the quote to reach the server first, so the PDF has it. Sending by email is still off.",
+    prs: [284],
+    adrs: [130],
+  },
+  {
     version: '1.132.0',
     date: '2026-11-09',
     title: 'Packages are found in Add kit, and a quote starts from any past quote',

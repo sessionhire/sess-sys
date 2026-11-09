@@ -46,7 +46,7 @@ async function refuseIfReplaced(ctx: Ctx, q: Quote) {
  * Give a job's quote its number as a version first goes to the client (ADR 0084): the number an earlier version had,
  * or else the next one, which moves on by one. The settings row is locked, so two quotes sent at once get two numbers.
  */
-async function numberIt(ctx: Ctx, q: Quote) {
+export async function numberIt(ctx: Ctx, q: Quote) {
   if (q.number) return
   // A deleted version's number too (ADR 0131): it's still the job's.
   const had = (await versionsEver(ctx.tx, q.projectId)).number
