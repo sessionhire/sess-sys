@@ -376,6 +376,19 @@ describe('quotes to follow up (ADR 0081)', () => {
     ({ id: `q${++n}`, status: 'sent', sentOn: null, answeredOn: null, invoicedOn: null, savedAt: '2026-10-20T10:00:00Z', ...over }) as QuoteView
   const today = '2026-10-27'
 
+  it('puts drafts in the order they are wanted, then by the job, leads with those wanted today, and keeps those for jobs over apart (ADR 0127)', () => {
+    const at = (id: string, start?: string, end = start) => ({ ...job(id, 'enquiry'), ...(start ? { span: { start, end } } : {}) }) as JobView
+    const rows = [at('No dates'), at('Show Friday', '2026-10-31'), at('Wanted Tuesday', '2026-11-20'), at('Wanted today', '2026-11-30'), at('Wanted Monday', '2026-11-10'), at('Over', '2026-10-01')].map((j) => ({ job: j, current: undefined }))
+    const wanted: Record<string, string> = { 'Wanted Tuesday': '2026-10-28', 'Wanted today': '2026-10-27', 'Wanted Monday': '2026-10-26' }
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => quote({ status: 'draft' }) }, today, (id) => wanted[id] ?? null)
+    expect(f.drafts.map((x) => x.job.name)).toEqual(['Wanted Monday', 'Wanted today', 'Wanted Tuesday', 'Show Friday', 'No dates'])
+    expect(f.due.map((x) => [x.job.name, x.wanted])).toEqual([
+      ['Wanted Monday', '2026-10-26'],
+      ['Wanted today', '2026-10-27'],
+    ])
+    expect(f.overDrafts.map((x) => x.job.name)).toEqual(['Over'])
+  })
+
   it('sorts each job by what it is waiting on, the longest waiting first', () => {
     const drafts = new Map<string, QuoteView>()
     const rows: { job: JobView; current: QuoteView | undefined }[] = [

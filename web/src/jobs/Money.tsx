@@ -18,6 +18,7 @@ import {
   pctWord,
   plural,
   quotesToFollow,
+  quoteWantedBy,
   RATE_LABELS,
   RATE_RULES,
   RATE_UNIT,
@@ -121,7 +122,7 @@ export function MoneyScreen({ view }: { view: View }) {
 const ago = (days: number) => (days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`)
 
 /** One quote waiting on the office: the job, what's waiting and for how long, and what it comes to. */
-function FollowRow({ f, what, chase, when, children }: { f: QuoteToFollow; what: string; chase?: boolean; when?: string; children?: ReactNode }) {
+function FollowRow({ f, what, chase, late, when, children }: { f: QuoteToFollow; what: string; chase?: boolean; late?: boolean; when?: string; children?: ReactNode }) {
   return (
     <li className="row">
       <div>
@@ -129,8 +130,9 @@ function FollowRow({ f, what, chase, when, children }: { f: QuoteToFollow; what:
         <p>
           {[f.job.client?.name, `version ${f.quote.version}`, money(f.quote.totals.net)].filter(Boolean).join(' · ')}
           <br />
-          <span className={chase ? 'warn' : undefined}>
-            {what} {when ?? ago(f.days)}
+          <span className={chase || late ? 'warn' : undefined}>
+            {what}
+            {when === '' ? '' : ` ${when ?? ago(f.days)}`}
             {chase ? ': worth a call' : ''}
           </span>
           {/* Its prices held until a day that has passed (research/quoting.md, feature 4): a new version, or a word with the client that they stand. */}
@@ -167,8 +169,8 @@ export function ToFollowUp({ view, on }: { view: View; on?: string | undefined }
     // Back to Quotes itself, in place of the address that asked, so pressing the same day again opens it again.
     if (newQuoteAsked(location.hash) !== undefined) location.replace('#quotes')
   }
-  const f = quotesToFollow(view.money, today)
-  const none = f.drafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
+  const f = quotesToFollow(view.money, today, quoteWantedBy(view))
+  const none = f.drafts.length + f.overDrafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
   return (
     <section className="card quotes-to-follow" aria-label="To follow up">
       <Heading icon="document">To follow up</Heading>
@@ -195,8 +197,23 @@ const FOLLOW_SHOWN = 8
 function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotesToFollow>; chaseOnly?: boolean; lapsed?: number }) {
   const waiting = chaseOnly ? f.chase : f.waiting
   const today = useToday()
+  // A draft's day wanted, as each row says it (ADR 0127): "Wanted today", "Wanted Tue 12 Nov", "Was wanted Mon 10 Nov".
+  const wantedWords = (x: QuoteToFollow) =>
+    x.wanted === undefined ? undefined : x.wanted === today ? 'Wanted today' : x.wanted < today ? `Was wanted ${dayLabel(x.wanted, today)}` : `Wanted ${dayLabel(x.wanted, today)}`
+  const notDue = f.drafts.filter((d) => !f.due.includes(d))
   return (
     <>
+      {/* What the client wants today, or wanted already, first (ADR 0127; audit of the quote flow, 8 November 2026, finding 7). */}
+      {!chaseOnly && f.due.length > 0 && (
+        <div className="follow-group">
+          <h3 className="group">{listHeading(STANDING_HEADINGS['quotes-due'], f.due.length)}</h3>
+          <ul className="plain">
+            {f.due.map((x) => (
+              <FollowRow key={x.quote.id} f={x} what={wantedWords(x)!} when="" late={x.wanted! < today} />
+            ))}
+          </ul>
+        </div>
+      )}
       {f.outOfStep.length > 0 && (
         <div className="follow-group">
           <h3 className="group">Answered: put the job in step</h3>
@@ -272,14 +289,29 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
           </ShowAll>
         </div>
       )}
-      {!chaseOnly && f.drafts.length > 0 && (
+      {!chaseOnly && notDue.length > 0 && (
         <div className="follow-group">
           <h3 className="group">Not sent yet</h3>
-          <ShowAll items={f.drafts} limit={FOLLOW_SHOWN} what="quotes" name="follow drafts">
+          <ShowAll items={notDue} limit={FOLLOW_SHOWN} what="quotes" name="follow drafts">
             {(shown) => (
               <ul className="plain">
                 {shown.map((x) => (
-                  <FollowRow key={x.quote.id} f={x} what="Last changed" />
+                  <FollowRow key={x.quote.id} f={x} what={wantedWords(x) ? `${wantedWords(x)} · last changed` : 'Last changed'} />
+                ))}
+              </ul>
+            )}
+          </ShowAll>
+        </div>
+      )}
+      {/* Drafts for jobs whose days are over: nothing to send, so kept apart under the rest. */}
+      {!chaseOnly && f.overDrafts.length > 0 && (
+        <div className="follow-group">
+          <h3 className="group">Not sent, the job is over</h3>
+          <ShowAll items={f.overDrafts} limit={FOLLOW_SHOWN} what="quotes" name="follow over drafts">
+            {(shown) => (
+              <ul className="plain">
+                {shown.map((x) => (
+                  <FollowRow key={x.quote.id} f={x} what="Over" when={dayLabel(x.job.span!.end, today)} />
                 ))}
               </ul>
             )}
@@ -327,6 +359,7 @@ function enquiryLine(by: string, how: EnquiryWay | ''): string {
 }
 
 function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined; onCancel: () => void }) {
+  const me = useAccess().personId
   const today = useToday()
   const { clients, venues } = view.jobs
   // From a day on the planner (ADR 0120), the job's days start there; a day gone starts today, as New quote does.
@@ -379,7 +412,8 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       await contactAdded(clientId, f.client, asked.by, clients)
       const venueId = await venueNamed(f.venue, venues)
       await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind: 'gig', notes: enquiryLine(asked.by, asked.how) })
-      if (asked.quoteBy) await client.mutate('jobStep.set', { projectId: id, step: 'quote', dueOn: asked.quoteBy })
+      // Whoever starts the quote is on its task (ADR 0127; audit of the quote flow, finding 7), with the day it's wanted by.
+      if (asked.quoteBy || me) await client.mutate('jobStep.set', { projectId: id, step: 'quote', ...(asked.quoteBy ? { dueOn: asked.quoteBy } : {}), ...(me ? { ownerId: me } : {}) })
       for (const ph of phases.length ? phases : [{ name: 'Show', start: f.start, end: f.end < f.start ? f.start : f.end }])
         await client.mutate('phase.add', { id: newId(), projectId: id, name: ph.name, start: ph.start, end: ph.end, venueId: null, notes: '' })
       const quoteLines = taking.map((x) => suggestionLine(x.s, newId())).slice(0, MAX_LINES)

@@ -95,7 +95,7 @@ export function nextRecord(q: QuoteView, job: JobView): NextRecord | undefined {
 }
 
 /** The office's records of what happened outside the app: the client's answer, the invoice, the payment. */
-export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canEmail: boolean }) {
+export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobView; canEmail: boolean; /** Draws nothing red: the PDF to send comes first. */ quiet?: boolean }) {
   const today = useToday()
   const [on, setOn] = useState(today)
   const [ref, setRef] = useState('')
@@ -104,7 +104,7 @@ export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canE
   const [why, setWhy] = useState<{ reason: TurnDownReason | null; note: string }>()
   const { run, error } = useAct()
   const next = nextRecord(q, job)
-  const primaryIfNext = (record: NextRecord) => (next === record ? 'primary' : undefined)
+  const primaryIfNext = (record: NextRecord) => (next === record && !quiet ? 'primary' : undefined)
   const go = (fn: () => Promise<unknown>) => void run(fn).then((ok) => ok && setUndo(undefined))
   const when = (
     <label>

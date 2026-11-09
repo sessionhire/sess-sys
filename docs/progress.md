@@ -141,6 +141,11 @@ waiting on someone.
   list as it's typed, pencilled, so other quotes see it and confirming
   holds it; the quote's crew are made calls in one press; a line's days
   are the days the job works, not the gap between build and show.
+- Batch 3, the quote due today comes first (ADR 0127, 1.128.0): drafts
+  in the order they're wanted, "Wanted today" leading Quotes and counted on
+  Home, drafts for jobs that are over kept apart, whoever starts a quote on
+  its task; with email off, Get the PDF to send marks it sent and opens the
+  numbered PDF; "accepted by phone" gets the same last look as sending.
 
 **Waiting on**
 

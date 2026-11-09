@@ -532,11 +532,20 @@ export interface QuoteToFollow {
    * quote's valid-until, which nothing acted on before.
    */
   ranOut?: string
+  /** A draft, the day the client wants it by (the job's Quote sent task's due day), if one was set (audit of the quote flow, finding 7). */
+  wanted?: string
 }
 
 export interface QuotesToFollow {
-  /** Being put together, not sent yet. */
+  /**
+   * Being put together, not sent yet, for a job still to come: by the day each is wanted (ADR 0127; audit of the quote
+   * flow, 8 November 2026, finding 7), then by the job's first day, those with neither last.
+   */
   drafts: QuoteToFollow[]
+  /** Of those, the ones wanted today or a day already passed: what to send first. Quotes leads with them, Home counts them. */
+  due: QuoteToFollow[]
+  /** Not sent, for a job whose days are over: nothing to send now, kept apart so it doesn't crowd the ones that are. */
+  overDrafts: QuoteToFollow[]
   /** Sent, with no answer yet: the longest waiting first. */
   waiting: QuoteToFollow[]
   /**
@@ -580,13 +589,17 @@ export function invoiceOf(job: Pick<JobView, 'status' | 'span'>, current: Pick<Q
   return { state: 'to-come' }
 }
 
-export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: string): QuotesToFollow {
-  const out: QuotesToFollow = { drafts: [], waiting: [], chase: [], passed: [], outOfStep: [], toInvoice: [] }
+export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: string, wantedBy?: (jobId: string) => string | null | undefined): QuotesToFollow {
+  const out: QuotesToFollow = { drafts: [], due: [], overDrafts: [], waiting: [], chase: [], passed: [], outOfStep: [], toInvoice: [] }
   const since = (d: string | null | undefined) => (d ? Math.max(0, daysBetween(d, today)) : 0)
   for (const { job, current } of m.jobs) {
     const stopped = STOPPED.includes(job.status)
     const draft = m.draftOf(job.id)
-    if (draft && !stopped) out.drafts.push({ job, quote: draft, days: since(irishToday(new Date(draft.savedAt))) })
+    if (draft && !stopped) {
+      const wanted = wantedBy?.(job.id) ?? undefined
+      const row = { job, quote: draft, days: since(irishToday(new Date(draft.savedAt))), ...(wanted ? { wanted } : {}) }
+      ;(job.span && job.span.end < today ? out.overDrafts : out.drafts).push(row)
+    }
     if (!current) continue
     if (current.status === 'sent' && !stopped && !draft) {
       const held = current.sentOn ? validUntil(current, today) : undefined
@@ -602,7 +615,12 @@ export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: st
     if (invoiceOf(job, current, today).state === 'due') out.toInvoice.push({ job, quote: current, days: since(job.span!.end) })
   }
   const longest = (a: QuoteToFollow, b: QuoteToFollow) => b.days - a.days || a.job.name.localeCompare(b.job.name, 'en-IE')
-  out.drafts.sort(longest)
+  // The day wanted first, then the job's first day, then those with neither; the longest untouched breaks a tie.
+  const soonest = (a: QuoteToFollow, b: QuoteToFollow) =>
+    (a.wanted ?? a.job.span?.start ?? '9999').localeCompare(b.wanted ?? b.job.span?.start ?? '9999') || longest(a, b)
+  out.drafts.sort(soonest)
+  out.due = out.drafts.filter((d) => d.wanted !== undefined && d.wanted <= today)
+  out.overDrafts.sort(longest)
   out.waiting.sort(longest)
   out.chase = out.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS)
   out.passed.sort((a, b) => a.days - b.days || a.job.name.localeCompare(b.job.name, 'en-IE'))
