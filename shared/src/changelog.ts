@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-09',
     title: 'The calendar looks like Google Calendar',
     what: "Jobs › Calendar now looks like the Google Calendar the office already reads. The writing is smaller, and a job of several days is one bar across its days, not a box on each. Today's date is circled. Today and the arrows at the top move between months. Confirmed jobs are still filled in, and enquiries and quotes are still a dashed outline with their word on them. On a phone it reads like Google's schedule, with the date on the left and the jobs to the right.",
-    prs: [0],
+    prs: [282],
     adrs: [123],
   },
   {
