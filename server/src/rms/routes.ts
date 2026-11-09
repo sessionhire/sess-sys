@@ -1,8 +1,9 @@
-import { csvText, irishToday, rmsPricePlan, type PriceHere, type RateRule, type RmsPricesStatus, type RmsLine, type RmsOutcome, type RmsOpportunity, type RmsOpportunityPage, type RmsOpportunityWithLines, type RmsStatus } from '@sh/shared'
+import { csvText, irishToday, rmsPricePlan, type PriceHere, type RmsMembersStatus, type RateRule, type RmsPricesStatus, type RmsLine, type RmsOutcome, type RmsOpportunity, type RmsOpportunityPage, type RmsOpportunityWithLines, type RmsStatus } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
 import { RmsRefused } from './api.ts'
 import { registerRmsHistoryRoutes } from './history.ts'
+import { memberPlan, type RmsMemberReader } from './members.ts'
 import type { RmsPriceReader } from './prices.ts'
 import type { RmsReader } from './reader.ts'
 
@@ -118,7 +119,23 @@ export async function pricesStatus(q: Queryable, prices: RmsPriceReader): Promis
   return { configured: prices.configured, running: prices.running, last, products: kept.length, plan }
 }
 
-export function registerRmsRoutes(app: FastifyInstance, { db, reader, prices }: { db: Db; reader: RmsReader; prices: RmsPriceReader }) {
+/** Clients and venues from Current RMS (ADR 0136): how far a read has got, and what filling them in would do now. */
+export async function membersStatus(q: Queryable, members: RmsMemberReader): Promise<RmsMembersStatus> {
+  const { rows } = await q.query<{ kind: string; n: number }>('SELECT kind, count(*)::int AS n FROM rms_members GROUP BY kind')
+  const n = (k: string) => rows.find((r) => r.kind === k)?.n ?? 0
+  return {
+    configured: members.configured,
+    running: members.running,
+    last: await members.last(),
+    counts: { organisations: n('organisation'), venues: n('venue'), contacts: n('contact') },
+    plan: await memberPlan(q),
+  }
+}
+
+export function registerRmsRoutes(
+  app: FastifyInstance,
+  { db, reader, prices, members }: { db: Db; reader: RmsReader; prices: RmsPriceReader; members: RmsMemberReader }
+) {
   registerRmsHistoryRoutes(app, { db })
 
   app.get('/api/rms', { config: { needs: 'money' } }, async (_req, reply): Promise<RmsStatus> => {
@@ -161,6 +178,24 @@ export function registerRmsRoutes(app: FastifyInstance, { db, reader, prices }: 
   app.post('/api/rms/prices/stop', { config: { needs: 'settings' } }, async (_req, reply) => {
     prices.stop()
     return reply.send(await pricesStatus(db.reads, prices))
+  })
+
+  // Clients and venues (ADR 0136): seeing what filling in would do is for those who keep jobs; reading Current RMS again is
+  // bringing a list in.
+  app.get('/api/rms/members', { config: { needs: 'jobs' } }, async (_req, reply): Promise<RmsMembersStatus> => {
+    reply.header('cache-control', 'no-store')
+    return membersStatus(db.reads, members)
+  })
+
+  app.post('/api/rms/members/read', { config: { needs: 'settings' } }, async (_req, reply) => {
+    if (!members.configured) return reply.code(409).send({ error: 'Current RMS isn’t set up on the server yet.' })
+    if (!members.start()) return reply.code(409).send({ error: 'The clients and venues are already being read. It says how far it’s got below.' })
+    return reply.code(202).send(await membersStatus(db.reads, members))
+  })
+
+  app.post('/api/rms/members/stop', { config: { needs: 'settings' } }, async (_req, reply) => {
+    members.stop()
+    return reply.send(await membersStatus(db.reads, members))
   })
 
   app.get<{ Querystring: { q?: string; page?: string; went?: string } }>('/api/rms/opportunities', { config: { needs: 'money' } }, async (req, reply) => {

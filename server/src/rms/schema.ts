@@ -115,6 +115,32 @@ const MIGRATIONS: string[] = [
     stopped      boolean NOT NULL DEFAULT false
   );
   `,
+  // Current RMS's organisations, venues and contacts (ADR 0136), from the last read of them, for filling clients and
+  // venues in. A copy to read: replaced whole by each read that finishes.
+  `
+  CREATE TABLE IF NOT EXISTS rms_members (
+    id       integer PRIMARY KEY,
+    kind     text NOT NULL CHECK (kind IN ('organisation', 'venue', 'contact')),
+    name     text NOT NULL,
+    active   boolean NOT NULL DEFAULT true,
+    address  text NOT NULL DEFAULT '',
+    email    text NOT NULL DEFAULT '',
+    phone    text NOT NULL DEFAULT ''
+  );
+  CREATE TABLE IF NOT EXISTS rms_member_links (
+    parent_id   integer NOT NULL,
+    contact_id  integer NOT NULL,
+    PRIMARY KEY (parent_id, contact_id)
+  );
+  CREATE TABLE IF NOT EXISTS rms_member_reads (
+    id           bigserial PRIMARY KEY,
+    started_at   timestamptz NOT NULL,
+    finished_at  timestamptz,
+    members      integer NOT NULL DEFAULT 0,
+    error        text,
+    stopped      boolean NOT NULL DEFAULT false
+  );
+  `,
 ]
 
 export const RMS: Module = { versionTable: 'rms_schema_version', migrations: MIGRATIONS }
