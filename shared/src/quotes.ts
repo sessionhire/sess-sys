@@ -161,6 +161,11 @@ export const quoteLine = z.object({
    */
   included: z.literal(true).optional(),
   /**
+   * Words only (ADR 0128; audit of the quote flow, finding 11): a heading or a note among the lines, "All cabling and
+   * power included" or "Stage 2", printed as written with no numbers. Kept as one at nothing, charged once.
+   */
+  words: z.literal(true).optional(),
+  /**
    * The cost side (ADR 0089), never printed: how many of a kit line are hired in from another company, and who from,
    * as a job's kit line has it (ADR 0014); and what the whole line costs Session Hire, before VAT. Left out, a crew line
    * costs its booked rate and our own kit nothing.
@@ -220,12 +225,27 @@ export interface Quote {
   /** How far the venue is from Dublin city centre by road, each way, in km, as the office typed it; none takes it from the map. */
   travelKm?: number | null
   /**
+   * Who at the client it's for (ADR 0128; audit of the quote flow, finding 6): one of the client's contacts by name, set
+   * from Who asked and changed on the draft. Empty or none prints the client's first contact, as before.
+   */
+  forName?: string
+  /**
    * The key in the client's link to this version (ADR 0121), /q/<key>: given by the server when the version is started.
    * The link answers only while the office has accepting online on. None on a version from before it, until then.
    */
   acceptToken?: string
   /** Accepted by the client on their link (ADR 0121): the name they typed, and when. None for an answer the office recorded. */
   acceptedOnline?: { name: string; at: string } | null
+}
+
+/**
+ * The contact a quote is addressed to (ADR 0128): the one named as who it's for, as the client has them (so their role and
+ * email come too), or just the name if they've since gone from the client; else the client's first contact.
+ */
+export function quoteContact<C extends { name: string }>(contacts: readonly C[], forName?: string): C | { name: string } | undefined {
+  const name = forName?.trim()
+  if (!name) return contacts[0]
+  return contacts.find((c) => c.name.trim() === name) ?? { name }
 }
 
 /** The client's link to a quote (ADR 0121), as a path on the app's own address. */
@@ -428,6 +448,8 @@ export const quoteCommandSchemas = {
     // Travel and subsistence (ADR 0086), left as they were by a save from an app older than them.
     mealsProvided: z.boolean().optional(),
     travelKm: travelKm.nullable().optional(),
+    // Who it's for (ADR 0128), left as it was by a save from an app older than it.
+    forName: text(200, 'Who the quote is for').optional(),
     /**
      * What the draft held when this device's changes began (ADR 0113): each line's mark and the terms. The server keeps
      * what changed elsewhere since and the save didn't touch. Left out, by an app older than it, the save is the draft.
@@ -442,6 +464,7 @@ export const quoteCommandSchemas = {
         agreedCents: z.number().nullable(),
         mealsProvided: z.boolean(),
         travelKm: z.number().nullable(),
+        forName: z.string().max(200).optional(),
       })
       .optional(),
   }),
@@ -821,8 +844,8 @@ export function linesUnder<L extends { id: string; under?: string | null }>(line
  * Whether a line still wants a price: one at nothing, unless it's given as included, a package's line whose kit is
  * priced under it, or kit in a package priced as a whole (ADR 0116).
  */
-export function needsPrice<L extends { id: string; unitCents: number; under?: string | null; modelId?: string | null; packageId?: string; included?: true }>(l: L, lines: readonly L[]): boolean {
-  if (l.unitCents !== 0 || l.included) return false
+export function needsPrice<L extends { id: string; unitCents: number; under?: string | null; modelId?: string | null; packageId?: string; included?: true; words?: true }>(l: L, lines: readonly L[]): boolean {
+  if (l.unitCents !== 0 || l.included || l.words) return false
   // A package charged by its kit: the kit under it has the prices.
   if (l.packageId && lines.some((x) => x.under === l.id && x.id !== l.id)) return false
   const head = l.under ? lines.find((x) => x.id === l.under) : undefined
@@ -837,22 +860,69 @@ export function withNewIds<L extends { id: string; under?: string | null }>(line
   return lines.map((l) => ({ ...l, id: ids.get(l.id)!, ...(l.under ? { under: ids.get(l.under) ?? l.under } : {}) }))
 }
 
+type Grouped = Pick<QuoteLine, 'kind' | 'group'> & { id?: string; under?: string | null; words?: true | boolean }
+
+/** Where a group sits (ADR 0128): kit groups first, then crew, then anything else; words count as kit, so a heading leads. */
+const bandOf = (l: Grouped) => (l.words || l.kind === 'kit' ? 0 : l.kind === 'crew' ? 1 : 2)
+
 /**
- * The groups a quote lists its lines under, in its order: kit by department first, then crew, then anything else. Lines
- * under a package's line (ADR 0116) are listed under it, not in a group of their own.
+ * The groups a quote lists its lines under, in its order: kit groups first, then crew, then anything else, and within
+ * each the groups and their lines in the order the office put them (ADR 0128). A group is the office's own heading, the
+ * kit's department until it's changed. Lines under a package's line (ADR 0116) are listed under it, not in a group of their own.
  */
-export function linesByGroup<L extends Pick<QuoteLine, 'kind' | 'group'> & { id?: string; under?: string | null }>(lines: readonly L[]): { group: string; lines: L[] }[] {
-  const order = (l: L) => (l.kind === 'kit' ? 0 : l.kind === 'crew' ? 1 : 2)
-  const out: { group: string; lines: L[]; at: number }[] = []
+export function linesByGroup<L extends Grouped>(lines: readonly L[]): { group: string; lines: L[] }[] {
+  return grouped(lines).map(({ group, lines }) => ({ group, lines }))
+}
+
+function grouped<L extends Grouped>(lines: readonly L[]): { group: string; lines: L[]; band: number }[] {
+  const out: { group: string; lines: L[]; band: number }[] = []
   const heads = new Set(lines.filter((l) => !l.under).map((l) => l.id))
   for (const l of lines) {
     if (l.under && heads.has(l.under)) continue
     const group = l.group || (l.kind === 'crew' ? 'Crew' : l.kind === 'other' ? 'Other' : 'Kit')
     let g = out.find((x) => x.group === group)
-    if (!g) out.push((g = { group, lines: [], at: order(l) }))
+    if (!g) out.push((g = { group, lines: [], band: bandOf(l) }))
+    else g.band = Math.min(g.band, bandOf(l))
     g.lines.push(l)
   }
-  return out.sort((a, b) => a.at - b.at).map(({ group, lines }) => ({ group, lines }))
+  return out.sort((a, b) => a.band - b.band)
+}
+
+/** The lines in the order they're shown, each package's kit straight after its line. */
+function shownOrder<L extends Grouped>(gs: readonly { lines: L[] }[], lines: readonly L[]): L[] {
+  const out = gs.flatMap((g) => g.lines.flatMap((l) => [l, ...lines.filter((u) => !!u.under && u.under === l.id && u.id !== l.id)]))
+  // Anything not reached (kit under a line that's gone) stays, at the end.
+  return [...out, ...lines.filter((l) => !out.includes(l))]
+}
+
+/**
+ * Moving a line up or down its group (ADR 0128), its kit with it if it's a package's: the lines in their new order, or
+ * undefined at the group's top or bottom.
+ */
+export function moveLine<L extends Grouped>(lines: readonly L[], id: string, by: -1 | 1): L[] | undefined {
+  const gs = grouped(lines)
+  const g = gs.find((x) => x.lines.some((l) => l.id === id))
+  if (!g) return undefined
+  const at = g.lines.findIndex((l) => l.id === id)
+  const to = at + by
+  if (to < 0 || to >= g.lines.length) return undefined
+  const moved = [...g.lines]
+  ;[moved[at], moved[to]] = [moved[to]!, moved[at]!]
+  g.lines = moved
+  return shownOrder(gs, lines)
+}
+
+/**
+ * Moving a whole group up or down (ADR 0128), past the group beside it in its band: kit groups move among kit groups,
+ * crew's among crew's. The lines in their new order, or undefined where it can't go.
+ */
+export function moveGroup<L extends Grouped>(lines: readonly L[], group: string, by: -1 | 1): L[] | undefined {
+  const gs = grouped(lines)
+  const at = gs.findIndex((g) => g.group === group)
+  const to = at + by
+  if (at < 0 || to < 0 || to >= gs.length || gs[to]!.band !== gs[at]!.band) return undefined
+  ;[gs[at], gs[to]] = [gs[to]!, gs[at]!]
+  return shownOrder(gs, lines)
 }
 
 // VAT periods and the accountant's files.

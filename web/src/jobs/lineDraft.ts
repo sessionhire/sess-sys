@@ -35,6 +35,8 @@ export interface LineDraft {
   full?: number
   /** Given at no charge on purpose: shown and printed as Included, its price not asked for (audit of the quote flow, 8 November 2026, finding 1). */
   included?: boolean
+  /** Words only (ADR 0128): a heading or a note printed as written, with no numbers. */
+  words?: boolean
 }
 export const toDraft = (l: QuoteLine): LineDraft => ({
   id: l.id,
@@ -59,6 +61,7 @@ export const toDraft = (l: QuoteLine): LineDraft => ({
   under: l.under ?? null,
   ...(l.fullCents ? { full: l.fullCents } : {}),
   ...(l.included ? { included: true } : {}),
+  ...(l.words ? { words: true } : {}),
 })
 /** The same line, saved as what's typed reads: a field the app before this didn't write counts as its default. */
 export const sameLine = (a: QuoteLine, b: QuoteLine) =>
@@ -84,7 +87,8 @@ export const sameLine = (a: QuoteLine, b: QuoteLine) =>
   (a.extra ?? null) === (b.extra ?? null) &&
   (a.under ?? null) === (b.under ?? null) &&
   (a.fullCents ?? 0) === (b.fullCents ?? 0) &&
-  !!a.included === !!b.included
+  !!a.included === !!b.included &&
+  !!a.words === !!b.words
 export const num = (s: string) => Number(s.trim().replace(',', '.'))
 
 /** The field of a typed line that stops it saving, so the error can sit by its cause (design system rule 18). */
@@ -99,7 +103,9 @@ export function checkLine(d: LineDraft, n: number): { line: QuoteLine; fault?: u
   const price = parseEuro(d.price)
   const where = `Line ${n}${d.what.trim() ? ` (${d.what.trim()})` : ''}`
   const fault = (field: LineField, why: string) => ({ fault: { field, why } })
-  if (!d.what.trim()) return fault('what', `Line ${n}: say what it's for.`)
+  if (!d.what.trim()) return fault('what', d.words ? `Line ${n}: write the words, or remove it.` : `Line ${n}: say what it's for.`)
+  // Words only (ADR 0128): nothing to count or charge, kept as one at nothing, once.
+  if (d.words) return { line: { id: d.id, kind: 'other', what: d.what.trim(), ref: null, group: d.group, qty: 1, days: 1, unitCents: 0, vat: d.vat, per: 'once', modelId: null, words: true } }
   // Included, it's at nothing whatever was in the price before.
   if (price.reason && !d.included) return fault('price', `${where}: ${price.reason}`)
   const qty = num(d.qty)

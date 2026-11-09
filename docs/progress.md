@@ -166,10 +166,15 @@ waiting on someone.
   Home, drafts for jobs that are over kept apart, whoever starts a quote on
   its task; with email off, Get the PDF to send marks it sent and opens the
   numbered PDF; "accepted by phone" gets the same last look as sending.
+- Batch 4, the quote the way the office writes it (ADR 0128, 1.131.0):
+  each line is under the office's own heading, lines and groups move up
+  and down, a line can be words only; the quote is for who asked; the logo
+  heads the printed quote and the PDF; New quote asks show or dry hire,
+  and a dry hire has no venue, crew or travel.
 
 **Waiting on**
 
-- Batches 3 to 7, being built in order; the page's six questions.
+- Batches 5 to 7, being built in order; the page's six questions.
 
 ## 8 November 2026: a package's price starts at its items' total
 

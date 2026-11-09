@@ -43,8 +43,9 @@ import {
   STANDING_HEADINGS,
   waitingHeading,
   listHeading,
+  KIND_PHASE,
 } from '@sh/shared'
-import { Fragment, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { arrive } from '../arrival.ts'
 import { Empty } from '../Empty.tsx'
@@ -372,6 +373,10 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
   // Who asked, how it came and when they want it by (research/quoting.md, feature 6): the first two go in the job's notes as
   // a line, the day is the Quote sent task's due day, so it's on someone's list and late shows as late.
   const [asked, setAsked] = useState<{ by: string; how: EnquiryWay | ''; quoteBy: string }>({ by: '', how: '', quoteBy: '' })
+  // Two shapes of quote (ADR 0128; audit of the quote flow, finding 10): a show has a venue, crew and travel; a dry hire is
+  // collected and returned, so it asks for neither and its days are one Hire.
+  const [hire, setHire] = useState(false)
+  const shapeId = useId()
   // Who asked is someone at the client, or anyone at any client while no client is chosen; a new name is added to the
   // client's contacts when the quote is started.
   const chosenClient = namedExactly(clients, f.client)
@@ -402,7 +407,9 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
     setF({ ...f, ...next })
     setPhases([])
   }
-  const taking = lines.filter((x) => x.take)
+  // A dry hire takes no crew: crew read from an enquiry or a past job stay off it.
+  const offered = hire ? lines.filter((x) => x.s.kind !== 'crew') : lines
+  const taking = offered.filter((x) => x.take)
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!f.name.trim()) return
@@ -410,14 +417,15 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
     void run(async () => {
       const clientId = await clientNamed(f.client, clients)
       await contactAdded(clientId, f.client, asked.by, clients)
-      const venueId = await venueNamed(f.venue, venues)
-      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind: 'gig', notes: enquiryLine(asked.by, asked.how) })
+      const venueId = hire ? null : await venueNamed(f.venue, venues)
+      const kind = hire ? 'hire' : 'gig'
+      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind, notes: enquiryLine(asked.by, asked.how) })
       // Whoever starts the quote is on its task (ADR 0127; audit of the quote flow, finding 7), with the day it's wanted by.
       if (asked.quoteBy || me) await client.mutate('jobStep.set', { projectId: id, step: 'quote', ...(asked.quoteBy ? { dueOn: asked.quoteBy } : {}), ...(me ? { ownerId: me } : {}) })
-      for (const ph of phases.length ? phases : [{ name: 'Show', start: f.start, end: f.end < f.start ? f.start : f.end }])
+      for (const ph of phases.length && !hire ? phases : [{ name: KIND_PHASE[kind], start: f.start, end: f.end < f.start ? f.start : f.end }])
         await client.mutate('phase.add', { id: newId(), projectId: id, name: ph.name, start: ph.start, end: ph.end, venueId: null, notes: '' })
       const quoteLines = taking.map((x) => suggestionLine(x.s, newId())).slice(0, MAX_LINES)
-      await client.mutate('quote.save', { id: newId(), projectId: id, lines: quoteLines, discountPct: view.money.discountOf(clientId) ?? 0, notes: '' })
+      await client.mutate('quote.save', { id: newId(), projectId: id, lines: quoteLines, discountPct: view.money.discountOf(clientId) ?? 0, notes: '', ...(clientId && asked.by.trim() ? { forName: asked.by.trim() } : {}) })
       // Its kit on the job's kit list as well (ADR 0102), to change there as any kit is.
       await addKitFromQuote(id, kitToAdd(view, quoteLines, id))
     }).then((ok) => ok && (location.hash = `#jobs/${encodeURIComponent(id)}/quote`))
@@ -447,19 +455,35 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
           )}
         </section>
       )}
+      <fieldset className="choices quote-shape wide">
+        <legend>What kind of job</legend>
+        {/* Each named by its shape alone, with what it means said as its description. */}
+        <label className="signal">
+          <input type="radio" name="quote-shape" checked={!hire} onChange={() => setHire(false)} aria-labelledby={`${shapeId}-show-name`} aria-describedby={`${shapeId}-show`} />
+          <span>
+            <b id={`${shapeId}-show-name`}>A show</b> <span id={`${shapeId}-show`}>At a venue, with crew and travel</span>
+          </span>
+        </label>
+        <label className="signal">
+          <input type="radio" name="quote-shape" checked={hire} onChange={() => setHire(true)} aria-labelledby={`${shapeId}-hire-name`} aria-describedby={`${shapeId}-hire`} />
+          <span>
+            <b id={`${shapeId}-hire-name`}>A dry hire</b> <span id={`${shapeId}-hire`}>Kit collected and brought back, no crew</span>
+          </span>
+        </label>
+      </fieldset>
       <label className="wide">
         What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required autoFocus />
       </label>
       <ClientField jobs={view.jobs} optional value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-      <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />
-      <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
+      {!hire && <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />}
+      {!hire && <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />}
       <div className="pair">
         <label>
-          From <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+          {hire ? 'Collected' : 'From'} <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
         </label>
         <label>
-          To <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
+          {hire ? 'Brought back' : 'To'} <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
         </label>
       </div>
       <div className="pair">
@@ -492,7 +516,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
         // Someone at a client, picked with no client yet, brings their client with them.
         onPick={(o) => !f.client.trim() && setF((now) => ({ ...now, client: o.client }))}
       />
-      {phases.length > 0 && (
+      {phases.length > 0 && !hire && (
         <p className="hint wide">
           In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
         </p>
@@ -509,10 +533,10 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
           setLines(offered)
         }}
       />
-      {lines.length > 0 && (
+      {offered.length > 0 && (
         <section className="wide" aria-label="Lines for the quote">
           <h3>Lines for the quote</h3>
-          <Suggestions view={view} items={lines} onChange={setLines} />
+          <Suggestions view={view} items={offered} onChange={(next) => setLines(hire ? [...next, ...lines.filter((x) => x.s.kind === 'crew')] : next)} />
         </section>
       )}
       {read && lines.length === 0 && <p className="hint wide">Claude found no kit or crew to put on the quote. Add them on the quote.</p>}
@@ -522,7 +546,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       <Refusal error={error} className="wide" />
       <div className="actions wide">
         <button type="submit" className="primary">
-          {taking.length ? `Start the quote with ${takingWords(lines)}` : 'Start the quote'}
+          {taking.length ? `Start the quote with ${takingWords(offered)}` : 'Start the quote'}
         </button>
         <button type="button" className="link" onClick={onCancel}>
           Cancel

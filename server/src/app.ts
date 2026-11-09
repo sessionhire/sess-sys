@@ -32,7 +32,7 @@ import { faultForLog, type Db, type Queryable } from './db.ts'
 import { describeDevice } from './devices.ts'
 import { DocumentFiles } from './documents/files.ts'
 import { registerDocumentRoutes } from './documents/routes.ts'
-import { registerPhotoRoutes } from './documents/photos.ts'
+import { readLogo, registerPhotoRoutes } from './documents/photos.ts'
 import { DueErasures } from './erasure/due.ts'
 import { ErasureList } from './erasure/list.ts'
 import { everythingJson, everythingZip, exportRowCount, readEverything, zipName } from './export.ts'
@@ -683,7 +683,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const mailbox = new Mailbox(db, assistant, google, calendar?.clientSecret, () => void poke(), app.log, options.gmail)
   app.decorate('assistantMailbox', mailbox)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
-  registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke() })
+  registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke(), logo: () => readLogo(db.reads, documents) })
   // What comes back from WhatsApp (ADR 0125, part 3): receipts, and Yes and No pressed on an offer.
   registerWhatsAppRoutes(app, { whatsapp, answers: new WhatsAppAnswers(db, whatsapp, { onChange: changed, log: app.log }) })
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.

@@ -144,6 +144,10 @@ const MIGRATIONS: string[] = [
   ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accepted_name text;
   ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
   `,
+  // Who at the client a quote is for (ADR 0128): one of the client's contacts, by name; empty prints the first, as before.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS for_name text NOT NULL DEFAULT '';
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

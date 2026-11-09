@@ -449,6 +449,11 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .margin-words small { color: var(--muted); }
 .quote-screen .quote-margin { margin: 0; }
 .quote-screen .line-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); }
+/* The office's order (ADR 0128): a line up or down its group, a group among its kind; words only, as written. */
+.quote-screen .line-move, .quote-screen .group-move { display: flex; gap: var(--ds-space-2); margin-inline-end: auto; }
+.quote-screen .group-move { margin-inline: var(--ds-space-2) auto; }
+.quote-screen .quote-line-shut.words .what { font-style: italic; }
+.quote-table tr.words td { font-style: italic; }
 /* Travel and subsistence (ADR 0086) are worked out, not typed, so each is a row like a line; open, it holds the one thing the office says about this job for it. */
 .quote-screen .quote-line.extra-open > .field { max-width: 18em; }
 .quote-screen .quote-line .signal { background: none; border: 0; padding: 0; }
@@ -590,6 +595,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .quote-sheet .sheet-head { display: flex; justify-content: space-between; gap: 12pt; align-items: flex-start; }
   .quote-sheet .from { display: grid; font-size: 9pt; color: #444; }
   .quote-sheet .from .company { font-size: 13pt; font-weight: 700; color: #000; }
+  .quote-sheet .from .logo { display: block; max-width: 60mm; max-height: 17mm; object-fit: contain; object-position: left top; margin-bottom: 3pt; }
   .quote-sheet .sheet-facts { margin: 0; display: grid; gap: 1pt; font-size: 9.5pt; text-align: right; }
   .quote-sheet .sheet-facts div { display: flex; justify-content: flex-end; gap: 6pt; }
   .quote-sheet .sheet-facts dt { color: #444; }
