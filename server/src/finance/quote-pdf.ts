@@ -111,7 +111,7 @@ function readFaces() {
  * The faces carry Latin letters, the euro sign and the usual punctuation, and nothing else: an emoji or a letter from
  * another alphabet would come out as a blank box, so it's left out rather than drawn.
  */
-const ENCODABLE = /[ -~ -ÿ€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ\n\t]/u
+const ENCODABLE = /[ -~\u00a0-ÿ€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ\n\t]/u
 export const drawable = (s: string) => [...s].filter((c) => ENCODABLE.test(c)).join('')
 
 /** How a line's days read: blank once, "2 wk" by the week, else the count. */
