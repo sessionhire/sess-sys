@@ -11,7 +11,7 @@ waiting on someone.
   reads: smaller type, a job of several days drawn as one bar across its
   days, today circled, Today and arrows at the top. Confirmed still solid,
   potential still dashed. On a phone it reads like Google's schedule
-  (1.131.1, ADR 0123).
+  (1.132.1, ADR 0123).
 
 **Waiting on**
 
@@ -185,10 +185,14 @@ waiting on someone.
   and down, a line can be words only; the quote is for who asked; the logo
   heads the printed quote and the PDF; New quote asks show or dry hire,
   and a dry hire has no venue, crew or travel.
+- Batch 5, found where you'd look (ADR 0129, 1.132.0): packages are found
+  in Add kit with their price and what they hold; New quote's Start from
+  is one search over this app's past jobs and Current RMS's quotes, the
+  client's last three first.
 
 **Waiting on**
 
-- Batches 5 to 7, being built in order; the page's six questions.
+- Batches 6 and 7, being built in order; the page's six questions.
 
 ## 8 November 2026: a package's price starts at its items' total
 

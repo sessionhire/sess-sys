@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.131.1',
+    version: '1.132.1',
     date: '2026-11-09',
     title: 'The calendar looks like Google Calendar',
     what: "Jobs › Calendar now looks like the Google Calendar the office already reads. The writing is smaller, and a job of several days is one bar across its days, not a box on each. Today's date is circled. Today and the arrows at the top move between months. Confirmed jobs are still filled in, and enquiries and quotes are still a dashed outline with their word on them. On a phone it reads like Google's schedule, with the date on the left and the jobs to the right.",
     prs: [282],
     adrs: [123],
+  },
+  {
+    version: '1.132.0',
+    date: '2026-11-09',
+    title: 'Packages are found in Add kit, and a quote starts from any past quote',
+    what: "Typing in Add kit now finds packages too, marked as a package with its price and what it holds; type 2 first for two of it. New quote's Start from is now a search: with nothing typed it offers the jobs like this one and the client's last three quotes from Current RMS, and typing finds past jobs and Current RMS quotes by name, client or venue. Pick one and its lines are ready to tick.",
+    prs: [283],
+    adrs: [129],
   },
   {
     version: '1.131.0',
