@@ -726,7 +726,7 @@ test('a count before a name with digits in it is still a count, and a line given
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // It goes without being asked about, and the sent quote says Included.
-  await draft.getByRole('button', { name: 'Mark as sent' }).click()
+  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
   await expect(office.getByRole('dialog')).toHaveCount(0)
   await expect(office.getByRole('table').first()).toContainText('Included')
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)

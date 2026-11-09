@@ -64,7 +64,10 @@ async function everythingWaiting() {
     m('phase.add', { id: 'dinner', projectId: 'done', name: 'Show', start: day(-3), end: day(-3), venueId: null, notes: '' }),
     m('quote.save', { id: 'q4', projectId: 'done', lines: [{ id: 'l4', kind: 'kit', what: 'XLR 10 m', ref: 'xlr', group: 'Audio', qty: 4, days: 1, unitCents: 500, vat: '23' }], discountPct: 0, notes: '' }),
     m('quote.sent', { id: 'q4', on: day(-20) }),
-    m('quote.answer', { id: 'q4', answer: 'accepted', on: day(-18) })
+    m('quote.answer', { id: 'q4', answer: 'accepted', on: day(-18) }),
+    // The spring launch's quote, not sent yet, wanted today (ADR 0127).
+    m('quote.save', { id: 'q5', projectId: 'enq', lines: [], discountPct: 0, notes: '' }),
+    m('jobStep.set', { projectId: 'enq', step: 'quote', dueOn: day(0) })
   )
   const { client } = await phone(app)
   return client.view()
@@ -117,6 +120,8 @@ describe('how things stand', () => {
     // Money: the quote sent nine days ago with no answer, worth a call; not the gala's, sent yesterday, nor the Quay Awards',
     // whose dates have passed.
     expect(lists.quotes.map((q) => [q.job.id, q.days])).toEqual([['docks', 9]])
+    // And the spring launch's draft, wanted today, as Quotes leads with it.
+    expect(lists['quotes-due'].map((q) => [q.job.id, q.wanted])).toEqual([['enq', today]])
   })
 
   it('is the list the screen it opens shows, where that screen reads a rule of its own', async () => {
