@@ -10,12 +10,14 @@ import {
   plural,
   STATUS_LABELS,
   type MonthDay,
+  weekBars,
   type MonthEntry,
   type CalendarShow,
   type QuoteStatus,
   type View,
 } from '@sh/shared'
-import { useMemo, type MouseEvent } from 'react'
+import { useMemo, type CSSProperties, type MouseEvent } from 'react'
+import { Icon } from '../Icon.tsx'
 import { WAITING_TO_SYNC } from '../StatusPill.tsx'
 import { useToday } from '../view.ts'
 import { Top } from './common.tsx'
@@ -29,9 +31,11 @@ import { JobViews } from './PlanScreen.tsx'
  * yes to a new enquiry. It reads only and writes nowhere, Google least of
  * all; a job is opened to change it, a day to plan its week.
  *
- * From 900px across it is a month grid; on a phone, the days with something
- * on as a list, adding to the page's height (no box that scrolls inside the
- * page: the captive-scroll rule).
+ * It looks like Google Calendar, which the office already reads (Colly, 9
+ * November 2026): from 900px across a month grid with small type, each job
+ * one bar over its days, today's number circled; on a phone, Google's
+ * schedule, the days with something on as a list adding to the page's
+ * height (no box that scrolls inside the page: the captive-scroll rule).
  */
 
 interface Place {
@@ -73,16 +77,17 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
     <div className="app crew jobs master-cal">
       <Top view={view} views={<JobViews current="calendar" />} heading={monthLabel(month)} sub={<p>{summary(cal.confirmed, cal.potential, show)}</p>} />
 
-      <div className="plan-bar">
-        <div className="steps">
-          <a className="button" href={at({ month: addMonths(month, -1) })} aria-label="Previous month">
-            ‹ Previous
-          </a>
+      {/* Google Calendar's bar: Today, then back and on a month, then which jobs. */}
+      <div className="cal-bar-top">
+        <div className="cal-steps">
           <a className="button" href={at({ month: now })} aria-current={thisMonth ? 'date' : undefined}>
-            This month
+            Today
           </a>
-          <a className="button" href={at({ month: addMonths(month, 1) })} aria-label="Next month">
-            Next ›
+          <a className="button cal-step" href={at({ month: addMonths(month, -1) })} aria-label="Previous month" title="Previous month">
+            <Icon name="back" />
+          </a>
+          <a className="button cal-step" href={at({ month: addMonths(month, 1) })} aria-label="Next month" title="Next month">
+            <Icon name="next" />
           </a>
         </div>
         <div className="filters" role="group" aria-label="Which jobs">
@@ -100,11 +105,18 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
 
       <section className="card cal-card" aria-label={`${monthLabel(month)}, a day at a time`}>
         {!anything && <p className="empty">{emptyWords(show)}</p>}
-        <div className="cal-weekdays" aria-hidden="true">
-          {WEEKDAYS.map((d) => (
-            <span key={d}>{d}</span>
+        {/* A desk: the month as Google draws it, a row a week, each job one bar over its days. */}
+        <div className="cal-grid">
+          <div className="cal-weekdays" aria-hidden="true">
+            {WEEKDAYS.map((d) => (
+              <span key={d}>{d}</span>
+            ))}
+          </div>
+          {cal.weeks.map((w) => (
+            <Week key={w[0]!.day} week={w} today={now} />
           ))}
         </div>
+        {/* A phone: Google's schedule, the date on the left and what's on to the right, only the days with something on. */}
         <ol className="cal-days">
           {days.map((d) => (
             <Day key={d.day} d={d} today={now} />
@@ -132,6 +144,52 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
   )
 }
 
+/** "1 Mar" on the first of a month, as Google Calendar does; otherwise just the number. */
+const dayNumber = (day: string) => (day.endsWith('-01') ? dayLabel(day).split(' ').slice(1).join(' ') : String(Number(day.slice(8))))
+
+function Week({ week, today }: { week: MonthDay[]; today: string }) {
+  const { bars, lanes } = weekBars(week)
+  return (
+    <div className="cal-week" style={{ '--lanes': lanes } as CSSProperties}>
+      {week.map((d, i) => {
+        const isToday = d.day === today
+        return (
+          <div
+            key={d.day}
+            className={['cal-cell', !d.inMonth && 'out', isToday && 'today', d.day < today && 'past'].filter(Boolean).join(' ')}
+            style={{ gridColumn: i + 1 }}
+            aria-current={isToday ? 'date' : undefined}
+          >
+            <a className="cal-date" href={`#jobs/plan/week/${mondayOf(d.day)}`} title="Open its week on the planner">
+              <span className="sr-only">{dayLabel(d.day)}</span>
+              <span aria-hidden="true">{dayNumber(d.day)}</span>
+            </a>
+            {d.holiday && <small className="holiday-name">{d.holiday}</small>}
+          </div>
+        )
+      })}
+      {bars.map((b) => {
+        const said = words(b)
+        const when = b.span > 1 ? `${dayLabel(b.firstDay)} to ${dayLabel(b.lastDay)}` : dayLabel(b.firstDay)
+        const className = ['cal-job', 'cal-span', b.tentative ? 'dashed' : 'solid', b.before && 'cont-l', b.after && 'cont-r', b.pending && 'pending'].filter(Boolean).join(' ')
+        return (
+          <a
+            key={`${b.jobId}-${b.from}`}
+            className={className}
+            href={`#jobs/${b.jobId}`}
+            style={{ gridColumn: `${b.from + 1} / span ${b.span}`, gridRow: b.lane + 2 }}
+            title={`${b.name}: ${said} (${when})`}
+          >
+            <b>{b.name}</b>
+            <small>{said}</small>
+            <span className="sr-only">, {when}</span>
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
 function Day({ d, today }: { d: MonthDay; today: string }) {
   const isToday = d.day === today
   const className = ['cal-day', !d.inMonth && 'out', d.entries.length === 0 && 'free', isToday && 'today', d.day < today && 'past'].filter(Boolean).join(' ')
@@ -139,15 +197,15 @@ function Day({ d, today }: { d: MonthDay; today: string }) {
     <li className={className} aria-current={isToday ? 'date' : undefined}>
       <h3>
         <a href={`#jobs/plan/week/${mondayOf(d.day)}`} title="Open its week on the planner">
-          <span className="cal-full">{dayLabel(d.day)}</span>
+          <span className="sr-only">{dayLabel(d.day)}</span>
+          <small aria-hidden="true">{dayLabel(d.day).slice(0, 3)}</small>
           <span className="cal-num" aria-hidden="true">
             {Number(d.day.slice(8))}
           </span>
-          {isToday && <small className="today-word">Today</small>}
         </a>
         {d.holiday && <small className="holiday-name">{d.holiday}</small>}
       </h3>
-      {d.entries.length > 0 && (
+      {d.entries.length > 0 ? (
         <ul>
           {d.entries.map((e) => (
             <li key={e.jobId}>
@@ -155,14 +213,23 @@ function Day({ d, today }: { d: MonthDay; today: string }) {
             </li>
           ))}
         </ul>
+      ) : (
+        <p className="hint">Nothing on</p>
       )}
     </li>
   )
 }
 
+/** What a bar or a day's entry says after the job's name: an enquiry or quote says so first. */
+function words(e: { tentative: boolean; status: MonthEntry['status']; quote?: QuoteStatus; phases: string[]; pending: boolean }): string {
+  return [e.tentative && [STATUS_LABELS[e.status], e.quote && QUOTE_WORDS[e.quote]].filter(Boolean).join(', '), e.phases.join(', '), e.pending && WAITING_TO_SYNC]
+    .filter(Boolean)
+    .join(' · ')
+}
+
 function Entry({ e }: { e: MonthEntry }) {
-  const said = [e.tentative && [STATUS_LABELS[e.status], e.quote && QUOTE_WORDS[e.quote]].filter(Boolean).join(', '), e.phases.join(', '), e.pending && WAITING_TO_SYNC].filter(Boolean).join(' · ')
-  const className = ['cal-job', e.tentative ? 'dashed' : 'solid', !e.first && 'cont-l', !e.last && 'cont-r', e.pending && 'pending'].filter(Boolean).join(' ')
+  const said = words(e)
+  const className = ['cal-job', e.tentative ? 'dashed' : 'solid', e.pending && 'pending'].filter(Boolean).join(' ')
   return (
     <a className={className} href={`#jobs/${e.jobId}`} title={`${e.name}: ${said}`}>
       <b>{e.name}</b>

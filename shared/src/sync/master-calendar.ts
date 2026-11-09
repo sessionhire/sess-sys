@@ -111,3 +111,84 @@ export function masterCalendar(jobs: JobsView, month: string, show: CalendarShow
   const undated = going.filter((j) => !j.span).sort((a, b) => Number(a.status === 'confirmed') - Number(b.status === 'confirmed') || a.name.localeCompare(b.name))
   return { weeks, confirmed: inMonth.confirmed.size, potential: inMonth.potential.size, undated }
 }
+
+/**
+ * A job across a run of days in one week, drawn as one bar as Google Calendar
+ * draws an event of several days (Colly, 9 November 2026), rather than a box
+ * on each day.
+ */
+export interface WeekBar {
+  jobId: string
+  name: string
+  status: ProjectStatus
+  tentative: boolean
+  pending: boolean
+  quote?: QuoteStatus
+  /** Its phases over the run, each once: "Build", "Show". */
+  phases: string[]
+  /** The column it starts in, Monday 0, and how many days it runs. */
+  from: number
+  span: number
+  /** Its line in the week, 0 at the top. */
+  lane: number
+  /** It carries on from the week before, or into the week after. */
+  before: boolean
+  after: boolean
+  firstDay: string
+  lastDay: string
+}
+
+/** A week's jobs as bars, laid out in lines so none overlap: the confirmed first, then the earliest, then the longest. */
+export function weekBars(week: readonly MonthDay[]): { bars: WeekBar[]; lanes: number } {
+  const runs: WeekBar[] = []
+  const seen = new Set<string>()
+  for (const day of week)
+    for (const e of day.entries) {
+      if (seen.has(e.jobId)) continue
+      seen.add(e.jobId)
+      let i = 0
+      while (i < week.length) {
+        const at = (n: number) => week[n]!.entries.find((x) => x.jobId === e.jobId)
+        if (!at(i)) {
+          i++
+          continue
+        }
+        const from = i
+        const phases: string[] = []
+        while (i < week.length && at(i)) {
+          for (const p of at(i)!.phases) {
+            const name = p.replace(/ \d+\/\d+$/, '')
+            if (!phases.includes(name)) phases.push(name)
+          }
+          i++
+        }
+        const first = at(from)!
+        const last = at(i - 1)!
+        runs.push({
+          jobId: e.jobId,
+          name: e.name,
+          status: e.status,
+          tentative: e.tentative,
+          pending: e.pending,
+          ...(e.quote ? { quote: e.quote } : {}),
+          phases,
+          from,
+          span: i - from,
+          lane: 0,
+          before: from === 0 && !first.first,
+          after: i === week.length && !last.last,
+          firstDay: week[from]!.day,
+          lastDay: week[i - 1]!.day,
+        })
+      }
+    }
+  runs.sort((a, b) => Number(a.tentative) - Number(b.tentative) || a.from - b.from || b.span - a.span || a.name.localeCompare(b.name))
+  const taken: boolean[][] = []
+  for (const r of runs) {
+    let lane = 0
+    while ((taken[lane] ??= []).slice(r.from, r.from + r.span).some(Boolean)) lane++
+    for (let c = r.from; c < r.from + r.span; c++) taken[lane]![c] = true
+    r.lane = lane
+  }
+  return { bars: runs, lanes: taken.length }
+}

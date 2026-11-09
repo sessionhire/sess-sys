@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Phase, Project } from '../src/jobs.ts'
 import { jobsView } from '../src/sync/jobs-view.ts'
-import { masterCalendar } from '../src/sync/master-calendar.ts'
+import { masterCalendar, weekBars } from '../src/sync/master-calendar.ts'
 
 /**
  * Jobs › Calendar (ADR 0123): a month with every job on and every job that
@@ -72,5 +72,21 @@ describe('the master calendar', () => {
     expect(day(potential, '2031-03-05').entries.map((e) => e.name)).toEqual(['Brand launch'])
     expect(day(potential, '2031-03-01').entries.map((e) => [e.name, e.status])).toEqual([['Conference', 'enquiry']])
     expect(potential.confirmed).toBe(0)
+  })
+})
+
+describe('a week as bars', () => {
+  it('draws a job of several days as one bar, in lines that never overlap', () => {
+    const cal = masterCalendar(view(), '2031-03-01')
+    // Monday 3 to Sunday 9 March: the arena gig Monday to Wednesday, the launch on the Wednesday.
+    const { bars, lanes } = weekBars(cal.weeks[1]!)
+    expect(bars.map((b) => [b.name, b.from, b.span, b.lane, b.phases])).toEqual([
+      ['Arena gig', 0, 3, 0, ['Build', 'Show']],
+      ['Brand launch', 2, 1, 1, ['Show']],
+    ])
+    expect(lanes).toBe(2)
+    // The conference runs Friday 28 February into Saturday 1 March: one bar in the first week.
+    const first = weekBars(cal.weeks[0]!).bars
+    expect(first.map((b) => [b.name, b.from, b.span, b.before, b.after])).toEqual([['Conference', 4, 2, false, false]])
   })
 })
