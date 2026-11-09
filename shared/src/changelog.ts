@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-09',
     title: 'An admin can delete a quote, and put it back',
     what: "A director, or a system admin, can now delete a version of a quote from the foot of its page. It's hard on purpose: it says first what makes that version matter, such as it having gone to the client, been accepted or invoiced, or being the job's only one, and Delete only works once you type the quote's number (or the word delete, for one never sent). It goes from everyone's phones and computers and the client's link stops working, but nothing is lost: History says who deleted it, and an admin can put it back from there as it was.",
-    prs: [0],
+    prs: [286],
     adrs: [131],
   },
   {
