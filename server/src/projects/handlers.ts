@@ -296,7 +296,11 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     for (const id of await move('faults')) await emit(ctx, 'fault', id, await getFault(ctx.tx, id))
     for (const id of await move('movements')) await emit(ctx, 'movement', id, await getMovement(ctx.tx, id))
     for (const id of await move('vehicle_bookings')) await emit(ctx, 'vehicleBooking', id, await getBooking(ctx.tx, id))
-    for (const id of await move('quotes')) await emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
+    // A deleted version moves too, but isn't sent to the devices (ADR 0135).
+    for (const id of await move('quotes')) {
+      const q = await getQuote(ctx.tx, id)
+      if (q) await emit(ctx, 'quote', id, q)
+    }
     // A job has one of each step (ADR 0073): this job's stays; a step only another had becomes this job's.
     const { rows: steps } = await ctx.tx.query<{ id: string; project_id: string; step: JobStep }>(
       'SELECT id, project_id, step FROM job_steps WHERE project_id = ANY($1::text[]) ORDER BY project_id = $2 DESC, done_at IS NULL, owner_id IS NULL, id',

@@ -489,6 +489,12 @@ export const quoteCommandSchemas = {
     why: z.enum(TURN_DOWN_REASONS).optional(),
     note: text(TURN_DOWN_NOTE_LENGTH, 'Why it was turned down').optional(),
   }),
+  /**
+   * Delete a version of a quote (ADR 0135): an admin's alone, with what the person typed to say they meant it, which the
+   * server checks too. It goes from every device and the client's link stops, but the server keeps it, so it can be put
+   * back from the history.
+   */
+  'quote.delete': z.object({ id, typed: z.string().max(40) }),
   /** The invoice for an accepted quote, written outside the app: the day and its number, or null to take it back. */
   'quote.invoiced': z.object({ id, on: day.nullable(), ref: text(60, 'The invoice number') }),
   /** The day an invoiced quote was paid, or null to take it back. */
@@ -1045,6 +1051,14 @@ export function quoteNumberLabel(q: Pick<Quote, 'number' | 'version'>): string {
   if (!q.number) return ''
   return q.version > 1 ? `${q.number} · version ${q.version}` : String(q.number)
 }
+
+/**
+ * What's typed to delete a version (ADR 0135): its number once it has one, so it's this quote that goes and not the one
+ * beside it; the word "delete" for one that's only ever been a draft.
+ */
+export const deleteWord = (q: Pick<Quote, 'number'>) => (q.number ? String(q.number) : 'delete')
+/** Whether what was typed is the word, give or take spaces and capitals. */
+export const deleteTyped = (q: Pick<Quote, 'number'>, typed: string) => typed.trim().toLowerCase() === deleteWord(q)
 
 /** The day after `d` by `n` days, as YYYY-MM-DD. */
 const plusDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)

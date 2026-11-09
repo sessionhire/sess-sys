@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.138.0',
+    version: '1.139.0',
     date: '2026-11-09',
     title: 'Show only the jobs with a department on them',
     what: "The Jobs list, the calendar, the week and month planner and the Board now have a row of departments: Audio, Lighting, Video, Lasers and Staging. Press Lighting and only the jobs with lighting on them stay, by their crew or their kit; press Lasers as well and the jobs with either stay. All departments shows everything again. The choice holds as you move between them, on this device. Lasers is now a department of its own for kit too, so move any laser products filed under Lighting on their page. While a department is picked, quotes still open in Current RMS are left off the calendar, since what's on them isn't known here.",
     prs: [291],
     adrs: [137],
+  },
+  {
+    version: '1.138.0',
+    date: '2026-11-09',
+    title: 'An admin can delete a quote, and put it back',
+    what: "A director, or a system admin, can now delete a version of a quote from the foot of its page. It's hard on purpose: it says first what makes that version matter, such as it having gone to the client, been accepted or invoiced, or being the job's only one, and Delete only works once you type the quote's number (or the word delete, for one never sent). It goes from everyone's phones and computers and the client's link stops working, but nothing is lost: History says who deleted it, and an admin can put it back from there as it was.",
+    prs: [286],
+    adrs: [135],
   },
   {
     version: '1.137.0',

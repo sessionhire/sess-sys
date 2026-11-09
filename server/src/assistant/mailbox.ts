@@ -315,7 +315,7 @@ export class Mailbox {
   async threads(projectId?: string): Promise<MailThread[]> {
     const { rows } = await this.db.reads.query<Row>(
       `SELECT t.*, n.subject, n.sender, n.summary, n.questions, n.advice,
-         (SELECT q.status = 'draft' AND t.drafted_lines IS NOT NULL AND q.lines = t.drafted_lines FROM quotes q WHERE q.project_id = t.project_id ORDER BY q.version DESC LIMIT 1) AS drafting
+         (SELECT q.status = 'draft' AND t.drafted_lines IS NOT NULL AND q.lines = t.drafted_lines FROM quotes q WHERE q.project_id = t.project_id AND q.deleted_at IS NULL ORDER BY q.version DESC LIMIT 1) AS drafting
        FROM mail_threads t LEFT JOIN mail_notes n ON n.thread_id = t.id
        WHERE t.kind <> 'other' AND ${projectId ? 't.project_id = $1' : `t.last_at >= $1::timestamptz - interval '${SHOWN_DAYS} days'`}
        ORDER BY t.last_at DESC LIMIT 100`,
@@ -407,13 +407,13 @@ async function jobOf(q: Queryable, id: string): Promise<{ id: string; name: stri
 }
 
 async function currentQuote(q: Queryable, projectId: string) {
-  const { rows } = await q.query<Row>('SELECT id, status, lines, discount_pct, notes FROM quotes WHERE project_id = $1 ORDER BY version DESC LIMIT 1', [projectId])
+  const { rows } = await q.query<Row>('SELECT id, status, lines, discount_pct, notes FROM quotes WHERE project_id = $1 AND deleted_at IS NULL ORDER BY version DESC LIMIT 1', [projectId])
   const r = rows[0]
   return r ? { id: r.id as string, status: r.status as string, lines: r.lines as QuoteLine[], discountPct: Number(r.discount_pct), notes: r.notes as string } : undefined
 }
 
 async function linesOf(q: Queryable, quoteId: string): Promise<unknown> {
-  return (await q.query<Row>('SELECT lines FROM quotes WHERE id = $1', [quoteId])).rows[0]?.lines ?? null
+  return (await q.query<Row>('SELECT lines FROM quotes WHERE id = $1 AND deleted_at IS NULL', [quoteId])).rows[0]?.lines ?? null
 }
 
 /** The jobs a thread could be about: enquiries, quotes and confirmed jobs from a month ago on, soonest first. */

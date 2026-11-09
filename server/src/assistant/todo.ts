@@ -39,7 +39,7 @@ export async function factsFor(q: Queryable, today: string): Promise<Record<stri
       (SELECT max(end_day) FROM phases ph WHERE ph.project_id = p.id) AS last_day
     FROM projects p LEFT JOIN clients c ON c.id = p.client_id LEFT JOIN venues v ON v.id = p.venue_id`
   const quoteOf = `SELECT DISTINCT ON (project_id) project_id, version, status, sent_on, answered_on, invoiced_on, lines, discount_pct, agreed_cents
-    FROM quotes ORDER BY project_id, version DESC`
+    FROM quotes WHERE deleted_at IS NULL ORDER BY project_id, version DESC`
   const { rows } = await q.query<Row>(
     `WITH j AS (${jobs}), qt AS (${quoteOf})
      SELECT j.*, qt.version, qt.status AS quote, qt.sent_on, qt.invoiced_on, qt.lines, qt.discount_pct, qt.agreed_cents
