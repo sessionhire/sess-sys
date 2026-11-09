@@ -698,7 +698,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // What comes back from WhatsApp (ADR 0125, part 3): receipts, and Yes and No pressed on an offer.
   registerWhatsAppRoutes(app, { whatsapp, answers: new WhatsAppAnswers(db, whatsapp, { onChange: changed, log: app.log }) })
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.
-  registerAcceptRoutes(app, db, { onChange: () => void poke() })
+  registerAcceptRoutes(app, db, { onChange: () => void poke(), logo: () => readLogo(db.reads, documents) })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   registerStatusRoutes(
     app,

@@ -33,7 +33,7 @@ import { useToday } from '../view.ts'
 import { Top } from './common.tsx'
 import { QuotePill } from './QuoteStatus.tsx'
 import { MarginWords } from './QuoteLine.tsx'
-import { Lines, QuoteSheet, Totals } from './QuoteSheet.tsx'
+import { Lines, QuoteSheet, QuoteSheetPage, Totals } from './QuoteSheet.tsx'
 import { InCurrentRms, NewVersion, nextRecord, Records } from './QuoteRecords.tsx'
 import { Draft } from './QuoteDraft.tsx'
 import { DeleteQuote } from './QuoteDelete.tsx'
@@ -130,10 +130,15 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   // (audit of the quote flow, 8 November 2026, finding 14), since getting it to the client comes before their answer.
   const [printed, setPrinted] = useState<ReadonlySet<string>>(() => new Set())
   const shownId = useRef<string | undefined>(undefined)
+  // The file a browser offers to save the PDF as is the tab's title: the quote's, as the emailed PDF is named, while it prints (ADR 0139).
+  const fileName = useRef('')
   useEffect(() => {
     if (!printing) return
     const id = shownId.current
+    const title = document.title
+    if (fileName.current) document.title = fileName.current
     const done = () => {
+      document.title = title
       setPrinting(false)
       if (id) setPrinted((was) => new Set(was).add(id))
     }
@@ -142,6 +147,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
     return () => {
       cancelAnimationFrame(frame)
       removeEventListener('afterprint', done)
+      document.title = title
     }
   }, [printing])
   const today = useToday()
@@ -173,6 +179,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   const toSend = !!q && q.status === 'sent' && q.id === current?.id && q.sentOn === today && !q.emails.length && !byEmail && !printed.has(q.id)
   const recording = !toSend && !!current && nextRecord(current, job) !== undefined
   shownId.current = q?.id
+  fileName.current = q ? `${q.number && q.status !== 'draft' && !q.numberPending ? `Quote ${q.number}` : 'Draft quote'} - ${job.name}` : ''
 
   return (
     <div className="app crew jobs quote-screen">
@@ -259,7 +266,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
         q &&
         createPortal(
           <div className="print-sheet quote-sheet">
-            <style>{'@page { size: A4; margin: 14mm; }'}</style>
+            <QuoteSheetPage q={q} />
             <QuoteSheet q={q} job={job} office={view.office} quoting={m.quoting} />
           </div>,
           document.body

@@ -68,7 +68,9 @@ export function registerQuoteEmailRoutes(app: FastifyInstance, m: Mailer) {
     const quote = await getQuote(m.db.reads, id(req.params.id))
     if (!quote) return reply.code(404).send({ error: 'That quote is no longer here.' })
     const sheet = await sheetFor(m.db.reads, quote, irishToday(m.now?.()))
-    return sendPdf(reply, await quotePdf(sheet), fileNameFor(quote.number ?? null, sheet.job.name), 'inline')
+    // With the logo, as the emailed one has it (ADR 0139): this is the PDF the office opens to print or save.
+    const logo = await m.logo?.().catch(() => undefined)
+    return sendPdf(reply, await quotePdf({ ...sheet, ...(logo ? { logo } : {}) }), fileNameFor(quote.number ?? null, sheet.job.name), 'inline')
   })
 
   /** The PDF that went in an email, as the client got it. */

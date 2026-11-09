@@ -166,7 +166,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(printed).toContainText('Delivery')
   await expect(printed).toContainText('€1,867.65')
   await expect(printed.locator('.sheet-facts')).toContainText('Draft quoteNot sent yet')
-  await expect(printed.locator('.from')).toContainText('Unit 4, Docklands Business Park\nDublin 3')
+  await expect(printed.locator('.from')).toContainText('Unit 4, Docklands Business Park, Dublin 3')
   await expect(printed.locator('.from')).toContainText('VAT number IE 1234567T')
   await expect(printed).toContainText('A deposit of 50%, €933.83, confirms the booking.')
   await expect(printed.locator('.sheet-terms')).toHaveCount(2)
