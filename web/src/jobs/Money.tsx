@@ -56,7 +56,9 @@ import { client } from '../sync.ts'
 import { JOBS, MONEY } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
-import { ClientField, clientNamed, contactAdded, NewOrNear, Top, VenueField, venueNamed } from './common.tsx'
+import { ClientField, clientNamed, contactAdded, NewOrNear, newQuoteAsked, newQuoteHref, Top, VenueField, venueNamed } from './common.tsx'
+import { useDesk } from '../foot.tsx'
+import { shortcutHint } from '../shortcuts.tsx'
 import { NameField } from '../NameField.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
@@ -149,9 +151,21 @@ function FollowRow({ f, what, chase, when, children }: { f: QuoteToFollow; what:
  * waiting on the office, the longest waiting first: answered but the job not yet in step, sent with no answer (a call
  * after a week), and drafts not sent. Nothing here is sent to anyone: the office rings or emails the client themselves.
  */
-export function ToFollowUp({ view }: { view: View }) {
+export function ToFollowUp({ view, on }: { view: View; on?: string | undefined }) {
   const today = useToday()
-  const [starting, setStarting] = useState(false)
+  const desk = useDesk()
+  // Open already when the address asks (ADR 0120): a day pressed on the planner, or the shortcut for New quote.
+  const [starting, setStarting] = useState(on !== undefined)
+  const [asked, setAsked] = useState(on)
+  if (on !== asked) {
+    setAsked(on)
+    if (on !== undefined) setStarting(true)
+  }
+  const stop = () => {
+    setStarting(false)
+    // Back to Quotes itself, in place of the address that asked, so pressing the same day again opens it again.
+    if (newQuoteAsked(location.hash) !== undefined) location.replace('#quotes')
+  }
   const f = quotesToFollow(view.money, today)
   const none = f.drafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
   return (
@@ -159,11 +173,11 @@ export function ToFollowUp({ view }: { view: View }) {
       <Heading icon="document">To follow up</Heading>
       {/* Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1). */}
       {!starting && (
-        <button type="button" onClick={() => setStarting(true)}>
+        <button type="button" onClick={() => setStarting(true)} title={desk ? shortcutHint(newQuoteHref()) : undefined}>
           New quote
         </button>
       )}
-      {starting && <NewQuote view={view} onCancel={() => setStarting(false)} />}
+      {starting && <NewQuote key={asked ?? ''} view={view} on={asked || undefined} onCancel={stop} />}
       {none && !starting && <Empty>No quote is waiting on anyone. Start a new one here, or from a job's page.</Empty>}
       <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
     </section>
@@ -311,10 +325,12 @@ function enquiryLine(by: string, how: EnquiryWay | ''): string {
   return `Enquiry${how ? ENQUIRY_WAY_WORDS[how] : ''}${who ? ` from ${who}` : ''}.`
 }
 
-function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
+function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined; onCancel: () => void }) {
   const today = useToday()
   const { clients, venues } = view.jobs
-  const [f, setF] = useState({ name: '', client: '', venue: '', start: today, end: today })
+  // From a day on the planner (ADR 0120), the job's days start there; a day gone starts today, as New quote does.
+  const first = on && on >= today ? on : today
+  const [f, setF] = useState({ name: '', client: '', venue: '', start: first, end: first })
   // Who asked, how it came and when they want it by (research/quoting.md, feature 6): the first two go in the job's notes as
   // a line, the day is the Quote sent task's due day, so it's on someone's list and late shows as late.
   const [asked, setAsked] = useState<{ by: string; how: EnquiryWay | ''; quoteBy: string }>({ by: '', how: '', quoteBy: '' })

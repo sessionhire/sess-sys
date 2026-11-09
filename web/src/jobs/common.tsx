@@ -14,6 +14,14 @@ import { useTopBar } from '../useUnderTop.ts'
 
 /** What the Jobs screens share, and Stock and Crew too: the header, a record's page, and picking or adding a client or venue by name. */
 
+/** Quotes with New quote open on a day (ADR 0120): #quotes/new/2026-11-20, or today's with no day. */
+export const newQuoteHref = (day?: string) => `#quotes/new${day ? `/${day}` : ''}`
+/** The day #quotes/new/<day> asks for, '' for New quote on today, or undefined when it isn't asking. */
+export function newQuoteAsked(hash: string): string | undefined {
+  const m = /^#quotes\/new(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(hash)
+  return m ? (m[1] ?? '') : undefined
+}
+
 export function useHash(): string {
   const [hash, setHash] = useState(location.hash)
   useEffect(() => {

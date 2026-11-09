@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { APP_VERSION } from '@sh/shared'
 import { AccountScreen } from './AccountScreen.tsx'
 import { useAuth } from './auth.ts'
@@ -22,6 +22,7 @@ import { StorageBanner, useUnkept } from './StorageBanner.tsx'
 import { UpdateBar } from './update.tsx'
 import { useAccess } from './role.ts'
 import { YouScreen } from './YouScreen.tsx'
+import { shortcutHint, ShortcutsSheet, useShortcuts } from './shortcuts.tsx'
 import { ChangesScreen } from './ChangesScreen.tsx'
 
 /**
@@ -121,6 +122,10 @@ export function Shell() {
   // The demo copy opens on a choice of whose eyes to see it through (ADR 0033), and the header says whose they are.
   const demo = auth.status === 'open' && auth.passcode === true
   useHoldPersona(demo ? persona : undefined)
+  // Keys at a desk (ADR 0120): G then J for Jobs, N then Q for a new quote, ? for the list.
+  const crewOk = access.can('crew')
+  const go = useCallback((to: string) => void (location.hash = to === '#crew' && !crewOk ? '#crew/people' : to), [crewOk])
+  const keys = useShortcuts({ on: desk, money: seesMoney, go })
   const [hash, setHash] = useState(location.hash)
   useEffect(() => {
     const on = () => setHash(location.hash)
@@ -205,7 +210,7 @@ export function Shell() {
         <div className="foot-dock" ref={setDock} />
         <nav className="tabs" aria-label="Areas">
           {shown.map((a) => (
-            <a key={a.hash} href={areaHref(a.hash)} aria-current={a === lit ? 'page' : undefined}>
+            <a key={a.hash} href={areaHref(a.hash)} aria-current={a === lit ? 'page' : undefined} title={desk ? shortcutHint(a.hash) : undefined}>
               <AreaIcon area={a.hash} />
               <span className="tab-word">{a.label}</span>
               {a.hash === '#crew' && <CrewBadge />}
@@ -219,6 +224,7 @@ export function Shell() {
         </FootContext.Provider>
       </main>
       <Toaster />
+      {keys.help && <ShortcutsSheet money={seesMoney} onClose={keys.close} />}
     </>
   )
 }

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.121.0',
+    date: '2026-11-08',
+    title: 'A quote from a day on the planner, and keys at a desk',
+    what: "Each day from today on in the planner's week has \"+ Quote\": press it and a new quote opens with the job on that day. At a desk, keys now move you around: G then J for Jobs, G then P for the planner, G then Q for Quotes, N then Q for a new quote, / to search the page, and ? to see them all. They never fire while you're typing or on a scanning screen.",
+    prs: [269],
+    adrs: [120],
+  },
+  {
     version: '1.120.0',
     date: '2026-11-08',
     title: 'When a client pays, and who to ask for at a venue',
