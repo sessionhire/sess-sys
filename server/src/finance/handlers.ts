@@ -23,7 +23,7 @@ import { emailsOf, getClientDiscount, getCostPaid, getPackage, getProductPrice, 
  * Sending the same change twice, as a phone may, changes nothing.
  */
 
-type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quote.restore' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
+type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
@@ -240,23 +240,6 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     await emitRemoved(ctx, 'quote', a.id)
   },
 
-  /** Put a deleted version back (ADR 0131), as it was, unless the job has a draft of its own since or is settled. */
-  async 'quote.restore'(ctx, a) {
-    const q = await getQuote(ctx.tx, a.id, true, true)
-    if (!q) throw new Refused({ code: 'not-found', message: 'That quote is no longer here.' })
-    if (!(await isDeleted(ctx.tx, a.id))) return
-    if (q.status === 'draft') {
-      const versions = await quotesOf(ctx.tx, q.projectId)
-      const draft = versions.find((v) => v.status === 'draft')
-      if (draft) throw new Refused({ code: 'conflict', message: `Version ${draft.version} is the job's draft now, and a job has one at a time. Delete it or mark it sent first.` })
-      const invoiced = versions.find((v) => v.invoicedOn)
-      if (invoiced) throw new Refused({ code: 'conflict', message: `Version ${invoiced.version} is invoiced, so the job's quote is settled: a draft can't come back to it.` })
-    }
-    await ctx.tx.query('UPDATE quotes SET deleted_at = NULL WHERE id = $1', [a.id])
-    await emitQuote(ctx, a.id)
-    for (const e of await emailsOf(ctx.tx, a.id)) await emit(ctx, 'quoteEmail', e, await getQuoteEmail(ctx.tx, e))
-  },
-
   async 'quote.invoiced'(ctx, a) {
     const q = await quoteFor(ctx, a.id)
     if (a.on === null) {
@@ -377,4 +360,25 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     await ctx.tx.query(`INSERT INTO cost_payments (timesheet_id, paid_on) VALUES ($1, $2) ON CONFLICT (timesheet_id) DO UPDATE SET paid_on = EXCLUDED.paid_on`, [a.id, a.on])
     await emit(ctx, 'costPaid', a.id, await getCostPaid(ctx.tx, a.id))
   },
+}
+
+/**
+ * Put a deleted version back (ADR 0131), as it was, unless the job has a draft of its own since or is settled. A server
+ * route (finance/email-routes.ts), not a command: no device has the version any more to show while it waits.
+ */
+export async function restoreQuote(ctx: Ctx, id: string): Promise<Quote> {
+  const q = await getQuote(ctx.tx, id, true, true)
+  if (!q) throw new Refused({ code: 'not-found', message: 'That quote is no longer here.' })
+  if (!(await isDeleted(ctx.tx, id))) return q
+  if (q.status === 'draft') {
+    const versions = await quotesOf(ctx.tx, q.projectId)
+    const draft = versions.find((v) => v.status === 'draft')
+    if (draft) throw new Refused({ code: 'conflict', message: `Version ${draft.version} is the job's draft now, and a job has one at a time. Delete it or mark it sent first.` })
+    const invoiced = versions.find((v) => v.invoicedOn)
+    if (invoiced) throw new Refused({ code: 'conflict', message: `Version ${invoiced.version} is invoiced, so the job's quote is settled: a draft can't come back to it.` })
+  }
+  await ctx.tx.query('UPDATE quotes SET deleted_at = NULL WHERE id = $1', [id])
+  await emitQuote(ctx, id)
+  for (const e of await emailsOf(ctx.tx, id)) await emit(ctx, 'quoteEmail', e, await getQuoteEmail(ctx.tx, e))
+  return q
 }

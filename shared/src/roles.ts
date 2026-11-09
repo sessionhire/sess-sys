@@ -199,9 +199,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'quote.save': 'money',
   'quote.sent': 'money',
   'quote.answer': 'money',
-  // Deleting a quote is an admin's (ADR 0131): a director or a system admin, as erasing a person is; putting it back too.
+  // Deleting a quote is an admin's (ADR 0131): a director or a system admin, as erasing a person is. Putting it back is a server route that needs company too.
   'quote.delete': 'company',
-  'quote.restore': 'company',
   'quote.invoiced': 'money',
   'quote.paid': 'money',
   'quoting.update': 'money',

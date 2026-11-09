@@ -37,7 +37,8 @@ was shown, so taking one away has to be rare, deliberate and recoverable.
    removing it. It goes from every device with the emails it went in; its
    link to the client stops; anything done to it is refused as gone; a
    phone that still had its draft open can't save it back. The history
-   says who deleted which, and there an admin can **Put the quote back**,
+   says who deleted which, and there an admin can **Put the quote back**
+   (a request to the server, with signal, since no device still has it),
    as it was, unless the job has a draft of its own since (a job has one at
    a time) or a draft would come back to a settled job.
 5. **Numbers stay given.** A new version is numbered after a deleted one,

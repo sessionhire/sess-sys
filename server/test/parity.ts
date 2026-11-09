@@ -340,6 +340,9 @@ const CASES: Case[] = [
   c('quote.answer', { id: 'q1', answer: 'none', on: today }, { as: 'taken back', before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
   c('quote.invoiced', { id: 'q1', on: today, ref: 'SH-1042' }, { before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
   c('quote.invoiced', { id: 'q1', on: today, ref: '  SH-77  ' }, { as: 'untidy text', before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
+  // Deleting a version (ADR 0131): gone from the device at once, as from the server, once its number or "delete" is typed.
+  c('quote.delete', { id: 'q1', typed: ' 1 ' }, { as: 'a sent one, by its number' }),
+  c('quote.delete', { id: 'q3', typed: 'Delete' }, { as: 'a draft, by the word', before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' })] }),
   c('quote.paid', { id: 'q1', on: today }, { before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today }), m('quote.invoiced', { id: 'q1', on: today, ref: 'SH-1042' })] }),
   c('price.product', { modelId: 'xlr', dayCents: 300 }),
   c('price.product', { modelId: 'y10p', dayCents: null }, { as: 'taken off' }),

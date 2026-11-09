@@ -485,8 +485,6 @@ export const quoteCommandSchemas = {
    * back from the history.
    */
   'quote.delete': z.object({ id, typed: z.string().max(40) }),
-  /** Put a deleted version back (ADR 0131), as it was. */
-  'quote.restore': z.object({ id }),
   /** The invoice for an accepted quote, written outside the app: the day and its number, or null to take it back. */
   'quote.invoiced': z.object({ id, on: day.nullable(), ref: text(60, 'The invoice number') }),
   /** The day an invoiced quote was paid, or null to take it back. */

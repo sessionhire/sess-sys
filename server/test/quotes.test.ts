@@ -343,6 +343,10 @@ describe("a freelancer's cost", () => {
 })
 
 describe('deleting a quote (ADR 0131)', () => {
+  const putBack = async (app: FastifyInstance, id: string) => {
+    const res = await app.inject({ method: 'POST', url: `/api/quotes/${id}/restore` })
+    return res.statusCode === 200 ? 'done' : (res.json().error as string)
+  }
   const pulled = async (app: FastifyInstance) => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes as { entity: string; id: string; op: string }[]
   const lastOp = async (app: FastifyInstance, entity: string, id: string) => (await pulled(app)).filter((c) => c.entity === entity && c.id === id).at(-1)?.op
 
@@ -365,7 +369,7 @@ describe('deleting a quote (ADR 0131)', () => {
     // The history says who deleted which, and it comes back as it was, answer and number with it.
     const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
     expect(history.entries.find((e) => e.command === 'quote.delete')?.what).toBe(`Deleted version 1 of the quote for Autumn Gala, quote ${n}`)
-    await ok(app, m('quote.restore', { id: 'v1' }))
+    expect(await putBack(app, 'v1')).toBe('done')
     expect(await quote('v1')).toMatchObject({ id: 'v1', status: 'accepted', number: n, version: 1 })
     expect((await app.inject({ url: '/api/history' })).json().entries[0].what).toBe('Put back version 1 of the quote for Autumn Gala, deleted before')
   })
@@ -382,8 +386,9 @@ describe('deleting a quote (ADR 0131)', () => {
     await ok(app, save('v2'))
     expect(await quote('v2')).toMatchObject({ version: 2, status: 'draft' })
     // Two drafts can't be the job's at once.
-    expect(await refused(app, m('quote.restore', { id: 'v1' }))).toBe("Version 2 is the job's draft now, and a job has one at a time. Delete it or mark it sent first.")
-    await ok(app, m('quote.sent', { id: 'v2', on: day(0) }), m('quote.restore', { id: 'v1' }))
+    expect(await putBack(app, 'v1')).toBe("Version 2 is the job's draft now, and a job has one at a time. Delete it or mark it sent first.")
+    await ok(app, m('quote.sent', { id: 'v2', on: day(0) }))
+    expect(await putBack(app, 'v1')).toBe('done')
     expect(await quote('v1')).toMatchObject({ version: 1, status: 'draft' })
   })
 
