@@ -1,5 +1,5 @@
 import { lineCents, money, type JobChanges, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS } from '@sh/shared'
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
 import { Icon } from '../Icon.tsx'
 import { toDraft, type LineDraft } from './lineDraft.ts'
@@ -150,18 +150,23 @@ export function AddTransport({ vans, onAdd, onCancel }: { vans: { id: string; wh
 /** A package from the price list to add (ADR 0087). */
 export function AddPackage({ packages, onAdd, onCancel }: { packages: readonly Package[]; onAdd: (id: string) => void; onCancel: () => void }) {
   const [chosen, setChosen] = useState(packages[0]?.id ?? '')
+  const p = packages.find((x) => x.id === chosen)
   return (
     <div className="adding">
       <label className="field">
         Package to add
         <select value={chosen} onChange={(e) => setChosen(e.target.value)} autoFocus>
-          {packages.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}, {money(p.dayCents)} a {RATE_UNIT[p.rate ?? 'daily']}
+          {packages.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.dayCents ? `${x.name}, ${money(x.dayCents)} a ${RATE_UNIT[x.rate ?? 'daily']}` : x.name}
             </option>
           ))}
         </select>
-        <small>At its price on the price list, for the job's days, with what it holds printed under it.</small>
+        <small>
+          {p?.dayCents
+            ? "At its price, with the kit it holds listed under it, each to change for this job."
+            : "Its kit, each at the price list's price, listed under its name to change for this job."}
+        </small>
       </label>
       <button type="button" onClick={() => onAdd(chosen)} disabled={!chosen}>
         Add
@@ -174,36 +179,37 @@ export function AddPackage({ packages, onAdd, onCancel }: { packages: readonly P
 }
 
 /** A crew role to add: one already priced or asked for, or one typed. */
-export function AddCrew({ roles, onAdd, onCancel }: { roles: readonly string[]; onAdd: (role: string) => void; onCancel: () => void }) {
+export function AddCrew({ roles, onAdd, onCancel }: { roles: readonly string[]; onAdd: (role: string, count: number) => void; onCancel: () => void }) {
   const [typed, setTyped] = useState('')
+  // How many of the role (research/quoting.md, feature 1), so two riggers is one line added, not one line and a change.
+  const [count, setCount] = useState('1')
   const listId = useId()
-  const add = () => typed.trim() && onAdd(typed.trim().replace(/\s+/g, ' '))
+  const n = Number(count)
+  const countOk = Number.isInteger(n) && n >= 1 && n <= 10_000
+  const add = () => typed.trim() && countOk && onAdd(typed.trim().replace(/\s+/g, ' '), n)
+  const enter = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      add()
+    }
+  }
   return (
-    <div className="adding">
+    <div className="adding adding-crew">
+      <label className="field count">
+        How many
+        <input inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} onFocus={(e) => e.target.select()} onKeyDown={enter} aria-invalid={!countOk} />
+      </label>
       <label className="field">
         Crew role to add
-        <input
-          list={listId}
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              add()
-            }
-          }}
-          placeholder="Audio tech"
-          maxLength={100}
-          autoFocus
-        />
-        <small>Priced from the price list, for the job's days.</small>
+        <input list={listId} value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={enter} placeholder="Audio tech" maxLength={100} autoFocus />
+        <small>{countOk ? "Priced from the price list, for the job's days." : 'How many is a whole number from 1 to 10,000.'}</small>
       </label>
       <datalist id={listId}>
         {roles.map((r) => (
           <option key={r} value={r} />
         ))}
       </datalist>
-      <button type="button" onClick={add} disabled={!typed.trim()}>
+      <button type="button" onClick={add} disabled={!typed.trim() || !countOk}>
         Add
       </button>
       <button type="button" className="link" onClick={onCancel}>

@@ -3,6 +3,224 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: a master calendar of jobs and enquiries
+
+**Done**
+
+- Jobs › Calendar shows a month a box a day, with confirmed jobs solid and
+  enquiries and quotes dashed and named, all together. Everything, Confirmed
+  or Potential at the top; jobs with no dates yet listed underneath; a day
+  opens its week on the planner. Those who see money also see whether a
+  quote has gone out. On a phone it lists the days with something on. It
+  reads only and writes nothing to Google (1.124.0, ADR 0123).
+
+**Waiting on**
+
+- Nothing.
+
+## 9 November 2026: job offers over WhatsApp, researched
+
+**Done**
+
+- [Job offers over WhatsApp](research/whatsapp-offers.md), at Colly's ask
+  that the app send offers itself. Recommended: Meta's WhatsApp Cloud API
+  direct (no provider, about €80 a year), an offer that sends itself when
+  the office makes it, with Yes, No and See the details buttons; Yes and
+  No answer the offer as the link does. Freelancers tick "Send my offers on
+  WhatsApp" on their link first. Behind a switch, off until launch. A plan
+  in four parts. Nothing built.
+
+**Waiting on**
+
+- Colly to pick the plan and answer the page's five questions; Meta
+  business verification and a number when building starts.
+
+## 9 November 2026: the logo goes Home, and a start screen for each person
+
+**Done**
+
+- Pressing the Session Hire logo top left goes Home from any screen, on a
+  phone and at a desk.
+- Menu › You has "Open the app on": Home, Jobs, Board, Planner, Quotes,
+  Stock or Crew. It's kept with the person's account, so every device they
+  sign in on opens there; Home stays the default, and a link still opens
+  where it points (1.123.0, ADR 0122, PR #272).
+
+**Waiting on**
+
+- Nothing.
+
+## 9 November 2026: five ideas from Rentdeck, built
+
+**Done**
+
+- Colly picked five of the eight ideas, and all five are in:
+  - A client's payment terms, printed on the quote, and who to ask for at
+    a venue, printed on the call sheet (1.120.0, ADR 0119, PR #268).
+  - "+ Quote" on each day of the planner starts a quote for that day, and
+    keys at a desk: press ? for the list (1.121.0, ADR 0120, PR #269).
+  - The client accepts a quote online from a link: the quote as sent, their
+    name and a tick (1.122.0, ADR 0121, PR #270). Behind the switch "Let
+    clients accept quotes online" under Admin › Company, **off** until
+    launch; the app sends nothing, the link goes only in an email the
+    office sends.
+- Learnings for the design system in design-system PR #45.
+
+**Waiting on**
+
+- Colly to merge design-system #45, and to turn on online acceptance at
+  launch.
+
+## 8 November 2026: Rentdeck, set beside the app
+
+**Done**
+
+- [Rentdeck, set beside Session Hire's app](research/competitor-rentdeck.md),
+  at Colly's ask: a new Dutch tool at €9.95 a month for one user, for small
+  hire firms leaving Excel. Read from its site, wiki and terms; no trial
+  opened. It is ahead on invoices, the client signing a quote online and
+  paperwork the office can redraw; the app is ahead on crew, the calendar,
+  the warehouse, jobs and quoting. Eight ideas worth taking, all small
+  except online acceptance and invoicing (paused). Nothing built.
+
+**Waiting on**
+
+- Colly to pick any of the ideas, and the page's four questions.
+
+## 8 November 2026: an audit of the quote flow, and quoting from scratch
+
+**Done**
+
+- [Audit, 8 November 2026: the quote flow](audit-quote-flow-2026-11-08.md),
+  at Colly's ask: the quote from enquiry to confirmed job, as the office
+  person fills it in, on a phone and at a desk, offline too, at 1.118.0,
+  weighed against what 1,072 Current RMS quotes look like (counted, none
+  named). 21 findings: no P0, 4 P1 (free lines can only be "needs a
+  price", a count lost when the product's name has digits, a part-typed
+  client becomes a new one, a draft's kit isn't held or seen by other
+  quotes), 13 P2, 4 P3, in seven suggested batches. Screenshots in the
+  project folder under `screens/quote-audit/`. Nothing live was touched.
+- Its second half answers "if we did it again from scratch": the quote as
+  the job's plan (its kit pencilled, its crew as calls), starting from the
+  client, one Add box, Included lines and the office's own groups, due
+  today first, dry hire as its own shape, sending as one act. Reachable in
+  steps, not a rebuild.
+
+- Colly picked batch 1, "the first 3 small ones" (#266, 1.119.0): a quote
+  line can be given as Included at no charge, and a product at €0 on the
+  price list arrives that way; a number typed before a product is how many
+  first ("2 d20" adds two); the start of one client or venue left in the
+  box takes that one, said under it with a press to keep it new.
+
+**Waiting on**
+
+- Colly to pick the next batch, and the page's six questions.
+
+## 8 November 2026: a package's price starts at its items' total
+
+**Done**
+
+- Colly: "Start with the price for the total for all items in package and
+  then allow a discount to a set price." The package editor and list show
+  what its items come to; a price of its own shows as what it takes off;
+  a package added to a quote keeps that total, and the quote on screen and
+  on paper says "€N off its items' €T" ([ADR 0116](adr/0116-a-package-is-a-shortcut-for-its-kit.md), point 2).
+
+## 8 November 2026: packages as a shortcut for their kit
+
+**Done**
+
+- Colly asked for named sets of kit as templates, then for a package to be
+  a shortcut for its gear, itemised under it (folded on screen, printed
+  open), and racks the same.
+- Built ([ADR 0116](adr/0116-a-package-is-a-shortcut-for-its-kit.md)):
+  adding a package adds its line and each product as a line under it; a
+  priced package includes its kit, an unpriced one is its kit's prices;
+  racks bring their layout's kit, included; save a quote's kit as a
+  package; add a package's kit on a job's Kit.
+
+**Waiting**
+
+- Colly chose "either, set per package" for pricing, as built.
+- The thread finding package templates in Current RMS quotes proposes a
+  starter list, loaded only once Colly approves it.
+
+## 8 November 2026: start a quote from a past job
+
+**Done**
+
+- Colly asked for old quotes as templates for related new ones, by venue
+  and client, based on what actually went out rather than what was quoted.
+- Built ([ADR 0115](adr/0115-start-a-quote-from-a-past-job.md)): New quote
+  offers up to six past jobs once the client or venue is known (both
+  first), and picking one fills the ticked lines: kit at what went out,
+  marked where it differed from the quote or went beyond it, priced from
+  today's price list.
+
+## 8 November 2026: freelancers' access
+
+**Done**
+
+- Colly asked what the rules allow for freelancers' access. Today: the
+  private link is the whole way in (ADR 0002); Google sign-in takes only
+  Session Hire's Workspace, so freelancers can't sign in; a link never runs
+  out, isn't tied to a phone, and a lost one comes back only through the
+  office. Colly picked "Link, made safer" from three ways.
+- Built ([ADR 0114](adr/0114-freelancer-links-remember-phones.md)): every
+  link remembers the phones it opens on (a cookie scoped to the link, only
+  hashes kept). A switch under Admin › Company, Freelancers' links, starts
+  off; on, a new phone needs a six-digit code emailed from the operations
+  mailbox, and `/link` emails a lost link. A never-used link opens on the
+  first phone, which is also the way back for someone with no email: the
+  office's New link.
+
+**Waiting**
+
+- Colly: turn on Check new phones at launch, with the operations mailbox
+  connected and allowed to send.
+## 8 November 2026: quoting, the six small ones and the draft fix
+
+**Done**
+
+- Colly picked the six small features and the draft fix from
+  [research/quoting.md](research/quoting.md).
+- Quantity typed with the product in Add kit ("12 y10"), and How many
+  beside the role in Add crew; each product in the picker says its price,
+  rule and how many are free on the job's days (#254, 1.110.0).
+- One check before a quote goes (no price, short of kit, no travel, first
+  day gone); a sent quote whose prices have run out says so; why a quote
+  was turned down, with a note, on the quote and in history; who asked,
+  how it came and the day the quote's wanted by on New quote, the day as
+  the Quote sent task's due day (#255, 1.111.0).
+- Two people on one draft keep both their changes: saves carry what they
+  began from and are merged line by line on the server and the device,
+  and an open draft takes in changes from elsewhere
+  ([ADR 0113](adr/0113-two-people-on-one-draft.md), #256, 1.111.1).
+
+**Waiting on**
+
+- Colly's answers to the research's seven questions, and whether to go on
+  to starting from a past quote and product companions.
+
+## 8 November 2026: what would make quoting faster, easier and more reliable
+
+**Done**
+
+- Research on Colly's ask to focus on the quoting stage:
+  [research/quoting.md](research/quoting.md). The quote flow walked on
+  made-up data, desk and phone, at 1.109.3 (screenshots in the project
+  folder under `screens/quoting-research/`), the quoting ADRs and code
+  read. Fifteen features ranked by value and effort: six small ones first
+  (quantity as kit is picked, price and free count in the picker, one
+  check before a quote goes, prices that have run out, why a quote was
+  turned down, a day the quote is due by), then starting from a past
+  quote and a product's usual companions, and a fix so two people on one
+  draft don't wipe each other's lines. No invoicing work proposed.
+
+**Waiting on**
+
+- Colly's answers to the page's seven questions, and which to build first.
+
 ## 7 November 2026: batch 5 of the UX sweep, what the small moves prepared
 
 **Done**

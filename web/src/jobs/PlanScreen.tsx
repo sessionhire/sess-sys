@@ -33,7 +33,9 @@ import { StatusPill, WAITING_TO_SYNC } from '../StatusPill.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
 import { useToday } from '../view.ts'
 import { Top } from './common.tsx'
+import { QuickQuote, type QuickAt } from './QuickQuote.tsx'
 import { Views } from '../Views.tsx'
+import { calendarHref } from './CalendarScreen.tsx'
 import { vehicleHref } from '../stock/Vehicles.tsx'
 
 /**
@@ -68,7 +70,7 @@ const daysOf = (scale: Scale, day: string) => (scale === 'week' ? weekOf(day) : 
  * then the clients and the venues they're for. From the planner, the other
  * scale opens on the same days.
  */
-export function JobViews({ place, current }: { place?: Place; current?: 'board' | 'clients' | 'venues' | 'money' }) {
+export function JobViews({ place, current }: { place?: Place; current?: 'board' | 'calendar' | 'clients' | 'venues' | 'money' }) {
   const now = useToday()
   // Money is the office's and directors' (ADR 0042): a role that isn't sent it has no page for it.
   const money = useAccess().can('money')
@@ -82,6 +84,8 @@ export function JobViews({ place, current }: { place?: Place; current?: 'board' 
       pages={[
         { key: 'list', href: '#jobs', label: 'List' },
         { key: 'board', href: '#jobs/board', label: 'Board' },
+        // Everything on and everything that might be, a month at a time (ADR 0124).
+        { key: 'calendar', href: calendarHref({ month: place ? place.day : now }), label: 'Calendar' },
         { key: 'week', href: hashOf({ scale: 'week', day, rows }), label: 'Week' },
         { key: 'month', href: hashOf({ scale: 'month', day, rows }), label: 'Month' },
         { key: 'clients', href: '#jobs/clients', label: 'Clients' },
@@ -111,6 +115,10 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   const people = everyone ? p.people : busy
   const lanes = rows === 'jobs' ? p.jobs.length : rows === 'people' ? people.length : p.vans.length
   const rowWord = rows === 'jobs' ? 'job' : rows === 'people' ? 'person' : 'vehicle'
+  // A quote can start from a day of the week (ADR 0120), for those who make quotes, on the jobs' rows where the work is: a card
+  // opens on the day, as a calendar makes an event, and the day stays in view behind it (ADR 0124).
+  const quoting = useAccess().can('money') && rows === 'jobs'
+  const [quick, setQuick] = useState<QuickAt>()
 
   // On a phone the days start at today, so the day that matters most is in view: when the days change, and once there is something to show.
   const scroller = useRef<HTMLDivElement>(null)
@@ -135,6 +143,18 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
                   {d === now && <small className="today-word">Today</small>}
                   {/* A public holiday (ADR 0024) is named on its day, so nobody counts it as a working day. */}
                   {p.holidays[d] && <small className="holiday-name">{p.holidays[d]}</small>}
+                  {quoting && d >= now && (
+                    <button
+                      type="button"
+                      className="day-quote"
+                      aria-label={`New quote starting ${dayLabel(d)}`}
+                      title={`New quote starting ${dayLabel(d)}`}
+                      aria-haspopup="dialog"
+                      onClick={(e) => setQuick({ day: d, anchor: e.currentTarget })}
+                    >
+                      + Quote
+                    </button>
+                  )}
                 </>
               ) : (
                 <a href={at({ scale: 'week', day: d })} aria-label={`${dayLabel(d)}${p.holidays[d] ? `, ${p.holidays[d]}` : ''}: open its week`}>
@@ -303,6 +323,7 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
         )}
         <Legend rows={rows} />
       </section>
+      {quick && <QuickQuote view={view} at={quick} onClose={() => setQuick(undefined)} />}
     </div>
   )
 }

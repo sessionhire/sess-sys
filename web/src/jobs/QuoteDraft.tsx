@@ -2,11 +2,19 @@ import {
   changesFromJob,
   dayLabel,
   DEPARTMENT_LABELS,
+  packageSaving,
+  packageWorth,
   eachDay,
   euroText,
   irishToday,
   linesByGroup,
+  linesUnder,
+  inRacks,
+  lineCents,
+  needsPrice,
   MAX_LINES,
+  MOST_PACKAGE_ITEMS,
+  type Department,
   money,
   newId,
   parseEuro,
@@ -27,11 +35,14 @@ import {
   type Pin,
   lineCostOf,
   quoteKit,
+  kitFree,
+  RATE_LABELS,
   quoteMargin,
   quoteWants,
   suggestionLine,
   type AskedLine,
   MOST_LAST_CHARGED_NAMES,
+  draftBase,
 } from '@sh/shared'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -51,6 +62,7 @@ import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, li
 import { Totals } from './QuoteSheet.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
+import { PackageEditor, type PackageStart } from './Packages.tsx'
 import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
 
 /**
@@ -116,6 +128,17 @@ function keepTyped(id: string, t: Typed | undefined) {
   }
 }
 
+/** A draft's terms as they're typed, to tell one changed here from one left as it was (ADR 0113). */
+const termsText = (q: QuoteView) => ({
+  meals: q.mealsProvided ?? false,
+  kmTyped: q.travelKm == null ? '' : String(q.travelKm),
+  discount: q.discountPct ? String(q.discountPct) : '',
+  agreed: q.agreedCents == null ? '' : euroText(q.agreedCents),
+  notes: q.notes,
+  validFor: String(q.validDays ?? DEFAULT_VALID_DAYS),
+  deposit: q.depositPct ? String(q.depositPct) : '',
+})
+
 /** The job's days, which a line added on the quote is charged for until changed. */
 const jobDays = (job: JobView) => (job.span ? Math.max(1, eachDay(job.span.start, job.span.end).length) : 1)
 
@@ -144,7 +167,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [discounting, setDiscounting] = useState<string>()
   const [sentOn, setSentOn] = useState(today)
   const [answering, setAnswering] = useState(false)
-  // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26).
+  // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26),
+  // and so is anything else on the list of what to look at before it goes (research/quoting.md, feature 3).
   const [free, setFree] = useState<'mark' | 'email'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
   const canEmail = useQuotesByEmail(m)
@@ -156,8 +180,16 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const [wantCost, setWantCost] = useState(false)
   // The line just shut, which keeps the focus so the keyboard carries on from it.
   const [shut, setShut] = useState<string>()
-  const [removed, setRemoved] = useState<{ line: LineDraft; at: number }>()
-  const [adding, setAddingTo] = useState<'kit' | 'crew' | 'package' | 'transport'>()
+  const [removed, setRemoved] = useState<{ line: LineDraft; at: number; under: LineDraft[] }>()
+  // The packages whose kit is shown under their line (ADR 0116); folded otherwise.
+  const [shownSets, setShownSets] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleSet = (id: string) =>
+    setShownSets((now) => {
+      const next = new Set(now)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  const [adding, setAddingTo] = useState<'kit' | 'crew' | 'package' | 'transport' | 'save-package'>()
   // Kit lines added since Add kit was pressed, while its picker stays open for the next.
   const [kitPicks, setKitPicks] = useState(0)
   const setAdding = (to: typeof adding) => {
@@ -170,6 +202,56 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const touch = (k: string) => setTouched((s) => (s.has(k) ? s : new Set(s).add(k)))
   const { run, error, refuse } = useAct()
   const set = (id: string, changes: Partial<LineDraft>) => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...changes } : l)))
+
+  // Two people on one draft (ADR 0113). `opened` is the draft as this device's typing began from: when the draft changes
+  // elsewhere, what wasn't touched here takes the change, and what was is kept, so neither person's work is lost. A line
+  // changed on both keeps what's typed here, and says so. Saves carry `opened` so the server does the same.
+  const opened = useRef(q)
+  const [bothChanged, setBothChanged] = useState<string[]>([])
+  const drawn = baseOf(q)
+  useEffect(() => {
+    const was = opened.current
+    if (baseOf(was) === drawn) return
+    opened.current = q
+    // As saving reads it: a line typed here reads as the saved one when it would save as it.
+    const same = (d: LineDraft, l: QuoteLine) => {
+      const c = checkLine(d, 1)
+      return !!c.line && sameLine(c.line, l)
+    }
+    const before = new Map(was.lines.filter((l) => !l.extra).map((l) => [l.id, l]))
+    const now = q.lines.filter((l) => !l.extra)
+    const theirs = new Map(now.map((l) => [l.id, l]))
+    const here = new Set(lines.map((d) => d.id))
+    const clash: string[] = []
+    const next: LineDraft[] = []
+    for (const d of lines) {
+      const b = before.get(d.id)
+      const t = theirs.get(d.id)
+      if (!b) next.push(d) // added here, not saved yet
+      else if (same(d, b)) {
+        if (t) next.push(toDraft(t)) // untouched here: theirs, or gone if they took it off
+      } else {
+        next.push(d)
+        if (t && !same(d, t) && !sameLine(t, b)) clash.push(d.what.trim() || 'A line')
+      }
+    }
+    now.forEach((t, i) => {
+      if (here.has(t.id) || before.has(t.id)) return
+      const after = now.slice(0, i).reverse().find((x) => next.some((d) => d.id === x.id))
+      next.splice(after ? next.findIndex((d) => d.id === after.id) + 1 : 0, 0, toDraft(t))
+    })
+    setLines(next)
+    const a = termsText(was)
+    const z = termsText(q)
+    if (meals === a.meals) setMeals(z.meals)
+    if (kmTyped === a.kmTyped) setKmTyped(z.kmTyped)
+    if (discount === a.discount) setDiscount(z.discount)
+    if (agreed === a.agreed) setAgreed(z.agreed)
+    if (notes.trim() === a.notes.trim()) setNotes(z.notes)
+    if (validFor === a.validFor) setValidFor(z.validFor)
+    if (deposit === a.deposit) setDeposit(z.deposit)
+    if (clash.length) setBothChanged(clash)
+  }, [drawn])
   const openLine = (id: string | undefined, focus: 'what' | 'price' = 'what', cost = false) => {
     if (open && open !== id) touch(open)
     setFocusField(focus)
@@ -240,7 +322,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     q.notes.trim() === notes.trim() &&
     valid === (q.validDays ?? DEFAULT_VALID_DAYS) &&
     dep === (q.depositPct ?? null)
-  const unpricedLines = good.filter((l) => l.unitCents === 0)
+  const unpricedLines = good.filter((l) => needsPrice(l, good))
   // Whether there's enough of each product on the job's days (ADR 0089), as the job's kit is checked.
   const checks = quoteKit(job, quoteWants(good, (id) => m.package(id)?.items), today, {
     kit: view.kit,
@@ -248,12 +330,34 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     unusable: view.faults.unusable,
     lateOut: view.moves.lateOut,
   })
+  // What the kit picker says of each product (research/quoting.md, feature 2): its price and rule, and how many are free
+  // on the job's days beyond what the quote already wants, so a product that's short is seen before it's added.
+  const kitInputs = { kit: view.kit, models: (id: string) => view.warehouse.models.find((x) => x.id === id), unusable: view.faults.unusable, lateOut: view.moves.lateOut }
+  const wantedNow = quoteWants(good, (id) => m.package(id)?.items)
+  const aboutKit = (modelId: string) => {
+    const cents = m.productPrice(modelId)
+    const rate = m.productRate(modelId)
+    const price = cents === undefined ? 'No price yet' : cents === 0 ? 'Included at no charge' : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
+    const free = kitFree(job, modelId, wantedNow.get(modelId) ?? 0, today, kitInputs)
+    const freeWords = free === undefined ? '' : free === 0 ? (wantedNow.get(modelId) ? 'no more free' : 'none free') : wantedNow.get(modelId) ? `${free} more free` : `${free} free`
+    return [price, freeWords].filter(Boolean).join(' · ')
+  }
   const shortLines = good.filter((l) => linesShort(l, checks, m.package(l.packageId ?? '')?.items).length > 0)
   // What it makes (ADR 0089), for the office and directors, who see quotes at all.
   const boss = useAccess().can('money')
   const costOf = (l: QuoteLine) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined)
   const margin = quoteMargin(totals.net, all.map(costOf))
   const noCostLines = boss ? good.filter((l) => costOf(l) === undefined) : []
+  // What to look at before a quote goes (research/quoting.md, feature 3), gathered at the moment it's sent or marked
+  // sent, each opening where it's put right: what the client would see wrong, not the cost side, which isn't printed.
+  const beforeItGoes: { key: string; words: string; look?: () => void }[] = []
+  if (unpricedLines.length)
+    beforeItGoes.push({ key: 'price', words: `${plural(unpricedLines.length, 'line')} with no price, which ${unpricedLines.length === 1 ? 'goes' : 'go'} to the client as €0.00`, look: () => openLine(unpricedLines[0]!.id, 'price') })
+  if (shortLines.length)
+    beforeItGoes.push({ key: 'short', words: `${plural(shortLines.length, 'line')} short of kit on the job's days`, look: () => openLine(shortLines[0]!.id) })
+  if (extras.travel.km === null && good.some((l) => l.kind === 'crew'))
+    beforeItGoes.push({ key: 'travel', words: "No travel for the crew: the venue isn't on the map, so the distance isn't known", look: () => openLine(TRAVEL_ROW) })
+  if (job.span && job.span.start < today) beforeItGoes.push({ key: 'past', words: `The job's first day, ${dayLabel(job.span.start)}, has passed` })
   // What each line was last charged in Current RMS (ADR 0092), by the names it goes by there.
   const namesOf = (l: LineDraft) => rmsNames(l, (id) => view.warehouse.models.find((x) => x.id === id))
   const last = useLastCharged(boss, job.id, lines.flatMap(namesOf).slice(0, MOST_LAST_CHARGED_NAMES))
@@ -262,7 +366,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   // the page saves what's waiting at once. Saving goes through the device's queue, so it works with no signal.
   const payload =
     !saved && !problem
-      ? { id: q.id, projectId: job.id, lines: all.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead }
+      ? { id: q.id, projectId: job.id, lines: all.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead, base: draftBase(opened.current) }
       : undefined
   const waiting = useRef(payload)
   waiting.current = payload
@@ -297,7 +401,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
     openLine(id)
     setAdding(undefined)
   }
-  const addKit = (modelId: string) => {
+  const addKit = (modelId: string, count = 1) => {
     const model = view.warehouse.models.find((x) => x.id === modelId)
     if (!model) return
     const cents = m.productPrice(modelId)
@@ -309,48 +413,114 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
       ref: null,
       modelId,
       group: DEPARTMENT_LABELS[model.department],
-      qty: '1',
+      qty: String(count),
       days: String(days),
-      price: cents === undefined ? '' : euroText(cents),
+      price: cents === undefined || cents === 0 ? '' : euroText(cents),
       vat: STANDARD_VAT,
       per: 'day',
       rate: rate && rate !== 'daily' ? rate : null,
+      // Priced at €0 on the price list, it's given at no charge (audit of the quote flow, 8 November 2026, finding 1).
+      ...(cents === 0 ? { included: true } : {}),
     }, true)
+    // A rack (ADR 0074) goes with what's built into it, listed under it as a package's kit is (ADR 0116), included in its price.
+    const slots = view.racks.of(modelId)?.slots ?? []
+    if (model.isRack && slots.length) {
+      const inIt = new Map<string, number>()
+      for (const sl of slots) inIt.set(sl.modelId, (inIt.get(sl.modelId) ?? 0) + sl.qty)
+      setLines((ls) => {
+        const rackLine = ls.at(-1)
+        if (!rackLine || rackLine.modelId !== modelId) return ls
+        const kids = [...inIt].flatMap(([id, n]): LineDraft[] => {
+          const x = view.warehouse.models.find((y) => y.id === id)
+          if (!x) return []
+          return [
+            { ...rackLine, id: newId(), what: x.name, modelId: id, group: DEPARTMENT_LABELS[x.department], qty: String(n * count), price: euroText(0), rate: null, under: rackLine.id },
+          ]
+        })
+        return [...ls, ...kids].slice(0, MAX_LINES)
+      })
+    }
   }
-  // A package (ADR 0087) goes on as one line at its price and rule, with what it holds now written on the line, so the
-  // quote prints as it was made however the package changes after.
+  // A package (ADR 0087) is a shortcut for adding its kit (ADR 0116): its line, named for it, and each product it holds as a
+  // line under it, to change for this job. A package with its own price is charged at that, with its kit included; one
+  // without is its kit at the price list's prices. What else it includes in words is written on its line.
   const addPackage = (packageId: string) => {
     const p = m.package(packageId)
     if (!p) return
-    addLine({
+    const whole = p.dayCents > 0
+    // What its items come to, which its own price is a discount from (ADR 0116): kept on its line for the quote to show.
+    const worth = packageWorth(p, (id) => ({ cents: m.productPrice(id), rate: m.productRate(id) }))
+    const full = whole && !worth.unpriced && packageSaving(worth.cents, p.dayCents) ? worth.cents : undefined
+    const titleId = newId()
+    const blank = { ref: null, vat: STANDARD_VAT, per: 'day' as const, discount: '', includes: '', subhire: '', supplier: '', cost: '', days: String(days), out: String(days) }
+    const title: LineDraft = {
+      ...blank,
+      id: titleId,
       kind: 'kit',
       what: p.name,
-      ref: null,
       modelId: null,
       group: DEPARTMENT_LABELS[p.department],
       qty: '1',
-      days: String(days),
-      price: euroText(p.dayCents),
-      vat: STANDARD_VAT,
-      per: 'day',
-      rate: p.rate && p.rate !== 'daily' ? p.rate : null,
+      price: euroText(whole ? p.dayCents : 0),
+      rate: whole && p.rate && p.rate !== 'daily' ? p.rate : null,
       packageId: p.id,
-      includes: packageIncludes(p, (id) => view.warehouse.models.find((x) => x.id === id)?.name),
+      includes: p.notes.trim(),
+      ...(full ? { full } : {}),
+    }
+    const kids = p.items.flatMap((i): LineDraft[] => {
+      const model = view.warehouse.models.find((x) => x.id === i.modelId)
+      if (!model) return []
+      const cents = whole ? 0 : m.productPrice(i.modelId)
+      const rate = whole ? undefined : m.productRate(i.modelId)
+      return [
+        {
+          ...blank,
+          id: newId(),
+          kind: 'kit',
+          what: model.name,
+          modelId: i.modelId,
+          group: DEPARTMENT_LABELS[model.department],
+          qty: String(i.qty),
+          price: cents === undefined || cents === 0 ? '' : euroText(cents),
+          rate: rate && rate !== 'daily' ? rate : null,
+          packageId: null,
+          under: titleId,
+          ...(!whole && cents === 0 ? { included: true } : {}),
+        },
+      ]
     })
+    setLines((ls) => [...ls, title, ...kids].slice(0, MAX_LINES))
+    setShownSets((now) => new Set(now).add(titleId))
+    openLine(titleId)
+    setAdding(undefined)
   }
-  const addCrew = (role: string) => {
+  // The quote's kit, as a package to start the next one from (ADR 0116): each product once, with how many.
+  const kitStart = (): PackageStart => {
+    const qty = new Map<string, number>()
+    for (const l of lines) if (l.kind === 'kit' && l.modelId) qty.set(l.modelId, (qty.get(l.modelId) ?? 0) + Math.max(1, Math.round(Number(l.qty)) || 1))
+    const items = [...qty].map(([modelId, n]) => ({ modelId, qty: Math.min(10_000, n) })).slice(0, MOST_PACKAGE_ITEMS)
+    const depts = new Map<Department, number>()
+    for (const i of items) {
+      const d = view.warehouse.models.find((x) => x.id === i.modelId)?.department
+      if (d) depts.set(d, (depts.get(d) ?? 0) + 1)
+    }
+    return { items, department: [...depts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'audio' }
+  }
+  const addCrew = (role: string, count = 1) => {
     const r = m.roles.find((x) => x.role === role)
     const cents = r?.cents ?? r?.booked
-    addLine({ kind: 'crew', what: role, ref: null, modelId: null, group: 'Crew', qty: '1', days: String(days), price: cents === undefined ? '' : euroText(cents), vat: STANDARD_VAT, per: 'day' })
+    addLine({ kind: 'crew', what: role, ref: null, modelId: null, group: 'Crew', qty: String(count), days: String(days), price: cents === undefined ? '' : euroText(cents), vat: STANDARD_VAT, per: 'day' })
   }
   const addOther = () => addLine({ kind: 'other', what: '', ref: null, modelId: null, group: '', qty: '1', days: '1', price: '', vat: STANDARD_VAT, per: 'once' })
   // Transport (ADR 0089): charged once, with what it costs us beside it; named for a van booked on the job when there is one.
   const addTransport = (what: string, ref: string | null) =>
     addLine({ kind: 'other', what, ref, modelId: null, group: 'Transport', qty: '1', days: '1', price: '', vat: STANDARD_VAT, per: 'once' })
   const vans = view.vehicles.ofJob(job.id).filter((b) => b.vehicle && !lines.some((l) => l.ref === b.id))
+  // A package's line goes with its kit, and comes back with it.
   const remove = (l: LineDraft) => {
-    setRemoved({ line: l, at: lines.indexOf(l) })
-    setLines((ls) => ls.filter((x) => x.id !== l.id))
+    const under = linesUnder(lines, l.id)
+    setRemoved({ line: l, at: lines.indexOf(l), under })
+    setLines((ls) => ls.filter((x) => x.id !== l.id && x.under !== l.id))
     if (open === l.id) setOpen(undefined)
   }
   // A short line hires in what it's short of (ADR 0089), then opens for who from and what it costs.
@@ -360,7 +530,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   }
   const undoRemove = () => {
     if (!removed) return
-    setLines((ls) => [...ls.slice(0, removed.at), removed.line, ...ls.slice(removed.at)])
+    setLines((ls) => [...ls.slice(0, removed.at), removed.line, ...removed.under, ...ls.slice(removed.at)])
     setRemoved(undefined)
   }
   const allKitDays = () => {
@@ -380,7 +550,9 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   const kitLines = lines.filter((l) => l.kind === 'kit' && l.per === 'day' && !l.rate).length
   const source = m.sourceOf(job.id)
   // Every line counts here, finished or not, so one being typed isn't offered again as new on the job.
-  const asLines = lines.map((l): QuoteLine => ({ id: l.id, kind: l.kind, what: l.what, ref: l.ref, group: l.group, qty: num(l.qty), days: 1, unitCents: 0, vat: l.vat, modelId: l.modelId }))
+  // What's built into a rack goes with the rack (ADR 0116), so isn't kit of its own to keep up with the job.
+  const racked = inRacks(lines)
+  const asLines = lines.filter((l) => !racked.has(l)).map((l): QuoteLine => ({ id: l.id, kind: l.kind, what: l.what, ref: l.ref, group: l.group, qty: num(l.qty), days: 1, unitCents: 0, vat: l.vat, modelId: l.modelId }))
   // The products in the quote's packages, so kit put on the job from them isn't offered again (ADR 0102).
   const packaged = new Set(lines.flatMap((l) => (l.packageId ? (m.package(l.packageId)?.items ?? []).map((i) => i.modelId) : [])))
   const changes = changesFromJob(asLines, source.kit, source.crew, { product: m.productPrice, role: m.rolePrice, rate: m.productRate }, newId, packaged)
@@ -417,6 +589,50 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   }
   const full = lines.length >= MAX_LINES
   const nextNumber = m.quotesOf(job.id).find((v) => v.number)?.number ?? m.nextNumber
+  // One line, shut or open to change. A package's line (ADR 0116) comes to its own price and its kit's, and kit in a package
+  // priced as a whole is included in it.
+  const row = (l: LineDraft, under: readonly LineDraft[] = []) => {
+    const n = lines.indexOf(l) + 1
+    const c = parsed[n - 1]!
+    const done = c.line
+    const underDone = under.map((u) => parsed[lines.indexOf(u)]?.line)
+    const setTotal = done && under.length && underDone.every(Boolean) ? lineCents(done) + underDone.reduce((t, u) => t + lineCents(u!), 0) : undefined
+    const included = !!done && !needsPrice(done, good) && done.unitCents === 0 && !!l.under
+    const kit = done && <KitNote l={done} checks={checks} items={under.length ? undefined : m.package(l.packageId ?? '')?.items} names={(id) => view.warehouse.models.find((x) => x.id === id)?.name} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} span={job.span} />
+    const cost = done ? costOf(done) : undefined
+    return open !== l.id ? (
+      <div key={l.id} className="quote-line-row">
+        <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} margin={boss && done ? lineMargin(done, cost) : undefined} total={setTotal} included={included} heads={under.length > 0} />
+        {kit}
+      </div>
+    ) : (
+      <div key={l.id} className="quote-line-row open">
+        <LineEditor
+          l={l}
+          n={n}
+          done={done}
+          fault={c.fault}
+          left={touched.has(l.id)}
+          focus={focusField}
+          set={(ch) => set(l.id, ch)}
+          onRemove={() => remove(l)}
+          onDone={() => {
+            touch(l.id)
+            setShut(l.id)
+            setOpen(undefined)
+          }}
+          onLeave={() => touch(l.id)}
+          kit={kit}
+          last={<LastCharged found={lastOf(last, namesOf(l))} n={n} price={l.price} onUse={(cents) => set(l.id, { price: euroText(cents) })} />}
+          cost={cost}
+          boss={boss}
+          suppliers={view.kit.suppliers}
+          wantCost={wantCost}
+          included={included || (under.length > 0 && !!l.packageId)}
+        />
+      </div>
+    )
+  }
   const undoLine = removed && (
     <p className="undo-line" aria-live="polite">
       Removed “{removed.line.what || 'a line'}”.{' '}
@@ -497,6 +713,14 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
         </div>
 
         <JobChangesCard changes={changes} quoteId={q.id} onTake={(next) => setLines((ls) => next(ls))} />
+        {bothChanged.length > 0 && (
+          <p className="warn-line both-changed" role="status">
+            Someone else changed {bothChanged.length === 1 ? `“${bothChanged[0]}”` : `${bothChanged.length} of the same lines`} while you were on it. Yours is kept, and the rest of their changes are in.{' '}
+            <button type="button" className="link" onClick={() => setBothChanged([])}>
+              OK
+            </button>
+          </p>
+        )}
         {claude.offered && <MailOnQuote view={view} projectId={job.id} jobDays={days} lines={asked} discountPct={pctOk ? pct : 0} onTake={takeAdvice} />}
 
         {lines.length === 0 && <Empty>No lines yet. Add kit, crew or anything else the quote is for.</Empty>}
@@ -512,40 +736,16 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
             </div>
             {discounting === g.group && <GroupDiscount group={g.group} onApply={(off) => groupDiscount(g.group, off)} onCancel={() => setDiscounting(undefined)} refuse={refuse} />}
             {g.lines.map((l) => {
-              const n = lines.indexOf(l) + 1
-              const c = parsed[n - 1]!
-              const done = c.line
-              const kit = done && <KitNote l={done} checks={checks} items={m.package(l.packageId ?? '')?.items} names={(id) => view.warehouse.models.find((x) => x.id === id)?.name} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} span={job.span} />
-              const cost = done ? costOf(done) : undefined
-              return open !== l.id ? (
-                <div key={l.id} className="quote-line-row">
-                  <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} margin={boss && done ? lineMargin(done, cost) : undefined} />
-                  {kit}
-                </div>
-              ) : (
-                <div key={l.id} className="quote-line-row open">
-                  <LineEditor
-                    l={l}
-                    n={n}
-                    done={done}
-                    fault={c.fault}
-                    left={touched.has(l.id)}
-                    focus={focusField}
-                    set={(ch) => set(l.id, ch)}
-                    onRemove={() => remove(l)}
-                    onDone={() => {
-                      touch(l.id)
-                      setShut(l.id)
-                      setOpen(undefined)
-                    }}
-                    onLeave={() => touch(l.id)}
-                    kit={kit}
-                    last={<LastCharged found={lastOf(last, namesOf(l))} n={n} price={l.price} onUse={(cents) => set(l.id, { price: euroText(cents) })} />}
-                    cost={cost}
-                    boss={boss}
-                    suppliers={view.kit.suppliers}
-                    wantCost={wantCost}
-                  />
+              const under = linesUnder(lines, l.id)
+              if (!under.length) return row(l)
+              const shown = shownSets.has(l.id) || under.some((u) => u.id === open)
+              return (
+                <div key={l.id} className="quote-set">
+                  {row(l, under)}
+                  <button type="button" className="link quiet set-toggle" aria-expanded={shown} onClick={() => toggleSet(l.id)}>
+                    {shown ? 'Hide what’s in it' : `What’s in it (${plural(under.length, 'line')})`}
+                  </button>
+                  {shown && <div className="set-lines">{under.map((u) => row(u))}</div>}
                 </div>
               )
             })}
@@ -583,7 +783,13 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 products={view.warehouse.models}
                 value=""
                 onPick={addKit}
-                hint={kitPicks ? `${plural(kitPicks, 'line')} added. Pick the next, or Done.` : "Priced from the price list, for the job's days."}
+                counted
+                about={aboutKit}
+                hint={
+                  kitPicks
+                    ? `${plural(kitPicks, 'line')} added. Pick the next, or Done.`
+                    : "Type how many first, as 12 y10. Priced from the price list; free counts are for the job's days."
+                }
               />
               <button type="button" className="link" onClick={() => setAdding(undefined)}>
                 {kitPicks ? 'Done' : 'Cancel'}
@@ -591,6 +797,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
             </div>
           ) : adding === 'package' ? (
             <AddPackage packages={m.packages} onAdd={addPackage} onCancel={() => setAdding(undefined)} />
+          ) : adding === 'save-package' ? (
+            <PackageEditor view={view} start={kitStart()} onDone={() => setAdding(undefined)} />
           ) : adding === 'transport' ? (
             <AddTransport
               vans={vans.map((b) => ({ id: b.id, what: transportWords(b.vehicle!.kind, !!b.driver), name: `${b.vehicle!.name}${b.driver ? `, ${b.driver.name} driving` : ''}` }))}
@@ -623,6 +831,11 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 <Icon name="add" />
                 Add something else
               </button>
+              {lines.some((l) => l.kind === 'kit' && l.modelId) && (
+                <button type="button" className="link" onClick={() => setAdding('save-package')}>
+                  Save the kit as a package
+                </button>
+              )}
             </>
           )}
         </div>
@@ -773,17 +986,18 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 <button
                   type="button"
                   className={canEmail ? undefined : 'primary'}
-                  onClick={() => (unpricedLines.length ? setFree('mark') : void run(() => markSent(q.id, job, sentOn || today)))}
+                  onClick={() => (beforeItGoes.length ? setFree('mark') : void run(() => markSent(q.id, job, sentOn || today)))}
                 >
                   Mark as sent
                 </button>
               </div>
             )}
-            {free && unpricedLines.length > 0 && (
+            {free && beforeItGoes.length > 0 && (
               <Confirm
-                question={`${plural(unpricedLines.length, 'line')} ${unpricedLines.length === 1 ? 'has' : 'have'} no price and will go to the client as €0.00. ${free === 'email' ? 'Send it anyway?' : 'Mark it sent anyway?'}`}
+                className="before-it-goes"
+                question={beforeItGoes.length === 1 ? `Before it goes: ${beforeItGoes[0]!.words}.` : `Before it goes, ${beforeItGoes.length} things to look at.`}
                 yes={free === 'email' ? 'Send it anyway' : 'Mark it sent anyway'}
-                no="Price it first"
+                no="Look first"
                 onYes={() => {
                   setFree(undefined)
                   if (free === 'email') setSending('email')
@@ -791,13 +1005,36 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                 }}
                 onNo={() => {
                   setFree(undefined)
-                  openLine(unpricedLines[0]!.id, 'price')
+                  beforeItGoes.find((b) => b.look)?.look?.()
                 }}
-              />
+              >
+                {beforeItGoes.length > 1 && (
+                  <ul>
+                    {beforeItGoes.map((b) => (
+                      <li key={b.key}>
+                        {b.look ? (
+                          <button
+                            type="button"
+                            className="link"
+                            onClick={() => {
+                              setFree(undefined)
+                              b.look!()
+                            }}
+                          >
+                            {b.words}
+                          </button>
+                        ) : (
+                          b.words
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Confirm>
             )}
             <div className="actions">
               {saved && q.lines.length > 0 && canEmail && (
-                <button type="button" className="primary" onClick={() => (unpricedLines.length ? setFree('email') : setSending('email'))}>
+                <button type="button" className="primary" onClick={() => (beforeItGoes.length ? setFree('email') : setSending('email'))}>
                   Send to the client
                 </button>
               )}

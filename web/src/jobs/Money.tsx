@@ -12,6 +12,7 @@ import {
   marginsByMonth,
   money,
   moneyMonth,
+  namedExactly,
   newId,
   parseEuro,
   pctWord,
@@ -42,7 +43,7 @@ import {
   waitingHeading,
   listHeading,
 } from '@sh/shared'
-import { Fragment, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { arrive } from '../arrival.ts'
 import { Empty } from '../Empty.tsx'
@@ -55,9 +56,15 @@ import { client } from '../sync.ts'
 import { JOBS, MONEY } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
-import { Choices, clientNamed, NewOrNear, Top, venueNamed } from './common.tsx'
+import { ClientField, clientNamed, contactAdded, NewOrNear, newQuoteAsked, newQuoteHref, Top, VenueField, venueNamed } from './common.tsx'
+import { useDesk } from '../foot.tsx'
+import { shortcutHint } from '../shortcuts.tsx'
+import { NameField } from '../NameField.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
+import { StarterPackagesCard } from './StarterPackages.tsx'
+import { FromPastJob } from './PastJobs.tsx'
+import { takeQuickDraft } from './QuickQuote.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import { InStep, QuotePill } from './Quote.tsx'
 
@@ -126,6 +133,13 @@ function FollowRow({ f, what, chase, when, children }: { f: QuoteToFollow; what:
             {what} {when ?? ago(f.days)}
             {chase ? ': worth a call' : ''}
           </span>
+          {/* Its prices held until a day that has passed (research/quoting.md, feature 4): a new version, or a word with the client that they stand. */}
+          {f.ranOut && (
+            <>
+              <br />
+              <span className="warn">Prices held until {dayLabel(f.ranOut)}: check they stand, or start a new version</span>
+            </>
+          )}
         </p>
       </div>
       {children}
@@ -138,9 +152,21 @@ function FollowRow({ f, what, chase, when, children }: { f: QuoteToFollow; what:
  * waiting on the office, the longest waiting first: answered but the job not yet in step, sent with no answer (a call
  * after a week), and drafts not sent. Nothing here is sent to anyone: the office rings or emails the client themselves.
  */
-export function ToFollowUp({ view }: { view: View }) {
+export function ToFollowUp({ view, on }: { view: View; on?: string | undefined }) {
   const today = useToday()
-  const [starting, setStarting] = useState(false)
+  const desk = useDesk()
+  // Open already when the address asks (ADR 0120): a day pressed on the planner, or the shortcut for New quote.
+  const [starting, setStarting] = useState(on !== undefined)
+  const [asked, setAsked] = useState(on)
+  if (on !== asked) {
+    setAsked(on)
+    if (on !== undefined) setStarting(true)
+  }
+  const stop = () => {
+    setStarting(false)
+    // Back to Quotes itself, in place of the address that asked, so pressing the same day again opens it again.
+    if (newQuoteAsked(location.hash) !== undefined) location.replace('#quotes')
+  }
   const f = quotesToFollow(view.money, today)
   const none = f.drafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
   return (
@@ -148,11 +174,11 @@ export function ToFollowUp({ view }: { view: View }) {
       <Heading icon="document">To follow up</Heading>
       {/* Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1). */}
       {!starting && (
-        <button type="button" onClick={() => setStarting(true)}>
+        <button type="button" onClick={() => setStarting(true)} title={desk ? shortcutHint(newQuoteHref()) : undefined}>
           New quote
         </button>
       )}
-      {starting && <NewQuote view={view} onCancel={() => setStarting(false)} />}
+      {starting && <NewQuote key={asked ?? ''} view={view} on={asked || undefined} onCancel={stop} />}
       {none && !starting && <Empty>No quote is waiting on anyone. Start a new one here, or from a job's page.</Empty>}
       <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
     </section>
@@ -288,23 +314,55 @@ export function QuotesToChase({ view }: { view: View }) {
  * A quote from nothing (ADR 0081): the job in a few words, made as an enquiry with its days as one Show, and its
  * first draft opened, so a phone call can turn into a quote without making the job first.
  */
-function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
+const ENQUIRY_WAYS = ['email', 'phone', 'person', 'other'] as const
+type EnquiryWay = (typeof ENQUIRY_WAYS)[number]
+const ENQUIRY_WAY_LABELS: Record<EnquiryWay, string> = { email: 'Email', phone: 'Phone', person: 'In person', other: 'Another way' }
+const ENQUIRY_WAY_WORDS: Record<EnquiryWay, string> = { email: ' by email', phone: ' by phone', person: ' in person', other: '' }
+
+/** The job's first line of notes, when who asked or how was said: "Enquiry by phone from Aoife Byrne." */
+function enquiryLine(by: string, how: EnquiryWay | ''): string {
+  const who = by.trim().replace(/\s+/g, ' ').slice(0, 200)
+  if (!who && !how) return ''
+  return `Enquiry${how ? ENQUIRY_WAY_WORDS[how] : ''}${who ? ` from ${who}` : ''}.`
+}
+
+function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined; onCancel: () => void }) {
   const today = useToday()
   const { clients, venues } = view.jobs
-  const [f, setF] = useState({ name: '', client: '', venue: '', start: today, end: today })
+  // From a day on the planner (ADR 0120), the job's days start there; a day gone starts today, as New quote does.
+  const first = on && on >= today ? on : today
+  // Started from the planner's card with More options (ADR 0124), what was typed there comes along; otherwise empty, on the day.
+  const [f, setF] = useState(() => {
+    const quick = takeQuickDraft()
+    return quick ? { ...quick, start: quick.start >= today ? quick.start : today, end: quick.end >= today ? quick.end : today } : { name: '', client: '', venue: '', start: first, end: first }
+  })
+  // Who asked, how it came and when they want it by (research/quoting.md, feature 6): the first two go in the job's notes as
+  // a line, the day is the Quote sent task's due day, so it's on someone's list and late shows as late.
+  const [asked, setAsked] = useState<{ by: string; how: EnquiryWay | ''; quoteBy: string }>({ by: '', how: '', quoteBy: '' })
+  // Who asked is someone at the client, or anyone at any client while no client is chosen; a new name is added to the
+  // client's contacts when the quote is started.
+  const chosenClient = namedExactly(clients, f.client)
+  const askers = useMemo(
+    () => (chosenClient ? [chosenClient] : clients).flatMap((c) => c.contacts.map((p) => ({ name: p.name, role: p.role, client: c.name }))),
+    [chosenClient, clients]
+  )
   // What Claude read of an enquiry (ADR 0096): the job's parts and lines, until the dates are changed by hand.
   const claude = useClaude(view)
   const [read, setRead] = useState<EnquiryReading>()
   const [phases, setPhases] = useState<{ name: string; start: string; end: string }[]>([])
   const [lines, setLines] = useState<Offered[]>([])
+  // The past job the lines were started from (ADR 0115), until another is picked or it's picked again to clear them.
+  const [fromJob, setFromJob] = useState<string>()
   const { run, error } = useAct()
   const onRead = (r: EnquiryReading) => {
     const parts = enquiryPhases(r)
     const start = parts[0]?.start ?? f.start
     const end = parts.reduce((e, ph) => (ph.end > e ? ph.end : e), start)
     setF({ name: r.name || f.name, client: r.client || f.client, venue: r.venue || f.venue, start, end })
+    setAsked({ by: r.asker || asked.by, how: asked.how, quoteBy: r.quoteBy && r.quoteBy >= today ? r.quoteBy : asked.quoteBy })
     setPhases(parts.length > 1 ? parts : [])
     setLines(offer(enquirySuggestions(r, pricingOf(view), eachDay(start, end).length)))
+    setFromJob(undefined)
     setRead(r)
   }
   const dates = (next: { start: string; end: string }) => {
@@ -318,8 +376,10 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
     const id = newId()
     void run(async () => {
       const clientId = await clientNamed(f.client, clients)
+      await contactAdded(clientId, f.client, asked.by, clients)
       const venueId = await venueNamed(f.venue, venues)
-      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind: 'gig', notes: '' })
+      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind: 'gig', notes: enquiryLine(asked.by, asked.how) })
+      if (asked.quoteBy) await client.mutate('jobStep.set', { projectId: id, step: 'quote', dueOn: asked.quoteBy })
       for (const ph of phases.length ? phases : [{ name: 'Show', start: f.start, end: f.end < f.start ? f.start : f.end }])
         await client.mutate('phase.add', { id: newId(), projectId: id, name: ph.name, start: ph.start, end: ph.end, venueId: null, notes: '' })
       const quoteLines = taking.map((x) => suggestionLine(x.s, newId())).slice(0, MAX_LINES)
@@ -356,13 +416,9 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
       <label className="wide">
         What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required autoFocus />
       </label>
-      <label>
-        Client <span className="optional">(optional)</span> <input list="new-quote-clients" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
-      </label>
+      <ClientField jobs={view.jobs} optional value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-      <label>
-        Venue <span className="optional">(optional)</span> <input list="new-quote-venues" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
-      </label>
+      <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />
       <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <div className="pair">
         <label>
@@ -372,11 +428,53 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
           To <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
         </label>
       </div>
+      <div className="pair">
+        <label>
+          Quote wanted by <span className="optional">(optional)</span>
+          <input type="date" value={asked.quoteBy} min={today} onChange={(e) => setAsked({ ...asked, quoteBy: e.target.value })} />
+        </label>
+        <label>
+          How it came <span className="optional">(optional)</span>
+          <select value={asked.how} onChange={(e) => setAsked({ ...asked, how: e.target.value as EnquiryWay | '' })}>
+            <option value="">Not said</option>
+            {ENQUIRY_WAYS.map((w) => (
+              <option key={w} value={w}>
+                {ENQUIRY_WAY_LABELS[w]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <NameField
+        label="Who asked"
+        optional
+        what={f.client.trim() ? `contact for ${chosenClient?.name ?? f.client.trim()}` : 'contact'}
+        value={asked.by}
+        onChange={(by) => setAsked((now) => ({ ...now, by }))}
+        records={askers}
+        first={chosenClient ? askers : []}
+        firstLabel="Their people"
+        meta={(o) => [o.record.role, !chosenClient && o.record.client].filter(Boolean).join(' · ')}
+        // Someone at a client, picked with no client yet, brings their client with them.
+        onPick={(o) => !f.client.trim() && setF((now) => ({ ...now, client: o.client }))}
+      />
       {phases.length > 0 && (
         <p className="hint wide">
           In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
         </p>
       )}
+      <FromPastJob
+        view={view}
+        client={f.client}
+        venue={f.venue}
+        days={eachDay(f.start, f.end < f.start ? f.start : f.end).length}
+        today={today}
+        chosen={fromJob}
+        onPick={(jobId, offered) => {
+          setFromJob(jobId)
+          setLines(offered)
+        }}
+      />
       {lines.length > 0 && (
         <section className="wide" aria-label="Lines for the quote">
           <h3>Lines for the quote</h3>
@@ -384,7 +482,9 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
         </section>
       )}
       {read && lines.length === 0 && <p className="hint wide">Claude found no kit or crew to put on the quote. Add them on the quote.</p>}
-      <p className="hint wide">It's added to Jobs as an enquiry, and moves to quoted when you mark the quote sent. Kit, crew and the rest can be added on the quote.</p>
+      <p className="hint wide">
+        It's added to Jobs as an enquiry, and moves to quoted when you mark the quote sent. Who asked and how go in the job's notes; the day they want it by is when the Quote sent task is due. Kit, crew and the rest can be added on the quote.
+      </p>
       <Refusal error={error} className="wide" />
       <div className="actions wide">
         <button type="submit" className="primary">
@@ -394,8 +494,6 @@ function NewQuote({ view, onCancel }: { view: View; onCancel: () => void }) {
           Cancel
         </button>
       </div>
-      <Choices id="new-quote-clients" names={clients} />
-      <Choices id="new-quote-venues" names={venues} />
     </form>
   )
 }
@@ -463,11 +561,11 @@ function ByMonth({ m }: { m: MoneyView }) {
           <thead>
             <tr>
               <th scope="col">Month</th>
-              <th scope="col">Quoted</th>
-              <th scope="col">Confirmed</th>
-              <th scope="col">Invoiced</th>
-              <th scope="col">Freelancers</th>
-              <th scope="col">Lost</th>
+              <th scope="col" className="n">Quoted</th>
+              <th scope="col" className="n">Confirmed</th>
+              <th scope="col" className="n">Invoiced</th>
+              <th scope="col" className="n">Freelancers</th>
+              <th scope="col" className="n">Lost</th>
             </tr>
           </thead>
           <tbody>
@@ -653,9 +751,9 @@ function Margins({ m, today }: { m: MoneyView; today: string }) {
               <thead>
                 <tr>
                   <th scope="col">Job</th>
-                  <th scope="col">Quoted</th>
-                  <th scope="col">Freelancers</th>
-                  <th scope="col">After freelancers</th>
+                  <th scope="col" className="n">Quoted</th>
+                  <th scope="col" className="n">Freelancers</th>
+                  <th scope="col" className="n">After freelancers</th>
                 </tr>
               </thead>
               <tbody>
@@ -782,7 +880,7 @@ export function PricesScreen({ view }: { view: View }) {
       <section className="card" aria-label="Kit">
         <Heading icon="kit">Kit</Heading>
         <p className="hint">
-          {priced} of {plural(view.warehouse.models.length, 'product')} priced. A product with no price goes on a quote at nothing, for you to price there.
+          {priced} of {plural(view.warehouse.models.length, 'product')} priced. A product with no price goes on a quote for you to price there. One priced at €0 goes on as included, at no charge, as cables and power usually are.
         </p>
         <RateRules view={view} />
         <input className="search" type="search" placeholder="Find a product" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find a product" />
@@ -812,6 +910,7 @@ export function PricesScreen({ view }: { view: View }) {
         {view.warehouse.models.length === 0 && <Empty>No products yet: they come from the Stock tab.</Empty>}
       </section>
 
+      <StarterPackagesCard view={view} />
       <PackagesCard view={view} />
 
       <section className="card" aria-label="Crew">

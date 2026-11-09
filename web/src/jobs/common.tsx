@@ -1,6 +1,7 @@
 import { PageAction } from '../foot.tsx'
-import { newId, STATUS_LABELS, type ClientView, type ProjectStatus, type VenueView, type View } from '@sh/shared'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { namedExactly, newId, plural, STATUS_LABELS, type ClientView, type JobsView, type ProjectStatus, type VenueView, type View } from '@sh/shared'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { NameField } from '../NameField.tsx'
 import { useSeenAs } from '../home/Preview.tsx'
 import { useNotDone } from '../problems.tsx'
 import { NoticesButton } from '../NoticesButton.tsx'
@@ -12,6 +13,14 @@ import { Up, type Trail } from '../Up.tsx'
 import { useTopBar } from '../useUnderTop.ts'
 
 /** What the Jobs screens share, and Stock and Crew too: the header, a record's page, and picking or adding a client or venue by name. */
+
+/** Quotes with New quote open on a day (ADR 0120): #quotes/new/2026-11-20, or today's with no day. */
+export const newQuoteHref = (day?: string) => `#quotes/new${day ? `/${day}` : ''}`
+/** The day #quotes/new/<day> asks for, '' for New quote on today, or undefined when it isn't asking. */
+export function newQuoteAsked(hash: string): string | undefined {
+  const m = /^#quotes\/new(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(hash)
+  return m ? (m[1] ?? '') : undefined
+}
 
 export function useHash(): string {
   const [hash, setHash] = useState(location.hash)
@@ -30,8 +39,8 @@ export function useHash(): string {
  * the two stick to the top as one block and the list never covers the bar.
  */
 /**
- * The bar at the top of every screen: the company's mark and name, the
- * sync state and dark or light (ADR 0036); after it, the parts of the
+ * The bar at the top of every screen: the company's mark and name, which go
+ * Home (ADR 0122), the sync state and dark or light (ADR 0036); after it, the parts of the
  * screen (ADR 0033), which put themselves on the parts. Under the name, the area; on the demo copy, whose
  * eyes it's seen through instead, the name taking you back to choose
  * again. Then the page's head, the same on every screen and outside any
@@ -83,7 +92,8 @@ export function Top({
         <div className="brand">
           <span className="mark">SH</span>
           <span>
-            <b>Session Hire</b>
+            {/* The company's mark and name go Home from every screen, as an app's logo does (ADR 0122): the whole block is the target. */}
+            <b>{seenAs ? 'Session Hire' : <a className="home-link" href="#home" aria-label="Session Hire: Home">Session Hire</a>}</b>
             {seenAs ? (
               <small className="seen-as">
                 Seeing it as{' '}
@@ -338,6 +348,62 @@ export function NewOrNear({ value, names, what, onPick }: { value: string; names
   )
 }
 
+/** Clients and venues with how many jobs each has had, most used first: the order the name fields offer them in. */
+function useUsed(jobs: JobsView) {
+  return useMemo(() => {
+    const clientJobs = new Map<string, number>()
+    const venueJobs = new Map<string, number>()
+    for (const j of jobs.jobs) {
+      if (j.clientId) clientJobs.set(j.clientId, (clientJobs.get(j.clientId) ?? 0) + 1)
+      const at = new Set([j.venueId, ...j.phases.map((p) => p.venueId)].filter((v): v is string => !!v))
+      for (const v of at) venueJobs.set(v, (venueJobs.get(v) ?? 0) + 1)
+    }
+    const byUse = <T extends { id: string; name: string }>(all: readonly T[], n: Map<string, number>) =>
+      [...all].sort((a, b) => (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0) || a.name.localeCompare(b.name))
+    return { clients: byUse(jobs.clients, clientJobs), venues: byUse(jobs.venues, venueJobs), clientJobs, venueJobs }
+  }, [jobs])
+}
+
+const jobsWord = (n: number) => (n ? plural(n, 'job') : 'No jobs yet')
+/** A venue's address on one line, short enough to sit under its name. */
+const addressLine = (address: string) => {
+  const line = address.replace(/\s*\n\s*/g, ', ').trim()
+  return line.length > 60 ? `${line.slice(0, 59)}…` : line
+}
+
+interface NameFieldProps {
+  jobs: JobsView
+  value: string
+  onChange: (name: string) => void
+  label?: string
+  optional?: boolean
+  disabled?: boolean
+  placeholder?: string
+  className?: string
+}
+
+/** The client of a job or quote: one already here, found as it's typed, or a new one added when the form is saved (clientNamed). */
+export function ClientField({ jobs, label = 'Client', ...rest }: NameFieldProps) {
+  const used = useUsed(jobs)
+  return <NameField {...rest} label={label} what="client" records={used.clients} first={used.clients.slice(0, 5)} meta={(f) => jobsWord(used.clientJobs.get(f.record.id) ?? 0)} />
+}
+
+/** The venue of a job, a phase or a quote, found by its name or address, or a new one added when the form is saved (venueNamed). */
+export function VenueField({ jobs, label = 'Venue', ...rest }: NameFieldProps) {
+  const used = useUsed(jobs)
+  return (
+    <NameField
+      {...rest}
+      label={label}
+      what="venue"
+      records={used.venues}
+      first={used.venues.slice(0, 5)}
+      also={(v) => v.address}
+      meta={(f) => [addressLine(f.record.address), jobsWord(used.venueJobs.get(f.record.id) ?? 0)].filter(Boolean).join(' · ')}
+    />
+  )
+}
+
 /** The client with this name, added if there isn't one yet; null for no name. */
 export async function clientNamed(name: string, clients: readonly ClientView[]): Promise<string | null> {
   if (!name.trim()) return null
@@ -347,6 +413,27 @@ export async function clientNamed(name: string, clients: readonly ClientView[]):
   await client.mutate('client.upsert', { id, name: name.trim(), contacts: [], notes: '' })
   return id
 }
+
+/**
+ * Who asked, added to the client's contacts when they aren't one yet, so the next quote for that client offers them.
+ * Nothing when there's no client or no name, or the client has the most contacts it can hold.
+ */
+export async function contactAdded(clientId: string | null, clientName: string, who: string, clients: readonly ClientView[]): Promise<void> {
+  const name = who.trim().replace(/\s+/g, ' ')
+  if (!clientId || !name) return
+  const held = clients.find((c) => c.id === clientId)
+  const contacts = held?.contacts ?? []
+  if (namedExactly(contacts, name) || contacts.length >= MOST_CONTACTS) return
+  await client.mutate('client.upsert', {
+    id: clientId,
+    name: held?.name ?? clientName.trim(),
+    contacts: [...contacts, { name, role: '', email: null, phone: null }],
+    notes: held?.notes ?? '',
+    ...(held?.address !== undefined && { address: held.address }),
+  })
+}
+/** As many contacts as a client holds (jobs.ts). */
+const MOST_CONTACTS = 20
 
 /** The venue with this name, added if there isn't one yet; null for no name. */
 export async function venueNamed(name: string, venues: readonly VenueView[]): Promise<string | null> {
@@ -358,13 +445,3 @@ export async function venueNamed(name: string, venues: readonly VenueView[]): Pr
   return id
 }
 
-/** The names to pick from as you type. */
-export function Choices({ id, names }: { id: string; names: readonly { id: string; name: string }[] }) {
-  return (
-    <datalist id={id}>
-      {names.map((n) => (
-        <option key={n.id} value={n.name} />
-      ))}
-    </datalist>
-  )
-}

@@ -244,6 +244,8 @@ function describer(view: View): (m: Mutation) => string {
         return 'Change how travel and subsistence are charged'
       case 'quoting.email':
         return onOff(a.on, 'sending quotes by email')
+      case 'quoting.online':
+        return onOff(a.on, 'accepting quotes online')
       case 'price.product':
         return a.dayCents === null ? `Take ${model(a.modelId)} off the price list` : `Price ${model(a.modelId)}`
       case 'price.rulesFromRms':
@@ -266,6 +268,8 @@ function describer(view: View): (m: Mutation) => string {
         return onOff(a.on, 'timesheets')
       case 'assistant.use':
         return onOff(a.on, 'Claude in the app')
+      case 'links.check':
+        return onOff(a.on, "checking new phones on freelancers' links")
       case 'cables.colours':
         return 'Set the colours for cable lengths'
       case 'trackers.use':

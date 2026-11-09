@@ -272,7 +272,6 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
   const attention = view.inspections.attention.filter((d) => inKitOf(department)(d.asset.model))
   const unrecorded = view.inspections.unrecorded.filter((d) => inKitOf(department)(d.asset.model))
   const needed = view.warehouse.models.some((m) => m.patMonths || m.liftingMonths)
-  if (!needed && view.inspections.certificatesDue.length === 0) return null
   const stopped = attention.filter((d) => d.state !== 'soon')
   const soon = attention.filter((d) => d.state === 'soon')
   const keep = (d: Due) => !!recent?.has(d.asset.id)
@@ -294,7 +293,10 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
     <section className="card inspections-due" aria-label="Inspections due">
       <Heading icon="inspection">Inspections due</Heading>
       <Narrowed department={department} onWiden={widen} kit />
-      {stopped.length === 0 && soon.length === 0 && certsDue.length === 0 && <p className="empty">Nothing failed, overdue or due in the next 30 days.</p>}
+      {stopped.length === 0 && soon.length === 0 && certsDue.length === 0 && (
+        // Said rather than left blank, so the page isn't one card on the right of nothing (polish, 9 November 2026).
+        <p className="empty">{needed ? 'Nothing failed, overdue or due in the next 30 days.' : 'No product has a testing round set yet. Give a product PAT or lifting months, and what is due shows here.'}</p>
+      )}
       {stopped.length > 0 && (
         <>
           <h3 className="group">{listHeading(STANDING_HEADINGS['cant-go'], stopped.length)}</h3>

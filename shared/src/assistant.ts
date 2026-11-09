@@ -83,6 +83,9 @@ export const enquiryReading = z.object({
   /** What the office needs to ask the client before quoting. */
   questions: some(words(300), 8),
   summary: text(1000),
+  /** Who asked, as they signed it, and the day they want the quote by (research/quoting.md, feature 6). "" when not said. */
+  asker: words(200),
+  quoteBy: dayOrNone,
 })
 export type EnquiryReading = z.infer<typeof enquiryReading>
 
@@ -151,6 +154,8 @@ export const ENQUIRY_SCHEMA = obj({
   other: list(obj({ qty: int, what: str })),
   questions: list(str),
   summary: str,
+  asker: str,
+  quoteBy: date,
 })
 
 export const ADVICE_SCHEMA = obj({
@@ -199,6 +204,13 @@ export interface Suggestion {
   charged?: number
   /** Off this line alone, as that past quote had it. */
   discountPct?: number
+  /** Where a line from a past job came from, in a few words: "4 quoted, 6 went out" (ADR 0115). */
+  note?: string
+  /** Went out on the past job beyond what its quote had: added on site or after the quote (ADR 0115). */
+  beyond?: boolean
+  /** A package's line (ADR 0087) taken from a past quote: the package, and what it held, printed under it. */
+  packageId?: string
+  includes?: string
 }
 
 /** A kit line: matched to the stock list, named and priced as the product is when it's found. */
@@ -267,6 +279,9 @@ export function suggestionLine(s: Suggestion, id: string): QuoteLine {
     modelId: s.modelId,
     ...(s.rate && s.per === 'day' ? { rate: s.rate, out: s.days } : {}),
     ...(s.discountPct ? { discountPct: s.discountPct } : {}),
+    ...(s.packageId ? { packageId: s.packageId, includes: s.includes ?? '' } : {}),
+    // A product priced at €0 on the price list is given at no charge (audit of the quote flow, 8 November 2026, finding 1).
+    ...(s.kind === 'kit' && s.modelId && s.cents === 0 && !s.packageId ? { included: true as const } : {}),
   }
 }
 

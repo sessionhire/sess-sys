@@ -28,7 +28,9 @@ import {
   type QuoteTotals,
   type RolePrice,
   type VatRate,
+  validUntil,
 } from '../quotes.ts'
+import { mergeDraft } from '../draft-merge.ts'
 import { DEPARTMENT_LABELS } from '../stock.ts'
 import { timesheetTotal } from '../timesheets.ts'
 import type { CrewView } from './crew-view.ts'
@@ -203,13 +205,16 @@ export function moneyView(
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     switch (m.name) {
       case 'quote.save': {
-        const a = m.args as CommandArgs<'quote.save'>
-        const was = quotes.get(a.id)
+        const said = m.args as CommandArgs<'quote.save'>
+        const was = quotes.get(said.id)
         if (was && was.status !== 'draft') break
+        // As the server takes in what changed elsewhere since the save's base (ADR 0113).
+        const a = was && said.base ? mergeDraft(was, said, said.base).save : said
         if (!was && [...quotes.values()].some((q) => q.projectId === a.projectId && q.status === 'draft')) break
         const versions = [...quotes.values()].filter((q) => q.projectId === a.projectId)
         const version = was?.version ?? Math.max(0, ...versions.map((q) => q.version)) + 1
         const before = was ?? versions.sort((x, y) => y.version - x.version)[0]
+        // As the server takes in what changed elsewhere since the save's base (ADR 0113).
         quotes.set(a.id, {
           id: a.id,
           projectId: was?.projectId ?? a.projectId,
@@ -246,8 +251,18 @@ export function moneyView(
         const a = m.args as CommandArgs<'quote.answer'>
         const was = quotes.get(a.id)
         if (!was || was.invoicedOn) break
-        if (a.answer === 'none') quotes.set(a.id, { ...was, status: was.status === 'draft' ? 'draft' : 'sent', answeredOn: null, pending: true })
-        else quotes.set(a.id, { ...was, status: a.answer, answeredOn: a.on, sentOn: was.sentOn ?? a.on, number: was.status === 'draft' ? numberOf(was) : (was.number ?? null), pending: true })
+        if (a.answer === 'none') quotes.set(a.id, { ...was, status: was.status === 'draft' ? 'draft' : 'sent', answeredOn: null, declinedWhy: null, declinedNote: '', pending: true })
+        else
+          quotes.set(a.id, {
+            ...was,
+            status: a.answer,
+            answeredOn: a.on,
+            sentOn: was.sentOn ?? a.on,
+            number: was.status === 'draft' ? numberOf(was) : (was.number ?? null),
+            declinedWhy: a.answer === 'declined' ? (a.why ?? null) : null,
+            declinedNote: a.answer === 'declined' ? (a.note ?? '').trim() : '',
+            pending: true,
+          })
         break
       }
       case 'quote.invoiced': {
@@ -306,6 +321,11 @@ export function moneyView(
       case 'quoting.email': {
         const a = m.args as CommandArgs<'quoting.email'>
         quoting = { ...quoting, emailQuotes: a.on, pending: true }
+        break
+      }
+      case 'quoting.online': {
+        const a = m.args as CommandArgs<'quoting.online'>
+        quoting = { ...quoting, acceptOnline: a.on, pending: true }
         break
       }
       case 'quoting.travel': {
@@ -507,6 +527,11 @@ export interface QuoteToFollow {
   quote: QuoteView
   /** Days since it was last saved (a draft), sent (waiting) or answered (out of step). */
   days: number
+  /**
+   * Sent and waiting, the last day its prices held when that day has passed (research/quoting.md, feature 4): the
+   * quote's valid-until, which nothing acted on before.
+   */
+  ranOut?: string
 }
 
 export interface QuotesToFollow {
@@ -563,7 +588,15 @@ export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: st
     const draft = m.draftOf(job.id)
     if (draft && !stopped) out.drafts.push({ job, quote: draft, days: since(irishToday(new Date(draft.savedAt))) })
     if (!current) continue
-    if (current.status === 'sent' && !stopped && !draft) (job.span && job.span.end < today && job.status !== 'confirmed' ? out.passed : out.waiting).push({ job, quote: current, days: since(current.sentOn) })
+    if (current.status === 'sent' && !stopped && !draft) {
+      const held = current.sentOn ? validUntil(current, today) : undefined
+      ;(job.span && job.span.end < today && job.status !== 'confirmed' ? out.passed : out.waiting).push({
+        job,
+        quote: current,
+        days: since(current.sentOn),
+        ...(held && held < today ? { ranOut: held } : {}),
+      })
+    }
     if (current.status === 'accepted' && !stopped && job.status !== 'confirmed') out.outOfStep.push({ job, quote: current, days: since(current.answeredOn), want: 'confirmed' })
     if (current.status === 'declined' && !stopped && !draft) out.outOfStep.push({ job, quote: current, days: since(current.answeredOn), want: 'lost' })
     if (invoiceOf(job, current, today).state === 'due') out.toInvoice.push({ job, quote: current, days: since(job.span!.end) })

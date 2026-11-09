@@ -94,22 +94,30 @@ export function madeUpData(today: string): Mutation[] {
   add('timesheets.use', { on: true, from: day(-30) })
 
   // Clients and venues.
-  const client = (name: string, contact: string, role: string) =>
+  const client = (name: string, contact: string, role: string, paymentTerms?: 'before' | number) =>
     add('client.upsert', {
+      ...(paymentTerms !== undefined ? { paymentTerms } : {}),
       id: newId(),
       name,
       contacts: [{ name: contact, role, email: `${contact.split(' ')[0]!.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')}@example.com`, phone: phone() }],
       notes: '',
     }).id
   const shannonside = client('Shannonside Festivals', 'Niamh Walsh', 'Producer')
-  const brightwater = client('Brightwater Conferences', 'Declan Moore', 'Event manager')
+  const brightwater = client('Brightwater Conferences', 'Declan Moore', 'Event manager', 30)
   const corrib = client('Corrib Arts Collective', 'Aisling Byrne', 'Production manager')
   const liffey = client('Liffey Brands', 'Ruairí Kelly', 'Account director')
-  const kilbeg = client('Kilbeg Weddings', 'Sinéad Doyle', 'Planner')
+  const kilbeg = client('Kilbeg Weddings', 'Sinéad Doyle', 'Planner', 'before')
 
   const venue = (name: string, address: string, notes: string) => add('venue.upsert', { id: newId(), name, address, notes })
   const riverside = venue('Riverside Park', 'Riverside Park\nLimerick', 'Load in from the north gate. 63 A three-phase at the stage.')
-  const northbank = venue('Northbank Conference Centre', 'North Wall Quay\nDublin 1', 'Loading bay 2, booked by the half hour.')
+  const northbank = add('venue.upsert', {
+    id: newId(),
+    name: 'Northbank Conference Centre',
+    address: 'North Wall Quay\nDublin 1',
+    notes: 'Loading bay 2, booked by the half hour.',
+    // Who to ask for there (ADR 0119), so the call sheet shows one.
+    contact: { name: 'Gráinne Nolan', role: 'Venue technical manager', email: 'grainne@example.com', phone: phone() },
+  })
   const granary = venue('The Granary Hall', 'Quay Street\nGalway', 'Goods lift 2 m deep. Parking for one van.')
   const pier3 = venue('Pier 3 Studio', 'Alexandra Road\nDublin 1', 'Blackout drapes on all walls.')
   const clonmore = venue('Clonmore House', 'Clonmore\nCo. Wicklow', 'Marquee on the lawn; the venue supplies a generator.')

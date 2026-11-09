@@ -1,4 +1,4 @@
-import { CHANGELOG, APP_VERSION, type Release } from '@sh/shared'
+import { CHANGELOG, APP_VERSION, isNewerVersion as newer, type Release } from '@sh/shared'
 import { useEffect, useState } from 'react'
 import { Top } from './jobs/common.tsx'
 import { useAccess } from './role.ts'
@@ -47,13 +47,6 @@ export function ReleaseEntry({ release, heading: H = 'h2', fresh }: { release: R
 
 /** Where this device keeps the version it last showed What's changed at (a convenience: lost, every entry just reads as seen). */
 const SEEN = 'sh.changesSeen'
-
-/** "1.84.1" before "1.85.0": versions compared number by number. */
-export const newer = (a: string, b: string) => {
-  const [x, y] = [a, b].map((v) => v.split('.').map(Number))
-  for (let i = 0; i < 3; i++) if (x![i] !== y![i]) return (x![i] ?? 0) > (y![i] ?? 0)
-  return false
-}
 
 /** How many versions are drawn before the rest fold by month. */
 const SHOWN = 5

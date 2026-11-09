@@ -1,9 +1,13 @@
 import PDFDocument from 'pdfkit'
 import {
   depositCents,
+  paymentTermsLine,
   letterDay,
   lineCents,
+  lineSaving,
   linesByGroup,
+  linesUnder,
+  setCents,
   money,
   pctWord,
   quoteNumberLabel,
@@ -143,15 +147,36 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
     for (const l of g.lines) {
       const days = l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')
       const price = `${money(l.unitCents)} ${l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}`
-      const amount = `${money(lineCents(l))}${l.discountPct ? `\nless ${pctWord(l.discountPct)}` : ''}`
+      const under = linesUnder(q.lines, l.id)
+      // A package with its kit under it (ADR 0116) comes to its own price and its kit's, and its kit is printed under it.
+      const byKit = under.length > 0 && !l.unitCents && !!l.packageId
+      // Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1).
+      const free = !!l.included && !under.length
+      const amount = free ? 'Included' : `${money(under.length ? setCents(l, q.lines) : lineCents(l))}${l.discountPct ? `\nless ${pctWord(l.discountPct)}` : ''}`
+      // Priced below what its items come to (ADR 0116): the client sees what the package saves them.
+      const saved = lineSaving(l)
+      const words = [l.what, l.includes, saved ? `${money(saved)} off its items’ ${money(lineCents({ ...l, discountPct: undefined, unitCents: l.fullCents! }))}` : ''].filter(Boolean).join('\n')
       rows.push([
-        cell(l.includes ? `${l.what}\n${l.includes}` : l.what),
+        cell(words),
         cell(String(l.qty), right),
-        cell(days, right),
-        cell(price, right),
+        cell(byKit ? '' : days, right),
+        cell(byKit || free ? '' : price, right),
         cell(VAT_LABELS[l.vat], right),
         cell(amount, right),
       ])
+      const small = { font: { src: REGULAR, size: SMALL }, textColor: MUTED }
+      for (const u of under) {
+        const priced = u.unitCents > 0 && !u.included
+        const uDays = u.per === 'once' ? '' : u.rate === 'weekly' ? `${u.days} wk` : u.days.toLocaleString('en-IE')
+        rows.push([
+          cell(`    ${u.what}`, small),
+          cell(String(u.qty), { ...small, ...right }),
+          cell(priced ? uDays : '', { ...small, ...right }),
+          cell(priced ? `${money(u.unitCents)} a ${RATE_UNIT[u.rate ?? 'daily']}` : '', { ...small, ...right }),
+          cell('', small),
+          cell(priced ? money(lineCents(u)) : 'Included', { ...small, ...right }),
+        ])
+      }
     }
   }
   doc.font(REGULAR).fontSize(BODY).fillColor(INK)
@@ -190,6 +215,12 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
 
   if (q.depositPct) {
     text(`A deposit of ${pctWord(q.depositPct)}, ${money(depositCents(totals.gross, q.depositPct))}, confirms the booking.`, { width })
+    doc.moveDown(0.5)
+  }
+  // When this client pays (ADR 0119), under the deposit, as the printed page has it.
+  const pays = paymentTermsLine(job.client?.paymentTerms)
+  if (pays) {
+    text(pays, { width })
     doc.moveDown(0.5)
   }
   if (q.notes.trim()) {

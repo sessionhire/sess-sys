@@ -1,4 +1,4 @@
-import { dayLabel, irishToday, money, newId, QUOTE_STATUS_LABELS, STOPPED, type JobView, type QuoteView } from '@sh/shared'
+import { dayLabel, irishToday, money, newId, withNewIds, QUOTE_STATUS_LABELS, STOPPED, TURN_DOWN_LABELS, TURN_DOWN_NOTE_LENGTH, TURN_DOWN_REASONS, validUntil, type JobView, type QuoteView, type TurnDownReason } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -61,7 +61,7 @@ export function NewVersion({ q, onMade }: { q: QuoteView; onMade: (id: string) =
   const make = () => {
     const id = newId()
     void run(() =>
-      client.mutate('quote.save', { id, projectId: q.projectId, lines: q.lines.map((l) => ({ ...l, id: newId() })), discountPct: q.discountPct, agreedCents: q.agreedCents ?? null, notes: q.notes })
+      client.mutate('quote.save', { id, projectId: q.projectId, lines: withNewIds(q.lines, newId), discountPct: q.discountPct, agreedCents: q.agreedCents ?? null, notes: q.notes })
     ).then((ok) => ok && onMade(id))
   }
   return (
@@ -100,6 +100,8 @@ export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canE
   const [on, setOn] = useState(today)
   const [ref, setRef] = useState('')
   const [undo, setUndo] = useState<'answer' | 'invoice' | 'paid'>()
+  // Turned down: why, asked in place before it's recorded (research/quoting.md, feature 5). Optional: Record it with none picked.
+  const [why, setWhy] = useState<{ reason: TurnDownReason | null; note: string }>()
   const { run, error } = useAct()
   const next = nextRecord(q, job)
   const primaryIfNext = (record: NextRecord) => (next === record ? 'primary' : undefined)
@@ -120,7 +122,11 @@ export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canE
         </div>
         <div>
           <dt>Client's answer</dt>
-          <dd>{q.answeredOn ? `${QUOTE_STATUS_LABELS[q.status]}, ${dayLabel(q.answeredOn)}` : 'Not yet'}</dd>
+          <dd>
+            {q.answeredOn ? `${QUOTE_STATUS_LABELS[q.status]}, ${dayLabel(q.answeredOn)}` : 'Not yet'}
+            {q.status === 'declined' && q.declinedWhy && `: ${TURN_DOWN_LABELS[q.declinedWhy].toLowerCase()}`}
+            {q.status === 'declined' && q.declinedNote && <span className="why-note">{q.declinedNote}</span>}
+          </dd>
         </div>
         {q.status === 'accepted' && (
           <div>
@@ -138,16 +144,59 @@ export function Records({ q, job, canEmail }: { q: QuoteView; job: JobView; canE
       <Refusal error={error} />
       {next === 'confirm' && <InStep job={job} want="confirmed" />}
       {next === 'lost' && <InStep job={job} want="lost" />}
+      {/* Accepting after the prices ran out (research/quoting.md, feature 4) is allowed, with a word first: they may not stand. */}
+      {q.status === 'sent' && q.sentOn && validUntil(q, today) < today && (
+        <p className="warn-line">Its prices held until {dayLabel(validUntil(q, today))}. If the client accepts now, check they still stand, or start a new version.</p>
+      )}
       {q.status === 'sent' && (
         <div className="quote-send">
           {when}
           <button type="button" className={primaryIfNext('answer')} onClick={() => go(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today }))}>
             Client accepted
           </button>
-          <button type="button" onClick={() => go(() => client.mutate('quote.answer', { id: q.id, answer: 'declined', on: on || today }))}>
+          <button type="button" aria-expanded={!!why} onClick={() => setWhy(why ? undefined : { reason: null, note: '' })}>
             Client turned it down
           </button>
         </div>
+      )}
+      {q.status === 'sent' && why && (
+        <fieldset className="turn-down">
+          <legend>Why did they say no?</legend>
+          <div className="choices">
+            {TURN_DOWN_REASONS.map((r) => (
+              <label key={r} className="choice">
+                <input type="radio" name={`why-${q.id}`} checked={why.reason === r} onChange={() => setWhy({ ...why, reason: r })} />
+                {TURN_DOWN_LABELS[r]}
+              </label>
+            ))}
+          </div>
+          <label className="field">
+            Anything more <span className="optional">(optional)</span>
+            <input value={why.note} onChange={(e) => setWhy({ ...why, note: e.target.value })} maxLength={TURN_DOWN_NOTE_LENGTH} placeholder="Went with a cheaper PA" />
+          </label>
+          <div className="actions">
+            <button
+              type="button"
+              onClick={() =>
+                go(() =>
+                  client.mutate('quote.answer', {
+                    id: q.id,
+                    answer: 'declined',
+                    on: on || today,
+                    ...(why.reason ? { why: why.reason } : {}),
+                    ...(why.note.trim() ? { note: why.note.trim() } : {}),
+                  }).then(() => setWhy(undefined))
+                )
+              }
+            >
+              Record it as turned down
+            </button>
+            <button type="button" className="link" onClick={() => setWhy(undefined)}>
+              Cancel
+            </button>
+          </div>
+          <p className="hint">Why helps price the next one. Leave it if they didn't say.</p>
+        </fieldset>
       )}
       {q.status === 'accepted' && !q.invoicedOn && (
         <div className="quote-send">

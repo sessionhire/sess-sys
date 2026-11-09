@@ -1,4 +1,4 @@
-import { kitKey } from '@sh/shared'
+import { countedFind, kitKey, leadingCount } from '@sh/shared'
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 
 /** Offers shown at once; past these a line says how many more, to type more and narrow. */
@@ -36,6 +36,9 @@ export interface PickerAction {
  * typed is a record's name exactly, which is then taken: what's typed is a
  * search, not a value. At most eight are offered at once, so the list never
  * scrolls inside the page on a phone; past them a line says how many more.
+ * With `counted`, a number typed first is how many (research/quoting.md,
+ * feature 1): "12 y10" offers what "y10" finds and picks 12 of it, unless the
+ * whole of what's typed finds something ("4 way box" is a name).
  */
 export function RecordPicker<T extends PickRecord>({
   label,
@@ -54,6 +57,7 @@ export function RecordPicker<T extends PickRecord>({
   placeholder,
   hint,
   className,
+  counted,
   autoFocus,
 }: {
   label: string
@@ -71,12 +75,15 @@ export function RecordPicker<T extends PickRecord>({
   first?: readonly T[]
   firstLabel?: string
   actions?: readonly PickerAction[]
-  onPick: (id: string) => void
+  /** The record picked, and how many when `counted` and a number was typed before it. */
+  onPick: (id: string, count?: number) => void
   onAction?: (key: string) => void
   disabled?: boolean
   placeholder?: string
   hint?: string
   className?: string
+  /** A number typed before what's looked for is how many of the one picked. */
+  counted?: boolean
   /** Takes the cursor when drawn, as when Add kit opens it (audit, 5 November 2026, finding 58). */
   autoFocus?: boolean
 }) {
@@ -91,7 +98,10 @@ export function RecordPicker<T extends PickRecord>({
   const id = useId()
 
   const typed = text !== null && kitKey(text) !== ''
-  const found: RecordOffer<T>[] = typed ? find(records, text) : first.map((record) => ({ record }))
+  // "2 d20": two of what "d20" finds, the number read as a count first (audit of the quote flow, 8 November 2026, finding 2).
+  const read: { count?: number; found: RecordOffer<T>[] } = !typed ? { found: first.map((record) => ({ record })) } : counted ? countedFind(text, (t) => find(records, t), (f) => f.record.name) : { found: find(records, text) }
+  const found: RecordOffer<T>[] = read.found
+  const count = read.count
   const offers = found.slice(0, SHOWN)
   const more = found.length - offers.length
   const rows: ({ kind: 'record'; f: RecordOffer<T> } | { kind: 'action'; a: PickerAction })[] = [
@@ -115,8 +125,8 @@ export function RecordPicker<T extends PickRecord>({
     if (!row) return
     done()
     if (row.kind === 'record') {
-      onPick(row.f.record.id)
-      setHeard(`Chose ${row.f.record.name}.`)
+      onPick(row.f.record.id, count)
+      setHeard(count ? `Chose ${count} × ${row.f.record.name}.` : `Chose ${row.f.record.name}.`)
     } else {
       onAction?.(row.a.key)
       setHeard(`Chose ${row.a.label.replace(/…$/, '')}.`)
@@ -198,7 +208,12 @@ export function RecordPicker<T extends PickRecord>({
           )}
           {typed && offers.length === 0 && (
             <li className="note" role="presentation">
-              {nothingFound(text.trim())}
+              {nothingFound(((counted ? leadingCount(text)?.rest : undefined) ?? text).trim())}
+            </li>
+          )}
+          {count && (
+            <li className="note" role="presentation">
+              {count} of the one you pick
             </li>
           )}
           {rows.map((r, i) => {
@@ -223,7 +238,7 @@ export function RecordPicker<T extends PickRecord>({
                   take(i)
                 }}
               >
-                <span>{r.kind === 'record' ? r.f.record.name : r.a.label}</span>
+                <span>{r.kind === 'record' ? `${count ? `${count} × ` : ''}${r.f.record.name}` : r.a.label}</span>
                 {line && <small>{line}</small>}
               </li>,
             ]

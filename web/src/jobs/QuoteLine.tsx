@@ -20,6 +20,7 @@ import {
   type RmsCharge,
   type RmsLastCharged,
   RATE_UNIT,
+  lineSaving,
 } from '@sh/shared'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { Icon } from '../Icon.tsx'
@@ -79,6 +80,8 @@ export function GroupDiscount({ group, onApply, onCancel, refuse }: { group: str
 
 /** "4 × €45.00 a day × 3 days", "12 × €55.00 a week × 1 week", "€150.00 once", with a line's discount after. */
 export function chargeWords(r: QuoteLine) {
+  // Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1).
+  if (r.included) return r.qty === 1 ? 'Included at no charge' : `${r.qty}, included at no charge`
   const each = r.unitCents ? money(r.unitCents) : 'no price'
   const off = r.discountPct ? `, less ${pctWord(r.discountPct)}` : ''
   if (r.per === 'once') return `${r.qty === 1 ? '' : `${r.qty} × `}${each} once${off}`
@@ -260,9 +263,31 @@ export function CostFields({
 }
 
 /** A line, shut: what it is, how it's charged and what it comes to, with the mark that says it opens; pressing it opens it to change. */
-export function LineSummary({ l, n, done, onOpen, focus, margin }: { l: LineDraft; n: number; done: QuoteLine | undefined; onOpen: () => void; focus: boolean; margin?: number | undefined }) {
-  const unpriced = done !== undefined && done.unitCents === 0
-  const how = done === undefined ? 'Not finished' : chargeWords(done)
+export function LineSummary({
+  l,
+  n,
+  done,
+  onOpen,
+  focus,
+  margin,
+  total,
+  included,
+  heads,
+}: {
+  l: LineDraft
+  n: number
+  done: QuoteLine | undefined
+  onOpen: () => void
+  focus: boolean
+  margin?: number | undefined
+  /** A package's line with its kit under it (ADR 0116): what they come to together, and that its price is theirs. */
+  total?: number | undefined
+  heads?: boolean
+  /** Kit in a package priced as a whole: no price of its own wanted. */
+  included?: boolean
+}) {
+  const unpriced = done !== undefined && done.unitCents === 0 && !included && !done.included && !(heads && l.packageId)
+  const how = done === undefined ? 'Not finished' : heads && !done.unitCents && l.packageId ? 'Its kit at its own prices' : included ? `${done.qty} in the package` : chargeWords(done)
   return (
     <button type="button" className={`quote-line-shut${done === undefined || unpriced ? ' needs' : ''}`} onClick={onOpen} autoFocus={focus} aria-label={`Line ${n}: ${l.what || 'not named yet'}, change it`}>
       <span className="what">
@@ -272,9 +297,10 @@ export function LineSummary({ l, n, done, onOpen, focus, margin }: { l: LineDraf
       <span className="how">
         {unpriced ? `${how}: needs a price` : how}
         {done?.subhireQty ? `, ${done.subhireQty} hired in${done.supplier ? ` from ${done.supplier}` : ''}` : ''}
+        {done && lineSaving(done) > 0 && <small className="package-saving">{money(lineSaving(done))} off its items</small>}
       </span>
       <span className="amount">
-        {done === undefined ? '–' : money(lineCents(done))}
+        {done === undefined ? '–' : included || done.included ? 'Included' : money(total ?? lineCents(done))}
         {margin !== undefined && <small className={`line-margin${margin < 0 ? ' bad' : ''}`}>makes {money(margin)}</small>}
       </span>
       <Icon name="edit" className="opener" />
@@ -305,6 +331,8 @@ export function LineEditor(p: {
   boss: boolean
   suppliers: readonly string[]
   wantCost: boolean
+  /** No price of its own wanted: a package's line priced by its kit, or kit in a package priced as a whole (ADR 0116). */
+  included?: boolean
 }) {
   const { l, n, done, fault, set, onRemove, onDone } = p
   const [vatOpen, setVatOpen] = useState(false)
@@ -322,7 +350,7 @@ export function LineEditor(p: {
         {fault.why}
       </p>
     ) : null
-  const unpriced = done !== undefined && done.unitCents === 0
+  const unpriced = done !== undefined && done.unitCents === 0 && !p.included && !l.included
   // What the price is for, in the field (audit, 5 November 2026, finding 23): a day's, a week's, or once. Moved between a day's and
   // a week's, the same number means seven times more or less, so it's said under the line until the price is changed.
   const unit = unitOf(l)
@@ -362,12 +390,24 @@ export function LineEditor(p: {
             <input inputMode="decimal" value={l.days} onChange={(e) => set({ days: e.target.value })} aria-label={`Line ${n}: days charged`} onBlur={leave('days')} {...mark('days')} />
           </label>
         )}
-        <label className={`price${l.per === 'once' ? ' wide' : ''}`}>
-          {unit === 'once' ? 'Price, € once' : `Price, € a ${unit}`}
-          <UnitBox unit="€" before needs={unpriced}>
-            <input inputMode="decimal" value={l.price} onChange={(e) => set({ price: e.target.value })} aria-label={`Line ${n}: price, ${unit === 'once' ? 'once' : `a ${unit}`}`} placeholder="0" autoFocus={p.focus === 'price'} onBlur={leave('price')} {...mark('price')} />
-          </UnitBox>
-        </label>
+        {l.included ? (
+          <span className={`price included-cell${l.per === 'once' ? ' wide' : ''}`}>
+            Price
+            <span className="included-word">
+              Included{' '}
+              <button type="button" className="link" onClick={() => set({ included: false, price: '' })} aria-label={`Line ${n}: charge for it`} autoFocus={p.focus === 'price'}>
+                Charge for it
+              </button>
+            </span>
+          </span>
+        ) : (
+          <label className={`price${l.per === 'once' ? ' wide' : ''}`}>
+            {unit === 'once' ? 'Price, € once' : `Price, € a ${unit}`}
+            <UnitBox unit="€" before needs={unpriced}>
+              <input inputMode="decimal" value={l.price} onChange={(e) => set({ price: e.target.value })} aria-label={`Line ${n}: price, ${unit === 'once' ? 'once' : `a ${unit}`}`} placeholder="0" autoFocus={p.focus === 'price'} onBlur={leave('price')} {...mark('price')} />
+            </UnitBox>
+          </label>
+        )}
         <label className="charged">
           Charged
           <select
@@ -413,8 +453,15 @@ export function LineEditor(p: {
           </span>
         )}
         <span className="amount">
-          {done === undefined ? '–' : money(lineCents(done))}
-          {unpriced && <small className="warn">Needs a price</small>}
+          {done === undefined ? '–' : l.included ? 'Included' : money(lineCents(done))}
+          {unpriced && (
+            <small className="warn">
+              Needs a price, or{' '}
+              <button type="button" className="link" onClick={() => set({ included: true, price: '' })} aria-label={`Line ${n}: included at no charge`}>
+                it's included
+              </button>
+            </small>
+          )}
           {/* What the rule makes of the days out (ADR 0085), by what it comes to. */}
           {l.rate && l.per === 'day' && done !== undefined && <small>Charged {l.rate === 'weekly' ? `${done.days} week${done.days === 1 ? '' : 's'}` : daysWord(done.days)}</small>}
         </span>

@@ -48,7 +48,7 @@ import { useMyDepartment } from '../Narrowed.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { Beside, Choices, clientNamed, NewOrNear, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
+import { Beside, ClientField, clientNamed, NewOrNear, JobStatusPill, Top, useHash, VenueField, venueNamed } from './common.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
 import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
@@ -62,6 +62,7 @@ import { QuoteScreen } from './Quote.tsx'
 import { SheetScreen } from './SheetScreen.tsx'
 import { BoardScreen } from './BoardScreen.tsx'
 import { JobViews, PlanScreen } from './PlanScreen.tsx'
+import { CalendarScreen } from './CalendarScreen.tsx'
 import { ClientScreen } from './ClientScreen.tsx'
 import { jobsAt, VenueScreen } from './VenueScreen.tsx'
 import { VenuesMapCard } from './VenueMaps.tsx'
@@ -77,7 +78,8 @@ import { arrival } from '../arrival.ts'
  * A job opens on its own page (#jobs/<id>) with its phases, kit and crew,
  * its pick list on another (#jobs/<id>/pick, ADR 0017), each phase's call
  * sheet on another (#jobs/<id>/sheet/<phase>, ADR 0021), the
- * planner (#jobs/plan, ADR 0010) shows them by week or month, the clients
+ * planner (#jobs/plan, ADR 0010) shows them by week or month, the master
+ * calendar (#jobs/calendar, ADR 0123) a month with enquiries and quotes, the clients
  * and venues have a list each (#jobs/clients, #jobs/venues, ADR 0041) and
  * a page each with its documents (#jobs/venues/<id>, ADR 0032), each job's
  * quote is on #jobs/<id>/quote and money on #jobs/money (ADR 0042), jobs
@@ -106,6 +108,7 @@ export function JobsScreen() {
   const wide = useWide()
   if (hash === '#jobs/plan' || hash.startsWith('#jobs/plan/')) return <PlanScreen view={view} hash={hash} />
   if (hash === '#jobs/board') return <BoardScreen view={view} />
+  if (hash === '#jobs/calendar' || hash.startsWith('#jobs/calendar/')) return <CalendarScreen view={view} hash={hash} />
   if (hash === '#jobs/import') return <ImportScreen view={view} />
   if (hash === '#jobs/tidy') return <TidyScreen view={view} />
   if (hash === '#jobs/clients') return <ClientsScreen view={view} />
@@ -604,13 +607,9 @@ function NewJob({ view }: { view: View }) {
       <label className="wide">
         Job <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required />
       </label>
-      <label>
-        Client <span className="optional">(optional)</span> <input list="client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} />
-      </label>
+      <ClientField jobs={view.jobs} optional value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-      <label>
-        Venue <span className="optional">(optional)</span> <input list="venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} />
-      </label>
+      <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />
       <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
       <label className="wide">
         Status
@@ -659,8 +658,6 @@ function NewJob({ view }: { view: View }) {
       <button type="submit" className="primary wide">
         Add job
       </button>
-      <Choices id="client-names" names={clients} />
-      <Choices id="venue-names" names={venues} />
       <datalist id="phase-names">
         {PHASE_NAMES.map((n) => (
           <option key={n} value={n} />

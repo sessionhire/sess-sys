@@ -14,10 +14,11 @@ import { forEachRow, ident, tableLayout, tablesInOrder, useCanonicalOutput } fro
  */
 
 /**
- * Left out on purpose: sign-in sessions, which are secrets, and the server's
+ * Left out on purpose: sign-in sessions and the phones a freelancer's link
+ * remembers, with any code waiting for one (ADR 0114), which are secrets, and the server's
  * own bookkeeping (schema versions, which copy of the data this is).
  */
-const NOT_EXPORTED = new Set(['sessions', 'server_meta', ...MODULES.map((m) => m.versionTable)])
+const NOT_EXPORTED = new Set(['sessions', 'link_devices', 'link_codes', 'link_lost', 'server_meta', ...MODULES.map((m) => m.versionTable)])
 
 /**
  * The secret in each freelancer's private link, wherever it turns up: in
@@ -27,12 +28,13 @@ const NOT_EXPORTED = new Set(['sessions', 'server_meta', ...MODULES.map((m) => m
  * though it is stored locked; devices never see it, so the feed has no copies.
  * And a freelancer's own calendar's private address (ADR 0044): whoever held
  * it could read their whole calendar. Devices never see it either; the busy
- * times stay in.
+ * times stay in. And a quote's link for its client (ADR 0121): whoever held
+ * it could accept the quote.
  */
-const SECRET_COLUMNS: Record<string, string[]> = { people: ['link_token'], person_merges: ['link_token'], calendar_link: ['refresh_token'], assistant_mailbox: ['refresh_token'], own_calendars: ['address'] }
+const SECRET_COLUMNS: Record<string, string[]> = { people: ['link_token'], quotes: ['accept_token'], person_merges: ['link_token'], calendar_link: ['refresh_token'], assistant_mailbox: ['refresh_token'], own_calendars: ['address'] }
 /** Not secret, but no use in a spreadsheet and far too big for one: the PDF that went with each emailed quote (ADR 0101). The backups keep it. */
 SECRET_COLUMNS.quote_emails = ['pdf_base64']
-const SECRET_FIELDS: Record<string, string[]> = { person: ['linkToken'] }
+const SECRET_FIELDS: Record<string, string[]> = { person: ['linkToken'], quote: ['acceptToken'] }
 
 type Row = Record<string, unknown>
 
@@ -265,7 +267,7 @@ const ABOUT: Record<string, string> = {
   calendar_imports: 'Each day of an event brought in from Google Calendar, and the job and phase it went into.',
   calendar_link: 'The Google calendar confirmed jobs are written to, the account that writes them, and who connected it.',
   changes: 'Every change to every record, in order: what phones and laptops receive.',
-  clients: 'Who jobs are for, with their contacts.',
+  clients: "Who jobs are for, with their contacts, the address their quotes go to, and when they pay: 'before' the job, a number of days from the invoice, or empty for the company's own terms.",
   // Money (ADR 0042).
   client_discounts: "Each client's usual discount on a quote, as a percentage.",
   cost_payments: "The day each freelancer was paid for an approved timesheet, as the office recorded it.",
@@ -309,8 +311,8 @@ const ABOUT: Record<string, string> = {
   product_prices: "The price list: each product's price for a day, in cents.",
   projects: 'Jobs: who for, where, whether they are going ahead, and the calendar a job was brought in from.',
   quotes:
-    "Each job's quotes, a row for each version: its lines (what, how many, days charged, the price for a day in cents and the VAT rate), the discount, the notes for the client, how many days its prices hold and any deposit, when it was sent and the quote number it was given then, the client's answer, and the invoice and payment the office recorded for it.",
-  quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details; and whether quotes can be emailed to clients from the operations mailbox.",
+    "Each job's quotes, a row for each version: its lines (what, how many, days charged, the price for a day in cents and the VAT rate), the discount, the notes for the client, how many days its prices hold and any deposit, when it was sent and the quote number it was given then, the client's answer, with the name typed when they accepted it online and when, and the invoice and payment the office recorded for it. The key in each quote's link for the client is left out.",
+  quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details; and whether quotes can be emailed to clients from the operations mailbox, and accepted by them online.",
   quote_emails:
     "Each quote emailed to a client from the operations mailbox: which quote, its version and number as sent, when, by whom, from and to which addresses, the subject and the message. The PDF that went is left out of this file; the app's own copy is on the quote's page.",
   role_prices: "The price list for crew: each role's price for a day, in cents. A role not here is quoted at the rate its crew were booked at.",
@@ -323,7 +325,7 @@ const ABOUT: Record<string, string> = {
   trackers: "Trackers on kit: the maker and serial number, the name the office gave it, the item it's on, when it was first and last heard from, where it last said it was and how accurately, its battery, where that is against where the item should be and since when, and whether it's been put away.",
   tracker_reports: 'Every report a tracker sent, as it came: when, its number, where it was and how accurately, its battery and why it reported.',
   tracker_settings: 'Whether the company uses trackers, where the warehouse is on the map, and how near counts as there.',
-  users: 'Staff who have signed in with Google.',
+  users: 'Staff who have signed in with Google, and the screen the app opens on for each when they chose one.',
   // A job's steps (ADR 0073).
   // The purchase list (ADR 0077).
   purchase_requests:
@@ -346,7 +348,7 @@ const ABOUT: Record<string, string> = {
   vehicle_bookings: 'Vehicles booked on jobs: the vehicle, the job and the phase (blank for the whole job), the days, who drives, a note, and whether it was booked despite a clash.',
   vehicles:
     "The company's vehicles: name, registration, kind, seats, payload in kg, notes, each check (NCT or CVRT, motor tax, insurance, service, tachograph) with whether it's needed and the day it runs out, and when one is off the road and why.",
-  venues: 'Where jobs happen: addresses, notes on access, load-in, power and parking, and where each is on the map (lat and lng, in degrees) once someone has put it there.',
+  venues: "Where jobs happen: addresses, notes on access, load-in, power and parking, who to ask for on site (name, role, mobile and email), and where each is on the map (lat and lng, in degrees) once someone has put it there.",
 }
 
 function readme(e: Everything, by?: { name: string; email: string }): string {
@@ -377,7 +379,8 @@ ${tables.join('\n')}
 
 Left out on purpose
 -------------------
-- The secrets in freelancers' private links, old and current, staff
+- The secrets in freelancers' private links, old and current, and in
+  quotes' links for clients, staff
   sign-in sessions, and the app's key to Google Calendar: whoever held this
   file could otherwise act as them.
 - The server's own bookkeeping: schema versions, and which copy of the data

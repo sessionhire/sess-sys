@@ -61,3 +61,36 @@ export function findProducts<P extends Findable>(products: readonly P[], typed: 
   }
   return out.sort((a, b) => a.rank - b.rank || a.f.product.name.localeCompare(b.f.product.name)).map((x) => x.f)
 }
+
+/** The most a count typed before a product's name can be, as a quote line's How many (lineDraft's 10,000). */
+export const MOST_COUNTED = 10_000
+
+/**
+ * How many, typed before what's looked for (research/quoting.md, feature 1): "12 y10", "12x y10", "12 × y10" and
+ * "12 * y10" are 12 of whatever "y10" finds; "12xlr" is not a count. A number and a space alone are not yet a search. Whether the number is a
+ * count or part of a name ("4 way box") is for `countedFind` to say.
+ */
+export function leadingCount(typed: string): { count: number; rest: string } | undefined {
+  const m = /^\s*(\d{1,5})(?:\s*[x×*]\s+|\s+)(\S.*)$/i.exec(typed)
+  if (!m) return undefined
+  const count = Number(m[1])
+  if (count < 1 || count > MOST_COUNTED) return undefined
+  return { count, rest: (m[2] ?? '').trim() }
+}
+
+/**
+ * What's typed in a picker that takes a count, read as a count first (audit of the quote flow, 8 November 2026, finding
+ * 2): "2 d20" is two of what "d20" finds, though "2 d20" whole would find the D20 by the 2 in its name. The whole text
+ * is what's looked for when the number is a word of a name it finds ("4 way box", "72-way split", "XLR 10 m" for
+ * "10 m xlr"), or when the rest finds nothing.
+ */
+export function countedFind<F>(typed: string, find: (text: string) => F[], nameOf: (f: F) => string): { count?: number; found: F[] } {
+  const whole = () => find(typed)
+  const counting = leadingCount(typed)
+  if (!counting) return { found: whole() }
+  const number = String(counting.count)
+  const all = whole()
+  if (all.some((f) => kitKey(nameOf(f)).split(' ').includes(number))) return { found: all }
+  const rest = find(counting.rest)
+  return rest.length ? { count: counting.count, found: rest } : { found: all }
+}

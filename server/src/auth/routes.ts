@@ -5,7 +5,7 @@ import { faultForLog, type Db } from '../db.ts'
 import { clearCookie, clientAddress, publicOrigin, readCookie, setCookie, SIGN_IN_LIMIT } from '../http.ts'
 import { isStaff, type AuthConfig } from './config.ts'
 import { roleOfAccount } from './roles.ts'
-import { createSession, endSession, SESSION_DAYS, sessionUser, upsertUser } from './sessions.ts'
+import { createSession, endSession, SESSION_DAYS, sessionUser, setStartScreen, upsertUser } from './sessions.ts'
 
 declare module 'fastify' {
   interface FastifyContextConfig {
@@ -214,6 +214,15 @@ export function registerAuth(app: FastifyInstance, db: Db, auth: AuthConfig | un
     if (!user) return reply.code(401).send({ auth: 'google', error: 'Sign in first.' })
     const { role, on, admin } = await roleOfAccount(db, user.email, auth.admins)
     return { auth: 'google', user, role, rolesOn: on, ...(admin ? { admin: true as const } : {}) }
+  })
+
+  // The screen the app opens on for the person signed in (ADR 0122), kept with their account so it follows them to every
+  // device. Anyone signed in can set their own, whatever their role; nobody can set anyone else's.
+  app.post<{ Body: { start?: unknown } }>('/api/me/start', async (req, reply) => {
+    reply.header('cache-control', 'no-store')
+    if (!req.user) return reply.code(404).send({ error: 'Sign in with Google to choose where the app opens.' })
+    await setStartScreen(db, req.user.id, req.body?.start)
+    return { ok: true }
   })
 
   // A demo copy's "See it as…" (ADR 0033): the persona chosen is the role the server holds this browser to, so

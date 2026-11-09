@@ -1,11 +1,11 @@
 /* Home (ADR 0033): how things stand, for whoever is looking. */
 .home .home-day { margin: calc(-1 * var(--ds-space-3)) 0 0; color: var(--muted); font-size: var(--text-small); }
-/* Who it's shown for: a toggle drawn like the Jobs tab's List, Week and Month. */
-.home .home-for { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ds-space-1); padding: var(--ds-space-1); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); }
-.home .home-for button { min-width: 0; padding: var(--ds-space-1) var(--ds-space-half); font-size: var(--text-small); border: 0; background: transparent; color: var(--muted); font-weight: 700; }
+/* Who it's shown for: a toggle drawn like the Jobs tab's List, Week and Month. Each as wide as its word, so all four sit on one line
+   on a phone too, rather than folding into a block of four that reads as two questions. */
+.home .home-for { display: flex; gap: var(--ds-space-1); padding: var(--ds-space-1); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); }
+.home .home-for button { flex: 1 0 auto; min-width: 0; padding: var(--ds-space-1) var(--ds-space-half); font-size: var(--text-small); border: 0; background: transparent; color: var(--muted); font-weight: 700; }
 .home .home-for button[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
 .home .home-department select { width: 100%; }
-@media (max-width: 479px) { .home .home-for { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Counts as tiles: the number first and large, what it's of under it. Two across on a phone, more on a laptop. */
 .home .tiles > li { display: grid; }
 .home .tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--ds-space-2); }
@@ -81,10 +81,10 @@
 }
 /* The week ahead's errands and meetings, folded behind one line (audit, 20 October 2026, finding 32), the one fold (app.css). */
 .home .errands[open] summary { margin-bottom: var(--ds-space-1); }
-/* Needs attention in two groups (audit, 20 October 2026, finding 33): the next fortnight's full size, the housekeeping smaller under it. */
+/* Needs attention in two groups (audit, 20 October 2026, finding 33): the next fortnight's full size, the housekeeping smaller under it, on
+   the same columns, so the two grids line up rather than three across over four. */
 .home .standing h3 { margin: var(--ds-space-2) 0 0; }
 .home .standing .hint { margin: 0; }
-.home .tiles.housekeeping { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 .home .tiles.housekeeping .tile { min-height: 64px; padding: var(--ds-space-2) var(--inset-box); }
 .home .tiles.housekeeping .tile b { font-size: 1.25rem; }
 

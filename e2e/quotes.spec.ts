@@ -324,7 +324,15 @@ test('a quote turned down: losing the job is left to record, and a loss, so noth
   expect(await reds()).toEqual(['Client accepted'])
 
   // Turned down, with the job still quoted: marking it lost is left, which takes its crew calls, so it's plain, and printing waits.
+  // Why is asked in place before it's recorded (research/quoting.md, feature 5), and shows on the answer.
   await records.getByRole('button', { name: 'Client turned it down' }).click()
+  const why = records.getByRole('group', { name: 'Why did they say no?' })
+  await why.getByRole('radio', { name: 'Went with someone else' }).check()
+  await why.getByRole('textbox', { name: /Anything more/ }).fill('A cheaper PA from Galway')
+  await why.getByRole('button', { name: 'Record it as turned down' }).click()
+  await expect(why).toHaveCount(0)
+  await expect(records).toContainText('went with someone else')
+  await expect(records).toContainText('A cheaper PA from Galway')
   await expect(records).toContainText('The client turned it down, and the job is still quoted.')
   await expect(records.getByRole('button', { name: 'Mark the job lost' })).toBeVisible()
   expect(await reds()).toEqual([])
@@ -444,14 +452,14 @@ test("the crew's travel to a venue far from Dublin, and their subsistence unless
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
-test('a package made on the price list goes on a quote as one line, with what it holds under it (ADR 0087)', async ({ browser, request }) => {
+test('a package made on the price list goes on a quote at its price, with its kit under it (ADR 0087, ADR 0116)', async ({ browser, request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await noPrintDialog(office)
 
   await office.goto('/#jobs/money/prices')
-  const packages = office.getByRole('region', { name: 'Packages' })
+  const packages = office.getByRole('region', { name: 'Packages', exact: true })
   await packages.getByRole('button', { name: 'Add a package' }).click()
   const editor = packages.getByRole('form', { name: 'New package' })
   await editor.getByLabel('Name').fill('Mic package')
@@ -473,12 +481,21 @@ test('a package made on the price list goes on a quote as one line, with what it
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await draft.getByRole('button', { name: 'Add a package' }).click()
   await draft.getByRole('button', { name: 'Add', exact: true }).click()
-  await expect(draft.getByLabel('Line 3: includes')).toHaveValue('4 × Shure SM58, with clips and stands')
+  // Its line at its price, and the four mics under it, included, shown as it's just been added.
+  await expect(draft.getByLabel('Line 3: includes')).toHaveValue('with clips and stands')
+  await draft.getByRole('button', { name: 'Done' }).click()
+  const set = draft.locator('.quote-set')
+  await expect(set.getByRole('button', { name: 'Hide what’s in it' })).toBeVisible()
+  await expect(set.locator('.set-lines')).toContainText('Shure SM58')
+  await expect(set.locator('.set-lines')).toContainText('Included')
+  await expect(draft.getByRole('button', { name: /with no price/ })).toHaveCount(0)
   await expect(draft.getByRole('group', { name: 'What it comes to' })).toContainText('Before VAT €2,140.00')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
   await draft.getByRole('button', { name: 'Print a draft' }).click()
+  // On paper, its kit is printed under it.
   const printed = office.locator('.print-sheet.quote-sheet')
-  await expect(printed).toContainText('Mic package4 × Shure SM58, with clips and stands')
+  await expect(printed).toContainText('Mic packagewith clips and stands')
+  await expect(printed.locator('tr.set-line', { hasText: 'Shure SM58' })).toContainText('Included')
   await office.evaluate(() => dispatchEvent(new Event('afterprint')))
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
@@ -564,6 +581,39 @@ test('Add kit takes the cursor and stays open for the next product, Done closing
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
+test("how many is typed with the product or the role, and the picker says the price and how many are free (research/quoting.md, features 1 and 2)", async ({ browser, request }) => {
+  // Proves: "12 SM58" in Add kit offers 12 × the product with its price and free count and adds a line of 12; Add crew takes how many beside the role; a name that starts with a number is still found by it.
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.goto('/#jobs')
+  await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
+  await office.getByRole('tab', { name: 'Quote' }).click()
+  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
+  await office.getByRole('button', { name: 'Start one empty' }).click()
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await expect(draft).toContainText('Type how many first, as 12 y10.')
+  await office.keyboard.type('12 SM58')
+  const offer = draft.getByRole('option', { name: /^12 × Shure SM58/ })
+  await expect(offer).toBeVisible()
+  await expect(offer).toContainText(/(a day|a week|No price yet)/)
+  await expect(offer).toContainText(/free/)
+  await expect(draft.getByRole('listbox')).toContainText('12 of the one you pick')
+  await office.keyboard.press('Enter')
+  await expect(draft).toContainText('1 line added.')
+  await expect(draft.getByRole('button', { name: /Shure SM58, change it$/ })).toContainText('12 ×')
+  await draft.getByRole('button', { name: 'Done', exact: true }).click()
+
+  await draft.getByRole('button', { name: 'Add crew' }).click()
+  await draft.getByLabel('How many').fill('2')
+  await draft.getByLabel('Crew role to add').fill('Rigger')
+  await draft.getByLabel('Crew role to add').press('Enter')
+  // The crew line opens for its price as before, at two.
+  await expect(draft.getByRole('textbox', { name: 'Line 2: how many' })).toHaveValue('2')
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
 test("on a desk a line's amount and Remove sit inside the quote's card at every width (audit finding 28)", async ({ browser, request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
@@ -584,5 +634,100 @@ test("on a desk a line's amount and Remove sit inside the quote's card at every 
       expect(box.x + box.width, `at ${width}px`).toBeLessThanOrEqual(card.x + card.width)
     }
   }
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test('two people on one draft keep both their changes, one of them with no signal (ADR 0113)', async ({ browser, request }) => {
+  // Proves: a save made from an older draft keeps the change made elsewhere since, on the server and on both devices, and
+  // a draft left open takes in the other's change instead of saving its own old copy over it.
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const one = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await one.goto('/#jobs')
+  await one.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
+  await one.getByRole('tab', { name: 'Quote' }).click()
+  await one.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
+  await one.getByRole('button', { name: 'Start one empty' }).click()
+  const draftOne = one.getByRole('form', { name: 'Version 1, a draft' })
+  await draftOne.getByRole('button', { name: 'Add kit' }).click()
+  await one.keyboard.type('4 SM58')
+  await one.keyboard.press('Enter')
+  await expect(draftOne).toContainText('1 line added.')
+  await one.keyboard.type('2 y10')
+  await one.keyboard.press('Enter')
+  await expect(draftOne).toContainText('2 lines added.')
+  await draftOne.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(draftOne.locator('.save-state')).toHaveText('Saved')
+
+  // The other device opens the same draft, then loses signal and changes the second line.
+  const twoContext = await browser.newContext({ viewport: phoneSize })
+  const two = await twoContext.newPage()
+  await two.goto(one.url())
+  const draftTwo = two.getByRole('form', { name: 'Version 1, a draft' })
+  await expect(draftTwo).toContainText('Shure SM58')
+  await twoContext.setOffline(true)
+  await draftTwo.getByRole('button', { name: /^Line 2: .*, change it$/ }).click()
+  await draftTwo.getByLabel('Line 2: how many').fill('3')
+  await draftTwo.getByLabel('Line 2: how many').press('Tab')
+
+  // Meanwhile the first changes the first line, and the second, with signal back, keeps it.
+  await draftOne.getByRole('button', { name: /^Line 1: .*, change it$/ }).click()
+  await draftOne.getByLabel('Line 1: how many').fill('6')
+  await draftOne.getByLabel('Line 1: how many').press('Tab')
+  await expect(draftOne.locator('.save-state')).toHaveText('Saved')
+  await twoContext.setOffline(false)
+
+  // Each takes in the other's line live, keeping its own, open as it was.
+  await expect(draftOne.getByRole('button', { name: 'Line 2: d&b Y10P, change it' })).toContainText('3 ×')
+  await expect(draftOne.getByLabel('Line 1: how many')).toHaveValue('6')
+  await expect(draftTwo.getByRole('button', { name: 'Line 1: Shure SM58, change it' })).toContainText('6 ×')
+  await expect(draftTwo.getByLabel('Line 2: how many')).toHaveValue('3')
+  // And neither saved its old copy back over the other's: both read so from the server.
+  await expect(draftOne.locator('.save-state')).toHaveText('Saved')
+  await expect(draftTwo.locator('.save-state')).toHaveText('Saved')
+  for (const page of [one, two]) {
+    await page.reload()
+    const draft = page.getByRole('form', { name: 'Version 1, a draft' })
+    await expect(draft.getByRole('button', { name: 'Line 1: Shure SM58, change it' })).toContainText('6 ×')
+    await expect(draft.getByRole('button', { name: 'Line 2: d&b Y10P, change it' })).toContainText('3 ×')
+  }
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test('a count before a name with digits in it is still a count, and a line given free is Included, not asked about (audit of the quote flow, 8 November 2026, findings 1 and 2)', async ({ browser, request }) => {
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.goto('/#jobs')
+  await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
+  await office.getByRole('tab', { name: 'Quote' }).click()
+  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
+  await office.getByRole('button', { name: 'Start one empty' }).click()
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+
+  // "8 SM58" as a whole finds the SM58 by the 8 in its name; it's still eight of it.
+  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await office.keyboard.type('8 SM58')
+  await expect(draft.getByRole('option', { name: /^8 × Shure SM58/ })).toBeVisible()
+  await office.keyboard.press('Enter')
+  await expect(draft.getByRole('button', { name: /Shure SM58, change it$/ })).toContainText('8 ×')
+  await draft.getByRole('button', { name: 'Done', exact: true }).click()
+
+  // A line with no price says so, and one press gives it as included: it reads Included and the readout stops counting it.
+  await draft.getByRole('button', { name: 'Add something else' }).click()
+  await draft.getByRole('textbox', { name: 'Line 2: what' }).fill('Cables and power')
+  await expect(draft.getByText('Needs a price, or')).toBeVisible()
+  await expect(draft.getByRole('button', { name: /lines? with no price/ })).toBeVisible()
+  await draft.getByRole('button', { name: 'Line 2: included at no charge' }).click()
+  await expect(draft.locator('.quote-line .included-word')).toContainText('Included')
+  await expect(draft.getByRole('button', { name: /lines? with no price/ })).toHaveCount(0)
+  await draft.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(draft.getByRole('button', { name: 'Line 2: Cables and power, change it' })).toContainText('Included at no charge')
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+
+  // It goes without being asked about, and the sent quote says Included.
+  await draft.getByRole('button', { name: 'Mark as sent' }).click()
+  await expect(office.getByRole('dialog')).toHaveCount(0)
+  await expect(office.getByRole('table').first()).toContainText('Included')
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })

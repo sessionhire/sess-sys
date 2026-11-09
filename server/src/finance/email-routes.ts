@@ -1,6 +1,7 @@
 import { irishToday, quoteEmailSend, type QuoteEmail, type QuoteEmailPrefill } from '@sh/shared'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { describeDevice } from '../devices.ts'
+import { publicOrigin } from '../http.ts'
 import { fileNameFor, prefillFor, sendQuote, sheetFor, type Mailer } from './quote-email.ts'
 import { quotePdf } from './quote-pdf.ts'
 import { getQuote, getQuoteEmailPdf } from './store.ts'
@@ -19,7 +20,7 @@ export function registerQuoteEmailRoutes(app: FastifyInstance, m: Mailer) {
     noStore(reply)
     const quote = await getQuote(m.db.reads, id(req.params.id))
     if (!quote) return reply.code(404).send({ error: 'That quote is no longer here.' })
-    return prefillFor(m, quote, req.user)
+    return prefillFor(m, quote, req.user, publicOrigin(req))
   })
 
   app.post<{ Params: { id: string }; Querystring: { client?: string } }>('/api/quotes/:id/email', { config: { needs: 'money' } }, async (req, reply): Promise<{ email: QuoteEmail } | void> => {

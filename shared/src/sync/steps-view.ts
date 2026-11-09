@@ -2,6 +2,7 @@ import type { CommandArgs, Mutation } from '../commands.ts'
 import { dayLabel } from '../crew.ts'
 import { daysBetween } from '../crew-days.ts'
 import { kindOf, kitDaysOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
+import { needsPrice } from '../quotes.ts'
 import { plural } from '../stock.ts'
 import { JOB_STAGES, JOB_STEPS, LATE_BACK_AFTER_DAYS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type StepRecord } from '../steps.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
@@ -260,7 +261,7 @@ export function stepsView(
       stage === 'back' && daysBetween(job.span!.end, today) > SETTLED_AFTER_DAYS && (!pick || pick.stillOut === 0) && openFaults === 0
         ? `Taken as done: it ended ${dayLabel(job.span!.end)} with nothing still out`
         : undefined
-    const unpriced = draft ? draft.lines.filter((l) => l.unitCents === 0).length : 0
+    const unpriced = draft ? draft.lines.filter((l, _, all) => needsPrice(l, all)).length : 0
     const quoteFacts: StepFacts = {
       ...(sent?.sentOn ? { sentOn: sent.sentOn } : {}),
       ...(accepted?.answeredOn ? { answeredOn: accepted.answeredOn } : {}),

@@ -125,6 +125,8 @@ export function enquiryRules(today: string, names: { clients: string[]; venues: 
     '- Name: a short name for the job, as the office would write it, such as "Nissan launch" or "Electric Picnic 2027".',
     '- Questions: up to six short things the office should ask the client before quoting, such as numbers, times, power or access. None if nothing is missing.',
     '- Summary: two sentences on what the job is.',
+    '- Asker: the person who made the enquiry, by name as they signed it, not the company. "" when not said.',
+    '- Quote by: the day the client wants the quote by, YYYY-MM-DD, only when the enquiry says so; otherwise "".',
     names.roles.length ? `The company’s crew roles: ${names.roles.join('; ')}.` : '',
     names.clients.length ? `Clients already known: ${names.clients.join('; ')}.` : '',
     names.venues.length ? `Venues already known: ${names.venues.join('; ')}.` : '',

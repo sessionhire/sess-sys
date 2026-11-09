@@ -1,5 +1,6 @@
 import {
   kitFromQuote,
+  packageIncludes,
   type KitToAdd,
   type QuoteLine,
   dayLabel,
@@ -217,6 +218,7 @@ export function KitCard({ job, view }: { job: JobView; view: View }) {
       {mayKit && (
         <Fold label="Add kit">
           <AddKit job={job} view={view} lines={lines} />
+          {view.money.packages.some((p) => p.items.length) && <AddPackageKit job={job} view={view} lines={lines} />}
         </Fold>
       )}
       <ProductChoices w={view.warehouse} />
@@ -614,6 +616,60 @@ function FromQuote({ job, view, lines }: { job: JobView; view: View; lines: read
       </button>
       <p className="hint">For the whole job. Change or take off any of them after, as with kit added by hand.</p>
     </div>
+  )
+}
+
+/**
+ * A package's kit on the job's kit list in one press (ADR 0116): each product it holds, for the whole job or one phase,
+ * added to a line already there for it. Packages are on the devices of those who see money, so only they are offered it.
+ */
+function AddPackageKit({ job, view, lines }: { job: JobView; view: View; lines: readonly KitLineView[] }) {
+  const packages = view.money.packages.filter((p) => p.items.length)
+  const [f, setF] = useState({ packageId: packages[0]?.id ?? '', phaseId: '' })
+  const { run, error } = useAct()
+  const [added, setAdded] = useState('')
+  const p = packages.find((x) => x.id === f.packageId)
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!p) return
+    setAdded('')
+    const phaseId = f.phaseId || null
+    void run(async () => {
+      for (const i of p.items) {
+        if (!view.warehouse.models.some((m) => m.id === i.modelId)) continue
+        const already = lines.find((l) => l.modelId === i.modelId && l.phaseId === phaseId)
+        if (already) await client.mutate('kit.update', { id: already.id, qty: Math.min(MAX_QTY, already.qty + i.qty) })
+        else await client.mutate('kit.add', { id: newId(), projectId: job.id, phaseId, modelId: i.modelId, qty: Math.min(MAX_QTY, i.qty), subhireQty: 0, supplier: '', notes: p.name.slice(0, 500) })
+      }
+    }).then((ok) => ok && setAdded(`Added what ${p.name} holds: ${plural(p.items.length, 'product')}.`))
+  }
+  return (
+    <form className="grid-form add-kit" onSubmit={submit} aria-label="Add a package">
+      <h3 className="wide">Add a package</h3>
+      <label className="wide">
+        Package
+        <select value={f.packageId} onChange={(e) => setF({ ...f, packageId: e.target.value })}>
+          {packages.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        For <ForChoice job={job} value={f.phaseId} onChange={(phaseId) => setF({ ...f, phaseId })} />
+      </label>
+      {p && <p className="hint wide">{packageIncludes(p, (id) => view.warehouse.models.find((m) => m.id === id)?.name)}. Change any of them after, as with kit added by hand.</p>}
+      <Refusal error={error} className="wide" />
+      {added && !error && (
+        <p className="added wide" role="status">
+          {added}
+        </p>
+      )}
+      <button type="submit" className="wide">
+        Add its kit
+      </button>
+    </form>
   )
 }
 

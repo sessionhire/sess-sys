@@ -202,6 +202,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'quoting.update': 'money',
   'quoting.travel': 'money',
   'quoting.email': 'money',
+  'quoting.online': 'money',
   'price.product': 'money',
   'price.rulesFromRms': 'money',
   'package.save': 'money',
@@ -219,6 +220,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'timesheets.use': 'settings',
   // Whether Claude is offered inside the app (ADR 0096): a setting like timesheets.
   'assistant.use': 'settings',
+  'links.check': 'settings',
   'cables.colours': 'settings',
   // Trackers (ADR 0107): using them, and where the warehouse is, are settings; which item each is on is stock's.
   'trackers.use': 'settings',

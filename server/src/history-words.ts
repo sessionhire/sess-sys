@@ -25,7 +25,7 @@ import {
   type ProjectStatus,
   type RetiredReason,
 } from '@sh/shared'
-import { RATE_LABELS, type RateRule } from '@sh/shared'
+import { RATE_LABELS, TURN_DOWN_LABELS, type RateRule, type TurnDownReason } from '@sh/shared'
 import { certificateName, certificateOf, DOCUMENT_ACTIONS, DOCUMENT_KINDS, DOCUMENT_TITLES, fileLabel, FILE_TYPES, titleInSentence, type FileType } from '@sh/shared'
 import { countSummaryWords, isCountSummary } from '@sh/shared'
 import { ROLE_LABELS, type Role } from '@sh/shared'
@@ -60,6 +60,8 @@ export const LATE_CLEARED_ACTION = 'late.clear-old'
 export const FUEL_FROM_AA_ACTION = 'quoting.fuel-from-aa'
 /** A quote emailed to the client from the operations mailbox (ADR 0101): the server's own record of the send. */
 export const QUOTE_EMAIL_ACTION = 'quote.email'
+/** A client accepting a quote on its link (ADR 0121): the server's own change, by nobody signed in. */
+export const QUOTE_ONLINE_ACTION = 'quote.acceptedOnline'
 
 /**
  * Whose documents a reader reads in full in the history (ADR 0062, audit, 20 October 2026, finding 38): true for everyone's,
@@ -288,6 +290,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.on === true ? 'Turned on timesheets' : 'Turned off timesheets'
     case 'assistant.use':
       return a.on === true ? 'Turned on Claude' : 'Turned off Claude'
+    case 'links.check':
+      return a.on === true ? "Turned on checking new phones on freelancers' links" : "Turned off checking new phones on freelancers' links"
     case 'cables.colours':
       return `Set the colours for cable lengths${Array.isArray(a.colours) ? ` (${a.colours.length})` : ''}`
     // The company's logo (ADR 0106): that it changed, never the picture.
@@ -710,7 +714,9 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (command === 'quote.save') return `Saved ${of}`
       if (command === 'quote.sent') return `Marked ${of} as sent to the client${on}`
       if (command === 'quote.answer')
-        return a.answer === 'none' ? `Took back the client's answer to ${of}` : `Recorded that the client ${a.answer === 'accepted' ? 'accepted' : 'turned down'} ${of}${on}`
+        return a.answer === 'none'
+          ? `Took back the client's answer to ${of}`
+          : `Recorded that the client ${a.answer === 'accepted' ? 'accepted' : 'turned down'} ${of}${on}${a.answer === 'declined' && typeof a.why === 'string' && a.why in TURN_DOWN_LABELS ? `: ${TURN_DOWN_LABELS[a.why as TurnDownReason].toLowerCase()}` : ''}`
       if (command === 'quote.invoiced') return a.on === null ? `Took back the invoice for ${of}` : `Marked ${of} invoiced${on}${typeof a.ref === 'string' && a.ref.trim() ? `, as ${clip(a.ref.trim())}` : ''}`
       return a.on === null ? `Took back the payment for ${of}` : `Marked ${of} paid${on}`
     }
@@ -722,6 +728,13 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     }
     case 'quoting.email':
       return a.on === true ? 'Turned on sending quotes to clients by email from the operations mailbox' : 'Turned off sending quotes by email'
+    case 'quoting.online':
+      return a.on === true ? 'Turned on clients accepting quotes online' : 'Turned off clients accepting quotes online'
+    case QUOTE_ONLINE_ACTION: {
+      const q = look('quote', a.id)
+      const version = typeof q?.version === 'number' ? `version ${q.version} of ` : ''
+      return `${text(a.name, 'The client')} accepted ${version}the quote for ${job(q?.projectId ?? a.projectId)} online, for the client`
+    }
     case 'quoting.update':
       return `Set what printed quotes say: ${typeof a.nextNumber === 'number' ? `the next is number ${a.nextNumber}` : 'numbers carry on from the highest'}, with the terms and bank details`
     case FUEL_FROM_AA_ACTION:

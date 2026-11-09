@@ -53,6 +53,8 @@ export default defineConfig({
         theme_color: '#ee3744',
         background_color: color.light.surface.ground,
         display: 'standalone',
+        // The app's own address, whatever page it was put on the home screen from: it opens on the screen the person chose under You (ADR 0122).
+        start_url: '/',
         // PNGs beside the SVG (audit finding 26), made by scripts/make-icons.mjs: a phone installs with a real icon. They fill
         // their square with the mark well inside the middle, so Android may also crop them to its own shape ("maskable")
         // rather than shrinking them onto a white tile.

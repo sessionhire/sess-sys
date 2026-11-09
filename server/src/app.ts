@@ -24,6 +24,7 @@ import { registerDataRoutes } from './data/routes.ts'
 import { Feeds, type FeedsOptions } from './crew/feeds.ts'
 import { registerPeopleImportRoutes } from './crew/import.ts'
 import { registerCrewLinks } from './crew/links.ts'
+import { registerLinkCheck } from './crew/link-check.ts'
 import { COPY_SCRIPT } from './crew/page.ts'
 import { OwnCalendars, type OwnCalendarsOptions } from './crew/own-calendars.ts'
 import { registerOwnCalendarRoutes } from './crew/own-calendar-routes.ts'
@@ -59,6 +60,7 @@ import type { Gmail } from './assistant/gmail.ts'
 import { Mailbox } from './assistant/mailbox.ts'
 import { registerMailboxRoutes } from './assistant/mailbox-routes.ts'
 import { registerQuoteEmailRoutes } from './finance/email-routes.ts'
+import { registerAcceptRoutes } from './finance/accept-routes.ts'
 import { registerStatusRoutes, Status, type OutsideLooks } from './status.ts'
 import { registerTrackerRoutes } from './trackers/routes.ts'
 
@@ -424,6 +426,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   registerAuth(app, db, auth, passcode)
   // Staff's own pages need Google too, once it is on (ADR 0052).
   if (auth) guardStaffPages(app, db, auth.admins)
+  // A freelancer's link remembers the phones it opens on, and checks a new one once the office says (ADR 0114). The mailbox
+  // that sends the code is made further down, so it's looked up when a code is asked for.
+  registerLinkCheck(app, db, { mailbox: () => (app.hasDecorator('assistantMailbox') ? app.assistantMailbox : undefined) })
 
   app.get('/api/health', { config: { public: true } }, async () => {
     const backup = backups.status()
@@ -664,6 +669,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('assistantMailbox', mailbox)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
   registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke() })
+  // The client accepts a quote on its own link (ADR 0121), while the office has it on.
+  registerAcceptRoutes(app, db, { onChange: () => void poke() })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   registerStatusRoutes(
     app,

@@ -1,9 +1,9 @@
-import { QUOTE_SETTINGS_ID, roleKey, type CommandArgs, type Quote, type RateRule } from '@sh/shared'
+import { mergeDraft, QUOTE_SETTINGS_ID, roleKey, type CommandArgs, type Quote, type RateRule } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getTimesheet } from '../crew/timesheets.ts'
 import { getClient, getProject } from '../projects/store.ts'
 import { getModel } from '../stock/store.ts'
-import { getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, getQuoteSettings, getRolePrice, highestNumber, quotesOf } from './store.ts'
+import { getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, getQuoteSettings, getRolePrice, highestNumber, newAcceptToken, quotesOf } from './store.ts'
 
 /**
  * Light finance (ADR 0042). The rules, wherever a change comes from:
@@ -21,7 +21,7 @@ import { getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, 
  * Sending the same change twice, as a phone may, changes nothing.
  */
 
-type FinanceCommand = 'quote.save' | 'quote.sent' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
+type FinanceCommand = 'quote.save' | 'quote.sent' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
@@ -71,6 +71,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (was) {
       if (was.projectId !== a.projectId) throw new Refused({ code: 'invalid', message: 'That quote belongs to another job.' })
       if (was.status !== 'draft') throw new Refused({ code: 'conflict', message: `${settled(was)}, so it stays as it was. Start a new version to change it.` })
+      // Two people on one draft (ADR 0113): what changed elsewhere since this save's base, and it didn't touch, stays.
+      if (a.base) a = { ...a, ...mergeDraft(was, a, a.base).save }
       await ctx.tx.query(`UPDATE quotes SET lines = $2, discount_pct = $3, notes = $4, saved_at = now() WHERE id = $1`, [
         a.id,
         JSON.stringify(a.lines),
@@ -93,8 +95,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     // A new version holds its prices as long as the one before, and asks the same deposit, unless it says otherwise.
     const before = versions[0]
     await ctx.tx.query(
-      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km)
-       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11)`,
+      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token)
+       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         a.id,
         a.projectId,
@@ -109,6 +111,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
         // The job's meals and the distance are the job's, so a new version keeps them unless it says.
         a.mealsProvided ?? before?.mealsProvided ?? false,
         a.travelKm !== undefined ? a.travelKm : (before?.travelKm ?? null),
+        // The key to the client's link (ADR 0121): there from the start, answering only once the office turns it on.
+        newAcceptToken(),
       ]
     )
     await emitQuote(ctx, a.id)
@@ -118,7 +122,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     const q = await quoteFor(ctx, a.id)
     if (q.status !== 'draft') return
     if (q.lines.length === 0) throw new Refused({ code: 'invalid', message: 'This quote has no lines yet. Add what it is for first.' })
-    await ctx.tx.query(`UPDATE quotes SET status = 'sent', sent_on = $2 WHERE id = $1`, [a.id, a.on])
+    // A version made before the client's link (ADR 0121), or by a way in that doesn't give one, gets its key as it goes.
+    await ctx.tx.query(`UPDATE quotes SET status = 'sent', sent_on = $2, accept_token = coalesce(accept_token, $3) WHERE id = $1`, [a.id, a.on, newAcceptToken()])
     await numberIt(ctx, q)
     await emitQuote(ctx, a.id)
   },
@@ -165,18 +170,44 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
   },
 
+  /**
+   * Whether a client can accept a quote on its own link (ADR 0121): off until the office says. Turned on, every version
+   * out with a client that has no key yet is given one, so its link works when the office copies it.
+   */
+  async 'quoting.online'(ctx, a) {
+    await ctx.tx.query(`INSERT INTO quote_settings (id, accept_online) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET accept_online = EXCLUDED.accept_online`, [QUOTE_SETTINGS_ID, a.on])
+    await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
+    if (!a.on) return
+    const { rows } = await ctx.tx.query<{ id: string }>(`SELECT id FROM quotes WHERE status = 'sent' AND accept_token IS NULL`)
+    for (const r of rows) {
+      await ctx.tx.query('UPDATE quotes SET accept_token = $2 WHERE id = $1', [r.id, newAcceptToken()])
+      await emitQuote(ctx, r.id)
+    }
+  },
+
   async 'quote.answer'(ctx, a) {
     const q = await quoteFor(ctx, a.id)
     if (q.invoicedOn) throw new Refused({ code: 'conflict', message: "This quote is invoiced, so the client's answer stays. Take the invoice back first." })
     if (a.answer === 'none') {
       if (q.status !== 'accepted' && q.status !== 'declined') return
-      await ctx.tx.query(`UPDATE quotes SET status = 'sent', answered_on = NULL WHERE id = $1`, [a.id])
+      // A yes given online (ADR 0121) goes with it, so the link asks again.
+      await ctx.tx.query(`UPDATE quotes SET status = 'sent', answered_on = NULL, declined_why = NULL, declined_note = '', accepted_name = NULL, accepted_at = NULL WHERE id = $1`, [a.id])
       return emitQuote(ctx, a.id)
     }
-    if (q.status === a.answer && q.answeredOn === a.on) return
+    // Why it was turned down is kept with a "turned down" only, and a quick "no" says nothing of why.
+    const why = a.answer === 'declined' ? (a.why ?? null) : null
+    const note = a.answer === 'declined' ? (a.note ?? '').trim() : ''
+    if (q.status === a.answer && q.answeredOn === a.on && (q.declinedWhy ?? null) === why && (q.declinedNote ?? '') === note) return
     await refuseIfReplaced(ctx, q)
     if (q.status === 'draft' && q.lines.length === 0) throw new Refused({ code: 'invalid', message: 'This quote has no lines yet. Add what it is for first.' })
-    await ctx.tx.query(`UPDATE quotes SET status = $2, answered_on = $3, sent_on = coalesce(sent_on, $3) WHERE id = $1`, [a.id, a.answer, a.on])
+    await ctx.tx.query(`UPDATE quotes SET status = $2, answered_on = $3, sent_on = coalesce(sent_on, $3), declined_why = $4, declined_note = $5,
+       accepted_name = CASE WHEN $2 = 'accepted' THEN accepted_name END, accepted_at = CASE WHEN $2 = 'accepted' THEN accepted_at END WHERE id = $1`, [
+      a.id,
+      a.answer,
+      a.on,
+      why,
+      note,
+    ])
     // Answered straight from a draft, it went to the client all the same, so it's numbered as if marked sent.
     if (q.status === 'draft') await numberIt(ctx, q)
     await emitQuote(ctx, a.id)

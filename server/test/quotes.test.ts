@@ -1,4 +1,4 @@
-import { addDays, irishToday, newId, type CommandInput, type CommandName, type HistoryPage, type Mutation, type MutationResult, type Quote, type QuoteLine } from '@sh/shared'
+import { addDays, dayLabel, draftBase, irishToday, newId, type CommandInput, type CommandName, type HistoryPage, type Mutation, type MutationResult, type Quote, type QuoteLine } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.ts'
@@ -77,6 +77,27 @@ describe('a quote', () => {
     expect((await quote('v1')).lines[0]).toMatchObject({ qty: 10 })
   })
 
+  it('keeps what two people changed on one draft, each from what they had open (ADR 0113)', async () => {
+    const { app, quote } = await gala()
+    const a = line({ id: 'a' })
+    const b = line({ id: 'b', what: 'Shure SM58', qty: 4 })
+    await ok(app, save('v1', [a, b]))
+    const opened = draftBase(await quote('v1'))
+    // Someone else changes the first line and the discount; this save, from what was open before, changes the second.
+    await ok(app, m('quote.save', { id: 'v1', projectId: 'gala', lines: [{ ...a, qty: 12 }, b], discountPct: 10, notes: '', base: opened }))
+    await ok(app, m('quote.save', { id: 'v1', projectId: 'gala', lines: [a, { ...b, qty: 6 }, line({ id: 'c', what: 'DI box' })], discountPct: 0, notes: '', base: opened }))
+    const q = await quote('v1')
+    expect(q.lines.map((l) => [l.id, l.qty])).toEqual([
+      ['a', 12],
+      ['b', 6],
+      ['c', 8],
+    ])
+    expect(q.discountPct).toBe(10)
+    // A save with no base, from an app older than it, is the draft as it says.
+    await ok(app, save('v1', [a]))
+    expect((await quote('v1')).lines).toHaveLength(1)
+  })
+
   it("takes the client's answer, the invoice and the payment in turn, and on the version that counts", async () => {
     const { app, quote } = await gala()
     await ok(app, save('v1'), m('quote.sent', { id: 'v1', on: day(-10) }), save('v2'), m('quote.sent', { id: 'v2', on: day(-8) }))
@@ -97,8 +118,17 @@ describe('a quote', () => {
 
     // The same change twice, as a phone may send it, changes nothing more.
     await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0) }), m('quote.answer', { id: 'v2', answer: 'declined', on: day(0) }))
+    expect(await quote('v2')).toMatchObject({ status: 'declined', declinedWhy: null, declinedNote: '' })
+
+    // Why it was turned down (research/quoting.md, feature 5): kept with the answer, said in the history, gone with it.
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0), why: 'elsewhere', note: ' Went with a cheaper PA ' }))
+    expect(await quote('v2')).toMatchObject({ status: 'declined', declinedWhy: 'elsewhere', declinedNote: 'Went with a cheaper PA' })
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'none', on: day(0) }))
+    expect(await quote('v2')).toMatchObject({ status: 'sent', declinedWhy: null, declinedNote: '' })
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0), why: 'price' }))
     const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
     expect(history.entries.map((e) => e.what).join('\n')).not.toMatch(/€/)
+    expect(history.entries.map((e) => e.what)).toContain(`Recorded that the client turned down version 2 of the quote for Autumn Gala on ${dayLabel(day(0))}: went with someone else`)
   })
 
   it("won't go to the client with nothing on it, or onto another job", async () => {
@@ -145,6 +175,35 @@ describe('a quote number (ADR 0084)', () => {
     expect(await client()).toMatchObject({ name: 'Brightwater Events Ltd', address: '1 Quay Street\nGalway' })
     await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', address: '' }))
     expect(await client()).not.toHaveProperty('address')
+  })
+
+  it('keeps when a client pays (ADR 0119), which a save from an older app leaves as it was', async () => {
+    const { app } = await gala()
+    const client = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string; id: string }) => c.entity === 'client' && c.id === 'bw').at(-1).data
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events', contacts: [], notes: '', paymentTerms: 30 }))
+    expect(await client()).toMatchObject({ paymentTerms: 30 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '' }))
+    expect(await client()).toMatchObject({ name: 'Brightwater Events Ltd', paymentTerms: 30 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 'before' }))
+    expect(await client()).toMatchObject({ paymentTerms: 'before' })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 0 }))
+    expect(await client()).toMatchObject({ paymentTerms: 0 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: null }))
+    expect(await client()).not.toHaveProperty('paymentTerms')
+    const [r] = await send(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 400 }))
+    expect(r).toMatchObject({ status: 'rejected' })
+  })
+
+  it("keeps who to ask for at a venue (ADR 0119), which a save from an older app leaves as it was", async () => {
+    const { app } = await gala()
+    const venue = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string; id: string }) => c.entity === 'venue' && c.id === 'hall').at(-1).data
+    const grainne = { name: 'Gráinne Nolan', role: 'Venue technical manager', email: null, phone: '+353 87 123 4567' }
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Hall', address: '', notes: '', contact: grainne }))
+    expect(await venue()).toMatchObject({ contact: grainne })
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Great Hall', address: '', notes: '' }))
+    expect(await venue()).toMatchObject({ name: 'The Great Hall', contact: grainne })
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Great Hall', address: '', notes: '', contact: null }))
+    expect(await venue()).not.toHaveProperty('contact')
   })
 })
 

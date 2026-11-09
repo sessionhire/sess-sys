@@ -106,6 +106,15 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .brand .seen-as a::after { content: ''; position: absolute; inset: 0; }
 /* Whose eyes it is wraps rather than being cut to "Seeing it as Offic…" on a phone (audit, 20 October 2026, finding 60d). */
 .brand small.seen-as { white-space: normal; text-overflow: clip; }
+/* The mark and the name go Home from every screen (ADR 0122), as an app's logo does: the whole block, the mark and the area under the name too,
+   is the one target, so a thumb finds it top left; the words stay ink, the brand rather than a link in a sentence. The ring goes round the block. */
+.brand:has(.home-link) { position: relative; border-radius: var(--radius-control); }
+.brand .home-link { color: inherit; text-decoration: none; }
+.brand .home-link::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.brand .home-link:focus-visible { outline: none; }
+.brand .home-link:focus-visible::after { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) { .brand .home-link:hover::after { background: var(--ds-wash-hover); } }
+.brand .home-link:active::after { background: var(--ds-wash-pressed); }
 /* Dark or light, top right (ThemeButton.tsx): a picture, its words for a screen reader and a pointer's hover. */
 .theme-button { flex: none; display: grid; place-items: center; width: 44px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; }
 .theme-button .icon { width: 22px; height: 22px; }
@@ -193,6 +202,10 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .attention h2 { color: var(--bad); }
 .row { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; padding-top: var(--group); border-top: 1px solid var(--line); flex-wrap: wrap; }
 .row:first-of-type { border-top: 0; padding-top: 0; }
+/* A row that opens a record leads with its name drawn as Jobs' rows draw theirs, in the ink and bold, not as a link in a sentence: the
+   name is the thing to press, and fifty red underlines down a list shout over the one red thing on the screen. */
+.row > div > a:first-child { color: var(--ink); font-weight: 700; text-decoration: none; }
+.row > div > a:first-child:hover { text-decoration: underline; }
 .row p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
 .actions { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; align-items: center; min-width: 0; max-width: 100%; }
 /* The one status pill (StatusPill.tsx): amber when someone has to act, outlined and quiet when settled, grey when off, the bad tone for a clash, and dashed grey while waiting to sync.
@@ -214,6 +227,10 @@ button.danger { background: var(--bad); border-color: var(--bad); color: var(--b
 button.quiet:not(.link), a.button.quiet { background: transparent; border-color: transparent; color: var(--on-line); }
 /* Focus on everything a keyboard reaches, links, text boxes and folds included: the same 2px ring outside the edge (design system rule 4). */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A heading the app moves focus to, on a new screen, Skip to content or a part landed on, is where a screen reader starts reading, not
+   something to press: no ring round it, as the ring would sit round the page's name on every move made by key (G J, Tab and Enter). What
+   was landed on is marked by .landed's edge instead. */
+:is(h1, h2, h3)[tabindex='-1']:focus { outline: none; }
 /* 16px in every field, whatever the label round it is set in: iOS zooms the page into a field set any smaller. */
 input, select { font: inherit; font-size: var(--text-body); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--field-line); background: var(--bg); color: var(--ink); min-width: 0; }
 /* A select is as wide as its longest choice, so one long job name could push the page wider than the phone and let it zoom out.
@@ -303,6 +320,12 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .on-screen button[aria-current] { color: var(--ink); border-bottom-color: var(--ink); }
 @media (hover: hover) {
   .on-screen button:hover { color: var(--ink); background-image: none; }
+}
+/* At a desk the strip keeps to the cards' edges, as the views and tabs above it do, and wraps rather than hiding what's past the edge: a
+   mouse has no swipe to find it. A phone's still runs edge to edge and scrolls. */
+@media (min-width: 900px) {
+  .app > .on-screen { margin-inline: 0; }
+  .on-screen ul { padding-inline: 0; flex-wrap: wrap; overflow-x: visible; }
 }
 .on-screen .count { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--ink); }
 .app .facts { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2) var(--ds-space-3); }
@@ -451,6 +474,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
    and where it belongs; notes in the list ("Most like it", "40 more") aren't offers, so they're quiet and never highlight. */
 .picker-field { display: grid; gap: var(--ds-space-1); font-size: var(--text-hint); color: var(--muted); }
 .picker-field input { width: 100%; }
+/* A name that is a record or a new one (NameField.tsx), in a form: spaced as the form's own labels are. */
+.app .grid-form .name-field { gap: var(--stack); }
 /* The record picker offers eight at most, so on a phone its list grows with the page rather than scrolling inside it (no captive scroll). */
 @media (max-width: 639px) {
   .picker-options { max-height: none; overflow-y: visible; }
@@ -634,17 +659,22 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
 @media (min-width: 900px) {
   .toaster { inset-block-end: var(--ds-space-4); }
 }
-.toast { pointer-events: auto; display: flex; align-items: center; gap: var(--ds-space-2); width: 100%; padding: var(--ds-space-3) var(--ds-space-2) var(--ds-space-3) var(--ds-space-3); border: 1px solid var(--ds-line-strong); border-inline-start-width: var(--ds-space-1); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); color: var(--ink); box-shadow: var(--ds-elevation-menu);
+/*
+ * Stacked (Colly, 8 November 2026): the title, then what it says, then the action at the right; Dismiss in the top
+ * corner, out of the text's way, with room kept clear for it.
+ */
+.toast { position: relative; pointer-events: auto; display: grid; gap: var(--ds-space-2); width: 100%; padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-3) var(--ds-space-4); border: 1px solid var(--ds-line-strong); border-inline-start-width: var(--ds-space-1); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); color: var(--ink); box-shadow: var(--ds-elevation-menu);
   transition: opacity var(--ds-duration-slow) var(--ds-ease-emphasized-enter), translate var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
 @starting-style {
   .toast { opacity: 0; translate: 0 var(--ds-motion-offset-medium); }
 }
 .toast[data-leaving='true'] { opacity: 0; translate: 0 var(--ds-motion-offset-medium); transition-duration: var(--ds-duration-base); transition-timing-function: var(--ds-ease-exit); }
-.toast-body { flex: 1; min-width: 0; display: grid; gap: var(--ds-space-half); }
+.toast-body { min-width: 0; display: grid; gap: var(--ds-space-1); padding-inline-end: calc(44px + var(--ds-space-2)); text-align: start; }
 .toast-body b { overflow-wrap: anywhere; }
 .toast-body small { color: var(--muted); font-size: var(--text-hint); }
-.toast-actions { flex: none; display: flex; align-items: center; gap: var(--ds-space-1); }
-.toast-dismiss { display: grid; place-items: center; width: 44px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; }
+.toast-actions { display: flex; justify-content: flex-end; }
+.toast-actions:empty { display: none; }
+.toast-dismiss { position: absolute; inset-block-start: var(--ds-space-1); inset-inline-end: var(--ds-space-1); display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; }
 .toast-dismiss .icon { width: 20px; height: 20px; }
 /* The list: the History tab's rows, a new one marked in words beside a dot of the accent. */
 .notices .card > button { justify-self: start; }
@@ -746,3 +776,14 @@ body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px +
 .labels-card .colour-rows li { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); }
 .labels-card .colour-rows input { width: 6rem; }
 .labels-card .actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
+
+/* Keyboard shortcuts at a desk (ADR 0120): the design system's dialog and keyboard key, in this app's look. */
+dialog.shortcuts { width: min(420px, calc(100vw - 2 * var(--ds-space-4))); padding: var(--ds-space-4); border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); color: var(--ink); box-shadow: var(--ds-elevation-modal); }
+dialog.shortcuts h2 { margin: 0 0 var(--ds-space-2); }
+dialog.shortcuts dl { display: grid; gap: var(--ds-space-2); margin: var(--ds-space-3) 0; }
+dialog.shortcuts dl > div { display: grid; grid-template-columns: 9em 1fr; gap: var(--ds-space-3); align-items: center; }
+dialog.shortcuts dt { color: var(--muted); white-space: nowrap; }
+dialog.shortcuts dd { margin: 0; }
+dialog.shortcuts form { display: flex; justify-content: flex-end; }
+kbd { display: inline-block; min-width: 1.6em; padding: 0 var(--ds-space-1); border: 1px solid var(--ds-line-strong); border-bottom-width: 2px; border-radius: var(--ds-radius-control, 4px); background: var(--panel); color: var(--ink); font: 600 var(--text-pill) var(--ds-font-mono, ui-monospace, monospace); text-align: center; }
+dialog.shortcuts::backdrop { background: var(--ds-veil); }

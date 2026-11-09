@@ -28,12 +28,150 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.110.0',
-    date: '2026-11-08',
+    version: '1.126.0',
+    date: '2026-11-09',
     title: 'The first part of the iPhone and Android app, for the warehouse',
     what: "The start of a Session Hire app for iPhone and Android, the same app inside the phone's own: scanning a label in it uses the phone's own barcode reader, faster and better in poor light, with the camera across the top of the screen and the page carrying on below it; and signing in opens Google in the phone's browser and comes back. It isn't on the App Store or Google Play yet. Nothing changes in a browser.",
     prs: [251],
     adrs: [112],
+  },
+  {
+    version: '1.125.0',
+    date: '2026-11-09',
+    title: 'A quote starts on the planner\'s day, and a tidier Home',
+    what: "Pressing + Quote on a day of the planner now opens a small card on that day, the way a calendar makes an event: type the job's name, check the days, pick the client and venue, and press Start the quote. The week stays where it was behind it. More options takes what you've typed to the full New quote form. On a phone the card comes up from the bottom of the screen. Also tidied: Home's Company, Department, Warehouse and Me switch stays on one line on a phone, its two groups of counts line up on the same columns, and Stock › Testing says why nothing is listed instead of leaving the page half empty.",
+    prs: [276],
+    adrs: [124],
+  },
+  {
+    version: '1.124.0',
+    date: '2026-11-09',
+    title: 'A calendar of every job, and every one that might be',
+    what: "Jobs › Calendar shows a month a box a day, with the confirmed jobs and the enquiries and quotes together. Confirmed jobs are solid; enquiries and quotes are dashed and say which they are, and for those who see money, whether the quote has been sent. Choose Everything, Confirmed or Potential at the top. Jobs with no dates yet are listed underneath. Press a day to plan its week, or a job to open it. On a phone it lists the days with something on. Nothing goes to Google Calendar.",
+    prs: [275],
+    adrs: [123],
+  },
+  {
+    version: '1.123.1',
+    date: '2026-11-09',
+    title: 'A tidier finish',
+    what: "A few things that made the app look rough are smoothed out. Moving to a screen by key no longer draws a red box round its title. At a desk, the strip of \"On this screen\" links lines up with the cards under it, and wraps onto a second line instead of hiding links past the edge. Quotes, Waiting for an answer and the Current RMS list show each job's name in bold, as Jobs does, instead of as red underlined links. And on a quote and in Money's tables, the column headings for amounts sit over their numbers on the right.",
+    prs: [273],
+  },
+  {
+    version: '1.123.0',
+    date: '2026-11-09',
+    title: 'The logo goes Home, and you choose where the app opens',
+    what: "Pressing the Session Hire logo top left now takes you Home from any screen. And under Menu › You, \"Open the app on\" lets each person choose the screen the app opens on: Home, Jobs, the Board, the Planner, Quotes, Stock or Crew. It's kept with your account, so every phone and computer you sign in on opens there. Home is still the default, and a link to a job or a page still opens where it points.",
+    prs: [272],
+    adrs: [122],
+  },
+  {
+    version: '1.122.0',
+    date: '2026-11-09',
+    title: 'Clients can accept a quote online, once it is turned on',
+    what: "Each quote now has its own link for the client, where they can see the quote and accept it by typing their name and ticking a box. The quote is then marked accepted, with their name and the time. It stays off until the office turns on \"Let clients accept quotes online\" under Admin › Company: until then the link shows nothing. Once it's on, an emailed quote carries the link, and a quote's page has it to copy.",
+    prs: [270],
+    adrs: [121],
+  },
+  {
+    version: '1.121.0',
+    date: '2026-11-08',
+    title: 'A quote from a day on the planner, and keys at a desk',
+    what: "Each day from today on in the planner's week has \"+ Quote\": press it and a new quote opens with the job on that day. At a desk, keys now move you around: G then J for Jobs, G then P for the planner, G then Q for Quotes, N then Q for a new quote, / to search the page, and ? to see them all. They never fire while you're typing or on a scanning screen.",
+    prs: [269],
+    adrs: [120],
+  },
+  {
+    version: '1.120.0',
+    date: '2026-11-08',
+    title: 'When a client pays, and who to ask for at a venue',
+    what: "A client's page now says when they pay: before the job, when the invoice arrives, or within 7, 14, 30 or 60 days of it. Their quotes print it under the deposit, on paper and in the emailed PDF. Leave it on the company's terms and nothing extra prints. A venue's page now has one person to ask for on site, with their role, mobile and email. Every call sheet for a job there names them for the crew, with a number to press, but never their email.",
+    prs: [268],
+    adrs: [119],
+  },
+  {
+    version: '1.119.0',
+    date: '2026-11-08',
+    title: 'Lines given free, counts and client names on quotes',
+    what: "A quote line can now be given as included at no charge: a line with no price offers it in one press, it reads Included on screen and on the printed and emailed quote, and it's no longer counted or asked about as a line with no price before the quote goes. A product priced at €0 on the price list goes on a quote this way by itself, so cables and power can be set once. A number typed before a product in Add kit is now always how many, even when the product's name has numbers in it: \"2 d20\" adds two D20s. And typing the start of a client or venue, such as \"bright\", then moving on now takes Brightwater Conferences rather than making a new client called \"bright\"; it says so under the box, with a press to keep what you typed as new instead.",
+    prs: [266],
+  },
+  {
+    version: '1.118.0',
+    date: '2026-11-08',
+    title: 'Client, venue and who asked find as you type',
+    what: "On New quote, New job, a job's and a part's details and a job from Current RMS, the client and venue boxes now show a list as you type, finding any part of the name (a venue by its town too), with how many jobs each has had and the most used offered first. The last line adds what you typed as a new one, so it's plain before you save. Who asked on New quote offers the client's own people, or anyone at any client before one is chosen, which fills in their client; a new name is kept among the client's contacts for next time.",
+    prs: [263],
+  },
+  {
+    version: '1.117.0',
+    date: '2026-11-08',
+    title: 'Starter packages from Current RMS',
+    what: "Money's price list offers 41 ready-made packages, drawn from what went out together on the quotes in Current RMS: speech and party PAs, line-array systems, monitor wedges, in-ears and radio mics, mic packages, cable packs in two sizes, lighting, staging, truss and an LED wall. One tap adds them, each priced at what its kit adds up to (Decor LX at its usual €1,800 a week), and each can be changed or taken off like any package. The mic packages bring the mics and DI boxes the stock list didn't have, added with nothing counted for the warehouse to count.",
+    prs: [260],
+    adrs: [117],
+  },
+  {
+    version: '1.116.0',
+    date: '2026-11-08',
+    title: 'A package starts at what its kit comes to',
+    what: "A package's price now starts at what everything in it comes to at the price list's prices, shown on the package and as you change it. Give it a lower price of its own and it says how much that takes off, in euro and per cent. A package added to a quote at a lower price says what it saves on the quote too, on screen and on the printed and emailed quote.",
+    prs: [262],
+    adrs: [116],
+  },
+  {
+    version: '1.115.0',
+    date: '2026-11-08',
+    title: 'Packages add their kit, listed under them on the quote',
+    what: "Adding a package to a quote now adds its kit: the package's line, with each thing in it as a line underneath, to change for that job. On screen the kit is folded under the package, a tap away; on the printed and emailed quote it's listed under it. A package with its own price is charged at that, its kit included; one without a price is its kit at price-list prices, and the package's line adds them up. Racks work the same way, with what's built into them listed underneath. A draft's kit can be saved as a new package, and a package's kit can be added to a job's kit list in one go.",
+    prs: [261],
+    adrs: [116],
+  },
+  {
+    version: '1.114.0',
+    date: '2026-11-08',
+    title: 'Loading a new version says what changed',
+    what: "After you tap Load the new version, a note at the bottom of the screen says the version you're now on and what came in since the one you had: the newest change by name, and how many more. What's changed in it opens the whole list, with the new ones marked. Every pop-up now reads top to bottom: the title, what it says, then its button at the right, with the close cross in the top corner.",
+    prs: [258],
+  },
+  {
+    version: '1.113.0',
+    date: '2026-11-08',
+    title: 'Start a quote from a past job for the same client or venue',
+    what: "New quote now offers past jobs for the same client and venue, then the same venue, then the same client, once you've typed one in. Pick one and its lines are filled in, ready to change: kit as much as actually went out on the night, not just what was quoted, so anything added on site comes back too, marked \"Not on the quote\". Kit quoted but never taken is offered unticked. Prices are today's.",
+    prs: [259],
+    adrs: [115],
+  },
+  {
+    version: '1.112.0',
+    date: '2026-11-08',
+    title: "Freelancers' links remember their phones, and can check a new one",
+    what: "A freelancer's private link now remembers each phone it's opened on. A new switch under Admin › Company, Freelancers' links, starts off: with it on, opening a link on a phone it hasn't seen asks for a six-digit code, emailed to the freelancer from the operations mailbox, so a forwarded link can't be used by someone else; and a freelancer who has lost their link can have it emailed from a new Lost your link? page. With no email for them, the office makes them a new link, which opens on the first phone that uses it. While it's off, links work exactly as before and nothing is sent.",
+    prs: [257],
+    adrs: [114],
+  },
+  {
+    version: '1.111.1',
+    date: '2026-11-08',
+    title: 'Two people on one draft quote keep both their changes',
+    what: "With a draft quote open in two places, each now takes in what the other changes as it happens, and keeps what's being typed. Before, whichever saved last put back the lines it opened with, and the other person's change was lost without a word. Changes made with no signal join the draft when signal is back, instead of being turned down. Where two people changed the same line, the later one's is kept, and the person typing is told.",
+    prs: [256],
+    adrs: [113],
+  },
+  {
+    version: '1.111.0',
+    date: '2026-11-08',
+    title: 'A check before a quote goes, why it was turned down, and who asked',
+    what: "Before a quote is sent or marked sent, it says what to look at first: lines with no price, kit the job is short of, crew with no travel, or a first day already gone. You can look first or send it anyway. A sent quote whose prices have run out says so, on Quotes and on the quote, so a late yes gets its prices checked. Client turned it down now asks why (the price, the dates, someone else, the event is off) with room for a note, and the quote and its history show it. New quote takes who asked, how it came and the day they want the quote by: the first two go in the job's notes, and the day becomes when the Quote sent task is due. Claude fills them in from a pasted enquiry where it says.",
+    prs: [255],
+  },
+  {
+    version: '1.110.0',
+    date: '2026-11-08',
+    title: 'Say how many as you add kit and crew to a quote',
+    what: "On a quote, Add kit takes how many with the product: type 12 y10 and the list offers 12 × d&b Y10P, and the line goes on at 12 instead of 1. Each product in the list also says its price and how many are free on the job's days, past what the quote already has, so one that's short is seen before it's added. Add crew has a How many box beside the role.",
+    prs: [254],
   },
   {
     version: '1.109.4',
@@ -1641,3 +1779,20 @@ export const CHANGELOG: readonly Release[] = [
 
 /** The app's version: the newest entry's. */
 export const APP_VERSION = CHANGELOG[0]!.version
+
+/** "1.84.1" before "1.85.0": versions compared number by number. */
+export function isNewerVersion(a: string, b: string): boolean {
+  const [x, y] = [a, b].map((v) => v.split('.').map(Number))
+  for (let i = 0; i < 3; i++) if (x![i] !== y![i]) return (x![i] ?? 0) > (y![i] ?? 0)
+  return false
+}
+
+/**
+ * What came in after `from`, up to and including `to`, newest first: what a
+ * device that was on `from` gets by loading `to`. Nothing when `from` isn't a
+ * version this list knows, or isn't older.
+ */
+export function releasesSince(from: string, to: string = APP_VERSION): Release[] {
+  if (!CHANGELOG.some((r) => r.version === from)) return []
+  return CHANGELOG.filter((r) => isNewerVersion(r.version, from) && !isNewerVersion(r.version, to))
+}

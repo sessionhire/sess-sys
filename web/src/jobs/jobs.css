@@ -2,6 +2,7 @@
 .jobs .phase-rows { display: grid; gap: var(--ds-space-2); }
 .jobs .phase-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: var(--ds-space-2); align-items: center; }
 .jobs .contact { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2); }
+.jobs .contact > small { grid-column: 1 / -1; }
 .jobs .phase { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .jobs .phase:first-of-type { border-top: 0; padding-top: 0; }
 .jobs .phase > header { display: flex; justify-content: space-between; gap: var(--ds-space-3); align-items: flex-start; }
@@ -58,11 +59,11 @@
 /* List, Week and Month: the same jobs three ways (ADR 0010). */
 
 /* The planner: the same width as every other page (ADR 0091), so List, Week and Month don't jump. */
-.plan .plan-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; }
-.plan .plan-bar .steps { display: flex; gap: var(--ds-space-2); flex: 1 1 18rem; max-width: 30rem; }
-.plan .plan-bar .steps .button { flex: 1 1 0; white-space: nowrap; }
+:is(.plan, .master-cal) .plan-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; }
+:is(.plan, .master-cal) .plan-bar .steps { display: flex; gap: var(--ds-space-2); flex: 1 1 18rem; max-width: 30rem; }
+:is(.plan, .master-cal) .plan-bar .steps .button { flex: 1 1 0; white-space: nowrap; }
 /* On the days that hold today, This week is where you are already: said, and quieter. */
-.plan .plan-bar .steps [aria-current] { color: var(--muted); }
+:is(.plan, .master-cal) .plan-bar .steps [aria-current] { color: var(--muted); }
 .plan .checks { border-color: var(--warn); }
 .plan .checks h2 { color: var(--warn); }
 .plan .problem > div { flex: 1; min-width: 60%; }
@@ -123,6 +124,33 @@
 /* Today's column, faintly, all the way down, so it can be found in the middle of a long month. */
 .plan .timeline td.today { background-color: color-mix(in srgb, var(--ink) 5%, var(--panel)); }
 .plan .timeline .today-word { display: block; font-size: var(--text-pill); font-weight: 700; }
+.plan .timeline .day-quote { color: var(--accent-ink); display: inline-flex; align-items: center; min-height: 24px; margin-top: var(--ds-space-half); padding: 0 var(--ds-space-1); border: 0; border-radius: var(--radius-control); background: transparent; font-size: var(--text-pill); font-weight: 600; white-space: nowrap; }
+
+/* The quote started on a day of the planner (ADR 0124): a card on the day, as a calendar makes an event. At a desk it hangs under the day,
+   placed by QuickQuote.tsx from the day's rect, with no veil, so the week stays readable behind it and a click outside closes it (the
+   design system's popover); on a phone it's a sheet up from the foot, over the veil, with the same fields. The job's name is the big
+   field, as the event's title is, and the rest follow in the form's own rows. */
+dialog.quick-quote { margin: 0; width: min(380px, calc(100vw - 2 * var(--ds-space-4))); max-height: calc(100dvh - 2 * var(--ds-space-4)); overflow: auto; padding: var(--ds-space-3) var(--ds-space-4) var(--ds-space-4); border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); color: var(--ink); box-shadow: var(--ds-elevation-modal); }
+dialog.quick-quote::backdrop { background: transparent; }
+dialog.quick-quote[open] { animation: quick-in var(--ds-duration-base) var(--ds-ease-emphasized-enter); }
+@keyframes quick-in { from { opacity: 0; translate: 0 calc(-1 * var(--ds-motion-offset-small)); } }
+.quick-quote form { display: grid; gap: var(--stack); }
+.quick-quote .quick-head { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); }
+.quick-quote h2 { margin: 0; font-size: var(--text-small); font-weight: 600; color: var(--muted); }
+.quick-quote .quick-close { min-width: 36px; min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 1.25rem; line-height: 1; }
+.quick-quote .quick-title { width: 100%; padding: var(--ds-space-1) 0; border: 0; border-bottom: 2px solid var(--line); border-radius: 0; background: transparent; font-size: var(--text-heading); font-weight: 700; }
+.quick-quote .quick-title:focus-visible { outline: none; border-bottom-color: var(--accent); }
+.quick-quote .quick-dates { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2); }
+.quick-quote .quick-dates label { display: grid; gap: var(--ds-space-half); font-size: var(--text-small); color: var(--muted); }
+.quick-quote .quick-dates input { width: 100%; }
+.quick-quote .actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--ds-space-3); margin-top: var(--ds-space-1); }
+.quick-quote .hint { margin: 0; }
+@media (max-width: 599px) {
+  dialog.quick-quote { position: fixed; inset: auto 0 0 0 !important; width: 100%; max-width: none; max-height: calc(100dvh - var(--ds-space-6)); border-radius: var(--ds-radius-overlay) var(--ds-radius-overlay) 0 0; border-bottom: 0; padding-bottom: calc(var(--ds-space-4) + env(safe-area-inset-bottom)); }
+  dialog.quick-quote::backdrop { background: var(--ds-veil); }
+  @keyframes quick-in { from { translate: 0 calc(100% * var(--ds-motion-travel)); } }
+}
+@media (prefers-reduced-motion: reduce) { dialog.quick-quote[open] { animation: none; } }
 .plan .timeline.month th, .plan .timeline.month td { text-align: center; vertical-align: middle; }
 .plan .timeline.month tr > :first-child { text-align: left; padding: var(--ds-space-1) var(--ds-space-2); }
 .plan .timeline.month thead a { display: grid; min-height: 44px; place-content: center; color: inherit; text-decoration: none; border-radius: 6px; font-variant-numeric: tabular-nums; }
@@ -380,6 +408,11 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-line .discount { grid-area: discount; }
 .quote-screen .quote-line .vat { grid-area: vat; }
 .quote-screen .quote-line .vat-cell .link { justify-self: start; min-height: 44px; padding: 0; font-size: var(--text-body); font-weight: 600; }
+/* A line given at no charge (audit of the quote flow, 8 November 2026, finding 1): the word where the price would be, quiet, with the way back. */
+.quote-screen .quote-line .included-cell { display: grid; gap: var(--ds-space-half); min-width: 0; font-size: var(--text-hint); color: var(--muted); }
+.quote-screen .quote-line .included-word { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--ds-space-2); min-height: 44px; font-size: var(--text-body); color: var(--ink); }
+.quote-screen .quote-line .included-word .link { min-height: 44px; padding: 0; font-size: var(--text-hint); }
+.quote-screen .quote-line .amount .warn .link { padding: 0; font-size: inherit; }
 .quote-screen .quote-line .amount { grid-area: amount; display: grid; align-content: center; min-height: 44px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .quote-screen .quote-line .amount small { font-weight: 400; font-size: var(--text-hint); color: var(--muted); }
 @container (min-width: 700px) {
@@ -445,6 +478,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-add > button .icon { width: 16px; height: 16px; }
 .quote-screen .quote-add .adding { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); width: 100%; }
 .quote-screen .quote-add .adding > :first-child { flex: 1 1 16em; }
+.quote-screen .quote-add .adding-crew > .count { flex: 0 0 6em; }
+.quote-screen .quote-add .adding-crew > .count + .field { flex: 1 1 14em; }
 .quote-screen .quote-add .adding.ask { display: grid; justify-items: start; }
 .quote-screen .quote-add .ask-claude, .quote-screen .quote-add .claude-advice { width: 100%; margin: 0; }
 .quote-screen .job-changes { border: 1px solid var(--warn); border-radius: var(--radius-control); padding: var(--ds-space-2) var(--ds-space-3); background: var(--warn-soft); }
@@ -688,6 +723,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Packages (ADR 0087): what one holds, under its line and on the price list. */
 .quote-screen .includes, .quote-sheet .includes { display: block; font-size: var(--text-small); color: var(--muted); font-weight: 400; }
+/* What a package priced below its items saves (ADR 0116): in the good role, as money the client keeps. */
+.quote-screen .package-saving, .quote-sheet .package-saving { display: block; font-size: var(--text-small); color: var(--good); font-weight: 400; }
+.package-row .package-saving { font-weight: 400; }
 .money .package-row { align-items: center; }
 .money .package-row > div:first-child { flex: 1 1 14em; }
 .money .package-row p { margin: var(--ds-space-half) 0 0; color: var(--muted); font-size: var(--text-small); }
@@ -720,6 +758,13 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .app .claude-lines label.take input { width: 22px; height: 22px; flex: none; margin-top: var(--ds-space-half); accent-color: var(--accent); }
 .app .claude-lines label.take small { display: block; color: var(--muted); font-size: var(--text-hint); }
 .app .claude-line.left b { color: var(--muted); font-weight: normal; }
+.app .claude-lines label.take small.beyond { color: var(--warn); }
+/* Start from a past job (ADR 0115): the jobs like this one, each a press to start from. */
+.app .past-job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
+.app .past-job { display: grid; gap: var(--ds-space-half); width: 100%; min-height: 44px; text-align: left; padding: var(--ds-space-2) var(--ds-space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+.app .past-job:hover { background: var(--ds-wash-hover); }
+.app .past-job small { color: var(--muted); font-size: var(--text-hint); }
+.app .past-job.chosen { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .app .claude-line .grid-form { margin: 0 0 var(--ds-space-2) calc(22px + var(--ds-space-3)); }
 
 /* Claude's to-do list (ADR 0097): the shared tick's 44px rows, the box beside a link to the job. */
@@ -747,4 +792,80 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .you-on-job .you-answer { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
 @media (max-width: 639px) {
   .you-on-job .you-answer > button { flex: 1 1 100%; }
+}
+/* Turned down: why, asked in place (research/quoting.md, feature 5). */
+.turn-down { display: grid; gap: var(--ds-space-3); margin-block-start: var(--ds-space-3); }
+.turn-down legend { font-weight: 600; margin-block-end: var(--ds-space-2); }
+.turn-down .choices { grid-template-columns: repeat(auto-fit, minmax(12em, 1fr)); }
+.turn-down .choice { display: flex; gap: var(--ds-space-2); align-items: center; }
+.turn-down .actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-3); align-items: center; }
+.why-note { display: block; color: var(--muted); }
+
+/* A package's kit under its line (ADR 0116): folded on screen, a press away; always printed under it on paper. */
+.quote-lines tr.set-line td { color: var(--muted); font-size: var(--text-small); }
+.quote-lines tr.set-line td:first-child { padding-left: var(--ds-space-5); }
+.quote-lines tr.set-line.folded { display: none; }
+.quote-lines tr.set-head:has(+ tr.set-line:not(.folded)) td { border-bottom: 0; }
+.quote-lines .set-toggle { display: block; margin-top: var(--ds-space-half); font-size: var(--text-small); }
+@media print {
+  .quote-lines tr.set-line.folded { display: table-row; }
+  .quote-lines .set-toggle { display: none; }
+}
+.app .quote-set .set-toggle { display: inline-flex; align-items: center; min-height: 44px; margin-left: var(--ds-space-3); font-size: var(--text-small); }
+.app .quote-set .set-lines { margin-left: var(--ds-space-5); border-left: 2px solid var(--line); padding-left: var(--ds-space-3); display: grid; gap: var(--ds-space-1); }
+.jobs .client-link { display: grid; gap: var(--ds-space-2); }
+.jobs .accepted-online { margin: 0; }
+
+/*
+ * Jobs › Calendar (ADR 0124): the master calendar. Confirmed solid and enquiries and quotes dashed with their word, the planner's
+ * grammar; healthy is quiet, so neither has a colour of its own. On a phone the days with something on, one under another, adding
+ * to the page's height; from 900px across, a month grid that grows with what is on rather than scrolling inside itself.
+ */
+.master-cal .cal-key { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); margin: 0; }
+.master-cal .cal-swatch { display: inline-block; width: 1.4rem; height: .9rem; border-radius: 4px; border: 1px solid var(--ink); box-shadow: inset 3px 0 0 var(--ink); background: var(--ds-surface-raised); }
+.master-cal .cal-swatch.dashed { border: 1px dashed var(--muted); box-shadow: none; background: var(--panel); margin-left: var(--ds-space-3); }
+.master-cal .cal-days, .master-cal .cal-days ul, .master-cal .cal-undated ul { list-style: none; margin: 0; padding: 0; }
+.master-cal .cal-days ul, .master-cal .cal-undated ul { display: grid; gap: var(--ds-space-1); }
+.master-cal .cal-days { display: grid; gap: var(--ds-space-3); }
+.master-cal .cal-day h3 { display: flex; align-items: baseline; gap: var(--ds-space-2); flex-wrap: wrap; margin: 0 0 var(--ds-space-1); font-size: var(--text-body); }
+.master-cal .cal-day h3 a { color: inherit; text-decoration: none; display: inline-flex; align-items: baseline; gap: var(--ds-space-2); }
+.master-cal .cal-day h3 a:hover { text-decoration: underline; }
+.master-cal .cal-day .today-word { font-size: var(--text-pill); font-weight: 700; }
+.master-cal .cal-day .holiday-name { font-size: var(--text-pill); font-weight: 600; color: var(--muted); }
+.master-cal .cal-num, .master-cal .cal-weekdays { display: none; }
+.master-cal .cal-job { display: grid; gap: 1px; padding: var(--ds-space-1) var(--ds-space-2); border-radius: 6px; border: 1px solid var(--ink); box-shadow: inset 3px 0 0 var(--ink); background: var(--ds-surface-raised); color: inherit; text-decoration: none; min-width: 0; }
+.master-cal .cal-job.dashed { border-style: dashed; border-color: var(--muted); box-shadow: none; background: var(--panel); }
+.master-cal .cal-job.pending { opacity: .75; }
+.master-cal .cal-job b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.master-cal .cal-job small { color: var(--muted); font-size: var(--text-pill); }
+@media (hover: hover) { .master-cal a.cal-job:hover { border-color: var(--ink); filter: brightness(.96); } .master-cal a.cal-job:hover b { text-decoration: underline; } }
+.master-cal a.cal-job:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.master-cal .cal-undated h2 { margin: 0; }
+
+/* A phone: only this month's days with something on, and today, so where you are is always in the list. */
+@media (max-width: 899px) {
+  .master-cal .cal-day:is(.out, .free:not(.today)) { display: none; }
+  .master-cal .cal-day.today h3 { color: var(--ink); }
+}
+
+/* A desk: Monday to Sunday, a box a day, today shaded as on the planner, the days of the months either side faint. */
+@media (min-width: 900px) {
+  .master-cal .cal-card { padding: 0; overflow: hidden; }
+  .master-cal .cal-card > .empty { padding: var(--ds-space-3) var(--ds-space-4) 0; }
+  .master-cal .cal-weekdays, .master-cal .cal-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; }
+  .master-cal .cal-weekdays span { padding: var(--ds-space-2); font-size: var(--text-pill); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--line); }
+  .master-cal .cal-day { min-height: 7.5rem; padding: var(--ds-space-1) var(--ds-space-1) var(--ds-space-2); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+  .master-cal .cal-day:nth-child(7n) { border-right: 0; }
+  .master-cal .cal-day h3 { padding: 0 var(--ds-space-1); font-size: var(--text-hint); }
+  /* The full date stays for screen readers; the eye has the weekday along the top. */
+  .master-cal .cal-full { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .master-cal .cal-day { position: relative; }
+  .master-cal .cal-num { display: inline; font-weight: 700; }
+  .master-cal .cal-day.out { background: color-mix(in srgb, var(--ink) 3%, var(--panel)); }
+  .master-cal .cal-day.out :is(h3, ul) { opacity: .55; }
+  .master-cal .cal-day.today { background-color: color-mix(in srgb, var(--ink) 5%, var(--panel)); box-shadow: inset 0 3px 0 var(--ink); }
+  /* A run of days reads as one: a day that carries on squares its edge towards the next. */
+  .master-cal .cal-day .cal-job.cont-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .master-cal .cal-day .cal-job.cont-l { border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: none; }
+  .master-cal .cal-day .cal-job.solid.cont-l { border-left-style: dotted; }
 }
