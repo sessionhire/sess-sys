@@ -60,7 +60,7 @@ test('a new quote for a client at a venue worked before starts from what went ou
   await form.getByLabel("What's the job?").fill(`Summer gala ${id}`)
   await expect(form.getByRole('region', { name: 'Start from a past job' })).toHaveCount(0)
   await form.getByLabel('Client').fill(`Liffey Brands ${id}`)
-  await form.getByLabel('Venue').fill(`Round Room ${id}`)
+  await form.getByRole('combobox', { name: 'Venue' }).fill(`Round Room ${id}`)
   const past = form.getByRole('region', { name: 'Start from a past job' })
   const gala = past.getByRole('button', { name: new RegExp(`Spring gala ${id}`) })
   await expect(gala).toContainText('Same client and venue')
