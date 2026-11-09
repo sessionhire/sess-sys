@@ -280,9 +280,12 @@ client mail to share a thread; leave it off to keep one private.
      connected and Google doesn't need to review the app.
 3. **Connect it.** In the app, **Admin**, **Connections**, **The
    operations mailbox**: **Connect operations@** and sign in to Google as
-   operations@sessionhire.com (use a private window if your own account
-   gets in the way), and allow both things it asks for: reading mail and
-   sending. A mailbox connected before sending was asked for says
+   operations@sessionhire.com (on Google's chooser, **Use another
+   account**), and allow both things it asks for: reading mail and sending.
+   Start from the app's own address, signed in as yourself: Google sends
+   you back there, and the app answers "Sign in first." if that window
+   isn't signed in to it (a fresh private window, or starting from the
+   railway.app address when `PUBLIC_URL` is another one). A mailbox connected before sending was asked for says
    "connected to read only": press **Connect again** and allow sending.
 4. **Sending quotes.** On the same card, turn on **Send quotes by email
    from operations@**. A quote then has **Send to the client**, which opens
