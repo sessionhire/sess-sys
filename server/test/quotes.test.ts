@@ -341,3 +341,74 @@ describe("a freelancer's cost", () => {
     await ok(app, m('cost.paid', { id: 'dara-sound', on: null }), m('timesheet.reopen', { id: 'dara-sound' }))
   })
 })
+
+describe('deleting a quote (ADR 0131)', () => {
+  const pulled = async (app: FastifyInstance) => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes as { entity: string; id: string; op: string }[]
+  const lastOp = async (app: FastifyInstance, entity: string, id: string) => (await pulled(app)).filter((c) => c.entity === entity && c.id === id).at(-1)?.op
+
+  it('takes a version off every device once its number is typed, keeps it on the server, and puts it back as it was', async () => {
+    const { app, db, quote } = await gala()
+    await ok(app, save('v1'), m('quote.sent', { id: 'v1', on: day(-5) }), m('quote.answer', { id: 'v1', answer: 'accepted', on: day(-4) }))
+    const n = (await quote('v1')).number!
+    expect(n).toBeGreaterThan(0)
+
+    // Anything but its number is turned down, on the server too, so a slip never deletes one.
+    expect(await refused(app, m('quote.delete', { id: 'v1', typed: 'delete' }))).toBe(`Type ${n} to delete version 1 of this quote.`)
+    expect(await refused(app, m('quote.delete', { id: 'v1', typed: String(n + 1) }))).toBe(`Type ${n} to delete version 1 of this quote.`)
+    await ok(app, m('quote.delete', { id: 'v1', typed: ` ${n} ` }))
+    expect(await lastOp(app, 'quote', 'v1')).toBe('delete')
+    expect((await db.query<{ deleted: boolean }>('SELECT deleted_at IS NOT NULL AS deleted FROM quotes WHERE id = $1', ['v1'])).rows[0]).toEqual({ deleted: true })
+    // Sending it twice, as a phone may, changes nothing; anything else done to it finds it gone.
+    await ok(app, m('quote.delete', { id: 'v1', typed: String(n) }))
+    expect(await refused(app, m('quote.invoiced', { id: 'v1', on: day(0), ref: 'INV-1' }))).toBe('That quote is no longer here.')
+
+    // The history says who deleted which, and it comes back as it was, answer and number with it.
+    const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
+    expect(history.entries.find((e) => e.command === 'quote.delete')?.what).toBe(`Deleted version 1 of the quote for Autumn Gala, quote ${n}`)
+    await ok(app, m('quote.restore', { id: 'v1' }))
+    expect(await quote('v1')).toMatchObject({ id: 'v1', status: 'accepted', number: n, version: 1 })
+    expect((await app.inject({ url: '/api/history' })).json().entries[0].what).toBe('Put back version 1 of the quote for Autumn Gala, deleted before')
+  })
+
+  it('asks for the word "delete" on a version never sent, and lets the job start a new draft after it', async () => {
+    const { app, quote } = await gala()
+    await ok(app, save('v1'))
+    expect(await refused(app, m('quote.delete', { id: 'v1', typed: '' }))).toBe('Type delete to delete version 1 of this quote.')
+    await ok(app, m('quote.delete', { id: 'v1', typed: 'Delete' }))
+    // A phone that still had the draft open can't save it back.
+    expect(await refused(app, save('v1'))).toBe('This quote has been deleted. An admin can put it back from the history.')
+
+    // The next is numbered after the deleted one, so putting that back never finds its version taken.
+    await ok(app, save('v2'))
+    expect(await quote('v2')).toMatchObject({ version: 2, status: 'draft' })
+    // Two drafts can't be the job's at once.
+    expect(await refused(app, m('quote.restore', { id: 'v1' }))).toBe("Version 2 is the job's draft now, and a job has one at a time. Delete it or mark it sent first.")
+    await ok(app, m('quote.sent', { id: 'v2', on: day(0) }), m('quote.restore', { id: 'v1' }))
+    expect(await quote('v1')).toMatchObject({ version: 1, status: 'draft' })
+  })
+
+  it("keeps the job's quote number, and never gives a deleted one's number to another job", async () => {
+    const { app, quote } = await gala()
+    await ok(app, save('v1'), m('quote.sent', { id: 'v1', on: day(-2) }))
+    const n = (await quote('v1')).number!
+    await ok(app, m('quote.delete', { id: 'v1', typed: String(n) }), save('v2'), m('quote.sent', { id: 'v2', on: day(0) }))
+    expect(await quote('v2')).toMatchObject({ version: 2, number: n })
+
+    await ok(
+      app,
+      m('project.create', { id: 'other', name: 'Spring Ball', clientId: 'bw', venueId: null, status: 'enquiry', notes: '' }),
+      m('quote.save', { id: 'o1', projectId: 'other', lines: [line()], discountPct: 0, notes: '' }),
+      m('quote.sent', { id: 'o1', on: day(0) })
+    )
+    expect((await quote('o1')).number).toBe(n + 1)
+  })
+
+  it("stops the client's link to a deleted version", async () => {
+    const { app, quote } = await gala()
+    await ok(app, m('quoting.online', { on: true }), save('v1'), m('quote.sent', { id: 'v1', on: day(0) }))
+    const { acceptToken, number } = await quote('v1')
+    expect((await app.inject(`/q/${acceptToken}`)).statusCode).toBe(200)
+    await ok(app, m('quote.delete', { id: 'v1', typed: String(number) }))
+    expect((await app.inject(`/q/${acceptToken}`)).statusCode).toBe(404)
+  })
+})

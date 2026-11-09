@@ -562,6 +562,10 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .entry:first-child { border-top: 0; padding-top: 0; }
 .entry p { margin: 0; }
 .entry .meta { color: var(--muted); font-size: var(--text-hint); }
+/* A deleted quote's way back (ADR 0131), under the line that says it was deleted. */
+.entry .put-back { display: grid; gap: var(--ds-space-1); justify-items: start; }
+.entry .put-back button { display: inline-flex; align-items: center; gap: var(--ds-space-1); }
+.entry .put-back .icon { width: 18px; height: 18px; }
 .history .card > button { justify-self: start; }
 /* A card for each day, and one person's changes one after another as one line that opens (ADR 0006, amended), with the chevron every fold has (above), kept out of what a screen reader says. */
 .history .run-line { display: grid; gap: var(--ds-space-1); align-content: center; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

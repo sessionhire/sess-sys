@@ -148,6 +148,13 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE quotes ADD COLUMN IF NOT EXISTS for_name text NOT NULL DEFAULT '';
   `,
+  // Deleting a quote (ADR 0131): an admin's, kept on the server with when, so it can be put back from the history. A
+  // deleted draft no longer holds the job's one draft, so a new one can be started.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+  DROP INDEX IF EXISTS quotes_one_draft;
+  CREATE UNIQUE INDEX IF NOT EXISTS quotes_one_live_draft ON quotes (project_id) WHERE status = 'draft' AND deleted_at IS NULL;
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

@@ -151,6 +151,31 @@ dialog.quick-quote[open] { animation: quick-in var(--ds-duration-base) var(--ds-
   @keyframes quick-in { from { translate: 0 calc(100% * var(--ds-motion-travel)); } }
 }
 @media (prefers-reduced-motion: reduce) { dialog.quick-quote[open] { animation: none; } }
+
+/* Deleting a version of a quote (ADR 0131), an admin's alone. The opener is a quiet danger at the foot of the quote: the bad ink, no fill,
+   so it never competes with the page's one red. It opens the design system's dialog (a blocking decision, the safe answer focused), a
+   sheet up from the foot on a phone; what makes this version matter is listed first, and Delete waits for its number to be typed. */
+.app .delete-quote { display: flex; justify-content: flex-end; }
+.app button.link.delete-quote-open { display: inline-flex; align-items: center; gap: var(--ds-space-1); color: var(--bad); }
+.app button.link.delete-quote-open .icon { width: 18px; height: 18px; }
+dialog.delete-quote-dialog { width: min(440px, calc(100vw - 2 * var(--ds-space-4))); max-height: calc(100dvh - 2 * var(--ds-space-4)); overflow: auto; padding: var(--ds-space-4); border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); color: var(--ink); box-shadow: var(--ds-elevation-modal); }
+dialog.delete-quote-dialog::backdrop { background: var(--ds-veil); }
+dialog.delete-quote-dialog[open] { animation: delete-quote-in var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
+@keyframes delete-quote-in { from { opacity: 0; scale: var(--ds-motion-scale-enter); translate: 0 var(--ds-motion-offset-medium); } }
+.delete-quote-dialog form { display: grid; gap: var(--stack); }
+.delete-quote-dialog h2 { margin: 0; font-size: var(--text-heading); }
+.delete-quote-dialog p { margin: 0; }
+.delete-quote-dialog .delete-quote-facts { display: grid; gap: var(--ds-space-1); margin: 0 0 var(--ds-space-2); padding: 0; list-style: none; }
+.delete-quote-dialog .delete-quote-facts li { display: flex; gap: var(--ds-space-1); align-items: flex-start; color: var(--ink); }
+.delete-quote-dialog .delete-quote-facts .icon { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--bad); }
+.delete-quote-dialog .field input { width: 100%; }
+.delete-quote-dialog .actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--ds-space-2); }
+@media (max-width: 599px) {
+  dialog.delete-quote-dialog { position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: calc(100dvh - var(--ds-space-6)); border-radius: var(--ds-radius-overlay) var(--ds-radius-overlay) 0 0; border-bottom: 0; padding-bottom: calc(var(--ds-space-4) + env(safe-area-inset-bottom)); }
+  @keyframes delete-quote-in { from { translate: 0 calc(100% * var(--ds-motion-travel)); } }
+  .delete-quote-dialog .actions > button { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) { dialog.delete-quote-dialog[open] { animation: delete-quote-fade var(--ds-duration-base) linear; } @keyframes delete-quote-fade { from { opacity: 0; } } }
 .plan .timeline.month th, .plan .timeline.month td { text-align: center; vertical-align: middle; }
 .plan .timeline.month tr > :first-child { text-align: left; padding: var(--ds-space-1) var(--ds-space-2); }
 .plan .timeline.month thead a { display: grid; min-height: 44px; place-content: center; color: inherit; text-decoration: none; border-radius: 6px; font-variant-numeric: tabular-nums; }

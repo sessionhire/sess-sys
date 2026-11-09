@@ -35,6 +35,7 @@ import { MarginWords } from './QuoteLine.tsx'
 import { Lines, QuoteSheet, Totals } from './QuoteSheet.tsx'
 import { InCurrentRms, NewVersion, nextRecord, Records } from './QuoteRecords.tsx'
 import { Draft } from './QuoteDraft.tsx'
+import { DeleteQuote } from './QuoteDelete.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
 
@@ -247,6 +248,9 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
           {q.id === current?.id && <Records q={q} job={job} canEmail={byEmail} quiet={toSend} />}
         </>
       )}
+
+      {/* At the foot, away from everything done every day: an admin's alone, and hard on purpose (ADR 0131). */}
+      {q && <DeleteQuote q={q} job={job} versions={versions} onDeleted={() => setPicked(undefined)} />}
 
       <InCurrentRms jobId={job.id} />
 

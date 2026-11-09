@@ -714,12 +714,17 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'quote.sent':
     case 'quote.answer':
     case 'quote.invoiced':
-    case 'quote.paid': {
+    case 'quote.paid':
+    case 'quote.delete':
+    case 'quote.restore': {
       const q = look('quote', a.id)
       const version = typeof q?.version === 'number' ? `version ${q.version} of ` : ''
       const of = `${version}the quote for ${job(q?.projectId ?? a.projectId)}`
       const on = typeof a.on === 'string' ? ` on ${dayLabel(a.on)}` : ''
       if (command === 'quote.save') return `Saved ${of}`
+      // Deleted and put back (ADR 0131): the history is where a deleted one is found again.
+      if (command === 'quote.delete') return `Deleted ${of}${typeof q?.number === 'number' ? `, quote ${q.number}` : ''}`
+      if (command === 'quote.restore') return `Put back ${of}, deleted before`
       if (command === 'quote.sent') return `Marked ${of} as sent to the client${on}`
       if (command === 'quote.answer')
         return a.answer === 'none'

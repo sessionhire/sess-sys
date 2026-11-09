@@ -1,9 +1,9 @@
-import { mergeDraft, QUOTE_SETTINGS_ID, roleKey, type CommandArgs, type Quote, type RateRule } from '@sh/shared'
+import { deleteTyped, deleteWord, mergeDraft, QUOTE_SETTINGS_ID, roleKey, type CommandArgs, type Quote, type RateRule } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getTimesheet } from '../crew/timesheets.ts'
 import { getClient, getProject } from '../projects/store.ts'
 import { getModel } from '../stock/store.ts'
-import { getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, getQuoteSettings, getRolePrice, highestNumber, newAcceptToken, quotesOf } from './store.ts'
+import { emailsOf, getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, getQuoteEmail, getQuoteSettings, getRolePrice, highestNumber, isDeleted, newAcceptToken, quotesOf, versionsEver } from './store.ts'
 
 /**
  * Light finance (ADR 0042). The rules, wherever a change comes from:
@@ -16,12 +16,14 @@ import { getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, 
  * - only an accepted quote is invoiced, and only an invoiced one paid;
  *   each is a record of what happened outside the app, so it can be taken
  *   back, in the opposite order;
- * - once a quote is invoiced, the job's quote is settled: no new version.
+ * - once a quote is invoiced, the job's quote is settled: no new version;
+ * - an admin can delete a version (ADR 0131), which the server keeps, out of
+ *   sight, so it can be put back as it was.
  *
  * Sending the same change twice, as a phone may, changes nothing.
  */
 
-type FinanceCommand = 'quote.save' | 'quote.sent' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
+type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quote.restore' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
@@ -46,7 +48,8 @@ async function refuseIfReplaced(ctx: Ctx, q: Quote) {
  */
 async function numberIt(ctx: Ctx, q: Quote) {
   if (q.number) return
-  const had = (await quotesOf(ctx.tx, q.projectId)).find((v) => v.number)?.number
+  // A deleted version's number too (ADR 0131): it's still the job's.
+  const had = (await versionsEver(ctx.tx, q.projectId)).number
   let n = had ?? 0
   if (!n) {
     await ctx.tx.query('INSERT INTO quote_settings (id) VALUES ($1) ON CONFLICT (id) DO NOTHING', [QUOTE_SETTINGS_ID])
@@ -68,6 +71,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     const job = await getProject(ctx.tx, a.projectId, true)
     if (!job) throw new Refused({ code: 'not-found', message: 'That job no longer exists.' })
     const was = await getQuote(ctx.tx, a.id, true)
+    // A draft open on a phone while an admin deleted it (ADR 0131): the save doesn't bring it back.
+    if (!was && (await isDeleted(ctx.tx, a.id))) throw new Refused({ code: 'conflict', message: 'This quote has been deleted. An admin can put it back from the history.' })
     if (was) {
       if (was.projectId !== a.projectId) throw new Refused({ code: 'invalid', message: 'That quote belongs to another job.' })
       if (was.status !== 'draft') throw new Refused({ code: 'conflict', message: `${settled(was)}, so it stays as it was. Start a new version to change it.` })
@@ -95,13 +100,15 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (draft) throw new Refused({ code: 'conflict', message: `There's already a draft of this quote, version ${draft.version}: change that one.` })
     // A new version holds its prices as long as the one before, and asks the same deposit, unless it says otherwise.
     const before = versions[0]
+    // Numbered after every version the job has had, a deleted one too (ADR 0131).
+    const top = (await versionsEver(ctx.tx, a.projectId)).top
     await ctx.tx.query(
       `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name)
        VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         a.id,
         a.projectId,
-        (before?.version ?? 0) + 1,
+        top + 1,
         JSON.stringify(a.lines),
         a.discountPct,
         a.notes.trim(),
@@ -181,7 +188,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     await ctx.tx.query(`INSERT INTO quote_settings (id, accept_online) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET accept_online = EXCLUDED.accept_online`, [QUOTE_SETTINGS_ID, a.on])
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
     if (!a.on) return
-    const { rows } = await ctx.tx.query<{ id: string }>(`SELECT id FROM quotes WHERE status = 'sent' AND accept_token IS NULL`)
+    const { rows } = await ctx.tx.query<{ id: string }>(`SELECT id FROM quotes WHERE status = 'sent' AND accept_token IS NULL AND deleted_at IS NULL`)
     for (const r of rows) {
       await ctx.tx.query('UPDATE quotes SET accept_token = $2 WHERE id = $1', [r.id, newAcceptToken()])
       await emitQuote(ctx, r.id)
@@ -214,6 +221,40 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     // Answered straight from a draft, it went to the client all the same, so it's numbered as if marked sent.
     if (q.status === 'draft') await numberIt(ctx, q)
     await emitQuote(ctx, a.id)
+  },
+
+  /**
+   * Delete a version (ADR 0131): an admin's, once they've typed its number (or "delete", for one never sent), which is
+   * checked here too, so nothing deletes one by a slip. It goes from every device with the emails that went with it, and
+   * its link to the client stops; the server keeps it, out of sight, so it can be put back from the history.
+   */
+  async 'quote.delete'(ctx, a) {
+    const q = await getQuote(ctx.tx, a.id, true)
+    if (!q) {
+      if (await isDeleted(ctx.tx, a.id)) return
+      throw new Refused({ code: 'not-found', message: 'That quote is no longer here.' })
+    }
+    if (!deleteTyped(q, a.typed)) throw new Refused({ code: 'invalid', message: `Type ${deleteWord(q)} to delete version ${q.version} of this quote.` })
+    await ctx.tx.query('UPDATE quotes SET deleted_at = now() WHERE id = $1', [a.id])
+    for (const e of await emailsOf(ctx.tx, a.id)) await emitRemoved(ctx, 'quoteEmail', e)
+    await emitRemoved(ctx, 'quote', a.id)
+  },
+
+  /** Put a deleted version back (ADR 0131), as it was, unless the job has a draft of its own since or is settled. */
+  async 'quote.restore'(ctx, a) {
+    const q = await getQuote(ctx.tx, a.id, true, true)
+    if (!q) throw new Refused({ code: 'not-found', message: 'That quote is no longer here.' })
+    if (!(await isDeleted(ctx.tx, a.id))) return
+    if (q.status === 'draft') {
+      const versions = await quotesOf(ctx.tx, q.projectId)
+      const draft = versions.find((v) => v.status === 'draft')
+      if (draft) throw new Refused({ code: 'conflict', message: `Version ${draft.version} is the job's draft now, and a job has one at a time. Delete it or mark it sent first.` })
+      const invoiced = versions.find((v) => v.invoicedOn)
+      if (invoiced) throw new Refused({ code: 'conflict', message: `Version ${invoiced.version} is invoiced, so the job's quote is settled: a draft can't come back to it.` })
+    }
+    await ctx.tx.query('UPDATE quotes SET deleted_at = NULL WHERE id = $1', [a.id])
+    await emitQuote(ctx, a.id)
+    for (const e of await emailsOf(ctx.tx, a.id)) await emit(ctx, 'quoteEmail', e, await getQuoteEmail(ctx.tx, e))
   },
 
   async 'quote.invoiced'(ctx, a) {

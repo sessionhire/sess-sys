@@ -164,6 +164,14 @@ describe('roles', () => {
     expect((await app.inject({ url: '/api/export', cookies: s })).statusCode).toBe(200)
     expect((await app.inject({ method: 'POST', url: '/api/data/start-fresh', cookies: s, payload: { confirm: 'x' } })).statusCode).toBe(403)
     expect((await send(app, s, 'person.role', { id: 'sean', role: 'director' })).reason?.code).toBe('forbidden')
+
+    // A quote is the office's to make, but deleting one, or putting it back, is a director's (ADR 0131), even typed right.
+    expect((await send(app, c, 'project.create', { id: 'gala', name: 'Autumn Gala', clientId: null, venueId: null, status: 'confirmed', notes: '' })).status).toBe('applied')
+    expect((await send(app, s, 'quote.save', { id: 'q1', projectId: 'gala', lines: [], discountPct: 0, notes: '' })).status).toBe('applied')
+    expect((await send(app, s, 'quote.delete', { id: 'q1', typed: 'delete' })).reason?.code).toBe('forbidden')
+    expect((await send(app, c, 'quote.delete', { id: 'q1', typed: 'delete' })).status).toBe('applied')
+    expect((await send(app, s, 'quote.restore', { id: 'q1' })).reason?.code).toBe('forbidden')
+    expect((await send(app, c, 'quote.restore', { id: 'q1' })).status).toBe('applied')
   })
 
   it("let staff crew tick and hand on only the job steps that are theirs (ADR 0073)", async () => {
