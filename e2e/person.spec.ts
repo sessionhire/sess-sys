@@ -190,6 +190,8 @@ test('a booking on a job that was cancelled or lost stays in its place, saying s
   await expect(office.locator('.conn')).toHaveText('Up to date')
   await office.goto(`/#jobs/${k('elsewhere')}`)
   const where = office.getByRole('region', { name: 'Where it is' })
+  // The stage's tasks are a tap away under the stepper (ADR 0140, part 3).
+  await where.getByRole('button', { name: /tasks? to do in Quoting$/ }).click()
   await where.getByRole('button', { name: /^Confirmed/ }).click()
   await where.getByRole('button', { name: 'The client said no' }).click()
   await where

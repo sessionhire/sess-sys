@@ -1,6 +1,6 @@
 # ADR 0140: One job, one path
 
-- **Status:** accepted; parts 1 and 2 built (1.142.0, 1.142.1), parts 3 to 8 to follow
+- **Status:** accepted; parts 1 to 3 built (1.142.0 to 1.142.2), parts 4 to 8 to follow
 - **Date:** 9 November 2026
 - **Asked for by:** Colly, after walking the quote flow and on through crewing
   and the pick list: "very confusing to go through the steps and particularly
@@ -51,7 +51,12 @@ removed. Built in eight parts, one pull request each:
 2. Send never disappears from the quote: it stays in the figures strip and
    says what stops it ("1 line to finish"), taking you there. (Built, 1.142.1.)
 3. The job's head says where it stands once: the stage line and Next; Where
-   it is folds to its stepper, its tasks a tap away.
+   it is folds to its stepper, its tasks a tap away. (Built, 1.142.2: on a
+   confirmed job Next's line says only Next; the tasks fold under "N tasks to
+   do in <stage>", opened by it, a stage, or a task from Next or Home; the
+   invoice row stays folded until it's invoiced or due. The crew and kit
+   facts stay in the head: they hold a department's own count and the pick
+   list link, which the stage line doesn't.)
 4. The quote as the Quoting stage on the job page (its address still works);
    accept and confirm in one press; terms in one line with Change; one Add
    box with the rarer adds under More.

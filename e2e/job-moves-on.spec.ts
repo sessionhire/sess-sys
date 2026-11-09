@@ -35,7 +35,9 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
 
   // Confirmed, the job moves into Planning by its own status: the one gate between stages.
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName(/^2\. Planning, the stage the job is in/)
-  await expect(next).toContainText('Next · Planning')
+  // Said once, in the head (ADR 0140, part 3): Next's line says only Next.
+  await expect(office.locator('.job-position').first()).toContainText('Planning')
+  await expect(next.locator('.line')).toHaveText('Next')
   await office.goto('/#jobs')
   await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' }).locator('.job-position')).toContainText('Planning')
 

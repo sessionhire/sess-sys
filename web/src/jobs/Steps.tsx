@@ -1,4 +1,4 @@
-import { dayLabel, firstName, invoiceOf, irishToday, jobPosition, ownerByRole, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { dayLabel, firstName, invoiceOf, irishToday, jobPosition, ownerByRole, plural, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { peopleOn, promptFor, type Share } from '../crew/CrewScreen.tsx'
@@ -51,8 +51,14 @@ export function StepsCard({
 }) {
   const steps = view.steps.of(job.id)
   const [pickedStage, setPickedStage] = useState<StageView['key'] | undefined>()
-  // Moving to another job opens that job's own stage.
-  useEffect(() => setPickedStage(undefined), [job.id])
+  // Folded to its stepper (ADR 0140, part 3): where the job stands is the head's to say, and the tasks are a tap away, open
+  // once a stage is pressed, a task is opened from Next or Home, or the fold is.
+  const [unfolded, setUnfolded] = useState(false)
+  // Moving to another job opens that job's own stage, folded.
+  useEffect(() => {
+    setPickedStage(undefined)
+    setUnfolded(false)
+  }, [job.id])
   if (!steps) return null
   if (steps.stopped && steps.steps.every((s) => !s.ownerId && !s.ticked)) {
     // An errand, a meeting, or a stopped job nobody had started on: a line, not a tracker.
@@ -67,26 +73,33 @@ export function StepsCard({
   const openKey = pickedStage ?? (shownTask ? STAGE_OF[shownTask.key] : undefined) ?? steps.stage?.key ?? (steps.finished ? 'back' : undefined)
   const open = steps.stages.find((s) => s.key === openKey)
   const atIndex = steps.stage ? steps.stages.indexOf(steps.stage) : steps.finished ? steps.stages.length : 0
+  const showing = unfolded || pickedStage !== undefined || !!shownTask
   const pickStage = (key: StageView['key']) => {
+    // The open stage pressed again folds it.
+    if (showing && key === open?.key) return fold()
     setPickedStage(key)
     if (shownTask && STAGE_OF[shownTask.key] !== key) onOpenTask(undefined)
   }
+  const fold = () => {
+    setUnfolded(false)
+    setPickedStage(undefined)
+    if (shownTask) onOpenTask(undefined)
+  }
   // The tasks left open from an earlier stage are listed with the stage the job is in, so they're seen where the work is.
   const behind = open && open.state === 'now' ? steps.behind : []
+  const toDo = (open?.tasks ?? []).concat(behind).filter((t) => !t.done && !t.skipped).length
   // The stage the job is in takes the job's tone when something in it is short or late, as its line on a list does.
   const tone = steps.stopped ? undefined : jobPosition(steps)?.tone
   return (
     <section className="card job-steps" aria-labelledby="job-steps-title">
       <header className="steps-head">
         <h2 id="job-steps-title">Where it is</h2>
-        <p className="hint">
-          {steps.stopped ?? (steps.finished ? `Through every stage · all ${steps.of} tasks done` : `${steps.stage ? `In ${steps.stage.label}` : ''} · ${steps.done} of ${steps.of} tasks done`)}
-        </p>
+        {steps.stopped && <p className="hint">{steps.stopped}</p>}
       </header>
       <ol className="stages-flow" data-stopped={steps.stopped ? 'true' : undefined} data-tone={tone}>
         {steps.stages.map((s, i) => (
           <li key={s.key} data-state={s.state} data-come={i < atIndex ? 'true' : undefined} data-open={s.state === 'done' && s.done < s.of ? 'true' : undefined} aria-current={s.state === 'now' ? 'step' : undefined}>
-            <button type="button" aria-expanded={s.key === open?.key} aria-controls="job-stage-open" aria-label={stageName(s, steps.stopped !== undefined)} onClick={() => pickStage(s.key)}>
+            <button type="button" aria-expanded={showing && s.key === open?.key} aria-controls="job-stage-open" aria-label={stageName(s, steps.stopped !== undefined)} onClick={() => pickStage(s.key)}>
               <span className="stage-dot" aria-hidden="true">
                 {s.state === 'done' ? <Icon name="done" /> : s.number}
               </span>
@@ -98,6 +111,11 @@ export function StepsCard({
         ))}
       </ol>
       {open && (
+        <button type="button" className="stage-fold" aria-expanded={showing} aria-controls="job-stage-open" onClick={() => (showing ? fold() : setUnfolded(true))}>
+          {toDo ? `${plural(toDo, 'task')} to do in ${open.label}` : `Every task in ${open.label} done`}
+        </button>
+      )}
+      {open && showing && (
         <div className="stage-open" id="job-stage-open">
           {/* Not .stage-line, the list rows' inline line, which broke this sentence at each part on a phone (audit, 5 November 2026, finding 88). */}
           <p className="stage-said">
@@ -114,7 +132,7 @@ export function StepsCard({
           )}
         </div>
       )}
-      <InvoiceRow job={job} view={view} />
+      <InvoiceRow job={job} view={view} folded={!showing} />
       {shownTask && <OpenStep key={`${job.id}.${shownTask.key}`} job={job} view={view} step={shownTask} stopped={steps.stopped !== undefined} onPart={onPart} onTell={onTell} />}
     </section>
   )
@@ -126,12 +144,14 @@ export function StepsCard({
  * amber once it is and not invoiced, "Invoiced Mon 2 Nov · paid" when done; never an amount (ADR 0042). Not a ninth task:
  * nothing here holds a job in Back (ADR 0109).
  */
-function InvoiceRow({ job, view }: { job: JobView; view: View }) {
+function InvoiceRow({ job, view, folded }: { job: JobView; view: View; folded: boolean }) {
   const access = useAccess()
   const today = irishToday()
   if (!access.can('money')) return null
   const at = invoiceOf(job, view.money.currentOf(job.id), today)
   if (at.state === 'none') return null
+  // Folded to the stepper (ADR 0140, part 3), it stays only when it has something to say: invoiced, or due and not yet.
+  if (folded && at.state !== 'invoiced' && at.state !== 'due') return null
   const how =
     at.state === 'invoiced'
       ? `Invoiced ${dayLabel(at.on, today)}${at.paidOn ? ' · paid' : ''}`

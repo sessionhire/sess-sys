@@ -519,15 +519,15 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
  */
 summary { display: flex; align-items: center; gap: var(--ds-space-2); min-height: 44px; padding-block: var(--ds-space-2); color: var(--ink); font-weight: 600; list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
-summary::before, .history .run-line .chevron, .app .task-list button::after {
+summary::before, .history .run-line .chevron, .app .task-list button::after, .app .job-steps .stage-fold::before {
   content: ''; flex: none; box-sizing: border-box; width: 16px; height: 16px; border: 8px solid currentColor;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 summary:has(> .chevron)::before { content: none; }
-summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after { transition: rotate var(--ds-duration-base) var(--ds-ease-standard); }
-details[open] > summary::before, details[open] > summary > .chevron, .history .run-line[aria-expanded='true'] .chevron, .app .task-list button[aria-expanded='true']::after { rotate: 90deg; }
+summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after, .app .job-steps .stage-fold::before { transition: rotate var(--ds-duration-base) var(--ds-ease-standard); }
+details[open] > summary::before, details[open] > summary > .chevron, .history .run-line[aria-expanded='true'] .chevron, .app .task-list button[aria-expanded='true']::after, .app .job-steps .stage-fold[aria-expanded='true']::before { rotate: 90deg; }
 @media (prefers-reduced-motion: reduce) {
-  summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after { transition: none; }
+  summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after, .app .job-steps .stage-fold::before { transition: none; }
 }
 
 /* Sign-in and account. */
