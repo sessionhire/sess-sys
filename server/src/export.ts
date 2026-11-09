@@ -325,7 +325,7 @@ const ABOUT: Record<string, string> = {
   trackers: "Trackers on kit: the maker and serial number, the name the office gave it, the item it's on, when it was first and last heard from, where it last said it was and how accurately, its battery, where that is against where the item should be and since when, and whether it's been put away.",
   tracker_reports: 'Every report a tracker sent, as it came: when, its number, where it was and how accurately, its battery and why it reported.',
   tracker_settings: 'Whether the company uses trackers, where the warehouse is on the map, and how near counts as there.',
-  users: 'Staff who have signed in with Google.',
+  users: 'Staff who have signed in with Google, and the screen the app opens on for each when they chose one.',
   // A job's steps (ADR 0073).
   // The purchase list (ADR 0077).
   purchase_requests:

@@ -1,4 +1,4 @@
-import type { MeResponse, StaffUser } from '@sh/shared'
+import { asStartScreen, type MeResponse, type StaffUser, type StartScreen } from '@sh/shared'
 import { useEffect, useState } from 'react'
 import { askToKeep } from './kept.ts'
 
@@ -114,6 +114,32 @@ export async function signOut() {
   const res = await fetch(`${base}/api/auth/signout`, { method: 'POST', signal: AbortSignal.timeout(8_000) })
   if (!res.ok) throw new Error(`Server answered ${res.status}`)
   set({ status: 'signed-out' })
+}
+
+/**
+ * The screen the app opens on for the person signed in (ADR 0122). Kept with their account, so it needs signal; this
+ * device has it at once, and the server's answer is what every other device gets. Says what went wrong, or nothing.
+ */
+export async function setStartScreen(start: StartScreen): Promise<string | undefined> {
+  const was = current
+  if (was.status !== 'signed-in') return 'Sign in with Google to choose where the app opens.'
+  const { start: _old, ...user } = was.user
+  const chosen = asStartScreen(start)
+  set({ ...was, user: chosen ? { ...user, start: chosen } : user })
+  try {
+    const res = await fetch(`${base}/api/me/start`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ start }),
+      signal: AbortSignal.timeout(8_000),
+    })
+    if (res.ok) return undefined
+    set(was)
+    return `The server answered ${res.status}, so it's as it was. Please try again.`
+  } catch {
+    set(was)
+    return "Couldn't reach the server, so it's as it was. Try again when you have signal."
+  }
 }
 
 /**

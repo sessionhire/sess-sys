@@ -197,6 +197,29 @@ describe('staff sign-in', () => {
     expect(odd.back.headers.location).toBe('/')
   })
 
+  it('keeps the screen the app opens on with the account, so it follows the person to every device (ADR 0122)', async () => {
+    const { app, google } = await server()
+    const { session } = await signIn(app, google, aoife)
+    const me = async (s: string) => (await app.inject({ url: '/api/me', cookies: { sh_session: s } })).json().user
+    const choose = (s: string, start: unknown) => app.inject({ method: 'POST', url: '/api/me/start', cookies: { sh_session: s }, payload: { start } })
+    expect((await me(session!)).start).toBeUndefined()
+
+    expect((await choose(session!, '#jobs/plan')).statusCode).toBe(200)
+    // Her phone, signed in on its own, opens on the planner too.
+    const phone = (await signIn(app, google, aoife)).session!
+    expect((await me(phone)).start).toBe('#jobs/plan')
+
+    // Home is the default, so choosing it clears the choice; an address not on the list does the same.
+    await choose(phone, '#home')
+    expect((await me(session!)).start).toBeUndefined()
+    await choose(phone, '#quotes')
+    await choose(phone, 'https://elsewhere.example/')
+    expect((await me(session!)).start).toBeUndefined()
+
+    // Signed out, there's no one to keep it for.
+    expect((await app.inject({ method: 'POST', url: '/api/me/start', payload: { start: '#jobs' } })).statusCode).toBe(401)
+  })
+
   it('signs out, and a session ends when it expires or the account is switched off', async () => {
     const { app, db, google } = await server()
     let { session } = await signIn(app, google, aoife)

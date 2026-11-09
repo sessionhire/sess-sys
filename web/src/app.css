@@ -106,6 +106,15 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .brand .seen-as a::after { content: ''; position: absolute; inset: 0; }
 /* Whose eyes it is wraps rather than being cut to "Seeing it as Offic…" on a phone (audit, 20 October 2026, finding 60d). */
 .brand small.seen-as { white-space: normal; text-overflow: clip; }
+/* The mark and the name go Home from every screen (ADR 0122), as an app's logo does: the whole block, the mark and the area under the name too,
+   is the one target, so a thumb finds it top left; the words stay ink, the brand rather than a link in a sentence. The ring goes round the block. */
+.brand:has(.home-link) { position: relative; border-radius: var(--radius-control); }
+.brand .home-link { color: inherit; text-decoration: none; }
+.brand .home-link::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.brand .home-link:focus-visible { outline: none; }
+.brand .home-link:focus-visible::after { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) { .brand .home-link:hover::after { background: var(--ds-wash-hover); } }
+.brand .home-link:active::after { background: var(--ds-wash-pressed); }
 /* Dark or light, top right (ThemeButton.tsx): a picture, its words for a screen reader and a pointer's hover. */
 .theme-button { flex: none; display: grid; place-items: center; width: 44px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; }
 .theme-button .icon { width: 22px; height: 22px; }
