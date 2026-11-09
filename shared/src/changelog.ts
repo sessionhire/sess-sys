@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.132.1',
+    version: '1.132.2',
     date: '2026-11-09',
     title: 'The calendar looks like Google Calendar',
     what: "Jobs › Calendar now looks like the Google Calendar the office already reads. The writing is smaller, and a job of several days is one bar across its days, not a box on each. Today's date is circled. Today and the arrows at the top move between months. Confirmed jobs are still filled in, and enquiries and quotes are still a dashed outline with their word on them. On a phone it reads like Google's schedule, with the date on the left and the jobs to the right.",
     prs: [282],
     adrs: [123],
+  },
+  {
+    version: '1.132.1',
+    date: '2026-11-09',
+    title: 'An emailed quote is marked sent only once it has gone',
+    what: "When sending quotes by email is turned on, a quote is now marked sent only once Gmail has taken it. If Gmail turns it down, the quote stays a draft and keeps the number it was given, and the message says so, so you can send it again or print it. Send also waits for anything you've just changed on the quote to reach the server first, so the PDF has it. Sending by email is still off.",
+    prs: [284],
+    adrs: [130],
   },
   {
     version: '1.132.0',
