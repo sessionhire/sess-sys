@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-09',
     title: 'Hire prices filled in from Current RMS',
     what: "Admin › Connections has a new card under Current RMS: Read the prices reads each product's rental price there, and how it's charged (Daily, 3 Day Week or Weekly), which takes a few minutes. The card then shows what filling in would do before anything changes: prices to fill in where there's none, ones from Current RMS to bring up to date, ones set here by hand that differ (kept unless you tick to use Current RMS's), and anything in Current RMS not found on the stock list. Fill in does just that, quotes pick the prices up, and it's in the history. It can be run again whenever prices change in Current RMS. Nothing is changed in Current RMS.",
-    prs: [0],
+    prs: [288],
     adrs: [131],
   },
   {
