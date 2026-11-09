@@ -276,6 +276,8 @@ const DEPARTMENT_WORDS: Record<string, Department> = {
   lx: 'lighting',
   video: 'video',
   vision: 'video',
+  laser: 'lasers',
+  lasers: 'lasers',
   staging: 'staging',
   stage: 'staging',
   rigging: 'rigging',

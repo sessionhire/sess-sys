@@ -24,6 +24,8 @@ import {
   type VanProblem,
   type View,
   STILL_NEEDS_CREW,
+  jobDepartmentOfCall,
+  jobDepartmentsInWords,
 } from '@sh/shared'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { personHref } from '../crew/PersonScreen.tsx'
@@ -34,6 +36,7 @@ import { useUnderTop } from '../useUnderTop.ts'
 import { useToday } from '../view.ts'
 import { Top } from './common.tsx'
 import { QuickQuote, type QuickAt } from './QuickQuote.tsx'
+import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
 import { Views } from '../Views.tsx'
 import { calendarHref } from './CalendarScreen.tsx'
 import { vehicleHref } from '../stock/Vehicles.tsx'
@@ -101,7 +104,17 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   const place = placeOf(hash, now)
   const { scale, day, rows } = place
   const days = useMemo(() => daysOf(scale, day), [scale, day])
-  const p = useMemo(() => plan(view, days, now), [view, days, now])
+  // The departments picked (ADR 0137) narrow the job rows to the jobs involving one of them; people and vans stay whole.
+  const { picked, setPicked, involves } = useJobDepartments(view)
+  const p = useMemo(() => {
+    const all = plan(view, days, now)
+    if (!picked.length) return all
+    const byId = new Map(view.jobs.jobs.map((j) => [j.id, j]))
+    // Crew asked for outside Jobs have a row by the name typed: it stays when one of its calls is for a department picked.
+    const outside = (key: string) =>
+      view.crew.calls.some((c) => c.status === 'open' && !byId.has(c.projectId ?? '') && `call:${c.project.trim().toLowerCase()}` === key && (picked as readonly string[]).includes(jobDepartmentOfCall(c) ?? ''))
+    return { ...all, jobs: all.jobs.filter((l) => (l.jobId ? !!byId.get(l.jobId) && involves(byId.get(l.jobId)!) : outside(l.key))) }
+  }, [view, days, now, picked, involves])
   const [everyone, setEveryone] = useState(false)
   const at = (changes: Partial<Place>) => hashOf({ ...place, ...changes })
   // Jobs or people is a toggle, not a move, so it keeps focus (audit finding 22). Safari, and Firefox on a Mac, don't focus a button they press, so it takes focus itself: the Shell sees a toggle in focus and leaves it there.
@@ -230,13 +243,17 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
         </div>
       </div>
 
+      {rows === 'jobs' && <DepartmentFilter picked={picked} onChange={setPicked} />}
+
       <SortOut problems={p.problems} vanProblems={p.vanProblems} short={shortSoon(view.crew, now)} />
 
       <section className="card timeline-card" ref={card}>
         {lanes === 0 && (
           <p className="empty">
             {rows === 'jobs'
-              ? `Nothing on this ${scale}.`
+              ? picked.length
+                ? `Nothing on this ${scale} with ${jobDepartmentsInWords(picked)}.`
+                : `Nothing on this ${scale}.`
               : rows === 'vans'
                 ? 'No vehicles yet: add them on Stock › Vehicles.'
                 : p.people.length

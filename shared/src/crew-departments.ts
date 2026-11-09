@@ -5,7 +5,7 @@
  */
 
 /** The departments the form offers as you type. Free text, so a new one needs no change here. */
-export const CREW_DEPARTMENTS = ['Audio', 'LX', 'Video', 'Backline', 'Laser', 'Transport', 'Production', 'LED Tech', 'Rigger', 'Stage Manager', 'SFX'] as const
+export const CREW_DEPARTMENTS = ['Audio', 'LX', 'Video', 'Backline', 'Laser', 'Staging', 'Transport', 'Production', 'LED Tech', 'Rigger', 'Stage Manager', 'SFX'] as const
 
 /** 0 is an applicant nobody has vetted; 1 is known; higher is more preferred. */
 export const LEVELS = [0, 1, 2, 3, 4, 5] as const
@@ -38,6 +38,7 @@ export const ROLE_WORDS: readonly [RegExp, (typeof CREW_DEPARTMENTS)[number]][] 
   [/\b(video|camera|cam|vision|projection(ist)?|vt)\b/, 'Video'],
   [/\b(backline|guitar tech|drum tech)\b/, 'Backline'],
   [/\brigg(er|ers|ing)\b/, 'Rigger'],
+  [/\bstaging\b/, 'Staging'],
   [/\b(stage manager|asm|dsm|sm)\b/, 'Stage Manager'],
   [/\b(sfx|pyro|special effects|confetti)\b/, 'SFX'],
   [/\b(driver|transport|truck|van)\b/, 'Transport'],

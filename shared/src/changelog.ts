@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.139.0',
+    version: '1.140.0',
     date: '2026-11-09',
     title: 'Correct the days of a quote from Current RMS',
     what: "A past quote from Current RMS now has Correct the days: give the first and last day and they're the days the app goes by, on the quote, the calendar and when matching it to a job. Reading Current RMS again keeps them, the quote says what Current RMS has, and Use Current RMS's days goes back. Each change is in the history. Nothing changes in Current RMS. Some quotes also showed a day early, for anything starting just after midnight in summer: they now show the right day everywhere. And the show days Current RMS keeps are read too, and shown on the quote when they're not its days.",
     prs: [292],
     adrs: [138],
+  },
+  {
+    version: '1.139.0',
+    date: '2026-11-09',
+    title: 'Show only the jobs with a department on them',
+    what: "The Jobs list, the calendar, the week and month planner and the Board now have a row of departments: Audio, Lighting, Video, Lasers and Staging. Press Lighting and only the jobs with lighting on them stay, by their crew or their kit; press Lasers as well and the jobs with either stay. All departments shows everything again. The choice holds as you move between them, on this device. Lasers is now a department of its own for kit too, so move any laser products filed under Lighting on their page. While a department is picked, quotes still open in Current RMS are left off the calendar, since what's on them isn't known here.",
+    prs: [291],
+    adrs: [137],
   },
   {
     version: '1.138.0',

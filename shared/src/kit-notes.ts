@@ -30,6 +30,7 @@ const HEADINGS: [RegExp, NoteSection][] = [
   [/^(audio|sound|pa|sound and audio)$/, 'audio'],
   [/^(video|vision|av|led|screens?|projection)$/, 'video'],
   [/^(lighting|lights|lx|lamps)$/, 'lighting'],
+  [/^(lasers?|laser fx)$/, 'lasers'],
   [/^(staging|stage|stages|set|set and staging)$/, 'staging'],
   [/^(rigging|rig|truss|trussing)$/, 'rigging'],
   [/^(power|electrics|electrical|distro|generators?)$/, 'power'],
