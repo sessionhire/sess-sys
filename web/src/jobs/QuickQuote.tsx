@@ -1,6 +1,7 @@
 import { dayLabel, newId, type View } from '@sh/shared'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
+import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 import { ClientField, clientNamed, NewOrNear, newQuoteHref, VenueField, venueNamed } from './common.tsx'
@@ -52,6 +53,7 @@ const GAP = 8
 const EDGE = 16
 
 export function QuickQuote({ view, at, onClose }: { view: View; at: QuickAt; onClose: () => void }) {
+  const me = useAccess().personId
   const today = useToday()
   const { clients, venues } = view.jobs
   const first = at.day >= today ? at.day : today
@@ -112,6 +114,8 @@ export function QuickQuote({ view, at, onClose }: { view: View; at: QuickAt; onC
       const clientId = await clientNamed(draft.client, clients)
       const venueId = await venueNamed(draft.venue, venues)
       await client.mutate('project.create', { id, name: draft.name, clientId, venueId, status: 'enquiry', kind: 'gig', notes: '' })
+      // Whoever starts the quote is on its task (ADR 0127), as on New quote.
+      if (me) await client.mutate('jobStep.set', { projectId: id, step: 'quote', ownerId: me })
       await client.mutate('phase.add', { id: newId(), projectId: id, name: 'Show', start: draft.start, end: draft.end, venueId: null, notes: '' })
       await client.mutate('quote.save', { id: newId(), projectId: id, lines: [], discountPct: view.money.discountOf(clientId) ?? 0, notes: '' })
     }).then((ok) => {

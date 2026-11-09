@@ -20,7 +20,7 @@ import {
   lineCostOf,
   quoteMargin,
 } from '@sh/shared'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -124,9 +124,17 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   const [picked, setPicked] = useState<string>()
   const [printing, setPrinting] = useState(false)
   const [composing, setComposing] = useState<string>()
+  // The versions printed here since the page opened: one sent today and not printed yet keeps Print as its one red press
+  // (audit of the quote flow, 8 November 2026, finding 14), since getting it to the client comes before their answer.
+  const [printed, setPrinted] = useState<ReadonlySet<string>>(() => new Set())
+  const shownId = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (!printing) return
-    const done = () => setPrinting(false)
+    const id = shownId.current
+    const done = () => {
+      setPrinting(false)
+      if (id) setPrinted((was) => new Set(was).add(id))
+    }
     addEventListener('afterprint', done)
     const frame = requestAnimationFrame(() => print())
     return () => {
@@ -160,7 +168,9 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   const jm = m.job(jobId)
   // The quote's one filled red is what to record next on the current version, under What happened (nextRecord). Sending or printing
   // any version takes the red only once there's nothing left to record (UX sweep, 6 November 2026, move 1).
-  const recording = !!current && nextRecord(current, job) !== undefined
+  const toSend = !!q && q.status === 'sent' && q.id === current?.id && q.sentOn === today && !q.emails.length && !byEmail && !printed.has(q.id)
+  const recording = !toSend && !!current && nextRecord(current, job) !== undefined
+  shownId.current = q?.id
 
   return (
     <div className="app crew jobs quote-screen">
@@ -234,7 +244,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             )}
             {settled && q.latest && <p className="hint">The quote is invoiced, so it's settled: no new version.</p>}
           </section>
-          {q.id === current?.id && <Records q={q} job={job} canEmail={byEmail} />}
+          {q.id === current?.id && <Records q={q} job={job} canEmail={byEmail} quiet={toSend} />}
         </>
       )}
 

@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.128.0',
+    version: '1.129.0',
     date: '2026-11-09',
     title: 'WhatsApp offers can be answered with their buttons (off until launch)',
     what: "When offers on WhatsApp are on, pressing Yes, I can do it on the message now accepts the offer, just as answering on their page does, and they get a reply saying they're down for it and that the office will confirm. No, I can't asks once more before it declines, in case of a slip of the thumb. If the job was filled or withdrawn first, the reply says so. Each offer's row in Crew shows whether its WhatsApp was sent, delivered or read while it waits for an answer, or why it wasn't sent. Anyone who writes STOP gets no more offers there; anything else written is answered with a link to their page and the office's number, as nobody reads that number. Answers on WhatsApp show in the history as theirs. Still nothing is sent until Session Hire's WhatsApp number is set up with Meta and switched on.",
     prs: [280],
     adrs: [125],
+  },
+  {
+    version: '1.128.0',
+    date: '2026-11-09',
+    title: 'The quote wanted today comes first, and sending gets you the PDF',
+    what: "Quotes now leads with the quotes the client wants today, or wanted already, and Home counts them. The rest of the quotes not sent yet are in the order they're wanted, then by when the job is, and each says the day it's wanted. A quote for a job that's already over moves to its own group underneath. Whoever starts a quote is now on its Quote sent task. With email off, the red button on a draft is Get the PDF to send: it marks the quote sent, gives it its number and opens it to print or save, and printing stays the red button until it's done. Recording a quote as accepted by phone now gets the same last look as sending it.",
+    prs: [279],
+    adrs: [127],
   },
   {
     version: '1.127.0',

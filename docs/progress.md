@@ -7,7 +7,7 @@ waiting on someone.
 
 **Done**
 
-- The WhatsApp offer's buttons now answer it (1.128.0, ADR 0125 part 3).
+- The WhatsApp offer's buttons now answer it (1.129.0, ADR 0125 part 3).
   *Yes, I can do it* accepts it, as their page would, and they get a reply
   saying they're down for it. *No, I can't* asks once more (*Decline it* or
   *Keep it open*). A filled or withdrawn job says so. A button counts only
@@ -161,6 +161,11 @@ waiting on someone.
   list as it's typed, pencilled, so other quotes see it and confirming
   holds it; the quote's crew are made calls in one press; a line's days
   are the days the job works, not the gap between build and show.
+- Batch 3, the quote due today comes first (ADR 0127, 1.128.0): drafts
+  in the order they're wanted, "Wanted today" leading Quotes and counted on
+  Home, drafts for jobs that are over kept apart, whoever starts a quote on
+  its task; with email off, Get the PDF to send marks it sent and opens the
+  numbered PDF; "accepted by phone" gets the same last look as sending.
 
 **Waiting on**
 
