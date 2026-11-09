@@ -1,4 +1,4 @@
-import type { RmsLine, RmsOpportunity, RmsProgress, RmsRun, RmsStatus } from '@sh/shared'
+import { irishToday, rmsDay, type RmsLine, type RmsOpportunity, type RmsProgress, type RmsRun, type RmsStatus } from '@sh/shared'
 import { faultForLog, type Db, type Queryable } from '../db.ts'
 import { RmsApi, RmsRefused } from './api.ts'
 
@@ -8,7 +8,9 @@ import { RmsApi, RmsRefused } from './api.ts'
  * since Current RMS gives 25 opportunities a request and the lines one
  * opportunity a request, at a request a second; after that, only the
  * opportunities changed since they were last read have their lines read
- * again, so a second read is a few minutes. One runs at a time, in the
+ * again, with every one still to come or with no lines yet (Current RMS
+ * doesn't always count a line added as a change), so a second read is a
+ * few minutes. One runs at a time, in the
  * background, and says how far it's got; it can be stopped, and what was
  * read stays.
  */
@@ -269,6 +271,7 @@ export class RmsReader {
     try {
       // Every opportunity, in the order of their ids so none is missed as pages go by.
       const changed: { id: number; updatedAt: string | null }[] = []
+      const weekAgo = irishToday(new Date(Date.now() - 7 * 86_400_000))
       for (let page = 1; ; page++) {
         check()
         const got = await api.read<{ opportunities?: ApiOpportunity[]; meta?: Meta }>('/opportunities', {
@@ -282,15 +285,23 @@ export class RmsReader {
         progress.total = got.meta?.total_row_count ?? Math.max(progress.total, opportunities + list.length)
         const ids = list.map((o) => o.id)
         const { rows: had } = ids.length
-          ? await this.db.query<{ id: number; lines_read_for: Date | null }>('SELECT id, lines_read_for FROM rms_opportunities WHERE id = ANY($1::int[])', [ids])
+          ? await this.db.query<{ id: number; lines_read_for: Date | null; has_lines: boolean }>(
+              'SELECT o.id, o.lines_read_for, EXISTS (SELECT 1 FROM rms_lines l WHERE l.opportunity_id = o.id) AS has_lines FROM rms_opportunities o WHERE o.id = ANY($1::int[])',
+              [ids]
+            )
           : { rows: [] }
         const readFor = new Map(had.map((h) => [h.id, h.lines_read_for ? new Date(h.lines_read_for).toISOString() : null]))
+        const hasLines = new Set(had.filter((h) => h.has_lines).map((h) => h.id))
         for (const raw of list) {
           const o = opportunityOf(raw)
           await keepOpportunity(this.db, o)
           const before = readFor.get(o.id)
           const now = o.updatedAt ? new Date(o.updatedAt).toISOString() : new Date(0).toISOString()
-          if (before !== now) changed.push({ id: o.id, updatedAt: o.updatedAt })
+          // Current RMS doesn't always count a line added as the opportunity changing, so the lines of one still to come
+          // (or only just past) are read every time, and so are those of one that had none, in case they came since.
+          const last = rmsDay(o.endsAt ?? o.startsAt)
+          const toCome = last !== undefined && last >= weekAgo
+          if (before !== now || toCome || !hasLines.has(o.id)) changed.push({ id: o.id, updatedAt: o.updatedAt })
           opportunities++
           progress.done = opportunities
         }
