@@ -52,3 +52,17 @@ enquiries and quotes stay off it), and the app must not write to it anyway.
 
 - Office and directors see how full a month is and could get, at a glance.
 - Everyone who sees Jobs sees the calendar; only money roles see quote states.
+
+## Later: drawn like Google Calendar (9 November 2026, 1.130.1)
+
+Colly asked for it to "look a bit more like google calendar", with smaller
+type and shows drawn joined over their days. The month is now a row a week:
+each job is one bar across its run of days in that week, square-ended where
+it carries on into the next, laid out in lines so bars never overlap
+(confirmed first, then the earliest, then the longest: `weekBars`). Day
+numbers are small and centred, "1 Mar" on a month's first, and today's is in
+a filled accent circle (now is the accent, as on the system's charts).
+Confirmed bars are filled in ink and potential ones a dashed ink outline, so
+the solid and dashed grammar holds. Today, back and next sit at the top as
+Google has them. On a phone it is Google's schedule: the weekday and date on
+the left, today circled, the jobs to the right, still in the page.

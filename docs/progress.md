@@ -3,6 +3,20 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: the calendar looks like Google Calendar
+
+**Done**
+
+- Jobs › Calendar now looks like the Google Calendar the office already
+  reads: smaller type, a job of several days drawn as one bar across its
+  days, today circled, Today and arrows at the top. Confirmed still solid,
+  potential still dashed. On a phone it reads like Google's schedule
+  (1.130.1, ADR 0123).
+
+**Waiting on**
+
+- Nothing.
+
 ## 9 November 2026: answers on WhatsApp (off until launch)
 
 **Done**
