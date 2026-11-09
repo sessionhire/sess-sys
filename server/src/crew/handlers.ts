@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto'
+import { whatsappSetting } from '../office/store.ts'
+import { reachOf } from '../whatsapp/whatsapp.ts'
 import { certificateRefusal, certificatesAfter, daysBetween, daysLabel, DEFAULT_LEVEL, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getPhase, getProject, namesForCall } from '../projects/store.ts'
@@ -25,6 +27,7 @@ type CrewCommand =
   | 'person.role'
   | 'person.archive'
   | 'person.contact'
+  | 'person.whatsapp'
   | 'unavailability.add'
   | 'unavailability.remove'
   | 'call.create'
@@ -445,6 +448,20 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     await emit(ctx, 'person', person.id, await getPerson(ctx.tx, person.id))
   },
 
+  /**
+   * Offers on WhatsApp for one person (ADR 0125). Their choice, on their own page: the office can turn them off when
+   * they ask, but turning them back on is theirs, so nobody is put back on WhatsApp who said no.
+   */
+  async 'person.whatsapp'(ctx, a) {
+    const person = await getPerson(ctx.tx, a.id)
+    if (!person) throw new Refused({ code: 'not-found', message: 'That person no longer exists.' })
+    if (a.on === !person.whatsappOff) return
+    if (a.on && ctx.via !== 'link')
+      throw new Refused({ code: 'forbidden', message: `Only ${person.name} can turn offers on WhatsApp back on, on their own page.` })
+    await ctx.tx.query('UPDATE people SET whatsapp_off = $2 WHERE id = $1', [person.id, !a.on])
+    await emit(ctx, 'person', person.id, await getPerson(ctx.tx, person.id))
+  },
+
   async 'unavailability.add'(ctx, a) {
     if (!(await getPerson(ctx.tx, a.personId))) throw new Refused({ code: 'not-found', message: 'That person no longer exists.' })
     if (await getAway(ctx.tx, a.id)) return
@@ -556,6 +573,16 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
        VALUES ($1, $2, $3, 'offered', $4, $5, $6)`,
       [a.id, call.id, person.id, JSON.stringify(days), call.dayRateCents, a.override]
     )
+    // On WhatsApp too, once the office sends offers there and this person hasn't turned them off (ADR 0125): queued with
+    // the offer, so it goes only if the offer is made, and sent by the server just after, never holding the office up.
+    const to = reachOf(await whatsappSetting(ctx.tx), person)
+    if (to)
+      await ctx.tx.query(`INSERT INTO whatsapp_messages (id, offer_id, person_id, kind, to_number, state) VALUES ($1, $2, $3, 'offer', $4, 'queued') ON CONFLICT (id) DO NOTHING`, [
+        `offer-${a.id}`,
+        a.id,
+        person.id,
+        to,
+      ])
     await emitOffer(ctx, a.id)
   },
 

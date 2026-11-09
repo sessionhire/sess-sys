@@ -18,6 +18,31 @@ waiting on someone.
 
 - Nothing.
 
+## 9 November 2026: offers go on WhatsApp by themselves (off until launch)
+
+**Done**
+
+- Colly answered the research's questions and said go. An offer now queues
+  a WhatsApp in the same change that makes it, and the server sends it to
+  Meta just after, at the same moment as the calendar invite: template
+  `job_offer` with the job's facts and Yes, No and See the details
+  buttons (1.126.0, ADR 0125).
+- Admin › Connections › Offers on WhatsApp: Off (as it starts), only to up
+  to five numbers to try it on, or On. Admin › Status reads the number's
+  state and quality from Meta, sending nothing.
+- Everyone gets offers there once on (Colly's choice); each person's page
+  has "Stop offers on WhatsApp" under their details. The office can turn
+  someone off when asked; only they turn it back on.
+- [Steps for setting up Meta's side](whatsapp-setup.md).
+
+**Waiting on**
+
+- Part 3, being built: the buttons answering the offer, delivered and read
+  on the offer, typed replies to the office.
+- Colly: Meta business verification, the number (new, or the office's own),
+  the template, and the four Railway variables. Then test mode on Colly's
+  phone.
+
 ## 9 November 2026: job offers over WhatsApp, researched
 
 **Done**

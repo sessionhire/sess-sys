@@ -217,6 +217,8 @@ async function moveOffers(ctx: Ctx, intoId: string, ids: string[]) {
         [kept.id, o.id]
       )
       await tx.query('DELETE FROM calendar_guests WHERE offer_id = $1', [o.id])
+      // What went on WhatsApp about it (ADR 0125) follows the offer kept, so an answer to it still finds an offer.
+      await tx.query('UPDATE whatsapp_messages SET offer_id = $1 WHERE offer_id = $2', [kept.id, o.id])
       gone.push(o.id)
     }
   }
@@ -225,6 +227,7 @@ async function moveOffers(ctx: Ctx, intoId: string, ids: string[]) {
     await emitRemovedAll(ctx, 'offer', gone)
   }
   const { rows: moved } = await tx.query<{ id: string }>('UPDATE offers SET person_id = $1 WHERE person_id = ANY($2::text[]) RETURNING id', [intoId, ids])
+  await tx.query('UPDATE whatsapp_messages SET person_id = $1 WHERE person_id = ANY($2::text[])', [intoId, ids])
   for (const m of moved) changed.add(m.id)
   const sorted = [...changed].sort()
   if (sorted.length) await emitAll(ctx, 'offer', (await getOffers(tx, sorted)).map((o) => ({ id: o.id, data: o })))

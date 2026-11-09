@@ -12,6 +12,8 @@ import { getQuoteSettings } from './finance/store.ts'
 import type { RmsReader } from './rms/reader.ts'
 import type { Mailbox } from './assistant/mailbox.ts'
 import type { Assistant } from './assistant/routes.ts'
+import type { WhatsApp } from './whatsapp/whatsapp.ts'
+import { whatsappSetting } from './office/store.ts'
 
 /**
  * Admin › Status (ADR 0093): everything the app relies on, looked at together, each in words with what to do when it
@@ -75,6 +77,8 @@ export interface StatusSources {
   assistant?: Assistant
   /** The operations mailbox Claude reads (ADR 0098). */
   mailbox?: Mailbox
+  /** Offers on WhatsApp (ADR 0125); a test without it has no WhatsApp check. */
+  whatsapp?: WhatsApp
   fuel: FuelLookup
   outside: OutsideLooks
   commit?: string
@@ -133,6 +137,7 @@ export class Status {
       this.currentRms(),
       this.claude(),
       this.mailbox(),
+      this.whatsapp(),
       this.fuel(),
       this.maps(),
     ].map((p, i) => p.catch((err): StatusCheck => ({ id: `check-${i}`, group: 'app', name: 'A check', state: 'bad', says: `This check went wrong itself: ${why(err)}` })))
@@ -334,6 +339,24 @@ export class Status {
     const looked = s.lookedAt ? `last read ${new Date(s.lookedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'not read yet'
     if (s.problem) return { ...base, state: 'warn', says: `Reading ${s.account}, ${looked}, but the last look stopped: ${s.problem}`, todo: 'It tries again every five minutes.', at: s.lookedAt }
     return { ...base, state: 'ok', says: `Reading ${s.account}, ${looked}${s.canSend ? ', and quotes can be sent from it' : '; connected to read only, so quotes can’t be sent from it'}.`, at: s.lookedAt }
+  }
+
+  /** WhatsApp (ADR 0125): set up, the switch, and the number as Meta has it. Nothing is sent. */
+  private async whatsapp(): Promise<StatusCheck> {
+    const base = { id: 'whatsapp', group: 'outside' as const, name: 'WhatsApp' }
+    const w = this.s.whatsapp
+    if (!w?.configured) return { ...base, state: 'off', says: 'Not set up.', todo: 'Set WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID in Railway, from Session Hire’s Meta business account, for offers to go on WhatsApp.' }
+    const { mode } = await whatsappSetting(this.s.db.reads)
+    const { value: read, ms } = await timed(() => w.number())
+    if (read.problem) return { ...base, state: 'bad', says: `Meta won’t say how the number is: ${read.problem}`, todo: 'Check WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID in Railway against Meta’s WhatsApp Manager.', ms }
+    const n = read.number!
+    const sending = mode === 'on' ? 'Offers go on WhatsApp.' : mode === 'test' ? 'Offers go on WhatsApp to the test numbers only.' : 'Turned off: nothing is sent.'
+    const said = `${n.number}${n.name ? ` as “${n.name}”` : ''}. ${sending}`
+    if (n.quality === 'RED') return { ...base, state: 'bad', says: `${said} Meta rates its messages poorly, and may stop it sending.`, todo: 'Look at WhatsApp Manager › Insights for why people blocked or reported it.', ms }
+    if (n.quality === 'YELLOW') return { ...base, state: 'warn', says: `${said} Meta’s rating of its messages has dropped.`, todo: 'Look at WhatsApp Manager › Insights.', ms }
+    if (mode !== 'off' && (!w.config?.appSecret || !w.config.verifyToken))
+      return { ...base, state: 'warn', says: `${said} Answers can’t come back yet.`, todo: 'Set WHATSAPP_APP_SECRET and WHATSAPP_VERIFY_TOKEN in Railway.', ms }
+    return { ...base, state: mode === 'off' ? 'off' : 'ok', says: said, ms }
   }
 
   private async fuel(): Promise<StatusCheck> {

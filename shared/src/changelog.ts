@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.126.0',
+    version: '1.127.0',
     date: '2026-11-09',
     title: 'The first part of the iPhone and Android app, for the warehouse',
     what: "The start of a Session Hire app for iPhone and Android, the same app inside the phone's own: scanning a label in it uses the phone's own barcode reader, faster and better in poor light, with the camera across the top of the screen and the page carrying on below it; and signing in opens Google in the phone's browser and comes back. It isn't on the App Store or Google Play yet. Nothing changes in a browser.",
     prs: [251],
     adrs: [112],
+  },
+  {
+    version: '1.126.0',
+    date: '2026-11-09',
+    title: 'Offers can go on WhatsApp by themselves (off until launch)',
+    what: "The app can now send an offer on WhatsApp by itself the moment someone here makes it, at the same time as the calendar invite, with the job, the days, the call time, the venue and the rate, and buttons to answer. It goes straight to Meta, who run WhatsApp, at about 1.5 cent a message. It's off until launch: Admin › Connections › Offers on WhatsApp has Off, On, and a setting that sends only to up to five numbers you list, for trying it on your own phone first. Everyone gets offers there once it's on, and each person can turn them off on their own page; the office can turn someone off when asked, but only they can turn it back on. Nothing is sent until Session Hire's WhatsApp number is set up with Meta.",
+    prs: [277],
+    adrs: [125],
   },
   {
     version: '1.125.0',

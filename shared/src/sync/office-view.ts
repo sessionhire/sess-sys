@@ -1,6 +1,6 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { DEFAULT_CABLE_COLOURS, type CableColourStep } from '../cable-colours.ts'
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type Setting, type SettingEntities } from '../office.ts'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, WHATSAPP_SETTING_ID, type WhatsAppMode, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type Setting, type SettingEntities } from '../office.ts'
 
 /**
  * The office's details on a device: what the server has said, with this
@@ -33,6 +33,12 @@ export interface OfficeView {
   checkLinks: boolean
   /** That choice changed on this device and not yet on the server. */
   linksPending: boolean
+  /** Offers go on WhatsApp by themselves (ADR 0125): off, to the test numbers only, or on. Off unless the office said. */
+  whatsapp: WhatsAppMode
+  /** The numbers WhatsApp goes to in test mode, as typed. */
+  whatsappTestTo: readonly string[]
+  /** That choice changed on this device and not yet on the server. */
+  whatsappPending: boolean
   /** The colour each cable length takes (ADR 0106): the company's list, or the default until one is saved. */
   cableColours: readonly CableColourStep[]
   /** That list changed on this device and not yet on the server. */
@@ -58,6 +64,9 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
   let assistantPending = false
   let checkLinks = entities.setting?.[LINKS_SETTING_ID]?.checkLinks === true
   let linksPending = false
+  let whatsapp: WhatsAppMode = entities.setting?.[WHATSAPP_SETTING_ID]?.whatsapp ?? 'off'
+  let whatsappTestTo: readonly string[] = entities.setting?.[WHATSAPP_SETTING_ID]?.whatsappTestTo ?? []
+  let whatsappPending = false
   let cableColours: readonly CableColourStep[] = entities.setting?.[CABLES_SETTING_ID]?.cableColours ?? DEFAULT_CABLE_COLOURS
   let cablesPending = false
   const logo = entities.setting?.[LOGO_SETTING_ID]?.logo ?? null
@@ -86,6 +95,12 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
       checkLinks = (m.args as CommandArgs<'links.check'>).on
       linksPending = true
     }
+    if (m.name === 'whatsapp.use') {
+      const a = m.args as CommandArgs<'whatsapp.use'>
+      whatsapp = a.mode
+      whatsappTestTo = a.testTo
+      whatsappPending = true
+    }
     if (m.name === 'cables.colours') {
       cableColours = (m.args as CommandArgs<'cables.colours'>).colours
       cablesPending = true
@@ -98,5 +113,5 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
     if (args.address === null || args.address === '') delete details.address
     pending = true
   }
-  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, cableColours, cablesPending, logo }
+  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo }
 }

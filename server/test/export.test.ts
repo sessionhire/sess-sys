@@ -170,6 +170,7 @@ describe('download everything', () => {
       'vehicle_bookings',
       'vehicles',
       'venues',
+      'whatsapp_messages',
     ]
     expect(Object.keys(files).sort()).toEqual(['README.txt', 'everything.json', 'history.csv', ...tables.map((t) => `tables/${t}.csv`)].sort())
 
@@ -242,6 +243,7 @@ describe('download everything', () => {
       'photo_bytes',
       'photo_at',
       'name_checked',
+      'whatsapp_off',
     ])
     expect(people[0]).toMatchObject({
       name: 'Seán Ó Briain',

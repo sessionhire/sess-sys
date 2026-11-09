@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { buildApp } from './app.ts'
+import { whatsappConfig } from './whatsapp/api.ts'
 import type { ClaudeConfig } from './assistant/claude.ts'
 import { DEFAULT_MODEL } from '@sh/shared'
 import { assertSignInKept, authFromEnv, googleClientFromEnv, passcodeFromEnv, passcodeWarning } from './auth/config.ts'
@@ -63,6 +64,8 @@ async function main() {
     // Current RMS, read only (ADR 0078). Colly saved the key as CURRENT_CMS_KEY, 23 October 2026; the subdomain is the company's own.
     currentRms: currentRmsKey() ? { subdomain: process.env.CURRENT_RMS_SUBDOMAIN?.trim() || 'sessionhire', apiKey: currentRmsKey()! } : undefined,
     claude: claudeConfig(),
+    // Offers on WhatsApp (ADR 0125): Meta's Cloud API, straight to Meta. Without WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID, Admin says it isn't set up.
+    whatsapp: whatsappConfig(),
     // Trackers' reports (ADR 0107) come in only with this key, which Digital Matter's connector sends.
     trackersKey: process.env.TRACKERS_KEY?.trim() || undefined,
     calendar: google ? { ...google, appUrl: process.env.PUBLIC_URL?.replace(/\/$/, ''), writes: process.env.CALENDAR_WRITES?.trim().toLowerCase() === 'on' } : undefined,
@@ -95,6 +98,8 @@ async function main() {
   void app.fuelUpdates.start()
   app.assistantTodo.start()
   app.assistantMailbox.start()
+  // Offers on WhatsApp (ADR 0125): anything queued while the server was away goes now, and a look each minute after.
+  app.whatsappSender.start()
   app.log.info({ db: db.kind }, db.kind === 'memory' ? 'Database: in memory (nothing is kept after a restart)' : `Database: ${db.kind}`)
   if (auth) app.log.info({ domains: auth.domains, emails: auth.emails.length }, 'Sign-in: Google, staff only')
   else if (passcode) {

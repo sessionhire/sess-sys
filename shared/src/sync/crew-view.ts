@@ -222,6 +222,16 @@ export function crewView(
         if (p) people.set(p.id, { ...p, ...(a.email !== undefined ? { email: a.email } : {}), ...(a.phone !== undefined ? { phone: a.phone } : {}), pending: true })
         break
       }
+      case 'person.whatsapp': {
+        // Sent only while off, as the server sends it (ADR 0125).
+        const a = m.args as CommandArgs<'person.whatsapp'>
+        const p = people.get(a.id)
+        if (p) {
+          const { whatsappOff: _, ...rest } = p
+          people.set(p.id, { ...rest, ...(a.on ? {} : { whatsappOff: true }), pending: true })
+        }
+        break
+      }
       case 'call.create': {
         const a = m.args as CommandArgs<'call.create'>
         // A call sent without a department is given the one its role suggests, as the server will (ADR 0046).
