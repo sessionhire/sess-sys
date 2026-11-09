@@ -75,6 +75,21 @@ describe('the master calendar', () => {
   })
 })
 
+describe('open quotes in Current RMS (ADR 0132)', () => {
+  const rms = [{ id: 7, number: '1200', subject: 'Summer party', client: 'Acme', status: 'Provisional', start: '2031-03-05', end: '2031-03-06' }]
+  it('are potentials, after the confirmed, one bar over their days, counted with the potential jobs', () => {
+    const cal = masterCalendar(view(), '2031-03-01', 'all', undefined, rms)
+    expect(day(cal, '2031-03-05').entries.map((e) => e.jobId)).toEqual(['a', 'b', 'rms-7'])
+    expect(day(cal, '2031-03-06').entries[0]).toMatchObject({ jobId: 'rms-7', name: 'Summer party', tentative: true, first: false, last: true, rms: { id: 7, number: '1200', client: 'Acme' } })
+    expect(cal.potential).toBe(3)
+    const week = cal.weeks.find((w) => w.some((d) => d.day === '2031-03-05'))!
+    expect(weekBars(week).bars.find((b) => b.jobId === 'rms-7')).toMatchObject({ from: 2, span: 2, rms: { id: 7 } })
+  })
+  it('are left out when showing only the confirmed', () => {
+    expect(day(masterCalendar(view(), '2031-03-01', 'confirmed', undefined, rms), '2031-03-06').entries).toEqual([])
+  })
+})
+
 describe('a week as bars', () => {
   it('draws a job of several days as one bar, in lines that never overlap', () => {
     const cal = masterCalendar(view(), '2031-03-01')

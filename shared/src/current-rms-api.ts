@@ -126,6 +126,8 @@ export interface RmsOpportunityWithLines {
   lines: RmsLine[]
   /** The job the office linked it to (ADR 0092), when it's still here. */
   job?: { id: string; name: string } | null
+  /** The office said it isn't going ahead, so it's off the master calendar (ADR 0134). */
+  aside?: boolean
 }
 
 /** Lines indented by how deep their path is: four digits a level. */

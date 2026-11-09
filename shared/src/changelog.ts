@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.135.0',
+    version: '1.136.0',
     date: '2026-11-09',
     title: 'An admin can delete a quote, and put it back',
     what: "A director, or a system admin, can now delete a version of a quote from the foot of its page. It's hard on purpose: it says first what makes that version matter, such as it having gone to the client, been accepted or invoiced, or being the job's only one, and Delete only works once you type the quote's number (or the word delete, for one never sent). It goes from everyone's phones and computers and the client's link stops working, but nothing is lost: History says who deleted it, and an admin can put it back from there as it was.",
     prs: [286],
     adrs: [135],
+  },
+  {
+    version: '1.135.0',
+    date: '2026-11-09',
+    title: 'Quotes still open in Current RMS are on the calendar',
+    what: "Jobs › Calendar now shows the quotes still open in Current RMS as potential jobs, dashed like an enquiry and marked Current RMS quote with its number and client. Any linked to a job here, or that look like one (the same client or name on the same days), stay off so nothing shows twice. Pressing one opens it, where you can make a job from it, or press Not going ahead to take it off the calendar if it's gone nowhere. Put it back on the calendar undoes that. Nothing changes in Current RMS. Only those who see money see them, and they need signal.",
+    prs: [289],
+    adrs: [134],
   },
   {
     version: '1.134.0',

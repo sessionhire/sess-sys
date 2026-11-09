@@ -14,14 +14,18 @@ import {
   type MonthEntry,
   type CalendarShow,
   type QuoteStatus,
+  type RmsOnCalendar,
   type View,
+  addDays,
 } from '@sh/shared'
 import { useMemo, type CSSProperties, type MouseEvent } from 'react'
 import { Icon } from '../Icon.tsx'
 import { WAITING_TO_SYNC } from '../StatusPill.tsx'
+import { useAccess } from '../role.ts'
 import { useToday } from '../view.ts'
 import { Top } from './common.tsx'
 import { JobViews } from './PlanScreen.tsx'
+import { getJson, useAsked } from './rms.ts'
 
 /**
  * Jobs › Calendar (ADR 0123): the master calendar. A month, every job that
@@ -53,6 +57,9 @@ export function calendarHref(p: Partial<Place> & { month: string }): string {
   return `#jobs/calendar/${addMonths(p.month, 0)}${p.show && p.show !== 'all' ? `/${p.show}` : ''}`
 }
 
+const NONE: RmsOnCalendar[] = []
+const hrefOf = (e: { jobId: string; rms?: MonthEntry['rms'] }) => (e.rms ? `#jobs/money/current-rms/${e.rms.id}` : `#jobs/${e.jobId}`)
+
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 /** Where a job's newest quote stands, in the words the Quotes page uses. */
@@ -62,7 +69,14 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
   const now = useToday()
   const place = calendarPlace(hash, now)
   const { month, show } = place
-  const cal = useMemo(() => masterCalendar(view.jobs, month, show, (id) => view.money.currentOf(id)?.status), [view.jobs, view.money, month, show])
+  // The open quotes in Current RMS with no job here yet (ADR 0134), for those who see money, from the server: the weeks shown.
+  const seesMoney = useAccess().can('money')
+  const from = mondayOf(addMonths(month, 0))
+  const to = addDays(mondayOf(addDays(addMonths(month, 1), -1)), 6)
+  const rms = useAsked<RmsOnCalendar[]>(seesMoney, from, () => getJson(`/api/rms/calendar?from=${from}&to=${to}`))
+  const quotes = rms.state === 'ready' ? rms.data : NONE
+  const cal = useMemo(() => masterCalendar(view.jobs, month, show, (id) => view.money.currentOf(id)?.status, quotes), [view.jobs, view.money, month, show, quotes])
+  const fromRms = quotes.some((q) => q.start <= to && q.end >= from)
   const at = (changes: Partial<Place>) => calendarHref({ ...place, ...changes })
   // Which jobs is a toggle, not a move, so it keeps focus, as the planner's rows do.
   const pick = (to: CalendarShow) => (e: MouseEvent<HTMLButtonElement>) => {
@@ -101,6 +115,8 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
 
       <p className="cal-key hint">
         <span className="cal-swatch solid" aria-hidden="true" /> Confirmed <span className="cal-swatch dashed" aria-hidden="true" /> Potential: an enquiry or a quote
+        {fromRms && ', or a quote still open in Current RMS with no job here yet'}
+        {seesMoney && rms.state === 'offline' && '. Quotes still open in Current RMS show when there’s signal'}
       </p>
 
       <section className="card cal-card" aria-label={`${monthLabel(month)}, a day at a time`}>
@@ -176,7 +192,7 @@ function Week({ week, today }: { week: MonthDay[]; today: string }) {
           <a
             key={`${b.jobId}-${b.from}`}
             className={className}
-            href={`#jobs/${b.jobId}`}
+            href={hrefOf(b)}
             style={{ gridColumn: `${b.from + 1} / span ${b.span}`, gridRow: b.lane + 2 }}
             title={`${b.name}: ${said} (${when})`}
           >
@@ -221,7 +237,8 @@ function Day({ d, today }: { d: MonthDay; today: string }) {
 }
 
 /** What a bar or a day's entry says after the job's name: an enquiry or quote says so first. */
-function words(e: { tentative: boolean; status: MonthEntry['status']; quote?: QuoteStatus; phases: string[]; pending: boolean }): string {
+function words(e: { tentative: boolean; status: MonthEntry['status']; quote?: QuoteStatus; phases: string[]; pending: boolean; rms?: MonthEntry['rms'] }): string {
+  if (e.rms) return [`Current RMS quote ${e.rms.number}`, e.rms.client].filter(Boolean).join(' · ')
   return [e.tentative && [STATUS_LABELS[e.status], e.quote && QUOTE_WORDS[e.quote]].filter(Boolean).join(', '), e.phases.join(', '), e.pending && WAITING_TO_SYNC]
     .filter(Boolean)
     .join(' · ')
@@ -231,7 +248,7 @@ function Entry({ e }: { e: MonthEntry }) {
   const said = words(e)
   const className = ['cal-job', e.tentative ? 'dashed' : 'solid', e.pending && 'pending'].filter(Boolean).join(' ')
   return (
-    <a className={className} href={`#jobs/${e.jobId}`} title={`${e.name}: ${said}`}>
+    <a className={className} href={hrefOf(e)} title={`${e.name}: ${said}`}>
       <b>{e.name}</b>
       <small>{said}</small>
     </a>
