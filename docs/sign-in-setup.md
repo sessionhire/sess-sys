@@ -272,7 +272,10 @@ client mail to share a thread; leave it off to keep one private.
    - **Google Auth Platform**, **Clients**, **Session Hire app**: under
      **Authorised redirect URIs** add
      `https://shserver-production.up.railway.app/api/assistant/mailbox/callback`
-     and save. The Client ID and secret stay the same.
+     and save. The Client ID and secret stay the same. If the app has its
+     own address (server.letissier.ie, say), add the same path on that
+     address too, and set `PUBLIC_URL` to it in Railway so Google is always
+     sent back to the one it knows.
    - Keep the audience **Internal**, so only company accounts can be
      connected and Google doesn't need to review the app.
 3. **Connect it.** In the app, **Admin**, **Connections**, **The
