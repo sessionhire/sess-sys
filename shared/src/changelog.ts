@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.127.0',
+    date: '2026-11-09',
+    title: "A quote's kit is pencilled on its job, and its crew become calls",
+    what: "Kit added to a draft quote now goes on the job's kit list as it's typed, pencilled in, so another quote for the same days sees it: the kit picker says how many other quotes have pencilled in beside how many are free. Take a line off the quote and it comes off the list, but kit the warehouse added by hand is never touched. When the job is confirmed its kit is already held. The crew on a quote are made the job's calls in one press on the Crew tab, instead of typed again, and Next says so. And a line is now charged for the days the job works, so a build on a Friday and a show the next Friday is two days, not eight.",
+    prs: [278],
+    adrs: [126],
+  },
+  {
     version: '1.126.0',
     date: '2026-11-09',
     title: 'Offers can go on WhatsApp by themselves (off until launch)',

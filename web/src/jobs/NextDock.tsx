@@ -1,4 +1,4 @@
-import { dayLabel, jobPosition, plural, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
+import { callsFromQuote, dayLabel, jobPosition, plural, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
@@ -115,7 +115,13 @@ export function NextDock({ job, view, onPart, onOpenTask }: { job: JobView; view
       if (!access.can('crew')) break
       // From the task's fields, never its words read back (Move 7 of the sweep of 6 November 2026).
       const { booked = 0, needed = 0 } = task.facts
-      press = { label: needed === 0 ? 'Ask for the crew' : booked < needed ? `Book ${needed - booked} more crew` : 'Book the crew', onPress: () => onPart('crew') }
+      // Crew already on the quote are made calls in one press on Crew (ADR 0126), not typed again.
+      const quote = needed === 0 ? view.money.quotesOf(job.id)[0] : undefined
+      const fromQuote = quote ? callsFromQuote(quote.lines, job.calls).length > 0 : false
+      press = {
+        label: fromQuote ? 'Make the calls from the quote' : needed === 0 ? 'Ask for the crew' : booked < needed ? `Book ${needed - booked} more crew` : 'Book the crew',
+        onPress: () => onPart('crew'),
+      }
       break
     }
     case 'kit': {
