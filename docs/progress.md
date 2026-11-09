@@ -7,7 +7,7 @@ waiting on someone.
 
 **Done**
 
-- A past quote from Current RMS has Correct the days (ADR 0138, 1.140.0):
+- A past quote from Current RMS has Correct the days (ADR 0138, 1.139.0):
   the office's first and last day are the days to go by everywhere, kept
   when Current RMS is read again, with what Current RMS has said beside
   them, and Use Current RMS's days to go back. Each change is in the
