@@ -185,7 +185,7 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
   const number = quoteNumberLabel(q)
   // A number guessed with no signal is printed as a draft's until the server gives it (finding 20 of the quote flow audit),
   // so a PDF saved meanwhile can't go out with a number another quote may take.
-  const draft = q.status === 'draft' || !!q.numberUnsure
+  const draft = q.status === 'draft' || !!q.numberPending
   return (
     <>
       <header className="sheet-head">
@@ -199,7 +199,7 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
         <dl className="sheet-facts">
           <div>
             <dt>{draft ? 'Draft quote' : 'Quote'}</dt>
-            <dd>{q.numberUnsure ? `${number} (once it's saved)` : number || (draft ? 'Not sent yet' : '')}</dd>
+            <dd>{q.numberPending ? `${number} (once it's saved)` : number || (draft ? 'Not sent yet' : '')}</dd>
           </div>
           <div>
             <dt>Date</dt>
@@ -245,7 +245,7 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
         <section className="sheet-terms">
           <h2>Paying by bank transfer</h2>
           <p className="lines">{quoting.bank.trim()}</p>
-          {q.number && !q.numberUnsure && <p>Please give quote {q.number} as the reference.</p>}
+          {q.number && !q.numberPending && <p>Please give quote {q.number} as the reference.</p>}
         </section>
       )}
       <footer>

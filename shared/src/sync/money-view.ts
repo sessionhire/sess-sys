@@ -54,7 +54,7 @@ export interface QuoteView extends Quote {
    * Its number is this device's guess, made with no signal, until the server gives it (audit of the quote flow,
    * 8 November 2026, finding 20): another device's quote sent first takes it, and this one gets the next.
    */
-  numberUnsure?: true
+  numberPending?: true
   totals: QuoteTotals
   /** The job's newest version. An older one is kept to read, as it went to the client. */
   latest: boolean
@@ -379,7 +379,7 @@ export function moneyView(
   const byJob = new Map<string, QuoteView[]>()
   for (const q of quotes.values()) {
     const list = byJob.get(q.projectId) ?? []
-    list.push({ ...q, totals: quoteTotals(q), latest: false, emails: emails.get(q.id) ?? [], ...(unsure.has(q.id) && q.pending ? { numberUnsure: true as const } : {}) })
+    list.push({ ...q, totals: quoteTotals(q), latest: false, emails: emails.get(q.id) ?? [], ...(unsure.has(q.id) && q.pending ? { numberPending: true as const } : {}) })
     byJob.set(q.projectId, list)
   }
   const views = new Map<string, QuoteView>()

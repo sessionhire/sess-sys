@@ -292,8 +292,8 @@ describe('money on the device', () => {
     await phone.mutate('quote.sent', { id: 'q9', on: '2026-10-17' })
     const m = phone.view().money
     expect(m.quotesOf('gala')[0]).toMatchObject({ id: 'q2', number: 1042, pending: true })
-    expect(m.quotesOf('gala')[0]!.numberUnsure).toBeUndefined()
-    expect(m.quotesOf('fair')[0]).toMatchObject({ id: 'q9', number: 1043, numberUnsure: true })
+    expect(m.quotesOf('gala')[0]!.numberPending).toBeUndefined()
+    expect(m.quotesOf('fair')[0]).toMatchObject({ id: 'q9', number: 1043, numberPending: true })
   })
 
   it("counts what's owed until it's paid, and makes the accountant's files from what's invoiced", async () => {

@@ -214,7 +214,7 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
               <QuotePill q={q} />
             </header>
             <p className="quote-facts">
-              {q.number ? `Quote ${q.number}${q.numberUnsure ? " (once it's saved)" : ''}` : 'Sent before quotes had numbers'} · Valid until {dayLabel(validUntil(q, today))}
+              {q.number ? `Quote ${q.number}${q.numberPending ? " (once it's saved)" : ''}` : 'Sent before quotes had numbers'} · Valid until {dayLabel(validUntil(q, today))}
               {q.depositPct ? ` · A deposit of ${pctWord(q.depositPct)}, ${money(depositCents(q.totals.gross, q.depositPct))}` : ''}
             </p>
             <Lines lines={q.lines} />
