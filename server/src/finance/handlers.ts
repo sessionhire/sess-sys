@@ -21,7 +21,7 @@ import { getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, 
  * Sending the same change twice, as a phone may, changes nothing.
  */
 
-type FinanceCommand = 'quote.save' | 'quote.sent' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'price.fromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
+type FinanceCommand = 'quote.save' | 'quote.sent' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'price.fromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
@@ -168,6 +168,12 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
   },
 
   /** Whether quotes can be sent to the client by email from the operations mailbox (ADR 0101): off until the office says. */
+  /** What own kit costs to run, as a share of its price (finding 19 of the quote flow audit): the margin's cost for it. */
+  async 'quoting.ownKit'(ctx, a) {
+    await ctx.tx.query(`INSERT INTO quote_settings (id, own_kit_cost_pct) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET own_kit_cost_pct = EXCLUDED.own_kit_cost_pct`, [QUOTE_SETTINGS_ID, a.costPct])
+    await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
+  },
+
   async 'quoting.email'(ctx, a) {
     await ctx.tx.query(`INSERT INTO quote_settings (id, email_quotes) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET email_quotes = EXCLUDED.email_quotes`, [QUOTE_SETTINGS_ID, a.on])
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))

@@ -108,14 +108,14 @@ export async function paidOnFor(q: Queryable, timesheetIds: readonly string[]): 
 /** What every printed quote says (ADR 0084), once anything about it is saved or a number given. */
 export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | undefined> {
   const { rows } = await q.query<Row>(
-    `SELECT id, next_number, terms, bank, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on::text AS fuel_set_on, fuel_auto, fuel_month, crew_per_car, email_quotes, accept_online
+    `SELECT id, next_number, terms, bank, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on::text AS fuel_set_on, fuel_auto, fuel_month, crew_per_car, email_quotes, accept_online, own_kit_cost_pct
      FROM quote_settings WHERE id = $1`,
     [QUOTE_SETTINGS_ID]
   )
   const r = rows[0]
   if (!r) return undefined
   // Sending quotes by email (ADR 0101) only once it's on, so a device or a test that knows nothing of it sees the settings as before.
-  const settings: QuoteSettings = { id: r.id, nextNumber: r.next_number, terms: r.terms, bank: r.bank, ...(r.email_quotes ? { emailQuotes: true } : {}), ...(r.accept_online ? { acceptOnline: true } : {}) }
+  const settings: QuoteSettings = { id: r.id, nextNumber: r.next_number, terms: r.terms, bank: r.bank, ...(r.email_quotes ? { emailQuotes: true } : {}), ...(r.accept_online ? { acceptOnline: true } : {}), ...(r.own_kit_cost_pct !== null && r.own_kit_cost_pct !== undefined ? { ownKitCostPct: r.own_kit_cost_pct } : {}) }
   // Travel and subsistence (ADR 0086) once they've been set, which sets them all: until then each takes its default.
   if (r.travel_from_km === null) return settings
   const n = (v: unknown) => (v === null ? null : Number(v))
