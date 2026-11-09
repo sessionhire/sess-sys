@@ -513,6 +513,8 @@ test('inside a card a head is a group or a section, a boxed row has one shape, a
     if (where === 'a job') {
       await forced.goto('/#jobs')
       await forced.getByRole('link', { name: /Harbour Lights Festival/ }).first().click()
+      // Where it is folds to its stages (ADR 0140, part 3): its tasks are a press away, the fold's chevron drawn as every fold's.
+      await forced.locator('.job-steps .stage-fold').click()
       await expect(forced.locator('.task-list button').first()).toBeVisible()
     } else {
       await forced.goto(`/${where}`)
@@ -532,6 +534,10 @@ test('inside a card a head is a group or a section, a boxed row has one shape, a
         const cs = getComputedStyle(c)
         out.push({ kind: 'run line', text: c.parentElement!.textContent!.trim(), paint: paint(cs), words: getComputedStyle(c.parentElement!).color, shaped: cs.maskImage !== 'none' })
       }
+      for (const b of [...document.querySelectorAll('.job-steps .stage-fold')].filter(shown)) {
+        const cs = getComputedStyle(b, '::before')
+        out.push({ kind: 'stage fold', text: b.textContent!.trim(), paint: paint(cs), words: getComputedStyle(b).color, shaped: cs.maskImage !== 'none' })
+      }
       for (const b of [...document.querySelectorAll('.task-list button')].filter(shown)) {
         const cs = getComputedStyle(b, '::after')
         out.push({ kind: 'task', text: b.querySelector('.task-name')!.textContent!.trim(), paint: paint(cs), words: getComputedStyle(b).color, shaped: cs.maskImage !== 'none' })
@@ -544,5 +550,5 @@ test('inside a card a head is a group or a section, a boxed row has one shape, a
       expect(m.paint, `${where}, forced colours: ${m.kind} ${m.text} on the page`).not.toBe(marks.page)
     }
   }
-  expect([...kinds].sort()).toEqual(['fold', 'run line', 'task'])
+  expect([...kinds].sort()).toEqual(['fold', 'run line', 'stage fold', 'task'])
 })
