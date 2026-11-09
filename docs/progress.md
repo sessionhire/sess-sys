@@ -3,6 +3,18 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: gear on quotes from Current RMS
+
+**Done**
+
+- Each read of Current RMS reads the lines again of every quote still to
+  come (or up to a week past) and of any with no lines (1.140.1). Current
+  RMS doesn't always move a quote's updated time when lines are added, so
+  a quote first read while empty stayed blank here (Colly: the MSF quote
+  for Wednesday).
+
+**Checked:** a server test with a stand-in Current RMS.
+
 ## 9 November 2026: correcting the days of a Current RMS quote
 
 **Done**

@@ -72,7 +72,7 @@ const lines = (id: number) => [
 ]
 
 /** A stand-in for Current RMS holding `count` opportunities, with every request it was asked, in order. */
-function fakeRms(count: number, opts: { refuse?: boolean; tooManyOnce?: boolean; updated?: (id: number) => string; shape?: (o: ReturnType<typeof opportunity>) => object } = {}) {
+function fakeRms(count: number, opts: { refuse?: boolean; tooManyOnce?: boolean; updated?: (id: number) => string; shape?: (o: ReturnType<typeof opportunity>) => object; lines?: (id: number) => object[] } = {}) {
   const asked: Asked[] = []
   let tooMany = opts.tooManyOnce ?? false
   const fetch = (async (input: URL | string, init?: RequestInit) => {
@@ -91,7 +91,7 @@ function fakeRms(count: number, opts: { refuse?: boolean; tooManyOnce?: boolean;
       return Response.json({ opportunities: ids.map((id) => (opts.shape ?? ((o) => o))(opportunity(id, opts.updated?.(id)))), meta: { total_row_count: count, row_count: ids.length, page, per_page: per } })
     }
     const m = /^\/opportunities\/(\d+)\/opportunity_items$/.exec(path)
-    if (m) return Response.json({ opportunity_items: lines(Number(m[1])) })
+    if (m) return Response.json({ opportunity_items: (opts.lines ?? lines)(Number(m[1])) })
     return new Response('{}', { status: 404 })
   }) as typeof globalThis.fetch
   return { fetch, asked }
@@ -179,6 +179,27 @@ describe('reading Current RMS', () => {
     await app.rms.done
     expect(rms.asked.filter((a) => a.path.endsWith('/opportunity_items')).map((a) => a.path)).toEqual(['/opportunities/3/opportunity_items'])
     expect((await get<RmsStatus>('/api/rms')).last).toMatchObject({ opportunities: 5, lines: 3 })
+  })
+
+  it('reads the lines again of a quote still to come, and of one that had none, though Current RMS says neither changed', async () => {
+    // Proves: Current RMS doesn't always move an opportunity's updated time when lines are added, so one whose days are
+    // still to come, and one read with no lines, have their lines read on every read; one past and with lines doesn't.
+    const soon = new Date(Date.now() + 2 * 86_400_000).toISOString()
+    let empty = true
+    const rms = fakeRms(3, {
+      shape: (o) => (o.id === 2 ? { ...o, starts_at: soon, ends_at: soon } : o),
+      lines: (id) => (id === 3 && empty ? [] : lines(id)),
+    })
+    const { app, post, get } = await office(rms)
+    await post('/api/rms/read')
+    await app.rms.done
+    expect((await get<RmsOpportunityWithLines>('/api/rms/opportunities/3')).lines).toEqual([])
+    empty = false
+    rms.asked.length = 0
+    await post('/api/rms/read')
+    await app.rms.done
+    expect(rms.asked.filter((a) => a.path.endsWith('/opportunity_items')).map((a) => a.path)).toEqual(['/opportunities/2/opportunity_items', '/opportunities/3/opportunity_items'])
+    expect((await get<RmsOpportunityWithLines>('/api/rms/opportunities/3')).lines).toHaveLength(3)
   })
 
   it('keeps days the office corrected here when Current RMS is read again, and goes back to its days on a press (ADR 0138)', async () => {
