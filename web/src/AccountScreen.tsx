@@ -15,6 +15,7 @@ import { QuotingCard } from './QuotingCard.tsx'
 import { TimesheetsUseCard } from './TimesheetsUseCard.tsx'
 import { AssistantCard } from './AssistantCard.tsx'
 import { MailboxCard } from './MailboxCard.tsx'
+import { WhatsAppCard } from './WhatsAppCard.tsx'
 import { OnlineCard } from './OnlineCard.tsx'
 import { TravelCard } from './TravelCard.tsx'
 import { ReadingCard } from './ReadingCard.tsx'
@@ -96,6 +97,7 @@ export function AccountScreen() {
               <>
                 <CalendarCard view={view} available={auth.status === 'signed-in'} />
                 {access.can('money') && <MailboxCard money={view.money} />}
+                {settings && <WhatsAppCard office={view.office} />}
                 {access.can('money') && <CurrentRmsCard />}
                 {settings && <TrackersCard view={view} />}
               </>

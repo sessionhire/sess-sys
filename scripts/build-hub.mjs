@@ -22,6 +22,7 @@ const DOCS = [
   ['Audit, 30 September 2026', 'docs/audit-2026-09-30.md'],
   ['Phone field test', 'docs/field-test.md'],
   ['Switching on sign-in and Google Calendar', 'docs/sign-in-setup.md'],
+  ['Switching on offers over WhatsApp', 'docs/whatsapp-setup.md'],
   ['Design system', 'docs/design-system.md'],
   ['Backups', 'docs/backups.md'],
   ['Error alerts', 'docs/monitoring.md'],

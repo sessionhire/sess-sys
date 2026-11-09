@@ -34,6 +34,34 @@ export const CABLES_SETTING_ID = 'cables'
 export const LOGO_SETTING_ID = 'logo'
 /** Whether a freelancer's link asks for a code on a phone it hasn't seen (ADR 0114): the eighth setting, with only `checkLinks` to it. */
 export const LINKS_SETTING_ID = 'links'
+/** Whether offers go to crew on WhatsApp by themselves (ADR 0125): the ninth setting, with only `whatsapp` and `whatsappTestTo` to it. */
+export const WHATSAPP_SETTING_ID = 'whatsapp'
+
+/** Offers on WhatsApp (ADR 0125): off; only to the numbers listed, for trying it out; or to everyone who hasn't turned them off. */
+export const WHATSAPP_MODES = ['off', 'test', 'on'] as const
+export type WhatsAppMode = (typeof WHATSAPP_MODES)[number]
+/** At most this many numbers to try WhatsApp on, as Meta's own test number allows. */
+export const WHATSAPP_TEST_MAX = 5
+
+/**
+ * A mobile as WhatsApp addresses it: digits only, country code first, an Irish 08x made +3538x (as wa.me wants, see
+ * whatsappNumber in crew.ts). Undefined when what's left can't be a mobile: fewer than 8 or more than 15 digits.
+ */
+export function whatsappDigits(phone: string | null | undefined): string | undefined {
+  if (!phone) return undefined
+  let digits = phone.replace(/[^0-9+]/g, '')
+  if (digits.startsWith('00')) digits = digits.slice(2)
+  else if (digits.startsWith('+')) digits = digits.slice(1)
+  else if (digits.startsWith('0')) digits = `353${digits.slice(1)}`
+  digits = digits.replace(/\+/g, '')
+  return /^\d{8,15}$/.test(digits) ? digits : undefined
+}
+
+const testNumber = z
+  .string()
+  .trim()
+  .max(40)
+  .refine((n) => whatsappDigits(n) !== undefined, { message: 'A number to try WhatsApp on needs its country code, such as +353 87 123 4567.' })
 
 export const setting = z.object({
   id,
@@ -76,6 +104,13 @@ export const setting = z.object({
    * emailed. Off until the office says, since both send an email.
    */
   checkLinks: z.boolean().optional(),
+  /**
+   * On the "whatsapp" setting (ADR 0125): whether an offer goes to its person on WhatsApp by itself, as the office makes
+   * it. Off until the office says; "test" sends only to the numbers in whatsappTestTo, to try it out before launch.
+   */
+  whatsapp: z.enum(WHATSAPP_MODES).optional(),
+  /** On the "whatsapp" setting: the numbers WhatsApp goes to in test mode, as typed. */
+  whatsappTestTo: z.array(z.string().max(40)).max(WHATSAPP_TEST_MAX).optional(),
   /** On the "cables" setting (ADR 0106): the colour for each cable length, shortest first; the default list until the office saves one. */
   cableColours: cableColourList.optional(),
   /** On the "logo" setting (ADR 0106): when the logo was put up, which makes its address (logoPath). Set by the server alone. */
@@ -119,6 +154,14 @@ export const officeCommandSchemas = {
   'assistant.use': z.object({ on: z.boolean() }),
   /** Whether freelancers' links check new phones and can be emailed when lost (ADR 0114). The office's to decide, under Admin. */
   'links.check': z.object({ on: z.boolean() }),
+  /**
+   * Whether offers go on WhatsApp by themselves (ADR 0125), and the numbers to try it on. The office's to decide, under
+   * Admin › Connections. The numbers are kept whatever the mode, so test mode can be left and come back to.
+   */
+  'whatsapp.use': z.object({
+    mode: z.enum(WHATSAPP_MODES),
+    testTo: z.array(testNumber).max(WHATSAPP_TEST_MAX, `Up to ${WHATSAPP_TEST_MAX} numbers to try it on.`),
+  }),
   /** The colour for each cable length (ADR 0106), the whole list at once. The office's, under Admin. */
   'cables.colours': z.object({ colours: cableColourList }),
 } as const
@@ -140,3 +183,20 @@ export function officeLine(o: OfficeDetails | null | undefined): string {
 
 /** A tel: link wants only the digits and a leading +; the "(0)" written after a country code is not dialled. */
 export const telHref = (phone: string) => `tel:${phone.replace(/\(0\)/g, '').replace(/[^\d+]/g, '')}`
+
+/** WhatsApp as Admin › Connections shows it (ADR 0125): set up on the server, and the number as Meta has it. */
+export interface WhatsAppStatus {
+  /** The server has a token and the number's id for Meta. */
+  configured: boolean
+  /** What's still to set in Railway for answers to come back: the app's secret and the word for the web address. */
+  missing: string[]
+  /** The address Meta posts answers and receipts to, to paste into Meta's app settings. */
+  hook: string
+  /** As Meta has it, once read: the number people see, the approved name and how well its messages are taken. */
+  number?: string
+  name?: string
+  quality?: string
+  nameStatus?: string
+  /** Why the number couldn't be read, in Meta's words. */
+  problem?: string
+}

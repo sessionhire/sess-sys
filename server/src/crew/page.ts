@@ -135,8 +135,16 @@ export interface PageData {
   ownCalendar?: OwnCalendar
   /** How many requests on the purchase list are still to decide or to buy (ADR 0108); absent, the way to it isn't drawn. */
   purchases?: number
+  /** Offers on WhatsApp (ADR 0125), once the office sends them to this person's mobile: whether theirs go, and to what number. */
+  whatsapp?: PageWhatsApp
   /** A member of staff's leave still to come, approved or waiting (ADR 0024); absent for a freelancer, whose time off is days off. */
   leave?: LeaveRequest[]
+}
+
+/** Offers on WhatsApp on their page (ADR 0125): whether they get them, and the number they go to, as they wrote it. */
+export interface PageWhatsApp {
+  on: boolean
+  to: string
 }
 
 /** An offer's state as its person reads it, from the one word table (UX sweep, 6 November 2026, move 4): a booking is Booked here as in the office. */
@@ -473,8 +481,27 @@ function details(d: PageData): string {
         ${wrong && mine ? fieldError(wrong, mine.text) : ''}
         <button>Save my number</button>
       </form>
+      ${whatsappForm(d)}
     </details>
   </section>`
+}
+
+/**
+ * Offers on WhatsApp (ADR 0125): on until they say otherwise (Colly, 9 November 2026), and theirs to turn off or back on
+ * here. Under their number, since that's where they go.
+ */
+function whatsappForm(d: PageData): string {
+  const w = d.whatsapp
+  if (!w) return ''
+  const said = w.on
+    ? `New offers come to <b>${h(w.to)}</b> on WhatsApp as well as here, with buttons to say yes or no. Only offers and changes to your bookings, nothing else.`
+    : `You turned off offers on WhatsApp. They still come here, and the office may still message you itself.`
+  return `<form method="post" action="${d.base}/whatsapp#details" class="whatsapp">
+        <h3>Offers on WhatsApp</h3>
+        <p class="small">${said}</p>
+        <input type="hidden" name="on" value="${w.on ? 'no' : 'yes'}">
+        <button>${w.on ? 'Stop offers on WhatsApp' : 'Send my offers on WhatsApp'}</button>
+      </form>`
 }
 
 /**

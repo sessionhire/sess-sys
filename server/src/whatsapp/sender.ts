@@ -1,0 +1,144 @@
+import { offerTemplateValues, WHATSAPP_OFFER_TEMPLATE } from '@sh/shared'
+import type { Db, Queryable } from '../db.ts'
+import { getCall, getOffer, getPerson } from '../crew/store.ts'
+import { whatsappSetting } from '../office/store.ts'
+import { WhatsAppRefused, type TemplateComponent } from './api.ts'
+import { reachOf, type WhatsApp } from './whatsapp.ts'
+
+/**
+ * Sends what's queued for WhatsApp (ADR 0125). An offer queues its message in the same change that makes it, so it
+ * goes only if the offer was made; this sends it just after, as soon as anything changes and once a minute besides,
+ * so the office never waits on Meta and a message queued while Meta was away goes when it's back.
+ *
+ * Each message is taken under a row lock that another server skips, so two servers never send the same one. One
+ * whose offer is no longer open, whose person turned WhatsApp off or whose number isn't the one queued any more, or
+ * that waited a day, isn't sent: it's marked failed with why, and the office's own way (the link, the Send panel) stands.
+ */
+
+const EVERY_MS = 60_000
+/** A message Meta couldn't take for a passing reason is tried this many times in all. */
+const TRIES = 5
+/** After a passing problem, a message waits this long before it's tried again. */
+const AGAIN_MS = 50_000
+/** Older than this, an offer's message would be news nobody wants: it isn't sent. */
+const STALE_MS = 24 * 60 * 60_000
+
+interface Queued {
+  id: string
+  offer_id: string | null
+  person_id: string
+  kind: string
+  to_number: string
+  made_at: Date
+  tries: number
+}
+
+export interface SenderOptions {
+  log?: { warn: (o: object, msg: string) => void }
+  report?: (err: unknown) => void
+  now?: () => Date
+}
+
+export class WhatsAppSender {
+  private timer: NodeJS.Timeout | undefined
+  private running: Promise<void> | undefined
+  private again = false
+  private readonly now: () => Date
+
+  constructor(
+    private readonly db: Db,
+    private readonly whatsapp: WhatsApp,
+    private readonly options: SenderOptions = {}
+  ) {
+    this.now = options.now ?? (() => new Date())
+  }
+
+  start() {
+    if (this.timer || !this.whatsapp.configured) return
+    this.timer = setInterval(() => void this.kick(), EVERY_MS)
+    this.timer.unref()
+    void this.kick()
+  }
+
+  stop() {
+    clearInterval(this.timer)
+    this.timer = undefined
+  }
+
+  /** Something changed: send what's queued. A kick while sending goes round once more after, so nothing waits a minute. */
+  kick(): Promise<void> {
+    // Not set up, nothing can go: what's queued waits, and the server takes no look for it.
+    if (!this.whatsapp.configured) return Promise.resolve()
+    if (this.running) {
+      this.again = true
+      return this.running
+    }
+    this.running = (async () => {
+      do {
+        this.again = false
+        try {
+          while (await this.sendOne());
+        } catch (err) {
+          this.options.log?.warn({ err: err instanceof Error ? err.message : String(err) }, 'WhatsApp messages could not be sent')
+          this.options.report?.(err)
+        }
+      } while (this.again)
+    })().finally(() => (this.running = undefined))
+    return this.running
+  }
+
+  /** Takes the oldest queued message and sends it, or says why not. False when there's none left to take. */
+  private async sendOne(): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const { rows } = await tx.query<Queued>(
+        `SELECT id, offer_id, person_id, kind, to_number, made_at, tries FROM whatsapp_messages
+         WHERE state = 'queued' AND (tried_at IS NULL OR tried_at < $1) ORDER BY made_at LIMIT 1 FOR UPDATE SKIP LOCKED`,
+        [new Date(this.now().getTime() - AGAIN_MS)]
+      )
+      const m = rows[0]
+      if (!m) return false
+      const fail = (problem: string) => tx.query(`UPDATE whatsapp_messages SET state = 'failed', problem = $2, tries = tries + 1, tried_at = $3 WHERE id = $1`, [m.id, problem, this.now()])
+      const ready = await this.ready(tx, m)
+      if (typeof ready === 'string') {
+        await fail(ready)
+        return true
+      }
+      try {
+        const wamid = await this.whatsapp.api!.sendTemplate(m.to_number, WHATSAPP_OFFER_TEMPLATE, ready)
+        await tx.query(`UPDATE whatsapp_messages SET state = 'sent', wamid = $2, sent_at = $3, problem = NULL, tries = tries + 1, tried_at = $3 WHERE id = $1`, [m.id, wamid, this.now()])
+      } catch (err) {
+        const why = err instanceof Error ? err.message : String(err)
+        // Meta saying no to this message (a number not on WhatsApp, a template not approved) won't change by trying again; Meta away, or too many at once, will.
+        const passing = !(err instanceof WhatsAppRefused) || err.status === 429 || err.status >= 500
+        if (passing && m.tries + 1 < TRIES) await tx.query(`UPDATE whatsapp_messages SET problem = $2, tries = tries + 1, tried_at = $3 WHERE id = $1`, [m.id, why, this.now()])
+        else await fail(why)
+        // A passing problem leaves the rest for the next round, rather than trying each in turn against a Meta that's away.
+        if (passing) return false
+      }
+      return true
+    })
+  }
+
+  /** The template's blanks and buttons, or why it isn't to go after all. */
+  private async ready(q: Queryable, m: Queued): Promise<TemplateComponent[] | string> {
+    if (!this.whatsapp.api) return 'WhatsApp isn’t set up on the server.'
+    if (this.now().getTime() - new Date(m.made_at).getTime() > STALE_MS) return 'It waited more than a day to go, so it wasn’t sent.'
+    if (m.kind !== 'offer' || !m.offer_id) return 'Not a kind of message this version sends.'
+    const offer = await getOffer(q, m.offer_id)
+    const call = offer && (await getCall(q, offer.callId))
+    const person = offer && (await getPerson(q, offer.personId))
+    if (!offer || !call || !person) return 'The offer is gone.'
+    if (offer.status !== 'offered' || call.status !== 'open') return 'The offer was answered or withdrawn before it went.'
+    if (person.archived) return 'They were archived before it went.'
+    const to = reachOf(await whatsappSetting(q), person)
+    if (!to) return 'WhatsApp was turned off, for them or for everyone, before it went.'
+    if (to !== m.to_number) return 'Their mobile changed before it went.'
+    return [
+      { type: 'body', parameters: offerTemplateValues(person, call).map((text) => ({ type: 'text', text })) },
+      { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: `yes:${offer.id}` }] },
+      { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: `no:${offer.id}` }] },
+      // "See the details" opens their own page: the template holds the address up to /f/, and the secret goes in here.
+      { type: 'button', sub_type: 'url', index: '2', parameters: [{ type: 'text', text: person.linkToken }] },
+    ]
+  }
+}

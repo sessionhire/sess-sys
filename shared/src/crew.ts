@@ -186,6 +186,11 @@ export const person = z.object({
    * aoife.byrne@…). Sent only once true; none is not yet.
    */
   nameChecked: z.boolean().optional(),
+  /**
+   * They turned off offers on WhatsApp (ADR 0125), on their own page, or the office did when they asked. Sent only once
+   * true: everyone else gets them, once the office has WhatsApp on.
+   */
+  whatsappOff: z.boolean().optional(),
 })
 export type Person = z.infer<typeof person>
 
@@ -395,6 +400,11 @@ export const crewCommandSchemas = {
   'person.contact': z
     .object({ id, email: contactEmail.optional(), phone: contactPhone.optional() })
     .refine((c) => c.email !== undefined || c.phone !== undefined, { message: 'Nothing to change.' }),
+  /**
+   * Whether offers reach this person on WhatsApp (ADR 0125). Theirs to choose, on their own page; the office can turn
+   * them off when asked, but only they can turn them back on.
+   */
+  'person.whatsapp': z.object({ id, on: z.boolean() }),
   'unavailability.add': z
     .object({ id, personId: id, start: day, end: day, note: text(500, 'The note') })
     .refine((u) => u.start <= u.end, { message: 'The days off end before they start.' }),
@@ -510,6 +520,29 @@ export function offerMessage(p: Addressee, c: CrewCall, link: string): string {
     `Accept, decline or pick days here: ${link}`,
   ]
   return lines.filter(Boolean).join('\n')
+}
+
+/** The name the offer's template is approved under in Meta's WhatsApp Manager (ADR 0125); its words are in docs/whatsapp-setup.md. */
+export const WHATSAPP_OFFER_TEMPLATE = 'job_offer'
+
+/**
+ * The blanks in the offer's WhatsApp template (ADR 0125), in order, the same facts as offerMessage's: their first name,
+ * the job, the role (with any card it needs), the days, the call time, the venue, the rate and the day to answer by.
+ * Meta takes no blank empty and none with a line break in it, so a fact not set yet says so in words.
+ */
+export function offerTemplateValues(p: Addressee, c: CrewCall): string[] {
+  const one = (s: string) => s.replace(/\s+/g, ' ').trim()
+  const needs = needsOf(c).length ? ` (needs ${needsLabel(needsOf(c))})` : ''
+  return [
+    firstName(p),
+    `${c.project}${c.phase ? ` (${c.phase})` : ''}`,
+    `${c.role}${needs}`,
+    daysLabel(eachDay(c.start, c.end)),
+    c.callTime || 'to be confirmed',
+    c.venue || 'to be confirmed',
+    p.kind === 'staff' ? 'as a member of staff' : rateLine(c),
+    c.replyBy ? dayLabel(c.replyBy) : 'as soon as you can',
+  ].map(one)
 }
 
 /** wa.me wants digits only, with the country code. Irish mobiles written 08x become +3538x. */

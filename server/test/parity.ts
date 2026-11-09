@@ -152,6 +152,7 @@ const CASES: Case[] = [
   c('person.role', { id: 'aoife', role: 'office' }),
   c('person.archive', { id: 'eimear', archived: true }, { before: [m('offer.cancel', { id: 'eimear-sound' })] }),
   c('person.contact', { id: 'eimear', phone: '+353869999999' }),
+  c('person.whatsapp', { id: 'eimear', on: false }),
   c('unavailability.add', { id: newId(), personId: 'dara', start: day(12), end: day(13), note: 'Wedding' }),
   c('unavailability.remove', { id: 'away' }),
   c('call.create', { id: 'lx', projectId: 'gala', phaseId: 'show', project: 'Autumn Gala', phase: 'Show', venue: 'Northbank', role: 'LX op', start: day(5), end: day(5), callTime: '09:00', needed: 1, dayRateCents: 30000, details: 'Bring a torch', replyBy: day(2), department: 'lighting' }, { known: [CALL_NAMES] }),
@@ -283,6 +284,7 @@ const CASES: Case[] = [
   c('timesheets.use', { on: true }),
   c('assistant.use', { on: true }),
   c('links.check', { on: true }),
+  c('whatsapp.use', { mode: 'test', testTo: ['+353 87 123 4567'] }),
   c('cables.colours', { colours: [{ upToM: 2, colour: 'red' }, { upToM: 10, colour: 'green' }] }),
 
   // Leave and time in lieu.

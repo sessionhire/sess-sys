@@ -220,6 +220,12 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       const who = person(a.id)
       return from === 'link' ? `${who} changed their ${inWords(parts)}` : `Changed ${who}'s ${inWords(parts)}`
     }
+    // Offers on WhatsApp (ADR 0125): theirs to choose, or turned off by the office when they asked.
+    case 'person.whatsapp': {
+      const who = person(a.id)
+      if (from === 'link') return a.on === true ? `${who} turned on offers on WhatsApp` : `${who} turned off offers on WhatsApp`
+      return `Turned off offers on WhatsApp for ${who}`
+    }
     // Their own calendar (ADR 0044), never with its address, which no entry carries.
     case OWN_CALENDAR_ACTIONS.share: {
       const who = person(a.personId)
@@ -292,6 +298,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.on === true ? 'Turned on Claude' : 'Turned off Claude'
     case 'links.check':
       return a.on === true ? "Turned on checking new phones on freelancers' links" : "Turned off checking new phones on freelancers' links"
+    case 'whatsapp.use':
+      return a.mode === 'on' ? 'Turned on offers on WhatsApp' : a.mode === 'test' ? 'Turned on offers on WhatsApp to the test numbers only' : 'Turned off offers on WhatsApp'
     case 'cables.colours':
       return `Set the colours for cable lengths${Array.isArray(a.colours) ? ` (${a.colours.length})` : ''}`
     // The company's logo (ADR 0106): that it changed, never the picture.

@@ -49,6 +49,11 @@ const MIGRATIONS: string[] = [
   `,
   // Whether freelancers' links check a new phone with a code, and can be emailed when lost (ADR 0114): on the "links" row, off until the office says.
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS check_links boolean;`,
+  // Offers on WhatsApp (ADR 0125), on the "whatsapp" row: off, test or on, and the numbers to try it on. No row is off.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp_mode text CHECK (whatsapp_mode IN ('off', 'test', 'on'));
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp_test_to text[];
+  `,
 ]
 
 export const OFFICE: Module = { versionTable: 'office_schema_version', migrations: MIGRATIONS }

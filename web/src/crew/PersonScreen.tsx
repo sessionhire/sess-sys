@@ -316,6 +316,28 @@ function Who({ person, view }: { person: PersonView; view: View }) {
                 <dd>{person.company.croNumber}</dd>
               </div>
             )}
+            {/* Offers on WhatsApp (ADR 0125), once the office sends them: theirs to choose on their own page. The office turns them off
+                when someone asks; only they turn them back on. */}
+            {view.office.whatsapp !== 'off' && phone && !person.archived && (
+              <div>
+                <dt>Offers on WhatsApp</dt>
+                <dd>
+                  {person.whatsappOff ? (
+                    'Turned off. Only they can turn them back on, on their own page.'
+                  ) : (
+                    <>
+                      On, to {phone}
+                      {view.office.whatsapp === 'test' ? ' if it’s one of the test numbers' : ''}.{' '}
+                      {mayEdit && (
+                        <button type="button" className="link" onClick={() => void run(() => client.mutate('person.whatsapp', { id: person.id, on: false }))}>
+                          Turn off, as they asked
+                        </button>
+                      )}
+                    </>
+                  )}
+                </dd>
+              </div>
+            )}
             {person.kind === 'staff' && person.approvesLeave && (
               <div>
                 <dt>Time off</dt>
