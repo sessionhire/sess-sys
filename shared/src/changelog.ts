@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-09',
     title: 'Quotes still open in Current RMS are on the calendar',
     what: "Jobs › Calendar now shows the quotes still open in Current RMS as potential jobs, dashed like an enquiry and marked Current RMS quote with its number and client. Any linked to a job here, or that look like one (the same client or name on the same days), stay off so nothing shows twice. Pressing one opens it, where you can make a job from it, or press Not going ahead to take it off the calendar if it's gone nowhere. Put it back on the calendar undoes that. Nothing changes in Current RMS. Only those who see money see them, and they need signal.",
-    prs: [0],
+    prs: [289],
     adrs: [134],
   },
   {
