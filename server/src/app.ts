@@ -193,7 +193,7 @@ declare module 'fastify' {
     ownCalendars: OwnCalendars
     /** Reading Current RMS (ADR 0078), run from Admin. */
     rms: RmsReader
-    /** Reading Current RMS's hire prices (ADR 0131), run from Admin. */
+    /** Reading Current RMS's hire prices (ADR 0132), run from Admin. */
     rmsPrices: RmsPriceReader
     /** Claude's to-do list each weekday morning (ADR 0097); the caller starts it once the server is listening. */
     assistantTodo: Todo

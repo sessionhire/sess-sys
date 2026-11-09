@@ -7,7 +7,7 @@ import { client } from './sync.ts'
 
 /**
  * Hire prices from Current RMS, on Admin under the Current RMS card (ADR
- * 0131). Reading the prices runs on the server, a product a second, with how
+ * 0132). Reading the prices runs on the server, a product a second, with how
  * far it's got; then the card says what filling the price list in would do
  * (new, brought up to date, set here and kept, already the same, not
  * matched) before anything changes, and one press does just that. A price

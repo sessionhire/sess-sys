@@ -104,7 +104,7 @@ export async function findOpportunities(q: Queryable, search: string, page: numb
   return { opportunities: rows.map(toOpportunity), total: Number(count[0]?.n ?? 0), links: Object.fromEntries(linked.map((r) => [r.opportunity_id, r.project_id])) }
 }
 
-/** Hire prices from Current RMS (ADR 0131): how far a read has got, and what filling the price list in would do now. */
+/** Hire prices from Current RMS (ADR 0132): how far a read has got, and what filling the price list in would do now. */
 export async function pricesStatus(q: Queryable, prices: RmsPriceReader): Promise<RmsPricesStatus> {
   const kept = await prices.kept()
   const last = await prices.last()
@@ -146,7 +146,7 @@ export function registerRmsRoutes(app: FastifyInstance, { db, reader, prices }: 
     return reply.send(await reader.status())
   })
 
-  // Hire prices (ADR 0131): seeing what filling in would do is money; reading Current RMS again is bringing a list in.
+  // Hire prices (ADR 0132): seeing what filling in would do is money; reading Current RMS again is bringing a list in.
   app.get('/api/rms/prices', { config: { needs: 'money' } }, async (_req, reply): Promise<RmsPricesStatus> => {
     reply.header('cache-control', 'no-store')
     return pricesStatus(db.reads, prices)

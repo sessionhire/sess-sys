@@ -87,7 +87,7 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS rms_matches_project ON rms_matches (project_id);
   `,
-  // Each product's hire price as Current RMS has it (ADR 0131), from the last read of its products and their rates, for
+  // Each product's hire price as Current RMS has it (ADR 0132), from the last read of its products and their rates, for
   // filling the price list in. A copy to read: replaced whole by each read that finishes.
   `
   CREATE TABLE IF NOT EXISTS rms_products (

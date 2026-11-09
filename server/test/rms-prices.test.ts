@@ -4,7 +4,7 @@ import { hireRate } from '../src/rms/prices.ts'
 import { IPHONE, server, staff } from './people.ts'
 
 /**
- * Hire prices from Current RMS (ADR 0131). Nothing here reaches the real
+ * Hire prices from Current RMS (ADR 0132). Nothing here reaches the real
  * Current RMS: a stand-in answers as its documentation says, products a
  * hundred a page, a product's rates on their own. A read keeps each
  * product's rental price and rule; the card's plan says what filling in

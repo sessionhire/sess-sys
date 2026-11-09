@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { RmsPricesStatus } from '../shared/src/rms-prices.ts'
 
 /**
- * Hire prices from Current RMS on Admin (ADR 0131): the card says what filling in would do, each kind opening in place,
+ * Hire prices from Current RMS on Admin (ADR 0132): the card says what filling in would do, each kind opening in place,
  * and the tick for prices set by hand changes the count on the button. The server's answer is stood in for, since the
  * browser tests have no Current RMS; the server's side is in server/test/rms-prices.test.ts.
  */

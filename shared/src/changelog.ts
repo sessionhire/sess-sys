@@ -33,7 +33,15 @@ export const CHANGELOG: readonly Release[] = [
     title: 'Hire prices filled in from Current RMS',
     what: "Admin › Connections has a new card under Current RMS: Read the prices reads each product's rental price there, and how it's charged (Daily, 3 Day Week or Weekly), which takes a few minutes. The card then shows what filling in would do before anything changes: prices to fill in where there's none, ones from Current RMS to bring up to date, ones set here by hand that differ (kept unless you tick to use Current RMS's), and anything in Current RMS not found on the stock list. Fill in does just that, quotes pick the prices up, and it's in the history. It can be run again whenever prices change in Current RMS. Nothing is changed in Current RMS.",
     prs: [288],
-    adrs: [131],
+    adrs: [132],
+  },
+  {
+    version: '1.132.1',
+    date: '2026-11-09',
+    title: 'An emailed quote is marked sent only once it has gone',
+    what: "When sending quotes by email is turned on, a quote is now marked sent only once Gmail has taken it. If Gmail turns it down, the quote stays a draft and keeps the number it was given, and the message says so, so you can send it again or print it. Send also waits for anything you've just changed on the quote to reach the server first, so the PDF has it. Sending by email is still off.",
+    prs: [284],
+    adrs: [130],
   },
   {
     version: '1.132.0',

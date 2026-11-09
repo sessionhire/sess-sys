@@ -44,7 +44,7 @@ async function refuseIfReplaced(ctx: Ctx, q: Quote) {
  * Give a job's quote its number as a version first goes to the client (ADR 0084): the number an earlier version had,
  * or else the next one, which moves on by one. The settings row is locked, so two quotes sent at once get two numbers.
  */
-async function numberIt(ctx: Ctx, q: Quote) {
+export async function numberIt(ctx: Ctx, q: Quote) {
   if (q.number) return
   const had = (await quotesOf(ctx.tx, q.projectId)).find((v) => v.number)?.number
   let n = had ?? 0
@@ -246,7 +246,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
       if (gone.length) await emitRemoved(ctx, 'productPrice', a.modelId)
       return
     }
-    // Set here by hand, so a fill-in from Current RMS keeps it (ADR 0131).
+    // Set here by hand, so a fill-in from Current RMS keeps it (ADR 0132).
     await ctx.tx.query(
       `INSERT INTO product_prices (model_id, day_cents) VALUES ($1, $2) ON CONFLICT (model_id) DO UPDATE SET day_cents = EXCLUDED.day_cents, from_rms = false`,
       [a.modelId, a.dayCents]
@@ -286,7 +286,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
   },
 
   /**
-   * The price list filled in from Current RMS's hire prices (ADR 0131), as Admin last read them, worked out the way the
+   * The price list filled in from Current RMS's hire prices (ADR 0132), as Admin last read them, worked out the way the
    * preview showed it (rmsPricePlan): products with no price, and those whose price came from Current RMS before; one
    * set here by hand only when asked to. Each written is marked as from Current RMS.
    */

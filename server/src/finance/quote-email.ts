@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { acceptPath, depositCents, irishToday, letterDay, money, newId, OFFICE_SETTING_ID, quoteTotals, spanLabel, validUntil, type Quote, type QuoteEmail, type QuoteEmailPrefill, type QuoteEmailSend, type StaffUser } from '@sh/shared'
 import { GoogleError } from '../calendar/google.ts'
 import { applyMutation, type From } from '../commands.ts'
+import { numberIt } from './handlers.ts'
 import type { Db, Queryable } from '../db.ts'
 import { QUOTE_EMAIL_ACTION } from '../history.ts'
 import { emit, serverChange } from '../kernel.ts'
@@ -16,8 +17,9 @@ import { getQuote, getQuoteEmail, getQuoteSettings, highestNumber, quotesOf } fr
  * mailbox the office connected (ADR 0098), with the quote as a PDF
  * attached. The office opens a compose box filled in from the quote and
  * the client's contacts, changes what it likes and presses Send; the
- * server marks the quote sent (which gives it its number), draws the PDF,
- * sends through Gmail as operations@, and keeps a record of what went,
+ * server gives the quote its number, draws the PDF, sends through Gmail as
+ * operations@, and only once Gmail has taken it marks the quote sent
+ * (ADR 0130) and keeps a record of what went,
  * which every device sees on the quote. Replies go to whoever sent it and
  * to operations@, so the thread stays in the mailbox Claude reads.
  *
@@ -136,19 +138,27 @@ export async function sendQuote(m: Mailer, quoteId: string, body: QuoteEmailSend
 
   const { clientId = 'server', staff: _staff, ...from } = who
   const device = /^[a-z0-9]{1,64}$/.test(clientId) ? clientId : 'server'
-  // Sent, and so numbered, before the PDF is drawn: the client is sent the quote with its number on it. Marked sent as the
-  // person's own change, so the history reads as it would had they pressed Mark as sent; an enquiry becomes quoted (ADR 0081).
-  if (quote.status === 'draft') {
-    const marked = await applyMutation(m.db, device, { id: newId(), name: 'quote.sent', args: { id: quote.id, on: today }, createdAt: now.toISOString() }, from)
-    if (marked.status !== 'applied') return { ok: false, code: 422, error: marked.reason?.message ?? 'The quote couldn’t be marked sent.' }
-    const project = await getProject(m.db.reads, quote.projectId)
-    if (project?.status === 'enquiry') await applyMutation(m.db, device, { id: newId(), name: 'project.update', args: { id: project.id, status: 'quoted' }, createdAt: now.toISOString() }, from)
+  const draft = quote.status === 'draft'
+  // The number it goes with, checked against the one the compose box showed before anything is given (ADR 0130).
+  const number = await numberFor(m.db.reads, quote)
+  if (body.number != null && body.number !== number)
+    return { ok: false, code: 409, error: `It would go as quote ${number}, not ${body.number}: another quote took that number first. Check the subject and the message, then press Send again.` }
+  // Numbered before it's drawn, so the client gets it with its number on it, but not yet sent: that waits for Gmail. The
+  // number is kept if Gmail turns it down, so sending again, or printing it, uses the same one.
+  if (draft && !quote.number) {
+    await serverChange(m.db, undefined, async (ctx) => {
+      const q = await getQuote(ctx.tx, quote!.id, true)
+      if (!q || q.status !== 'draft') return
+      await numberIt(ctx, q)
+      await emit(ctx, 'quote', q.id, await getQuote(ctx.tx, q.id))
+    })
     quote = (await getQuote(m.db.reads, quoteId)) ?? quote
+    if (body.number != null && quote.number !== body.number)
+      return { ok: false, code: 409, error: `It would go as quote ${quote.number}, not ${body.number}: another quote took that number first. Check the subject and the message, then press Send again.` }
   }
-  if (body.number != null && quote.number && body.number !== quote.number)
-    return { ok: false, code: 409, error: `This went out as quote ${quote.number}, not ${body.number}: another quote took that number first. Check the subject and the message, then press Send again.` }
+  const going: Quote = draft ? { ...quote, status: 'sent', sentOn: today } : quote
 
-  const sheet = await sheetFor(m.db.reads, quote, today)
+  const sheet = await sheetFor(m.db.reads, going, today)
   const logo = await m.logo?.().catch(() => undefined)
   const pdf = await quotePdf({ ...sheet, ...(logo ? { logo } : {}) })
   const fileName = fileNameFor(quote.number ?? null, sheet.job.name)
@@ -168,7 +178,21 @@ export async function sendQuote(m: Mailer, quoteId: string, body: QuoteEmailSend
     sent = await m.mailbox.gmail.send(sender.token, raw)
   } catch (err) {
     await m.mailbox.stopped(err, 'send')
-    return { ok: false, code: 502, error: err instanceof GoogleError ? googleWords(err) : 'Gmail didn’t take it. Nothing was sent; try again in a minute.' }
+    m.onChange?.()
+    // Said as it stands (ADR 0130): numbered, still a draft, nothing gone.
+    const kept = draft && quote.number ? ` It keeps number ${quote.number} and is still a draft: send it again, or print it.` : ''
+    return { ok: false, code: 502, error: `${err instanceof GoogleError ? googleWords(err) : 'Gmail didn’t take it. Nothing was sent; try again in a minute.'}${kept}` }
+  }
+
+  // Gmail has it: now it's sent, as the person's own change, so the history reads as it would had they pressed Mark as
+  // sent, and an enquiry becomes quoted (ADR 0081).
+  if (draft) {
+    const marked = await applyMutation(m.db, device, { id: newId(), name: 'quote.sent', args: { id: quote.id, on: today }, createdAt: now.toISOString() }, from)
+    if (marked.status === 'applied') {
+      const project = await getProject(m.db.reads, quote.projectId)
+      if (project?.status === 'enquiry') await applyMutation(m.db, device, { id: newId(), name: 'project.update', args: { id: project.id, status: 'quoted' }, createdAt: now.toISOString() }, from)
+      quote = (await getQuote(m.db.reads, quoteId)) ?? quote
+    }
   }
 
   const before = await m.db.reads.query<{ n: number }>('SELECT count(*)::int AS n FROM quote_emails WHERE quote_id = $1', [quote.id])

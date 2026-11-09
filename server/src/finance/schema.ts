@@ -148,7 +148,7 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE quotes ADD COLUMN IF NOT EXISTS for_name text NOT NULL DEFAULT '';
   `,
-  // Hire prices filled in from Current RMS (ADR 0131): whether a product's price came from there, so a later fill-in
+  // Hire prices filled in from Current RMS (ADR 0132): whether a product's price came from there, so a later fill-in
   // follows Current RMS's changes to it and leaves one the office set by hand as it is.
   `
   ALTER TABLE product_prices ADD COLUMN IF NOT EXISTS from_rms boolean NOT NULL DEFAULT false;

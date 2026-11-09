@@ -1,4 +1,4 @@
-# ADR 0131: Hire prices are filled in from Current RMS
+# ADR 0132: Hire prices are filled in from Current RMS
 
 - **Status:** accepted
 - **Date:** 9 November 2026

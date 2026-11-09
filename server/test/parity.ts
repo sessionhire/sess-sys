@@ -390,7 +390,7 @@ const CASES: Case[] = [
  * (person.erase, ADR 0027, tested in erasure.test.ts); and stopping a
  * freelancer's own calendar is read by the server only (ownCalendar.stop);
  * and filling prices in from Current RMS works from the copy of its prices
- * kept on the server only (price.fromRms, ADR 0131, tested in
+ * kept on the server only (price.fromRms, ADR 0132, tested in
  * rms-prices.test.ts), so the device waits for the server's answer.
  */
 const NOT_LAID_OVER: CommandName[] = ['person.newLink', 'person.erase', 'ownCalendar.stop', 'price.fromRms']

@@ -2,7 +2,7 @@ import { RATE_LABELS, RATE_UNIT, type RateRule } from './quotes.ts'
 import { valueLabel } from './stock.ts'
 
 /**
- * Hire prices from Current RMS (ADR 0131). The server reads each product's
+ * Hire prices from Current RMS (ADR 0132). The server reads each product's
  * rental rate from Current RMS and keeps a copy; this works out, from that
  * copy and the stock list, what filling the price list in would change, so
  * the office sees it before anything changes and the server does exactly

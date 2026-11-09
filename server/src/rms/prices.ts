@@ -3,7 +3,7 @@ import { faultForLog, type Db } from '../db.ts'
 import { RmsRefused, type RmsApi } from './api.ts'
 
 /**
- * Reading each product's hire price from Current RMS (ADR 0131), for filling
+ * Reading each product's hire price from Current RMS (ADR 0132), for filling
  * the price list in. Current RMS lists its products a hundred a request; a
  * product's rates (store-wide, and the office's own store's where it has
  * one) come with it where Current RMS includes them, else from its own

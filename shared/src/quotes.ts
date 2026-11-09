@@ -304,7 +304,7 @@ export interface ProductPrice {
   dayCents: number
   /** How the price is charged (ADR 0085); Daily unless set. Under Weekly, `dayCents` is the price for a week. */
   rate?: RateRule
-  /** Filled in from Current RMS (ADR 0131) rather than set here by hand; left out for one set here. */
+  /** Filled in from Current RMS (ADR 0132) rather than set here by hand; left out for one set here. */
   fromRms?: boolean
 }
 
@@ -518,7 +518,7 @@ export const quoteCommandSchemas = {
    */
   'price.rulesFromRms': z.object({ all: z.boolean() }),
   /**
-   * Fill the price list in with each product's hire price from Current RMS (ADR 0131), as last read there: products
+   * Fill the price list in with each product's hire price from Current RMS (ADR 0132), as last read there: products
    * with no price, and those whose price came from Current RMS before. A price set here by hand is kept unless
    * `overwrite`.
    */

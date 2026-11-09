@@ -66,7 +66,7 @@ export async function getProductPrice(q: Queryable, modelId: string): Promise<Pr
     'SELECT model_id, day_cents, rate, from_rms FROM product_prices WHERE model_id = $1',
     [modelId]
   )
-  // The rule only once set, and where it came from only for Current RMS (ADR 0131), so a device or a test that knows
+  // The rule only once set, and where it came from only for Current RMS (ADR 0132), so a device or a test that knows
   // nothing of either sees the price as before.
   const r = rows[0]
   return r ? { id: r.model_id, dayCents: r.day_cents, ...(r.rate ? { rate: r.rate } : {}), ...(r.from_rms ? { fromRms: true } : {}) } : undefined
