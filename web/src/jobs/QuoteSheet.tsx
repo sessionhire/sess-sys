@@ -171,13 +171,19 @@ export function Totals({ totals, agreed }: { totals: QuoteTotals; agreed: boolea
   )
 }
 
-/** The A4 page: what the client is sent, as a PDF the office saves from the browser. */
+/**
+ * The A4 page: what the client is sent, printed from the browser or saved as a PDF there. Drawn as the PDF the server
+ * makes is (server/src/finance/quote-pdf.ts, ADR 0139): the brand's band, the logo and "Quote" with its number, who it's
+ * for, the job and the dates in three columns, the lines, the total in the brand's red, the terms and bank details side by
+ * side, and the company's letterhead at the foot. The page's own margins carry the page count and leave the browser no
+ * room for its address, title and date (QuoteSheetPage).
+ */
 export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: JobView; office: View['office']; quoting: QuoteSettings }) {
   const today = irishToday()
   const made = q.sentOn ?? irishToday(new Date(q.savedAt))
   const reach = [office.details?.phone, office.details?.email].filter(Boolean).join(' · ')
-  // Who it's from, once Admin's office details have them: the company's address, a line each as typed, and its VAT number.
-  const address = office.details?.address?.trim()
+  // Who it's from, once Admin's office details have them: the company's address on one line, and its VAT number.
+  const address = office.details?.address?.trim().split(/\s*\n\s*/).filter(Boolean).join(', ')
   const vat = office.details?.vatNumber?.trim()
   const to = job.client
   const contact = to ? quoteContact(to.contacts, q.forName) : undefined
@@ -186,72 +192,119 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
   // A number guessed with no signal is printed as a draft's until the server gives it (finding 20 of the quote flow audit),
   // so a PDF saved meanwhile can't go out with a number another quote may take.
   const draft = q.status === 'draft' || !!q.numberPending
+  const deposit = q.depositPct ? depositCents(q.totals.gross, q.depositPct) : 0
+  // When this client pays (ADR 0119), beside the total, as the PDF has it.
+  const pays = paymentTermsLine(to?.paymentTerms)
+  const terms = quoting.terms.trim()
+  const bank = quoting.bank.trim()
   return (
     <>
       <header className="sheet-head">
-        <div className="from">
-          {/* The company's logo from Admin › Company › Labels, as the emailed PDF has it (ADR 0128; finding 16). */}
-          {logo ? <img className="logo" src={logo} alt="Session Hire" /> : <p className="company">Session Hire</p>}
-          {address && <p className="lines">{address}</p>}
-          {reach && <p>{reach}</p>}
-          {vat && <p>VAT number {vat}</p>}
-        </div>
+        {/* The company's logo from Admin › Company › Labels, as the emailed PDF has it (ADR 0128; finding 16). */}
+        <div className="brand">{logo ? <img className="logo" src={logo} alt="Session Hire" /> : <p className="company">Session Hire</p>}</div>
         <dl className="sheet-facts">
-          <div>
-            <dt>{draft ? 'Draft quote' : 'Quote'}</dt>
-            <dd>{q.numberPending ? `${number} (once it's saved)` : number || (draft ? 'Not sent yet' : '')}</dd>
-          </div>
-          <div>
-            <dt>Date</dt>
-            <dd>{letterDay(made)}</dd>
-          </div>
-          <div>
-            <dt>Valid until</dt>
-            <dd>{letterDay(validUntil(q, today))}</dd>
-          </div>
+          <dt>{draft ? 'Draft quote' : 'Quote'}</dt>
+          <dd className={draft ? undefined : 'number'}>{q.numberPending ? `${number} (once it's saved)` : number || (draft ? 'Not sent yet' : '')}</dd>
         </dl>
       </header>
       <section className="sheet-to" aria-label="For">
-        {to && (
-          <div>
-            <p className="muted">For</p>
-            <p className="who">{to.name}</p>
-            {contact && <p>{contact.name}</p>}
-            {to.address?.trim() && <p className="lines">{to.address.trim()}</p>}
-          </div>
-        )}
         <div>
-          <h1>{job.name}</h1>
-          <p>{[job.span && spanLabel(job.span), job.venue && venueLabel(job.venue)].filter(Boolean).join(' · ')}</p>
+          {to && (
+            <>
+              <p className="sheet-label">Prepared for</p>
+              <p className="who">{to.name}</p>
+              {contact && <p>{contact.name}</p>}
+              {to.address?.trim() && <p className="lines muted">{to.address.trim()}</p>}
+            </>
+          )}
         </div>
+        <div>
+          <p className="sheet-label">The job</p>
+          <h1>{job.name}</h1>
+          {job.span && <p>{spanLabel(job.span)}</p>}
+          {job.venue && <p className="muted">{venueLabel(job.venue)}</p>}
+        </div>
+        <dl className="sheet-dates">
+          <div>
+            <dt className="sheet-label">Date</dt>
+            <dd>{letterDay(made)}</dd>
+          </div>
+          <div>
+            <dt className="sheet-label">Valid until</dt>
+            <dd>{letterDay(validUntil(q, today))}</dd>
+          </div>
+        </dl>
       </section>
       <Lines lines={q.lines} />
-      <Totals totals={q.totals} agreed={q.agreedCents != null} />
-      {q.depositPct ? (
-        <p className="deposit">
-          A deposit of {pctWord(q.depositPct)}, <b>{money(depositCents(q.totals.gross, q.depositPct))}</b>, confirms the booking.
-        </p>
-      ) : null}
-      {/* When this client pays (ADR 0119), under the deposit, as the PDF has it. */}
-      {paymentTermsLine(to?.paymentTerms) && <p className="deposit">{paymentTermsLine(to?.paymentTerms)}</p>}
-      {q.notes && <p className="notes">{q.notes}</p>}
-      {quoting.terms.trim() && (
-        <section className="sheet-terms">
-          <h2>Terms</h2>
-          <p className="lines">{quoting.terms.trim()}</p>
+      <div className="sheet-sums">
+        {(deposit > 0 || pays) && (
+          <div className="sheet-aside">
+            <p className="sheet-label">{deposit > 0 ? 'Deposit' : 'Paying'}</p>
+            {deposit > 0 && (
+              <p className="deposit">
+                A deposit of {pctWord(q.depositPct!)}, <b>{money(deposit)}</b>, confirms the booking.
+              </p>
+            )}
+            {pays && <p className="deposit pays">{pays}</p>}
+          </div>
+        )}
+        <Totals totals={q.totals} agreed={q.agreedCents != null} />
+      </div>
+      {q.notes && (
+        <section className="sheet-notes">
+          <h2 className="sheet-label">Notes</h2>
+          <p className="notes">{q.notes}</p>
         </section>
       )}
-      {quoting.bank.trim() && (
-        <section className="sheet-terms">
-          <h2>Paying by bank transfer</h2>
-          <p className="lines">{quoting.bank.trim()}</p>
-          {q.number && !q.numberPending && <p>Please give quote {q.number} as the reference.</p>}
-        </section>
+      {(terms || bank) && (
+        <div className="sheet-small">
+          {terms && (
+            <section className="sheet-terms">
+              <h2 className="sheet-label">Terms</h2>
+              <p className="lines">{terms}</p>
+            </section>
+          )}
+          {bank && (
+            <section className="sheet-terms bank">
+              <h2 className="sheet-label">Paying by bank transfer</h2>
+              <p className="lines">{bank}</p>
+              {q.number && !q.numberPending && <p>Please give quote {q.number} as the reference.</p>}
+            </section>
+          )}
+        </div>
       )}
-      <footer>
+      <p className="sheet-closing">
         Prices are in euro: each line is how many, at its price, for the days charged or once.
         {reach && ` Questions: ${reach}.`}
+      </p>
+      <footer className="from">
+        <p className="company-line">{['Session Hire', address].filter(Boolean).join(' · ')}</p>
+        {(reach || vat) && <p>{[reach, vat && `VAT number ${vat}`].filter(Boolean).join(' · ')}</p>}
       </footer>
     </>
   )
+}
+
+/** A string as CSS writes one in `content`, quotes and backslashes escaped. */
+const cssString = (s: string) => `"${s.replace(/[\\"]/g, '\\$&').replace(/\n/g, ' ')}"`
+
+/**
+ * The page the sheet prints on: A4, with something in the top and bottom margins (the page count, and the brand's band
+ * along the top edge), which is what tells Chrome and Edge to leave out their own header and footer, the tab's title,
+ * the date and the app's address (ADR 0139). A browser that doesn't draw margins this way prints the sheet as it is.
+ */
+export function QuoteSheetPage({ q }: { q: QuoteView }) {
+  const number = quoteNumberLabel(q)
+  const which = q.status !== 'draft' && !q.numberPending && number ? `Quote ${number} · ` : ''
+  const band = 'background: linear-gradient(#ee3744 0 2.5mm, transparent 2.5mm);'
+  const css = `html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@page { size: A4; margin: 14mm 15mm 16mm;
+  @top-left-corner { content: ""; ${band} }
+  @top-left { content: ""; ${band} }
+  @top-center { content: ""; ${band} }
+  @top-right { content: ""; ${band} }
+  @top-right-corner { content: ""; ${band} }
+  @bottom-right { content: ${cssString(which)} "Page " counter(page) " of " counter(pages); font: 7.5pt 'IBM Plex Sans', system-ui, sans-serif; color: #5c636e; vertical-align: top; padding-top: 3mm; }
+}`
+  return <style>{css}</style>
 }

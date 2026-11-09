@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: the quote looks like the company's own document
+
+**Done**
+
+- The printed quote and its PDF redrawn as one design (ADR 0139, 1.141.0):
+  the brand's red band, logo and "Quote" with its number, Prepared for /
+  The job / dates in three columns, lines under a shaded head with red
+  group heads, deposit beside a red total block, terms and bank side by
+  side, the company's details as a letterhead at the foot. IBM Plex Sans
+  and Archivo on both copies.
+- Printing from the browser no longer shows the browser's address, title
+  and date (the page's own margins carry the band and page count), and Save
+  as PDF offers "Quote 1115 - Job". The PDF opened from a quote, and from
+  the client's link, now carries the logo.
+
+**Checked:** the server PDF drawn with a long sample (two pages) and a short
+draft; the browser's print saved as a PDF by Chromium with its header and
+footer on, showing neither; the quote, package and quote-shape browser tests.
+
 ## 9 November 2026: gear on quotes from Current RMS
 
 **Done**

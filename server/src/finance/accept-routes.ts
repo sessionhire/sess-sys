@@ -41,7 +41,7 @@ export async function standingOf(q: Queryable, quote: Quote, today: string): Pro
   return validUntil(quote, today) < today ? 'lapsed' : 'open'
 }
 
-export function registerAcceptRoutes(app: FastifyInstance, db: Db, { onChange, now = () => new Date() }: { onChange?: () => void; now?: () => Date } = {}) {
+export function registerAcceptRoutes(app: FastifyInstance, db: Db, { onChange, now = () => new Date(), logo }: { onChange?: () => void; now?: () => Date; logo?: () => Promise<{ data: Buffer; type: string } | undefined> } = {}) {
   const noStore = (reply: FastifyReply) => reply.header('cache-control', 'no-store').header('x-robots-tag', 'noindex')
   const html = (reply: FastifyReply, body: string, code = 200) => noStore(reply).code(code).type('text/html').send(body)
 
@@ -65,6 +65,12 @@ export function registerAcceptRoutes(app: FastifyInstance, db: Db, { onChange, n
     return show(req, reply, found.quote)
   })
 
+  /** The company's logo on the client's PDF too (ADR 0139), when there is one. */
+  const logoOrNot = async () => {
+    const l = await logo?.().catch(() => undefined)
+    return l ? { logo: l } : {}
+  }
+
   /** The quote as the PDF the office would send, as it stands now. */
   app.get('/q/:token/pdf', async (req: Req, reply) => {
     const found = await opened(req)
@@ -75,7 +81,7 @@ export function registerAcceptRoutes(app: FastifyInstance, db: Db, { onChange, n
     return noStore(reply)
       .type('application/pdf')
       .header('content-disposition', `inline; filename="${plain}"; filename*=UTF-8''${encodeURIComponent(name)}`)
-      .send(await quotePdf(sheet))
+      .send(await quotePdf({ ...sheet, ...(await logoOrNot()) }))
   })
 
   app.post<{ Params: { token: string }; Body: URLSearchParams }>('/q/:token', { config: { rateLimit: SIGN_IN_LIMIT } }, async (req, reply) => {

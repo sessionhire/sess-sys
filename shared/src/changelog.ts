@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.141.0',
+    date: '2026-11-09',
+    title: 'The quote looks like a proper company document',
+    what: "The printed quote and its PDF have been redesigned: Session Hire's red along the top, the logo with \"Quote\" and its number, who it's for, the job and the dates across the top, the lines under clear headings, the total in a red block, and the company's address, phone, email and VAT number along the foot. Printing it from the browser no longer adds the web address, the date and the page title round the edge, and Save as PDF offers the quote's own name. The PDF opened from a quote now carries the logo too.",
+    prs: [296],
+    adrs: [139],
+  },
+  {
     version: '1.140.2',
     date: '2026-11-09',
     title: "A quote from Current RMS brings all its gear onto a job",
