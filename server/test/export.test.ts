@@ -156,6 +156,8 @@ describe('download everything', () => {
       'rms_lines',
       'rms_matches',
       'rms_opportunities',
+      'rms_price_reads',
+      'rms_products',
       'rms_reads',
       'role_prices',
       'running_late',
