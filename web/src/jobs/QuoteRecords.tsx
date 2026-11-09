@@ -1,4 +1,4 @@
-import { dayLabel, irishToday, money, newId, withNewIds, QUOTE_STATUS_LABELS, STOPPED, TURN_DOWN_LABELS, TURN_DOWN_NOTE_LENGTH, TURN_DOWN_REASONS, validUntil, type JobView, type QuoteView, type TurnDownReason } from '@sh/shared'
+import { dayLabel, irishToday, money, rmsDay, newId, withNewIds, QUOTE_STATUS_LABELS, STOPPED, TURN_DOWN_LABELS, TURN_DOWN_NOTE_LENGTH, TURN_DOWN_REASONS, validUntil, type JobView, type QuoteView, type TurnDownReason } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -34,7 +34,7 @@ export function InCurrentRms({ jobId }: { jobId: string }) {
               <a className="job-row" href={`#jobs/money/current-rms/${o.id}`}>
                 <div>
                   <b>{o.subject || o.number}</b>
-                  <p className="hint">{[o.number, [o.state, o.status].filter(Boolean).join(', '), o.startsAt ? pastDay(o.startsAt.slice(0, 10)) : ''].filter(Boolean).join(' · ')}</p>
+                  <p className="hint">{[o.number, [o.state, o.status].filter(Boolean).join(', '), o.startsAt ? pastDay(rmsDay(o.startsAt)!) : ''].filter(Boolean).join(' · ')}</p>
                 </div>
                 <div className="side">
                   {money(o.netCents)}

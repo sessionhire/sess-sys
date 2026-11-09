@@ -1,4 +1,8 @@
 import type { RmsOpportunity } from './current-rms-api.ts'
+import { irishToday } from './day.ts'
+
+/** The day in Ireland of a time Current RMS gave: its UTC date is the day before for anything from midnight to 1am in summer. */
+export const rmsDay = (at: string | null | undefined): string | undefined => (at ? irishToday(new Date(at)) : undefined)
 
 /**
  * Current RMS's quoting history, put to use (ADR 0092): each opportunity
@@ -16,7 +20,7 @@ export function rmsOutcome(o: { state: string; status: string; startsAt: string 
   const status = o.status.toLowerCase()
   if (status === 'lost' || status === 'dead' || status === 'cancelled') return 'not'
   if (o.state.toLowerCase() === 'order') return 'ahead'
-  const last = (o.endsAt ?? o.startsAt)?.slice(0, 10)
+  const last = rmsDay(o.endsAt ?? o.startsAt)
   return last && last < today ? 'not' : 'open'
 }
 
@@ -81,8 +85,8 @@ const addDay = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) +
 export function matchOpportunities(opps: readonly RmsToMatch[], jobs: readonly JobToMatch[]): RmsMatch[] {
   const sorted = [...jobs].sort((a, b) => a.start.localeCompare(b.start))
   return opps.map((o) => {
-    const start = o.startsAt?.slice(0, 10)
-    const end = (o.endsAt ?? o.startsAt)?.slice(0, 10)
+    const start = rmsDay(o.startsAt)
+    const end = rmsDay(o.endsAt ?? o.startsAt)
     if (!start || !end) return { opportunityId: o.id, projectId: null, sure: false, candidates: [] }
     const from = addDay(start, -1)
     const to = addDay(end, 1)
@@ -170,7 +174,7 @@ export function rmsClients(
         c.off += Math.max(0, o.undiscountedCents - o.netCents)
       }
     }
-    const on = o.startsAt?.slice(0, 10) ?? null
+    const on = rmsDay(o.startsAt) ?? null
     if (on && (!c.lastOn || on > c.lastOn)) c.lastOn = on
   }
   return [...by.values()]

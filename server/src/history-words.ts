@@ -64,6 +64,8 @@ export const QUOTE_EMAIL_ACTION = 'quote.email'
 export const QUOTE_ONLINE_ACTION = 'quote.acceptedOnline'
 /** A deleted quote put back from the history (ADR 0135): a server route, since no device still has it to show while it waits. */
 export const QUOTE_PUT_BACK_ACTION = 'quote.putBack'
+/** The days of a quote from Current RMS corrected here, or put back to Current RMS's (ADR 0138): a server route, as the copy isn't on devices. */
+export const RMS_DATES_ACTION = 'rms.dates'
 
 /**
  * Whose documents a reader reads in full in the history (ADR 0062, audit, 20 October 2026, finding 38): true for everyone's,
@@ -754,6 +756,12 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     }
     case 'quoting.update':
       return `Set what printed quotes say: ${typeof a.nextNumber === 'number' ? `the next is number ${a.nextNumber}` : 'numbers carry on from the highest'}, with the terms and bank details`
+    case RMS_DATES_ACTION: {
+      const quote = `Current RMS quote ${text(a.number, String(a.id ?? ''))}`.trim()
+      if (typeof a.start !== 'string' || typeof a.end !== 'string') return `Put the days of ${quote} back to the ones Current RMS gives`
+      const days = `${a.start === a.end ? dayLabel(a.start) : `${dayLabel(a.start)} to ${dayLabel(a.end)}`} ${a.end.slice(0, 4)}`
+      return `Corrected the days of ${quote} to ${days}, here only`
+    }
     case FUEL_FROM_AA_ACTION:
       return `Took the fuel price from the AA's ${text(a.month, 'latest')} survey: ${typeof a.centsPerLitre === 'number' ? `${a.centsPerLitre}c a litre` : 'a new price'}`
     case 'quoting.travel':

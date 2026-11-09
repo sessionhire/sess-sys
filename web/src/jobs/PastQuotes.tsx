@@ -5,6 +5,7 @@ import {
   money,
   newId,
   plural,
+  rmsDay,
   rmsDepth,
   rmsJobDraft,
   rmsOutcome,
@@ -244,7 +245,11 @@ export function PastQuoteScreen({ view, id: asked }: { view: View; id: string })
   const id = asked.replace(/\/(job|onto)$/, '')
   const [doing, setDoing] = useState<'job' | 'onto' | undefined>(asked.endsWith('/job') ? 'job' : asked.endsWith('/onto') ? 'onto' : undefined)
   useEffect(() => setDoing(asked.endsWith('/job') ? 'job' : asked.endsWith('/onto') ? 'onto' : undefined), [asked])
-  const loaded = useAsked<RmsOpportunityWithLines>(can, id, () => getJson(`/api/rms/opportunities/${encodeURIComponent(id)}`))
+  const asked_ = useAsked<RmsOpportunityWithLines>(can, id, () => getJson(`/api/rms/opportunities/${encodeURIComponent(id)}`))
+  // Days corrected on this page (ADR 0138) show at once, without asking for the whole quote again.
+  const [days, setDays] = useState<{ id: string } & Pick<RmsOpportunity, 'startsAt' | 'endsAt' | 'corrected'>>()
+  const loaded: Loaded<RmsOpportunityWithLines> =
+    asked_.state === 'ready' && days?.id === id ? { ...asked_, data: { ...asked_.data, opportunity: { ...asked_.data.opportunity, ...days, id: asked_.data.opportunity.id } } } : asked_
   const ready = loaded.state === 'ready' ? loaded.data : undefined
   const forJob = useMemo(() => ready && jobFor(ready.opportunity, ready.job ?? null, view.jobs.jobs), [ready, view.jobs.jobs])
 
@@ -277,6 +282,7 @@ export function PastQuoteScreen({ view, id: asked }: { view: View; id: string })
             <p className="hint">
               {[stateWords(o), span(o), o.chargeableDays != null ? `${o.chargeableDays.toLocaleString('en-IE')} chargeable days` : ''].filter(Boolean).join(' · ')}
             </p>
+            <Days o={o} onDays={(d) => setDays({ id, ...d })} />
             <p>
               {loaded.data.job ? (
                 <>
@@ -353,6 +359,84 @@ export function PastQuoteScreen({ view, id: asked }: { view: View; id: string })
  * trusted, so the office says when one isn't going ahead, which takes it off; it can go back on. Current RMS is left as
  * it was.
  */
+/**
+ * The days a past quote is for, corrected here when Current RMS has them wrong (ADR 0138): its first and last day, kept
+ * when Current RMS is read again, and in the history as the person's. Current RMS itself isn't changed, and going back
+ * to its days is a press. Its show days are said when Current RMS has them and they aren't the days shown.
+ */
+function Days({ o, onDays }: { o: RmsOpportunity; onDays: (d: Pick<RmsOpportunity, 'startsAt' | 'endsAt' | 'corrected'>) => void }) {
+  const [open, setOpen] = useState(false)
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [said, setSaid] = useState('')
+  const first = rmsDay(o.startsAt) ?? ''
+  const last = rmsDay(o.endsAt ?? o.startsAt) ?? first
+  const show = o.showStartsAt ? span({ startsAt: o.showStartsAt, endsAt: o.showEndsAt ?? o.showStartsAt }) : ''
+  const send = async (body: { start: string | null; end?: string }) => {
+    setBusy(true)
+    const l = await postJson<{ startsAt: string | null; endsAt: string | null; corrected: boolean }>(`/api/rms/opportunities/${o.id}/dates`, body)
+    setBusy(false)
+    if (l.state === 'ready') {
+      onDays({ startsAt: l.data.startsAt, endsAt: l.data.endsAt, corrected: l.data.corrected ? (o.corrected ?? { startsAt: o.startsAt, endsAt: o.endsAt }) : null })
+      setOpen(false)
+      setSaid(l.data.corrected ? 'Days corrected here.' : 'Back to the days Current RMS gives.')
+    } else setSaid(l.state === 'gone' ? l.error : 'Not saved: this needs signal. Try again when you have it.')
+  }
+  const save = (e: FormEvent) => {
+    e.preventDefault()
+    if (from && to && to >= from) void send({ start: from, end: to })
+  }
+  return (
+    <div className="rms-days">
+      {o.corrected && (
+        <p className="hint">
+          Days corrected here. Current RMS has {span({ startsAt: o.corrected.startsAt, endsAt: o.corrected.endsAt }) || 'no days'}.
+        </p>
+      )}
+      {show && show !== span(o) && <p className="hint">Show days in Current RMS: {show}.</p>}
+      {open ? (
+        <form className="actions" onSubmit={save}>
+          <label>
+            First day <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} required />
+          </label>
+          <label>
+            Last day <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} required />
+          </label>
+          <button type="submit" className="primary" disabled={busy || !from || !to || to < from}>
+            Save the days
+          </button>
+          <button type="button" onClick={() => setOpen(false)}>
+            Cancel
+          </button>
+        </form>
+      ) : (
+        <div className="actions">
+          <button
+            type="button"
+            onClick={() => {
+              setFrom(first)
+              setTo(last)
+              setSaid('')
+              setOpen(true)
+            }}
+          >
+            Correct the days
+          </button>
+          {o.corrected && (
+            <button type="button" disabled={busy} onClick={() => void send({ start: null })}>
+              Use Current RMS’s days
+            </button>
+          )}
+        </div>
+      )}
+      <p className="hint" role="status">
+        {said}
+      </p>
+    </div>
+  )
+}
+
 function SetAside({ id, aside: was }: { id: number; aside: boolean }) {
   const [aside, setAside] = useState(was)
   const [busy, setBusy] = useState(false)
