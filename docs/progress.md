@@ -3,6 +3,27 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: five ideas from Rentdeck, built
+
+**Done**
+
+- Colly picked five of the eight ideas, and all five are in:
+  - A client's payment terms, printed on the quote, and who to ask for at
+    a venue, printed on the call sheet (1.120.0, ADR 0119, PR #268).
+  - "+ Quote" on each day of the planner starts a quote for that day, and
+    keys at a desk: press ? for the list (1.121.0, ADR 0120, PR #269).
+  - The client accepts a quote online from a link: the quote as sent, their
+    name and a tick (1.122.0, ADR 0121, PR #270). Behind the switch "Let
+    clients accept quotes online" under Admin › Company, **off** until
+    launch; the app sends nothing, the link goes only in an email the
+    office sends.
+- Learnings for the design system in design-system PR #45.
+
+**Waiting on**
+
+- Colly to merge design-system #45, and to turn on online acceptance at
+  launch.
+
 ## 8 November 2026: Rentdeck, set beside the app
 
 **Done**
