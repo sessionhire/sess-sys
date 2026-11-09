@@ -1,4 +1,4 @@
-import { crewSuggestion, kitSuggestion, otherSuggestion, type Pricing, type Suggestion } from './assistant.ts'
+import { crewSuggestion, kitSuggestion, otherSuggestion, withModel, type Pricing, type Suggestion } from './assistant.ts'
 import { departmentOfGroup } from './current-rms.ts'
 import type { RmsLine, RmsOpportunity } from './current-rms-api.ts'
 import { irishToday } from './day.ts'
@@ -61,6 +61,9 @@ export function rmsSuggestions(lines: readonly RmsLine[], p: Pricing): RmsOffere
     let s: Suggestion
     if (!sold && l.itemType === 'Product') {
       s = kitSuggestion(p, key, said, dept, qty, days, cents)
+      // The product Current RMS quoted, by its id there, however either name has changed since (ADR 0102).
+      const known = l.itemId !== null ? p.byListId?.(String(l.itemId)) : undefined
+      if (known && p.model(known)) s = { ...withModel(p, s, known, cents), how: 'code', likely: [known, ...s.likely.filter((x) => x !== known)].slice(0, 4) }
       // The rule it was charged by there, whatever the product's rule here, so it comes to the same.
       s = { ...s, rate: rule && rule !== 'daily' ? rule : null }
     } else if (!sold && l.itemType === 'Service') s = crewSuggestion(p, key, said, qty, days, cents)

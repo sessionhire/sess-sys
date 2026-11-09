@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.140.2',
+    date: '2026-11-09',
+    title: "A quote from Current RMS brings all its gear onto a job",
+    what: "Putting a Current RMS quote's lines on a job matched them to the stock list by name alone, so a line whose name had changed on either side came across as plain words and its gear never reached the job's kit list. Each line is now matched first by the product Current RMS quoted, which the stock bring-in kept on each product here, and by its name only when that isn't known.",
+    prs: [295],
+  },
+  {
     version: '1.140.1',
     date: '2026-11-09',
     title: 'A quote from Current RMS shows its gear after a read',

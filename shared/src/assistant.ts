@@ -177,6 +177,8 @@ export interface Pricing {
   rolePrice(role: string): number | undefined
   /** The crew roles the company has priced or booked, as written. */
   roles: readonly string[]
+  /** The product here that Current RMS knows by this id, as the stock bring-in kept it (ADR 0102). */
+  byListId?(listId: string): string | undefined
 }
 
 /** A line Claude suggested, as it would go on the quote, with how sure the match to the stock list is. */
