@@ -3,6 +3,29 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: jobs filtered by department
+
+**Done**
+
+- A Departments row (All departments, Audio, Lighting, Video, Lasers,
+  Staging) on the Jobs list, Jobs › Calendar, the planner's job rows and
+  the Board (ADR 0137, 1.139.0, PR #291). A job involves a department when
+  one of its crew calls or a line of its kit is that department's; several
+  can be picked, and the choice holds across the four views on the device.
+- Lasers became a stock department of its own; Staging joined crew's
+  departments. The Jobs list's old one-at-a-time filter is now Crew
+  department.
+
+**Checked**
+
+- Shared and server tests, a browser test of the calendar, Jobs list,
+  Board and planner on desk and phone, and every CI shard.
+
+**Waiting**
+
+- Laser products filed under Lighting stay there until someone moves them
+  on the product's page.
+
 ## 9 November 2026: clients and venues filled in from Current RMS
 
 **Done**
