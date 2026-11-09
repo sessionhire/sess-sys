@@ -100,6 +100,13 @@ export function MarginWords({ margin, unknown = true, label = 'Margin' }: { marg
       {label} <b>{money(margin.margin)}</b>
       {margin.pct !== null && `, ${pctWord(margin.pct)}`}
       {unknown && margin.unknown > 0 && <small> ({plural(margin.unknown, 'line')} with no cost yet)</small>}
+      {/* Said, so a quote of our own kit doesn't read 100% as if that were the truth (finding 19 of the quote flow audit). */}
+      {margin.ownUncosted && (
+        <small>
+          {' · '}
+          <a href="#admin/company">own kit not costed</a>
+        </small>
+      )}
     </span>
   )
 }

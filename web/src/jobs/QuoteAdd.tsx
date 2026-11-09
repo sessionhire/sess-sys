@@ -95,7 +95,8 @@ export function TravelAndSubsistence(p: {
       {row(
         SUBSISTENCE_ROW,
         s ? s.what : 'No subsistence',
-        s ? `${s.qty} × ${money(s.unitCents)} a day` : (subsistence.none ?? ''),
+        // Said once (audit of the quote flow, finding 21): where it's set goes on the link under the row, not on the row too.
+        s ? `${s.qty} × ${money(s.unitCents)} a day` : (subsistence.none?.replace(/: .*$/, '.') ?? ''),
         s ? money(lineCents(s)) : '–',
         `${s ? s.what : 'No subsistence'}: say if meals are provided`,
         <label className="signal">
@@ -109,11 +110,17 @@ export function TravelAndSubsistence(p: {
       {/* The way to the per diem, as a link: the row above is a button, so it can't hold one. */}
       {!s && subsistence.none?.includes('Admin ›') && (
         <p className="hint">
-          <AdminWords>{subsistence.none}</AdminWords>
+          <AdminWords>{setWhere(subsistence.none)}</AdminWords>
         </p>
       )}
     </section>
   )
+}
+
+/** "No per diem set yet: set it in Admin › …" → "Set it in Admin › …": the way there, without saying again what's missing. */
+const setWhere = (none: string) => {
+  const rest = none.slice(none.indexOf(': ') + 2)
+  return rest.charAt(0).toUpperCase() + rest.slice(1)
 }
 
 /** "Van and driver", "Luton": how a vehicle reads on a quote. */

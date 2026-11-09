@@ -488,7 +488,8 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       </div>
       <div className="pair">
         <label>
-          Quote wanted by <span className="optional">(optional)</span>
+          {/* Short enough for its half of the row at a desk (audit of the quote flow, finding 21). */}
+          Wanted by <span className="optional">(optional)</span>
           <input type="date" value={asked.quoteBy} min={today} onChange={(e) => setAsked({ ...asked, quoteBy: e.target.value })} />
         </label>
         <label>

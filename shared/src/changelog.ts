@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.134.0',
+    date: '2026-11-09',
+    title: 'One unfinished line no longer holds back the rest of a quote',
+    what: "A quote now saves every finished line even while one isn't finished: the top says which line isn't saved yet, and takes you to it. On a phone, a long quote opens with each group folded to its name, how many lines and what they come to: tap one to open it. Picking kit on a phone gives the list more of the screen. Admin › Company has a new Own kit in the margin: say what our own kit costs to run as a share of its price, and every quote's margin takes it off; until then the margin says own kit isn't costed. A quote marked sent with no signal shows its number as \"once it's saved\", and prints as a draft until it is. And small things: No subsistence says where to set the per diem once, Wanted by fits its row, and typing \"das\" in Add kit finds DAS, not Midas.",
+    prs: [287],
+    adrs: [133],
+  },
+  {
     version: '1.133.1',
     date: '2026-11-09',
     title: 'The calendar looks like Google Calendar',

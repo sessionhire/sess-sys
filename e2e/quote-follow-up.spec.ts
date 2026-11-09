@@ -40,7 +40,7 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await form.getByLabel("What's the job?").fill('Docklands Awards')
   await form.getByLabel('Client').fill('Liffey Brands')
   const today = await office.evaluate(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Dublin' }))
-  await form.getByLabel(/Quote wanted by/).fill(today)
+  await form.getByLabel(/Wanted by/).fill(today)
   await form.getByRole('button', { name: 'Start the quote' }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
@@ -116,7 +116,7 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
   await form.getByLabel("What's the job?").fill('Quayside Gala')
   // Who asked, how, and the day they want it by (research/quoting.md, feature 6): a line in the job's notes, and the Quote sent task's due day.
   const quoteBy = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)
-  await form.getByLabel('Quote wanted by').fill(quoteBy)
+  await form.getByLabel('Wanted by').fill(quoteBy)
   await form.getByLabel('How it came').selectOption('Phone')
   await form.getByLabel('Who asked').fill('Aoife Byrne')
   await form.getByRole('button', { name: 'Start the quote' }).click()

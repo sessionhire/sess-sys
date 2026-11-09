@@ -48,6 +48,14 @@ describe('finding a product as it is typed', () => {
     expect(findProducts(list, 'wedge').map((f) => f.product.id)).toEqual(['a', 'b', 'c', 'd'])
     expect(findProducts(list, '')).toEqual([])
   })
+
+  it('takes a few letters as the start of a word, so "das" is DAS and not Midas', () => {
+    const list = [p('m32', 'Midas M32', 'audio', 'Desks'), p('das', 'DAS Altea 415', 'audio', 'Speakers'), p('vari', 'Das Vario', 'audio')]
+    expect(findProducts(list, 'das').map((f) => f.product.id)).toEqual(['das', 'vari'])
+    expect(countedFind('1 das', (t) => findProducts(list, t), (f) => f.product.name).found.map((f) => f.product.id)).toEqual(['das', 'vari'])
+    expect(findProducts(list, 'midas m3').map((f) => f.product.id)).toEqual(['m32'])
+    expect(findProducts(list, 'idas').map((f) => f.product.id)).toEqual(['m32'])
+  })
 })
 
 describe('other names as typed', () => {

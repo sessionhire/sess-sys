@@ -148,6 +148,10 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE quotes ADD COLUMN IF NOT EXISTS for_name text NOT NULL DEFAULT '';
   `,
+  // What own kit costs to run, as a share of its price (finding 19 of the quote flow audit), for the margin; null until set.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS own_kit_cost_pct integer CHECK (own_kit_cost_pct BETWEEN 0 AND 90);
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }
