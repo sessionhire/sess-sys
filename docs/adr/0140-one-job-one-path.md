@@ -1,6 +1,6 @@
 # ADR 0140: One job, one path
 
-- **Status:** accepted; parts 1 to 5 built (1.142.0 to 1.145.0), parts 6 to 8 to follow
+- **Status:** accepted; parts 1 to 6 built (1.142.0 to 1.146.0), parts 7 and 8 to follow
 - **Date:** 9 November 2026
 - **Asked for by:** Colly, after walking the quote flow and on through crewing
   and the pick list: "very confusing to go through the steps and particularly
@@ -87,7 +87,16 @@ removed. Built in eight parts, one pull request each:
    count is in the button, as the pick list's "0 of 122 out" is, so a press is
    seen to move it.)
 6. The pick list opens on the first thing to pick, its switches in one Show
-   by; the stage said from what was scanned, not only the date.
+   by; the stage said from what was scanned, not only the date. (Built,
+   1.146.0: a confirmed job on its days with kit to pick and none scanned out
+   is in Going out, not On the job, and the pick list's dock says "Due out
+   today · 0 of 6 out". Whose kit and the order are one Show choice, a select
+   so it takes one line on a phone, each department saying how much is left;
+   Going out or Coming back is drawn only once something has gone out.
+   Opened partway through, the list glides to the first row still to pick,
+   to the middle of the screen so the docked scan box doesn't cover it; a
+   list not started opens at its top, where Before you start is. Next's
+   "Pick the kit" carries the count, as the dock does.)
 7. New quote as a sheet of its own, client first with their last jobs to
    start from.
 8. The job's tabs in stage order, opening on the stage the job is in.

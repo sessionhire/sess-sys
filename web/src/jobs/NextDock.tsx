@@ -192,7 +192,10 @@ export function NextDock({
     }
     case 'prep':
       if (!access.can(task.facts.nothingYet ? 'kit' : 'stock')) break
-      press = task.facts.nothingYet ? { label: 'Add the kit', onPress: () => onPart('kit') } : { label: 'Pick the kit', href: `${href}/pick` }
+      press = task.facts.nothingYet
+        ? { label: 'Add the kit', onPress: () => onPart('kit') }
+        : // With how far it has got, as the pick list's own dock says it, so each visit is seen to move it (ADR 0140, part 6).
+          { label: `Pick the kit · ${task.facts.out ?? 0} of ${task.facts.of ?? 0} out`, href: `${href}/pick` }
       break
     case 'show':
       why = `Nothing to press: ${stage?.key === 'on' && task.facts.until ? `on the job until ${dayLabel(task.facts.until)}` : (task.hint?.toLowerCase() ?? 'the job is on')}.`
@@ -255,6 +258,7 @@ export function NextDock({
  * on the job, so that one opens it. Drawn in the foot on a phone, as the job page's is, kept short so the list keeps its room.
  */
 export function PickDock({ job, view }: { job: JobView; view: View }) {
+  const today = useToday()
   const steps = view.steps.of(job.id)
   if (!steps || steps.stopped) return null
   const prep = steps.steps.find((s) => s.key === 'prep')!
@@ -265,7 +269,9 @@ export function PickDock({ job, view }: { job: JobView; view: View }) {
   let line: string | undefined
   let rest: string | undefined
   let link: { href: string; label: string } | undefined
-  if (!started && open(prep) && prep.facts.of) line = `Pick the kit · ${prep.facts.out} of ${prep.facts.of} out`
+  // On its days with nothing scanned out, it's due out, said from the scans rather than the date (ADR 0140, part 6).
+  const due = job.span && job.span.start <= today ? (job.span.start === today ? 'Due out today' : `Due out since ${dayLabel(job.span.start)}`) : undefined
+  if (!started && open(prep) && prep.facts.of) line = `${due ?? 'Pick the kit'} · ${prep.facts.out} of ${prep.facts.of} out`
   else if (!started && prep.facts.of) rest = `All ${prep.facts.of} out: ready to load.${job.span ? ` On the job from ${dayLabel(job.span.start)}.` : ''}`
   else if (open(back) && back.facts.stillOut) line = `Scan the kit back · ${back.facts.stillOut} still out`
   else if (open(back) && back.facts.neverScanned) line = `Check the kit is back · ${back.facts.neverScanned} never scanned out`

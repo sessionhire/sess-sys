@@ -26,6 +26,7 @@ import {
   NOT_YOURS
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { glideTo } from '../glide.ts'
 import { useScanKeys } from '../scanKeys.ts'
 import { act, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -137,14 +138,17 @@ export function PickScreen({ view, id }: { view: View; id: string }) {
 function Pick({ view, job }: { view: View; job: JobView }) {
   const today = useToday()
   const over = !!job.span && job.span.end < today
-  const [mode, setMode] = useState<Direction>(over ? 'in' : 'out')
+  const pick = view.moves.pickList(job.id)!
+  // Coming back is there once something has gone out (ADR 0140, part 6): before that there's only the one way, going out.
+  const wentOut = pick.rows.some((r) => r.out > 0 || r.back > 0 || r.missing > 0)
+  const [chosen, setMode] = useState<Direction>(over ? 'in' : 'out')
+  const mode: Direction = wentOut ? chosen : 'out'
   const [camera, setCamera] = useState(false)
   const [typed, setTyped] = useState('')
   const [said, setSaid] = useState<Said>()
   // Scans that weren't recorded stay, said together, until someone dismisses them: the next scan doesn't wipe them.
   const [failed, setFailed] = useState<string[]>([])
   const field = useRef<HTMLInputElement>(null)
-  const pick = view.moves.pickList(job.id)!
   // Sending kit out and back is stock's (audit finding 9): a role without it reads the list, and can still report damage or a loss.
   const access = useAccess()
   const mayMove = access.can('stock')
@@ -247,6 +251,15 @@ function Pick({ view, job }: { view: View; job: JobView }) {
   const shown = part === 'all' ? inMode : inMode.filter((r) => departmentOfRow(r) === part)
   const byPlace = mode === 'out' && prefs.order === 'place'
   const total = totalLine(pick, shown, mode, part)
+  // Picking under way, the list opens on the first thing still to pick (ADR 0140, part 6), marked, in the middle of the screen so
+  // the scan box docked above doesn't cover it; a list not started opens at its top, where Before you start is.
+  useEffect(() => {
+    if (mode !== 'out') return
+    const done = shown.filter((r) => rowDone(r, 'out')).length
+    if (!done || done === shown.length) return
+    const first = document.querySelector<HTMLElement>('.pick-list .pick-row:not(.done)')
+    if (first) glideTo(first, { block: 'center', mark: first })
+  }, [])
 
   return (
     <div className="app jobs warehouse pick">
@@ -265,14 +278,16 @@ function Pick({ view, job }: { view: View; job: JobView }) {
       />
 
       <section className="card" aria-label="Scanning">
-        <div className="filters" role="group" aria-label="Going out or coming back">
-          <button type="button" aria-pressed={mode === 'out'} onClick={() => setMode('out')}>
-            Going out
-          </button>
-          <button type="button" aria-pressed={mode === 'in'} onClick={() => setMode('in')}>
-            Coming back
-          </button>
-        </div>
+        {wentOut && (
+          <div className="filters" role="group" aria-label="Going out or coming back">
+            <button type="button" aria-pressed={mode === 'out'} onClick={() => setMode('out')}>
+              Going out
+            </button>
+            <button type="button" aria-pressed={mode === 'in'} onClick={() => setMode('in')}>
+              Coming back
+            </button>
+          </div>
+        )}
         <p className={`pick-total${total.done ? ' done' : ''}`}>{total.text}</p>
         {mode === 'out' && <Brief view={view} job={job} today={today} />}
         {!mayMove && <p className="hint">{NOT_YOURS.scanning}</p>}
@@ -342,35 +357,31 @@ function Pick({ view, job }: { view: View; job: JobView }) {
 
       <section className="card pick-list" aria-label="Kit">
         <h2>{mode === 'out' ? 'Kit to go out' : 'Kit coming back'}</h2>
+        {/* Whose kit and in what order, in one choice (ADR 0140, part 6), so the first thing to pick sits right under it. */}
         {(parts.length > 1 || mode === 'out') && rows.length > 0 && (
-          <div className="pick-ways">
-            {parts.length > 1 && (
-              <div className="filters" role="group" aria-label="Whose kit">
-                <button type="button" aria-pressed={part === 'all'} onClick={() => setPrefs({ part: 'all' })}>
-                  All
-                </button>
-                {parts.map((d) => {
+          <label className="show-by">
+            Show
+            <select
+              value={part !== 'all' ? part : byPlace ? 'all:place' : 'all:department'}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === 'all:place' || v === 'all:department') setPrefs({ part: 'all', order: v === 'all:place' ? 'place' : 'department' })
+                else setPrefs({ part: v as Department })
+              }}
+            >
+              <option value="all:department">{parts.length > 1 ? 'Everything, by department' : 'By department'}</option>
+              {mode === 'out' && <option value="all:place">{parts.length > 1 ? "Everything, by where it's kept" : "By where it's kept"}</option>}
+              {parts.length > 1 &&
+                parts.map((d) => {
                   const left = inMode.filter((r) => departmentOfRow(r) === d && !rowDone(r, mode)).length
                   return (
-                    <button key={d} type="button" aria-pressed={part === d} onClick={() => setPrefs({ part: d })}>
-                      {DEPARTMENT_LABELS[d]}
-                      <span className="left">{left ? `${left.toLocaleString('en-IE')} left` : 'done'}</span>
-                    </button>
+                    <option key={d} value={d}>
+                      {DEPARTMENT_LABELS[d]} only · {left ? `${left.toLocaleString('en-IE')} left` : 'done'}
+                    </option>
                   )
                 })}
-              </div>
-            )}
-            {mode === 'out' && (
-              <div className="filters" role="group" aria-label="In what order">
-                <button type="button" aria-pressed={!byPlace} onClick={() => setPrefs({ order: 'department' })}>
-                  By department
-                </button>
-                <button type="button" aria-pressed={byPlace} onClick={() => setPrefs({ order: 'place' })}>
-                  By where it's kept
-                </button>
-              </div>
-            )}
-          </div>
+            </select>
+          </label>
         )}
         {rows.length === 0 && (
           <Empty>

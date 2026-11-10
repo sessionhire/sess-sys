@@ -3,6 +3,22 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: one job, one path, part 6: the pick list starts with the kit
+
+**Done (1.146.0)**
+
+- A job on its days with nothing scanned out is in Going out and its pick
+  list says "Due out today · 0 of 6 out", not "Out on the job".
+- The pick list's department chips and order buttons are one Show choice;
+  Going out or Coming back appears once something has gone out.
+- Opened partway through picking, it lands on the first row still to pick.
+- Next's "Pick the kit" carries the count.
+- Checked: new browser tests for the first day with nothing out and for
+  landing partway through; the pick test reads the Show choice; screens in
+  screens/one-path-6.
+
+**Next:** part 7, New quote as a sheet of its own, client first.
+
 ## 10 November 2026: one job, one path, part 5: each press moves the count
 
 **Done (1.145.0)**

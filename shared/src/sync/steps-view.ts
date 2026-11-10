@@ -17,8 +17,8 @@ import type { VehiclesView } from './vehicles-view.ts'
  * A job's stages and tasks (ADR 0073, ADR 0104) as a device sees them. The
  * stage the job is in is read from the job's own records: an enquiry or a
  * quote is Quoting; confirmed, it's Planning until the first scan out or
- * its first day, Going out until its first day, On the job until its last,
- * then Back until everything is in and deprepped. The tasks inside each
+ * its first day, Going out until its first day (or, with kit to pick and
+ * none scanned out, through its days), On the job until its last, then Back until everything is in and deprepped. The tasks inside each
  * stage say who each is down to, the day it's due by and whether it's
  * ticked, from what the server has sent with this device's own waiting
  * changes laid over it, and, for the tasks the app can tell for itself,
@@ -251,7 +251,11 @@ export function stepsView(
     const on = job.span !== undefined && job.span.start <= today && today <= job.span.end
     const openFaults = faults.ofJob(job.id).filter((f) => f.open).length
     // The stage, from the records alone: the status says sold or not, the scans say the kit is moving, the dates say the rest.
-    const stage: JobStage | 'through' = job.status !== 'confirmed' ? 'selling' : over ? 'back' : on ? 'on' : wentOut > 0 ? 'going' : 'planning'
+    // On its days with kit to pick and none of it scanned out, it's still going out, not out (ADR 0140, part 6): the warehouse
+    // isn't told the kit has gone when nothing has.
+    const unpicked = !!pick && pick.need > 0 && !anyOut
+    const stage: JobStage | 'through' =
+      job.status !== 'confirmed' ? 'selling' : over ? 'back' : on ? (unpicked ? 'going' : 'on') : wentOut > 0 ? 'going' : 'planning'
     const past = (s: JobStage) => JOB_STAGES.indexOf(stage) > JOB_STAGES.indexOf(s)
     // Still selling after its last day: nobody recorded the answer (ADR 0109).
     const lapsed = stage === 'selling' && over

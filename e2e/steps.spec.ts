@@ -181,6 +181,28 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   await expect(next.getByRole('button', { name: 'Settle the kit and vans' })).toBeVisible()
 })
 
+test('a job on its first day with nothing scanned out is due out, not out, and its pick list has only the one way', async ({ browser, request }) => {
+  // Proves (ADR 0140, part 6): the stage is said from the scans, not only the date, so the warehouse isn't told the kit has gone.
+  const id = Date.now().toString(36)
+  const job = `Inch Strand Gig ${id}`
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' })
+  await push(request, id, [
+    ['model.create', { id: `dm-${id}`, name: `Strand lamp ${id}`, department: 'lighting', category: 'Lamp', tracking: 'bulk', isCase: false, valueCents: null, notes: '' }],
+    ['project.create', { id: `d-${id}`, name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `dp-${id}`, projectId: `d-${id}`, name: 'Show', start: today, end: today, venueId: null, notes: '' }],
+    ['kit.add', { id: `dk-${id}`, projectId: `d-${id}`, phaseId: null, modelId: `dm-${id}`, qty: 6, subhireQty: 0, supplier: '', notes: '' }],
+  ])
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto(`/#jobs/d-${id}`)
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await expect(page.locator('.job-position').first()).toContainText('Going out')
+  // Next counts what's out, as the pick list's own dock does.
+  await page.getByRole('region', { name: 'Next' }).getByRole('link', { name: 'Pick the kit · 0 of 6 out' }).click()
+  await expect(page.getByRole('region', { name: 'Next' })).toHaveText('Next · Due out today · 0 of 6 out')
+  await expect(page.getByRole('group', { name: 'Going out or coming back' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Kit to go out' })).toBeVisible()
+})
+
 /** The id of the offer the office made to a person on a call, from what the server sends. */
 async function offerOf(request: APIRequestContext, callId: string, personId: string): Promise<string> {
   let after = 0
