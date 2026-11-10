@@ -380,6 +380,7 @@ interface NameFieldProps {
   disabled?: boolean
   placeholder?: string
   className?: string
+  autoFocus?: boolean
 }
 
 /** The client of a job or quote: one already here, found as it's typed, or a new one added when the form is saved (clientNamed). */

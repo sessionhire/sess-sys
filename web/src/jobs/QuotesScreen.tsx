@@ -35,7 +35,7 @@ import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { useToday, useView } from '../view.ts'
 import { ListTools, useListChoices } from '../ListTools.tsx'
 import { newQuoteAsked, Top, useHash } from './common.tsx'
-import { ToFollowUp } from './Money.tsx'
+import { NewQuoteScreen, ToFollowUp } from './Money.tsx'
 import { QuotePill } from './Quote.tsx'
 import { getJson, type Loaded } from './rms.ts'
 
@@ -62,11 +62,14 @@ export function QuotesScreen() {
         </section>
       </div>
     )
+  // New quote is a page of its own (ADR 0140, part 7), not a form opened inside To follow up.
+  const asked = newQuoteAsked(hash)
+  if (asked !== undefined) return <NewQuoteScreen key={asked} view={view} on={asked || undefined} />
   return (
     <div className="app crew jobs money quotes">
       <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
       <FromMailbox view={view} />
-      <ToFollowUp view={view} on={newQuoteAsked(hash)} />
+      <ToFollowUp view={view} />
       <AllQuotes view={view} />
     </div>
   )

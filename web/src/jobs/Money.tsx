@@ -55,10 +55,10 @@ import { Sideways } from '../more.tsx'
 import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
-import { JOBS, MONEY } from '../Up.tsx'
+import { JOBS, MONEY, QUOTES } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
-import { ClientField, clientNamed, contactAdded, NewOrNear, newQuoteAsked, newQuoteHref, Top, VenueField, venueNamed } from './common.tsx'
+import { ClientField, clientNamed, contactAdded, NewOrNear, newQuoteHref, Top, VenueField, venueNamed } from './common.tsx'
 import { useDesk } from '../foot.tsx'
 import { shortcutHint } from '../shortcuts.tsx'
 import { NameField } from '../NameField.tsx'
@@ -155,34 +155,20 @@ function FollowRow({ f, what, chase, late, when, children }: { f: QuoteToFollow;
  * waiting on the office, the longest waiting first: answered but the job not yet in step, sent with no answer (a call
  * after a week), and drafts not sent. Nothing here is sent to anyone: the office rings or emails the client themselves.
  */
-export function ToFollowUp({ view, on }: { view: View; on?: string | undefined }) {
+export function ToFollowUp({ view }: { view: View }) {
   const today = useToday()
   const desk = useDesk()
-  // Open already when the address asks (ADR 0120): a day pressed on the planner, or the shortcut for New quote.
-  const [starting, setStarting] = useState(on !== undefined)
-  const [asked, setAsked] = useState(on)
-  if (on !== asked) {
-    setAsked(on)
-    if (on !== undefined) setStarting(true)
-  }
-  const stop = () => {
-    setStarting(false)
-    // Back to Quotes itself, in place of the address that asked, so pressing the same day again opens it again.
-    if (newQuoteAsked(location.hash) !== undefined) location.replace('#quotes')
-  }
   const f = quotesToFollow(view.money, today, quoteWantedBy(view))
   const none = f.drafts.length + f.overDrafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
   return (
     <section className="card quotes-to-follow" aria-label="To follow up">
       <Heading icon="document">To follow up</Heading>
-      {/* Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1). */}
-      {!starting && (
-        <button type="button" onClick={() => setStarting(true)} title={desk ? shortcutHint(newQuoteHref()) : undefined}>
-          New quote
-        </button>
-      )}
-      {starting && <NewQuote key={asked ?? ''} view={view} on={asked || undefined} onCancel={stop} />}
-      {none && !starting && <Empty>No quote is waiting on anyone. Start a new one here, or from a job's page.</Empty>}
+      {/* Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1). A page of its
+          own (ADR 0140, part 7). */}
+      <a className="button" href={newQuoteHref()} title={desk ? shortcutHint(newQuoteHref()) : undefined}>
+        New quote
+      </a>
+      {none && <Empty>No quote is waiting on anyone. Start a new one here, or from a job's page.</Empty>}
       <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
     </section>
   )
@@ -359,6 +345,21 @@ function enquiryLine(by: string, how: EnquiryWay | ''): string {
   return `Enquiry${how ? ENQUIRY_WAY_WORDS[how] : ''}${who ? ` from ${who}` : ''}.`
 }
 
+/**
+ * New quote as a page of its own (ADR 0140, part 7): the client first, with the jobs and quotes like it to start from straight
+ * under it, then the job's name and days and Start; the rest of the enquiry folded under More about the enquiry.
+ */
+export function NewQuoteScreen({ view, on }: { view: View; on?: string | undefined }) {
+  return (
+    <div className="app crew jobs money quotes new-quote-page">
+      <Top view={view} title="New quote" up={{ steps: [QUOTES], here: 'New quote' }} heading="New quote" />
+      <section className="card">
+        <NewQuote view={view} on={on} onCancel={() => location.replace('#quotes')} />
+      </section>
+    </div>
+  )
+}
+
 function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined; onCancel: () => void }) {
   const me = useAccess().personId
   const today = useToday()
@@ -376,6 +377,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
   // Two shapes of quote (ADR 0128; audit of the quote flow, finding 10): a show has a venue, crew and travel; a dry hire is
   // collected and returned, so it asks for neither and its days are one Hire.
   const [hire, setHire] = useState(false)
+  const [more, setMore] = useState(false)
   const shapeId = useId()
   // Who asked is someone at the client, or anyone at any client while no client is chosen; a new name is added to the
   // client's contacts when the quote is started.
@@ -399,6 +401,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
     setF({ name: r.name || f.name, client: r.client || f.client, venue: r.venue || f.venue, start, end })
     setAsked({ by: r.asker || asked.by, how: asked.how, quoteBy: r.quoteBy && r.quoteBy >= today ? r.quoteBy : asked.quoteBy })
     setPhases(parts.length > 1 ? parts : [])
+    if (r.asker || r.quoteBy) setMore(true)
     setLines(offer(enquirySuggestions(r, pricingOf(view), eachDay(start, end).length)))
     setFromJob(undefined)
     setRead(r)
@@ -455,73 +458,9 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
           )}
         </section>
       )}
-      <fieldset className="choices quote-shape wide">
-        <legend>What kind of job</legend>
-        {/* Each named by its shape alone, with what it means said as its description. */}
-        <label className="signal">
-          <input type="radio" name="quote-shape" checked={!hire} onChange={() => setHire(false)} aria-labelledby={`${shapeId}-show-name`} aria-describedby={`${shapeId}-show`} />
-          <span>
-            <b id={`${shapeId}-show-name`}>A show</b> <span id={`${shapeId}-show`}>At a venue, with crew and travel</span>
-          </span>
-        </label>
-        <label className="signal">
-          <input type="radio" name="quote-shape" checked={hire} onChange={() => setHire(true)} aria-labelledby={`${shapeId}-hire-name`} aria-describedby={`${shapeId}-hire`} />
-          <span>
-            <b id={`${shapeId}-hire-name`}>A dry hire</b> <span id={`${shapeId}-hire`}>Kit collected and brought back, no crew</span>
-          </span>
-        </label>
-      </fieldset>
-      <label className="wide">
-        What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required autoFocus />
-      </label>
-      <ClientField jobs={view.jobs} optional value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
+      {/* The client first (ADR 0140, part 7): four in five quotes are for someone quoted before, so their jobs to start from come next. */}
+      <ClientField jobs={view.jobs} optional autoFocus value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
       <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-      {!hire && <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />}
-      {!hire && <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />}
-      <div className="pair">
-        <label>
-          {hire ? 'Collected' : 'From'} <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
-        </label>
-        <label>
-          {hire ? 'Brought back' : 'To'} <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
-        </label>
-      </div>
-      <div className="pair">
-        <label>
-          {/* Short enough for its half of the row at a desk (audit of the quote flow, finding 21). */}
-          Wanted by <span className="optional">(optional)</span>
-          <input type="date" value={asked.quoteBy} min={today} onChange={(e) => setAsked({ ...asked, quoteBy: e.target.value })} />
-        </label>
-        <label>
-          How it came <span className="optional">(optional)</span>
-          <select value={asked.how} onChange={(e) => setAsked({ ...asked, how: e.target.value as EnquiryWay | '' })}>
-            <option value="">Not said</option>
-            {ENQUIRY_WAYS.map((w) => (
-              <option key={w} value={w}>
-                {ENQUIRY_WAY_LABELS[w]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <NameField
-        label="Who asked"
-        optional
-        what={f.client.trim() ? `contact for ${chosenClient?.name ?? f.client.trim()}` : 'contact'}
-        value={asked.by}
-        onChange={(by) => setAsked((now) => ({ ...now, by }))}
-        records={askers}
-        first={chosenClient ? askers : []}
-        firstLabel="Their people"
-        meta={(o) => [o.record.role, !chosenClient && o.record.client].filter(Boolean).join(' · ')}
-        // Someone at a client, picked with no client yet, brings their client with them.
-        onPick={(o) => !f.client.trim() && setF((now) => ({ ...now, client: o.client }))}
-      />
-      {phases.length > 0 && !hire && (
-        <p className="hint wide">
-          In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
-        </p>
-      )}
       <FromPastJob
         view={view}
         client={f.client}
@@ -532,8 +471,82 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
         onPick={(jobId, offered) => {
           setFromJob(jobId)
           setLines(offered)
+          // Again for the same client, most often under the same name and at the same venue: filled in when still empty.
+          const past = jobId ? view.jobs.jobs.find((j) => j.id === jobId) : undefined
+          if (past) setF((now) => ({ ...now, name: now.name.trim() ? now.name : past.name, venue: now.venue.trim() ? now.venue : (past.venue?.name ?? '') }))
         }}
       />
+      <label className="wide">
+        What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required />
+      </label>
+      {!hire && <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />}
+      {!hire && <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />}
+      <div className="pair">
+        <label>
+          {hire ? 'Collected' : 'From'} <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+        </label>
+        <label>
+          {hire ? 'Brought back' : 'To'} <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
+        </label>
+      </div>
+      {phases.length > 0 && !hire && (
+        <p className="hint wide">
+          In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
+        </p>
+      )}
+      {/* The rest of the enquiry, folded until it's wanted (ADR 0140, part 7); open when Claude read any of it. */}
+      <details className="wide more-enquiry" open={more} onToggle={(e) => setMore(e.currentTarget.open)}>
+        <summary>More about the enquiry{hire ? ': a dry hire' : ''}</summary>
+        <div className="grid-form">
+          <fieldset className="choices quote-shape wide">
+            <legend>What kind of job</legend>
+            {/* Each named by its shape alone, with what it means said as its description. */}
+            <label className="signal">
+              <input type="radio" name="quote-shape" checked={!hire} onChange={() => setHire(false)} aria-labelledby={`${shapeId}-show-name`} aria-describedby={`${shapeId}-show`} />
+              <span>
+                <b id={`${shapeId}-show-name`}>A show</b> <span id={`${shapeId}-show`}>At a venue, with crew and travel</span>
+              </span>
+            </label>
+            <label className="signal">
+              <input type="radio" name="quote-shape" checked={hire} onChange={() => setHire(true)} aria-labelledby={`${shapeId}-hire-name`} aria-describedby={`${shapeId}-hire`} />
+              <span>
+                <b id={`${shapeId}-hire-name`}>A dry hire</b> <span id={`${shapeId}-hire`}>Kit collected and brought back, no crew</span>
+              </span>
+            </label>
+          </fieldset>
+          <div className="pair">
+            <label>
+              {/* Short enough for its half of the row at a desk (audit of the quote flow, finding 21). */}
+              Wanted by <span className="optional">(optional)</span>
+              <input type="date" value={asked.quoteBy} min={today} onChange={(e) => setAsked({ ...asked, quoteBy: e.target.value })} />
+            </label>
+            <label>
+              How it came <span className="optional">(optional)</span>
+              <select value={asked.how} onChange={(e) => setAsked({ ...asked, how: e.target.value as EnquiryWay | '' })}>
+                <option value="">Not said</option>
+                {ENQUIRY_WAYS.map((w) => (
+                  <option key={w} value={w}>
+                    {ENQUIRY_WAY_LABELS[w]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <NameField
+            label="Who asked"
+            optional
+            what={f.client.trim() ? `contact for ${chosenClient?.name ?? f.client.trim()}` : 'contact'}
+            value={asked.by}
+            onChange={(by) => setAsked((now) => ({ ...now, by }))}
+            records={askers}
+            first={chosenClient ? askers : []}
+            firstLabel="Their people"
+            meta={(o) => [o.record.role, !chosenClient && o.record.client].filter(Boolean).join(' · ')}
+            // Someone at a client, picked with no client yet, brings their client with them.
+            onPick={(o) => !f.client.trim() && setF((now) => ({ ...now, client: o.client }))}
+          />
+        </div>
+      </details>
       {offered.length > 0 && (
         <section className="wide" aria-label="Lines for the quote">
           <h3>Lines for the quote</h3>

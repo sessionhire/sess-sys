@@ -97,8 +97,8 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   // Off to start: New quote offers no Claude.
   await office.goto('/#quotes')
   const quotes = office.getByRole('region', { name: 'To follow up' })
-  await quotes.getByRole('button', { name: 'New quote' }).click()
-  await expect(quotes.getByRole('region', { name: 'From an enquiry' })).toHaveCount(0)
+  await quotes.getByRole('link', { name: 'New quote' }).click()
+  await expect(office.getByRole('region', { name: 'From an enquiry' })).toHaveCount(0)
 
   // Turned on under Admin › Company.
   await office.goto('/#admin')
@@ -114,8 +114,8 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await expect(office.getByRole('region', { name: 'The operations mailbox' })).toContainText('needs the Google key')
 
   await office.goto('/#quotes')
-  await quotes.getByRole('button', { name: 'New quote' }).click()
-  const form = quotes.getByRole('form', { name: 'New quote' })
+  await quotes.getByRole('link', { name: 'New quote' }).click()
+  const form = quotes.page().getByRole('form', { name: 'New quote' })
   // Pasting is the second way in, folded away: enquiries cc'd to operations@ are drafted by themselves.
   await form.getByText('Or paste an enquiry for Claude to read').click()
   await form.getByLabel('Paste an enquiry').fill('Hi, we have a launch at the Printworks on 4 and 5 March. Could you quote for 6 Y10Ps, 4 Spider moving heads, a hazer and two stagehands, delivered? Thanks, Liffey Brands')
