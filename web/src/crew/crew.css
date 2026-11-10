@@ -207,7 +207,6 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .person-page .who-card .title { align-items: center; }
 .person-page .who-name { flex: 1; min-width: 0; display: grid; gap: var(--ds-space-half); }
 .person-page .who-name p { font-size: var(--text-small); }
-.person-page .facts dd { overflow-wrap: anywhere; }
 .person-page .card > p, .person-page .documents p { font-size: var(--text-small); }
 .crew a.who { color: inherit; text-decoration: none; }
 .person-page .who-card a.button, .person-page .reach a.button { gap: var(--ds-space-2); }

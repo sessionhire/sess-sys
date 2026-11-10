@@ -54,6 +54,13 @@
   .jobs .jobs-card > .filters { flex-wrap: nowrap; }
   .jobs .jobs-card > .filters button { flex: 1 1 auto; min-width: 0; justify-content: center; white-space: normal; text-align: center; line-height: 1.2; padding-inline: var(--ds-space-2); }
 }
+/* The departments row on a phone (Colly, 10 November 2026: "All departments" was squeezed to "epartmen"): the caption size, in
+   three even columns, so the six make two tidy rows on Jobs, the calendar, the planner and the Board alike. A button's words wrap
+   inside it on a very narrow phone rather than being cut. */
+@media (max-width: 639px) {
+  .app .filters.departments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ds-space-1); }
+  .app .filters.departments button { min-width: 0; justify-content: center; text-align: center; white-space: normal; line-height: 1.2; font-size: var(--text-hint); padding-inline: var(--ds-space-1); }
+}
 .jobs .jobs-card .week-head { position: sticky; top: var(--under-top, 0px); z-index: 1; padding: var(--ds-space-2) 0 var(--ds-space-2); background: var(--panel); }
 .jobs .jobs-card .week-head h3 { margin: 0; }
 .jobs .jobs-card .week-head + li .job-row { border-top: 0; padding-top: var(--ds-space-1); }
@@ -126,7 +133,7 @@
 /* Today's column, faintly, all the way down, so it can be found in the middle of a long month. */
 .plan .timeline td.today { background-color: color-mix(in srgb, var(--ink) 5%, var(--panel)); }
 .plan .timeline .today-word { display: block; font-size: var(--text-pill); font-weight: 700; }
-.plan .timeline .day-quote { color: var(--accent-ink); display: inline-flex; align-items: center; min-height: 24px; margin-top: var(--ds-space-half); padding: 0 var(--ds-space-1); border: 0; border-radius: var(--radius-control); background: transparent; font-size: var(--text-pill); font-weight: 600; white-space: nowrap; }
+.plan .timeline .day-quote { color: var(--accent-ink); display: flex; width: fit-content; align-items: center; min-height: 24px; margin-top: var(--ds-space-half); padding: 0 var(--ds-space-1); border: 0; border-radius: var(--radius-control); background: transparent; font-size: var(--text-pill); font-weight: 600; white-space: nowrap; }
 
 /* The quote started on a day of the planner (ADR 0124): a card on the day, as a calendar makes an event. At a desk it hangs under the day,
    placed by QuickQuote.tsx from the day's rect, with no veil, so the week stays readable behind it and a click outside closes it (the
@@ -906,7 +913,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .master-cal .cal-swatch { display: inline-block; width: 1.4rem; height: .9rem; border-radius: 4px; background: var(--ink); }
 .master-cal .cal-swatch.dashed { border: 1px dashed var(--ink); background: transparent; margin-left: var(--ds-space-3); }
 .master-cal .cal-days, .master-cal .cal-days ul, .master-cal .cal-undated ul { list-style: none; margin: 0; padding: 0; }
-.master-cal .cal-days ul, .master-cal .cal-undated ul { display: grid; gap: var(--ds-space-1); }
+.master-cal .cal-days ul, .master-cal .cal-undated ul { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ds-space-1); }
 .master-cal .cal-undated h2 { margin: 0; }
 
 /* A job: a small block, as Google's events. Confirmed is filled; potential is its outline, dashed, the words in ink. */
@@ -931,6 +938,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .master-cal .cal-day .holiday-name { display: block; text-align: center; font-size: var(--text-pill); color: var(--muted); }
 .master-cal .cal-day .hint { margin: var(--ds-space-2) 0 0; }
 .master-cal .cal-day .cal-job { padding-block: var(--ds-space-1); }
+/* In the phone's list a day has the width to itself: a long name wraps, whole, and its part (Show 2/4) stays beside it. */
+.master-cal .cal-day .cal-job b { white-space: normal; overflow-wrap: break-word; }
+.master-cal .cal-day .cal-job small { flex: 0 1 auto; min-width: min-content; max-width: 40%; white-space: normal; overflow-wrap: break-word; }
 .master-cal .cal-day ul { padding-top: var(--ds-space-1); }
 
 /* A desk: the month grid. */
