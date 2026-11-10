@@ -39,6 +39,9 @@ test("a job's parts on a phone fade where there are more, the next part shows, a
 
   await row.click()
   const tabs = page.getByRole('tablist', { name: 'Parts of the job' })
+  // A meeting has no stages, so it opens on Phases (ADR 0140, part 8); from the first part, the row fades on the right.
+  await tabs.getByRole('tab').first().click()
+  await tabs.evaluate((el) => (el.scrollLeft = 0))
   await expect(tabs).toHaveAttribute('data-more', 'right')
   const open = tabs.getByRole('tab', { selected: true })
   const next = open.locator('xpath=following-sibling::*[1]')
@@ -46,8 +49,8 @@ test("a job's parts on a phone fade where there are more, the next part shows, a
   expect(after!.x + after!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
   await tabs.evaluate((el) => (el.scrollLeft = el.scrollWidth))
   await expect(tabs).toHaveAttribute('data-more', 'left')
-  // Quote, the last part, is there to be reached.
-  await expect(tabs.getByRole('tab', { name: /^Quote/ })).toBeInViewport()
+  // Show pack, the last part, is there to be reached.
+  await expect(tabs.getByRole('tab', { name: /^Show pack/ })).toBeInViewport()
 })
 
 test('Cmd-P prints the screen as it is, light and without the tabs, and a print sheet still prints alone', async ({ browser }) => {

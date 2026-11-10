@@ -58,7 +58,8 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   await expect(office.locator('.page-title-row .job-position')).toContainText('Planning')
   await expect(office.locator('.page-sub')).toContainText(named('Nissan Ireland', id))
   await expect(office.locator('.page-sub')).toContainText('Mon 7 Oct to Wed 9 Oct')
-  // A phase's call sheet and calendar line wait behind a tap on its details (audit finding 16).
+  // A phase's call sheet and calendar line wait behind a tap on its details (audit finding 16), under Phases.
+  await office.getByRole('tab', { name: /^Phases/ }).click()
   for (const phase of ['Build', 'Show']) await office.getByRole('article', { name: phase }).locator('summary').click()
   await expect(office.getByText(`Goes on the calendar as “${job} - Build 1/2” and “${job} - Build 2/2” once one is connected in Admin.`)).toBeVisible()
   await expect(office.getByText(`Goes on the calendar as “${job} - Show” once one is connected in Admin.`)).toBeVisible()
@@ -127,6 +128,7 @@ test('a job added with no signal waits on the phone, then goes through', async (
   await expect(phone.getByRole('status')).toContainText('No signal')
 
   // Its phase can be changed while it waits too; the change goes up after it (audit finding 23).
+  await phone.getByRole('tab', { name: /^Phases/ }).click()
   const phase = phone.getByRole('article', { name: 'Show', exact: true })
   await expect(phase.locator('.pill')).toHaveText('Waiting to sync')
   await phase.getByRole('button', { name: 'Change', exact: true }).click()

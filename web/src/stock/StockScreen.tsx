@@ -473,7 +473,7 @@ function ShortKit({ view }: { view: View }) {
   if (view.kit.short.length === 0) return null
   const row = (l: (typeof short)[number]) => (
     <li key={l.id}>
-      <a className="job-row" href={`#jobs/${l.projectId}`}>
+      <a className="job-row" href={`#jobs/${l.projectId}/kit`}>
         <div>
           <b>
             {productName(l)}: short {l.short}

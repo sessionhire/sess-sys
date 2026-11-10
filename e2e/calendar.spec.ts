@@ -258,6 +258,7 @@ test('each phase of a job says how it stands on the calendar', async ({ browser 
   await form.getByRole('button', { name: 'Add job' }).click()
   await expect(page.getByRole('heading', { name: job })).toBeVisible()
   await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('tab', { name: /^Phases/ }).click()
 
   const build = page.getByRole('article', { name: 'Build' })
   const show = page.getByRole('article', { name: 'Show' })

@@ -209,16 +209,17 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await expect(next).toContainText(/Nothing (here for you )?to press/)
   await expect(next.getByRole('button')).toHaveCount(0)
   await expect(next.getByRole('link')).toHaveCount(0)
+  // Each part of the job in turn, in the order the job goes (ADR 0059, ADR 0140 part 8), and no Quote for a role that doesn't see money.
+  await expect(main.getByRole('tab')).toHaveText([/^Crew/, 'Kit and vans', 'Phases 3', 'Show pack'])
+  await main.getByRole('tab', { name: 'Phases 3' }).click()
   await expect(main.getByRole('region', { name: 'Phases' })).toBeVisible()
-  // Each part of the job in turn (ADR 0059), and no Quote for a role that doesn't see money.
-  await expect(main.getByRole('tab')).toHaveText(['Phases 3', /^Crew/, 'Kit and vans', 'Show pack'])
   // The quote's address, typed or kept from before, says what it refused under a heading of its own (audit, 5 November 2026, finding 87).
   const jobAt = page.url()
   expect(jobAt).toMatch(/#jobs\/[^/]+/)
   await page.goto(jobAt.replace(/#jobs\/([^/]+).*/, '#jobs/$1/quote'))
   // The quote is the job's Quote tab (ADR 0140, part 4): the job opens, saying why there's no quote to see.
   await expect(main.getByRole('region', { name: 'Quote' })).toContainText('Quotes and prices are for the office and directors.')
-  await expect(main.getByRole('tab')).toHaveText(['Phases 3', /^Crew/, 'Kit and vans', 'Show pack'])
+  await expect(main.getByRole('tab')).toHaveText([/^Crew/, 'Kit and vans', 'Phases 3', 'Show pack'])
   await page.goto(jobAt)
   for (const part of ['Phases', 'Crew', 'Kit and vans', 'Show pack']) {
     await main.getByRole('tab', { name: new RegExp(`^${part}`) }).click()

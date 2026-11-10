@@ -54,6 +54,8 @@ async function jobWithNotes(page: Page, name: string, notes: string) {
   await page.getByRole('button', { name: 'Change details' }).click()
   await page.getByLabel('Notes', { exact: true }).fill(notes)
   await page.getByRole('button', { name: 'Save job' }).click()
+  // A new job opens on its next task's part (ADR 0140, part 8); the notes' kit is said under Kit and vans.
+  await page.getByRole('tab', { name: /^Kit and vans/ }).click()
   await expect(page.locator('.notes').first()).toContainText(notes.split('\n')[0]!)
 }
 
@@ -103,6 +105,7 @@ test("a job's notes become kit lines, checked first, and reading them again adds
 
   // On the job: the two lines, and nothing more to do with its notes.
   await page.getByRole('link', { name: job }).first().click()
+  await page.getByRole('tab', { name: /^Kit and vans/ }).click()
   await expect(kit.getByRole('article', { name: `4 × ${speaker}` })).toBeVisible()
   await expect(kit.getByRole('article', { name: `2 × ${amp}` })).toBeVisible()
   await expect(kit.locator('.notes-kit-link')).toContainText('What the notes list is on the job.')

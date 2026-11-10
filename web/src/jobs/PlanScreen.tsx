@@ -626,7 +626,7 @@ export function SortOut({
               {dayLabel(x.day)}: {x.text}
             </p>
           </div>
-          <a className="button" href={x.jobId ? `#jobs/${x.jobId}` : '#crew'}>
+          <a className="button" href={x.jobId ? `#jobs/${x.jobId}/crew` : '#crew'}>
             {x.jobId ? 'Open job' : 'Open Crew'}
           </a>
         </div>
@@ -640,7 +640,7 @@ export function SortOut({
               {dayLabel(x.day)}: {x.text}
             </p>
           </div>
-          <a className="button" href={x.jobId ? `#jobs/${x.jobId}` : vehicleHref(x.vehicle.id)}>
+          <a className="button" href={x.jobId ? `#jobs/${x.jobId}/kit` : vehicleHref(x.vehicle.id)}>
             {x.jobId ? 'Open job' : 'Open vehicle'}
           </a>
         </div>

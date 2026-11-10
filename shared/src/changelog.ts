@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.148.0',
+    date: '2026-11-10',
+    title: "A job's tabs in the order the job goes, opening where it is",
+    what: "On a job, the tabs now run in the order the work happens: Quote, Crew, Kit and vans, Phases, Show pack. A job opens on the tab its next task is in: the quote while it's being sold, the crew or kit while it's planned, the kit while it goes out and comes back, the phases while it's on. A job with nothing left to do opens where you last looked, as before. A link to a tab still opens that tab, and the links from a product's jobs, Stock's short kit and the planner's clashes now open the job's kit or crew.",
+    prs: [307],
+    adrs: [140],
+  },
+  {
     version: '1.147.0',
     date: '2026-11-10',
     title: 'New quote is a page of its own, client first',

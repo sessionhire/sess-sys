@@ -3,6 +3,16 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: one job, one path, part 8: tabs in stage order
+
+**Done (1.148.0)**
+
+- The job's tabs run Quote, Crew, Kit and vans, Phases, Show pack.
+- A job opens on the tab its next task is in; one with nothing left opens
+  where it was last looked at; a link to a tab still wins.
+- Checked: steps.spec opens a job being sold on Quote and one being
+  planned on Crew; the full browser suite.
+
 ## 10 November 2026: one job, one path, part 7: New quote, client first
 
 **Done (1.147.0)**
