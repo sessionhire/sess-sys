@@ -58,7 +58,7 @@ import { Split } from '../Split.tsx'
 import { ImportPeopleScreen } from './ImportPeople.tsx'
 import { Heading } from '../Icon.tsx'
 import { CallCard, NewCall, OfferForm } from './Calls.tsx'
-import { NamedFromAddress, NewPerson, PersonRow, found, wordsOf } from './People.tsx'
+import { NewPerson, PersonRow, found, wordsOf } from './People.tsx'
 import { type Share, SharePanelFor, promptFor, tellTo } from './Messages.tsx'
 
 /**
@@ -701,7 +701,6 @@ export function CrewScreen() {
         >
           <section className="card" aria-label="People">
             <Heading icon="people">People</Heading>
-            <NamedFromAddress view={view} />
             <Refusal error={roster.error} />
             {/* Said where their row was, as the row goes into "Archived" out of sight, with the way back (rule 10). There before it has words, so it's read out. */}
             <div aria-live="polite">

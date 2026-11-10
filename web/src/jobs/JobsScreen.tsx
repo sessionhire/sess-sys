@@ -55,12 +55,12 @@ import { useToday, useView, useWide } from '../view.ts'
 import { Beside, ClientField, clientNamed, NewOrNear, JobStatusPill, Top, useHash, VenueField, venueNamed, type PageAdd } from './common.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
-import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
+import { TidyScreen } from './TidyScreen.tsx'
 import { JOB_PARTS, JobScreen, type JobPart } from './JobScreen.tsx'
 import { kitShort } from './Kit.tsx'
 import { MoneyScreen, PricesScreen } from './Money.tsx'
 import { MatchScreen, PastQuoteScreen, PastQuotesScreen } from './PastQuotes.tsx'
-import { NotesKitListScreen, NotesKitNudge, NotesKitScreen } from './NotesKit.tsx'
+import { NotesKitListScreen, NotesKitScreen } from './NotesKit.tsx'
 import { PickScreen } from './PickScreen.tsx'
 import { SheetScreen } from './SheetScreen.tsx'
 import { BoardScreen } from './BoardScreen.tsx'
@@ -206,7 +206,7 @@ function JobSearch() {
   return <input className="search" type="search" placeholder="Find a job, client or venue" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find" />
 }
 
-/** Beside the list on a laptop, under it on a phone: the nudges, and on a laptop the new job's form once New job is pressed. */
+/** Beside the list on a laptop: the new job's form once New job is pressed. Tidying up and kit in the notes live under Menu and Admin, not here (Colly, 10 November 2026). */
 function JobsRest({ view, phone = false }: { view: View; phone?: boolean }) {
   const mayAdd = useAccess().can('jobs')
   return (
@@ -220,8 +220,6 @@ function JobsRest({ view, phone = false }: { view: View; phone?: boolean }) {
           </Fold>
         </section>
       )}
-      <TidyNudge view={view} />
-      <NotesKitNudge view={view} />
     </>
   )
 }

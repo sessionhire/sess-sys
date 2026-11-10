@@ -72,36 +72,9 @@ export function tidyFor(view: View): Tidy {
   return kept.tidy
 }
 
-/** How much there is to tidy, for the line on Jobs and Crew. */
+/** How much there is to tidy. */
 export function tidyCount(t: Tidy) {
   return t.same.length + t.twice.length + t.people.length + t.venues.length + t.small.length
-}
-
-/** On Jobs, once a calendar has been brought in and there's something to tidy. */
-export function TidyNudge({ view }: { view: View }) {
-  const mayJobs = useAccess().can('jobs')
-  // Before any of the work: with nothing from a calendar there's nothing to say (audit, 20 October 2026, finding 2).
-  if (!mayJobs || !view.jobs.jobs.some((j) => j.sourceCalendar)) return null
-  return <Nudge view={view} />
-}
-
-function Nudge({ view }: { view: View }) {
-  const t = tidyFor(view)
-  const parts = [
-    t.same.length && plural(t.same.length, 'job', 'jobs') + ' brought in as several',
-    t.twice.length && plural(t.twice.length, 'person', 'people') + ' brought in twice',
-    t.people.length && plural(t.people.length, 'person', 'people') + ' named from their address',
-    t.venues.length && plural(t.venues.length, 'venue', 'venues') + ' to put on jobs',
-  ].filter(Boolean)
-  if (!parts.length) return null
-  return (
-    <section className="card notes-kit-nudge" aria-label="Tidy up what came in">
-      <Heading icon="calendar">Tidy up what came in</Heading>
-      <p>
-        From the calendars: {parts.join(', ')}. <a href="#jobs/tidy">Tidy them up</a>
-      </p>
-    </section>
-  )
 }
 
 export function TidyScreen({ view }: { view: View }) {

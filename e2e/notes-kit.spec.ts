@@ -133,8 +133,7 @@ test('Kit in the notes adds every job with nothing to check in one go, with no s
   await jobWithNotes(page, sure, `Audio\n6 x ${speaker}`)
   await jobWithNotes(page, guess, `Audio\n1 x ${speaker}\n3 x D20 ${id}`)
 
-  await page.goto('/#jobs')
-  await page.getByRole('region', { name: 'Kit in the notes' }).getByRole('link', { name: 'Work through them' }).click()
+  await page.goto('/#jobs/notes-kit')
   await expect(page.getByRole('heading', { level: 1, name: 'Kit in the notes' })).toBeVisible()
   const readySection = page.getByRole('region', { name: 'Ready to add' })
   const check = page.getByRole('region', { name: 'To check' })
