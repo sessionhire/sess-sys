@@ -169,7 +169,10 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   await expect(next.getByRole('button')).toHaveCount(0)
 
   // Brian says yes on his link; the next press confirms him and the crew are booked.
-  await push(request, `${id}-b`, [['offer.respond', { id: (await offerOf(request, `mc-${id}`, `mb-${id}`)), answer: 'accept', days: null, note: '' }]])
+  // The offer reaches the server a moment after the press, so look until it's there.
+  let offer = ''
+  await expect.poll(async () => (offer = (await offerOf(request, `mc-${id}`, `mb-${id}`)) ?? ''), { timeout: 8000 }).not.toBe('')
+  await push(request, `${id}-b`, [['offer.respond', { id: offer, answer: 'accept', days: null, note: '' }]])
   await expect(next).toContainText("Confirm Brian's yes", { timeout: 8000 })
   await next.getByRole('button', { name: `Confirm Brian's yes · 1 of 2 booked` }).click()
   // Then the short kit: Subhire open with the first tick in focus; subhiring it takes the count down to nothing.
@@ -203,8 +206,8 @@ test('a job on its first day with nothing scanned out is due out, not out, and i
   await expect(page.getByRole('heading', { name: 'Kit to go out' })).toBeVisible()
 })
 
-/** The id of the offer the office made to a person on a call, from what the server sends. */
-async function offerOf(request: APIRequestContext, callId: string, personId: string): Promise<string> {
+/** The id of the offer the office made to a person on a call, from what the server sends; undefined while it hasn't arrived. */
+async function offerOf(request: APIRequestContext, callId: string, personId: string): Promise<string | undefined> {
   let after = 0
   for (;;) {
     const { changes, cursor, more } = (await (await request.get(`/api/sync/pull?after=${after}`)).json()) as {
@@ -214,7 +217,7 @@ async function offerOf(request: APIRequestContext, callId: string, personId: str
     }
     const found = changes.find((c) => c.entity === 'offer' && c.data?.callId === callId && c.data.personId === personId)
     if (found) return found.id
-    if (!more) throw new Error('No offer to find')
+    if (!more) return undefined
     after = cursor
   }
 }
