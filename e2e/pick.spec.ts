@@ -451,6 +451,10 @@ test('picking on the phone: whose kit, a walk round the warehouse, notes, Undo a
 
   // Picking under way, the list opens on the first thing still to pick (ADR 0140, part 6), rather than at the top again.
   await pickRow(page, cable).getByRole('button', { name: 'Count out the 20' }).click()
+  await expect(said).toHaveText(`20 × ${cable} counted out.`)
+  await expect(page.locator('.pick-total')).toHaveText('20 of 24 out')
+  // Sent, not only on this phone, before the page is opened again.
+  await expect(page.locator('.pick-row .pill')).toHaveCount(0)
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await page.reload()
   await expect(page.locator('.pick-total')).toHaveText('20 of 24 out')
