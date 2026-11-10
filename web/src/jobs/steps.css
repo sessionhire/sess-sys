@@ -185,6 +185,12 @@
 .board-item[data-dragging='true'] .board-grip { cursor: grabbing; }
 /* While one is held, every other card is a place to put it. */
 .board-cards[data-holding] .board-item:not([data-dragging]) .board-card { cursor: copy; border-style: dashed; border-color: var(--field-line); }
+/* A card with who has its stage is drawn by its box (ADR 0144), so the box takes the held and drop-target looks. */
+.board-item[data-dragging='true'] .board-owned { background-image: linear-gradient(var(--ds-wash-dragged), var(--ds-wash-dragged)); box-shadow: var(--ds-elevation-menu); }
+.board-cards[data-holding] .board-item[data-dragging='true'] .board-owned { outline: 2px solid var(--accent); outline-offset: 1px; }
+.board-cards[data-holding] .board-item:not([data-dragging]) .board-owned { cursor: copy; border-style: dashed; border-color: var(--field-line); }
+.board-item .board-owned > .board-card { background-image: none; box-shadow: none; outline: 0; }
+.board-cards[data-holding] .board-item[data-dragging='true'] .board-owned > .board-card { outline: 0; }
 /* Where a dragged card will land, drawn before it's let go; nothing else moves (the design system's drag and drop). */
 .board-item[data-drop]::before { content: ''; position: absolute; left: 0; right: 0; height: 2px; border-radius: 1px; background: var(--accent); }
 .board-item[data-drop='before']::before { top: calc(-1 * var(--ds-space-2) / 2 - 1px); }
@@ -195,9 +201,23 @@
 .board-line { margin-top: var(--ds-space-1); font-size: var(--text-small); color: var(--muted); }
 .board-line[data-tone='warn'] { color: var(--warn); font-weight: 600; }
 .board-line[data-tone='bad'] { color: var(--bad); font-weight: 600; }
+/* Who has the stage the job is in, at the card's foot (ADR 0144): the card and its foot are one box, the link above and the
+   stage's own Down to under it, so changing who has it never opens the job. The column names the stage, so the foot is a person
+   and a name: a select with no edge until it's pointed at, still the full 44px every field is, for gloves. */
+.app .board-owned { display: grid; background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); }
+.app .board-owned > .board-card { background: transparent; border: 0; padding-bottom: 0; }
+.stage-owner { display: flex; align-items: center; gap: var(--ds-space-1); margin: 0; padding: 0 calc(var(--inset-box) - var(--ds-space-2)) var(--ds-space-1) var(--inset-box); font-size: var(--text-small); color: var(--muted); }
+p.stage-owner { min-height: 44px; }
+.stage-owner label { display: flex; align-items: center; gap: var(--ds-space-1); flex: 1 1 auto; min-width: 0; }
+.stage-owner .icon { flex: none; width: 16px; height: 16px; }
+.stage-owner select { flex: 1 1 auto; min-width: 0; font-size: var(--text-small); font-weight: 600; padding: 0 var(--ds-space-1); background-color: transparent; border-color: transparent; color: var(--ink); cursor: pointer; }
+.stage-owner select:hover, .stage-owner select:focus-visible { border-color: var(--field-line); }
+.stage-owner label[data-none] select, p.stage-owner[data-none] { color: var(--muted); font-weight: 400; }
+.stage-owner-refusal { flex-basis: 100%; }
 @media (hover: hover) {
   .app .board-card:hover { border-color: var(--field-line); }
   .app .board-card:hover b { text-decoration: underline; text-underline-offset: 3px; }
+  .app .board-owned:has(> .board-card:hover) { border-color: var(--field-line); }
 }
 @media (max-width: 639px) {
   .board { grid-template-columns: repeat(6, 78vw); scroll-snap-type: x proximity; }

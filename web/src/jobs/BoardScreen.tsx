@@ -1,9 +1,10 @@
-import { addDays, byBoardOrder, dayLabel, rankedAfterDrop, type JobStage, firstName, JOB_STAGES, jobPosition, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
+import { addDays, byBoardOrder, dayLabel, rankedAfterDrop, type JobStage, JOB_STAGES, jobPosition, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
 import { useState } from 'react'
 import { client } from '../sync.ts'
 import { useAct, Refusal } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { OrderedCards } from './BoardOrder.tsx'
+import { StageOwner } from './StageOwner.tsx'
 import { arrival } from '../arrival.ts'
 import { useToday } from '../view.ts'
 import { Top, useJobAdd } from './common.tsx'
@@ -139,14 +140,14 @@ export function BoardScreen({ view }: { view: View }) {
             </header>
             {c.jobs.length === 0 && <p className="hint board-empty">None</p>}
             {c.key === 'planning' ? (
-              <PlanningBands jobs={c.jobs} today={today} canOrder={canOrder} say={say} onOrder={(groups, group, now, id) => order('planning', groups, group, now, id)} />
+              <PlanningBands view={view} jobs={c.jobs} today={today} canOrder={canOrder} say={say} onOrder={(groups, group, now, id) => order('planning', groups, group, now, id)} />
             ) : (
               <OrderedCards
                 jobs={c.jobs}
                 where={c.label}
                 canOrder={canOrder}
                 say={say}
-                card={(s) => <BoardCard steps={s} today={today} kit={c.key === 'back' ? toCheck.get(s.job.id) : undefined} />}
+                card={(s) => <BoardCard view={view} steps={s} today={today} kit={c.key === 'back' ? toCheck.get(s.job.id) : undefined} />}
                 onOrder={(now, id) => order(c.key, [c.jobs], 0, now, id)}
               />
             )}
@@ -156,7 +157,7 @@ export function BoardScreen({ view }: { view: View }) {
                   <h3>{listHeading(LAPSED, lapsed.length)}</h3>
                 </summary>
                 {lapsed.map((s) => (
-                  <BoardCard key={s.job.id} steps={s} today={today} />
+                  <BoardCard key={s.job.id} view={view} steps={s} today={today} />
                 ))}
               </details>
             )}
@@ -174,7 +175,7 @@ export function BoardScreen({ view }: { view: View }) {
           </header>
           {through.length === 0 && <p className="hint board-empty">None</p>}
           {through.map((s) => (
-            <BoardCard key={s.job.id} steps={s} today={today} />
+            <BoardCard key={s.job.id} view={view} steps={s} today={today} />
           ))}
         </section>
       </div>
@@ -188,12 +189,14 @@ export function BoardScreen({ view }: { view: View }) {
  * left out. Weeks run Monday to Sunday, as the planner's do; a job with no dates goes under Later.
  */
 function PlanningBands({
+  view,
   jobs,
   today,
   canOrder,
   say,
   onOrder,
 }: {
+  view: View
   jobs: JobSteps[]
   today: string
   canOrder: boolean
@@ -217,7 +220,7 @@ function PlanningBands({
       where={where}
       canOrder={canOrder}
       say={say}
-      card={(s) => <BoardCard steps={s} today={today} />}
+      card={(s) => <BoardCard view={view} steps={s} today={today} />}
       onOrder={(now, id) => onOrder(groups, g, now, id)}
     />
   )
@@ -264,14 +267,13 @@ function columnWord(jobs: JobSteps[], kit?: ReadonlyMap<string, KitToCheck>): st
  * long, in the bad tone when a task is late and the warn tone when something is short or kit is late back. Kit to check
  * back in is said as Home and Stock list it, which says when the job ended.
  */
-function BoardCard({ steps, today, kit }: { steps: JobSteps; today: string; kit?: KitToCheck }) {
-  const { job, stage, current } = steps
+function BoardCard({ view, steps, today, kit }: { view: View; steps: JobSteps; today: string; kit?: KitToCheck }) {
+  const { job, stage } = steps
   const where = [job.client?.name, job.venue?.name].filter(Boolean).join(' · ')
   const when = job.span ? (job.span.end < today && !kit ? `ended ${dayLabel(job.span.end)}` : spanLabel(job.span)) : 'No dates yet'
   const late = steps.steps.filter((t) => t.late)
   let line = ''
   let tone: 'warn' | 'bad' | undefined
-  let owner = true
   const deprep = steps.steps.find((t) => t.key === 'deprep')
   if (steps.finished) line = deprep?.ticked ? `Deprepped ${dayLabel(deprep.ticked.at.slice(0, 10))}` : deprep?.auto ? 'Through: nothing still out' : 'Deprepped'
   else if (steps.lapsed) {
@@ -285,43 +287,45 @@ function BoardCard({ steps, today, kit }: { steps: JobSteps; today: string; kit?
     if (kit.late) tone = 'warn'
   } else {
     // The position's own words and tone, as the job's head, the Jobs list and Home say them (Move 7 of the sweep of 6 November
-    // 2026): the column already names the stage, so the card says what's short or waiting, whose it is, and when.
+    // 2026): the column already names the stage, so the card says what's short or waiting, and when. Whose it is is said once,
+    // at the card's foot, where it's changed (ADR 0144).
     const p = jobPosition(steps)
     // In Planning the crew and the kit say where they stand as two dots in the footer (Colly, 10 November 2026), so the line
-    // keeps only whose it is and when, and its colour only for a task that's late.
+    // keeps only when, and its colour only for a task that's late.
     const dots = stage?.key === 'planning'
-    line = [dots ? undefined : p?.hint, p?.owner, p?.time].filter(Boolean).join(' · ')
+    line = [dots ? undefined : p?.hint, p?.time].filter(Boolean).join(' · ')
     tone = dots && p?.tone !== 'bad' ? undefined : p?.tone
-    owner = false
   }
   const marks = stage?.key === 'planning' && !steps.lapsed ? (['crew', 'kit'] as const).map((key) => readiness(steps, key)).filter((m): m is Readiness => !!m) : []
   return (
-    <a className="board-card" href={`#jobs/${encodeURIComponent(job.id)}`}>
-      <b>{job.name}</b>
-      <p>{[where, when].filter(Boolean).join(' · ')}</p>
-      {(line || marks.length > 0) && (
-        <span className="board-foot">
-          {line && (
-            <span className="board-line" data-tone={tone}>
-              {line}
-              {owner && current?.owner && ` · ${firstName(current.owner)}`}
-            </span>
-          )}
-          {marks.length > 0 && (
-            <span className="board-marks">
-              {marks.map((m) => (
-                <span key={m.label} className="board-mark" data-state={m.state} title={m.said}>
-                  {m.label}
-                  {m.count && <small>{m.count}</small>}
-                  <i aria-hidden="true" />
-                  <span className="sr-only">: {m.said}</span>
-                </span>
-              ))}
-            </span>
-          )}
-        </span>
-      )}
-    </a>
+    <div className="board-owned">
+      <a className="board-card" href={`#jobs/${encodeURIComponent(job.id)}`}>
+        <b>{job.name}</b>
+        <p>{[where, when].filter(Boolean).join(' · ')}</p>
+        {(line || marks.length > 0) && (
+          <span className="board-foot">
+            {line && (
+              <span className="board-line" data-tone={tone}>
+                {line}
+              </span>
+            )}
+            {marks.length > 0 && (
+              <span className="board-marks">
+                {marks.map((m) => (
+                  <span key={m.label} className="board-mark" data-state={m.state} title={m.said}>
+                    {m.label}
+                    {m.count && <small>{m.count}</small>}
+                    <i aria-hidden="true" />
+                    <span className="sr-only">: {m.said}</span>
+                  </span>
+                ))}
+              </span>
+            )}
+          </span>
+        )}
+      </a>
+      <StageOwner view={view} steps={steps} />
+    </div>
   )
 }
 
