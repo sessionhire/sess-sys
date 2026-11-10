@@ -248,11 +248,16 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
         </div>
       </div>
 
-      {rows !== 'jobs' && <div className="list-tools-row">{rowsGroup}</div>}
-      {/* The departments in Filter, as on the list (Colly, 10 November 2026), while the rows are jobs: a person or a van isn't a department's. */}
-      {rows === 'jobs' && (
-        <ViewFilter name="plan" what="jobs" start={rowsGroup} pills={<DepartmentFilter pills picked={picked} onChange={setPicked} />} active={departmentChips(picked, setPicked)} onClear={() => setPicked([])} />
-      )}
+      {/* The departments in Filter, as on the list (Colly, 10 November 2026), while the rows are jobs: a person or a van isn't a
+          department's. The rows' choice stays put either way, so a press on it keeps its focus. */}
+      <ViewFilter
+        name="plan"
+        what="jobs"
+        start={rowsGroup}
+        pills={rows === 'jobs' ? <DepartmentFilter pills picked={picked} onChange={setPicked} /> : undefined}
+        active={rows === 'jobs' ? departmentChips(picked, setPicked) : []}
+        onClear={() => setPicked([])}
+      />
 
       <SortOut problems={p.problems} vanProblems={p.vanProblems} short={shortSoon(view.crew, now)} />
 

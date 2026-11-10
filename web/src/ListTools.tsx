@@ -220,7 +220,8 @@ export function ViewFilter({
 }: {
   name: string
   what: string
-  pills: ReactNode
+  /** Left out where the view has nothing to filter just now, and Filter with it. */
+  pills?: ReactNode
   active: readonly { key: string; label: string; off: () => void }[]
   onClear: () => void
   start?: ReactNode
