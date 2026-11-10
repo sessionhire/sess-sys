@@ -3,6 +3,24 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: the Jobs list reads top to bottom
+
+**Done (1.149.0, ADR 0141)**
+
+- A list page's add is on its title's line: New job, New product, New
+  place, New person, New vehicle, New rack; the form opens at the top of
+  the list (New job's beside it on a laptop).
+- Jobs: search under the title, then the views under a "Views" heading,
+  then Sort and Filter. Every area's views now sit under the title.
+- Coming up / Past / Not going ahead, the five departments and Mine are
+  pills in Jobs' filter panel; each one picked is a chip above the list.
+- The Google Calendar line is off the Jobs list (Menu and Admin keep it).
+- Checked: the browser tests that add to a list or use the Jobs list's
+  choices; screens in screens/list-story.
+
+**Open:** the calendar, week and Board keep their departments row on the
+page, as it is their one choice.
+
 ## 10 November 2026: one job, one path, part 8: tabs in stage order
 
 **Done (1.148.0)**

@@ -60,14 +60,25 @@ export function useJobDepartments(view: View): { picked: JobDepartment[]; setPic
  * one adds it to what's shown; All clears them. `count` says how many a
  * department would show, where the screen counts.
  */
-export function DepartmentFilter({ picked, onChange, count }: { picked: readonly JobDepartment[]; onChange: (next: JobDepartment[]) => void; count?: (d: JobDepartment) => number }) {
+export function DepartmentFilter({
+  picked,
+  onChange,
+  count,
+  pills = false,
+}: {
+  picked: readonly JobDepartment[]
+  onChange: (next: JobDepartment[]) => void
+  count?: (d: JobDepartment) => number
+  /** As pills in a list's filter panel, under the word Departments (the Jobs list, Colly, 10 November 2026), rather than a row on the page. */
+  pills?: boolean
+}) {
   // A toggle, not a move, so it keeps focus, as the calendar's and planner's do (Safari doesn't focus a button it presses).
   const press = (next: JobDepartment[]) => (e: MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.focus()
     onChange(next)
   }
-  return (
-    <div className="filters departments" role="group" aria-label="Departments">
+  const row = (
+    <div className={pills ? 'pills departments' : 'filters departments'} role="group" aria-label="Departments">
       <button type="button" aria-pressed={picked.length === 0} onClick={press([])}>
         All departments
       </button>
@@ -80,6 +91,15 @@ export function DepartmentFilter({ picked, onChange, count }: { picked: readonly
           </button>
         )
       })}
+    </div>
+  )
+  if (!pills) return row
+  return (
+    <div className="pill-group">
+      <span className="pill-label" aria-hidden="true">
+        Departments
+      </span>
+      {row}
     </div>
   )
 }

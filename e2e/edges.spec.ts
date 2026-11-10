@@ -101,7 +101,7 @@ test("Add person says a bad email in a line that stays, and Tab out of Skills la
   await page.goto('/#crew/people')
   await expect(page.getByRole('status')).toHaveText('Up to date')
   const form = page.getByRole('form', { name: 'Add person' })
-  if (!(await form.count())) await page.getByRole('button', { name: 'Add person' }).click()
+  if (!(await form.count())) await page.getByRole('button', { name: 'New person' }).click()
   await form.getByLabel('First name').fill(`Edges ${id}`)
   await form.getByLabel('Email').fill('edges.example.com')
   await form.getByRole('button', { name: 'Add person' }).click()
@@ -123,7 +123,7 @@ test("the skills on offer open above the box when it's low on a phone, clear of 
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#crew/people')
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByRole('button', { name: 'New person' }).click()
   const form = page.getByRole('form', { name: 'Add person' })
   const skills = form.getByRole('combobox', { name: 'Skills' })
   // The box put just above the tabs, as when the form is scrolled to there: the form moved down the screen until it is.

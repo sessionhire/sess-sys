@@ -304,6 +304,13 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .page-head { display: grid; gap: var(--ds-space-1); margin-top: var(--ds-space-1); }
 .page-words { display: grid; gap: var(--ds-space-1); min-width: 0; flex: 1; }
 .page-title-row { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); }
+/* A list's add on its title's line (pageAdd.ts), at the right, so the page says what it is and how to add to it in one look. */
+.app .page-add { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: var(--ds-space-1); white-space: nowrap; }
+.app .page-add .icon { width: 18px; height: 18px; }
+/* The area's views under a small heading of their own (Colly, 10 November 2026), after the title and the search, so the row reads as a choice
+   of how to see the page rather than as its title. The heading is the label face, as a week's head in a list is. */
+.views-part { display: grid; gap: var(--ds-space-1); }
+.app .views-heading { margin: 0; font-size: var(--text-pill); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .app .page-head .page-sub { margin: 0; color: var(--muted); display: grid; gap: var(--ds-space-half); }
 .app .page-head .page-sub p { margin: 0; }
 /* The page's title, large, so Home, Calls, Catalogue and Admin read as different places (ADR 0033), and the biggest words on the screen. */
@@ -359,6 +366,13 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .app .list-active { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-2); font-size: var(--text-small); }
 .app .list-chip { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border-radius: 999px; background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: var(--text-small); }
 .app .list-chip .icon { width: 14px; height: 14px; }
+/* A filter whose choices are few and can be seen at once (Colly, 10 November 2026): pills across the filter panel, pressed to narrow, as many
+   as wanted, each with how many it would show; the panel's selects follow them. */
+.app .list-filters .pill-group { grid-column: 1 / -1; display: grid; gap: var(--stack); }
+.app .list-filters .pill-label { font-size: var(--text-hint); color: var(--muted); }
+.app .pills { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.app .pills button { display: inline-flex; align-items: center; min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border-radius: 999px; font-size: var(--text-small); white-space: nowrap; }
+.app .pills button[aria-pressed='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .app .list-count { color: var(--muted); }
 .menu .places { display: grid; gap: var(--section); }
 .menu .job-row { justify-content: flex-start; }

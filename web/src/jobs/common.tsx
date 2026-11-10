@@ -11,6 +11,14 @@ import { client } from '../sync.ts'
 import { ThemeButton } from '../ThemeButton.tsx'
 import { Up, type Trail } from '../Up.tsx'
 import { useTopBar } from '../useUnderTop.ts'
+import { Icon } from '../Icon.tsx'
+import { askToAdd } from '../pageAdd.ts'
+
+/** A list page's add, on its title's line (pageAdd.ts): the list's name, and what the button says ("New job"). */
+export interface PageAdd {
+  key: string
+  label: string
+}
 
 /** What the Jobs screens share, and Stock and Crew too: the header, a record's page, and picking or adding a client or venue by name. */
 
@@ -63,10 +71,16 @@ export function Top({
   sub,
   picture,
   actions,
+  add,
+  lead,
 }: {
   view: View
   title?: string
   root?: boolean
+  /** The list's add, right of the title on the same line (pageAdd.ts). */
+  add?: PageAdd
+  /** Straight under the title, before the views: the list's search, the first thing done on it (Colly, 10 November 2026). */
+  lead?: ReactNode
   aside?: ReactNode
   /** The page's one next thing (NextDock.tsx, ADR 0104): right of the title on a desk, docked above the bar on a phone. */
   actions?: ReactNode
@@ -122,8 +136,18 @@ export function Top({
         {up && <Up {...up} />}
         {notDone.list}
       </header>
-      {views}
-      {(heading ?? root) && <PageHead heading={heading ?? title} badge={badge} sub={sub} picture={picture} actions={actions} />}
+      {/* The page's story in order (Colly, 10 November 2026): what this is and the way to add to it, then finding in it, then the
+          other ways of seeing it, under a heading of their own so they read as a choice rather than as the page's title. */}
+      {(heading ?? root) && <PageHead heading={heading ?? title} badge={badge} sub={sub} picture={picture} actions={actions} add={add} />}
+      {lead}
+      {views && (
+        <section className="views-part" aria-labelledby="views-heading">
+          <h2 className="views-heading" id="views-heading">
+            Views
+          </h2>
+          {views}
+        </section>
+      )}
       <OnThisScreen />
     </>
   )
@@ -195,12 +219,32 @@ export function Page({
 }
 
 /** The page's title, outside any card: the one h1, the biggest words on the screen (ADR 0082). */
-function PageHead({ heading, badge, sub, picture, actions }: { heading: ReactNode; badge?: ReactNode; sub?: ReactNode; picture?: ReactNode; actions?: ReactNode }) {
+function PageHead({
+  heading,
+  badge,
+  sub,
+  picture,
+  actions,
+  add,
+}: {
+  heading: ReactNode
+  badge?: ReactNode
+  sub?: ReactNode
+  picture?: ReactNode
+  actions?: ReactNode
+  add?: PageAdd
+}) {
   const words = (
     <div className="page-words">
       <div className="page-title-row">
         <h1 className="page-title">{heading}</h1>
         {badge}
+        {add && (
+          <button type="button" className="page-add" data-add={add.key} onClick={() => askToAdd(add.key)}>
+            <Icon name="add" />
+            {add.label}
+          </button>
+        )}
       </div>
       {sub && <div className="page-sub">{sub}</div>}
     </div>
@@ -231,11 +275,16 @@ export function Beside({
   list,
   open,
   up,
+  add,
+  lead,
   children,
 }: {
   view: View
   title?: string
   className: string
+  /** The list's add and search (Top), while no record is open beside it. */
+  add?: PageAdd
+  lead?: ReactNode
   /** The area's row of pages, and the list's own name as the title while no record is open beside it. */
   views?: ReactNode
   heading?: ReactNode
@@ -256,7 +305,7 @@ export function Beside({
   }, [open])
   return (
     <div className={`app ${className} beside`}>
-      <Top view={view} title={title} root={!open} views={views} heading={open ? undefined : heading} up={open ? up : undefined} />
+      <Top view={view} title={title} root={!open} views={views} heading={open ? undefined : heading} up={open ? up : undefined} add={open ? undefined : add} lead={open ? undefined : lead} />
       {head}
       <div className="columns">
         <div className="column list">{list}</div>

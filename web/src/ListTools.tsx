@@ -1,5 +1,5 @@
 import { activeFilters, optionCounts, sortOf, type ListChoices, type ListFilter, type ListSort } from '@sh/shared'
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { Icon } from './Icon.tsx'
 
 /**
@@ -64,6 +64,11 @@ export function ListTools<T>({
   onChange,
   shown,
   what,
+  lead,
+  leadActive = [],
+  onClear,
+  pills = [],
+  total,
 }: {
   /** The list's name, as given to useListChoices. */
   name: string
@@ -77,6 +82,18 @@ export function ListTools<T>({
   shown: number
   /** What the list is of, in the plural: "jobs". */
   what: string
+  /**
+   * The list's own choices that aren't filters here, drawn first in the panel as pills (Colly, 10 November 2026): the Jobs list's
+   * when and departments. Each one on is in `leadActive`, to be counted on the button and shown as a chip that takes it off.
+   */
+  lead?: ReactNode
+  leadActive?: readonly { key: string; label: string; off: () => void }[]
+  /** Clear filters puts the lead's choices back too. */
+  onClear?: () => void
+  /** The filters drawn as pills rather than a select: one or two choices that read at a glance, as Mine. */
+  pills?: readonly string[]
+  /** How many the "of" counts, where the lead narrows before `items`: every job, not only this tab's. */
+  total?: number
 }) {
   const id = useId()
   const [open, setOpen] = useState(() => openPanels.has(name))
@@ -84,6 +101,7 @@ export function ListTools<T>({
   const active = activeFilters(offered, choices.filters)
   const sort = sortOf(sorts, choices.sort)
   const setFilter = (key: string, value: string) => onChange({ ...choices, filters: { ...choices.filters, [key]: value } })
+  const on = active.length + leadActive.length
   const toggle = () => {
     if (open) openPanels.delete(name)
     else openPanels.add(name)
@@ -106,18 +124,30 @@ export function ListTools<T>({
             </select>
           </label>
         )}
-        {offered.length > 0 && (
+        {(offered.length > 0 || lead) && (
           <button type="button" className="list-filter-button" aria-expanded={open} aria-controls={`${id}-filters`} onClick={toggle}>
             <Icon name="filter" />
-            Filter{active.length > 0 && ` (${active.length})`}
+            Filter{on > 0 && ` (${on})`}
           </button>
         )}
       </div>
-      {offered.length > 0 && (
+      {(offered.length > 0 || lead) && (
         <div className="list-filters" id={`${id}-filters`} hidden={!open} role="group" aria-label={`Filter the ${what}`}>
-          {offered.map((f) => {
+          {lead}
+          {/* Pills first, after the lead's, so every choice that's a press is together above the selects. */}
+          {[...offered.filter((f) => pills.includes(f.key)), ...offered.filter((f) => !pills.includes(f.key))].map((f) => {
             const { any, counts } = optionCounts(items, offered, choices.filters, f)
             const value = active.find((a) => a.filter.key === f.key)?.option.key ?? ''
+            if (pills.includes(f.key))
+              return (
+                <PillGroup key={f.key} label={f.label}>
+                  {f.options.map((o) => (
+                    <button key={o.key} type="button" aria-pressed={value === o.key} onClick={() => setFilter(f.key, value === o.key ? '' : o.key)}>
+                      {o.label} ({(counts.get(o.key) ?? 0).toLocaleString('en-IE')})
+                    </button>
+                  ))}
+                </PillGroup>
+              )
             return (
               <label key={f.key}>
                 {f.label}
@@ -138,8 +168,14 @@ export function ListTools<T>({
       )}
       {/* Read out as it changes: the list under it is shorter or longer than it was. */}
       <div aria-live="polite">
-        {active.length > 0 && (
+        {on > 0 && (
           <div className="list-active">
+            {leadActive.map((a) => (
+              <button key={a.key} type="button" className="list-chip" onClick={a.off} aria-label={`Take off the filter ${a.label}`}>
+                {a.label}
+                <Icon name="close" />
+              </button>
+            ))}
             {active.map(({ filter, option }) => (
               <button key={filter.key} type="button" className="list-chip" onClick={() => setFilter(filter.key, '')} aria-label={`Take off the filter ${filter.label}: ${option.label}`}>
                 {option.label}
@@ -147,13 +183,31 @@ export function ListTools<T>({
               </button>
             ))}
             <span className="list-count">
-              {shown.toLocaleString('en-IE')} of {items.length.toLocaleString('en-IE')} {what}.
+              {shown.toLocaleString('en-IE')} of {(total ?? items.length).toLocaleString('en-IE')} {what}.
             </span>
-            <button type="button" className="link" onClick={() => onChange({ ...choices, filters: {} })}>
+            <button type="button" className="link" onClick={() => {
+                onClear?.()
+                onChange({ ...choices, filters: {} })
+              }}
+            >
               Clear filters
             </button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+/** A row of pills in the filter panel, under its name: a few choices pressed on and off, as many as wanted. */
+export function PillGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="pill-group">
+      <span className="pill-label" aria-hidden="true">
+        {label}
+      </span>
+      <div className="pills" role="group" aria-label={label}>
+        {children}
       </div>
     </div>
   )

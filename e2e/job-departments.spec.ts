@@ -80,8 +80,11 @@ test('the calendar shows only the jobs involving the departments picked, and the
 
   // The Jobs list holds the same choice, and counts each department.
   await page.goto('/#jobs')
+  // There the departments are pills in the filter panel (Colly, 10 November 2026), and each one picked is a chip under it.
+  await expect(page.getByRole('button', { name: 'Take off the filter Lasers' })).toBeVisible()
+  await page.getByRole('button', { name: /^Filter/ }).click()
   await expect(row(page).getByRole('button', { name: /^Lasers/ })).toHaveAttribute('aria-pressed', 'true')
-  const find = page.getByLabel('Find')
+  const find = page.getByLabel('Find', { exact: true })
   await find.fill(id)
   await expect(row(page).getByRole('button', { name: 'Audio (1)' })).toBeVisible()
   await expect(page.locator('.job-list').getByText(named('Arena LX'))).toBeVisible()

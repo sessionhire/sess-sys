@@ -42,7 +42,7 @@ test('a rack, laid out, drawn, and a built one checked against its layout', asyn
   const page = await (await browser.newContext({ viewport: deskSize })).newPage()
   await page.goto('/#stock/racks')
   await expect(page.locator('.conn')).toHaveText('Up to date')
-  await page.getByRole('button', { name: 'Add rack' }).click()
+  await page.getByRole('button', { name: 'New rack' }).click()
   // Sent with no name, it's refused in the app's words under the field, which keeps the focus, not in the browser's bubble (finding 85).
   await page.getByRole('button', { name: 'Add rack' }).click()
   await expect(page.getByLabel('Name')).toBeFocused()

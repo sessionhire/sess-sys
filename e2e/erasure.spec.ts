@@ -22,7 +22,7 @@ test('archived, then erased through the question in place: the card says so and 
   await expect(office.getByRole('status')).toHaveText('Up to date')
   const people = office.getByRole('region', { name: 'People' })
 
-  await people.getByRole('button', { name: 'Add person' }).click()
+  await office.getByRole('button', { name: 'New person' }).click()
   const form = people.getByRole('form', { name: 'Add person' })
   await fillName(form, name)
   await form.getByLabel('Mobile').fill('+353 85 555 0199')

@@ -28,7 +28,7 @@ async function ready(page: Page, hash = '#jobs') {
 /** A product, with how many are counted in the warehouse. */
 async function newProduct(page: Page, name: string, how: 'numbered' | 'counted', count: number, department = 'Audio') {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   await form.getByLabel('Department').selectOption({ label: department })
@@ -68,7 +68,7 @@ async function newJob(page: Page, name: string, status: 'Confirmed' | 'Quoted' |
 /** A product on the stock list with nothing counted yet, as most are while the list comes in. */
 async function uncounted(page: Page, name: string) {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   await form.getByLabel('Department').selectOption({ label: 'Lighting' })

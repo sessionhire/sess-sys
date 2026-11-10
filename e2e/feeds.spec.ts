@@ -18,7 +18,7 @@ test('the office copies a freelancer their calendar address, the same one their 
   await office.goto('/#crew/people')
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
-  await office.getByRole('button', { name: 'Add person' }).click()
+  await office.getByRole('button', { name: 'New person' }).click()
   const form = office.locator('form').filter({ has: office.getByRole('button', { name: 'Add person' }) })
   await fillName(form, 'Orla Murphy')
   await form.getByLabel('Mobile').fill('+353 86 765 4321')
@@ -66,7 +66,7 @@ test('staff who also work jobs find their own bookings feed under You', async ({
   await expect(card).toHaveCount(0)
 
   await page.goto('/#crew/people')
-  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByRole('button', { name: 'New person' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add person' }) })
   await fillName(form, 'Ciara Walsh')
   await form.getByLabel('Email').fill('Ciara@SessionHire.com')

@@ -384,6 +384,7 @@ export function CrewScreen() {
         title="Crew"
         views={<CrewViews view={view} current={page} />}
         heading={page === 'calls' ? 'Calls' : page === 'people' ? 'People' : 'Timesheets'}
+        add={page === 'people' && mayCrew ? { key: 'person', label: 'New person' } : undefined}
       />
 
       {page === 'timesheets' && !view.office.useTimesheets && <TimesheetsOff />}
@@ -721,10 +722,10 @@ export function CrewScreen() {
                 </p>
               )}
             </div>
-            {active.length === 0 && archived.length === 0 && <Empty>Add your crew below.</Empty>}
+            {active.length === 0 && archived.length === 0 && <Empty>Add your crew with New person, at the top.</Empty>}
             {/* First in the list, under anything said about it, as every list's add is (UX sweep, 6 November 2026, move 1). */}
             {mayCrew && (
-              <Fold label="Add person">
+              <Fold label="New person" from="person">
                 <NewPerson onAdded={(p) => setAdded((was) => [...was, p])} />
                 {/* Read out as it changes, as it's there from the form's opening; not a second "status", which is the top bar's. */}
                 <div aria-live="polite">{added.length > 0 && <p className="added">Added {added.at(-1)!.name}.</p>}</div>

@@ -83,7 +83,7 @@ async function ready(page: Page, hash = '#stock') {
 
 async function newProduct(page: Page, name: string, counted?: number, department?: string) {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   if (department) await form.getByLabel('Department').selectOption({ label: department })

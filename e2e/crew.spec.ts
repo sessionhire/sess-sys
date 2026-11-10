@@ -20,7 +20,7 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
   // The forms sit behind their buttons until wanted (audit finding 16).
-  await office.getByRole('button', { name: 'Add person' }).click()
+  await office.getByRole('button', { name: 'New person' }).click()
   const person = office.locator('form').filter({ has: office.getByRole('button', { name: 'Add person' }) })
   await fillName(person, 'Aoife Byrne')
   await person.getByLabel('Mobile').fill('+353 87 123 4567')

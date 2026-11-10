@@ -47,7 +47,8 @@
 .jobs .add-kit h3 { margin: 0; }
 
 /* The jobs list (audit finding 22): New job at the top on a phone, and the jobs under their weeks, each week's heading kept in view under the top bar while its jobs scroll. */
-.jobs .jobs-card > button.new-job { justify-self: start; }
+/* New job's form beside the list on a laptop: no card at all until New job on the title's line is pressed. */
+.jobs .new-job-card:empty { display: none; }
 /* On a phone the three chips share one row, their words wrapping inside them, rather than taking two rows over the list (audit,
    5 November 2026, finding 57). */
 @media (max-width: 639px) {

@@ -32,6 +32,7 @@ import {
   jobFilters,
   departmentsOfJob,
   JOB_DEPARTMENTS,
+  JOB_DEPARTMENT_LABELS,
   jobDepartmentsInWords,
   jobSorts,
   listed,
@@ -41,7 +42,7 @@ import {
   type PlaceForList,
   stillInBack,
 } from '@sh/shared'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold } from '../Fold.tsx'
@@ -51,7 +52,7 @@ import { useMyDepartment } from '../Narrowed.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { Beside, ClientField, clientNamed, NewOrNear, JobStatusPill, Top, useHash, VenueField, venueNamed } from './common.tsx'
+import { Beside, ClientField, clientNamed, NewOrNear, JobStatusPill, Top, useHash, VenueField, venueNamed, type PageAdd } from './common.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
 import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
@@ -72,7 +73,7 @@ import { Heading, Icon } from '../Icon.tsx'
 import { plain, wordsOf } from '../crew/People.tsx'
 import { JOBS } from '../Up.tsx'
 import { useWindowed } from '../windowed.ts'
-import { ListTools, useListChoices } from '../ListTools.tsx'
+import { ListTools, PillGroup, useListChoices } from '../ListTools.tsx'
 import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
 import { arrival } from '../arrival.ts'
 
@@ -148,19 +149,22 @@ export function JobsScreen() {
   // A job has the whole width, on a laptop too: the list beside it took a third of the desk from it. The way up goes back to the list.
   if (open) return <JobScreen key={open} view={view} id={open} part={partOf ? (part as JobPart) : undefined} />
   // On a laptop the list keeps a column of its own (audit finding 25), with its search and filter, beside the rest of the tab; on a phone it's above it.
-  if (wide)
-    return (
-      <Beside view={view} className="crew jobs" views={<JobViews />} heading="Jobs" list={<JobsCard view={view} />}>
-        <JobsRest view={view} />
-      </Beside>
-    )
+  if (wide) return <JobsBeside view={view} />
   return <JobList view={view} />
+}
+
+function JobsBeside({ view }: { view: View }) {
+  return (
+    <Beside view={view} className="crew jobs" views={<JobViews />} heading="Jobs" add={useJobAdd()} lead={<JobSearch />} list={<JobsCard view={view} />}>
+      <JobsRest view={view} />
+    </Beside>
+  )
 }
 
 function JobList({ view }: { view: View }) {
   return (
     <div className="app crew jobs">
-      <Top view={view} views={<JobViews />} heading="Jobs" />
+      <Top view={view} views={<JobViews />} heading="Jobs" add={useJobAdd()} lead={<JobSearch />} />
 
       <JobsCard view={view} phone />
 
@@ -169,31 +173,55 @@ function JobList({ view }: { view: View }) {
   )
 }
 
-/** The way to bring in jobs already on a calendar, rather than typing them as new ones; in view beside New job, open or not. */
-function BringInHint({ view }: { view: View }) {
-  if (view.calendar.link?.state !== 'on' && view.calendar.link?.state !== 'choosing') return null
-  return (
-    <p className="hint">
-      Jobs already on a Google calendar? <a href="#jobs/import">Bring them in</a> rather than typing them again.
-    </p>
-  )
+/**
+ * New job, on the title's line (Colly, 10 November 2026), its form opening at the top of the list. Taking a job in is the office's,
+ * so a role without jobs has none (ADR 0034). Bringing in jobs already on a calendar is under Menu and Admin › Connections: most
+ * who open the list never do it, so it no longer stands between the title and the jobs.
+ */
+function useJobAdd(): PageAdd | undefined {
+  return useAccess().can('jobs') ? { key: 'job', label: 'New job' } : undefined
 }
 
-/** Beside the list on a laptop: the nudges, and a new job. On a phone New job is at the top of the list, behind its button (audit finding 22). */
+/** The list's search, kept for the tab's life so Back from a job finds the list as it was searched. */
+let jobSearch = ''
+const searchListeners = new Set<() => void>()
+const onSearch = (fn: () => void) => {
+  searchListeners.add(fn)
+  return () => void searchListeners.delete(fn)
+}
+function useJobSearch(): [string, (next: string) => void] {
+  const now = useSyncExternalStore(onSearch, () => jobSearch)
+  return [
+    now,
+    (next) => {
+      jobSearch = next
+      for (const fn of searchListeners) fn()
+    },
+  ]
+}
+
+/** Straight under the title, before the views: finding a job is the first thing most do here. */
+function JobSearch() {
+  const [search, setSearch] = useJobSearch()
+  return <input className="search" type="search" placeholder="Find a job, client or venue" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find" />
+}
+
+/** Beside the list on a laptop, under it on a phone: the nudges, and on a laptop the new job's form once New job is pressed. */
 function JobsRest({ view, phone = false }: { view: View; phone?: boolean }) {
-  // Taking a job in is the office's, so a role without jobs has no New job (ADR 0034).
   const mayAdd = useAccess().can('jobs')
   return (
     <>
-      <TidyNudge view={view} />
-      <NotesKitNudge view={view} />
       {mayAdd && !phone && (
-        <section className="card">
-          <Heading icon="add">New job</Heading>
-          <NewJob view={view} />
-          <BringInHint view={view} />
+        // Beside the list, where there's room for it, as it was before New job moved to the title's line; nothing until it's pressed.
+        <section className="card new-job-card" aria-label="New job">
+          <Fold label="New job" from="job">
+            <Heading icon="add">New job</Heading>
+            <NewJob view={view} />
+          </Fold>
         </section>
       )}
+      <TidyNudge view={view} />
+      <NotesKitNudge view={view} />
     </>
   )
 }
@@ -385,7 +413,7 @@ function jobLens(jobs: readonly JobView[], view: View, me: string | undefined) {
 function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   const { jobs } = view.jobs
   const [filter, setFilter] = useState<Filter>('coming')
-  const [search, setSearch] = useState('')
+  const [search] = useJobSearch()
   const [all, setAll] = useState(showingAll)
   const mayAdd = useAccess().can('jobs')
   const card = useUnderTop(phone)
@@ -420,8 +448,7 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
     () => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped', (j) => view.steps.of(j.id), whose),
     [view.kit.byJob, view.steps, filter, whose]
   )
-  const mineCount = useMemo(() => (whose.mine ? jobs.filter((j) => filterOf(j, day) === filter && whose.mine!(j)).length : 0), [jobs, whose, filter, day])
-  const { rows, shownCount, listedCount, searched, byDepartment } = useMemo(() => {
+  const { rows, shownCount, listedCount, searched, byDepartment, total } = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
     const matches = (j: JobView) => {
       const text = [j.name, j.client?.name, j.venue?.name, ...j.phases.map((p) => p.venue?.name)].filter(Boolean).join(' ').toLowerCase()
@@ -449,42 +476,60 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
         ]
       : listedJobs.map((job, n) => ({ job, n }))
     const byDepartment = new Map(JOB_DEPARTMENTS.map((d) => [d, inTab.filter((j) => departmentsOfJob(j, view.kit.byJob.get(j.id)).has(d)).length]))
-    return { rows, shownCount: shown.length, listedCount: listedJobs.length, searched, byDepartment }
+    // What "of" counts once the list is narrowed: every job the search finds, whenever it is, so "12 of 1,760 jobs" says how much is left out.
+    const total = words.length ? jobs.filter(matches).length : jobs.length
+    return { rows, shownCount: shown.length, listedCount: listedJobs.length, searched, byDepartment, total }
   }, [jobs, day, filter, search, all, filters, sorts, choices, view.steps, view.kit.byJob, involves, picked])
   const win = useWindowed('jobs', rows, rowKey, 110)
 
-  return (
-    <section className="card plain jobs-card" aria-label="Jobs" ref={card}>
-      {phone && mayAdd && (
-        <>
-          <Fold label="New job" className="new-job">
-            <NewJob view={view} />
-          </Fold>
-          <BringInHint view={view} />
-        </>
-      )}
-      <input className="search" type="search" placeholder="Find a job, client or venue" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find" />
-      <div className="filters" role="group" aria-label="Show">
+  // When, the departments and Mine are in the filter panel as pills (Colly, 10 November 2026), with the list's other filters, rather
+  // than three rows between the search and the jobs. Each one on away from the list's start shows as a chip under Filter, as every
+  // filter does, so a list that's Past or Lighting never looks like the whole of it.
+  const whenLabel = (f: Filter) => FILTERS.find(([k]) => k === f)![1]
+  const leadActive = [
+    ...(filter === 'coming' ? [] : [{ key: 'when', label: whenLabel(filter), off: () => setFilter('coming') }]),
+    ...picked.map((d) => ({ key: `department-${d}`, label: JOB_DEPARTMENT_LABELS[d], off: () => setPicked(picked.filter((x) => x !== d)) })),
+  ]
+  const lead = (
+    <>
+      <PillGroup label="When">
         {FILTERS.map(([f, label]) => (
           <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-            {label} ({count(f)})
+            {label} ({count(f).toLocaleString('en-IE')})
           </button>
         ))}
-      </div>
-      {jobs.length > 0 && <DepartmentFilter picked={picked} onChange={setPicked} count={(d) => byDepartment.get(d) ?? 0} />}
-      {/* "Mine" first for anyone booked on a job (Move 9): the jobs they're on, a tap away, as Home › Me lists their bookings. */}
-      {whose.mine && (mineCount > 0 || choices.filters.mine === 'mine') && (
-        <div className="filters" role="group" aria-label="Whose">
-          <button
-            type="button"
-            aria-pressed={choices.filters.mine === 'mine'}
-            onClick={() => setChoices({ ...choices, filters: { ...choices.filters, mine: choices.filters.mine === 'mine' ? '' : 'mine' } })}
-          >
-            Mine ({mineCount})
-          </button>
-        </div>
+      </PillGroup>
+      <DepartmentFilter pills picked={picked} onChange={setPicked} count={(d) => byDepartment.get(d) ?? 0} />
+    </>
+  )
+
+  return (
+    <section className="card plain jobs-card" aria-label="Jobs" ref={card}>
+      {mayAdd && phone && (
+        <Fold label="New job" from="job">
+          <NewJob view={view} />
+        </Fold>
       )}
-      {jobs.length > 0 && <ListTools name="jobs" items={searched} filters={filters} sorts={sorts} choices={choices} onChange={setChoices} shown={shownCount} what="jobs" />}
+      {jobs.length > 0 && (
+        <ListTools
+          name="jobs"
+          items={searched}
+          filters={filters}
+          sorts={sorts}
+          choices={choices}
+          onChange={setChoices}
+          shown={shownCount}
+          what="jobs"
+          lead={lead}
+          leadActive={leadActive}
+          onClear={() => {
+            setFilter('coming')
+            setPicked([])
+          }}
+          pills={['mine']}
+          total={total}
+        />
+      )}
       {shownCount === 0 && searched.length > 0 && <p className="empty">No job here matches those filters.</p>}
       {searched.length === 0 && picked.length > 0 && jobs.length > 0 && <p className="empty">No job here involves {jobDepartmentsInWords(picked)}.</p>}
       {searched.length === 0 && picked.length === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}

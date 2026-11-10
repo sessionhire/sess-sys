@@ -493,7 +493,7 @@ test('every field on every screen has a name, and the not-done list is a live re
     const { mutations } = route.request().postDataJSON() as { mutations: { id: string }[] }
     await route.fulfill({ json: { results: mutations.map((m) => ({ id: m.id, status: 'rejected', reason: { code: 'conflict', message: 'Pretend the server said no.' } })) } })
   })
-  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByRole('button', { name: 'New person' }).click()
   const person = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add person' }) })
   await fillName(person, `Nora Walsh ${id}`)
   await person.getByRole('button', { name: 'Add person' }).click()

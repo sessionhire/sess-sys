@@ -73,7 +73,7 @@ test('Stock › Vehicles lists the vans and their checks, and a van off the road
 
   // A van added with its CVRT already run out: counted on Stock's row, and marked in the list.
   await ready(phone, '#stock/vehicles')
-  await phone.getByRole('button', { name: 'Add vehicle' }).click()
+  await phone.getByRole('button', { name: 'New vehicle' }).click()
   const form = phone.getByRole('form', { name: 'Add a vehicle' })
   await form.getByLabel('Name').fill('Old Van')
   await form.getByLabel('Registration').fill('06-d-1234')
