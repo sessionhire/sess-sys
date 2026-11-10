@@ -55,9 +55,16 @@ async function ready(page: Page, hash: string) {
 
 const row = (page: Page) => page.getByRole('group', { name: 'Departments' })
 
+/** Every view of the jobs has its departments in its Filter panel (Colly, 10 November 2026): opened, unless it already is. */
+async function openFilter(page: Page) {
+  const filter = page.getByRole('button', { name: /^Filter/ })
+  if ((await filter.getAttribute('aria-expanded')) !== 'true') await filter.click()
+}
+
 test('the calendar shows only the jobs involving the departments picked, and the choice holds on the Jobs list and the Board', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await ready(page, '#jobs/calendar/2034-04-01')
+  await openFilter(page)
   const cal = page.locator('.cal-grid')
   await expect(cal.getByText(named('Arena LX'))).toHaveCount(1)
   await expect(cal.getByText(named('Sound only'))).toHaveCount(1)
@@ -106,12 +113,14 @@ test('the calendar shows only the jobs involving the departments picked, and the
   // All departments clears it everywhere.
   await row(page).getByRole('button', { name: 'All departments' }).click()
   await page.goto('/#jobs/board')
+  await openFilter(page)
   await expect(row(page).getByRole('button', { name: 'All departments' })).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('the planner narrows its job rows, and a phone keeps the row in the page', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await ready(page, '#plan/week/2034-04-10')
+  await openFilter(page)
   const table = page.locator('.scroller table.timeline')
   await expect(table.getByText(named('Sound only'))).toBeVisible()
   await row(page).getByRole('button', { name: 'Lighting' }).click()
@@ -120,11 +129,14 @@ test('the planner narrows its job rows, and a phone keeps the row in the page', 
   await page.screenshot(shot('planner-phone'))
 
   await page.goto('/#jobs/calendar/2034-04-01')
+  // Picked on the week, so a chip says so above the calendar before Filter is opened.
+  await expect(page.getByRole('button', { name: 'Take off the filter Lighting' })).toBeVisible()
+  await openFilter(page)
   await expect(row(page).getByRole('button', { name: 'Lighting' })).toHaveAttribute('aria-pressed', 'true')
   const list = page.locator('.cal-days')
   await expect(list.getByText(named('Arena LX')).first()).toBeVisible()
   await expect(list.getByText(named('Sound only'))).toHaveCount(0)
-  // The row wraps rather than scrolling sideways: nothing wider than the page.
+  // The pills wrap rather than scrolling sideways: nothing wider than the page.
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   await page.screenshot(shot('calendar-phone'))
   await row(page).getByRole('button', { name: 'All departments' }).click()
@@ -135,18 +147,12 @@ test("on a phone every department button's words fit inside it, on Jobs, the cal
     await page.setViewportSize({ width, height: 844 })
     for (const hash of ['#jobs', '#jobs/calendar/2034-04-01', '#plan/week/2034-04-10', '#jobs/board']) {
       await ready(page, hash)
-      // On the Jobs list the departments are pills in the filter panel (Colly, 10 November 2026), and wrap there as pills do.
-      if (hash === '#jobs') {
-        const filter = page.getByRole('button', { name: /^Filter/ })
-        if ((await filter.getAttribute('aria-expanded')) !== 'true') await filter.click()
-      }
+      // On every view the departments are pills in the filter panel (Colly, 10 November 2026), and wrap there as pills do.
+      await openFilter(page)
       await expect(row(page).getByRole('button', { name: 'All departments' })).toBeVisible()
       // Smaller than the page's other buttons, and none cut: each button's words are no wider than the button.
       const cut = await row(page).getByRole('button').evaluateAll((buttons) => buttons.filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent))
       expect(cut, `${hash} at ${width}px`).toEqual([])
-      // The row's buttons are the caption size to fit three across; the Jobs list's pills wrap instead, at the size of its filter chips.
-      const size = await row(page).getByRole('button', { name: 'All departments' }).evaluate((b) => parseFloat(getComputedStyle(b).fontSize))
-      if (hash !== '#jobs') expect(size).toBeLessThan(16)
       expect(await page.evaluate(() => document.documentElement.scrollWidth), `${hash} at ${width}px`).toBeLessThanOrEqual(width)
     }
   }

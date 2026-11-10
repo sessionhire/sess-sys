@@ -69,6 +69,7 @@ export function ListTools<T>({
   onClear,
   pills = [],
   total,
+  start,
 }: {
   /** The list's name, as given to useListChoices. */
   name: string
@@ -78,8 +79,8 @@ export function ListTools<T>({
   sorts: readonly ListSort<T>[]
   choices: ListChoices
   onChange: (next: ListChoices) => void
-  /** How many the filters leave. */
-  shown: number
+  /** How many the filters leave; left out where the view isn't a list to count (Board, Calendar, Week, Month). */
+  shown?: number
   /** What the list is of, in the plural: "jobs". */
   what: string
   /**
@@ -94,6 +95,8 @@ export function ListTools<T>({
   pills?: readonly string[]
   /** How many the "of" counts, where the lead narrows before `items`: every job, not only this tab's. */
   total?: number
+  /** First on the Sort and Filter row, where a view has no sort: the calendar's Today and arrows, the planner's rows. */
+  start?: ReactNode
 }) {
   const id = useId()
   const [open, setOpen] = useState(() => openPanels.has(name))
@@ -109,7 +112,8 @@ export function ListTools<T>({
   }
   return (
     <div className="list-tools">
-      <div className="list-tools-row">
+      <div className={start ? 'list-tools-row with-start' : 'list-tools-row'}>
+        {start}
         {sorts.length > 1 && (
           <label className="list-sort">
             <Icon name="sort" />
@@ -182,9 +186,11 @@ export function ListTools<T>({
                 <Icon name="close" />
               </button>
             ))}
-            <span className="list-count">
-              {shown.toLocaleString('en-IE')} of {(total ?? items.length).toLocaleString('en-IE')} {what}.
-            </span>
+            {shown !== undefined && (
+              <span className="list-count">
+                {shown.toLocaleString('en-IE')} of {(total ?? items.length).toLocaleString('en-IE')} {what}.
+              </span>
+            )}
             <button type="button" className="link" onClick={() => {
                 onClear?.()
                 onChange({ ...choices, filters: {} })
@@ -198,6 +204,30 @@ export function ListTools<T>({
     </div>
   )
 }
+
+/**
+ * The same Filter on a view of a list that isn't the list (Jobs' Board, Calendar, Week and Month; Colly, 10 November 2026): the
+ * button at the right of its row, the view's own choices as pills in its panel, and each one on as a chip above the view. No sort,
+ * as each orders itself by time or stage.
+ */
+export function ViewFilter({
+  name,
+  what,
+  pills,
+  active,
+  onClear,
+  start,
+}: {
+  name: string
+  what: string
+  pills: ReactNode
+  active: readonly { key: string; label: string; off: () => void }[]
+  onClear: () => void
+  start?: ReactNode
+}) {
+  return <ListTools name={name} items={[]} filters={[]} sorts={[]} choices={NO_CHOICES} onChange={() => {}} what={what} lead={pills} leadActive={active} onClear={onClear} start={start} />
+}
+const NO_CHOICES: ListChoices = { sort: '', filters: {} }
 
 /** A row of pills in the filter panel, under its name: a few choices pressed on and off, as many as wanted. */
 export function PillGroup({ label, children }: { label: string; children: ReactNode }) {

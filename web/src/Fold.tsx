@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { scrollerOf } from './windowed.ts'
 import { listOpened, openedList } from './places.ts'
-import { addButton, useAddAsked } from './pageAdd.ts'
+import { addButton, isPending, tookPending, useAddAsked } from './pageAdd.ts'
 
 /**
  * Two ways to keep a screen short on a phone (audit finding 16): a form
@@ -34,7 +34,9 @@ export function Fold({
   from?: string
 }) {
   const asked = useAddAsked(from)
-  const [askedBefore] = useState(asked)
+  // Pressed on another view on the way here: open, as if pressed here (pageAdd.ts). Taken once it has opened, as the list can be
+  // drawn more than once as it arrives.
+  const [askedBefore] = useState(() => asked - (isPending(from) ? 1 : 0))
   const [open, setOpen] = useState(!!opened)
   // Opened at least once: from then on the form is kept, open or not.
   const [kept, setKept] = useState(!!opened)
@@ -49,11 +51,12 @@ export function Fold({
   const first = () => box.current?.querySelector<HTMLElement>('input, select, textarea')?.focus()
   useEffect(() => {
     if (asked <= askedBefore) return
+    tookPending(from)
     setKept(true)
     setOpen(true)
     // Pressed again while it's open: back to its first field, wherever the page has been scrolled to.
     first()
-  }, [asked, askedBefore])
+  }, [asked, askedBefore, from])
   useEffect(() => {
     if (open) first()
     // Close goes as the form does, so on a keyboard the focus goes back to the button rather than being lost.

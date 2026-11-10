@@ -25,10 +25,11 @@ import { Icon } from '../Icon.tsx'
 import { WAITING_TO_SYNC } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { useToday } from '../view.ts'
-import { Top } from './common.tsx'
+import { Top, useJobAdd } from './common.tsx'
+import { PillGroup, ViewFilter } from '../ListTools.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import { getJson, useAsked } from './rms.ts'
-import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
+import { departmentChips, DepartmentFilter, useJobDepartments } from './Departments.tsx'
 
 /**
  * Jobs › Calendar (ADR 0123): the master calendar. A month, every job that
@@ -97,30 +98,47 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
 
   return (
     <div className="app crew jobs master-cal">
-      <Top view={view} views={<JobViews current="calendar" />} heading={monthLabel(month)} sub={<p>{summary(cal.confirmed, cal.potential, show, picked)}</p>} />
+      <Top view={view} views={<JobViews current="calendar" />} heading={monthLabel(month)} add={useJobAdd(true)} sub={<p>{summary(cal.confirmed, cal.potential, show, picked)}</p>} />
 
-      {/* Google Calendar's bar: Today, then back and on a month, then which jobs. */}
-      <div className="cal-bar-top">
-        <div className="cal-steps">
-          <a className="button" href={at({ month: now })} aria-current={thisMonth ? 'date' : undefined}>
-            Today
-          </a>
-          <a className="button cal-step" href={at({ month: addMonths(month, -1) })} aria-label="Previous month" title="Previous month">
-            <Icon name="back" />
-          </a>
-          <a className="button cal-step" href={at({ month: addMonths(month, 1) })} aria-label="Next month" title="Next month">
-            <Icon name="next" />
-          </a>
-        </div>
-        <div className="filters" role="group" aria-label="Which jobs">
-          {CALENDAR_SHOWS.map((s) => (
-            <button key={s} type="button" aria-pressed={show === s} onClick={pick(s)}>
-              {CALENDAR_SHOW_LABELS[s]}
-            </button>
-          ))}
-        </div>
-      </div>
-      <DepartmentFilter picked={picked} onChange={setPicked} />
+      {/* Which jobs and the departments in Filter, as on the list (Colly, 10 November 2026), each one on a chip above the month. */}
+      <ViewFilter
+        name="calendar"
+        what="jobs"
+        start={
+          // Google Calendar's bar: Today, then back and on a month; Filter at its right.
+          <div className="cal-steps">
+            <a className="button" href={at({ month: now })} aria-current={thisMonth ? 'date' : undefined}>
+              Today
+            </a>
+            <a className="button cal-step" href={at({ month: addMonths(month, -1) })} aria-label="Previous month" title="Previous month">
+              <Icon name="back" />
+            </a>
+            <a className="button cal-step" href={at({ month: addMonths(month, 1) })} aria-label="Next month" title="Next month">
+              <Icon name="next" />
+            </a>
+          </div>
+        }
+        pills={
+          <>
+            <PillGroup label="Which jobs">
+              {CALENDAR_SHOWS.map((s) => (
+                <button key={s} type="button" aria-pressed={show === s} onClick={pick(s)}>
+                  {CALENDAR_SHOW_LABELS[s]}
+                </button>
+              ))}
+            </PillGroup>
+            <DepartmentFilter pills picked={picked} onChange={setPicked} />
+          </>
+        }
+        active={[
+          ...(show === 'all' ? [] : [{ key: 'show', label: CALENDAR_SHOW_LABELS[show], off: () => void (location.hash = at({ show: 'all' })) }]),
+          ...departmentChips(picked, setPicked),
+        ]}
+        onClear={() => {
+          setPicked([])
+          if (show !== 'all') location.hash = at({ show: 'all' })
+        }}
+      />
 
       <p className="cal-key hint">
         <span className="cal-swatch solid" aria-hidden="true" /> Confirmed <span className="cal-swatch dashed" aria-hidden="true" /> Potential: an enquiry or a quote

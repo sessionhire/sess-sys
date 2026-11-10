@@ -44,8 +44,9 @@ set the app up, once.
 5. **Bringing jobs in from Google Calendar** is no longer on the Jobs list. It
    stays under Menu and Admin › Connections.
 
-The departments row stays a row on the calendar, the week planner and the
-Board, where it is the one choice those views have.
+~~The departments row stays a row on the calendar, the week planner and the
+Board, where it is the one choice those views have.~~ Changed the same day
+(1.150.0, below).
 
 ## Consequences
 
@@ -55,3 +56,23 @@ Board, where it is the one choice those views have.
   the list.
 - The search on Jobs is kept for the tab's life, so Back from a job finds the
   list as it was searched.
+
+## Addendum, 10 November 2026 (1.150.0): every view of the jobs alike
+
+Colly asked that the Board, Calendar, Week and Month filter the same way as
+the list, and that the add sit in the same place on each.
+
+- **Filter on every view.** The Board's which jobs (Next 8 weeks, All coming
+  up), the calendar's (Everything, Confirmed, Potential) and the departments
+  are pills in a Filter panel, each one on a chip above the view, with Clear
+  filters. No sort: each view orders itself by time or stage. The Filter
+  button shares its row with what the view already had there: the calendar's
+  Today and arrows, the planner's Jobs, People and Vans (which say how the
+  rows are drawn, not which jobs, so they stay on the page). The departments
+  aren't offered while the planner's rows are people or vans.
+- **New job on every view's title line.** On the Board, Calendar, Week and
+  Month it goes to the list with the New job form open and the first field
+  ready (`askToAddOn` in pageAdd.ts).
+- **Clients and Venues have their own add**: New client and New venue, a name
+  (and a venue's address), then its own page to fill in the rest. A name
+  already there is said rather than made twice. Money has no add.

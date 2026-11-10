@@ -81,6 +81,8 @@ test('a laptop sees the month as a grid, confirmed and potential together and to
   await page.screenshot(shot('master-calendar-desk'))
 
   // Only the confirmed: the address keeps it, the enquiries go, from the days and from the ones with no dates.
+  // Which jobs is in the Filter panel, with the departments (Colly, 10 November 2026).
+  if ((await page.getByRole('button', { name: /^Filter/ }).getAttribute('aria-expanded')) !== 'true') await page.getByRole('button', { name: /^Filter/ }).click()
   await page.getByRole('group', { name: 'Which jobs' }).getByRole('button', { name: 'Confirmed' }).click()
   await expect(page).toHaveURL(/#jobs\/calendar\/2033-03-01\/confirmed$/)
   await expect(bar('Brand launch')).toHaveCount(0)
@@ -134,6 +136,8 @@ test('an open quote in Current RMS with no job here is on the calendar as a pote
   await expect(quote).toHaveAttribute('href', '#jobs/money/current-rms/77')
   await expect(page.locator('.cal-key')).toContainText('or a quote still open in Current RMS with no job here yet')
   // Confirmed only leaves it out, as it does the enquiries.
+  // Which jobs is in the Filter panel, with the departments (Colly, 10 November 2026).
+  if ((await page.getByRole('button', { name: /^Filter/ }).getAttribute('aria-expanded')) !== 'true') await page.getByRole('button', { name: /^Filter/ }).click()
   await page.getByRole('group', { name: 'Which jobs' }).getByRole('button', { name: 'Confirmed' }).click()
   await expect(page.locator('.cal-grid .cal-span', { hasText: 'Summer party' })).toHaveCount(0)
 })
