@@ -2,10 +2,11 @@ import { addDays, dayLabel, firstName, JOB_STAGES, jobPosition, plural, spanLabe
 import { useState } from 'react'
 import { arrival } from '../arrival.ts'
 import { useToday } from '../view.ts'
-import { Top } from './common.tsx'
+import { Top, useJobAdd } from './common.tsx'
+import { PillGroup, ViewFilter } from '../ListTools.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import './steps.css'
-import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
+import { departmentChips, DepartmentFilter, useJobDepartments } from './Departments.tsx'
 
 /**
  * Jobs › Board (ADR 0104, part 3): a column per stage, a card per job,
@@ -54,16 +55,36 @@ export function BoardScreen({ view }: { view: View }) {
   const through = all.filter((s) => s.finished && s.job.span && s.job.span.end >= monthAgo).sort((a, b) => bySoonest(b, a))
   return (
     <div className="app crew jobs board-page">
-      <Top view={view} views={<JobViews current="board" />} heading="Board" sub={<p>A column a stage, soonest first. A job moves when its own records do.</p>} />
-      <div className="filters" role="group" aria-label="Which jobs">
-        <button type="button" aria-pressed={span === 'eight'} onClick={() => setSpan('eight')}>
-          Next 8 weeks
-        </button>
-        <button type="button" aria-pressed={span === 'all'} onClick={() => setSpan('all')}>
-          All coming up
-        </button>
-      </div>
-      <DepartmentFilter picked={picked} onChange={setPicked} />
+      <Top
+        view={view}
+        views={<JobViews current="board" />}
+        heading="Board"
+        add={useJobAdd(true)}
+        sub={<p>A column a stage, soonest first. A job moves when its own records do.</p>}
+      />
+      {/* Which jobs and the departments in Filter, as on the list (Colly, 10 November 2026), each one on a chip above the columns. */}
+      <ViewFilter
+        name="board"
+        what="jobs"
+        pills={
+          <>
+            <PillGroup label="Which jobs">
+              <button type="button" aria-pressed={span === 'eight'} onClick={() => setSpan('eight')}>
+                Next 8 weeks
+              </button>
+              <button type="button" aria-pressed={span === 'all'} onClick={() => setSpan('all')}>
+                All coming up
+              </button>
+            </PillGroup>
+            <DepartmentFilter pills picked={picked} onChange={setPicked} />
+          </>
+        }
+        active={[...(span === 'all' ? [{ key: 'span', label: 'All coming up', off: () => setSpan('eight') }] : []), ...departmentChips(picked, setPicked)]}
+        onClear={() => {
+          setSpan('eight')
+          setPicked([])
+        }}
+      />
       <div className="board">
         {columns.map((c) => (
           <section key={c.key} className="board-col" aria-labelledby={`board-${c.key}`}>

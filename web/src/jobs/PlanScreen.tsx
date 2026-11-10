@@ -34,9 +34,10 @@ import { useAccess } from '../role.ts'
 import { StatusPill, WAITING_TO_SYNC } from '../StatusPill.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
 import { useToday } from '../view.ts'
-import { Top } from './common.tsx'
+import { Top, useJobAdd } from './common.tsx'
+import { ViewFilter } from '../ListTools.tsx'
 import { QuickQuote, type QuickAt } from './QuickQuote.tsx'
-import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
+import { departmentChips, DepartmentFilter, useJobDepartments } from './Departments.tsx'
 import { Views } from '../Views.tsx'
 import { calendarHref } from './CalendarScreen.tsx'
 import { vehicleHref } from '../stock/Vehicles.tsx'
@@ -210,10 +211,28 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   // A week is wider than a phone: the edge with more days past it fades, as Money's tables do (audit, 20 October 2026, finding 77).
   useMoreEdges(scroller, shown)
 
+  // What the rows are: a choice of how to draw the days, not a filter, so it stays on the page, with Filter at its right while the rows are jobs.
+  const rowsGroup = (
+    <div className="filters" role="group" aria-label="Rows">
+      <button type="button" aria-pressed={rows === 'jobs'} onClick={toggle('jobs')}>
+        Jobs
+      </button>
+      <button type="button" aria-pressed={rows === 'people'} onClick={toggle('people')}>
+        People
+      </button>
+      {/* Only once there are vehicles to plan (ADR 0047). */}
+      {(p.vans.length > 0 || rows === 'vans') && (
+        <button type="button" aria-pressed={rows === 'vans'} onClick={toggle('vans')}>
+          Vans
+        </button>
+      )}
+    </div>
+  )
+
   return (
     <div className="app crew jobs plan">
       {/* The days shown are the page's name (ADR 0082), what's on them the line under it; moving and what the rows are sit together under that. */}
-      <Top view={view} views={<JobViews place={place} />} heading={title} sub={<p>{summary(p, scale)}</p>} />
+      <Top view={view} views={<JobViews place={place} />} heading={title} add={useJobAdd(true)} sub={<p>{summary(p, scale)}</p>} />
 
       <div className="plan-bar">
         <div className="steps">
@@ -227,23 +246,18 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
             Next ›
           </a>
         </div>
-        <div className="filters" role="group" aria-label="Rows">
-          <button type="button" aria-pressed={rows === 'jobs'} onClick={toggle('jobs')}>
-            Jobs
-          </button>
-          <button type="button" aria-pressed={rows === 'people'} onClick={toggle('people')}>
-            People
-          </button>
-          {/* Only once there are vehicles to plan (ADR 0047). */}
-          {(p.vans.length > 0 || rows === 'vans') && (
-            <button type="button" aria-pressed={rows === 'vans'} onClick={toggle('vans')}>
-              Vans
-            </button>
-          )}
-        </div>
       </div>
 
-      {rows === 'jobs' && <DepartmentFilter picked={picked} onChange={setPicked} />}
+      {/* The departments in Filter, as on the list (Colly, 10 November 2026), while the rows are jobs: a person or a van isn't a
+          department's. The rows' choice stays put either way, so a press on it keeps its focus. */}
+      <ViewFilter
+        name="plan"
+        what="jobs"
+        start={rowsGroup}
+        pills={rows === 'jobs' ? <DepartmentFilter pills picked={picked} onChange={setPicked} /> : undefined}
+        active={rows === 'jobs' ? departmentChips(picked, setPicked) : []}
+        onClear={() => setPicked([])}
+      />
 
       <SortOut problems={p.problems} vanProblems={p.vanProblems} short={shortSoon(view.crew, now)} />
 

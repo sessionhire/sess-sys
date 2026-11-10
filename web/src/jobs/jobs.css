@@ -900,7 +900,6 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
  * quotes dashed with their word, the planner's grammar; healthy is quiet, so neither has a colour of its own. On a phone, Google's
  * schedule: the date on the left, what's on to the right, adding to the page's height. Nothing scrolls inside the page.
  */
-.master-cal .cal-bar-top { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; }
 .master-cal .cal-steps { display: flex; align-items: center; gap: var(--ds-space-2); }
 .master-cal .cal-steps .cal-step { display: inline-grid; place-items: center; width: 2.75rem; padding-inline: 0; border-radius: 999px; }
 .master-cal .cal-steps [aria-current] { color: var(--muted); }

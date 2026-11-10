@@ -101,6 +101,8 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(page.locator('.job-row', { hasText: job }).locator('.job-position')).toContainText('Planning · 0 of 2 booked · No kit on the job yet')
   // On the Board (part 3), the job is a card in the Planning column, saying what is short; nothing drags.
   await page.goto('/#jobs/board')
+  // Which jobs is in the Board's Filter panel (Colly, 10 November 2026).
+  await page.getByRole('button', { name: /^Filter/ }).click()
   await page.getByRole('button', { name: 'All coming up' }).click()
   const planning = page.getByRole('region', { name: 'Planning' })
   await expect(planning.locator('.board-card', { hasText: job })).toContainText('0 of 2 booked')

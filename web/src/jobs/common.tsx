@@ -12,12 +12,23 @@ import { ThemeButton } from '../ThemeButton.tsx'
 import { Up, type Trail } from '../Up.tsx'
 import { useTopBar } from '../useUnderTop.ts'
 import { Icon } from '../Icon.tsx'
-import { askToAdd } from '../pageAdd.ts'
+import { askToAdd, askToAddOn } from '../pageAdd.ts'
+import { useAccess } from '../role.ts'
 
 /** A list page's add, on its title's line (pageAdd.ts): the list's name, and what the button says ("New job"). */
 export interface PageAdd {
   key: string
   label: string
+  /** On another view of the list, where its form isn't: the list's address, gone to with the form opening there. */
+  href?: string
+}
+
+/**
+ * New job, on the title's line of every view of the jobs (Colly, 10 November 2026): on the list it opens the form there; on the
+ * Board, Calendar, Week and Month it goes to the list with the form open. Taking a job in is the office's (ADR 0034).
+ */
+export function useJobAdd(elsewhere = false): PageAdd | undefined {
+  return useAccess().can('jobs') ? { key: 'job', label: 'New job', href: elsewhere ? '#jobs' : undefined } : undefined
 }
 
 /** What the Jobs screens share, and Stock and Crew too: the header, a record's page, and picking or adding a client or venue by name. */
@@ -240,7 +251,7 @@ function PageHead({
         <h1 className="page-title">{heading}</h1>
         {badge}
         {add && (
-          <button type="button" className="page-add" data-add={add.key} onClick={() => askToAdd(add.key)}>
+          <button type="button" className="page-add" data-add={add.key} onClick={() => (add.href ? askToAddOn(add.key, add.href) : askToAdd(add.key))}>
             <Icon name="add" />
             {add.label}
           </button>

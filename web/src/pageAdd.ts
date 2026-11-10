@@ -30,3 +30,16 @@ export function useAddAsked(key: string | undefined): number {
 
 /** The title's button for `key`, for the focus to go back to once its form closes. */
 export const addButton = (key: string) => document.querySelector<HTMLElement>(`.page-add[data-add="${key}"]`)
+
+/**
+ * The add pressed on another view of the same list (Board, Calendar, Week, Month: Colly, 10 November 2026): go to the list, and
+ * its form opens there as the list comes up, as if the press had been made on it.
+ */
+const pending = new Set<string>()
+export function askToAddOn(key: string, href: string) {
+  pending.add(key)
+  location.hash = href
+}
+/** Whether the add named `key` was pressed on another view on the way here. Read as the form mounts; `tookPending` clears it. */
+export const isPending = (key: string | undefined) => !!key && pending.has(key)
+export const tookPending = (key: string | undefined) => void (key && pending.delete(key))

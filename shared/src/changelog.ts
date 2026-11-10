@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.150.0',
+    date: '2026-11-10',
+    title: 'Every view of the jobs filters alike',
+    what: "The Board, the calendar, the week and the month now have a Filter button like the Jobs list. The departments, and on the Board and the calendar which jobs to show, are buttons inside it, and whatever you pick shows as a chip above the view so you can always see it's narrowed. New job is on the title's line on every one of them and takes you to the list with the form open. Clients now has New client and Venues has New venue: type the name (and the venue's address) and its page opens for the rest.",
+    prs: [312],
+    adrs: [141],
+  },
+  {
     version: '1.149.2',
     date: '2026-11-10',
     title: 'No tidy-up notices on the main pages',

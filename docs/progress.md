@@ -3,6 +3,17 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: every view of the jobs filters alike
+
+**Done (1.150.0, ADR 0141 addendum)**
+
+- Board, Calendar, Week and Month: Filter as on the list (ListTools'
+  `ViewFilter`), departments and which jobs as pills, chips above the view.
+- New job on every view's title line, opening the list's form.
+- New client on Clients, New venue on Venues.
+- Checked: job-departments, master-calendar, steps, plan and the new
+  view-add browser tests; screens in screens/job-views.
+
 ## 10 November 2026: Home's views, and Sort across a phone
 
 **Done (1.149.1)**

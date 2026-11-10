@@ -365,6 +365,8 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
   .app .list-sort select { flex: 1 1 auto; min-width: 0; width: 100%; }
   .app .list-filter-button { margin-left: auto; flex: none; }
 }
+.app .list-tools-row.with-start { flex-wrap: nowrap; justify-content: space-between; }
+.app .list-tools-row.with-start > .list-filter-button { margin-left: auto; flex: none; }
 .app .list-filter-button { display: inline-flex; align-items: center; gap: var(--ds-space-2); }
 .app .list-filter-button[aria-expanded='true'] { background: var(--ds-surface-inset); }
 .app .list-tools .icon { width: 18px; height: 18px; flex: none; }

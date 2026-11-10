@@ -103,3 +103,7 @@ export function DepartmentFilter({
     </div>
   )
 }
+
+/** Each department picked, as a chip above a view that takes it off (ListTools' `leadActive`). */
+export const departmentChips = (picked: readonly JobDepartment[], setPicked: (next: JobDepartment[]) => void) =>
+  picked.map((d) => ({ key: `department-${d}`, label: JOB_DEPARTMENT_LABELS[d], off: () => setPicked(picked.filter((x) => x !== d)) }))

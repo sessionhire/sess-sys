@@ -52,7 +52,7 @@ import { useMyDepartment } from '../Narrowed.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { Beside, ClientField, clientNamed, NewOrNear, JobStatusPill, Top, useHash, VenueField, venueNamed, type PageAdd } from './common.tsx'
+import { Beside, ClientField, clientNamed, NewOrNear, JobStatusPill, Top, useHash, VenueField, venueNamed, useJobAdd } from './common.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
 import { TidyScreen } from './TidyScreen.tsx'
@@ -173,15 +173,6 @@ function JobList({ view }: { view: View }) {
   )
 }
 
-/**
- * New job, on the title's line (Colly, 10 November 2026), its form opening at the top of the list. Taking a job in is the office's,
- * so a role without jobs has none (ADR 0034). Bringing in jobs already on a calendar is under Menu and Admin › Connections: most
- * who open the list never do it, so it no longer stands between the title and the jobs.
- */
-function useJobAdd(): PageAdd | undefined {
-  return useAccess().can('jobs') ? { key: 'job', label: 'New job' } : undefined
-}
-
 /** The list's search, kept for the tab's life so Back from a job finds the list as it was searched. */
 let jobSearch = ''
 const searchListeners = new Set<() => void>()
@@ -252,6 +243,7 @@ function ClientsScreen({ view }: { view: View }) {
   const today = useToday()
   const [find, setFind] = useState('')
   const [choices, setChoices] = useListChoices('clients')
+  const mayAdd = useAccess().can('jobs')
   const filters = useMemo(() => placeFilters(false), [])
   const all = useMemo(
     () => placed(clients, (c) => jobs.filter((j) => j.clientId === c.id), (c) => view.attachments.of('client', c.id).length, today),
@@ -262,9 +254,14 @@ function ClientsScreen({ view }: { view: View }) {
   const shown = listed(searched, filters, PLACE_SORTS, choices)
   return (
     <div className="app crew jobs">
-      <Top view={view} views={<JobViews current="clients" />} heading="Clients" />
+      <Top view={view} views={<JobViews current="clients" />} heading="Clients" add={mayAdd ? { key: 'client', label: 'New client' } : undefined} />
       <section className="card plain" aria-label="Every client">
-        {clients.length === 0 && <Empty>Clients are added as you type them into a job.</Empty>}
+        {mayAdd && (
+          <Fold label="New client" from="client">
+            <NewNamed what="client" taken={(n) => clients.find((c) => plain(c.name) === plain(n))?.name} make={(id, name) => client.mutate('client.upsert', { id, name, contacts: [], notes: '' })} href={(id) => `#jobs/clients/${id}`} />
+          </Fold>
+        )}
+        {clients.length === 0 && <Empty>Add one with New client, at the top, or type a new one into a job.</Empty>}
         {clients.length > 0 && (
           <>
             <input className="search" type="search" placeholder="Name or contact" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Find a client" />
@@ -285,6 +282,57 @@ function ClientsScreen({ view }: { view: View }) {
 }
 
 /**
+ * New client or New venue, opened from the title's line (Colly, 10 November 2026): the name (and a venue's address), then its own
+ * page, where the rest is filled in. A name already here is said, with the way to it, rather than made twice.
+ */
+function NewNamed({
+  what,
+  address: withAddress = false,
+  taken,
+  make,
+  href,
+}: {
+  what: 'client' | 'venue'
+  address?: boolean
+  taken: (name: string) => string | undefined
+  make: (id: string, name: string, address: string) => Promise<unknown>
+  href: (id: string) => string
+}) {
+  const [name, setName] = useState('')
+  const [address, setAddress] = useState('')
+  const { run, error, refuse } = useAct()
+  const add = (e: FormEvent) => {
+    e.preventDefault()
+    const n = name.trim()
+    if (!n) return
+    const was = taken(n)
+    if (was) return refuse(`There's already a ${what} called ${was}.`)
+    const id = newId()
+    void run(() => make(id, n, address.trim())).then((ok) => {
+      if (ok) location.hash = href(id)
+    })
+  }
+  return (
+    <form className="grid-form" onSubmit={add} aria-label={`New ${what}`}>
+      <label>
+        Name
+        <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={200} />
+      </label>
+      {withAddress && (
+        <label>
+          Address
+          <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} maxLength={500} placeholder="With the Eircode, for the map" />
+        </label>
+      )}
+      <button type="submit" className="primary">
+        Add {what}
+      </button>
+      <Refusal error={error} />
+    </form>
+  )
+}
+
+/**
  * Every venue, on a page along Jobs' row (ADR 0041), with a map of them all above the list (ADR 0057). Sixty and more is a long
  * list, so it has People's find box at its top, by name or address with or without the fadas (audit, 20 October 2026, finding 76),
  * and the long lists' filter and sort (ADR 0099).
@@ -294,6 +342,7 @@ function VenuesScreen({ view }: { view: View }) {
   const today = useToday()
   const [find, setFind] = useState('')
   const [choices, setChoices] = useListChoices('venues')
+  const mayAdd = useAccess().can('jobs')
   const filters = useMemo(() => placeFilters(true), [])
   const all = useMemo(
     () => placed(venues, (v) => jobsAt(jobs, v.id), (v) => view.attachments.of('venue', v.id).length, today, (v) => !!v.pin),
@@ -304,10 +353,17 @@ function VenuesScreen({ view }: { view: View }) {
   const shown = listed(searched, filters, PLACE_SORTS, choices)
   return (
     <div className="app crew jobs">
-      <Top view={view} views={<JobViews current="venues" />} heading="Venues" />
+      <Top view={view} views={<JobViews current="venues" />} heading="Venues" add={mayAdd ? { key: 'venue', label: 'New venue' } : undefined} />
+      {mayAdd && (
+        <section className="card plain" aria-label="New venue">
+          <Fold label="New venue" from="venue">
+            <NewNamed what="venue" address taken={(n) => venues.find((v) => plain(v.name) === plain(n))?.name} make={(id, name, address) => client.mutate('venue.upsert', { id, name, address, notes: '' })} href={(id) => `#jobs/venues/${id}`} />
+          </Fold>
+        </section>
+      )}
       <VenuesMapCard venues={venues} jobsAt={(id) => jobsAt(jobs, id).length} />
       <section className="card plain" aria-label="Every venue">
-        {venues.length === 0 && <Empty>Venues are added as you type them into a job.</Empty>}
+        {venues.length === 0 && <Empty>Add one with New venue, at the top, or type a new one into a job.</Empty>}
         {venues.length > 0 && (
           <>
             <input className="search" type="search" placeholder="Name or address" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Find a venue" />
