@@ -86,28 +86,31 @@ describe("a job's steps", () => {
     const { client, signal } = await phone(app)
     let gala = client.view().steps.of('gala')!
     // The gala is confirmed, so its quote went and the client said yes; crew is under way. It's on today with nothing short,
-    // so its kit and vans were settled (ADR 0109).
+    // so its kit and vans were settled (ADR 0109). Nothing is scanned out yet, so it's still going out: picking is next,
+    // and crew is left open from before (ADR 0140 part 6).
     expect(gala.steps.map((s) => [s.key, s.state, s.auto ?? s.hint ?? s.skipped])).toEqual([
       ['quote', 'done', expect.stringMatching(/^Sent /)],
       ['confirmed', 'done', 'The job is confirmed'],
-      ['crew', 'now', expect.stringMatching(/^\d+ of \d+ booked/)],
+      ['crew', 'later', expect.stringMatching(/^\d+ of \d+ booked/)],
       ['kit', 'done', 'Settled: the job is under way'],
-      ['prep', 'later', '0 of 10 out'],
+      ['prep', 'now', '0 of 10 out'],
       ['show', 'later', expect.stringMatching(/^On until /)],
       ['back', 'later', 'Nothing out yet'],
       ['deprep', 'later', undefined],
     ])
-    expect(gala.current?.key).toBe('crew')
+    expect(gala.current?.key).toBe('prep')
+    expect(gala.stage?.key).toBe('going')
+    expect(gala.behind.map((s) => s.key)).toEqual(['crew'])
 
     // Given out and ticked with no signal: shown at once, as the server then has it.
     signal.on = false
-    await client.mutate('jobStep.set', { projectId: 'gala', step: 'crew', ownerId: 'cian' })
+    await client.mutate('jobStep.set', { projectId: 'gala', step: 'prep', ownerId: 'cian' })
     await client.mutate('jobStep.set', { projectId: 'gala', step: 'deprep', ownerId: 'cian' })
     await client.mutate('jobStep.set', { projectId: 'gala', step: 'kit', done: true, by: 'aoife' })
     gala = client.view().steps.of('gala')!
     expect(gala.steps.find((s) => s.key === 'kit')).toMatchObject({ done: true, pending: true, ticked: { by: { id: 'aoife' } } })
     expect(client.view().steps.mine('cian').map((s) => [s.step.key, s.next])).toEqual([
-      ['crew', true],
+      ['prep', true],
       ['deprep', false],
     ])
     signal.on = true
