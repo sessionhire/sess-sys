@@ -158,6 +158,8 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   })
   await form.getByRole('button', { name: /Start the quote with 4 lines/ }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
+  await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await expect(draft).toContainText('d&b Y10P')
   await expect(draft).toContainText('Delivery and collection')

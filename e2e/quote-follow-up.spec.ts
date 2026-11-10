@@ -43,6 +43,8 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await form.getByLabel(/Wanted by/).fill(today)
   await form.getByRole('button', { name: 'Start the quote' }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
+  await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await expect(draft).toContainText('No lines yet')
   await draft.getByRole('button', { name: 'Add something else' }).click()
@@ -126,6 +128,8 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
   await form.getByLabel('Who asked').fill('Aoife Byrne')
   await form.getByRole('button', { name: 'Start the quote' }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
+  await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
   const job = office.url().replace(/\/quote$/, '')
   await office.goto(job)
   await expect(office.locator('main')).toContainText('Enquiry by phone from Aoife Byrne.')

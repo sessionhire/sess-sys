@@ -41,6 +41,8 @@ test('Quotes is in the sidebar on a desk and lists every quote, to find and open
   await expect(all.getByRole('listitem')).toHaveCount(1)
   await all.getByRole('link', { name: 'Autumn Gala' }).click()
   await expect(desk).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
+  await expect(desk.getByRole('tab', { name: 'Quote' })).toBeFocused()
 
   // On a phone the bar keeps its five: Quotes is on the Menu, and keeps the Menu's tab.
   const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()

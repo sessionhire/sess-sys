@@ -68,6 +68,8 @@ test('New quote finds clients, venues and who asked as they are typed, and keeps
 
   await form.getByRole('button', { name: 'Start the quote' }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
+  await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
 
   // The next quote for Liffey Brands offers Orla too.
   await office.goto('/#quotes')

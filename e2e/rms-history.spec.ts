@@ -195,6 +195,8 @@ test('the office makes a job from a past quote, its lines matched to the stock l
 
   // The job page, on its quote, with the Next dock saying what's next (ADR 0103, ADR 0104).
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
+  await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
   const next = office.getByRole('region', { name: 'Next' })
   await expect(next).toContainText('Next · Quoting · Draft started')
   // The draft is right there, the quote being the job's Quote tab (ADR 0140, part 4), so Next says it in words.

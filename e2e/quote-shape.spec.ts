@@ -46,6 +46,8 @@ test('a dry hire is quoted without venue or travel, for who asked, under the off
   await form.getByRole('combobox', { name: 'Who asked' }).press('Escape')
   await form.getByRole('button', { name: 'Start the quote' }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
+  // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
+  await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 
   // It's for who asked, and there's no travel or subsistence to charge on a dry hire.
