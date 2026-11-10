@@ -217,7 +217,8 @@ export function NoticesScreen() {
 function NoticeRow({ notice: n, day, fresh, view }: { notice: Notice; day: string; fresh: boolean; view: View }) {
   // An offer to them is said to them, and opens their own page, where it's answered (UX sweep, 6 November 2026, move 6).
   const yours = offerToYou(n, view)
-  const what = yours?.what ?? n.what
+  // Someone else's change said as what it meant for them, with the history's words under it.
+  const what = yours?.what ?? n.said ?? n.what
   const href = yours?.href ?? placeOf(n, view)
   return (
     <li className={fresh ? 'entry notice new' : 'entry notice'}>
@@ -237,6 +238,7 @@ function NoticeRow({ notice: n, day, fresh, view }: { notice: Notice; day: strin
           what
         )}
       </p>
+      {n.said && <p className="for-you">{n.what}</p>}
       {n.forYou && <p className="for-you">{n.forYou}</p>}
       <span className="meta">
         {makerOf(n)} · {NOTICE_WHY_WORDS[n.why]} · {historyTime(n.arrivedAt, day)}
@@ -282,7 +284,8 @@ function LineRow({ line, day, mark, view }: { line: NoticeLine; day: string; mar
             const href = placeOf(n, view)
             return (
               <li key={n.id}>
-                {href ? <a href={href}>{n.what}</a> : n.what}
+                {href ? <a href={href}>{n.said ?? n.what}</a> : (n.said ?? n.what)}
+                {n.said && <span className="for-you"> {n.what}</span>}
                 {n.forYou && <span className="for-you"> {n.forYou}</span>}
                 <span className="meta">
                   {' '}

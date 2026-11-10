@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.152.1',
+    date: '2026-11-10',
+    title: 'Clearer notification when your offer closes',
+    what: "When someone else takes a call you'd been offered, your notifications now start with what it means for you, \"LED Tech on Two Johnnies went to Olan Clarke, so your offer is closed\", with what they did underneath. Before, it led with \"Olan Clarke accepted…\", which read like someone else's notification.",
+    prs: [316],
+  },
+  {
     version: '1.152.0',
     date: '2026-11-10',
     title: 'Give a stage to someone from the Board',

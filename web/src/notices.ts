@@ -248,7 +248,7 @@ function arrived(news: Notice[]) {
   for (const n of [...news].reverse()) {
     const yours = offerToYou(n, view)
     const href = yours?.href ?? placeOf(n, view)
-    showToast({ id: n.id, title: yours?.what ?? n.what, body: `${makerOf(n)} · ${NOTICE_WHY_WORDS[n.why]}`, ...(href ? { href, action: 'Open', ...(yours?.href ? { away: true } : {}) } : {}) })
+    showToast({ id: n.id, title: yours?.what ?? n.said ?? n.what, body: `${makerOf(n)} · ${NOTICE_WHY_WORDS[n.why]}`, ...(href ? { href, action: 'Open', ...(yours?.href ? { away: true } : {}) } : {}) })
   }
 }
 
