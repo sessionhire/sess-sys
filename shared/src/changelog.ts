@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-10',
     title: 'New quote is a page of its own, client first',
     what: "New quote now opens on a page of its own instead of inside To follow up. The client comes first, and their past jobs and Current RMS quotes to start from appear straight under it. Picking one fills in the job's name and venue if they're still empty, for you to change. Then the job's name and days, and Start. Who asked, how it came, the day they want it by and whether it's a dry hire are under \"More about the enquiry\".",
-    prs: [0],
+    prs: [306],
     adrs: [140],
   },
   {
