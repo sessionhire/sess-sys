@@ -31,7 +31,7 @@ import './steps.css'
  * Next button lives in the page head (NextDock.tsx), not here.
  */
 
-const PART_NAMES: Partial<Record<NonNullable<StepView['part']>, string>> = { crew: 'Crew', kit: 'Kit and vans', money: 'Quote', phases: 'Phases' }
+const PART_NAMES: Partial<Record<NonNullable<StepView['part']>, string>> = { crew: 'Crew', kit: 'Kit and vans', quote: 'Quote', phases: 'Phases' }
 
 export function StepsCard({
   job,
@@ -249,7 +249,7 @@ function OpenStep({
   // The client's answer is the job's own status, not a tick (ADR 0103).
   const answering = step.key === 'confirmed' && !step.ticked && job.status !== 'confirmed' && !stopped && access.can('jobs')
   const where = step.part === 'pick' ? undefined : step.part && PART_NAMES[step.part]
-  const seesPart = step.part !== 'money' || access.can('money')
+  const seesPart = step.part !== 'quote' || access.can('money')
   return (
     <div className="step-open" id="job-step-open" aria-live="polite" ref={box}>
       <h3 tabIndex={-1}>

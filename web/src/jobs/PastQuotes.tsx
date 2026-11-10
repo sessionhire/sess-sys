@@ -536,7 +536,7 @@ function MakeJob({
         await postJson('/api/rms/matches', { links: [{ opportunityId: o.id, projectId: id }] })
       }
       // The job page, on its quote, so the steps say what's next for it (ADR 0103): the draft is a press away.
-    }).then((ok) => ok && (location.hash = `#jobs/${encodeURIComponent(id)}/money`))
+    }).then((ok) => ok && (location.hash = `#jobs/${encodeURIComponent(id)}/quote`))
   }
   return (
     <section className="card" aria-label="Make a job from this" ref={here}>

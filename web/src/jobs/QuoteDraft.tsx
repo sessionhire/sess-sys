@@ -166,7 +166,7 @@ const PACKAGE_PICK = 'package:'
 type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
 const TERM_KEYS: readonly TermKey[] = ['agreed', 'km', 'discount', 'validFor', 'deposit']
 
-export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job: JobView; onPrint: () => void }) {
+export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: View; job: JobView; onPrint: () => void; /** The job's Next holds the page's red (ADR 0140, part 4). */ plain?: boolean }) {
   const today = useToday()
   const m = view.money
   const under = useUnderTop<HTMLFormElement>(true)
@@ -823,7 +823,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               ) : (
                 <button
                   type="button"
-                  className="primary send-now"
+                  className={plain ? 'send-now' : 'primary send-now'}
                   disabled={sendSaved}
                   onClick={() => {
                     if (saved) return send()

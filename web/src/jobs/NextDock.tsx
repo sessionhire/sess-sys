@@ -34,6 +34,7 @@ export function NextDock({
   onPart,
   onOpenTask,
   headSays,
+  quoteHere,
 }: {
   job: JobView
   view: View
@@ -42,6 +43,8 @@ export function NextDock({
   /** Opens a part of the job, and with a call's id, that call's Offer (ADR 0140). */
   onPart: (p: JobPart, offer?: string) => void
   onOpenTask: (t: JobStep) => void
+  /** The job's Quote tab is open under it (ADR 0140, part 4): the quote's own button there is the press, so the dock says so in words. */
+  quoteHere?: boolean
 }) {
   const access = useAccess()
   const { run, error } = useAct()
@@ -114,16 +117,21 @@ export function NextDock({
       const quotes = view.money.quotesOf(job.id)
       // A quote is built from the kit and crew, so a job with neither starts there (audit, 5 November 2026, finding 16).
       const empty = quotes.length === 0 && !(view.kit.byJob.get(job.id)?.length) && job.calls.length === 0
-      press =
-        empty && access.can('kit')
-          ? { label: 'Add the kit to quote', onPress: () => onPart('kit') }
-          : { label: quotes.length === 0 ? 'Make a quote' : quotes.some((q) => q.status === 'draft') ? 'Finish the quote' : 'Open the quote', href: `${href}/quote` }
+      if (empty && access.can('kit')) press = { label: 'Add the kit to quote', onPress: () => onPart('kit') }
+      // The quote is the job's Quoting stage, worked on its own tab (ADR 0140, part 4). With that tab open, its Send or Build is the
+      // one press, so the dock doesn't hold a second red that only goes where the page already is.
+      else if (quoteHere)
+        return rest(quotes.length === 0 ? 'Build the quote below, from the job or empty.' : quotes.some((q) => q.status === 'draft') ? 'Finish the quote below and send it to the client.' : "The quote is below, waiting on the client's answer.")
+      else press = { label: quotes.length === 0 ? 'Make a quote' : quotes.some((q) => q.status === 'draft') ? 'Finish the quote' : 'Open the quote', onPress: () => onPart('quote') }
       break
     }
     case 'confirmed': {
       if (!access.can('jobs')) break
       // The client's yes is on the quote, so the one press left is the job's own (audit, 5 November 2026, finding 25).
       const yes = access.can('money') && view.money.currentOf(job.id)?.status === 'accepted'
+      // On the Quote tab, the answer is recorded under What happened, whose button is the one red (ADR 0140, part 4).
+      if (quoteHere && access.can('money') && view.money.currentOf(job.id))
+        return rest(yes ? 'The client said yes: confirm the job below.' : "Record the client's answer below, under What happened.")
       press = yes
         ? { label: 'Confirm the job', onPress: () => void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })) }
         : { label: steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }

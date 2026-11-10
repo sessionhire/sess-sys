@@ -1,6 +1,6 @@
 # ADR 0140: One job, one path
 
-- **Status:** accepted; parts 1 to 3 built (1.142.0 to 1.142.2), parts 4 to 8 to follow
+- **Status:** accepted; parts 1 to 3 and the first half of 4 built (1.142.0 to 1.143.0), the rest to follow
 - **Date:** 9 November 2026
 - **Asked for by:** Colly, after walking the quote flow and on through crewing
   and the pick list: "very confusing to go through the steps and particularly
@@ -59,7 +59,11 @@ removed. Built in eight parts, one pull request each:
    list link, which the stage line doesn't.)
 4. The quote as the Quoting stage on the job page (its address still works);
    accept and confirm in one press; terms in one line with Change; one Add
-   box with the rarer adds under More.
+   box with the rarer adds under More. (First half built, 1.143.0: the quote
+   is the job's Quote tab, #jobs/<id>/quote and the old /money open it, and
+   its own page has gone. With the tab open during Quoting, Next says what
+   to do in words, so the quote's Build or Send is the page's one red,
+   rather than a second red that only goes where the page already is.)
 5. Crew and kit steps that move their count on with each press.
 6. The pick list opens on the first thing to pick, its switches in one Show
    by; the stage said from what was scanned, not only the date.
