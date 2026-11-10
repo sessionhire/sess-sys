@@ -40,3 +40,6 @@ it in Jobs and go to its Crew tab."
   past the next fortnight is under Show all, as every other one is.
 - The browser tests that made calls on Crew make a job and ask on its Crew tab
   (`e2e/ask.ts`).
+- Crew › Calls has two parts now (the answers and the calls), so on a phone
+  it no longer has an "On this screen" strip, which starts at three (ADR
+  0033). The strip's tests use Admin › Company instead.
