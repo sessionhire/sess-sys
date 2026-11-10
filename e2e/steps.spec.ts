@@ -206,6 +206,36 @@ test('a job on its first day with nothing scanned out is due out, not out, and i
   await expect(page.getByRole('heading', { name: 'Kit to go out' })).toBeVisible()
 })
 
+test("a job's tabs run in the order the job goes, and it opens on the one its next task is in", async ({ browser, request }) => {
+  // Proves (ADR 0140, part 8): no hunting for the tab; a link to a tab still opens that tab.
+  const id = Date.now().toString(36)
+  const soon = new Date(Date.now() + 20 * 86_400_000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' })
+  await push(request, id, [
+    ['project.create', { id: `ts-${id}`, name: `Tab Sale ${id}`, clientId: null, venueId: null, status: 'enquiry', notes: '' }],
+    ['phase.add', { id: `tsp-${id}`, projectId: `ts-${id}`, name: 'Show', start: soon, end: soon, venueId: null, notes: '' }],
+    ['project.create', { id: `tp-${id}`, name: `Tab Plan ${id}`, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `tpp-${id}`, projectId: `tp-${id}`, name: 'Show', start: soon, end: soon, venueId: null, notes: '' }],
+    [
+      'call.create',
+      { id: `tpc-${id}`, projectId: `tp-${id}`, phaseId: `tpp-${id}`, project: `Tab Plan ${id}`, phase: 'Show', venue: '', role: 'Rigger', start: soon, end: soon, callTime: '08:00', needed: 2, dayRateCents: null, details: '', replyBy: null },
+    ],
+  ])
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto(`/#jobs/ts-${id}`)
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const tabs = page.getByRole('tablist', { name: 'Parts of the job' }).getByRole('tab')
+  await expect(tabs).toHaveText([/^Quote/, /^Crew/, /^Kit and vans/, /^Phases/, /^Show pack/])
+  // Being sold: it opens on its quote.
+  await expect(page.getByRole('tab', { name: /^Quote/ })).toHaveAttribute('aria-selected', 'true')
+  // Confirmed with crew to book: it opens on Crew.
+  await page.goto(`/#jobs/tp-${id}`)
+  await expect(page.getByRole('heading', { level: 1, name: `Tab Plan ${id}` })).toBeVisible()
+  await expect(page.getByRole('tab', { name: /^Crew/ })).toHaveAttribute('aria-selected', 'true')
+  // A link to a part opens that part.
+  await page.goto(`/#jobs/tp-${id}/phases`)
+  await expect(page.getByRole('tab', { name: /^Phases/ })).toHaveAttribute('aria-selected', 'true')
+})
+
 /** The id of the offer the office made to a person on a call, from what the server sends; undefined while it hasn't arrived. */
 async function offerOf(request: APIRequestContext, callId: string, personId: string): Promise<string | undefined> {
   let after = 0

@@ -1,6 +1,6 @@
 # ADR 0140: One job, one path
 
-- **Status:** accepted; parts 1 to 7 built (1.142.0 to 1.147.0), part 8 to follow
+- **Status:** accepted; all eight parts built (1.142.0 to 1.148.0)
 - **Date:** 9 November 2026
 - **Asked for by:** Colly, after walking the quote flow and on through crewing
   and the pick list: "very confusing to go through the steps and particularly
@@ -109,6 +109,13 @@ removed. Built in eight parts, one pull request each:
    two look the same, and a page keeps the address, Back and the shortcut
    working as they did.)
 8. The job's tabs in stage order, opening on the stage the job is in.
+   (Built, 1.148.0: Quote, Crew, Kit and vans, Phases, Show pack. With no
+   part named in the address and no task opened, the job opens on the part
+   its next task is in: the quote while selling, crew or kit while planning,
+   kit (where the pick list's link is) while going out and back, phases
+   while on. A job with no task left, or with no stages, opens on the part
+   last looked at, as it did, so moving from job to job on one part still
+   works there.)
 
 Assumed until Colly says otherwise: the client's yes is the moment the job is
 confirmed; crew may be pencilled before the yes, so Crew shows in Quoting,

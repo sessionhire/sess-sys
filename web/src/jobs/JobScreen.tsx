@@ -69,16 +69,18 @@ import { JOBS } from '../Up.tsx'
 /**
  * One job: what it is, the stage it's in and the tasks inside it, who each
  * is down to (ADR 0073, ADR 0104), its one Next button in the page head,
- * then its parts one at a time (a tab each): its
- * phases and how each will read on the calendar, its crew, its kit and
- * vans (ADR 0014, 0047), its show pack and its quote. Crew calls made here
+ * then its parts one at a time (a tab each), in the order the job goes
+ * through them and opening on the one its next task is in (ADR 0140, part
+ * 8): its quote, its crew, its kit and vans (ADR 0014, 0047), its phases
+ * and how each will read on the calendar, and its show pack. Crew calls made here
  * belong to the job and its phase, so freelancers always see the job's
  * current name, dates and venue. The page has the whole width, with no
  * list beside it: the way up goes back to the list.
  */
 
 export type JobPart = 'phases' | 'crew' | 'kit' | 'pack' | 'quote'
-export const JOB_PARTS: readonly JobPart[] = ['phases', 'crew', 'kit', 'pack', 'quote']
+/** In the order the job goes through them (ADR 0140, part 8): sold, crewed, kitted, then its days and the pack for them. */
+export const JOB_PARTS: readonly JobPart[] = ['quote', 'crew', 'kit', 'phases', 'pack']
 
 const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit and vans', pack: 'Show pack', quote: 'Quote' }
 
@@ -94,6 +96,11 @@ function lastPart(): JobPart | undefined {
   } catch {
     return undefined
   }
+}
+
+/** The job page's part for where a task's work is done: the pick list's tasks are under Kit and vans, where its link is. */
+function partOf(p: 'phases' | 'crew' | 'kit' | 'quote' | 'pick' | undefined): JobPart | undefined {
+  return p === 'pick' ? 'kit' : p
 }
 
 export function JobScreen({ view, id, part: asked, task: askedTask }: { view: View; id: string; part?: JobPart; task?: JobStep }) {
@@ -116,7 +123,11 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   const [task, setTask] = useState<JobStep | undefined>(askedTask)
   useEffect(() => setTask(askedTask), [id, askedTask])
   const stepPart = askedTask ? view.steps.of(id)?.steps.find((s) => s.key === askedTask)?.part : undefined
-  const wanted = picked ?? asked ?? parts.find((p) => p === stepPart) ?? lastPart() ?? 'phases'
+  // With nothing named, the job opens on the part its next task is in (ADR 0140, part 8): the quote while it's being sold, the
+  // crew or kit while it's planned, the kit while it goes out and comes back, the phases while it's on. A job with no task left
+  // (or no stages) opens where the last one was looked at.
+  const nextPart = partOf(view.steps.of(id)?.current?.part)
+  const wanted = picked ?? asked ?? parts.find((p) => p === stepPart) ?? parts.find((p) => p === nextPart) ?? lastPart() ?? 'phases'
   const part = parts.includes(wanted) ? wanted : 'phases'
   // An address that names a part of the job, or a task in it, lands on it however it was reached: a row on Home, the planner, Crew or a
   // typed link (UX sweep, 6 November 2026, move 8). A part's tab row comes to the top with the focus on its tab, as Next brings it (ADR
