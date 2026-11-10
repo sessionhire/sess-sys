@@ -557,3 +557,26 @@ export function kitToCheckBackIn(jobs: JobsView, steps: StepsView, moves: MovesV
     })
     .sort((a, b) => (b.job.span?.end ?? '').localeCompare(a.job.span?.end ?? '') || a.job.name.localeCompare(b.job.name) || a.job.id.localeCompare(b.job.id))
 }
+
+/**
+ * Who has the stage a job is in (ADR 0144): the open tasks of that stage, which is what giving the stage to someone gives
+ * (picking, when the job is Going out). A stage with none open left, while a task from before is still open, hands over that
+ * task, the job's next, so the stage on the Board can always be given while there's anything to do. `owner` is the one person
+ * they're all down to, or undefined when none is named or they're split, which `split` says.
+ */
+export interface StageHolder {
+  stage: StageView
+  tasks: StepView[]
+  owner: PersonView | undefined
+  split: boolean
+}
+
+export function stageHolder(s: JobSteps): StageHolder | undefined {
+  if (!s.stage || s.stopped || s.finished) return undefined
+  const open = s.stage.tasks.filter((t) => !t.done && !t.skipped)
+  const tasks = open.length ? open : s.current ? [s.current] : []
+  if (!tasks.length) return undefined
+  const ids = new Set(tasks.map((t) => t.ownerId))
+  const one = ids.size === 1 ? tasks[0]!.owner : undefined
+  return { stage: s.stage, tasks, owner: one, split: ids.size > 1 }
+}

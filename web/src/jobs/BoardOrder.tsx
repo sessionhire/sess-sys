@@ -107,7 +107,7 @@ export function OrderedCards({
       onClickCapture={(e) => {
         if (!held) return
         const target = (e.target as HTMLElement).closest<HTMLElement>('[data-card]')
-        if (!target || target.dataset.card === held.id || (e.target as HTMLElement).closest('.board-grip')) return
+        if (!target || target.dataset.card === held.id || (e.target as HTMLElement).closest('.board-grip, .stage-owner')) return
         e.preventDefault()
         e.stopPropagation()
         into(target.dataset.card!)

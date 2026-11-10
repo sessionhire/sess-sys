@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.152.0',
+    date: '2026-11-10',
+    title: 'Give a stage to someone from the Board',
+    what: "Each card on Jobs › Board now says who has the stage the job is in, at its foot, and you can change it there without opening the job: take it yourself (you're first in the list), give it to someone else on the staff, or set it back to nobody. Giving a stage gives all its open tasks, so picking a job's kit or settling its crew and kit is one choice, and the person sees them on their list on Home.",
+    prs: [315],
+    adrs: [144],
+  },
+  {
     version: '1.151.0',
     date: '2026-11-10',
     title: 'Put the Board in order',
