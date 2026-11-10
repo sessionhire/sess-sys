@@ -50,6 +50,40 @@ export function Views({ label, pages, current }: { label: string; pages: readonl
 }
 
 /**
+ * The same row when the views are one page seen for someone else rather than pages of their own: Home's Company,
+ * Department, Warehouse and Me (Colly, 10 November 2026: "the same component as the others"). Drawn, sized and
+ * scrolled as the area's row is, the chosen one filled; they're toggles, not links, as the page stays where it is,
+ * and a press keeps the focus where it was (audit finding 22).
+ */
+export function ViewChoice<K extends string>({ label, choices, current, onChoose }: { label: string; choices: readonly (readonly [K, string])[]; current: K; onChoose: (k: K) => void }) {
+  const row = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = row.current
+    const at = el?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (el && at && (at.offsetLeft < el.scrollLeft || at.offsetLeft + at.offsetWidth > el.scrollLeft + el.clientWidth))
+      el.scrollLeft = at.offsetLeft - (el.clientWidth - at.offsetWidth) / 2
+  }, [current])
+  useMoreEdges(row)
+  return (
+    <div className="views more-edges" role="group" aria-label={label} ref={row}>
+      {choices.map(([k, name]) => (
+        <button
+          key={k}
+          type="button"
+          aria-pressed={k === current}
+          onClick={(e) => {
+            e.currentTarget.focus()
+            onChoose(k)
+          }}
+        >
+          {name}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
  * Stock's row: what the warehouse looks at, each a page, with the tests overdue, the repairs open and the places to count
  * this week counted on theirs, each the list Home counts and the page lists (shared/src/sync/standing.ts). Counted only
  * for a role that can act on them (ADR 0034), as Crew's row is: to anyone else they'd be a to-do list that isn't theirs.

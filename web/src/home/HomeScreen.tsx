@@ -7,6 +7,7 @@ import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
 import { Empty } from '../Empty.tsx'
 import { Top } from '../jobs/common.tsx'
+import { ViewChoice } from '../Views.tsx'
 import { BelowZero, MoneyFacts } from '../jobs/Money.tsx'
 import { useToday, useView } from '../view.ts'
 import { addDays, companyTiles, departmentsIn, jobsOn, SOON, TILES_FOR, tiles, weekAhead, type FirstGroup, type HomeFor, type Tile } from './standing.ts'
@@ -82,26 +83,16 @@ export function HomeScreen() {
   return (
     <Copying.Provider value={view.copying !== false}>
       <div className="app home">
-        {/* Today's date top right, so Home is the page's one title (Colly, 12 October 2026). */}
-        <Top view={view} title="Home" root aside={<span className="top-date">{dayLabel(today)}</span>} />
-        {me && <p className="home-day">Hello, {firstName(me)}</p>}
-
-        <div className="views home-for" role="group" aria-label="Show for">
-          {FOR.map(([f, label]) => (
-            <button
-              key={f}
-              type="button"
-              aria-pressed={shownFor === f}
-              onClick={(e) => {
-                // A toggle, not a move: it keeps focus, as the Shell expects of one (audit finding 22).
-                e.currentTarget.focus()
-                choose({ for: f, department })
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Today's date top right, so Home is the page's one title (Colly, 12 October 2026). The greeting is the line under it, and who it's
+            shown for is the page's views, under the same Views heading and in the same row as every area's (Colly, 10 November 2026). */}
+        <Top
+          view={view}
+          title="Home"
+          root
+          aside={<span className="top-date">{dayLabel(today)}</span>}
+          sub={me ? <p>Hello, {firstName(me)}</p> : undefined}
+          views={<ViewChoice label="Show for" choices={FOR} current={shownFor} onChoose={(f) => choose({ for: f, department })} />}
+        />
 
         {/* The job steps given to whoever is looking (ADR 0073): their to-do list, on top of whichever view. */}
         {me && <MySteps view={view} me={me} all={shownFor === 'me'} />}

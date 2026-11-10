@@ -275,10 +275,11 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .more-edges[data-more='right'] { mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); }
 .more-edges[data-more='left'] { mask-image: linear-gradient(to right, #000 var(--more-at), transparent var(--more-at), #000 calc(var(--more-at) + 48px)); }
 .more-edges[data-more='both'] { mask-image: linear-gradient(to right, #000 var(--more-at), transparent var(--more-at), #000 calc(var(--more-at) + 48px), #000 calc(100% - 48px), transparent); }
-.views a { flex: 1 0 auto; display: grid; grid-auto-flow: column; place-items: center; place-content: center; gap: var(--ds-space-2); min-height: 44px; padding-inline: var(--ds-space-3); border-radius: var(--radius-control); font-weight: 700; color: var(--muted); text-decoration: none; white-space: nowrap; }
-.views a[aria-current='page'] { background: var(--ink); color: var(--bg); }
+.views a, .views button { flex: 1 0 auto; display: grid; grid-auto-flow: column; place-items: center; place-content: center; gap: var(--ds-space-2); min-height: 44px; padding-inline: var(--ds-space-3); border-radius: var(--radius-control); font-weight: 700; color: var(--muted); text-decoration: none; white-space: nowrap; }
+.views button { border: 0; background: transparent; font: inherit; font-weight: 700; padding-block: 0; }
+.views a[aria-current='page'], .views button[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
 @media (hover: hover) {
-  .views a:not([aria-current]):hover { color: var(--ink); }
+  .views a:not([aria-current]):hover, .views button[aria-pressed='false']:hover { color: var(--ink); }
 }
 /* The count in the muted ink alone, never faded below it: it's what says whether a view needs a look (audit, 5 November 2026, finding 55). */
 .views-count { font-weight: 600; }
@@ -356,6 +357,14 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .app .list-sort select { color: var(--ink); }
 /* On a phone the icon says Sort (the select is named Sort), so Sort and Filter share one row over the list (audit, 5 November 2026, finding 57). */
 @media (max-width: 639px) { .app .list-sort > span { display: none; } }
+/* And on a phone the row is the page's width: Sort takes all the room Filter leaves, and Filter keeps to the right edge, where the thumb is,
+   even on a list with nothing to sort (Colly, 10 November 2026). */
+@media (max-width: 639px) {
+  .app .list-tools-row { flex-wrap: nowrap; }
+  .app .list-sort { flex: 1 1 auto; }
+  .app .list-sort select { flex: 1 1 auto; min-width: 0; width: 100%; }
+  .app .list-filter-button { margin-left: auto; flex: none; }
+}
 .app .list-filter-button { display: inline-flex; align-items: center; gap: var(--ds-space-2); }
 .app .list-filter-button[aria-expanded='true'] { background: var(--ds-surface-inset); }
 .app .list-tools .icon { width: 18px; height: 18px; flex: none; }

@@ -1,10 +1,4 @@
 /* Home (ADR 0033): how things stand, for whoever is looking. */
-.home .home-day { margin: calc(-1 * var(--ds-space-3)) 0 0; color: var(--muted); font-size: var(--text-small); }
-/* Who it's shown for: a toggle drawn like the Jobs tab's List, Week and Month. Each as wide as its word, so all four sit on one line
-   on a phone too, rather than folding into a block of four that reads as two questions. */
-.home .home-for { display: flex; gap: var(--ds-space-1); padding: var(--ds-space-1); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); }
-.home .home-for button { flex: 1 0 auto; min-width: 0; padding: var(--ds-space-1) var(--ds-space-half); font-size: var(--text-small); border: 0; background: transparent; color: var(--muted); font-weight: 700; }
-.home .home-for button[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
 .home .home-department select { width: 100%; }
 /* Counts as tiles: the number first and large, what it's of under it. Two across on a phone, more on a laptop. */
 .home .tiles > li { display: grid; }
