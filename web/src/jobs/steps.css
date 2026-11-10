@@ -170,6 +170,25 @@
 .board-band-head { margin: 0; padding: 0 var(--ds-space-2); font: inherit; font-weight: 600; color: var(--muted); }
 .board-col > header small { color: var(--muted); font-variant-numeric: tabular-nums; }
 .board-col .board-empty { margin: 0; padding: 0 var(--ds-space-2); }
+.board-col > header .board-by-date { min-height: 0; padding: 0; font-size: var(--text-small); text-align: start; }
+/* The Board's order (ADR 0143): a card's Move button sits at its top right, quiet until wanted; only it takes a drag, so a phone still scrolls by the card. */
+.board-cards { display: grid; gap: var(--ds-space-2); }
+.board-item { position: relative; }
+.board-item:has(.board-grip) .board-card > :is(b, p) { padding-inline-end: 32px; }
+.app .board-grip { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 44px; height: 44px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-box); background: none; color: var(--muted); cursor: grab; touch-action: none; }
+.app .board-grip .icon { width: 18px; height: 18px; }
+.app .board-grip:hover { color: var(--ink); background: var(--ds-wash-hover); }
+.app .board-grip[aria-pressed='true'] { color: var(--accent-ink); }
+/* Picked up or dragged: lifted on the dragged wash with the menu's shadow, and ringed while it waits for a place (as the rack designer's). */
+.board-item[data-dragging='true'] .board-card { background-image: linear-gradient(var(--ds-wash-dragged), var(--ds-wash-dragged)); box-shadow: var(--ds-elevation-menu); }
+.board-cards[data-holding] .board-item[data-dragging='true'] .board-card { outline: 2px solid var(--accent); outline-offset: 1px; }
+.board-item[data-dragging='true'] .board-grip { cursor: grabbing; }
+/* While one is held, every other card is a place to put it. */
+.board-cards[data-holding] .board-item:not([data-dragging]) .board-card { cursor: copy; border-style: dashed; border-color: var(--field-line); }
+/* Where a dragged card will land, drawn before it's let go; nothing else moves (the design system's drag and drop). */
+.board-item[data-drop]::before { content: ''; position: absolute; left: 0; right: 0; height: 2px; border-radius: 1px; background: var(--accent); }
+.board-item[data-drop='before']::before { top: calc(-1 * var(--ds-space-2) / 2 - 1px); }
+.board-item[data-drop='after']::before { bottom: calc(-1 * var(--ds-space-2) / 2 - 1px); }
 .app .board-card { display: grid; gap: 2px; padding: var(--ds-space-2) var(--inset-box); background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); color: inherit; text-decoration: none; }
 .app .board-card b { font-size: var(--text-body); line-height: 1.25; }
 .app .board-card p { margin: 0; font-size: var(--text-small); color: var(--muted); }
@@ -193,3 +212,15 @@
   padding: var(--ds-space-2) var(--ds-space-1); color: var(--ink); text-decoration: none;
 }
 .invoice-row [data-due] .task-how, .invoice-row [data-due] .task-tag { color: var(--warn); }
+/* A Planning card's footer (Colly, 10 November 2026): whose and when at the start, the crew's and the kit's dots at the end. */
+.board-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--ds-space-1) var(--ds-space-3); margin-top: var(--ds-space-1); }
+.board-foot .board-line { flex: 1 1 auto; margin-top: 0; }
+.board-marks { display: inline-flex; gap: var(--ds-space-3); margin-left: auto; }
+.board-mark { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-small); font-weight: 600; color: var(--ink); white-space: nowrap; }
+.board-mark small { font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The design system's dot: its status's colour, hollow while there's nothing yet; the words are in its name and its hover. */
+.board-mark i { width: 9px; height: 9px; border-radius: var(--radius-full); background: var(--muted); }
+.board-mark[data-state='ok'] i { background: var(--good); }
+.board-mark[data-state='warn'] i { background: var(--warn); }
+.board-mark[data-state='bad'] i { background: var(--bad); }
+.board-mark[data-state='off'] i { background: none; box-shadow: inset 0 0 0 1.5px var(--muted); }

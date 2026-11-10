@@ -371,6 +371,10 @@ const CASES: Case[] = [
   c('jobStep.set', { projectId: 'gala', step: 'kit', dueOn: '2026-10-06' }, { as: 'given a day it is due by' }),
   c('jobStep.set', { projectId: 'gala', step: 'kit', done: false, ownerId: null }, { as: 'the tick and the name taken off', before: [m('jobStep.set', { projectId: 'gala', step: 'kit', ownerId: 'cian', done: true })] }),
 
+  // The Board's order (ADR 0143).
+  c('jobRank.set', { stage: 'planning', ids: ['gala'] }, { as: 'put in order' }),
+  c('jobRank.set', { stage: 'planning', ids: ['gala'], clear: true }, { as: 'back to date order', before: [m('jobRank.set', { stage: 'planning', ids: ['gala'] })] }),
+
   // The purchase list (ADR 0077).
   c('purchase.ask', { id: 'nl4t', title: '  NL4T connectors ', details: '20', link: 'thomann.de/ie/nl4t.htm', department: 'audio', by: 'aoife' }),
   c('purchase.update', { id: 'nl4t', details: '24, and 4 spare', link: '' }, { before: [m('purchase.ask', { id: 'nl4t', title: 'NL4T connectors', details: '20', link: '', department: 'Audio', by: 'aoife' })] }),

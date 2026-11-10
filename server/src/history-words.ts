@@ -32,7 +32,7 @@ import { ROLE_LABELS, type Role } from '@sh/shared'
 import { lengthLabel, LOGO_ACTIONS, OWN_CALENDAR_ACTIONS, PHOTO_ACTIONS, PRODUCT_PHOTO_ACTIONS } from '@sh/shared'
 import { LEFT_OUT_REASONS, leftOutLabel, type LeftOutReason } from '@sh/shared'
 import { VEHICLE_KIND_LABELS, type VehicleKind } from '@sh/shared'
-import { STEP_LABELS, type JobStep } from '@sh/shared'
+import { STAGE_LABELS, STEP_LABELS, type JobStage, type JobStep } from '@sh/shared'
 import { PURCHASE_STATUS_LABELS, type PurchaseStatus } from '@sh/shared'
 import { aliasesOf } from '@sh/shared'
 import { RACK_PART_LABELS, type RackPart } from '@sh/shared'
@@ -823,6 +823,13 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'vehicleBooking.remove': {
       const b = look('vehicleBooking', a.id)
       return b ? `Took ${vehicle(b.vehicleId)} off ${job(b.projectId)}` : 'Took a vehicle off a job'
+    }
+    // The Board's order (ADR 0143): "Moved Harbour Lights to the top of Planning on the Board".
+    case 'jobRank.set': {
+      const ids = Array.isArray(a.ids) ? (a.ids as string[]) : []
+      const column = typeof a.stage === 'string' && a.stage in STAGE_LABELS ? STAGE_LABELS[a.stage as JobStage] : 'a column'
+      if (a.clear) return `Put ${column} on the Board back in date order`
+      return `Put ${ids.length === 1 ? job(ids[0]) : plural(ids.length, 'job')} in order in ${column} on the Board`
     }
     // A job's steps (ADR 0073): "Gave Picked on Harbour Lights to Aoife Brennan", "Ticked Back in on Harbour Lights".
     case 'jobStep.set': {

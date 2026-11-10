@@ -186,6 +186,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
 
   // A job's steps (ADR 0073): every member of staff ticks their own; staff crew only theirs, checked by the handler.
   'jobStep.set': 'steps',
+  // The Board's order (ADR 0143): the office and the heads, who give out the steps; not staff crew, checked by the handler.
+  'jobRank.set': 'steps',
 
   // The purchase list (ADR 0077): anyone asks and votes, and changes or takes back their own (the handler checks whose);
   // saying where a request is at is stock's, and bringing a list in is settings', like every list.

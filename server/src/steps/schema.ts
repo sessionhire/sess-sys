@@ -23,6 +23,14 @@ const MIGRATIONS: string[] = [
   `,
   // The day a task is due by (ADR 0104).
   `ALTER TABLE job_steps ADD COLUMN IF NOT EXISTS due_on date;`,
+  // A job's place on the Board, put there by hand in the column of the stage it was in (ADR 0143). It goes with the job.
+  `
+  CREATE TABLE IF NOT EXISTS job_ranks (
+    project_id  text PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    stage       text NOT NULL,
+    rank        integer NOT NULL
+  );
+  `,
 ]
 
 export const STEPS: Module = { versionTable: 'steps_schema_version', migrations: MIGRATIONS }

@@ -111,10 +111,26 @@ export interface StepRecord {
   doneBy: string | null
 }
 
+/**
+ * A job's place on the Board (ADR 0143): put there by hand, in the column of the stage it was in. It holds only while the
+ * job is still in that stage; once the job moves on, it is ranked by its days again, as every job nobody has put in order is.
+ */
+export interface RankRecord {
+  /** The job's id: one place each. */
+  id: string
+  stage: JobStage
+  /** Smaller is higher up the column. */
+  rank: number
+}
+
 export interface StepEntities {
   jobStep: StepRecord
+  jobRank: RankRecord
 }
-export const STEP_ENTITY_NAMES = ['jobStep'] as const
+export const STEP_ENTITY_NAMES = ['jobStep', 'jobRank'] as const
+
+/** As many cards as one press puts in order: a column of a busy season, with room to spare. */
+export const MOST_RANKED = 500
 
 /** One record a step of a job, so two devices giving the same step land on the same one. */
 export const stepId = (projectId: string, step: JobStep) => `${projectId}.${step}`
@@ -138,7 +154,19 @@ export const stepCommandSchemas = {
       by: id.nullable().optional(),
     })
     .refine((a) => a.ownerId !== undefined || a.done !== undefined || a.dueOn !== undefined, { message: 'Nothing to change.' }),
+  /**
+   * Put jobs in order in a column of the Board (ADR 0143): `ids` top first, each given its place in the stage, the first
+   * 1, the next 2. `clear` gives the jobs in `ids` back to their days instead.
+   */
+  'jobRank.set': z.object({
+    stage: z.enum(JOB_STAGES),
+    ids: z.array(id).min(1).max(MOST_RANKED),
+    clear: z.boolean().optional(),
+  }),
 } as const
+
+/** Staff crew see the Board but don't put it in order: the office and the heads do (ADR 0143). */
+export const RANK_NOT_YOURS = 'Staff crew can see the Board but not change its order. Ask the office or a head of department.'
 
 /** Why a step can't be given to this person, or undefined when it can: staff only, as they're the ones with a list. */
 export function stepOwnerRefusal(p: { name: string; kind: 'staff' | 'freelancer'; archived?: boolean } | undefined): string | undefined {

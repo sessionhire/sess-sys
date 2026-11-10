@@ -4,7 +4,7 @@ import { daysBetween } from '../crew-days.ts'
 import { kindOf, kitDaysOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
 import { needsPrice } from '../quotes.ts'
 import { plural } from '../stock.ts'
-import { JOB_STAGES, JOB_STEPS, LATE_BACK_AFTER_DAYS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type StepRecord } from '../steps.ts'
+import { JOB_STAGES, JOB_STEPS, LATE_BACK_AFTER_DAYS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type RankRecord, type StepRecord } from '../steps.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
 import type { FaultsView } from './faults-view.ts'
 import { crewFill, type JobsView, type JobView } from './jobs-view.ts'
@@ -136,6 +136,11 @@ export interface JobSteps {
   daysAfter: number | undefined
   /** Where the selling stands in one sentence, the same on the Board, the Jobs list and the dock (sellingLine); undefined once sold. */
   selling: string | undefined
+  /**
+   * Its place in its column of the Board, put there by hand (ADR 0143): smaller is higher. Undefined when nobody has, or
+   * when it was put there in the column of a stage it has since left, so it goes by its days again.
+   */
+  rank: number | undefined
 }
 
 export interface MyStep {
@@ -229,6 +234,15 @@ export function stepsView(
       doneBy: ticked ? (was.doneAt ? was.doneBy : (a.by ?? null)) : null,
       pending: true,
     })
+  }
+  // The Board's order (ADR 0143), with any change still on its way laid over it as it was made.
+  const ranks = new Map<string, RankRecord>()
+  for (const r of Object.values(entities.jobRank ?? {})) ranks.set(r.id, r)
+  for (const m of outbox) {
+    if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
+    if (m.name !== 'jobRank.set') continue
+    const a = m.args as CommandArgs<'jobRank.set'>
+    a.ids.forEach((id, i) => (a.clear ? ranks.delete(id) : ranks.set(id, { id, stage: a.stage, rank: i + 1 })))
   }
   const people = new Map(crew.people.map((p) => [p.id, p]))
   const jobById = new Map(jobs.jobs.map((j) => [j.id, j]))
@@ -452,6 +466,10 @@ export function stepsView(
       daysTo: job.span && job.span.start > today ? daysBetween(today, job.span.start) : undefined,
       daysAfter: job.span && job.span.end < today ? daysBetween(job.span.end, today) : undefined,
       selling: stopped ? undefined : what.selling,
+      rank: (() => {
+        const r = ranks.get(jobId)
+        return r && !stopped && r.stage === stage?.key ? r.rank : undefined
+      })(),
     }
     built.set(jobId, out)
     return out
