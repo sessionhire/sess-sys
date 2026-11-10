@@ -1,5 +1,9 @@
-import { addDays, dayLabel, firstName, JOB_STAGES, jobPosition, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
+import { addDays, byBoardOrder, dayLabel, rankedAfterDrop, type JobStage, firstName, JOB_STAGES, jobPosition, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
 import { useState } from 'react'
+import { client } from '../sync.ts'
+import { useAct, Refusal } from '../act.tsx'
+import { useAccess } from '../role.ts'
+import { OrderedCards } from './BoardOrder.tsx'
 import { arrival } from '../arrival.ts'
 import { useToday } from '../view.ts'
 import { Top, useJobAdd } from './common.tsx'
@@ -10,11 +14,13 @@ import { departmentChips, DepartmentFilter, useJobDepartments } from './Departme
 
 /**
  * Jobs › Board (ADR 0104, part 3): a column per stage, a card per job,
- * soonest at the top, each card saying what is short or waiting and how
- * long it has been. It answers "is anything stuck?" in one look. It reads
- * only: a job moves when its own records do (the client's answer, a scan,
- * a date), never by dragging a card, so what the board says is always what
- * the job says. The sixth column is the jobs through every stage this
+ * each card saying what is short or waiting and how long it has been. It
+ * answers "is anything stuck?" in one look. A job moves between columns when
+ * its own records do (the client's answer, a scan, a date), never by
+ * dragging a card, so the column a job is in is always what the job says.
+ * Inside a column the office and the heads put the cards in the order they
+ * matter (ADR 0143); the cards nobody has put in order go soonest first,
+ * under them. The sixth column is the jobs through every stage this
  * month. Everyone who sees Jobs sees the board; money is not on it.
  *
  * Back holds only the jobs with something still to sort: a job over a
@@ -37,6 +43,23 @@ export function BoardScreen({ view }: { view: View }) {
   const monthAgo = addDays(today, -31)
   // The departments picked (ADR 0137), as on the Jobs list and the calendar: only the jobs involving one of them, in every column.
   const { picked, setPicked, involves } = useJobDepartments(view)
+  // Staff crew see the board but don't put it in order (ADR 0143).
+  const access = useAccess()
+  const canOrder = access.role !== 'crew' && access.can('steps')
+  const { run, error } = useAct()
+  const [said, say] = useState('')
+  /** A card dropped: it and every card above it in its group join the ones already in order, as the column now reads. */
+  const order = (stage: JobStage, groups: JobSteps[][], group: number, now: string[], id: string) => {
+    const drawn = groups.map((g, i) => (i === group ? now : g.map((s) => s.job.id)))
+    const ranked = new Set(groups.flat().filter((s) => s.rank !== undefined).map((s) => s.job.id))
+    void run(() => client.mutate('jobRank.set', { stage, ids: rankedAfterDrop(drawn, group, id, ranked) }))
+  }
+  const byDate = (stage: JobStage, jobs: JobSteps[]) => {
+    const ids = jobs.filter((s) => s.rank !== undefined).map((s) => s.job.id)
+    if (!ids.length) return
+    say(`${STAGE_LABELS[stage]} is back in date order.`)
+    void run(() => client.mutate('jobRank.set', { stage, ids, clear: true }))
+  }
   const all = view.jobs.jobs
     .filter(involves)
     .map((j) => view.steps.of(j.id))
@@ -48,7 +71,7 @@ export function BoardScreen({ view }: { view: View }) {
   const columns = JOB_STAGES.map((key) => ({
     key,
     label: STAGE_LABELS[key],
-    jobs: all.filter((s) => s.stage?.key === key && !s.lapsed && inSpan(s.job)).sort(bySoonest),
+    jobs: all.filter((s) => s.stage?.key === key && !s.lapsed && inSpan(s.job)).sort(byBoardOrder),
   }))
   // The most recent first: the ones still worth a call before the ones long gone.
   const lapsed = lists['no-answer']
@@ -60,7 +83,11 @@ export function BoardScreen({ view }: { view: View }) {
         views={<JobViews current="board" />}
         heading="Board"
         add={useJobAdd(true)}
-        sub={<p>A column a stage, soonest first. A job moves when its own records do.</p>}
+        sub={
+          <p>
+            A column a stage. {canOrder ? 'Drag a card by its arrows, or press them, to put a column in the order that matters most. Cards not put in order go soonest first.' : 'The office’s order first, then soonest first.'} A job changes column when its own records do.
+          </p>
+        }
       />
       {/* Which jobs and the departments in Filter, as on the list (Colly, 10 November 2026), each one on a chip above the columns. */}
       <ViewFilter
@@ -85,6 +112,13 @@ export function BoardScreen({ view }: { view: View }) {
           setPicked([])
         }}
       />
+      <Refusal error={error} />
+      <p id="board-order-help" className="sr-only">
+        Picks the card up: the arrows move it in its column, Space puts it down, Escape puts it back. Or drag it.
+      </p>
+      <p className="sr-only" aria-live="polite">
+        {said}
+      </p>
       <div className="board">
         {columns.map((c) => (
           <section key={c.key} className="board-col" aria-labelledby={`board-${c.key}`}>
@@ -97,12 +131,24 @@ export function BoardScreen({ view }: { view: View }) {
               </span>
               <b id={`board-${c.key}`}>{c.label}</b>
               <small>{columnWord(c.jobs, c.key === 'back' ? toCheck : undefined)}</small>
+              {canOrder && c.jobs.some((s) => s.rank !== undefined) && (
+                <button type="button" className="link board-by-date" onClick={() => byDate(c.key, c.jobs)}>
+                  Back to date order
+                </button>
+              )}
             </header>
             {c.jobs.length === 0 && <p className="hint board-empty">None</p>}
             {c.key === 'planning' ? (
-              <PlanningBands jobs={c.jobs} today={today} />
+              <PlanningBands jobs={c.jobs} today={today} canOrder={canOrder} say={say} onOrder={(groups, group, now, id) => order('planning', groups, group, now, id)} />
             ) : (
-              c.jobs.map((s) => <BoardCard key={s.job.id} steps={s} today={today} kit={c.key === 'back' ? toCheck.get(s.job.id) : undefined} />)
+              <OrderedCards
+                jobs={c.jobs}
+                where={c.label}
+                canOrder={canOrder}
+                say={say}
+                card={(s) => <BoardCard steps={s} today={today} kit={c.key === 'back' ? toCheck.get(s.job.id) : undefined} />}
+                onOrder={(now, id) => order(c.key, [c.jobs], 0, now, id)}
+              />
             )}
             {c.key === 'selling' && lapsed.length > 0 && (
               <details className="board-lapsed" open={toAnswer || undefined}>
@@ -141,7 +187,19 @@ export function BoardScreen({ view }: { view: View }) {
  * November 2026): This week and Next week open, everything after folded under Later with its count, and a band with none
  * left out. Weeks run Monday to Sunday, as the planner's do; a job with no dates goes under Later.
  */
-function PlanningBands({ jobs, today }: { jobs: JobSteps[]; today: string }) {
+function PlanningBands({
+  jobs,
+  today,
+  canOrder,
+  say,
+  onOrder,
+}: {
+  jobs: JobSteps[]
+  today: string
+  canOrder: boolean
+  say: (words: string) => void
+  onOrder: (groups: JobSteps[][], group: number, now: string[], id: string) => void
+}) {
   const dow = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7
   const thisEnd = addDays(today, 6 - dow)
   const nextEnd = addDays(thisEnd, 7)
@@ -151,6 +209,18 @@ function PlanningBands({ jobs, today }: { jobs: JobSteps[]; today: string }) {
     { key: 'next', label: 'Next week', jobs: jobs.filter((s) => !!start(s) && start(s)! > thisEnd && start(s)! <= nextEnd) },
   ]
   const later = jobs.filter((s) => !start(s) || start(s)! > nextEnd)
+  // Each week is put in order on its own, as it is drawn (ADR 0143): the column's order runs through them all, top to bottom.
+  const groups = [...bands.map((b) => b.jobs), later]
+  const cards = (g: number, where: string) => (
+    <OrderedCards
+      jobs={groups[g]!}
+      where={where}
+      canOrder={canOrder}
+      say={say}
+      card={(s) => <BoardCard steps={s} today={today} />}
+      onOrder={(now, id) => onOrder(groups, g, now, id)}
+    />
+  )
   return (
     <>
       {bands.map(
@@ -160,9 +230,7 @@ function PlanningBands({ jobs, today }: { jobs: JobSteps[]; today: string }) {
               <h3 className="board-band-head">
                 {b.label} ({b.jobs.length})
               </h3>
-              {b.jobs.map((s) => (
-                <BoardCard key={s.job.id} steps={s} today={today} />
-              ))}
+              {cards(bands.indexOf(b), `Planning, ${b.label.toLowerCase()}`)}
             </div>
           )
       )}
@@ -171,9 +239,7 @@ function PlanningBands({ jobs, today }: { jobs: JobSteps[]; today: string }) {
           <summary>
             <h3>Later ({later.length})</h3>
           </summary>
-          {later.map((s) => (
-            <BoardCard key={s.job.id} steps={s} today={today} />
-          ))}
+          {cards(groups.length - 1, 'Planning, later')}
         </details>
       )}
     </>
@@ -221,20 +287,73 @@ function BoardCard({ steps, today, kit }: { steps: JobSteps; today: string; kit?
     // The position's own words and tone, as the job's head, the Jobs list and Home say them (Move 7 of the sweep of 6 November
     // 2026): the column already names the stage, so the card says what's short or waiting, whose it is, and when.
     const p = jobPosition(steps)
-    line = [p?.hint, p?.owner, p?.time].filter(Boolean).join(' · ')
-    tone = p?.tone
+    // In Planning the crew and the kit say where they stand as two dots in the footer (Colly, 10 November 2026), so the line
+    // keeps only whose it is and when, and its colour only for a task that's late.
+    const dots = stage?.key === 'planning'
+    line = [dots ? undefined : p?.hint, p?.owner, p?.time].filter(Boolean).join(' · ')
+    tone = dots && p?.tone !== 'bad' ? undefined : p?.tone
     owner = false
   }
+  const marks = stage?.key === 'planning' && !steps.lapsed ? (['crew', 'kit'] as const).map((key) => readiness(steps, key)).filter((m): m is Readiness => !!m) : []
   return (
     <a className="board-card" href={`#jobs/${encodeURIComponent(job.id)}`}>
       <b>{job.name}</b>
       <p>{[where, when].filter(Boolean).join(' · ')}</p>
-      {line && (
-        <span className="board-line" data-tone={tone}>
-          {line}
-          {owner && current?.owner && ` · ${firstName(current.owner)}`}
+      {(line || marks.length > 0) && (
+        <span className="board-foot">
+          {line && (
+            <span className="board-line" data-tone={tone}>
+              {line}
+              {owner && current?.owner && ` · ${firstName(current.owner)}`}
+            </span>
+          )}
+          {marks.length > 0 && (
+            <span className="board-marks">
+              {marks.map((m) => (
+                <span key={m.label} className="board-mark" data-state={m.state} title={m.said}>
+                  {m.label}
+                  {m.count && <small>{m.count}</small>}
+                  <i aria-hidden="true" />
+                  <span className="sr-only">: {m.said}</span>
+                </span>
+              ))}
+            </span>
+          )}
         </span>
       )}
     </a>
   )
+}
+
+/** One of the Planning card's dots: done, short or waiting, late, or nothing on the job yet; and the words it stands for. */
+interface Readiness {
+  label: string
+  /** "3/5" booked of asked for: the dot's colour alone never says it. */
+  count?: string
+  state: 'ok' | 'warn' | 'bad' | 'off'
+  said: string
+}
+
+/**
+ * Where the crew or the kit of a job in Planning stands, as a dot (Colly, 10 November 2026): green when done or nothing is
+ * short, amber when crew are still to book or confirm or kit is short, the bad tone when its task is late, and hollow while
+ * there's nothing on the job yet. Left off when it doesn't apply, such as crew on a dry hire with none asked for.
+ */
+function readiness(steps: JobSteps, key: 'crew' | 'kit'): Readiness | undefined {
+  const t = steps.steps.find((x) => x.key === key)
+  if (!t || t.skipped) return undefined
+  const label = key === 'crew' ? 'Crew' : 'Kit'
+  const said = t.done ? (t.auto ?? 'Done') : (t.hint ?? (t.facts.nothingYet ? 'Nothing yet' : 'To do'))
+  const { booked = 0, needed = 0, toConfirm = 0, lines = 0, short = 0 } = t.facts
+  const count = key === 'crew' && needed > 0 ? `${booked}/${needed}` : key === 'kit' && short > 0 ? `${short} short` : undefined
+  const state: Readiness['state'] = t.late
+    ? 'bad'
+    : t.done
+      ? 'ok'
+      : t.facts.nothingYet || (key === 'crew' ? needed === 0 : lines === 0)
+        ? 'off'
+        : (key === 'crew' ? booked < needed || toConfirm > 0 : short > 0)
+          ? 'warn'
+          : 'ok'
+  return { label, ...(count ? { count } : {}), state, said: t.late ? `${said}, was due ${dayLabel(t.dueOn!)}` : said }
 }

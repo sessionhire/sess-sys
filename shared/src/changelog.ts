@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.151.0',
+    date: '2026-11-10',
+    title: 'Put the Board in order',
+    what: "On the Board you can now put each column in the order that matters, like a kanban board: drag a card by its arrows button, or press the arrows and move it with the arrow keys, or press them and then the card whose place it should take. The cards you've put in order stay at the top for everyone; the rest go by how soon the job is. Back to date order under a column's count undoes it, and a job that moves to the next stage goes back to date order there. Staff crew see the order but can't change it. In Planning, each card now shows Crew and Kit with a coloured dot at the bottom right: green when it's sorted, amber when crew are still to book or kit is short, red when its task is late, and an empty circle while there's nothing on the job yet.",
+    prs: [314],
+    adrs: [143],
+  },
+  {
     version: '1.150.0',
     date: '2026-11-10',
     title: 'Every view of the jobs filters alike',

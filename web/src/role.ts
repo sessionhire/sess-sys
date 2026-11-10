@@ -1,4 +1,4 @@
-import { changesLinkOf, COMMAND_NEEDS, PURCHASE_NOT_YOURS, STEP_NOT_YOURS, departmentForRole, RATES_REFUSAL_DEPARTMENT, readsRatesIn, LINKS_REFUSAL, personForEmail, RATES_REFUSAL, refusalFor, roleCan, roleForEmail, setsRates, type Ability, type CommandArgs, type Role, type View } from '@sh/shared'
+import { changesLinkOf, COMMAND_NEEDS, PURCHASE_NOT_YOURS, RANK_NOT_YOURS, STEP_NOT_YOURS, departmentForRole, RATES_REFUSAL_DEPARTMENT, readsRatesIn, LINKS_REFUSAL, personForEmail, RATES_REFUSAL, refusalFor, roleCan, roleForEmail, setsRates, type Ability, type CommandArgs, type Role, type View } from '@sh/shared'
 import { currentAuth, useAuth, type Auth } from './auth.ts'
 import { previewKey, usePreview } from './home/Preview.tsx'
 import { client } from './sync.ts'
@@ -74,6 +74,8 @@ client.guard = (name, args) => {
     const step = view.steps.of(a.projectId)?.steps.find((s) => s.key === a.step)
     if (!personId || step?.ownerId !== personId) return STEP_NOT_YOURS
   }
+  // The Board's order is the office's and the heads' (ADR 0143); the server says the same.
+  if (role === 'crew' && name === 'jobRank.set') return RANK_NOT_YOURS
   // A request on the purchase list is changed or taken back by whoever asked, or by those who change stock (ADR 0077).
   if (role && !roleCan(role, 'stock') && (name === 'purchase.update' || name === 'purchase.remove')) {
     const r = view.purchases.get((args as { id: string }).id)

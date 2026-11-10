@@ -318,6 +318,9 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
       await ctx.tx.query('DELETE FROM job_steps WHERE id = $1', [r.id])
       await emitRemoved(ctx, 'jobStep', r.id)
     }
+    // A job's place on the Board stays with the job kept; the others' go with them (ADR 0143).
+    const ranked = (await ctx.tx.query<{ project_id: string }>('DELETE FROM job_ranks WHERE project_id = ANY($1::text[]) RETURNING project_id', [ids])).rows
+    await emitRemovedAll(ctx, 'jobRank', ranked.map((r) => r.project_id))
     const days = await move('calendar_days')
     if (days.length) for (const d of await readDaysById(ctx.tx, days)) await emit(ctx, 'calendarDay', d.id, dayEntity(d))
     await ctx.tx.query('UPDATE calendar_imports SET project_id = $1 WHERE project_id = ANY($2::text[])', [a.id, ids])

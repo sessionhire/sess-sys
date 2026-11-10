@@ -1,4 +1,4 @@
-import { newId, type NoticesPage, type StepRecord } from '@sh/shared'
+import { newId, type NoticesPage, type RankRecord, type StepRecord } from '@sh/shared'
 import { describe, expect, it } from 'vitest'
 import { company, day, m, ok, phone } from './company.ts'
 import { IPHONE, server, staff, WINDOWS } from './people.ts'
@@ -210,5 +210,18 @@ describe("a job's steps", () => {
       ['deprep', 'cian', false],
     ])
     expect(client.view().steps.of('dup')).toBeUndefined()
+  })
+
+  it("put a column of the Board in order, top first, and give it back to the jobs' days (ADR 0143)", async () => {
+    const { colly } = await office()
+    await colly.send('project.create', { id: 'j2', name: 'Longitude', clientId: null, venueId: null, status: 'confirmed', notes: '' })
+    expect(await colly.send('jobRank.set', { stage: 'planning', ids: ['j2', 'gone', 'j1'] })).toMatchObject({ status: 'applied' })
+    // A job no longer in the app is passed over; the rest keep their places as sent.
+    expect(await colly.record<RankRecord>('jobRank', 'j2')).toEqual({ id: 'j2', stage: 'planning', rank: 1 })
+    expect(await colly.record<RankRecord>('jobRank', 'j1')).toEqual({ id: 'j1', stage: 'planning', rank: 3 })
+    expect(await colly.send('jobRank.set', { stage: 'planning', ids: ['gone'] })).toMatchObject({ status: 'rejected', reason: { message: 'Those jobs are no longer in the app.' } })
+    expect(await colly.send('jobRank.set', { stage: 'planning', ids: ['j1'], clear: true })).toMatchObject({ status: 'applied' })
+    expect(await colly.record<RankRecord>('jobRank', 'j1')).toBeNull()
+    expect(await colly.record<RankRecord>('jobRank', 'j2')).toMatchObject({ rank: 1 })
   })
 })

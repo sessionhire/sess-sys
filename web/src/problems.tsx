@@ -306,6 +306,8 @@ function describer(view: View): (m: Mutation) => string {
         return `Put ${model(a.modelId)} in ${model(a.rackId)}`
       case 'rackSlot.remove':
         return 'Take something out of a rack'
+      case 'jobRank.set':
+        return a.clear ? 'Put a column of the Board back in date order' : 'Change the order on the Board'
       case 'jobStep.set':
         return `Change ${typeof a.step === 'string' && a.step in STEP_LABELS ? STEP_LABELS[a.step as JobStep] : 'a step'} on ${job(a.projectId)}`
       case 'tracker.archive':

@@ -99,13 +99,20 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await page.goto('/#jobs')
   await page.getByLabel('Find').fill(job)
   await expect(page.locator('.job-row', { hasText: job }).locator('.job-position')).toContainText('Planning · 0 of 2 booked · No kit on the job yet')
-  // On the Board (part 3), the job is a card in the Planning column, saying what is short; nothing drags.
+  // On the Board (part 3), the job is a card in the Planning column, saying what is short.
   await page.goto('/#jobs/board')
   // Which jobs is in the Board's Filter panel (Colly, 10 November 2026).
   await page.getByRole('button', { name: /^Filter/ }).click()
   await page.getByRole('button', { name: 'All coming up' }).click()
   const planning = page.getByRole('region', { name: 'Planning' })
-  await expect(planning.locator('.board-card', { hasText: job })).toContainText('0 of 2 booked')
+  // In Planning the crew and the kit are two dots in the card's footer (Colly, 10 November 2026): crew asked for and none booked is
+  // amber with its count, no kit yet is hollow, and each says itself in words to a screen reader.
+  const marks = planning.locator('.board-card', { hasText: job }).locator('.board-mark')
+  await expect(marks).toHaveCount(2)
+  await expect(marks.nth(0)).toHaveAttribute('data-state', 'warn')
+  await expect(marks.nth(0)).toHaveText('Crew0/2: 0 of 2 booked')
+  await expect(marks.nth(1)).toHaveAttribute('data-state', 'off')
+  await expect(marks.nth(1)).toHaveAttribute('title', 'No kit on the job yet')
   // On Home, the task she's to do now is on top, whichever view, with the day it's due; the ticked one isn't.
   await page.goto('/#home')
   const mine = page.getByRole('region', { name: /^Your tasks/ })

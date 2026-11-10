@@ -1,9 +1,9 @@
-import { ERASED_REFUSAL, kindOf, STATUS_LABELS, STEP_NOT_YOURS, stepId, stepOwnerRefusal, STOPPED, type CommandArgs } from '@sh/shared'
+import { ERASED_REFUSAL, kindOf, RANK_NOT_YOURS, STATUS_LABELS, STEP_NOT_YOURS, stepId, stepOwnerRefusal, STOPPED, type CommandArgs } from '@sh/shared'
 import { getPerson, personByEmail } from '../crew/store.ts'
 import { readErasure } from '../erasure/places.ts'
-import { emit, Refused, type Ctx } from '../kernel.ts'
+import { emit, emitAll, emitRemovedAll, Refused, type Ctx } from '../kernel.ts'
 import { getProject } from '../projects/store.ts'
-import { getStep } from './store.ts'
+import { getRanks, getStep } from './store.ts'
 
 /**
  * A job's tasks (ADR 0073, ADR 0104). A task is given to a member of staff
@@ -14,9 +14,34 @@ import { getStep } from './store.ts'
  * read the history: nothing here emails, texts or messages anyone.
  */
 
-type Handler<N extends 'jobStep.set'> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
+type Handler<N extends 'jobStep.set' | 'jobRank.set'> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
-export const stepHandlers: { 'jobStep.set': Handler<'jobStep.set'> } = {
+export const stepHandlers: { 'jobStep.set': Handler<'jobStep.set'>; 'jobRank.set': Handler<'jobRank.set'> } = {
+  /**
+   * The Board's order (ADR 0143): each job named takes its place in the column, top first, or goes back to its days. Only
+   * the jobs named change, so a column seen narrowed to a department leaves the others' places as they were; a job no
+   * longer in the app is passed over. Which column a job is in is the device's to say: the place holds only while the job
+   * is still in that stage, so one put in the wrong column is simply back in date order.
+   */
+  async 'jobRank.set'(ctx, a) {
+    if (ctx.role === 'crew') throw new Refused({ code: 'forbidden', message: RANK_NOT_YOURS })
+    const ids = [...new Set(a.ids)]
+    if (a.clear) {
+      const { rows } = await ctx.tx.query<{ project_id: string }>('DELETE FROM job_ranks WHERE project_id = ANY($1::text[]) RETURNING project_id', [ids])
+      await emitRemovedAll(ctx, 'jobRank', rows.map((r) => r.project_id))
+      return
+    }
+    const { rows } = await ctx.tx.query<{ id: string }>('SELECT id FROM projects WHERE id = ANY($1::text[])', [ids])
+    const known = new Set(rows.map((r) => r.id))
+    const placed = ids.map((id, i) => ({ id, rank: i + 1 })).filter((r) => known.has(r.id))
+    if (!placed.length) throw new Refused({ code: 'not-found', message: 'Those jobs are no longer in the app.' })
+    await ctx.tx.query(
+      `INSERT INTO job_ranks (project_id, stage, rank) SELECT unnest($1::text[]), $2, unnest($3::int[])
+       ON CONFLICT (project_id) DO UPDATE SET stage = EXCLUDED.stage, rank = EXCLUDED.rank`,
+      [placed.map((r) => r.id), a.stage, placed.map((r) => r.rank)]
+    )
+    await emitAll(ctx, 'jobRank', (await getRanks(ctx.tx, placed.map((r) => r.id))).map((r) => ({ id: r.id, data: r })))
+  },
   async 'jobStep.set'(ctx, a) {
     const job = await getProject(ctx.tx, a.projectId, true)
     if (!job) throw new Refused({ code: 'not-found', message: 'That job is no longer in the app.' })
