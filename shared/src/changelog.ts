@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-10',
     title: 'No tidy-up notices on Jobs and Crew',
     what: "The \"Tidy up what came in\" and \"Kit in the notes\" cards no longer sit beside the Jobs list, and People on Crew no longer has a line about people named from their address. Both pages are still there, under Menu and Admin: Tidy up what came in, and Kit in the notes.",
-    prs: [0],
+    prs: [311],
   },
   {
     version: '1.149.1',
