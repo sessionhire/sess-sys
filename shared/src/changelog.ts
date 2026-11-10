@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.145.0',
+    date: '2026-11-10',
+    title: "Next books the crew one press at a time",
+    what: "On a job's page, Next now takes the crew forward a step with each press and says how far it has got. Someone's yes is confirmed in the press (\"Confirm Aoife's yes · 1 of 2 booked\"). Then the next place nobody has been offered opens with the name box ready (\"Offer the Rigger · 1 of 2 offered\"). Once every place is offered, it says how many answers are still out. \"Sort 1 short on the kit\" opens Subhire with the short lines ticked. Crew on a quote made from the job no longer show as \"not asked for yet\" beside their own call. Nothing is sent to anyone.",
+    prs: [0],
+    adrs: [140],
+  },
+  {
     version: '1.144.0',
     date: '2026-11-10',
     title: "The client's yes confirms the job in one press",

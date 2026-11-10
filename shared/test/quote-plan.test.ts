@@ -62,4 +62,11 @@ describe('callsFromQuote', () => {
   it('asks for nothing once the calls cover the quote', () => {
     expect(callsFromQuote([crew('Rigger', 2)], [{ role: 'Rigger', needed: 3, status: 'open' }])).toEqual([])
   })
+  it("knows a line built from the job's own call, by its id or as role (phase)", () => {
+    const calls = [{ id: 'c1', role: 'Rigger', phase: 'Load in', needed: 2, status: 'open' }]
+    expect(callsFromQuote([{ ...crew('Rigger (Load in)', 2), ref: 'c1' }], calls)).toEqual([])
+    expect(callsFromQuote([crew('Rigger (Load in)', 2)], calls)).toEqual([])
+    expect(callsFromQuote([crew('Rigger (Load in)', 3)], calls)).toEqual([{ role: 'Rigger (Load in)', needed: 1 }])
+    expect(callsFromQuote([crew('Rigger (Show)', 1)], calls)).toEqual([{ role: 'Rigger (Show)', needed: 1 }])
+  })
 })

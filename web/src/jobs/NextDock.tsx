@@ -1,10 +1,14 @@
-import { dayLabel, jobPosition, plural, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
+import { crewNext, dayLabel, firstName, jobPosition, plural, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import type { JobPart } from './JobScreen.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
+import { promptFor, tellTo, type Share } from '../crew/Messages.tsx'
 import { useToday } from '../view.ts'
+
+/** Where a press of Next lands on the job page (ADR 0140): a call, with its Offer open or not, or the short kit's Subhire. */
+export type Landing = { call: string; offer?: boolean } | { short: true }
 
 /**
  * The one Next button of a job (ADR 0104): drawn the same on every job and
@@ -35,13 +39,16 @@ export function NextDock({
   onOpenTask,
   headSays,
   quoteHere,
+  onTell,
 }: {
   job: JobView
   view: View
   /** The page's head already says where the job stands (ADR 0140, part 3): the line says only Next, so it's said once. */
   headSays?: boolean
-  /** Opens a part of the job, and with a call's id, that call's Offer (ADR 0140). */
-  onPart: (p: JobPart, offer?: string) => void
+  /** Opens a part of the job, landing on a call (its Offer open, or not) or the short kit's Subhire (ADR 0140). */
+  onPart: (p: JobPart, land?: Landing) => void
+  /** Opens the message for someone a press of Next has settled, as the Crew page's own Confirm does; without it, nobody is prompted. */
+  onTell?: (share: Share | undefined) => void
   onOpenTask: (t: JobStep) => void
   /** The job's Quote tab is open under it (ADR 0140, part 4): the quote's own button there is the press, so the dock says so in words. */
   quoteHere?: boolean
@@ -141,25 +148,46 @@ export function NextDock({
       if (!access.can('crew')) break
       // From the task's fields, never its words read back (Move 7 of the sweep of 6 November 2026).
       const { booked = 0, needed = 0 } = task.facts
-      // Each press does what it says (ADR 0140): crew on the quote are made calls here, in the one press (ADR 0126), and the page
-      // lands on them; booking opens the Offer of the first call with a place to fill, rather than a tab with the Offers to find.
-      const fromQuote = needed === 0 ? crewToCall(view, job) : []
-      const toFill = job.calls.find((c) => c.status === 'open' && c.openDays.length > 0)
-      press = fromQuote.length
-        ? {
-            label: fromQuote.length === 1 ? `Make the call for ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make the ${fromQuote.length} crew calls from the quote`,
-            onPress: () => void run(() => makeCallsFromQuote(view, job, today)).then((ok) => ok && onPart('crew')),
-          }
-        : {
-            label: needed === 0 ? 'Ask for the crew' : booked < needed ? `Book ${needed - booked} more crew` : 'Book the crew',
-            onPress: () => onPart('crew', needed > 0 ? toFill?.id : undefined),
-          }
+      // Each press does one thing and the count moves on with it (ADR 0140, part 5): crew on the quote are made calls (ADR 0126);
+      // a yes is confirmed; a call with places nobody's been offered opens its Offer; then the answers still out are waited on.
+      const fromQuote = crewToCall(view, job)
+      const next = crewNext(job.calls)
+      const count = `${booked} of ${needed} booked`
+      if (fromQuote.length)
+        press = {
+          label: fromQuote.length === 1 ? `Make the call for ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make the ${fromQuote.length} crew calls from the quote`,
+          onPress: () => void run(() => makeCallsFromQuote(view, job, today)).then((ok) => ok && onPart('crew')),
+        }
+      else if (next.yes) {
+        const { call, offer } = next.yes
+        const person = offer.person!
+        press = {
+          label: `Confirm ${firstName(person)}'s yes · ${count}`,
+          onPress: () =>
+            void run(() => client.mutate('offer.confirm', { id: offer.id })).then((ok) => {
+              if (!ok) return
+              onPart('crew', { call: call.id })
+              onTell?.(promptFor('confirmed', [tellTo(person, call, offer)]))
+            }),
+        }
+      } else if (next.ask) {
+        const { call, asked } = next.ask
+        press = { label: `Offer the ${call.role} · ${asked} of ${call.needed} offered`, onPress: () => onPart('crew', { call: call.id, offer: true }) }
+      } else if (next.counter)
+        // A different rate is settled with the rate in view, on Crew's answers.
+        press = { label: `Answer ${firstName(next.counter.offer.person!)}'s rate · ${count}`, href: '#crew' }
+      else if (next.waiting)
+        return rest(`Every place is offered: waiting on ${plural(next.waiting, 'answer')}. ${count}.`, { href: `${href}/crew`, label: "See who's been asked" })
+      else press = { label: needed === 0 ? 'Ask for the crew' : `Book ${needed - booked} more crew`, onPress: () => onPart('crew') }
       break
     }
     case 'kit': {
       if (!access.can('kit')) break
       const { short = 0, nothingYet } = task.facts
-      press = { label: short ? `Sort ${short} short on the kit` : nothingYet ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
+      // Short kit lands on its Subhire, open with the short lines ticked (ADR 0140, part 5); each one subhired takes the count down.
+      press = short
+        ? { label: `Sort ${short} short on the kit`, onPress: () => onPart('kit', { short: true }) }
+        : { label: nothingYet ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
       break
     }
     case 'prep':

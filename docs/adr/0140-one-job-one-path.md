@@ -1,6 +1,6 @@
 # ADR 0140: One job, one path
 
-- **Status:** accepted; parts 1 to 4 built (1.142.0 to 1.144.0), parts 5 to 8 to follow
+- **Status:** accepted; parts 1 to 5 built (1.142.0 to 1.145.0), parts 6 to 8 to follow
 - **Date:** 9 November 2026
 - **Asked for by:** Colly, after walking the quote flow and on through crewing
   and the pick list: "very confusing to go through the steps and particularly
@@ -73,7 +73,19 @@ removed. Built in eight parts, one pull request each:
    under More to add, all shown on an empty quote. One search box for kit
    and crew together was left for later: the kit picker already finds
    packages, and crew are a role and a count, not a product.)
-5. Crew and kit steps that move their count on with each press.
+5. Crew and kit steps that move their count on with each press. (Built,
+   1.145.0: Next's crew press goes, in order, to the calls still to make from
+   the quote; a yes to confirm, confirmed in the press and landed on its call
+   ("Confirm Aoife's yes · 1 of 2 booked"); the first call with places nobody
+   has been offered, its Offer open ("Offer the Rigger · 1 of 2 offered");
+   someone asking another rate, on Crew's answers where the rate is in view;
+   and, every place offered, words saying how many answers are out. "Sort 1
+   short on the kit" opens the Kit card's Subhire with the short lines ticked
+   and the first in focus. The quote's crew lines made from the job, named
+   "Rigger (Load in)" and carrying the call's id, now count against that call,
+   so they no longer read as "not asked for yet" beside it (finding 8). The
+   count is in the button, as the pick list's "0 of 122 out" is, so a press is
+   seen to move it.)
 6. The pick list opens on the first thing to pick, its switches in one Show
    by; the stage said from what was scanned, not only the date.
 7. New quote as a sheet of its own, client first with their last jobs to
