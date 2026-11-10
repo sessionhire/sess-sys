@@ -3,6 +3,24 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: one job, one path, part 4b: one press for the yes
+
+**Done (second half of part 4, 1.144.0)**
+
+- "Client accepted: confirm the job" records the client's yes and confirms
+  a job still being sold in the same press, said first under What happened.
+  Confirming writes the job's days to the connected calendar, as
+  confirming always has.
+- A draft's terms are one line ("10% off · prices hold 30 days · no deposit
+  · for Ruairí Kelly") with Change; they open by themselves while one needs
+  putting right.
+- Add kit and Add crew stay in front; transport, something else, words,
+  packages, saving the kit as a package and charging all kit the same days
+  are under More to add. An empty quote shows them all.
+
+**Next:** part 5, crew and kit steps that move their count on with each
+press.
+
 ## 9 November 2026: one job, one path, part 4a: the quote on the job
 
 **Done (first half of part 4, 1.143.0)**

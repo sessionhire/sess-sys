@@ -1,5 +1,20 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+/** The rarer ways to add sit under More, and the terms read as a line with Change, until opened (ADR 0140, part 4). */
+async function openMore(at: import('@playwright/test').Locator) {
+  const more = at.getByRole('button', { name: 'More to addâ€¦' })
+  // Once the draft is drawn: More, or with nothing on the quote yet, every way in already shown.
+  await expect(more.or(at.getByRole('button', { name: 'Add something else' }))).toBeVisible()
+  if (await more.isVisible()) await more.click()
+}
+async function openTerms(at: import('@playwright/test').Locator) {
+  const change = at.getByRole('button', { name: 'Change the terms' })
+  // Once the draft is drawn: the line with Change, or the terms already open as one of them needs putting right.
+  await expect(change.or(at.getByLabel('Prices hold for, days'))).toBeVisible()
+  if (await change.isVisible()) await change.click()
+}
+
+
 /**
  * A package is a shortcut for its kit (ADR 0116): on a quote, its line with each product it holds a line under it,
  * folded on screen and printed open; a rack shows what's built into it the same way; a quote's kit can be saved as a
@@ -45,6 +60,7 @@ test('a package and a rack go on a quote with their kit under them, and a quoteâ
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 
   // A package with no price of its own: its line comes to what its kit does, each at the price list's price.
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add a package' }).click()
   await draft.getByRole('button', { name: 'Add', exact: true }).click()
   await draft.getByRole('button', { name: 'Done' }).click()
@@ -84,6 +100,7 @@ test('a package and a rack go on a quote with their kit under them, and a quoteâ
   await office.evaluate(() => dispatchEvent(new Event('afterprint')))
 
   // The quote's kit saved as a package, to start the next from: each product once, with how many.
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Save the kit as a package' }).click()
   const save = draft.getByRole('form', { name: 'Save as a package' })
   await expect(save.getByLabel(`How many Shure SM58 ${id}`)).toHaveValue('5')
@@ -134,6 +151,7 @@ test('a package starts at its itemsâ€™ total, and a price of its own is a discou
   // On the quote it's charged at its price, its kit included, and the saving shows on screen and on paper.
   await ready(office, `#jobs/job-${id}/quote`)
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add a package' }).click()
   await draft.getByLabel('Package to add').selectOption({ value: `pkg-${id}` })
   await draft.getByRole('button', { name: 'Add', exact: true }).click()

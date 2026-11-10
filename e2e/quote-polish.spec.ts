@@ -1,5 +1,20 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+/** The rarer ways to add sit under More, and the terms read as a line with Change, until opened (ADR 0140, part 4). */
+async function openMore(at: import('@playwright/test').Locator) {
+  const more = at.getByRole('button', { name: 'More to add…' })
+  // Once the draft is drawn: More, or with nothing on the quote yet, every way in already shown.
+  await expect(more.or(at.getByRole('button', { name: 'Add something else' }))).toBeVisible()
+  if (await more.isVisible()) await more.click()
+}
+async function openTerms(at: import('@playwright/test').Locator) {
+  const change = at.getByRole('button', { name: 'Change the terms' })
+  // Once the draft is drawn: the line with Change, or the terms already open as one of them needs putting right.
+  await expect(change.or(at.getByLabel('Prices hold for, days'))).toBeVisible()
+  if (await change.isVisible()) await change.click()
+}
+
+
 /**
  * The last of the audit of the quote flow, 8 November 2026 (ADR 0133): findings 13, 15, 19 and 20. One half-made line
  * holds back only itself; a long draft on a phone opens folded to its groups, and picking kit there has the room; the
@@ -56,6 +71,7 @@ test('a half-made line holds back only itself, and own kit is costed once the of
   await expect(summary).toContainText('own kit not costed')
 
   // A new line left with nothing in it, then the delivery changed: the delivery saves, the empty line doesn't.
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByRole('button', { name: 'Delivery, change it' }).click()
   await draft.getByLabel(/: price, once$/).fill('60')

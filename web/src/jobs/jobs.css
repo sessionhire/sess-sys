@@ -488,9 +488,11 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .office-form .fuel-field { display: grid; gap: var(--ds-space-2); align-content: start; }
 .office-form .fuel-field button { justify-self: start; }
 /* What it comes to stays in view under the top bar while the lines are changed, with what needs a look as a way to the first such line. */
-.quote-screen .quote-summary { position: sticky; top: var(--under-top, 0px); z-index: 2; display: grid; gap: var(--ds-space-2); margin: 0 calc(-1 * var(--ds-space-4)); padding: var(--ds-space-2) var(--ds-space-4); background: var(--panel); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.quote-screen .quote-summary { position: sticky; top: var(--under-top, 0px); z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ds-space-2); margin: 0 calc(-1 * var(--ds-space-4)); padding: var(--ds-space-2) var(--ds-space-4); background: var(--panel); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .quote-screen .quote-summary .figures { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-1) var(--ds-space-4); }
-.quote-screen .quote-summary .figure { display: inline-flex; align-items: baseline; gap: var(--ds-space-2); white-space: nowrap; }
+.quote-screen .quote-summary .figure { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--ds-space-2); min-width: 0; }
+/* Each word group keeps together; the margin with "own kit not costed" beside it wraps between them on a phone rather than run off it. */
+.quote-screen .quote-summary .figure > * { white-space: nowrap; }
 .quote-screen .quote-summary .figure small { font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .quote-screen .quote-summary .figure.lead b { font-size: var(--text-title); }
 .quote-screen .quote-summary .figure.bad b { color: var(--bad); }
@@ -525,6 +527,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .kit-days-all .unit-box, .quote-screen .group-discount .unit-box { width: 8em; }
 .quote-screen .kit-days-all .hint { flex-basis: 100%; }
 /* The terms, two short fields to a row, then the sums and the sending. */
+.quote-screen .terms-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--ds-space-3); }
+.quote-screen .terms-line p { margin: 0; }
+.quote-screen .terms-line .link { min-height: 44px; padding: 0; }
 .quote-screen .quote-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-3); }
 .quote-screen .quote-terms .field { min-width: 0; align-content: start; }
 .quote-screen .agreed-note { margin: var(--ds-space-half) 0 0; color: var(--ink); }

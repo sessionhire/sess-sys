@@ -104,6 +104,8 @@ export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobVie
   const [why, setWhy] = useState<{ reason: TurnDownReason | null; note: string }>()
   const { run, error } = useAct()
   const next = nextRecord(q, job)
+  // A yes on a job still being sold confirms it in the same press (ADR 0140, part 4).
+  const confirms = !STOPPED.includes(job.status) && job.status !== 'confirmed'
   const primaryIfNext = (record: NextRecord) => (next === record && !quiet ? 'primary' : undefined)
   const go = (fn: () => Promise<unknown>) => void run(fn).then((ok) => ok && setUndo(undefined))
   const when = (
@@ -148,11 +150,27 @@ export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobVie
       {q.status === 'sent' && q.sentOn && validUntil(q, today) < today && (
         <p className="warn-line">Its prices held until {dayLabel(validUntil(q, today))}. If the client accepts now, check they still stand, or start a new version.</p>
       )}
+      {q.status === 'sent' && confirms && (
+        <p className="hint">Their yes confirms the job: it goes on the jobs calendar and its kit is held.</p>
+      )}
       {q.status === 'sent' && (
         <div className="quote-send">
           {when}
-          <button type="button" className={primaryIfNext('answer')} onClick={() => go(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today }))}>
-            Client accepted
+          {/* The client's yes is the moment the job is confirmed (ADR 0140, part 4): one press records it and confirms the job, as the
+              Confirmed task's own Yes does, rather than a second "Confirm the job" to find after it. A job already confirmed, or
+              one stopped, just takes the answer. */}
+          <button
+            type="button"
+            className={primaryIfNext('answer')}
+            disabled={confirms && job.pending}
+            onClick={() =>
+              go(async () => {
+                await client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today })
+                if (confirms) await client.mutate('project.update', { id: job.id, status: 'confirmed' })
+              })
+            }
+          >
+            {confirms ? 'Client accepted: confirm the job' : 'Client accepted'}
           </button>
           <button type="button" aria-expanded={!!why} onClick={() => setWhy(why ? undefined : { reason: null, note: '' })}>
             Client turned it down

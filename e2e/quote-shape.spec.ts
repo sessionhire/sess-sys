@@ -1,5 +1,20 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+/** The rarer ways to add sit under More, and the terms read as a line with Change, until opened (ADR 0140, part 4). */
+async function openMore(at: import('@playwright/test').Locator) {
+  const more = at.getByRole('button', { name: 'More to add…' })
+  // Once the draft is drawn: More, or with nothing on the quote yet, every way in already shown.
+  await expect(more.or(at.getByRole('button', { name: 'Add something else' }))).toBeVisible()
+  if (await more.isVisible()) await more.click()
+}
+async function openTerms(at: import('@playwright/test').Locator) {
+  const change = at.getByRole('button', { name: 'Change the terms' })
+  // Once the draft is drawn: the line with Change, or the terms already open as one of them needs putting right.
+  await expect(change.or(at.getByLabel('Prices hold for, days'))).toBeVisible()
+  if (await change.isVisible()) await change.click()
+}
+
+
 /**
  * Two shapes of quote, and the quote the way the office writes it (ADR 0128; audit of the quote flow, 8 November 2026,
  * findings 6, 10, 11 and 16): a dry hire asks for no venue and charges no travel; the quote is for who asked, printed
@@ -51,17 +66,20 @@ test('a dry hire is quoted without venue or travel, for who asked, under the off
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 
   // It's for who asked, and there's no travel or subsistence to charge on a dry hire.
+  await openTerms(draft)
   await expect(draft.getByLabel("Who at the client it's for")).toHaveValue('Ciarán Walsh')
   await expect(draft.getByRole('button', { name: /^Travel/ })).toHaveCount(0)
 
   // Two lines of something else and a line of words, put under the office's own headings.
   for (const what of ['Speaker stands', 'PA speakers']) {
+    await openMore(draft)
     await draft.getByRole('button', { name: 'Add something else' }).click()
     await draft.getByLabel(/: what$/).last().fill(what)
     await draft.getByLabel(/: price, once$/).last().fill('50')
     await draft.getByLabel(/: the group it's under$/).last().fill('PA')
     await draft.getByRole('button', { name: 'Done', exact: true }).click()
   }
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add words' }).click()
   await draft.getByLabel(/: words$/).fill('All cabling and power included')
   await draft.getByLabel(/: the group it's under$/).fill('PA')
