@@ -32,7 +32,7 @@ import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { CREW, PEOPLE } from '../Up.tsx'
 import { useToday } from '../view.ts'
-import { CombineWith, useSamePeople } from './Combine.tsx'
+import { CombineWith } from './Combine.tsx'
 import { asBooking, BookingRow, stoppedBookings } from './BookingRow.tsx'
 import { useMe } from './Leave.tsx'
 import { linkFor } from './Messages.tsx'
@@ -104,7 +104,7 @@ export function PersonScreen({
       sub={<WhoLine person={person} />}
     >
       <Reach person={person} />
-      <Warnings person={person} view={view} />
+      <Warnings person={person} />
       <Tabs
         label={`About ${person.name}`}
         id="person"
@@ -180,25 +180,11 @@ function Reach({ person }: { person: PersonView }) {
   )
 }
 
-/** What the office must see whichever part is open (ADR 0082): archived, or brought in twice (ADR 0055). */
-function Warnings({ person, view }: { person: PersonView; view: View }) {
-  const access = useAccess()
-  const twice = useSamePeople(view)
-    .find((g) => g.people.some((p) => p.id === person.id))
-    ?.people.filter((p) => p.id !== person.id)
-  return (
-    <>
-      {person.archived && (
-        <p className="warn-line">Archived: kept for the record, and offered no work. Bring them back from the Archived list on Crew.</p>
-      )}
-      {access.can('crew') && !person.archived && twice && twice.length > 0 && (
-        <p className="warn-line">
-          {twice.map((p) => p.name).join(', ')} {twice.length === 1 ? 'looks' : 'look'} like the same person, brought in twice.{' '}
-          <a href={`${personHref(person.id)}/details`}>Combine them under Details</a>.
-        </p>
-      )}
-    </>
-  )
+/** What the office must see whichever part is open (ADR 0082): archived. Someone who looks brought in twice is for Tidy up under Menu, not here. */
+function Warnings({ person }: { person: PersonView }) {
+  return person.archived ? (
+    <p className="warn-line">Archived: kept for the record, and offered no work. Bring them back from the Archived list on Crew.</p>
+  ) : null
 }
 
 /** Their photo, what the office keeps about them, and changing it. */

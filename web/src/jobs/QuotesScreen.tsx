@@ -113,7 +113,7 @@ function AllQuotes({ view }: { view: View }) {
       </ShowAll>
       <FromCurrentRms view={view} show={show} search={search} />
       <p className="hint">
-        Invoiced and paid quotes count as accepted. <a href="#jobs/money/prices">Price list</a> · <a href="#jobs/money/current-rms/match">Match old quotes to jobs</a> ·{' '}
+        Invoiced and paid quotes count as accepted. <a href="#jobs/money/prices">Price list</a> ·{' '}
         <a href="#jobs/money">Money</a>
       </p>
     </section>

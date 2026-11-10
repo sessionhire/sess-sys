@@ -46,11 +46,7 @@ export function InCurrentRms({ jobId }: { jobId: string }) {
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="hint">
-          No past quote is linked to this job. <a href="#jobs/money/current-rms/match">Match past quotes to jobs</a>
-        </p>
-      )}
+      ) : null}
     </section>
   )
 }

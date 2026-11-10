@@ -19,7 +19,6 @@ import {
   type CrewView,
   type PersonView,
   type View,
-  namedFromAddress,
   fullName,
   nameParts,
   emailInUseRefusal,
@@ -38,7 +37,6 @@ import { useAccess, useSeesRates } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
 import { personHref } from './PersonScreen.tsx'
-import { useSamePeople } from './Combine.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
 import { SkillsField, withTyped } from './SkillsField.tsx'
 
@@ -448,23 +446,5 @@ export function PersonForm({
         </button>
       )}
     </form>
-  )
-}
-
-/** A quiet line while anyone brought in from the calendars is still named from their address (audit of 16 October, finding 7). */
-export function NamedFromAddress({ view }: { view: View }) {
-  const mayCrew = useAccess().can('crew')
-  const n = view.crew.people.filter(namedFromAddress).length
-  // And anyone who looks brought in twice, under two addresses (ADR 0055).
-  const twice = useSamePeople(view).length
-  if (!mayCrew || (n === 0 && twice === 0)) return null
-  const said = [
-    twice > 0 && `${twice === 1 ? '1 person looks' : `${twice.toLocaleString('en-IE')} people look`} brought in twice`,
-    n > 0 && `${n === 1 ? '1 person is' : `${n.toLocaleString('en-IE')} people are`} still named from their email address`,
-  ].filter(Boolean)
-  return (
-    <p className="hint">
-      {said.join(', and ')}. <a href="#jobs/tidy">{twice > 0 ? 'Tidy them up' : 'Give them their names'}</a>
-    </p>
   )
 }
