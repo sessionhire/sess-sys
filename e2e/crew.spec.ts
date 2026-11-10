@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { allCalls, askForCrewOn, asked, jobWithPhase } from './ask.ts'
 import { fillName, pickRecord } from './names.ts'
 
 /**
@@ -29,22 +30,18 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   // The other tests share this server, so the screen can also list their people and crew calls.
   await expect(office.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Aoife Byrne/ })).toBeVisible()
 
-  // A one-off, not in Jobs: the crew screen still takes the job's details as typed.
-  await office.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^Calls/ }).click()
-  await office.getByRole('button', { name: 'Ask for crew' }).click()
-  const job = office.locator('form').filter({ has: office.getByRole('button', { name: 'Ask for crew' }) })
-  await job.getByLabel('Project').fill('Electric Picnic')
-  await job.getByLabel('Phase').fill('Build')
+  // Crew are asked for from the job (ADR 0142): its Crew tab takes the role, days and rate, and the job gives its name and phase.
+  const picnic = await jobWithPhase(request, { name: 'Electric Picnic', phase: 'Build', start: '2030-08-29', end: '2030-08-31' })
+  const job = await askForCrewOn(office, picnic)
   await job.getByLabel('Role').fill('Audio tech')
-  await job.getByLabel('From').fill('2030-08-29')
-  await job.getByLabel('To', { exact: true }).fill('2030-08-31')
   await job.getByLabel('Call time').fill('08:00')
   await job.getByLabel('Day rate €').fill('250')
-  await job.getByLabel('Venue').fill('Stradbally Hall, Co. Laois')
   await job.getByLabel('Details for crew').fill('Food on site. Parking at gate C.')
   await job.getByRole('button', { name: 'Ask for crew' }).click()
+  await asked(office)
+  // On Crew › Calls with the rest, past the next fortnight, so under Show all.
+  await allCalls(office)
   await expect(office.getByText('Electric Picnic').first()).toBeVisible()
-  await expect(office.getByRole('status')).toHaveText('Up to date')
 
   // The call is one line under its job until it's opened, and the picker is behind "Offer…".
   const call = office.locator('.call-group', { hasText: 'Electric Picnic' }).getByRole('article', { name: '1 × Audio tech' })
@@ -62,7 +59,7 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await prompt.click()
   await expect(prompt).toBeChecked()
   await expect(office.getByRole('status')).toHaveText('Up to date')
-  await office.goto('/#crew/calls')
+  await allCalls(office)
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Send' }).click()
   const share = office.getByRole('region', { name: 'Send offer to Aoife Byrne' })

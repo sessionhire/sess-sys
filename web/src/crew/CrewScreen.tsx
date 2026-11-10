@@ -57,7 +57,7 @@ import { crewToCheck, CrewViews } from './CrewViews.tsx'
 import { Split } from '../Split.tsx'
 import { ImportPeopleScreen } from './ImportPeople.tsx'
 import { Heading } from '../Icon.tsx'
-import { CallCard, NewCall, OfferForm } from './Calls.tsx'
+import { CallCard, OfferForm } from './Calls.tsx'
 import { NewPerson, PersonRow, found, wordsOf } from './People.tsx'
 import { type Share, SharePanelFor, promptFor, tellTo } from './Messages.tsx'
 
@@ -88,8 +88,6 @@ export { linkFor, peopleOn, promptFor, SharePanel, SharePanelFor, type Share } f
 const SOON_DAYS = 14
 /** Show all, kept for the tab's life, so Back from a job finds the same list and its place on it (places.ts). */
 let showingAllCalls = false
-/** Calls asked for here, kept in view whatever their days until the tab is next loaded, as someone just added to People is. */
-const madeHere = new Set<string>()
 
 /** The filter's choice for people with no department. */
 const NO_DEPARTMENT = '-'
@@ -133,7 +131,7 @@ function groupCalls(calls: readonly CallView[], inJobs: readonly JobView[]) {
   const venueOf = new Map(inJobs.map((j) => [j.id, j.venue ? venueLabel(j.venue) : '']))
   const jobs = new Map<string, { key: string; project: string; venue: string; projectId: string | null; dates: Map<string, CallView[]> }>()
   for (const c of calls) {
-    // A call made on the Crew tab has no job; its project's name stands in.
+    // A call made on the Crew tab before calls came only from a job (ADR 0142) has no job; its project's name stands in.
     const key = c.projectId ?? `~${c.project.trim().toLowerCase()}`
     let job = jobs.get(key)
     if (!job)
@@ -278,8 +276,6 @@ export function CrewScreen() {
   // Whether the filled calls are unfolded (audit finding 10).
   const [filledOpen, setFilledOpen] = useState(false)
   const [allCalls, setAllCalls] = useState(showingAllCalls)
-  // A call asked for here is drawn at once, before the list hears of it.
-  const [, setMade] = useState(0)
   // Who was just archived, said where the list was, with the way back (rule 10).
   const [archivedNow, setArchivedNow] = useState<{ id: string; name: string } | undefined>()
   // Back from the archive only while their email is still theirs alone, as the server checks (ADR 0049).
@@ -324,13 +320,12 @@ export function CrewScreen() {
   const inView = shownCalls.filter((c) => atHand(c) && !onNow.includes(c))
   const filled = shownCalls.filter((c) => !atHand(c))
   // The next fortnight at rest, as Home counts it, until Show all, as Coming up in Jobs does (audit, 20 October 2026, finding 23).
-  // A call asked for here stays in view whatever its days.
   const soonEnd = addDays(today, SOON_DAYS)
-  const soon = allCalls ? inView : inView.filter((c) => c.start <= soonEnd || madeHere.has(c.id))
+  const soon = allCalls ? inView : inView.filter((c) => c.start <= soonEnd)
   // First, under Home's count's own words and number, the calls it counts, narrowed as the list is: in the next fortnight,
   // with a day from today on still short (Move 3 of the sweep of 6 November 2026). Each is in the fortnight, so it's drawn
   // whether or not Show all is. Then the rest of the fortnight's, filled from today on and kept for what's on them to sort
-  // out, such as someone short of a certificate it needs; then, under Show all or asked for here, the calls after it.
+  // out, such as someone short of a certificate it needs; then, under Show all, the calls after it.
   const counted = new Set(standing(view, today)['crew-needed'].map((c) => c.id))
   const needing = soon.filter((c) => counted.has(c.id))
   const filledOn = soon.filter((c) => !counted.has(c.id) && c.start <= soonEnd)
@@ -584,7 +579,7 @@ export function CrewScreen() {
         >
           <section className="card">
             <Heading icon="calendar">{TIME_GROUPS.coming}</Heading>
-            {upcoming.length === 0 && <Empty>Ask for crew from a job in Jobs, or below.</Empty>}
+            {upcoming.length === 0 && <Empty>Ask for crew from a job: open it in Jobs and go to its Crew tab.</Empty>}
             {/* Narrowed to a department (ADR 0046), the ones calls are in, and "No department" for the calls nobody has given one. */}
             {upcoming.length > 0 && (callDepts.length > 0 || upcoming.some((c) => !departmentOf(c))) && (
               <select className="dept-filter" value={callsFor} onChange={(e) => setCallsFor(e.target.value)} aria-label="Calls for department">
@@ -666,20 +661,7 @@ export function CrewScreen() {
             )}
           </section>
 
-          {mayCrew && (
-            <section className="card">
-              <h2>Crew for something not in Jobs</h2>
-              <p className="hint">For a job in Jobs, ask for crew from the job, so the crew get its phases, venue and any changes.</p>
-              <Fold label="Ask for crew">
-                <NewCall
-                  onMade={(id) => {
-                    madeHere.add(id)
-                    setMade((n) => n + 1)
-                  }}
-                />
-              </Fold>
-            </section>
-          )}
+          {/* Crew are asked for from a job only (ADR 0142): the form for a call with no job, "Crew for something not in Jobs", is gone. */}
         </Split>
       )}
 

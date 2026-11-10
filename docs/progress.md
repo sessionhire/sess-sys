@@ -3,6 +3,16 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: crew are asked for from a job
+
+**Done (1.149.3, ADR 0142)**
+
+- "Crew for something not in Jobs" taken off Crew › Calls, with its form
+  (`NewCall`); crew are asked for from a job's Crew tab. Old calls with no
+  job still show and work.
+- Browser tests that made calls on Crew now make a job and ask on its Crew
+  tab (`e2e/ask.ts`).
+
 ## 10 November 2026: Home's views, and Sort across a phone
 
 **Done (1.149.1)**
