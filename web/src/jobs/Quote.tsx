@@ -8,7 +8,6 @@ import {
   newId,
   pctWord,
   QUOTE_STATUS_LABELS,
-  spanLabel,
   type JobView,
   type QuoteLine,
   type QuoteTotals,
@@ -26,11 +25,8 @@ import { createPortal } from 'react-dom'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Heading } from '../Icon.tsx'
-import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
-import { JOBS } from '../Up.tsx'
 import { useToday } from '../view.ts'
-import { Top } from './common.tsx'
 import { QuotePill } from './QuoteStatus.tsx'
 import { MarginWords } from './QuoteLine.tsx'
 import { Lines, QuoteSheet, QuoteSheetPage, Totals } from './QuoteSheet.tsx'
@@ -39,7 +35,6 @@ import { Draft } from './QuoteDraft.tsx'
 import { DeleteQuote } from './QuoteDelete.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
-import { NextDock } from './NextDock.tsx'
 
 export { InStep, QuotePill } from './QuoteStatus.tsx'
 
@@ -57,55 +52,6 @@ export { InStep, QuotePill } from './QuoteStatus.tsx'
 /** "€1,250.00 before VAT": what a quote is talked about as. */
 const netWords = (t: QuoteTotals) => `${money(t.net)} before VAT`
 
-/** The job page's card: where its quote is, for the roles that see money. */
-export function QuoteCard({ job, view }: { job: JobView; view: View }) {
-  const m = view.money
-  const versions = m.quotesOf(job.id)
-  const shown = m.draftOf(job.id) ?? m.currentOf(job.id) ?? versions[0]
-  const jm = m.job(job.id)
-  return (
-    <section className="card quote-card" aria-label="Quote">
-      <Heading icon="document">Quote</Heading>
-      {!shown ? (
-        <p className="empty">No quote yet. Make one from the job's kit and crew, at the price list's prices.</p>
-      ) : (
-        <div className="row">
-          <div>
-            <b>
-              Version {shown.version} · {netWords(shown.totals)}
-            </b>
-            <p>
-              {shown.status === 'draft'
-                ? 'Being put together.'
-                : shown.paidOn
-                  ? `Paid ${dayLabel(shown.paidOn)}.`
-                  : shown.invoicedOn
-                    ? `Invoiced ${dayLabel(shown.invoicedOn)}${shown.invoiceRef ? ` as ${shown.invoiceRef}` : ''}.`
-                    : shown.answeredOn
-                      ? `${QUOTE_STATUS_LABELS[shown.status]} ${dayLabel(shown.answeredOn)}.`
-                      : shown.sentOn
-                        ? `Sent ${dayLabel(shown.sentOn)}.`
-                        : ''}
-              {versions.length > 1 && ` ${versions.length} versions.`}
-            </p>
-          </div>
-          <QuotePill q={shown} />
-        </div>
-      )}
-      {jm && jm.margin !== null && <MarginLine margin={jm.margin} costs={jm.costs + jm.toCome} />}
-      {jm?.setAside && (
-        <p className="hint">
-          The job is {jm.job.status}, so its quote is set aside: it isn't counted as quoted, owed or in the margin unless it's invoiced, as a cancellation fee would be.
-        </p>
-      )}
-      {/* Plain: the Next dock holds the job page's one filled red, and says Make a quote itself when that's next (ADR 0104, 0109; UX sweep, 6 November 2026, move 1). */}
-      <a className="button" href={`#jobs/${encodeURIComponent(job.id)}/quote`}>
-        {shown ? 'Open the quote' : 'Make a quote'}
-      </a>
-    </section>
-  )
-}
-
 function MarginLine({ margin, costs }: { margin: number; costs: number }) {
   return (
     <p className={`margin-line${margin < 0 ? ' bad' : ''}`}>
@@ -117,11 +63,12 @@ function MarginLine({ margin, costs }: { margin: number; costs: number }) {
   )
 }
 
-export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
-  const job = view.jobs.jobs.find((j) => j.id === jobId)
-  const sees = useAccess().can('money')
-  // What a quote makes (ADR 0089) is seen by all who see quotes: the office and directors.
-  const boss = sees
+/**
+ * The job's Quote tab (ADR 0140, part 4): the quote itself, worked on as the job's Quoting stage, under the job's own head and
+ * Next, rather than on a page of its own with a head and a Next repeated. #jobs/<id>/quote opens it.
+ */
+export function QuotePart({ view, job }: { view: View; job: JobView }) {
+  const jobId = job.id
   const m = view.money
   const versions = m.quotesOf(jobId)
   const [picked, setPicked] = useState<string>()
@@ -154,22 +101,6 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   const today = useToday()
   // Send by email only while the mailbox can send (audit, 5 November 2026, finding 49).
   const byEmail = useQuotesByEmail(m)
-  const up = { steps: job ? [JOBS, { href: `#jobs/${encodeURIComponent(job.id)}`, label: job.name }] : [JOBS], here: 'Quote' }
-
-  if (!job || !sees)
-    return (
-      <div className="app crew jobs quote-screen">
-        {/* Named, as every screen is, so a move here lands on what was refused (audit, 5 November 2026, finding 87). */}
-        <Top view={view} up={up} heading="Quote" />
-        <section className="card">
-          <p className="empty">
-            {!sees
-              ? 'Quotes and prices are for the office and directors. A director can change your role on the Crew tab.'
-              : "This job isn't on this device. It may still be on its way: check again once it says “Up to date”."}
-          </p>
-        </section>
-      </div>
-    )
 
   const q = versions.find((v) => v.id === picked) ?? m.draftOf(jobId) ?? m.currentOf(jobId) ?? versions[0]
   const current = m.currentOf(jobId)
@@ -190,26 +121,8 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
   fileName.current = q ? `${q.number && q.status !== 'draft' && !q.numberPending ? `Quote ${q.number}` : 'Draft quote'} - ${job.name}` : ''
 
   return (
-    <div className="app crew jobs quote-screen">
-      {/* The job's name heads its quote, as it heads the job (Move 11 of the sweep of 6 November 2026): the kind of page, the
-          version and the client and dates under it, the version's state beside it. */}
-      <Top
-        view={view}
-        up={up}
-        heading={job.name}
-        badge={q && q.status !== 'draft' ? <QuotePill q={q} /> : undefined}
-        actions={
-          onTheJob ? (
-            <NextDock
-              job={job}
-              view={view}
-              onPart={(p) => (location.hash = `#jobs/${encodeURIComponent(job.id)}/${p}`)}
-              onOpenTask={(t) => (location.hash = `#jobs/${encodeURIComponent(job.id)}/task/${t}`)}
-            />
-          ) : undefined
-        }
-        sub={[q ? `Quote · version ${q.version}${q.status === 'draft' ? ' · draft' : ''}` : 'Quote', job.client?.name ?? 'No client yet', job.span ? spanLabel(job.span) : 'No dates yet'].join(' · ')}
-      />
+    // Under the job's own head, Next and stage line (ADR 0140, part 4): the version's own card says which it is and where it stands.
+    <div className="quote-screen job-quote">
       {(versions.length > 1 || (q && !q.latest) || (jm && jm.margin !== null && q?.id === current?.id)) && (
       <section className="card plain quote-versions">
         {versions.length > 1 && (
@@ -229,9 +142,9 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
       {q && <SinceBefore q={q} versions={versions} />}
 
       {!q ? (
-        <FirstQuote view={view} job={job} />
+        <FirstQuote view={view} job={job} plain={onTheJob} />
       ) : q.status === 'draft' ? (
-        <Draft key={q.id} q={q} view={view} job={job} onPrint={() => setPrinting(true)} />
+        <Draft key={q.id} q={q} view={view} job={job} onPrint={() => setPrinting(true)} plain={onTheJob} />
       ) : (
         <>
           <section className="card" aria-label={`Version ${q.version}`}>
@@ -245,12 +158,11 @@ export function QuoteScreen({ view, jobId }: { view: View; jobId: string }) {
             </p>
             <Lines lines={q.lines} />
             <Totals totals={q.totals} agreed={q.agreedCents != null} />
-            {boss && (
-              <p className="quote-margin">
-                <MarginWords label="Expected margin" margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined, m.quoting.ownKitCostPct)), ownKitUncosted(q.lines, m.quoting.ownKitCostPct))} />
-                <small> From the quote's own costs. Not printed.</small>
-              </p>
-            )}
+            {/* What a quote makes (ADR 0089) is seen by all who see quotes: the office and directors, the only ones shown this tab. */}
+            <p className="quote-margin">
+              <MarginWords label="Expected margin" margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined, m.quoting.ownKitCostPct)), ownKitUncosted(q.lines, m.quoting.ownKitCostPct))} />
+              <small> From the quote's own costs. Not printed.</small>
+            </p>
             {q.notes && <p className="notes">{q.notes}</p>}
             <Emails emails={q.emails} />
             <ClientLink q={q} on={!!m.quoting.acceptOnline} />
@@ -377,7 +289,7 @@ function SinceBefore({ q, versions }: { q: QuoteView; versions: QuoteView[] }) {
 }
 
 /** With no quote yet: one built from the job, which the office then changes. */
-function FirstQuote({ view, job }: { view: View; job: JobView }) {
+function FirstQuote({ view, job, plain }: { view: View; job: JobView; plain?: boolean }) {
   const m = view.money
   const { run, error } = useAct()
   const source = m.sourceOf(job.id)
@@ -412,7 +324,8 @@ function FirstQuote({ view, job }: { view: View; job: JobView }) {
       <Refusal error={error} />
       <div className="actions">
         {source.kit.length + source.crew.length > 0 && (
-          <button type="button" className="primary" onClick={() => build(true)}>
+          // Plain once the job is past Quoting: its own Next, in the head, holds the page's one red (ADR 0140, part 4).
+          <button type="button" className={plain ? undefined : 'primary'} onClick={() => build(true)}>
             Build it from the job
           </button>
         )}

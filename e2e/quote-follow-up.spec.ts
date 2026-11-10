@@ -49,6 +49,12 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await draft.getByLabel('Line 1: what').fill('PA for the awards')
   await draft.getByLabel('Line 1: price').fill('900')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
+  // The quote is the job's Quote tab, under its head and Next (ADR 0140, part 4). Next says what to do in words, as the quote's own
+  // Send is the press, so there's one red on the page.
+  await expect(office.getByRole('tab', { name: 'Quote' })).toHaveAttribute('aria-selected', 'true')
+  await expect(office.getByRole('region', { name: 'Next' })).toContainText('Finish the quote below and send it to the client.')
+  const onePress = () => office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
+  expect(await onePress()).toEqual(['Get the PDF to send'])
 
   // Wanted today, it leads Quotes and Home counts it, until it's sent (ADR 0127; audit of the quote flow, finding 7).
   const back = office.url()
@@ -75,7 +81,6 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   // The client said yes: the quote offers to confirm the job.
   await office.locator('.job-row', { hasText: 'Docklands Awards' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link').first().click()
   await records.getByRole('button', { name: 'Client accepted' }).click()
   await expect(records).toContainText('The client accepted, and the job is still quoted.')
   // The job's own yes comes before the invoice, so confirming it is the quote's one filled red (UX sweep, 6 November 2026, move 1).

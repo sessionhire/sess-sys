@@ -61,7 +61,6 @@ import { MoneyScreen, PricesScreen } from './Money.tsx'
 import { MatchScreen, PastQuoteScreen, PastQuotesScreen } from './PastQuotes.tsx'
 import { NotesKitListScreen, NotesKitNudge, NotesKitScreen } from './NotesKit.tsx'
 import { PickScreen } from './PickScreen.tsx'
-import { QuoteScreen } from './Quote.tsx'
 import { SheetScreen } from './SheetScreen.tsx'
 import { BoardScreen } from './BoardScreen.tsx'
 import { JobViews, PlanScreen } from './PlanScreen.tsx'
@@ -86,7 +85,7 @@ import { arrival } from '../arrival.ts'
  * calendar (#jobs/calendar, ADR 0123) a month with enquiries and quotes, the clients
  * and venues have a list each (#jobs/clients, #jobs/venues, ADR 0041) and
  * a page each with its documents (#jobs/venues/<id>, ADR 0032), each job's
- * quote is on #jobs/<id>/quote and money on #jobs/money (ADR 0042), jobs
+ * quote is its Quote tab, #jobs/<id>/quote, money is on #jobs/money (ADR 0042), jobs
  * already on Google Calendar can be brought in (#jobs/import, ADR 0011) and
  * what came in tidied up (#jobs/tidy, ADR 0050), and
  * the kit their notes list turned into kit lines, a job at a time
@@ -134,8 +133,6 @@ export function JobsScreen() {
   }
   const [, fromNotes] = /^#jobs\/([^/]+)\/notes-kit$/.exec(hash) ?? []
   if (fromNotes) return <NotesKitScreen view={view} jobId={decodeURIComponent(fromNotes)} />
-  const [, quote] = /^#jobs\/([^/]+)\/quote$/.exec(hash) ?? []
-  if (quote) return <QuoteScreen view={view} jobId={decodeURIComponent(quote)} />
   const [, pick] = /^#jobs\/(.+)\/pick$/.exec(hash) ?? []
   if (pick) return <PickScreen view={view} id={decodeURIComponent(pick)} />
   const [, sheetJob, sheetPhase] = /^#jobs\/([^/]+)\/sheet\/([^/]+)$/.exec(hash) ?? []
@@ -144,7 +141,9 @@ export function JobsScreen() {
   const [, taskOf, taskKey] = /^#jobs\/([^/]+)\/task\/([a-z]+)$/.exec(hash) ?? []
   if (taskOf && JOB_STEPS.includes(taskKey as JobStep)) return <JobScreen key={taskOf} view={view} id={decodeURIComponent(taskOf)} task={taskKey as JobStep} />
   // A job's page, at a part of it when the address names one.
-  const [, partOf, part] = /^#jobs\/([^/]+)\/([a-z]+)$/.exec(hash) ?? []
+  // The quote is the job's Quote tab (ADR 0140, part 4); #jobs/<id>/money, its tab's old address, opens it too.
+  const [, partOf, named] = /^#jobs\/([^/]+)\/([a-z]+)$/.exec(hash) ?? []
+  const part = named === 'money' ? 'quote' : named
   const open = partOf && JOB_PARTS.includes(part as JobPart) ? decodeURIComponent(partOf) : hash.startsWith('#jobs/') ? decodeURIComponent(hash.slice('#jobs/'.length)) : undefined
   // A job has the whole width, on a laptop too: the list beside it took a third of the desk from it. The way up goes back to the list.
   if (open) return <JobScreen key={open} view={view} id={open} part={partOf ? (part as JobPart) : undefined} />

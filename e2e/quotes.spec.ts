@@ -71,13 +71,14 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  // The Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1): the quote card's own link is plain,
-  // and so is the submit of every form opened under the dock, on Crew and on Kit and vans as well.
-  await expect(office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' })).not.toHaveClass(/\bprimary\b/)
+  // The Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). The quote is the job's Quote tab
+  // (ADR 0140, part 4); this job is past Quoting, so the quote's own Build is plain, and so is the submit of every form opened under
+  // the dock, on Crew and on Kit and vans as well.
   const redsBesideTheDock = () =>
     office.evaluate(() =>
       [...document.querySelectorAll('.app button.primary, .app a.button.primary')].filter((b) => !b.closest('.next-dock') && b.getClientRects().length > 0).map((b) => b.textContent),
     )
+  await expect(office.getByRole('button', { name: 'Build it from the job' })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])
   await office.getByRole('tab', { name: /^Crew/ }).click()
   await office.getByRole('button', { name: 'Ask for crew' }).click()
@@ -94,7 +95,6 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   for (const form of ['Days to get kit ready and back', 'Add kit', 'Book a vehicle']) await expect(office.getByRole('form', { name: form })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
 
   // Built from the job: its 12 Spiiders for the two days, and its LX op at the price list's €360 rather than the €280 they were booked at.
   await expect(office.getByRole('heading', { name: 'Liffey Brands Launch' })).toBeVisible()
@@ -324,7 +324,6 @@ test('a quote turned down: losing the job is left to record, and a loss, so noth
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Open the quote' }).click()
   const records = office.getByRole('region', { name: 'What happened' })
   await expect(records.getByRole('button', { name: 'Client accepted' })).toBeVisible()
   expect(await reds()).toEqual(['Client accepted'])
@@ -369,7 +368,6 @@ test('kit charged by the week, a line discounted, and a total agreed with the cl
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await office.getByRole('button', { name: 'Build it from the job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   // Two days out is one week charged.
@@ -429,7 +427,6 @@ test("the crew's travel to a venue far from Dublin, and their subsistence unless
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await office.getByRole('button', { name: 'Build it from the job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   const extras = draft.getByRole('group', { name: 'Travel and subsistence' })
@@ -482,7 +479,6 @@ test('a package made on the price list goes on a quote at its price, with its ki
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await office.getByRole('button', { name: 'Build it from the job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await draft.getByRole('button', { name: 'Add a package' }).click()
@@ -516,7 +512,6 @@ test("a line short of kit hires in what it's short of, transport is added at a c
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await office.getByRole('button', { name: 'Build it from the job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   const summary = draft.getByRole('group', { name: 'What it comes to' })
@@ -563,7 +558,6 @@ test('Add kit takes the cursor and stays open for the next product, Done closing
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await office.getByRole('button', { name: 'Start one empty' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await draft.getByRole('button', { name: 'Add kit' }).click()
@@ -595,7 +589,6 @@ test("how many is typed with the product or the role, and the picker says the pr
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await office.getByRole('button', { name: 'Start one empty' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await draft.getByRole('button', { name: 'Add kit' }).click()
@@ -627,7 +620,6 @@ test("on a desk a line's amount and Remove sit inside the quote's card at every 
   await page.goto('/#jobs')
   await page.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await page.getByRole('tab', { name: 'Quote' }).click()
-  await page.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await page.getByRole('button', { name: 'Build it from the job' }).click()
   const draft = page.getByRole('form', { name: 'Version 1, a draft' })
   await draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' }).click()
@@ -652,7 +644,6 @@ test('two people on one draft keep both their changes, one of them with no signa
   await one.goto('/#jobs')
   await one.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await one.getByRole('tab', { name: 'Quote' }).click()
-  await one.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await one.getByRole('button', { name: 'Start one empty' }).click()
   const draftOne = one.getByRole('form', { name: 'Version 1, a draft' })
   await draftOne.getByRole('button', { name: 'Add kit' }).click()
@@ -707,7 +698,6 @@ test('a count before a name with digits in it is still a count, and a line given
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await office.getByRole('button', { name: 'Start one empty' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 

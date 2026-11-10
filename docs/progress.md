@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 9 November 2026: one job, one path, part 4a: the quote on the job
+
+**Done (first half of part 4, 1.143.0)**
+
+- The quote is the job's Quote tab, under the job's head, stage line and
+  Next; it no longer has a page of its own. #jobs/<id>/quote opens the tab,
+  and so does the tab's old address, /money.
+- With the tab open while the job is in Quoting, Next says "Finish the
+  quote below and send it to the client" in words, so Send (or Build it
+  from the job) is the one filled red. From any other tab, Next still
+  takes you there.
+
+**Next:** the second half of part 4: accept and confirm in one press,
+terms on one line with Change, one Add box with the rarer adds under More.
+
 ## 9 November 2026: one job, one path, part 3: said once
 
 **Done (part 3, 1.142.2)**

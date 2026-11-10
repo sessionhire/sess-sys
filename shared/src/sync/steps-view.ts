@@ -59,7 +59,7 @@ export interface StepView {
   facts: StepFacts
   state: StepState
   /** The part of the job page or the page where the work is done. */
-  part: 'phases' | 'crew' | 'kit' | 'money' | 'pick' | undefined
+  part: 'phases' | 'crew' | 'kit' | 'quote' | 'pick' | undefined
   pending: boolean
 }
 
@@ -185,8 +185,8 @@ export function sellingLine(s: {
 export const hasSteps = (job: Pick<JobView, 'kind'>) => kindOf(job) === 'gig' || kindOf(job) === 'hire'
 
 const PART: Record<JobStep, StepView['part']> = {
-  quote: 'money',
-  confirmed: 'money',
+  quote: 'quote',
+  confirmed: 'quote',
   crew: 'crew',
   kit: 'kit',
   prep: 'pick',

@@ -216,8 +216,9 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   const jobAt = page.url()
   expect(jobAt).toMatch(/#jobs\/[^/]+/)
   await page.goto(jobAt.replace(/#jobs\/([^/]+).*/, '#jobs/$1/quote'))
-  await expect(page.getByRole('heading', { level: 1, name: 'Quote' })).toBeVisible()
-  await expect(main).toContainText('Quotes and prices are for the office and directors.')
+  // The quote is the job's Quote tab (ADR 0140, part 4): the job opens, saying why there's no quote to see.
+  await expect(main.getByRole('region', { name: 'Quote' })).toContainText('Quotes and prices are for the office and directors.')
+  await expect(main.getByRole('tab')).toHaveText(['Phases 3', /^Crew/, 'Kit and vans', 'Show pack'])
   await page.goto(jobAt)
   for (const part of ['Phases', 'Crew', 'Kit and vans', 'Show pack']) {
     await main.getByRole('tab', { name: new RegExp(`^${part}`) }).click()

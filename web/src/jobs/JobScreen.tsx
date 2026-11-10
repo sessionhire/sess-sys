@@ -52,7 +52,7 @@ import { useToday, useView } from '../view.ts'
 import { ClientField, clientNamed, NewOrNear, JobStatusPill, Page, VenueField, venueNamed } from './common.tsx'
 import { KitCard, kitSummary } from './Kit.tsx'
 import { VansCard } from './Vans.tsx'
-import { QuoteCard } from './Quote.tsx'
+import { QuotePart } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { NextDock } from './NextDock.tsx'
@@ -77,17 +77,19 @@ import { JOBS } from '../Up.tsx'
  * list beside it: the way up goes back to the list.
  */
 
-export type JobPart = 'phases' | 'crew' | 'kit' | 'pack' | 'money'
-export const JOB_PARTS: readonly JobPart[] = ['phases', 'crew', 'kit', 'pack', 'money']
+export type JobPart = 'phases' | 'crew' | 'kit' | 'pack' | 'quote'
+export const JOB_PARTS: readonly JobPart[] = ['phases', 'crew', 'kit', 'pack', 'quote']
 
-const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit and vans', pack: 'Show pack', money: 'Quote' }
+const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit and vans', pack: 'Show pack', quote: 'Quote' }
 
 /** The part last looked at, so the office moving from job to job to book crew lands on Crew each time ("a fold remembers"). */
 const LAST_PART = 'sh.jobPart'
 
 function lastPart(): JobPart | undefined {
   try {
-    const p = localStorage.getItem(LAST_PART)
+    // The quote's tab was called money until the quote moved onto the job page (ADR 0140, part 4).
+    const was = localStorage.getItem(LAST_PART)
+    const p = was === 'money' ? 'quote' : was
     return JOB_PARTS.includes(p as JobPart) ? (p as JobPart) : undefined
   } catch {
     return undefined
@@ -104,7 +106,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   // A button the role can't use isn't drawn (audit finding 9): phases are the job's, asking for crew is crew's.
   const mayJobs = access.can('jobs')
   const mayCrew = access.can('crew')
-  const parts = JOB_PARTS.filter((p) => p !== 'money' || seesMoney)
+  const parts = JOB_PARTS.filter((p) => p !== 'quote' || seesMoney)
   // The part the address names, else the one picked here, else the last one looked at; a link to another part starts there.
   const [picked, setPicked] = useState<JobPart | undefined>()
   useEffect(() => setPicked(undefined), [asked, askedTask])
@@ -207,7 +209,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
       // of the sweep of 6 November 2026), so "Confirmed" isn't the biggest word on a job two days into Back.
       badge={positioned ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
       sub={<JobLines job={job} view={view} />}
-      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} headSays={positioned} />}
+      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} headSays={positioned} quoteHere={part === 'quote'} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
@@ -218,6 +220,13 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
       <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={go} onTell={setShare} />
       {runsJobs && <YouOnThisJob job={job} view={view} />}
 
+      {/* The quote's address, typed or kept from before, for a role that doesn't see money: the job opens, saying why there's no
+          quote, rather than a tab that silently isn't there (audit, 5 November 2026, finding 87; ADR 0140, part 4). */}
+      {asked === 'quote' && !seesMoney && (
+        <section className="card" aria-label="Quote">
+          <p className="empty">Quotes and prices are for the office and directors. A director can change your role on the Crew tab.</p>
+        </section>
+      )}
       <Tabs label="Parts of the job" id="job" parts={parts} labels={PART_LABELS} current={part} counts={counts} onPick={pick} />
       <div className="job-part" role="tabpanel" id="job-part" aria-labelledby={`job-tab-${part}`}>
         {part === 'phases' && (
@@ -256,8 +265,9 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
             </section>
           ))}
 
-        {/* Its quote, built from the kit and crew, for the roles that see money (ADR 0042). */}
-        {part === 'money' && seesMoney && <QuoteCard job={job} view={view} />}
+        {/* Its quote, built from the kit and crew, for the roles that see money (ADR 0042): the quote itself, worked on here as the
+            job's Quoting stage rather than on a page of its own (ADR 0140, part 4). */}
+        {part === 'quote' && seesMoney && <QuotePart job={job} view={view} />}
       </div>
       {/* Who changed what on this job, without reading the whole company's history (audit, 5 November 2026, finding 51). */}
       <p className="hint page-foot">

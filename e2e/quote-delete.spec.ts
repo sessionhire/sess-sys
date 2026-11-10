@@ -21,7 +21,6 @@ test('an admin deletes a version of a quote only once its number is typed, and p
   await page.goto('/#jobs')
   await page.locator('.job-row', { hasText: 'Harbour Lights Festival' }).click()
   await page.getByRole('tab', { name: 'Quote' }).click()
-  await page.getByRole('link', { name: 'Open the quote' }).click()
 
   const facts = page.locator('.quote-facts')
   await expect(facts).toContainText(/^Quote \d+/)

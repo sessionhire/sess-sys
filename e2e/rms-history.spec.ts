@@ -85,7 +85,6 @@ test('the office matches past quotes to jobs and prices a line from what it was 
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('region', { name: 'Quote' }).getByRole('link', { name: 'Make a quote' }).click()
   await office.getByRole('button', { name: 'Build it from the job' }).click()
   const rms = office.getByRole('region', { name: 'In Current RMS' })
   await expect(rms).toContainText('Liffey Brands: Went ahead with 3 of 4 (75%) · usually 5% off')
@@ -194,11 +193,12 @@ test('the office makes a job from a past quote, its lines matched to the stock l
   if (process.env.SHOT) await office.screenshot({ path: process.env.SHOT, fullPage: true })
   await form.getByRole('button', { name: 'Make the job, with 2 lines on the quote' }).click()
 
-  // The job page, on its quote, with the Next dock saying what's next (ADR 0103, ADR 0104); the draft is a press away.
-  await expect(office).toHaveURL(/#jobs\/[^/]+\/money$/)
+  // The job page, on its quote, with the Next dock saying what's next (ADR 0103, ADR 0104).
+  await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
   const next = office.getByRole('region', { name: 'Next' })
   await expect(next).toContainText('Next · Quoting · Draft started')
-  await next.getByRole('link', { name: 'Finish the quote' }).click()
+  // The draft is right there, the quote being the job's Quote tab (ADR 0140, part 4), so Next says it in words.
+  await expect(next).toContainText('Finish the quote below and send it to the client.')
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await expect(draft).toContainText('Shure SM58')
   await expect(draft).toContainText('Sound engineer')
