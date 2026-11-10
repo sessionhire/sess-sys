@@ -303,7 +303,7 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
    checking you're in the right place is one look in one place; and a line under it, quieter, saying what matters most about it. */
 .page-head { display: grid; gap: var(--ds-space-1); margin-top: var(--ds-space-1); }
 .page-words { display: grid; gap: var(--ds-space-1); min-width: 0; flex: 1; }
-.page-title-row { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); }
+.page-title-row { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); min-height: 32px; }
 /* A list's add on its title's line (pageAdd.ts), at the right, so the page says what it is and how to add to it in one look. */
 .app .page-add { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: var(--ds-space-1); white-space: nowrap; }
 .app .page-add .icon { width: 18px; height: 18px; }
