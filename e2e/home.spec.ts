@@ -349,13 +349,14 @@ test('the Menu names every place, and Admin, History and You keep its tab with t
 
 test('a long screen names its parts on them, and a tap goes to one', async ({ browser }) => {
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
-  await page.goto('/#crew')
+  // Admin › Company, whose parts are there whatever the data: Crew › Calls has two now (ADR 0142), and a screen of two has no strip.
+  await page.goto('/#admin/company')
   await expect(page.getByRole('status')).toHaveText('Up to date')
   const parts = page.getByRole('navigation', { name: 'On this screen' })
   // Under the screen's title, out of the bar, and straight before the first part, so it reads as the page's contents.
   await expect(page.locator('header.top').getByRole('navigation', { name: 'On this screen' })).toHaveCount(0)
-  expect(await parts.evaluate((nav) => nav.nextElementSibling?.querySelector('h2')?.textContent)).toMatch(/^Answers to check/)
-  const title = (await page.getByRole('heading', { level: 1, name: 'Calls' }).boundingBox())!
+  expect(await parts.evaluate((nav) => nav.nextElementSibling?.querySelector('h2')?.textContent)).toMatch(/^Office details/)
+  const title = (await page.getByRole('heading', { level: 1 }).boundingBox())!
   expect((await parts.boundingBox())!.y).toBeGreaterThanOrEqual(title.y + title.height)
   // The page glides there, as it's the same page (glide.ts): it passes through places between, and the part's card is marked where it lands.
   // The slow step is given as Safari gives it back (".24s", not "240ms"), which once made the glide a quarter of a millisecond long.
@@ -366,8 +367,8 @@ test('a long screen names its parts on them, and a tap goes to one', async ({ br
     const look = () => (w.seen.push(scrollY), w.seen.length < 40 && requestAnimationFrame(look))
     requestAnimationFrame(look)
   })
-  await parts.getByRole('button', { name: 'Coming up' }).click()
-  const lists = page.getByRole('heading', { name: 'Coming up', exact: true })
+  await parts.getByRole('button', { name: 'Messages to crew' }).click()
+  const lists = page.getByRole('heading', { name: 'Messages to crew', exact: true })
   await expect(lists).toBeFocused()
   await expect(page.locator('section.card.landed', { has: lists })).toHaveCount(1)
   await settled(page)
@@ -375,22 +376,22 @@ test('a long screen names its parts on them, and a tap goes to one', async ({ br
   const end = seen.at(-1)!
   expect(seen.filter((y) => y > seen[0]! && y < end).length, 'places between the start and the end').toBeGreaterThanOrEqual(3)
   await expect(lists).toBeInViewport()
-  await expect(parts.getByRole('button', { name: 'Coming up' })).toHaveAttribute('aria-current', 'location')
+  await expect(parts.getByRole('button', { name: 'Messages to crew' })).toHaveAttribute('aria-current', 'location')
   // Scrolled to, a part clears the bar and the strip, which stays straight under the bar.
   const [bar, strip, heading] = await Promise.all([page.locator('header.top'), parts, lists].map(async (l) => (await l.boundingBox())!))
   expect(Math.round(strip!.y)).toBe(Math.round(bar!.y + bar!.height))
   expect(heading!.y).toBeGreaterThanOrEqual(strip!.y + strip!.height)
-  // A heading's count is the part's count.
-  await expect(parts.getByRole('button', { name: /^Answers to check/ }).locator('.count')).toHaveText(/^\d+$/)
+  // A heading's count is the part's count: stock.spec.ts checks it on Stock's Catalogue.
 })
 
 test('asked for less motion, a part on the same screen is gone to at once, and still marked', async ({ browser }) => {
   // Proves: under reduced motion nothing travels (motion.md): the page is at the part on the next frame, and the outline (a colour) still shows where.
   const page = await (await browser.newContext({ viewport: phoneSize, reducedMotion: 'reduce' })).newPage()
-  await page.goto('/#crew')
+  // Admin › Company, whose parts are there whatever the data: Crew › Calls has two now (ADR 0142), and a screen of two has no strip.
+  await page.goto('/#admin/company')
   await expect(page.getByRole('status')).toHaveText('Up to date')
   const parts = page.getByRole('navigation', { name: 'On this screen' })
-  const button = parts.getByRole('button', { name: 'Coming up' })
+  const button = parts.getByRole('button', { name: 'Messages to crew' })
   const at = await button.evaluate(async (b) => {
     (b as HTMLElement).click()
     await new Promise((r) => requestAnimationFrame(r))
@@ -398,7 +399,7 @@ test('asked for less motion, a part on the same screen is gone to at once, and s
   })
   await settled(page)
   expect(await page.evaluate(() => scrollY)).toBe(at)
-  await expect(page.locator('section.card.landed', { has: page.getByRole('heading', { name: 'Coming up', exact: true }) })).toHaveCount(1)
+  await expect(page.locator('section.card.landed', { has: page.getByRole('heading', { name: 'Messages to crew', exact: true }) })).toHaveCount(1)
 })
 
 test('Home draws the weeks, days and months ahead as charts, each column said in words (ADR 0054)', async ({ browser }) => {
