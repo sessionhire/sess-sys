@@ -1,6 +1,21 @@
 import { createServer, type Server } from 'node:http'
 import { expect, test } from '@playwright/test'
 
+/** The rarer ways to add sit under More, and the terms read as a line with Change, until opened (ADR 0140, part 4). */
+async function openMore(at: import('@playwright/test').Locator) {
+  const more = at.getByRole('button', { name: 'More to add…' })
+  // Once the draft is drawn: More, or with nothing on the quote yet, every way in already shown.
+  await expect(more.or(at.getByRole('button', { name: 'Add something else' }))).toBeVisible()
+  if (await more.isVisible()) await more.click()
+}
+async function openTerms(at: import('@playwright/test').Locator) {
+  const change = at.getByRole('button', { name: 'Change the terms' })
+  // Once the draft is drawn: the line with Change, or the terms already open as one of them needs putting right.
+  await expect(change.or(at.getByLabel('Prices hold for, days'))).toBeVisible()
+  if (await change.isVisible()) await change.click()
+}
+
+
 /**
  * Claude inside the app (ADR 0096, 0098): the office turns it on under
  * Admin, pastes an enquiry into New quote, checks what Claude read and the
@@ -177,6 +192,7 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await expect(advice).toHaveCount(0)
   expect(mailDone).toEqual(['t1'])
   await expect(draft).toContainText('Shure SM58')
+  await openTerms(draft)
   await expect(draft.getByLabel('Discount, %', { exact: true })).toHaveValue('10')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 

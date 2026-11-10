@@ -1,6 +1,21 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
 
+/** The rarer ways to add sit under More, and the terms read as a line with Change, until opened (ADR 0140, part 4). */
+async function openMore(at: import('@playwright/test').Locator) {
+  const more = at.getByRole('button', { name: 'More to add…' })
+  // Once the draft is drawn: More, or with nothing on the quote yet, every way in already shown.
+  await expect(more.or(at.getByRole('button', { name: 'Add something else' }))).toBeVisible()
+  if (await more.isVisible()) await more.click()
+}
+async function openTerms(at: import('@playwright/test').Locator) {
+  const change = at.getByRole('button', { name: 'Change the terms' })
+  // Once the draft is drawn: the line with Change, or the terms already open as one of them needs putting right.
+  await expect(change.or(at.getByLabel('Prices hold for, days'))).toBeVisible()
+  if (await change.isVisible()) await change.click()
+}
+
+
 /**
  * Quotes and money (ADR 0042): the office builds a quote from a job's kit
  * and crew at the price list, changes a line and adds one charged once at
@@ -110,6 +125,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // The kit charged for one day, and delivery added, charged once, at 13.5%. It saves itself.
   await draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' }).click()
   await draft.getByLabel('Line 1: days charged').fill('1')
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByLabel('Line 3: what').fill('Delivery')
   await expect(draft.getByLabel('Line 3: days charged')).toHaveCount(0)
@@ -129,7 +145,9 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // A deposit of half, and the prices held for 14 days.
+  await openTerms(draft)
   await draft.getByLabel('Prices hold for, days').fill('14')
+  await openTerms(draft)
   await draft.getByLabel('Deposit, %').fill('50')
   await expect(draft.locator('.quote-terms:not(.quote-discount)')).toContainText('€933.83 before the job')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
@@ -137,6 +155,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
 
   // A line half typed when a call comes in can't save yet, but going to Crew and back keeps it (audit finding 27). The rest
   // of the draft saves without it (audit of the quote flow, 8 November 2026, finding 13).
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByLabel('Line 4: price').fill('400')
   // Nothing faults the line while it's still being typed (design system rule 18): the readout says it's not saved, quietly.
@@ -226,6 +245,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.evaluate(() => dispatchEvent(new Event('afterprint')))
   await v1.getByRole('button', { name: 'Start a new version' }).click()
   const v2 = office.getByRole('form', { name: 'Version 2, a draft' })
+  await openTerms(v2)
   await v2.getByLabel('Discount, %').fill('10')
   await expect(v2.locator('.quote-totals')).toContainText('Total€1,680.89')
   await expect(v2.locator('.save-state')).toHaveText('Saved')
@@ -233,6 +253,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   const since = office.getByRole('region', { name: 'What changed since version 1' })
   await expect(since).toContainText('Discount 10%, was 0%')
   await expect(since).toContainText('€186.76 less than version 1')
+  await openTerms(v2)
   await expect(v2.getByLabel('Deposit, %')).toHaveValue('50')
   await v2.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
   await v2.getByRole('button', { name: 'Mark as sent', exact: true }).click()
@@ -325,8 +346,8 @@ test('a quote turned down: losing the job is left to record, and a loss, so noth
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
   const records = office.getByRole('region', { name: 'What happened' })
-  await expect(records.getByRole('button', { name: 'Client accepted' })).toBeVisible()
-  expect(await reds()).toEqual(['Client accepted'])
+  await expect(records.getByRole('button', { name: 'Client accepted: confirm the job' })).toBeVisible()
+  expect(await reds()).toEqual(['Client accepted: confirm the job'])
 
   // Turned down, with the job still quoted: marking it lost is left, which takes its crew calls, so it's plain, and printing waits.
   // Why is asked in place before it's recorded (research/quoting.md, feature 5), and shows on the answer.
@@ -385,6 +406,7 @@ test('kit charged by the week, a line discounted, and a total agreed with the cl
   await draft.getByLabel('Line 1: days out').fill('2')
 
   // The client agreed €1,500 before VAT: the discount is whatever comes to it.
+  await openTerms(draft)
   await draft.getByLabel('Agreed price before VAT, €').fill('1500')
   await expect(draft.getByLabel('Discount, %', { exact: true })).toHaveCount(0)
   await expect(draft.locator('.quote-totals')).toContainText('Agreed discount, 7.4%−€120.00')
@@ -481,6 +503,7 @@ test('a package made on the price list goes on a quote at its price, with its ki
   await office.getByRole('tab', { name: 'Quote' }).click()
   await office.getByRole('button', { name: 'Build it from the job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add a package' }).click()
   await draft.getByRole('button', { name: 'Add', exact: true }).click()
   // Its line at its price, and the four mics under it, included, shown as it's just been added.
@@ -533,6 +556,7 @@ test("a line short of kit hires in what it's short of, transport is added at a c
   await expect(draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' })).toContainText('hired in from Hire Co')
 
   // Transport, charged once, and what it costs us: the job's Luton is booked with a driver, so it's offered first.
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add transport' }).click()
   await draft.getByRole('button', { name: 'Add', exact: true }).click()
   await draft.getByLabel('Line 3: price').fill('180')
@@ -710,6 +734,7 @@ test('a count before a name with digits in it is still a count, and a line given
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
 
   // A line with no price says so, and one press gives it as included: it reads Included and the readout stops counting it.
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByRole('textbox', { name: 'Line 2: what' }).fill('Cables and power')
   await expect(draft.getByText('Needs a price, or')).toBeVisible()

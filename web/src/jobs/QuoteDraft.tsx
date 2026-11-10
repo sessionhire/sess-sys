@@ -186,6 +186,11 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
   const [forName, setForName] = useState(kept?.forName ?? q.forName ?? '')
   const [kitDays, setKitDays] = useState('')
   const [kitDaysOpen, setKitDaysOpen] = useState(false)
+  // The terms read as one line, Change opening them (ADR 0140, part 4): most quotes keep the client's usual discount and the
+  // company's validity and deposit, so the fields wait folded rather than take the side of the quote every time.
+  const [termsOpen, setTermsOpen] = useState(false)
+  // The rarer ways to add (transport, words, a package, a line of something else) under More (ADR 0140, part 4).
+  const [moreOpen, setMoreOpen] = useState(false)
   const [discounting, setDiscounting] = useState<string>()
   const [sentOn, setSentOn] = useState(today)
   const [answering, setAnswering] = useState(false)
@@ -990,33 +995,44 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
                 <Icon name="add" />
                 Add crew
               </button>
-              {m.packages.length > 0 && (
-                <button type="button" onClick={() => setAdding('package')} disabled={full}>
+              {/* The rarer ways in, under More (ADR 0140, part 4): kit (which finds packages too) and crew are most of every quote.
+                  An empty quote shows them all, as any of them may be its first line. */}
+              {(moreOpen || lines.length === 0) ? (
+                <>
+                {m.packages.length > 0 && (
+                  <button type="button" onClick={() => setAdding('package')} disabled={full}>
+                    <Icon name="add" />
+                    Add a package
+                  </button>
+                )}
+                <button type="button" onClick={() => setAdding('transport')} disabled={full}>
                   <Icon name="add" />
-                  Add a package
+                  Add transport
                 </button>
-              )}
-              <button type="button" onClick={() => setAdding('transport')} disabled={full}>
-                <Icon name="add" />
-                Add transport
-              </button>
-              <button type="button" onClick={addOther} disabled={full}>
-                <Icon name="add" />
-                Add something else
-              </button>
-              <button type="button" onClick={addWords} disabled={full}>
-                <Icon name="add" />
-                Add words
-              </button>
-              {lines.some((l) => l.kind === 'kit' && l.modelId) && (
-                <button type="button" className="link" onClick={() => setAdding('save-package')}>
-                  Save the kit as a package
+                <button type="button" onClick={addOther} disabled={full}>
+                  <Icon name="add" />
+                  Add something else
+                </button>
+                <button type="button" onClick={addWords} disabled={full}>
+                  <Icon name="add" />
+                  Add words
+                </button>
+                {lines.some((l) => l.kind === 'kit' && l.modelId) && (
+                  <button type="button" className="link" onClick={() => setAdding('save-package')}>
+                    Save the kit as a package
+                  </button>
+                )}
+                </>
+              ) : (
+                <button type="button" className="link" aria-expanded={false} onClick={() => setMoreOpen(true)}>
+                  More to add…
                 </button>
               )}
             </>
           )}
         </div>
         {kitLines > 0 &&
+          (moreOpen || kitDaysOpen) &&
           (kitDaysOpen ? (
             <div className="kit-days-all">
               <label>
@@ -1055,6 +1071,25 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
 
       <section className="card quote-side">
         <h3 className="quote-head group">Terms</h3>
+        {/* Open while a term needs putting right, so what stops the quote saving is never folded away. */}
+        {!(termsOpen || termKey) ? (
+          <div className="terms-line">
+            <p>
+              {[
+                agreedCents !== null ? `Agreed at ${money(agreedCents)} before VAT` : pctOk && pct > 0 ? `${pctWord(pct)} off` : 'No discount',
+                `prices hold ${validOk ? plural(valid, 'day') : `${DEFAULT_VALID_DAYS} days`}`,
+                dep !== null && depOk ? `${pctWord(dep)} deposit` : 'no deposit',
+                job.client && (forName || job.client.contacts[0]) ? `for ${forName || job.client.contacts[0]!.name}` : undefined,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+            <button type="button" className="link" aria-expanded={false} onClick={() => setTermsOpen(true)}>
+              Change<span className="sr-only"> the terms</span>
+            </button>
+          </div>
+        ) : (
+        <>
         <div className="quote-terms quote-discount">
           {agreedCents === null ? (
             <label className="field">
@@ -1155,6 +1190,13 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
               {forName && !job.client.contacts.slice(1).some((c) => c.name === forName) && <option value={forName}>{forName}</option>}
             </select>
           </label>
+        )}
+        {!termKey && (
+          <button type="button" className="link quiet" aria-expanded onClick={() => setTermsOpen(false)}>
+            Done with the terms
+          </button>
+        )}
+        </>
         )}
         <label className="field">
           Notes for the client

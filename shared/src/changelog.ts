@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.144.0',
+    date: '2026-11-10',
+    title: "The client's yes confirms the job in one press",
+    what: "On a quote with the client, \"Client accepted: confirm the job\" records their yes and confirms the job together, so it goes on the jobs calendar and its kit is held, without a second button to find. While you build a quote, its terms (discount, how long the prices hold, deposit and who it's for) read as one line with Change beside it. Adding kit and crew stays in front; transport, words, packages and the rest are under \"More to add\", and an empty quote still shows every way in.",
+    prs: [303],
+    adrs: [140],
+  },
+  {
     version: '1.143.0',
     date: '2026-11-09',
     title: "The quote is on the job's page",

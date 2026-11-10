@@ -1,5 +1,20 @@
 import { expect, test } from '@playwright/test'
 
+/** The rarer ways to add sit under More, and the terms read as a line with Change, until opened (ADR 0140, part 4). */
+async function openMore(at: import('@playwright/test').Locator) {
+  const more = at.getByRole('button', { name: 'More to add…' })
+  // Once the draft is drawn: More, or with nothing on the quote yet, every way in already shown.
+  await expect(more.or(at.getByRole('button', { name: 'Add something else' }))).toBeVisible()
+  if (await more.isVisible()) await more.click()
+}
+async function openTerms(at: import('@playwright/test').Locator) {
+  const change = at.getByRole('button', { name: 'Change the terms' })
+  // Once the draft is drawn: the line with Change, or the terms already open as one of them needs putting right.
+  await expect(change.or(at.getByLabel('Prices hold for, days'))).toBeVisible()
+  if (await change.isVisible()) await change.click()
+}
+
+
 /**
  * Starting a quote and following it up (ADR 0081): the office starts a quote
  * from Money with the job in a few words, which makes an enquiry and opens
@@ -47,6 +62,7 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await expect(draft).toContainText('No lines yet')
+  await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByLabel('Line 1: what').fill('PA for the awards')
   await draft.getByLabel('Line 1: price').fill('900')
@@ -80,22 +96,17 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await office.goto('/#jobs')
   await expect(office.locator('.job-row', { hasText: 'Docklands Awards' })).toContainText('Quoted')
 
-  // The client said yes: the quote offers to confirm the job.
+  // The client said yes: one press records it and confirms the job (ADR 0140, part 4), as the Confirmed task's own Yes does,
+  // rather than a Confirm the job to find after it.
   await office.locator('.job-row', { hasText: 'Docklands Awards' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await records.getByRole('button', { name: 'Client accepted' }).click()
-  await expect(records).toContainText('The client accepted, and the job is still quoted.')
-  // The job's own yes comes before the invoice, so confirming it is the quote's one filled red (UX sweep, 6 November 2026, move 1).
+  await expect(records).toContainText('Their yes confirms the job: it goes on the jobs calendar and its kit is held.')
+  await records.getByRole('button', { name: 'Client accepted: confirm the job' }).click()
   await expect(records.getByRole('button', { name: 'Mark invoiced' })).toBeVisible()
-  const reds = await office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
-  expect(reds).toEqual(['Confirm the job'])
-
-  // Quotes lists it to put in step too, and confirming it from there takes it off. One to a row, it's plain, as a row's own action is.
+  await expect(records).not.toContainText('still quoted')
+  await expect(records.getByRole('button', { name: 'Confirm the job' })).toHaveCount(0)
+  // Nothing is left to put in step, so Quotes has nothing to follow up on it.
   await office.goto('/#quotes')
-  const answered = quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })
-  await expect(answered).toContainText('Accepted today')
-  await expect(answered.getByRole('button', { name: 'Confirm the job' })).not.toHaveClass(/\bprimary\b/)
-  await answered.getByRole('button', { name: 'Confirm the job' }).click()
   await expect(quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })).toHaveCount(0)
   await office.goto('/#jobs')
   // Confirmed, its row says where it stands rather than the pill (Move 7 of the sweep of 6 November 2026).
