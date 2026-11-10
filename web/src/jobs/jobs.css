@@ -336,9 +336,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Done is settled, so it's ink: green stays for a scan that read (audit, 20 October 2026, finding 59). */
 .pick .pick-total.done { color: var(--ink); }
 .pick .pick-brief { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ds-space-half); font-size: var(--text-small); }
-.pick .pick-ways { display: grid; gap: var(--ds-space-2); }
-.pick .pick-ways .left { color: var(--muted); font-weight: 400; font-size: var(--text-hint); }
-.pick .pick-ways button[aria-pressed='true'] .left { color: inherit; }
+/* Whose kit and in what order, one choice on one line (ADR 0140, part 6). */
+.pick .show-by { display: flex; align-items: center; gap: var(--ds-space-2); }
+.pick .show-by select { flex: 1; min-width: 0; min-height: 44px; }
 .pick .pick-note { margin: 0; font-size: var(--text-small); }
 .pick .pick-note b { font-size: var(--text-pill); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-right: var(--ds-space-1); }
 .pick .said-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: stretch; }

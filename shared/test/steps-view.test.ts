@@ -7,6 +7,7 @@ import { MONEY_ENTITY_NAMES } from '../src/quotes.ts'
 import { MemoryStorage, SyncClient, type Transport, type View } from '../src/sync/client.ts'
 import { jobPosition } from '../src/sync/position.ts'
 import { sellingLine } from '../src/sync/steps-view.ts'
+import { PLAIN_PRODUCT, type Model } from '../src/stock.ts'
 
 /**
  * A job's quote task as a device reads it (ADR 0104), on one that's sent
@@ -119,5 +120,25 @@ describe("a job's position", () => {
     expect(jobPosition(office.steps.of('bare')!)!.text).toBe('Quoting · No quote yet · in 10 days')
     // A role sent no money reads the quote as the office's, never as missing.
     expect(jobPosition((await phone(false)).steps.of('bare')!)!.text).toBe('Quoting · Quote: with the office · in 10 days')
+  })
+})
+
+describe("a job on its days with nothing scanned out (ADR 0140, part 6)", () => {
+  it('is still going out, not on the job, so the warehouse is never told the kit has gone', async () => {
+    const server = new Server(true)
+    const product = { ...PLAIN_PRODUCT, aliases: [], id: 'desk', name: 'Desk', department: 'audio', category: '', tracking: 'bulk', isCase: false, valueCents: null, notes: '', patMonths: null, liftingMonths: null, mistake: false } as Model
+    server.give('model', product)
+    for (const [id, kit] of [['today', true], ['crew-only', false]] as const) {
+      server.give('project', { id, name: id, clientId: null, venueId: null, status: 'confirmed', notes: '' })
+      server.give('phase', { id: `${id}-show`, projectId: id, name: 'Show', start: day(0), end: day(1), venueId: null, notes: '' })
+      if (kit) server.give('kitLine', { id: `${id}-kit`, projectId: id, phaseId: null, modelId: 'desk', qty: 6, subhireQty: 0, supplier: '', notes: '' })
+    }
+    const device = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone', now: () => TODAY }).open()
+    await device.sync()
+    const steps = device.view().steps
+    expect(steps.of('today')!.stage?.key).toBe('going')
+    expect(steps.of('today')!.current?.key).toBe('prep')
+    // With nothing to pick, its days are its days.
+    expect(steps.of('crew-only')!.stage?.key).toBe('on')
   })
 })

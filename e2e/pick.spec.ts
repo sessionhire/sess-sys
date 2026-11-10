@@ -410,14 +410,17 @@ test('picking on the phone: whose kit, a walk round the warehouse, notes, Undo a
   await expect(page.getByRole('list', { name: 'Before you start' })).toContainText('In 2 days: Load in,')
 
   // Their own department's kit: only audio, with the note.
-  const whose = page.getByRole('group', { name: 'Whose kit' })
-  await whose.getByRole('button', { name: /^Audio/ }).click()
+  // Whose kit and in what order are one choice (ADR 0140, part 6), each department saying how much is left.
+  const show = page.getByRole('combobox', { name: 'Show' })
+  await expect(show.locator('option').first()).toHaveText('Everything, by department')
+  await expect(show.locator('option', { hasText: 'Audio only' })).toHaveText('Audio only · 1 left')
+  await show.selectOption({ label: 'Audio only · 1 left' })
   await expect(page.locator('.pick-total')).toHaveText('Audio: 0 of 2 out · 0 of 24 in all')
   await expect(page.locator('article.pick-row')).toHaveCount(1)
   await expect(pickRow(page, speaker).locator('.pick-note')).toHaveText('Note The pair with the new grilles')
   // Kept on the phone.
   await page.reload()
-  await expect(page.getByRole('group', { name: 'Whose kit' }).getByRole('button', { name: /^Audio/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('combobox', { name: 'Show' })).toHaveValue('audio')
 
   // A scan, undone.
   const said = page.getByRole('status', { name: 'Last scan' })
@@ -430,8 +433,7 @@ test('picking on the phone: whose kit, a walk round the warehouse, notes, Undo a
   await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0)
 
   // Everything, as a walk round the warehouse: place by place, in the stock list's order.
-  await page.getByRole('group', { name: 'Whose kit' }).getByRole('button', { name: 'All' }).click()
-  await page.getByRole('group', { name: 'In what order' }).getByRole('button', { name: "By where it's kept" }).click()
+  await page.getByRole('combobox', { name: 'Show' }).selectOption({ label: "Everything, by where it's kept" })
   const list = page.getByRole('region', { name: 'Kit' })
   await expect(list.locator('.kit-group h3')).toHaveText([front, back, 'Warehouse'])
   await expect(list.locator('.kit-group', { has: page.getByRole('heading', { name: front }) }).locator('article.pick-row header b')).toHaveText([light])
@@ -446,6 +448,19 @@ test('picking on the phone: whose kit, a walk round the warehouse, notes, Undo a
   await expect(said).toHaveText(`Undone: 20 × ${cable} not counted out.`)
   await expect(page.locator('.pick-total')).toHaveText('0 of 24 out')
   await expect(page.locator('.conn')).toHaveText('Up to date')
+
+  // Picking under way, the list opens on the first thing still to pick (ADR 0140, part 6), rather than at the top again.
+  await pickRow(page, cable).getByRole('button', { name: 'Count out the 20' }).click()
+  await expect(said).toHaveText(`20 × ${cable} counted out.`)
+  await expect(page.locator('.pick-total')).toHaveText('20 of 24 out')
+  // Sent, not only on this phone, before the page is opened again.
+  await expect(page.locator('.pick-row .pill')).toHaveCount(0)
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+  await page.reload()
+  await expect(page.locator('.pick-total')).toHaveText('20 of 24 out')
+  const first = page.locator('.pick-list .pick-row:not(.done)').first()
+  await expect(first).toBeInViewport()
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0)
   await context.close()
 })
 

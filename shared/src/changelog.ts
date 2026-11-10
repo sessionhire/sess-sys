@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.146.0',
+    date: '2026-11-10',
+    title: 'The pick list starts with the kit',
+    what: "A job on its days with nothing scanned out now says \"Due out today\" and stays in Going out, rather than telling the warehouse it's out on the job. The pick list's way of showing the kit is one Show choice (everything by department, by where it's kept, or one department with how much is left), and Going out or Coming back only appears once something has gone out. Opened again partway through, it lands on the first thing still to pick. The job's Next says how far picking has got: \"Pick the kit · 0 of 6 out\".",
+    prs: [305],
+    adrs: [140],
+  },
+  {
     version: '1.145.0',
     date: '2026-11-10',
     title: "Next books the crew one press at a time",
