@@ -30,8 +30,8 @@ export const CHANGELOG: readonly Release[] = [
   {
     version: '1.149.2',
     date: '2026-11-10',
-    title: 'No tidy-up notices on Jobs and Crew',
-    what: "The \"Tidy up what came in\" and \"Kit in the notes\" cards no longer sit beside the Jobs list, and People on Crew no longer has a line about people named from their address. Both pages are still there, under Menu and Admin: Tidy up what came in, and Kit in the notes.",
+    title: 'No tidy-up notices on the main pages',
+    what: "Notices about tidying up what came in from the calendars and Current RMS no longer sit on the main pages: the \"Tidy up what came in\" and \"Kit in the notes\" cards beside the Jobs list, the line about people named from their address on Crew, the \"looks like the same person\" line on a person's page, and the \"match past quotes to jobs\" links on a job's quote and the Quotes page. All of it is still under Menu: Tidy up what came in, Kit in the notes, and Money › Past quotes from Current RMS.",
     prs: [311],
   },
   {
