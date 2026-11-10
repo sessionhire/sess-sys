@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-10',
     title: 'Crew are asked for from a job',
     what: "The \"Crew for something not in Jobs\" card at the foot of Crew › Calls is gone. Ask for crew from the job's Crew tab, so the crew get its venue, phases and any changes. For a warehouse day or crew lent out, make a quick job for it. Calls already made the old way still show and work as before.",
-    prs: [0],
+    prs: [313],
     adrs: [142],
   },
   {
