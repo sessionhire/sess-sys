@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-09',
     title: "The quote is on the job's page",
     what: "A job's quote is now worked on in its Quote tab, under the job's name, stages and Next, rather than on a page of its own. Old links to a quote open that tab. While you're on it, Next says what to do in words and leaves the quote's own Build or Send as the one button to press.",
-    prs: [0],
+    prs: [302],
     adrs: [140],
   },
   {
