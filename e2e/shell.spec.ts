@@ -111,7 +111,7 @@ test('an empty list that says so in its own words says it once', async ({ browse
   await expect(page.locator('.empty', { hasText: /^No quote is waiting on anyone\./ })).toHaveCount(1)
   await expect(page.locator('.empty', { hasText: /^Nothing here yet\. (No|Nothing|Nobody)\b/ })).toHaveCount(0)
   await ready(page, '#jobs/clients')
-  await expect(page.locator('.empty')).toHaveText('Nothing here yet. Clients are added as you type them into a job.')
+  await expect(page.locator('.empty')).toHaveText('Nothing here yet. Add one with New client, at the top, or type a new one into a job.')
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
 })
 
