@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.148.1',
+    date: '2026-11-10',
+    title: 'Words that fit on a phone',
+    what: "On a phone the departments buttons (All departments, Audio, Lighting, Video, Lasers, Staging) are in smaller writing, in two tidy rows of three, so none of them is cut off any more, on Jobs, the calendar, the week and the Board alike. A long job name on the calendar no longer pushes the page wider than the phone, the week's \"+ Quote\" sits under its day rather than being cut off, and a long email address on a client's page breaks onto the next line.",
+    prs: [308],
+  },
+  {
     version: '1.148.0',
     date: '2026-11-10',
     title: "A job's tabs in the order the job goes, opening where it is",

@@ -126,3 +126,20 @@ test('the planner narrows its job rows, and a phone keeps the row in the page', 
   await page.screenshot(shot('calendar-phone'))
   await row(page).getByRole('button', { name: 'All departments' }).click()
 })
+
+test("on a phone every department button's words fit inside it, on Jobs, the calendar, the week and the Board", async ({ page }) => {
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 })
+    for (const hash of ['#jobs', '#jobs/calendar/2034-04-01', '#plan/week/2034-04-10', '#jobs/board']) {
+      await ready(page, hash)
+      await expect(row(page).getByRole('button', { name: 'All departments' })).toBeVisible()
+      // Smaller than the page's other buttons, and none cut: each button's words are no wider than the button.
+      const cut = await row(page).getByRole('button').evaluateAll((buttons) => buttons.filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent))
+      expect(cut, `${hash} at ${width}px`).toEqual([])
+      const size = await row(page).getByRole('button', { name: 'All departments' }).evaluate((b) => parseFloat(getComputedStyle(b).fontSize))
+      expect(size).toBeLessThan(16)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), `${hash} at ${width}px`).toBeLessThanOrEqual(width)
+    }
+  }
+  await page.screenshot(shot('jobs-phone-320'))
+})
