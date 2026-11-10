@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.149.1',
+    date: '2026-11-10',
+    title: 'Home’s views match the rest',
+    what: "On Home, Company, Department, Warehouse and Me now sit under a Views heading and look and work like the views on Jobs, Stock and Crew: as tall to tap, and on a phone one row that slides sideways rather than squeezing Me off the edge. On a phone, Sort now stretches across the page and Filter keeps to the right edge.",
+    prs: [310],
+    adrs: [141],
+  },
+  {
     version: '1.149.0',
     date: '2026-11-10',
     title: 'The Jobs list reads top to bottom',

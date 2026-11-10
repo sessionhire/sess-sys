@@ -3,6 +3,18 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: Home's views, and Sort across a phone
+
+**Done (1.149.1)**
+
+- Home's Company / Department / Warehouse / Me are the area views' row
+  (Views.tsx `ViewChoice`), under the same "Views" heading; the greeting is
+  the line under the title.
+- On a phone, Sort fills the row and Filter sits at its right edge.
+- Colly: When on Jobs stays one at a time.
+- Checked: the Home, departments, steps, access, person and screens
+  browser tests; screens in screens/home-views.
+
 ## 10 November 2026: the Jobs list reads top to bottom
 
 **Done (1.149.0, ADR 0141)**
