@@ -111,9 +111,11 @@ describe('notifications', () => {
     const dara = await colly.record<Person>('person', 'dara')
     await onLink(app, `/f/${dara.linkToken}/offers/o2`, { answer: 'accept' })
     const yes = (await notices(aoife)).notices.find((n) => n.who.name === 'Dara Kelly')
-    expect(yes).toMatchObject({ why: 'you', forYou: 'Your offer for Audio tech on Electric Picnic is closed: the call filled.' })
+    // Said as what happened to her offer, first, with the history's words kept under it (10 November 2026).
+    expect(yes).toMatchObject({ why: 'you', said: 'Audio tech on Electric Picnic went to Dara Kelly, so your offer is closed', what: 'Dara Kelly accepted Audio tech on Electric Picnic' })
+    expect(yes?.forYou).toBeUndefined()
     // Nobody else's list says it's theirs.
-    expect((await notices(colly)).notices.some((n) => n.forYou)).toBe(false)
+    expect((await notices(colly)).notices.some((n) => n.said)).toBe(false)
   })
 
   it("tells the heads of a job's departments and the warehouse's that it's confirmed, and the office that its kit went out, once each", async () => {

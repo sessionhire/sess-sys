@@ -365,10 +365,14 @@ export interface Notice extends HistoryEntry {
   /** The record of theirs it changed: the one nearest them, when it changed several. */
   about: { entity: string; id: string }
   /**
-   * What it means for them, when the change was someone else's but closed
-   * their own offer: "Your offer for LX tech on … is closed: the call
-   * filled." (audit, 5 November 2026, finding 61).
+   * What it means for them, said first in place of the history's words,
+   * which go under it: when someone else's yes filled the call and closed
+   * their own offer, "LX tech on … went to Dara Kelly, so your offer is
+   * closed" (audit, 5 November 2026, finding 61; 10 November 2026, when
+   * "Dara Kelly accepted …" read as someone else's news).
    */
+  said?: string
+  /** A line under the history's words saying what it means for them: a hand-off, "Confirmed: …" or "Gone out: …". */
   forYou?: string
 }
 
