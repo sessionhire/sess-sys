@@ -172,8 +172,8 @@ export function kitShort(lines: readonly KitLineView[] | undefined): Tone | unde
   return short ? (short.hold === 'held' ? 'bad' : 'warn') : undefined
 }
 
-/** The job page's Kit card. */
-export function KitCard({ job, view }: { job: JobView; view: View }) {
+/** The job page's Kit card. `subhireOpened` opens the short kit's Subhire each time it changes: Next's "Sort 1 short" (ADR 0140, part 5). */
+export function KitCard({ job, view, subhireOpened }: { job: JobView; view: View; subhireOpened?: number }) {
   const lines = view.kit.byJob.get(job.id) ?? []
   const today = useToday()
   // A button the role can't use isn't drawn (audit finding 9): the lines are kit's, the days held are the job's own.
@@ -199,7 +199,7 @@ export function KitCard({ job, view }: { job: JobView; view: View }) {
       {STOPPED.includes(job.status) && lines.length > 0 && <p className="hint">This job is {job.status}, so its kit is free for other jobs.</p>}
       {lines.length === 0 && <Empty>{mayKit && 'Add what the job needs from the stock list, for the whole job or one phase.'}</Empty>}
       {mayKit && !STOPPED.includes(job.status) && <FromQuote job={job} view={view} lines={lines} />}
-      {short.length > 0 && <ShortKit job={job} short={short} mayChange={mayKit} />}
+      {short.length > 0 && <ShortKit job={job} short={short} mayChange={mayKit} opened={subhireOpened} />}
       <ShowAll items={byDepartment} limit={3} what="lines" keep={brief ? undefined : toAct}>
         {(shown) =>
           DEPARTMENTS.filter((d) => shown.some((l) => department(l) === d)).map((d) => (
@@ -340,7 +340,7 @@ function KitDays({ job, mayChange }: { job: JobView; mayChange: boolean }) {
  * and From do. Lines with none counted yet start unticked, as the count may
  * just not be finished.
  */
-function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly KitLineView[]; mayChange: boolean }) {
+function ShortKit({ job, short, mayChange, opened }: { job: JobView; short: readonly KitLineView[]; mayChange: boolean; opened?: number }) {
   const [open, setOpen] = useState(false)
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
   const [supplier, setSupplier] = useState('')
@@ -360,6 +360,10 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
     setDone('')
     setOpen(true)
   }
+  // Next's "Sort 1 short" lands here with the Subhire open, its short lines ticked and the first tick in focus (ADR 0140, part 5).
+  useEffect(() => {
+    if (opened && mayChange) start()
+  }, [opened])
   const close = () => {
     closed.current = true
     setOpen(false)
@@ -389,7 +393,7 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
     })
   }
   return (
-    <div className="short-kit">
+    <div className="short-kit" id="short-kit">
       <p className={`kit-state ${held ? 'bad' : 'warn'}`}>{shortSummary(short)}</p>
       {done && !open && (
         <p className="added" role="status">

@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: one job, one path, part 5: each press moves the count
+
+**Done (1.145.0)**
+
+- Next on a job takes the crew a step per press, with the count in the
+  button: a yes is confirmed where it is ("Confirm Aoife's yes · 1 of 2
+  booked"), the next place nobody's offered opens its Offer ("Offer the
+  Rigger · 1 of 2 offered"), a different rate goes to Crew's answers, and
+  once every place is offered it says how many answers are out. Confirming
+  sends nothing; the Crew page's message prompt opens as its own Confirm does.
+- "Sort 1 short on the kit" lands on the Kit card's Subhire, open, with the
+  short lines ticked.
+- Crew lines on a quote made from the job ("Rigger (Load in)") count against
+  their own call, so they no longer show as "not asked for yet" beside it.
+- Checked: a new browser test walks a job from a yes to confirm through to
+  the short kit; screens in screens/one-path-5.
+
+**Next:** part 6, the pick list opening on the first thing to pick.
+
 ## 10 November 2026: one job, one path, part 4b: one press for the yes
 
 **Done (second half of part 4, 1.144.0)**

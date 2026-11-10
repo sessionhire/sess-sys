@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
+import { pickRecord } from './names.ts'
 
 /**
  * A job's stages and tasks (ADR 0073, ADR 0104), as the office and a member
@@ -57,7 +58,7 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(where.locator('.task-list')).toHaveCount(0)
   // Pressed on a phone, it does what it says (ADR 0140): the Crew part opens on the first call with a place to fill, its Offer
   // already open with the cursor in it and in view, rather than a tab with the Offers still to find (audit, 5 November 2026, finding 1).
-  await next.getByRole('button', { name: 'Book 2 more crew' }).click()
+  await next.getByRole('button', { name: 'Offer the Audio tech · 0 of 2 offered' }).click()
   const crewTab = page.getByRole('tab', { name: /^Crew/ })
   await expect(crewTab).toHaveAttribute('aria-selected', 'true')
   const offerTo = page.getByRole('combobox', { name: 'Offer to' })
@@ -125,6 +126,76 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
     await desk.getByRole('region', { name: 'Where it is' }).screenshot(shot('job-steps'))
   }
 })
+
+test("Next books a job's crew one press at a time, its count moving on, then lands on the short kit's Subhire", async ({ browser, request }) => {
+  // Proves (ADR 0140, part 5): each press of Next does one thing and says how far it has got: a yes is confirmed where it is, the
+  // next place nobody's been offered opens its Offer, the answers still out are waited on in words, and short kit opens its
+  // Subhire with the first tick in focus.
+  const id = Date.now().toString(36)
+  const job = `Lough Derg Regatta ${id}`
+  const aoife = `Aoife Moves${id}`
+  const brian = `Brian Moves${id}`
+  await push(request, id, [
+    ['person.upsert', { id: `ma-${id}`, name: aoife, kind: 'staff', email: null, phone: null, skills: [], dayRateCents: null, notes: '' }],
+    ['person.upsert', { id: `mb-${id}`, name: brian, kind: 'staff', email: null, phone: null, skills: [], dayRateCents: null, notes: '' }],
+    ['model.create', { id: `mm-${id}`, name: `Regatta mast ${id}`, department: 'staging', category: 'Truss', tracking: 'bulk', isCase: false, valueCents: null, notes: '' }],
+    ['project.create', { id: `m-${id}`, name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `mp-${id}`, projectId: `m-${id}`, name: 'Show', start: '2030-07-04', end: '2030-07-04', venueId: null, notes: '' }],
+    [
+      'call.create',
+      { id: `mc-${id}`, projectId: `m-${id}`, phaseId: `mp-${id}`, project: job, phase: 'Show', venue: '', role: 'Rigger', start: '2030-07-04', end: '2030-07-04', callTime: null, needed: 2, dayRateCents: null, details: '', replyBy: null },
+    ],
+    ['offer.send', { id: `mo-${id}`, callId: `mc-${id}`, personId: `ma-${id}`, override: false }],
+    ['offer.respond', { id: `mo-${id}`, answer: 'accept', days: null, note: '' }],
+    ['kit.add', { id: `mk-${id}`, projectId: `m-${id}`, phaseId: null, modelId: `mm-${id}`, qty: 2, subhireQty: 0, supplier: '', notes: '' }],
+  ])
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto(`/#jobs/m-${id}`)
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const next = page.getByRole('region', { name: 'Next' })
+  const call = page.getByRole('article', { name: '2 × Rigger' })
+
+  // Aoife's yes is confirmed in the press, and the page lands on her call with the focus on its line.
+  await next.getByRole('button', { name: `Confirm Aoife's yes · 0 of 2 booked` }).click()
+  await expect(call.getByRole('button', { name: /^2 × Rigger/ })).toBeFocused()
+  await expect(call.locator('.who-line')).toContainText(aoife)
+  // Then the place nobody's been offered: its Offer open, the cursor in it.
+  await next.getByRole('button', { name: 'Offer the Rigger · 1 of 2 offered' }).click()
+  await expect(call.getByRole('combobox', { name: 'Offer to' })).toBeFocused()
+  await pickRecord(call, 'Offer to', brian)
+  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  // Every place offered: Next waits in words, with the count.
+  await expect(next).toContainText('Every place is offered: waiting on 1 answer. 1 of 2 booked.')
+  await expect(next.getByRole('button')).toHaveCount(0)
+
+  // Brian says yes on his link; the next press confirms him and the crew are booked.
+  await push(request, `${id}-b`, [['offer.respond', { id: (await offerOf(request, `mc-${id}`, `mb-${id}`)), answer: 'accept', days: null, note: '' }]])
+  await expect(next).toContainText("Confirm Brian's yes", { timeout: 8000 })
+  await next.getByRole('button', { name: `Confirm Brian's yes · 1 of 2 booked` }).click()
+  // Then the short kit: Subhire open with the first tick in focus; subhiring it takes the count down to nothing.
+  await next.getByRole('button', { name: 'Sort 1 short on the kit' }).click()
+  const subhire = page.getByRole('form', { name: `Subhire what's short on ${job}` })
+  await expect(subhire.getByRole('checkbox').first()).toBeFocused()
+  await subhire.getByRole('checkbox').first().check()
+  await subhire.getByRole('button', { name: 'Subhire 1 line' }).click()
+  await expect(next.getByRole('button', { name: 'Settle the kit and vans' })).toBeVisible()
+})
+
+/** The id of the offer the office made to a person on a call, from what the server sends. */
+async function offerOf(request: APIRequestContext, callId: string, personId: string): Promise<string> {
+  let after = 0
+  for (;;) {
+    const { changes, cursor, more } = (await (await request.get(`/api/sync/pull?after=${after}`)).json()) as {
+      changes: { entity: string; id: string; data: { callId?: string; personId?: string } | null }[]
+      cursor: number
+      more: boolean
+    }
+    const found = changes.find((c) => c.entity === 'offer' && c.data?.callId === callId && c.data.personId === personId)
+    if (found) return found.id
+    if (!more) throw new Error('No offer to find')
+    after = cursor
+  }
+}
 
 test('an enquiry whose dates passed with no answer is counted on Home, folded on the Board, and asks what happened', async ({ browser, request }) => {
   // Proves (ADR 0109; audit, 5 November 2026, finding 18): a job still being sold after its last day leaves the top of Quoting for a

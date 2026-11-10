@@ -1,7 +1,7 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { byWhen, jobSpan, type Client, type JobEntities, type Phase, type Project, type Venue } from '../jobs.ts'
 import { joinedPhaseName, tailOf } from '../tidy.ts'
-import type { CallView } from './crew-view.ts'
+import type { CallView, OfferView } from './crew-view.ts'
 
 /**
  * The Jobs tab's view of a device's data: what the server has said, with
@@ -192,6 +192,44 @@ export function jobsView(
 
   const byName = (a: { id: string; name: string }, b: { id: string; name: string }) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
   return { jobs, clients: [...clients.values()].sort(byName), venues: [...venues.values()].sort(byName) }
+}
+
+/**
+ * What booking a job's crew waits on next (ADR 0140, part 5), so the job's Next can do that one thing and its count moves on
+ * with each press: a yes to confirm, then a call with places nobody has been offered, then the answers still out. Only open
+ * calls; a person counts once a day, as the server counts them.
+ */
+export interface CrewNext {
+  /** The first yes waiting on the office to confirm it. */
+  yes?: { call: CallView; offer: OfferView }
+  /** The first call with places nobody's been offered: how many, and how many of its places are offered or held already. */
+  ask?: { call: CallView; places: number; asked: number }
+  /** Someone asking a different rate, which the office settles with the rate in view. */
+  counter?: { call: CallView; offer: OfferView }
+  /** Offers out without an answer. */
+  waiting: number
+}
+
+export function crewNext(calls: readonly CallView[]): CrewNext {
+  const out: CrewNext = { waiting: 0 }
+  for (const c of calls) {
+    if (c.status !== 'open') continue
+    // A yes holds its place already, so it's found on a call whose places are all held, as "to confirm" counts it.
+    for (const o of c.offers) if (o.status === 'accepted' && o.person && !out.yes) out.yes = { call: c, offer: o }
+    if (c.openDays.length === 0) continue
+    for (const o of c.offers) {
+      if (o.status === 'countered' && o.person && !out.counter) out.counter = { call: c, offer: o }
+      if (o.status === 'offered') out.waiting++
+    }
+    if (out.ask) continue
+    const asked = Math.min(
+      ...c.openDays.map(
+        (d) => new Set(c.offers.filter((o) => ['offered', 'countered', 'accepted', 'confirmed'].includes(o.status) && o.days.includes(d)).map((o) => o.personId)).size
+      )
+    )
+    if (asked < c.needed) out.ask = { call: c, places: c.needed - asked, asked }
+  }
+  return out
 }
 
 /**

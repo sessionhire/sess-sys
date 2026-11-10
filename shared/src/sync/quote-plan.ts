@@ -77,22 +77,30 @@ export interface CallToMake {
  * The crew on a quote that the job's calls don't cover yet (finding 8): each role on its crew lines, by name in any case,
  * against the job's calls for that role that aren't cancelled. Only ever more, as with kit: a call the office made bigger
  * or for another role stays as it is.
+ *
+ * A quote built from the job names a call's line "Rigger (Load in)" and keeps the call's id on it, so such a line counts against
+ * that call, and a call is known by "role (phase)" as well as its role; else one made from the job looked not asked for yet
+ * beside itself (ADR 0140, part 5).
  */
 export function callsFromQuote(
-  lines: readonly { kind: string; what: string; qty: number; extra?: unknown }[],
-  calls: readonly { role: string; needed: number; status: string }[]
+  lines: readonly { kind: string; what: string; qty: number; extra?: unknown; ref?: string | null }[],
+  calls: readonly { id?: string; role: string; phase?: string; needed: number; status: string }[]
 ): CallToMake[] {
   const key = (s: string) => s.trim().toLowerCase()
+  const live = calls.filter((c) => c.status !== 'cancelled')
+  const ids = new Set(calls.flatMap((c) => (c.id ? [c.id] : [])))
+  const named = (c: (typeof calls)[number]) => [key(c.role), ...(c.phase?.trim() ? [key(`${c.role} (${c.phase})`)] : [])]
   const wanted = new Map<string, CallToMake>()
   for (const l of lines) {
-    if (l.kind !== 'crew' || l.extra || !l.what.trim() || l.qty <= 0) continue
+    // Built from a call the job has, cancelled or not: that call is its answer, as the quote's own "since" says when it changes.
+    if (l.kind !== 'crew' || l.extra || !l.what.trim() || l.qty <= 0 || (l.ref && ids.has(l.ref))) continue
     const found = wanted.get(key(l.what))
     if (found) found.needed += Math.ceil(l.qty)
     else wanted.set(key(l.what), { role: l.what.trim(), needed: Math.ceil(l.qty) })
   }
   const out: CallToMake[] = []
   for (const [k, w] of wanted) {
-    const have = calls.filter((c) => c.status !== 'cancelled' && key(c.role) === k).reduce((n, c) => n + c.needed, 0)
+    const have = live.filter((c) => named(c).includes(k)).reduce((n, c) => n + c.needed, 0)
     if (w.needed > have) out.push({ role: w.role, needed: Math.min(100, w.needed - have) })
   }
   return out

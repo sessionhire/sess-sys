@@ -55,7 +55,7 @@ import { VansCard } from './Vans.tsx'
 import { QuotePart } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
 import { JobPosition } from './JobPosition.tsx'
-import { NextDock } from './NextDock.tsx'
+import { NextDock, type Landing } from './NextDock.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
@@ -149,21 +149,23 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   // Next, or a task's Open, picks a part far down the page: it comes to the top, under the bar, with the focus on its tab, so
   // the press is seen to do something (audit, 5 November 2026, finding 1). A tab picked from the row itself is already in view.
   const [went, setWent] = useState(0)
-  // The call whose Offer Next opened (ADR 0140): "Book 3 more crew" lands on the first place to fill with its picker open, not on a
-  // tab with the Offer buttons still to find. Counted, so pressing Next again opens it again.
-  const [offering, setOffering] = useState<{ id: string; n: number }>()
-  const go = (p: JobPart, offer?: string) => {
+  // Where Next lands (ADR 0140): "Offer a Rigger" on that call with its picker open, a yes just confirmed on its call, "Sort 1 short"
+  // on the kit's Subhire with the short lines ticked, rather than on a tab with the button still to find. Counted, so pressing
+  // Next again opens it again.
+  const [landing, setLanding] = useState<Landing & { n: number }>()
+  const go = (p: JobPart, land?: Landing) => {
     pick(p)
     setWent((n) => n + 1)
-    if (offer) setOffering((was) => ({ id: offer, n: (was?.n ?? 0) + 1 }))
-    else setOffering(undefined)
+    setLanding((was) => (land ? { ...land, n: (was?.n ?? 0) + 1 } : undefined))
   }
   useEffect(() => {
     if (!went) return
-    // Glided to, as it's the same page, with the part's card under the tabs marked where it lands (glide.ts); or, opening an offer, to
-    // its call, whose picker takes the focus.
-    const call = offering && document.getElementById(`call-${offering.id}`)
-    if (call) return void glideTo(call, { mark: call })
+    // Glided to, as it's the same page, with the part's card under the tabs marked where it lands (glide.ts); or to the call or the
+    // short kit Next named, whose picker or first tick takes the focus.
+    const at = landing && document.getElementById('call' in landing ? `call-${landing.call}` : 'short-kit')
+    // A call landed on without its Offer (a yes just confirmed) takes the focus on its line, so the count it moved is read out.
+    const line = landing && 'call' in landing && !landing.offer ? at?.querySelector<HTMLElement>('.call-line') : undefined
+    if (at) return void glideTo(at, { mark: at, focus: line ?? undefined })
     const tab = document.getElementById(`job-tab-${part}`)
     const row = tab?.closest<HTMLElement>('[role="tablist"]')
     const card = document.getElementById('job-part')?.firstElementChild
@@ -209,7 +211,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
       // of the sweep of 6 November 2026), so "Confirmed" isn't the biggest word on a job two days into Back.
       badge={positioned ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
       sub={<JobLines job={job} view={view} />}
-      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} headSays={positioned} quoteHere={part === 'quote'} />}
+      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} onTell={setShare} headSays={positioned} quoteHere={part === 'quote'} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
@@ -244,12 +246,12 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           </section>
         )}
 
-        {part === 'crew' && <CrewPart job={job} view={view} onShare={onShare} onTell={setShare} offerFor={offerFor} mayCrew={mayCrew} offering={offering} />}
+        {part === 'crew' && <CrewPart job={job} view={view} onShare={onShare} onTell={setShare} offerFor={offerFor} mayCrew={mayCrew} offering={landing && 'call' in landing && landing.offer ? { id: landing.call, n: landing.n } : undefined} />}
 
         {part === 'kit' && (
           <>
             <SettleKit job={job} view={view} />
-            <KitCard job={job} view={view} />
+            <KitCard job={job} view={view} subhireOpened={landing && 'short' in landing ? landing.n : undefined} />
             <VansCard job={job} view={view} />
           </>
         )}
