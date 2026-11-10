@@ -386,6 +386,8 @@ test("each role meets its own app: a head's Jobs list starts on their department
   await page.getByLabel('Your name').selectOption({ label: 'Aoife Brennan' })
   await page.getByRole('button', { name: "That's me" }).click()
   await page.goto('/#jobs')
+  // Mine is a pill in the filter panel (Colly, 10 November 2026).
+  await page.getByRole('button', { name: /^Filter/ }).click()
   const mine = page.getByRole('group', { name: 'Whose' }).getByRole('button', { name: /^Mine \(\d+\)$/ })
   await expect(mine).toBeVisible()
   await mine.click()

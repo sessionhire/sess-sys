@@ -202,9 +202,9 @@ test('bringing in the jobs on an organiser’s calendar: look, choose, bring in'
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   const calls = await signedIn(page)
 
-  // From the Jobs tab, with Google Calendar connected.
-  await page.goto('/#jobs')
-  await page.getByRole('link', { name: 'Bring them in' }).click()
+  // From Menu, with Google Calendar connected: the Jobs list no longer offers it between its title and its jobs (Colly, 10 November 2026).
+  await page.goto('/#menu')
+  await page.getByRole('link', { name: /^Bring in from Google Calendar/ }).click()
   await expect(page).toHaveURL(/#jobs\/import$/)
   await expect(page.getByRole('heading', { name: 'Bring in from Google Calendar' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Jobs' })).toHaveAttribute('aria-current', 'page')

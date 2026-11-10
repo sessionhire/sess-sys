@@ -24,7 +24,7 @@ test('the Skills field offers the skills in use and takes new ones as chips', as
 
   await page.goto('/#crew/people')
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByRole('button', { name: 'New person' }).click()
   const form = page.getByRole('form', { name: 'Add person' })
   const name = `Dara Spark ${id}`
   await fillName(form, name)

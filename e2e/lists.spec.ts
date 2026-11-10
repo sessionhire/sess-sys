@@ -45,7 +45,7 @@ test('jobs filter by status and kind, sort by name, and keep both on Back', asyn
   await expect(page.getByRole('status')).toHaveText('Up to date')
   const list = page.getByRole('region', { name: 'Jobs' })
   const names = list.locator('.job-row b')
-  await list.getByLabel('Find').fill(id)
+  await page.getByLabel('Find', { exact: true }).fill(id)
   await expect(names).toHaveText([`Zebra gala ${id}`, `Apple launch ${id}`, `Mango hire ${id}`])
   await expect(list.locator('.week-head').first()).toBeVisible()
 
@@ -76,7 +76,7 @@ test('jobs filter by status and kind, sort by name, and keep both on Back', asyn
 
   // A chip takes its own filter off; Clear filters the rest.
   await list.getByRole('button', { name: 'Take off the filter Kind: Gig' }).click()
-  await list.getByLabel('Find').fill(id)
+  await page.getByLabel('Find', { exact: true }).fill(id)
   await expect(names).toHaveText([`Mango hire ${id}`, `Zebra gala ${id}`])
   await list.getByRole('button', { name: 'Clear filters' }).click()
   await expect(names).toHaveCount(3)
@@ -112,21 +112,24 @@ test('every list opens with its add, a plain fold above its search and its rows,
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   const top = async (l: Locator) => (await l.first().boundingBox())!.y
   const reds = () => page.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
-  const lists: readonly (readonly [string, string, string, (list: Locator) => Locator])[] = [
-    ['#crew/people', 'People', 'Add person', (list) => list.getByLabel('Find a person')],
-    ['#stock', 'Catalogue', 'Add product', (list) => list.getByRole('search')],
-    ['#stock/places', 'Places', 'Add place', (list) => list.getByRole('link')],
-    ['#stock/vehicles', 'Vehicles', 'Add vehicle', (list) => list.locator('.vehicle-row')],
-    ['#stock/racks', 'Racks', 'Add rack', (list) => list.getByRole('link')],
+  // The add is on the title's line, at its right (Colly, 10 November 2026), and opens its form at the top of the list.
+  const lists: readonly (readonly [string, string, string, string, (list: Locator) => Locator])[] = [
+    ['#crew/people', 'People', 'New person', 'Add person', (list) => list.getByLabel('Find a person')],
+    ['#stock', 'Catalogue', 'New product', 'Add product', (list) => list.getByRole('search')],
+    ['#stock/places', 'Places', 'New place', 'Add place', (list) => list.getByRole('link')],
+    ['#stock/vehicles', 'Vehicles', 'New vehicle', 'Add vehicle', (list) => list.locator('.vehicle-row')],
+    ['#stock/racks', 'Racks', 'New rack', 'Add rack', (list) => list.getByRole('link')],
   ]
-  for (const [hash, name, add, rest] of lists) {
+  for (const [hash, name, title, add, rest] of lists) {
     await page.goto(`/${hash}`)
     await expect(page.getByRole('status')).toHaveText('Up to date')
     const list = page.getByRole('region', { name, exact: true })
-    const opener = list.getByRole('button', { name: add, exact: true })
+    const opener = page.getByRole('button', { name: title, exact: true })
     await expect(opener).toBeVisible()
     await expect(opener).not.toHaveClass(/\bprimary\b/)
-    expect(await top(opener), `${hash}: ${add} comes before the list`).toBeLessThan(await top(rest(list)))
+    const heading = page.getByRole('heading', { level: 1 })
+    expect(Math.abs((await top(opener)) - (await top(heading))), `${hash}: ${title} on the title's line`).toBeLessThan(24)
+    expect(await top(opener), `${hash}: ${title} comes before the list`).toBeLessThan(await top(rest(list)))
     await opener.click()
     await expect(list.locator('form').getByRole('button', { name: add, exact: true })).toHaveClass(/\bprimary\b/)
     expect(await reds(), `${hash}: the reds with ${add} open`).toEqual([add])

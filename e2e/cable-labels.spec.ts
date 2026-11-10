@@ -56,7 +56,7 @@ test('cable labels print with a barcode or QR code of the stock code, which open
   })
   await page.goto('/#stock')
   await expect(page.locator('.conn')).toHaveText('Up to date')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   await form.getByRole('button', { name: 'Add product' }).click()

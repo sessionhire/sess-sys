@@ -23,7 +23,7 @@ async function ready(page: Page, hash = '#jobs') {
 /** A numbered product, with how many are counted in the warehouse. */
 async function newProduct(page: Page, name: string, count: number) {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   await form.getByLabel('Department').selectOption({ label: 'Audio' })

@@ -26,9 +26,9 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   await office.goto('/#crew/people')
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
-  // Two people, from the form behind "Add person": not on the page until the button is tapped.
+  // Two people, from the form behind "New person" on the title's line: not on the page until the button is tapped.
   await expect(office.getByRole('form', { name: 'Add person' })).toHaveCount(0)
-  await office.getByRole('button', { name: 'Add person' }).click()
+  await office.getByRole('button', { name: 'New person' }).click()
   const person = office.getByRole('form', { name: 'Add person' })
   await expect(person.getByLabel('First name')).toBeFocused()
   for (const [name, skills] of [
@@ -191,7 +191,7 @@ test('the people list finds someone as the picker does, shows its first ten, and
   await expect(office.getByRole('status')).toHaveText('Up to date')
   await find.fill(dept.toLowerCase())
   await expect(rows).toHaveCount(10)
-  await list.getByRole('button', { name: 'Add person' }).click()
+  await office.getByRole('button', { name: 'New person' }).click()
   const form = list.getByRole('form', { name: 'Add person' })
   await fillName(form, name('Zoë'))
   await form.getByRole('button', { name: 'Add person' }).click()
@@ -286,6 +286,7 @@ test('on a laptop a job has the whole width and the catalogue sits beside the op
   await laptop.goto('/#jobs')
   await expect(laptop.getByRole('status')).toHaveText('Up to date')
   const job = `Laptop check ${id}`
+  await laptop.getByRole('button', { name: 'New job', exact: true }).click()
   const form = laptop.locator('form').filter({ has: laptop.getByRole('button', { name: 'Add job' }) })
   await form.getByLabel('Job').fill(job)
   await form.getByLabel('Phase 1 from').fill('2031-06-12')
@@ -310,7 +311,7 @@ test('on a laptop a job has the whole width and the catalogue sits beside the op
   await expect(list).toBeVisible()
   await laptop.setViewportSize({ width: laptopSize.width, height: 500 })
   await laptop.evaluate(() => scrollTo(0, document.body.scrollHeight))
-  await list.getByLabel('Find').fill(job)
+  await laptop.getByLabel('Find', { exact: true }).fill(job)
   await list.locator('.job-row', { hasText: job }).click()
   await expect(title).toBeVisible()
   await expect.poll(() => laptop.evaluate(() => scrollY)).toBe(0)
@@ -320,7 +321,7 @@ test('on a laptop a job has the whole width and the catalogue sits beside the op
   await laptop.goto('/#stock')
   await expect(laptop.getByRole('status')).toHaveText('Up to date')
   const speaker = `Laptop speaker ${id}`
-  await laptop.getByRole('button', { name: 'Add product' }).click()
+  await laptop.getByRole('button', { name: 'New product' }).click()
   const product = laptop.locator('form').filter({ has: laptop.getByRole('button', { name: 'Add product' }) })
   await product.getByLabel('Name').fill(speaker)
   await product.getByRole('button', { name: 'Add product' }).click()

@@ -20,7 +20,7 @@ async function deviceCode(page: Page) {
 }
 
 async function addPlace(page: Page, name: string) {
-  const open = page.getByRole('button', { name: 'Add place' })
+  const open = page.getByRole('button', { name: 'New place' })
   if (!(await page.getByLabel('New place').count())) await open.click()
   await page.getByLabel('New place').fill(name)
   await page.getByRole('button', { name: 'Add place' }).click()

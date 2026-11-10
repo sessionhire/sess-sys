@@ -80,8 +80,11 @@ test('the calendar shows only the jobs involving the departments picked, and the
 
   // The Jobs list holds the same choice, and counts each department.
   await page.goto('/#jobs')
+  // There the departments are pills in the filter panel (Colly, 10 November 2026), and each one picked is a chip under it.
+  await expect(page.getByRole('button', { name: 'Take off the filter Lasers' })).toBeVisible()
+  await page.getByRole('button', { name: /^Filter/ }).click()
   await expect(row(page).getByRole('button', { name: /^Lasers/ })).toHaveAttribute('aria-pressed', 'true')
-  const find = page.getByLabel('Find')
+  const find = page.getByLabel('Find', { exact: true })
   await find.fill(id)
   await expect(row(page).getByRole('button', { name: 'Audio (1)' })).toBeVisible()
   await expect(page.locator('.job-list').getByText(named('Arena LX'))).toBeVisible()
@@ -132,12 +135,18 @@ test("on a phone every department button's words fit inside it, on Jobs, the cal
     await page.setViewportSize({ width, height: 844 })
     for (const hash of ['#jobs', '#jobs/calendar/2034-04-01', '#plan/week/2034-04-10', '#jobs/board']) {
       await ready(page, hash)
+      // On the Jobs list the departments are pills in the filter panel (Colly, 10 November 2026), and wrap there as pills do.
+      if (hash === '#jobs') {
+        const filter = page.getByRole('button', { name: /^Filter/ })
+        if ((await filter.getAttribute('aria-expanded')) !== 'true') await filter.click()
+      }
       await expect(row(page).getByRole('button', { name: 'All departments' })).toBeVisible()
       // Smaller than the page's other buttons, and none cut: each button's words are no wider than the button.
       const cut = await row(page).getByRole('button').evaluateAll((buttons) => buttons.filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent))
       expect(cut, `${hash} at ${width}px`).toEqual([])
+      // The row's buttons are the caption size to fit three across; the Jobs list's pills wrap instead, at the size of its filter chips.
       const size = await row(page).getByRole('button', { name: 'All departments' }).evaluate((b) => parseFloat(getComputedStyle(b).fontSize))
-      expect(size).toBeLessThan(16)
+      if (hash !== '#jobs') expect(size).toBeLessThan(16)
       expect(await page.evaluate(() => document.documentElement.scrollWidth), `${hash} at ${width}px`).toBeLessThanOrEqual(width)
     }
   }

@@ -27,7 +27,7 @@ async function makePlace(page: Page) {
 
 async function newProduct(page: Page, name: string, counted?: { qty: number; at: string } | 'case') {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   if (counted === 'case') await form.getByRole('checkbox', { name: /^Holds other kit/ }).check()

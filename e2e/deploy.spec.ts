@@ -45,7 +45,7 @@ test('a new version waits for Load the new version, which brings it in with an u
   // away was left hanging, never sent nor failed (as in history.spec.ts).
   let signal = false
   await context.route('**/api/sync/push', (route) => (signal ? route.continue() : route.abort('internetdisconnected')))
-  await tab.getByRole('button', { name: 'Add place' }).click()
+  await tab.getByRole('button', { name: 'New place' }).click()
   await tab.getByLabel('New place').fill(bay)
   await tab.getByRole('button', { name: 'Add place' }).click()
   await expect(tab.locator('.conn')).toHaveText(/1 waiting/)

@@ -39,7 +39,7 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
   // The product, with three items.
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(speaker)
   await form.getByRole('button', { name: 'Add product' }).click()

@@ -14,6 +14,8 @@ test('pops up a change someone else made to a job you made, counts it on the bel
   // Proves: another device's change to this device's job is news here within a sync, the pop-up's Open goes to the job, and opening the list reads it.
   const name = `Notice Gig ${unique()}`
   await page.goto('/#jobs')
+  // New job is on the title's line, its form behind it (Colly, 10 November 2026).
+  await page.getByRole('button', { name: 'New job', exact: true }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
   await form.getByLabel('Job').fill(name)
   await form.getByLabel('Phase 1', { exact: true }).fill('Show')
@@ -76,6 +78,7 @@ test("one maker's change to many of your jobs at once is one line on the list an
   for (let i = 0; i < 3; i++) {
     const name = `Bulk Gig ${unique()}`
     await page.goto('/#jobs')
+    await page.getByRole('button', { name: 'New job', exact: true }).click()
     await form.getByLabel('Job').fill(name)
     await form.getByLabel('Phase 1', { exact: true }).fill('Show')
     await form.getByLabel('Phase 1 from').fill('2026-11-21')

@@ -82,6 +82,7 @@ export function StockScreen() {
   const view = useView()
   const hash = useHash()
   const wide = useWide()
+  const mayStock = useAccess().can('stock')
   if (hash === '#stock/places') return <PlacesScreen view={view} />
   if (hash === '#stock/repairs') return <RepairsScreen view={view} />
   if (hash === '#stock/import') return <ImportStockScreen view={view} />
@@ -123,6 +124,7 @@ export function StockScreen() {
         className="warehouse"
         views={<StockViews view={view} current="catalogue" />}
         heading="Catalogue"
+        add={mayStock ? { key: 'product', label: 'New product' } : undefined}
         list={<StockCard view={view} current={product} />}
         open={kind && `${kind}/${open}`}
         up={recordTrail(view, kind, open)}
@@ -157,7 +159,7 @@ function Catalogue({ view }: { view: View }) {
   }
   return (
     <div className="app warehouse">
-      <Top view={view} title="Stock" views={<StockViews view={view} current="catalogue" />} heading="Catalogue" />
+      <Top view={view} title="Stock" views={<StockViews view={view} current="catalogue" />} heading="Catalogue" add={mayStock ? { key: 'product', label: 'New product' } : undefined} />
 
       {/* For a role that doesn't run the stock, the one thing it can do here first, in the link's words (Move 9 of the sweep of 6 November
           2026): reporting broken or missing kit, from the item, found below or by its label (ADR 0034). */}
@@ -191,9 +193,10 @@ function StockRest({ view }: { view: View }) {
 
 /** Where kit is kept, on a page along Stock's row (ADR 0041). */
 function PlacesScreen({ view }: { view: View }) {
+  const mayAdd = useAccess().can('stock')
   return (
     <div className="app warehouse">
-      <Top view={view} title="Stock" views={<StockViews view={view} current="places" />} heading="Places" />
+      <Top view={view} title="Stock" views={<StockViews view={view} current="places" />} heading="Places" add={mayAdd ? { key: 'place', label: 'New place' } : undefined} />
       <Places view={view} />
     </div>
   )
@@ -326,7 +329,7 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
       {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1): a plain fold where the eye lands, not after
           two hundred products. A new product starts in the department the list is narrowed to. */}
       {mayAdd && (
-        <Fold label="Add product">
+        <Fold label="New product" from="product">
           <NewProduct view={view} department={department === 'all' ? 'audio' : department} />
         </Fold>
       )}
@@ -412,7 +415,7 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
         <Empty>
           {w.models.length === 0 && mayAdd && (
             <>
-              Add the first one under Add product{mayBring && <>, or <a href="#stock/import">bring in the stock list</a></>}.
+              Add the first one under New product{mayBring && <>, or <a href="#stock/import">bring in the stock list</a></>}.
             </>
           )}
         </Empty>
@@ -711,7 +714,7 @@ function Places({ view }: { view: View }) {
     <section className="card plain" aria-label="Places">
       {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
       {mayAdd && (
-        <Fold label="Add place">
+        <Fold label="New place" from="place">
           <form className="inline-add" onSubmit={add}>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bay A3, Van 1" aria-label="New place" />
             {/* The page's one next thing once the fold is open, as every list's add opens onto. */}

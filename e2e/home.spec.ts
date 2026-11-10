@@ -286,7 +286,9 @@ test("a job whose dates passed stays in reach while its Back is open: Just finis
   await expect(finished.first().locator('.job-position')).toContainText('Back')
 
   await page.goto('/#jobs')
-  await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Past/ }).click()
+  // Coming up, Past and Not going ahead are pills in the filter panel (Colly, 10 November 2026).
+  await page.getByRole('button', { name: /^Filter/ }).click()
+  await page.getByRole('group', { name: 'When' }).getByRole('button', { name: /^Past/ }).click()
   const heads = page.locator('.jobs-card .week-head h3')
   await expect(heads.first()).toHaveText(/^Still in Back \(\d+\)$/)
   const inBack = Number((await heads.first().textContent())!.match(/\d+/)![0])

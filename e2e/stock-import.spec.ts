@@ -31,7 +31,7 @@ test('brings the made-up stock list in, fixing a row in place, and shows its ite
   await ready(office, '#stock')
   // The empty catalogue offers the list.
   const stock = office.getByRole('region', { name: 'Catalogue', exact: true })
-  await expect(stock.locator('.empty')).toHaveText('Nothing here yet. Add the first one under Add product, or bring in the stock list.')
+  await expect(stock.locator('.empty')).toHaveText('Nothing here yet. Add the first one under New product, or bring in the stock list.')
   await stock.getByRole('link', { name: 'bring in the stock list' }).click()
   await expect(office).toHaveURL(/#stock\/import$/)
   await expect(office.getByRole('heading', { name: 'Bring in the stock list' })).toBeVisible()

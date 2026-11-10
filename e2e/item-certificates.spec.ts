@@ -38,7 +38,7 @@ test('a round’s report of thorough examination on every motor in it, and anoth
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
   // The product, with two motors, examined every six months.
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(motor)
   await form.getByRole('button', { name: 'Add product' }).click()

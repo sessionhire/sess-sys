@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.149.0',
+    date: '2026-11-10',
+    title: 'The Jobs list reads top to bottom',
+    what: "The Jobs list now starts with its title and New job beside it, then the search, then the views (List, Board, Calendar, Week, Month) under a small Views heading, then the jobs. Coming up, Past, Not going ahead, the departments and Mine are now buttons inside Filter, and whatever you pick shows as a chip above the list, so you can always see the list is narrowed. Stock, Places, Vehicles, Racks and People have their add button on the title's line too (New product, New place, New person and so on), and every area's views sit under the title. Bringing jobs in from Google Calendar is under Menu and Admin rather than on the list.",
+    prs: [309],
+    adrs: [141],
+  },
+  {
     version: '1.148.1',
     date: '2026-11-10',
     title: 'Words that fit on a phone',

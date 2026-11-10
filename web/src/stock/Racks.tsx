@@ -94,11 +94,11 @@ export function RacksScreen({ view }: { view: View }) {
   const racks = view.racks.racks
   return (
     <div className="app warehouse">
-      <Top view={view} title="Stock" views={<StockViews view={view} current="racks" />} heading="Racks" />
+      <Top view={view} title="Stock" views={<StockViews view={view} current="racks" />} heading="Racks" add={mayChange ? { key: 'rack', label: 'New rack' } : undefined} />
       <section className="card plain" aria-label="Racks">
         {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
         {mayChange && (
-          <Fold label="Add rack">
+          <Fold label="New rack" from="rack">
             <NewRack view={view} />
           </Fold>
         )}

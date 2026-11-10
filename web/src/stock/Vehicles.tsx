@@ -72,13 +72,13 @@ export function VehiclesScreen({ view }: { view: View }) {
   const retired = view.vehicles.all.filter((v) => v.archived)
   return (
     <div className="app warehouse">
-      <Top view={view} title="Stock" views={<StockViews view={view} current="vehicles" />} heading="Vehicles" />
+      <Top view={view} title="Stock" views={<StockViews view={view} current="vehicles" />} heading="Vehicles" add={mayChange ? { key: 'vehicle', label: 'New vehicle' } : undefined} />
       <Split side={<VehicleReminders view={view} />}>
         <section className="card" aria-label="Vehicles">
           <Heading icon="van">Vans and the rest</Heading>
           {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
           {mayChange && (
-            <Fold label="Add vehicle">
+            <Fold label="New vehicle" from="vehicle">
               <VehicleForm onDone={(id) => (location.hash = vehicleHref(id))} />
             </Fold>
           )}

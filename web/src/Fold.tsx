@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { scrollerOf } from './windowed.ts'
 import { listOpened, openedList } from './places.ts'
+import { addButton, useAddAsked } from './pageAdd.ts'
 
 /**
  * Two ways to keep a screen short on a phone (audit finding 16): a form
@@ -19,13 +20,21 @@ export function Fold({
   children,
   className,
   opened,
+  from,
 }: {
   label: string
   children: ReactNode
   className?: string
   /** Opens it from outside, each time it changes to a new number: the job's Next button opening the offer it names (ADR 0140). */
   opened?: number
+  /**
+   * The list's add on the page's title line (pageAdd.ts), by its name: the form has no button of its own, and opens each time the
+   * title's is pressed. Only presses from now on: one made on an earlier visit doesn't open it as the page comes back.
+   */
+  from?: string
 }) {
+  const asked = useAddAsked(from)
+  const [askedBefore] = useState(asked)
   const [open, setOpen] = useState(!!opened)
   // Opened at least once: from then on the form is kept, open or not.
   const [kept, setKept] = useState(!!opened)
@@ -37,14 +46,22 @@ export function Fold({
   const box = useRef<HTMLDivElement>(null)
   const opener = useRef<HTMLButtonElement>(null)
   const closed = useRef(false)
+  const first = () => box.current?.querySelector<HTMLElement>('input, select, textarea')?.focus()
   useEffect(() => {
-    if (open) box.current?.querySelector<HTMLElement>('input, select, textarea')?.focus()
+    if (asked <= askedBefore) return
+    setKept(true)
+    setOpen(true)
+    // Pressed again while it's open: back to its first field, wherever the page has been scrolled to.
+    first()
+  }, [asked, askedBefore])
+  useEffect(() => {
+    if (open) first()
     // Close goes as the form does, so on a keyboard the focus goes back to the button rather than being lost.
-    else if (closed.current) opener.current?.focus()
-  }, [open])
+    else if (closed.current) (from ? addButton(from) : opener.current)?.focus()
+  }, [open, from])
   return (
     <>
-      {!open && (
+      {!open && !from && (
         <button
           type="button"
           className={className}

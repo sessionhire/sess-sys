@@ -293,7 +293,7 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   // Three freelancers, one with no email address, offered the build.
   await page.goto('/#crew/people')
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByRole('button', { name: 'New person' }).click()
   const person = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add person' }) })
   for (const [name, email] of [[niamh, 'niamh@example.com'], [conor, 'conor@example.ie'], [sean, '']] as const) {
     await fillName(person, name)

@@ -30,7 +30,7 @@ test('a change the server turns down is counted in the top bar and listed from i
       json: { results: mutations.map((m) => ({ id: m.id, status: 'rejected', reason: { code: 'conflict', message: 'Pretend the server said no.' } })) },
     })
   })
-  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByRole('button', { name: 'New person' }).click()
   const person = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add person' }) })
   await fillName(person, `Nora Walsh ${id}`)
   await person.getByRole('button', { name: 'Add person' }).click()
@@ -50,7 +50,7 @@ test('a change the server turns down is counted in the top bar and listed from i
 
   // A refusal from a second area counts with the first: a product added on the Stock tab.
   await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Stock' }).click()
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const product = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await product.getByLabel('Name').fill(`Y10P ${id}`)
   await product.getByRole('button', { name: 'Add product' }).click()
