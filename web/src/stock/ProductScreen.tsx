@@ -319,7 +319,7 @@ function OnJobs({ m, lines }: { m: ModelView; lines: readonly KitLineView[] }) {
     const state = kitState(l, today)
     return (
       <li key={l.id}>
-        <a className="job-row" href={`#jobs/${l.projectId}`}>
+        <a className="job-row" href={`#jobs/${l.projectId}/kit`}>
           <div>
             <b>{l.job?.name ?? 'A job'}</b>
             <p>{forLabel(l)}</p>

@@ -113,6 +113,8 @@ test('on a job, a van whose tax runs out is refused by name, and one off the roa
 
   // The Luton is off the road for the festival's load in: asked first, then booked anyway.
   await openJob(phone, 'Harbour Lights Festival')
+  // It opens on its next task's part (ADR 0140, part 8); the vans are under Kit and vans.
+  await phone.getByRole('tab', { name: /^Kit and vans/ }).click()
   const harbour = phone.getByRole('region', { name: 'Vehicles' })
   await expect(harbour.locator('.van-line', { hasText: 'Big Van' })).toHaveCount(2)
   await harbour.getByRole('button', { name: 'Book a vehicle' }).click()
@@ -161,6 +163,7 @@ test("the planner's Vans rows show one van on two jobs, and the call sheet says 
 
   // The load in's call sheet names the van and its driver for everyone on it.
   await openJob(phone, 'Harbour Lights Festival')
+  await phone.getByRole('tab', { name: /^Phases/ }).click()
   const loadIn = phone.getByRole('article', { name: 'Load in' })
   await loadIn.locator('summary').click()
   await loadIn.getByRole('link', { name: 'Call sheet' }).click()

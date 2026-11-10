@@ -230,6 +230,7 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   // The job's kit is short by what can't go out.
   await page.goto('/#jobs')
   await page.getByRole('link', { name: job }).first().click()
+  await page.getByRole('tab', { name: /^Kit and vans/ }).click()
   await expect(page.getByRole('region', { name: 'Kit' })).toContainText('Short 1')
   await expect(page.getByRole('region', { name: 'Kit' })).toContainText('2 owned and fit to go out (1 damaged, missing or due a test)')
 

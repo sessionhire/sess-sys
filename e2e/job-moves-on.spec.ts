@@ -23,6 +23,11 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
   const next = office.getByRole('region', { name: 'Next' })
   const where = office.getByRole('region', { name: 'Where it is' })
+  // Being sold, it opens on its quote (ADR 0140, part 8), whose What happened holds the answer, so Next says so in words.
+  await expect(office.getByRole('tab', { name: /^Quote/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(next).toContainText("Record the client's answer below, under What happened.")
+  // Away from the quote, Next holds the press.
+  await office.getByRole('tab', { name: /^Phases/ }).click()
   await expect(next).toContainText('Next · Quoting · Quote with the client')
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-thing.png` })
   await next.getByRole('button', { name: "Record the client's answer" }).click()

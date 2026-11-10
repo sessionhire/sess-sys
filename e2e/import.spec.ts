@@ -337,7 +337,7 @@ test('bringing in the jobs on an organiser’s calendar: look, choose, bring in'
   expect(calls.takenBack).toBe(1)
 
   // A job brought in says where its days are: on the calendar it came from, not the jobs calendar.
-  await page.goto('/#jobs/j-aviva')
+  await page.goto('/#jobs/j-aviva/phases')
   await page.locator('.phase-details summary').first().click()
   await expect(page.getByText(`Brought in from ${OPS}, which keeps its days, so the app doesn't add them to the jobs calendar.`)).toBeVisible()
 })

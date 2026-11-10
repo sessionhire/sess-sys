@@ -26,6 +26,7 @@ test('the office sends a call sheet, and the freelancer reads it on their link',
   })
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Harbour Lights Festival' }).click()
+  await office.getByRole('tab', { name: /^Phases/ }).click()
   const show = office.getByRole('article', { name: 'Show' })
   // The phase's call sheet and contact wait behind a tap on its details (audit finding 16).
   await show.locator('summary').click()
