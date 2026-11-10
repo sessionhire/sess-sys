@@ -1,6 +1,6 @@
 # ADR 0140: One job, one path
 
-- **Status:** accepted; parts 1 to 6 built (1.142.0 to 1.146.0), parts 7 and 8 to follow
+- **Status:** accepted; parts 1 to 7 built (1.142.0 to 1.147.0), part 8 to follow
 - **Date:** 9 November 2026
 - **Asked for by:** Colly, after walking the quote flow and on through crewing
   and the pick list: "very confusing to go through the steps and particularly
@@ -98,7 +98,16 @@ removed. Built in eight parts, one pull request each:
    list not started opens at its top, where Before you start is. Next's
    "Pick the kit" carries the count, as the dock does.)
 7. New quote as a sheet of its own, client first with their last jobs to
-   start from.
+   start from. (Built, 1.147.0: a page of its own at #quotes/new, under
+   Quotes, rather than a form opened inside To follow up. The client field
+   comes first, with the cursor in it, and the past jobs and Current RMS
+   quotes to start from straight under it; picking one fills the job's name
+   and venue while they're empty. Then the name, venue and days, and Start.
+   Who asked, how it came, the day it's wanted by and the kind of job fold
+   under "More about the enquiry", opened by itself when Claude read any of
+   them from an enquiry. A page rather than an overlay sheet: on a phone the
+   two look the same, and a page keeps the address, Back and the shortcut
+   working as they did.)
 8. The job's tabs in stage order, opening on the stage the job is in.
 
 Assumed until Colly says otherwise: the client's yes is the moment the job is

@@ -19,11 +19,12 @@ test('New quote finds clients, venues and who asked as they are typed, and keeps
   await expect(office.getByRole('status')).toHaveText('Up to date')
   const quotes = office.getByRole('region', { name: 'To follow up' })
 
-  await quotes.getByRole('button', { name: 'New quote' }).click()
-  let form = quotes.getByRole('form', { name: 'New quote' })
+  await quotes.getByRole('link', { name: 'New quote' }).click()
+  let form = quotes.page().getByRole('form', { name: 'New quote' })
   await form.getByLabel("What's the job?").fill('Spring launch')
 
   // Who asked, with no client yet: anyone at any client, and picking them brings their client.
+  await form.getByText('More about the enquiry').click()
   const asker = form.getByRole('combobox', { name: 'Who asked' })
   await asker.fill('niamh')
   const found = form.getByRole('listbox', { name: 'Found' })
@@ -73,9 +74,10 @@ test('New quote finds clients, venues and who asked as they are typed, and keeps
 
   // The next quote for Liffey Brands offers Orla too.
   await office.goto('/#quotes')
-  await quotes.getByRole('button', { name: 'New quote' }).click()
-  form = quotes.getByRole('form', { name: 'New quote' })
+  await quotes.getByRole('link', { name: 'New quote' }).click()
+  form = quotes.page().getByRole('form', { name: 'New quote' })
   await form.getByRole('combobox', { name: 'Client' }).fill('Liffey Brands')
+  await form.getByText('More about the enquiry').click()
   await form.getByRole('combobox', { name: 'Who asked' }).focus()
   await expect(form.getByRole('listbox', { name: 'Their people' }).getByRole('option')).toHaveCount(2)
   await expect(form.getByRole('listbox', { name: 'Their people' })).toContainText('Orla Byrne')
@@ -88,8 +90,8 @@ test('the start of a client left in the field is that client, said so with a way
   await office.goto('/#quotes')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   const quotes = office.getByRole('region', { name: 'To follow up' })
-  await quotes.getByRole('button', { name: 'New quote' }).click()
-  const form = quotes.getByRole('form', { name: 'New quote' })
+  await quotes.getByRole('link', { name: 'New quote' }).click()
+  const form = quotes.page().getByRole('form', { name: 'New quote' })
   const clientBox = form.getByRole('combobox', { name: 'Client' })
   const found = form.getByRole('listbox', { name: 'Found' })
 

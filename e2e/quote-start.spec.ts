@@ -79,7 +79,7 @@ test('a package is found in Add kit, and New quote starts from a Current RMS quo
     })
   )
   await ready(office, '#quotes')
-  await office.getByRole('button', { name: 'New quote' }).first().click()
+  await office.getByRole('link', { name: 'New quote' }).first().click()
   const form = office.getByRole('form', { name: 'New quote' })
   await form.getByLabel("What's the job?").fill(`Summer ball ${id}`)
   await form.getByRole('combobox', { name: 'Client' }).fill(`Harbour Events ${id}`)

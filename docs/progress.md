@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 10 November 2026: one job, one path, part 7: New quote, client first
+
+**Done (1.147.0)**
+
+- New quote is a page of its own under Quotes; To follow up's New quote
+  opens it, as the shortcut and the planner's More options already did.
+- The client first, with their past jobs and Current RMS quotes to start
+  from right under it; picking one fills the name and venue when empty.
+- Who asked, how it came, wanted by and the kind of job fold under More
+  about the enquiry.
+- Checked: past-job.spec walks the client-first page; the New quote tests
+  open the fold where they use it; screen in screens/one-path-7.
+
+**Next:** part 8, the job's tabs in stage order.
+
 ## 10 November 2026: one job, one path, part 6: the pick list starts with the kit
 
 **Done (1.146.0)**

@@ -55,7 +55,7 @@ test('a new quote for a client at a venue worked before starts from what went ou
 
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await ready(office, '#quotes')
-  await office.getByRole('button', { name: 'New quote' }).first().click()
+  await office.getByRole('link', { name: 'New quote' }).first().click()
   const form = office.getByRole('form', { name: 'New quote' })
   await form.getByLabel("What's the job?").fill(`Summer gala ${id}`)
   await expect(form.getByRole('region', { name: 'Start from' }).getByRole('list', { name: 'Past jobs' })).toHaveCount(0)
@@ -89,4 +89,23 @@ test('a new quote for a client at a venue worked before starts from what went ou
   await expect(draft).toContainText(`Hazer ${id}`)
   await expect(draft).not.toContainText(`DI box ${id}`)
   await expect(office.locator('.conn')).toHaveText('Up to date')
+
+  // New quote is a page of its own, the client first (ADR 0140, part 7): the cursor starts there, and picking a past job straight
+  // under it fills the name and the venue still empty, to change.
+  await office.goto('/#quotes/new')
+  const again = office.getByRole('form', { name: 'New quote' })
+  await expect(office.getByRole('heading', { level: 1 })).toHaveText('New quote')
+  await expect(again.getByRole('combobox', { name: 'Client' })).toBeFocused()
+  await again.getByRole('combobox', { name: 'Client' }).fill(`Liffey Brands ${id}`)
+  await again.getByRole('combobox', { name: 'Client' }).press('Escape')
+  await again.getByRole('region', { name: 'Start from' }).getByRole('button', { name: new RegExp(`Spring gala ${id}`) }).click()
+  await expect(again.getByLabel("What's the job?")).toHaveValue(`Spring gala ${id}`)
+  await expect(again.getByRole('combobox', { name: 'Venue' })).toHaveValue(`Round Room ${id}`)
+  // Who asked and the rest wait under one fold.
+  await expect(again.getByRole('combobox', { name: 'Who asked' })).toBeHidden()
+  await again.getByText('More about the enquiry').click()
+  await expect(again.getByRole('combobox', { name: 'Who asked' })).toBeVisible()
+  if (process.env.WALK) await office.screenshot({ path: process.env.WALK, fullPage: true })
+  await again.getByRole('button', { name: 'Cancel' }).click()
+  await expect(office).toHaveURL(/#quotes$/)
 })
