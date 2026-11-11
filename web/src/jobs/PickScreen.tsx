@@ -268,7 +268,8 @@ function Pick({ view, job }: { view: View; job: JobView }) {
         view={view}
         up={{ steps: [JOBS, { href: `#jobs/${job.id}`, label: job.name }], here: 'Pick list' }}
         heading={job.name}
-        badge={job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
+        // The count is the card's below, said once: the head keeps only the stage and when (review of 11 November 2026, finding 15).
+        badge={job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} compact /> : <JobStatusPill status={job.status} pending={job.pending} />}
         sub={
           <p>
             Pick list · {job.span ? spanLabel(job.span) : 'No dates yet'}

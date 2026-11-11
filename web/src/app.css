@@ -629,6 +629,7 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .split { display: grid; gap: var(--record); min-width: 0; }
 .split > .main, .split > .side { display: grid; gap: var(--record); align-content: start; min-width: 0; }
 .split > .side:empty { display: none; }
+@media (max-width: 1199px) { .split.side-after > .side { order: 1; } }
 @media (min-width: 1200px) {
   .split { grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); align-items: start; }
   .split > .main { grid-column: 1; grid-row: 1; }

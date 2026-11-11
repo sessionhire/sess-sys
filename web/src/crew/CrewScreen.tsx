@@ -688,6 +688,7 @@ export function CrewScreen() {
       {/* Certificates and documents running out, and vehicles' checks (ADR 0047), beside the people on a desk. */}
       {page === 'people' && (
         <Split
+          sideAfter
           side={
             // Only for a role that acts on them: staff crew opened People on two lists of other people's work, before the people
             // (audit, 5 November 2026, finding 78). They can still look in each person's page and Stock › Vehicles.

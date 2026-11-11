@@ -70,6 +70,9 @@ export function NameField<T extends Named>({
   const [took, setTook] = useState<{ typed: string; name: string }>()
   const [keptNew, setKeptNew] = useState('')
   const list = useRef<HTMLUListElement>(null)
+  // The cursor put here on arrival doesn't open the list over the rest of the form: a tap, an arrow or a letter does (review of
+  // 11 November 2026, finding 18).
+  const arrived = useRef(!!autoFocus)
   const id = useId()
 
   const key = kitKey(value)
@@ -161,7 +164,10 @@ export function NameField<T extends Named>({
             setTook(undefined)
           }}
           onKeyDown={keys}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (arrived.current) arrived.current = false
+            else setOpen(true)
+          }}
           onClick={() => setOpen(true)}
           onBlur={() => {
             // A name already here, typed in another case or spacing, takes the list's spelling.

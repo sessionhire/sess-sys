@@ -86,7 +86,8 @@ export function BoardScreen({ view }: { view: View }) {
         add={useJobAdd(true)}
         sub={
           <p>
-            A column a stage. {canOrder ? 'Drag a card by its arrows, or press them, to put a column in the order that matters most. Cards not put in order go soonest first.' : 'The office’s order first, then soonest first.'} A job changes column when its own records do.
+            {/* One line before the cards on a phone (review of 11 November 2026, finding 6): how to order a column is on the arrows. */}
+            A column a stage. {canOrder ? 'Drag a card by its arrows to put a column in order.' : 'The office’s order first, then soonest first.'}
           </p>
         }
       />

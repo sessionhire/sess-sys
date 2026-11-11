@@ -132,6 +132,7 @@ export function OrderedCards({
                 aria-label={held && !isHeld ? `Put ${name(held.id)} here, in place of ${s.job.name}` : `Move ${s.job.name}`}
                 aria-pressed={isHeld}
                 aria-describedby={held ? undefined : 'board-order-help'}
+                title={held ? undefined : 'Drag it, or press it and move it with the arrow keys. Cards not put in order go soonest first.'}
                 onPointerDown={(e) => {
                   if (held || e.button !== 0) return
                   press.current = { id, x: e.clientX, y: e.clientY, moved: false, pointer: e.pointerId }
