@@ -36,6 +36,7 @@ import {
   type PhaseView,
   type ProjectStatus,
   type View,
+  jobPosition,
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -221,7 +222,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
       // A sale or a stopped job keeps its pill; once confirmed, the head says where the job stands, as the dock's line does (Move 7
       // of the sweep of 6 November 2026), so "Confirmed" isn't the biggest word on a job two days into Back.
       badge={positioned ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
-      sub={<JobLines job={job} view={view} />}
+      sub={<JobLines job={job} view={view} headSays={positioned} />}
       actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} onTell={setShare} headSays={positioned} quoteHere={part === 'quote'} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
@@ -412,12 +413,19 @@ function CrewPart({
   )
 }
 
+/** Whether the job's position line, beside its name, gives the crew's count as it stands (the Planning stage's words). */
+function crewSaidBy(view: View, job: JobView): boolean {
+  const steps = view.steps.of(job.id)
+  const p = steps && jobPosition(steps)
+  return !!p && /\bbooked\b/.test(p.text)
+}
+
 /**
  * Under the job's name, in two lines rather than a card of facts (ADR 0082),
  * so its parts are on the first screen: who it's for, where and when; then
  * how its crew and kit stand.
  */
-function JobLines({ job, view }: { job: JobView; view: View }) {
+function JobLines({ job, view, headSays }: { job: JobView; view: View; headSays?: boolean }) {
   const crew = crewFill(job.calls)
   // A head's own department's first, beside the whole job's (Move 3 of the sweep of 6 November 2026): "LX 0 of 1 · all 5 of 10".
   const department = useMyDepartment()
@@ -453,7 +461,9 @@ function JobLines({ job, view }: { job: JobView; view: View }) {
         <dt>{kindOf(job) === 'gig' ? 'When' : KIND_LABELS[kindOf(job)]}</dt>
         <dd>{job.span ? spanLabel(job.span) : <span className="muted">No dates yet</span>}</dd>
       </div>
-      {crew.needed > 0 && (
+      {/* Not when the line by the name already gives the crew's count (review of 11 November 2026, finding 4): a head's own
+          department's count, which the line doesn't give, still shows. */}
+      {crew.needed > 0 && !(headSays && theirs.needed === 0 && crewSaidBy(view, job)) && (
         <div>
           <dt>Crew</dt>
           <dd>
