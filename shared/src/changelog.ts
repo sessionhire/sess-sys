@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-11',
     title: 'Tidier on a phone: Board, pick list, People and a new quote',
     what: "The Board on a phone opens on its cards, with how to drag them in the button's tip rather than a paragraph above. A pick list shows the job and its count on one line, so the first thing to pick is on the first screen. Crew › People starts with the search and the people, with certificates running out after them. A new quote no longer opens the client suggestions over the form by itself (tap the box or type), and says nothing about travel until it has something on it. When there's nothing to press, the Next strip is one quiet line rather than a dashed box.",
-    prs: [0],
+    prs: [318],
   },
   {
     version: '1.152.2',
