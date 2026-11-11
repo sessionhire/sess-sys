@@ -845,6 +845,56 @@ dialog.shortcuts form { display: flex; justify-content: flex-end; }
 kbd { display: inline-block; min-width: 1.6em; padding: 0 var(--ds-space-1); border: 1px solid var(--ds-line-strong); border-bottom-width: 2px; border-radius: var(--ds-radius-control, 4px); background: var(--panel); color: var(--ink); font: 600 var(--text-pill) var(--ds-font-mono, ui-monospace, monospace); text-align: center; }
 dialog.shortcuts::backdrop { background: var(--ds-veil); }
 
+/* Search as a command palette (ADR 0147): the design system's dialog, over the screen, near the top so the results grow down
+   into the room under it. The veil is lighter than a dialog's and blurs what's behind (Colly, 11 November 2026): this isn't a
+   decision that stops the work, it's a quick look, so the screen stays there, dimmed and out of focus, under it. */
+.search-button { padding: 0; background: transparent; border-color: transparent; }
+dialog.palette { --veil: var(--ds-alpha-black-30); position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: var(--ds-space-3); border: 0; background: transparent; color: var(--ink); overflow: hidden; }
+:root[data-theme='light'] dialog.palette { --veil: var(--ds-alpha-black-20); }
+@media (prefers-color-scheme: light) { :root[data-theme='auto'] dialog.palette { --veil: var(--ds-alpha-black-20); } }
+dialog.palette[open] { display: flex; justify-content: center; align-items: flex-start; }
+dialog.palette::backdrop { background: var(--veil); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.palette-box { display: flex; flex-direction: column; width: min(640px, 100%); max-height: calc(var(--palette-room, 100dvh) - 2 * var(--ds-space-3) - env(safe-area-inset-top)); margin-top: env(safe-area-inset-top); border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); box-shadow: var(--ds-elevation-modal); overflow: hidden; }
+@media (min-width: 900px) {
+  dialog.palette { padding-top: 12vh; }
+  .palette-box { max-height: min(560px, calc(var(--palette-room, 100dvh) - 12vh - var(--ds-space-6))); }
+}
+.palette-field { flex: none; display: flex; align-items: center; gap: var(--ds-space-2); padding: var(--ds-space-1) var(--ds-space-1) var(--ds-space-1) var(--ds-space-3); border-bottom: 1px solid var(--line); color: var(--muted); }
+.palette-field > .icon { flex: none; width: 20px; height: 20px; }
+.palette-field input { flex: 1; min-width: 0; padding: var(--ds-space-2) 0; border: 0; background: transparent; color: var(--ink); font-size: var(--text-body); outline: none; }
+.palette-field input::-webkit-search-cancel-button { display: none; }
+.palette-field:has(input:focus-visible) { box-shadow: inset 0 -2px 0 var(--ds-focus, var(--accent)); }
+.palette-close { flex: none; display: grid; place-items: center; min-width: 44px; padding: 0 var(--ds-space-2); background: transparent; border-color: transparent; color: var(--muted); }
+.palette-close .icon { width: 20px; height: 20px; }
+/* The list scrolls inside the box: it's an overlay, so the no-captive-scroll rule for phones doesn't hold here, and the page
+   under it stays put. */
+.palette-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--ds-space-1); }
+.palette-list:empty { display: none; }
+.palette-group { display: flex; align-items: center; gap: var(--ds-space-2); padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-1); color: var(--muted); font-size: var(--text-hint); font-weight: 600; }
+.palette-group .icon { width: 16px; height: 16px; }
+.palette-row { display: flex; align-items: center; gap: var(--ds-space-3); min-height: 44px; padding: var(--ds-space-1) var(--ds-space-2); border-radius: var(--radius-control); color: var(--ink); cursor: pointer; }
+.palette-row > .icon { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.palette-words { flex: 1; min-width: 0; display: grid; }
+.palette-words b, .palette-words small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-words small { color: var(--muted); font-size: var(--text-hint); }
+.palette-row.more { color: var(--ds-ink-secondary); font-weight: 600; }
+.palette-keys { flex: none; display: flex; gap: var(--ds-space-1); }
+/* The highlighted row is the one Enter takes, drawn as the combobox's is; a row the pointer rests on takes the hover wash. */
+@media (hover: hover) {
+  .palette-row:not([aria-selected='true']):hover { background: var(--ds-wash-hover); }
+}
+.palette-row[aria-selected='true'] { background: var(--ds-wash-pressed); box-shadow: inset 3px 0 0 var(--accent); }
+.palette-note { flex: none; margin: 0; padding: var(--ds-space-3); color: var(--muted); font-size: var(--text-hint); }
+.palette-list:not(:empty) ~ .palette-note { border-top: 1px solid var(--line); }
+.palette-foot { flex: none; display: flex; flex-wrap: wrap; gap: var(--ds-space-2) var(--ds-space-4); margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-top: 1px solid var(--line); color: var(--muted); font-size: var(--text-hint); }
+/* It settles in as the system's dialog does, from a little smaller and higher, while the veil fades; with reduced motion it fades. */
+.palette-box { transition: opacity var(--ds-duration-slow) var(--ds-ease-emphasized-enter), scale var(--ds-duration-slow) var(--ds-ease-emphasized-enter), translate var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
+dialog.palette::backdrop { transition: opacity var(--ds-duration-slow) var(--ds-ease-standard); }
+@starting-style {
+  dialog.palette[open] .palette-box { opacity: 0; scale: var(--ds-motion-scale-enter); translate: 0 calc(-1 * var(--ds-motion-offset-medium)); }
+  dialog.palette[open]::backdrop { opacity: 0; }
+}
+
 /* Hire prices from Current RMS (ADR 0132): what filling in would do, a kind a line, each opening in place to grow the page. */
 .app .rms-price-plan { list-style: none; margin: var(--ds-space-3) 0; padding: 0; }
 .app .rms-price-plan > li { padding-block: var(--ds-space-1); border-top: 1px solid var(--line); }

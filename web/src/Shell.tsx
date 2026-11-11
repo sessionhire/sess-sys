@@ -1,4 +1,5 @@
-import { SearchScreen } from './SearchScreen.tsx'
+import { SearchPalette } from './SearchPalette.tsx'
+import { closeSearch, openSearch, useSearchOpen } from './searchOpen.ts'
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { APP_VERSION } from '@sh/shared'
 import { AccountScreen } from './AccountScreen.tsx'
@@ -23,7 +24,7 @@ import { StorageBanner, useUnkept } from './StorageBanner.tsx'
 import { UpdateBar } from './update.tsx'
 import { useAccess } from './role.ts'
 import { YouScreen } from './YouScreen.tsx'
-import { shortcutHint, ShortcutsSheet, useShortcuts } from './shortcuts.tsx'
+import { shortcutHint, ShortcutsSheet, usePaletteKey, useShortcuts } from './shortcuts.tsx'
 import { ChangesScreen } from './ChangesScreen.tsx'
 
 /**
@@ -61,7 +62,6 @@ const UNDER_MENU = [
   { hash: '#history', Screen: HistoryScreen },
   { hash: '#me', Screen: YouScreen },
   { hash: '#notifications', Screen: NoticesScreen },
-  { hash: '#search', Screen: SearchScreen },
 ] as const
 
 /**
@@ -128,12 +128,23 @@ export function Shell() {
   const crewOk = access.can('crew')
   const go = useCallback((to: string) => void (location.hash = to === '#crew' && !crewOk ? '#crew/people' : to), [crewOk])
   const keys = useShortcuts({ on: desk, money: seesMoney, go })
+  // Search is a palette over the screen (ADR 0147), from the magnifier, Ctrl K or Command K, or / at a desk.
+  const signedIn = auth.status === 'signed-in' || auth.status === 'open'
+  usePaletteKey(signedIn)
+  const searching = useSearchOpen()
   const [hash, setHash] = useState(location.hash)
   useEffect(() => {
     const on = () => setHash(location.hash)
     addEventListener('hashchange', on)
     return () => removeEventListener('hashchange', on)
   }, [])
+  // Search was a page (#search) before it was a palette: a link or bookmark to it opens the palette over Home.
+  useEffect(() => {
+    if (hash !== '#search') return
+    history.replaceState(history.state, '', '#home')
+    setHash('#home')
+    openSearch()
+  }, [hash])
   const within = (root: string) => hash === root || hash.startsWith(`${root}/`)
   // Every address starts with its area (ADR 0041), so its tab is the one it starts with; Admin, History and You keep the Menu's.
   const menu = AREAS[5]
@@ -227,6 +238,7 @@ export function Shell() {
       </main>
       <Toaster />
       {keys.help && <ShortcutsSheet money={seesMoney} onClose={keys.close} />}
+      {searching && signedIn && <SearchPalette onGo={go} onClose={closeSearch} desk={desk} />}
     </>
   )
 }

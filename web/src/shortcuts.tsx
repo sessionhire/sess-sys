@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { openSearch, paletteKeys, toggleSearch } from './searchOpen.ts'
 
 /**
  * Keys at a desk (ADR 0120): the office does the same few things all day, so the places and New quote are two letters away
  * (G then J for Jobs, N then Q for a new quote), / searches everything (review of 11 November 2026, finding 13), F finds on the
- * page and ? lists them all. Only from 900px across, where
+ * page and ? lists them all. Ctrl K, or Command K on a Mac, opens the search palette too (ADR 0147), as it does in most apps
+ * with one; being held with Ctrl or Command, it works wherever the cursor is, and on any device with a keyboard. Only from 900px across, where
  * there's a keyboard; a phone never has them. A key is a shortcut only when nothing is taking typing: not in a field, not
  * held with Ctrl, Alt or the Command key, and not on a screen made for scanning, whose keyboard scanner types letters too
  * (scanKeys.ts). Each is shown where the slow way is: on the sidebar's places and on New quote, as the browser's hint.
@@ -11,9 +13,11 @@ import { useEffect, useRef, useState } from 'react'
 
 export interface Shortcut {
   keys: readonly string[]
+  /** Pressed together rather than one after the other: Ctrl K. */
+  together?: boolean
   what: string
   /** Where it goes, or what it does. */
-  go: string | 'find' | 'help'
+  go: string | 'find' | 'help' | 'search'
   /** Only for those who see money: quotes. */
   money?: boolean
 }
@@ -27,7 +31,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { keys: ['G', 'C'], what: 'Crew', go: '#crew' },
   { keys: ['G', 'M'], what: 'Menu', go: '#menu' },
   { keys: ['N', 'Q'], what: 'New quote', go: '#quotes/new', money: true },
-  { keys: ['/'], what: 'Search everything', go: '#search' },
+  { keys: paletteKeys, together: true, what: 'Search everything', go: 'search' },
+  { keys: ['/'], what: 'Search everything', go: 'search' },
   { keys: ['F'], what: 'Find on this page', go: 'find' },
   { keys: ['?'], what: 'These shortcuts', go: 'help' },
 ]
@@ -60,10 +65,11 @@ export function useShortcuts({ on, money, go }: { on: boolean; money: boolean; g
       const key = e.key.toUpperCase()
       const before = first.current && Date.now() - first.current.at < SECOND_KEY_MS ? first.current.key : undefined
       first.current = undefined
-      const found = SHORTCUTS.find((s) => (!s.money || money) && (s.keys.length === 2 ? s.keys[0] === before && s.keys[1] === key : !before && (s.keys[0] === e.key || s.keys[0] === key)))
+      const found = SHORTCUTS.find((s) => !s.together && (!s.money || money) && (s.keys.length === 2 ? s.keys[0] === before && s.keys[1] === key : !before && (s.keys[0] === e.key || s.keys[0] === key)))
       if (found) {
         e.preventDefault()
         if (found.go === 'help') setHelp(true)
+        else if (found.go === 'search') openSearch()
         else if (found.go === 'find') document.querySelector<HTMLInputElement>('main input[type="search"]:not(:disabled)')?.focus()
         else go(found.go)
         return
@@ -76,6 +82,25 @@ export function useShortcuts({ on, money, go }: { on: boolean; money: boolean; g
   return { help, close: () => setHelp(false) }
 }
 
+/**
+ * Ctrl K, or Command K on a Mac: opens the search palette, or shuts it if it's open, from anywhere, a field included. Not over
+ * another dialog, which is a decision waiting, and not while signed out.
+ */
+export function usePaletteKey(on: boolean) {
+  useEffect(() => {
+    if (!on) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'k' || e.altKey || e.shiftKey || !(e.metaKey || e.ctrlKey) || e.isComposing) return
+      if (document.querySelector('dialog[open]:not(.palette)')) return
+      // The browser's own Ctrl K (its search box) gives way, as it does in any app with a palette.
+      e.preventDefault()
+      toggleSearch()
+    }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [on])
+}
+
 /** The list of them, as the design system's dialog: Escape or Close shuts it and focus goes back where it was. */
 export function ShortcutsSheet({ money, onClose }: { money: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -86,14 +111,14 @@ export function ShortcutsSheet({ money, onClose }: { money: boolean; onClose: ()
   return (
     <dialog className="shortcuts" ref={ref} aria-labelledby="shortcuts-title" onClose={onClose}>
       <h2 id="shortcuts-title">Keyboard shortcuts</h2>
-      <p className="hint">Press the keys one after the other, with nothing typed into a box. On a desk only.</p>
+      <p className="hint">Press the keys one after the other, with nothing typed into a box. On a desk only, but for {paletteKeys.join(' ')}, held together, which works anywhere.</p>
       <dl>
         {SHORTCUTS.filter((s) => !s.money || money).map((s) => (
-          <div key={s.keys.join('')}>
+          <div key={s.keys.join('+')}>
             <dt>
               {s.keys.map((k, i) => (
                 <span key={i}>
-                  {i > 0 && ' then '}
+                  {i > 0 && (s.together ? ' ' : ' then ')}
                   <kbd>{k}</kbd>
                 </span>
               ))}
