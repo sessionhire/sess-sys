@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.163.1',
+    version: '1.164.1',
     date: '2026-11-11',
     title: 'The "confirmed" WhatsApp goes as soon as a job on hold is confirmed',
     what: "When a job whose crew were asked on HOLD is confirmed, the WhatsApp saying it's confirmed now goes straight away, at the same moment the calendar invite loses its HOLD. Before, it waited until an hour had passed since the HOLD offer. WhatsApp offers are still switched off, so nothing goes yet.",
     prs: [334],
     adrs: [125],
+  },
+  {
+    version: '1.164.0',
+    date: '2026-11-11',
+    title: 'Each crew member gets their own calendar invite, asking if they are free',
+    what: 'With crew invites on, each person offered work now gets their own invite for each day instead of sharing one. It opens with a line just for them: while they have not answered it says hello and asks if they are available for the role, once they say yes it thanks them and says the office will confirm, and once the office books them it says they are booked and here is the info for the day. The link at the bottom takes them to their own page. Anyone already invited to a shared day gets a note that it is cancelled and a new invite of their own. Crew invites are still off, so nothing is sent yet.',
+    prs: [335],
+    adrs: [9],
   },
   {
     version: '1.163.0',
