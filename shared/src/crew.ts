@@ -533,11 +533,6 @@ export const WHATSAPP_OFFER_TEMPLATE = 'job_offer'
 export const WHATSAPP_CONFIRMED_TEMPLATE = 'job_confirmed'
 /** The word when a job they were asked for or booked on is cancelled or lost (ADR 0125, HOLD). */
 export const WHATSAPP_CANCELLED_TEMPLATE = 'job_cancelled'
-/**
- * A job confirmed this soon after its HOLD offer went on WhatsApp gets no follow-up there: the offer is still fresh, and
- * the calendar invite losing its HOLD says it anyway. Later than this, they're told it's confirmed (Colly, 11 Nov 2026).
- */
-export const HOLD_FOLLOW_UP_MS = 60 * 60_000
 /** A job the client hasn't said yes to yet: crew asked for it are asked on hold, and their messages say HOLD. */
 export const jobOnHold = (status: string | undefined) => status === 'enquiry' || status === 'quoted'
 

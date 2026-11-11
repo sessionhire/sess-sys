@@ -112,13 +112,13 @@ cancel. The calendar side is ADR 0008/0009 (1.162.0). On WhatsApp:
   blank reads `HOLD Nissan (Build)`, as its days do on the calendar. The
   same template; no new words for Meta to approve. The message keeps whether
   it went on hold.
-- **Confirmed, a while later.** When the job moves to confirmed, each
-  person whose offer went saying HOLD more than an hour before, and is
-  still asked or booked (not declined, filled or withdrawn), gets the
-  `job_confirmed` template: their name, the job, their days, and See the
-  details. Within the hour the offer is still fresh and the calendar
-  invite's title losing HOLD says it, so nothing more goes. Once per HOLD
-  message: back on hold and confirmed again says nothing new.
+- **Confirmed.** When the job moves to confirmed, each person whose offer
+  went saying HOLD, and is still asked or booked (not declined, filled or
+  withdrawn), gets the `job_confirmed` template straight away: their name,
+  the job, their days, and See the details. The calendar invite loses its
+  HOLD at the same moment. (1.162.0 waited an hour first; Colly asked for
+  no wait, 1.162.1.) Once per HOLD message: back on hold and confirmed
+  again says nothing new.
 - **Cancelled or lost.** Everyone asked or booked on it who had an offer on
   WhatsApp gets the `job_cancelled` template, once per person, read before
   the job's calls are cancelled.

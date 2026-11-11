@@ -1,4 +1,4 @@
-import { HOLD_FOLLOW_UP_MS, jobOnHold, STOPPED, type ProjectStatus } from '@sh/shared'
+import { jobOnHold, STOPPED, type ProjectStatus } from '@sh/shared'
 import type { Ctx } from '../kernel.ts'
 import { getPerson } from '../crew/store.ts'
 import { whatsappSetting } from '../office/store.ts'
@@ -8,13 +8,13 @@ import { reachOf } from './whatsapp.ts'
  * What a job's own change sends crew on WhatsApp (ADR 0125, HOLD), queued in the same change so it goes only if the
  * change is made, and sent by the server just after, as an offer's message is:
  *
- * - confirmed after being on hold: each person whose offer went saying HOLD more than an hour before, and is still
- *   asked or booked, is told it's going ahead;
+ * - confirmed after being on hold: each person whose offer went saying HOLD, and is still asked or booked, is told
+ *   straight away that it's going ahead (Colly, 11 Nov 2026: no wait);
  * - cancelled or lost: each person asked or booked on it who had an offer on WhatsApp is told it isn't.
  *
  * Called before the job's crew are taken off a stopped job, so who was asked or booked is still to be read.
  */
-export async function queueJobWhatsApp(ctx: Ctx, projectId: string, before: ProjectStatus, after: ProjectStatus | undefined, now = new Date()) {
+export async function queueJobWhatsApp(ctx: Ctx, projectId: string, before: ProjectStatus, after: ProjectStatus | undefined) {
   if (!after || after === before) return
   const setting = await whatsappSetting(ctx.tx)
   if (setting.mode === 'off') return
@@ -35,8 +35,8 @@ export async function queueJobWhatsApp(ctx: Ctx, projectId: string, before: Proj
       `SELECT 'confirmed-' || w.id AS id, w.offer_id, w.person_id FROM whatsapp_messages w
          JOIN offers o ON o.id = w.offer_id JOIN crew_calls c ON c.id = o.call_id
         WHERE c.project_id = $1 AND c.status = 'open' AND w.kind = 'offer' AND w.hold AND w.state IN ('sent', 'delivered', 'read')
-          AND w.sent_at < $2 AND o.status IN ('offered', 'countered', 'accepted', 'confirmed')`,
-      [projectId, new Date(now.getTime() - HOLD_FOLLOW_UP_MS)]
+          AND o.status IN ('offered', 'countered', 'accepted', 'confirmed')`,
+      [projectId]
     )
     await queue(rows, 'confirmed')
   }

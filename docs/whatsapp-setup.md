@@ -175,7 +175,7 @@ Session Hire, about a job they're being booked for.
    you get a reply saying so. Try **No, I can't** on another, and write
    STOP to check it turns you off.
    For HOLD, offer yourself a call on a job that's still a quote: the job reads
-   "HOLD …". Confirm the job (an hour on, for the follow-up), or cancel it.
+   "HOLD …". Confirm the job for the follow-up, or cancel it.
 3. When you're ready (launch), choose **On**. Everyone with a mobile gets
    their offers on WhatsApp from then on, unless they turn them off on their
    own page.
