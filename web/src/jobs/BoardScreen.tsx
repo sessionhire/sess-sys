@@ -72,8 +72,10 @@ export function BoardScreen({ view }: { view: View }) {
   const columns = JOB_STAGES.map((key) => ({
     key,
     label: STAGE_LABELS[key],
-    jobs: all.filter((s) => s.stage?.key === key && !s.lapsed && inSpan(s.job)).sort(byBoardOrder),
+    // Back keeps what ended in the last month; kit out longer than that is folded under the column (review of 11 November 2026, finding 10).
+    jobs: all.filter((s) => s.stage?.key === key && !s.lapsed && inSpan(s.job) && !(key === 'back' && toCheck.get(s.job.id)?.longOverdue)).sort(byBoardOrder),
   }))
+  const longOverdue = all.filter((s) => s.stage?.key === 'back' && toCheck.get(s.job.id)?.longOverdue)
   // The most recent first: the ones still worth a call before the ones long gone.
   const lapsed = lists['no-answer']
   const through = all.filter((s) => s.finished && s.job.span && s.job.span.end >= monthAgo).sort((a, b) => bySoonest(b, a))
@@ -159,6 +161,17 @@ export function BoardScreen({ view }: { view: View }) {
                 </summary>
                 {lapsed.map((s) => (
                   <BoardCard key={s.job.id} view={view} steps={s} today={today} />
+                ))}
+              </details>
+            )}
+            {c.key === 'back' && longOverdue.length > 0 && (
+              <details className="board-lapsed">
+                <summary>
+                  <h3>Long overdue ({longOverdue.length})</h3>
+                </summary>
+                <p className="hint">Ended more than a month ago. Each one can be settled in one press under Pick lists on Stock.</p>
+                {longOverdue.map((s) => (
+                  <BoardCard key={s.job.id} view={view} steps={s} today={today} kit={toCheck.get(s.job.id)} />
                 ))}
               </details>
             )}

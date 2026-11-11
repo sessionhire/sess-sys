@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.156.0',
+    date: '2026-11-11',
+    title: 'Kit long overdue back is folded away, and settled in one press',
+    what: "Jobs whose kit still isn't scanned back more than a month after they ended no longer crowd the lists of kit to check back in. On Stock's Pick lists and Home's Warehouse view they're folded under Long overdue with their count, and on the Board under the Back column. Each one can be settled in one press: It's all back marks everything still out as back and ticks the job's Back in; Mark missing puts what's still out on Repairs, to be found or written off there. Both ask first.",
+    prs: [0],
+  },
+  {
     version: '1.155.1',
     date: '2026-11-11',
     title: 'Views are only ways of seeing the list',

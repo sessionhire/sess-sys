@@ -94,6 +94,12 @@ export const SETTLED_AFTER_DAYS = 14
  * weekend from turning every Friday show amber (Move 3 of the sweep of 6
  * November 2026).
  */
+/**
+ * Kit not back this many days after the job's last day is long overdue (review of 11 November 2026, finding 10): folded away
+ * under its own heading on the lists of kit to check back in, with one press to settle it from the job, so a year of jobs
+ * nobody scanned back doesn't crowd out the ones back this week.
+ */
+export const LONG_OVERDUE_AFTER_DAYS = 30
 export const LATE_BACK_AFTER_DAYS = 2
 
 /** A task's record: who it's down to, the day it's due by, and the tick, when it was ticked by hand. */
