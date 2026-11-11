@@ -3,6 +3,19 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 11 November 2026: search as a command palette
+
+**Done (1.158.0, ADR 0147)**
+
+- Search opens over the current screen (blurred, dimmed veil) from the
+  magnifier, Ctrl K / Command K anywhere, or / at a desk; `#search` links open
+  it over Home.
+- The combobox's keys in its field; places to go with their keys before
+  anything is typed.
+- Checked: the search browser tests (phone and desk, Ctrl K in a field,
+  arrows, Enter, Escape, a press outside, the old link); screens in
+  screens/palette.
+
 ## 10 November 2026: every view of the jobs filters alike
 
 **Done (1.150.0, ADR 0141 addendum)**
