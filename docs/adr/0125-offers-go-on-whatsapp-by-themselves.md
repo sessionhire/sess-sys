@@ -101,7 +101,7 @@ Twilio or 360dialog and chose to go straight to Meta.
      other answers (client `whatsapp:<person>`), and Download everything
      says WhatsApp.
 
-## Offers on hold, and what follows (1.163.0)
+## Offers on hold, and what follows (1.162.0)
 
 Colly, 11 November 2026: the WhatsApp, the calendar invite and the email all
 go the moment the office presses Offer, before the client has said yes if

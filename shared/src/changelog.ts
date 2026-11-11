@@ -28,7 +28,7 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.163.0',
+    version: '1.162.0',
     date: '2026-11-11',
     title: 'WhatsApp offers say HOLD before the client says yes, and follow up on confirm or cancel',
     what: "When WhatsApp offers are on, an offer for a job that's still an enquiry or a quote now names the job with HOLD in front, as its calendar days do. If the job is confirmed more than an hour after the HOLD offer went, everyone still asked or booked gets a WhatsApp saying it's confirmed. If the job is cancelled or lost, everyone asked or booked who had the offer on WhatsApp is told it isn't going ahead. WhatsApp offers are still switched off, so nothing goes yet.",
