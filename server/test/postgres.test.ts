@@ -261,7 +261,7 @@ describe.skipIf(!url)('real Postgres, many devices at once', () => {
         ['2030-03-02', 'Nissan - Build 2/3'],
         ['2030-03-03', 'Nissan - Build 3/3'],
       ])
-      expect(google.visible(cal)[0]!.description).toContain('Audio tech, call 08:00: Seán Ó Briain (to confirm) and 1 still to find')
+      expect(google.visible(cal)[0]!.description).toContain('Audio tech, call 08:00: 2 TBC')
       const day = await colly.record<{ day: string; state: string; title: string }>('calendarDay', 'build/2030-03-02')
       expect(day).toMatchObject({ day: '2030-03-02', state: 'on', title: 'Nissan - Build 2/3' })
       expect(await colly.record('calendarLink', 'main')).toMatchObject({ state: 'on', calendarName: 'Test calendar', connectedAt: expect.stringMatching(/Z$/) })
