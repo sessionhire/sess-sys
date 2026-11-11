@@ -115,6 +115,9 @@
   .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
   .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
   .page-head .next-dock .line { order: -1; }
+  /* A long label wraps inside its button rather than running out of the dock over the job's stage line (review of 11 November
+     2026, finding 2). */
+  .app .page-head .next-dock .primary { white-space: normal; }
 }
 /* A phone: the dock is in the foot (foot.tsx), over the places, one footer: the button full width with its words centred. */
 /* The quiet second choice sits beside it on the same row, so the dock keeps a row less of the screen (audit, 5 November 2026,

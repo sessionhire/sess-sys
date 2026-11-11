@@ -143,6 +143,9 @@ export function CallCard({
   const { run, error } = useAct()
   const today = useToday()
   const filled = call.openDays.length === 0
+  // A yes not yet confirmed holds the place but isn't a booking, as the job's head counts it: the call says so, in amber, rather
+  // than a green Filled with someone still to confirm under it (review of 11 November 2026, finding 3).
+  const toConfirm = new Set(call.offers.filter((o) => o.status === 'accepted').map((o) => o.personId)).size
   const live = call.status === 'open'
   const invites = calendar.link?.state === 'on' && calendar.link.invites === true
   // Who's on it, with their answer where it isn't yet a booking: "Dara Quinn (booked), Niamh Kelly (offered)". The first few at rest, then
@@ -177,12 +180,10 @@ export function CallCard({
         </b>
       </button>
       {/* The one word at rest on where it stands: a cancelled call kept for the record says so, and a change to it or an offer on it still on its way says that. */}
-      <StatusPill tone={!live ? 'cancelled' : filled ? 'confirmed' : 'pending'} pending={call.pending || call.offers.some((o) => o.pending)}>
+      <StatusPill tone={!live ? 'cancelled' : filled && toConfirm === 0 ? 'confirmed' : 'pending'} pending={call.pending || call.offers.some((o) => o.pending)}>
         {!live
           ? 'Cancelled'
-          : filled
-            ? 'Filled'
-            : heldLabel(call)}
+          : `${filled ? 'Filled' : heldLabel(call)}${toConfirm > 0 ? `, ${toConfirm} to confirm` : ''}`}
       </StatusPill>
       {/* Under the line at the card's full width, not squeezed beside the pill into a column of one word a line (audit of 18 October, finding 20). */}
       {who && (

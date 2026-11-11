@@ -68,6 +68,7 @@ async function phone(sendsMoney: boolean): Promise<View> {
   job(server, 'drafted', 'enquiry', 'draft')
   job(server, 'bare', 'enquiry')
   job(server, 'quoted', 'quoted', 'sent')
+  job(server, 'marked', 'quoted')
   const device = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone', now: () => TODAY }).open()
   await device.sync()
   return device.view()
@@ -84,6 +85,15 @@ describe("a job's quote task", () => {
     const office = await phone(true)
     expect(['drafted', 'bare', 'quoted'].map((id) => quoteTask(office, id))).toEqual(['A draft is started', 'No quote yet', 'Sent Sun 18 Oct'])
     expect(office.steps.of('bare')!.stage?.hint).toBe('No quote yet')
+  })
+
+  it('is still to do on a job marked quoted with no quote in the app (review of 11 November 2026, finding 1)', async () => {
+    const office = await phone(true)
+    // One from the calendars, say: Next makes the quote rather than asking for the client's answer to a quote that isn't here.
+    expect(quoteTask(office, 'marked')).toBe('No quote yet')
+    expect(office.steps.of('marked')!.current?.key).toBe('quote')
+    // A device not sent the quotes can't tell, so it takes the status's word for it.
+    expect(quoteTask(await phone(false), 'marked')).toBe('The job is quoted')
   })
 
   it("says it's with the office, never missing, on a device that isn't sent them", async () => {

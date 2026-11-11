@@ -40,7 +40,8 @@ test('a big call says how many it holds in words, and names the first eight acro
   // Next June is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).
   await office.getByRole('button', { name: /^Show all \d+ calls? still needing something$/ }).click()
   const call = office.locator('.call-group', { hasText: `Volume Fest ${id}` }).getByRole('article', { name: '40 × Stagehand' })
-  await expect(call.locator('.pill').first()).toHaveText('25 of 40, both days')
+  // The five yeses not yet confirmed hold their places, and the pill says so (review of 11 November 2026, finding 3).
+  await expect(call.locator('.pill').first()).toHaveText('25 of 40, both days, 5 to confirm')
   const who = call.locator('.who-line > span:last-child')
   // Booked and not-yet-booked on one call, each says theirs (audit, 20 October 2026, finding 72): the first eight are booked.
   await expect(who).toHaveText(new RegExp(`^StagehandA Volume${id} \\(booked\\), .*StagehandH Volume${id} \\(booked\\) and 17 more$`))

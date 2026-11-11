@@ -296,7 +296,10 @@ export function stepsView(
     const tasks: Record<JobStep, Told> = {
       quote: sent
         ? { auto: sent.sentOn ? `Sent ${dayLabel(sent.sentOn)}` : 'Sent', facts: quoteFacts }
-        : job.status === 'quoted' || job.status === 'confirmed'
+        : // A confirmed job needs no quote here to be past it. A job marked quoted with no quote in the app (one from the calendars,
+          // say) still has its quote to make, so Next, the stage line and the Quote tab all say so (review of 11 November 2026,
+          // finding 1); a role not sent the quotes can't tell, so it takes the status's word for it.
+          job.status === 'confirmed' || (job.status === 'quoted' && quoteFacts.quoteHidden)
           ? { auto: `The job is ${STATUS_LABELS[job.status].toLowerCase()}`, facts: quoteFacts }
           : // Not sent the quotes, a role can't tell a quote started from none: it's the office's, not missing (ADR 0046 §8;
             // Move 3 of the sweep of 6 November 2026). Such a device holds no quote, so never a "Sent …" either.
