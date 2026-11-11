@@ -28,27 +28,12 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.157.0',
-    date: '2026-11-11',
-    title: 'One search for everything',
-    what: "A magnifier beside the bell at the top of every screen opens Search: type a name and it finds the jobs, clients, venues, people and products that match, all on one page, and quotes by their number for those who see money. Type a label's number to find that piece of kit. Each result opens its page, and Back comes back to the results. At a desk the / key opens it; F now finds on the page you're on.",
-    prs: [0],
-    adrs: [146],
-  },
-  {
     version: '1.156.0',
     date: '2026-11-11',
-    title: 'Kit long overdue back is folded away, and settled in one press',
-    what: "Jobs whose kit still isn't scanned back more than a month after they ended no longer crowd the lists of kit to check back in. On Stock's Pick lists and Home's Warehouse view they're folded under Long overdue with their count, and on the Board under the Back column. Each one can be settled in one press: It's all back marks everything still out as back and ticks the job's Back in; Mark missing puts what's still out on Repairs, to be found or written off there. Both ask first.",
+    title: 'One search for everything, views only for views, and long-overdue kit folded away',
+    what: "A magnifier beside the bell at the top of every screen opens Search: type a name and it finds the jobs, clients, venues, people and products that match on one page, and quotes by their number for those who see money; type a label's number to find that piece of kit. At a desk the / key opens it, and F now finds on the page you're on. The row of views on Jobs, Stock and Crew now holds only the ways of seeing that list (List, Board, Calendar, Week and Month on Jobs); the area's other pages, like Clients, Venues and Money, are on a line just under it, so on a phone none is hidden off the edge. And jobs whose kit still isn't back more than a month after they ended are folded under Long overdue on Stock's Pick lists, Home's Warehouse view and the Board, each settled in one press: It's all back, or Mark missing, which puts it on Repairs. On a narrow phone the top bar no longer says Up to date in words, so the company's name has room; waiting and no signal still show.",
     prs: [0],
-  },
-  {
-    version: '1.155.1',
-    date: '2026-11-11',
-    title: 'Views are only ways of seeing the list',
-    what: "The row of views on Jobs, Stock and Crew now holds only the ways of seeing that area's list: List, Board, Calendar, Week and Month on Jobs; Catalogue, Places and Racks on Stock; Calls and People on Crew. The area's other pages (Clients, Venues and Money; Labels, Counting, Testing, Repairs, Vehicles and the Purchase list; Leave and Timesheets) are on a line of their own just under it, with their counts, so on a phone none of them is hidden off the edge.",
-    prs: [0],
-    adrs: [145],
+    adrs: [145, 146],
   },
   {
     version: '1.155.0',
