@@ -37,7 +37,7 @@ export function NoticesButton({ view }: { view: View }) {
  */
 export function SearchButton() {
   return (
-    <a className="notices-button search-button" href="#search" aria-label="Search everything" title="Search everything" aria-current={location.hash === '#search' ? 'page' : undefined}>
+    <a className="notices-button search-button" href="#search" aria-label="Search" title="Search everything (/ at a desk)" aria-current={location.hash === '#search' ? 'page' : undefined}>
       <Icon name="search" />
     </a>
   )

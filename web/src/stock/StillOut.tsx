@@ -1,10 +1,9 @@
-import { newId, plural, type KitToCheck, type View } from '@sh/shared'
+import { dsTiming, newId, plural, type KitToCheck, type View } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
-import { reportFault } from './Faults.tsx'
 
 /**
  * A job with kit to check back in (ADR 0109), as Home › Warehouse and
@@ -86,7 +85,6 @@ function LongOverdueRow({ view, k }: { view: View; k: KitToCheck }) {
   const { me } = useMe(view)
   const { run, error } = useAct()
   const [asking, setAsking] = useState<'back' | 'missing'>()
-  const [done, setDone] = useState<'back' | 'missing'>()
   const may = access.can('stock')
   const job = k.job
   const items = k.pick.rows.flatMap((r) => r.items)
@@ -118,7 +116,9 @@ function LongOverdueRow({ view, k }: { view: View; k: KitToCheck }) {
               at,
               undoes: null,
             })
-          : reportFault({
+          : client.mutate('fault.report', {
+              id: newId(),
+              at,
               kind: 'missing',
               assetId: a.id,
               modelId: a.modelId,
@@ -139,7 +139,9 @@ function LongOverdueRow({ view, k }: { view: View; k: KitToCheck }) {
               at,
               undoes: null,
             })
-          : reportFault({
+          : client.mutate('fault.report', {
+              id: newId(),
+              at,
               kind: 'missing',
               assetId: null,
               modelId: r.modelId,
@@ -151,17 +153,21 @@ function LongOverdueRow({ view, k }: { view: View; k: KitToCheck }) {
       await tick()
     }).then((ok) => {
       setAsking(undefined)
-      if (ok) setDone(how)
+      // Said in a pop-up, as the settled job leaves the list at once, its row with it (and the list too, when it was the last).
+      // notices.ts is loaded on its own, not imported: it reaches the crew screens, and Home, which lists these, would come round to itself.
+      if (ok)
+        void import('../notices.ts').then(({ showToast }) => showToast(
+          how === 'back'
+            ? { id: `settled-${job.id}`, title: `${job.name}: all back`, body: 'Its Back in is done.' }
+            : { id: `settled-${job.id}`, title: `${job.name}: marked missing`, body: 'What was still out is on Repairs, to be found or written off.', href: '#stock/repairs', action: 'Repairs' },
+          dsTiming.undo
+        ))
     })
   const what = k.neverScanned ? `the ${plural(k.neverScanned, 'thing', 'things')} on its pick list` : `the ${plural(out, 'thing', 'things')} still out with it`
   return (
     <li className="long-overdue-row">
       <StillOutLink k={k} />
-      {done ? (
-        <p className="hint" role="status">
-          {done === 'back' ? `${job.name}: all back.` : `${job.name}: what was still out is marked missing, on Repairs.`}
-        </p>
-      ) : may && asking ? (
+      {may && asking ? (
         <Confirm
           question={
             asking === 'back'

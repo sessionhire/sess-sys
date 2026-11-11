@@ -344,6 +344,7 @@ test('kit more than a month overdue folds away under Long overdue, and is settle
     ['project.create', { id: `l-${id}`, name: fair, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
     ['phase.add', { id: `lp-${id}`, projectId: `l-${id}`, name: 'Show', start: ago(45), end: ago(45), venueId: null, notes: '' }],
     ['kit.add', { id: `lk-${id}`, projectId: `l-${id}`, phaseId: null, modelId: `lx-${id}`, qty: 5, subhireQty: 0, supplier: '', notes: '' }],
+    ['move.record', { id: `lm-${id}`, projectId: `l-${id}`, direction: 'out', assetId: null, modelId: `lx-${id}`, qty: 5, at: `${ago(46)}T09:00:00.000Z` }],
     ['project.create', { id: `t-${id}`, name: show, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
     ['phase.add', { id: `tp-${id}`, projectId: `t-${id}`, name: 'Show', start: ago(40), end: ago(40), venueId: null, notes: '' }],
     ['kit.add', { id: `tk-${id}`, projectId: `t-${id}`, phaseId: null, modelId: `lx-${id}`, qty: 3, subhireQty: 0, supplier: '', notes: '' }],
@@ -367,24 +368,22 @@ test('kit more than a month overdue folds away under Long overdue, and is settle
   await expect(long.locator('summary')).toContainText(/^Long overdue \(\d+\)$/)
   await long.locator('summary').click()
   const fairRow = long.locator('.long-overdue-row', { hasText: fair })
-  await expect(fairRow).toContainText("5 never scanned out: check they're back · ended 45 days ago")
-  // Never scanned out: nothing went out by the scans to call missing.
-  await expect(fairRow.getByRole('button', { name: `Mark missing: ${fair}` })).toHaveCount(0)
+  await expect(fairRow).toContainText('5 of 5 not scanned back · ended 45 days ago')
   await fairRow.getByRole('button', { name: `It's all back: ${fair}` }).click()
-  await expect(fairRow.getByRole('group')).toContainText(`Mark the 5 things on its pick list as back from ${fair}, and its Back in done?`)
+  await expect(fairRow.getByRole('group')).toContainText(`Mark the 5 things still out with it as back from ${fair}, and its Back in done?`)
   await fairRow.getByRole('button', { name: "Yes, it's all back" }).click()
-  await expect(fairRow.getByRole('status')).toHaveText(`${fair}: all back.`)
+  await expect(page.locator('.toast', { hasText: `${fair}: all back` })).toContainText('Its Back in is done.')
 
   const showRow = long.locator('.long-overdue-row', { hasText: show })
   await expect(showRow).toContainText('3 of 3 not scanned back · ended 40 days ago')
   await showRow.getByRole('button', { name: `Mark missing: ${show}` }).click()
   await showRow.getByRole('button', { name: 'Mark missing', exact: true }).click()
-  await expect(showRow.getByRole('status')).toHaveText(`${show}: what was still out is marked missing, on Repairs.`)
+  await expect(page.locator('.toast', { hasText: `${show}: marked missing` })).toContainText('What was still out is on Repairs')
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
   // Settled, both leave the list.
   await page.reload()
-  await expect(page.getByRole('status').first()).toHaveText('Up to date')
+  await expect(page.locator('.conn')).toHaveText('Up to date')
   await expect(page.locator('.job-row', { hasText: fair })).toHaveCount(0)
   await expect(page.locator('.job-row', { hasText: show })).toHaveCount(0)
 })

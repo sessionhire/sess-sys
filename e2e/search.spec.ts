@@ -68,7 +68,7 @@ test('the magnifier finds a job, its client and venue, a person and a product in
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#home')
   await expect(page.locator('.conn')).toHaveText('Up to date')
-  await page.getByRole('link', { name: 'Search everything' }).click()
+  await page.getByRole('link', { name: 'Search', exact: true }).click()
   await expect(page).toHaveURL(/#search$/)
   const field = page.getByLabel('Search everything')
   await expect(field).toBeFocused()
