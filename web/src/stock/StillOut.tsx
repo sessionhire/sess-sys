@@ -1,10 +1,10 @@
-import { newId, plural, type KitToCheck, type View } from "@sh/shared";
-import { useState } from "react";
-import { Confirm, Refusal, useAct } from "../act.tsx";
-import { useMe } from "../crew/Leave.tsx";
-import { useAccess } from "../role.ts";
-import { client } from "../sync.ts";
-import { reportFault } from "./Faults.tsx";
+import { newId, plural, type KitToCheck, type View } from '@sh/shared'
+import { useState } from 'react'
+import { Confirm, Refusal, useAct } from '../act.tsx'
+import { useMe } from '../crew/Leave.tsx'
+import { useAccess } from '../role.ts'
+import { client } from '../sync.ts'
+import { reportFault } from './Faults.tsx'
 
 /**
  * A job with kit to check back in (ADR 0109), as Home › Warehouse and
@@ -19,16 +19,13 @@ export function StillOutRow({ k }: { k: KitToCheck }) {
     <li>
       <StillOutLink k={k} />
     </li>
-  );
+  )
 }
 
 function StillOutLink({ k }: { k: KitToCheck }) {
-  const id = encodeURIComponent(k.job.id);
+  const id = encodeURIComponent(k.job.id)
   return (
-    <a
-      className="job-row"
-      href={k.neverScanned ? `#jobs/${id}/task/back` : `#jobs/${id}/pick`}
-    >
+    <a className="job-row" href={k.neverScanned ? `#jobs/${id}/task/back` : `#jobs/${id}/pick`}>
       <div>
         <b>{k.job.name}</b>
         <p>
@@ -41,7 +38,7 @@ function StillOutLink({ k }: { k: KitToCheck }) {
         </div>
       )}
     </a>
-  );
+  )
 }
 
 /**
@@ -51,39 +48,30 @@ function StillOutLink({ k }: { k: KitToCheck }) {
  * already does (Stock's keeps its Show all); the fold is the same on both.
  */
 export function splitStillOut(all: readonly KitToCheck[]): {
-  recent: KitToCheck[];
-  long: KitToCheck[];
+  recent: KitToCheck[]
+  long: KitToCheck[]
 } {
   return {
     recent: all.filter((k) => !k.longOverdue),
     long: all.filter((k) => k.longOverdue),
-  };
+  }
 }
 
-export function LongOverdue({
-  view,
-  kits,
-}: {
-  view: View;
-  kits: readonly KitToCheck[];
-}) {
-  if (!kits.length) return null;
+export function LongOverdue({ view, kits }: { view: View; kits: readonly KitToCheck[] }) {
+  if (!kits.length) return null
   return (
     <details className="long-overdue">
       <summary>
         <h3 className="group">Long overdue ({kits.length})</h3>
       </summary>
-      <p className="hint">
-        Ended more than a month ago. Settle each in one press: it's all back, or
-        what's still out is missing.
-      </p>
+      <p className="hint">Ended more than a month ago. Settle each in one press: it's all back, or what's still out is missing.</p>
       <ul className="job-list">
         {kits.map((k) => (
           <LongOverdueRow key={k.job.id} view={view} k={k} />
         ))}
       </ul>
     </details>
-  );
+  )
 }
 
 /**
@@ -94,36 +82,36 @@ export function LongOverdue({
  * Moving kit is stock's (roles.ts); a role without it reads the row and opens the pick list.
  */
 function LongOverdueRow({ view, k }: { view: View; k: KitToCheck }) {
-  const access = useAccess();
-  const { me } = useMe(view);
-  const { run, error } = useAct();
-  const [asking, setAsking] = useState<"back" | "missing">();
-  const [done, setDone] = useState<"back" | "missing">();
-  const may = access.can("stock");
-  const job = k.job;
-  const items = k.pick.rows.flatMap((r) => r.items);
-  const counted = k.pick.rows.filter((r) => r.counted > 0);
-  const out = k.out;
+  const access = useAccess()
+  const { me } = useMe(view)
+  const { run, error } = useAct()
+  const [asking, setAsking] = useState<'back' | 'missing'>()
+  const [done, setDone] = useState<'back' | 'missing'>()
+  const may = access.can('stock')
+  const job = k.job
+  const items = k.pick.rows.flatMap((r) => r.items)
+  const counted = k.pick.rows.filter((r) => r.counted > 0)
+  const out = k.out
   const tick = () => {
-    const step = view.steps.of(job.id)?.steps.find((s) => s.key === "back");
-    return step && !step.done && !step.skipped && access.can("steps")
-      ? client.mutate("jobStep.set", {
+    const step = view.steps.of(job.id)?.steps.find((s) => s.key === 'back')
+    return step && !step.done && !step.skipped && access.can('steps')
+      ? client.mutate('jobStep.set', {
           projectId: job.id,
-          step: "back",
+          step: 'back',
           done: true,
           by: me?.id ?? null,
         })
-      : Promise.resolve();
-  };
-  const settle = (how: "back" | "missing") =>
+      : Promise.resolve()
+  }
+  const settle = (how: 'back' | 'missing') =>
     void run(async () => {
-      const at = new Date().toISOString();
+      const at = new Date().toISOString()
       for (const a of items)
-        await (how === "back"
-          ? client.mutate("move.record", {
+        await (how === 'back'
+          ? client.mutate('move.record', {
               id: newId(),
               projectId: job.id,
-              direction: "in",
+              direction: 'in',
               assetId: a.id,
               modelId: a.modelId,
               qty: 1,
@@ -131,20 +119,20 @@ function LongOverdueRow({ view, k }: { view: View; k: KitToCheck }) {
               undoes: null,
             })
           : reportFault({
-              kind: "missing",
+              kind: 'missing',
               assetId: a.id,
               modelId: a.modelId,
               qty: 1,
               projectId: job.id,
               usable: false,
-              note: "Not back a month after the job.",
-            }));
+              note: 'Not back a month after the job.',
+            }))
       for (const r of counted)
-        await (how === "back"
-          ? client.mutate("move.record", {
+        await (how === 'back'
+          ? client.mutate('move.record', {
               id: newId(),
               projectId: job.id,
-              direction: "in",
+              direction: 'in',
               assetId: null,
               modelId: r.modelId,
               qty: r.counted,
@@ -152,60 +140,46 @@ function LongOverdueRow({ view, k }: { view: View; k: KitToCheck }) {
               undoes: null,
             })
           : reportFault({
-              kind: "missing",
+              kind: 'missing',
               assetId: null,
               modelId: r.modelId,
               qty: r.counted,
               projectId: job.id,
               usable: false,
-              note: "Not back a month after the job.",
-            }));
-      await tick();
+              note: 'Not back a month after the job.',
+            }))
+      await tick()
     }).then((ok) => {
-      setAsking(undefined);
-      if (ok) setDone(how);
-    });
-  const what = k.neverScanned
-    ? `the ${plural(k.neverScanned, "thing", "things")} on its pick list`
-    : `the ${plural(out, "thing", "things")} still out with it`;
+      setAsking(undefined)
+      if (ok) setDone(how)
+    })
+  const what = k.neverScanned ? `the ${plural(k.neverScanned, 'thing', 'things')} on its pick list` : `the ${plural(out, 'thing', 'things')} still out with it`
   return (
     <li className="long-overdue-row">
       <StillOutLink k={k} />
       {done ? (
         <p className="hint" role="status">
-          {done === "back"
-            ? `${job.name}: all back.`
-            : `${job.name}: what was still out is marked missing, on Repairs.`}
+          {done === 'back' ? `${job.name}: all back.` : `${job.name}: what was still out is marked missing, on Repairs.`}
         </p>
       ) : may && asking ? (
         <Confirm
           question={
-            asking === "back"
+            asking === 'back'
               ? `Mark ${what} as back from ${job.name}, and its Back in done?`
               : `Mark ${what} as missing from ${job.name}? They go on Repairs, to be found or written off there.`
           }
-          yes={asking === "back" ? "Yes, it's all back" : "Mark missing"}
-          loss={asking === "missing"}
+          yes={asking === 'back' ? "Yes, it's all back" : 'Mark missing'}
+          loss={asking === 'missing'}
           onYes={() => settle(asking)}
           onNo={() => setAsking(undefined)}
         />
       ) : may ? (
         <div className="actions">
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => setAsking("back")}
-            aria-label={`It's all back: ${job.name}`}
-          >
+          <button type="button" className="secondary" onClick={() => setAsking('back')} aria-label={`It's all back: ${job.name}`}>
             It's all back
           </button>
           {!k.neverScanned && out > 0 && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => setAsking("missing")}
-              aria-label={`Mark missing: ${job.name}`}
-            >
+            <button type="button" className="secondary" onClick={() => setAsking('missing')} aria-label={`Mark missing: ${job.name}`}>
               Mark missing
             </button>
           )}
@@ -213,5 +187,5 @@ function LongOverdueRow({ view, k }: { view: View; k: KitToCheck }) {
       ) : null}
       <Refusal error={error} />
     </li>
-  );
+  )
 }
