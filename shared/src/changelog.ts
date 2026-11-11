@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.155.0',
+    date: '2026-11-11',
+    title: 'Jobs and Quotes as tables at a desk, and the week as a list of days on a phone',
+    what: "On a laptop the Jobs list and Quotes are tables: one line a job or quote, with its days, client, venue, where it stands, crew and amount in columns, and a press on a column's heading sorts by it. Phones keep the rows as they were. On a phone, Week now opens as a list of the week's days with the jobs on each, and the grid is still there under Rows. On a laptop the week's controls sit on one row, and the planner's small print is a little bigger and easier to read in the light theme.",
+    prs: [0],
+  },
+  {
     version: '1.154.1',
     date: '2026-11-11',
     title: "A job's page says its crew once",

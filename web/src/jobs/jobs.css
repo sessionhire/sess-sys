@@ -122,13 +122,13 @@
 /* A public holiday (ADR 0024): a faint band in the off tone, a shade deeper than a weekend, named under its date. */
 .plan .timeline .holiday { background-color: color-mix(in srgb, var(--line) 55%, var(--panel)); }
 .plan .timeline thead th.holiday { color: var(--ink); }
-.plan .timeline .holiday-name { display: block; font-size: var(--text-pill); font-weight: 600; color: var(--muted); white-space: normal; line-height: 1.2; }
+.plan .timeline .holiday-name { display: block; font-size: var(--text-hint); font-weight: 600; color: var(--muted); white-space: normal; line-height: 1.2; }
 .plan .legend .swatch.holiday { background: color-mix(in srgb, var(--line) 55%, var(--panel)); box-shadow: inset 0 0 0 1px var(--line); }
 .plan .timeline th.today { color: var(--ink); box-shadow: inset 0 -3px 0 var(--ink); }
 /* Today's column, faintly, all the way down, so it can be found in the middle of a long month. */
 .plan .timeline td.today { background-color: color-mix(in srgb, var(--ink) 5%, var(--panel)); }
-.plan .timeline .today-word { display: block; font-size: var(--text-pill); font-weight: 700; }
-.plan .timeline .day-quote { color: var(--accent-ink); display: flex; width: fit-content; align-items: center; min-height: 24px; margin-top: var(--ds-space-half); padding: 0 var(--ds-space-1); border: 0; border-radius: var(--radius-control); background: transparent; font-size: var(--text-pill); font-weight: 600; white-space: nowrap; }
+.plan .timeline .today-word { display: block; font-size: var(--text-hint); font-weight: 700; }
+.plan .timeline .day-quote { color: var(--accent-ink); display: flex; width: fit-content; align-items: center; min-height: 44px; margin-top: var(--ds-space-half); padding: 0 var(--ds-space-2); border: 0; border-radius: var(--radius-control); background: transparent; font-size: var(--text-hint); font-weight: 600; white-space: nowrap; }
 
 /* The quote started on a day of the planner (ADR 0124): a card on the day, as a calendar makes an event. At a desk it hangs under the day,
    placed by QuickQuote.tsx from the day's rect, with no veil, so the week stays readable behind it and a click outside closes it (the
@@ -194,7 +194,8 @@ dialog.delete-quote-dialog[open] { animation: delete-quote-in var(--ds-duration-
 .plan .blk.dashed { border-style: dashed; border-color: var(--muted); box-shadow: none; background: var(--panel); }
 .plan .blk.short { background: var(--warn-soft); }
 .plan .blk.stray { border: 2px solid var(--warn); box-shadow: none; }
-.plan .blk.pending { opacity: .75; }
+/* Waiting to sync says so in words; fading it took its small print under the contrast the system asks for (finding 16). */
+.plan .blk.pending { border-style: dotted; }
 a.blk { color: inherit; text-decoration: none; }
 @media (hover: hover) {
   a.blk:hover { border-color: var(--ink); filter: brightness(.96); }
@@ -229,7 +230,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .plan .item.busy b { font-weight: 600; }
 .plan .timeline td.clash { background: var(--bad-soft); box-shadow: inset 0 0 0 2px var(--bad); }
 .plan .timeline td.check { background: var(--warn-soft); box-shadow: inset 0 0 0 2px var(--warn); }
-.plan .tag { display: block; margin-bottom: var(--ds-space-1); font-size: var(--text-pill); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.plan .tag { display: block; margin-bottom: var(--ds-space-1); font-size: var(--text-hint); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .plan td.clash .tag { color: var(--bad); }
 .plan td.check .tag { color: var(--warn); }
 .plan .code { position: relative; display: grid; place-items: center; min-height: 1.9rem; border-radius: 4px; font-size: var(--text-pill); font-weight: 700; }
@@ -978,3 +979,66 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .quote-screen .quote-draft.picking .quote-summary .figure.lead b { font-size: inherit; }
   html:has(.quote-draft.picking) .foot { display: none; }
 }
+
+/* Jobs at a desk as a table (review of 11 November 2026, finding 14): the page's whole width, a job a line, its parts in columns
+   under heads that sort. The heads and every row share one set of columns; venue gives way first on a narrow laptop. */
+.jobs-wide { --job-columns: minmax(0, 2.4fr) minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1.8fr) minmax(0, 0.9fr); }
+.jobs-wide .job-table-head, .app .job-row.in-table { display: grid; grid-template-columns: var(--job-columns); gap: var(--ds-space-3); align-items: center; }
+.jobs-wide .job-table-head { position: sticky; top: var(--under-top, 0px); z-index: 2; padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--line); background: var(--panel); font-size: var(--text-hint); color: var(--muted); }
+.jobs-wide .job-table-head > * { font: inherit; font-weight: 600; color: inherit; text-align: left; }
+.jobs-wide .job-table-head button { min-height: 32px; padding: 0; border: 0; background: none; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.jobs-wide .job-table-head button[aria-pressed='true'] { color: var(--ink); text-decoration: none; }
+.jobs-wide .job-table-head button[aria-pressed='true']::after { content: ' ↓'; }
+.app .job-row.in-table { padding: var(--ds-space-2) 0; font-size: var(--text-small); }
+.app .job-row.in-table > span { min-width: 0; overflow-wrap: anywhere; }
+.app .job-row.in-table .c-name { display: grid; gap: var(--ds-space-half); }
+.app .job-row.in-table .c-name b { font-size: var(--text-body); }
+.app .job-row.in-table .c-name small, .app .job-row.in-table .c-crew small { display: block; white-space: normal; }
+.app .job-row.in-table .c-where { display: grid; gap: var(--ds-space-half); justify-items: start; }
+.app .job-row.in-table .c-where .stage-line { margin: 0; font-size: var(--text-hint); }
+.app .job-row.in-table .muted { color: var(--muted); }
+.app .job-row.in-table:hover { background: var(--ds-wash-hover); }
+.jobs-wide .jobs-card .week-head { top: calc(var(--under-top, 0px) + 40px); }
+@media (max-width: 1199px) {
+  .jobs-wide { --job-columns: minmax(0, 2.4fr) minmax(0, 1.5fr) minmax(0, 1.5fr) 0 minmax(0, 1.8fr) minmax(0, 0.9fr); }
+  .jobs-wide .job-table-head > :nth-child(4), .app .job-row.in-table .c-venue { visibility: hidden; overflow: hidden; }
+}
+
+/* Quotes at a desk as a table (finding 14): the amounts in one column, lined up on the right. */
+.quotes { --quote-columns: minmax(0, 2.2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 0.6fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 0.9fr); }
+.quotes .quote-table-head, .quotes .quote-table > li.in-table { display: grid; grid-template-columns: var(--quote-columns); gap: var(--ds-space-3); align-items: center; }
+.quotes .quote-table-head { padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--line); font-size: var(--text-hint); color: var(--muted); }
+.quotes .quote-table-head > * { font: inherit; font-weight: 600; color: inherit; text-align: left; }
+.quotes .quote-table-head > :nth-child(6) { text-align: right; }
+.quotes .quote-table-head button { min-height: 32px; padding: 0; border: 0; background: none; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.quotes .quote-table-head button[aria-pressed='true'] { color: var(--ink); text-decoration: none; }
+.quotes .quote-table-head button[aria-pressed='true']::after { content: ' ↓'; }
+.quotes .quote-table > li.in-table { font-size: var(--text-small); }
+.quotes .quote-table > li.in-table > * { min-width: 0; overflow-wrap: anywhere; }
+.quotes .quote-table > li.in-table > a { font-weight: 700; font-size: var(--text-body); }
+.quotes .quote-table > li.in-table .amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.quotes .quote-table > li.in-table small, .quotes .quote-table > li.in-table .muted { color: var(--muted); }
+.quotes .quote-table > li.in-table > :last-child { justify-self: end; }
+
+/* A desk: + Quote is a pointer's size, smaller than a thumb's (finding 16). */
+@media (pointer: fine) { .plan .timeline .day-quote { min-height: 32px; } }
+/* The planner's moves, rows and Filter on one row at a desk (finding 16). */
+@media (min-width: 900px) {
+  .plan .plan-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--ds-space-3); }
+  .plan .plan-controls > .plan-bar { flex: 0 1 30rem; }
+  .plan .plan-controls > .list-tools { flex: 1 1 20rem; }
+}
+/* The week as a list of its days (finding 16). */
+.plan .days-list { display: grid; gap: 0; }
+.plan .days-list .day { padding: var(--ds-space-3) 0; border-top: 1px solid var(--line); }
+.plan .days-list .day:first-of-type { border-top: 0; padding-top: 0; }
+.plan .days-list .day-head { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); }
+.plan .days-list h3 { margin: 0; font-size: var(--text-body); }
+.plan .days-list h3 small { color: var(--muted); font-weight: 600; font-size: var(--text-small); }
+.plan .days-list .today h3 { color: var(--accent-ink); }
+.plan .days-list .day-quote { color: var(--accent-ink); min-height: 44px; padding: 0 var(--ds-space-2); border: 0; background: transparent; font-weight: 600; font-size: var(--text-small); }
+.plan .days-list ul { display: grid; gap: var(--ds-space-2); margin: var(--ds-space-2) 0 0; padding: 0; list-style: none; }
+.plan .days-list li.blk { padding: 0; }
+.plan .days-list li.blk > a { display: grid; gap: 2px; padding: var(--ds-space-2) var(--ds-space-3); color: inherit; text-decoration: none; }
+.plan .days-list li.blk small { font-size: var(--text-small); }
+.plan .days-list .hint { margin: var(--ds-space-1) 0 0; }

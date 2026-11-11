@@ -156,11 +156,17 @@ export function JobsScreen() {
   return <JobList view={view} />
 }
 
+/**
+ * At a desk the list has the page's whole width, as a table: a job a line, its dates, client, venue, where it stands and its crew in
+ * columns, sorted by a column's head (review of 11 November 2026, finding 14). New job's form opens over it when asked for.
+ */
 function JobsBeside({ view }: { view: View }) {
   return (
-    <Beside view={view} className="crew jobs" views={<JobViews />} heading="Jobs" add={useJobAdd()} lead={<JobSearch />} list={<JobsCard view={view} />}>
+    <div className="app crew jobs jobs-wide">
+      <Top view={view} views={<JobViews />} heading="Jobs" add={useJobAdd()} lead={<JobSearch />} />
       <JobsRest view={view} />
-    </Beside>
+      <JobsCard view={view} table />
+    </div>
   )
 }
 
@@ -467,13 +473,13 @@ function jobLens(jobs: readonly JobView[], view: View, me: string | undefined) {
 }
 
 /** Every job, searched and filtered, by week. */
-function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
+function JobsCard({ view, phone = false, table = false }: { view: View; phone?: boolean; table?: boolean }) {
   const { jobs } = view.jobs
   const [filter, setFilter] = useState<Filter>('coming')
   const [search] = useJobSearch()
   const [all, setAll] = useState(showingAll)
   const mayAdd = useAccess().can('jobs')
-  const card = useUnderTop(phone)
+  const card = useUnderTop(phone || table)
   const day = useToday()
   // The departments picked (ADR 0137), as on the calendar, the planner and the Board.
   const { picked, setPicked, involves } = useJobDepartments(view)
@@ -537,7 +543,7 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
     const total = words.length ? jobs.filter(matches).length : jobs.length
     return { rows, shownCount: shown.length, listedCount: listedJobs.length, searched, byDepartment, total }
   }, [jobs, day, filter, search, all, filters, sorts, choices, view.steps, view.kit.byJob, involves, picked])
-  const win = useWindowed('jobs', rows, rowKey, 110)
+  const win = useWindowed(table ? 'jobs-table' : 'jobs', rows, rowKey, table ? 56 : 110)
 
   // When, the departments and Mine are in the filter panel as pills (Colly, 10 November 2026), with the list's other filters, rather
   // than three rows between the search and the jobs. Each one on away from the list's start shows as a chip under Filter, as every
@@ -592,11 +598,12 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
       {searched.length === 0 && picked.length === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}
       {shownCount > 0 && listedCount === 0 && <p className="hint">Nothing in the next fortnight.</p>}
       {/* A long list (audit finding 11, ADR 0050): only the rows near the screen are drawn, and Back finds its place by them (places.ts). */}
-      <ul className="job-list windowed" ref={win.list} style={win.style}>
+      {table && listedCount > 0 && <TableHead sorts={sorts} sort={sortOf(sorts, choices.sort)?.key} onSort={(sort) => setChoices({ ...choices, sort })} />}
+      <ul className={`job-list windowed${table ? ' job-table' : ''}`} ref={win.list} style={win.style}>
         {win.rows.map((r) =>
           'job' in r ? (
             <li key={r.job.id} ref={win.row(r.job.id)} data-place={r.job.id} aria-setsize={listedCount} aria-posinset={r.n + 1}>
-              <JobRow job={r.job} kit={view.kit.byJob.get(r.job.id)} view={view} current={false} />
+              <JobRow job={r.job} kit={view.kit.byJob.get(r.job.id)} view={view} current={false} table={table} />
             </li>
           ) : (
             <li key={rowKey(r)} ref={win.row(rowKey(r))} data-place={rowKey(r)} className="week-head">
@@ -621,12 +628,37 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   )
 }
 
+/** The table's heads at a desk: those with an order of their own sort by it, the one sorting by marked. */
+const TABLE_COLUMNS: [string, string | undefined][] = [
+  ['Job', 'name'],
+  ['When', 'date'],
+  ['Client', 'client'],
+  ['Venue', undefined],
+  ['Where it stands', undefined],
+  ['Crew', 'crew'],
+]
+function TableHead({ sorts, sort, onSort }: { sorts: readonly { key: string }[]; sort: string | undefined; onSort: (key: string) => void }) {
+  return (
+    <div className="job-table-head" role="group" aria-label="Sort by a column">
+      {TABLE_COLUMNS.map(([label, key]) =>
+        key && sorts.some((x) => x.key === key) ? (
+          <button key={label} type="button" aria-pressed={sort === key} onClick={() => onSort(key)}>
+            {label}
+          </button>
+        ) : (
+          <span key={label}>{label}</span>
+        )
+      )}
+    </div>
+  )
+}
+
 /** A job in the next fortnight with neither is worth a prompt; on every other row the empty line is noise (audit of 16 October, finding 8). */
 const PROMPT_DAYS = 14
 
 const sameWord = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonly KitLineView[] | undefined; view: View; current: boolean }) {
+export function JobRow({ job, kit, view, current, table = false }: { job: JobView; kit: readonly KitLineView[] | undefined; view: View; current: boolean; table?: boolean }) {
   const crew = crewFill(job.calls)
   // A sale's kit would only be short if it went ahead, which its position (the quote's) doesn't say: the flag stays for it.
   const short = job.status !== 'confirmed' ? kitShort(kit) : undefined
@@ -638,6 +670,34 @@ export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonl
   const steps = view.steps.of(job.id)
   const crewHint = steps?.steps.find((s) => s.key === 'crew')?.hint
   const crewSaid = hasSteps(job) && !!crewHint && !!steps?.stage?.hint?.includes(crewHint)
+  const kindWords = kindOf(job) !== 'gig' && !sameWord(KIND_LABELS[kindOf(job)], phaseNames(job.phases)) ? `${KIND_LABELS[kindOf(job)]} · ` : ''
+  if (table)
+    return (
+      <a className="job-row in-table" href={`#jobs/${job.id}`} aria-current={current ? 'page' : undefined}>
+        <span className="c-name">
+          <b>{job.name}</b>
+          {(kindWords || job.phases.length > 0) && <small>{`${kindWords}${phaseNames(job.phases)}`.replace(/ · $/, '')}</small>}
+        </span>
+        <span className="c-when">{job.span ? spanLabel(job.span) : <span className="muted">No dates yet</span>}</span>
+        {/* An errand or a meeting never has a client to name, so its cells stay empty rather than saying "None" (finding 5). */}
+        <span className="c-client">{job.client?.name ?? (hasSteps(job) && <span className="muted">None yet</span>)}</span>
+        <span className="c-venue">{job.venue?.name ?? (hasSteps(job) && <span className="muted">None yet</span>)}</span>
+        <span className="c-where">
+          {hasSteps(job) && job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
+          {short && <small className={`flag ${short}`}>Kit short</small>}
+        </span>
+        <span className="c-crew">
+          {crew.needed > 0 ? (
+            <>
+              {crew.booked} of {crew.needed}
+              {crew.toConfirm > 0 && <small>{crew.toConfirm} to confirm</small>}
+            </>
+          ) : (
+            <span className="muted">None asked</span>
+          )}
+        </span>
+      </a>
+    )
   return (
     <a className="job-row" href={`#jobs/${job.id}`} aria-current={current ? 'page' : undefined}>
       <div>

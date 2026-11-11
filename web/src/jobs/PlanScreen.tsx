@@ -33,7 +33,7 @@ import { useMoreEdges } from '../more.tsx'
 import { useAccess } from '../role.ts'
 import { StatusPill, WAITING_TO_SYNC } from '../StatusPill.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
-import { useToday } from '../view.ts'
+import { useToday, useWide } from '../view.ts'
 import { Top, useJobAdd } from './common.tsx'
 import { ViewFilter } from '../ListTools.tsx'
 import { QuickQuote, type QuickAt } from './QuickQuote.tsx'
@@ -50,7 +50,7 @@ import { vehicleHref } from '../stock/Vehicles.tsx'
  */
 
 type Scale = 'week' | 'month'
-type Rows = 'jobs' | 'people' | 'vans'
+type Rows = 'jobs' | 'people' | 'vans' | 'days'
 interface Place {
   scale: Scale
   day: string
@@ -60,7 +60,9 @@ interface Place {
 /** What the address says is on screen: #jobs/plan/week/2026-10-05, or #jobs/plan/month/2026-10-01/people, or …/vans. */
 function placeOf(hash: string, now: string): Place {
   const [, , scale, day, rows] = hash.split('/')
-  return { scale: scale === 'month' ? 'month' : 'week', day: day && isDay(day) ? day : now, rows: rows === 'people' || rows === 'vans' ? rows : 'jobs' }
+  const s: Scale = scale === 'month' ? 'month' : 'week'
+  // Days is a week's way of drawing (review of 11 November 2026, finding 16): a month asked for by days is drawn by jobs.
+  return { scale: s, day: day && isDay(day) ? day : now, rows: rows === 'people' || rows === 'vans' || (rows === 'days' && s === 'week') ? rows : 'jobs' }
 }
 
 function hashOf(p: Place): string {
@@ -80,7 +82,9 @@ export function JobViews({ place, current }: { place?: Place; current?: 'board' 
   const money = useAccess().can('money')
   const days = place && daysOf(place.scale, place.day)
   const day = days && !days.includes(now) ? days[0]! : now
-  const rows = place?.rows ?? 'jobs'
+  // On a phone Week opens as a list of its days (review of 11 November 2026, finding 16); the grid is a press away on Jobs.
+  const wide = useWide()
+  const rows = place?.rows ?? (wide ? 'jobs' : 'days')
   return (
     <Views
       label="Jobs pages"
@@ -91,7 +95,7 @@ export function JobViews({ place, current }: { place?: Place; current?: 'board' 
         // Everything on and everything that might be, a month at a time (ADR 0124).
         { key: 'calendar', href: calendarHref({ month: place ? place.day : now }), label: 'Calendar' },
         { key: 'week', href: hashOf({ scale: 'week', day, rows }), label: 'Week' },
-        { key: 'month', href: hashOf({ scale: 'month', day, rows }), label: 'Month' },
+        { key: 'month', href: hashOf({ scale: 'month', day, rows: rows === 'days' ? 'jobs' : rows }), label: 'Month' },
         { key: 'clients', href: '#jobs/clients', label: 'Clients' },
         { key: 'venues', href: '#jobs/venues', label: 'Venues' },
         ...(money ? [{ key: 'money', href: '#jobs/money', label: 'Money' }] : []),
@@ -127,17 +131,18 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   const title = scale === 'week' ? `${spanLabel({ start: days[0]!, end: days.at(-1)! })} ${days.at(-1)!.slice(0, 4)}` : monthLabel(day)
   const busy = p.people.filter((l) => Object.keys(l.days).length > 0)
   const people = everyone ? p.people : busy
-  const lanes = rows === 'jobs' ? p.jobs.length : rows === 'people' ? people.length : p.vans.length
+  const lanes = rows === 'jobs' || rows === 'days' ? p.jobs.length : rows === 'people' ? people.length : p.vans.length
   const rowWord = rows === 'jobs' ? 'job' : rows === 'people' ? 'person' : 'vehicle'
   // A quote can start from a day of the week (ADR 0120), for those who make quotes, on the jobs' rows where the work is: a card
   // opens on the day, as a calendar makes an event, and the day stays in view behind it (ADR 0124).
-  const quoting = useAccess().can('money') && rows === 'jobs'
+  const quoting = useAccess().can('money') && (rows === 'jobs' || rows === 'days')
   const [quick, setQuick] = useState<QuickAt>()
 
   // On a phone the days start at today, so the day that matters most is in view: when the days change, and once there is something to show.
   const scroller = useRef<HTMLDivElement>(null)
   // The days stay along the top of a long month: the timeline scrolls inside a frame that ends at the foot of the screen, under the bar.
-  const card = useUnderTop<HTMLElement>(true)
+  // Again when the grid comes back from the list of days, so its days row finds the bar's foot.
+  const card = useUnderTop<HTMLElement>(rows !== 'days')
   const shown = lanes > 0
   useEffect(() => {
     const el = scroller.current
@@ -214,6 +219,12 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   // What the rows are: a choice of how to draw the days, not a filter, so it stays on the page, with Filter at its right while the rows are jobs.
   const rowsGroup = (
     <div className="filters" role="group" aria-label="Rows">
+      {/* The week as a list of its days, the phone's first way (review of 11 November 2026, finding 16). */}
+      {scale === 'week' && (
+        <button type="button" aria-pressed={rows === 'days'} onClick={toggle('days')}>
+          Days
+        </button>
+      )}
       <button type="button" aria-pressed={rows === 'jobs'} onClick={toggle('jobs')}>
         Jobs
       </button>
@@ -234,6 +245,8 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
       {/* The days shown are the page's name (ADR 0082), what's on them the line under it; moving and what the rows are sit together under that. */}
       <Top view={view} views={<JobViews place={place} />} heading={title} add={useJobAdd(true)} sub={<p>{summary(p, scale)}</p>} />
 
+      {/* At a desk the moves and the rows' choice and Filter share one row, so the days start higher (finding 16). */}
+      <div className="plan-controls">
       <div className="plan-bar">
         <div className="steps">
           <a className="button" href={at({ day: step(-1) })} aria-label={`Previous ${scale}`}>
@@ -254,13 +267,17 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
         name="plan"
         what="jobs"
         start={rowsGroup}
-        pills={rows === 'jobs' ? <DepartmentFilter pills picked={picked} onChange={setPicked} /> : undefined}
-        active={rows === 'jobs' ? departmentChips(picked, setPicked) : []}
+        pills={rows === 'jobs' || rows === 'days' ? <DepartmentFilter pills picked={picked} onChange={setPicked} /> : undefined}
+        active={rows === 'jobs' || rows === 'days' ? departmentChips(picked, setPicked) : []}
         onClear={() => setPicked([])}
       />
+      </div>
 
       <SortOut problems={p.problems} vanProblems={p.vanProblems} short={shortSoon(view.crew, now)} />
 
+      {rows === 'days' ? (
+        <DaysList days={days} now={now} p={p} picked={picked.length > 0} quoting={quoting} onQuote={(d, anchor) => setQuick({ day: d, anchor })} />
+      ) : (
       <section className="card timeline-card" ref={card}>
         {lanes === 0 && (
           <p className="empty">
@@ -354,8 +371,67 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
         )}
         <Legend rows={rows} />
       </section>
+      )}
       {quick && <QuickQuote view={view} at={quick} onClose={() => setQuick(undefined)} />}
     </div>
+  )
+}
+
+/**
+ * The week as a list of its days (review of 11 November 2026, finding 16): on a phone the grid shows two days at a time, mostly
+ * empty squares; this is every day under the next, each with what's on it, as the Calendar's day list is. A job's day opens the job,
+ * or its crew when it's short, as its block in the grid does. + Quote is a thumb's size here.
+ */
+function DaysList({ days, now, p, picked, quoting, onQuote }: { days: readonly string[]; now: string; p: Plan; picked: boolean; quoting: boolean; onQuote: (day: string, anchor: HTMLElement) => void }) {
+  return (
+    <section className="card days-list" aria-label="The week, day by day">
+      {p.jobs.length === 0 && <p className="empty">{picked ? 'Nothing on this week with the departments picked.' : 'Nothing on this week.'}</p>}
+      {days.map((d) => {
+        const on = p.jobs.filter((lane) => lane.days[d])
+        return (
+          <div key={d} className={`day${d === now ? ' today' : ''}`} aria-current={d === now ? 'date' : undefined}>
+            <div className="day-head">
+              <h3>
+                {dayLabel(d)}
+                {d === now && <small> · Today</small>}
+                {p.holidays[d] && <small> · {p.holidays[d]}</small>}
+              </h3>
+              {quoting && d >= now && (
+                <button type="button" className="day-quote" aria-label={`New quote starting ${dayLabel(d)}`} aria-haspopup="dialog" onClick={(e) => onQuote(d, e.currentTarget)}>
+                  + Quote
+                </button>
+              )}
+            </div>
+            {on.length === 0 ? (
+              <p className="hint">Nothing on.</p>
+            ) : (
+              <ul className="plain">
+                {on.map((lane) => {
+                  const cell = lane.days[d]!
+                  const phases = cell.phases.map((x) => x.label).join(', ') || (cell.stray ? 'No phase this day' : '')
+                  const crew = cell.needed > 0 ? `${cell.booked} of ${cell.needed} crew${cell.asked ? `, ${cell.asked} asked` : ''}` : ''
+                  const href = lane.jobId ? `#jobs/${lane.jobId}${tone(cell) === 'short' ? '/crew' : ''}` : '#crew'
+                  return (
+                    <li key={lane.key} className={['blk', lane.tentative ? 'dashed' : 'solid', tone(cell), cell.stray && 'stray'].filter(Boolean).join(' ')}>
+                      <a href={href}>
+                        <b>{lane.name}</b>
+                        <small>{[phases, crew, lane.tentative && lane.status ? STATUS_LABELS[lane.status] : '', lane.pending ? WAITING_TO_SYNC : ''].filter(Boolean).join(' · ')}</small>
+                        {cell.late?.map((l) => (
+                          <small key={l} className="late">
+                            {l}
+                          </small>
+                        ))}
+                        {cell.vans?.length ? <small>Vehicles: {cell.vans.join(', ')}</small> : null}
+                      </a>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )
+      })}
+    </section>
   )
 }
 
