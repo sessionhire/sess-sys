@@ -25,10 +25,12 @@ async function board(page: Page) {
 
 test('the office puts a column of the Board in order, and can put it back by date', async ({ browser, request }) => {
   const tag = Date.now().toString(36)
+  // A year of its own, so cards from other runs on the shared server don't sit between these three.
+  const year = 2040 + Math.floor(Math.random() * 400)
   const jobs = [
-    ['Alpha', '2031-03-02'],
-    ['Bravo', '2031-02-02'],
-    ['Charlie', '2031-01-05'],
+    ['Alpha', `${year}-03-04`],
+    ['Bravo', `${year}-03-03`],
+    ['Charlie', `${year}-03-02`],
   ] as const
   const res = await request.post('/api/sync/push', {
     data: {
@@ -67,7 +69,7 @@ test('the office puts a column of the Board in order, and can put it back by dat
 
   // Dragged by its Move button: a line shows where it lands, and nothing moves until it's let go.
   const box = async (l: Locator) => (await l.boundingBox())!
-  await quoting.locator('.board-item', { hasText: `Alpha ${tag}` }).scrollIntoViewIfNeeded()
+  await quoting.locator('.board-item', { hasText: `Bravo ${tag}` }).scrollIntoViewIfNeeded()
   const from = await box(grip('Bravo'))
   const target = await box(quoting.locator('.board-item', { hasText: `Alpha ${tag}` }))
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
@@ -90,7 +92,24 @@ test('the office puts a column of the Board in order, and can put it back by dat
   await quoting.getByRole('button', { name: 'Back to date order' }).click()
   await expect.poll(() => mine(quoting, tag)).toEqual(['Charlie', 'Bravo', 'Alpha'])
   await expect(quoting.getByRole('button', { name: 'Back to date order' })).toHaveCount(0)
+
+  // Dragged by the card itself, as on any kanban board (Colly, 11 November 2026); a click on a card still opens the job.
+  await quoting.locator('.board-item', { hasText: `Bravo ${tag}` }).evaluate((e) => e.scrollIntoView({ block: 'center', behavior: 'instant' }))
+  const alpha = await box(quoting.locator('.board-card', { hasText: `Alpha ${tag}` }))
+  const charlie = await box(quoting.locator('.board-item', { hasText: `Charlie ${tag}` }))
+  await page.mouse.move(alpha.x + 30, alpha.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(alpha.x + 30, charlie.y + 8, { steps: 10 })
+  await expect(quoting.locator('.board-item[data-drop="before"]', { hasText: `Charlie ${tag}` })).toHaveCount(1)
+  await page.mouse.up()
+  await expect(page).toHaveURL(/#jobs\/board$/)
+  await expect.poll(() => mine(quoting, tag)).toEqual(['Alpha', 'Charlie', 'Bravo'])
   await expect(page.locator('.conn')).toHaveText('Up to date')
+  // Put back by date, as the other Board tests share the column; then a click on a card still opens its job.
+  await quoting.getByRole('button', { name: 'Back to date order' }).click()
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+  await quoting.locator('.board-card', { hasText: `Bravo ${tag}` }).click()
+  await expect(page).toHaveURL(new RegExp(`#jobs/o-${tag}-1`))
 })
 
 test('a Planning card says its crew and its kit with a dot each', async ({ browser, request }) => {

@@ -194,6 +194,10 @@
 .board-item[data-dragging='true'] .board-card { background-image: linear-gradient(var(--ds-wash-dragged), var(--ds-wash-dragged)); box-shadow: var(--ds-elevation-menu); }
 .board-cards[data-holding] .board-item[data-dragging='true'] .board-card { outline: 2px solid var(--accent); outline-offset: 1px; }
 .board-item[data-dragging='true'] .board-grip { cursor: grabbing; }
+/* The card itself drags (Colly, 11 November 2026): a finger held on it picks it up rather than selecting its words or opening the
+   link's menu. */
+.board-cards[data-orderable] .board-item { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.board-cards[data-orderable] .board-item[data-dragging='true'] { cursor: grabbing; }
 /* While one is held, every other card is a place to put it. */
 .board-cards[data-holding] .board-item:not([data-dragging]) .board-card { cursor: copy; border-style: dashed; border-color: var(--field-line); }
 /* A card with who has its stage is drawn by its box (ADR 0144), so the box takes the held and drop-target looks. */

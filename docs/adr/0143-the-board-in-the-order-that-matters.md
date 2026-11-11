@@ -70,3 +70,24 @@ the one thing on the Board a person sets.
   tie goes by date.
 - The dots are drawn only in Planning, where crew and kit are the work. Other
   columns keep their sentence.
+
+## Addendum, 11 November 2026: the card itself drags
+
+Colly asked for drag to reorder on the Board. It was there, but only the small
+arrows button took the drag, so it read as missing. Now the whole card drags, as
+on any kanban board:
+
+- **Mouse or pen:** press on the card and move it 6px; a click that goes nowhere
+  still opens the job, and the click after a drag doesn't.
+- **Finger:** hold the card still for a moment (380ms; the phone gives a short
+  buzz where it can) and it lifts; a finger that moves first is a scroll, so the
+  page still scrolls by its cards. Once lifted, the page stays put under it.
+  The arrows button still drags at once, as before.
+- **Long columns:** taken towards the top or bottom of the screen, the page
+  scrolls with the card.
+- **Never a drag:** the stage owner's choice on the card (ADR 0144). The link's
+  own long-press menu and the browser's native link drag are kept off while a
+  column can be ordered.
+- The line under the Board says so: drag a card up or down its column, and on a
+  phone hold it a moment first. The arrows button, the keys and press-then-press
+  are unchanged.
