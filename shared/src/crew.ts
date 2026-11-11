@@ -529,6 +529,17 @@ export function offerMessage(p: Addressee, c: CrewCall, link: string): string {
 
 /** The name the offer's template is approved under in Meta's WhatsApp Manager (ADR 0125); its words are in docs/whatsapp-setup.md. */
 export const WHATSAPP_OFFER_TEMPLATE = 'job_offer'
+/** The follow-up when a job they were asked for on hold is confirmed, some time after (ADR 0125, HOLD). */
+export const WHATSAPP_CONFIRMED_TEMPLATE = 'job_confirmed'
+/** The word when a job they were asked for or booked on is cancelled or lost (ADR 0125, HOLD). */
+export const WHATSAPP_CANCELLED_TEMPLATE = 'job_cancelled'
+/**
+ * A job confirmed this soon after its HOLD offer went on WhatsApp gets no follow-up there: the offer is still fresh, and
+ * the calendar invite losing its HOLD says it anyway. Later than this, they're told it's confirmed (Colly, 11 Nov 2026).
+ */
+export const HOLD_FOLLOW_UP_MS = 60 * 60_000
+/** A job the client hasn't said yes to yet: crew asked for it are asked on hold, and their messages say HOLD. */
+export const jobOnHold = (status: string | undefined) => status === 'enquiry' || status === 'quoted'
 
 /** Where an offer's WhatsApp message has got to, in a few words for the offer's row (ADR 0125). */
 export function whatsappWords(w: NonNullable<Offer['whatsapp']>): string {
@@ -540,12 +551,13 @@ export function whatsappWords(w: NonNullable<Offer['whatsapp']>): string {
  * the job, the role (with any card it needs), the days, the call time, the venue, the rate and the day to answer by.
  * Meta takes no blank empty and none with a line break in it, so a fact not set yet says so in words.
  */
-export function offerTemplateValues(p: Addressee, c: CrewCall): string[] {
+export function offerTemplateValues(p: Addressee, c: CrewCall, hold = false): string[] {
   const one = (s: string) => s.replace(/\s+/g, ' ').trim()
   const needs = needsOf(c).length ? ` (needs ${needsLabel(needsOf(c))})` : ''
   return [
     firstName(p),
-    `${c.project}${c.phase ? ` (${c.phase})` : ''}`,
+    // Before the client says yes, the job leads with HOLD, as its days do on the calendar (ADR 0008).
+    `${hold ? 'HOLD ' : ''}${jobWords(c)}`,
     `${c.role}${needs}`,
     daysLabel(eachDay(c.start, c.end)),
     c.callTime || 'to be confirmed',
@@ -553,6 +565,17 @@ export function offerTemplateValues(p: Addressee, c: CrewCall): string[] {
     p.kind === 'staff' ? 'as a member of staff' : rateLine(c),
     c.replyBy ? dayLabel(c.replyBy) : 'as soon as you can',
   ].map(one)
+}
+
+const jobWords = (c: Pick<CrewCall, 'project' | 'phase'>) => `${c.project}${c.phase ? ` (${c.phase})` : ''}`
+
+/**
+ * The blanks in the confirmed and cancelled templates (ADR 0125, HOLD): their first name, the job, and the days they
+ * were asked for, in one line each, as Meta wants them.
+ */
+export function followUpTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'start' | 'end'>, days: readonly string[]): string[] {
+  const one = (s: string) => s.replace(/\s+/g, ' ').trim()
+  return [firstName(p), jobWords(c), daysLabel(days.length ? [...days] : eachDay(c.start, c.end))].map(one)
 }
 
 /** wa.me wants digits only, with the country code. Irish mobiles written 08x become +3538x. */
