@@ -329,3 +329,62 @@ test('kit never scanned out after a job is still to check back in, said the same
   await expect(card.locator('.board-line')).toHaveAttribute('data-tone', 'warn')
   await expect(back.locator('header small')).toHaveText(/^\d+ · [1-9]\d* late/)
 })
+
+test('kit more than a month overdue folds away under Long overdue, and is settled in one press', async ({ browser, request }) => {
+  // Proves (review of 11 November 2026, finding 10): a job that ended more than a month ago with kit not back leaves the Board's Back
+  // column for a Long overdue fold under it, and on Stock's Pick lists it's folded under Long overdue, where It's all back scans
+  // back what's out and ticks Back in, and Mark missing puts what's out on Repairs. Each asks first.
+  const id = Date.now().toString(36)
+  const fair = `Lough Fair ${id}`
+  const show = `Tallaght Show ${id}`
+  const today = new Date(`${new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' })}T12:00:00Z`)
+  const ago = (n: number) => new Date(today.getTime() - n * 86_400_000).toISOString().slice(0, 10)
+  await push(request, id, [
+    ['model.create', { id: `lx-${id}`, name: `Lough cable ${id}`, department: 'audio', category: 'Cable', tracking: 'bulk', isCase: false, valueCents: null, notes: '' }],
+    ['project.create', { id: `l-${id}`, name: fair, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `lp-${id}`, projectId: `l-${id}`, name: 'Show', start: ago(45), end: ago(45), venueId: null, notes: '' }],
+    ['kit.add', { id: `lk-${id}`, projectId: `l-${id}`, phaseId: null, modelId: `lx-${id}`, qty: 5, subhireQty: 0, supplier: '', notes: '' }],
+    ['project.create', { id: `t-${id}`, name: show, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `tp-${id}`, projectId: `t-${id}`, name: 'Show', start: ago(40), end: ago(40), venueId: null, notes: '' }],
+    ['kit.add', { id: `tk-${id}`, projectId: `t-${id}`, phaseId: null, modelId: `lx-${id}`, qty: 3, subhireQty: 0, supplier: '', notes: '' }],
+    ['move.record', { id: `tm-${id}`, projectId: `t-${id}`, direction: 'out', assetId: null, modelId: `lx-${id}`, qty: 3, at: `${ago(41)}T09:00:00.000Z` }],
+  ])
+
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  // On the Board: not a card in Back, but under its Long overdue fold.
+  await page.goto('/#jobs/board')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  const back = page.getByRole('region', { name: 'Back' })
+  await expect(back.locator('> .board-card, .ordered .board-card', { hasText: fair })).toHaveCount(0)
+  const fold = back.locator('details', { hasText: 'Long overdue' })
+  await fold.locator('summary').click()
+  await expect(fold.locator('.board-card', { hasText: fair })).toBeVisible()
+
+  // On Stock, under Pick lists.
+  await page.goto('/#stock')
+  const lists = page.getByRole('region', { name: 'Pick lists' })
+  const long = lists.locator('details.long-overdue')
+  await expect(long.locator('summary')).toContainText(/^Long overdue \(\d+\)$/)
+  await long.locator('summary').click()
+  const fairRow = long.locator('.long-overdue-row', { hasText: fair })
+  await expect(fairRow).toContainText("5 never scanned out: check they're back · ended 45 days ago")
+  // Never scanned out: nothing went out by the scans to call missing.
+  await expect(fairRow.getByRole('button', { name: `Mark missing: ${fair}` })).toHaveCount(0)
+  await fairRow.getByRole('button', { name: `It's all back: ${fair}` }).click()
+  await expect(fairRow.getByRole('group')).toContainText(`Mark the 5 things on its pick list as back from ${fair}, and its Back in done?`)
+  await fairRow.getByRole('button', { name: "Yes, it's all back" }).click()
+  await expect(fairRow.getByRole('status')).toHaveText(`${fair}: all back.`)
+
+  const showRow = long.locator('.long-overdue-row', { hasText: show })
+  await expect(showRow).toContainText('3 of 3 not scanned back · ended 40 days ago')
+  await showRow.getByRole('button', { name: `Mark missing: ${show}` }).click()
+  await showRow.getByRole('button', { name: 'Mark missing', exact: true }).click()
+  await expect(showRow.getByRole('status')).toHaveText(`${show}: what was still out is marked missing, on Repairs.`)
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+
+  // Settled, both leave the list.
+  await page.reload()
+  await expect(page.getByRole('status').first()).toHaveText('Up to date')
+  await expect(page.locator('.job-row', { hasText: fair })).toHaveCount(0)
+  await expect(page.locator('.job-row', { hasText: show })).toHaveCount(0)
+})

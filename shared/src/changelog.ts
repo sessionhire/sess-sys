@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.157.0',
+    date: '2026-11-11',
+    title: 'One search for everything',
+    what: "A magnifier beside the bell at the top of every screen opens Search: type a name and it finds the jobs, clients, venues, people and products that match, all on one page, and quotes by their number for those who see money. Type a label's number to find that piece of kit. Each result opens its page, and Back comes back to the results. At a desk the / key opens it; F now finds on the page you're on.",
+    prs: [0],
+    adrs: [146],
+  },
+  {
     version: '1.156.0',
     date: '2026-11-11',
     title: 'Kit long overdue back is folded away, and settled in one press',

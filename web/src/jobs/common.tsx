@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { NameField } from '../NameField.tsx'
 import { useSeenAs } from '../home/Preview.tsx'
 import { useNotDone } from '../problems.tsx'
-import { NoticesButton } from '../NoticesButton.tsx'
+import { NoticesButton, SearchButton } from '../NoticesButton.tsx'
 import { OnThisScreen } from '../OnThisScreen.tsx'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
@@ -145,6 +145,7 @@ export function Top({
           <span className={`conn ${view.connection === 'offline' ? 'offline' : waiting || view.copying ? 'syncing' : 'online'}`} role="status">
             {connWords(view)}
           </span>
+          <SearchButton />
           <NoticesButton view={view} />
           <ThemeButton />
         </div>
