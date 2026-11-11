@@ -19,7 +19,7 @@ test('New quote finds clients, venues and who asked as they are typed, and keeps
   await expect(office.getByRole('status')).toHaveText('Up to date')
   const quotes = office.getByRole('region', { name: 'To follow up' })
 
-  await quotes.getByRole('link', { name: 'New quote' }).click()
+  await quotes.page().locator('.page-add', { hasText: 'New quote' }).click()
   let form = quotes.page().getByRole('form', { name: 'New quote' })
   await form.getByLabel("What's the job?").fill('Spring launch')
 
@@ -74,7 +74,7 @@ test('New quote finds clients, venues and who asked as they are typed, and keeps
 
   // The next quote for Liffey Brands offers Orla too.
   await office.goto('/#quotes')
-  await quotes.getByRole('link', { name: 'New quote' }).click()
+  await quotes.page().locator('.page-add', { hasText: 'New quote' }).click()
   form = quotes.page().getByRole('form', { name: 'New quote' })
   await form.getByRole('combobox', { name: 'Client' }).fill('Liffey Brands')
   await form.getByText('More about the enquiry').click()
@@ -90,7 +90,7 @@ test('the start of a client left in the field is that client, said so with a way
   await office.goto('/#quotes')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   const quotes = office.getByRole('region', { name: 'To follow up' })
-  await quotes.getByRole('link', { name: 'New quote' }).click()
+  await quotes.page().locator('.page-add', { hasText: 'New quote' }).click()
   const form = quotes.page().getByRole('form', { name: 'New quote' })
   const clientBox = form.getByRole('combobox', { name: 'Client' })
   const found = form.getByRole('listbox', { name: 'Found' })

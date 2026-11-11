@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.154.0',
+    date: '2026-11-11',
+    title: 'Quotes and Money laid out like the other lists',
+    what: "Quotes now opens as Jobs does: New quote beside the title, the search under it, then views (To follow up, Not sent, Sent, Accepted, Turned down, All) and Sort and Filter, and the search holds as you move between them. Money is in four parts along the top, This month, Owed, Margins and For the accountant, so each is a screen or two on a phone rather than one long page. What's accepted and unpaid now shows under Owed whether or not timesheets are on.",
+    prs: [0],
+  },
+  {
     version: '1.153.0',
     date: '2026-11-11',
     title: 'Offer a call to several people in one press',

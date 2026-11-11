@@ -293,6 +293,8 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // a client with its quotes folded under it (finding 31); freelancers to pay, and the accountant's file.
   await office.goto('/#jobs/money')
   await expect(office.locator('.money-facts')).toContainText(/Accepted, unpaid€[\d,.]+with VAT, of which €[\d,.]+ not invoiced yet/)
+  // Owed, margins and the accountant's file are parts of their own (review of 11 November 2026, finding 20).
+  await office.getByRole('tab', { name: 'Owed' }).click()
   const owed = office.getByRole('region', { name: 'Accepted, unpaid' })
   await expect(owed).toContainText('Shannonside Festivals')
   await expect(owed).toContainText('Brightwater Conferences')
@@ -302,13 +304,16 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await invoiced.getByText('Liffey Brands', { exact: true }).click()
   await expect(invoiced).toContainText('Version 2 · €1,680.89 with VAT · invoiced')
   await expect(invoiced.getByRole('link', { name: 'Liffey Brands Launch' })).toBeVisible()
+  await office.getByRole('tab', { name: 'Margins' }).click()
   await expect(office.getByRole('region', { name: 'Margin by job' })).toContainText('Liffey Brands Launch')
 
+  await office.getByRole('tab', { name: 'Owed' }).click()
   const freelancers = office.getByRole('region', { name: 'Owed to freelancers' })
   await expect(freelancers).toContainText('Tadhg Brady')
   await freelancers.getByRole('button', { name: /^Mark Tadhg Brady paid/ }).click()
   await expect(freelancers.getByRole('group', { name: 'Paid lately' })).toContainText('Tadhg Brady')
 
+  await office.getByRole('tab', { name: 'For the accountant' }).click()
   const accountant = office.getByRole('region', { name: 'For the accountant' })
   await accountant.getByLabel('Period').selectOption({ index: 0 })
   const downloading = office.waitForEvent('download')
@@ -320,7 +325,8 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   expect(csv).toMatch(/\d{4}-\d{2}-\d{2},SH-1050,Liffey Brands,Liffey Brands Launch,2,23%,1242\.00,285\.66,1527\.66,\r\n/)
   expect(csv).toContain(',SH-1050,Liffey Brands,Liffey Brands Launch,2,13.5%,135.00,18.23,153.23,')
 
-  // The price list it was built from.
+  // The price list it was built from, linked from Money's first part.
+  await office.getByRole('tab', { name: 'This month' }).click()
   await office.getByRole('link', { name: 'Price list' }).click()
   const kit = office.getByRole('region', { name: 'Kit' })
   await kit.getByLabel('Robe Spiider: price a day').fill('60')

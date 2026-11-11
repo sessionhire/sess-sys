@@ -46,7 +46,7 @@ test('a dry hire is quoted without venue or travel, for who asked, under the off
   await office.addInitScript(() => void (window.print = () => undefined))
   await ready(office, '#quotes')
   const quotes = office.getByRole('region', { name: 'To follow up' })
-  await quotes.getByRole('link', { name: 'New quote' }).click()
+  await quotes.page().locator('.page-add', { hasText: 'New quote' }).click()
   const form = quotes.page().getByRole('form', { name: 'New quote' })
 
   // A dry hire: no venue to ask for, and the days are when it's collected and brought back.

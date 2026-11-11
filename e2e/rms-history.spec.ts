@@ -122,7 +122,7 @@ test('the quotes from Current RMS are kept under the app’s own on Quotes, foun
     const opportunities = went === 'ahead' ? all.slice(0, 1) : all
     return route.fulfill({ json: { opportunities, total: opportunities.length, links: { 1: jobId } } })
   })
-  await office.goto('/#quotes')
+  await office.goto('/#quotes/all')
   const all = office.getByRole('region', { name: 'All quotes' })
   const rms = all.getByRole('group', { name: 'From Current RMS' })
   await expect(rms.getByRole('heading', { name: 'Before this app, from Current RMS' })).toBeVisible()
@@ -133,16 +133,19 @@ test('the quotes from Current RMS are kept under the app’s own on Quotes, foun
   await expect(launch.getByRole('link', { name: 'Liffey Brands Launch', exact: true })).toHaveAttribute('href', `#jobs/${encodeURIComponent(jobId)}/quote`)
   await expect(rms.getByRole('listitem').filter({ hasText: 'Expo stand' })).toContainText("Didn't go ahead")
 
-  // Accepted asks for those that went ahead; Not sent has none from Current RMS.
-  await all.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Accepted/ }).click()
-  await expect(rms.getByRole('listitem')).toHaveCount(1)
+  // Accepted asks for those that went ahead; Not sent has none from Current RMS. Each a view of Quotes (review of 11 November
+  // 2026, finding 7).
+  const views = office.getByRole('navigation', { name: 'Quotes views' })
+  await views.getByRole('link', { name: 'Accepted' }).click()
+  const accepted = office.getByRole('region', { name: 'Accepted quotes' }).getByRole('group', { name: 'From Current RMS' })
+  await expect(accepted.getByRole('listitem')).toHaveCount(1)
   expect(asked.at(-1)).toContain('went=ahead')
-  await all.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Not sent/ }).click()
-  await expect(rms).toHaveCount(0)
+  await views.getByRole('link', { name: 'Not sent' }).click()
+  await expect(office.getByRole('group', { name: 'From Current RMS' })).toHaveCount(0)
 
   // The search looks through them too.
-  await all.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^All/ }).click()
-  await all.getByLabel('Find a quote').fill('expo')
+  await views.getByRole('link', { name: 'All' }).click()
+  await office.getByLabel('Find a quote').fill('expo')
   await expect.poll(() => asked.at(-1)).toContain('q=expo')
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
@@ -179,7 +182,7 @@ test('the office makes a job from a past quote, its lines matched to the stock l
     return route.fulfill({ json: { linked: 1 } })
   })
 
-  await office.goto('/#quotes')
+  await office.goto('/#quotes/all')
   await office.getByRole('group', { name: 'From Current RMS' }).getByRole('link', { name: 'Make a job from it' }).click()
   const form = office.getByRole('region', { name: 'Make a job from this' })
   await expect(form.getByLabel("What's the job?")).toHaveValue('Expo stand')

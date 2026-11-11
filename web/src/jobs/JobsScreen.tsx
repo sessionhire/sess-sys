@@ -58,7 +58,7 @@ import { ImportScreen } from './ImportScreen.tsx'
 import { TidyScreen } from './TidyScreen.tsx'
 import { JOB_PARTS, JobScreen, type JobPart } from './JobScreen.tsx'
 import { kitShort } from './Kit.tsx'
-import { MoneyScreen, PricesScreen } from './Money.tsx'
+import { MoneyScreen, PricesScreen, type MoneyPart } from './Money.tsx'
 import { MatchScreen, PastQuoteScreen, PastQuotesScreen } from './PastQuotes.tsx'
 import { NotesKitListScreen, NotesKitScreen } from './NotesKit.tsx'
 import { PickScreen } from './PickScreen.tsx'
@@ -118,6 +118,9 @@ export function JobsScreen() {
   if (hash === '#jobs/clients') return <ClientsScreen view={view} />
   if (hash === '#jobs/venues') return <VenuesScreen view={view} />
   if (hash === '#jobs/money') return <MoneyScreen view={view} />
+  // Money's parts, each at its own address (review of 11 November 2026, finding 20).
+  const moneyPart = /^#jobs\/money\/(owed|margins|accountant)$/.exec(hash)?.[1] as MoneyPart | undefined
+  if (moneyPart) return <MoneyScreen view={view} part={moneyPart} />
   if (hash === '#jobs/money/prices') return <PricesScreen view={view} />
   if (hash === '#jobs/money/current-rms') return <PastQuotesScreen view={view} />
   if (hash === '#jobs/money/current-rms/match') return <MatchScreen view={view} />
