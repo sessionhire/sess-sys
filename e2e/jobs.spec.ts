@@ -149,7 +149,10 @@ test('a job added with no signal waits on the phone, then goes through', async (
   const laptop = await (await browser.newContext()).newPage()
   await ready(laptop)
   await laptop.getByLabel('Find').fill(job)
-  await expect(laptop.locator('.job-row', { hasText: job })).toContainText('Sat 2 Nov to Sun 3 Nov · Show')
+  // A laptop's list is a table (review of 11 November 2026, finding 14): its days and its phases in their own columns.
+  const row = laptop.locator('.job-row', { hasText: job })
+  await expect(row.locator('.c-when')).toHaveText('Sat 2 Nov to Sun 3 Nov')
+  await expect(row.locator('.c-name small')).toHaveText('Show')
 })
 
 test('a client typed a letter off offers the one already here, in one press', async ({ browser }) => {
