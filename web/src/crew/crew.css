@@ -40,6 +40,14 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .offer-form .warn { grid-column: 1 / -1; display: flex; gap: var(--ds-space-2); align-items: flex-start; font-size: var(--text-hint); background: var(--warn-soft); color: var(--warn); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); }
 .crew .offer-form .warn input { accent-color: var(--accent); margin-top: var(--ds-space-half); }
 .crew .offer-form .alert { grid-column: 1 / -1; }
+/* Those picked to offer it to, several in one press (review of 11 November 2026, finding 12): a name a line, what to know under it,
+   and Take off at the right. */
+.crew .offer-form .offer-to { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; display: grid; }
+.crew .offer-form .offer-to li { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-2); padding: var(--ds-space-1) 0; border-top: 1px solid var(--line); }
+.crew .offer-form .offer-to li > span { display: grid; gap: var(--ds-space-half); min-width: 0; }
+.crew .offer-form .offer-to small { font-size: var(--text-hint); color: var(--muted); }
+.crew .offer-form .offer-to small.warn-line { color: var(--warn); }
+.crew .offer-form .offer-to button { min-height: 44px; flex: none; }
 /* "Offer…" beside a decline or a pull-out in Answers to check: opened, the picker takes its own line under the answer. */
 .crew .actions > .fold, .crew .row > .fold { flex-basis: 100%; }
 .crew .away-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-2); }

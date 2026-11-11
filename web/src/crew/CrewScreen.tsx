@@ -363,7 +363,7 @@ export function CrewScreen() {
                     crew={crew}
                     calendar={view.calendar}
                     late={view.late}
-                    onShare={(person) => setShare({ kind: 'offer', person, call: c }, c.id)}
+                    onShare={(people) => setShare({ kind: 'offer', people, call: c }, c.id)}
                     onTell={(s) => setShare(s, c.id)}
                   />
                   {shareAt === c.id && underItsCall && panel}
@@ -558,11 +558,11 @@ export function CrewScreen() {
                                 <OfferForm
                                   call={c}
                                   crew={crew}
-                                  onShare={(person) => {
+                                  onShare={(people) => {
                                     // Offering the call to someone else is acting on the answer, so it's noted without another tap.
                                     void answers.run(() => client.mutate('offer.seen', { id: o.id }))
                                     markAnswer(o)
-                                    setShare({ kind: 'offer', person, call: c }, ANSWERS)
+                                    setShare({ kind: 'offer', people, call: c }, ANSWERS)
                                   }}
                                 />
                               </Fold>

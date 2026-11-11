@@ -40,7 +40,7 @@ export interface Tell {
 }
 
 /** What's open at the bottom of a screen: an offer to send, or people to tell. One at a time. */
-export type Share = { kind: 'offer'; person: PersonView; call: CallView } | { kind: 'tell'; tell: Tell }
+export type Share = { kind: 'offer'; people: PersonView[]; call: CallView } | { kind: 'tell'; tell: Tell }
 
 /**
  * The prompt after something the office did (audit finding 9): a message
@@ -69,7 +69,8 @@ export function peopleOn(call: CallView, statuses: readonly OfferView['status'][
  * Next dock, which holds the page's one filled red (ADR 0104), so WhatsApp is plain there (UX sweep, 6 November 2026, move 1).
  */
 export function SharePanelFor({ share, onClose, inJob = false }: { share: Share; onClose: () => void; inJob?: boolean }) {
-  if (share.kind === 'offer') return <SharePanel person={share.person} call={share.call} onClose={onClose} inJob={inJob} />
+  if (share.kind === 'offer')
+    return share.people.length === 1 ? <SharePanel person={share.people[0]!} call={share.call} onClose={onClose} inJob={inJob} /> : <OffersPanel people={share.people} call={share.call} onClose={onClose} inJob={inJob} />
   return <TellPanel key={share.tell.id} tell={share.tell} onClose={onClose} inJob={inJob} />
 }
 
@@ -248,6 +249,29 @@ export function TellPanel({ tell, onClose, inJob = false }: { tell: Tell; onClos
     <TellOne key={at} label={`Send ${what} to ${person.name}`} title={n === 1 ? `Tell ${person.name}` : `Tell ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next}>
       <textarea readOnly value={text} rows={6} />
       <SendButtons key={person.id} person={person} text={text} subject={subject} inJob={inJob} />
+    </TellOne>
+  )
+}
+
+/**
+ * Several offered in one press (review of 11 November 2026, finding 12): their messages one at a time, as Tell does, each on their
+ * own link, with Done, next and Skip.
+ */
+function OffersPanel({ people, call, onClose, inJob }: { people: PersonView[]; call: CallView; onClose: () => void; inJob: boolean }) {
+  const [at, setAt] = useState(0)
+  const prompts = usePromptsMessages()
+  const person = people[at]
+  if (!person) return null
+  if (!prompts) return <QuietPanel names={people.map((p) => p.name)} what="offer" onClose={onClose} />
+  const n = people.length
+  const next = () => (at + 1 < n ? setAt(at + 1) : onClose())
+  const link = linkFor(person)
+  if (!link) return <NoLinkYet key={at} person={person} onClose={next} />
+  const text = offerMessage(person, call, link)
+  return (
+    <TellOne key={at} label={`Send offer to ${person.name}`} title={`Send to ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next}>
+      <textarea readOnly value={text} rows={6} />
+      <SendButtons key={person.id} person={person} text={text} subject={`Work: ${call.project}, ${daysLabel(call.days)}`} inJob={inJob} />
     </TellOne>
   )
 }

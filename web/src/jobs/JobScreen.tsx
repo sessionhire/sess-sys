@@ -198,7 +198,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
         </section>
       </Page>
     )
-  const onShare = (call: CallView) => (person: PersonView) => setShare({ kind: 'offer', person, call })
+  const onShare = (call: CallView) => (people: PersonView[]) => setShare({ kind: 'offer', people, call })
   // Sending an offer opens under the calls it's for. People to tell open under the job's details, whichever part is open.
   // Its WhatsApp is plain, as the Next dock holds the page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1).
   const panel = share && <SharePanelFor share={share} onClose={() => setShare(undefined)} inJob />
@@ -308,7 +308,7 @@ function CrewPart({
 }: {
   job: JobView
   view: View
-  onShare: (c: CallView) => (p: PersonView) => void
+  onShare: (c: CallView) => (people: PersonView[]) => void
   onTell: (share: Share | undefined) => void
   offerFor: (calls: readonly CallView[]) => ReactNode
   mayCrew: boolean

@@ -59,6 +59,7 @@ export function RecordPicker<T extends PickRecord>({
   className,
   counted,
   autoFocus,
+  keepOpen,
 }: {
   label: string
   records: readonly T[]
@@ -86,6 +87,8 @@ export function RecordPicker<T extends PickRecord>({
   counted?: boolean
   /** Takes the cursor when drawn, as when Add kit opens it (audit, 5 November 2026, finding 58). */
   autoFocus?: boolean
+  /** The list opens again after a pick, for picking several one after another (review of 11 November 2026, finding 12). */
+  keepOpen?: boolean
 }) {
   const chosen = records.find((p) => p.id === value)
   const said = chosen?.name ?? shownAs ?? ''
@@ -124,6 +127,7 @@ export function RecordPicker<T extends PickRecord>({
     const row = rows[i]
     if (!row) return
     done()
+    if (keepOpen) setOpen(true)
     if (row.kind === 'record') {
       onPick(row.f.record.id, count)
       setHeard(count ? `Chose ${count} × ${row.f.record.name}.` : `Chose ${row.f.record.name}.`)
