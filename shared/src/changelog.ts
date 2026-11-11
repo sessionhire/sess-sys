@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.152.2',
+    date: '2026-11-11',
+    title: 'Next, the crew calls and the Jobs list say it right',
+    what: "A job marked Quoted with no quote in the app, like one that came in from the calendars, now has Next say to make the quote, rather than asking for the client's answer to a quote that isn't there. On a laptop, a long Next button no longer covers the end of the line under the job's name. A crew call with someone still to confirm now says so, \"Filled, 1 to confirm\" in amber, rather than a green Filled. On the Jobs list a row says its crew once, and an errand or meeting no longer says \"No client or venue yet\".",
+    prs: [0],
+  },
+  {
     version: '1.152.1',
     date: '2026-11-10',
     title: 'Clearer notification when your offer closes',

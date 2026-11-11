@@ -629,7 +629,12 @@ export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonl
   const short = job.status !== 'confirmed' ? kitShort(kit) : undefined
   const today = useToday()
   const where = [job.client?.name, job.venue?.name].filter(Boolean).join(' · ')
-  const soon = !!job.span && job.span.end >= today && job.span.start <= addDays(today, PROMPT_DAYS)
+  // An errand or a meeting never has a client to name, so it isn't prompted for one (review of 11 November 2026, finding 5).
+  const soon = hasSteps(job) && !!job.span && job.span.end >= today && job.span.start <= addDays(today, PROMPT_DAYS)
+  // The crew count once a row: when the position already says it ("Planning · 5 of 10 booked"), it isn't said again at the side.
+  const steps = view.steps.of(job.id)
+  const crewHint = steps?.steps.find((s) => s.key === 'crew')?.hint
+  const crewSaid = hasSteps(job) && !!crewHint && !!steps?.stage?.hint?.includes(crewHint)
   return (
     <a className="job-row" href={`#jobs/${job.id}`} aria-current={current ? 'page' : undefined}>
       <div>
@@ -649,7 +654,7 @@ export function JobRow({ job, kit, view, current }: { job: JobView; kit: readonl
       <div className="side">
         {/* The pill for a sale or a stopped job; once confirmed, the position says where it stands, so Confirmed isn't the biggest word. */}
         {(job.status !== 'confirmed' || job.pending || !hasSteps(job)) && <JobStatusPill status={job.status} pending={job.pending} />}
-        {crew.needed > 0 && (
+        {crew.needed > 0 && !crewSaid && (
           <small>
             {/* Booked, as the sheet, the link and Calls say it, so this line's Confirmed is only ever the job's (UX sweep, 6 November 2026, move 4). */}
             Crew {crew.booked} of {crew.needed} booked
