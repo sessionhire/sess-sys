@@ -98,6 +98,8 @@ export interface GoogleEvent {
   extendedProperties?: { private?: Record<string, string> }
   /** The same on every calendar the event is on, unlike `id` for events from outside Google. */
   iCalUID?: string
+  /** Which of the app's calendars it was listed from; the app's own note, not Google's. */
+  calendarId?: string
   /** Set on each day of a repeating event. */
   recurringEventId?: string
   /** `default` for an ordinary event; otherwise out of office, focus time, a birthday and the like. */

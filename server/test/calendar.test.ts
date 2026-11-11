@@ -912,9 +912,11 @@ describe('crew invites (ADR 0009)', () => {
 
     // Devices see who is invited and their answers, never their addresses.
     const f = await feed(s)
-    const day = f.days[calendarDayId(job.phases.build, '2030-03-02')]!
-    expect(day.guests!.map((g) => g.offerId).sort()).toEqual([job.offers.aoife, job.offers.conor, job.offers.niamh].sort())
-    expect(day.guests!.every((g) => g.response === 'needsAction' && g.problem === null)).toBe(true)
+    // The shared day has no guests: each person is on their own copy of it (1.163.0).
+    expect(f.days[calendarDayId(job.phases.build, '2030-03-02')]!.guests).toEqual([])
+    const onBuild1 = Object.values(f.days).filter((d) => d.phaseId === job.phases.build && d.day === '2030-03-02').flatMap((d) => d.guests ?? [])
+    expect(onBuild1.map((g) => g.offerId).sort()).toEqual([job.offers.aoife, job.offers.conor, job.offers.niamh].sort())
+    expect(onBuild1.every((g) => g.response === 'needsAction' && g.problem === null)).toBe(true)
     expect(JSON.stringify(Object.values(f.days))).not.toMatch(/niamh@|aoife@|conor\.walsh@/i)
     expect(offerOnCalendar(f.get<Offer>('offer', job.offers.niamh), f.days, TODAY)).toEqual({
       answers: { '2030-03-02': 'none', '2030-03-03': 'none' },
@@ -1087,14 +1089,15 @@ describe('crew invites (ADR 0009)', () => {
     expect(await quiet()).toBe(0)
 
     // After the first look, Google is asked only about events changed since the last, with a few minutes to spare.
-    const [first, ...rest] = s.google.lists
-    expect(first!.get('timeMin')).toBe('2030-03-01T00:00:00.000Z')
-    expect(rest.map((q) => [q.get('timeMin'), q.get('updatedMin')])).toEqual([
-      [null, '2030-03-02T09:55:00.000Z'],
-      [null, '2030-03-02T09:57:00.000Z'],
-      [null, '2030-03-02T09:59:00.000Z'],
-      [null, '2030-03-02T09:59:00.000Z'],
-    ])
+    // Each look asks about both calendars: the jobs calendar and the account's own, where everyone's copies are.
+    const [first, second, ...rest] = s.google.lists
+    expect([first!.get('timeMin'), second!.get('timeMin')]).toEqual(['2030-03-01T00:00:00.000Z', '2030-03-01T00:00:00.000Z'])
+    expect(rest.map((q) => [q.get('timeMin'), q.get('updatedMin')])).toEqual(
+      ['2030-03-02T09:55:00.000Z', '2030-03-02T09:57:00.000Z', '2030-03-02T09:59:00.000Z', '2030-03-02T09:59:00.000Z'].flatMap((t) => [
+        [null, t],
+        [null, t],
+      ])
+    )
   })
 
   it('looks for answers on its own while invites are on, and stops looking when they go off', async () => {
@@ -1202,12 +1205,15 @@ describe('crew invites (ADR 0009)', () => {
   it('never loses an answer given while the app is changing the event', async () => {
     const s = await setup()
     const job = await invited(s)
+    // Her own copy of Saturday is the one she answers.
+    const hers = s.google.copies(TEST_CAL, job.events.build1).find((e) => e.attendees?.some((g) => g.email === 'niamh@example.com'))!
+    s.google.replaceOnly = hers.id
     s.google.beforeNextReplace = () => s.google.respond(TEST_CAL, job.events.build1, 'niamh@example.com', 'accepted')
     const before = s.google.calls.length
     await send(s, 'phase.update', { id: job.phases.build, notes: 'Bring the long ladder.' })
     await s.sync()
     // Google turned the first replace down, as the event had changed since it was read: read again, and replace that.
-    const build1 = `/calendar/v3/calendars/${encodeURIComponent(TEST_CAL)}/events/${job.events.build1}`
+    const build1 = `/calendar/v3/calendars/${encodeURIComponent('ops@sessionhire.com')}/events/${hers.id}`
     expect(s.google.calls.slice(before).filter((c) => c.endsWith(build1))).toEqual([`GET ${build1}`, `PUT ${build1}`, `GET ${build1}`, `PUT ${build1}`])
     expect(s.google.visible(TEST_CAL)[0]!.description).toContain('Bring the long ladder.')
     expect(s.google.guests(TEST_CAL, job.events.build1)).toContain('niamh@example.com accepted')
