@@ -123,7 +123,7 @@ export function CallCard({
   calendar: View['calendar']
   /** Who on it is running late today (ADR 0028), said at rest under its line. */
   late?: LateView
-  onShare: (p: PersonView) => void
+  onShare: (people: PersonView[]) => void
   /** Opens the message for whoever should hear about a withdrawal or a cancelled call; without it, nobody is prompted. */
   onTell?: (share: Share | undefined) => void
   inJob?: boolean
@@ -260,7 +260,7 @@ export function CallCard({
                         {label}
                       </StatusPill>
                       {mayOffer && o.status === 'offered' && o.person && (
-                        <button type="button" className="link" onClick={() => onShare(o.person as PersonView)}>
+                        <button type="button" className="link" onClick={() => onShare([o.person as PersonView])}>
                           Send
                         </button>
                       )}
@@ -537,9 +537,15 @@ function EditCall({
   )
 }
 
-/** Offer a call to someone not yet offered it, with a warning when their days clash. Also beside a decline or a pull-out in "Answers to check". */
-export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewView; onShare: (p: PersonView) => void }) {
-  const [personId, setPersonId] = useState('')
+/** A role as it's compared: "Stage hand" and "stagehand " are the same. */
+const roleWords = (role: string) => role.trim().replace(/[\s-]+/g, '').toLowerCase()
+
+/**
+ * Offer a call to people not yet offered it, several in one press (review of 11 November 2026, finding 12), with a warning when
+ * anyone's days clash. Also beside a decline or a pull-out in "Answers to check".
+ */
+export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewView; onShare: (people: PersonView[]) => void }) {
+  const [ids, setIds] = useState<string[]>([])
   const [override, setOverride] = useState(false)
   const [applicants, setApplicants] = useState(false)
   // Someone who declined, couldn't make it or was told it's filled can be offered it again.
@@ -548,82 +554,69 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   // Applicants nobody has vetted (Level 0) stay out of the way unless asked for (ADR 0025).
   const hidden = everyone.filter((p) => p.level === APPLICANT_LEVEL).length
   const candidates = everyone.filter((p) => applicants || p.level !== APPLICANT_LEVEL).sort(byDepartmentThenLevel)
-  const chosen = candidates.find((p) => p.id === personId)
-  const conflicts = chosen ? personConflicts(crew, chosen.id, call.days, call.id) : []
-  // Offering anyway over a booking sends an offer they can only take the free days of: nobody holds two jobs on a day (ADR 0002),
-  // so the checkbox says so, rather than reading as it does for days off (audit, 20 October 2026, finding 81).
-  const bookedOn = chosen ? heldOn(crew, chosen.id, call.days, call.id) : { jobs: [], days: [] }
-  const onlyFree =
-    chosen && bookedOn.jobs.length > 0
-      ? bookedOn.days.length >= call.days.length
-        ? `${firstName(chosen)} can't take any of it unless they say they can't make ${bookedOn.jobs.join(' and ')}.`
-        : `${firstName(chosen)} can only take the days not on ${bookedOn.jobs.join(' or ')} unless they say they can't make ${bookedOn.jobs.length === 1 ? 'it' : 'them'}.`
-      : ''
+  const chosen = ids.map((id) => candidates.find((p) => p.id === id)).filter((p): p is PersonView => !!p)
+  const clashOf = (p: PersonView) => personConflicts(crew, p.id, call.days, call.id)
+  const clashing = chosen.filter((p) => clashOf(p).length > 0)
   // Busy in their own calendar (ADR 0044): said, never in the way. It may be something they can move, and they may still say yes.
   const own = useView().ownCalendars
-  const busy = chosen ? own.warning(chosen.id, call.days) : null
   const { run, error, refuse } = useAct()
   // What the call needs (ADR 0028): those who hold it first, then those not known, then those missing one, each in the order above.
   const today = useToday()
   const needs = needsOf(call)
   const gapsOf = (p: PersonView) => certificateGaps(p, needs, call.days, today)
-  const byNeeds = (people: PersonView[], within = '') =>
-    needs.length
-      ? [
-          { label: `${within}Hold ${needsLabel(needs)}`, people: people.filter((p) => gapsOf(p).length === 0) },
-          { label: `${within}Not known: check first`, people: people.filter((p) => gapsOf(p).length > 0 && !gapsOf(p).some(blocks)) },
-          { label: `${within}Missing a certificate`, people: people.filter((p) => gapsOf(p).some(blocks)) },
-        ]
-      : [{ label: within.replace(/: $/, ''), people }]
-  // The call's own department first (audit, 5 November 2026, finding 62), so a head finds their people at the top; the
-  // certificate groups inside each. A call with no department, or nobody in it, lists everyone as before.
+  const byNeeds = (people: PersonView[]) =>
+    needs.length ? [people.filter((p) => gapsOf(p).length === 0), people.filter((p) => gapsOf(p).length > 0 && !gapsOf(p).some(blocks)), people.filter((p) => gapsOf(p).some(blocks))] : [people]
+  // The call's own department first (audit, 5 November 2026, finding 62), the certificate groups inside each.
   const callDept = departmentOf(call)
   const ours = callDept ? candidates.filter((p) => !!p.department && sameDepartment(p.department, callDept)) : []
-  const groups =
-    callDept && ours.length && ours.length < candidates.length
-      ? [...byNeeds(ours, `${callDept}: `), ...byNeeds(candidates.filter((p) => !ours.includes(p)), 'Everyone else: ')].filter((g) => g.people.length)
-      : needs.length
-        ? byNeeds(candidates).filter((g) => g.people.length)
-        : undefined
-  // One list in the order above: with nothing typed its first eight are offered, and typing narrows it (audit finding 16), as the
-  // people list is, by name, the name they go by, department, skill, email or phone (UX sweep, move 5c).
-  const ordered = groups ? groups.flatMap((g) => g.people) : candidates
-  const firstLabel =
-    callDept && ours.length && ours.length < candidates.length
-      ? `${callDept} first, then everyone else`
-      : needs.length
-        ? `Those holding ${needsLabel(needs)} first`
-        : 'By department, then level'
+  const grouped = callDept && ours.length && ours.length < candidates.length ? [...byNeeds(ours), ...byNeeds(candidates.filter((p) => !ours.includes(p)))].flat() : byNeeds(candidates).flat()
+  // Then who fits best on top (review of 11 November 2026, finding 12): those whose skills name the call's role and are free on its
+  // days, then the rest who are free, then anyone not free at the bottom; the order above holds inside each.
+  const role = roleWords(call.role)
+  const doesIt = (p: PersonView) => p.skills.some((s) => roleWords(s) === role)
+  const free = new Map(grouped.map((p) => [p.id, clashOf(p).length === 0]))
+  const tier = (p: PersonView) => (!free.get(p.id) ? 2 : doesIt(p) ? 0 : 1)
+  const ordered = grouped.map((p, i) => ({ p, i })).sort((a, b) => tier(a.p) - tier(b.p) || a.i - b.i).map((x) => x.p)
+  const fits = ordered.filter((p) => tier(p) === 0).length
+  const firstLabel = fits ? `Free and doing ${call.role} first` : 'Free first'
+  // Those already chosen stay out of the list, so each pick is the next person.
+  const pickable = ordered.filter((p) => !ids.includes(p.id))
   const findIn = (_: readonly PersonView[], text: string) => {
     const words = wordsOf(text)
-    return ordered.filter((p) => found(p, words)).map((record) => ({ record }))
+    return pickable.filter((p) => found(p, words)).map((record) => ({ record }))
   }
   // What tells two people apart and what to know before offering: their department, level and skills, what they hold of what the
   // call needs, a clash and their own calendar.
   const metaOf = ({ record: p }: { record: PersonView }) =>
-    [
-      pickerLine(p),
-      gapMarks(gapsOf(p)),
-      personConflicts(crew, p.id, call.days, call.id).length ? '⚠ not free then' : '',
-      own.busyOn(p.id, call.days).size ? 'busy in own calendar' : '',
-    ]
-      .filter(Boolean)
-      .join(' · ')
+    [pickerLine(p), gapMarks(gapsOf(p)), free.get(p.id) === false ? '⚠ not free then' : '', own.busyOn(p.id, call.days).size ? 'busy in own calendar' : ''].filter(Boolean).join(' · ')
+  // Offering anyway over a booking sends an offer they can only take the free days of: nobody holds two jobs on a day (ADR 0002),
+  // so the checkbox says so, rather than reading as it does for days off (audit, 20 October 2026, finding 81).
+  const onlyFreeOf = (p: PersonView) => {
+    const bookedOn = heldOn(crew, p.id, call.days, call.id)
+    if (!bookedOn.jobs.length) return ''
+    return bookedOn.days.length >= call.days.length
+      ? `${firstName(p)} can't take any of it unless they say they can't make ${bookedOn.jobs.join(' and ')}.`
+      : `${firstName(p)} can only take the days not on ${bookedOn.jobs.join(' or ')} unless they say they can't make ${bookedOn.jobs.length === 1 ? 'it' : 'them'}.`
+  }
 
   const send = (e: FormEvent) => {
     e.preventDefault()
     // Never a dead Offer (UX sweep, 6 November 2026, move 5): a press says what's missing.
-    if (!chosen) return refuse('Choose someone to offer it to first.')
-    if (conflicts.length > 0 && !override) return refuse('Tick Offer anyway first, or choose someone else.')
-    const p = chosen
+    if (!chosen.length) return refuse('Choose someone to offer it to first.')
+    if (clashing.length > 0 && !override) return refuse('Tick Offer anyway first, or choose someone else.')
     // Said here, in the server's own words, rather than after a round trip; "Offer anyway" doesn't pass it.
-    const short = certificateRefusal(p, needs, call.days, today)
-    if (short) return refuse(short)
-    void run(() => client.mutate('offer.send', { id: newId(), callId: call.id, personId: p.id, override: conflicts.length > 0 && override })).then((ok) => {
+    for (const p of chosen) {
+      const short = certificateRefusal(p, needs, call.days, today)
+      if (short) return refuse(chosen.length > 1 ? `${p.name}: ${short}` : short)
+    }
+    const people = chosen
+    void run(async () => {
+      for (const p of people) await client.mutate('offer.send', { id: newId(), callId: call.id, personId: p.id, override: clashOf(p).length > 0 && override })
+    }).then((ok) => {
       if (!ok) return
-      setPersonId('')
+      setIds([])
       setOverride(false)
-      onShare(p)
+      onShare(people)
     })
   }
 
@@ -631,45 +624,57 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
     <form className="offer-form" onSubmit={send}>
       <RecordPicker
         label="Offer to"
-        records={candidates}
-        value={personId}
+        records={pickable}
+        value=""
         find={findIn}
         meta={metaOf}
-        first={ordered}
+        first={pickable}
         firstLabel={firstLabel}
+        keepOpen
         nothingFound={(t) => `Nobody matches “${t}”${!applicants && hidden > 0 ? ': applicants are left out unless shown' : ''}`}
         onPick={(id) => {
-          setPersonId(id)
+          setIds((now) => (now.includes(id) ? now : [...now, id]))
           // A reason given for someone else no longer applies.
           refuse('')
         }}
         placeholder="Name, phone, email, department or skill"
       />
-      <button type="submit">
-        Offer
-      </button>
+      <button type="submit">{chosen.length > 1 ? `Offer to ${chosen.length}` : 'Offer'}</button>
+      {chosen.length > 0 && (
+        <ul className="offer-to" aria-label="To offer it to">
+          {chosen.map((p) => (
+            <li key={p.id}>
+              <span>
+                <b>{p.name}</b>
+                <small>{metaOf({ record: p })}</small>
+                {certificateUnknowns(p, needs, call.days, today).map((w) => (
+                  <small key={w} className="warn-line">
+                    {w}
+                  </small>
+                ))}
+                {own.warning(p.id, call.days) && <small className="warn-line">{own.warning(p.id, call.days)}. The offer can still go: it may be something they can move, and they can still say yes.</small>}
+              </span>
+              <button type="button" className="link" aria-label={`Take ${p.name} off`} onClick={() => (setIds((now) => now.filter((x) => x !== p.id)), refuse(''))}>
+                Take off
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {(hidden > 0 || applicants) && (
         <label className="applicants">
           <input type="checkbox" checked={applicants} onChange={(e) => setApplicants(e.target.checked)} />
           <span>Show applicants{hidden > 0 ? ` (${hidden})` : ''}</span>
         </label>
       )}
-      {conflicts.length > 0 && (
+      {clashing.length > 0 && (
         <label className="warn">
           <input type="checkbox" checked={override} onChange={(e) => (setOverride(e.target.checked), refuse(''))} />
           <span>
-            {conflicts.join('. ')}. {onlyFree && `${onlyFree} `}
-            <b>Offer anyway</b>
+            {clashing.map((p) => `${clashing.length > 1 ? `${firstName(p)}: ` : ''}${clashOf(p).join('. ')}. ${onlyFreeOf(p)}`).join(' ')} <b>Offer anyway</b>
           </span>
         </label>
       )}
-      {busy && <p className="warn-line">{busy}. The offer can still go: it may be something they can move, and they can still say yes.</p>}
-      {chosen &&
-        certificateUnknowns(chosen, needs, call.days, today).map((w) => (
-          <p key={w} className="warn-line">
-            {w}
-          </p>
-        ))}
       <Refusal error={error} />
     </form>
   )

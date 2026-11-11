@@ -49,7 +49,8 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   await call.getByRole('button', { name: 'Offer…' }).click()
 
   // The picker lists those holding what the call needs first, and says under each name what they're missing.
-  await expect(call.getByRole('listbox')).toHaveAccessibleName('Those holding working at height and IPAF first')
+  // Free first, and those doing the call's role before them (review of 11 November 2026, finding 12); holding what it needs inside that.
+  await expect(call.getByRole('listbox')).toHaveAccessibleName(/^Free (and doing .+ )?first$/)
   await call.getByRole('combobox', { name: 'Offer to' }).fill('Laoise Keane')
   await expect(call.getByRole('option', { name: /^Laoise Keane/ })).toContainText('no IPAF')
   await pickRecord(call, 'Offer to', 'Laoise Keane')
@@ -59,7 +60,8 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   await expect(call.locator('.who-line')).toContainText('Pádraig Kenny (booked), Róisín Farrell (offered)')
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
-  // Someone whose certificates aren't known can be offered it, with a warning first.
+  // Someone whose certificates aren't known can be offered it, with a warning first; Laoise taken off the ones to offer it to.
+  await call.getByRole('button', { name: 'Take Laoise Keane off' }).click()
   await pickRecord(call, 'Offer to', 'Dara Quinn')
   await expect(call.getByRole('alert')).toHaveCount(0)
   await expect(call.locator('.offer-form .warn-line')).toHaveText('Working at height and IPAF not known for Dara Quinn: check before the job.')

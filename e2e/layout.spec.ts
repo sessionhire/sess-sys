@@ -84,7 +84,8 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   // Offered to Maeve, who takes it on her link; confirmed, the call is filled.
   await expect(maeve.locator('small')).toHaveText('Level 1 (audio, monitors)')
   await maeve.click()
-  await expect(picker).toHaveValue(`Maeve Doyle ${id}`)
+  // Picked is listed under the box to offer it to, with others to add if wanted (review of 11 November 2026, finding 12).
+  await expect(call.getByRole('list', { name: 'To offer it to' })).toContainText(`Maeve Doyle ${id}`)
   await call.getByRole('button', { name: 'Offer', exact: true }).click()
   const share = office.getByRole('region', { name: `Send offer to Maeve Doyle ${id}` })
   const link = (await share.locator('textarea').inputValue()).match(/https?:\/\/\S+\/f\/\S+/)![0]
@@ -248,7 +249,10 @@ test('a call says where it stands at rest, the picker only searches on Enter, an
   // Enter takes the highlighted offer, and with nothing found does nothing: neither sends the offer.
   await soundPicker.fill(`una ${id}`)
   await soundPicker.press('Enter')
-  await expect(soundPicker).toHaveValue(`Úna Layout ${id}`)
+  // Picked is listed to offer it to, and out of the list, so the search finds nothing more to take (review of 11 November 2026,
+  // finding 12: several in one press).
+  await expect(sound.getByRole('list', { name: 'To offer it to' })).toContainText(`Úna Layout ${id}`)
+  await expect(sound.getByRole('list', { name: 'To offer it to' }).getByRole('listitem')).toHaveCount(1)
   await soundPicker.fill('nobody by this name')
   await soundPicker.press('Enter')
   await expect(office.getByRole('region', { name: /^Send offer to/ })).toHaveCount(0)
