@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-11',
     title: 'Recent in search',
     what: 'Open search with nothing typed and the jobs, clients, venues, people, products and kit you opened lately on this device are listed first, newest at the top, so getting back to something is one press. They show their names as they are now, and signing out forgets them.',
-    prs: [0],
+    prs: [329],
     adrs: [148],
   },
   {
