@@ -143,6 +143,10 @@ test('a week by job on a phone, then by person with its clashes', async ({ brows
   const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await ready(phone, '#jobs')
   await phone.getByRole('navigation', { name: 'Jobs pages' }).getByRole('link', { name: 'Week' }).click()
+  // On a phone Week opens as its days, one under the next (review of 11 November 2026, finding 16), the grid a press away on Jobs.
+  await expect(phone).toHaveURL(/#jobs\/plan\/week\/\d{4}-\d{2}-\d{2}\/days$/)
+  await expect(phone.getByRole('region', { name: 'The week, day by day' })).toBeVisible()
+  await phone.getByRole('group', { name: 'Rows' }).getByRole('button', { name: 'Jobs' }).click()
   await expect(phone).toHaveURL(/#jobs\/plan\/week\/\d{4}-\d{2}-\d{2}$/)
   await expect(phone.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Jobs' })).toHaveAttribute('aria-current', 'page')
 

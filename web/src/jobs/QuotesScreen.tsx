@@ -20,7 +20,8 @@ import {
   listed,
   QUOTE_SORTS,
   quoteFilters,
-  NOT_YOURS
+  NOT_YOURS,
+  sortOf,
 } from '@sh/shared'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
@@ -143,6 +144,9 @@ function QuoteList({ view, show, search }: { view: View; show: QuoteShow; search
   const shown = listed(searched, filters, QUOTE_SORTS, choices)
   const narrowed = activeFilters(filters, choices.filters).length > 0
   const label = show === 'all' ? 'All quotes' : `${QUOTE_SHOWS.find(([s]) => s === show)![1]} quotes`
+  // At a desk a table: a quote a line, its amounts lined up on the right (review of 11 November 2026, finding 14).
+  const table = useDesk()
+  const sort = sortOf(QUOTE_SORTS, choices.sort)?.key
   return (
     <>
       {inView.length > 0 && <ListTools name="quotes" items={searched} filters={filters} sorts={QUOTE_SORTS} choices={choices} onChange={setChoices} shown={shown.length} what="quotes" />}
@@ -153,13 +157,44 @@ function QuoteList({ view, show, search }: { view: View; show: QuoteShow; search
         {inView.length > 0 && shown.length === 0 && <p className="hint">No quote made here matches that.</p>}
         {/* A search or a filter looks through them all; otherwise the first thirty in the order chosen, until Show all. */}
         <ShowAll key={`${show} ${search} ${choices.sort} ${JSON.stringify(choices.filters)}`} items={shown} limit={search.trim() || narrowed ? shown.length : 30} what="quotes">
-          {(list) => (
-            <ul className="plain">
-              {list.map((r) => (
-                <QuoteRowItem key={r.job.id} r={r} />
-              ))}
-            </ul>
-          )}
+          {(list) =>
+            table ? (
+              <>
+                <div className="quote-table-head" role="group" aria-label="Sort by a column">
+                  {(
+                    [
+                      ['Job', undefined],
+                      ['Client', 'client'],
+                      ['When', 'soonest'],
+                      ['No.', undefined],
+                      ['Where it stands', 'changed'],
+                      ['Net', 'biggest'],
+                    ] as const
+                  ).map(([words, key]) =>
+                    key ? (
+                      <button key={words} type="button" aria-pressed={sort === key} onClick={() => setChoices({ ...choices, sort: key })}>
+                        {words}
+                      </button>
+                    ) : (
+                      <span key={words}>{words}</span>
+                    )
+                  )}
+                  <span />
+                </div>
+                <ul className="plain quote-table">
+                  {list.map((r) => (
+                    <QuoteRowItem key={r.job.id} r={r} table />
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <ul className="plain">
+                {list.map((r) => (
+                  <QuoteRowItem key={r.job.id} r={r} />
+                ))}
+              </ul>
+            )
+          }
         </ShowAll>
         <FromCurrentRms view={view} show={show} search={search} />
         <p className="hint">
@@ -180,10 +215,26 @@ function lastWord(q: QuoteView): string {
   return q.sentOn ? `Sent ${dayLabel(q.sentOn)}` : QUOTE_STATUS_LABELS[q.status]
 }
 
-function QuoteRowItem({ r }: { r: QuoteRow }) {
+function QuoteRowItem({ r, table = false }: { r: QuoteRow; table?: boolean }) {
   const { job, quote, behind } = r
   const number = quoteNumberLabel(behind ?? quote)
   const when = job.span ? (job.span.start === job.span.end ? dayLabel(job.span.start) : `${dayLabel(job.span.start)} to ${dayLabel(job.span.end)}`) : 'No dates yet'
+  const stands = behind ? `Version ${quote.version} being put together over version ${behind.version}: ${lastWord(behind).toLowerCase()}` : lastWord(quote)
+  if (table)
+    return (
+      <li className="row in-table">
+        <a href={`#jobs/${encodeURIComponent(job.id)}/quote`}>{job.name}</a>
+        <span>{job.client?.name ?? <span className="muted">None yet</span>}</span>
+        <span>{when}</span>
+        <span>{number ?? ''}</span>
+        <span>
+          {stands}
+          {quote.lines.length === 0 && <small> · No lines yet</small>}
+        </span>
+        <span className="amount">{money(quote.totals.net)}</span>
+        <QuotePill q={quote} />
+      </li>
+    )
   return (
     <li className="row">
       <div>
