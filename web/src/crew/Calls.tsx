@@ -1,6 +1,7 @@
 import { UnitBox } from '../UnitBox.tsx'
 import {
   OFFER_WORDS,
+  plural,
   APPLICANT_LEVEL,
   daysLabel,
   departmentForRole,
@@ -35,8 +36,9 @@ import {
   type LateView,
   whatsappWords,
 } from '@sh/shared'
-import { useState, type FormEvent } from 'react'
-import { Confirm, Refusal, useAct } from '../act.tsx'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Confirm, reasonOf, Refusal, useAct } from '../act.tsx'
+import { offerFormId, setOfferPicks } from './offerPicks.ts'
 import { Fold } from '../Fold.tsx'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
@@ -599,8 +601,24 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       : `${firstName(p)} can only take the days not on ${bookedOn.jobs.join(' or ')} unless they say they can't make ${bookedOn.jobs.length === 1 ? 'it' : 'them'}.`
   }
 
+  // Who's picked and not yet sent, so the job's Next button sends to them rather than opening this form again; gone with the form.
+  const pickedNames = chosen.map((p) => p.name).join('\n')
+  useEffect(() => {
+    setOfferPicks(call.id, pickedNames ? pickedNames.split('\n') : [])
+  }, [call.id, pickedNames])
+  useEffect(() => () => setOfferPicks(call.id, []), [call.id])
+
   const send = (e: FormEvent) => {
     e.preventDefault()
+    // Whatever stops it is said beside the button, even a fault in the checks themselves, never a press that does nothing.
+    try {
+      check()
+    } catch (err) {
+      console.error(err)
+      refuse(`The offer couldn't be made: ${reasonOf(err)}`)
+    }
+  }
+  const check = () => {
     // Never a dead Offer (UX sweep, 6 November 2026, move 5): a press says what's missing.
     if (!chosen.length) return refuse('Choose someone to offer it to first.')
     if (clashing.length > 0 && !override) return refuse('Tick Offer anyway first, or choose someone else.')
@@ -621,7 +639,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   }
 
   return (
-    <form className="offer-form" onSubmit={send}>
+    <form className="offer-form" id={offerFormId(call.id)} onSubmit={send}>
       <RecordPicker
         label="Offer to"
         records={pickable}
@@ -640,6 +658,13 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
         placeholder="Name, phone, email, department or skill"
       />
       <button type="submit">{chosen.length > 1 ? `Offer to ${chosen.length}` : 'Offer'}</button>
+      {/* Beside the button that was pressed, above the people picked, so a phone sees it without scrolling. */}
+      <Refusal error={error} />
+      {chosen.length > 0 && offered.size + chosen.length > call.needed && (
+        <p className="hint">
+          {chosen.length + offered.size} offered for {plural(call.needed, 'place')}: whoever says yes first has it, and the rest are told it's filled.
+        </p>
+      )}
       {chosen.length > 0 && (
         <ul className="offer-to" aria-label="To offer it to">
           {chosen.map((p) => (
@@ -675,7 +700,6 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
           </span>
         </label>
       )}
-      <Refusal error={error} />
     </form>
   )
 }

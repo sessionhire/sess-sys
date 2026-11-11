@@ -2,7 +2,8 @@
    picture over a word for each (ADR 0033), as one footer with one edge. The page ends above it. */
 body { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
 body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-area-inset-bottom)); }
-.foot { position: fixed; inset: auto 0 0 0; z-index: 5; display: grid; background: var(--panel); border-top: 1px solid var(--line); }
+/* Over a picker's list left open after a pick (z-index 5), so a press on the dock is never a press on a name under it. */
+.foot { position: fixed; inset: auto 0 0 0; z-index: 6; display: grid; background: var(--panel); border-top: 1px solid var(--line); }
 .foot[hidden] { display: none; }
 .foot-dock:empty { display: none; }
 .foot-dock { padding: var(--ds-space-2) var(--gutter) var(--ds-space-3); border-bottom: 1px solid var(--line); }
