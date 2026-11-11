@@ -1,5 +1,6 @@
 import {
   answerFromCalendar,
+  calendarDayId,
   eachDay,
   irishToday,
   newId,
@@ -195,8 +196,12 @@ export class CalendarSync {
       try {
         const listed = first
           ? await this.listOurs(link, { timeMin: dayBefore(today) })
-          : await this.call(link, (t) => this.options.google.listEvents(t, link.calendarId!, { mark: `sh=${link.appKey}`, updatedMin: this.since }))
-        if (first) this.known = knownFrom(await readDays(this.options.db, today), link.calendarId)
+          : (
+              await Promise.all(
+                calendarsOf(link).map((cal) => this.call(link, (t) => this.options.google.listEvents(t, cal, { mark: `sh=${link.appKey}`, updatedMin: this.since })))
+              )
+            ).flat()
+        if (first) this.known = knownFrom(await readDays(this.options.db, today), calendarsOf(link))
         this.since = margin(started)
         const taken = await this.takeAnswers(listed, today)
         if (taken) {
@@ -225,14 +230,14 @@ export class CalendarSync {
     const link = await readLink(db)
     const today = irishToday(this.now())
     const writing = link?.state === 'on' && link.calendarId !== null
-    const wanted = writing ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: null }) : new Map<string, Wanted>()
+    const wanted = writing ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: null, personal: personalCalendar(link) !== null }) : new Map<string, Wanted>()
     const rows = new Map((await readDays(db, today)).map((r) => [r.id, r]))
     let invites = 0
     const people = new Map<string, { email: string; days: { day: string; title: string }[] }>()
     const noEmail = new Set<string>()
     for (const w of wanted.values()) {
       const row = rows.get(w.key)
-      const on = row && row.state !== 'removed' && row.calendarId === link?.calendarId ? row.guests : []
+      const on = row && row.state !== 'removed' && row.calendarId === target(link!, w) ? row.guests : []
       for (const g of w.guests) {
         if (on.some((p) => p.personId === g.personId && sameEmail(p.email, g.email))) continue
         invites++
@@ -397,7 +402,7 @@ export class CalendarSync {
       const listed = check && writing ? await this.listOurs(link, { timeMin: dayBefore(today) }, token) : undefined
       // Any answers missed since the last look go in first, since they can change what the events should say.
       if (listed && link.invites) {
-        this.known = knownFrom(rows, link.calendarId)
+        this.known = knownFrom(rows, calendarsOf(link))
         this.since = margin(started)
         if (await this.takeAnswers(listed, today)) {
           changed = true
@@ -405,7 +410,9 @@ export class CalendarSync {
         }
       }
       const byId = new Map(rows.map((r) => [r.id, r]))
-      const wanted = writing ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: this.options.appUrl ?? link.appUrl }) : new Map<string, Wanted>()
+      const wanted = writing
+        ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: this.options.appUrl ?? link.appUrl, personal: personalCalendar(link) !== null })
+        : new Map<string, Wanted>()
 
       // Events changed or deleted in Google since the app wrote them, and any of the app's events it has lost track of.
       const stale = new Set<string>()
@@ -414,7 +421,8 @@ export class CalendarSync {
       const found = new Map<string, GoogleEvent>()
       const ops: Op[] = []
       if (listed) {
-        const ours = new Map(rows.filter((r) => r.state !== 'removed' && r.calendarId === link.calendarId).map((r) => [r.eventId, r]))
+        const cals = calendarsOf(link)
+        const ours = new Map(rows.filter((r) => r.state !== 'removed' && cals.includes(r.calendarId)).map((r) => [r.eventId, r]))
         const seen = new Set<string>()
         for (const ev of listed) {
           const day = ev.extendedProperties?.private?.shDay
@@ -441,7 +449,7 @@ export class CalendarSync {
         if (
           !row ||
           row.state === 'removed' ||
-          row.calendarId !== link.calendarId ||
+          row.calendarId !== target(link, w) ||
           row.contentHash !== w.hash ||
           stale.has(row.id) ||
           (check && row.state === 'failed') ||
@@ -449,7 +457,16 @@ export class CalendarSync {
         )
           ops.push({ kind: 'write', wanted: w, row, event: found.get(w.key) })
       }
-      for (const row of rows) if (row.state !== 'removed' && !wanted.has(row.id)) ops.push({ kind: 'remove', row })
+      for (const row of rows) {
+        if (row.state === 'removed' || wanted.has(row.id)) continue
+        // Invites switched off: everyone's own copies stay as they are, as their invites did on the shared day (ADR 0009).
+        if (personalRow(row) && !link.invites && link.state === 'on') continue
+        // Someone who said No to their own copy of a day that's still on keeps it, as a No, rather than being sent a
+        // cancellation for something they turned down (ADR 0009, as on the shared day before 1.163.0).
+        const saidNo = personalRow(row) && row.guests.length > 0 && row.guests.every((g) => g.response === 'declined')
+        if (saidNo && wanted.has(calendarDayId(row.phaseId, row.day)) && row.calendarId === personalCalendar(link)) continue
+        ops.push({ kind: 'remove', row })
+      }
       const dayOf = (op: Op) => (op.kind === 'write' ? op.wanted.day : op.kind === 'remove' ? op.row.day : (op.event.extendedProperties?.private?.shDay ?? ''))
       ops.sort((a, b) => dayOf(a).localeCompare(dayOf(b)))
 
@@ -463,7 +480,8 @@ export class CalendarSync {
           await this.remove(link, op.row)
           result.removed++
         } else {
-          await this.call(link, (t) => this.options.google.deleteEvent(t, link.calendarId!, op.event.id, tell(link))).catch(ignoreGone)
+          const cal = op.event.calendarId ?? link.calendarId!
+          await this.call(link, (t) => this.options.google.deleteEvent(t, cal, op.event.id, tell(link))).catch(ignoreGone)
           result.removed++
         }
         changed = true
@@ -601,7 +619,7 @@ export class CalendarSync {
 
   /** Put one day on the calendar as it should be now, with its guests when invites are on. */
   private async write(link: Link, w: Wanted, row: DayRow | undefined, listed: GoogleEvent | undefined): Promise<'written' | 'failed'> {
-    const calendarId = link.calendarId!
+    const calendarId = target(link, w)
     const google = this.options.google
     // Moving calendars: the old event comes off first, so no day is ever on both.
     if (row && row.state !== 'removed' && row.calendarId !== calendarId) {
@@ -615,13 +633,13 @@ export class CalendarSync {
     let known = here && row!.state === 'on'
     const day = { id: w.key, phaseId: w.phaseId, projectId: w.projectId, day: w.day, title: w.title, calendarId, contentHash: w.hash }
     for (let tries = 0; tries < 5; tries++) {
-      const id = eventId(link.appKey, calendarId, w.phaseId, w.day, generation)
+      const id = eventId(link.appKey, calendarId, w.personId ? `${w.phaseId}/${w.personId}` : w.phaseId, w.day, generation)
       // Who the app last put on this very event, if it is the one it knows.
       const previous = here && generation === row!.generation ? row!.guests : []
       const guests = link.invites ? guestsFor(w, previous, known) : undefined
       try {
         let written: { ev: GoogleEvent; guests: GuestRow[] }
-        if (known) written = await this.replace(link, id, w.body, previous, guests, listed)
+        if (known) written = await this.replace(link, calendarId, id, w.body, previous, guests, listed)
         else {
           try {
             const attendees = (guests ?? []).map((g) => ({ email: g.email }))
@@ -634,7 +652,7 @@ export class CalendarSync {
             if (err instanceof GoogleError && err.problem === 'gone') throw this.blockedBy(link, err)
             // Already there, from an earlier try or deleted since: make it what it should be.
             if (!(err instanceof GoogleError) || err.problem !== 'exists') throw err
-            written = await this.replace(link, id, w.body, previous, guests, undefined)
+            written = await this.replace(link, calendarId, id, w.body, previous, guests, undefined)
           }
         }
         const { ev } = written
@@ -669,8 +687,15 @@ export class CalendarSync {
    * answer given in between isn't lost; otherwise reads it again. With
    * invites off (`guests` unset) the guest list stays as it is.
    */
-  private async replace(link: Link, id: string, body: EventBody, previous: GuestRow[], guests: GuestRow[] | undefined, listed: GoogleEvent | undefined) {
-    const calendarId = link.calendarId!
+  private async replace(
+    link: Link,
+    calendarId: string,
+    id: string,
+    body: EventBody,
+    previous: GuestRow[],
+    guests: GuestRow[] | undefined,
+    listed: GoogleEvent | undefined
+  ) {
     const google = this.options.google
     let current = listed?.id === id ? listed : undefined
     for (let tries = 0; tries < 3; tries++) {
@@ -693,7 +718,12 @@ export class CalendarSync {
   /** The app's own events on the calendar being written to, from `timeMin` on; a calendar that has gone needs a person. */
   private async listOurs(link: Link, { timeMin }: { timeMin: string }, token?: string): Promise<GoogleEvent[]> {
     try {
-      return await this.call(link, (t) => this.options.google.listEvents(t, link.calendarId!, { mark: `sh=${link.appKey}`, timeMin }), token)
+      const all: GoogleEvent[] = []
+      for (const cal of calendarsOf(link)) {
+        const listed = await this.call(link, (t) => this.options.google.listEvents(t, cal, { mark: `sh=${link.appKey}`, timeMin }), token)
+        all.push(...listed.map((ev) => ({ ...ev, calendarId: cal })))
+      }
+      return all
     } catch (err) {
       if (err instanceof GoogleError && err.problem === 'gone') throw this.blockedBy(link, err)
       throw err
@@ -707,14 +737,16 @@ export class CalendarSync {
    */
   private async remove(link: Link, row: DayRow) {
     try {
-      await this.call(link, (t) => this.options.google.deleteEvent(t, row.calendarId, row.eventId, tell(link)))
+      // A person's own copy only ever had them on it because of invites: they're told it's off.
+      await this.call(link, (t) => this.options.google.deleteEvent(t, row.calendarId, row.eventId, personalRow(row) ? 'all' : tell(link)))
     } catch (err) {
       if (!(err instanceof GoogleError)) throw err
       // A calendar the account can no longer reach: nothing more the app can do about that day.
       const unreachable = err.problem === 'access' && row.calendarId !== link.calendarId
       if (err.problem !== 'gone' && !unreachable) throw err
     }
-    await this.saveDay({ ...row, state: 'removed', problem: null }, row)
+    // A person's own copy that's gone keeps no address: it was only ever theirs (ADR 0027, erasure).
+    await this.saveDay({ ...row, state: 'removed', problem: null, ...(personalRow(row) ? { guests: [] } : {}) }, row)
   }
 
   private async saveDay(d: DayRow, before: DayRow | undefined) {
@@ -726,7 +758,7 @@ export class CalendarSync {
   private remember(d: DayRow) {
     if (!this.known) return
     for (const [id, k] of this.known) if (k.dayId === d.id) this.known.delete(id)
-    if (d.state === 'on' && d.calendarId === this.link?.calendarId && d.guests.length) this.known.set(d.eventId, { dayId: d.id, day: d.day, guests: d.guests })
+    if (d.state === 'on' && this.link && calendarsOf(this.link).includes(d.calendarId) && d.guests.length) this.known.set(d.eventId, { dayId: d.id, day: d.day, guests: d.guests })
   }
 
   /**
@@ -862,6 +894,28 @@ function ignoreGone(err: unknown) {
   if (err instanceof GoogleError && err.problem === 'gone') return
   throw err
 }
+
+/**
+ * Where each person's own copy of a day goes (1.163.0): the connected account's own calendar, whose id is its address,
+ * so the jobs calendar keeps one event a day. Null with invites off, when there are none.
+ */
+function personalCalendar(link: Link): string | null {
+  return link.invites && link.accountEmail ? link.accountEmail : null
+}
+
+/** The calendar a wanted day goes on. */
+function target(link: Link, w: Pick<Wanted, 'personId'>): string {
+  return w.personId ? (personalCalendar(link) ?? link.accountEmail!) : link.calendarId!
+}
+
+/** The calendars the app's events are on: the jobs calendar, and the account's own while invites are on. */
+function calendarsOf(link: Link): string[] {
+  const personal = personalCalendar(link)
+  return [link.calendarId!, ...(personal && personal !== link.calendarId ? [personal] : [])].filter(Boolean)
+}
+
+/** A person's own copy of a day: `<phase>/<day>/<person>`. */
+const personalRow = (row: Pick<DayRow, 'id'>) => row.id.split('/').length > 2
 
 /** Guests are told about deletions only with invites on (ADR 0009). */
 const tell = (link: Link): SendUpdates => (link.invites ? 'all' : 'none')

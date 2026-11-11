@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.164.0',
+    date: '2026-11-11',
+    title: 'Each crew member gets their own calendar invite, asking if they are free',
+    what: 'With crew invites on, each person offered work now gets their own invite for each day instead of sharing one. It opens with a line just for them: while they have not answered it says hello and asks if they are available for the role, once they say yes it thanks them and says the office will confirm, and once the office books them it says they are booked and here is the info for the day. The link at the bottom takes them to their own page. Anyone already invited to a shared day gets a note that it is cancelled and a new invite of their own. Crew invites are still off, so nothing is sent yet.',
+    prs: [335],
+    adrs: [9],
+  },
+  {
     version: '1.163.0',
     date: '2026-11-11',
     title: 'Calendar days show the job stage, HOLD before a yes, and TBC crew',

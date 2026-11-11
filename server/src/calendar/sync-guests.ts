@@ -29,9 +29,9 @@ export interface Answer {
 export const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
 /** The events whose guests' answers matter: the app's days on the calendar being written to that have guests. */
-export function knownFrom(rows: DayRow[], calendarId: string | null): Map<string, Known> {
+export function knownFrom(rows: DayRow[], calendarIds: readonly string[]): Map<string, Known> {
   const out = new Map<string, Known>()
-  for (const r of rows) if (r.state === 'on' && r.calendarId === calendarId && r.guests.length) out.set(r.eventId, { dayId: r.id, day: r.day, guests: r.guests })
+  for (const r of rows) if (r.state === 'on' && calendarIds.includes(r.calendarId) && r.guests.length) out.set(r.eventId, { dayId: r.id, day: r.day, guests: r.guests })
   return out
 }
 

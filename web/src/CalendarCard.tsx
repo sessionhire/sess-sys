@@ -192,7 +192,8 @@ export function CalendarCard({ view, available }: { view: View; available: boole
 
   if (link.state === 'choosing' || picking) {
     const use = (choice: CalendarChoice) => {
-      const told = invites ? ` Crew invited get an email saying the days on ${link.calendarName} are cancelled, and a new invite on ${choice.name}.` : ''
+      // Crew's own invites are on the connected account's calendar, so they stay as they are (ADR 0009).
+      const told = invites ? ' Crew keep their own invites, and nothing is sent to them.' : ''
       const go = () =>
         void run(async () => {
           await post<CalendarLink>('/api/calendar/use', { calendarId: choice.id })
@@ -317,13 +318,13 @@ export function CalendarCard({ view, available }: { view: View; available: boole
         <h3>Crew invites: {invites ? 'on' : 'off'}</h3>
         {invites ? (
           <p>
-            Crew offered or booked are invited to the job's days by {link.account}, marked HOLD while the job isn't confirmed. Their Yes or No in Google counts as their answer
-            within a couple of minutes.
+            Each person offered or booked gets their own invite to the job's days from {link.account}, asking if they're free, and marked HOLD while the job isn't confirmed.
+            Their Yes or No in Google counts as their answer within a couple of minutes.
           </p>
         ) : (
           <p>
-            When on, crew offered or booked are invited to the job's days by {link.account}, marked HOLD while the job isn't confirmed, and their Yes or No in Google counts as
-            their answer.
+            When on, each person offered or booked gets their own invite to the job's days from {link.account}, asking if they're free, and marked HOLD while the job isn't
+            confirmed. Their Yes or No in Google counts as their answer.
           </p>
         )}
         {invitesQuestion ??

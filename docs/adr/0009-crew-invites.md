@@ -34,6 +34,26 @@ calendars only hear about an event, a change or a cancellation by email.
   1.162.0; before that, their offers waited until the job was confirmed),
   so crew asked early have the day in their calendar, marked as not yet
   booked. The private link still works; either answer counts.
+- **Each person gets their own copy of the day (from 1.163.0).** The
+  day on the jobs calendar has no guests. Each person invited gets their
+  own event for each day, on the connected account's own calendar (the
+  ops account's, so the jobs calendar keeps one event a day), with them
+  as its only guest. It says what the shared day says, opened by a line
+  for them that follows their answer:
+  - offered: "Hi Aoife, are you available to work as Audio tech on Sat 2
+    Mar, call 08:00? Press Yes or No on this invite to let us know."
+  - said yes: "Thanks Aoife, you said yes to Audio tech on Sat 2 Mar… We'll
+    confirm it with you soon. Here's the info for the day."
+  - booked: "Hi Aoife, you're booked as Audio tech on Sat 2 Mar, call
+    08:00. Here's the info for the day."
+
+  The greeting is description, so it changes quietly; the HOLD coming off
+  is a title change and sends an update. The app link at the foot is
+  their own page, where they can answer or see their offers. A copy
+  whose person said No stays as a No while the day is still on. When
+  this came in, anyone already a guest on a shared day was taken off it
+  (Google tells them that one is cancelled) and invited to their own
+  copy.
 - **Their answer in Google counts, as on their link.** A Yes to any day
   is a yes to the offer, for all its days except any they said No to. A
   No to a day means not that day; a No to every day declines. Tentative
@@ -70,7 +90,8 @@ calendars only hear about an event, a change or a cancellation by email.
   while the server was restarting.
 - **Turning the switch off stops everything at once.** Nothing more is
   sent and no more answers are read. People already invited keep their
-  invites as they are; the app stops changing their guest lists.
+  invites as they are, their own copies included; the app stops changing
+  them.
   Disconnecting the calendar turns it off too, so connecting again starts
   with invites off.
 - **Turning it on says what it will send.** The Account tab counts the

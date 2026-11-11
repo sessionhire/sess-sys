@@ -34,8 +34,14 @@ export interface WantedGuest {
 }
 
 export interface Wanted {
-  /** `calendarDayId(phaseId, day)`. */
+  /** `calendarDayId(phaseId, day)`; a personal copy adds `/<person id>`. */
   key: string
+  /**
+   * Set on a person's own copy of the day (1.163.0, Colly's choice): the event goes on the connected account's own
+   * calendar with that person as its only guest, greeting them and naming their role. The shared day on the jobs
+   * calendar then has no guests.
+   */
+  personId?: string
   phaseId: string
   projectId: string
   day: string
@@ -102,6 +108,22 @@ export interface Allowances {
   fuelCents: number | null
   /** How far each way, when the travel line says. */
   km: number | null
+}
+
+/** What a person's own copy of a day says to them first: asking, thanking, or telling them they're booked. */
+export interface Greeting {
+  first: string
+  role: string
+  callTime: string | null
+  status: string
+  day: string
+}
+
+export function greeting(g: Greeting): string {
+  const call = g.callTime ? `, call ${g.callTime}` : ''
+  if (g.status === 'confirmed') return `Hi ${g.first}, you're booked as ${g.role} on ${dayLabel(g.day)}${call}. Here's the info for the day.`
+  if (g.status === 'accepted') return `Thanks ${g.first}, you said yes to ${g.role} on ${dayLabel(g.day)}${call}. We'll confirm it with you soon. Here's the info for the day.`
+  return `Hi ${g.first}, are you available to work as ${g.role} on ${dayLabel(g.day)}${call}? Press Yes or No on this invite to let us know.`
 }
 
 const DESCRIPTION_MAX = 8000
@@ -281,14 +303,28 @@ interface CallRow {
   needed: number
   start_day: string
   end_day: string
-  offers: { id: string; status: string; days: string[]; personId: string; name: string; email: string | null }[]
+  offers: { id: string; status: string; days: string[]; personId: string; name: string; first: string; email: string | null; token: string }[]
 }
 
 /** Which offer a person is invited by when two cover the same day: the one that holds it, then the one furthest on. */
 const RANK: Record<string, number> = { confirmed: 0, accepted: 1, countered: 2, offered: 3 }
 
 /** Everything that should be on the calendar from `today` on, by `calendarDayId`. */
-export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { today: string; appKey: string; appUrl: string | null }): Promise<Map<string, Wanted>> {
+export async function wantedEvents(
+  q: Queryable,
+  {
+    today,
+    appKey,
+    appUrl,
+    personal = false,
+  }: {
+    today: string
+    appKey: string
+    appUrl: string | null
+    /** Each guest gets their own copy of the day, and the shared day has none (invites on). */
+    personal?: boolean
+  }
+): Promise<Map<string, Wanted>> {
   const { rows: phases } = await q.query<PhaseRow>(
     `SELECT ph.id AS phase_id, ph.name AS phase, ph.start_day::text, ph.end_day::text, ph.notes AS phase_notes,
             p.id AS project_id, p.name AS job, p.status, p.notes AS job_notes, c.name AS client,
@@ -315,7 +351,7 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
   const { rows: calls } = projectIds.length
     ? await q.query<CallRow>(
         `SELECT cc.id, cc.project_id, cc.phase_id, cc.role, cc.call_time, cc.needed, cc.start_day::text, cc.end_day::text,
-                coalesce(json_agg(json_build_object('id', o.id, 'status', o.status, 'days', o.days, 'personId', pe.id, 'name', pe.name, 'email', pe.email)
+                coalesce(json_agg(json_build_object('id', o.id, 'status', o.status, 'days', o.days, 'personId', pe.id, 'name', pe.name, 'first', pe.first_name, 'email', pe.email, 'token', pe.link_token)
                                   ORDER BY pe.name, o.id)
                          FILTER (WHERE o.id IS NOT NULL), '[]') AS offers
            FROM crew_calls cc
@@ -382,9 +418,9 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
           missing: Math.max(0, c.needed - on.length),
         }
       })
-      const invited = new Map<string, WantedGuest & { rank: number }>()
+      const invited = new Map<string, WantedGuest & { rank: number; offer: CallRow['offers'][number]; call: CallRow }>()
       const noEmail = new Set<string>()
-      for (const o of covering.flatMap((c) => c.offers)) {
+      for (const [c, o] of covering.flatMap((c) => c.offers.map((o) => [c, o] as const))) {
         if (!o.days.includes(day)) continue
         const email = o.email?.trim()
         if (!email) {
@@ -393,7 +429,7 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         }
         const had = invited.get(o.personId)
         const rank = RANK[o.status] ?? 9
-        if (!had || rank < had.rank || (rank === had.rank && o.id < had.offerId)) invited.set(o.personId, { personId: o.personId, offerId: o.id, email, rank })
+        if (!had || rank < had.rank || (rank === had.rank && o.id < had.offerId)) invited.set(o.personId, { personId: o.personId, offerId: o.id, email, rank, offer: o, call: c })
       }
       const guests = [...invited.values()]
         .map(({ personId, offerId, email }) => ({ personId, offerId, email }))
@@ -429,6 +465,7 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         guestsCanInviteOthers: false,
       }
       const key = calendarDayId(p.phase_id, day)
+      const hash = (b: EventBody) => createHash('sha256').update(JSON.stringify(b)).digest('base64url').slice(0, 32)
       out.set(key, {
         key,
         phaseId: p.phase_id,
@@ -436,10 +473,35 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         day,
         title: titles[i]!,
         body,
-        hash: createHash('sha256').update(JSON.stringify(body)).digest('base64url').slice(0, 32),
-        guests,
+        hash: hash(body),
+        guests: personal ? [] : guests,
         noEmail: [...noEmail].sort(),
       })
+      if (!personal) return
+      // Each person's own copy: their greeting first, then the day as everyone sees it, with their own page for the link.
+      for (const g of invited.values()) {
+        const first = g.offer.first.trim() || g.offer.name.trim().split(/\s+/)[0] || 'there'
+        const hello = greeting({ first, role: g.call.role, callTime: g.call.call_time, status: g.offer.status, day })
+        const own = { ...facts, appLink: appUrl ? `${appUrl}/f/${g.offer.token}` : null }
+        const mine: EventBody = {
+          ...body,
+          description: `${hello}\n\n${description(own).replace(/The job in the Session Hire app: (\S+)$/, 'Your page, to answer or see your offers: $1')}`,
+          extendedProperties: { private: { ...body.extendedProperties.private, shPerson: g.personId } },
+        }
+        const personKey = `${key}/${g.personId}`
+        out.set(personKey, {
+          key: personKey,
+          personId: g.personId,
+          phaseId: p.phase_id,
+          projectId: p.project_id,
+          day,
+          title: titles[i]!,
+          body: mine,
+          hash: hash(mine),
+          guests: [{ personId: g.personId, offerId: g.offerId, email: g.email }],
+          noEmail: [],
+        })
+      }
     })
   }
   return out
