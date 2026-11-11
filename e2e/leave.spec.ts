@@ -281,7 +281,10 @@ test('staff apply for leave, an approver approves it, and the planner and offers
   await pickRecord(call, 'Offer to', `Nora Walsh ${id}`)
   await expect(call.locator('.warn')).toContainText(`Marked unavailable ${FROM} to ${MIDDLE} (Annual leave)`)
   await call.getByRole('button', { name: 'Offer', exact: true }).click()
-  await expect(call.getByRole('alert')).toHaveText('Tick Offer anyway first, or choose someone else.')
+  await expect(call.getByRole('alert')).toContainText('Tick Offer anyway first, or take Nora')
+  // Said on the box it's about, and by the button that was pressed (Colly, 11 November 2026).
+  await expect(call.locator('.warn input[type="checkbox"]')).toHaveAttribute('aria-invalid', 'true')
+  await expect(call.getByRole('group', { name: 'To sort first' })).toContainText('One thing to sort before “Offer”:')
 })
 
 test('someone archived who signs in is told so on the Leave screen, not to put on their email', async ({ browser }) => {

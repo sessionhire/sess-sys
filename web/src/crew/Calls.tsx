@@ -4,6 +4,7 @@ import {
   plural,
   APPLICANT_LEVEL,
   daysLabel,
+  dayLabel,
   departmentForRole,
   departmentOf,
   sameDepartment,
@@ -36,9 +37,10 @@ import {
   type LateView,
   whatsappWords,
 } from '@sh/shared'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Confirm, reasonOf, Refusal, useAct } from '../act.tsx'
 import { offerFormId, setOfferPicks } from './offerPicks.ts'
+import { refuseField, settleRefusals } from '../required.ts'
 import { Fold } from '../Fold.tsx'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
@@ -429,17 +431,22 @@ function EditCall({
   const rate = parseEuro(f.rate)
   const rateChanged = rate.cents !== undefined && rate.cents !== call.dayRateCents
   const datesChanged = f.start !== call.start || f.end !== call.end
-  const save = (e: FormEvent) => {
+  const save = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!f.role.trim() || (!tied && !f.project.trim())) return
-    if (rate.reason !== undefined) return refuse(rate.reason)
+    const form = e.currentTarget
+    // A reason left from the last press goes; this press says its own.
+    refuse('')
+    // Each said on its field, never a press that does nothing (spaces alone get past the browser's own check).
+    if (!tied && !f.project.trim()) return void refuseField(form, '[name="project"]', 'Fill in the project first.')
+    if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
+    if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
     const changes: CommandInput<'call.update'> = { id: call.id }
     if (f.role.trim() !== call.role) changes.role = f.role.trim()
     if (f.start !== call.start) changes.start = f.start
     const end = f.end < f.start ? f.start : f.end
     if (end !== call.end) changes.end = end
     // Dates moved earlier can leave the reply-by day after the job; it's here to fix, as when a call is made (audit finding 21).
-    if (f.replyBy && f.replyBy > end) return refuse(REPLY_BY_AFTER)
+    if (f.replyBy && f.replyBy > end) return void refuseField(form, '[name="replyBy"]', `${REPLY_BY_AFTER} Make it ${dayLabel(end)} or before, or clear it.`)
     if ((f.callTime || null) !== call.callTime) changes.callTime = f.callTime || null
     if (Math.max(1, f.needed) !== call.needed) changes.needed = Math.max(1, f.needed)
     if (rateChanged && seesRates) changes.dayRateCents = rate.cents
@@ -465,7 +472,7 @@ function EditCall({
       {!tied && (
         <>
           <label className="wide">
-            Project <input value={f.project} onChange={set('project')} required />
+            Project <input name="project" value={f.project} onChange={set('project')} required />
           </label>
           <label>
             Phase <input value={f.phase} onChange={set('phase')} placeholder="Build, Show…" />
@@ -476,7 +483,7 @@ function EditCall({
         </>
       )}
       <label>
-        Role <input value={f.role} onChange={set('role')} required />
+        Role <input name="role" value={f.role} onChange={set('role')} required />
       </label>
       <label>
         How many <input type="number" min={Math.max(1, booked)} value={f.needed} onChange={set('needed')} />
@@ -501,7 +508,7 @@ function EditCall({
       )}
       <DepartmentField view={view} value={department} onChange={setDepartment} />
       <label className="wide">
-        Reply by <input type="date" value={f.replyBy} onChange={set('replyBy')} />
+        Reply by <input type="date" name="replyBy" value={f.replyBy} onChange={set('replyBy')} />
       </label>
       <label className="wide">
         Details for crew <textarea rows={2} value={f.details} onChange={set('details')} placeholder="Travel, food, parking, dress" />
@@ -550,6 +557,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const [ids, setIds] = useState<string[]>([])
   const [override, setOverride] = useState(false)
   const [applicants, setApplicants] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
   // Someone who declined, couldn't make it or was told it's filled can be offered it again.
   const offered = new Set(call.offers.filter((o) => !['declined', 'filled', 'cancelled', 'pulled-out'].includes(o.status)).map((o) => o.personId))
   const everyone = crew.people.filter((p) => !offered.has(p.id) && !p.archived)
@@ -608,20 +616,22 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   }, [call.id, pickedNames])
   useEffect(() => () => setOfferPicks(call.id, []), [call.id])
 
-  const send = (e: FormEvent) => {
+  const send = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // Whatever stops it is said beside the button, even a fault in the checks themselves, never a press that does nothing.
+    // Whatever stops it is said, even a fault in the checks themselves, never a press that does nothing.
     try {
-      check()
+      check(e.currentTarget)
     } catch (err) {
       console.error(err)
       refuse(`The offer couldn't be made: ${reasonOf(err)}`)
     }
   }
-  const check = () => {
-    // Never a dead Offer (UX sweep, 6 November 2026, move 5): a press says what's missing.
-    if (!chosen.length) return refuse('Choose someone to offer it to first.')
-    if (clashing.length > 0 && !override) return refuse('Tick Offer anyway first, or choose someone else.')
+  const check = (form: HTMLFormElement) => {
+    refuse('')
+    // Never a dead Offer (UX sweep, 6 November 2026, move 5): a press says what's missing, on the field it's about.
+    if (!chosen.length) return refuseField(form, '[role="combobox"]', 'Choose someone to offer it to first: type a name, or pick from the list.')
+    if (clashing.length > 0 && !override)
+      return refuseField(form, '.warn input[type="checkbox"]', `Tick Offer anyway first, or take ${clashing.length === 1 ? firstName(clashing[0]!) : 'those not free'} off.`)
     // Said here, in the server's own words, rather than after a round trip; "Offer anyway" doesn't pass it.
     for (const p of chosen) {
       const short = certificateRefusal(p, needs, call.days, today)
@@ -639,7 +649,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   }
 
   return (
-    <form className="offer-form" id={offerFormId(call.id)} onSubmit={send}>
+    <form className="offer-form" id={offerFormId(call.id)} onSubmit={send} ref={formRef}>
       <RecordPicker
         label="Offer to"
         records={pickable}
@@ -654,6 +664,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
           setIds((now) => (now.includes(id) ? now : [...now, id]))
           // A reason given for someone else no longer applies.
           refuse('')
+          settleRefusals(formRef.current)
         }}
         placeholder="Name, phone, email, department or skill"
       />
@@ -679,7 +690,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
                 ))}
                 {own.warning(p.id, call.days) && <small className="warn-line">{own.warning(p.id, call.days)}. The offer can still go: it may be something they can move, and they can still say yes.</small>}
               </span>
-              <button type="button" className="link" aria-label={`Take ${p.name} off`} onClick={() => (setIds((now) => now.filter((x) => x !== p.id)), refuse(''))}>
+              <button type="button" className="link" aria-label={`Take ${p.name} off`} onClick={() => (setIds((now) => now.filter((x) => x !== p.id)), refuse(''), settleRefusals(formRef.current))}>
                 Take off
               </button>
             </li>
@@ -730,11 +741,15 @@ export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
   const set = (k: Exclude<keyof typeof blank, 'needs' | 'department'>) => (e: { target: { value: string } }) => setF({ ...f, [k]: k === 'needed' ? Number(e.target.value) : e.target.value })
   const suggested = departmentForRole(f.role, { calls: view.crew.calls, people: view.crew.people })
   const replyBy = f.replyBy ?? suggestedReplyBy(f.start, f.end < f.start ? f.start : f.end, today) ?? ''
-  const submit = (e: FormEvent) => {
+  const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!f.project.trim() || !f.role.trim()) return
+    const form = e.currentTarget
+    // A reason left from the last press goes; this press says its own.
+    refuse('')
+    if (!f.project.trim()) return void refuseField(form, '[name="project"]', 'Fill in the project first.')
+    if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
     const rate = parseEuro(f.rate)
-    if (rate.reason !== undefined) return refuse(rate.reason)
+    if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
     // Ready for the next call on the same job and days; a refusal brings what was typed back, unless the next thing has been typed since.
     const cleared = { ...blank, project: f.project, venue: f.venue, start: f.start, end: f.end }
     setF(cleared)
@@ -764,13 +779,13 @@ export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
   return (
     <form className="grid-form" onSubmit={submit}>
       <label className="wide">
-        Project <input value={f.project} onChange={set('project')} placeholder="e.g. Electric Picnic" required />
+        Project <input name="project" value={f.project} onChange={set('project')} placeholder="e.g. Electric Picnic" required />
       </label>
       <label>
         Phase <input value={f.phase} onChange={set('phase')} placeholder="Build, Show…" />
       </label>
       <label>
-        Role <input value={f.role} onChange={set('role')} placeholder="Audio tech" required />
+        Role <input name="role" value={f.role} onChange={set('role')} placeholder="Audio tech" required />
       </label>
       <div className="pair">
         <label>
@@ -798,7 +813,7 @@ export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
       </label>
       <DepartmentField view={view} value={f.department} suggested={suggested} onChange={(department) => setF({ ...f, department })} className="wide" />
       <label className="wide">
-        Reply by <input type="date" value={replyBy} onChange={set('replyBy')} />
+        Reply by <input type="date" name="replyBy" value={replyBy} onChange={set('replyBy')} />
       </label>
       <p className="hint wide">Two days before the first day, or the day before when the job is close. Clear it if there's no hurry.</p>
       <label className="wide">

@@ -3,6 +3,19 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 11 November 2026: forms say what needs sorting
+
+**Done (1.159.0)**
+
+- Colly asked for a clearer error on forms and errors on each field. An
+  empty or out-of-range field already had its line under it (required.ts);
+  now every form also gets a list beside its submit button of all that's
+  left to sort, each line a press away from its field, gone once it's fixed.
+- A form's own checks say it on the field too (`refuseField`): crew calls'
+  project, role, day rate and reply-by day; the Offer's picker and Offer
+  anyway. Spaces alone no longer stop a form silently.
+- Checked: offer-from-next, leave, refusals and the full browser suite.
+
 ## 11 November 2026: a crew offer that wouldn't send
 
 **Done (1.158.1)**

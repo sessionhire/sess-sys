@@ -68,6 +68,60 @@ function clear(field: Field) {
     if (rest.length) field.setAttribute('aria-describedby', rest.join(' '))
     else field.removeAttribute('aria-describedby')
     delete field.dataset.refusal
+    delete field.dataset.refusedBy
+    summarise(field.form)
+  }
+}
+
+const SUMMARY = 'form-problems'
+
+/** The form's submit button, whose words say what the person was trying to do. */
+const submitOf = (form: HTMLFormElement) => form.querySelector<HTMLButtonElement>('button[type="submit"], button:not([type])')
+
+/**
+ * Everything a form needs sorting before it can go, said beside the button that was pressed (Colly, 11 November 2026):
+ * on a phone the fields at fault can be scrolled out of sight above, so a press that did nothing looked like a broken
+ * button. One line for each field, in the order they're in the form, each a press away from its field; the line under
+ * the field says it again where it's fixed. It goes when the last of them is put right.
+ */
+function summarise(form: HTMLFormElement | null) {
+  if (!form) return
+  const fields = [...form.querySelectorAll<Field>('[data-refusal]')]
+  const box = form.querySelector<HTMLElement>(`.${SUMMARY}`)
+  if (!fields.length) return void box?.remove()
+  const button = submitOf(form)
+  const summary = box ?? document.createElement('div')
+  summary.className = `alert ${SUMMARY}`
+  summary.setAttribute('role', 'group')
+  const doing = button?.textContent?.trim()
+  // Not read out again as it comes: each field's own line is, and the focus is on the first.
+  summary.setAttribute('aria-label', 'To sort first')
+  summary.replaceChildren()
+  const head = document.createElement('p')
+  const b = document.createElement('b')
+  b.textContent = `${fields.length === 1 ? 'One thing' : `${fields.length} things`} to sort${doing ? ` before “${doing}”` : ' first'}:`
+  head.append(b)
+  const list = document.createElement('ul')
+  for (const field of fields) {
+    const li = document.createElement('li')
+    const go = document.createElement('button')
+    go.type = 'button'
+    go.className = 'link'
+    // The field's own line, after the field's name where the line doesn't say it ("Day rate: Put in a price like 250").
+    const words = document.getElementById(field.dataset.refusal!)?.textContent ?? ''
+    const name = nameOf(field).replace(/[^\p{L}\p{N})]+$/u, '')
+    go.textContent = name && name.length <= 30 && !words.toLowerCase().includes(name.toLowerCase()) ? `${name}: ${words}` : words
+    go.addEventListener('click', () => {
+      field.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      field.focus({ preventScroll: true })
+    })
+    li.append(go)
+    list.append(li)
+  }
+  summary.append(head, list)
+  if (!box) {
+    if (button) button.after(summary)
+    else form.append(summary)
   }
 }
 
@@ -78,7 +132,7 @@ function sweep() {
   })
 }
 
-function refuse(field: Field, words = sayWhatsNeeded(field)) {
+function refuse(field: Field, words = sayWhatsNeeded(field), by?: 'form') {
   clear(field)
   sweep()
   const line = document.createElement('span')
@@ -90,8 +144,33 @@ function refuse(field: Field, words = sayWhatsNeeded(field)) {
   const label = field.closest('label')
   ;(label ?? field).after(line)
   field.dataset.refusal = line.id
+  if (by) field.dataset.refusedBy = by
   field.setAttribute('aria-invalid', 'true')
   field.setAttribute('aria-describedby', [field.getAttribute('aria-describedby'), line.id].filter(Boolean).join(' '))
+  const form = field.form
+  queueMicrotask(() => summarise(form))
+}
+
+/**
+ * A form's own check, one the browser can't make (a rate it can't read, a reply-by day after the job, nobody chosen to
+ * offer to), said on the field it's about as an empty field is: the line under it, the field marked, the focus on it,
+ * and the summary by the button. It goes on the next thing typed or picked in that field, or with `settleRefusals`.
+ * Returns false, so a form's check reads `return refuseField(...)`.
+ */
+export function refuseField(form: HTMLFormElement | null | undefined, selector: string, words: string, { focus = true } = {}): false {
+  const field = form?.querySelector<Field>(selector)
+  if (!field) return false
+  refuse(field, words, 'form')
+  if (focus) {
+    field.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    field.focus({ preventScroll: true })
+  }
+  return false
+}
+
+/** Takes a form's own refusals away, as when what they were about changes some other way than typing in the field. */
+export function settleRefusals(form: HTMLFormElement | null | undefined) {
+  form?.querySelectorAll<Field>('[data-refused-by="form"]').forEach(clear)
 }
 
 export function refuseEmptyFieldsInWords() {
@@ -114,7 +193,8 @@ export function refuseEmptyFieldsInWords() {
   )
   const settle = (e: Event) => {
     const field = e.target as Field
-    if (field instanceof HTMLElement && field.dataset.refusal && field.validity?.valid !== false) clear(field)
+    // A form's own refusal goes on the next thing typed in its field; the form checks again when it's sent.
+    if (field instanceof HTMLElement && field.dataset.refusal && (field.dataset.refusedBy === 'form' || field.validity?.valid !== false)) clear(field)
   }
   document.addEventListener('input', settle, true)
   document.addEventListener('change', settle, true)

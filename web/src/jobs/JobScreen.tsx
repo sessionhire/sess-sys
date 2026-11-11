@@ -40,6 +40,7 @@ import {
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
+import { refuseField } from '../required.ts'
 import { NeedsField } from '../crew/Certificates.tsx'
 import { CallCard, peopleOn, promptFor, SharePanelFor, type Share } from '../crew/CrewScreen.tsx'
 import { Empty } from '../Empty.tsx'
@@ -1020,11 +1021,16 @@ function AskForCrew({ job }: { job: JobView }) {
   const { run, error, refuse } = useAct()
 
   if (!job.span) return <p className="empty">Add a phase first: crew are asked for by phase and day.</p>
-  const submit = (e: FormEvent) => {
+  const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!f.role.trim() || !start) return
+    const form = e.currentTarget
+    // A reason left from the last press goes; this press says its own.
+    refuse('')
+    // Each said on its field, never a press that does nothing (spaces alone get past the browser's own check).
+    if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
+    if (!start) return refuse('Add a phase first: crew are asked for by phase and day.')
     const rate = parseEuro(f.rate)
-    if (rate.reason !== undefined) return refuse(rate.reason)
+    if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
     // Ready for the next call; a refusal brings what was typed back, unless the next thing has been typed since.
     const cleared = { ...blank, phaseId: f.phaseId }
     setF(cleared)
@@ -1082,7 +1088,7 @@ function AskForCrew({ job }: { job: JobView }) {
         </label>
       )}
       <label>
-        Role <input value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} placeholder="Audio tech" required />
+        Role <input name="role" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} placeholder="Audio tech" required />
       </label>
       <label>
         How many <input type="number" min={1} value={f.needed} onChange={(e) => setF({ ...f, needed: Number(e.target.value) })} />
@@ -1107,7 +1113,7 @@ function AskForCrew({ job }: { job: JobView }) {
       )}
       <DepartmentField view={view} value={f.department} suggested={suggested} onChange={(department) => setF({ ...f, department })} className="wide" />
       <label className="wide">
-        Reply by <input type="date" value={replyBy} onChange={(e) => setF({ ...f, replyBy: e.target.value })} />
+        Reply by <input type="date" name="replyBy" value={replyBy} onChange={(e) => setF({ ...f, replyBy: e.target.value })} />
       </label>
       <p className="hint wide">Two days before the first day, or the day before when the job is close. Clear it if there's no hurry.</p>
       <label className="wide">
