@@ -79,7 +79,8 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   await build.getByRole('button', { name: '2 × Audio tech' }).click()
   await expect(build.locator('.job p').first()).toHaveText('Mon 7 Oct to Tue 8 Oct · €250 · Audio')
   await expect(office.locator('.conn')).toHaveText('Up to date')
-  await expect(office.locator('.job-facts dd').filter({ hasText: '0 of 2 booked' })).toBeVisible()
+  // Said once in the head: by the name's line when the job's under way, else as the Crew fact (review of 11 November 2026, finding 4).
+  await expect(office.locator('.page-head')).toContainText('0 of 2 booked')
   await office.evaluate(() => scrollTo(0, 0))
   await office.screenshot(shot('jobs-job'))
 

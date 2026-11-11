@@ -148,6 +148,12 @@
 /* The job's position (JobPosition.tsx): quiet when nothing is short, the warn ink when crew or kit is, the bad ink when a task is late.
    Ink, not a wash, so a list of jobs isn't a wall of colour: the tone is on the words and the segment of the stage it's in. */
 .job-position .stage-name { font-weight: 700; }
+/* On a phone a job's line goes under its name at the full width, so the name keeps the width too (review of 11 November 2026,
+   finding 4). */
+@media (max-width: 639px) {
+  .page-title-row:has(> .job-position) { flex-wrap: wrap; }
+  .page-title-row > .job-position { flex-basis: 100%; }
+}
 .job-position[data-tone='warn'] .stage-words { color: var(--warn); }
 .job-position[data-tone='warn'] .stage-seg i[data-state='now'] { background: var(--warn); }
 .job-position[data-tone='bad'] .stage-words { color: var(--bad); }
