@@ -1,7 +1,16 @@
-import { offerTemplateValues, WHATSAPP_OFFER_TEMPLATE } from '@sh/shared'
+import {
+  followUpTemplateValues,
+  jobOnHold,
+  offerTemplateValues,
+  STOPPED,
+  WHATSAPP_CANCELLED_TEMPLATE,
+  WHATSAPP_CONFIRMED_TEMPLATE,
+  WHATSAPP_OFFER_TEMPLATE,
+} from '@sh/shared'
 import type { Db, Queryable } from '../db.ts'
 import { emit, serverChange } from '../kernel.ts'
 import { getCall, getOffer, getPerson } from '../crew/store.ts'
+import { getProject } from '../projects/store.ts'
 import { whatsappSetting } from '../office/store.ts'
 import { WhatsAppRefused, type TemplateComponent } from './api.ts'
 import { reachOf, type WhatsApp } from './whatsapp.ts'
@@ -14,6 +23,9 @@ import { reachOf, type WhatsApp } from './whatsapp.ts'
  * Each message is taken under a row lock that another server skips, so two servers never send the same one. One
  * whose offer is no longer open, whose person turned WhatsApp off or whose number isn't the one queued any more, or
  * that waited a day, isn't sent: it's marked failed with why, and the office's own way (the link, the Send panel) stands.
+ *
+ * Three kinds go (ADR 0125, HOLD): the offer, saying HOLD while the client hasn't said yes; the follow-up when that
+ * job is confirmed a while later; and the word that a job they were asked for or booked on is cancelled or lost.
  */
 
 const EVERY_MS = 60_000
@@ -27,6 +39,7 @@ const STALE_MS = 24 * 60 * 60_000
 interface Queued {
   id: string
   offer_id: string | null
+  project_id: string | null
   person_id: string
   kind: string
   to_number: string
@@ -107,7 +120,7 @@ export class WhatsAppSender {
   private async sendOne(): Promise<false | { offerId: string | null }> {
     return this.db.transaction(async (tx) => {
       const { rows } = await tx.query<Queued>(
-        `SELECT id, offer_id, person_id, kind, to_number, made_at, tries FROM whatsapp_messages
+        `SELECT id, offer_id, project_id, person_id, kind, to_number, made_at, tries FROM whatsapp_messages
          WHERE state = 'queued' AND (tried_at IS NULL OR tried_at < $1) ORDER BY made_at LIMIT 1 FOR UPDATE SKIP LOCKED`,
         [new Date(this.now().getTime() - AGAIN_MS)]
       )
@@ -120,8 +133,13 @@ export class WhatsAppSender {
         return { offerId: m.offer_id }
       }
       try {
-        const wamid = await this.whatsapp.api!.sendTemplate(m.to_number, WHATSAPP_OFFER_TEMPLATE, ready)
-        await tx.query(`UPDATE whatsapp_messages SET state = 'sent', wamid = $2, sent_at = $3, problem = NULL, tries = tries + 1, tried_at = $3 WHERE id = $1`, [m.id, wamid, this.now()])
+        const wamid = await this.whatsapp.api!.sendTemplate(m.to_number, ready.template, ready.components)
+        await tx.query(`UPDATE whatsapp_messages SET state = 'sent', wamid = $2, sent_at = $3, problem = NULL, tries = tries + 1, tried_at = $3, hold = $4 WHERE id = $1`, [
+          m.id,
+          wamid,
+          this.now(),
+          ready.hold,
+        ])
       } catch (err) {
         const why = err instanceof Error ? err.message : String(err)
         // Meta saying no to this message (a number not on WhatsApp, a template not approved) won't change by trying again; Meta away, or too many at once, will.
@@ -135,26 +153,43 @@ export class WhatsAppSender {
     })
   }
 
-  /** The template's blanks and buttons, or why it isn't to go after all. */
-  private async ready(q: Queryable, m: Queued): Promise<TemplateComponent[] | string> {
+  /** The template, its blanks and buttons, or why it isn't to go after all. */
+  private async ready(q: Queryable, m: Queued): Promise<{ template: string; components: TemplateComponent[]; hold: boolean } | string> {
     if (!this.whatsapp.api) return 'WhatsApp isn’t set up on the server.'
     if (this.now().getTime() - new Date(m.made_at).getTime() > STALE_MS) return 'It waited more than a day to go, so it wasn’t sent.'
-    if (m.kind !== 'offer' || !m.offer_id) return 'Not a kind of message this version sends.'
+    if (!['offer', 'confirmed', 'cancelled'].includes(m.kind) || !m.offer_id) return 'Not a kind of message this version sends.'
     const offer = await getOffer(q, m.offer_id)
     const call = offer && (await getCall(q, offer.callId))
     const person = offer && (await getPerson(q, offer.personId))
     if (!offer || !call || !person) return 'The offer is gone.'
-    if (offer.status !== 'offered' || call.status !== 'open') return 'The offer was answered or withdrawn before it went.'
+    const job = call.projectId ? await getProject(q, call.projectId) : undefined
     if (person.archived) return 'They were archived before it went.'
     const to = reachOf(await whatsappSetting(q), person)
     if (!to) return 'WhatsApp was turned off, for them or for everyone, before it went.'
     if (to !== m.to_number) return 'Their mobile changed before it went.'
-    return [
-      { type: 'body', parameters: offerTemplateValues(person, call).map((text) => ({ type: 'text', text })) },
-      { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: `yes:${offer.id}` }] },
-      { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: `no:${offer.id}` }] },
-      // "See the details" opens their own page: the template holds the address up to /f/, and the secret goes in here.
-      { type: 'button', sub_type: 'url', index: '2', parameters: [{ type: 'text', text: person.linkToken }] },
-    ]
+    // Their own page, from a "See the details" button: the template holds the address up to /f/, and the secret goes in here.
+    const page = (index: string): TemplateComponent => ({ type: 'button', sub_type: 'url', index, parameters: [{ type: 'text', text: person.linkToken }] })
+    const body = (values: string[]): TemplateComponent => ({ type: 'body', parameters: values.map((text) => ({ type: 'text', text })) })
+    if (m.kind === 'confirmed') {
+      if (job?.status !== 'confirmed') return 'The job went back on hold, or was stopped, before it went.'
+      if (!['offered', 'countered', 'accepted', 'confirmed'].includes(offer.status) || call.status !== 'open') return 'The offer was answered no or withdrawn before it went.'
+      return { template: WHATSAPP_CONFIRMED_TEMPLATE, components: [body(followUpTemplateValues(person, call, offer.days)), page('0')], hold: false }
+    }
+    if (m.kind === 'cancelled') {
+      if (!job || !STOPPED.includes(job.status)) return 'The job was started again before it went.'
+      return { template: WHATSAPP_CANCELLED_TEMPLATE, components: [body(followUpTemplateValues(person, call, offer.days))], hold: false }
+    }
+    if (offer.status !== 'offered' || call.status !== 'open') return 'The offer was answered or withdrawn before it went.'
+    const hold = jobOnHold(job?.status)
+    return {
+      template: WHATSAPP_OFFER_TEMPLATE,
+      components: [
+        body(offerTemplateValues(person, call, hold)),
+        { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: `yes:${offer.id}` }] },
+        { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: `no:${offer.id}` }] },
+        page('2'),
+      ],
+      hold,
+    }
   }
 }
