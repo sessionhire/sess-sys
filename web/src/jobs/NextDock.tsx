@@ -6,6 +6,7 @@ import type { JobPart } from './JobScreen.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { promptFor, tellTo, type Share } from '../crew/Messages.tsx'
 import { useToday } from '../view.ts'
+import { offerFormId, useOfferPicks } from '../crew/offerPicks.ts'
 
 /** Where a press of Next lands on the job page (ADR 0140): a call, with its Offer open or not, or the short kit's Subhire. */
 export type Landing = { call: string; offer?: boolean } | { short: true }
@@ -56,6 +57,9 @@ export function NextDock({
   const access = useAccess()
   const { run, error } = useAct()
   const today = useToday()
+  // Who's picked in the Offer of the call Next would offer, and not yet sent (offerPicks.ts).
+  const askId = crewNext(job.calls).ask?.call.id
+  const picked = { callId: askId, names: useOfferPicks(askId) }
   const steps = view.steps.of(job.id)
   // Errands and meetings have no stages, so no Next: the page is as it was.
   if (!steps || (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands'))) return null
@@ -172,7 +176,20 @@ export function NextDock({
         }
       } else if (next.ask) {
         const { call, asked } = next.ask
-        press = { label: `Offer the ${call.role} · ${asked} of ${call.needed} offered`, onPress: () => onPart('crew', { call: call.id, offer: true }) }
+        // With people already picked in its Offer, this press sends it to them (crew offer that wouldn't send, 11 November 2026):
+        // otherwise the page's one filled button only opened the form they were in, and its own Offer read as greyed out. What
+        // stops it is said in the form, which it lands on.
+        const to = picked.callId === call.id ? picked.names : []
+        press = to.length
+          ? {
+              label: `Offer to ${to.length === 1 ? firstName({ name: to[0]! }) : `${to.length} people`} · ${asked} of ${call.needed} offered`,
+              onPress: () => {
+                const form = document.getElementById(offerFormId(call.id))
+                if (form instanceof HTMLFormElement) form.requestSubmit()
+                onPart('crew', { call: call.id, offer: true })
+              },
+            }
+          : { label: `Offer the ${call.role} · ${asked} of ${call.needed} offered`, onPress: () => onPart('crew', { call: call.id, offer: true }) }
       } else if (next.counter)
         // A different rate is settled with the rate in view, on Crew's answers.
         press = { label: `Answer ${firstName(next.counter.offer.person!)}'s rate · ${count}`, href: '#crew' }

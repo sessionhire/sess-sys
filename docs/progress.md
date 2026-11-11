@@ -3,6 +3,20 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 11 November 2026: a crew offer that wouldn't send
+
+**Done (1.158.1)**
+
+- Colly picked two people in a call's Offer on a phone, then pressed the red
+  Next button ("Offer the Audio - FOH"), which only opened the same form
+  again; the form's own Offer button is plain and read as greyed out. With
+  people picked, Next now sends the offer to them (`offerPicks.ts`).
+- More people than places is said before it goes; a reason the offer can't
+  go shows under the Offer button; a fault in the checks is said there too.
+- Checked: new offer-from-next browser test (a call across Build, Show and
+  Break, two picked for one place), and the steps, crew, certificates,
+  layout, leave, own-calendar, calendar and refusals tests.
+
 ## 11 November 2026: search as a command palette
 
 **Done (1.158.0, ADR 0147)**
