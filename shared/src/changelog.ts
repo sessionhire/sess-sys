@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.159.2',
+    version: '1.160.1',
     date: '2026-11-11',
     title: 'Crew are told what to do with an "unknown sender" calendar invite',
     what: "With crew invites on, a freelancer's own page now says, under their offers, that each day also comes as a Google Calendar invite from the office's address. If the first one says it's from an unknown sender, they press Add to calendar, and after that the invites go straight into their calendar.",
     prs: [330],
     adrs: [9],
+  },
+  {
+    version: '1.160.0',
+    date: '2026-11-11',
+    title: 'Recent in search',
+    what: 'Open search with nothing typed and the jobs, clients, venues, people, products and kit you opened lately on this device are listed first, newest at the top, so getting back to something is one press. They show their names as they are now, and signing out forgets them.',
+    prs: [329],
+    adrs: [148],
   },
   {
     version: '1.159.1',

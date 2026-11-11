@@ -12,6 +12,7 @@ import { Opening } from './Opening.tsx'
 import { listenForSignIn } from './native.ts'
 import { openOnStart } from './start.ts'
 import { keepPlaces } from './places.ts'
+import { keepRecent } from './recent.ts'
 import { printLight } from './theme.ts'
 import { refuseEmptyFieldsInWords } from './required.ts'
 import { watchForUpdates } from './update.tsx'
@@ -19,6 +20,7 @@ import { watchForUpdates } from './update.tsx'
 followMovedAddresses()
 openOnStart()
 keepPlaces()
+keepRecent()
 printLight()
 refuseEmptyFieldsInWords()
 void startErrorReporting()
