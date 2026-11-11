@@ -1,13 +1,15 @@
 import { moved, type JobSteps } from '@sh/shared'
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../Icon.tsx'
 
 /**
- * A group of the Board's cards a person can put in order (ADR 0143): a column, or one of Planning's weeks. Each card has
- * a Move button, the one handle for every way of moving it, after the design system's drag and drop and its list:
+ * A group of the Board's cards a person can put in order (ADR 0143): a column, or one of Planning's weeks. After the design
+ * system's drag and drop and its list:
  *
- * - Dragged with a mouse, a pen or a finger: only the button takes the drag, so a phone still scrolls the column by the
- *   card. Nothing moves while it's held; a line shows where it will land, and it lands when let go.
+ * - Dragged by the card itself, as on any kanban board (Colly, 11 November 2026): with a mouse, once it has moved a few
+ *   pixels, so a click still opens the job; with a finger, after holding it still for a moment, so a swipe still scrolls the
+ *   page. Its Move button drags at once. Nothing moves while it's held; a line shows where it will land, the page scrolls
+ *   when it's held near the top or the bottom of the screen, and it lands when let go.
  * - Pressed (or Space or Enter): the card is picked up. The arrows move it, Home and End to the ends, Space or Enter puts it
  *   down, Escape puts it back. Or press another card, or its Move, and it takes that card's place: the press twin of a drag.
  *
@@ -38,7 +40,13 @@ export function OrderedCards({
   // Dragged: where it would land, as an index in the group as it stands; nothing else moves until it's let go.
   const [drag, setDrag] = useState<{ id: string; at: number }>()
   const box = useRef<HTMLDivElement>(null)
-  const press = useRef<{ id: string; x: number; y: number; moved: boolean; pointer: number } | undefined>(undefined)
+  /** A press that may become a drag: armed until it moves (or, by a finger on the card, until it has been held still). */
+  const press = useRef<
+    | { id: string; x: number; y: number; y0: number; pointer: number; mode: 'armed' | 'drag'; touch: boolean; grip: boolean; timer?: number; target: Element }
+    | undefined
+  >(undefined)
+  // The click that ends a drag lands on the card's link or its Move button: it's the drag's, not a way into the job.
+  const dragged = useRef(false)
   const focusOn = useRef<string | undefined>(undefined)
   // A card the arrows moved is drawn again elsewhere in the list, so its Move button gets the focus back.
   useLayoutEffect(() => {
@@ -98,13 +106,145 @@ export function OrderedCards({
     return i < 0 ? cards.length : i
   }
 
+  // What the drag's listeners read, as this render has it.
+  const live = useRef({ ids, held, canOrder, landing, putDown })
+  live.current = { ids, held, canOrder, landing, putDown }
+
+  // The drag, on the group itself, so the whole card takes it (Colly, 11 November 2026). Listeners of the page's own, as a finger's
+  // drag has to stop the page scrolling under it, which only a touchmove that isn't passive can do.
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let scrolling = 0
+    const stop = () => {
+      const p = press.current
+      if (p?.timer) clearTimeout(p.timer)
+      cancelAnimationFrame(scrolling)
+      scrolling = 0
+      press.current = undefined
+    }
+    const begin = () => {
+      const p = press.current
+      if (!p) return
+      p.mode = 'drag'
+      p.timer = undefined
+      try {
+        p.target.setPointerCapture(p.pointer)
+      } catch {
+        // The pointer may already be gone; the drag still ends on the next up.
+      }
+      if (p.touch && !p.grip) navigator.vibrate?.(10)
+      setDrag({ id: p.id, at: live.current.landing(p.y) })
+      // Held near the top or the bottom of the screen, the page scrolls, so a card can go anywhere in a long column.
+      const edge = Math.max(80, innerHeight * 0.15)
+      const tick = () => {
+        const q = press.current
+        if (!q || q.mode !== 'drag') return
+        // Only once it's been taken towards that edge, so a card picked up near one doesn't set the page off at once.
+        const by = q.y < edge && q.y < q.y0 - 24 ? -(edge - q.y) / 4 : q.y > innerHeight - edge && q.y > q.y0 + 24 ? (q.y - (innerHeight - edge)) / 4 : 0
+        if (by) {
+          scrollBy(0, by)
+          setDrag({ id: q.id, at: live.current.landing(q.y) })
+        }
+        scrolling = requestAnimationFrame(tick)
+      }
+      scrolling = requestAnimationFrame(tick)
+    }
+    const down = (e: PointerEvent) => {
+      const { held, canOrder } = live.current
+      const t = e.target as HTMLElement
+      const item = t.closest<HTMLElement>('[data-card]')
+      if (!canOrder || held || press.current || e.button !== 0 || !item || !el.contains(item)) return
+      // Choosing who has the stage is its own control, never a drag.
+      if (t.closest('.stage-owner, select, input, textarea, label')) return
+      const grip = !!t.closest('.board-grip')
+      const touch = e.pointerType === 'touch'
+      press.current = { id: item.dataset.card!, x: e.clientX, y: e.clientY, y0: e.clientY, pointer: e.pointerId, mode: 'armed', touch, grip, target: grip ? t.closest('.board-grip')! : item }
+      // A finger on the card has to be held still first, as a swipe is the page scrolling.
+      if (touch && !grip) press.current.timer = window.setTimeout(begin, 380)
+    }
+    const move = (e: PointerEvent) => {
+      const p = press.current
+      if (!p || p.pointer !== e.pointerId) return
+      p.y = e.clientY
+      if (p.mode === 'armed') {
+        const far = Math.hypot(e.clientX - p.x, e.clientY - p.y0)
+        if (p.touch && !p.grip) {
+          // Moved before it was held long enough: it's a scroll.
+          if (far > 10) stop()
+          return
+        }
+        if (far < 6) return
+        begin()
+        return
+      }
+      setDrag({ id: p.id, at: live.current.landing(e.clientY) })
+    }
+    const up = (e: PointerEvent) => {
+      const p = press.current
+      if (!p || p.pointer !== e.pointerId) return
+      if (p.mode === 'drag') {
+        const { ids, landing, putDown } = live.current
+        const at = landing(e.clientY)
+        const from = ids.indexOf(p.id)
+        // The click the browser sends after letting go is the end of the drag, not a way into the job.
+        dragged.current = true
+        setTimeout(() => (dragged.current = false))
+        // Counted without the card itself, which comes out of its own place first.
+        putDown(moved(ids, from, at > from ? at - 1 : at), p.id)
+      }
+      stop()
+    }
+    const cancel = (e: PointerEvent) => {
+      if (press.current?.pointer !== e.pointerId) return
+      if (press.current.mode === 'drag') setDrag(undefined)
+      stop()
+    }
+    // Once a finger's drag has begun, the page stays where it is under it (it scrolls only by the edges, above).
+    const touchMove = (e: TouchEvent) => {
+      if (press.current?.mode === 'drag' && e.cancelable) e.preventDefault()
+    }
+    // A finger held on a card is a drag, not the link's menu.
+    const menu = (e: Event) => {
+      if (press.current) e.preventDefault()
+    }
+    // A card is a link, which a browser would otherwise drag as a link.
+    const nativeDrag = (e: DragEvent) => {
+      if (live.current.canOrder) e.preventDefault()
+    }
+    el.addEventListener('pointerdown', down)
+    addEventListener('pointermove', move)
+    addEventListener('pointerup', up)
+    addEventListener('pointercancel', cancel)
+    addEventListener('touchmove', touchMove, { passive: false })
+    el.addEventListener('contextmenu', menu)
+    el.addEventListener('dragstart', nativeDrag)
+    return () => {
+      stop()
+      el.removeEventListener('pointerdown', down)
+      removeEventListener('pointermove', move)
+      removeEventListener('pointerup', up)
+      removeEventListener('pointercancel', cancel)
+      removeEventListener('touchmove', touchMove)
+      el.removeEventListener('contextmenu', menu)
+      el.removeEventListener('dragstart', nativeDrag)
+    }
+  }, [])
+
   return (
     <div
       ref={box}
       className="board-cards"
       data-holding={held ? 'true' : undefined}
+      data-orderable={canOrder ? 'true' : undefined}
       // A press on another card while one is held is where it goes, not a way into that job.
       onClickCapture={(e) => {
+        // The click a drag ends with is the drag's: it neither opens the job nor picks the card up.
+        if (dragged.current) {
+          e.preventDefault()
+          e.stopPropagation()
+          return
+        }
         if (!held) return
         const target = (e.target as HTMLElement).closest<HTMLElement>('[data-card]')
         if (!target || target.dataset.card === held.id || (e.target as HTMLElement).closest('.board-grip, .stage-owner')) return
@@ -132,41 +272,8 @@ export function OrderedCards({
                 aria-label={held && !isHeld ? `Put ${name(held.id)} here, in place of ${s.job.name}` : `Move ${s.job.name}`}
                 aria-pressed={isHeld}
                 aria-describedby={held ? undefined : 'board-order-help'}
-                title={held ? undefined : 'Drag it, or press it and move it with the arrow keys. Cards not put in order go soonest first.'}
-                onPointerDown={(e) => {
-                  if (held || e.button !== 0) return
-                  press.current = { id, x: e.clientX, y: e.clientY, moved: false, pointer: e.pointerId }
-                  e.currentTarget.setPointerCapture(e.pointerId)
-                }}
-                onPointerMove={(e) => {
-                  const p = press.current
-                  if (!p || p.pointer !== e.pointerId) return
-                  if (!p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 6) return
-                  p.moved = true
-                  setDrag({ id, at: landing(e.clientY) })
-                }}
-                onPointerUp={(e) => {
-                  const p = press.current
-                  if (!p || p.pointer !== e.pointerId || !p.moved) return
-                  const at = landing(e.clientY)
-                  const from = ids.indexOf(id)
-                  // Counted without the card itself, which comes out of its own place first.
-                  putDown(moved(ids, from, at > from ? at - 1 : at), id)
-                }}
-                onPointerCancel={() => {
-                  press.current = undefined
-                  setDrag(undefined)
-                }}
-                onLostPointerCapture={() => {
-                  if (press.current?.moved) setDrag(undefined)
-                }}
+                title={held ? undefined : 'Drag the card, or press this and move it with the arrow keys. Cards not put in order go soonest first.'}
                 onClick={() => {
-                  // The click that ends a drag has already been dealt with.
-                  if (press.current?.moved) {
-                    press.current = undefined
-                    return
-                  }
-                  press.current = undefined
                   if (!held) pickUp(id)
                   else if (isHeld) putDown(held.order, id)
                   else into(id)
