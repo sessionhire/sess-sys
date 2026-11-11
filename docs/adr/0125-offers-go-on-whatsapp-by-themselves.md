@@ -101,7 +101,31 @@ Twilio or 360dialog and chose to go straight to Meta.
      other answers (client `whatsapp:<person>`), and Download everything
      says WhatsApp.
 
-## Considered
+## Offers on hold, and what follows (1.163.0)
+
+Colly, 11 November 2026: the WhatsApp, the calendar invite and the email all
+go the moment the office presses Offer, before the client has said yes if
+need be, marked HOLD; a confirm some time later is followed up, and so is a
+cancel. The calendar side is ADR 0008/0009 (1.162.0). On WhatsApp:
+
+- **HOLD in the offer.** While the job is an enquiry or quoted, the job's
+  blank reads `HOLD Nissan (Build)`, as its days do on the calendar. The
+  same template; no new words for Meta to approve. The message keeps whether
+  it went on hold.
+- **Confirmed, a while later.** When the job moves to confirmed, each
+  person whose offer went saying HOLD more than an hour before, and is
+  still asked or booked (not declined, filled or withdrawn), gets the
+  `job_confirmed` template: their name, the job, their days, and See the
+  details. Within the hour the offer is still fresh and the calendar
+  invite's title losing HOLD says it, so nothing more goes. Once per HOLD
+  message: back on hold and confirmed again says nothing new.
+- **Cancelled or lost.** Everyone asked or booked on it who had an offer on
+  WhatsApp gets the `job_cancelled` template, once per person, read before
+  the job's calls are cancelled.
+- Both are queued in the job's own change and sent just after, like the
+  offer, and dropped if the job has changed again before they go. Nothing
+  goes while the switch is off, and test mode reaches only its numbers.
+
 
 - **Twilio or another provider.** Each adds a fee or a monthly charge, and
   another company holding crew's numbers, for nothing the app needs.

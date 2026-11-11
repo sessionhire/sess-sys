@@ -11,6 +11,7 @@ import { getClient, paymentTermsColumn, getPhase, getPhases, getProject, getVenu
 import { getBooking, vehiclesOnPhase } from '../vehicles/store.ts'
 import { getStep } from '../steps/store.ts'
 import { memberPlan } from '../rms/members.ts'
+import { queueJobWhatsApp } from '../whatsapp/follow-ups.ts'
 
 /**
  * The job rules the server keeps, whichever device a change comes from
@@ -188,6 +189,8 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     await setFields(ctx, 'projects', PROJECT_COLUMNS, a)
     await emit(ctx, 'project', a.id, await getProject(ctx.tx, a.id))
     if (a.name !== undefined || a.venueId !== undefined) await renameCalls(ctx, { projectId: a.id })
+    // Crew asked on hold hear it's confirmed, and crew asked or booked hear it's stopped, on WhatsApp (ADR 0125, HOLD).
+    await queueJobWhatsApp(ctx, a.id, before.status, a.status)
     // Stopping a job takes its crew with it; starting it again doesn't bring them back.
     if (a.status && STOPPED.includes(a.status) && !STOPPED.includes(before.status))
       for (const c of await openCallsFor(ctx.tx, { projectId: a.id })) await cancelCall(ctx, c.id)

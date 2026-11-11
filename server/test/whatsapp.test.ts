@@ -307,3 +307,83 @@ describe('answers on WhatsApp (ADR 0125, part 3)', () => {
     expect(said()).toHaveLength(2)
   })
 })
+
+describe('offers on hold, and what follows (ADR 0125, HOLD)', () => {
+  async function onHold() {
+    const s = await setUp()
+    const job = newId()
+    expect(await s.send('project.create', { id: job, name: 'Nissan', clientId: null, venueId: null, status: 'quoted', notes: '' })).toMatchObject({ status: 'applied' })
+    const at = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10)
+    const callId = newId()
+    expect(
+      await s.send('call.create', { id: callId, projectId: job, project: 'Nissan', phase: 'Build', venue: 'RDS', role: 'Audio tech', start: at, end: at, callTime: '08:00', needed: 3, dayRateCents: 25000, details: '', replyBy: null })
+    ).toMatchObject({ status: 'applied' })
+    expect(await s.send('whatsapp.use', { mode: 'on', testTo: [] })).toMatchObject({ status: 'applied' })
+    const aoife = await s.person('Aoife Byrne', '087 123 4567')
+    const dara = await s.person('Dara Kelly', '086 765 4321')
+    const sean = await s.person('Seán Murphy', null)
+    const offers = { aoife: await s.offer(callId, aoife), dara: await s.offer(callId, dara), sean: await s.offer(callId, sean) }
+    /** The messages went this long ago, as Meta would have them. */
+    const age = (ms: number) => s.db.query(`UPDATE whatsapp_messages SET sent_at = $1`, [new Date(Date.now() - ms)])
+    const kinds = async () => (await s.db.query<{ kind: string; offer_id: string; state: string; hold: boolean; problem: string | null }>(`SELECT kind, offer_id, state, hold, problem FROM whatsapp_messages ORDER BY made_at, id`)).rows
+    const blanks = (i: number) => s.meta.sent[i]!.body.template.components[0].parameters.map((p: { text: string }) => p.text)
+    return { ...s, job, callId, at, offers, age, kinds, blanks }
+  }
+
+  it('says HOLD in the offer before the client has said yes, and not after', async () => {
+    const s = await onHold()
+    expect(s.blanks(0)[1]).toBe('HOLD Nissan (Build)')
+    expect((await s.kinds()).map((k) => k.hold)).toEqual([true, true])
+    expect(await s.send('project.update', { id: s.job, status: 'confirmed' })).toMatchObject({ status: 'applied' })
+    const late = await s.person('Niall Kerr', '085 111 2222')
+    await s.offer(s.callId, late)
+    expect(s.blanks(s.meta.sent.length - 1)[1]).toBe('Nissan (Build)')
+  })
+
+  it('sends no follow-up when the job is confirmed within the hour', async () => {
+    const s = await onHold()
+    const before = s.meta.sent.length
+    await s.send('project.update', { id: s.job, status: 'confirmed' })
+    expect(s.meta.sent.length).toBe(before)
+    expect((await s.kinds()).filter((k) => k.kind === 'confirmed')).toEqual([])
+  })
+
+  it('tells those still asked that it is confirmed, once, when time has passed since the HOLD', async () => {
+    const s = await onHold()
+    await s.age(2 * 60 * 60_000)
+    expect(await s.send('offer.respond', { id: s.offers.dara, answer: 'decline', note: '' })).toMatchObject({ status: 'applied' })
+    const before = s.meta.sent.length
+    await s.send('project.update', { id: s.job, status: 'confirmed' })
+    const sent = s.meta.sent.slice(before)
+    // Aoife only: Dara said no, and Seán has no mobile.
+    expect(sent.map((m) => [m.body.to, m.body.template.name])).toEqual([['353871234567', 'job_confirmed']])
+    expect(s.blanks(before).slice(0, 2)).toEqual(['Aoife', 'Nissan (Build)'])
+    expect(sent[0]!.body.template.components[1]).toEqual({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: await s.token((await s.db.query<{ person_id: string }>('SELECT person_id FROM offers WHERE id = $1', [s.offers.aoife])).rows[0]!.person_id) }] })
+    // Back on hold and confirmed again: nothing more.
+    await s.send('project.update', { id: s.job, status: 'quoted' })
+    await s.send('project.update', { id: s.job, status: 'confirmed' })
+    expect(s.meta.sent.length).toBe(before + 1)
+  })
+
+  it('tells everyone asked or booked when the job is cancelled, and nobody it never reached', async () => {
+    const s = await onHold()
+    expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'accept', days: [s.at], note: '' })).toMatchObject({ status: 'applied' })
+    expect(await s.send('offer.respond', { id: s.offers.dara, answer: 'decline', note: '' })).toMatchObject({ status: 'applied' })
+    const before = s.meta.sent.length
+    await s.send('project.update', { id: s.job, status: 'cancelled' })
+    const sent = s.meta.sent.slice(before)
+    expect(sent.map((m) => [m.body.to, m.body.template.name])).toEqual([['353871234567', 'job_cancelled']])
+    expect(sent[0]!.body.template.components).toHaveLength(1)
+    expect(s.blanks(before).slice(0, 2)).toEqual(['Aoife', 'Nissan (Build)'])
+  })
+
+  it('sends nothing on confirm or cancel while WhatsApp is off', async () => {
+    const s = await onHold()
+    await s.age(2 * 60 * 60_000)
+    await s.send('whatsapp.use', { mode: 'off', testTo: [] })
+    const before = s.meta.sent.length
+    await s.send('project.update', { id: s.job, status: 'confirmed' })
+    await s.send('project.update', { id: s.job, status: 'cancelled' })
+    expect(s.meta.sent.length).toBe(before)
+  })
+})

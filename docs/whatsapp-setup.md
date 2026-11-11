@@ -131,6 +131,35 @@ In **WhatsApp Manager › Message templates › Create template**:
      `https://<the app's address>/f/{{1}}` (the app's address is the start
      of the webhook address in step 8). Example: any long code.
 
+**Two more templates**, for when a job's crew were asked before the client
+said yes. The offer itself says so with **HOLD** before the job's name, so
+the offer's template doesn't change.
+
+`job_confirmed`, Utility, English (UK):
+
+```
+Hi {{1}}, {{2}} is confirmed: it's no longer on hold.
+
+Your days: {{3}}
+
+If you haven't answered yet, please do. Your page has the details.
+```
+
+Examples: Aoife · Nissan (Build) · Fri 2 Oct. Footer as above. One button:
+Visit website, **See the details**, dynamic URL `https://<the app's address>/f/{{1}}`.
+
+`job_cancelled`, Utility, English (UK):
+
+```
+Hi {{1}}, sorry: {{2}} isn't going ahead, so you're not needed on {{3}}. Those days are free again.
+```
+
+Examples as above. Footer as above, no buttons.
+
+If crew invites on Google Calendar are on, add this line to the end of
+`job_offer`'s body too: *We also send a Google Calendar invite for each day.
+If it says it's from an unknown sender, press Add to calendar.*
+
 Approval usually takes minutes. If Meta files it under Marketing instead of
 Utility, ask for a review: it's an offer of work to someone who works for
 Session Hire, about a job they're being booked for.
@@ -145,6 +174,8 @@ Session Hire, about a job they're being booked for.
    Press **Yes, I can do it**: the offer shows as accepted on WhatsApp, and
    you get a reply saying so. Try **No, I can't** on another, and write
    STOP to check it turns you off.
+   For HOLD, offer yourself a call on a job that's still a quote: the job reads
+   "HOLD …". Confirm the job (an hour on, for the follow-up), or cancel it.
 3. When you're ready (launch), choose **On**. Everyone with a mobile gets
    their offers on WhatsApp from then on, unless they turn them off on their
    own page.

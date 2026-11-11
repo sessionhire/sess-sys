@@ -314,6 +314,12 @@ const MIGRATIONS: string[] = [
     received_at  timestamptz NOT NULL DEFAULT now()
   );
   `,
+  // Offers on hold (ADR 0125, HOLD): whether an offer's message went saying HOLD, so a confirm later sends the
+  // follow-up; and the job a confirmed or cancelled message is about.
+  `
+  ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS hold boolean NOT NULL DEFAULT false;
+  ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS project_id text;
+  `,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }
