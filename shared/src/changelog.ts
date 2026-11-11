@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-11',
     title: 'Search opens over the screen you are on, with Ctrl K or Command K',
     what: "Search is now a box that opens over whatever screen you're on, which blurs and dims behind it, rather than a page of its own. Press the magnifier, or Ctrl K (Command K on a Mac) from anywhere, even while typing in a box; / still opens it at a desk. Before you type it lists the places to go, with their keys; as you type, the jobs, clients, venues, people, products and kit that match, and the first is highlighted: Enter opens it, the up and down arrows move, and Escape or a press outside closes it. What you typed is still there next time.",
-    prs: [0],
+    prs: [325]
     adrs: [147],
   },
   {
