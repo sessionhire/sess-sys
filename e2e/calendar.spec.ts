@@ -326,7 +326,7 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   await call.getByRole('button', { name: 'Offer…' }).click()
   for (const name of [niamh, conor, sean]) {
     await pickRecord(call, 'Offer to', name)
-    await call.getByRole('button', { name: 'Offer', exact: true }).click()
+    await call.getByRole('button', { name: /^Offer to / }).click()
     await expect(build.locator('.offers')).toContainText(name)
   }
   await expect(page.locator('.conn')).toHaveText('Up to date')

@@ -51,7 +51,7 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()
   await pickRecord(call, 'Offer to', 'Aoife Byrne')
-  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  await call.getByRole('button', { name: /^Offer to / }).click()
   // The offer is made, but with messages to crew off nothing opens to send it (ADR 0048): the card says so, and where to turn them on.
   const quietCard = office.getByRole('region', { name: 'Messages to crew are off: offer for Aoife Byrne' })
   await expect(quietCard).toContainText('Nothing opened to send Aoife Byrne the offer.')

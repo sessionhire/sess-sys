@@ -46,6 +46,9 @@ test("Next sends the offer to the people picked in it, across a job's phases", a
   await pickRecord(form, 'Offer to', colm)
   // Two for one place is allowed, and said before it goes.
   await expect(form).toContainText("2 offered for 1 place: whoever says yes first has it, and the rest are told it's filled.")
+  // Picked is not offered, and the form says so above the one button that sends it.
+  await expect(form.locator('.offer-pending')).toContainText("Not offered yet.")
+  await expect(form.getByRole('button', { name: 'Offer to 2 people' })).toBeVisible()
   // Next now names who it sends to, and sends it.
   await next.getByRole('button', { name: 'Offer to 2 people · 0 of 1 offered' }).click()
   // Made, with nothing sent while messages to crew are off (ADR 0048).
@@ -94,13 +97,10 @@ test('what stops a crew form is said on its field, and listed by the button with
   await ask.getByRole('button', { name: 'Ask for crew' }).click()
   await expect(ask).toContainText('Asked for 1 × Rigger on Show')
 
-  // Offer with nobody chosen: said on the picker, which takes the focus.
+  // With nobody picked there's nothing to press: picking is the step, and the button that offers comes with the person it names.
   const call = page.getByRole('article', { name: '1 × Rigger' })
   await call.getByRole('button', { name: '1 × Rigger' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()
-  await call.getByRole('button', { name: 'Offer', exact: true }).click()
-  const picker = call.getByRole('combobox', { name: 'Offer to' })
-  await expect(picker).toHaveAttribute('aria-invalid', 'true')
-  await expect(call.getByRole('alert')).toHaveText('Choose someone to offer it to first: type a name, or pick from the list.')
-  await expect(call.getByRole('group', { name: 'To sort first' })).toContainText('One thing to sort before “Offer”:')
+  await expect(call.getByRole('combobox', { name: 'Offer to' })).toBeVisible()
+  await expect(call.getByRole('button', { name: /^Offer( to|$)/ })).toHaveCount(0)
 })

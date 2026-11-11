@@ -86,7 +86,7 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   await maeve.click()
   // Picked is listed under the box to offer it to, with others to add if wanted (review of 11 November 2026, finding 12).
   await expect(call.getByRole('list', { name: 'To offer it to' })).toContainText(`Maeve Doyle ${id}`)
-  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  await call.getByRole('button', { name: /^Offer to / }).click()
   const share = office.getByRole('region', { name: `Send offer to Maeve Doyle ${id}` })
   const link = (await share.locator('textarea').inputValue()).match(/https?:\/\/\S+\/f\/\S+/)![0]
   const phone = await (await browser.newContext({ viewport: phoneSize, javaScriptEnabled: false })).newPage()
@@ -260,7 +260,7 @@ test('a call says where it stands at rest, the picker only searches on Enter, an
 
   // Offered with no signal, the call's line says it's waiting to sync until the server has it.
   await context.setOffline(true)
-  await sound.getByRole('button', { name: 'Offer', exact: true }).click()
+  await sound.getByRole('button', { name: /^Offer to / }).click()
   await expect(sound.locator('.who-line')).toHaveText(`Úna Layout ${id} (offered)`)
   await expect(sound.locator('.pill')).toHaveText('Waiting to sync')
   await expect(office.getByRole('status')).toContainText('No signal')

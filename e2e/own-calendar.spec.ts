@@ -146,7 +146,7 @@ test('a freelancer shares when they are busy from their link, the office sees it
   await expect(call.locator('.warn-line', { hasText: 'Busy in their own calendar' })).toHaveText(
     `Busy in their own calendar on ${label(busyDay)} (all day). The offer can still go: it may be something they can move, and they can still say yes.`
   )
-  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  await call.getByRole('button', { name: /^Offer to / }).click()
   await expect(office.getByRole('region', { name: `Send offer to ${name}` })).toBeVisible()
 
   // One tap on her link stops it, and it's gone from her page in the app.
