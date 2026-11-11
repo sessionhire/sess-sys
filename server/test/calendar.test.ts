@@ -806,7 +806,22 @@ describe('crew invites (ADR 0009)', () => {
     expect((await feed(s)).link!.invites).toBe(false)
     expect(s.google.visible(TEST_CAL).flatMap((e) => e.attendees ?? [])).toEqual([])
     const preview = await s.app.inject({ url: '/api/calendar/invites', cookies: s.colly.cookies })
-    expect(preview.json()).toEqual({ on: false, invites: 6, people: 3, noEmail: ['Seán Murphy'] })
+    // Who they'd go to, by name and address, with the days' events, so the office can check before turning invites on.
+    const builds = [
+      { day: '2030-03-02', title: 'Nissan - Build 1/2' },
+      { day: '2030-03-03', title: 'Nissan - Build 2/2' },
+    ]
+    expect(preview.json()).toEqual({
+      on: false,
+      invites: 6,
+      people: 3,
+      noEmail: ['Seán Murphy'],
+      guests: [
+        { name: 'Aoife Byrne', email: 'aoife@example.com', days: builds },
+        { name: 'Conor Walsh', email: 'Conor.Walsh@example.ie', days: builds },
+        { name: 'Niamh Kelly', email: 'niamh@example.com', days: builds },
+      ],
+    })
 
     expect(await invites(s, true)).toMatchObject({ invites: true })
     await s.sync()
@@ -841,7 +856,7 @@ describe('crew invites (ADR 0009)', () => {
     expect(offerOnCalendar(f.get<Offer>('offer', job.offers.sean), f.days, TODAY)).toBeUndefined()
 
     // All sent, once: running again sends nothing more.
-    expect((await s.app.inject({ url: '/api/calendar/invites', cookies: s.colly.cookies })).json()).toEqual({ on: true, invites: 0, people: 0, noEmail: ['Seán Murphy'] })
+    expect((await s.app.inject({ url: '/api/calendar/invites', cookies: s.colly.cookies })).json()).toEqual({ on: true, invites: 0, people: 0, noEmail: ['Seán Murphy'], guests: [] })
     const sent = s.google.sent.length
     expect(await s.sync()).toEqual({ written: 0, removed: 0, failed: 0 })
     expect(await s.check()).toEqual({ written: 0, removed: 0, failed: 0 })

@@ -1,5 +1,5 @@
-import { invitesLabel, type CalendarCheck, type CalendarChoice, type CalendarInvites, type CalendarLink, type View } from '@sh/shared'
-import { useEffect, useState, type FormEvent } from 'react'
+import { dayLabel, invitesLabel, type CalendarCheck, type CalendarChoice, type CalendarInvites, type CalendarLink, type View } from '@sh/shared'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm } from './act.tsx'
 import { when } from './format.ts'
 import { ask, post, serverUrl } from './server.ts'
@@ -17,7 +17,7 @@ import { useLate } from './useLate.ts'
 
 type Note = { ok: boolean; text: string }
 /** A question before something that reaches crew or Google: what will happen, what to do on yes, whether it's about the crew invites, which are asked in their own group, and whether the yes is a loss. */
-type Asking = { question: string; yes: string; no: string; go: () => void; invites?: true; loss?: true }
+type Asking = { question: string; yes: string; no: string; go: () => void; invites?: true; loss?: true; more?: ReactNode }
 
 const OUTCOMES: Record<string, Note> = {
   connected: { ok: true, text: 'Connected to Google.' },
@@ -77,7 +77,9 @@ export function CalendarCard({ view, available }: { view: View; available: boole
         asking.go()
       }}
       onNo={() => setAsking(undefined)}
-    />
+    >
+      {asking.more}
+    </Confirm>
   )
   const question = asking?.invites ? undefined : asked
   const invitesQuestion = asking?.invites ? asked : undefined
@@ -241,6 +243,17 @@ export function CalendarCard({ view, available }: { view: View; available: boole
         : ''
       setAsking({
         question: `Turn on crew invites? ${now}, by email from ${link.account}, and more as crew are offered work.${missing}`,
+        // Who they'd reach, by name and address, with each day's event, so the office can check before anything is sent.
+        more: ahead.guests.length > 0 ? (
+          <ul className="invitees" aria-label="Who would be invited">
+            {ahead.guests.map((g) => (
+              <li key={g.email}>
+                <b>{g.name}</b> <span className="invitee-email">{g.email}</span>
+                <small>{g.days.map((d) => `${d.title} (${dayLabel(d.day, today)})`).join(', ')}</small>
+              </li>
+            ))}
+          </ul>
+        ) : undefined,
         yes: 'Turn them on',
         no: 'Not now',
         invites: true,

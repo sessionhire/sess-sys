@@ -228,7 +228,7 @@ export class CalendarSync {
     const wanted = writing ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: null }) : new Map<string, Wanted>()
     const rows = new Map((await readDays(db, today)).map((r) => [r.id, r]))
     let invites = 0
-    const people = new Set<string>()
+    const people = new Map<string, { email: string; days: { day: string; title: string }[] }>()
     const noEmail = new Set<string>()
     for (const w of wanted.values()) {
       const row = rows.get(w.key)
@@ -236,11 +236,21 @@ export class CalendarSync {
       for (const g of w.guests) {
         if (on.some((p) => p.personId === g.personId && sameEmail(p.email, g.email))) continue
         invites++
-        people.add(g.personId)
+        const had = people.get(g.personId) ?? { email: g.email, days: [] }
+        had.days.push({ day: w.day, title: w.title })
+        people.set(g.personId, had)
       }
       for (const name of w.noEmail) noEmail.add(name)
     }
-    return { on: link?.invites ?? false, invites, people: people.size, noEmail: [...noEmail].sort() }
+    const ids = [...people.keys()]
+    const { rows: named } = ids.length
+      ? await db.query<{ id: string; name: string }>('SELECT id, name FROM people WHERE id = ANY($1::text[])', [ids])
+      : { rows: [] as { id: string; name: string }[] }
+    const nameOf = new Map(named.map((p) => [p.id, p.name]))
+    const guests = [...people.entries()]
+      .map(([id, p]) => ({ name: nameOf.get(id) ?? p.email, email: p.email, days: p.days.sort((a, b) => a.day.localeCompare(b.day) || a.title.localeCompare(b.title)) }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email))
+    return { on: link?.invites ?? false, invites, people: people.size, noEmail: [...noEmail].sort(), guests }
   }
 
   /** The calendars the connected account can change, for picking one. */

@@ -110,6 +110,15 @@ export interface CalendarInvites {
   people: number
   /** Offered or booked, but with no email address in the app, so not invited. */
   noEmail: string[]
+  /** Who the invites would go to, by name, each with the address and the days' events (title and day), so the office can check before turning invites on. */
+  guests: InviteGuest[]
+}
+
+/** One person turning invites on would invite, and the days' events they would be invited to. */
+export interface InviteGuest {
+  name: string
+  email: string
+  days: { day: string; title: string }[]
 }
 
 /** "12 invites to 5 people", "1 invite to 1 person". */

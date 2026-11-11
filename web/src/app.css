@@ -151,6 +151,9 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .confirm { display: grid; gap: var(--ds-space-2); }
 .confirm .more { display: grid; gap: var(--ds-space-2); }
 .confirm .more p { margin: 0; }
+.invitees { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ds-space-2); }
+.invitees li { display: grid; gap: 2px; }
+.invitees .invitee-email, .invitees small { overflow-wrap: anywhere; color: var(--ds-ink-secondary); }
 .signal { display: flex; gap: var(--ds-space-3); align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--ds-space-3) var(--ds-space-4); cursor: pointer; }
 .signal input { width: 22px; height: 22px; accent-color: var(--accent); margin-top: var(--ds-space-half); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--inset); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--group); }

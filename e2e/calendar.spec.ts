@@ -336,7 +336,18 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
 
   // Turning invites on says first what goes out.
   await page.route(/\/api\/calendar\/invites/, (route) => {
-    if (route.request().method() === 'GET') return route.fulfill({ json: { on: false, invites: 4, people: 2, noEmail: [sean] } })
+    if (route.request().method() === 'GET') return route.fulfill({
+        json: {
+          on: false,
+          invites: 4,
+          people: 2,
+          noEmail: [sean],
+          guests: [
+            { name: conor, email: 'conor@example.ie', days: [{ day: '2030-10-14', title: 'Build 1/2' }, { day: '2030-10-15', title: 'Build 2/2' }] },
+            { name: niamh, email: 'niamh@example.com', days: [{ day: '2030-10-14', title: 'Build 1/2' }, { day: '2030-10-15', title: 'Build 2/2' }] },
+          ],
+        },
+      })
     server.link = connected({ invites: route.request().postDataJSON().on })
     return route.fulfill({ json: server.link })
   })
@@ -350,6 +361,11 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
     name: `Turn on crew invites? 4 invites to 2 people go out straight away, by email from ops@sessionhire.com, and more as crew are offered work. ${sean} has no email address in the app, so won't be invited.`,
   })
   await expect(question).toBeVisible()
+  // Who they'd go to, by name and address, with the days, to check before anything is sent.
+  await expect(question.getByRole('list', { name: 'Who would be invited' }).getByRole('listitem')).toHaveText([
+    new RegExp(`^${conor}\\s*conor@example\\.ie\\s*Build 1/2 \\(\\w+ 14 Oct[^)]*\\), Build 2/2 \\(\\w+ 15 Oct`),
+    new RegExp(`^${niamh}\\s*niamh@example\\.com`),
+  ])
   await question.getByRole('button', { name: 'Turn them on' }).click()
   await expect(card.getByRole('status')).toHaveText('Crew invites are on: 4 invites to 2 people on their way.')
   await expect(invites.getByRole('heading')).toHaveText('Crew invites: on')

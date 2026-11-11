@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.159.1',
+    date: '2026-11-11',
+    title: 'See who crew invites would reach before turning them on',
+    what: 'Turning on crew invites under Admin › Connections now lists everyone who would get one straight away, with their email address and the job days they would be invited to, so you can check who it affects before anything is sent.',
+    prs: [0],
+    adrs: [9],
+  },
+  {
     version: '1.159.0',
     date: '2026-11-11',
     title: 'Forms say what needs sorting, on the box and beside the button',
