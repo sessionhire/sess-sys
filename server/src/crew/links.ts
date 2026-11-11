@@ -25,6 +25,7 @@ import { getPurchase, openPurchases, purchasesFor } from '../purchases/store.ts'
 import { renderPurchases } from './purchase-page.ts'
 import { renderBroken, type BrokenPage } from './broken-page.ts'
 import { getAsset, numberUse } from '../stock/store.ts'
+import { readLink } from '../calendar/store.ts'
 import type { WhatsApp } from '../whatsapp/whatsapp.ts'
 
 /**
@@ -292,6 +293,12 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       onTheDay,
       demo,
       ownCalendar: await getOwnCalendar(db, person.id),
+      // Crew invites on (ADR 0009) and an address to send them to: the page says who they come from, and what to do when Google holds the first one back.
+      ...(await (async () => {
+        const link = await readLink(db)
+        const on = link?.state === 'on' && link.invites && link.calendarId !== null && link.accountEmail && person.email?.trim()
+        return on ? { invites: { from: link.accountEmail!, to: person.email!.trim() } } : {}
+      })()),
       // Offers on WhatsApp (ADR 0125): said, with the way to turn them off or on, once the office sends them to this person's number.
       whatsapp: await whatsappFor(person),
       // A member of staff's time off is their leave (ADR 0024), read from the requests rather than the days it marks off.

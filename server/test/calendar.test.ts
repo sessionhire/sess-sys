@@ -9,6 +9,7 @@ import {
   type CommandName,
   type HistoryEntry,
   type Offer,
+  type Person,
   type Phase,
   type Project,
 } from '@sh/shared'
@@ -805,6 +806,8 @@ describe('crew invites (ADR 0009)', () => {
     // Off until someone turns it on: nobody is a guest, and nobody has heard from Google.
     expect((await feed(s)).link!.invites).toBe(false)
     expect(s.google.visible(TEST_CAL).flatMap((e) => e.attendees ?? [])).toEqual([])
+    const before = await feed(s)
+    expect((await s.app.inject({ url: `/f/${before.get<Person>('person', job.people.niamh).linkToken}` })).body).not.toContain('Google Calendar invite for each day')
     const preview = await s.app.inject({ url: '/api/calendar/invites', cookies: s.colly.cookies })
     // Who they'd go to, by name and address, with the days' events, so the office can check before turning invites on.
     const builds = [
@@ -854,6 +857,14 @@ describe('crew invites (ADR 0009)', () => {
     })
     // Seán has no email address, so nothing on Google Calendar for him.
     expect(offerOnCalendar(f.get<Offer>('offer', job.offers.sean), f.days, TODAY)).toBeUndefined()
+
+    // Their own page says the invites come too, from whom, and what to do when Google holds the first one back as from an unknown sender.
+    const page = async (id: string) => (await s.app.inject({ url: `/f/${f.get<Person>('person', id).linkToken}` })).body
+    const niamhPage = await page(job.people.niamh)
+    expect(niamhPage).toContain('We also send a Google Calendar invite for each day to niamh@example.com, from ')
+    expect(niamhPage).toContain('unknown sender, press <b>Add to calendar</b>')
+    // Seán has no address, so nothing is said.
+    expect(await page(f.get<Offer>('offer', job.offers.sean).personId)).not.toContain('Google Calendar invite for each day')
 
     // All sent, once: running again sends nothing more.
     expect((await s.app.inject({ url: '/api/calendar/invites', cookies: s.colly.cookies })).json()).toEqual({ on: true, invites: 0, people: 0, noEmail: ['Seán Murphy'], guests: [] })

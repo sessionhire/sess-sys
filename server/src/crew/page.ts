@@ -135,6 +135,12 @@ export interface PageData {
   ownCalendar?: OwnCalendar
   /** How many requests on the purchase list are still to decide or to buy (ADR 0108); absent, the way to it isn't drawn. */
   purchases?: number
+  /**
+   * Crew invites are on (ADR 0009) and they have an email address: each day they're offered also comes as a Google
+   * Calendar invite, `from` the connected account, `to` their address. Google holds back the first invite from a sender
+   * someone hasn't been in touch with ("unknown sender") until they press Add to calendar, so the page says so.
+   */
+  invites?: { from: string; to: string }
   /** Offers on WhatsApp (ADR 0125), once the office sends them to this person's mobile: whether theirs go, and to what number. */
   whatsapp?: PageWhatsApp
   /** A member of staff's leave still to come, approved or waiting (ADR 0024); absent for a freelancer, whose time off is days off. */
@@ -683,6 +689,16 @@ const laterRow = (d: PageData, j: PageData['jobs'][number], more = '') =>
   `<summary><b>${h(j.call.project)}</b><span class="line">${h(bookingLine(j.offer, j.call, d.today))}${more} <span class="tag ${j.offer.status}">${STATUS_TEXT[j.offer.status]}</span></span></summary>`
 
 /**
+ * With crew invites on (ADR 0009): each day offered also comes as a Google Calendar invite, and the first one from the
+ * office may arrive marked as from an unknown sender, not yet in their calendar, until they press Add to calendar
+ * (Fergal's first invite, 11 November 2026). Said once, under the offers, so the first invite isn't taken for spam.
+ */
+function invitesNote(d: PageData): string {
+  if (!d.invites) return ''
+  return `<p class="small invites-note">We also send a Google Calendar invite for each day to ${h(d.invites.to)}, from ${h(d.invites.from)}. If the first one says it's from an unknown sender, press <b>Add to calendar</b>: after that, they go straight into your calendar.</p>`
+}
+
+/**
  * The offers waiting on them, the soonest to answer first: the first few as full cards, the rest a line each with the
  * reply-by day, opening in place with its answers, as bookings are (audit, 5 November 2026, findings 32 and 53). One a
  * message or a refused answer is about opens, so the page lands on it.
@@ -875,6 +891,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   <section id="offers">
     <h2>Offers waiting on you</h2>
     ${waiting.length ? offers(d, waiting) : '<p class="empty">Nothing waiting right now.</p>'}
+    ${waiting.length ? invitesNote(d) : ''}
   </section>
 
   ${sinceYes(d, booked, ending)}
