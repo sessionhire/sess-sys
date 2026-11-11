@@ -172,7 +172,7 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   await next.getByRole('button', { name: 'Offer the Rigger · 1 of 2 offered' }).click()
   await expect(call.getByRole('combobox', { name: 'Offer to' })).toBeFocused()
   await pickRecord(call, 'Offer to', brian)
-  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  await call.getByRole('button', { name: /^Offer to / }).click()
   // Every place offered: Next waits in words, with the count.
   await expect(next).toContainText('Every place is offered: waiting on 1 answer. 1 of 2 booked.')
   await expect(next.getByRole('button')).toHaveCount(0)

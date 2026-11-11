@@ -569,6 +569,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const clashing = chosen.filter((p) => clashOf(p).length > 0)
   // Busy in their own calendar (ADR 0044): said, never in the way. It may be something they can move, and they may still say yes.
   const own = useView().ownCalendars
+  const calendarLink = useView().calendar.link
   const { run, error, refuse } = useAct()
   // What the call needs (ADR 0028): those who hold it first, then those not known, then those missing one, each in the order above.
   const today = useToday()
@@ -648,34 +649,15 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
     })
   }
 
+  // What the press is called: the person it goes to, so it reads as the step and not as another search button.
+  const sendLabel = chosen.length === 1 ? `Offer to ${chosen[0]!.name}` : `Offer to ${chosen.length} people`
+  const invitesOn = calendarLink?.state === 'on' && calendarLink.invites === true
+  const noEmail = chosen.filter((p) => !p.email?.trim())
+
   return (
     <form className="offer-form" id={offerFormId(call.id)} onSubmit={send} ref={formRef}>
-      <RecordPicker
-        label="Offer to"
-        records={pickable}
-        value=""
-        find={findIn}
-        meta={metaOf}
-        first={pickable}
-        firstLabel={firstLabel}
-        keepOpen
-        nothingFound={(t) => `Nobody matches “${t}”${!applicants && hidden > 0 ? ': applicants are left out unless shown' : ''}`}
-        onPick={(id) => {
-          setIds((now) => (now.includes(id) ? now : [...now, id]))
-          // A reason given for someone else no longer applies.
-          refuse('')
-          settleRefusals(formRef.current)
-        }}
-        placeholder="Name, phone, email, department or skill"
-      />
-      <button type="submit">{chosen.length > 1 ? `Offer to ${chosen.length}` : 'Offer'}</button>
-      {/* Beside the button that was pressed, above the people picked, so a phone sees it without scrolling. */}
-      <Refusal error={error} />
-      {chosen.length > 0 && offered.size + chosen.length > call.needed && (
-        <p className="hint">
-          {chosen.length + offered.size} offered for {plural(call.needed, 'place')}: whoever says yes first has it, and the rest are told it's filled.
-        </p>
-      )}
+      {/* Who's picked and the button that offers it come above the search, so the list it keeps open for the next pick never
+          covers them. */}
       {chosen.length > 0 && (
         <ul className="offer-to" aria-label="To offer it to">
           {chosen.map((p) => (
@@ -697,12 +679,6 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
           ))}
         </ul>
       )}
-      {(hidden > 0 || applicants) && (
-        <label className="applicants">
-          <input type="checkbox" checked={applicants} onChange={(e) => setApplicants(e.target.checked)} />
-          <span>Show applicants{hidden > 0 ? ` (${hidden})` : ''}</span>
-        </label>
-      )}
       {clashing.length > 0 && (
         <label className="warn">
           <input type="checkbox" checked={override} onChange={(e) => (setOverride(e.target.checked), refuse(''))} />
@@ -711,9 +687,61 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
           </span>
         </label>
       )}
+      {/* Picked is not offered (crew offer with no clear next step, 11 November 2026): with someone picked, what hasn't happened
+          yet, what pressing does, and the one filled button that does it, under the people it names and above the search. With nobody picked there's
+          nothing to press, so there's no button: picking is the step. */}
+      {chosen.length > 0 && (
+        <div className="offer-send">
+          <p className="offer-pending">
+            <b>Not offered yet.</b> {names(chosen.map(firstName))} {chosen.length > 1 ? "don't" : "doesn't"} know until you press {sendLabel}.
+            {invitesOn && ` Pressing it also adds ${chosen.length > 1 ? 'each of them' : 'them'} to the day in Google Calendar, which emails them an invite.`}
+            {noEmail.length > 0 && invitesOn && ` ${names(noEmail.map(firstName))} ${noEmail.length > 1 ? 'have' : 'has'} no email address, so no invite.`}
+          </p>
+          {clashing.length > 0 && !override && !error && (
+            <p className="hint warn-line">Tick Offer anyway above first, or take {clashing.length === 1 ? firstName(clashing[0]!) : 'those not free'} off.</p>
+          )}
+          <button type="submit" className="primary">
+            {sendLabel}
+          </button>
+        </div>
+      )}
+      {/* Beside the button that was pressed, so a phone sees it without scrolling. */}
+      <Refusal error={error} />
+      {chosen.length > 0 && offered.size + chosen.length > call.needed && (
+        <p className="hint">
+          {chosen.length + offered.size} offered for {plural(call.needed, 'place')}: whoever says yes first has it, and the rest are told it's filled.
+        </p>
+      )}
+      <RecordPicker
+        label={chosen.length ? 'Offer to someone else too' : 'Offer to'}
+        records={pickable}
+        value=""
+        find={findIn}
+        meta={metaOf}
+        first={pickable}
+        firstLabel={firstLabel}
+        keepOpen
+        nothingFound={(t) => `Nobody matches “${t}”${!applicants && hidden > 0 ? ': applicants are left out unless shown' : ''}`}
+        onPick={(id) => {
+          setIds((now) => (now.includes(id) ? now : [...now, id]))
+          // A reason given for someone else no longer applies.
+          refuse('')
+          settleRefusals(formRef.current)
+        }}
+        placeholder="Name, phone, email, department or skill"
+      />
+      {(hidden > 0 || applicants) && (
+        <label className="applicants">
+          <input type="checkbox" checked={applicants} onChange={(e) => setApplicants(e.target.checked)} />
+          <span>Show applicants{hidden > 0 ? ` (${hidden})` : ''}</span>
+        </label>
+      )}
     </form>
   )
 }
+
+/** "Fergal", "Fergal and Olan", "Fergal, Olan and Colm". */
+const names = (all: readonly string[]) => (all.length > 1 ? `${all.slice(0, -1).join(', ')} and ${all.at(-1)}` : (all[0] ?? ''))
 
 /** `onMade` hears each call's id as it's asked for, so the list can keep it in view whatever its days. */
 export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
