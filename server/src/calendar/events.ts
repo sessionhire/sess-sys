@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { calendarDayId, calendarTitles, dayLabel, eachDay } from '@sh/shared'
+import { calendarDayId, calendarTitles, dayLabel, DEPARTMENT_LABELS, DEPARTMENTS, eachDay, euroText, type Department, type QuoteLine } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { EventBody } from './google.ts'
 
@@ -40,6 +40,8 @@ export interface CrewLine {
   confirmed: string[]
   /** Said yes, not yet confirmed by the office. */
   toConfirm: string[]
+  /** Offered the day and not answered yet (or asked for a change), so each person invited sees the role they're asked for. */
+  asked: string[]
   /** Places nobody holds yet. */
   missing: number
 }
@@ -56,8 +58,33 @@ export interface DayFacts {
   jobNotes: string
   phaseNotes: string
   crew: CrewLine[]
+  /** The day's pick list: the phase's kit and the whole job's, a line per product. */
+  kit: KitItem[]
+  /** Per diems and fuel, as the job's quote has them; null with no quote, when nothing is known. */
+  allowances: Allowances | null
   /** The job in the app, when the app knows its own address. */
   appLink: string | null
+}
+
+export interface KitItem {
+  department: Department
+  category: string
+  product: string
+  qty: number
+  /** How many of them are hired in from another company. */
+  subhireQty: number
+}
+
+/** What the job's quote covers for the crew (ADR 0086), so they know before they say yes. */
+export interface Allowances {
+  /** The per diem a day when the quote charges subsistence, else null. */
+  perDiemCents: number | null
+  /** The job gives the crew their meals, so there's no per diem. */
+  mealsProvided: boolean
+  /** Fuel for a car there and back when the quote charges travel, else null. */
+  fuelCents: number | null
+  /** How far each way, when the travel line says. */
+  km: number | null
 }
 
 const DESCRIPTION_MAX = 8000
@@ -77,7 +104,7 @@ export function location(v: DayFacts['venue']): string {
 const names = (list: string[]) => (list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`)
 
 function crewLine(c: CrewLine): string {
-  const who = [...c.confirmed, ...c.toConfirm.map((n) => `${n} (to confirm)`)]
+  const who = [...c.confirmed, ...c.toConfirm.map((n) => `${n} (to confirm)`), ...c.asked.map((n) => `${n} (asked)`)]
   if (c.missing > 0) who.push(`${c.missing} still to find`)
   return `${c.role}${c.callTime ? `, call ${c.callTime}` : ''}: ${names(who) || 'nobody yet'}`
 }
@@ -97,11 +124,52 @@ export function description(f: DayFacts): string {
   if (f.crew.length) blocks.push(['Crew', ...f.crew.map(crewLine)].join('\n'))
   if (f.jobNotes.trim()) blocks.push(`Job notes\n${f.jobNotes.trim()}`)
   if (f.phaseNotes.trim()) blocks.push(`${f.phase} notes\n${f.phaseNotes.trim()}`)
-  if (f.appLink) blocks.push(`The job in the Session Hire app: ${f.appLink}`)
-  const footer = 'Written by the Session Hire app. Change the job in the app: changes made here are put back.'
+  if (f.allowances) blocks.push(allowancesText(f.allowances))
+  const kit = pickList(f.kit)
+  if (kit) blocks.push(kit)
   const text = blocks.join('\n\n')
-  const room = DESCRIPTION_MAX - footer.length - 3
-  return `${text.length > room ? `${text.slice(0, room - 1)}…` : text}\n\n${footer}`
+  // The link to the job always fits: a long pick list is cut short before it is.
+  const link = f.appLink ? `\n\nThe job in the Session Hire app: ${f.appLink}` : ''
+  const room = DESCRIPTION_MAX - link.length
+  return `${text.length > room ? `${text.slice(0, room - 1)}…` : text}${link}`
+}
+
+const euro = (cents: number) => `€${euroText(cents)}`
+
+/** Per diems and fuel in words for crew: what the quote covers, never what the client is charged for anything else. */
+export function allowancesText(a: Allowances): string {
+  const pd =
+    a.perDiemCents !== null
+      ? `Per diems: approved, ${euro(a.perDiemCents)} a day each`
+      : a.mealsProvided
+        ? 'Per diems: not approved, as meals are provided'
+        : 'Per diems: not approved'
+  const fuel = a.fuelCents !== null ? `Fuel: covered, about ${euro(a.fuelCents)} a car there and back${a.km !== null ? ` (${a.km} km each way)` : ''}` : 'Fuel: not covered'
+  return ['Per diems and fuel', pd, fuel].join('\n')
+}
+
+/** What the quote covers for crew, from its travel and subsistence lines (ADR 0086). */
+export function allowancesOf(lines: readonly QuoteLine[], mealsProvided: boolean): Allowances {
+  const sub = lines.find((l) => l.extra === 'subsistence')
+  const travel = lines.find((l) => l.extra === 'travel')
+  const km = travel ? /(\d+) km each way/.exec(travel.what)?.[1] : undefined
+  return {
+    perDiemCents: sub ? sub.unitCents : null,
+    mealsProvided,
+    fuelCents: travel ? travel.unitCents : null,
+    km: km ? Number(km) : null,
+  }
+}
+
+/** The day's kit as a list under a heading for each department, in the departments' usual order. Quantities only, never prices. */
+export function pickList(kit: readonly KitItem[]): string {
+  if (!kit.length) return ''
+  const groups = DEPARTMENTS.map((d) => ({
+    d,
+    items: kit.filter((k) => k.department === d).sort((a, b) => a.category.localeCompare(b.category) || a.product.localeCompare(b.product)),
+  })).filter((g) => g.items.length)
+  const item = (k: KitItem) => `• ${k.qty} × ${k.product}${k.subhireQty ? ` (${k.subhireQty === k.qty ? 'all' : k.subhireQty} hired in)` : ''}`
+  return ['Pick list', ...groups.map((g) => [DEPARTMENT_LABELS[g.d], ...g.items.map(item)].join('\n'))].join('\n\n')
 }
 
 const BASE32HEX = '0123456789abcdefghijklmnopqrstuv'
@@ -143,6 +211,23 @@ interface PhaseRow {
   venue_name: string | null
   venue_address: string | null
   venue_notes: string | null
+}
+
+interface KitRow {
+  project_id: string
+  phase_id: string | null
+  model_id: string
+  product: string
+  department: Department
+  category: string
+  qty: number
+  subhire_qty: number
+}
+
+interface QuoteRow {
+  project_id: string
+  lines: QuoteLine[]
+  meals_provided: boolean
 }
 
 interface CallRow {
@@ -190,9 +275,42 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         [projectIds, today]
       )
     : { rows: [] as CallRow[] }
+  const { rows: kitRows } = projectIds.length
+    ? await q.query<KitRow>(
+        `SELECT k.project_id, k.phase_id, k.model_id, m.name AS product, m.department, m.category,
+                sum(k.qty)::int AS qty, sum(k.subhire_qty)::int AS subhire_qty
+           FROM kit_lines k
+           JOIN models m ON m.id = k.model_id
+          WHERE k.project_id = ANY($1::text[])
+          GROUP BY k.project_id, k.phase_id, k.model_id, m.name, m.department, m.category`,
+        [projectIds]
+      )
+    : { rows: [] as KitRow[] }
+  // Each job's quote that counts: the one accepted, else the latest.
+  const { rows: quoteRows } = projectIds.length
+    ? await q.query<QuoteRow>(
+        `SELECT DISTINCT ON (project_id) project_id, lines, meals_provided
+           FROM quotes
+          WHERE project_id = ANY($1::text[]) AND deleted_at IS NULL AND status <> 'declined'
+          ORDER BY project_id, (status = 'accepted') DESC, version DESC`,
+        [projectIds]
+      )
+    : { rows: [] as QuoteRow[] }
+  const allowancesByJob = new Map(quoteRows.map((r) => [r.project_id, allowancesOf(r.lines, r.meals_provided)]))
 
   const out = new Map<string, Wanted>()
   for (const p of phases) {
+    // The phase's own kit and the whole job's, a line per product.
+    const kitByModel = new Map<string, KitItem>()
+    for (const k of kitRows) {
+      if (k.project_id !== p.project_id || (k.phase_id !== null && k.phase_id !== p.phase_id)) continue
+      const had = kitByModel.get(k.model_id)
+      if (had) {
+        had.qty += k.qty
+        had.subhireQty += k.subhire_qty
+      } else kitByModel.set(k.model_id, { department: k.department, category: k.category, product: k.product, qty: k.qty, subhireQty: k.subhire_qty })
+    }
+    const kit = [...kitByModel.values()]
     const days = eachDay(p.start_day, p.end_day)
     const titles = calendarTitles(p.job, { name: p.phase, start: p.start_day, end: p.end_day })
     days.forEach((day, i) => {
@@ -207,6 +325,7 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
           callTime: c.call_time,
           confirmed: on.filter((o) => o.status === 'confirmed').map((o) => o.name),
           toConfirm: on.filter((o) => o.status === 'accepted').map((o) => o.name),
+          asked: c.offers.filter((o) => (o.status === 'offered' || o.status === 'countered') && o.days.includes(day)).map((o) => o.name),
           missing: Math.max(0, c.needed - on.length),
         }
       })
@@ -237,6 +356,8 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         jobNotes: p.job_notes,
         phaseNotes: p.phase_notes,
         crew,
+        kit,
+        allowances: allowancesByJob.get(p.project_id) ?? null,
         appLink: appUrl ? `${appUrl}/#jobs/${p.project_id}` : null,
       }
       const next = new Date(`${day}T12:00:00Z`)
