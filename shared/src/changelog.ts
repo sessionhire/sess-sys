@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-11',
     title: 'Offer a call to several people in one press',
     what: "Under Offer on a crew call, pick as many people as you want, one tap each: they're listed under the box, each with anything to know first and Take off beside them, and one press offers it to them all. The list starts with whoever is free on the call's days and has its role among their skills, then everyone else who's free, with anyone not free at the bottom.",
-    prs: [0],
+    prs: [319],
   },
   {
     version: '1.152.3',
