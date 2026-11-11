@@ -341,7 +341,7 @@ describe('what goes on the calendar', () => {
     await kit('y10p', null, 8)
     await kit('sm58', null, 6)
     await kit('sm58', job.phases.build, 2)
-    // Asked and not answered yet: on the crew line, so they see the role they're asked for.
+    // Asked and not answered yet: a TBC on the crew line, as is Seán's yes until the office confirms it.
     const ciara = newId()
     await send(s, 'person.upsert', { id: ciara, name: 'Ciara Doyle', kind: 'freelancer', email: null, phone: null, skills: ['audio'], dayRateCents: null, notes: '' })
     await send(s, 'offer.send', { id: newId(), callId: job.callId, personId: ciara, override: false })
@@ -368,6 +368,9 @@ describe('what goes on the calendar', () => {
     })
     expect(build1!.description).toBe(
       [
+        // Its first day, with kit to pick and none gone yet: Going out, as the job page has it.
+        'Job stage: Going out (3 of 5)',
+        '',
         'Client: Nissan Ireland',
         'Build, day 1 of 2: Sat 2 Mar to Sun 3 Mar',
         '',
@@ -376,7 +379,7 @@ describe('what goes on the calendar', () => {
         'At the venue: Load-in via Mayor Street.',
         '',
         'Crew',
-        'Audio tech, call 08:00: Aoife Byrne, Seán Murphy (to confirm), Ciara Doyle (asked) and 1 still to find',
+        'Audio tech, call 08:00: Aoife Byrne, 2 TBC',
         '',
         'Job notes',
         'Launch of the new Leaf.',
@@ -458,7 +461,7 @@ describe('what goes on the calendar', () => {
     before = s.google.calls.length
     await send(s, 'offer.confirm', { id: job.offers.sean })
     await s.sync()
-    expect(s.google.visible(TEST_CAL)[0]!.description).toContain('Audio tech, call 08:00: Aoife Byrne, Seán Murphy and 1 still to find')
+    expect(s.google.visible(TEST_CAL)[0]!.description).toContain('Audio tech, call 08:00: Aoife Byrne, Seán Murphy, TBC')
     expect(eventWrites(s.google.calls.slice(before))).toHaveLength(2)
 
     // Cancelled: off the calendar, and off the devices' list.
@@ -821,7 +824,7 @@ describe('crew invites (ADR 0009)', () => {
   it('starts off, says what it would send, then invites everyone offered or booked, once', async () => {
     const s = await setup()
     const job = await withCrew(s)
-    // A job not confirmed yet has no events, so its crew wait too.
+    // A job not confirmed yet, with crew asked for it, goes on on hold (1.162.0): its crew are asked for the day as HOLD.
     const pencilled = newId()
     const pencilledCall = newId()
     await send(s, 'project.create', { id: pencilled, name: 'Pencilled', clientId: null, venueId: null, status: 'enquiry', notes: '' })
@@ -859,13 +862,13 @@ describe('crew invites (ADR 0009)', () => {
     ]
     expect(preview.json()).toEqual({
       on: false,
-      invites: 6,
+      invites: 7,
       people: 3,
       noEmail: ['Seán Murphy'],
       guests: [
         { name: 'Aoife Byrne', email: 'aoife@example.com', days: builds },
         { name: 'Conor Walsh', email: 'Conor.Walsh@example.ie', days: builds },
-        { name: 'Niamh Kelly', email: 'niamh@example.com', days: builds },
+        { name: 'Niamh Kelly', email: 'niamh@example.com', days: [...builds, { day: '2030-03-05', title: 'HOLD Pencilled - Show' }] },
       ],
     })
 
@@ -885,7 +888,27 @@ describe('crew invites (ADR 0009)', () => {
       'invited aoife@example.com 2030-03-03 Nissan - Build 2/2',
       'invited niamh@example.com 2030-03-02 Nissan - Build 1/2',
       'invited niamh@example.com 2030-03-03 Nissan - Build 2/2',
+      'invited niamh@example.com 2030-03-05 HOLD Pencilled - Show',
     ])
+    const held = s.google.visible(TEST_CAL).find((e) => e.summary === 'HOLD Pencilled - Show')!
+    expect(held.description).toMatch(/^ON HOLD: the client hasn't said yes yet, so keep the day free but it isn't booked\.\nJob stage: Quoting \(1 of 5\)\n/)
+    expect(held.description).toContain('LX: TBC')
+    // The job page says it's on, as HOLD; a job with nobody asked waits for the yes.
+    const onHoldFeed = await feed(s)
+    const pencilledJob = onHoldFeed.get<Project>('project', pencilled)
+    const pencilledPhase = onHoldFeed.get<Phase>('phase', phase)
+    expect(phaseOnCalendar(pencilledJob, pencilledPhase, onHoldFeed.link, onHoldFeed.days, TODAY, true)).toMatchObject({ state: 'on', days: 1 })
+    expect(phaseOnCalendar(pencilledJob, pencilledPhase, onHoldFeed.link, onHoldFeed.days, TODAY, false)).toEqual({ state: 'waiting' })
+
+    // Confirmed, the hold comes off: the same event, its title changed, which Google tells the guest about.
+    const heldId = held.id
+    const told = emails(s).length
+    await send(s, 'project.update', { id: pencilled, status: 'confirmed' })
+    await s.sync()
+    const booked = s.google.visible(TEST_CAL).find((e) => e.id === heldId)!
+    expect(booked.summary).toBe('Pencilled - Show')
+    expect(booked.description).toMatch(/^Job stage: Planning \(2 of 5\)\n/)
+    expect(emails(s).slice(told)).toEqual(['updated niamh@example.com 2030-03-05 Pencilled - Show'])
 
     // Devices see who is invited and their answers, never their addresses.
     const f = await feed(s)
@@ -917,7 +940,7 @@ describe('crew invites (ADR 0009)', () => {
     expect(s.google.sent.length).toBe(sent)
 
     const entry = (await s.colly.history()).entries.find((e: HistoryEntry) => e.command === 'calendar.invites')!
-    expect([entry.who.name, entry.what, entry.deviceCode]).toEqual(['Colly Hewson', 'Turned on crew invites on Google Calendar (6 invites to 3 people)', 'laptop'])
+    expect([entry.who.name, entry.what, entry.deviceCode]).toEqual(['Colly Hewson', 'Turned on crew invites on Google Calendar (7 invites to 3 people)', 'laptop'])
   })
 
   it('needs a calendar to turn on, and a plain yes or no', async () => {
@@ -961,7 +984,7 @@ describe('crew invites (ADR 0009)', () => {
     // Next run: the crew list goes on quietly, and Conor is told he's off.
     const before = s.google.sent.length
     await s.sync()
-    expect(s.google.visible(TEST_CAL)[0]!.description).toContain('Audio tech, call 08:00: Aoife Byrne, Niamh Kelly (to confirm) and Seán Murphy (to confirm)')
+    expect(s.google.visible(TEST_CAL)[0]!.description).toContain('Audio tech, call 08:00: Aoife Byrne, 2 TBC')
     expect(s.google.guests(TEST_CAL, job.events.build1).sort()).toEqual(['aoife@example.com needsAction', 'niamh@example.com accepted'])
     expect(emails(s, before)).toEqual([
       'cancelled Conor.Walsh@example.ie 2030-03-02 Nissan - Build 1/2',

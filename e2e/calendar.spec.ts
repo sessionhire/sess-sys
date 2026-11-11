@@ -174,7 +174,7 @@ test('connecting Google Calendar, choosing its calendar, checking and disconnect
   await card.getByRole('button', { name: 'Use this calendar' }).click()
   await expect(card.getByRole('status')).toHaveText('Jobs go on Test calendar from now on.')
   expect(chosen).toEqual({ calendarId: TEST_CAL })
-  await expect(card).toContainText('Confirmed jobs go on Test calendar, written by ops@sessionhire.com.')
+  await expect(card).toContainText('Confirmed jobs go on Test calendar, written by ops@sessionhire.com, and jobs not confirmed yet go on as HOLD once crew are asked for them.')
   await expect(card).toContainText('4 days on it from today. Connected by Colly Hewson today at')
 
   // Check the calendar looks at the calendar itself and says what it did.
