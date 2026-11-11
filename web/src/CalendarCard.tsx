@@ -284,7 +284,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
     <section className={link.problem ? 'card attention' : 'card'} aria-label="Google Calendar">
       <h2>Google Calendar</h2>
       <p>
-        Confirmed jobs go on <b>{link.calendarName}</b>, written by {link.account}.
+        Confirmed jobs go on <b>{link.calendarName}</b>, written by {link.account}, and jobs not confirmed yet go on as HOLD once crew are asked for them.
       </p>
       {link.problem && (
         <p className="alert" role="alert">
@@ -317,12 +317,12 @@ export function CalendarCard({ view, available }: { view: View; available: boole
         <h3>Crew invites: {invites ? 'on' : 'off'}</h3>
         {invites ? (
           <p>
-            Crew offered or booked on a confirmed job are invited to its days by {link.account}. Their Yes or No in Google counts as their answer
+            Crew offered or booked are invited to the job's days by {link.account}, marked HOLD while the job isn't confirmed. Their Yes or No in Google counts as their answer
             within a couple of minutes.
           </p>
         ) : (
           <p>
-            When on, crew offered or booked on a confirmed job are invited to its days by {link.account}, and their Yes or No in Google counts as
+            When on, crew offered or booked are invited to the job's days by {link.account}, marked HOLD while the job isn't confirmed, and their Yes or No in Google counts as
             their answer.
           </p>
         )}

@@ -1,5 +1,20 @@
 import { createHash } from 'node:crypto'
-import { calendarDayId, calendarTitles, dayLabel, DEPARTMENT_LABELS, DEPARTMENTS, eachDay, euroText, type Department, type QuoteLine } from '@sh/shared'
+import {
+  ASKED_STATUSES,
+  calendarDayId,
+  calendarTitles,
+  dayLabel,
+  DEPARTMENT_LABELS,
+  DEPARTMENTS,
+  eachDay,
+  euroText,
+  holdTitle,
+  JOB_STAGES,
+  STAGE_LABELS,
+  type Department,
+  type JobStage,
+  type QuoteLine,
+} from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { EventBody } from './google.ts'
 
@@ -48,6 +63,10 @@ export interface CrewLine {
 
 export interface DayFacts {
   job: string
+  /** Where the job is on its way (ADR 0104), worked out as the job page does from its status, dates and scans. */
+  stage: JobStage
+  /** Crew are asked before the client has said yes (ADR 0008, 1.162.0): the day is pencilled, not booked. */
+  hold: boolean
   client: string | null
   phase: string
   /** Where this day falls in the phase, from 1. */
@@ -113,7 +132,7 @@ function crewLine(c: CrewLine): string {
 export function description(f: DayFacts): string {
   const days = eachDay(f.phaseStart, f.phaseEnd).length
   const when = days > 1 ? `${f.phase}, day ${f.dayNumber} of ${days}: ${dayLabel(f.phaseStart)} to ${dayLabel(f.phaseEnd)}` : `${f.phase}, ${dayLabel(f.phaseStart)}`
-  const blocks: string[] = [[f.client ? `Client: ${f.client}` : '', when].filter(Boolean).join('\n')]
+  const blocks: string[] = [stageLine(f), [f.client ? `Client: ${f.client}` : '', when].filter(Boolean).join('\n')]
   if (f.venue) {
     blocks.push(
       [`Venue: ${f.venue.name}`, f.venue.address.trim().replace(/\s*\r?\n\s*/g, ', '), f.venue.notes.trim() ? `At the venue: ${f.venue.notes.trim()}` : '']
@@ -132,6 +151,24 @@ export function description(f: DayFacts): string {
   const link = f.appLink ? `\n\nThe job in the Session Hire app: ${f.appLink}` : ''
   const room = DESCRIPTION_MAX - link.length
   return `${text.length > room ? `${text.slice(0, room - 1)}…` : text}${link}`
+}
+
+/** The job's stage, and what a hold means, as the first thing on the event. */
+export function stageLine(f: Pick<DayFacts, 'stage' | 'hold'>): string {
+  const stage = `Job stage: ${STAGE_LABELS[f.stage]} (${JOB_STAGES.indexOf(f.stage) + 1} of ${JOB_STAGES.length})`
+  return f.hold ? `ON HOLD: the client hasn't said yes yet, so keep the day free but it isn't booked.\n${stage}` : stage
+}
+
+/**
+ * The stage from the job's records, as the job page works it out (shared/src/sync/steps-view.ts): not confirmed is
+ * still Quoting; on its days it's On the job once kit has gone out (or Going out while there's kit and none has);
+ * before them, Going out once any kit has gone, else Planning; after them, Back.
+ */
+export function stageOf(j: { status: string; start: string; end: string; hasKit: boolean; kitOut: boolean }, today: string): JobStage {
+  if (j.status !== 'confirmed') return 'selling'
+  if (j.end < today) return 'back'
+  if (j.start <= today) return j.hasKit && !j.kitOut ? 'going' : 'on'
+  return j.kitOut ? 'going' : 'planning'
 }
 
 const euro = (cents: number) => `€${euroText(cents)}`
@@ -206,6 +243,11 @@ interface PhaseRow {
   phase_notes: string
   project_id: string
   job: string
+  status: string
+  job_start: string
+  job_end: string
+  has_kit: boolean
+  kit_out: boolean
   job_notes: string
   client: string | null
   venue_name: string | null
@@ -249,15 +291,25 @@ const RANK: Record<string, number> = { confirmed: 0, accepted: 1, countered: 2, 
 export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { today: string; appKey: string; appUrl: string | null }): Promise<Map<string, Wanted>> {
   const { rows: phases } = await q.query<PhaseRow>(
     `SELECT ph.id AS phase_id, ph.name AS phase, ph.start_day::text, ph.end_day::text, ph.notes AS phase_notes,
-            p.id AS project_id, p.name AS job, p.notes AS job_notes, c.name AS client,
+            p.id AS project_id, p.name AS job, p.status, p.notes AS job_notes, c.name AS client,
+            (SELECT min(start_day)::text FROM phases WHERE project_id = p.id) AS job_start,
+            (SELECT max(end_day)::text FROM phases WHERE project_id = p.id) AS job_end,
+            EXISTS (SELECT 1 FROM kit_lines WHERE project_id = p.id) AS has_kit,
+            EXISTS (SELECT 1 FROM movements m WHERE m.project_id = p.id AND m.direction = 'out' AND m.undoes IS NULL
+                     AND NOT EXISTS (SELECT 1 FROM movements u WHERE u.undoes = m.id)) AS kit_out,
             v.name AS venue_name, v.address AS venue_address, v.notes AS venue_notes
        FROM phases ph
        JOIN projects p ON p.id = ph.project_id
        LEFT JOIN clients c ON c.id = p.client_id
        LEFT JOIN venues v ON v.id = coalesce(ph.venue_id, p.venue_id)
-      WHERE p.status = 'confirmed' AND p.source_calendar IS NULL AND ph.end_day >= $1::date
+      WHERE p.source_calendar IS NULL AND ph.end_day >= $1::date
+        AND (p.status = 'confirmed'
+             -- Not yet a yes, but crew are asked for it: on the calendar on hold (ADR 0008, 1.162.0).
+             OR (p.status IN ('enquiry', 'quoted') AND EXISTS (
+                   SELECT 1 FROM crew_calls cc JOIN offers o ON o.call_id = cc.id
+                    WHERE cc.project_id = p.id AND cc.status = 'open' AND o.status = ANY($2::text[]))))
       ORDER BY ph.start_day, ph.id`,
-    [today]
+    [today, ASKED_STATUSES]
   )
   const projectIds = [...new Set(phases.map((p) => p.project_id))]
   const { rows: calls } = projectIds.length
@@ -312,7 +364,9 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
     }
     const kit = [...kitByModel.values()]
     const days = eachDay(p.start_day, p.end_day)
-    const titles = calendarTitles(p.job, { name: p.phase, start: p.start_day, end: p.end_day })
+    const hold = p.status !== 'confirmed'
+    const stage = stageOf({ status: p.status, start: p.job_start, end: p.job_end, hasKit: p.has_kit, kitOut: p.kit_out }, today)
+    const titles = calendarTitles(p.job, { name: p.phase, start: p.start_day, end: p.end_day }).map((t) => (hold ? holdTitle(t) : t))
     days.forEach((day, i) => {
       if (day < today) return
       const covering = calls.filter(
@@ -347,6 +401,8 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         .sort((a, b) => a.personId.localeCompare(b.personId))
       const facts: DayFacts = {
         job: p.job,
+        stage,
+        hold,
         client: p.client,
         phase: p.phase,
         dayNumber: i + 1,

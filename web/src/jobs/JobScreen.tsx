@@ -11,6 +11,9 @@ import {
   newId,
   parseEuro,
   phaseOnCalendar,
+  crewAsked,
+  holdTitle,
+  onHold,
   phaseOnlyGrew,
   MAX_LOCAL_CREW,
   PHASE_NAMES,
@@ -605,9 +608,10 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
 }
 
 /** "“Nissan - Build 1/2” and “Nissan - Build 2/2”"; a long phase gives its first and last. Only the days from `from` on, when given. */
-function titlesLine(job: string, p: PhaseView, from = '') {
+function titlesLine(job: string, p: PhaseView, from = '', hold = false) {
   const days = eachDay(p.start, p.end)
   const titles = calendarTitles(job, p)
+    .map((t) => (hold ? holdTitle(t) : t))
     .filter((_, i) => days[i]! >= from)
     .map((t) => `“${t}”`)
   if (titles.length === 1) return titles[0]
@@ -617,29 +621,35 @@ function titlesLine(job: string, p: PhaseView, from = '') {
 
 /** How a phase stands with Google Calendar (ADR 0008), in a line. */
 function CalendarLine({ job, phase, on, today }: { job: JobView; phase: PhaseView; on: PhaseOnCalendar; today: string }) {
+  const hold = onHold(job, crewAsked(job.calls))
   switch (on.state) {
     case 'theirs':
       return <p className="cal">Brought in from {on.calendar}, which keeps its days, so the app doesn't add them to the jobs calendar.</p>
     case 'waiting':
-      return <p className="cal">Goes on the calendar as {titlesLine(job.name, phase)} once the job is confirmed.</p>
+      return (
+        <p className="cal">
+          Goes on the calendar as {titlesLine(job.name, phase)} once the job is confirmed, or marked HOLD as soon as crew are asked for it.
+        </p>
+      )
     case 'stopped':
       return <p className="cal">Not on the calendar: the job is {job.status}.</p>
     case 'past':
       return <p className="cal">Over, so the calendar keeps it as it was.</p>
     case 'unconnected':
-      return <p className="cal">Goes on the calendar as {titlesLine(job.name, phase, today)} once one is connected in Admin.</p>
+      return <p className="cal">Goes on the calendar as {titlesLine(job.name, phase, today, hold)} once one is connected in Admin.</p>
     case 'paused':
       return <p className="warn-line">Not being updated on the calendar: it needs connecting again in Admin.</p>
     case 'going':
       return (
         <p className="cal">
-          Going on {on.calendar} as {titlesLine(job.name, phase, today)}…
+          Going on {on.calendar} as {titlesLine(job.name, phase, today, hold)}…
         </p>
       )
     case 'on':
       return (
         <p className="cal">
-          On {on.calendar} as {titlesLine(job.name, phase, today)}.
+          On {on.calendar} as {titlesLine(job.name, phase, today, hold)}.
+          {hold && ' On hold until the job is confirmed.'}
           {on.link && (
             <>
               {' '}
@@ -681,7 +691,7 @@ function Phase({
   const local = phase.localCrew ?? 0
   const ownVenue = phase.venueId && phase.venueId !== job.venueId ? phase.venue : undefined
   const contact = phase.contactId ? view.crew.people.find((p) => p.id === phase.contactId) : undefined
-  const on = phaseOnCalendar(job, phase, view.calendar.link, view.calendar.days, today)
+  const on = phaseOnCalendar(job, phase, view.calendar.link, view.calendar.days, today, crewAsked(job.calls))
   // A calendar line to act on stays in view; the rest of the phase's details wait behind a tap (audit finding 16).
   const calendarWarns = on.state === 'paused' || on.state === 'failed'
   return (

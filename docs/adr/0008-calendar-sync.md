@@ -57,6 +57,17 @@ the time it is awake, so the sync can't check the calendar every minute.
   only: rates and phone numbers never go on the calendar. Enquiries and
   quotes stay off it, so nobody sees a job that isn't happening; a job goes
   on when it is confirmed and comes off when it is cancelled or lost.
+- **On hold once crew are asked (from 1.162.0, Colly's ask).** An enquiry or
+  quote with someone offered or booked on one of its calls goes on, every
+  day of it, titled "HOLD Nissan - Build 1/2" and opening with "ON HOLD: the
+  client hasn't said yes yet". Confirmed, the same events lose the HOLD (a
+  title change, so Google tells the guests); lost or cancelled, they come
+  off and guests are told. A quote with nobody asked stays off as before.
+- **The job's stage leads the description**, as the job page works it out
+  (ADR 0104): Quoting, Planning, Going out (kit has started to leave, or
+  it's the first day and none has), On the job, Back, with "n of 5". It is
+  rewritten quietly as the job moves on, and at the nightly check as the
+  days pass.
 - **Past days are left alone.** The app never changes or removes an event
   for a day that has gone, so the calendar keeps its record of what
   happened, and connecting the app doesn't fill years of history.
