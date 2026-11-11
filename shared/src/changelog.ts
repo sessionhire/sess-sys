@@ -31,7 +31,7 @@ export const CHANGELOG: readonly Release[] = [
     version: '1.158.1',
     date: '2026-11-11',
     title: 'A crew offer goes from the Next button once people are picked',
-    what: "On a job, once you've picked people in a crew call's Offer, the red Next button at the bottom now sends the offer to them (\"Offer to 2 people\"), rather than opening the same form again. Picking more people than there are places says so first: whoever says yes first has it, and the rest are told it's filled. If something stops an offer, the reason now shows right under the Offer button, not further down the card. While messages to crew are off, the offer is still made and nothing is sent.",
+    what: "On a job, once you've picked people in a crew call's Offer, the red Next button at the bottom now sends the offer to them (\"Offer to 2 people\"), rather than opening the same form again. Picking more people than there are places says so first: whoever says yes first has it, and the rest are told it's filled. The list of names that stays open after a pick no longer covers the Next button on a phone, where a press could land on a name instead. If something stops an offer, the reason now shows right under the Offer button, not further down the card. While messages to crew are off, the offer is still made and nothing is sent.",
     prs: [326],
   },
   {

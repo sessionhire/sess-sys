@@ -25,6 +25,8 @@ test("Next sends the offer to the people picked in it, across a job's phases", a
     ['messages.prompt', { on: false }],
     ['person.upsert', { id: `a-${id}`, name: fergal, kind: 'freelancer', email: null, phone: null, skills: [], dayRateCents: null, notes: '' }],
     ['person.upsert', { id: `b-${id}`, name: colm, kind: 'staff', email: null, phone: null, skills: [], dayRateCents: null, notes: '' }],
+    // Enough others that the picker's list, open again after each pick, reaches down over the dock on a phone.
+    ...Array.from({ length: 8 }, (_, i): [string, Record<string, unknown>] => ['person.upsert', { id: `o${i}-${id}`, name: `Other${i} Next${id}`, kind: 'freelancer', email: null, phone: null, skills: [], dayRateCents: null, notes: '' }]),
     ['project.create', { id: `j-${id}`, name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
     ['phase.add', { id: `p1-${id}`, projectId: `j-${id}`, name: 'Build', start: '2030-12-10', end: '2030-12-10', venueId: null, notes: '' }],
     ['phase.add', { id: `p2-${id}`, projectId: `j-${id}`, name: 'Show', start: '2030-12-11', end: '2030-12-12', venueId: null, notes: '' }],
