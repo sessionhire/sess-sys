@@ -230,7 +230,7 @@ export function SearchScreen() {
             className="search"
             type="search"
             enterKeyHint="search"
-            placeholder={money ? 'A job, quote number, client, venue, person, product or kit number' : 'A job, client, venue, person, product or kit number'}
+            placeholder="A name, a quote number or a kit number"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search everything"

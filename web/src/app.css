@@ -128,8 +128,10 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 /* Home's date, top right: plain words, the most specific thing a glance at the header wants after the company (ADR 0036). */
 .top .top-date { font-size: var(--text-status); font-weight: 700; white-space: nowrap; }
 /* On a narrow phone the company's name needs the room: beside the date, "Up to date" goes quiet to the eye (still said to a screen reader); waiting and no signal still show. */
+/* With Search beside the bell (review of 11 November 2026, finding 13) the same holds on every screen: on a narrow phone "Up to date" is
+   said to a screen reader only, so the company's name keeps its room; healthy is quiet, and what's waiting and no signal still show. */
 @media (max-width: 479px) {
-  .top .top-date ~ .conn.online { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .top .conn.online { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 .top .state { display: flex; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: var(--ds-space-2); }
 /* Changes the server turned down (audit finding 11), counted on every screen beside what's waiting: the bad tone, never the brand red. Pressing it opens the list under the top bar. */
@@ -276,6 +278,10 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .more-edges[data-more='left'] { mask-image: linear-gradient(to right, #000 var(--more-at), transparent var(--more-at), #000 calc(var(--more-at) + 48px)); }
 .more-edges[data-more='both'] { mask-image: linear-gradient(to right, #000 var(--more-at), transparent var(--more-at), #000 calc(var(--more-at) + 48px), #000 calc(100% - 48px), transparent); }
 .views a, .views button { flex: 1 0 auto; display: grid; grid-auto-flow: column; place-items: center; place-content: center; gap: var(--ds-space-2); min-height: 44px; padding-inline: var(--ds-space-3); border-radius: var(--radius-control); font-weight: 700; color: var(--muted); text-decoration: none; white-space: nowrap; }
+/* On a phone a view's word has less room round it, so Jobs' five fit the width without the row scrolling. */
+@media (max-width: 599px) {
+  .views a, .views button { padding-inline: var(--ds-space-2); }
+}
 .views button { border: 0; background: transparent; font: inherit; font-weight: 700; padding-block: 0; }
 .views a[aria-current='page'], .views button[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
 @media (hover: hover) {
