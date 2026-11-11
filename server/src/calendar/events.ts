@@ -55,8 +55,6 @@ export interface CrewLine {
   confirmed: string[]
   /** Said yes, not yet confirmed by the office. */
   toConfirm: string[]
-  /** Offered the day and not answered yet (or asked for a change), so each person invited sees the role they're asked for. */
-  asked: string[]
   /** Places nobody holds yet. */
   missing: number
 }
@@ -120,12 +118,14 @@ export function location(v: DayFacts['venue']): string {
   return text.slice(0, 1000)
 }
 
-const names = (list: string[]) => (list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`)
-
+/**
+ * A role and who has it: the people the office has confirmed by name, and every other place as TBC (Colly, 11 November
+ * 2026), so nobody reads a yes not yet confirmed, or an ask, as a booking.
+ */
 function crewLine(c: CrewLine): string {
-  const who = [...c.confirmed, ...c.toConfirm.map((n) => `${n} (to confirm)`), ...c.asked.map((n) => `${n} (asked)`)]
-  if (c.missing > 0) who.push(`${c.missing} still to find`)
-  return `${c.role}${c.callTime ? `, call ${c.callTime}` : ''}: ${names(who) || 'nobody yet'}`
+  const tbc = c.toConfirm.length + c.missing
+  const who = [...c.confirmed, ...(tbc ? [tbc === 1 ? 'TBC' : `${tbc} TBC`] : [])]
+  return `${c.role}${c.callTime ? `, call ${c.callTime}` : ''}: ${who.join(', ')}`
 }
 
 /** The event's description: the day's job sheet, names only (never rates or phone numbers). */
@@ -379,7 +379,6 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
           callTime: c.call_time,
           confirmed: on.filter((o) => o.status === 'confirmed').map((o) => o.name),
           toConfirm: on.filter((o) => o.status === 'accepted').map((o) => o.name),
-          asked: c.offers.filter((o) => (o.status === 'offered' || o.status === 'countered') && o.days.includes(day)).map((o) => o.name),
           missing: Math.max(0, c.needed - on.length),
         }
       })
