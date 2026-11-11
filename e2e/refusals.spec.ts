@@ -43,10 +43,10 @@ test('a change the server turns down is counted in the top bar and listed from i
   await expect(list.locator('.row')).toHaveCount(1)
   await page.evaluate(() => scrollTo(0, 400))
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0)
-  const badge = page.getByRole('status')
-  const box = (await badge.boundingBox())!
+  // The count itself is the badge: on a phone the bar keeps "Up to date" for screen readers only, to leave room for the name.
+  const box = (await count.boundingBox())!
   expect(box.y).toBeGreaterThanOrEqual(0)
-  expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x!, y!)?.closest('.conn'), [box.x + box.width / 2, box.y + box.height / 2])).toBe(true)
+  expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x!, y!)?.closest('.top'), [box.x + box.width / 2, box.y + box.height / 2])).toBe(true)
 
   // A refusal from a second area counts with the first: a product added on the Stock tab.
   await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Stock' }).click()
