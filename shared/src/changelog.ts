@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-11',
     title: 'Forms say what needs sorting, on the box and beside the button',
     what: "When a form can't go yet, each box that needs something is outlined and says underneath what to do, and a short list beside the button you pressed names everything left to sort. Press a line in the list to jump to that box. Each message goes as soon as you fix it. Crew forms now say this for things that used to stop them without a word: a role of only spaces, a day rate the app can't read, a reply-by day after the job, nobody chosen to offer it to, and Offer anyway not ticked.",
-    prs: [0],
+    prs: [327],
   },
   {
     version: '1.158.1',
