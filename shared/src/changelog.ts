@@ -34,6 +34,8 @@ export const CHANGELOG: readonly Release[] = [
     what: "When a job whose crew were asked on HOLD is confirmed, the WhatsApp saying it's confirmed now goes straight away, at the same moment the calendar invite loses its HOLD. Before, it waited until an hour had passed since the HOLD offer. WhatsApp offers are still switched off, so nothing goes yet.",
     prs: [334],
     adrs: [125],
+  },
+  {
     version: '1.163.0',
     date: '2026-11-11',
     title: 'Calendar days show the job stage, HOLD before a yes, and TBC crew',
