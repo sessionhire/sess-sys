@@ -46,7 +46,11 @@ the time it is awake, so the sync can't check the calendar every minute.
   ("Nissan - Build 1/2"), the venue and its address as the location, and a
   description with the client, the phase and day, the venue's access notes,
   the job and phase notes, the crew booked for that day by role with call
-  times and places still to fill, and a link to the job in the app. Names
+  times and places still to fill, the people asked and not answered yet
+  (so each person invited sees the role they're asked for, since every
+  guest of an event reads the same description), the day's pick list by
+  department (the phase's kit and the whole job's, quantities and how many
+  are hired in, never prices), and a link to the job in the app. Names
   only: rates and phone numbers never go on the calendar. Enquiries and
   quotes stay off it, so nobody sees a job that isn't happening; a job goes
   on when it is confirmed and comes off when it is cancelled or lost.
@@ -56,7 +60,9 @@ the time it is awake, so the sync can't check the calendar every minute.
 - **The app leads.** Renaming a job, moving a phase, changing a venue or
   booking crew changes the events within seconds. An event changed or
   deleted in Google is put back to match the job each night, or sooner
-  when the job changes; the event says so at the bottom. Letting edits in
+  when the job changes. (The event used to say so at the bottom; from
+  1.161.0 it doesn't, since crew read the invite and the line meant
+  nothing to them.) Letting edits in
   Google flow back into jobs is for the importer and calendar-led jobs,
   later in Phase 1.
 - **Each event's id is worked out from the job**, the calendar, the phase

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { calendarDayId, calendarTitles, dayLabel, eachDay } from '@sh/shared'
+import { calendarDayId, calendarTitles, dayLabel, DEPARTMENT_LABELS, DEPARTMENTS, eachDay, type Department } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { EventBody } from './google.ts'
 
@@ -40,6 +40,8 @@ export interface CrewLine {
   confirmed: string[]
   /** Said yes, not yet confirmed by the office. */
   toConfirm: string[]
+  /** Offered the day and not answered yet (or asked for a change), so each person invited sees the role they're asked for. */
+  asked: string[]
   /** Places nobody holds yet. */
   missing: number
 }
@@ -56,8 +58,19 @@ export interface DayFacts {
   jobNotes: string
   phaseNotes: string
   crew: CrewLine[]
+  /** The day's pick list: the phase's kit and the whole job's, a line per product. */
+  kit: KitItem[]
   /** The job in the app, when the app knows its own address. */
   appLink: string | null
+}
+
+export interface KitItem {
+  department: Department
+  category: string
+  product: string
+  qty: number
+  /** How many of them are hired in from another company. */
+  subhireQty: number
 }
 
 const DESCRIPTION_MAX = 8000
@@ -77,7 +90,7 @@ export function location(v: DayFacts['venue']): string {
 const names = (list: string[]) => (list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`)
 
 function crewLine(c: CrewLine): string {
-  const who = [...c.confirmed, ...c.toConfirm.map((n) => `${n} (to confirm)`)]
+  const who = [...c.confirmed, ...c.toConfirm.map((n) => `${n} (to confirm)`), ...c.asked.map((n) => `${n} (asked)`)]
   if (c.missing > 0) who.push(`${c.missing} still to find`)
   return `${c.role}${c.callTime ? `, call ${c.callTime}` : ''}: ${names(who) || 'nobody yet'}`
 }
@@ -97,11 +110,24 @@ export function description(f: DayFacts): string {
   if (f.crew.length) blocks.push(['Crew', ...f.crew.map(crewLine)].join('\n'))
   if (f.jobNotes.trim()) blocks.push(`Job notes\n${f.jobNotes.trim()}`)
   if (f.phaseNotes.trim()) blocks.push(`${f.phase} notes\n${f.phaseNotes.trim()}`)
-  if (f.appLink) blocks.push(`The job in the Session Hire app: ${f.appLink}`)
-  const footer = 'Written by the Session Hire app. Change the job in the app: changes made here are put back.'
+  const kit = pickList(f.kit)
+  if (kit) blocks.push(kit)
   const text = blocks.join('\n\n')
-  const room = DESCRIPTION_MAX - footer.length - 3
-  return `${text.length > room ? `${text.slice(0, room - 1)}…` : text}\n\n${footer}`
+  // The link to the job always fits: a long pick list is cut short before it is.
+  const link = f.appLink ? `\n\nThe job in the Session Hire app: ${f.appLink}` : ''
+  const room = DESCRIPTION_MAX - link.length
+  return `${text.length > room ? `${text.slice(0, room - 1)}…` : text}${link}`
+}
+
+/** The day's kit as a list under a heading for each department, in the departments' usual order. Quantities only, never prices. */
+export function pickList(kit: readonly KitItem[]): string {
+  if (!kit.length) return ''
+  const groups = DEPARTMENTS.map((d) => ({
+    d,
+    items: kit.filter((k) => k.department === d).sort((a, b) => a.category.localeCompare(b.category) || a.product.localeCompare(b.product)),
+  })).filter((g) => g.items.length)
+  const item = (k: KitItem) => `• ${k.qty} × ${k.product}${k.subhireQty ? ` (${k.subhireQty === k.qty ? 'all' : k.subhireQty} hired in)` : ''}`
+  return ['Pick list', ...groups.map((g) => [DEPARTMENT_LABELS[g.d], ...g.items.map(item)].join('\n'))].join('\n\n')
 }
 
 const BASE32HEX = '0123456789abcdefghijklmnopqrstuv'
@@ -143,6 +169,17 @@ interface PhaseRow {
   venue_name: string | null
   venue_address: string | null
   venue_notes: string | null
+}
+
+interface KitRow {
+  project_id: string
+  phase_id: string | null
+  model_id: string
+  product: string
+  department: Department
+  category: string
+  qty: number
+  subhire_qty: number
 }
 
 interface CallRow {
@@ -190,9 +227,31 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         [projectIds, today]
       )
     : { rows: [] as CallRow[] }
+  const { rows: kitRows } = projectIds.length
+    ? await q.query<KitRow>(
+        `SELECT k.project_id, k.phase_id, k.model_id, m.name AS product, m.department, m.category,
+                sum(k.qty)::int AS qty, sum(k.subhire_qty)::int AS subhire_qty
+           FROM kit_lines k
+           JOIN models m ON m.id = k.model_id
+          WHERE k.project_id = ANY($1::text[])
+          GROUP BY k.project_id, k.phase_id, k.model_id, m.name, m.department, m.category`,
+        [projectIds]
+      )
+    : { rows: [] as KitRow[] }
 
   const out = new Map<string, Wanted>()
   for (const p of phases) {
+    // The phase's own kit and the whole job's, a line per product.
+    const kitByModel = new Map<string, KitItem>()
+    for (const k of kitRows) {
+      if (k.project_id !== p.project_id || (k.phase_id !== null && k.phase_id !== p.phase_id)) continue
+      const had = kitByModel.get(k.model_id)
+      if (had) {
+        had.qty += k.qty
+        had.subhireQty += k.subhire_qty
+      } else kitByModel.set(k.model_id, { department: k.department, category: k.category, product: k.product, qty: k.qty, subhireQty: k.subhire_qty })
+    }
+    const kit = [...kitByModel.values()]
     const days = eachDay(p.start_day, p.end_day)
     const titles = calendarTitles(p.job, { name: p.phase, start: p.start_day, end: p.end_day })
     days.forEach((day, i) => {
@@ -207,6 +266,7 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
           callTime: c.call_time,
           confirmed: on.filter((o) => o.status === 'confirmed').map((o) => o.name),
           toConfirm: on.filter((o) => o.status === 'accepted').map((o) => o.name),
+          asked: c.offers.filter((o) => (o.status === 'offered' || o.status === 'countered') && o.days.includes(day)).map((o) => o.name),
           missing: Math.max(0, c.needed - on.length),
         }
       })
@@ -237,6 +297,7 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         jobNotes: p.job_notes,
         phaseNotes: p.phase_notes,
         crew,
+        kit,
         appLink: appUrl ? `${appUrl}/#jobs/${p.project_id}` : null,
       }
       const next = new Date(`${day}T12:00:00Z`)

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.161.0',
+    date: '2026-11-11',
+    title: 'Calendar invites show the role asked for and the pick list',
+    what: 'Each day on the Google Calendar now lists, under Crew, the people who have been asked and not answered yet, marked "asked", so someone invited sees the role they are asked for. Below the notes is the day\'s pick list, grouped by department, with how many of each and how many are hired in, never prices. The "Written by the Session Hire app" line at the bottom is gone. Every day already on the calendar is updated quietly, without emailing anyone.',
+    prs: [0],
+    adrs: [8, 9],
+  },
+  {
     version: '1.160.1',
     date: '2026-11-11',
     title: 'Crew are told what to do with an "unknown sender" calendar invite',

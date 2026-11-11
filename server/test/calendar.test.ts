@@ -328,6 +328,22 @@ describe('what goes on the calendar', () => {
     const pencilled = newId()
     await send(s, 'project.create', { id: pencilled, name: 'Pencilled', clientId: null, venueId: null, status: 'enquiry', notes: '' })
     await send(s, 'phase.add', { id: newId(), projectId: pencilled, name: 'Show', start: '2030-03-03', end: '2030-03-03', venueId: null, notes: '' })
+    // Kit for the whole job and for the build, grouped by department on each build day; the show gets only the job's.
+    const product = (id: string, name: string, department: 'audio' | 'lighting', category: string) =>
+      send(s, 'model.create', { id, name, department, category, tracking: 'bulk', isCase: false, valueCents: 99900, notes: '' })
+    await product('y10p', 'd&b Y10P', 'audio', 'Speakers')
+    await product('sm58', 'Shure SM58', 'audio', 'Microphones')
+    await product('mac', 'Robe MegaPointe', 'lighting', 'Moving heads')
+    const kit = (modelId: string, phaseId: string | null, qty: number, subhireQty = 0) =>
+      send(s, 'kit.add', { id: newId(), projectId: job.jobId, phaseId, modelId, qty, subhireQty, supplier: subhireQty ? 'Hire Co' : '', notes: '' })
+    await kit('mac', job.phases.build, 12, 4)
+    await kit('y10p', null, 8)
+    await kit('sm58', null, 6)
+    await kit('sm58', job.phases.build, 2)
+    // Asked and not answered yet: on the crew line, so they see the role they're asked for.
+    const ciara = newId()
+    await send(s, 'person.upsert', { id: ciara, name: 'Ciara Doyle', kind: 'freelancer', email: null, phone: null, skills: ['audio'], dayRateCents: null, notes: '' })
+    await send(s, 'offer.send', { id: newId(), callId: job.callId, personId: ciara, override: false })
     await connectTo(s)
 
     // Yesterday's Prep is left alone.
@@ -349,16 +365,25 @@ describe('what goes on the calendar', () => {
         'At the venue: Load-in via Mayor Street.',
         '',
         'Crew',
-        'Audio tech, call 08:00: Aoife Byrne, Seán Murphy (to confirm) and 1 still to find',
+        'Audio tech, call 08:00: Aoife Byrne, Seán Murphy (to confirm), Ciara Doyle (asked) and 1 still to find',
         '',
         'Job notes',
         'Launch of the new Leaf.',
         '',
-        `The job in the Session Hire app: http://localhost:80/#jobs/${job.jobId}`,
+        'Pick list',
         '',
-        'Written by the Session Hire app. Change the job in the app: changes made here are put back.',
+        'Audio',
+        '• 8 × Shure SM58',
+        '• 8 × d&b Y10P',
+        '',
+        'Lighting',
+        '• 12 × Robe MegaPointe (4 hired in)',
+        '',
+        `The job in the Session Hire app: http://localhost:80/#jobs/${job.jobId}`,
       ].join('\n')
     )
+    expect(show!.description).toContain('Pick list\n\nAudio\n• 6 × Shure SM58\n• 8 × d&b Y10P\n\nThe job')
+    expect(show!.description).not.toContain('Written by')
     expect(show!.description).toContain('Show, Mon 4 Mar')
     expect(show!.description).toContain('Show notes\nDoors 19:00.')
     // Names only: no rates, phone numbers or emails.
