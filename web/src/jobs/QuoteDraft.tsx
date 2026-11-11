@@ -929,7 +929,9 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
         })}
         {removed && !groups.some((g) => g.group === removedGroup) && undoLine}
         {/* A dry hire has no travel or subsistence to charge (ADR 0128; finding 10), until it has crew on it after all. */}
-        {(kindOf(job) !== 'hire' || good.some((l) => l.kind === 'crew')) && (
+        {/* Nothing to say about travel on a quote with no lines yet: it waits until there's something to travel with (review of 11
+            November 2026, finding 18). */}
+        {(kindOf(job) !== 'hire' || good.some((l) => l.kind === 'crew')) && (good.length > 0 || !!kmTyped) && (
           <TravelAndSubsistence
             extras={extras}
             meals={meals}

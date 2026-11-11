@@ -8,9 +8,11 @@ import type { ReactNode } from 'react'
  * one, each reading down on its own (app.css). An empty side leaves the main
  * the whole width.
  */
-export function Split({ side, children }: { side?: ReactNode; children: ReactNode }) {
+export function Split({ side, children, sideAfter }: { side?: ReactNode; children: ReactNode; sideAfter?: boolean }) {
+  // A page whose main is what people come for (People: the person they're looking up) keeps the side under it on a phone; its
+  // counts are on Home already (review of 11 November 2026, finding 17).
   return (
-    <div className="split">
+    <div className={`split${sideAfter ? ' side-after' : ''}`}>
       <div className="side">{side}</div>
       <div className="main">{children}</div>
     </div>

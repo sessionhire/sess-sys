@@ -109,7 +109,9 @@
 .next-dock .position-words[data-tone='bad'] { color: var(--bad); }
 .app .next-dock .primary { min-height: 48px; padding-inline: var(--ds-space-4); font-size: var(--text-body); white-space: nowrap; text-align: center; justify-content: center; }
 .app .next-dock .second { font-size: var(--text-small); }
-.next-dock .rest { grid-column: 1 / -1; margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border: 1px dashed var(--field-line); border-radius: var(--radius-control); color: var(--muted); font-size: var(--text-small); }
+/* Nothing to press: one quiet line of words under the stage line, not a box shaped like a button that isn't there (review of 11
+   November 2026, finding 19). */
+.next-dock .rest { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: var(--text-small); }
 .next-dock .rest a { color: var(--accent-ink); }
 @media (min-width: 640px) {
   .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
