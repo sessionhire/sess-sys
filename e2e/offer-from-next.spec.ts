@@ -55,3 +55,52 @@ test("Next sends the offer to the people picked in it, across a job's phases", a
   // Every place offered, Next waits on the answers.
   await expect(next).toContainText('Every place is offered: waiting on 2 answers.')
 })
+
+test('what stops a crew form is said on its field, and listed by the button with a way to each', async ({ browser, request }) => {
+  const id = Date.now().toString(36)
+  const job = `Frost Fair ${id}`
+  await push(request, id, [
+    ['project.create', { id: `j-${id}`, name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `p-${id}`, projectId: `j-${id}`, name: 'Show', start: '2030-12-20', end: '2030-12-21', venueId: null, notes: '' }],
+  ])
+  const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage()
+  await page.goto(`/#jobs/j-${id}/crew`)
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('button', { name: 'Ask for crew' }).first().click()
+  const ask = page.getByRole('form', { name: 'Ask for crew' })
+  // Spaces alone get past the browser's own check; a rate it can't read is said on the rate.
+  await ask.getByLabel('Role').fill('   ')
+  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  const role = ask.getByLabel('Role')
+  await expect(role).toHaveAttribute('aria-invalid', 'true')
+  await expect(role).toBeFocused()
+  const summary = ask.getByRole('group', { name: 'To sort first' })
+  await expect(summary).toContainText('One thing to sort before “Ask for crew”:')
+  await expect(summary.getByRole('button', { name: 'Fill in the role first.' })).toBeVisible()
+  // Typing in it puts it right: the line and the summary go.
+  await role.fill('Rigger')
+  await expect(role).not.toHaveAttribute('aria-invalid')
+  await expect(summary).toHaveCount(0)
+  await ask.getByLabel('Day rate €').fill('two fifty')
+  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  const rate = ask.getByLabel('Day rate €')
+  await expect(rate).toHaveAttribute('aria-invalid', 'true')
+  await expect(ask.getByRole('alert')).toHaveText('Put in a price like 250 or 1,250.50.')
+  // The summary's line takes the focus back to its field from wherever the page has gone.
+  await page.getByRole('combobox').first().focus().catch(() => {})
+  await summary.getByRole('button', { name: 'Day rate: Put in a price like 250 or 1,250.50.' }).click()
+  await expect(rate).toBeFocused()
+  await rate.fill('250')
+  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  await expect(ask).toContainText('Asked for 1 × Rigger on Show')
+
+  // Offer with nobody chosen: said on the picker, which takes the focus.
+  const call = page.getByRole('article', { name: '1 × Rigger' })
+  await call.getByRole('button', { name: '1 × Rigger' }).click()
+  await call.getByRole('button', { name: 'Offer…' }).click()
+  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  const picker = call.getByRole('combobox', { name: 'Offer to' })
+  await expect(picker).toHaveAttribute('aria-invalid', 'true')
+  await expect(call.getByRole('alert')).toHaveText('Choose someone to offer it to first: type a name, or pick from the list.')
+  await expect(call.getByRole('group', { name: 'To sort first' })).toContainText('One thing to sort before “Offer”:')
+})

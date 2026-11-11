@@ -591,6 +591,11 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .alert { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); background: var(--bad-soft); color: var(--bad); font-size: var(--text-small); }
 /* An empty field a form needs, said under it in the app's words (required.ts; audit, 5 November 2026, finding 85): a line of its own, the whole width of a form's grid. */
 .field-refusal { display: block; grid-column: 1 / -1; margin-block-start: var(--ds-space-1); }
+/* What a form needs sorting before it can go, beside the button that was pressed (required.ts): each line a press away from its field. */
+.form-problems { grid-column: 1 / -1; display: grid; gap: var(--ds-space-1); }
+.form-problems p, .form-problems ul { margin: 0; }
+.form-problems ul { padding-inline-start: var(--ds-space-4); }
+.app .form-problems button.link { color: inherit; text-align: start; min-height: 32px; }
 .signin .card { gap: var(--ds-space-4); padding: var(--ds-space-5) var(--ds-space-4); }
 .signin p { margin: 0; }
 .signin .button { padding: var(--ds-space-3) var(--ds-space-4); font-size: var(--text-body); }
