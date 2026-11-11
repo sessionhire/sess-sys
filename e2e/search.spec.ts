@@ -112,3 +112,48 @@ test('at a desk Ctrl K, even in a field, and / open the palette; arrows and Ente
   await desk.mouse.click(10, 10)
   await expect(palette).toBeHidden()
 })
+
+test('with nothing typed, Recent lists what was opened lately on this device, newest first, as it is now', async ({ browser, request }) => {
+  const id = Date.now().toString(36)
+  const word = `Ennis${id}`
+  await push(request, id, [
+    ['client.upsert', { id: `c-${id}`, name: `${word} Arts`, contacts: [], notes: '' }],
+    ['venue.upsert', { id: `v-${id}`, name: `${word} Hall`, address: 'Ennis, Co. Clare', notes: '' }],
+    ['project.create', { id: `j-${id}`, name: `${word} Festival`, clientId: `c-${id}`, venueId: `v-${id}`, status: 'confirmed', notes: '' }],
+  ])
+  const desk = await (await browser.newContext({ viewport: deskSize })).newPage()
+  await desk.goto('/#home')
+  await expect(desk.locator('.conn')).toHaveText('Up to date')
+  // Nothing opened yet: no Recent, the places first.
+  await desk.keyboard.press('Control+k')
+  const palette = desk.getByRole('dialog', { name: 'Search' })
+  await expect(palette.getByRole('group', { name: 'Go to' })).toBeVisible()
+  await expect(palette.getByRole('group', { name: 'Recent' })).toHaveCount(0)
+  await desk.keyboard.press('Escape')
+
+  // Opened one way or another: from the palette, a link, a tab of a job.
+  await desk.goto(`/#jobs/clients/c-${id}`)
+  await expect(desk.getByRole('heading', { level: 1, name: `${word} Arts` })).toBeVisible()
+  await desk.goto(`/#jobs/venues/v-${id}`)
+  await expect(desk.getByRole('heading', { level: 1, name: `${word} Hall` })).toBeVisible()
+  await desk.goto(`/#jobs/j-${id}/crew`)
+  await expect(desk.getByRole('heading', { level: 1, name: `${word} Festival` })).toBeVisible()
+  await desk.goto('/#stock')
+
+  await desk.keyboard.press('Control+k')
+  await desk.getByLabel('Search everything').fill('')
+  const recent = palette.getByRole('group', { name: 'Recent' })
+  await expect(recent.getByRole('option')).toHaveText([new RegExp(`${word} Festival`), new RegExp(`${word} Hall`), new RegExp(`${word} Arts`)])
+  // Above the places, so Down then Enter goes back to the last one.
+  await desk.keyboard.press('ArrowDown')
+  await expect(palette.getByRole('option', { selected: true })).toContainText(`${word} Festival`)
+  await desk.keyboard.press('Enter')
+  await expect(desk).toHaveURL(new RegExp(`#jobs/j-${id}$`))
+
+  // The one on the screen behind isn't offered; a renamed one shows its name now; typing hides Recent.
+  await push(request, `${id}-r`, [['venue.upsert', { id: `v-${id}`, name: `${word} Theatre`, address: 'Ennis, Co. Clare', notes: '' }]])
+  await desk.keyboard.press('Control+k')
+  await expect(recent.getByRole('option')).toHaveText([new RegExp(`${word} Theatre`), new RegExp(`${word} Arts`)])
+  await desk.getByLabel('Search everything').fill(word.toLowerCase())
+  await expect(palette.getByRole('group', { name: 'Recent' })).toHaveCount(0)
+})

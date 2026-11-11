@@ -5,6 +5,7 @@ import { setStartScreen, signOut, useAuth } from './auth.ts'
 import { FeedCard } from './FeedCard.tsx'
 import { askToKeep, useKept } from './kept.ts'
 import { Top } from './jobs/common.tsx'
+import { forgetRecent } from './recent.ts'
 import { useAccess } from './role.ts'
 import { forgetCountDraft } from './stock/Counts.tsx'
 import { client, storage } from './sync.ts'
@@ -42,6 +43,7 @@ export function YouScreen() {
     }
     // A shared or handed-back phone shouldn't keep the company's data.
     forgetCountDraft()
+    forgetRecent()
     await storage.wipe()
     location.replace('/')
   }

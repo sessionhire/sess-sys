@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type
 import { personHref } from './crew/PersonScreen.tsx'
 import { plain, wordsOf } from './crew/People.tsx'
 import { Icon, type IconName } from './Icon.tsx'
+import { openedAt, useRecent, type Opened, type OpenedKind } from './recent.ts'
 import { useAccess } from './role.ts'
 import { paletteKeys } from './searchOpen.ts'
 import { SHORTCUTS } from './shortcuts.tsx'
@@ -19,6 +20,9 @@ import { useView } from './view.ts'
  * the places to go; as you type, the places and the records that match, one highlighted for Enter. Up and Down move, Escape
  * or a press outside closes it, and nothing is lost: what's typed is kept while the app is open, so opening it again comes
  * back to the same results, selected so new typing replaces it.
+ *
+ * With nothing typed, Recent comes first (Colly, 11 November 2026; ADR 0148): the jobs, clients, venues, people, products and
+ * kit opened lately on this device, newest first, five of them, so getting back to what you were just in is Down and Enter.
  */
 
 let typed = ''
@@ -69,6 +73,52 @@ const matches = (words: readonly string[], ...fields: (string | null | undefined
 const startsWith = (words: readonly string[], name: string) => plain(name).startsWith(words[0] ?? '')
 const ordered = (found: Found[]) => found.sort((a, b) => Number(b.first) - Number(a.first))
 
+type JobsView = View['jobs']
+type Job = JobsView['jobs'][number]
+type Client = JobsView['clients'][number]
+type Venue = JobsView['venues'][number]
+type Person = View['crew']['people'][number]
+type Product = View['warehouse']['models'][number]
+type Item = View['warehouse']['assets'] extends ReadonlyMap<string, infer A> ? A : never
+
+/** Each kind of record as a row, the same in the results and in Recent. */
+const jobFound = (j: Job): Omit<Found, 'first'> => ({
+  key: j.id,
+  href: `#jobs/${encodeURIComponent(j.id)}`,
+  title: j.name,
+  line: [j.span ? spanLabel(j.span) : 'No dates yet', j.client?.name, j.venue?.name].filter(Boolean).join(' · '),
+})
+const clientFound = (c: Client, jobs: readonly Job[]): Omit<Found, 'first'> => ({
+  key: c.id,
+  href: `#jobs/clients/${encodeURIComponent(c.id)}`,
+  title: c.name,
+  line: plural(jobs.filter((j) => j.clientId === c.id).length, 'job', 'jobs'),
+})
+const venueFound = (v: Venue): Omit<Found, 'first'> => ({
+  key: v.id,
+  href: `#jobs/venues/${encodeURIComponent(v.id)}`,
+  title: v.name,
+  line: v.address ?? '',
+})
+const personFound = (p: Person): Omit<Found, 'first'> => ({
+  key: p.id,
+  href: personHref(p.id),
+  title: p.name,
+  line: [p.kind === 'staff' ? 'Staff' : 'Freelancer', p.skills.slice(0, 3).join(', ')].filter(Boolean).join(' · '),
+})
+const productFound = (m: Product): Omit<Found, 'first'> => ({
+  key: m.id,
+  href: `#stock/product/${encodeURIComponent(m.id)}`,
+  title: m.name,
+  line: [m.department, m.category].filter(Boolean).join(' · '),
+})
+const itemFound = (a: Item): Omit<Found, 'first'> => ({
+  key: a.id,
+  href: `#stock/item/${encodeURIComponent(a.id)}`,
+  title: `${a.number || 'No number yet'} · ${a.model?.name ?? 'Unknown product'}`,
+  line: [a.serial ? `Serial ${a.serial}` : '', a.oldNumber ? `Old tag ${a.oldNumber}` : '', a.at ? `at ${a.at.name}` : ''].filter(Boolean).join(' · '),
+})
+
 export function search(view: View, query: string, can: { money: boolean }): Group[] {
   const words = wordsOf(query)
   if (!words.length) return []
@@ -87,13 +137,7 @@ export function search(view: View, query: string, can: { money: boolean }): Grou
     found: ordered(
       byNewest
         .filter((j) => matches(words, j.name, j.client?.name, j.venue?.name, ...(quoteNumbers.get(j.id) ?? [])))
-        .map((j) => ({
-          key: j.id,
-          href: `#jobs/${encodeURIComponent(j.id)}`,
-          title: j.name,
-          line: [j.span ? spanLabel(j.span) : 'No dates yet', j.client?.name, j.venue?.name].filter(Boolean).join(' · '),
-          first: startsWith(words, j.name),
-        })),
+        .map((j) => ({ ...jobFound(j), first: startsWith(words, j.name) })),
     ),
   })
 
@@ -123,16 +167,7 @@ export function search(view: View, query: string, can: { money: boolean }): Grou
     found: ordered(
       clients
         .filter((c) => matches(words, c.name, ...c.contacts.map((x) => x.name)))
-        .map((c) => {
-          const n = jobs.filter((j) => j.clientId === c.id).length
-          return {
-            key: c.id,
-            href: `#jobs/clients/${encodeURIComponent(c.id)}`,
-            title: c.name,
-            line: plural(n, 'job', 'jobs'),
-            first: startsWith(words, c.name),
-          }
-        }),
+        .map((c) => ({ ...clientFound(c, jobs), first: startsWith(words, c.name) })),
     ),
   })
 
@@ -143,13 +178,7 @@ export function search(view: View, query: string, can: { money: boolean }): Grou
     found: ordered(
       venues
         .filter((v) => matches(words, v.name, v.address))
-        .map((v) => ({
-          key: v.id,
-          href: `#jobs/venues/${encodeURIComponent(v.id)}`,
-          title: v.name,
-          line: v.address ?? '',
-          first: startsWith(words, v.name),
-        })),
+        .map((v) => ({ ...venueFound(v), first: startsWith(words, v.name) })),
     ),
   })
 
@@ -160,13 +189,7 @@ export function search(view: View, query: string, can: { money: boolean }): Grou
     found: ordered(
       view.crew.people
         .filter((p) => matches(words, p.name, p.email, p.phone, ...p.skills))
-        .map((p) => ({
-          key: p.id,
-          href: personHref(p.id),
-          title: p.name,
-          line: [p.kind === 'staff' ? 'Staff' : 'Freelancer', p.skills.slice(0, 3).join(', ')].filter(Boolean).join(' · '),
-          first: startsWith(words, p.name),
-        })),
+        .map((p) => ({ ...personFound(p), first: startsWith(words, p.name) })),
     ),
   })
 
@@ -178,13 +201,7 @@ export function search(view: View, query: string, can: { money: boolean }): Grou
     found: ordered(
       w.models
         .filter((m) => matches(words, m.name, m.category, m.department))
-        .map((m) => ({
-          key: m.id,
-          href: `#stock/product/${encodeURIComponent(m.id)}`,
-          title: m.name,
-          line: [m.department, m.category].filter(Boolean).join(' · '),
-          first: startsWith(words, m.name),
-        })),
+        .map((m) => ({ ...productFound(m), first: startsWith(words, m.name) })),
     ),
   })
 
@@ -200,17 +217,61 @@ export function search(view: View, query: string, can: { money: boolean }): Grou
       label: 'Kit by number',
       icon: 'label',
       found: items
-        .map((a) => ({
-          key: a.id,
-          href: `#stock/item/${encodeURIComponent(a.id)}`,
-          title: `${a.number || 'No number yet'} · ${a.model?.name ?? 'Unknown product'}`,
-          line: [a.serial ? `Serial ${a.serial}` : '', a.oldNumber ? `Old tag ${a.oldNumber}` : '', a.at ? `at ${a.at.name}` : ''].filter(Boolean).join(' · '),
-          first: plain(a.number).replace(/\s+/g, '') === n,
-        }))
+        .map((a) => ({ ...itemFound(a), first: plain(a.number).replace(/\s+/g, '') === n }))
         .sort((a, b) => Number(b.first) - Number(a.first) || a.title.localeCompare(b.title)),
     })
   }
   return groups.filter((g) => g.found.length)
+}
+
+/** Each kind's picture in Recent, where kinds are mixed: its group's in the results. */
+const KIND_ICONS: Record<OpenedKind, IconName> = {
+  job: 'calendar',
+  client: 'company',
+  venue: 'venue',
+  person: 'people',
+  product: 'kit',
+  item: 'label',
+}
+
+/**
+ * Recent, with nothing typed: what was opened lately on this device, as it is now. One that's gone, or that this role isn't
+ * sent, is left out, and so is the one on the screen behind, as you're already there.
+ */
+export function recentGroup(view: View, opened: readonly Opened[], here?: Opened): Group | undefined {
+  const { jobs, clients, venues } = view.jobs
+  const find = (o: Opened): Omit<Found, 'first'> | undefined => {
+    if (o.kind === 'job') {
+      const j = jobs.find((x) => x.id === o.id)
+      return j && jobFound(j)
+    }
+    if (o.kind === 'client') {
+      const c = clients.find((x) => x.id === o.id)
+      return c && clientFound(c, jobs)
+    }
+    if (o.kind === 'venue') {
+      const v = venues.find((x) => x.id === o.id)
+      return v && venueFound(v)
+    }
+    if (o.kind === 'person') {
+      const p = view.crew.people.find((x) => x.id === o.id)
+      return p && personFound(p)
+    }
+    if (o.kind === 'product') {
+      const m = view.warehouse.models.find((x) => x.id === o.id)
+      return m && productFound(m)
+    }
+    const a = view.warehouse.assets.get(o.id)
+    return a && itemFound(a)
+  }
+  const found: Found[] = []
+  for (const o of opened) {
+    if (found.length === SHOWN) break
+    if (here && here.kind === o.kind && here.id === o.id) continue
+    const f = find(o)
+    if (f) found.push({ ...f, key: `${o.kind}-${o.id}`, icon: KIND_ICONS[o.kind], first: false })
+  }
+  return found.length ? { key: 'recent', label: 'Recent', icon: 'history', found } : undefined
 }
 
 /** Each place's picture: the bar's own for the areas (home/icons.tsx), and the planner's and New's for the rest. */
@@ -256,6 +317,7 @@ export function SearchPalette({ onGo, onClose, desk }: { onGo: (hash: string) =>
   const money = access.can('money')
   const [all, setAll] = useState<ReadonlySet<string>>(new Set())
   const asked = wordsOf(query).length > 0
+  const opened = useRecent()
 
   useEffect(() => {
     const d = dialog.current
@@ -278,15 +340,17 @@ export function SearchPalette({ onGo, onClose, desk }: { onGo: (hash: string) =>
   const groups = useMemo(() => {
     const found = search(view, query, { money })
     const go = places(query, { money })
+    // Nothing typed: Recent first, its own short group above the places (design system, behavioural.md, Availability Bias).
+    if (!asked) return [recentGroup(view, opened, openedAt(location.hash)), go].filter((g): g is Group => !!g)
     if (!go) return found
     // A place whose name starts with what's typed ("jobs") comes first; one that only has the word in it, after the records.
     return asked && !go.found.some((f) => f.first) ? [...found, go] : [go, ...found]
-  }, [view, query, money, asked])
+  }, [view, query, money, asked, opened])
 
   const rows: Row[] = useMemo(
     () =>
       groups.flatMap((g) => {
-        const open = g.key === 'places' || all.has(g.key)
+        const open = g.key === 'places' || g.key === 'recent' || all.has(g.key)
         const shown: Row[] = (open ? g.found : g.found.slice(0, SHOWN)).map((f) => ({ id: `${id}-${g.key}-${f.key}`, found: f, group: g }))
         return !open && g.found.length > SHOWN ? [...shown, { id: `${id}-${g.key}-more`, more: g }] : shown
       }),
@@ -340,7 +404,7 @@ export function SearchPalette({ onGo, onClose, desk }: { onGo: (hash: string) =>
     if (e.target === dialog.current) close()
   }
 
-  const total = groups.filter((g) => g.key !== 'places').reduce((n, g) => n + g.found.length, 0)
+  const total = groups.filter((g) => g.key !== 'places' && g.key !== 'recent').reduce((n, g) => n + g.found.length, 0)
   const list = `${id}-list`
   return (
     <dialog className="palette" ref={dialog} aria-labelledby={`${id}-title`} onClose={onClose} onClick={outside}>
@@ -379,7 +443,7 @@ export function SearchPalette({ onGo, onClose, desk }: { onGo: (hash: string) =>
             <div key={g.key} role="group" aria-labelledby={`${id}-${g.key}`}>
               <div className="palette-group" id={`${id}-${g.key}`} role="presentation">
                 <Icon name={g.icon} />
-                {g.key === 'places' ? g.label : `${g.label} (${g.found.length})`}
+                {g.key === 'places' || g.key === 'recent' ? g.label : `${g.label} (${g.found.length})`}
               </div>
               {rows
                 .filter((r) => ('more' in r ? r.more : r.group) === g)
