@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-11',
     title: 'Offering crew: the next step is one clear button',
     what: "When you pick someone to offer a crew call to, the form now says they haven't been offered yet and nothing reaches them until you press the button underneath, which names them (\"Offer to Olan Clarke\"). It also says when pressing will email them a calendar invite. The Offer button no longer sits beside the search box, where it read as part of the search, and with nobody picked there's no button at all: picking is the step.",
-    prs: [0],
+    prs: [336],
   },
   {
     version: '1.164.1',
