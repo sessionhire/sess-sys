@@ -48,7 +48,10 @@ the time it is awake, so the sync can't check the calendar every minute.
   the job and phase notes, the crew booked for that day by role with call
   times and places still to fill, the people asked and not answered yet
   (so each person invited sees the role they're asked for, since every
-  guest of an event reads the same description), the day's pick list by
+  guest of an event reads the same description), whether per diems are
+  approved and how much a day and whether fuel is covered and about what a
+  car costs there and back (from the job's accepted quote, else its latest:
+  its subsistence and travel lines, the only money crew see), the day's pick list by
   department (the phase's kit and the whole job's, quantities and how many
   are hired in, never prices), and a link to the job in the app. Names
   only: rates and phone numbers never go on the calendar. Enquiries and

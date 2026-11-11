@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { calendarDayId, calendarTitles, dayLabel, DEPARTMENT_LABELS, DEPARTMENTS, eachDay, type Department } from '@sh/shared'
+import { calendarDayId, calendarTitles, dayLabel, DEPARTMENT_LABELS, DEPARTMENTS, eachDay, euroText, type Department, type QuoteLine } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { EventBody } from './google.ts'
 
@@ -60,6 +60,8 @@ export interface DayFacts {
   crew: CrewLine[]
   /** The day's pick list: the phase's kit and the whole job's, a line per product. */
   kit: KitItem[]
+  /** Per diems and fuel, as the job's quote has them; null with no quote, when nothing is known. */
+  allowances: Allowances | null
   /** The job in the app, when the app knows its own address. */
   appLink: string | null
 }
@@ -71,6 +73,18 @@ export interface KitItem {
   qty: number
   /** How many of them are hired in from another company. */
   subhireQty: number
+}
+
+/** What the job's quote covers for the crew (ADR 0086), so they know before they say yes. */
+export interface Allowances {
+  /** The per diem a day when the quote charges subsistence, else null. */
+  perDiemCents: number | null
+  /** The job gives the crew their meals, so there's no per diem. */
+  mealsProvided: boolean
+  /** Fuel for a car there and back when the quote charges travel, else null. */
+  fuelCents: number | null
+  /** How far each way, when the travel line says. */
+  km: number | null
 }
 
 const DESCRIPTION_MAX = 8000
@@ -110,6 +124,7 @@ export function description(f: DayFacts): string {
   if (f.crew.length) blocks.push(['Crew', ...f.crew.map(crewLine)].join('\n'))
   if (f.jobNotes.trim()) blocks.push(`Job notes\n${f.jobNotes.trim()}`)
   if (f.phaseNotes.trim()) blocks.push(`${f.phase} notes\n${f.phaseNotes.trim()}`)
+  if (f.allowances) blocks.push(allowancesText(f.allowances))
   const kit = pickList(f.kit)
   if (kit) blocks.push(kit)
   const text = blocks.join('\n\n')
@@ -117,6 +132,33 @@ export function description(f: DayFacts): string {
   const link = f.appLink ? `\n\nThe job in the Session Hire app: ${f.appLink}` : ''
   const room = DESCRIPTION_MAX - link.length
   return `${text.length > room ? `${text.slice(0, room - 1)}…` : text}${link}`
+}
+
+const euro = (cents: number) => `€${euroText(cents)}`
+
+/** Per diems and fuel in words for crew: what the quote covers, never what the client is charged for anything else. */
+export function allowancesText(a: Allowances): string {
+  const pd =
+    a.perDiemCents !== null
+      ? `Per diems: approved, ${euro(a.perDiemCents)} a day each`
+      : a.mealsProvided
+        ? 'Per diems: not approved, as meals are provided'
+        : 'Per diems: not approved'
+  const fuel = a.fuelCents !== null ? `Fuel: covered, about ${euro(a.fuelCents)} a car there and back${a.km !== null ? ` (${a.km} km each way)` : ''}` : 'Fuel: not covered'
+  return ['Per diems and fuel', pd, fuel].join('\n')
+}
+
+/** What the quote covers for crew, from its travel and subsistence lines (ADR 0086). */
+export function allowancesOf(lines: readonly QuoteLine[], mealsProvided: boolean): Allowances {
+  const sub = lines.find((l) => l.extra === 'subsistence')
+  const travel = lines.find((l) => l.extra === 'travel')
+  const km = travel ? /(\d+) km each way/.exec(travel.what)?.[1] : undefined
+  return {
+    perDiemCents: sub ? sub.unitCents : null,
+    mealsProvided,
+    fuelCents: travel ? travel.unitCents : null,
+    km: km ? Number(km) : null,
+  }
 }
 
 /** The day's kit as a list under a heading for each department, in the departments' usual order. Quantities only, never prices. */
@@ -182,6 +224,12 @@ interface KitRow {
   subhire_qty: number
 }
 
+interface QuoteRow {
+  project_id: string
+  lines: QuoteLine[]
+  meals_provided: boolean
+}
+
 interface CallRow {
   id: string
   project_id: string
@@ -238,6 +286,17 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         [projectIds]
       )
     : { rows: [] as KitRow[] }
+  // Each job's quote that counts: the one accepted, else the latest.
+  const { rows: quoteRows } = projectIds.length
+    ? await q.query<QuoteRow>(
+        `SELECT DISTINCT ON (project_id) project_id, lines, meals_provided
+           FROM quotes
+          WHERE project_id = ANY($1::text[]) AND deleted_at IS NULL AND status <> 'declined'
+          ORDER BY project_id, (status = 'accepted') DESC, version DESC`,
+        [projectIds]
+      )
+    : { rows: [] as QuoteRow[] }
+  const allowancesByJob = new Map(quoteRows.map((r) => [r.project_id, allowancesOf(r.lines, r.meals_provided)]))
 
   const out = new Map<string, Wanted>()
   for (const p of phases) {
@@ -298,6 +357,7 @@ export async function wantedEvents(q: Queryable, { today, appKey, appUrl }: { to
         phaseNotes: p.phase_notes,
         crew,
         kit,
+        allowances: allowancesByJob.get(p.project_id) ?? null,
         appLink: appUrl ? `${appUrl}/#jobs/${p.project_id}` : null,
       }
       const next = new Date(`${day}T12:00:00Z`)
