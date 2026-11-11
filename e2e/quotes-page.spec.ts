@@ -25,19 +25,25 @@ test('Quotes is in the sidebar on a desk and lists every quote, to find and open
   await expect(desk).toHaveTitle('Quotes · Session Hire')
   await expect(bar.getByRole('link', { name: 'Quotes' })).toHaveAttribute('aria-current', 'page')
 
-  // What's waiting first, then every quote.
+  // What's waiting first; then every quote, a view each by where it stands (review of 11 November 2026, finding 7), with New quote
+  // on the title's line and the search above the views.
   await expect(desk.getByRole('region', { name: 'To follow up' })).toContainText('Corrib Arts Week')
+  await expect(desk.locator('.page-title-row').getByRole('link', { name: 'New quote' })).toHaveAttribute('href', '#quotes/new')
+  const views = desk.getByRole('navigation', { name: 'Quotes views' })
+  await expect(views.getByRole('link')).toHaveText(['To follow up', 'Not sent', 'Sent', 'Accepted', 'Turned down', 'All'])
+  await views.getByRole('link', { name: 'All' }).click()
   const all = desk.getByRole('region', { name: 'All quotes' })
   await expect(all.getByRole('listitem')).toHaveCount(3)
   await expect(all.getByRole('listitem').filter({ hasText: 'Autumn Gala' })).toContainText('Invoiced')
 
-  // Narrowed by what it is, and found by its invoice.
-  const show = all.getByRole('group', { name: 'Show' })
-  await show.getByRole('button', { name: 'Accepted (2)' }).click()
-  await expect(all.getByRole('listitem')).toHaveCount(2)
-  await expect(all).not.toContainText('Corrib Arts Week')
-  await show.getByRole('button', { name: 'All (3)' }).click()
-  await all.getByLabel('Find a quote').fill('sh-1042')
+  // Narrowed by what it is, and found by its invoice; the search holds from one view to the next.
+  await views.getByRole('link', { name: 'Accepted' }).click()
+  const accepted = desk.getByRole('region', { name: 'Accepted quotes' })
+  await expect(accepted.getByRole('listitem')).toHaveCount(2)
+  await expect(accepted).not.toContainText('Corrib Arts Week')
+  await desk.getByLabel('Find a quote').fill('sh-1042')
+  await expect(accepted.getByRole('listitem')).toHaveCount(1)
+  await views.getByRole('link', { name: 'All' }).click()
   await expect(all.getByRole('listitem')).toHaveCount(1)
   await all.getByRole('link', { name: 'Autumn Gala' }).click()
   await expect(desk).toHaveURL(/#jobs\/[^/]+\/quote$/)

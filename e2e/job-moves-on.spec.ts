@@ -47,9 +47,10 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' }).locator('.job-position')).toContainText('Planning')
 
   // The quote says the same: accepted today, and nothing left to put in step.
-  await office.goto('/#quotes')
+  await office.goto('/#quotes/all')
   const row = office.getByRole('region', { name: 'All quotes' }).getByRole('listitem').filter({ hasText: 'Corrib Arts Week' })
   await expect(row).toContainText(/Accepted \w{3} \d+ \w{3}/)
+  await office.goto('/#quotes')
   await expect(office.getByRole('region', { name: 'To follow up' })).not.toContainText('Corrib Arts Week')
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)

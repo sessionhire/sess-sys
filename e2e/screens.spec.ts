@@ -366,6 +366,8 @@ test("Money's By month and Margin by job read on a phone, every figure under its
     'By month': ['Quoted', 'Confirmed', 'Invoiced', 'Freelancers', 'Lost'],
     'Margin by job': ['Quoted', 'Freelancers', 'After freelancers'],
   }
+  // Each on its own part of Money (review of 11 November 2026, finding 20).
+  const at: Record<string, string> = { 'By month': '/#jobs/money', 'Margin by job': '/#jobs/money/margins' }
   const figures = (page: Page, name: string) =>
     page
       .getByRole('region', { name })
@@ -380,9 +382,9 @@ test("Money's By month and Margin by job read on a phone, every figure under its
         )
       )
   const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
-  await phone.goto('/#jobs/money')
-  await expect(phone.getByRole('status')).toHaveText('Up to date')
   for (const [name, columns] of Object.entries(tables)) {
+    await phone.goto(at[name]!)
+    await expect(phone.getByRole('status')).toHaveText('Up to date')
     const region = phone.getByRole('region', { name })
     await expect(region.locator('tbody td').first()).toBeVisible()
     await expect(region.locator('thead')).toBeHidden()
@@ -401,9 +403,9 @@ test("Money's By month and Margin by job read on a phone, every figure under its
   expect(await phone.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0)
 
   const desk = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage()
-  await desk.goto('/#jobs/money')
-  await expect(desk.getByRole('status')).toHaveText('Up to date')
   for (const [name, columns] of Object.entries(tables)) {
+    await desk.goto(at[name]!)
+    await expect(desk.getByRole('status')).toHaveText('Up to date')
     const head = desk.getByRole('region', { name }).locator('thead th')
     await expect(head).toHaveText([name === 'By month' ? 'Month' : 'Job', ...columns])
     await expect(head.first()).toBeVisible()

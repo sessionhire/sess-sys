@@ -21,6 +21,10 @@ export interface PageAdd {
   label: string
   /** On another view of the list, where its form isn't: the list's address, gone to with the form opening there. */
   href?: string
+  /** A page of its own rather than a form in the list (New quote, ADR 0140 part 7): the button is a link there. */
+  page?: string
+  /** Said on hover, as the keyboard shortcut to it. */
+  title?: string
 }
 
 /**
@@ -250,11 +254,18 @@ function PageHead({
       <div className="page-title-row">
         <h1 className="page-title">{heading}</h1>
         {badge}
-        {add && (
-          <button type="button" className="page-add" data-add={add.key} onClick={() => (add.href ? askToAddOn(add.key, add.href) : askToAdd(add.key))}>
+        {add?.page ? (
+          <a className="button page-add" data-add={add.key} href={add.page} title={add.title}>
             <Icon name="add" />
             {add.label}
-          </button>
+          </a>
+        ) : (
+          add && (
+            <button type="button" className="page-add" data-add={add.key} title={add.title} onClick={() => (add.href ? askToAddOn(add.key, add.href) : askToAdd(add.key))}>
+              <Icon name="add" />
+              {add.label}
+            </button>
+          )
         )}
       </div>
       {sub && <div className="page-sub">{sub}</div>}

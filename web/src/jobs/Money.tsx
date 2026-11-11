@@ -1,3 +1,4 @@
+import { TabPanel, Tabs } from '../Tabs.tsx'
 import { UnitBox } from '../UnitBox.tsx'
 import {
   addDays,
@@ -58,9 +59,7 @@ import { client } from '../sync.ts'
 import { JOBS, MONEY, QUOTES } from '../Up.tsx'
 import { useToday } from '../view.ts'
 import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
-import { ClientField, clientNamed, contactAdded, NewOrNear, newQuoteHref, Top, VenueField, venueNamed } from './common.tsx'
-import { useDesk } from '../foot.tsx'
-import { shortcutHint } from '../shortcuts.tsx'
+import { ClientField, clientNamed, contactAdded, NewOrNear, Top, VenueField, venueNamed } from './common.tsx'
 import { NameField } from '../NameField.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
@@ -95,26 +94,46 @@ export function NotYours({ view, here }: { view: View; here?: string }) {
   )
 }
 
-export function MoneyScreen({ view }: { view: View }) {
+/** Money's parts (review of 11 November 2026, finding 20): each a screen or two on a phone rather than twelve in one. */
+export const MONEY_PARTS = ['month', 'owed', 'margins', 'accountant'] as const
+export type MoneyPart = (typeof MONEY_PARTS)[number]
+const MONEY_LABELS: Record<MoneyPart, string> = { month: 'This month', owed: 'Owed', margins: 'Margins', accountant: 'For the accountant' }
+const moneyHref = (p: MoneyPart) => (p === 'month' ? '#jobs/money' : `#jobs/money/${p}`)
+
+export function MoneyScreen({ view, part = 'month' }: { view: View; part?: MoneyPart }) {
   const today = useToday()
   if (!useAccess().can('money')) return <NotYours view={view} />
   const m = view.money
+  // Each part has its own address, so Back and a link land on it; it opens on This month, not the last one looked at.
+  const pick = (p: MoneyPart) => void (location.hash = moneyHref(p))
+  // What's owed to freelancers comes from approved timesheets: not shown while they're off (ADR 0090), unless some approved are still to pay.
+  const freelancers = view.office.useTimesheets || m.costsOwed.length > 0
   return (
     <div className="app crew jobs money">
       <Top view={view} views={<JobViews current="money" />} heading="Money" />
-      <section className="card plain">
-        <MoneyFacts view={view} today={today} />
-        <p className="hint">
-          Before VAT, by the month each job starts, except what's accepted and unpaid, which is with VAT, as an invoice asks. <a href="#quotes">Quotes</a> · <a href="#jobs/money/prices">Price list</a> ·{' '}
-          <a href="#jobs/money/current-rms">Past quotes from Current RMS</a>
-        </p>
-      </section>
-      <ByMonth m={m} />
-      {/* What's owed comes from approved timesheets: not shown while they're off (ADR 0090), unless some approved are still to pay. */}
-      {(view.office.useTimesheets || m.costsOwed.length > 0) && <Owed m={m} />}
-      <Freelancers m={m} />
-      <Margins m={m} today={today} />
-      <ForTheAccountant m={m} />
+      <Tabs label="Parts of Money" id="money" parts={MONEY_PARTS} labels={MONEY_LABELS} current={part} onPick={pick} />
+      <TabPanel id="money" current={part}>
+        {part === 'month' && (
+          <>
+            <section className="card plain">
+              <MoneyFacts view={view} today={today} />
+              <p className="hint">
+                Before VAT, by the month each job starts, except what's accepted and unpaid, which is with VAT, as an invoice asks. <a href="#quotes">Quotes</a> · <a href="#jobs/money/prices">Price list</a> ·{' '}
+                <a href="#jobs/money/current-rms">Past quotes from Current RMS</a>
+              </p>
+            </section>
+            <ByMonth m={m} />
+          </>
+        )}
+        {part === 'owed' && (
+          <>
+            <Owed m={m} />
+            {freelancers && <Freelancers m={m} />}
+          </>
+        )}
+        {part === 'margins' && <Margins m={m} today={today} />}
+        {part === 'accountant' && <ForTheAccountant m={m} />}
+      </TabPanel>
     </div>
   )
 }
@@ -157,18 +176,13 @@ function FollowRow({ f, what, chase, late, when, children }: { f: QuoteToFollow;
  */
 export function ToFollowUp({ view }: { view: View }) {
   const today = useToday()
-  const desk = useDesk()
   const f = quotesToFollow(view.money, today, quoteWantedBy(view))
   const none = f.drafts.length + f.overDrafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
   return (
     <section className="card quotes-to-follow" aria-label="To follow up">
       <Heading icon="document">To follow up</Heading>
-      {/* Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1). A page of its
-          own (ADR 0140, part 7). */}
-      <a className="button" href={newQuoteHref()} title={desk ? shortcutHint(newQuoteHref()) : undefined}>
-        New quote
-      </a>
-      {none && <Empty>No quote is waiting on anyone. Start a new one here, or from a job's page.</Empty>}
+      {/* New quote is on the title's line, as every list's add is (review of 11 November 2026, finding 7). */}
+      {none && <Empty>No quote is waiting on anyone. Start one with New quote, at the top, or from a job's page.</Empty>}
       <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
     </section>
   )

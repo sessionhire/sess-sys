@@ -50,7 +50,7 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await expect(quotes.getByRole('heading', { name: /^Waiting for an answer/ })).toHaveText('Waiting for an answer (1)')
 
   // A phone call turns into a quote: the job in a few words.
-  await quotes.getByRole('link', { name: 'New quote' }).click()
+  await quotes.page().locator('.page-add', { hasText: 'New quote' }).click()
   const form = quotes.page().getByRole('form', { name: 'New quote' })
   await form.getByLabel("What's the job?").fill('Docklands Awards')
   await form.getByLabel('Client').fill('Liffey Brands')
@@ -130,7 +130,7 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
   await office.goto('/#quotes')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   const quotes = office.getByRole('region', { name: 'To follow up' })
-  await quotes.getByRole('link', { name: 'New quote' }).click()
+  await quotes.page().locator('.page-add', { hasText: 'New quote' }).click()
   const form = quotes.page().getByRole('form', { name: 'New quote' })
   await form.getByLabel("What's the job?").fill('Quayside Gala')
   // Who asked, how, and the day they want it by (research/quoting.md, feature 6): a line in the job's notes, and the Quote sent task's due day.

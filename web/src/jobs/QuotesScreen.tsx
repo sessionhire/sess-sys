@@ -22,7 +22,7 @@ import {
   quoteFilters,
   NOT_YOURS
 } from '@sh/shared'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
 import { useDesk } from '../foot.tsx'
 import { MENU } from '../Up.tsx'
@@ -34,7 +34,9 @@ import { useAccess } from '../role.ts'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { useToday, useView } from '../view.ts'
 import { ListTools, useListChoices } from '../ListTools.tsx'
-import { newQuoteAsked, Top, useHash } from './common.tsx'
+import { newQuoteAsked, newQuoteHref, Top, useHash } from './common.tsx'
+import { Views } from '../Views.tsx'
+import { shortcutHint } from '../shortcuts.tsx'
 import { NewQuoteScreen, ToFollowUp } from './Money.tsx'
 import { QuotePill } from './Quote.tsx'
 import { getJson, type Loaded } from './rms.ts'
@@ -46,6 +48,43 @@ import { getJson, type Loaded } from './rms.ts'
  * where it's changed: this page only finds them. Under them, the quotes from before the app, from Current RMS (ADR 0092),
  * found by the same search and shown by the same choice, so the history reads as one.
  */
+/** Quotes' views (review of 11 November 2026, finding 7): what's waiting first, then every quote narrowed by where it stands. */
+type QuotesView = 'follow' | QuoteShow
+const QUOTE_VIEWS: [QuotesView, string, string][] = [
+  ['follow', 'To follow up', '#quotes'],
+  ['draft', 'Not sent', '#quotes/not-sent'],
+  ['sent', 'Sent', '#quotes/sent'],
+  ['accepted', 'Accepted', '#quotes/accepted'],
+  ['declined', 'Turned down', '#quotes/turned-down'],
+  ['all', 'All', '#quotes/all'],
+]
+const quotesViewOf = (hash: string): QuotesView => QUOTE_VIEWS.find(([, , href]) => href === hash)?.[0] ?? 'follow'
+
+/** The search, kept for the tab's life so it holds from one view to the next and on Back from a quote, as the Jobs list's does. */
+let quoteSearch = ''
+const searchListeners = new Set<() => void>()
+function useQuoteSearch(): [string, (next: string) => void] {
+  const now = useSyncExternalStore(
+    (fn) => (searchListeners.add(fn), () => void searchListeners.delete(fn)),
+    () => quoteSearch
+  )
+  return [
+    now,
+    (next) => {
+      quoteSearch = next
+      for (const fn of searchListeners) fn()
+    },
+  ]
+}
+
+/**
+ * Quotes (#quotes, ADR 0088): every quote in one place, a place of its own in the sidebar on a desk and on the Menu on a
+ * phone, for the office and directors. Laid out as every list page is (Colly, 10 November 2026; review of 11 November 2026,
+ * finding 7): the title with New quote on its line, the search, the views (To follow up first, then by where a quote stands),
+ * Sort and Filter, then the quotes. Each opens on the job's quote, where it's changed: this page only finds them. Under them,
+ * the quotes from before the app, from Current RMS (ADR 0092), found by the same search and shown by the same view, so the
+ * history reads as one.
+ */
 export function QuotesScreen() {
   const view = useView()
   // A place of its own on a desk; on a phone it's under the Menu, and says so as the Menu's other places do (audit, 5 November 2026,
@@ -53,10 +92,12 @@ export function QuotesScreen() {
   const desk = useDesk()
   const access = useAccess()
   const hash = useHash()
+  const [search, setSearch] = useQuoteSearch()
+  const placed = desk ? { root: true as const } : { up: { steps: [MENU], here: 'Quotes' } }
   if (!access.can('money'))
     return (
       <div className="app crew jobs money quotes">
-        <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
+        <Top view={view} title="Quotes" {...placed} heading="Quotes" />
         <section className="card">
           <p className="empty">{NOT_YOURS.quotes} A director can change your role on the Crew tab.</p>
         </section>
@@ -65,58 +106,68 @@ export function QuotesScreen() {
   // New quote is a page of its own (ADR 0140, part 7), not a form opened inside To follow up.
   const asked = newQuoteAsked(hash)
   if (asked !== undefined) return <NewQuoteScreen key={asked} view={view} on={asked || undefined} />
+  const current = quotesViewOf(hash)
+  // A search on To follow up looks through every quote: what's typed is a quote being looked for, not one waiting.
+  const show: QuoteShow | undefined = current === 'follow' ? (search.trim() ? 'all' : undefined) : current
   return (
     <div className="app crew jobs money quotes">
-      <Top view={view} title="Quotes" {...(desk ? { root: true } : { up: { steps: [MENU], here: 'Quotes' } })} heading="Quotes" />
-      <FromMailbox view={view} />
-      <ToFollowUp view={view} />
-      <AllQuotes view={view} />
+      <Top
+        view={view}
+        title="Quotes"
+        {...placed}
+        heading="Quotes"
+        add={{ key: 'quote', label: 'New quote', page: newQuoteHref(), title: desk ? shortcutHint(newQuoteHref()) : undefined }}
+        lead={<input className="search" type="search" placeholder="Find a job, client, venue or number" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find a quote" />}
+        views={<Views label="Quotes views" current={current} pages={QUOTE_VIEWS.map(([key, label, href]) => ({ key, label, href }))} />}
+      />
+      {show ? (
+        <QuoteList view={view} show={show} search={search} />
+      ) : (
+        <>
+          <FromMailbox view={view} />
+          <ToFollowUp view={view} />
+        </>
+      )}
     </div>
   )
 }
 
-function AllQuotes({ view }: { view: View }) {
-  const [show, setShow] = useState<QuoteShow>('all')
-  const [search, setSearch] = useState('')
+function QuoteList({ view, show, search }: { view: View; show: QuoteShow; search: string }) {
   const rows = useMemo(() => quoteRows(view.money), [view.money])
-  const count = (s: QuoteShow) => rows.filter((r) => quoteRowShown(r, s, '')).length
-  // Filter and sort (ADR 0099) on the quotes made here; the ones from Current RMS are kept on the server, newest first, by the same search and choice.
+  // Filter and sort (ADR 0099) on the quotes made here; the ones from Current RMS are kept on the server, newest first, by the same search and view.
   const today = useToday()
   const [choices, setChoices] = useListChoices('quotes')
   const filters = useMemo(() => quoteFilters(today), [today])
+  const inView = rows.filter((r) => quoteRowShown(r, show, ''))
   const searched = rows.filter((r) => quoteRowShown(r, show, search))
   const shown = listed(searched, filters, QUOTE_SORTS, choices)
   const narrowed = activeFilters(filters, choices.filters).length > 0
+  const label = show === 'all' ? 'All quotes' : `${QUOTE_SHOWS.find(([s]) => s === show)![1]} quotes`
   return (
-    <section className="card quote-list" aria-label="All quotes">
-      <Heading icon="document">All quotes</Heading>
-      <input className="search" type="search" placeholder="Find a job, client, venue or number" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find a quote" />
-      <div className="filters" role="group" aria-label="Show">
-        {QUOTE_SHOWS.map(([s, label]) => (
-          <button key={s} type="button" aria-pressed={show === s} onClick={() => setShow(s)}>
-            {label} ({count(s)})
-          </button>
-        ))}
-      </div>
-      {rows.length > 0 && <ListTools name="quotes" items={searched} filters={filters} sorts={QUOTE_SORTS} choices={choices} onChange={setChoices} shown={shown.length} what="quotes" />}
-      {rows.length === 0 && <Empty>No quotes made here yet. Start one under New quote, or from a job's page.</Empty>}
-      {rows.length > 0 && shown.length === 0 && <p className="hint">No quote made here matches that.</p>}
-      {/* A search or a filter looks through them all; otherwise the first thirty in the order chosen, until Show all. */}
-      <ShowAll key={`${show} ${search} ${choices.sort} ${JSON.stringify(choices.filters)}`} items={shown} limit={search.trim() || narrowed ? shown.length : 30} what="quotes">
-        {(list) => (
-          <ul className="plain">
-            {list.map((r) => (
-              <QuoteRowItem key={r.job.id} r={r} />
-            ))}
-          </ul>
-        )}
-      </ShowAll>
-      <FromCurrentRms view={view} show={show} search={search} />
-      <p className="hint">
-        Invoiced and paid quotes count as accepted. <a href="#jobs/money/prices">Price list</a> ·{' '}
-        <a href="#jobs/money">Money</a>
-      </p>
-    </section>
+    <>
+      {inView.length > 0 && <ListTools name="quotes" items={searched} filters={filters} sorts={QUOTE_SORTS} choices={choices} onChange={setChoices} shown={shown.length} what="quotes" />}
+      <section className="card quote-list" aria-label={label}>
+        <Heading icon="document">{label}</Heading>
+        {rows.length === 0 && <Empty>No quotes made here yet. Start one with New quote, at the top, or from a job's page.</Empty>}
+        {rows.length > 0 && inView.length === 0 && <p className="hint">None here.</p>}
+        {inView.length > 0 && shown.length === 0 && <p className="hint">No quote made here matches that.</p>}
+        {/* A search or a filter looks through them all; otherwise the first thirty in the order chosen, until Show all. */}
+        <ShowAll key={`${show} ${search} ${choices.sort} ${JSON.stringify(choices.filters)}`} items={shown} limit={search.trim() || narrowed ? shown.length : 30} what="quotes">
+          {(list) => (
+            <ul className="plain">
+              {list.map((r) => (
+                <QuoteRowItem key={r.job.id} r={r} />
+              ))}
+            </ul>
+          )}
+        </ShowAll>
+        <FromCurrentRms view={view} show={show} search={search} />
+        <p className="hint">
+          Invoiced and paid quotes count as accepted. <a href="#jobs/money/prices">Price list</a> ·{' '}
+          <a href="#jobs/money">Money</a>
+        </p>
+      </section>
+    </>
   )
 }
 
