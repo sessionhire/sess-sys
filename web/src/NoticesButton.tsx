@@ -30,3 +30,15 @@ export function NoticesButton({ view }: { view: View }) {
     </a>
   )
 }
+
+/**
+ * One search for everything (review of 11 November 2026, finding 13), beside the bell on every screen's bar: a magnifier on a
+ * phone, where the bar has no room for a field, and the same at a desk, where / opens it too (shortcuts.tsx).
+ */
+export function SearchButton() {
+  return (
+    <a className="notices-button search-button" href="#search" aria-label="Search" title="Search everything (/ at a desk)" aria-current={location.hash === '#search' ? 'page' : undefined}>
+      <Icon name="search" />
+    </a>
+  )
+}

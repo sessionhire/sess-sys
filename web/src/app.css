@@ -128,8 +128,10 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 /* Home's date, top right: plain words, the most specific thing a glance at the header wants after the company (ADR 0036). */
 .top .top-date { font-size: var(--text-status); font-weight: 700; white-space: nowrap; }
 /* On a narrow phone the company's name needs the room: beside the date, "Up to date" goes quiet to the eye (still said to a screen reader); waiting and no signal still show. */
+/* With Search beside the bell (review of 11 November 2026, finding 13) the same holds on every screen: on a narrow phone "Up to date" is
+   said to a screen reader only, so the company's name keeps its room; healthy is quiet, and what's waiting and no signal still show. */
 @media (max-width: 479px) {
-  .top .top-date ~ .conn.online { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .top .conn.online { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 .top .state { display: flex; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: var(--ds-space-2); }
 /* Changes the server turned down (audit finding 11), counted on every screen beside what's waiting: the bad tone, never the brand red. Pressing it opens the list under the top bar. */
@@ -276,10 +278,25 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .more-edges[data-more='left'] { mask-image: linear-gradient(to right, #000 var(--more-at), transparent var(--more-at), #000 calc(var(--more-at) + 48px)); }
 .more-edges[data-more='both'] { mask-image: linear-gradient(to right, #000 var(--more-at), transparent var(--more-at), #000 calc(var(--more-at) + 48px), #000 calc(100% - 48px), transparent); }
 .views a, .views button { flex: 1 0 auto; display: grid; grid-auto-flow: column; place-items: center; place-content: center; gap: var(--ds-space-2); min-height: 44px; padding-inline: var(--ds-space-3); border-radius: var(--radius-control); font-weight: 700; color: var(--muted); text-decoration: none; white-space: nowrap; }
+/* On a phone a view's word has less room round it, so Jobs' five fit the width without the row scrolling. */
+@media (max-width: 599px) {
+  .views a, .views button { padding-inline: var(--ds-space-2); }
+}
 .views button { border: 0; background: transparent; font: inherit; font-weight: 700; padding-block: 0; }
 .views a[aria-current='page'], .views button[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
 @media (hover: hover) {
   .views a:not([aria-current]):hover, .views button[aria-pressed='false']:hover { color: var(--ink); }
+}
+/* The area's other places, under its views (review of 11 November 2026, finding 8): plain links on a line of their own, wrapping rather than
+   scrolling, so they read as somewhere else to go and not as another way of seeing the list. Each is still a thumb's height to press; the
+   one you're on is in the ink and underlined, the app's "here" for a link, as the filled pill is for a view. */
+.views-nav { display: grid; gap: 0; min-width: 0; }
+.views-more { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--ds-space-3); margin: 0; padding-inline: var(--ds-space-2); }
+.app .views-more-word { font-size: var(--text-pill); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.views-more a { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-height: 44px; color: var(--muted); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.views-more a[aria-current='page'] { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+@media (hover: hover) {
+  .views-more a:not([aria-current]):hover { color: var(--ink); }
 }
 /* The count in the muted ink alone, never faded below it: it's what says whether a view needs a look (audit, 5 November 2026, finding 55). */
 .views-count { font-weight: 600; }
@@ -556,6 +573,15 @@ details[open] > summary::before, details[open] > summary > .chevron, .history .r
   summary::before, summary > .chevron, .history .run-line .chevron, .app .task-list button::after, .app .job-steps .stage-fold::before { transition: none; }
 }
 
+/* Kit long overdue back (stock/StillOut.tsx; review of 11 November 2026, finding 10): folded under its list with its count, each job's
+   row with its two ways to settle it under the row. */
+.long-overdue { display: grid; gap: var(--ds-space-2); margin-top: var(--ds-space-2); padding-top: var(--ds-space-1); border-top: 1px solid var(--line); }
+.long-overdue > summary h3 { margin: 0; font: inherit; }
+.long-overdue > .hint { margin: 0; }
+.long-overdue-row { display: grid; gap: var(--ds-space-1); }
+.long-overdue-row > .actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.long-overdue-row > p { margin: 0; }
+
 /* Sign-in and account. */
 a.button, label.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; text-align: center; font: 600 var(--text-button) var(--ds-font-sans); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; }
 a.button.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
@@ -752,7 +778,7 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
   .foot { display: none !important; }
   /* The browser's own Print (Ctrl+P, Share › Print) on a screen gives the screen's content, not its way round it: no skip link, top bar,
      strip of views or buttons (audit, 5 November 2026, finding 101). A print sheet keeps whatever it draws. */
-  .skip-to-content, .app > .top, .app .views, .on-screen, button:not(.print-sheet *) { display: none !important; }
+  .skip-to-content, .app > .top, .app .views, .app .views-more, .on-screen, button:not(.print-sheet *) { display: none !important; }
   :focus { outline: none !important; }
 }
 

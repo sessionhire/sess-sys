@@ -72,8 +72,9 @@ function hashOf(p: Place): string {
 const daysOf = (scale: Scale, day: string) => (scale === 'week' ? weekOf(day) : monthOf(day))
 
 /**
- * Jobs' row (Views.tsx): List, Week and Month, the same jobs three ways,
- * then the clients and the venues they're for. From the planner, the other
+ * Jobs' row (Views.tsx): List, Board, Calendar, Week and Month, the same
+ * jobs five ways; then, on the line under it, the clients and the venues
+ * they're for and the money (review of 11 November 2026, finding 8). From the planner, the other
  * scale opens on the same days.
  */
 export function JobViews({ place, current }: { place?: Place; current?: 'board' | 'calendar' | 'clients' | 'venues' | 'money' }) {
@@ -96,6 +97,8 @@ export function JobViews({ place, current }: { place?: Place; current?: 'board' 
         { key: 'calendar', href: calendarHref({ month: place ? place.day : now }), label: 'Calendar' },
         { key: 'week', href: hashOf({ scale: 'week', day, rows }), label: 'Week' },
         { key: 'month', href: hashOf({ scale: 'month', day, rows: rows === 'days' ? 'jobs' : rows }), label: 'Month' },
+      ]}
+      more={[
         { key: 'clients', href: '#jobs/clients', label: 'Clients' },
         { key: 'venues', href: '#jobs/venues', label: 'Venues' },
         ...(money ? [{ key: 'money', href: '#jobs/money', label: 'Money' }] : []),

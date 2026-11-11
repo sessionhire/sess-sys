@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 
 /**
  * Keys at a desk (ADR 0120): the office does the same few things all day, so the places and New quote are two letters away
- * (G then J for Jobs, N then Q for a new quote), / finds on the page and ? lists them all. Only from 900px across, where
+ * (G then J for Jobs, N then Q for a new quote), / searches everything (review of 11 November 2026, finding 13), F finds on the
+ * page and ? lists them all. Only from 900px across, where
  * there's a keyboard; a phone never has them. A key is a shortcut only when nothing is taking typing: not in a field, not
  * held with Ctrl, Alt or the Command key, and not on a screen made for scanning, whose keyboard scanner types letters too
  * (scanKeys.ts). Each is shown where the slow way is: on the sidebar's places and on New quote, as the browser's hint.
@@ -26,7 +27,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { keys: ['G', 'C'], what: 'Crew', go: '#crew' },
   { keys: ['G', 'M'], what: 'Menu', go: '#menu' },
   { keys: ['N', 'Q'], what: 'New quote', go: '#quotes/new', money: true },
-  { keys: ['/'], what: 'Find on this page', go: 'find' },
+  { keys: ['/'], what: 'Search everything', go: '#search' },
+  { keys: ['F'], what: 'Find on this page', go: 'find' },
   { keys: ['?'], what: 'These shortcuts', go: 'help' },
 ]
 
@@ -58,7 +60,7 @@ export function useShortcuts({ on, money, go }: { on: boolean; money: boolean; g
       const key = e.key.toUpperCase()
       const before = first.current && Date.now() - first.current.at < SECOND_KEY_MS ? first.current.key : undefined
       first.current = undefined
-      const found = SHORTCUTS.find((s) => (!s.money || money) && (s.keys.length === 2 ? s.keys[0] === before && s.keys[1] === key : !before && s.keys[0] === e.key))
+      const found = SHORTCUTS.find((s) => (!s.money || money) && (s.keys.length === 2 ? s.keys[0] === before && s.keys[1] === key : !before && (s.keys[0] === e.key || s.keys[0] === key)))
       if (found) {
         e.preventDefault()
         if (found.go === 'help') setHelp(true)

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.157.0',
+    date: '2026-11-11',
+    title: 'One search for everything, views only for views, and long-overdue kit folded away',
+    what: "A magnifier beside the bell at the top of every screen opens Search: type a name and it finds the jobs, clients, venues, people and products that match on one page, and quotes by their number for those who see money; type a label's number to find that piece of kit. At a desk the / key opens it, and F now finds on the page you're on. The row of views on Jobs, Stock and Crew now holds only the ways of seeing that list (List, Board, Calendar, Week and Month on Jobs); the area's other pages, like Clients, Venues and Money, are on a line just under it, so on a phone none is hidden off the edge. And jobs whose kit still isn't back more than a month after they ended are folded under Long overdue on Stock's Pick lists, Home's Warehouse view and the Board, each settled in one press: It's all back, or Mark missing, which puts it on Repairs. On a narrow phone the top bar no longer says Up to date in words, so the company's name has room; waiting and no signal still show.",
+    prs: [324],
+    adrs: [145, 146],
+  },
+  {
     version: '1.156.0',
     date: '2026-11-11',
     title: 'Drag a card on the Board to put it in order',

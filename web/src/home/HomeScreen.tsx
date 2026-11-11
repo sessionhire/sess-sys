@@ -20,7 +20,7 @@ import { useAccess } from '../role.ts'
 import { Chart, type Series } from './Chart.tsx'
 import { Copying, STILL_ARRIVING, useCopying } from './copying.ts'
 import { TodoCard } from '../TodoCard.tsx'
-import { StillOutRow } from '../stock/StillOut.tsx'
+import { LongOverdue, splitStillOut, StillOutRow } from '../stock/StillOut.tsx'
 
 /**
  * Home (ADR 0033): how things stand, for whoever is looking. One screen,
@@ -735,10 +735,11 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
           {/* Stock's name for the same list (audit, 5 November 2026, finding 79), and the count's own list (ADR 0109). */}
           <Heading icon="warehouse">{listHeading(STANDING_HEADINGS['still-out'], stillOut.length)}</Heading>
           <ul className="job-list">
-            {stillOut.map((k) => (
+            {splitStillOut(stillOut).recent.map((k) => (
               <StillOutRow key={k.job.id} k={k} />
             ))}
           </ul>
+          <LongOverdue view={view} kits={splitStillOut(stillOut).long} />
         </section>
       )}
     </>

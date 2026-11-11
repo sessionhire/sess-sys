@@ -1,3 +1,4 @@
+import { SearchScreen } from './SearchScreen.tsx'
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { APP_VERSION } from '@sh/shared'
 import { AccountScreen } from './AccountScreen.tsx'
@@ -60,6 +61,7 @@ const UNDER_MENU = [
   { hash: '#history', Screen: HistoryScreen },
   { hash: '#me', Screen: YouScreen },
   { hash: '#notifications', Screen: NoticesScreen },
+  { hash: '#search', Screen: SearchScreen },
 ] as const
 
 /**

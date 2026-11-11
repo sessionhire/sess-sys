@@ -4,7 +4,7 @@ import { daysBetween } from '../crew-days.ts'
 import { kindOf, kitDaysOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
 import { needsPrice } from '../quotes.ts'
 import { plural } from '../stock.ts'
-import { JOB_STAGES, JOB_STEPS, LATE_BACK_AFTER_DAYS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type RankRecord, type StepRecord } from '../steps.ts'
+import { JOB_STAGES, JOB_STEPS, LATE_BACK_AFTER_DAYS, LONG_OVERDUE_AFTER_DAYS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type RankRecord, type StepRecord } from '../steps.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
 import type { FaultsView } from './faults-view.ts'
 import { crewFill, type JobsView, type JobView } from './jobs-view.ts'
@@ -521,6 +521,8 @@ export interface KitToCheck {
   after: number | undefined
   /** Past its own days to come back plus LATE_BACK_AFTER_DAYS, stopped, or with no dates to go by: drawn amber. */
   late: boolean
+  /** More than LONG_OVERDUE_AFTER_DAYS since its last day: folded under Long overdue, to settle in one press. */
+  longOverdue: boolean
   /** "3 of 27 not scanned back", or the Back in task's own "23 never scanned out: check they're back" (ADR 0109). */
   said: string
   /** "ended 4 days ago", "ended yesterday", "job cancelled", "job lost", "no dates": after what isn't back, so it's the job that's said to be cancelled, not the kit. */
@@ -554,6 +556,7 @@ export function kitToCheckBackIn(jobs: JobsView, steps: StepsView, moves: MovesV
         neverScanned,
         after,
         late: stopped || after === undefined || after > kitDaysOf(job).back + LATE_BACK_AFTER_DAYS,
+        longOverdue: after !== undefined && after > LONG_OVERDUE_AFTER_DAYS,
         said: neverScanned ? `${neverScanned} never scanned out: check they're back` : `${pick.stillOut} of ${went} not scanned back`,
         when: stopped ? `job ${STATUS_LABELS[job.status].toLowerCase()}` : after === undefined ? 'no dates' : after === 1 ? 'ended yesterday' : `ended ${after} days ago`,
       }

@@ -58,7 +58,7 @@ import { productPhotoOf, Thumb } from '../Picture.tsx'
 import { departmentIcon, kitIcon } from './kitIcon.ts'
 import { Heading, Icon } from '../Icon.tsx'
 import { inKitOf, Narrowed, useMyKitDepartment, useNarrowed } from '../Narrowed.tsx'
-import { StillOutRow } from './StillOut.tsx'
+import { LongOverdue, splitStillOut, StillOutRow } from './StillOut.tsx'
 
 /**
  * Stock (ADR 0013): the catalogue of products, the numbered items of each,
@@ -539,6 +539,7 @@ function PickLists({ view }: { view: View }) {
   const lists = standing(view, today)
   const toPick = lists['to-pick']
   const stillOut = lists['still-out']
+  const { recent: recentOut, long: longOut } = splitStillOut(stillOut)
   const later = soon.filter((p) => !toPick.includes(p))
   if (soon.length === 0 && stillOut.length === 0) return null
   // The word Home used for the same jobs, so the tile's count is found here (audit, 5 November 2026, finding 92).
@@ -582,15 +583,18 @@ function PickLists({ view }: { view: View }) {
         <>
           <h3 className="group">{listHeading(STANDING_HEADINGS['still-out'], stillOut.length)}</h3>
           {/* Past its days to come back and two more stays in view, amber, under the fold too (ADR 0109). */}
-          <ShowAll items={stillOut} limit={5} what="jobs" keep={(k) => k.late}>
-            {(rows) => (
-              <ul className="job-list">
-                {rows.map((k) => (
-                  <StillOutRow key={k.job.id} k={k} />
-                ))}
-              </ul>
-            )}
-          </ShowAll>
+          {recentOut.length > 0 && (
+            <ShowAll items={recentOut} limit={5} what="jobs" keep={(k) => k.late}>
+              {(rows) => (
+                <ul className="job-list">
+                  {rows.map((k) => (
+                    <StillOutRow key={k.job.id} k={k} />
+                  ))}
+                </ul>
+              )}
+            </ShowAll>
+          )}
+          <LongOverdue view={view} kits={longOut} />
         </>
       )}
     </section>
