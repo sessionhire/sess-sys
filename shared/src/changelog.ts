@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-11',
     title: 'Calendar days show the job stage, and HOLD before a yes',
     what: 'Each day on the Google Calendar now opens with where the job is: Quoting, Planning, Going out, On the job or Back, and it updates as the job moves on. A job the client has not said yes to yet goes on the calendar as soon as crew are asked for it, with HOLD at the front of its title and a line saying the day is not booked yet. When the job is confirmed the HOLD comes off the same days, and if it is lost or cancelled they come off the calendar. A quote with nobody asked stays off as before.',
-    prs: [0],
+    prs: [332],
     adrs: [8, 9],
   },
   {
