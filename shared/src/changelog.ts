@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.155.0',
+    date: '2026-11-11',
+    title: 'Drag a card on the Board to put it in order',
+    what: "A card on the Board can now be dragged up or down its column by the card itself, as on any kanban board, not only by its small arrows button. On a phone, hold the card a moment until it lifts, then drag it; a quick swipe still scrolls the page. Near the top or bottom of the screen the page scrolls along with the card. A tap or click on a card still opens the job.",
+    prs: [0],
+    adrs: [143],
+  },
+  {
     version: '1.154.1',
     date: '2026-11-11',
     title: "A job's page says its crew once",

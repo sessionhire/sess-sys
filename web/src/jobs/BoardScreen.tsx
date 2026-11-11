@@ -87,7 +87,7 @@ export function BoardScreen({ view }: { view: View }) {
         sub={
           <p>
             {/* One line before the cards on a phone (review of 11 November 2026, finding 6): how to order a column is on the arrows. */}
-            A column a stage. {canOrder ? 'Drag a card by its arrows to put a column in order.' : 'The office’s order first, then soonest first.'}
+            A column a stage. {canOrder ? 'Drag a card up or down its column to put it in order (on a phone, hold it a moment first).' : 'The office’s order first, then soonest first.'}
           </p>
         }
       />
