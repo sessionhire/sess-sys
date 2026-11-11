@@ -117,7 +117,7 @@ cancel. The calendar side is ADR 0008/0009 (1.162.0). On WhatsApp:
   withdrawn), gets the `job_confirmed` template straight away: their name,
   the job, their days, and See the details. The calendar invite loses its
   HOLD at the same moment. (1.162.0 waited an hour first; Colly asked for
-  no wait, 1.162.1.) Once per HOLD message: back on hold and confirmed
+  no wait, 1.163.1.) Once per HOLD message: back on hold and confirmed
   again says nothing new.
 - **Cancelled or lost.** Everyone asked or booked on it who had an offer on
   WhatsApp gets the `job_cancelled` template, once per person, read before

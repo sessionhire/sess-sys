@@ -128,11 +128,27 @@ export const invitesLabel = (invites: number, people: number) =>
 // Today in Ireland lives with the day itself; days before it are never changed on the calendar.
 export { irishToday } from './day.ts'
 
+/** An offer in these states puts its person on the day's event (ADR 0009), and counts as crew asked for a hold. */
+export const ASKED_STATUSES: readonly string[] = ['offered', 'countered', 'accepted', 'confirmed']
+
+/** Whether any of a job's open calls has someone asked, offered or booked. */
+export const crewAsked = (calls: readonly { status: string; offers: readonly { status: string }[] }[]) =>
+  calls.some((c) => c.status === 'open' && c.offers.some((o) => ASKED_STATUSES.includes(o.status)))
+
+/**
+ * A job the client hasn't said yes to (an enquiry, or quoted) goes on the calendar on hold once crew are asked for it
+ * (ADR 0008, 1.162.0), so the days they're asked for are in their calendar, marked HOLD until the job is confirmed.
+ */
+export const onHold = (job: Pick<Project, 'status'>, asked: boolean) => (job.status === 'enquiry' || job.status === 'quoted') && asked
+
+/** A day's title while the job is on hold. */
+export const holdTitle = (title: string) => `HOLD ${title}`
+
 /**
  * Where a phase stands with the calendar, for the job page:
  *
  * - `theirs`: the job was brought in from a calendar that keeps its events (ADR 0011);
- * - `waiting`: not going on yet, because the job isn't confirmed;
+ * - `waiting`: not going on yet, because the job isn't confirmed and nobody is asked for it;
  * - `stopped`: the job is cancelled or lost, so it is off the calendar;
  * - `past`: every day has gone, and the calendar is left as it was;
  * - `unconnected`: it would go on, but no calendar is connected;
@@ -152,13 +168,16 @@ export function phaseOnCalendar(
   phase: Pick<Phase, 'id' | 'name' | 'start' | 'end'>,
   link: CalendarLink | undefined,
   days: Readonly<Record<string, CalendarDay>>,
-  today: string
+  today: string,
+  /** Whether crew are asked for the job, which puts a job not yet confirmed on the calendar on hold. */
+  asked = false
 ): PhaseOnCalendar {
   if (job.sourceCalendar) return { state: 'theirs', calendar: job.sourceCalendar }
   if (job.status === 'cancelled' || job.status === 'lost') return { state: 'stopped' }
-  if (job.status !== 'confirmed') return { state: 'waiting' }
+  const hold = onHold(job, asked)
+  if (job.status !== 'confirmed' && !hold) return { state: 'waiting' }
   const all = eachDay(phase.start, phase.end)
-  const titles = calendarTitles(job.name, phase)
+  const titles = calendarTitles(job.name, phase).map((t) => (hold ? holdTitle(t) : t))
   const ahead = all.map((day, i) => ({ day, title: titles[i]! })).filter((d) => d.day >= today)
   if (ahead.length === 0) return { state: 'past' }
   if (link?.state === 'reconnect') return { state: 'paused' }

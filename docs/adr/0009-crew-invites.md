@@ -28,10 +28,12 @@ calendars only hear about an event, a change or a cancellation by email.
 ## Decision
 
 - **Invites go out with the offer.** With the switch on, a person offered
-  a place on a confirmed job, who has an email address in the app, is a
-  guest on each of the job's events on the days offered, from today on.
-  Enquiries and quotes have no events, so their offers wait until the job
-  is confirmed. The private link still works; either answer counts.
+  a place on a job, who has an email address in the app, is a guest on
+  each of the job's events on the days offered, from today on. An enquiry
+  or quote with crew asked is on the calendar as HOLD (ADR 0008, from
+  1.162.0; before that, their offers waited until the job was confirmed),
+  so crew asked early have the day in their calendar, marked as not yet
+  booked. The private link still works; either answer counts.
 - **Their answer in Google counts, as on their link.** A Yes to any day
   is a yes to the offer, for all its days except any they said No to. A
   No to a day means not that day; a No to every day declines. Tentative
