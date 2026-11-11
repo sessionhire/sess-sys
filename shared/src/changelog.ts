@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-11',
     title: "A job's page says its crew once",
     what: "On a phone the line saying where a job stands now sits under its name at the full width, so the name isn't squeezed into half the screen. And when that line already gives the crew count, the Crew box under it is left off, so the count isn't said twice at the top of the page. A head of department still sees their own department's count there.",
-    prs: [0],
+    prs: [321],
   },
   {
     version: '1.154.0',
