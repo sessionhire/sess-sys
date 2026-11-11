@@ -281,6 +281,17 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 @media (hover: hover) {
   .views a:not([aria-current]):hover, .views button[aria-pressed='false']:hover { color: var(--ink); }
 }
+/* The area's other places, under its views (review of 11 November 2026, finding 8): plain links on a line of their own, wrapping rather than
+   scrolling, so they read as somewhere else to go and not as another way of seeing the list. Each is still a thumb's height to press; the
+   one you're on is in the ink and underlined, the app's "here" for a link, as the filled pill is for a view. */
+.views-nav { display: grid; gap: 0; min-width: 0; }
+.views-more { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--ds-space-3); margin: 0; padding-inline: var(--ds-space-2); }
+.app .views-more-word { font-size: var(--text-pill); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.views-more a { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-height: 44px; color: var(--muted); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.views-more a[aria-current='page'] { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+@media (hover: hover) {
+  .views-more a:not([aria-current]):hover { color: var(--ink); }
+}
 /* The count in the muted ink alone, never faded below it: it's what says whether a view needs a look (audit, 5 November 2026, finding 55). */
 .views-count { font-weight: 600; }
 /* The way up (Up.tsx), in the bar so it stays in view down a long page: one link to the parent on a phone, as tall as a thumb; from 900px, where the places are a sidebar, the whole way down as breadcrumbs, the page itself last and not a link. The separators are drawn here and not read out. */
@@ -752,7 +763,7 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
   .foot { display: none !important; }
   /* The browser's own Print (Ctrl+P, Share › Print) on a screen gives the screen's content, not its way round it: no skip link, top bar,
      strip of views or buttons (audit, 5 November 2026, finding 101). A print sheet keeps whatever it draws. */
-  .skip-to-content, .app > .top, .app .views, .on-screen, button:not(.print-sheet *) { display: none !important; }
+  .skip-to-content, .app > .top, .app .views, .app .views-more, .on-screen, button:not(.print-sheet *) { display: none !important; }
   :focus { outline: none !important; }
 }
 

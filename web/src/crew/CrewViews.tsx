@@ -35,6 +35,8 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
       pages={[
         { key: 'calls', href: '#crew', label: 'Calls', count: calls },
         { key: 'people', href: '#crew/people', label: 'People' },
+      ]}
+      more={[
         { key: 'leave', href: '#crew/leave', label: 'Leave', count: leave },
         ...(view.office.useTimesheets ? [{ key: 'timesheets', href: '#crew/timesheets', label: 'Timesheets', count: timesheets }] : []),
       ]}

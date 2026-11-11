@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.155.1',
+    date: '2026-11-11',
+    title: 'Views are only ways of seeing the list',
+    what: "The row of views on Jobs, Stock and Crew now holds only the ways of seeing that area's list: List, Board, Calendar, Week and Month on Jobs; Catalogue, Places and Racks on Stock; Calls and People on Crew. The area's other pages (Clients, Venues and Money; Labels, Counting, Testing, Repairs, Vehicles and the Purchase list; Leave and Timesheets) are on a line of their own just under it, with their counts, so on a phone none of them is hidden off the edge.",
+    prs: [0],
+    adrs: [145],
+  },
+  {
     version: '1.155.0',
     date: '2026-11-11',
     title: 'Jobs and Quotes as tables at a desk, and the week as a list of days on a phone',
