@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: "The Board's cards stay in their columns, and drag like Trello's",
     what: "A card with a long word in its name, or with who has it chosen, could be wider than its column and lie over the next one; now every card fits its column and long names wrap. Dragging a card now works as on Trello: the card lifts and follows your mouse or finger, and the cards it passes slide aside to open a gap where it will land. Let go and it drops into the gap. It still only reorders within its own column.",
-    prs: [0],
+    prs: [340],
     adrs: [143],
   },
   {
