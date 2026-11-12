@@ -36,6 +36,13 @@ export const CHANGELOG: readonly Release[] = [
     adrs: [166],
   },
   {
+    version: '1.181.1',
+    date: '2026-11-12',
+    title: 'Adding crew to a quote lines up, and the bar stays on a phone',
+    what: "On a quote, How many and the crew role to add now sit level, with the note on pricing under both and Add under that. Before, the note under the role pushed How many lower, and on a desk the same kind of note put Add out of line; adding a package or transport is laid out the same way now. On a phone, the bar at the foot, with the job's Next above it, now stays while you add kit or crew. Before, it went away until you finished, so the same screen looked different from one moment to the next. It still steps aside while the keyboard is up, as a phone's own bars do.",
+    prs: [359],
+  },
+  {
     version: '1.181.0',
     date: '2026-11-12',
     title: 'Your own offers said to you, and on top of Home',
