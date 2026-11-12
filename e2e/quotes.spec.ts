@@ -88,7 +88,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.getByRole('tab', { name: 'Quote' }).click()
   // The Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). The quote is the job's Quote tab
   // (ADR 0140, part 4); this job is past Quoting, so the quote's own Build is plain, and so is the submit of every form opened under
-  // the dock, on Crew and on Kit and vans as well.
+  // the dock, on Crew, Kit and Vans as well.
   const redsBesideTheDock = () =>
     office.evaluate(() =>
       [...document.querySelectorAll('.app button.primary, .app a.button.primary')].filter((b) => !b.closest('.next-dock') && b.getClientRects().length > 0).map((b) => b.textContent),
@@ -103,11 +103,14 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await lxOp.getByRole('button', { name: 'Change', exact: true }).click()
   await expect(office.getByRole('form', { name: 'Change the call for LX op' })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])
-  await office.getByRole('tab', { name: 'Kit and vans' }).click()
+  await office.getByRole('tab', { name: 'Kit', exact: true }).click()
   await office.locator('.kit-days').getByRole('button', { name: 'Change' }).click()
   await office.getByRole('button', { name: 'Add kit' }).click()
+  for (const form of ['Days to get kit ready and back', 'Add kit']) await expect(office.getByRole('form', { name: form })).toBeVisible()
+  expect(await redsBesideTheDock()).toEqual([])
+  await office.getByRole('tab', { name: /^Vans/ }).click()
   await office.getByRole('button', { name: 'Book a vehicle' }).click()
-  for (const form of ['Days to get kit ready and back', 'Add kit', 'Book a vehicle']) await expect(office.getByRole('form', { name: form })).toBeVisible()
+  await expect(office.getByRole('form', { name: 'Book a vehicle' })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])
   await office.getByRole('tab', { name: 'Quote' }).click()
 

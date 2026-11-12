@@ -62,7 +62,7 @@ async function newJob(page: Page, name: string, status: 'Confirmed' | 'Quoted' |
   await form.getByRole('button', { name: 'Add job' }).click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   // The kit is a part of the job's page of its own (ADR 0059); the page opens on it from then on.
-  await page.getByRole('tab', { name: 'Kit and vans' }).click()
+  await page.getByRole('tab', { name: 'Kit', exact: true }).click()
 }
 
 /** A product on the stock list with nothing counted yet, as most are while the list comes in. */
@@ -165,7 +165,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
 
   // Two subhired for the launch sorts both.
   await page.locator('.job-row', { hasText: launch }).click()
-  await page.getByRole('tab', { name: /^Kit and vans/ }).click()
+  await page.getByRole('tab', { name: /^Kit/ }).click()
   // What's short is said once, above the lines, with one way to subhire it (audit finding 21).
   await expect(kit.locator('.short-kit .kit-state')).toHaveText('1 line short: not enough.')
   await kit.getByRole('button', { name: "Subhire what's short…" }).click()
@@ -190,7 +190,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await expect(page.locator('.job-row', { hasText: festival }).locator('.flag')).toHaveCount(0)
   await expect(page.locator('.job-row', { hasText: quote }).locator('.flag')).toHaveText('Kit short')
   await page.locator('.job-row', { hasText: festival }).click()
-  await page.getByRole('tab', { name: /^Kit and vans/ }).click()
+  await page.getByRole('tab', { name: /^Kit/ }).click()
   await expect(state(pa)).toHaveText(`Enough, unless ${quote} goes ahead: then short 2 on Fri 6 Sep.`)
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await toCard(kit)

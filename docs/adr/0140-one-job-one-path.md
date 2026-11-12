@@ -115,7 +115,10 @@ removed. Built in eight parts, one pull request each:
    kit (where the pick list's link is) while going out and back, phases
    while on. A job with no task left, or with no stages, opens on the part
    last looked at, as it did, so moving from job to job on one part still
-   works there.)
+   works there. 1.167.0, Colly's ask: Kit and vans became two tabs, Kit
+   and Vans, after Kit, so the vans aren't under a long kit list on a
+   phone; the "kit list final?" tick and its task stay with Kit, and the
+   planner's van clashes open Vans.)
 
 Assumed until Colly says otherwise: the client's yes is the moment the job is
 confirmed; crew may be pencilled before the yes, so Crew shows in Quoting,
