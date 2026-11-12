@@ -3,6 +3,31 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: an audit of crew offers, from the office to the crew
+
+**Done**
+
+- [Audit, 12 November 2026: crew offers](audit-crew-offers-2026-11-12.md),
+  at Colly's ask: one offer followed from the office's press, through what
+  the app sends by itself (the Google Calendar invite, and WhatsApp when
+  it's on), to what the freelancer or member of staff sees and is told
+  afterwards, at 1.164.2. Walked on a local copy with stand-ins for Google
+  and Meta that record what they're asked to send, as the office, four
+  freelancers and a member of staff. 20 findings: no P0, 6 P1 (the form
+  promises an invite that never goes for a job brought in from Google
+  Calendar; a job's notes are emailed to everyone asked; a Yes on one
+  day's invite is taken for every day; nobody is told they're booked or
+  that their call time moved; the office is told "nothing opened to send"
+  while Google emails people; on hold is on the invite while their page
+  says Booked), 7 P2, 7 P3, in six suggested batches, with seven questions
+  for Colly. Screenshots in the project folder under
+  `screens/audit-crew-offers/`. Nothing live was touched and nobody was
+  contacted.
+- Nothing is built from it yet: Colly picks what to fix.
+- Checked: every count of what was sent is read from the stand-ins, each
+  quoted line from the screen or the invite, and each place in the code
+  against main; the Blueprint builds.
+
 ## 11 November 2026: forms say what needs sorting
 
 **Done (1.159.0)**
