@@ -110,6 +110,15 @@ test('cable labels print with a barcode or QR code of the stock code, which open
   expect(await printed(page)).toEqual([[100, 25]])
   await page.evaluate(() => dispatchEvent(new Event('afterprint')))
 
+  // A bag or bin label 100 mm wide, for bigger type (Colly, 12 November 2026), with nothing spilling over.
+  await card.getByRole('radio', { name: /^Bag or bin, 100 × 25 mm/ }).check()
+  await expect(label).toHaveClass(/bigbag/)
+  const [sw, cw, sh, ch] = await label.evaluate((l) => [l.scrollWidth, l.clientWidth, l.scrollHeight, l.clientHeight])
+  expect(sw).toBeLessThanOrEqual(cw! + 1)
+  expect(sh).toBeLessThanOrEqual(ch! + 1)
+  expect(await readQr(label)).toBe(code)
+  await card.getByRole('radio', { name: /^Flag, 100 × 25 mm/ }).check()
+
   // Remembered on this device: the flag and the QR code come back.
   await page.reload()
   await page.getByRole('tab', { name: 'Cable labels' }).click()

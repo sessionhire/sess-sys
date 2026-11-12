@@ -76,7 +76,7 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   await page.goto(`/#stock/item/amp1-${id}`)
   await page.getByRole('button', { name: 'Print label' }).click()
   const own = page.getByLabel('Preview').locator('.label')
-  for (const layout of ['Label printer, 50 × 25 mm', 'Label printer, 25 × 25 mm']) {
+  for (const layout of ['Label printer, 50 × 25 mm', 'Label printer, 25 × 25 mm', 'Label printer, 100 × 25 mm, bigger type']) {
     await page.getByRole('radio', { name: layout }).check()
     await expect(own.locator('img.logo')).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
     await expect(own.locator('.code')).toHaveText(`D80-${id}`)

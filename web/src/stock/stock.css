@@ -63,6 +63,14 @@
 .label small { font-size: 2.4mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .label.wide { width: 50mm; height: 25mm; }
 .label.wide .qr { width: 21mm; height: 21mm; }
+/* 100 × 25 mm (Colly, 12 November): the same QR code, the rest of the width for type that reads across a warehouse. */
+.label.long { width: 100mm; height: 25mm; gap: 3mm; padding: 1.5mm 3mm 1.5mm 1.5mm; }
+.label.long .qr { width: 21mm; height: 21mm; }
+.label.long .words { gap: .6mm; }
+.label.long b { font-size: 7.5mm; line-height: 1; }
+.label.long small { font-size: 3.2mm; }
+.label.long .code { font-size: 3.6mm; }
+.label.long .words > .logo { height: 5mm; max-width: 40mm; }
 .label.square { width: 25mm; height: 25mm; flex-direction: column; justify-content: center; gap: .4mm; padding: 1mm; }
 .label.square .qr { width: 19mm; height: 19mm; }
 .label.square b { font-size: 3mm; }
@@ -91,7 +99,7 @@
 
 /* Cable labels (ADR 0095): the words as big as fit, a barcode under them or a QR code beside; a flag says it at both ends with the part round the cable blank. */
 .label.cable { width: 50mm; height: 25mm; padding: 1.5mm; gap: 0; }
-.label.cable.flag { width: 100mm; }
+.label.cable.flag, .label.cable.bigbag { width: 100mm; }
 .label.cable .face { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; }
 .label.cable.flag .face { flex: none; width: 40mm; }
 .label.cable .round { flex: none; width: 17mm; }

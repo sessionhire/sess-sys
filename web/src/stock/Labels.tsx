@@ -45,6 +45,7 @@ import { useView } from '../view.ts'
 /** How labels are laid out for the printer they go through. */
 export const LAYOUTS = {
   wide: { name: 'Label printer, 50 × 25 mm', page: '50mm 25mm', perPage: 1 },
+  long: { name: 'Label printer, 100 × 25 mm, bigger type', page: '100mm 25mm', perPage: 1 },
   square: { name: 'Label printer, 25 × 25 mm', page: '25mm 25mm', perPage: 1 },
   sheet: { name: 'A4 sheets of 65, 38 × 21 mm', page: 'A4', perPage: 65 },
 } as const

@@ -27,6 +27,7 @@ export const CABLE_LAYOUTS = {
   wrap: { name: 'Wrap round, 50 × 25 mm', hint: 'Self-laminating: the clear tail wraps over the print.', page: '50mm 25mm' },
   flag: { name: 'Flag, 100 × 25 mm', hint: 'Round the cable and stuck to itself: it says it on both sides.', page: '100mm 25mm' },
   bag: { name: 'Bag or bin, 50 × 25 mm', hint: 'For the bag, bin or tub the cables are kept in.', page: '50mm 25mm' },
+  bigbag: { name: 'Bag or bin, 100 × 25 mm', hint: 'The same, with room for bigger type.', page: '100mm 25mm' },
 } as const
 export type CableLayout = keyof typeof CABLE_LAYOUTS
 
@@ -158,7 +159,7 @@ function Face({ s, widthMm }: { s: Says; widthMm: number }) {
 export function CableLabel({ s, layout }: { s: Says; layout: CableLayout }) {
   return (
     <div className={`label cable ${layout}`}>
-      <Face s={s} widthMm={layout === 'flag' ? 40 : 50} />
+      <Face s={s} widthMm={layout === 'flag' ? 40 : layout === 'bigbag' ? 100 : 50} />
       {layout === 'flag' && (
         <>
           <span className="round" aria-hidden />

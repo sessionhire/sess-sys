@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.174.0',
+    date: '2026-11-12',
+    title: 'Bigger 100 × 25 mm labels for kit and cable bags',
+    what: "Labels can now print at 100 × 25 mm on a label printer: pick \"Label printer, 100 × 25 mm, bigger type\" when printing an item's label, or \"Bag or bin, 100 × 25 mm\" for cables. The QR code is the same size, and the number, name, stock code and logo get the extra width: the number prints about twice as big and the words a third bigger, so they read from further away.",
+    prs: [0],
+    adrs: [106],
+  },
+  {
     version: '1.173.0',
     date: '2026-11-12',
     title: 'Crew offered a job brought in from Google Calendar get their own calendar invite',
