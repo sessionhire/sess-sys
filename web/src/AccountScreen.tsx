@@ -8,6 +8,7 @@ import { RmsPricesCard } from './RmsPricesCard.tsx'
 import { DataCard } from './DataCard.tsx'
 import { ExportCard } from './ExportCard.tsx'
 import { LabelsCard } from './LabelsCard.tsx'
+import { LogoCard } from './LogoCard.tsx'
 import { ListsCard } from './ListsCard.tsx'
 import { Top } from './jobs/common.tsx'
 import { MessagesCard } from './MessagesCard.tsx'
@@ -85,6 +86,7 @@ export function AccountScreen() {
             {part === 'company' && (
               <>
                 {settings && <OfficeCard office={view.office} />}
+                {settings && <LogoCard office={view.office} />}
                 {settings && access.can('money') && <QuotingCard money={view.money} />}
                 {settings && access.can('money') && <TravelCard money={view.money} />}
                 {settings && access.can('money') && <OwnKitCard money={view.money} />}

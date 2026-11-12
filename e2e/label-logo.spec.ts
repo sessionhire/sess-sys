@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 /**
  * What every label says of the company (ADR 0106): the logo put up under
- * Admin › Company › Labels prints on item and cable labels, with an item's
+ * Admin › Company › Logo (ADR 0155) prints on item and cable labels, with an item's
  * stock code in words, and a cable's length
  * goes on in big type with the colour the company gives it, as a word in a
  * black band unless the printer prints colour. The length is read from the
@@ -49,13 +49,26 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   })
   expect((await res.json()).results.map((r: { status: string }) => r.status)).toEqual(['applied', 'applied', 'applied'])
 
-  // The logo, put up under Admin, as labels print it.
+  // The logo, put up under Admin › Company › Logo, as a quote and a label have it.
   await page.goto('/#admin/company')
   const card = page.getByRole('region', { name: 'Labels' })
-  await expect(card.getByText('None yet: labels say the company')).toBeVisible()
-  await card.getByText('Add the logo').locator('input[type=file]').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: PNG })
-  const shown = card.locator('img.on-label')
+  const logoCard = page.getByRole('region', { name: 'Logo' })
+  await expect(logoCard.getByText('None yet. Quotes and labels say Session Hire')).toBeVisible()
+  await expect(logoCard.getByText('Kind of file')).toBeVisible()
+  // An SVG, wide and with only a viewBox, is drawn out to 1200 pixels: nothing to warn of.
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100"><rect width="400" height="100" fill="#ee3744"/></svg>'
+  await logoCard.getByText('Add the logo').locator('input[type=file]').setInputFiles({ name: 'logo.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) })
+  const shown = logoCard.getByRole('img', { name: 'as a label printer prints it' })
   await expect(shown).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
+  await expect(logoCard.getByRole('img', { name: 'as a quote has it' })).toBeVisible()
+  await expect.poll(() => shown.evaluate((i: HTMLImageElement) => [i.naturalWidth, i.naturalHeight])).toEqual([1200, 300])
+  await expect(logoCard.locator('.warn-line')).toHaveCount(0)
+  // A small square PNG goes up too, with a word on why it may print soft and small.
+  const before = (await shown.getAttribute('src'))!
+  await logoCard.getByText('Change logo').locator('input[type=file]').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: PNG })
+  await expect(shown).not.toHaveAttribute('src', before)
+  await expect(logoCard.getByRole('status')).toContainText("It's 16 pixels across, so it may print soft.")
+  await expect(logoCard.getByRole('status')).toContainText('nearly square')
   // Made a PNG on white on the device, so its edges stay sharp.
   expect((await context.request.get((await shown.getAttribute('src'))!)).headers()['content-type']).toBe('image/png')
 
@@ -116,8 +129,8 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   await card.getByRole('button', { name: 'Start again from the usual list' }).click()
   await card.getByRole('button', { name: 'Save colours' }).click()
   await expect(card.getByRole('listitem').filter({ hasText: 'Over 5 m, up to 10 m' })).toContainText('Green')
-  await card.getByRole('button', { name: 'Remove logo' }).click()
-  await card.getByRole('button', { name: 'Take it down' }).click()
-  await expect(card.getByText('None yet: labels say the company')).toBeVisible()
+  await logoCard.getByRole('button', { name: 'Remove logo' }).click()
+  await logoCard.getByRole('button', { name: 'Take it down' }).click()
+  await expect(logoCard.getByText('None yet. Quotes and labels say Session Hire')).toBeVisible()
   await context.close()
 })

@@ -3,6 +3,24 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: the company logo in one place
+
+**Done (1.171.0)**
+
+- Admin › Company › Logo, a card of its own after the office's details
+  ([ADR 0155](adr/0155-the-company-logo-in-one-place.md)), on Colly's ask
+  for a place to upload the logo with suggested formats and sizes. It was
+  inside Labels before; Labels keeps the cable colours.
+- The card shows the logo in colour as a quote's head has it and in black
+  as a label printer prints it, and lists what works best: SVG or PNG, at
+  least 1200 pixels across, about three or four times as wide as tall,
+  dark on see-through or white, cropped close.
+- An SVG can be put up now; the device draws it out to a 1200-pixel PNG on
+  white, as it does any logo. A small or square file still goes up, with a
+  line saying why it may print soft or small.
+- Checked: the labels end-to-end test puts up an SVG and a small PNG
+  through the new card.
+
 ## 12 November 2026: crew invites tell people what happens next
 
 **Done (1.170.0)**
