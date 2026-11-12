@@ -481,8 +481,15 @@ ask of the crew, and never the job being on hold. So where this audit says
 the day". And the second half of finding 16, saying on the invite that a
 Yes pressed in Google couldn't be taken, moved to batch 4: it needs the
 invite to be written from the answers Google holds, which is a change to
-how the calendar is kept in step rather than to its words. Batches 3 to 6
-and the seven questions are still open.
+how the calendar is kept in step rather than to its words.
+
+Colly answered the seven questions the same day with "Go with yours": each
+takes the recommended answer below, and batches 3 to 6 are being built in
+the order 5, 4, 3, 6, notes first because an email can't be unsent. Batch 5
+is in 1.167.0 ([ADR 0151](adr/0151-notes-for-the-crew-and-office-notes.md)).
+It differs from what is written below in one thing: the short invite keeps
+the per diems and fuel, which are about the crew's own money and are on
+neither their page nor the call sheet.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -507,7 +514,8 @@ and the seven questions are still open.
    rate without saying so; "Say no" keeps the offer; Confirm and Agree on
    the job's own rows. Medium. Needs questions 2 and 6.
 5. **Notes** (2). Notes for the crew and office notes; the short invite
-   until someone has said yes. Medium. Needs question 1.
+   until someone has said yes. Medium. Needs question 1. **Done in
+   1.167.0.**
 6. **Reach and recovery** (the rest of 1, then 11, 13, 19, 17). Each
    person's own invite for jobs brought in from Google Calendar and for
    calls with no job; a call's days tied to its phase; Undo on an offer;

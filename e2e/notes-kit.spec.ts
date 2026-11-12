@@ -52,7 +52,7 @@ async function jobWithNotes(page: Page, name: string, notes: string) {
   await form.getByRole('button', { name: 'Add job' }).click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   await page.getByRole('button', { name: 'Change details' }).click()
-  await page.getByLabel('Notes', { exact: true }).fill(notes)
+  await page.getByLabel('Notes for the crew', { exact: true }).fill(notes)
   await page.getByRole('button', { name: 'Save job' }).click()
   // A new job opens on its next task's part (ADR 0140, part 8); the notes' kit is said under Kit and vans.
   await page.getByRole('tab', { name: /^Kit and vans/ }).click()

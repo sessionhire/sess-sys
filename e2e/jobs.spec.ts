@@ -84,11 +84,18 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   await office.evaluate(() => scrollTo(0, 0))
   await office.screenshot(shot('jobs-job'))
 
-  // Renamed, and the crew screen says so too.
+  // Renamed, and the crew screen says so too. Each box for notes says who reads it (ADR 0151): the office's never leave the app.
   await office.getByRole('button', { name: 'Change details' }).click()
   await office.getByLabel('Job', { exact: true }).fill(renamed)
+  await expect(office.getByLabel('Notes for the crew', { exact: true })).toHaveAccessibleDescription(
+    "On the call sheet and the jobs calendar, and in each person's invite once they've said yes."
+  )
+  const officeNotes = office.getByLabel('Office notes', { exact: true })
+  await expect(officeNotes).toHaveAccessibleDescription('Only in the app, for the office: never on the calendar, a call sheet or a message.')
+  await officeNotes.fill('Client pays late: chase the deposit.')
   await office.getByRole('button', { name: 'Save job' }).click()
   await expect(office.getByRole('heading', { name: renamed })).toBeVisible()
+  await expect(office.getByRole('region', { name: 'Details', exact: true })).toContainText('Office notes: Client pays late: chase the deposit.')
   await expect(office.locator('.conn')).toHaveText('Up to date')
   await office.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Crew' }).click()
   // The job's call is past the fortnight Crew needed shows at rest (audit, 20 October 2026, finding 23).

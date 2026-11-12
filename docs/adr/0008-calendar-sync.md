@@ -54,7 +54,10 @@ the time it is awake, so the sync can't check the calendar every minute.
   its subsistence and travel lines, the only money crew see), the day's pick list by
   department (the phase's kit and the whole job's, quantities and how many
   are hired in, never prices), and a link to the job in the app. Names
-  only: rates and phone numbers never go on the calendar. Enquiries and
+  only: rates and phone numbers never go on the calendar. The notes are a
+  job's and a phase's notes for the crew; a job's office notes never go on
+  it (from 1.167.0, [ADR 0151](0151-notes-for-the-crew-and-office-notes.md)).
+  Enquiries and
   quotes stay off it, so nobody sees a job that isn't happening; a job goes
   on when it is confirmed and comes off when it is cancelled or lost.
 - **HOLD once crew are asked (from 1.162.0, Colly's ask).** An enquiry or

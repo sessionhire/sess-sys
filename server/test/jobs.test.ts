@@ -474,6 +474,8 @@ describe('the history of a job', () => {
     const { app, db } = await server()
     const ids = await nissan(app)
     await send(app, 'project.update', { id: ids.job, status: 'cancelled', notes: 'Client pulled out.' })
+    // What the office notes say stays out of the history, which more people read than the job (ADR 0151).
+    await send(app, 'project.update', { id: ids.job, officeNotes: 'They pay late: chase the deposit.' })
     await send(app, 'phase.update', { id: ids.show, start: '2026-10-10', end: '2026-10-10' })
     await send(app, 'phase.remove', { id: ids.out })
     const { entries } = await readHistory(db)
@@ -484,9 +486,11 @@ describe('the history of a job', () => {
       'Added Build to Nissan launch, Wed 7 Oct to Thu 8 Oct',
       'Added Show to Nissan launch, Fri 9 Oct',
       'Added Load out to Nissan launch, Fri 9 Oct',
-      'Changed the job Nissan launch: now cancelled and the notes',
+      'Changed the job Nissan launch: now cancelled and the notes for the crew',
+      'Changed the job Nissan launch: the office notes',
       'Changed Show on Nissan launch: dates to Sat 10 Oct',
       'Removed Load out from Nissan launch',
     ])
+    expect(JSON.stringify(entries)).not.toContain('chase the deposit')
   })
 })

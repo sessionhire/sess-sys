@@ -2,6 +2,7 @@ import type { CommandName } from './commands.ts'
 import { DEFAULT_LEVEL } from './crew-departments.ts'
 import { sameDepartment, type CrewCall, type Offer, type Person } from './crew.ts'
 import type { Document } from './documents.ts'
+import type { Project } from './jobs.ts'
 import type { Role } from './roles.ts'
 import type { Timesheet } from './timesheets.ts'
 
@@ -36,6 +37,8 @@ import type { Timesheet } from './timesheets.ts'
  *   saying they're away or running late, or answering an offer, and the
  *   reason they were given. The days and answers stay, so the planner and
  *   the crew screens show who's away and who's on.
+ * - **A job's office notes** (ADR 0151): the office's, directors' and heads',
+ *   as clients' documents are. The notes for the crew are everyone's.
  *
  * The server sends what's left out as nothing (a null rate, an empty link,
  * a 0 extra) with a flag saying it's hidden, so every screen can say so
@@ -165,6 +168,16 @@ export function timesheetAsRead(t: Timesheet, mine: boolean, r: Reading, callDep
   if (readsRatesIn(r, callDepartment)) return words
   const none = (extras: Timesheet['extras']) => extras.map((e) => ({ ...e, cents: 0 }))
   return { ...words, dayRateCents: null, extras: none(t.extras), sent: { ...t.sent, dayRateCents: null, extras: none(t.sent.extras) }, amountsHidden: true }
+}
+
+/**
+ * A job as this reader is sent it: its office notes left out for staff crew and freelancers (ADR 0151), who read
+ * clients' documents no more than they read these. The notes for the crew stay: they're on the call sheet already.
+ */
+export function projectAsRead<P extends Pick<Project, 'officeNotes'>>(p: P, r: Reading): P {
+  if (r.clientDocuments !== false || !p.officeNotes) return p
+  const { officeNotes: _, ...rest } = p
+  return rest as P
 }
 
 /** Whether this reader is sent someone's document: all of them, or their own only (ADR 0062). */

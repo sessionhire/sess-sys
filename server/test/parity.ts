@@ -179,6 +179,7 @@ const CASES: Case[] = [
   c('project.create', { id: 'new', name: 'Winter Ball', clientId: 'bw', venueId: 'nb', status: 'enquiry', notes: '' }, { ignore: ['kind', 'prepDays', 'returnDays'] }),
   c('project.update', { id: 'gala', name: 'Autumn Gala 2026', status: 'quoted', notes: 'Black tie' }, { known: [CALL_NAMES] }),
   c('project.update', { id: 'gala', prepDays: 2, returnDays: 0 }, { as: 'days to get kit ready' }),
+  c('project.update', { id: 'gala', officeNotes: 'Pays late: chase the deposit' }, { as: 'office notes' }),
   c('phase.add', { id: 'out', projectId: 'gala', name: 'Load out', start: day(6), end: day(6), venueId: 'nb', notes: '' }),
   c('phase.update', { id: 'show', name: 'Show day', start: day(6), end: day(6), moveCrew: true }, { known: [CALL_NAMES] }),
   c('phase.remove', { id: 'launch' }),
