@@ -137,7 +137,7 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   const preview = print.getByLabel('Preview').locator('.label')
   await expect(preview).toHaveCount(3)
   await expect(preview.locator('b')).toHaveText([sh(first), sh(first + 1), sh(first + 2)])
-  for (const layout of ['Label printer, 25 × 25 mm', 'A4 sheets of 65, 38 × 21 mm', 'Label printer, 50 × 25 mm']) {
+  for (const layout of ['Label printer, 25 × 25 mm', 'Label printer, 100 × 25 mm, bigger type', 'A4 sheets of 65, 38 × 21 mm', 'Label printer, 50 × 25 mm']) {
     await print.getByRole('radio', { name: layout }).check()
     await fits(preview.first())
     expect(await readQr(preview.nth(1))).toBe(sh(first + 1))
