@@ -93,7 +93,7 @@ export type JobPart = 'phases' | 'crew' | 'kit' | 'vans' | 'pack' | 'quote'
  */
 export const JOB_PARTS: readonly JobPart[] = ['quote', 'crew', 'kit', 'vans', 'phases', 'pack']
 
-const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit', vans: 'Vans', pack: 'Show pack', quote: 'Quote' }
+const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit', vans: 'Transport', pack: 'Show pack', quote: 'Quote' }
 
 /** The part last looked at, so the office moving from job to job to book crew lands on Crew each time ("a fold remembers"). */
 const LAST_PART = 'sh.jobPart'

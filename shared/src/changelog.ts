@@ -36,6 +36,14 @@ export const CHANGELOG: readonly Release[] = [
     adrs: [156],
   },
   {
+    version: '1.172.1',
+    date: '2026-11-12',
+    title: "A job's Vans tab is now called Transport",
+    what: "On a job, the tab with the vans and their drivers is now called Transport: Quote, Crew, Kit, Transport, Phases, Show pack. Nothing else about it has changed, and links to it still work.",
+    prs: [349],
+    adrs: [140],
+  },
+  {
     version: '1.172.0',
     date: '2026-11-12',
     title: "WhatsApp tells crew when they're booked, when their call time moves, and when they're no longer needed",
