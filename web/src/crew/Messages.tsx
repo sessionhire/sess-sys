@@ -76,7 +76,7 @@ export interface Tell {
 /**
  * The offers an Offer press just made (ADR 0161): their ids, and when it was pressed. Nothing of the app's goes to them for
  * OFFER_WAIT_SECONDS, so the panel offers Undo till then, counted from the press: the server's wait starts as it takes
- * them, which is never sooner.
+ * them, which is never sooner, and runs a few seconds longer (OFFER_WAIT_GRACE_SECONDS) for an Undo pressed at the end.
  */
 export interface Made {
   ids: readonly string[]

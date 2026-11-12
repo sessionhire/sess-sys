@@ -364,10 +364,16 @@ export interface CrewEntities {
 export const CREW_ENTITY_NAMES = ['person', 'unavailability', 'crewCall', 'offer'] as const
 
 /**
- * How long an offer made by Offer waits before its invites and WhatsApp go (ADR 0161; audit of 12 November 2026, finding
- * 13): long enough to see a wrong pick and press Undo, short enough that nobody waits on it.
+ * How long an offer made by Offer can be undone, counted from the press, before its invites and WhatsApp go (ADR 0161;
+ * audit of 12 November 2026, finding 13): long enough to see a wrong pick and press Undo, short enough that nobody waits on
+ * it.
  */
 export const OFFER_WAIT_SECONDS = 30
+/**
+ * The server holds what an offer sends this much longer than the panel offers Undo (ADR 0161), so an Undo pressed in the
+ * last second, on a slow connection, still reaches it before anything goes.
+ */
+export const OFFER_WAIT_GRACE_SECONDS = 5
 
 /** Offers that hold a person's days. */
 export const HOLDING: readonly OfferStatus[] = ['accepted', 'confirmed']
@@ -530,7 +536,7 @@ export const crewCommandSchemas = {
   /**
    * Offer a call to one person. Send several for a shortlist: whoever
    * accepts first gets the place, and the rest are told it has been filled.
-   * Its invites and WhatsApp wait OFFER_WAIT_SECONDS, so a wrong pick can be
+   * Its invites and WhatsApp wait OFFER_WAIT_SECONDS (and the grace), so a wrong pick can be
    * taken back first (offer.undo, ADR 0161).
    */
   'offer.send': z.object({ id, callId: id, personId: id, override: z.boolean() }),

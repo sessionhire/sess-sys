@@ -35,7 +35,9 @@ sends for long enough to see the slip.
    made at once, as before: it's on the call, its person's page and the
    office's notices, and the call counts it. Its calendar invites and its
    WhatsApp wait until 30 seconds after the server took it
-   (`OFFER_WAIT_SECONDS`), measured by the database's clock. A job not yet
+   (`OFFER_WAIT_SECONDS`), measured by the database's clock, and 5 seconds
+   more (`OFFER_WAIT_GRACE_SECONDS`), so an Undo pressed in the panel's
+   last second on a slow connection still arrives before anything goes. A job not yet
    confirmed doesn't come onto the calendar as "Hold the day" for an offer
    still waiting either. As the soonest wait ends the server wakes the
    calendar and WhatsApp, so what was held goes then rather than at their
@@ -45,8 +47,8 @@ sends for long enough to see the slip.
    WhatsApp go in 12 seconds." or, when nothing would go by itself, "They
    can be undone for 8 seconds.", counting down from the press, with an
    Undo button beside it. The count starts at the press and the server's
-   wait as it takes the offer, so the panel never offers Undo past the
-   server's wait. The line goes when the wait is over; focus on Undo moves
+   wait as it takes the offer, and the server's runs on past the panel's,
+   so the panel never offers Undo past the server's wait. The line goes when the wait is over; focus on Undo moves
    to the panel rather than nowhere.
 3. **Undo takes the offers back as if never made.** Those the press made
    that nobody has answered are deleted, with any WhatsApp still waiting

@@ -181,8 +181,9 @@ describe('offers on WhatsApp (ADR 0125)', () => {
     expect(await send('offer.send', { id: kept, callId: c, personId: aoife, override: false })).toMatchObject({ status: 'applied' })
     expect(await send('offer.send', { id: wrong, callId: c, personId: sean, override: false })).toMatchObject({ status: 'applied' })
     const { rows } = await db.query<{ seconds: number }>(`SELECT round(extract(epoch FROM goes_at - now()))::int AS seconds FROM offers WHERE id = $1`, [kept])
-    expect(rows[0]!.seconds).toBeGreaterThan(25)
-    expect(rows[0]!.seconds).toBeLessThanOrEqual(30)
+    // The panel's half minute, and the few seconds' grace for an Undo pressed at its end.
+    expect(rows[0]!.seconds).toBeGreaterThan(30)
+    expect(rows[0]!.seconds).toBeLessThanOrEqual(35)
     expect((await messages()).map((m) => m.state)).toEqual(['queued', 'queued'])
     expect(meta.sent).toEqual([])
     // Seán was the wrong pick: undone, his offer and its WhatsApp are gone, and Aoife's goes as its wait ends.
