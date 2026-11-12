@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.182.1',
+    date: '2026-11-12',
+    title: 'Crew are asked for from a job',
+    what: "The card at the foot of Crew › Calls, Crew for something not in Jobs, is gone. Crew are asked for from a job's Crew tab, so every call has its job's dates, venue and phases, and its crew get calendar invites. For a day that isn't a show, such as a warehouse day, make a quick job for it. Calls already made from that card stay on Crew › Calls and work as before.",
+    prs: [0],
+    adrs: [142],
+  },
+  {
     version: '1.182.0',
     date: '2026-11-12',
     title: 'Send the quote from Next',
