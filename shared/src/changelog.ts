@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.183.0',
+    date: '2026-11-12',
+    title: 'Confirming a job asks first when crew are holding the day',
+    what: "On a job the client hasn't said yes to, a crew call's card now says Hold the day, in amber, for the people you've picked, where it said Booked, as their own page and calendar invite already did. Confirming such a job tells everyone asked to hold the day that it's going ahead, by Google's email as HOLD comes off their days and by WhatsApp where it's on, so wherever you confirm it now asks first, saying who hears what: from the job's details, its Confirmed task, the Next button, the quote's Client accepted and Money's To follow up. Afterwards a note says what went to whom. Marking a job lost from its quote or from To follow up now asks first too, as it already did from the job's details.",
+    prs: [363],
+    adrs: [168],
+  },
+  {
     version: '1.182.0',
     date: '2026-11-12',
     title: 'Send the quote from Next',

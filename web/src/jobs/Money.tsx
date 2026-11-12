@@ -49,6 +49,7 @@ import {
 import { Fragment, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { arrive } from '../arrival.ts'
+import { SharePanelFor, TellHere, type Share } from '../crew/Messages.tsx'
 import { Empty } from '../Empty.tsx'
 import { ShowAll } from '../Fold.tsx'
 import { Heading } from '../Icon.tsx'
@@ -185,13 +186,20 @@ export function ToFollowUp({ view }: { view: View }) {
   const today = useToday()
   const f = quotesToFollow(view.money, today, quoteWantedBy(view))
   const none = f.drafts.length + f.overDrafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
+  // Who a row's Confirm the job or Mark the job lost told, above the list, as the row goes with the press (ADR 0168).
+  const [share, setShare] = useState<Share>()
   return (
-    <section className="card quotes-to-follow" aria-label="To follow up">
-      <Heading icon="document">To follow up</Heading>
-      {/* New quote is on the title's line, as every list's add is (review of 11 November 2026, finding 7). */}
-      {none && <Empty>No quote is waiting on anyone. Start one with New quote, at the top, or from a job's page.</Empty>}
-      <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
-    </section>
+    <>
+      {share && <SharePanelFor share={share} onClose={() => setShare(undefined)} />}
+      <section className="card quotes-to-follow" aria-label="To follow up">
+        <Heading icon="document">To follow up</Heading>
+        {/* New quote is on the title's line, as every list's add is (review of 11 November 2026, finding 7). */}
+        {none && <Empty>No quote is waiting on anyone. Start one with New quote, at the top, or from a job's page.</Empty>}
+        <TellHere.Provider value={setShare}>
+          <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
+        </TellHere.Provider>
+      </section>
+    </>
   )
 }
 
@@ -337,16 +345,24 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
 export function QuotesToChase({ view }: { view: View }) {
   const today = useToday()
   const f = quotesToFollow(view.money, today)
-  if (f.chase.length + f.outOfStep.length === 0) return null
+  // Who a row's Confirm the job told, kept once the list has nothing left in it (ADR 0168).
+  const [share, setShare] = useState<Share>()
+  const panel = share && <SharePanelFor share={share} onClose={() => setShare(undefined)} />
+  if (f.chase.length + f.outOfStep.length === 0) return panel ?? null
   return (
-    <section className="card quotes-to-follow" aria-label="Quotes to follow up">
-      <Heading icon="document">Quotes to follow up</Heading>
-      <p className="hint">
-        Sent over a week ago with no answer, or answered with the job not yet in step. The app contacts nobody: ring or email the client yourself. Every
-        job's quote is on its Quote tab; Jobs finds them by Filter › Quote.
-      </p>
-      <QuoteGroups f={f} chaseOnly />
-    </section>
+    <>
+      {panel}
+      <section className="card quotes-to-follow" aria-label="Quotes to follow up">
+        <Heading icon="document">Quotes to follow up</Heading>
+        <p className="hint">
+          Sent over a week ago with no answer, or answered with the job not yet in step. The app contacts nobody: ring or email the client yourself.
+          Every job's quote is on its Quote tab; Jobs finds them by Filter › Quote.
+        </p>
+        <TellHere.Provider value={setShare}>
+          <QuoteGroups f={f} chaseOnly />
+        </TellHere.Provider>
+      </section>
+    </>
   )
 }
 

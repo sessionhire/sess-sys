@@ -3,6 +3,27 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: confirming a job its crew hold the day for
+
+**Done (1.183.0)**
+
+- What the [audit of crew offers](audit-crew-offers-2026-11-12.md) left
+  open on the office's side ([ADR 0168](adr/0168-confirming-a-job-its-crew-hold-the-day-for.md)).
+- A crew call's card says "Hold the day", in amber, of the people picked on
+  a job the client hasn't said yes to, where it said "Booked".
+- Confirming such a job asks first, from its details, its Confirmed task,
+  Next (which opens the task with the question asked), a quote's "Client
+  accepted: confirm the job" and "Confirm the job" on What happened and To
+  follow up: "The 3 people asked to hold the day will see it's going
+  ahead: Google emails each of them that HOLD is off their days, and a
+  WhatsApp tells them so." The panel after says what went to whom.
+- Marking a job lost from a quote or To follow up asks first when it has
+  crew calls open, as its details and task did.
+- Checked: typecheck; shared tests of the question, the panel's sentences
+  and the messages (never "on hold"); a browser test of the card and of
+  confirming from the details, the task, Next, the quote and To follow up,
+  with the browser tests around jobs, crew and quotes.
+
 ## 12 November 2026: send the quote from Next
 
 **Done (1.182.0)**

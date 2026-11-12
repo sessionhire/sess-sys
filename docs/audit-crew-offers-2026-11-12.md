@@ -533,6 +533,13 @@ Finding 17, a member of staff's own offers said to them, is in 1.181.0
 further than the fix: a job confirmed while they hold the day for it is
 said as their booking, and a change that ended their offer says why, the
 call cancelled or the job stopped.
+What was left open on the office's side is in 1.183.0
+([ADR 0168](adr/0168-confirming-a-job-its-crew-hold-the-day-for.md)): a
+call's card says "Hold the day" of those picked on a job the client hasn't
+said yes to, and confirming such a job, which Google and WhatsApp tell its
+crew of, asks first wherever it's pressed and says after what went (the
+gap ADR 0154's check left at 3). Marking a job lost from a quote asks first
+too.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",

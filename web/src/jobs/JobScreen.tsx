@@ -29,7 +29,6 @@ import {
   STATUS_LABELS,
   type ProjectKind,
   STOPPED,
-  STOPPED_WORDS,
   spanLabel,
   suggestedReplyBy,
   venueLabel,
@@ -43,8 +42,6 @@ import {
   type PhaseView,
   type ProjectStatus,
   type View,
-  jobEndingWords,
-  whatsappFollowsTell,
   stoppedCrew,
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
@@ -52,6 +49,7 @@ import { Confirm, Refusal, useAct } from '../act.tsx'
 import { refuseField } from '../required.ts'
 import { NeedsField } from '../crew/Certificates.tsx'
 import { CallCard, peopleOn, promptFor, SharePanelFor, type Made, type Share } from '../crew/CrewScreen.tsx'
+import { TellHere } from '../crew/Messages.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold } from '../Fold.tsx'
 import { Pending } from '../StatusPill.tsx'
@@ -71,6 +69,7 @@ import { NextDock, type Landing } from './NextDock.tsx'
 import { JobAssignee } from './JobAssignee.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { askForCrewAgain, type CrewAgain } from './crewAgain.ts'
+import { confirmQuestion, crewOnJob, holdingTheDay, stopQuestion } from './jobStatus.ts'
 import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
 import { useMe } from '../crew/Leave.tsx'
@@ -139,6 +138,14 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   // with the task's own part as the tab under it, so what the task is about is the next thing down (UX sweep, 6 November 2026, move 8).
   const [task, setTask] = useState<JobStep | undefined>(askedTask)
   useEffect(() => setTask(askedTask), [id, askedTask])
+  // When Next's Confirm the job last opened the Confirmed task with its question asked (ADR 0168); opening a task another way
+  // opens it as it is.
+  const [confirmAsked, setConfirmAsked] = useState<number>()
+  useEffect(() => setConfirmAsked(undefined), [id])
+  const openTask = (t: JobStep | undefined) => {
+    setTask(t)
+    setConfirmAsked(undefined)
+  }
   const stepPart = askedTask ? view.steps.of(id)?.steps.find((s) => s.key === askedTask)?.part : undefined
   // With nothing named, the job opens on the part its next task is in (ADR 0140, part 8): the quote while it's being sold, the
   // crew or kit while it's planned, the kit while it goes out and comes back, the phases while it's on. A job with no task left
@@ -257,7 +264,20 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           <JobLines job={job} view={view} />
         </>
       }
-      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} onTell={setShare} quoteHere={part === 'quote'} />}
+      actions={
+        <NextDock
+          job={job}
+          view={view}
+          onPart={go}
+          onOpenTask={openTask}
+          onTell={setShare}
+          onConfirm={() => {
+            setTask('confirmed')
+            setConfirmAsked(Date.now())
+          }}
+          quoteHere={part === 'quote'}
+        />
+      }
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
@@ -265,7 +285,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           (Move 9 of the sweep of 6 November 2026). */}
       {!runsJobs && <YouOnThisJob job={job} view={view} />}
       {/* Where the job is: its five stages, the tasks inside each and who each is down to (ADR 0073, ADR 0104). */}
-      <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={go} onTell={setShare} />
+      <StepsCard job={job} view={view} openTask={task} onOpenTask={openTask} onPart={go} onTell={setShare} confirmAsked={confirmAsked} />
       {runsJobs && <YouOnThisJob job={job} view={view} />}
 
       {/* The quote's address, typed or kept from before, for a role that doesn't see money: the job opens, saying why there's no
@@ -328,7 +348,12 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
 
         {/* Its quote, built from the kit and crew, for the roles that see money (ADR 0042): the quote itself, worked on here as the
             job's Quoting stage rather than on a page of its own (ADR 0140, part 4). */}
-        {part === 'quote' && seesMoney && <QuotePart job={job} view={view} />}
+        {/* Confirming the job or marking it lost from the quote ends the card it's pressed on, so who was told opens here (ADR 0168). */}
+        {part === 'quote' && seesMoney && (
+          <TellHere.Provider value={setShare}>
+            <QuotePart job={job} view={view} />
+          </TellHere.Provider>
+        )}
       </div>
       {/* Who changed what on this job, without reading the whole company's history (audit, 5 November 2026, finding 51). */}
       <p className="hint page-foot">
@@ -605,15 +630,19 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
     notes: job.notes,
     officeNotes: job.officeNotes ?? '',
   })
-  // Stopping a job with crew out waits here until the office says so, with the fields held still.
+  // Stopping a job with crew out, or confirming one its crew hold the day for, waits here until the office says so, with the
+  // fields held still.
   const [asking, setAsking] = useState(false)
   const { run, error } = useAct()
   const reach = useReach()
+  const today = useToday()
   const stopping = STOPPED.includes(f.status) && !STOPPED.includes(job.status)
   // Everyone offered or booked on the job's open calls: told it's off once it's stopped.
-  const people = job.calls.filter((c) => c.status === 'open').flatMap((c) => peopleOn(c))
-  // What their link says once it's stopped, in its own words (UX sweep, 6 November 2026, move 6).
-  const theySee = f.status === 'lost' ? STOPPED_WORDS.lost : STOPPED_WORDS.cancelled
+  const people = crewOnJob(job)
+  // Confirmed with crew asked to hold the day: they hear it's going ahead, and those picked are booked (ADR 0168).
+  const confirming = f.status === 'confirmed' && job.status !== 'confirmed'
+  const holding = confirming ? holdingTheDay(job, today) : []
+  const confirmAsk = confirmQuestion(reach, job, holding)
   const send = () => {
     setAsking(false)
     void run(async () => {
@@ -632,12 +661,13 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
       if (!ok) return
       onDone()
       if (stopping) onTell(promptFor('job-stopped', people))
+      else if (confirming) onTell(promptFor('job-confirmed', holding))
     })
   }
   const save = (e: FormEvent) => {
     e.preventDefault()
     if (!f.name.trim()) return
-    if (stopping && job.calls.some((c) => c.status === 'open')) return setAsking(true)
+    if ((stopping && job.calls.some((c) => c.status === 'open')) || (confirming && confirmAsk)) return setAsking(true)
     send()
   }
   return (
@@ -691,19 +721,20 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
         Only in the app, for the office: never on the calendar, a call sheet or a message.
       </p>
       <Refusal error={error} className="wide" />
-      {asking ? (
+      {asking && stopping ? (
         <Confirm
           className="wide"
           // With the email Google sends those who hold an invite (ADR 0149).
-          question={`Marking ${job.name} ${STATUS_LABELS[f.status].toLowerCase()} also cancels its crew calls${
-            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${theySee}` : ''
-          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId, email: t.person.email, whatsapp: whatsappFollowsTell(reach, t) })))}`}
+          question={stopQuestion(reach, job, f.status === 'lost' ? 'lost' : 'cancelled', people)}
           yes={`Mark it ${STATUS_LABELS[f.status].toLowerCase()}`}
           loss
           no="Keep it as it is"
           onYes={send}
           onNo={() => setAsking(false)}
         />
+      ) : asking && confirmAsk ? (
+        // What confirming sends those asked to hold the day, said first (ADR 0168): HOLD comes off their days, and WhatsApp tells them.
+        <Confirm className="wide" question={confirmAsk} yes="Confirm the job" no="Keep it as it is" onYes={send} onNo={() => setAsking(false)} />
       ) : (
         <div className="actions wide">
           {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
