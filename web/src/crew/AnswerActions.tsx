@@ -10,6 +10,7 @@ import {
   namesInWords,
   ratesClosedBy,
   toldNext,
+  whatsappFollowsOffer,
   type CallView,
   type OfferView,
   type Person,
@@ -54,6 +55,8 @@ export function AnswerActions({
   // A rate still asked for that this confirm leaves without a place: closed with it, so said first.
   const closing = ratesClosedBy(call, call.offers, o.id)
   const full = call.openDays.length === 0
+  // What follows the press goes to them on WhatsApp too, where it reaches them and they'd heard of the offer (ADR 0154).
+  const whatsapp = whatsappFollowsOffer(reach, call, o, o.person)
   const go = (command: 'offer.confirm' | 'offer.cancel' | 'offer.refuse', share: () => Share | undefined) => {
     setAsking(undefined)
     onPress?.()
@@ -82,14 +85,22 @@ export function AnswerActions({
       : emailed.length
         ? ` Google emails each of them that their days are cancelled${why}.`
         : ''
+    // Their asks close as filled by someone else, which a WhatsApp tells whoever it reaches (ADR 0154).
+    const toldOnWhatsApp = closing.filter((c) => whatsappFollowsOffer(reach, call, c, c.person))
+    const closedWhatsApp = !toldOnWhatsApp.length
+      ? ''
+      : ` A WhatsApp tells ${
+          closing.length === 1 ? (closing[0]!.person ? firstName(closing[0]!.person) : 'them') : toldOnWhatsApp.length < closing.length ? `${toldOnWhatsApp.length} of them` : 'each of them'
+        } they're no longer needed.`
     const parts = [
-      // Where their invites tell them what happens next, Google emails them the booking (ADR 0153).
-      bookingWords(reach, o.id, o.person, holdTheDay(call.projectId)),
+      // Where their invites tell them what happens next, Google emails them the booking (ADR 0153); a WhatsApp tells them
+      // too, unless they're only asked to hold the day (ADR 0154).
+      bookingWords(reach, o.id, o.person, holdTheDay(call.projectId), whatsapp),
       asked.length && `${who} hasn't answered for ${daysLabel(asked)}, so confirming books ${daysLabel(o.days)} only. ${askEndingWords(reach, o.id, asked)}`.trim(),
       closing.length &&
         `${o.status === 'countered' ? 'Agreeing it' : 'Confirming them'} fills the call, so ${namesInWords(closing.map((c) => `${c.person?.name ?? 'someone'}'s`))} ${closing.length === 1 ? 'ask' : 'asks'} for ${
           closing.length === 1 && !closing[0]!.rateHidden ? `${euro(closing[0]!.counterRateCents)} a day` : 'a different rate'
-        } ${closing.length === 1 ? 'closes' : 'close'} unanswered.${closedEmails}`,
+        } ${closing.length === 1 ? 'closes' : 'close'} unanswered.${closedEmails}${closedWhatsApp}`,
     ].filter(Boolean)
     return (
       <Confirm
@@ -110,8 +121,8 @@ export function AnswerActions({
         question={
           // The email Google sends is named, or that nothing is sent (finding 5).
           asking === 'release'
-            ? `Release ${who} from ${call.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so', o.person)}`
-            : `Withdraw the offer to ${who}? ${endingWords(reach, o.id, "it's withdrawn", o.person)}`
+            ? `Release ${who} from ${call.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so', o.person, whatsapp)}`
+            : `Withdraw the offer to ${who}? ${endingWords(reach, o.id, "it's withdrawn", o.person, whatsapp)}`
         }
         yes={asking === 'release' ? `Release ${first}` : 'Withdraw the offer'}
         loss
@@ -126,7 +137,7 @@ export function AnswerActions({
     // Nothing is sent: their link says the offer stands, and so does their invite's first line, with no email (ADR 0009).
     const invited = reach.calendar.link?.invites === true && invitesHeld(reach, o.id).length > 0
     const after = full
-      ? `The call has filled meanwhile, so the offer closes. ${endingWords(reach, o.id, "it's filled", o.person)}`
+      ? `The call has filled meanwhile, so the offer closes. ${endingWords(reach, o.id, "it's filled", o.person, whatsapp)}`
       : `The offer stands at ${stands}, for ${first} to take or turn down. ${invited ? 'Their link and their calendar invite say so, with no email.' : 'Their link says so.'}${reach.messages || invited ? '' : ' Nothing is sent to them.'}`
     return (
       <Confirm
