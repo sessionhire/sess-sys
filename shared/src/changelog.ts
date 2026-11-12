@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.171.0',
+    date: '2026-11-12',
+    title: "Quotes charge the crew's accommodation on a job far enough to stay over",
+    what: "Beside travel and subsistence, a quote now works out the crew's rooms for itself. Set a room price, so much a night for each of the crew, and how far from Dublin the crew stay over (180 km unless you change it) under Admin › Company › Travel and subsistence. On a job further than that, the quote adds a line for a room for each crew day, printed as so many crew nights at the room price a night. Press the row and turn on Accommodation provided when the job puts the crew up. When the crew stay over, their travel is charged as one car trip there and back each, or each car load, rather than one every day. Until a room price is set nothing changes. A crew member's invite says when accommodation is covered.",
+    prs: [],
+    adrs: [156],
+  },
+  {
     version: '1.170.0',
     date: '2026-11-12',
     title: "Crew invites can tell people when they're booked, when their call time moves, and why a day is off",

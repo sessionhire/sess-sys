@@ -1,4 +1,4 @@
-import { lineCents, money, type JobChanges, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS } from '@sh/shared'
+import { lineCents, money, type JobChanges, type LineExtra, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS } from '@sh/shared'
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
 import { Icon } from '../Icon.tsx'
@@ -7,7 +7,7 @@ import { UnitBox } from './QuoteLine.tsx'
 
 /**
  * What's added to a draft quote beside its kit and crew (ADR 0042, ADR
- * 0086): the crew's travel and subsistence, transport, a package, crew, and
+ * 0086): the crew's travel, subsistence and accommodation (ADR 0156), transport, a package, crew, and
  * what's changed on the job since.
  */
 
@@ -17,6 +17,7 @@ const daysSince = (from: string, today: string) => Math.round((Date.parse(`${tod
 /** The ids the two worked-out rows open under, beside the lines' own, so one row is open at a time. */
 export const TRAVEL_ROW = 'extra:travel'
 export const SUBSISTENCE_ROW = 'extra:subsistence'
+export const ACCOMMODATION_ROW = 'extra:accommodation'
 
 /**
  * The crew's travel and subsistence (ADR 0086), worked out by the quote, as two rows like any line: the line each comes
@@ -27,6 +28,8 @@ export function TravelAndSubsistence(p: {
   extras: Extras
   meals: boolean
   setMeals: (b: boolean) => void
+  rooms: boolean
+  setRooms: (b: boolean) => void
   km: string
   setKm: (s: string) => void
   kmProblem: string | undefined
@@ -36,11 +39,14 @@ export function TravelAndSubsistence(p: {
   open: string | undefined
   setOpen: (id: string | undefined) => void
 }) {
-  const { travel, subsistence, lines } = p.extras
+  const { travel, subsistence, accommodation, lines } = p.extras
   const kmId = useId()
-  const line = (extra: 'travel' | 'subsistence') => lines.find((l) => l.extra === extra)
+  const line = (extra: LineExtra) => lines.find((l) => l.extra === extra)
   const t = line('travel')
   const s = line('subsistence')
+  const a = line('accommodation')
+  // What's waiting on a figure in Admin: the per diem, and the room price on a job the crew would stay over for.
+  const wants = [!s && subsistence.none, !a && accommodation.far && accommodation.none].filter((w): w is string => !!w && w.includes('Admin ›'))
   const old = t && p.fuelSetOn && daysSince(p.fuelSetOn, p.today) > FUEL_PRICE_FRESH_DAYS
   const row = (id: string, what: string, how: string, amount: string, label: string, body: ReactNode) => {
     const open = p.open === id
@@ -64,7 +70,7 @@ export function TravelAndSubsistence(p: {
       {row(
         TRAVEL_ROW,
         t ? t.what : 'No travel',
-        t ? `${t.qty} × ${money(t.unitCents)}, a car's fuel there and back` : (travel.none ?? ''),
+        t ? `${t.qty} × ${money(t.unitCents)}, a car's fuel there and back${accommodation.stay ? ', once each as they stay over' : ''}` : (travel.none ?? ''),
         t ? money(lineCents(t)) : '–',
         `${t ? t.what : 'No travel'}: change the distance`,
         <label className="field extra-km">
@@ -107,10 +113,26 @@ export function TravelAndSubsistence(p: {
           </span>
         </label>
       )}
-      {/* The way to the per diem, as a link: the row above is a button, so it can't hold one. */}
-      {!s && subsistence.none?.includes('Admin ›') && (
+      {/* The crew's rooms (ADR 0156): only on a job far enough that they'd stay over, so a job near home doesn't say so. */}
+      {(a || accommodation.far) &&
+        row(
+          ACCOMMODATION_ROW,
+          a ? a.what : 'No accommodation',
+          a ? `${a.qty} × ${money(a.unitCents)} a night` : (accommodation.none?.replace(/: .*$/, '.') ?? ''),
+          a ? money(lineCents(a)) : '–',
+          `${a ? a.what : 'No accommodation'}: say if the job puts the crew up`,
+          <label className="signal">
+            <input type="checkbox" role="switch" checked={p.rooms} onChange={(e) => p.setRooms(e.target.checked)} />
+            <span>
+              <b>Accommodation provided</b>
+              <small>{p.rooms ? 'The job puts the crew up, so no accommodation is charged.' : 'On if the job puts the crew up.'}</small>
+            </span>
+          </label>
+        )}
+      {/* The way to the per diem and the room price, as a link, said once: the rows above are buttons, so they can't hold one. */}
+      {wants.length > 0 && (
         <p className="hint">
-          <AdminWords>{setWhere(subsistence.none)}</AdminWords>
+          <AdminWords>{wants.length === 1 ? setWhere(wants[0]!) : `Set the per diem and the room price in ${wants[0]!.slice(wants[0]!.indexOf('Admin ›'))}`}</AdminWords>
         </p>
       )}
     </section>

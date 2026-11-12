@@ -15,6 +15,7 @@ import {
   type QuoteTotals,
   type QuoteView,
   type View,
+  priceWords,
   RATE_UNIT,
   lineSaving,
   depositCents,
@@ -102,7 +103,7 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                     </td>
                     <td className="n">{l.qty}</td>
                     <td className="n">{byKit ? '' : l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')}</td>
-                    <td className="n">{byKit || l.included ? '' : `${money(l.unitCents)} ${l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}`}</td>
+                    <td className="n">{byKit || l.included ? '' : `${money(l.unitCents)} ${priceWords(l)}`}</td>
                     <td className="n">{VAT_LABELS[l.vat]}</td>
                     <td className="n">
                       {l.included && !under.length ? 'Included' : money(under.length ? setCents(l, lines) : lineCents(l))}

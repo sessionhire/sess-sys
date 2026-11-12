@@ -121,6 +121,10 @@ export interface Allowances {
   fuelCents: number | null
   /** How far each way, when the travel line says. */
   km: number | null
+  /** Whether the quote charges the crew's rooms (ADR 0156). Left out, it doesn't. */
+  rooms?: boolean
+  /** The job puts the crew up (ADR 0156), so there are no rooms to charge. */
+  accommodationProvided?: boolean
 }
 
 /** What a person's own copy of a day says to them first: asking, thanking, or telling them where they stand. */
@@ -280,11 +284,14 @@ export function allowancesText(a: Allowances): string {
         ? 'Per diems: not approved, as meals are provided'
         : 'Per diems: not approved'
   const fuel = a.fuelCents !== null ? `Fuel: covered, about ${euro(a.fuelCents)} a car there and back${a.km !== null ? ` (${a.km} km each way)` : ''}` : 'Fuel: not covered'
+  // Said only on a job the crew stay over for (ADR 0156), so a job nearer home reads as it always has.
+  const stay = a.rooms ? 'Accommodation: covered' : a.accommodationProvided ? 'Accommodation: provided by the job' : null
+  if (stay) return ['Per diems, fuel and accommodation', pd, fuel, stay].join('\n')
   return ['Per diems and fuel', pd, fuel].join('\n')
 }
 
-/** What the quote covers for crew, from its travel and subsistence lines (ADR 0086). */
-export function allowancesOf(lines: readonly QuoteLine[], mealsProvided: boolean): Allowances {
+/** What the quote covers for crew, from its travel, subsistence and accommodation lines (ADR 0086, ADR 0156). */
+export function allowancesOf(lines: readonly QuoteLine[], mealsProvided: boolean, accommodationProvided = false): Allowances {
   const sub = lines.find((l) => l.extra === 'subsistence')
   const travel = lines.find((l) => l.extra === 'travel')
   const km = travel ? /(\d+) km each way/.exec(travel.what)?.[1] : undefined
@@ -293,6 +300,8 @@ export function allowancesOf(lines: readonly QuoteLine[], mealsProvided: boolean
     mealsProvided,
     fuelCents: travel ? travel.unitCents : null,
     km: km ? Number(km) : null,
+    ...(lines.some((l) => l.extra === 'accommodation') ? { rooms: true } : {}),
+    ...(accommodationProvided ? { accommodationProvided: true } : {}),
   }
 }
 
@@ -368,6 +377,7 @@ interface QuoteRow {
   project_id: string
   lines: QuoteLine[]
   meals_provided: boolean
+  accommodation_provided: boolean
 }
 
 interface CallRow {
@@ -483,14 +493,14 @@ export async function wantedEvents(
   // Each job's quote that counts: the one accepted, else the latest.
   const { rows: quoteRows } = projectIds.length
     ? await q.query<QuoteRow>(
-        `SELECT DISTINCT ON (project_id) project_id, lines, meals_provided
+        `SELECT DISTINCT ON (project_id) project_id, lines, meals_provided, accommodation_provided
            FROM quotes
           WHERE project_id = ANY($1::text[]) AND deleted_at IS NULL AND status <> 'declined'
           ORDER BY project_id, (status = 'accepted') DESC, version DESC`,
         [projectIds]
       )
     : { rows: [] as QuoteRow[] }
-  const allowancesByJob = new Map(quoteRows.map((r) => [r.project_id, allowancesOf(r.lines, r.meals_provided)]))
+  const allowancesByJob = new Map(quoteRows.map((r) => [r.project_id, allowancesOf(r.lines, r.meals_provided, r.accommodation_provided)]))
   // A No or a Yes on a person's own copy that their offer doesn't follow, so their copy can say so (ADR 0152).
   const { rows: guestRows } =
     personal && projectIds.length

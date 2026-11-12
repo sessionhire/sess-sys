@@ -182,6 +182,7 @@ const CHECKED: Partial<Record<CommandName, Checked>> = {
       agreedCents: 'agreed price',
       mealsProvided: 'meals',
       travelKm: 'travel distance',
+      accommodationProvided: 'accommodation',
     },
     what: (d) => (typeof d?.version === 'number' ? `version ${d.version} of this quote` : 'this quote'),
   },

@@ -5,11 +5,11 @@ import { Pending } from './StatusPill.tsx'
 import { ask } from './server.ts'
 import { client } from './sync.ts'
 
-type Fields = { from: string; fuel: string; use: string; perCar: string; perDiem: string }
+type Fields = { from: string; fuel: string; use: string; perCar: string; perDiem: string; stayFrom: string; room: string }
 /** The fuel price as the pumps write it: €1.749 a litre. */
 const litreText = (cents: number | null) => (cents === null ? '' : (cents / 100).toFixed(3))
-const fieldsOf = (t: TravelSettings): Fields => ({ from: String(t.fromKm), fuel: litreText(t.fuelCentsPerLitre), use: String(t.litresPer100Km), perCar: String(t.crewPerCar), perDiem: t.perDiemCents === null ? '' : euroText(t.perDiemCents) })
-const same = (a: Fields, b: Fields) => a.from === b.from && a.fuel === b.fuel && a.use === b.use && a.perCar === b.perCar && a.perDiem === b.perDiem
+const fieldsOf = (t: TravelSettings): Fields => ({ from: String(t.fromKm), fuel: litreText(t.fuelCentsPerLitre), use: String(t.litresPer100Km), perCar: String(t.crewPerCar), perDiem: t.perDiemCents === null ? '' : euroText(t.perDiemCents), stayFrom: String(t.stayFromKm), room: t.roomCents === null ? '' : euroText(t.roomCents) })
+const same = (a: Fields, b: Fields) => a.from === b.from && a.fuel === b.fuel && a.use === b.use && a.perCar === b.perCar && a.perDiem === b.perDiem && a.stayFrom === b.stayFrom && a.room === b.room
 const num = (s: string) => Number(s.trim().replace(',', '.').replace(/^€\s*/, ''))
 
 /** "1.749" or "€1.75" a litre, or "174.9" cent a litre, as cent a litre to one place; NaN for neither. */
@@ -22,7 +22,8 @@ function readFuel(s: string): number {
 /**
  * How the crew's travel and subsistence are charged on quotes (ADR 0086):
  * past how far from Dublin city centre travel is charged, the fuel price and
- * what a car uses and how many crew share one, and the per diem. Money's, beside Printed quotes.
+ * what a car uses and how many crew share one, the per diem, and how far before the crew stay over and a room a night
+ * (ADR 0156). Money's, beside Printed quotes.
  * The fuel price comes from AA Ireland's monthly survey: the server reads
  * their page when asked and the figure is put in the box to save, so a
  * person always sees it before it prices a quote. The day it was set shows,
@@ -66,9 +67,13 @@ export function TravelCard({ money: m }: { money: MoneyView }) {
     if (!(Number.isInteger(perCar) && perCar >= 1 && perCar <= 8)) return refuse('How many share a car is a whole number from 1 to 8.')
     const perDiem = parseEuro(f.perDiem)
     if (perDiem.reason) return refuse(`The per diem: ${perDiem.reason}`)
+    const stayFrom = num(f.stayFrom)
+    if (!(Number.isInteger(stayFrom) && stayFrom >= 0 && stayFrom <= 1000)) return refuse('The crew stay over past a whole number of km from 0 to 1,000.')
+    const room = parseEuro(f.room)
+    if (room.reason) return refuse(`A room a night: ${room.reason}`)
     // The survey a price came from: the one just read, if the box still says its price, else the one kept with it.
     const fuelMonth = aa && fuel === aa.centsPerLitre ? aa.month : fuel === t.fuelCentsPerLitre ? t.fuelMonth : null
-    void run(() => client.mutate('quoting.travel', { travelFromKm: from, fuelCentsPerLitre: fuel, litresPer100Km: use, perDiemCents: perDiem.cents ?? null, on: today, fuelMonth, crewPerCar: perCar }))
+    void run(() => client.mutate('quoting.travel', { travelFromKm: from, fuelCentsPerLitre: fuel, litresPer100Km: use, perDiemCents: perDiem.cents ?? null, on: today, fuelMonth, crewPerCar: perCar, stayFromKm: stayFrom, roomCents: room.cents ?? null }))
   }
   // Turned on or off at once, with the figures as they're saved.
   const setAuto = (on: boolean) =>
@@ -90,7 +95,7 @@ export function TravelCard({ money: m }: { money: MoneyView }) {
       <h2 id="travel-title">Travel and subsistence</h2>
       <p>
         Every quote works these out for itself. On a job further than the distance below from Dublin city centre, the crew's travel is charged: a car's
-        fuel there and back for each crew day, or for each car load when crew share. Vans' fuel stays in the transport lines. Each of the crew is charged the per diem for every day they're quoted for, unless the quote says the job provides meals.
+        fuel there and back for each crew day, or for each car load when crew share. Vans' fuel stays in the transport lines. Each of the crew is charged the per diem for every day they're quoted for, unless the quote says the job provides meals. Further again, the crew stay over: a room is charged for each crew day, unless the quote says the job puts them up, and they drive there and back once rather than each day.
       </p>
       <form className="office-form" onSubmit={save}>
         <label>
@@ -145,6 +150,19 @@ export function TravelCard({ money: m }: { money: MoneyView }) {
           Per diem, € a day{' '}
           <input inputMode="decimal" value={f.perDiem} onChange={(e) => setF({ ...f, perDiem: e.target.value })} placeholder="None" aria-describedby="per-diem-hint" />
           <small id="per-diem-hint">For each of the crew, each day. {t.perDiemCents === null ? 'Not set yet, so no subsistence is charged.' : ''}</small>
+        </label>
+        <label>
+          Stay over after{' '}
+          <span className="with-unit">
+            <input inputMode="numeric" value={f.stayFrom} onChange={(e) => setF({ ...f, stayFrom: e.target.value })} aria-describedby="stay-from-hint" />
+            km
+          </span>
+          <small id="stay-from-hint">Each way from Dublin city centre. Nearer than this, the crew go home each night.</small>
+        </label>
+        <label>
+          A room, € a night{' '}
+          <input inputMode="decimal" value={f.room} onChange={(e) => setF({ ...f, room: e.target.value })} placeholder="None" aria-describedby="room-hint" />
+          <small id="room-hint">For each of the crew, each night. {t.roomCents === null ? 'Not set yet, so no accommodation is charged.' : ''}</small>
         </label>
         <div className="actions wide">
           <button type="submit" className="primary">
