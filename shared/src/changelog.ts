@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: "A job's Vans tab is now called Transport",
     what: "On a job, the tab with the vans and their drivers is now called Transport: Quote, Crew, Kit, Transport, Phases, Show pack. Nothing else about it has changed, and links to it still work.",
-    prs: [0],
+    prs: [349],
     adrs: [140],
   },
   {
