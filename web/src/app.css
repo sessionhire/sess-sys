@@ -834,7 +834,25 @@ body:has(.foot-dock:not(:empty)) .toaster { inset-block-end: calc(76px + 112px +
 /* Labels under Admin (ADR 0106): the logo as labels print it, and the colour for each cable length. */
 .swatch { flex: none; display: inline-block; width: 1.25rem; height: 1.25rem; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); vertical-align: middle; }
 .labels-card h3 { margin: var(--ds-space-3) 0 var(--ds-space-2); }
-.labels-card .company-logo img.on-label { display: block; max-width: 12rem; max-height: 4rem; padding: var(--ds-space-2); background: #fff; border-radius: var(--radius-control); filter: grayscale(1); }
+/* The company's logo (ADR 0155), shown as each place has it: white paper, as quotes and labels are, in either theme. */
+.logo-card h3 { margin: var(--ds-space-4) 0 var(--ds-space-2); }
+.logo-card .logo-places { display: flex; flex-wrap: wrap; gap: var(--ds-space-3); margin: var(--ds-space-3) 0 0; }
+.logo-card figure { margin: 0; display: grid; gap: var(--ds-space-1); }
+.logo-card figcaption { color: var(--muted); font-size: var(--text-hint); }
+.logo-card .on-quote, .logo-card .on-label { display: flex; align-items: center; padding: var(--ds-space-2) var(--ds-space-3); background: #fff; border: 1px solid var(--line); border-radius: var(--radius-control); }
+/* The quote gives it 67 by 19 mm; drawn here at the same shape. */
+.logo-card .on-quote { width: 14rem; max-width: 100%; height: 4rem; box-sizing: border-box; }
+.logo-card .on-quote img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; object-position: left center; }
+.logo-card .on-label { width: 9rem; height: 3rem; box-sizing: border-box; }
+.logo-card .on-label img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(1) contrast(1.6); }
+.logo-card .warn-line { margin-top: var(--ds-space-3); }
+.logo-card .actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-top: var(--ds-space-3); }
+.logo-card label.button { gap: var(--ds-space-2); }
+.logo-card .logo-advice { display: grid; gap: var(--ds-space-2); margin: 0; font-size: var(--text-small); }
+.logo-card .logo-advice > div { display: grid; grid-template-columns: 7.5em 1fr; gap: var(--ds-space-3); }
+.logo-card .logo-advice dt { font-weight: 600; }
+.logo-card .logo-advice dd { margin: 0; color: var(--muted); }
+@media (max-width: 420px) { .logo-card .logo-advice > div { grid-template-columns: 1fr; gap: 0; } }
 .labels-card .colour-list { list-style: none; margin: 0 0 var(--ds-space-2); padding: 0; display: grid; gap: var(--ds-space-1); }
 .labels-card .colour-list li { display: flex; align-items: center; gap: var(--ds-space-2); }
 .labels-card .colour-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }

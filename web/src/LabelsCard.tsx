@@ -3,103 +3,23 @@ import {
   CABLE_COLOURS,
   cableColourList,
   DEFAULT_CABLE_COLOURS,
-  LOGO_SIDE,
   MOST_CABLE_COLOURS,
-  mayChangeLogo,
-  PHOTOS_WAIT,
   stepRange,
   type CableColour,
   type CableColourStep,
   type OfficeView,
 } from '@sh/shared'
-import { useRef, useState, type FormEvent } from 'react'
-import { Confirm, Refusal, useAct } from './act.tsx'
-import { refusal, useDocumentStorage } from './crew/Documents.tsx'
-import { Icon } from './Icon.tsx'
-import { shrinkPhoto } from './photo-file.ts'
-import { logoOf } from './Picture.tsx'
-import { useAccess } from './role.ts'
+import { useState, type FormEvent } from 'react'
+import { Refusal, useAct } from './act.tsx'
 import { Pending } from './StatusPill.tsx'
 import { client } from './sync.ts'
-import { useLate } from './useLate.ts'
 
 /**
  * What every label says of the company (ADR 0106), for the office: the
- * logo printed on each label in black, and the colour each cable length
- * takes. The logo goes straight to the server, as a product's photo does;
- * the colours are a setting like any other, saved whole.
+ * colour each cable length takes, a setting like any other, saved whole.
+ * The logo each label prints has its own card, Logo (LogoCard.tsx, ADR
+ * 0155), as quotes print it too.
  */
-
-const base = import.meta.env.VITE_API_BASE ?? ''
-
-async function call(init: RequestInit) {
-  let res: Response
-  try {
-    res = await fetch(`${base}/api/settings/logo/photo?${new URLSearchParams({ client: client.clientId })}`, { ...init, signal: AbortSignal.timeout(120_000) })
-  } catch {
-    throw new Error('Not changed: the logo needs signal. Try again when you have it.')
-  }
-  if (!res.ok) throw await refusal(res)
-}
-
-function Logo({ office }: { office: OfficeView }) {
-  const access = useAccess()
-  const storage = useDocumentStorage()
-  const picker = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState(false)
-  const late = useLate(busy)
-  const [removing, setRemoving] = useState(false)
-  const { run, error } = useAct()
-  const src = logoOf(office)
-  const may = mayChangeLogo(access.role) && !(storage && !storage.files)
-
-  const send = async (file: File | undefined) => {
-    if (picker.current) picker.current.value = ''
-    if (!file) return
-    setBusy(true)
-    await run(async () => call({ method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: await shrinkPhoto(file, { side: LOGO_SIDE, square: false, png: true }) }))
-    setBusy(false)
-  }
-  return (
-    <div className="company-logo">
-      <h3>Logo</h3>
-      {src ? (
-        <img src={src} alt="The company logo, as labels print it" className="on-label" />
-      ) : (
-        <p className="hint">None yet: labels say the company's name in words.</p>
-      )}
-      {storage && !storage.files ? (
-        <p className="hint">{PHOTOS_WAIT}</p>
-      ) : may && removing ? (
-        <Confirm
-          question="Take the logo down? Labels say the company's name in words again."
-          yes="Take it down"
-          loss
-          onYes={() => {
-            setRemoving(false)
-            void run(() => call({ method: 'DELETE' }))
-          }}
-          onNo={() => setRemoving(false)}
-        />
-      ) : may ? (
-        <div className="actions">
-          <label className="button" aria-busy={busy}>
-            <Icon name="camera" />
-            {late ? 'Sending…' : src ? 'Change logo' : 'Add the logo'}
-            <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={busy} onChange={(e) => void send(e.target.files?.[0])} />
-          </label>
-          {src && (
-            <button type="button" onClick={() => setRemoving(true)} disabled={busy}>
-              Remove logo
-            </button>
-          )}
-        </div>
-      ) : null}
-      <p className="hint">A PNG of the logo, dark on white or see-through, prints best. A label printer prints it in black only.</p>
-      <Refusal error={error} />
-    </div>
-  )
-}
 
 /** A colour's swatch, drawn in it, with its name for anyone who can't tell them apart. */
 export function Swatch({ colour }: { colour: CableColour }) {
@@ -133,8 +53,8 @@ function Colours({ office }: { office: OfficeView }) {
         Colours for cable lengths <Pending pending={office.cablesPending} />
       </h3>
       <p className="hint">
-        Each cable label says its length's colour, and on screen shows it. A label printer prints in black, so the colour itself is the tape, sleeve or coloured label
-        put on with it.
+        Each cable label says its length's colour, and on screen shows it. A label printer prints in black, so the colour itself is the tape, sleeve
+        or coloured label put on with it.
       </p>
       {editing ? (
         <form onSubmit={save}>
@@ -152,7 +72,10 @@ function Colours({ office }: { office: OfficeView }) {
                 </label>
                 <label>
                   Colour
-                  <select value={r.colour} onChange={(e) => setEditing(editing.map((x, j) => (j === i ? { ...x, colour: e.target.value as CableColour } : x)))}>
+                  <select
+                    value={r.colour}
+                    onChange={(e) => setEditing(editing.map((x, j) => (j === i ? { ...x, colour: e.target.value as CableColour } : x)))}
+                  >
                     {CABLE_COLOUR_KEYS.map((c) => (
                       <option key={c} value={c}>
                         {CABLE_COLOURS[c].name}
@@ -161,7 +84,12 @@ function Colours({ office }: { office: OfficeView }) {
                   </select>
                 </label>
                 <Swatch colour={r.colour} />
-                <button type="button" className="link" aria-label={`Take out the length ${i + 1}`} onClick={() => setEditing(editing.filter((_, j) => j !== i))}>
+                <button
+                  type="button"
+                  className="link"
+                  aria-label={`Take out the length ${i + 1}`}
+                  onClick={() => setEditing(editing.filter((_, j) => j !== i))}
+                >
                   Take out
                 </button>
               </li>
@@ -211,7 +139,7 @@ export function LabelsCard({ office }: { office: OfficeView }) {
   return (
     <section className="card labels-card" aria-label="Labels">
       <h2>Labels</h2>
-      <Logo office={office} />
+      <p className="hint">Each label prints the company's logo in black, from Logo above, or Session Hire in words until there is one.</p>
       <Colours office={office} />
     </section>
   )
