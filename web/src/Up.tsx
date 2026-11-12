@@ -29,7 +29,6 @@ export const ADMIN: Step = { href: '#admin', label: 'Admin' }
 export const CLIENTS: Step = { href: '#jobs/clients', label: 'Clients', up: 'All clients' }
 export const VENUES: Step = { href: '#jobs/venues', label: 'Venues', up: 'All venues' }
 export const MONEY: Step = { href: '#jobs/money', label: 'Money' }
-export const QUOTES: Step = { href: '#quotes', label: 'Quotes', up: 'All quotes' }
 export const PLACES: Step = { href: '#stock/places', label: 'Places', up: 'All places' }
 export const VEHICLES: Step = { href: '#stock/vehicles', label: 'Vehicles', up: 'All vehicles' }
 export const RACKS: Step = { href: '#stock/racks', label: 'Racks', up: 'All racks' }

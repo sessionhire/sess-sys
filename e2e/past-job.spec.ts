@@ -107,5 +107,5 @@ test('a new quote for a client at a venue worked before starts from what went ou
   await expect(again.getByRole('combobox', { name: 'Who asked' })).toBeVisible()
   if (process.env.WALK) await office.screenshot({ path: process.env.WALK, fullPage: true })
   await again.getByRole('button', { name: 'Cancel' }).click()
-  await expect(office).toHaveURL(/#quotes$/)
+  await expect(office).toHaveURL(/#jobs$/)
 })

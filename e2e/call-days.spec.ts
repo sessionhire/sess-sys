@@ -20,9 +20,9 @@ test("a crew call keeps to its phase's days, and goes with the phase when it mov
   const job = `Riverside Sessions ${tag()}`
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await ready(office)
-  await office.getByRole('button', { name: 'New job', exact: true }).click()
-  const form = office.locator('form').filter({ has: office.getByRole('button', { name: 'Add job' }) })
-  await form.getByLabel('Job').fill(job)
+  await office.getByRole('button', { name: 'New', exact: true }).click()
+  const form = office.locator('form').filter({ has: office.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(job)
   await form.getByLabel('Status').selectOption({ label: 'Confirmed' })
   await form.getByLabel('Phase 1', { exact: true }).fill('Build')
   await form.getByLabel('Phase 1 from').fill('2030-12-11')
@@ -31,7 +31,7 @@ test("a crew call keeps to its phase's days, and goes with the phase when it mov
   await form.getByLabel('Phase 2', { exact: true }).fill('Show')
   await form.getByLabel('Phase 2 from').fill('2030-12-13')
   await form.getByLabel('Phase 2 to').fill('2030-12-13')
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(office.getByRole('heading', { name: job })).toBeVisible()
   await expect(office.locator('.conn')).toHaveText('Up to date')
 

@@ -367,7 +367,7 @@ export interface TodoList {
 
 /** Where an item opens in the app. */
 export function todoHref(i: Pick<TodoItem, 'jobId' | 'where'>): string {
-  if (!i.jobId) return '#quotes'
+  if (!i.jobId) return '#jobs/money/follow-up'
   const job = `#jobs/${encodeURIComponent(i.jobId)}`
   return i.where === 'job' ? job : `${job}/${i.where}`
 }

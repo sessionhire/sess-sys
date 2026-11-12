@@ -15,13 +15,13 @@ test('pops up a change someone else made to a job you made, counts it on the bel
   const name = `Notice Gig ${unique()}`
   await page.goto('/#jobs')
   // New job is on the title's line, its form behind it (Colly, 10 November 2026).
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
-  await form.getByLabel('Job').fill(name)
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(name)
   await form.getByLabel('Phase 1', { exact: true }).fill('Show')
   await form.getByLabel('Phase 1 from').fill('2026-11-20')
   await form.getByLabel('Phase 1 to').fill('2026-11-20')
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   await expect(page.locator('.conn')).toHaveText('Up to date')
   const id = new URL(page.url()).hash.replace('#jobs/', '')
@@ -73,17 +73,17 @@ test("one maker's change to many of your jobs at once is one line on the list an
   // Proves (audit, 20 October 2026, finding 68): three jobs made here and moved on together from another device are one
   // notification counting the jobs, opening to show each change, and the bell counts it once.
   await page.goto('/#jobs')
-  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
   const ids: string[] = []
   for (let i = 0; i < 3; i++) {
     const name = `Bulk Gig ${unique()}`
     await page.goto('/#jobs')
-    await page.getByRole('button', { name: 'New job', exact: true }).click()
-    await form.getByLabel('Job').fill(name)
+    await page.getByRole('button', { name: 'New', exact: true }).click()
+    await form.getByLabel('Name', { exact: true }).fill(name)
     await form.getByLabel('Phase 1', { exact: true }).fill('Show')
     await form.getByLabel('Phase 1 from').fill('2026-11-21')
     await form.getByLabel('Phase 1 to').fill('2026-11-21')
-    await form.getByRole('button', { name: 'Add job' }).click()
+    await form.getByRole('button', { name: 'Add gig' }).click()
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
     ids.push(new URL(page.url()).hash.replace('#jobs/', ''))
   }

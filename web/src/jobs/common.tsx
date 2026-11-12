@@ -32,7 +32,7 @@ export interface PageAdd {
  * Board, Calendar, Week and Month it goes to the list with the form open. Taking a job in is the office's (ADR 0034).
  */
 export function useJobAdd(elsewhere = false): PageAdd | undefined {
-  return useAccess().can('jobs') ? { key: 'job', label: 'New job', href: elsewhere ? '#jobs' : undefined } : undefined
+  return useAccess().can('jobs') ? { key: 'job', label: 'New', href: elsewhere ? '#jobs' : undefined } : undefined
 }
 
 /** What the Jobs screens share, and Stock and Crew too: the header, a record's page, and picking or adding a client or venue by name. */

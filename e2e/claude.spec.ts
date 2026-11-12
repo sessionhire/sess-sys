@@ -217,7 +217,7 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   const chase = todo.getByRole('listitem').filter({ hasText: 'Chase the quote for' })
   await expect(chase.getByRole('link')).toHaveAttribute('href', /^#jobs\/[^/]+\/quote$/)
   // A job Claude made up isn't linked to: it opens Quotes.
-  await expect(todo.getByRole('link', { name: 'Book a lighting tech' })).toHaveAttribute('href', '#quotes')
+  await expect(todo.getByRole('link', { name: 'Book a lighting tech' })).toHaveAttribute('href', '#jobs/money/follow-up')
   await chase.getByRole('checkbox').check()
   await expect(todo).toContainText('1 thing left.')
   // Ticked stays ticked, and the same list is on Home.

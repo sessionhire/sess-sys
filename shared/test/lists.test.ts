@@ -17,6 +17,9 @@ import {
   type ListFilter,
   type ListSort,
   type PlaceForList,
+  REVERSED,
+  sortKeyOf,
+  sortReversed,
   type ProductForList,
 } from '../src/lists.ts'
 import type { JobView } from '../src/sync/jobs-view.ts'
@@ -182,5 +185,23 @@ describe('venues and clients', () => {
   it('filters venues by the map, which clients have not', () => {
     expect(placeFilters(false).map((f) => f.key)).toEqual(['jobs', 'docs'])
     expect(listed(places, placeFilters(true), PLACE_SORTS, { sort: 'name', filters: { map: 'off', jobs: 'some' } }).map((p) => p.name)).toEqual(['3Arena'])
+  })
+})
+
+describe('a sort turned round (Colly, 12 November 2026: a table head sorts one way, then the other)', () => {
+  const items = [{ n: 'b' }, { n: 'a' }, { n: 'c' }]
+  const sorts: ListSort<{ n: string }>[] = [{ key: 'name', label: 'Name, A to Z', compare: (a, b) => byName(a.n, b.n) }]
+  it('runs the way its name says, and the other way with :desc', () => {
+    expect(listed(items, [], sorts, { sort: 'name', filters: {} }).map((i) => i.n)).toEqual(['a', 'b', 'c'])
+    expect(listed(items, [], sorts, { sort: `name${REVERSED}`, filters: {} }).map((i) => i.n)).toEqual(['c', 'b', 'a'])
+    expect(sortKeyOf('name:desc')).toBe('name')
+    expect(sortReversed('name')).toBe(false)
+  })
+  it("a sort no longer offered falls back to the list's first, the way it says", () => {
+    expect(listed(items, [], sorts, { sort: 'gone:desc', filters: {} }).map((i) => i.n)).toEqual(['a', 'b', 'c'])
+  })
+  it('jobs offer venue always, and status and assignee only with their tasks', () => {
+    expect(jobSorts(false).map((s) => s.key)).toEqual(['date', 'name', 'client', 'crew', 'venue'])
+    expect(jobSorts(false, () => undefined).map((s) => s.key)).toEqual(['date', 'name', 'client', 'crew', 'venue', 'status', 'assignee'])
   })
 })

@@ -42,14 +42,14 @@ async function newProduct(page: Page, name: string, count: number) {
 async function jobWithNotes(page: Page, name: string, notes: string) {
   await page.goto('/#jobs')
   // New job waits behind its button at the top of the list on a phone (audit finding 22).
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
-  await form.getByLabel('Job').fill(name)
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(name)
   await form.getByLabel('Status').selectOption({ label: 'Confirmed' })
   await form.getByLabel('Phase 1', { exact: true }).fill('Show')
   await form.getByLabel('Phase 1 from').fill('2030-11-10')
   await form.getByLabel('Phase 1 to').fill('2030-11-11')
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   await page.getByRole('button', { name: 'Change details' }).click()
   await page.getByLabel('Notes for the crew', { exact: true }).fill(notes)
