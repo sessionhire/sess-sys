@@ -7,7 +7,7 @@ import type { Queryable } from '../db.ts'
 type Row = Record<string, any>
 
 const QUOTE = `id, project_id, version, status, lines, discount_pct, notes, made_at, saved_at,
-  sent_on::text AS sent_on, answered_on::text AS answered_on, invoiced_on::text AS invoiced_on, invoice_ref, paid_on::text AS paid_on, number, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, declined_why, declined_note,
+  sent_on::text AS sent_on, answered_on::text AS answered_on, invoiced_on::text AS invoiced_on, invoice_ref, paid_on::text AS paid_on, number, valid_days, deposit_pct, agreed_cents, meals_provided, accommodation_provided, travel_km, declined_why, declined_note,
   accept_token, accepted_name, accepted_at, for_name`
 
 const toQuote = (r: Row): Quote => ({
@@ -31,6 +31,8 @@ const toQuote = (r: Row): Quote => ({
   agreedCents: r.agreed_cents === null || r.agreed_cents === undefined ? null : Number(r.agreed_cents),
   mealsProvided: r.meals_provided,
   travelKm: r.travel_km ?? null,
+  // The crew's accommodation (ADR 0156), only once the job puts them up, so a device or a test that knows nothing of it sees the quote as before.
+  ...(r.accommodation_provided ? { accommodationProvided: true } : {}),
   declinedWhy: r.declined_why ?? null,
   declinedNote: r.declined_note ?? '',
   // Who it's for (ADR 0128), only once set, so a device or a test that knows nothing of it sees the quote as before.
@@ -131,7 +133,7 @@ export async function paidOnFor(q: Queryable, timesheetIds: readonly string[]): 
 /** What every printed quote says (ADR 0084), once anything about it is saved or a number given. */
 export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | undefined> {
   const { rows } = await q.query<Row>(
-    `SELECT id, next_number, terms, bank, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on::text AS fuel_set_on, fuel_auto, fuel_month, crew_per_car, email_quotes, accept_online, own_kit_cost_pct
+    `SELECT id, next_number, terms, bank, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on::text AS fuel_set_on, fuel_auto, fuel_month, crew_per_car, stay_from_km, room_cents, email_quotes, accept_online, own_kit_cost_pct
      FROM quote_settings WHERE id = $1`,
     [QUOTE_SETTINGS_ID]
   )
@@ -152,6 +154,9 @@ export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | un
     fuelAuto: r.fuel_auto,
     fuelMonth: r.fuel_month,
     crewPerCar: r.crew_per_car ?? DEFAULT_CREW_PER_CAR,
+    // Accommodation (ADR 0156), only once set, so a device or a test that knows nothing of it sees the settings as before.
+    ...(r.stay_from_km !== null && r.stay_from_km !== undefined ? { stayFromKm: r.stay_from_km } : {}),
+    ...(r.room_cents !== null && r.room_cents !== undefined ? { roomCents: r.room_cents } : {}),
   }
 }
 

@@ -15,6 +15,7 @@ import {
   pctWord,
   quoteContact,
   quoteNumberLabel,
+  priceWords,
   RATE_UNIT,
   spanLabel,
   validUntil,
@@ -296,7 +297,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
       const byKit = under.length > 0 && !l.unitCents && !!l.packageId
       // Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1).
       const free = !!l.included && !under.length
-      const price = `${money(l.unitCents)} ${l.per === 'once' ? 'once' : `a ${RATE_UNIT[l.rate ?? 'daily']}`}`
+      const price = `${money(l.unitCents)} ${priceWords(l)}`
       // Priced below what its items come to (ADR 0116): the client sees what the package saves them.
       const saved = lineSaving(l)
       const second: Cell[] = []

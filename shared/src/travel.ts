@@ -15,6 +15,10 @@ import { STANDARD_VAT, type LineExtra, type QuoteLine, type QuoteSettings } from
  *   one on the quote.
  * - **Subsistence**: a per diem for each of the crew for each day they're
  *   quoted for, unless the job gives them their meals.
+ * - **Accommodation** (ADR 0156): further than so many km again, the crew
+ *   stay over: a room for each crew day, unless the job puts them up. When
+ *   they stay, they drive there and back once rather than each day, so the
+ *   travel is a car trip for each of the crew, or each car load.
  *
  * The office sets the fuel price, what a car uses, how many share one, where travel starts
  * and the per diem in Admin. A price not set yet charges nothing, and the
@@ -31,6 +35,11 @@ export const ROAD_FACTOR = 1.2
 export const DEFAULT_TRAVEL_FROM_KM = 50
 export const DEFAULT_LITRES_PER_100_KM = 6.5
 export const DEFAULT_CREW_PER_CAR = 1
+/**
+ * Until the office says otherwise, the crew stay over past 180 km each way, by the map's reckoning: Galway (223), Cork
+ * (264), Limerick, Sligo and Derry, but not Belfast (169), Waterford (161) or Athlone (134), which they drive home from.
+ */
+export const DEFAULT_STAY_FROM_KM = 180
 
 /** Past this many days the fuel price is worth checking again. */
 export const FUEL_PRICE_FRESH_DAYS = 30
@@ -46,6 +55,10 @@ export interface TravelSettings {
   fuelMonth: string | null
   /** How many of the crew share a car to a job. */
   crewPerCar: number
+  /** Past this many km each way the crew stay over (ADR 0156). */
+  stayFromKm: number
+  /** A room for one of the crew for a night, in cents. Null while not set. */
+  roomCents: number | null
 }
 
 export function travelSettingsOf(s: Partial<QuoteSettings> | undefined): TravelSettings {
@@ -58,6 +71,8 @@ export function travelSettingsOf(s: Partial<QuoteSettings> | undefined): TravelS
     fuelAuto: s?.fuelAuto ?? true,
     fuelMonth: s?.fuelMonth ?? null,
     crewPerCar: s?.crewPerCar ?? DEFAULT_CREW_PER_CAR,
+    stayFromKm: s?.stayFromKm ?? DEFAULT_STAY_FROM_KM,
+    roomCents: s?.roomCents ?? null,
   }
 }
 
@@ -81,6 +96,9 @@ export const fuelCents = (kmEachWay: number, s: Pick<TravelSettings, 'fuelCentsP
 export const crewDays = (lines: readonly Pick<QuoteLine, 'kind' | 'qty' | 'days' | 'per' | 'extra'>[]) =>
   lines.filter((l) => l.kind === 'crew' && !l.extra).reduce((n, l) => n + l.qty * Math.ceil(l.per === 'once' ? 1 : l.days), 0)
 
+/** The crew on a quote, each crew line's how many: the people who'd each drive there once when they stay over. */
+export const crewPeople = (lines: readonly Pick<QuoteLine, 'kind' | 'qty' | 'extra'>[]) => lines.filter((l) => l.kind === 'crew' && !l.extra).reduce((n, l) => n + l.qty, 0)
+
 /** Where the distance came from: typed on the quote, the venue's pin, or nowhere yet. */
 export type KmFrom = 'typed' | 'map' | 'none'
 
@@ -92,11 +110,19 @@ export interface Extras {
     from: KmFrom
     /** Why there's no travel line, in words, or null when there is one. */
     none: string | null
-    /** Car trips there and back: the crew days, by however many share a car. */
+    /** Car trips there and back: the crew days, or the crew when they stay over, by however many share a car. */
     trips: number
   }
   subsistence: {
     crewDays: number
+    none: string | null
+  }
+  accommodation: {
+    /** Whether the venue is far enough, with crew on the quote, that the crew would stay over. */
+    far: boolean
+    /** Whether they do: far, and the office prices rooms or the job puts them up, so travel is once each. */
+    stay: boolean
+    nights: number
     none: string | null
   }
 }
@@ -115,6 +141,8 @@ export function extrasFor(o: {
   /** The distance typed on the quote, which wins over the map. */
   typedKm: number | null | undefined
   mealsProvided: boolean
+  /** The job puts the crew up (ADR 0156). Left out, it doesn't. */
+  accommodationProvided?: boolean
   ids: Partial<Record<LineExtra, string>>
   newId: () => string
 }): Extras {
@@ -122,7 +150,11 @@ export function extrasFor(o: {
   const km = o.typedKm ?? (o.pin ? roadKmFromDublin(o.pin) : null)
   const from: KmFrom = o.typedKm != null ? 'typed' : o.pin ? 'map' : 'none'
   const days = crewDays(o.lines)
-  const trips = Math.ceil(days / Math.max(1, s.crewPerCar))
+  // Far enough to stay over (ADR 0156): each of the crew drives there once and home once, not each day. Only once the
+  // office prices rooms, or the job puts the crew up, so travel on a far job reads as before until then.
+  const far = km !== null && km > s.stayFromKm && days > 0
+  const stay = far && (s.roomCents !== null || !!o.accommodationProvided)
+  const trips = Math.ceil((stay ? Math.min(days, crewPeople(o.lines)) : days) / Math.max(1, s.crewPerCar))
   const lines: QuoteLine[] = []
   let travelNone: string | null = null
   if (km === null) travelNone = "The venue isn't on the map, so the distance isn't known: put it on the map, or type the distance."
@@ -134,7 +166,7 @@ export function extrasFor(o: {
     lines.push({
       id: o.ids.travel ?? o.newId(),
       kind: 'other',
-      what: `Crew travel, ${km} km each way from Dublin, ${trips} car trip${trips === 1 ? '' : 's'}`,
+      what: `Crew travel, ${km} km each way from Dublin, ${trips} car trip${trips === 1 ? '' : 's'}${stay ? ', staying over' : ''}`,
       ref: null,
       group: EXTRA_GROUP,
       qty: trips,
@@ -164,7 +196,34 @@ export function extrasFor(o: {
       per: 'day',
       extra: 'subsistence',
     })
-  return { lines, travel: { km, from, none: travelNone, trips }, subsistence: { crewDays: days, none: subNone } }
+  let stayNone: string | null = null
+  if (km === null) stayNone = "The venue isn't on the map, so whether the crew stay over isn't known."
+  else if (km <= s.stayFromKm) stayNone = `${km} km from Dublin city centre, so within the ${s.stayFromKm} km the crew stay over after.`
+  else if (days === 0) stayNone = 'No crew on the quote yet.'
+  else if (o.accommodationProvided) stayNone = 'The job puts the crew up.'
+  else if (s.roomCents === null) stayNone = 'No room price set yet: set it in Admin › Company › Travel and subsistence.'
+  else if (days > 10_000) stayNone = 'More crew nights than a line has room for.'
+  else
+    lines.push({
+      id: o.ids.accommodation ?? o.newId(),
+      kind: 'other',
+      what: `Crew accommodation, ${days} crew night${days === 1 ? '' : 's'}`,
+      ref: null,
+      group: EXTRA_GROUP,
+      // A room for each crew day, for a night each: printed as the room a night.
+      qty: days,
+      days: 1,
+      unitCents: s.roomCents,
+      vat: STANDARD_VAT,
+      per: 'day',
+      extra: 'accommodation',
+    })
+  return {
+    lines,
+    travel: { km, from, none: travelNone, trips },
+    subsistence: { crewDays: days, none: subNone },
+    accommodation: { far, stay, nights: days, none: stayNone },
+  }
 }
 
 /** The fuel price read from AA Ireland's monthly survey (ADR 0086), offered to the office to save. */

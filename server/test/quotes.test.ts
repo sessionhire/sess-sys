@@ -236,6 +236,26 @@ describe('travel and subsistence (ADR 0086)', () => {
     await ok(app, m('quote.save', { id: 'v2', projectId: 'gala', lines: [line()], discountPct: 0, notes: '', mealsProvided: false, travelKm: null }))
     expect(await quote('v2')).toMatchObject({ mealsProvided: false, travelKm: null })
   })
+
+  it("keeps whether the job puts the crew up on a quote and its next version, and the room price in the settings (ADR 0156)", async () => {
+    const { app, quote } = await gala()
+    const settings = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string }) => c.entity === 'quoteSettings').at(-1)?.data
+    await ok(app, m('quote.save', { id: 'v1', projectId: 'gala', lines: [line()], discountPct: 0, notes: '', accommodationProvided: true }))
+    expect(await quote('v1')).toMatchObject({ accommodationProvided: true })
+    await ok(app, save('v1', [line({ qty: 4 })]))
+    expect(await quote('v1')).toMatchObject({ accommodationProvided: true })
+    await ok(app, m('quote.sent', { id: 'v1', on: today }), save('v2'))
+    expect(await quote('v2')).toMatchObject({ version: 2, accommodationProvided: true })
+    await ok(app, m('quote.save', { id: 'v2', projectId: 'gala', lines: [line()], discountPct: 0, notes: '', accommodationProvided: false }))
+    expect((await quote('v2'))?.accommodationProvided).toBeUndefined()
+    await ok(app, m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, stayFromKm: 200, roomCents: 9500 }))
+    expect(await settings()).toMatchObject({ stayFromKm: 200, roomCents: 9500 })
+    // An older app's save, and the fuel switch, leave them as they were.
+    await ok(app, m('quoting.travel', { travelFromKm: 60, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, fuelAuto: false }))
+    expect(await settings()).toMatchObject({ travelFromKm: 60, stayFromKm: 200, roomCents: 9500 })
+    await ok(app, m('quoting.travel', { travelFromKm: 60, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, stayFromKm: 200, roomCents: null }))
+    expect((await settings())?.roomCents).toBeUndefined()
+  })
 })
 
 describe('the price list', () => {

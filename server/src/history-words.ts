@@ -779,7 +779,9 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'quoting.travel':
       return `Set how travel and subsistence are charged: travel past ${typeof a.travelFromKm === 'number' ? a.travelFromKm : '?'} km from Dublin, ${
         typeof a.fuelCentsPerLitre === 'number' ? `fuel at ${a.fuelCentsPerLitre}c a litre` : 'no fuel price'
-      }, ${typeof a.perDiemCents === 'number' ? `a per diem of ${euro(a.perDiemCents)}` : 'no per diem'}`
+      }, ${typeof a.perDiemCents === 'number' ? `a per diem of ${euro(a.perDiemCents)}` : 'no per diem'}${
+        a.roomCents === undefined ? '' : `, ${typeof a.roomCents === 'number' ? `a room at ${euro(a.roomCents)} a night` : 'no room price'}${typeof a.stayFromKm === 'number' ? ` past ${a.stayFromKm} km` : ''}`
+      }`
     case 'price.product':
       return a.dayCents === null
         ? `Took ${model(a.modelId)} off the price list`

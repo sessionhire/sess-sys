@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.174.0',
+    version: '1.175.0',
     date: '2026-11-12',
     title: 'Bigger 100 × 25 mm labels, and a sharp logo on every label',
     what: "Labels can now print at 100 × 25 mm on a label printer: pick \"Label printer, 100 × 25 mm, bigger type\" when printing an item's label, or \"Bag or bin, 100 × 25 mm\" for cables. The QR code is the same size, and the number, name, stock code and logo get the extra width: the number prints about twice as big and the words a third bigger, so they read from further away. The logo also prints sharp on every label now, where before it came out as a blur of big squares, and a cable label for a product with no stock code no longer prints its name a second time where the code goes.",
     prs: [352],
     adrs: [106],
+  },
+  {
+    version: '1.174.0',
+    date: '2026-11-12',
+    title: "Quotes charge the crew's accommodation on a job far enough to stay over",
+    what: "Beside travel and subsistence, a quote now works out the crew's rooms for itself. Set a room price, so much a night for each of the crew, and how far from Dublin the crew stay over (180 km unless you change it) under Admin › Company › Travel and subsistence. On a job further than that, the quote adds a line for a room for each crew day, printed as so many crew nights at the room price a night. Press the row and turn on Accommodation provided when the job puts the crew up. When the crew stay over, their travel is charged as one car trip there and back each, or each car load, rather than one every day. Until a room price is set nothing changes. A crew member's invite says when accommodation is covered.",
+    prs: [348],
+    adrs: [156],
   },
   {
     version: '1.173.0',

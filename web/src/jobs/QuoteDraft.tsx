@@ -108,6 +108,8 @@ interface Typed {
   base: string
   lines: LineDraft[]
   meals: boolean
+  /** Left out by a device from before accommodation (ADR 0156). */
+  rooms?: boolean
   kmTyped: string
   discount: string
   agreed: string
@@ -117,7 +119,7 @@ interface Typed {
   forName?: string
 }
 const baseOf = (q: QuoteView) =>
-  JSON.stringify([q.lines, q.discountPct, q.agreedCents ?? null, q.notes, q.validDays ?? null, q.depositPct ?? null, q.mealsProvided ?? false, q.travelKm ?? null, q.forName ?? ''])
+  JSON.stringify([q.lines, q.discountPct, q.agreedCents ?? null, q.notes, q.validDays ?? null, q.depositPct ?? null, q.mealsProvided ?? false, q.travelKm ?? null, q.forName ?? '', q.accommodationProvided ?? false])
 function readTyped(): Record<string, Typed> {
   try {
     return JSON.parse(sessionStorage.getItem(TYPED_STORE) ?? '{}') as Record<string, Typed>
@@ -144,6 +146,7 @@ function keepTyped(id: string, t: Typed | undefined) {
 /** A draft's terms as they're typed, to tell one changed here from one left as it was (ADR 0113). */
 const termsText = (q: QuoteView) => ({
   meals: q.mealsProvided ?? false,
+  rooms: q.accommodationProvided ?? false,
   kmTyped: q.travelKm == null ? '' : String(q.travelKm),
   discount: q.discountPct ? String(q.discountPct) : '',
   agreed: q.agreedCents == null ? '' : euroText(q.agreedCents),
@@ -175,6 +178,8 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
   // Travel and subsistence (ADR 0086) aren't typed: they're worked out below from the rest, so they're kept apart.
   const [lines, setLines] = useState<LineDraft[]>(() => kept?.lines ?? q.lines.filter((l) => !l.extra).map(toDraft))
   const [meals, setMeals] = useState(kept?.meals ?? q.mealsProvided ?? false)
+  // The job puts the crew up (ADR 0156), so no accommodation is charged.
+  const [rooms, setRooms] = useState(kept?.rooms ?? q.accommodationProvided ?? false)
   const [kmTyped, setKmTyped] = useState(kept?.kmTyped ?? (q.travelKm == null ? '' : String(q.travelKm)))
   const [discount, setDiscount] = useState(kept?.discount ?? (q.discountPct ? String(q.discountPct) : ''))
   // A price agreed for the whole (ADR 0085) stands in for the discount percentage while it's there.
@@ -281,6 +286,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
     const a = termsText(was)
     const z = termsText(q)
     if (meals === a.meals) setMeals(z.meals)
+    if (rooms === a.rooms) setRooms(!!z.rooms)
     if (kmTyped === a.kmTyped) setKmTyped(z.kmTyped)
     if (discount === a.discount) setDiscount(z.discount)
     if (agreed === a.agreed) setAgreed(z.agreed)
@@ -315,6 +321,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
     pin: pinOf(job),
     typedKm: kmOk ? kmRead : null,
     mealsProvided: meals,
+    accommodationProvided: rooms,
     ids: Object.fromEntries(q.lines.filter((l) => l.extra).map((l) => [l.extra!, l.id])),
     newId: useStableIds(),
   })
@@ -361,6 +368,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
     stored.length === q.lines.length &&
     stored.every((l, i) => sameLine(l, q.lines[i]!)) &&
     meals === (q.mealsProvided ?? false) &&
+    rooms === (q.accommodationProvided ?? false) &&
     kmRead === (q.travelKm ?? null) &&
     pct === q.discountPct &&
     agreedCents === (q.agreedCents ?? null) &&
@@ -427,7 +435,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
   // the page saves what's waiting at once. Saving goes through the device's queue, so it works with no signal.
   const payload =
     !storedSame && !termKey
-      ? { id: q.id, projectId: job.id, lines: stored.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
+      ? { id: q.id, projectId: job.id, lines: stored.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, accommodationProvided: rooms, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
       : undefined
   const waiting = useRef(payload)
   waiting.current = payload
@@ -460,7 +468,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
   const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: sentOn || today }))
   const late = useLate(!!payload)
   // Kept on the device while it can't save (finding 27), and let go once it can.
-  const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, kmTyped, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
+  const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, rooms, kmTyped, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
   useEffect(() => keepTyped(q.id, typed ? (JSON.parse(typed) as Typed) : undefined), [typed])
 
   const days = jobDays(job)
@@ -936,6 +944,8 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
             extras={extras}
             meals={meals}
             setMeals={setMeals}
+            rooms={rooms}
+            setRooms={setRooms}
             km={kmTyped}
             setKm={setKmTyped}
             kmProblem={termErr('km')}

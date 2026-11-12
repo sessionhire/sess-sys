@@ -248,6 +248,7 @@ export function moneyView(
           agreedCents: a.agreedCents !== undefined ? a.agreedCents : (was?.agreedCents ?? null),
           mealsProvided: a.mealsProvided ?? before?.mealsProvided ?? false,
           travelKm: a.travelKm !== undefined ? a.travelKm : (before?.travelKm ?? null),
+          ...((a.accommodationProvided ?? before?.accommodationProvided) ? { accommodationProvided: true } : {}),
           forName: a.forName !== undefined ? a.forName : (was?.forName ?? before?.forName ?? ''),
           pending: true,
         })
@@ -369,8 +370,12 @@ export function moneyView(
           fuelAuto: a.fuelAuto ?? quoting.fuelAuto ?? true,
           fuelMonth,
           crewPerCar: a.crewPerCar ?? quoting.crewPerCar ?? DEFAULT_CREW_PER_CAR,
+          ...(a.stayFromKm !== undefined ? { stayFromKm: a.stayFromKm } : {}),
+          ...(a.roomCents !== undefined && a.roomCents !== null ? { roomCents: a.roomCents } : {}),
           pending: true,
         }
+        // A room price taken off reads as never set, as the server gives it (ADR 0156).
+        if (a.roomCents === null) delete quoting.roomCents
         break
       }
       case 'cost.paid': {
