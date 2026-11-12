@@ -28,12 +28,28 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.175.0',
+    version: '1.177.0',
     date: '2026-11-12',
     title: 'Undo just after Offer',
     what: "For half a minute after Offer, nothing the app sends by itself goes: no calendar invite and no WhatsApp. The panel after the press counts the seconds down with an Undo button, so a wrong pick can be taken back with nobody sent anything, not even a cancellation. The offer is made at once as before, so the call counts it and the person's page shows it; Undo takes it off both. After the half minute, or once they've answered, it's Withdraw as before.",
     prs: [356],
     adrs: [162],
+  },
+  {
+    version: '1.176.0',
+    date: '2026-11-12',
+    title: 'A switch to print the logo in pure black and white on labels',
+    what: "Admin › Company › Logo has a new switch, Pure black and white on labels. With it on, every grey and colour in the logo prints as solid black or white on stock and cable labels, which gives the sharpest print on a label printer; pale parts of the logo drop out. The card's label preview shows it before you print. Quotes and their PDFs keep the logo in colour either way. It starts off.",
+    prs: [350],
+    adrs: [163],
+  },
+  {
+    version: '1.175.0',
+    date: '2026-11-12',
+    title: 'Bigger 100 × 25 mm labels, and a sharp logo on every label',
+    what: "Labels can now print at 100 × 25 mm on a label printer: pick \"Label printer, 100 × 25 mm, bigger type\" when printing an item's label, or \"Bag or bin, 100 × 25 mm\" for cables. The QR code is the same size, and the number, name, stock code and logo get the extra width: the number prints about twice as big and the words a third bigger, so they read from further away. The logo also prints sharp on every label now, where before it came out as a blur of big squares, and a cable label for a product with no stock code no longer prints its name a second time where the code goes.",
+    prs: [352],
+    adrs: [106],
   },
   {
     version: '1.174.1',

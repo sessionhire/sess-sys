@@ -282,6 +282,8 @@ function describer(view: View): (m: Mutation) => string {
         return a.mode === 'test' ? 'Try offers on WhatsApp on the test numbers' : onOff(a.mode === 'on', 'offers on WhatsApp')
       case 'cables.colours':
         return 'Set the colours for cable lengths'
+      case 'logo.blackWhite':
+        return onOff(a.on, 'the logo in pure black and white on labels')
       case 'trackers.use':
         return onOff(a.on, 'trackers')
       case 'trackers.home':

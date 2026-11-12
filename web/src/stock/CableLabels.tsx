@@ -2,7 +2,7 @@ import { barcode, barcodeFits, CABLE_COLOURS, colourForLength, lengthFromName, l
 import { useMemo, useState } from 'react'
 import { Heading } from '../Icon.tsx'
 import { Swatch } from '../LabelsCard.tsx'
-import { logoOf } from '../Picture.tsx'
+import { useLabelLogo } from '../Picture.tsx'
 import { useView } from '../view.ts'
 import { PrintSheet, usePrinting } from './Labels.tsx'
 
@@ -27,6 +27,7 @@ export const CABLE_LAYOUTS = {
   wrap: { name: 'Wrap round, 50 × 25 mm', hint: 'Self-laminating: the clear tail wraps over the print.', page: '50mm 25mm' },
   flag: { name: 'Flag, 100 × 25 mm', hint: 'Round the cable and stuck to itself: it says it on both sides.', page: '100mm 25mm' },
   bag: { name: 'Bag or bin, 50 × 25 mm', hint: 'For the bag, bin or tub the cables are kept in.', page: '50mm 25mm' },
+  bigbag: { name: 'Bag or bin, 100 × 25 mm', hint: 'The same, with room for bigger type.', page: '100mm 25mm' },
 } as const
 export type CableLayout = keyof typeof CABLE_LAYOUTS
 
@@ -148,7 +149,8 @@ function Face({ s, widthMm }: { s: Says; widthMm: number }) {
         )}
         <b style={{ fontSize: `${fit(s.words, room, head ? (bars ? 4.2 : 5.5) : bars ? 6.5 : qr ? 7 : 10)}mm` }}>{s.words}</b>
         {bars && <Bars text={s.code} />}
-        {qr && <small className="code">{s.code}</small>}
+        {/* The stock code in words; not the name again when the QR code holds the name, as a product without a code has. */}
+        {qr && s.code !== s.words && <small className="code">{s.code}</small>}
       </div>
     </div>
   )
@@ -158,7 +160,7 @@ function Face({ s, widthMm }: { s: Says; widthMm: number }) {
 export function CableLabel({ s, layout }: { s: Says; layout: CableLayout }) {
   return (
     <div className={`label cable ${layout}`}>
-      <Face s={s} widthMm={layout === 'flag' ? 40 : 50} />
+      <Face s={s} widthMm={layout === 'flag' ? 40 : layout === 'bigbag' ? 100 : 50} />
       {layout === 'flag' && (
         <>
           <span className="round" aria-hidden />
@@ -172,6 +174,7 @@ export function CableLabel({ s, layout }: { s: Says; layout: CableLayout }) {
 /** Cable labels for a product: what they say, which label, the code on them, how many, and Print. */
 export function CableLabels({ m }: { m: ModelView }) {
   const office = useView().office
+  const logo = useLabelLogo(office, { pure: office.logoBlackWhite })
   const first = useMemo(saved, [])
   const [words, setWords] = useState(m.name)
   const [layout, setLayout] = useState<CableLayout>(first.layout)
@@ -200,7 +203,7 @@ export function CableLabels({ m }: { m: ModelView }) {
   const said = words.trim()
   const n = Number(count)
   const many = Number.isInteger(n) && n >= 1 && n <= MOST ? n : 0
-  const says: Says = { words: said, code, kind, length: showLength ? length : null, colour, inColour, logo: logoOf(office) }
+  const says: Says = { words: said, code, kind, length: showLength ? length : null, colour, inColour, logo }
   return (
     <section className="card cable-labels" aria-label="Cable labels">
       <Heading icon="label">Cable labels</Heading>

@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 12 November 2026: Undo just after Offer
 
-**Done (1.175.0)**
+**Done (1.177.0)**
 
 - The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
   finding 13 ([ADR 0162](adr/0162-undo-just-after-offer.md)).
@@ -28,6 +28,22 @@ waiting on someone.
   Undo with and without a signal. A new browser spec (offer-undo) undoes
   two offers from a job's Next button, and lets the wait run out on the
   phone's clock with focus on Undo.
+
+## 12 November 2026: the logo in pure black and white on labels
+
+**Done (1.176.0)**
+
+- A switch on Admin › Company › Logo, "Pure black and white on labels"
+  ([ADR 0163](adr/0163-the-logo-in-pure-black-and-white-on-labels.md)), on
+  Colly's ask. Off until turned on; a company setting, in the history.
+  With it on, item, case and cable labels push every grey and colour in
+  the logo to solid black or white; quotes stay in colour; the file is
+  untouched. The card's label preview follows it. It is drawn at the
+  logo's full size on the device, like the greys since 1.175.0, so it
+  prints sharp rather than through a CSS filter.
+- Checked: the labels end-to-end test turns it on, reads every pixel of
+  an item label's and a cable label's logo as black or white, and turns
+  it off.
 
 ## 12 November 2026: a crew call keeps to its phase's days
 

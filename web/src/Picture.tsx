@@ -1,5 +1,5 @@
 import { logoPath, photoPath, productPhotoPath, type Model, type OfficeView, type Person } from '@sh/shared'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon, type IconName } from './Icon.tsx'
 
 /*
@@ -30,6 +30,59 @@ export const photoOf = (p: Pick<Person, 'id' | 'photo'> | undefined) => (p?.phot
 /** Where a product's photo is, once it has one (ADR 0083). */
 /** The company's logo (ADR 0106), for labels; none until one is put up. */
 export const logoOf = (office: Pick<OfficeView, 'logo'>) => (office.logo ? `${base}${logoPath(office.logo.at)}` : undefined)
+
+/**
+ * The logo in greys, for labels, as a label printer prints black only.
+ * Made here at the logo's full size rather than with a CSS filter: Chrome
+ * prints anything filtered as a picture at the size of its box, so a logo
+ * a few millimetres across came out as a blur of big pixels (Colly,
+ * 12 November). Undefined until it's ready, and the logo as it is if it
+ * can't be made. In pure black and white (ADR 0163, the office's switch
+ * under Admin › Company › Logo) each grey goes to black or white at the
+ * middle grey, so a label printer prints solid dots with no dithering.
+ */
+export function useLabelLogo(office: Pick<OfficeView, 'logo'>, { pure = false }: { pure?: boolean } = {}): string | undefined {
+  const src = logoOf(office)
+  const [grey, setGrey] = useState<{ src: string; pure: boolean; url: string }>()
+  useEffect(() => {
+    if (!src) return
+    let url: string | undefined
+    let gone = false
+    const img = new Image()
+    img.crossOrigin = 'use-credentials'
+    img.src = src
+    img
+      .decode()
+      .then(async () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const g = canvas.getContext('2d')
+        if (!g) throw new Error('no canvas')
+        g.drawImage(img, 0, 0)
+        const data = g.getImageData(0, 0, canvas.width, canvas.height)
+        const px = data.data
+        for (let i = 0; i < px.length; i += 4) {
+          // As the eye weighs the colours (Rec. 709), the same as grayscale(1).
+          const y = 0.2126 * px[i]! + 0.7152 * px[i + 1]! + 0.0722 * px[i + 2]!
+          px[i] = px[i + 1] = px[i + 2] = pure ? (y < 128 ? 0 : 255) : y
+        }
+        g.putImageData(data, 0, 0)
+        const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/png'))
+        if (!blob || gone) return
+        url = URL.createObjectURL(blob)
+        setGrey({ src, pure, url })
+      })
+      .catch(() => {
+        if (!gone) setGrey({ src, pure, url: src })
+      })
+    return () => {
+      gone = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [src, pure])
+  return src && grey?.src === src && grey.pure === pure ? grey.url : undefined
+}
 
 export const productPhotoOf = (m: Pick<Model, 'id' | 'photo'> | null | undefined) => (m?.photo ? `${base}${productPhotoPath(m.id, m.photo.at)}` : undefined)
 
