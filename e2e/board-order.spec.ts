@@ -36,7 +36,7 @@ test('the office puts a column of the Board in order, and can put it back by dat
     data: {
       clientId: `order-${tag}`,
       mutations: jobs.flatMap(([name, day], i) => [
-        { id: `order-${tag}-p${i}`, name: 'project.create', args: { id: `o-${tag}-${i}`, name: `${name} ${tag}`, clientId: null, venueId: null, status: 'enquiry', notes: '' }, createdAt: new Date().toISOString() },
+        { id: `order-${tag}-p${i}`, name: 'project.create', args: { id: `o-${tag}-${i}`, name: `${name} ${tag}${name === 'Charlie' ? ' Intercontinentalballroomandconferencecentre' : ''}`, clientId: null, venueId: null, status: 'enquiry', notes: '' }, createdAt: new Date().toISOString() },
         { id: `order-${tag}-d${i}`, name: 'phase.add', args: { id: `op-${tag}-${i}`, projectId: `o-${tag}-${i}`, name: 'Show', start: day, end: day, venueId: null, notes: '' }, createdAt: new Date().toISOString() },
       ]),
     },
@@ -67,7 +67,7 @@ test('the office puts a column of the Board in order, and can put it back by dat
   quoting = await board(page)
   await expect.poll(() => mine(quoting, tag)).toEqual(['Alpha', 'Charlie', 'Bravo'])
 
-  // Dragged by its Move button: a line shows where it lands, and nothing moves until it's let go.
+  // Dragged by its Move button: it follows the pointer and the cards it passes slide down to open its gap.
   const box = async (l: Locator) => (await l.boundingBox())!
   await quoting.locator('.board-item', { hasText: `Bravo ${tag}` }).scrollIntoViewIfNeeded()
   const from = await box(grip('Bravo'))
@@ -75,7 +75,7 @@ test('the office puts a column of the Board in order, and can put it back by dat
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
   await page.mouse.move(from.x + 10, target.y + 8, { steps: 8 })
-  await expect(quoting.locator('.board-item[data-drop="before"]', { hasText: `Alpha ${tag}` })).toHaveCount(1)
+  await expect(quoting.locator('.board-item[data-shift="down"]', { hasText: `Alpha ${tag}` })).toHaveCount(1)
   await expect.poll(() => mine(quoting, tag)).toEqual(['Alpha', 'Charlie', 'Bravo'])
   await page.screenshot(shot('dragging-desk'))
   await page.mouse.up()
@@ -100,11 +100,20 @@ test('the office puts a column of the Board in order, and can put it back by dat
   await page.mouse.move(alpha.x + 30, alpha.y + 20)
   await page.mouse.down()
   await page.mouse.move(alpha.x + 30, charlie.y + 8, { steps: 10 })
-  await expect(quoting.locator('.board-item[data-drop="before"]', { hasText: `Charlie ${tag}` })).toHaveCount(1)
+  await expect(quoting.locator('.board-item[data-shift="down"]', { hasText: `Charlie ${tag}` })).toHaveCount(1)
   await page.mouse.up()
   await expect(page).toHaveURL(/#jobs\/board$/)
   await expect.poll(() => mine(quoting, tag)).toEqual(['Alpha', 'Charlie', 'Bravo'])
   await expect(page.locator('.conn')).toHaveText('Up to date')
+  // No card is wider than its column, however long its words (Colly, 12 November 2026: cards spilled over the next column).
+  const spill = await page.evaluate(() =>
+    [...document.querySelectorAll('.board-col')].flatMap((c) => {
+      const r = c.getBoundingClientRect()
+      return [...c.querySelectorAll('.board-item')].filter((i) => i.getBoundingClientRect().right > r.right + 1).map((i) => i.textContent)
+    }),
+  )
+  expect(spill).toEqual([])
+
   // Put back by date, as the other Board tests share the column; then a click on a card still opens its job.
   await quoting.getByRole('button', { name: 'Back to date order' }).click()
   await expect(page.locator('.conn')).toHaveText('Up to date')

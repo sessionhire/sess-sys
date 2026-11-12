@@ -91,3 +91,26 @@ on any kanban board:
 - The line under the Board says so: drag a card up or down its column, and on a
   phone hold it a moment first. The arrows button, the keys and press-then-press
   are unchanged.
+
+## Addendum, 12 November 2026: a gap opens, as on Trello
+
+Colly asked for the drag to work "more like it does on Trello", and reported
+cards lying over the next column. Colly confirmed it stays within a column.
+
+- **The card follows the pointer.** Once lifted, it rides above the others,
+  tilted slightly. The cards it passes slide aside (a short transform, none
+  under reduced motion), so a gap opens where it will land. Let go, and it
+  drops into the gap without a jump: the cards keep their slid positions until
+  the new order is drawn. This replaces the line drawn between cards.
+- **Where it lands** is decided by the lifted card's middle passing another
+  card's middle, measured from where the cards stood when it was lifted, so
+  the cards sliding aside don't move the target under it.
+- **Departure from the design system's drag and drop**, where "a list does not
+  re-sort" while dragging. A sortable list that only slides each card by one
+  place, against the positions at pickup, keeps the target steady while showing
+  the result, which is what people expect from Trello. It goes back to the
+  system as a learning.
+- **Overlap.** A column's cards are now limited to its width
+  (`minmax(0, 1fr)` down through the card and the stage owner row), and long
+  words wrap. Before this, a long word or the owner picker could make a card
+  wider than its column.

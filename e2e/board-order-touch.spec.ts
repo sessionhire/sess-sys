@@ -73,7 +73,7 @@ test('on a phone a card held a moment drags; a swipe only scrolls', async ({ pag
   await expect(quoting.locator('.board-item[data-dragging]', { hasText: `Alpha ${tag}` })).toHaveCount(1)
   const moves: [type: 'touchMove', x: number, y: number][] = Array.from({ length: 8 }, (_, i) => ['touchMove', x, alpha.y + 30 + ((bravo2.y + 10 - alpha.y - 30) * (i + 1)) / 8])
   await touch(page, moves)
-  await expect(quoting.locator('.board-item[data-drop="before"]', { hasText: `Bravo ${tag}` })).toHaveCount(1)
+  await expect(quoting.locator('.board-item[data-shift="down"]', { hasText: `Bravo ${tag}` })).toHaveCount(1)
   if (process.env.SHOTS) await page.screenshot({ path: 'test-results/board-order/dragging-phone.png' })
   await touch(page, [['touchEnd', 0, 0]])
   await expect(page).toHaveURL(/#jobs\/board$/)
