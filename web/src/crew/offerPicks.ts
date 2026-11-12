@@ -27,3 +27,23 @@ export function useOfferPicks(callId: string | undefined): readonly string[] {
 
 /** The id of a call's Offer form, for the Next button to send it. */
 export const offerFormId = (callId: string) => `offer-form-${callId}`
+
+/**
+ * People to pick when a call's Offer next opens (ADR 0164): the crew on it before its job was stopped, once it's asked for
+ * again. Picked, not offered: nothing goes to them until Offer is pressed.
+ */
+const waiting = new Map<string, readonly string[]>()
+
+/** The people, by id, a call's Offer starts with when it next opens. */
+export function pickWhenOpened(callId: string, personIds: readonly string[]) {
+  if (personIds.length) waiting.set(callId, personIds)
+  else waiting.delete(callId)
+}
+
+/** Who a call's Offer starts with, by id. */
+export const picksWaiting = (callId: string): readonly string[] => waiting.get(callId) ?? none
+
+/** Once its Offer has opened with them: they're the form's own picks from then on. */
+export function forgetPicksWaiting(callId: string) {
+  waiting.delete(callId)
+}

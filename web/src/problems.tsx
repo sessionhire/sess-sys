@@ -343,6 +343,8 @@ function describer(view: View): (m: Mutation) => string {
         return `Change the call for ${call(a.id)}`
       case 'call.cancel':
         return `Cancel the call for ${call(a.id)}`
+      case 'call.reopen':
+        return `Bring back the call for ${call(a.id)}`
       case 'offer.send':
         return `Offer ${call(a.callId)} to ${person(a.personId)}`
       case 'offer.respond':

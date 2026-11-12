@@ -523,6 +523,11 @@ takes its crew along when keeping their dates would leave them out.
 Finding 13, Undo on an offer, is in 1.178.0
 ([ADR 0162](adr/0162-undo-just-after-offer.md)). It differs in one thing:
 the WhatsApp waits with the invites, as it reaches the person too.
+Finding 19, asking for the same crew again, is in 1.180.0
+([ADR 0164](adr/0164-ask-for-the-same-crew-again.md)). It differs in one
+thing: the same calls come back, with their days, time, rate and notes,
+rather than being made again, and the job's Next button does it as well as
+the card.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -558,7 +563,8 @@ the WhatsApp waits with the invites, as it reaches the person too.
    asking the same crew again; staff notices said to them. Larger. Needs
    question 3. **First part done in 1.173.0**: the invites for jobs
    brought in, and a fresh invitation after a No. **A call's days tied to
-   its phase done in 1.174.1. Undo on an offer done in 1.178.0.**
+   its phase done in 1.174.1. Undo on an offer done in 1.178.0. Asking for
+   the same crew again done in 1.180.0.**
 
 ## Questions for Colly
 

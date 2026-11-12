@@ -6,9 +6,9 @@ import { sortByIds } from '../projects/store.ts'
 /** Reading crew rows back as the entities devices and pages see. */
 
 const PERSON = `id, name, first_name, last_name, kind, email, other_emails, phone, skills, day_rate_cents, notes, link_token, archived, approves_leave, department, level, known_as, certificates, company_name, company_vat_number, company_cro_number, role, photo_at, name_checked, whatsapp_off`
-const CALL = `id, project_id, phase_id, project, phase, venue, role, start_day::text, end_day::text, call_time, needed, day_rate_cents, details, reply_by::text, status, needs_certificates, department`
+const CALL = `id, project_id, phase_id, project, phase, venue, role, start_day::text, end_day::text, call_time, needed, day_rate_cents, details, reply_by::text, status, needs_certificates, department, stopped_on::text`
 // The offer's own WhatsApp message, newest first (ADR 0125): where Meta says it has got to.
-const OFFER = `id, call_id, person_id, status, days, asked, day_rate_cents, counter_rate_cents, note, responded_at, responded_via, override, seen_at, no_own_invite,
+const OFFER = `id, call_id, person_id, status, days, asked, day_rate_cents, counter_rate_cents, note, responded_at, responded_via, override, seen_at, no_own_invite, stopped_on::text,
   (SELECT json_build_object('state', w.state, 'at', coalesce(w.read_at, w.delivered_at, w.sent_at, w.tried_at, w.made_at), 'problem', w.problem)
      FROM whatsapp_messages w WHERE w.offer_id = offers.id AND w.kind = 'offer' ORDER BY w.made_at DESC LIMIT 1) AS whatsapp`
 const AWAY = `id, person_id, start_day::text, end_day::text, note, source`
@@ -63,6 +63,8 @@ export const toCall = (r: Row): CrewCall => ({
   status: r.status,
   needsCertificates: tidyNeeds(r.needs_certificates),
   department: r.department ?? null,
+  // Only on a call cancelled along with its job (ADR 0164), so every other call is sent as before.
+  ...(r.stopped_on ? { stoppedOn: r.stopped_on } : {}),
 })
 export const toOffer = (r: Row): Offer => ({
   id: r.id,
@@ -81,6 +83,8 @@ export const toOffer = (r: Row): Offer => ({
   seenAt: r.seen_at ? new Date(r.seen_at).toISOString() : null,
   // Only on an offer on a job brought in from Google Calendar that has no invite of its own, saying why (ADR 0157).
   ...(r.no_own_invite ? { noOwnInvite: r.no_own_invite } : {}),
+  // Only on an offer cancelled along with its job (ADR 0164).
+  ...(r.stopped_on ? { stoppedOn: r.stopped_on } : {}),
   ...(r.whatsapp ? { whatsapp: { state: r.whatsapp.state, at: new Date(r.whatsapp.at).toISOString(), problem: r.whatsapp.problem ?? null } } : {}),
 })
 export const toAway = (r: Row): Unavailability => ({

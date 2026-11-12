@@ -34,6 +34,7 @@ type CrewCommand =
   | 'call.create'
   | 'call.update'
   | 'call.cancel'
+  | 'call.reopen'
   | 'call.department'
   | 'offer.send'
   | 'offer.undo'
@@ -146,13 +147,32 @@ async function closeIfFull(ctx: Ctx, call: CrewCall, rates = false) {
 
 /**
  * Cancel a call: everyone still offered is told it's withdrawn, and anyone
- * booked on it is released. Also how a job being stopped takes its crew.
+ * booked on it is released. Also how a job being stopped takes its crew:
+ * then `stoppedOn`, the day, marks the call and those offers (ADR 0164), so
+ * the same crew can be asked for again once the job is going again.
  */
-export async function cancelCall(ctx: Ctx, callId: string) {
-  await ctx.tx.query(`UPDATE crew_calls SET status = 'cancelled' WHERE id = $1`, [callId])
+export async function cancelCall(ctx: Ctx, callId: string, stoppedOn?: string) {
+  await ctx.tx.query(`UPDATE crew_calls SET status = 'cancelled', stopped_on = $2 WHERE id = $1`, [callId, stoppedOn ?? null])
   await emit(ctx, 'crewCall', callId, await getCall(ctx.tx, callId))
   for (const o of await offersForCall(ctx.tx, callId))
-    if (!OVER.includes(o.status)) await setOffer(ctx, o.id, { status: 'cancelled', asked: [] })
+    if (!OVER.includes(o.status)) await setOffer(ctx, o.id, { status: 'cancelled', asked: [], ...(stoppedOn ? { stopped_on: stoppedOn } : {}) })
+}
+
+/**
+ * A call cancelled along with its job keeps to its phase while the job is stopped (ADR 0164): nobody is on it, so it moves
+ * whenever the phase does, and is asked for again on the phase's days as they are then. Its old offers keep theirs.
+ */
+export async function moveStoppedCallsWithPhase(ctx: Ctx, phaseId: string, from: { start: string; end: string }, to: { start: string; end: string }) {
+  const { rows } = await ctx.tx.query<{ id: string; start: string; end: string }>(
+    `SELECT id, start_day::text AS start, end_day::text AS end FROM crew_calls WHERE phase_id = $1 AND status = 'cancelled' AND stopped_on IS NOT NULL ORDER BY id`,
+    [phaseId]
+  )
+  for (const c of rows) {
+    const span = movedCallSpan(c, from, to)
+    if (span.start === c.start && span.end === c.end) continue
+    await ctx.tx.query('UPDATE crew_calls SET start_day = $2, end_day = $3 WHERE id = $1', [c.id, span.start, span.end])
+    await emit(ctx, 'crewCall', c.id, await getCall(ctx.tx, c.id))
+  }
 }
 
 /** "Aoife Byrne", "Aoife Byrne and Dara Walsh", "Aoife Byrne, Dara Walsh and Niall Kerr". */
@@ -569,6 +589,25 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     // Everyone asked or booked on it hears on WhatsApp they're no longer needed (ADR 0154). A stopped job takes its calls
     // without this: its crew hear the job's own word (queueJobWhatsApp).
     await queueNotNeeded(ctx, on.map((o) => o.id))
+  },
+
+  /**
+   * A call cancelled along with its job, asked for again now the job is going again (ADR 0164; audit of 12 November 2026,
+   * finding 19): open, with nobody on it, so nothing is sent until someone is offered it. Its old offers stay as they
+   * ended. One cancelled on its own, or whose days have all gone, stays as it is.
+   */
+  async 'call.reopen'(ctx, a) {
+    const call = await getCall(ctx.tx, a.id, true)
+    if (!call) throw new Refused({ code: 'not-found', message: 'That crew call no longer exists.' })
+    // Asked for again already, by a second press or another device.
+    if (call.status === 'open') return
+    if (!call.stoppedOn) throw new Refused({ code: 'conflict', message: `The ${call.role} call on ${call.project} was cancelled on its own, so it stays cancelled. Ask for crew afresh.` })
+    const job = call.projectId ? await getProject(ctx.tx, call.projectId) : undefined
+    if (job && STOPPED.includes(job.status))
+      throw new Refused({ code: 'conflict', message: `${job.name} is still ${job.status === 'lost' ? 'marked as lost' : 'cancelled'}: set it going again first.` })
+    if (call.end < irishToday()) throw new Refused({ code: 'conflict', message: `The ${call.role} call on ${call.project} was for ${daysLabel(eachDay(call.start, call.end))}, which has passed.` })
+    await ctx.tx.query(`UPDATE crew_calls SET status = 'open', stopped_on = NULL WHERE id = $1`, [a.id])
+    await emit(ctx, 'crewCall', a.id, await getCall(ctx.tx, a.id))
   },
 
   /** Many calls given one department (ADR 0046); a cancelled one too, so the record is right. One already gone is left out. */

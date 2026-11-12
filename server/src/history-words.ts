@@ -250,6 +250,9 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return `Asked for ${a.needed} × ${text(a.role, 'crew')} for ${text(a.project, 'a job')}${typeof a.phase === 'string' && a.phase ? ` (${a.phase})` : ''}, ${dates(a.start, a.end)}${needing(a.needsCertificates)}`
     case 'call.cancel':
       return `Cancelled the call for ${call(a.id)}`
+    // Asked for again once its job was going again (ADR 0164).
+    case 'call.reopen':
+      return `Brought back the call for ${call(a.id)}, cancelled with its job`
     case 'call.department': {
       const n = Array.isArray(a.ids) ? a.ids.length : 0
       const to = typeof a.department === 'string' && a.department ? `the department ${clip(a.department)}` : 'no department'

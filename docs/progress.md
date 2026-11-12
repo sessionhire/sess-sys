@@ -3,6 +3,30 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: ask for the same crew again
+
+**Done (1.180.0)**
+
+- The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  finding 19 ([ADR 0164](adr/0164-ask-for-the-same-crew-again.md)).
+- Stopping a job marks the crew calls it cancels, and the offers still open
+  or booked on them, with the day. Once the job is going again, its Crew
+  tab has a card saying what was cancelled, when and who was on it, and
+  Next says "Ask for the same crew again": the calls come back as they
+  were with nobody on them, and Offer opens on the first with the same
+  people picked. Nothing is sent until Offer, which then waits half a
+  minute for Undo. The old offers on the call read "Cancelled with the
+  job" rather than "Withdrawn by the office".
+- The server refuses to bring a call back while its job is still stopped,
+  for a call cancelled on its own, or once its days have passed. While a
+  job is stopped, its cancelled calls go with their phase when it moves.
+- Checked: typecheck; shared tests (which calls and people come back, the
+  card's words); server tests (marked on stop, the three refusals, brought
+  back once, offered again, moved with the phase); four parity cases; a new
+  browser spec (crew-again) that stops and restarts a job, reads the card,
+  presses Next, sees both people picked in Offer, offers them, and finds
+  the old rows reading "Cancelled with the job".
+
 ## 12 November 2026: Undo just after Offer
 
 **Done (1.178.0)**

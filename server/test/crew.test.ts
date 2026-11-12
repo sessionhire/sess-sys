@@ -1757,3 +1757,100 @@ describe("a freelancer's page", () => {
     expect(card).toContain('value="2026-11-02" checked')
   })
 })
+
+/**
+ * Asking for the same crew again (ADR 0164; audit of 12 November 2026, finding 19): a job cancelled takes its crew calls
+ * and their offers, marked with the day, and once it's going again each call can be brought back, open with nobody on it,
+ * for the office to offer the same people again. Nothing goes to anyone until they do.
+ */
+describe('asking for the same crew again (ADR 0164)', () => {
+  const history = async (app: FastifyInstance) => ((await app.inject({ url: '/api/history' })).json() as HistoryPage).entries.map((e) => e.what)
+
+  /** Harbour Lights, confirmed, with a Build on 2 to 4 October and an Audio tech call on it for two. */
+  async function harbourLights(app: FastifyInstance) {
+    const job = newId()
+    const build = newId()
+    await send(app, 'project.create', { id: job, name: 'Harbour Lights', clientId: null, venueId: null, status: 'confirmed', notes: '' })
+    await send(app, 'phase.add', { id: build, projectId: job, name: 'Build', start: '2026-10-02', end: '2026-10-04', venueId: null, notes: '' })
+    const c = await call(app, { projectId: job, phaseId: build, project: 'Harbour Lights', needed: 2 })
+    return { job, build, c }
+  }
+
+  it('marks the calls and offers a cancelled job took with the day, and brings a call back once the job is going again', async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const niall = await person(app, 'Niall Kerr')
+    const { job, build, c } = await harbourLights(app)
+    const a = await offer(app, c, aoife.id)
+    await answer(app, aoife.linkToken, a.id, { answer: 'accept' })
+    await send(app, 'offer.confirm', { id: a.id })
+    const n = await offer(app, c, niall.id)
+    // A call the office cancelled itself, before the job was: that was a choice, so it stays cancelled.
+    const rigger = await call(app, { projectId: job, phaseId: build, project: 'Harbour Lights', role: 'Rigger' })
+    await send(app, 'call.cancel', { id: rigger })
+
+    await send(app, 'project.update', { id: job, status: 'cancelled' })
+    expect(await entity<CrewCall>(app, 'crewCall', c)).toMatchObject({ status: 'cancelled', stoppedOn: '2026-09-28' })
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ status: 'cancelled', stoppedOn: '2026-09-28' })
+    expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'cancelled', stoppedOn: '2026-09-28' })
+    expect(await entity<CrewCall>(app, 'crewCall', rigger)).not.toHaveProperty('stoppedOn')
+
+    // Not while the job is still cancelled, or marked as lost.
+    const early = await send(app, 'call.reopen', { id: c })
+    expect(early).toMatchObject({ status: 'rejected', reason: { code: 'conflict', message: 'Harbour Lights is still cancelled: set it going again first.' } })
+    await send(app, 'project.update', { id: job, status: 'lost' })
+    expect(await send(app, 'call.reopen', { id: c })).toMatchObject({ status: 'rejected', reason: { message: 'Harbour Lights is still marked as lost: set it going again first.' } })
+
+    // Going again brings nobody back by itself.
+    await send(app, 'project.update', { id: job, status: 'confirmed' })
+    expect(await entity<CrewCall>(app, 'crewCall', c)).toMatchObject({ status: 'cancelled', stoppedOn: '2026-09-28' })
+    expect(await send(app, 'call.reopen', { id: rigger })).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'conflict', message: 'The Rigger call on Harbour Lights was cancelled on its own, so it stays cancelled. Ask for crew afresh.' },
+    })
+
+    expect((await send(app, 'call.reopen', { id: c })).status).toBe('applied')
+    const back = await entity<CrewCall>(app, 'crewCall', c)
+    expect(back).toMatchObject({ status: 'open', start: '2026-10-02', end: '2026-10-04', needed: 2 })
+    expect(back).not.toHaveProperty('stoppedOn')
+    // Pressed twice, or from a second device: once is enough.
+    expect((await send(app, 'call.reopen', { id: c })).status).toBe('applied')
+    expect((await history(app))[0]).toBe('Brought back the call for Audio tech on Harbour Lights, cancelled with its job')
+    // The old offers stay as they ended, so nothing goes to anyone, and Aoife has nothing to answer until she's asked.
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ status: 'cancelled', stoppedOn: '2026-09-28' })
+    const page = (await app.inject({ url: `/f/${aoife.linkToken}` })).body
+    expect(page).toContain('<p class="empty">Nothing waiting right now.</p>')
+
+    // Offered again, as the office does next: a new offer, which she answers as any other.
+    const again = await offer(app, c, aoife.id)
+    expect(again.result.status).toBe('applied')
+    expect(await entity<Offer>(app, 'offer', again.id)).toMatchObject({ status: 'offered', days: ['2026-10-02', '2026-10-03', '2026-10-04'] })
+    expect(await entity<Offer>(app, 'offer', again.id)).not.toHaveProperty('stoppedOn')
+  })
+
+  it('keeps a call cancelled with its job to its phase while the job is stopped, and not one whose days have passed', async () => {
+    const app = await server()
+    const { job, build, c } = await harbourLights(app)
+    const rigger = await call(app, { projectId: job, phaseId: build, project: 'Harbour Lights', role: 'Rigger' })
+    await send(app, 'call.cancel', { id: rigger })
+    await send(app, 'project.update', { id: job, status: 'cancelled' })
+
+    // The Build moves a week while the job is off: the call goes with it, though nobody asked for crew to move, as nobody is on
+    // it; the one cancelled on its own stays where it was.
+    await send(app, 'phase.update', { id: build, start: '2026-10-09', end: '2026-10-11' })
+    expect(await entity<CrewCall>(app, 'crewCall', c)).toMatchObject({ status: 'cancelled', start: '2026-10-09', end: '2026-10-11' })
+    expect(await entity<CrewCall>(app, 'crewCall', rigger)).toMatchObject({ start: '2026-10-02', end: '2026-10-04' })
+    await send(app, 'project.update', { id: job, status: 'confirmed' })
+    expect((await send(app, 'call.reopen', { id: c })).status).toBe('applied')
+    expect(await entity<CrewCall>(app, 'crewCall', c)).toMatchObject({ status: 'open', start: '2026-10-09', end: '2026-10-11' })
+
+    // Cancelled again, and going again only once its days have gone: there's nothing left to ask for.
+    await send(app, 'project.update', { id: job, status: 'cancelled' })
+    await send(app, 'project.update', { id: job, status: 'confirmed' })
+    vi.setSystemTime(new Date('2026-10-12T09:00:00Z'))
+    expect(await send(app, 'call.reopen', { id: c })).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'conflict', message: `The Audio tech call on Harbour Lights was for ${daysLabel(['2026-10-09', '2026-10-10', '2026-10-11'])}, which has passed.` },
+    })
+  })
+})

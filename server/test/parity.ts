@@ -148,6 +148,8 @@ const REPORT = { date: new Date().toISOString(), device: { sn: '416581', imei: '
 const twoPlaces = [m('call.update', { id: 'chief', needed: 2 }), m('offer.send', { id: 'eimear-chief', callId: 'chief', personId: 'eimear', override: false })]
 /** Her Yes in Google to the first day only (ADR 0152). */
 const saidYesToOne = m('offer.respond', { id: 'eimear-chief', answer: 'accept', days: [day(3)], asked: [day(4)], note: '' })
+/** The gala cancelled, its crew calls with it, then set going again (ADR 0164). */
+const stoppedAndGoing = [m('project.update', { id: 'gala', status: 'cancelled' }), m('project.update', { id: 'gala', status: 'confirmed' })]
 
 const CASES: Case[] = [
   // People and crew.
@@ -163,6 +165,11 @@ const CASES: Case[] = [
   c('call.create', { id: 'lx', projectId: 'gala', phaseId: 'show', project: 'Autumn Gala', phase: 'Show', venue: 'Northbank', role: 'LX op', start: day(5), end: day(5), callTime: '09:00', needed: 1, dayRateCents: 30000, details: 'Bring a torch', replyBy: day(2), department: 'lighting' }, { known: [CALL_NAMES] }),
   c('call.update', { id: 'sound', needed: 3, callTime: '07:30', details: 'Load in at the back' }),
   c('call.cancel', { id: 'chief' }, { before: [m('offer.cancel', { id: 'aoife-chief' })] }),
+  // A job cancelled takes its crew, marked with the day, and they can be asked for again once it's going again (ADR 0164).
+  c('project.update', { id: 'gala', status: 'cancelled' }, { as: 'cancelled, its crew with it' }),
+  c('call.reopen', { id: 'sound' }, { before: [...stoppedAndGoing] }),
+  c('call.reopen', { id: 'sound' }, { as: 'cancelled, going again and asked for again with no signal', queued: [...stoppedAndGoing] }),
+  c('phase.update', { id: 'show', start: day(6), end: day(6) }, { as: 'a day later while its job is cancelled, its crew call with it', before: [stoppedAndGoing[0]!] }),
   c('call.department', { ids: ['sound', 'chief'], department: 'audio' }),
   c('offer.send', { id: 'cian-sound', callId: 'sound', personId: 'cian', override: false }),
   c('offer.respond', { id: 'eimear-sound', answer: 'accept', days: null, note: 'See you there' }, { as: 'accepted' }),

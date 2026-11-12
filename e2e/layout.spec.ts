@@ -188,6 +188,9 @@ test('the people list finds someone as the picker does, shows its first ten, and
   // Someone just added stays in view, whatever the search and the fold, until the tab is next opened. Opened afresh, the list is
   // short again: Show all is kept only for Back and a reload (audit, 5 November 2026, finding 9).
   await office.goto('/#crew')
+  // Calls drawn first, as a person sees it on the way: two moves made before the app draws the first never close the list, which
+  // then keeps Show all, as a busy test machine once showed.
+  await expect(list).toHaveCount(0)
   await office.goto('/#crew/people')
   await expect(office.getByRole('status')).toHaveText('Up to date')
   await find.fill(dept.toLowerCase())
