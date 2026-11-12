@@ -68,10 +68,10 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await draft.getByLabel('Line 1: what').fill('PA for the awards')
   await draft.getByLabel('Line 1: price').fill('900')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
-  // The quote is the job's Quote tab, under its head and Next (ADR 0140, part 4). Next says what to do in words, as the quote's own
-  // Send is the press, so there's one red on the page.
+  // The quote is the job's Quote tab, under its head and Next (ADR 0140, part 4). With the quote whole, Next is its Send (ADR 0166),
+  // and the strip's own Send is plain, so there's one red on the page.
   await expect(office.getByRole('tab', { name: 'Quote' })).toHaveAttribute('aria-selected', 'true')
-  await expect(office.getByRole('region', { name: 'Next' })).toContainText('Finish the quote below and send it to the client.')
+  await expect(office.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Get the PDF to send' })).toBeVisible()
   const onePress = () => office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
   expect(await onePress()).toEqual(['Get the PDF to send'])
 
@@ -172,4 +172,71 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
   await office.goto('/#quotes')
   await expect(quotes.getByRole('listitem').filter({ hasText: 'Quayside Gala' })).toContainText(/Prices held until .+: check they stand, or start a new version/)
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test('a finished quote is sent from Next: the email to the client with the PDF on it, and the PDF to download apart (ADR 0166)', async ({ browser, request }) => {
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  // Connected to read and send, and quotes go by email: stood in for, as this server has no Google key.
+  await office.route('**/api/assistant/mailbox', (route) =>
+    route.fulfill({ json: { available: true, state: 'on', account: 'operations@sessionhire.com', problem: null, connectedAt: '2026-11-01T09:00:00.000Z', lookedAt: null, threads: 0, canSend: true } })
+  )
+  const prefill = {
+    to: ['ruairi@example.com'],
+    subject: 'Quote from Session Hire: Docklands Awards',
+    message: 'Hi Ruairí,\n\nPlease find our quote attached.\n\nKind regards,\nSession Hire',
+    from: 'operations@sessionhire.com',
+    fileName: 'Quote - Docklands Awards.pdf',
+    number: 1200,
+    canSend: true,
+    why: null,
+  }
+  await office.route('**/api/quotes/*/email', (route) => (route.request().method() === 'GET' ? route.fulfill({ json: prefill }) : route.abort()))
+  await office.goto('/#admin/connections')
+  const emailing = office.getByRole('region', { name: 'The operations mailbox' }).getByRole('switch', { name: /Send quotes by email/ })
+  await emailing.click()
+  await expect(emailing).toBeChecked()
+  await expect(office.locator('.conn')).toHaveText('Up to date')
+
+  await office.goto('/#quotes/new')
+  const form = office.getByRole('form', { name: 'New quote' })
+  await form.getByLabel("What's the job?").fill('Docklands Awards')
+  await form.getByLabel('Client').fill('Liffey Brands')
+  await form.getByRole('button', { name: 'Start the quote' }).click()
+  await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  const next = office.getByRole('region', { name: 'Next' })
+  await openMore(draft)
+  await draft.getByRole('button', { name: 'Add something else' }).click()
+  // While a line is being typed, Next says what stops it, as the draft's own Send does.
+  await draft.getByLabel('Line 1: price').fill('900')
+  await office.goto('/#crew')
+  await office.goBack()
+  // A press of it opens the line, as the draft's own does.
+  await next.getByRole('button', { name: 'Send: 1 line to finish' }).click()
+  await draft.getByLabel('Line 1: what').fill('PA for the awards')
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+
+  // Whole, Next is Send quote, the page's one red, with the PDF to download beside it.
+  await expect(next.getByRole('button', { name: 'Send quote' })).toBeVisible()
+  await expect(next.getByRole('link', { name: 'Download the PDF' })).toHaveAttribute('href', /\/api\/quotes\/[^/]+\/pdf\?download=1$/)
+  const reds = () => office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
+  expect(await reds()).toEqual(['Send quote'])
+  if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-send-quote-phone.png` })
+
+  // From another tab, Next opens the quote with the email to the client in it.
+  await office.getByRole('tab', { name: /^Phases/ }).click()
+  await next.getByRole('button', { name: 'Send quote' }).click()
+  const compose = draft.getByRole('form', { name: 'Send the quote by email' })
+  await expect(compose.getByLabel('To')).toHaveValue('ruairi@example.com')
+  await expect(compose).toContainText('with Quote - Docklands Awards.pdf attached')
+  // The email's own Send is the press now, so Next says so in words.
+  await expect(next).toContainText('The email to the client is below, with the quote attached')
+  if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-email-open-phone.png` })
+  await compose.getByRole('button', { name: 'Cancel' }).click()
+  await expect(next.getByRole('button', { name: 'Send quote' })).toBeVisible()
+  // On the Quote tab, Next opens the same email.
+  await next.getByRole('button', { name: 'Send quote' }).click()
+  await expect(compose.getByLabel('Subject')).toHaveValue('Quote from Session Hire: Docklands Awards')
 })

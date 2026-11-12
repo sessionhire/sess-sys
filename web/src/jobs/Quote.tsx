@@ -144,7 +144,7 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
       {!q ? (
         <FirstQuote view={view} job={job} plain={onTheJob} />
       ) : q.status === 'draft' ? (
-        <Draft key={q.id} q={q} view={view} job={job} onPrint={() => setPrinting(true)} plain={onTheJob} />
+        <Draft key={q.id} q={q} view={view} job={job} onPrint={() => setPrinting(true)} />
       ) : (
         <>
           <section className="card" aria-label={`Version ${q.version}`}>
