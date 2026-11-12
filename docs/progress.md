@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: crew are asked for from a job
+
+**Done (1.183.1)**
+
+- Colly's "Finish the audits work" went with the recommendation on #313
+  ([ADR 0142](adr/0142-crew-are-asked-for-from-a-job.md)): the card at the
+  foot of Crew › Calls, "Crew for something not in Jobs", is gone, and
+  crew are asked for from a job's Crew tab. Calls already made from it
+  stay and work as before; putting the card back is the way back.
+- Crew › Calls' empty line says where to go, and with two parts it has no
+  "On this screen" strip on a phone.
+- Checked: typecheck; the browser tests that made calls on Crew now make
+  a job and ask on its Crew tab (`e2e/ask.ts`): crew, departments, home,
+  layout and refusals, 59 of 59.
+
 ## 12 November 2026: confirming a job its crew hold the day for
 
 **Done (1.183.0)**

@@ -11,7 +11,6 @@ import {
   MOVE_THE_PHASE,
   offPhaseLine,
   phaseDaysRule,
-  departmentForRole,
   departmentOf,
   sameDepartment,
   eachDay,
@@ -25,9 +24,7 @@ import {
   parseEuro,
   personConflicts,
   REPLY_BY_AFTER,
-  suggestedReplyBy,
   type CallView,
-  type CertificateKind,
   type CommandInput,
   type CrewView,
   type OfferView,
@@ -840,119 +837,6 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
           <span>Show applicants{hidden > 0 ? ` (${hidden})` : ''}</span>
         </label>
       )}
-    </form>
-  )
-}
-
-/** `onMade` hears each call's id as it's asked for, so the list can keep it in view whatever its days. */
-export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
-  const today = useToday()
-  const view = useView()
-  const seesRates = useSeesRates()
-  // The reply-by day is suggested from the first day until the office types or clears it (audit finding 21); the department from the role until picked (ADR 0046).
-  const blank = {
-    project: '',
-    phase: '',
-    venue: '',
-    role: '',
-    start: today,
-    end: today,
-    callTime: '',
-    needed: 1,
-    rate: '',
-    details: '',
-    replyBy: undefined as string | undefined,
-    needs: [] as CertificateKind[],
-    department: undefined as string | null | undefined,
-  }
-  const [f, setF] = useState(blank)
-  const { run, error, refuse } = useAct()
-  const set = (k: Exclude<keyof typeof blank, 'needs' | 'department'>) => (e: { target: { value: string } }) => setF({ ...f, [k]: k === 'needed' ? Number(e.target.value) : e.target.value })
-  const suggested = departmentForRole(f.role, { calls: view.crew.calls, people: view.crew.people })
-  const replyBy = f.replyBy ?? suggestedReplyBy(f.start, f.end < f.start ? f.start : f.end, today) ?? ''
-  const submit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = e.currentTarget
-    // A reason left from the last press goes; this press says its own.
-    refuse('')
-    if (!f.project.trim()) return void refuseField(form, '[name="project"]', 'Fill in the project first.')
-    if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
-    const rate = parseEuro(f.rate)
-    if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
-    // Ready for the next call on the same job and days; a refusal brings what was typed back, unless the next thing has been typed since.
-    const cleared = { ...blank, project: f.project, venue: f.venue, start: f.start, end: f.end }
-    setF(cleared)
-    const id = newId()
-    onMade?.(id)
-    void run(() =>
-      client.mutate('call.create', {
-        id,
-        project: f.project.trim(),
-        phase: f.phase.trim(),
-        venue: f.venue.trim(),
-        role: f.role.trim(),
-        start: f.start,
-        end: f.end < f.start ? f.start : f.end,
-        callTime: f.callTime || null,
-        needed: Math.max(1, f.needed),
-        dayRateCents: seesRates ? rate.cents : null,
-        details: f.details.trim(),
-        replyBy: replyBy || null,
-        needsCertificates: f.needs,
-        department: f.department === undefined ? suggested : f.department,
-      })
-    ).then((ok) => {
-      if (!ok) setF((now) => (now === cleared ? f : now))
-    })
-  }
-  return (
-    <form className="grid-form" onSubmit={submit}>
-      <label className="wide">
-        Project <input name="project" value={f.project} onChange={set('project')} placeholder="e.g. Electric Picnic" required />
-      </label>
-      <label>
-        Phase <input value={f.phase} onChange={set('phase')} placeholder="Build, Show…" />
-      </label>
-      <label>
-        Role <input name="role" value={f.role} onChange={set('role')} placeholder="Audio tech" required />
-      </label>
-      <div className="pair">
-        <label>
-          From <input type="date" value={f.start} onChange={set('start')} />
-        </label>
-        <label>
-          To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
-        </label>
-      </div>
-      <label>
-        Call time <input type="time" value={f.callTime} onChange={set('callTime')} />
-      </label>
-      <label>
-        How many <input type="number" min={1} value={f.needed} onChange={set('needed')} />
-      </label>
-      {seesRates ? (
-        <label>
-          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" /></UnitBox>
-        </label>
-      ) : (
-        <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>
-      )}
-      <label>
-        Venue <input value={f.venue} onChange={set('venue')} />
-      </label>
-      <DepartmentField view={view} value={f.department} suggested={suggested} onChange={(department) => setF({ ...f, department })} className="wide" />
-      <label className="wide">
-        Reply by <input type="date" name="replyBy" value={replyBy} onChange={set('replyBy')} />
-      </label>
-      <p className="hint wide">Two days before the first day, or the day before when the job is close. Clear it if there's no hurry.</p>
-      <label className="wide">
-        Details for crew <textarea rows={2} value={f.details} onChange={set('details')} placeholder="Travel, food, parking, dress" />
-      </label>
-      <NeedsField value={f.needs} onChange={(needs) => setF({ ...f, needs })} />
-      <Refusal error={error} className="wide" />
-      <button type="submit" className="primary wide">
-        Ask for crew
-      </button>
     </form>
   )
 }
