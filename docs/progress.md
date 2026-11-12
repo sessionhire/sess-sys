@@ -28,7 +28,7 @@ waiting on someone.
 
 ## 12 November 2026: ask for the same crew again
 
-**Done (1.179.0)**
+**Done (1.180.0)**
 
 - The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
   finding 19 ([ADR 0164](adr/0164-ask-for-the-same-crew-again.md)).

@@ -290,12 +290,12 @@ test('on a laptop a job has the whole width and the catalogue sits beside the op
   await laptop.goto('/#jobs')
   await expect(laptop.getByRole('status')).toHaveText('Up to date')
   const job = `Laptop check ${id}`
-  await laptop.getByRole('button', { name: 'New job', exact: true }).click()
-  const form = laptop.locator('form').filter({ has: laptop.getByRole('button', { name: 'Add job' }) })
-  await form.getByLabel('Job').fill(job)
+  await laptop.getByRole('button', { name: 'New', exact: true }).click()
+  const form = laptop.locator('form').filter({ has: laptop.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(job)
   await form.getByLabel('Phase 1 from').fill('2031-06-12')
   await form.getByLabel('Phase 1 to').fill('2031-06-12')
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
 
   // The job opens with the whole width (ADR 0059): no list beside it, its breadcrumbs the way back to the list.
   const title = laptop.getByRole('heading', { level: 1, name: job })

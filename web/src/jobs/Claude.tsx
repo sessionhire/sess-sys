@@ -377,7 +377,7 @@ export function MailOnQuote({ view, projectId, jobDays, lines, discountPct, onTa
   )
 }
 
-/** On Quotes: the threads Claude read in the last month that are enquiries or about a job, each opening its quote. */
+/** On Money › To follow up: the threads Claude read in the last month that are enquiries or about a job, each opening its quote. */
 export function FromMailbox({ view }: { view: View }) {
   const { offered } = useClaude(view)
   const mail = useMail(offered)

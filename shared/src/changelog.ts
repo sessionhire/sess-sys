@@ -36,12 +36,20 @@ export const CHANGELOG: readonly Release[] = [
     adrs: [165],
   },
   {
-    version: '1.179.0',
+    version: '1.180.0',
     date: '2026-11-12',
     title: 'Ask for the same crew again when a job is back on',
     what: "When a cancelled or lost job is set going again, its Crew tab now says which crew calls were cancelled with it, on what day, and who had been offered them or booked, and its Next button says Ask for the same crew again. One press brings those calls back as they were, with nobody on them, and opens Offer with the same people picked, ready to send. Nothing goes to anyone until you press Offer. Their old offers read Cancelled with the job. A call you had cancelled yourself before the job was cancelled stays cancelled.",
     prs: [357],
     adrs: [164],
+  },
+  {
+    version: '1.179.0',
+    date: '2026-11-12',
+    title: 'New asks what kind it is first, and quotes live on their jobs',
+    what: "Jobs' add button now just says New. Its form asks first whether it's a gig, a dry hire, an errand or a meeting, then only what that kind needs: a dry hire asks for the day the kit goes out and comes back, an errand for the day, where to and a note, a meeting for the day, who with and where. Errands and meetings go straight on as confirmed. Quotes is no longer a page of its own: each quote is on its job's Quote tab, Jobs can be filtered by where the quote stands, and the quotes waiting on you are under Money › To follow up, where old Quotes links now land. On a laptop every heading of the jobs table sorts, press again to turn it round, and there's an Assignee column saying who has the stage each job is in. Where it stands is now called Status.",
+    prs: [354],
+    adrs: [160],
   },
   {
     version: '1.178.0',

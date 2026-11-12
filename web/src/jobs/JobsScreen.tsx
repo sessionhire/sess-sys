@@ -8,6 +8,7 @@ import {
   crewFill,
   dayLabel,
   KIND_LABELS,
+  KIND_PHASE,
   kindOf,
   addDays,
   mondayOf,
@@ -37,12 +38,19 @@ import {
   jobSorts,
   listed,
   sortOf,
+  sortKeyOf,
+  sortReversed,
+  REVERSED,
+  assigneeOf,
+  quoteRows,
+  type QuoteShow,
+  type ListSort,
   PLACE_SORTS,
   placeFilters,
   type PlaceForList,
   stillInBack,
 } from '@sh/shared'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold } from '../Fold.tsx'
@@ -121,6 +129,8 @@ export function JobsScreen() {
   // Money's parts, each at its own address (review of 11 November 2026, finding 20).
   const moneyPart = /^#jobs\/money\/(owed|margins|accountant)$/.exec(hash)?.[1] as MoneyPart | undefined
   if (moneyPart) return <MoneyScreen view={view} part={moneyPart} />
+  // The quotes waiting on the office, on Money since Quotes stopped being a page of its own (Colly, 12 November 2026).
+  if (hash === '#jobs/money/follow-up') return <MoneyScreen view={view} part="follow" />
   if (hash === '#jobs/money/prices') return <PricesScreen view={view} />
   if (hash === '#jobs/money/current-rms') return <PastQuotesScreen view={view} />
   if (hash === '#jobs/money/current-rms/match') return <MatchScreen view={view} />
@@ -157,7 +167,7 @@ export function JobsScreen() {
 }
 
 /**
- * At a desk the list has the page's whole width, as a table: a job a line, its dates, client, venue, where it stands and its crew in
+ * At a desk the list has the page's whole width, as a table: a job a line, its dates, client, venue, status, who has it and its crew in
  * columns, sorted by a column's head (review of 11 November 2026, finding 14). New job's form opens over it when asked for.
  */
 function JobsBeside({ view }: { view: View }) {
@@ -215,7 +225,7 @@ function JobsRest({ view, phone = false }: { view: View; phone?: boolean }) {
         // Beside the list, where there's room for it, as it was before New job moved to the title's line; nothing until it's pressed.
         <section className="card new-job-card" aria-label="New job">
           <Fold label="New job" from="job">
-            <Heading icon="add">New job</Heading>
+            <Heading icon="add">New</Heading>
             <NewJob view={view} />
           </Fold>
         </section>
@@ -503,13 +513,20 @@ function JobsCard({ view, phone = false, table = false }: { view: View; phone?: 
     jobsLensSet = true
     if (!asked) setChoices({ ...choices, filters: { ...choices.filters, department: departmentKey(department) } })
   })
-  const sorts = useMemo(() => jobSorts(filter !== 'coming'), [filter])
+  const sorts = useMemo(() => jobSorts(filter !== 'coming', (j) => view.steps.of(j.id)), [filter, view.steps])
   // Who they are as Home › Me and the job's "You on this job" read it: signed in, by their email; with sign-in off, their word.
   const me = useMe(view).me?.id
   const whose = useMemo(() => jobLens(jobs, view, me), [jobs, view, me])
+  // Where each job's quote stands, for whoever reads the money: the quote is part of its job (Colly, 12 November 2026).
+  const seesMoney = useAccess().can('money')
+  const quoteOf = useMemo(() => {
+    if (!seesMoney) return undefined
+    const by = new Map(quoteRows(view.money).map((r) => [r.job.id, r.quote.status as QuoteShow]))
+    return (j: JobView) => by.get(j.id)
+  }, [seesMoney, view.money])
   const filters = useMemo(
-    () => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped', (j) => view.steps.of(j.id), whose),
-    [view.kit.byJob, view.steps, filter, whose]
+    () => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped', (j) => view.steps.of(j.id), whose, quoteOf),
+    [view.kit.byJob, view.steps, filter, whose, quoteOf]
   )
   const { rows, shownCount, listedCount, searched, byDepartment, total } = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -522,15 +539,16 @@ function JobsCard({ view, phone = false, table = false }: { view: View; phone?: 
     const searched = inTab.filter(involves)
     const shown = listed(searched, filters, sorts, choices)
     const byDate = sortOf(sorts, choices.sort)?.key === 'date'
+    const reversed = sortReversed(choices.sort)
     const narrowed = activeFilters(filters, choices.filters).length > 0 || picked.length > 0
     // The next fortnight, and the ones with no dates yet, until Show all; a search or a filter looks through them all, as does another order.
-    const soonOnly = filter === 'coming' && !all && words.length === 0 && !narrowed && byDate
+    const soonOnly = filter === 'coming' && !all && words.length === 0 && !narrowed && byDate && !reversed
     const soonEnd = addDays(day, SOON_DAYS)
     const listedJobs = soonOnly ? shown.filter((j) => !j.span || j.span.start < soonEnd) : shown
     // Under the heading of their week while they're by date; in any other order a week heading would come round again and again.
     // Past opens on the jobs still in Back with work open on them, under a head of their own, before the weeks (Move 10 of the
     // sweep of 6 November 2026): a job whose dates passed isn't finished while its Back isn't.
-    const back = filter === 'past' && byDate ? listedJobs.filter((j) => stillInBack(view.steps.of(j.id))) : []
+    const back = filter === 'past' && byDate && !reversed ? listedJobs.filter((j) => stillInBack(view.steps.of(j.id))) : []
     const rest = back.length ? listedJobs.filter((j) => !back.includes(j)) : listedJobs
     const rows: Row[] = byDate
       ? [
@@ -598,7 +616,7 @@ function JobsCard({ view, phone = false, table = false }: { view: View; phone?: 
       {searched.length === 0 && picked.length === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}
       {shownCount > 0 && listedCount === 0 && <p className="hint">Nothing in the next fortnight.</p>}
       {/* A long list (audit finding 11, ADR 0050): only the rows near the screen are drawn, and Back finds its place by them (places.ts). */}
-      {table && listedCount > 0 && <TableHead sorts={sorts} sort={sortOf(sorts, choices.sort)?.key} onSort={(sort) => setChoices({ ...choices, sort })} />}
+      {table && listedCount > 0 && <TableHead sorts={sorts} chosen={choices.sort} onSort={(sort) => setChoices({ ...choices, sort })} />}
       <ul className={`job-list windowed${table ? ' job-table' : ''}`} ref={win.list} style={win.style}>
         {win.rows.map((r) =>
           'job' in r ? (
@@ -628,27 +646,43 @@ function JobsCard({ view, phone = false, table = false }: { view: View; phone?: 
   )
 }
 
-/** The table's heads at a desk: those with an order of their own sort by it, the one sorting by marked. */
-const TABLE_COLUMNS: [string, string | undefined][] = [
+/**
+ * The table's heads at a desk, each sorting by its column (Colly, 12 November 2026): pressed once it sorts the way the Sort
+ * select names it (A to Z, soonest first), pressed again the other way round, and again back. The one sorting is marked, with an
+ * arrow for which way, and says it in words to a screen reader.
+ */
+const TABLE_COLUMNS: [string, string][] = [
   ['Job', 'name'],
   ['When', 'date'],
   ['Client', 'client'],
-  ['Venue', undefined],
-  ['Where it stands', undefined],
+  ['Venue', 'venue'],
+  ['Status', 'status'],
+  ['Assignee', 'assignee'],
   ['Crew', 'crew'],
 ]
-function TableHead({ sorts, sort, onSort }: { sorts: readonly { key: string }[]; sort: string | undefined; onSort: (key: string) => void }) {
+function TableHead({ sorts, chosen, onSort }: { sorts: readonly ListSort<JobView>[]; chosen: string; onSort: (key: string) => void }) {
+  const on = sortOf(sorts, chosen)
+  const reversed = sortReversed(chosen) && on?.key === sortKeyOf(chosen)
   return (
     <div className="job-table-head" role="group" aria-label="Sort by a column">
-      {TABLE_COLUMNS.map(([label, key]) =>
-        key && sorts.some((x) => x.key === key) ? (
-          <button key={label} type="button" aria-pressed={sort === key} onClick={() => onSort(key)}>
+      {TABLE_COLUMNS.map(([label, key]) => {
+        const sort = sorts.find((x) => x.key === key)
+        if (!sort) return <span key={label}>{label}</span>
+        const pressed = on?.key === key
+        return (
+          <button
+            key={label}
+            type="button"
+            aria-pressed={pressed}
+            data-way={pressed ? (reversed ? 'reversed' : 'forward') : undefined}
+            title={pressed ? `Sorted ${reversed ? `the other way from ${sort.label.toLowerCase()}` : sort.label.toLowerCase()}. Press to turn it round.` : `Sort: ${sort.label.toLowerCase()}`}
+            onClick={() => onSort(pressed && !reversed ? `${key}${REVERSED}` : key)}
+          >
             {label}
+            {pressed && <span className="sr-only">{reversed ? ', the other way round' : `, ${sort.label.toLowerCase()}`}</span>}
           </button>
-        ) : (
-          <span key={label}>{label}</span>
         )
-      )}
+      })}
     </div>
   )
 }
@@ -670,6 +704,7 @@ export function JobRow({ job, kit, view, current, table = false }: { job: JobVie
   const steps = view.steps.of(job.id)
   const crewHint = steps?.steps.find((s) => s.key === 'crew')?.hint
   const crewSaid = hasSteps(job) && !!crewHint && !!steps?.stage?.hint?.includes(crewHint)
+  const assignee = table && hasSteps(job) ? assigneeOf(steps) : undefined
   const kindWords = kindOf(job) !== 'gig' && !sameWord(KIND_LABELS[kindOf(job)], phaseNames(job.phases)) ? `${KIND_LABELS[kindOf(job)]} · ` : ''
   if (table)
     return (
@@ -686,6 +721,8 @@ export function JobRow({ job, kit, view, current, table = false }: { job: JobVie
           {hasSteps(job) && job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
           {short && <small className={`flag ${short}`}>Kit short</small>}
         </span>
+        {/* Who has the stage the job is in, as its Board card says (ADR 0144); nothing for a job with nothing to hand anyone. */}
+        <span className="c-assignee">{assignee === undefined ? null : assignee ? assignee : <span className="muted">Nobody yet</span>}</span>
         <span className="c-crew">
           {crew.needed > 0 ? (
             <>
@@ -737,14 +774,39 @@ interface PhaseDraft {
   end: string
 }
 
-/** A new job with its first phases, all in one go. Clients and venues not yet known are added as typed. */
+/**
+ * What each kind asks for once it's picked (Colly, 12 November 2026: "ask the kind question first, and then the questions
+ * afterwards should change"). The name's example, what the day or days are called, and what Add says.
+ */
+const KIND_FORM: Record<ProjectKind, { about: string; example: string; add: string }> = {
+  gig: { about: 'Crew and kit at a venue, over a day or more', example: 'e.g. Nissan launch', add: 'Add gig' },
+  hire: { about: 'Kit going out to a client, no crew', example: 'e.g. Murt LX hire', add: 'Add dry hire' },
+  errand: { about: 'A van run, a collection or a drop-off', example: 'e.g. Collect from Screwfix', add: 'Add errand' },
+  meeting: { about: 'A site visit, a recce or a meeting', example: 'e.g. Ryder Cup site visit', add: 'Add meeting' },
+}
+
+/**
+ * Something new for the jobs (Colly, 12 November 2026): what kind it is first, then only what that kind needs.
+ *
+ * - A gig: its name, client and venue, where the sale stands, and its phases with their days, as every job was asked before.
+ * - A dry hire: its name, the client, where it stands, and the day the kit goes out and the day it comes back: one Hire phase.
+ * - An errand: what it is, the day, where to, and a note for whoever goes. It's going ahead, so it's added confirmed.
+ * - A meeting: what it is, the day, who with and where, and a note. Added confirmed, as an errand is.
+ *
+ * Clients and venues not yet known are added as typed. What's typed is kept when the kind is changed, so a slip costs nothing.
+ */
 function NewJob({ view }: { view: View }) {
   const { clients, venues } = view.jobs
   const today = useToday()
+  const kindId = useId()
   const first = (): PhaseDraft => ({ key: newId(), name: 'Show', start: today, end: today })
-  const [f, setF] = useState({ name: '', client: '', venue: '', status: 'enquiry' as ProjectStatus, kind: 'gig' as ProjectKind })
+  const blank = () => ({ name: '', client: '', venue: '', status: 'enquiry' as ProjectStatus, kind: 'gig' as ProjectKind, notes: '', start: today, end: today })
+  const [f, setF] = useState(blank)
   const [phases, setPhases] = useState<PhaseDraft[]>(() => [first()])
   const { run, error } = useAct()
+  const form = KIND_FORM[f.kind]
+  // A gig and a dry hire are sold; an errand or a meeting is just done, so it has no status to ask about.
+  const sold = f.kind === 'gig' || f.kind === 'hire'
   const setPhase = (key: string, changes: Partial<PhaseDraft>) =>
     setPhases(
       phases.map((p) => {
@@ -754,86 +816,155 @@ function NewJob({ view }: { view: View }) {
         return next
       })
     )
+  const setDays = (changes: Partial<{ start: string; end: string }>) =>
+    setF((now) => {
+      const next = { ...now, ...changes }
+      if (next.end < next.start) next.end = next.start
+      return next
+    })
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!f.name.trim()) return
     const id = newId()
+    const was = f
+    const wasPhases = phases
+    // The days it's on: a gig's phases as typed; a dry hire's one Hire from going out to coming back; an errand's or a meeting's one day.
+    const days =
+      f.kind === 'gig'
+        ? phases.filter((p) => p.name.trim()).map((p) => ({ name: p.name.trim(), start: p.start, end: p.end }))
+        : [{ name: KIND_PHASE[f.kind], start: f.start, end: f.kind === 'hire' ? f.end : f.start }]
     // A refusal brings what was typed back, unless the next thing has been typed since.
-    const cleared = { name: '', client: '', venue: '', status: 'enquiry' as ProjectStatus, kind: 'gig' as ProjectKind }
+    const cleared = { ...blank(), kind: f.kind }
     const clearedPhases = [first()]
     setF(cleared)
     setPhases(clearedPhases)
     void run(async () => {
-      const clientId = await clientNamed(f.client, clients)
-      const venueId = await venueNamed(f.venue, venues)
-      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: f.status, kind: f.kind, notes: '' })
-      for (const p of phases)
-        if (p.name.trim()) await client.mutate('phase.add', { id: newId(), projectId: id, name: p.name.trim(), start: p.start, end: p.end, venueId: null, notes: '' })
+      const clientId = f.kind === 'errand' ? null : await clientNamed(f.client, clients)
+      const venueId = f.kind === 'hire' ? null : await venueNamed(f.venue, venues)
+      await client.mutate('project.create', {
+        id,
+        name: f.name.trim(),
+        clientId,
+        venueId,
+        status: sold ? f.status : 'confirmed',
+        kind: f.kind,
+        notes: sold ? '' : f.notes.trim(),
+      })
+      for (const d of days) await client.mutate('phase.add', { id: newId(), projectId: id, name: d.name, start: d.start, end: d.end, venueId: null, notes: '' })
     }).then((ok) => {
       if (ok) location.hash = `#jobs/${id}`
       else {
-        setF((now) => (now === cleared ? f : now))
-        setPhases((now) => (now === clearedPhases ? phases : now))
+        setF((now) => (now === cleared ? was : now))
+        setPhases((now) => (now === clearedPhases ? wasPhases : now))
       }
     })
   }
 
   return (
-    <form className="grid-form" onSubmit={submit}>
-      <label className="wide">
-        Job <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required />
-      </label>
-      <ClientField jobs={view.jobs} optional value={f.client} onChange={(client) => setF((now) => ({ ...now, client }))} />
-      <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
-      <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />
-      <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
-      <label className="wide">
-        Status
-        <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as ProjectStatus })}>
-          {PROJECT_STATUSES.filter((s) => !STOPPED.includes(s)).map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
-      </label>
-      {f.status === 'confirmed' && <p className="hint wide">A confirmed job goes on the jobs calendar and holds its kit.</p>}
-      <label className="wide">
-        Kind
-        <select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as ProjectKind })}>
-          {PROJECT_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {KIND_LABELS[k]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <fieldset className="wide phase-rows">
-        <legend>Phases</legend>
-        {phases.map((p, i) => (
-          <div className="phase-row" key={p.key}>
-            <input list="phase-names" value={p.name} onChange={(e) => setPhase(p.key, { name: e.target.value })} aria-label={`Phase ${i + 1}`} placeholder="Build, Show…" />
-            <input type="date" value={p.start} onChange={(e) => setPhase(p.key, { start: e.target.value })} aria-label={`Phase ${i + 1} from`} />
-            <input type="date" value={p.end} min={p.start} onChange={(e) => setPhase(p.key, { end: e.target.value })} aria-label={`Phase ${i + 1} to`} />
-            <button type="button" className="link" onClick={() => setPhases(phases.filter((x) => x.key !== p.key))} aria-label={`Remove phase ${i + 1}`}>
-              Remove
-            </button>
-          </div>
+    <form className="grid-form new-job" onSubmit={submit} aria-label={`New ${KIND_LABELS[f.kind].toLowerCase()}`}>
+      {/* The kind first: everything under it is asked for that kind (Colly, 12 November 2026). */}
+      <fieldset className="choices new-job-kind wide">
+        <legend>What is it?</legend>
+        {PROJECT_KINDS.map((k) => (
+          <label className="signal" key={k}>
+            <input
+              type="radio"
+              name={`${kindId}-kind`}
+              value={k}
+              checked={f.kind === k}
+              onChange={() => setF((now) => ({ ...now, kind: k }))}
+              aria-labelledby={`${kindId}-${k}-name`}
+              aria-describedby={`${kindId}-${k}-about`}
+            />
+            <span>
+              <b id={`${kindId}-${k}-name`}>{KIND_LABELS[k]}</b> <span id={`${kindId}-${k}-about`}>{KIND_FORM[k].about}</span>
+            </span>
+          </label>
         ))}
-        <button
-          type="button"
-          onClick={() => {
-            const last = phases.at(-1)
-            setPhases([...phases, { key: newId(), name: '', start: last?.end ?? today, end: last?.end ?? today }])
-          }}
-        >
-          Add a phase
-        </button>
       </fieldset>
+      <label className="wide">
+        Name <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={form.example} required maxLength={200} />
+      </label>
+      {f.kind !== 'errand' && (
+        <>
+          <ClientField jobs={view.jobs} optional label={f.kind === 'meeting' ? 'Who with' : 'Client'} value={f.client} onChange={(c) => setF((now) => ({ ...now, client: c }))} />
+          <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
+        </>
+      )}
+      {f.kind !== 'hire' && (
+        <>
+          <VenueField jobs={view.jobs} optional label={f.kind === 'errand' ? 'Where to' : f.kind === 'meeting' ? 'Where' : 'Venue'} value={f.venue} onChange={(v) => setF((now) => ({ ...now, venue: v }))} />
+          <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
+        </>
+      )}
+      {sold && (
+        <>
+          <label className="wide">
+            Status
+            <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as ProjectStatus })}>
+              {PROJECT_STATUSES.filter((s) => !STOPPED.includes(s)).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {f.status === 'confirmed' && <p className="hint wide">A confirmed job goes on the jobs calendar and holds its kit.</p>}
+        </>
+      )}
+      {f.kind === 'gig' && (
+        <fieldset className="wide phase-rows">
+          <legend>Phases</legend>
+          {phases.map((p, i) => (
+            <div className="phase-row" key={p.key}>
+              <input list="phase-names" value={p.name} onChange={(e) => setPhase(p.key, { name: e.target.value })} aria-label={`Phase ${i + 1}`} placeholder="Build, Show…" />
+              <input type="date" value={p.start} onChange={(e) => setPhase(p.key, { start: e.target.value })} aria-label={`Phase ${i + 1} from`} />
+              <input type="date" value={p.end} min={p.start} onChange={(e) => setPhase(p.key, { end: e.target.value })} aria-label={`Phase ${i + 1} to`} />
+              <button type="button" className="link" onClick={() => setPhases(phases.filter((x) => x.key !== p.key))} aria-label={`Remove phase ${i + 1}`}>
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              const last = phases.at(-1)
+              setPhases([...phases, { key: newId(), name: '', start: last?.end ?? today, end: last?.end ?? today }])
+            }}
+          >
+            Add a phase
+          </button>
+        </fieldset>
+      )}
+      {f.kind === 'hire' && (
+        <div className="pair wide">
+          <label>
+            Going out
+            <input type="date" value={f.start} onChange={(e) => setDays({ start: e.target.value })} required />
+          </label>
+          <label>
+            Coming back
+            <input type="date" value={f.end} min={f.start} onChange={(e) => setDays({ end: e.target.value })} required />
+          </label>
+        </div>
+      )}
+      {!sold && (
+        <>
+          <label className="wide">
+            Day
+            <input type="date" value={f.start} onChange={(e) => setDays({ start: e.target.value, end: e.target.value })} required />
+          </label>
+          <label className="wide">
+            {f.kind === 'errand' ? 'Notes for whoever goes' : 'Notes'} <span className="optional">(optional)</span>
+            <textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} rows={2} maxLength={4000} placeholder={f.kind === 'errand' ? 'What to bring back, who to ask for' : 'Who is going, what to bring'} />
+          </label>
+          <p className="hint wide">It's going ahead, so it goes on the jobs calendar as soon as it's added.</p>
+        </>
+      )}
       <Refusal error={error} className="wide" />
       <button type="submit" className="primary wide">
-        Add job
+        {form.add}
       </button>
       <datalist id="phase-names">
         {PHASE_NAMES.map((n) => (

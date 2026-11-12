@@ -204,7 +204,8 @@ export const START_SCREENS = [
   { hash: '#jobs', label: 'Jobs', line: 'The list of jobs, coming up first.' },
   { hash: '#jobs/board', label: 'Board', line: 'Every job by the stage it is at.' },
   { hash: '#jobs/plan', label: 'Planner', line: 'The week, job by job or person by person.' },
-  { hash: '#quotes', label: 'Quotes', line: 'Quotes being written, sent and waiting.', money: true },
+  // Quotes to follow up, on Money, now Quotes isn't a page of its own (Colly, 12 November 2026): a quote is part of its job.
+  { hash: '#jobs/money/follow-up', label: 'Quotes to follow up', line: 'Quotes being written, sent and waiting.', money: true },
   { hash: '#stock', label: 'Stock', line: 'The catalogue of kit.' },
   { hash: '#crew', label: 'Crew', line: 'Calls, answers and the crew still needed.' },
 ] as const
@@ -213,6 +214,8 @@ export type StartScreen = (typeof START_SCREENS)[number]['hash']
 
 /** A screen the app can open on, or undefined for anything else (Home, the default, among them). */
 export function asStartScreen(v: unknown): StartScreen | undefined {
+  // Quotes was a start screen before it was folded into Jobs: whoever picked it opens on the quotes to follow up.
+  if (v === '#quotes') return '#jobs/money/follow-up'
   return v !== '#home' && START_SCREENS.some((s) => s.hash === v) ? (v as StartScreen) : undefined
 }
 

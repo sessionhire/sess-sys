@@ -143,9 +143,9 @@ const TILES: { [K in StandingKey]: TileSpec<K> } = {
   'no-answer': { one: 'job whose dates passed with no answer', many: 'jobs whose dates passed with no answer', href: '#jobs/board' },
   // Sent a week or more ago with no answer (ADR 0081): amber, as each of its rows on Quotes is, at the top of Waiting for an
   // answer, whose heading says this number after how many are waiting (Move 10 of the sweep of 6 November 2026).
-  quotes: { one: 'quote worth a call', many: 'quotes worth a call', href: '#quotes', tone: () => 'warn' },
-  'quotes-due': { one: 'quote wanted today', many: 'quotes wanted today', href: '#quotes' },
-  'to-invoice': { one: 'job through, not invoiced', many: 'jobs through, not invoiced', href: '#quotes' },
+  quotes: { one: 'quote worth a call', many: 'quotes worth a call', href: '#jobs/money/follow-up', tone: () => 'warn' },
+  'quotes-due': { one: 'quote wanted today', many: 'quotes wanted today', href: '#jobs/money/follow-up' },
+  'to-invoice': { one: 'job through, not invoiced', many: 'jobs through, not invoiced', href: '#jobs/money/follow-up' },
 }
 
 function tile<K extends StandingKey>(key: K, all: Standing): Tile {

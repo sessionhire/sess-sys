@@ -453,7 +453,7 @@ test('inside a card a head is a group or a section, a boxed row has one shape, a
         await expect(page.locator('.kit-group').first()).toBeVisible()
       },
     ],
-    ['#quotes'],
+    ['#jobs/money/follow-up'],
     ['#jobs/money'],
     ['#stock/repairs'],
     ['#stock'],
