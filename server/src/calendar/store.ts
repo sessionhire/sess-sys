@@ -193,6 +193,20 @@ export async function guestPlaces(q: Queryable, offerId: string, today: string):
   return rows
 }
 
+/**
+ * Which of these offers an invite has gone for: its person is a guest on a day's event from `today` on, and hasn't
+ * turned it down there. A No left standing from an earlier offer is on the event too, and is no invite for this one.
+ */
+export async function offersInvited(q: Queryable, offerIds: readonly string[], today: string): Promise<Set<string>> {
+  if (!offerIds.length) return new Set()
+  const { rows } = await q.query<{ offer_id: string }>(
+    `SELECT DISTINCT g.offer_id
+       FROM calendar_guests g JOIN calendar_days d ON d.id = g.day_id
+      WHERE g.offer_id = ANY($1::text[]) AND d.day >= $2::date AND d.state <> 'removed' AND g.response <> 'declined'`,
+    [offerIds, today]
+  )
+  return new Set(rows.map((r) => r.offer_id))
+}
 
 export function dayEntity(d: DayRow): CalendarDay {
   return {

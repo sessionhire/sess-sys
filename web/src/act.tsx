@@ -75,8 +75,9 @@ export function Refusal({ error, className }: { error: string; className?: strin
 /**
  * A question before something that can't be undone, in place of the
  * browser's own dialog: what will happen, in words, and the two ways on
- * ("Cancel the call for 2 × Audio tech on Electric Picnic? Everyone offered
- * is told it's withdrawn." → Cancel it, Keep it). It opens where the action
+ * ("Cancel the call for 2 × Audio tech on Electric Picnic? Nothing is sent to
+ * the 3 people on it: their links say it's withdrawn at once." → Cancel it,
+ * Keep it). It opens where the action
  * was, so the fields round it hold still. On a keyboard the safe way out has
  * the focus as it opens, and the focus goes back to the buttons that take
  * the question's place when it closes, rather than being lost.

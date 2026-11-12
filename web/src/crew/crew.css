@@ -33,6 +33,8 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .job.is-pending { opacity: .8; }
 .crew .offers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
 .crew .offers li { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); flex-wrap: wrap; padding: var(--ds-space-1) 0; }
+/* Wrapped under a long name, or with Ring and WhatsApp beside the pill, the row's presses stay at the right edge, where every other row has them. */
+.crew .offers li > .actions { margin-left: auto; justify-content: flex-end; }
 .crew .offers small, .crew .who small { color: var(--muted); }
 .crew .offers small.bad { color: var(--bad); }
 .crew .offers .on-cal { flex-basis: 100%; margin-top: calc(-1 * var(--ds-space-1)); font-size: var(--text-hint); }
@@ -181,6 +183,8 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .call > button.offer { grid-column: 2; justify-self: end; }
 .crew .call-line { display: grid; gap: var(--ds-space-half); justify-items: start; width: 100%; min-height: 44px; padding: var(--ds-space-2) 0; border: 0; border-radius: 0; background: none; color: inherit; text-align: left; font: inherit; }
 .crew .call .facts-line { margin: 0; color: var(--muted); font-size: var(--text-small); }
+/* Said once over a call's offers when nothing is sent to anyone (ADR 0149): how things stand, so it's quiet. */
+.crew .call .sent-line { margin: 0; color: var(--muted); font-size: var(--text-hint); }
 
 /* The certificates a call needs, and running late (ADR 0028). The ticks for what a call needs wrap as chips; a certificate's note sits beside its expiry, or under it on a phone. */
 .app .grid-form .needs > div, .app .grid-form .chips > div { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
@@ -238,3 +242,8 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .person-page .combine .actions { margin: 0; }
 /* A Send or Tell card opens where it was asked for, in the answer's place or under the call (audit, 5 November 2026, finding 5). */
 .crew .share-here { display: contents; }
+/* What was sent after a press while messages to crew are off (ADR 0149): a sentence for each thing that happened, then anyone
+   nothing reached, each with their number a press away. */
+.card.sent p { margin: 0; }
+.card.sent .sent-lines { display: grid; gap: var(--ds-space-2); }
+.card.sent .sent-ring .row { align-items: center; }

@@ -1,8 +1,9 @@
-import { dayLabel, firstName, invoiceOf, irishToday, jobPosition, ownerByRole, plural, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { dayLabel, firstName, invoiceOf, irishToday, jobEndingWords, jobPosition, ownerByRole, plural, STAGE_OF, STOPPED_WORDS, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { peopleOn, promptFor, type Share } from '../crew/CrewScreen.tsx'
 import { useMe } from '../crew/Leave.tsx'
+import { useReach } from '../crew/reach.tsx'
 import { Icon } from '../Icon.tsx'
 import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
@@ -342,6 +343,8 @@ function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell
   const current = access.can('money') ? view.money.currentOf(job.id) : undefined
   const waiting = current && !current.invoicedOn && (current.status === 'sent' || current.status === 'accepted' || current.status === 'declined') ? current : undefined
   const people = job.calls.filter((c) => c.status === 'open').flatMap((c) => peopleOn(c))
+  // With the email Google sends those who hold an invite, when the job is marked lost (ADR 0149).
+  const reach = useReach()
   const answer = (yes: boolean) => {
     setAsking(false)
     void run(async () => {
@@ -364,7 +367,7 @@ function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell
           // What their link says once the job is lost, in its own words (UX sweep, 6 November 2026, move 6).
           question={`Marking ${job.name} lost also cancels its crew calls${
             people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${STOPPED_WORDS.lost}` : ''
-          }.`}
+          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId })))}`}
           yes="Mark it lost"
           loss
           no="Keep it as it is"

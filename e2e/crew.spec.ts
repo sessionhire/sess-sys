@@ -51,12 +51,25 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()
   await pickRecord(call, 'Offer to', 'Aoife Byrne')
+  // Before the press the form says what pressing sends by itself (ADR 0149): with every way out off, nothing.
+  await expect(call.locator('.offer-pending')).toHaveText(
+    'Not offered yet. Pressing Offer to Aoife Byrne puts the offer on their page. Nothing is sent: calendar invites, WhatsApp and messages to crew are all off.'
+  )
   await call.getByRole('button', { name: /^Offer to / }).click()
-  // The offer is made, but with messages to crew off nothing opens to send it (ADR 0048): the card says so, and where to turn them on.
-  const quietCard = office.getByRole('region', { name: 'Messages to crew are off: offer for Aoife Byrne' })
-  await expect(quietCard).toContainText('Nothing opened to send Aoife Byrne the offer.')
+  // The offer is made, and the panel says what the app sent by itself: nothing, so her number is a press away (the plain contact
+  // ADR 0048 keeps). That no message opened to send is said last, with where that's turned on.
+  const sent = office.getByRole('region', { name: 'Offered to Aoife Byrne: what was sent' })
+  await expect(sent).toContainText('Nothing was sent to Aoife: calendar invites and WhatsApp are both off.')
+  await expect(sent).toContainText('Their link shows the offer, whenever they open it.')
+  await expect(sent.getByRole('link', { name: 'Ring Aoife Byrne' })).toHaveAttribute('href', 'tel:+353871234567')
+  await expect(sent.getByRole('link', { name: 'WhatsApp Aoife Byrne' })).toHaveAttribute('href', 'https://wa.me/353871234567')
+  await expect(sent).toContainText('Messages to crew are off, so no message opened for you to send.')
   await expect(office.getByRole('status')).toHaveText('Up to date')
-  await quietCard.getByRole('link', { name: 'Admin › Company' }).click()
+  // Her row offers the same in Send's place, and the call says once that nothing was sent.
+  await expect(call.locator('.sent-line')).toHaveText('Nothing was sent to Aoife: calendar invites, WhatsApp and messages to crew are all off.')
+  await expect(call.locator('.offers').getByRole('link', { name: 'Ring Aoife Byrne' })).toBeVisible()
+  await expect(call.getByRole('button', { name: 'Send' })).toHaveCount(0)
+  await sent.getByRole('link', { name: 'Admin › Company' }).click()
   const prompt = office.getByRole('region', { name: 'Messages to crew' }).getByRole('switch', { name: 'Prompt messages to crew' })
   await expect(prompt).not.toBeChecked()
   await prompt.click()

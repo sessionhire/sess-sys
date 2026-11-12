@@ -1,21 +1,34 @@
 import {
   daysLabel,
+  daysToCancel,
   HOLDING,
+  invitesHeld,
+  LIVE,
   newId,
   offerMessage,
+  offerReach,
   OPEN,
   tellMessage,
+  toldOfBooking,
+  toldOfChange,
+  toldOfEnding,
+  toldOfOffer,
+  toldSentences,
   whatsappNumber,
+  whatsappReach,
   type CallView,
   type OfferView,
   type Person,
   type PersonView,
   type TellContext,
   type TellEvent,
+  type ToldPerson,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { AdminWords } from '../AdminWords.tsx'
 import { useAccess } from '../role.ts'
 import { useView } from '../view.ts'
+import { PlainContact, useReach } from './reach.tsx'
 
 /**
  * The messages for crew the office sends itself (audit finding 9): an offer,
@@ -37,6 +50,8 @@ export interface Tell {
   id: string
   event: TellEvent
   to: TellTo[]
+  /** For a changed call: its days moved, which is the one change Google emails the people on it about (ADR 0149). */
+  moved?: boolean
 }
 
 /** What's open at the bottom of a screen: an offer to send, or people to tell. One at a time. */
@@ -49,8 +64,8 @@ export type Share = { kind: 'offer'; people: PersonView[]; call: CallView } | { 
  * when there's nobody to tell. A call changed or a phase moved prompts the
  * same way: setShare(promptFor('call-changed', peopleOn(call))).
  */
-export function promptFor(event: TellEvent, to: TellTo[]): Share | undefined {
-  return to.length ? { kind: 'tell', tell: { id: newId(), event, to } } : undefined
+export function promptFor(event: TellEvent, to: TellTo[], moved = false): Share | undefined {
+  return to.length ? { kind: 'tell', tell: { id: newId(), event, to, moved } } : undefined
 }
 
 /** Someone to tell about a call, with their own days and agreed rate when they have an offer on it. */
@@ -113,12 +128,6 @@ export function SendButtons({ person, text, subject, inJob = false }: { person: 
 export const usePromptsMessages = () => useView().office.promptMessages
 
 /**
- * In a Send panel's place while messages to crew are off (ADR 0048): what
- * would have opened, for whom, that their link carries it regardless, and
- * where it's turned on. The mode shows itself where it bites, not only on
- * Admin (rule 14).
- */
-/**
  * A panel opened by a press (Offer, Send, Confirm, Release) comes into view with the focus on it, so it's seen and read rather than
  * left under the fold with focus nowhere (audit, 20 October 2026, finding 77c; 5 November 2026, finding 5). The screens open it where
  * the press was, so this is a nudge, not a jump.
@@ -132,8 +141,19 @@ function useInView() {
   return panel
 }
 
-export function QuietPanel({ names, what, onLink = true, onClose }: { names: readonly string[]; what: string; onLink?: boolean; onClose: () => void }) {
+/** Where messages to crew are turned on, for whoever can: said wherever the mode bites (rule 14). */
+function TurnedOn() {
   const admin = useAccess().can('settings')
+  return admin ? <a href="#admin/company">Admin › Company</a> : <>Admin, by the office</>
+}
+
+/**
+ * In a Send panel's place while messages to crew are off (ADR 0048), for a message that isn't about an offer (a call
+ * sheet, a certificate reminder, a timesheet): what would have opened, for whom, that their link carries it regardless,
+ * and where it's turned on. The mode shows itself where it bites, not only on Admin (rule 14). An offer, and what
+ * happens to one, has SentPanel, which says what the app sent by itself.
+ */
+export function QuietPanel({ names, what, onLink = true, onClose }: { names: readonly string[]; what: string; onLink?: boolean; onClose: () => void }) {
   const who = names.length === 1 ? names[0] : `${names.length} people`
   const panel = useInView()
   return (
@@ -141,12 +161,120 @@ export function QuietPanel({ names, what, onLink = true, onClose }: { names: rea
       <h2>Messages to crew are off</h2>
       <p className="empty">
         Nothing opened to send {who} the {what}.{onLink ? ` ${names.length === 1 ? 'Their link' : 'Their links'} already say${names.length === 1 ? 's' : ''} so.` : ''} Messages
-        are turned on under {admin ? <a href="#admin/company">Admin › Company</a> : 'Admin, by the office'}.
+        are turned on under <TurnedOn />.
       </p>
       <button type="button" onClick={onClose}>
         Done
       </button>
     </section>
+  )
+}
+
+/**
+ * After a press about an offer while messages to crew are off (ADR 0149; audit of 12 November 2026, finding 5): what
+ * was done as the heading, then what the app sent by itself, worked out from what happened to each person: who Google
+ * emailed, who it went to on WhatsApp, and who nothing reached and why. Anyone nothing reached is named with their
+ * number a press away, the plain contact ADR 0048 keeps (finding 14). That no message opened to send is said last,
+ * with where that's turned on: it was the heading, over a list of people Google had just emailed.
+ */
+function SentPanel({ title, people, links, onClose }: { title: string; people: readonly { person: Person; told: ToldPerson }[]; links?: string; onClose: () => void }) {
+  const panel = useInView()
+  const toRing = people.filter((p, i) => !p.told.reached && people.findIndex((x) => x.person.id === p.person.id) === i && (p.person.phone?.trim() || p.person.email?.trim()))
+  return (
+    <section className="card share sent" aria-label={`${title}: what was sent`} ref={panel} tabIndex={-1}>
+      <h2>{title}</h2>
+      <div className="sent-lines">
+        {toldSentences(people.map((p) => p.told)).map((s) => (
+          <p key={s}>
+            <AdminWords>{s}</AdminWords>
+          </p>
+        ))}
+        {links && <p>{links}</p>}
+      </div>
+      {toRing.length > 0 && (
+        <div className="sent-ring">
+          {toRing.map(({ person }) => (
+            <div className="row" key={person.id}>
+              <span>{person.name}</span>
+              <span className="actions">
+                <PlainContact person={person} />
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="hint">
+        Messages to crew are off, so no message opened for you to send. They're turned on under <TurnedOn />.
+      </p>
+      <button type="button" onClick={onClose}>
+        Done
+      </button>
+    </section>
+  )
+}
+
+/** After Offer or Send: read from the call as it stands now, so "on its way" becomes "emailed" as the server writes each day. */
+function OfferSent({ people, call, onClose }: { people: readonly PersonView[]; call: CallView; onClose: () => void }) {
+  const reach = useReach()
+  const now = useView().crew.calls.find((c) => c.id === call.id) ?? call
+  const told = people.flatMap((person) => {
+    const offer = now.offers.find((o) => o.personId === person.id && LIVE.includes(o.status))
+    return offer ? [{ person, told: toldOfOffer(person, offerReach(reach, offer, now, person, now.offers)) }] : []
+  })
+  const n = people.length
+  return (
+    <SentPanel
+      title={n === 1 ? `Offered to ${people[0]!.name}` : `Offered to ${n} people`}
+      people={told}
+      links={told.length ? (told.length === 1 ? 'Their link shows the offer, whenever they open it.' : 'Their links show the offer, whenever they open them.') : undefined}
+      onClose={onClose}
+    />
+  )
+}
+
+/** What was done, as the panel's heading; none for a timesheet, which the app sends nothing about. */
+const DONE: Partial<Record<TellEvent, (to: readonly TellTo[]) => string>> = {
+  confirmed: (to) => `${to[0]!.person.name} is booked`,
+  withdrawn: (to) => `Offer to ${to[0]!.person.name} withdrawn`,
+  released: (to) => `${to[0]!.person.name} released`,
+  'call-cancelled': () => 'Crew call cancelled',
+  'job-stopped': () => 'Crew calls cancelled',
+  'call-changed': () => 'Crew call changed',
+  'phase-moved': () => 'Phase moved',
+}
+const ENDED: readonly TellEvent[] = ['withdrawn', 'released', 'call-cancelled', 'job-stopped']
+
+/**
+ * After Confirm, Withdraw, Release, a cancelled or changed call, a moved phase or a stopped job. The invites each person
+ * held are read as the panel opens: the server takes them off the calendar a moment later, and the panel then says
+ * Google has emailed them, where until then it says it is.
+ */
+function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
+  const reach = useReach()
+  const calls = useView().crew.calls
+  const [held] = useState(() => tell.to.map((t) => (t.context.offerId ? { cancel: daysToCancel(reach, t.context.offerId).length, invites: invitesHeld(reach, t.context.offerId).length } : { cancel: 0, invites: 0 })))
+  const people = tell.to.map((t, i) => {
+    const id = t.context.offerId
+    const was = held[i] ?? { cancel: 0, invites: 0 }
+    // Invited is an invite the server keeps in step with the offer. With invites switched off since, it leaves theirs as
+    // it was (kept): ending their offer sends no cancellation, and a booking or a change doesn't reach their calendar.
+    const before = { cancel: was.cancel, left: id ? daysToCancel(reach, id).length : 0, invited: was.cancel > 0, kept: was.cancel ? 0 : was.invites }
+    if (tell.event === 'confirmed') return { person: t.person, told: toldOfBooking(reach, t.person, before) }
+    if (tell.event === 'call-changed' || tell.event === 'phase-moved')
+      return { person: t.person, told: toldOfChange(reach, t.person, before, tell.event === 'phase-moved' || tell.moved === true) }
+    // A stopped job tells whoever had its offer on WhatsApp that it's off (ADR 0125), by the rule the server sends by.
+    const went = tell.event === 'job-stopped' ? calls.flatMap((c) => c.offers).find((o) => o.id === id)?.whatsapp?.state : undefined
+    const whatsapp = (went === 'sent' || went === 'delivered' || went === 'read') && whatsappReach(reach.whatsapp, t.person) !== undefined
+    return { person: t.person, told: toldOfEnding(reach, t.person, { ...before, whatsapp }) }
+  })
+  const many = new Set(tell.to.map((t) => t.person.id)).size > 1
+  return (
+    <SentPanel
+      title={DONE[tell.event]?.(tell.to) ?? 'Done'}
+      people={people}
+      links={ENDED.includes(tell.event) ? (many ? 'Their links say so, whenever they open them.' : 'Their link says so, whenever they open it.') : undefined}
+      onClose={onClose}
+    />
   )
 }
 
@@ -188,7 +316,8 @@ export function SharePanel({
   inJob?: boolean
 }) {
   const prompts = usePromptsMessages()
-  if (!prompts) return <QuietPanel names={[person.name]} what={message?.('').what ?? 'offer'} onClose={onClose} />
+  // An offer says what the app sent by itself (ADR 0149); anything else only that no message opened.
+  if (!prompts) return message ? <QuietPanel names={[person.name]} what={message('').what} onClose={onClose} /> : <OfferSent people={[person]} call={call} onClose={onClose} />
   const link = linkFor(person)
   if (!link) return <NoLinkYet person={person} onClose={onClose} />
   return <SendTo person={person} call={call} link={link} message={message} onClose={onClose} inJob={inJob} />
@@ -238,7 +367,12 @@ export function TellPanel({ tell, onClose, inJob = false }: { tell: Tell; onClos
   const prompts = usePromptsMessages()
   const to = tell.to[at]
   if (!to) return null
-  if (!prompts) return <QuietPanel names={tell.to.map((t) => t.person.name)} what={tellMessage(tell.event, to.person, to.context, '').what} onClose={onClose} />
+  if (!prompts)
+    return DONE[tell.event] ? (
+      <TellSent tell={tell} onClose={onClose} />
+    ) : (
+      <QuietPanel names={tell.to.map((t) => t.person.name)} what={tellMessage(tell.event, to.person, to.context, '').what} onClose={onClose} />
+    )
   const { person, context } = to
   const n = tell.to.length
   const next = () => (at + 1 < n ? setAt(at + 1) : onClose())
@@ -262,7 +396,7 @@ function OffersPanel({ people, call, onClose, inJob }: { people: PersonView[]; c
   const prompts = usePromptsMessages()
   const person = people[at]
   if (!person) return null
-  if (!prompts) return <QuietPanel names={people.map((p) => p.name)} what="offer" onClose={onClose} />
+  if (!prompts) return <OfferSent people={people} call={call} onClose={onClose} />
   const n = people.length
   const next = () => (at + 1 < n ? setAt(at + 1) : onClose())
   const link = linkFor(person)

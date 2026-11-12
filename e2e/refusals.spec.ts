@@ -109,9 +109,9 @@ test('a price is read as meant, nonsense is refused beside the field, and cancel
   await expect(job.getByRole('alert')).toHaveCount(0)
   await expect(page.getByRole('status')).toHaveText('Up to date')
 
-  // Cancelling the call asks in the card, with what will happen; Keep it leaves it be.
+  // Cancelling the call asks in the card, with what will happen and who hears of it (ADR 0149); Keep it leaves it be.
   await call.getByRole('button', { name: 'Cancel crew call' }).click()
-  const question = call.getByRole('group', { name: `Cancel the call for 1 × Rigger on Galway Arts ${id}? Everyone offered is told it's withdrawn.` })
+  const question = call.getByRole('group', { name: `Cancel the call for 1 × Rigger on Galway Arts ${id}? Nobody is offered or booked on it.` })
   await expect(question).toBeVisible()
   await question.getByRole('button', { name: 'Keep it' }).click()
   await expect(question).toHaveCount(0)

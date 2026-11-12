@@ -1,4 +1,4 @@
-import { whatsappDigits, type Person, type WhatsAppMode, type WhatsAppStatus } from '@sh/shared'
+import { whatsappReach, type Person, type WhatsAppStatus } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { whatsappSetting } from '../office/store.ts'
 import { WhatsAppApi, type WhatsAppConfig, type WhatsAppNumber } from './api.ts'
@@ -52,11 +52,8 @@ export class WhatsApp {
   }
 }
 
-/** The rule itself, without the database: the mode and the test numbers, and the person. */
-export function reachOf(setting: { mode: WhatsAppMode; testTo: readonly string[] }, person: Pick<Person, 'phone' | 'whatsappOff'>): string | undefined {
-  if (setting.mode === 'off' || person.whatsappOff) return undefined
-  const to = whatsappDigits(person.phone)
-  if (!to) return undefined
-  if (setting.mode === 'test' && !setting.testTo.some((n) => whatsappDigits(n) === to)) return undefined
-  return to
-}
+/**
+ * The rule itself, without the database: the mode and the test numbers, and the person. It's the one a device reads
+ * too (shared/src/reach.ts), so what the Offer form says will go on WhatsApp is what goes.
+ */
+export const reachOf = whatsappReach

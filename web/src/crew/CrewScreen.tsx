@@ -25,7 +25,9 @@ import {
   type View,
   emailBackRefusal,
   emailTakenBy,
+  endingWords,
   listed,
+  reachContext,
   NO_DEPARTMENT_KEY,
   peopleFilters,
   peopleSorts,
@@ -248,6 +250,8 @@ export function CrewScreen() {
     wanted === NO_DEPARTMENT ? (upcoming.some((c) => !departmentOf(c)) ? wanted : '') : (callDepts.find((d) => sameDepartment(d, wanted)) ?? '')
   const shownCalls = upcoming.filter((c) => !callsFor || (callsFor === NO_DEPARTMENT ? !departmentOf(c) : sameDepartment(departmentOf(c), callsFor)))
   const onCalendar = (o: OfferView) => offerOnCalendar(o, view.calendar.days, today)
+  // What ending an offer sends its person, for the question asked first (ADR 0149).
+  const reach = useMemo(() => reachContext(view, today), [view, today])
   // A yes or a counter until Confirm or Withdraw; a decline or a pull-out until Noted. The Crew tab's count is the same list.
   // Opened from a count on Home for a department, the answers are that department's people's, as Home counted them (audit,
   // 20 October 2026, finding 4); answers on Google Calendar aren't anyone's department.
@@ -361,7 +365,6 @@ export function CrewScreen() {
                   <CallCard
                     call={c}
                     crew={crew}
-                    calendar={view.calendar}
                     late={view.late}
                     onShare={(people) => setShare({ kind: 'offer', people, call: c }, c.id)}
                     onTell={(s) => setShare(s, c.id)}
@@ -509,8 +512,8 @@ export function CrewScreen() {
                           <Confirm
                             question={
                               kind === 'countered'
-                                ? `Say no to ${o.person?.name ?? 'them'}${o.rateHidden ? '' : ` at ${euro(o.counterRateCents)}`}? The offer is withdrawn, and their link says so at once.`
-                                : `Release ${o.person?.name ?? 'them'} from ${c.project}? Their place goes back to the call, and their link says so at once.`
+                                ? `Say no to ${o.person?.name ?? 'them'}${o.rateHidden ? '' : ` at ${euro(o.counterRateCents)}`}? The offer is withdrawn. ${endingWords(reach, o.id, 'so')}`
+                                : `Release ${o.person?.name ?? 'them'} from ${c.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so')}`
                             }
                             yes={kind === 'countered' ? 'Withdraw the offer' : `Release ${o.person ? firstName(o.person) : 'them'}`}
                             loss

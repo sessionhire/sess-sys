@@ -39,6 +39,7 @@ import {
   type PhaseView,
   type ProjectStatus,
   type View,
+  jobEndingWords,
   jobPosition,
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
@@ -50,6 +51,7 @@ import { Empty } from '../Empty.tsx'
 import { Fold } from '../Fold.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { DepartmentField } from '../crew/Department.tsx'
+import { useReach } from '../crew/reach.tsx'
 import { Tabs } from '../Tabs.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
 import { client } from '../sync.ts'
@@ -331,7 +333,6 @@ function CrewPart({
       key={c.id}
       call={c}
       crew={view.crew}
-      calendar={view.calendar}
       late={view.late}
       onShare={onShare(c)}
       onTell={onTell}
@@ -517,6 +518,7 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
   // Stopping a job with crew out waits here until the office says so, with the fields held still.
   const [asking, setAsking] = useState(false)
   const { run, error } = useAct()
+  const reach = useReach()
   const stopping = STOPPED.includes(f.status) && !STOPPED.includes(job.status)
   // Everyone offered or booked on the job's open calls: told it's off once it's stopped.
   const people = job.calls.filter((c) => c.status === 'open').flatMap((c) => peopleOn(c))
@@ -583,9 +585,10 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
       {asking ? (
         <Confirm
           className="wide"
+          // With the email Google sends those who hold an invite (ADR 0149).
           question={`Marking ${job.name} ${STATUS_LABELS[f.status].toLowerCase()} also cancels its crew calls${
             people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${theySee}` : ''
-          }.`}
+          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId })))}`}
           yes={`Mark it ${STATUS_LABELS[f.status].toLowerCase()}`}
           loss
           no="Keep it as it is"
