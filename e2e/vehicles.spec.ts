@@ -94,7 +94,7 @@ test('on a job, a van whose tax runs out is refused by name, and one off the roa
   // Proves: the refusal names the van and the fix, and sends nothing; off the road asks first, then books with the problem said; an unrecorded licence warns; Remove takes it off.
   const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await openJob(phone, 'Liffey Brands Launch')
-  await phone.getByRole('tab', { name: /^Vans/ }).click()
+  await phone.getByRole('tab', { name: /^Transport/ }).click()
   const vans = phone.getByRole('region', { name: 'Vehicles' })
   const luton = vans.locator('.van-line', { hasText: 'The Luton' })
   await expect(luton).toContainText('Dara Quinn driving')
@@ -113,8 +113,8 @@ test('on a job, a van whose tax runs out is refused by name, and one off the roa
 
   // The Luton is off the road for the festival's load in: asked first, then booked anyway.
   await openJob(phone, 'Harbour Lights Festival')
-  // It opens on its next task's part (ADR 0140, part 8); the vans have a tab of their own.
-  await phone.getByRole('tab', { name: /^Vans/ }).click()
+  // It opens on its next task's part (ADR 0140, part 8); the vans are under Transport.
+  await phone.getByRole('tab', { name: /^Transport/ }).click()
   const harbour = phone.getByRole('region', { name: 'Vehicles' })
   await expect(harbour.locator('.van-line', { hasText: 'Big Van' })).toHaveCount(2)
   await harbour.getByRole('button', { name: 'Book a vehicle' }).click()

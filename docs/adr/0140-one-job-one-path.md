@@ -118,7 +118,8 @@ removed. Built in eight parts, one pull request each:
    works there. 1.168.0, Colly's ask: Kit and vans became two tabs, Kit
    and Vans, after Kit, so the vans aren't under a long kit list on a
    phone; the "kit list final?" tick and its task stay with Kit, and the
-   planner's van clashes open Vans.)
+   planner's van clashes open Vans. 1.172.1: the Vans tab is called
+   Transport, Colly's word; its address stays `…/vans`.)
 
 Assumed until Colly says otherwise: the client's yes is the moment the job is
 confirmed; crew may be pencilled before the yes, so Crew shows in Quoting,
