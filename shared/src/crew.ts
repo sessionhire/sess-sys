@@ -300,8 +300,17 @@ export const offer = z.object({
   status: z.enum(OFFER_STATUSES),
   /** The days this person is on for. All the call's days unless they took only some. */
   days: z.array(day),
+  /**
+   * On an offer they've said yes to in Google Calendar for some of its days: the days still asked, which they haven't
+   * answered (ADR 0152). A Yes counts for the day it was pressed on, so these hold nothing. Absent when there are none.
+   */
+  asked: z.array(day).optional(),
   /** The agreed rate; starts as the call's rate, changes if a counter is agreed. */
   dayRateCents: cents.nullable(),
+  /**
+   * The rate they asked for. On an offer back to offered, it is the rate the office said no to, with the offer standing
+   * at `dayRateCents` (ADR 0152).
+   */
   counterRateCents: cents.nullable(),
   /** What the freelancer said when answering, for ops to read. */
   note: text(1000, 'The note'),
@@ -339,6 +348,25 @@ export const HOLDING: readonly OfferStatus[] = ['accepted', 'confirmed']
 export const OPEN: readonly OfferStatus[] = ['offered', 'countered']
 /** Offers a change to the call still reaches: waiting on someone, or holding days. */
 export const LIVE: readonly OfferStatus[] = ['offered', 'countered', 'accepted', 'confirmed']
+
+/**
+ * The rates still asked for that close unanswered if the office confirms this offer (ADR 0152). Someone's yes no longer
+ * closes a rate asked for when it fills the call: the office's Confirm does, once every day has the people it needs, so
+ * it's said before the press. Nothing when confirming leaves a day short, or the offer isn't one to confirm.
+ */
+export function ratesClosedBy<O extends Pick<Offer, 'id' | 'personId' | 'status' | 'days'>>(
+  call: Pick<CrewCall, 'start' | 'end' | 'needed'>,
+  offers: readonly O[],
+  offerId: string
+): O[] {
+  const confirming = offers.find((o) => o.id === offerId)
+  if (!confirming || (confirming.status !== 'accepted' && confirming.status !== 'countered')) return []
+  const held: Record<string, Set<string>> = {}
+  for (const d of eachDay(call.start, call.end)) held[d] = new Set()
+  for (const o of offers) if (HOLDING.includes(o.status) || o.id === offerId) for (const d of o.days) held[d]?.add(o.personId)
+  if (Object.values(held).some((who) => who.size < call.needed)) return []
+  return offers.filter((o) => o.status === 'countered' && o.id !== offerId)
+}
 
 /** A field-by-field change must name at least one field; shared with the job and phase changes. */
 export const somethingToChange = [(u: Record<string, unknown>) => Object.keys(u).some((k) => k !== 'id' && u[k] !== undefined), { message: 'Nothing to change.' }] as const
@@ -477,10 +505,25 @@ export const crewCommandSchemas = {
    * accepts first gets the place, and the rest are told it has been filled.
    */
   'offer.send': z.object({ id, callId: id, personId: id, override: z.boolean() }),
-  /** The freelancer's answer, from their link or the app. */
+  /** The freelancer's answer, from their link, the app or Google Calendar. */
   'offer.respond': z.discriminatedUnion('answer', [
-    z.object({ id, answer: z.literal('accept'), days: offerDays, note: text(1000, 'The note') }),
+    z.object({
+      id,
+      answer: z.literal('accept'),
+      days: offerDays,
+      note: text(1000, 'The note'),
+      /**
+       * The days still asked, not yet answered, after a Yes in Google Calendar to some days (ADR 0152). Only the calendar
+       * sends it: an answer on their page or in the app is for every day.
+       */
+      asked: z.array(day).max(MAX_OFFER_DAYS).optional(),
+    }),
     z.object({ id, answer: z.literal('decline'), note: text(1000, 'The note') }),
+    /**
+     * A No in Google Calendar to every day they had said yes to, with days they haven't answered: the offer is open again
+     * for those days, as it was before their yes (ADR 0152). Only the calendar sends it.
+     */
+    z.object({ id, answer: z.literal('undecided'), days: z.array(day).min(1).max(MAX_OFFER_DAYS), note: text(1000, 'The note') }),
     z.object({
       id,
       answer: z.literal('counter'),
@@ -491,8 +534,16 @@ export const crewCommandSchemas = {
     /** Can't make it, having accepted or been booked: the place is free again and the office finds cover. */
     z.object({ id, answer: z.literal('pullOut'), note: text(1000, 'The note') }),
   ]),
-  /** Ops confirm an acceptance, or agree a counter-offer at the asked rate. */
+  /**
+   * Ops confirm an acceptance, or agree a counter-offer at the asked rate. Confirming books the days they said yes to and
+   * ends the ask for any they haven't answered; once the call is full, a rate still asked for closes with it (ADR 0152).
+   */
   'offer.confirm': z.object({ id }),
+  /**
+   * Ops say no to the rate asked for (ADR 0152): the offer stands at the rate offered, for the days the rate was asked for,
+   * for them to take or turn down. Withdrawing it is offer.cancel.
+   */
+  'offer.refuse': z.object({ id }),
   'offer.cancel': z.object({ id }),
   /** The office has seen a decline or a pull-out, so it leaves "Answers to check". */
   'offer.seen': z.object({ id }),
@@ -619,8 +670,10 @@ export const feedPath = (code: string) => `/cal/${code}.ics`
 export type TellEvent =
   /** Confirm, or a counter-offer agreed: it's a booking. */
   | 'confirmed'
-  /** An offer withdrawn before an answer, or a counter-offer turned down. */
+  /** An offer withdrawn before an answer, or a counter-offer withdrawn rather than answered. */
   | 'withdrawn'
+  /** The rate they asked for turned down, with the offer standing at the rate offered (ADR 0152). */
+  | 'rate-refused'
   /** Someone who had said yes, or was booked, is let go. */
   | 'released'
   /** The job is cancelled or lost, taking its crew calls with it. */
@@ -643,6 +696,10 @@ export interface TellContext {
   neededBefore?: readonly CertificateKind[]
   /** The person's own days, when they took only some. */
   days?: readonly string[]
+  /** For a rate turned down: the rate they asked for (ADR 0152). */
+  askedRateCents?: number | null
+  /** For a rate turned down on a call that has filled meanwhile: the offer closes with it, rather than standing (ADR 0152). */
+  filled?: boolean
   /** The booking, for the timesheet's address. */
   offerId?: string
   /** For a timesheet: the figures approved, in words ("2 days at €320, and €43.50 of extras: €683.50"). */
@@ -736,6 +793,30 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
         what: 'change',
       }
     }
+    case 'rate-refused':
+      // The call filled while their rate was with the office: there's no offer left to take (ADR 0152).
+      if (ctx.filled)
+        return {
+          text: lines([
+            c.rateHidden || (ctx.askedRateCents ?? null) === null
+              ? `Hi ${first}, we can't agree the rate you asked for on ${job}, and ${c.role}, ${when}, has filled meanwhile, so the offer is closed.`
+              : `Hi ${first}, we can't do ${euro(ctx.askedRateCents ?? null)} a day for ${job}, and ${c.role}, ${when}, has filled meanwhile, so the offer is closed.`,
+            `Sorry, and ${next}`,
+          ]),
+          subject: `Your rate: ${job}, ${when}`,
+          what: 'answer about the rate',
+        }
+      return {
+        text: lines([
+          // Both rates where they read them; a role that doesn't sends the office's words without them (ADR 0046).
+          c.rateHidden || (ctx.askedRateCents ?? null) === null
+            ? `Hi ${first}, we can't agree the rate you asked for on ${job}, but the offer stands at the rate offered: ${c.role}, ${when}.`
+            : `Hi ${first}, we can't do ${euro(ctx.askedRateCents ?? null)} a day for ${job}, but the offer stands at ${rateLine(c)}: ${c.role}, ${when}.`,
+          `Accept, decline or pick days here: ${link}`,
+        ]),
+        subject: `Your rate: ${job}, ${when}`,
+        what: 'answer about the rate',
+      }
     case 'phase-moved':
       return {
         text: lines([

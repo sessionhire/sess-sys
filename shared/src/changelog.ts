@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.169.0',
+    date: '2026-11-12',
+    title: "A Yes on one day's invite counts for that day, and saying no to a rate keeps the offer open",
+    what: "Each crew invite asks about one day, so a Yes pressed in Google Calendar now counts for that day only. The days someone hasn't answered stay asked: their invites still ask, their page says so, and Confirm books only the days they said yes to, saying first which of their invites Google will cancel. Each invite's first line follows that day's own answer, and when the app couldn't take a yes, it says why. When someone asks for a different rate, another person's yes no longer closes their ask: your own Confirm or Agree that fills the call does, and says so before you press it. Say no to a rate now keeps the offer open at the rate offered, for the days they asked about, and their page and invite say so, with no email; Withdraw is its own button beside it. Confirm, Release, Agree, Say no and Withdraw are on the job's own Crew tab too, and while a job is still a quote, Next says how many answers are waiting beside it.",
+    prs: [343],
+    adrs: [152],
+  },
+  {
     version: '1.168.0',
     date: '2026-11-12',
     title: 'Kit and vans are two tabs on a job',

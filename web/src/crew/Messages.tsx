@@ -13,6 +13,7 @@ import {
   toldOfChange,
   toldOfEnding,
   toldOfOffer,
+  toldOfRefusal,
   toldSentences,
   whatsappNumber,
   whatsappReach,
@@ -55,6 +56,11 @@ export interface Tell {
   to: TellTo[]
   /** For a changed call: its days moved, which is the one change Google emails the people on it about (ADR 0149). */
   moved?: boolean
+  /**
+   * People whose rate asked for the press closed, by filling the call (ADR 0152): said among what was sent, as their offers
+   * end, and never sent this event's message.
+   */
+  closed?: TellTo[]
 }
 
 /** What's open at the bottom of a screen: an offer to send, or people to tell. One at a time. */
@@ -67,8 +73,8 @@ export type Share = { kind: 'offer'; people: PersonView[]; call: CallView } | { 
  * when there's nobody to tell. A call changed or a phase moved prompts the
  * same way: setShare(promptFor('call-changed', peopleOn(call))).
  */
-export function promptFor(event: TellEvent, to: TellTo[], moved = false): Share | undefined {
-  return to.length ? { kind: 'tell', tell: { id: newId(), event, to, moved } } : undefined
+export function promptFor(event: TellEvent, to: TellTo[], moved = false, closed: TellTo[] = []): Share | undefined {
+  return to.length ? { kind: 'tell', tell: { id: newId(), event, to, moved, ...(closed.length ? { closed } : {}) } } : undefined
 }
 
 /** Someone to tell about a call, with their own days and agreed rate when they have an offer on it. */
@@ -239,6 +245,7 @@ function OfferSent({ people, call, onClose }: { people: readonly PersonView[]; c
 const DONE: Partial<Record<TellEvent, (to: readonly TellTo[]) => string>> = {
   confirmed: (to) => `${to[0]!.person.name} is booked`,
   withdrawn: (to) => `Offer to ${to[0]!.person.name} withdrawn`,
+  'rate-refused': (to) => `Said no to ${to[0]!.person.name}'s rate`,
   released: (to) => `${to[0]!.person.name} released`,
   'call-cancelled': () => 'Crew call cancelled',
   'job-stopped': () => 'Crew calls cancelled',
@@ -256,15 +263,29 @@ function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
   const reach = useReach()
   const holdTheDay = useHoldTheDay()
   const calls = useView().crew.calls
-  const [held] = useState(() => tell.to.map((t) => (t.context.offerId ? { cancel: daysToCancel(reach, t.context.offerId).length, invites: invitesHeld(reach, t.context.offerId).length } : { cancel: 0, invites: 0 })))
-  const people = tell.to.map((t, i) => {
+  const everyone = [...tell.to, ...(tell.closed ?? [])]
+  const [held] = useState(() =>
+    everyone.map((t) => (t.context.offerId ? { cancel: daysToCancel(reach, t.context.offerId), invites: invitesHeld(reach, t.context.offerId).length } : { cancel: [] as string[], invites: 0 }))
+  )
+  const people = everyone.map((t, i) => {
     const id = t.context.offerId
-    const was = held[i] ?? { cancel: 0, invites: 0 }
+    const had = held[i] ?? { cancel: [] as string[], invites: 0 }
+    const was = { cancel: had.cancel.length, invites: had.invites }
     // Invited is an invite the server keeps in step with the offer. With invites switched off since, it leaves theirs as
     // it was (kept): ending their offer sends no cancellation, and a booking or a change doesn't reach their calendar.
     const before = { cancel: was.cancel, left: id ? daysToCancel(reach, id).length : 0, invited: was.cancel > 0, kept: was.cancel ? 0 : was.invites }
+    // A rate asked for that the press closed by filling the call ends as any offer does (ADR 0152).
+    if (i >= tell.to.length) return { person: t.person, told: toldOfEnding(reach, t.person, before) }
     // On a job the client hasn't said yes to yet, their link and their invite say to hold the day, not that they're booked (ADR 0150).
-    if (tell.event === 'confirmed') return { person: t.person, told: toldOfBooking(reach, t.person, before, holdTheDay(t.context.call.projectId)) }
+    // Days they were still asked for, outside the days booked, came off with word from Google, as the question said (ADR 0152).
+    if (tell.event === 'confirmed') {
+      const gone = had.cancel.filter((d) => !(t.context.days ?? had.cancel).includes(d))
+      const left = id ? daysToCancel(reach, id).filter((d) => gone.includes(d)).length : 0
+      return { person: t.person, told: toldOfBooking(reach, t.person, before, holdTheDay(t.context.call.projectId), { gone, left }) }
+    }
+    // Saying no to a rate keeps the offer (ADR 0152): their link and their invite's first line say it stands. On a call that
+    // filled meanwhile it closes, and their invites come off as for any offer that ends.
+    if (tell.event === 'rate-refused') return { person: t.person, told: t.context.filled ? toldOfEnding(reach, t.person, before) : toldOfRefusal(reach, t.person, before) }
     if (tell.event === 'call-changed' || tell.event === 'phase-moved')
       return { person: t.person, told: toldOfChange(reach, t.person, before, tell.event === 'phase-moved' || tell.moved === true) }
     // A stopped job tells whoever had its offer on WhatsApp that it's off (ADR 0125), by the rule the server sends by.

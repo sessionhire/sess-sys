@@ -207,6 +207,35 @@ describe('a counter confirmed on this device', () => {
   })
 })
 
+describe('answers settled on this device (ADR 0152)', () => {
+  const c1 = { ...call('c1', '2026-09-28', '2026-09-30'), dayRateCents: 25000 }
+  const countered = { ...offer('o1', 'c1', 'countered', ['2026-09-29', '2026-09-30']), dayRateCents: 25000, counterRateCents: 30000 }
+  const entities = (o: Offer) => ({ person: { p1: aoife }, crewCall: { c1 }, offer: { o1: o } })
+
+  it('says no to a rate as the server will: offered again at the rate offered, for the days asked about', () => {
+    const view = crewView(entities(countered), [pending('offer.refuse', { id: 'o1' })], 0, today)
+    expect(view.calls[0]!.offers[0]).toMatchObject({ status: 'offered', days: ['2026-09-29', '2026-09-30'], dayRateCents: 25000, counterRateCents: 30000, pending: true })
+    // Only a rate asked for can be said no to.
+    const yes = crewView(entities({ ...countered, status: 'accepted', counterRateCents: null }), [pending('offer.refuse', { id: 'o1' })], 0, today)
+    expect(yes.calls[0]!.offers[0]).toMatchObject({ status: 'accepted', pending: false })
+  })
+
+  it("keeps the days a Yes in Google didn't answer, and Confirm ends the ask", () => {
+    const asked = offer('o1', 'c1', 'offered', ['2026-09-28', '2026-09-29', '2026-09-30'])
+    const yes = crewView(entities(asked), [pending('offer.respond', { id: 'o1', answer: 'accept', days: ['2026-09-28'], asked: ['2026-09-29', '2026-09-30'], note: '' })], 0, today)
+    expect(yes.calls[0]!.offers[0]).toMatchObject({ status: 'accepted', days: ['2026-09-28'], asked: ['2026-09-29', '2026-09-30'] })
+    const booked = crewView(entities({ ...asked, status: 'accepted', days: ['2026-09-28'], asked: ['2026-09-29'] }), [pending('offer.confirm', { id: 'o1' })], 0, today)
+    expect(booked.calls[0]!.offers[0]).toMatchObject({ status: 'confirmed', days: ['2026-09-28'] })
+    expect(booked.calls[0]!.offers[0]!.asked).toBeUndefined()
+    // A No to the day they'd said yes to asks them again for the rest; a yes already confirmed stays as it is.
+    const again = crewView(entities({ ...asked, status: 'accepted', days: ['2026-09-28'], asked: ['2026-09-29'] }), [pending('offer.respond', { id: 'o1', answer: 'undecided', days: ['2026-09-29'], note: '' })], 0, today)
+    expect(again.calls[0]!.offers[0]).toMatchObject({ status: 'offered', days: ['2026-09-29'] })
+    expect(again.calls[0]!.offers[0]!.asked).toBeUndefined()
+    const kept = crewView(entities({ ...asked, status: 'confirmed', days: ['2026-09-28'] }), [pending('offer.respond', { id: 'o1', answer: 'undecided', days: ['2026-09-29'], note: '' })], 0, today)
+    expect(kept.calls[0]!.offers[0]).toMatchObject({ status: 'confirmed', days: ['2026-09-28'], pending: false })
+  })
+})
+
 describe('the order on two devices', () => {
   it('is the same whatever order the rows arrived in: a tie falls to the id', () => {
     // Proves: two devices holding the same rows, arrived in a different order, list people, calls, offers and days off alike.

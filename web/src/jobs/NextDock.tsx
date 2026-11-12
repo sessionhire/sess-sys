@@ -1,4 +1,4 @@
-import { crewNext, dayLabel, firstName, jobPosition, plural, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
+import { crewNext, dayLabel, firstName, jobPosition, plural, ratesClosedBy, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
@@ -9,7 +9,8 @@ import { useToday } from '../view.ts'
 import { offerFormId, useOfferPicks } from '../crew/offerPicks.ts'
 
 /** Where a press of Next lands on the job page (ADR 0140): a call, with its Offer open or not, or the short kit's Subhire. */
-export type Landing = { call: string; offer?: boolean } | { short: true }
+/** Where a press lands on the job's page: a call, opening its Offer or its rows to answer a yes or a rate (ADR 0152); or the short kit. */
+export type Landing = { call: string; offer?: boolean; answer?: boolean } | { short: true }
 
 /**
  * The one Next button of a job (ADR 0104): drawn the same on every job and
@@ -84,7 +85,7 @@ export function NextDock({
       )}
     </p>
   )
-  const rest = (words: string, link?: { href: string; label: string }) => (
+  const rest = (words: string, link?: { href: string; label: string } | { label: string; onPress: () => void }) => (
     <div className="next-dock" role="region" aria-label="Next" data-rest="true">
       {line}
       <p className="rest">
@@ -92,7 +93,13 @@ export function NextDock({
         {link && (
           <>
             {' '}
-            <a href={link.href}>{link.label}</a>
+            {'href' in link ? (
+              <a href={link.href}>{link.label}</a>
+            ) : (
+              <button type="button" className="link" onClick={link.onPress}>
+                {link.label}
+              </button>
+            )}
           </>
         )}
       </p>
@@ -118,6 +125,13 @@ export function NextDock({
     const show = steps.steps.find((s) => s.key === 'show')
     return rest(`${stage?.label ?? 'This stage'} is done. ${show?.hint ?? ''}`.trim())
   }
+  // Crew are asked while the job is still a quote (ADR 0150), so a yes or a rate to answer waits while Next leads with the
+  // quote: said beside it, opening the call's rows to answer it there (audit of 12 November 2026, finding 9).
+  const toAnswer =
+    access.can('crew') && (task.key === 'quote' || task.key === 'confirmed')
+      ? job.calls.flatMap((c) => (c.status === 'open' ? c.offers.filter((o) => o.status === 'accepted' || o.status === 'countered').map(() => c.id) : []))
+      : []
+  const answers = toAnswer.length ? { label: `${plural(toAnswer.length, 'answer')} to check`, onPress: () => onPart('crew', { call: toAnswer[0]!, answer: true }) } : undefined
 
   /** What to press for the task, or why there's nothing to. */
   let press: { label: string; href?: string; onPress?: () => void } | undefined
@@ -132,7 +146,10 @@ export function NextDock({
       // The quote is the job's Quoting stage, worked on its own tab (ADR 0140, part 4). With that tab open, its Send or Build is the
       // one press, so the dock doesn't hold a second red that only goes where the page already is.
       else if (quoteHere)
-        return rest(quotes.length === 0 ? 'Build the quote below, from the job or empty.' : quotes.some((q) => q.status === 'draft') ? 'Finish the quote below and send it to the client.' : "The quote is below, waiting on the client's answer.")
+        return rest(
+          quotes.length === 0 ? 'Build the quote below, from the job or empty.' : quotes.some((q) => q.status === 'draft') ? 'Finish the quote below and send it to the client.' : "The quote is below, waiting on the client's answer.",
+          answers
+        )
       else press = { label: quotes.length === 0 ? 'Make a quote' : quotes.some((q) => q.status === 'draft') ? 'Finish the quote' : 'Open the quote', onPress: () => onPart('quote') }
       break
     }
@@ -142,7 +159,7 @@ export function NextDock({
       const yes = access.can('money') && view.money.currentOf(job.id)?.status === 'accepted'
       // On the Quote tab, the answer is recorded under What happened, whose button is the one red (ADR 0140, part 4).
       if (quoteHere && access.can('money') && view.money.currentOf(job.id))
-        return rest(yes ? 'The client said yes: confirm the job below.' : "Record the client's answer below, under What happened.")
+        return rest(yes ? 'The client said yes: confirm the job below.' : "Record the client's answer below, under What happened.", answers)
       press = yes
         ? { label: 'Confirm the job', onPress: () => void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })) }
         : { label: steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }
@@ -165,15 +182,20 @@ export function NextDock({
       else if (next.yes) {
         const { call, offer } = next.yes
         const person = offer.person!
-        press = {
-          label: `Confirm ${firstName(person)}'s yes · ${count}`,
-          onPress: () =>
-            void run(() => client.mutate('offer.confirm', { id: offer.id })).then((ok) => {
-              if (!ok) return
-              onPart('crew', { call: call.id })
-              onTell?.(promptFor('confirmed', [tellTo(person, call, offer)]))
-            }),
-        }
+        // A yes with days they haven't answered, or one that fills the call over a rate still asked for, is confirmed on its
+        // row, where what confirming ends is said first (ADR 0152).
+        press =
+          offer.asked?.length || ratesClosedBy(call, call.offers, offer.id).length
+            ? { label: `Check ${firstName(person)}'s yes · ${count}`, onPress: () => onPart('crew', { call: call.id, answer: true }) }
+            : {
+                label: `Confirm ${firstName(person)}'s yes · ${count}`,
+                onPress: () =>
+                  void run(() => client.mutate('offer.confirm', { id: offer.id })).then((ok) => {
+                    if (!ok) return
+                    onPart('crew', { call: call.id })
+                    onTell?.(promptFor('confirmed', [tellTo(person, call, offer)]))
+                  }),
+              }
       } else if (next.ask) {
         const { call, asked } = next.ask
         // With people already picked in its Offer, this press sends it to them (crew offer that wouldn't send, 11 November 2026):
@@ -191,8 +213,8 @@ export function NextDock({
             }
           : { label: `Offer the ${call.role} · ${asked} of ${call.needed} offered`, onPress: () => onPart('crew', { call: call.id, offer: true }) }
       } else if (next.counter)
-        // A different rate is settled with the rate in view, on Crew's answers.
-        press = { label: `Answer ${firstName(next.counter.offer.person!)}'s rate · ${count}`, href: '#crew' }
+        // A different rate is settled on its own row, with the rate in view (audit of 12 November 2026, finding 9).
+        press = { label: `Answer ${firstName(next.counter.offer.person!)}'s rate · ${count}`, onPress: () => onPart('crew', { call: next.counter!.call.id, answer: true }) }
       else if (next.waiting)
         return rest(`Every place is offered: waiting on ${plural(next.waiting, 'answer')}. ${count}.`, { href: `${href}/crew`, label: "See who's been asked" })
       else press = { label: needed === 0 ? 'Ask for the crew' : `Book ${needed - booked} more crew`, onPress: () => onPart('crew') }
@@ -234,10 +256,16 @@ export function NextDock({
       ? { href: `${href}/pick`, label: `Pick the kit · ${prep.facts.out} of ${prep.facts.of} out` }
       : undefined
   // Someone else's, said in the one shape the word table writes (UX sweep, 6 November 2026, move 4): who does it, and nothing to press.
-  if (!press)
-    return rest(why ?? `Next is ${task.label.toLowerCase()}. ${task.owner ? `It's down to ${task.owner.name}.` : whoDoes(task.key)} ${pickSoon ? '' : 'Nothing here for you to press.'}`.trim(), pickSoon)
-  // The quiet second choice: hand the task on, or open it. Not for the client's answer, whose button already opens it.
-  const second = pickSoon ? (
+  if (!press) {
+    const aside = answers ?? pickSoon
+    return rest(why ?? `Next is ${task.label.toLowerCase()}. ${task.owner ? `It's down to ${task.owner.name}.` : whoDoes(task.key)} ${aside ? '' : 'Nothing here for you to press.'}`.trim(), aside)
+  }
+  // The quiet second choice: an answer to check, else hand the task on, or open it. Not for the client's answer, whose button already opens it.
+  const second = answers ? (
+    <button type="button" className="link second" onClick={answers.onPress}>
+      {answers.label}
+    </button>
+  ) : pickSoon ? (
     <a className="link second" href={pickSoon.href}>
       {pickSoon.label}
     </a>

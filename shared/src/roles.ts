@@ -118,6 +118,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   // Anyone with a role but a freelancer answers their own offers in the app (ADR 0111); the crew ability answers for anyone, as the link and the office always could.
   'offer.respond': 'answer',
   'offer.confirm': 'crew',
+  // Saying no to a rate keeps the offer at the rate offered (ADR 0152): it names no rate, so it isn't only for those who read them.
+  'offer.refuse': 'crew',
   'offer.cancel': 'crew',
   'offer.seen': 'crew',
   'timesheet.send': 'crew',

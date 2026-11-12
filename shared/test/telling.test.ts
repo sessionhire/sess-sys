@@ -192,6 +192,24 @@ describe('the message after what the office did', () => {
     expect(tellMessage('phase-moved', aoife, { call: { ...show, start: '2026-10-17', end: '2026-10-18' } }, link).text).toContain('has moved: Sound No.1 is now Sat 17 Oct to Sun 18 Oct, call 12:00.')
   })
 
+  it("says the offer stands at the rate offered when the office can't agree the rate asked for (ADR 0152)", () => {
+    const refused = tellMessage('rate-refused', aoife, { call: show, days: ['2026-10-11'], askedRateCents: 38000 }, link)
+    expect(refused.text).toBe(
+      ["Hi Aoife, we can't do €380 a day for Harbour Lights Festival (Show), but the offer stands at €320 a day: Sound No.1, Sun 11 Oct, call 12:00.", `Accept, decline or pick days here: ${link}`].join('\n')
+    )
+    expect(refused).toMatchObject({ subject: 'Your rate: Harbour Lights Festival (Show), Sun 11 Oct, call 12:00', what: 'answer about the rate' })
+    // A role that doesn't read rates sends the office's words without them (ADR 0046).
+    const hidden = tellMessage('rate-refused', aoife, { call: { ...show, dayRateCents: null, rateHidden: true }, askedRateCents: null }, link)
+    expect(hidden.text.split('\n')[0]).toBe("Hi Aoife, we can't agree the rate you asked for on Harbour Lights Festival (Show), but the offer stands at the rate offered: Sound No.1, Sat 10 Oct to Sun 11 Oct, call 12:00.")
+    expect(hidden.text).not.toContain('€')
+    // The call filled while the rate was with the office: the offer closes with the answer, and says so (ADR 0152).
+    const closed = tellMessage('rate-refused', aoife, { call: show, days: ['2026-10-11'], askedRateCents: 38000, filled: true }, link)
+    expect(closed.text).toBe(
+      ["Hi Aoife, we can't do €380 a day for Harbour Lights Festival (Show), and Sound No.1, Sun 11 Oct, call 12:00, has filled meanwhile, so the offer is closed.", "Sorry, and we'll be in touch about the next one."].join('\n')
+    )
+    expect(tellMessage('rate-refused', aoife, { call: { ...show, dayRateCents: null, rateHidden: true }, askedRateCents: null, filled: true }, link).text).not.toContain('€')
+  })
+
   it('says plainly when a changed call comes to need a certificate, or no longer needs one', () => {
     // Proves: the "call changed" message names each certificate added or dropped in its own line beside the call as it now is (ADR 0028), says nothing of ones unchanged, and nothing at all when the office didn't change them.
     const riggers = { ...show, role: 'Rigger', needsCertificates: ['ipaf' as const, 'safe-pass' as const] }

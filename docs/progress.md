@@ -3,6 +3,62 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: a Yes counts for its own day, and saying no to a rate keeps the offer
+
+**Done (1.169.0)**
+
+- Batch 4 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  findings 3 and 9 and the rest of 7 and 16, on Colly's answers to
+  questions 2 and 6 ([ADR 0152](adr/0152-a-yes-counts-for-its-own-day.md)).
+- A Yes in Google counts for the day it was pressed on. The days someone
+  hasn't answered stay asked: they hold nothing, the invites still ask,
+  and their page says which days they haven't answered. A later Yes adds a
+  day and a later No drops one, until the office confirms; a No to every
+  day they'd said yes to asks them again for the rest. The history says
+  which days were said yes to and which have no answer yet.
+- Each person's copy of a day follows that day's own answer: a No to a day
+  still asked says so, and a Yes the app couldn't take says why ("Thanks
+  Niamh, but we couldn't take your yes. Sat 28 Nov has just been
+  filled."). Nothing is emailed for any of it.
+- Confirm books the days they said yes to. With days still asked, its
+  button names the days, the question before it says which invites
+  Google cancels, and the panel after says Google is emailing them, and
+  that nothing else went.
+- Someone else's yes no longer closes a rate asked for. The office's own
+  Confirm or Agree that fills the call does, naming whose ask closes
+  before the press and whose cancellation Google emails after it. A Yes
+  pressed in Google after asking for a rate is flagged on the office's
+  row. Say no on a call that filled meanwhile closes the offer, and the
+  panel and the message say it closed rather than stands.
+- Say no to a rate keeps the offer open at the rate offered, for the days
+  the rate was asked for; Withdraw is its own button. Their page says
+  "The office can't do €320 a day, so the offer stands at €280 a day.",
+  their invite asks again without naming a rate, and the office's row says
+  it. A head who doesn't read a call's rates can say no but not agree.
+- The job's own Crew tab has the same presses as Answers to check:
+  Confirm and Release on a yes, Agree, Say no and Withdraw on a rate. On a
+  job still a quote, Next leads with the quote and says "2 answers to
+  check" beside it, which opens the call's rows.
+- Changed from the audit's words: Say no keeps the days the rate was asked
+  for, not every day of the call, so nobody is invited again to a day
+  they'd left out.
+- Checked: the calendar tests press Yes and No day by day in a stand-in
+  Google and read each copy's first line, the emails Google would send
+  (none, bar the cancellations Confirm names) and the history; the
+  booking tests cover a rate left open when someone's yes fills the call,
+  Confirm and Agree closing it, Say no keeping the offer and closing it
+  on a call that filled, days still asked moving with the call, and a No
+  to the days said yes to; the device-matches-server tests cover each new
+  answer; a browser test presses each answer on a job's own rows, then
+  answers from the person's link. A day with two invites (a call across
+  two phases that day) needs a Yes on both, and a Yes on one never reads
+  as a rate question. The whole server suite passed (1,009 tests), and
+  the whole browser suite bar two that timed out while the machine was
+  busy and passed alone. A replay on a local copy with stand-ins for
+  Google and Meta, 41 checks, found the panel after Confirm saying
+  "Nothing was sent" while Google emailed a cancellation; that is fixed
+  here. Nothing real is sent.
+
 ## 12 November 2026: notes for the crew, office notes, and a short invite
 
 **Done (1.167.0)**

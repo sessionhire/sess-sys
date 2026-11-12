@@ -19,6 +19,7 @@ import {
 } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { EventBody } from './google.ts'
+import { yesNotTaken } from './sync-problems.ts'
 
 /**
  * What the calendar should hold (ADR 0008): one all-day event for every day
@@ -122,19 +123,42 @@ export interface Greeting {
   day: string
   /** The client hasn't said yes to the job yet (ADR 0150): they're asked to hold the day, and nothing says "booked". */
   hold?: boolean
+  /**
+   * What they pressed on this day's invite, where their offer doesn't follow it (ADR 0152): a No to a day they're still
+   * asked for, or a Yes the app couldn't take, with the reason their page would have given.
+   */
+  said?: { no: true } | { notTaken: string }
+  /** They asked for a different rate and the office said no: the offer stands at the rate offered (ADR 0152). */
+  rateRefused?: boolean
+  /**
+   * A Yes they pressed here while their rate was with the office, which then said no to it: it doesn't count, and still
+   * reads Yes in Google, so pressing it again would do nothing. Their page takes the yes.
+   */
+  yesBefore?: boolean
 }
 
 export function greeting(g: Greeting): string {
   const what = `${g.role} on ${dayLabel(g.day)}${g.callTime ? `, call ${g.callTime}` : ''}`
+  // Each invite follows its own day's answer (audit of 12 November 2026, findings 3 and 16): a Yes the app couldn't take says
+  // so, rather than leave them believing the day is theirs, and a No stands until they change it.
+  // The reason is their page's own, which names the day ("Sat 2 Mar has just been filled. Still open: Sun 3 Mar.").
+  if (g.said && 'notTaken' in g.said) return `Thanks ${g.first}, but we couldn't take your yes. ${g.said.notTaken}`
+  if (g.said) return `Thanks ${g.first}, you said no to ${dayLabel(g.day)}. If that changes, press Yes on this invite.`
   // A rate asked for waits on the office, and a Yes or No pressed on the invite settles nothing (finding 7), so it asks for neither.
   if (g.status === 'countered') return `Thanks ${g.first}, your rate request for ${what} is with the office. Nothing is agreed yet: we'll come back to you.`
   if (g.hold) {
     if (g.status === 'confirmed') return `Hi ${g.first}, we have you down as ${what}. Please hold the day: it's booked once the client says yes.`
     if (g.status === 'accepted') return `Thanks ${g.first}, you said yes to ${what}. Please hold the day: it isn't booked yet, and we'll confirm it with you.`
-    return `Hi ${g.first}, can you hold ${dayLabel(g.day)} for us, to work as ${g.role}${g.callTime ? `, call ${g.callTime}` : ''}? Press Yes or No on this invite to let us know.`
+    if (g.status === 'offered' && g.yesBefore)
+      return `Hi ${g.first}, we can't agree the rate you asked for, but if you can hold ${dayLabel(g.day)} for us at the rate offered, to work as ${g.role}${g.callTime ? `, call ${g.callTime}` : ''}, say yes on your page.`
+    return `Hi ${g.first}, ${g.status === 'offered' && g.rateRefused ? "we can't agree the rate you asked for, but " : ''}can you hold ${dayLabel(g.day)} for us, to work as ${g.role}${g.callTime ? `, call ${g.callTime}` : ''}? Press Yes or No on this invite to let us know.`
   }
   if (g.status === 'confirmed') return `Hi ${g.first}, you're booked as ${what}. Here's the info for the day.`
   if (g.status === 'accepted') return `Thanks ${g.first}, you said yes to ${what}. We'll confirm it with you soon. Here's the info for the day.`
+  // No rate is named on an invite (audit question 5): their page has both.
+  if (g.status === 'offered' && g.yesBefore)
+    return `Hi ${g.first}, we can't agree the rate you asked for, but the offer stands: if you can work as ${what} at the rate offered, say yes on your page.`
+  if (g.status === 'offered' && g.rateRefused) return `Hi ${g.first}, we can't agree the rate you asked for, but the offer stands: are you available to work as ${what}? Press Yes or No on this invite to let us know.`
   return `Hi ${g.first}, are you available to work as ${what}? Press Yes or No on this invite to let us know.`
 }
 
@@ -347,7 +371,31 @@ interface CallRow {
   end_day: string
   /** The day to answer by, when the office set one. */
   reply_by: string | null
-  offers: { id: string; status: string; days: string[]; personId: string; name: string; first: string; knownAs: string | null; kind: string; email: string | null; token: string }[]
+  offers: {
+    id: string
+    status: string
+    days: string[]
+    /** Days still asked of someone who said yes to others (ADR 0152). */
+    asked: string[]
+    /** Offered again after the office said no to the rate they asked for (ADR 0152). */
+    refused: boolean
+    personId: string
+    name: string
+    first: string
+    knownAs: string | null
+    kind: string
+    email: string | null
+    token: string
+  }[]
+}
+
+/** What a person last pressed on their own copy of a day, where it matters to what the copy says (ADR 0152). */
+interface SaidRow {
+  day_id: string
+  day: string
+  offer_id: string
+  response: string
+  problem: string | null
 }
 
 /** Which offer a person is invited by when two cover the same day: the one that holds it, then the one furthest on. */
@@ -395,7 +443,7 @@ export async function wantedEvents(
   const { rows: calls } = projectIds.length
     ? await q.query<CallRow>(
         `SELECT cc.id, cc.project_id, cc.phase_id, cc.role, cc.call_time, cc.needed, cc.start_day::text, cc.end_day::text, cc.reply_by::text,
-                coalesce(json_agg(json_build_object('id', o.id, 'status', o.status, 'days', o.days, 'personId', pe.id, 'name', pe.name, 'first', pe.first_name,
+                coalesce(json_agg(json_build_object('id', o.id, 'status', o.status, 'days', o.days, 'asked', o.asked, 'refused', o.status = 'offered' AND o.counter_rate_cents IS NOT NULL, 'personId', pe.id, 'name', pe.name, 'first', pe.first_name,
                                                     'knownAs', pe.known_as, 'kind', pe.kind, 'email', pe.email, 'token', pe.link_token)
                                   ORDER BY pe.name, o.id)
                          FILTER (WHERE o.id IS NOT NULL), '[]') AS offers
@@ -430,6 +478,20 @@ export async function wantedEvents(
       )
     : { rows: [] as QuoteRow[] }
   const allowancesByJob = new Map(quoteRows.map((r) => [r.project_id, allowancesOf(r.lines, r.meals_provided)]))
+  // A No or a Yes on a person's own copy that their offer doesn't follow, so their copy can say so (ADR 0152).
+  const { rows: guestRows } =
+    personal && projectIds.length
+      ? await q.query<SaidRow>(
+          `SELECT g.day_id, d.day::text AS day, g.offer_id, g.response, g.problem
+             FROM calendar_guests g JOIN calendar_days d ON d.id = g.day_id
+            WHERE d.project_id = ANY($1::text[]) AND d.day >= $2::date AND d.state <> 'removed' AND d.id LIKE '%/%/%'`,
+          [projectIds, today]
+        )
+      : { rows: [] as SaidRow[] }
+  const saidOn = new Map(guestRows.filter((r) => r.response === 'declined' || r.response === 'accepted' || r.problem !== null).map((r) => [r.day_id, r]))
+  // A day's Yes needs a Yes on every copy of it they have (a call across two phases that day has two): one on only some is
+  // no answer yet for the day (dayAnswer), so nothing to tell them about.
+  const notAllYes = new Set(guestRows.filter((r) => r.response !== 'accepted').map((r) => `${r.offer_id} ${r.day}`))
 
   const out = new Map<string, Wanted>()
   for (const p of phases) {
@@ -463,18 +525,21 @@ export async function wantedEvents(
           missing: Math.max(0, c.needed - on.length),
         }
       })
-      const invited = new Map<string, WantedGuest & { rank: number; offer: CallRow['offers'][number]; call: CallRow }>()
+      const invited = new Map<string, WantedGuest & { rank: number; offer: CallRow['offers'][number]; call: CallRow; status: string }>()
       const noEmail = new Set<string>()
       for (const [c, o] of covering.flatMap((c) => c.offers.map((o) => [c, o] as const))) {
-        if (!o.days.includes(day)) continue
+        // A day someone who said yes to others hasn't answered is still asked of them (ADR 0152), and its copy asks.
+        const asking = o.status === 'accepted' && (o.asked ?? []).includes(day)
+        if (!o.days.includes(day) && !asking) continue
         const email = o.email?.trim()
         if (!email) {
           noEmail.add(o.name)
           continue
         }
+        const status = asking ? 'offered' : o.status
         const had = invited.get(o.personId)
-        const rank = RANK[o.status] ?? 9
-        if (!had || rank < had.rank || (rank === had.rank && o.id < had.offerId)) invited.set(o.personId, { personId: o.personId, offerId: o.id, email, rank, offer: o, call: c })
+        const rank = RANK[status] ?? 9
+        if (!had || rank < had.rank || (rank === had.rank && o.id < had.offerId)) invited.set(o.personId, { personId: o.personId, offerId: o.id, email, rank, offer: o, call: c, status })
       }
       const guests = [...invited.values()]
         .map(({ personId, offerId, email }) => ({ personId, offerId, email }))
@@ -528,23 +593,33 @@ export async function wantedEvents(
       // it description, so a change to it is never emailed (ADR 0009).
       for (const g of invited.values()) {
         const first = firstName({ name: g.offer.name, knownAs: g.offer.knownAs, firstName: g.offer.first }) || 'there'
-        const hello = greeting({ first, role: g.call.role, callTime: g.call.call_time, status: g.offer.status, day, hold })
+        const personKey = `${key}/${g.personId}`
+        // What they last pressed on this copy, where the offer doesn't follow it: a Yes not taken, or a No to a day still asked.
+        const pressed = saidOn.get(personKey)
+        const held = (g.status === 'accepted' || g.status === 'confirmed') && g.offer.days.includes(day)
+        const notTaken = pressed?.offer_id === g.offerId && pressed.response === 'accepted' && !held ? yesNotTaken(pressed.problem) : null
+        const said = notTaken ? { notTaken } : pressed?.offer_id === g.offerId && pressed.response === 'declined' && g.status === 'offered' ? { no: true as const } : undefined
+        // A Yes for the whole day that still doesn't count was pressed while their rate was with the office. A Yes on one of two
+        // copies of a day isn't the day's answer yet, and its copy asks as before.
+        const yesBefore =
+          !said && pressed?.offer_id === g.offerId && pressed.response === 'accepted' && g.status === 'offered' && !notAllYes.has(`${g.offerId} ${day}`)
+        const hello = greeting({ first, role: g.call.role, callTime: g.call.call_time, status: g.status, day, hold, said, rateRefused: g.offer.refused === true, yesBefore })
         const page = pageLine({
-          status: g.offer.status,
+          status: g.status,
           // A day to answer by that has gone isn't asked for again.
           replyBy: g.call.reply_by !== null && g.call.reply_by >= today ? g.call.reply_by : null,
           staff: g.offer.kind === 'staff',
           link: appUrl ? `${appUrl}/f/${g.offer.token}` : null,
         })
         const lead = [hello, page].filter(Boolean).join('\n')
-        // Someone only asked, or waiting on the office about a rate, has said yes to nothing yet: the short copy (ADR 0151).
-        const asked = g.offer.status === 'offered' || g.offer.status === 'countered'
+        // Someone only asked, or waiting on the office about a rate, has said yes to nothing yet: the short copy (ADR 0151). So
+        // is a day still asked of someone who said yes to others (ADR 0152).
+        const asked = g.status === 'offered' || g.status === 'countered'
         const mine: EventBody = {
           ...body,
           description: `${lead}\n\n${description({ ...facts, appLink: null }, DESCRIPTION_MAX - lead.length - 2, asked)}`,
           extendedProperties: { private: { ...body.extendedProperties.private, shPerson: g.personId } },
         }
-        const personKey = `${key}/${g.personId}`
         out.set(personKey, {
           key: personKey,
           personId: g.personId,

@@ -71,17 +71,23 @@ calendars only hear about an event, a change or a cancellation by email.
   this came in, anyone already a guest on a shared day was taken off it
   (Google tells them that one is cancelled) and invited to their own
   copy.
-- **Their answer in Google counts, as on their link.** A Yes to any day
-  is a yes to the offer, for all its days except any they said No to. A
-  No to a day means not that day; a No to every day declines. Tentative
-  ("Maybe") is not an answer yet. The same rules as the link hold: the
+- **Their answer in Google counts, as on their link.** Each invite asks
+  about one day, so a Yes counts for the day it was pressed on: the offer
+  is accepted for the days they said yes to, and the days they haven't
+  answered stay asked, with each invite's first line following its own
+  day's answer ([ADR 0152](0152-a-yes-counts-for-its-own-day.md)). Until
+  1.169.0 a Yes to any day was a yes to every day of the offer but those
+  they said No to. A No to a day means not that day; a No to every day
+  declines. Tentative ("Maybe") is not an answer yet. The same rules as the link hold: the
   first to say yes gets the place, nobody is booked on two jobs on one
   day, and the office still confirms. Each answer goes in the history as
   the freelancer's, on Google Calendar.
 - **Once the office has confirmed, Google can't undo it.** The link says
   "contact the office" in that case; here, a No in Google to a booked day
   is shown on the job page for the office to act on, and the booking
-  stands until they do. Counter-offers wait for the office the same way.
+  stands until they do. Counter-offers wait for the office the same way:
+  a Yes pressed after asking for a different rate settles nothing, and
+  the office's row says so (ADR 0152).
 - **Guests follow the offers.** Someone whose place is filled by someone
   else, or whose offer is withdrawn, is taken off the events, and Google
   tells them. Someone who took only some days on their link comes off the

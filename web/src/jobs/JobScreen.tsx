@@ -268,7 +268,18 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           </section>
         )}
 
-        {part === 'crew' && <CrewPart job={job} view={view} onShare={onShare} onTell={setShare} offerFor={offerFor} mayCrew={mayCrew} offering={landing && 'call' in landing && landing.offer ? { id: landing.call, n: landing.n } : undefined} />}
+        {part === 'crew' && (
+          <CrewPart
+            job={job}
+            view={view}
+            onShare={onShare}
+            onTell={setShare}
+            offerFor={offerFor}
+            mayCrew={mayCrew}
+            offering={landing && 'call' in landing && landing.offer ? { id: landing.call, n: landing.n } : undefined}
+            answering={landing && 'call' in landing && landing.answer ? { id: landing.call, n: landing.n } : undefined}
+          />
+        )}
 
         {part === 'kit' && (
           <>
@@ -317,6 +328,7 @@ function CrewPart({
   offerFor,
   mayCrew,
   offering,
+  answering,
 }: {
   job: JobView
   view: View
@@ -326,6 +338,8 @@ function CrewPart({
   mayCrew: boolean
   /** The call whose Offer the Next button opened, and how many times. */
   offering?: { id: string; n: number }
+  /** The call Next landed on to answer a yes or a rate, whose rows open (ADR 0152). */
+  answering?: { id: string; n: number }
 }) {
   const stopped = STOPPED.includes(job.status)
   const department = useMyDepartment()
@@ -343,6 +357,7 @@ function CrewPart({
       onTell={onTell}
       inJob
       offerOpened={offering?.id === c.id ? offering.n : undefined}
+      rowsOpened={answering?.id === c.id ? answering.n : undefined}
       phaseDays={phase ? c.start === phase.start && c.end === phase.end : undefined}
       // Theirs are away from their phases, first, so each says its phase.
       phaseNamed={theirs(c)}

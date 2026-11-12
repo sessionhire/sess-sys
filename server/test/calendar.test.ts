@@ -1,5 +1,7 @@
 import {
+  askEndingWords,
   calendarDayId,
+  COUNTERED_YES,
   daysToCancel,
   invitePlan,
   invitesHeld,
@@ -18,13 +20,14 @@ import {
   type Phase,
   type Project,
   type ReachContext,
+  YES_WHILE_ASKING,
 } from '@sh/shared'
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../src/app.ts'
 import type { IdentityProvider } from '../src/auth/google.ts'
 import { seal } from '../src/calendar/crypto.ts'
-import { allowancesText, greeting, pageLine } from '../src/calendar/events.ts'
+import { allowancesText, greeting, pageLine, SHEET_LATER } from '../src/calendar/events.ts'
 import { pgliteDb, type Db } from '../src/db.ts'
 import { everythingJson, readEverything } from '../src/export.ts'
 import { FakeGoogle } from './fake-google-calendar.ts'
@@ -1032,42 +1035,216 @@ describe('crew invites (ADR 0009)', () => {
     for (const method of ['GET', 'POST'] as const) expect((await s.app.inject({ method, url: '/api/calendar/invites' })).statusCode).toBe(401)
   })
 
-  it('a Yes in Google takes the place, as on their link, and the rest of the shortlist come off', async () => {
+  it('a Yes in Google counts for the day it was pressed on, and the days it left unanswered are still asked (ADR 0152)', async () => {
+    // Proves: finding 3 of the audit of 12 November 2026. A Yes on one day's invite was taken for every day of the call, and the
+    // other days' invites then thanked the person for a yes they hadn't given. Now each day's Yes is that day's: the others stay
+    // asked, on their link and in their own invites, until they answer them or the office confirms what they said yes to.
     const s = await setup()
     const job = await invited(s)
     s.later(2)
     s.google.respond(TEST_CAL, job.events.build1, 'niamh@example.com', 'accepted', 'Can bring the van.')
     expect(await s.poll()).toBe(1)
 
-    // A Yes to one day is a yes to all of them, with what they wrote in Google as their note.
+    // Saturday is hers, with what she wrote in Google as her note; Sunday is still asked of her.
     expect(await offer(s, job.offers.niamh)).toMatchObject({
       status: 'accepted',
-      days: ['2030-03-02', '2030-03-03'],
+      days: ['2030-03-02'],
+      asked: ['2030-03-03'],
       respondedVia: 'calendar',
       note: 'Can bring the van.',
     })
-    // The first to say yes gets the place, as on the links.
-    expect(await offer(s, job.offers.conor)).toMatchObject({ status: 'filled' })
+    // Saturday is full now and Sunday isn't, so Conor's offer stands, for Sunday.
+    expect(await offer(s, job.offers.conor)).toMatchObject({ status: 'offered' })
     expect(await onCalendar(s, job.offers.niamh)).toMatchObject({ line: 'On Google Calendar: yes to Sat 2 Mar; no answer yet for Sun 3 Mar.', warning: null })
 
-    // In the history as Niamh's own answer, on Google Calendar.
+    // In the history as Niamh's own answer, on Google Calendar, with the day she hasn't answered.
     const entry = (await s.colly.history()).entries[0]!
     expect(entry).toMatchObject({ who: { kind: 'calendar', name: 'Niamh Kelly', key: `link:${job.people.niamh}` }, outcome: 'done' })
-    expect(entry.what).toBe('Niamh Kelly accepted Audio tech on Nissan, Sat 2 Mar to Sun 3 Mar')
+    expect(entry.what).toBe('Niamh Kelly accepted Audio tech on Nissan, Sat 2 Mar; no answer yet for Sun 3 Mar')
     expect(entry.deviceCode).toBeUndefined()
     const hers = await s.colly.history(`?who=link:${job.people.niamh}`)
-    expect(hers.entries.map((e: HistoryEntry) => e.what)).toEqual(['Niamh Kelly accepted Audio tech on Nissan, Sat 2 Mar to Sun 3 Mar'])
+    expect(hers.entries.map((e: HistoryEntry) => e.what)).toEqual(['Niamh Kelly accepted Audio tech on Nissan, Sat 2 Mar; no answer yet for Sun 3 Mar'])
     expect((await s.colly.history()).people).toContainEqual({ key: `link:${job.people.niamh}`, name: 'Niamh Kelly' })
 
-    // Next run: the crew list goes on quietly, and Conor is told he's off.
+    // Her page asks about Sunday in its own words.
+    const f = await feed(s)
+    const page = (await s.app.inject({ url: `/f/${f.get<Person>('person', job.people.niamh).linkToken}` })).body
+    expect(page.replace(/\u00a0/g, ' ')).toContain("You haven't answered for Sun 3 Mar 2030 yet. Tick it if you can do it, or leave it unticked, and press Update my days.")
+
+    // Next run: her Saturday thanks her and fills in with the day's sheet; her Sunday still asks, in short. Nobody is emailed.
     const before = s.google.sent.length
     await s.sync()
     expect(s.google.visible(TEST_CAL)[0]!.description).toContain('Audio tech, call 08:00: Aoife Byrne, 2 TBC')
-    expect(s.google.guests(TEST_CAL, job.events.build1).sort()).toEqual(['aoife@example.com needsAction', 'niamh@example.com accepted'])
+    expect(s.google.guests(TEST_CAL, job.events.build1).sort()).toEqual(['Conor.Walsh@example.ie needsAction', 'aoife@example.com needsAction', 'niamh@example.com accepted'])
+    const copy = (event: string, email: string) => s.google.copies(TEST_CAL, event).find((e) => e.attendees?.some((g) => g.email === email))!.description!
+    expect(copy(job.events.build1, 'niamh@example.com')).toMatch(/^Thanks Niamh, you said yes to Audio tech on Sat 2 Mar, call 08:00\. We'll confirm it with you soon\./)
+    expect(copy(job.events.build1, 'niamh@example.com')).not.toContain(SHEET_LATER)
+    expect(copy(job.events.build2, 'niamh@example.com')).toMatch(/^Hi Niamh, are you available to work as Audio tech on Sun 3 Mar, call 08:00\? Press Yes or No/)
+    expect(copy(job.events.build2, 'niamh@example.com')).toContain(SHEET_LATER)
+    expect(emails(s, before)).toEqual([])
+
+    // A Yes to Sunday later takes it too. The call is full then: Conor's offer closes, and Google tells him.
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build2, 'niamh@example.com', 'accepted')
+    expect(await s.poll()).toBe(1)
+    const both = await offer(s, job.offers.niamh)
+    expect(both).toMatchObject({ status: 'accepted', days: ['2030-03-02', '2030-03-03'] })
+    expect(both.asked).toBeUndefined()
+    expect(await offer(s, job.offers.conor)).toMatchObject({ status: 'filled' })
+    await s.sync()
+    expect(copy(job.events.build2, 'niamh@example.com')).toMatch(/^Thanks Niamh, you said yes to Audio tech on Sun 3 Mar/)
     expect(emails(s, before)).toEqual([
       'cancelled Conor.Walsh@example.ie 2030-03-02 Nissan - Build 1/2',
       'cancelled Conor.Walsh@example.ie 2030-03-03 Nissan - Build 2/2',
     ])
+  })
+
+  it('confirming a Yes with a day still asked books the day they said yes to, and Google tells them the other is off, as the question said', async () => {
+    const s = await setup()
+    const job = await invited(s)
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build1, 'niamh@example.com', 'accepted')
+    expect(await s.poll()).toBe(1)
+    await s.sync()
+
+    // What the question before Confirm says, worked out on a device from what it holds.
+    const f = await feed(s)
+    const reach = { calendar: { link: f.link, days: f.days }, today: TODAY }
+    expect(askEndingWords(reach, job.offers.niamh, ['2030-03-03'])).toBe('Google emails them that Sun 3 Mar is cancelled.')
+
+    const before = s.google.sent.length
+    await send(s, 'offer.confirm', { id: job.offers.niamh })
+    const booked = await offer(s, job.offers.niamh)
+    expect(booked).toMatchObject({ status: 'confirmed', days: ['2030-03-02'] })
+    expect(booked.asked).toBeUndefined()
+    await s.sync()
+    // Saturday's invite says she's booked, quietly; Sunday's comes off with word from Google, as promised.
+    const copy = (event: string) => s.google.copies(TEST_CAL, event).find((e) => e.attendees?.some((g) => g.email === 'niamh@example.com'))
+    expect(copy(job.events.build1)!.description).toMatch(/^Hi Niamh, you're booked as Audio tech on Sat 2 Mar/)
+    expect(copy(job.events.build2)).toBeUndefined()
+    expect(emails(s, before)).toEqual(['cancelled niamh@example.com 2030-03-03 Nissan - Build 2/2'])
+    expect((await s.colly.history()).entries[0]!.what).toBe('Confirmed Niamh Kelly for Audio tech on Nissan')
+  })
+
+  it("writes each person's own invite from that day's answer: a Yes the app couldn't take says why, and a No stands, with no email", async () => {
+    // Proves: the second half of finding 16 of the audit of 12 November 2026 (ADR 0152). A Yes pressed on a day that had filled
+    // left the invite saying yes, and its person believing the day was theirs; only the office was told.
+    const s = await setup()
+    const job = await invited(s)
+    // Conor takes Saturday's last place in Google; Niamh presses Yes on Saturday a moment later, and No on Sunday.
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build1, 'Conor.Walsh@example.ie', 'accepted')
+    expect(await s.poll()).toBe(1)
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build1, 'niamh@example.com', 'accepted')
+    expect(await s.poll()).toBe(1)
+    expect(await offer(s, job.offers.niamh)).toMatchObject({ status: 'offered' })
+    expect(await onCalendar(s, job.offers.niamh)).toMatchObject({
+      warning: "Said yes on Google Calendar, but the app couldn't take it: Sat 2 Mar has just been filled. Still open: Sun 3 Mar.",
+    })
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build2, 'niamh@example.com', 'declined')
+    expect(await s.poll()).toBe(1)
+
+    const before = s.google.sent.length
+    await s.sync()
+    const lead = (event: string) => s.google.copies(TEST_CAL, event).find((e) => e.attendees?.some((g) => g.email === 'niamh@example.com'))!.description!.split('\n')[0]
+    expect(lead(job.events.build1)).toBe("Thanks Niamh, but we couldn't take your yes. Sat 2 Mar has just been filled. Still open: Sun 3 Mar.")
+    expect(lead(job.events.build2)).toBe('Thanks Niamh, you said no to Sun 3 Mar. If that changes, press Yes on this invite.')
+    // Conor's Sunday is still asked of him, in its own words.
+    const conors = s.google.copies(TEST_CAL, job.events.build2).find((e) => e.attendees?.some((g) => g.email === 'Conor.Walsh@example.ie'))!.description!
+    expect(conors.split('\n')[0]).toBe('Hi Conor, are you available to work as Audio tech on Sun 3 Mar, call 08:00? Press Yes or No on this invite to let us know.')
+    expect(emails(s, before)).toEqual([])
+
+    // She changes her mind about Sunday: a Yes there is taken, and the call is full.
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build2, 'niamh@example.com', 'accepted')
+    expect(await s.poll()).toBe(1)
+    expect(await offer(s, job.offers.niamh)).toMatchObject({ status: 'accepted', days: ['2030-03-03'] })
+    const after = s.google.sent.length
+    await s.sync()
+    expect(lead(job.events.build2)).toMatch(/^Thanks Niamh, you said yes to Audio tech on Sun 3 Mar/)
+    // With the call full, the days nobody is asked about any more come off, with word from Google: her Saturday, his Sunday.
+    expect(emails(s, after).sort()).toEqual(['cancelled Conor.Walsh@example.ie 2030-03-03 Nissan - Build 2/2', 'cancelled niamh@example.com 2030-03-02 Nissan - Build 1/2'])
+  })
+
+  it('leaves a Yes after asking for a different rate to the office, and saying no to the rate keeps the offer, said on the invite with no email', async () => {
+    // Proves: question 6 of the audit of 12 November 2026 (ADR 0152). Saying no to a rate asked for keeps the offer at the rate
+    // offered, for the days it was asked for; withdrawing it is its own choice. A Yes pressed in Google meanwhile settles nothing.
+    const s = await setup()
+    const job = await invited(s)
+    await send(s, 'offer.respond', { id: job.offers.conor, answer: 'counter', counterRateCents: 30000, days: null, note: '' })
+    await s.sync()
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build1, 'Conor.Walsh@example.ie', 'accepted')
+    expect(await s.poll()).toBe(1)
+    // His rate is with the office: the Yes changes nothing, and the job page says to ring him.
+    expect(await offer(s, job.offers.conor)).toMatchObject({ status: 'countered', counterRateCents: 30000, days: ['2030-03-02', '2030-03-03'] })
+    expect((await onCalendar(s, job.offers.conor))!.warning).toBe(COUNTERED_YES)
+
+    // The office says no to the rate: the offer stands at the rate offered, with the rate he asked for kept.
+    const before = s.google.sent.length
+    await send(s, 'offer.refuse', { id: job.offers.conor })
+    expect(await offer(s, job.offers.conor)).toMatchObject({ status: 'offered', days: ['2030-03-02', '2030-03-03'], counterRateCents: 30000, dayRateCents: 25000 })
+    expect((await s.colly.history()).entries[0]!.what).toBe('Said no to the rate Conor Walsh asked for Audio tech on Nissan: the offer stands at the rate offered')
+    expect((await onCalendar(s, job.offers.conor))!.warning).toBe(YES_WHILE_ASKING)
+    await s.sync()
+    const lead = (event: string) => s.google.copies(TEST_CAL, event).find((e) => e.attendees?.some((g) => g.email === 'Conor.Walsh@example.ie'))!.description!.split('\n')[0]
+    // Saturday, where his Yes from before still stands in Google: pressing it again would do nothing, so his page takes the yes.
+    const saturday = "Hi Conor, we can't agree the rate you asked for, but the offer stands: if you can work as Audio tech on Sat 2 Mar, call 08:00 at the rate offered, say yes on your page."
+    expect(lead(job.events.build1)).toBe(saturday)
+    expect(lead(job.events.build2)).toBe("Hi Conor, we can't agree the rate you asked for, but the offer stands: are you available to work as Audio tech on Sun 3 Mar, call 08:00? Press Yes or No on this invite to let us know.")
+    expect(emails(s, before)).toEqual([])
+    // His page says it with the figures.
+    const f = await feed(s)
+    const page = (await s.app.inject({ url: `/f/${f.get<Person>('person', job.people.conor).linkToken}` })).body
+    expect(page.replace(/\u00a0/g, ' ')).toContain("The office can't do €300 a day, so the offer stands at €250 a day.")
+
+    // A Yes in Google now is a yes at the rate offered, for the day it's pressed on; Saturday's from before stays asked.
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build2, 'Conor.Walsh@example.ie', 'accepted')
+    expect(await s.poll()).toBe(1)
+    expect(await offer(s, job.offers.conor)).toMatchObject({ status: 'accepted', days: ['2030-03-03'], asked: ['2030-03-02'], counterRateCents: null, dayRateCents: 25000 })
+    await s.sync()
+    expect(lead(job.events.build1)).toBe(saturday)
+    expect(emails(s, before)).toEqual([])
+  })
+
+  it("a Yes on one of a day's two invites is no answer yet, and that invite asks as before, naming no rate (ADR 0152)", async () => {
+    // A call for the whole job covers each of its phases on a day that has two, so its person has two invites that day, and a
+    // day's Yes needs a Yes on both (dayAnswer). A Yes on one that the offer doesn't follow isn't one pressed while asking for
+    // a different rate, so it mustn't read as one.
+    const s = await setup()
+    const job = await withCrew(s)
+    const rehearsal = newId()
+    const callId = newId()
+    const conors = newId()
+    await send(s, 'phase.add', { id: rehearsal, projectId: job.jobId, name: 'Rehearsal', start: '2030-03-04', end: '2030-03-04', venueId: null, notes: '' })
+    await send(s, 'call.create', { id: callId, projectId: job.jobId, phaseId: null, project: 'Nissan', phase: '', venue: '', role: 'LX', start: '2030-03-04', end: '2030-03-04', callTime: null, needed: 1, dayRateCents: 25000, details: '', replyBy: null })
+    await send(s, 'offer.send', { id: conors, callId, personId: job.people.conor, override: false })
+    await connectTo(s)
+    await invites(s, true)
+    await s.sync()
+    await s.poll()
+    const monday = s.google.visible(TEST_CAL).filter((e) => e.start.date === '2030-03-04')
+    expect(monday).toHaveLength(2)
+    const mine = (event: string) => s.google.copies(TEST_CAL, event).find((e) => e.attendees?.some((g) => g.email === 'Conor.Walsh@example.ie'))!
+    const asks = 'Hi Conor, are you available to work as LX on Mon 4 Mar? Press Yes or No on this invite to let us know.'
+    expect(monday.map((e) => mine(e.id).description!.split('\n')[0])).toEqual([asks, asks])
+
+    s.later(2)
+    s.google.respond(TEST_CAL, monday[0]!.id, 'Conor.Walsh@example.ie', 'accepted')
+    await s.poll()
+    expect(await offer(s, conors)).toMatchObject({ status: 'offered', days: ['2030-03-04'] })
+    await s.sync()
+    expect(monday.map((e) => mine(e.id).description!.split('\n')[0])).toEqual([asks, asks])
+    expect((await onCalendar(s, conors))!.warning).toBeNull()
+
+    // A Yes on the other is the day's: taken.
+    s.later(2)
+    s.google.respond(TEST_CAL, monday[1]!.id, 'Conor.Walsh@example.ie', 'accepted')
+    await s.poll()
+    expect(await offer(s, conors)).toMatchObject({ status: 'accepted', days: ['2030-03-04'] })
   })
 
   it('a No to some days leaves them out, and they stay on those days as a No', async () => {
@@ -1101,7 +1278,8 @@ describe('crew invites (ADR 0009)', () => {
     expect(await onCalendar(s, job.offers.conor)).toEqual({
       answers: { '2030-03-02': 'yes', '2030-03-03': 'yes' },
       line: 'Said yes on Google Calendar.',
-      warning: "Said yes on Google Calendar, but the app couldn't take it: Sun 3 Mar has just been filled. Still open: Sat 2 Mar.",
+      // "Still open" is what he could still take: Saturday is his already.
+      warning: "Said yes on Google Calendar, but the app couldn't take it: Sun 3 Mar has just been filled.",
     })
     const entry = (await s.colly.history()).entries[0]!
     expect(entry).toMatchObject({ who: { kind: 'calendar', name: 'Conor Walsh' }, outcome: 'turned-down' })
@@ -1198,7 +1376,8 @@ describe('crew invites (ADR 0009)', () => {
     s.google.respond(TEST_CAL, build2!.id, 'niamh@example.com', 'declined')
     await pause(100)
     expect(s.google.lists.length).toBe(looks)
-    expect(await offer(s, job.offers.niamh)).toMatchObject({ status: 'accepted', days: ['2030-03-02', '2030-03-03'] })
+    // Her Yes was to Saturday (ADR 0152); her No to Sunday, given with invites off, isn't read.
+    expect(await offer(s, job.offers.niamh)).toMatchObject({ status: 'accepted', days: ['2030-03-02'], asked: ['2030-03-03'] })
   })
 
   it('takes each answer once when two servers look at the same time, as during a deploy', async () => {
@@ -1219,10 +1398,11 @@ describe('crew invites (ADR 0009)', () => {
     s.google.respond(TEST_CAL, job.events.build2, 'Conor.Walsh@example.ie', 'declined')
     const [here, there] = await Promise.all([s.poll(), next.calendar!.poll()])
     expect(here + there).toBe(2)
-    expect(await offer(s, job.offers.niamh)).toMatchObject({ status: 'accepted' })
-    expect(await offer(s, job.offers.conor)).toMatchObject({ status: 'filled' })
+    expect(await offer(s, job.offers.niamh)).toMatchObject({ status: 'accepted', days: ['2030-03-02'], asked: ['2030-03-03'] })
+    // Conor's No to Sunday alone isn't an answer to the offer, and Sunday still has a place: his offer stands.
+    expect(await offer(s, job.offers.conor)).toMatchObject({ status: 'offered' })
     const answers = (await s.colly.history()).entries.filter((e: HistoryEntry) => e.who.kind === 'calendar')
-    expect(answers.map((e: HistoryEntry) => e.what)).toEqual(['Niamh Kelly accepted Audio tech on Nissan, Sat 2 Mar to Sun 3 Mar'])
+    expect(answers.map((e: HistoryEntry) => e.what)).toEqual(['Niamh Kelly accepted Audio tech on Nissan, Sat 2 Mar; no answer yet for Sun 3 Mar'])
   })
 
   it('keeps guests added by hand in Google, with invites on or off, and tells guests only what matters', async () => {
@@ -1487,7 +1667,7 @@ describe('crew invites (ADR 0009)', () => {
     }
     expect(copy('aoife@example.com')).not.toContain(later)
 
-    // Niamh says yes: her copy fills in, quietly. (Her yes fills the call, so Conor's place goes, as before.)
+    // Niamh says yes: her copy fills in, quietly. (Her yes fills the call; Conor's rate request stays with the office, ADR 0152.)
     const before = s.google.sent.length
     await send(s, 'offer.respond', { id: job.offers.niamh, answer: 'accept', days: null, note: '' })
     await s.sync()

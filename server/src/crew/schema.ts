@@ -320,6 +320,9 @@ const MIGRATIONS: string[] = [
   ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS hold boolean NOT NULL DEFAULT false;
   ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS project_id text;
   `,
+  // A Yes in Google Calendar counts for its own day (ADR 0152): on an offer they've said yes to for some days, the days
+  // they haven't answered, still asked and holding nothing.
+  `ALTER TABLE offers ADD COLUMN IF NOT EXISTS asked jsonb NOT NULL DEFAULT '[]';`,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }
