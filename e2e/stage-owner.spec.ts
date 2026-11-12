@@ -131,7 +131,7 @@ test('a stage is taken, handed on and changed from its Board card, and its tasks
   await expect(who.locator('option:checked')).toHaveText(ciaran)
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await card.locator('.board-card').click()
-  const where = page.getByRole('region', { name: 'Where it is' })
+  const where = page.getByRole('region', { name: 'Status', exact: true })
   await where.getByRole('button', { name: '2 tasks to do in Planning' }).click()
   for (const task of ['Crew booked', 'Kit and vans settled']) {
     await where.locator('.task-list button', { hasText: task }).click()

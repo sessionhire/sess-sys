@@ -94,14 +94,14 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   // A confirmed job two days out, needing the three speakers and the 20 cables.
   await page.goto('/#jobs')
   // New job waits behind its button at the top of the list on a phone (audit finding 22).
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
-  await form.getByLabel('Job').fill(job)
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(job)
   await form.getByLabel('Status').selectOption({ label: 'Confirmed' })
   await form.getByLabel('Phase 1', { exact: true }).fill('Show')
   await form.getByLabel('Phase 1 from').fill(fromToday(2))
   await form.getByLabel('Phase 1 to').fill(fromToday(3))
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name: job })).toBeVisible()
   await page.getByRole('tab', { name: 'Kit', exact: true }).click()
   await page.getByRole('button', { name: 'Add kit' }).click()

@@ -76,7 +76,7 @@ function DeleteDialog({ q, job, versions, onClose, onDeleted }: { q: QuoteView; 
             </ul>
           )}
           <p>
-            It goes from every device, and from Quotes and the job. The job itself stays as it is. An admin can put it back from the{' '}
+            It goes from every device and from the job. The job itself stays as it is. An admin can put it back from the{' '}
             <a href={`#history/job/${encodeURIComponent(job.id)}`}>job's history</a>.
           </p>
         </div>

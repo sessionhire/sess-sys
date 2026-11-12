@@ -49,9 +49,9 @@ async function newProduct(page: Page, name: string, how: 'numbered' | 'counted',
 async function newJob(page: Page, name: string, status: 'Confirmed' | 'Quoted' | 'Enquiry', phases: [string, string, string][]) {
   await page.goto('/#jobs')
   // New job waits behind its button at the top of the list on a phone (audit finding 22).
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
-  await form.getByLabel('Job').fill(name)
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(name)
   await form.getByLabel('Status').selectOption({ label: status })
   for (const [i, [phase, from, to]] of phases.entries()) {
     if (i > 0) await form.getByRole('button', { name: 'Add a phase' }).click()
@@ -59,7 +59,7 @@ async function newJob(page: Page, name: string, status: 'Confirmed' | 'Quoted' |
     await form.getByLabel(`Phase ${i + 1} from`).fill(from)
     await form.getByLabel(`Phase ${i + 1} to`).fill(to)
   }
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   // The kit is a part of the job's page of its own (ADR 0059); the page opens on it from then on.
   await page.getByRole('tab', { name: 'Kit', exact: true }).click()

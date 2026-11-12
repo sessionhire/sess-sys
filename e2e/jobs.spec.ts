@@ -23,8 +23,8 @@ async function ready(page: Page, hash = '#jobs') {
 
 /** New job waits behind its button at the top of the list on a phone (audit finding 22). */
 async function newJobForm(page: Page) {
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  return page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  return page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
 }
 
 test('a job with its phases and crew, renamed for the crew too', async ({ browser }) => {
@@ -35,7 +35,7 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   await ready(office)
 
   const form = await newJobForm(office)
-  await form.getByLabel('Job').fill(job)
+  await form.getByLabel('Name', { exact: true }).fill(job)
   await expect(form.getByLabel('Status')).toHaveValue('enquiry')
   await form.getByLabel('Status').selectOption({ label: 'Confirmed' })
   await expect(form.getByText('A confirmed job goes on the jobs calendar and holds its kit.')).toBeVisible()
@@ -50,7 +50,7 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   await form.getByLabel('Phase 2', { exact: true }).fill('Show')
   await form.getByLabel('Phase 2 from').fill('2030-10-09')
   await form.getByLabel('Phase 2 to').fill('2030-10-09')
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
 
   // The job opens on its own page, with each day as it will read on the calendar.
   await expect(office.getByRole('heading', { name: job })).toBeVisible()
@@ -127,11 +127,11 @@ test('a job added with no signal waits on the phone, then goes through', async (
   await context.setOffline(true)
 
   const form = await newJobForm(phone)
-  await form.getByLabel('Job').fill(job)
+  await form.getByLabel('Name', { exact: true }).fill(job)
   await form.getByLabel('Client').fill('Fuel Events')
   await form.getByLabel('Phase 1 from').fill('2030-11-02')
   await form.getByLabel('Phase 1 to').fill('2030-11-02')
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
 
   await expect(phone.getByRole('heading', { name: job })).toBeVisible()
   await expect(phone.locator('.corner-status .pill')).toHaveText('Waiting to sync')
@@ -162,6 +162,41 @@ test('a job added with no signal waits on the phone, then goes through', async (
   await expect(row.locator('.c-name small')).toHaveText('Show')
 })
 
+test('New asks what kind it is first, then only what that kind needs', async ({ browser }) => {
+  // Proves (Colly, 12 November 2026): the kind is the first question; a dry hire asks for the day out and back, not phases or a
+  // venue; an errand for a day and where to, not a client or a status, and is added confirmed with its one day named Errand.
+  const id = tag()
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await ready(office)
+  await newJobForm(office)
+  // The form goes by its kind, so it's found by its class rather than its Add button, whose words change with it.
+  const form = office.locator('form.new-job')
+  await expect(form.getByRole('radio', { name: 'Gig' })).toBeChecked()
+  await expect(form.getByRole('group', { name: 'Phases' })).toBeVisible()
+  await form.getByLabel('Name', { exact: true }).fill(`Van run ${id}`)
+
+  await form.getByRole('radio', { name: 'Dry hire' }).check()
+  await expect(form.getByLabel('Going out')).toBeVisible()
+  await expect(form.getByLabel('Coming back')).toBeVisible()
+  await expect(form.getByRole('group', { name: 'Phases' })).toHaveCount(0)
+  await expect(form.getByRole('combobox', { name: 'Venue' })).toHaveCount(0)
+  await expect(form.getByLabel('Status')).toBeVisible()
+
+  await form.getByRole('radio', { name: 'Errand' }).check()
+  // What was typed stays when the kind changes.
+  await expect(form.getByLabel('Name', { exact: true })).toHaveValue(`Van run ${id}`)
+  await expect(form.getByRole('combobox', { name: 'Client' })).toHaveCount(0)
+  await expect(form.getByLabel('Status')).toHaveCount(0)
+  await expect(form.getByRole('combobox', { name: 'Where to' })).toBeVisible()
+  await form.getByLabel('Day').fill('2026-12-03')
+  await form.getByLabel('Notes for whoever goes').fill('Ask for Sean at the desk')
+  await form.getByRole('button', { name: 'Add errand' }).click()
+
+  await expect(office.getByRole('heading', { level: 1, name: `Van run ${id}` })).toBeVisible()
+  await expect(office.locator('.page-head')).toContainText('Errand')
+  await expect(office.locator('.conn')).toHaveText('Up to date')
+})
+
 test('a client typed a letter off offers the one already here, in one press', async ({ browser }) => {
   // Proves (audit, 5 November 2026, finding 21): "Shannonside Festival" against "Shannonside Festivals" asks "Did you mean",
   // and taking it fills the field, so a typo doesn't quietly make a second client.
@@ -169,9 +204,9 @@ test('a client typed a letter off offers the one already here, in one press', as
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await ready(office)
   const first = await newJobForm(office)
-  await first.getByLabel('Job').fill(`First ${id}`)
+  await first.getByLabel('Name', { exact: true }).fill(`First ${id}`)
   await first.getByLabel('Client').fill(`Shannonside Festivals ${id}`)
-  await first.getByRole('button', { name: 'Add job' }).click()
+  await first.getByRole('button', { name: 'Add gig' }).click()
   await expect(office.getByRole('heading', { name: `First ${id}` })).toBeVisible()
   await expect(office.locator('.conn')).toHaveText('Up to date')
 

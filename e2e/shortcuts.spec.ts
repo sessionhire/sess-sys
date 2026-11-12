@@ -66,7 +66,7 @@ test('keys at a desk move around, start a quote, and stand down while typing', a
   await expect(desk).toHaveURL(/#jobs$/)
   await desk.keyboard.press('g')
   await desk.keyboard.press('q')
-  await expect(desk).toHaveURL(/#quotes$/)
+  await expect(desk).toHaveURL(/#jobs\/money\/follow-up$/)
 
   // N then Q opens New quote; typing in it is typing, not a shortcut.
   await desk.keyboard.press('n')

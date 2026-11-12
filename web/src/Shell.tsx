@@ -47,13 +47,13 @@ sayDaysWith((day) => dayLabel(day, irishToday()))
  * History and You (a person's own settings), and Notifications, which the
  * bell in the top bar opens (ADR 0058). Those keep the Menu's tab.
  *
- * Quotes (ADR 0088) is a sixth, for the office and directors, in the sidebar on a desk only: a phone's bar holds five
- * (the design system's navigation), so there it's on the Menu, whose tab it keeps.
+ * Quotes (ADR 0088) was a sixth, in the sidebar on a desk. It isn't a place any more (Colly, 12 November 2026): a quote is part of
+ * its job. Its addresses still work, under Jobs' tab: #quotes/new is New quote, and the rest go on to Money › To follow up.
  */
 const AREAS = [
   { hash: '#home', label: 'Home', Screen: HomeScreen },
   { hash: '#jobs', label: 'Jobs', Screen: JobsScreen },
-  { hash: '#quotes', label: 'Quotes', Screen: QuotesScreen, desk: true },
+  { hash: '#quotes', label: 'Quotes', Screen: QuotesScreen, hidden: true },
   { hash: '#stock', label: 'Stock', Screen: StockScreen },
   { hash: '#crew', label: 'Crew', Screen: CrewScreen },
   { hash: '#menu', label: 'Menu', Screen: MenuScreen },
@@ -154,9 +154,9 @@ export function Shell() {
   const menu = AREAS[5]
   const under = UNDER_MENU.find((u) => within(u.hash))
   const area = under ? menu : (AREAS.find((a) => within(a.hash)) ?? AREAS[0])
-  // A place drawn in the sidebar only (Quotes) is reached from the Menu on a phone, so lights its tab there.
-  const shown = AREAS.filter((a) => !('desk' in a) || (desk && seesMoney))
-  const lit = shown.includes(area) ? area : menu
+  // Quotes' old addresses aren't drawn as a place: they're Jobs', so light its tab.
+  const shown = AREAS.filter((a) => !('hidden' in a))
+  const lit = shown.includes(area) ? area : AREAS[1]
   const Screen = under?.Screen ?? area.Screen
 
   const main = useRef<HTMLElement>(null)
@@ -172,7 +172,8 @@ export function Shell() {
       const toggled = active?.matches('[aria-pressed]') ?? false
       // Someone already typing on the new screen, in its search say, keeps their place: this runs a frame after the move, and a quick
       // hand can be in a field by then. Taking the focus away would send the rest of what they type, and their Enter, nowhere.
-      const typing = !!active && !!main.current?.contains(active) && active.matches(TYPED_INTO)
+      // A form opened by the move, its first field focused, keeps it too: New's kind, a choice of radios, comes first (ADR 0160).
+      const typing = !!active && !!main.current?.contains(active) && (active.matches(TYPED_INTO) || !!active.closest('.fold'))
       if (movedTo.current !== undefined && movedTo.current !== hash && heading && !toggled && !typing) {
         heading.el.tabIndex = -1
         heading.el.focus({ preventScroll: true })

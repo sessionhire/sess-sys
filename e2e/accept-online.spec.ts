@@ -17,8 +17,8 @@ test('a client accepts a quote on its link, once the office has turned it on', a
   const office = await (await browser.newContext({ viewport: deskSize })).newPage()
 
   // Off: no link on the quote.
-  await office.goto('/#quotes/all')
-  await office.getByRole('region', { name: 'All quotes' }).getByRole('link', { name: 'Corrib Arts Week' }).click()
+  await office.goto('/#jobs/money/follow-up')
+  await office.getByRole('region', { name: 'To follow up' }).getByRole('link', { name: 'Corrib Arts Week' }).first().click()
   await expect(office.getByRole('heading', { level: 1, name: 'Corrib Arts Week' })).toBeVisible()
   await expect(office.getByRole('button', { name: "Copy the client's link" })).toHaveCount(0)
   const quoteAt = office.url()

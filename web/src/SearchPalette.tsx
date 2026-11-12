@@ -279,7 +279,7 @@ const PLACE_ICONS: Record<string, IconName> = {
   '#home': 'home',
   '#jobs': 'calendar',
   '#jobs/plan': 'planner',
-  '#quotes': 'document',
+  '#jobs/money/follow-up': 'document',
   '#quotes/new': 'add',
   '#stock': 'warehouse',
   '#crew': 'people',
