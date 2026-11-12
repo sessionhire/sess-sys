@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: 'Your own offers said to you, and on top of Home',
     what: "If you can be offered work yourself, your notifications now tell you what happens to your offers in your own terms: \"You're booked as Audio tech on…\", \"Hold the day: you're down as…\" on a job the client hasn't said yes to, then \"…is confirmed, so you're booked\" once they do, \"Your offer of… was withdrawn\", or \"…was cancelled, so you're no longer booked\". Before, everything after the offer itself read as the office's record, naming you as anyone else would. An offer waiting on you is now also on top of Home whichever view is open, Company, Department or Warehouse, as Offers waiting on you, each opening its job to answer it. Before, it was only under Me and in the bell.",
-    prs: [],
+    prs: [358],
     adrs: [165],
   },
   {
