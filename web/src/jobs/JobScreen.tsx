@@ -88,7 +88,7 @@ import { JOBS } from '../Up.tsx'
 export type JobPart = 'phases' | 'crew' | 'kit' | 'vans' | 'pack' | 'quote'
 /**
  * In the order the job goes through them (ADR 0140, part 8): sold, crewed, kitted and vanned, then its days and the pack for
- * them. Kit and vans are tabs of their own (1.167.0): the vans were a card under a long kit list, out of sight on a phone.
+ * them. Kit and vans are tabs of their own (1.168.0): the vans were a card under a long kit list, out of sight on a phone.
  */
 export const JOB_PARTS: readonly JobPart[] = ['quote', 'crew', 'kit', 'vans', 'phases', 'pack']
 
@@ -494,14 +494,18 @@ function JobLines({ job, view, headSays }: { job: JobView; view: View; headSays?
   )
 }
 
-/** The job's notes and the venue's, and changing its details, under its name. */
+/**
+ * The job's notes, each saying who reads it (ADR 0151): the crew's, the office's own, and the venue's; and changing its
+ * details, under its name.
+ */
 function Summary({ job, view, onTell }: { job: JobView; view: View; onTell: (share: Share | undefined) => void }) {
   const [editing, setEditing] = useState(false)
   const mayChange = useAccess().can('jobs')
-  if (!editing && !job.notes && !job.venue?.notes && !mayChange) return null
+  if (!editing && !job.notes && !job.officeNotes && !job.venue?.notes && !mayChange) return null
   return (
     <section className={editing ? 'card' : 'job-notes'} aria-label="Details">
-      {job.notes && <p className="notes">{job.notes}</p>}
+      {job.notes && <p className="notes">For the crew: {job.notes}</p>}
+      {job.officeNotes && <p className="notes">Office notes: {job.officeNotes}</p>}
       {job.venue?.notes && <p className="notes">At the venue: {job.venue.notes}</p>}
       {editing ? (
         <EditJob job={job} view={view} onDone={() => setEditing(false)} onTell={onTell} />
@@ -519,7 +523,15 @@ function Summary({ job, view, onTell }: { job: JobView; view: View; onTell: (sha
 /** Only what was changed is sent, so someone else's change to another detail stands (ADR 0007). */
 function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDone: () => void; onTell: (share: Share | undefined) => void }) {
   const { clients, venues } = view.jobs
-  const [f, setF] = useState({ name: job.name, client: job.client?.name ?? '', venue: job.venue?.name ?? '', status: job.status, kind: kindOf(job), notes: job.notes })
+  const [f, setF] = useState({
+    name: job.name,
+    client: job.client?.name ?? '',
+    venue: job.venue?.name ?? '',
+    status: job.status,
+    kind: kindOf(job),
+    notes: job.notes,
+    officeNotes: job.officeNotes ?? '',
+  })
   // Stopping a job with crew out waits here until the office says so, with the fields held still.
   const [asking, setAsking] = useState(false)
   const { run, error } = useAct()
@@ -537,6 +549,7 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
       if (f.status !== job.status) changes.status = f.status
       if (f.kind !== kindOf(job)) changes.kind = f.kind
       if (f.notes.trim() !== job.notes) changes.notes = f.notes.trim()
+      if (f.officeNotes.trim() !== (job.officeNotes ?? '')) changes.officeNotes = f.officeNotes.trim()
       const clientId = await clientNamed(f.client, clients)
       if (clientId !== job.clientId) changes.clientId = clientId
       const venueId = await venueNamed(f.venue, venues)
@@ -583,9 +596,27 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
           ))}
         </select>
       </label>
+      {/* Who reads each, said where it's typed (ADR 0151, audit of 12 November 2026, finding 2): an email can't be unsent. */}
       <label className="wide">
-        Notes <textarea rows={3} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} disabled={asking} />
+        Notes for the crew{' '}
+        <textarea rows={3} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} aria-describedby={`crew-notes-${job.id}`} disabled={asking} />
       </label>
+      <p className="hint wide" id={`crew-notes-${job.id}`}>
+        {CREW_NOTES_HINT}
+      </p>
+      <label className="wide">
+        Office notes{' '}
+        <textarea
+          rows={3}
+          value={f.officeNotes}
+          onChange={(e) => setF({ ...f, officeNotes: e.target.value })}
+          aria-describedby={`office-notes-${job.id}`}
+          disabled={asking}
+        />
+      </label>
+      <p className="hint wide" id={`office-notes-${job.id}`}>
+        Only in the app, for the office: never on the calendar, a call sheet or a message.
+      </p>
       <Refusal error={error} className="wide" />
       {asking ? (
         <Confirm
@@ -614,6 +645,9 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
     </form>
   )
 }
+
+/** Where a job's or a phase's notes for the crew go (ADR 0151), under the box they're typed in. */
+const CREW_NOTES_HINT = "On the call sheet and the jobs calendar, and in each person's invite once they've said yes."
 
 /** "“Nissan - Build 1/2” and “Nissan - Build 2/2”"; a long phase gives its first and last. Only the days from `from` on, when given. */
 function titlesLine(job: string, p: PhaseView, from = '', hold = false) {
@@ -844,8 +878,12 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
         How many the venue or client brings.
       </p>
       <label className="wide">
-        Notes <textarea rows={2} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} disabled={held} />
+        Notes for the crew{' '}
+        <textarea rows={2} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} aria-describedby={`crew-notes-${phase.id}`} disabled={held} />
       </label>
+      <p className="hint wide" id={`crew-notes-${phase.id}`}>
+        {CREW_NOTES_HINT}
+      </p>
       {ask && (
         <p className="warn-line wide" role="status">
           Move its {openCalls.length} crew call{openCalls.length === 1 ? '' : 's'} too? The days their crew hold move with them.

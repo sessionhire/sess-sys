@@ -37,6 +37,7 @@ const PROJECT_COLUMNS = {
   status: 'status',
   kind: 'kind',
   notes: 'notes',
+  officeNotes: 'office_notes',
   prepDays: 'prep_days',
   returnDays: 'return_days',
 } as const
@@ -175,8 +176,8 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     await checkClient(ctx, a.clientId)
     await checkVenue(ctx, a.venueId)
     await ctx.tx.query(
-      'INSERT INTO projects (id, name, client_id, venue_id, status, kind, notes, prep_days, return_days) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-      [a.id, a.name, a.clientId, a.venueId, a.status, kindOf(a), a.notes, kitDaysOf(a).prep, kitDaysOf(a).back]
+      'INSERT INTO projects (id, name, client_id, venue_id, status, kind, notes, office_notes, prep_days, return_days) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+      [a.id, a.name, a.clientId, a.venueId, a.status, kindOf(a), a.notes, a.officeNotes ?? '', kitDaysOf(a).prep, kitDaysOf(a).back]
     )
     await emit(ctx, 'project', a.id, await getProject(ctx.tx, a.id))
   },
@@ -330,12 +331,24 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     // Their notes are joined below, so what was read of them for kit is read again.
     await ctx.tx.query('DELETE FROM kit_notes_read WHERE project_id = ANY($1::text[])', [[a.id, ...ids]])
 
-    const notes = [...new Set(all.map((j) => j.notes.trim()).filter(Boolean))].join('\n\n')
-    const cut = notes.length > JOB_NOTES ? `${notes.slice(0, JOB_NOTES - 1)}…` : notes
+    // The notes for the crew and the office notes are each joined with their own kind (ADR 0151), so neither crosses over.
+    const joined = (pick: (j: (typeof all)[number]) => string) => {
+      const text = [...new Set(all.map((j) => pick(j).trim()).filter(Boolean))].join('\n\n')
+      return text.length > JOB_NOTES ? `${text.slice(0, JOB_NOTES - 1)}…` : text
+    }
     const first = <T,>(pick: (j: (typeof all)[number]) => T | null | undefined) => all.map(pick).find((v) => v !== null && v !== undefined) ?? null
     await ctx.tx.query(
-      'UPDATE projects SET name = $2, notes = $3, client_id = $4, venue_id = $5, prep_days = $6, return_days = $7 WHERE id = $1',
-      [a.id, a.name, cut, first((j) => j.clientId), first((j) => j.venueId), Math.max(...all.map((j) => kitDaysOf(j).prep)), Math.max(...all.map((j) => kitDaysOf(j).back))]
+      'UPDATE projects SET name = $2, notes = $3, client_id = $4, venue_id = $5, prep_days = $6, return_days = $7, office_notes = $8 WHERE id = $1',
+      [
+        a.id,
+        a.name,
+        joined((j) => j.notes),
+        first((j) => j.clientId),
+        first((j) => j.venueId),
+        Math.max(...all.map((j) => kitDaysOf(j).prep)),
+        Math.max(...all.map((j) => kitDaysOf(j).back)),
+        joined((j) => j.officeNotes ?? ''),
+      ]
     )
     await ctx.tx.query('DELETE FROM projects WHERE id = ANY($1::text[])', [ids])
     await emitRemovedAll(ctx, 'project', ids)

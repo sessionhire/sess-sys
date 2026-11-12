@@ -7,12 +7,14 @@ import {
   readsEverything,
   readsTrackers,
   notesAsRead,
+  projectAsRead,
   readsAttachmentOf,
   timesheetAsRead,
   type CrewCall,
   type Document,
   type Offer,
   type Person,
+  type Project,
   type ReaderOf,
   type Reading,
   type Role,
@@ -23,8 +25,8 @@ import { headsSeeRates } from './office/store.ts'
 
 /**
  * The change feed narrowed to what a role reads of crew rates and private
- * links (ADR 0046), and of other people's details, documents and time off
- * (ADR 0062). The feed keeps every record as it was written; each one
+ * links (ADR 0046), of other people's details, documents and time off
+ * (ADR 0062), and of jobs' office notes (ADR 0151). The feed keeps every record as it was written; each one
  * is cut down as it goes out, so a device holds only what it may show. The
  * rules are shared/src/reading.ts's.
  */
@@ -69,6 +71,8 @@ export async function asRead<C extends { entity: string; op: 'put' | 'delete'; d
         return [{ ...c, data: personAsRead(c.data as Person, reading) }]
       case 'crewCall':
         return [{ ...c, data: callAsRead(c.data as CrewCall, reading) }]
+      case 'project':
+        return [{ ...c, data: projectAsRead(c.data as Project, reading) }]
       case 'offer': {
         const o = c.data as Offer
         return [{ ...c, data: offerAsRead(o, reading, departments.get(o.id)) }]

@@ -12,6 +12,7 @@ import {
   readsLinkOf,
   readsRatesIn,
   personAsRead,
+  projectAsRead,
   READS_EVERYTHING,
   readingFor,
   readsEverything,
@@ -248,6 +249,16 @@ describe('what staff crew and freelancers read of other people', () => {
     expect(readsAttachmentOf(READS_EVERYTHING, { owner: 'client' })).toBe(true)
     expect(documentsRead(crew)).toBe(own)
     expect(documentsRead(head)).toBe(true)
+  })
+
+  it("sends a job's office notes only to the office, directors and heads, and its notes for the crew to everyone (ADR 0151)", () => {
+    const job = { id: 'j', name: 'Harbour Lights', clientId: null, venueId: null, status: 'quoted' as const, notes: 'Load in by the side gate.', officeNotes: 'Hold the margin at 30%.' }
+    for (const r of [crew, freelancer]) expect(projectAsRead(job, r)).toEqual({ id: 'j', name: 'Harbour Lights', clientId: null, venueId: null, status: 'quoted', notes: 'Load in by the side gate.' })
+    expect(projectAsRead(job, head)).toBe(job)
+    expect(projectAsRead(job, READS_EVERYTHING)).toBe(job)
+    // A job with none is sent as it is.
+    const none = { ...job, officeNotes: undefined }
+    expect(projectAsRead(none, crew)).toBe(none)
   })
 
   it("sends only their own documents to staff crew and freelancers", () => {

@@ -163,7 +163,13 @@ export const project = z.object({
   status: z.enum(PROJECT_STATUSES),
   /** Missing means a gig (ADR 0037). */
   kind: z.enum(PROJECT_KINDS).optional(),
-  notes: text(4000, 'The notes'),
+  /** Notes for the crew: on the call sheet, and on the calendar for anyone who has said yes (ADR 0151). */
+  notes: text(4000, 'The notes for the crew'),
+  /**
+   * Notes for the office, which never leave the app: never on the calendar, a call sheet, a message or a person's page
+   * (ADR 0151). Missing on jobs saved before, and when there are none. Left out for staff crew and freelancers signed in.
+   */
+  officeNotes: text(4000, 'The office notes').optional(),
   /** Days its kit is held before it's needed, to get it ready; missing means the usual one (ADR 0031). */
   prepDays: kitDays.optional(),
   /** Days its kit is held after, to come back and be checked in; missing means the usual one. */
@@ -203,7 +209,8 @@ export const phase = z.object({
   end: day,
   /** Null: the job's venue. */
   venueId: id.nullable(),
-  notes: text(2000, 'The notes'),
+  /** Notes for the crew, as the job's are (ADR 0151). */
+  notes: text(2000, 'The notes for the crew'),
   /**
    * Who crew ring on the day (ADR 0021): a person, whose name and number go
    * on the phase's call sheet for everyone on it. Missing on phases saved
@@ -259,6 +266,7 @@ export const jobCommandSchemas = {
       status: project.shape.status.optional(),
       kind: z.enum(PROJECT_KINDS).optional(),
       notes: project.shape.notes.optional(),
+      officeNotes: project.shape.officeNotes,
       prepDays: kitDays.optional(),
       returnDays: kitDays.optional(),
     })

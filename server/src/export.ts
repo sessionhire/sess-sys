@@ -309,7 +309,7 @@ const ABOUT: Record<string, string> = {
   phases: "The parts of each job, such as Build and Show, their days, and who crew ring on the day.",
   places: 'Where stock is kept: the warehouse, its bays and shelves, vans.',
   product_prices: "The price list: each product's price for a day, in cents.",
-  projects: 'Jobs: who for, where, whether they are going ahead, and the calendar a job was brought in from.',
+  projects: "Jobs: who for, where, whether they are going ahead, the notes for the crew and the office's own notes, and the calendar a job was brought in from.",
   quotes:
     "Each job's quotes, a row for each version: its lines (what, how many, days charged, the price for a day in cents and the VAT rate), the discount, the notes for the client, how many days its prices hold and any deposit, when it was sent and the quote number it was given then, the client's answer, with the name typed when they accepted it online and when, and the invoice and payment the office recorded for it. The key in each quote's link for the client is left out.",
   quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details; and whether quotes can be emailed to clients from the operations mailbox, and accepted by them online.",

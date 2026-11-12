@@ -1429,6 +1429,80 @@ describe('crew invites (ADR 0009)', () => {
     expect(pageLine({ status: 'confirmed', replyBy: null, staff: true, link: 'https://app.example/f/abc' })).toBe('The call sheet and the details are on your page: https://app.example/f/abc')
   })
 
+  it('gives someone only asked the short invite until they say yes, and puts the office notes on nothing Google holds', async () => {
+    // Proves: finding 2 of the audit of 12 November 2026 (ADR 0151). Everything in a job's notes went into the invite of everyone
+    // asked, before any of them had said yes, and the office had nowhere else to write what wasn't for crew. Someone only asked
+    // now reads the stage, the day, where, and what the quote covers for crew; the client, the crew, the notes and the pick list
+    // come once they've said yes. Office notes are on no event. Each copy filling in is a change of description: nobody is emailed.
+    const s = await setup()
+    const job = await withCrew(s)
+    const office = 'Client is price sensitive: hold the margin at 30%, do not discount crew.'
+    await send(s, 'project.update', { id: job.jobId, officeNotes: office })
+    await send(s, 'model.create', { id: 'sm58', name: 'Shure SM58', department: 'audio', category: 'Microphones', tracking: 'bulk', isCase: false, valueCents: 9900, notes: '' })
+    await send(s, 'kit.add', { id: newId(), projectId: job.jobId, phaseId: null, modelId: 'sm58', qty: 6, subhireQty: 0, supplier: '', notes: '' })
+    const extra = (what: string, unitCents: number, kind: 'travel' | 'subsistence') =>
+      ({ id: newId(), kind: 'other', what, ref: null, group: 'Travel and subsistence', qty: 4, days: 1, unitCents, vat: '23', per: 'once', extra: kind }) as const
+    await send(s, 'quote.save', {
+      id: newId(),
+      projectId: job.jobId,
+      lines: [extra('Crew travel, 160 km each way from Dublin, 4 car trips', 4810, 'travel'), extra('Crew subsistence, 4 crew days', 3500, 'subsistence')],
+      discountPct: 0,
+      notes: '',
+    })
+    // Conor asks for a different rate: that's not a yes, so his copy stays short too.
+    await send(s, 'offer.respond', { id: job.offers.conor, answer: 'counter', counterRateCents: 30000, days: null, note: '' })
+    await connectTo(s)
+    await invites(s, true)
+    await s.sync()
+
+    const f = await feed(s)
+    const link = (personId: string) => `http://localhost:80/f/${f.get<Person>('person', personId).linkToken}`
+    const copy = (email: string) => s.google.copies(TEST_CAL, s.google.visible(TEST_CAL)[0]!.id).find((e) => e.attendees?.some((g) => g.email === email))!.description!
+    const later = "Once you've said yes, this invite fills in with the day's sheet: the client, the crew, the notes and the pick list."
+    expect(copy('niamh@example.com')).toBe(
+      [
+        'Hi Niamh, are you available to work as Audio tech on Sat 2 Mar, call 08:00? Press Yes or No on this invite to let us know.',
+        `Your rate and the details are on your page, where you can answer too: ${link(job.people.niamh)}`,
+        '',
+        'Job stage: Going out (3 of 5)',
+        '',
+        'Build, day 1 of 2: Sat 2 Mar to Sun 3 Mar',
+        '',
+        'Venue: The Convention Centre Dublin',
+        'Spencer Dock, North Wall Quay, Dublin 1, D01 T1W6',
+        '',
+        'Per diems and fuel',
+        'Per diems: approved, €35 a day each',
+        'Fuel: covered, about €48.10 a car there and back (160 km each way)',
+        '',
+        later,
+      ].join('\n')
+    )
+    expect(copy('Conor.Walsh@example.ie').endsWith(`\n\n${later}`)).toBe(true)
+    // Aoife is booked: the whole sheet, as on the shared day.
+    const sheet = ['Client: Nissan Ireland', 'At the venue: Load-in via Mayor Street.', 'Crew\nAudio tech, call 08:00: Aoife Byrne', 'Job notes\nLaunch of the new Leaf.', 'Pick list\n\nAudio\n• 6 × Shure SM58']
+    for (const part of sheet) {
+      expect(copy('aoife@example.com')).toContain(part)
+      for (const email of ['niamh@example.com', 'Conor.Walsh@example.ie']) expect(copy(email)).not.toContain(part)
+    }
+    expect(copy('aoife@example.com')).not.toContain(later)
+
+    // Niamh says yes: her copy fills in, quietly. (Her yes fills the call, so Conor's place goes, as before.)
+    const before = s.google.sent.length
+    await send(s, 'offer.respond', { id: job.offers.niamh, answer: 'accept', days: null, note: '' })
+    await s.sync()
+    for (const part of sheet) expect(copy('niamh@example.com')).toContain(part)
+    expect(copy('niamh@example.com')).not.toContain(later)
+    expect(emails(s, before).filter((m) => m.includes('niamh@'))).toEqual([])
+
+    // The office notes are on no day and no copy of one, whoever it's for.
+    for (const day of s.google.visible(TEST_CAL)) {
+      for (const ev of [day, ...s.google.copies(TEST_CAL, day.id)]) expect(ev.description).not.toContain('price sensitive')
+    }
+    // And they're the office's: the job page has them.
+    expect((await feed(s)).get<Project>('project', job.jobId)).toMatchObject({ notes: 'Launch of the new Leaf.', officeNotes: office })
+  })
+
   it('never loses an answer given while the app is changing the event', async () => {
     const s = await setup()
     const job = await invited(s)
@@ -1437,12 +1511,13 @@ describe('crew invites (ADR 0009)', () => {
     s.google.replaceOnly = hers.id
     s.google.beforeNextReplace = () => s.google.respond(TEST_CAL, job.events.build1, 'niamh@example.com', 'accepted')
     const before = s.google.calls.length
-    await send(s, 'phase.update', { id: job.phases.build, notes: 'Bring the long ladder.' })
+    // A change to what her copy says while she's only asked: the day to answer by. (The notes aren't on it until she says yes, ADR 0151.)
+    await send(s, 'call.update', { id: job.callId, replyBy: '2030-03-02' })
     await s.sync()
     // Google turned the first replace down, as the event had changed since it was read: read again, and replace that.
     const build1 = `/calendar/v3/calendars/${encodeURIComponent('ops@sessionhire.com')}/events/${hers.id}`
     expect(s.google.calls.slice(before).filter((c) => c.endsWith(build1))).toEqual([`GET ${build1}`, `PUT ${build1}`, `GET ${build1}`, `PUT ${build1}`])
-    expect(s.google.visible(TEST_CAL)[0]!.description).toContain('Bring the long ladder.')
+    expect(s.google.copies(TEST_CAL, job.events.build1).find((e) => e.id === hers.id)!.description).toContain('Please answer by Sat 2 Mar.')
     expect(s.google.guests(TEST_CAL, job.events.build1)).toContain('niamh@example.com accepted')
     s.later(2)
     expect(await s.poll()).toBe(1)

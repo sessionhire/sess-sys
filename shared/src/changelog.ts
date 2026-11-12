@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.167.0',
+    version: '1.168.0',
     date: '2026-11-12',
     title: 'Kit and vans are two tabs on a job',
     what: "On a job, the kit and the vans now have a tab each: Quote, Crew, Kit, Vans, Phases, Show pack. The vans were under the whole kit list, a long way down on a phone; now they're one press away, and the Vans tab says how many are booked. The \"Is the kit list final?\" tick stays on the Kit tab. A van clash on the planner now opens the job's Vans tab.",
     prs: [342],
     adrs: [140],
+  },
+  {
+    version: '1.167.0',
+    date: '2026-11-12',
+    title: "A job's notes say who reads them, and someone only asked gets a short invite",
+    what: "Change details on a job now has two boxes for notes, each saying who reads it. Notes for the crew is the box that was Notes: what's in it goes on the call sheet and the jobs calendar, as before. Office notes is new: what you write there stays in the app for the office, directors and heads of department. It never goes on the calendar, a call sheet, a message or a crew member's own page, and staff crew and freelancers signed in to the app don't see it. The job's page shows each with its name, and a phase's Notes box is Notes for the crew too. Someone you've only asked so far now gets a shorter calendar invite: the day, where, and the per diems and fuel, with a line saying the rest comes once they've said yes. When they say yes, or you book them, their invite fills in with the client, the crew, the notes and the pick list. Nothing new is sent to anyone: invites already out are shortened quietly, with no email.",
+    prs: [341],
+    adrs: [151],
   },
   {
     version: '1.166.1',
