@@ -274,7 +274,7 @@ function Who({ person, view }: { person: PersonView; view: View }) {
             )}
             {(person.dayRateCents !== null || person.rateHidden) && (
               <div>
-                <dt>Day rate</dt>
+                <dt>Own day rate</dt>
                 {/* Not sent to a role that doesn't see crew rates (ADR 0046): said, so it isn't taken for none. */}
                 <dd>{person.rateHidden ? 'Hidden for your role' : euro(person.dayRateCents)}</dd>
               </div>

@@ -249,7 +249,7 @@ const was = (then: string | undefined) => (then === undefined ? '' : ` <span cla
 const UNCLEAR = 'Changed since you said yes · check the call'
 
 function facts(call: CrewCall, offer: Offer, staff: boolean, today: string, since?: SinceYes) {
-  const rate = offer.status === 'countered' ? `${euro(offer.counterRateCents)} a day asked (offered ${euro(call.dayRateCents)})` : `${euro(offer.dayRateCents)}${offer.dayRateCents !== null ? ' a day' : ''}`
+  const rate = offer.status === 'countered' ? `${euro(offer.counterRateCents)} a day asked (offered ${euro(offer.dayRateCents)})` : `${euro(offer.dayRateCents)}${offer.dayRateCents !== null ? ' a day' : ''}`
   const then = since?.was
   return `<dl class="facts">
     <dt>Role</dt><dd>${h(call.role)}</dd>
