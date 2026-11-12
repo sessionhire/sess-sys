@@ -28,12 +28,28 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.175.0',
+    version: '1.176.0',
     date: '2026-11-12',
     title: "A job's status, who has it and Next, in one column at the top right",
     what: "The top right of a job page now reads the same at every stage, from the top down: the job's status (Enquiry, Quoted, Confirmed and so on) level with its name, then who has the job, then the red Next button. Change who has it right there: type a name or press the arrow, and a small spinner then a green tick show it's saved before the arrow comes back. It gives that person the whole stage the job is in, as the Board does. Next now says what's left to do, such as Offer the Rigger · 3 to offer, with a small pie in the button that fills as the step gets done. The Next line over the button and Hand it on are gone, and where the job is in its five stages is the short line under its name. On a phone, Next stays at the foot of the screen.",
     prs: [355],
     adrs: [161],
+  },
+  {
+    version: '1.175.0',
+    date: '2026-11-12',
+    title: 'Bigger 100 × 25 mm labels, and a sharp logo on every label',
+    what: "Labels can now print at 100 × 25 mm on a label printer: pick \"Label printer, 100 × 25 mm, bigger type\" when printing an item's label, or \"Bag or bin, 100 × 25 mm\" for cables. The QR code is the same size, and the number, name, stock code and logo get the extra width: the number prints about twice as big and the words a third bigger, so they read from further away. The logo also prints sharp on every label now, where before it came out as a blur of big squares, and a cable label for a product with no stock code no longer prints its name a second time where the code goes.",
+    prs: [352],
+    adrs: [106],
+  },
+  {
+    version: '1.174.1',
+    date: '2026-11-12',
+    title: "A crew call keeps to its phase's days",
+    what: "A crew call on a phase can now only be for that phase's days, or some of them: its days are picked among them, and the form says so. Before, a call could be moved to a day its phase didn't have, and anyone booked on it was emailed a cancellation for the old day, got nothing for the new one, and stayed booked. To move a call further, move its phase and its crew go with it; when keeping their dates would leave them on a day the phase no longer has, they move with it. A call already left outside its phase's days says so on its card.",
+    prs: [353],
+    adrs: [159],
   },
   {
     version: '1.174.0',

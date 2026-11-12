@@ -164,10 +164,18 @@ describe('the week by job', () => {
   })
 
   it("shows crew left on days a moved phase no longer covers, so it's seen before the day", async () => {
-    const app = await server()
+    const db = await pgliteDb()
+    const app = await buildApp({ db })
+    cleanup.push(async () => {
+      await app.close()
+      await db.close()
+    })
     const summit = await job(app, 'Web Summit', 'confirmed', [['Build', MON!, TUE!]])
     await offer(app, await crew(app, { phaseId: summit.phases.Build!, start: MON!, end: TUE! }), await person(app, 'Aoife Byrne'), 'confirm')
-    await send(app, 'phase.update', { id: summit.phases.Build!, start: WED!, end: THU! })
+    // The app moves a phase's crew with it now (ADR 0159), but an older one could leave them behind: the Build moved two days
+    // later on its own, written to the database as it was then, and a change to its notes to send it to devices as it is.
+    await db.query('UPDATE phases SET start_day = $2, end_day = $3 WHERE id = $1', [summit.phases.Build!, WED!, THU!])
+    await send(app, 'phase.update', { id: summit.phases.Build!, notes: 'Moved by an older app' })
 
     const [lane] = plan(await synced(app), weekOf(MON!)).jobs
     expect(lane!.days[MON!]).toEqual({ phases: [], needed: 1, booked: 1, asked: 0, stray: true })

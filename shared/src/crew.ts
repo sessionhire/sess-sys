@@ -33,7 +33,22 @@ export {
   type Certificates,
 } from './crew-certificates.ts'
 export { fullName, NAME_ARTICLES, NAME_PARTICLES, nameParts, namesAfter, splitName, type NameParts } from './crew-names.ts'
-export { dayLabel, daysBetween, daysLabel, eachDay, euro, movedCallSpan, offerDaysAfter, phaseOnlyGrew, suggestedReplyBy } from './crew-days.ts'
+export {
+  ADD_A_PHASE,
+  dayLabel,
+  daysBetween,
+  daysLabel,
+  daysOffPhase,
+  eachDay,
+  euro,
+  MOVE_THE_PHASE,
+  movedCallSpan,
+  offerDaysAfter,
+  offPhaseLine,
+  phaseDaysRule,
+  phaseOnlyGrew,
+  suggestedReplyBy,
+} from './crew-days.ts'
 
 /**
  * Crew booking: people, the roles a job needs (calls), the offers that fill
