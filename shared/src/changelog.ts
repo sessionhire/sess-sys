@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: 'Kit and vans are two tabs on a job',
     what: "On a job, the kit and the vans now have a tab each: Quote, Crew, Kit, Vans, Phases, Show pack. The vans were under the whole kit list, a long way down on a phone; now they're one press away, and the Vans tab says how many are booked. The \"Is the kit list final?\" tick stays on the Kit tab. A van clash on the planner now opens the job's Vans tab.",
-    prs: [0],
+    prs: [342],
     adrs: [140],
   },
   {
