@@ -36,13 +36,12 @@ async function ok(app: FastifyInstance, ...mutations: Mutation[]) {
 const person = (id: string, name: string, kind: 'staff' | 'freelancer' = 'freelancer') =>
   m('person.upsert', { id, name, kind, email: `${id}@example.com`, phone: null, skills: [], dayRateCents: 30000, notes: '' })
 
-const call = (id: string, role: string, from: number, to: number, rate: number | null = 32000) =>
+const galaShow = { projectId: 'gala', project: 'Autumn Gala', phaseId: 'show', phase: 'Show' }
+
+const call = (id: string, role: string, from: number, to: number, rate: number | null = 32000, job = galaShow) =>
   m('call.create', {
     id,
-    projectId: 'gala',
-    phaseId: 'show',
-    project: 'Autumn Gala',
-    phase: 'Show',
+    ...job,
     venue: 'Northbank',
     role,
     start: day(from),
@@ -75,13 +74,16 @@ async function gala() {
     m('timesheets.use', { on: true, from: day(-30) }),
     m('project.create', { id: 'gala', name: 'Autumn Gala', clientId: null, venueId: null, status: 'confirmed', notes: '' }),
     m('phase.add', { id: 'show', projectId: 'gala', name: 'Show', start: day(-3), end: day(-1), venueId: null, notes: '' }),
+    // The job still to come, with its own days: a call keeps to its phase's (ADR 0159).
+    m('project.create', { id: 'ball', name: 'Winter Ball', clientId: null, venueId: null, status: 'confirmed', notes: '' }),
+    m('phase.add', { id: 'ball-night', projectId: 'ball', name: 'Show', start: day(5), end: day(6), venueId: null, notes: '' }),
     person('dara', 'Dara Quinn'),
     person('eimear', 'Eimear Nolan'),
     person('fionn', 'Fionn Gallagher'),
     person('aoife', 'Aoife Brennan', 'staff'),
     call('sound', 'Sound No.1', -2, -1),
     call('chief', 'Crew chief', -3, -1, null),
-    call('later', 'Monitors', 5, 6),
+    call('later', 'Monitors', 5, 6, 32000, { projectId: 'ball', project: 'Winter Ball', phaseId: 'ball-night', phase: 'Show' }),
     ...booked('dara-sound', 'sound', 'dara'),
     ...booked('aoife-chief', 'chief', 'aoife'),
     ...booked('eimear-later', 'later', 'eimear'),

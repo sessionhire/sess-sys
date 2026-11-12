@@ -422,7 +422,7 @@ describe('a phase that moves', () => {
     return { ids, callId, offers: { aoife: a, dara: d }, people: { aoife, dara } }
   }
 
-  it('takes its crew with it when asked, and leaves them on their days when not', async () => {
+  it('takes its crew with it when asked, and leaves them on their days when not, while the phase still has them', async () => {
     const { app, db } = await server()
     const { ids, callId, offers, people } = await buildCrew(app)
 
@@ -431,22 +431,30 @@ describe('a phase that moves', () => {
     expect(await latest<CrewCall>(app, 'crewCall', callId)).toMatchObject({ start: '2026-10-07', end: '2026-10-08' })
     expect(await latest<Offer>(app, 'offer', offers.aoife)).toMatchObject({ days: ['2026-10-07', '2026-10-08'] })
 
-    // Not asked: the call stays where it was, outside its phase, as before.
-    expect(await send(app, 'phase.update', { id: ids.build, start: '2026-10-08', end: '2026-10-09' })).toMatchObject({ status: 'applied' })
+    // Not asked, and the call would be left outside its phase, holding its crew on a day with no invite: the crew have to move with it
+    // (audit of crew offers, 12 November 2026, finding 11; ADR 0159).
+    expect(await send(app, 'phase.update', { id: ids.build, start: '2026-10-08', end: '2026-10-09' })).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'conflict', message: 'Build would be Thu 8 Oct to Fri 9 Oct, leaving Audio tech on Wed 7 Oct outside it: move its crew with it.' },
+    })
+    expect(await latest<Phase>(app, 'phase', ids.build)).toMatchObject({ start: '2026-10-06', end: '2026-10-08' })
+
+    // Not asked, and the phase still has the call's days: it stays where it is.
+    expect(await send(app, 'phase.update', { id: ids.build, start: '2026-10-07', end: '2026-10-09' })).toMatchObject({ status: 'applied' })
     expect(await latest<CrewCall>(app, 'crewCall', callId)).toMatchObject({ start: '2026-10-07', end: '2026-10-08' })
 
     // Asked: the call moves by the same shift as the phase's start, and the days each person holds move with it.
     expect(await send(app, 'phase.update', { id: ids.build, start: '2026-10-14', end: '2026-10-15', moveCrew: true })).toMatchObject({ status: 'applied' })
-    expect(await latest<CrewCall>(app, 'crewCall', callId)).toMatchObject({ start: '2026-10-13', end: '2026-10-14' })
-    expect(await latest<Offer>(app, 'offer', offers.aoife)).toMatchObject({ status: 'confirmed', days: ['2026-10-13', '2026-10-14'] })
-    expect(await latest<Offer>(app, 'offer', offers.dara)).toMatchObject({ status: 'accepted', days: ['2026-10-14'] })
+    expect(await latest<CrewCall>(app, 'crewCall', callId)).toMatchObject({ start: '2026-10-14', end: '2026-10-15' })
+    expect(await latest<Offer>(app, 'offer', offers.aoife)).toMatchObject({ status: 'confirmed', days: ['2026-10-14', '2026-10-15'] })
+    expect(await latest<Offer>(app, 'offer', offers.dara)).toMatchObject({ status: 'accepted', days: ['2026-10-15'] })
 
     // A phone sees the call under its phase on the new days (Build now comes after Show), and Aoife's page says so too.
     const phone = await device(app)
     await phone.client.sync()
-    expect(phone.client.view().jobs.jobs[0]!.phases.find((p) => p.id === ids.build)!.calls[0]).toMatchObject({ start: '2026-10-13', end: '2026-10-14' })
+    expect(phone.client.view().jobs.jobs[0]!.phases.find((p) => p.id === ids.build)!.calls[0]).toMatchObject({ start: '2026-10-14', end: '2026-10-15' })
     const aoife = (await latest<Person>(app, 'person', people.aoife))!
-    expect((await app.inject({ url: `/f/${aoife.linkToken}` })).body).toContain('Tue 13 Oct to Wed 14 Oct')
+    expect((await app.inject({ url: `/f/${aoife.linkToken}` })).body).toContain('Wed 14 Oct to Thu 15 Oct')
 
     const { entries } = await readHistory(db)
     expect(entries[0]!.what).toBe('Changed Build on Nissan launch: dates to Wed 14 Oct to Thu 15 Oct, with its crew')
@@ -466,6 +474,57 @@ describe('a phase that moves', () => {
     expect(await send(app, 'phase.update', { id: ids.build, end: '2026-10-07', moveCrew: true })).toMatchObject({ status: 'applied' })
     expect(await latest<CrewCall>(app, 'crewCall', callId)).toMatchObject({ start: '2026-10-07', end: '2026-10-07' })
     expect(await latest<Offer>(app, 'offer', offers.aoife)).toMatchObject({ status: 'confirmed', days: ['2026-10-07'] })
+  })
+})
+
+describe("a call on a phase keeps to the phase's days", () => {
+  // Proves finding 11 of the audit of crew offers (12 November 2026; ADR 0159): moved off its phase's days, a call held its crew for a
+  // day the calendar has nothing for, so they were sent a cancellation for the old day and nothing for the new one, and stayed booked.
+  it('is asked for and changed within them, and the phase moves it further', async () => {
+    const { app } = await server()
+    const ids = await nissan(app)
+
+    // Asked for a day the Show doesn't have: refused, with the way to crew on another day.
+    const early = await crewFor(app, ids.show, { start: '2026-10-08', end: '2026-10-09', role: 'LX op' })
+    expect(early.r).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'invalid', message: 'Show is Fri 9 Oct: crew on it are asked for that day. For another day, add a phase.' },
+    })
+    // Some of a phase's days are fine.
+    const { id: callId, r } = await crewFor(app, ids.build, { start: '2026-10-08', end: '2026-10-08' })
+    expect(r).toMatchObject({ status: 'applied' })
+
+    // Moved within the Build, it moves; past it, it's refused with the way to move it further, and stays where it was.
+    expect(await send(app, 'call.update', { id: callId, start: '2026-10-07' })).toMatchObject({ status: 'applied' })
+    expect(await send(app, 'call.update', { id: callId, start: '2026-10-09', end: '2026-10-09' })).toMatchObject({
+      status: 'rejected',
+      reason: {
+        code: 'invalid',
+        message: 'Build is Wed 7 Oct to Thu 8 Oct: crew on it are asked for those days, or some of them. To move the call, move the phase: its crew go with it.',
+      },
+    })
+    expect(await latest<CrewCall>(app, 'crewCall', callId)).toMatchObject({ start: '2026-10-07', end: '2026-10-08' })
+  })
+
+  it('leaves a call already outside its phase from before as it is until its days change', async () => {
+    const { app, db } = await server()
+    const ids = await nissan(app)
+    const { id: callId } = await crewFor(app, ids.build)
+    // As a call could be left before the rule: the Build moved a day later without its crew, by an older app.
+    await db.query(`UPDATE phases SET start_day = '2026-10-08', end_day = '2026-10-09' WHERE id = $1`, [ids.build])
+
+    // Its other details still change; its card says what its day outside costs (offPhaseLine).
+    expect(await send(app, 'call.update', { id: callId, callTime: '07:30' })).toMatchObject({ status: 'applied' })
+    // Its days change only to ones the phase has.
+    expect(await send(app, 'call.update', { id: callId, end: '2026-10-09' })).toMatchObject({ status: 'rejected', reason: { code: 'invalid' } })
+    expect(await send(app, 'call.update', { id: callId, start: '2026-10-08', end: '2026-10-09' })).toMatchObject({ status: 'applied' })
+    // A phase moving without its crew isn't refused for a day already outside it, only for one it would leave out.
+    await db.query(`UPDATE crew_calls SET start_day = '2026-10-07', end_day = '2026-10-08' WHERE id = $1`, [callId])
+    expect(await send(app, 'phase.update', { id: ids.build, start: '2026-10-08', end: '2026-10-10' })).toMatchObject({ status: 'applied' })
+    expect(await send(app, 'phase.update', { id: ids.build, start: '2026-10-09', end: '2026-10-10' })).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'conflict', message: 'Build would be Fri 9 Oct to Sat 10 Oct, leaving Audio tech on Thu 8 Oct outside it: move its crew with it.' },
+    })
   })
 })
 

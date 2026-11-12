@@ -72,6 +72,39 @@ export function movedCallSpan(
 }
 
 /**
+ * A call on a phase is for the phase's days (audit of crew offers, 12
+ * November 2026, finding 11; ADR 0159). The calendar has a day only for a
+ * phase's days, so anyone held for a call's day outside them has no invite
+ * for it, and was sent a cancellation for the day the call left. These are
+ * the days of a call outside its phase: none when it keeps to them.
+ */
+export function daysOffPhase(call: { start: string; end: string }, phase: { start: string; end: string }): string[] {
+  return eachDay(call.start, call.end).filter((d) => d < phase.start || d > phase.end)
+}
+
+/** The rule in words, for the forms that keep to it and the refusals: "Show is Sat 12 Dec: crew on it are asked for that day." */
+export function phaseDaysRule(phase: { name: string; start: string; end: string }, today?: string): string {
+  const one = phase.start === phase.end
+  const when = one ? dayLabel(phase.start, today) : `${dayLabel(phase.start, today)} to ${dayLabel(phase.end, today)}`
+  return `${phase.name} is ${when}: crew on it are asked for ${one ? 'that day' : 'those days, or some of them'}.`
+}
+
+/** The way to a call on other days, from its Change form: the phase takes its crew with it. */
+export const MOVE_THE_PHASE = 'To move the call, move the phase: its crew go with it.'
+/** The way to crew on another day, from the form that asks for them. */
+export const ADD_A_PHASE = 'For another day, add a phase.'
+
+/**
+ * A call already outside its phase, from before the rule (ADR 0159), said on its card: what it costs and the way back.
+ * "Show is Sat 12 Dec, so nobody on the call has a calendar invite for Sun 13 Dec. Change the call's days or move the phase."
+ */
+export function offPhaseLine(off: string[], phase: { name: string; start: string; end: string }, today?: string): string {
+  const one = phase.start === phase.end
+  const when = one ? dayLabel(phase.start, today) : `${dayLabel(phase.start, today)} to ${dayLabel(phase.end, today)}`
+  return `${phase.name} is ${when}, so nobody on the call has a calendar invite for ${daysLabel(off, today)}. Change the call's days or move the phase.`
+}
+
+/**
  * An offer's days once its call's days change: all the new days when it
  * held all the old ones, otherwise the days the person chose that are
  * still in range. When the whole job has moved, `shift` moves the chosen

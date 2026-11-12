@@ -3,6 +3,40 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: a crew call keeps to its phase's days
+
+**Done (1.174.1)**
+
+- The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  finding 11 ([ADR 0159](adr/0159-a-crew-call-keeps-to-its-phase.md)).
+- A crew call on a phase is for the phase's days, or some of them. The
+  server refuses one asked for, or changed to, a day its phase doesn't
+  have, saying the rule and the way on: add a phase for another day, or
+  move the phase, which takes its crew with it.
+- On the job's Ask for crew form with a phase picked, and on a call's
+  Change form, From and To are picked among the phase's days, with the
+  rule under them. A day typed past them is refused on its field in the
+  app's words ("From can be Fri 13 Dec 2030 at the latest."), as any date
+  field with bounds now is.
+- A phase that moves no longer offers "Keep their dates" when that would
+  leave a day of one of its calls outside it: the question says the crew
+  move with it, and why. Keeping their dates stays where the phase still
+  has every day they hold.
+- A call already left outside its phase keeps its days until they're
+  changed, and its card says what that costs: "Show is Sat 12 Dec, so
+  nobody on the call has a calendar invite for Sun 13 Dec. Change the
+  call's days or move the phase."
+- Left open: a call across several phases can hold a day between two
+  phases that no phase has, with no invite for it.
+- Checked: typecheck; shared tests (705) and server tests (1,028), with
+  new cases for asking for and changing a call within its phase, the
+  refusals past it, a call already outside it, and a phase moving with and
+  without its crew. Three older tests had asked for crew outside their
+  phase as set-up and now keep to it. A new browser spec (call-days) asks for crew on a one-day Show,
+  is refused a day past it, sees the rule on the call's Change form, and
+  moves the Show with its call; the jobs, crew, refusals, quotes,
+  offer-from-next, departments, layout and answers specs pass (35).
+
 ## 12 November 2026: the crew's accommodation on quotes
 
 **Done (1.174.0)**
