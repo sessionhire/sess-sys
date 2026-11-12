@@ -108,7 +108,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.getByRole('button', { name: 'Add kit' }).click()
   for (const form of ['Days to get kit ready and back', 'Add kit']) await expect(office.getByRole('form', { name: form })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])
-  await office.getByRole('tab', { name: /^Vans/ }).click()
+  await office.getByRole('tab', { name: /^Transport/ }).click()
   await office.getByRole('button', { name: 'Book a vehicle' }).click()
   await expect(office.getByRole('form', { name: 'Book a vehicle' })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])

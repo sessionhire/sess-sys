@@ -233,7 +233,7 @@ test("a job's tabs run in the order the job goes, and it opens on the one its ne
   await page.goto(`/#jobs/ts-${id}`)
   await expect(page.getByRole('status')).toHaveText('Up to date')
   const tabs = page.getByRole('tablist', { name: 'Parts of the job' }).getByRole('tab')
-  await expect(tabs).toHaveText([/^Quote/, /^Crew/, /^Kit/, /^Vans/, /^Phases/, /^Show pack/])
+  await expect(tabs).toHaveText([/^Quote/, /^Crew/, /^Kit/, /^Transport/, /^Phases/, /^Show pack/])
   // Being sold: it opens on its quote.
   await expect(page.getByRole('tab', { name: /^Quote/ })).toHaveAttribute('aria-selected', 'true')
   // Confirmed with crew to book: it opens on Crew.

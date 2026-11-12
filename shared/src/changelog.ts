@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.171.1',
+    date: '2026-11-12',
+    title: "A job's Vans tab is now called Transport",
+    what: "On a job, the tab with the vans and their drivers is now called Transport: Quote, Crew, Kit, Transport, Phases, Show pack. Nothing else about it has changed, and links to it still work.",
+    prs: [0],
+    adrs: [140],
+  },
+  {
     version: '1.171.0',
     date: '2026-11-12',
     title: 'The company logo has its own place in Admin, with what kind of file works best',
