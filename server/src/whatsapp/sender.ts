@@ -1,10 +1,18 @@
 import {
+  bookedTemplateValues,
+  callTimeTemplateValues,
+  ENDED_WORDS,
   followUpTemplateValues,
   jobOnHold,
+  LIVE,
+  notNeededTemplateValues,
   offerTemplateValues,
   STOPPED,
+  WHATSAPP_BOOKED_TEMPLATE,
+  WHATSAPP_CALL_TIME_TEMPLATE,
   WHATSAPP_CANCELLED_TEMPLATE,
   WHATSAPP_CONFIRMED_TEMPLATE,
+  WHATSAPP_NOT_NEEDED_TEMPLATE,
   WHATSAPP_OFFER_TEMPLATE,
 } from '@sh/shared'
 import type { Db, Queryable } from '../db.ts'
@@ -25,7 +33,9 @@ import { reachOf, type WhatsApp } from './whatsapp.ts'
  * that waited a day, isn't sent: it's marked failed with why, and the office's own way (the link, the Send panel) stands.
  *
  * Three kinds go (ADR 0125, HOLD): the offer, saying HOLD while the client hasn't said yes; the follow-up when that
- * job is confirmed a while later; and the word that a job they were asked for or booked on is cancelled or lost.
+ * job is confirmed a while later; and the word that a job they were asked for or booked on is cancelled or lost. And
+ * three more tell them what happens next (ADR 0154): that they're booked, that their call time moved, and that they're
+ * no longer needed and why. Each is written as things stand when it goes, so a call time that moved twice says the last.
  */
 
 const EVERY_MS = 60_000
@@ -35,6 +45,8 @@ const TRIES = 5
 const AGAIN_MS = 50_000
 /** Older than this, an offer's message would be news nobody wants: it isn't sent. */
 const STALE_MS = 24 * 60 * 60_000
+/** The kinds of message this version sends: the offer, and what follows it (ADR 0125, ADR 0154). */
+const KINDS: readonly string[] = ['offer', 'confirmed', 'cancelled', 'booked', 'call-time', 'not-needed']
 
 interface Queued {
   id: string
@@ -157,7 +169,7 @@ export class WhatsAppSender {
   private async ready(q: Queryable, m: Queued): Promise<{ template: string; components: TemplateComponent[]; hold: boolean } | string> {
     if (!this.whatsapp.api) return 'WhatsApp isn’t set up on the server.'
     if (this.now().getTime() - new Date(m.made_at).getTime() > STALE_MS) return 'It waited more than a day to go, so it wasn’t sent.'
-    if (!['offer', 'confirmed', 'cancelled'].includes(m.kind) || !m.offer_id) return 'Not a kind of message this version sends.'
+    if (!KINDS.includes(m.kind) || !m.offer_id) return 'Not a kind of message this version sends.'
     const offer = await getOffer(q, m.offer_id)
     const call = offer && (await getCall(q, offer.callId))
     const person = offer && (await getPerson(q, offer.personId))
@@ -179,8 +191,25 @@ export class WhatsAppSender {
       if (!job || !STOPPED.includes(job.status)) return 'The job was started again before it went.'
       return { template: WHATSAPP_CANCELLED_TEMPLATE, components: [body(followUpTemplateValues(person, call, offer.days))], hold: false }
     }
-    if (offer.status !== 'offered' || call.status !== 'open') return 'The offer was answered or withdrawn before it went.'
+    if (m.kind === 'booked') {
+      if (offer.status !== 'confirmed' || call.status !== 'open') return 'They were released, or the call was cancelled, before it went.'
+      if (job && job.status !== 'confirmed') return 'The job was no longer confirmed, or was stopped, before it went.'
+      return { template: WHATSAPP_BOOKED_TEMPLATE, components: [body(bookedTemplateValues(person, call, offer.days)), page('0')], hold: false }
+    }
+    // Before the client says yes, the job leads with HOLD, as it did in their offer, while the day is still theirs to hold.
     const hold = jobOnHold(job?.status)
+    if (m.kind === 'call-time') {
+      if (!LIVE.includes(offer.status) || call.status !== 'open') return 'The offer ended, or the call was cancelled, before it went.'
+      if (job && STOPPED.includes(job.status)) return 'The job was stopped before it went.'
+      return { template: WHATSAPP_CALL_TIME_TEMPLATE, components: [body(callTimeTemplateValues(person, call, offer.days, hold)), page('0')], hold }
+    }
+    if (m.kind === 'not-needed') {
+      if (offer.status !== 'filled' && offer.status !== 'cancelled') return 'The offer was still open when it went.'
+      // Why, in the words their page uses: "filled by someone else", "withdrawn by the office".
+      const why = ENDED_WORDS[offer.status === 'filled' ? 'filled' : 'withdrawn']
+      return { template: WHATSAPP_NOT_NEEDED_TEMPLATE, components: [body(notNeededTemplateValues(person, call, offer.days, why.charAt(0).toLowerCase() + why.slice(1)))], hold: false }
+    }
+    if (offer.status !== 'offered' || call.status !== 'open') return 'The offer was answered or withdrawn before it went.'
     return {
       template: WHATSAPP_OFFER_TEMPLATE,
       components: [

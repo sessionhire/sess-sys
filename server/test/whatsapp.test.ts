@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import { newId, type CommandInput, type CommandName, type MutationResult } from '@sh/shared'
+import { daysLabel, newId, type CommandInput, type CommandName, type MutationResult } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.ts'
@@ -289,9 +289,11 @@ describe('answers on WhatsApp (ADR 0125, part 3)', () => {
   it('tells them when the job was filled before they said yes', async () => {
     const { app, send, offerId, offerRow, said } = await offered()
     await send('offer.cancel', { id: offerId })
+    // Withdrawn, they hear they're no longer needed (ADR 0154); a Yes pressed on the offer after that is answered as well.
+    expect(said()).toEqual([expect.objectContaining({ type: 'template', template: expect.objectContaining({ name: 'job_not_needed' }) })])
     await hook(app, pressed('353871234567', `yes:${offerId}`))
     expect((await offerRow()).status).toBe('cancelled')
-    expect(said()[0].text.body).toContain('the office has withdrawn')
+    expect(said()[1].text.body).toContain('the office has withdrawn')
   })
 
   it('turns them off on STOP, and answers anything else with where to answer', async () => {
@@ -373,5 +375,191 @@ describe('offers on hold, and what follows (ADR 0125, HOLD)', () => {
     await s.send('project.update', { id: s.job, status: 'confirmed' })
     await s.send('project.update', { id: s.job, status: 'cancelled' })
     expect(s.meta.sent.length).toBe(before)
+  })
+})
+
+describe('what happens next, on WhatsApp (ADR 0154)', () => {
+  /** A job of two days with three people asked for its call: Aoife and Dara on WhatsApp, Seán with no mobile. */
+  async function onJob({ status = 'confirmed', needed = 2, whatsapp = true }: { status?: 'quoted' | 'confirmed'; needed?: number; whatsapp?: boolean } = {}) {
+    const s = await setUp()
+    const job = newId()
+    expect(await s.send('project.create', { id: job, name: 'Harbour Lights', clientId: null, venueId: null, status, notes: '' })).toMatchObject({ status: 'applied' })
+    const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+    const days = [day(10), day(11)]
+    const call = async () => {
+      const id = newId()
+      expect(
+        await s.send('call.create', { id, projectId: job, project: 'Harbour Lights', phase: 'Show', venue: 'Spanish Arch', role: 'Rigger', start: days[0]!, end: days[1]!, callTime: '08:00', needed, dayRateCents: 25000, details: '', replyBy: null })
+      ).toMatchObject({ status: 'applied' })
+      return id
+    }
+    const callId = await call()
+    if (whatsapp) expect(await s.send('whatsapp.use', { mode: 'on', testTo: [] })).toMatchObject({ status: 'applied' })
+    const people = { aoife: await s.person('Aoife Byrne', '087 123 4567'), dara: await s.person('Dara Kelly', '086 765 4321'), sean: await s.person('Seán Murphy', null) }
+    const offers = { aoife: await s.offer(callId, people.aoife), dara: await s.offer(callId, people.dara), sean: await s.offer(callId, people.sean) }
+    const AOIFE = '353871234567'
+    const DARA = '353867654321'
+    /** What went to Meta since the count given: to whom, and which template, in the order they went. */
+    const since = (n: number) => s.meta.sent.slice(n).map((m) => [m.body.to, m.body.template.name])
+    const blanks = (i: number) => s.meta.sent[i]!.body.template.components[0].parameters.map((p: { text: string }) => p.text)
+    const kinds = async () => (await s.db.query<{ kind: string; offer_id: string; state: string; problem: string | null }>(`SELECT kind, offer_id, state, problem FROM whatsapp_messages ORDER BY made_at, id`)).rows
+    return { ...s, job, call, callId, days, people, offers, AOIFE, DARA, since, blanks, kinds }
+  }
+
+  it('tells someone they are booked when the office confirms them on a confirmed job, with the facts of the day', async () => {
+    const s = await onJob()
+    expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'accept', days: s.days, note: '' })).toMatchObject({ status: 'applied' })
+    const before = s.meta.sent.length
+    expect(await s.send('offer.confirm', { id: s.offers.aoife })).toMatchObject({ status: 'applied' })
+    expect(s.since(before)).toEqual([[s.AOIFE, 'job_booked']])
+    expect(s.blanks(before)).toEqual(['Aoife', 'Harbour Lights (Show)', 'Rigger', daysLabel(s.days), '08:00', 'Spanish Arch'])
+    expect(s.meta.sent[before]!.body.template.components[1]).toEqual({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: await s.token(s.people.aoife) }] })
+    // Confirmed again from another device: nothing more.
+    await s.send('offer.confirm', { id: s.offers.aoife })
+    expect(s.meta.sent.length).toBe(before + 1)
+  })
+
+  it('says nothing when someone is picked to hold the day, and that they are booked once the client says yes', async () => {
+    const s = await onJob({ status: 'quoted' })
+    expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'accept', days: s.days, note: '' })).toMatchObject({ status: 'applied' })
+    const before = s.meta.sent.length
+    await s.send('offer.confirm', { id: s.offers.aoife })
+    expect(s.meta.sent.length).toBe(before)
+    await s.send('project.update', { id: s.job, status: 'confirmed' })
+    // Aoife, picked, is booked; Dara, still asked, hears it's going ahead; Seán has no mobile.
+    expect(s.since(before).sort()).toEqual([
+      [s.DARA, 'job_confirmed'],
+      [s.AOIFE, 'job_booked'],
+    ])
+    // Back to a quote and confirmed again: nothing new.
+    await s.send('project.update', { id: s.job, status: 'quoted' })
+    await s.send('project.update', { id: s.job, status: 'confirmed' })
+    expect(s.meta.sent.length).toBe(before + 2)
+  })
+
+  it('reaches those asked before WhatsApp was on, when the job is confirmed or stopped (question 7)', async () => {
+    const s = await onJob({ status: 'quoted', whatsapp: false })
+    expect(s.meta.sent).toHaveLength(0)
+    expect(await s.send('whatsapp.use', { mode: 'on', testTo: [] })).toMatchObject({ status: 'applied' })
+    await s.send('project.update', { id: s.job, status: 'confirmed' })
+    expect(s.since(0).sort()).toEqual([
+      [s.DARA, 'job_confirmed'],
+      [s.AOIFE, 'job_confirmed'],
+    ])
+    await s.send('project.update', { id: s.job, status: 'cancelled' })
+    expect(s.since(2).sort()).toEqual([
+      [s.DARA, 'job_cancelled'],
+      [s.AOIFE, 'job_cancelled'],
+    ])
+  })
+
+  it('tells each person once that the job is off, however many of its calls they are on, and not as no longer needed', async () => {
+    const s = await onJob()
+    const second = await s.call()
+    await s.offer(second, s.people.aoife)
+    const before = s.meta.sent.length
+    await s.send('project.update', { id: s.job, status: 'lost' })
+    expect(s.since(before).sort()).toEqual([
+      [s.DARA, 'job_cancelled'],
+      [s.AOIFE, 'job_cancelled'],
+    ])
+  })
+
+  it('tells everyone asked or booked on a call its new call time, once while one waits to go', async () => {
+    const s = await onJob({ status: 'quoted' })
+    expect(await s.send('offer.respond', { id: s.offers.dara, answer: 'accept', days: s.days, note: '' })).toMatchObject({ status: 'applied' })
+    let before = s.meta.sent.length
+    expect(await s.send('call.update', { id: s.callId, callTime: '06:00' })).toMatchObject({ status: 'applied' })
+    expect(s.since(before).sort()).toEqual([
+      [s.DARA, 'job_call_time'],
+      [s.AOIFE, 'job_call_time'],
+    ])
+    // The day is still theirs to hold, so the job is named as their offer named it.
+    expect(s.blanks(before).slice(1)).toEqual(['HOLD Harbour Lights (Show)', '06:00', daysLabel(s.days)])
+    // Another change, with no new call time: nothing.
+    before = s.meta.sent.length
+    await s.send('call.update', { id: s.callId, details: 'Steel toe caps' })
+    expect(s.meta.sent.length).toBe(before)
+    // Meta away: the new call time waits to go, and a second change doesn't add another beside it.
+    s.meta.answer({ status: 503, error: 'Away' })
+    await s.send('call.update', { id: s.callId, callTime: '07:00' })
+    await s.send('call.update', { id: s.callId, callTime: '07:30' })
+    expect((await s.kinds()).filter((k) => k.kind === 'call-time' && k.state === 'queued')).toHaveLength(2)
+    s.meta.answer({ status: 200 })
+    before = s.meta.sent.length
+    // Tried again a minute on.
+    await s.db.query(`UPDATE whatsapp_messages SET tried_at = tried_at - interval '1 minute'`)
+    await s.app.whatsappSender.kick()
+    // It says the call time as it is when it goes.
+    expect(s.since(before)).toHaveLength(2)
+    expect(s.blanks(before)[2]).toBe('07:30')
+  })
+
+  it('tells someone they are no longer needed when their offer is filled, withdrawn or released, or its call cancelled, and why', async () => {
+    const s = await onJob({ needed: 1 })
+    let before = s.meta.sent.length
+    // Aoife's yes fills the call: Dara's offer is filled by someone else. Seán has no mobile.
+    expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'accept', days: s.days, note: '' })).toMatchObject({ status: 'applied' })
+    expect(s.since(before)).toEqual([[s.DARA, 'job_not_needed']])
+    expect(s.blanks(before)).toEqual(['Dara', 'Harbour Lights (Show)', daysLabel(s.days), 'filled by someone else'])
+    expect(s.meta.sent[before]!.body.template.components).toHaveLength(1)
+    // Booked, then released.
+    await s.send('offer.confirm', { id: s.offers.aoife })
+    before = s.meta.sent.length
+    await s.send('offer.cancel', { id: s.offers.aoife })
+    expect(s.since(before)).toEqual([[s.AOIFE, 'job_not_needed']])
+    expect(s.blanks(before)[3]).toBe('withdrawn by the office')
+    // Asked again, then the call is cancelled.
+    const again = await s.offer(s.callId, s.people.aoife)
+    before = s.meta.sent.length
+    await s.send('call.cancel', { id: s.callId })
+    expect(s.since(before)).toEqual([[s.AOIFE, 'job_not_needed']])
+    expect((await s.kinds()).filter((k) => k.kind === 'not-needed').map((k) => k.offer_id)).toEqual([s.offers.dara, s.offers.aoife, again])
+  })
+
+  it('sends nothing for their own No or Can’t make it, which they gave', async () => {
+    const s = await onJob()
+    expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'accept', days: s.days, note: '' })).toMatchObject({ status: 'applied' })
+    const before = s.meta.sent.length
+    expect(await s.send('offer.respond', { id: s.offers.dara, answer: 'decline', note: '' })).toMatchObject({ status: 'applied' })
+    expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'pullOut', note: '' })).toMatchObject({ status: 'applied' })
+    expect(s.meta.sent.length).toBe(before)
+  })
+
+  it('sends nothing to someone who never heard of the offer, about a call that is over, or while WhatsApp is off', async () => {
+    const s = await onJob()
+    // Meta turned Dara's offer down for good, and Dara hasn't answered another way: they never heard of it.
+    await s.db.query(`UPDATE whatsapp_messages SET state = 'failed', problem = 'Not on WhatsApp' WHERE offer_id = $1`, [s.offers.dara])
+    let before = s.meta.sent.length
+    await s.send('offer.cancel', { id: s.offers.dara })
+    expect(s.meta.sent.length).toBe(before)
+    // Its days all past, a call is a record, not news.
+    await s.db.query(`UPDATE crew_calls SET start_day = '2026-01-05', end_day = '2026-01-06' WHERE id = $1`, [s.callId])
+    await s.send('offer.cancel', { id: s.offers.aoife })
+    expect(s.meta.sent.length).toBe(before)
+    // WhatsApp off: nothing, about a call coming up either.
+    const coming = await s.call()
+    const tom = await s.person('Tom Doyle', '085 111 2222')
+    const tomsOffer = await s.offer(coming, tom)
+    await s.send('whatsapp.use', { mode: 'off', testTo: [] })
+    before = s.meta.sent.length
+    await s.send('call.update', { id: coming, callTime: '06:00' })
+    await s.send('offer.cancel', { id: tomsOffer })
+    await s.send('project.update', { id: s.job, status: 'cancelled' })
+    expect(s.meta.sent.length).toBe(before)
+  })
+
+  it('checks again as it goes: a booking released before it went goes as no longer needed only', async () => {
+    const s = await onJob()
+    expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'accept', days: s.days, note: '' })).toMatchObject({ status: 'applied' })
+    s.meta.answer({ status: 503, error: 'Away' })
+    await s.send('offer.confirm', { id: s.offers.aoife })
+    await s.send('offer.cancel', { id: s.offers.aoife })
+    s.meta.answer({ status: 200 })
+    const before = s.meta.sent.length
+    await s.db.query(`UPDATE whatsapp_messages SET tried_at = tried_at - interval '1 minute'`)
+    await s.app.whatsappSender.kick()
+    expect(s.since(before)).toEqual([[s.AOIFE, 'job_not_needed']])
+    expect((await s.kinds()).find((k) => k.kind === 'booked')).toMatchObject({ state: 'failed', problem: 'They were released, or the call was cancelled, before it went.' })
   })
 })

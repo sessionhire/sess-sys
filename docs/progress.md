@@ -3,6 +3,55 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: WhatsApp tells crew what happens next
+
+**Done (1.172.0)**
+
+- Batch 3 of the [audit of crew offers](audit-crew-offers-2026-11-12.md),
+  its WhatsApp part: findings 4, 8 and 12, on Colly's answers to
+  questions 4 and 7 ([ADR 0154](adr/0154-whatsapp-tells-crew-what-happens-next.md)).
+  Under WhatsApp's own switch, which is off on live, so deploying this
+  sends nothing.
+- Three more messages follow an offer on WhatsApp: "you're booked" when
+  the office confirms someone on a job the client has said yes to, the
+  new call time when a call's call time changes (with HOLD while the day
+  is still theirs to hold), and "no longer needed" with why ("filled by
+  someone else", "withdrawn by the office") when an offer is filled,
+  withdrawn, released or its call cancelled. Someone picked while the
+  client hasn't said yes hears nothing then, and that they're booked when
+  the job is confirmed. Nothing for their own No or Can't make it, nor
+  about a call whose days are all past. A call time that changes again
+  before its message goes doesn't add another: the one waiting says the
+  call time as it is when it goes.
+- These, and the job's confirmed and cancelled, go to everyone asked or
+  booked whom WhatsApp reaches and who heard of the offer, whether or not
+  the offer itself went on WhatsApp (question 7). Someone whose offer
+  message is still waiting, or was turned down by Meta, and who hasn't
+  answered, hears nothing about an offer they never saw.
+- Confirm (when it asks first), Withdraw, Release, cancelling a call and
+  stopping a job say first what WhatsApp sends; the panel after each says
+  what went; the Offer form's line about a shortlist says the rest hear
+  on WhatsApp too. Each only of the people it reaches, by the server's
+  own rule.
+- The three templates, `job_booked`, `job_call_time` and `job_not_needed`,
+  are written out in [whatsapp-setup.md](whatsapp-setup.md), step 9, for
+  Meta to approve beside the three already there. None names the rate.
+- Checked: the WhatsApp tests send each message to a stand-in Meta and
+  read its blanks and buttons: booked on Confirm and at the client's yes,
+  nothing at a pick on a held job, confirmed and cancelled reaching people
+  offered before WhatsApp was on, one cancelled per person across two
+  calls, the call time once while one waits, no longer needed with why
+  for filled, released and a cancelled call, nothing for their own No or
+  Can't make it, nothing to someone who never heard of the offer, about
+  a call that's over, or while WhatsApp is off, and a booking released
+  before its message went sending no longer needed only. The words tests
+  cover each question and panel. A replay on a local copy with stand-ins
+  for Google and Meta, 21 checks, walked it through the office's presses
+  in the browser, on a desk and a phone. Nothing real is sent.
+
+**Waiting on Colly:** the three templates approved in Meta, with the
+others, before WhatsApp is turned on.
+
 ## 12 November 2026: the company logo in one place
 
 **Done (1.171.0)**

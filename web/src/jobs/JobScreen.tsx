@@ -40,6 +40,7 @@ import {
   type ProjectStatus,
   type View,
   jobEndingWords,
+  whatsappFollowsTell,
   jobPosition,
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
@@ -639,7 +640,7 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
           // With the email Google sends those who hold an invite (ADR 0149).
           question={`Marking ${job.name} ${STATUS_LABELS[f.status].toLowerCase()} also cancels its crew calls${
             people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${theySee}` : ''
-          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId, email: t.person.email })))}`}
+          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId, email: t.person.email, whatsapp: whatsappFollowsTell(reach, t) })))}`}
           yes={`Mark it ${STATUS_LABELS[f.status].toLowerCase()}`}
           loss
           no="Keep it as it is"
