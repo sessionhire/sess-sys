@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 12 November 2026: Undo just after Offer
 
-**Done (1.177.0)**
+**Done (1.178.0)**
 
 - The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
   finding 13 ([ADR 0162](adr/0162-undo-just-after-offer.md)).

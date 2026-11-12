@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.177.0',
+    version: '1.178.0',
     date: '2026-11-12',
     title: 'Undo just after Offer',
     what: "For half a minute after Offer, nothing the app sends by itself goes: no calendar invite and no WhatsApp. The panel after the press counts the seconds down with an Undo button, so a wrong pick can be taken back with nobody sent anything, not even a cancellation. The offer is made at once as before, so the call counts it and the person's page shows it; Undo takes it off both. After the half minute, or once they've answered, it's Withdraw as before.",
     prs: [356],
     adrs: [162],
+  },
+  {
+    version: '1.177.0',
+    date: '2026-11-12',
+    title: "A job's status, who has it and Next, in one column at the top right",
+    what: "The top right of a job page now reads the same at every stage, from the top down: the job's status (Enquiry, Quoted, Confirmed and so on) level with its name, then who has the job, then the red Next button. Change who has it right there: type a name or press the arrow, and a small spinner then a green tick show it's saved before the arrow comes back. It gives that person the whole stage the job is in, as the Board does. Next now says what's left to do, such as Offer the Rigger · 3 to offer, with a small pie in the button that fills as the step gets done. The Next line over the button and Hand it on are gone, and where the job is in its five stages is the short line under its name. On a phone, Next stays at the foot of the screen.",
+    prs: [355],
+    adrs: [161],
   },
   {
     version: '1.176.0',
