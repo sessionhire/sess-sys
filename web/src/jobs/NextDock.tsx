@@ -1,4 +1,4 @@
-import { crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, whoDoes, type JobStep, type JobSteps, type JobView, type View } from '@sh/shared'
+import { crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
 import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -246,12 +246,15 @@ export function NextDock({
             : {
                 label: `Confirm ${firstName(person)}'s yes · ${count}`,
                 done: bookedDone,
-                onPress: () =>
+                onPress: () => {
+                  // The offers still waiting that close as it fills the call are said among what was sent (ADR 0169).
+                  const closed = waitingClosedBy(call, call.offers, offer.id).flatMap((c) => (c.person ? [tellTo(c.person as Person, call, c)] : []))
                   void run(() => client.mutate('offer.confirm', { id: offer.id })).then((ok) => {
                     if (!ok) return
                     onPart('crew', { call: call.id })
-                    onTell?.(promptFor('confirmed', [tellTo(person, call, offer)]))
-                  }),
+                    onTell?.(promptFor('confirmed', [tellTo(person, call, offer)], false, closed))
+                  })
+                },
               }
       } else if (next.ask) {
         const { call, asked } = next.ask

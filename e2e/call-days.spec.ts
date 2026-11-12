@@ -82,3 +82,54 @@ test("a crew call keeps to its phase's days, and goes with the phase when it mov
   if ((await line.getAttribute('aria-expanded')) !== 'true') await line.click()
   await expect(call.locator('.facts-line')).toContainText('Sat 14 Dec')
 })
+
+test('a call across phases says when it holds a day no phase has (the gap ADR 0159 left at 2)', async ({ browser }) => {
+  // A call's days are one run, so one across a Build and a Show with a free day between holds that day too: crew on it are asked
+  // for it with no calendar invite, which the card now says at rest, with the way out.
+  const job = `Quay Street Nights ${tag()}`
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await ready(office)
+  await office.getByRole('button', { name: 'New', exact: true }).click()
+  const form = office.locator('form').filter({ has: office.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(job)
+  await form.getByLabel('Status').selectOption({ label: 'Confirmed' })
+  await form.getByLabel('Phase 1', { exact: true }).fill('Build')
+  await form.getByLabel('Phase 1 from').fill('2030-12-11')
+  await form.getByLabel('Phase 1 to').fill('2030-12-11')
+  await form.getByRole('button', { name: 'Add a phase' }).click()
+  await form.getByLabel('Phase 2', { exact: true }).fill('Show')
+  await form.getByLabel('Phase 2 from').fill('2030-12-13')
+  await form.getByLabel('Phase 2 to').fill('2030-12-13')
+  await form.getByRole('button', { name: 'Add gig' }).click()
+  await expect(office.getByRole('heading', { name: job })).toBeVisible()
+  await expect(office.locator('.conn')).toHaveText('Up to date')
+
+  await office.getByRole('tab', { name: /^Crew/ }).click()
+  await office.getByRole('button', { name: 'Ask for crew' }).click()
+  const ask = office.getByRole('form', { name: 'Ask for crew' })
+  await ask.getByLabel('For which phase').selectOption({ label: 'Across several phases' })
+  await ask.getByLabel('Which phases').fill('Build and Show')
+  await ask.getByLabel('Role').fill('Rigger')
+  await ask.getByLabel('How many').fill('1')
+  await expect(ask.getByLabel('From')).toHaveValue('2030-12-11')
+  await expect(ask.getByLabel('To', { exact: true })).toHaveValue('2030-12-13')
+  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  const call = office.getByRole('article', { name: '1 × Rigger' })
+  await expect(call).toBeVisible()
+  await expect(call.locator('.warn-line')).toHaveText(
+    'The call holds Thu 12 Dec 2030, which no phase of the job has: crew on it are asked for that day too, with no calendar invite for it. Add a phase for that day, or ask for crew for each phase on its own.'
+  )
+
+  // A phase for that day, and the line goes.
+  await office.getByRole('tab', { name: /^Phases/ }).click()
+  await office.getByRole('button', { name: 'Add phase', exact: true }).click()
+  const add = office.getByRole('form', { name: 'Add a phase' })
+  await add.getByLabel('New phase').fill('Rehearsal')
+  await add.getByLabel('From').fill('2030-12-12')
+  await add.getByLabel('To', { exact: true }).fill('2030-12-12')
+  await add.getByRole('button', { name: 'Add phase' }).click()
+  await expect(office.getByRole('article', { name: 'Rehearsal', exact: true })).toBeVisible()
+  await office.getByRole('tab', { name: /^Crew/ }).click()
+  await expect(call).toBeVisible()
+  await expect(call.locator('.warn-line')).toHaveCount(0)
+})

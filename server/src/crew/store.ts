@@ -1,4 +1,4 @@
-import { CHANGE_SHOWN_DAYS, crewCall as callSchema, DEFAULT_LEVEL, eachDay, HOLDING, offer as offerSchema, splitName, tidyNeeds, type CrewCall, type Offer, type Person, type Unavailability, type Watched, type WatchedStep } from '@sh/shared'
+import { CHANGE_SHOWN_DAYS, crewCall as callSchema, DEFAULT_LEVEL, eachDay, HOLDING, WHATSAPP_AFTER, offer as offerSchema, splitName, tidyNeeds, type CrewCall, type Offer, type Person, type Unavailability, type Watched, type WatchedStep } from '@sh/shared'
 import type { EndedBy } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { sortByIds } from '../projects/store.ts'
@@ -7,10 +7,13 @@ import { sortByIds } from '../projects/store.ts'
 
 const PERSON = `id, name, first_name, last_name, kind, email, other_emails, phone, skills, day_rate_cents, notes, link_token, archived, approves_leave, department, level, known_as, certificates, company_name, company_vat_number, company_cro_number, role, photo_at, name_checked, whatsapp_off`
 const CALL = `id, project_id, phase_id, project, phase, venue, role, start_day::text, end_day::text, call_time, needed, day_rate_cents, details, reply_by::text, status, needs_certificates, department, stopped_on::text`
-// The offer's own WhatsApp message, newest first (ADR 0125): where Meta says it has got to.
+// The offer's own WhatsApp message, newest first (ADR 0125): where Meta says it has got to. And the newest that followed it
+// (ADR 0154): that they're booked, the new call time, no longer needed, the job going ahead or off.
 const OFFER = `id, call_id, person_id, status, days, asked, day_rate_cents, counter_rate_cents, note, responded_at, responded_via, override, seen_at, no_own_invite, stopped_on::text,
   (SELECT json_build_object('state', w.state, 'at', coalesce(w.read_at, w.delivered_at, w.sent_at, w.tried_at, w.made_at), 'problem', w.problem)
-     FROM whatsapp_messages w WHERE w.offer_id = offers.id AND w.kind = 'offer' ORDER BY w.made_at DESC LIMIT 1) AS whatsapp`
+     FROM whatsapp_messages w WHERE w.offer_id = offers.id AND w.kind = 'offer' ORDER BY w.made_at DESC LIMIT 1) AS whatsapp,
+  (SELECT json_build_object('kind', w.kind, 'state', w.state, 'at', coalesce(w.read_at, w.delivered_at, w.sent_at, w.tried_at, w.made_at), 'problem', w.problem)
+     FROM whatsapp_messages w WHERE w.offer_id = offers.id AND w.kind <> 'offer' ORDER BY w.made_at DESC, w.id DESC LIMIT 1) AS whatsapp_after`
 const AWAY = `id, person_id, start_day::text, end_day::text, note, source`
 
 type Row = Record<string, any>
@@ -86,6 +89,10 @@ export const toOffer = (r: Row): Offer => ({
   // Only on an offer cancelled along with its job (ADR 0164).
   ...(r.stopped_on ? { stoppedOn: r.stopped_on } : {}),
   ...(r.whatsapp ? { whatsapp: { state: r.whatsapp.state, at: new Date(r.whatsapp.at).toISOString(), problem: r.whatsapp.problem ?? null } } : {}),
+  // Only a kind this version knows, so a device a version behind is never sent one it can't read.
+  ...(r.whatsapp_after && WHATSAPP_AFTER.includes(r.whatsapp_after.kind)
+    ? { whatsappAfter: { kind: r.whatsapp_after.kind, state: r.whatsapp_after.state, at: new Date(r.whatsapp_after.at).toISOString(), problem: r.whatsapp_after.problem ?? null } }
+    : {}),
 })
 export const toAway = (r: Row): Unavailability => ({
   id: r.id,

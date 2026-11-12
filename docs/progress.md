@@ -3,6 +3,29 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: what the audit of crew offers left at 2
+
+**Done (1.183.2)**
+
+- The three problems that the batches of the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md) left at 2 in
+  their heuristic checks
+  ([ADR 0169](adr/0169-what-the-crew-offers-audit-left-at-2.md)).
+- An offer's row says where the newest WhatsApp that followed it got to
+  ("A WhatsApp saying they're booked was read."), or that it wasn't sent
+  and why, on an offer that's over too.
+- The question before an Agree or Confirm that fills a call names the
+  offers still waiting that close with it, and the panel after says what
+  went to each, from the row and from Next. A Confirm with nothing else to
+  ask still goes in one press.
+- A call across a job's phases that holds a day no phase has says so on
+  its card, with the way out: a phase for the day, or a call for each
+  phase.
+- Checked: typecheck; shared tests of the row's line, the question's
+  words, the offers closed and the days no phase has; a server test of the
+  follow-up's state through Meta's receipts; a browser test of the card's
+  line going once a phase covers the day.
+
 ## 12 November 2026: crew are asked for from a job
 
 **Done (1.183.1)**

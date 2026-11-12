@@ -2,14 +2,13 @@ import {
   askEndingWords,
   bookingWords,
   daysLabel,
-  daysToCancel,
   endingWords,
   euro,
+  fillingWords,
   firstName,
   invitesHeld,
-  namesInWords,
   ratesClosedBy,
-  toldNext,
+  waitingClosedBy,
   whatsappFollowsOffer,
   type CallView,
   type OfferView,
@@ -52,8 +51,10 @@ export function AnswerActions({
   const who = o.person?.name ?? 'them'
   const first = o.person ? firstName(o.person) : 'them'
   const asked = o.status === 'accepted' ? (o.asked ?? []) : []
-  // A rate still asked for that this confirm leaves without a place: closed with it, so said first.
+  // A rate still asked for that this confirm leaves without a place: closed with it, so said first. So are the offers still
+  // waiting on an answer, which the server closes as filled by someone else once the call fills (the gap ADR 0154 left at 2).
   const closing = ratesClosedBy(call, call.offers, o.id)
+  const waiting = waitingClosedBy(call, call.offers, o.id)
   const full = call.openDays.length === 0
   // What follows the press goes to them on WhatsApp too, where it reaches them and they'd heard of the offer (ADR 0154).
   const whatsapp = whatsappFollowsOffer(reach, call, o, o.person)
@@ -62,9 +63,13 @@ export function AnswerActions({
     onPress?.()
     void run(() => client.mutate(command, { id: o.id })).then((ok) => ok && onDone(share()))
   }
-  // The rates asked for that this fills the call over close with it, and their invites come off: said among what was sent.
+  // The rates asked for and the offers still waiting that this fills the call over close with it, and their invites come off:
+  // said among what was sent.
   const confirm = () =>
-    go('offer.confirm', () => o.person && promptFor('confirmed', [tellTo(o.person, call, o)], false, closing.flatMap((c) => (c.person ? [tellTo(c.person as Person, call, c)] : []))))
+    go(
+      'offer.confirm',
+      () => o.person && promptFor('confirmed', [tellTo(o.person, call, o)], false, [...closing, ...waiting].flatMap((c) => (c.person ? [tellTo(c.person as Person, call, c)] : [])))
+    )
   const release = () => go('offer.cancel', () => o.person && promptFor(o.status === 'countered' ? 'withdrawn' : 'released', [tellTo(o.person, call, o)]))
   const refuse = () =>
     go('offer.refuse', () => {
@@ -75,32 +80,24 @@ export function AnswerActions({
     })
 
   if (asking === 'confirm') {
-    // Whose invites come off as their ask closes, by name where it's one person, as the panel after says.
-    const emailed = closing.filter((c) => daysToCancel(reach, c.id).length)
-    const one = emailed.length === 1 ? emailed[0]! : undefined
-    // With their invites telling them what happens next, the cancellation says why: filled by someone else (ADR 0153).
-    const why = emailed.every((c) => toldNext(reach, c.person)) ? ' and why' : ''
-    const closedEmails = one
-      ? ` Google emails ${one.person ? firstName(one.person) : 'them'} that ${daysToCancel(reach, one.id).length === 1 ? 'the day is' : 'their days are'} cancelled${why}.`
-      : emailed.length
-        ? ` Google emails each of them that their days are cancelled${why}.`
-        : ''
-    // Their asks close as filled by someone else, which a WhatsApp tells whoever it reaches (ADR 0154).
-    const toldOnWhatsApp = closing.filter((c) => whatsappFollowsOffer(reach, call, c, c.person))
-    const closedWhatsApp = !toldOnWhatsApp.length
-      ? ''
-      : ` A WhatsApp tells ${
-          closing.length === 1 ? (closing[0]!.person ? firstName(closing[0]!.person) : 'them') : toldOnWhatsApp.length < closing.length ? `${toldOnWhatsApp.length} of them` : 'each of them'
-        } they're no longer needed.`
+    // What closes as the call fills, by name, with what Google and WhatsApp send them (fillingWords).
+    const closes = (c: OfferView, rate: boolean) => ({
+      id: c.id,
+      person: c.person,
+      ...(rate ? { rate: { cents: c.counterRateCents, hidden: !!c.rateHidden } } : {}),
+      whatsapp: whatsappFollowsOffer(reach, call, c, c.person),
+    })
     const parts = [
       // Where their invites tell them what happens next, Google emails them the booking (ADR 0153); a WhatsApp tells them
       // too, unless they're only asked to hold the day (ADR 0154).
       bookingWords(reach, o.id, o.person, holdTheDay(call.projectId), whatsapp),
       asked.length && `${who} hasn't answered for ${daysLabel(asked)}, so confirming books ${daysLabel(o.days)} only. ${askEndingWords(reach, o.id, asked)}`.trim(),
-      closing.length &&
-        `${o.status === 'countered' ? 'Agreeing it' : 'Confirming them'} fills the call, so ${namesInWords(closing.map((c) => `${c.person?.name ?? 'someone'}'s`))} ${closing.length === 1 ? 'ask' : 'asks'} for ${
-          closing.length === 1 && !closing[0]!.rateHidden ? `${euro(closing[0]!.counterRateCents)} a day` : 'a different rate'
-        } ${closing.length === 1 ? 'closes' : 'close'} unanswered.${closedEmails}${closedWhatsApp}`,
+      fillingWords(
+        reach,
+        o.status === 'countered',
+        closing.map((c) => closes(c, true)),
+        waiting.map((c) => closes(c, false))
+      ),
     ].filter(Boolean)
     return (
       <Confirm
@@ -151,7 +148,8 @@ export function AnswerActions({
       />
     )
   }
-  // A yes with days not answered, or one that fills the call over a rate still asked for, is asked about first.
+  // A yes with days not answered, or one that fills the call over a rate still asked for, is asked about first. Offers still
+  // waiting that close as it fills are the end every full call has: named in the question when there is one, and said after.
   const pressConfirm = () => (asked.length || closing.length ? setAsking('confirm') : confirm())
   if (o.status === 'accepted')
     return (

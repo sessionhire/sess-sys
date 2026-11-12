@@ -19,6 +19,10 @@
 - **Changes:** ADR 0125's "Offers on hold, and what follows": who the
   confirmed and cancelled messages reach, and a person picked to hold the
   day hears they're booked rather than that the job is confirmed.
+- **Changed by:** [ADR 0169](0169-what-the-crew-offers-audit-left-at-2.md),
+  which closes the two problems this left at 2: a row says where the
+  WhatsApp that followed the offer got to, and the question before an
+  Agree that fills the call names the offers still waiting it closes.
 
 ## Context
 
