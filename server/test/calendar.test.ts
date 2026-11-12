@@ -1683,6 +1683,219 @@ describe('crew invites (ADR 0009)', () => {
     expect((await feed(s)).get<Project>('project', job.jobId)).toMatchObject({ notes: 'Launch of the new Leaf.', officeNotes: office })
   })
 
+  async function tell(s: Setup, mode: string, to: string[] = []) {
+    return s.app.inject({ method: 'POST', url: '/api/calendar/tell?client=collylaptop', cookies: s.colly.cookies, payload: { mode, to } })
+  }
+  /** The title of a person's own copy of a day, by their address; undefined once it's off their calendar. */
+  const titleFor = (s: Setup, eventId: string, email: string) =>
+    s.google.copies(TEST_CAL, eventId).find((e) => e.attendees?.some((g) => g.email.toLowerCase() === email.toLowerCase()))?.summary
+
+  it('tells people what happens next once it is on: booked, a call time that moves, and why a day comes off (ADR 0153)', async () => {
+    // Proves: findings 4 and 8 of the audit of 12 November 2026. Once the invite had gone, nothing told a person the office had
+    // booked them or moved their call time: both were changes to the description, which Google never emails. And when an offer
+    // ended, Google's cancellation said only "cancelled", so a place filled read as the job being off. With telling on, a
+    // person's own copy is titled with where they stand and their call time, so either change is a title change Google emails,
+    // and a day that comes off is first retitled with why, quietly, so the cancellation carries it.
+    const s = await setup()
+    const job = await invited(s)
+    const { build1, build2 } = job.events
+    // Off to start, and off on a connection made before it existed.
+    expect((await feed(s)).link).toMatchObject({ tell: 'off', tellTo: [] })
+    expect(titleFor(s, build1, 'aoife@example.com')).toBe('Nissan - Build 1/2')
+
+    // Turned on: every copy says where its person stands and their call time, and nobody hears about it.
+    const before = s.google.sent.length
+    expect((await tell(s, 'on')).json()).toMatchObject({ tell: 'on', tellTo: [] })
+    await s.sync()
+    expect(titleFor(s, build1, 'aoife@example.com')).toBe('Booked: Nissan - Build 1/2, call 08:00')
+    expect(titleFor(s, build2, 'aoife@example.com')).toBe('Booked: Nissan - Build 2/2, call 08:00')
+    expect(titleFor(s, build1, 'niamh@example.com')).toBe('Nissan - Build 1/2, call 08:00')
+    expect(titleFor(s, build1, 'Conor.Walsh@example.ie')).toBe('Nissan - Build 1/2, call 08:00')
+    expect(emails(s, before)).toEqual([])
+    // The shared days, which nobody is invited to, keep their titles.
+    expect(s.google.visible(TEST_CAL).map((e) => e.summary)).toEqual(['Nissan - Build 1/2', 'Nissan - Build 2/2', 'Nissan - Show'])
+    // It's in the history, in words.
+    const told = (await s.colly.history()).entries.filter((e: HistoryEntry) => e.command === 'calendar.tell')
+    expect(told.map((e: HistoryEntry) => [e.who.name, e.what])).toEqual([
+      ['Colly Hewson', "Turned on telling crew what happens next on Google Calendar: they're booked, their call time moved, or why a day is off"],
+    ])
+
+    // Niamh says yes: that's her own doing, so nothing is emailed to her. Her yes fills the call, so Conor's offer is filled,
+    // and Google's cancellation of each of his days says so.
+    let from = s.google.sent.length
+    await send(s, 'offer.respond', { id: job.offers.niamh, answer: 'accept', days: null, note: '' })
+    await s.sync()
+    expect(titleFor(s, build1, 'niamh@example.com')).toBe('Nissan - Build 1/2, call 08:00')
+    expect(emails(s, from).sort()).toEqual([
+      'cancelled Conor.Walsh@example.ie 2030-03-02 Filled by someone else: Nissan - Build 1/2',
+      'cancelled Conor.Walsh@example.ie 2030-03-03 Filled by someone else: Nissan - Build 2/2',
+    ])
+
+    // The office confirms her: Google emails her that she's booked, for each day.
+    from = s.google.sent.length
+    await send(s, 'offer.confirm', { id: job.offers.niamh })
+    await s.sync()
+    expect(emails(s, from).sort()).toEqual([
+      'updated niamh@example.com 2030-03-02 Booked: Nissan - Build 1/2, call 08:00',
+      'updated niamh@example.com 2030-03-03 Booked: Nissan - Build 2/2, call 08:00',
+    ])
+    // Nothing more when nothing more happens.
+    from = s.google.sent.length
+    await s.check()
+    expect(emails(s, from)).toEqual([])
+
+    // The call time moves: both booked are emailed the new one.
+    await send(s, 'call.update', { id: job.callId, callTime: '07:00' })
+    await s.sync()
+    expect(emails(s, from).sort()).toEqual([
+      'updated aoife@example.com 2030-03-02 Booked: Nissan - Build 1/2, call 07:00',
+      'updated aoife@example.com 2030-03-03 Booked: Nissan - Build 2/2, call 07:00',
+      'updated niamh@example.com 2030-03-02 Booked: Nissan - Build 1/2, call 07:00',
+      'updated niamh@example.com 2030-03-03 Booked: Nissan - Build 2/2, call 07:00',
+    ])
+
+    // A change that isn't news to them, the details for crew, still goes quietly.
+    from = s.google.sent.length
+    await send(s, 'call.update', { id: job.callId, details: 'Black clothes, please.' })
+    await s.sync()
+    expect(emails(s, from)).toEqual([])
+
+    // The office releases Aoife: her days are retitled with why, without an email, and then cancelled with word from Google.
+    from = s.google.sent.length
+    const hers = s.google.copies(TEST_CAL, build1).find((e) => e.attendees?.some((g) => g.email === 'aoife@example.com'))!.id
+    const calls = s.google.calls.length
+    await send(s, 'offer.cancel', { id: job.offers.aoife })
+    await s.sync()
+    expect(emails(s, from).sort()).toEqual([
+      'cancelled aoife@example.com 2030-03-02 Withdrawn by the office: Nissan - Build 1/2',
+      'cancelled aoife@example.com 2030-03-03 Withdrawn by the office: Nissan - Build 2/2',
+    ])
+    expect(eventWrites(s.google.calls.slice(calls)).filter((c) => c.endsWith(`/${hers}`)).map((c) => c.split(' ')[0])).toEqual(['PUT', 'DELETE'])
+    expect(titleFor(s, build1, 'aoife@example.com')).toBeUndefined()
+
+    // The job is cancelled: Niamh's days say so.
+    from = s.google.sent.length
+    await send(s, 'project.update', { id: job.jobId, status: 'cancelled' })
+    await s.sync()
+    expect(emails(s, from).filter((m) => m.includes('niamh@')).sort()).toEqual([
+      'cancelled niamh@example.com 2030-03-02 The job was cancelled: Nissan - Build 1/2',
+      'cancelled niamh@example.com 2030-03-03 The job was cancelled: Nissan - Build 2/2',
+    ])
+  })
+
+  it('is tried on the addresses listed first, says why a declined day comes off, and turns off quietly (ADR 0153)', async () => {
+    const s = await setup()
+    const job = await invited(s)
+    const { build1 } = job.events
+    // Only the switch's own three, a short list of addresses, and an address to try it on.
+    expect((await tell(s, 'loud')).statusCode).toBe(400)
+    expect((await tell(s, 'test')).json()).toEqual({ error: 'List an address to try it on first.' })
+    expect((await tell(s, 'test', ['niamh@example.com', 'not an address'])).json()).toEqual({ error: "not an address doesn't look like an email address." })
+    expect((await tell(s, 'test', ['a@x.ie', 'b@x.ie', 'c@x.ie', 'd@x.ie', 'e@x.ie', 'f@x.ie'])).json()).toEqual({ error: 'Up to 5 addresses to try it on.' })
+    expect((await feed(s)).link).toMatchObject({ tell: 'off', tellTo: [] })
+
+    // Tried on Niamh's address alone, written the way Google may not: only her copies change, and quietly.
+    const before = s.google.sent.length
+    expect((await tell(s, 'test', [' Niamh@Example.com '])).json()).toMatchObject({ tell: 'test', tellTo: ['niamh@example.com'] })
+    await s.sync()
+    expect(titleFor(s, build1, 'niamh@example.com')).toBe('Nissan - Build 1/2, call 08:00')
+    expect(titleFor(s, build1, 'aoife@example.com')).toBe('Nissan - Build 1/2')
+    expect(titleFor(s, build1, 'Conor.Walsh@example.ie')).toBe('Nissan - Build 1/2')
+    expect(emails(s, before)).toEqual([])
+
+    // She declines on her page: the cancellation says it was her own No, not the office cancelling on her.
+    let from = s.google.sent.length
+    await send(s, 'offer.respond', { id: job.offers.niamh, answer: 'decline', note: '' })
+    await s.sync()
+    expect(emails(s, from).sort()).toEqual([
+      'cancelled niamh@example.com 2030-03-02 You declined: Nissan - Build 1/2',
+      'cancelled niamh@example.com 2030-03-03 You declined: Nissan - Build 2/2',
+    ])
+    // Conor isn't on the list: his days come off as before, with a bare cancellation.
+    from = s.google.sent.length
+    await send(s, 'offer.cancel', { id: job.offers.conor })
+    await s.sync()
+    expect(emails(s, from).sort()).toEqual(['cancelled Conor.Walsh@example.ie 2030-03-02 Nissan - Build 1/2', 'cancelled Conor.Walsh@example.ie 2030-03-03 Nissan - Build 2/2'])
+
+    // On for everyone, then off: Aoife's copies say she's booked and then go back, without an email either way.
+    from = s.google.sent.length
+    await tell(s, 'on', ['niamh@example.com'])
+    await s.sync()
+    expect(titleFor(s, build1, 'aoife@example.com')).toBe('Booked: Nissan - Build 1/2, call 08:00')
+    expect((await tell(s, 'off', ['niamh@example.com'])).json()).toMatchObject({ tell: 'off', tellTo: ['niamh@example.com'] })
+    await s.sync()
+    expect(titleFor(s, build1, 'aoife@example.com')).toBe('Nissan - Build 1/2')
+    expect(emails(s, from)).toEqual([])
+    // Off, a call time that moves is on her page, and Google emails nothing, as before.
+    await send(s, 'call.update', { id: job.callId, callTime: '07:00' })
+    await s.sync()
+    expect(emails(s, from)).toEqual([])
+    // Each change is in the history, in words; a press that changes nothing isn't.
+    const told = (await s.colly.history()).entries.filter((e: HistoryEntry) => e.command === 'calendar.tell')
+    expect(told.map((e: HistoryEntry) => e.what).reverse()).toEqual([
+      'Turned on telling crew what happens next on Google Calendar, only to 1 address, to try it',
+      "Turned on telling crew what happens next on Google Calendar: they're booked, their call time moved, or why a day is off",
+      'Turned off telling crew what happens next on Google Calendar',
+    ])
+  })
+
+  it("tells someone picked for a job the client hasn't said yes to that they hold the day, never that they're booked (ADR 0153)", async () => {
+    const s = await setup()
+    const job = await withCrew(s)
+    const pencilled = newId()
+    const phase = newId()
+    const callId = newId()
+    const offerId = newId()
+    await send(s, 'project.create', { id: pencilled, name: 'Pencilled', clientId: null, venueId: null, status: 'enquiry', notes: '' })
+    await send(s, 'phase.add', { id: phase, projectId: pencilled, name: 'Show', start: '2030-03-05', end: '2030-03-05', venueId: null, notes: '' })
+    await send(s, 'call.create', {
+      id: callId,
+      projectId: pencilled,
+      phaseId: phase,
+      project: 'Pencilled',
+      phase: 'Show',
+      venue: '',
+      role: 'LX',
+      start: '2030-03-05',
+      end: '2030-03-05',
+      callTime: null,
+      needed: 1,
+      dayRateCents: null,
+      details: '',
+      replyBy: null,
+    })
+    await send(s, 'offer.send', { id: offerId, callId, personId: job.people.niamh, override: false })
+    await connectTo(s)
+    await invites(s, true)
+    await tell(s, 'on')
+    await s.sync()
+    const show = s.google.visible(TEST_CAL).find((e) => e.summary === 'HOLD Pencilled - Show')!.id
+    // No call time yet, so none in the title.
+    expect(titleFor(s, show, 'niamh@example.com')).toBe('HOLD Pencilled - Show')
+    await send(s, 'offer.respond', { id: offerId, answer: 'accept', days: null, note: '' })
+    await s.sync()
+    // Picked: the title stays HOLD, as nothing is booked, but it's news, so Google emails her the invite as it now reads.
+    const from = s.google.sent.length
+    await send(s, 'offer.confirm', { id: offerId })
+    await s.sync()
+    expect(titleFor(s, show, 'niamh@example.com')).toBe('HOLD Pencilled - Show')
+    expect(emails(s, from)).toEqual(['updated niamh@example.com 2030-03-05 HOLD Pencilled - Show'])
+    const copy = s.google.copies(TEST_CAL, show).find((e) => e.attendees?.some((g) => g.email === 'niamh@example.com'))!
+    expect(copy.description!.split('\n')[0]).toBe("Hi Niamh, we have you down as LX on Tue 5 Mar. Please hold the day: it's booked once the client says yes.")
+    // The client says yes: now she's booked, and told so.
+    const later = s.google.sent.length
+    await send(s, 'project.update', { id: pencilled, status: 'confirmed' })
+    await s.sync()
+    expect(emails(s, later)).toEqual(['updated niamh@example.com 2030-03-05 Booked: Pencilled - Show'])
+  })
+
+  it('needs a connected calendar to tell crew anything, and the right to change settings', async () => {
+    const s = await setup()
+    expect((await tell(s, 'on')).json()).toEqual({ error: 'Google Calendar is not connected.' })
+    const signedOut = await s.app.inject({ method: 'POST', url: '/api/calendar/tell', payload: { mode: 'on', to: [] } })
+    expect(signedOut.statusCode).toBe(401)
+  })
+
   it('never loses an answer given while the app is changing the event', async () => {
     const s = await setup()
     const job = await invited(s)

@@ -296,8 +296,8 @@ export function CallCard({
                         question={
                           // The email Google sends is named, or that nothing is sent (finding 5).
                           o.status === 'confirmed'
-                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're booked for go back to it. ${endingWords(reach, o.id, 'so')}`
-                            : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn")}`
+                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're booked for go back to it. ${endingWords(reach, o.id, 'so', o.person)}`
+                            : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn", o.person)}`
                         }
                         yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
                         loss
@@ -351,7 +351,9 @@ export function CallCard({
               call={call}
               inJob={inJob}
               onDone={() => setEditing(false)}
-              onSaved={(after, datesMoved) => onTell?.(promptFor('call-changed', peopleOn(after).map((t) => neededBefore(datesMoved ? forCallDays(t) : t, call)), datesMoved))}
+              onSaved={(after, datesMoved) =>
+                onTell?.(promptFor('call-changed', peopleOn(after).map((t) => neededBefore(datesMoved ? forCallDays(t) : t, call)), datesMoved, [], after.callTime !== call.callTime))
+              }
             />
           )}
           <Refusal error={error} />
@@ -745,7 +747,8 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       {chosen.length > 0 && offered.size + chosen.length > call.needed && (
         <p className="hint">
           {chosen.length + offered.size} offered for {plural(call.needed, 'place')}: whoever says yes first has it. The rest see it's filled on their link
-          {invitesOut ? ", and Google emails anyone invited that it's cancelled" : ''}; nothing else tells them.
+          {invitesOut ? `, and Google emails anyone invited that it's cancelled${reach.calendar.link?.tell === 'on' ? ', filled by someone else' : ''}` : ''}; nothing
+          else tells them.
         </p>
       )}
       <RecordPicker

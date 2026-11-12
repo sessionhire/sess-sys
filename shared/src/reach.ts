@@ -1,4 +1,4 @@
-import { calendarDayId, offerOnCalendar, type CalendarDay, type CalendarLink, type OfferOnCalendar } from './calendar.ts'
+import { calendarDayId, offerOnCalendar, tells, type CalendarDay, type CalendarLink, type OfferOnCalendar } from './calendar.ts'
 import { firstName, LIVE, whatsappWords, type CrewCall, type Offer, type Person } from './crew.ts'
 import { daysLabel } from './crew-days.ts'
 import { STOPPED, type Phase, type Project } from './jobs.ts'
@@ -315,8 +315,20 @@ const allOff = (ctx: ReachContext, r: Pick<OfferReach, 'plan' | 'noWhatsApp'>) =
 const ALL_OFF = 'calendar invites, WhatsApp and messages to crew are all off'
 const ALL_OFF_LINE = `Nothing is sent: ${ALL_OFF}.`
 
-/** Who a sentence names: by the name they go by, or in full when two of them go by the same one. */
-export type ToldWho = Pick<Person, 'id' | 'name'> & Partial<Pick<Person, 'knownAs' | 'firstName'>>
+/**
+ * Who a sentence names: by the name they go by, or in full when two of them go by the same one; and their email address,
+ * which says whether their invites tell them what happens next (ADR 0153).
+ */
+export type ToldWho = Pick<Person, 'id' | 'name'> & Partial<Pick<Person, 'knownAs' | 'firstName' | 'email'>>
+
+/**
+ * Whether a person's own invites tell them what happens next (ADR 0153): that they're booked, that their call time moved,
+ * and why a day is cancelled, all of which Google then emails them.
+ */
+export const toldNext = (ctx: Pick<ReachContext, 'calendar'>, who: Partial<Pick<Person, 'email'>> | null | undefined) => tells(ctx.calendar.link, who?.email)
+
+/** What Google's cancellation says when their invites tell them what happens next: why, in its title (ADR 0153). */
+const andWhy = (ctx: Pick<ReachContext, 'calendar'>, who: Partial<Pick<Person, 'email'>> | null | undefined) => (toldNext(ctx, who) ? ' and why' : '')
 
 /** Each by the name they go by, or in full where someone else among them goes by the same one. */
 const called = (who: readonly ToldWho[], among: readonly ToldWho[] = who) => who.map((w) => (among.some((o) => o.id !== w.id && firstName(o) === firstName(w)) ? w.name : firstName(w)))
@@ -481,11 +493,12 @@ const keptAmong = (ctx: Pick<ReachContext, 'calendar' | 'today'>, offerIds: read
 
 /**
  * What ending one person's offer does beyond the app, for the question asked first (finding 5): "Google emails them
- * that their 3 days are cancelled, and their link says it's withdrawn at once." `says` is what their link will say.
+ * that their 3 days are cancelled, and their link says it's withdrawn at once." `says` is what their link will say. With
+ * their invites telling them what happens next, the cancellation says why (ADR 0153).
  */
-export function endingWords(ctx: ReachContext, offerId: string, says: string): string {
+export function endingWords(ctx: ReachContext, offerId: string, says: string, who?: Partial<Pick<Person, 'email'>> | null): string {
   const n = daysToCancel(ctx, offerId).length
-  if (n) return `Google emails them that ${n === 1 ? 'the day is' : `their ${n} days are`} cancelled${onceBack(ctx)}, and their link says ${says} at once.`
+  if (n) return `Google emails them that ${n === 1 ? 'the day is' : `their ${n} days are`} cancelled${andWhy(ctx, who)}${onceBack(ctx)}, and their link says ${says} at once.`
   const kept = invitesHeld(ctx, offerId).length
   if (kept) return `Their link says ${says} at once. ${KEPT}: the ${kept === 1 ? 'day stays' : `${kept} days stay`} in their calendar.`
   return `Their link says ${says} at once.${ctx.messages ? '' : ' Nothing is sent to them.'}`
@@ -494,8 +507,11 @@ export function endingWords(ctx: ReachContext, offerId: string, says: string): s
 /** The server takes nothing off a calendar it can't write to, so the cancellation waits for that. */
 const onceBack = (ctx: Pick<ReachContext, 'calendar'>) => (ctx.calendar.link?.problem ? ' once the calendar is working again' : '')
 
-/** The same for a whole call being cancelled: how many of the people on it Google emails, and that their links say so. */
-export function callEndingWords(ctx: ReachContext, offers: readonly Pick<Offer, 'id' | 'status'>[]): string {
+/**
+ * The same for a whole call being cancelled: how many of the people on it Google emails, and that their links say so;
+ * and that the cancellations say why, when every one of them goes to someone told what happens next (ADR 0153).
+ */
+export function callEndingWords(ctx: ReachContext, offers: readonly (Pick<Offer, 'id' | 'status'> & { person?: Partial<Pick<Person, 'email'>> | null })[]): string {
   const on = offers.filter((o) => LIVE.includes(o.status))
   const k = on.length
   if (!k) return 'Nobody is offered or booked on it.'
@@ -504,8 +520,9 @@ export function callEndingWords(ctx: ReachContext, offers: readonly Pick<Offer, 
   const people = k === 1 ? 'the person' : `the ${k} people`
   const links = k === 1 ? 'their link says' : 'their links say'
   const days = cancelledDays(held)
-  if (emailed === k) return `Google emails ${people} on it that ${days} cancelled${onceBack(ctx)}, and ${links} it's withdrawn at once.`
-  if (emailed > 0) return `Google emails ${emailed} of ${people} on it that ${days} cancelled${onceBack(ctx)}. Everyone's link says it's withdrawn at once${ctx.messages ? '' : ', and nothing else is sent'}.`
+  const why = on.every((o, i) => !held[i] || toldNext(ctx, o.person)) ? ' and why' : ''
+  if (emailed === k) return `Google emails ${people} on it that ${days} cancelled${why}${onceBack(ctx)}, and ${links} it's withdrawn at once.`
+  if (emailed > 0) return `Google emails ${emailed} of ${people} on it that ${days} cancelled${why}${onceBack(ctx)}. Everyone's link says it's withdrawn at once${ctx.messages ? '' : ', and nothing else is sent'}.`
   const kept = keptAmong(ctx, on.map((o) => o.id))
   return (ctx.messages ? `${capital(links)} it's withdrawn at once.` : `Nothing is sent to ${people} on it: ${links} it's withdrawn at once.`) + kept
 }
@@ -517,7 +534,10 @@ const cancelledDays = (held: readonly number[]) => (Math.max(0, ...held) > 1 ? '
  * The same for a job being stopped, after "3 people offered or booked will see it's cancelled.": how many of them
  * Google emails. Nothing when it emails nobody, as the sentence before it has said who sees what.
  */
-export function jobEndingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, on: readonly { personId: string; offerId?: string | undefined }[]): string {
+export function jobEndingWords(
+  ctx: Pick<ReachContext, 'calendar' | 'today'>,
+  on: readonly { personId: string; offerId?: string | undefined; email?: string | null | undefined }[]
+): string {
   const everyone = new Set(on.map((o) => o.personId)).size
   // Their days across the job's calls: someone on two of them is one person, emailed for the days of both.
   const held = new Map<string, Set<string>>()
@@ -525,7 +545,9 @@ export function jobEndingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, on
   const emailed = held.size
   if (!emailed) return keptAmong(ctx, on.map((o) => o.offerId))
   const who = emailed < everyone ? `${emailed} of them` : everyone === 1 ? 'them' : 'each of them'
-  return ` Google emails ${who} that ${cancelledDays([...held.values()].map((d) => d.size))} cancelled${onceBack(ctx)}.`
+  // Each cancellation says why, the job's being cancelled or not going ahead, where their invites tell them what happens next (ADR 0153).
+  const why = on.every((o) => !held.has(o.personId) || toldNext(ctx, o)) ? ' and why' : ''
+  return ` Google emails ${who} that ${cancelledDays([...held.values()].map((d) => d.size))} cancelled${why}${onceBack(ctx)}.`
 }
 
 // ---- After a press: what was sent ----
@@ -625,10 +647,16 @@ export function toldOfEnding(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, 
   const days = one ? 'the day is' : 'their days are'
   if (!b.cancel && b.kept) said.push({ key: `kept:${b.kept === 1}`, say: (who) => `Nothing was sent to ${who}, and the ${b.kept === 1 ? 'day stays' : 'days stay'} in their calendar: crew invites are off, so Google sends no cancellation.` })
   else if (!b.cancel) said.push({ key: 'nothing', say: (who) => `Nothing was sent to ${who}.` })
-  else if (b.left === 0) said.push({ key: `cancelled:${one}`, say: (who) => `Google has emailed ${who} that ${days} cancelled.` })
-  else if (ctx.calendar.link?.problem)
+  // With their invites telling them what happens next, the cancellation says why (ADR 0153).
+  else if (b.left === 0) {
+    const why = andWhy(ctx, who)
+    said.push({ key: `cancelled:${one}${why}`, say: (who) => `Google has emailed ${who} that ${days} cancelled${why}.` })
+  } else if (ctx.calendar.link?.problem)
     said.push({ key: 'cancel-held', say: (who, many) => `${who} still ${many ? 'have' : 'has'} the days in their calendar: the calendar has a problem, so Google hasn't told them. See Admin › Connections.` })
-  else said.push({ key: `cancelling:${one}`, say: (who) => `Google is emailing ${who} that ${days} cancelled.` })
+  else {
+    const why = andWhy(ctx, who)
+    said.push({ key: `cancelling:${one}${why}`, say: (who) => `Google is emailing ${who} that ${days} cancelled${why}.` })
+  }
   if (b.whatsapp) said.push({ key: 'whatsapp-off', say: (who) => `A WhatsApp saying the job is off is going to ${who}.` })
   return { who, said, reached: b.cancel > 0 || !!b.whatsapp }
 }
@@ -637,11 +665,13 @@ export function toldOfEnding(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, 
 const STALE = "Crew invites are off, so what's in their calendar stays as it was."
 
 /**
- * After Confirm: the app tells nobody they're booked (finding 4, not yet built), so the panel says so. Their invite's
- * first line follows the booking only while the server is writing to the calendar. On a job the client hasn't said yes
- * to yet (`hold`), what their link and their invite say is to hold the day, never that they're booked (ADR 0150).
- * `ending` is days they were still asked for that Confirm ended (ADR 0152): their invites come off with word from Google,
- * as the question said first, and `left` is how many are still on the calendar.
+ * After Confirm: unless their invites tell them what happens next, the app tells nobody they're booked (finding 4), so
+ * the panel says so. Their invite's first line follows the booking only while the server is writing to the calendar.
+ * With their invites telling them what happens next (ADR 0153), Google emails them the booking, their invite's title
+ * then saying "Booked:". On a job the client hasn't said yes to yet (`hold`), what their link and their invite say is to
+ * hold the day, never that they're booked (ADR 0150). `ending` is days they were still asked for that Confirm ended
+ * (ADR 0152): their invites come off with word from Google, as the question said first, and `left` is how many are
+ * still on the calendar.
  */
 export function toldOfBooking(
   ctx: Pick<ReachContext, 'calendar'>,
@@ -663,13 +693,27 @@ export function toldOfBooking(
       : ctx.calendar.link?.problem
         ? [{ key: `asked-held:${cancelled}`, say: (who) => `${who} still ${gone.length === 1 ? 'has that day' : 'has those days'} in their calendar: the calendar has a problem, so Google hasn't told them. See Admin › Connections.` }]
         : [{ key: `asked-cancelling:${cancelled}`, say: (who) => `Google is emailing ${who} that ${cancelled}.` }]
-  const said: Said =
-    b.invited && !ctx.calendar.link?.problem
+  const telling = b.invited && !ctx.calendar.link?.problem && toldNext(ctx, who)
+  const said: Said = telling
+    ? {
+        key: key('booked-told'),
+        say: (who, many) => `Google is emailing ${who} ${hold ? "to hold the day, as the client hasn't said yes yet" : "that they're booked"}, and their ${many ? 'links say' : 'link says'} so.`,
+      }
+    : b.invited && !ctx.calendar.link?.problem
       ? { key: key('booked-invited'), say: (who, many) => `${nothing(who)}: their ${many ? 'links and calendar invites' : 'link and their calendar invite'} say ${what}, and no email goes with that.` }
       : b.kept
         ? { key: key('booked-kept'), say: (who, many) => `${nothing(who)}: ${links(many)}. ${STALE}` }
         : { key: key('booked'), say: (who, many) => `${nothing(who)}: ${links(many)}.` }
-  return { who, said: [...ended, said], reached: false }
+  return { who, said: [...ended, said], reached: telling }
+}
+
+/**
+ * Before Confirm (ADR 0153): that Google emails them they're booked, or to hold the day, where their invites tell them
+ * what happens next. Nothing otherwise, as nothing is sent.
+ */
+export function bookingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, offerId: string, who: Partial<Pick<Person, 'email'>> | null | undefined, hold = false): string {
+  if (!daysToCancel(ctx, offerId).length || !toldNext(ctx, who)) return ''
+  return `Google emails them ${hold ? 'to hold the day' : "that they're booked"}${onceBack(ctx)}.`
 }
 
 /**
@@ -695,14 +739,23 @@ export function askEndingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, of
   return gone.length ? `Google emails them that ${daysLabel(gone)} ${gone.length === 1 ? 'is' : 'are'} cancelled${onceBack(ctx)}.` : ''
 }
 
-/** After a call changed or a phase moved: Google emails only when the days themselves move. */
-export function toldOfChange(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: Pick<ToldBefore, 'invited' | 'kept'>, moved: boolean): ToldPerson {
+/**
+ * After a call changed or a phase moved: Google emails only when the days themselves move, or, where their invites tell
+ * them what happens next (ADR 0153), when their call time moves (`timeMoved`).
+ */
+export function toldOfChange(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: Pick<ToldBefore, 'invited' | 'kept'>, moved: boolean, timeMoved = false): ToldPerson {
   if (b.invited && moved)
     return ctx.calendar.link?.problem
       ? { who, said: [{ key: 'moved-held', say: (names) => `Google emails ${names} about the days that changed once the calendar is working again.` }], reached: false }
       : { who, said: [{ key: 'moved', say: (names) => `Google is emailing ${names} about the days that changed.` }], reached: true }
+  if (b.invited && timeMoved && toldNext(ctx, who))
+    return ctx.calendar.link?.problem
+      ? { who, said: [{ key: 'time-held', say: (names) => `Google emails ${names} the new call time once the calendar is working again.` }], reached: false }
+      : { who, said: [{ key: 'time', say: (names) => `Google is emailing ${names} the new call time.` }], reached: true }
   const said: Said = b.invited
-    ? { key: 'changed-invited', say: (who) => `Nothing was sent to ${who}: the change is on their link, and Google emails nothing unless the days move.` }
+    ? toldNext(ctx, who)
+      ? { key: 'changed-told', say: (who) => `Nothing was sent to ${who}: the change is on their link, and Google emails nothing unless the days or the call time move.` }
+      : { key: 'changed-invited', say: (who) => `Nothing was sent to ${who}: the change is on their link, and Google emails nothing unless the days move.` }
     : b.kept
       ? { key: 'changed-kept', say: (who) => `Nothing was sent to ${who}: the change is on their link. ${STALE}` }
       : { key: 'changed', say: (who) => `Nothing was sent to ${who}: the change is on their link.` }

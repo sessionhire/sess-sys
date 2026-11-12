@@ -1,5 +1,5 @@
 import { daysLabel, eachDay, type Offer } from './crew.ts'
-import { calendarTitles, type Phase, type Project } from './jobs.ts'
+import { calendarTitles, STOPPED_WORDS, type Phase, type Project } from './jobs.ts'
 
 /**
  * Confirmed jobs on Google Calendar (ADR 0008). One Google account, connected
@@ -42,6 +42,29 @@ export interface CalendarLink {
    * before invites existed, which means off.
    */
   invites?: boolean
+  /**
+   * Whether a person's own invites tell them what happens next (ADR 0153): that they're booked, that their call time
+   * has moved, and why a day is cancelled. Off to start, as every new way of reaching crew is; "test" tells only the
+   * addresses in `tellTo`, to try it on the office's own. Missing means off.
+   */
+  tell?: TellMode
+  /** The addresses "test" tells, at most `TELL_TO_MAX`. */
+  tellTo?: string[]
+}
+
+/** Telling crew what happens next (ADR 0153): off; only the addresses listed, for trying it; or everyone invited. */
+export const TELL_MODES = ['off', 'test', 'on'] as const
+export type TellMode = (typeof TELL_MODES)[number]
+/** At most this many addresses to try telling on, as with WhatsApp's numbers. */
+export const TELL_TO_MAX = 5
+
+/** Whether a person's own invites, sent to `email`, tell them what happens next (ADR 0153). */
+export function tells(link: Pick<CalendarLink, 'tell' | 'tellTo'> | undefined, email: string | null | undefined): boolean {
+  const mode = link?.tell ?? 'off'
+  if (mode === 'off' || !email?.trim()) return false
+  if (mode === 'on') return true
+  const to = email.trim().toLowerCase()
+  return (link?.tellTo ?? []).some((e) => e.trim().toLowerCase() === to)
 }
 
 /** A guest's answer in Google Calendar. `needsAction` is no answer yet; `tentative` is Maybe. */
@@ -144,6 +167,60 @@ export const onHold = (job: Pick<Project, 'status'>, asked: boolean) => (job.sta
 
 /** A day's title while its crew are asked to hold the day. */
 export const holdTitle = (title: string) => `HOLD ${title}`
+
+/**
+ * Where a person stands on a day, as their own invite tells them (ADR 0153): asked, said yes, booked, or picked by the
+ * office for a job the client hasn't said yes to, where they hold the day and nothing is booked yet (ADR 0150).
+ */
+export type ToldStanding = 'asked' | 'yes' | 'booked' | 'picked'
+
+/** What a person's own invite told them, as last written: where they stand, and their call time. */
+export const toldOf = (standing: ToldStanding, callTime: string | null) => `${standing}|${callTime ?? ''}`
+
+/**
+ * Whether going from what an invite told a person to what it tells them now is news that Google should email them
+ * (ADR 0153, audit of 12 November 2026, finding 4): being booked, or picked, and a call time that moves. What they did
+ * themselves, such as saying yes, isn't; nor is anything said before the invite told them where they stand, so turning
+ * telling on sends nothing by itself.
+ */
+export function toldNews(before: string | null | undefined, after: string | null | undefined): boolean {
+  if (!before || !after) return false
+  const [was = '', wasCall = ''] = before.split('|')
+  const [now = '', nowCall = ''] = after.split('|')
+  const held = (s: string) => s === 'booked' || s === 'picked'
+  return (held(now) && !held(was)) || wasCall !== nowCall
+}
+
+/**
+ * A person's own day, titled with where they stand and their call time when their invites tell them what happens next
+ * (ADR 0153), so being booked, or a call time that moves, is a change of title, which Google emails: "Booked: Nissan -
+ * Build 1/2, call 08:00". Picked for a job the client hasn't said yes to keeps the day's HOLD title: nothing is booked.
+ */
+export function toldTitle(title: string, standing: ToldStanding, callTime: string | null): string {
+  return `${standing === 'booked' ? 'Booked: ' : ''}${title}${callTime ? `, call ${callTime}` : ''}`
+}
+
+const capitalised = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+/** How an offer ended on the office's side (UX sweep, 6 November 2026, move 6). */
+export type EndedBy = 'job-cancelled' | 'job-lost' | 'withdrawn' | 'filled'
+
+/**
+ * How an offer ended, as their page says it and as the last title of their invite, so Google's cancellation carries it
+ * (ADR 0153): the client's cancelling, a job that didn't go ahead and the office taking someone off are three different
+ * news, and the person's own No or Can't make it is theirs, not the office cancelling on them.
+ */
+export const ENDED_WORDS: Record<EndedBy | 'declined' | 'pulled-out', string> = {
+  'job-cancelled': capitalised(STOPPED_WORDS.cancelled),
+  'job-lost': capitalised(STOPPED_WORDS.lost),
+  withdrawn: 'Withdrawn by the office',
+  filled: 'Filled by someone else',
+  declined: 'You declined',
+  'pulled-out': "Can't make it",
+}
+
+/** A person's own day as it comes off their calendar because their offer ended: why, then the day, without HOLD. */
+export const endedTitle = (title: string, why: keyof typeof ENDED_WORDS) => `${ENDED_WORDS[why]}: ${title.replace(/^HOLD /, '')}`
 
 /**
  * Where a phase stands with the calendar, for the job page:

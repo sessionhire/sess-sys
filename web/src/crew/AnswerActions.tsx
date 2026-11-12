@@ -1,5 +1,6 @@
 import {
   askEndingWords,
+  bookingWords,
   daysLabel,
   daysToCancel,
   endingWords,
@@ -8,6 +9,7 @@ import {
   invitesHeld,
   namesInWords,
   ratesClosedBy,
+  toldNext,
   type CallView,
   type OfferView,
   type Person,
@@ -16,7 +18,7 @@ import { useState } from 'react'
 import { Confirm } from '../act.tsx'
 import { client } from '../sync.ts'
 import { promptFor, tellTo, type Share } from './Messages.tsx'
-import { useReach } from './reach.tsx'
+import { useHoldTheDay, useReach } from './reach.tsx'
 
 /** The rate an offer stands at once the office has said no to the one asked for, as their page says it (ADR 0152). */
 export const standsAt = (cents: number | null | undefined, hidden?: boolean) => (hidden ? 'the rate offered' : cents === null || cents === undefined ? 'the rate the office sets' : `${euro(cents)} a day`)
@@ -43,6 +45,7 @@ export function AnswerActions({
   onPress?: () => void
 }) {
   const reach = useReach()
+  const holdTheDay = useHoldTheDay()
   const [asking, setAsking] = useState<'confirm' | 'release' | 'refuse' | 'withdraw'>()
   if (o.status !== 'accepted' && o.status !== 'countered') return null
   const who = o.person?.name ?? 'them'
@@ -72,12 +75,16 @@ export function AnswerActions({
     // Whose invites come off as their ask closes, by name where it's one person, as the panel after says.
     const emailed = closing.filter((c) => daysToCancel(reach, c.id).length)
     const one = emailed.length === 1 ? emailed[0]! : undefined
+    // With their invites telling them what happens next, the cancellation says why: filled by someone else (ADR 0153).
+    const why = emailed.every((c) => toldNext(reach, c.person)) ? ' and why' : ''
     const closedEmails = one
-      ? ` Google emails ${one.person ? firstName(one.person) : 'them'} that ${daysToCancel(reach, one.id).length === 1 ? 'the day is' : 'their days are'} cancelled.`
+      ? ` Google emails ${one.person ? firstName(one.person) : 'them'} that ${daysToCancel(reach, one.id).length === 1 ? 'the day is' : 'their days are'} cancelled${why}.`
       : emailed.length
-        ? ' Google emails each of them that their days are cancelled.'
+        ? ` Google emails each of them that their days are cancelled${why}.`
         : ''
     const parts = [
+      // Where their invites tell them what happens next, Google emails them the booking (ADR 0153).
+      bookingWords(reach, o.id, o.person, holdTheDay(call.projectId)),
       asked.length && `${who} hasn't answered for ${daysLabel(asked)}, so confirming books ${daysLabel(o.days)} only. ${askEndingWords(reach, o.id, asked)}`.trim(),
       closing.length &&
         `${o.status === 'countered' ? 'Agreeing it' : 'Confirming them'} fills the call, so ${namesInWords(closing.map((c) => `${c.person?.name ?? 'someone'}'s`))} ${closing.length === 1 ? 'ask' : 'asks'} for ${
@@ -103,8 +110,8 @@ export function AnswerActions({
         question={
           // The email Google sends is named, or that nothing is sent (finding 5).
           asking === 'release'
-            ? `Release ${who} from ${call.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so')}`
-            : `Withdraw the offer to ${who}? ${endingWords(reach, o.id, "it's withdrawn")}`
+            ? `Release ${who} from ${call.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so', o.person)}`
+            : `Withdraw the offer to ${who}? ${endingWords(reach, o.id, "it's withdrawn", o.person)}`
         }
         yes={asking === 'release' ? `Release ${first}` : 'Withdraw the offer'}
         loss
@@ -119,7 +126,7 @@ export function AnswerActions({
     // Nothing is sent: their link says the offer stands, and so does their invite's first line, with no email (ADR 0009).
     const invited = reach.calendar.link?.invites === true && invitesHeld(reach, o.id).length > 0
     const after = full
-      ? `The call has filled meanwhile, so the offer closes. ${endingWords(reach, o.id, "it's filled")}`
+      ? `The call has filled meanwhile, so the offer closes. ${endingWords(reach, o.id, "it's filled", o.person)}`
       : `The offer stands at ${stands}, for ${first} to take or turn down. ${invited ? 'Their link and their calendar invite say so, with no email.' : 'Their link says so.'}${reach.messages || invited ? '' : ' Nothing is sent to them.'}`
     return (
       <Confirm

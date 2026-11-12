@@ -3,6 +3,66 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: crew invites tell people what happens next
+
+**Done (1.170.0)**
+
+- Batch 3 of the [audit of crew offers](audit-crew-offers-2026-11-12.md),
+  its calendar part: findings 4 and 8, on Colly's answer to question 4
+  ([ADR 0153](adr/0153-crew-invites-tell-what-happens-next.md)). The
+  WhatsApp part, three more messages and question 7, follows in its own
+  change.
+- A new switch under Admin › Connections › Google Calendar, "Tell crew
+  what happens next", with Off, "Only to the addresses below" (up to 5,
+  to try it on the office's own addresses first) and On, which asks
+  first. It starts off, so deploying this changes nothing on live, and
+  turning it on or off sends nothing by itself: the titles change quietly.
+  Each change is in the history.
+- With it on, each person's own invite says where they stand and their
+  call time in its title: "Booked: Harbour Lights Festival - Show 1/2,
+  call 07:30" once booked, "HOLD Harbour Lights Festival - Show 1/2, call
+  07:30" while picked for a job the client hasn't said yes to, and the
+  day's title with the call time while asked. Being booked or picked, and
+  a call time that moves, are emailed by Google, one email a day; their
+  own yes, the notes and the crew list are not. The days everyone sees
+  keep their titles.
+- A day that comes off someone's calendar because their offer ended says
+  why first, quietly, so Google's cancellation carries it: "Filled by
+  someone else", "Withdrawn by the office", "The job was cancelled", "The
+  job didn't go ahead", "You declined" and "Can't make it".
+- Confirm, Release, Withdraw, a cancelled call, a stopped job and a
+  changed call say what Google emails, for the people the switch
+  reaches: "Google is emailing Ciara to hold the day, as the client
+  hasn't said yes yet", "Google is emailing Aoife and Ciara the new call
+  time", "cancelled and why".
+- On a freelancer's page, an offer that was waiting on them and ended on
+  the office's side shows at the top of Offers waiting on you, saying
+  how, for a week or until its call, then goes down to Offers that ended.
+  This is so whatever the switch.
+- Erasing a person takes their address off the addresses it's tried on;
+  with none left, the switch goes off.
+- Changed from the audit's words: "You declined:" for their own No,
+  rather than "Thanks for letting us know:", the words their page and the
+  office already use.
+- Checked: the calendar tests turn it on, try it on one address and turn
+  it off in a stand-in Google, and read every email Google would send:
+  none for turning it on or off, their own yes or a change of notes; one
+  a day for being booked or picked and for a call time that moves; each
+  cancellation titled with why; nothing more for someone who said No to
+  that day in Google. The words tests cover each question and panel, the
+  page tests an ended offer at the top while it's news, an erasure test
+  the addresses, and a browser test turns the switch through its three
+  settings. The whole server suite passed (1,015 tests), and the whole
+  browser suite on GitHub. A replay on a local copy with stand-ins for
+  Google and Meta, 43 checks, walked it from off, through one address and
+  on, to off again, with the office's presses in the browser and the
+  freelancer's page on a phone. Nothing real is sent.
+
+**Next:** Colly tries it on their own address on the test calendar
+(ADR 0153, "Trying it first"), looking at how Google shows a cancelled
+day's last title, before turning it on for everyone. Then the WhatsApp
+part of batch 3, and batch 6.
+
 ## 12 November 2026: a Yes counts for its own day, and saying no to a rate keeps the offer
 
 **Done (1.169.0)**

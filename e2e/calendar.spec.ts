@@ -29,6 +29,8 @@ interface Link {
   connectedBy: string | null
   connectedAt: string | null
   invites?: boolean
+  tell?: 'off' | 'test' | 'on'
+  tellTo?: string[]
 }
 
 const connected = (changes: Partial<Link> = {}): Link => ({
@@ -380,6 +382,29 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   await expect(invites.getByRole('heading')).toHaveText('Crew invites: on')
   await card.evaluate((el) => scrollTo(0, el.getBoundingClientRect().top + scrollY - 70))
   await page.screenshot(shot('account-invites'))
+
+  // What crew's invites tell them is its own switch, off to start (ADR 0153): tried on the addresses listed first, and On asks.
+  await page.route(/\/api\/calendar\/tell/, (route) => {
+    const { mode, to } = route.request().postDataJSON() as { mode: 'off' | 'test' | 'on'; to: string[] }
+    server.link = connected({ invites: true, tell: mode, tellTo: to })
+    return route.fulfill({ json: server.link })
+  })
+  const tell = card.getByRole('group', { name: 'Tell crew what happens next', exact: true })
+  await expect(tell.getByRole('heading')).toHaveText('Tell crew what happens next: off')
+  await tell.getByLabel('Addresses to try it on').fill('colly@sessionhire.com')
+  await tell.getByRole('radio', { name: /^Only to the addresses below/ }).click()
+  await expect(card.getByRole('status')).toHaveText('Telling crew what happens next is being tried on colly@sessionhire.com.')
+  await expect(tell.getByRole('heading')).toHaveText('Tell crew what happens next: being tried')
+  await expect(tell.getByLabel('Addresses to try it on')).toHaveValue('colly@sessionhire.com')
+  await tell.getByRole('radio', { name: /^On Everyone/ }).click()
+  const telling = tell.getByRole('group', { name: /^Tell crew what happens next\? From now on Google emails each person invited when they’re booked or their call time moves/ })
+  await expect(telling).toBeVisible()
+  await telling.getByRole('button', { name: 'Turn it on' }).click()
+  await expect(card.getByRole('status')).toHaveText('Crew invites now tell crew what happens next.')
+  await expect(tell.getByRole('heading')).toHaveText('Tell crew what happens next: on')
+  // Off again: the rest of this test reads what the office is told without it.
+  await tell.getByRole('radio', { name: /^Off/ }).click()
+  await expect(tell.getByRole('heading')).toHaveText('Tell crew what happens next: off')
 
   // With invites on, disconnecting says what crew are sent.
   await card.getByRole('button', { name: 'Disconnect' }).click()

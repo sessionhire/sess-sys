@@ -56,6 +56,8 @@ export interface Tell {
   to: TellTo[]
   /** For a changed call: its days moved, which is the one change Google emails the people on it about (ADR 0149). */
   moved?: boolean
+  /** For a changed call: its call time moved, which Google emails those whose invites tell them what happens next (ADR 0153). */
+  timeMoved?: boolean
   /**
    * People whose rate asked for the press closed, by filling the call (ADR 0152): said among what was sent, as their offers
    * end, and never sent this event's message.
@@ -73,8 +75,8 @@ export type Share = { kind: 'offer'; people: PersonView[]; call: CallView } | { 
  * when there's nobody to tell. A call changed or a phase moved prompts the
  * same way: setShare(promptFor('call-changed', peopleOn(call))).
  */
-export function promptFor(event: TellEvent, to: TellTo[], moved = false, closed: TellTo[] = []): Share | undefined {
-  return to.length ? { kind: 'tell', tell: { id: newId(), event, to, moved, ...(closed.length ? { closed } : {}) } } : undefined
+export function promptFor(event: TellEvent, to: TellTo[], moved = false, closed: TellTo[] = [], timeMoved = false): Share | undefined {
+  return to.length ? { kind: 'tell', tell: { id: newId(), event, to, moved, ...(timeMoved ? { timeMoved } : {}), ...(closed.length ? { closed } : {}) } } : undefined
 }
 
 /** Someone to tell about a call, with their own days and agreed rate when they have an offer on it. */
@@ -287,7 +289,7 @@ function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
     // filled meanwhile it closes, and their invites come off as for any offer that ends.
     if (tell.event === 'rate-refused') return { person: t.person, told: t.context.filled ? toldOfEnding(reach, t.person, before) : toldOfRefusal(reach, t.person, before) }
     if (tell.event === 'call-changed' || tell.event === 'phase-moved')
-      return { person: t.person, told: toldOfChange(reach, t.person, before, tell.event === 'phase-moved' || tell.moved === true) }
+      return { person: t.person, told: toldOfChange(reach, t.person, before, tell.event === 'phase-moved' || tell.moved === true, tell.timeMoved === true) }
     // A stopped job tells whoever had its offer on WhatsApp that it's off (ADR 0125), by the rule the server sends by.
     const went = tell.event === 'job-stopped' ? calls.flatMap((c) => c.offers).find((o) => o.id === id)?.whatsapp?.state : undefined
     const whatsapp = (went === 'sent' || went === 'delivered' || went === 'read') && whatsappReach(reach.whatsapp, t.person) !== undefined

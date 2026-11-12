@@ -392,6 +392,10 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'calendar.invites':
       if (a.on !== true) return 'Turned off crew invites on Google Calendar'
       return `Turned on crew invites on Google Calendar${typeof a.invites === 'number' && typeof a.people === 'number' ? ` (${invitesLabel(a.invites, a.people)})` : ''}`
+    case 'calendar.tell':
+      if (a.mode === 'on') return "Turned on telling crew what happens next on Google Calendar: they're booked, their call time moved, or why a day is off"
+      if (a.mode === 'test') return `Turned on telling crew what happens next on Google Calendar, only to ${typeof a.to === 'number' ? (a.to === 1 ? '1 address' : `${a.to} addresses`) : 'the addresses listed'}, to try it`
+      return 'Turned off telling crew what happens next on Google Calendar'
     case 'calendar.disconnect':
       return `Disconnected Google Calendar${typeof a.account === 'string' ? ` (${a.account})` : ''}${typeof a.calendar === 'string' ? `, taking the app's days off ${a.calendar}` : ''}`
     case 'data.made-up':
