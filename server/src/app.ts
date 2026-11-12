@@ -22,6 +22,7 @@ import { applyMutationIn, currentSeq, recordRefusal, refusedOnSight } from './co
 import { clearedSince, startedFresh } from './data/fresh.ts'
 import { registerDataRoutes } from './data/routes.ts'
 import { Feeds, type FeedsOptions } from './crew/feeds.ts'
+import { OfferWaits } from './crew/waits.ts'
 import { registerPeopleImportRoutes } from './crew/import.ts'
 import { registerCrewLinks } from './crew/links.ts'
 import { registerLinkCheck } from './crew/link-check.ts'
@@ -203,6 +204,8 @@ declare module 'fastify' {
     assistantMailbox: Mailbox
     /** Sends offers on WhatsApp as they're made (ADR 0125); the caller starts its once-a-minute look. */
     whatsappSender: WhatsAppSender
+    /** Wakes the calendar and WhatsApp as an offer's wait for Undo ends (ADR 0162); the caller starts it once the server is listening. */
+    offerWaits: OfferWaits
   }
 }
 
@@ -369,12 +372,23 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const whatsapp = new WhatsApp(options.whatsapp)
   const whatsappSender = new WhatsAppSender(db, whatsapp, { log: app.log, report: (err) => reportError(err, { area: 'whatsapp' }), onSent: () => void poke() })
   app.decorate('whatsappSender', whatsappSender)
+  // An offer made by Offer waits so it can be undone (ADR 0162): as the wait ends, its invites and WhatsApp go.
+  const offerWaits = new OfferWaits(
+    db,
+    () => {
+      calendarSync?.kick()
+      void whatsappSender.kick()
+    },
+    (err) => reportError(err, { area: 'offer-waits' })
+  )
+  app.decorate('offerWaits', offerWaits)
   /** Something changed in the app: devices pull it, the calendar catches up, an erasure is written beside the backups, and files no document has any more are deleted. */
   const changed = () => {
     void poke()
     calendarSync?.kick()
-    // An offer just made goes on WhatsApp at the same moment as its calendar invite (ADR 0125).
+    // An offer just made goes on WhatsApp at the same moment as its calendar invite (ADR 0125), once its wait is over (ADR 0162).
     void whatsappSender.kick()
+    void offerWaits.watch()
     void erasures?.keep()
     void documents.tidy()
   }
@@ -799,6 +813,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     app.assistantTodo.stop()
     app.assistantMailbox.stop()
     whatsappSender.stop()
+    offerWaits.stop()
     documents.stop()
     calendarSync?.stop()
     ownCalendars.stop()

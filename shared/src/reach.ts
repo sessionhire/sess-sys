@@ -650,6 +650,27 @@ export function jobEndingWords(
 
 // ---- After a press: what was sent ----
 
+/**
+ * While offers just made wait (ADR 0162; audit of 12 November 2026, finding 13), what goes when, beside the Undo that
+ * takes them back first: "The invites go in 24 seconds.", "The invite and WhatsApp go in 1 second.". With nothing of the
+ * app's to go, that they can still be undone, which takes them off the person's page.
+ */
+export function waitWords(waiting: { invites: number; whatsapps: number; offers: number }, seconds: number): string {
+  const s = seconds === 1 ? '1 second' : `${seconds} seconds`
+  const { invites, whatsapps, offers } = waiting
+  const things = [invites ? (invites === 1 ? 'invite' : 'invites') : '', whatsapps ? (whatsapps === 1 ? 'WhatsApp' : 'WhatsApps') : ''].filter(Boolean)
+  if (!things.length) return `${offers === 1 ? 'It' : 'They'} can be undone for ${s}.`
+  return `The ${things.join(' and ')} ${things.length === 1 && invites + whatsapps === 1 ? 'goes' : 'go'} in ${s}.`
+}
+
+/** After Undo (ADR 0162): who wasn't offered it after all, that the app sent them nothing, and that their page no longer shows it. */
+export function undoneWords(names: readonly string[], prompts: boolean): string {
+  const one = names.length === 1
+  const said = `${namesInWords(names)} ${one ? "wasn't" : "weren't"} offered it after all: the app sent them nothing, and it's off ${one ? 'their page' : 'their pages'}.`
+  // With messages to crew on, the office may have sent one from the panel before Undo: that one is theirs to follow up.
+  return prompts ? `${said} If you sent them a message yourself, tell them it's off.` : said
+}
+
 /** One thing that happened to one person, said of everyone it's true of in one sentence. */
 interface Said {
   /** People with the same key share a sentence. */

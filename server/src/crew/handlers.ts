@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { whatsappSetting } from '../office/store.ts'
 import { reachOf } from '../whatsapp/whatsapp.ts'
 import { queueBooked, queueCallTime, queueNotNeeded } from '../whatsapp/follow-ups.ts'
-import { ADD_A_PHASE, certificateRefusal, certificatesAfter, daysBetween, daysLabel, daysOffPhase, DEFAULT_LEVEL, MOVE_THE_PHASE, phaseDaysRule, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
+import { ADD_A_PHASE, certificateRefusal, certificatesAfter, daysBetween, daysLabel, daysOffPhase, DEFAULT_LEVEL, MOVE_THE_PHASE, phaseDaysRule, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, OFFER_WAIT_GRACE_SECONDS, OFFER_WAIT_SECONDS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getPhase, getProject, namesForCall } from '../projects/store.ts'
 import { stopOwnCalendar } from './own-calendars.ts'
@@ -36,6 +36,7 @@ type CrewCommand =
   | 'call.cancel'
   | 'call.department'
   | 'offer.send'
+  | 'offer.undo'
   | 'offer.respond'
   | 'offer.confirm'
   | 'offer.refuse'
@@ -606,13 +607,16 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
       if (reasons.length)
         throw new Refused({ code: 'clash', message: `${person.name} is ${reasons.join(' and ')}. Send anyway to override.` })
     }
+    // Nothing of the app's goes to them for OFFER_WAIT_SECONDS (ADR 0162): the calendar and WhatsApp wait for goes_at, so
+    // the office can take a wrong pick back with Undo and nobody is sent a cancellation for it. The offer is made at once.
+    // A few seconds more here than the panel offers Undo, so one pressed at the last moment still arrives in time.
     await ctx.tx.query(
-      `INSERT INTO offers (id, call_id, person_id, status, days, day_rate_cents, override)
-       VALUES ($1, $2, $3, 'offered', $4, $5, $6)`,
-      [a.id, call.id, person.id, JSON.stringify(days), call.dayRateCents, a.override]
+      `INSERT INTO offers (id, call_id, person_id, status, days, day_rate_cents, override, goes_at)
+       VALUES ($1, $2, $3, 'offered', $4, $5, $6, now() + make_interval(secs => $7))`,
+      [a.id, call.id, person.id, JSON.stringify(days), call.dayRateCents, a.override, OFFER_WAIT_SECONDS + OFFER_WAIT_GRACE_SECONDS]
     )
     // On WhatsApp too, once the office sends offers there and this person hasn't turned them off (ADR 0125): queued with
-    // the offer, so it goes only if the offer is made, and sent by the server just after, never holding the office up.
+    // the offer, so it goes only if the offer is made, and sent by the server once its wait is over, never holding the office up.
     const to = reachOf(await whatsappSetting(ctx.tx), person)
     if (to)
       await ctx.tx.query(`INSERT INTO whatsapp_messages (id, offer_id, person_id, kind, to_number, state) VALUES ($1, $2, $3, 'offer', $4, 'queued') ON CONFLICT (id) DO NOTHING`, [
@@ -622,6 +626,26 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
         to,
       ])
     await emitOffer(ctx, a.id)
+  },
+
+  /**
+   * Undo, just after Offer (ADR 0162): while nothing of the app's has gone to them and they haven't answered, the offer is
+   * gone as if never made, with its WhatsApp that was waiting. After that it's withdrawn instead, which tells them.
+   */
+  async 'offer.undo'(ctx, a) {
+    const { rows } = await ctx.tx.query<{ status: Offer['status']; responded_at: Date | null; waiting: boolean; name: string }>(
+      `SELECT o.status, o.responded_at, coalesce(o.goes_at > now(), false) AS waiting, p.name
+         FROM offers o JOIN people p ON p.id = o.person_id WHERE o.id = $1 FOR UPDATE OF o`,
+      [a.id]
+    )
+    const o = rows[0]
+    // Taken back already, by a second press or another device: nothing more to do.
+    if (!o) return
+    if (o.status !== 'offered' || o.responded_at) throw new Refused({ code: 'conflict', message: `${o.name} has already answered, so it can't be undone. Withdraw it instead.` })
+    if (!o.waiting) throw new Refused({ code: 'conflict', message: `The offer has already gone to ${o.name}, so it can't be undone. Withdraw it instead.` })
+    await ctx.tx.query('DELETE FROM whatsapp_messages WHERE offer_id = $1', [a.id])
+    await ctx.tx.query('DELETE FROM offers WHERE id = $1', [a.id])
+    await emitRemoved(ctx, 'offer', a.id)
   },
 
   async 'offer.respond'(ctx, a) {

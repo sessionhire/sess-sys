@@ -276,6 +276,8 @@ describe.skipIf(!url)('real Postgres, many devices at once', () => {
       // Crew invites (ADR 0009): Niamh is offered the other place, says yes on Google Calendar, and the app takes it as her answer.
       await colly.send('person.upsert', { id: 'p2', name: 'Niamh Kelly', kind: 'freelancer', email: 'niamh@example.com', phone: null, skills: [], dayRateCents: 25000, notes: '' })
       await colly.send('offer.send', { id: 'o2', callId: 'c1', personId: 'p2', override: false })
+      // Half a minute on (ADR 0162): her offer's wait for Undo is over, so its invites can go.
+      await db.query(`UPDATE offers SET goes_at = now() - interval '1 second' WHERE id = $1`, ['o2'])
       const on = await app.inject({ method: 'POST', url: '/api/calendar/invites?client=phonec0ffee', cookies: colly.cookies, payload: { on: true } })
       expect(on.statusCode, on.body).toBe(200)
       expect(await app.calendar!.run()).toEqual({ written: 2, removed: 0, failed: 0 })
