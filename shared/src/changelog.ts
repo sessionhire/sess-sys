@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: "A crew call keeps to its phase's days",
     what: "A crew call on a phase can now only be for that phase's days, or some of them: its days are picked among them, and the form says so. Before, a call could be moved to a day its phase didn't have, and anyone booked on it was emailed a cancellation for the old day, got nothing for the new one, and stayed booked. To move a call further, move its phase and its crew go with it; when keeping their dates would leave them on a day the phase no longer has, they move with it. A call already left outside its phase's days says so on its card.",
-    prs: [0],
+    prs: [353],
     adrs: [159],
   },
   {
