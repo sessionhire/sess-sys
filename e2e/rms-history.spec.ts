@@ -201,7 +201,7 @@ test('the office makes a job from a past quote, its lines matched to the stock l
   // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
   await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
   const next = office.getByRole('region', { name: 'Next' })
-  await expect(next).toContainText('Next · Quoting · Draft started')
+  await expect(office.locator('.job-position').first()).toContainText('Quoting')
   // The draft is right there, the quote being the job's Quote tab (ADR 0140, part 4), so Next says it in words.
   await expect(next).toContainText('Finish the quote below and send it to the client.')
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })

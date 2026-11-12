@@ -520,6 +520,22 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
    and where it belongs; notes in the list ("Most like it", "40 more") aren't offers, so they're quiet and never highlight. */
 .picker-field { display: grid; gap: var(--ds-space-1); font-size: var(--text-hint); color: var(--muted); }
 .picker-field input { width: 100%; }
+/* The combobox's chevron at the end of the box (the system's Combobox __toggle), and in its place while a pick is saved where it
+   is: the system's spinner while it's sent, then a tick in the ok ink once it's kept, then the chevron again (JobAssignee.tsx). */
+.skills-anchor[data-toggle] > input { padding-inline-end: 40px; }
+.picker-end { position: absolute; inset-block: 0; inset-inline-end: 0; display: grid; place-items: center; width: 40px; color: var(--ds-ink-secondary); pointer-events: none; }
+.picker-end > * { pointer-events: auto; }
+.app .picker-toggle { display: grid; place-items: center; width: 40px; height: 100%; min-height: 0; padding: 0; border: 0; background: none; color: inherit; }
+.picker-toggle .icon { width: 18px; height: 18px; transition: rotate var(--ds-duration-base) var(--ds-ease-standard); }
+.picker-toggle[aria-expanded='true'] .icon { rotate: 180deg; }
+.picker-spinner { display: block; width: 16px; height: 16px; border: 2px solid var(--ds-ink-secondary); border-inline-end-color: transparent; border-radius: var(--radius-full); animation: picker-spin var(--ds-motion-cycle-spin) linear infinite; }
+@keyframes picker-spin { to { rotate: 1turn; } }
+.picker-saved { width: 18px; height: 18px; color: var(--good); stroke-width: 3; animation: picker-saved var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
+@keyframes picker-saved { from { opacity: 0; scale: .4; } }
+@media (prefers-reduced-motion: reduce) {
+  /* The tick fades in rather than growing; the spinner keeps turning, as a loop that says "working" (motion.md). */
+  @keyframes picker-saved { from { opacity: 0; } }
+}
 /* A name that is a record or a new one (NameField.tsx), in a form: spaced as the form's own labels are. */
 .app .grid-form .name-field { gap: var(--stack); }
 /* The record picker offers eight at most, so on a phone its list grows with the page rather than scrolling inside it (no captive scroll). */

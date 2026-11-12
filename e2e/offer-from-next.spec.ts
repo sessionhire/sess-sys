@@ -40,7 +40,7 @@ test("Next sends the offer to the people picked in it, across a job's phases", a
   await page.goto(`/#jobs/j-${id}`)
   await expect(page.getByRole('status')).toHaveText('Up to date')
   const next = page.getByRole('region', { name: 'Next' })
-  await next.getByRole('button', { name: 'Offer the Audio - FOH · 0 of 1 offered' }).click()
+  await next.getByRole('button', { name: 'Offer the Audio - FOH · 1 to offer' }).click()
   const form = page.locator('form.offer-form')
   await pickRecord(form, 'Offer to', fergal)
   await pickRecord(form, 'Offer to', colm)
@@ -52,7 +52,7 @@ test("Next sends the offer to the people picked in it, across a job's phases", a
   )
   await expect(form.getByRole('button', { name: 'Offer to 2 people' })).toBeVisible()
   // Next now names who it sends to, and sends it.
-  await next.getByRole('button', { name: 'Offer to 2 people · 0 of 1 offered' }).click()
+  await next.getByRole('button', { name: 'Offer to 2 people · 1 to offer' }).click()
   // Made, and the panel says what the app sent by itself: nothing, to either. That no message opened (ADR 0048) is said last.
   const sent = page.getByRole('region', { name: 'Offered to 2 people: what was sent' })
   await expect(sent).toContainText('Nothing was sent to Fergal and Colm: calendar invites and WhatsApp are both off.')
