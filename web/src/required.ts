@@ -9,6 +9,8 @@
  * in it takes the line away.
  */
 
+import { dayLabel, irishToday } from '@sh/shared'
+
 type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
 
 const LINE = 'field-refusal'
@@ -43,10 +45,16 @@ export function sayWhatsNeeded(field: Field): string {
  * wanted, so each form needs nothing new.
  */
 export function sayWhatsWrong(field: Field): string | undefined {
-  if (!(field instanceof HTMLInputElement) || field.type !== 'number') return undefined
+  if (!(field instanceof HTMLInputElement) || (field.type !== 'number' && field.type !== 'date')) return undefined
   const v = field.validity
   const words = nameOf(field)
   const name = words ? `${words[0]!.toUpperCase()}${words.slice(1)}` : 'This'
+  // A day out of its bounds, as a crew call's day outside its phase's (ADR 0159): said as crew write days, not as the browser does.
+  if (field.type === 'date') {
+    if (v.rangeUnderflow) return `${name} has to be ${dayLabel(field.min, irishToday())} or after.`
+    if (v.rangeOverflow) return `${name} can be ${dayLabel(field.max, irishToday())} at the latest.`
+    return undefined
+  }
   const whole = field.step === '' || field.step === '1'
   if (v.badInput) return `${name} has to be a number.`
   if (v.rangeUnderflow) return `${name} has to be at least ${field.min}.`

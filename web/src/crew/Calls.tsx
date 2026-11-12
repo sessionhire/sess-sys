@@ -5,6 +5,10 @@ import {
   APPLICANT_LEVEL,
   daysLabel,
   dayLabel,
+  daysOffPhase,
+  MOVE_THE_PHASE,
+  offPhaseLine,
+  phaseDaysRule,
   departmentForRole,
   departmentOf,
   sameDepartment,
@@ -160,6 +164,10 @@ export function CallCard({
   const [withdrawing, setWithdrawing] = useState<string | undefined>()
   const { run, error } = useAct()
   const today = useToday()
+  const view = useView()
+  // A call left outside its phase's days from before the rule (ADR 0159): nobody on it has an invite for those days, said at rest.
+  const phase = call.status === 'open' && call.phaseId ? view.jobs.jobs.find((j) => j.id === call.projectId)?.phases.find((p) => p.id === call.phaseId) : undefined
+  const offPhase = phase ? daysOffPhase(call, phase).filter((d) => d >= today) : []
   const filled = call.openDays.length === 0
   // A yes not yet confirmed holds the place but isn't a booking, as the job's head counts it: the call says so, in amber, rather
   // than a green Filled with someone still to confirm under it (review of 11 November 2026, finding 3).
@@ -238,6 +246,7 @@ export function CallCard({
           {w}
         </p>
       ))}
+      {phase && offPhase.length > 0 && <p className="warn-line">{offPhaseLine(offPhase, phase, today)}</p>}
       <LateLines call={call} late={late} today={today} />
       {/* Someone booked who rang to say they're late, noted where their line is (ADR 0028). */}
       <NoteLate call={call} late={late} inJob={inJob} />
@@ -440,6 +449,14 @@ function EditCall({
 }) {
   const tied = !!call.projectId
   const view = useView()
+  const today = useToday()
+  // A call on a phase is for the phase's days (ADR 0159): the days can be picked inside them, and the phase moves the call further.
+  // One left outside them from before says so, and keeps its days until they're changed.
+  const phase = call.phaseId ? view.jobs.jobs.find((j) => j.id === call.projectId)?.phases.find((p) => p.id === call.phaseId) : undefined
+  const offNow = phase ? daysOffPhase(call, phase) : []
+  const within = phase && offNow.length === 0 ? phase : undefined
+  // Said only for days still to come: the calendar has nothing before today to invite anyone to.
+  const offAhead = offNow.filter((d) => d >= today)
   // A rate this device isn't sent stays the office's to change (ADR 0046).
   const seesRates = useSeesRates() && !call.rateHidden
   const [department, setDepartment] = useState<string | null>(departmentOf(call))
@@ -479,6 +496,9 @@ function EditCall({
     if (f.start !== call.start) changes.start = f.start
     const end = f.end < f.start ? f.start : f.end
     if (end !== call.end) changes.end = end
+    // Said on the day that's out, as the server would refuse it (ADR 0159).
+    if (phase && (changes.start !== undefined || changes.end !== undefined) && daysOffPhase({ start: f.start, end }, phase).length)
+      return void refuseField(form, f.start < phase.start || f.start > phase.end ? '[name="start"]' : '[name="end"]', `${phaseDaysRule(phase, today)} ${MOVE_THE_PHASE}`)
     // Dates moved earlier can leave the reply-by day after the job; it's here to fix, as when a call is made (audit finding 21).
     if (f.replyBy && f.replyBy > end) return void refuseField(form, '[name="replyBy"]', `${REPLY_BY_AFTER} Make it ${dayLabel(end)} or before, or clear it.`)
     if ((f.callTime || null) !== call.callTime) changes.callTime = f.callTime || null
@@ -524,12 +544,40 @@ function EditCall({
       </label>
       <div className="pair">
         <label>
-          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} />
+          From{' '}
+          <input
+            type="date"
+            name="start"
+            value={f.start}
+            min={within?.start}
+            max={within?.end}
+            onChange={(e) => setF({ ...f, start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })}
+            aria-describedby={phase ? `call-days-${call.id}` : undefined}
+          />
         </label>
         <label>
-          To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
+          To{' '}
+          <input
+            type="date"
+            name="end"
+            value={f.end}
+            min={f.start}
+            max={within?.end}
+            onChange={set('end')}
+            aria-describedby={phase ? `call-days-${call.id}` : undefined}
+          />
         </label>
       </div>
+      {phase &&
+        (offAhead.length ? (
+          <p className="warn-line wide" id={`call-days-${call.id}`}>
+            {offPhaseLine(offAhead, phase, today)}
+          </p>
+        ) : (
+          <p className="hint wide" id={`call-days-${call.id}`}>
+            {phaseDaysRule(phase, today)} {MOVE_THE_PHASE}
+          </p>
+        ))}
       <label>
         Call time <input type="time" value={f.callTime} onChange={set('callTime')} />
       </label>

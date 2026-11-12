@@ -514,7 +514,12 @@ part, each person's own invite on a job brought in from Google Calendar
 two things: the offers already on those jobs keep none, so deploying it
 emails nobody, and each row says why, the organiser's guest or offered
 before; and calls that aren't part of a job wait on #313, which asks
-whether new ones can still be made.
+whether new ones can still be made. Finding 11, a call's days tied to its
+phase, is in 1.174.1
+([ADR 0159](adr/0159-a-crew-call-keeps-to-its-phase.md)). It differs in
+one thing: the days are picked with From and To among the phase's days
+rather than ticked, as a call's days are one run, and a phase that moves
+takes its crew along when keeping their dates would leave them out.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -549,7 +554,8 @@ whether new ones can still be made.
    calls with no job; a call's days tied to its phase; Undo on an offer;
    asking the same crew again; staff notices said to them. Larger. Needs
    question 3. **First part done in 1.173.0**: the invites for jobs
-   brought in, and a fresh invitation after a No.
+   brought in, and a fresh invitation after a No. **A call's days tied to
+   its phase done in 1.174.1.**
 
 ## Questions for Colly
 
