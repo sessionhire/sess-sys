@@ -422,6 +422,13 @@ interface SaidRow {
   problem: string | null
 }
 
+/**
+ * An offer whose wait is over (ADR 0161): one made by Offer sends nothing for OFFER_WAIT_SECONDS, so the office can take a
+ * wrong pick back with Undo before any invite goes, and it brings no job onto the calendar until then. Offers made before,
+ * or not by Offer, never waited.
+ */
+const GONE = '(o.goes_at IS NULL OR o.goes_at <= now())'
+
 /** Which offer a person is invited by when two cover the same day: the one that holds it, then the one furthest on. */
 const RANK: Record<string, number> = { confirmed: 0, accepted: 1, countered: 2, offered: 3 }
 
@@ -469,7 +476,7 @@ export async function wantedEvents(
              -- Not yet a yes, but crew are asked for it: on the calendar as HOLD, hold the day (ADR 0008, 1.162.0; ADR 0150).
              OR (p.status IN ('enquiry', 'quoted') AND EXISTS (
                    SELECT 1 FROM crew_calls cc JOIN offers o ON o.call_id = cc.id
-                    WHERE cc.project_id = p.id AND cc.status = 'open' AND o.status = ANY($2::text[]))))
+                    WHERE cc.project_id = p.id AND cc.status = 'open' AND o.status = ANY($2::text[]) AND ${GONE})))
       ORDER BY ph.start_day, ph.id`,
     [today, ASKED_STATUSES, personal]
   )
@@ -483,7 +490,7 @@ export async function wantedEvents(
                                   ORDER BY pe.name, o.id)
                          FILTER (WHERE o.id IS NOT NULL), '[]') AS offers
            FROM crew_calls cc
-           LEFT JOIN offers o ON o.call_id = cc.id AND o.status IN ('offered', 'countered', 'accepted', 'confirmed')
+           LEFT JOIN offers o ON o.call_id = cc.id AND o.status IN ('offered', 'countered', 'accepted', 'confirmed') AND ${GONE}
            LEFT JOIN people pe ON pe.id = o.person_id
           WHERE cc.status = 'open' AND cc.project_id = ANY($1::text[]) AND cc.end_day >= $2::date
           GROUP BY cc.id

@@ -369,6 +369,13 @@ export function crewView(
         if (o?.status === 'countered') offers.set(o.id, { ...o, status: 'offered', pending: true })
         break
       }
+      case 'offer.undo': {
+        const o = offers.get((m.args as CommandArgs<'offer.undo'>).id)
+        // Taken back before anyone answered, as the server takes it (ADR 0161): gone, as if never made. The server alone knows
+        // whether it's still waiting; one that has gone comes back with the server's word that it must be withdrawn instead.
+        if (o && o.status === 'offered' && !o.respondedAt) offers.delete(o.id)
+        break
+      }
       case 'offer.cancel': {
         const o = offers.get((m.args as CommandArgs<'offer.cancel'>).id)
         // An offer that is over stays as it ended, as on the server: a Withdraw queued offline never rewrites a decline.

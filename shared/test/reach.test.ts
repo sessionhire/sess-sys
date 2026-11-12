@@ -23,6 +23,8 @@ import {
   toldOfRefusal,
   toldNext,
   toldSentences,
+  undoneWords,
+  waitWords,
   whatsappFollows,
   whatsappFollowsOffer,
   whatsappFollowsTell,
@@ -937,5 +939,30 @@ describe('what follows an offer on WhatsApp (ADR 0154)', () => {
     ])
     // Another change, with the call time as it was: no WhatsApp.
     expect(toldSentences([toldOfChange(c, sean, { invited: false, whatsapp: 'call-time' }, false, false)])).toEqual(['Nothing was sent to Seán: the change is on their link.'])
+  })
+})
+
+describe('Undo just after Offer (ADR 0161)', () => {
+  it('says what goes as the wait ends, and when, a second at a time', () => {
+    // Proves: the line beside Undo names what's waiting, one or many, and the seconds left; with nothing of the app's to go,
+    // that it can still be undone (audit of 12 November 2026, finding 13).
+    expect(waitWords({ invites: 3, whatsapps: 0, offers: 3 }, 30)).toBe('The invites go in 30 seconds.')
+    expect(waitWords({ invites: 1, whatsapps: 0, offers: 1 }, 1)).toBe('The invite goes in 1 second.')
+    expect(waitWords({ invites: 0, whatsapps: 1, offers: 1 }, 12)).toBe('The WhatsApp goes in 12 seconds.')
+    expect(waitWords({ invites: 1, whatsapps: 1, offers: 1 }, 24)).toBe('The invite and WhatsApp go in 24 seconds.')
+    expect(waitWords({ invites: 4, whatsapps: 2, offers: 2 }, 5)).toBe('The invites and WhatsApps go in 5 seconds.')
+    expect(waitWords({ invites: 0, whatsapps: 0, offers: 1 }, 30)).toBe('It can be undone for 30 seconds.')
+    expect(waitWords({ invites: 0, whatsapps: 0, offers: 2 }, 2)).toBe('They can be undone for 2 seconds.')
+  })
+
+  it('says after Undo that nobody was sent anything, and what to do about a message sent by hand', () => {
+    expect(undoneWords(['Aoife Byrne'], false)).toBe("Aoife Byrne wasn't offered it after all: the app sent them nothing, and it's off their page.")
+    expect(undoneWords(['Aoife Byrne', 'Seán Murphy', 'Tommo Walsh'], false)).toBe(
+      "Aoife Byrne, Seán Murphy and Tommo Walsh weren't offered it after all: the app sent them nothing, and it's off their pages."
+    )
+    // With messages to crew on, the office may have sent one from the panel before pressing Undo.
+    expect(undoneWords(['Aoife Byrne'], true)).toBe(
+      "Aoife Byrne wasn't offered it after all: the app sent them nothing, and it's off their page. If you sent them a message yourself, tell them it's off."
+    )
   })
 })

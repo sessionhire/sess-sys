@@ -247,3 +247,7 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .card.sent p { margin: 0; }
 .card.sent .sent-lines { display: grid; gap: var(--ds-space-2); }
 .card.sent .sent-ring .row { align-items: center; }
+/* An offer just made, while it waits to go (ADR 0161): when its invites go, with Undo beside it, wrapping under it on a phone. */
+.card.share .offer-wait { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-3); }
+.card.share .offer-wait p { margin: 0; font-variant-numeric: tabular-nums; }
+.card.share .offer-wait .alert { flex-basis: 100%; }

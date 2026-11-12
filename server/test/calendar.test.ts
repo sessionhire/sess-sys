@@ -170,7 +170,12 @@ const eventWrites = (calls: string[]) => calls.filter((c) => c.includes('/events
 async function send<N extends CommandName>(s: Setup, name: N, args: CommandInput<N>) {
   const r = await s.colly.send(name, args)
   expect(r.status, JSON.stringify(r)).toBe('applied')
+  // An offer's invites wait half a minute so it can be undone (ADR 0161): here they go at once, as half a minute on.
+  if (name === 'offer.send') await waitOver(s, (args as CommandInput<'offer.send'>).id)
 }
+
+/** Half a minute after Offer (ADR 0161): the offer's wait for Undo is over. */
+const waitOver = (s: Setup, id: string) => s.db.query(`UPDATE offers SET goes_at = now() - interval '1 second' WHERE id = $1`, [id])
 
 /** Nissan, confirmed: Prep yesterday at the warehouse, Build today and tomorrow, Show the day after, with crew on Build. */
 async function nissan(s: Setup) {
@@ -1179,6 +1184,51 @@ describe('crew invites (ADR 0009)', () => {
     s.google.respond(TEST_CAL, job.events.build2, 'Conor.Walsh@example.ie', 'accepted')
     expect(await s.poll()).toBe(2)
     expect((await offer(s, again)).status).toBe('accepted')
+  })
+
+  it('sends nothing for half a minute after Offer, and nothing at all for an offer undone meanwhile (ADR 0161)', async () => {
+    // Proves: finding 13 of the audit of 12 November 2026. An offer is on the calendar only once its wait for Undo is over, so a
+    // wrong pick taken back is never emailed an invite, nor a cancellation for one; and a job not confirmed yet, asked for only by
+    // an offer still waiting, isn't put on the calendar as HOLD until then.
+    const s = await setup()
+    const job = await invited(s)
+    const dara = newId()
+    const orla = newId()
+    await send(s, 'person.upsert', { id: dara, name: 'Dara Quinn', kind: 'freelancer', email: 'dara@example.com', phone: null, skills: ['audio'], dayRateCents: 25000, notes: '' })
+    await send(s, 'person.upsert', { id: orla, name: 'Orla Byrne', kind: 'freelancer', email: 'orla@example.com', phone: null, skills: ['lx'], dayRateCents: 25000, notes: '' })
+    const pencilled = newId()
+    const show = newId()
+    const lx = newId()
+    await send(s, 'project.create', { id: pencilled, name: 'Pencilled', clientId: null, venueId: null, status: 'enquiry', notes: '' })
+    await send(s, 'phase.add', { id: show, projectId: pencilled, name: 'Show', start: '2030-03-05', end: '2030-03-05', venueId: null, notes: '' })
+    await send(s, 'call.create', { id: lx, projectId: pencilled, phaseId: show, project: 'Pencilled', phase: 'Show', venue: '', role: 'LX', start: '2030-03-05', end: '2030-03-05', callTime: null, needed: 1, dayRateCents: null, details: '', replyBy: null })
+    await s.sync()
+    const from = s.google.sent.length
+    const before = titles(s.google)
+
+    // Offered, as the office presses Offer: nothing goes while each waits.
+    const wrong = newId()
+    const kept = newId()
+    expect((await s.colly.send('offer.send', { id: wrong, callId: job.callId, personId: dara, override: false })).status).toBe('applied')
+    expect((await s.colly.send('offer.send', { id: kept, callId: lx, personId: orla, override: false })).status).toBe('applied')
+    await s.sync()
+    expect(emails(s, from)).toEqual([])
+    expect(titles(s.google)).toEqual(before)
+    expect(s.google.guests(TEST_CAL, job.events.build1).join()).not.toContain('dara@example.com')
+
+    // Dara was the wrong pick: undone, his offer is gone, and nothing ever goes to him.
+    expect((await s.colly.send('offer.undo', { id: wrong })).status).toBe('applied')
+    expect(await offer(s, wrong)).toBeUndefined()
+    await waitOver(s, kept)
+    await s.sync()
+    expect(emails(s, from)).toEqual(['invited orla@example.com 2030-03-05 HOLD Pencilled - Show'])
+    expect(titles(s.google)).toEqual([...before, '2030-03-05 HOLD Pencilled - Show'].sort())
+    expect(s.google.guests(TEST_CAL, job.events.build1).join()).not.toContain('dara@example.com')
+    // Too late for Undo once it has gone: withdrawing it is the way, which tells her.
+    const late = await s.colly.send('offer.undo', { id: kept })
+    expect(late).toMatchObject({ status: 'rejected', reason: { code: 'conflict', message: 'The offer has already gone to Orla Byrne, so it can\'t be undone. Withdraw it instead.' } })
+    const history = await s.app.inject({ url: '/api/history', cookies: s.colly.cookies })
+    expect(history.json().entries.map((e: { what: string }) => e.what)).toContain('Took back the offer of Audio tech on Nissan to Dara Quinn before it went')
   })
 
   it('needs a calendar to turn on, and a plain yes or no', async () => {

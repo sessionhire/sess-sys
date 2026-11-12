@@ -337,6 +337,11 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       const o = offer(a.id)
       return `Withdrew the offer of ${o.what} to ${o.who}`
     }
+    // Taken back before anything went to them (ADR 0161).
+    case 'offer.undo': {
+      const o = offer(a.id)
+      return `Took back the offer of ${o.what} to ${o.who} before it went`
+    }
     case 'client.upsert':
       return `Saved the client ${text(a.name, 'a client')}`
     case 'venue.upsert':

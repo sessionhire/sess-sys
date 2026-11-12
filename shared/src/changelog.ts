@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.175.0',
+    date: '2026-11-12',
+    title: 'Undo just after Offer',
+    what: "For half a minute after Offer, nothing the app sends by itself goes: no calendar invite and no WhatsApp. The panel after the press counts the seconds down with an Undo button, so a wrong pick can be taken back with nobody sent anything, not even a cancellation. The offer is made at once as before, so the call counts it and the person's page shows it; Undo takes it off both. After the half minute, or once they've answered, it's Withdraw as before.",
+    prs: [0],
+    adrs: [161],
+  },
+  {
     version: '1.174.1',
     date: '2026-11-12',
     title: "A crew call keeps to its phase's days",

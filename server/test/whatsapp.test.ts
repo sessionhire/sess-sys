@@ -68,15 +68,21 @@ async function setUp({ configured = true }: { configured?: boolean } = {}) {
     ).toMatchObject({ status: 'applied' })
     return id
   }
+  /** Half a minute after Offer (ADR 0161): the offer's wait for Undo is over, and what it held goes. */
+  const waitOver = async (id: string) => {
+    await db.query(`UPDATE offers SET goes_at = now() - interval '1 second' WHERE id = $1`, [id])
+    await app.whatsappSender.kick()
+  }
   const offer = async (callId: string, personId: string) => {
     const id = newId()
     expect(await send('offer.send', { id, callId, personId, override: false })).toMatchObject({ status: 'applied' })
+    await waitOver(id)
     return id
   }
   const messages = async () =>
     (await db.query<{ offer_id: string; to_number: string; state: string; wamid: string | null; problem: string | null; tries: number }>(`SELECT offer_id, to_number, state, wamid, problem, tries FROM whatsapp_messages ORDER BY made_at`)).rows
   const token = async (id: string) => (await db.query<{ link_token: string }>('SELECT link_token FROM people WHERE id = $1', [id])).rows[0]!.link_token
-  return { app, db, meta, send, person, call, offer, messages, token }
+  return { app, db, meta, send, person, call, offer, waitOver, messages, token }
 }
 
 const page = async (app: FastifyInstance, token: string) => (await app.inject({ url: `/f/${token}` })).body
@@ -160,6 +166,40 @@ describe('offers on WhatsApp (ADR 0125)', () => {
     await app.whatsappSender.kick()
     expect(await messages()).toEqual([expect.objectContaining({ state: 'failed', problem: 'The offer was answered or withdrawn before it went.' })])
     expect(meta.sent).toEqual([])
+  })
+
+  it('waits half a minute after Offer, and sends nothing for an offer undone meanwhile (ADR 0161)', async () => {
+    // Proves: an offer's WhatsApp stays queued while it can be undone, goes as the wait ends, and Undo takes it away with
+    // the offer, so a wrong pick is never sent anything (audit of 12 November 2026, finding 13).
+    const { db, app, meta, send, person, call, waitOver, messages } = await setUp()
+    await send('whatsapp.use', { mode: 'on', testTo: [] })
+    const aoife = await person('Aoife Byrne', '087 123 4567')
+    const sean = await person('Seán Murphy', '087 765 4321')
+    const c = await call()
+    const kept = newId()
+    const wrong = newId()
+    expect(await send('offer.send', { id: kept, callId: c, personId: aoife, override: false })).toMatchObject({ status: 'applied' })
+    expect(await send('offer.send', { id: wrong, callId: c, personId: sean, override: false })).toMatchObject({ status: 'applied' })
+    const { rows } = await db.query<{ seconds: number }>(`SELECT round(extract(epoch FROM goes_at - now()))::int AS seconds FROM offers WHERE id = $1`, [kept])
+    expect(rows[0]!.seconds).toBeGreaterThan(25)
+    expect(rows[0]!.seconds).toBeLessThanOrEqual(30)
+    expect((await messages()).map((m) => m.state)).toEqual(['queued', 'queued'])
+    expect(meta.sent).toEqual([])
+    // Seán was the wrong pick: undone, his offer and its WhatsApp are gone, and Aoife's goes as its wait ends.
+    expect(await send('offer.undo', { id: wrong })).toMatchObject({ status: 'applied' })
+    expect((await db.query('SELECT 1 FROM offers WHERE id = $1', [wrong])).rows).toEqual([])
+    await waitOver(kept)
+    expect(await messages()).toEqual([expect.objectContaining({ offer_id: kept, state: 'sent' })])
+    expect(meta.sent).toHaveLength(1)
+    await waitOver(wrong)
+    expect(meta.sent).toHaveLength(1)
+    // The senders are woken as a wait ends, with nothing else changing.
+    const third = newId()
+    const ciara = await person('Ciara Walsh', '087 111 2222')
+    expect(await send('offer.send', { id: third, callId: c, personId: ciara, override: false })).toMatchObject({ status: 'applied' })
+    await db.query(`UPDATE offers SET goes_at = now() + interval '300 milliseconds' WHERE id = $1`, [third])
+    await app.offerWaits.watch()
+    await expect.poll(async () => (await messages()).find((m) => m.offer_id === third)?.state, { timeout: 5_000 }).toBe('sent')
   })
 
   it('keeps trying while Meta is away, and stops at Meta’s no', async () => {

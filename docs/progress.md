@@ -3,6 +3,32 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: Undo just after Offer
+
+**Done (1.175.0)**
+
+- The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  finding 13 ([ADR 0161](adr/0161-undo-just-after-offer.md)).
+- An offer made by Offer sends nothing for 30 seconds: its calendar
+  invites and its WhatsApp wait, and a job not yet confirmed doesn't come
+  onto the calendar as "Hold the day" for it until then. The offer itself
+  is made at once, as before. As each wait ends the server wakes the
+  calendar and WhatsApp, and at start-up it picks up waits a restart cut
+  across.
+- The panel after the press says when it goes ("The invites go in 27
+  seconds.") with Undo beside it, counting down from the press. Undo takes
+  back the offers nobody has answered, as if never made, and says nothing
+  was sent. After the wait, or an answer, the server refuses Undo and says
+  to withdraw instead.
+- Checked: typecheck; shared tests for the panel's words; server tests for
+  the wait on WhatsApp (sends nothing until it's over, the watcher wakes
+  the sender, an undone offer's message is gone) and on the calendar (no
+  "Hold the day" event until the wait is over, nothing for an offer undone,
+  Undo refused after the wait, the history's words); parity cases for
+  Undo with and without a signal. A new browser spec (offer-undo) undoes
+  two offers from a job's Next button, and lets the wait run out on the
+  phone's clock with focus on Undo.
+
 ## 12 November 2026: a crew call keeps to its phase's days
 
 **Done (1.174.1)**

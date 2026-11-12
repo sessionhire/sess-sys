@@ -63,7 +63,7 @@ import { certificateWarnings, NeedsField } from './Certificates.tsx'
 import { LateLines, NoteLate } from './Late.tsx'
 import { personHref } from './PersonScreen.tsx'
 import { Avatars } from '../Picture.tsx'
-import { type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
+import { type Made, type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
 import { PlainContact, useReach } from './reach.tsx'
 import { AnswerActions, standsAt } from './AnswerActions.tsx'
 import { AdminWords } from '../AdminWords.tsx'
@@ -140,7 +140,7 @@ export function CallCard({
   crew: CrewView
   /** Who on it is running late today (ADR 0028), said at rest under its line. */
   late?: LateView
-  onShare: (people: PersonView[]) => void
+  onShare: (people: PersonView[], made?: Made) => void
   /** Opens the message for whoever should hear about a withdrawal or a cancelled call; without it, nobody is prompted. */
   onTell?: (share: Share | undefined) => void
   inJob?: boolean
@@ -635,7 +635,7 @@ const roleWords = (role: string) => role.trim().replace(/[\s-]+/g, '').toLowerCa
  * Offer a call to people not yet offered it, several in one press (review of 11 November 2026, finding 12), with a warning when
  * anyone's days clash. Also beside a decline or a pull-out in "Answers to check".
  */
-export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewView; onShare: (people: PersonView[]) => void }) {
+export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewView; onShare: (people: PersonView[], made?: Made) => void }) {
   const [ids, setIds] = useState<string[]>([])
   const [override, setOverride] = useState(false)
   const [applicants, setApplicants] = useState(false)
@@ -721,13 +721,15 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       if (short) return refuse(chosen.length > 1 ? `${p.name}: ${short}` : short)
     }
     const people = chosen
+    // What the press made, and when, for the Undo that holds while nothing of the app's has gone to them (ADR 0161).
+    const made: Made = { ids: people.map(() => newId()), at: Date.now() }
     void run(async () => {
-      for (const p of people) await client.mutate('offer.send', { id: newId(), callId: call.id, personId: p.id, override: clashOf(p).length > 0 && override })
+      for (const [i, p] of people.entries()) await client.mutate('offer.send', { id: made.ids[i]!, callId: call.id, personId: p.id, override: clashOf(p).length > 0 && override })
     }).then((ok) => {
       if (!ok) return
       setIds([])
       setOverride(false)
-      onShare(people)
+      onShare(people, made)
     })
   }
 

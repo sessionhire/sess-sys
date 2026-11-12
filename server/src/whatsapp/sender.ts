@@ -28,6 +28,9 @@ import { reachOf, type WhatsApp } from './whatsapp.ts'
  * goes only if the offer was made; this sends it just after, as soon as anything changes and once a minute besides,
  * so the office never waits on Meta and a message queued while Meta was away goes when it's back.
  *
+ * An offer made by Offer waits OFFER_WAIT_SECONDS first, so the office can undo a wrong pick (ADR 0161): its messages
+ * stay queued until then, and the server wakes this as the wait ends (OfferWaits).
+ *
  * Each message is taken under a row lock that another server skips, so two servers never send the same one. One
  * whose offer is no longer open, whose person turned WhatsApp off or whose number isn't the one queued any more, or
  * that waited a day, isn't sent: it's marked failed with why, and the office's own way (the link, the Send panel) stands.
@@ -132,8 +135,11 @@ export class WhatsAppSender {
   private async sendOne(): Promise<false | { offerId: string | null }> {
     return this.db.transaction(async (tx) => {
       const { rows } = await tx.query<Queued>(
-        `SELECT id, offer_id, project_id, person_id, kind, to_number, made_at, tries FROM whatsapp_messages
-         WHERE state = 'queued' AND (tried_at IS NULL OR tried_at < $1) ORDER BY made_at LIMIT 1 FOR UPDATE SKIP LOCKED`,
+        `SELECT id, offer_id, project_id, person_id, kind, to_number, made_at, tries FROM whatsapp_messages w
+         WHERE state = 'queued' AND (tried_at IS NULL OR tried_at < $1)
+           -- An offer still waiting, so it can be undone (ADR 0161), sends nothing yet.
+           AND NOT EXISTS (SELECT 1 FROM offers o WHERE o.id = w.offer_id AND o.goes_at > now())
+         ORDER BY made_at LIMIT 1 FOR UPDATE OF w SKIP LOCKED`,
         [new Date(this.now().getTime() - AGAIN_MS)]
       )
       const m = rows[0]

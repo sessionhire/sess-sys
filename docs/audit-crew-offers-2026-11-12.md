@@ -520,6 +520,9 @@ phase, is in 1.174.1
 one thing: the days are picked with From and To among the phase's days
 rather than ticked, as a call's days are one run, and a phase that moves
 takes its crew along when keeping their dates would leave them out.
+Finding 13, Undo on an offer, is in 1.175.0
+([ADR 0161](adr/0161-undo-just-after-offer.md)). It differs in one thing:
+the WhatsApp waits with the invites, as it reaches the person too.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -555,7 +558,7 @@ takes its crew along when keeping their dates would leave them out.
    asking the same crew again; staff notices said to them. Larger. Needs
    question 3. **First part done in 1.173.0**: the invites for jobs
    brought in, and a fresh invitation after a No. **A call's days tied to
-   its phase done in 1.174.1.**
+   its phase done in 1.174.1. Undo on an offer done in 1.175.0.**
 
 ## Questions for Colly
 
