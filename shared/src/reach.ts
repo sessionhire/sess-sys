@@ -1,6 +1,6 @@
 import { calendarDayId, offerOnCalendar, tells, type CalendarDay, type CalendarLink, type OfferOnCalendar } from './calendar.ts'
 import { firstName, LIVE, whatsappWords, type CrewCall, type Offer, type Person, type TellContext } from './crew.ts'
-import { dayLabel, daysLabel } from './crew-days.ts'
+import { dayLabel, daysLabel, euro } from './crew-days.ts'
 import { STOPPED, type Phase, type Project } from './jobs.ts'
 import { whatsappDigits, type WhatsAppMode } from './office.ts'
 import type { View } from './sync/client-types.ts'
@@ -196,7 +196,7 @@ export function invitePlan(
 
 // ---- One offer: what went ----
 
-type ReachOffer = Pick<Offer, 'id' | 'personId' | 'status' | 'days'> & Partial<Pick<Offer, 'whatsapp' | 'respondedVia' | 'counterRateCents' | 'noOwnInvite'>>
+type ReachOffer = Pick<Offer, 'id' | 'personId' | 'status' | 'days'> & Partial<Pick<Offer, 'whatsapp' | 'whatsappAfter' | 'respondedVia' | 'counterRateCents' | 'noOwnInvite'>>
 type ReachCall = Pick<CrewCall, 'projectId' | 'phaseId' | 'status' | 'start' | 'end'>
 type ReachPerson = Pick<Person, 'name' | 'email' | 'phone'> & Partial<Pick<Person, 'knownAs' | 'firstName' | 'whatsappOff'>>
 
@@ -391,6 +391,25 @@ const andWhy = (ctx: Pick<ReachContext, 'calendar'>, who: Partial<Pick<Person, '
 /** Each by the name they go by, or in full where someone else among them goes by the same one. */
 const called = (who: readonly ToldWho[], among: readonly ToldWho[] = who) => who.map((w) => (among.some((o) => o.id !== w.id && firstName(o) === firstName(w)) ? w.name : firstName(w)))
 
+/** What each WhatsApp that follows an offer says (ADR 0154), in the words the panel after the press uses. */
+const AFTER_WORDS: Record<NonNullable<Offer['whatsappAfter']>['kind'], string> = {
+  booked: "A WhatsApp saying they're booked",
+  'call-time': 'A WhatsApp with the new call time',
+  'not-needed': "A WhatsApp saying they're no longer needed",
+  confirmed: "A WhatsApp saying it's going ahead",
+  cancelled: 'A WhatsApp saying the job is off',
+}
+
+/**
+ * Where the newest WhatsApp that followed the offer got to, on its row (audit of 12 November 2026, the gap ADR 0154 left
+ * at 2): the panel after the press says one "is going", and this says whether it arrived. "A WhatsApp saying they're
+ * booked was read." Not sent says why, as the offer's own does.
+ */
+export function whatsappAfterLine(w: NonNullable<Offer['whatsappAfter']>): ReachLine {
+  if (w.state === 'failed') return { text: `${AFTER_WORDS[w.kind]} wasn't sent${w.problem ? `: ${w.problem}` : '.'}`, tone: 'bad' }
+  return { text: `${AFTER_WORDS[w.kind]} ${{ queued: 'is going', sent: 'was sent', delivered: 'was delivered', read: 'was read' }[w.state]}.`, tone: 'plain' }
+}
+
 /**
  * What an offer's row says of how its person was reached (finding 5's "one line on every offer row, worked out from
  * what happened"), and whether it offers ringing them.
@@ -410,9 +429,12 @@ export function reachOnRow(
   const r = offerReach(ctx, offer, call, person, others)
   const cal = r.onCalendar
   const lines: ReachLine[] = []
+  const after = offer.whatsappAfter ? whatsappAfterLine(offer.whatsappAfter) : undefined
   if (!LIVE.includes(offer.status)) {
     if (cal) lines.push({ text: cal.line, tone: 'plain' })
     if (cal?.warning) lines.push({ text: cal.warning, tone: 'warn' })
+    // That they're no longer needed, and why, once their offer is filled, withdrawn or released.
+    if (after) lines.push(after)
     return { lines, contact: false, allOff: false }
   }
   const waiting = offer.status === 'offered'
@@ -445,6 +467,7 @@ export function reachOnRow(
   if (whatsapp && invite?.tone !== 'plain') lines.push({ text: whatsapp, tone: 'plain' })
   if (waiting && r.whatsapp?.state === 'failed')
     lines.push({ text: `${capital(whatsappWords(r.whatsapp))}${r.whatsapp.problem ? `: ${r.whatsapp.problem}` : '.'}`, tone: 'bad' })
+  if (after) lines.push(after)
   if (cal && r.refused.length) lines.push({ text: `Invite not sent for ${daysLabel(r.refused)}: Google turned it down.`, tone: 'bad', ...(r.refusal ? { title: r.refusal } : {}) })
   if (cal?.warning) lines.push({ text: cal.warning, tone: 'warn' })
   return { lines, contact: waiting && !ctx.messages && !silent && !r.reached && !r.onItsWay, allOff: off }
@@ -646,6 +669,53 @@ export function jobEndingWords(
   // Each cancellation says why, the job's being cancelled or not going ahead, where their invites tell them what happens next (ADR 0153).
   const why = on.every((o) => !held.has(o.personId) || toldNext(ctx, o)) ? ' and why' : ''
   return ` Google emails ${who} that ${cancelledDays([...held.values()].map((d) => d.size))} cancelled${why}${onceBack(ctx)}.${andWhatsApp}`
+}
+
+// ---- A Confirm or an Agree that fills the call ----
+
+/** Someone whose ask closes as the call fills: a rate asked for, or an offer still waiting on them. */
+export interface ClosingOffer {
+  id: string
+  person?: (Pick<Person, 'name' | 'email'> & Partial<Pick<Person, 'knownAs' | 'firstName'>>) | undefined
+  /** The rate they asked for, when it's a rate; hidden from a role that doesn't read rates (ADR 0046). */
+  rate?: { cents: number | null; hidden: boolean }
+  /** A WhatsApp tells them they're no longer needed (whatsappFollowsOffer). */
+  whatsapp: boolean
+}
+
+/**
+ * What a Confirm or an Agree that fills its call closes, for the question before it (ADR 0152; audit of 12 November 2026,
+ * the gap ADR 0154 left at 2): the rates still asked for, unanswered, and the offers still waiting on an answer, which the
+ * server closes as filled by someone else; then whose invites Google takes off with an email, and who a WhatsApp tells.
+ * "Agreeing it fills the call, so Conor's ask for €300 a day closes unanswered, and Niamh's offer closes: their link says
+ * it's filled by someone else. Google emails each of them that their days are cancelled."
+ */
+export function fillingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, agreeing: boolean, rates: readonly ClosingOffer[], waiting: readonly ClosingOffer[]): string {
+  const all = [...rates, ...waiting]
+  if (!all.length) return ''
+  const name = (c: ClosingOffer) => (c.person ? firstName(c.person) : 'someone')
+  const whose = (cs: readonly ClosingOffer[]) => namesInWords(cs.map((c) => `${name(c)}'s`))
+  const asked = rates.length
+    ? `${whose(rates)} ${rates.length === 1 ? 'ask' : 'asks'} for ${rates.length === 1 && rates[0]!.rate && !rates[0]!.rate.hidden ? `${euro(rates[0]!.rate.cents)} a day` : 'a different rate'} ${rates.length === 1 ? 'closes' : 'close'} unanswered`
+    : ''
+  const offers = waiting.length
+    ? `${whose(waiting)} ${waiting.length === 1 ? 'offer closes' : 'offers close'}: ${waiting.length === 1 ? 'their link says' : 'their links say'} it's filled by someone else`
+    : ''
+  const lead = `${agreeing ? 'Agreeing it' : 'Confirming them'} fills the call, so ${[asked, offers].filter(Boolean).join(', and ')}.`
+  // Whose invites come off as their ask closes, by name where it's one person, as the panel after says.
+  const emailed = all.filter((c) => daysToCancel(ctx, c.id).length)
+  const one = all.length === 1 ? emailed[0] : undefined
+  // With their invites telling them what happens next, the cancellation says why: filled by someone else (ADR 0153).
+  const why = emailed.length && emailed.every((c) => toldNext(ctx, c.person)) ? ' and why' : ''
+  const google = one
+    ? ` Google emails ${name(one)} that ${daysToCancel(ctx, one.id).length === 1 ? 'the day is' : 'their days are'} cancelled${why}${onceBack(ctx)}.`
+    : emailed.length
+      ? ` Google emails ${emailed.length < all.length ? `${emailed.length} of them` : 'each of them'} that their days are cancelled${why}${onceBack(ctx)}.`
+      : ''
+  // Their asks close as filled by someone else, which a WhatsApp tells whoever it reaches (ADR 0154).
+  const told = all.filter((c) => c.whatsapp)
+  const whatsapp = !told.length ? '' : ` A WhatsApp tells ${all.length === 1 ? name(all[0]!) : told.length < all.length ? `${told.length} of them` : 'each of them'} they're no longer needed.`
+  return `${lead}${google}${whatsapp}`
 }
 
 // ---- After a press: what was sent ----

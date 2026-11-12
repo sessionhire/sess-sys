@@ -8,6 +8,7 @@ import {
   crewAgainWords,
   daysToCancel,
   endingWords,
+  fillingWords,
   invitePlan,
   invitesHeld,
   jobEndingWords,
@@ -1021,5 +1022,67 @@ describe('asking for the same crew again (ADR 0164)', () => {
       said: 'Its crew call was cancelled with the job on Mon 28 Sep: 1 × Rigger. Nobody had been offered it.',
       then: 'It comes back with nobody offered.',
     })
+  })
+})
+
+describe('a Confirm or an Agree that fills the call (the gap ADR 0154 left at 2)', () => {
+  // Proves: agreeing a rate, or confirming a yes, that fills a call closes the rates still asked for and the offers still
+  // waiting on an answer, which the server marks filled by someone else; the question before it names them, says what their
+  // links say, and what Google and WhatsApp send them.
+  const conor = person('conor', 'Conor Walsh')
+  const niamh = person('niamh', 'Niamh Kelly')
+  const rate = (id: string, who: Person, over: { hidden?: boolean; whatsapp?: boolean } = {}) => ({ id, person: who, rate: { cents: 30000, hidden: over.hidden ?? false }, whatsapp: over.whatsapp ?? false })
+  const waits = (id: string, who: Person, whatsapp = false) => ({ id, person: who, whatsapp })
+
+  it('names the rates that close unanswered and the offers that close as filled, with nothing else when nothing is sent', () => {
+    expect(fillingWords(ctx(), true, [], [])).toBe('')
+    expect(fillingWords(ctx(), true, [rate('o1', conor)], [])).toBe("Agreeing it fills the call, so Conor's ask for €300 a day closes unanswered.")
+    expect(fillingWords(ctx(), true, [], [waits('o2', niamh)])).toBe("Agreeing it fills the call, so Niamh's offer closes: their link says it's filled by someone else.")
+    expect(fillingWords(ctx(), false, [rate('o1', conor, { hidden: true })], [waits('o2', niamh), waits('o3', sean)])).toBe(
+      "Confirming them fills the call, so Conor's ask for a different rate closes unanswered, and Niamh's and Seán's offers close: their links say it's filled by someone else."
+    )
+  })
+
+  it("says whose invites Google takes off with an email, and who a WhatsApp tells they're no longer needed", () => {
+    const invited = ctx({ days: days(row(D1, 'niamh', { offerId: 'o2' }), row(D2, 'niamh', { offerId: 'o2' })) })
+    expect(fillingWords(invited, true, [], [waits('o2', niamh, true)])).toBe(
+      "Agreeing it fills the call, so Niamh's offer closes: their link says it's filled by someone else. Google emails Niamh that their days are cancelled. A WhatsApp tells Niamh they're no longer needed."
+    )
+    expect(fillingWords(invited, true, [rate('o1', conor, { whatsapp: true })], [waits('o2', niamh)])).toBe(
+      "Agreeing it fills the call, so Conor's ask for €300 a day closes unanswered, and Niamh's offer closes: their link says it's filled by someone else. Google emails 1 of them that their days are cancelled. A WhatsApp tells 1 of them they're no longer needed."
+    )
+  })
+})
+
+describe('where the WhatsApp that followed an offer got to, on its row (the gap ADR 0154 left at 2)', () => {
+  // Proves: an offer's row says whether the newest WhatsApp after the offer arrived (the panel after the press says one
+  // "is going"), as a failure with why when it wasn't sent, and on an offer that's over as well as one still live.
+  const on = { mode: 'on' as const, testTo: [] }
+  const after = (kind: NonNullable<Offer['whatsappAfter']>['kind'], state: NonNullable<Offer['whatsappAfter']>['state'], problem: string | null = null) => ({
+    whatsappAfter: { kind, state, at: '2026-11-12T10:00:00.000Z', problem },
+  })
+  const lines = (o: Offer) => reachOnRow(ctx({ days: invitedBoth, whatsapp: on }), o, call(), aoife, []).lines
+
+  it('says how far it got, after what the invite says', () => {
+    expect(lines(offer('o1', 'aoife', 'confirmed', { respondedVia: 'link', ...after('booked', 'read') }))).toEqual([
+      { text: 'Invited by email, 2 days. Answered on their page.', tone: 'plain' },
+      { text: "A WhatsApp saying they're booked was read.", tone: 'plain' },
+    ])
+    expect(lines(offer('o1', 'aoife', 'offered', after('call-time', 'queued'))).at(-1)).toEqual({ text: 'A WhatsApp with the new call time is going.', tone: 'plain' })
+    expect(lines(offer('o1', 'aoife', 'accepted', { respondedVia: 'link', ...after('confirmed', 'delivered') })).at(-1)).toEqual({ text: "A WhatsApp saying it's going ahead was delivered.", tone: 'plain' })
+  })
+
+  it("says it wasn't sent, and why, as a failure", () => {
+    expect(lines(offer('o1', 'aoife', 'confirmed', { respondedVia: 'link', ...after('booked', 'failed', 'Not on WhatsApp') })).at(-1)).toEqual({
+      text: "A WhatsApp saying they're booked wasn't sent: Not on WhatsApp",
+      tone: 'bad',
+    })
+    expect(lines(offer('o1', 'aoife', 'confirmed', { respondedVia: 'link', ...after('booked', 'failed') })).at(-1)).toEqual({ text: "A WhatsApp saying they're booked wasn't sent.", tone: 'bad' })
+  })
+
+  it("says it on an offer that's over: that they're no longer needed", () => {
+    expect(lines(offer('o1', 'aoife', 'filled', after('not-needed', 'sent')))).toContainEqual({ text: "A WhatsApp saying they're no longer needed was sent.", tone: 'plain' })
+    // Nothing followed: nothing more is said.
+    expect(lines(offer('o1', 'aoife', 'filled')).some((l) => l.text.includes('WhatsApp'))).toBe(false)
   })
 })

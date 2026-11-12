@@ -67,8 +67,8 @@ export interface Tell {
   /** For a changed call: its call time moved, which Google emails those whose invites tell them what happens next (ADR 0153). */
   timeMoved?: boolean
   /**
-   * People whose rate asked for the press closed, by filling the call (ADR 0152): said among what was sent, as their offers
-   * end, and never sent this event's message.
+   * People whose rate asked for, or whose offer still waiting, the press closed by filling the call (ADR 0152, ADR 0169):
+   * said among what was sent, as their offers end, and never sent this event's message.
    */
   closed?: TellTo[]
 }
@@ -418,7 +418,7 @@ function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
     // about a call that isn't over.
     const follows = whatsappFollowsTell(reach, t)
     const news = (n: WhatsAppNews) => ({ ...before, whatsapp: follows ? n : undefined })
-    // A rate asked for that the press closed by filling the call ends as any offer does (ADR 0152).
+    // A rate asked for, or an offer still waiting, that the press closed by filling the call ends as any offer does (ADR 0152).
     if (i >= tell.to.length) return { person: t.person, told: toldOfEnding(reach, t.person, news('not-needed')) }
     // On a job the client hasn't said yes to yet, their link and their invite say to hold the day, not that they're booked (ADR 0150).
     // Days they were still asked for, outside the days booked, came off with word from Google, as the question said (ADR 0152).

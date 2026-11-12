@@ -38,11 +38,13 @@ export {
   dayLabel,
   daysBetween,
   daysLabel,
+  daysInNoPhase,
   daysOffPhase,
   eachDay,
   euro,
   MOVE_THE_PHASE,
   movedCallSpan,
+  noPhaseLine,
   offerDaysAfter,
   offPhaseLine,
   phaseDaysRule,
@@ -313,6 +315,9 @@ export const OFFER_STATUSES = [
 export type OfferStatus = (typeof OFFER_STATUSES)[number]
 
 /** An offer is also the crew assignment once accepted and confirmed. */
+/** The WhatsApps that follow an offer (ADR 0154), as the server keeps them: going ahead, off, booked, a new call time, not needed. */
+export const WHATSAPP_AFTER = ['confirmed', 'cancelled', 'booked', 'call-time', 'not-needed'] as const
+
 export const offer = z.object({
   id,
   callId: id,
@@ -349,6 +354,14 @@ export const offer = z.object({
    * and why. Set by the server from Meta's receipts; absent when nothing went on WhatsApp.
    */
   whatsapp: z.object({ state: z.enum(['queued', 'sent', 'delivered', 'read', 'failed']), at: z.string(), problem: z.string().nullable() }).optional(),
+  /**
+   * Where the newest WhatsApp that followed the offer has got to (ADR 0154; audit of 12 November 2026, at 2): that they're
+   * booked, the new call time, that they're no longer needed, or that the job is going ahead or off. Set by the server;
+   * absent when none has followed.
+   */
+  whatsappAfter: z
+    .object({ kind: z.enum(WHATSAPP_AFTER), state: z.enum(['queued', 'sent', 'delivered', 'read', 'failed']), at: z.string(), problem: z.string().nullable() })
+    .optional(),
   /**
    * On a job brought in from Google Calendar, an offer with no calendar invite of its own (ADR 0157): `organiser`, it came
    * in with the job, from the guests the organiser invited; `before`, it was made before such jobs had their own. Set by
@@ -402,13 +415,30 @@ export function ratesClosedBy<O extends Pick<Offer, 'id' | 'personId' | 'status'
   offers: readonly O[],
   offerId: string
 ): O[] {
+  return fillsCall(call, offers, offerId) ? offers.filter((o) => o.status === 'countered' && o.id !== offerId) : []
+}
+
+/**
+ * The offers still waiting on an answer that close, filled by someone else, when the office's Confirm or Agree fills the
+ * call (audit of 12 November 2026, the gap ADR 0154 left at 2): the server closes them as the call fills, as it does at a
+ * yes that fills it, so it's said before the press, beside the rates asked for (ratesClosedBy).
+ */
+export function waitingClosedBy<O extends Pick<Offer, 'id' | 'personId' | 'status' | 'days'>>(
+  call: Pick<CrewCall, 'start' | 'end' | 'needed'>,
+  offers: readonly O[],
+  offerId: string
+): O[] {
+  return fillsCall(call, offers, offerId) ? offers.filter((o) => o.status === 'offered' && o.id !== offerId) : []
+}
+
+/** Whether confirming this offer, a yes or a rate asked for, leaves every day of the call with the people it needs, as the server reads it. */
+function fillsCall(call: Pick<CrewCall, 'start' | 'end' | 'needed'>, offers: readonly Pick<Offer, 'id' | 'personId' | 'status' | 'days'>[], offerId: string): boolean {
   const confirming = offers.find((o) => o.id === offerId)
-  if (!confirming || (confirming.status !== 'accepted' && confirming.status !== 'countered')) return []
+  if (!confirming || (confirming.status !== 'accepted' && confirming.status !== 'countered')) return false
   const held: Record<string, Set<string>> = {}
   for (const d of eachDay(call.start, call.end)) held[d] = new Set()
   for (const o of offers) if (HOLDING.includes(o.status) || o.id === offerId) for (const d of o.days) held[d]?.add(o.personId)
-  if (Object.values(held).some((who) => who.size < call.needed)) return []
-  return offers.filter((o) => o.status === 'countered' && o.id !== offerId)
+  return Object.values(held).every((who) => who.size >= call.needed)
 }
 
 /** A field-by-field change must name at least one field; shared with the job and phase changes. */

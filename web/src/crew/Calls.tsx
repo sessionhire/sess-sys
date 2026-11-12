@@ -9,6 +9,8 @@ import {
   daysOffPhase,
   MOVE_THE_PHASE,
   offPhaseLine,
+  noPhaseLine,
+  daysInNoPhase,
   phaseDaysRule,
   departmentForRole,
   departmentOf,
@@ -167,8 +169,12 @@ export function CallCard({
   const today = useToday()
   const view = useView()
   // A call left outside its phase's days from before the rule (ADR 0159): nobody on it has an invite for those days, said at rest.
-  const phase = call.status === 'open' && call.phaseId ? view.jobs.jobs.find((j) => j.id === call.projectId)?.phases.find((p) => p.id === call.phaseId) : undefined
+  const job = call.status === 'open' && call.projectId ? view.jobs.jobs.find((j) => j.id === call.projectId) : undefined
+  const phase = call.phaseId ? job?.phases.find((p) => p.id === call.phaseId) : undefined
   const offPhase = phase ? daysOffPhase(call, phase).filter((d) => d >= today) : []
+  // A call across the job's phases holds every day from its first to its last, a gap between two phases too, which no
+  // invite is for: said at rest, as a call outside its own phase is (ADR 0159).
+  const inNoPhase = job && !call.phaseId && job.phases.length > 0 ? daysInNoPhase(call, job.phases).filter((d) => d >= today) : []
   const filled = call.openDays.length === 0
   // A yes not yet confirmed holds the place but isn't a booking, as the job's head counts it: the call says so, in amber, rather
   // than a green Filled with someone still to confirm under it (review of 11 November 2026, finding 3).
@@ -248,6 +254,7 @@ export function CallCard({
         </p>
       ))}
       {phase && offPhase.length > 0 && <p className="warn-line">{offPhaseLine(offPhase, phase, today)}</p>}
+      {inNoPhase.length > 0 && <p className="warn-line">{noPhaseLine(inNoPhase, job?.phases ?? [], today)}</p>}
       <LateLines call={call} late={late} today={today} />
       {/* Someone booked who rang to say they're late, noted where their line is (ADR 0028). */}
       <NoteLate call={call} late={late} inJob={inJob} />
