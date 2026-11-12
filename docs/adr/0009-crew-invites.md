@@ -47,9 +47,18 @@ calendars only hear about an event, a change or a cancellation by email.
   - booked: "Hi Aoife, you're booked as Audio tech on Sat 2 Mar, call
     08:00. Here's the info for the day."
 
+  From 1.166.0 ([ADR 0150](0150-hold-means-hold-the-day.md)) it greets
+  them by the name they go by; while the client hasn't said yes it asks
+  them to hold the day and never says "booked"; someone who has asked for
+  a different rate is told it is with the office, and isn't asked to
+  press Yes or No; and the second line is their page: "Please answer by
+  Mon 4 Mar. Your rate and the details are on your page, where you can
+  answer too: (their link)".
+
   The greeting is description, so it changes quietly; the HOLD coming off
-  is a title change and sends an update. The app link at the foot is
-  their own page, where they can answer or see their offers. A copy
+  is a title change and sends an update. Their own page, where they can
+  answer or see their offers, was the link at the foot until 1.166.0 and
+  is the second line since. A copy
   whose person said No stays as a No while the day is still on. When
   this came in, anyone already a guest on a shared day was taken off it
   (Google tells them that one is cancelled) and invited to their own

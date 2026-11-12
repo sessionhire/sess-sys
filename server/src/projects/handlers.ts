@@ -189,7 +189,7 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     await setFields(ctx, 'projects', PROJECT_COLUMNS, a)
     await emit(ctx, 'project', a.id, await getProject(ctx.tx, a.id))
     if (a.name !== undefined || a.venueId !== undefined) await renameCalls(ctx, { projectId: a.id })
-    // Crew asked on hold hear it's confirmed, and crew asked or booked hear it's stopped, on WhatsApp (ADR 0125, HOLD).
+    // Crew asked to hold the day hear it's confirmed, and crew asked or booked hear it's stopped, on WhatsApp (ADR 0125, HOLD).
     await queueJobWhatsApp(ctx, a.id, before.status, a.status)
     // Stopping a job takes its crew with it; starting it again doesn't bring them back.
     if (a.status && STOPPED.includes(a.status) && !STOPPED.includes(before.status))

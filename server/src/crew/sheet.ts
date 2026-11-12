@@ -1,4 +1,4 @@
-import { callSheet, HOLDING, irishToday, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
+import { callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { getClient, getPhase, getProject, getVenue } from '../projects/store.ts'
 import { lateOnOffers } from './late.ts'
@@ -43,7 +43,8 @@ export async function sheetFor(q: Queryable, personId: string, callId: string): 
 
   return callSheet(
     {
-      job: project ? { name: project.name, notes: project.notes } : { name: call.project, notes: '' },
+      // On a job the client hasn't said yes to yet, the sheet opens by saying it's to hold the day (ADR 0150).
+      job: project ? { name: project.name, notes: project.notes, hold: jobOnHold(project.status) } : { name: call.project, notes: '' },
       client: client ? { name: client.name, contacts: client.contacts } : null,
       phase: phase ? { name: phase.name, start: phase.start, end: phase.end, notes: phase.notes } : null,
       venue: venue ?? (call.venue ? { name: call.venue, address: '', notes: '' } : null),
@@ -104,6 +105,7 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
     <h1>${h(s.job)}${s.phase ? ` <span>${h(s.phase)}</span>` : ''}</h1>
     <p class="when">${h(s.when)}</p>
     ${s.client ? `<p class="small">For ${h(s.client.name)}</p>` : ''}
+    ${s.hold ? `<p class="hold-line">${h(s.hold)}</p>` : ''}
   </section>
 
   ${mine

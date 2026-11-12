@@ -8,6 +8,8 @@ import {
   DEPARTMENTS,
   eachDay,
   euroText,
+  firstName,
+  HOLD_WORDS,
   holdTitle,
   JOB_STAGES,
   STAGE_LABELS,
@@ -69,7 +71,7 @@ export interface DayFacts {
   job: string
   /** Where the job is on its way (ADR 0104), worked out as the job page does from its status, dates and scans. */
   stage: JobStage
-  /** Crew are asked before the client has said yes (ADR 0008, 1.162.0): the day is pencilled, not booked. */
+  /** Crew are asked before the client has said yes (ADR 0008, 1.162.0): they're asked to hold the day, and it isn't booked (ADR 0150). */
   hold: boolean
   client: string | null
   phase: string
@@ -110,20 +112,44 @@ export interface Allowances {
   km: number | null
 }
 
-/** What a person's own copy of a day says to them first: asking, thanking, or telling them they're booked. */
+/** What a person's own copy of a day says to them first: asking, thanking, or telling them where they stand. */
 export interface Greeting {
+  /** The name they go by, as their page and the office's messages greet them (audit of 12 November 2026, finding 15). */
   first: string
   role: string
   callTime: string | null
   status: string
   day: string
+  /** The client hasn't said yes to the job yet (ADR 0150): they're asked to hold the day, and nothing says "booked". */
+  hold?: boolean
 }
 
 export function greeting(g: Greeting): string {
-  const call = g.callTime ? `, call ${g.callTime}` : ''
-  if (g.status === 'confirmed') return `Hi ${g.first}, you're booked as ${g.role} on ${dayLabel(g.day)}${call}. Here's the info for the day.`
-  if (g.status === 'accepted') return `Thanks ${g.first}, you said yes to ${g.role} on ${dayLabel(g.day)}${call}. We'll confirm it with you soon. Here's the info for the day.`
-  return `Hi ${g.first}, are you available to work as ${g.role} on ${dayLabel(g.day)}${call}? Press Yes or No on this invite to let us know.`
+  const what = `${g.role} on ${dayLabel(g.day)}${g.callTime ? `, call ${g.callTime}` : ''}`
+  // A rate asked for waits on the office, and a Yes or No pressed on the invite settles nothing (finding 7), so it asks for neither.
+  if (g.status === 'countered') return `Thanks ${g.first}, your rate request for ${what} is with the office. Nothing is agreed yet: we'll come back to you.`
+  if (g.hold) {
+    if (g.status === 'confirmed') return `Hi ${g.first}, we have you down as ${what}. Please hold the day: it's booked once the client says yes.`
+    if (g.status === 'accepted') return `Thanks ${g.first}, you said yes to ${what}. Please hold the day: it isn't booked yet, and we'll confirm it with you.`
+    return `Hi ${g.first}, can you hold ${dayLabel(g.day)} for us, to work as ${g.role}${g.callTime ? `, call ${g.callTime}` : ''}? Press Yes or No on this invite to let us know.`
+  }
+  if (g.status === 'confirmed') return `Hi ${g.first}, you're booked as ${what}. Here's the info for the day.`
+  if (g.status === 'accepted') return `Thanks ${g.first}, you said yes to ${what}. We'll confirm it with you soon. Here's the info for the day.`
+  return `Hi ${g.first}, are you available to work as ${what}? Press Yes or No on this invite to let us know.`
+}
+
+/**
+ * The second line of a person's own copy (audit of 12 November 2026, finding 10): the day to answer by, and their page,
+ * which has what the invite leaves out by rule, their rate and the call's own notes. The way to it was the description's
+ * last line, under the crew, the notes and the pick list, and a Yes on the invite is a full acceptance. Staff are paid
+ * through payroll, so theirs names no rate. Nothing when there's neither a day to say nor a page to point at.
+ */
+export function pageLine(g: { status: string; replyBy: string | null; staff: boolean; link: string | null }): string {
+  const by = g.status === 'offered' && g.replyBy ? `Please answer by ${dayLabel(g.replyBy)}.` : ''
+  if (!g.link) return by
+  if (g.status === 'countered') return `To change your answer or see the details, use your page: ${g.link}`
+  if (g.status === 'offered') return `${by ? `${by} ` : ''}${g.staff ? 'The details are' : 'Your rate and the details are'} on your page, where you can answer too: ${g.link}`
+  return `${g.staff ? 'The call sheet and the details are' : 'Your rate, the call sheet and the details are'} on your page: ${g.link}`
 }
 
 const DESCRIPTION_MAX = 8000
@@ -150,8 +176,11 @@ function crewLine(c: CrewLine): string {
   return `${c.role}${c.callTime ? `, call ${c.callTime}` : ''}: ${who.join(', ')}`
 }
 
-/** The event's description: the day's job sheet, names only (never rates or phone numbers). */
-export function description(f: DayFacts): string {
+/**
+ * The event's description: the day's job sheet, names only (never rates or phone numbers). `max` is the room it has: a
+ * person's own copy opens with lines of its own, and the whole stays inside what Google takes.
+ */
+export function description(f: DayFacts, max = DESCRIPTION_MAX): string {
   const days = eachDay(f.phaseStart, f.phaseEnd).length
   const when = days > 1 ? `${f.phase}, day ${f.dayNumber} of ${days}: ${dayLabel(f.phaseStart)} to ${dayLabel(f.phaseEnd)}` : `${f.phase}, ${dayLabel(f.phaseStart)}`
   const blocks: string[] = [stageLine(f), [f.client ? `Client: ${f.client}` : '', when].filter(Boolean).join('\n')]
@@ -171,14 +200,14 @@ export function description(f: DayFacts): string {
   const text = blocks.join('\n\n')
   // The link to the job always fits: a long pick list is cut short before it is.
   const link = f.appLink ? `\n\nThe job in the Session Hire app: ${f.appLink}` : ''
-  const room = DESCRIPTION_MAX - link.length
+  const room = max - link.length
   return `${text.length > room ? `${text.slice(0, room - 1)}…` : text}${link}`
 }
 
-/** The job's stage, and what a hold means, as the first thing on the event. */
+/** The job's stage, and what HOLD in the title asks of the crew (ADR 0150), as the first thing on the event. */
 export function stageLine(f: Pick<DayFacts, 'stage' | 'hold'>): string {
   const stage = `Job stage: ${STAGE_LABELS[f.stage]} (${JOB_STAGES.indexOf(f.stage) + 1} of ${JOB_STAGES.length})`
-  return f.hold ? `ON HOLD: the client hasn't said yes yet, so keep the day free but it isn't booked.\n${stage}` : stage
+  return f.hold ? `${HOLD_WORDS.onCalendar}\n${stage}` : stage
 }
 
 /**
@@ -303,7 +332,9 @@ interface CallRow {
   needed: number
   start_day: string
   end_day: string
-  offers: { id: string; status: string; days: string[]; personId: string; name: string; first: string; email: string | null; token: string }[]
+  /** The day to answer by, when the office set one. */
+  reply_by: string | null
+  offers: { id: string; status: string; days: string[]; personId: string; name: string; first: string; knownAs: string | null; kind: string; email: string | null; token: string }[]
 }
 
 /** Which offer a person is invited by when two cover the same day: the one that holds it, then the one furthest on. */
@@ -340,7 +371,7 @@ export async function wantedEvents(
        LEFT JOIN venues v ON v.id = coalesce(ph.venue_id, p.venue_id)
       WHERE p.source_calendar IS NULL AND ph.end_day >= $1::date
         AND (p.status = 'confirmed'
-             -- Not yet a yes, but crew are asked for it: on the calendar on hold (ADR 0008, 1.162.0).
+             -- Not yet a yes, but crew are asked for it: on the calendar as HOLD, hold the day (ADR 0008, 1.162.0; ADR 0150).
              OR (p.status IN ('enquiry', 'quoted') AND EXISTS (
                    SELECT 1 FROM crew_calls cc JOIN offers o ON o.call_id = cc.id
                     WHERE cc.project_id = p.id AND cc.status = 'open' AND o.status = ANY($2::text[]))))
@@ -350,8 +381,9 @@ export async function wantedEvents(
   const projectIds = [...new Set(phases.map((p) => p.project_id))]
   const { rows: calls } = projectIds.length
     ? await q.query<CallRow>(
-        `SELECT cc.id, cc.project_id, cc.phase_id, cc.role, cc.call_time, cc.needed, cc.start_day::text, cc.end_day::text,
-                coalesce(json_agg(json_build_object('id', o.id, 'status', o.status, 'days', o.days, 'personId', pe.id, 'name', pe.name, 'first', pe.first_name, 'email', pe.email, 'token', pe.link_token)
+        `SELECT cc.id, cc.project_id, cc.phase_id, cc.role, cc.call_time, cc.needed, cc.start_day::text, cc.end_day::text, cc.reply_by::text,
+                coalesce(json_agg(json_build_object('id', o.id, 'status', o.status, 'days', o.days, 'personId', pe.id, 'name', pe.name, 'first', pe.first_name,
+                                                    'knownAs', pe.known_as, 'kind', pe.kind, 'email', pe.email, 'token', pe.link_token)
                                   ORDER BY pe.name, o.id)
                          FILTER (WHERE o.id IS NOT NULL), '[]') AS offers
            FROM crew_calls cc
@@ -478,14 +510,22 @@ export async function wantedEvents(
         noEmail: [...noEmail].sort(),
       })
       if (!personal) return
-      // Each person's own copy: their greeting first, then the day as everyone sees it, with their own page for the link.
+      // Each person's own copy: their greeting first, by the name they go by, and where they stand; then their page, which has their
+      // rate and how to answer; then the day as everyone sees it. All of it description, so a change to it is never emailed (ADR 0009).
       for (const g of invited.values()) {
-        const first = g.offer.first.trim() || g.offer.name.trim().split(/\s+/)[0] || 'there'
-        const hello = greeting({ first, role: g.call.role, callTime: g.call.call_time, status: g.offer.status, day })
-        const own = { ...facts, appLink: appUrl ? `${appUrl}/f/${g.offer.token}` : null }
+        const first = firstName({ name: g.offer.name, knownAs: g.offer.knownAs, firstName: g.offer.first }) || 'there'
+        const hello = greeting({ first, role: g.call.role, callTime: g.call.call_time, status: g.offer.status, day, hold })
+        const page = pageLine({
+          status: g.offer.status,
+          // A day to answer by that has gone isn't asked for again.
+          replyBy: g.call.reply_by !== null && g.call.reply_by >= today ? g.call.reply_by : null,
+          staff: g.offer.kind === 'staff',
+          link: appUrl ? `${appUrl}/f/${g.offer.token}` : null,
+        })
+        const lead = [hello, page].filter(Boolean).join('\n')
         const mine: EventBody = {
           ...body,
-          description: `${hello}\n\n${description(own).replace(/The job in the Session Hire app: (\S+)$/, 'Your page, to answer or see your offers: $1')}`,
+          description: `${lead}\n\n${description({ ...facts, appLink: null }, DESCRIPTION_MAX - lead.length - 2)}`,
           extendedProperties: { private: { ...body.extendedProperties.private, shPerson: g.personId } },
         }
         const personKey = `${key}/${g.personId}`

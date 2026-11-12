@@ -136,12 +136,13 @@ export const crewAsked = (calls: readonly { status: string; offers: readonly { s
   calls.some((c) => c.status === 'open' && c.offers.some((o) => ASKED_STATUSES.includes(o.status)))
 
 /**
- * A job the client hasn't said yes to (an enquiry, or quoted) goes on the calendar on hold once crew are asked for it
- * (ADR 0008, 1.162.0), so the days they're asked for are in their calendar, marked HOLD until the job is confirmed.
+ * A job the client hasn't said yes to (an enquiry, or quoted) goes on the calendar once crew are asked for it (ADR 0008,
+ * 1.162.0), so the days they're asked for are in their calendar, marked HOLD until the job is confirmed. HOLD is short
+ * for "hold the day", the ask of the crew; it is not the job that is on hold (ADR 0150).
  */
 export const onHold = (job: Pick<Project, 'status'>, asked: boolean) => (job.status === 'enquiry' || job.status === 'quoted') && asked
 
-/** A day's title while the job is on hold. */
+/** A day's title while its crew are asked to hold the day. */
 export const holdTitle = (title: string) => `HOLD ${title}`
 
 /**
@@ -169,7 +170,7 @@ export function phaseOnCalendar(
   link: CalendarLink | undefined,
   days: Readonly<Record<string, CalendarDay>>,
   today: string,
-  /** Whether crew are asked for the job, which puts a job not yet confirmed on the calendar on hold. */
+  /** Whether crew are asked for the job, which puts a job not yet confirmed on the calendar as HOLD. */
   asked = false
 ): PhaseOnCalendar {
   if (job.sourceCalendar) return { state: 'theirs', calendar: job.sourceCalendar }

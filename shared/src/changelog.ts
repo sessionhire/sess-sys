@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.166.0',
+    date: '2026-11-12',
+    title: 'Crew are asked to hold the day, in those words, until the client says yes',
+    what: "HOLD is short for \"hold the day\", and the app now says so wherever it explains it. On a job the client hasn't said yes to, someone you've picked reads \"Hold the day\" on their own page, on Home › Me and on their call sheet, where they used to read \"Booked\", with a line saying the client hasn't said yes yet, so please keep the day free, and that nothing is booked until they do. The message you send with an offer asks \"can you hold the day for…?\", and the one after you pick someone says \"we have you down for…, so please hold the day\" in place of \"you're confirmed\". Each person's calendar invite now greets them by the name they go by, asks them to hold the day rather than saying they're booked, tells someone who asked for a different rate that it's with the office, and gives the day to answer by and the link to their page as its second line, where it used to be the last. Once the client says yes, all of it reads as a booking again. Nothing new is sent to anyone: invites already out are reworded quietly, with no email.",
+    prs: [339],
+    adrs: [150],
+  },
+  {
     version: '1.165.0',
     date: '2026-11-12',
     title: 'Crew offers: the app says what it sent, and to whom',
@@ -45,7 +53,7 @@ export const CHANGELOG: readonly Release[] = [
   {
     version: '1.164.1',
     date: '2026-11-11',
-    title: 'The "confirmed" WhatsApp goes as soon as a job on hold is confirmed',
+    title: 'The "confirmed" WhatsApp goes as soon as a job marked HOLD is confirmed',
     what: "When a job whose crew were asked on HOLD is confirmed, the WhatsApp saying it's confirmed now goes straight away, at the same moment the calendar invite loses its HOLD. Before, it waited until an hour had passed since the HOLD offer. WhatsApp offers are still switched off, so nothing goes yet.",
     prs: [334],
     adrs: [125],

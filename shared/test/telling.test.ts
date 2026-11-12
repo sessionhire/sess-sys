@@ -234,6 +234,28 @@ describe('the message after what the office did', () => {
     expect(reopened.text).toBe(`Hi Aoife, we've reopened your timesheet for Harbour Lights Festival (Show) to sort something out. You can change it again until we approve it: ${link}/timesheet/o1`)
   })
 
+  it("asks them to hold the day while the client hasn't said yes, and never says confirmed or booked", () => {
+    // Proves: finding 6 of the audit of 12 November 2026 (ADR 0150). HOLD is short for "hold the day": the office's offer and its
+    // word after a pick ask for exactly that on a job the client hasn't agreed, and say nothing is booked until they do.
+    const offered = offerMessage(aoife, show, link, true)
+    expect(offered.split('\n').slice(0, 2)).toEqual([
+      "Hi Aoife, can you hold the days for Harbour Lights Festival (Show)? The client hasn't said yes yet, so nothing is booked until they do.",
+      'Sound No.1, Sat 10 Oct to Sun 11 Oct, call 12:00',
+    ])
+    expect(offerMessage(aoife, { ...show, end: show.start }, link, true)).toMatch(/^Hi Aoife, can you hold the day for Harbour Lights Festival \(Show\)\? /)
+    // The rest is any offer's: the role, the place, the rate and where to answer.
+    expect(offered.split('\n').slice(1)).toEqual(offerMessage(aoife, show, link).split('\n').slice(1))
+
+    const picked = tellMessage('confirmed', aoife, { call: show, days: ['2026-10-10'], offerId: 'o1', hold: true }, link)
+    expect(picked.text.split('\n')[0]).toBe("Hi Aoife, we have you down for Harbour Lights Festival (Show), so please hold the day. The client hasn't said yes yet: it's booked once they do.")
+    expect(picked).toMatchObject({ subject: 'Hold the day: Harbour Lights Festival (Show), Sat 10 Oct, call 12:00', what: 'confirmation' })
+    // Every day of the call, when they took them all.
+    expect(tellMessage('confirmed', aoife, { call: show, hold: true }, link).text).toContain(', so please hold the days. ')
+    // The rest is the confirmation's: the role and days, the place, the rate and the call sheet.
+    expect(picked.text.split('\n').slice(1)).toEqual(tellMessage('confirmed', aoife, { call: show, days: ['2026-10-10'], offerId: 'o1' }, link).text.split('\n').slice(1))
+    for (const said of [offered, picked.text, picked.subject]) expect(said).not.toMatch(/on hold|confirmed|you're booked/i)
+  })
+
   it('names no rate to staff, who are paid through payroll', () => {
     // Proves: the offer and every message the office is prompted with leave the rate out for a member of staff, as their page does (audit finding 21), and still say it to a freelancer.
     const orla = { ...person('orla', 'Orla Hayes'), kind: 'staff' as const }

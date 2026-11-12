@@ -121,7 +121,8 @@ export interface InvitePlan {
  * The server's rule for who gets a calendar invite (server/src/calendar/events.ts, wantedEvents), read from a device:
  * invites on and a calendar connected; a job of the app's own that isn't stopped; and for each day from today on, a
  * phase of the job that the call covers and that holds the day; and an email address to send it to. A job the client
- * hasn't said yes to goes on the calendar on hold once anyone is asked for it, so an offer there gets its invite too.
+ * hasn't said yes to goes on the calendar as HOLD (hold the day) once anyone is asked for it, so an offer there gets
+ * its invite too.
  */
 export function invitePlan(
   ctx: ReachContext,
@@ -637,16 +638,19 @@ const STALE = "Crew invites are off, so what's in their calendar stays as it was
 
 /**
  * After Confirm: the app tells nobody they're booked (finding 4, not yet built), so the panel says so. Their invite's
- * first line follows the booking only while the server is writing to the calendar.
+ * first line follows the booking only while the server is writing to the calendar. On a job the client hasn't said yes
+ * to yet (`hold`), what their link and their invite say is to hold the day, never that they're booked (ADR 0150).
  */
-export function toldOfBooking(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: Pick<ToldBefore, 'invited' | 'kept'>): ToldPerson {
-  const links = (many: boolean) => `their ${many ? 'links say' : 'link says'} they're booked`
+export function toldOfBooking(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: Pick<ToldBefore, 'invited' | 'kept'>, hold = false): ToldPerson {
+  const what = hold ? "to hold the day, as the client hasn't said yes yet" : "they're booked"
+  const key = (k: string) => (hold ? `${k}:hold` : k)
+  const links = (many: boolean) => `their ${many ? 'links say' : 'link says'} ${what}`
   const said: Said =
     b.invited && !ctx.calendar.link?.problem
-      ? { key: 'booked-invited', say: (who, many) => `Nothing was sent to ${who}: their ${many ? 'links and calendar invites' : 'link and their calendar invite'} say they're booked, and no email goes with that.` }
+      ? { key: key('booked-invited'), say: (who, many) => `Nothing was sent to ${who}: their ${many ? 'links and calendar invites' : 'link and their calendar invite'} say ${what}, and no email goes with that.` }
       : b.kept
-        ? { key: 'booked-kept', say: (who, many) => `Nothing was sent to ${who}: ${links(many)}. ${STALE}` }
-        : { key: 'booked', say: (who, many) => `Nothing was sent to ${who}: ${links(many)}.` }
+        ? { key: key('booked-kept'), say: (who, many) => `Nothing was sent to ${who}: ${links(many)}. ${STALE}` }
+        : { key: key('booked'), say: (who, many) => `Nothing was sent to ${who}: ${links(many)}.` }
   return { who, said: [said], reached: false }
 }
 

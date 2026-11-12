@@ -566,6 +566,25 @@ describe('the panel after a press', () => {
     expect(toldSentences([toldOfChange(c, aoife, { invited: true }, false)])).toEqual(['Nothing was sent to Aoife: the change is on their link, and Google emails nothing unless the days move.'])
   })
 
+  it("says their link and invite ask them to hold the day, not that they're booked, while the client hasn't said yes", () => {
+    // Proves: finding 6 of the audit of 12 November 2026 (ADR 0150). After the office picks someone for a job the client hasn't
+    // agreed, the panel says what their link and their invite now tell them, which is to hold the day.
+    const c = ctx()
+    expect(toldSentences([toldOfBooking(c, aoife, { invited: true }, true)])).toEqual([
+      "Nothing was sent to Aoife: their link and their calendar invite say to hold the day, as the client hasn't said yes yet, and no email goes with that.",
+    ])
+    expect(toldSentences([toldOfBooking(c, sean, { invited: false }, true)])).toEqual(["Nothing was sent to Seán: their link says to hold the day, as the client hasn't said yes yet."])
+    const off = ctx({ link: link({ invites: false }) })
+    expect(toldSentences([toldOfBooking(off, aoife, { invited: false, kept: 2 }, true)])).toEqual([
+      "Nothing was sent to Aoife: their link says to hold the day, as the client hasn't said yes yet. Crew invites are off, so what's in their calendar stays as it was.",
+    ])
+    // Two people, one sentence, and a booking on a job that is agreed is never folded into it.
+    expect(toldSentences([toldOfBooking(c, aoife, { invited: true }, true), toldOfBooking(c, dara, { invited: true }, true)])).toEqual([
+      "Nothing was sent to Aoife and Dara: their links and calendar invites say to hold the day, as the client hasn't said yes yet, and no email goes with that.",
+    ])
+    expect(toldSentences([toldOfBooking(c, aoife, { invited: true }, true), toldOfBooking(c, dara, { invited: true })])).toHaveLength(2)
+  })
+
   it('says an invite goes out of date once invites are switched off, and waits on a calendar with a problem', () => {
     // Switched off since they were invited: the server leaves their own copies alone, so neither a booking nor a change reaches their calendar.
     const off = ctx({ link: link({ invites: false }) })

@@ -4,6 +4,7 @@ import {
   callSheetText,
   HOLDING,
   irishToday,
+  jobOnHold,
   lateDayWord,
   lateLine,
   sheetMessage,
@@ -44,7 +45,8 @@ export function sheetInput(view: View, job: JobView, phase: PhaseView): SheetInp
   const people = new Map<string, SheetPerson>(view.crew.people.map((p) => [p.id, { id: p.id, name: p.name, phone: p.phone }]))
   const today = irishToday()
   return {
-    job: { name: job.name, notes: job.notes },
+    // While the client hasn't said yes, the sheet opens by saying it's to hold the day (ADR 0150).
+    job: { name: job.name, notes: job.notes, hold: jobOnHold(job.status) },
     client: job.client ? { name: job.client.name, contacts: job.client.contacts } : null,
     phase: { name: phase.name, start: phase.start, end: phase.end, notes: phase.notes },
     venue: phase.venue ?? null,
@@ -134,6 +136,7 @@ export function SheetScreen({ view, jobId, phaseId }: { view: View; jobId: strin
           {sheet.when}
           {sheet.client && ` · for ${sheet.client.name}`}
         </p>
+        {sheet.hold && <p className="warn-line">{sheet.hold}</p>}
         <div className="actions">
           <button type="button" className="primary" onClick={() => setPrinting('button')} disabled={!!printing}>
             Print
@@ -178,6 +181,11 @@ export function SheetScreen({ view, jobId, phaseId }: { view: View; jobId: strin
                 {sheet.when}
                 {sheet.client && ` · for ${sheet.client.name}`}
               </p>
+              {sheet.hold && (
+                <p>
+                  <b>{sheet.hold}</b>
+                </p>
+              )}
             </header>
             {sheet.contact && (
               <section>

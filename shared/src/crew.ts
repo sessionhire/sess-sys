@@ -510,12 +510,17 @@ const rateLine = (c: Pick<CrewCall, 'dayRateCents'> & Partial<Pick<CrewCall, 'ra
 
 /**
  * The message ops paste into WhatsApp, SMS or email. Everything a freelancer
- * needs to decide is in it; the link is for answering.
+ * needs to decide is in it; the link is for answering. For a job the client
+ * hasn't said yes to yet (`hold`), it asks them to hold the day, and says that
+ * nothing is booked until the client does (ADR 0150).
  */
-export function offerMessage(p: Addressee, c: CrewCall, link: string): string {
+export function offerMessage(p: Addressee, c: CrewCall, link: string, hold = false): string {
   const first = firstName(p)
+  const job = `${c.project}${c.phase ? ` (${c.phase})` : ''}`
   const lines = [
-    `Hi ${first}, are you free for ${c.project}${c.phase ? ` (${c.phase})` : ''}?`,
+    hold
+      ? `Hi ${first}, can you hold ${c.start === c.end ? 'the day' : 'the days'} for ${job}? The client hasn't said yes yet, so nothing is booked until they do.`
+      : `Hi ${first}, are you free for ${job}?`,
     `${c.role}, ${daysLabel(eachDay(c.start, c.end))}${c.callTime ? `, call ${c.callTime}` : ''}`,
     c.venue ? `At ${c.venue}` : '',
     p.kind === 'staff' ? '' : rateLine(c),
@@ -529,11 +534,14 @@ export function offerMessage(p: Addressee, c: CrewCall, link: string): string {
 
 /** The name the offer's template is approved under in Meta's WhatsApp Manager (ADR 0125); its words are in docs/whatsapp-setup.md. */
 export const WHATSAPP_OFFER_TEMPLATE = 'job_offer'
-/** The follow-up when a job they were asked for on hold is confirmed, some time after (ADR 0125, HOLD). */
+/** The follow-up when a job they were asked to hold the day for is confirmed, some time after (ADR 0125, HOLD). */
 export const WHATSAPP_CONFIRMED_TEMPLATE = 'job_confirmed'
 /** The word when a job they were asked for or booked on is cancelled or lost (ADR 0125, HOLD). */
 export const WHATSAPP_CANCELLED_TEMPLATE = 'job_cancelled'
-/** A job the client hasn't said yes to yet: crew asked for it are asked on hold, and their messages say HOLD. */
+/**
+ * A job the client hasn't said yes to yet: crew asked for it are asked to hold the day, and their messages say HOLD.
+ * HOLD is short for "hold the day", never the job being on hold (Colly, 12 November 2026; ADR 0150, `HOLD_WORDS`).
+ */
 export const jobOnHold = (status: string | undefined) => status === 'enquiry' || status === 'quoted'
 
 /** Where an offer's WhatsApp message has got to, in a few words for the offer's row (ADR 0125). */
@@ -628,7 +636,9 @@ export type TellEvent =
 
 /** What a message needs besides the person: the call as it stands, and the booking's own figures where they differ. */
 export interface TellContext {
-  call: Pick<CrewCall, 'id' | 'project' | 'phase' | 'role' | 'start' | 'end' | 'callTime' | 'venue' | 'dayRateCents'> & Partial<Pick<CrewCall, 'needsCertificates' | 'rateHidden'>>
+  call: Pick<CrewCall, 'id' | 'project' | 'phase' | 'role' | 'start' | 'end' | 'callTime' | 'venue' | 'dayRateCents'> & Partial<Pick<CrewCall, 'needsCertificates' | 'rateHidden' | 'projectId'>>
+  /** The job is one the client hasn't said yes to yet (ADR 0150): the office's pick is a hold on the day, not a booking, and the message says so. */
+  hold?: boolean
   /** For a changed call: the certificates it needed before, so the message says what it needs now, or no longer (ADR 0028). */
   neededBefore?: readonly CertificateKind[]
   /** The person's own days, when they took only some. */
@@ -657,19 +667,24 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
   const timesheet = `${link}/timesheet/${ctx.offerId ?? c.id}`
   const lines = (parts: (string | false | undefined | 0)[]) => parts.filter(Boolean).join('\n')
   switch (event) {
-    case 'confirmed':
+    case 'confirmed': {
+      const many = (ctx.days?.length ? ctx.days.length : eachDay(c.start, c.end).length) > 1
       return {
         text: lines([
-          `Hi ${first}, you're confirmed for ${job}.`,
+          // On a job the client hasn't agreed yet, the office's pick is a hold on the day, never "confirmed" (ADR 0150).
+          ctx.hold
+            ? `Hi ${first}, we have you down for ${job}, so please hold ${many ? 'the days' : 'the day'}. The client hasn't said yes yet: it's booked once they do.`
+            : `Hi ${first}, you're confirmed for ${job}.`,
           `${c.role}, ${when}`,
           c.venue && `At ${c.venue}`,
           rated && (c.dayRateCents !== null || c.rateHidden) && rateLine(c),
           `Your call sheet, with who's on and who to ring on the day, is here: ${link}/sheet/${c.id}`,
           'If anything changes on your side, let us know.',
         ]),
-        subject: `Confirmed: ${job}, ${when}`,
+        subject: `${ctx.hold ? 'Hold the day' : 'Confirmed'}: ${job}, ${when}`,
         what: 'confirmation',
       }
+    }
     case 'withdrawn':
       return {
         text: lines([`Hi ${first}, we've withdrawn the offer of ${c.role} on ${job}, ${when}, so there's nothing to answer.`, `Sorry for the bother, and ${next}`]),

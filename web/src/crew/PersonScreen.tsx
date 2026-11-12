@@ -41,6 +41,7 @@ import { Documents } from './Documents.tsx'
 import { useFeedAddress } from './feed.ts'
 import { OwnCalendarCard } from './OwnCalendar.tsx'
 import { PersonPhoto } from './PersonPhoto.tsx'
+import { useHoldTheDay } from './reach.tsx'
 
 /**
  * One person on a page of their own (#crew/person/<id>): who they are and
@@ -393,6 +394,8 @@ function ComingUp({ person, view, own, onArchived }: { person: PersonView; view:
   // Staff answer their own offers on the job's page in the app (ADR 0111); a freelancer's own open their link.
   const answers = access.can('answer')
   const heading = own ? 'Your bookings' : 'Coming up'
+  // A place on a job the client hasn't said yes to yet is a day to hold, not a booking (ADR 0150).
+  const holdTheDay = useHoldTheDay()
   const { run, error, refuse } = useAct()
   const [away, setAway] = useState({ start: today, end: today, note: '' })
   // The job holding them back, as a way to it beside the refusal (audit, 5 November 2026, finding 94).
@@ -435,7 +438,7 @@ function ComingUp({ person, view, own, onArchived }: { person: PersonView; view:
         <ul className="job-list">
           {lines.map(({ c, o, job }) => (
             <li key={o.id}>
-              <BookingRow c={c} o={o} today={today} {...(c.projectId ? { href: `#jobs/${c.projectId}/crew` } : {})} {...(own ? { link: linkFor(person) } : {})} {...(own && answers && c.projectId ? { answerAt: `#jobs/${c.projectId}` } : {})} {...(job ? { job } : {})} />
+              <BookingRow c={c} o={o} today={today} {...(c.projectId ? { href: `#jobs/${c.projectId}/crew` } : {})} {...(own ? { link: linkFor(person) } : {})} {...(own && answers && c.projectId ? { answerAt: `#jobs/${c.projectId}` } : {})} {...(job ? { job } : {})} hold={holdTheDay(c.projectId)} />
             </li>
           ))}
         </ul>

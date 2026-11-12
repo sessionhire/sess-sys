@@ -471,24 +471,39 @@ the audit found nothing that argues against it.
 
 Six batches. The first two need no decision and are mostly words.
 
+**Built so far.** Colly picked the first two on 12 November 2026. Batch 1
+is in 1.165.0 ([ADR 0149](adr/0149-the-office-is-told-what-the-app-sent.md))
+and batch 2 in 1.166.0 ([ADR 0150](adr/0150-hold-means-hold-the-day.md)).
+Two things differ from what is written below. Colly put the meaning of
+HOLD right before batch 2 was built: it is short for "hold the day", the
+ask of the crew, and never the job being on hold. So where this audit says
+"on hold", "Booked, on hold" or "Pencilled in", what was built says "Hold
+the day". And the second half of finding 16, saying on the invite that a
+Yes pressed in Google couldn't be taken, moved to batch 4: it needs the
+invite to be written from the answers Google holds, which is a change to
+how the calendar is kept in step rather than to its words. Batches 3 to 6
+and the seven questions are still open.
+
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
    "On WhatsApp: read", "Nothing reached them: no email address, and
    WhatsApp is off", "Invite not sent: Google turned it down", "Answered on
    their page". The Offer form's promise, the panel after each press and
    the questions before Withdraw, Release and Cancel are built from the
-   same facts. Small to medium.
+   same facts. Small to medium. **Done in 1.165.0**, bar the invite's
+   line for a Yes that couldn't be taken (now in batch 4).
 2. **On hold everywhere, and the invite's first lines** (6, 7's first
    line, 15, 10). The hold on the page, the call sheet and the office's
    message; words for a rate request; the name they go by; the link to
-   their page second. Small.
+   their page second. Small. **Done in 1.166.0**, as "Hold the day".
 3. **Tell people what happens next** (4, 8, 12). Booked, a changed call
    time and "no longer needed" reach the person: by a calendar update whose
    title says it, tried on the test calendar first, and by WhatsApp
    templates once Meta is set up. Medium. Needs question 4, and 7 for who
    the WhatsApps reach.
-4. **Answers** (3, the rest of 7, 9). A Yes counts for its own day; a Yes
-   after a rate request is flagged; a call doesn't fill over an unanswered
+4. **Answers** (3, the rest of 7, 9, the rest of 16). A Yes counts for
+   its own day; a Yes after a rate request is flagged; a Yes that couldn't
+   be taken is said on the invite; a call doesn't fill over an unanswered
    rate without saying so; "Say no" keeps the offer; Confirm and Agree on
    the job's own rows. Medium. Needs questions 2 and 6.
 5. **Notes** (2). Notes for the crew and office notes; the short invite

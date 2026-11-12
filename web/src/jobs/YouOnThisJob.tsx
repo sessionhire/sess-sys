@@ -1,4 +1,4 @@
-import { bookingLine, HOLDING, OPEN, type CallView, type JobView, type OfferView, type View } from '@sh/shared'
+import { bookingLine, HOLD_WORDS, HOLDING, jobOnHold, OPEN, type CallView, type JobView, type OfferView, type View } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -49,6 +49,8 @@ export function YouOnThisJob({ job, view }: { job: JobView; view: View }) {
                 )}
               </p>
               {c.details && <p className="hint">{c.details}</p>}
+              {/* While the client hasn't said yes, what they hold is the day, as their link says it (ADR 0150). */}
+              {jobOnHold(job.status) && <p className="warn-line">{offered ? HOLD_WORDS.asked(c.days.length) : HOLD_WORDS.toYou(o.days.length)}</p>}
               {offered && answers && <AnswerHere c={c} o={o} job={job.name} />}
               <p className="you-links">
                 {phase && <a href={`#jobs/${encodeURIComponent(job.id)}/sheet/${encodeURIComponent(phase.id)}`}>Call sheet ›</a>}

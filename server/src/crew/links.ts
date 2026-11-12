@@ -14,7 +14,7 @@ import { sendFeed, type Feeds } from './feeds.ts'
 import { getLate, lateFor, lateOf } from './late.ts'
 import { renderGone, renderPage, type Flash, type Kept, type OnTheDay, type PageWhatsApp } from './page.ts'
 import { renderNoSheet, renderSheet, sheetFor } from './sheet.ts'
-import { awayFor, endedOn, getAway, getCall, getOffer, getPerson, heldByCall, heldElsewhereIn, offersFor, personByToken, yesLogs } from './store.ts'
+import { awayFor, endedOn, getAway, getCall, getOffer, getPerson, heldByCall, heldElsewhereIn, jobsNotYetAgreed, offersFor, personByToken, yesLogs } from './store.ts'
 import { renderTimesheet, type TimesheetPage } from './timesheet-page.ts'
 import { paidOnFor } from '../finance/store.ts'
 import { getTimesheet, timesheetsFor } from './timesheets.ts'
@@ -248,6 +248,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     // One moment for the whole page: its day, and what's still news on it.
     const at = new Date()
     const now = today(at)
+    // Jobs the client hasn't said yes to yet: an offer on one asks them to hold the day, and the page says so with it (ADR 0150).
+    const holds = await jobsNotYetAgreed(db, rows.map((r) => r.call.projectId))
     const jobs = rows.map(({ offer, call }) => {
       const byDay = held.get(call.id)!
       // Days they hold on another job, for the picker to leave unticked and say so (audit finding 21), where there's still an answer to give.
@@ -255,7 +257,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       const busy: Record<string, string> = {}
       if ((OPEN.includes(offer.status) || offer.status === 'accepted') && call.status === 'open' && call.end >= now)
         for (const c of heldElsewhereIn(rows, eachDay(call.start, call.end), call.id)) for (const d of c.days) busy[d] = c.project
-      return { offer, call, openDays: Object.keys(byDay).filter((d) => byDay[d]! < call.needed), busy }
+      return { offer, call, openDays: Object.keys(byDay).filter((d) => byDay[d]! < call.needed), busy, hold: !!call.projectId && holds.has(call.projectId) }
     })
     const feed = `${publicOrigin(req)}${feedPath(await feedCodeFor(person.linkToken))}`
     // A day they hold, from 6pm the evening before (ADR 0028): what they've said about being late, and who to ring if it won't send.

@@ -24,7 +24,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../src/app.ts'
 import type { IdentityProvider } from '../src/auth/google.ts'
 import { seal } from '../src/calendar/crypto.ts'
-import { allowancesText } from '../src/calendar/events.ts'
+import { allowancesText, greeting, pageLine } from '../src/calendar/events.ts'
 import { pgliteDb, type Db } from '../src/db.ts'
 import { everythingJson, readEverything } from '../src/export.ts'
 import { FakeGoogle } from './fake-google-calendar.ts'
@@ -898,7 +898,9 @@ describe('crew invites (ADR 0009)', () => {
       'invited niamh@example.com 2030-03-05 HOLD Pencilled - Show',
     ])
     const held = s.google.visible(TEST_CAL).find((e) => e.summary === 'HOLD Pencilled - Show')!
-    expect(held.description).toMatch(/^ON HOLD: the client hasn't said yes yet, so keep the day free but it isn't booked\.\nJob stage: Quoting \(1 of 5\)\n/)
+    // HOLD is short for "hold the day" (ADR 0150), and the day says so in those words: it is never the job that is "on hold".
+    expect(held.description).toMatch(/^HOLD means hold the day: the client hasn't said yes yet, so please keep it free\. Nothing is booked until they do\.\nJob stage: Quoting \(1 of 5\)\n/)
+    expect(held.description).not.toMatch(/on hold/i)
     expect(held.description).toContain('LX: TBC')
     // The job page says it's on, as HOLD; a job with nobody asked waits for the yes.
     const onHoldFeed = await feed(s)
@@ -1274,6 +1276,157 @@ describe('crew invites (ADR 0009)', () => {
       'cancelled mary@nissan.example 2030-03-02 Nissan Leaf - Build 1/2',
       'cancelled niamh@example.com 2030-03-02 Nissan Leaf - Build 1/2',
     ])
+  })
+
+  it("opens a person's own copy with where they stand, by the name they go by, and their page second", async () => {
+    // Proves: findings 6, 7, 10 and 15 of the audit of 12 November 2026 (ADR 0150). A person's own copy of a day greets them by the
+    // name they go by; while the client hasn't said yes it asks them to hold the day and never says "booked"; a rate they asked
+    // for has words of its own; and the way to their page is the second line, not the last. None of it is emailed, as it is all
+    // description.
+    const s = await setup()
+    const job = await withCrew(s)
+    // Niamh goes by Nim, and Dara is staff.
+    await send(s, 'person.upsert', { id: job.people.niamh, name: 'Niamh Kelly', knownAs: 'Nim', kind: 'freelancer', email: 'niamh@example.com', phone: null, skills: ['audio'], dayRateCents: 25000, notes: '' })
+    const dara = newId()
+    await send(s, 'person.upsert', { id: dara, name: 'Dara Kelly', kind: 'staff', email: 'dara@sessionhire.com', phone: null, skills: ['lighting'], dayRateCents: null, notes: '' })
+    // A job the client hasn't said yes to: one show day, an answer wanted two days before.
+    const quoted = newId()
+    const phase = newId()
+    const call = newId()
+    await send(s, 'project.create', { id: quoted, name: 'Harbour Lights', clientId: null, venueId: null, status: 'quoted', notes: '' })
+    await send(s, 'phase.add', { id: phase, projectId: quoted, name: 'Show', start: '2030-03-06', end: '2030-03-06', venueId: null, notes: '' })
+    await send(s, 'call.create', {
+      id: call,
+      projectId: quoted,
+      phaseId: phase,
+      project: 'Harbour Lights',
+      phase: 'Show',
+      venue: '',
+      role: 'LX',
+      start: '2030-03-06',
+      end: '2030-03-06',
+      callTime: '09:00',
+      needed: 4,
+      dayRateCents: 30000,
+      details: '',
+      replyBy: '2030-03-04',
+    })
+    const asked = { niamh: newId(), conor: newId(), dara: newId() }
+    await send(s, 'offer.send', { id: asked.niamh, callId: call, personId: job.people.niamh, override: false })
+    await send(s, 'offer.send', { id: asked.conor, callId: call, personId: job.people.conor, override: false })
+    await send(s, 'offer.send', { id: asked.dara, callId: call, personId: dara, override: false })
+    await connectTo(s)
+    await invites(s, true)
+    await s.sync()
+
+    const f = await feed(s)
+    const link = (personId: string) => `http://localhost:80/f/${f.get<Person>('person', personId).linkToken}`
+    /** What a person's own copy of a day says, as they'd read it in Google Calendar. */
+    const copy = (summary: string, email: string) => {
+      const shared = s.google.visible(TEST_CAL).find((e) => e.summary === summary)!
+      return s.google.copies(TEST_CAL, shared.id).find((e) => e.attendees?.some((g) => g.email === email))!
+    }
+    const lines = (summary: string, email: string) => copy(summary, email).description!.split('\n')
+    const aoifeId = f.get<Offer>('offer', job.offers.aoife).personId
+
+    // A confirmed job, as before: asked, or told they're booked, by the name they go by. Their page comes second.
+    expect(lines('Nissan - Build 1/2', 'niamh@example.com').slice(0, 4)).toEqual([
+      'Hi Nim, are you available to work as Audio tech on Sat 2 Mar, call 08:00? Press Yes or No on this invite to let us know.',
+      `Your rate and the details are on your page, where you can answer too: ${link(job.people.niamh)}`,
+      '',
+      'Job stage: On the job (4 of 5)',
+    ])
+    expect(lines('Nissan - Build 1/2', 'aoife@example.com').slice(0, 3)).toEqual([
+      "Hi Aoife, you're booked as Audio tech on Sat 2 Mar, call 08:00. Here's the info for the day.",
+      `Your rate, the call sheet and the details are on your page: ${link(aoifeId)}`,
+      '',
+    ])
+    // The link is said once, at the top: the job's own link, which a freelancer can't open, isn't on their copy at all.
+    for (const email of ['niamh@example.com', 'aoife@example.com']) {
+      const text = copy('Nissan - Build 1/2', email).description!
+      expect(text.match(/http:\/\/localhost:80\//g)).toHaveLength(1)
+      expect(text).not.toContain('#jobs/')
+    }
+
+    // The client hasn't said yes: asked to hold the day, with the day to answer by and their page, then what HOLD means.
+    const held = 'HOLD Harbour Lights - Show'
+    expect(lines(held, 'niamh@example.com').slice(0, 5)).toEqual([
+      'Hi Nim, can you hold Wed 6 Mar for us, to work as LX, call 09:00? Press Yes or No on this invite to let us know.',
+      `Please answer by Mon 4 Mar. Your rate and the details are on your page, where you can answer too: ${link(job.people.niamh)}`,
+      '',
+      "HOLD means hold the day: the client hasn't said yes yet, so please keep it free. Nothing is booked until they do.",
+      'Job stage: Quoting (1 of 5)',
+    ])
+    // Staff are paid through payroll, so their second line names no rate.
+    expect(lines(held, 'dara@sessionhire.com')[1]).toBe(`Please answer by Mon 4 Mar. The details are on your page, where you can answer too: ${link(dara)}`)
+
+    // Yes on their page, a rate asked for, and the office's pick: each changes the first lines, and none of it is emailed.
+    let before = s.google.sent.length
+    await send(s, 'offer.respond', { id: asked.niamh, answer: 'accept', days: null, note: '' })
+    await send(s, 'offer.respond', { id: asked.conor, answer: 'counter', counterRateCents: 35000, days: null, note: '' })
+    await s.sync()
+    expect(lines(held, 'niamh@example.com').slice(0, 2)).toEqual([
+      "Thanks Nim, you said yes to LX on Wed 6 Mar, call 09:00. Please hold the day: it isn't booked yet, and we'll confirm it with you.",
+      `Your rate, the call sheet and the details are on your page: ${link(job.people.niamh)}`,
+    ])
+    // A rate asked for is with the office: the invite stops asking for a Yes or No, which would settle nothing, and names no figure.
+    const conors = copy(held, 'Conor.Walsh@example.ie').description!
+    expect(conors.split('\n').slice(0, 2)).toEqual([
+      "Thanks Conor, your rate request for LX on Wed 6 Mar, call 09:00 is with the office. Nothing is agreed yet: we'll come back to you.",
+      `To change your answer or see the details, use your page: ${link(job.people.conor)}`,
+    ])
+    expect(conors).not.toMatch(/Press Yes or No|350|€/)
+    await send(s, 'offer.confirm', { id: asked.niamh })
+    await s.sync()
+    // Picked by the office, on a job the client hasn't agreed: down for it, and asked to hold the day. Never "booked".
+    expect(lines(held, 'niamh@example.com')[0]).toBe("Hi Nim, we have you down as LX on Wed 6 Mar, call 09:00. Please hold the day: it's booked once the client says yes.")
+    for (const email of ['niamh@example.com', 'Conor.Walsh@example.ie', 'dara@sessionhire.com']) {
+      expect(copy(held, email).description).not.toMatch(/you're booked|on hold/i)
+    }
+    expect(emails(s, before)).toEqual([])
+
+    // The day to answer by has gone: it isn't asked for again.
+    s.setToday('2030-03-05')
+    await s.sync()
+    expect(lines(held, 'dara@sessionhire.com')[1]).toBe(`The details are on your page, where you can answer too: ${link(dara)}`)
+    expect(emails(s, before)).toEqual([])
+
+    // The client says yes: HOLD comes off the title, which Google tells each guest about, and the words are the booked ones.
+    before = s.google.sent.length
+    await send(s, 'project.update', { id: quoted, status: 'confirmed' })
+    await s.sync()
+    expect(lines('Harbour Lights - Show', 'niamh@example.com').slice(0, 4)).toEqual([
+      "Hi Nim, you're booked as LX on Wed 6 Mar, call 09:00. Here's the info for the day.",
+      `Your rate, the call sheet and the details are on your page: ${link(job.people.niamh)}`,
+      '',
+      'Job stage: Planning (2 of 5)',
+    ])
+    expect(copy('Harbour Lights - Show', 'dara@sessionhire.com').description).not.toContain('hold the day')
+    expect(emails(s, before).sort()).toEqual([
+      'updated Conor.Walsh@example.ie 2030-03-06 Harbour Lights - Show',
+      'updated dara@sessionhire.com 2030-03-06 Harbour Lights - Show',
+      'updated niamh@example.com 2030-03-06 Harbour Lights - Show',
+    ])
+  })
+
+  it('words the first two lines for every standing, with or without a page to point at', () => {
+    const base = { first: 'Nim', role: 'LX', callTime: null, day: '2030-03-06' }
+    // No call time: nothing about one.
+    expect(greeting({ ...base, status: 'offered' })).toBe('Hi Nim, are you available to work as LX on Wed 6 Mar? Press Yes or No on this invite to let us know.')
+    expect(greeting({ ...base, status: 'offered', hold: true })).toBe('Hi Nim, can you hold Wed 6 Mar for us, to work as LX? Press Yes or No on this invite to let us know.')
+    // A rate asked for reads the same whether or not the client has said yes: it is the rate that is open.
+    expect(greeting({ ...base, status: 'countered', hold: true })).toBe(greeting({ ...base, status: 'countered' }))
+    // HOLD is "hold the day": none of the words a person reads says the job is "on hold".
+    for (const status of ['offered', 'countered', 'accepted', 'confirmed']) expect(greeting({ ...base, status, hold: true })).not.toMatch(/on hold/i)
+
+    // No address for the app (it isn't set until the calendar is connected from it): only the day to answer by, or nothing.
+    expect(pageLine({ status: 'offered', replyBy: '2030-03-04', staff: false, link: null })).toBe('Please answer by Mon 4 Mar.')
+    expect(pageLine({ status: 'accepted', replyBy: '2030-03-04', staff: false, link: null })).toBe('')
+    // The day to answer by is for an offer still waiting on them, never for someone who has answered.
+    expect(pageLine({ status: 'accepted', replyBy: '2030-03-04', staff: false, link: 'https://app.example/f/abc' })).toBe(
+      'Your rate, the call sheet and the details are on your page: https://app.example/f/abc'
+    )
+    expect(pageLine({ status: 'confirmed', replyBy: null, staff: true, link: 'https://app.example/f/abc' })).toBe('The call sheet and the details are on your page: https://app.example/f/abc')
   })
 
   it('never loses an answer given while the app is changing the event', async () => {

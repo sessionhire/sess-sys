@@ -87,6 +87,8 @@ describe('my weeks', () => {
       ],
     } as unknown as CallView
     expect(myWeeks([call], 'me', today, 2).map((c) => c.parts)).toEqual([[2, 0], [1, 1]])
+    // On a job the client hasn't said yes to, a place the office picked them for is a day to hold, not a confirmed one (ADR 0150).
+    expect(myWeeks([call], 'me', today, 2, () => true).map((c) => c.parts)).toEqual([[0, 2], [0, 2]])
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { callSheet, callSheetText, type SheetInput, type SheetPerson } from '../src/callsheet.ts'
+import { callSheet, callSheetText, sheetMessage, type SheetInput, type SheetPerson } from '../src/callsheet.ts'
 
 /**
  * Call sheets (ADR 0021): what the office, the contact on the day and the
@@ -154,6 +154,31 @@ describe('a call sheet', () => {
     expect(text).toContain('12:00 Crew call\n17:30 Doors')
     expect(text).not.toMatch(/9001(02|03|04)|900200/)
     expect(text).not.toContain('Eimear')
+  })
+
+  it("opens by saying it's to hold the day while the client hasn't said yes, in the reader's words", () => {
+    // Proves: finding 6 of the audit of 12 November 2026 (ADR 0150). A sheet with someone's name on it read as a booking; on a
+    // job the client hasn't agreed, it says first that it is to hold the day, to the office about the crew and to the crew
+    // about their days, and so do the message that sends it and the text pasted to the crew's group.
+    const i = input('dara')
+    const held: SheetInput = { ...i, job: { ...i.job, hold: true } }
+    const toCrew = "Hold the day: the client hasn't said yes yet, so please keep your days free. Nothing is booked until they do."
+    expect(callSheet(held, 'office').hold).toBe("Hold the day: the client hasn't said yes yet. Crew are asked to keep it free, and nothing is booked until they do.")
+    expect(callSheet(held, 'contact').hold).toBe(toCrew)
+    expect(callSheet(held, 'crew').hold).toBe(toCrew)
+    // It is about the days they hold themselves: Tadhg is on one of the sheet's two, so "it".
+    expect(callSheet({ ...held, readerId: 'tadhg' }, 'crew').hold).toBe("Hold the day: the client hasn't said yes yet, so please keep it free. Nothing is booked until they do.")
+    // Someone with no place of their own on it, as the contact on the day can be, reads it about the sheet's days.
+    expect(callSheet({ ...held, readerId: 'aoife' }, 'contact').hold).toBe(toCrew)
+    // Pasted to the crew's group it is said to them, whoever copies it, straight under the days.
+    expect(callSheetText(callSheet(held, 'office'))).toContain(`Harbour Lights Festival: Show\nThu 8 Oct to Fri 9 Oct\n${toCrew}\n`)
+    expect(sheetMessage({ name: 'Dara Quinn' }, callSheet(held, 'crew'), 'https://app.example/f/abc/sheet/sound').text).toBe(
+      "Hi Dara, here's the call sheet for Harbour Lights Festival (Show), Thu 8 Oct to Fri 9 Oct: who's on, where, and who to ring on the day. It's to hold the day for now: the client hasn't said yes yet.\nhttps://app.example/f/abc/sheet/sound"
+    )
+    // A job the client has agreed says none of it.
+    expect(callSheet(i, 'crew')).not.toHaveProperty('hold')
+    expect(callSheetText(callSheet(i, 'office'))).not.toMatch(/hold the day/i)
+    expect(sheetMessage({ name: 'Dara Quinn' }, callSheet(i, 'crew'), 'https://app.example/f/abc/sheet/sound').text).not.toMatch(/hold the day/i)
   })
 
   it("names who to ask for at the venue (ADR 0119) for everyone, with their number but never their email", () => {

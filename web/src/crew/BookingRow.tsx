@@ -1,4 +1,4 @@
-import { bookingLine, OPEN, STOPPED, type BookingOf, type CallView, type OfferView, type ProjectStatus, type View } from '@sh/shared'
+import { bookingLine, HOLD_WORDS, OPEN, STOPPED, type BookingOf, type CallView, type OfferView, type ProjectStatus, type View } from '@sh/shared'
 import { StatusPill } from '../StatusPill.tsx'
 import { STATUS } from './Calls.tsx'
 
@@ -30,10 +30,29 @@ export function stoppedBookings(view: View, personId: string, today: string): { 
  * `href`. An offer waiting on them opens their own page, `link`, where it's answered (ADR 0034), and says so under the
  * facts; without it, an offer opens `href` like a booking. Someone who answers in the app (ADR 0111) is given `answerAt`, the
  * job's page, whose "You on this job" answers it, and the row opens that instead. One on a job that was stopped says so
- * beside its word, `job`, and under it on a phone.
+ * beside its word, `job`, and under it on a phone. On a job the client hasn't said yes to yet (`hold`), someone the office
+ * has picked is asked to hold the day, so the row says that where it would say Booked, as their link does (ADR 0150).
  */
-export function BookingRow({ c, o, today, href, link, answerAt, job }: { c: CallView; o: OfferView; today: string; href?: string; link?: string; answerAt?: string; job?: ProjectStatus }) {
-  const [label, tone] = STATUS[o.status]
+export function BookingRow({
+  c,
+  o,
+  today,
+  href,
+  link,
+  answerAt,
+  job,
+  hold = false,
+}: {
+  c: CallView
+  o: OfferView
+  today: string
+  href?: string
+  link?: string
+  answerAt?: string
+  job?: ProjectStatus
+  hold?: boolean
+}) {
+  const [label, tone] = hold && o.status === 'confirmed' ? ([HOLD_WORDS.name, 'pending'] as const) : STATUS[o.status]
   const waiting = OPEN.includes(o.status)
   const here = waiting && answerAt ? answerAt : undefined
   const answer = !here && link && waiting ? `${link}#offers` : undefined

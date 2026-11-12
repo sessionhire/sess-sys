@@ -3,6 +3,61 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: hold the day, said everywhere
+
+**Done (1.166.0)**
+
+- The second batch Colly picked from the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md): findings 6, 10
+  and 15 and the first line of 7
+  ([ADR 0150](adr/0150-hold-means-hold-the-day.md)). Colly put the meaning
+  right before it was built: HOLD is short for "hold the day", the ask of
+  the crew, and never the job being on hold. Every line that explains it
+  now says so, from one set of words.
+- On a job the client hasn't said yes to, someone the office has picked
+  reads "Hold the day" where they read "Booked": on their own link, on
+  Home › Me and on their page in the app, with a line under it, "The
+  client hasn't said yes yet, so please keep the day free. Nothing is
+  booked until they do." Before they answer, the line says what a yes
+  agrees to. The same line, starting "Hold the day:", heads their call
+  sheet and the office's, and "You on this job". Home › Me counts the day
+  as "to hold", and its "Your weeks" chart draws it as waiting to confirm.
+- The office's offer message asks "can you hold the day for ...?", and its
+  message after picking someone says "we have you down for ..., so please
+  hold the day" in place of "you're confirmed". The panel after Confirm
+  says their link tells them to hold the day.
+- A person's own calendar invite greets them by the name they go by. Its
+  first line asks them to hold the day while the client hasn't said yes
+  and never says "booked" then. Someone who asked for a different rate is
+  told it is with the office and is no longer asked to press Yes or No.
+  Its second line is the day to answer by and their page, where their rate
+  is: the link was the last line, under the pick list.
+- The line under a HOLD day's title reads "HOLD means hold the day: ..."
+  where it read "ON HOLD: ...". HOLD stays in the title and before the
+  job's name on WhatsApp.
+- Nothing more is sent: every change is to words on a screen or to an
+  invite's description, which is never emailed. On the first run after
+  this is live, each person's own invite and each HOLD day from today on
+  is rewritten once, quietly.
+- Left out, on purpose: saying on the invite that a Yes pressed in Google
+  couldn't be taken (the second half of finding 16). It needs the invite
+  written from the answers Google holds, so it goes with the Answers
+  batch. The office's own card for a call still says Booked for someone it
+  has picked.
+- For Colly: the WhatsApp templates aren't in Meta yet, so
+  [the setup guide](whatsapp-setup.md) now gives `job_confirmed` as "the
+  client has said yes, so it's going ahead" in place of "it's no longer on
+  hold".
+- Checked: a server test reads each person's own invite as Google holds it
+  through an offer, a yes, a rate request, the office's pick, the day to
+  answer by passing and the client's yes, and holds that only the title
+  change is emailed; a server test reads the page and the call sheet;
+  unit tests hold the messages' words; a browser test follows one member
+  of staff through the office's messages, Home › Me, the job, the call
+  sheet and their link, before and after the client says yes; and a replay
+  on a local copy with stand-ins for Google and Meta. Nothing real is
+  sent.
+
 ## 12 November 2026: crew offers say what was sent
 
 **Done (1.165.0)**

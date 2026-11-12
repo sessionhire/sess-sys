@@ -41,6 +41,28 @@ export const OFFER_WORDS_TO_YOU: Record<OfferStatus, string> = {
   'pulled-out': OFFER_WORDS['pulled-out'][0],
 }
 
+/**
+ * HOLD is short for "hold the day" (Colly, 12 November 2026; ADR 0150): the ask to keep a day free for a job the client
+ * hasn't said yes to yet. It is never the job that is "on hold". The title of a day on the calendar and the job's name
+ * on WhatsApp lead with HOLD; wherever a line explains it, or a person reads where they stand on such a job, it is said
+ * in these words: the invite, their page, the call sheet and the office's own messages.
+ */
+export const HOLD_WORDS = {
+  /** Where they stand, in place of Booked, once the office has picked them for a job the client hasn't agreed. */
+  name: 'Hold the day',
+  /** Under a day's title on the calendar, which starts HOLD. An invite is for one day. */
+  onCalendar: "HOLD means hold the day: the client hasn't said yes yet, so please keep it free. Nothing is booked until they do.",
+  /** To someone who has said yes or been picked, about the `days` they have. */
+  toYou: (days: number) => `Hold the day: the client hasn't said yes yet, so please keep ${days === 1 ? 'it' : 'your days'} free. Nothing is booked until they do.`,
+  /** What it means, straight under a pill that already reads "Hold the day", so it isn't said twice. */
+  means: (days: number) => `The client hasn't said yes yet, so please keep ${days === 1 ? 'the day' : 'your days'} free. Nothing is booked until they do.`,
+  /** Under an offer still waiting on their answer. */
+  asked: (days: number) =>
+    `Hold the day: the client hasn't said yes yet. A yes from you means you'll keep ${days === 1 ? 'the day' : 'your days'} free; nothing is booked until the client says yes.`,
+  /** On the office's own sheet for the day. */
+  toOffice: "Hold the day: the client hasn't said yes yet. Crew are asked to keep it free, and nothing is booked until they do.",
+} as const
+
 /** A crew member's state on a call sheet, which lists only those offered, holding or booked. */
 export const SHEET_WORDS = {
   booked: OFFER_WORDS.confirmed,

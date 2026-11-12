@@ -28,7 +28,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
 import { useAccess } from '../role.ts'
 import { useView } from '../view.ts'
-import { PlainContact, useReach } from './reach.tsx'
+import { PlainContact, useHoldTheDay, useReach } from './reach.tsx'
 
 /**
  * The messages for crew the office sends itself (audit finding 9): an offer,
@@ -37,6 +37,9 @@ import { PlainContact, useReach } from './reach.tsx'
  */
 
 export const linkFor = (p: Pick<Person, 'linkToken'>) => (p.linkToken ? `${location.origin}/f/${p.linkToken}` : '')
+
+/** An offer's subject for an email: on a job the client hasn't said yes to yet, it asks them to hold the day (ADR 0150). */
+const offerSubject = (call: Pick<CallView, 'project' | 'days'>, hold: boolean) => `${hold ? 'Hold the day' : 'Work'}: ${call.project}, ${daysLabel(call.days)}`
 
 /** One person to tell, with the call it's about and whatever else the message needs. */
 export interface TellTo {
@@ -251,6 +254,7 @@ const ENDED: readonly TellEvent[] = ['withdrawn', 'released', 'call-cancelled', 
  */
 function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
   const reach = useReach()
+  const holdTheDay = useHoldTheDay()
   const calls = useView().crew.calls
   const [held] = useState(() => tell.to.map((t) => (t.context.offerId ? { cancel: daysToCancel(reach, t.context.offerId).length, invites: invitesHeld(reach, t.context.offerId).length } : { cancel: 0, invites: 0 })))
   const people = tell.to.map((t, i) => {
@@ -259,7 +263,8 @@ function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
     // Invited is an invite the server keeps in step with the offer. With invites switched off since, it leaves theirs as
     // it was (kept): ending their offer sends no cancellation, and a booking or a change doesn't reach their calendar.
     const before = { cancel: was.cancel, left: id ? daysToCancel(reach, id).length : 0, invited: was.cancel > 0, kept: was.cancel ? 0 : was.invites }
-    if (tell.event === 'confirmed') return { person: t.person, told: toldOfBooking(reach, t.person, before) }
+    // On a job the client hasn't said yes to yet, their link and their invite say to hold the day, not that they're booked (ADR 0150).
+    if (tell.event === 'confirmed') return { person: t.person, told: toldOfBooking(reach, t.person, before, holdTheDay(t.context.call.projectId)) }
     if (tell.event === 'call-changed' || tell.event === 'phase-moved')
       return { person: t.person, told: toldOfChange(reach, t.person, before, tell.event === 'phase-moved' || tell.moved === true) }
     // A stopped job tells whoever had its offer on WhatsApp that it's off (ADR 0125), by the rule the server sends by.
@@ -339,9 +344,10 @@ function SendTo({
   inJob: boolean
 }) {
   const panel = useInView()
+  const hold = useHoldTheDay()(call.projectId)
   const custom = message?.(link)
-  const text = custom?.text ?? offerMessage(person, call, link)
-  const subject = custom?.subject ?? `Work: ${call.project}, ${daysLabel(call.days)}`
+  const text = custom?.text ?? offerMessage(person, call, link, hold)
+  const subject = custom?.subject ?? offerSubject(call, hold)
   return (
     <section className="card share" aria-label={`Send ${custom?.what ?? 'offer'} to ${person.name}`} ref={panel} tabIndex={-1}>
       <h2>Send to {person.name}</h2>
@@ -365,6 +371,7 @@ function SendTo({
 export function TellPanel({ tell, onClose, inJob = false }: { tell: Tell; onClose: () => void; inJob?: boolean }) {
   const [at, setAt] = useState(0)
   const prompts = usePromptsMessages()
+  const holdTheDay = useHoldTheDay()
   const to = tell.to[at]
   if (!to) return null
   if (!prompts)
@@ -378,7 +385,8 @@ export function TellPanel({ tell, onClose, inJob = false }: { tell: Tell; onClos
   const next = () => (at + 1 < n ? setAt(at + 1) : onClose())
   const link = linkFor(person)
   if (!link) return <NoLinkYet person={person} onClose={next} />
-  const { text, subject, what } = tellMessage(tell.event, person, context, link)
+  // Picked for a job the client hasn't said yes to yet: the message asks them to hold the day (ADR 0150).
+  const { text, subject, what } = tellMessage(tell.event, person, { ...context, hold: holdTheDay(context.call.projectId) }, link)
   return (
     <TellOne key={at} label={`Send ${what} to ${person.name}`} title={n === 1 ? `Tell ${person.name}` : `Tell ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next}>
       <textarea readOnly value={text} rows={6} />
@@ -394,6 +402,7 @@ export function TellPanel({ tell, onClose, inJob = false }: { tell: Tell; onClos
 function OffersPanel({ people, call, onClose, inJob }: { people: PersonView[]; call: CallView; onClose: () => void; inJob: boolean }) {
   const [at, setAt] = useState(0)
   const prompts = usePromptsMessages()
+  const hold = useHoldTheDay()(call.projectId)
   const person = people[at]
   if (!person) return null
   if (!prompts) return <OfferSent people={people} call={call} onClose={onClose} />
@@ -401,11 +410,11 @@ function OffersPanel({ people, call, onClose, inJob }: { people: PersonView[]; c
   const next = () => (at + 1 < n ? setAt(at + 1) : onClose())
   const link = linkFor(person)
   if (!link) return <NoLinkYet key={at} person={person} onClose={next} />
-  const text = offerMessage(person, call, link)
+  const text = offerMessage(person, call, link, hold)
   return (
     <TellOne key={at} label={`Send offer to ${person.name}`} title={`Send to ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next}>
       <textarea readOnly value={text} rows={6} />
-      <SendButtons key={person.id} person={person} text={text} subject={`Work: ${call.project}, ${daysLabel(call.days)}`} inJob={inJob} />
+      <SendButtons key={person.id} person={person} text={text} subject={offerSubject(call, hold)} inJob={inJob} />
     </TellOne>
   )
 }
