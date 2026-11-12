@@ -6,6 +6,7 @@ import { Icon } from './Icon.tsx'
 import { measurePicture, shrinkPhoto } from './photo-file.ts'
 import { logoOf } from './Picture.tsx'
 import { useAccess } from './role.ts'
+import { Pending } from './StatusPill.tsx'
 import { client } from './sync.ts'
 import { useLate } from './useLate.ts'
 
@@ -62,6 +63,7 @@ export function LogoCard({ office }: { office: OfficeView }) {
   const src = logoOf(office)
   const waits = !!storage && !storage.files
   const may = mayChangeLogo(access.role) && !waits
+  const pure = office.logoBlackWhite
 
   const send = async (file: File | undefined) => {
     if (picker.current) picker.current.value = ''
@@ -82,7 +84,9 @@ export function LogoCard({ office }: { office: OfficeView }) {
 
   return (
     <section className="card logo-card" aria-labelledby="logo-card-head">
-      <h2 id="logo-card-head">Logo</h2>
+      <h2 id="logo-card-head">
+        Logo <Pending pending={office.logoPending} />
+      </h2>
       <p className="hint">Put up once, it heads every printed quote and its PDF, and prints on every stock and cable label.</p>
 
       {src ? (
@@ -95,13 +99,27 @@ export function LogoCard({ office }: { office: OfficeView }) {
           </figure>
           <figure>
             <div className="on-label">
-              <img src={src} alt="The company logo, as a label printer prints it" />
+              <img src={src} alt="The company logo, as a label printer prints it" className={pure ? 'pure' : undefined} />
             </div>
-            <figcaption>On a label, in black</figcaption>
+            <figcaption>{pure ? 'On a label, pure black and white' : 'On a label, in black'}</figcaption>
           </figure>
         </div>
       ) : (
         <p className="empty">None yet. Quotes and labels say Session Hire in words until there is one.</p>
+      )}
+
+      {src && mayChangeLogo(access.role) && (
+        <label className="signal">
+          <input type="checkbox" role="switch" checked={pure} onChange={(e) => void run(() => client.mutate('logo.blackWhite', { on: e.target.checked }))} />
+          <span>
+            <b>Pure black and white on labels</b>
+            <small>
+              {pure
+                ? 'Every grey and colour in the logo prints as solid black or white, for the sharpest print on a label printer. Pale parts drop out.'
+                : 'Off: labels print the logo in shades of grey. Quotes are in colour either way.'}
+            </small>
+          </span>
+        </label>
       )}
 
       {advice && (

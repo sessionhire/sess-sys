@@ -20,11 +20,11 @@ const toSetting = (r: Row): Setting => ({
   ...(r.id === LINKS_SETTING_ID ? { checkLinks: r.check_links === true } : {}),
   ...(r.id === WHATSAPP_SETTING_ID ? { whatsapp: (r.whatsapp_mode ?? 'off') as WhatsAppMode, whatsappTestTo: r.whatsapp_test_to ?? [] } : {}),
   ...(r.id === CABLES_SETTING_ID && r.cable_colours ? { cableColours: r.cable_colours } : {}),
-  ...(r.id === LOGO_SETTING_ID ? { logo: r.photo_at ? { at: new Date(r.photo_at).toISOString() } : null } : {}),
+  ...(r.id === LOGO_SETTING_ID ? { logo: r.photo_at ? { at: new Date(r.photo_at).toISOString() } : null, logoBlackWhite: r.logo_black_white === true } : {}),
 })
 
 export async function getSetting(q: Queryable, id: string) {
-  const { rows } = await q.query(`SELECT id, name, phone, email, vat_number, address, heads_see_rates, prompt_messages, use_timesheets, timesheets_from, use_assistant, check_links, whatsapp_mode, whatsapp_test_to, cable_colours, photo_at FROM settings WHERE id = $1`, [id])
+  const { rows } = await q.query(`SELECT id, name, phone, email, vat_number, address, heads_see_rates, prompt_messages, use_timesheets, timesheets_from, use_assistant, check_links, whatsapp_mode, whatsapp_test_to, cable_colours, photo_at, logo_black_white FROM settings WHERE id = $1`, [id])
   return rows[0] ? toSetting(rows[0]) : undefined
 }
 

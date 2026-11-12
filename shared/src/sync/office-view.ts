@@ -45,6 +45,10 @@ export interface OfficeView {
   cablesPending: boolean
   /** When the company's logo was put up (ADR 0106), which makes its address; none until there is one. */
   logo: { at: string } | null
+  /** Whether labels print the logo in pure black and white (ADR 0163). */
+  logoBlackWhite: boolean
+  /** That choice changed on this device and not yet on the server. */
+  logoPending: boolean
 }
 
 type Tables = { [E in keyof SettingEntities]: Record<string, SettingEntities[E]> }
@@ -70,6 +74,8 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
   let cableColours: readonly CableColourStep[] = entities.setting?.[CABLES_SETTING_ID]?.cableColours ?? DEFAULT_CABLE_COLOURS
   let cablesPending = false
   const logo = entities.setting?.[LOGO_SETTING_ID]?.logo ?? null
+  let logoBlackWhite = entities.setting?.[LOGO_SETTING_ID]?.logoBlackWhite === true
+  let logoPending = false
   for (const m of outbox) {
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     if (m.name === 'reading.heads') {
@@ -101,6 +107,10 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
       whatsappTestTo = a.testTo
       whatsappPending = true
     }
+    if (m.name === 'logo.blackWhite') {
+      logoBlackWhite = (m.args as CommandArgs<'logo.blackWhite'>).on
+      logoPending = true
+    }
     if (m.name === 'cables.colours') {
       cableColours = (m.args as CommandArgs<'cables.colours'>).colours
       cablesPending = true
@@ -113,5 +123,5 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
     if (args.address === null || args.address === '') delete details.address
     pending = true
   }
-  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo }
+  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo, logoBlackWhite, logoPending }
 }

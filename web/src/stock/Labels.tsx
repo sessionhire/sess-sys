@@ -166,7 +166,8 @@ export function PrintSheet({ className, page, children }: { className: string; p
  * else.
  */
 export function PrintLabels({ numbers, caption, code }: { numbers: readonly string[]; caption?: string; code?: string }) {
-  const logo = useLabelLogo(useView().office)
+  const { office } = useView()
+  const logo = useLabelLogo(office, { pure: office.logoBlackWhite })
   const [layout, setLayout] = useState<Layout>(savedLayout)
   const [printing, setPrinting] = usePrinting()
   const choose = (l: Layout) => {

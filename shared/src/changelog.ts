@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.176.0',
+    version: '1.177.0',
     date: '2026-11-12',
     title: "A job's status, who has it and Next, in one column at the top right",
     what: "The top right of a job page now reads the same at every stage, from the top down: the job's status (Enquiry, Quoted, Confirmed and so on) level with its name, then who has the job, then the red Next button. Change who has it right there: type a name or press the arrow, and a small spinner then a green tick show it's saved before the arrow comes back. It gives that person the whole stage the job is in, as the Board does. Next now says what's left to do, such as Offer the Rigger · 3 to offer, with a small pie in the button that fills as the step gets done. The Next line over the button and Hand it on are gone, and where the job is in its five stages is the short line under its name. On a phone, Next stays at the foot of the screen.",
     prs: [355],
     adrs: [161],
+  },
+  {
+    version: '1.176.0',
+    date: '2026-11-12',
+    title: 'A switch to print the logo in pure black and white on labels',
+    what: "Admin › Company › Logo has a new switch, Pure black and white on labels. With it on, every grey and colour in the logo prints as solid black or white on stock and cable labels, which gives the sharpest print on a label printer; pale parts of the logo drop out. The card's label preview shows it before you print. Quotes and their PDFs keep the logo in colour either way. It starts off.",
+    prs: [350],
+    adrs: [163],
   },
   {
     version: '1.175.0',
