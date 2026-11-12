@@ -511,12 +511,18 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .quote-screen .quote-summary .chip:hover { border-color: var(--warn); }
 }
 .quote-screen .undo-line { margin: 0; padding: var(--ds-space-2) 0; font-size: var(--text-small); }
-/* Adding to the quote: a row of what can be added, which the picker or Claude's box takes the place of. */
+/* Adding to the quote: a row of what can be added, which the picker or Claude's box takes the place of. Its fields sit side by side,
+   lined up on their boxes, with the hint under them across the row and Add and Cancel on the line under that: a hint inside one field
+   pushed it, or its neighbour, out of line with the rest (Colly, 12 November 2026). */
 .quote-screen .quote-add { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .quote-screen .quote-add > button { display: inline-flex; align-items: center; gap: var(--ds-space-1); }
 .quote-screen .quote-add > button .icon { width: 16px; height: 16px; }
 .quote-screen .quote-add .adding { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); width: 100%; }
 .quote-screen .quote-add .adding > :first-child { flex: 1 1 16em; }
+.quote-screen .quote-add .adding > .adding-hint { flex: 1 0 100%; margin-top: calc(-1 * var(--ds-space-1)); color: var(--muted); font-size: var(--text-hint); }
+.quote-screen .quote-add .adding > .adding-hint.error { color: var(--bad); }
+/* The kit picker keeps its hint under its own box, so what follows it starts a line of its own. */
+.quote-screen .quote-add .adding > .picker-field { flex-basis: 100%; }
 .quote-screen .quote-add .adding-crew > .count { flex: 0 0 6em; }
 .quote-screen .quote-add .adding-crew > .count + .field { flex: 1 1 14em; }
 .quote-screen .quote-add .adding.ask { display: grid; justify-items: start; }
@@ -974,12 +980,12 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) {
   .quote-screen .group-head .group .fold::after { transition: none; }
 }
-/* While kit or crew is picked on a phone, the readout is one line and the bar steps aside, so the list has the room (finding 15). */
+/* While kit or crew is picked on a phone, the readout is one line, so the list has the room (finding 15). The bar and Next stay at the
+   foot, as on every other screen (Colly, 12 November 2026): it steps aside only while the keyboard is up (Shell.tsx, useBarAway). */
 @media (max-width: 639px) {
   .quote-screen .quote-draft.picking .quote-summary .chips,
   .quote-screen .quote-draft.picking .quote-summary .figure:not(.lead) { display: none; }
   .quote-screen .quote-draft.picking .quote-summary .figure.lead b { font-size: inherit; }
-  html:has(.quote-draft.picking) .foot { display: none; }
 }
 
 /* Jobs at a desk as a table (review of 11 November 2026, finding 14): the page's whole width, a job a line, its parts in columns
