@@ -54,6 +54,8 @@ const MIGRATIONS: string[] = [
   ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp_mode text CHECK (whatsapp_mode IN ('off', 'test', 'on'));
   ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp_test_to text[];
   `,
+  // Whether labels print the logo in pure black and white (ADR 0163), on the "logo" row. No value is off.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_black_white boolean;`,
 ]
 
 export const OFFICE: Module = { versionTable: 'office_schema_version', migrations: MIGRATIONS }

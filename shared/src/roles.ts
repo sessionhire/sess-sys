@@ -235,6 +235,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   // Offers on WhatsApp (ADR 0125): a setting like messages to crew.
   'whatsapp.use': 'settings',
   'cables.colours': 'settings',
+  'logo.blackWhite': 'settings',
   // Trackers (ADR 0107): using them, and where the warehouse is, are settings; which item each is on is stock's.
   'trackers.use': 'settings',
   'trackers.home': 'settings',

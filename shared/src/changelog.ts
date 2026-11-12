@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.176.0',
+    version: '1.177.0',
     date: '2026-11-12',
     title: 'New asks what kind it is first, and quotes live on their jobs',
     what: "Jobs' add button now just says New. Its form asks first whether it's a gig, a dry hire, an errand or a meeting, then only what that kind needs: a dry hire asks for the day the kit goes out and comes back, an errand for the day, where to and a note, a meeting for the day, who with and where. Errands and meetings go straight on as confirmed. Quotes is no longer a page of its own: each quote is on its job's Quote tab, Jobs can be filtered by where the quote stands, and the quotes waiting on you are under Money › To follow up, where old Quotes links now land. On a laptop every heading of the jobs table sorts, press again to turn it round, and there's an Assignee column saying who has the stage each job is in. Where it stands is now called Status.",
     prs: [354],
     adrs: [160],
+  },
+  {
+    version: '1.176.0',
+    date: '2026-11-12',
+    title: 'A switch to print the logo in pure black and white on labels',
+    what: "Admin › Company › Logo has a new switch, Pure black and white on labels. With it on, every grey and colour in the logo prints as solid black or white on stock and cable labels, which gives the sharpest print on a label printer; pale parts of the logo drop out. The card's label preview shows it before you print. Quotes and their PDFs keep the logo in colour either way. It starts off.",
+    prs: [350],
+    adrs: [163],
   },
   {
     version: '1.175.0',
