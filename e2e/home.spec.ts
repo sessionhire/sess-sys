@@ -199,7 +199,7 @@ test("for the office, Home starts with what's waiting on the office, and the quo
   await expect(quotes).toHaveClass(/\bwarn\b/)
   const count = (await quotes.locator('b').textContent())!
   await quotes.click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Quotes' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
   const follow = page.getByRole('region', { name: 'To follow up' })
   const heading = page.getByRole('heading', { name: /^Waiting for an answer/ })
   const waiting = follow.locator(heading)

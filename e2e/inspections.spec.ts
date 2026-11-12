@@ -156,14 +156,14 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
   // Scanning it out for a job warns.
   await page.goto('/#jobs')
   // New job waits behind its button at the top of the list on a phone (audit finding 22).
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  const newJob = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
-  await newJob.getByLabel('Job').fill(job)
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const newJob = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await newJob.getByLabel('Name', { exact: true }).fill(job)
   await newJob.getByLabel('Status').selectOption({ label: 'Confirmed' })
   await newJob.getByLabel('Phase 1', { exact: true }).fill('Show')
   await newJob.getByLabel('Phase 1 from').fill(fromToday(2))
   await newJob.getByLabel('Phase 1 to').fill(fromToday(3))
-  await newJob.getByRole('button', { name: 'Add job' }).click()
+  await newJob.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name: job })).toBeVisible()
   await page.getByRole('tab', { name: 'Kit', exact: true }).click()
   await page.getByRole('button', { name: 'Add kit' }).click()

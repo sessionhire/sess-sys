@@ -6,15 +6,16 @@ import { expect, test } from '@playwright/test'
 
 const id = Math.random().toString(36).slice(2, 8)
 
-test('New job on the Board, the calendar and the week goes to the list with its form open', async ({ page }) => {
+test('New on the Board, the calendar and the week goes to the list with its form open', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   for (const hash of ['#jobs/board', '#jobs/calendar', '#plan/week']) {
     await page.goto(`/${hash}`)
     await expect(page.getByRole('status')).toHaveText('Up to date')
-    await page.getByRole('button', { name: 'New job', exact: true }).click()
+    await page.getByRole('button', { name: 'New', exact: true }).click()
     await expect(page).toHaveURL(/#jobs$/)
-    await expect(page.getByRole('button', { name: 'Add job' })).toBeVisible()
-    await expect(page.getByLabel('Job', { exact: true })).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Add gig' })).toBeVisible()
+    // What kind it is comes first (Colly, 12 November 2026).
+    await expect(page.getByRole('radio', { name: 'Gig' })).toBeFocused()
   }
 })
 

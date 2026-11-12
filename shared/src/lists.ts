@@ -1,10 +1,10 @@
 import { crewFill, type JobView } from './sync/jobs-view.ts'
-import type { QuoteRow } from './sync/money-view.ts'
+import { QUOTE_SHOWS, type QuoteRow, type QuoteShow } from './sync/money-view.ts'
 import type { PersonView } from './sync/crew-view.ts'
 import { DEPARTMENT_LABELS, type Department } from './stock.ts'
 import { KIND_LABELS, PROJECT_KINDS, PROJECT_STATUSES, STATUS_LABELS, STOPPED } from './jobs.ts'
 import { JOB_STAGES, STAGE_LABELS } from './steps.ts'
-import type { JobSteps } from './sync/steps-view.ts'
+import { stageHolder, type JobSteps } from './sync/steps-view.ts'
 import { APPLICANT_LEVEL, LEVELS, levelLine } from './crew-departments.ts'
 
 /**
@@ -67,9 +67,20 @@ export function activeFilters<T>(filters: readonly ListFilter<T>[], chosen: List
   })
 }
 
+/**
+ * A sort chosen the other way round: its key with this after it, "name:desc" (Colly, 12 November 2026: a table's heads sort
+ * one way, then the other). Kept with the sort, on the device, so the list opens the way it was left.
+ */
+export const REVERSED = ':desc'
+/** The sort's own key, without which way round it runs. */
+export const sortKeyOf = (chosen: string) => (chosen.endsWith(REVERSED) ? chosen.slice(0, -REVERSED.length) : chosen)
+/** Whether the sort chosen runs the other way round from the way its name says. */
+export const sortReversed = (chosen: string) => chosen.endsWith(REVERSED)
+
 /** The sort chosen, or the list's first when the one chosen isn't offered here. */
 export function sortOf<T>(sorts: readonly ListSort<T>[], key: string): ListSort<T> | undefined {
-  return sorts.find((s) => s.key === key) ?? sorts[0]
+  const own = sortKeyOf(key)
+  return sorts.find((s) => s.key === own) ?? sorts[0]
 }
 
 /** The items that pass the filters, in the order chosen. The list's own order breaks ties, so nothing jumps about. */
@@ -78,7 +89,9 @@ export function listed<T>(items: readonly T[], filters: readonly ListFilter<T>[]
   const sort = sortOf(sorts, choices.sort)
   if (!sort) return kept
   const at = new Map(items.map((item, i) => [item, i]))
-  return kept.sort((a, b) => sort.compare(a, b) || at.get(a)! - at.get(b)!)
+  // The other way round when it was asked for, and offered: a sort no longer offered falls back to the first, the way it says.
+  const way = sortReversed(choices.sort) && sort.key === sortKeyOf(choices.sort) ? -1 : 1
+  return kept.sort((a, b) => way * sort.compare(a, b) || at.get(a)! - at.get(b)!)
 }
 
 /** How many each choice of a filter would show, the other filters as they are; `any` is the count with this filter on any. */
@@ -102,8 +115,34 @@ const lastIfNone = <V>(a: V | undefined | null, b: V | undefined | null, compare
 
 // Jobs
 
-/** Jobs' orders. By date runs the way the chosen tab reads: soonest first coming up, the newest first in the past. */
-export function jobSorts(newestFirst: boolean): ListSort<JobView>[] {
+/**
+ * Who has a job (Colly, 12 November 2026, "assignee"): the member of staff given the open tasks of the stage it's in, as its Board
+ * card says (ADR 0144). "Split" when they're shared out, '' when nobody has been named yet, undefined when there's nothing to
+ * hand anyone: an errand, a meeting, a job through or not going ahead.
+ */
+export function assigneeOf(s: JobSteps | undefined): string | undefined {
+  const holder = s ? stageHolder(s) : undefined
+  if (!holder) return undefined
+  return holder.split ? 'Split' : (holder.owner?.name.trim() ?? '')
+}
+
+/**
+ * Where a job stands as one order (the Status column): enquiries, then quoted, then confirmed jobs by the stage they're in and
+ * through ones after, then errands and meetings, then the ones not going ahead.
+ */
+function statusRank(j: JobView, s: JobSteps | undefined): number {
+  if (STOPPED.includes(j.status)) return 100 + PROJECT_STATUSES.indexOf(j.status)
+  if (j.status !== 'confirmed') return PROJECT_STATUSES.indexOf(j.status)
+  if (!s || s.stopped) return 90
+  if (s.finished) return 80
+  return 10 + (s.stage ? JOB_STAGES.indexOf(s.stage.key) : 0)
+}
+
+/**
+ * Jobs' orders. By date runs the way the chosen tab reads: soonest first coming up, the newest first in the past. With the
+ * jobs' tasks, also by where each stands and who has it, as the table's Status and Assignee columns sort.
+ */
+export function jobSorts(newestFirst: boolean, steps?: (job: JobView) => JobSteps | undefined): ListSort<JobView>[] {
   const start = (j: JobView) => j.span?.start
   return [
     {
@@ -130,6 +169,13 @@ export function jobSorts(newestFirst: boolean): ListSort<JobView>[] {
         return short(b) - short(a)
       },
     },
+    { key: 'venue', label: 'Venue, A to Z', compare: (a, b) => lastIfNone(a.venue?.name, b.venue?.name, byName) },
+    ...(steps
+      ? [
+          { key: 'status', label: 'Status', compare: (a: JobView, b: JobView) => statusRank(a, steps(a)) - statusRank(b, steps(b)) },
+          { key: 'assignee', label: 'Assignee, A to Z', compare: (a: JobView, b: JobView) => lastIfNone(assigneeOf(steps(a)), assigneeOf(steps(b)), byName) },
+        ]
+      : []),
   ]
 }
 
@@ -142,7 +188,12 @@ export function jobFilters(
   stopped: boolean,
   steps?: (job: JobView) => JobSteps | undefined,
   /** Whose (Move 9 of the sweep of 6 November 2026): the jobs someone is booked on, and each department's, first in the list. */
-  lens?: { mine?: (job: JobView) => boolean; departments?: readonly { name: string; test: (job: JobView) => boolean }[] }
+  lens?: { mine?: (job: JobView) => boolean; departments?: readonly { name: string; test: (job: JobView) => boolean }[] },
+  /**
+   * Where each job's quote stands, for whoever reads the money (ADR 0042): a quote is part of its job, so Jobs finds them by it
+   * now Quotes isn't a page of its own (Colly, 12 November 2026). Undefined: no quote yet.
+   */
+  quoteOf?: (job: JobView) => QuoteShow | undefined
 ): ListFilter<JobView>[] {
   const crew = (j: JobView) => crewFill(j.calls)
   // Where each job is, and its tasks late or down to nobody, so a count of them on Home opens the jobs it counted (audit, 5 November 2026, finding 20).
@@ -193,6 +244,19 @@ export function jobFilters(
       // A job not going ahead is on a tab of its own, so the other tabs don't offer its statuses, and it offers only them.
       options: PROJECT_STATUSES.filter((s) => STOPPED.includes(s) === stopped).map((s) => ({ key: s, label: STATUS_LABELS[s], test: (j: JobView) => j.status === s })),
     },
+    ...(quoteOf
+      ? [
+          {
+            key: 'quote',
+            label: 'Quote',
+            any: 'Any quote',
+            options: [
+              ...QUOTE_SHOWS.filter(([k]) => k !== 'all').map(([k, label]) => ({ key: k, label, test: (j: JobView) => quoteOf(j) === k })),
+              { key: 'none', label: 'No quote yet', test: (j: JobView) => !quoteOf(j) },
+            ],
+          },
+        ]
+      : []),
     {
       key: 'kind',
       label: 'Kind',

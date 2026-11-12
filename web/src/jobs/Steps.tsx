@@ -64,7 +64,7 @@ export function StepsCard({
   if (steps.stopped && steps.steps.every((s) => !s.ownerId && !s.ticked)) {
     // An errand, a meeting, or a stopped job nobody had started on: a line, not a tracker.
     return (
-      <section className="card job-steps" aria-label="Where it is">
+      <section className="card job-steps" aria-label="Status">
         <p className="hint">{steps.stopped}</p>
       </section>
     )
@@ -94,7 +94,7 @@ export function StepsCard({
   return (
     <section className="card job-steps" aria-labelledby="job-steps-title">
       <header className="steps-head">
-        <h2 id="job-steps-title">Where it is</h2>
+        <h2 id="job-steps-title">Status</h2>
         {steps.stopped && <p className="hint">{steps.stopped}</p>}
       </header>
       <ol className="stages-flow" data-stopped={steps.stopped ? 'true' : undefined} data-tone={tone}>

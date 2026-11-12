@@ -22,7 +22,7 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
   const next = office.getByRole('region', { name: 'Next' })
-  const where = office.getByRole('region', { name: 'Where it is' })
+  const where = office.getByRole('region', { name: 'Status', exact: true })
   // Being sold, it opens on its quote (ADR 0140, part 8), whose What happened holds the answer, so Next says so in words.
   await expect(office.getByRole('tab', { name: /^Quote/ })).toHaveAttribute('aria-selected', 'true')
   await expect(next).toContainText("Record the client's answer below, under What happened.")
@@ -46,11 +46,8 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await office.goto('/#jobs')
   await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' }).locator('.job-position')).toContainText('Planning')
 
-  // The quote says the same: accepted today, and nothing left to put in step.
-  await office.goto('/#quotes/all')
-  const row = office.getByRole('region', { name: 'All quotes' }).getByRole('listitem').filter({ hasText: 'Corrib Arts Week' })
-  await expect(row).toContainText(/Accepted \w{3} \d+ \w{3}/)
-  await office.goto('/#quotes')
+  // The quote says the same: nothing left to put in step.
+  await office.goto('/#jobs/money/follow-up')
   await expect(office.getByRole('region', { name: 'To follow up' })).not.toContainText('Corrib Arts Week')
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)

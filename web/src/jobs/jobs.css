@@ -984,13 +984,14 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Jobs at a desk as a table (review of 11 November 2026, finding 14): the page's whole width, a job a line, its parts in columns
    under heads that sort. The heads and every row share one set of columns; venue gives way first on a narrow laptop. */
-.jobs-wide { --job-columns: minmax(0, 2.4fr) minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1.8fr) minmax(0, 0.9fr); }
+.jobs-wide { --job-columns: minmax(0, 2.4fr) minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1.8fr) minmax(0, 1.1fr) minmax(0, 0.9fr); }
 .jobs-wide .job-table-head, .app .job-row.in-table { display: grid; grid-template-columns: var(--job-columns); gap: var(--ds-space-3); align-items: center; }
 .jobs-wide .job-table-head { position: sticky; top: var(--under-top, 0px); z-index: 2; padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--line); background: var(--panel); font-size: var(--text-hint); color: var(--muted); }
 .jobs-wide .job-table-head > * { font: inherit; font-weight: 600; color: inherit; text-align: left; }
 .jobs-wide .job-table-head button { min-height: 32px; padding: 0; border: 0; background: none; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 .jobs-wide .job-table-head button[aria-pressed='true'] { color: var(--ink); text-decoration: none; }
 .jobs-wide .job-table-head button[aria-pressed='true']::after { content: ' ↓'; }
+.jobs-wide .job-table-head button[data-way='reversed']::after { content: ' ↑'; }
 .app .job-row.in-table { padding: var(--ds-space-2) 0; font-size: var(--text-small); }
 .app .job-row.in-table > span { min-width: 0; overflow-wrap: anywhere; }
 .app .job-row.in-table .c-name { display: grid; gap: var(--ds-space-half); }
@@ -1002,7 +1003,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .app .job-row.in-table:hover { background: var(--ds-wash-hover); }
 .jobs-wide .jobs-card .week-head { top: calc(var(--under-top, 0px) + 40px); }
 @media (max-width: 1199px) {
-  .jobs-wide { --job-columns: minmax(0, 2.4fr) minmax(0, 1.5fr) minmax(0, 1.5fr) 0 minmax(0, 1.8fr) minmax(0, 0.9fr); }
+  .jobs-wide { --job-columns: minmax(0, 2.4fr) minmax(0, 1.5fr) minmax(0, 1.5fr) 0 minmax(0, 1.8fr) minmax(0, 1.1fr) minmax(0, 0.9fr); }
   .jobs-wide .job-table-head > :nth-child(4), .app .job-row.in-table .c-venue { visibility: hidden; overflow: hidden; }
 }
 

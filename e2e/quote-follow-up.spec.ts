@@ -147,7 +147,7 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
   await office.goto(job)
   await expect(office.locator('main')).toContainText('Enquiry by phone from Aoife Byrne.')
   // The quote's day is on its task, a press away under the stages (ADR 0140, part 3).
-  await office.getByRole('region', { name: 'Where it is' }).getByRole('button', { name: /tasks? to do in Quoting$/ }).click()
+  await office.getByRole('region', { name: 'Status', exact: true }).getByRole('button', { name: /tasks? to do in Quoting$/ }).click()
   await expect(office.locator('main')).toContainText(/Due by|· by /)
   await office.goto(`${job}/quote`)
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })

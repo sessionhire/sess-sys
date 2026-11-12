@@ -56,10 +56,10 @@ import { Sideways } from '../more.tsx'
 import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
-import { JOBS, MONEY, QUOTES } from '../Up.tsx'
+import { JOBS, MONEY } from '../Up.tsx'
 import { useToday } from '../view.ts'
-import { ByClaude, FromEnquiry, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
-import { ClientField, clientNamed, contactAdded, NewOrNear, Top, VenueField, venueNamed } from './common.tsx'
+import { ByClaude, FromEnquiry, FromMailbox, offer, pricingOf, Suggestions, takingWords, useClaude, type Offered } from './Claude.tsx'
+import { ClientField, clientNamed, contactAdded, newQuoteHref, NewOrNear, Top, VenueField, venueNamed } from './common.tsx'
 import { NameField } from '../NameField.tsx'
 import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { PackagesCard } from './Packages.tsx'
@@ -95,10 +95,11 @@ export function NotYours({ view, here }: { view: View; here?: string }) {
 }
 
 /** Money's parts (review of 11 November 2026, finding 20): each a screen or two on a phone rather than twelve in one. */
-export const MONEY_PARTS = ['month', 'owed', 'margins', 'accountant'] as const
+/** Money's parts. To follow up is the quotes waiting on the office, here since Quotes stopped being a page of its own (Colly, 12 November 2026). */
+export const MONEY_PARTS = ['month', 'follow', 'owed', 'margins', 'accountant'] as const
 export type MoneyPart = (typeof MONEY_PARTS)[number]
-const MONEY_LABELS: Record<MoneyPart, string> = { month: 'This month', owed: 'Owed', margins: 'Margins', accountant: 'For the accountant' }
-const moneyHref = (p: MoneyPart) => (p === 'month' ? '#jobs/money' : `#jobs/money/${p}`)
+const MONEY_LABELS: Record<MoneyPart, string> = { month: 'This month', follow: 'To follow up', owed: 'Owed', margins: 'Margins', accountant: 'For the accountant' }
+const moneyHref = (p: MoneyPart) => (p === 'month' ? '#jobs/money' : p === 'follow' ? '#jobs/money/follow-up' : `#jobs/money/${p}`)
 
 export function MoneyScreen({ view, part = 'month' }: { view: View; part?: MoneyPart }) {
   const today = useToday()
@@ -110,7 +111,7 @@ export function MoneyScreen({ view, part = 'month' }: { view: View; part?: Money
   const freelancers = view.office.useTimesheets || m.costsOwed.length > 0
   return (
     <div className="app crew jobs money">
-      <Top view={view} views={<JobViews current="money" />} heading="Money" />
+      <Top view={view} views={<JobViews current="money" />} heading="Money" add={{ key: 'quote', label: 'New quote', page: newQuoteHref() }} />
       <Tabs label="Parts of Money" id="money" parts={MONEY_PARTS} labels={MONEY_LABELS} current={part} onPick={pick} />
       <TabPanel id="money" current={part}>
         {part === 'month' && (
@@ -118,11 +119,17 @@ export function MoneyScreen({ view, part = 'month' }: { view: View; part?: Money
             <section className="card plain">
               <MoneyFacts view={view} today={today} />
               <p className="hint">
-                Before VAT, by the month each job starts, except what's accepted and unpaid, which is with VAT, as an invoice asks. <a href="#quotes">Quotes</a> · <a href="#jobs/money/prices">Price list</a> ·{' '}
+                Before VAT, by the month each job starts, except what's accepted and unpaid, which is with VAT, as an invoice asks. <a href="#jobs/money/follow-up">Quotes to follow up</a> · <a href="#jobs/money/prices">Price list</a> ·{' '}
                 <a href="#jobs/money/current-rms">Past quotes from Current RMS</a>
               </p>
             </section>
             <ByMonth m={m} />
+          </>
+        )}
+        {part === 'follow' && (
+          <>
+            <FromMailbox view={view} />
+            <ToFollowUp view={view} />
           </>
         )}
         {part === 'owed' && (
@@ -335,8 +342,8 @@ export function QuotesToChase({ view }: { view: View }) {
     <section className="card quotes-to-follow" aria-label="Quotes to follow up">
       <Heading icon="document">Quotes to follow up</Heading>
       <p className="hint">
-        Sent over a week ago with no answer, or answered with the job not yet in step. The app contacts nobody: ring or email the client yourself. All
-        quotes are on <a href="#quotes">Quotes</a>.
+        Sent over a week ago with no answer, or answered with the job not yet in step. The app contacts nobody: ring or email the client yourself. Every
+        job's quote is on its Quote tab; Jobs finds them by Filter › Quote.
       </p>
       <QuoteGroups f={f} chaseOnly />
     </section>
@@ -366,9 +373,9 @@ function enquiryLine(by: string, how: EnquiryWay | ''): string {
 export function NewQuoteScreen({ view, on }: { view: View; on?: string | undefined }) {
   return (
     <div className="app crew jobs money quotes new-quote-page">
-      <Top view={view} title="New quote" up={{ steps: [QUOTES], here: 'New quote' }} heading="New quote" />
+      <Top view={view} title="New quote" up={{ steps: [JOBS], here: 'New quote' }} heading="New quote" />
       <section className="card">
-        <NewQuote view={view} on={on} onCancel={() => location.replace('#quotes')} />
+        <NewQuote view={view} on={on} onCancel={() => location.replace('#jobs')} />
       </section>
     </div>
   )

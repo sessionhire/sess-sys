@@ -26,7 +26,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { keys: ['G', 'H'], what: 'Home', go: '#home' },
   { keys: ['G', 'J'], what: 'Jobs', go: '#jobs' },
   { keys: ['G', 'P'], what: 'The planner', go: '#jobs/plan' },
-  { keys: ['G', 'Q'], what: 'Quotes', go: '#quotes', money: true },
+  { keys: ['G', 'Q'], what: 'Quotes to follow up', go: '#jobs/money/follow-up', money: true },
   { keys: ['G', 'S'], what: 'Stock', go: '#stock' },
   { keys: ['G', 'C'], what: 'Crew', go: '#crew' },
   { keys: ['G', 'M'], what: 'Menu', go: '#menu' },

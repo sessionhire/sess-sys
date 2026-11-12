@@ -44,7 +44,7 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await page.getByRole('button', { name: "That's me" }).click()
 
   await page.goto(`/#jobs/j-${id}`)
-  const where = page.getByRole('region', { name: 'Where it is' })
+  const where = page.getByRole('region', { name: 'Status', exact: true })
   const next = page.getByRole('region', { name: 'Next' })
   // Confirmed, so the quote and the yes are done and the job is in Planning; the crew is next, which the app ticks once every call is booked.
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName('2. Planning, the stage the job is in, 0 of 2 done')
@@ -132,7 +132,7 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
     const desk = await (await browser.newContext({ viewport: deskSize })).newPage()
     await desk.goto(`/#jobs/j-${id}`)
     await expect(desk.getByRole('status')).toHaveText('Up to date')
-    await desk.getByRole('region', { name: 'Where it is' }).screenshot(shot('job-steps'))
+    await desk.getByRole('region', { name: 'Status', exact: true }).screenshot(shot('job-steps'))
   }
 })
 
@@ -285,7 +285,7 @@ test('an enquiry whose dates passed with no answer is counted on Home, folded on
   const next = page.getByRole('region', { name: 'Next' })
   await expect(next).toContainText('Next · Quoting · Dates passed, no answer')
   await next.getByRole('button', { name: 'Record what happened' }).click()
-  await expect(page.getByRole('region', { name: 'Where it is' }).getByRole('button', { name: 'The client said no' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Status', exact: true }).getByRole('button', { name: 'The client said no' })).toBeVisible()
 })
 
 test('kit never scanned out after a job is still to check back in, said the same on Home and the Board, with how long ago it ended', async ({ browser, request }) => {

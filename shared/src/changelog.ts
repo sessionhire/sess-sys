@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.175.0',
+    date: '2026-11-12',
+    title: 'New asks what kind it is first, and quotes live on their jobs',
+    what: "Jobs' add button now just says New. Its form asks first whether it's a gig, a dry hire, an errand or a meeting, then only what that kind needs: a dry hire asks for the day the kit goes out and comes back, an errand for the day, where to and a note, a meeting for the day, who with and where. Errands and meetings go straight on as confirmed. Quotes is no longer a page of its own: each quote is on its job's Quote tab, Jobs can be filtered by where the quote stands, and the quotes waiting on you are under Money › To follow up, where old Quotes links now land. On a laptop every heading of the jobs table sorts, press again to turn it round, and there's an Assignee column saying who has the stage each job is in. Where it stands is now called Status.",
+    prs: [0],
+    adrs: [160],
+  },
+  {
     version: '1.174.0',
     date: '2026-11-12',
     title: "Quotes charge the crew's accommodation on a job far enough to stay over",
