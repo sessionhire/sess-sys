@@ -533,6 +533,12 @@ Finding 17, a member of staff's own offers said to them, is in 1.181.0
 further than the fix: a job confirmed while they hold the day for it is
 said as their booking, and a change that ended their offer says why, the
 call cancelled or the job stopped.
+The three problems the batches' own checks left at 2 are in 1.182.1
+([ADR 0169](adr/0169-what-the-crew-offers-audit-left-at-2.md)): an
+offer's row says where the WhatsApp that followed it got to, the question
+before an Agree that fills the call names the offers still waiting that
+close with it, and a call across phases that holds a day no phase has
+says so on its card.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
