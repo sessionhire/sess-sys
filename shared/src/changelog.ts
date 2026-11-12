@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: 'The company logo has its own place in Admin, with what kind of file works best',
     what: "Admin › Company has a Logo card of its own, where it used to sit inside Labels. Put up once, it heads every printed quote and its PDF and prints on every stock and cable label, and the card shows it both ways: in colour as a quote has it, and in black as a label printer prints it. It says what works best: an SVG or PNG, at least 1200 pixels across, wide rather than square, dark on a see-through or white background, cropped close. An SVG can now be put up too. If the file sent is small or nearly square, it still goes up, and the card says why it may print soft or small.",
-    prs: [0],
+    prs: [345],
     adrs: [155],
   },
   {
