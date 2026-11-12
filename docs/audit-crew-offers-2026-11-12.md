@@ -514,9 +514,9 @@ part, each person's own invite on a job brought in from Google Calendar
 two things: the offers already on those jobs keep none, so deploying it
 emails nobody, and each row says why, the organiser's guest or offered
 before; and calls that aren't part of a job waited on #313, which asked
-whether new ones could still be made. They can't now: crew are asked for
-from a job ([ADR 0142](adr/0142-crew-are-asked-for-from-a-job.md)), and
-the calls already made without one work as before. Finding 11, a call's days tied to its
+whether new ones could still be made. Since 1.183.1 they can't: crew are
+asked for from a job ([ADR 0142](adr/0142-crew-are-asked-for-from-a-job.md)),
+and the calls already made without one work as before. Finding 11, a call's days tied to its
 phase, is in 1.174.1
 ([ADR 0159](adr/0159-a-crew-call-keeps-to-its-phase.md)). It differs in
 one thing: the days are picked with From and To among the phase's days
@@ -548,6 +548,13 @@ offer's row says where the WhatsApp that followed it got to, the question
 before an Agree that fills the call names the offers still waiting that
 close with it, and a call across phases that holds a day no phase has
 says so on its card.
+
+That closes the audit. Every finding is built, and so is every problem the
+fixes' own checks left at 2 or 3, bar one that comes with a decision: crew
+for a day that isn't a show need a quick job made first (ADR 0142). What
+waits is outside the app: WhatsApp's setup in Meta, with its templates,
+and Colly trying "Tell crew what happens next" on the office's own
+addresses before turning it on.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -585,7 +592,8 @@ says so on its card.
    brought in, and a fresh invitation after a No. **A call's days tied to
    its phase done in 1.174.1. Undo on an offer done in 1.178.0. Asking for
    the same crew again done in 1.180.0. Staff notices said to them done in
-   1.181.0.**
+   1.181.0. Calls with no job settled in 1.183.1: crew are asked for from
+   a job.**
 
 ## Questions for Colly
 
