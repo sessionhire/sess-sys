@@ -97,7 +97,7 @@ test('a half-made line holds back only itself, and own kit is costed once the of
   await expect(summary).toContainText('own kit not costed')
 })
 
-test('a long draft on a phone opens folded to its groups, and picking kit there has the screen', async ({ browser, request }) => {
+test('a long draft on a phone opens folded to its groups, and picking kit there shortens the readout and keeps the bar', async ({ browser, request }) => {
   const id = Date.now().toString(36)
   const lines = Array.from({ length: 14 }, (_, i) => other(`l${i}-${id}`, `Line ${i + 1}`, 1_000, i < 8 ? 'FOH' : 'Monitors'))
   await push(request, id, job(id, `Festival ${id}`, lines))
@@ -115,12 +115,25 @@ test('a long draft on a phone opens folded to its groups, and picking kit there 
   await expect(draft.getByRole('button', { name: 'Line 1, change it' })).toBeVisible()
   await expect(draft.getByRole('button', { name: /^Monitors/ })).toHaveAttribute('aria-expanded', 'false')
 
-  // Picking kit: the readout is one line and the bar steps aside.
+  // Picking kit: the readout is one line, and the bar stays at the foot, as on every other screen (Colly, 12 November 2026).
   await expect(office.locator('.foot')).toBeVisible()
   await draft.getByRole('button', { name: 'Add kit' }).click()
   await expect(draft.locator('.quote-summary .figure').filter({ hasText: 'Total' })).toBeHidden()
-  await expect(office.locator('.foot')).toBeHidden()
+  await expect(office.locator('.foot')).toBeVisible()
   await office.keyboard.press('Escape')
+  await expect(office.locator('.foot')).toBeVisible()
+
+  // Adding crew: How many and the role line up on their boxes, the hint under both, and Add under that (Colly, 12 November 2026).
+  await draft.getByRole('button', { name: 'Add crew' }).click()
+  const count = (await draft.getByLabel('How many').boundingBox())!
+  const role = (await draft.getByLabel('Crew role to add').boundingBox())!
+  const hint = (await draft.getByText("Priced from the price list, for the job's days.").boundingBox())!
+  const add = (await draft.getByRole('button', { name: 'Add', exact: true }).boundingBox())!
+  expect(Math.abs(count.y - role.y)).toBeLessThan(1)
+  expect(Math.abs(count.y + count.height - (role.y + role.height))).toBeLessThan(1)
+  expect(hint.y).toBeGreaterThanOrEqual(role.y + role.height)
+  expect(add.y).toBeGreaterThanOrEqual(hint.y + hint.height)
+  await expect(draft.getByLabel('Crew role to add')).toHaveAccessibleDescription("Priced from the price list, for the job's days.")
   await expect(office.locator('.foot')).toBeVisible()
 })
 
