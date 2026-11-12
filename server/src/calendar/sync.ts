@@ -609,12 +609,18 @@ export class CalendarSync {
       {
         id: newId(),
         name: 'offer.respond',
-        args: answer.answer === 'accept' ? { id: offer.id, answer: 'accept', days: answer.days, note } : { id: offer.id, answer: 'decline', note },
+        args:
+          answer.answer === 'accept'
+            ? { id: offer.id, answer: 'accept', days: answer.days, note, ...(answer.asked.length ? { asked: answer.asked } : {}) }
+            : answer.answer === 'undecided'
+              ? { id: offer.id, answer: 'undecided', days: answer.days, note }
+              : { id: offer.id, answer: 'decline', note },
         createdAt: new Date().toISOString(),
       },
       { via: 'calendar' }
     )
-    return result.status === 'rejected' ? problems.notTaken(answer.answer, result.reason.message) : null
+    // A No to the days they'd said yes to is a No, as the person pressed it.
+    return result.status === 'rejected' ? problems.notTaken(answer.answer === 'accept' ? 'accept' : 'decline', result.reason.message) : null
   }
 
   /** Put one day on the calendar as it should be now, with its guests when invites are on. */

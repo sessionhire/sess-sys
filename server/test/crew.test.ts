@@ -1015,6 +1015,189 @@ describe('booking rules', () => {
   })
 })
 
+/**
+ * The answers the office settles (ADR 0152): a Yes in Google Calendar counts for the day it was pressed on, with the days
+ * it didn't answer still asked; a rate asked for waits for the office, whose Confirm or Agree closes it once the call is
+ * full; and saying no to a rate keeps the offer open at the rate offered.
+ */
+describe('answers the office settles (ADR 0152)', () => {
+  const history = async (app: FastifyInstance) => ((await app.inject({ url: '/api/history' })).json() as HistoryPage).entries.map((e) => e.what)
+
+  it("leaves a rate asked for with the office when someone's yes fills the call, and the office's Confirm closes it", async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const niall = await person(app, 'Niall Kerr')
+    const siobhan = await person(app, 'Siobhán Doyle')
+    const c = await call(app, { start: '2026-10-10', end: '2026-10-10' })
+    const a = await offer(app, c, aoife.id)
+    const n = await offer(app, c, niall.id)
+    const s = await offer(app, c, siobhan.id)
+    expect(await answer(app, niall.linkToken, n.id, { answer: 'counter', rate: '300' })).toMatchObject({ ok: true })
+    expect(await answer(app, aoife.linkToken, a.id, { answer: 'accept' })).toMatchObject({ ok: true })
+    // Siobhán, only asked, is told it's filled; Niall's rate is still the office's to answer, which Aoife's yes doesn't do for it.
+    expect((await entity<Offer>(app, 'offer', s.id)).status).toBe('filled')
+    expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'countered', counterRateCents: 30000 })
+    expect(cardOf((await app.inject({ url: `/f/${niall.linkToken}` })).body, n.id)).toContain('€300 a day asked')
+
+    expect(await send(app, 'offer.confirm', { id: a.id })).toMatchObject({ status: 'applied' })
+    expect((await entity<Offer>(app, 'offer', a.id)).status).toBe('confirmed')
+    expect((await entity<Offer>(app, 'offer', n.id)).status).toBe('filled')
+  })
+
+  it('closes the other rates asked for when agreeing one fills the call', async () => {
+    const app = await server()
+    const niall = await person(app, 'Niall Kerr')
+    const siobhan = await person(app, 'Siobhán Doyle')
+    const c = await call(app, { start: '2026-10-10', end: '2026-10-10' })
+    const n = await offer(app, c, niall.id)
+    const s = await offer(app, c, siobhan.id)
+    await answer(app, niall.linkToken, n.id, { answer: 'counter', rate: '300' })
+    await answer(app, siobhan.linkToken, s.id, { answer: 'counter', rate: '320' })
+    expect(await send(app, 'offer.confirm', { id: n.id })).toMatchObject({ status: 'applied' })
+    expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'confirmed', dayRateCents: 30000 })
+    expect(await entity<Offer>(app, 'offer', s.id)).toMatchObject({ status: 'filled', counterRateCents: 32000 })
+  })
+
+  it('says no to a rate, keeping the offer open at the rate offered for the days it was asked for', async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const c = await call(app)
+    const a = await offer(app, c, aoife.id)
+    await answer(app, aoife.linkToken, a.id, { answer: 'counter', picker: '1', days: ['2026-10-03', '2026-10-04'], rate: '300' })
+
+    expect(await send(app, 'offer.refuse', { id: a.id })).toMatchObject({ status: 'applied' })
+    // The rate asked for is kept, so the page can say it wasn't agreed; no day comes back that she left out.
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ status: 'offered', days: ['2026-10-03', '2026-10-04'], dayRateCents: 25000, counterRateCents: 30000 })
+    expect((await history(app))[0]).toBe('Said no to the rate Aoife Byrne asked for Audio tech on Electric Picnic: the offer stands at the rate offered')
+    const card = said(cardOf((await app.inject({ url: `/f/${aoife.linkToken}` })).body, a.id))
+    expect(card).toContain("<p class=\"news\">The office can't do €300 a day, so the offer stands at €250 a day.</p>")
+    // Accept is the answer again, and the rate box is empty for a new ask, not filled with the one turned down.
+    expect(card).toContain('<button class="yes" name="answer" value="accept">Accept these days</button>')
+    expect(card).toContain('<input name="rate" inputmode="decimal" value="">')
+
+    // Her yes is at the rate offered, which clears the rate asked for.
+    expect(await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: ['2026-10-03', '2026-10-04'] })).toMatchObject({
+      ok: true,
+      message: "Thanks, you're down for it. The office will confirm.",
+    })
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ status: 'accepted', days: ['2026-10-03', '2026-10-04'], counterRateCents: null })
+    expect(cardOf((await app.inject({ url: `/f/${aoife.linkToken}` })).body, a.id)).not.toContain("can't do")
+  })
+
+  it('closes an offer whose rate is said no to when the call filled while it waited', async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const niall = await person(app, 'Niall Kerr')
+    const c = await call(app, { start: '2026-10-10', end: '2026-10-10' })
+    const a = await offer(app, c, aoife.id)
+    const n = await offer(app, c, niall.id)
+    await answer(app, aoife.linkToken, a.id, { answer: 'counter', rate: '300' })
+    await answer(app, niall.linkToken, n.id, { answer: 'accept' })
+    expect((await entity<Offer>(app, 'offer', a.id)).status).toBe('countered')
+    expect(await send(app, 'offer.refuse', { id: a.id })).toMatchObject({ status: 'applied' })
+    expect((await entity<Offer>(app, 'offer', a.id)).status).toBe('filled')
+  })
+
+  it('says no to a rate once, and only to a rate', async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const c = await call(app)
+    const a = await offer(app, c, aoife.id)
+    // Already only asked, as after a Say no from another device: nothing more to do.
+    expect(await send(app, 'offer.refuse', { id: a.id })).toMatchObject({ status: 'applied' })
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ status: 'offered', counterRateCents: null })
+    await answer(app, aoife.linkToken, a.id, { answer: 'accept' })
+    expect(await send(app, 'offer.refuse', { id: a.id })).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'conflict', message: "There's no rate to say no to: this offer is accepted." },
+    })
+    expect(await send(app, 'offer.refuse', { id: newId() })).toMatchObject({ status: 'rejected', reason: { code: 'not-found' } })
+    expect((await entity<Offer>(app, 'offer', a.id)).status).toBe('accepted')
+  })
+
+  it("counts a Yes in Google for its own day, keeps the days it didn't answer asked, and Confirm ends the ask", async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const niall = await person(app, 'Niall Kerr')
+    const c = await call(app)
+    const a = await offer(app, c, aoife.id)
+    const n = await offer(app, c, niall.id)
+    // As the calendar sends it, for a Yes on the Friday's invite alone.
+    expect(await send(app, 'offer.respond', { id: a.id, answer: 'accept', days: ['2026-10-02'], asked: ['2026-10-03', '2026-10-04'], note: '' })).toMatchObject({ status: 'applied' })
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ status: 'accepted', days: ['2026-10-02'], asked: ['2026-10-03', '2026-10-04'] })
+    expect((await history(app))[0]).toBe('Aoife Byrne accepted Audio tech on Electric Picnic, Fri 2 Oct; no answer yet for Sat 3 Oct to Sun 4 Oct')
+    expect(said(cardOf((await app.inject({ url: `/f/${aoife.linkToken}` })).body, a.id))).toContain(
+      "<p class=\"small\">You haven't answered for Sat 3 Oct to Sun 4 Oct yet. Tick them if you can do them, or leave them unticked, and press Update my days.</p>"
+    )
+    // The days she hasn't answered hold nothing, so the call is still open for them.
+    expect((await entity<Offer>(app, 'offer', n.id)).status).toBe('offered')
+
+    expect(await send(app, 'offer.confirm', { id: a.id })).toMatchObject({ status: 'applied' })
+    const booked = await entity<Offer>(app, 'offer', a.id)
+    expect(booked).toMatchObject({ status: 'confirmed', days: ['2026-10-02'] })
+    expect(booked.asked).toBeUndefined()
+    expect(cardOf((await app.inject({ url: `/f/${aoife.linkToken}` })).body, a.id)).not.toContain("You haven't answered")
+    expect((await entity<Offer>(app, 'offer', n.id)).status).toBe('offered')
+  })
+
+  it('ends the ask for the days someone else takes, once every day has its people', async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const niall = await person(app, 'Niall Kerr')
+    const c = await call(app)
+    const a = await offer(app, c, aoife.id)
+    const n = await offer(app, c, niall.id)
+    await send(app, 'offer.respond', { id: a.id, answer: 'accept', days: ['2026-10-02'], asked: ['2026-10-03', '2026-10-04'], note: '' })
+    expect(await answer(app, niall.linkToken, n.id, { answer: 'accept', picker: '1', days: ['2026-10-03', '2026-10-04'] })).toMatchObject({ ok: true })
+    const aoifes = await entity<Offer>(app, 'offer', a.id)
+    expect(aoifes).toMatchObject({ status: 'accepted', days: ['2026-10-02'] })
+    expect(aoifes.asked).toBeUndefined()
+    expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'accepted', days: ['2026-10-03', '2026-10-04'] })
+  })
+
+  it('asks only about days of the call, and never about a day already said yes to', async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const c = await call(app)
+    const a = await offer(app, c, aoife.id)
+    expect(await send(app, 'offer.respond', { id: a.id, answer: 'accept', days: ['2026-10-02'], asked: ['2026-10-09'], note: '' })).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'invalid', message: 'Fri 9 Oct is not part of this job.' },
+    })
+    expect(await send(app, 'offer.respond', { id: a.id, answer: 'accept', days: ['2026-10-02'], asked: ['2026-10-02', '2026-10-03'], note: '' })).toMatchObject({ status: 'applied' })
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ days: ['2026-10-02'], asked: ['2026-10-03'] })
+    // A day that goes from the call goes from what is asked.
+    expect(await send(app, 'call.update', { id: c, end: '2026-10-02' })).toMatchObject({ status: 'applied' })
+    const after = await entity<Offer>(app, 'offer', a.id)
+    expect(after).toMatchObject({ status: 'accepted', days: ['2026-10-02'] })
+    expect(after.asked).toBeUndefined()
+  })
+
+  it("takes a No in Google to every day they'd said yes to as asked again for the rest, only before Confirm", async () => {
+    const app = await server()
+    const aoife = await person(app, 'Aoife Byrne')
+    const c = await call(app)
+    const a = await offer(app, c, aoife.id)
+    // Only a yes not yet confirmed goes back: on an offer only asked, nothing changes.
+    expect(await send(app, 'offer.respond', { id: a.id, answer: 'undecided', days: ['2026-10-03'], note: '' })).toMatchObject({ status: 'applied' })
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ status: 'offered', days: ['2026-10-02', '2026-10-03', '2026-10-04'] })
+
+    await send(app, 'offer.respond', { id: a.id, answer: 'accept', days: ['2026-10-02'], asked: ['2026-10-03', '2026-10-04'], note: '' })
+    expect(await send(app, 'offer.respond', { id: a.id, answer: 'undecided', days: ['2026-10-09'], note: '' })).toMatchObject({ status: 'rejected', reason: { code: 'invalid' } })
+    expect(await send(app, 'offer.respond', { id: a.id, answer: 'undecided', days: ['2026-10-03', '2026-10-04'], note: '' })).toMatchObject({ status: 'applied' })
+    const asked = await entity<Offer>(app, 'offer', a.id)
+    expect(asked).toMatchObject({ status: 'offered', days: ['2026-10-03', '2026-10-04'] })
+    expect(asked.asked).toBeUndefined()
+    expect((await history(app))[0]).toBe("Aoife Byrne said no to the days they'd said yes to for Audio tech on Electric Picnic; still asked for Sat 3 Oct to Sun 4 Oct")
+
+    await send(app, 'offer.respond', { id: a.id, answer: 'accept', days: ['2026-10-03'], asked: ['2026-10-04'], note: '' })
+    await send(app, 'offer.confirm', { id: a.id })
+    // Once confirmed, it's the office's to change, as with any answer to a booking.
+    expect(await send(app, 'offer.respond', { id: a.id, answer: 'undecided', days: ['2026-10-04'], note: '' })).toMatchObject({ status: 'rejected', reason: { code: 'conflict' } })
+    expect(await entity<Offer>(app, 'offer', a.id)).toMatchObject({ status: 'confirmed', days: ['2026-10-03'] })
+  })
+})
+
 describe('changing a call', () => {
   it("changes a call's time, rate and details, and the freelancer's page, feed and call sheet read the new values", async () => {
     const app = await server()

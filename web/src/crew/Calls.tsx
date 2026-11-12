@@ -9,6 +9,7 @@ import {
   departmentOf,
   sameDepartment,
   eachDay,
+  euro,
   euroText,
   firstName,
   HOLDING,
@@ -58,6 +59,7 @@ import { personHref } from './PersonScreen.tsx'
 import { Avatars } from '../Picture.tsx'
 import { type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
 import { PlainContact, useReach } from './reach.tsx'
+import { AnswerActions, standsAt } from './AnswerActions.tsx'
 import { AdminWords } from '../AdminWords.tsx'
 import { dept, found, wordsOf } from './People.tsx'
 import { RecordPicker } from '../RecordPicker.tsx'
@@ -126,6 +128,7 @@ export function CallCard({
   phaseDays = false,
   phaseNamed = false,
   offerOpened,
+  rowsOpened,
 }: {
   call: CallView
   crew: CrewView
@@ -141,9 +144,14 @@ export function CallCard({
   phaseNamed?: boolean
   /** Opens its Offer from outside each time it changes: the job's Next button landing on the first place to fill (ADR 0140). */
   offerOpened?: number
+  /** Opens its rows from outside each time it changes: the job's Next button landing on a yes or a rate to answer (ADR 0152). */
+  rowsOpened?: number
 }) {
   const mayOffer = useAccess().can('crew')
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(rowsOpened !== undefined)
+  useEffect(() => {
+    if (rowsOpened !== undefined) setOpen(true)
+  }, [rowsOpened])
   const [editing, setEditing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   // The offer or booking being withdrawn, asked first on its line: it can't be taken back, and their link says so at once (rule 1).
@@ -306,6 +314,16 @@ export function CallCard({
                         <AdminWords>{l.text}</AdminWords>
                       </small>
                     ))}
+                    {/* A rate the office said no to: the offer stands at the rate offered, as their page says (ADR 0152). */}
+                    {o.status === 'offered' && o.counterRateCents !== null && !o.rateHidden && (
+                      <small className="on-cal">
+                        Said no to {euro(o.counterRateCents)} a day: the offer stands at {standsAt(o.dayRateCents ?? call.dayRateCents, call.rateHidden)}.
+                      </small>
+                    )}
+                    {/* A yes to confirm, or a rate to answer, settled here as on Crew's Answers to check (audit of 12 November 2026, finding 9). */}
+                    {mayOffer && (o.status === 'accepted' || o.status === 'countered') && (
+                      <AnswerActions o={o} call={call} run={run} onDone={(share) => onTell?.(share)} />
+                    )}
                     {/* Not known is allowed, and said on the offer (ADR 0028). */}
                     {answering && o.person && certificateUnknowns(o.person, needsOf(call), o.days, today).map((w) => (
                       <small key={w} className="warn-line">

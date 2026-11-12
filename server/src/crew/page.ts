@@ -182,6 +182,22 @@ const holdLine = (j: Pick<PageData['jobs'][number], 'offer' | 'call' | 'hold'>) 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 /**
+ * Where their answer stands, where the page alone wouldn't say it (ADR 0152): the days they haven't answered yet after a
+ * Yes in Google Calendar to others, which their invites still ask about; and a rate they asked for that the office said
+ * no to, with the offer standing at the rate offered.
+ */
+const answerLine = (j: Pick<PageData['jobs'][number], 'offer'>, staff: boolean, today: string) => {
+  const { offer } = j
+  if (offer.status === 'accepted' && offer.asked?.length) {
+    const it = offer.asked.length === 1 ? 'it' : 'them'
+    return `<p class="small">You haven't answered for ${h(daysLabel(offer.asked, today))} yet. Tick ${it} if you can do ${it}, or leave ${it} unticked, and press Update my days.</p>`
+  }
+  if (offer.status === 'offered' && offer.counterRateCents !== null && !staff)
+    return `<p class="news">The office can't do ${h(euro(offer.counterRateCents))} a day, so the offer stands at ${h(offer.dayRateCents === null ? 'the rate the office sets' : `${euro(offer.dayRateCents)} a day`)}.</p>`
+  return ''
+}
+
+/**
  * How a booking ended on the office's side, as its card's first line and in "Offers that ended" (UX sweep, 6
  * November 2026, move 6): the client's cancelling, a job that didn't go ahead and the office taking someone off are three
  * different news, and "Withdrawn", the office's word for the last, said all three. A stopped job's words are the ones
@@ -302,6 +318,7 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
     ${mine && !rateError && !daysError ? flash(mine) : ''}
     <header><h3>${title}</h3>${standing(job)}</header>
     ${holdLine(job)}
+    ${answerLine(job, staff, d.today)}
     ${since?.unclear ? `<p class="news">${h(UNCLEAR)}</p>` : ''}
     ${facts(call, offer, staff, d.today, since)}
     ${clash}
@@ -320,7 +337,7 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
           // The euro is drawn in the box, before the number, as the app's quote does, and is in the field's name too, since what's drawn beside a field isn't read out with it.
           staff
             ? ''
-            : `<label${landing(rateError)}>Day rate you'd do it for<span class="sr-only">, €</span> <span class="unit-box"><span class="unit" aria-hidden="true">€</span><input name="rate" inputmode="decimal"${rateError ? invalid(rateError) : ''} value="${h(typed ? (typed.get('rate') ?? '') : offer.counterRateCents !== null ? (offer.counterRateCents / 100).toString() : '')}"></span></label>${rateError && mine ? fieldError(rateError, mine.text) : ''}`
+            : `<label${landing(rateError)}>Day rate you'd do it for<span class="sr-only">, €</span> <span class="unit-box"><span class="unit" aria-hidden="true">€</span><input name="rate" inputmode="decimal"${rateError ? invalid(rateError) : ''} value="${h(typed ? (typed.get('rate') ?? '') : offer.status === 'countered' && offer.counterRateCents !== null ? (offer.counterRateCents / 100).toString() : '')}"></span></label>${rateError && mine ? fieldError(rateError, mine.text) : ''}`
         }
         <label>Note for the office <textarea name="note" rows="2" maxlength="1000">${h(typed ? (typed.get('note') ?? '') : offer.note)}</textarea></label>
         ${staff ? '<p class="small">It goes with your answer.</p>' : `<button${countered ? ' class="yes"' : ''} name="answer" value="counter">Send rate</button>`}

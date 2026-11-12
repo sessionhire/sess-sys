@@ -204,41 +204,68 @@ export function dayAnswer(responses: readonly GuestResponse[]): DayAnswer {
   return 'none'
 }
 
+/** What a person's answers in Google Calendar come to, as the answer to give for them on their offer (ADR 0009, ADR 0152). */
+export type AnswerFromCalendar =
+  | { answer: 'accept'; days: string[]; asked: string[] }
+  | { answer: 'decline' }
+  | { answer: 'undecided'; days: string[] }
+
 /**
- * What a person's answers in Google Calendar do to their offer (ADR 0009),
- * as the answer to give for them, if any. `answers` holds each day they are
- * a guest on; `changed`, the days whose answer has just changed.
+ * What a person's answers in Google Calendar do to their offer (ADR 0009,
+ * ADR 0152), as the answer to give for them, if any. `answers` holds each
+ * day they are a guest on; `changed`, the days whose answer has just
+ * changed.
  *
- * A Yes to any day is a yes to the offer, for all its days but those they
- * said No to; a No to every day declines. Before the office confirms, a
- * later No drops that day and a later Yes adds it back. Confirmed bookings
- * and counter-offers are the office's to change, so nothing is done.
+ * Each invite asks about one day, so a Yes counts for the day it was
+ * pressed on, when it was pressed: the offer is accepted for the days they
+ * said yes to, and the days they haven't answered stay asked. A Yes the app
+ * couldn't take isn't tried again with a later one. A No to every day
+ * declines. Before
+ * the office confirms, a later Yes adds that day and a later No drops it;
+ * a No to every day they'd said yes to, with days not yet answered, opens
+ * the offer again for those. Confirmed bookings and rates asked for are the
+ * office's to change, so nothing is done.
  */
 export function answerFromCalendar(
-  offer: Pick<Offer, 'status' | 'days'>,
+  offer: Pick<Offer, 'status' | 'days' | 'asked'>,
   callDays: readonly string[],
   answers: Readonly<Record<string, DayAnswer>>,
   changed: readonly string[]
-): { answer: 'accept'; days: string[] } | { answer: 'decline' } | undefined {
-  const asked = Object.keys(answers)
-  const no = asked.filter((d) => answers[d] === 'no')
-  const sorted = (days: string[]) => [...new Set(days)].sort()
+): AnswerFromCalendar | undefined {
+  const invited = Object.keys(answers).filter((d) => callDays.includes(d))
+  const said = (a: DayAnswer) => invited.filter((d) => answers[d] === a)
+  const sorted = (days: readonly string[]) => [...new Set(days)].sort()
+  // Days with no answer yet, or a Maybe: still to be answered.
+  const open = (days: readonly string[]) => sorted(days.filter((d) => answers[d] === 'none' || answers[d] === 'maybe'))
   if (offer.status === 'offered' || offer.status === 'declined') {
-    // Once declined, only a new Yes opens it again, as answering again on the link would.
-    const yes = offer.status === 'declined' ? changed.filter((d) => answers[d] === 'yes') : asked.filter((d) => answers[d] === 'yes')
-    if (yes.length) return { answer: 'accept', days: sorted(callDays.filter((d) => !no.includes(d))) }
-    if (offer.status === 'offered' && asked.length > 0 && no.length === asked.length) return { answer: 'decline' }
+    // Only a Yes just pressed counts, for its own day: one pressed before that the app couldn't take (the day had filled) isn't
+    // tried again with it, and once declined, only a new Yes opens the offer again, as answering again on the link would.
+    const yes = changed.filter((d) => invited.includes(d) && answers[d] === 'yes')
+    // The days they haven't answered stay asked, and so does one whose Yes from before didn't count.
+    if (yes.length) return { answer: 'accept', days: sorted(yes), asked: sorted(invited.filter((d) => !yes.includes(d) && answers[d] !== 'no')) }
+    if (offer.status === 'offered' && invited.length > 0 && said('no').length === invited.length) return { answer: 'decline' }
     return undefined
   }
   if (offer.status === 'accepted') {
-    const dropped = changed.filter((d) => answers[d] === 'no' && offer.days.includes(d))
-    const added = changed.filter((d) => answers[d] === 'yes' && !offer.days.includes(d))
-    if (!dropped.length && !added.length) return undefined
+    const asked = offer.asked ?? []
+    const now = changed.filter((d) => invited.includes(d))
+    const dropped = now.filter((d) => answers[d] === 'no' && offer.days.includes(d))
+    const added = now.filter((d) => answers[d] === 'yes' && !offer.days.includes(d))
+    // An asked day they've now answered either way is no longer asked.
+    const answered = now.filter((d) => answers[d] === 'yes' || answers[d] === 'no')
     const days = sorted([...offer.days.filter((d) => !dropped.includes(d)), ...added])
-    return days.length ? { answer: 'accept', days } : { answer: 'decline' }
+    const still = sorted(asked.filter((d) => !answered.includes(d)))
+    if (!dropped.length && !added.length && still.length === asked.length) return undefined
+    if (days.length) return { answer: 'accept', days, asked: still }
+    return still.length ? { answer: 'undecided', days: still } : { answer: 'decline' }
   }
   return undefined
 }
+
+/** Someone who asked for a different rate, then pressed Yes on their invite: which stands is for the office to find out. */
+export const COUNTERED_YES = 'Pressed Yes on Google Calendar after asking for a different rate: ring them to see which stands.'
+/** The same Yes once the office has said no to the rate: it doesn't count, and their invite asks them to answer on their page. */
+export const YES_WHILE_ASKING = "Pressed Yes on Google Calendar while asking for a different rate, so it doesn't count: their invite asks them to answer on their page."
 
 /** How one offer stands on Google Calendar, for the job page: the days its person is a guest on, and their answers. */
 export interface OfferOnCalendar {
@@ -250,7 +277,7 @@ export interface OfferOnCalendar {
 }
 
 export function offerOnCalendar(
-  offer: Pick<Offer, 'id' | 'status' | 'days'>,
+  offer: Pick<Offer, 'id' | 'status' | 'days'> & { counterRateCents?: number | null },
   days: Readonly<Record<string, CalendarDay>>,
   today: string
 ): OfferOnCalendar | undefined {
@@ -287,8 +314,13 @@ export function offerOnCalendar(
   const unmet = offer.status === 'accepted' || offer.status === 'confirmed' ? yes.filter((d) => !offer.days.includes(d)) : yes
   const warning = bookedNo.length
     ? `Said no to ${daysLabel(bookedNo)} on Google Calendar, but is booked for ${bookedNo.length === 1 ? 'it' : 'them'}. Call them to sort it out.`
-    : unmet.length
-      ? problem
-      : null
+    : offer.status === 'countered' && yes.length
+      ? // A Yes after asking for a different rate settles nothing: the rate is the office's to answer (ADR 0152).
+        COUNTERED_YES
+      : unmet.length
+        ? // A Yes with no reason against it on an offer only asked again, with the rate they asked for kept, was pressed while
+          // their rate was with the office, which then said no to it (ADR 0152): it was never theirs to count.
+          (problem ?? (offer.status === 'offered' && typeof offer.counterRateCents === 'number' ? YES_WHILE_ASKING : null))
+        : null
   return { answers, line, warning }
 }

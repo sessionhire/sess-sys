@@ -604,6 +604,12 @@ describe('what each role reads', () => {
     await ok('offer.respond', { id: 'dara-lx', answer: 'counter', counterRateCents: 35000, days: null, note: '' })
     expect(await send(app, h, 'offer.confirm', { id: 'dara-lx' })).toMatchObject({ status: 'rejected', reason: { code: 'forbidden' } })
     expect((await pull(h)).of('offer', 'dara-lx')).toMatchObject({ status: 'countered', counterRateCents: null, rateHidden: true })
+    // Saying no to it names no rate, so it's hers to do (ADR 0152): the offer stands at the rate offered, which she still doesn't read.
+    await ok('offer.send', { id: 'niamh-build', callId: 'build', personId: 'niamh', override: false })
+    await ok('offer.respond', { id: 'niamh-build', answer: 'counter', counterRateCents: 36000, days: null, note: '' })
+    expect(await send(app, h, 'offer.refuse', { id: 'niamh-build' })).toMatchObject({ status: 'applied' })
+    expect((await pull(h)).of('offer', 'niamh-build')).toMatchObject({ status: 'offered', dayRateCents: null, counterRateCents: null, rateHidden: true })
+    expect((await pull(c)).of('offer', 'niamh-build')).toMatchObject({ status: 'offered', dayRateCents: 32000, counterRateCents: 36000 })
 
     // Only a director says whether heads see rates, and the office or a director whether messages to crew are prompted (ADR 0048).
     expect((await send(app, h, 'reading.heads', { rates: true })).reason?.code).toBe('forbidden')

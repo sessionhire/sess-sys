@@ -3,6 +3,7 @@ import type { CalendarDay, CalendarGuest, CalendarLink } from '../src/calendar.t
 import type { CrewCall, Offer, Person } from '../src/crew.ts'
 import {
   callEndingWords,
+  askEndingWords,
   daysToCancel,
   endingWords,
   invitePlan,
@@ -17,6 +18,7 @@ import {
   toldOfChange,
   toldOfEnding,
   toldOfOffer,
+  toldOfRefusal,
   toldSentences,
   whatsappReach,
   type ReachContext,
@@ -472,6 +474,17 @@ describe('the question before an offer is ended', () => {
     expect(jobEndingWords(stuck, [{ personId: 'aoife', offerId: 'o1' }])).toBe(' Google emails them that their days are cancelled once the calendar is working again.')
   })
 
+  it("names the days Google cancels when Confirm ends the ask for days they haven't answered (ADR 0152)", () => {
+    // A Yes on the first day's invite only: confirming books that day, and the second day's invite comes off.
+    expect(askEndingWords(ctx({ days: invitedBoth }), 'o1', [D2])).toBe('Google emails them that Sat 21 Nov is cancelled.')
+    expect(askEndingWords(ctx({ days: invitedBoth }), 'o1', [D1, D2])).toBe('Google emails them that Fri 20 Nov to Sat 21 Nov are cancelled.')
+    const stuck = ctx({ days: invitedBoth, link: link({ problem: 'Google Calendar isn’t answering.' }) })
+    expect(askEndingWords(stuck, 'o1', [D2])).toBe('Google emails them that Sat 21 Nov is cancelled once the calendar is working again.')
+    // No invite of theirs for it, or invites off since: nothing to say.
+    expect(askEndingWords(ctx(), 'o1', [D2])).toBe('')
+    expect(askEndingWords(ctx({ days: invitedBoth, link: link({ invites: false }) }), 'o1', [D2])).toBe('')
+  })
+
   it('says how many of the people on a call Google emails when the call is cancelled (finding 20)', () => {
     const both = days(row(D1, 'aoife', { offerId: 'o1' }), row(D1, 'tommo', { offerId: 'o2' }))
     const offers = [offer('o1', 'aoife'), offer('o2', 'tommo', 'confirmed'), offer('o3', 'sean', 'declined')]
@@ -566,6 +579,21 @@ describe('the panel after a press', () => {
     expect(toldSentences([toldOfChange(c, aoife, { invited: true }, false)])).toEqual(['Nothing was sent to Aoife: the change is on their link, and Google emails nothing unless the days move.'])
   })
 
+  it('says the offer stands at the rate offered after the office says no to a rate, with no email (ADR 0152)', () => {
+    const c = ctx()
+    expect(toldSentences([toldOfRefusal(c, aoife, { invited: true })])).toEqual([
+      'Nothing was sent to Aoife: their link and their calendar invite say the offer stands at the rate offered, and no email goes with that.',
+    ])
+    expect(toldSentences([toldOfRefusal(c, sean, { invited: false })])).toEqual(['Nothing was sent to Seán: their link says the offer stands at the rate offered.'])
+    expect(toldSentences([toldOfRefusal(ctx({ link: link({ invites: false }) }), aoife, { invited: false, kept: 2 })])).toEqual([
+      "Nothing was sent to Aoife: their link says the offer stands at the rate offered. Crew invites are off, so what's in their calendar stays as it was.",
+    ])
+    // A calendar with a problem writes nothing, so only the link says it yet.
+    expect(toldSentences([toldOfRefusal(ctx({ link: link({ problem: 'Google Calendar isn’t answering.' }) }), aoife, { invited: true })])).toEqual([
+      'Nothing was sent to Aoife: their link says the offer stands at the rate offered.',
+    ])
+  })
+
   it("says their link and invite ask them to hold the day, not that they're booked, while the client hasn't said yes", () => {
     // Proves: finding 6 of the audit of 12 November 2026 (ADR 0150). After the office picks someone for a job the client hasn't
     // agreed, the panel says what their link and their invite now tell them, which is to hold the day.
@@ -583,6 +611,29 @@ describe('the panel after a press', () => {
       "Nothing was sent to Aoife and Dara: their links and calendar invites say to hold the day, as the client hasn't said yes yet, and no email goes with that.",
     ])
     expect(toldSentences([toldOfBooking(c, aoife, { invited: true }, true), toldOfBooking(c, dara, { invited: true })])).toHaveLength(2)
+  })
+
+  it('says Google emails a cancellation for the days still asked that Confirm ended, before the rest (ADR 0152)', () => {
+    // Proves: the panel after Confirm on a yes with days not answered says what the question before it said would go, and
+    // that nothing else did. While the server takes the invite off it's "is emailing", then "has emailed".
+    const c = ctx()
+    expect(toldSentences([toldOfBooking(c, aoife, { invited: true }, true, { gone: [D2], left: 1 })])).toEqual([
+      'Google is emailing Aoife that Sat 21 Nov is cancelled.',
+      "Nothing else went to Aoife: their link and their calendar invite say to hold the day, as the client hasn't said yes yet, and no email goes with that.",
+    ])
+    expect(toldSentences([toldOfBooking(c, aoife, { invited: true }, false, { gone: [D2], left: 0 })])).toEqual([
+      'Google has emailed Aoife that Sat 21 Nov is cancelled.',
+      "Nothing else went to Aoife: their link and their calendar invite say they're booked, and no email goes with that.",
+    ])
+    const stuck = ctx({ link: link({ problem: 'Google Calendar isn’t answering.' }) })
+    expect(toldSentences([toldOfBooking(stuck, aoife, { invited: true }, false, { gone: [D2], left: 1 })])).toEqual([
+      "Aoife still has that day in their calendar: the calendar has a problem, so Google hasn't told them. See Admin › Connections.",
+      "Nothing else went to Aoife: their link says they're booked.",
+    ])
+    // With no day ended, it reads as before.
+    expect(toldSentences([toldOfBooking(c, aoife, { invited: true }, false, { gone: [], left: 0 })])).toEqual([
+      "Nothing was sent to Aoife: their link and their calendar invite say they're booked, and no email goes with that.",
+    ])
   })
 
   it('says an invite goes out of date once invites are switched off, and waits on a calendar with a problem', () => {

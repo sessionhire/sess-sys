@@ -152,7 +152,7 @@ export function invitePlan(
 
 // ---- One offer: what went ----
 
-type ReachOffer = Pick<Offer, 'id' | 'personId' | 'status' | 'days'> & Partial<Pick<Offer, 'whatsapp' | 'respondedVia'>>
+type ReachOffer = Pick<Offer, 'id' | 'personId' | 'status' | 'days'> & Partial<Pick<Offer, 'whatsapp' | 'respondedVia' | 'counterRateCents'>>
 type ReachCall = Pick<CrewCall, 'projectId' | 'phaseId' | 'status' | 'start' | 'end'>
 type ReachPerson = Pick<Person, 'name' | 'email' | 'phone'> & Partial<Pick<Person, 'knownAs' | 'firstName' | 'whatsappOff'>>
 
@@ -640,18 +640,59 @@ const STALE = "Crew invites are off, so what's in their calendar stays as it was
  * After Confirm: the app tells nobody they're booked (finding 4, not yet built), so the panel says so. Their invite's
  * first line follows the booking only while the server is writing to the calendar. On a job the client hasn't said yes
  * to yet (`hold`), what their link and their invite say is to hold the day, never that they're booked (ADR 0150).
+ * `ending` is days they were still asked for that Confirm ended (ADR 0152): their invites come off with word from Google,
+ * as the question said first, and `left` is how many are still on the calendar.
  */
-export function toldOfBooking(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: Pick<ToldBefore, 'invited' | 'kept'>, hold = false): ToldPerson {
+export function toldOfBooking(
+  ctx: Pick<ReachContext, 'calendar'>,
+  who: ToldWho,
+  b: Pick<ToldBefore, 'invited' | 'kept'>,
+  hold = false,
+  ending?: { gone: readonly string[]; left: number }
+): ToldPerson {
   const what = hold ? "to hold the day, as the client hasn't said yes yet" : "they're booked"
-  const key = (k: string) => (hold ? `${k}:hold` : k)
+  const gone = ending?.gone ?? []
+  const key = (k: string) => `${k}${hold ? ':hold' : ''}${gone.length ? ':else' : ''}`
   const links = (many: boolean) => `their ${many ? 'links say' : 'link says'} ${what}`
+  const nothing = (who: string) => (gone.length ? `Nothing else went to ${who}` : `Nothing was sent to ${who}`)
+  const cancelled = `${daysLabel([...gone])} ${gone.length === 1 ? 'is' : 'are'} cancelled`
+  const ended: Said[] = !gone.length
+    ? []
+    : ending!.left === 0
+      ? [{ key: `asked-cancelled:${cancelled}`, say: (who) => `Google has emailed ${who} that ${cancelled}.` }]
+      : ctx.calendar.link?.problem
+        ? [{ key: `asked-held:${cancelled}`, say: (who) => `${who} still ${gone.length === 1 ? 'has that day' : 'has those days'} in their calendar: the calendar has a problem, so Google hasn't told them. See Admin › Connections.` }]
+        : [{ key: `asked-cancelling:${cancelled}`, say: (who) => `Google is emailing ${who} that ${cancelled}.` }]
   const said: Said =
     b.invited && !ctx.calendar.link?.problem
-      ? { key: key('booked-invited'), say: (who, many) => `Nothing was sent to ${who}: their ${many ? 'links and calendar invites' : 'link and their calendar invite'} say ${what}, and no email goes with that.` }
+      ? { key: key('booked-invited'), say: (who, many) => `${nothing(who)}: their ${many ? 'links and calendar invites' : 'link and their calendar invite'} say ${what}, and no email goes with that.` }
       : b.kept
-        ? { key: key('booked-kept'), say: (who, many) => `Nothing was sent to ${who}: ${links(many)}. ${STALE}` }
-        : { key: key('booked'), say: (who, many) => `Nothing was sent to ${who}: ${links(many)}.` }
+        ? { key: key('booked-kept'), say: (who, many) => `${nothing(who)}: ${links(many)}. ${STALE}` }
+        : { key: key('booked'), say: (who, many) => `${nothing(who)}: ${links(many)}.` }
+  return { who, said: [...ended, said], reached: false }
+}
+
+/**
+ * After the office said no to a rate (ADR 0152): the offer stands at the rate offered, which their link says, and their
+ * invite's first line too, with no email, as a change of its description never sends one (ADR 0009).
+ */
+export function toldOfRefusal(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: Pick<ToldBefore, 'invited' | 'kept'>): ToldPerson {
+  const said: Said =
+    b.invited && !ctx.calendar.link?.problem
+      ? { key: 'refused-invited', say: (who, many) => `Nothing was sent to ${who}: their ${many ? 'links and calendar invites' : 'link and their calendar invite'} say the offer stands at the rate offered, and no email goes with that.` }
+      : b.kept
+        ? { key: 'refused-kept', say: (who, many) => `Nothing was sent to ${who}: their ${many ? 'links say' : 'link says'} the offer stands at the rate offered. ${STALE}` }
+        : { key: 'refused', say: (who, many) => `Nothing was sent to ${who}: their ${many ? 'links say' : 'link says'} the offer stands at the rate offered.` }
   return { who, said: [said], reached: false }
+}
+
+/**
+ * Before Confirm on a yes with days not answered (ADR 0152): confirming books the days they said yes to and ends the ask
+ * for the rest, whose invites come off with word from Google. Nothing when no invite of theirs goes.
+ */
+export function askEndingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, offerId: string, asked: readonly string[]): string {
+  const gone = daysToCancel(ctx, offerId).filter((d) => asked.includes(d))
+  return gone.length ? `Google emails them that ${daysLabel(gone)} ${gone.length === 1 ? 'is' : 'are'} cancelled${onceBack(ctx)}.` : ''
 }
 
 /** After a call changed or a phase moved: Google emails only when the days themselves move. */

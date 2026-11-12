@@ -144,6 +144,11 @@ const DELIVERY = { id: 'd1', kind: 'other' as const, what: 'Delivery', ref: null
 const TRACKERS_ON = [m('trackers.use', { on: true }), m('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 300 })]
 const REPORT = { date: new Date().toISOString(), device: { sn: '416581', imei: '351234567890123' }, sqn: 1, reason: 1, lat: 53.325, lng: -6.337, posAcc: 20, analogues: [{ id: 1, val: 3600 }] }
 
+/** The crew chief's call over two days, with room for Eimear beside Aoife, offered both. */
+const twoPlaces = [m('call.update', { id: 'chief', needed: 2 }), m('offer.send', { id: 'eimear-chief', callId: 'chief', personId: 'eimear', override: false })]
+/** Her Yes in Google to the first day only (ADR 0152). */
+const saidYesToOne = m('offer.respond', { id: 'eimear-chief', answer: 'accept', days: [day(3)], asked: [day(4)], note: '' })
+
 const CASES: Case[] = [
   // People and crew.
   c('person.upsert', { id: 'dara', name: 'Dara Quinn', kind: 'freelancer', email: 'dara@example.ie', phone: '+353861111111', skills: ['Audio', 'LX'], dayRateCents: 35000, notes: 'Prefers mornings', department: 'audio', level: 4, knownAs: 'D' }, { as: 'an edit' }),
@@ -166,6 +171,14 @@ const CASES: Case[] = [
   c('offer.respond', { id: 'dara-sound', answer: 'pullOut', note: 'Sick' }, { as: "can't make it" }),
   c('offer.confirm', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'accept', days: null, note: '' })] }),
   c('offer.confirm', { id: 'eimear-sound' }, { as: 'a counter noted and agreed with no signal', queued: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: 'Long days' })] }),
+  // A Yes in Google counts for its own day, and the days it didn't answer stay asked (ADR 0152).
+  c('offer.respond', { id: 'eimear-chief', answer: 'accept', days: [day(3)], asked: [day(4)], note: '' }, { as: 'a yes to one day, with the other still asked', before: twoPlaces }),
+  c('offer.respond', { id: 'eimear-chief', answer: 'undecided', days: [day(4)], note: '' }, { as: 'a no to the day said yes to, with the other still asked', before: [...twoPlaces, saidYesToOne] }),
+  c('offer.confirm', { id: 'eimear-chief' }, { as: 'a yes with a day still asked', before: [...twoPlaces, saidYesToOne] }),
+  c('phase.update', { id: 'build', start: day(4), end: day(5), moveCrew: true }, { as: 'a day later, with a day still asked of someone', before: [...twoPlaces, saidYesToOne] }),
+  // Saying no to a rate keeps the offer, at the rate offered, for every day.
+  c('offer.refuse', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: '' })] }),
+  c('offer.refuse', { id: 'eimear-sound' }, { as: 'a rate noted and said no to with no signal', queued: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: '' })] }),
   c('offer.cancel', { id: 'eimear-sound' }),
   c('offer.seen', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'decline', note: '' })] }),
   c('person.merge', { id: 'dara', from: ['niamh'] }, { before: [person('niamh', 'Dara Q', 'freelancer', { email: 'dq@example.com' })] }),

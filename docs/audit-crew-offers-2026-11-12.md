@@ -489,7 +489,11 @@ the order 5, 4, 3, 6, notes first because an email can't be unsent. Batch 5
 is in 1.167.0 ([ADR 0151](adr/0151-notes-for-the-crew-and-office-notes.md)).
 It differs from what is written below in one thing: the short invite keeps
 the per diems and fuel, which are about the crew's own money and are on
-neither their page nor the call sheet.
+neither their page nor the call sheet. Batch 4 is in 1.169.0
+([ADR 0152](adr/0152-a-yes-counts-for-its-own-day.md)). It differs in one
+thing too: Say no keeps the offer for the days the rate was asked for,
+not every day of the call, so nobody is invited again to a day they had
+left out.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -512,7 +516,8 @@ neither their page nor the call sheet.
    its own day; a Yes after a rate request is flagged; a Yes that couldn't
    be taken is said on the invite; a call doesn't fill over an unanswered
    rate without saying so; "Say no" keeps the offer; Confirm and Agree on
-   the job's own rows. Medium. Needs questions 2 and 6.
+   the job's own rows. Medium. Needs questions 2 and 6. **Done in
+   1.169.0.**
 5. **Notes** (2). Notes for the crew and office notes; the short invite
    until someone has said yes. Medium. Needs question 1. **Done in
    1.167.0.**

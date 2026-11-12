@@ -279,7 +279,10 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (a.answer === 'decline') return `${o.who} declined ${o.what}`
       if (a.answer === 'counter') return rates ? `${o.who} asked for ${euro(a.counterRateCents as number)} a day for ${o.what}` : `${o.who} asked for a different rate for ${o.what}`
       if (a.answer === 'pullOut') return `${o.who} can't make it: ${o.what}${said(a.note, ' (', ')')}`
-      return `${o.who} accepted ${o.what}${Array.isArray(a.days) && a.days.length ? `, ${daysLabel(a.days as string[])}` : ''}`
+      // A No in Google to every day they'd said yes to, with days still unanswered (ADR 0152).
+      if (a.answer === 'undecided') return `${o.who} said no to the days they'd said yes to for ${o.what}; still asked for ${daysLabel(Array.isArray(a.days) ? (a.days as string[]) : [])}`
+      const asked = Array.isArray(a.asked) && a.asked.length ? `; no answer yet for ${daysLabel(a.asked as string[])}` : ''
+      return `${o.who} accepted ${o.what}${Array.isArray(a.days) && a.days.length ? `, ${daysLabel(a.days as string[])}` : ''}${asked}`
     }
     case 'offer.seen': {
       const o = offer(a.id)
@@ -325,6 +328,10 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'offer.confirm': {
       const o = offer(a.id)
       return `Confirmed ${o.who} for ${o.what}`
+    }
+    case 'offer.refuse': {
+      const o = offer(a.id)
+      return `Said no to the rate ${o.who} asked for ${o.what}: the offer stands at the rate offered`
     }
     case 'offer.cancel': {
       const o = offer(a.id)

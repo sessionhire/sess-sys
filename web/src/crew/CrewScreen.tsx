@@ -7,7 +7,6 @@ import {
   daysLabel,
   departmentOf,
   euro,
-  firstName,
   offerOnCalendar,
   telHref,
   sameDepartment,
@@ -21,11 +20,9 @@ import {
   type JobView,
   type OfferView,
   type PersonView,
-  type TellEvent,
   type View,
   emailBackRefusal,
   emailTakenBy,
-  endingWords,
   listed,
   reachContext,
   NO_DEPARTMENT_KEY,
@@ -61,7 +58,8 @@ import { ImportPeopleScreen } from './ImportPeople.tsx'
 import { Heading } from '../Icon.tsx'
 import { CallCard, NewCall, OfferForm } from './Calls.tsx'
 import { NewPerson, PersonRow, found, wordsOf } from './People.tsx'
-import { type Share, SharePanelFor, promptFor, tellTo } from './Messages.tsx'
+import { type Share, SharePanelFor, promptFor } from './Messages.tsx'
+import { AnswerActions } from './AnswerActions.tsx'
 
 /**
  * Ops' crew screen: jobs that need people, the offers out for them, and
@@ -277,8 +275,6 @@ export function CrewScreen() {
   // What the device turned down, said in the card it was asked from.
   const answers = useAct()
   const roster = useAct()
-  // The yes or counter being turned down, asked first in its row: it can't be taken back, and their link says so at once (rule 1).
-  const [turningDown, setTurningDown] = useState<string | undefined>()
   // Whether the filled calls are unfolded (audit finding 10).
   const [filledOpen, setFilledOpen] = useState(false)
   const [allCalls, setAllCalls] = useState(showingAllCalls)
@@ -309,12 +305,6 @@ export function CrewScreen() {
   // The plain address lands a role without crew on People, as the bar does (Shell.tsx), so the two never disagree (Move 9 of the sweep
   // of 6 November 2026): Calls is the office's work, People is who's who.
   const page = hash === '#crew/people' || (hash === '#crew' && !mayCrew) ? 'people' : hash === '#crew/timesheets' || timesheet ? 'timesheets' : 'calls'
-
-  /** Settle a yes or a counter, then tell them. */
-  const settle = (o: OfferView, c: CallView, command: 'offer.confirm' | 'offer.cancel', event: TellEvent) => {
-    markAnswer(o)
-    void answers.run(() => client.mutate(command, { id: o.id })).then((ok) => ok && o.person && setShare(promptFor(event, [tellTo(o.person, c, o)]), ANSWERS))
-  }
 
   // Only the calls short of people at rest, with the filled ones a tap away under them (audit finding 10). A filled call with
   // something to act on stays out too, as ShowAll keeps a line to act on: someone short of a certificate it needs, or running
@@ -487,6 +477,13 @@ export function CrewScreen() {
                                   : "can't make it"}
                             <p>
                               {c.project} · {c.role} · {daysLabel(o.days)}
+                              {/* A Yes in Google counts for its own day (ADR 0152): the days they haven't answered are said. */}
+                              {kind === 'accepted' && o.asked?.length ? (
+                                <>
+                                  <br />
+                                  No answer yet for {daysLabel(o.asked)}
+                                </>
+                              ) : null}
                               {(kind === 'declined' || kind === 'pulled-out') && (
                                 <>
                                   <br />
@@ -507,41 +504,10 @@ export function CrewScreen() {
                             </p>
                           </div>
                         )}
-                        {/* Settling an answer is crew's (audit finding 9): a role without it sees the answer, and nothing to press. */}
-                        {!mayCrew ? null : (kind === 'accepted' || kind === 'countered') && turningDown === o.id ? (
-                          <Confirm
-                            question={
-                              kind === 'countered'
-                                ? `Say no to ${o.person?.name ?? 'them'}${o.rateHidden ? '' : ` at ${euro(o.counterRateCents)}`}? The offer is withdrawn. ${endingWords(reach, o.id, 'so')}`
-                                : `Release ${o.person?.name ?? 'them'} from ${c.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so')}`
-                            }
-                            yes={kind === 'countered' ? 'Withdraw the offer' : `Release ${o.person ? firstName(o.person) : 'them'}`}
-                            loss
-                            no={kind === 'countered' ? 'Keep it open' : 'Keep them'}
-                            onYes={() => {
-                              setTurningDown(undefined)
-                              settle(o, c, 'offer.cancel', kind === 'countered' ? 'withdrawn' : 'released')
-                            }}
-                            onNo={() => setTurningDown(undefined)}
-                          />
-                        ) : kind === 'countered' && o.rateHidden ? (
-                          // Agreeing a rate is for someone who sees it (ADR 0046): said here, with Say no still to hand.
-                          <div className="actions">
-                            <p className="hint">The office agrees rates: your role doesn't see them.</p>
-                            <button type="button" onClick={() => setTurningDown(o.id)}>
-                              Say no
-                            </button>
-                          </div>
-                        ) : kind === 'accepted' || kind === 'countered' ? (
-                          <div className="actions">
-                            {/* Plain, as a row's own action is, beside its other answer (UX sweep, 6 November 2026, move 1). */}
-                            <button type="button" onClick={() => settle(o, c, 'offer.confirm', 'confirmed')}>
-                              {kind === 'countered' ? `Agree ${euro(o.counterRateCents)}` : 'Confirm'}
-                            </button>
-                            <button type="button" onClick={() => setTurningDown(o.id)}>
-                              {kind === 'countered' ? 'Say no' : 'Release'}
-                            </button>
-                          </div>
+                        {/* Settling an answer is crew's (audit finding 9): a role without it sees the answer, and nothing to press. The same
+                            presses as on the job's own call rows (ADR 0152). */}
+                        {!mayCrew ? null : kind === 'accepted' || kind === 'countered' ? (
+                          <AnswerActions o={o} call={c} run={answers.run} onPress={() => markAnswer(o)} onDone={(share) => setShare(share, ANSWERS)} />
                         ) : (
                           <div className="actions">
                             {kind === 'no-reply' && o.person?.phone && (

@@ -32,6 +32,12 @@ export const problems = {
     `Said ${answer === 'accept' ? 'yes' : 'no'} on Google Calendar, but the app couldn't take it: ${reason.replace(/^Sorry, (\w)/, (_, c: string) => c.toUpperCase())}`,
 }
 
+const YES_NOT_TAKEN = problems.notTaken('accept', '')
+
+/** The reason a Yes pressed in Google wasn't taken, as their page would have given it, for their own invite (ADR 0152). */
+export const yesNotTaken = (problem: string | null): string | null =>
+  problem?.startsWith(YES_NOT_TAKEN) && problem.length > YES_NOT_TAKEN.length ? problem.slice(YES_NOT_TAKEN.length) : null
+
 /** The Calendar API is switched off in the app's Google Cloud project. */
 export const apiOff = (err: GoogleError) => err.reason === 'accessNotConfigured' || err.reason === 'SERVICE_DISABLED'
 

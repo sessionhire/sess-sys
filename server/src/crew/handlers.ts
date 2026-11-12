@@ -37,6 +37,7 @@ type CrewCommand =
   | 'offer.send'
   | 'offer.respond'
   | 'offer.confirm'
+  | 'offer.refuse'
   | 'offer.cancel'
   | 'offer.seen'
 type Handler<N extends CrewCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
@@ -62,7 +63,7 @@ async function setOffer(ctx: Ctx, id: string, fields: Partial<Record<string, unk
   const keys = Object.keys(fields)
   await ctx.tx.query(
     `UPDATE offers SET ${keys.map((k, i) => `${k} = $${i + 2}`).join(', ')} WHERE id = $1`,
-    [id, ...keys.map((k) => (k === 'days' ? JSON.stringify(fields[k]) : fields[k]))]
+    [id, ...keys.map((k) => (k === 'days' || k === 'asked' ? JSON.stringify(fields[k]) : fields[k]))]
   )
   await emitOffer(ctx, id)
 }
@@ -91,12 +92,17 @@ async function checkCanHold(ctx: Ctx, call: CrewCall, offer: Offer, days: string
   const held = heldByDay(call, offers, offer.id)
   const full = days.filter((d) => held[d]! >= call.needed)
   if (full.length) {
-    const open = Object.keys(held).filter((d) => held[d]! < call.needed)
+    // "Still open" is what they could still take: a day they already hold isn't news to them (ADR 0152, where it's said on their invite).
+    const mine = HOLDING.includes(offer.status) ? offer.days : []
+    const open = Object.keys(held).filter((d) => held[d]! < call.needed && !mine.includes(d))
+    const filled = `${daysLabel(full)} ${full.length === 1 ? 'has' : 'have'} just been filled.`
     throw new Refused({
       code: 'filled',
       message: open.length
-        ? `Sorry, ${daysLabel(full)} ${full.length === 1 ? 'has' : 'have'} just been filled. Still open: ${daysLabel(open)}.`
-        : `Sorry, ${jobNamed(call, days)} has just been filled by someone else.`,
+        ? `Sorry, ${filled} Still open: ${daysLabel(open)}.`
+        : mine.length
+          ? `Sorry, ${filled}`
+          : `Sorry, ${jobNamed(call, days)} has just been filled by someone else.`,
     })
   }
   const twice = offers.find((o) => o.id !== offer.id && o.personId === offer.personId && HOLDING.includes(o.status))
@@ -116,12 +122,19 @@ async function checkCanHold(ctx: Ctx, call: CrewCall, offer: Offer, days: string
  */
 const jobNamed = (call: CrewCall, days: string[]) => `${call.project}, ${call.role}, ${daysLabel(days.length ? days : eachDay(call.start, call.end))}`
 
-/** Once every day of a call is covered, tell everyone still waiting. */
-async function closeIfFull(ctx: Ctx, call: CrewCall) {
+/**
+ * Once every day of a call is covered, tell everyone still waiting, and end the ask for the days someone who said yes to
+ * others hasn't answered (ADR 0152). A rate asked for waits for the office to answer it: someone else's yes no longer
+ * closes it, only the office's Confirm does (`rates`), which says so before the press (ratesClosedBy).
+ */
+async function closeIfFull(ctx: Ctx, call: CrewCall, rates = false) {
   const offers = await offersForCall(ctx.tx, call.id)
   const held = heldByDay(call, offers)
   if (Object.values(held).some((n) => n < call.needed)) return
-  for (const o of offers) if (o.status === 'offered' || o.status === 'countered') await setOffer(ctx, o.id, { status: 'filled' })
+  for (const o of offers) {
+    if (o.status === 'offered' || (rates && o.status === 'countered')) await setOffer(ctx, o.id, { status: 'filled' })
+    else if (o.status === 'accepted' && o.asked?.length) await setOffer(ctx, o.id, { asked: [] })
+  }
 }
 
 /**
@@ -132,7 +145,7 @@ export async function cancelCall(ctx: Ctx, callId: string) {
   await ctx.tx.query(`UPDATE crew_calls SET status = 'cancelled' WHERE id = $1`, [callId])
   await emit(ctx, 'crewCall', callId, await getCall(ctx.tx, callId))
   for (const o of await offersForCall(ctx.tx, callId))
-    if (!OVER.includes(o.status)) await setOffer(ctx, o.id, { status: 'cancelled' })
+    if (!OVER.includes(o.status)) await setOffer(ctx, o.id, { status: 'cancelled', asked: [] })
 }
 
 /** "Aoife Byrne", "Aoife Byrne and Dara Walsh", "Aoife Byrne, Dara Walsh and Niall Kerr". */
@@ -156,12 +169,12 @@ async function changeCall(ctx: Ctx, call: CrewCall, next: CrewCall, shift = 0) {
   const oldDays = eachDay(call.start, call.end)
   const newDays = eachDay(next.start, next.end)
   const moved = next.start !== call.start || next.end !== call.end
-  const changes = new Map<string, { days?: string[]; day_rate_cents?: number | null }>()
+  const changes = new Map<string, { days?: string[]; asked?: string[]; day_rate_cents?: number | null }>()
   const stranded: { booked: string[]; countered: string[] } = { booked: [], countered: [] }
   const daysOf = new Map<string, string[]>()
   for (const o of offers) {
     if (!LIVE.includes(o.status)) continue
-    const fields: { days?: string[]; day_rate_cents?: number | null } = {}
+    const fields: { days?: string[]; asked?: string[]; day_rate_cents?: number | null } = {}
     let days = o.days
     if (moved) {
       days = offerDaysAfter(o.days, oldDays, newDays, shift)
@@ -172,6 +185,11 @@ async function changeCall(ctx: Ctx, call: CrewCall, next: CrewCall, shift = 0) {
         else days = [...newDays]
       }
       if (days.join() !== o.days.join()) fields.days = days
+      // The days still asked of someone who said yes to others move as theirs do (ADR 0152).
+      if (o.asked?.length) {
+        const asked = offerDaysAfter(o.asked, oldDays, newDays, shift).filter((d) => !days.includes(d))
+        if (asked.join() !== o.asked.join()) fields.asked = asked
+      }
     }
     if (next.dayRateCents !== call.dayRateCents && o.status === 'offered') fields.day_rate_cents = next.dayRateCents
     daysOf.set(o.id, days)
@@ -606,7 +624,7 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
       if (!HOLDING.includes(offer.status)) throw new Refused({ code: 'conflict', message: "You can only say you can't make it to a job you've said yes to." })
       // The page never offers it after the job, but a crafted post could reach here and lose the timesheet.
       if (call.end < irishToday()) throw new Refused({ code: 'conflict', message: 'That job has already happened; talk to the office.' })
-      await setOffer(ctx, offer.id, { ...answered, status: 'pulled-out' })
+      await setOffer(ctx, offer.id, { ...answered, status: 'pulled-out', asked: [] })
       return
     }
     if (offer.status === 'filled') throw new Refused({ code: 'filled', message: `Sorry, ${jobNamed(call, offer.days)} has just been filled by someone else.` })
@@ -620,19 +638,35 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
       throw new Refused({ code: 'conflict', message: "You declined this one, so it's off your page: only the office can offer it to you again." })
 
     if (a.answer === 'decline') {
-      await setOffer(ctx, offer.id, { ...answered, status: 'declined' })
+      await setOffer(ctx, offer.id, { ...answered, status: 'declined', asked: [] })
       return
     }
     const all = eachDay(call.start, call.end)
-    const days = a.days ? [...new Set(a.days)].sort() : all
-    const outside = days.filter((d) => !all.includes(d))
-    if (outside.length) throw new Refused({ code: 'invalid', message: `${daysLabel(outside)} ${outside.length === 1 ? 'is' : 'are'} not part of this job.` })
-    await checkCanHold(ctx, call, offer, days)
-    if (a.answer === 'counter') {
-      await setOffer(ctx, offer.id, { ...answered, status: 'countered', days, counter_rate_cents: a.counterRateCents })
+    const outsideOf = (list: string[]) => {
+      const outside = list.filter((d) => !all.includes(d))
+      if (outside.length) throw new Refused({ code: 'invalid', message: `${daysLabel(outside)} ${outside.length === 1 ? 'is' : 'are'} not part of this job.` })
+    }
+    if (a.answer === 'undecided') {
+      // A No in Google to every day they'd said yes to, with days not yet answered (ADR 0152): asked again for those, as
+      // before their yes. Only a yes not yet confirmed can go back; an answer since has settled it.
+      if (offer.status !== 'accepted') return
+      const days = [...new Set(a.days)].sort()
+      outsideOf(days)
+      await setOffer(ctx, offer.id, { ...answered, status: 'offered', days, asked: [] })
       return
     }
-    await setOffer(ctx, offer.id, { ...answered, status: 'accepted', days, counter_rate_cents: null })
+    const days = a.days ? [...new Set(a.days)].sort() : all
+    outsideOf(days)
+    await checkCanHold(ctx, call, offer, days)
+    if (a.answer === 'counter') {
+      await setOffer(ctx, offer.id, { ...answered, status: 'countered', days, counter_rate_cents: a.counterRateCents, asked: [] })
+      return
+    }
+    // A Yes in Google counts for its own day (ADR 0152): the days it didn't answer stay asked. An answer on their page or in
+    // the app sends none, as it is for every day.
+    const asked = [...new Set(a.asked ?? [])].filter((d) => !days.includes(d)).sort()
+    outsideOf(asked)
+    await setOffer(ctx, offer.id, { ...answered, status: 'accepted', days, asked, counter_rate_cents: null })
     await closeIfFull(ctx, call)
   },
 
@@ -642,7 +676,10 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     const call = await openCall(ctx, offer.callId)
     if (offer.status === 'confirmed') return
     if (offer.status === 'accepted') {
-      await setOffer(ctx, offer.id, { status: 'confirmed' })
+      // Books the days they said yes to, and ends the ask for any they haven't answered (ADR 0152). A rate still asked for
+      // on a call this leaves full closes with it, as the office was told before the press.
+      await setOffer(ctx, offer.id, { status: 'confirmed', asked: [] })
+      await closeIfFull(ctx, call, true)
       return
     }
     if (offer.status !== 'countered')
@@ -652,6 +689,21 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     // Agreeing a counter: the days may have filled while ops were deciding.
     await checkCanHold(ctx, call, offer, offer.days)
     await setOffer(ctx, offer.id, { status: 'confirmed', day_rate_cents: offer.counterRateCents })
+    await closeIfFull(ctx, call, true)
+  },
+
+  async 'offer.refuse'(ctx, a) {
+    const offer = await getOffer(ctx.tx, a.id)
+    if (!offer) throw new Refused({ code: 'not-found', message: 'That offer no longer exists.' })
+    // Said no to already, from another device: nothing more to do.
+    if (offer.status === 'offered') return
+    if (offer.status !== 'countered') throw new Refused({ code: 'conflict', message: `There's no rate to say no to: this offer is ${offer.status}.` })
+    const call = await openCall(ctx, offer.callId)
+    // The offer stands at the rate offered, for the days they asked it for, for them to take or turn down (ADR 0152): no day
+    // is offered again that they'd left out, so nobody is sent an invite for it. The rate they asked for is kept, so their
+    // page can say it wasn't agreed.
+    await setOffer(ctx, offer.id, { status: 'offered', asked: [] })
+    // A call that filled while they waited has no place left at any rate.
     await closeIfFull(ctx, call)
   },
 
@@ -660,7 +712,7 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     if (!offer) throw new Refused({ code: 'not-found', message: 'That offer no longer exists.' })
     // An offer that is over stays as it ended: a Withdraw queued on an offline device must not rewrite a decline or a pull-out.
     if (OVER.includes(offer.status)) return
-    await setOffer(ctx, offer.id, { status: 'cancelled' })
+    await setOffer(ctx, offer.id, { status: 'cancelled', asked: [] })
   },
 
   async 'offer.seen'(ctx, a) {

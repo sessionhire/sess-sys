@@ -113,7 +113,11 @@ export function crewView(
         if (o.status !== 'offered') continue
         days = [...newDays]
       }
-      if (days.join() !== o.days.join()) offers.set(o.id, { ...o, days, pending: true })
+      // The days still asked of someone who said yes to others move as theirs do (ADR 0152).
+      const asked = o.asked?.length ? offerDaysAfter(o.asked, oldDays, newDays, shift).filter((d) => !days.includes(d)) : undefined
+      const { asked: _was, ...rest } = o
+      if (days.join() !== o.days.join() || (asked ?? []).join() !== (o.asked ?? []).join())
+        offers.set(o.id, { ...rest, ...(asked?.length ? { asked } : {}), days, pending: true })
     }
   }
 
@@ -322,21 +326,47 @@ export function crewView(
         const a = m.args as CommandArgs<'offer.respond'>
         const o = offers.get(a.id)
         if (!o) break
-        const status = a.answer === 'accept' ? 'accepted' : a.answer === 'decline' ? 'declined' : a.answer === 'pullOut' ? 'pulled-out' : 'countered'
+        // Only a yes not yet confirmed goes back to being asked, as on the server.
+        if (a.answer === 'undecided' && o.status !== 'accepted') break
+        const status =
+          a.answer === 'accept' ? 'accepted' : a.answer === 'decline' ? 'declined' : a.answer === 'pullOut' ? 'pulled-out' : a.answer === 'undecided' ? 'offered' : 'countered'
         // A yes or a counter with no days chosen takes every day of the call, as on the server.
         const call = calls.get(o.callId)
-        const days = a.answer === 'accept' || a.answer === 'counter' ? (a.days ? [...new Set(a.days)].sort() : call ? eachDay(call.start, call.end) : o.days) : o.days
+        const days =
+          a.answer === 'accept' || a.answer === 'counter'
+            ? a.days
+              ? [...new Set(a.days)].sort()
+              : call
+                ? eachDay(call.start, call.end)
+                : o.days
+            : a.answer === 'undecided'
+              ? [...new Set(a.days)].sort()
+              : o.days
         // A new answer is one the office hasn't seen yet. The counter's rate, and when and how it was answered, as the server records them,
         // so a Confirm queued behind a counter agrees its rate (audit, 20 October 2026, finding 26).
         const counterRateCents = a.answer === 'counter' ? a.counterRateCents : a.answer === 'accept' ? null : o.counterRateCents
-        offers.set(o.id, { ...o, status, days, counterRateCents, note: a.note, respondedAt: m.createdAt, respondedVia: 'app', seenAt: null, pending: true })
+        // Days still asked after a Yes in Google to some (ADR 0152); any other answer is for every day.
+        const { asked: _was, ...rest } = o
+        const still = a.answer === 'accept' ? [...new Set(a.asked ?? [])].filter((d) => !days.includes(d)).sort() : []
+        const asked = still.length ? { asked: still } : {}
+        offers.set(o.id, { ...rest, ...asked, status, days, counterRateCents, note: a.note, respondedAt: m.createdAt, respondedVia: 'app', seenAt: null, pending: true })
         break
       }
       case 'offer.confirm': {
         const o = offers.get((m.args as CommandArgs<'offer.confirm'>).id)
         // Agreeing a counter makes its rate the rate, as the server does, so the timesheet's total follows at once.
         const agreed = o?.status === 'countered' && o.counterRateCents !== null ? { dayRateCents: o.counterRateCents } : {}
-        if (o) offers.set(o.id, { ...o, status: 'confirmed', ...agreed, pending: true })
+        // Confirming books the days they said yes to and ends the ask for the rest (ADR 0152).
+        if (o && (o.status === 'accepted' || o.status === 'countered')) {
+          const { asked: _ended, ...rest } = o
+          offers.set(o.id, { ...rest, status: 'confirmed', ...agreed, pending: true })
+        }
+        break
+      }
+      case 'offer.refuse': {
+        const o = offers.get((m.args as CommandArgs<'offer.refuse'>).id)
+        // The offer stands at the rate offered, for the days they asked it for, with the rate they asked for kept to say it was refused.
+        if (o?.status === 'countered') offers.set(o.id, { ...o, status: 'offered', pending: true })
         break
       }
       case 'offer.cancel': {
