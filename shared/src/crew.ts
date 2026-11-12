@@ -329,6 +329,12 @@ export const offer = z.object({
    * and why. Set by the server from Meta's receipts; absent when nothing went on WhatsApp.
    */
   whatsapp: z.object({ state: z.enum(['queued', 'sent', 'delivered', 'read', 'failed']), at: z.string(), problem: z.string().nullable() }).optional(),
+  /**
+   * On a job brought in from Google Calendar, an offer with no calendar invite of its own (ADR 0157): `organiser`, it came
+   * in with the job, from the guests the organiser invited; `before`, it was made before such jobs had their own. Set by
+   * the server; absent otherwise.
+   */
+  noOwnInvite: z.enum(['organiser', 'before']).optional(),
   /** Set by the server on what it sends a role that doesn't read rates (ADR 0046): both rates are left out. Never stored. */
   rateHidden: z.boolean().optional(),
 })

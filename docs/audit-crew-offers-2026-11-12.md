@@ -507,7 +507,14 @@ WhatsApp's own switch rather than one of its own. It differs in two
 things: someone picked to hold the day hears nothing until the client
 says yes, then that they're booked; and nothing follows an offer to
 someone who never heard of it, whose offer is still waiting to go or was
-turned down by Meta and who hasn't answered another way.
+turned down by Meta and who hasn't answered another way. Batch 6's first
+part, each person's own invite on a job brought in from Google Calendar
+(question 3) and a fresh invitation after a No, is in 1.173.0
+([ADR 0157](adr/0157-own-invites-for-jobs-brought-in.md)). It differs in
+two things: the offers already on those jobs keep none, so deploying it
+emails nobody, and each row says why, the organiser's guest or offered
+before; and calls that aren't part of a job wait on #313, which asks
+whether new ones can still be made.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -541,7 +548,8 @@ turned down by Meta and who hasn't answered another way.
    person's own invite for jobs brought in from Google Calendar and for
    calls with no job; a call's days tied to its phase; Undo on an offer;
    asking the same crew again; staff notices said to them. Larger. Needs
-   question 3.
+   question 3. **First part done in 1.173.0**: the invites for jobs
+   brought in, and a fresh invitation after a No.
 
 ## Questions for Colly
 

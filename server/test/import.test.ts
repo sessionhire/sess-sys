@@ -604,6 +604,8 @@ describe('bringing jobs in from Google Calendar', () => {
       { phase: 'Show', role: 'Crew', needed: 1, days: '2031-03-12 2031-03-13', offers: ['Aoife Byrne confirmed 2031-03-12 2031-03-13'] },
     ])
     expect(f.offers.find((o) => o.status === 'confirmed')!.respondedVia).toBe('calendar')
+    // Each is a guest the organiser invited to their own event, so none gets an invite of the app's (ADR 0157).
+    expect(f.offers.map((o) => o.noOwnInvite)).toEqual(f.offers.map(() => 'organiser'))
 
     // The history says who did it and how much came in.
     const history = await s.colly.history()

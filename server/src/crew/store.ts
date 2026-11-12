@@ -8,7 +8,7 @@ import { sortByIds } from '../projects/store.ts'
 const PERSON = `id, name, first_name, last_name, kind, email, other_emails, phone, skills, day_rate_cents, notes, link_token, archived, approves_leave, department, level, known_as, certificates, company_name, company_vat_number, company_cro_number, role, photo_at, name_checked, whatsapp_off`
 const CALL = `id, project_id, phase_id, project, phase, venue, role, start_day::text, end_day::text, call_time, needed, day_rate_cents, details, reply_by::text, status, needs_certificates, department`
 // The offer's own WhatsApp message, newest first (ADR 0125): where Meta says it has got to.
-const OFFER = `id, call_id, person_id, status, days, asked, day_rate_cents, counter_rate_cents, note, responded_at, responded_via, override, seen_at,
+const OFFER = `id, call_id, person_id, status, days, asked, day_rate_cents, counter_rate_cents, note, responded_at, responded_via, override, seen_at, no_own_invite,
   (SELECT json_build_object('state', w.state, 'at', coalesce(w.read_at, w.delivered_at, w.sent_at, w.tried_at, w.made_at), 'problem', w.problem)
      FROM whatsapp_messages w WHERE w.offer_id = offers.id AND w.kind = 'offer' ORDER BY w.made_at DESC LIMIT 1) AS whatsapp`
 const AWAY = `id, person_id, start_day::text, end_day::text, note, source`
@@ -79,6 +79,8 @@ export const toOffer = (r: Row): Offer => ({
   respondedVia: r.responded_via,
   override: r.override,
   seenAt: r.seen_at ? new Date(r.seen_at).toISOString() : null,
+  // Only on an offer on a job brought in from Google Calendar that has no invite of its own, saying why (ADR 0157).
+  ...(r.no_own_invite ? { noOwnInvite: r.no_own_invite } : {}),
   ...(r.whatsapp ? { whatsapp: { state: r.whatsapp.state, at: new Date(r.whatsapp.at).toISOString(), problem: r.whatsapp.problem ?? null } } : {}),
 })
 export const toAway = (r: Row): Unavailability => ({
@@ -176,7 +178,7 @@ export async function awayFor(q: Queryable, personId: string) {
 }
 
 const OFFER_WITH_CALL = `o.id, o.call_id, o.person_id, o.status, o.days, o.asked, o.day_rate_cents, o.counter_rate_cents, o.note,
-            o.responded_at, o.responded_via, o.override, o.seen_at,
+            o.responded_at, o.responded_via, o.override, o.seen_at, o.no_own_invite,
             c.id AS c_id, c.project_id AS c_project_id, c.phase_id AS c_phase_id,
             c.project AS c_project, c.phase AS c_phase, c.venue AS c_venue, c.role AS c_role,
             c.start_day::text AS c_start_day, c.end_day::text AS c_end_day, c.call_time AS c_call_time,

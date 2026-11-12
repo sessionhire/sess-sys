@@ -413,8 +413,17 @@ export class CalendarSync {
         }
       }
       const byId = new Map(rows.map((r) => [r.id, r]))
+      // Every day that's on, whether or not the app writes it: a brought-in job's day is the organiser's (ADR 0157).
+      const daysOn = new Set<string>()
       const wanted = writing
-        ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: this.options.appUrl ?? link.appUrl, personal: personalCalendar(link) !== null, tell: link })
+        ? await wantedEvents(db, {
+            today,
+            appKey: link.appKey,
+            appUrl: this.options.appUrl ?? link.appUrl,
+            personal: personalCalendar(link) !== null,
+            tell: link,
+            on: daysOn,
+          })
         : new Map<string, Wanted>()
 
       // Events changed or deleted in Google since the app wrote them, and any of the app's events it has lost track of.
@@ -467,7 +476,7 @@ export class CalendarSync {
         // Someone who said No to their own copy of a day that's still on keeps it, as a No, rather than being sent a
         // cancellation for something they turned down (ADR 0009, as on the shared day before 1.163.0).
         const saidNo = personalRow(row) && row.guests.length > 0 && row.guests.every((g) => g.response === 'declined')
-        if (saidNo && wanted.has(calendarDayId(row.phaseId, row.day)) && row.calendarId === personalCalendar(link)) continue
+        if (saidNo && daysOn.has(calendarDayId(row.phaseId, row.day)) && row.calendarId === personalCalendar(link)) continue
         ops.push({ kind: 'remove', row })
       }
       const dayOf = (op: Op) => (op.kind === 'write' ? op.wanted.day : op.kind === 'remove' ? op.row.day : (op.event.extendedProperties?.private?.shDay ?? ''))
@@ -640,12 +649,25 @@ export class CalendarSync {
     let generation = here ? row!.generation : 0
     // Update the event the app knows is here; otherwise put it on, reusing the same id.
     let known = here && row!.state === 'on'
+    // Asked again after saying No to their own copy (ADR 0157, the audit's finding 1): the copy they turned down comes off
+    // quietly and a new one goes, so Google emails a fresh invitation and their answer starts again. Kept, their No would
+    // stand against the new offer, and nothing would reach them.
+    const askedAgain =
+      known &&
+      w.personId !== undefined &&
+      row!.guests.some((g) => g.personId === w.personId && g.response === 'declined' && !w.guests.some((n) => n.offerId === g.offerId))
+    if (askedAgain) {
+      await this.call(link, (t) => google.deleteEvent(t, calendarId, row!.eventId, 'none')).catch(ignoreGone)
+      generation++
+      known = false
+      listed = undefined
+    }
     const day = { id: w.key, phaseId: w.phaseId, projectId: w.projectId, day: w.day, title: w.title, calendarId, contentHash: w.hash }
     // What a person's own copy tells them that's news since it was last written (ADR 0153): being booked, or picked, or a
     // call time that moves. Google emails it even when only the first line says so. A change to what it tells them that
     // isn't news, or a copy that told them nothing before (telling just turned on, or off), changes its title quietly.
     // Someone who said No to it hears no more about it.
-    const was = here && row!.state === 'on' ? row! : undefined
+    const was = here && row!.state === 'on' && !askedAgain ? row! : undefined
     const news = toldNews(was?.told, w.told) && !was!.guests.every((g) => g.response === 'declined')
     const how = { news, quietTitle: !!was && !news && (was.told ?? null) !== (w.told ?? null) && was.title === w.title }
     for (let tries = 0; tries < 5; tries++) {

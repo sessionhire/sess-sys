@@ -3,6 +3,44 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: own invites for jobs brought in from Google Calendar
+
+**Done (1.173.0)**
+
+- The first part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  question 3 and the rest of finding 1
+  ([ADR 0157](adr/0157-own-invites-for-jobs-brought-in.md)).
+- On a job brought in from Google Calendar, each person the office offers
+  from now on gets their own copy of each day on the connected account's
+  calendar, as on the app's own jobs: HOLD before the client's yes, the
+  short invite until they say yes, a Yes for its own day, and what happens
+  next when that switch is on. The organiser's events are left alone, and
+  the app still puts no day of these jobs on the jobs calendar.
+- The offers already on these jobs keep none, so deploying this emails
+  nobody for them. Each row says why: "No invite from the app: the
+  organiser invited them in Google Calendar." for the guests brought in
+  with the job, and "…it was offered before jobs from Google Calendar
+  sent their own." for the office's own. Guests brought in with a job
+  from now on are the organiser's too.
+- Someone who said No in Google and is offered the same days again gets a
+  fresh invitation: their declined copy comes off without an email and a
+  new one goes, so their answer starts again. On every job. Anyone asked
+  again that way before this is deployed, whose new offer is still on,
+  gets theirs on the first run after it.
+- The Offer form, the panel after a press and each row read the same rule
+  as the server, so the form now promises the invite on these jobs too.
+- Left for later in batch 6: calls that aren't part of a job (whether new
+  ones can be made waits on #313), Undo on an offer, a call's days tied to
+  its phase, asking the same crew again, and staff notices said to them.
+- Checked: typecheck; shared tests (703) and server tests (1026), with
+  new cases for a brought-in job's own invites, the deploy step marking
+  each kind of older offer and emailing nobody, a No staying a No, a fresh
+  invitation after a No on a brought-in job and on one of the app's own,
+  the import marking its guests, and the words for each reason. Browser
+  specs for answers, calendar, crew, import, offer-from-next, person and
+  refusals (16 pass). A replay on a local copy with a stand-in for Google,
+  23 checks on a desk and a phone. Nothing real was sent.
+
 ## 12 November 2026: WhatsApp tells crew what happens next
 
 **Done (1.172.0)**

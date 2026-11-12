@@ -136,13 +136,18 @@ export function reachContext(view: Pick<View, 'calendar' | 'jobs' | 'office'>, t
  * - `paused`: they're on, but the calendar needs connecting again;
  * - `no-job`: the call isn't part of a job, and only a job's days go on the calendar;
  * - `unknown`: the job isn't on this device, so it can't say;
- * - `brought-in`: the job came from a Google calendar, which keeps its own events (ADR 0011);
+ * - `brought-in`: the job came from a Google calendar, which keeps its own events (ADR 0011), and the calendar connected has
+ *   no account of its own to put each person's copy on (ADR 0157);
+ * - `organiser`: the job came from a Google calendar, and this offer came in with it, from the guests the organiser
+ *   invited to their own event (ADR 0157);
+ * - `before`: the job came from a Google calendar, and this offer was made before such jobs had invites of their own
+ *   (ADR 0157);
  * - `stopped`: the job is cancelled or lost, or the call is cancelled;
  * - `past`: none of the days is today or later;
  * - `outside-phases`: none of the days is inside a phase of the job the call covers;
  * - `no-email`: the person has no email address.
  */
-export type NoInvite = 'off' | 'paused' | 'no-job' | 'unknown' | 'brought-in' | 'stopped' | 'past' | 'outside-phases' | 'no-email'
+export type NoInvite = 'off' | 'paused' | 'no-job' | 'unknown' | 'brought-in' | 'organiser' | 'before' | 'stopped' | 'past' | 'outside-phases' | 'no-email'
 
 /** Where a person's invites go for some days of a call: each phase's day that gets one, or why none does. */
 export interface InvitePlan {
@@ -154,16 +159,19 @@ export interface InvitePlan {
 
 /**
  * The server's rule for who gets a calendar invite (server/src/calendar/events.ts, wantedEvents), read from a device:
- * invites on and a calendar connected; a job of the app's own that isn't stopped; and for each day from today on, a
- * phase of the job that the call covers and that holds the day; and an email address to send it to. A job the client
- * hasn't said yes to goes on the calendar as HOLD (hold the day) once anyone is asked for it, so an offer there gets
- * its invite too.
+ * invites on and a calendar connected; a job that isn't stopped; and for each day from today on, a phase of the job that
+ * the call covers and that holds the day; and an email address to send it to. A job the client hasn't said yes to goes
+ * on the calendar as HOLD (hold the day) once anyone is asked for it, so an offer there gets its invite too. A job
+ * brought in from Google Calendar keeps the organiser's event, and each person gets their own copy of its days (ADR
+ * 0157), on the connected account's own calendar, unless `offer` is one that has none, and why. A new offer, not made
+ * yet, has.
  */
 export function invitePlan(
   ctx: ReachContext,
   call: Pick<CrewCall, 'projectId' | 'phaseId' | 'status'>,
   person: Pick<Person, 'email'> | undefined,
-  days: readonly string[]
+  days: readonly string[],
+  offer?: Pick<Offer, 'noOwnInvite'>
 ): InvitePlan {
   const none = (why: NoInvite): InvitePlan => ({ rows: [], days: [], why })
   const link = ctx.calendar.link
@@ -173,7 +181,8 @@ export function invitePlan(
   if (!call.projectId) return none('no-job')
   const job = ctx.job(call.projectId)
   if (!job) return none('unknown')
-  if (job.sourceCalendar) return none('brought-in')
+  if (job.sourceCalendar && offer?.noOwnInvite) return none(offer.noOwnInvite)
+  if (job.sourceCalendar && !link.account) return none('brought-in')
   if (STOPPED.includes(job.status) || call.status !== 'open') return none('stopped')
   const ahead = days.filter((d) => d >= ctx.today)
   if (!ahead.length) return none('past')
@@ -187,7 +196,7 @@ export function invitePlan(
 
 // ---- One offer: what went ----
 
-type ReachOffer = Pick<Offer, 'id' | 'personId' | 'status' | 'days'> & Partial<Pick<Offer, 'whatsapp' | 'respondedVia' | 'counterRateCents'>>
+type ReachOffer = Pick<Offer, 'id' | 'personId' | 'status' | 'days'> & Partial<Pick<Offer, 'whatsapp' | 'respondedVia' | 'counterRateCents' | 'noOwnInvite'>>
 type ReachCall = Pick<CrewCall, 'projectId' | 'phaseId' | 'status' | 'start' | 'end'>
 type ReachPerson = Pick<Person, 'name' | 'email' | 'phone'> & Partial<Pick<Person, 'knownAs' | 'firstName' | 'whatsappOff'>>
 
@@ -231,7 +240,7 @@ export function offerReach(
   person: ReachPerson | undefined,
   others: readonly Pick<Offer, 'id' | 'personId' | 'status'>[] = []
 ): OfferReach {
-  const plan = invitePlan(ctx, call, person, offer.days.filter((d) => call.start <= d && d <= call.end))
+  const plan = invitePlan(ctx, call, person, offer.days.filter((d) => call.start <= d && d <= call.end), offer)
   const onCalendar = offerOnCalendar(offer, ctx.calendar.days, ctx.today)
   const invited = Object.keys(onCalendar?.answers ?? {}).sort()
   const byAnother = new Set<string>()
@@ -306,13 +315,28 @@ const ANSWERED: Partial<Record<NonNullable<Offer['respondedVia']>, string>> = {
   app: 'Answered in the app.',
 }
 
+const BROUGHT_IN = "this job came from Google Calendar, so its days are the organiser's"
+
+/**
+ * Why an offer on a job brought in from Google Calendar has no invite of the app's, after "Nothing was sent to Seán from the
+ * app: " (ADR 0157); `many` when it's said of more than one.
+ */
+const BROUGHT: Partial<Record<NoInvite, (many: boolean) => string>> = {
+  'brought-in': () => BROUGHT_IN,
+  organiser: () => 'the organiser invited them in Google Calendar',
+  before: (many) => `${many ? 'they were' : 'it was'} offered before jobs from Google Calendar sent their own`,
+}
+
 /** No invite, said for a row that something else reached, or that the office messages by hand. */
 const NO_INVITE_LINE: Partial<Record<NoInvite, string>> = {
   paused: 'No calendar invite: the calendar needs connecting again.',
   'no-job': "No calendar invite: this call isn't part of a job.",
   'outside-phases': "No calendar invite: its days aren't inside one of the job's phases.",
   'no-email': 'No email address, so no calendar invite.',
-  'brought-in': "No invite from the app: this job came from Google Calendar, so its days are the organiser's.",
+  'brought-in': `No invite from the app: ${BROUGHT_IN}.`,
+  // An offer that came in with its job, or was made before such jobs sent their own (ADR 0157): a new one has its invite.
+  organiser: 'No invite from the app: the organiser invited them in Google Calendar.',
+  before: 'No invite from the app: it was offered before jobs from Google Calendar sent their own.',
 }
 
 /** The same reasons as the first half of "Nothing has reached Seán: …, and WhatsApp is off." */
@@ -335,7 +359,6 @@ const NO_INVITE_SHORT: Partial<Record<NoInvite, string>> = {
 
 const HELD_LINE = 'Calendar invite not sent yet: the calendar has a problem. See Admin › Connections.'
 const EARLIER_NO_LINE = 'No new invite went: their No to an earlier offer still stands in Google Calendar.'
-const BROUGHT_IN = "this job came from Google Calendar, so its days are the organiser's"
 
 /** Why nothing went, as the words after "Nothing has reached Seán: "; undefined when there's nothing a row should say. */
 function nothingBecause(r: Pick<OfferReach, 'plan' | 'whatsapp' | 'noWhatsApp'>): string | undefined {
@@ -409,7 +432,7 @@ export function reachOnRow(
   else if (r.coming.length) invite = r.held ? { text: HELD_LINE, tone: 'warn', title: r.held } : { text: 'Calendar invite on its way.', tone: 'plain' }
   else if (!waiting) invite = why === 'no-email' ? { text: NO_INVITE_LINE['no-email']!, tone: 'plain' } : undefined
   else if (silent) invite = undefined
-  else if (why === 'brought-in') invite = { text: NO_INVITE_LINE['brought-in']!, tone: 'plain' }
+  else if (why && BROUGHT[why]) invite = { text: NO_INVITE_LINE[why]!, tone: 'plain' }
   else if (r.reached || r.onItsWay || ctx.messages) invite = why && NO_INVITE_LINE[why] ? { text: NO_INVITE_LINE[why]!, tone: 'plain' } : undefined
   else if (allOff(ctx, r)) off = true
   else {
@@ -683,12 +706,14 @@ export function toldOfOffer(who: ToldWho, r: OfferReach): ToldPerson {
         ? { key: 'held', say: (who) => `The calendar invite to ${who} hasn't gone: the calendar has a problem. See Admin › Connections.` }
         : { key: 'coming', say: (who) => `A calendar invite is on its way to ${who} by email.` }
     )
-  else if (why === 'brought-in')
+  else if (why && BROUGHT[why]) {
+    const because = BROUGHT[why]
     said.push(
       whatsappComing
-        ? { key: 'brought-in-invite', say: (who) => `No calendar invite went to ${who}: ${BROUGHT_IN}.` }
-        : { key: 'brought-in', say: (who) => `Nothing was sent to ${who} from the app: ${BROUGHT_IN}.` }
+        ? { key: `${why}-invite`, say: (who, many) => `No calendar invite went to ${who}: ${because(many)}.` }
+        : { key: why, say: (who, many) => `Nothing was sent to ${who} from the app: ${because(many)}.` }
     )
+  }
   else if (why === 'off' && r.noWhatsApp === 'off') said.push({ key: 'all-off', say: (who) => `Nothing was sent to ${who}: calendar invites and WhatsApp are both off.` })
   else if (!whatsappComing) {
     const because = nothingBecause(r)
