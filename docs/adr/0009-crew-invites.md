@@ -97,6 +97,13 @@ calendars only hear about an event, a change or a cancellation by email.
   change to the title, date or place, are sent to guests; a change to
   the description alone (the crew list, the notes) is not, since those
   change often. Deleting an event with guests tells them it's cancelled.
+  From 1.170.0, with "Tell crew what happens next" on
+  ([ADR 0153](0153-crew-invites-tell-what-happens-next.md)), a person's
+  own copy is titled with where they stand and their call time ("Booked:
+  Harbour Lights Festival - Show 1/2, call 06:00"), so being booked and a
+  call time that moves are emailed, and a day that comes off is first
+  retitled, quietly, with why ("Filled by someone else: …"). It starts
+  off.
 - **Guests can't see each other's addresses, or invite others.** The
   description names the crew for the day already; personal email
   addresses stay between each freelancer and the office.

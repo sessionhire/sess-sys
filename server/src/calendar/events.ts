@@ -13,9 +13,14 @@ import {
   holdTitle,
   JOB_STAGES,
   STAGE_LABELS,
+  tells,
+  toldOf,
+  toldTitle,
+  type CalendarLink,
   type Department,
   type JobStage,
   type QuoteLine,
+  type ToldStanding,
 } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { EventBody } from './google.ts'
@@ -56,6 +61,11 @@ export interface Wanted {
   guests: WantedGuest[]
   /** People offered the day or booked on it with no email address in the app, so never invited, by name. */
   noEmail: string[]
+  /**
+   * On a person's own copy that tells them what happens next (ADR 0153): where they stand and their call time, as
+   * `toldOf` has it, to know a change to either as news. Unset when their invites don't tell them.
+   */
+  told?: string
 }
 
 export interface CrewLine {
@@ -409,12 +419,15 @@ export async function wantedEvents(
     appKey,
     appUrl,
     personal = false,
+    tell,
   }: {
     today: string
     appKey: string
     appUrl: string | null
     /** Each guest gets their own copy of the day, and the shared day has none (invites on). */
     personal?: boolean
+    /** Whose own copies tell them what happens next (ADR 0153): the connection's switch and the addresses it tries. */
+    tell?: Pick<CalendarLink, 'tell' | 'tellTo'>
   }
 ): Promise<Map<string, Wanted>> {
   const { rows: phases } = await q.query<PhaseRow>(
@@ -615,8 +628,13 @@ export async function wantedEvents(
         // Someone only asked, or waiting on the office about a rate, has said yes to nothing yet: the short copy (ADR 0151). So
         // is a day still asked of someone who said yes to others (ADR 0152).
         const asked = g.status === 'offered' || g.status === 'countered'
+        // Where they stand and their call time, in the title, when their invites tell them what happens next (ADR 0153): being
+        // booked, or a call time that moves, is then a change of title, which Google emails them.
+        const telling = tells(tell, g.email)
+        const standing: ToldStanding = g.status === 'confirmed' ? (hold ? 'picked' : 'booked') : g.status === 'accepted' ? 'yes' : 'asked'
         const mine: EventBody = {
           ...body,
+          ...(telling ? { summary: toldTitle(titles[i]!, standing, g.call.call_time) } : {}),
           description: `${lead}\n\n${description({ ...facts, appLink: null }, DESCRIPTION_MAX - lead.length - 2, asked)}`,
           extendedProperties: { private: { ...body.extendedProperties.private, shPerson: g.personId } },
         }
@@ -631,6 +649,7 @@ export async function wantedEvents(
           hash: hash(mine),
           guests: [{ personId: g.personId, offerId: g.offerId, email: g.email }],
           noEmail: [],
+          ...(telling ? { told: toldOf(standing, g.call.call_time) } : {}),
         })
       }
     })

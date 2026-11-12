@@ -87,12 +87,18 @@ export function sameContent(ev: GoogleEvent, body: EventBody): boolean {
  * changes the crew list too), `quietly` is the event with the new
  * description and the guests as they were, to write first without telling
  * anyone, so that only the people added or taken off hear from Google.
+ *
+ * On a person's own copy that tells them what happens next (ADR 0153): `news`
+ * tells them however little changed, as being picked changes only the first
+ * line; `quietTitle` changes the title without telling them, where the change
+ * is only to what it tells them and isn't news.
  */
 export function withGuests(
   ev: GoogleEvent,
   body: EventBody,
   previous: GuestRow[],
-  guests: GuestRow[] | undefined
+  guests: GuestRow[] | undefined,
+  how: { news?: boolean; quietTitle?: boolean } = {}
 ): { body: EventBody; send: SendUpdates; quietly?: EventBody } {
   const now = ev.attendees ?? []
   if (!guests) return { body: now.length ? { ...body, attendees: now } : body, send: 'none' }
@@ -105,12 +111,12 @@ export function withGuests(
   const dropped = !restored && now.some((a) => ours.some((e) => sameEmail(e, a.email)) && !guests.some((g) => sameEmail(g.email, a.email)))
   const noticed =
     restored ||
-    (ev.summary ?? '') !== body.summary ||
+    (!how.quietTitle && (ev.summary ?? '') !== body.summary) ||
     (ev.location ?? '') !== body.location ||
     ev.start?.date !== body.start.date ||
     ev.end?.date !== body.end.date
-  const told = added || dropped || (noticed && attendees.some((a) => !a.organizer))
+  const told = added || dropped || ((noticed || !!how.news) && attendees.some((a) => !a.organizer))
   const next = { body: attendees.length ? { ...body, attendees } : body, send: told ? ('all' as const) : ('none' as const) }
-  if (!told || noticed || (ev.description ?? '') === body.description) return next
+  if (!told || noticed || how.news || (ev.description ?? '') === body.description) return next
   return { ...next, quietly: now.length ? { ...body, attendees: now } : body }
 }

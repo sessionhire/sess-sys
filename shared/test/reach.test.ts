@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CalendarDay, CalendarGuest, CalendarLink } from '../src/calendar.ts'
 import type { CrewCall, Offer, Person } from '../src/crew.ts'
 import {
+  bookingWords,
   callEndingWords,
   askEndingWords,
   daysToCancel,
@@ -19,6 +20,7 @@ import {
   toldOfEnding,
   toldOfOffer,
   toldOfRefusal,
+  toldNext,
   toldSentences,
   whatsappReach,
   type ReachContext,
@@ -506,6 +508,91 @@ describe('the question before an offer is ended', () => {
     expect(jobEndingWords(c, [aoifes[0]!])).toBe(' Google emails them that the day is cancelled.')
     expect(jobEndingWords(c, [...aoifes, { personId: 'tommo', offerId: 'o2' }])).toBe(' Google emails each of them that their days are cancelled.')
     expect(jobEndingWords(c, [...aoifes, { personId: 'tommo', offerId: 'o2' }, { personId: 'sean', offerId: 'o3' }, { personId: 'niamh' }])).toBe(' Google emails 2 of them that their days are cancelled.')
+  })
+})
+
+describe('telling crew what happens next (ADR 0153)', () => {
+  const telling = (tell: CalendarLink['tell'], tellTo: string[] = []) => ctx({ days: invitedBoth, link: link({ tell, tellTo }) })
+  const tommo = person('tommo', 'Tomás Reilly', { knownAs: 'Tommo' })
+
+  it('reaches everyone invited when on, and only the addresses listed when being tried', () => {
+    expect(toldNext(ctx(), aoife)).toBe(false)
+    expect(toldNext(telling('off', ['aoife@example.com']), aoife)).toBe(false)
+    expect(toldNext(telling('on'), aoife)).toBe(true)
+    expect(toldNext(telling('on'), sean)).toBe(false)
+    // Compared as Google compares addresses.
+    expect(toldNext(telling('test', ['Aoife@Example.com ']), aoife)).toBe(true)
+    expect(toldNext(telling('test', ['tommo@example.com']), aoife)).toBe(false)
+  })
+
+  it('says before Confirm that Google emails them the booking, or to hold the day', () => {
+    expect(bookingWords(telling('on'), 'o1', aoife)).toBe("Google emails them that they're booked.")
+    expect(bookingWords(telling('on'), 'o1', aoife, true)).toBe('Google emails them to hold the day.')
+    expect(bookingWords(ctx({ days: invitedBoth, link: link({ tell: 'on', problem: 'Google Calendar isn’t answering.' }) }), 'o1', aoife)).toBe(
+      "Google emails them that they're booked once the calendar is working again."
+    )
+    // Off, not on the list, or no invite of theirs: nothing is sent, so nothing is said.
+    expect(bookingWords(ctx({ days: invitedBoth }), 'o1', aoife)).toBe('')
+    expect(bookingWords(telling('test', ['tommo@example.com']), 'o1', aoife)).toBe('')
+    expect(bookingWords(telling('on'), 'other', aoife)).toBe('')
+  })
+
+  it('says the cancellation says why, before and after the press', () => {
+    expect(endingWords(telling('on'), 'o1', "it's withdrawn", aoife)).toBe("Google emails them that their 2 days are cancelled and why, and their link says it's withdrawn at once.")
+    expect(endingWords(telling('on'), 'o1', "it's withdrawn")).toBe("Google emails them that their 2 days are cancelled, and their link says it's withdrawn at once.")
+    expect(endingWords(telling('test', ['tommo@example.com']), 'o1', "it's withdrawn", aoife)).toBe(
+      "Google emails them that their 2 days are cancelled, and their link says it's withdrawn at once."
+    )
+    // A call or a job: only when every cancellation says why.
+    const both = days(row(D1, 'aoife', { offerId: 'o1' }), row(D1, 'tommo', { offerId: 'o2' }))
+    const offers = [{ ...offer('o1', 'aoife'), person: aoife }, { ...offer('o2', 'tommo', 'confirmed'), person: tommo }]
+    expect(callEndingWords(ctx({ days: both, link: link({ tell: 'on' }) }), offers)).toBe(
+      "Google emails the 2 people on it that the day is cancelled and why, and their links say it's withdrawn at once."
+    )
+    expect(callEndingWords(ctx({ days: both, link: link({ tell: 'test', tellTo: ['aoife@example.com'] }) }), offers)).toBe(
+      "Google emails the 2 people on it that the day is cancelled, and their links say it's withdrawn at once."
+    )
+    const c = ctx({ days: both, link: link({ tell: 'on' }) })
+    expect(jobEndingWords(c, [{ personId: 'aoife', offerId: 'o1', email: aoife.email }])).toBe(' Google emails them that the day is cancelled and why.')
+    expect(jobEndingWords(c, [{ personId: 'aoife', offerId: 'o1', email: aoife.email }, { personId: 'tommo', offerId: 'o2', email: null }])).toBe(
+      ' Google emails each of them that the day is cancelled.'
+    )
+    // Someone with no invite to cancel doesn't stop the rest being told why.
+    expect(jobEndingWords(c, [{ personId: 'aoife', offerId: 'o1', email: aoife.email }, { personId: 'sean', offerId: 'o3', email: null }])).toBe(
+      ' Google emails 1 of them that the day is cancelled and why.'
+    )
+    expect(toldSentences([toldOfEnding(telling('on'), aoife, { cancel: 2, left: 2, invited: true })])).toEqual(['Google is emailing Aoife that their days are cancelled and why.'])
+    expect(toldSentences([toldOfEnding(telling('on'), aoife, { cancel: 1, left: 0, invited: true })])).toEqual(['Google has emailed Aoife that the day is cancelled and why.'])
+  })
+
+  it('says after Confirm that Google is emailing them, so there is nobody to ring', () => {
+    const booked = toldOfBooking(telling('on'), aoife, { invited: true })
+    expect(toldSentences([booked])).toEqual(["Google is emailing Aoife that they're booked, and their link says so."])
+    expect(booked.reached).toBe(true)
+    expect(toldSentences([toldOfBooking(telling('on'), aoife, { invited: true }), toldOfBooking(telling('on'), tommo, { invited: true })])).toEqual([
+      "Google is emailing Aoife and Tommo that they're booked, and their links say so.",
+    ])
+    expect(toldSentences([toldOfBooking(telling('on'), aoife, { invited: true }, true)])).toEqual([
+      "Google is emailing Aoife to hold the day, as the client hasn't said yes yet, and their link says so.",
+    ])
+    // Not on the list being tried, or no invite: as before.
+    expect(toldSentences([toldOfBooking(telling('test', ['tommo@example.com']), aoife, { invited: true })])).toEqual([
+      "Nothing was sent to Aoife: their link and their calendar invite say they're booked, and no email goes with that.",
+    ])
+    expect(toldSentences([toldOfBooking(telling('on'), sean, { invited: false })])).toEqual(["Nothing was sent to Seán: their link says they're booked."])
+  })
+
+  it('says after a call changes that Google emails the new call time, and nothing for the rest', () => {
+    expect(toldSentences([toldOfChange(telling('on'), aoife, { invited: true }, false, true)])).toEqual(['Google is emailing Aoife the new call time.'])
+    expect(toldSentences([toldOfChange(telling('on'), aoife, { invited: true }, true, true)])).toEqual(['Google is emailing Aoife about the days that changed.'])
+    expect(toldSentences([toldOfChange(telling('on'), aoife, { invited: true }, false)])).toEqual([
+      'Nothing was sent to Aoife: the change is on their link, and Google emails nothing unless the days or the call time move.',
+    ])
+    expect(toldSentences([toldOfChange(ctx({ days: invitedBoth }), aoife, { invited: true }, false, true)])).toEqual([
+      'Nothing was sent to Aoife: the change is on their link, and Google emails nothing unless the days move.',
+    ])
+    const stuck = ctx({ days: invitedBoth, link: link({ tell: 'on', problem: 'Google Calendar isn’t answering.' }) })
+    expect(toldSentences([toldOfChange(stuck, aoife, { invited: true }, false, true)])).toEqual(['Google emails Aoife the new call time once the calendar is working again.'])
   })
 })
 

@@ -1,4 +1,5 @@
 import { CHANGE_SHOWN_DAYS, crewCall as callSchema, DEFAULT_LEVEL, eachDay, HOLDING, offer as offerSchema, splitName, tidyNeeds, type CrewCall, type Offer, type Person, type Unavailability, type Watched, type WatchedStep } from '@sh/shared'
+import type { EndedBy } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { sortByIds } from '../projects/store.ts'
 
@@ -218,7 +219,7 @@ export async function offersFor(q: Queryable, personId: string) {
  * (lost), taking its calls with it; the office withdrew it, cancelled its call, or stopped a job it has since started
  * again; or someone else took the last place.
  */
-export type EndedBy = 'job-cancelled' | 'job-lost' | 'withdrawn' | 'filled'
+export type { EndedBy }
 
 /** When and how an offer ended, and whether it was a booking then: they'd said yes, or were booked. */
 export interface Ended {

@@ -2,7 +2,7 @@ import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noT
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
-import { busyByDay, HOLD_WORDS, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, STOPPED_WORDS, type OwnCalendar, type SinceYes } from '@sh/shared'
+import { busyByDay, ENDED_WORDS, HOLD_WORDS, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, type OwnCalendar, type SinceYes } from '@sh/shared'
 import type { Ended, EndedBy } from './store.ts'
 
 /**
@@ -203,12 +203,7 @@ const answerLine = (j: Pick<PageData['jobs'][number], 'offer'>, staff: boolean, 
  * different news, and "Withdrawn", the office's word for the last, said all three. A stopped job's words are the ones
  * the office's question before stopping it says they'll see.
  */
-const ENDED_TEXT: Record<EndedBy, string> = {
-  'job-cancelled': capital(STOPPED_WORDS.cancelled),
-  'job-lost': capital(STOPPED_WORDS.lost),
-  withdrawn: 'Withdrawn by the office',
-  filled: 'Filled by someone else',
-}
+const ENDED_TEXT: Record<EndedBy, string> = ENDED_WORDS
 
 /**
  * The way out of a job they said yes to (audit finding 10), folded away so
@@ -351,13 +346,14 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
   </article>`
 }
 
-/** A booking that ended on the office's side, and how, while that's news. */
+/** A booking, or an offer waiting on them, that ended on the office's side, and how, while that's news. */
 type Ending = PageData['jobs'][number] & { end: Ended }
 
 /**
  * A booking that ended on the office's side, in its place among their bookings while that's news (UX sweep, 6 November
- * 2026, move 6): how it ended as the card's first line, in its heading with the job, so moving through the page by its
- * headings hears it too; then the row's line. Nothing to answer or open.
+ * 2026, move 6), and an offer that was waiting on them, in its place among their offers (ADR 0153): how it ended as the
+ * card's first line, in its heading with the job, so moving through the page by its headings hears it too; then the
+ * row's line. Nothing to answer or open.
  */
 function endedCard(d: PageData, j: PageData['jobs'][number], end: Ended) {
   const { offer, call } = j
@@ -896,7 +892,17 @@ export function renderPage(d: PageData): string {
     const end = d.ended.get(j.offer.id)
     return j.offer.status === 'cancelled' && end?.held && isNews(new Date(end.at), { days: j.offer.days, callTime: j.call.callTime }, d.now) ? [{ ...j, end }] : []
   })
-  const endingIds = new Set(ending.map((j) => j.offer.id))
+  // Offers that were waiting on them and ended on the office's side, filled, withdrawn or the job stopped, said in their place
+  // the same way (ADR 0153; audit of 12 November 2026, finding 8), so the page they open after Google's cancellation says why
+  // at the top. Their own No or Can't make it is theirs, and only in the list of what ended.
+  const endedWaiting: Ending[] = d.jobs.flatMap((j) => {
+    const end = d.ended.get(j.offer.id)
+    const days = j.offer.days.length ? j.offer.days : eachDay(j.call.start, j.call.end)
+    return (j.offer.status === 'cancelled' || j.offer.status === 'filled') && end && !end.held && isNews(new Date(end.at), { days, callTime: j.call.callTime }, d.now)
+      ? [{ ...j, end }]
+      : []
+  })
+  const endingIds = new Set([...ending, ...endedWaiting].map((j) => j.offer.id))
   // Jobs they held that are over, apart from offers that ended another way: declined, withdrawn, filled, can't make it, or never answered. Latest first, all of them.
   const past = d.jobs.filter((j) => !booked.includes(j) && HOLDING.includes(j.offer.status)).reverse()
   const turned = d.jobs.filter((j) => !waiting.includes(j) && !booked.includes(j) && !endingIds.has(j.offer.id) && !HOLDING.includes(j.offer.status)).reverse()
@@ -905,7 +911,7 @@ export function renderPage(d: PageData): string {
   const inCard =
     d.flash?.section === 'late'
       ? (d.onTheDay ?? []).some((t) => t.offer.id === d.flash?.offer)
-      : [...waiting, ...booked, ...ending].some((j) => j.offer.id === d.flash?.offer) || d.flash?.section === 'details' || d.flash?.section === 'documents' || d.flash?.section === 'away' || d.flash?.section === 'calendar'
+      : [...waiting, ...booked, ...ending, ...endedWaiting].some((j) => j.offer.id === d.flash?.offer) || d.flash?.section === 'details' || d.flash?.section === 'documents' || d.flash?.section === 'away' || d.flash?.section === 'calendar'
 
   return `<!doctype html>
 <html lang="en-IE">
@@ -931,7 +937,8 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 
   <section id="offers">
     <h2>Offers waiting on you</h2>
-    ${waiting.length ? offers(d, waiting) : '<p class="empty">Nothing waiting right now.</p>'}
+    ${endedWaiting.map((j) => endedCard(d, j, j.end)).join('')}
+    ${waiting.length ? offers(d, waiting) : `<p class="empty">Nothing ${endedWaiting.length ? 'else ' : ''}waiting right now.</p>`}
     ${waiting.some((j) => d.invites?.offers.has(j.offer.id)) ? invitesNote(d) : ''}
   </section>
 

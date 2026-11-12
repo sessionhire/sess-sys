@@ -367,7 +367,7 @@ function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell
           // What their link says once the job is lost, in its own words (UX sweep, 6 November 2026, move 6).
           question={`Marking ${job.name} lost also cancels its crew calls${
             people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${STOPPED_WORDS.lost}` : ''
-          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId })))}`}
+          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId, email: t.person.email })))}`}
           yes="Mark it lost"
           loss
           no="Keep it as it is"

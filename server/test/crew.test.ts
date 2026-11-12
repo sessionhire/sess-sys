@@ -719,6 +719,7 @@ describe('the freelancer page (audit finding 21)', () => {
 
   it('splits what is over into past work and offers that ended another way, each with its days and the day it ended', async () => {
     // Proves: "Earlier" is now "Past work" and "Offers that ended", and each line says the job, the role, the days and how it ended, with the day: declined, withdrawn or filled.
+    // An offer that ended on the office's side, withdrawn or filled, is first news at the top of her offers (ADR 0153), and joins the list after.
     const app = await server()
     const aoife = await person(app, 'Aoife Byrne')
     const niall = await person(app, 'Niall Kerr')
@@ -744,9 +745,23 @@ describe('the freelancer page (audit finding 21)', () => {
     expect(past).not.toContain('Electric Picnic')
     const turned = page.slice(page.indexOf('<h2>Offers that ended</h2>'))
     expect(turned).toContain(`<li>Electric Picnic (Build) · Audio tech · ${daysLabel(['2026-10-02', '2026-10-03', '2026-10-04'])} <small>You declined on ${dayLabel(today)}</small></li>`)
-    expect(turned).toContain(`<li>Vicar Street (Build) · Audio tech · ${dayLabel('2026-10-06')} <small>Withdrawn by the office on ${dayLabel(today)}</small></li>`)
-    expect(turned).toContain(`<li>Olympia (Show) · Audio tech · ${dayLabel('2026-10-08')} <small>Filled by someone else on ${dayLabel(today)}</small></li>`)
     expect(turned).not.toContain('Autumn Gala')
+    // Withdrawn and filled are the office's doing, so news: each a card at the top of her offers, saying how it ended.
+    const top = page.slice(page.indexOf('<h2>Offers waiting on you</h2>'), page.indexOf('</section>', page.indexOf('<h2>Offers waiting on you</h2>')))
+    expect(cardOf(top, withdrawn.id)).toContain('<h3><span class="news">Withdrawn by the office</span> Vicar Street</h3>')
+    expect(cardOf(top, lost.id)).toContain('<h3><span class="news">Filled by someone else</span> Olympia</h3>')
+    expect(top).toContain('Nothing else waiting right now.')
+    expect(turned).not.toContain('Vicar Street')
+    expect(turned).not.toContain('Olympia')
+
+    // A week on, they're in the list, in the same words, with the day each ended.
+    vi.setSystemTime(new Date('2026-10-05T09:00:00Z'))
+    // As it reads, whichever of its spaces a line never breaks at ("said" is the declined offer here).
+    const after = (await app.inject({ url: `/f/${aoife.linkToken}` })).body.replace(/\u00a0/g, ' ')
+    expect(after).not.toContain('class="offer ended"')
+    const list = after.slice(after.indexOf('<h2>Offers that ended</h2>'))
+    expect(list).toMatch(new RegExp(`<li>Vicar Street \\(Build\\) · Audio tech · [^<]* <small>Withdrawn by the office on ${dayLabel(today, '2026-10-05')}</small></li>`))
+    expect(list).toMatch(new RegExp(`<li>Olympia \\(Show\\) · Audio tech · [^<]* <small>Filled by someone else on ${dayLabel(today, '2026-10-05')}</small></li>`))
   })
 
   it('marks what changed on a booking since the yes, for a week or until its call, reading the log once a page and writing nothing', async () => {
@@ -831,8 +846,8 @@ describe('the freelancer page (audit finding 21)', () => {
     // Proves (UX sweep, 6 November 2026, move 6): the client cancelling, a job not going ahead and the office taking her off
     // are three different news, each its booking card's first line, and its heading's, where the booking was among the rest,
     // in place of "Withdrawn" far down the page; a stopped job is said as it stands now, so one cancelled and then marked
-    // lost didn't go ahead, and one started again since is the office's doing; an offer she never answered goes straight to
-    // the list; after a week the bookings join it, in the same words.
+    // lost didn't go ahead, and one started again since is the office's doing; an offer she never answered is news at the top
+    // of her offers the same way (ADR 0153); after a week they all join the list, in the same words.
     const app = await server()
     const aoife = await person(app, 'Aoife Byrne')
     // On days of their own, as nobody holds two jobs on a day.
@@ -849,7 +864,7 @@ describe('the freelancer page (audit finding 21)', () => {
     const fair = await booked('Craft Fair', '2026-10-22')
     const vicar = await booked('Vicar Street', '2026-10-23')
     const harvest = await booked('Harvest Fair', '2026-10-24')
-    await offer(app, await call(app, { projectId: gala.job, project: 'Autumn Gala', role: 'Stagehand', start: '2026-10-26', end: '2026-10-26' }), aoife.id)
+    const stagehand = await offer(app, await call(app, { projectId: gala.job, project: 'Autumn Gala', role: 'Stagehand', start: '2026-10-26', end: '2026-10-26' }), aoife.id)
     await send(app, 'project.update', { id: gala.job, status: 'cancelled' })
     await send(app, 'project.update', { id: fair.job, status: 'cancelled' })
     await send(app, 'project.update', { id: fair.job, status: 'lost' })
@@ -875,9 +890,9 @@ describe('the freelancer page (audit finding 21)', () => {
       expect(card).not.toContain('<form')
       expect(card).not.toContain('Call sheet')
     }
-    const turned = page.slice(page.indexOf('<h2>Offers that ended</h2>'))
-    expect(turned).toContain(`<li>Autumn Gala (Build) · Stagehand · ${dayLabel('2026-10-26')} <small>The job was cancelled on ${dayLabel(irishToday())}</small></li>`)
-    expect(turned).not.toContain('Audio tech')
+    const offers = page.slice(page.indexOf('<h2>Offers waiting on you</h2>'), page.indexOf('</section>', page.indexOf('<h2>Offers waiting on you</h2>')))
+    expect(cardOf(offers, stagehand.id)).toContain('<h3><span class="news">The job was cancelled</span> Autumn Gala</h3>')
+    expect(page).not.toContain('<h2>Offers that ended</h2>')
 
     // A week on, they're over as news: each in the list, in its card's words, with the day it ended.
     vi.setSystemTime(new Date('2026-10-05T09:00:00Z'))
@@ -887,6 +902,7 @@ describe('the freelancer page (audit finding 21)', () => {
     expect(list).toContain(`<small>The job was cancelled on ${dayLabel('2026-09-28', '2026-10-05')}</small>`)
     expect(list).toContain(`<small>The job didn&#39;t go ahead, as of ${dayLabel('2026-09-28', '2026-10-05')}</small>`)
     expect(list).toContain(`<small>Withdrawn by the office on ${dayLabel('2026-09-28', '2026-10-05')}</small>`)
+    expect(list).toMatch(new RegExp(`<li>Autumn Gala \\(Build\\) · Stagehand · [^<]* <small>The job was cancelled on ${dayLabel('2026-09-28', '2026-10-05')}</small></li>`))
   })
 
   it('folds what is over after the latest three under Earlier, with its count, never cutting it off', async () => {
@@ -929,11 +945,14 @@ describe('booking rules', () => {
 
     const late = await answer(app, people[0]!.linkToken, offers[0]!.id, { answer: 'accept' })
     expect(late.ok).toBe(false)
-    // The refusal names the job, since its card has already gone down to "Offers that ended" and the page is drawn
-    // from the top, where the message is (audit, 20 October 2026, finding 49).
+    // The refusal names the job (audit, 20 October 2026, finding 49), in the card that now says it's filled, at the top of her
+    // offers while that's news (ADR 0153), where the page lands.
     expect(late.message).toBe('Sorry, Electric Picnic, Audio tech, Sat 10 Oct has just been filled by someone else.')
-    expect(late.page.indexOf('has just been filled')).toBeLessThan(late.page.indexOf('<h2>Offers waiting on you</h2>'))
-    expect(late.page.slice(late.page.indexOf('<h2>Offers that ended</h2>'))).toContain('Electric Picnic')
+    const card = cardOf(late.page, offers[0]!.id)
+    expect(card).toContain('<h3><span class="news">Filled by someone else</span> Electric Picnic</h3>')
+    expect(card).toContain('has just been filled by someone else.</p>')
+    expect(card).toContain('id="refused"')
+    expect(late.page.indexOf(`id="o-${offers[0]!.id}"`)).toBeGreaterThan(late.page.indexOf('<h2>Offers waiting on you</h2>'))
   })
 
   it('never double books a person, however the two acceptances arrive', async () => {
@@ -1011,7 +1030,10 @@ describe('booking rules', () => {
     await send(app, 'call.cancel', { id: c })
     expect((await entity<Offer>(app, 'offer', o.id)).status).toBe('cancelled')
     const page = await app.inject({ method: 'GET', url: `/f/${aoife.linkToken}` })
-    expect(page.body).toContain('Nothing waiting right now')
+    // Said where it was, while that's news (ADR 0153), with nothing to answer.
+    expect(cardOf(page.body, o.id)).toContain('<h3><span class="news">Withdrawn by the office</span> Electric Picnic</h3>')
+    expect(cardOf(page.body, o.id)).not.toContain('<form')
+    expect(page.body).toContain('Nothing else waiting right now')
   })
 })
 

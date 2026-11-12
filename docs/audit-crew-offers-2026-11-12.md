@@ -493,7 +493,15 @@ neither their page nor the call sheet. Batch 4 is in 1.169.0
 ([ADR 0152](adr/0152-a-yes-counts-for-its-own-day.md)). It differs in one
 thing too: Say no keeps the offer for the days the rate was asked for,
 not every day of the call, so nobody is invited again to a day they had
-left out.
+left out. Batch 3's calendar part is in 1.170.0
+([ADR 0153](adr/0153-crew-invites-tell-what-happens-next.md)), behind its
+own switch, "Tell crew what happens next", which starts off and can be
+tried on the office's own addresses first. It differs in two things: a
+person's own No is titled "You declined:", the words their page and the
+office already use, rather than "Thanks for letting us know:"; and an
+offer that ended on the office's side is shown in its place at the top of
+their offers while that's news, as an ended booking is, rather than once.
+The WhatsApp part, three more templates and question 7, follows.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -511,7 +519,8 @@ left out.
    time and "no longer needed" reach the person: by a calendar update whose
    title says it, tried on the test calendar first, and by WhatsApp
    templates once Meta is set up. Medium. Needs question 4, and 7 for who
-   the WhatsApps reach.
+   the WhatsApps reach. **Calendar part done in 1.170.0**, behind a switch
+   that starts off; the WhatsApp part follows.
 4. **Answers** (3, the rest of 7, 9, the rest of 16). A Yes counts for
    its own day; a Yes after a rate request is flagged; a Yes that couldn't
    be taken is said on the invite; a call doesn't fill over an unanswered

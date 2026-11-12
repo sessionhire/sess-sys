@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import type { CalendarChoice, CalendarCheck, CalendarInvites, CalendarLink } from '@sh/shared'
+import { TELL_MODES, TELL_TO_MAX, type CalendarChoice, type CalendarCheck, type CalendarInvites, type CalendarLink, type TellMode } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { faultForLog, type Db } from '../db.ts'
 import { describeDevice } from '../devices.ts'
@@ -23,8 +23,12 @@ export const CALENDAR_ACTIONS = {
   connect: 'calendar.connect',
   use: 'calendar.use',
   invites: 'calendar.invites',
+  tell: 'calendar.tell',
   disconnect: 'calendar.disconnect',
 } as const
+
+/** An address to try telling on: something@somewhere, as Google would take for a guest. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /** Holds the attempt (state, PKCE verifier, the device's code) between leaving for Google and coming back. */
 const ATTEMPT_COOKIE = 'sh_calendar'
@@ -179,6 +183,36 @@ export function registerCalendarRoutes(app: FastifyInstance, { db, google, sync,
     onChange()
     return linkEntity(after)
   })
+
+  /**
+   * Whether crew's own invites tell them what happens next (ADR 0153): off, only the addresses listed, or everyone. Each
+   * is an email to a freelancer, so it starts off; turning it on sends nothing by itself, only what changes from then on.
+   */
+  app.post<{ Querystring: { client?: string }; Body: { mode?: unknown; to?: unknown } }>(
+    '/api/calendar/tell',
+    { config: { needs: 'settings' } },
+    async (req, reply): Promise<CalendarLink | void> => {
+      if (!sync) return reply.code(409).send({ error: 'Google Calendar needs the Google key on the server first.' })
+      const mode = req.body?.mode
+      if (typeof mode !== 'string' || !(TELL_MODES as readonly string[]).includes(mode)) return reply.code(400).send({ error: 'Say whether to tell crew: off, only the addresses listed, or on.' })
+      const raw = req.body?.to ?? []
+      if (!Array.isArray(raw) || raw.some((e) => typeof e !== 'string')) return reply.code(400).send({ error: 'List the addresses to try it on.' })
+      const to = [...new Set(raw.map((e: string) => e.trim().toLowerCase()).filter(Boolean))]
+      if (to.length > TELL_TO_MAX) return reply.code(400).send({ error: `Up to ${TELL_TO_MAX} addresses to try it on.` })
+      const bad = to.find((e) => !EMAIL.test(e))
+      if (bad) return reply.code(400).send({ error: `${bad} doesn't look like an email address.` })
+      if (mode === 'test' && to.length === 0) return reply.code(400).send({ error: 'List an address to try it on first.' })
+      const link = await readLink(db)
+      if (!link || link.state === 'off') return reply.code(409).send({ error: 'Google Calendar is not connected.' })
+      if (link.tell === mode && link.tellTo.join('\n') === to.join('\n')) return linkEntity(link)
+      const after = await serverChange(db, action(req, CALENDAR_ACTIONS.tell, { mode, to: to.length }, deviceCode(req.query.client)), (ctx) =>
+        saveLink(ctx, { tell: mode as TellMode, tellTo: to })
+      )
+      sync.connectionChanged(after)
+      onChange()
+      return linkEntity(after)
+    }
+  )
 
   app.post('/api/calendar/check', { config: { needs: 'settings' } }, async (_req, reply): Promise<CalendarCheck | void> => {
     if (!sync) return reply.code(409).send({ error: 'Google Calendar needs the Google key on the server first.' })

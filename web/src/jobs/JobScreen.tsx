@@ -639,7 +639,7 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
           // With the email Google sends those who hold an invite (ADR 0149).
           question={`Marking ${job.name} ${STATUS_LABELS[f.status].toLowerCase()} also cancels its crew calls${
             people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${theySee}` : ''
-          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId })))}`}
+          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId, email: t.person.email })))}`}
           yes={`Mark it ${STATUS_LABELS[f.status].toLowerCase()}`}
           loss
           no="Keep it as it is"

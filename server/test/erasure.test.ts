@@ -1035,6 +1035,18 @@ describe('what other people have', () => {
       `${ERASED_NAME}'s Google account writes the jobs to Google Calendar: connect another account on the Admin tab first.`,
     ])
   })
+  it('takes their address off the addresses telling crew what happens next is tried on, and with none left turns it off (ADR 0153)', async () => {
+    const { app, db } = await server()
+    const person = (id: string, name: string, email: string) => m('person.upsert', { id, name, kind: 'freelancer', email, phone: null, skills: [], dayRateCents: null, notes: '' })
+    await ok(app, person('dan', 'Dan Byrne', 'dan@example.ie'), person('jo', 'Jo Kelly', 'jo@example.ie'))
+    for (const id of ['dan', 'jo']) await ok(app, m('person.archive', { id, archived: true }))
+    await db.query(`INSERT INTO calendar_link (id, state, app_key, account_email, tell, tell_to) VALUES ('main', 'on', 'key', 'ops@example.ie', 'test', ARRAY['dan@example.ie', 'jo@example.ie'])`)
+    const link = async () => (await db.query<{ tell: string; tell_to: string[] }>(`SELECT tell, tell_to FROM calendar_link`)).rows[0]
+    await ok(app, m('person.erase', { id: 'dan' }))
+    expect(await link()).toEqual({ tell: 'test', tell_to: ['jo@example.ie'] })
+    await ok(app, m('person.erase', { id: 'jo' }))
+    expect(await link()).toEqual({ tell: 'off', tell_to: [] })
+  })
 })
 
 describe('a restore from a backup taken before an erasure', () => {

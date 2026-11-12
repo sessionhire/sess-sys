@@ -16,7 +16,7 @@ import {
   type Person,
   type PersonRecord,
 } from '@sh/shared'
-import { linkEntity, readLink } from '../calendar/store.ts'
+import { linkEntity, readLink, saveLink } from '../calendar/store.ts'
 import { getOffer, getPerson } from '../crew/store.ts'
 import { getTimesheet } from '../crew/timesheets.ts'
 import type { Queryable } from '../db.ts'
@@ -319,6 +319,7 @@ export async function erasePerson(ctx: Ctx, personId: string, how: EraseHow): Pr
     await tx.query(`UPDATE changes SET data = jsonb_set($2::jsonb, '{id}', to_jsonb(entity_id)) WHERE entity = 'person' AND entity_id = ANY($1::text[]) AND op = 'put'`, [merged, JSON.stringify(after)])
 
   for (const userId of await accountsOf(tx, details.emails)) await eraseAccount(ctx, userId)
+  await forgetTellTo(ctx, details.emails)
   const name = kept === null && before.name !== ERASED_NAME ? before.name : undefined
   for (const id of [personId, ...merged]) await stripHistory(tx, id, records, nameNow, { name: id === personId ? name : undefined, ...details })
   return erasure
@@ -428,6 +429,18 @@ async function eraseAccount(ctx: Ctx, userId: string) {
     const link = await readLink(tx)
     if (link?.connectedBy === userId) await emit(ctx, 'calendarLink', CALENDAR_LINK_ID, linkEntity(link))
   }
+}
+
+/**
+ * Their address among those telling crew what happens next is being tried on (ADR 0153) goes from the list; with none
+ * left there, it's off, as it can't be tried on nobody.
+ */
+async function forgetTellTo(ctx: Ctx, emails: string[]) {
+  const link = await readLink(ctx.tx)
+  const theirs = (e: string) => emails.includes(e.trim().toLowerCase())
+  if (!link?.tellTo.some(theirs)) return
+  const tellTo = link.tellTo.filter((e) => !theirs(e))
+  await saveLink(ctx, { tellTo, ...(link.tell === 'test' && !tellTo.length ? { tell: 'off' as const } : {}) })
 }
 
 /** A regular expression that matches the text exactly, whatever is in it. */
