@@ -67,6 +67,9 @@ test('cable labels print with a barcode or QR code of the stock code, which open
   const card = page.getByRole('region', { name: 'Cable labels' })
   // With no stock code a barcode would print empty, so it starts on a QR code (audit, 5 November 2026, finding 72).
   await expect(card.getByRole('radio', { name: 'QR code' })).toBeChecked()
+  // Its QR code holds the name, and the name isn't printed a second time where the stock code goes (Colly, 12 November).
+  await expect(card.locator('.preview .face b').first()).toHaveText(name)
+  await expect(card.locator('.preview .face .code')).toHaveCount(0)
   await card.getByRole('radio', { name: 'Barcode' }).check()
   await expect(card.getByRole('note')).toContainText('it has none yet')
   await expect(card.getByRole('button', { name: 'Print 2 labels without a code' })).toBeVisible()

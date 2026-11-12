@@ -2,7 +2,7 @@ import { barcode, barcodeFits, CABLE_COLOURS, colourForLength, lengthFromName, l
 import { useMemo, useState } from 'react'
 import { Heading } from '../Icon.tsx'
 import { Swatch } from '../LabelsCard.tsx'
-import { logoOf } from '../Picture.tsx'
+import { useLabelLogo } from '../Picture.tsx'
 import { useView } from '../view.ts'
 import { PrintSheet, usePrinting } from './Labels.tsx'
 
@@ -149,7 +149,8 @@ function Face({ s, widthMm }: { s: Says; widthMm: number }) {
         )}
         <b style={{ fontSize: `${fit(s.words, room, head ? (bars ? 4.2 : 5.5) : bars ? 6.5 : qr ? 7 : 10)}mm` }}>{s.words}</b>
         {bars && <Bars text={s.code} />}
-        {qr && <small className="code">{s.code}</small>}
+        {/* The stock code in words; not the name again when the QR code holds the name, as a product without a code has. */}
+        {qr && s.code !== s.words && <small className="code">{s.code}</small>}
       </div>
     </div>
   )
@@ -173,6 +174,7 @@ export function CableLabel({ s, layout }: { s: Says; layout: CableLayout }) {
 /** Cable labels for a product: what they say, which label, the code on them, how many, and Print. */
 export function CableLabels({ m }: { m: ModelView }) {
   const office = useView().office
+  const logo = useLabelLogo(office)
   const first = useMemo(saved, [])
   const [words, setWords] = useState(m.name)
   const [layout, setLayout] = useState<CableLayout>(first.layout)
@@ -201,7 +203,7 @@ export function CableLabels({ m }: { m: ModelView }) {
   const said = words.trim()
   const n = Number(count)
   const many = Number.isInteger(n) && n >= 1 && n <= MOST ? n : 0
-  const says: Says = { words: said, code, kind, length: showLength ? length : null, colour, inColour, logo: logoOf(office) }
+  const says: Says = { words: said, code, kind, length: showLength ? length : null, colour, inColour, logo }
   return (
     <section className="card cable-labels" aria-label="Cable labels">
       <Heading icon="label">Cable labels</Heading>

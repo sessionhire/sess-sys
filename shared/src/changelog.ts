@@ -30,8 +30,8 @@ export const CHANGELOG: readonly Release[] = [
   {
     version: '1.174.0',
     date: '2026-11-12',
-    title: 'Bigger 100 × 25 mm labels for kit and cable bags',
-    what: "Labels can now print at 100 × 25 mm on a label printer: pick \"Label printer, 100 × 25 mm, bigger type\" when printing an item's label, or \"Bag or bin, 100 × 25 mm\" for cables. The QR code is the same size, and the number, name, stock code and logo get the extra width: the number prints about twice as big and the words a third bigger, so they read from further away.",
+    title: 'Bigger 100 × 25 mm labels, and a sharp logo on every label',
+    what: "Labels can now print at 100 × 25 mm on a label printer: pick \"Label printer, 100 × 25 mm, bigger type\" when printing an item's label, or \"Bag or bin, 100 × 25 mm\" for cables. The QR code is the same size, and the number, name, stock code and logo get the extra width: the number prints about twice as big and the words a third bigger, so they read from further away. The logo also prints sharp on every label now, where before it came out as a blur of big squares, and a cable label for a product with no stock code no longer prints its name a second time where the code goes.",
     prs: [352],
     adrs: [106],
   },

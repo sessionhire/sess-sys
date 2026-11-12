@@ -78,7 +78,9 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   const own = page.getByLabel('Preview').locator('.label')
   for (const layout of ['Label printer, 50 × 25 mm', 'Label printer, 25 × 25 mm', 'Label printer, 100 × 25 mm, bigger type']) {
     await page.getByRole('radio', { name: layout }).check()
-    await expect(own.locator('img.logo')).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
+    // In greys made at the logo's full size, not a CSS filter, which Chrome prints as a blur of big pixels (Colly, 12 November).
+    await expect(own.locator('img.logo')).toHaveAttribute('src', /^blob:/)
+    expect(await own.locator('img.logo').evaluate((i: HTMLImageElement) => [getComputedStyle(i).filter, i.naturalWidth])).toEqual(['none', 16])
     await expect(own.locator('.code')).toHaveText(`D80-${id}`)
     const [sh, ch, sw, cw] = await own.evaluate((l) => [l.scrollHeight, l.clientHeight, l.scrollWidth, l.clientWidth])
     expect(sh).toBeLessThanOrEqual(ch! + 1)
@@ -104,7 +106,8 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   const band = label.locator('.band')
   await expect(band).toHaveText('PINK')
   expect(await band.evaluate((b) => getComputedStyle(b).backgroundColor)).toBe('rgb(0, 0, 0)')
-  await expect(label.locator('img.logo')).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
+  await expect(label.locator('img.logo')).toHaveAttribute('src', /^blob:/)
+  expect(await label.locator('img.logo').evaluate((i) => getComputedStyle(i).filter)).toBe('none')
   const [scroll, client] = await label.locator('.face').first().evaluate((f) => [f.scrollHeight, f.clientHeight])
   expect(scroll).toBeLessThanOrEqual(client! + 1)
 

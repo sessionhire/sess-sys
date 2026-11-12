@@ -78,7 +78,7 @@
 .label.square.with-foot .qr { width: 15mm; height: 15mm; }
 .label.square .words { justify-items: center; }
 .label.square .foot { display: flex; align-items: center; gap: 1mm; max-width: 23mm; }
-.label.square .foot .logo { height: 2.6mm; max-width: 11mm; object-fit: contain; filter: grayscale(1); }
+.label.square .foot .logo { height: 2.6mm; max-width: 11mm; object-fit: contain; }
 .label.square .foot small { font-size: 2mm; }
 .label.sheet { width: 38.1mm; height: 21.2mm; gap: .8mm; padding: 1mm 1.5mm; }
 .label.sheet .qr { width: 17mm; height: 17mm; }
@@ -118,9 +118,10 @@
 .label.cable .length { font-size: 6mm; font-weight: 900; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .label.cable .band { font-size: 2.6mm; font-weight: 800; letter-spacing: .04em; line-height: 1; padding: .7mm 1.2mm; background: #000; color: #fff; border-radius: .6mm; white-space: nowrap; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .label.cable .band.in-colour { box-shadow: inset 0 0 0 .2mm #000; }
-.label.cable .logo { height: 4mm; max-width: 14mm; object-fit: contain; margin-left: auto; filter: grayscale(1); }
+.label.cable .logo { height: 4mm; max-width: 14mm; object-fit: contain; margin-left: auto; }
 .label.cable .face:not(.with-qr) .head .logo:only-child { margin-left: 0; }
-.label .words > .logo { height: 3.6mm; max-width: 24mm; object-fit: contain; object-position: left; filter: grayscale(1); }
+/* In greys from useLabelLogo, not a CSS filter, which Chrome prints as a blur (Colly, 12 November). */
+.label .words > .logo { height: 3.6mm; max-width: 24mm; object-fit: contain; object-position: left; }
 .label.sheet .words > .logo { height: 3mm; }
 .label .code { font-weight: 700; font-variant-numeric: tabular-nums; }
 .warehouse .cable-labels .layouts .tick .swatch { margin-left: auto; }
