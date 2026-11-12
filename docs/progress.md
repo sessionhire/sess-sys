@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 12 November 2026: WhatsApp tells crew what happens next
 
-**Done (1.171.0)**
+**Done (1.172.0)**
 
 - Batch 3 of the [audit of crew offers](audit-crew-offers-2026-11-12.md),
   its WhatsApp part: findings 4, 8 and 12, on Colly's answers to

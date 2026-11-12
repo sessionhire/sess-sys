@@ -126,7 +126,7 @@ cancel. The calendar side is ADR 0008/0009 (1.162.0). On WhatsApp:
   offer, and dropped if the job has changed again before they go. Nothing
   goes while the switch is off, and test mode reaches only its numbers.
 
-Since 1.171.0 ([ADR 0154](0154-whatsapp-tells-crew-what-happens-next.md)):
+Since 1.172.0 ([ADR 0154](0154-whatsapp-tells-crew-what-happens-next.md)):
 both go to everyone asked or booked whom WhatsApp reaches and who heard of
 the offer, whether or not the offer itself went on WhatsApp (Colly's answer
 to question 7 of the audit of 12 November 2026); someone picked to hold the

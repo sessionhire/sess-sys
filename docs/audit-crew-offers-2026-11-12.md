@@ -501,7 +501,7 @@ person's own No is titled "You declined:", the words their page and the
 office already use, rather than "Thanks for letting us know:"; and an
 offer that ended on the office's side is shown in its place at the top of
 their offers while that's news, as an ended booking is, rather than once.
-The WhatsApp part, three more templates and question 7, is in 1.171.0
+The WhatsApp part, three more templates and question 7, is in 1.172.0
 ([ADR 0154](adr/0154-whatsapp-tells-crew-what-happens-next.md)), under
 WhatsApp's own switch rather than one of its own. It differs in two
 things: someone picked to hold the day hears nothing until the client
@@ -526,7 +526,7 @@ turned down by Meta and who hasn't answered another way.
    title says it, tried on the test calendar first, and by WhatsApp
    templates once Meta is set up. Medium. Needs question 4, and 7 for who
    the WhatsApps reach. **Calendar part done in 1.170.0**, behind a switch
-   that starts off. **WhatsApp part done in 1.171.0**, under WhatsApp's
+   that starts off. **WhatsApp part done in 1.172.0**, under WhatsApp's
    own switch.
 4. **Answers** (3, the rest of 7, 9, the rest of 16). A Yes counts for
    its own day; a Yes after a rate request is flagged; a Yes that couldn't

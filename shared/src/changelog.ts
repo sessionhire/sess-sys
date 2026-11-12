@@ -28,7 +28,7 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.171.0',
+    version: '1.172.0',
     date: '2026-11-12',
     title: "WhatsApp tells crew when they're booked, when their call time moves, and when they're no longer needed",
     what: "Once WhatsApp is on, three more messages follow an offer there: \"you're booked\" when you confirm someone on a job the client has said yes to, the new call time when you change a call's call time, and \"no longer needed\" with why (filled by someone else, or withdrawn by the office) when an offer is filled, withdrawn, released or its call cancelled. Someone picked while the client hasn't said yes only holds the day, so they hear they're booked when you confirm the job. These, and the messages when a job is confirmed or cancelled, now reach everyone asked or booked who has WhatsApp, including people offered before it was turned on. Confirm, Withdraw, Release, cancelling a call and stopping a job say first what WhatsApp will send, and the panel after says what went. WhatsApp is still off: nothing is sent until it's turned on, and Meta must approve the three new messages first.",
