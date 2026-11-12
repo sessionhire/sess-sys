@@ -733,7 +733,7 @@ export function SortOut({
               {dayLabel(x.day)}: {x.text}
             </p>
           </div>
-          <a className="button" href={x.jobId ? `#jobs/${x.jobId}/kit` : vehicleHref(x.vehicle.id)}>
+          <a className="button" href={x.jobId ? `#jobs/${x.jobId}/vans` : vehicleHref(x.vehicle.id)}>
             {x.jobId ? 'Open job' : 'Open vehicle'}
           </a>
         </div>

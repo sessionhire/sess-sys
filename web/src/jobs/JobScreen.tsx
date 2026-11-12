@@ -85,11 +85,14 @@ import { JOBS } from '../Up.tsx'
  * list beside it: the way up goes back to the list.
  */
 
-export type JobPart = 'phases' | 'crew' | 'kit' | 'pack' | 'quote'
-/** In the order the job goes through them (ADR 0140, part 8): sold, crewed, kitted, then its days and the pack for them. */
-export const JOB_PARTS: readonly JobPart[] = ['quote', 'crew', 'kit', 'phases', 'pack']
+export type JobPart = 'phases' | 'crew' | 'kit' | 'vans' | 'pack' | 'quote'
+/**
+ * In the order the job goes through them (ADR 0140, part 8): sold, crewed, kitted and vanned, then its days and the pack for
+ * them. Kit and vans are tabs of their own (1.168.0): the vans were a card under a long kit list, out of sight on a phone.
+ */
+export const JOB_PARTS: readonly JobPart[] = ['quote', 'crew', 'kit', 'vans', 'phases', 'pack']
 
-const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit and vans', pack: 'Show pack', quote: 'Quote' }
+const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit', vans: 'Vans', pack: 'Show pack', quote: 'Quote' }
 
 /** The part last looked at, so the office moving from job to job to book crew lands on Crew each time ("a fold remembers"). */
 const LAST_PART = 'sh.jobPart'
@@ -105,7 +108,7 @@ function lastPart(): JobPart | undefined {
   }
 }
 
-/** The job page's part for where a task's work is done: the pick list's tasks are under Kit and vans, where its link is. */
+/** The job page's part for where a task's work is done: the pick list's tasks are under Kit, where its link is. */
 function partOf(p: 'phases' | 'crew' | 'kit' | 'quote' | 'pick' | undefined): JobPart | undefined {
   return p === 'pick' ? 'kit' : p
 }
@@ -217,6 +220,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   const counts: Partial<Record<JobPart, string>> = {
     phases: job.phases.length ? String(job.phases.length) : undefined,
     crew: fill.needed ? `${fill.booked}/${fill.needed}` : undefined,
+    vans: view.vehicles.ofJob(job.id).length ? String(view.vehicles.ofJob(job.id).length) : undefined,
   }
 
   return (
@@ -270,9 +274,10 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           <>
             <SettleKit job={job} view={view} />
             <KitCard job={job} view={view} subhireOpened={landing && 'short' in landing ? landing.n : undefined} />
-            <VansCard job={job} view={view} />
           </>
         )}
+
+        {part === 'vans' && <VansCard job={job} view={view} />}
 
         {/* The files for the on-site box (ADR 0045), once there's a phase to have a crew and a running order. */}
         {part === 'pack' &&

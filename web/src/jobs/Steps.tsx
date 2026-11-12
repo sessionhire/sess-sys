@@ -32,7 +32,7 @@ import './steps.css'
  * Next button lives in the page head (NextDock.tsx), not here.
  */
 
-const PART_NAMES: Partial<Record<NonNullable<StepView['part']>, string>> = { crew: 'Crew', kit: 'Kit and vans', quote: 'Quote', phases: 'Phases' }
+const PART_NAMES: Partial<Record<NonNullable<StepView['part']>, string>> = { crew: 'Crew', kit: 'Kit', quote: 'Quote', phases: 'Phases' }
 
 export function StepsCard({
   job,

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.168.0',
+    date: '2026-11-12',
+    title: 'Kit and vans are two tabs on a job',
+    what: "On a job, the kit and the vans now have a tab each: Quote, Crew, Kit, Vans, Phases, Show pack. The vans were under the whole kit list, a long way down on a phone; now they're one press away, and the Vans tab says how many are booked. The \"Is the kit list final?\" tick stays on the Kit tab. A van clash on the planner now opens the job's Vans tab.",
+    prs: [342],
+    adrs: [140],
+  },
+  {
     version: '1.167.0',
     date: '2026-11-12',
     title: "A job's notes say who reads them, and someone only asked gets a short invite",

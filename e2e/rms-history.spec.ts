@@ -212,7 +212,7 @@ test('the office makes a job from a past quote, its lines matched to the stock l
 
   // The kit quoted is on the job's kit list too, to change there; only the one found in the stock list.
   await office.goto(`/#jobs/${encodeURIComponent(jobId)}`)
-  await office.getByRole('tab', { name: 'Kit and vans' }).click()
+  await office.getByRole('tab', { name: 'Kit', exact: true }).click()
   const kit = office.getByRole('region', { name: 'Kit' })
   await expect(kit).toContainText('Shure SM58')
   await expect(kit.getByRole('group', { name: 'Kit on the quote' })).toHaveCount(0)

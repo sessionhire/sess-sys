@@ -210,7 +210,7 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await expect(next.getByRole('button')).toHaveCount(0)
   await expect(next.getByRole('link')).toHaveCount(0)
   // Each part of the job in turn, in the order the job goes (ADR 0059, ADR 0140 part 8), and no Quote for a role that doesn't see money.
-  await expect(main.getByRole('tab')).toHaveText([/^Crew/, 'Kit and vans', 'Phases 3', 'Show pack'])
+  await expect(main.getByRole('tab')).toHaveText([/^Crew/, 'Kit', /^Vans/, 'Phases 3', 'Show pack'])
   await main.getByRole('tab', { name: 'Phases 3' }).click()
   await expect(main.getByRole('region', { name: 'Phases' })).toBeVisible()
   // The quote's address, typed or kept from before, says what it refused under a heading of its own (audit, 5 November 2026, finding 87).
@@ -219,9 +219,9 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await page.goto(jobAt.replace(/#jobs\/([^/]+).*/, '#jobs/$1/quote'))
   // The quote is the job's Quote tab (ADR 0140, part 4): the job opens, saying why there's no quote to see.
   await expect(main.getByRole('region', { name: 'Quote' })).toContainText('Quotes and prices are for the office and directors.')
-  await expect(main.getByRole('tab')).toHaveText([/^Crew/, 'Kit and vans', 'Phases 3', 'Show pack'])
+  await expect(main.getByRole('tab')).toHaveText([/^Crew/, 'Kit', /^Vans/, 'Phases 3', 'Show pack'])
   await page.goto(jobAt)
-  for (const part of ['Phases', 'Crew', 'Kit and vans', 'Show pack']) {
+  for (const part of ['Phases', 'Crew', 'Kit', 'Vans', 'Show pack']) {
     await main.getByRole('tab', { name: new RegExp(`^${part}`) }).click()
     for (const name of ['Change', 'Change details', 'Add phase', 'Add kit', 'Ask for crew', 'Offer…', 'Running late…', 'Book a vehicle'])
       await expect(main.getByRole('button', { name, exact: true }), `${name} on ${part}`).toHaveCount(0)
@@ -264,7 +264,7 @@ test('the warehouse can add kit to a job, but not change the job itself', async 
   await as(page, 'head', /^Warehouse/)
   await openJob(page, 'Harbour Lights Festival')
   const main = page.getByRole('main')
-  await main.getByRole('tab', { name: 'Kit and vans' }).click()
+  await main.getByRole('tab', { name: 'Kit', exact: true }).click()
   await expect(main.getByRole('button', { name: 'Add kit' })).toBeVisible()
   const kit = main.getByRole('region', { name: 'Kit' })
   await expect(kit.getByRole('button', { name: 'Change', exact: true }).first()).toBeVisible()
