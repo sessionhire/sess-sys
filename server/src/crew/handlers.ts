@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { whatsappSetting } from '../office/store.ts'
 import { reachOf } from '../whatsapp/whatsapp.ts'
+import { queueBooked, queueCallTime, queueNotNeeded } from '../whatsapp/follow-ups.ts'
 import { certificateRefusal, certificatesAfter, daysBetween, daysLabel, DEFAULT_LEVEL, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getPhase, getProject, namesForCall } from '../projects/store.ts'
@@ -131,10 +132,15 @@ async function closeIfFull(ctx: Ctx, call: CrewCall, rates = false) {
   const offers = await offersForCall(ctx.tx, call.id)
   const held = heldByDay(call, offers)
   if (Object.values(held).some((n) => n < call.needed)) return
+  const filled: string[] = []
   for (const o of offers) {
-    if (o.status === 'offered' || (rates && o.status === 'countered')) await setOffer(ctx, o.id, { status: 'filled' })
-    else if (o.status === 'accepted' && o.asked?.length) await setOffer(ctx, o.id, { asked: [] })
+    if (o.status === 'offered' || (rates && o.status === 'countered')) {
+      await setOffer(ctx, o.id, { status: 'filled' })
+      filled.push(o.id)
+    } else if (o.status === 'accepted' && o.asked?.length) await setOffer(ctx, o.id, { asked: [] })
   }
+  // Each of them hears on WhatsApp it was filled by someone else, where it reaches them (ADR 0154).
+  await queueNotNeeded(ctx, filled)
 }
 
 /**
@@ -232,6 +238,8 @@ async function changeCall(ctx: Ctx, call: CrewCall, next: CrewCall, shift = 0) {
   await emit(ctx, 'crewCall', call.id, await getCall(ctx.tx, call.id))
   for (const [id, fields] of changes) await setOffer(ctx, id, fields)
   await closeIfFull(ctx, next)
+  // A call time that moved is news to everyone still asked or booked on it, on WhatsApp where it reaches them (ADR 0154).
+  if ((next.callTime ?? '') !== (call.callTime ?? '')) await queueCallTime(ctx, call.id)
 }
 
 /**
@@ -547,7 +555,11 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
   async 'call.cancel'(ctx, a) {
     const call = await getCall(ctx.tx, a.id, true)
     if (!call) throw new Refused({ code: 'not-found', message: 'That job no longer exists.' })
+    const on = (await offersForCall(ctx.tx, a.id)).filter((o) => LIVE.includes(o.status))
     await cancelCall(ctx, a.id)
+    // Everyone asked or booked on it hears on WhatsApp they're no longer needed (ADR 0154). A stopped job takes its calls
+    // without this: its crew hear the job's own word (queueJobWhatsApp).
+    await queueNotNeeded(ctx, on.map((o) => o.id))
   },
 
   /** Many calls given one department (ADR 0046); a cancelled one too, so the record is right. One already gone is left out. */
@@ -680,6 +692,8 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
       // on a call this leaves full closes with it, as the office was told before the press.
       await setOffer(ctx, offer.id, { status: 'confirmed', asked: [] })
       await closeIfFull(ctx, call, true)
+      // Booked, they hear it on WhatsApp where it reaches them; picked to hold the day, when the client says yes (ADR 0154).
+      await queueBooked(ctx, offer.id)
       return
     }
     if (offer.status !== 'countered')
@@ -690,6 +704,7 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     await checkCanHold(ctx, call, offer, offer.days)
     await setOffer(ctx, offer.id, { status: 'confirmed', day_rate_cents: offer.counterRateCents })
     await closeIfFull(ctx, call, true)
+    await queueBooked(ctx, offer.id)
   },
 
   async 'offer.refuse'(ctx, a) {
@@ -713,6 +728,8 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     // An offer that is over stays as it ended: a Withdraw queued on an offline device must not rewrite a decline or a pull-out.
     if (OVER.includes(offer.status)) return
     await setOffer(ctx, offer.id, { status: 'cancelled', asked: [] })
+    // Withdrawn or released, they hear on WhatsApp they're no longer needed, where it reaches them (ADR 0154).
+    await queueNotNeeded(ctx, [offer.id])
   },
 
   async 'offer.seen'(ctx, a) {

@@ -159,6 +159,53 @@ Hi {{1}}, sorry: {{2}} isn't going ahead, so you're not needed on {{3}}. Those d
 
 Examples as above. Footer as above, no buttons.
 
+**Three more**, for what follows an offer: being booked, a new call time,
+and no longer needed ([ADR 0154](adr/0154-whatsapp-tells-crew-what-happens-next.md)).
+Each goes to anyone WhatsApp reaches who heard of the offer, whether or not
+the offer itself went on WhatsApp. None of them names the rate.
+
+`job_booked`, Utility, English (UK):
+
+```
+Hi {{1}}, you're booked for {{2}}.
+
+Role: {{3}}
+Days: {{4}}
+Call time: {{5}}
+Venue: {{6}}
+
+Your page has the details.
+```
+
+Examples: Aoife · Electric Picnic (Build) · Audio tech · Fri 2 Oct · 08:00 ·
+Stradbally Hall. Footer as above. One button: Visit website, **See the
+details**, dynamic URL `https://<the app's address>/f/{{1}}`.
+
+`job_call_time`, Utility, English (UK):
+
+```
+Hi {{1}}, the call time for {{2}} has changed.
+
+Call time: {{3}}
+Days: {{4}}
+
+Your page has the details.
+```
+
+Examples: Aoife · Electric Picnic (Build) · 06:00 · Fri 2 Oct. Footer as
+above. One button, as for `job_booked`. While the client hasn't said yes,
+the job reads `HOLD Electric Picnic (Build)`, as in the offer.
+
+`job_not_needed`, Utility, English (UK):
+
+```
+Hi {{1}}, sorry: you're no longer needed for {{2}} on {{3}} ({{4}}). Those days are free again.
+```
+
+Examples: Dara · Electric Picnic (Build) · Fri 2 Oct · filled by someone
+else. The last blank is "filled by someone else" or "withdrawn by the
+office", the words on their page. Footer as above, no buttons.
+
 If crew invites on Google Calendar are on, add this line to the end of
 `job_offer`'s body too: *We also send a Google Calendar invite for each day.
 If it says it's from an unknown sender, press Add to calendar.*
@@ -179,6 +226,9 @@ Session Hire, about a job they're being booked for.
    STOP to check it turns you off.
    For HOLD, offer yourself a call on a job that's still a quote: the job reads
    "HOLD …". Confirm the job for the follow-up, or cancel it.
+   For what follows an offer, on a confirmed job: say yes, confirm yourself
+   ("you're booked"), change the call time, then release yourself ("no
+   longer needed").
 3. When you're ready (launch), choose **On**. Everyone with a mobile gets
    their offers on WhatsApp from then on, unless they turn them off on their
    own page.

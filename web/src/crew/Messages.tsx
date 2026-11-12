@@ -5,6 +5,7 @@ import {
   invitesHeld,
   LIVE,
   newId,
+  offerHeard,
   offerMessage,
   offerReach,
   OPEN,
@@ -15,8 +16,8 @@ import {
   toldOfOffer,
   toldOfRefusal,
   toldSentences,
+  whatsappFollowsTell,
   whatsappNumber,
-  whatsappReach,
   type CallView,
   type OfferView,
   type Person,
@@ -24,6 +25,7 @@ import {
   type TellContext,
   type TellEvent,
   type ToldPerson,
+  type WhatsAppNews,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
@@ -79,10 +81,17 @@ export function promptFor(event: TellEvent, to: TellTo[], moved = false, closed:
   return to.length ? { kind: 'tell', tell: { id: newId(), event, to, moved, ...(timeMoved ? { timeMoved } : {}), ...(closed.length ? { closed } : {}) } } : undefined
 }
 
-/** Someone to tell about a call, with their own days and agreed rate when they have an offer on it. */
-export function tellTo(person: Person, call: CallView, offer?: Pick<OfferView, 'id' | 'days' | 'status' | 'dayRateCents' | 'counterRateCents'>): TellTo {
+/**
+ * Someone to tell about a call, with their own days and agreed rate when they have an offer on it, and whether they'd
+ * heard of the offer as it stood before the press, which decides what follows it on WhatsApp (ADR 0154).
+ */
+export function tellTo(
+  person: Person,
+  call: CallView,
+  offer?: Pick<OfferView, 'id' | 'days' | 'status' | 'dayRateCents' | 'counterRateCents'> & Partial<Pick<OfferView, 'whatsapp' | 'respondedAt'>>
+): TellTo {
   const agreed = offer ? (offer.status === 'countered' ? offer.counterRateCents : offer.dayRateCents) : call.dayRateCents
-  return { person, context: { call: { ...call, dayRateCents: agreed }, days: offer?.days, offerId: offer?.id } }
+  return { person, context: { call: { ...call, dayRateCents: agreed }, days: offer?.days, offerId: offer?.id, ...(offer ? { heard: offerHeard(offer) } : {}) } }
 }
 
 /** Everyone offered or holding a place on a call, to tell when it changes or goes. */
@@ -264,7 +273,6 @@ const ENDED: readonly TellEvent[] = ['withdrawn', 'released', 'call-cancelled', 
 function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
   const reach = useReach()
   const holdTheDay = useHoldTheDay()
-  const calls = useView().crew.calls
   const everyone = [...tell.to, ...(tell.closed ?? [])]
   const [held] = useState(() =>
     everyone.map((t) => (t.context.offerId ? { cancel: daysToCancel(reach, t.context.offerId), invites: invitesHeld(reach, t.context.offerId).length } : { cancel: [] as string[], invites: 0 }))
@@ -276,24 +284,26 @@ function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
     // Invited is an invite the server keeps in step with the offer. With invites switched off since, it leaves theirs as
     // it was (kept): ending their offer sends no cancellation, and a booking or a change doesn't reach their calendar.
     const before = { cancel: was.cancel, left: id ? daysToCancel(reach, id).length : 0, invited: was.cancel > 0, kept: was.cancel ? 0 : was.invites }
+    // What follows on WhatsApp, by the rule the server queues by (ADR 0154): to whoever it reaches who'd heard of the offer,
+    // about a call that isn't over.
+    const follows = whatsappFollowsTell(reach, t)
+    const news = (n: WhatsAppNews) => ({ ...before, whatsapp: follows ? n : undefined })
     // A rate asked for that the press closed by filling the call ends as any offer does (ADR 0152).
-    if (i >= tell.to.length) return { person: t.person, told: toldOfEnding(reach, t.person, before) }
+    if (i >= tell.to.length) return { person: t.person, told: toldOfEnding(reach, t.person, news('not-needed')) }
     // On a job the client hasn't said yes to yet, their link and their invite say to hold the day, not that they're booked (ADR 0150).
     // Days they were still asked for, outside the days booked, came off with word from Google, as the question said (ADR 0152).
     if (tell.event === 'confirmed') {
       const gone = had.cancel.filter((d) => !(t.context.days ?? had.cancel).includes(d))
       const left = id ? daysToCancel(reach, id).filter((d) => gone.includes(d)).length : 0
-      return { person: t.person, told: toldOfBooking(reach, t.person, before, holdTheDay(t.context.call.projectId), { gone, left }) }
+      return { person: t.person, told: toldOfBooking(reach, t.person, news('booked'), holdTheDay(t.context.call.projectId), { gone, left }) }
     }
     // Saying no to a rate keeps the offer (ADR 0152): their link and their invite's first line say it stands. On a call that
     // filled meanwhile it closes, and their invites come off as for any offer that ends.
-    if (tell.event === 'rate-refused') return { person: t.person, told: t.context.filled ? toldOfEnding(reach, t.person, before) : toldOfRefusal(reach, t.person, before) }
+    if (tell.event === 'rate-refused') return { person: t.person, told: t.context.filled ? toldOfEnding(reach, t.person, news('not-needed')) : toldOfRefusal(reach, t.person, before) }
     if (tell.event === 'call-changed' || tell.event === 'phase-moved')
-      return { person: t.person, told: toldOfChange(reach, t.person, before, tell.event === 'phase-moved' || tell.moved === true, tell.timeMoved === true) }
-    // A stopped job tells whoever had its offer on WhatsApp that it's off (ADR 0125), by the rule the server sends by.
-    const went = tell.event === 'job-stopped' ? calls.flatMap((c) => c.offers).find((o) => o.id === id)?.whatsapp?.state : undefined
-    const whatsapp = (went === 'sent' || went === 'delivered' || went === 'read') && whatsappReach(reach.whatsapp, t.person) !== undefined
-    return { person: t.person, told: toldOfEnding(reach, t.person, { ...before, whatsapp }) }
+      return { person: t.person, told: toldOfChange(reach, t.person, news('call-time'), tell.event === 'phase-moved' || tell.moved === true, tell.timeMoved === true) }
+    // A stopped job tells them it's off; anything else that ends an offer, that they're no longer needed (ADR 0154).
+    return { person: t.person, told: toldOfEnding(reach, t.person, news(tell.event === 'job-stopped' ? 'job-off' : 'not-needed')) }
   })
   const many = new Set(tell.to.map((t) => t.person.id)).size > 1
   return (

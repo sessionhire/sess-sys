@@ -589,6 +589,12 @@ export const WHATSAPP_OFFER_TEMPLATE = 'job_offer'
 export const WHATSAPP_CONFIRMED_TEMPLATE = 'job_confirmed'
 /** The word when a job they were asked for or booked on is cancelled or lost (ADR 0125, HOLD). */
 export const WHATSAPP_CANCELLED_TEMPLATE = 'job_cancelled'
+/** They're booked: the office confirmed them on a job the client has said yes to, or the client said yes after (ADR 0154). */
+export const WHATSAPP_BOOKED_TEMPLATE = 'job_booked'
+/** The call time of a call they're asked for or booked on has moved (ADR 0154). */
+export const WHATSAPP_CALL_TIME_TEMPLATE = 'job_call_time'
+/** Their offer ended on the office's side: filled by someone else, or withdrawn by the office (ADR 0154). */
+export const WHATSAPP_NOT_NEEDED_TEMPLATE = 'job_not_needed'
 /**
  * A job the client hasn't said yes to yet: crew asked for it are asked to hold the day, and their messages say HOLD.
  * HOLD is short for "hold the day", never the job being on hold (Colly, 12 November 2026; ADR 0150, `HOLD_WORDS`).
@@ -606,30 +612,61 @@ export function whatsappWords(w: NonNullable<Offer['whatsapp']>): string {
  * Meta takes no blank empty and none with a line break in it, so a fact not set yet says so in words.
  */
 export function offerTemplateValues(p: Addressee, c: CrewCall, hold = false): string[] {
-  const one = (s: string) => s.replace(/\s+/g, ' ').trim()
   const needs = needsOf(c).length ? ` (needs ${needsLabel(needsOf(c))})` : ''
   return [
     firstName(p),
     // Before the client says yes, the job leads with HOLD, as its days do on the calendar (ADR 0008).
-    `${hold ? 'HOLD ' : ''}${jobWords(c)}`,
+    heldJobWords(c, hold),
     `${c.role}${needs}`,
     daysLabel(eachDay(c.start, c.end)),
     c.callTime || 'to be confirmed',
     c.venue || 'to be confirmed',
     p.kind === 'staff' ? 'as a member of staff' : rateLine(c),
     c.replyBy ? dayLabel(c.replyBy) : 'as soon as you can',
-  ].map(one)
+  ].map(oneLine)
 }
 
 const jobWords = (c: Pick<CrewCall, 'project' | 'phase'>) => `${c.project}${c.phase ? ` (${c.phase})` : ''}`
+/** The job as their offer named it: with HOLD before the client says yes, as the offer's message and their invites say it. */
+const heldJobWords = (c: Pick<CrewCall, 'project' | 'phase'>, hold: boolean) => `${hold ? 'HOLD ' : ''}${jobWords(c)}`
+
+/** Meta takes no blank with a line break in it, or empty. */
+const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+/** Their own days on a call: the days of their offer, or the call's when it names none. */
+const theirDays = (c: Pick<CrewCall, 'start' | 'end'>, days: readonly string[]) => daysLabel(days.length ? [...days] : eachDay(c.start, c.end))
 
 /**
  * The blanks in the confirmed and cancelled templates (ADR 0125, HOLD): their first name, the job, and the days they
  * were asked for, in one line each, as Meta wants them.
  */
 export function followUpTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'start' | 'end'>, days: readonly string[]): string[] {
-  const one = (s: string) => s.replace(/\s+/g, ' ').trim()
-  return [firstName(p), jobWords(c), daysLabel(days.length ? [...days] : eachDay(c.start, c.end))].map(one)
+  return [firstName(p), jobWords(c), theirDays(c, days)].map(oneLine)
+}
+
+/**
+ * The blanks in the booked template (ADR 0154), the facts of the offer for the days they're booked: their first name,
+ * the job, the role, the days, the call time and the venue, a fact not set yet said in words.
+ */
+export function bookedTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'role' | 'start' | 'end' | 'callTime' | 'venue'>, days: readonly string[]): string[] {
+  return [firstName(p), jobWords(c), c.role, theirDays(c, days), c.callTime || 'to be confirmed', c.venue || 'to be confirmed'].map(oneLine)
+}
+
+/**
+ * The blanks in the call time template (ADR 0154): their first name, the job, the call time as it is now, and their days.
+ * Before the client says yes, the job leads with HOLD, as it did in their offer.
+ */
+export function callTimeTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'start' | 'end' | 'callTime'>, days: readonly string[], hold = false): string[] {
+  return [firstName(p), heldJobWords(c, hold), c.callTime || 'to be confirmed', theirDays(c, days)].map(oneLine)
+}
+
+/**
+ * The blanks in the not needed template (ADR 0154): their first name, the job, their days, and why, in the words their
+ * page uses ("filled by someone else", "withdrawn by the office"). Never with HOLD: the day isn't theirs to hold any more,
+ * as their invite's last title says (endedTitle).
+ */
+export function notNeededTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'start' | 'end'>, days: readonly string[], why: string): string[] {
+  return [firstName(p), jobWords(c), theirDays(c, days), why].map(oneLine)
 }
 
 /** wa.me wants digits only, with the country code. Irish mobiles written 08x become +3538x. */
@@ -702,6 +739,11 @@ export interface TellContext {
   filled?: boolean
   /** The booking, for the timesheet's address. */
   offerId?: string
+  /**
+   * They had heard of the offer when the office pressed (ADR 0154, offerHeard): its WhatsApp went, none was made, or they'd
+   * answered. What follows it on WhatsApp goes only then.
+   */
+  heard?: boolean
   /** For a timesheet: the figures approved, in words ("2 days at €320, and €43.50 of extras: €683.50"). */
   summary?: string
   /** For a timesheet: what the office changed from what was sent, in words. */
