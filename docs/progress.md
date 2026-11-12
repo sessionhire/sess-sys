@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: the crew's accommodation on quotes
+
+**Done (1.174.0)**
+
+- On Colly's ask for "a line for accommodation similar to how travel and
+  subsistence work" ([ADR 0156](adr/0156-crew-accommodation-on-quotes.md)).
+  Admin › Company › Travel and subsistence gains "Stay over after" (180 km
+  unless set) and "A room, € a night" (unset, so nothing changes until
+  it's set).
+- Past that distance a quote adds "Crew accommodation, N crew nights", a
+  room for each crew day, printed "a night"; the row's switch,
+  Accommodation provided, takes it off. Travel then counts one car trip
+  each rather than one a day. The margin takes the rooms at cost.
+- Crew invites say "Accommodation: covered" or "provided by the job" only
+  on a quote that has it, so no invite out now changes.
+- Checked: unit tests for the line, the travel once each, the defaults and
+  the printed words; the server keeps the switch and the settings, and the
+  device agrees with it; typecheck.
+- Waiting on Colly: the room price, and whether 180 km is the right line.
 ## 12 November 2026: own invites for jobs brought in from Google Calendar
 
 **Done (1.173.0)**

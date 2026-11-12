@@ -416,6 +416,11 @@ describe('what goes on the calendar', () => {
     expect(allowancesText({ perDiemCents: null, mealsProvided: true, fuelCents: null, km: null })).toBe(
       'Per diems and fuel\nPer diems: not approved, as meals are provided\nFuel: not covered'
     )
+    // The crew's rooms (ADR 0156), said only on a job they stay over for.
+    expect(allowancesText({ perDiemCents: 3500, mealsProvided: false, fuelCents: 4810, km: 223, rooms: true })).toBe(
+      'Per diems, fuel and accommodation\nPer diems: approved, €35 a day each\nFuel: covered, about €48.10 a car there and back (223 km each way)\nAccommodation: covered'
+    )
+    expect(allowancesText({ perDiemCents: null, mealsProvided: true, fuelCents: null, km: null, accommodationProvided: true })).toContain('Accommodation: provided by the job')
     expect(show!.description).toContain('Show, Mon 4 Mar')
     expect(show!.description).toContain('Show notes\nDoors 19:00.')
     // Names only: no rates, phone numbers or emails (the per diem and fuel are the only money).

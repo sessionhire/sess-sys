@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { quoteLine, quoteTotals, versionChanges, type QuoteLine } from '../src/quotes.ts'
+import { priceWords, quoteLine, quoteTotals, versionChanges, type QuoteLine } from '../src/quotes.ts'
 import { crewDays, DUBLIN_CENTRE, extrasFor, fuelCents, kmBetween, roadKmFromDublin, travelSettingsOf } from '../src/travel.ts'
 
 /**
@@ -87,5 +87,58 @@ describe("a quote's travel and subsistence (ADR 0086)", () => {
     const lines = [crew(), ...extras().lines]
     const t = quoteTotals({ lines, discountPct: 0 })
     expect(t.subtotal).toBe(240000 + 6 * fuelCents(223, set) + 6 * 3908)
+  })
+})
+
+describe("the crew's accommodation (ADR 0156)", () => {
+  const CORK = { lat: 51.897, lng: -8.47 }
+  const BELFAST = { lat: 54.597, lng: -5.93 }
+  const rooms = { ...set, roomCents: 9500 }
+
+  it('charges a room for each crew day past the distance set, and travel once each as the crew stay over', () => {
+    const e = extras({ settings: rooms })
+    expect(e.lines.map((l) => [l.extra, l.what, l.qty, l.unitCents, l.per])).toEqual([
+      // Two crew for three days: two cars there and home once, not six.
+      ['travel', 'Crew travel, 223 km each way from Dublin, 2 car trips, staying over', 2, fuelCents(223, rooms), 'once'],
+      ['subsistence', 'Crew subsistence, 6 crew days', 6, 3908, 'day'],
+      ['accommodation', 'Crew accommodation, 6 crew nights', 6, 9500, 'day'],
+    ])
+    for (const l of e.lines) expect(quoteLine.safeParse(l).success).toBe(true)
+    expect(e.accommodation).toEqual({ far: true, stay: true, nights: 6, none: null })
+    // Sharing cars, two to a car: the two crew are one car load.
+    expect(extras({ settings: { ...rooms, crewPerCar: 2 } }).lines[0]).toMatchObject({ qty: 1 })
+    // One of the crew for one day: one trip, staying over or not.
+    expect(extras({ settings: rooms, lines: [crew({ qty: 1, days: 1 })] }).lines[0]).toMatchObject({ qty: 1 })
+  })
+
+  it('stays over past 180 km unless set, so Cork and Galway do and Belfast drives home', () => {
+    expect(extras({ settings: rooms, pin: CORK }).accommodation.stay).toBe(true)
+    const belfast = extras({ settings: rooms, pin: BELFAST })
+    expect(belfast.lines.map((l) => l.extra)).toEqual(['travel', 'subsistence'])
+    expect(belfast.lines[0]).toMatchObject({ qty: 6 })
+    expect(belfast.accommodation).toMatchObject({ far: false, stay: false, none: '169 km from Dublin city centre, so within the 180 km the crew stay over after.' })
+    expect(extras({ settings: { ...rooms, stayFromKm: 150 }, pin: BELFAST }).accommodation.stay).toBe(true)
+  })
+
+  it('charges no rooms when the job puts the crew up, though they still stay over', () => {
+    const e = extras({ settings: rooms, accommodationProvided: true })
+    expect(e.lines.map((l) => l.extra)).toEqual(['travel', 'subsistence'])
+    expect(e.accommodation).toMatchObject({ stay: true, none: 'The job puts the crew up.' })
+    expect(e.lines[0]).toMatchObject({ qty: 2 })
+  })
+
+  it("leaves travel as it was until a room price is set, and says where to set it", () => {
+    const e = extras()
+    expect(e.lines.map((l) => l.extra)).toEqual(['travel', 'subsistence'])
+    expect(e.lines[0]).toMatchObject({ qty: 6 })
+    expect(e.accommodation).toMatchObject({ far: true, stay: false })
+    expect(e.accommodation.none).toMatch(/No room price set yet: set it in Admin ›/)
+  })
+
+  it('prints a room as so much a night', () => {
+    const [, , a] = extras({ settings: rooms }).lines
+    expect(priceWords(a!)).toBe('a night')
+    expect(priceWords(crew())).toBe('a day')
+    expect(priceWords(crew({ per: 'once' }))).toBe('once')
   })
 })

@@ -61,8 +61,12 @@ export function chargedFor(rule: RateRule, out: number): number {
   return days
 }
 
-/** The lines a quote works out for itself (ADR 0086). */
-export const LINE_EXTRAS = ['travel', 'subsistence'] as const
+/** How a line's price reads after the figure: "once", "a day", "a week", or "a night" for the crew's rooms (ADR 0156). */
+export const priceWords = (l: Pick<QuoteLine, 'per' | 'rate' | 'extra'>) =>
+  l.per === 'once' ? 'once' : l.extra === 'accommodation' ? 'a night' : `a ${RATE_UNIT[l.rate ?? 'daily']}`
+
+/** The lines a quote works out for itself (ADR 0086), the crew's accommodation with them (ADR 0156). */
+export const LINE_EXTRAS = ['travel', 'subsistence', 'accommodation'] as const
 export type LineExtra = (typeof LINE_EXTRAS)[number]
 
 /** A quote has room for this many lines: more than any job's kit and crew. */
@@ -137,8 +141,8 @@ export const quoteLine = z.object({
   /** Off this line alone, as a percentage, before any discount off the whole quote. */
   discountPct: lineDiscount.optional(),
   /**
-   * A line the quote works out for itself (ADR 0086): the crew's travel to a venue far from Dublin, or their
-   * subsistence. Worked out again on a draft whenever what it comes from changes, so it's never typed.
+   * A line the quote works out for itself (ADR 0086): the crew's travel to a venue far from Dublin, their
+   * subsistence, or their accommodation when they stay over (ADR 0156). Worked out again on a draft whenever what it comes from changes, so it's never typed.
    */
   extra: z.enum(LINE_EXTRAS).optional(),
   /** The package a line was added from (ADR 0087), and what it held then, printed under it: "4 × Shure SM58, 2 × DI box". */
@@ -222,6 +226,8 @@ export interface Quote {
   agreedCents?: number | null
   /** The job gives the crew their meals (ADR 0086), so no subsistence is charged. */
   mealsProvided?: boolean
+  /** The job puts the crew up (ADR 0156), so no accommodation is charged. */
+  accommodationProvided?: boolean
   /** How far the venue is from Dublin city centre by road, each way, in km, as the office typed it; none takes it from the map. */
   travelKm?: number | null
   /**
@@ -283,6 +289,12 @@ export interface QuoteSettings {
   fuelMonth?: string | null
   /** How many of the crew share a car to a job (ADR 0086): each car load is a trip. One unless set. */
   crewPerCar?: number
+  /**
+   * Accommodation (ADR 0156): past `stayFromKm` from Dublin city centre the crew stay over, and each crew night is
+   * charged `roomCents`. Left out by a server from before it; a room price not set is null and charges nothing.
+   */
+  stayFromKm?: number
+  roomCents?: number | null
   /**
    * Whether a quote can be sent to the client by email from the operations mailbox, with its PDF attached (ADR 0101).
    * Off until the office turns it on under Admin, as every way the app reaches anyone outside is (ADR 0048). Left out by
@@ -425,6 +437,7 @@ const quoteNumber = z.number(wrongType(NUMBER_HINT)).int(NUMBER_HINT).min(1, NUM
 /** A price agreed for the whole quote, before VAT. */
 const agreedCents = euroCents(10_000_000_00, 'The price agreed')
 const CAR_HINT = 'How many share a car is a whole number from 1 to 8.'
+const STAY_HINT = 'The crew stay over past a whole number of km from 0 to 1,000.'
 const KM_HINT = 'The distance is a whole number of km from 0 to 2,000.'
 const travelKm = z.number(wrongType(KM_HINT)).int(KM_HINT).min(0, KM_HINT).max(2000, KM_HINT)
 const FROM_HINT = 'Travel starts at a whole number of km from 0 to 1,000.'
@@ -458,6 +471,8 @@ export const quoteCommandSchemas = {
     // Travel and subsistence (ADR 0086), left as they were by a save from an app older than them.
     mealsProvided: z.boolean().optional(),
     travelKm: travelKm.nullable().optional(),
+    // Accommodation (ADR 0156), left as it was by a save from an app older than it.
+    accommodationProvided: z.boolean().optional(),
     // Who it's for (ADR 0128), left as it was by a save from an app older than it.
     forName: text(200, 'Who the quote is for').optional(),
     /**
@@ -474,6 +489,7 @@ export const quoteCommandSchemas = {
         agreedCents: z.number().nullable(),
         mealsProvided: z.boolean(),
         travelKm: z.number().nullable(),
+        accommodationProvided: z.boolean().optional(),
         forName: z.string().max(200).optional(),
       })
       .optional(),
@@ -519,6 +535,9 @@ export const quoteCommandSchemas = {
     /** The AA survey a price read with "Read the AA's price" came from; null for one typed in. */
     fuelMonth: text(40, "The survey's month").nullable().optional(),
     crewPerCar: z.number(wrongType(CAR_HINT)).int(CAR_HINT).min(1, CAR_HINT).max(8, CAR_HINT).optional(),
+    // Accommodation (ADR 0156): how far before the crew stay over, and a room a night. Left as they were by an older app.
+    stayFromKm: z.number(wrongType(STAY_HINT)).int(STAY_HINT).min(0, STAY_HINT).max(1000, STAY_HINT).optional(),
+    roomCents: euroCents(1000_00, 'A room a night').nullable().optional(),
   }),
   /** Whether quotes can be sent to the client by email from the operations mailbox (ADR 0101). The office's to decide, under Admin. */
   'quoting.email': z.object({ on: z.boolean() }),
@@ -584,7 +603,7 @@ export function lineCostOf(
   if (l.kind === 'kit') return l.subhireQty ? undefined : ownKitPct ? Math.round((lineCents(l) * ownKitPct) / 100) : 0
   // Words between lines charge and cost nothing.
   if (l.words) return 0
-  // Travel and subsistence go on to the crew as they're charged (ADR 0086): fuel and their per diem.
+  // Travel, subsistence and accommodation go on to the crew as they're charged (ADR 0086, ADR 0156): fuel, their per diem, rooms.
   return l.extra ? lineCents(l) : undefined
 }
 

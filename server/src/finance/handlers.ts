@@ -90,6 +90,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
       if (a.agreedCents !== undefined) await ctx.tx.query('UPDATE quotes SET agreed_cents = $2 WHERE id = $1', [a.id, a.agreedCents])
       if (a.mealsProvided !== undefined) await ctx.tx.query('UPDATE quotes SET meals_provided = $2 WHERE id = $1', [a.id, a.mealsProvided])
       if (a.travelKm !== undefined) await ctx.tx.query('UPDATE quotes SET travel_km = $2 WHERE id = $1', [a.id, a.travelKm])
+      if (a.accommodationProvided !== undefined) await ctx.tx.query('UPDATE quotes SET accommodation_provided = $2 WHERE id = $1', [a.id, a.accommodationProvided])
       if (a.forName !== undefined) await ctx.tx.query('UPDATE quotes SET for_name = $2 WHERE id = $1', [a.id, a.forName.trim()])
       return emitQuote(ctx, a.id)
     }
@@ -103,8 +104,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     // Numbered after every version the job has had, a deleted one too (ADR 0135).
     const top = (await versionsEver(ctx.tx, a.projectId)).top
     await ctx.tx.query(
-      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name)
-       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name, accommodation_provided)
+       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [
         a.id,
         a.projectId,
@@ -123,6 +124,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
         newAcceptToken(),
         // Who it's for (ADR 0128): a new version is for the same person unless it says.
         (a.forName ?? before?.forName ?? '').trim(),
+        // Whether the job puts the crew up (ADR 0156) is the job's too.
+        a.accommodationProvided ?? before?.accommodationProvided ?? false,
       ]
     )
     await emitQuote(ctx, a.id)
@@ -153,7 +156,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
   },
 
-  /** How travel and subsistence are charged (ADR 0086). The day the fuel price was set moves only when it changes. */
+  /** How travel, subsistence and accommodation are charged (ADR 0086, ADR 0156). The day the fuel price was set moves only when it changes. */
   async 'quoting.travel'(ctx, a) {
     await ctx.tx.query(
       `INSERT INTO quote_settings (id, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on)
@@ -171,6 +174,9 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (a.fuelMonth !== undefined) await ctx.tx.query('UPDATE quote_settings SET fuel_month = $2 WHERE id = $1', [QUOTE_SETTINGS_ID, a.fuelMonth])
     if (a.fuelAuto !== undefined) await ctx.tx.query('UPDATE quote_settings SET fuel_auto = $2 WHERE id = $1', [QUOTE_SETTINGS_ID, a.fuelAuto])
     if (a.crewPerCar !== undefined) await ctx.tx.query('UPDATE quote_settings SET crew_per_car = $2 WHERE id = $1', [QUOTE_SETTINGS_ID, a.crewPerCar])
+    // The crew's accommodation (ADR 0156), left as it was by a save from an app older than it.
+    if (a.stayFromKm !== undefined) await ctx.tx.query('UPDATE quote_settings SET stay_from_km = $2 WHERE id = $1', [QUOTE_SETTINGS_ID, a.stayFromKm])
+    if (a.roomCents !== undefined) await ctx.tx.query('UPDATE quote_settings SET room_cents = $2 WHERE id = $1', [QUOTE_SETTINGS_ID, a.roomCents])
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
   },
 

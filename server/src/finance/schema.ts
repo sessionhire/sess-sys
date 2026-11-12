@@ -164,6 +164,13 @@ const MIGRATIONS: string[] = [
   DROP INDEX IF EXISTS quotes_one_draft;
   CREATE UNIQUE INDEX IF NOT EXISTS quotes_one_live_draft ON quotes (project_id) WHERE status = 'draft' AND deleted_at IS NULL;
   `,
+  // The crew's accommodation (ADR 0156): on each quote, whether the job puts them up; and, set once for every quote, how
+  // far before they stay over and a room a night. A room price not set is null and charges nothing.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accommodation_provided boolean NOT NULL DEFAULT false;
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS stay_from_km integer CHECK (stay_from_km BETWEEN 0 AND 1000);
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS room_cents integer CHECK (room_cents >= 0);
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

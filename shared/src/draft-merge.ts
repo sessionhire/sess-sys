@@ -63,9 +63,11 @@ export interface DraftBase {
   mealsProvided: boolean
   travelKm: number | null
   forName?: string
+  /** Left out by an app older than accommodation (ADR 0156). */
+  accommodationProvided?: boolean
 }
 
-type DraftTerms = Pick<Quote, 'lines' | 'discountPct' | 'notes' | 'validDays' | 'depositPct' | 'agreedCents' | 'mealsProvided' | 'travelKm' | 'forName'>
+type DraftTerms = Pick<Quote, 'lines' | 'discountPct' | 'notes' | 'validDays' | 'depositPct' | 'agreedCents' | 'mealsProvided' | 'travelKm' | 'forName' | 'accommodationProvided'>
 
 export function draftBase(q: DraftTerms): DraftBase {
   return {
@@ -78,6 +80,7 @@ export function draftBase(q: DraftTerms): DraftBase {
     mealsProvided: q.mealsProvided ?? false,
     travelKm: q.travelKm ?? null,
     forName: q.forName ?? '',
+    accommodationProvided: q.accommodationProvided ?? false,
   }
 }
 
@@ -92,6 +95,7 @@ export interface DraftSave {
   mealsProvided?: boolean
   travelKm?: number | null
   forName?: string
+  accommodationProvided?: boolean
 }
 
 /**
@@ -151,6 +155,8 @@ export function mergeDraft<S extends DraftSave>(now: DraftTerms, save: S, base: 
   if (save.agreedCents !== undefined) merged.agreedCents = pick(save.agreedCents, base.agreedCents, nowBase.agreedCents)
   if (save.mealsProvided !== undefined) merged.mealsProvided = pick(save.mealsProvided, base.mealsProvided, nowBase.mealsProvided)
   if (save.travelKm !== undefined) merged.travelKm = pick(save.travelKm, base.travelKm, nowBase.travelKm)
+  if (save.accommodationProvided !== undefined)
+    merged.accommodationProvided = base.accommodationProvided === undefined ? save.accommodationProvided : pick(save.accommodationProvided, base.accommodationProvided, nowBase.accommodationProvided ?? false)
   if (save.forName !== undefined) merged.forName = base.forName === undefined ? save.forName : pick(save.forName, base.forName, nowBase.forName ?? '')
   return { save: merged, both }
 }
