@@ -115,6 +115,8 @@ export const setting = z.object({
   cableColours: cableColourList.optional(),
   /** On the "logo" setting (ADR 0106): when the logo was put up, which makes its address (logoPath). Set by the server alone. */
   logo: z.object({ at: z.string() }).nullable().optional(),
+  /** On the "logo" setting (ADR 0163): labels print the logo in pure black and white, every grey and colour made one or the other. Off until the office says. */
+  logoBlackWhite: z.boolean().optional(),
 })
 export type Setting = z.infer<typeof setting>
 
@@ -164,6 +166,8 @@ export const officeCommandSchemas = {
   }),
   /** The colour for each cable length (ADR 0106), the whole list at once. The office's, under Admin. */
   'cables.colours': z.object({ colours: cableColourList }),
+  /** Whether labels print the logo in pure black and white (ADR 0163). The office's, under Admin › Company › Logo. */
+  'logo.blackWhite': z.object({ on: z.boolean() }),
 } as const
 
 /** The details when there is a way back in them: a phone or an email. A name alone is nothing to show. */

@@ -300,6 +300,7 @@ const CASES: Case[] = [
   c('links.check', { on: true }),
   c('whatsapp.use', { mode: 'test', testTo: ['+353 87 123 4567'] }),
   c('cables.colours', { colours: [{ upToM: 2, colour: 'red' }, { upToM: 10, colour: 'green' }] }),
+  c('logo.blackWhite', { on: true }),
 
   // Leave and time in lieu.
   c('leave.request', { id: 'more-hol', personId: 'aoife', type: 'annual', ...leaveSpanFrom(40), note: 'Family' }),

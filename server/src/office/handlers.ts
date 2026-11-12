@@ -1,4 +1,4 @@
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, MESSAGES_SETTING_ID, WHATSAPP_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, MESSAGES_SETTING_ID, WHATSAPP_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
 import { emit, type Ctx } from '../kernel.ts'
 import { getSetting } from './store.ts'
 
@@ -7,7 +7,7 @@ import { getSetting } from './store.ts'
  * on every freelancer page. One office, so the command replaces them whole.
  */
 
-type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'links.check' | 'whatsapp.use' | 'cables.colours'
+type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'links.check' | 'whatsapp.use' | 'cables.colours' | 'logo.blackWhite'
 type Handler<N extends OfficeCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
@@ -101,5 +101,15 @@ export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
       [CABLES_SETTING_ID, JSON.stringify(a.colours)]
     )
     await emit(ctx, 'setting', CABLES_SETTING_ID, await getSetting(ctx.tx, CABLES_SETTING_ID))
+  },
+
+  /** Whether labels print the logo in pure black and white (ADR 0163), on the logo's own row; the logo itself is untouched. */
+  async 'logo.blackWhite'(ctx, a) {
+    await ctx.tx.query(
+      `INSERT INTO settings (id, logo_black_white) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET logo_black_white = EXCLUDED.logo_black_white, updated_at = now()`,
+      [LOGO_SETTING_ID, a.on]
+    )
+    await emit(ctx, 'setting', LOGO_SETTING_ID, await getSetting(ctx.tx, LOGO_SETTING_ID))
   },
 }

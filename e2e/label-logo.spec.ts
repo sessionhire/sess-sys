@@ -18,6 +18,16 @@ const PNG = Buffer.from(
   'base64'
 )
 
+/** Whether every pixel of a picture is black or white (ADR 0163), read in the page. */
+const PURE = (i: HTMLImageElement) => {
+  const c = document.createElement('canvas')
+  c.width = i.naturalWidth
+  c.height = i.naturalHeight
+  const g = c.getContext('2d')!
+  g.drawImage(i, 0, 0)
+  return Array.from(g.getImageData(0, 0, c.width, c.height).data).every((v, k) => k % 4 === 3 || v === 0 || v === 255)
+}
+
 test('the logo and a cable length with its colour go on cable labels', async ({ browser }) => {
   const context = await browser.newContext({ viewport: phoneSize })
   const page = await context.newPage()
@@ -71,6 +81,13 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   await expect(logoCard.getByRole('status')).toContainText('nearly square')
   // Made a PNG on white on the device, so its edges stay sharp.
   expect((await context.request.get((await shown.getAttribute('src'))!)).headers()['content-type']).toBe('image/png')
+  // Pure black and white on labels (ADR 0163): the preview shows it, and every label then prints it so.
+  const pure = logoCard.getByRole('switch', { name: 'Pure black and white on labels' })
+  await expect(pure).not.toBeChecked()
+  await pure.click()
+  await expect(pure).toBeChecked()
+  await expect(shown).toHaveClass(/pure/)
+  await expect(logoCard.getByText('On a label, pure black and white')).toBeVisible()
 
   // An item's own label carries the logo and its stock code in words, on a 25 mm square too (Colly, 8 November 2026).
   await page.goto(`/#stock/item/amp1-${id}`)
@@ -81,6 +98,8 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
     // In greys made at the logo's full size, not a CSS filter, which Chrome prints as a blur of big pixels (Colly, 12 November).
     await expect(own.locator('img.logo')).toHaveAttribute('src', /^blob:/)
     expect(await own.locator('img.logo').evaluate((i: HTMLImageElement) => [getComputedStyle(i).filter, i.naturalWidth])).toEqual(['none', 16])
+    // Pure black and white (ADR 0163): every pixel black or white.
+    expect(await own.locator('img.logo').evaluate(PURE)).toBe(true)
     await expect(own.locator('.code')).toHaveText(`D80-${id}`)
     const [sh, ch, sw, cw] = await own.evaluate((l) => [l.scrollHeight, l.clientHeight, l.scrollWidth, l.clientWidth])
     expect(sh).toBeLessThanOrEqual(ch! + 1)
@@ -108,6 +127,7 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   expect(await band.evaluate((b) => getComputedStyle(b).backgroundColor)).toBe('rgb(0, 0, 0)')
   await expect(label.locator('img.logo')).toHaveAttribute('src', /^blob:/)
   expect(await label.locator('img.logo').evaluate((i) => getComputedStyle(i).filter)).toBe('none')
+  expect(await label.locator('img.logo').evaluate(PURE)).toBe(true)
   const [scroll, client] = await label.locator('.face').first().evaluate((f) => [f.scrollHeight, f.clientHeight])
   expect(scroll).toBeLessThanOrEqual(client! + 1)
 
@@ -132,6 +152,9 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   await card.getByRole('button', { name: 'Start again from the usual list' }).click()
   await card.getByRole('button', { name: 'Save colours' }).click()
   await expect(card.getByRole('listitem').filter({ hasText: 'Over 5 m, up to 10 m' })).toContainText('Green')
+  await pure.click()
+  await expect(pure).not.toBeChecked()
+  await expect(shown).not.toHaveClass(/pure/)
   await logoCard.getByRole('button', { name: 'Remove logo' }).click()
   await logoCard.getByRole('button', { name: 'Take it down' }).click()
   await expect(logoCard.getByText('None yet. Quotes and labels say Session Hire')).toBeVisible()
