@@ -205,6 +205,9 @@ describe('sending a quote to the client by email (ADR 0101)', () => {
     expect(draft.headers['content-disposition']).toBe(`inline; filename="Draft quote - Liffey Brands Launch.pdf"; filename*=UTF-8''Draft%20quote%20-%20Liffey%20Brands%20Launch.pdf`)
     expect(draft.rawPayload.subarray(0, 5).toString()).toBe('%PDF-')
     expect(draft.rawPayload.toString('latin1')).toContain('(Draft quote for Liffey Brands Launch)\nendobj')
+    // Next's Download the PDF (ADR 0166) saves it as a file instead.
+    const saved = await s.app.inject({ url: '/api/quotes/q1/pdf?download=1', cookies: s.adam.cookies })
+    expect(saved.headers['content-disposition']).toMatch(/^attachment; filename="Draft quote - Liffey Brands Launch.pdf"/)
 
     await s.send(m('quoting.email', { on: true }))
     await s.connect([GMAIL_READ_SCOPE, GMAIL_SEND_SCOPE])
