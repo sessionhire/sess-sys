@@ -1,7 +1,7 @@
 import { SearchPalette } from './SearchPalette.tsx'
 import { closeSearch, openSearch, useSearchOpen } from './searchOpen.ts'
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
-import { APP_VERSION } from '@sh/shared'
+import { APP_VERSION, dayLabel, irishToday } from '@sh/shared'
 import { AccountScreen } from './AccountScreen.tsx'
 import { useAuth } from './auth.ts'
 import { CrewBadge } from './crew/CrewBadge.tsx'
@@ -26,6 +26,10 @@ import { useAccess } from './role.ts'
 import { YouScreen } from './YouScreen.tsx'
 import { shortcutHint, ShortcutsSheet, usePaletteKey, useShortcuts } from './shortcuts.tsx'
 import { ChangesScreen } from './ChangesScreen.tsx'
+import { sayDaysWith } from './required.ts'
+
+// A form's refusals say a day as the rest of the app does; required.ts can't take the shared code itself (it's in the page's first script).
+sayDaysWith((day) => dayLabel(day, irishToday()))
 
 /**
  * Switches between the app's areas. The address keeps the area, and within

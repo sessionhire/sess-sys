@@ -1,4 +1,4 @@
-import { departmentInWords, joinedPhaseName, kindOf, kitDaysOf, MAX_PHASE_DAYS, stepId, STOPPED, tailOf, type CommandArgs, type JobStep } from '@sh/shared'
+import { daysLabel, daysOffPhase, departmentInWords, joinedPhaseName, kindOf, kitDaysOf, MAX_PHASE_DAYS, spanLabel, stepId, STOPPED, tailOf, type CommandArgs, type JobStep } from '@sh/shared'
 import { cancelCall, moveCallsWithPhase } from '../crew/handlers.ts'
 import { getCall, getCalls, getPerson, openCallsFor } from '../crew/store.ts'
 import { emit, emitAll, emitRemoved, emitRemovedAll, Refused, type Ctx } from '../kernel.ts'
@@ -217,6 +217,15 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     const end = a.end ?? before.end
     if (start > end) throw new Refused({ code: 'invalid', message: `${before.name} would end before it starts.` })
     if (tooLong(start, end)) throw new Refused({ code: 'invalid', message: `A phase can be at most ${MAX_PHASE_DAYS} days.` })
+    // Its crew keep their dates only where the phase still has them: a call left outside its phase's days would hold its crew
+    // for days with no invite (ADR 0159). A day already outside from before isn't this change's doing.
+    if (!a.moveCrew && (start !== before.start || end !== before.end))
+      for (const c of await openCallsFor(ctx.tx, { phaseId: a.id })) {
+        const was = daysOffPhase(c, before)
+        const off = daysOffPhase(c, { start, end }).filter((d) => !was.includes(d))
+        if (off.length)
+          throw new Refused({ code: 'conflict', message: `${before.name} would be ${spanLabel({ start, end })}, leaving ${c.role} on ${daysLabel(off)} outside it: move its crew with it.` })
+      }
     await checkVenue(ctx, a.venueId)
     await checkContact(ctx, a.contactId)
     await setFields(ctx, 'phases', PHASE_COLUMNS, a)

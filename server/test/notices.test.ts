@@ -132,7 +132,9 @@ describe('notifications', () => {
     // An enquiry with an audio call: confirmed, back to quoted, confirmed again.
     await colly.send('project.create', { id: 'j3', name: 'Harbour Lights', clientId: null, venueId: null, status: 'enquiry', notes: '' })
     await colly.send('phase.add', { id: 'show3', projectId: 'j3', name: 'Show', start: '2026-11-09', end: '2026-11-09', venueId: null, notes: '' })
-    expect((await colly.send('call.create', { ...call, id: 'c3', projectId: 'j3', phaseId: 'show3', project: 'Harbour Lights', department: 'Audio' } as never)).status).toBe('applied')
+    expect(
+      (await colly.send('call.create', { ...call, id: 'c3', projectId: 'j3', phaseId: 'show3', project: 'Harbour Lights', start: '2026-11-09', end: '2026-11-09', department: 'Audio' } as never)).status
+    ).toBe('applied')
     await colly.send('project.update', { id: 'j3', status: 'confirmed' })
     await colly.send('project.update', { id: 'j3', name: 'Harbour Lights Festival' })
     await colly.send('project.update', { id: 'j3', status: 'quoted' })
