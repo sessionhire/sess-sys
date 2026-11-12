@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.182.0',
+    version: '1.183.0',
     date: '2026-11-12',
     title: 'Confirming a job asks first when crew are holding the day',
     what: "On a job the client hasn't said yes to, a crew call's card now says Hold the day, in amber, for the people you've picked, where it said Booked, as their own page and calendar invite already did. Confirming such a job tells everyone asked to hold the day that it's going ahead, by Google's email as HOLD comes off their days and by WhatsApp where it's on, so wherever you confirm it now asks first, saying who hears what: from the job's details, its Confirmed task, the Next button, the quote's Client accepted and Money's To follow up. Afterwards a note says what went to whom. Marking a job lost from its quote or from To follow up now asks first too, as it already did from the job's details.",
     prs: [363],
     adrs: [168],
+  },
+  {
+    version: '1.182.0',
+    date: '2026-11-12',
+    title: 'Send the quote from Next',
+    what: "Once a quote has everything on it, the job's Next button says Send quote, so on a phone it's the button over the bar where every other next step is. Pressing it opens the email to the client from the operations mailbox, with the quote attached as a PDF, to read over and send; from another part of the job it opens the quote first. If something on the quote isn't finished, Next says so and takes you to it. A new version made after one has gone is sent from Next too. Download the PDF sits beside it, to keep the PDF or send it yourself. While quotes don't go by email (as now, until it's turned on), Next says Get the PDF to send and does what that did before.",
+    prs: [360],
+    adrs: [166],
   },
   {
     version: '1.181.1',

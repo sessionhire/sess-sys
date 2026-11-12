@@ -533,7 +533,7 @@ Finding 17, a member of staff's own offers said to them, is in 1.181.0
 further than the fix: a job confirmed while they hold the day for it is
 said as their booking, and a change that ended their offer says why, the
 call cancelled or the job stopped.
-What was left open on the office's side is in 1.182.0
+What was left open on the office's side is in 1.183.0
 ([ADR 0168](adr/0168-confirming-a-job-its-crew-hold-the-day-for.md)): a
 call's card says "Hold the day" of those picked on a job the client hasn't
 said yes to, and confirming such a job, which Google and WhatsApp tell its
