@@ -141,3 +141,9 @@ calendars directly, isn't available yet.
   The plan is made once, says what the calendar holds besides what was
   ticked, looks jobs and venues up by key, and for a calendar of 300
   events or more runs in a worker thread, as the busy reader does.
+- Later (12 November 2026, [ADR 0157](0157-own-invites-for-jobs-brought-in.md)):
+  each person the office offers one of these jobs gets their own invite,
+  a copy of each day on the connected account's own calendar, as on the
+  app's own jobs. The organiser's events are still left alone and the
+  jobs calendar still holds none of their days. The guests brought in
+  with a job, and offers made before this, get none.

@@ -360,6 +360,8 @@ interface PhaseRow {
   venue_name: string | null
   venue_address: string | null
   venue_notes: string | null
+  /** The job came from a Google calendar (ADR 0011): its days are the organiser's event, so the app writes none of its own. */
+  brought: boolean
 }
 
 interface KitRow {
@@ -406,6 +408,8 @@ interface CallRow {
     kind: string
     email: string | null
     token: string
+    /** False on a job brought in from Google Calendar for an offer with no invite of its own (ADR 0157). */
+    own: boolean
   }[]
 }
 
@@ -430,6 +434,7 @@ export async function wantedEvents(
     appUrl,
     personal = false,
     tell,
+    on,
   }: {
     today: string
     appKey: string
@@ -438,6 +443,11 @@ export async function wantedEvents(
     personal?: boolean
     /** Whose own copies tell them what happens next (ADR 0153): the connection's switch and the addresses it tries. */
     tell?: Pick<CalendarLink, 'tell' | 'tellTo'>
+    /**
+     * Filled with every day that's on, by `calendarDayId`, whether or not the app writes it: a day of a job brought in from
+     * Google Calendar is the organiser's event, and only each person's own copy of it is the app's (ADR 0157).
+     */
+    on?: Set<string>
   }
 ): Promise<Map<string, Wanted>> {
   const { rows: phases } = await q.query<PhaseRow>(
@@ -448,26 +458,28 @@ export async function wantedEvents(
             EXISTS (SELECT 1 FROM kit_lines WHERE project_id = p.id) AS has_kit,
             EXISTS (SELECT 1 FROM movements m WHERE m.project_id = p.id AND m.direction = 'out' AND m.undoes IS NULL
                      AND NOT EXISTS (SELECT 1 FROM movements u WHERE u.undoes = m.id)) AS kit_out,
-            v.name AS venue_name, v.address AS venue_address, v.notes AS venue_notes
+            v.name AS venue_name, v.address AS venue_address, v.notes AS venue_notes, p.source_calendar IS NOT NULL AS brought
        FROM phases ph
        JOIN projects p ON p.id = ph.project_id
        LEFT JOIN clients c ON c.id = p.client_id
        LEFT JOIN venues v ON v.id = coalesce(ph.venue_id, p.venue_id)
-      WHERE p.source_calendar IS NULL AND ph.end_day >= $1::date
+      -- A job brought in from Google Calendar only where each person gets their own copy of a day (ADR 0157).
+      WHERE (p.source_calendar IS NULL OR $3::boolean) AND ph.end_day >= $1::date
         AND (p.status = 'confirmed'
              -- Not yet a yes, but crew are asked for it: on the calendar as HOLD, hold the day (ADR 0008, 1.162.0; ADR 0150).
              OR (p.status IN ('enquiry', 'quoted') AND EXISTS (
                    SELECT 1 FROM crew_calls cc JOIN offers o ON o.call_id = cc.id
                     WHERE cc.project_id = p.id AND cc.status = 'open' AND o.status = ANY($2::text[]))))
       ORDER BY ph.start_day, ph.id`,
-    [today, ASKED_STATUSES]
+    [today, ASKED_STATUSES, personal]
   )
   const projectIds = [...new Set(phases.map((p) => p.project_id))]
   const { rows: calls } = projectIds.length
     ? await q.query<CallRow>(
         `SELECT cc.id, cc.project_id, cc.phase_id, cc.role, cc.call_time, cc.needed, cc.start_day::text, cc.end_day::text, cc.reply_by::text,
                 coalesce(json_agg(json_build_object('id', o.id, 'status', o.status, 'days', o.days, 'asked', o.asked, 'refused', o.status = 'offered' AND o.counter_rate_cents IS NOT NULL, 'personId', pe.id, 'name', pe.name, 'first', pe.first_name,
-                                                    'knownAs', pe.known_as, 'kind', pe.kind, 'email', pe.email, 'token', pe.link_token)
+                                                    'knownAs', pe.known_as, 'kind', pe.kind, 'email', pe.email, 'token', pe.link_token,
+                                                    'own', o.no_own_invite IS NULL)
                                   ORDER BY pe.name, o.id)
                          FILTER (WHERE o.id IS NOT NULL), '[]') AS offers
            FROM crew_calls cc
@@ -551,6 +563,9 @@ export async function wantedEvents(
       const invited = new Map<string, WantedGuest & { rank: number; offer: CallRow['offers'][number]; call: CallRow; status: string }>()
       const noEmail = new Set<string>()
       for (const [c, o] of covering.flatMap((c) => c.offers.map((o) => [c, o] as const))) {
+        // On a job brought in from Google Calendar, an offer that came in with it, from the organiser's own guests, or was made
+        // before such jobs had invites of their own, has none (ADR 0157).
+        if (p.brought && !o.own) continue
         // A day someone who said yes to others hasn't answered is still asked of them (ADR 0152), and its copy asks.
         const asking = o.status === 'accepted' && (o.asked ?? []).includes(day)
         if (!o.days.includes(day) && !asking) continue
@@ -598,18 +613,22 @@ export async function wantedEvents(
         guestsCanInviteOthers: false,
       }
       const key = calendarDayId(p.phase_id, day)
+      on?.add(key)
       const hash = (b: EventBody) => createHash('sha256').update(JSON.stringify(b)).digest('base64url').slice(0, 32)
-      out.set(key, {
-        key,
-        phaseId: p.phase_id,
-        projectId: p.project_id,
-        day,
-        title: titles[i]!,
-        body,
-        hash: hash(body),
-        guests: personal ? [] : guests,
-        noEmail: [...noEmail].sort(),
-      })
+      // A job brought in from Google Calendar has the organiser's event as its day (ADR 0011): only each person's own copy of
+      // it is the app's (ADR 0157).
+      if (!p.brought)
+        out.set(key, {
+          key,
+          phaseId: p.phase_id,
+          projectId: p.project_id,
+          day,
+          title: titles[i]!,
+          body,
+          hash: hash(body),
+          guests: personal ? [] : guests,
+          noEmail: [...noEmail].sort(),
+        })
       if (!personal) return
       // Each person's own copy: their greeting first, by the name they go by, and where they stand; then their page, which has their
       // rate and how to answer; then the day: in short until they've said yes (ADR 0151), then as everyone on the job sees it. All of
