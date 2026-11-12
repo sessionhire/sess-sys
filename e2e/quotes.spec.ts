@@ -213,8 +213,11 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     why: null,
   }
   await office.route('**/api/quotes/*/email', (route) => (route.request().method() === 'GET' ? route.fulfill({ json: prefill }) : route.continue()))
-  await expect(draft).toContainText('it goes by email from the operations mailbox')
-  await draft.getByRole('button', { name: 'Send to the client' }).click()
+  await expect(draft).toContainText('opens the email to the client from the operations mailbox')
+  // This job is past Quoting, so its Next stays the crew's and the quote's Send is the draft's own, plain (ADR 0166). The PDF
+  // to keep is beside it, apart.
+  await expect(draft.getByRole('link', { name: 'Download the PDF' })).toHaveAttribute('href', /\/api\/quotes\/[^/]+\/pdf\?download=1$/)
+  await draft.getByRole('button', { name: 'Send quote' }).click()
   const compose = draft.getByRole('form', { name: 'Send the quote by email' })
   await expect(compose.getByLabel('To')).toHaveValue('ruairi@example.com')
   await expect(compose.getByLabel('Subject')).toHaveValue('Quote 1115 from Session Hire: Liffey Brands Launch')

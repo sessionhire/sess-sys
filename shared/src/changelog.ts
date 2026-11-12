@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.182.0',
+    date: '2026-11-12',
+    title: 'Send the quote from Next',
+    what: "Once a quote has everything on it, the job's Next button says Send quote, so on a phone it's the button over the bar where every other next step is. Pressing it opens the email to the client from the operations mailbox, with the quote attached as a PDF, to read over and send; from another part of the job it opens the quote first. If something on the quote isn't finished, Next says so and takes you to it. A new version made after one has gone is sent from Next too. Download the PDF sits beside it, to keep the PDF or send it yourself. While quotes don't go by email (as now, until it's turned on), Next says Get the PDF to send and does what that did before.",
+    prs: [360],
+    adrs: [166],
+  },
+  {
     version: '1.181.1',
     date: '2026-11-12',
     title: 'Adding crew to a quote lines up, and the bar stays on a phone',

@@ -70,7 +70,9 @@ import { matchKitToQuote } from './Kit.tsx'
 import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
 import { Totals } from './QuoteSheet.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
-import { useQuotesByEmail } from '../MailboxCard.tsx'
+import { setDraftSend, takeAskToSend } from './quoteSend.ts'
+import { serverUrl } from '../server.ts'
+import { useQuotesByEmailKnown } from '../MailboxCard.tsx'
 import { PackageEditor, type PackageStart } from './Packages.tsx'
 import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
 
@@ -169,7 +171,7 @@ const PACKAGE_PICK = 'package:'
 type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
 const TERM_KEYS: readonly TermKey[] = ['agreed', 'km', 'discount', 'validFor', 'deposit']
 
-export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: View; job: JobView; onPrint: () => void; /** The job's Next holds the page's red (ADR 0140, part 4). */ plain?: boolean }) {
+export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job: JobView; onPrint: () => void }) {
   const today = useToday()
   const m = view.money
   const under = useUnderTop<HTMLFormElement>(true)
@@ -203,7 +205,8 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
   // and so is anything else on the list of what to look at before it goes (research/quoting.md, feature 3).
   const [free, setFree] = useState<'mark' | 'email' | 'accept'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
-  const canEmail = useQuotesByEmail(m)
+  const emailKnown = useQuotesByEmailKnown(m)
+  const canEmail = emailKnown ?? false
   const [sending, setSending] = useState<'email' | 'other'>()
   // One row is open to change at a time, a line's or a worked-out one's; the rest read as a list, as they'll print.
   const [open, setOpen] = useState<string>()
@@ -717,8 +720,28 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
       send()
     } else if (sendSaved && (error || problem)) setSendSaved(false)
   }, [sendSaved, saved, error, problem])
-  const sendWord = canEmail ? 'Send to the client' : 'Get the PDF to send'
+  const sendWord = canEmail ? 'Send quote' : 'Get the PDF to send'
   const unfinished = parsed.filter((c) => !c.line).length
+  // The job's Next is this Send (ADR 0166): it says what a press does, or what stops it, and does the same as the strip's button.
+  const pressSend = () => {
+    if (problem) return goToProblem()
+    if (saved) return send()
+    flush()
+    setSendSaved(true)
+  }
+  const sendLabel = problem ? (termKey ? 'Send: a term to put right' : `Send: ${plural(unfinished, 'line')} to finish`) : sendSaved ? 'Saving…' : sendWord
+  const composing = saved && q.lines.length > 0 && sending === 'email'
+  const pressRef = useRef(pressSend)
+  pressRef.current = pressSend
+  useEffect(() => {
+    setDraftSend(job.id, lines.length > 0 ? { label: sendLabel, ready: !problem, composing, press: () => pressRef.current() } : undefined)
+  }, [job.id, lines.length > 0, sendLabel, !problem, composing])
+  useEffect(() => () => setDraftSend(job.id, undefined), [job.id])
+  // Next pressed on another tab opened this one to send: it sends as it opens, as a press here would, once the server has said
+  // whether quotes go by email, so it never marks one sent while the email it was pressed for is still being asked about.
+  useEffect(() => {
+    if (emailKnown !== undefined && takeAskToSend(job.id) && lines.length > 0) pressRef.current()
+  }, [emailKnown !== undefined])
   // One line, shut or open to change. A package's line (ADR 0116) comes to its own price and its kit's, and kit in a package
   // priced as a whole is included in it.
   const row = (l: LineDraft, under: readonly LineDraft[] = []) => {
@@ -829,22 +852,14 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
               )}
             </span>
             {lines.length > 0 &&
+              // Plain: the job's Next is the same press and holds the page's one red (ADR 0166), docked over the bar on a phone.
               (problem ? (
                 <button type="button" className="send-now" onClick={goToProblem}>
-                  {termKey ? 'Send: a term to put right' : `Send: ${plural(unfinished, 'line')} to finish`}
+                  {sendLabel}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className={plain ? 'send-now' : 'primary send-now'}
-                  disabled={sendSaved}
-                  onClick={() => {
-                    if (saved) return send()
-                    flush()
-                    setSendSaved(true)
-                  }}
-                >
-                  {sendSaved ? 'Saving…' : sendWord}
+                <button type="button" className="send-now" disabled={sendSaved} onClick={pressSend}>
+                  {sendLabel}
                 </button>
               ))}
             </span>
@@ -1292,6 +1307,12 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
               <button type="button" onClick={onPrint} disabled={!saved}>
                 Print a draft
               </button>
+              {/* The PDF as it stands, to keep or send yourself, apart from Send (ADR 0166). A draft's says so on it. */}
+              {saved && q.lines.length > 0 && (
+                <a className="button quiet" href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)} download>
+                  Download the PDF
+                </a>
+              )}
               {saved && q.lines.length > 0 && canEmail && sending !== 'other' && (
                 <button type="button" className="link quiet" onClick={() => setSending('other')}>
                   Sent another way? Mark as sent
@@ -1312,8 +1333,8 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
             {saved && q.lines.length > 0 && (
               <p className="hint">
                 {canEmail
-                  ? `Sent to the client, it goes by email from the operations mailbox with the quote as a PDF, becomes quote ${nextNumber}, and stays as it is.`
-                  : `${sendWord}, at the top, marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
+                  ? `Send quote, in Next, opens the email to the client from the operations mailbox with the quote attached as a PDF. Once it goes, it becomes quote ${nextNumber} and stays as it is.`
+                  : `${sendWord}, in Next, marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
               </p>
             )}
           </>
