@@ -1,5 +1,5 @@
 import { calendarDayId, offerOnCalendar, tells, type CalendarDay, type CalendarLink, type OfferOnCalendar } from './calendar.ts'
-import { firstName, LIVE, whatsappWords, type CrewCall, type Offer, type Person } from './crew.ts'
+import { firstName, LIVE, whatsappWords, type CrewCall, type Offer, type Person, type TellContext } from './crew.ts'
 import { daysLabel } from './crew-days.ts'
 import { STOPPED, type Phase, type Project } from './jobs.ts'
 import { whatsappDigits, type WhatsAppMode } from './office.ts'
@@ -65,6 +65,41 @@ const NO_WHATSAPP: Record<NoWhatsApp, string> = {
   'not-tried': 'WhatsApp is only being tried on other numbers',
   'none-went': 'nothing went on WhatsApp',
 }
+
+/**
+ * Whether a person has heard of an offer, as far as WhatsApp goes (ADR 0154): its own WhatsApp went; none was made,
+ * as it was made before WhatsApp reached them and the calendar invite or the office told them; or they've answered it.
+ * Nothing follows an offer whose WhatsApp is still waiting, or didn't go, and that nobody has answered: the news would
+ * be of an offer they never had.
+ */
+export const offerHeard = (offer: Partial<Pick<Offer, 'whatsapp' | 'respondedAt'>>): boolean =>
+  !offer.whatsapp || offer.whatsapp.state === 'sent' || offer.whatsapp.state === 'delivered' || offer.whatsapp.state === 'read' || !!offer.respondedAt
+
+/**
+ * Whether what follows an offer goes to its person on WhatsApp (ADR 0154; audit of 12 November 2026, findings 4, 8 and
+ * 12): that they're booked, that their call time moved, that they're no longer needed, and that the job is going ahead
+ * or is off. To anyone WhatsApp reaches who has heard of the offer, whether or not the offer itself went on WhatsApp
+ * (Colly's answer to question 7). The server queues by this rule, and a device says what went by it.
+ */
+export function whatsappFollows(setting: WhatsAppSetting, person: Pick<Person, 'phone' | 'whatsappOff'> | null | undefined, heard: boolean): boolean {
+  return heard && !!person && whatsappReach(setting, person) !== undefined
+}
+
+/**
+ * What a press sends someone on WhatsApp after their offer (ADR 0154), for the panel that says what went: that they're
+ * booked, their new call time, that they're no longer needed, or that the job is off.
+ */
+export type WhatsAppNews = 'booked' | 'call-time' | 'not-needed' | 'job-off'
+
+const WHATSAPP_NEWS: Record<WhatsAppNews, string> = {
+  booked: "A WhatsApp saying they're booked",
+  'call-time': 'A WhatsApp with the new call time',
+  'not-needed': "A WhatsApp saying they're no longer needed",
+  'job-off': 'A WhatsApp saying the job is off',
+}
+
+/** "A WhatsApp saying they're booked is going to Aoife.", said of everyone it goes to. */
+const whatsappSaid = (news: WhatsAppNews): Said => ({ key: `whatsapp:${news}`, say: (who) => `${WHATSAPP_NEWS[news]} is going to ${who}.` })
 
 // ---- The calendar invite ----
 
@@ -494,37 +529,75 @@ const keptAmong = (ctx: Pick<ReachContext, 'calendar' | 'today'>, offerIds: read
 /**
  * What ending one person's offer does beyond the app, for the question asked first (finding 5): "Google emails them
  * that their 3 days are cancelled, and their link says it's withdrawn at once." `says` is what their link will say. With
- * their invites telling them what happens next, the cancellation says why (ADR 0153).
+ * their invites telling them what happens next, the cancellation says why (ADR 0153). `whatsapp` is that a WhatsApp
+ * tells them they're no longer needed (ADR 0154, whatsappFollows).
  */
-export function endingWords(ctx: ReachContext, offerId: string, says: string, who?: Partial<Pick<Person, 'email'>> | null): string {
+export function endingWords(ctx: ReachContext, offerId: string, says: string, who?: Partial<Pick<Person, 'email'>> | null, whatsapp = false): string {
   const n = daysToCancel(ctx, offerId).length
-  if (n) return `Google emails them that ${n === 1 ? 'the day is' : `their ${n} days are`} cancelled${andWhy(ctx, who)}${onceBack(ctx)}, and their link says ${says} at once.`
+  const andWhatsApp = whatsapp ? ` ${NOT_NEEDED_ASKED}.` : ''
+  if (n) return `Google emails them that ${n === 1 ? 'the day is' : `their ${n} days are`} cancelled${andWhy(ctx, who)}${onceBack(ctx)}, and their link says ${says} at once.${andWhatsApp}`
   const kept = invitesHeld(ctx, offerId).length
-  if (kept) return `Their link says ${says} at once. ${KEPT}: the ${kept === 1 ? 'day stays' : `${kept} days stay`} in their calendar.`
+  if (kept) return `Their link says ${says} at once. ${KEPT}: the ${kept === 1 ? 'day stays' : `${kept} days stay`} in their calendar.${andWhatsApp}`
+  if (whatsapp) return `Their link says ${says} at once, and a WhatsApp tells them they're no longer needed.`
   return `Their link says ${says} at once.${ctx.messages ? '' : ' Nothing is sent to them.'}`
 }
+
+/** Before a press that ends someone's offer: the WhatsApp that follows it (ADR 0154). */
+const NOT_NEEDED_ASKED = "A WhatsApp tells them they're no longer needed"
 
 /** The server takes nothing off a calendar it can't write to, so the cancellation waits for that. */
 const onceBack = (ctx: Pick<ReachContext, 'calendar'>) => (ctx.calendar.link?.problem ? ' once the calendar is working again' : '')
 
+/** An offer on a call, with what the rules read of its person: their address for invites, and their mobile for WhatsApp. */
+export type EndingOffer = Pick<Offer, 'id' | 'status'> & Partial<Pick<Offer, 'whatsapp' | 'respondedAt'>> & { person?: Partial<Pick<Person, 'email' | 'phone' | 'whatsappOff'>> | null }
+
+/**
+ * Whether what follows an offer goes to its person on WhatsApp, as a device asks it before or after a press (ADR 0154,
+ * whatsappFollows): nothing does about a call whose days are all past, which is a record by then.
+ */
+export function whatsappFollowsOffer(
+  ctx: Pick<ReachContext, 'whatsapp' | 'today'>,
+  call: Pick<CrewCall, 'end'>,
+  offer: Partial<Pick<Offer, 'whatsapp' | 'respondedAt'>>,
+  person: Partial<Pick<Person, 'phone' | 'whatsappOff'>> | null | undefined
+): boolean {
+  return call.end >= ctx.today && !!person && whatsappFollows(ctx.whatsapp, { phone: person.phone ?? null, whatsappOff: person.whatsappOff ?? false }, offerHeard(offer))
+}
+
+/** The same for someone told of a press, from what was known of their offer when it was pressed (TellContext.heard). */
+export function whatsappFollowsTell(
+  ctx: Pick<ReachContext, 'whatsapp' | 'today'>,
+  t: { person: Pick<Person, 'phone' | 'whatsappOff'>; context: Pick<TellContext, 'call' | 'offerId' | 'heard'> }
+): boolean {
+  return t.context.offerId !== undefined && t.context.call.end >= ctx.today && whatsappFollows(ctx.whatsapp, t.person, t.context.heard !== false)
+}
+
+/** "A WhatsApp tells them", "each of them", or "2 of them", that they're no longer needed, or that the job is off. */
+const whatsappTells = (told: number, everyone: number, news: string) =>
+  told ? ` A WhatsApp tells ${told < everyone ? `${told} of them` : everyone === 1 ? 'them' : 'each of them'} ${news}.` : ''
+
 /**
  * The same for a whole call being cancelled: how many of the people on it Google emails, and that their links say so;
- * and that the cancellations say why, when every one of them goes to someone told what happens next (ADR 0153).
+ * and that the cancellations say why, when every one of them goes to someone told what happens next (ADR 0153). And how
+ * many of them a WhatsApp tells they're no longer needed (ADR 0154).
  */
-export function callEndingWords(ctx: ReachContext, offers: readonly (Pick<Offer, 'id' | 'status'> & { person?: Partial<Pick<Person, 'email'>> | null })[]): string {
-  const on = offers.filter((o) => LIVE.includes(o.status))
+export function callEndingWords(ctx: ReachContext, call: Pick<CrewCall, 'end'> & { offers: readonly EndingOffer[] }): string {
+  const on = call.offers.filter((o) => LIVE.includes(o.status))
   const k = on.length
   if (!k) return 'Nobody is offered or booked on it.'
   const held = on.map((o) => daysToCancel(ctx, o.id).length)
   const emailed = held.filter((n) => n > 0).length
+  const onWhatsApp = on.filter((o) => whatsappFollowsOffer(ctx, call, o, o.person)).length
+  const andWhatsApp = whatsappTells(onWhatsApp, k, "they're no longer needed")
   const people = k === 1 ? 'the person' : `the ${k} people`
   const links = k === 1 ? 'their link says' : 'their links say'
   const days = cancelledDays(held)
   const why = on.every((o, i) => !held[i] || toldNext(ctx, o.person)) ? ' and why' : ''
-  if (emailed === k) return `Google emails ${people} on it that ${days} cancelled${why}${onceBack(ctx)}, and ${links} it's withdrawn at once.`
-  if (emailed > 0) return `Google emails ${emailed} of ${people} on it that ${days} cancelled${why}${onceBack(ctx)}. Everyone's link says it's withdrawn at once${ctx.messages ? '' : ', and nothing else is sent'}.`
+  if (emailed === k) return `Google emails ${people} on it that ${days} cancelled${why}${onceBack(ctx)}, and ${links} it's withdrawn at once.${andWhatsApp}`
+  if (emailed > 0)
+    return `Google emails ${emailed} of ${people} on it that ${days} cancelled${why}${onceBack(ctx)}. Everyone's link says it's withdrawn at once${ctx.messages || onWhatsApp ? '' : ', and nothing else is sent'}.${andWhatsApp}`
   const kept = keptAmong(ctx, on.map((o) => o.id))
-  return (ctx.messages ? `${capital(links)} it's withdrawn at once.` : `Nothing is sent to ${people} on it: ${links} it's withdrawn at once.`) + kept
+  return (ctx.messages || onWhatsApp ? `${capital(links)} it's withdrawn at once.` : `Nothing is sent to ${people} on it: ${links} it's withdrawn at once.`) + andWhatsApp + kept
 }
 
 /** "the day is" when nobody holds an invite for more than one, "their days are" otherwise. */
@@ -536,18 +609,20 @@ const cancelledDays = (held: readonly number[]) => (Math.max(0, ...held) > 1 ? '
  */
 export function jobEndingWords(
   ctx: Pick<ReachContext, 'calendar' | 'today'>,
-  on: readonly { personId: string; offerId?: string | undefined; email?: string | null | undefined }[]
+  on: readonly { personId: string; offerId?: string | undefined; email?: string | null | undefined; whatsapp?: boolean }[]
 ): string {
   const everyone = new Set(on.map((o) => o.personId)).size
+  // One WhatsApp to each person it reaches, however many of the job's calls they're on (ADR 0154, whatsappFollows).
+  const andWhatsApp = whatsappTells(new Set(on.filter((o) => o.whatsapp).map((o) => o.personId)).size, everyone, "it's off")
   // Their days across the job's calls: someone on two of them is one person, emailed for the days of both.
   const held = new Map<string, Set<string>>()
   for (const o of on) for (const d of o.offerId ? daysToCancel(ctx, o.offerId) : []) held.set(o.personId, (held.get(o.personId) ?? new Set<string>()).add(d))
   const emailed = held.size
-  if (!emailed) return keptAmong(ctx, on.map((o) => o.offerId))
+  if (!emailed) return keptAmong(ctx, on.map((o) => o.offerId)) + andWhatsApp
   const who = emailed < everyone ? `${emailed} of them` : everyone === 1 ? 'them' : 'each of them'
   // Each cancellation says why, the job's being cancelled or not going ahead, where their invites tell them what happens next (ADR 0153).
   const why = on.every((o) => !held.has(o.personId) || toldNext(ctx, o)) ? ' and why' : ''
-  return ` Google emails ${who} that ${cancelledDays([...held.values()].map((d) => d.size))} cancelled${why}${onceBack(ctx)}.`
+  return ` Google emails ${who} that ${cancelledDays([...held.values()].map((d) => d.size))} cancelled${why}${onceBack(ctx)}.${andWhatsApp}`
 }
 
 // ---- After a press: what was sent ----
@@ -634,19 +709,30 @@ export interface ToldBefore {
   left: number
   /** They hold an invite for the offer and crew invites are on, so the server keeps it in step with the offer. */
   invited: boolean
-  /** A word on WhatsApp follows, as when a job they were asked for there is stopped. */
-  whatsapp?: boolean
+  /** What a WhatsApp tells them after the press (ADR 0154, whatsappFollows), when one goes. */
+  whatsapp?: WhatsAppNews | undefined
   /** Days they hold an invite for that stay in their calendar, invites having been switched off since. */
   kept?: number
 }
 
-/** After Withdraw, Release, a cancelled call or a stopped job: whether Google told them, from the invites they held. */
+/**
+ * After Withdraw, Release, a cancelled call or a stopped job: whether Google told them, from the invites they held, and
+ * the WhatsApp that tells them they're no longer needed, or that the job is off (ADR 0154).
+ */
 export function toldOfEnding(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: ToldBefore): ToldPerson {
   const said: Said[] = []
   const one = b.cancel === 1
   const days = one ? 'the day is' : 'their days are'
-  if (!b.cancel && b.kept) said.push({ key: `kept:${b.kept === 1}`, say: (who) => `Nothing was sent to ${who}, and the ${b.kept === 1 ? 'day stays' : 'days stay'} in their calendar: crew invites are off, so Google sends no cancellation.` })
-  else if (!b.cancel) said.push({ key: 'nothing', say: (who) => `Nothing was sent to ${who}.` })
+  if (!b.cancel && b.kept)
+    said.push(
+      b.whatsapp
+        ? { key: `kept-whatsapp:${b.kept === 1}`, say: (who) => `Google sends ${who} no cancellation, as crew invites are off: the ${b.kept === 1 ? 'day stays' : 'days stay'} in their calendar.` }
+        : { key: `kept:${b.kept === 1}`, say: (who) => `Nothing was sent to ${who}, and the ${b.kept === 1 ? 'day stays' : 'days stay'} in their calendar: crew invites are off, so Google sends no cancellation.` }
+    )
+  // Nothing from Google: a WhatsApp going is said on its own, below, and otherwise nothing was sent.
+  else if (!b.cancel) {
+    if (!b.whatsapp) said.push({ key: 'nothing', say: (who) => `Nothing was sent to ${who}.` })
+  }
   // With their invites telling them what happens next, the cancellation says why (ADR 0153).
   else if (b.left === 0) {
     const why = andWhy(ctx, who)
@@ -657,7 +743,7 @@ export function toldOfEnding(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, 
     const why = andWhy(ctx, who)
     said.push({ key: `cancelling:${one}${why}`, say: (who) => `Google is emailing ${who} that ${days} cancelled${why}.` })
   }
-  if (b.whatsapp) said.push({ key: 'whatsapp-off', say: (who) => `A WhatsApp saying the job is off is going to ${who}.` })
+  if (b.whatsapp) said.push(whatsappSaid(b.whatsapp))
   return { who, said, reached: b.cancel > 0 || !!b.whatsapp }
 }
 
@@ -676,12 +762,14 @@ const STALE = "Crew invites are off, so what's in their calendar stays as it was
 export function toldOfBooking(
   ctx: Pick<ReachContext, 'calendar'>,
   who: ToldWho,
-  b: Pick<ToldBefore, 'invited' | 'kept'>,
+  b: Pick<ToldBefore, 'invited' | 'kept' | 'whatsapp'>,
   hold = false,
   ending?: { gone: readonly string[]; left: number }
 ): ToldPerson {
   const what = hold ? "to hold the day, as the client hasn't said yes yet" : "they're booked"
   const gone = ending?.gone ?? []
+  // A WhatsApp tells them they're booked (ADR 0154): never while they only hold the day, as the client's yes tells them then.
+  const whatsapp = !hold && b.whatsapp === 'booked'
   const key = (k: string) => `${k}${hold ? ':hold' : ''}${gone.length ? ':else' : ''}`
   const links = (many: boolean) => `their ${many ? 'links say' : 'link says'} ${what}`
   const nothing = (who: string) => (gone.length ? `Nothing else went to ${who}` : `Nothing was sent to ${who}`)
@@ -694,25 +782,38 @@ export function toldOfBooking(
         ? [{ key: `asked-held:${cancelled}`, say: (who) => `${who} still ${gone.length === 1 ? 'has that day' : 'has those days'} in their calendar: the calendar has a problem, so Google hasn't told them. See Admin › Connections.` }]
         : [{ key: `asked-cancelling:${cancelled}`, say: (who) => `Google is emailing ${who} that ${cancelled}.` }]
   const telling = b.invited && !ctx.calendar.link?.problem && toldNext(ctx, who)
+  const invitedQuietly = b.invited && !ctx.calendar.link?.problem
   const said: Said = telling
     ? {
         key: key('booked-told'),
         say: (who, many) => `Google is emailing ${who} ${hold ? "to hold the day, as the client hasn't said yes yet" : "that they're booked"}, and their ${many ? 'links say' : 'link says'} so.`,
       }
-    : b.invited && !ctx.calendar.link?.problem
-      ? { key: key('booked-invited'), say: (who, many) => `${nothing(who)}: their ${many ? 'links and calendar invites' : 'link and their calendar invite'} say ${what}, and no email goes with that.` }
-      : b.kept
-        ? { key: key('booked-kept'), say: (who, many) => `${nothing(who)}: ${links(many)}. ${STALE}` }
-        : { key: key('booked'), say: (who, many) => `${nothing(who)}: ${links(many)}.` }
-  return { who, said: [...ended, said], reached: telling }
+    : whatsapp
+      ? invitedQuietly
+        ? {
+            key: key('booked-invited:whatsapp'),
+            say: (who, many) => `${WHATSAPP_NEWS.booked} is going to ${who}. Their ${many ? 'links and calendar invites say' : 'link and calendar invite say'} so too, with no email from Google.`,
+          }
+        : { key: key(`booked${b.kept ? '-kept' : ''}:whatsapp`), say: (who, many) => `${WHATSAPP_NEWS.booked} is going to ${who}, and their ${many ? 'links say' : 'link says'} so.${b.kept ? ` ${STALE}` : ''}` }
+      : invitedQuietly
+        ? { key: key('booked-invited'), say: (who, many) => `${nothing(who)}: their ${many ? 'links and calendar invites' : 'link and their calendar invite'} say ${what}, and no email goes with that.` }
+        : b.kept
+          ? { key: key('booked-kept'), say: (who, many) => `${nothing(who)}: ${links(many)}. ${STALE}` }
+          : { key: key('booked'), say: (who, many) => `${nothing(who)}: ${links(many)}.` }
+  return { who, said: [...ended, said, ...(telling && whatsapp ? [whatsappSaid('booked')] : [])], reached: telling || whatsapp }
 }
 
 /**
  * Before Confirm (ADR 0153): that Google emails them they're booked, or to hold the day, where their invites tell them
- * what happens next. Nothing otherwise, as nothing is sent.
+ * what happens next; and that a WhatsApp tells them they're booked (`whatsapp`, ADR 0154), never while they only hold the
+ * day. Nothing otherwise, as nothing is sent.
  */
-export function bookingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, offerId: string, who: Partial<Pick<Person, 'email'>> | null | undefined, hold = false): string {
-  if (!daysToCancel(ctx, offerId).length || !toldNext(ctx, who)) return ''
+export function bookingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, offerId: string, who: Partial<Pick<Person, 'email'>> | null | undefined, hold = false, whatsapp = false): string {
+  const google = daysToCancel(ctx, offerId).length > 0 && toldNext(ctx, who)
+  const onWhatsApp = whatsapp && !hold
+  if (google && onWhatsApp) return `Google emails them that they're booked${onceBack(ctx)}, and a WhatsApp tells them too.`
+  if (onWhatsApp) return "A WhatsApp tells them they're booked."
+  if (!google) return ''
   return `Google emails them ${hold ? 'to hold the day' : "that they're booked"}${onceBack(ctx)}.`
 }
 
@@ -741,17 +842,29 @@ export function askEndingWords(ctx: Pick<ReachContext, 'calendar' | 'today'>, of
 
 /**
  * After a call changed or a phase moved: Google emails only when the days themselves move, or, where their invites tell
- * them what happens next (ADR 0153), when their call time moves (`timeMoved`).
+ * them what happens next (ADR 0153), when their call time moves (`timeMoved`). A WhatsApp with the new call time goes
+ * to whoever it reaches (`b.whatsapp`, ADR 0154).
  */
-export function toldOfChange(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: Pick<ToldBefore, 'invited' | 'kept'>, moved: boolean, timeMoved = false): ToldPerson {
+export function toldOfChange(ctx: Pick<ReachContext, 'calendar'>, who: ToldWho, b: Pick<ToldBefore, 'invited' | 'kept' | 'whatsapp'>, moved: boolean, timeMoved = false): ToldPerson {
+  const whatsapp = timeMoved && b.whatsapp === 'call-time'
+  const told = (t: ToldPerson): ToldPerson => (whatsapp ? { who, said: [...t.said, whatsappSaid('call-time')], reached: true } : t)
   if (b.invited && moved)
-    return ctx.calendar.link?.problem
-      ? { who, said: [{ key: 'moved-held', say: (names) => `Google emails ${names} about the days that changed once the calendar is working again.` }], reached: false }
-      : { who, said: [{ key: 'moved', say: (names) => `Google is emailing ${names} about the days that changed.` }], reached: true }
+    return told(
+      ctx.calendar.link?.problem
+        ? { who, said: [{ key: 'moved-held', say: (names) => `Google emails ${names} about the days that changed once the calendar is working again.` }], reached: false }
+        : { who, said: [{ key: 'moved', say: (names) => `Google is emailing ${names} about the days that changed.` }], reached: true }
+    )
   if (b.invited && timeMoved && toldNext(ctx, who))
-    return ctx.calendar.link?.problem
-      ? { who, said: [{ key: 'time-held', say: (names) => `Google emails ${names} the new call time once the calendar is working again.` }], reached: false }
-      : { who, said: [{ key: 'time', say: (names) => `Google is emailing ${names} the new call time.` }], reached: true }
+    return told(
+      ctx.calendar.link?.problem
+        ? { who, said: [{ key: 'time-held', say: (names) => `Google emails ${names} the new call time once the calendar is working again.` }], reached: false }
+        : { who, said: [{ key: 'time', say: (names) => `Google is emailing ${names} the new call time.` }], reached: true }
+    )
+  // With a WhatsApp going, it's said first, and the rest is what their link and calendar do.
+  if (whatsapp) {
+    const rest = b.invited ? ' Google emails nothing for it, as the days stay the same.' : b.kept ? ` ${STALE}` : ''
+    return { who, said: [{ key: `changed:whatsapp${b.invited ? ':invited' : b.kept ? ':kept' : ''}`, say: (who) => `${WHATSAPP_NEWS['call-time']} is going to ${who}, and the change is on their link.${rest}` }], reached: true }
+  }
   const said: Said = b.invited
     ? toldNext(ctx, who)
       ? { key: 'changed-told', say: (who) => `Nothing was sent to ${who}: the change is on their link, and Google emails nothing unless the days or the call time move.` }

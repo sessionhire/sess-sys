@@ -12,6 +12,7 @@ import {
   jobEndingWords,
   nothingSentLine,
   noWhatsApp,
+  offerHeard,
   offerPromise,
   offerReach,
   reachOnRow,
@@ -22,6 +23,9 @@ import {
   toldOfRefusal,
   toldNext,
   toldSentences,
+  whatsappFollows,
+  whatsappFollowsOffer,
+  whatsappFollowsTell,
   whatsappReach,
   type ReachContext,
   type ReachJob,
@@ -455,7 +459,7 @@ describe('the question before an offer is ended', () => {
     expect(daysToCancel(offSince, 'o1')).toEqual([])
     expect(invitesHeld(offSince, 'o1')).toEqual([D1, D2])
     expect(endingWords(offSince, 'o1', "it's withdrawn")).toBe("Their link says it's withdrawn at once. Crew invites are off, so Google sends no cancellation: the 2 days stay in their calendar.")
-    expect(callEndingWords(offSince, [offer('o1', 'aoife'), offer('o2', 'sean')])).toBe(
+    expect(callEndingWords(offSince, { end: D2, offers: [offer('o1', 'aoife'), offer('o2', 'sean')] })).toBe(
       "Nothing is sent to the 2 people on it: their links say it's withdrawn at once. Crew invites are off, so Google sends no cancellation: the days stay in the calendars of those invited."
     )
     expect(jobEndingWords(offSince, [{ personId: 'aoife', offerId: 'o1' }])).toBe(' Crew invites are off, so Google sends no cancellation: the days stay in the calendars of those invited.')
@@ -472,7 +476,7 @@ describe('the question before an offer is ended', () => {
     // A calendar the server can't write to takes nothing off until it can.
     const stuck = ctx({ days: invitedBoth, link: link({ problem: 'Google Calendar isn’t answering.' }) })
     expect(endingWords(stuck, 'o1', 'so')).toBe('Google emails them that their 2 days are cancelled once the calendar is working again, and their link says so at once.')
-    expect(callEndingWords(stuck, [offer('o1', 'aoife')])).toBe("Google emails the person on it that their days are cancelled once the calendar is working again, and their link says it's withdrawn at once.")
+    expect(callEndingWords(stuck, { end: D2, offers: [offer('o1', 'aoife')] })).toBe("Google emails the person on it that their days are cancelled once the calendar is working again, and their link says it's withdrawn at once.")
     expect(jobEndingWords(stuck, [{ personId: 'aoife', offerId: 'o1' }])).toBe(' Google emails them that their days are cancelled once the calendar is working again.')
   })
 
@@ -490,13 +494,13 @@ describe('the question before an offer is ended', () => {
   it('says how many of the people on a call Google emails when the call is cancelled (finding 20)', () => {
     const both = days(row(D1, 'aoife', { offerId: 'o1' }), row(D1, 'tommo', { offerId: 'o2' }))
     const offers = [offer('o1', 'aoife'), offer('o2', 'tommo', 'confirmed'), offer('o3', 'sean', 'declined')]
-    expect(callEndingWords(ctx({ days: both }), offers)).toBe("Google emails the 2 people on it that the day is cancelled, and their links say it's withdrawn at once.")
-    expect(callEndingWords(ctx({ days: invitedBoth }), offers)).toBe("Google emails 1 of the 2 people on it that their days are cancelled. Everyone's link says it's withdrawn at once, and nothing else is sent.")
-    expect(callEndingWords(ctx(), offers)).toBe("Nothing is sent to the 2 people on it: their links say it's withdrawn at once.")
-    expect(callEndingWords(ctx(), [offers[0]!])).toBe("Nothing is sent to the person on it: their link says it's withdrawn at once.")
-    expect(callEndingWords(ctx({ messages: true }), [offers[0]!])).toBe("Their link says it's withdrawn at once.")
-    expect(callEndingWords(ctx({ days: invitedBoth }), [offers[0]!])).toBe("Google emails the person on it that their days are cancelled, and their link says it's withdrawn at once.")
-    expect(callEndingWords(ctx(), [offers[2]!])).toBe('Nobody is offered or booked on it.')
+    expect(callEndingWords(ctx({ days: both }), { end: D2, offers })).toBe("Google emails the 2 people on it that the day is cancelled, and their links say it's withdrawn at once.")
+    expect(callEndingWords(ctx({ days: invitedBoth }), { end: D2, offers })).toBe("Google emails 1 of the 2 people on it that their days are cancelled. Everyone's link says it's withdrawn at once, and nothing else is sent.")
+    expect(callEndingWords(ctx(), { end: D2, offers })).toBe("Nothing is sent to the 2 people on it: their links say it's withdrawn at once.")
+    expect(callEndingWords(ctx(), { end: D2, offers: [offers[0]!] })).toBe("Nothing is sent to the person on it: their link says it's withdrawn at once.")
+    expect(callEndingWords(ctx({ messages: true }), { end: D2, offers: [offers[0]!] })).toBe("Their link says it's withdrawn at once.")
+    expect(callEndingWords(ctx({ days: invitedBoth }), { end: D2, offers: [offers[0]!] })).toBe("Google emails the person on it that their days are cancelled, and their link says it's withdrawn at once.")
+    expect(callEndingWords(ctx(), { end: D2, offers: [offers[2]!] })).toBe('Nobody is offered or booked on it.')
   })
 
   it('adds how many of a stopped job’s people Google emails, and nothing when it emails nobody', () => {
@@ -546,10 +550,10 @@ describe('telling crew what happens next (ADR 0153)', () => {
     // A call or a job: only when every cancellation says why.
     const both = days(row(D1, 'aoife', { offerId: 'o1' }), row(D1, 'tommo', { offerId: 'o2' }))
     const offers = [{ ...offer('o1', 'aoife'), person: aoife }, { ...offer('o2', 'tommo', 'confirmed'), person: tommo }]
-    expect(callEndingWords(ctx({ days: both, link: link({ tell: 'on' }) }), offers)).toBe(
+    expect(callEndingWords(ctx({ days: both, link: link({ tell: 'on' }) }), { end: D2, offers })).toBe(
       "Google emails the 2 people on it that the day is cancelled and why, and their links say it's withdrawn at once."
     )
-    expect(callEndingWords(ctx({ days: both, link: link({ tell: 'test', tellTo: ['aoife@example.com'] }) }), offers)).toBe(
+    expect(callEndingWords(ctx({ days: both, link: link({ tell: 'test', tellTo: ['aoife@example.com'] }) }), { end: D2, offers })).toBe(
       "Google emails the 2 people on it that the day is cancelled, and their links say it's withdrawn at once."
     )
     const c = ctx({ days: both, link: link({ tell: 'on' }) })
@@ -652,7 +656,8 @@ describe('the panel after a press', () => {
     expect(toldSentences([toldOfEnding(stuck, dara, { cancel: 2, left: 2, invited: true })])).toEqual([
       "Dara still has the days in their calendar: the calendar has a problem, so Google hasn't told them. See Admin › Connections.",
     ])
-    expect(toldSentences([toldOfEnding(c, dara, { cancel: 0, left: 0, invited: false, whatsapp: true })])).toEqual(['Nothing was sent to Dara.', 'A WhatsApp saying the job is off is going to Dara.'])
+    // A WhatsApp going is what was sent, so "Nothing was sent" isn't said beside it (ADR 0154).
+    expect(toldSentences([toldOfEnding(c, dara, { cancel: 0, left: 0, invited: false, whatsapp: 'job-off' })])).toEqual(['A WhatsApp saying the job is off is going to Dara.'])
   })
 
   it('says nobody is told they are booked, and that a change emails nobody unless the days move', () => {
@@ -746,5 +751,128 @@ describe('the panel after a press', () => {
       'Google is emailing Dara Kelly and Dara Quinn that their days are cancelled.',
       'Nothing was sent to Seán.',
     ])
+  })
+})
+
+describe('what follows an offer on WhatsApp (ADR 0154)', () => {
+  const on = { mode: 'on' as const, testTo: [] }
+  const wa = (over: Partial<Omit<ReachContext, 'job' | 'calendar'>> & { link?: CalendarLink | null; days?: Record<string, CalendarDay> } = {}) => ctx({ whatsapp: on, ...over })
+  const at = '2026-11-12T10:00:00.000Z'
+  const message = (state: NonNullable<Offer['whatsapp']>['state']) => ({ whatsapp: { state, at, problem: null } })
+  const dara = person('dara', 'Dara Kelly')
+  const tommo = person('tommo', 'Tomás Reilly', { knownAs: 'Tommo' })
+
+  it('goes to someone who heard of the offer: its WhatsApp went, none was made, or they answered', () => {
+    expect(offerHeard({})).toBe(true)
+    expect(offerHeard(message('sent'))).toBe(true)
+    expect(offerHeard(message('read'))).toBe(true)
+    expect(offerHeard(message('queued'))).toBe(false)
+    expect(offerHeard(message('failed'))).toBe(false)
+    expect(offerHeard({ ...message('failed'), respondedAt: at })).toBe(true)
+  })
+
+  it('goes by WhatsApp’s switch, their own and their number, whether or not the offer itself went there (question 7)', () => {
+    expect(whatsappFollows(on, aoife, true)).toBe(true)
+    expect(whatsappFollows(on, aoife, false)).toBe(false)
+    expect(whatsappFollows({ mode: 'off', testTo: [] }, aoife, true)).toBe(false)
+    expect(whatsappFollows({ mode: 'test', testTo: ['087 123 4567'] }, aoife, true)).toBe(true)
+    expect(whatsappFollows(on, { ...aoife, whatsappOff: true }, true)).toBe(false)
+    expect(whatsappFollows(on, { ...aoife, phone: null }, true)).toBe(false)
+    expect(whatsappFollows(on, undefined, true)).toBe(false)
+  })
+
+  it('says nothing about a call whose days are all past, nor about someone who never heard of the offer', () => {
+    expect(whatsappFollowsOffer(wa(), call(), {}, aoife)).toBe(true)
+    expect(whatsappFollowsOffer(wa(), call({ start: '2026-11-01', end: today }), {}, aoife)).toBe(true)
+    expect(whatsappFollowsOffer(wa(), call({ start: '2026-11-01', end: '2026-11-11' }), {}, aoife)).toBe(false)
+    expect(whatsappFollowsOffer(wa(), call(), message('failed'), aoife)).toBe(false)
+    expect(whatsappFollowsOffer(wa(), call(), {}, null)).toBe(false)
+    const told = { person: aoife, context: { call: call(), offerId: 'o1', heard: true } }
+    expect(whatsappFollowsTell(wa(), told)).toBe(true)
+    expect(whatsappFollowsTell(wa(), { ...told, context: { ...told.context, heard: false } })).toBe(false)
+    expect(whatsappFollowsTell(wa(), { ...told, context: { ...told.context, offerId: undefined } })).toBe(false)
+    expect(whatsappFollowsTell(wa(), { ...told, context: { ...told.context, call: call({ start: '2026-11-01', end: '2026-11-02' }) } })).toBe(false)
+  })
+
+  it('says before Confirm that a WhatsApp tells them they are booked, never while they only hold the day', () => {
+    expect(bookingWords(wa(), 'o1', aoife, false, true)).toBe("A WhatsApp tells them they're booked.")
+    expect(bookingWords(wa(), 'o1', aoife, true, true)).toBe('')
+    const telling = wa({ days: invitedBoth, link: link({ tell: 'on' }) })
+    expect(bookingWords(telling, 'o1', aoife, false, true)).toBe("Google emails them that they're booked, and a WhatsApp tells them too.")
+    expect(bookingWords(telling, 'o1', aoife, true, true)).toBe('Google emails them to hold the day.')
+  })
+
+  it('says before an offer is ended that a WhatsApp tells them they are no longer needed', () => {
+    expect(endingWords(wa(), 'o1', "it's withdrawn", aoife, true)).toBe("Their link says it's withdrawn at once, and a WhatsApp tells them they're no longer needed.")
+    expect(endingWords(wa({ days: invitedBoth }), 'o1', 'so', aoife, true)).toBe(
+      "Google emails them that their 2 days are cancelled, and their link says so at once. A WhatsApp tells them they're no longer needed."
+    )
+    expect(endingWords(wa({ days: invitedBoth, link: link({ invites: false }) }), 'o1', "it's withdrawn", aoife, true)).toBe(
+      "Their link says it's withdrawn at once. Crew invites are off, so Google sends no cancellation: the 2 days stay in their calendar. A WhatsApp tells them they're no longer needed."
+    )
+  })
+
+  it('says how many of the people on a cancelled call a WhatsApp tells, and nothing about one that is over', () => {
+    const offers = [
+      { ...offer('o1', 'aoife'), person: aoife },
+      { ...offer('o2', 'tommo', 'confirmed'), person: tommo },
+    ]
+    expect(callEndingWords(wa(), { end: D2, offers })).toBe("Their links say it's withdrawn at once. A WhatsApp tells each of them they're no longer needed.")
+    expect(callEndingWords(wa(), { end: D2, offers: [offers[0]!, { ...offers[1]!, person: { ...tommo, phone: null } }] })).toBe(
+      "Their links say it's withdrawn at once. A WhatsApp tells 1 of them they're no longer needed."
+    )
+    expect(callEndingWords(wa(), { end: D2, offers: [offers[0]!] })).toBe("Their link says it's withdrawn at once. A WhatsApp tells them they're no longer needed.")
+    expect(callEndingWords(wa({ days: invitedBoth }), { end: D2, offers })).toBe(
+      "Google emails 1 of the 2 people on it that their days are cancelled. Everyone's link says it's withdrawn at once. A WhatsApp tells each of them they're no longer needed."
+    )
+    expect(callEndingWords(wa(), { end: '2026-11-11', offers })).toBe("Nothing is sent to the 2 people on it: their links say it's withdrawn at once.")
+  })
+
+  it('says how many of a stopped job’s people a WhatsApp tells it’s off, each once', () => {
+    expect(jobEndingWords(wa(), [{ personId: 'aoife', offerId: 'o1', whatsapp: true }, { personId: 'aoife', offerId: 'o2', whatsapp: true }, { personId: 'dara', offerId: 'o3', whatsapp: true }])).toBe(
+      " A WhatsApp tells each of them it's off."
+    )
+    expect(jobEndingWords(wa({ days: invitedBoth }), [{ personId: 'aoife', offerId: 'o1', whatsapp: false }, { personId: 'dara', offerId: 'o3', whatsapp: true }])).toBe(
+      " Google emails 1 of them that their days are cancelled. A WhatsApp tells 1 of them it's off."
+    )
+    expect(jobEndingWords(wa(), [{ personId: 'aoife', offerId: 'o1', whatsapp: true }])).toBe(" A WhatsApp tells them it's off.")
+    expect(jobEndingWords(wa(), [{ personId: 'aoife', offerId: 'o1' }])).toBe('')
+  })
+
+  it('says after a press what went on WhatsApp, beside what Google emailed', () => {
+    const c = wa()
+    // Booked: with no invite, with an invite that changes quietly, and with Google emailing it too.
+    expect(toldSentences([toldOfBooking(c, sean, { invited: false, whatsapp: 'booked' })])).toEqual(["A WhatsApp saying they're booked is going to Seán, and their link says so."])
+    expect(toldSentences([toldOfBooking(c, aoife, { invited: true, whatsapp: 'booked' })])).toEqual([
+      "A WhatsApp saying they're booked is going to Aoife. Their link and calendar invite say so too, with no email from Google.",
+    ])
+    expect(toldSentences([toldOfBooking(wa({ days: invitedBoth, link: link({ tell: 'on' }) }), aoife, { invited: true, whatsapp: 'booked' })])).toEqual([
+      "Google is emailing Aoife that they're booked, and their link says so.",
+      "A WhatsApp saying they're booked is going to Aoife.",
+    ])
+    expect(toldOfBooking(c, sean, { invited: false, whatsapp: 'booked' }).reached).toBe(true)
+    // Picked to hold the day: no WhatsApp yet, so nobody is told otherwise.
+    const held = toldOfBooking(c, sean, { invited: false, whatsapp: 'booked' }, true)
+    expect(toldSentences([held])).toEqual(["Nothing was sent to Seán: their link says to hold the day, as the client hasn't said yes yet."])
+    expect(held.reached).toBe(false)
+    // Ended: the WhatsApp beside Google's cancellation, or alone.
+    expect(toldSentences([toldOfEnding(c, aoife, { cancel: 2, left: 2, invited: true, whatsapp: 'not-needed' }), toldOfEnding(c, dara, { cancel: 0, left: 0, invited: false, whatsapp: 'not-needed' })])).toEqual([
+      'Google is emailing Aoife that their days are cancelled.',
+      "A WhatsApp saying they're no longer needed is going to Aoife and Dara.",
+    ])
+    expect(toldSentences([toldOfEnding(ctx({ link: link({ invites: false }), whatsapp: on }), aoife, { cancel: 0, left: 0, invited: false, kept: 2, whatsapp: 'not-needed' })])).toEqual([
+      'Google sends Aoife no cancellation, as crew invites are off: the days stay in their calendar.',
+      "A WhatsApp saying they're no longer needed is going to Aoife.",
+    ])
+    // A new call time: the WhatsApp, and what their invite does.
+    expect(toldSentences([toldOfChange(c, aoife, { invited: true, whatsapp: 'call-time' }, false, true)])).toEqual([
+      'A WhatsApp with the new call time is going to Aoife, and the change is on their link. Google emails nothing for it, as the days stay the same.',
+    ])
+    expect(toldSentences([toldOfChange(wa({ days: invitedBoth, link: link({ tell: 'on' }) }), aoife, { invited: true, whatsapp: 'call-time' }, false, true)])).toEqual([
+      'Google is emailing Aoife the new call time.',
+      'A WhatsApp with the new call time is going to Aoife.',
+    ])
+    // Another change, with the call time as it was: no WhatsApp.
+    expect(toldSentences([toldOfChange(c, sean, { invited: false, whatsapp: 'call-time' }, false, false)])).toEqual(['Nothing was sent to Seán: the change is on their link.'])
   })
 })

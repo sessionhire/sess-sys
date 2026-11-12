@@ -41,6 +41,8 @@ import {
   nothingSentLine,
   offerPromise,
   reachOnRow,
+  whatsappFollowsOffer,
+  whatsappReach,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Confirm, reasonOf, Refusal, useAct } from '../act.tsx'
@@ -296,8 +298,8 @@ export function CallCard({
                         question={
                           // The email Google sends is named, or that nothing is sent (finding 5).
                           o.status === 'confirmed'
-                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're booked for go back to it. ${endingWords(reach, o.id, 'so', o.person)}`
-                            : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn", o.person)}`
+                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're booked for go back to it. ${endingWords(reach, o.id, 'so', o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
+                            : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn", o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
                         }
                         yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
                         loss
@@ -359,7 +361,7 @@ export function CallCard({
           <Refusal error={error} />
           {!mayOffer ? null : cancelling ? (
             <Confirm
-              question={`Cancel the call for ${call.needed} × ${call.role} on ${call.project}? ${callEndingWords(reach, call.offers)}`}
+              question={`Cancel the call for ${call.needed} × ${call.role} on ${call.project}? ${callEndingWords(reach, call)}`}
               yes="Cancel it"
               loss
               onYes={cancel}
@@ -687,6 +689,10 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const promise = offerPromise(reach, call, chosen)
   // Whoever doesn't get the place has their invite cancelled, which Google emails them.
   const invitesOut = promise.invites || call.offers.some((o) => OPEN.includes(o.status) && daysToCancel(reach, o.id).length > 0)
+  // And hears it on WhatsApp, where it reaches them (ADR 0154): anyone picked once their offer has gone there, and anyone
+  // already asked who heard of it.
+  const whatsappOut =
+    call.end >= reach.today && (chosen.some((p) => whatsappReach(reach.whatsapp, p) !== undefined) || call.offers.some((o) => OPEN.includes(o.status) && whatsappFollowsOffer(reach, call, o, o.person)))
 
   return (
     <form className="offer-form" id={offerFormId(call.id)} onSubmit={send} ref={formRef}>
@@ -747,8 +753,8 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       {chosen.length > 0 && offered.size + chosen.length > call.needed && (
         <p className="hint">
           {chosen.length + offered.size} offered for {plural(call.needed, 'place')}: whoever says yes first has it. The rest see it's filled on their link
-          {invitesOut ? `, and Google emails anyone invited that it's cancelled${reach.calendar.link?.tell === 'on' ? ', filled by someone else' : ''}` : ''}; nothing
-          else tells them.
+          {invitesOut ? `, and Google emails anyone invited that it's cancelled${reach.calendar.link?.tell === 'on' ? ', filled by someone else' : ''}` : ''}
+          {whatsappOut ? ". A WhatsApp tells anyone it reaches that they're no longer needed. Nothing else tells them." : '; nothing else tells them.'}
         </p>
       )}
       <RecordPicker
