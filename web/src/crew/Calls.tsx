@@ -1,5 +1,6 @@
 import { UnitBox } from '../UnitBox.tsx'
 import {
+  HOLD_WORDS,
   OFFER_WORDS,
   offerWords,
   plural,
@@ -62,7 +63,7 @@ import { LateLines, NoteLate } from './Late.tsx'
 import { personHref } from './PersonScreen.tsx'
 import { Avatars } from '../Picture.tsx'
 import { type Made, type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
-import { PlainContact, useReach } from './reach.tsx'
+import { PlainContact, useHoldTheDay, useReach } from './reach.tsx'
 import { AnswerActions, standsAt } from './AnswerActions.tsx'
 import { AdminWords } from '../AdminWords.tsx'
 import { dept, found, wordsOf } from './People.tsx'
@@ -178,9 +179,12 @@ export function CallCard({
   // Booked and not yet booked side by side, everyone's state is said, so "(offered)" can't read as the pair's (audit, 20 October 2026, finding 72).
   const onIt = call.offers.filter((o) => o.person && ON_CALL.includes(o.status))
   const mixed = onIt.some((o) => o.status === 'confirmed') && onIt.some((o) => o.status !== 'confirmed')
+  // On a job the client hasn't said yes to, those picked hold the day: nobody is booked until the client says yes (ADR 0150, ADR 0168).
+  const hold = useHoldTheDay()(call.projectId)
+  const picked = hold ? ` (${HOLD_WORDS.name.toLowerCase()})` : ' (booked)'
   const who = onIt
     .slice(0, WHO_SHOWN)
-    .map((o) => `${o.person!.name}${o.status === 'confirmed' ? (mixed ? ' (booked)' : '') : ` (${STATUS[o.status][0].toLowerCase()})`}`)
+    .map((o) => `${o.person!.name}${o.status === 'confirmed' ? (mixed || hold ? picked : '') : ` (${STATUS[o.status][0].toLowerCase()})`}`)
     .join(', ')
   const more = onIt.length - WHO_SHOWN
 
@@ -213,7 +217,8 @@ export function CallCard({
         </b>
       </button>
       {/* The one word at rest on where it stands: a cancelled call kept for the record says so, and a change to it or an offer on it still on its way says that. */}
-      <StatusPill tone={!live ? 'cancelled' : filled && toConfirm === 0 ? 'confirmed' : 'pending'} pending={call.pending || call.offers.some((o) => o.pending)}>
+      {/* Filled on a job the client hasn't said yes to is in amber: its people hold the day, and nothing is settled till the client says yes. */}
+      <StatusPill tone={!live ? 'cancelled' : filled && toConfirm === 0 && !hold ? 'confirmed' : 'pending'} pending={call.pending || call.offers.some((o) => o.pending)}>
         {!live
           ? 'Cancelled'
           : `${filled ? 'Filled' : heldLabel(call)}${toConfirm > 0 ? `, ${toConfirm} to confirm` : ''}`}
@@ -266,7 +271,8 @@ export function CallCard({
           {call.offers.length > 0 && (
             <ul className="offers">
               {rows.map(({ o, said }) => {
-                const [label, tone] = offerWords(o)
+                // Picked on a job the client hasn't said yes to: Hold the day, as their own page and invite say it (ADR 0150, ADR 0168).
+                const [label, tone] = hold && o.status === 'confirmed' ? [HOLD_WORDS.name, 'pending' as const] : offerWords(o)
                 const partial = o.days.length < call.days.length && (o.status === 'accepted' || o.status === 'confirmed' || o.status === 'countered')
                 const answering = o.status === 'offered' || o.status === 'countered' || o.status === 'accepted' || o.status === 'confirmed'
                 return (
@@ -305,7 +311,7 @@ export function CallCard({
                         question={
                           // The email Google sends is named, or that nothing is sent (finding 5).
                           o.status === 'confirmed'
-                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're booked for go back to it. ${endingWords(reach, o.id, 'so', o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
+                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're ${hold ? 'holding' : 'booked for'} go back to it. ${endingWords(reach, o.id, 'so', o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
                             : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn", o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
                         }
                         yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
