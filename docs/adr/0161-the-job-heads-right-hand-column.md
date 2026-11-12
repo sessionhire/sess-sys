@@ -47,9 +47,11 @@ corner on the right. The title row and the status share the first row, so
 the status pill is centred on the title's line whatever the title's size.
 Under it, who has the job; under that, Next. One right edge, one
 `space.2` gap, and the column as wide as Next (at least 260px). On a
-phone the status stays level with the title, who has it goes right under
-it, and Next stays docked in the foot over the bar, in the thumb's reach,
-as ADR 0104 put it. The head gets a `corner` slot for this (`Page`, `Top`,
+phone the status stays level with the title; who has it sits at the
+left, straight after the stage's segments and before the facts, so the
+stage and its person read together (Colly, 12 November 2026); and Next
+stays docked in the foot over the bar, in the thumb's reach, as ADR 0104
+put it. The head gets a `corner` slot for this (`Page`, `Top`,
 `PageHead`), which is never moved into the foot.
 
 **The status is always the status.** The pill is the job's status on every

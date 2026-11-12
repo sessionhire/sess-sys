@@ -117,16 +117,25 @@
  * words and the column share one grid, so the status sits on the title's own row whatever the title's height. On a phone the
  * status stays on the title's row, who has it goes right under it, and Next is in the foot.
  */
-.page-head[data-corner] { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title status' 'owner owner' 'sub sub'; gap: var(--ds-space-2) var(--ds-space-3); align-items: start; }
+/* On a phone who has it sits at the left, straight after the stage's segments and before the facts (Colly, 12 November 2026),
+   so the stage and its person read together: the sub's two parts take rows of their own around it. */
+.page-head[data-corner] { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title status' 'position position' 'owner owner' 'facts facts'; gap: var(--ds-space-2) var(--ds-space-3); align-items: start; }
 .page-head[data-corner] > .page-words { display: contents; }
 .page-head[data-corner] .page-title-row { grid-area: title; }
-.page-head[data-corner] .page-sub { grid-area: sub; }
-.page-head[data-corner] > .corner-status { grid-area: status; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
-.page-head[data-corner] > .corner-owner { grid-area: owner; justify-self: end; width: min(100%, 260px); }
+.app .page-head[data-corner] .page-sub { display: contents; }
 .page-head[data-corner] .page-sub > .job-position { margin-top: 0; }
+@media (max-width: 639px) {
+  .page-head[data-corner] .page-sub > .job-position { grid-area: position; }
+  .page-head[data-corner] .page-sub > .job-facts { grid-area: facts; }
+}
+.page-head[data-corner] > .corner-status { grid-area: status; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
+.page-head[data-corner] > .corner-owner { grid-area: owner; justify-self: start; width: min(100%, 300px); }
+.page-head[data-corner] > .corner-owner .job-assignee { justify-content: flex-start; }
 @media (min-width: 640px) {
   .page-head[data-corner] { grid-template-areas: 'title status' 'sub owner' 'sub next'; grid-template-rows: auto auto 1fr; column-gap: var(--ds-space-5); }
-  .page-head[data-corner] > .corner-owner { width: 100%; min-width: 260px; }
+  .app .page-head[data-corner] .page-sub { display: grid; grid-area: sub; align-content: start; }
+  .page-head[data-corner] > .corner-owner { justify-self: end; width: 100%; min-width: 260px; }
+  .page-head[data-corner] > .corner-owner .job-assignee { justify-content: flex-end; }
   /* One column, so the button's right edge is the field's: the quiet second choice, when there is one, goes under it. */
   .page-head[data-corner] > .next-dock { grid-area: next; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: none; }
 }
@@ -142,8 +151,8 @@
 .job-assignee .assignee-refusal { flex-basis: 100%; }
 .job-assignee:has(.assignee-refusal) { flex-wrap: wrap; }
 /* How far the task has got, in Next's button: a ring in the button's ink, filled as far as the task is done. */
-.app .next-dock .primary { display: inline-flex; align-items: center; gap: var(--ds-space-2); }
-.next-pie { flex: none; width: 18px; height: 18px; border-radius: var(--radius-full); box-shadow: inset 0 0 0 2px currentColor; background: conic-gradient(currentColor calc(var(--part) * 1turn), color-mix(in srgb, currentColor 22%, transparent) 0); }
+/* Inline, so it sits before the words wherever the button is drawn: in the head, and in the phone's foot. */
+.next-pie { display: inline-block; vertical-align: -3px; margin-inline-end: var(--ds-space-2); flex: none; width: 18px; height: 18px; border-radius: var(--radius-full); box-shadow: inset 0 0 0 2px currentColor; background: conic-gradient(currentColor calc(var(--part) * 1turn), color-mix(in srgb, currentColor 22%, transparent) 0); }
 @media (min-width: 640px) {
   .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
   .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
