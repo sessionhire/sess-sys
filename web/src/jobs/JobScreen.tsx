@@ -41,7 +41,6 @@ import {
   type View,
   jobEndingWords,
   whatsappFollowsTell,
-  jobPosition,
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -64,6 +63,7 @@ import { QuotePart } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { NextDock, type Landing } from './NextDock.tsx'
+import { JobAssignee } from './JobAssignee.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
@@ -216,8 +216,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   const offerFor = (calls: readonly CallView[]) => share?.kind === 'offer' && calls.some((c) => c.id === share.call.id) && panel
   const telling = share?.kind === 'tell' && panel
   const fill = crewFill(job.calls)
-  // Where the job stands is said once, in the head (ADR 0140, part 3); Next's line then says only Next.
-  const positioned = job.status === 'confirmed' && !job.pending
+  const steps = view.steps.of(job.id)
   const counts: Partial<Record<JobPart, string>> = {
     phases: job.phases.length ? String(job.phases.length) : undefined,
     crew: fill.needed ? `${fill.booked}/${fill.needed}` : undefined,
@@ -230,11 +229,29 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
       className="crew jobs job-page"
       up={up}
       heading={job.name}
-      // A sale or a stopped job keeps its pill; once confirmed, the head says where the job stands, as the dock's line does (Move 7
-      // of the sweep of 6 November 2026), so "Confirmed" isn't the biggest word on a job two days into Back.
-      badge={positioned ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
-      sub={<JobLines job={job} view={view} headSays={positioned} />}
-      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} onTell={setShare} headSays={positioned} quoteHere={part === 'quote'} />}
+      // The head's right-hand column, top to bottom on the title's rhythm (ADR 0161): the job's status, level with its name; who
+      // has it, changed where it's read; then Next, the one filled button. On a phone Next is docked in the foot, as before.
+      corner={
+        <>
+          <div className="corner-status">
+            <JobStatusPill status={job.status} pending={job.pending} />
+          </div>
+          {steps && (
+            <div className="corner-owner">
+              <JobAssignee view={view} steps={steps} />
+            </div>
+          )}
+        </>
+      }
+      // The stage it's in, under its name: the five segments, the stage, and when, with "late" or "short" when it is. What's
+      // outstanding is Next's own words, and whose it is the field beside it, so neither is said twice (ADR 0161).
+      sub={
+        <>
+          <JobPosition job={job} view={view} compact />
+          <JobLines job={job} view={view} />
+        </>
+      }
+      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} onTell={setShare} quoteHere={part === 'quote'} />}
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
@@ -439,19 +456,12 @@ function CrewPart({
   )
 }
 
-/** Whether the job's position line, beside its name, gives the crew's count as it stands (the Planning stage's words). */
-function crewSaidBy(view: View, job: JobView): boolean {
-  const steps = view.steps.of(job.id)
-  const p = steps && jobPosition(steps)
-  return !!p && /\bbooked\b/.test(p.text)
-}
-
 /**
  * Under the job's name, in two lines rather than a card of facts (ADR 0082),
  * so its parts are on the first screen: who it's for, where and when; then
  * how its crew and kit stand.
  */
-function JobLines({ job, view, headSays }: { job: JobView; view: View; headSays?: boolean }) {
+function JobLines({ job, view }: { job: JobView; view: View }) {
   const crew = crewFill(job.calls)
   // A head's own department's first, beside the whole job's (Move 3 of the sweep of 6 November 2026): "LX 0 of 1 · all 5 of 10".
   const department = useMyDepartment()
@@ -487,9 +497,7 @@ function JobLines({ job, view, headSays }: { job: JobView; view: View; headSays?
         <dt>{kindOf(job) === 'gig' ? 'When' : KIND_LABELS[kindOf(job)]}</dt>
         <dd>{job.span ? spanLabel(job.span) : <span className="muted">No dates yet</span>}</dd>
       </div>
-      {/* Not when the line by the name already gives the crew's count (review of 11 November 2026, finding 4): a head's own
-          department's count, which the line doesn't give, still shows. */}
-      {crew.needed > 0 && !(headSays && theirs.needed === 0 && crewSaidBy(view, job)) && (
+      {crew.needed > 0 && (
         <div>
           <dt>Crew</dt>
           <dd>

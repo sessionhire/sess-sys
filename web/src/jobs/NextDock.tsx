@@ -1,4 +1,5 @@
-import { crewNext, dayLabel, firstName, jobPosition, plural, ratesClosedBy, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobView, type View } from '@sh/shared'
+import { crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobSteps, type JobView, type View } from '@sh/shared'
+import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
@@ -14,11 +15,14 @@ export type Landing = { call: string; offer?: boolean; answer?: boolean } | { sh
 
 /**
  * The one Next button of a job (ADR 0104): drawn the same on every job and
- * in one place, right of the title on a desk and docked above the bar on a
- * phone, where the thumb is, staying put while the page scrolls. A line
- * says where the job is and how far (the stage, the task's count, whose it
- * is, when it's due); the one filled button says what to do, a verb and
- * its object; a quiet second choice hands the task to someone. It is never
+ * in one place, at the foot of the head's right-hand column on a desk, under
+ * the status and who has it (ADR 0161), and docked above the bar on a phone,
+ * where the thumb is, staying put while the page scrolls. The one filled
+ * button says what to do, a verb and its object, and what's still
+ * outstanding in it; a small pie in it fills as the task does, so a second
+ * visit is seen to have moved it. Whose it is lives in the field above, so
+ * there's no "Hand it on" here. A quiet second choice is kept for an answer
+ * to check or the pick list a week out. It is never
  * greyed out and never gone: when there's nothing for this person to press
  * (the show is on, the task is another role's, the job is through) the
  * same place says so in plain words.
@@ -39,14 +43,11 @@ export function NextDock({
   view,
   onPart,
   onOpenTask,
-  headSays,
   quoteHere,
   onTell,
 }: {
   job: JobView
   view: View
-  /** The page's head already says where the job stands (ADR 0140, part 3): the line says only Next, so it's said once. */
-  headSays?: boolean
   /** Opens a part of the job, landing on a call (its Offer open, or not) or the short kit's Subhire (ADR 0140). */
   onPart: (p: JobPart, land?: Landing) => void
   /** Opens the message for someone a press of Next has settled, as the Crew page's own Confirm does; without it, nobody is prompted. */
@@ -69,25 +70,8 @@ export function NextDock({
   const stage = steps.stage
   const mayTask = access.can('steps') && (access.role !== 'crew' || (!!access.personId && task?.ownerId === access.personId))
 
-  /** The line over the button: where the job stands, the head's own words (Move 7 of the sweep of 6 November 2026), so the two agree;
-   * left to the head where it says them (ADR 0140, part 3), and said here where it doesn't, as on the quote. */
-  const position = jobPosition(steps)
-  const line = (
-    <p className="line">
-      <b>Next</b>
-      {position && !headSays && (
-        <>
-          {' · '}
-          <span className="position-words" data-tone={position.tone}>
-            {[position.stage === 'Through' ? undefined : position.stage, position.hint, position.owner, position.time].filter(Boolean).join(' · ')}
-          </span>
-        </>
-      )}
-    </p>
-  )
   const rest = (words: string, link?: { href: string; label: string } | { label: string; onPress: () => void }) => (
     <div className="next-dock" role="region" aria-label="Next" data-rest="true">
-      {line}
       <p className="rest">
         {words}
         {link && (
@@ -133,8 +117,9 @@ export function NextDock({
       : []
   const answers = toAnswer.length ? { label: `${plural(toAnswer.length, 'answer')} to check`, onPress: () => onPart('crew', { call: toAnswer[0]!, answer: true }) } : undefined
 
+  const prep = steps.steps.find((s) => s.key === 'prep')
   /** What to press for the task, or why there's nothing to. */
-  let press: { label: string; href?: string; onPress?: () => void } | undefined
+  let press: { label: string; href?: string; onPress?: () => void; done?: Done } | undefined
   let why: string | undefined
   switch (task.key) {
     case 'quote': {
@@ -173,10 +158,12 @@ export function NextDock({
       // a yes is confirmed; a call with places nobody's been offered opens its Offer; then the answers still out are waited on.
       const fromQuote = crewToCall(view, job)
       const next = crewNext(job.calls)
-      const count = `${booked} of ${needed} booked`
+      const count = `${needed - booked} to book`
+      const bookedDone: Done = { done: booked, of: needed, words: `${booked} of ${needed} booked` }
       if (fromQuote.length)
         press = {
           label: fromQuote.length === 1 ? `Make the call for ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make the ${fromQuote.length} crew calls from the quote`,
+          done: bookedDone,
           onPress: () => void run(() => makeCallsFromQuote(view, job, today)).then((ok) => ok && onPart('crew')),
         }
       else if (next.yes) {
@@ -186,9 +173,10 @@ export function NextDock({
         // row, where what confirming ends is said first (ADR 0152).
         press =
           offer.asked?.length || ratesClosedBy(call, call.offers, offer.id).length
-            ? { label: `Check ${firstName(person)}'s yes · ${count}`, onPress: () => onPart('crew', { call: call.id, answer: true }) }
+            ? { label: `Check ${firstName(person)}'s yes · ${count}`, done: bookedDone, onPress: () => onPart('crew', { call: call.id, answer: true }) }
             : {
                 label: `Confirm ${firstName(person)}'s yes · ${count}`,
+                done: bookedDone,
                 onPress: () =>
                   void run(() => client.mutate('offer.confirm', { id: offer.id })).then((ok) => {
                     if (!ok) return
@@ -202,22 +190,24 @@ export function NextDock({
         // otherwise the page's one filled button only opened the form they were in, and its own Offer read as greyed out. What
         // stops it is said in the form, which it lands on.
         const to = picked.callId === call.id ? picked.names : []
+        const offered: Done = { done: asked, of: call.needed, words: `${asked} of ${call.needed} offered` }
         press = to.length
           ? {
-              label: `Offer to ${to.length === 1 ? firstName({ name: to[0]! }) : `${to.length} people`} · ${asked} of ${call.needed} offered`,
+              label: `Offer to ${to.length === 1 ? firstName({ name: to[0]! }) : `${to.length} people`} · ${call.needed - asked} to offer`,
+              done: offered,
               onPress: () => {
                 const form = document.getElementById(offerFormId(call.id))
                 if (form instanceof HTMLFormElement) form.requestSubmit()
                 onPart('crew', { call: call.id, offer: true })
               },
             }
-          : { label: `Offer the ${call.role} · ${asked} of ${call.needed} offered`, onPress: () => onPart('crew', { call: call.id, offer: true }) }
+          : { label: `Offer the ${call.role} · ${call.needed - asked} to offer`, done: offered, onPress: () => onPart('crew', { call: call.id, offer: true }) }
       } else if (next.counter)
         // A different rate is settled on its own row, with the rate in view (audit of 12 November 2026, finding 9).
-        press = { label: `Answer ${firstName(next.counter.offer.person!)}'s rate · ${count}`, onPress: () => onPart('crew', { call: next.counter!.call.id, answer: true }) }
+        press = { label: `Answer ${firstName(next.counter.offer.person!)}'s rate · ${count}`, done: bookedDone, onPress: () => onPart('crew', { call: next.counter!.call.id, answer: true }) }
       else if (next.waiting)
-        return rest(`Every place is offered: waiting on ${plural(next.waiting, 'answer')}. ${count}.`, { href: `${href}/crew`, label: "See who's been asked" })
-      else press = { label: needed === 0 ? 'Ask for the crew' : `Book ${needed - booked} more crew`, onPress: () => onPart('crew') }
+        return rest(`Every place is offered: waiting on ${plural(next.waiting, 'answer')}. ${bookedDone.words}.`, { href: `${href}/crew`, label: "See who's been asked" })
+      else press = { label: needed === 0 ? 'Ask for the crew' : `Book ${needed - booked} more crew`, done: needed ? bookedDone : undefined, onPress: () => onPart('crew') }
       break
     }
     case 'kit': {
@@ -234,14 +224,24 @@ export function NextDock({
       press = task.facts.nothingYet
         ? { label: 'Add the kit', onPress: () => onPart('kit') }
         : // With how far it has got, as the pick list's own dock says it, so each visit is seen to move it (ADR 0140, part 6).
-          { label: `Pick the kit · ${task.facts.out ?? 0} of ${task.facts.of ?? 0} out`, href: `${href}/pick` }
+          {
+            label: `Pick the kit · ${(task.facts.of ?? 0) - (task.facts.out ?? 0)} to go out`,
+            href: `${href}/pick`,
+            done: { done: task.facts.out ?? 0, of: task.facts.of ?? 0, words: `${task.facts.out ?? 0} of ${task.facts.of ?? 0} out` },
+          }
       break
     case 'show':
       why = `Nothing to press: ${stage?.key === 'on' && task.facts.until ? `on the job until ${dayLabel(task.facts.until)}` : (task.hint?.toLowerCase() ?? 'the job is on')}.`
       break
     case 'back':
       if (!access.can('stock')) break
-      press = { label: 'Scan the kit back', href: `${href}/pick` }
+      {
+        const { stillOut = 0, neverScanned = 0 } = task.facts
+        const of = prep?.facts.of ?? 0
+        press = stillOut && of
+          ? { label: `Scan the kit back · ${stillOut} still out`, href: `${href}/pick`, done: { done: of - stillOut, of, words: `${of - stillOut} of ${of} back` } }
+          : { label: neverScanned ? 'Check the kit is back' : 'Scan the kit back', href: `${href}/pick` }
+      }
       break
     case 'deprep':
       if (!mayTask) break
@@ -250,7 +250,6 @@ export function NextDock({
   }
   // Within a week of going out, the warehouse's own way in (Move 8 of the sweep of 6 November 2026): the pick list, with how far it
   // has got, in the quiet slot, while the filled verb stays the planner's. Not when picking is the task, which the button already is.
-  const prep = steps.steps.find((s) => s.key === 'prep')
   const pickSoon =
     access.can('stock') && task.key !== 'prep' && task.key !== 'back' && !!prep?.facts.of && !prep.done && steps.daysTo !== undefined && steps.daysTo <= PICK_SOON_DAYS
       ? { href: `${href}/pick`, label: `Pick the kit · ${prep.facts.out} of ${prep.facts.of} out` }
@@ -260,39 +259,64 @@ export function NextDock({
     const aside = answers ?? pickSoon
     return rest(why ?? `Next is ${task.label.toLowerCase()}. ${task.owner ? `It's down to ${task.owner.name}.` : whoDoes(task.key)} ${aside ? '' : 'Nothing here for you to press.'}`.trim(), aside)
   }
-  // The quiet second choice: an answer to check, else hand the task on, or open it. Not for the client's answer, whose button already opens it.
+  // The quiet second choice: an answer to check, or the pick list a week out. Who has the task is the field above Next (ADR 0161).
   const second = answers ? (
     <button type="button" className="link second" onClick={answers.onPress}>
       {answers.label}
     </button>
-  ) : pickSoon ? (
-    <a className="link second" href={pickSoon.href}>
-      {pickSoon.label}
-    </a>
   ) : (
-    mayTask &&
-    task.key !== 'confirmed' &&
-    task.key !== 'deprep' && (
-      <button type="button" className="link second" onClick={() => onOpenTask(task.key)}>
-        {task.owner ? 'Hand it on' : 'Hand it to someone'}
-      </button>
+    pickSoon && (
+      <a className="link second" href={pickSoon.href}>
+        {pickSoon.label}
+      </a>
     )
+  )
+  // How far the task has got, else how many of its stage's tasks are done: the pie in the button, while it's still to do.
+  const done = press.done ?? stageDone(steps)
+  const inside = (
+    <>
+      {done && done.of > 0 && done.done < done.of && <Pie {...done} />}
+      <span>{press.label}</span>
+    </>
   )
   return (
     <div className="next-dock" role="region" aria-label="Next">
-      {line}
       {press.href ? (
         <a className="button primary" href={press.href}>
-          {press.label}
+          {inside}
         </a>
       ) : (
         <button type="button" className="primary" onClick={press.onPress}>
-          {press.label}
+          {inside}
         </button>
       )}
       {second}
       <Refusal error={error} />
     </div>
+  )
+}
+
+/** How far a task has got, for the pie in Next: done of how many, and the same in words for whoever can't see the pie. */
+type Done = { done: number; of: number; words: string }
+
+/** How many of the stage's tasks are done, for a task with no count of its own (the quote, the kit settled). */
+function stageDone(steps: JobSteps): Done | undefined {
+  const stage = steps.stage
+  if (!stage) return undefined
+  const tasks = stage.tasks.filter((t) => !t.skipped)
+  const done = tasks.filter((t) => t.done).length
+  return { done, of: tasks.length, words: `${done} of ${plural(tasks.length, 'task')} in ${stage.label} done` }
+}
+
+/**
+ * A small pie in Next's button (ADR 0161): the part of the task done, filled in the button's own ink round a ring of it, so it
+ * reads on the red in both themes. The label already says what's outstanding in words, so the pie is hidden from a screen
+ * reader; its count is its tooltip.
+ */
+function Pie({ done, of, words }: Done) {
+  const part = Math.max(0, Math.min(1, done / of))
+  return (
+    <span className="next-pie" style={{ '--part': part } as CSSProperties} aria-hidden="true" title={words} />
   )
 }
 

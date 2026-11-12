@@ -105,18 +105,48 @@
 .next-dock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ds-space-half) var(--ds-space-3); align-items: center; }
 .next-dock .line { grid-column: 1 / -1; margin: 0; font-size: var(--text-small); color: var(--muted); }
 .next-dock .line b { color: var(--ink); }
-.next-dock .position-words[data-tone='warn'] { color: var(--warn); }
-.next-dock .position-words[data-tone='bad'] { color: var(--bad); }
 .app .next-dock .primary { min-height: 48px; padding-inline: var(--ds-space-4); font-size: var(--text-body); white-space: nowrap; text-align: center; justify-content: center; }
 .app .next-dock .second { font-size: var(--text-small); }
 /* Nothing to press: one quiet line of words under the stage line, not a box shaped like a button that isn't there (review of 11
    November 2026, finding 19). */
 .next-dock .rest { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: var(--text-small); }
 .next-dock .rest a { color: var(--accent-ink); }
+/*
+ * The job head's right-hand column (ADR 0161), top to bottom on the title's rhythm: the status, level with the job's name; who
+ * has it, a combobox changed where it's read; then Next. One right edge, one gap between them, the column as wide as Next. The
+ * words and the column share one grid, so the status sits on the title's own row whatever the title's height. On a phone the
+ * status stays on the title's row, who has it goes right under it, and Next is in the foot.
+ */
+.page-head[data-corner] { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title status' 'owner owner' 'sub sub'; gap: var(--ds-space-2) var(--ds-space-3); align-items: start; }
+.page-head[data-corner] > .page-words { display: contents; }
+.page-head[data-corner] .page-title-row { grid-area: title; }
+.page-head[data-corner] .page-sub { grid-area: sub; }
+.page-head[data-corner] > .corner-status { grid-area: status; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
+.page-head[data-corner] > .corner-owner { grid-area: owner; justify-self: end; width: min(100%, 260px); }
+.page-head[data-corner] .page-sub > .job-position { margin-top: 0; }
+@media (min-width: 640px) {
+  .page-head[data-corner] { grid-template-areas: 'title status' 'sub owner' 'sub next'; grid-template-rows: auto auto 1fr; column-gap: var(--ds-space-5); }
+  .page-head[data-corner] > .corner-owner { width: 100%; min-width: 260px; }
+  /* One column, so the button's right edge is the field's: the quiet second choice, when there is one, goes under it. */
+  .page-head[data-corner] > .next-dock { grid-area: next; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: none; }
+}
+.job-assignee { display: flex; align-items: center; gap: var(--ds-space-2); margin: 0; justify-content: flex-end; color: var(--ink); font-size: var(--text-small); }
+.job-assignee > .icon { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.job-assignee[data-none] { color: var(--muted); }
+.job-assignee .assignee-picker { flex: 1; min-width: 0; }
+/* The field is named for a screen reader ("Who has Planning"); the person mark in front says what it is to the eye, as on the
+   Board card's foot. */
+.job-assignee .assignee-picker > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.job-assignee .assignee-picker input { min-height: 40px; font-size: var(--text-body); }
+.job-assignee[data-none] .assignee-picker input:not(:focus)::placeholder { color: var(--muted); }
+.job-assignee .assignee-refusal { flex-basis: 100%; }
+.job-assignee:has(.assignee-refusal) { flex-wrap: wrap; }
+/* How far the task has got, in Next's button: a ring in the button's ink, filled as far as the task is done. */
+.app .next-dock .primary { display: inline-flex; align-items: center; gap: var(--ds-space-2); }
+.next-pie { flex: none; width: 18px; height: 18px; border-radius: var(--radius-full); box-shadow: inset 0 0 0 2px currentColor; background: conic-gradient(currentColor calc(var(--part) * 1turn), color-mix(in srgb, currentColor 22%, transparent) 0); }
 @media (min-width: 640px) {
   .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
   .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
-  .page-head .next-dock .line { order: -1; }
   /* A long label wraps inside its button rather than running out of the dock over the job's stage line (review of 11 November
      2026, finding 2). */
   .app .page-head .next-dock .primary { white-space: normal; }
@@ -148,12 +178,6 @@
 /* The job's position (JobPosition.tsx): quiet when nothing is short, the warn ink when crew or kit is, the bad ink when a task is late.
    Ink, not a wash, so a list of jobs isn't a wall of colour: the tone is on the words and the segment of the stage it's in. */
 .job-position .stage-name { font-weight: 700; }
-/* On a phone a job's line goes under its name at the full width, so the name keeps the width too (review of 11 November 2026,
-   finding 4). */
-@media (max-width: 639px) {
-  .page-title-row:has(> .job-position) { flex-wrap: wrap; }
-  .page-title-row > .job-position { flex-basis: 100%; }
-}
 .job-position[data-tone='warn'] .stage-words { color: var(--warn); }
 .job-position[data-tone='warn'] .stage-seg i[data-state='now'] { background: var(--warn); }
 .job-position[data-tone='bad'] .stage-words { color: var(--bad); }
