@@ -8,8 +8,9 @@ import { Icon } from '../Icon.tsx'
  *
  * - Dragged by the card itself, as on any kanban board (Colly, 11 November 2026): with a mouse, once it has moved a few
  *   pixels, so a click still opens the job; with a finger, after holding it still for a moment, so a swipe still scrolls the
- *   page. Its Move button drags at once. Nothing moves while it's held; a line shows where it will land, the page scrolls
- *   when it's held near the top or the bottom of the screen, and it lands when let go.
+ *   page. Its Move button drags at once. As on Trello (Colly, 12 November 2026) the card lifts and follows the pointer, and
+ *   the cards around it slide aside to open a gap where it will land; the page scrolls when it's held near the top or the
+ *   bottom of the screen, and it lands in the gap when let go.
  * - Pressed (or Space or Enter): the card is picked up. The arrows move it, Home and End to the ends, Space or Enter puts it
  *   down, Escape puts it back. Or press another card, or its Move, and it takes that card's place: the press twin of a drag.
  *
@@ -37,14 +38,34 @@ export function OrderedCards({
   const name = (id: string) => byId.get(id)?.job.name ?? 'The job'
   // Picked up by a press or a key: the order as it would be put down, drawn as it goes.
   const [held, setHeld] = useState<{ id: string; order: string[] }>()
-  // Dragged: where it would land, as an index in the group as it stands; nothing else moves until it's let go.
-  const [drag, setDrag] = useState<{ id: string; at: number }>()
+  // Dragged: the card that's lifted. Where it goes is drawn straight onto the cards (below), as it follows the pointer.
+  const [drag, setDrag] = useState<{ id: string }>()
   const box = useRef<HTMLDivElement>(null)
   /** A press that may become a drag: armed until it moves (or, by a finger on the card, until it has been held still). */
   const press = useRef<
-    | { id: string; x: number; y: number; y0: number; pointer: number; mode: 'armed' | 'drag'; touch: boolean; grip: boolean; timer?: number; target: Element }
+    | {
+        id: string
+        x: number
+        y: number
+        x0: number
+        y0: number
+        pointer: number
+        mode: 'armed' | 'drag'
+        touch: boolean
+        grip: boolean
+        timer?: number
+        target: Element
+        lift?: Lift
+      }
     | undefined
   >(undefined)
+  // Cards moved aside by the drag that ended, to set straight once the new order is drawn.
+  const settle = useRef<HTMLElement[] | undefined>(undefined)
+  useLayoutEffect(() => {
+    if (!settle.current || drag) return
+    unshift(settle.current)
+    settle.current = undefined
+  })
   // The click that ends a drag lands on the card's link or its Move button: it's the drag's, not a way into the job.
   const dragged = useRef(false)
   const focusOn = useRef<string | undefined>(undefined)
@@ -96,19 +117,9 @@ export function OrderedCards({
     say(`${place(order, held.id)}.`)
   }
 
-  /** Where a drag would land: before the first card whose middle is below the pointer. */
-  const landing = (y: number) => {
-    const cards = [...(box.current?.querySelectorAll<HTMLElement>(':scope > [data-card]') ?? [])]
-    const i = cards.findIndex((c) => {
-      const r = c.getBoundingClientRect()
-      return y < r.top + r.height / 2
-    })
-    return i < 0 ? cards.length : i
-  }
-
   // What the drag's listeners read, as this render has it.
-  const live = useRef({ ids, held, canOrder, landing, putDown })
-  live.current = { ids, held, canOrder, landing, putDown }
+  const live = useRef({ ids, held, canOrder, putDown })
+  live.current = { ids, held, canOrder, putDown }
 
   // The drag, on the group itself, so the whole card takes it (Colly, 11 November 2026). Listeners of the page's own, as a finger's
   // drag has to stop the page scrolling under it, which only a touchmove that isn't passive can do.
@@ -134,7 +145,9 @@ export function OrderedCards({
         // The pointer may already be gone; the drag still ends on the next up.
       }
       if (p.touch && !p.grip) navigator.vibrate?.(10)
-      setDrag({ id: p.id, at: live.current.landing(p.y) })
+      p.lift = lift(el, p.id)
+      setDrag({ id: p.id })
+      follow(p)
       // Held near the top or the bottom of the screen, the page scrolls, so a card can go anywhere in a long column.
       const edge = Math.max(80, innerHeight * 0.15)
       const tick = () => {
@@ -144,7 +157,7 @@ export function OrderedCards({
         const by = q.y < edge && q.y < q.y0 - 24 ? -(edge - q.y) / 4 : q.y > innerHeight - edge && q.y > q.y0 + 24 ? (q.y - (innerHeight - edge)) / 4 : 0
         if (by) {
           scrollBy(0, by)
-          setDrag({ id: q.id, at: live.current.landing(q.y) })
+          follow(q)
         }
         scrolling = requestAnimationFrame(tick)
       }
@@ -159,16 +172,17 @@ export function OrderedCards({
       if (t.closest('.stage-owner, select, input, textarea, label')) return
       const grip = !!t.closest('.board-grip')
       const touch = e.pointerType === 'touch'
-      press.current = { id: item.dataset.card!, x: e.clientX, y: e.clientY, y0: e.clientY, pointer: e.pointerId, mode: 'armed', touch, grip, target: grip ? t.closest('.board-grip')! : item }
+      press.current = { id: item.dataset.card!, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, pointer: e.pointerId, mode: 'armed', touch, grip, target: grip ? t.closest('.board-grip')! : item }
       // A finger on the card has to be held still first, as a swipe is the page scrolling.
       if (touch && !grip) press.current.timer = window.setTimeout(begin, 380)
     }
     const move = (e: PointerEvent) => {
       const p = press.current
       if (!p || p.pointer !== e.pointerId) return
+      p.x = e.clientX
       p.y = e.clientY
       if (p.mode === 'armed') {
-        const far = Math.hypot(e.clientX - p.x, e.clientY - p.y0)
+        const far = Math.hypot(e.clientX - p.x0, e.clientY - p.y0)
         if (p.touch && !p.grip) {
           // Moved before it was held long enough: it's a scroll.
           if (far > 10) stop()
@@ -178,26 +192,28 @@ export function OrderedCards({
         begin()
         return
       }
-      setDrag({ id: p.id, at: live.current.landing(e.clientY) })
+      follow(p)
     }
     const up = (e: PointerEvent) => {
       const p = press.current
       if (!p || p.pointer !== e.pointerId) return
-      if (p.mode === 'drag') {
-        const { ids, landing, putDown } = live.current
-        const at = landing(e.clientY)
-        const from = ids.indexOf(p.id)
+      if (p.mode === 'drag' && p.lift) {
+        const { ids, putDown } = live.current
         // The click the browser sends after letting go is the end of the drag, not a way into the job.
         dragged.current = true
         setTimeout(() => (dragged.current = false))
-        // Counted without the card itself, which comes out of its own place first.
-        putDown(moved(ids, from, at > from ? at - 1 : at), p.id)
+        // The cards stay where the drag left them until the new order is drawn, so nothing jumps.
+        settle.current = p.lift.items
+        putDown(moved(ids, p.lift.from, p.lift.to), p.id)
       }
       stop()
     }
     const cancel = (e: PointerEvent) => {
       if (press.current?.pointer !== e.pointerId) return
-      if (press.current.mode === 'drag') setDrag(undefined)
+      if (press.current.mode === 'drag') {
+        if (press.current.lift) unshift(press.current.lift.items)
+        setDrag(undefined)
+      }
       stop()
     }
     // Once a finger's drag has begun, the page stays where it is under it (it scrolls only by the edges, above).
@@ -237,6 +253,7 @@ export function OrderedCards({
       className="board-cards"
       data-holding={held ? 'true' : undefined}
       data-orderable={canOrder ? 'true' : undefined}
+      data-sorting={drag ? 'true' : undefined}
       // A press on another card while one is held is where it goes, not a way into that job.
       onClickCapture={(e) => {
         // The click a drag ends with is the drag's: it neither opens the job nor picks the card up.
@@ -253,7 +270,7 @@ export function OrderedCards({
         into(target.dataset.card!)
       }}
     >
-      {shown.map((id, i) => {
+      {shown.map((id) => {
         const s = byId.get(id)!
         const isHeld = held?.id === id
         return (
@@ -262,7 +279,6 @@ export function OrderedCards({
             className="board-item"
             data-card={id}
             data-dragging={isHeld || drag?.id === id ? 'true' : undefined}
-            data-drop={drag && drag.at === i && drag.id !== id && ids[i - 1] !== drag.id ? 'before' : drag && i === shown.length - 1 && drag.at === shown.length && drag.id !== id ? 'after' : undefined}
           >
             {card(s)}
             {canOrder && (
@@ -302,4 +318,55 @@ export function OrderedCards({
       })}
     </div>
   )
+}
+
+/** A card lifted by a drag: where the group's cards stood when it was picked up, and where it would land now. */
+interface Lift {
+  items: HTMLElement[]
+  from: number
+  to: number
+  /** Each card's middle, down the page (so the page can scroll under the drag). */
+  mids: number[]
+  /** How far a card moves aside: the lifted card's height and the gap below it. */
+  size: number
+  scroll0: number
+}
+
+function lift(group: HTMLElement, id: string): Lift {
+  const items = [...group.querySelectorAll<HTMLElement>(':scope > [data-card]')]
+  const from = items.findIndex((c) => c.dataset.card === id)
+  const rects = items.map((c) => c.getBoundingClientRect())
+  const gap = parseFloat(getComputedStyle(group).rowGap) || 0
+  return { items, from, to: from, mids: rects.map((r) => r.top + scrollY + r.height / 2), size: rects[from]!.height + gap, scroll0: scrollY }
+}
+
+/** The lifted card under the pointer, and the others slid aside to open its gap. */
+function follow(p: { x: number; y: number; x0: number; y0: number; lift?: Lift }) {
+  const l = p.lift
+  if (!l) return
+  const dx = p.x - p.x0
+  const dy = p.y + scrollY - (p.y0 + l.scroll0)
+  l.items[l.from]!.style.transform = `translate(${dx}px, ${dy}px) rotate(1.5deg)`
+  // It lands below every other card whose middle its own middle has passed.
+  const mid = l.mids[l.from]! + dy
+  l.to = l.mids.filter((m, k) => k !== l.from && m < mid).length
+  l.items.forEach((c, k) => {
+    if (k === l.from) return
+    const by = l.from < k && k <= l.to ? -l.size : l.to <= k && k < l.from ? l.size : 0
+    c.style.transform = by ? `translateY(${by}px)` : ''
+    if (by) c.dataset.shift = by < 0 ? 'up' : 'down'
+    else delete c.dataset.shift
+  })
+}
+
+/** Back to their places, all at once (the new order is drawn in the same frame). */
+function unshift(items: HTMLElement[]) {
+  for (const c of items) {
+    c.style.transition = 'none'
+    c.style.transform = ''
+    delete c.dataset.shift
+  }
+  requestAnimationFrame(() => {
+    for (const c of items) c.style.transition = ''
+  })
 }

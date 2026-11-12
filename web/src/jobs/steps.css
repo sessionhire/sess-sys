@@ -166,7 +166,7 @@
  * screen is narrower than six columns (a phone shows one and a bit, so the row says it goes on). Read only: nothing drags.
  */
 .board { display: grid; grid-template-columns: repeat(6, minmax(160px, 1fr)); gap: var(--ds-space-3); overflow-x: auto; overflow-y: hidden; padding-bottom: var(--ds-space-2); margin: 0 calc(-1 * var(--gutter)); padding-inline: var(--gutter); scroll-padding-inline: var(--gutter); }
-.board-col { display: grid; align-content: start; gap: var(--ds-space-2); min-height: 320px; padding: var(--ds-space-2); background: var(--panel); border-radius: var(--radius-card); }
+.board-col { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; align-content: start; gap: var(--ds-space-2); min-height: 320px; padding: var(--ds-space-2); background: var(--panel); border-radius: var(--radius-card); }
 .board-col > header { display: grid; justify-items: start; gap: 2px; padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-2); }
 .board-col > header .stage-seg { margin-bottom: var(--ds-space-1); }
 .board-col > header b { font-size: var(--text-body); }
@@ -183,8 +183,12 @@
 .board-col .board-empty { margin: 0; padding: 0 var(--ds-space-2); }
 .board-col > header .board-by-date { min-height: 0; padding: 0; font-size: var(--text-small); text-align: start; }
 /* The Board's order (ADR 0143): a card's Move button sits at its top right, quiet until wanted; only it takes a drag, so a phone still scrolls by the card. */
-.board-cards { display: grid; gap: var(--ds-space-2); }
-.board-item { position: relative; }
+.board-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ds-space-2); min-width: 0; }
+.board-item { position: relative; min-width: 0; }
+/* Trello's drag (Colly, 12 November 2026): the lifted card rides above the rest, which slide aside to open its gap. */
+.board-cards[data-sorting] .board-item { transition: transform var(--ds-duration-fast) var(--ds-ease-standard); }
+.board-cards[data-sorting] .board-item[data-dragging='true'] { z-index: 3; transition: none; }
+@media (prefers-reduced-motion: reduce) { .board-cards[data-sorting] .board-item { transition: none; } }
 .board-item:has(.board-grip) .board-card > :is(b, p) { padding-inline-end: 32px; }
 .app .board-grip { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 44px; height: 44px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-box); background: none; color: var(--muted); cursor: grab; touch-action: none; }
 .app .board-grip .icon { width: 18px; height: 18px; }
@@ -207,10 +211,7 @@
 .board-item .board-owned > .board-card { background-image: none; box-shadow: none; outline: 0; }
 .board-cards[data-holding] .board-item[data-dragging='true'] .board-owned > .board-card { outline: 0; }
 /* Where a dragged card will land, drawn before it's let go; nothing else moves (the design system's drag and drop). */
-.board-item[data-drop]::before { content: ''; position: absolute; left: 0; right: 0; height: 2px; border-radius: 1px; background: var(--accent); }
-.board-item[data-drop='before']::before { top: calc(-1 * var(--ds-space-2) / 2 - 1px); }
-.board-item[data-drop='after']::before { bottom: calc(-1 * var(--ds-space-2) / 2 - 1px); }
-.app .board-card { display: grid; gap: 2px; padding: var(--ds-space-2) var(--inset-box); background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); color: inherit; text-decoration: none; }
+.app .board-card { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: break-word; gap: 2px; padding: var(--ds-space-2) var(--inset-box); background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); color: inherit; text-decoration: none; }
 .app .board-card b { font-size: var(--text-body); line-height: 1.25; }
 .app .board-card p { margin: 0; font-size: var(--text-small); color: var(--muted); }
 .board-line { margin-top: var(--ds-space-1); font-size: var(--text-small); color: var(--muted); }
@@ -219,7 +220,7 @@
 /* Who has the stage the job is in, at the card's foot (ADR 0144): the card and its foot are one box, the link above and the
    stage's own Down to under it, so changing who has it never opens the job. The column names the stage, so the foot is a person
    and a name: a select with no edge until it's pointed at, still the full 44px every field is, for gloves. */
-.app .board-owned { display: grid; background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); }
+.app .board-owned { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); }
 .app .board-owned > .board-card { background: transparent; border: 0; padding-bottom: 0; }
 .stage-owner { display: flex; align-items: center; gap: var(--ds-space-1); margin: 0; padding: 0 calc(var(--inset-box) - var(--ds-space-2)) var(--ds-space-1) var(--inset-box); font-size: var(--text-small); color: var(--muted); }
 p.stage-owner { min-height: 44px; }
