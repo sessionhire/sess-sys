@@ -35,6 +35,7 @@ const DOCS = [
   ['Native iPhone and Android apps', 'docs/research/native-apps.md'],
   ['Job offers over WhatsApp', 'docs/research/whatsapp-offers.md'],
   ['Stock tracking', 'docs/research/stock-tracking.md'],
+  ['Label printers and where to buy them', 'docs/research/label-printers.md'],
   ['Rentdeck, set beside the app', 'docs/research/competitor-rentdeck.md'],
   ['Competitor audit', 'docs/research/competitor-audit.md'],
   ['How booking works today', 'docs/research/current-process.md'],
