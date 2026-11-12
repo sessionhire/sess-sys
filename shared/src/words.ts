@@ -73,6 +73,59 @@ export const HOLD_WORDS = {
   toOffice: "Hold the day: the client hasn't said yes yet. Crew are asked to keep it free, and nothing is booked until they do.",
 } as const
 
+/**
+ * Where someone stood on an offer of theirs before a change: asked (answered yes or not yet), booked, or picked to hold
+ * the day on a job the client hasn't said yes to yet (ADR 0150).
+ */
+export type OfferStanding = 'asked' | 'booked' | 'hold'
+
+/** What someone else's change did to a person's own offer, for the sentence that tells them (`offerNews`). */
+export type OfferNews =
+  | { kind: 'offered' }
+  | { kind: 'booked'; hold: boolean; theirRate: boolean }
+  | { kind: 'rate-not-agreed' }
+  | { kind: 'withdrawn'; was: OfferStanding }
+  | { kind: 'call-cancelled'; was: OfferStanding }
+  | { kind: 'job-stopped'; job: 'cancelled' | 'lost'; was: OfferStanding }
+  | { kind: 'filled'; taker: string | null }
+  | { kind: 'job-confirmed' }
+
+/**
+ * Someone else's change to a person's own offer, said to them (audit of 12 November 2026, finding 17): on their
+ * notifications, first, where the history names them as anyone else would ("Confirmed Aoife Byrne for…", "Withdrew the
+ * offer of … to Aoife Byrne"). Booked and "Hold the day" in the words their invite, their page and Home use (ADR 0150), and
+ * a job confirmed while they hold the day is their booking. Someone else's yes that filled the call was the first of these
+ * (audit of 5 November 2026, finding 61).
+ */
+export function offerNews(n: OfferNews, role: string, project: string): string {
+  const what = `${role} on ${project}`
+  // What's over for them, ending a sentence, naming the role where the sentence hasn't.
+  const over = (was: OfferStanding, named?: string) =>
+    was === 'booked'
+      ? `you're no longer booked${named ? ` as ${named}` : ''}`
+      : was === 'hold'
+        ? `you no longer need to hold the day${named ? ` for ${named}` : ''}`
+        : `your offer${named ? ` of ${named}` : ''} is closed`
+  switch (n.kind) {
+    case 'offered':
+      return `You've been offered ${what}`
+    case 'booked':
+      return n.hold ? `${HOLD_WORDS.name}: you're down as ${what}` : `You're booked as ${what}${n.theirRate ? ', at the rate you asked for' : ''}`
+    case 'rate-not-agreed':
+      return `Your rate for ${what} wasn't agreed, so the offer stands at the rate offered`
+    case 'withdrawn':
+      return n.was === 'booked' ? `You're no longer booked as ${what}` : n.was === 'hold' ? `You no longer need to hold the day for ${what}` : `Your offer of ${what} was withdrawn`
+    case 'call-cancelled':
+      return `${what} was cancelled, so ${over(n.was)}`
+    case 'job-stopped':
+      return `${project} ${n.job === 'lost' ? "didn't go ahead" : 'was cancelled'}, so ${over(n.was, role)}`
+    case 'filled':
+      return n.taker ? `${what} went to ${n.taker}, so your offer is closed` : `${what} is filled, so your offer is closed`
+    case 'job-confirmed':
+      return `${project} is confirmed, so you're booked as ${role}`
+  }
+}
+
 /** A crew member's state on a call sheet, which lists only those offered, holding or booked. */
 export const SHEET_WORDS = {
   booked: OFFER_WORDS.confirmed,

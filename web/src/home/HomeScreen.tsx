@@ -95,7 +95,9 @@ export function HomeScreen() {
           views={<ViewChoice label="Show for" choices={FOR} current={shownFor} onChoose={(f) => choose({ for: f, department })} />}
         />
 
-        {/* The job steps given to whoever is looking (ADR 0073): their to-do list, on top of whichever view. */}
+        {/* An offer waiting on whoever is looking, on top of whichever view (audit of 12 November 2026, finding 17); Me lists them under
+            Your bookings. Then the job steps given to them (ADR 0073): their to-do list, on top of whichever view. */}
+        {me && shownFor !== 'me' && <MyOffers view={view} today={today} me={me} />}
         {me && <MySteps view={view} me={me} all={shownFor === 'me'} />}
         {shownFor === 'company' && <ForCompany view={view} today={today} me={me} />}
         {shownFor === 'department' && (
@@ -905,6 +907,40 @@ function YourDay({ view, today, me, mine }: { view: View; today: string; me: Per
           ))}
         </ul>
       )}
+    </section>
+  )
+}
+
+/**
+ * The offers waiting on whoever is looking (audit of 12 November 2026, finding 17), on top of the Company, Department and
+ * Warehouse views as their tasks are: someone who books crew opens those, and an offer to them was only under Me and in
+ * the bell. The same rows as Me's, soonest first, under the name their own page gives the list, each opening where it's
+ * answered: the job's page for someone who answers in the app (ADR 0111), otherwise their page. Nothing while there are none.
+ */
+function MyOffers({ view, today, me }: { view: View; today: string; me: PersonView }) {
+  const answers = useAccess().can('answer')
+  const holdTheDay = useHoldTheDay()
+  const waiting = soonestFirst(
+    view.crew.calls
+      .filter((c) => c.status === 'open' && c.end >= today)
+      .flatMap((c) => c.offers.filter((o) => o.personId === me.id && OPEN.includes(o.status)).map((o) => ({ c, o }))),
+    today,
+    asBooking,
+  )
+  if (waiting.length === 0) return null
+  const link = linkFor(me)
+  return (
+    <section className="card my-offers" aria-labelledby="my-offers-title">
+      <Heading icon="calendar" id="my-offers-title">
+        Offers waiting on you ({waiting.length})
+      </Heading>
+      <ul className="job-list">
+        {waiting.map(({ c, o }) => (
+          <li key={o.id}>
+            <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} {...(answers && c.projectId ? { answerAt: jobHref(c) } : {})} hold={holdTheDay(c.projectId)} />
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

@@ -1,4 +1,4 @@
-import { irishToday, itemLogWords, newId, type CrewListPreview, type ItemLogPage, type Mutation, type MutationResult, type Person, type StockListReading, type StockListResult } from '@sh/shared'
+import { irishToday, itemLogWords, newId, type CrewListPreview, type ItemLogPage, type Mutation, type MutationResult, type NoticesPage, type Person, type StockListReading, type StockListResult } from '@sh/shared'
 import { strFromU8, unzipSync } from 'fflate'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -203,6 +203,39 @@ describe.skipIf(!url)('real Postgres, many devices at once', () => {
       expect(files['tables/people.csv']).not.toContain('link_token')
       expect(JSON.parse(files['everything.json']!).mutations[0].received_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\+00:00$/)
       expect((await colly.history('?limit=1')).entries[0]).toMatchObject({ what: `Downloaded everything (${rows} rows)`, deviceCode: 'c0ffee' })
+    } finally {
+      await app.close()
+      await db.close()
+    }
+  })
+
+  it("says to someone what others did to an offer of theirs, as on PGlite (audit of 12 November 2026, finding 17)", async () => {
+    const db = postgresDb(url!)
+    await db.exec('DROP SCHEMA public CASCADE; CREATE SCHEMA public')
+    const app = await buildApp({ db, auth: { provider: {} as IdentityProvider, domains: ['sessionhire.com'], emails: [] } })
+    try {
+      const colly = await staff(app, db, 'Colly Hewson', IPHONE, 'phone-c0ffee')
+      const aoife = await staff(app, db, 'Aoife Byrne', IPHONE, 'phone-a1b2c3')
+      await colly.send('person.upsert', { id: 'aoife', name: 'Aoife Byrne', kind: 'staff', email: 'aoife@sessionhire.com', phone: null, skills: [], dayRateCents: null, notes: '' })
+      await colly.send('project.create', { id: 'j1', name: 'Harbour Lights', clientId: null, venueId: null, status: 'enquiry', notes: '' })
+      await colly.send('phase.add', { id: 'show', projectId: 'j1', name: 'Show', start: '2026-10-02', end: '2026-10-02', venueId: null, notes: '' })
+      const call = { project: 'Harbour Lights', phase: 'Show', venue: '', start: '2026-10-02', end: '2026-10-02', callTime: '08:00', needed: 1, dayRateCents: 25000, details: '', replyBy: null }
+      await colly.send('call.create', { ...call, id: 'c1', projectId: 'j1', phaseId: 'show', role: 'Audio tech' } as never)
+      await colly.send('call.create', { ...call, id: 'c2', projectId: 'j1', phaseId: 'show', role: 'Rigger' } as never)
+      await colly.send('offer.send', { id: 'o1', callId: 'c1', personId: 'aoife', override: false })
+      await colly.send('offer.send', { id: 'o2', callId: 'c2', personId: 'aoife', override: false })
+      await aoife.send('offer.respond', { id: 'o1', answer: 'accept', days: null, note: '' } as never)
+      await colly.send('offer.confirm', { id: 'o1' })
+      await colly.send('project.update', { id: 'j1', status: 'confirmed' })
+      await colly.send('project.update', { id: 'j1', status: 'cancelled' })
+      const res = await app.inject({ url: '/api/notices', cookies: aoife.cookies })
+      expect(res.statusCode).toBe(200)
+      const said = (res.json() as NoticesPage).notices.filter((n) => n.said).map((n) => [n.command, n.said])
+      // Booked on one call and only asked on the other when it stopped: said for the booking, the place that mattered most.
+      expect(said).toEqual([
+        ['project.update', "Harbour Lights was cancelled, so you're no longer booked as Audio tech"],
+        ['offer.confirm', "Hold the day: you're down as Audio tech on Harbour Lights"],
+      ])
     } finally {
       await app.close()
       await db.close()

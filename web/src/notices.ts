@@ -1,4 +1,4 @@
-import { dsDuration, dsTiming, HOLDING, irishToday, makerOf, noticeLines, NOTICE_ENTITIES, NOTICE_WHY_WORDS, OPEN, plural, type Notice, type NoticeLine, type NoticesPage, type View } from '@sh/shared'
+import { dsDuration, dsTiming, HOLDING, irishToday, makerOf, noticeLines, NOTICE_ENTITIES, NOTICE_WHY_WORDS, offerNews, OPEN, plural, type Notice, type NoticeLine, type NoticesPage, type View } from '@sh/shared'
 import { useSyncExternalStore } from 'react'
 import { currentAuth, markSignedOut, onAuth } from './auth.ts'
 import { linkFor } from './crew/Messages.tsx'
@@ -183,7 +183,7 @@ export function offerToYou(n: Pick<Notice, 'command' | 'why' | 'about'>, view: V
     // Their page draws it while its call is open and not over: under the offers waiting on them, or as its own card once held.
     const link = o.person && c.status === 'open' && c.end >= irishToday() ? linkFor(o.person) : ''
     const at = !link ? undefined : OPEN.includes(o.status) ? `${link}#offers` : HOLDING.includes(o.status) ? `${link}#o-${o.id}` : undefined
-    return { what: `You've been offered ${c.role} on ${c.project}`, ...(at ? { href: at } : {}) }
+    return { what: offerNews({ kind: 'offered' }, c.role, c.project), ...(at ? { href: at } : {}) }
   }
   return undefined
 }

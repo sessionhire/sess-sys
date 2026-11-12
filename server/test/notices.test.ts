@@ -118,6 +118,75 @@ describe('notifications', () => {
     expect((await notices(colly)).notices.some((n) => n.said)).toBe(false)
   })
 
+  it('says to someone what others did to an offer of theirs, as it stood then (audit of 12 November 2026, finding 17)', async () => {
+    // Proves: a member of staff's own offers are said to them first, "You're booked as…", "Your offer of… was withdrawn", in
+    // place of the history's words about them ("Confirmed Aoife Byrne for…"), which stay under it: booked, or down to hold
+    // the day on a job the client hasn't said yes to, then booked when it's confirmed; a rate not agreed; withdrawn; their
+    // call cancelled; their job stopped. Each row says what was so at the time, though the job has moved on since, and
+    // nobody else's list says any of it to them.
+    const { colly, aoife, notices } = await setUp()
+    const said = async (command: string) => {
+      const n = (await notices(aoife)).notices.find((x) => x.command === command)
+      expect(n?.why).toBe('you')
+      return [n?.said, n?.what]
+    }
+    const said_ = async (id: string) => (await notices(aoife)).notices.find((x) => x.id === id)
+
+    // Booked on a confirmed job, then released.
+    await colly.send('offer.send', { id: 'o1', callId: 'c1', personId: 'aoife', override: false })
+    await aoife.send('offer.respond', { id: 'o1', answer: 'accept', days: null, note: '' } as never)
+    await colly.send('offer.confirm', { id: 'o1' })
+    expect(await said('offer.confirm')).toEqual(["You're booked as Audio tech on Electric Picnic", 'Confirmed Aoife Byrne for Audio tech on Electric Picnic'])
+    await colly.send('offer.cancel', { id: 'o1' })
+    expect(await said('offer.cancel')).toEqual(["You're no longer booked as Audio tech on Electric Picnic", 'Withdrew the offer of Audio tech on Electric Picnic to Aoife Byrne'])
+
+    // A rate she asked for, not agreed; then the offer withdrawn before she answered again.
+    await colly.send('call.create', { ...call, id: 'c2', role: 'Rigger' })
+    await colly.send('offer.send', { id: 'o2', callId: 'c2', personId: 'aoife', override: false })
+    await aoife.send('offer.respond', { id: 'o2', answer: 'counter', counterRateCents: 30000, days: null, note: '' } as never)
+    await colly.send('offer.refuse', { id: 'o2' })
+    expect((await said('offer.refuse'))[0]).toBe("Your rate for Rigger on Electric Picnic wasn't agreed, so the offer stands at the rate offered")
+    await colly.send('offer.cancel', { id: 'o2' })
+    expect((await notices(aoife)).notices[0]).toMatchObject({ command: 'offer.cancel', said: 'Your offer of Rigger on Electric Picnic was withdrawn' })
+
+    // Her call cancelled under an open offer.
+    await colly.send('call.create', { ...call, id: 'c3', role: 'Lighting tech' })
+    await colly.send('offer.send', { id: 'o3', callId: 'c3', personId: 'aoife', override: false })
+    await colly.send('call.cancel', { id: 'c3' })
+    expect((await notices(aoife)).notices[0]).toMatchObject({ command: 'call.cancel', said: 'Lighting tech on Electric Picnic was cancelled, so your offer is closed' })
+
+    // On a job the client hasn't said yes to: down to hold the day, booked once it's confirmed, then the job cancelled.
+    await colly.send('project.create', { id: 'j2', name: 'Harbour Lights', clientId: null, venueId: null, status: 'enquiry', notes: '' })
+    await colly.send('phase.add', { id: 'show2', projectId: 'j2', name: 'Show', start: '2026-10-02', end: '2026-10-04', venueId: null, notes: '' })
+    await colly.send('call.create', { ...call, id: 'c4', projectId: 'j2', phaseId: 'show2', project: 'Harbour Lights', phase: 'Show' })
+    await colly.send('offer.send', { id: 'o4', callId: 'c4', personId: 'aoife', override: false })
+    await aoife.send('offer.respond', { id: 'o4', answer: 'accept', days: null, note: '' } as never)
+    await colly.send('offer.confirm', { id: 'o4' })
+    const held = (await notices(aoife)).notices[0]!
+    expect([held.command, held.said]).toEqual(['offer.confirm', "Hold the day: you're down as Audio tech on Harbour Lights"])
+    await colly.send('project.update', { id: 'j2', status: 'confirmed' })
+    const booked = (await notices(aoife)).notices[0]!
+    expect([booked.command, booked.said, booked.what]).toEqual(['project.update', "Harbour Lights is confirmed, so you're booked as Audio tech", 'Confirmed the job Harbour Lights'])
+    await colly.send('project.update', { id: 'j2', status: 'cancelled' })
+    expect((await notices(aoife)).notices[0]).toMatchObject({ command: 'project.update', said: "Harbour Lights was cancelled, so you're no longer booked as Audio tech" })
+    // The older row still says what was so then, the job since confirmed and cancelled.
+    expect((await said_(held.id))?.said).toBe("Hold the day: you're down as Audio tech on Harbour Lights")
+
+    // Confirmed while she was only asked, which books nobody, so nothing is said to her of it; then it didn't go ahead.
+    await colly.send('project.create', { id: 'j3', name: 'Castle Yard', clientId: null, venueId: null, status: 'quoted', notes: '' })
+    await colly.send('phase.add', { id: 'show3', projectId: 'j3', name: 'Show', start: '2026-10-02', end: '2026-10-04', venueId: null, notes: '' })
+    await colly.send('call.create', { ...call, id: 'c5', projectId: 'j3', phaseId: 'show3', project: 'Castle Yard', phase: 'Show' })
+    await colly.send('offer.send', { id: 'o5', callId: 'c5', personId: 'aoife', override: false })
+    await colly.send('project.update', { id: 'j3', status: 'confirmed' })
+    const asked = (await notices(aoife)).notices[0]!
+    expect([asked.command, asked.what, asked.said]).toEqual(['project.update', 'Confirmed the job Castle Yard', undefined])
+    await colly.send('project.update', { id: 'j3', status: 'lost' })
+    expect((await notices(aoife)).notices[0]).toMatchObject({ command: 'project.update', said: "Castle Yard didn't go ahead, so your offer of Audio tech is closed" })
+
+    // Only to her: nobody else's list says any of it.
+    expect((await notices(colly)).notices.some((n) => n.said)).toBe(false)
+  })
+
   it("tells the heads of a job's departments and the warehouse's that it's confirmed, and the office that its kit went out, once each", async () => {
     // Proves: move 12 of the UX sweep of 6 November 2026: the two hand-offs reach the people whose turn it is, in the app, once per transition per job, never to the one who did it.
     const { app, db, colly, notices } = await setUp()
