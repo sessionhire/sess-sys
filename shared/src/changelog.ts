@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: "A job's status, who has it and Next, in one column at the top right",
     what: "The top right of a job page now reads the same at every stage, from the top down: the job's status (Enquiry, Quoted, Confirmed and so on) level with its name, then who has the job, then the red Next button. Change who has it right there: type a name or press the arrow, and a small spinner then a green tick show it's saved before the arrow comes back. It gives that person the whole stage the job is in, as the Board does. Next now says what's left to do, such as Offer the Rigger · 3 to offer, with a small pie in the button that fills as the step gets done. The Next line over the button and Hand it on are gone, and where the job is in its five stages is the short line under its name. On a phone, Next stays at the foot of the screen.",
-    prs: [],
+    prs: [355],
     adrs: [161],
   },
   {
