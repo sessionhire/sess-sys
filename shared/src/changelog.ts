@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: 'Crew rows and cards say more about what crew were told',
     what: "An offer's row now says whether the WhatsApp that followed it arrived, such as \"A WhatsApp saying they're booked was read\", or that it wasn't sent and why. Before, the row only said where the offer itself got to. When agreeing a rate fills a call, the question before it now also names the offers still waiting that close with it, and the note after any Confirm or Agree that fills a call says what each of those people was sent. And a crew call across a job's phases that holds a day none of its phases has, such as a free day between the build and the show, now says so on its card: the crew on it are asked for that day too, with no calendar invite for it, so add a phase for that day or ask for crew for each phase.",
-    prs: [0],
+    prs: [365],
     adrs: [169],
   },
   {
