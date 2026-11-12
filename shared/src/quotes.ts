@@ -313,6 +313,11 @@ export interface QuoteSettings {
    * left out of the margin's cost, and the margin says so.
    */
   ownKitCostPct?: number | null
+  /**
+   * Travel and warehouse days (ADR 0168): the share of a day rate a day of crew on one is paid and charged, as a
+   * percentage. Left out by a server from before it, or until set, and then it's half.
+   */
+  reducedDayPct?: number
 }
 export const QUOTE_SETTINGS_ID = 'quoting'
 
@@ -442,6 +447,7 @@ const KM_HINT = 'The distance is a whole number of km from 0 to 2,000.'
 const travelKm = z.number(wrongType(KM_HINT)).int(KM_HINT).min(0, KM_HINT).max(2000, KM_HINT)
 const FROM_HINT = 'Travel starts at a whole number of km from 0 to 1,000.'
 /** Said when the share own kit costs to run isn't a whole number from 0 to 90. */
+const REDUCED_HINT = 'A travel or warehouse day is a whole percentage of the day rate from 10 to 100, such as 50.'
 const OWN_KIT_HINT = 'What own kit costs to run is a whole percentage from 0 to 90.'
 const FUEL_HINT = 'The fuel price is in cent a litre, from 50 to 500, such as 174.9.'
 const fuelPrice = z.number(wrongType(FUEL_HINT)).min(50, FUEL_HINT).max(500, FUEL_HINT).refine((n) => Number.isInteger(Math.round(n * 1000) / 100), FUEL_HINT)
@@ -545,6 +551,8 @@ export const quoteCommandSchemas = {
   'quoting.online': z.object({ on: z.boolean() }),
   /** What own kit costs us to run, as a share of its price (finding 19 of the quote flow audit); null for not set. */
   'quoting.ownKit': z.object({ costPct: z.number(wrongType(OWN_KIT_HINT)).int(OWN_KIT_HINT).min(0, OWN_KIT_HINT).max(90, OWN_KIT_HINT).nullable() }),
+  /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0168), as a whole percentage. */
+  'quoting.reducedDays': z.object({ pct: z.number(wrongType(REDUCED_HINT)).int(REDUCED_HINT).min(10, REDUCED_HINT).max(100, REDUCED_HINT) }),
   /** A product's day price; null takes it off the price list. */
   'price.product': z.object({ modelId: id, dayCents: dayPrice.nullable(), rate: z.enum(RATE_RULES).optional() }),
   /**
@@ -786,6 +794,8 @@ export interface CrewToQuote {
 export interface PriceList {
   product(modelId: string): number | undefined
   role(role: string): number | undefined
+  /** A crew call's own price for a day, over its role's: a travel or warehouse day's, at its share of the role's (ADR 0168). */
+  crew?(c: CrewToQuote): number | undefined
   /** A product's rate rule (ADR 0085); Daily when none is set. */
   rate?(modelId: string): RateRule | undefined
 }
@@ -830,7 +840,7 @@ export function linesFor(kit: readonly KitToQuote[], crew: readonly CrewToQuote[
         group: 'Crew',
         qty: c.needed,
         days: Math.max(1, c.days),
-        unitCents: prices.role(c.role) ?? c.bookedCents ?? 0,
+        unitCents: prices.crew?.(c) ?? prices.role(c.role) ?? c.bookedCents ?? 0,
         vat: STANDARD_VAT,
         per: 'day',
       })

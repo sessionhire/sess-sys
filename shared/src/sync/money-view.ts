@@ -348,6 +348,11 @@ export function moneyView(
         quoting = { ...quoting, ownKitCostPct: a.costPct, pending: true }
         break
       }
+      case 'quoting.reducedDays': {
+        const a = m.args as CommandArgs<'quoting.reducedDays'>
+        quoting = { ...quoting, reducedDayPct: a.pct, pending: true }
+        break
+      }
       case 'quoting.online': {
         const a = m.args as CommandArgs<'quoting.online'>
         quoting = { ...quoting, acceptOnline: a.on, pending: true }

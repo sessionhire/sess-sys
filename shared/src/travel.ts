@@ -226,6 +226,34 @@ export function extrasFor(o: {
   }
 }
 
+/**
+ * Travel and warehouse days (ADR 0168): a phase of a job whose name starts with Travel ("Travel", "Travel day", "Travel
+ * home") or Warehouse ("Warehouse", "Warehouse day"), when the crew get to or from work far away or work in the
+ * warehouse. Crew on one are paid a share of the day rate, half unless the office says otherwise in Admin, and charged
+ * the same share of their role's price.
+ */
+export type ReducedDay = 'travel' | 'warehouse'
+export const REDUCED_DAY_LABELS: Record<ReducedDay, string> = { travel: 'travel day', warehouse: 'warehouse day' }
+export function reducedDay(phase: string | null | undefined): ReducedDay | undefined {
+  const n = phase?.trim() ?? ''
+  return /^travel\b/i.test(n) ? 'travel' : /^warehouse\b/i.test(n) ? 'warehouse' : undefined
+}
+
+/** Half a day rate, until the office sets another share. */
+export const DEFAULT_REDUCED_DAY_PCT = 50
+export const reducedDayPct = (s: Pick<QuoteSettings, 'reducedDayPct'> | undefined) => s?.reducedDayPct ?? DEFAULT_REDUCED_DAY_PCT
+
+/** So much of a day rate, to the cent. */
+export const shareOf = (cents: number, pct: number) => Math.round((cents * pct) / 100)
+
+/**
+ * What a day of crew on a phase is charged on the quote: on a travel or warehouse day, the share of the role's price;
+ * else undefined, for the role's own price as on any phase.
+ */
+export function reducedCharge(phase: string | null | undefined, roleCents: number | undefined, s: Pick<QuoteSettings, 'reducedDayPct'> | undefined): number | undefined {
+  return reducedDay(phase) && roleCents !== undefined ? shareOf(roleCents, reducedDayPct(s)) : undefined
+}
+
 /** The fuel price read from AA Ireland's monthly survey (ADR 0086), offered to the office to save. */
 export interface FuelPriceFound {
   /** Diesel at the pump, cent a litre, to one place. */

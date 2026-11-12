@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { priceWords, quoteLine, quoteTotals, versionChanges, type QuoteLine } from '../src/quotes.ts'
-import { crewDays, DUBLIN_CENTRE, extrasFor, fuelCents, kmBetween, roadKmFromDublin, travelSettingsOf } from '../src/travel.ts'
+import { linesFor, priceWords, quoteLine, quoteTotals, versionChanges, type QuoteLine } from '../src/quotes.ts'
+import { crewDays, DUBLIN_CENTRE, extrasFor, fuelCents, kmBetween, reducedCharge, reducedDay, reducedDayPct, roadKmFromDublin, shareOf, travelSettingsOf } from '../src/travel.ts'
 
 /**
  * Travel and subsistence (ADR 0086): how far a venue is from Dublin city
@@ -140,5 +140,30 @@ describe("the crew's accommodation (ADR 0156)", () => {
     expect(priceWords(a!)).toBe('a night')
     expect(priceWords(crew())).toBe('a day')
     expect(priceWords(crew({ per: 'once' }))).toBe('once')
+  })
+})
+
+describe('travel and warehouse days (ADR 0168)', () => {
+  it('knows one by its phase name', () => {
+    expect(['Travel', 'travel day', ' Travel out', 'Travel home', 'Warehouse', 'warehouse day'].map(reducedDay)).toEqual(['travel', 'travel', 'travel', 'travel', 'warehouse', 'warehouse'])
+    for (const n of ['Show', 'Travelling circus', '', null, undefined, 'Load in', 'Prep']) expect(reducedDay(n)).toBeUndefined()
+  })
+  it("charges their crew half the role's price, or the share set, and other phases the role's", () => {
+    const role = (r: string) => (r === 'Sound No.1' ? 42000 : undefined)
+    const prices = (s: { reducedDayPct?: number }) => ({ product: () => undefined, role, crew: (c: { role: string; phase?: string }) => reducedCharge(c.phase, role(c.role), s) })
+    const crew = [
+      { id: 'a', role: 'Sound No.1', phase: 'Travel', needed: 2, days: 1, bookedCents: 15000 },
+      { id: 'b', role: 'Sound No.1', phase: 'Show', needed: 2, days: 2, bookedCents: 30000 },
+      { id: 'c', role: 'Sound No.1', phase: 'Warehouse', needed: 1, days: 1, bookedCents: 15000 },
+      { id: 'd', role: 'Stagehand', phase: 'Travel home', needed: 4, days: 1, bookedCents: 9000 },
+    ]
+    let n = 0
+    expect(linesFor([], crew, prices({}), () => `l${n++}`).map((l) => l.unitCents)).toEqual([21000, 42000, 21000, 9000])
+    expect(linesFor([], crew, prices({ reducedDayPct: 60 }), () => `l${n++}`).map((l) => l.unitCents)).toEqual([25200, 42000, 25200, 9000])
+  })
+  it('works out a share to the cent', () => {
+    expect(shareOf(25000, 50)).toBe(12500)
+    expect(shareOf(33333, 50)).toBe(16667)
+    expect(reducedDayPct(undefined)).toBe(50)
   })
 })
