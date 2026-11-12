@@ -528,6 +528,11 @@ Finding 19, asking for the same crew again, is in 1.179.0
 thing: the same calls come back, with their days, time, rate and notes,
 rather than being made again, and the job's Next button does it as well as
 the card.
+Finding 17, a member of staff's own offers said to them, is in 1.181.0
+([ADR 0165](adr/0165-your-offers-said-to-you.md)). It goes one step
+further than the fix: a job confirmed while they hold the day for it is
+said as their booking, and a change that ended their offer says why, the
+call cancelled or the job stopped.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -564,7 +569,8 @@ the card.
    question 3. **First part done in 1.173.0**: the invites for jobs
    brought in, and a fresh invitation after a No. **A call's days tied to
    its phase done in 1.174.1. Undo on an offer done in 1.178.0. Asking for
-   the same crew again done in 1.179.0.**
+   the same crew again done in 1.179.0. Staff notices said to them done in
+   1.181.0.**
 
 ## Questions for Colly
 

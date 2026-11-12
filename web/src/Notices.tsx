@@ -281,10 +281,19 @@ function LineRow({ line, day, mark, view }: { line: NoticeLine; day: string; mar
         <summary>Show {line.notices.length === 2 ? 'both' : `all ${line.notices.length}`}</summary>
         <ol>
           {line.notices.map((n) => {
-            const href = placeOf(n, view)
+            // Said to them here as on a line of its own: an offer to them opens their page, where it's answered.
+            const yours = offerToYou(n, view)
+            const what = yours?.what ?? n.said ?? n.what
+            const href = yours?.href ?? placeOf(n, view)
             return (
               <li key={n.id}>
-                {href ? <a href={href}>{n.said ?? n.what}</a> : (n.said ?? n.what)}
+                {href ? (
+                  <a href={href} {...(yours?.href ? { target: '_blank', rel: 'noreferrer' } : {})}>
+                    {what}
+                  </a>
+                ) : (
+                  what
+                )}
                 {n.said && <span className="for-you"> {n.what}</span>}
                 {n.forYou && <span className="for-you"> {n.forYou}</span>}
                 <span className="meta">

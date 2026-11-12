@@ -605,6 +605,62 @@ test('Me says Your bookings as their own link does: its glance line, a row each,
   await expect(hers.getByRole('article').filter({ hasText: `Bookings check ${run}` }).locator('.tag')).toHaveText('Waiting on you')
 })
 
+test('an offer waiting on you is on top of Home whichever view is open, and answered on its job', async ({ browser, request }) => {
+  // Proves (audit of 12 November 2026, finding 17): a member of staff who books crew opens Company, Department or Warehouse,
+  // where nothing said an offer was waiting on them; it was only under Me and in the bell. Now it's on top of each, as their
+  // tasks are, under the name their own page gives the list, each row opening the job, whose "You on this job" answers it
+  // (ADR 0111). Me keeps it in Your bookings, so it isn't said twice there.
+  const id = Date.now().toString(36)
+  const job = `Waiting Gala ${id}`
+  const name = `Saoirse Waits${id}`
+  const soon = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10)
+  await push(request, id, [
+    ['person.upsert', { id: `p-${id}`, name, kind: 'staff', email: null, phone: null, skills: [], dayRateCents: null, notes: '' }],
+    ['project.create', { id: `j-${id}`, name: job, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: `ph-${id}`, projectId: `j-${id}`, name: 'Show', start: soon, end: soon, venueId: null, notes: '' }],
+    [
+      'call.create',
+      { id: `c-${id}`, projectId: `j-${id}`, phaseId: `ph-${id}`, project: job, phase: 'Show', venue: '', role: 'Audio tech', start: soon, end: soon, callTime: '08:00', needed: 1, dayRateCents: null, details: '', replyBy: null },
+    ],
+    ['offer.send', { id: `o-${id}`, callId: `c-${id}`, personId: `p-${id}`, override: false }],
+  ])
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  // With sign-in off, the device takes the person's word for who they are.
+  await page.goto('/#crew/leave')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByLabel('Your name').selectOption({ label: name })
+  await page.getByRole('button', { name: "That's me" }).click()
+
+  await page.goto('/#home')
+  const views = page.getByRole('group', { name: 'Show for' })
+  const waiting = page.getByRole('region', { name: 'Offers waiting on you (1)' })
+  for (const view of ['Company', 'Department', 'Warehouse']) {
+    await views.getByRole('button', { name: view, exact: true }).click()
+    await expect(waiting, view).toBeVisible()
+    // On top, over anything else the view has.
+    expect(await page.locator('main .card').first().getAttribute('class'), view).toContain('my-offers')
+  }
+  const row = waiting.getByRole('link', { name: new RegExp(`^${job}`) })
+  await expect(row).toContainText(/Audio tech\s·\sShow\s·/)
+  await expect(row.locator('.pill')).toHaveText('Offered')
+  await expect(row).toContainText('Answer it ›')
+  await expect(row).toHaveAttribute('href', `#jobs/j-${id}`)
+
+  // Me has it in Your bookings, with the glance line counting it, and no second card.
+  await views.getByRole('button', { name: 'Me', exact: true }).click()
+  await expect(page.locator('.my-glance')).toContainText('1 offer to answer')
+  await expect(page.getByRole('region', { name: /^Offers waiting on you/ })).toHaveCount(0)
+
+  // Answered on the job, it's off the top of the other views.
+  await views.getByRole('button', { name: 'Company', exact: true }).click()
+  await row.click()
+  await expect(page.getByRole('heading', { level: 1, name: job })).toBeVisible()
+  await page.getByRole('region', { name: 'You on this job' }).getByRole('button', { name: 'Yes, I can do it' }).click()
+  await page.goto('/#home')
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+  await expect(page.getByRole('region', { name: /^Offers waiting on you/ })).toHaveCount(0)
+})
+
 test("a row on Home that names a job's part lands on that part, in view, with its tab open", async ({ browser, request }) => {
   // Proves (UX sweep, 6 November 2026, move 8): an address that names a part of a job lands on it however it's reached, as Next brings
   // its part (ADR 0109). A task from Your tasks comes to the top under the bar with the focus on its name and the part it's about open

@@ -3,6 +3,29 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: your own offers said to you, and on top of Home
+
+**Done (1.181.0)**
+
+- The last part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  finding 17 ([ADR 0165](adr/0165-your-offers-said-to-you.md)).
+- What others do to a member of staff's own offer is said to them first on
+  their notifications, with the history's words under it: "You're booked
+  as …", "Hold the day: you're down as …" and, once the client says yes,
+  "… is confirmed, so you're booked as …", "Your rate for … wasn't
+  agreed", "Your offer of … was withdrawn", "You're no longer booked as …",
+  "… was cancelled, so your offer is closed", "… didn't go ahead, so your
+  offer of … is closed". Each is read as things stood at that change. An
+  offer made to them is said to them inside a folded line too.
+- Home's Company, Department and Warehouse views have "Offers waiting on
+  you" on top, as tasks are, each row opening its job to answer it; Me
+  keeps them in Your bookings.
+- Checked: typecheck; a shared test of every sentence; server tests
+  (booked, hold the day then confirmed, a rate not agreed, withdrawn,
+  a call cancelled, a job cancelled and one lost, nobody else told), with
+  the same against a local Postgres 16; a browser test of the card on
+  each view, answered on its job.
+
 ## 12 November 2026: ask for the same crew again
 
 **Done (1.179.0)**
