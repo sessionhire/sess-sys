@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.173.0',
+    date: '2026-11-12',
+    title: 'Crew offered a job brought in from Google Calendar get their own calendar invite',
+    what: "With crew invites on, offering someone a job that came in from the organisers' Google Calendars now emails them their own invite for each day, as an offer on one of the app's own jobs does, and the Offer form says so before you press it. Their answers in Google come back to the app, and the organiser's own events are left as they are. The offers already on those jobs get nothing new, and each says why: the organiser invited them in Google Calendar, or they were offered before these jobs sent invites. And someone who said no in Google Calendar and is offered the same days again now gets a fresh invitation to answer, where before their old no stood and nothing went.",
+    prs: [0],
+    adrs: [157],
+  },
+  {
     version: '1.172.1',
     date: '2026-11-12',
     title: "A job's Vans tab is now called Transport",

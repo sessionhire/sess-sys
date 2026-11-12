@@ -149,4 +149,7 @@ that nothing leaves the app, and then presses Withdraw to tidy up.
   news waits on Colly's answer to its question 4.
 - A fresh invitation after a No, and a person's own invite on a job
   brought in from Google Calendar, are not built: the row and the form say
-  that none went. They wait on question 3.
+  that none went. They wait on question 3. Both came in 1.173.0
+  ([ADR 0157](0157-own-invites-for-jobs-brought-in.md)): an offer made
+  since on such a job has its own invite, someone asked again after a No
+  gets a fresh invitation, and an older offer's row says why it has none.

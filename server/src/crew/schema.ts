@@ -323,6 +323,34 @@ const MIGRATIONS: string[] = [
   // A Yes in Google Calendar counts for its own day (ADR 0152): on an offer they've said yes to for some days, the days
   // they haven't answered, still asked and holding nothing.
   `ALTER TABLE offers ADD COLUMN IF NOT EXISTS asked jsonb NOT NULL DEFAULT '[]';`,
+  // Each person's own invite for a job brought in from Google Calendar (ADR 0157), for offers made from now on. The ones
+  // already on such jobs stay as they were, with none, and say why: 'before', made by the office's Offer while it was told
+  // nothing is sent for such a job; 'organiser', brought in with the job from the guests the organiser invited. So this
+  // emails nobody. Devices hear of each as it was last sent them, with the mark, as the server's own bookkeeping, so their
+  // rows say why no invite went.
+  `
+  SELECT pg_advisory_xact_lock(7331);
+  ALTER TABLE offers ADD COLUMN IF NOT EXISTS no_own_invite text CHECK (no_own_invite IN ('organiser', 'before'));
+  WITH sent AS (
+    SELECT DISTINCT m.args->>'id' AS id FROM mutations m WHERE m.name = 'offer.send' AND m.status = 'applied'
+  ),
+  marked AS (
+    UPDATE offers o SET no_own_invite = CASE WHEN o.id IN (SELECT id FROM sent) THEN 'before' ELSE 'organiser' END
+      FROM crew_calls c JOIN projects p ON p.id = c.project_id
+     WHERE c.id = o.call_id AND p.source_calendar IS NOT NULL AND o.no_own_invite IS NULL
+    RETURNING o.id, o.no_own_invite
+  ),
+  latest AS (
+    SELECT DISTINCT ON (ch.entity_id) ch.entity_id, ch.op, ch.data, m.no_own_invite
+      FROM changes ch JOIN marked m ON m.id = ch.entity_id
+     WHERE ch.entity = 'offer'
+     ORDER BY ch.entity_id, ch.seq DESC
+  )
+  INSERT INTO changes (entity, entity_id, op, data)
+  SELECT 'offer', entity_id, 'put', data || jsonb_build_object('noOwnInvite', no_own_invite)
+    FROM latest WHERE op = 'put' AND data IS NOT NULL
+   ORDER BY entity_id;
+  `,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }

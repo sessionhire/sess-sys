@@ -158,7 +158,8 @@ describe('who an offer goes to on WhatsApp', () => {
 })
 
 describe('who gets a calendar invite, by the server’s rule', () => {
-  const plan = (c: ReachContext, over: Partial<CrewCall> = {}, p: Person | undefined = aoife, on = [D1, D2]) => invitePlan(c, call(over), p, on)
+  const plan = (c: ReachContext, over: Partial<CrewCall> = {}, p: Person | undefined = aoife, on = [D1, D2], o?: Pick<Offer, 'noOwnInvite'>) =>
+    invitePlan(c, call(over), p, on, o)
 
   it('plans a day for each phase day the call covers, for someone with an address', () => {
     expect(plan(ctx())).toEqual({ rows: [{ phaseId: 'show', day: D1 }, { phaseId: 'show', day: D2 }], days: [D1, D2], why: undefined })
@@ -187,7 +188,9 @@ describe('who gets a calendar invite, by the server’s rule', () => {
     expect(plan(ctx({ link: link({ state: 'reconnect' }) })).why).toBe('paused')
     expect(plan(ctx(), { projectId: null, phaseId: null }).why).toBe('no-job')
     expect(plan(ctx({ job: null })).why).toBe('unknown')
-    expect(plan(ctx({ job: job({ sourceCalendar: 'Gigs' }) })).why).toBe('brought-in')
+    expect(plan(ctx({ job: job({ sourceCalendar: 'Gigs' }) }), {}, aoife, [D1, D2], { noOwnInvite: 'organiser' }).why).toBe('organiser')
+    expect(plan(ctx({ job: job({ sourceCalendar: 'Gigs' }) }), {}, aoife, [D1, D2], { noOwnInvite: 'before' }).why).toBe('before')
+    expect(plan(ctx({ job: job({ sourceCalendar: 'Gigs' }), link: link({ account: null }) })).why).toBe('brought-in')
     expect(plan(ctx({ job: job({ status: 'lost' }) })).why).toBe('stopped')
     expect(plan(ctx(), { status: 'cancelled' }).why).toBe('stopped')
     expect(plan(ctx(), {}, aoife, ['2026-11-01']).why).toBe('past')
@@ -195,8 +198,24 @@ describe('who gets a calendar invite, by the server’s rule', () => {
     expect(plan(ctx({ job: job({ phases: [{ id: 'other', start: D1, end: D2 }] }) })).why).toBe('outside-phases')
     expect(plan(ctx(), {}, sean).why).toBe('no-email')
     expect(plan(ctx(), {}, { ...aoife, email: '  ' }).why).toBe('no-email')
-    // A job brought in from a calendar is the reason, whoever has no address.
-    expect(plan(ctx({ job: job({ sourceCalendar: 'Gigs' }) }), {}, sean).why).toBe('brought-in')
+    // An offer on a job brought in from a calendar that has no invite of its own: that's the reason, whoever has no address.
+    expect(plan(ctx({ job: job({ sourceCalendar: 'Gigs' }) }), {}, sean, [D1, D2], { noOwnInvite: 'organiser' }).why).toBe('organiser')
+  })
+
+  it('plans each person their own copy of a brought-in job’s days, but none for an offer that came before (ADR 0157)', () => {
+    const theirs = ctx({ job: job({ sourceCalendar: 'Gigs' }) })
+    // A new offer, and one made since: their own copies, as on the app's own jobs.
+    expect(plan(theirs)).toEqual({ rows: [{ phaseId: 'show', day: D1 }, { phaseId: 'show', day: D2 }], days: [D1, D2], why: undefined })
+    expect(plan(theirs, {}, aoife, [D1, D2], {}).why).toBeUndefined()
+    // One that came in with the job, from the guests the organiser invited, or was made before such jobs sent their own.
+    expect(plan(theirs, {}, aoife, [D1, D2], { noOwnInvite: 'organiser' })).toEqual({ rows: [], days: [], why: 'organiser' })
+    expect(plan(theirs, {}, aoife, [D1, D2], { noOwnInvite: 'before' })).toEqual({ rows: [], days: [], why: 'before' })
+    // A job of the app's own whose offer has the mark (a job handed over, or two combined) is planned as any other.
+    expect(plan(ctx(), {}, aoife, [D1, D2], { noOwnInvite: 'organiser' }).why).toBeUndefined()
+    // A copy of their own goes on the connected account's own calendar, so none without one.
+    expect(plan(ctx({ job: job({ sourceCalendar: 'Gigs' }), link: link({ account: null }) })).why).toBe('brought-in')
+    // Still no invite without an address.
+    expect(plan(theirs, {}, sean).why).toBe('no-email')
   })
 })
 
@@ -296,14 +315,30 @@ describe('the line on an offer’s row', () => {
     expect(said(ctx({ messages: true, link: link({ invites: false }) }), offer('o1', 'aoife'))).toEqual({ lines: [], contact: false })
   })
 
-  it('says a job brought in from Google Calendar gets no invite from the app, plainly: the organiser’s own may have gone (finding 1)', () => {
+  it('says why an offer on a job brought in from Google Calendar has no invite of its own, plainly (finding 1, ADR 0157)', () => {
     const theirs = ctx({ job: job({ sourceCalendar: 'Gigs' }) })
-    expect(said(theirs, offer('o1', 'aoife'))).toEqual({
-      lines: [{ text: "No invite from the app: this job came from Google Calendar, so its days are the organiser's.", tone: 'plain' }],
+    // Brought in with the job, from the guests the organiser invited.
+    expect(said(theirs, offer('o1', 'aoife', 'offered', { noOwnInvite: 'organiser' }))).toEqual({
+      lines: [{ text: 'No invite from the app: the organiser invited them in Google Calendar.', tone: 'plain' }],
       contact: true,
     })
+    // Made by the office before such jobs sent their own.
+    expect(said(theirs, offer('o1', 'aoife', 'offered', { noOwnInvite: 'before' }))).toEqual({
+      lines: [{ text: 'No invite from the app: it was offered before jobs from Google Calendar sent their own.', tone: 'plain' }],
+      contact: true,
+    })
+    // With nowhere of the app's own to put their copy.
+    expect(texts(ctx({ job: job({ sourceCalendar: 'Gigs' }), link: link({ account: null }) }), offer('o1', 'aoife'))).toEqual([
+      "No invite from the app: this job came from Google Calendar, so its days are the organiser's.",
+    ])
     // Someone booked there says nothing: hundreds of bookings came in with their jobs.
-    expect(said(theirs, offer('o1', 'aoife', 'confirmed', { respondedVia: 'calendar' }))).toEqual({ lines: [], contact: false })
+    expect(said(theirs, offer('o1', 'aoife', 'confirmed', { respondedVia: 'calendar', noOwnInvite: 'organiser' }))).toEqual({ lines: [], contact: false })
+    // An offer made since has its own, said as on any job.
+    expect(said(theirs, offer('o1', 'aoife'))).toEqual({ lines: [{ text: 'Calendar invite on its way.', tone: 'plain' }], contact: false })
+    expect(said(ctx({ job: job({ sourceCalendar: 'Gigs' }), days: days(row(D1, 'aoife', { offerId: 'o1' }), row(D2, 'aoife', { offerId: 'o1' })) }), offer('o1', 'aoife'))).toEqual({
+      lines: [{ text: 'Invited by email, 2 days. No answer yet.', tone: 'plain' }],
+      contact: false,
+    })
   })
 
   it('leaves every way out being off to the call to say once, and still offers ringing them', () => {
@@ -398,8 +433,18 @@ describe('the Offer form’s promise', () => {
     expect(promise(ctx({ messages: true }), [aoife, sean]).sentences).toEqual(['Pressing it emails Aoife a calendar invite for each day.', 'Seán has no email address, so no calendar invite.'])
   })
 
-  it('says nothing is sent for a job brought in from Google Calendar, a call with no job, or days outside the phases', () => {
-    expect(promise(ctx({ job: job({ sourceCalendar: 'Gigs' }) }), [aoife, sean])).toEqual({
+  it('promises a job brought in from Google Calendar its invites, as the app’s own jobs have them (ADR 0157)', () => {
+    const theirs = job({ sourceCalendar: 'Gigs' })
+    expect(promise(ctx({ job: theirs }), [aoife, sean])).toEqual(promise(ctx(), [aoife, sean]))
+    expect(promise(ctx({ job: theirs }), [aoife]).sentences).toEqual(['Pressing it emails them a calendar invite for each day.'])
+    expect(promise(ctx({ job: theirs, messages: true }), [aoife])).toEqual(promise(ctx({ messages: true }), [aoife]))
+    const on = { mode: 'on' as const, testTo: [] }
+    expect(promise(ctx({ job: theirs, whatsapp: on }), [aoife])).toEqual(promise(ctx({ whatsapp: on }), [aoife]))
+  })
+
+  it('says nothing is sent for a job brought in from Google Calendar without an account of its own, a call with no job, or days outside the phases', () => {
+    // A person's own copy goes on the connected account's own calendar: with none, a brought-in job's days are the organiser's alone.
+    expect(promise(ctx({ job: job({ sourceCalendar: 'Gigs' }), link: link({ account: null }) }), [aoife, sean])).toEqual({
       sentences: ["Nothing is sent for this job from the app: it came from Google Calendar, so its days are the organiser's."],
       silent: true,
       invites: false,
@@ -412,7 +457,7 @@ describe('the Offer form’s promise', () => {
 
   it('says only that no invite goes when the office sends its own messages', () => {
     const on = { messages: true }
-    expect(promise(ctx({ ...on, job: job({ sourceCalendar: 'Gigs' }) }), [aoife])).toEqual({
+    expect(promise(ctx({ ...on, job: job({ sourceCalendar: 'Gigs' }), link: link({ account: null }) }), [aoife])).toEqual({
       sentences: ["No calendar invite goes for this job: it came from Google Calendar, so its days are the organiser's."],
       silent: false,
       invites: false,
@@ -429,7 +474,7 @@ describe('the Offer form’s promise', () => {
       'The offer also goes to each of them on WhatsApp.',
       'Seán has no email address, so no calendar invite.',
     ])
-    expect(promise(ctx({ whatsapp: on, job: job({ sourceCalendar: 'Gigs' }) }), [aoife])).toEqual({
+    expect(promise(ctx({ whatsapp: on, job: job({ sourceCalendar: 'Gigs' }), link: link({ account: null }) }), [aoife])).toEqual({
       sentences: ['Pressing it sends the offer to them on WhatsApp.', "No calendar invite goes for this job: it came from Google Calendar, so its days are the organiser's."],
       silent: false,
       invites: false,
@@ -626,7 +671,25 @@ describe('the panel after a press', () => {
     expect(one(ctx({ days: days(row(D1, 'aoife', { offerId: 'o1' })) }), offer('o1', 'aoife', 'offered', { days: [D1] }))).toEqual(['Aoife was emailed a calendar invite.'])
     expect(one(ctx({ link: link({ problem: 'Google Calendar isn’t answering.' }) }))).toEqual(["The calendar invite to Aoife hasn't gone: the calendar has a problem. See Admin › Connections."])
     expect(one(ctx({ days: days(row(D1, 'aoife', undefined, { state: 'failed' }), row(D2, 'aoife', undefined, { state: 'failed' })) }))).toEqual(['Google turned down the calendar invite to Aoife: check the address.'])
-    expect(one(ctx({ job: job({ sourceCalendar: 'Gigs' }) }))).toEqual(["Nothing was sent to Aoife from the app: this job came from Google Calendar, so its days are the organiser's."])
+    // On a job brought in from Google Calendar, an offer that has no invite of its own says why (ADR 0157).
+    expect(one(ctx({ job: job({ sourceCalendar: 'Gigs' }) }), offer('o1', 'aoife', 'offered', { noOwnInvite: 'organiser' }))).toEqual([
+      'Nothing was sent to Aoife from the app: the organiser invited them in Google Calendar.',
+    ])
+    expect(one(ctx({ job: job({ sourceCalendar: 'Gigs' }) }), offer('o1', 'aoife', 'offered', { noOwnInvite: 'before' }))).toEqual([
+      'Nothing was sent to Aoife from the app: it was offered before jobs from Google Calendar sent their own.',
+    ])
+    const two = ctx({ job: job({ sourceCalendar: 'Gigs' }) })
+    expect(
+      toldSentences([
+        toldOfOffer(aoife, reach(two, offer('o1', 'aoife', 'offered', { noOwnInvite: 'before' }), aoife)),
+        toldOfOffer(tommo, reach(two, offer('o2', 'tommo', 'offered', { noOwnInvite: 'before' }), tommo)),
+      ])
+    ).toEqual(['Nothing was sent to Aoife and Tommo from the app: they were offered before jobs from Google Calendar sent their own.'])
+    expect(one(ctx({ job: job({ sourceCalendar: 'Gigs' }), link: link({ account: null }) }))).toEqual([
+      "Nothing was sent to Aoife from the app: this job came from Google Calendar, so its days are the organiser's.",
+    ])
+    // An offer made since on such a job has its own invite (ADR 0157).
+    expect(one(ctx({ job: job({ sourceCalendar: 'Gigs' }) }))).toEqual(['A calendar invite is on its way to Aoife by email.'])
     expect(one(ctx({ link: link({ invites: false }) }))).toEqual(['Nothing was sent to Aoife: calendar invites and WhatsApp are both off.'])
     const read = offer('o1', 'aoife', 'offered', { whatsapp: { state: 'read', at: '2026-11-12T10:00:00.000Z', problem: null } })
     expect(one(ctx({ whatsapp: { mode: 'on', testTo: [] } }), read)).toEqual(['A calendar invite is on its way to Aoife by email.', 'The offer went to Aoife on WhatsApp.'])
