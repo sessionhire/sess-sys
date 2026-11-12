@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { whatsappSetting } from '../office/store.ts'
 import { reachOf } from '../whatsapp/whatsapp.ts'
 import { queueBooked, queueCallTime, queueNotNeeded } from '../whatsapp/follow-ups.ts'
-import { certificateRefusal, certificatesAfter, daysBetween, daysLabel, DEFAULT_LEVEL, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
+import { ADD_A_PHASE, certificateRefusal, certificatesAfter, daysBetween, daysLabel, daysOffPhase, DEFAULT_LEVEL, MOVE_THE_PHASE, phaseDaysRule, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getPhase, getProject, namesForCall } from '../projects/store.ts'
 import { stopOwnCalendar } from './own-calendars.ts'
@@ -262,8 +262,8 @@ export async function moveCallsWithPhase(ctx: Ctx, phaseId: string, from: { star
  */
 async function callJob(ctx: Ctx, a: CommandArgs<'call.create'>) {
   let projectId = a.projectId
+  const phase = a.phaseId ? await getPhase(ctx.tx, a.phaseId) : undefined
   if (a.phaseId) {
-    const phase = await getPhase(ctx.tx, a.phaseId)
     if (!phase) throw new Refused({ code: 'not-found', message: 'That phase of the job no longer exists.' })
     if (projectId && projectId !== phase.projectId) throw new Refused({ code: 'invalid', message: 'That phase is part of a different job.' })
     projectId = phase.projectId
@@ -273,6 +273,8 @@ async function callJob(ctx: Ctx, a: CommandArgs<'call.create'>) {
   if (!job) throw new Refused({ code: 'not-found', message: 'That job no longer exists.' })
   if (STOPPED.includes(job.status))
     throw new Refused({ code: 'conflict', message: `${job.name} has been ${job.status === 'lost' ? 'marked as lost' : 'cancelled'}, so it needs no crew.` })
+  // Crew on a phase are asked for its days: a day outside them has no day on the calendar to invite anyone to (ADR 0159).
+  if (phase && daysOffPhase(a, phase).length) throw new Refused({ code: 'invalid', message: `${phaseDaysRule(phase)} ${ADD_A_PHASE}` })
   const names = await namesForCall(ctx.tx, projectId, a.phaseId)
   return { projectId, phaseId: a.phaseId, project: names!.project, phase: names!.phase ?? a.phase, venue: names!.venue ?? a.venue }
 }
@@ -547,6 +549,12 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     if (a.department !== undefined) next.department = (a.department ? tidyDepartment(a.department) : null)
     // One end may have moved on another device, so check the call as it will be.
     if (next.start > next.end) throw new Refused({ code: 'invalid', message: `${next.role} on ${next.project} would end before it starts.` })
+    // A call on a phase moves within the phase's days; the phase moves it further, taking its crew along (ADR 0159). A call
+    // already outside them from before keeps its days until they're changed, and its card says so.
+    if (call.phaseId && (a.start !== undefined || a.end !== undefined)) {
+      const phase = await getPhase(ctx.tx, call.phaseId)
+      if (phase && daysOffPhase(next, phase).length) throw new Refused({ code: 'invalid', message: `${phaseDaysRule(phase)} ${MOVE_THE_PHASE}` })
+    }
     // A reply-by day the change sets is asked for before the job is over, as when a call is made (audit finding 21). One a move of dates leaves behind is left to the office.
     if (a.replyBy && a.replyBy > next.end) throw new Refused({ code: 'invalid', message: REPLY_BY_AFTER })
     await changeCall(ctx, call, next)

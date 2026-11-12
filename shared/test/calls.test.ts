@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { commandSchemas, type Mutation } from '../src/commands.ts'
-import { dayLabel, daysLabel, MAX_OFFER_DAYS, movedCallSpan, offerDaysAfter, REPLY_BY_AFTER, suggestedReplyBy, type CrewCall, type Offer } from '../src/crew.ts'
+import {
+  dayLabel,
+  daysLabel,
+  daysOffPhase,
+  MAX_OFFER_DAYS,
+  movedCallSpan,
+  offerDaysAfter,
+  offPhaseLine,
+  phaseDaysRule,
+  REPLY_BY_AFTER,
+  suggestedReplyBy,
+  type CrewCall,
+  type Offer,
+} from '../src/crew.ts'
 import { addDays } from '../src/sync/plan.ts'
 import type { Phase } from '../src/jobs.ts'
 import { crewView } from '../src/sync/crew-view.ts'
@@ -60,6 +73,27 @@ const entities = {
 }
 
 const m = (name: Mutation['name'], args: object): Mutation => ({ id: `m-${name}`, name, args, createdAt: '2026-10-01T09:00:00Z' }) as Mutation
+
+describe("a call on a phase keeps to the phase's days", () => {
+  // Finding 11 of the audit of crew offers (12 November 2026; ADR 0159), in words the office reads on the forms, the refusals and the card.
+  const show = { name: 'Show', start: '2026-12-12', end: '2026-12-12' }
+  const build = { name: 'Build', start: '2026-12-10', end: '2026-12-11' }
+  it('finds the days outside the phase', () => {
+    expect(daysOffPhase({ start: '2026-12-12', end: '2026-12-12' }, show)).toEqual([])
+    expect(daysOffPhase({ start: '2026-12-13', end: '2026-12-13' }, show)).toEqual(['2026-12-13'])
+    expect(daysOffPhase({ start: '2026-12-09', end: '2026-12-12' }, build)).toEqual(['2026-12-09', '2026-12-12'])
+  })
+  it('says the rule, and what a call already outside costs', () => {
+    expect(phaseDaysRule(show)).toBe('Show is Sat 12 Dec: crew on it are asked for that day.')
+    expect(phaseDaysRule(build)).toBe('Build is Thu 10 Dec to Fri 11 Dec: crew on it are asked for those days, or some of them.')
+    expect(offPhaseLine(['2026-12-13'], show)).toBe(
+      "Show is Sat 12 Dec, so nobody on the call has a calendar invite for Sun 13 Dec. Change the call's days or move the phase."
+    )
+    expect(offPhaseLine(['2026-12-09', '2026-12-12'], build)).toBe(
+      "Build is Thu 10 Dec to Fri 11 Dec, so nobody on the call has a calendar invite for Wed 9 Dec, Sat 12 Dec. Change the call's days or move the phase."
+    )
+  })
+})
 
 describe('where a call lands when its phase moves', () => {
   it('shifts with the phase and stays inside it', () => {

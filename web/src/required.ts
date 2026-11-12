@@ -13,6 +13,18 @@ type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
 
 const LINE = 'field-refusal'
 
+/**
+ * How a day is said, the way crew write it ("Fri 14 Nov"), given by Shell.tsx as the screens load. Not imported from the
+ * shared code here: main.tsx loads this file in the page's first script, where the shared code would make its schemas
+ * before noEval.ts has set Zod up, and the page's policy refuses what Zod then tries.
+ */
+let sayDay: (day: string) => string = (day) => day
+
+/** Gives the refusals the app's words for a day. */
+export function sayDaysWith(words: (day: string) => string) {
+  sayDay = words
+}
+
 /** The words its label shows, without the field's own (a label round a select holds the options' words too). */
 function nameOf(field: Field): string {
   const label = field.labels?.[0]
@@ -43,10 +55,16 @@ export function sayWhatsNeeded(field: Field): string {
  * wanted, so each form needs nothing new.
  */
 export function sayWhatsWrong(field: Field): string | undefined {
-  if (!(field instanceof HTMLInputElement) || field.type !== 'number') return undefined
+  if (!(field instanceof HTMLInputElement) || (field.type !== 'number' && field.type !== 'date')) return undefined
   const v = field.validity
   const words = nameOf(field)
   const name = words ? `${words[0]!.toUpperCase()}${words.slice(1)}` : 'This'
+  // A day out of its bounds, as a crew call's day outside its phase's (ADR 0159): said as crew write days, not as the browser does.
+  if (field.type === 'date') {
+    if (v.rangeUnderflow) return `${name} has to be ${sayDay(field.min)} or after.`
+    if (v.rangeOverflow) return `${name} can be ${sayDay(field.max)} at the latest.`
+    return undefined
+  }
   const whole = field.step === '' || field.step === '1'
   if (v.badInput) return `${name} has to be a number.`
   if (v.rangeUnderflow) return `${name} has to be at least ${field.min}.`

@@ -1,8 +1,11 @@
 import { UnitBox } from '../UnitBox.tsx'
 import {
+  ADD_A_PHASE,
   calendarTitles,
   crewFill,
   daysLabel,
+  daysOffPhase,
+  phaseDaysRule,
   departmentForRole,
   departmentOf,
   eachDay,
@@ -817,6 +820,18 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
       return peopleOn({ ...c, ...span, days: eachDay(span.start, span.end) }).map((t) => ({ ...t, context: { ...t.context, days: undefined } }))
     })
   }
+  // The days keeping their dates would leave outside the phase that are inside it now: a call is for its phase's days (ADR 0159),
+  // so then they move with it, and the question says why there's no keeping them.
+  const leftOut = (changes: CommandInput<'phase.update'>) => {
+    const to = { start: changes.start ?? phase.start, end: changes.end ?? phase.end }
+    const days = openCalls.flatMap((c) => {
+      const was = daysOffPhase(c, phase)
+      return daysOffPhase(c, to).filter((d) => !was.includes(d))
+    })
+    return [...new Set(days)].sort()
+  }
+  const stranded = ask ? leftOut(ask) : []
+  const today = useToday()
   const send = (changes: CommandInput<'phase.update'>) =>
     void run(() => client.mutate('phase.update', changes)).then((ok) => {
       if (!ok) return
@@ -900,11 +915,17 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
       <p className="hint wide" id={`crew-notes-${phase.id}`}>
         {CREW_NOTES_HINT}
       </p>
-      {ask && (
-        <p className="warn-line wide" role="status">
-          Move its {openCalls.length} crew call{openCalls.length === 1 ? '' : 's'} too? The days their crew hold move with them.
-        </p>
-      )}
+      {ask &&
+        (stranded.length ? (
+          <p className="warn-line wide" role="status">
+            {openCalls.length === 1 ? 'Its crew call moves' : `Its ${openCalls.length} crew calls move`} with it, as {daysLabel(stranded, today)} won't be one of its
+            days. The days {openCalls.length === 1 ? 'its' : 'their'} crew hold move too.
+          </p>
+        ) : (
+          <p className="warn-line wide" role="status">
+            Move its {openCalls.length} crew call{openCalls.length === 1 ? '' : 's'} too? The days their crew hold move with them.
+          </p>
+        ))}
       <Refusal error={error} className="wide" />
       {removing && (
         <Confirm
@@ -926,9 +947,11 @@ function EditPhase({ phase, view, onDone, onTell }: { phase: PhaseView; view: Vi
             <button type="button" onClick={() => send({ ...ask, moveCrew: true })}>
               Move them
             </button>
-            <button type="button" onClick={() => send(ask)}>
-              Keep their dates
-            </button>
+            {!stranded.length && (
+              <button type="button" onClick={() => send(ask)}>
+                Keep their dates
+              </button>
+            )}
             <button type="button" className="link" onClick={() => setAsk(undefined)}>
               Back
             </button>
@@ -1165,14 +1188,36 @@ function AskForCrew({ job }: { job: JobView }) {
       <label>
         How many <input type="number" min={1} value={f.needed} onChange={(e) => setF({ ...f, needed: Number(e.target.value) })} />
       </label>
+      {/* Crew on a phase are asked for its days (ADR 0159): the days are picked among them, and the line says how to go further. */}
       <div className="pair">
         <label>
-          From <input type="date" value={start} onChange={(e) => setDates({ start: e.target.value, end: end < e.target.value ? e.target.value : end })} />
+          From{' '}
+          <input
+            type="date"
+            value={start}
+            min={phase?.start}
+            max={phase?.end}
+            onChange={(e) => setDates({ start: e.target.value, end: end < e.target.value ? e.target.value : end })}
+            aria-describedby={phase ? `ask-days-${job.id}` : undefined}
+          />
         </label>
         <label>
-          To <input type="date" value={end} min={start} onChange={(e) => setDates({ start, end: e.target.value })} />
+          To{' '}
+          <input
+            type="date"
+            value={end}
+            min={start}
+            max={phase?.end}
+            onChange={(e) => setDates({ start, end: e.target.value })}
+            aria-describedby={phase ? `ask-days-${job.id}` : undefined}
+          />
         </label>
       </div>
+      {phase && (
+        <p className="hint wide" id={`ask-days-${job.id}`}>
+          {phaseDaysRule(phase, today)} {ADD_A_PHASE}
+        </p>
+      )}
       <label>
         Call time <input type="time" value={f.callTime} onChange={(e) => setF({ ...f, callTime: e.target.value })} />
       </label>
