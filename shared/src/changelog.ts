@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.177.0',
+    version: '1.178.0',
     date: '2026-11-12',
     title: 'New asks what kind it is first, and quotes live on their jobs',
     what: "Jobs' add button now just says New. Its form asks first whether it's a gig, a dry hire, an errand or a meeting, then only what that kind needs: a dry hire asks for the day the kit goes out and comes back, an errand for the day, where to and a note, a meeting for the day, who with and where. Errands and meetings go straight on as confirmed. Quotes is no longer a page of its own: each quote is on its job's Quote tab, Jobs can be filtered by where the quote stands, and the quotes waiting on you are under Money › To follow up, where old Quotes links now land. On a laptop every heading of the jobs table sorts, press again to turn it round, and there's an Assignee column saying who has the stage each job is in. Where it stands is now called Status.",
     prs: [354],
     adrs: [160],
+  },
+  {
+    version: '1.177.0',
+    date: '2026-11-12',
+    title: "A job's status, who has it and Next, in one column at the top right",
+    what: "The top right of a job page now reads the same at every stage, from the top down: the job's status (Enquiry, Quoted, Confirmed and so on) level with its name, then who has the job, then the red Next button. Change who has it right there: type a name or press the arrow, and a small spinner then a green tick show it's saved before the arrow comes back. It gives that person the whole stage the job is in, as the Board does. Next now says what's left to do, such as Offer the Rigger · 3 to offer, with a small pie in the button that fills as the step gets done. The Next line over the button and Hand it on are gone, and where the job is in its five stages is the short line under its name. On a phone, Next stays at the foot of the screen.",
+    prs: [355],
+    adrs: [161],
   },
   {
     version: '1.176.0',

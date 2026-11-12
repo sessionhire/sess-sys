@@ -55,7 +55,7 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
   // The job opens on its own page, with each day as it will read on the calendar.
   await expect(office.getByRole('heading', { name: job })).toBeVisible()
   await expect(office.locator('.conn')).toHaveText('Up to date')
-  await expect(office.locator('.page-title-row .job-position')).toContainText('Planning')
+  await expect(office.locator('.page-sub .job-position')).toContainText('Planning')
   await expect(office.locator('.page-sub')).toContainText(named('Nissan Ireland', id))
   await expect(office.locator('.page-sub')).toContainText('Mon 7 Oct to Wed 9 Oct')
   // A phase's call sheet and calendar line wait behind a tap on its details (audit finding 16), under Phases.
@@ -134,7 +134,7 @@ test('a job added with no signal waits on the phone, then goes through', async (
   await form.getByRole('button', { name: 'Add gig' }).click()
 
   await expect(phone.getByRole('heading', { name: job })).toBeVisible()
-  await expect(phone.locator('.page-title-row .pill')).toHaveText('Waiting to sync')
+  await expect(phone.locator('.corner-status .pill')).toHaveText('Waiting to sync')
   await expect(phone.getByRole('status')).toContainText('No signal')
 
   // Its phase can be changed while it waits too; the change goes up after it (audit finding 23).
@@ -150,7 +150,7 @@ test('a job added with no signal waits on the phone, then goes through', async (
   await phone.evaluate(() => dispatchEvent(new Event('online')))
   await expect(phone.getByRole('status')).toHaveText('Up to date', { timeout: 20_000 })
   // Nobody chose a status, so it came in as an enquiry: nothing on the jobs calendar, no kit held.
-  await expect(phone.locator('.page-title-row .pill')).toHaveText('Enquiry')
+  await expect(phone.locator('.corner-status .pill')).toHaveText('Enquiry')
 
   // And another device has it.
   const laptop = await (await browser.newContext()).newPage()

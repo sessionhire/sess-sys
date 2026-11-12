@@ -28,7 +28,8 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await expect(next).toContainText("Record the client's answer below, under What happened.")
   // Away from the quote, Next holds the press.
   await office.getByRole('tab', { name: /^Phases/ }).click()
-  await expect(next).toContainText('Next · Quoting · Quote with the client')
+  // The stage under the job's name, what to do in Next's own words (ADR 0161).
+  await expect(office.locator('.job-position').first()).toContainText('Quoting')
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-thing.png` })
   await next.getByRole('button', { name: "Record the client's answer" }).click()
   await expect(where.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible()
@@ -40,9 +41,9 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
 
   // Confirmed, the job moves into Planning by its own status: the one gate between stages.
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName(/^2\. Planning, the stage the job is in/)
-  // Said once, in the head (ADR 0140, part 3): Next's line says only Next.
+  // Said once, under the job's name (ADR 0161): Next has no line of its own.
   await expect(office.locator('.job-position').first()).toContainText('Planning')
-  await expect(next.locator('.line')).toHaveText('Next')
+  await expect(next.locator('.line')).toHaveCount(0)
   await office.goto('/#jobs')
   await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' }).locator('.job-position')).toContainText('Planning')
 

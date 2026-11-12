@@ -1,5 +1,6 @@
 import { countedFind, kitKey, leadingCount } from '@sh/shared'
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { Icon } from './Icon.tsx'
 
 /** Offers shown at once; past these a line says how many more, to type more and narrow. */
 const SHOWN = 8
@@ -60,6 +61,8 @@ export function RecordPicker<T extends PickRecord>({
   counted,
   autoFocus,
   keepOpen,
+  toggle,
+  saving,
 }: {
   label: string
   records: readonly T[]
@@ -89,6 +92,11 @@ export function RecordPicker<T extends PickRecord>({
   autoFocus?: boolean
   /** The list opens again after a pick, for picking several one after another (review of 11 November 2026, finding 12). */
   keepOpen?: boolean
+  /** The combobox's chevron at the end of the box (components.md, Combobox): a press shows every offer without typing. */
+  toggle?: boolean
+  /** A pick being saved where it is, said in the chevron's place (job page head, 12 November 2026): a spinner while it's sent,
+   * then a tick once it's kept, then the chevron again. */
+  saving?: 'busy' | 'saved'
 }) {
   const chosen = records.find((p) => p.id === value)
   const said = chosen?.name ?? shownAs ?? ''
@@ -98,6 +106,7 @@ export function RecordPicker<T extends PickRecord>({
   const [moved, setMoved] = useState<number | null>(null)
   const [heard, setHeard] = useState('')
   const list = useRef<HTMLUListElement>(null)
+  const input = useRef<HTMLInputElement>(null)
   const id = useId()
 
   const typed = text !== null && kitKey(text) !== ''
@@ -168,8 +177,9 @@ export function RecordPicker<T extends PickRecord>({
   return (
     <div className={`picker-field${className ? ` ${className}` : ''}`}>
       <span id={`${id}-label`}>{label}</span>
-      <div className="skills-anchor">
+      <div className="skills-anchor" data-toggle={toggle ? 'true' : undefined}>
         <input
+          ref={input}
           role="combobox"
           aria-labelledby={`${id}-label`}
           aria-describedby={hint ? `${id}-hint` : undefined}
@@ -204,6 +214,34 @@ export function RecordPicker<T extends PickRecord>({
             done()
           }}
         />
+        {toggle && (
+          <span className="picker-end" data-saving={saving}>
+            {saving === 'busy' ? (
+              <span className="picker-spinner" role="status" aria-label="Saving" />
+            ) : saving === 'saved' ? (
+              <Icon name="done" className="picker-saved" label="Saved" />
+            ) : (
+              <button
+                type="button"
+                className="picker-toggle"
+                tabIndex={-1}
+                aria-label="Show all"
+                aria-expanded={shown}
+                aria-controls={`${id}-list`}
+                disabled={disabled}
+                // On the press, so the field keeps the focus it has and the list doesn't close and open again.
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  if (shown) return setOpen(false)
+                  input.current?.focus()
+                  setOpen(true)
+                }}
+              >
+                <Icon name="expand" />
+              </button>
+            )}
+          </span>
+        )}
         <ul ref={list} className="skill-options picker-options" id={`${id}-list`} role="listbox" aria-label={typed ? 'Found' : firstLabel} hidden={!shown}>
           {!typed && offers.length > 0 && (
             <li className="note" role="presentation">

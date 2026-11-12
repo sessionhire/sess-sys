@@ -48,24 +48,31 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   const next = page.getByRole('region', { name: 'Next' })
   // Confirmed, so the quote and the yes are done and the job is in Planning; the crew is next, which the app ticks once every call is booked.
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName('2. Planning, the stage the job is in, 0 of 2 done')
-  // Where the job stands is said once, in the head, and Where it is folds to its stepper with the stage's tasks a tap away (ADR 0140,
-  // part 3): Next's line says only Next.
+  // The head's right-hand column (ADR 0161): the status level with the name, who has the stage, then Next with no line over it.
+  // Under the name, the stage it's in; what's outstanding is Next's own words.
   const head = page.locator('.job-position').first()
-  await expect(head).toContainText('Planning · 0 of 2 booked')
-  await expect(next.locator('.line')).toHaveText('Next')
+  await expect(head).toContainText('Planning')
+  await expect(page.locator('.corner-status')).toHaveText('Confirmed')
+  await expect(next.locator('.line')).toHaveCount(0)
+  const assignee = page.getByRole('combobox', { name: 'Who has Planning' })
+  await expect(assignee).toHaveValue('')
+  await expect(assignee).toHaveAttribute('placeholder', 'Nobody yet')
   const tasksFold = where.getByRole('button', { name: '2 tasks to do in Planning' })
   await expect(tasksFold).toHaveAttribute('aria-expanded', 'false')
   await expect(where.locator('.task-list')).toHaveCount(0)
   // Pressed on a phone, it does what it says (ADR 0140): the Crew part opens on the first call with a place to fill, its Offer
   // already open with the cursor in it and in view, rather than a tab with the Offers still to find (audit, 5 November 2026, finding 1).
-  await next.getByRole('button', { name: 'Offer the Audio tech · 0 of 2 offered' }).click()
+  await next.getByRole('button', { name: 'Offer the Audio tech · 2 to offer' }).click()
   const crewTab = page.getByRole('tab', { name: /^Crew/ })
   await expect(crewTab).toHaveAttribute('aria-selected', 'true')
   const offerTo = page.getByRole('combobox', { name: 'Offer to' })
   await expect(offerTo).toHaveCount(1)
   await expect(offerTo).toBeFocused()
   await expect(offerTo).toBeInViewport()
-  await next.getByRole('button', { name: 'Hand it to someone' }).click()
+  // Next has no "Hand it on" (ADR 0161): the task opens from Status.
+  await expect(next.getByRole('button', { name: /^Hand it/ })).toHaveCount(0)
+  await tasksFold.click()
+  await where.getByRole('button', { name: /^Crew booked/ }).click()
   await expect(where.getByRole('heading', { name: 'Crew booked' })).toBeVisible()
   await expect(where.getByText('0 of 2 booked. This is the task to do next.')).toBeVisible()
   // The open task is marked by the chevron every fold has, turned, never by the wash of a pointer resting on it; and on a phone the
@@ -80,9 +87,18 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(where.getByRole('button', { name: 'Mark it done' })).toBeVisible()
   await where.getByLabel('Down to').selectOption({ label: `${roisin} (you)` })
   await where.getByLabel('Due by').fill('2030-06-01')
-  await expect(head).toContainText('Planning · 0 of 2 booked · No kit on the job yet · Róisín · by Sat 1 Jun')
+  await expect(head).toContainText('by Sat 1 Jun')
   await expect(tasksFold).toHaveAttribute('aria-expanded', 'true')
-  await expect(next.getByRole('button', { name: 'Hand it on' })).toBeVisible()
+  // One of the stage's two tasks is hers, so the field says it's split; picking her there gives her both, in place: a spinner
+  // while it's sent, a tick once it's kept, and the chevron back after three seconds.
+  await expect(assignee).toHaveValue(/^Split: Róisín, nobody$/)
+  await assignee.click()
+  await assignee.fill('Róis')
+  await assignee.press('Enter')
+  await expect(page.locator('.corner-owner .picker-saved')).toBeVisible()
+  await expect(assignee).toHaveValue(`${roisin} (you)`)
+  await expect(page.locator('.corner-owner .picker-toggle')).toBeVisible({ timeout: 5000 })
+  await expect(page.locator('.corner-owner .picker-saved')).toHaveCount(0)
 
   // The last stage's last task, given to herself and ticked by hand.
   await where.getByRole('button', { name: /^5\. Back, to come/ }).click()
@@ -165,11 +181,11 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   const call = page.getByRole('article', { name: '2 × Rigger' })
 
   // Aoife's yes is confirmed in the press, and the page lands on her call with the focus on its line.
-  await next.getByRole('button', { name: `Confirm Aoife's yes · 0 of 2 booked` }).click()
+  await next.getByRole('button', { name: `Confirm Aoife's yes · 2 to book` }).click()
   await expect(call.getByRole('button', { name: /^2 × Rigger/ })).toBeFocused()
   await expect(call.locator('.who-line')).toContainText(aoife)
   // Then the place nobody's been offered: its Offer open, the cursor in it.
-  await next.getByRole('button', { name: 'Offer the Rigger · 1 of 2 offered' }).click()
+  await next.getByRole('button', { name: 'Offer the Rigger · 1 to offer' }).click()
   await expect(call.getByRole('combobox', { name: 'Offer to' })).toBeFocused()
   await pickRecord(call, 'Offer to', brian)
   await call.getByRole('button', { name: /^Offer to / }).click()
@@ -183,7 +199,7 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   await expect.poll(async () => (offer = (await offerOf(request, `mc-${id}`, `mb-${id}`)) ?? ''), { timeout: 8000 }).not.toBe('')
   await push(request, `${id}-b`, [['offer.respond', { id: offer, answer: 'accept', days: null, note: '' }]])
   await expect(next).toContainText("Confirm Brian's yes", { timeout: 8000 })
-  await next.getByRole('button', { name: `Confirm Brian's yes · 1 of 2 booked` }).click()
+  await next.getByRole('button', { name: `Confirm Brian's yes · 1 to book` }).click()
   // Then the short kit: Subhire open with the first tick in focus; subhiring it takes the count down to nothing.
   await next.getByRole('button', { name: 'Sort 1 short on the kit' }).click()
   const subhire = page.getByRole('form', { name: `Subhire what's short on ${job}` })
@@ -209,7 +225,7 @@ test('a job on its first day with nothing scanned out is due out, not out, and i
   await expect(page.getByRole('status')).toHaveText('Up to date')
   await expect(page.locator('.job-position').first()).toContainText('Going out')
   // Next counts what's out, as the pick list's own dock does.
-  await page.getByRole('region', { name: 'Next' }).getByRole('link', { name: 'Pick the kit · 0 of 6 out' }).click()
+  await page.getByRole('region', { name: 'Next' }).getByRole('link', { name: 'Pick the kit · 6 to go out' }).click()
   await expect(page.getByRole('region', { name: 'Next' })).toHaveText('Next · Due out today · 0 of 6 out')
   await expect(page.getByRole('group', { name: 'Going out or coming back' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Kit to go out' })).toBeVisible()
@@ -283,7 +299,7 @@ test('an enquiry whose dates passed with no answer is counted on Home, folded on
   await expect(selling.locator(':scope > .board-card', { hasText: job })).toHaveCount(0)
   await fold.locator('.board-card', { hasText: job }).click()
   const next = page.getByRole('region', { name: 'Next' })
-  await expect(next).toContainText('Next · Quoting · Dates passed, no answer')
+  await expect(page.locator('.job-position').first()).toContainText('Quoting · no answer')
   await next.getByRole('button', { name: 'Record what happened' }).click()
   await expect(page.getByRole('region', { name: 'Status', exact: true }).getByRole('button', { name: 'The client said no' })).toBeVisible()
 })
