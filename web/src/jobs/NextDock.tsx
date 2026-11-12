@@ -9,6 +9,9 @@ import { askForCrewAgain } from './crewAgain.ts'
 import { promptFor, tellTo, type Share } from '../crew/Messages.tsx'
 import { useToday } from '../view.ts'
 import { offerFormId, useOfferPicks } from '../crew/offerPicks.ts'
+import { askToSend, useDraftSend } from './quoteSend.ts'
+import { useQuotesByEmail } from '../MailboxCard.tsx'
+import { serverUrl } from '../server.ts'
 
 /** Where a press of Next lands on the job page (ADR 0140): a call, with its Offer open or not, or the short kit's Subhire. */
 /** Where a press lands on the job's page: a call, opening its Offer or its rows to answer a yes or a rate (ADR 0152); or the short kit. */
@@ -54,7 +57,7 @@ export function NextDock({
   /** Opens the message for someone a press of Next has settled, as the Crew page's own Confirm does; without it, nobody is prompted. */
   onTell?: (share: Share | undefined) => void
   onOpenTask: (t: JobStep) => void
-  /** The job's Quote tab is open under it (ADR 0140, part 4): the quote's own button there is the press, so the dock says so in words. */
+  /** The job's Quote tab is open under it (ADR 0140, part 4): a draft's Send there is Next's press (ADR 0166); otherwise the dock says what's below in words. */
   quoteHere?: boolean
 }) {
   const access = useAccess()
@@ -63,6 +66,9 @@ export function NextDock({
   // Who's picked in the Offer of the call Next would offer, and not yet sent (offerPicks.ts).
   const askId = crewNext(job.calls).ask?.call.id
   const picked = { callId: askId, names: useOfferPicks(askId) }
+  // The draft quote's own Send, while it's open on the Quote tab (ADR 0166), and whether quotes go by email.
+  const draftSend = useDraftSend(job.id)
+  const byEmail = useQuotesByEmail(view.money)
   const steps = view.steps.of(job.id)
   // Errands and meetings have no stages, so no Next: the page is as it was.
   if (!steps || (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands'))) return null
@@ -120,15 +126,38 @@ export function NextDock({
 
   const prep = steps.steps.find((s) => s.key === 'prep')
   /** What to press for the task, or why there's nothing to. */
-  let press: { label: string; href?: string; onPress?: () => void; done?: Done } | undefined
+  let press: { label: string; href?: string; onPress?: () => void; done?: Done; pdf?: string } | undefined
   let why: string | undefined
+  // A finished quote is sent from Next (ADR 0166), first version or a later one: on the Quote tab it's the draft's own Send,
+  // which opens the email to the client with the PDF attached, or gets the numbered PDF while quotes don't go by email; from
+  // another tab it opens the Quote tab and sends as it opens. The PDF to download is beside it, apart. While the email is open,
+  // its own Send is the press, so Next says so in words.
+  const draft = access.can('money') ? view.money.draftOf(job.id) : undefined
+  const pdf = draft ? serverUrl(`/api/quotes/${encodeURIComponent(draft.id)}/pdf?download=1`) : undefined
+  const sendQuote = (): typeof press | 'composing' | undefined => {
+    if (!draft) return undefined
+    if (quoteHere && draftSend) return draftSend.composing ? 'composing' : { label: draftSend.label, onPress: draftSend.press, ...(draftSend.ready && pdf ? { pdf } : {}) }
+    if (quoteHere || !draft.lines.length) return undefined
+    return {
+      label: byEmail ? 'Send quote' : 'Get the PDF to send',
+      onPress: () => {
+        askToSend(job.id)
+        onPart('quote')
+      },
+      ...(pdf ? { pdf } : {}),
+    }
+  }
+  const composingWords = 'The email to the client is below, with the quote attached: read it over, then press Send.'
   switch (task.key) {
     case 'quote': {
       if (!access.can('money')) break
       const quotes = view.money.quotesOf(job.id)
       // A quote is built from the kit and crew, so a job with neither starts there (audit, 5 November 2026, finding 16).
       const empty = quotes.length === 0 && !(view.kit.byJob.get(job.id)?.length) && job.calls.length === 0
+      const sending = sendQuote()
+      if (sending === 'composing') return rest(composingWords, answers)
       if (empty && access.can('kit')) press = { label: 'Add the kit to quote', onPress: () => onPart('kit') }
+      else if (sending) press = sending
       // The quote is the job's Quoting stage, worked on its own tab (ADR 0140, part 4). With that tab open, its Send or Build is the
       // one press, so the dock doesn't hold a second red that only goes where the page already is.
       else if (quoteHere)
@@ -143,6 +172,13 @@ export function NextDock({
       if (!access.can('jobs')) break
       // The client's yes is on the quote, so the one press left is the job's own (audit, 5 November 2026, finding 25).
       const yes = access.can('money') && view.money.currentOf(job.id)?.status === 'accepted'
+      // A new version made since the last went leads, until the client has said yes to one (ADR 0166).
+      const sending = yes ? undefined : sendQuote()
+      if (sending === 'composing') return rest(composingWords, answers)
+      if (sending) {
+        press = sending
+        break
+      }
       // On the Quote tab, the answer is recorded under What happened, whose button is the one red (ADR 0140, part 4).
       if (quoteHere && access.can('money') && view.money.currentOf(job.id))
         return rest(yes ? 'The client said yes: confirm the job below.' : "Record the client's answer below, under What happened.", answers)
@@ -279,6 +315,10 @@ export function NextDock({
     <button type="button" className="link second" onClick={answers.onPress}>
       {answers.label}
     </button>
+  ) : press.pdf ? (
+    <a className="link second" href={press.pdf} download>
+      Download the PDF
+    </a>
   ) : (
     pickSoon && (
       <a className="link second" href={pickSoon.href}>

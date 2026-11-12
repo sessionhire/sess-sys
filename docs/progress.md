@@ -3,6 +3,18 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: send the quote from Next
+
+**Done (1.182.0)**
+
+- Colly's ask from a phone: a finished quote is sent from the job's Next,
+  docked over the bar ([ADR 0166](adr/0166-send-the-quote-from-next.md)).
+  Send quote opens the cover email from operations@ with the PDF attached;
+  Download the PDF sits apart; while quote email is off (as on live), Next
+  says Get the PDF to send. The draft strip's Send is plain.
+- Checked: typecheck, the quote email server test, and the quote e2e specs
+  (quotes, quote follow-up with a new test, RMS history, job moves on).
+
 ## 12 November 2026: your own offers said to you, and on top of Home
 
 **Done (1.181.0)**

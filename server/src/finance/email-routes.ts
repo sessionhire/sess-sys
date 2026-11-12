@@ -64,13 +64,14 @@ export function registerQuoteEmailRoutes(app: FastifyInstance, m: Mailer) {
     }
   })
 
-  app.get<{ Params: { id: string } }>('/api/quotes/:id/pdf', { config: { needs: 'money' } }, async (req, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { download?: string } }>('/api/quotes/:id/pdf', { config: { needs: 'money' } }, async (req, reply) => {
     const quote = await getQuote(m.db.reads, id(req.params.id))
     if (!quote) return reply.code(404).send({ error: 'That quote is no longer here.' })
     const sheet = await sheetFor(m.db.reads, quote, irishToday(m.now?.()))
     // With the logo, as the emailed one has it (ADR 0139): this is the PDF the office opens to print or save.
     const logo = await m.logo?.().catch(() => undefined)
-    return sendPdf(reply, await quotePdf({ ...sheet, ...(logo ? { logo } : {}) }), fileNameFor(quote.number ?? null, sheet.job.name), 'inline')
+    // ?download=1 saves it as a file, for Next's Download the PDF (ADR 0166); otherwise it opens to look at.
+    return sendPdf(reply, await quotePdf({ ...sheet, ...(logo ? { logo } : {}) }), fileNameFor(quote.number ?? null, sheet.job.name), req.query.download === '1' ? 'attachment' : 'inline')
   })
 
   /** The PDF that went in an email, as the client got it. */
