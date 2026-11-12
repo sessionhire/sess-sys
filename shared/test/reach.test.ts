@@ -5,9 +5,11 @@ import {
   bookingWords,
   callEndingWords,
   askEndingWords,
+  confirmingWords,
   crewAgainWords,
   daysToCancel,
   endingWords,
+  holdLeft,
   invitePlan,
   invitesHeld,
   jobEndingWords,
@@ -20,6 +22,7 @@ import {
   stoppedCrew,
   toldOfBooking,
   toldOfChange,
+  toldOfConfirm,
   toldOfEnding,
   toldOfOffer,
   toldOfRefusal,
@@ -1021,5 +1024,89 @@ describe('asking for the same crew again (ADR 0164)', () => {
       said: 'Its crew call was cancelled with the job on Mon 28 Sep: 1 × Rigger. Nobody had been offered it.',
       then: 'It comes back with nobody offered.',
     })
+  })
+})
+
+describe('confirming a job its crew were asked to hold the day for (ADR 0168)', () => {
+  // Proves: the gap ADR 0154 left at 3 in the audit of 12 November 2026. Confirming a job whose crew hold the day takes HOLD
+  // off their days, which Google emails each person invited, and a WhatsApp tells them they're booked or that it's going
+  // ahead. The question before it says so, and the panel after says what went. HOLD is "hold the day", never the job "on hold".
+  const hold = { title: 'HOLD Galway Arts - Show' }
+  const both = days(
+    row(D1, 'aoife', { offerId: 'o1' }, hold),
+    row(D2, 'aoife', { offerId: 'o1' }, hold),
+    row(D1, 'tommo', { offerId: 'o2' }, hold),
+    row(D2, 'tommo', { offerId: 'o2' }, hold)
+  )
+  const aoifes = { personId: 'aoife', offerId: 'o1', picked: true }
+  const tommos = { personId: 'tommo', offerId: 'o2', picked: false }
+  const dara = person('dara', 'Dara Kelly')
+
+  it('asks first, saying what Google emails and who a WhatsApp tells, and nothing when nobody holds the day', () => {
+    expect(confirmingWords(ctx({ days: both }), [])).toBeUndefined()
+    expect(confirmingWords(ctx({ days: both }), [aoifes, tommos])).toBe("The 2 people asked to hold the day will see it's going ahead: Google emails each of them that HOLD is off their days.")
+    expect(confirmingWords(ctx({ days: both }), [{ ...aoifes, whatsapp: true }, { ...tommos, whatsapp: true }])).toBe(
+      "The 2 people asked to hold the day will see it's going ahead: Google emails each of them that HOLD is off their days, and a WhatsApp tells each of them so."
+    )
+    // One invited and one on WhatsApp: each count says how many of them.
+    expect(confirmingWords(ctx({ days: invitedBoth }), [aoifes, { ...tommos, whatsapp: true }])).toBe(
+      "The 2 people asked to hold the day will see it's going ahead: Google emails 1 of them that HOLD is off their days, and a WhatsApp tells 1 of them so."
+    )
+    // Someone on two of the job's calls is one person; a single day is "the day".
+    const oneDay = days(row(D1, 'aoife', { offerId: 'o1' }, hold), row(D1, 'aoife', { offerId: 'o1b' }, hold))
+    expect(confirmingWords(ctx({ days: oneDay }), [aoifes, { ...aoifes, offerId: 'o1b' }])).toBe("The person asked to hold the day will see it's going ahead: Google emails them that HOLD is off the day.")
+    expect(confirmingWords(ctx({ days: both, link: link({ problem: 'Google Calendar isn’t answering.' }) }), [aoifes])).toBe(
+      "The person asked to hold the day will see it's going ahead: Google emails them that HOLD is off their days once the calendar is working again."
+    )
+  })
+
+  it('says their link is all that tells them when no invite or WhatsApp does, and that HOLD stays where invites are off', () => {
+    expect(confirmingWords(ctx(), [aoifes, tommos])).toBe("The 2 people asked to hold the day will see it's going ahead on their links. Nothing is sent to them.")
+    expect(confirmingWords(ctx({ messages: true }), [aoifes])).toBe("The person asked to hold the day will see it's going ahead on their link.")
+    // Invites switched off since they were sent: the copies stay as they were, HOLD and all.
+    const off = ctx({ days: both, link: link({ invites: false }) })
+    expect(confirmingWords(off, [aoifes])).toBe("The person asked to hold the day will see it's going ahead on their link. Nothing is sent to them. Crew invites are off, so HOLD stays on the days in their calendar.")
+    expect(confirmingWords(off, [aoifes, { ...tommos, whatsapp: true }])).toBe(
+      "The 2 people asked to hold the day will see it's going ahead: a WhatsApp tells 1 of them so. Crew invites are off, so HOLD stays on the days in their calendars."
+    )
+  })
+
+  it('counts the days from today whose invite still says HOLD, as Google has yet to tell them', () => {
+    const c = ctx({
+      days: days(
+        row(D1, 'aoife', { offerId: 'o1' }, hold),
+        row(D2, 'aoife', { offerId: 'o1' }),
+        row('2026-11-10', 'aoife', { offerId: 'o1' }, hold),
+        row(D2, 'tommo', { offerId: 'o2', response: 'declined' }, hold)
+      ),
+    })
+    expect(holdLeft(c, 'o1')).toBe(1)
+    expect(holdLeft(c, 'o2')).toBe(0)
+  })
+
+  it('says after whether Google is emailing or has emailed that HOLD is off, and the WhatsApp that went', () => {
+    const c = ctx()
+    const panel = [toldOfConfirm(c, aoife, { invited: 2, left: 2 }), toldOfConfirm(c, dara, { invited: 2, left: 1, whatsapp: 'booked' }), toldOfConfirm(c, sean, { invited: 0, left: 0 })]
+    expect(toldSentences(panel)).toEqual([
+      'Google is emailing Aoife and Dara that HOLD is off their days.',
+      "A WhatsApp saying they're booked is going to Dara.",
+      "Nothing was sent to Seán: their link says it's going ahead.",
+    ])
+    expect(panel.map((p) => p.reached)).toEqual([true, true, false])
+    expect(toldSentences([toldOfConfirm(c, aoife, { invited: 1, left: 0 })])).toEqual(['Google has emailed Aoife that HOLD is off the day.'])
+    expect(toldSentences([toldOfConfirm(c, aoife, { invited: 0, left: 0, whatsapp: 'going-ahead' })])).toEqual(["A WhatsApp saying it's going ahead is going to Aoife."])
+    const stuck = ctx({ link: link({ problem: 'Google Calendar isn’t answering.' }) })
+    expect(toldSentences([toldOfConfirm(stuck, aoife, { invited: 2, left: 2 })])).toEqual([
+      "Aoife still has HOLD on their days: the calendar has a problem, so Google hasn't told them. See Admin › Connections.",
+    ])
+    // Invites switched off since: their copies keep HOLD, said beside the WhatsApp that went, or alone.
+    const off = ctx({ link: link({ invites: false }) })
+    expect(toldSentences([toldOfConfirm(off, aoife, { invited: 0, left: 0, kept: 2 })])).toEqual(['Nothing was sent to Aoife, and HOLD stays on their days in their calendar: crew invites are off.'])
+    expect(toldSentences([toldOfConfirm(off, aoife, { invited: 0, left: 0, kept: 1, whatsapp: 'booked' })])).toEqual([
+      'Google sends Aoife nothing, as crew invites are off: HOLD stays on the day in their calendar.',
+      "A WhatsApp saying they're booked is going to Aoife.",
+    ])
+    const words = [...toldSentences(panel), confirmingWords(ctx({ days: both }), [aoifes, tommos])].join(' ')
+    expect(words).not.toMatch(/on hold|held job/i)
   })
 })

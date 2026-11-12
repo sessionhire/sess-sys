@@ -1,11 +1,14 @@
 import { dayLabel, irishToday, money, rmsDay, newId, withNewIds, QUOTE_STATUS_LABELS, STOPPED, TURN_DOWN_LABELS, TURN_DOWN_NOTE_LENGTH, TURN_DOWN_REASONS, validUntil, type JobView, type QuoteView, type TurnDownReason } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
+import { promptFor, useTellHere } from '../crew/Messages.tsx'
+import { useReach } from '../crew/reach.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 import { clientWords, getJson, useAsked, type RmsJob } from './rms.ts'
 import { InStep } from './QuoteStatus.tsx'
+import { confirmQuestion, holdingTheDay } from './jobStatus.ts'
 import { pastDay } from './QuoteLine.tsx'
 
 /**
@@ -104,6 +107,24 @@ export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobVie
   const confirms = !STOPPED.includes(job.status) && job.status !== 'confirmed'
   const primaryIfNext = (record: NextRecord) => (next === record && !quiet ? 'primary' : undefined)
   const go = (fn: () => Promise<unknown>) => void run(fn).then((ok) => ok && setUndo(undefined))
+  // Confirming a job its crew were asked to hold the day for reaches them, so it's asked first and who was told is said after
+  // (ADR 0168), on the job's page, as this card's buttons go with the yes.
+  const reach = useReach()
+  const tell = useTellHere()
+  const holding = confirms ? holdingTheDay(job, today) : []
+  const confirmAsk = confirmQuestion(reach, job, holding)
+  const [askingYes, setAskingYes] = useState(false)
+  const accept = () => {
+    setAskingYes(false)
+    void run(async () => {
+      await client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today })
+      if (confirms) await client.mutate('project.update', { id: job.id, status: 'confirmed' })
+    }).then((ok) => {
+      if (!ok) return
+      setUndo(undefined)
+      if (holding.length) tell?.(promptFor('job-confirmed', holding))
+    })
+  }
   const when = (
     <label>
       On
@@ -155,22 +176,18 @@ export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobVie
           {/* The client's yes is the moment the job is confirmed (ADR 0140, part 4): one press records it and confirms the job, as the
               Confirmed task's own Yes does, rather than a second "Confirm the job" to find after it. A job already confirmed, or
               one stopped, just takes the answer. */}
-          <button
-            type="button"
-            className={primaryIfNext('answer')}
-            disabled={confirms && job.pending}
-            onClick={() =>
-              go(async () => {
-                await client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today })
-                if (confirms) await client.mutate('project.update', { id: job.id, status: 'confirmed' })
-              })
-            }
-          >
-            {confirms ? 'Client accepted: confirm the job' : 'Client accepted'}
-          </button>
-          <button type="button" aria-expanded={!!why} onClick={() => setWhy(why ? undefined : { reason: null, note: '' })}>
-            Client turned it down
-          </button>
+          {askingYes && confirmAsk ? (
+            <Confirm question={confirmAsk} yes="Confirm the job" no="Keep it as it is" onYes={accept} onNo={() => setAskingYes(false)} />
+          ) : (
+            <>
+              <button type="button" className={primaryIfNext('answer')} disabled={confirms && job.pending} onClick={() => (confirmAsk ? setAskingYes(true) : accept())}>
+                {confirms ? 'Client accepted: confirm the job' : 'Client accepted'}
+              </button>
+              <button type="button" aria-expanded={!!why} onClick={() => setWhy(why ? undefined : { reason: null, note: '' })}>
+                Client turned it down
+              </button>
+            </>
+          )}
         </div>
       )}
       {q.status === 'sent' && why && (

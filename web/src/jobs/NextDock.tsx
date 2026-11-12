@@ -7,8 +7,10 @@ import type { JobPart } from './JobScreen.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { askForCrewAgain } from './crewAgain.ts'
 import { promptFor, tellTo, type Share } from '../crew/Messages.tsx'
+import { useReach } from '../crew/reach.tsx'
 import { useToday } from '../view.ts'
 import { offerFormId, useOfferPicks } from '../crew/offerPicks.ts'
+import { confirmQuestion, holdingTheDay } from './jobStatus.ts'
 
 /** Where a press of Next lands on the job page (ADR 0140): a call, with its Offer open or not, or the short kit's Subhire. */
 /** Where a press lands on the job's page: a call, opening its Offer or its rows to answer a yes or a rate (ADR 0152); or the short kit. */
@@ -46,6 +48,7 @@ export function NextDock({
   onOpenTask,
   quoteHere,
   onTell,
+  onConfirm,
 }: {
   job: JobView
   view: View
@@ -56,10 +59,16 @@ export function NextDock({
   onOpenTask: (t: JobStep) => void
   /** The job's Quote tab is open under it (ADR 0140, part 4): the quote's own button there is the press, so the dock says so in words. */
   quoteHere?: boolean
+  /**
+   * Opens the Confirmed task with its question asked: Confirm the job reaches crew asked to hold the day for it, so it's asked
+   * first, where the task's own answer is (ADR 0168), as a yes that ends days still asked is confirmed on its row (ADR 0152).
+   */
+  onConfirm?: () => void
 }) {
   const access = useAccess()
   const { run, error } = useAct()
   const today = useToday()
+  const reach = useReach()
   // Who's picked in the Offer of the call Next would offer, and not yet sent (offerPicks.ts).
   const askId = crewNext(job.calls).ask?.call.id
   const picked = { callId: askId, names: useOfferPicks(askId) }
@@ -146,8 +155,17 @@ export function NextDock({
       // On the Quote tab, the answer is recorded under What happened, whose button is the one red (ADR 0140, part 4).
       if (quoteHere && access.can('money') && view.money.currentOf(job.id))
         return rest(yes ? 'The client said yes: confirm the job below.' : "Record the client's answer below, under What happened.", answers)
+      // Crew asked to hold the day hear it's going ahead (ADR 0168): asked first, on the task, and who was told said after.
+      const holding = yes ? holdingTheDay(job, today) : []
+      const asks = onConfirm && confirmQuestion(reach, job, holding) !== undefined
       press = yes
-        ? { label: 'Confirm the job', onPress: () => void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })) }
+        ? {
+            label: 'Confirm the job',
+            onPress: asks
+              ? onConfirm
+              : () =>
+                  void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })).then((ok) => ok && holding.length > 0 && onTell?.(promptFor('job-confirmed', holding))),
+          }
         : { label: steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }
       break
     }
