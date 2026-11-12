@@ -353,6 +353,8 @@ function describer(view: View): (m: Mutation) => string {
         return `Say no to ${offer(a.id).who}'s rate for ${offer(a.id).what}`
       case 'offer.cancel':
         return `Withdraw the offer of ${offer(a.id).what} to ${offer(a.id).who}`
+      case 'offer.undo':
+        return `Undo the offer of ${offer(a.id).what} to ${offer(a.id).who}`
       case 'offer.seen':
         return `Note ${offer(a.id).who}'s answer on ${offer(a.id).what}`
       case 'office.update':

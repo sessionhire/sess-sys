@@ -2,9 +2,11 @@ import {
   daysLabel,
   daysToCancel,
   HOLDING,
+  waitWords,
   invitesHeld,
   LIVE,
   newId,
+  OFFER_WAIT_SECONDS,
   offerHeard,
   offerMessage,
   offerReach,
@@ -16,8 +18,10 @@ import {
   toldOfOffer,
   toldOfRefusal,
   toldSentences,
+  undoneWords,
   whatsappFollowsTell,
   whatsappNumber,
+  whatsappReach,
   type CallView,
   type OfferView,
   type Person,
@@ -27,9 +31,11 @@ import {
   type ToldPerson,
   type WhatsAppNews,
 } from '@sh/shared'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Refusal, useAct } from '../act.tsx'
 import { AdminWords } from '../AdminWords.tsx'
 import { useAccess } from '../role.ts'
+import { client } from '../sync.ts'
 import { useView } from '../view.ts'
 import { PlainContact, useHoldTheDay, useReach } from './reach.tsx'
 
@@ -67,8 +73,18 @@ export interface Tell {
   closed?: TellTo[]
 }
 
-/** What's open at the bottom of a screen: an offer to send, or people to tell. One at a time. */
-export type Share = { kind: 'offer'; people: PersonView[]; call: CallView } | { kind: 'tell'; tell: Tell }
+/**
+ * The offers an Offer press just made (ADR 0162): their ids, and when it was pressed. Nothing of the app's goes to them for
+ * OFFER_WAIT_SECONDS, so the panel offers Undo till then, counted from the press: the server's wait starts as it takes
+ * them, which is never sooner, and runs a few seconds longer (OFFER_WAIT_GRACE_SECONDS) for an Undo pressed at the end.
+ */
+export interface Made {
+  ids: readonly string[]
+  at: number
+}
+
+/** What's open at the bottom of a screen: an offer to send (with the offers just made, after Offer), or people to tell. One at a time. */
+export type Share = { kind: 'offer'; people: PersonView[]; call: CallView; made?: Made } | { kind: 'tell'; tell: Tell }
 
 /**
  * The prompt after something the office did (audit finding 9): a message
@@ -104,9 +120,108 @@ export function peopleOn(call: CallView, statuses: readonly OfferView['status'][
  * Next dock, which holds the page's one filled red (ADR 0104), so WhatsApp is plain there (UX sweep, 6 November 2026, move 1).
  */
 export function SharePanelFor({ share, onClose, inJob = false }: { share: Share; onClose: () => void; inJob?: boolean }) {
-  if (share.kind === 'offer')
-    return share.people.length === 1 ? <SharePanel person={share.people[0]!} call={share.call} onClose={onClose} inJob={inJob} /> : <OffersPanel people={share.people} call={share.call} onClose={onClose} inJob={inJob} />
+  if (share.kind === 'offer') return <OfferPanel key={share.made?.at ?? 'send'} share={share} onClose={onClose} inJob={inJob} />
   return <TellPanel key={share.tell.id} tell={share.tell} onClose={onClose} inJob={inJob} />
+}
+
+/**
+ * After Offer, or Send on someone's row: the message to send, or what the app sent by itself. While the offers Offer just
+ * made wait (ADR 0162; audit of 12 November 2026, finding 13), when their invites go and Undo, which takes back any still
+ * unanswered with nothing sent to anyone; after it, that nothing went.
+ */
+function OfferPanel({ share, onClose, inJob }: { share: Extract<Share, { kind: 'offer' }>; onClose: () => void; inJob: boolean }) {
+  const [undone, setUndone] = useState<readonly Person[]>()
+  const wait = useWait(share, setUndone)
+  if (undone) return <Undone people={undone} onClose={onClose} />
+  return share.people.length === 1 ? (
+    <SharePanel person={share.people[0]!} call={share.call} onClose={onClose} inJob={inJob} wait={wait} />
+  ) : (
+    <OffersPanel people={share.people} call={share.call} onClose={onClose} inJob={inJob} wait={wait} />
+  )
+}
+
+/** Offers just made, while they wait: what goes when they stop, and Undo. */
+interface Wait {
+  words: string
+  undo: () => void
+  error: string
+}
+
+/**
+ * The wait of the offers a press made, counted down a second at a time from the press, with Undo for those nobody has
+ * answered. Nothing once it's over, or none is left to take back.
+ */
+function useWait(share: Extract<Share, { kind: 'offer' }>, onUndone: (people: readonly Person[]) => void): Wait | undefined {
+  const { made } = share
+  const reach = useReach()
+  const call = useView().crew.calls.find((c) => c.id === share.call.id) ?? share.call
+  const [clock, setClock] = useState(() => Date.now())
+  const { run, error } = useAct()
+  const end = made ? made.at + OFFER_WAIT_SECONDS * 1000 : 0
+  const left = Math.ceil((end - clock) / 1000)
+  useEffect(() => {
+    if (left <= 0) return
+    // On the second, counted from the press, so the number steps as a clock does.
+    const t = setTimeout(() => setClock(Date.now()), Math.max(50, ((end - Date.now()) % 1000) + 20))
+    return () => clearTimeout(t)
+  }, [clock, end, left])
+  const waiting = made ? call.offers.filter((o) => made.ids.includes(o.id) && o.status === 'offered' && !o.respondedAt) : []
+  if (!made || left <= 0 || waiting.length === 0) return undefined
+  // What goes as the wait ends: each day's invite the server will write, unless the calendar has a problem holding them
+  // back, and each WhatsApp queued (or, before the server has answered, one it will queue).
+  let invites = 0
+  let whatsapps = 0
+  for (const o of waiting) {
+    const r = offerReach(reach, o, call, o.person, call.offers)
+    if (!r.held) invites += r.coming.length
+    if (o.whatsapp ? o.whatsapp.state === 'queued' : o.pending && !!o.person && whatsappReach(reach.whatsapp, o.person) !== undefined) whatsapps++
+  }
+  const undo = () => {
+    // Named in the order they were picked, as the press named them.
+    const people = share.people.filter((p) => waiting.some((o) => o.personId === p.id))
+    void run(async () => {
+      for (const o of waiting) await client.mutate('offer.undo', { id: o.id })
+    }).then((ok) => ok && onUndone(people))
+  }
+  return { words: waitWords({ invites, whatsapps, offers: waiting.length }, left), undo, error }
+}
+
+/**
+ * When what an offer just made sends goes, and Undo beside it (ADR 0162). Gone when the wait is over; the focus, if it was on
+ * Undo, goes to the panel rather than nowhere.
+ */
+function WaitLine({ wait }: { wait: Wait }) {
+  const line = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const here = line.current
+    return () => {
+      if (here?.contains(document.activeElement)) here.closest<HTMLElement>('section')?.focus()
+    }
+  }, [])
+  return (
+    <div className="offer-wait" ref={line}>
+      <p>{wait.words}</p>
+      <button type="button" onClick={wait.undo}>
+        Undo
+      </button>
+      <Refusal error={wait.error} />
+    </div>
+  )
+}
+
+/** After Undo (ADR 0162): who wasn't offered it after all, and that nothing of the app's went to them. */
+function Undone({ people, onClose }: { people: readonly Person[]; onClose: () => void }) {
+  const panel = useInView()
+  const prompts = usePromptsMessages()
+  return (
+    <section className="card share sent" aria-label="Undone" ref={panel} tabIndex={-1}>
+      <h2>Undone</h2>
+      <p>{undoneWords(people.map((p) => p.name), prompts)}</p>
+      <button type="button" onClick={onClose}>
+        Done
+      </button>
+    </section>
+  )
 }
 
 /**
@@ -197,12 +312,26 @@ export function QuietPanel({ names, what, onLink = true, onClose }: { names: rea
  * number a press away, the plain contact ADR 0048 keeps (finding 14). That no message opened to send is said last,
  * with where that's turned on: it was the heading, over a list of people Google had just emailed.
  */
-function SentPanel({ title, people, links, onClose }: { title: string; people: readonly { person: Person; told: ToldPerson }[]; links?: string; onClose: () => void }) {
+function SentPanel({
+  title,
+  people,
+  links,
+  wait,
+  onClose,
+}: {
+  title: string
+  people: readonly { person: Person; told: ToldPerson }[]
+  links?: string
+  /** Offers just made, while they wait (ADR 0162). */
+  wait?: Wait | undefined
+  onClose: () => void
+}) {
   const panel = useInView()
   const toRing = people.filter((p, i) => !p.told.reached && people.findIndex((x) => x.person.id === p.person.id) === i && (p.person.phone?.trim() || p.person.email?.trim()))
   return (
     <section className="card share sent" aria-label={`${title}: what was sent`} ref={panel} tabIndex={-1}>
       <h2>{title}</h2>
+      {wait && <WaitLine wait={wait} />}
       <div className="sent-lines">
         {toldSentences(people.map((p) => p.told)).map((s) => (
           <p key={s}>
@@ -234,7 +363,7 @@ function SentPanel({ title, people, links, onClose }: { title: string; people: r
 }
 
 /** After Offer or Send: read from the call as it stands now, so "on its way" becomes "emailed" as the server writes each day. */
-function OfferSent({ people, call, onClose }: { people: readonly PersonView[]; call: CallView; onClose: () => void }) {
+function OfferSent({ people, call, wait, onClose }: { people: readonly PersonView[]; call: CallView; wait?: Wait | undefined; onClose: () => void }) {
   const reach = useReach()
   const now = useView().crew.calls.find((c) => c.id === call.id) ?? call
   const told = people.flatMap((person) => {
@@ -247,6 +376,7 @@ function OfferSent({ people, call, onClose }: { people: readonly PersonView[]; c
       title={n === 1 ? `Offered to ${people[0]!.name}` : `Offered to ${n} people`}
       people={told}
       links={told.length ? (told.length === 1 ? 'Their link shows the offer, whenever they open it.' : 'Their links show the offer, whenever they open them.') : undefined}
+      wait={wait}
       onClose={onClose}
     />
   )
@@ -345,6 +475,7 @@ export function SharePanel({
   onClose,
   message,
   inJob = false,
+  wait,
 }: {
   person: PersonView
   call: CallView
@@ -352,13 +483,15 @@ export function SharePanel({
   message?: (link: string) => { text: string; subject: string; what: string }
   /** On the job's page, under its Next dock: WhatsApp is plain (SendButtons). */
   inJob?: boolean
+  /** The offer Offer just made, while it waits (ADR 0162). */
+  wait?: Wait | undefined
 }) {
   const prompts = usePromptsMessages()
   // An offer says what the app sent by itself (ADR 0149); anything else only that no message opened.
-  if (!prompts) return message ? <QuietPanel names={[person.name]} what={message('').what} onClose={onClose} /> : <OfferSent people={[person]} call={call} onClose={onClose} />
+  if (!prompts) return message ? <QuietPanel names={[person.name]} what={message('').what} onClose={onClose} /> : <OfferSent people={[person]} call={call} wait={wait} onClose={onClose} />
   const link = linkFor(person)
   if (!link) return <NoLinkYet person={person} onClose={onClose} />
-  return <SendTo person={person} call={call} link={link} message={message} onClose={onClose} inJob={inJob} />
+  return <SendTo person={person} call={call} link={link} message={message} onClose={onClose} inJob={inJob} wait={wait} />
 }
 
 function SendTo({
@@ -368,6 +501,7 @@ function SendTo({
   message,
   onClose,
   inJob,
+  wait,
 }: {
   person: PersonView
   call: CallView
@@ -375,6 +509,7 @@ function SendTo({
   message?: (link: string) => { text: string; subject: string; what: string }
   onClose: () => void
   inJob: boolean
+  wait?: Wait | undefined
 }) {
   const panel = useInView()
   const hold = useHoldTheDay()(call.projectId)
@@ -384,6 +519,7 @@ function SendTo({
   return (
     <section className="card share" aria-label={`Send ${custom?.what ?? 'offer'} to ${person.name}`} ref={panel} tabIndex={-1}>
       <h2>Send to {person.name}</h2>
+      {wait && <WaitLine wait={wait} />}
       <textarea readOnly value={text} rows={6} />
       <div className="actions">
         <SendButtons key={person.id} person={person} text={text} subject={subject} inJob={inJob} />
@@ -432,20 +568,20 @@ export function TellPanel({ tell, onClose, inJob = false }: { tell: Tell; onClos
  * Several offered in one press (review of 11 November 2026, finding 12): their messages one at a time, as Tell does, each on their
  * own link, with Done, next and Skip.
  */
-function OffersPanel({ people, call, onClose, inJob }: { people: PersonView[]; call: CallView; onClose: () => void; inJob: boolean }) {
+function OffersPanel({ people, call, onClose, inJob, wait }: { people: PersonView[]; call: CallView; onClose: () => void; inJob: boolean; wait?: Wait | undefined }) {
   const [at, setAt] = useState(0)
   const prompts = usePromptsMessages()
   const hold = useHoldTheDay()(call.projectId)
   const person = people[at]
   if (!person) return null
-  if (!prompts) return <OfferSent people={people} call={call} onClose={onClose} />
+  if (!prompts) return <OfferSent people={people} call={call} wait={wait} onClose={onClose} />
   const n = people.length
   const next = () => (at + 1 < n ? setAt(at + 1) : onClose())
   const link = linkFor(person)
   if (!link) return <NoLinkYet key={at} person={person} onClose={next} />
   const text = offerMessage(person, call, link, hold)
   return (
-    <TellOne key={at} label={`Send offer to ${person.name}`} title={`Send to ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next}>
+    <TellOne key={at} label={`Send offer to ${person.name}`} title={`Send to ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next} wait={wait}>
       <textarea readOnly value={text} rows={6} />
       <SendButtons key={person.id} person={person} text={text} subject={offerSubject(call, hold)} inJob={inJob} />
     </TellOne>
@@ -453,12 +589,28 @@ function OffersPanel({ people, call, onClose, inJob }: { people: PersonView[]; c
 }
 
 /** One person to tell, brought into view as it opens. */
-function TellOne({ label, title, more, onNext, children }: { label: string; title: string; more: boolean; onNext: () => void; children: [ReactNode, ReactNode] }) {
+function TellOne({
+  label,
+  title,
+  more,
+  onNext,
+  wait,
+  children,
+}: {
+  label: string
+  title: string
+  more: boolean
+  onNext: () => void
+  /** The offers Offer just made, while they wait (ADR 0162). */
+  wait?: Wait | undefined
+  children: [ReactNode, ReactNode]
+}) {
   const panel = useInView()
   const [message, buttons] = children
   return (
     <section className="card share" aria-label={label} ref={panel} tabIndex={-1}>
       <h2>{title}</h2>
+      {wait && <WaitLine wait={wait} />}
       {message}
       <div className="actions">
         {buttons}

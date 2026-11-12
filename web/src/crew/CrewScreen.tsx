@@ -82,7 +82,7 @@ import { AnswerActions } from './AnswerActions.tsx'
 
 // The job's page and the call sheet (jobs/) take these from here, as they always have.
 export { CallCard } from './Calls.tsx'
-export { linkFor, peopleOn, promptFor, SharePanel, SharePanelFor, type Share } from './Messages.tsx'
+export { linkFor, peopleOn, promptFor, SharePanel, SharePanelFor, type Made, type Share } from './Messages.tsx'
 
 /** Crew needed shows the next fortnight's calls until Show all (audit, 20 October 2026, finding 23), as Home counts them. */
 const SOON_DAYS = 14
@@ -356,7 +356,7 @@ export function CrewScreen() {
                     call={c}
                     crew={crew}
                     late={view.late}
-                    onShare={(people) => setShare({ kind: 'offer', people, call: c }, c.id)}
+                    onShare={(people, made) => setShare({ kind: 'offer', people, call: c, ...(made ? { made } : {}) }, c.id)}
                     onTell={(s) => setShare(s, c.id)}
                   />
                   {shareAt === c.id && underItsCall && panel}
@@ -527,11 +527,11 @@ export function CrewScreen() {
                                 <OfferForm
                                   call={c}
                                   crew={crew}
-                                  onShare={(people) => {
+                                  onShare={(people, made) => {
                                     // Offering the call to someone else is acting on the answer, so it's noted without another tap.
                                     void answers.run(() => client.mutate('offer.seen', { id: o.id }))
                                     markAnswer(o)
-                                    setShare({ kind: 'offer', people, call: c }, ANSWERS)
+                                    setShare({ kind: 'offer', people, call: c, ...(made ? { made } : {}) }, ANSWERS)
                                   }}
                                 />
                               </Fold>

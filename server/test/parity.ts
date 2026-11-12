@@ -180,6 +180,9 @@ const CASES: Case[] = [
   c('offer.refuse', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: '' })] }),
   c('offer.refuse', { id: 'eimear-sound' }, { as: 'a rate noted and said no to with no signal', queued: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: '' })] }),
   c('offer.cancel', { id: 'eimear-sound' }),
+  // Undo just after Offer takes it back as if never made, and its WhatsApp with it (ADR 0162).
+  c('offer.undo', { id: 'cian-sound' }, { before: [m('offer.send', { id: 'cian-sound', callId: 'sound', personId: 'cian', override: false })] }),
+  c('offer.undo', { id: 'cian-sound' }, { as: 'offered and undone with no signal', queued: [m('offer.send', { id: 'cian-sound', callId: 'sound', personId: 'cian', override: false })] }),
   c('offer.seen', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'decline', note: '' })] }),
   c('person.merge', { id: 'dara', from: ['niamh'] }, { before: [person('niamh', 'Dara Q', 'freelancer', { email: 'dq@example.com' })] }),
   c('person.mainEmail', { id: 'dara', email: 'dq@example.com' }, { before: [person('niamh', 'Dara Q', 'freelancer', { email: 'dq@example.com' }), m('person.merge', { id: 'dara', from: ['niamh'] })] }),
