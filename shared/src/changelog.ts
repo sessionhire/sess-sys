@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-12',
     title: "Crew invites can tell people when they're booked, when their call time moves, and why a day is off",
     what: "A new switch under Admin › Connections › Google Calendar, Tell crew what happens next, starts off. When it's on, each person's own invite says where they stand and their call time in its title, such as \"Booked: Harbour Lights Festival - Show 1/2, call 06:00\", so Google emails them when you book them or move their call time. A day that comes off their calendar says why first, such as \"Filled by someone else\" or \"Withdrawn by the office\", so the cancellation isn't read as the job being off. Try it on your own address first with Only to the addresses below: turning it on or off sends nothing by itself. Confirm, Withdraw and the other presses say what Google will email. On a freelancer's page, an offer that ended on your side, filled, withdrawn or with the job cancelled, now shows at the top of their offers, saying how, for up to a week before it goes down to Offers that ended.",
-    prs: [0],
+    prs: [344],
     adrs: [153],
   },
   {

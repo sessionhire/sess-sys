@@ -52,11 +52,11 @@ waiting on someone.
   that day in Google. The words tests cover each question and panel, the
   page tests an ended offer at the top while it's news, an erasure test
   the addresses, and a browser test turns the switch through its three
-  settings. The whole server suite passed (1,015 tests). A replay on a
-  local copy with stand-ins for Google and Meta, 43 checks, walked it
-  from off, through one address and on, to off again, with the office's
-  presses in the browser and the freelancer's page on a phone. Nothing
-  real is sent.
+  settings. The whole server suite passed (1,015 tests), and the whole
+  browser suite on GitHub. A replay on a local copy with stand-ins for
+  Google and Meta, 43 checks, walked it from off, through one address and
+  on, to off again, with the office's presses in the browser and the
+  freelancer's page on a phone. Nothing real is sent.
 
 **Next:** Colly tries it on their own address on the test calendar
 (ADR 0153, "Trying it first"), looking at how Google shows a cancelled
