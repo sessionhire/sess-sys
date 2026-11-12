@@ -285,7 +285,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
     <section className={link.problem ? 'card attention' : 'card'} aria-label="Google Calendar">
       <h2>Google Calendar</h2>
       <p>
-        Confirmed jobs go on <b>{link.calendarName}</b>, written by {link.account}, and jobs not confirmed yet go on as HOLD once crew are asked for them.
+        Confirmed jobs go on <b>{link.calendarName}</b>, written by {link.account}, and jobs not confirmed yet go on as HOLD, short for hold the day, once crew are asked for them.
       </p>
       {link.problem && (
         <p className="alert" role="alert">

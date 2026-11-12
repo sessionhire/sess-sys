@@ -2,7 +2,7 @@ import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noT
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
-import { busyByDay, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, STOPPED_WORDS, type OwnCalendar, type SinceYes } from '@sh/shared'
+import { busyByDay, HOLD_WORDS, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, STOPPED_WORDS, type OwnCalendar, type SinceYes } from '@sh/shared'
 import type { Ended, EndedBy } from './store.ts'
 
 /**
@@ -99,8 +99,11 @@ export function officeBlock(o: OfficeDetails | null | undefined): string {
 
 export interface PageData {
   person: Person
-  /** Each offer with its call, the days still open on it, and the days this person holds on another job, by the job's name. */
-  jobs: { offer: Offer; call: CrewCall; openDays: string[]; busy: Record<string, string> }[]
+  /**
+   * Each offer with its call, the days still open on it, and the days this person holds on another job, by the job's name.
+   * `hold`: the client hasn't said yes to its job yet, so they're asked to hold the day, and nothing on it reads "Booked" (ADR 0150).
+   */
+  jobs: { offer: Offer; call: CrewCall; openDays: string[]; busy: Record<string, string>; hold?: boolean }[]
   away: Unavailability[]
   base: string
   /** The read-only calendar feed address (ADR 0012), safe to add to a shared calendar. */
@@ -156,6 +159,25 @@ export interface PageWhatsApp {
 
 /** An offer's state as its person reads it, from the one word table (UX sweep, 6 November 2026, move 4): a booking is Booked here as in the office. */
 const STATUS_TEXT: Record<Offer['status'], string> = OFFER_WORDS_TO_YOU
+
+/**
+ * Where an offer stands, as its pill. On a job the client hasn't said yes to yet, someone the office has picked is asked
+ * to hold the day: "Booked" there, beside an invite titled HOLD, told them the day was theirs (audit of 12 November
+ * 2026, finding 6; ADR 0150). In the tone of what isn't settled yet, as an accepted offer is.
+ */
+const standing = (j: Pick<PageData['jobs'][number], 'offer' | 'hold'>) =>
+  j.hold && j.offer.status === 'confirmed' ? `<span class="tag hold">${HOLD_WORDS.name}</span>` : `<span class="tag ${j.offer.status}">${STATUS_TEXT[j.offer.status]}</span>`
+
+/**
+ * What holding the day means, on the card of an offer or a booking on such a job: before they answer, what a yes agrees
+ * to; under the pill that reads "Hold the day", only what it means.
+ */
+const holdLine = (j: Pick<PageData['jobs'][number], 'offer' | 'call' | 'hold'>) => {
+  if (!j.hold) return ''
+  const { status, days } = j.offer
+  const says = status === 'offered' || status === 'countered' ? HOLD_WORDS.asked(eachDay(j.call.start, j.call.end).length) : status === 'confirmed' ? HOLD_WORDS.means(days.length) : HOLD_WORDS.toYou(days.length)
+  return `<p class="hold-line">${h(says)}</p>`
+}
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -276,9 +298,10 @@ function offerCard(d: PageData, job: PageData['jobs'][number]) {
   const these = days.length > 1 ? 'Accept these days' : 'Accept'
   const accept =
     offer.status === 'accepted' ? 'Update my days' : countered ? `${these} at ${offered === null ? 'the rate the office sets' : `${euro(offered)} a day`} instead` : these
-  return `<article class="offer ${offer.status}" id="o-${h(offer.id)}">
+  return `<article class="offer ${offer.status}${job.hold ? ' hold' : ''}" id="o-${h(offer.id)}">
     ${mine && !rateError && !daysError ? flash(mine) : ''}
-    <header><h3>${title}</h3><span class="tag ${offer.status}">${STATUS_TEXT[offer.status]}</span></header>
+    <header><h3>${title}</h3>${standing(job)}</header>
+    ${holdLine(job)}
     ${since?.unclear ? `<p class="news">${h(UNCLEAR)}</p>` : ''}
     ${facts(call, offer, staff, d.today, since)}
     ${clash}
@@ -687,7 +710,7 @@ const BOOKINGS_IN_FULL = 3
  * 2026, move 6): the job, then role · phase · days · call, and anything more the row needs, then where it stands.
  */
 const laterRow = (d: PageData, j: PageData['jobs'][number], more = '') =>
-  `<summary><b>${h(j.call.project)}</b><span class="line">${h(bookingLine(j.offer, j.call, d.today))}${more} <span class="tag ${j.offer.status}">${STATUS_TEXT[j.offer.status]}</span></span></summary>`
+  `<summary><b>${h(j.call.project)}</b><span class="line">${h(bookingLine(j.offer, j.call, d.today))}${more} ${standing(j)}</span></summary>`
 
 /**
  * With crew invites on (ADR 0009): each day offered also comes as a Google Calendar invite, and the first one from the
@@ -1021,7 +1044,7 @@ section{display:grid;gap:10px}
 .offer header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
 h3{margin:0;font-size:1.1rem}h3 span{font-weight:500;color:var(--muted)}
 .tag{font-size:.75rem;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--line);white-space:nowrap}
-.tag.offered{background:var(--accent-fill);color:#fff}.tag.confirmed,.tag.approved{background:var(--line);color:var(--ink)}.tag.accepted,.tag.countered,.tag.waiting{background:var(--warn-soft);color:var(--warn)}
+.tag.offered{background:var(--accent-fill);color:#fff}.tag.confirmed,.tag.approved{background:var(--line);color:var(--ink)}.tag.accepted,.tag.countered,.tag.waiting,.tag.hold{background:var(--warn-soft);color:var(--warn)}
 .facts{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin:0}.facts dt{color:var(--muted)}.facts dd{margin:0}
 .details{margin:0;padding:10px;background:var(--bg);border-radius:8px;font-size:.92rem}
 form{display:grid;gap:10px;margin:0}
@@ -1052,7 +1075,7 @@ input[type=checkbox],input[type=radio]{min-height:0}fieldset.days input{width:20
 .flash{margin:0;padding:12px 14px;border-radius:10px;font-weight:600}.flash.ok{background:var(--panel);color:var(--ink);border:1px solid var(--line)}.flash.bad{background:var(--bad-soft);color:var(--bad)}.flash.warn{background:var(--warn-soft);color:var(--warn)}
 /* A refusal about one field is the app's refusal line, under it: the bad wash, never amber, with the field's edge in the bad tone, drawn twice as heavy inside the box so the field keeps its size beside its pair. */
 .field-error{margin:-4px 0 0;padding:${CONTROL_PAD};border-radius:8px;background:var(--bad-soft);color:var(--bad)}input[aria-invalid=true],textarea[aria-invalid=true],.unit-box:has([aria-invalid=true]){border-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad)}.unit-box input[aria-invalid=true]{box-shadow:none}
-.clash,.news{margin:0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}
+.clash,.news,.hold-line{margin:0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}.offer.confirmed.hold{border-left-color:var(--warn)}
 /* A booking's change since the yes, "07:30 (was 09:00)", and how one that ended went, as its first line: attention, as each needs a look (UX sweep, 6 November 2026, move 6). */
 .was{color:var(--warn);font-weight:600}.offer.ended{border-left-color:var(--warn)}.offer.ended h3 .news{display:block;margin-bottom:10px;font-size:1rem}
 .empty,.small{color:var(--muted);margin:0;font-size:.92rem}

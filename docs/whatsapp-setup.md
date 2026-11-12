@@ -133,12 +133,15 @@ In **WhatsApp Manager › Message templates › Create template**:
 
 **Two more templates**, for when a job's crew were asked before the client
 said yes. The offer itself says so with **HOLD** before the job's name, so
-the offer's template doesn't change.
+the offer's template doesn't change. HOLD is short for "hold the day": the
+ask to keep the day free until the client says yes. It never means the job
+is on hold, so none of these templates says that
+([ADR 0150](adr/0150-hold-means-hold-the-day.md)).
 
 `job_confirmed`, Utility, English (UK):
 
 ```
-Hi {{1}}, {{2}} is confirmed: it's no longer on hold.
+Hi {{1}}, {{2}} is confirmed: the client has said yes, so it's going ahead.
 
 Your days: {{3}}
 

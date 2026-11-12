@@ -1,4 +1,4 @@
-import { reachContext, telHref, whatsappNumber, type Person, type ReachContext } from '@sh/shared'
+import { jobOnHold, reachContext, telHref, whatsappNumber, type Person, type ReachContext } from '@sh/shared'
 import { useMemo } from 'react'
 import { useToday, useView } from '../view.ts'
 
@@ -10,6 +10,16 @@ export function useReach(): ReachContext {
   const view = useView()
   const today = useToday()
   return useMemo(() => reachContext(view, today), [view, today])
+}
+
+/**
+ * Whether a call's job is one the client hasn't said yes to yet (ADR 0150): its crew are asked to hold the day, so the
+ * office's messages, and a person's own rows, say that and never "booked" or "confirmed". False for a call that isn't
+ * part of a job, and for a job this device isn't sent.
+ */
+export function useHoldTheDay(): (projectId: string | null | undefined) => boolean {
+  const reach = useReach()
+  return (projectId) => jobOnHold(projectId ? reach.job(projectId)?.status : undefined)
 }
 
 /**

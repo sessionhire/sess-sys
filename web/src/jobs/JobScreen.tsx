@@ -652,7 +652,7 @@ function CalendarLine({ job, phase, on, today }: { job: JobView; phase: PhaseVie
       return (
         <p className="cal">
           On {on.calendar} as {titlesLine(job.name, phase, today, hold)}.
-          {hold && ' On hold until the job is confirmed.'}
+          {hold && ' HOLD is short for hold the day, and comes off once the job is confirmed.'}
           {on.link && (
             <>
               {' '}

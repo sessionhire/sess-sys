@@ -5,6 +5,7 @@ import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asBooking, BookingRow, stoppedBookings } from '../crew/BookingRow.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { linkFor } from '../crew/Messages.tsx'
+import { useHoldTheDay } from '../crew/reach.tsx'
 import { Empty } from '../Empty.tsx'
 import { Top } from '../jobs/common.tsx'
 import { ViewChoice } from '../Views.tsx'
@@ -750,6 +751,8 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
   const { can } = useAccess()
   const answers = can('answer')
   const [id, setId] = useState('')
+  // A place on a job the client hasn't said yes to yet is a day to hold, not a booking (ADR 0150).
+  const holdTheDay = useHoldTheDay()
   if (!me) {
     const staff = view.leave.staff
     return (
@@ -805,7 +808,7 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
   const waiting = view.leave.requestsFor(me.id, year).filter((r) => r.status === 'waiting')
   const approver = canApproveLeave(me)
   const copying = useCopying()
-  const weeks = myWeeks(view.crew.calls, me.id, today)
+  const weeks = myWeeks(view.crew.calls, me.id, today, 8, (c) => holdTheDay(c.projectId))
   return (
     <>
       {/* Today first, where a person looks first; leave after (audit, 5 November 2026, finding 97). */}
@@ -814,7 +817,7 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
         {/* One name and one row for them on Home › Me, their own page and their link (UX sweep, 6 November 2026, move 6); booked and only
             accepted said apart, as on their own page (audit, 20 October 2026, finding 36): an accepted day can still go to someone else.
             Only bookings are counted: the glance line under it says the offers, and the strip's name for the card stays on a phone. */}
-        <Heading icon="calendar">Your bookings{booked.length > 0 && !copying ? ` (${workCount(booked)})` : ''}</Heading>
+        <Heading icon="calendar">Your bookings{booked.length > 0 && !copying ? ` (${workCount(booked, (m) => holdTheDay(m.c.projectId))})` : ''}</Heading>
         {copying ? (
           <p className="empty">{STILL_ARRIVING}</p>
         ) : mine.length === 0 ? (
@@ -827,7 +830,7 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
                 <li key={o.id}>
                   {/* An offer is answered on the job's page in the app by staff (ADR 0111), otherwise on their own page (audit, 20 October
                       2026, finding 35), so its row opens there. */}
-                  <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} {...(answers && c.projectId ? { answerAt: jobHref(c) } : {})} {...(job ? { job } : {})} />
+                  <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} {...(answers && c.projectId ? { answerAt: jobHref(c) } : {})} {...(job ? { job } : {})} hold={holdTheDay(c.projectId)} />
                 </li>
               ))}
             </ul>
@@ -955,11 +958,19 @@ function MySteps({ view, me, all }: { view: View; me: PersonView; all: boolean }
   )
 }
 
-/** "3 booked, 2 to confirm", or the one kind there is, in the word table's words (UX sweep, 6 November 2026, move 4). */
-function workCount(mine: readonly { o: { status: string } }[]) {
-  const booked = mine.filter((m) => m.o.status === 'confirmed').length
-  const toConfirm = mine.length - booked
-  return [booked && `${booked} ${OFFER_WORDS.confirmed[0].toLowerCase()}`, toConfirm && `${toConfirm} ${OFFER_WORDS.accepted[0].toLowerCase()}`].filter(Boolean).join(', ')
+/**
+ * "3 booked, 2 to confirm", or the one kind there is, in the word table's words (UX sweep, 6 November 2026, move 4). One
+ * the office has picked for a job the client hasn't said yes to yet is a day to hold, not a booking (ADR 0150), and is
+ * counted as that: "1 booked, 1 to hold".
+ */
+function workCount<T extends { o: { status: string } }>(mine: readonly T[], hold: (m: T) => boolean) {
+  const picked = mine.filter((m) => m.o.status === 'confirmed')
+  const toHold = picked.filter(hold).length
+  const booked = picked.length - toHold
+  const toConfirm = mine.length - picked.length
+  return [booked && `${booked} ${OFFER_WORDS.confirmed[0].toLowerCase()}`, toHold && `${toHold} to hold`, toConfirm && `${toConfirm} ${OFFER_WORDS.accepted[0].toLowerCase()}`]
+    .filter(Boolean)
+    .join(', ')
 }
 
 /** Where a booking of theirs opens in the app: its job, or Crew for a call made before jobs. */

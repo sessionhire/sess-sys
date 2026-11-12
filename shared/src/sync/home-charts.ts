@@ -113,9 +113,19 @@ export function kitByDay(lines: readonly KitLineView[], today: string, days = 14
   })
 }
 
-/** Days someone is booked in each week from this one: confirmed, then said yes and not yet confirmed. */
-export function myWeeks(calls: readonly CallView[], personId: string, today: string, weeks = 8): Column[] {
-  const offers = calls.filter((c) => c.status === 'open' && c.end >= today).flatMap((c) => c.offers.filter((o) => o.personId === personId && (o.status === 'confirmed' || o.status === 'accepted')))
+/**
+ * Days someone is booked in each week from this one: confirmed, then said yes and not yet confirmed. A place on a job
+ * the client hasn't said yes to yet (`hold`) is a day to hold, so it waits with the second however the office has
+ * answered (ADR 0150).
+ */
+export function myWeeks(calls: readonly CallView[], personId: string, today: string, weeks = 8, hold: (c: CallView) => boolean = () => false): Column[] {
+  const offers = calls
+    .filter((c) => c.status === 'open' && c.end >= today)
+    .flatMap((c) =>
+      c.offers
+        .filter((o) => o.personId === personId && (o.status === 'confirmed' || o.status === 'accepted'))
+        .map((o) => ({ days: o.days, status: o.status === 'confirmed' && hold(c) ? 'accepted' : o.status }))
+    )
   const first = mondayOf(today)
   return Array.from({ length: weeks }, (_, i) => {
     const from = addDays(first, i * 7)

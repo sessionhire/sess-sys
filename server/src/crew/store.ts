@@ -188,6 +188,17 @@ const withCalls = (rows: Row[]) =>
     return { offer: toOffer(r), call: toCall(c) }
   })
 
+/**
+ * Of these jobs, the ones the client hasn't said yes to yet (an enquiry, or quoted): anyone asked for one is asked to
+ * hold the day, and their page and call sheet say so (ADR 0150).
+ */
+export async function jobsNotYetAgreed(q: Queryable, projectIds: readonly (string | null | undefined)[]): Promise<Set<string>> {
+  const ids = [...new Set(projectIds.filter((id): id is string => !!id))]
+  if (ids.length === 0) return new Set()
+  const { rows } = await q.query<{ id: string }>(`SELECT id FROM projects WHERE id = ANY($1::text[]) AND status IN ('enquiry', 'quoted')`, [ids])
+  return new Set(rows.map((r) => r.id))
+}
+
 /** A person's offers with their calls, newest call first. */
 export async function offersFor(q: Queryable, personId: string) {
   const { rows } = await q.query(

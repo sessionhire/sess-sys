@@ -66,14 +66,14 @@ const booked = (offerId: string, callId: string, personId: string) => [
   m('offer.confirm', { id: offerId }),
 ]
 
-/** A festival's show days: a contact on the day, two booked, one accepted, one only offered, and some kit. */
-async function festival() {
+/** A festival's show days: a contact on the day, two booked, one accepted, one only offered, and some kit. Confirmed, unless the client hasn't said yes yet. */
+async function festival(status: 'confirmed' | 'quoted' = 'confirmed') {
   const { app, db } = await server()
   await ok(
     app,
     m('client.upsert', { id: 'shannon', name: 'Shannonside Festivals', contacts: [{ name: 'Niamh Walsh', role: 'Producer', email: null, phone: '+44 7700 900200' }], notes: '' }),
     m('venue.upsert', { id: 'riverside', name: 'Riverside Park', address: 'Riverside Park\nLimerick', notes: 'Load in from the north gate. Park in the crew car park.' }),
-    m('project.create', { id: 'harbour', name: 'Harbour Lights Festival', clientId: 'shannon', venueId: 'riverside', status: 'confirmed', notes: 'Two stages; the main stage is ours.' }),
+    m('project.create', { id: 'harbour', name: 'Harbour Lights Festival', clientId: 'shannon', venueId: 'riverside', status, notes: 'Two stages; the main stage is ours.' }),
     m('phase.add', { id: 'show', projectId: 'harbour', name: 'Show', start: '2031-06-06', end: '2031-06-07', venueId: null, notes: '12:00 Crew call\n17:30 Doors\n23:00 Curfew' }),
     person('aoife', 'Aoife Brennan', '+44 7700 900101', 'staff'),
     person('dara', 'Dara Quinn', '+44 7700 900102'),
@@ -162,6 +162,47 @@ describe('a call sheet on a private link', () => {
     await ok(app, m('call.cancel', { id: 'sound' }))
     expect((await page(app, `/f/${dara}/sheet/sound`)).status).toBe(404)
     expect((await page(app, `/f/not-a-real-token-at-all/sheet/sound`)).status).toBe(404)
+  })
+
+  it("says to hold the day on the page and the sheet until the client says yes, and never Booked", async () => {
+    // Proves: finding 6 of the audit of 12 November 2026 (ADR 0150). HOLD is short for "hold the day". On a job the client hasn't
+    // said yes to, the pill of someone the office has picked reads "Hold the day" where it read "Booked", every card and the
+    // call sheet say what that means in the same words, and nothing a person reads says the job is "on hold".
+    const { app, token } = await festival('quoted')
+    const [dara, eimear, fionn] = [await token('dara'), await token('eimear'), await token('fionn')]
+    const read = async (url: string) => (await page(app, url)).html.replace(/&#39;/g, "'")
+    const card = (html: string, offerId: string) => {
+      const from = html.indexOf(`id="o-${offerId}"`)
+      expect(from).toBeGreaterThan(-1)
+      return html.slice(from, html.indexOf('</article>', from))
+    }
+
+    // Dara, picked by the office for both days: the pill is the ask, and the line under it says what it means.
+    const daras = card(await read(`/f/${dara}`), 'o1')
+    expect(daras).toContain('<span class="tag hold">Hold the day</span>')
+    expect(daras).toContain(`<p class="hold-line">The client hasn't said yes yet, so please keep your days free. Nothing is booked until they do.</p>`)
+    expect(daras).not.toMatch(/>Booked</)
+    // Eimear said yes and waits on the office: her pill is as it was, with the same line.
+    const eimears = card(await read(`/f/${eimear}`), 'o3')
+    expect(eimears).toContain('<span class="tag accepted">Accepted, the office will confirm</span>')
+    expect(eimears).toContain(`<p class="hold-line">Hold the day: the client hasn't said yes yet, so please keep your days free. Nothing is booked until they do.</p>`)
+    // Fionn hasn't answered: what a yes agrees to, before he gives it.
+    const fionns = card(await read(`/f/${fionn}`), 'o4')
+    expect(fionns).toContain('<span class="tag offered">Waiting on you</span>')
+    expect(fionns).toContain(`<p class="hold-line">Hold the day: the client hasn't said yes yet. A yes from you means you'll keep your days free; nothing is booked until the client says yes.</p>`)
+
+    // The call sheet opens with it, under the days.
+    const sheet = await read(`/f/${dara}/sheet/sound`)
+    expect(sheet).toContain(`<p class="hold-line">Hold the day: the client hasn't said yes yet, so please keep your days free. Nothing is booked until they do.</p>`)
+    for (const html of [daras, eimears, fionns, sheet]) expect(html).not.toMatch(/on hold/i)
+
+    // The client says yes: Booked, as on any job, and the line is gone from the page and the sheet.
+    await ok(app, m('project.update', { id: 'harbour', status: 'confirmed' }))
+    const after = card(await read(`/f/${dara}`), 'o1')
+    expect(after).toContain('<span class="tag confirmed">Booked</span>')
+    expect(after).not.toContain('<p class="hold-line">')
+    expect(await read(`/f/${dara}/sheet/sound`)).not.toContain('<p class="hold-line">')
+    expect(card(await read(`/f/${fionn}`), 'o4')).not.toContain('<p class="hold-line">')
   })
 
   it('has a contact on the day only from the people in the app, and says so in the history', async () => {

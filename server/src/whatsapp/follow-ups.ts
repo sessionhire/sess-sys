@@ -8,8 +8,8 @@ import { reachOf } from './whatsapp.ts'
  * What a job's own change sends crew on WhatsApp (ADR 0125, HOLD), queued in the same change so it goes only if the
  * change is made, and sent by the server just after, as an offer's message is:
  *
- * - confirmed after being on hold: each person whose offer went saying HOLD, and is still asked or booked, is told
- *   straight away that it's going ahead (Colly, 11 Nov 2026: no wait);
+ * - confirmed after its crew were asked to hold the day: each person whose offer went saying HOLD, and is still asked
+ *   or booked, is told straight away that it's going ahead (Colly, 11 Nov 2026: no wait);
  * - cancelled or lost: each person asked or booked on it who had an offer on WhatsApp is told it isn't.
  *
  * Called before the job's crew are taken off a stopped job, so who was asked or booked is still to be read.
@@ -30,7 +30,7 @@ export async function queueJobWhatsApp(ctx: Ctx, projectId: string, before: Proj
     }
   }
   if (after === 'confirmed' && jobOnHold(before)) {
-    // One follow-up for each HOLD message, so a job put back on hold and confirmed again doesn't say it twice.
+    // One follow-up for each HOLD message, so a job that went back to a quote and was confirmed again doesn't say it twice.
     const { rows } = await ctx.tx.query<{ id: string; offer_id: string; person_id: string }>(
       `SELECT 'confirmed-' || w.id AS id, w.offer_id, w.person_id FROM whatsapp_messages w
          JOIN offers o ON o.id = w.offer_id JOIN crew_calls c ON c.id = o.call_id

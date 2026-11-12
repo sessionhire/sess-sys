@@ -57,12 +57,16 @@ the time it is awake, so the sync can't check the calendar every minute.
   only: rates and phone numbers never go on the calendar. Enquiries and
   quotes stay off it, so nobody sees a job that isn't happening; a job goes
   on when it is confirmed and comes off when it is cancelled or lost.
-- **On hold once crew are asked (from 1.162.0, Colly's ask).** An enquiry or
+- **HOLD once crew are asked (from 1.162.0, Colly's ask).** An enquiry or
   quote with someone offered or booked on one of its calls goes on, every
-  day of it, titled "HOLD Nissan - Build 1/2" and opening with "ON HOLD: the
-  client hasn't said yes yet". Confirmed, the same events lose the HOLD (a
-  title change, so Google tells the guests); lost or cancelled, they come
-  off and guests are told. A quote with nobody asked stays off as before.
+  day of it, titled "HOLD Nissan - Build 1/2" and opening with what HOLD
+  asks: "HOLD means hold the day: the client hasn't said yes yet, so please
+  keep it free. Nothing is booked until they do." HOLD is short for "hold
+  the day"; it is never the job that is on hold, and until 1.166.0 the line
+  read "ON HOLD: ..." ([ADR 0150](0150-hold-means-hold-the-day.md)).
+  Confirmed, the same events lose the HOLD (a title change, so Google tells
+  the guests); lost or cancelled, they come off and guests are told. A
+  quote with nobody asked stays off as before.
 - **The crew list names only who is confirmed** (from 1.162.0, Colly's
   ask): each role with the people the office has confirmed, and every
   other place, a yes not yet confirmed, an ask or nobody yet, as TBC

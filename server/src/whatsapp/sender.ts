@@ -171,7 +171,7 @@ export class WhatsAppSender {
     const page = (index: string): TemplateComponent => ({ type: 'button', sub_type: 'url', index, parameters: [{ type: 'text', text: person.linkToken }] })
     const body = (values: string[]): TemplateComponent => ({ type: 'body', parameters: values.map((text) => ({ type: 'text', text })) })
     if (m.kind === 'confirmed') {
-      if (job?.status !== 'confirmed') return 'The job went back on hold, or was stopped, before it went.'
+      if (job?.status !== 'confirmed') return 'The job was no longer confirmed, or was stopped, before it went.'
       if (!['offered', 'countered', 'accepted', 'confirmed'].includes(offer.status) || call.status !== 'open') return 'The offer was answered no or withdrawn before it went.'
       return { template: WHATSAPP_CONFIRMED_TEMPLATE, components: [body(followUpTemplateValues(person, call, offer.days)), page('0')], hold: false }
     }

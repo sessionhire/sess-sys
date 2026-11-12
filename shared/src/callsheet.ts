@@ -1,5 +1,6 @@
 import { daysLabel, eachDay, firstName, needsLabel, tidyNeeds, type CertificateKind, type OfferStatus } from './crew.ts'
 import { mapLink, type Contact, type Venue } from './jobs.ts'
+import { HOLD_WORDS } from './words.ts'
 import { DEPARTMENTS, DEPARTMENT_LABELS, type Department } from './stock.ts'
 
 /**
@@ -63,7 +64,8 @@ export interface SheetVan {
 }
 
 export interface SheetInput {
-  job: { name: string; notes: string }
+  /** `hold`: the client hasn't said yes to the job yet, so its crew are asked to hold the day (ADR 0150). */
+  job: { name: string; notes: string; hold?: boolean }
   client: { name: string; contacts: readonly Contact[] } | null
   /** Null for a crew call that isn't for one phase. */
   phase: { name: string; start: string; end: string; notes: string } | null
@@ -115,6 +117,11 @@ export interface SheetCallView {
 export interface CallSheet {
   reader: SheetReader
   job: string
+  /**
+   * The client hasn't said yes yet (ADR 0150): what the sheet says first, in the reader's words, so nobody reads a sheet
+   * with their name on it as a booking. Only then.
+   */
+  hold?: string
   client: { name: string; contacts?: readonly Contact[] } | null
   phase: string
   days: string[]
@@ -223,6 +230,13 @@ export function callSheet(input: SheetInput, reader: SheetReader): CallSheet {
     notes: { job: input.job.notes.trim(), phase: input.phase?.notes.trim() ?? '' },
     calls: views,
   }
+  if (input.job.hold) {
+    // To the crew it is about the days they hold themselves, which can be fewer than the sheet's; with no place of their own on it, the sheet's.
+    const mine = new Set(
+      calls.flatMap((c) => c.offers.filter((o) => o.personId === input.readerId && (o.status === 'accepted' || o.status === 'confirmed')).flatMap((o) => o.days.filter((d) => c.start <= d && d <= c.end)))
+    )
+    sheet.hold = reader === 'office' ? HOLD_WORDS.toOffice : HOLD_WORDS.toYou(mine.size || days.length)
+  }
   const vans = (input.vans ?? [])
     .map((v) => ({ ...v, days: eachDay(v.start, v.end).filter((d) => !days.length || days.includes(d)) }))
     .filter((v) => v.days.length > 0)
@@ -267,6 +281,8 @@ export function venueContactLine(c: { name: string; role: string; phone: string 
  */
 export function callSheetText(s: CallSheet): string {
   const lines: string[] = [`${s.job}${s.phase ? `: ${s.phase}` : ''}`, s.when]
+  // Pasted where the crew read it, so in the words said to them, whoever copies it.
+  if (s.hold) lines.push(HOLD_WORDS.toYou(s.days.length))
   if (s.venue) lines.push('', `At ${s.venue.name}${s.venue.address ? `, ${s.venue.address.replace(/\s*\r?\n\s*/g, ', ')}` : ''}`, s.venue.map)
   if (s.venue?.notes) lines.push(s.venue.notes)
   if (s.venue?.contact) lines.push(venueContactLine(s.venue.contact))
@@ -291,10 +307,10 @@ export function vanLine(v: NonNullable<CallSheet['vans']>[number]): string {
 }
 
 /** Sending someone the sheet on their private link, by WhatsApp, text or email. */
-export function sheetMessage(p: { name: string; knownAs?: string | null }, s: Pick<CallSheet, 'job' | 'phase' | 'when'>, link: string): { text: string; subject: string } {
+export function sheetMessage(p: { name: string; knownAs?: string | null }, s: Pick<CallSheet, 'job' | 'phase' | 'when'> & Partial<Pick<CallSheet, 'hold'>>, link: string): { text: string; subject: string } {
   const first = firstName(p)
   return {
-    text: `Hi ${first}, here's the call sheet for ${s.job}${s.phase ? ` (${s.phase})` : ''}, ${s.when}: who's on, where, and who to ring on the day.\n${link}`,
+    text: `Hi ${first}, here's the call sheet for ${s.job}${s.phase ? ` (${s.phase})` : ''}, ${s.when}: who's on, where, and who to ring on the day.${s.hold ? " It's to hold the day for now: the client hasn't said yes yet." : ''}\n${link}`,
     subject: `Call sheet: ${s.job}, ${s.when}`,
   }
 }
