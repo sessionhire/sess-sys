@@ -100,7 +100,7 @@ test('a clash is shown before the server says it, a refusal shows in the offer�
   await expect(past.locator('li').first()).toContainText(/^Autumn Gala \(Show\) · Sound No\.1 · \w{3} \d{1,2} \w{3} to \w{3} \d{1,2} \w{3} (Booked|Sent €[\d.,]+, with the office ›)$/)
   const laoise = changes.find((c) => c.entity === 'person' && c.data.name === 'Laoise Keane')!
   await phone.goto(`/f/${laoise.data.linkToken}`)
-  const turned = phone.locator('section', { has: phone.getByRole('heading', { name: 'Declined and withdrawn' }) })
+  const turned = phone.locator('section', { has: phone.getByRole('heading', { name: 'Offers that ended' }) })
   await expect(turned.locator('li').first()).toContainText(/^Harbour Lights Festival \(Load in\) · Stagehand · \w{3} \d{1,2} \w{3} to \w{3} \d{1,2} \w{3} You declined on \w{3} \d{1,2} \w{3}$/)
 
   // With script, Copy address puts the address on the clipboard and says so.
@@ -180,7 +180,7 @@ test("the link says what changed on a booking since the yes, and a booking on a 
   await gala.getByText("Can't make it?").click()
   await gala.getByRole('button', { name: "Can't make it", exact: true }).click()
   await expect(phone.getByRole('status').first()).toHaveText("Thanks for telling us you can't make it. You're off this one, and the office will find cover.")
-  const turned = phone.locator('section', { has: phone.getByRole('heading', { name: 'Declined and withdrawn' }) })
+  const turned = phone.locator('section', { has: phone.getByRole('heading', { name: 'Offers that ended' }) })
   await expect(turned.locator('li').filter({ hasText: 'Autumn Gala' })).toContainText(/Can't make it: you told us on \w{3} \d{1,2} \w{3}$/)
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)

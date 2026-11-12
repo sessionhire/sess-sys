@@ -280,22 +280,27 @@ test('each phase of a job says how it stands on the calendar', async ({ browser 
   await expect(build.locator('.cal')).toHaveText(`Going on Test calendar as “${renamed} - Build 1/2” and “${renamed} - Build 2/2”…`)
 })
 
-test('crew invites: turned on from Admin, with answers from Google on the job page', async ({ browser }) => {
+test('crew invites: turned on from Admin, with answers from Google on the job page', async ({ browser, request }) => {
   const id = tag()
   const job = named('Web Summit', id)
-  const [niamh, conor, sean] = [named('Niamh Kelly', id), named('Conor Walsh', id), named('Seán Murphy', id)]
+  const [niamh, conor, sean, orla] = [named('Niamh Kelly', id), named('Conor Walsh', id), named('Seán Murphy', id), named('Orla Brennan', id)]
+  // Messages to crew start off (ADR 0048), whatever another test left: each offer's row then says what the app sent by itself (ADR 0149).
+  const quiet = await request.post('/api/sync/push', {
+    data: { clientId: `calendar-${id}`, mutations: [{ id: `calendar-${id}-quiet`, name: 'messages.prompt', args: { on: false }, createdAt: new Date().toISOString() }] },
+  })
+  expect(quiet.ok()).toBe(true)
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   const server = await signedIn(page)
   server.link = connected()
   server.job = job
   server.day = (phase, i, n) => ({ state: 'on', title: `${job} - ${phase} ${i + 1}/${n}`, problem: null, link: 'https://www.google.com/calendar/event?eid=abc' })
 
-  // Three freelancers, one with no email address, offered the build.
+  // Three freelancers, one with no email address, offered the build; a fourth is asked later.
   await page.goto('/#crew/people')
   await expect(page.getByRole('status')).toHaveText('Up to date')
   await page.getByRole('button', { name: 'New person' }).click()
   const person = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add person' }) })
-  for (const [name, email] of [[niamh, 'niamh@example.com'], [conor, 'conor@example.ie'], [sean, '']] as const) {
+  for (const [name, email] of [[niamh, 'niamh@example.com'], [conor, 'conor@example.ie'], [sean, ''], [orla, 'orla@example.com']] as const) {
     await fillName(person, name)
     await person.getByLabel('Email').fill(email)
     await person.getByRole('button', { name: 'Add person' }).click()
@@ -331,8 +336,12 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   }
   await expect(page.locator('.conn')).toHaveText('Up to date')
   const jobPage = page.url()
-  // Off: nobody has heard from Google, and the job page says nothing about it.
+  // Off, with WhatsApp and messages to crew off too: nobody has heard anything, and the call says so once, over the three of them.
   await expect(build.locator('.on-cal')).toHaveCount(0)
+  await expect(build.locator('.sent-line')).toHaveText('Nothing was sent to Conor, Niamh and Seán: calendar invites, WhatsApp and messages to crew are all off.')
+  // Send opens a message for the office to send, so it isn't there while messages are off: the way to someone nothing reached is their address.
+  await expect(build.getByRole('button', { name: 'Send' })).toHaveCount(0)
+  await expect(build.getByRole('link', { name: `Email ${niamh}` })).toHaveAttribute('href', 'mailto:niamh@example.com')
 
   // Turning invites on says first what goes out.
   await page.route(/\/api\/calendar\/invites/, (route) => {
@@ -392,8 +401,10 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   const row = (name: string) => build.locator('.offers li', { hasText: name })
   await expect(row(niamh).locator('.on-cal')).toHaveText('On Google Calendar: yes to Mon 14 Oct; no to Tue 15 Oct.')
   await expect(row(niamh).locator('.warn-line')).toHaveText('Said no to Tue 15 Oct on Google Calendar, but is booked for it. Call them to sort it out.')
-  await expect(row(conor).locator('.on-cal')).toHaveText('Invited on Google Calendar; no answer yet.')
-  await expect(row(sean).locator('.on-cal')).toHaveText('No email address, so no calendar invite.')
+  // Conor was invited and hasn't answered. Nothing has reached Seán, which is the office's to act on, so it's in amber.
+  await expect(row(conor).locator('.on-cal')).toHaveText('Invited by email, 2 days. No answer yet.')
+  await expect(row(sean).locator('.warn-line')).toHaveText('Nothing has reached Seán: they have no email address for a calendar invite, and WhatsApp is off.')
+  await expect(build.locator('.sent-line')).toHaveCount(0)
   await build.scrollIntoViewIfNeeded()
   await page.screenshot(shot('jobs-invites'))
 
@@ -404,4 +415,50 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
     `${niamh} answered on Google Calendar${job} · Audio tech · booked Mon 14 Oct to Tue 15 Oct` +
       'Said no to Tue 15 Oct on Google Calendar, but is booked for it. Call them to sort it out.'
   )
+
+  // Back on the job, a press that takes something away says first what Google emails, and to how many (ADR 0149).
+  await page.goto(jobPage)
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await call.getByRole('button', { name: '2 × Audio tech' }).click()
+  await call.getByRole('button', { name: 'Cancel crew call' }).click()
+  await expect(
+    call.getByRole('group', {
+      name: `Cancel the call for 2 × Audio tech on ${job}? Google emails 2 of the 3 people on it that their days are cancelled. Everyone's link says it's withdrawn at once, and nothing else is sent.`,
+    })
+  ).toBeVisible()
+  await call.getByRole('button', { name: 'Keep it' }).click()
+  // Niamh turned one of her two days down in Google, and no cancellation follows a No: she is emailed about the other.
+  await row(niamh).getByRole('button', { name: 'Withdraw' }).click()
+  await expect(
+    call.getByRole('group', { name: `Release ${niamh} from this call? The days they're booked for go back to it. Google emails them that the day is cancelled, and their link says so at once.` })
+  ).toBeVisible()
+  await call.getByRole('button', { name: 'Keep them' }).click()
+  await row(conor).getByRole('button', { name: 'Withdraw' }).click()
+  await expect(call.getByRole('group', { name: `Withdraw the offer to ${conor}? Google emails them that their 2 days are cancelled, and their link says it's withdrawn at once.` })).toBeVisible()
+  await call.getByRole('button', { name: 'Withdraw the offer' }).click()
+  // Afterwards the panel says what the app sent by itself: Google is emailing him, and has once his days are off the calendar.
+  const withdrawn = page.getByRole('region', { name: `Offer to ${conor} withdrawn: what was sent` })
+  await expect(withdrawn).toContainText('Google is emailing Conor that their days are cancelled.')
+  server.answers.delete(conor)
+  await page.evaluate(() => dispatchEvent(new Event('online')))
+  await expect(withdrawn).toContainText('Google has emailed Conor that their days are cancelled.')
+  await expect(withdrawn).toContainText('Their link says so, whenever they open it.')
+  await expect(withdrawn).toContainText('Messages to crew are off, so no message opened for you to send.')
+  await withdrawn.getByRole('button', { name: 'Done' }).click()
+
+  // Before a press that sends something, the form says what goes by itself, by the rule the server sends by.
+  await call.getByRole('button', { name: 'Offer…' }).click()
+  await pickRecord(call, 'Offer to', orla)
+  await expect(call.locator('.offer-pending')).toHaveText(`Not offered yet. Orla doesn't know until you press Offer to ${orla}. Pressing it emails them a calendar invite for each day.`)
+  await call.getByRole('button', { name: /^Offer to / }).click()
+  // And afterwards what did: on its way until the server has written her days, then emailed.
+  const offered = page.getByRole('region', { name: `Offered to ${orla}: what was sent` })
+  await expect(offered).toContainText('A calendar invite is on its way to Orla by email.')
+  await expect(row(orla).locator('.on-cal')).toHaveText('Calendar invite on its way.')
+  server.answers.set(orla, { '2030-10-14': 'needsAction', '2030-10-15': 'needsAction' })
+  await page.evaluate(() => dispatchEvent(new Event('online')))
+  await expect(offered).toContainText('Orla was emailed a calendar invite for each day.')
+  await expect(row(orla).locator('.on-cal')).toHaveText('Invited by email, 2 days. No answer yet.')
+  // Nobody is rung for someone the invite reached: the panel lists only who nothing got to.
+  await expect(offered.getByRole('link', { name: `Email ${orla}` })).toHaveCount(0)
 })

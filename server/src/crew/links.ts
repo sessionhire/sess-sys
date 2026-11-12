@@ -25,7 +25,7 @@ import { getPurchase, openPurchases, purchasesFor } from '../purchases/store.ts'
 import { renderPurchases } from './purchase-page.ts'
 import { renderBroken, type BrokenPage } from './broken-page.ts'
 import { getAsset, numberUse } from '../stock/store.ts'
-import { readLink } from '../calendar/store.ts'
+import { offersInvited, readLink } from '../calendar/store.ts'
 import type { WhatsApp } from '../whatsapp/whatsapp.ts'
 
 /**
@@ -293,11 +293,13 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       onTheDay,
       demo,
       ownCalendar: await getOwnCalendar(db, person.id),
-      // Crew invites on (ADR 0009) and an address to send them to: the page says who they come from, and what to do when Google holds the first one back.
+      // Crew invites on (ADR 0009) and an address to send them to: the page says who they come from, and what to do when Google holds the
+      // first one back, under the offers an invite has gone for (audit of 12 November 2026, finding 1): none goes for a job brought in
+      // from a calendar or a call that isn't part of a job, and the switch alone doesn't say so.
       ...(await (async () => {
         const link = await readLink(db)
         const on = link?.state === 'on' && link.invites && link.calendarId !== null && link.accountEmail && person.email?.trim()
-        return on ? { invites: { from: link.accountEmail!, to: person.email!.trim() } } : {}
+        return on ? { invites: { from: link.accountEmail!, to: person.email!.trim(), offers: await offersInvited(db, rows.map((r) => r.offer.id), now) } } : {}
       })()),
       // Offers on WhatsApp (ADR 0125): said, with the way to turn them off or on, once the office sends them to this person's number.
       whatsapp: await whatsappFor(person),
@@ -459,7 +461,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
 
     if (result.status === 'rejected') return turnedDown(result)
     const said: Said = answer === 'accept' ? (offer.status === 'countered' ? 'accepted-instead' : 'accepted') : answer === 'decline' ? 'declined' : answer === 'pullOut' ? 'pulled-out' : 'rate-sent'
-    // A pull-out leaves the card for "Declined and withdrawn", so its message goes at the top.
+    // A pull-out leaves the card for "Offers that ended", so its message goes at the top.
     return back(reply, person.linkToken, said, answer === 'pullOut' ? undefined : offer.id)
   })
 

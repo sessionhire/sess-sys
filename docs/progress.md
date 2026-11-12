@@ -3,6 +3,51 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: crew offers say what was sent
+
+**Done (1.165.0)**
+
+- Colly picked "The two batches with no decisions" from the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md). This is the
+  first, "Say what was sent" (findings 1, 5, 14, 16, 18 and 20;
+  [ADR 0149](adr/0149-the-office-is-told-what-the-app-sent.md)).
+- The Offer form says what pressing sends by itself, for the people
+  picked, by the rule the server sends by: who is emailed a calendar
+  invite, who it goes to on WhatsApp, and who gets nothing and why (no
+  email address, a job brought in from Google Calendar, a call that isn't
+  part of a job, days outside the job's phases).
+- Each offer's row says how its person was reached, from what the server
+  read back: "Invited by email, 2 days. No answer yet.", "Calendar invite
+  on its way.", "Answered on their page.", in amber that nothing has
+  reached them and why, or as a failure that Google turned the invite
+  down. A row nothing reached offers Ring and WhatsApp where Send would
+  be. With invites, WhatsApp and messages all off, the call says so once.
+- The panel after Offer, Confirm, Withdraw, Release, a cancelled or
+  changed call and a stopped job is headed by what was done and says who
+  Google emailed, who nothing reached and why, with their number a press
+  away. "Messages to crew are off" is said last.
+- The questions before Withdraw, Release, Say no to a rate, Cancel crew
+  call and marking a job cancelled or lost name the email Google sends,
+  and to how many. Where crew invites were switched off after someone was
+  invited, they say no cancellation goes and the days stay in that
+  person's calendar; where the calendar has a problem, that the email
+  goes once it's working again.
+- On a freelancer's page the note about calendar invites shows only when
+  one has gone for an offer waiting on them, and "Declined and withdrawn"
+  is "Offers that ended".
+- Nothing about what is sent changed. Not built, waiting on Colly's
+  answers to the audit's questions: a fresh invitation after a No and a
+  person's own invite on a brought-in job (question 3), and telling
+  people they're booked or that a call time moved (question 4). The form,
+  the rows and the panel say that nothing went.
+- Checked: a server test compares the rule a device reads with who the
+  server really made a guest, across six cases; 39 unit tests on the
+  wording; the whole browser suite, with the tests for offering, the
+  calendar, the Next dock and cancelling rewritten; and a replay of 14
+  steps on a local copy with stand-ins for Google and Meta, where what
+  each screen said was read against what the stand-ins were asked to
+  send. Nothing real is sent.
+
 ## 12 November 2026: an audit of crew offers, from the office to the crew
 
 **Done**

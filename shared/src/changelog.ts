@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.165.0',
+    date: '2026-11-12',
+    title: 'Crew offers: the app says what it sent, and to whom',
+    what: "When you offer crew work, the app now tells you what it sent by itself. Before you press, the Offer form says who gets a calendar invite by email and who gets nothing and why: no email address, a job that came in from Google Calendar, or a call that isn't part of a job. Afterwards each person's line says how they were reached (\"Invited by email, 2 days. No answer yet.\", \"Answered on their page.\"), or in amber that nothing has reached them, with Ring and WhatsApp beside it. The panel after Offer, Confirm, Withdraw, Release and Cancel now says who Google emailed, where it used to say only \"Messages to crew are off\", and the questions before Withdraw, Release, Cancel crew call and cancelling a job say when Google will email people a cancellation. Send shows only while messages to crew are on. On a freelancer's page, \"Declined and withdrawn\" is now \"Offers that ended\", and the note about calendar invites shows only when one has gone. Nothing about what is sent has changed.",
+    prs: [338],
+    adrs: [149],
+  },
+  {
     version: '1.164.2',
     date: '2026-11-11',
     title: 'Offering crew: the next step is one clear button',

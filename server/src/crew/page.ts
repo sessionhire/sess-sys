@@ -111,7 +111,7 @@ export interface PageData {
   today: string
   /** The moment the page is drawn for, `today` being its day in Ireland: what's still news on it is read against this one instant. */
   now: Date
-  /** When and how each withdrawn or filled offer ended, by offer: a booking that ended says so on its card, and the rest in "Declined and withdrawn". */
+  /** When and how each withdrawn or filled offer ended, by offer: a booking that ended says so on its card, and the rest in "Offers that ended". */
   ended: ReadonlyMap<string, Ended>
   /** What changed on each booking since its person said yes, by offer, while it's news (UX sweep, 6 November 2026, move 6); none where nothing did. */
   since?: ReadonlyMap<string, SinceYes>
@@ -136,11 +136,12 @@ export interface PageData {
   /** How many requests on the purchase list are still to decide or to buy (ADR 0108); absent, the way to it isn't drawn. */
   purchases?: number
   /**
-   * Crew invites are on (ADR 0009) and they have an email address: each day they're offered also comes as a Google
+   * Crew invites are on (ADR 0009) and they have an email address: a day they're offered also comes as a Google
    * Calendar invite, `from` the connected account, `to` their address. Google holds back the first invite from a sender
-   * someone hasn't been in touch with ("unknown sender") until they press Add to calendar, so the page says so.
+   * someone hasn't been in touch with ("unknown sender") until they press Add to calendar, so the page says so, under
+   * the `offers` an invite has gone for: not every offer gets one (audit of 12 November 2026, finding 1).
    */
-  invites?: { from: string; to: string }
+  invites?: { from: string; to: string; offers: ReadonlySet<string> }
   /** Offers on WhatsApp (ADR 0125), once the office sends them to this person's mobile: whether theirs go, and to what number. */
   whatsapp?: PageWhatsApp
   /** A member of staff's leave still to come, approved or waiting (ADR 0024); absent for a freelancer, whose time off is days off. */
@@ -159,7 +160,7 @@ const STATUS_TEXT: Record<Offer['status'], string> = OFFER_WORDS_TO_YOU
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 /**
- * How a booking ended on the office's side, as its card's first line and in "Declined and withdrawn" (UX sweep, 6
+ * How a booking ended on the office's side, as its card's first line and in "Offers that ended" (UX sweep, 6
  * November 2026, move 6): the client's cancelling, a job that didn't go ahead and the office taking someone off are three
  * different news, and "Withdrawn", the office's word for the last, said all three. A stopped job's words are the ones
  * the office's question before stopping it says they'll see.
@@ -511,7 +512,7 @@ function whatsappForm(d: PageData): string {
 }
 
 /**
- * How an offer in "Declined and withdrawn" ended, and the day it did: when they answered, or when it ended on the
+ * How an offer in "Offers that ended" ended, and the day it did: when they answered, or when it ended on the
  * office's side, in the words its card says it in.
  */
 function ended(o: Offer, end: Ended | undefined, today: string): string {
@@ -547,7 +548,7 @@ function overList(lines: readonly string[]): string {
   }`
 }
 
-/** One line of "Past work" or "Declined and withdrawn": the job, the role, the days, and how it ended. */
+/** One line of "Past work" or "Offers that ended": the job, the role, the days, and how it ended. */
 function earlierLine(j: PageData['jobs'][number], how: string, today: string): string {
   const { call, offer } = j
   const days = HOLDING.includes(offer.status) ? offer.days : eachDay(call.start, call.end)
@@ -891,7 +892,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   <section id="offers">
     <h2>Offers waiting on you</h2>
     ${waiting.length ? offers(d, waiting) : '<p class="empty">Nothing waiting right now.</p>'}
-    ${waiting.length ? invitesNote(d) : ''}
+    ${waiting.some((j) => d.invites?.offers.has(j.offer.id)) ? invitesNote(d) : ''}
   </section>
 
   ${sinceYes(d, booked, ending)}
@@ -917,7 +918,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   ${details(d)}
 
 
-  ${turned.length ? `<section><h2>Declined and withdrawn</h2>${overList(turned.map((j) => earlierLine(j, ended(j.offer, d.ended.get(j.offer.id), d.today), d.today)))}</section>` : ''}
+  ${turned.length ? `<section><h2>Offers that ended</h2>${overList(turned.map((j) => earlierLine(j, ended(j.offer, d.ended.get(j.offer.id), d.today), d.today)))}</section>` : ''}
 
   <footer>
     <a href="${d.base}/data.json">Download everything we hold on you</a>

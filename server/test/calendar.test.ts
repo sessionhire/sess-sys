@@ -1,5 +1,8 @@
 import {
   calendarDayId,
+  daysToCancel,
+  invitePlan,
+  invitesHeld,
   newId,
   offerOnCalendar,
   phaseOnCalendar,
@@ -7,11 +10,14 @@ import {
   type CalendarLink,
   type CommandInput,
   type CommandName,
+  type CrewCall,
   type HistoryEntry,
+  type NoInvite,
   type Offer,
   type Person,
   type Phase,
   type Project,
+  type ReachContext,
 } from '@sh/shared'
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -149,6 +155,7 @@ async function feed(s: Setup) {
     link: all.get('calendarLink')?.get('main') as CalendarLink | undefined,
     days: Object.fromEntries(all.get('calendarDay') ?? []) as Record<string, CalendarDay>,
     get: <T>(entity: string, id: string) => all.get(entity)?.get(id) as T,
+    list: <T>(entity: string) => [...(all.get(entity)?.values() ?? [])] as T[],
   }
 }
 
@@ -945,6 +952,73 @@ describe('crew invites (ADR 0009)', () => {
     expect([entry.who.name, entry.what, entry.deviceCode]).toEqual(['Colly Hewson', 'Turned on crew invites on Google Calendar (7 invites to 3 people)', 'laptop'])
   })
 
+  it("a device works out who gets an invite by the server's own rule, so the Offer form's promise is what happens (ADR 0149)", async () => {
+    // Proves: audit of 12 November 2026, finding 1. The form promised an invite wherever invites were on; none goes for a call that
+    // isn't part of a job, a day outside the job's phases, a job brought in from a calendar or someone with no address. The rule a
+    // device reads (shared/src/reach.ts) is checked here against who the server really made a guest, case by case.
+    const s = await setup()
+    const job = await withCrew(s)
+    const orla = newId()
+    await send(s, 'person.upsert', { id: orla, name: 'Orla Brennan', kind: 'freelancer', email: 'orla@example.com', phone: null, skills: ['lx'], dayRateCents: 25000, notes: '' })
+    const ask = async (over: Partial<CommandInput<'call.create'>>) => {
+      const id = newId()
+      const offer = newId()
+      await send(s, 'call.create', { id, projectId: null, phaseId: null, project: 'A one-off', phase: '', venue: '', role: 'LX', start: '2030-03-04', end: '2030-03-04', callTime: null, needed: 1, dayRateCents: null, details: '', replyBy: null, ...over })
+      await send(s, 'offer.send', { id: offer, callId: id, personId: orla, override: false })
+      return { call: id, offer }
+    }
+    // A job that came from a Google calendar keeps the organiser's own events (ADR 0011).
+    const theirs = newId()
+    const theirShow = newId()
+    await send(s, 'project.create', { id: theirs, name: 'Brought in', clientId: null, venueId: null, status: 'confirmed', notes: '' })
+    await send(s, 'phase.add', { id: theirShow, projectId: theirs, name: 'Show', start: '2030-03-07', end: '2030-03-07', venueId: null, notes: '' })
+    await s.db.query(`UPDATE projects SET source_calendar = 'gigs@sessionhire.com' WHERE id = $1`, [theirs])
+    const cases: Record<string, { call: string; offer: string; why: NoInvite | undefined }> = {
+      'on the show': { ...(await ask({ projectId: job.jobId, phaseId: job.phases.show, project: 'Nissan', phase: 'Show' })), why: undefined },
+      'not part of a job': { ...(await ask({})), why: 'no-job' },
+      'outside the phases': { ...(await ask({ projectId: job.jobId, project: 'Nissan', phase: 'Build, Show', start: '2030-03-06', end: '2030-03-06' })), why: 'outside-phases' },
+      'brought in': { ...(await ask({ projectId: theirs, phaseId: theirShow, project: 'Brought in', phase: 'Show', start: '2030-03-07', end: '2030-03-07' })), why: 'brought-in' },
+      'no address': { call: job.callId, offer: job.offers.sean, why: 'no-email' },
+      'on the build': { call: job.callId, offer: job.offers.niamh, why: undefined },
+    }
+    await connectTo(s)
+    const sentBefore = s.google.sent.length
+    await invites(s, true)
+    await s.sync()
+
+    const f = await feed(s)
+    const guestBy = new Set(Object.values(f.days).flatMap((d) => d.guests ?? []).map((g) => g.offerId))
+    const phases = f.list<Phase>('phase')
+    const ctx: ReachContext = {
+      calendar: { link: f.link, days: f.days },
+      job: (id) => {
+        const p = f.get<Project>('project', id)
+        // The mark of a brought-in job is the server's own, set here by hand as the import sets it.
+        return p && { status: p.status, ...(id === theirs ? { sourceCalendar: 'gigs@sessionhire.com' } : {}), phases: phases.filter((ph) => ph.projectId === id) }
+      },
+      whatsapp: { mode: 'off', testTo: [] },
+      messages: false,
+      today: TODAY,
+    }
+    for (const [name, c] of Object.entries(cases)) {
+      const offer = f.get<Offer>('offer', c.offer)
+      const plan = invitePlan(ctx, f.get<CrewCall>('crewCall', c.call), f.get<Person>('person', offer.personId), offer.days)
+      expect(plan.why, name).toBe(c.why)
+      expect(guestBy.has(c.offer), name).toBe(c.why === undefined)
+    }
+    // Orla was emailed one invite, for the show; her other three offers sent nothing.
+    expect(emails(s, sentBefore).filter((m) => m.includes('orla@example.com'))).toEqual(['invited orla@example.com 2030-03-04 Nissan - Show'])
+    // Her page says invites come too, as one of the offers waiting on her has one.
+    const page = async (id: string) => (await s.app.inject({ url: `/f/${f.get<Person>('person', id).linkToken}` })).body
+    expect(await page(orla)).toContain('We also send a Google Calendar invite for each day to orla@example.com, from ')
+    // With that one withdrawn, the three left get none, and the page no longer says they do.
+    await send(s, 'offer.cancel', { id: cases['on the show']!.offer })
+    await s.sync()
+    const after = await page(orla)
+    expect(after).toContain('A one-off')
+    expect(after).not.toContain('Google Calendar invite for each day')
+  })
+
   it('needs a calendar to turn on, and a plain yes or no', async () => {
     const s = await setup()
     const early = await s.app.inject({ method: 'POST', url: '/api/calendar/invites', cookies: s.colly.cookies, payload: { on: true } })
@@ -1273,6 +1347,11 @@ describe('crew invites (ADR 0009)', () => {
     await s.sync()
     expect(s.google.guests(TEST_CAL, job.events.build1)).toContain('Conor.Walsh@example.ie needsAction')
     expect(emails(s, before)).toEqual([])
+    // A device reads the same (ADR 0149): no cancellation to promise before the press, and the days still in his calendar after it.
+    const f = await feed(s)
+    const reach = { calendar: { link: f.link, days: f.days }, today: TODAY }
+    expect(daysToCancel(reach, job.offers.conor)).toEqual([])
+    expect(invitesHeld(reach, job.offers.conor)).toEqual(['2030-03-02', '2030-03-03'])
     expect((await s.colly.history()).entries.find((e: HistoryEntry) => e.command === 'calendar.invites')!.what).toBe('Turned off crew invites on Google Calendar')
   })
 

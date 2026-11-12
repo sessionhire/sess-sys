@@ -44,15 +44,20 @@ test("Next sends the offer to the people picked in it, across a job's phases", a
   const form = page.locator('form.offer-form')
   await pickRecord(form, 'Offer to', fergal)
   await pickRecord(form, 'Offer to', colm)
-  // Two for one place is allowed, and said before it goes.
-  await expect(form).toContainText("2 offered for 1 place: whoever says yes first has it, and the rest are told it's filled.")
-  // Picked is not offered, and the form says so above the one button that sends it.
-  await expect(form.locator('.offer-pending')).toContainText("Not offered yet.")
+  // Two for one place is allowed, and said before it goes, with how whoever doesn't get it finds out (ADR 0149).
+  await expect(form).toContainText("2 offered for 1 place: whoever says yes first has it. The rest see it's filled on their link; nothing else tells them.")
+  // Picked is not offered, and the form says so above the one button that sends it, with what pressing sends by itself: here, nothing.
+  await expect(form.locator('.offer-pending')).toHaveText(
+    'Not offered yet. Pressing Offer to 2 people puts the offer on their pages. Nothing is sent: calendar invites, WhatsApp and messages to crew are all off.'
+  )
   await expect(form.getByRole('button', { name: 'Offer to 2 people' })).toBeVisible()
   // Next now names who it sends to, and sends it.
   await next.getByRole('button', { name: 'Offer to 2 people · 0 of 1 offered' }).click()
-  // Made, with nothing sent while messages to crew are off (ADR 0048).
-  await expect(page.getByRole('region', { name: /^Messages to crew are off/ })).toContainText('Nothing opened to send 2 people the offer.')
+  // Made, and the panel says what the app sent by itself: nothing, to either. That no message opened (ADR 0048) is said last.
+  const sent = page.getByRole('region', { name: 'Offered to 2 people: what was sent' })
+  await expect(sent).toContainText('Nothing was sent to Fergal and Colm: calendar invites and WhatsApp are both off.')
+  await expect(sent).toContainText('Their links show the offer, whenever they open them.')
+  await expect(sent).toContainText('Messages to crew are off, so no message opened for you to send.')
   await expect(page.getByRole('article', { name: '1 × Audio - FOH' })).toContainText(`${colm} (offered), ${fergal} (offered)`)
   await expect(page.getByRole('status')).toHaveText('Up to date')
   // Every place offered, Next waits on the answers.

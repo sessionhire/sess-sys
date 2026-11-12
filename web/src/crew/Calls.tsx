@@ -14,7 +14,6 @@ import {
   HOLDING,
   levelLabel,
   newId,
-  offerOnCalendar,
   OPEN,
   parseEuro,
   personConflicts,
@@ -26,7 +25,6 @@ import {
   type CrewView,
   type OfferView,
   type PersonView,
-  type View,
   blocks,
   certificateGaps,
   certificateRefusal,
@@ -35,7 +33,13 @@ import {
   needsLabel,
   needsOf,
   type LateView,
-  whatsappWords,
+  callEndingWords,
+  daysToCancel,
+  endingWords,
+  namesInWords,
+  nothingSentLine,
+  offerPromise,
+  reachOnRow,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Confirm, reasonOf, Refusal, useAct } from '../act.tsx'
@@ -53,6 +57,8 @@ import { LateLines, NoteLate } from './Late.tsx'
 import { personHref } from './PersonScreen.tsx'
 import { Avatars } from '../Picture.tsx'
 import { type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
+import { PlainContact, useReach } from './reach.tsx'
+import { AdminWords } from '../AdminWords.tsx'
 import { dept, found, wordsOf } from './People.tsx'
 import { RecordPicker } from '../RecordPicker.tsx'
 
@@ -107,13 +113,12 @@ const WHO_SHOWN = 8
  * phase or days and who's on it, with where it stands as a pill beside it
  * and "Offer…" under that while there are places to fill, the picker behind
  * it until it's wanted. A tap on the line opens its days, call time and rate,
- * who's been offered it and how they answered, on their link or on Google
- * Calendar, and changing or cancelling the call.
+ * who's been offered it, how each was reached and how they answered (ADR
+ * 0149), and changing or cancelling the call.
  */
 export function CallCard({
   call,
   crew,
-  calendar,
   late,
   onShare,
   onTell,
@@ -124,7 +129,6 @@ export function CallCard({
 }: {
   call: CallView
   crew: CrewView
-  calendar: View['calendar']
   /** Who on it is running late today (ADR 0028), said at rest under its line. */
   late?: LateView
   onShare: (people: PersonView[]) => void
@@ -151,7 +155,8 @@ export function CallCard({
   // than a green Filled with someone still to confirm under it (review of 11 November 2026, finding 3).
   const toConfirm = new Set(call.offers.filter((o) => o.status === 'accepted').map((o) => o.personId)).size
   const live = call.status === 'open'
-  const invites = calendar.link?.state === 'on' && calendar.link.invites === true
+  // What the app sent each person by itself, and what ending their offer sends (ADR 0149).
+  const reach = useReach()
   // Who's on it, with their answer where it isn't yet a booking: "Dara Quinn (booked), Niamh Kelly (offered)". The first few at rest, then
   // "and 17 more", which opening the line lists (audit of 18 October, finding 20).
   // Booked and not yet booked side by side, everyone's state is said, so "(offered)" can't read as the pair's (audit, 20 October 2026, finding 72).
@@ -162,6 +167,14 @@ export function CallCard({
     .map((o) => `${o.person!.name}${o.status === 'confirmed' ? (mixed ? ' (booked)' : '') : ` (${STATUS[o.status][0].toLowerCase()})`}`)
     .join(', ')
   const more = onIt.length - WHO_SHOWN
+
+  // How each person was reached, from what the server read back: the invite Google emailed, the offer on WhatsApp, or nothing and why.
+  const rows = open ? call.offers.map((o) => ({ o, said: reachOnRow(reach, o, call, o.person, call.offers) })) : []
+  // With every way out switched off that's the same for everyone waiting, so it's said once over them, not under each name.
+  const unsent = nothingSentLine(
+    rows.flatMap((r) => (r.said.allOff && r.o.person ? [r.o.person] : [])),
+    call.offers.filter((o) => o.status === 'offered').length
+  )
 
   const withdraw = (o: OfferView) => {
     void run(() => client.mutate('offer.cancel', { id: o.id })).then(
@@ -232,12 +245,12 @@ export function CallCard({
               .filter(Boolean)
               .join(' · ')}
           </p>
+          {unsent && <p className="sent-line">{unsent}</p>}
           {call.offers.length > 0 && (
             <ul className="offers">
-              {call.offers.map((o) => {
+              {rows.map(({ o, said }) => {
                 const [label, tone] = STATUS[o.status]
                 const partial = o.days.length < call.days.length && (o.status === 'accepted' || o.status === 'confirmed' || o.status === 'countered')
-                const cal = offerOnCalendar(o, calendar.days, today)
                 const answering = o.status === 'offered' || o.status === 'countered' || o.status === 'accepted' || o.status === 'confirmed'
                 return (
                   <li key={o.id}>
@@ -251,19 +264,15 @@ export function CallCard({
                       )}
                       {partial && <small> {daysLabel(o.days)}</small>}
                       {o.override && <small> (override)</small>}
-                      {o.status === 'offered' && o.whatsapp && (
-                        <small className={o.whatsapp.state === 'failed' ? 'bad' : undefined} title={o.whatsapp.problem ?? undefined}>
-                          {' '}
-                          · {whatsappWords(o.whatsapp)}
-                          {o.whatsapp.state === 'failed' && o.whatsapp.problem ? `: ${o.whatsapp.problem}` : ''}
-                        </small>
-                      )}
                     </span>
                     <span className="actions">
                       <StatusPill tone={tone} pending={o.pending}>
                         {label}
                       </StatusPill>
-                      {mayOffer && o.status === 'offered' && o.person && (
+                      {/* Nothing has reached them and no message opens to send (ADR 0048): ringing them is the way, so it's here in Send's place (finding 14). */}
+                      {mayOffer && o.status === 'offered' && o.person && said.contact && <PlainContact person={o.person} />}
+                      {/* Send opens the message for the office to send, so it's there only while messages are on (ADR 0149): off, it opened a panel saying nothing had opened. */}
+                      {mayOffer && o.status === 'offered' && o.person && reach.messages && (
                         <button type="button" className="link" onClick={() => onShare([o.person as PersonView])}>
                           Send
                         </button>
@@ -277,9 +286,10 @@ export function CallCard({
                     {withdrawing === o.id && (
                       <Confirm
                         question={
+                          // The email Google sends is named, or that nothing is sent (finding 5).
                           o.status === 'confirmed'
-                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're booked for go back to it, and their link says so at once.`
-                            : `Withdraw the offer to ${o.person?.name ?? 'them'}? Their link says it's withdrawn at once.`
+                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're booked for go back to it. ${endingWords(reach, o.id, 'so')}`
+                            : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn")}`
                         }
                         yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
                         loss
@@ -291,15 +301,17 @@ export function CallCard({
                         onNo={() => setWithdrawing(undefined)}
                       />
                     )}
-                    {cal && <small className="on-cal">{cal.line}</small>}
-                    {cal?.warning && <small className="warn-line">{cal.warning}</small>}
+                    {said.lines.map((l) => (
+                      <small key={l.text} className={l.tone === 'warn' ? 'warn-line' : l.tone === 'bad' ? 'on-cal bad' : 'on-cal'} title={l.title}>
+                        <AdminWords>{l.text}</AdminWords>
+                      </small>
+                    ))}
                     {/* Not known is allowed, and said on the offer (ADR 0028). */}
                     {answering && o.person && certificateUnknowns(o.person, needsOf(call), o.days, today).map((w) => (
                       <small key={w} className="warn-line">
                         {w}
                       </small>
                     ))}
-                    {!cal && invites && answering && o.person && !o.person.email?.trim() && <small className="on-cal">No email address, so no calendar invite.</small>}
                   </li>
                 )
               })}
@@ -321,13 +333,13 @@ export function CallCard({
               call={call}
               inJob={inJob}
               onDone={() => setEditing(false)}
-              onSaved={(after, datesMoved) => onTell?.(promptFor('call-changed', peopleOn(after).map((t) => neededBefore(datesMoved ? forCallDays(t) : t, call))))}
+              onSaved={(after, datesMoved) => onTell?.(promptFor('call-changed', peopleOn(after).map((t) => neededBefore(datesMoved ? forCallDays(t) : t, call)), datesMoved))}
             />
           )}
           <Refusal error={error} />
           {!mayOffer ? null : cancelling ? (
             <Confirm
-              question={`Cancel the call for ${call.needed} × ${call.role} on ${call.project}? Everyone offered is told it's withdrawn.`}
+              question={`Cancel the call for ${call.needed} × ${call.role} on ${call.project}? ${callEndingWords(reach, call.offers)}`}
               yes="Cancel it"
               loss
               onYes={cancel}
@@ -569,7 +581,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const clashing = chosen.filter((p) => clashOf(p).length > 0)
   // Busy in their own calendar (ADR 0044): said, never in the way. It may be something they can move, and they may still say yes.
   const own = useView().ownCalendars
-  const calendarLink = useView().calendar.link
+  const reach = useReach()
   const { run, error, refuse } = useAct()
   // What the call needs (ADR 0028): those who hold it first, then those not known, then those missing one, each in the order above.
   const today = useToday()
@@ -651,8 +663,10 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
 
   // What the press is called: the person it goes to, so it reads as the step and not as another search button.
   const sendLabel = chosen.length === 1 ? `Offer to ${chosen[0]!.name}` : `Offer to ${chosen.length} people`
-  const invitesOn = calendarLink?.state === 'on' && calendarLink.invites === true
-  const noEmail = chosen.filter((p) => !p.email?.trim())
+  // What the press sends by itself and what it doesn't, by the rules the server sends by (finding 1).
+  const promise = offerPromise(reach, call, chosen)
+  // Whoever doesn't get the place has their invite cancelled, which Google emails them.
+  const invitesOut = promise.invites || call.offers.some((o) => OPEN.includes(o.status) && daysToCancel(reach, o.id).length > 0)
 
   return (
     <form className="offer-form" id={offerFormId(call.id)} onSubmit={send} ref={formRef}>
@@ -693,9 +707,12 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       {chosen.length > 0 && (
         <div className="offer-send">
           <p className="offer-pending">
-            <b>Not offered yet.</b> {names(chosen.map(firstName))} {chosen.length > 1 ? "don't" : "doesn't"} know until you press {sendLabel}.
-            {invitesOn && ` Pressing it also adds ${chosen.length > 1 ? 'each of them' : 'them'} to the day in Google Calendar, which emails them an invite.`}
-            {noEmail.length > 0 && invitesOn && ` ${names(noEmail.map(firstName))} ${noEmail.length > 1 ? 'have' : 'has'} no email address, so no invite.`}
+            <b>Not offered yet.</b>{' '}
+            {/* A press that tells nobody anything says so, rather than that they don't know until it's pressed. */}
+            {promise.silent
+              ? `Pressing ${sendLabel} puts the offer on ${chosen.length > 1 ? 'their pages' : 'their page'}.`
+              : `${namesInWords(chosen.map(firstName))} ${chosen.length > 1 ? "don't" : "doesn't"} know until you press ${sendLabel}.`}
+            {promise.sentences.map((s) => ` ${s}`).join('')}
           </p>
           {clashing.length > 0 && !override && !error && (
             <p className="hint warn-line">Tick Offer anyway above first, or take {clashing.length === 1 ? firstName(clashing[0]!) : 'those not free'} off.</p>
@@ -709,7 +726,8 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       <Refusal error={error} />
       {chosen.length > 0 && offered.size + chosen.length > call.needed && (
         <p className="hint">
-          {chosen.length + offered.size} offered for {plural(call.needed, 'place')}: whoever says yes first has it, and the rest are told it's filled.
+          {chosen.length + offered.size} offered for {plural(call.needed, 'place')}: whoever says yes first has it. The rest see it's filled on their link
+          {invitesOut ? ", and Google emails anyone invited that it's cancelled" : ''}; nothing else tells them.
         </p>
       )}
       <RecordPicker
@@ -739,9 +757,6 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
     </form>
   )
 }
-
-/** "Fergal", "Fergal and Olan", "Fergal, Olan and Colm". */
-const names = (all: readonly string[]) => (all.length > 1 ? `${all.slice(0, -1).join(', ')} and ${all.at(-1)}` : (all[0] ?? ''))
 
 /** `onMade` hears each call's id as it's asked for, so the list can keep it in view whatever its days. */
 export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
