@@ -1,6 +1,6 @@
 import { calendarDayId, offerOnCalendar, tells, type CalendarDay, type CalendarLink, type OfferOnCalendar } from './calendar.ts'
 import { firstName, LIVE, whatsappWords, type CrewCall, type Offer, type Person, type TellContext } from './crew.ts'
-import { daysLabel } from './crew-days.ts'
+import { dayLabel, daysLabel } from './crew-days.ts'
 import { STOPPED, type Phase, type Project } from './jobs.ts'
 import { whatsappDigits, type WhatsAppMode } from './office.ts'
 import type { View } from './sync/client-types.ts'
@@ -669,6 +669,50 @@ export function undoneWords(names: readonly string[], prompts: boolean): string 
   const said = `${namesInWords(names)} ${one ? "wasn't" : "weren't"} offered it after all: the app sent them nothing, and it's off ${one ? 'their page' : 'their pages'}.`
   // With messages to crew on, the office may have sent one from the panel before Undo: that one is theirs to follow up.
   return prompts ? `${said} If you sent them a message yourself, tell them it's off.` : said
+}
+
+// ---- A job going again: its crew calls cancelled with it ----
+
+/**
+ * The calls a job going again can ask for again (ADR 0164; audit of 12 November 2026, finding 19): those cancelled along
+ * with it the last time it stopped, whose days haven't all gone, in the order the job lists them; and, for each, who was
+ * offered it or booked on it then, to be picked again. Only while it has asked for no crew since: once a call is open, the
+ * office has gone its own way, and those cancelled stay as they are, with who was on them on their rows.
+ */
+export function stoppedCrew<C extends Pick<CrewCall, 'id' | 'status' | 'stoppedOn' | 'end'> & { offers: readonly (Pick<Offer, 'personId' | 'status' | 'stoppedOn'> & { person?: Person | undefined })[] }>(
+  calls: readonly C[],
+  today: string
+): { on: string; calls: { call: C; people: Person[] }[] } | undefined {
+  if (calls.some((c) => c.status === 'open')) return undefined
+  const marked = calls.filter((c) => c.status === 'cancelled' && !!c.stoppedOn && c.end >= today)
+  const on = marked.map((c) => c.stoppedOn!).sort().at(-1)
+  if (!on) return undefined
+  return {
+    on,
+    calls: marked
+      .filter((c) => c.stoppedOn === on)
+      .map((call) => {
+        const people: Person[] = []
+        for (const o of call.offers) if (o.status === 'cancelled' && o.stoppedOn === on && o.person && !people.some((p) => p.id === o.personId)) people.push(o.person)
+        return { call, people }
+      }),
+  }
+}
+
+/** Over those calls on the job's Crew tab: what was cancelled, when, and who was on it; then what asking again does. */
+export function crewAgainWords(calls: readonly Pick<CrewCall, 'needed' | 'role'>[], names: readonly string[], on: string, today: string): { said: string; then: string } {
+  const one = calls.length === 1
+  const what = namesInWords(calls.map((c) => `${c.needed} × ${c.role}`))
+  const who = names.length
+    ? `${namesInWords(names)} ${names.length === 1 ? 'was' : 'were'} offered ${one ? 'it' : 'them'} or booked.`
+    : `Nobody had been offered ${one ? 'it' : 'them'}.`
+  const picked = one ? `its Offer has ${names.length === 1 ? names[0] : 'the same people'} picked` : "each call's Offer has the same people picked"
+  return {
+    said: `${one ? 'Its crew call was' : 'Its crew calls were'} cancelled with the job on ${dayLabel(on, today)}: ${what}. ${who}`,
+    then: names.length
+      ? `${one ? 'It comes back' : 'They come back'} with nobody offered, and ${picked}, ready to send. Nothing goes to anyone until you press Offer.`
+      : `${one ? 'It comes back' : 'They come back'} with nobody offered.`,
+  }
 }
 
 /** One thing that happened to one person, said of everyone it's true of in one sentence. */

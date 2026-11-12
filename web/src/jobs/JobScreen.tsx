@@ -2,6 +2,7 @@ import { UnitBox } from '../UnitBox.tsx'
 import {
   ADD_A_PHASE,
   calendarTitles,
+  crewAgainWords,
   crewFill,
   daysLabel,
   daysOffPhase,
@@ -44,6 +45,7 @@ import {
   type View,
   jobEndingWords,
   whatsappFollowsTell,
+  stoppedCrew,
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -68,6 +70,7 @@ import { JobPosition } from './JobPosition.tsx'
 import { NextDock, type Landing } from './NextDock.tsx'
 import { JobAssignee } from './JobAssignee.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
+import { askForCrewAgain, type CrewAgain } from './crewAgain.ts'
 import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
 import { useMe } from '../crew/Leave.tsx'
@@ -299,6 +302,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
             mayCrew={mayCrew}
             offering={landing && 'call' in landing && landing.offer ? { id: landing.call, n: landing.n } : undefined}
             answering={landing && 'call' in landing && landing.answer ? { id: landing.call, n: landing.n } : undefined}
+            onAgain={(call) => go('crew', { call, offer: true })}
           />
         )}
 
@@ -350,6 +354,7 @@ function CrewPart({
   mayCrew,
   offering,
   answering,
+  onAgain,
 }: {
   job: JobView
   view: View
@@ -361,8 +366,13 @@ function CrewPart({
   offering?: { id: string; n: number }
   /** The call Next landed on to answer a yes or a rate, whose rows open (ADR 0152). */
   answering?: { id: string; n: number }
+  /** Its calls cancelled with the job asked for again: lands on this one with its Offer open (ADR 0164). */
+  onAgain: (callId: string) => void
 }) {
   const stopped = STOPPED.includes(job.status)
+  // Going again, with calls cancelled along with it last time it stopped (ADR 0164): asked for again from here.
+  const today = useToday()
+  const again = !stopped && mayCrew ? stoppedCrew(job.calls, today) : undefined
   const department = useMyDepartment()
   const theirs = (c: CallView) => sameDepartment(departmentOf(c), department)
   const mine = job.calls.filter(theirs)
@@ -398,6 +408,7 @@ function CrewPart({
     })
   return (
     <>
+      {again && <CrewAgainCard again={again} onAgain={onAgain} />}
       {mine.length > 0 && (
         <>
           <section className="card" aria-label={`${department} crew`}>
@@ -446,7 +457,8 @@ function CrewPart({
             <p className="empty">Add a phase first: crew are asked for by phase and day.</p>
           ) : (
             <>
-              <CrewFromQuote job={job} view={view} />
+              {/* The quote's crew are the calls cancelled with the job while those can be asked for again (ADR 0164). */}
+              {!again && <CrewFromQuote job={job} view={view} />}
               {job.calls.length === 0 && <p className="hint">No crew asked for yet.</p>}
               <Fold label="Ask for crew">
                 <AskForCrew job={job} />
@@ -456,6 +468,40 @@ function CrewPart({
         </section>
       )}
     </>
+  )
+}
+
+/**
+ * A job going again whose crew calls were cancelled along with it (ADR 0164; audit of 12 November 2026, finding 19): what
+ * was cancelled, when and who was on it, and one press to ask for the same crew again, as the job's Next button does. The
+ * page's one filled button stays Next's (ADR 0104).
+ */
+function CrewAgainCard({ again, onAgain }: { again: CrewAgain; onAgain: (callId: string) => void }) {
+  const today = useToday()
+  const { run, error } = useAct()
+  const names = [...new Set(again.calls.flatMap((c) => c.people.map((p) => p.name)))]
+  const words = crewAgainWords(
+    again.calls.map((c) => c.call),
+    names,
+    again.on,
+    today
+  )
+  const ask = () => {
+    let first: string | undefined
+    void run(async () => {
+      first = await askForCrewAgain(again)
+    }).then((ok) => ok && first && onAgain(first))
+  }
+  return (
+    <section className="card" aria-label="Cancelled with the job">
+      <Heading icon="people">Cancelled with the job</Heading>
+      <p>{words.said}</p>
+      <p className="hint">{words.then}</p>
+      <Refusal error={error} />
+      <button type="button" onClick={ask}>
+        Ask for the same crew again
+      </button>
+    </section>
   )
 }
 

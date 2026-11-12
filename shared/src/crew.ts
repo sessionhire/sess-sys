@@ -281,6 +281,11 @@ export const crewCall = z.object({
   department: department.optional(),
   /** Set by the server on what it sends a role that doesn't read rates (ADR 0046): the rate is left out. Never stored. */
   rateHidden: z.boolean().optional(),
+  /**
+   * The day it was cancelled along with its job (ADR 0164; audit of 12 November 2026, finding 19): once the job is going
+   * again, its Crew tab offers to ask for the same crew again. Absent on any other call, and once it's asked for again.
+   */
+  stoppedOn: day.optional(),
 })
 export type CrewCall = z.infer<typeof crewCall>
 /** A call's department, reading one synced before as having none. */
@@ -352,6 +357,11 @@ export const offer = z.object({
   noOwnInvite: z.enum(['organiser', 'before']).optional(),
   /** Set by the server on what it sends a role that doesn't read rates (ADR 0046): both rates are left out. Never stored. */
   rateHidden: z.boolean().optional(),
+  /**
+   * The day it was cancelled along with its job (ADR 0164): it was still open or booked then, so its person is picked again
+   * when the same crew are asked for again. Absent on an offer that ended any other way.
+   */
+  stoppedOn: day.optional(),
 })
 export type Offer = z.infer<typeof offer>
 
@@ -528,6 +538,11 @@ export const crewCommandSchemas = {
     .refine(...somethingToChange)
     .refine((c) => !c.start || !c.end || c.start <= c.end, { message: 'The call ends before it starts.' }),
   'call.cancel': z.object({ id }),
+  /**
+   * Ask for a call cancelled along with its job again, now the job is going again (ADR 0164): it's open, with nobody
+   * offered, and its old offers stay as they ended. A call cancelled on its own stays cancelled.
+   */
+  'call.reopen': z.object({ id }),
   /**
    * Give many calls one department at once (ADR 0046), such as the calls
    * brought in from the calendar with none: "Audio" for every one ticked.

@@ -1,6 +1,7 @@
 import { UnitBox } from '../UnitBox.tsx'
 import {
   OFFER_WORDS,
+  offerWords,
   plural,
   APPLICANT_LEVEL,
   daysLabel,
@@ -50,7 +51,7 @@ import {
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Confirm, reasonOf, Refusal, useAct } from '../act.tsx'
-import { offerFormId, setOfferPicks } from './offerPicks.ts'
+import { forgetPicksWaiting, offerFormId, picksWaiting, setOfferPicks } from './offerPicks.ts'
 import { refuseField, settleRefusals } from '../required.ts'
 import { Fold } from '../Fold.tsx'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
@@ -268,7 +269,7 @@ export function CallCard({
           {call.offers.length > 0 && (
             <ul className="offers">
               {rows.map(({ o, said }) => {
-                const [label, tone] = STATUS[o.status]
+                const [label, tone] = offerWords(o)
                 const partial = o.days.length < call.days.length && (o.status === 'accepted' || o.status === 'confirmed' || o.status === 'countered')
                 const answering = o.status === 'offered' || o.status === 'countered' || o.status === 'accepted' || o.status === 'confirmed'
                 return (
@@ -636,7 +637,9 @@ const roleWords = (role: string) => role.trim().replace(/[\s-]+/g, '').toLowerCa
  * anyone's days clash. Also beside a decline or a pull-out in "Answers to check".
  */
 export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewView; onShare: (people: PersonView[], made?: Made) => void }) {
-  const [ids, setIds] = useState<string[]>([])
+  // Picked already when the same crew are asked for again (ADR 0164): those on it before the job stopped, not yet offered.
+  const [ids, setIds] = useState<string[]>(() => [...picksWaiting(call.id)])
+  useEffect(() => forgetPicksWaiting(call.id), [call.id])
   const [override, setOverride] = useState(false)
   const [applicants, setApplicants] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)

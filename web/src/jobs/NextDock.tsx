@@ -1,10 +1,11 @@
-import { crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, whoDoes, type JobStep, type JobSteps, type JobView, type View } from '@sh/shared'
+import { crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, whoDoes, type JobStep, type JobSteps, type JobView, type View } from '@sh/shared'
 import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import type { JobPart } from './JobScreen.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
+import { askForCrewAgain } from './crewAgain.ts'
 import { promptFor, tellTo, type Share } from '../crew/Messages.tsx'
 import { useToday } from '../view.ts'
 import { offerFormId, useOfferPicks } from '../crew/offerPicks.ts'
@@ -160,7 +161,21 @@ export function NextDock({
       const next = crewNext(job.calls)
       const count = `${needed - booked} to book`
       const bookedDone: Done = { done: booked, of: needed, words: `${booked} of ${needed} booked` }
-      if (fromQuote.length)
+      // Going again with its calls cancelled along with it (ADR 0164): they come back, landing on the first's Offer with the
+      // same people picked, as the card on the Crew tab says; the quote's crew are those calls, so they aren't made again.
+      // Nothing is open while they're waiting to come back, so there's no count to show in the button.
+      const again = stoppedCrew(job.calls, today)
+      if (again)
+        press = {
+          label: 'Ask for the same crew again',
+          onPress: () => {
+            let first: string | undefined
+            void run(async () => {
+              first = await askForCrewAgain(again)
+            }).then((ok) => ok && first && onPart('crew', { call: first, offer: true }))
+          },
+        }
+      else if (fromQuote.length)
         press = {
           label: fromQuote.length === 1 ? `Make the call for ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make the ${fromQuote.length} crew calls from the quote`,
           done: bookedDone,

@@ -5,6 +5,7 @@ import {
   bookingWords,
   callEndingWords,
   askEndingWords,
+  crewAgainWords,
   daysToCancel,
   endingWords,
   invitePlan,
@@ -16,6 +17,7 @@ import {
   offerPromise,
   offerReach,
   reachOnRow,
+  stoppedCrew,
   toldOfBooking,
   toldOfChange,
   toldOfEnding,
@@ -964,5 +966,60 @@ describe('Undo just after Offer (ADR 0162)', () => {
     expect(undoneWords(['Aoife Byrne'], true)).toBe(
       "Aoife Byrne wasn't offered it after all: the app sent them nothing, and it's off their page. If you sent them a message yourself, tell them it's off."
     )
+  })
+})
+
+describe('asking for the same crew again (ADR 0164)', () => {
+  const who = (id: string, name: string) => ({ id, name }) as Person
+  const aoife = who('aoife', 'Aoife Byrne')
+  const niall = who('niall', 'Niall Kerr')
+  const dara = who('dara', 'Dara Quinn')
+  type Row = Pick<CrewCall, 'id' | 'status' | 'stoppedOn' | 'end' | 'needed' | 'role'> & {
+    offers: (Pick<Offer, 'personId' | 'status' | 'stoppedOn'> & { person?: Person })[]
+  }
+  const row = (id: string, more: Partial<Row>): Row => ({ id, status: 'cancelled', end: '2026-10-04', needed: 1, role: 'Audio tech', offers: [], ...more })
+  const was = (person: Person, stoppedOn: string | undefined, status: Offer['status'] = 'cancelled') => ({ personId: person.id, person, status, ...(stoppedOn ? { stoppedOn } : {}) })
+
+  it('offers the calls cancelled with the job the last time it stopped, with who was on each then', () => {
+    // Proves: finding 19 of the audit of 12 November 2026. Only calls cancelled along with the job, whose days haven't all
+    // gone, from its latest stop; and only the people whose offers that stop ended, once each, not those who had said no.
+    const sound = row('sound', { stoppedOn: '2026-09-28', needed: 2, offers: [was(aoife, '2026-09-28'), was(niall, '2026-09-28'), was(dara, undefined, 'declined'), was(aoife, '2026-09-28')] })
+    const rigger = row('rigger', { stoppedOn: '2026-09-28', role: 'Rigger' })
+    const own = row('own', { role: 'LX op', offers: [was(dara, undefined)] })
+    const older = row('older', { stoppedOn: '2026-09-20', offers: [was(dara, '2026-09-20')] })
+    const gone = row('gone', { stoppedOn: '2026-09-28', end: '2026-09-27', offers: [was(dara, '2026-09-28')] })
+    const again = stoppedCrew([own, sound, older, gone, rigger], '2026-09-30')
+    expect(again?.on).toBe('2026-09-28')
+    expect(again?.calls.map(({ call, people }) => [call.id, people.map((p) => p.name)])).toEqual([
+      ['sound', ['Aoife Byrne', 'Niall Kerr']],
+      ['rigger', []],
+    ])
+    // An earlier stop's calls, when nothing came of the latest.
+    expect(stoppedCrew([own, older], '2026-09-30')?.calls.map(({ call, people }) => [call.id, people.map((p) => p.name)])).toEqual([['older', ['Dara Quinn']]])
+    // Nothing to ask for again: none cancelled with the job, or all their days gone.
+    expect(stoppedCrew([own], '2026-09-30')).toBeUndefined()
+    expect(stoppedCrew([sound, rigger], '2026-10-05')).toBeUndefined()
+    // Nor once the job has asked for crew since, its own way: those cancelled stay as they are.
+    expect(stoppedCrew([sound, rigger, row('new', { status: 'open' })], '2026-09-30')).toBeUndefined()
+  })
+
+  it('says what was cancelled, when, and who was on it, and that nothing goes until Offer', () => {
+    const sound = { needed: 2, role: 'Audio tech' }
+    const rigger = { needed: 1, role: 'Rigger' }
+    expect(crewAgainWords([sound], ['Aoife Byrne'], '2026-09-28', '2026-09-30')).toEqual({
+      said: 'Its crew call was cancelled with the job on Mon 28 Sep: 2 × Audio tech. Aoife Byrne was offered it or booked.',
+      then: 'It comes back with nobody offered, and its Offer has Aoife Byrne picked, ready to send. Nothing goes to anyone until you press Offer.',
+    })
+    expect(crewAgainWords([sound], ['Aoife Byrne', 'Niall Kerr'], '2026-09-28', '2026-09-30').then).toBe(
+      'It comes back with nobody offered, and its Offer has the same people picked, ready to send. Nothing goes to anyone until you press Offer.'
+    )
+    expect(crewAgainWords([sound, rigger], ['Aoife Byrne', 'Niall Kerr', 'Dara Quinn'], '2026-09-28', '2026-09-30')).toEqual({
+      said: 'Its crew calls were cancelled with the job on Mon 28 Sep: 2 × Audio tech and 1 × Rigger. Aoife Byrne, Niall Kerr and Dara Quinn were offered them or booked.',
+      then: "They come back with nobody offered, and each call's Offer has the same people picked, ready to send. Nothing goes to anyone until you press Offer.",
+    })
+    expect(crewAgainWords([rigger], [], '2026-09-28', '2026-09-30')).toEqual({
+      said: 'Its crew call was cancelled with the job on Mon 28 Sep: 1 × Rigger. Nobody had been offered it.',
+      then: 'It comes back with nobody offered.',
+    })
   })
 })

@@ -357,6 +357,12 @@ const MIGRATIONS: string[] = [
   ALTER TABLE offers ADD COLUMN IF NOT EXISTS goes_at timestamptz;
   CREATE INDEX IF NOT EXISTS offers_goes_at ON offers (goes_at) WHERE goes_at IS NOT NULL;
   `,
+  // Asking for the same crew again (ADR 0164): the day a call, and each offer still open or booked on it, was cancelled
+  // along with its job. Empty on everything cancelled before, and on anything that ended another way.
+  `
+  ALTER TABLE crew_calls ADD COLUMN IF NOT EXISTS stopped_on date;
+  ALTER TABLE offers ADD COLUMN IF NOT EXISTS stopped_on date;
+  `,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }

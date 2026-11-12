@@ -1,4 +1,4 @@
-import type { OfferStatus } from './crew.ts'
+import type { Offer, OfferStatus } from './crew.ts'
 import type { JobStep } from './steps.ts'
 
 /**
@@ -28,6 +28,16 @@ export const OFFER_WORDS: Record<OfferStatus, readonly [string, WordTone]> = {
   cancelled: ['Withdrawn by the office', 'cancelled'],
   'pulled-out': ["Can't make it", 'cancelled'],
 }
+
+/**
+ * An offer cancelled along with its job (ADR 0164), as the office reads it: nobody withdrew it, and once the job is going
+ * again its person may be asked again, beside this row.
+ */
+export const STOPPED_WITH_JOB_WORDS = ['Cancelled with the job', 'cancelled'] as const satisfies readonly [string, WordTone]
+
+/** An offer's state as the office reads it, one cancelled along with its job said so. */
+export const offerWords = (o: Pick<Offer, 'status' | 'stoppedOn'>): readonly [string, WordTone] =>
+  o.status === 'cancelled' && o.stoppedOn ? STOPPED_WITH_JOB_WORDS : OFFER_WORDS[o.status]
 
 /** The same states as the person they were offered to reads them on their own page: a sentence where the office reads a word. */
 export const OFFER_WORDS_TO_YOU: Record<OfferStatus, string> = {

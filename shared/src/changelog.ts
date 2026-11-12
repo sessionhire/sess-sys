@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.179.0',
+    date: '2026-11-12',
+    title: 'Ask for the same crew again when a job is back on',
+    what: "When a cancelled or lost job is set going again, its Crew tab now says which crew calls were cancelled with it, on what day, and who had been offered them or booked, and its Next button says Ask for the same crew again. One press brings those calls back as they were, with nobody on them, and opens Offer with the same people picked, ready to send. Nothing goes to anyone until you press Offer. Their old offers read Cancelled with the job. A call you had cancelled yourself before the job was cancelled stays cancelled.",
+    prs: [0],
+    adrs: [164],
+  },
+  {
     version: '1.178.0',
     date: '2026-11-12',
     title: 'Undo just after Offer',

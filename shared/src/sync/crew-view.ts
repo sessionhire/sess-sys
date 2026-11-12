@@ -92,12 +92,17 @@ export function crewView(
   const away = new Map<string, UnavailabilityView>()
   for (const u of Object.values(entities.unavailability ?? {})) away.set(u.id, { ...u, pending: false })
 
-  /** A call cancelled takes every offer still live on it, as the server withdraws them: the office sees it at once, not after the sync. */
-  const cancelCall = (id: string) => {
+  /**
+   * A call cancelled takes every offer still live on it, as the server withdraws them: the office sees it at once, not after
+   * the sync. One cancelled along with its job (`stoppedOn`, the day) is marked so, with those offers, for asking for the
+   * same crew again once the job is going again (ADR 0164).
+   */
+  const cancelCall = (id: string, stoppedOn?: string) => {
     const c = calls.get(id)
     if (!c) return
-    calls.set(c.id, { ...c, status: 'cancelled', pending: true })
-    for (const o of offers.values()) if (o.callId === c.id && LIVE.includes(o.status)) offers.set(o.id, { ...o, status: 'cancelled', pending: true })
+    calls.set(c.id, { ...c, status: 'cancelled', ...(stoppedOn ? { stoppedOn } : {}), pending: true })
+    for (const o of offers.values())
+      if (o.callId === c.id && LIVE.includes(o.status)) offers.set(o.id, { ...o, status: 'cancelled', ...(stoppedOn ? { stoppedOn } : {}), pending: true })
   }
 
   // Phases' dates, followed through this device's own changes, for calls that move with their phase.
@@ -258,12 +263,21 @@ export function crewView(
         // A job being stopped takes its crew calls with it (ADR 0007).
         const a = m.args as CommandArgs<'project.update'>
         if (!a.status || !STOPPED.includes(a.status)) break
-        for (const c of [...calls.values()]) if (c.projectId === a.id && c.status === 'open') cancelCall(c.id)
+        for (const c of [...calls.values()]) if (c.projectId === a.id && c.status === 'open') cancelCall(c.id, today)
         break
       }
       case 'call.cancel':
         cancelCall((m.args as CommandArgs<'call.cancel'>).id)
         break
+      case 'call.reopen': {
+        // Asked for again once its job is going again (ADR 0164): open, with nobody on it; its old offers stay as they ended.
+        // Only one cancelled along with its job; the server alone knows whether the job is going again, and refuses if not.
+        const c = calls.get((m.args as CommandArgs<'call.reopen'>).id)
+        if (!c || c.status !== 'cancelled' || !c.stoppedOn) break
+        const { stoppedOn: _, ...rest } = c
+        calls.set(c.id, { ...rest, status: 'open', pending: true })
+        break
+      }
       case 'call.update': {
         const a = m.args as CommandArgs<'call.update'>
         const c = calls.get(a.id)
@@ -290,7 +304,15 @@ export function crewView(
         if (!from) break
         const to = { start: a.start ?? from.start, end: a.end ?? from.end }
         phaseDates.set(a.id, to)
-        if (!a.moveCrew || (to.start === from.start && to.end === from.end)) break
+        if (to.start === from.start && to.end === from.end) break
+        // Calls cancelled along with their job always go with their phase, as nobody is on them (ADR 0164): asked for again,
+        // they're on the phase's days as it is then.
+        for (const c of [...calls.values()]) {
+          if (c.phaseId !== a.id || c.status !== 'cancelled' || !c.stoppedOn) continue
+          const span = movedCallSpan(c, from, to)
+          if (span.start !== c.start || span.end !== c.end) calls.set(c.id, { ...c, ...span, pending: true })
+        }
+        if (!a.moveCrew) break
         for (const c of [...calls.values()]) {
           if (c.phaseId !== a.id || c.status !== 'open') continue
           const span = movedCallSpan(c, from, to)

@@ -1,5 +1,5 @@
-import { daysLabel, daysOffPhase, departmentInWords, joinedPhaseName, kindOf, kitDaysOf, MAX_PHASE_DAYS, spanLabel, stepId, STOPPED, tailOf, type CommandArgs, type JobStep } from '@sh/shared'
-import { cancelCall, moveCallsWithPhase } from '../crew/handlers.ts'
+import { daysLabel, daysOffPhase, departmentInWords, irishToday, joinedPhaseName, kindOf, kitDaysOf, MAX_PHASE_DAYS, spanLabel, stepId, STOPPED, tailOf, type CommandArgs, type JobStep } from '@sh/shared'
+import { cancelCall, moveCallsWithPhase, moveStoppedCallsWithPhase } from '../crew/handlers.ts'
 import { getCall, getCalls, getPerson, openCallsFor } from '../crew/store.ts'
 import { emit, emitAll, emitRemoved, emitRemovedAll, Refused, type Ctx } from '../kernel.ts'
 import { getKitLine, kitOnPhase } from '../stock/kit.ts'
@@ -192,9 +192,9 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     if (a.name !== undefined || a.venueId !== undefined) await renameCalls(ctx, { projectId: a.id })
     // Crew asked to hold the day hear it's confirmed, and crew asked or booked hear it's stopped, on WhatsApp (ADR 0125, HOLD).
     await queueJobWhatsApp(ctx, a.id, before.status, a.status)
-    // Stopping a job takes its crew with it; starting it again doesn't bring them back.
+    // Stopping a job takes its crew with it, marked with the day, so they can be asked for again once it's going again (ADR 0164).
     if (a.status && STOPPED.includes(a.status) && !STOPPED.includes(before.status))
-      for (const c of await openCallsFor(ctx.tx, { projectId: a.id })) await cancelCall(ctx, c.id)
+      for (const c of await openCallsFor(ctx.tx, { projectId: a.id })) await cancelCall(ctx, c.id, irishToday())
   },
 
   async 'phase.add'(ctx, a) {
@@ -231,6 +231,8 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     await setFields(ctx, 'phases', PHASE_COLUMNS, a)
     await emit(ctx, 'phase', a.id, await getPhase(ctx.tx, a.id))
     if (a.name !== undefined || a.venueId !== undefined) await renameCalls(ctx, { phaseId: a.id })
+    // Calls cancelled along with the job go with it whatever is asked, as nobody is on them (ADR 0164).
+    if (start !== before.start || end !== before.end) await moveStoppedCallsWithPhase(ctx, a.id, before, { start, end })
     // Asked to, the phase takes its crew with it: its open calls move by the same shift, and their offers' days too.
     if (a.moveCrew && (start !== before.start || end !== before.end)) await moveCallsWithPhase(ctx, a.id, before, { start, end })
   },

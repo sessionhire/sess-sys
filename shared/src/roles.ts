@@ -113,6 +113,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'call.create': 'crew',
   'call.update': 'crew',
   'call.cancel': 'crew',
+  // Asking for a call again once its job is going again is the office's, as asking for it was (ADR 0164).
+  'call.reopen': 'crew',
   'call.department': 'crew',
   'offer.send': 'crew',
   // Taking back an offer just made is the office's, as making it is (ADR 0162).
