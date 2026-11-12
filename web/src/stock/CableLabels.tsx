@@ -174,7 +174,7 @@ export function CableLabel({ s, layout }: { s: Says; layout: CableLayout }) {
 /** Cable labels for a product: what they say, which label, the code on them, how many, and Print. */
 export function CableLabels({ m }: { m: ModelView }) {
   const office = useView().office
-  const logo = useLabelLogo(office)
+  const logo = useLabelLogo(office, { pure: office.logoBlackWhite })
   const first = useMemo(saved, [])
   const [words, setWords] = useState(m.name)
   const [layout, setLayout] = useState<CableLayout>(first.layout)

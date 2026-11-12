@@ -307,6 +307,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.on === true ? "Turned on checking new phones on freelancers' links" : "Turned off checking new phones on freelancers' links"
     case 'whatsapp.use':
       return a.mode === 'on' ? 'Turned on offers on WhatsApp' : a.mode === 'test' ? 'Turned on offers on WhatsApp to the test numbers only' : 'Turned off offers on WhatsApp'
+    case 'logo.blackWhite':
+      return a.on === true ? 'Turned on the logo in pure black and white on labels' : 'Turned off the logo in pure black and white on labels'
     case 'cables.colours':
       return `Set the colours for cable lengths${Array.isArray(a.colours) ? ` (${a.colours.length})` : ''}`
     // The company's logo (ADR 0106): that it changed, never the picture.

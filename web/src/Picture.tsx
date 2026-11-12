@@ -37,11 +37,13 @@ export const logoOf = (office: Pick<OfficeView, 'logo'>) => (office.logo ? `${ba
  * prints anything filtered as a picture at the size of its box, so a logo
  * a few millimetres across came out as a blur of big pixels (Colly,
  * 12 November). Undefined until it's ready, and the logo as it is if it
- * can't be made.
+ * can't be made. In pure black and white (ADR 0163, the office's switch
+ * under Admin › Company › Logo) each grey goes to black or white at the
+ * middle grey, so a label printer prints solid dots with no dithering.
  */
-export function useLabelLogo(office: Pick<OfficeView, 'logo'>): string | undefined {
+export function useLabelLogo(office: Pick<OfficeView, 'logo'>, { pure = false }: { pure?: boolean } = {}): string | undefined {
   const src = logoOf(office)
-  const [grey, setGrey] = useState<{ src: string; url: string }>()
+  const [grey, setGrey] = useState<{ src: string; pure: boolean; url: string }>()
   useEffect(() => {
     if (!src) return
     let url: string | undefined
@@ -63,23 +65,23 @@ export function useLabelLogo(office: Pick<OfficeView, 'logo'>): string | undefin
         for (let i = 0; i < px.length; i += 4) {
           // As the eye weighs the colours (Rec. 709), the same as grayscale(1).
           const y = 0.2126 * px[i]! + 0.7152 * px[i + 1]! + 0.0722 * px[i + 2]!
-          px[i] = px[i + 1] = px[i + 2] = y
+          px[i] = px[i + 1] = px[i + 2] = pure ? (y < 128 ? 0 : 255) : y
         }
         g.putImageData(data, 0, 0)
         const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/png'))
         if (!blob || gone) return
         url = URL.createObjectURL(blob)
-        setGrey({ src, url })
+        setGrey({ src, pure, url })
       })
       .catch(() => {
-        if (!gone) setGrey({ src, url: src })
+        if (!gone) setGrey({ src, pure, url: src })
       })
     return () => {
       gone = true
       if (url) URL.revokeObjectURL(url)
     }
-  }, [src])
-  return src && grey?.src === src ? grey.url : undefined
+  }, [src, pure])
+  return src && grey?.src === src && grey.pure === pure ? grey.url : undefined
 }
 
 export const productPhotoOf = (m: Pick<Model, 'id' | 'photo'> | null | undefined) => (m?.photo ? `${base}${productPhotoPath(m.id, m.photo.at)}` : undefined)

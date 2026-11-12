@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.176.0',
+    date: '2026-11-12',
+    title: 'A switch to print the logo in pure black and white on labels',
+    what: "Admin › Company › Logo has a new switch, Pure black and white on labels. With it on, every grey and colour in the logo prints as solid black or white on stock and cable labels, which gives the sharpest print on a label printer; pale parts of the logo drop out. The card's label preview shows it before you print. Quotes and their PDFs keep the logo in colour either way. It starts off.",
+    prs: [350],
+    adrs: [163],
+  },
+  {
     version: '1.175.0',
     date: '2026-11-12',
     title: 'Bigger 100 × 25 mm labels, and a sharp logo on every label',
