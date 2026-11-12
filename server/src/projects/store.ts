@@ -5,7 +5,7 @@ import type { Queryable } from '../db.ts'
 
 const CLIENT = `id, name, contacts, notes, address, payment_terms`
 const VENUE = `id, name, address, notes, lat, lng, contact`
-const PROJECT = `id, name, client_id, venue_id, status, kind, notes, source_calendar, prep_days, return_days`
+const PROJECT = `id, name, client_id, venue_id, status, kind, notes, office_notes, source_calendar, prep_days, return_days`
 const PHASE = `id, project_id, name, start_day::text, end_day::text, venue_id, notes, contact_id, local_crew`
 
 type Row = Record<string, any>
@@ -38,6 +38,8 @@ export const toProject = (r: Row): Project => ({
   status: r.status,
   kind: r.kind ?? 'gig',
   notes: r.notes,
+  // Only once there are some (ADR 0151), as a client's address: a job with none reads as it did before.
+  ...(r.office_notes ? { officeNotes: r.office_notes } : {}),
   prepDays: r.prep_days,
   returnDays: r.return_days,
   ...(r.source_calendar ? { sourceCalendar: r.source_calendar } : {}),

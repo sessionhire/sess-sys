@@ -82,6 +82,8 @@ const MIGRATIONS: string[] = [
   ALTER TABLE clients ADD COLUMN IF NOT EXISTS payment_terms text CHECK (payment_terms = 'before' OR payment_terms ~ '^[0-9]{1,3}$');
   ALTER TABLE venues ADD COLUMN IF NOT EXISTS contact jsonb;
   `,
+  // A job's office notes (ADR 0151), which never leave the app; its notes are the crew's.
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS office_notes text NOT NULL DEFAULT '';`,
 ]
 
 export const PROJECTS: Module = { versionTable: 'projects_schema_version', migrations: MIGRATIONS }

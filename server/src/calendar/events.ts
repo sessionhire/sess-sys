@@ -177,26 +177,39 @@ function crewLine(c: CrewLine): string {
 }
 
 /**
- * The event's description: the day's job sheet, names only (never rates or phone numbers). `max` is the room it has: a
- * person's own copy opens with lines of its own, and the whole stays inside what Google takes.
+ * What someone only asked reads in place of the rest of the day's sheet (ADR 0151): the client, the crew, the notes for
+ * the crew and the pick list are for people on the job, and an email can't be unsent.
  */
-export function description(f: DayFacts, max = DESCRIPTION_MAX): string {
+export const SHEET_LATER = "Once you've said yes, this invite fills in with the day's sheet: the client, the crew, the notes and the pick list."
+
+/**
+ * The event's description: the day's job sheet, names only (never rates or phone numbers). `max` is the room it has: a
+ * person's own copy opens with lines of its own, and the whole stays inside what Google takes. `short` is the copy for
+ * someone only asked so far (ADR 0151, audit of 12 November 2026, finding 2): the stage, the day, where, and what the
+ * quote covers for crew, which they need to decide; the rest once they've said yes. A job's office notes are on neither.
+ */
+export function description(f: DayFacts, max = DESCRIPTION_MAX, short = false): string {
   const days = eachDay(f.phaseStart, f.phaseEnd).length
   const when = days > 1 ? `${f.phase}, day ${f.dayNumber} of ${days}: ${dayLabel(f.phaseStart)} to ${dayLabel(f.phaseEnd)}` : `${f.phase}, ${dayLabel(f.phaseStart)}`
-  const blocks: string[] = [stageLine(f), [f.client ? `Client: ${f.client}` : '', when].filter(Boolean).join('\n')]
+  const blocks: string[] = [stageLine(f), [!short && f.client ? `Client: ${f.client}` : '', when].filter(Boolean).join('\n')]
   if (f.venue) {
     blocks.push(
-      [`Venue: ${f.venue.name}`, f.venue.address.trim().replace(/\s*\r?\n\s*/g, ', '), f.venue.notes.trim() ? `At the venue: ${f.venue.notes.trim()}` : '']
+      [
+        `Venue: ${f.venue.name}`,
+        f.venue.address.trim().replace(/\s*\r?\n\s*/g, ', '),
+        !short && f.venue.notes.trim() ? `At the venue: ${f.venue.notes.trim()}` : '',
+      ]
         .filter(Boolean)
         .join('\n')
     )
   }
-  if (f.crew.length) blocks.push(['Crew', ...f.crew.map(crewLine)].join('\n'))
-  if (f.jobNotes.trim()) blocks.push(`Job notes\n${f.jobNotes.trim()}`)
-  if (f.phaseNotes.trim()) blocks.push(`${f.phase} notes\n${f.phaseNotes.trim()}`)
+  if (!short && f.crew.length) blocks.push(['Crew', ...f.crew.map(crewLine)].join('\n'))
+  if (!short && f.jobNotes.trim()) blocks.push(`Job notes\n${f.jobNotes.trim()}`)
+  if (!short && f.phaseNotes.trim()) blocks.push(`${f.phase} notes\n${f.phaseNotes.trim()}`)
   if (f.allowances) blocks.push(allowancesText(f.allowances))
-  const kit = pickList(f.kit)
+  const kit = short ? '' : pickList(f.kit)
   if (kit) blocks.push(kit)
+  if (short) blocks.push(SHEET_LATER)
   const text = blocks.join('\n\n')
   // The link to the job always fits: a long pick list is cut short before it is.
   const link = f.appLink ? `\n\nThe job in the Session Hire app: ${f.appLink}` : ''
@@ -511,7 +524,8 @@ export async function wantedEvents(
       })
       if (!personal) return
       // Each person's own copy: their greeting first, by the name they go by, and where they stand; then their page, which has their
-      // rate and how to answer; then the day as everyone sees it. All of it description, so a change to it is never emailed (ADR 0009).
+      // rate and how to answer; then the day: in short until they've said yes (ADR 0151), then as everyone on the job sees it. All of
+      // it description, so a change to it is never emailed (ADR 0009).
       for (const g of invited.values()) {
         const first = firstName({ name: g.offer.name, knownAs: g.offer.knownAs, firstName: g.offer.first }) || 'there'
         const hello = greeting({ first, role: g.call.role, callTime: g.call.call_time, status: g.offer.status, day, hold })
@@ -523,9 +537,11 @@ export async function wantedEvents(
           link: appUrl ? `${appUrl}/f/${g.offer.token}` : null,
         })
         const lead = [hello, page].filter(Boolean).join('\n')
+        // Someone only asked, or waiting on the office about a rate, has said yes to nothing yet: the short copy (ADR 0151).
+        const asked = g.offer.status === 'offered' || g.offer.status === 'countered'
         const mine: EventBody = {
           ...body,
-          description: `${lead}\n\n${description({ ...facts, appLink: null }, DESCRIPTION_MAX - lead.length - 2)}`,
+          description: `${lead}\n\n${description({ ...facts, appLink: null }, DESCRIPTION_MAX - lead.length - 2, asked)}`,
           extendedProperties: { private: { ...body.extendedProperties.private, shPerson: g.personId } },
         }
         const personKey = `${key}/${g.personId}`

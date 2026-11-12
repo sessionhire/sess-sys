@@ -55,6 +55,14 @@ calendars only hear about an event, a change or a cancellation by email.
   Mon 4 Mar. Your rate and the details are on your page, where you can
   answer too: (their link)".
 
+  From 1.167.0 ([ADR 0151](0151-notes-for-the-crew-and-office-notes.md))
+  someone only asked, or waiting on the office about a rate, gets the day
+  in short: the stage, the day, the venue's name and address and the per
+  diems and fuel, then "Once you've said yes, this invite fills in with
+  the day's sheet: the client, the crew, the notes and the pick list."
+  Once they say yes, or the office books them, it says what the shared
+  day says.
+
   The greeting is description, so it changes quietly; the HOLD coming off
   is a title change and sends an update. Their own page, where they can
   answer or see their offers, was the link at the foot until 1.166.0 and

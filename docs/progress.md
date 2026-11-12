@@ -3,6 +3,46 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 12 November 2026: notes for the crew, office notes, and a short invite
+
+**Done (1.167.0)**
+
+- Colly answered the seven questions of the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md) with "Go with
+  yours", so batches 3 to 6 take the recommended answers. This is batch 5,
+  finding 2 and question 1
+  ([ADR 0151](adr/0151-notes-for-the-crew-and-office-notes.md)), built
+  first because an email can't be unsent.
+- Change details on a job has two boxes, each with a line saying who reads
+  it. **Notes for the crew** is the box that was Notes, so what is in it
+  stays where crew read it: the call sheet and the jobs calendar. **Office
+  notes** is new and never leaves the app: not the calendar, a call sheet,
+  a message or a person's page. The office, directors and heads of
+  department read them; staff crew and freelancers signed in are sent the
+  job without them. The history says the office notes changed, never what
+  they say. A phase's box is Notes for the crew too. Combining two jobs
+  joins each kind of note with its own.
+- Someone only asked, or waiting on the office about a rate, gets a short
+  invite: their first two lines, the stage (with what HOLD asks), the day,
+  the venue's name and address, and the per diems and fuel, then "Once
+  you've said yes, this invite fills in with the day's sheet: the client,
+  the crew, the notes and the pick list." When they say yes, or the office
+  books them, it fills in.
+- Kept on purpose: the per diems and fuel stay in the short invite, where
+  the audit had them out. They are about the crew's own money and are on
+  neither their page nor the call sheet.
+- Nothing new is sent. On the first run after this is live, the invites of
+  people only asked are shortened once, quietly, as a description change
+  is never emailed.
+- Checked: a server test reads the invites as Google holds them for
+  someone asked, someone who asked for a rate, someone booked and someone
+  who then says yes, and holds that none of it is emailed and that the
+  office notes are on no event; a server test holds that staff crew and
+  freelancers are sent a job without its office notes, and the office,
+  directors and heads with them; the history test holds that only "the
+  office notes" is said; a browser test types office notes and reads each
+  box's line. Nothing real is sent.
+
 ## 12 November 2026: hold the day, said everywhere
 
 **Done (1.166.0)**

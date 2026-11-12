@@ -547,6 +547,22 @@ describe('what each role reads', () => {
     expect(leaks(feed, 'sean')).toEqual({ rates: [], links: [] })
   })
 
+  it("sends a job's office notes to the office, directors and heads, and never to staff crew or freelancers (ADR 0151)", async () => {
+    const { c, signIn, ok, pull } = await crewed()
+    const office = 'Client is price sensitive: hold the margin at 30%.'
+    await ok('project.update', { id: 'gala', notes: 'Load in by the side gate.', officeNotes: office })
+    expect((await pull(c)).of('project', 'gala')).toMatchObject({ notes: 'Load in by the side gate.', officeNotes: office })
+    expect((await pull({ sh_session: await signIn(aine) })).of('project', 'gala')).toMatchObject({ officeNotes: office })
+    for (const role of ['crew', 'freelancer']) {
+      await ok('person.role', { id: 'sean', role })
+      const feed = await pull({ sh_session: await signIn(sean) })
+      // The job is there, with the notes for the crew, which are on their call sheet anyway.
+      expect(feed.of('project', 'gala')).toMatchObject({ name: 'Autumn Gala', notes: 'Load in by the side gate.' })
+      expect(feed.of('project', 'gala')).not.toHaveProperty('officeNotes')
+      expect(JSON.stringify(feed.all)).not.toContain('price sensitive')
+    }
+  })
+
   it("sends a head of department their own department's links, and rates only once a director lets them", async () => {
     const { app, c, signIn, ok, pull } = await crewed()
     const h = { sh_session: await signIn(aine) }

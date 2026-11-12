@@ -347,7 +347,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (a.status !== undefined) parts.push(`now ${status(a.status)}`)
       if (a.clientId !== undefined) parts.push(a.clientId ? `client to ${client(a.clientId)}` : 'no client')
       if (a.venueId !== undefined) parts.push(a.venueId ? `venue to ${venue(a.venueId)}` : 'no venue')
-      if (a.notes !== undefined) parts.push('the notes')
+      if (a.notes !== undefined) parts.push('the notes for the crew')
+      if (a.officeNotes !== undefined) parts.push('the office notes')
       if (a.prepDays !== undefined) parts.push(`kit held ${a.prepDays ? plural(Number(a.prepDays), 'day') : 'no days'} before, to get it ready`)
       if (a.returnDays !== undefined) parts.push(`kit held ${a.returnDays ? plural(Number(a.returnDays), 'day') : 'no days'} after, to check it back in`)
       if (parts.length === 1 && a.status === 'cancelled') return `Cancelled the job ${job(a.id)}`

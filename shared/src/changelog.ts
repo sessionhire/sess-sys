@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.167.0',
+    date: '2026-11-12',
+    title: "A job's notes say who reads them, and someone only asked gets a short invite",
+    what: "Change details on a job now has two boxes for notes, each saying who reads it. Notes for the crew is the box that was Notes: what's in it goes on the call sheet and the jobs calendar, as before. Office notes is new: what you write there stays in the app for the office, directors and heads of department. It never goes on the calendar, a call sheet, a message or a crew member's own page, and staff crew and freelancers signed in to the app don't see it. The job's page shows each with its name, and a phase's Notes box is Notes for the crew too. Someone you've only asked so far now gets a shorter calendar invite: the day, where, and the per diems and fuel, with a line saying the rest comes once they've said yes. When they say yes, or you book them, their invite fills in with the client, the crew, the notes and the pick list. Nothing new is sent to anyone: invites already out are shortened quietly, with no email.",
+    prs: [341],
+    adrs: [151],
+  },
+  {
     version: '1.166.1',
     date: '2026-11-12',
     title: "The Board's cards stay in their columns, and drag like Trello's",

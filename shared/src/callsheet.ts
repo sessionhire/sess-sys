@@ -17,8 +17,9 @@ import { DEPARTMENTS, DEPARTMENT_LABELS, type Department } from './stock.ts'
  * - everyone else on it: who else is on by name and role, and the
  *   contact's number. Never another person's number or rate.
  *
- * Job, phase and venue notes are shown to everyone: they already go on the
- * calendar events crew are invited to (ADR 0008).
+ * Job, phase and venue notes are shown to everyone: they are the notes for
+ * the crew, on the calendar events of everyone who has said yes (ADR 0008,
+ * ADR 0151). A job's office notes are never on a call sheet.
  */
 
 export type SheetReader = 'office' | 'contact' | 'crew'
