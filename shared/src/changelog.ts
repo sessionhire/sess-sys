@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.171.0',
+    version: '1.172.0',
     date: '2026-11-12',
     title: "Quotes charge the crew's accommodation on a job far enough to stay over",
     what: "Beside travel and subsistence, a quote now works out the crew's rooms for itself. Set a room price, so much a night for each of the crew, and how far from Dublin the crew stay over (180 km unless you change it) under Admin › Company › Travel and subsistence. On a job further than that, the quote adds a line for a room for each crew day, printed as so many crew nights at the room price a night. Press the row and turn on Accommodation provided when the job puts the crew up. When the crew stay over, their travel is charged as one car trip there and back each, or each car load, rather than one every day. Until a room price is set nothing changes. A crew member's invite says when accommodation is covered.",
-    prs: [],
+    prs: [348],
     adrs: [156],
+  },
+  {
+    version: '1.171.0',
+    date: '2026-11-12',
+    title: 'The company logo has its own place in Admin, with what kind of file works best',
+    what: "Admin › Company has a Logo card of its own, where it used to sit inside Labels. Put up once, it heads every printed quote and its PDF and prints on every stock and cable label, and the card shows it both ways: in colour as a quote has it, and in black as a label printer prints it. It says what works best: an SVG or PNG, at least 1200 pixels across, wide rather than square, dark on a see-through or white background, cropped close. An SVG can now be put up too. If the file sent is small or nearly square, it still goes up, and the card says why it may print soft or small.",
+    prs: [345],
+    adrs: [155],
   },
   {
     version: '1.170.0',
