@@ -607,7 +607,7 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
       if (reasons.length)
         throw new Refused({ code: 'clash', message: `${person.name} is ${reasons.join(' and ')}. Send anyway to override.` })
     }
-    // Nothing of the app's goes to them for OFFER_WAIT_SECONDS (ADR 0161): the calendar and WhatsApp wait for goes_at, so
+    // Nothing of the app's goes to them for OFFER_WAIT_SECONDS (ADR 0162): the calendar and WhatsApp wait for goes_at, so
     // the office can take a wrong pick back with Undo and nobody is sent a cancellation for it. The offer is made at once.
     // A few seconds more here than the panel offers Undo, so one pressed at the last moment still arrives in time.
     await ctx.tx.query(
@@ -629,7 +629,7 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
   },
 
   /**
-   * Undo, just after Offer (ADR 0161): while nothing of the app's has gone to them and they haven't answered, the offer is
+   * Undo, just after Offer (ADR 0162): while nothing of the app's has gone to them and they haven't answered, the offer is
    * gone as if never made, with its WhatsApp that was waiting. After that it's withdrawn instead, which tells them.
    */
   async 'offer.undo'(ctx, a) {

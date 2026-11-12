@@ -651,7 +651,7 @@ export function jobEndingWords(
 // ---- After a press: what was sent ----
 
 /**
- * While offers just made wait (ADR 0161; audit of 12 November 2026, finding 13), what goes when, beside the Undo that
+ * While offers just made wait (ADR 0162; audit of 12 November 2026, finding 13), what goes when, beside the Undo that
  * takes them back first: "The invites go in 24 seconds.", "The invite and WhatsApp go in 1 second.". With nothing of the
  * app's to go, that they can still be undone, which takes them off the person's page.
  */
@@ -663,7 +663,7 @@ export function waitWords(waiting: { invites: number; whatsapps: number; offers:
   return `The ${things.join(' and ')} ${things.length === 1 && invites + whatsapps === 1 ? 'goes' : 'go'} in ${s}.`
 }
 
-/** After Undo (ADR 0161): who wasn't offered it after all, that the app sent them nothing, and that their page no longer shows it. */
+/** After Undo (ADR 0162): who wasn't offered it after all, that the app sent them nothing, and that their page no longer shows it. */
 export function undoneWords(names: readonly string[], prompts: boolean): string {
   const one = names.length === 1
   const said = `${namesInWords(names)} ${one ? "wasn't" : "weren't"} offered it after all: the app sent them nothing, and it's off ${one ? 'their page' : 'their pages'}.`

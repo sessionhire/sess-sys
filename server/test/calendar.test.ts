@@ -170,11 +170,11 @@ const eventWrites = (calls: string[]) => calls.filter((c) => c.includes('/events
 async function send<N extends CommandName>(s: Setup, name: N, args: CommandInput<N>) {
   const r = await s.colly.send(name, args)
   expect(r.status, JSON.stringify(r)).toBe('applied')
-  // An offer's invites wait half a minute so it can be undone (ADR 0161): here they go at once, as half a minute on.
+  // An offer's invites wait half a minute so it can be undone (ADR 0162): here they go at once, as half a minute on.
   if (name === 'offer.send') await waitOver(s, (args as CommandInput<'offer.send'>).id)
 }
 
-/** Half a minute after Offer (ADR 0161): the offer's wait for Undo is over. */
+/** Half a minute after Offer (ADR 0162): the offer's wait for Undo is over. */
 const waitOver = (s: Setup, id: string) => s.db.query(`UPDATE offers SET goes_at = now() - interval '1 second' WHERE id = $1`, [id])
 
 /** Nissan, confirmed: Prep yesterday at the warehouse, Build today and tomorrow, Show the day after, with crew on Build. */
@@ -1186,7 +1186,7 @@ describe('crew invites (ADR 0009)', () => {
     expect((await offer(s, again)).status).toBe('accepted')
   })
 
-  it('sends nothing for half a minute after Offer, and nothing at all for an offer undone meanwhile (ADR 0161)', async () => {
+  it('sends nothing for half a minute after Offer, and nothing at all for an offer undone meanwhile (ADR 0162)', async () => {
     // Proves: finding 13 of the audit of 12 November 2026. An offer is on the calendar only once its wait for Undo is over, so a
     // wrong pick taken back is never emailed an invite, nor a cancellation for one; and a job not confirmed yet, asked for only by
     // an offer still waiting, isn't put on the calendar as HOLD until then.

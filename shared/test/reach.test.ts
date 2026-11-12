@@ -942,7 +942,7 @@ describe('what follows an offer on WhatsApp (ADR 0154)', () => {
   })
 })
 
-describe('Undo just after Offer (ADR 0161)', () => {
+describe('Undo just after Offer (ADR 0162)', () => {
   it('says what goes as the wait ends, and when, a second at a time', () => {
     // Proves: the line beside Undo names what's waiting, one or many, and the seconds left; with nothing of the app's to go,
     // that it can still be undone (audit of 12 November 2026, finding 13).

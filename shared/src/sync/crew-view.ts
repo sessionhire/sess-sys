@@ -371,7 +371,7 @@ export function crewView(
       }
       case 'offer.undo': {
         const o = offers.get((m.args as CommandArgs<'offer.undo'>).id)
-        // Taken back before anyone answered, as the server takes it (ADR 0161): gone, as if never made. The server alone knows
+        // Taken back before anyone answered, as the server takes it (ADR 0162): gone, as if never made. The server alone knows
         // whether it's still waiting; one that has gone comes back with the server's word that it must be withdrawn instead.
         if (o && o.status === 'offered' && !o.respondedAt) offers.delete(o.id)
         break

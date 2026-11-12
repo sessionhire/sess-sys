@@ -423,7 +423,7 @@ interface SaidRow {
 }
 
 /**
- * An offer whose wait is over (ADR 0161): one made by Offer sends nothing for OFFER_WAIT_SECONDS, so the office can take a
+ * An offer whose wait is over (ADR 0162): one made by Offer sends nothing for OFFER_WAIT_SECONDS, so the office can take a
  * wrong pick back with Undo before any invite goes, and it brings no job onto the calendar until then. Offers made before,
  * or not by Offer, never waited.
  */

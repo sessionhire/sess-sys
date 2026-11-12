@@ -8,7 +8,7 @@ waiting on someone.
 **Done (1.175.0)**
 
 - The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
-  finding 13 ([ADR 0161](adr/0161-undo-just-after-offer.md)).
+  finding 13 ([ADR 0162](adr/0162-undo-just-after-offer.md)).
 - An offer made by Offer sends nothing for 30 seconds: its calendar
   invites and its WhatsApp wait, and a job not yet confirmed doesn't come
   onto the calendar as "Hold the day" for it until then. The offer itself

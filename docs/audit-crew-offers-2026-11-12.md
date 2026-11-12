@@ -521,7 +521,7 @@ one thing: the days are picked with From and To among the phase's days
 rather than ticked, as a call's days are one run, and a phase that moves
 takes its crew along when keeping their dates would leave them out.
 Finding 13, Undo on an offer, is in 1.175.0
-([ADR 0161](adr/0161-undo-just-after-offer.md)). It differs in one thing:
+([ADR 0162](adr/0162-undo-just-after-offer.md)). It differs in one thing:
 the WhatsApp waits with the invites, as it reaches the person too.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every

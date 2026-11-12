@@ -100,7 +100,7 @@ async function main() {
   app.assistantMailbox.start()
   // Offers on WhatsApp (ADR 0125): anything queued while the server was away goes now, and a look each minute after.
   app.whatsappSender.start()
-  // Offers still waiting to be undone as the server went down (ADR 0161): what they held goes as each wait ends.
+  // Offers still waiting to be undone as the server went down (ADR 0162): what they held goes as each wait ends.
   void app.offerWaits.watch()
   app.log.info({ db: db.kind }, db.kind === 'memory' ? 'Database: in memory (nothing is kept after a restart)' : `Database: ${db.kind}`)
   if (auth) app.log.info({ domains: auth.domains, emails: auth.emails.length }, 'Sign-in: Google, staff only')

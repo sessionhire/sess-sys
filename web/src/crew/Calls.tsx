@@ -721,7 +721,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
       if (short) return refuse(chosen.length > 1 ? `${p.name}: ${short}` : short)
     }
     const people = chosen
-    // What the press made, and when, for the Undo that holds while nothing of the app's has gone to them (ADR 0161).
+    // What the press made, and when, for the Undo that holds while nothing of the app's has gone to them (ADR 0162).
     const made: Made = { ids: people.map(() => newId()), at: Date.now() }
     void run(async () => {
       for (const [i, p] of people.entries()) await client.mutate('offer.send', { id: made.ids[i]!, callId: call.id, personId: p.id, override: clashOf(p).length > 0 && override })

@@ -74,7 +74,7 @@ export interface Tell {
 }
 
 /**
- * The offers an Offer press just made (ADR 0161): their ids, and when it was pressed. Nothing of the app's goes to them for
+ * The offers an Offer press just made (ADR 0162): their ids, and when it was pressed. Nothing of the app's goes to them for
  * OFFER_WAIT_SECONDS, so the panel offers Undo till then, counted from the press: the server's wait starts as it takes
  * them, which is never sooner, and runs a few seconds longer (OFFER_WAIT_GRACE_SECONDS) for an Undo pressed at the end.
  */
@@ -126,7 +126,7 @@ export function SharePanelFor({ share, onClose, inJob = false }: { share: Share;
 
 /**
  * After Offer, or Send on someone's row: the message to send, or what the app sent by itself. While the offers Offer just
- * made wait (ADR 0161; audit of 12 November 2026, finding 13), when their invites go and Undo, which takes back any still
+ * made wait (ADR 0162; audit of 12 November 2026, finding 13), when their invites go and Undo, which takes back any still
  * unanswered with nothing sent to anyone; after it, that nothing went.
  */
 function OfferPanel({ share, onClose, inJob }: { share: Extract<Share, { kind: 'offer' }>; onClose: () => void; inJob: boolean }) {
@@ -187,7 +187,7 @@ function useWait(share: Extract<Share, { kind: 'offer' }>, onUndone: (people: re
 }
 
 /**
- * When what an offer just made sends goes, and Undo beside it (ADR 0161). Gone when the wait is over; the focus, if it was on
+ * When what an offer just made sends goes, and Undo beside it (ADR 0162). Gone when the wait is over; the focus, if it was on
  * Undo, goes to the panel rather than nowhere.
  */
 function WaitLine({ wait }: { wait: Wait }) {
@@ -209,7 +209,7 @@ function WaitLine({ wait }: { wait: Wait }) {
   )
 }
 
-/** After Undo (ADR 0161): who wasn't offered it after all, and that nothing of the app's went to them. */
+/** After Undo (ADR 0162): who wasn't offered it after all, and that nothing of the app's went to them. */
 function Undone({ people, onClose }: { people: readonly Person[]; onClose: () => void }) {
   const panel = useInView()
   const prompts = usePromptsMessages()
@@ -322,7 +322,7 @@ function SentPanel({
   title: string
   people: readonly { person: Person; told: ToldPerson }[]
   links?: string
-  /** Offers just made, while they wait (ADR 0161). */
+  /** Offers just made, while they wait (ADR 0162). */
   wait?: Wait | undefined
   onClose: () => void
 }) {
@@ -483,7 +483,7 @@ export function SharePanel({
   message?: (link: string) => { text: string; subject: string; what: string }
   /** On the job's page, under its Next dock: WhatsApp is plain (SendButtons). */
   inJob?: boolean
-  /** The offer Offer just made, while it waits (ADR 0161). */
+  /** The offer Offer just made, while it waits (ADR 0162). */
   wait?: Wait | undefined
 }) {
   const prompts = usePromptsMessages()
@@ -601,7 +601,7 @@ function TellOne({
   title: string
   more: boolean
   onNext: () => void
-  /** The offers Offer just made, while they wait (ADR 0161). */
+  /** The offers Offer just made, while they wait (ADR 0162). */
   wait?: Wait | undefined
   children: [ReactNode, ReactNode]
 }) {

@@ -115,7 +115,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'call.cancel': 'crew',
   'call.department': 'crew',
   'offer.send': 'crew',
-  // Taking back an offer just made is the office's, as making it is (ADR 0161).
+  // Taking back an offer just made is the office's, as making it is (ADR 0162).
   'offer.undo': 'crew',
   // Anyone with a role but a freelancer answers their own offers in the app (ADR 0111); the crew ability answers for anyone, as the link and the office always could.
   'offer.respond': 'answer',

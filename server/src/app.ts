@@ -204,7 +204,7 @@ declare module 'fastify' {
     assistantMailbox: Mailbox
     /** Sends offers on WhatsApp as they're made (ADR 0125); the caller starts its once-a-minute look. */
     whatsappSender: WhatsAppSender
-    /** Wakes the calendar and WhatsApp as an offer's wait for Undo ends (ADR 0161); the caller starts it once the server is listening. */
+    /** Wakes the calendar and WhatsApp as an offer's wait for Undo ends (ADR 0162); the caller starts it once the server is listening. */
     offerWaits: OfferWaits
   }
 }
@@ -372,7 +372,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const whatsapp = new WhatsApp(options.whatsapp)
   const whatsappSender = new WhatsAppSender(db, whatsapp, { log: app.log, report: (err) => reportError(err, { area: 'whatsapp' }), onSent: () => void poke() })
   app.decorate('whatsappSender', whatsappSender)
-  // An offer made by Offer waits so it can be undone (ADR 0161): as the wait ends, its invites and WhatsApp go.
+  // An offer made by Offer waits so it can be undone (ADR 0162): as the wait ends, its invites and WhatsApp go.
   const offerWaits = new OfferWaits(
     db,
     () => {
@@ -386,7 +386,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const changed = () => {
     void poke()
     calendarSync?.kick()
-    // An offer just made goes on WhatsApp at the same moment as its calendar invite (ADR 0125), once its wait is over (ADR 0161).
+    // An offer just made goes on WhatsApp at the same moment as its calendar invite (ADR 0125), once its wait is over (ADR 0162).
     void whatsappSender.kick()
     void offerWaits.watch()
     void erasures?.keep()

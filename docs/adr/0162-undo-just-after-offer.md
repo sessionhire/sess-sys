@@ -1,4 +1,4 @@
-# ADR 0161: Undo just after Offer
+# ADR 0162: Undo just after Offer
 
 - **Status:** accepted
 - **Date:** 12 November 2026

@@ -1,7 +1,7 @@
 import type { Db } from '../db.ts'
 
 /**
- * An offer made by Offer sends nothing for OFFER_WAIT_SECONDS (ADR 0161; audit of 12 November 2026, finding 13), so the
+ * An offer made by Offer sends nothing for OFFER_WAIT_SECONDS (ADR 0162; audit of 12 November 2026, finding 13), so the
  * office can take a wrong pick back with Undo before an invite or a WhatsApp reaches anyone. The calendar and WhatsApp
  * leave it out until then; this wakes them as the soonest wait ends, since nothing else would until their next look. It
  * looks again after each change and at start-up, so a wait that a restart cut across still ends with what it held going.

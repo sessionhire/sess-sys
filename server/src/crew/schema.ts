@@ -351,7 +351,7 @@ const MIGRATIONS: string[] = [
     FROM latest WHERE op = 'put' AND data IS NOT NULL
    ORDER BY entity_id;
   `,
-  // Undo on an offer (ADR 0161): an offer made by Offer sends nothing until this, so a wrong pick can be taken back with
+  // Undo on an offer (ADR 0162): an offer made by Offer sends nothing until this, so a wrong pick can be taken back with
   // no cancellation to follow. Empty on offers made before, and on any not made by Offer, which never waited.
   `
   ALTER TABLE offers ADD COLUMN IF NOT EXISTS goes_at timestamptz;

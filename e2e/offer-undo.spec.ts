@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test'
 import { pickRecord } from './names.ts'
 
 /**
- * Undo just after Offer (ADR 0161; audit of 12 November 2026, finding 13). Nothing of the app's goes to anyone for half a
+ * Undo just after Offer (ADR 0162; audit of 12 November 2026, finding 13). Nothing of the app's goes to anyone for half a
  * minute after Offer, so a wrong pick is taken back with nobody sent an invite, a WhatsApp or a cancellation. The panel
  * after the press says when it goes and offers Undo till then; after Undo, that nothing went. Here nothing would go at
  * all (no addresses, invites and WhatsApp off), so the line says it can be undone, and for how long.

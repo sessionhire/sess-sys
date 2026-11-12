@@ -68,7 +68,7 @@ async function setUp({ configured = true }: { configured?: boolean } = {}) {
     ).toMatchObject({ status: 'applied' })
     return id
   }
-  /** Half a minute after Offer (ADR 0161): the offer's wait for Undo is over, and what it held goes. */
+  /** Half a minute after Offer (ADR 0162): the offer's wait for Undo is over, and what it held goes. */
   const waitOver = async (id: string) => {
     await db.query(`UPDATE offers SET goes_at = now() - interval '1 second' WHERE id = $1`, [id])
     await app.whatsappSender.kick()
@@ -168,7 +168,7 @@ describe('offers on WhatsApp (ADR 0125)', () => {
     expect(meta.sent).toEqual([])
   })
 
-  it('waits half a minute after Offer, and sends nothing for an offer undone meanwhile (ADR 0161)', async () => {
+  it('waits half a minute after Offer, and sends nothing for an offer undone meanwhile (ADR 0162)', async () => {
     // Proves: an offer's WhatsApp stays queued while it can be undone, goes as the wait ends, and Undo takes it away with
     // the offer, so a wrong pick is never sent anything (audit of 12 November 2026, finding 13).
     const { db, app, meta, send, person, call, waitOver, messages } = await setUp()
