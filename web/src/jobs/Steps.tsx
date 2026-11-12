@@ -1,7 +1,7 @@
-import { dayLabel, firstName, invoiceOf, irishToday, jobEndingWords, jobPosition, ownerByRole, plural, STAGE_OF, STOPPED_WORDS, whatsappFollowsTell, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { dayLabel, firstName, invoiceOf, irishToday, jobPosition, ownerByRole, plural, STAGE_OF, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
-import { peopleOn, promptFor, type Share } from '../crew/CrewScreen.tsx'
+import { promptFor, type Share } from '../crew/CrewScreen.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { useReach } from '../crew/reach.tsx'
 import { Icon } from '../Icon.tsx'
@@ -9,6 +9,7 @@ import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import type { JobPart } from './JobScreen.tsx'
+import { confirmQuestion, crewOnJob, holdingTheDay, stopQuestion } from './jobStatus.ts'
 import './steps.css'
 
 /**
@@ -41,6 +42,7 @@ export function StepsCard({
   onOpenTask,
   onPart,
   onTell,
+  confirmAsked,
 }: {
   job: JobView
   view: View
@@ -49,6 +51,11 @@ export function StepsCard({
   onOpenTask: (t: JobStep | undefined) => void
   onPart: (p: JobPart) => void
   onTell: (share: Share | undefined) => void
+  /**
+   * When Next's Confirm the job was last pressed on a job its crew hold the day for: the Confirmed task opens with its question
+   * asked, as the press reaches them (ADR 0168). Each press asks again.
+   */
+  confirmAsked?: number
 }) {
   const steps = view.steps.of(job.id)
   const [pickedStage, setPickedStage] = useState<StageView['key'] | undefined>()
@@ -134,7 +141,18 @@ export function StepsCard({
         </div>
       )}
       <InvoiceRow job={job} view={view} folded={!showing} />
-      {shownTask && <OpenStep key={`${job.id}.${shownTask.key}`} job={job} view={view} step={shownTask} stopped={steps.stopped !== undefined} onPart={onPart} onTell={onTell} />}
+      {shownTask && (
+        <OpenStep
+          key={`${job.id}.${shownTask.key}`}
+          job={job}
+          view={view}
+          step={shownTask}
+          stopped={steps.stopped !== undefined}
+          onPart={onPart}
+          onTell={onTell}
+          confirmAsked={shownTask.key === 'confirmed' ? confirmAsked : undefined}
+        />
+      )}
     </section>
   )
 }
@@ -221,6 +239,7 @@ function OpenStep({
   stopped,
   onPart,
   onTell,
+  confirmAsked,
 }: {
   job: JobView
   view: View
@@ -228,15 +247,17 @@ function OpenStep({
   stopped: boolean
   onPart: (p: JobPart) => void
   onTell: (share: Share | undefined) => void
+  confirmAsked?: number | undefined
 }) {
   const access = useAccess()
   const { me } = useMe(view)
   const { run, error } = useAct()
   const box = useRef<HTMLDivElement>(null)
-  // Opened from the Next dock, the task comes into view and takes the focus, so the eye and the keyboard land on it.
+  // Opened from the Next dock, the task comes into view and takes the focus, so the eye and the keyboard land on it; unless a
+  // question in it already has it, as Confirm the job's does when Next asks it (ADR 0168).
   useEffect(() => {
     box.current?.scrollIntoView({ block: 'nearest' })
-    box.current?.querySelector<HTMLElement>('h3')?.focus()
+    if (!box.current?.contains(document.activeElement)) box.current?.querySelector<HTMLElement>('h3')?.focus()
   }, [])
   // Staff crew change only their own tasks (ADR 0073); the server says the same.
   const mayChange = access.can('steps') && (access.role !== 'crew' || (!!access.personId && step.ownerId === access.personId)) && !stopped
@@ -266,7 +287,11 @@ function OpenStep({
               : `${step.hint ? `${step.hint}. ` : ''}${step.state === 'now' && !stopped ? 'This is the task to do next.' : ''}${step.dueOn ? ` ${step.late ? 'Was due' : 'Due'} by ${dayLabel(step.dueOn)}.` : ''}`}
       </p>
       {/* The answer first, where the eye is: who it's down to can wait under it. */}
-      {answering ? <ClientsAnswer job={job} view={view} onTell={onTell} /> : <p className="hint">{step.line}</p>}
+      {answering ? (
+        <ClientsAnswer key={confirmAsked ?? 'answer'} job={job} view={view} onTell={onTell} confirming={confirmAsked !== undefined} />
+      ) : (
+        <p className="hint">{step.line}</p>
+      )}
       {/* Whose it is when nobody is named: the role, from the one table (UX sweep, 6 November 2026, move 12). */}
       {!step.owner && !step.done && !step.skipped && <p className="step-owner-line">{ownerByRole(step.key)}</p>}
       {mayChange ? (
@@ -331,27 +356,36 @@ function OpenStep({
 
 /**
  * The client's answer, on the Confirmed task (ADR 0103): yes confirms the job, which puts it on the calendar and holds
- * its kit; no marks it lost, which cancels its crew calls, so that one asks first. Either goes on the quote that went
- * too, when there is one waiting for an answer, so the quote and the job never say different things.
+ * its kit; no marks it lost, which cancels its crew calls, so that one asks first. Yes asks first too when the job's crew
+ * were asked to hold the day for it, as it reaches them (ADR 0168), and opens asked when Next's Confirm the job was
+ * pressed (`confirming`). Either goes on the quote that went too, when there is one waiting for an answer, so the quote
+ * and the job never say different things.
  */
-function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell: (share: Share | undefined) => void }) {
+function ClientsAnswer({ job, view, onTell, confirming = false }: { job: JobView; view: View; onTell: (share: Share | undefined) => void; confirming?: boolean }) {
   const access = useAccess()
-  const [asking, setAsking] = useState(false)
+  const [asking, setAsking] = useState<'yes' | 'no' | undefined>(confirming ? 'yes' : undefined)
   const { run, error } = useAct()
   const today = irishToday()
   // The version that went to the client and is waiting on them; a draft is left to be finished and sent.
   const current = access.can('money') ? view.money.currentOf(job.id) : undefined
   const waiting = current && !current.invoicedOn && (current.status === 'sent' || current.status === 'accepted' || current.status === 'declined') ? current : undefined
-  const people = job.calls.filter((c) => c.status === 'open').flatMap((c) => peopleOn(c))
-  // With the email Google sends those who hold an invite, when the job is marked lost (ADR 0149).
+  // Read before the press: everyone on its open calls, told it's off if it's lost; and those asked to hold the day, told it's going
+  // ahead if it's confirmed. With the email Google sends those who hold an invite (ADR 0149, ADR 0168).
+  const people = crewOnJob(job)
+  const holding = holdingTheDay(job, today)
   const reach = useReach()
+  const confirmAsk = confirmQuestion(reach, job, holding)
   const answer = (yes: boolean) => {
-    setAsking(false)
+    setAsking(undefined)
     void run(async () => {
       const said = yes ? 'accepted' : 'declined'
       if (waiting && waiting.status !== said) await client.mutate('quote.answer', { id: waiting.id, answer: said, on: today })
       await client.mutate('project.update', { id: job.id, status: yes ? 'confirmed' : 'lost' })
-    }).then((ok) => ok && !yes && onTell(promptFor('job-stopped', people)))
+    }).then((ok) => {
+      if (!ok) return
+      if (!yes) onTell(promptFor('job-stopped', people))
+      else if (holding.length) onTell(promptFor('job-confirmed', holding))
+    })
   }
   return (
     <div className="clients-answer">
@@ -362,25 +396,26 @@ function ClientsAnswer({ job, view, onTell }: { job: JobView; view: View; onTell
             ? 'The client turned the quote down. Mark the job lost, or confirm it if they came back.'
             : `Confirming the job puts it on the jobs calendar and holds its kit${waiting ? `, and records the yes on version ${waiting.version} of the quote` : ''}.`}
       </p>
-      {asking ? (
+      {asking === 'no' ? (
         <Confirm
           // What their link says once the job is lost, in its own words (UX sweep, 6 November 2026, move 6).
-          question={`Marking ${job.name} lost also cancels its crew calls${
-            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${STOPPED_WORDS.lost}` : ''
-          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId, email: t.person.email, whatsapp: whatsappFollowsTell(reach, t) })))}`}
+          question={stopQuestion(reach, job, 'lost', people)}
           yes="Mark it lost"
           loss
           no="Keep it as it is"
           onYes={() => answer(false)}
-          onNo={() => setAsking(false)}
+          onNo={() => setAsking(undefined)}
         />
+      ) : asking === 'yes' && confirmAsk ? (
+        // What confirming sends those asked to hold the day (ADR 0168): HOLD comes off their days, and WhatsApp tells them.
+        <Confirm question={confirmAsk} yes="Confirm the job" no="Keep it as it is" onYes={() => answer(true)} onNo={() => setAsking(undefined)} />
       ) : (
         <div className="step-actions">
           {/* Plain, as the card's other buttons are: the Next dock holds the page's one filled red (ADR 0104; audit, 5 November 2026, finding 19). */}
-          <button type="button" onClick={() => answer(true)} disabled={job.pending}>
+          <button type="button" onClick={() => (confirmAsk ? setAsking('yes') : answer(true))} disabled={job.pending}>
             Confirm the job
           </button>
-          <button type="button" onClick={() => (job.calls.some((c) => c.status === 'open') ? setAsking(true) : answer(false))} disabled={job.pending}>
+          <button type="button" onClick={() => (job.calls.some((c) => c.status === 'open') ? setAsking('no') : answer(false))} disabled={job.pending}>
             The client said no
           </button>
         </div>

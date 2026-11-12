@@ -546,6 +546,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-send { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); }
 .quote-screen .quote-send label { flex: 1 1 10em; display: grid; gap: var(--ds-space-half); font-size: var(--text-hint); color: var(--muted); }
 .quote-screen .quote-send input { width: 100%; }
+/* Confirming a job its crew hold the day for asks first, under the day it's recorded for (ADR 0168). */
+.quote-screen .quote-send > .confirm { flex: 1 0 100%; }
 .quote-screen .quote-side .actions .link.quiet { margin-left: auto; }
 /* Sending by email (ADR 0101): the compose box takes the send row's place, its fields one under the other. */
 .quote-screen .compose { display: grid; gap: var(--ds-space-1); }
@@ -796,6 +798,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quotes-to-follow .follow-group li p { margin: var(--ds-space-half) 0 0; font-size: var(--text-small); color: var(--muted); }
 .quotes-to-follow .warn { color: var(--warn); }
 .quotes-to-follow .in-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+/* A row's question, before confirming or losing a job its crew are on (ADR 0168), takes the row's width under its words. */
+.quotes-to-follow .in-step:has(.confirm) { flex-basis: 100%; }
+.quotes-to-follow .in-step .confirm { flex: 1 1 100%; }
 .quotes-to-follow .new-quote { margin-bottom: var(--ds-space-2); }
 /* Every quote (ADR 0088): a row a job, its quote's state on the right, as the rows to follow up. */
 .quote-list .filters { margin: var(--ds-space-2) 0; }

@@ -140,3 +140,132 @@ test("a place on a job the client hasn't said yes to is a day to hold, wherever 
     await push(request, `hold-quiet-${run}`, [['messages.prompt', { on: false }]])
   }
 })
+
+test('confirming a job its crew hold the day for asks first, and says after what went, wherever it is pressed', async ({ browser, request }) => {
+  // Proves: the office's side of "Hold the day" (ADR 0168; audit of 12 November 2026, the gap ADR 0154 left at 3). On a job the
+  // client hasn't said yes to, the call card says "Hold the day" of those picked, where a booking says "Booked". Confirming the job
+  // reaches everyone asked to hold the day, so from its details, its Confirmed task, Next and the quote's What happened it asks
+  // first, saying what they'll see and how it reaches them, and the panel after says what went. "Keep it as it is" changes nothing.
+  // With no calendar connected and WhatsApp off, as here, their links are what tell them; the words for Google's emails and
+  // WhatsApp are proved beside the rules (shared/test/reach.test.ts).
+  const run = Math.random().toString(36).replace(/[^a-z]/g, '').slice(0, 6).padEnd(6, 'x')
+  const surname = `${run[0]!.toUpperCase()}${run.slice(1)}`
+  const orla = `Orla ${surname}`
+  const sean = `Seán ${surname}`
+  const today = new Date().toISOString().slice(0, 10)
+  const jobs = { details: `Held job ${run}`, next: `Said yes ${run}`, quote: `On the quote ${run}`, lost: `Went elsewhere ${run}` }
+  // A day each, as nobody is offered two places on one day.
+  const days = { details: 30, next: 31, quote: 32, lost: 33 }
+  const k = (s: string) => `${s}-${run}`
+  const job = (key: keyof typeof jobs, people: [string, 'asked' | 'picked'][], answer?: 'accepted' | 'declined'): [string, Record<string, unknown>][] => {
+    const day = new Date(Date.now() + days[key] * 86_400_000).toISOString().slice(0, 10)
+    return [
+    ['project.create', { id: k(key), name: jobs[key], clientId: null, venueId: null, status: 'quoted', notes: '' }],
+    ['phase.add', { id: k(`${key}-show`), projectId: k(key), name: 'Show', start: day, end: day, venueId: null, notes: '' }],
+    [
+      'call.create',
+      { id: k(`${key}-call`), projectId: k(key), phaseId: k(`${key}-show`), project: jobs[key], phase: 'Show', venue: '', role: 'Stage manager', start: day, end: day, callTime: '09:00', needed: 2, dayRateCents: null, details: '', replyBy: null },
+    ],
+    ...people.flatMap(([who, how]): [string, Record<string, unknown>][] => [
+      ['offer.send', { id: k(`${key}-${who}`), callId: k(`${key}-call`), personId: k(who), override: false }],
+      ...(how === 'picked'
+        ? ([
+            ['offer.respond', { id: k(`${key}-${who}`), answer: 'accept', days: null, note: '' }],
+            ['offer.confirm', { id: k(`${key}-${who}`) }],
+          ] as [string, Record<string, unknown>][])
+        : []),
+    ]),
+    // A quote that went, and with `answer` what the client said, the job left quoted: out of step until the office puts it in step.
+    ...(key === 'details'
+      ? []
+      : ([
+          ['quote.save', { id: k(`${key}-q`), projectId: k(key), lines: [{ id: k(`${key}-l`), kind: 'other', what: 'PA system', ref: null, group: 'Other', qty: 1, days: 1, unitCents: 50000, vat: '23' }], discountPct: 0, notes: '' }],
+          ['quote.sent', { id: k(`${key}-q`), on: today }],
+          ...(answer ? [['quote.answer', { id: k(`${key}-q`), answer, on: today }]] : []),
+        ] as [string, Record<string, unknown>][])),
+    ]
+  }
+  await push(request, `confirm-${run}`, [
+    ['person.upsert', { id: k('orla'), name: orla, kind: 'freelancer', email: `orla.${run}@example.com`, phone: '+353 87 555 0142', skills: ['stage'], dayRateCents: null, notes: '' }],
+    ['person.upsert', { id: k('sean'), name: sean, kind: 'freelancer', email: `sean.${run}@example.com`, phone: '+353 87 555 0143', skills: ['stage'], dayRateCents: null, notes: '' }],
+    ...job('details', [
+      ['orla', 'picked'],
+      ['sean', 'asked'],
+    ]),
+    ...job('next', [['orla', 'picked']], 'accepted'),
+    ...job('quote', [['sean', 'asked']]),
+    ...job('lost', [['orla', 'asked']], 'declined'),
+  ])
+
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.goto(`/#jobs/${k('details')}/crew`)
+  await expect(office.getByRole('status')).toHaveText('Up to date')
+  // The call card: Orla is picked, so she holds the day, and the call isn't settled while the client hasn't said yes.
+  const card = office.getByRole('article', { name: '2 × Stage manager' })
+  await expect(card).toContainText(`${orla} (hold the day)`)
+  await card.getByRole('button', { name: '2 × Stage manager' }).click()
+  const hers = card.getByRole('listitem').filter({ hasText: orla })
+  await expect(hers.locator('.pill')).toHaveText('Hold the day')
+  await expect(card).not.toContainText('Booked')
+
+  // From its details: asked first, and Keep it as it is leaves it quoted.
+  const asked = `Confirm ${jobs.details}? The 2 people asked to hold the day will see it's going ahead on their links. Nothing is sent to them.`
+  const details = office.getByRole('region', { name: 'Details', exact: true })
+  await details.getByRole('button', { name: 'Change details' }).click()
+  await details.getByLabel('Status').selectOption('confirmed')
+  await details.getByRole('button', { name: 'Save job' }).click()
+  await details.getByRole('group', { name: asked }).getByRole('button', { name: 'Keep it as it is' }).click()
+  await expect(details.getByRole('group', { name: asked })).toHaveCount(0)
+  await expect(office.locator('.job-position').first()).toContainText('Quoting')
+
+  // From its Confirmed task: the same question, and after Confirm the job, the panel says what went to whom.
+  const where = office.getByRole('region', { name: 'Status', exact: true })
+  // With no quote here, the task is a tap away under the stepper (ADR 0140, part 3).
+  await where.getByRole('button', { name: /tasks? to do in Quoting$/ }).click()
+  await where.getByRole('button', { name: /^Confirmed/ }).click()
+  await where.getByRole('button', { name: 'Confirm the job' }).click()
+  await where.getByRole('group', { name: asked }).getByRole('button', { name: 'Confirm the job' }).click()
+  const sent = office.getByRole('region', { name: `${jobs.details} is confirmed: what was sent` })
+  await expect(sent.locator('.sent-lines')).toHaveText(`Nothing was sent to Orla and Seán: their links say it's going ahead.`)
+  await expect(office.locator('.job-position').first()).toContainText('Planning')
+  // Booked now, in a booking's words.
+  await expect(card.getByRole('listitem').filter({ hasText: orla }).locator('.pill')).toHaveText('Booked')
+  await expect(office.locator('body')).not.toContainText(/on hold/i)
+
+  // Next, where the client's yes is on the quote: its press lands on the Confirmed task with the question already asked,
+  // its safe answer to hand.
+  await office.goto(`/#jobs/${k('next')}/crew`)
+  await office.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Confirm the job' }).click()
+  const fromNext = where.getByRole('group', { name: `Confirm ${jobs.next}? The person asked to hold the day will see it's going ahead on their link. Nothing is sent to them.` })
+  await expect(fromNext.getByRole('button', { name: 'Keep it as it is' })).toBeFocused()
+  await fromNext.getByRole('button', { name: 'Confirm the job' }).click()
+  await expect(office.getByRole('region', { name: `${jobs.next} is confirmed: what was sent` }).locator('.sent-lines')).toHaveText(
+    "Nothing was sent to Orla: their link says it's going ahead."
+  )
+
+  // The quote's What happened: the client's yes asks first too, and the panel opens on the job's page.
+  await office.goto(`/#jobs/${k('quote')}/quote`)
+  const records = office.getByRole('region', { name: 'What happened' })
+  await records.getByRole('button', { name: 'Client accepted: confirm the job' }).click()
+  await records
+    .getByRole('group', { name: `Confirm ${jobs.quote}? The person asked to hold the day will see it's going ahead on their link. Nothing is sent to them.` })
+    .getByRole('button', { name: 'Confirm the job' })
+    .click()
+  await expect(office.getByRole('region', { name: `${jobs.quote} is confirmed: what was sent` }).locator('.sent-lines')).toHaveText(
+    "Nothing was sent to Seán: their link says it's going ahead."
+  )
+  await expect(records.getByRole('button', { name: 'Mark invoiced' })).toBeVisible()
+
+  // Quotes to follow up: a no the job isn't in step with yet, and Mark the job lost asks first, as the job's own No does (ADR 0149).
+  await office.goto('/#jobs/money/follow-up')
+  const follow = office.getByRole('region', { name: 'To follow up' })
+  const more = follow.getByRole('button', { name: /^Show all \d+ quotes$/ })
+  if (await more.count()) await more.first().click()
+  await follow.getByRole('listitem').filter({ hasText: jobs.lost }).getByRole('button', { name: 'Mark the job lost' }).click()
+  await follow
+    .getByRole('group', { name: `Marking ${jobs.lost} lost also cancels its crew calls: 1 person offered or booked will see the job didn't go ahead.` })
+    .getByRole('button', { name: 'Mark it lost' })
+    .click()
+  await expect(office.getByRole('region', { name: 'Crew calls cancelled: what was sent' }).locator('.sent-lines')).toContainText('Nothing was sent to Orla')
+  await expect(follow).not.toContainText(jobs.lost)
+})

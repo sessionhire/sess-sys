@@ -28,12 +28,28 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.182.1',
+    version: '1.183.2',
     date: '2026-11-12',
     title: 'Crew rows and cards say more about what crew were told',
     what: "An offer's row now says whether the WhatsApp that followed it arrived, such as \"A WhatsApp saying they're booked was read\", or that it wasn't sent and why. Before, the row only said where the offer itself got to. When agreeing a rate fills a call, the question before it now also names the offers still waiting that close with it, and the note after any Confirm or Agree that fills a call says what each of those people was sent. And a crew call across a job's phases that holds a day none of its phases has, such as a free day between the build and the show, now says so on its card: the crew on it are asked for that day too, with no calendar invite for it, so add a phase for that day or ask for crew for each phase.",
     prs: [0],
     adrs: [169],
+  },
+  {
+    version: '1.183.1',
+    date: '2026-11-12',
+    title: 'Crew are asked for from a job',
+    what: "The card at the foot of Crew › Calls, Crew for something not in Jobs, is gone. Crew are asked for from a job's Crew tab, so every call has its job's dates, venue and phases, and its crew get calendar invites. For a day that isn't a show, such as a warehouse day, make a quick job for it. Calls already made from that card stay on Crew › Calls and work as before.",
+    prs: [0],
+    adrs: [142],
+  },
+  {
+    version: '1.183.0',
+    date: '2026-11-12',
+    title: 'Confirming a job asks first when crew are holding the day',
+    what: "On a job the client hasn't said yes to, a crew call's card now says Hold the day, in amber, for the people you've picked, where it said Booked, as their own page and calendar invite already did. Confirming such a job tells everyone asked to hold the day that it's going ahead, by Google's email as HOLD comes off their days and by WhatsApp where it's on, so wherever you confirm it now asks first, saying who hears what: from the job's details, its Confirmed task, the Next button, the quote's Client accepted and Money's To follow up. Afterwards a note says what went to whom. Marking a job lost from its quote or from To follow up now asks first too, as it already did from the job's details.",
+    prs: [363],
+    adrs: [168],
   },
   {
     version: '1.182.0',

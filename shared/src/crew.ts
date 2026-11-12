@@ -800,6 +800,11 @@ export type TellEvent =
   | 'released'
   /** The job is cancelled or lost, taking its crew calls with it. */
   | 'job-stopped'
+  /**
+   * The client said yes to a job its crew were asked to hold the day for (ADR 0168): those the office picked are booked,
+   * and everyone else asked hears it's going ahead.
+   */
+  | 'job-confirmed'
   /** One crew call cancelled. */
   | 'call-cancelled'
   /** The call's days, time, rate or details changed; the message reads them as they are now. */
@@ -814,6 +819,8 @@ export interface TellContext {
   call: Pick<CrewCall, 'id' | 'project' | 'phase' | 'role' | 'start' | 'end' | 'callTime' | 'venue' | 'dayRateCents'> & Partial<Pick<CrewCall, 'needsCertificates' | 'rateHidden' | 'projectId'>>
   /** The job is one the client hasn't said yes to yet (ADR 0150): the office's pick is a hold on the day, not a booking, and the message says so. */
   hold?: boolean
+  /** For a job confirmed while its crew held the day (ADR 0168): the office had picked them, so they're booked now. */
+  picked?: boolean
   /** For a changed call: the certificates it needed before, so the message says what it needs now, or no longer (ADR 0028). */
   neededBefore?: readonly CertificateKind[]
   /** The person's own days, when they took only some. */
@@ -884,6 +891,24 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
         subject: `No longer needed: ${job}, ${when}`,
         what: 'release',
       }
+    case 'job-confirmed':
+      // Someone the office picked to hold the day is booked now; anyone else asked hears it's going ahead (ADR 0168).
+      return ctx.picked
+        ? {
+            text: lines([
+              `Hi ${first}, ${c.project} is confirmed: the client has said yes, so you're booked.`,
+              `${c.role}, ${when}`,
+              c.venue && `At ${c.venue}`,
+              `Your call sheet, with who's on and who to ring on the day, is here: ${link}/sheet/${c.id}`,
+            ]),
+            subject: `Booked: ${job}, ${when}`,
+            what: 'confirmation',
+          }
+        : {
+            text: lines([`Hi ${first}, ${c.project} is going ahead: the client has said yes.`, `${c.role}, ${when}`, `The details are on your page: ${link}`]),
+            subject: `Going ahead: ${job}, ${when}`,
+            what: 'update',
+          }
     case 'job-stopped':
       return {
         text: lines([
