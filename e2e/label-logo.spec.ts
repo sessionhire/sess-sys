@@ -67,7 +67,7 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   await expect(logoCard.getByText('Kind of file')).toBeVisible()
   // An SVG, wide and with only a viewBox, is drawn out to 1200 pixels: nothing to warn of.
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100"><rect width="400" height="100" fill="#ee3744"/></svg>'
-  await logoCard.getByText('Add the logo').locator('input[type=file]').setInputFiles({ name: 'logo.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) })
+  await logoCard.getByText('Add logo').locator('input[type=file]').setInputFiles({ name: 'logo.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) })
   const shown = logoCard.getByRole('img', { name: 'as a label printer prints it' })
   await expect(shown).toHaveAttribute('src', /\/api\/settings\/logo\/photo\?v=/)
   await expect(logoCard.getByRole('img', { name: 'as a quote has it' })).toBeVisible()
@@ -149,7 +149,7 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   // Back as it was, for the tests after this one.
   await page.goto('/#admin/company')
   await card.getByRole('button', { name: 'Change colours' }).click()
-  await card.getByRole('button', { name: 'Start again from the usual list' }).click()
+  await card.getByRole('button', { name: 'Reset to usual list' }).click()
   await card.getByRole('button', { name: 'Save colours' }).click()
   await expect(card.getByRole('listitem').filter({ hasText: 'Over 5 m, up to 10 m' })).toContainText('Green')
   await pure.click()

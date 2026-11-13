@@ -33,7 +33,7 @@ test('names typed for several people named from their address are each saved', a
   await expect(page.getByRole('status').first()).toHaveText('Up to date')
   const names = page.getByRole('region', { name: 'People named from their address' })
   // All of them kept at once asks first, and Not now leaves them listed.
-  await names.getByRole('button', { name: 'Keep all these names as they are' }).click()
+  await names.getByRole('button', { name: 'Keep these names' }).click()
   await expect(names.getByText(/^Keep all \d+ names as they are\?$/)).toBeVisible()
   await names.getByRole('button', { name: 'Not now' }).click()
   const given = [

@@ -142,7 +142,7 @@ export function SheetScreen({ view, jobId, phaseId }: { view: View; jobId: strin
             Print
           </button>
           <button type="button" onClick={copy}>
-            {copied === 'yes' ? 'Copied' : 'Copy for a WhatsApp group'}
+            {copied === 'yes' ? 'Copied' : 'Copy for WhatsApp'}
           </button>
         </div>
         {copied === 'failed' && (

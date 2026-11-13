@@ -20,7 +20,7 @@ test('a client accepts a quote on its link, once the office has turned it on', a
   await office.goto('/#jobs/money/follow-up')
   await office.getByRole('region', { name: 'To follow up' }).getByRole('link', { name: 'Corrib Arts Week' }).first().click()
   await expect(office.getByRole('heading', { level: 1, name: 'Corrib Arts Week' })).toBeVisible()
-  await expect(office.getByRole('button', { name: "Copy the client's link" })).toHaveCount(0)
+  await expect(office.getByRole('button', { name: "Copy client link" })).toHaveCount(0)
   const quoteAt = office.url()
 
   // Turned on under Admin › Company.
@@ -31,7 +31,7 @@ test('a client accepts a quote on its link, once the office has turned it on', a
   await expect(office.locator('.conn')).toHaveText('Up to date')
 
   await office.goto(quoteAt)
-  await expect(office.getByRole('button', { name: "Copy the client's link" })).toBeVisible()
+  await expect(office.getByRole('button', { name: "Copy client link" })).toBeVisible()
   const link = (await office.getByRole('link', { name: 'Open it as they see it' }).getAttribute('href'))!
   expect(link).toMatch(/\/q\/[A-Za-z0-9_-]{24}$/)
 

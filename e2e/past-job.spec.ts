@@ -81,7 +81,7 @@ test('a new quote for a client at a venue worked before starts from what went ou
   await expect(haze.getByRole('checkbox')).toBeChecked()
 
   if (process.env.SHOTS) await form.screenshot({ path: 'e2e/screens/past-job.png' })
-  await form.getByRole('button', { name: /^Start the quote with 2 lines/ }).click()
+  await form.getByRole('button', { name: /^Start quote with 2 lines/ }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
   // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
   await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()

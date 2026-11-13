@@ -147,7 +147,7 @@ export function StartCount({ view, where, label, className }: { view: View; wher
   }
   return (
     <button type="button" className={className} onClick={() => (same ? (location.hash = '#stock/count') : d ? setAsking(true) : start())}>
-      {same ? 'Carry on counting' : label}
+      {same ? 'Keep counting' : label}
     </button>
   )
 }
@@ -182,7 +182,7 @@ export function CountsCard({ view }: { view: View }) {
             A count of <b>{targetName(w, d)}</b> is under way on this phone{d.scanned.length ? `: ${plural(d.scanned.length, 'item')} scanned` : ''}.
           </p>
           <a className="button primary" href="#stock/count">
-            Carry on counting
+            Keep counting
           </a>
         </div>
       )}

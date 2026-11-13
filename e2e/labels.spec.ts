@@ -224,7 +224,7 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   await expect(own).toHaveCount(1)
   await expect(own).toContainText(speaker)
   expect(await readQr(own)).toBe(sh(first + 4))
-  await page.getByRole('button', { name: 'Print the label' }).click()
+  await page.getByRole('button', { name: 'Print 1 label' }).click()
   await expect(page.locator('.print-sheet .label')).toHaveCount(1)
   await page.evaluate(() => dispatchEvent(new Event('afterprint')))
   await page.screenshot(shot('labels-item'))

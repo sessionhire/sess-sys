@@ -37,7 +37,7 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await expect(where.getByRole('button', { name: 'Mark it done' })).toHaveCount(0)
   await expect(where).toContainText('records the yes on version 1 of the quote')
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/confirm-step.png` })
-  await where.getByRole('button', { name: 'Confirm the job' }).click()
+  await where.getByRole('button', { name: 'Confirm job' }).click()
 
   // Confirmed, the job moves into Planning by its own status: the one gate between stages.
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName(/^2\. Planning, the stage the job is in/)
@@ -84,7 +84,7 @@ test('a past quote for a job already here goes on its quote, not on a second job
   await office.goto('/#jobs/money/current-rms/9')
   // The job it's for comes first; another job is the second choice.
   await expect(office.getByRole('button', { name: "Put it on Corrib Arts Week's quote" })).toHaveClass(/primary/)
-  await office.getByRole('button', { name: 'Make a new job from this' }).click()
+  await office.getByRole('button', { name: 'New job from this' }).click()
   const making = office.getByRole('region', { name: 'Make a job from this' })
   await expect(making).toContainText('which is already a job here. Making another makes the same job twice.')
   if (process.env.SHOTS_DIR) await making.screenshot({ path: `${process.env.SHOTS_DIR}/same-job-twice.png` })
@@ -93,7 +93,7 @@ test('a past quote for a job already here goes on its quote, not on a second job
   const onto = office.getByRole('region', { name: "Put it on a job's quote" })
   await expect(onto.getByLabel('The job')).toHaveValue('Corrib Arts Week')
   await expect(onto).toContainText('It has no draft, so these start one.')
-  await onto.getByRole('button', { name: /^Put 1 line on the quote$/ }).click()
+  await onto.getByRole('button', { name: /^Add 1 line to quote$/ }).click()
 
   await expect(office).toHaveURL(new RegExp(`#jobs/${jobId}/quote$`))
   const draft = office.getByRole('form', { name: 'Version 2, a draft' })

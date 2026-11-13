@@ -598,7 +598,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       <Refusal error={error} className="wide" />
       <div className="actions wide">
         <button type="submit" className="primary">
-          {taking.length ? `Start the quote with ${takingWords(offered)}` : 'Start the quote'}
+          {taking.length ? `Start quote with ${takingWords(offered)}` : 'Start quote'}
         </button>
         <button type="button" className="link" onClick={onCancel}>
           Cancel
@@ -1068,7 +1068,7 @@ function RateRules({ view }: { view: View }) {
         price is for a week, and up to seven days out is charged once. Now: {RATE_RULES.map((r) => `${by(r)} ${RATE_LABELS[r]}`).join(', ')}.
       </p>
       <button type="button" onClick={() => void run(() => client.mutate('price.rulesFromRms', { all: false }))}>
-        Take the rules from Current RMS
+        Copy rules from Current RMS
       </button>
       <p className="hint">Gives each priced product with no rule the one its quotes in Current RMS were charged by most, once Admin has read them.</p>
       <Refusal error={error} />

@@ -81,7 +81,7 @@ test('on a phone a card held a moment drags; a swipe only scrolls', async ({ pag
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
   // Put back as it was, as the other Board tests share the column.
-  await quoting.getByRole('button', { name: 'Back to date order' }).click()
+  await quoting.getByRole('button', { name: 'Sort by date' }).click()
   await expect.poll(mine).toEqual(['Charlie', 'Bravo', 'Alpha'])
   await expect(page.locator('.conn')).toHaveText('Up to date')
 })

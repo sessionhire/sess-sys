@@ -103,7 +103,7 @@ function AnswerHere({ c, o, job }: { c: CallView; o: OfferView; job: string }) {
     <>
       <p className="you-answer">
         <button type="button" className="primary" onClick={() => answer(true)}>
-          Yes, I can do it
+          Yes, I can
         </button>
         <button type="button" onClick={() => setAsking(true)}>
           No, I can't

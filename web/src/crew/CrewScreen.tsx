@@ -806,7 +806,7 @@ function GiveDepartment({ view, calls, onGiven }: { view: View; calls: readonly 
         <DepartmentField view={view} value={department} onChange={setDepartment} />
         <Refusal error={error} className="wide" />
         <button type="submit" className="primary wide">
-          {chosen.length && department ? `Give ${chosen.length === 1 ? '1 call' : `${chosen.length} calls`} ${department}` : 'Give them the department'}
+          {chosen.length && department ? `Give ${chosen.length === 1 ? '1 call' : `${chosen.length} calls`} ${department}` : 'Set department'}
         </button>
       </form>
     </Fold>

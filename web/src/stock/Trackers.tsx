@@ -140,7 +140,7 @@ export function TrackerCard({ view, a }: { view: View; a: AssetView }) {
         )}
         {mayChange && (
           <button type="button" onClick={() => void run(() => client.mutate('tracker.attach', { id: t.id, assetId: null }))}>
-            Take the tracker off
+            Remove tracker
           </button>
         )}
       </div>
@@ -276,7 +276,7 @@ function Warehouse({ trackers }: { trackers: TrackersView }) {
         </button>
         {saved.home && (
           <button type="button" onClick={() => void run(() => client.mutate('trackers.home', { home: null, radiusM: saved.radiusM })).then((ok) => ok && setDraft(null))}>
-            Take it off the map
+            Remove from map
           </button>
         )}
       </div>

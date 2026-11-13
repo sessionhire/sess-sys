@@ -41,7 +41,7 @@ test('a package is found in Add kit, and New quote starts from a Current RMS quo
   // Add kit finds the package by a word of its name, says what it holds and costs, and two of it is two packages' kit.
   await ready(office, `#jobs/job-${id}/quote`)
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await office.keyboard.type(`2 axient ${id}`)
   const option = draft.getByRole('option', { name: new RegExp(`Axient radio mics ${id}`) })
   await expect(option).toContainText('Package')

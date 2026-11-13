@@ -265,7 +265,7 @@ test('the warehouse can add kit to a job, but not change the job itself', async 
   await openJob(page, 'Harbour Lights Festival')
   const main = page.getByRole('main')
   await main.getByRole('tab', { name: 'Kit', exact: true }).click()
-  await expect(main.getByRole('button', { name: 'Add kit' })).toBeVisible()
+  await expect(main.getByRole('button', { name: 'Add kit', exact: true })).toBeVisible()
   const kit = main.getByRole('region', { name: 'Kit' })
   await expect(kit.getByRole('button', { name: 'Change', exact: true }).first()).toBeVisible()
   await main.getByRole('tab', { name: /^Phases/ }).click()

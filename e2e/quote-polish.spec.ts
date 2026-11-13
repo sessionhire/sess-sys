@@ -117,7 +117,7 @@ test('a long draft on a phone opens folded to its groups, and picking kit there 
 
   // Picking kit: the readout is one line, and the bar stays at the foot, as on every other screen (Colly, 12 November 2026).
   await expect(office.locator('.foot')).toBeVisible()
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await expect(draft.locator('.quote-summary .figure').filter({ hasText: 'Total' })).toBeHidden()
   await expect(office.locator('.foot')).toBeVisible()
   await office.keyboard.press('Escape')
@@ -148,7 +148,7 @@ test("a quote marked sent with no signal says its number is a guess, and prints 
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 
   await context.setOffline(true)
-  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
+  await draft.getByRole('button', { name: 'Generate PDF' }).click()
   const sent = office.getByRole('region', { name: 'Version 1' })
   await expect(sent.locator('.quote-facts')).toContainText("(once it's saved)")
   const sheet = office.locator('.print-sheet.quote-sheet')

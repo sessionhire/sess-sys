@@ -348,7 +348,7 @@ function ApprovedFigures({ r, onTell }: { r: TimesheetRow; onTell: OnTell }) {
       <Refusal error={error} />
       <div className="actions">
         <button type="button" onClick={reopen}>
-          Reopen to change it
+          Reopen
         </button>
       </div>
     </section>
@@ -443,7 +443,7 @@ function Check({ view, r, onTell, onRestart }: { view: View; r: TimesheetRow; on
         <p className="warn-line">
           {r.person?.name.split(' ')[0] ?? 'They'} sent a new version on {on(t.sentAt)}: what's below is what you've changed so far.{' '}
           <button type="button" className="link" onClick={onRestart}>
-            Start from what they sent
+            Use what they sent
           </button>
         </p>
       )}
@@ -458,7 +458,7 @@ function Check({ view, r, onTell, onRestart }: { view: View; r: TimesheetRow; on
       </fieldset>
       {jobDays.length > booked.size && !showAll && (
         <button type="button" className="link start" onClick={() => setShowAll(true)}>
-          Add a day of the job they weren't booked for
+          Add an unbooked day
         </button>
       )}
       <label className="field">

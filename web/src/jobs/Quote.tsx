@@ -172,11 +172,11 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
               <div className="actions">
                 {byEmail && q.latest && (
                   <button type="button" className={plainSend || q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
-                    {q.emails.length ? 'Send again' : 'Send by email'}
+                    {q.emails.length ? 'Send again' : 'Email quote'}
                   </button>
                 )}
                 <button type="button" className={plainSend || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} aria-busy={printing || undefined}>
-                  Print or save as PDF
+                  Print or save PDF
                 </button>
                 {q.latest && !settled && <NewVersion q={q} onMade={setPicked} />}
               </div>
@@ -228,7 +228,7 @@ function ClientLink({ q, on }: { q: QuoteView; on: boolean }) {
       <p className="hint">The client can accept this version online, with their name and a tick, at its own link. An emailed quote carries it.</p>
       <div className="actions">
         <button type="button" onClick={() => void navigator.clipboard?.writeText(link).then(() => setCopied(true))}>
-          {copied ? 'Copied' : "Copy the client's link"}
+          {copied ? 'Copied' : "Copy client link"}
         </button>
         <a className="button quiet" href={link} target="_blank" rel="noreferrer">
           Open it as they see it
@@ -326,7 +326,7 @@ function FirstQuote({ view, job, plain }: { view: View; job: JobView; plain?: bo
         {source.kit.length + source.crew.length > 0 && (
           // Plain once the job is past Quoting: its own Next, in the head, holds the page's one red (ADR 0140, part 4).
           <button type="button" className={plain ? undefined : 'primary'} onClick={() => build(true)}>
-            Build it from the job
+            Build from job
           </button>
         )}
         <button type="button" onClick={() => build(false)}>

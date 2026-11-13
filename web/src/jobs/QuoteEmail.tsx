@@ -154,7 +154,7 @@ function Compose({ q, start, onSent, onCancel, onAgain }: { q: QuoteView; start:
         </button>
         {error && (
           <button type="button" className="link quiet" onClick={onAgain}>
-            Start the email again
+            Start email again
           </button>
         )}
       </div>

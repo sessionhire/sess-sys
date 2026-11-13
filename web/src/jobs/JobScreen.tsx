@@ -536,7 +536,7 @@ function CrewAgainCard({ again, onAgain }: { again: CrewAgain; onAgain: (callId:
       <p className="hint">{words.then}</p>
       <Refusal error={error} />
       <button type="button" onClick={ask}>
-        Ask for the same crew again
+        Ask same crew again
       </button>
     </section>
   )
@@ -746,7 +746,7 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
         />
       ) : asking && confirmAsk ? (
         // What confirming sends those asked to hold the day, said first (ADR 0168): HOLD comes off their days, and WhatsApp tells them.
-        <Confirm className="wide" question={confirmAsk} yes="Confirm the job" no="Keep it as it is" onYes={send} onNo={() => setAsking(false)} />
+        <Confirm className="wide" question={confirmAsk} yes="Confirm job" no="Keep it as it is" onYes={send} onNo={() => setAsking(false)} />
       ) : (
         <div className="actions wide">
           {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
@@ -1170,7 +1170,7 @@ function CrewFromQuote({ job, view }: { job: JobView; view: View }) {
       </p>
       <Refusal error={error} />
       <button type="button" className="secondary" onClick={() => void run(make)}>
-        {toMake.length === 1 ? 'Make the call' : `Make all ${toMake.length} calls`}
+        {toMake.length === 1 ? 'Make call' : `Make ${toMake.length} calls`}
       </button>
       <p className="hint">For {only ? only.name : "the job's days"}, with nobody offered yet. Change the days, time or rate on each after.</p>
     </div>

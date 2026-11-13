@@ -302,7 +302,7 @@ export function PastQuoteScreen({ view, id: asked }: { view: View; id: string })
                   </button>
                 )}
                 <button type="button" className={forJob ? undefined : 'primary'} onClick={() => setDoing('job')}>
-                  {forJob ? 'Make a new job from this' : 'Make a job from this'}
+                  {forJob ? 'New job from this' : 'Make job from this'}
                 </button>
               </div>
             )}
@@ -460,7 +460,7 @@ function SetAside({ id, aside: was }: { id: number; aside: boolean }) {
       </p>
       <div className="actions">
         <button type="button" disabled={busy} onClick={() => void set(!aside)}>
-          {aside ? 'Put it back on the calendar' : 'Not going ahead'}
+          {aside ? 'Put back on calendar' : 'Not going ahead'}
         </button>
       </div>
       <p className="hint" role="status">
@@ -604,7 +604,7 @@ function MakeJob({
         <Refusal error={error} className="wide" />
         <div className="actions wide">
           <button type="submit" className="primary">
-            {taking.length ? `Make the job, with ${takingWords(lines)} on the quote` : 'Make the job'}
+            {taking.length ? `Make job with ${takingWords(lines)}` : 'Make job'}
           </button>
           <button type="button" className="link" onClick={onCancel}>
             Cancel
@@ -697,7 +697,7 @@ function OntoJob({ view, past, first, onCancel }: { view: View; past: RmsOpportu
         <Refusal error={error} className="wide" />
         <div className="actions wide">
           <button type="submit" className="primary" disabled={!job || !taking.length}>
-            {taking.length ? `Put ${takingWords(lines)} on the quote` : 'Tick a line to put on the quote'}
+            {taking.length ? `Add ${takingWords(lines)} to quote` : 'Tick lines to add'}
           </button>
           <button type="button" className="link" onClick={onCancel}>
             Cancel

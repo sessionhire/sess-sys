@@ -85,7 +85,7 @@ test('the office matches past quotes to jobs and prices a line from what it was 
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('button', { name: 'Build it from the job' }).click()
+  await office.getByRole('button', { name: 'Build from job' }).click()
   const rms = office.getByRole('region', { name: 'In Current RMS' })
   await expect(rms).toContainText('Liffey Brands: Went ahead with 3 of 4 (75%) · usually 5% off')
   await expect(rms.getByRole('link', { name: /Liffey Brands launch/ })).toHaveAttribute('href', '#jobs/money/current-rms/1')
@@ -144,7 +144,7 @@ test('the office makes a job from a past quote, its lines matched to the stock l
   await expect(lines).toContainText('1 charged nothing there is left unticked.')
   await expect(lines.getByRole('listitem').filter({ hasText: 'Shure SM58' })).toContainText('3 Day Week · €15.00 a day · 10% off')
   if (process.env.SHOT) await office.screenshot({ path: process.env.SHOT, fullPage: true })
-  await form.getByRole('button', { name: 'Make the job, with 2 lines on the quote' }).click()
+  await form.getByRole('button', { name: 'Make job with 2 lines' }).click()
 
   // The job page, on its quote, with the Next dock saying what's next (ADR 0103, ADR 0104).
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
@@ -153,8 +153,8 @@ test('the office makes a job from a past quote, its lines matched to the stock l
   const next = office.getByRole('region', { name: 'Next' })
   await expect(office.locator('.job-position').first()).toContainText('Quoting')
   // The draft is right there and whole, so Next is its Send (ADR 0166): the numbered PDF while quotes don't go by email.
-  await expect(next.getByRole('button', { name: 'Get the PDF to send' })).toBeVisible()
-  await expect(next.getByRole('button', { name: 'Download the PDF' })).toBeVisible()
+  await expect(next.getByRole('button', { name: 'Generate PDF' })).toBeVisible()
+  await expect(next.getByRole('button', { name: 'Download PDF' })).toBeVisible()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await expect(draft).toContainText('Shure SM58')
   await expect(draft).toContainText('Sound engineer')
@@ -185,7 +185,7 @@ test('an open past quote with no job here is taken off the calendar when it isn�
   await expect(office.getByText('Still open, so it’s on the calendar as a potential job.')).toBeVisible()
   await office.getByRole('button', { name: 'Not going ahead' }).click()
   await expect(office.getByRole('status').filter({ hasText: 'Off the calendar.' })).toBeVisible()
-  await office.getByRole('button', { name: 'Put it back on the calendar' }).click()
+  await office.getByRole('button', { name: 'Put back on calendar' }).click()
   await expect(office.getByRole('status').filter({ hasText: 'Back on the calendar.' })).toBeVisible()
   expect(posted).toEqual([{ aside: true }, { aside: false }])
 })

@@ -137,7 +137,7 @@ export function BoardScreen({ view }: { view: View }) {
               <small>{columnWord(c.jobs, c.key === 'back' ? toCheck : undefined)}</small>
               {canOrder && c.jobs.some((s) => s.rank !== undefined) && (
                 <button type="button" className="link board-by-date" onClick={() => byDate(c.key, c.jobs)}>
-                  Back to date order
+                  Sort by date
                 </button>
               )}
             </header>

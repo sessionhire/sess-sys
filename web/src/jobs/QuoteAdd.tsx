@@ -266,7 +266,7 @@ export function AddCrew({ roles, onAdd, onCancel }: { roles: readonly string[]; 
 
 /**
  * The job's kit and crew since the quote was built from them: what's new on the job, what's gone, and how many have
- * changed, to take in with one press. "Leave it as it is" hides these until the job changes again, on this device.
+ * changed, to take in with one press. "Leave as is" hides these until the job changes again, on this device.
  */
 export function JobChangesCard({ changes, quoteId, onTake }: { changes: JobChanges; quoteId: string; onTake: (next: (ls: LineDraft[]) => LineDraft[]) => void }) {
   const { added, gone, changed } = changes
@@ -321,7 +321,7 @@ export function JobChangesCard({ changes, quoteId, onTake }: { changes: JobChang
           Update the quote
         </button>
         <button type="button" className="link" onClick={leave}>
-          Leave it as it is
+          Leave as is
         </button>
       </div>
     </section>

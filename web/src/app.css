@@ -232,6 +232,35 @@ button.danger { background: var(--bad); border-color: var(--bad); color: var(--b
    and no edge until a pointer hovers, in the secondary ink, so fifty of them don't outshout the one next thing, and the heading's count
    says how many. Still 44px to hit, with the same focus ring. A quiet link (button.link.quiet) is a link, drawn as links are. */
 button.quiet:not(.link), a.button.quiet { background: transparent; border-color: transparent; color: var(--on-line); }
+/*
+ * Icons at a control's sides (Colly, 13 November 2026; the design system's icon inset): an icon at either end of a button, a chip, a
+ * ghost button or a field sits in a square as tall as the control, so the space from the icon to the control's edge is the space above
+ * and below it, on whichever side it is. Every icon in a control is one size, so the inset is one number: (44 − 18) / 2 = 13px from the
+ * outer edge, which is a button's 1px edge and its 12px padding, so an icon starts as far in as a button's words do. An icon and its
+ * words are a gap apart (--inline); a control that is only an icon is a 44px square (.icon-button). The busy spinner, the Next pie,
+ * a field's chevron, spinner and tick, and a select's chevron take the same square. The bar's own icons (search, the bell, light and
+ * dark) are larger in their 44px squares, still as far from every edge.
+ */
+:root {
+  --control: 44px;
+  --icon-control: 18px;
+  --icon-inset: calc((var(--control) - var(--icon-control)) / 2);
+}
+:where(button, a.button, label.button) > :is(.icon, .next-pie) { flex: none; width: var(--icon-control); height: var(--icon-control); }
+:where(button, a.button, label.button):where(:has(> .icon, > .next-pie)) { display: inline-flex; align-items: center; justify-content: center; gap: var(--inline); }
+.icon-button { display: inline-grid; place-items: center; width: var(--control); min-width: var(--control); height: var(--control); min-height: var(--control); padding: 0; }
+/* A select's chevron, drawn in its words' colour so it follows the theme, in a square at its end as a combobox's is: the browser's own
+   arrow sat a different way in from the edge on every phone. A list box (multiple, or a size) keeps the browser's. */
+select:not([multiple], [size]) {
+  appearance: none; -webkit-appearance: none;
+  padding-inline-end: var(--control);
+  background-image:
+    linear-gradient(45deg, transparent calc(50% - 1px), currentColor calc(50% - 1px), currentColor calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(-45deg, transparent calc(50% - 1px), currentColor calc(50% - 1px), currentColor calc(50% + 1px), transparent calc(50% + 1px));
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  background-position: right calc(var(--control) / 2) center, right calc(var(--control) / 2 - 5px) center;
+}
 /* Focus on everything a keyboard reaches, links, text boxes and folds included: the same 2px ring outside the edge (design system rule 4). */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* A heading the app moves focus to, on a new screen, Skip to content or a part landed on, is where a screen reader starts reading, not
@@ -329,7 +358,6 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .page-title-row { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); min-height: 32px; }
 /* A list's add on its title's line (pageAdd.ts), at the right, so the page says what it is and how to add to it in one look. */
 .app .page-add { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: var(--ds-space-1); white-space: nowrap; }
-.app .page-add .icon { width: 18px; height: 18px; }
 /* The area's views under a small heading of their own (Colly, 10 November 2026), after the title and the search, so the row reads as a choice
    of how to see the page rather than as its title. The heading is the label face, as a week's head in a list is. */
 .views-part { display: grid; gap: var(--ds-space-1); }
@@ -375,6 +403,7 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
    when open, and the filters that are on as chips that take them off, so a short list always says why it's short. */
 .app .list-tools { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ds-space-2); }
 .app .list-tools-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+.app .list-sort > .icon { width: var(--icon-control); height: var(--icon-control); }
 .app .list-sort { display: inline-flex; align-items: center; gap: var(--ds-space-2); color: var(--muted); font-size: var(--text-small); min-width: 0; max-width: 100%; }
 .app .list-sort select { color: var(--ink); }
 /* On a phone the icon says Sort (the select is named Sort), so Sort and Filter share one row over the list (audit, 5 November 2026, finding 57). */
@@ -391,14 +420,12 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .app .list-tools-row.with-start > .list-filter-button { margin-left: auto; flex: none; }
 .app .list-filter-button { display: inline-flex; align-items: center; gap: var(--ds-space-2); }
 .app .list-filter-button[aria-expanded='true'] { background: var(--ds-surface-inset); }
-.app .list-tools .icon { width: 18px; height: 18px; flex: none; }
 .app .list-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: var(--ds-space-2) var(--ds-space-3); padding: var(--ds-space-3); border-radius: var(--radius-control); background: var(--ds-surface-inset); }
 .app .list-filters[hidden] { display: none; }
 .app .list-filters label { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .app .list-filters select { color: var(--ink); width: 100%; }
 .app .list-active { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-2); font-size: var(--text-small); }
-.app .list-chip { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border-radius: 999px; background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: var(--text-small); }
-.app .list-chip .icon { width: 14px; height: 14px; }
+.app .list-chip { display: inline-flex; align-items: center; gap: var(--inline); min-height: 44px; padding: var(--ds-space-1) var(--ds-space-3); border-radius: 999px; background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: var(--text-small); }
 /* A filter whose choices are few and can be seen at once (Colly, 10 November 2026): pills across the filter panel, pressed to narrow, as many
    as wanted, each with how many it would show; the panel's selects follow them. */
 .app .list-filters .pill-group { grid-column: 1 / -1; display: grid; gap: var(--stack); }
@@ -504,7 +531,6 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 /* Drawn at 34px, as a chip's own control is, but a finger's 44px to hit (audit, 20 October 2026, finding 58). */
 .skill-chip button { position: relative; }
 .skill-chip button::after { content: ''; position: absolute; inset: -5px; }
-.skill-chip .icon { width: 16px; height: 16px; }
 .skill-options { position: absolute; z-index: 5; top: calc(100% + var(--ds-space-1)); left: 0; right: 0; max-height: 16em; overflow-y: auto; list-style: none; margin: 0; padding: var(--ds-space-1); border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); box-shadow: var(--ds-elevation-menu); }
 .skill-options[hidden] { display: none; }
 /* Opened above the box where there's no room under it before the tabs along a phone's foot (SkillsField.tsx). */
@@ -524,15 +550,15 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .picker-field input { width: 100%; }
 /* The combobox's chevron at the end of the box (the system's Combobox __toggle), and in its place while a pick is saved where it
    is: the system's spinner while it's sent, then a tick in the ok ink once it's kept, then the chevron again (JobAssignee.tsx). */
-.skills-anchor[data-toggle] > input { padding-inline-end: 40px; }
-.picker-end { position: absolute; inset-block: 0; inset-inline-end: 0; display: grid; place-items: center; width: 40px; color: var(--ds-ink-secondary); pointer-events: none; }
+.skills-anchor[data-toggle] > input { padding-inline-end: var(--control); }
+.picker-end { position: absolute; inset-block: 0; inset-inline-end: 0; display: grid; place-items: center; aspect-ratio: 1; color: var(--ds-ink-secondary); pointer-events: none; }
 .picker-end > * { pointer-events: auto; }
-.app .picker-toggle { display: grid; place-items: center; width: 40px; height: 100%; min-height: 0; padding: 0; border: 0; background: none; color: inherit; }
-.picker-toggle .icon { width: 18px; height: 18px; transition: rotate var(--ds-duration-base) var(--ds-ease-standard); }
+.app .picker-toggle { display: grid; place-items: center; width: 100%; height: 100%; min-height: 0; padding: 0; border: 0; background: none; color: inherit; }
+.picker-toggle .icon { transition: rotate var(--ds-duration-base) var(--ds-ease-standard); }
 .picker-toggle[aria-expanded='true'] .icon { rotate: 180deg; }
-.picker-spinner { display: block; width: 16px; height: 16px; border: 2px solid var(--ds-ink-secondary); border-inline-end-color: transparent; border-radius: var(--radius-full); animation: picker-spin var(--ds-motion-cycle-spin) linear infinite; }
+.picker-spinner { display: block; width: var(--icon-control); height: var(--icon-control); box-sizing: border-box; border: 2px solid var(--ds-ink-secondary); border-inline-end-color: transparent; border-radius: var(--radius-full); animation: picker-spin var(--ds-motion-cycle-spin) linear infinite; }
 @keyframes picker-spin { to { rotate: 1turn; } }
-.picker-saved { width: 18px; height: 18px; color: var(--good); stroke-width: 3; animation: picker-saved var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
+.picker-saved { width: var(--icon-control); height: var(--icon-control); color: var(--good); stroke-width: 3; animation: picker-saved var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
 @keyframes picker-saved { from { opacity: 0; scale: .4; } }
 @media (prefers-reduced-motion: reduce) {
   /* The tick fades in rather than growing; the spinner keeps turning, as a loop that says "working" (motion.md). */
@@ -551,7 +577,24 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
   .picker-options li.note:hover { background: none; }
 }
 /* A link-like button sits on the text's own edge, so it lines up with the words above it; its 44px height is still the target. It looks like every other link (Links, below). */
-.app button.link { border: 0; background: none; padding: var(--ds-space-1) 0; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+/*
+ * A second choice beside the main one is a ghost button (Colly, 13 November 2026), not underlined words: the accent's ink with an edge
+ * of the same ink and nothing behind but a blur of what it's over, so its whole 44px can be seen to be pressed, and it still steps back
+ * from the filled red of the one next thing. It follows the icon rule above, and a quiet one (.quiet) takes the secondary ink, edge
+ * and all. Inside a sentence, a table cell or a figure, a link-button stays words, drawn as links are (below).
+ */
+.app button.link, .next-dock .second {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--inline);
+  min-height: var(--control); padding: 0 var(--ds-space-3);
+  border: 1px solid currentColor; border-radius: var(--radius-control);
+  background: transparent; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  color: var(--accent-ink); font: 600 var(--text-button) var(--ds-font-sans); text-decoration: none; text-align: center;
+}
+.app button.link.quiet { color: var(--on-line); }
+.app :is(p, span, small, dd, td, th, h2, h3, .warn-line, .alert, .hint, .form-problems, .who-line, .vat-cell, .included-word, .amount, .kit-note, .save-state, .out-items, .sheet-call, .group-head) button.link {
+  display: inline; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; text-align: inherit;
+}
 .app a.link { display: inline-flex; align-items: center; min-height: 44px; padding: var(--ds-space-1) 0; color: var(--accent-ink); font: 600 var(--text-link) var(--ds-font-sans); text-underline-offset: 2px; }
 .app .end { justify-content: flex-end; }
 /* A row that opens on a tap: the name as the button, its detail under it. */
@@ -626,7 +669,6 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .account .who b, .account .who span { display: block; }
 .account .who span { color: var(--muted); font-size: var(--text-small); overflow-wrap: anywhere; }
 .account .card button { justify-self: start; }
-.account button.link { border: 0; background: none; padding: var(--ds-space-1) 0; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
 .account .invites { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .account .feed input { font-size: var(--text-hint); color: var(--muted); }
 .account .invites h3 { margin: 0; }
@@ -642,8 +684,6 @@ input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .entry .meta { color: var(--muted); font-size: var(--text-hint); }
 /* A deleted quote's way back (ADR 0135), under the line that says it was deleted. */
 .entry .put-back { display: grid; gap: var(--ds-space-1); justify-items: start; }
-.entry .put-back button { display: inline-flex; align-items: center; gap: var(--ds-space-1); }
-.entry .put-back .icon { width: 18px; height: 18px; }
 .history .card > button { justify-self: start; }
 /* A card for each day, and one person's changes one after another as one line that opens (ADR 0006, amended), with the chevron every fold has (above), kept out of what a screen reader says. */
 .history .run-line { display: grid; gap: var(--ds-space-1); align-content: center; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -714,11 +754,13 @@ button, a.button, label.button, .tabs a, .app .job-row, .app .who, .app a.link, 
   /* A quiet button shows its wash, and its words come up to ink, with no edge (the design system's quiet hover). */
   button.quiet:not(:disabled, .link):hover, a.button.quiet:hover { border-color: transparent; color: var(--ink); }
   .app .back:hover, .top .up-link:hover, .crumbs a:hover { color: var(--ink); }
-  .app button.link:not(:disabled):hover, .app a.link:hover, .account button.link:not(:disabled):hover, :where(a:not([class])):hover { text-decoration-thickness: 2px; }
+  .app a.link:hover, :where(a:not([class])):hover { text-decoration-thickness: 2px; }
+  :is(.app button.link, .next-dock .second):not(:disabled):hover { background-image: linear-gradient(var(--ds-wash-hover), var(--ds-wash-hover)); }
   .tabs a:not([aria-current='page']):hover { background: var(--ds-wash-hover); color: var(--ink); }
   .app .job-row:not([aria-current='page']):hover b, .app .who:not(:disabled):hover b, .history .run-line:hover .what { text-decoration: underline; text-underline-offset: 3px; }
 }
 button:not(:disabled, .primary, .danger, .link, .who, .run-line, [aria-pressed='true']):active, a.button:not(.primary):active, label.button:not([aria-busy='true']):active { background-image: linear-gradient(var(--ds-wash-pressed), var(--ds-wash-pressed)); transition-duration: var(--ds-duration-instant); }
+:is(.app button.link, .next-dock .second):not(:disabled):active { background-image: linear-gradient(var(--ds-wash-pressed), var(--ds-wash-pressed)); transition-duration: var(--ds-duration-instant); }
 button.primary:not(:disabled):active, a.button.primary:active, button.danger:not(:disabled):active { filter: brightness(.84); transition-duration: var(--ds-duration-instant); }
 .tabs a:not([aria-current='page']):active { background: var(--ds-wash-pressed); }
 /* Work under way (aria-busy, useLate.ts): no second press, without the faded look of a button that can't be used. */
@@ -728,11 +770,16 @@ button[aria-busy='true'] { cursor: progress; opacity: 1; }
    that pauses with nothing moving reads as a press that didn't land). Drawn in the button's own ink, so it reads on the red too.
    Before the wait it takes no room, so a quick press never flashes one. Cards that are buttons keep their own words alone. */
 button[aria-busy='true']:not(.who, .past-job, .personas button)::before {
-  content: ''; display: inline-block; flex: none; vertical-align: -0.15em; width: 1em; height: 1em; margin-inline-end: var(--ds-space-2);
+  content: ''; display: inline-block; flex: none; vertical-align: -0.2em; width: var(--icon-control); height: var(--icon-control); margin-inline-end: var(--inline);
   box-sizing: border-box; border: 2px solid currentColor; border-inline-end-color: transparent; border-radius: var(--radius-full);
   animation: picker-spin var(--ds-motion-cycle-spin) linear infinite, busy-spin-in 0s var(--ds-timing-wait) both;
 }
 @keyframes busy-spin-in { from { width: 0; margin: 0; border-width: 0; } }
+/* In a button laid out round an icon the gap already parts them, and the spinner takes the leading icon's square rather than sitting
+   beside it, so the words don't move. */
+:where(button[aria-busy='true']):where(:has(> .icon, > .next-pie))::before { margin: 0; }
+button[aria-busy='true']:not(.who, .past-job, .personas button) > :is(.icon, .next-pie):first-child { animation: busy-icon-out 0s var(--ds-timing-wait) both; }
+@keyframes busy-icon-out { to { width: 0; margin-inline-start: calc(-1 * var(--inline)); opacity: 0; } }
 /* A file got on a phone that outlasted the press (GetFile.tsx): it waits here with its own button to share it. */
 .get-file-ready { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-3); margin: var(--ds-space-2) 0 0; }
 .get-file-ready > span { flex: 1 1 100%; overflow-wrap: anywhere; }
@@ -771,8 +818,7 @@ button[aria-busy='true']:not(.who, .past-job, .personas button)::before {
 .toast-body small { color: var(--muted); font-size: var(--text-hint); }
 .toast-actions { display: flex; justify-content: flex-end; }
 .toast-actions:empty { display: none; }
-.toast-dismiss { position: absolute; inset-block-start: var(--ds-space-1); inset-inline-end: var(--ds-space-1); display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; }
-.toast-dismiss .icon { width: 20px; height: 20px; }
+.toast-dismiss { position: absolute; inset-block-start: var(--ds-space-1); inset-inline-end: var(--ds-space-1); color: var(--muted); background: transparent; border-color: transparent; }
 /* The list: the History tab's rows, a new one marked in words beside a dot of the accent. */
 .notices .card > button { justify-self: start; }
 .notice .new-mark { display: inline-flex; align-items: center; gap: var(--ds-space-1); margin-right: var(--ds-space-2); color: var(--accent-ink); font-size: var(--text-hint); font-weight: 700; }
@@ -919,13 +965,14 @@ dialog.palette::backdrop { background: var(--veil); -webkit-backdrop-filter: blu
   dialog.palette { padding-top: 12vh; }
   .palette-box { max-height: min(560px, calc(var(--palette-room, 100dvh) - 12vh - var(--ds-space-6))); }
 }
-.palette-field { flex: none; display: flex; align-items: center; gap: var(--ds-space-2); padding: var(--ds-space-1) var(--ds-space-1) var(--ds-space-1) var(--ds-space-3); border-bottom: 1px solid var(--line); color: var(--muted); }
-.palette-field > .icon { flex: none; width: 20px; height: 20px; }
-.palette-field input { flex: 1; min-width: 0; padding: var(--ds-space-2) 0; border: 0; background: transparent; color: var(--ink); font-size: var(--text-body); outline: none; }
+.palette-field { flex: none; display: flex; align-items: center; gap: var(--inline); min-height: var(--control); padding: 0 0 0 var(--icon-inset); border-bottom: 1px solid var(--line); color: var(--muted); }
+.palette-field > .icon { flex: none; width: var(--icon-control); height: var(--icon-control); }
+.palette-field input { flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: var(--text-body); outline: none; }
 .palette-field input::-webkit-search-cancel-button { display: none; }
 .palette-field:has(input:focus-visible) { box-shadow: inset 0 -2px 0 var(--ds-focus, var(--accent)); }
-.palette-close { flex: none; display: grid; place-items: center; min-width: 44px; padding: 0 var(--ds-space-2); background: transparent; border-color: transparent; color: var(--muted); }
-.palette-close .icon { width: 20px; height: 20px; }
+.palette-close { flex: none; align-self: stretch; height: auto; background: transparent; border-color: transparent; color: var(--muted); }
+/* On a desk it says Esc instead: a key, wider than an icon, with the same 12px either side as any button's words. */
+.palette-close:has(> kbd) { width: auto; padding-inline: var(--ds-space-3); }
 /* The list scrolls inside the box: it's an overlay, so the no-captive-scroll rule for phones doesn't hold here, and the page
    under it stays put. */
 .palette-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--ds-space-1); }

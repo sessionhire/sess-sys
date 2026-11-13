@@ -40,7 +40,7 @@ test("Next sends the offer to the people picked in it, across a job's phases", a
   await page.goto(`/#jobs/j-${id}`)
   await expect(page.getByRole('status')).toHaveText('Up to date')
   const next = page.getByRole('region', { name: 'Next' })
-  await next.getByRole('button', { name: 'Offer the Audio - FOH · 1 to offer' }).click()
+  await next.getByRole('button', { name: 'Offer Audio - FOH · 1 to offer' }).click()
   const form = page.locator('form.offer-form')
   await pickRecord(form, 'Offer to', fergal)
   await pickRecord(form, 'Offer to', colm)

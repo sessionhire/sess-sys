@@ -731,7 +731,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
       send()
     } else if (sendSaved && (error || problem)) setSendSaved(false)
   }, [sendSaved, saved, error, problem])
-  const sendWord = canEmail ? 'Send quote' : 'Get the PDF to send'
+  const sendWord = canEmail ? 'Send quote' : 'Generate PDF'
   const unfinished = parsed.filter((c) => !c.line).length
   // The job's Next is this Send (ADR 0166): it says what a press does, or what stops it, and does the same as the strip's button.
   const pressSend = () => {
@@ -750,7 +750,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
       : markLate
         ? canEmail
           ? 'Marking it sent…'
-          : 'Getting the PDF…'
+          : 'Getting PDF…'
         : sendWord
   const composing = saved && q.lines.length > 0 && sending === 'email'
   const pressRef = useRef(pressSend)
@@ -1068,7 +1068,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                 </button>
                 {lines.some((l) => l.kind === 'kit' && l.modelId) && (
                   <button type="button" className="link" onClick={() => setAdding('save-package')}>
-                    Save the kit as a package
+                    Save kit as package
                   </button>
                 )}
                 </>
@@ -1113,7 +1113,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
             </div>
           ) : (
             <button type="button" className="link quiet" onClick={() => setKitDaysOpen(true)}>
-              Charge all kit for the same days…
+              Same days for all kit…
             </button>
           ))}
       </section>
@@ -1242,7 +1242,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
         )}
         {!termKey && (
           <button type="button" className="link quiet" aria-expanded onClick={() => setTermsOpen(false)}>
-            Done with the terms
+            Close terms
           </button>
         )}
         </>
@@ -1332,11 +1332,11 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
               {/* The PDF as it stands, to keep or send yourself, apart from Send (ADR 0166). A draft's says so on it. */}
               {saved && q.lines.length > 0 && (
                 <GetFile
-                  className="quiet"
+                  className="link"
                   href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)}
                   name="Quote.pdf"
-                  label="Download the PDF"
-                  working="Getting the PDF…"
+                  label="Download PDF"
+                  working="Getting PDF…"
                 />
               )}
               {saved && q.lines.length > 0 && canEmail && sending !== 'other' && (
@@ -1352,7 +1352,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                   </button>
                 ) : (
                   <button type="button" onClick={() => (beforeItGoes.length ? setFree('accept') : accept())}>
-                    Record it as accepted
+                    Mark accepted
                   </button>
                 ))}
             </div>
