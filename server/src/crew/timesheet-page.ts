@@ -1,4 +1,4 @@
-import { dayLabel, daysLabel, euro, irishToday, MAX_EXTRAS, timesheetChanges, timesheetTotal, type CrewCall, type Offer, type OfficeDetails, type Timesheet } from '@sh/shared'
+import { LOGO_SVG, dayLabel, daysLabel, euro, irishToday, MAX_EXTRAS, timesheetChanges, timesheetTotal, type CrewCall, type Offer, type OfficeDetails, type Timesheet } from '@sh/shared'
 import { CSS, fieldError, flash, invalid, landing, officeBlock, REFUSED, titled } from './page.ts'
 import { SHEET_CSS } from './sheet.ts'
 
@@ -60,7 +60,7 @@ export function renderTimesheet(d: TimesheetPage): string {
 </head>
 <body>
 <main class="sheet">
-  <header class="top"><span class="mark">SH</span><div><b>Session Hire</b><small>Timesheet</small></div></header>
+  <header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><small>Timesheet</small></div></header>
   ${officeBlock(d.office)}
   <a class="back" href="${h(d.base)}">‹ Your work</a>
   ${

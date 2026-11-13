@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.185.0',
+    date: '2026-11-13',
+    title: "The company's logo is the app's icon and sits at the top left",
+    what: "The Session Hire logo, the circle with the name written through it, now heads every screen at the top left in the brand red, in place of the red SH square. It still takes you Home, and the page's name sits beside it. The freelancer's page, the call sheet, the timesheet and the client's quote page carry it too. The app's icon is the logo in white on the brand red: in the browser's tab, on a phone's home screen when the app is added to it, and in the iPhone and Android apps when they're built. A phone that already has the app on its home screen keeps the old icon until the app is taken off and added again.",
+    prs: [367],
+    adrs: [170],
+  },
+  {
     version: '1.184.0',
     date: '2026-11-13',
     title: 'The role on a crew call is picked from the roles already used',
