@@ -17,6 +17,26 @@ waiting on someone.
 - Checked: typecheck, shared tests, pick and faults browser tests, phone
   screenshots in both themes.
 
+## 13 November 2026: Amend quote, when the client asks for changes
+
+**Done (1.189.0, #376, ADR 0173)**
+
+- Colly, from a phone at a job's Confirmed task: a third button beside
+  Confirm job and Client said no, Amend quote, that makes another draft.
+  It copies the version the client has as the next version and opens it
+  on the Quote tab. The Quote tab's New version is called Amend quote
+  too, so it's one way.
+- Until the new version is sent (and with no yes), the job is back at
+  sending the quote: it opens on the draft, Next sends it, and the Jobs
+  list and Board say "Version 2 being amended". The version the client
+  has can still take their answer.
+- The draft says which version it amends, and Drop changes (asked first)
+  takes it away again; the office can do that themselves, an admin can
+  put it back from the history.
+- Checked: typecheck, shared and server tests (new cases for an amended
+  job and for dropping), a browser test from the answer to the draft and
+  back, phone screenshots.
+
 ## 13 November 2026: tidier buttons, shorter words, second choices as ghost buttons
 
 **Done (1.186.0, #372; design system 0.17.0)**
@@ -39,26 +59,6 @@ waiting on someone.
   on-screen measurements of icon spacing in both themes, phone screenshots.
 
 **Waiting:** Colly's veto on any of the new words.
-## 13 November 2026: Amend quote, when the client asks for changes
-
-**Done (1.189.0, #376, ADR 0173)**
-
-- Colly, from a phone at a job's Confirmed task: a third button beside
-  Confirm job and Client said no, Amend quote, that makes another draft.
-  It copies the version the client has as the next version and opens it
-  on the Quote tab. The Quote tab's New version is called Amend quote
-  too, so it's one way.
-- Until the new version is sent (and with no yes), the job is back at
-  sending the quote: it opens on the draft, Next sends it, and the Jobs
-  list and Board say "Version 2 being amended". The version the client
-  has can still take their answer.
-- The draft says which version it amends, and Drop changes (asked first)
-  takes it away again; the office can do that themselves, an admin can
-  put it back from the history.
-- Checked: typecheck, shared and server tests (new cases for an amended
-  job and for dropping), a browser test from the answer to the draft and
-  back, phone screenshots.
-
 ## 13 November 2026: slow presses show they're working; the quote PDF to the phone's share sheet
 
 **Done (1.185.3, #370)**
