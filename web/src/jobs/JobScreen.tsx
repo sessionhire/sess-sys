@@ -48,6 +48,7 @@ import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEve
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { refuseField } from '../required.ts'
 import { NeedsField } from '../crew/Certificates.tsx'
+import { RoleField } from '../crew/RoleField.tsx'
 import { CallCard, peopleOn, promptFor, SharePanelFor, type Made, type Share } from '../crew/CrewScreen.tsx'
 import { TellHere } from '../crew/Messages.tsx'
 import { Empty } from '../Empty.tsx'
@@ -1267,9 +1268,7 @@ function AskForCrew({ job }: { job: JobView }) {
           Which phases <input value={f.across} onChange={(e) => setF({ ...f, across: e.target.value })} placeholder="e.g. Build and Show" />
         </label>
       )}
-      <label>
-        Role <input name="role" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} placeholder="Audio tech" required />
-      </label>
+      <RoleField value={f.role} onChange={(role) => setF((now) => ({ ...now, role }))} placeholder="Audio tech" />
       <label>
         How many <input type="number" min={1} value={f.needed} onChange={(e) => setF({ ...f, needed: Number(e.target.value) })} />
       </label>

@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 13 November 2026: the role on a crew call is picked from those in use
+
+**Done (1.184.0)**
+
+- The Role on Ask for crew is the combobox the client and venue fields
+  are (the design system's combobox, one value). It offers the roles calls
+  have asked for, the crew list's skills and the price list's roles, each
+  once whatever its case, most asked for first, with how often each was
+  asked for and how many on the crew list have it. A new role is still
+  typed and kept, the last row saying so.
+- The same field is on Change the call and on the price list's Add a role.
+- Checked: typecheck; shared tests of the roles in use; a browser test at
+  phone width of finding a skill, Enter taking it, a call made with it and
+  a new role kept; the browser tests that fill a call's role.
+
 ## 12 November 2026: what the audit of crew offers left at 2
 
 **Done (1.183.2)**

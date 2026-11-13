@@ -58,6 +58,7 @@ import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
 import { rateText } from '../format.ts'
 import { DepartmentField } from './Department.tsx'
+import { RoleField } from './RoleField.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
 import { certificateWarnings, NeedsField } from './Certificates.tsx'
@@ -547,9 +548,7 @@ function EditCall({
           </label>
         </>
       )}
-      <label>
-        Role <input name="role" value={f.role} onChange={set('role')} required />
-      </label>
+      <RoleField value={f.role} onChange={(role) => setF((now) => ({ ...now, role }))} />
       <label>
         How many <input type="number" min={Math.max(1, booked)} value={f.needed} onChange={set('needed')} />
       </label>
