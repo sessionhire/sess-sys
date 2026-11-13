@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.191.0',
+    date: '2026-11-13',
+    title: 'Travel and warehouse days, at half the day rate',
+    what: "Travel and Warehouse are now phases you can pick on any job, alongside Build and Show. Crew asked for on a travel or warehouse day are paid half the day rate: type the standard rate and the call is saved at half, €250 becomes €125, and the form shows the figure as you type. Someone with their own day rate gets half of that instead. On the quote, crew on those days are charged half their role's price. Half is the starting point: change it under Admin › Company › Travel and warehouse days.",
+    prs: [362],
+    adrs: [174],
+  },
+  {
     version: '1.190.0',
     date: '2026-11-13',
     title: 'Crew on their own day rate',

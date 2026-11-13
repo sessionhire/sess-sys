@@ -1889,4 +1889,19 @@ describe('own day rates (ADR 0167)', () => {
     expect((await send(app, 'call.update', { id: c, dayRateCents: 35000 })).status).toBe('applied')
     expect((await entity<Offer>(app, 'offer', o.id)).dayRateCents).toBe(35000)
   })
+
+  it('takes the travel or warehouse share of an own rate on those days, as of the call’s (ADR 0174)', async () => {
+    // Proves: a call on a Travel phase is already at half; an own rate is halved too, so it doesn't beat it at full value.
+    const app = await server()
+    const travel = await call(app, { phase: 'Travel', dayRateCents: 12500, needed: 2 })
+    const own = await offer(app, travel, await rated(app, 'Aoife Byrne', 30000))
+    const low = await offer(app, travel, await rated(app, 'Brian Kelly', 20000))
+    expect((await entity<Offer>(app, 'offer', own.id)).dayRateCents).toBe(15000)
+    expect((await entity<Offer>(app, 'offer', low.id)).dayRateCents).toBe(12500)
+    // The share the office sets under Admin is the one used.
+    expect((await send(app, 'quoting.reducedDays', { pct: 60 })).status).toBe('applied')
+    const warehouse = await call(app, { phase: 'Warehouse day', dayRateCents: 15000 })
+    const w = await offer(app, warehouse, await rated(app, 'Ciara Walsh', 30000))
+    expect((await entity<Offer>(app, 'offer', w.id)).dayRateCents).toBe(18000)
+  })
 })

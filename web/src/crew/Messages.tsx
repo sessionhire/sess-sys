@@ -1,6 +1,7 @@
 import {
   daysLabel,
   offerRateFor,
+  ownSharePct,
   daysToCancel,
   holdLeft,
   HOLDING,
@@ -126,9 +127,9 @@ export function tellTo(
  * The call as an offer to this person reads it (ADR 0167): at the rate their offer was made at, or, before it's made, the
  * call's or their own where that's above it.
  */
-function atTheirRate(call: CallView, person: Pick<Person, 'id' | 'kind' | 'dayRateCents'>): CallView {
+function atTheirRate(call: CallView, person: Pick<Person, 'id' | 'kind' | 'dayRateCents'>, share: number): CallView {
   const made = call.offers.find((o) => o.personId === person.id && o.status === 'offered')
-  return { ...call, dayRateCents: made ? made.dayRateCents : offerRateFor(call.dayRateCents, person) }
+  return { ...call, dayRateCents: made ? made.dayRateCents : offerRateFor(call.dayRateCents, person, share) }
 }
 
 /** Everyone offered or holding a place on a call, to tell when it changes or goes. */
@@ -545,7 +546,9 @@ function SendTo({
   const panel = useInView()
   const hold = useHoldTheDay()(call.projectId)
   const custom = message?.(link)
-  const text = custom?.text ?? offerMessage(person, atTheirRate(call, person), link, hold)
+  // A travel or warehouse day takes the same share of an own rate as of the call's (ADR 0174).
+  const share = ownSharePct(call.phase, useView().money.quoting)
+  const text = custom?.text ?? offerMessage(person, atTheirRate(call, person, share), link, hold)
   const subject = custom?.subject ?? offerSubject(call, hold)
   return (
     <section className="card share" aria-label={`Send ${custom?.what ?? 'offer'} to ${person.name}`} ref={panel} tabIndex={-1}>
@@ -603,6 +606,7 @@ function OffersPanel({ people, call, onClose, inJob, wait }: { people: PersonVie
   const [at, setAt] = useState(0)
   const prompts = usePromptsMessages()
   const hold = useHoldTheDay()(call.projectId)
+  const share = ownSharePct(call.phase, useView().money.quoting)
   const person = people[at]
   if (!person) return null
   if (!prompts) return <OfferSent people={people} call={call} wait={wait} onClose={onClose} />
@@ -610,7 +614,7 @@ function OffersPanel({ people, call, onClose, inJob, wait }: { people: PersonVie
   const next = () => (at + 1 < n ? setAt(at + 1) : onClose())
   const link = linkFor(person)
   if (!link) return <NoLinkYet key={at} person={person} onClose={next} />
-  const text = offerMessage(person, atTheirRate(call, person), link, hold)
+  const text = offerMessage(person, atTheirRate(call, person, share), link, hold)
   return (
     <TellOne key={at} label={`Send offer to ${person.name}`} title={`Send to ${n} people: ${person.name} (${at + 1} of ${n})`} more={at + 1 < n} onNext={next} wait={wait}>
       <textarea readOnly value={text} rows={6} />
