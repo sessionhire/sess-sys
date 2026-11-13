@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Mutation } from '../src/commands.ts'
-import { departmentForRole, departmentOf, departmentOfPeople, type CrewCall, type Offer, type Person } from '../src/crew.ts'
+import { departmentForRole, departmentOf, departmentOfPeople, sameDepartment, type CrewCall, type Offer, type Person } from '../src/crew.ts'
 import type { PullResponse, PushRequest, PushResponse } from '../src/protocol.ts'
 import {
   callAsRead,
@@ -109,8 +109,8 @@ describe('the department a call is given', () => {
   it("or else what the role's own words say, and none when they say nothing", () => {
     expect(departmentForRole('Sound No.1')).toBe('Audio')
     expect(departmentForRole('FOH engineer')).toBe('Audio')
-    expect(departmentForRole('LX op')).toBe('LX')
-    expect(departmentForRole('Lighting tech')).toBe('LX')
+    expect(departmentForRole('LX op')).toBe('Lighting')
+    expect(departmentForRole('Lighting tech')).toBe('Lighting')
     expect(departmentForRole('Camera op')).toBe('Video')
     expect(departmentForRole('Head rigger')).toBe('Rigger')
     expect(departmentForRole('Van driver')).toBe('Transport')
@@ -128,7 +128,10 @@ describe('the department a call is given', () => {
 
   it('reads none on a call saved before calls had one', () => {
     expect(departmentOf(call('a'))).toBeNull()
-    expect(departmentOf(call('a', { department: 'LX' }))).toBe('LX')
+    // Saved as LX before the departments were one list (user flows of 13 November 2026, finding 8): read as Lighting.
+    expect(departmentOf(call('a', { department: 'LX' }))).toBe('Lighting')
+    expect(departmentOf(call('a', { department: 'Laser' }))).toBe('Lasers')
+    expect(sameDepartment('LX', 'lighting')).toBe(true)
   })
 })
 
@@ -356,7 +359,7 @@ describe('a department changed on the device', () => {
     expect(view.calls.map((c) => [c.id, c.department])).toEqual([
       ['a', 'Production'],
       ['b', 'Production'],
-      ['c', 'LX'],
+      ['c', 'Lighting'],
     ])
     expect(crewView(entities, [pending('call.department', { ids: ['c'], department: null })], 0).calls.find((c) => c.id === 'c')?.department).toBeNull()
   })

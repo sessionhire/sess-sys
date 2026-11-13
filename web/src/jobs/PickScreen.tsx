@@ -314,16 +314,22 @@ function Pick({ view, job }: { view: View; job: JobView }) {
               onChange={(e) => setTyped(e.target.value)}
               aria-label="Number or serial"
             />
-            <button
-              type="button"
-              aria-pressed={camera}
-              onClick={() => {
-                if (!camera) primeSound()
-                setCamera(!camera)
-              }}
-            >
-              Scan
-            </button>
+            {/* With a number typed, the button enters it, as the Enter key does (user flows of 13 November 2026, finding 9): typing one and
+                pressing Scan opened the camera and left the number unread. With the box empty it's the camera's switch. */}
+            {typed.trim() ? (
+              <button type="submit">Enter</button>
+            ) : (
+              <button
+                type="button"
+                aria-pressed={camera}
+                onClick={() => {
+                  if (!camera) primeSound()
+                  setCamera(!camera)
+                }}
+              >
+                Scan
+              </button>
+            )}
           </form>
           {camera && <CameraScanner onRead={read} onStop={() => setCamera(false)} small />}
           {said && (
@@ -492,7 +498,11 @@ function totalLine(pick: PickList, shown: PickRow[], mode: Direction, part: Depa
   const n = (x: number) => x.toLocaleString('en-IE')
   if (mode === 'out') {
     if (!pick.need) return { text: 'Nothing on the kit to go out yet.', done: false }
-    const whole = pick.out >= pick.need ? `All ${n(pick.need)} out: ready to load.` : `${n(pick.out)} of ${n(pick.need)} out`
+    // What went out that isn't on the kit (the contents of its cases, or added on the day) is said beside it, so going out and
+    // coming back count the same things (user flows of 13 November 2026, finding 10): coming back counts all of it.
+    const extra = pick.stillOut + pick.back + pick.missing - pick.rows.filter((r) => r.lines.length > 0).reduce((t, r) => t + r.out + r.back + r.missing, 0)
+    const more = extra > 0 ? ` ${n(extra)} more went with ${extra === 1 ? 'it' : 'them'}, in cases or added.` : ''
+    const whole = pick.out >= pick.need ? `All ${n(pick.need)} out: ready to load.${more}` : `${n(pick.out)} of ${n(pick.need)} out${more ? `.${more}` : ''}`
     if (part === 'all') return { text: whole, done: pick.out >= pick.need }
     const kit = shown.filter((r) => r.lines.length > 0)
     const need = kit.reduce((t, r) => t + r.need, 0)

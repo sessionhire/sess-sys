@@ -67,7 +67,8 @@ const withDefaults = (p: Person): Person => ({
   ...nameParts(p),
   archived: p.archived ?? false,
   approvesLeave: p.approvesLeave ?? false,
-  department: p.department ?? null,
+  // Read in the app's own spelling: "LX" saved before is Lighting (user flows of 13 November 2026, finding 8).
+  department: p.department ? tidyDepartment(p.department) : null,
   level: p.level ?? DEFAULT_LEVEL,
   knownAs: p.knownAs ?? null,
   certificates: p.certificates ?? {},

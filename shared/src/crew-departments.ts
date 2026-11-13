@@ -5,7 +5,7 @@
  */
 
 /** The departments the form offers as you type. Free text, so a new one needs no change here. */
-export const CREW_DEPARTMENTS = ['Audio', 'LX', 'Video', 'Backline', 'Laser', 'Staging', 'Transport', 'Production', 'LED Tech', 'Rigger', 'Stage Manager', 'SFX'] as const
+export const CREW_DEPARTMENTS = ['Audio', 'Lighting', 'Video', 'Backline', 'Lasers', 'Staging', 'Transport', 'Production', 'LED Tech', 'Rigger', 'Stage Manager', 'SFX'] as const
 
 /** 0 is an applicant nobody has vetted; 1 is known; higher is more preferred. */
 export const LEVELS = [0, 1, 2, 3, 4, 5] as const
@@ -15,15 +15,23 @@ export const levelLabel = (level: number) => `Level ${level}`
 /** The level with "applicant" said for 0, where nothing else on the screen says it: the crew list, the card's select and the import's preview. */
 export const levelLine = (level: number) => (level === APPLICANT_LEVEL ? `${levelLabel(level)} (applicant)` : levelLabel(level))
 
-/** A department as typed, tidied: spaces collapsed, and a known one in its own spelling, so "audio" and "Audio" are one department. Null for nothing. */
+/**
+ * The older spellings of a department, read as the one the rest of the app uses (user flows of 13 November 2026, finding 8):
+ * crew were in "LX" and "Laser" while the Jobs filter, the stock and the calendar said Lighting and Lasers. People and calls
+ * saved with the old words keep them; they show, filter and match as the new.
+ */
+const SAME_AS: Record<string, (typeof CREW_DEPARTMENTS)[number]> = { lx: 'Lighting', lights: 'Lighting', laser: 'Lasers' }
+
+/** A department as typed, tidied: spaces collapsed, and a known one in its own spelling, so "audio" and "Audio" are one department, and "LX" is Lighting. Null for nothing. */
 export function tidyDepartment(typed: string): string | null {
   const s = typed.trim().replace(/\s+/g, ' ')
   if (!s) return null
-  return CREW_DEPARTMENTS.find((d) => d.toLowerCase() === s.toLowerCase()) ?? s
+  return SAME_AS[s.toLowerCase()] ?? CREW_DEPARTMENTS.find((d) => d.toLowerCase() === s.toLowerCase()) ?? s
 }
 
-/** Whether two departments as typed are the same one: "audio" and "Audio " are. Nothing is never the same as anything. */
-export const sameDepartment = (a: string | null | undefined, b: string | null | undefined) => !!a?.trim() && a.trim().toLowerCase() === b?.trim().toLowerCase()
+/** Whether two departments as typed are the same one: "audio" and "Audio ", and "LX" and "Lighting", are. Nothing is never the same as anything. */
+export const sameDepartment = (a: string | null | undefined, b: string | null | undefined) =>
+  !!a?.trim() && !!b?.trim() && tidyDepartment(a)!.toLowerCase() === tidyDepartment(b)!.toLowerCase()
 
 /**
  * Words in a role that say its department (ADR 0046), the first that fits:
@@ -31,10 +39,10 @@ export const sameDepartment = (a: string | null | undefined, b: string | null | 
  * nothing about one, such as a stagehand, has none until someone gives it one.
  */
 export const ROLE_WORDS: readonly [RegExp, (typeof CREW_DEPARTMENTS)[number]][] = [
-  [/\blaser/, 'Laser'],
+  [/\blaser/, 'Lasers'],
   [/\bled\b/, 'LED Tech'],
   [/\b(sound|audio|monitors?|foh|a[12]|pa|rf|mics?)\b/, 'Audio'],
-  [/\b(lx|light(s|ing)?|lamp|follow ?spot|dimmer)\b/, 'LX'],
+  [/\b(lx|light(s|ing)?|lamp|follow ?spot|dimmer)\b/, 'Lighting'],
   [/\b(video|camera|cam|vision|projection(ist)?|vt)\b/, 'Video'],
   [/\b(backline|guitar tech|drum tech)\b/, 'Backline'],
   [/\brigg(er|ers|ing)\b/, 'Rigger'],

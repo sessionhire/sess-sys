@@ -30,8 +30,8 @@ export const CHANGELOG: readonly Release[] = [
   {
     version: '1.189.2',
     date: '2026-11-13',
-    title: 'A quote the client turned down no longer reads as no quote',
-    what: "When the client turns a quote down and the job isn't marked lost yet, the Jobs list and the Board now say Turned down, mark it lost or amend, instead of No quote yet. Next opens the client's answer, where you can mark the job lost or amend the quote and send it again, rather than taking you back to the quote.",
+    title: 'Fixes from the map of every route through a job',
+    what: "A quote the client turned down no longer reads as No quote yet: the Jobs list and the Board say Turned down, and Next opens the client's answer, to mark the job lost or amend the quote. On the Kit tab, Next no longer only opens the tab you're on: it goes on to Transport, then marks the kit and vans settled. Crew departments now use the same names as the rest of the app, Lighting and Lasers rather than LX and Laser. On a pick list, a number typed in the scan box is entered by the button beside it, rather than the button opening the camera. Going out, the pick list says what went with the kit in its cases, so it counts the same as coming back.",
     prs: [0],
   },
   {

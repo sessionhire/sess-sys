@@ -1,4 +1,4 @@
-import { bouncedEmail, crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
+import { bouncedEmail, crewNext, dayLabel, firstName, kindOf, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
 import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -51,6 +51,7 @@ export function NextDock({
   onPart,
   onOpenTask,
   quoteHere,
+  here,
   onTell,
   onConfirm,
 }: {
@@ -63,6 +64,8 @@ export function NextDock({
   onOpenTask: (t: JobStep) => void
   /** The job's Quote tab is open under it (ADR 0140, part 4): a draft's Send there is Next's press (ADR 0166); otherwise the dock says what's below in words. */
   quoteHere?: boolean
+  /** The tab open under the dock, so a press never only opens the tab already open (user flows of 13 November 2026, findings 4 and 7). */
+  here?: JobPart
   /**
    * Opens the Confirmed task with its question asked: Confirm the job reaches crew asked to hold the day for it, so it's asked
    * first, where the task's own answer is (ADR 0168), as a yes that ends days still asked is confirmed on its row (ADR 0152).
@@ -168,6 +171,8 @@ export function NextDock({
       const empty = quotes.length === 0 && !(view.kit.byJob.get(job.id)?.length) && job.calls.length === 0
       const sending = sendQuote()
       if (sending === 'composing') return rest(sendingWords ?? composingWords, answers)
+      // On the Kit tab already, the kit is added below, so the dock says so rather than a red that only opens the tab it's on.
+      if (empty && access.can('kit') && here === 'kit') return rest('Add the kit below: the quote is built from it and the crew.', answers)
       if (empty && access.can('kit')) press = { label: 'Add kit to quote', onPress: () => onPart('kit') }
       else if (sending) press = sending
       // The quote is the job's Quoting stage, worked on its own tab (ADR 0140, part 4). With that tab open, its Send or Build is the
@@ -313,9 +318,23 @@ export function NextDock({
       if (!access.can('kit')) break
       const { short = 0, nothingYet } = task.facts
       // Short kit lands on its Subhire, open with the short lines ticked (ADR 0140, part 5); each one subhired takes the count down.
+      const { vans = 0 } = task.facts
+      // Kit, then how it gets there, then the tick (user flows of 13 November 2026, finding 4): from the Kit tab with no vehicle on
+      // the job a gig goes on to Transport; from Transport, or with its vehicles booked, the press opens the task to tick it settled.
+      // A dry hire is collected, so it isn't sent to Transport.
+      const settle = { label: 'Mark kit and vans settled', onPress: () => onOpenTask('kit') }
       press = short
         ? { label: `Sort ${short} short`, onPress: () => onPart('kit', { short: true }) }
-        : { label: nothingYet ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
+        : nothingYet
+          ? here === 'kit'
+            ? undefined
+            : { label: 'Add the kit', onPress: () => onPart('kit') }
+          : here === 'vans' || (here === 'kit' && (vans > 0 || kindOf(job) === 'hire'))
+            ? settle
+            : here === 'kit'
+              ? { label: 'Book transport', onPress: () => onPart('vans') }
+              : { label: 'Settle the kit and vans', onPress: () => onPart('kit') }
+      if (!press) return rest('Add the kit below. Then book its transport, and Next marks the two settled.')
       break
     }
     case 'prep':

@@ -279,6 +279,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
             setConfirmAsked(Date.now())
           }}
           quoteHere={part === 'quote'}
+          here={part}
         />
       }
     >

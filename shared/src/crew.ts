@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { day } from './day.ts'
 import { euroCents, needed, text, whole } from './plain.ts'
 import { ROLES } from './roles.ts'
-import { DEFAULT_LEVEL, mostNamed, ROLE_WORDS, roleKey } from './crew-departments.ts'
+import { DEFAULT_LEVEL, mostNamed, ROLE_WORDS, roleKey, tidyDepartment } from './crew-departments.ts'
 import { certificates, needs, needsLabel, tidyNeeds, type Certificate, type CertificateKind } from './crew-certificates.ts'
 import { dayLabel, daysLabel, eachDay, euro } from './crew-days.ts'
 
@@ -291,7 +291,7 @@ export const crewCall = z.object({
 })
 export type CrewCall = z.infer<typeof crewCall>
 /** A call's department, reading one synced before as having none. */
-export const departmentOf = (c: Pick<CrewCall, 'department'>): string | null => c.department ?? null
+export const departmentOf = (c: Pick<CrewCall, 'department'>): string | null => (c.department ? tidyDepartment(c.department) : null)
 /** What a call needs, reading one synced before as needing nothing. */
 export const needsOf = (c: Pick<CrewCall, 'needsCertificates'>): CertificateKind[] => tidyNeeds(c.needsCertificates)
 
