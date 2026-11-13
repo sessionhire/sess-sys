@@ -3,6 +3,26 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 13 November 2026: Amend quote, when the client asks for changes
+
+**Done (1.189.0, #376, ADR 0173)**
+
+- Colly, from a phone at a job's Confirmed task: a third button beside
+  Confirm job and Client said no, Amend quote, that makes another draft.
+  It copies the version the client has as the next version and opens it
+  on the Quote tab. The Quote tab's New version is called Amend quote
+  too, so it's one way.
+- Until the new version is sent (and with no yes), the job is back at
+  sending the quote: it opens on the draft, Next sends it, and the Jobs
+  list and Board say "Version 2 being amended". The version the client
+  has can still take their answer.
+- The draft says which version it amends, and Drop changes (asked first)
+  takes it away again; the office can do that themselves, an admin can
+  put it back from the history.
+- Checked: typecheck, shared and server tests (new cases for an amended
+  job and for dropping), a browser test from the answer to the draft and
+  back, phone screenshots.
+
 ## 13 November 2026: slow presses show they're working; the quote PDF to the phone's share sheet
 
 **Done (1.185.3, #370)**
