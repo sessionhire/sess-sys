@@ -188,7 +188,7 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   const fromMail = draft.getByRole('region', { name: 'From the email “Launch in March”' })
   await expect(fromMail).toContainText('Aoife Byrne, 3 mails')
   await expect(fromMail).toContainText('What time can we get in?')
-  await advice.getByRole('button', { name: 'Make these 2 changes' }).click()
+  await advice.getByRole('button', { name: 'Make 2 changes' }).click()
   await expect(advice).toHaveCount(0)
   expect(mailDone).toEqual(['t1'])
   await expect(draft).toContainText('Shure SM58')
