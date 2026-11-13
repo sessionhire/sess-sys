@@ -280,6 +280,9 @@ const CASES: Case[] = [
   c('tracker.attach', { id: 'digital-matter:416581', assetId: null }, { as: 'taken off', before: TRACKERS_ON, reports: [REPORT], queued: [m('tracker.attach', { id: 'digital-matter:416581', assetId: 'a1' })] }),
   c('tracker.name', { id: 'digital-matter:416581', name: ' Desk case ' }, { before: TRACKERS_ON, reports: [REPORT] }),
   c('tracker.archive', { id: 'digital-matter:416581', archived: true }, { before: TRACKERS_ON, reports: [REPORT] }),
+  // Who's counting where (ADR 0177): a count begun, and one discarded.
+  c('count.begin', { id: 'cs1', placeId: 'wh', caseId: null, by: 'cian', startedAt: new Date().toISOString() }),
+  c('count.end', { id: 'cs1' }, { before: [m('count.begin', { id: 'cs1', placeId: 'wh', caseId: null, by: 'cian', startedAt: new Date().toISOString() })] }),
   c('count.record', {
     id: newId(),
     placeId: 'wh',
