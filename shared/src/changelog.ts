@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-13',
     title: 'A job starts its crew with Add a role',
     what: "On a job with no crew yet, the Crew tab now says to add the roles the job needs first, and its button is Add a role, rather than Ask for crew; the form's own button at the end is Add role. Asking people comes after, with Offer… on each role's card. Once a job has roles, the card under them is More roles.",
-    prs: [0],
+    prs: [369],
   },
   {
     version: '1.185.1',
