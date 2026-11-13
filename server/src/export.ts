@@ -16,9 +16,10 @@ import { forEachRow, ident, tableLayout, tablesInOrder, useCanonicalOutput } fro
 /**
  * Left out on purpose: sign-in sessions and the phones a freelancer's link
  * remembers, with any code waiting for one (ADR 0114), which are secrets, and the server's
- * own bookkeeping (schema versions, which copy of the data this is).
+ * own bookkeeping (schema versions, which copy of the data this is, a quote's
+ * email while it's being sent, ADR 0171).
  */
-const NOT_EXPORTED = new Set(['sessions', 'link_devices', 'link_codes', 'link_lost', 'server_meta', ...MODULES.map((m) => m.versionTable)])
+const NOT_EXPORTED = new Set(['sessions', 'link_devices', 'link_codes', 'link_lost', 'server_meta', 'quote_email_sends', ...MODULES.map((m) => m.versionTable)])
 
 /**
  * The secret in each freelancer's private link, wherever it turns up: in
