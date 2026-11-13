@@ -220,7 +220,7 @@ test('a finished quote is sent from Next: the email to the client with the PDF o
 
   // Whole, Next is Send quote, the page's one red, with the PDF to download beside it.
   await expect(next.getByRole('button', { name: 'Send quote' })).toBeVisible()
-  await expect(next.getByRole('link', { name: 'Download the PDF' })).toHaveAttribute('href', /\/api\/quotes\/[^/]+\/pdf\?download=1$/)
+  await expect(next.getByRole('button', { name: 'Download the PDF' })).toBeVisible()
   const reds = () => office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
   expect(await reds()).toEqual(['Send quote'])
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-send-quote-phone.png` })

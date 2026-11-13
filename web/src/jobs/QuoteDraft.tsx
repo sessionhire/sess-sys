@@ -58,6 +58,7 @@ import { ProductPicker } from '../ProductPicker.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useLate } from '../useLate.ts'
+import { GetFile } from '../GetFile.tsx'
 import { useToday } from '../view.ts'
 import { glideTo } from '../glide.ts'
 import { useUnderTop } from '../useUnderTop.ts'
@@ -171,7 +172,7 @@ const PACKAGE_PICK = 'package:'
 type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
 const TERM_KEYS: readonly TermKey[] = ['agreed', 'km', 'discount', 'validFor', 'deposit']
 
-export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job: JobView; onPrint: () => void }) {
+export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view: View; job: JobView; onPrint: () => void; printing?: boolean }) {
   const today = useToday()
   const m = view.money
   const under = useUnderTop<HTMLFormElement>(true)
@@ -466,7 +467,17 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   useEffect(() => () => flush(), [])
   // With email off, sending is getting the numbered PDF (audit of the quote flow, 8 November 2026, finding 14): one press
   // marks it sent, which gives it its number, and opens it to print or save, so it's never marked sent with nothing to send.
-  const markAndPrint = () => void run(() => markSent(q.id, job, sentOn || today)).then((ok) => ok && !canEmail && onPrint())
+  // Busy while it's marked (Colly, 13 November 2026: a press with nothing moving reads as one that didn't land), so a second
+  // press doesn't mark it twice, and past a second it spins and says what is working, here and in Next.
+  const [marking, setMarking] = useState(false)
+  const markLate = useLate(marking)
+  const markAndPrint = () => {
+    if (marking) return
+    setMarking(true)
+    void run(() => markSent(q.id, job, sentOn || today))
+      .then((ok) => ok && !canEmail && onPrint())
+      .finally(() => setMarking(false))
+  }
   // Accepted by phone gets the same last look as sending (finding 18): it's the quote that becomes the invoice.
   const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: sentOn || today }))
   const late = useLate(!!payload)
@@ -725,17 +736,28 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
   // The job's Next is this Send (ADR 0166): it says what a press does, or what stops it, and does the same as the strip's button.
   const pressSend = () => {
     if (problem) return goToProblem()
+    if (marking) return
     if (saved) return send()
     flush()
     setSendSaved(true)
   }
-  const sendLabel = problem ? (termKey ? 'Send: a term to put right' : `Send: ${plural(unfinished, 'line')} to finish`) : sendSaved ? 'Saving…' : sendWord
+  const sendLabel = problem
+    ? termKey
+      ? 'Send: a term to put right'
+      : `Send: ${plural(unfinished, 'line')} to finish`
+    : sendSaved
+      ? 'Saving…'
+      : markLate
+        ? canEmail
+          ? 'Marking it sent…'
+          : 'Getting the PDF…'
+        : sendWord
   const composing = saved && q.lines.length > 0 && sending === 'email'
   const pressRef = useRef(pressSend)
   pressRef.current = pressSend
   useEffect(() => {
-    setDraftSend(job.id, lines.length > 0 ? { label: sendLabel, ready: !problem, composing, press: () => pressRef.current() } : undefined)
-  }, [job.id, lines.length > 0, sendLabel, !problem, composing])
+    setDraftSend(job.id, lines.length > 0 ? { label: sendLabel, ready: !problem, composing, busy: marking, press: () => pressRef.current() } : undefined)
+  }, [job.id, lines.length > 0, sendLabel, !problem, composing, marking])
   useEffect(() => () => setDraftSend(job.id, undefined), [job.id])
   // Next pressed on another tab opened this one to send: it sends as it opens, as a press here would, once the server has said
   // whether quotes go by email, so it never marks one sent while the email it was pressed for is still being asked about.
@@ -858,7 +880,7 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                   {sendLabel}
                 </button>
               ) : (
-                <button type="button" className="send-now" disabled={sendSaved} onClick={pressSend}>
+                <button type="button" className="send-now" disabled={sendSaved} aria-busy={marking || undefined} onClick={pressSend}>
                   {sendLabel}
                 </button>
               ))}
@@ -1256,8 +1278,8 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
                   <input type="date" value={sentOn} max={irishToday()} onChange={(e) => setSentOn(e.target.value)} />
                 </label>
                 {canEmail && (
-                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())}>
-                    Mark as sent
+                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())} aria-busy={marking || undefined}>
+                    {markLate ? 'Marking it sent…' : 'Mark as sent'}
                   </button>
                 )}
               </div>
@@ -1304,14 +1326,18 @@ export function Draft({ q, view, job, onPrint }: { q: QuoteView; view: View; job
               </Confirm>
             )}
             <div className="actions">
-              <button type="button" onClick={onPrint} disabled={!saved}>
+              <button type="button" onClick={onPrint} disabled={!saved} aria-busy={printing || undefined}>
                 Print a draft
               </button>
               {/* The PDF as it stands, to keep or send yourself, apart from Send (ADR 0166). A draft's says so on it. */}
               {saved && q.lines.length > 0 && (
-                <a className="button quiet" href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)} download>
-                  Download the PDF
-                </a>
+                <GetFile
+                  className="quiet"
+                  href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)}
+                  name="Quote.pdf"
+                  label="Download the PDF"
+                  working="Getting the PDF…"
+                />
               )}
               {saved && q.lines.length > 0 && canEmail && sending !== 'other' && (
                 <button type="button" className="link quiet" onClick={() => setSending('other')}>

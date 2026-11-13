@@ -144,7 +144,7 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
       {!q ? (
         <FirstQuote view={view} job={job} plain={onTheJob} />
       ) : q.status === 'draft' ? (
-        <Draft key={q.id} q={q} view={view} job={job} onPrint={() => setPrinting(true)} />
+        <Draft key={q.id} q={q} view={view} job={job} onPrint={() => setPrinting(true)} printing={printing} />
       ) : (
         <>
           <section className="card" aria-label={`Version ${q.version}`}>
@@ -175,7 +175,7 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
                     {q.emails.length ? 'Send again' : 'Send by email'}
                   </button>
                 )}
-                <button type="button" className={plainSend || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
+                <button type="button" className={plainSend || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} aria-busy={printing || undefined}>
                   Print or save as PDF
                 </button>
                 {q.latest && !settled && <NewVersion q={q} onMade={setPicked} />}

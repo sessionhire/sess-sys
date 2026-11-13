@@ -723,6 +723,20 @@ button.primary:not(:disabled):active, a.button.primary:active, button.danger:not
 .tabs a:not([aria-current='page']):active { background: var(--ds-wash-pressed); }
 /* Work under way (aria-busy, useLate.ts): no second press, without the faded look of a button that can't be used. */
 button[aria-busy='true'] { cursor: progress; opacity: 1; }
+/* Past the system's wait (a second), a busy press spins as well as saying what is working (useLate.ts): the design system's busy
+   button, in Session Hire's look, where the words stay beside the spin rather than under it (Colly, 13 November 2026: a phone
+   that pauses with nothing moving reads as a press that didn't land). Drawn in the button's own ink, so it reads on the red too.
+   Before the wait it takes no room, so a quick press never flashes one. Cards that are buttons keep their own words alone. */
+button[aria-busy='true']:not(.who, .past-job, .personas button)::before {
+  content: ''; display: inline-block; flex: none; vertical-align: -0.15em; width: 1em; height: 1em; margin-inline-end: var(--ds-space-2);
+  box-sizing: border-box; border: 2px solid currentColor; border-inline-end-color: transparent; border-radius: var(--radius-full);
+  animation: picker-spin var(--ds-motion-cycle-spin) linear infinite, busy-spin-in 0s var(--ds-timing-wait) both;
+}
+@keyframes busy-spin-in { from { width: 0; margin: 0; border-width: 0; } }
+/* A file got on a phone that outlasted the press (GetFile.tsx): it waits here with its own button to share it. */
+.get-file-ready { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-3); margin: var(--ds-space-2) 0 0; }
+.get-file-ready > span { flex: 1 1 100%; overflow-wrap: anywhere; }
+.next-dock .get-file-ready, .next-dock > .alert { grid-column: 1 / -1; }
 
 /*
  * Notifications (ADR 0058). The bell sits top right before dark and light, its count the accent: things waiting for

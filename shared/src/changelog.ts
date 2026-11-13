@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.185.3',
+    date: '2026-11-13',
+    title: 'Slow buttons show they are working, and the quote PDF opens the share sheet on a phone',
+    what: "Download the PDF, Get the PDF to send, Mark as sent and Print now show at once that they're working: if it takes more than a second, the button spins and says what it's doing (\"Getting the PDF…\"), and a second press does nothing. Every other button that waits on the server spins the same way. On a phone, the quote's PDF now opens the phone's own share sheet, to print it, save it to Files or send it on, and you stay where you were, rather than the PDF filling the screen with no way back.",
+    prs: [370],
+  },
+  {
     version: '1.185.2',
     date: '2026-11-13',
     title: 'A job starts its crew with Add a role',

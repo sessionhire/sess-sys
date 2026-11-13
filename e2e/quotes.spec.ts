@@ -216,7 +216,18 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(draft).toContainText('opens the email to the client from the operations mailbox')
   // This job is past Quoting, so its Next stays the crew's and the quote's Send is the draft's own, plain (ADR 0166). The PDF
   // to keep is beside it, apart.
-  await expect(draft.getByRole('link', { name: 'Download the PDF' })).toHaveAttribute('href', /\/api\/quotes\/[^/]+\/pdf\?download=1$/)
+  // Getting it is busy at once and, past a second, spins and says so (13 November 2026), then saves the file the server made.
+  await office.route('**/api/quotes/*/pdf?download=1', async (route) => {
+    await new Promise((r) => setTimeout(r, 1_600))
+    await route.continue()
+  })
+  const getPdf = draft.getByRole('button', { name: 'Download the PDF' })
+  const saved = office.waitForEvent('download')
+  await getPdf.click()
+  await expect(draft.getByRole('button', { name: 'Getting the PDF…' })).toHaveAttribute('aria-busy', 'true')
+  expect((await saved).suggestedFilename()).toMatch(/\.pdf$/)
+  await expect(getPdf).not.toHaveAttribute('aria-busy')
+  await office.unroute('**/api/quotes/*/pdf?download=1')
   await draft.getByRole('button', { name: 'Send quote' }).click()
   const compose = draft.getByRole('form', { name: 'Send the quote by email' })
   await expect(compose.getByLabel('To')).toHaveValue('ruairi@example.com')
