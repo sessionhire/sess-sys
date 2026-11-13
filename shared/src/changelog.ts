@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-13',
     title: "The quote's Change terms button, and its quiet buttons, drawn like the rest",
     what: "On a quote, Change under Terms is now an outlined button like Download PDF beside it, with room around its word, rather than red text squeezed into a box. Accepted already, by phone? is a full-size button too, rather than small type.",
-    prs: [0],
+    prs: [381],
   },
   {
     version: '1.192.0',
