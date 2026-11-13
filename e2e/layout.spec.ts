@@ -43,11 +43,11 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   }
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
-  // A one-day call for one person, from the form behind "Add crew" on its job (ADR 0142), then along Crew's row.
+  // A one-day call for one person, from the form behind "Add a role" on its job (ADR 0142), then along Crew's row.
   const ask = await askForCrewOn(office, await jobWithPhase(request, { name: `Layout check ${id}`, start: '2031-06-10' }))
   await ask.getByLabel('Role').fill('Audio tech')
   await ask.getByLabel('Day rate €').fill('260')
-  await ask.getByRole('button', { name: 'Add crew' }).click()
+  await ask.getByRole('button', { name: 'Add role' }).click()
   await asked(office)
   await allCalls(office)
 

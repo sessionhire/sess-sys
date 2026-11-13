@@ -30,7 +30,7 @@ export function Fold({
   opened?: number
   /**
    * Closes it from outside, each time it changes to a new number: a form whose result lands somewhere else on the page, where the
-   * person is taken to see it (Add crew gliding to the new call's card). The focus is left to whoever closed it.
+   * person is taken to see it (Add a role gliding to the new call's card). The focus is left to whoever closed it.
    */
   shut?: number
   /**

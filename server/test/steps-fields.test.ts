@@ -44,7 +44,7 @@ function said(step: StepView): Record<string, unknown> {
     case 'quote':
       return { quoteHidden: h === 'Quote: with the office' || undefined, draft: h === 'A draft is started' || undefined }
     case 'crew': {
-      if (h === 'No crew added yet') return { nothingYet: true }
+      if (h === 'No roles added yet') return { nothingYet: true }
       const m = h.match(/^(\d+) of (\d+) booked(?:, (\d+) to confirm)?$/)
       return { booked: Number(m![1]), needed: Number(m![2]), toConfirm: Number(m![3] ?? 0) }
     }

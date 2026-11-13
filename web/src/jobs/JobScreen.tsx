@@ -398,7 +398,7 @@ function CrewPart({
   onAgain: (callId: string) => void
 }) {
   const stopped = STOPPED.includes(job.status)
-  // How many calls Add crew has added: each closes its form (Fold's shut).
+  // How many roles Add a role has added: each closes its form (Fold's shut).
   const [added, setAdded] = useState(0)
   // Going again, with calls cancelled along with it last time it stopped (ADR 0164): asked for again from here.
   const today = useToday()
@@ -477,21 +477,21 @@ function CrewPart({
       )}
       {/* Asking for more: last, under the calls it adds to; nothing for a role that can't ask, once there are calls to see. */}
       {(mayCrew || job.calls.length === 0) && (
-        <section className="card" aria-label={job.calls.length ? 'More crew' : 'Crew'}>
-          <Heading icon="add">{job.calls.length ? 'More crew' : 'Crew'}</Heading>
+        <section className="card" aria-label={job.calls.length ? 'More roles' : 'Crew'}>
+          <Heading icon="add">{job.calls.length ? 'More roles' : 'Crew'}</Heading>
           {stopped ? (
             <p className="empty">This job is {job.status === 'lost' ? 'lost' : 'cancelled'}, so it needs no crew.</p>
           ) : job.calls.length === 0 && !mayCrew ? (
-            <p className="empty">No crew added yet.</p>
+            <p className="empty">No roles added yet.</p>
           ) : !job.span ? (
-            <p className="empty">Add a phase first: crew are added by phase and day.</p>
+            <p className="empty">Add a phase first: roles are added by phase and day.</p>
           ) : (
             <>
               {/* The quote's crew are the calls cancelled with the job while those can be asked for again (ADR 0164). */}
               {!again && <CrewFromQuote job={job} view={view} />}
-              {job.calls.length === 0 && <p className="hint">No crew added yet.</p>}
+              {job.calls.length === 0 && <p className="hint">No roles yet. Add the roles this job needs first; then offer each one to people from its card.</p>}
               {/* Added, the form closes and the page glides to the new call's card, where Offer… is (13 November 2026). */}
-              <Fold label="Add crew" shut={added}>
+              <Fold label="Add a role" shut={added}>
                 <AskForCrew
                   job={job}
                   onAdded={(callId) => {
@@ -1211,7 +1211,7 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
   const replyBy = f.replyBy ?? (start ? (suggestedReplyBy(start, end < start ? start : end, today) ?? '') : '')
   const { run, error, refuse } = useAct()
 
-  if (!job.span) return <p className="empty">Add a phase first: crew are added by phase and day.</p>
+  if (!job.span) return <p className="empty">Add a phase first: roles are added by phase and day.</p>
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
@@ -1219,7 +1219,7 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
     refuse('')
     // Each said on its field, never a press that does nothing (spaces alone get past the browser's own check).
     if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
-    if (!start) return refuse('Add a phase first: crew are added by phase and day.')
+    if (!start) return refuse('Add a phase first: roles are added by phase and day.')
     const rate = parseEuro(f.rate)
     if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
     // Ready for the next call; a refusal brings what was typed back, unless the next thing has been typed since.
@@ -1265,7 +1265,7 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
     })
   }
   return (
-    <form className="grid-form" onSubmit={submit} aria-label="Add crew">
+    <form className="grid-form" onSubmit={submit} aria-label="Add a role">
       <label className="wide">
         For
         <select
@@ -1345,7 +1345,7 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
       <Refusal error={error} className="wide" />
       {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
       <button type="submit" className="wide">
-        Add crew
+        Add role
       </button>
     </form>
   )

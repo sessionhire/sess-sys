@@ -188,12 +188,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
       expect(fields.length, `${hash} has fields`).toBeGreaterThan(0)
       for (const f of fields) expect(contrast(f.border, f.behind), `${hash}: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
     }
-    // A job's page, with Add crew and its reply-by day, behind its button (audit finding 16).
+    // A job's page, with Add a role and its reply-by day, behind its button (audit finding 16).
     await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Jobs' }).click()
     await page.getByRole('link', { name: /Harbour Lights Festival/ }).first().click()
     await page.getByRole('tab', { name: /^Crew/ }).click()
-    await page.getByRole('button', { name: 'Add crew' }).click()
-    await expect(page.getByRole('form', { name: 'Add crew' }).getByLabel('Reply by')).toBeVisible()
+    await page.getByRole('button', { name: 'Add a role' }).click()
+    await expect(page.getByRole('form', { name: 'Add a role' }).getByLabel('Reply by')).toBeVisible()
     for (const f of await fieldBorders(page)) expect(contrast(f.border, f.behind), `a job: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
     expect(await textContrast(page, '.tabs a[aria-current="page"]')).toBeGreaterThanOrEqual(4.5)
     // A call shows its answers once its line is opened (audit finding 16): the load-in stagehands, which Laoise declined.

@@ -152,7 +152,7 @@ person's initials on the same grey for everyone, until there are photos.
   as well: the office's phone and laptop work the same way, and the top bar
   keeps to the screen's name and what's waiting.
 - A screen stays short on a phone ([audit finding 16](audit-2026-09-30.md)):
-  a form waits behind a button that names it ("Add person", "Add crew",
+  a form waits behind a button that names it ("Add person", "Add a role",
   "Add phase", "Add kit", "Add product", "Add place") and opens in place
   with the cursor in its first field and Close under it; a list's add is
   first in it, a plain fold above its search and rows; a long list shows

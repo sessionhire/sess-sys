@@ -33,7 +33,7 @@ test('a call starts on the department its role suggests, and Calls narrows to on
   await ask.getByLabel('Role').fill('LX op')
   await expect(ask.getByLabel('Department')).toHaveValue('LX')
   await expect(ask.getByText("From the role. Change it if the call is another department's.")).toBeVisible()
-  await ask.getByRole('button', { name: 'Add crew' }).click()
+  await ask.getByRole('button', { name: 'Add role' }).click()
   await asked(page)
   await allCalls(page)
 
@@ -70,7 +70,7 @@ test('Home for a department counts the crew its calls still need', async ({ brow
   const soon = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10)
   const ask = await askForCrewOn(page, await jobWithPhase(request, { name: 'Camera Day', start: soon }))
   await ask.getByLabel('Role').fill('Camera op')
-  await ask.getByRole('button', { name: 'Add crew' }).click()
+  await ask.getByRole('button', { name: 'Add role' }).click()
   await asked(page)
 
   await page.goto('/#home')

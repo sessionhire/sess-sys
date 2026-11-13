@@ -548,7 +548,7 @@ export function CrewScreen() {
         >
           <section className="card">
             <Heading icon="calendar">{TIME_GROUPS.coming}</Heading>
-            {upcoming.length === 0 && <Empty>Add crew from a job: open it in Jobs and go to its Crew tab.</Empty>}
+            {upcoming.length === 0 && <Empty>Roles are added on a job: open it in Jobs and go to its Crew tab.</Empty>}
             {/* Narrowed to a department (ADR 0046), the ones calls are in, and "No department" for the calls nobody has given one. */}
             {upcoming.length > 0 && (callDepts.length > 0 || upcoming.some((c) => !departmentOf(c))) && (
               <select className="dept-filter" value={callsFor} onChange={(e) => setCallsFor(e.target.value)} aria-label="Calls for department">
