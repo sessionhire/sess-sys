@@ -13,6 +13,7 @@ const DOCS = [
   ['Build progress', 'docs/progress.md'],
   ['Who uses it, and how', 'docs/personas.md'],
   ['Where things live', 'docs/information-architecture.md'],
+  ['User flows, 13 November 2026: every route through a job', 'docs/user-flows-2026-11-13.md'],
   ['Audit, 12 November 2026: crew offers, from the office to the crew', 'docs/audit-crew-offers-2026-11-12.md'],
   ['Audit, 8 November 2026: the quote flow, as the office fills it in', 'docs/audit-quote-flow-2026-11-08.md'],
   ['UX cohesion sweep, 6 November 2026: one app, one journey, every role', 'docs/ux-sweep-2026-11-06.md'],
