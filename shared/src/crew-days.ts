@@ -82,6 +82,30 @@ export function daysOffPhase(call: { start: string; end: string }, phase: { star
   return eachDay(call.start, call.end).filter((d) => d < phase.start || d > phase.end)
 }
 
+/**
+ * The days of a call across a job's phases that none of them has (ADR 0159 left it open; audit of 12 November 2026, at 2):
+ * a call's days are one run, so one across two phases with a gap between holds the gap too, and nobody on it is invited
+ * for those days, as the calendar has no day for them.
+ */
+export function daysInNoPhase(call: { start: string; end: string }, phases: readonly { start: string; end: string }[]): string[] {
+  return eachDay(call.start, call.end).filter((d) => !phases.some((p) => p.start <= d && d <= p.end))
+}
+
+/**
+ * Said on its card while the days are to come: "The call holds Sat 12 Dec, which no phase of the job has: crew on it are
+ * asked for that day too, with no calendar invite for it. Add a phase for that day, or ask for crew for each phase on its
+ * own." A day between two phases can't be taken out of a call, as its days are one run; one past the job's first or last
+ * phase, left by a phase that moved, can.
+ */
+export function noPhaseLine(off: string[], phases: readonly { start: string; end: string }[], today?: string): string {
+  const one = off.length === 1
+  const first = phases.reduce((m, p) => (p.start < m ? p.start : m), phases[0]?.start ?? '')
+  const last = phases.reduce((m, p) => (p.end > m ? p.end : m), phases[0]?.end ?? '')
+  const between = off.some((d) => first < d && d < last)
+  const way = between ? `Add a phase for ${one ? 'that day' : 'those days'}, or add crew to each phase on its own.` : "Change the call's days or add a phase."
+  return `The call holds ${daysLabel(off, today)}, which no phase of the job has: crew on it are asked for ${one ? 'that day' : 'those days'} too, with no calendar invite for ${one ? 'it' : 'them'}. ${way}`
+}
+
 /** The rule in words, for the forms that keep to it and the refusals: "Show is Sat 12 Dec: crew on it are asked for that day." */
 export function phaseDaysRule(phase: { name: string; start: string; end: string }, today?: string): string {
   const one = phase.start === phase.end

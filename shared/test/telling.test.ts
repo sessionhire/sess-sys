@@ -192,6 +192,17 @@ describe('the message after what the office did', () => {
     expect(tellMessage('phase-moved', aoife, { call: { ...show, start: '2026-10-17', end: '2026-10-18' } }, link).text).toContain('has moved: Sound No.1 is now Sat 17 Oct to Sun 18 Oct, call 12:00.')
   })
 
+  it('tells someone picked to hold the day that they are booked once the client says yes, and the rest that it is going ahead (ADR 0168)', () => {
+    const booked = tellMessage('job-confirmed', aoife, { call: show, picked: true }, link)
+    expect(booked.text.split('\n')[0]).toBe("Hi Aoife, Harbour Lights Festival is confirmed: the client has said yes, so you're booked.")
+    expect(booked.text).toContain(`${link}/sheet/show`)
+    expect(booked).toMatchObject({ subject: 'Booked: Harbour Lights Festival (Show), Sat 10 Oct to Sun 11 Oct, call 12:00', what: 'confirmation' })
+    const going = tellMessage('job-confirmed', aoife, { call: show }, link)
+    expect(going.text.split('\n')[0]).toBe('Hi Aoife, Harbour Lights Festival is going ahead: the client has said yes.')
+    expect(going).toMatchObject({ subject: 'Going ahead: Harbour Lights Festival (Show), Sat 10 Oct to Sun 11 Oct, call 12:00', what: 'update' })
+    expect(`${booked.text} ${going.text}`).not.toMatch(/on hold/i)
+  })
+
   it("says the offer stands at the rate offered when the office can't agree the rate asked for (ADR 0152)", () => {
     const refused = tellMessage('rate-refused', aoife, { call: show, days: ['2026-10-11'], askedRateCents: 38000 }, link)
     expect(refused.text).toBe(

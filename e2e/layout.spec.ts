@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
+import { allCalls, askForCrewOn, asked, jobWithPhase } from './ask.ts'
 import { fillName, pickRecord } from './names.ts'
 
 /**
@@ -42,17 +43,13 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   }
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
-  // A one-day call for one person, from the form behind "Ask for crew", along Crew's row.
-  await office.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^Calls/ }).click()
-  await office.getByRole('button', { name: 'Ask for crew' }).click()
-  const ask = office.locator('form').filter({ has: office.getByRole('button', { name: 'Ask for crew' }) })
-  await ask.getByLabel('Project').fill(`Layout check ${id}`)
+  // A one-day call for one person, from the form behind "Add a role" on its job (ADR 0142), then along Crew's row.
+  const ask = await askForCrewOn(office, await jobWithPhase(request, { name: `Layout check ${id}`, start: '2031-06-10' }))
   await ask.getByLabel('Role').fill('Audio tech')
   await ask.getByLabel('Day rate €').fill('260')
-  await ask.getByLabel('From').fill('2031-06-10')
-  await ask.getByLabel('To', { exact: true }).fill('2031-06-10')
-  await ask.getByRole('button', { name: 'Ask for crew' }).click()
-  await expect(office.getByRole('status')).toHaveText('Up to date')
+  await ask.getByRole('button', { name: 'Add role' }).click()
+  await asked(office)
+  await allCalls(office)
 
   // The call is one line under its job and its day, its state beside it and "Offer…" under that; nothing else of it is open.
   const group = office.locator('.call-group', { hasText: `Layout check ${id}` })

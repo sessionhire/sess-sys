@@ -34,7 +34,6 @@ import {
   STATUS_LABELS,
   type ProjectKind,
   STOPPED,
-  STOPPED_WORDS,
   spanLabel,
   suggestedReplyBy,
   venueLabel,
@@ -48,15 +47,15 @@ import {
   type PhaseView,
   type ProjectStatus,
   type View,
-  jobEndingWords,
-  whatsappFollowsTell,
   stoppedCrew,
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { refuseField } from '../required.ts'
 import { NeedsField } from '../crew/Certificates.tsx'
+import { RoleField } from '../crew/RoleField.tsx'
 import { CallCard, peopleOn, promptFor, SharePanelFor, type Made, type Share } from '../crew/CrewScreen.tsx'
+import { TellHere } from '../crew/Messages.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold } from '../Fold.tsx'
 import { Pending } from '../StatusPill.tsx'
@@ -76,12 +75,15 @@ import { NextDock, type Landing } from './NextDock.tsx'
 import { JobAssignee } from './JobAssignee.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { askForCrewAgain, type CrewAgain } from './crewAgain.ts'
+import { confirmQuestion, crewOnJob, holdingTheDay, stopQuestion } from './jobStatus.ts'
 import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { StepsCard } from './Steps.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { Heading } from '../Icon.tsx'
 import { useMyDepartment } from '../Narrowed.tsx'
 import { glideTo } from '../glide.ts'
+import { landOnCall } from '../crew/landOnCall.ts'
+import { showToast } from '../notices.ts'
 import { landOn } from '../places.ts'
 import { JOBS } from '../Up.tsx'
 
@@ -144,6 +146,14 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   // with the task's own part as the tab under it, so what the task is about is the next thing down (UX sweep, 6 November 2026, move 8).
   const [task, setTask] = useState<JobStep | undefined>(askedTask)
   useEffect(() => setTask(askedTask), [id, askedTask])
+  // When Next's Confirm the job last opened the Confirmed task with its question asked (ADR 0168); opening a task another way
+  // opens it as it is.
+  const [confirmAsked, setConfirmAsked] = useState<number>()
+  useEffect(() => setConfirmAsked(undefined), [id])
+  const openTask = (t: JobStep | undefined) => {
+    setTask(t)
+    setConfirmAsked(undefined)
+  }
   const stepPart = askedTask ? view.steps.of(id)?.steps.find((s) => s.key === askedTask)?.part : undefined
   // With nothing named, the job opens on the part its next task is in (ADR 0140, part 8): the quote while it's being sold, the
   // crew or kit while it's planned, the kit while it goes out and comes back, the phases while it's on. A job with no task left
@@ -262,7 +272,20 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           <JobLines job={job} view={view} />
         </>
       }
-      actions={<NextDock job={job} view={view} onPart={go} onOpenTask={setTask} onTell={setShare} quoteHere={part === 'quote'} />}
+      actions={
+        <NextDock
+          job={job}
+          view={view}
+          onPart={go}
+          onOpenTask={openTask}
+          onTell={setShare}
+          onConfirm={() => {
+            setTask('confirmed')
+            setConfirmAsked(Date.now())
+          }}
+          quoteHere={part === 'quote'}
+        />
+      }
     >
       <Summary job={job} view={view} onTell={setShare} />
       {telling}
@@ -270,7 +293,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           (Move 9 of the sweep of 6 November 2026). */}
       {!runsJobs && <YouOnThisJob job={job} view={view} />}
       {/* Where the job is: its five stages, the tasks inside each and who each is down to (ADR 0073, ADR 0104). */}
-      <StepsCard job={job} view={view} openTask={task} onOpenTask={setTask} onPart={go} onTell={setShare} />
+      <StepsCard job={job} view={view} openTask={task} onOpenTask={openTask} onPart={go} onTell={setShare} confirmAsked={confirmAsked} />
       {runsJobs && <YouOnThisJob job={job} view={view} />}
 
       {/* The quote's address, typed or kept from before, for a role that doesn't see money: the job opens, saying why there's no
@@ -333,7 +356,12 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
 
         {/* Its quote, built from the kit and crew, for the roles that see money (ADR 0042): the quote itself, worked on here as the
             job's Quoting stage rather than on a page of its own (ADR 0140, part 4). */}
-        {part === 'quote' && seesMoney && <QuotePart job={job} view={view} />}
+        {/* Confirming the job or marking it lost from the quote ends the card it's pressed on, so who was told opens here (ADR 0168). */}
+        {part === 'quote' && seesMoney && (
+          <TellHere.Provider value={setShare}>
+            <QuotePart job={job} view={view} />
+          </TellHere.Provider>
+        )}
       </div>
       {/* Who changed what on this job, without reading the whole company's history (audit, 5 November 2026, finding 51). */}
       <p className="hint page-foot">
@@ -375,6 +403,8 @@ function CrewPart({
   onAgain: (callId: string) => void
 }) {
   const stopped = STOPPED.includes(job.status)
+  // How many roles Add a role has added: each closes its form (Fold's shut).
+  const [added, setAdded] = useState(0)
   // Going again, with calls cancelled along with it last time it stopped (ADR 0164): asked for again from here.
   const today = useToday()
   const again = !stopped && mayCrew ? stoppedCrew(job.calls, today) : undefined
@@ -452,21 +482,28 @@ function CrewPart({
       )}
       {/* Asking for more: last, under the calls it adds to; nothing for a role that can't ask, once there are calls to see. */}
       {(mayCrew || job.calls.length === 0) && (
-        <section className="card" aria-label={job.calls.length ? 'More crew' : 'Crew'}>
-          <Heading icon="add">{job.calls.length ? 'More crew' : 'Crew'}</Heading>
+        <section className="card" aria-label={job.calls.length ? 'More roles' : 'Crew'}>
+          <Heading icon="add">{job.calls.length ? 'More roles' : 'Crew'}</Heading>
           {stopped ? (
             <p className="empty">This job is {job.status === 'lost' ? 'lost' : 'cancelled'}, so it needs no crew.</p>
           ) : job.calls.length === 0 && !mayCrew ? (
-            <p className="empty">No crew asked for yet.</p>
+            <p className="empty">No roles added yet.</p>
           ) : !job.span ? (
-            <p className="empty">Add a phase first: crew are asked for by phase and day.</p>
+            <p className="empty">Add a phase first: roles are added by phase and day.</p>
           ) : (
             <>
               {/* The quote's crew are the calls cancelled with the job while those can be asked for again (ADR 0164). */}
               {!again && <CrewFromQuote job={job} view={view} />}
-              {job.calls.length === 0 && <p className="hint">No crew asked for yet.</p>}
-              <Fold label="Ask for crew">
-                <AskForCrew job={job} />
+              {job.calls.length === 0 && <p className="hint">No roles yet. Add the roles this job needs first; then offer each one to people from its card.</p>}
+              {/* Added, the form closes and the page glides to the new call's card, where Offer… is (13 November 2026). */}
+              <Fold label="Add a role" shut={added}>
+                <AskForCrew
+                  job={job}
+                  onAdded={(callId) => {
+                    setAdded((n) => n + 1)
+                    landOnCall(callId)
+                  }}
+                />
               </Fold>
             </>
           )}
@@ -504,7 +541,7 @@ function CrewAgainCard({ again, onAgain }: { again: CrewAgain; onAgain: (callId:
       <p className="hint">{words.then}</p>
       <Refusal error={error} />
       <button type="button" onClick={ask}>
-        Ask for the same crew again
+        Ask same crew again
       </button>
     </section>
   )
@@ -610,15 +647,19 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
     notes: job.notes,
     officeNotes: job.officeNotes ?? '',
   })
-  // Stopping a job with crew out waits here until the office says so, with the fields held still.
+  // Stopping a job with crew out, or confirming one its crew hold the day for, waits here until the office says so, with the
+  // fields held still.
   const [asking, setAsking] = useState(false)
   const { run, error } = useAct()
   const reach = useReach()
+  const today = useToday()
   const stopping = STOPPED.includes(f.status) && !STOPPED.includes(job.status)
   // Everyone offered or booked on the job's open calls: told it's off once it's stopped.
-  const people = job.calls.filter((c) => c.status === 'open').flatMap((c) => peopleOn(c))
-  // What their link says once it's stopped, in its own words (UX sweep, 6 November 2026, move 6).
-  const theySee = f.status === 'lost' ? STOPPED_WORDS.lost : STOPPED_WORDS.cancelled
+  const people = crewOnJob(job)
+  // Confirmed with crew asked to hold the day: they hear it's going ahead, and those picked are booked (ADR 0168).
+  const confirming = f.status === 'confirmed' && job.status !== 'confirmed'
+  const holding = confirming ? holdingTheDay(job, today) : []
+  const confirmAsk = confirmQuestion(reach, job, holding)
   const send = () => {
     setAsking(false)
     void run(async () => {
@@ -637,12 +678,13 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
       if (!ok) return
       onDone()
       if (stopping) onTell(promptFor('job-stopped', people))
+      else if (confirming) onTell(promptFor('job-confirmed', holding))
     })
   }
   const save = (e: FormEvent) => {
     e.preventDefault()
     if (!f.name.trim()) return
-    if (stopping && job.calls.some((c) => c.status === 'open')) return setAsking(true)
+    if ((stopping && job.calls.some((c) => c.status === 'open')) || (confirming && confirmAsk)) return setAsking(true)
     send()
   }
   return (
@@ -696,19 +738,20 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
         Only in the app, for the office: never on the calendar, a call sheet or a message.
       </p>
       <Refusal error={error} className="wide" />
-      {asking ? (
+      {asking && stopping ? (
         <Confirm
           className="wide"
           // With the email Google sends those who hold an invite (ADR 0149).
-          question={`Marking ${job.name} ${STATUS_LABELS[f.status].toLowerCase()} also cancels its crew calls${
-            people.length ? `: ${people.length === 1 ? '1 person' : `${people.length} people`} offered or booked will see ${theySee}` : ''
-          }.${jobEndingWords(reach, people.map((t) => ({ personId: t.person.id, offerId: t.context.offerId, email: t.person.email, whatsapp: whatsappFollowsTell(reach, t) })))}`}
+          question={stopQuestion(reach, job, f.status === 'lost' ? 'lost' : 'cancelled', people)}
           yes={`Mark it ${STATUS_LABELS[f.status].toLowerCase()}`}
           loss
           no="Keep it as it is"
           onYes={send}
           onNo={() => setAsking(false)}
         />
+      ) : asking && confirmAsk ? (
+        // What confirming sends those asked to hold the day, said first (ADR 0168): HOLD comes off their days, and WhatsApp tells them.
+        <Confirm className="wide" question={confirmAsk} yes="Confirm job" no="Keep it as it is" onYes={send} onNo={() => setAsking(false)} />
       ) : (
         <div className="actions wide">
           {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
@@ -748,7 +791,7 @@ function CalendarLine({ job, phase, on, today }: { job: JobView; phase: PhaseVie
     case 'waiting':
       return (
         <p className="cal">
-          Goes on the calendar as {titlesLine(job.name, phase)} once the job is confirmed, or marked HOLD as soon as crew are asked for it.
+          Goes on the calendar as {titlesLine(job.name, phase)} once the job is confirmed, or marked HOLD as soon as crew are added to it.
         </p>
       )
     case 'stopped':
@@ -1127,20 +1170,20 @@ function CrewFromQuote({ job, view }: { job: JobView; view: View }) {
   return (
     <div className="kit-from-quote" role="group" aria-label="Crew on the quote">
       <p>
-        {job.calls.length ? 'On the quote but not asked for yet: ' : 'The quote has crew to ask for: '}
+        {job.calls.length ? 'On the quote but not added yet: ' : 'The quote has crew to add: '}
         {toMake.map((c) => `${c.needed} × ${c.role}`).join(', ')}.
       </p>
       <Refusal error={error} />
       <button type="button" className="secondary" onClick={() => void run(make)}>
-        {toMake.length === 1 ? 'Make the call' : `Make all ${toMake.length} calls`}
+        {toMake.length === 1 ? 'Make call' : `Make ${toMake.length} calls`}
       </button>
       <p className="hint">For {only ? only.name : "the job's days"}, with nobody offered yet. Change the days, time or rate on each after.</p>
     </div>
   )
 }
 
-/** A role the job needs, for one phase or across several. */
-function AskForCrew({ job }: { job: JobView }) {
+/** A role the job needs, for one phase or across several: a crew call added to the job, offered to people later from its card. */
+function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) => void }) {
   // The reply-by day is suggested from the first day until the office types or clears it (audit finding 21).
   const blank = {
     phaseId: undefined as string | undefined,
@@ -1175,10 +1218,9 @@ function AskForCrew({ job }: { job: JobView }) {
   const pct = reducedDayPct(view.money.quoting)
   const typedRate = parseEuro(f.rate)
   const replyBy = f.replyBy ?? (start ? (suggestedReplyBy(start, end < start ? start : end, today) ?? '') : '')
-  const [asked, setAsked] = useState('')
   const { run, error, refuse } = useAct()
 
-  if (!job.span) return <p className="empty">Add a phase first: crew are asked for by phase and day.</p>
+  if (!job.span) return <p className="empty">Add a phase first: roles are added by phase and day.</p>
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
@@ -1186,26 +1228,29 @@ function AskForCrew({ job }: { job: JobView }) {
     refuse('')
     // Each said on its field, never a press that does nothing (spaces alone get past the browser's own check).
     if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
-    if (!start) return refuse('Add a phase first: crew are asked for by phase and day.')
+    if (!start) return refuse('Add a phase first: roles are added by phase and day.')
     const rate = parseEuro(f.rate)
     if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
     // Ready for the next call; a refusal brings what was typed back, unless the next thing has been typed since.
     const cleared = { ...blank, phaseId: f.phaseId }
     setF(cleared)
     setDates(undefined)
+    const id = newId()
+    const needed = Math.max(1, f.needed)
+    const role = f.role.trim()
     void run(() =>
       client.mutate('call.create', {
-        id: newId(),
+        id,
         projectId: job.id,
         phaseId: phase?.id ?? null,
         project: job.name,
         phase: phase?.name ?? f.across.trim(),
         venue: venue ? venueLabel(venue) : '',
-        role: f.role.trim(),
+        role,
         start,
         end: end < start ? start : end,
         callTime: f.callTime || null,
-        needed: Math.max(1, f.needed),
+        needed,
         // A role that doesn't read rates leaves it to the office (ADR 0046).
         dayRateCents: seesRates ? (reduced && rate.cents != null ? shareOf(rate.cents, pct) : rate.cents) : null,
         details: f.details.trim(),
@@ -1214,14 +1259,22 @@ function AskForCrew({ job }: { job: JobView }) {
         department: f.department === undefined ? suggested : f.department,
       })
     ).then((ok) => {
-      // Said where it was asked: the new call lands above, out of sight on a phone, and a second press would make a second call.
-      if (ok) return setAsked(`Asked for ${Math.max(1, f.needed)} × ${f.role.trim()} on ${phase?.name ?? (f.across.trim() || job.name)}, ${spanLabel({ start, end: end < start ? start : end })}. Send offers from its card above.`)
+      // Said where the person is looking: the new call lands above, out of sight on a phone, so the page goes to it and a pop-up at
+      // the bottom edge says what was added. Nobody has been asked anything yet: that is Offer…, on the card (13 November 2026).
+      if (ok) {
+        showToast({
+          id: `added-${id}`,
+          title: `Added ${needed} × ${role}`,
+          body: `${phase?.name ?? (f.across.trim() || job.name)}, ${spanLabel({ start, end: end < start ? start : end })}. Nobody offered it yet: Offer… is on its card.`,
+        })
+        return onAdded(id)
+      }
       setF((now) => (now === cleared ? f : now))
       setDates((now) => now ?? dates)
     })
   }
   return (
-    <form className="grid-form" onSubmit={submit} aria-label="Ask for crew">
+    <form className="grid-form" onSubmit={submit} aria-label="Add a role">
       <label className="wide">
         For
         <select
@@ -1245,9 +1298,7 @@ function AskForCrew({ job }: { job: JobView }) {
           Which phases <input value={f.across} onChange={(e) => setF({ ...f, across: e.target.value })} placeholder="e.g. Build and Show" />
         </label>
       )}
-      <label>
-        Role <input name="role" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} placeholder="Audio tech" required />
-      </label>
+      <RoleField value={f.role} onChange={(role) => setF((now) => ({ ...now, role }))} placeholder="Audio tech" />
       <label>
         How many <input type="number" min={1} value={f.needed} onChange={(e) => setF({ ...f, needed: Number(e.target.value) })} />
       </label>
@@ -1306,14 +1357,9 @@ function AskForCrew({ job }: { job: JobView }) {
       </label>
       <NeedsField value={f.needs} onChange={(needs) => setF({ ...f, needs })} />
       <Refusal error={error} className="wide" />
-      {asked && !error && (
-        <p className="added wide" role="status">
-          {asked}
-        </p>
-      )}
       {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
       <button type="submit" className="wide">
-        Ask for crew
+        Add role
       </button>
     </form>
   )

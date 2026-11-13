@@ -3,6 +3,7 @@ import { enterPasscode, signInProblem, signInUrl, useAuth } from './auth.ts'
 import { inApp, signInFromApp } from './native.ts'
 import { client } from './sync.ts'
 import { ThemeButton } from './ThemeButton.tsx'
+import { Mark } from './Mark.tsx'
 
 const PROBLEMS = {
   denied: "That Google account isn't set up for Session Hire. Use your sessionhire.com account, or ask the office to add you.",
@@ -35,9 +36,9 @@ export function SignIn() {
     <div className="app signin">
       <header className="top">
         <div className="brand">
-          <span className="mark">SH</span>
+          <Mark />
           <span>
-            <b>Session Hire</b>
+            <b><span className="sr-only">Session Hire</span></b>
             <small className="where">Staff sign-in</small>
           </span>
         </div>

@@ -252,7 +252,7 @@ function Entry({ entry: e, day, inRun }: { entry: HistoryEntry; day: string; inR
         <p className="meta">Made offline; it reached the server {waitLabel(e.waitedSeconds)} later.</p>
       )}
       {e.outcome === 'turned-down' && <p className="alert">Turned down: {e.reason}</p>}
-      {e.command === 'quote.delete' && e.outcome === 'done' && <PutBack entry={e} />}
+      {(e.command === 'quote.delete' || e.command === 'quote.drop') && e.outcome === 'done' && <PutBack entry={e} />}
     </li>
   )
 }

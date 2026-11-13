@@ -14,6 +14,7 @@ import { useTopBar } from '../useUnderTop.ts'
 import { Icon } from '../Icon.tsx'
 import { askToAdd, askToAddOn } from '../pageAdd.ts'
 import { useAccess } from '../role.ts'
+import { Mark } from '../Mark.tsx'
 
 /** A list page's add, on its title's line (pageAdd.ts): the list's name, and what the button says ("New job"). */
 export interface PageAdd {
@@ -122,10 +123,17 @@ export function Top({
     <>
       <header className="top" ref={bar}>
         <div className="brand">
-          <span className="mark">SH</span>
+          {/* The company's mark goes Home from every screen, as an app's logo does (ADR 0122): the whole block is the target.
+              The logo says the name, so it isn't written again, and the page's own name has the room (ADR 0170). */}
+          {seenAs ? (
+            <Mark />
+          ) : (
+            <a className="home-link" href="#home" aria-label="Session Hire: Home">
+              <Mark />
+            </a>
+          )}
           <span>
-            {/* The company's mark and name go Home from every screen, as an app's logo does (ADR 0122): the whole block is the target. */}
-            <b>{seenAs ? 'Session Hire' : <a className="home-link" href="#home" aria-label="Session Hire: Home">Session Hire</a>}</b>
+            {seenAs && <b className="sr-only">Session Hire</b>}
             {seenAs ? (
               <small className="seen-as">
                 Seeing it as{' '}

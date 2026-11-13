@@ -98,6 +98,8 @@ async function main() {
   void app.fuelUpdates.start()
   app.assistantTodo.start()
   app.assistantMailbox.start()
+  // Each quote's email watched for a week for a bounce, a delay or a reply (ADR 0172), while the mailbox is connected.
+  app.quoteWatch.start()
   // Offers on WhatsApp (ADR 0125): anything queued while the server was away goes now, and a look each minute after.
   app.whatsappSender.start()
   // Offers still waiting to be undone as the server went down (ADR 0162): what they held goes as each wait ends.

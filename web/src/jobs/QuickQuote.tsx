@@ -162,7 +162,7 @@ export function QuickQuote({ view, at, onClose }: { view: View; at: QuickAt; onC
             More options
           </a>
           <button type="submit" className="primary">
-            Start the quote
+            Start quote
           </button>
         </div>
       </form>

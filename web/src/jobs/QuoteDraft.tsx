@@ -59,6 +59,7 @@ import { ProductPicker } from '../ProductPicker.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useLate } from '../useLate.ts'
+import { GetFile } from '../GetFile.tsx'
 import { useToday } from '../view.ts'
 import { glideTo } from '../glide.ts'
 import { useUnderTop } from '../useUnderTop.ts'
@@ -70,8 +71,11 @@ import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.t
 import { matchKitToQuote } from './Kit.tsx'
 import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
 import { Totals } from './QuoteSheet.tsx'
+import { Amending } from './QuoteRecords.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
-import { useQuotesByEmail } from '../MailboxCard.tsx'
+import { setDraftSend, takeAskToSend } from './quoteSend.ts'
+import { serverUrl } from '../server.ts'
+import { useQuotesByEmailKnown } from '../MailboxCard.tsx'
 import { PackageEditor, type PackageStart } from './Packages.tsx'
 import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
 
@@ -170,7 +174,7 @@ const PACKAGE_PICK = 'package:'
 type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
 const TERM_KEYS: readonly TermKey[] = ['agreed', 'km', 'discount', 'validFor', 'deposit']
 
-export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: View; job: JobView; onPrint: () => void; /** The job's Next holds the page's red (ADR 0140, part 4). */ plain?: boolean }) {
+export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view: View; job: JobView; onPrint: () => void; printing?: boolean }) {
   const today = useToday()
   const m = view.money
   const under = useUnderTop<HTMLFormElement>(true)
@@ -204,7 +208,8 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
   // and so is anything else on the list of what to look at before it goes (research/quoting.md, feature 3).
   const [free, setFree] = useState<'mark' | 'email' | 'accept'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
-  const canEmail = useQuotesByEmail(m)
+  const emailKnown = useQuotesByEmailKnown(m)
+  const canEmail = emailKnown ?? false
   const [sending, setSending] = useState<'email' | 'other'>()
   // One row is open to change at a time, a line's or a worked-out one's; the rest read as a list, as they'll print.
   const [open, setOpen] = useState<string>()
@@ -464,7 +469,17 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
   useEffect(() => () => flush(), [])
   // With email off, sending is getting the numbered PDF (audit of the quote flow, 8 November 2026, finding 14): one press
   // marks it sent, which gives it its number, and opens it to print or save, so it's never marked sent with nothing to send.
-  const markAndPrint = () => void run(() => markSent(q.id, job, sentOn || today)).then((ok) => ok && !canEmail && onPrint())
+  // Busy while it's marked (Colly, 13 November 2026: a press with nothing moving reads as one that didn't land), so a second
+  // press doesn't mark it twice, and past a second it spins and says what is working, here and in Next.
+  const [marking, setMarking] = useState(false)
+  const markLate = useLate(marking)
+  const markAndPrint = () => {
+    if (marking) return
+    setMarking(true)
+    void run(() => markSent(q.id, job, sentOn || today))
+      .then((ok) => ok && !canEmail && onPrint())
+      .finally(() => setMarking(false))
+  }
   // Accepted by phone gets the same last look as sending (finding 18): it's the quote that becomes the invoice.
   const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: sentOn || today }))
   const late = useLate(!!payload)
@@ -718,8 +733,39 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
       send()
     } else if (sendSaved && (error || problem)) setSendSaved(false)
   }, [sendSaved, saved, error, problem])
-  const sendWord = canEmail ? 'Send to the client' : 'Get the PDF to send'
+  const sendWord = canEmail ? 'Send quote' : 'Generate PDF'
   const unfinished = parsed.filter((c) => !c.line).length
+  // The job's Next is this Send (ADR 0166): it says what a press does, or what stops it, and does the same as the strip's button.
+  const pressSend = () => {
+    if (problem) return goToProblem()
+    if (marking) return
+    if (saved) return send()
+    flush()
+    setSendSaved(true)
+  }
+  const sendLabel = problem
+    ? termKey
+      ? 'Send: a term to put right'
+      : `Send: ${plural(unfinished, 'line')} to finish`
+    : sendSaved
+      ? 'Saving…'
+      : markLate
+        ? canEmail
+          ? 'Marking it sent…'
+          : 'Getting PDF…'
+        : sendWord
+  const composing = saved && q.lines.length > 0 && sending === 'email'
+  const pressRef = useRef(pressSend)
+  pressRef.current = pressSend
+  useEffect(() => {
+    setDraftSend(job.id, lines.length > 0 ? { label: sendLabel, ready: !problem, composing, busy: marking, press: () => pressRef.current() } : undefined)
+  }, [job.id, lines.length > 0, sendLabel, !problem, composing, marking])
+  useEffect(() => () => setDraftSend(job.id, undefined), [job.id])
+  // Next pressed on another tab opened this one to send: it sends as it opens, as a press here would, once the server has said
+  // whether quotes go by email, so it never marks one sent while the email it was pressed for is still being asked about.
+  useEffect(() => {
+    if (emailKnown !== undefined && takeAskToSend(job.id) && lines.length > 0) pressRef.current()
+  }, [emailKnown !== undefined])
   // One line, shut or open to change. A package's line (ADR 0116) comes to its own price and its kit's, and kit in a package
   // priced as a whole is included in it.
   const row = (l: LineDraft, under: readonly LineDraft[] = []) => {
@@ -790,6 +836,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
           <h2>Version {q.version}</h2>
           <QuotePill q={q} />
         </header>
+        <Amending q={q} versions={view.money.quotesOf(job.id)} />
         {/* What it comes to, in view while the lines are changed below, with what needs a look: each a way to the first such line. */}
         <div className="quote-summary" role="group" aria-label="What it comes to">
           <div className="figures">
@@ -830,22 +877,14 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
               )}
             </span>
             {lines.length > 0 &&
+              // Plain: the job's Next is the same press and holds the page's one red (ADR 0166), docked over the bar on a phone.
               (problem ? (
                 <button type="button" className="send-now" onClick={goToProblem}>
-                  {termKey ? 'Send: a term to put right' : `Send: ${plural(unfinished, 'line')} to finish`}
+                  {sendLabel}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className={plain ? 'send-now' : 'primary send-now'}
-                  disabled={sendSaved}
-                  onClick={() => {
-                    if (saved) return send()
-                    flush()
-                    setSendSaved(true)
-                  }}
-                >
-                  {sendSaved ? 'Saving…' : sendWord}
+                <button type="button" className="send-now" disabled={sendSaved} aria-busy={marking || undefined} onClick={pressSend}>
+                  {sendLabel}
                 </button>
               ))}
             </span>
@@ -1032,7 +1071,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
                 </button>
                 {lines.some((l) => l.kind === 'kit' && l.modelId) && (
                   <button type="button" className="link" onClick={() => setAdding('save-package')}>
-                    Save the kit as a package
+                    Save kit as package
                   </button>
                 )}
                 </>
@@ -1077,7 +1116,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
             </div>
           ) : (
             <button type="button" className="link quiet" onClick={() => setKitDaysOpen(true)}>
-              Charge all kit for the same days…
+              Same days for all kit…
             </button>
           ))}
       </section>
@@ -1206,7 +1245,7 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
         )}
         {!termKey && (
           <button type="button" className="link quiet" aria-expanded onClick={() => setTermsOpen(false)}>
-            Done with the terms
+            Close terms
           </button>
         )}
         </>
@@ -1242,8 +1281,8 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
                   <input type="date" value={sentOn} max={irishToday()} onChange={(e) => setSentOn(e.target.value)} />
                 </label>
                 {canEmail && (
-                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())}>
-                    Mark as sent
+                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())} aria-busy={marking || undefined}>
+                    {markLate ? 'Marking it sent…' : 'Mark as sent'}
                   </button>
                 )}
               </div>
@@ -1290,9 +1329,19 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
               </Confirm>
             )}
             <div className="actions">
-              <button type="button" onClick={onPrint} disabled={!saved}>
+              <button type="button" onClick={onPrint} disabled={!saved} aria-busy={printing || undefined}>
                 Print a draft
               </button>
+              {/* The PDF as it stands, to keep or send yourself, apart from Send (ADR 0166). A draft's says so on it. */}
+              {saved && q.lines.length > 0 && (
+                <GetFile
+                  className="link"
+                  href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)}
+                  name="Quote.pdf"
+                  label="Download PDF"
+                  working="Getting PDF…"
+                />
+              )}
               {saved && q.lines.length > 0 && canEmail && sending !== 'other' && (
                 <button type="button" className="link quiet" onClick={() => setSending('other')}>
                   Sent another way? Mark as sent
@@ -1306,15 +1355,15 @@ export function Draft({ q, view, job, onPrint, plain }: { q: QuoteView; view: Vi
                   </button>
                 ) : (
                   <button type="button" onClick={() => (beforeItGoes.length ? setFree('accept') : accept())}>
-                    Record it as accepted
+                    Mark accepted
                   </button>
                 ))}
             </div>
             {saved && q.lines.length > 0 && (
               <p className="hint">
                 {canEmail
-                  ? `Sent to the client, it goes by email from the operations mailbox with the quote as a PDF, becomes quote ${nextNumber}, and stays as it is.`
-                  : `${sendWord}, at the top, marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
+                  ? `Send quote, in Next, opens the email to the client from the operations mailbox with the quote attached as a PDF. Once it goes, it becomes quote ${nextNumber} and stays as it is.`
+                  : `${sendWord}, in Next, marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
               </p>
             )}
           </>

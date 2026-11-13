@@ -82,7 +82,7 @@ export function TodoCard({ view }: { view: View }) {
       )}
       <div className="actions">
         <button type="button" className="secondary" onClick={() => void write()} disabled={busy}>
-          {late ? 'Writing…' : list ? 'Write it again now' : 'Write it now'}
+          {late ? 'Writing…' : list ? 'Write again' : 'Write now'}
         </button>
         <span className="hint" aria-live="polite">
           {busy && late ? 'Claude is reading the season. This can take up to a minute.' : ''}

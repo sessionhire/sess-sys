@@ -40,6 +40,7 @@ export function NameField<T extends Named>({
   maxLength = 200,
   className,
   autoFocus,
+  name,
 }: {
   label: string
   /** Says "(optional)" after the label, as the form's other optional fields do. */
@@ -62,6 +63,8 @@ export function NameField<T extends Named>({
   maxLength?: number
   className?: string
   autoFocus?: boolean
+  /** The field's name, for a form's check to find it. */
+  name?: string
 }) {
   const [open, setOpen] = useState(false)
   const [moved, setMoved] = useState<number | null>(null)
@@ -145,6 +148,7 @@ export function NameField<T extends Named>({
       <div className="skills-anchor">
         <input
           role="combobox"
+          name={name}
           aria-labelledby={`${id}-label`}
           aria-autocomplete="list"
           aria-expanded={shown}

@@ -39,27 +39,32 @@ class Server implements Transport {
   }
 }
 
-/** A job in ten days' time, with a quote in the state given, or none. */
-function job(server: Server, id: string, status: ProjectStatus, quote?: QuoteStatus) {
+/** A job in ten days' time, with a quote in the state given, or none; and a second version as a draft when it's being amended. */
+function job(server: Server, id: string, status: ProjectStatus, quote?: QuoteStatus, amended = false) {
   server.give('project', { id, name: id, clientId: null, venueId: null, status, notes: '' })
   server.give('phase', { id: `${id}-show`, projectId: id, name: 'Show', start: day(10), end: day(10), venueId: null, notes: '' })
-  if (quote)
-    server.give('quote', {
-      id: `${id}-quote`,
-      projectId: id,
-      version: 1,
-      status: quote,
-      lines: [],
-      discountPct: 0,
-      notes: '',
-      madeAt: `${day(-3)}T10:00:00Z`,
-      savedAt: `${day(-3)}T10:00:00Z`,
-      sentOn: quote === 'draft' ? null : day(-2),
-      answeredOn: null,
-      invoicedOn: null,
-      invoiceRef: '',
-      paidOn: null,
-    })
+  if (quote) version(server, id, 1, quote)
+  if (amended) version(server, id, 2, 'draft')
+}
+
+/** One version of the job's quote. */
+function version(server: Server, id: string, version: number, quote: QuoteStatus) {
+  server.give('quote', {
+    id: `${id}-quote${version > 1 ? version : ''}`,
+    projectId: id,
+    version,
+    status: quote,
+    lines: [],
+    discountPct: 0,
+    notes: '',
+    madeAt: `${day(-3)}T10:00:00Z`,
+    savedAt: `${day(-3)}T10:00:00Z`,
+    sentOn: quote === 'draft' ? null : day(-2),
+    answeredOn: null,
+    invoicedOn: null,
+    invoiceRef: '',
+    paidOn: null,
+  })
 }
 
 /** The same company, as a device that's sent money and one that isn't sees it. */
@@ -69,6 +74,8 @@ async function phone(sendsMoney: boolean): Promise<View> {
   job(server, 'bare', 'enquiry')
   job(server, 'quoted', 'quoted', 'sent')
   job(server, 'marked', 'quoted')
+  job(server, 'amended', 'quoted', 'sent', true)
+  job(server, 'amendedAfterYes', 'quoted', 'accepted', true)
   const device = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone', now: () => TODAY }).open()
   await device.sync()
   return device.view()
@@ -94,6 +101,17 @@ describe("a job's quote task", () => {
     expect(office.steps.of('marked')!.current?.key).toBe('quote')
     // A device not sent the quotes can't tell, so it takes the status's word for it.
     expect(quoteTask(await phone(false), 'marked')).toBe('The job is quoted')
+  })
+
+  it('is the task again once the quote is amended, until the client says yes (ADR 0173)', async () => {
+    const office = await phone(true)
+    // Version 2, made from the one the client has: sending it is what's next, so the job opens on it and Next sends it.
+    expect(quoteTask(office, 'amended')).toBe('Version 2 is an amendment, not sent yet')
+    expect(office.steps.of('amended')!.current?.key).toBe('quote')
+    expect(office.steps.of('amended')!.selling).toBe('Version 2 being amended')
+    // Once the client has said yes, a new version doesn't take the job back: the yes is what's next.
+    expect(quoteTask(office, 'amendedAfterYes')).toBe('Sent Sun 18 Oct')
+    expect(office.steps.of('amendedAfterYes')!.current?.key).toBe('confirmed')
   })
 
   it("says it's with the office, never missing, on a device that isn't sent them", async () => {

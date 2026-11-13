@@ -243,6 +243,9 @@ export function reducedDay(phase: string | null | undefined): ReducedDay | undef
 export const DEFAULT_REDUCED_DAY_PCT = 50
 export const reducedDayPct = (s: Pick<QuoteSettings, 'reducedDayPct'> | undefined) => s?.reducedDayPct ?? DEFAULT_REDUCED_DAY_PCT
 
+/** The share of someone's own day rate an offer on a phase is made at (ADR 0174): the travel or warehouse share there, else all of it. */
+export const ownSharePct = (phase: string | null | undefined, s: Pick<QuoteSettings, 'reducedDayPct'> | undefined) => (reducedDay(phase) ? reducedDayPct(s) : 100)
+
 /** So much of a day rate, to the cent. */
 export const shareOf = (cents: number, pct: number) => Math.round((cents * pct) / 100)
 

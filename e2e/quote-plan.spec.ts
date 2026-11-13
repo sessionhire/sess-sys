@@ -45,7 +45,7 @@ test("a draft's kit is pencilled on its job for other quotes to see, its days ar
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 
   // Kit and crew are charged for the build and the show, two days, not the eight from the first to the last.
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await office.keyboard.type(`4 SM58 ${id}`)
   await office.keyboard.press('Enter')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
@@ -66,7 +66,7 @@ test("a draft's kit is pencilled on its job for other quotes to see, its days ar
   // A quote for another job on the show's day sees the four pencilled in.
   await ready(office, `#jobs/rival-${id}/quote`)
   const rival = office.getByRole('form', { name: 'Version 1, a draft' })
-  await rival.getByRole('button', { name: 'Add kit' }).click()
+  await rival.getByRole('button', { name: 'Add kit', exact: true }).click()
   await office.keyboard.type(`SM58 ${id}`)
   await expect(rival.getByRole('option', { name: new RegExp(`Shure SM58 ${id}`) })).toContainText('4 pencilled for other quotes')
   await office.keyboard.press('Escape')
@@ -75,7 +75,7 @@ test("a draft's kit is pencilled on its job for other quotes to see, its days ar
   await ready(office, `#jobs/job-${id}/crew`)
   const fromQuote = office.getByRole('group', { name: 'Crew on the quote' })
   await expect(fromQuote).toContainText('2 × Rigger')
-  await fromQuote.getByRole('button', { name: 'Make the call' }).click()
+  await fromQuote.getByRole('button', { name: 'Make call' }).click()
   await expect(fromQuote).toHaveCount(0)
   await expect(office.locator('main')).toContainText('Rigger')
 

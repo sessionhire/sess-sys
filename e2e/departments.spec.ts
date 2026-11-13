@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { MONEY_ENTITY_NAMES } from '../shared/src/quotes.ts'
+import { allCalls, askForCrewOn, asked, jobWithPhase } from './ask.ts'
 
 /**
  * A department on every crew call, and what each role reads (ADR 0046):
@@ -24,21 +25,17 @@ test.afterAll(async ({ request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
-test('a call starts on the department its role suggests, and Calls narrows to one and gives many a department at once', async ({ browser }) => {
+test('a call starts on the department its role suggests, and Calls narrows to one and gives many a department at once', async ({ browser, request }) => {
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
-  await page.goto('/#crew/calls')
-  await expect(page.getByRole('status')).toHaveText('Up to date')
 
-  // Asked for with no department picked: the role's words say LX, and it says where that came from.
-  await page.getByRole('button', { name: 'Ask for crew' }).click()
-  const ask = page.locator('form').filter({ has: page.getByRole('button', { name: 'Ask for crew' }) })
-  await ask.getByLabel('Project').fill('Dept Test Gig')
+  // Asked for on its job (ADR 0142) with no department picked: the role's words say LX, and it says where that came from.
+  const ask = await askForCrewOn(page, await jobWithPhase(request, { name: 'Dept Test Gig', start: '2030-09-01' }))
   await ask.getByLabel('Role').fill('LX op')
-  await ask.getByLabel('From').fill('2030-09-01')
-  await ask.getByLabel('To', { exact: true }).fill('2030-09-01')
   await expect(ask.getByLabel('Department')).toHaveValue('LX')
   await expect(ask.getByText("From the role. Change it if the call is another department's.")).toBeVisible()
-  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  await ask.getByRole('button', { name: 'Add role' }).click()
+  await asked(page)
+  await allCalls(page)
 
   // Narrowed to LX, the new call is there; narrowed to Audio, it isn't.
   const filter = page.getByLabel('Calls for department')
@@ -53,10 +50,10 @@ test('a call starts on the department its role suggests, and Calls narrows to on
   await needed.getByRole('button', { name: /a department…$/ }).click()
   const give = page.getByRole('form', { name: 'Give calls a department' })
   // Never greyed out (UX sweep, move 5): a press says what's missing.
-  await give.getByRole('button', { name: 'Give them the department' }).click()
+  await give.getByRole('button', { name: 'Set department' }).click()
   await expect(give.getByRole('alert')).toHaveText('Tick the calls to give a department first.')
   await give.getByRole('checkbox').first().check()
-  await give.getByRole('button', { name: 'Give them the department' }).click()
+  await give.getByRole('button', { name: 'Set department' }).click()
   await expect(give.getByRole('alert')).toHaveText('Choose the department first.')
   await give.getByLabel('Department').selectOption('Production')
   await give.getByRole('button', { name: /^Give 1 call Production$/ }).click()
@@ -67,20 +64,14 @@ test('a call starts on the department its role suggests, and Calls narrows to on
   await expect(filter.locator('option', { hasText: 'No department' })).toHaveCount(0)
 })
 
-test('Home for a department counts the crew its calls still need', async ({ browser }) => {
+test('Home for a department counts the crew its calls still need', async ({ browser, request }) => {
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
-  await page.goto('/#crew/calls')
-  await expect(page.getByRole('status')).toHaveText('Up to date')
-  // A call for Video, in the fortnight ahead, that nobody has been offered yet.
-  await page.getByRole('button', { name: 'Ask for crew' }).click()
-  const ask = page.locator('form').filter({ has: page.getByRole('button', { name: 'Ask for crew' }) })
+  // A call for Video, in the fortnight ahead, that nobody has been offered yet, asked for on its job (ADR 0142).
   const soon = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10)
-  await ask.getByLabel('Project').fill('Camera Day')
+  const ask = await askForCrewOn(page, await jobWithPhase(request, { name: 'Camera Day', start: soon }))
   await ask.getByLabel('Role').fill('Camera op')
-  await ask.getByLabel('From').fill(soon)
-  await ask.getByLabel('To', { exact: true }).fill(soon)
-  await ask.getByRole('button', { name: 'Ask for crew' }).click()
-  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await ask.getByRole('button', { name: 'Add role' }).click()
+  await asked(page)
 
   await page.goto('/#home')
   await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Department' }).click()

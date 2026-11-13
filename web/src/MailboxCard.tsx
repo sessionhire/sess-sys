@@ -44,9 +44,15 @@ const outcome = (() => {
  * button never leads to an email that can't go.
  */
 export function useQuotesByEmail(money: MoneyView): boolean {
+  return useQuotesByEmailKnown(money) ?? false
+}
+
+/** The same, but `undefined` while the server hasn't said yet: for a press made for the office (Next's Send, ADR 0166), which waits. */
+export function useQuotesByEmailKnown(money: MoneyView): boolean | undefined {
   const on = !!money.quoting.emailQuotes
   const loaded = useAsked(on, 'mailbox', () => getJson<MailboxStatus>('/api/assistant/mailbox'))
-  return on && loaded.state === 'ready' && mailboxSends(loaded.data)
+  if (!on) return false
+  return loaded.state === 'loading' ? undefined : loaded.state === 'ready' && mailboxSends(loaded.data)
 }
 
 const mailboxSends = (m: MailboxStatus) => m.available && m.state === 'on' && !!m.canSend

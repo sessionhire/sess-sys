@@ -1,16 +1,19 @@
 import { dayLabel, irishToday, money, rmsDay, newId, withNewIds, QUOTE_STATUS_LABELS, STOPPED, TURN_DOWN_LABELS, TURN_DOWN_NOTE_LENGTH, TURN_DOWN_REASONS, validUntil, type JobView, type QuoteView, type TurnDownReason } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
+import { promptFor, useTellHere } from '../crew/Messages.tsx'
+import { useReach } from '../crew/reach.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 import { clientWords, getJson, useAsked, type RmsJob } from './rms.ts'
 import { InStep } from './QuoteStatus.tsx'
+import { confirmQuestion, holdingTheDay } from './jobStatus.ts'
 import { pastDay } from './QuoteLine.tsx'
 
 /**
  * Around a quote that's gone (ADR 0042, ADR 0092): its job's past quotes in
- * Current RMS, a new version, and the office's records of the client's
+ * Current RMS, amending it as a new version, and the office's records of the client's
  * answer, the invoice and the payment.
  */
 
@@ -51,22 +54,62 @@ export function InCurrentRms({ jobId }: { jobId: string }) {
   )
 }
 
-/** A copy of a version that's gone, as the next draft. */
+/**
+ * Amend a quote (ADR 0173): a copy of a version that's gone, as the next draft, to change and send again. The one way a new
+ * version is made, from the quote's own card or the client's answer on the Confirmed task; the id it's made with is given back.
+ */
+export async function amendQuote(q: QuoteView): Promise<string> {
+  const id = newId()
+  await client.mutate('quote.save', { id, projectId: q.projectId, lines: withNewIds(q.lines, newId), discountPct: q.discountPct, agreedCents: q.agreedCents ?? null, notes: q.notes })
+  return id
+}
+
+/** The quote's own Amend quote, on a version that's gone. */
 export function NewVersion({ q, onMade }: { q: QuoteView; onMade: (id: string) => void }) {
   const { run, error } = useAct()
   const make = () => {
-    const id = newId()
-    void run(() =>
-      client.mutate('quote.save', { id, projectId: q.projectId, lines: withNewIds(q.lines, newId), discountPct: q.discountPct, agreedCents: q.agreedCents ?? null, notes: q.notes })
-    ).then((ok) => ok && onMade(id))
+    let id = ''
+    void run(async () => {
+      id = await amendQuote(q)
+    }).then((ok) => ok && onMade(id))
   }
   return (
     <>
       <button type="button" onClick={make}>
-        Start a new version
+        Amend quote
       </button>
       <Refusal error={error} />
     </>
+  )
+}
+
+/**
+ * An amendment's line under its heading (ADR 0173): which version the client has, that it stays the quote until this one goes,
+ * and Drop changes, which asks first and takes the draft away, so a slip on Amend quote is put right by the office itself.
+ */
+export function Amending({ q, versions, onDropped }: { q: QuoteView; versions: readonly QuoteView[]; onDropped?: () => void }) {
+  const [asking, setAsking] = useState(false)
+  const { run, error } = useAct()
+  const before = q.status === 'draft' ? versions.find((v) => v.id !== q.id && v.status !== 'draft') : undefined
+  if (!before) return null
+  const drop = () => {
+    setAsking(false)
+    void run(() => client.mutate('quote.drop', { id: q.id })).then((ok) => ok && onDropped?.())
+  }
+  return (
+    <div className="amending">
+      <p className="hint">
+        Amending version {before.version}, which the client has. It stays the quote until this one is sent.
+      </p>
+      {asking ? (
+        <Confirm question={`Drop version ${q.version} and its changes? Version ${before.version} stays as the client has it.`} yes="Drop changes" loss no="Keep amending" onYes={drop} onNo={() => setAsking(false)} />
+      ) : (
+        <button type="button" className="link" onClick={() => setAsking(true)}>
+          Drop changes
+        </button>
+      )}
+      <Refusal error={error} />
+    </div>
   )
 }
 
@@ -104,6 +147,24 @@ export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobVie
   const confirms = !STOPPED.includes(job.status) && job.status !== 'confirmed'
   const primaryIfNext = (record: NextRecord) => (next === record && !quiet ? 'primary' : undefined)
   const go = (fn: () => Promise<unknown>) => void run(fn).then((ok) => ok && setUndo(undefined))
+  // Confirming a job its crew were asked to hold the day for reaches them, so it's asked first and who was told is said after
+  // (ADR 0168), on the job's page, as this card's buttons go with the yes.
+  const reach = useReach()
+  const tell = useTellHere()
+  const holding = confirms ? holdingTheDay(job, today) : []
+  const confirmAsk = confirmQuestion(reach, job, holding)
+  const [askingYes, setAskingYes] = useState(false)
+  const accept = () => {
+    setAskingYes(false)
+    void run(async () => {
+      await client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today })
+      if (confirms) await client.mutate('project.update', { id: job.id, status: 'confirmed' })
+    }).then((ok) => {
+      if (!ok) return
+      setUndo(undefined)
+      if (holding.length) tell?.(promptFor('job-confirmed', holding))
+    })
+  }
   const when = (
     <label>
       On
@@ -153,24 +214,20 @@ export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobVie
         <div className="quote-send">
           {when}
           {/* The client's yes is the moment the job is confirmed (ADR 0140, part 4): one press records it and confirms the job, as the
-              Confirmed task's own Yes does, rather than a second "Confirm the job" to find after it. A job already confirmed, or
+              Confirmed task's own Yes does, rather than a second "Confirm job" to find after it. A job already confirmed, or
               one stopped, just takes the answer. */}
-          <button
-            type="button"
-            className={primaryIfNext('answer')}
-            disabled={confirms && job.pending}
-            onClick={() =>
-              go(async () => {
-                await client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: on || today })
-                if (confirms) await client.mutate('project.update', { id: job.id, status: 'confirmed' })
-              })
-            }
-          >
-            {confirms ? 'Client accepted: confirm the job' : 'Client accepted'}
-          </button>
-          <button type="button" aria-expanded={!!why} onClick={() => setWhy(why ? undefined : { reason: null, note: '' })}>
-            Client turned it down
-          </button>
+          {askingYes && confirmAsk ? (
+            <Confirm question={confirmAsk} yes="Confirm job" no="Keep it as it is" onYes={accept} onNo={() => setAskingYes(false)} />
+          ) : (
+            <>
+              <button type="button" className={primaryIfNext('answer')} disabled={confirms && job.pending} onClick={() => (confirmAsk ? setAskingYes(true) : accept())}>
+                {confirms ? 'Client accepted: confirm job' : 'Client accepted'}
+              </button>
+              <button type="button" aria-expanded={!!why} onClick={() => setWhy(why ? undefined : { reason: null, note: '' })}>
+                Client turned it down
+              </button>
+            </>
+          )}
         </div>
       )}
       {q.status === 'sent' && why && (

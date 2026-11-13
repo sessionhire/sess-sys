@@ -1,4 +1,5 @@
 import {
+  LOGO_SVG,
   ACCEPT_NAME_LENGTH,
   depositCents,
   letterDay,
@@ -138,7 +139,7 @@ export function renderAcceptPage(d: AcceptPage, until: string): string {
   const number = quoteNumberLabel(s.q)
   const where = [s.job.span && spanLabel(s.job.span), s.job.venue && venueLabel(s.job.venue)].filter(Boolean).join(' · ')
   const terms = paymentTermsLine(s.job.client?.paymentTerms)
-  const top = `<header class="top"><span class="mark">SH</span><div><b>Session Hire</b><h1>${h(s.job.name)}</h1><small>${h(number ? `Quote ${number}` : 'Quote')}${
+  const top = `<header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>${h(s.job.name)}</h1><small>${h(number ? `Quote ${number}` : 'Quote')}${
     s.job.client ? ` · for ${h(s.job.client.name)}` : ''
   }</small></div></header>`
   const facts = `<dl class="facts">${where ? `<dt>When and where</dt><dd>${h(where)}</dd>` : ''}${s.q.sentOn ? `<dt>Sent</dt><dd>${letterDay(s.q.sentOn)}</dd>` : ''}${
@@ -168,6 +169,6 @@ export function renderAcceptClosed(office: OfficeDetails | null, known: boolean)
   const said = known
     ? "Quotes can't be accepted online just now. To accept this one, reply to the email it came with, or ring us."
     : "This link doesn't open a quote. It may have been copied wrongly: try the link in the email again, or get in touch."
-  return page('Quote', `<header class="top"><span class="mark">SH</span><div><b>Session Hire</b><h1>Your quote</h1></div></header>
+  return page('Quote', `<header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>Your quote</h1></div></header>
 <p class="flash warn">${said}</p>${officeBlock(office)}`)
 }

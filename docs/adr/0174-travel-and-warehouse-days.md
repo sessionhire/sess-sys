@@ -11,8 +11,8 @@
   that percentage available as a setting in the admin section too?"
 - **Builds on:** [ADR 0086](0086-travel-and-subsistence-on-quotes.md) (travel and
   subsistence on quotes), [ADR 0156](0156-crew-accommodation-on-quotes.md)
-  (accommodation) and the crew's own day rates (ADR 0167, PR "Give crew their
-  own day rates").
+  (accommodation) and the crew's own day rates
+  ([ADR 0167](0167-crew-on-their-own-day-rate.md)).
 
 ## Decision
 
@@ -28,8 +28,10 @@
   typed. Everything that reads a call's rate, the offer, the invite, the
   WhatsApp, the timesheet and the margin, reads the share without knowing why.
 - **Someone with their own day rate** (ADR 0167) is offered the same share of
-  it, so an own rate never beats the halved call at its full value. This is the
-  optional share passed to the offer's rate, added once the own rates are in.
+  it, so an own rate never beats the halved call at its full value:
+  `offerRateFor(callCents, person, pct)`, on the offer as it's sent, when an
+  unanswered offer follows a change of the call's rate, in the message the
+  office copies, and in the note that their rate is above the call's.
 - **On the quote**, a crew line built from a call on such a phase is charged
   the same share of its role's price; with no price for the role, the call's
   rate, already the share, as before. Lines added by hand are as they were.

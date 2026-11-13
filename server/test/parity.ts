@@ -373,6 +373,11 @@ const CASES: Case[] = [
   // Deleting a version (ADR 0135): gone from the device at once, as from the server, once its number or "delete" is typed.
   c('quote.delete', { id: 'q1', typed: ' 1 ' }, { as: 'a sent one, by its number' }),
   c('quote.delete', { id: 'q3', typed: 'Delete' }, { as: 'a draft, by the word', before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' })] }),
+  // Dropping an amendment (ADR 0173): the draft made after one went goes from the device at once, as from the server.
+  c('quote.drop', { id: 'q4' }, {
+    as: 'an amendment',
+    before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' }), m('quote.sent', { id: 'q3', on: today }), m('quote.save', { id: 'q4', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' })],
+  }),
   c('quote.paid', { id: 'q1', on: today }, { before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today }), m('quote.invoiced', { id: 'q1', on: today, ref: 'SH-1042' })] }),
   c('price.product', { modelId: 'xlr', dayCents: 300 }),
   c('price.product', { modelId: 'y10p', dayCents: null }, { as: 'taken off' }),

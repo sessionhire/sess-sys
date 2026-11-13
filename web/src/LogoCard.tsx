@@ -146,7 +146,7 @@ export function LogoCard({ office }: { office: OfficeView }) {
         <div className="actions">
           <label className="button" aria-busy={busy}>
             <Icon name="camera" />
-            {late ? 'Sending…' : src ? 'Change logo' : 'Add the logo'}
+            {late ? 'Sending…' : src ? 'Change logo' : 'Add logo'}
             <input
               ref={picker}
               type="file"

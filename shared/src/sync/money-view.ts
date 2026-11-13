@@ -141,7 +141,7 @@ export interface MoneyView {
   /** Every role with a price, and every role crew have been asked for, by name. */
   roles: { role: string; cents: number | undefined; booked: number | undefined }[]
   /**
-   * The day rate a crew line's crew are booked at (ADR 0089): its crew call's, else the rate anyone's been booked at
+   * The day rate a crew line's crew are booked at (ADR 0089): its crew call's, with those holding a place at their own rate (ADR 0167), else the rate anyone's been booked at
    * for its role; undefined when nobody has.
    */
   bookedRate(jobId: string, line: { ref: string | null; what: string }): number | undefined
@@ -283,6 +283,12 @@ export function moneyView(
         const a = m.args as CommandArgs<'quote.delete'>
         const was = quotes.get(a.id)
         if (was && deleteTyped(was, a.typed)) quotes.delete(a.id)
+        break
+      }
+      // An amendment dropped (ADR 0173): gone at once; the server refuses it for a version that went, or a job's only one.
+      case 'quote.drop': {
+        const a = m.args as CommandArgs<'quote.drop'>
+        if (quotes.get(a.id)?.status === 'draft') quotes.delete(a.id)
         break
       }
       case 'quote.invoiced': {
@@ -534,6 +540,13 @@ export function moneyView(
     sourceOf,
     bookedRate: (jobId, line) => {
       const call = line.ref ? jobs.jobs.find((j) => j.id === jobId)?.calls.find((c) => c.id === line.ref) : undefined
+      // Those holding a place on it at their own rates (ADR 0167), the places still open at the call's: one rate a day across
+      // the call, so a crew line's cost comes to what they'll be paid.
+      const held = call ? call.offers.filter((o) => (o.status === 'accepted' || o.status === 'confirmed') && o.dayRateCents !== null).slice(0, call.needed) : []
+      if (call && held.length && (held.length >= call.needed || call.dayRateCents != null)) {
+        const open = call.needed - held.length
+        return Math.round((held.reduce((n, o) => n + o.dayRateCents!, 0) + open * (call.dayRateCents ?? 0)) / call.needed)
+      }
       if (call?.dayRateCents != null) return call.dayRateCents
       // "Audio tech (Show)": the role, without the phase it's for.
       const role = (w: string) => roleList.get(roleKey(w))?.booked

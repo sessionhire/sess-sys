@@ -105,3 +105,17 @@ export function callsFromQuote(
   }
   return out
 }
+
+/**
+ * What a job's quote charges a day for a crew call's role (ADR 0167): the line built from the call, else one named for its
+ * role, with or without its phase. Undefined when the quote has no such line. It's what the client pays, before any discount.
+ */
+export function quotedRateFor(
+  lines: readonly { kind: string; what: string; unitCents: number; extra?: unknown; ref?: string | null; words?: unknown }[],
+  call: { id: string; role: string; phase?: string }
+): number | undefined {
+  const key = (s: string) => s.trim().toLowerCase()
+  const crew = lines.filter((l) => l.kind === 'crew' && !l.extra && !l.words)
+  const names = [key(call.role), ...(call.phase?.trim() ? [key(`${call.role} (${call.phase})`)] : [])]
+  return (crew.find((l) => l.ref === call.id) ?? crew.find((l) => names.includes(key(l.what))))?.unitCents
+}

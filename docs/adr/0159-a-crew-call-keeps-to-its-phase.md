@@ -13,6 +13,8 @@
   "Move them" or "Keep their dates").
 - **Changes:** ADR 0023's "Keep their dates leaves the calls where they
   were" now holds only while the phase still has their days.
+- **Changed by:** [ADR 0169](0169-what-the-crew-offers-audit-left-at-2.md):
+  a call across phases that holds a day no phase has says so on its card.
 
 ## Context
 

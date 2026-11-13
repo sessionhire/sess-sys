@@ -86,7 +86,8 @@ test("the office answers a yes and a rate on the job's own rows, and saying no t
   await row('aoife').getByRole('button', { name: `Confirm ${label(day)}` }).click()
   await expect(row('aoife')).toContainText(`Confirm ${names.aoife}? ${names.aoife} hasn't answered for ${label(next)}, so confirming books ${label(day)} only.`)
   await row('aoife').getByRole('button', { name: `Confirm ${label(day)}` }).click()
-  await office.getByRole('region', { name: `${names.aoife} is booked: what was sent` }).getByRole('button', { name: 'Done' }).click()
+  // Picked on a job the client hasn't said yes to, she holds the day: the panel says so, not that she's booked (ADR 0168).
+  await office.getByRole('region', { name: `${names.aoife} holds the day: what was sent` }).getByRole('button', { name: 'Done' }).click()
   await expect(row('aoife').getByRole('button', { name: /^Confirm/ })).toHaveCount(0)
   await expect(office.getByRole('status')).toHaveText('Up to date')
 

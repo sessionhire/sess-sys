@@ -284,7 +284,7 @@ export function OrderedCards({
             {canOrder && (
               <button
                 type="button"
-                className="board-grip"
+                className="board-grip icon-button"
                 aria-label={held && !isHeld ? `Put ${name(held.id)} here, in place of ${s.job.name}` : `Move ${s.job.name}`}
                 aria-pressed={isHeld}
                 aria-describedby={held ? undefined : 'board-order-help'}

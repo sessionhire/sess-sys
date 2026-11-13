@@ -1,4 +1,4 @@
-import { firstName, type OfficeDetails } from '@sh/shared'
+import { LOGO_SVG, firstName, type OfficeDetails } from '@sh/shared'
 import { CSS, fieldError, h, invalid, officeBlock } from './page.ts'
 
 /**
@@ -9,7 +9,7 @@ import { CSS, fieldError, h, invalid, officeBlock } from './page.ts'
 
 const head = (title: string, heading: string, small?: string) => `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>${h(title)}</title><style>${CSS}</style></head>
-<body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b><h1>${heading}</h1>${small ? `<small>${small}</small>` : ''}</div></header>`
+<body><main><header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>${heading}</h1>${small ? `<small>${small}</small>` : ''}</div></header>`
 const foot = '</main></body></html>'
 
 /** Where the check stands on this phone. */

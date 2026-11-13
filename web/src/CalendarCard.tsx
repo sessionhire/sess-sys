@@ -301,7 +301,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
     <section className={link.problem ? 'card attention' : 'card'} aria-label="Google Calendar">
       <h2>Google Calendar</h2>
       <p>
-        Confirmed jobs go on <b>{link.calendarName}</b>, written by {link.account}, and jobs not confirmed yet go on as HOLD, short for hold the day, once crew are asked for them.
+        Confirmed jobs go on <b>{link.calendarName}</b>, written by {link.account}, and jobs not confirmed yet go on as HOLD, short for hold the day, once crew are added to them.
       </p>
       {link.problem && (
         <p className="alert" role="alert">
@@ -312,7 +312,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       {question ?? (
         <div className="actions">
           <button type="button" onClick={() => void run(async () => ({ ok: true, text: checked(await post<CalendarCheck>('/api/calendar/check'), onIt) }))} disabled={busy}>
-            {late ? 'Checking…' : 'Check the calendar'}
+            {late ? 'Checking…' : 'Check calendar'}
           </button>
           <button type="button" onClick={() => setPicking(true)} disabled={busy}>
             Change calendar

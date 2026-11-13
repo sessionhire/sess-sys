@@ -18,7 +18,7 @@ test('puts in made-up data, then starts fresh on every phone', async ({ browser,
   await office.goto('/#admin/data')
   const card = office.locator('section.data')
   await expect(card.getByRole('heading', { name: 'Try it with made-up data' })).toBeVisible()
-  await card.getByRole('button', { name: 'Put in made-up data' }).click()
+  await card.getByRole('button', { name: 'Add made-up data' }).click()
   await expect(card.getByRole('status')).toHaveText('Made-up data is in. Have a look round Jobs, Crew and Stock.')
   await expect(card.getByRole('heading', { name: 'Made-up data' })).toBeVisible()
   await expect(office.locator('.brand small')).toHaveText('Admin · made-up data')

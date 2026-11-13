@@ -43,6 +43,19 @@ interface Message {
   payload?: Part
 }
 
+/** One message of a conversation as the quote watcher reads it (ADR 0172): its headers and Gmail's one-line preview, no body. */
+export interface ThreadMessage {
+  id: string
+  labels: string[]
+  at: Date
+  from: string
+  subject: string
+  contentType: string
+  /** The addresses a delivery report says it failed for (X-Failed-Recipients), when it says. */
+  failed: string[]
+  snippet: string
+}
+
 /** Longer than this, an email is cut: the start of an enquiry says what's wanted. */
 const MAIL_LENGTH = 6_000
 
@@ -70,6 +83,29 @@ export class Gmail {
   async thread(token: string, id: string): Promise<Mail[]> {
     const r = await this.get<{ messages?: Message[] }>(token, `/threads/${encodeURIComponent(id)}?format=full`)
     return (r.messages ?? []).map(mailOf)
+  }
+
+  /** A conversation's messages, oldest first, as headers and previews only (ADR 0172). */
+  async threadHeads(token: string, id: string): Promise<ThreadMessage[]> {
+    const q = new URLSearchParams({ format: 'metadata' })
+    for (const h of ['From', 'Subject', 'Content-Type', 'X-Failed-Recipients']) q.append('metadataHeaders', h)
+    const r = await this.get<{ messages?: (Message & { labelIds?: string[]; snippet?: string })[] }>(token, `/threads/${encodeURIComponent(id)}?${q}`)
+    return (r.messages ?? []).map((m) => ({
+      id: m.id,
+      labels: m.labelIds ?? [],
+      at: new Date(Number(m.internalDate ?? 0) || Date.now()),
+      from: header(m.payload, 'from'),
+      subject: header(m.payload, 'subject'),
+      contentType: header(m.payload, 'content-type'),
+      failed: header(m.payload, 'x-failed-recipients').split(',').map((a) => a.trim()).filter(Boolean),
+      snippet: decodeEntities(m.snippet ?? ''),
+    }))
+  }
+
+  /** A message's labels, as Gmail files it: SENT once it's in the account's Sent folder (ADR 0171). */
+  async labels(token: string, id: string): Promise<string[]> {
+    const r = await this.get<{ labelIds?: string[] }>(token, `/messages/${encodeURIComponent(id)}?format=minimal`)
+    return r.labelIds ?? []
   }
 
   /**

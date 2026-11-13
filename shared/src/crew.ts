@@ -38,11 +38,13 @@ export {
   dayLabel,
   daysBetween,
   daysLabel,
+  daysInNoPhase,
   daysOffPhase,
   eachDay,
   euro,
   MOVE_THE_PHASE,
   movedCallSpan,
+  noPhaseLine,
   offerDaysAfter,
   offPhaseLine,
   phaseDaysRule,
@@ -313,6 +315,9 @@ export const OFFER_STATUSES = [
 export type OfferStatus = (typeof OFFER_STATUSES)[number]
 
 /** An offer is also the crew assignment once accepted and confirmed. */
+/** The WhatsApps that follow an offer (ADR 0154), as the server keeps them: going ahead, off, booked, a new call time, not needed. */
+export const WHATSAPP_AFTER = ['confirmed', 'cancelled', 'booked', 'call-time', 'not-needed'] as const
+
 export const offer = z.object({
   id,
   callId: id,
@@ -349,6 +354,14 @@ export const offer = z.object({
    * and why. Set by the server from Meta's receipts; absent when nothing went on WhatsApp.
    */
   whatsapp: z.object({ state: z.enum(['queued', 'sent', 'delivered', 'read', 'failed']), at: z.string(), problem: z.string().nullable() }).optional(),
+  /**
+   * Where the newest WhatsApp that followed the offer has got to (ADR 0154; audit of 12 November 2026, at 2): that they're
+   * booked, the new call time, that they're no longer needed, or that the job is going ahead or off. Set by the server;
+   * absent when none has followed.
+   */
+  whatsappAfter: z
+    .object({ kind: z.enum(WHATSAPP_AFTER), state: z.enum(['queued', 'sent', 'delivered', 'read', 'failed']), at: z.string(), problem: z.string().nullable() })
+    .optional(),
   /**
    * On a job brought in from Google Calendar, an offer with no calendar invite of its own (ADR 0157): `organiser`, it came
    * in with the job, from the guests the organiser invited; `before`, it was made before such jobs had their own. Set by
@@ -402,13 +415,30 @@ export function ratesClosedBy<O extends Pick<Offer, 'id' | 'personId' | 'status'
   offers: readonly O[],
   offerId: string
 ): O[] {
+  return fillsCall(call, offers, offerId) ? offers.filter((o) => o.status === 'countered' && o.id !== offerId) : []
+}
+
+/**
+ * The offers still waiting on an answer that close, filled by someone else, when the office's Confirm or Agree fills the
+ * call (audit of 12 November 2026, the gap ADR 0154 left at 2): the server closes them as the call fills, as it does at a
+ * yes that fills it, so it's said before the press, beside the rates asked for (ratesClosedBy).
+ */
+export function waitingClosedBy<O extends Pick<Offer, 'id' | 'personId' | 'status' | 'days'>>(
+  call: Pick<CrewCall, 'start' | 'end' | 'needed'>,
+  offers: readonly O[],
+  offerId: string
+): O[] {
+  return fillsCall(call, offers, offerId) ? offers.filter((o) => o.status === 'offered' && o.id !== offerId) : []
+}
+
+/** Whether confirming this offer, a yes or a rate asked for, leaves every day of the call with the people it needs, as the server reads it. */
+function fillsCall(call: Pick<CrewCall, 'start' | 'end' | 'needed'>, offers: readonly Pick<Offer, 'id' | 'personId' | 'status' | 'days'>[], offerId: string): boolean {
   const confirming = offers.find((o) => o.id === offerId)
-  if (!confirming || (confirming.status !== 'accepted' && confirming.status !== 'countered')) return []
+  if (!confirming || (confirming.status !== 'accepted' && confirming.status !== 'countered')) return false
   const held: Record<string, Set<string>> = {}
   for (const d of eachDay(call.start, call.end)) held[d] = new Set()
   for (const o of offers) if (HOLDING.includes(o.status) || o.id === offerId) for (const d of o.days) held[d]?.add(o.personId)
-  if (Object.values(held).some((who) => who.size < call.needed)) return []
-  return offers.filter((o) => o.status === 'countered' && o.id !== offerId)
+  return Object.values(held).every((who) => who.size >= call.needed)
 }
 
 /** A field-by-field change must name at least one field; shared with the job and phase changes. */
@@ -610,6 +640,40 @@ export const crewCommandSchemas = {
  */
 type Addressee = Pick<Person, 'name' | 'kind'> & Partial<Pick<Person, 'knownAs'>>
 
+/** A freelancer's own day rate at so many percent of it (ADR 0174), to the cent; null for staff or no own rate. */
+const ownAt = (p: Pick<Person, 'kind' | 'dayRateCents'>, pct: number) => (p.kind === 'freelancer' && p.dayRateCents !== null ? Math.round((p.dayRateCents * pct) / 100) : null)
+
+/**
+ * The day rate an offer is made at (ADR 0167): the call's, or a freelancer's own day rate where it's above it, or where the
+ * call has none. The client is still charged the quote's price, so the difference comes out of the margin. Staff are paid
+ * through payroll, so an own rate never applies to them; and an own rate below the call's never lowers it.
+ *
+ * On a travel or warehouse day (ADR 0174) the call's rate is already its share of the standard rate, so `pct` takes the
+ * same share of the own rate: half of it unless the office says otherwise. 100 everywhere else.
+ */
+export function offerRateFor(callCents: number | null, p: Pick<Person, 'kind' | 'dayRateCents'>, pct = 100): number | null {
+  const own = ownAt(p, pct)
+  if (own === null) return callCents
+  return callCents === null ? own : Math.max(callCents, own)
+}
+
+/**
+ * Whether picking this person costs more than the job allowed for (ADR 0167): their own rate is what they'd be offered and
+ * it's above `allowed`, the call's rate, or what the quote charges for the role when the call has none. Undefined when it
+ * isn't, or nothing is known to compare it with.
+ */
+export function ownRateAbove(
+  callCents: number | null,
+  quotedCents: number | undefined,
+  p: Pick<Person, 'kind' | 'dayRateCents'>,
+  pct = 100
+): { own: number; allowed: number; against: 'call' | 'quote' } | undefined {
+  const own = ownAt(p, pct)
+  if (own === null) return undefined
+  if (callCents !== null) return own > callCents ? { own, allowed: callCents, against: 'call' } : undefined
+  return quotedCents !== undefined && own > quotedCents ? { own, allowed: quotedCents, against: 'quote' } : undefined
+}
+
 /** "€320 a day", or "rate to agree"; a rate this device isn't sent (ADR 0046) is on the person's own page instead. */
 const rateLine = (c: Pick<CrewCall, 'dayRateCents'> & Partial<Pick<CrewCall, 'rateHidden'>>) =>
   c.rateHidden ? 'The rate is on your page' : `${euro(c.dayRateCents)}${c.dayRateCents !== null ? ' a day' : ''}`
@@ -770,6 +834,11 @@ export type TellEvent =
   | 'released'
   /** The job is cancelled or lost, taking its crew calls with it. */
   | 'job-stopped'
+  /**
+   * The client said yes to a job its crew were asked to hold the day for (ADR 0168): those the office picked are booked,
+   * and everyone else asked hears it's going ahead.
+   */
+  | 'job-confirmed'
   /** One crew call cancelled. */
   | 'call-cancelled'
   /** The call's days, time, rate or details changed; the message reads them as they are now. */
@@ -784,6 +853,8 @@ export interface TellContext {
   call: Pick<CrewCall, 'id' | 'project' | 'phase' | 'role' | 'start' | 'end' | 'callTime' | 'venue' | 'dayRateCents'> & Partial<Pick<CrewCall, 'needsCertificates' | 'rateHidden' | 'projectId'>>
   /** The job is one the client hasn't said yes to yet (ADR 0150): the office's pick is a hold on the day, not a booking, and the message says so. */
   hold?: boolean
+  /** For a job confirmed while its crew held the day (ADR 0168): the office had picked them, so they're booked now. */
+  picked?: boolean
   /** For a changed call: the certificates it needed before, so the message says what it needs now, or no longer (ADR 0028). */
   neededBefore?: readonly CertificateKind[]
   /** The person's own days, when they took only some. */
@@ -854,6 +925,24 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
         subject: `No longer needed: ${job}, ${when}`,
         what: 'release',
       }
+    case 'job-confirmed':
+      // Someone the office picked to hold the day is booked now; anyone else asked hears it's going ahead (ADR 0168).
+      return ctx.picked
+        ? {
+            text: lines([
+              `Hi ${first}, ${c.project} is confirmed: the client has said yes, so you're booked.`,
+              `${c.role}, ${when}`,
+              c.venue && `At ${c.venue}`,
+              `Your call sheet, with who's on and who to ring on the day, is here: ${link}/sheet/${c.id}`,
+            ]),
+            subject: `Booked: ${job}, ${when}`,
+            what: 'confirmation',
+          }
+        : {
+            text: lines([`Hi ${first}, ${c.project} is going ahead: the client has said yes.`, `${c.role}, ${when}`, `The details are on your page: ${link}`]),
+            subject: `Going ahead: ${job}, ${when}`,
+            what: 'update',
+          }
     case 'job-stopped':
       return {
         text: lines([

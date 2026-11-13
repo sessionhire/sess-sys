@@ -460,6 +460,21 @@ describe('what happens next, on WhatsApp (ADR 0154)', () => {
     expect(s.meta.sent.length).toBe(before + 1)
   })
 
+  it('shows on the offer where the newest WhatsApp after it got to, through Meta receipts, beside the offer\'s own (the gap ADR 0154 left at 2)', async () => {
+    const s = await onJob()
+    const view = async () => (await s.app.inject({ url: '/api/sync/pull?since=0' })).json().changes.filter((c: { entity: string; id: string }) => c.entity === 'offer' && c.id === s.offers.aoife).at(-1).data
+    expect((await view()).whatsappAfter).toBeUndefined()
+    expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'accept', days: s.days, note: '' })).toMatchObject({ status: 'applied' })
+    const before = s.meta.sent.length
+    expect(await s.send('offer.confirm', { id: s.offers.aoife })).toMatchObject({ status: 'applied' })
+    expect((await view()).whatsappAfter).toMatchObject({ kind: 'booked', state: 'sent', problem: null })
+    // The offer's own message keeps its own state.
+    expect((await view()).whatsapp).toMatchObject({ state: 'sent' })
+    await hook(s.app, { statuses: [{ id: `wamid.${before + 1}`, status: 'read', timestamp: '1700000000', recipient_id: s.AOIFE }] })
+    expect((await view()).whatsappAfter).toMatchObject({ kind: 'booked', state: 'read' })
+    expect((await view()).whatsapp).toMatchObject({ state: 'sent' })
+  })
+
   it('says nothing when someone is picked to hold the day, and that they are booked once the client says yes', async () => {
     const s = await onJob({ status: 'quoted' })
     expect(await s.send('offer.respond', { id: s.offers.aoife, answer: 'accept', days: s.days, note: '' })).toMatchObject({ status: 'applied' })

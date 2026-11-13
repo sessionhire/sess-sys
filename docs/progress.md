@@ -3,6 +3,186 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 13 November 2026: How many typed in place on a pick list; plain buttons you can see the edge of
+
+**Done (1.189.1, #373; design system 0.17.1)**
+
+- Colly, on a phone in dark mode: the plain Count out button's border
+  was hard to see, and Type how many was a red button that opened a box.
+  How many is now a box beside Count out on the same line; leaving it, or
+  Enter, counts that many out (or back), with Undo on the toast. Missing,
+  coming back, takes the number itself.
+- Every plain button now has the same 3:1 edge as a box you type in; the
+  design system's button took the same edge as 0.17.1.
+- Checked: typecheck, shared tests, pick and faults browser tests, phone
+  screenshots in both themes.
+
+## 13 November 2026: tidier buttons, shorter words, second choices as ghost buttons
+
+**Done (1.186.0, #372; design system 0.17.0)**
+
+- Colly: icons at either side of a button, pill or field should have the
+  same space above, below and beside them. Every icon in a control is now
+  18px and sits 13px from each edge of its 44px control; icon-only
+  controls are 44px squares; the combobox end, the search field's Close,
+  select arrows, the busy spinner and Next's pie follow the same rule.
+- A second choice that was underlined words (beside Next, Download PDF,
+  Change, Cancel and the rest) is a ghost button: red words and edge,
+  transparent with a blur behind, in both themes. Inside a sentence or a
+  table cell a press stays underlined words.
+- About 90 button labels cut to a verb and its object ("Get the PDF to
+  send" is "Generate PDF"); the full before/after list is on #372 for
+  Colly to veto any.
+- The rules went back to the design system as 0.17.0 (size.icon-inset,
+  ghost and icon-start/end buttons, a Words rule), merged on Colly's say.
+- Checked: typecheck, shared and server tests, the full browser suite,
+  on-screen measurements of icon spacing in both themes, phone screenshots.
+
+**Waiting:** Colly's veto on any of the new words.
+
+## 13 November 2026: slow presses show they're working; the quote PDF to the phone's share sheet
+
+**Done (1.185.3, #370)**
+
+- Colly, on an iPhone: Download the quote paused with nothing moving,
+  and once the PDF opened in the app on the home screen there was no way
+  back, print or share. Download the PDF (in Next and beside Print a
+  draft) now fetches the file behind a busy press: a second press does
+  nothing, and past a second it spins and says "Getting the PDF…". On a
+  phone the file goes to the phone's share sheet (Print, Save to Files,
+  send on) and the page stays where it was; if Safari won't open the
+  sheet that long after the press, a line says the PDF is ready with a
+  Share, print or save button. A laptop saves it as before.
+- Get the PDF to send, Mark as sent and Print are busy the same way, and
+  every button that waits on the server spins after a second, from one
+  rule in the stylesheet.
+- Checked: typecheck, shared tests, the quote browser tests (one now
+  slows the PDF and checks the busy words and the download), phone
+  screenshots with a slow PDF.
+- Waiting on Colly: the design-system learnings PR (#56).
+
+## 13 November 2026: a job's crew starts with Add a role
+
+**Done (1.185.2)**
+
+- Colly: with no crew on a job the first step is adding the roles it
+  needs; asking people comes after. The Crew tab's empty card says "No
+  roles yet. Add the roles this job needs first; then offer each one to
+  people from its card.", its button is Add a role, the form's own button Add role, and once
+  there are roles the card under them is More roles. Crew's empty list
+  and the job's Crew fact say roles too. Offer… on each role's card is
+  still what reaches people.
+- Checked: typecheck; the browser tests that add a role.
+
+## 13 November 2026: Add crew, and you see the call you added
+
+**Done (1.185.1)**
+
+- On a job's Crew tab the form that adds a crew call is Add crew, its
+  button and its name, as nobody is asked anything at that point: Offer…
+  on the call's card is what reaches people. The words around it follow:
+  "No crew added yet", "crew are added by phase and day", the quote's
+  "On the quote but not added yet", Crew's and the call sheet's empty
+  lines, the job's history ("Added 1 × Audio tech to …") and the role
+  picker's "Most used" with "On 2 calls".
+- Pressed, the form closes and the page glides to the new call's card,
+  outlined where it lands, its line taking the focus; a pop-up at the
+  bottom says what was added and that nobody has been offered it yet. On a
+  phone the card was off the top of the screen and only a grey line under
+  the form changed, so it looked as if nothing happened (Colly).
+- Change the call does the same when it closes, saved or kept as it was:
+  the page goes back to the call's line, not to whatever was under the
+  long form.
+- Checked: typecheck; the browser tests that add a call, with one at phone
+  width that the new card's line is focused and on the screen and the
+  pop-up says what was added, clear of the Next bar.
+
+## 13 November 2026: the role on a crew call is picked from those in use
+
+**Done (1.184.0)**
+
+- The Role on Ask for crew is the combobox the client and venue fields
+  are (the design system's combobox, one value). It offers the roles calls
+  have asked for, the crew list's skills and the price list's roles, each
+  once whatever its case, most asked for first, with how often each was
+  asked for and how many on the crew list have it. A new role is still
+  typed and kept, the last row saying so.
+- The same field is on Change the call and on the price list's Add a role.
+- Checked: typecheck; shared tests of the roles in use; a browser test at
+  phone width of finding a skill, Enter taking it, a call made with it and
+  a new role kept; the browser tests that fill a call's role.
+
+## 12 November 2026: what the audit of crew offers left at 2
+
+**Done (1.183.2)**
+
+- The three problems that the batches of the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md) left at 2 in
+  their heuristic checks
+  ([ADR 0169](adr/0169-what-the-crew-offers-audit-left-at-2.md)).
+- An offer's row says where the newest WhatsApp that followed it got to
+  ("A WhatsApp saying they're booked was read."), or that it wasn't sent
+  and why, on an offer that's over too.
+- The question before an Agree or Confirm that fills a call names the
+  offers still waiting that close with it, and the panel after says what
+  went to each, from the row and from Next. A Confirm with nothing else to
+  ask still goes in one press.
+- A call across a job's phases that holds a day no phase has says so on
+  its card, with the way out: a phase for the day, or a call for each
+  phase.
+- Checked: typecheck; shared tests of the row's line, the question's
+  words, the offers closed and the days no phase has; a server test of the
+  follow-up's state through Meta's receipts; a browser test of the card's
+  line going once a phase covers the day.
+
+## 12 November 2026: crew are asked for from a job
+
+**Done (1.183.1)**
+
+- Colly's "Finish the audits work" went with the recommendation on #313
+  ([ADR 0142](adr/0142-crew-are-asked-for-from-a-job.md)): the card at the
+  foot of Crew › Calls, "Crew for something not in Jobs", is gone, and
+  crew are asked for from a job's Crew tab. Calls already made from it
+  stay and work as before; putting the card back is the way back.
+- Crew › Calls' empty line says where to go, and with two parts it has no
+  "On this screen" strip on a phone.
+- Checked: typecheck; the browser tests that made calls on Crew now make
+  a job and ask on its Crew tab (`e2e/ask.ts`): crew, departments, home,
+  layout and refusals, 59 of 59.
+
+## 12 November 2026: confirming a job its crew hold the day for
+
+**Done (1.183.0)**
+
+- What the [audit of crew offers](audit-crew-offers-2026-11-12.md) left
+  open on the office's side ([ADR 0168](adr/0168-confirming-a-job-its-crew-hold-the-day-for.md)).
+- A crew call's card says "Hold the day", in amber, of the people picked on
+  a job the client hasn't said yes to, where it said "Booked".
+- Confirming such a job asks first, from its details, its Confirmed task,
+  Next (which opens the task with the question asked), a quote's "Client
+  accepted: confirm the job" and "Confirm the job" on What happened and To
+  follow up: "The 3 people asked to hold the day will see it's going
+  ahead: Google emails each of them that HOLD is off their days, and a
+  WhatsApp tells them so." The panel after says what went to whom.
+- Marking a job lost from a quote or To follow up asks first when it has
+  crew calls open, as its details and task did.
+- Checked: typecheck; shared tests of the question, the panel's sentences
+  and the messages (never "on hold"); a browser test of the card and of
+  confirming from the details, the task, Next, the quote and To follow up,
+  with the browser tests around jobs, crew and quotes.
+
+## 12 November 2026: send the quote from Next
+
+**Done (1.182.0)**
+
+- Colly's ask from a phone: a finished quote is sent from the job's Next,
+  docked over the bar ([ADR 0166](adr/0166-send-the-quote-from-next.md)).
+  Send quote opens the cover email from operations@ with the PDF attached;
+  Download the PDF sits apart; while quote email is off (as on live), Next
+  says Get the PDF to send. The draft strip's Send is plain.
+- Checked: typecheck, the quote email server test, and the quote e2e specs
+  (quotes, quote follow-up with a new test, RMS history, job moves on).
+
 ## 12 November 2026: your own offers said to you, and on top of Home
 
 **Done (1.181.0)**

@@ -1,4 +1,4 @@
-import { canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
+import { bouncedEmail, canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
 import { lookAgain, moreSince, sinceLabel, stillInBack, type Looks } from '@sh/shared'
 import { glanceParts, HOLDING, OFFER_WORDS, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -98,6 +98,8 @@ export function HomeScreen() {
         {/* An offer waiting on whoever is looking, on top of whichever view (audit of 12 November 2026, finding 17); Me lists them under
             Your bookings. Then the job steps given to them (ADR 0073): their to-do list, on top of whichever view. */}
         {me && shownFor !== 'me' && <MyOffers view={view} today={today} me={me} />}
+        {/* A quote's email that bounced (ADR 0172), on top of every view for those who see money, until it's sent again. */}
+        <BouncedQuotes view={view} />
         {me && <MySteps view={view} me={me} all={shownFor === 'me'} />}
         {shownFor === 'company' && <ForCompany view={view} today={today} me={me} />}
         {shownFor === 'department' && (
@@ -938,6 +940,47 @@ function MyOffers({ view, today, me }: { view: View; today: string; me: PersonVi
         {waiting.map(({ c, o }) => (
           <li key={o.id}>
             <BookingRow c={c} o={o} today={today} href={jobHref(c)} link={link} {...(answers && c.projectId ? { answerAt: jobHref(c) } : {})} hold={holdTheDay(c.projectId)} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * Quotes whose email bounced (ADR 0172), on top of every Home view for whoever sees money: an email that never arrived
+ * gets no answer, so it waits on the office until it's sent again. Each opens the job's Quote tab, where the email is.
+ * Nothing while there are none.
+ */
+function BouncedQuotes({ view }: { view: View }) {
+  const money = useAccess().can('money')
+  if (!money) return null
+  const bounced = view.jobs.jobs.flatMap((job) => {
+    const q = view.money.currentOf(job.id)
+    const e = q && q.status === 'sent' ? bouncedEmail(q.emails) : undefined
+    return e?.bounced ? [{ job, e, bounce: e.bounced }] : []
+  })
+  if (bounced.length === 0) return null
+  return (
+    <section className="card bounced-quotes" aria-labelledby="bounced-quotes-title">
+      <Heading icon="error" id="bounced-quotes-title">
+        {bounced.length === 1 ? 'A quote email bounced' : `Quote emails that bounced (${bounced.length})`}
+      </Heading>
+      <ul className="job-list">
+        {bounced.map(({ job, e, bounce }) => (
+          <li key={e.id}>
+            <a className="job-row" href={`#jobs/${job.id}/quote`}>
+              <div>
+                <b>{job.name}</b>
+                <p>
+                  {e.number ? `Quote ${e.number} · ` : ''}
+                  {bounce.to.join(', ')}: {bounce.why}
+                </p>
+              </div>
+              <div className="side">
+                <small className="flag bad">Bounced</small>
+              </div>
+            </a>
           </li>
         ))}
       </ul>

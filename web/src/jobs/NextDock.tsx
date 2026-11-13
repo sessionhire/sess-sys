@@ -1,4 +1,4 @@
-import { crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, whoDoes, type JobStep, type JobSteps, type JobView, type View } from '@sh/shared'
+import { bouncedEmail, crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
 import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -7,8 +7,14 @@ import type { JobPart } from './JobScreen.tsx'
 import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { askForCrewAgain } from './crewAgain.ts'
 import { promptFor, tellTo, type Share } from '../crew/Messages.tsx'
+import { useReach } from '../crew/reach.tsx'
 import { useToday } from '../view.ts'
 import { offerFormId, useOfferPicks } from '../crew/offerPicks.ts'
+import { confirmQuestion, holdingTheDay } from './jobStatus.ts'
+import { askToEmailAgain, askToSend, useDraftSend, useSendingWords } from './quoteSend.ts'
+import { useQuotesByEmail } from '../MailboxCard.tsx'
+import { serverUrl } from '../server.ts'
+import { GetFile } from '../GetFile.tsx'
 
 /** Where a press of Next lands on the job page (ADR 0140): a call, with its Offer open or not, or the short kit's Subhire. */
 /** Where a press lands on the job's page: a call, opening its Offer or its rows to answer a yes or a rate (ADR 0152); or the short kit. */
@@ -46,6 +52,7 @@ export function NextDock({
   onOpenTask,
   quoteHere,
   onTell,
+  onConfirm,
 }: {
   job: JobView
   view: View
@@ -54,15 +61,26 @@ export function NextDock({
   /** Opens the message for someone a press of Next has settled, as the Crew page's own Confirm does; without it, nobody is prompted. */
   onTell?: (share: Share | undefined) => void
   onOpenTask: (t: JobStep) => void
-  /** The job's Quote tab is open under it (ADR 0140, part 4): the quote's own button there is the press, so the dock says so in words. */
+  /** The job's Quote tab is open under it (ADR 0140, part 4): a draft's Send there is Next's press (ADR 0166); otherwise the dock says what's below in words. */
   quoteHere?: boolean
+  /**
+   * Opens the Confirmed task with its question asked: Confirm the job reaches crew asked to hold the day for it, so it's asked
+   * first, where the task's own answer is (ADR 0168), as a yes that ends days still asked is confirmed on its row (ADR 0152).
+   */
+  onConfirm?: () => void
 }) {
   const access = useAccess()
   const { run, error } = useAct()
   const today = useToday()
+  const reach = useReach()
   // Who's picked in the Offer of the call Next would offer, and not yet sent (offerPicks.ts).
   const askId = crewNext(job.calls).ask?.call.id
   const picked = { callId: askId, names: useOfferPicks(askId) }
+  // The draft quote's own Send, while it's open on the Quote tab (ADR 0166), and whether quotes go by email.
+  const draftSend = useDraftSend(job.id)
+  // While the email goes, Next says where it is, as its own Send does (ADR 0171).
+  const sendingWords = useSendingWords(job.id)
+  const byEmail = useQuotesByEmail(view.money)
   const steps = view.steps.of(job.id)
   // Errands and meetings have no stages, so no Next: the page is as it was.
   if (!steps || (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands'))) return null
@@ -120,15 +138,38 @@ export function NextDock({
 
   const prep = steps.steps.find((s) => s.key === 'prep')
   /** What to press for the task, or why there's nothing to. */
-  let press: { label: string; href?: string; onPress?: () => void; done?: Done } | undefined
+  let press: { label: string; href?: string; onPress?: () => void; done?: Done; pdf?: string; busy?: boolean } | undefined
   let why: string | undefined
+  // A finished quote is sent from Next (ADR 0166), first version or a later one: on the Quote tab it's the draft's own Send,
+  // which opens the email to the client with the PDF attached, or gets the numbered PDF while quotes don't go by email; from
+  // another tab it opens the Quote tab and sends as it opens. The PDF to download is beside it, apart. While the email is open,
+  // its own Send is the press, so Next says so in words.
+  const draft = access.can('money') ? view.money.draftOf(job.id) : undefined
+  const pdf = draft ? serverUrl(`/api/quotes/${encodeURIComponent(draft.id)}/pdf?download=1`) : undefined
+  const sendQuote = (): typeof press | 'composing' | undefined => {
+    if (!draft) return undefined
+    if (quoteHere && draftSend) return draftSend.composing ? 'composing' : { label: draftSend.label, onPress: draftSend.press, busy: !!draftSend.busy, ...(draftSend.ready && pdf ? { pdf } : {}) }
+    if (quoteHere || !draft.lines.length) return undefined
+    return {
+      label: byEmail ? 'Send quote' : 'Generate PDF',
+      onPress: () => {
+        askToSend(job.id)
+        onPart('quote')
+      },
+      ...(pdf ? { pdf } : {}),
+    }
+  }
+  const composingWords = 'The email to the client is below, with the quote attached: read it over, then press Send.'
   switch (task.key) {
     case 'quote': {
       if (!access.can('money')) break
       const quotes = view.money.quotesOf(job.id)
       // A quote is built from the kit and crew, so a job with neither starts there (audit, 5 November 2026, finding 16).
       const empty = quotes.length === 0 && !(view.kit.byJob.get(job.id)?.length) && job.calls.length === 0
-      if (empty && access.can('kit')) press = { label: 'Add the kit to quote', onPress: () => onPart('kit') }
+      const sending = sendQuote()
+      if (sending === 'composing') return rest(sendingWords ?? composingWords, answers)
+      if (empty && access.can('kit')) press = { label: 'Add kit to quote', onPress: () => onPart('kit') }
+      else if (sending) press = sending
       // The quote is the job's Quoting stage, worked on its own tab (ADR 0140, part 4). With that tab open, its Send or Build is the
       // one press, so the dock doesn't hold a second red that only goes where the page already is.
       else if (quoteHere)
@@ -143,11 +184,41 @@ export function NextDock({
       if (!access.can('jobs')) break
       // The client's yes is on the quote, so the one press left is the job's own (audit, 5 November 2026, finding 25).
       const yes = access.can('money') && view.money.currentOf(job.id)?.status === 'accepted'
+      // A new version made since the last went leads, until the client has said yes to one (ADR 0166).
+      const sending = yes ? undefined : sendQuote()
+      if (sending === 'composing') return rest(composingWords, answers)
+      if (sending) {
+        press = sending
+        break
+      }
+      // The quote's email bounced (ADR 0172): no answer will come to an email that never arrived, so putting the address right
+      // and sending it again comes first, until something goes after it.
+      const current = access.can('money') && !yes ? view.money.currentOf(job.id) : undefined
+      const bounce = current && byEmail ? bouncedEmail(current.emails) : undefined
+      if (bounce?.bounced) {
+        press = {
+          label: 'Fix address and resend',
+          onPress: () => {
+            askToEmailAgain(job.id)
+            onPart('quote')
+          },
+        }
+        break
+      }
       // On the Quote tab, the answer is recorded under What happened, whose button is the one red (ADR 0140, part 4).
       if (quoteHere && access.can('money') && view.money.currentOf(job.id))
         return rest(yes ? 'The client said yes: confirm the job below.' : "Record the client's answer below, under What happened.", answers)
+      // Crew asked to hold the day hear it's going ahead (ADR 0168): asked first, on the task, and who was told said after.
+      const holding = yes ? holdingTheDay(job, today) : []
+      const asks = onConfirm && confirmQuestion(reach, job, holding) !== undefined
       press = yes
-        ? { label: 'Confirm the job', onPress: () => void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })) }
+        ? {
+            label: 'Confirm job',
+            onPress: asks
+              ? onConfirm
+              : () =>
+                  void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })).then((ok) => ok && holding.length > 0 && onTell?.(promptFor('job-confirmed', holding))),
+          }
         : { label: steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }
       break
     }
@@ -167,7 +238,7 @@ export function NextDock({
       const again = stoppedCrew(job.calls, today)
       if (again)
         press = {
-          label: 'Ask for the same crew again',
+          label: 'Ask same crew again',
           onPress: () => {
             let first: string | undefined
             void run(async () => {
@@ -177,7 +248,7 @@ export function NextDock({
         }
       else if (fromQuote.length)
         press = {
-          label: fromQuote.length === 1 ? `Make the call for ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make the ${fromQuote.length} crew calls from the quote`,
+          label: fromQuote.length === 1 ? `Make call: ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make ${fromQuote.length} calls from quote`,
           done: bookedDone,
           onPress: () => void run(() => makeCallsFromQuote(view, job, today)).then((ok) => ok && onPart('crew')),
         }
@@ -192,12 +263,15 @@ export function NextDock({
             : {
                 label: `Confirm ${firstName(person)}'s yes · ${count}`,
                 done: bookedDone,
-                onPress: () =>
+                onPress: () => {
+                  // The offers still waiting that close as it fills the call are said among what was sent (ADR 0169).
+                  const closed = waitingClosedBy(call, call.offers, offer.id).flatMap((c) => (c.person ? [tellTo(c.person as Person, call, c)] : []))
                   void run(() => client.mutate('offer.confirm', { id: offer.id })).then((ok) => {
                     if (!ok) return
                     onPart('crew', { call: call.id })
-                    onTell?.(promptFor('confirmed', [tellTo(person, call, offer)]))
-                  }),
+                    onTell?.(promptFor('confirmed', [tellTo(person, call, offer)], false, closed))
+                  })
+                },
               }
       } else if (next.ask) {
         const { call, asked } = next.ask
@@ -216,7 +290,7 @@ export function NextDock({
                 onPart('crew', { call: call.id, offer: true })
               },
             }
-          : { label: `Offer the ${call.role} · ${call.needed - asked} to offer`, done: offered, onPress: () => onPart('crew', { call: call.id, offer: true }) }
+          : { label: `Offer ${call.role} · ${call.needed - asked} to offer`, done: offered, onPress: () => onPart('crew', { call: call.id, offer: true }) }
       } else if (next.counter)
         // A different rate is settled on its own row, with the rate in view (audit of 12 November 2026, finding 9).
         press = { label: `Answer ${firstName(next.counter.offer.person!)}'s rate · ${count}`, done: bookedDone, onPress: () => onPart('crew', { call: next.counter!.call.id, answer: true }) }
@@ -230,7 +304,7 @@ export function NextDock({
       const { short = 0, nothingYet } = task.facts
       // Short kit lands on its Subhire, open with the short lines ticked (ADR 0140, part 5); each one subhired takes the count down.
       press = short
-        ? { label: `Sort ${short} short on the kit`, onPress: () => onPart('kit', { short: true }) }
+        ? { label: `Sort ${short} short`, onPress: () => onPart('kit', { short: true }) }
         : { label: nothingYet ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
       break
     }
@@ -240,7 +314,7 @@ export function NextDock({
         ? { label: 'Add the kit', onPress: () => onPart('kit') }
         : // With how far it has got, as the pick list's own dock says it, so each visit is seen to move it (ADR 0140, part 6).
           {
-            label: `Pick the kit · ${(task.facts.of ?? 0) - (task.facts.out ?? 0)} to go out`,
+            label: `Pick kit · ${(task.facts.of ?? 0) - (task.facts.out ?? 0)} to go out`,
             href: `${href}/pick`,
             done: { done: task.facts.out ?? 0, of: task.facts.of ?? 0, words: `${task.facts.out ?? 0} of ${task.facts.of ?? 0} out` },
           }
@@ -254,20 +328,20 @@ export function NextDock({
         const { stillOut = 0, neverScanned = 0 } = task.facts
         const of = prep?.facts.of ?? 0
         press = stillOut && of
-          ? { label: `Scan the kit back · ${stillOut} still out`, href: `${href}/pick`, done: { done: of - stillOut, of, words: `${of - stillOut} of ${of} back` } }
-          : { label: neverScanned ? 'Check the kit is back' : 'Scan the kit back', href: `${href}/pick` }
+          ? { label: `Scan kit back · ${stillOut} out`, href: `${href}/pick`, done: { done: of - stillOut, of, words: `${of - stillOut} of ${of} back` } }
+          : { label: neverScanned ? 'Check kit is back' : 'Scan kit back', href: `${href}/pick` }
       }
       break
     case 'deprep':
       if (!mayTask) break
-      press = { label: 'Tick off the deprep', onPress: () => onOpenTask('deprep') }
+      press = { label: 'Tick off deprep', onPress: () => onOpenTask('deprep') }
       break
   }
   // Within a week of going out, the warehouse's own way in (Move 8 of the sweep of 6 November 2026): the pick list, with how far it
   // has got, in the quiet slot, while the filled verb stays the planner's. Not when picking is the task, which the button already is.
   const pickSoon =
     access.can('stock') && task.key !== 'prep' && task.key !== 'back' && !!prep?.facts.of && !prep.done && steps.daysTo !== undefined && steps.daysTo <= PICK_SOON_DAYS
-      ? { href: `${href}/pick`, label: `Pick the kit · ${prep.facts.out} of ${prep.facts.of} out` }
+      ? { href: `${href}/pick`, label: `Pick kit · ${prep.facts.out} of ${prep.facts.of} out` }
       : undefined
   // Someone else's, said in the one shape the word table writes (UX sweep, 6 November 2026, move 4): who does it, and nothing to press.
   if (!press) {
@@ -279,6 +353,8 @@ export function NextDock({
     <button type="button" className="link second" onClick={answers.onPress}>
       {answers.label}
     </button>
+  ) : press.pdf ? (
+    <GetFile className="link second" href={press.pdf} name="Quote.pdf" label="Download PDF" working="Getting PDF…" />
   ) : (
     pickSoon && (
       <a className="link second" href={pickSoon.href}>
@@ -301,7 +377,7 @@ export function NextDock({
           {inside}
         </a>
       ) : (
-        <button type="button" className="primary" onClick={press.onPress}>
+        <button type="button" className="primary" onClick={press.onPress} aria-busy={press.busy || undefined}>
           {inside}
         </button>
       )}
@@ -355,12 +431,12 @@ export function PickDock({ job, view }: { job: JobView; view: View }) {
   let link: { href: string; label: string } | undefined
   // On its days with nothing scanned out, it's due out, said from the scans rather than the date (ADR 0140, part 6).
   const due = job.span && job.span.start <= today ? (job.span.start === today ? 'Due out today' : `Due out since ${dayLabel(job.span.start)}`) : undefined
-  if (!started && open(prep) && prep.facts.of) line = `${due ?? 'Pick the kit'} · ${prep.facts.out} of ${prep.facts.of} out`
+  if (!started && open(prep) && prep.facts.of) line = `${due ?? 'Pick kit'} · ${prep.facts.out} of ${prep.facts.of} out`
   else if (!started && prep.facts.of) rest = `All ${prep.facts.of} out: ready to load.${job.span ? ` On the job from ${dayLabel(job.span.start)}.` : ''}`
-  else if (open(back) && back.facts.stillOut) line = `Scan the kit back · ${back.facts.stillOut} still out`
-  else if (open(back) && back.facts.neverScanned) line = `Check the kit is back · ${back.facts.neverScanned} never scanned out`
+  else if (open(back) && back.facts.stillOut) line = `Scan kit back · ${back.facts.stillOut} out`
+  else if (open(back) && back.facts.neverScanned) line = `Check kit is back · ${back.facts.neverScanned} never scanned out`
   else if (open(deprep) && steps.stage?.key === 'back') {
-    line = `Tick off the deprep${deprep.facts.faults ? ` · ${plural(deprep.facts.faults, 'fault')} open on its kit` : ''}`
+    line = `Tick off deprep${deprep.facts.faults ? ` · ${plural(deprep.facts.faults, 'fault')} open on its kit` : ''}`
     link = { href: `#jobs/${encodeURIComponent(job.id)}`, label: 'Open the job' }
   } else if (steps.stage?.key === 'on') rest = `Out on the job${job.span ? ` until ${dayLabel(job.span.end)}` : ''}.`
   else if (steps.finished) rest = 'All back and done. Nothing left to scan.'

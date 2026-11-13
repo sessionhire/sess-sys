@@ -152,11 +152,12 @@ export const transportWords = (kind: keyof typeof VEHICLE_KIND_LABELS, driver: b
 export function AddTransport({ vans, onAdd, onCancel }: { vans: { id: string; what: string; name: string }[]; onAdd: (what: string, ref: string | null) => void; onCancel: () => void }) {
   const [chosen, setChosen] = useState(vans[0]?.id ?? '')
   const van = vans.find((v) => v.id === chosen)
+  const hint = useId()
   return (
     <div className="adding">
       <label className="field">
         Transport to add
-        <select value={chosen} onChange={(e) => setChosen(e.target.value)} autoFocus>
+        <select value={chosen} onChange={(e) => setChosen(e.target.value)} aria-describedby={hint} autoFocus>
           {vans.map((v) => (
             <option key={v.id} value={v.id}>
               {v.what}: {v.name}
@@ -164,8 +165,10 @@ export function AddTransport({ vans, onAdd, onCancel }: { vans: { id: string; wh
           ))}
           <option value="">Transport, typed</option>
         </select>
-        <small>Charged once. What it costs us goes beside it, not printed.</small>
       </label>
+      <small className="adding-hint" id={hint}>
+        Charged once. What it costs us goes beside it, not printed.
+      </small>
       <button type="button" onClick={() => onAdd(van ? van.what : 'Transport', van ? van.id : null)}>
         Add
       </button>
@@ -180,23 +183,24 @@ export function AddTransport({ vans, onAdd, onCancel }: { vans: { id: string; wh
 export function AddPackage({ packages, onAdd, onCancel }: { packages: readonly Package[]; onAdd: (id: string) => void; onCancel: () => void }) {
   const [chosen, setChosen] = useState(packages[0]?.id ?? '')
   const p = packages.find((x) => x.id === chosen)
+  const hint = useId()
   return (
     <div className="adding">
       <label className="field">
         Package to add
-        <select value={chosen} onChange={(e) => setChosen(e.target.value)} autoFocus>
+        <select value={chosen} onChange={(e) => setChosen(e.target.value)} aria-describedby={hint} autoFocus>
           {packages.map((x) => (
             <option key={x.id} value={x.id}>
               {x.dayCents ? `${x.name}, ${money(x.dayCents)} a ${RATE_UNIT[x.rate ?? 'daily']}` : x.name}
             </option>
           ))}
         </select>
-        <small>
-          {p?.dayCents
-            ? "At its price, with the kit it holds listed under it, each to change for this job."
-            : "Its kit, each at the price list's price, listed under its name to change for this job."}
-        </small>
       </label>
+      <small className="adding-hint" id={hint}>
+        {p?.dayCents
+          ? "At its price, with the kit it holds listed under it, each to change for this job."
+          : "Its kit, each at the price list's price, listed under its name to change for this job."}
+      </small>
       <button type="button" onClick={() => onAdd(chosen)} disabled={!chosen}>
         Add
       </button>
@@ -213,6 +217,7 @@ export function AddCrew({ roles, onAdd, onCancel }: { roles: readonly string[]; 
   // How many of the role (research/quoting.md, feature 1), so two riggers is one line added, not one line and a change.
   const [count, setCount] = useState('1')
   const listId = useId()
+  const hint = useId()
   const n = Number(count)
   const countOk = Number.isInteger(n) && n >= 1 && n <= 10_000
   const add = () => typed.trim() && countOk && onAdd(typed.trim().replace(/\s+/g, ' '), n)
@@ -226,13 +231,24 @@ export function AddCrew({ roles, onAdd, onCancel }: { roles: readonly string[]; 
     <div className="adding adding-crew">
       <label className="field count">
         How many
-        <input inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} onFocus={(e) => e.target.select()} onKeyDown={enter} aria-invalid={!countOk} />
+        <input
+          inputMode="numeric"
+          value={count}
+          onChange={(e) => setCount(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          onKeyDown={enter}
+          aria-invalid={!countOk}
+          aria-describedby={hint}
+        />
       </label>
       <label className="field">
         Crew role to add
-        <input list={listId} value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={enter} placeholder="Audio tech" maxLength={100} autoFocus />
-        <small>{countOk ? "Priced from the price list, for the job's days." : 'How many is a whole number from 1 to 10,000.'}</small>
+        <input list={listId} value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={enter} placeholder="Audio tech" maxLength={100} aria-describedby={hint} autoFocus />
       </label>
+      {/* Under both boxes, not inside one: a line under the role pushed How many out of line with it (Colly, 12 November 2026). */}
+      <small className={countOk ? 'adding-hint' : 'adding-hint error'} id={hint}>
+        {countOk ? "Priced from the price list, for the job's days." : 'How many is a whole number from 1 to 10,000.'}
+      </small>
       <datalist id={listId}>
         {roles.map((r) => (
           <option key={r} value={r} />
@@ -250,7 +266,7 @@ export function AddCrew({ roles, onAdd, onCancel }: { roles: readonly string[]; 
 
 /**
  * The job's kit and crew since the quote was built from them: what's new on the job, what's gone, and how many have
- * changed, to take in with one press. "Leave it as it is" hides these until the job changes again, on this device.
+ * changed, to take in with one press. "Leave as is" hides these until the job changes again, on this device.
  */
 export function JobChangesCard({ changes, quoteId, onTake }: { changes: JobChanges; quoteId: string; onTake: (next: (ls: LineDraft[]) => LineDraft[]) => void }) {
   const { added, gone, changed } = changes
@@ -305,7 +321,7 @@ export function JobChangesCard({ changes, quoteId, onTake }: { changes: JobChang
           Update the quote
         </button>
         <button type="button" className="link" onClick={leave}>
-          Leave it as it is
+          Leave as is
         </button>
       </div>
     </section>

@@ -25,7 +25,7 @@ import {
   type View,
   NOT_YOURS
 } from '@sh/shared'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FocusEvent, type FormEvent } from 'react'
 import { glideTo } from '../glide.ts'
 import { useScanKeys } from '../scanKeys.ts'
 import { act, Refusal, useAct } from '../act.tsx'
@@ -872,8 +872,9 @@ function Row({ view, row, job, mode, say, mayMove }: { view: View; row: PickRow;
 function Count({ row, job, mode, say }: { row: PickRow; job: JobView; mode: Direction; say: Say }) {
   const name = rowName(row)
   const [qty, setQty] = useState('')
-  // The field for part of a count waits behind "Type how many", so a long list is rows to read, not forms (audit, 5 November 2026, finding 35).
-  const [typing, setTyping] = useState(false)
+  // How many is a number typed in place, saved as the field is left (Colly, 13 November 2026): no button to open it first, and
+  // no second press to send it. Enter leaves the field too. Undo on the toast takes back a slip.
+  const missingRef = useRef<HTMLButtonElement>(null)
   const { run, error, refuse } = useAct()
   const go = (what: Direction | 'missing', all?: number) => {
     const n = all ?? Number(qty)
@@ -895,6 +896,12 @@ function Count({ row, job, mode, say }: { row: PickRow; job: JobView; mode: Dire
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
+    const field = document.activeElement
+    if (field instanceof HTMLInputElement && e.currentTarget.contains(field)) field.blur()
+  }
+  // Leaving the field saves what's in it, unless the press that took the focus is Missing, which takes the number itself.
+  const leave = (e: FocusEvent<HTMLInputElement>) => {
+    if (!qty.trim() || (missingRef.current && e.relatedTarget === missingRef.current)) return
     go(mode)
   }
   const label = mode === 'out' ? 'Count out' : 'Count back'
@@ -917,22 +924,24 @@ function Count({ row, job, mode, say }: { row: PickRow; job: JobView; mode: Dire
       </p>
       {rest > 0 && (
         <button type="button" className="all" onClick={() => go(mode, rest)}>
-          {mode === 'out' ? (rest > 1 ? `Count out the ${rest.toLocaleString('en-IE')}` : 'Count out 1') : rest > 1 ? `Count back all ${rest.toLocaleString('en-IE')}` : 'Count back 1'}
+          {mode === 'out' ? (rest > 1 ? `Count out ${rest.toLocaleString('en-IE')}` : 'Count out 1') : rest > 1 ? `Count back all ${rest.toLocaleString('en-IE')}` : 'Count back 1'}
         </button>
       )}
-      {typing || error ? (
-        <>
-          <input type="number" inputMode="numeric" min={1} max={MAX_QTY} value={qty} onChange={(e) => setQty(e.target.value)} aria-label="How many" placeholder="How many" autoFocus />
-          <button type="submit">{label}</button>
-          {mode === 'in' && row.counted > 0 && (
-            <button type="button" onClick={() => go('missing')}>
-              Missing
-            </button>
-          )}
-        </>
-      ) : (
-        <button type="button" className="link" onClick={() => setTyping(true)}>
-          Type how many
+      <input
+        type="number"
+        inputMode="numeric"
+        enterKeyHint="done"
+        min={1}
+        max={MAX_QTY}
+        value={qty}
+        onChange={(e) => setQty(e.target.value)}
+        onBlur={leave}
+        aria-label={`How many to ${label.toLowerCase()}`}
+        placeholder="How many"
+      />
+      {mode === 'in' && row.counted > 0 && (
+        <button type="button" ref={missingRef} className="link" onClick={() => go('missing')}>
+          Missing
         </button>
       )}
       <Refusal error={error} />

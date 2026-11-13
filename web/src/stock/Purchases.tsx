@@ -255,7 +255,7 @@ function AskForm({ r, onDone }: { r?: PurchaseView; onDone?: () => void }) {
       )}
       <div className="actions wide">
         <button type="submit" className="primary">
-          {r ? 'Save the request' : 'Ask for it'}
+          {r ? 'Save request' : 'Ask for it'}
         </button>
         {r && (
           <button type="button" onClick={onDone}>
@@ -351,7 +351,7 @@ function About({ r }: { r: PurchaseView }) {
                 </Confirm>
               ) : (
                 <button type="button" onClick={() => setDoing('remove')}>
-                  Take it off the list
+                  Remove from list
                 </button>
               )}
             </div>
@@ -417,7 +417,7 @@ function WhereItsAt({ r }: { r: PurchaseView }) {
         )}
         <div className="actions wide">
           <button type="submit" className="primary" disabled={!changed}>
-            Save where it's at
+            Save for now
           </button>
         </div>
       </form>

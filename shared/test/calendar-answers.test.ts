@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { answerFromCalendar, COUNTERED_YES, offerOnCalendar, YES_WHILE_ASKING, type CalendarDay, type DayAnswer } from '../src/calendar.ts'
-import { ratesClosedBy, type Offer } from '../src/crew.ts'
+import { ratesClosedBy, waitingClosedBy, type Offer } from '../src/crew.ts'
 
 // A Yes in Google Calendar counts for the day it was pressed on (ADR 0152; audit of 12 November 2026, finding 3).
 
@@ -130,5 +130,13 @@ describe('ratesClosedBy: a Confirm that fills the call over a rate still asked f
 
   it('names none for an offer that is not a yes or a rate', () => {
     expect(ratesClosedBy(call, [o('a', 'aoife', 'offered'), o('t', 'tommo', 'countered')], 'a')).toEqual([])
+  })
+
+  it('names the offers still waiting that the server closes as filled when agreeing a rate fills the call (the gap ADR 0154 left at 2)', () => {
+    const offers = [o('t', 'tommo', 'countered'), o('n', 'niamh', 'offered'), o('d', 'dara', 'offered'), o('x', 'sean', 'declined')]
+    expect(waitingClosedBy(call, offers, 't').map((x) => x.id)).toEqual(['n', 'd'])
+    // A day still short after it closes nobody.
+    expect(waitingClosedBy({ ...call, needed: 2 }, offers, 't')).toEqual([])
+    expect(waitingClosedBy(call, [o('t', 'tommo', 'countered', [FRI]), o('n', 'niamh', 'offered')], 't')).toEqual([])
   })
 })

@@ -1,4 +1,4 @@
-import { dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
+import { LOGO_SVG, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
@@ -249,7 +249,7 @@ const was = (then: string | undefined) => (then === undefined ? '' : ` <span cla
 const UNCLEAR = 'Changed since you said yes · check the call'
 
 function facts(call: CrewCall, offer: Offer, staff: boolean, today: string, since?: SinceYes) {
-  const rate = offer.status === 'countered' ? `${euro(offer.counterRateCents)} a day asked (offered ${euro(call.dayRateCents)})` : `${euro(offer.dayRateCents)}${offer.dayRateCents !== null ? ' a day' : ''}`
+  const rate = offer.status === 'countered' ? `${euro(offer.counterRateCents)} a day asked (offered ${euro(offer.dayRateCents)})` : `${euro(offer.dayRateCents)}${offer.dayRateCents !== null ? ' a day' : ''}`
   const then = since?.was
   return `<dl class="facts">
     <dt>Role</dt><dd>${h(call.role)}</dd>
@@ -927,7 +927,7 @@ export function renderPage(d: PageData): string {
 <body>
 ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</b>: ${h(d.person.name)}'s own page</span><a href="/#preview">Choose someone else</a></p>` : ''}
 <main>
-  <header class="top"><span class="mark">SH</span><div><b>Session Hire</b><h1>Hi ${h(first)}</h1><small>This page is just for you.</small></div></header>
+  <header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>Hi ${h(first)}</h1><small>This page is just for you.</small></div></header>
   ${officeBlock(d.office)}
   ${d.flash && !inCard ? flash(d.flash) : ''}
 
@@ -980,7 +980,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 export function renderGone(office?: OfficeDetails | null): string {
   return `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Session Hire</title><style>${CSS}</style></head>
-<body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b></div></header>
+<body><main><header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b></div></header>
 <p class="flash bad">This link doesn't work any more. Ask the office to send you a new one.</p>${officeBlock(office)}<p class="small"><a href="/link">Lost your link?</a></p></main></body></html>`
 }
 
@@ -1008,7 +1008,7 @@ export function renderStaffSignIn(name: string, start: string, said: StaffSignIn
             : ''
   return `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Session Hire</title><style>${CSS}</style></head>
-<body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b><small>${first}'s page</small></div></header>
+<body><main><header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><small>${first}'s page</small></div></header>
 ${line}<p>Sign in with your Session Hire Google account to see your calls and your leave. You'll stay signed in on this device.</p>
 <a class="button yes" href="${h(start)}">Sign in with Google</a>${officeBlock(office)}</main></body></html>`
 }
@@ -1057,7 +1057,7 @@ export const CSS = `
 main{max-width:560px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 16px 48px;display:grid;gap:18px}
 a{color:inherit;text-decoration-color:var(--accent);text-underline-offset:2px}
 .top{display:flex;gap:12px;align-items:center}.top b{display:block;text-transform:uppercase;letter-spacing:.03em}.top small{display:block;color:var(--muted)}.top h1{margin:0;font-size:1.25rem;line-height:1.2}
-.mark{width:40px;height:40px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.mark{height:40px;aspect-ratio:764/501;color:var(--accent);flex:none}.mark svg{display:block;width:100%;height:100%}
 h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
 section{display:grid;gap:10px}
 .offer{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px}

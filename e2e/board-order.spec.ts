@@ -47,7 +47,7 @@ test('the office puts a column of the Board in order, and can put it back by dat
   let quoting = await board(page)
   // Nobody has put them in order: soonest first.
   await expect.poll(() => mine(quoting, tag)).toEqual(['Charlie', 'Bravo', 'Alpha'])
-  await expect(quoting.getByRole('button', { name: 'Back to date order' })).toHaveCount(0)
+  await expect(quoting.getByRole('button', { name: 'Sort by date' })).toHaveCount(0)
 
   // By the keyboard: Space picks Alpha up, Home takes it to the top, Space puts it down; each move is said.
   const grip = (name: string) => quoting.getByRole('button', { name: `Move ${name} ${tag}` })
@@ -89,9 +89,9 @@ test('the office puts a column of the Board in order, and can put it back by dat
   await expect.poll(() => mine(quoting, tag)).toEqual(['Charlie', 'Bravo', 'Alpha'])
 
   // Back to date order: soonest first again.
-  await quoting.getByRole('button', { name: 'Back to date order' }).click()
+  await quoting.getByRole('button', { name: 'Sort by date' }).click()
   await expect.poll(() => mine(quoting, tag)).toEqual(['Charlie', 'Bravo', 'Alpha'])
-  await expect(quoting.getByRole('button', { name: 'Back to date order' })).toHaveCount(0)
+  await expect(quoting.getByRole('button', { name: 'Sort by date' })).toHaveCount(0)
 
   // Dragged by the card itself, as on any kanban board (Colly, 11 November 2026); a click on a card still opens the job.
   await quoting.locator('.board-item', { hasText: `Bravo ${tag}` }).evaluate((e) => e.scrollIntoView({ block: 'center', behavior: 'instant' }))
@@ -115,7 +115,7 @@ test('the office puts a column of the Board in order, and can put it back by dat
   expect(spill).toEqual([])
 
   // Put back by date, as the other Board tests share the column; then a click on a card still opens its job.
-  await quoting.getByRole('button', { name: 'Back to date order' }).click()
+  await quoting.getByRole('button', { name: 'Sort by date' }).click()
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await quoting.locator('.board-card', { hasText: `Bravo ${tag}` }).click()
   await expect(page).toHaveURL(new RegExp(`#jobs/o-${tag}-1`))

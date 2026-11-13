@@ -108,7 +108,7 @@ test('cable labels print with a barcode or QR code of the stock code, which open
   expect(await readQr(label)).toBe(code)
   // Written out beside the QR code too, for anyone without a scanner (Colly, 8 November 2026).
   await expect(label.locator('.face .code')).toHaveText([code, code])
-  await card.getByRole('button', { name: 'Print the label' }).click()
+  await card.getByRole('button', { name: 'Print 1 label' }).click()
   await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(2)
   expect(await printed(page)).toEqual([[100, 25]])
   await page.evaluate(() => dispatchEvent(new Event('afterprint')))

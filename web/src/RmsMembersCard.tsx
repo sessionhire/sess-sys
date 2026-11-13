@@ -185,7 +185,7 @@ export function RmsMembersCard({ view, canRead }: { view: View; canRead: boolean
           )}
           {canRead && (
             <button type="button" className={plan ? 'secondary' : 'primary'} onClick={() => void post('read')} disabled={busy} aria-busy={busy}>
-              {plan ? 'Read them again' : 'Read clients and venues from Current RMS'}
+              {plan ? 'Read again' : 'Read clients and venues'}
             </button>
           )}
         </div>

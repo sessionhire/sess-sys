@@ -199,7 +199,7 @@ export function PrintLabels({ numbers, caption, code }: { numbers: readonly stri
       </div>
       <p className="hint">Print at actual size, not fitted to the page.</p>
       <button type="button" className="primary" disabled={numbers.length === 0 || printing} onClick={() => setPrinting(true)}>
-        {numbers.length === 1 ? 'Print the label' : `Print ${plural(numbers.length, 'label')}`}
+        {`Print ${plural(numbers.length, 'label')}`}
       </button>
       {printing && (
         <PrintSheet className={layout} page={page}>

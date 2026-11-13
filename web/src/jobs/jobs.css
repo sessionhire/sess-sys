@@ -160,8 +160,7 @@ dialog.quick-quote[open] { animation: quick-in var(--ds-duration-base) var(--ds-
    so it never competes with the page's one red. It opens the design system's dialog (a blocking decision, the safe answer focused), a
    sheet up from the foot on a phone; what makes this version matter is listed first, and Delete waits for its number to be typed. */
 .app .delete-quote { display: flex; justify-content: flex-end; }
-.app button.link.delete-quote-open { display: inline-flex; align-items: center; gap: var(--ds-space-1); color: var(--bad); }
-.app button.link.delete-quote-open .icon { width: 18px; height: 18px; }
+.app button.link.delete-quote-open { color: var(--bad); }
 dialog.delete-quote-dialog { width: min(440px, calc(100vw - 2 * var(--ds-space-4))); max-height: calc(100dvh - 2 * var(--ds-space-4)); overflow: auto; padding: var(--ds-space-4); border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); color: var(--ink); box-shadow: var(--ds-elevation-modal); }
 dialog.delete-quote-dialog::backdrop { background: var(--ds-veil); }
 dialog.delete-quote-dialog[open] { animation: delete-quote-in var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
@@ -330,7 +329,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .from .number { white-space: nowrap; }
 .pick .count-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }
 .pick .count-row p { margin: 0; color: var(--muted); font-size: var(--text-small); flex: 1 0 100%; }
-.app .pick .count-row input { width: 7.5rem; flex: none; }
+/* How many sits beside Count out on one line and takes the rest of it, typed in place and saved on leaving (Colly, 13 November 2026). */
+.pick .count-row > input { flex: 1 1 0; width: auto; min-width: 6rem; }
+.pick .count-row > button { flex: none; }
 /* Numbers already back, each with Report damage, folded under one line on the row (audit, 5 November 2026, finding 33); its form opens under the row. */
 .pick .back-damage li { flex-wrap: wrap; }
 .pick .back-damage li > form { flex: 1 0 100%; }
@@ -511,12 +512,16 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .quote-screen .quote-summary .chip:hover { border-color: var(--warn); }
 }
 .quote-screen .undo-line { margin: 0; padding: var(--ds-space-2) 0; font-size: var(--text-small); }
-/* Adding to the quote: a row of what can be added, which the picker or Claude's box takes the place of. */
+/* Adding to the quote: a row of what can be added, which the picker or Claude's box takes the place of. Its fields sit side by side,
+   lined up on their boxes, with the hint under them across the row and Add and Cancel on the line under that: a hint inside one field
+   pushed it, or its neighbour, out of line with the rest (Colly, 12 November 2026). */
 .quote-screen .quote-add { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
-.quote-screen .quote-add > button { display: inline-flex; align-items: center; gap: var(--ds-space-1); }
-.quote-screen .quote-add > button .icon { width: 16px; height: 16px; }
 .quote-screen .quote-add .adding { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); width: 100%; }
 .quote-screen .quote-add .adding > :first-child { flex: 1 1 16em; }
+.quote-screen .quote-add .adding > .adding-hint { flex: 1 0 100%; margin-top: calc(-1 * var(--ds-space-1)); color: var(--muted); font-size: var(--text-hint); }
+.quote-screen .quote-add .adding > .adding-hint.error { color: var(--bad); }
+/* The kit picker keeps its hint under its own box, so what follows it starts a line of its own. */
+.quote-screen .quote-add .adding > .picker-field { flex-basis: 100%; }
 .quote-screen .quote-add .adding-crew > .count { flex: 0 0 6em; }
 .quote-screen .quote-add .adding-crew > .count + .field { flex: 1 1 14em; }
 .quote-screen .quote-add .adding.ask { display: grid; justify-items: start; }
@@ -540,6 +545,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-send { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); }
 .quote-screen .quote-send label { flex: 1 1 10em; display: grid; gap: var(--ds-space-half); font-size: var(--text-hint); color: var(--muted); }
 .quote-screen .quote-send input { width: 100%; }
+/* Confirming a job its crew hold the day for asks first, under the day it's recorded for (ADR 0168). */
+.quote-screen .quote-send > .confirm { flex: 1 0 100%; }
 .quote-screen .quote-side .actions .link.quiet { margin-left: auto; }
 /* Sending by email (ADR 0101): the compose box takes the send row's place, its fields one under the other. */
 .quote-screen .compose { display: grid; gap: var(--ds-space-1); }
@@ -550,6 +557,16 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .compose .compose-from { margin: 0; }
 .quote-screen .compose .actions { margin-top: var(--ds-space-2); }
 .quote-screen .compose .actions .link.quiet { margin-left: auto; }
+/* Knowing it went (ADR 0171): a slip in an address, said under the field with the fix one press away; the copy to the sender. */
+.quote-screen .compose .address-slip { margin: 0; }
+.quote-screen .compose label.tick { display: flex; gap: var(--ds-space-3); align-items: center; min-height: 44px; margin-top: var(--ds-space-2); cursor: pointer; }
+.quote-screen .compose label.tick input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
+.quote-screen .quote-emails .sent-line { display: flex; gap: var(--ds-space-2); align-items: flex-start; }
+.quote-screen .quote-emails .sent-line svg { flex: none; width: 18px; height: 18px; margin-top: 2px; }
+/* What came back (ADR 0172): a bounce in the app's bad, a delay in amber; a reply, like everything healthy, is quiet. */
+.quote-screen .quote-emails .bad-line { color: var(--bad); }
+.quote-screen .quote-emails .late-line { color: var(--warn); }
+.quote-screen .quote-emails li.bounced { border-left: 3px solid var(--bad); padding-left: var(--ds-space-2); }
 .quote-screen .quote-emails { display: grid; gap: var(--ds-space-2); margin: 0 0 var(--ds-space-3); font-size: var(--text-small); }
 .quote-screen .quote-emails small { display: block; color: var(--muted); }
 .quote-table-wrap { overflow-x: auto; overflow-y: hidden; }
@@ -790,6 +807,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quotes-to-follow .follow-group li p { margin: var(--ds-space-half) 0 0; font-size: var(--text-small); color: var(--muted); }
 .quotes-to-follow .warn { color: var(--warn); }
 .quotes-to-follow .in-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+/* A row's question, before confirming or losing a job its crew are on (ADR 0168), takes the row's width under its words. */
+.quotes-to-follow .in-step:has(.confirm) { flex-basis: 100%; }
+.quotes-to-follow .in-step .confirm { flex: 1 1 100%; }
 .quotes-to-follow .new-quote { margin-bottom: var(--ds-space-2); }
 /* Every quote (ADR 0088): a row a job, its quote's state on the right, as the rows to follow up. */
 .quote-list .filters { margin: var(--ds-space-2) 0; }
@@ -904,7 +924,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
  * schedule: the date on the left, what's on to the right, adding to the page's height. Nothing scrolls inside the page.
  */
 .master-cal .cal-steps { display: flex; align-items: center; gap: var(--ds-space-2); }
-.master-cal .cal-steps .cal-step { display: inline-grid; place-items: center; width: 2.75rem; padding-inline: 0; border-radius: 999px; }
+.master-cal .cal-steps .cal-step { border-radius: 999px; }
 .master-cal .cal-steps [aria-current] { color: var(--muted); }
 .master-cal .cal-key { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); margin: 0; }
 .master-cal .cal-swatch { display: inline-block; width: 1.4rem; height: .9rem; border-radius: 4px; background: var(--ink); }
@@ -974,12 +994,12 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) {
   .quote-screen .group-head .group .fold::after { transition: none; }
 }
-/* While kit or crew is picked on a phone, the readout is one line and the bar steps aside, so the list has the room (finding 15). */
+/* While kit or crew is picked on a phone, the readout is one line, so the list has the room (finding 15). The bar and Next stay at the
+   foot, as on every other screen (Colly, 12 November 2026): it steps aside only while the keyboard is up (Shell.tsx, useBarAway). */
 @media (max-width: 639px) {
   .quote-screen .quote-draft.picking .quote-summary .chips,
   .quote-screen .quote-draft.picking .quote-summary .figure:not(.lead) { display: none; }
   .quote-screen .quote-draft.picking .quote-summary .figure.lead b { font-size: inherit; }
-  html:has(.quote-draft.picking) .foot { display: none; }
 }
 
 /* Jobs at a desk as a table (review of 11 November 2026, finding 14): the page's whole width, a job a line, its parts in columns

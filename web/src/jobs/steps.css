@@ -152,7 +152,7 @@
 .job-assignee:has(.assignee-refusal) { flex-wrap: wrap; }
 /* How far the task has got, in Next's button: a ring in the button's ink, filled as far as the task is done. */
 /* Inline, so it sits before the words wherever the button is drawn: in the head, and in the phone's foot. */
-.next-pie { display: inline-block; vertical-align: -3px; margin-inline-end: var(--ds-space-2); flex: none; width: 18px; height: 18px; border-radius: var(--radius-full); box-shadow: inset 0 0 0 2px currentColor; background: conic-gradient(currentColor calc(var(--part) * 1turn), color-mix(in srgb, currentColor 22%, transparent) 0); }
+.next-pie { display: inline-block; vertical-align: -3px; flex: none; width: var(--icon-control); height: var(--icon-control); border-radius: var(--radius-full); box-shadow: inset 0 0 0 2px currentColor; background: conic-gradient(currentColor calc(var(--part) * 1turn), color-mix(in srgb, currentColor 22%, transparent) 0); }
 @media (min-width: 640px) {
   .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
   .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
@@ -165,7 +165,7 @@
    finding 56), in the accent's ink like every other link (finding 54). A long label wraps inside the button rather than pushing the
    second choice off. */
 .foot .next-dock .primary { grid-column: 1; width: 100%; white-space: normal; }
-.foot .next-dock .second { grid-column: 2; justify-self: end; min-height: 44px; padding: var(--ds-space-2) 0 var(--ds-space-2) var(--ds-space-1); border: 0; background: none; color: var(--accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.foot .next-dock .second { grid-column: 2; justify-self: end; white-space: nowrap; }
 .foot .next-dock .primary:not(:has(+ .second)) { grid-column: 1 / -1; }
 .next-dock .alert { grid-column: 1 / -1; margin: 0; }
 /* A due day passed, in the bad tone (ADR 0104), with the words saying so too. */
@@ -223,8 +223,7 @@
 .board-cards[data-sorting] .board-item[data-dragging='true'] { z-index: 3; transition: none; }
 @media (prefers-reduced-motion: reduce) { .board-cards[data-sorting] .board-item { transition: none; } }
 .board-item:has(.board-grip) .board-card > :is(b, p) { padding-inline-end: 32px; }
-.app .board-grip { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 44px; height: 44px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-box); background: none; color: var(--muted); cursor: grab; touch-action: none; }
-.app .board-grip .icon { width: 18px; height: 18px; }
+.app .board-grip { position: absolute; top: 0; right: 0; border: 0; border-radius: var(--radius-box); background: none; color: var(--muted); cursor: grab; touch-action: none; }
 .app .board-grip:hover { color: var(--ink); background: var(--ds-wash-hover); }
 .app .board-grip[aria-pressed='true'] { color: var(--accent-ink); }
 /* Picked up or dragged: lifted on the dragged wash with the menu's shadow, and ringed while it waits for a place (as the rack designer's). */
@@ -259,7 +258,7 @@
 p.stage-owner { min-height: 44px; }
 .stage-owner label { display: flex; align-items: center; gap: var(--ds-space-1); flex: 1 1 auto; min-width: 0; }
 .stage-owner .icon { flex: none; width: 16px; height: 16px; }
-.stage-owner select { flex: 1 1 auto; min-width: 0; font-size: var(--text-small); font-weight: 600; padding: 0 var(--ds-space-1); background-color: transparent; border-color: transparent; color: var(--ink); cursor: pointer; }
+.stage-owner select { flex: 1 1 auto; min-width: 0; font-size: var(--text-small); font-weight: 600; padding: 0 var(--control) 0 var(--ds-space-1); background-color: transparent; border-color: transparent; color: var(--ink); cursor: pointer; }
 .stage-owner select:hover, .stage-owner select:focus-visible { border-color: var(--field-line); }
 .stage-owner label[data-none] select, p.stage-owner[data-none] { color: var(--muted); font-weight: 400; }
 .stage-owner-refusal { flex-basis: 100%; }

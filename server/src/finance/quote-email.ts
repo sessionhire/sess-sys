@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { acceptPath, depositCents, irishToday, letterDay, money, newId, OFFICE_SETTING_ID, quoteTotals, spanLabel, validUntil, type Quote, type QuoteEmail, type QuoteEmailPrefill, type QuoteEmailSend, type StaffUser } from '@sh/shared'
+import { Resolver } from 'node:dns/promises'
+import { acceptPath, likelyAddress, depositCents, irishToday, letterDay, money, newId, OFFICE_SETTING_ID, quoteTotals, spanLabel, validUntil, type Quote, type QuoteEmail, type QuoteEmailPrefill, type QuoteEmailSend, type QuoteAddressCheck, type QuoteSendState, type StaffUser } from '@sh/shared'
 import { GoogleError } from '../calendar/google.ts'
 import { applyMutation, type From } from '../commands.ts'
 import { numberIt } from './handlers.ts'
@@ -10,7 +11,7 @@ import type { Mailbox } from '../assistant/mailbox.ts'
 import { getSetting } from '../office/store.ts'
 import { getClient, getProject, getVenue } from '../projects/store.ts'
 import { quotePdf, type Sheet } from './quote-pdf.ts'
-import { getQuote, getQuoteEmail, getQuoteSettings, highestNumber, quotesOf } from './store.ts'
+import { getQuote, getQuoteEmail, getQuoteEmailByKey, getQuoteSettings, highestNumber, quotesOf } from './store.ts'
 
 /**
  * Sending a quote to the client by email (ADR 0101), from the operations
@@ -35,6 +36,10 @@ export interface Mailer {
   now?: () => Date
   /** The company's logo for the top of the PDF (ADR 0128), if there is one. */
   logo?: () => Promise<{ data: Buffer; type: string } | undefined>
+  /** Whether a domain takes email (ADR 0171): true, false, or undefined when it couldn't be told. The DNS by default. */
+  mx?: (domain: string) => Promise<boolean | undefined>
+  /** How long after a read-back finds nothing it's tried again; 0 doesn't. */
+  recheckMs?: number
 }
 
 /** Who pressed Send, as the push route knows them, and the device code for the history. */
@@ -116,6 +121,85 @@ export async function prefillFor(m: Mailer, quote: Quote, staff: StaffUser | nul
     number,
     canSend: !off && sender.ok,
     why: off ? 'Sending quotes by email is off. Turn it on under Admin › Connections › The operations mailbox.' : sender.ok ? null : sender.why,
+    me: staff?.email && (!sender.ok || staff.email.toLowerCase() !== sender.account.toLowerCase()) ? staff.email : null,
+  }
+}
+
+/** A press of Send not heard of for this long, with no email from it, stopped part way: whether it went can't be told. */
+export const SEND_HELD_MS = 2 * 60_000
+
+/** Where one press of Send is (ADR 0171), by its key: for a phone that stopped waiting for the answer. */
+export async function sendState(q: Queryable, quoteId: string, key: string, now: Date): Promise<QuoteSendState> {
+  const email = await getQuoteEmailByKey(q, quoteId, key)
+  if (email) return { state: 'sent', email }
+  const { rows } = await q.query<{ started_at: Date }>('SELECT started_at FROM quote_email_sends WHERE key = $1 AND quote_id = $2', [key, quoteId])
+  if (!rows[0]) return { state: 'none' }
+  return now.getTime() - new Date(rows[0].started_at).getTime() < SEND_HELD_MS ? { state: 'sending' } : { state: 'unsure' }
+}
+
+/**
+ * Reads a sent email back from the mailbox (ADR 0171): once Gmail has filed it in Sent, the record says when, and every
+ * device is told. Says whether it's there. Trouble reading is no harm: it's only looked at again.
+ */
+export async function confirmSent(m: Mailer, emailId: string, token: string, gmailId: string): Promise<boolean> {
+  let labels: string[]
+  try {
+    labels = await m.mailbox.gmail.labels(token, gmailId)
+  } catch {
+    return false
+  }
+  if (!labels.includes('SENT')) return false
+  const at = m.now?.() ?? new Date()
+  await serverChange(m.db, undefined, async (ctx) => {
+    const { rows } = await ctx.tx.query('UPDATE quote_emails SET in_sent_at = $2 WHERE id = $1 AND in_sent_at IS NULL RETURNING id', [emailId, at])
+    if (rows.length) await emit(ctx, 'quoteEmail', emailId, await getQuoteEmail(ctx.tx, emailId))
+  })
+  m.onChange?.()
+  return true
+}
+
+/** Each address as the mail system sees it (ADR 0171): its domain asked once, and a likely spelling for a slip. */
+export async function checkAddresses(m: Pick<Mailer, 'mx'>, addresses: string[]): Promise<QuoteAddressCheck[]> {
+  const ask = m.mx ?? takesMail
+  const domains = [...new Set(addresses.map((a) => a.slice(a.lastIndexOf('@') + 1).toLowerCase()).filter(Boolean))]
+  const answers = new Map(await Promise.all(domains.map(async (d) => [d, await ask(d).catch(() => undefined)] as const)))
+  return addresses.map((address) => {
+    const domain = address.slice(address.lastIndexOf('@') + 1).toLowerCase()
+    const suggest = likelyAddress(address)
+    return {
+      address,
+      problem: answers.get(domain) === false ? `${domain} can’t receive email, so it would bounce. Check the spelling.` : null,
+      suggest,
+    }
+  })
+}
+
+/** What the DNS says about a domain, kept a while: whether it takes mail, as a sending server would decide. */
+const heard = new Map<string, { at: number; takes: boolean | undefined }>()
+async function takesMail(domain: string): Promise<boolean | undefined> {
+  const known = heard.get(domain)
+  if (known && Date.now() - known.at < 60 * 60_000) return known.takes
+  const takes = await lookUp(domain)
+  if (takes !== undefined) heard.set(domain, { at: Date.now(), takes })
+  return takes
+}
+async function lookUp(domain: string): Promise<boolean | undefined> {
+  const r = new Resolver({ timeout: 3000, tries: 1 })
+  try {
+    const mx = await r.resolveMx(domain)
+    // A "null MX" (RFC 7505), one record pointing nowhere, says the domain takes no mail at all.
+    return !(mx.length === 1 && (mx[0]!.exchange === '' || mx[0]!.exchange === '.'))
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    if (code === 'ENOTFOUND') return false
+    if (code !== 'ENODATA') return undefined
+  }
+  // No MX record: mail goes to the domain's own address, if it has one (RFC 5321).
+  try {
+    return (await r.resolve4(domain)).length > 0
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    return code === 'ENOTFOUND' || code === 'ENODATA' ? false : undefined
   }
 }
 
@@ -132,10 +216,34 @@ export async function sendQuote(m: Mailer, quoteId: string, body: QuoteEmailSend
     return { ok: false, code: 502, error: err instanceof GoogleError ? googleWords(err) : 'The mailbox can’t be reached just now. Try again in a minute.' }
   }
   if (!sender.ok) return { ok: false, code: 409, error: sender.why }
-  let quote = await getQuote(m.db.reads, quoteId)
+  const quote = await getQuote(m.db.reads, quoteId)
   if (!quote) return { ok: false, code: 404, error: 'That quote is no longer here.' }
   if (quote.lines.length === 0) return { ok: false, code: 422, error: 'This quote has no lines yet. Add what it is for first.' }
 
+  // The same press asked again (ADR 0171): what it made, or that it's still going, never a second email.
+  const key = body.key
+  if (key) {
+    const state = await sendState(m.db.reads, quote.id, key, now)
+    if (state.state === 'sent') return { ok: true, email: state.email }
+    if (state.state === 'sending') return { ok: false, code: 409, error: 'That Send is still going. Give it a moment: it shows here once Gmail has it.' }
+    if (state.state === 'unsure')
+      return { ok: false, code: 409, error: 'The server stopped while sending this, so it can’t tell whether it went. Look in the operations mailbox’s Sent folder; if it isn’t there, start the email again.' }
+    const held = await m.db.query('INSERT INTO quote_email_sends (key, quote_id, started_at) VALUES ($1, $2, $3) ON CONFLICT (key) DO NOTHING RETURNING key', [key, quote.id, now])
+    if (!held.rows.length) return { ok: false, code: 409, error: 'That Send is still going. Give it a moment: it shows here once Gmail has it.' }
+  }
+  try {
+    return await sendHeld(m, quote, body, who, sender, now)
+  } finally {
+    // Gone or not, the press is no longer held: its email answers for it, or there is none and it can go again.
+    if (key) await m.db.query('DELETE FROM quote_email_sends WHERE key = $1', [key]).catch(() => undefined)
+  }
+}
+
+/** The send itself, once the press is held: number, PDF, Gmail, then the record. */
+async function sendHeld(m: Mailer, quoteIn: Quote, body: QuoteEmailSend, who: Sender, sender: { token: string; account: string }, now: Date): Promise<SendResult> {
+  const today = irishToday(now)
+  let quote = quoteIn
+  const quoteId = quote.id
   const { clientId = 'server', staff: _staff, ...from } = who
   const device = /^[a-z0-9]{1,64}$/.test(clientId) ? clientId : 'server'
   const draft = quote.status === 'draft'
@@ -163,11 +271,14 @@ export async function sendQuote(m: Mailer, quoteId: string, body: QuoteEmailSend
   const pdf = await quotePdf({ ...sheet, ...(logo ? { logo } : {}) })
   const fileName = fileNameFor(quote.number ?? null, sheet.job.name)
   const staff = who.staff ?? undefined
+  // A copy to whoever pressed Send (ADR 0171), unless it's the mailbox itself or they're already on it.
+  const copyTo = body.copy && staff?.email && staff.email.toLowerCase() !== sender.account.toLowerCase() && !body.to.some((a) => a.toLowerCase() === staff.email.toLowerCase()) ? staff.email : null
   const raw = mime({
     from: { name: COMPANY, address: sender.account },
     to: body.to,
     // Replies reach whoever sent it, and operations@, so the thread stays where Claude reads it.
     replyTo: staff && staff.email.toLowerCase() !== sender.account.toLowerCase() ? [{ name: staff.name, address: staff.email }, { address: sender.account }] : [],
+    ...(copyTo ? { bcc: [copyTo] } : {}),
     subject: body.subject,
     text: body.message,
     attachment: { name: fileName, type: 'application/pdf', bytes: pdf },
@@ -202,9 +313,9 @@ export async function sendQuote(m: Mailer, quoteId: string, body: QuoteEmailSend
     { name: QUOTE_EMAIL_ACTION, args: { id: quote.id, projectId: quote.projectId, to: body.to.length, again: (before.rows[0]?.n ?? 0) > 0 }, clientId: device, userId: who.userId, device: who.device },
     async (ctx) => {
       await ctx.tx.query(
-        `INSERT INTO quote_emails (id, quote_id, project_id, version, number, sent_at, sent_by, from_address, to_addresses, subject, message, gmail_id, thread_id, pdf_base64)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-        [id, quote.id, quote.projectId, quote.version, quote.number ?? null, now, who.userId ?? null, sender.account, body.to, body.subject, body.message, sent.id, sent.threadId, pdf.toString('base64')]
+        `INSERT INTO quote_emails (id, quote_id, project_id, version, number, sent_at, sent_by, from_address, to_addresses, subject, message, gmail_id, thread_id, pdf_base64, send_key, copy_to)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+        [id, quote.id, quote.projectId, quote.version, quote.number ?? null, now, who.userId ?? null, sender.account, body.to, body.subject, body.message, sent.id, sent.threadId, pdf.toString('base64'), body.key ?? null, copyTo]
       )
       const record = (await getQuoteEmail(ctx.tx, id))!
       await emit(ctx, 'quoteEmail', id, record)
@@ -212,6 +323,10 @@ export async function sendQuote(m: Mailer, quoteId: string, body: QuoteEmailSend
     }
   )
   m.onChange?.()
+  // Read back from Sent before answering, so the office sees it there at once; Gmail can take a moment, so once more later.
+  if (await confirmSent(m, id, sender.token, sent.id)) return { ok: true, email: (await getQuoteEmail(m.db.reads, id)) ?? email }
+  const later = m.recheckMs ?? 10_000
+  if (later > 0) setTimeout(() => void confirmSent(m, id, sender.token, sent.id).catch(() => undefined), later).unref?.()
   return { ok: true, email }
 }
 
@@ -241,6 +356,8 @@ export interface Message {
   from: Address
   to: string[]
   replyTo: Address[]
+  /** Sent a copy without the others seeing (ADR 0171); Gmail takes the header off before it goes. */
+  bcc?: string[]
   subject: string
   text: string
   /** Left out for a plain email, such as a freelancer's code (ADR 0114). */
@@ -256,6 +373,7 @@ export function mime(msg: Message): Buffer {
     `From: ${addressLine(msg.from)}`,
     fold('To: ', msg.to.map((a) => addressLine({ address: a }))),
     msg.replyTo.length ? fold('Reply-To: ', msg.replyTo.map(addressLine)) : '',
+    msg.bcc?.length ? fold('Bcc: ', msg.bcc.map((a) => addressLine({ address: a }))) : '',
     `Subject: ${encodedWord(msg.subject)}`,
     `Date: ${msg.date.toUTCString()}`,
     'MIME-Version: 1.0',

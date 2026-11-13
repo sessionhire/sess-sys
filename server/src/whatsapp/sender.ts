@@ -219,7 +219,8 @@ export class WhatsAppSender {
     return {
       template: WHATSAPP_OFFER_TEMPLATE,
       components: [
-        body(offerTemplateValues(person, call, hold)),
+        // At the rate the offer was made at, which may be their own (ADR 0167).
+        body(offerTemplateValues(person, { ...call, dayRateCents: offer.dayRateCents }, hold)),
         { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: `yes:${offer.id}` }] },
         { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: `no:${offer.id}` }] },
         page('2'),

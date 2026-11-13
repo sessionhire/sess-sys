@@ -1,4 +1,4 @@
-import { CERTIFICATE_SOON_DAYS, dayLabel, daysBetween, DOCUMENT_KIND_LABELS, DOCUMENT_KINDS, documentRunsOut, fileLabel, FILE_TYPES, type Document, type Person } from '@sh/shared'
+import { LOGO_SVG, CERTIFICATE_SOON_DAYS, dayLabel, daysBetween, DOCUMENT_KIND_LABELS, DOCUMENT_KINDS, documentRunsOut, fileLabel, FILE_TYPES, type Document, type Person } from '@sh/shared'
 import { CSS, fieldError, flash, h, invalid, landing, type Flash } from '../crew/page.ts'
 
 /**
@@ -129,6 +129,6 @@ export function documentsSection(d: LinkDocuments): string {
 export function renderNoFile(base: string, text: string): string {
   return `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Session Hire</title><style>${CSS}</style></head>
-<body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b></div></header>
+<body><main><header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b></div></header>
 <p class="flash bad">${h(text)}</p><a class="sheet-link" href="${h(base)}#documents">‹ Back to your page</a></main></body></html>`
 }

@@ -234,6 +234,8 @@ function describer(view: View): (m: Mutation) => string {
         return `Mark ${quote(a.id)} as sent`
       case 'quote.delete':
         return `Delete ${quote(a.id)}`
+      case 'quote.drop':
+        return `Drop the changes in ${quote(a.id)}`
       case 'quote.answer':
         return a.answer === 'none' ? `Take back the answer on ${quote(a.id)}` : `Record the client's answer on ${quote(a.id)}`
       case 'quote.invoiced':
