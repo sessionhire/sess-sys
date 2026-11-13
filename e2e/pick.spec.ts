@@ -227,10 +227,9 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
 
   // The cables, counted out.
   const countOut = cableRow.getByRole('form', { name: `Count out ${cable}` })
-  // Part of a count is typed behind its own press, so a long list is rows to read (audit, 5 November 2026, finding 35).
-  await countOut.getByRole('button', { name: 'Type how many' }).click()
+  // Part of a count is typed in place, and saved as the field is left: Enter here (Colly, 13 November 2026).
   await countOut.getByLabel('How many').fill('12')
-  await countOut.getByRole('button', { name: 'Count out', exact: true }).click()
+  await countOut.getByLabel('How many').press('Enter')
   await expect(cableRow.locator('.count')).toHaveText('12 of 12 out')
   await expect(page.locator('.pick-total')).toHaveText('13 of 14 out')
   await expect(page.locator('.conn')).toHaveText('Up to date')
@@ -325,9 +324,8 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await page.getByLabel('Number or serial').press('Enter')
   await expect(said).toHaveText('Nothing has the number SH-999999. Check the label.')
   const countBack = cableRow.getByRole('form', { name: `Count back ${cable}` })
-  await countBack.getByRole('button', { name: 'Type how many' }).click()
   await countBack.getByLabel('How many').fill('10')
-  await countBack.getByRole('button', { name: 'Count back', exact: true }).click()
+  await countBack.getByLabel('How many').press('Enter')
   await expect(cableRow.locator('.count')).toHaveText('10 back, 2 still out')
   await expect(answer.locator('.pill')).toHaveText('Waiting to sync')
   await expect(page.locator('.pick-total')).toHaveText('11 back, 3 still out')

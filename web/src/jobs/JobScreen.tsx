@@ -22,7 +22,12 @@ import {
   MAX_LOCAL_CREW,
   PHASE_NAMES,
   KIND_LABELS,
+  euro,
   kindOf,
+  reducedDay,
+  reducedDayPct,
+  REDUCED_DAY_LABELS,
+  shareOf,
   PROJECT_KINDS,
   PROJECT_STATUSES,
   sameDepartment,
@@ -1208,6 +1213,10 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
   const end = dates?.end ?? span?.end ?? ''
   const venue = phase?.venue ?? job.venue
   const today = useToday()
+  // A travel or warehouse day (ADR 0174): the rate typed is the standard one, and the call is offered its share of it.
+  const reduced = reducedDay(phase?.name ?? f.across)
+  const pct = reducedDayPct(view.money.quoting)
+  const typedRate = parseEuro(f.rate)
   const replyBy = f.replyBy ?? (start ? (suggestedReplyBy(start, end < start ? start : end, today) ?? '') : '')
   const { run, error, refuse } = useAct()
 
@@ -1243,7 +1252,7 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
         callTime: f.callTime || null,
         needed,
         // A role that doesn't read rates leaves it to the office (ADR 0046).
-        dayRateCents: seesRates ? rate.cents : null,
+        dayRateCents: seesRates ? (reduced && rate.cents != null ? shareOf(rate.cents, pct) : rate.cents) : null,
         details: f.details.trim(),
         replyBy: replyBy || null,
         needsCertificates: f.needs,
@@ -1328,7 +1337,12 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
       </label>
       {seesRates ? (
         <label>
-          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} placeholder="250" /></UnitBox>
+          {reduced ? 'Standard day rate' : 'Day rate'} <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} placeholder="250" aria-describedby={reduced ? `ask-rate-${job.id}` : undefined} /></UnitBox>
+          {reduced && (
+            <small id={`ask-rate-${job.id}`}>
+              {`The standard rate. A ${REDUCED_DAY_LABELS[reduced]} is offered at ${pct}%${typedRate.cents != null ? `, ${euro(shareOf(typedRate.cents, pct))} a day` : ''}, or ${pct}% of someone's own day rate.`}
+            </small>
+          )}
         </label>
       ) : (
         <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>

@@ -640,6 +640,40 @@ export const crewCommandSchemas = {
  */
 type Addressee = Pick<Person, 'name' | 'kind'> & Partial<Pick<Person, 'knownAs'>>
 
+/** A freelancer's own day rate at so many percent of it (ADR 0174), to the cent; null for staff or no own rate. */
+const ownAt = (p: Pick<Person, 'kind' | 'dayRateCents'>, pct: number) => (p.kind === 'freelancer' && p.dayRateCents !== null ? Math.round((p.dayRateCents * pct) / 100) : null)
+
+/**
+ * The day rate an offer is made at (ADR 0167): the call's, or a freelancer's own day rate where it's above it, or where the
+ * call has none. The client is still charged the quote's price, so the difference comes out of the margin. Staff are paid
+ * through payroll, so an own rate never applies to them; and an own rate below the call's never lowers it.
+ *
+ * On a travel or warehouse day (ADR 0174) the call's rate is already its share of the standard rate, so `pct` takes the
+ * same share of the own rate: half of it unless the office says otherwise. 100 everywhere else.
+ */
+export function offerRateFor(callCents: number | null, p: Pick<Person, 'kind' | 'dayRateCents'>, pct = 100): number | null {
+  const own = ownAt(p, pct)
+  if (own === null) return callCents
+  return callCents === null ? own : Math.max(callCents, own)
+}
+
+/**
+ * Whether picking this person costs more than the job allowed for (ADR 0167): their own rate is what they'd be offered and
+ * it's above `allowed`, the call's rate, or what the quote charges for the role when the call has none. Undefined when it
+ * isn't, or nothing is known to compare it with.
+ */
+export function ownRateAbove(
+  callCents: number | null,
+  quotedCents: number | undefined,
+  p: Pick<Person, 'kind' | 'dayRateCents'>,
+  pct = 100
+): { own: number; allowed: number; against: 'call' | 'quote' } | undefined {
+  const own = ownAt(p, pct)
+  if (own === null) return undefined
+  if (callCents !== null) return own > callCents ? { own, allowed: callCents, against: 'call' } : undefined
+  return quotedCents !== undefined && own > quotedCents ? { own, allowed: quotedCents, against: 'quote' } : undefined
+}
+
 /** "€320 a day", or "rate to agree"; a rate this device isn't sent (ADR 0046) is on the person's own page instead. */
 const rateLine = (c: Pick<CrewCall, 'dayRateCents'> & Partial<Pick<CrewCall, 'rateHidden'>>) =>
   c.rateHidden ? 'The rate is on your page' : `${euro(c.dayRateCents)}${c.dayRateCents !== null ? ' a day' : ''}`

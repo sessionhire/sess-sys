@@ -64,7 +64,11 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   await call.getByRole('button', { name: 'Take Laoise Keane off' }).click()
   await pickRecord(call, 'Offer to', 'Dara Quinn')
   await expect(call.getByRole('alert')).toHaveCount(0)
-  await expect(call.locator('.offer-form .warn-line')).toHaveText('Working at height and IPAF not known for Dara Quinn: check before the job.')
+  // Dara's own rate is above the call's (ADR 0167), so the margin note is under their name too.
+  await expect(call.locator('.offer-form .warn-line')).toHaveText([
+    'Working at height and IPAF not known for Dara Quinn: check before the job.',
+    "Dara's own rate is €320 a day, above this call's €290, so the margin may be less. The client is still charged the quote's price.",
+  ])
 })
 
 test('the Crew tab lists certificates running out, soonest first, each with a message asking for the new card', async ({ browser }) => {

@@ -313,7 +313,7 @@ const ABOUT: Record<string, string> = {
   projects: "Jobs: who for, where, whether they are going ahead, the notes for the crew and the office's own notes, and the calendar a job was brought in from.",
   quotes:
     "Each job's quotes, a row for each version: its lines (what, how many, days charged, the price for a day in cents and the VAT rate), the discount, the notes for the client, how many days its prices hold and any deposit, when it was sent and the quote number it was given then, the client's answer, with the name typed when they accepted it online and when, and the invoice and payment the office recorded for it. The key in each quote's link for the client is left out.",
-  quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details; and whether quotes can be emailed to clients from the operations mailbox, and accepted by them online.",
+  quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details; and whether quotes can be emailed to clients from the operations mailbox, and accepted by them online; and the share of a day rate travel and warehouse days are paid and charged at.",
   quote_emails:
     "Each quote emailed to a client from the operations mailbox: which quote, its version and number as sent, when, by whom, from and to which addresses, the subject and the message. The PDF that went is left out of this file; the app's own copy is on the quote's page.",
   role_prices: "The price list for crew: each role's price for a day, in cents. A role not here is quoted at the rate its crew were booked at.",

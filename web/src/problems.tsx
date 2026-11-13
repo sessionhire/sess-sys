@@ -250,6 +250,8 @@ function describer(view: View): (m: Mutation) => string {
         return onOff(a.on, 'sending quotes by email')
       case 'quoting.online':
         return onOff(a.on, 'accepting quotes online')
+      case 'quoting.reducedDays':
+        return 'Change what travel and warehouse days are paid'
       case 'quoting.ownKit':
         return "Change what own kit costs to run, for the margin"
       case 'price.product':

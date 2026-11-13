@@ -190,7 +190,7 @@ export type Project = z.infer<typeof project> & {
 }
 
 /** The usual phases, in the order they happen. Any other name can be typed. */
-export const PHASE_NAMES = ['Prep', 'Load in', 'Build', 'Rehearsal', 'Show', 'Babysit', 'Load out'] as const
+export const PHASE_NAMES = ['Prep', 'Warehouse', 'Travel', 'Load in', 'Build', 'Rehearsal', 'Show', 'Babysit', 'Load out'] as const
 
 /** Longer than this is more likely a typing slip than a phase. */
 export const MAX_PHASE_DAYS = 366

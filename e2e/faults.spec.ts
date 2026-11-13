@@ -131,10 +131,9 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   const speakerRow = pickRow(page, speaker)
   const cableRow = pickRow(page, cable)
   const countOut = cableRow.getByRole('form', { name: `Count out ${cable}` })
-  // Part of a count is typed behind its own press, so a long list is rows to read (audit, 5 November 2026, finding 35).
-  await countOut.getByRole('button', { name: 'Type how many' }).click()
+  // Part of a count is typed in place, and saved as the field is left: Enter here (Colly, 13 November 2026).
   await countOut.getByLabel('How many').fill('20')
-  await countOut.getByRole('button', { name: 'Count out', exact: true }).click()
+  await countOut.getByLabel('How many').press('Enter')
   await expect(page.locator('.pick-total')).toHaveText('All 23 out: ready to load.')
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
@@ -190,9 +189,8 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   await expect(speakerRow.locator('.count')).toHaveText('1 back, 1 still out, 1 missing')
   // 17 cables back, 3 missing, and 2 of those back are cut.
   const countBack = cableRow.getByRole('form', { name: `Count back ${cable}` })
-  await countBack.getByRole('button', { name: 'Type how many' }).click()
   await countBack.getByLabel('How many').fill('17')
-  await countBack.getByRole('button', { name: 'Count back', exact: true }).click()
+  await countBack.getByLabel('How many').press('Enter')
   await expect(cableRow.locator('.count')).toHaveText('17 back, 3 still out')
   await countBack.getByLabel('How many').fill('3')
   await countBack.getByRole('button', { name: 'Missing' }).click()

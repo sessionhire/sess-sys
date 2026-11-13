@@ -3,6 +3,42 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 13 November 2026: How many typed in place on a pick list; plain buttons you can see the edge of
+
+**Done (1.189.1, #373; design system 0.17.1)**
+
+- Colly, on a phone in dark mode: the plain Count out button's border
+  was hard to see, and Type how many was a red button that opened a box.
+  How many is now a box beside Count out on the same line; leaving it, or
+  Enter, counts that many out (or back), with Undo on the toast. Missing,
+  coming back, takes the number itself.
+- Every plain button now has the same 3:1 edge as a box you type in; the
+  design system's button took the same edge as 0.17.1.
+- Checked: typecheck, shared tests, pick and faults browser tests, phone
+  screenshots in both themes.
+
+## 13 November 2026: tidier buttons, shorter words, second choices as ghost buttons
+
+**Done (1.186.0, #372; design system 0.17.0)**
+
+- Colly: icons at either side of a button, pill or field should have the
+  same space above, below and beside them. Every icon in a control is now
+  18px and sits 13px from each edge of its 44px control; icon-only
+  controls are 44px squares; the combobox end, the search field's Close,
+  select arrows, the busy spinner and Next's pie follow the same rule.
+- A second choice that was underlined words (beside Next, Download PDF,
+  Change, Cancel and the rest) is a ghost button: red words and edge,
+  transparent with a blur behind, in both themes. Inside a sentence or a
+  table cell a press stays underlined words.
+- About 90 button labels cut to a verb and its object ("Get the PDF to
+  send" is "Generate PDF"); the full before/after list is on #372 for
+  Colly to veto any.
+- The rules went back to the design system as 0.17.0 (size.icon-inset,
+  ghost and icon-start/end buttons, a Words rule), merged on Colly's say.
+- Checked: typecheck, shared and server tests, the full browser suite,
+  on-screen measurements of icon spacing in both themes, phone screenshots.
+
+**Waiting:** Colly's veto on any of the new words.
 ## 13 November 2026: Amend quote, when the client asks for changes
 
 **Done (1.189.0, #376, ADR 0173)**

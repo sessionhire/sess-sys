@@ -329,7 +329,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick .from .number { white-space: nowrap; }
 .pick .count-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }
 .pick .count-row p { margin: 0; color: var(--muted); font-size: var(--text-small); flex: 1 0 100%; }
-.app .pick .count-row input { width: 7.5rem; flex: none; }
+/* How many sits beside Count out on one line and takes the rest of it, typed in place and saved on leaving (Colly, 13 November 2026). */
+.pick .count-row > input { flex: 1 1 0; width: auto; min-width: 6rem; }
+.pick .count-row > button { flex: none; }
 /* Numbers already back, each with Report damage, folded under one line on the row (audit, 5 November 2026, finding 33); its form opens under the row. */
 .pick .back-damage li { flex-wrap: wrap; }
 .pick .back-damage li > form { flex: 1 0 100%; }

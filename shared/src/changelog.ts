@@ -28,6 +28,29 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.191.0',
+    date: '2026-11-13',
+    title: 'Travel and warehouse days, at half the day rate',
+    what: "Travel and Warehouse are now phases you can pick on any job, alongside Build and Show. Crew asked for on a travel or warehouse day are paid half the day rate: type the standard rate and the call is saved at half, €250 becomes €125, and the form shows the figure as you type. Someone with their own day rate gets half of that instead. On the quote, crew on those days are charged half their role's price. Half is the starting point: change it under Admin › Company › Travel and warehouse days.",
+    prs: [362],
+    adrs: [174],
+  },
+  {
+    version: '1.190.0',
+    date: '2026-11-13',
+    title: 'Crew on their own day rate',
+    what: "A freelancer who has agreed a higher day rate with us can have it on their record, as Own day rate (it was Usual day rate). Offers to them are made at their own rate where it's above the call's, or where the call has no rate yet, and that's what their page, their message and their timesheet say. The client is still charged the quote's price, and the quote's margin counts what they'll be paid. When you pick someone whose own rate is above the call's rate, or above what the quote charges for the role, a note under their name says the margin may be less. An own rate below the call's never lowers it, and staff are paid as before. Only the office and directors see own rates.",
+    prs: [361],
+    adrs: [167],
+  },
+  {
+    version: '1.189.1',
+    date: '2026-11-13',
+    title: 'Type how many in place when picking, and buttons you can see the edge of',
+    what: "On a pick list, How many is now a box beside Count out: type the number and it's counted as soon as you leave the box or press Enter, with Undo on the message if it was a slip. There's no Type how many button to press first. Coming back, Missing beside it marks that many missing. Plain buttons now have a clearer edge, the same as a box you type in, which is easiest to see in dark mode.",
+    prs: [373],
+  },
+  {
     version: '1.189.0',
     date: '2026-11-13',
     title: 'Amend quote, when the client asks for changes',
