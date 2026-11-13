@@ -1,6 +1,8 @@
 import {
   bouncedEmail,
   acceptPath,
+  changesFromJob,
+  inRacks,
   dayLabel,
   daysWord,
   linesFor,
@@ -194,6 +196,7 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
             )}
             {settled && q.latest && <p className="hint">The quote is invoiced, so it's settled: no new version.</p>}
           </section>
+          {q.latest && q.id === current?.id && !settled && <SinceSent q={q} view={view} onMade={setPicked} />}
           {q.id === current?.id && <Records q={q} job={job} canEmail={byEmail} quiet={toSend || (onTheJob && (next === 'invoice' || next === 'paid'))} />}
         </>
       )}
@@ -213,6 +216,58 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
           document.body
         )}
     </div>
+  )
+}
+
+/**
+ * Work added to the job after its quote went (user flows of 13 November 2026, finding 2): only a draft said the job had changed
+ * since it was built, so kit or crew put on after sending, or after the client's yes, was on nobody's quote. The version with the
+ * client says what's new, gone or changed on the job since, with Amend quote, whose draft takes the changes in one press.
+ */
+function SinceSent({ q, view, onMade }: { q: QuoteView; view: View; onMade: (id: string) => void }) {
+  const m = view.money
+  const source = m.sourceOf(q.projectId)
+  const racked = inRacks(q.lines)
+  const packaged = new Set(q.lines.flatMap((l) => (l.packageId ? (m.package(l.packageId)?.items ?? []).map((i) => i.modelId) : [])))
+  let n = 0
+  const { added, gone, changed } = changesFromJob(
+    q.lines.filter((l) => !racked.has(l)),
+    source.kit,
+    source.crew,
+    { product: m.productPrice, role: m.rolePrice, rate: m.productRate },
+    () => `since-${n++}`,
+    packaged
+  )
+  if (added.length + gone.length + changed.length === 0) return null
+  const yes = q.status === 'accepted'
+  return (
+    <section className="job-changes attention" aria-label="The job has changed since the quote went">
+      <p>
+        <b>
+          {yes
+            ? `The job has changed since the client said yes to version ${q.version}: this isn't on the quote they accepted.`
+            : `The job has changed since version ${q.version} went to the client.`}
+        </b>
+      </p>
+      <ul>
+        {added.map((l) => (
+          <li key={l.id}>
+            New on the job: {l.qty} × {l.what}
+          </li>
+        ))}
+        {changed.map((c) => (
+          <li key={c.line.id}>
+            {c.line.what}: {c.qty} on the job, {c.line.qty} on the quote
+          </li>
+        ))}
+        {gone.map((l) => (
+          <li key={l.id}>No longer on the job: {l.what}</li>
+        ))}
+      </ul>
+      <div className="actions">
+        <NewVersion q={q} onMade={onMade} />
+      </div>
+    </section>
   )
 }
 
