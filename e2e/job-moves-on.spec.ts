@@ -54,6 +54,46 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
+test('changes asked for: Amend quote makes the next version and the job goes back to sending it (ADR 0173)', async ({ browser, request }) => {
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+
+  await office.goto('/#jobs')
+  await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
+  const next = office.getByRole('region', { name: 'Next' })
+  const where = office.getByRole('region', { name: 'Status', exact: true })
+  await office.getByRole('tab', { name: /^Phases/ }).click()
+  await next.getByRole('button', { name: "Record the client's answer" }).click()
+  // The client's three answers, side by side: yes, no, and changes.
+  const answers = where.locator('.clients-answer .step-actions')
+  await expect(answers.getByRole('button')).toHaveText(['Confirm job', 'Client said no', 'Amend quote'])
+  if (process.env.SHOTS_DIR) await where.screenshot({ path: `${process.env.SHOTS_DIR}/amend-at-the-answer.png` })
+  await answers.getByRole('button', { name: 'Amend quote' }).click()
+
+  // Version 2, a copy of what the client has, open to change on the Quote tab; sending it is the task again.
+  await expect(office.getByRole('tab', { name: /^Quote/ })).toHaveAttribute('aria-selected', 'true')
+  const v2 = office.getByRole('form', { name: 'Version 2, a draft' })
+  await expect(v2).toContainText('Amending version 1, which the client has. It stays the quote until this one is sent.')
+  await expect(next).not.toContainText("Record the client's answer")
+  await expect(office.locator('.job-position').first()).toContainText('Quoting')
+  if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/amending-version-2.png` })
+  await office.goto('/#jobs')
+  await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' })).toContainText('Version 2 being amended')
+
+  // A slip is put right in place: Drop changes asks first, and version 1 is the quote again, its answer what's next.
+  await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
+  await v2.getByRole('button', { name: 'Drop changes' }).click()
+  await expect(v2).toContainText('Drop version 2 and its changes? Version 1 stays as the client has it.')
+  if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/drop-changes-question.png` })
+  await v2.getByRole('button', { name: 'Drop changes' }).click()
+  await expect(v2).toHaveCount(0)
+  await expect(office.getByRole('region', { name: 'Version 1' })).toBeVisible()
+  await expect(next).toContainText("Record the client's answer below, under What happened.")
+
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
 test('a past quote for a job already here goes on its quote, not on a second job', async ({ browser, request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)

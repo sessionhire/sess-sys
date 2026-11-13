@@ -210,6 +210,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'quote.answer': 'money',
   // Deleting a quote is an admin's (ADR 0135): a director or a system admin, as erasing a person is. Putting it back is a server route that needs company too.
   'quote.delete': 'company',
+  // Dropping an amendment never sent is the office's (ADR 0173): the version the client has stays, so nothing they saw goes.
+  'quote.drop': 'money',
   'quote.invoiced': 'money',
   'quote.paid': 'money',
   'quoting.update': 'money',

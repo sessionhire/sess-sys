@@ -70,6 +70,7 @@ import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.t
 import { matchKitToQuote } from './Kit.tsx'
 import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
 import { Totals } from './QuoteSheet.tsx'
+import { Amending } from './QuoteRecords.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
 import { setDraftSend, takeAskToSend } from './quoteSend.ts'
 import { serverUrl } from '../server.ts'
@@ -834,6 +835,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           <h2>Version {q.version}</h2>
           <QuotePill q={q} />
         </header>
+        <Amending q={q} versions={view.money.quotesOf(job.id)} />
         {/* What it comes to, in view while the lines are changed below, with what needs a look: each a way to the first such line. */}
         <div className="quote-summary" role="group" aria-label="What it comes to">
           <div className="figures">

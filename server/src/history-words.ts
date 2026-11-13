@@ -744,6 +744,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'quote.invoiced':
     case 'quote.paid':
     case 'quote.delete':
+    case 'quote.drop':
     case QUOTE_PUT_BACK_ACTION: {
       const q = look('quote', a.id)
       const version = typeof q?.version === 'number' ? `version ${q.version} of ` : ''
@@ -752,6 +753,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (command === 'quote.save') return `Saved ${of}`
       // Deleted and put back (ADR 0135): the history is where a deleted one is found again.
       if (command === 'quote.delete') return `Deleted ${of}${typeof q?.number === 'number' ? `, quote ${q.number}` : ''}`
+      if (command === 'quote.drop') return `Dropped the changes in ${of}, never sent`
       if (command === QUOTE_PUT_BACK_ACTION) return `Put back ${of}, deleted before`
       if (command === 'quote.sent') return `Marked ${of} as sent to the client${on}`
       if (command === 'quote.answer')
