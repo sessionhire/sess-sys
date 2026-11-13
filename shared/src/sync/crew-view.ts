@@ -157,7 +157,7 @@ export function crewView(
           dayRateCents: a.dayRateCents !== undefined ? a.dayRateCents : (was?.dayRateCents ?? null),
           ...(a.dayRateCents === undefined && was?.rateHidden ? { rateHidden: true } : {}),
           approvesLeave,
-          department: a.department !== undefined ? a.department : (was?.department ?? null),
+          department: a.department !== undefined ? (a.department ? tidyDepartment(a.department) : null) : (was?.department ?? null),
           level: a.level ?? was?.level ?? DEFAULT_LEVEL,
           knownAs: a.knownAs !== undefined ? a.knownAs : (was?.knownAs ?? null),
           // As the server lays them (ADR 0028).
