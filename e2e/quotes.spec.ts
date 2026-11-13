@@ -211,6 +211,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     number: 1115,
     canSend: true,
     why: null,
+    me: null,
   }
   await office.route('**/api/quotes/*/email', (route) => (route.request().method() === 'GET' ? route.fulfill({ json: prefill }) : route.continue()))
   await expect(draft).toContainText('opens the email to the client from the operations mailbox')
@@ -232,6 +233,12 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   expect((await saved).suggestedFilename()).toMatch(/\.pdf$/)
   await expect(getPdf).not.toHaveAttribute('aria-busy')
   await office.unroute('**/api/quotes/*/pdf?download=1')
+  // A slip in a common domain is said with the fix one press away (ADR 0171); a domain that takes no email stops Send. The
+  // server's look at each domain is stood in for, so no real DNS is asked.
+  await office.route('**/api/quotes/email/check?*', (route) => {
+    const { to } = route.request().postDataJSON() as { to: string[] }
+    route.fulfill({ json: { addresses: to.map((address) => ({ address, problem: address.endsWith('@nomail.ie') ? 'nomail.ie can’t receive email, so it would bounce. Check the spelling.' : null, suggest: address === 'ruairi@gmial.com' ? 'ruairi@gmail.com' : null })) } })
+  })
   await draft.getByRole('button', { name: 'Send quote' }).click()
   const compose = draft.getByRole('form', { name: 'Send the quote by email' })
   await expect(compose.getByLabel('To')).toHaveValue('ruairi@example.com')
@@ -244,8 +251,46 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(compose.locator('.line-problem')).toHaveCount(0)
   await compose.getByLabel('Subject').focus()
   await expect(compose.locator('.line-problem')).toHaveText('“not-an-address” doesn’t look like an email address.')
-  await compose.getByRole('button', { name: 'Cancel' }).click()
+  await compose.getByLabel('To').fill('ruairi@gmial.com')
+  await compose.getByLabel('Subject').focus()
+  await expect(compose.locator('.address-slip')).toHaveText('Did you mean ruairi@gmail.com? Use ruairi@gmail.com')
+  if (process.env.SHOTS_DIR) await compose.screenshot({ path: `${process.env.SHOTS_DIR}/quote-email-slip.png` })
+  await compose.getByRole('button', { name: 'Use ruairi@gmail.com' }).click()
+  await expect(compose.getByLabel('To')).toHaveValue('ruairi@gmail.com')
+  await expect(compose.locator('.address-slip')).toHaveCount(0)
+  await compose.getByLabel('To').fill('ruairi@nomail.ie')
+  await compose.getByLabel('Subject').focus()
+  await expect(compose.locator('.line-problem')).toHaveText('nomail.ie can’t receive email, so it would bounce. Check the spelling.')
+  await compose.getByLabel('To').fill('ruairi@example.com')
+
+  // The press with no answer (signal lost on the way): Send asks whether it went before offering itself again, and says so.
+  // Here it didn't, so pressing again is safe: the same press, with the same key, can only go once (ADR 0171).
+  const keys: string[] = []
+  let answerSend = (_: unknown) => {}
+  await office.route('**/api/quotes/*/email?*', (route) => {
+    keys.push((route.request().postDataJSON() as { key: string }).key)
+    if (keys.length === 1) return route.abort()
+    answerSend = (json) => void route.fulfill({ json })
+  })
+  await office.route('**/api/quotes/*/email/sends/*', (route) => route.fulfill({ json: { state: 'none' } }))
+  await compose.getByRole('button', { name: 'Send' }).click()
+  await expect(compose.getByRole('alert')).toHaveText('It didn’t go: nothing reached the client. Press Send to try again.')
+  if (process.env.SHOTS_DIR) await compose.screenshot({ path: `${process.env.SHOTS_DIR}/quote-email-did-not-go.png` })
+  await compose.getByRole('button', { name: 'Send' }).click()
+  // Slow: Send stays busy, says so past a second, and Next says the same.
+  await expect(compose.getByRole('button', { name: 'Sending…' })).toHaveAttribute('aria-busy', 'true')
+  await expect(compose.getByLabel('To')).toHaveAttribute('readonly', '')
+  if (process.env.SHOTS_DIR) await compose.screenshot({ path: `${process.env.SHOTS_DIR}/quote-email-sending.png` })
+  expect(keys).toHaveLength(2)
+  expect(keys[1]).toBe(keys[0])
+  const went = { id: 'e1', quoteId: 'x', projectId: 'x', version: 1, number: 1115, at: new Date().toISOString(), by: 'Office', from: 'operations@sessionhire.com', to: ['ruairi@example.com'], subject: prefill.subject, copyTo: null, inSentAt: new Date().toISOString() }
+  answerSend({ email: went })
+  // Gone: the box closes, and a toast says where it went and that it's in the mailbox's Sent folder.
   await expect(compose).toHaveCount(0)
+  await expect(office.locator('.toast').filter({ hasText: 'Quote 1115 sent to ruairi@example.com' })).toContainText('In the Sent folder of operations@sessionhire.com.')
+  if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/quote-email-sent-toast.png` })
+  await office.unroute('**/api/quotes/*/email?*')
+  await office.unroute('**/api/quotes/*/email/sends/*')
 
   // Sent another way by the office itself, then a second version with Liffey's 10% off; the first is kept as it went.
   await draft.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()

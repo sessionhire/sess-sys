@@ -1,8 +1,8 @@
-import { irishToday, quoteEmailSend, type QuoteEmail, type QuoteEmailPrefill } from '@sh/shared'
+import { irishToday, QUOTE_EMAIL_LIMITS, quoteEmailSend, type QuoteAddressCheck, type QuoteEmail, type QuoteEmailPrefill, type QuoteSendState } from '@sh/shared'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { describeDevice } from '../devices.ts'
 import { publicOrigin } from '../http.ts'
-import { fileNameFor, prefillFor, sendQuote, sheetFor, type Mailer } from './quote-email.ts'
+import { checkAddresses, fileNameFor, prefillFor, sendQuote, sendState, sheetFor, type Mailer } from './quote-email.ts'
 import { quotePdf } from './quote-pdf.ts'
 import { getQuote, getQuoteEmailPdf } from './store.ts'
 import { Refused, serverChange } from '../kernel.ts'
@@ -39,6 +39,21 @@ export function registerQuoteEmailRoutes(app: FastifyInstance, m: Mailer) {
     })
     if (!sent.ok) return reply.code(sent.code).send({ error: sent.error })
     return { email: sent.email }
+  })
+
+  /** Where one press of Send is, by its key (ADR 0171): asked by a phone that stopped waiting, before it offers Send again. */
+  app.get<{ Params: { id: string; key: string } }>('/api/quotes/:id/email/sends/:key', { config: { needs: 'money' } }, async (req, reply): Promise<QuoteSendState> => {
+    noStore(reply)
+    return sendState(m.db.reads, id(req.params.id), id(req.params.key), m.now?.() ?? new Date())
+  })
+
+  /** Whether the addresses typed can take email (ADR 0171), and a likely spelling for a slip, before Send is pressed. */
+  app.post('/api/quotes/email/check', { config: { needs: 'money' } }, async (req, reply): Promise<{ addresses: QuoteAddressCheck[] } | void> => {
+    noStore(reply)
+    const to = (req.body as { to?: unknown } | undefined)?.to
+    if (!Array.isArray(to) || to.some((a) => typeof a !== 'string')) return reply.code(400).send({ error: 'Say which addresses to check.' })
+    const addresses = (to as string[]).map((a) => a.trim().slice(0, 200)).filter((a) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)).slice(0, QUOTE_EMAIL_LIMITS.to)
+    return { addresses: await checkAddresses(m, addresses) }
   })
 
   /** The quote as it stands, as the PDF that would go: to look at before sending, or to save and send another way. */

@@ -555,6 +555,12 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .compose .compose-from { margin: 0; }
 .quote-screen .compose .actions { margin-top: var(--ds-space-2); }
 .quote-screen .compose .actions .link.quiet { margin-left: auto; }
+/* Knowing it went (ADR 0171): a slip in an address, said under the field with the fix one press away; the copy to the sender. */
+.quote-screen .compose .address-slip { margin: 0; }
+.quote-screen .compose label.tick { display: flex; gap: var(--ds-space-3); align-items: center; min-height: 44px; margin-top: var(--ds-space-2); cursor: pointer; }
+.quote-screen .compose label.tick input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
+.quote-screen .quote-emails .sent-line { display: flex; gap: var(--ds-space-2); align-items: flex-start; }
+.quote-screen .quote-emails .sent-line svg { flex: none; width: 18px; height: 18px; margin-top: 2px; }
 .quote-screen .quote-emails { display: grid; gap: var(--ds-space-2); margin: 0 0 var(--ds-space-3); font-size: var(--text-small); }
 .quote-screen .quote-emails small { display: block; color: var(--muted); }
 .quote-table-wrap { overflow-x: auto; overflow-y: hidden; }

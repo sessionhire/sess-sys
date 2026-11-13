@@ -11,7 +11,7 @@ import { useReach } from '../crew/reach.tsx'
 import { useToday } from '../view.ts'
 import { offerFormId, useOfferPicks } from '../crew/offerPicks.ts'
 import { confirmQuestion, holdingTheDay } from './jobStatus.ts'
-import { askToSend, useDraftSend } from './quoteSend.ts'
+import { askToSend, useDraftSend, useSendingWords } from './quoteSend.ts'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
 import { serverUrl } from '../server.ts'
 import { GetFile } from '../GetFile.tsx'
@@ -78,6 +78,8 @@ export function NextDock({
   const picked = { callId: askId, names: useOfferPicks(askId) }
   // The draft quote's own Send, while it's open on the Quote tab (ADR 0166), and whether quotes go by email.
   const draftSend = useDraftSend(job.id)
+  // While the email goes, Next says where it is, as its own Send does (ADR 0171).
+  const sendingWords = useSendingWords(job.id)
   const byEmail = useQuotesByEmail(view.money)
   const steps = view.steps.of(job.id)
   // Errands and meetings have no stages, so no Next: the page is as it was.
@@ -165,7 +167,7 @@ export function NextDock({
       // A quote is built from the kit and crew, so a job with neither starts there (audit, 5 November 2026, finding 16).
       const empty = quotes.length === 0 && !(view.kit.byJob.get(job.id)?.length) && job.calls.length === 0
       const sending = sendQuote()
-      if (sending === 'composing') return rest(composingWords, answers)
+      if (sending === 'composing') return rest(sendingWords ?? composingWords, answers)
       if (empty && access.can('kit')) press = { label: 'Add kit to quote', onPress: () => onPart('kit') }
       else if (sending) press = sending
       // The quote is the job's Quoting stage, worked on its own tab (ADR 0140, part 4). With that tab open, its Send or Build is the

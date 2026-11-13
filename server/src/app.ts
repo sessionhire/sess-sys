@@ -162,6 +162,10 @@ export interface AppOptions {
   whatsapp?: WhatsAppConfig
   /** Gmail for the operations mailbox (ADR 0098), when a test stands one in. */
   gmail?: Gmail
+  /** Whether a domain takes email (ADR 0171), when a test stands in for the DNS. */
+  mx?: (domain: string) => Promise<boolean | undefined>
+  /** How long before a quote email not yet in Sent is looked for again (ADR 0171); a test sets 0. */
+  recheckMs?: number
   /** Where what the server notices about itself is reported: Sentry's (reportError) unless a test listens instead. */
   report?: typeof reportError
   /** The key trackers' reports must carry (ADR 0107, TRACKERS_KEY). Without it, no report is taken. */
@@ -708,7 +712,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const mailbox = new Mailbox(db, assistant, google, calendar?.clientSecret, () => void poke(), app.log, options.gmail)
   app.decorate('assistantMailbox', mailbox)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
-  registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke(), logo: () => readLogo(db.reads, documents) })
+  registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke(), logo: () => readLogo(db.reads, documents), ...(options.mx ? { mx: options.mx } : {}), ...(options.recheckMs !== undefined ? { recheckMs: options.recheckMs } : {}) })
   // What comes back from WhatsApp (ADR 0125, part 3): receipts, and Yes and No pressed on an offer.
   registerWhatsAppRoutes(app, { whatsapp, answers: new WhatsAppAnswers(db, whatsapp, { onChange: changed, log: app.log }) })
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.

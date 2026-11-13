@@ -171,6 +171,20 @@ const MIGRATIONS: string[] = [
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS stay_from_km integer CHECK (stay_from_km BETWEEN 0 AND 1000);
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS room_cents integer CHECK (room_cents >= 0);
   `,
+  // Knowing a quote's email went (ADR 0171): each press of Send has a key, so the same press never sends twice; a press is
+  // held while it goes, so a second ask for it waits rather than sends; whoever sent it may get a copy; and when it was
+  // read back from the mailbox's Sent folder.
+  `
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS send_key text;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS copy_to text;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS in_sent_at timestamptz;
+  CREATE UNIQUE INDEX IF NOT EXISTS quote_emails_send_key ON quote_emails (send_key) WHERE send_key IS NOT NULL;
+  CREATE TABLE IF NOT EXISTS quote_email_sends (
+    key        text PRIMARY KEY,
+    quote_id   text NOT NULL,
+    started_at timestamptz NOT NULL DEFAULT now()
+  );
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

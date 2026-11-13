@@ -168,7 +168,7 @@ export async function highestNumber(q: Queryable): Promise<number> {
 
 // A quote emailed to the client (ADR 0101): the record every device sees, and the PDF that went, kept here.
 
-const QUOTE_EMAIL = `e.id, e.quote_id, e.project_id, e.version, e.number, e.sent_at, e.from_address, e.to_addresses, e.subject, coalesce(u.name, '') AS by`
+const QUOTE_EMAIL = `e.id, e.quote_id, e.project_id, e.version, e.number, e.sent_at, e.from_address, e.to_addresses, e.subject, e.copy_to, e.in_sent_at, coalesce(u.name, '') AS by`
 const toQuoteEmail = (r: Row): QuoteEmail => ({
   id: r.id,
   quoteId: r.quote_id,
@@ -180,10 +180,18 @@ const toQuoteEmail = (r: Row): QuoteEmail => ({
   from: r.from_address,
   to: r.to_addresses,
   subject: r.subject,
+  copyTo: r.copy_to ?? null,
+  inSentAt: r.in_sent_at ? new Date(r.in_sent_at).toISOString() : null,
 })
 
 export async function getQuoteEmail(q: Queryable, id: string): Promise<QuoteEmail | undefined> {
   const { rows } = await q.query<Row>(`SELECT ${QUOTE_EMAIL} FROM quote_emails e LEFT JOIN users u ON u.id = e.sent_by WHERE e.id = $1`, [id])
+  return rows[0] ? toQuoteEmail(rows[0]) : undefined
+}
+
+/** The email one press of Send made (ADR 0171), by the press's key, for that quote. */
+export async function getQuoteEmailByKey(q: Queryable, quoteId: string, key: string): Promise<QuoteEmail | undefined> {
+  const { rows } = await q.query<Row>(`SELECT ${QUOTE_EMAIL} FROM quote_emails e LEFT JOIN users u ON u.id = e.sent_by WHERE e.send_key = $1 AND e.quote_id = $2`, [key, quoteId])
   return rows[0] ? toQuoteEmail(rows[0]) : undefined
 }
 
