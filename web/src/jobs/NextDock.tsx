@@ -14,6 +14,7 @@ import { confirmQuestion, holdingTheDay } from './jobStatus.ts'
 import { askToSend, useDraftSend } from './quoteSend.ts'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
 import { serverUrl } from '../server.ts'
+import { GetFile } from '../GetFile.tsx'
 
 /** Where a press of Next lands on the job page (ADR 0140): a call, with its Offer open or not, or the short kit's Subhire. */
 /** Where a press lands on the job's page: a call, opening its Offer or its rows to answer a yes or a rate (ADR 0152); or the short kit. */
@@ -135,7 +136,7 @@ export function NextDock({
 
   const prep = steps.steps.find((s) => s.key === 'prep')
   /** What to press for the task, or why there's nothing to. */
-  let press: { label: string; href?: string; onPress?: () => void; done?: Done; pdf?: string } | undefined
+  let press: { label: string; href?: string; onPress?: () => void; done?: Done; pdf?: string; busy?: boolean } | undefined
   let why: string | undefined
   // A finished quote is sent from Next (ADR 0166), first version or a later one: on the Quote tab it's the draft's own Send,
   // which opens the email to the client with the PDF attached, or gets the numbered PDF while quotes don't go by email; from
@@ -145,7 +146,7 @@ export function NextDock({
   const pdf = draft ? serverUrl(`/api/quotes/${encodeURIComponent(draft.id)}/pdf?download=1`) : undefined
   const sendQuote = (): typeof press | 'composing' | undefined => {
     if (!draft) return undefined
-    if (quoteHere && draftSend) return draftSend.composing ? 'composing' : { label: draftSend.label, onPress: draftSend.press, ...(draftSend.ready && pdf ? { pdf } : {}) }
+    if (quoteHere && draftSend) return draftSend.composing ? 'composing' : { label: draftSend.label, onPress: draftSend.press, busy: !!draftSend.busy, ...(draftSend.ready && pdf ? { pdf } : {}) }
     if (quoteHere || !draft.lines.length) return undefined
     return {
       label: byEmail ? 'Send quote' : 'Get the PDF to send',
@@ -337,9 +338,7 @@ export function NextDock({
       {answers.label}
     </button>
   ) : press.pdf ? (
-    <a className="link second" href={press.pdf} download>
-      Download the PDF
-    </a>
+    <GetFile className="link second" href={press.pdf} name="Quote.pdf" label="Download the PDF" working="Getting the PDF…" />
   ) : (
     pickSoon && (
       <a className="link second" href={pickSoon.href}>
@@ -362,7 +361,7 @@ export function NextDock({
           {inside}
         </a>
       ) : (
-        <button type="button" className="primary" onClick={press.onPress}>
+        <button type="button" className="primary" onClick={press.onPress} aria-busy={press.busy || undefined}>
           {inside}
         </button>
       )}

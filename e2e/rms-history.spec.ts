@@ -154,7 +154,7 @@ test('the office makes a job from a past quote, its lines matched to the stock l
   await expect(office.locator('.job-position').first()).toContainText('Quoting')
   // The draft is right there and whole, so Next is its Send (ADR 0166): the numbered PDF while quotes don't go by email.
   await expect(next.getByRole('button', { name: 'Get the PDF to send' })).toBeVisible()
-  await expect(next.getByRole('link', { name: 'Download the PDF' })).toBeVisible()
+  await expect(next.getByRole('button', { name: 'Download the PDF' })).toBeVisible()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await expect(draft).toContainText('Shure SM58')
   await expect(draft).toContainText('Sound engineer')

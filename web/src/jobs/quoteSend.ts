@@ -13,6 +13,8 @@ export interface DraftSend {
   ready: boolean
   /** The email to the client is open under the quote, so its own Send is the press. */
   composing: boolean
+  /** Its press is under way: marking it sent, before the PDF opens. */
+  busy?: boolean
   press: () => void
 }
 
@@ -30,7 +32,7 @@ export function setDraftSend(jobId: string, send: DraftSend | undefined) {
     sends.delete(jobId)
     return tell()
   }
-  if (was && was.label === send.label && was.ready === send.ready && was.composing === send.composing) {
+  if (was && was.label === send.label && was.ready === send.ready && was.composing === send.composing && !!was.busy === !!send.busy) {
     // The same words: keep the newest press without redrawing Next.
     sends.set(jobId, send)
     return
