@@ -83,5 +83,8 @@ test('a quote email that bounced is said everywhere the office looks, and sent a
   await office.reload()
   await office.goto('/#home')
   await expect(office.getByRole('region', { name: 'A quote email bounced' })).toHaveCount(0)
+  // A pull still in flight as the page goes would otherwise fail outside the test.
+  await office.unrouteAll({ behavior: 'ignoreErrors' })
+  await office.context().close()
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
