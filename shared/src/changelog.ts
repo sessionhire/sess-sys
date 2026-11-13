@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-13',
     title: 'Type how many in place when picking, and buttons you can see the edge of',
     what: "On a pick list, How many is now a box beside Count out: type the number and it's counted as soon as you leave the box or press Enter, with Undo on the message if it was a slip. There's no Type how many button to press first. Coming back, Missing beside it marks that many missing. Plain buttons now have a clearer edge, the same as a box you type in, which is easiest to see in dark mode.",
-    prs: [379],
+    prs: [373],
   },
   {
     version: '1.189.0',
