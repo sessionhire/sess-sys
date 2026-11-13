@@ -28,10 +28,10 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.189.2',
+    version: '1.190.0',
     date: '2026-11-13',
-    title: 'Fixes from the map of every route through a job',
-    what: "A quote the client turned down no longer reads as No quote yet: the Jobs list and the Board say Turned down, and Next opens the client's answer, to mark the job lost or amend the quote. On the Kit tab, Next no longer only opens the tab you're on: it goes on to Transport, then marks the kit and vans settled. Crew departments now use the same names as the rest of the app, Lighting and Lasers rather than LX and Laser. On a pick list, a number typed in the scan box is entered by the button beside it, rather than the button opening the camera. Going out, the pick list says what went with the kit in its cases, so it counts the same as coming back.",
+    title: 'Cancel this job, errands that look like errands, and fixes from the map of every route through a job',
+    what: "A job has a Cancel this job button beside Change details: say whether it was called off or lost, and why in a line, which is kept at the top of the office notes with the day. Errands and meetings now show only When and Who's going (and Kit and Transport for an errand), with who's going said where Next would be. Confirming a freelancer's yes with no day rate agreed now asks first. A quote the client turned down no longer reads as No quote yet: the Jobs list and the Board say Turned down, and Next opens the client's answer, to mark the job lost or amend the quote. On the Kit tab, Next no longer only opens the tab you're on: it goes on to Transport, then marks the kit and vans settled. Crew departments now use the same names as the rest of the app, Lighting and Lasers rather than LX and Laser. On a pick list, a number typed in the scan box is entered by the button beside it, rather than the button opening the camera. Going out, the pick list says what went with the kit in its cases, so it counts the same as coming back.",
     prs: [0],
   },
   {

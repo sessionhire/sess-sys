@@ -640,6 +640,13 @@ export const crewCommandSchemas = {
  */
 type Addressee = Pick<Person, 'name' | 'kind'> & Partial<Pick<Person, 'knownAs'>>
 
+/**
+ * A yes from a freelancer with no day rate agreed (user flows of 13 November 2026, finding 3): confirming books them with the
+ * rate still to agree, so the office is asked first. Staff aren't paid by the day, and a rate this device isn't sent is set.
+ */
+export const yesWithNoRate = (o: Pick<Offer, 'status' | 'dayRateCents'> & { rateHidden?: boolean; person?: Pick<Person, 'kind'> | null }) =>
+  o.status === 'accepted' && o.dayRateCents === null && !o.rateHidden && o.person?.kind !== 'staff'
+
 /** "€320 a day", or "rate to agree"; a rate this device isn't sent (ADR 0046) is on the person's own page instead. */
 const rateLine = (c: Pick<CrewCall, 'dayRateCents'> & Partial<Pick<CrewCall, 'rateHidden'>>) =>
   c.rateHidden ? 'The rate is on your page' : `${euro(c.dayRateCents)}${c.dayRateCents !== null ? ' a day' : ''}`

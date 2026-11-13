@@ -1,4 +1,4 @@
-import { bouncedEmail, crewNext, dayLabel, firstName, kindOf, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
+import { bouncedEmail, crewNext, dayLabel, firstName, kindOf, plural, ratesClosedBy, STATUS_LABELS, yesWithNoRate, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
 import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -85,8 +85,21 @@ export function NextDock({
   const sendingWords = useSendingWords(job.id)
   const byEmail = useQuotesByEmail(view.money)
   const steps = view.steps.of(job.id)
-  // Errands and meetings have no stages, so no Next: the page is as it was.
-  if (!steps || (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands'))) return null
+  if (!steps) return null
+  // Errands and meetings have no stages, so no Next to press: the dock says who's going instead, and where to add them (user flows
+  // of 13 November 2026, finding 5), which is what the page is for.
+  if (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands') && !STOPPED.includes(job.status)) {
+    const going = [...new Set(job.calls.filter((c) => c.status === 'open').flatMap((c) => c.offers.filter((o) => o.status === 'confirmed' && o.person).map((o) => firstName(o.person!))))]
+    const what = kindOf(job) === 'meeting' ? 'meeting' : 'errand'
+    return (
+      <div className="next-dock" role="region" aria-label="Next" data-rest="true">
+        <p className="rest">
+          {going.length ? `Going on this ${what}: ${going.join(', ')}.` : `Nobody is down for this ${what} yet.`}{' '}
+          {access.can('crew') && <a href={`#jobs/${encodeURIComponent(job.id)}/crew`}>{going.length ? "Who's going" : 'Add who goes'}</a>}
+        </p>
+      </div>
+    )
+  }
   const href = `#jobs/${encodeURIComponent(job.id)}`
   const task = steps.current
   const stage = steps.stage
@@ -273,7 +286,7 @@ export function NextDock({
         // A yes with days they haven't answered, or one that fills the call over a rate still asked for, is confirmed on its
         // row, where what confirming ends is said first (ADR 0152).
         press =
-          offer.asked?.length || ratesClosedBy(call, call.offers, offer.id).length
+          offer.asked?.length || ratesClosedBy(call, call.offers, offer.id).length || yesWithNoRate(offer)
             ? { label: `Check ${firstName(person)}'s yes · ${count}`, done: bookedDone, onPress: () => onPart('crew', { call: call.id, answer: true }) }
             : {
                 label: `Confirm ${firstName(person)}'s yes · ${count}`,
