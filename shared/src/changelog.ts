@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.186.0',
+    date: '2026-11-13',
+    title: 'Tidier buttons, shorter words, and second choices you can see are buttons',
+    what: "Every icon on a button, a chip or a box is now the same size and sits the same distance from the edge as from the top and bottom, the arrows at the end of drop-down lists included. A second choice beside the main button, such as Download PDF beside Generate PDF, is now an outlined button in red rather than underlined words, so it's plain that it can be pressed. And about ninety buttons say what they do in fewer words: Get the PDF to send is now Generate PDF, Add it to the kit list is Add to kit, Build it from the job is Build from job.",
+    prs: [371],
+  },
+  {
     version: '1.185.3',
     date: '2026-11-13',
     title: 'Slow buttons show they are working, and the quote PDF opens the share sheet on a phone',

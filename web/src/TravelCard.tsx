@@ -122,7 +122,7 @@ export function TravelCard({ money: m }: { money: MoneyView }) {
             </small>
           </label>
           <button type="button" onClick={() => void readAa()} disabled={reading} aria-busy={reading}>
-            {reading ? 'Reading the AA’s price…' : 'Read the AA’s price'}
+            {reading ? 'Getting AA price…' : 'Get AA price'}
           </button>
         </div>
         <label className="signal wide">
@@ -166,7 +166,7 @@ export function TravelCard({ money: m }: { money: MoneyView }) {
         </label>
         <div className="actions wide">
           <button type="submit" className="primary">
-            Save travel and subsistence
+            Save travel costs
           </button>
           <Pending pending={m.quoting.pending} />
         </div>

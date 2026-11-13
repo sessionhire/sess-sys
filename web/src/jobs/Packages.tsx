@@ -229,14 +229,14 @@ export function PackageEditor({ view, was, start, onDone }: { view: View; was?: 
       <Refusal error={error} />
       <div className="actions">
         <button type={nested ? 'button' : 'submit'} className="primary" onClick={nested ? save : undefined}>
-          {was ? 'Save the package' : 'Add the package'}
+          {was ? 'Save package' : 'Add package'}
         </button>
         <button type="button" className="link" onClick={() => onDone()}>
           Cancel
         </button>
         {was && (
           <button type="button" className="link" onClick={remove}>
-            Take it off the price list
+            Remove from price list
           </button>
         )}
       </div>

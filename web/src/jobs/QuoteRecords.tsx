@@ -66,7 +66,7 @@ export function NewVersion({ q, onMade }: { q: QuoteView; onMade: (id: string) =
   return (
     <>
       <button type="button" onClick={make}>
-        Start a new version
+        New version
       </button>
       <Refusal error={error} />
     </>
@@ -174,14 +174,14 @@ export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobVie
         <div className="quote-send">
           {when}
           {/* The client's yes is the moment the job is confirmed (ADR 0140, part 4): one press records it and confirms the job, as the
-              Confirmed task's own Yes does, rather than a second "Confirm the job" to find after it. A job already confirmed, or
+              Confirmed task's own Yes does, rather than a second "Confirm job" to find after it. A job already confirmed, or
               one stopped, just takes the answer. */}
           {askingYes && confirmAsk ? (
-            <Confirm question={confirmAsk} yes="Confirm the job" no="Keep it as it is" onYes={accept} onNo={() => setAskingYes(false)} />
+            <Confirm question={confirmAsk} yes="Confirm job" no="Keep it as it is" onYes={accept} onNo={() => setAskingYes(false)} />
           ) : (
             <>
               <button type="button" className={primaryIfNext('answer')} disabled={confirms && job.pending} onClick={() => (confirmAsk ? setAskingYes(true) : accept())}>
-                {confirms ? 'Client accepted: confirm the job' : 'Client accepted'}
+                {confirms ? 'Accepted: confirm job' : 'Client accepted'}
               </button>
               <button type="button" aria-expanded={!!why} onClick={() => setWhy(why ? undefined : { reason: null, note: '' })}>
                 Client turned it down

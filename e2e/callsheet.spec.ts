@@ -53,7 +53,7 @@ test('the office sends a call sheet, and the freelancer reads it on their link',
   await office.getByLabel('Contact on the day').selectOption({ label: 'Aoife Brennan' })
 
   // Copied for the crew's group: nobody's number but the contact's.
-  await office.getByRole('button', { name: 'Copy for a WhatsApp group' }).click()
+  await office.getByRole('button', { name: 'Copy for WhatsApp' }).click()
   const text = await office.evaluate(() => navigator.clipboard.readText())
   expect(text).toMatch(/^Harbour Lights Festival: Show\n/)
   expect(text).toContain('On the day, ring Aoife Brennan on +44 7700 900')

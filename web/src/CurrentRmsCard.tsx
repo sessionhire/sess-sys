@@ -119,10 +119,10 @@ export function CurrentRmsCard() {
           )}
           <div className="row">
             <button type="button" onClick={() => post('read')} disabled={busy !== undefined} aria-busy={busy === 'read'}>
-              {status.opportunities ? 'Read Current RMS again' : 'Bring in from Current RMS'}
+              {status.opportunities ? 'Read again' : 'Bring in from Current RMS'}
             </button>
             <button type="button" className="secondary" onClick={() => post('check')} disabled={busy !== undefined} aria-busy={busy === 'check'}>
-              {late && busy === 'check' ? 'Checking…' : 'Check the connection'}
+              {late && busy === 'check' ? 'Checking…' : 'Check connection'}
             </button>
           </div>
         </>

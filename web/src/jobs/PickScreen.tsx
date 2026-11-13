@@ -917,7 +917,7 @@ function Count({ row, job, mode, say }: { row: PickRow; job: JobView; mode: Dire
       </p>
       {rest > 0 && (
         <button type="button" className="all" onClick={() => go(mode, rest)}>
-          {mode === 'out' ? (rest > 1 ? `Count out the ${rest.toLocaleString('en-IE')}` : 'Count out 1') : rest > 1 ? `Count back all ${rest.toLocaleString('en-IE')}` : 'Count back 1'}
+          {mode === 'out' ? (rest > 1 ? `Count out ${rest.toLocaleString('en-IE')}` : 'Count out 1') : rest > 1 ? `Count back all ${rest.toLocaleString('en-IE')}` : 'Count back 1'}
         </button>
       )}
       {typing || error ? (

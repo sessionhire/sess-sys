@@ -99,12 +99,12 @@ test("a venue's own map gives directions, and its pin is moved by a pasted link 
   await expect(card.getByRole('link', { name: 'Directions' })).toHaveAttribute('href', 'https://www.google.com/maps/dir/?api=1&destination=53.34755,-6.22845')
 
   await card.getByRole('button', { name: 'Move the pin' }).click()
-  await page.getByRole('region', { name: 'Move the pin' }).getByRole('button', { name: 'Take it off the map' }).click()
+  await page.getByRole('region', { name: 'Move the pin' }).getByRole('button', { name: 'Remove from map' }).click()
   await expect(card).toContainText('Not on the map yet.')
 
   // Looked up again with the search down: the reason in words, and a pin typed in still goes on.
-  await card.getByRole('button', { name: 'Put it on the map' }).click()
-  const placing = page.getByRole('region', { name: 'Put it on the map' })
+  await card.getByRole('button', { name: 'Put on map' }).click()
+  const placing = page.getByRole('region', { name: 'Put on map' })
   await expect(placing.getByText("The map search isn't answering. Put the pin in by hand on the map, or try again later.")).toBeVisible()
   await placing.getByLabel('Or paste a map link or coordinates').fill('53.3478, -6.237')
   await placing.getByRole('button', { name: 'Use it' }).click()

@@ -308,7 +308,7 @@ function KeepNames({ people }: { people: readonly PersonView[] }) {
       ) : (
         <div className="actions">
           <button type="button" onClick={() => setAsking(true)}>
-            Keep all these names as they are
+            Keep these names
           </button>
         </div>
       )}

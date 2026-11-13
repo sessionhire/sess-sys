@@ -160,8 +160,7 @@ dialog.quick-quote[open] { animation: quick-in var(--ds-duration-base) var(--ds-
    so it never competes with the page's one red. It opens the design system's dialog (a blocking decision, the safe answer focused), a
    sheet up from the foot on a phone; what makes this version matter is listed first, and Delete waits for its number to be typed. */
 .app .delete-quote { display: flex; justify-content: flex-end; }
-.app button.link.delete-quote-open { display: inline-flex; align-items: center; gap: var(--ds-space-1); color: var(--bad); }
-.app button.link.delete-quote-open .icon { width: 18px; height: 18px; }
+.app button.link.delete-quote-open { color: var(--bad); }
 dialog.delete-quote-dialog { width: min(440px, calc(100vw - 2 * var(--ds-space-4))); max-height: calc(100dvh - 2 * var(--ds-space-4)); overflow: auto; padding: var(--ds-space-4); border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius-overlay); background: var(--ds-surface-overlay); color: var(--ink); box-shadow: var(--ds-elevation-modal); }
 dialog.delete-quote-dialog::backdrop { background: var(--ds-veil); }
 dialog.delete-quote-dialog[open] { animation: delete-quote-in var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
@@ -515,8 +514,6 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
    lined up on their boxes, with the hint under them across the row and Add and Cancel on the line under that: a hint inside one field
    pushed it, or its neighbour, out of line with the rest (Colly, 12 November 2026). */
 .quote-screen .quote-add { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
-.quote-screen .quote-add > button { display: inline-flex; align-items: center; gap: var(--ds-space-1); }
-.quote-screen .quote-add > button .icon { width: 16px; height: 16px; }
 .quote-screen .quote-add .adding { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ds-space-2); width: 100%; }
 .quote-screen .quote-add .adding > :first-child { flex: 1 1 16em; }
 .quote-screen .quote-add .adding > .adding-hint { flex: 1 0 100%; margin-top: calc(-1 * var(--ds-space-1)); color: var(--muted); font-size: var(--text-hint); }
@@ -915,7 +912,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
  * schedule: the date on the left, what's on to the right, adding to the page's height. Nothing scrolls inside the page.
  */
 .master-cal .cal-steps { display: flex; align-items: center; gap: var(--ds-space-2); }
-.master-cal .cal-steps .cal-step { display: inline-grid; place-items: center; width: 2.75rem; padding-inline: 0; border-radius: 999px; }
+.master-cal .cal-steps .cal-step { border-radius: 999px; }
 .master-cal .cal-steps [aria-current] { color: var(--muted); }
 .master-cal .cal-key { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); margin: 0; }
 .master-cal .cal-swatch { display: inline-block; width: 1.4rem; height: .9rem; border-radius: 4px; background: var(--ink); }

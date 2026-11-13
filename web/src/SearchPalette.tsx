@@ -431,7 +431,7 @@ export function SearchPalette({ onGo, onClose, desk }: { onGo: (hash: string) =>
             autoComplete="off"
             spellCheck={false}
           />
-          <button type="button" className="palette-close" onClick={close} aria-label="Close search">
+          <button type="button" className="palette-close icon-button" onClick={close} aria-label="Close search">
             {desk ? <kbd>Esc</kbd> : <Icon name="close" />}
           </button>
         </div>

@@ -326,7 +326,7 @@ function OpenStep({
             !answering &&
             (step.ticked ? (
               <button type="button" onClick={() => void set({ done: false })}>
-                Take the tick off
+                Untick
               </button>
             ) : (
               !step.skipped && (
@@ -342,7 +342,7 @@ function OpenStep({
       <Refusal error={error} />
       {step.part === 'pick' && (
         <a className="button" href={`#jobs/${encodeURIComponent(job.id)}/pick`}>
-          Open the pick list
+          Open pick list
         </a>
       )}
       {seesPart && where && !answering && (
@@ -400,7 +400,7 @@ function ClientsAnswer({ job, view, onTell, confirming = false }: { job: JobView
         <Confirm
           // What their link says once the job is lost, in its own words (UX sweep, 6 November 2026, move 6).
           question={stopQuestion(reach, job, 'lost', people)}
-          yes="Mark it lost"
+          yes="Mark lost"
           loss
           no="Keep it as it is"
           onYes={() => answer(false)}
@@ -408,15 +408,15 @@ function ClientsAnswer({ job, view, onTell, confirming = false }: { job: JobView
         />
       ) : asking === 'yes' && confirmAsk ? (
         // What confirming sends those asked to hold the day (ADR 0168): HOLD comes off their days, and WhatsApp tells them.
-        <Confirm question={confirmAsk} yes="Confirm the job" no="Keep it as it is" onYes={() => answer(true)} onNo={() => setAsking(undefined)} />
+        <Confirm question={confirmAsk} yes="Confirm job" no="Keep it as it is" onYes={() => answer(true)} onNo={() => setAsking(undefined)} />
       ) : (
         <div className="step-actions">
           {/* Plain, as the card's other buttons are: the Next dock holds the page's one filled red (ADR 0104; audit, 5 November 2026, finding 19). */}
           <button type="button" onClick={() => (confirmAsk ? setAsking('yes') : answer(true))} disabled={job.pending}>
-            Confirm the job
+            Confirm job
           </button>
           <button type="button" onClick={() => (job.calls.some((c) => c.status === 'open') ? setAsking('no') : answer(false))} disabled={job.pending}>
-            The client said no
+            Client said no
           </button>
         </div>
       )}

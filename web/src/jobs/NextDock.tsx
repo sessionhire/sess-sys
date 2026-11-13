@@ -149,7 +149,7 @@ export function NextDock({
     if (quoteHere && draftSend) return draftSend.composing ? 'composing' : { label: draftSend.label, onPress: draftSend.press, busy: !!draftSend.busy, ...(draftSend.ready && pdf ? { pdf } : {}) }
     if (quoteHere || !draft.lines.length) return undefined
     return {
-      label: byEmail ? 'Send quote' : 'Get the PDF to send',
+      label: byEmail ? 'Send quote' : 'Generate PDF',
       onPress: () => {
         askToSend(job.id)
         onPart('quote')
@@ -166,7 +166,7 @@ export function NextDock({
       const empty = quotes.length === 0 && !(view.kit.byJob.get(job.id)?.length) && job.calls.length === 0
       const sending = sendQuote()
       if (sending === 'composing') return rest(composingWords, answers)
-      if (empty && access.can('kit')) press = { label: 'Add the kit to quote', onPress: () => onPart('kit') }
+      if (empty && access.can('kit')) press = { label: 'Add kit to quote', onPress: () => onPart('kit') }
       else if (sending) press = sending
       // The quote is the job's Quoting stage, worked on its own tab (ADR 0140, part 4). With that tab open, its Send or Build is the
       // one press, so the dock doesn't hold a second red that only goes where the page already is.
@@ -197,7 +197,7 @@ export function NextDock({
       const asks = onConfirm && confirmQuestion(reach, job, holding) !== undefined
       press = yes
         ? {
-            label: 'Confirm the job',
+            label: 'Confirm job',
             onPress: asks
               ? onConfirm
               : () =>
@@ -222,7 +222,7 @@ export function NextDock({
       const again = stoppedCrew(job.calls, today)
       if (again)
         press = {
-          label: 'Ask for the same crew again',
+          label: 'Ask same crew again',
           onPress: () => {
             let first: string | undefined
             void run(async () => {
@@ -232,7 +232,7 @@ export function NextDock({
         }
       else if (fromQuote.length)
         press = {
-          label: fromQuote.length === 1 ? `Make the call for ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make the ${fromQuote.length} crew calls from the quote`,
+          label: fromQuote.length === 1 ? `Make call: ${fromQuote[0]!.needed} × ${fromQuote[0]!.role}` : `Make ${fromQuote.length} calls from quote`,
           done: bookedDone,
           onPress: () => void run(() => makeCallsFromQuote(view, job, today)).then((ok) => ok && onPart('crew')),
         }
@@ -274,7 +274,7 @@ export function NextDock({
                 onPart('crew', { call: call.id, offer: true })
               },
             }
-          : { label: `Offer the ${call.role} · ${call.needed - asked} to offer`, done: offered, onPress: () => onPart('crew', { call: call.id, offer: true }) }
+          : { label: `Offer ${call.role} · ${call.needed - asked} to offer`, done: offered, onPress: () => onPart('crew', { call: call.id, offer: true }) }
       } else if (next.counter)
         // A different rate is settled on its own row, with the rate in view (audit of 12 November 2026, finding 9).
         press = { label: `Answer ${firstName(next.counter.offer.person!)}'s rate · ${count}`, done: bookedDone, onPress: () => onPart('crew', { call: next.counter!.call.id, answer: true }) }
@@ -288,7 +288,7 @@ export function NextDock({
       const { short = 0, nothingYet } = task.facts
       // Short kit lands on its Subhire, open with the short lines ticked (ADR 0140, part 5); each one subhired takes the count down.
       press = short
-        ? { label: `Sort ${short} short on the kit`, onPress: () => onPart('kit', { short: true }) }
+        ? { label: `Sort ${short} short`, onPress: () => onPart('kit', { short: true }) }
         : { label: nothingYet ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
       break
     }
@@ -298,7 +298,7 @@ export function NextDock({
         ? { label: 'Add the kit', onPress: () => onPart('kit') }
         : // With how far it has got, as the pick list's own dock says it, so each visit is seen to move it (ADR 0140, part 6).
           {
-            label: `Pick the kit · ${(task.facts.of ?? 0) - (task.facts.out ?? 0)} to go out`,
+            label: `Pick kit · ${(task.facts.of ?? 0) - (task.facts.out ?? 0)} to go out`,
             href: `${href}/pick`,
             done: { done: task.facts.out ?? 0, of: task.facts.of ?? 0, words: `${task.facts.out ?? 0} of ${task.facts.of ?? 0} out` },
           }
@@ -312,20 +312,20 @@ export function NextDock({
         const { stillOut = 0, neverScanned = 0 } = task.facts
         const of = prep?.facts.of ?? 0
         press = stillOut && of
-          ? { label: `Scan the kit back · ${stillOut} still out`, href: `${href}/pick`, done: { done: of - stillOut, of, words: `${of - stillOut} of ${of} back` } }
-          : { label: neverScanned ? 'Check the kit is back' : 'Scan the kit back', href: `${href}/pick` }
+          ? { label: `Scan kit back · ${stillOut} out`, href: `${href}/pick`, done: { done: of - stillOut, of, words: `${of - stillOut} of ${of} back` } }
+          : { label: neverScanned ? 'Check kit is back' : 'Scan kit back', href: `${href}/pick` }
       }
       break
     case 'deprep':
       if (!mayTask) break
-      press = { label: 'Tick off the deprep', onPress: () => onOpenTask('deprep') }
+      press = { label: 'Tick off deprep', onPress: () => onOpenTask('deprep') }
       break
   }
   // Within a week of going out, the warehouse's own way in (Move 8 of the sweep of 6 November 2026): the pick list, with how far it
   // has got, in the quiet slot, while the filled verb stays the planner's. Not when picking is the task, which the button already is.
   const pickSoon =
     access.can('stock') && task.key !== 'prep' && task.key !== 'back' && !!prep?.facts.of && !prep.done && steps.daysTo !== undefined && steps.daysTo <= PICK_SOON_DAYS
-      ? { href: `${href}/pick`, label: `Pick the kit · ${prep.facts.out} of ${prep.facts.of} out` }
+      ? { href: `${href}/pick`, label: `Pick kit · ${prep.facts.out} of ${prep.facts.of} out` }
       : undefined
   // Someone else's, said in the one shape the word table writes (UX sweep, 6 November 2026, move 4): who does it, and nothing to press.
   if (!press) {
@@ -338,7 +338,7 @@ export function NextDock({
       {answers.label}
     </button>
   ) : press.pdf ? (
-    <GetFile className="link second" href={press.pdf} name="Quote.pdf" label="Download the PDF" working="Getting the PDF…" />
+    <GetFile className="link second" href={press.pdf} name="Quote.pdf" label="Download PDF" working="Getting PDF…" />
   ) : (
     pickSoon && (
       <a className="link second" href={pickSoon.href}>
@@ -415,12 +415,12 @@ export function PickDock({ job, view }: { job: JobView; view: View }) {
   let link: { href: string; label: string } | undefined
   // On its days with nothing scanned out, it's due out, said from the scans rather than the date (ADR 0140, part 6).
   const due = job.span && job.span.start <= today ? (job.span.start === today ? 'Due out today' : `Due out since ${dayLabel(job.span.start)}`) : undefined
-  if (!started && open(prep) && prep.facts.of) line = `${due ?? 'Pick the kit'} · ${prep.facts.out} of ${prep.facts.of} out`
+  if (!started && open(prep) && prep.facts.of) line = `${due ?? 'Pick kit'} · ${prep.facts.out} of ${prep.facts.of} out`
   else if (!started && prep.facts.of) rest = `All ${prep.facts.of} out: ready to load.${job.span ? ` On the job from ${dayLabel(job.span.start)}.` : ''}`
-  else if (open(back) && back.facts.stillOut) line = `Scan the kit back · ${back.facts.stillOut} still out`
-  else if (open(back) && back.facts.neverScanned) line = `Check the kit is back · ${back.facts.neverScanned} never scanned out`
+  else if (open(back) && back.facts.stillOut) line = `Scan kit back · ${back.facts.stillOut} out`
+  else if (open(back) && back.facts.neverScanned) line = `Check kit is back · ${back.facts.neverScanned} never scanned out`
   else if (open(deprep) && steps.stage?.key === 'back') {
-    line = `Tick off the deprep${deprep.facts.faults ? ` · ${plural(deprep.facts.faults, 'fault')} open on its kit` : ''}`
+    line = `Tick off deprep${deprep.facts.faults ? ` · ${plural(deprep.facts.faults, 'fault')} open on its kit` : ''}`
     link = { href: `#jobs/${encodeURIComponent(job.id)}`, label: 'Open the job' }
   } else if (steps.stage?.key === 'on') rest = `Out on the job${job.span ? ` until ${dayLabel(job.span.end)}` : ''}.`
   else if (steps.finished) rest = 'All back and done. Nothing left to scan.'

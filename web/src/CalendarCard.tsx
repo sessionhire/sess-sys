@@ -312,7 +312,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       {question ?? (
         <div className="actions">
           <button type="button" onClick={() => void run(async () => ({ ok: true, text: checked(await post<CalendarCheck>('/api/calendar/check'), onIt) }))} disabled={busy}>
-            {late ? 'Checking…' : 'Check the calendar'}
+            {late ? 'Checking…' : 'Check calendar'}
           </button>
           <button type="button" onClick={() => setPicking(true)} disabled={busy}>
             Change calendar

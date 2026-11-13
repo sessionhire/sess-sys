@@ -223,7 +223,7 @@ export function Loose({
       ))}
       {held && mayChange && (
         <button type="button" onClick={() => onPlace(held, null, 'front')}>
-          Put it loose in the rack
+          Put loose in rack
         </button>
       )}
     </div>

@@ -102,7 +102,7 @@ function Colours({ office }: { office: OfficeView }) {
               </button>
             )}
             <button type="button" className="link" onClick={() => setEditing(rowsOf(DEFAULT_CABLE_COLOURS))}>
-              Start again from the usual list
+              Reset to usual list
             </button>
           </div>
           <div className="actions">

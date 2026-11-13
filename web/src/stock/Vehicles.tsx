@@ -422,7 +422,7 @@ function OffRoadForm({ v, onDone }: { v: VehicleView; onDone: () => void }) {
       <Refusal error={error} className="wide" />
       <div className="actions wide">
         <button type="submit" className="primary">
-          Take it off the road
+          Take off road
         </button>
         <button type="button" onClick={onDone}>
           Cancel

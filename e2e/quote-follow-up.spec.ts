@@ -57,7 +57,7 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   const today = await office.evaluate(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Dublin' }))
   await form.getByText('More about the enquiry').click()
   await form.getByLabel(/Wanted by/).fill(today)
-  await form.getByRole('button', { name: 'Start the quote' }).click()
+  await form.getByRole('button', { name: 'Start quote' }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
   // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
   await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
@@ -71,9 +71,9 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   // The quote is the job's Quote tab, under its head and Next (ADR 0140, part 4). With the quote whole, Next is its Send (ADR 0166),
   // and the strip's own Send is plain, so there's one red on the page.
   await expect(office.getByRole('tab', { name: 'Quote' })).toHaveAttribute('aria-selected', 'true')
-  await expect(office.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Get the PDF to send' })).toBeVisible()
+  await expect(office.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Generate PDF' })).toBeVisible()
   const onePress = () => office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
-  expect(await onePress()).toEqual(['Get the PDF to send'])
+  expect(await onePress()).toEqual(['Generate PDF'])
 
   // Wanted today, it leads Quotes and Home counts it, until it's sent (ADR 0127; audit of the quote flow, finding 7).
   const back = office.url()
@@ -85,12 +85,12 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await office.goto(back)
 
   // Sent: the job is quoted now, and Quotes lists it as waiting.
-  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
+  await draft.getByRole('button', { name: 'Generate PDF' }).click()
   const records = office.getByRole('region', { name: 'What happened' })
   await expect(records).toBeVisible()
   // It's numbered and opened to print or save at once; until it has been printed, printing it is the one red press, not the answer.
   await expect.poll(() => office.evaluate(() => (window as unknown as { printed?: number }).printed ?? 0)).toBe(1)
-  await expect(office.getByRole('button', { name: 'Print or save as PDF' })).toHaveClass(/\bprimary\b/)
+  await expect(office.getByRole('button', { name: 'Print or save PDF' })).toHaveClass(/\bprimary\b/)
   await expect(records.getByRole('button', { name: 'Client accepted' })).not.toHaveClass(/\bprimary\b/)
   await office.goto('/#quotes')
   await expect(quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })).toContainText('Sent today')
@@ -102,10 +102,10 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await office.locator('.job-row', { hasText: 'Docklands Awards' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
   await expect(records).toContainText('Their yes confirms the job: it goes on the jobs calendar and its kit is held.')
-  await records.getByRole('button', { name: 'Client accepted: confirm the job' }).click()
+  await records.getByRole('button', { name: 'Accepted: confirm job' }).click()
   await expect(records.getByRole('button', { name: 'Mark invoiced' })).toBeVisible()
   await expect(records).not.toContainText('still quoted')
-  await expect(records.getByRole('button', { name: 'Confirm the job' })).toHaveCount(0)
+  await expect(records.getByRole('button', { name: 'Confirm job' })).toHaveCount(0)
   // Nothing is left to put in step, so Quotes has nothing to follow up on it.
   await office.goto('/#quotes')
   await expect(quotes.getByRole('listitem').filter({ hasText: 'Docklands Awards' })).toHaveCount(0)
@@ -139,7 +139,7 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
   await form.getByLabel('Wanted by').fill(quoteBy)
   await form.getByLabel('How it came').selectOption('Phone')
   await form.getByLabel('Who asked').fill('Aoife Byrne')
-  await form.getByRole('button', { name: 'Start the quote' }).click()
+  await form.getByRole('button', { name: 'Start quote' }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
   // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
   await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
@@ -158,12 +158,12 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
 
   const sentOn = new Date(Date.now() - 40 * 86_400_000).toISOString().slice(0, 10)
   await draft.getByLabel('Sent to the client on').fill(sentOn)
-  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
+  await draft.getByRole('button', { name: 'Generate PDF' }).click()
   const ask = draft.locator('.before-it-goes')
   await expect(ask).toContainText("Before it goes: No travel for the crew: the venue isn't on the map, so the distance isn't known.")
   await ask.getByRole('button', { name: 'Look first' }).click()
   await expect(draft.getByRole('button', { name: /^No travel/ })).toHaveAttribute('aria-expanded', 'true')
-  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
+  await draft.getByRole('button', { name: 'Generate PDF' }).click()
   await ask.getByRole('button', { name: 'Get the PDF anyway' }).click()
   const records = office.getByRole('region', { name: 'What happened' })
   await expect(records).toBeVisible()
@@ -203,7 +203,7 @@ test('a finished quote is sent from Next: the email to the client with the PDF o
   const form = office.getByRole('form', { name: 'New quote' })
   await form.getByLabel("What's the job?").fill('Docklands Awards')
   await form.getByLabel('Client').fill('Liffey Brands')
-  await form.getByRole('button', { name: 'Start the quote' }).click()
+  await form.getByRole('button', { name: 'Start quote' }).click()
   await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   const next = office.getByRole('region', { name: 'Next' })
@@ -220,7 +220,7 @@ test('a finished quote is sent from Next: the email to the client with the PDF o
 
   // Whole, Next is Send quote, the page's one red, with the PDF to download beside it.
   await expect(next.getByRole('button', { name: 'Send quote' })).toBeVisible()
-  await expect(next.getByRole('button', { name: 'Download the PDF' })).toBeVisible()
+  await expect(next.getByRole('button', { name: 'Download PDF' })).toBeVisible()
   const reds = () => office.evaluate(() => [...document.querySelectorAll('button.primary, a.button.primary')].filter((b) => b.getClientRects().length > 0).map((b) => b.textContent))
   expect(await reds()).toEqual(['Send quote'])
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/next-send-quote-phone.png` })

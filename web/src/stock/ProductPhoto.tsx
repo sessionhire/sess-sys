@@ -70,7 +70,7 @@ export function ProductPhoto({ m }: { m: ModelView }) {
             {/* The button is the file field's label, so it opens the phone's camera or photos as any file field does. */}
             <label className="button" aria-busy={busy}>
               <Icon name="camera" />
-              {late ? 'Sending…' : src ? 'Change photo' : 'Add a photo'}
+              {late ? 'Sending…' : src ? 'Change photo' : 'Add photo'}
               <input ref={picker} type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => void send(e.target.files?.[0])} />
             </label>
             {src && (

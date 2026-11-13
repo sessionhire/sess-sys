@@ -101,7 +101,7 @@ test('a package and a rack go on a quote with their kit under them, and a quote�
 
   // The quote's kit saved as a package, to start the next from: each product once, with how many.
   await openMore(draft)
-  await draft.getByRole('button', { name: 'Save the kit as a package' }).click()
+  await draft.getByRole('button', { name: 'Save kit as package' }).click()
   const save = draft.getByRole('form', { name: 'Save as a package' })
   await expect(save.getByLabel(`How many Shure SM58 ${id}`)).toHaveValue('5')
   await save.getByLabel('Name').fill(`Launch kit ${id}`)
@@ -145,7 +145,7 @@ test('a package starts at its items’ total, and a price of its own is a discou
   await expect(editor.getByText('Empty: its items’ total, €50.00 a day.')).toBeVisible()
   await editor.getByLabel(/^Price/).fill('40')
   await expect(editor.getByText('€10.00 off its items’ €50.00 (20%).')).toBeVisible()
-  await editor.getByRole('button', { name: 'Save the package' }).click()
+  await editor.getByRole('button', { name: 'Save package' }).click()
   await expect(row).toContainText('€40.00 a day · €10.00 off its items’ €50.00')
 
   // On the quote it's charged at its price, its kit included, and the saving shows on screen and on paper.

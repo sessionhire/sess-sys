@@ -75,7 +75,7 @@ export function Toaster() {
               </div>
             )}
             {/* Last in reading order, after the action, though it sits in the top corner. */}
-            <button type="button" className="toast-dismiss" onClick={() => dismissToast(t.id)} aria-label={`Dismiss: ${t.title}`}>
+            <button type="button" className="toast-dismiss icon-button" onClick={() => dismissToast(t.id)} aria-label={`Dismiss: ${t.title}`}>
               <Icon name="close" />
             </button>
           </div>

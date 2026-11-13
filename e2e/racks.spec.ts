@@ -266,16 +266,16 @@ test('building a rack up: half-width kit side by side, labels, groups and tape, 
   await rack.getByRole('button', { name: 'U3 front' }).click()
   await palette.getByRole('button', { name: 'Everything, to go loose' }).click()
   await palette.getByRole('button', { name: `Pick up ${xlr}` }).click()
-  await rack.getByRole('button', { name: 'Put it loose in the rack' }).click()
+  await rack.getByRole('button', { name: 'Put loose in rack' }).click()
   await rack.getByRole('button', { name: xlr }).click()
   await page.getByRole('form', { name: `${xlr} in this rack` }).getByRole('combobox', { name: 'In', exact: true }).selectOption({ label: `${drawer} at U3` })
   await page.getByRole('button', { name: `Save ${xlr}` }).click()
   await expect(rack.getByRole('heading', { name: `In the ${drawer} at U3` })).toBeVisible()
 
   // The gap left on the front is filled with a blank.
-  await page.getByRole('button', { name: 'Fill the gaps with blanks' }).click()
+  await page.getByRole('button', { name: 'Fill gaps with blanks' }).click()
   await expect(rack.getByRole('button', { name: /, U2 on the front$/ })).toHaveCount(1)
-  await expect(page.getByRole('button', { name: 'Fill the gaps with blanks' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Fill gaps with blanks' })).toHaveCount(0)
   await expect(page.locator('.conn')).toHaveText('Up to date')
   if (process.env.SHOTS) {
     await rack.getByRole('button', { name: 'In 3D' }).click()
@@ -314,7 +314,7 @@ test("a product's photo on its panel in the rack, and the rack sheet printed", a
   // A photo of its front panel, from its page, kept at its own shape.
   await page.goto(`/#stock/product/amp-${id}`)
   await expect(page.getByRole('heading', { level: 1, name: amp })).toBeVisible()
-  await page.getByText('Add a photo').locator('input[type=file]').setInputFiles({ name: 'front.png', mimeType: 'image/png', buffer: WIDE_PNG })
+  await page.getByText('Add photo').locator('input[type=file]').setInputFiles({ name: 'front.png', mimeType: 'image/png', buffer: WIDE_PNG })
   const photo = page.getByRole('img', { name: `${amp}, as it looks` })
   await expect(photo).toHaveAttribute('src', new RegExp(`/api/models/amp-${id}/photo\\?v=`))
   await expect(page.getByText('Change photo')).toBeVisible()
@@ -331,7 +331,7 @@ test("a product's photo on its panel in the rack, and the rack sheet printed", a
   await expect(panel).toHaveCSS('background-image', new RegExp(`/api/models/amp-${id}/photo`))
 
   // The rack sheet: the rack as drawn and what goes where, on paper only.
-  await page.getByRole('button', { name: 'Print the rack sheet' }).click()
+  await page.getByRole('button', { name: 'Print rack sheet' }).click()
   await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1)
   const sheet = page.locator('.print-sheet.rack-sheet')
   await expect(sheet).toBeHidden()

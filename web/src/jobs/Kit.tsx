@@ -579,7 +579,7 @@ function EditKit({ line, job, onDone }: { line: KitLineView; job: JobView; onDon
             Cancel
           </button>
           <button type="button" className="link" onClick={() => setRemoving(true)}>
-            Take off the kit
+            Remove kit
           </button>
         </div>
       )}
@@ -629,7 +629,7 @@ function FromQuote({ job, view, lines }: { job: JobView; view: View; lines: read
       </p>
       <Refusal error={error} />
       <button type="button" className="secondary" onClick={() => void run(() => addKitFromQuote(job.id, adds))}>
-        {adds.length === 1 ? 'Add it to the kit list' : `Add all ${adds.length} to the kit list`}
+        {adds.length === 1 ? 'Add to kit' : `Add ${adds.length} to kit`}
       </button>
       <p className="hint">For the whole job. Change or take off any of them after, as with kit added by hand.</p>
     </div>

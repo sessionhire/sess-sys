@@ -181,7 +181,7 @@ test('connecting Google Calendar, choosing its calendar, checking and disconnect
 
   // Check the calendar looks at the calendar itself and says what it did.
   await page.route(/\/api\/calendar\/check/, (route) => route.fulfill({ json: { written: 2, removed: 1, failed: 0 } }))
-  await card.getByRole('button', { name: 'Check the calendar' }).click()
+  await card.getByRole('button', { name: 'Check calendar' }).click()
   await expect(card.getByRole('status')).toHaveText('Checked: wrote 2 days and took 1 off.')
   await page.evaluate(() => scrollTo(0, 0))
   await page.screenshot(shot('account-calendar'))
@@ -189,7 +189,7 @@ test('connecting Google Calendar, choosing its calendar, checking and disconnect
   // Something wrong shows on the card, in words.
   server.link = connected({
     problem:
-      "The Google Calendar API is switched off in the app's Google Cloud project, so nothing can be written. Switch it on (see the setup steps), then press Check the calendar.",
+      "The Google Calendar API is switched off in the app's Google Cloud project, so nothing can be written. Switch it on (see the setup steps), then press Check calendar.",
   })
   await page.reload()
   await expect(card.getByRole('alert')).toContainText('The Google Calendar API is switched off')

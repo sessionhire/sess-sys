@@ -193,10 +193,10 @@ test('a booking on a job that was cancelled or lost stays in its place, saying s
   // The stage's tasks are a tap away under the stepper (ADR 0140, part 3).
   await where.getByRole('button', { name: /tasks? to do in Quoting$/ }).click()
   await where.getByRole('button', { name: /^Confirmed/ }).click()
-  await where.getByRole('button', { name: 'The client said no' }).click()
+  await where.getByRole('button', { name: 'Client said no' }).click()
   await where
     .getByRole('group', { name: `Marking Went elsewhere ${id} lost also cancels its crew calls: 1 person offered or booked will see the job didn't go ahead.` })
-    .getByRole('button', { name: 'Mark it lost' })
+    .getByRole('button', { name: 'Mark lost' })
     .click()
   await expect(office.locator('.conn')).toHaveText('Up to date')
 

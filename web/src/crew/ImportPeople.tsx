@@ -370,7 +370,7 @@ function Done({ result, onAgain }: { result: CrewListResult; onAgain: () => void
           See the people
         </a>
         <button type="button" onClick={onAgain}>
-          Bring in another list
+          Bring in more
         </button>
       </div>
     </section>

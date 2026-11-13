@@ -86,7 +86,7 @@ export function DataCard({ view }: { view: View }) {
           </p>
         )}
         <button type="button" className="primary" onClick={() => send('made-up')} disabled={!!busy || status.calendarConnected} aria-busy={busy === 'made-up'}>
-          {late && busy === 'made-up' ? 'Putting it in…' : 'Put in made-up data'}
+          {late && busy === 'made-up' ? 'Adding…' : 'Add made-up data'}
         </button>
         {said}
         <p className="hint">

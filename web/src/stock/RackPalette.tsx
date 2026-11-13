@@ -194,7 +194,7 @@ function UsualParts({ view, r }: { view: View; r: RackView }) {
     <div className="usual-parts">
       <p className="hint">No blanks, vents, shelves or drawers in the stock list yet. Mark a product as one on its page, or add the usual ones.</p>
       <button type="button" onClick={add}>
-        Add the usual rack parts
+        Add usual parts
       </button>
       <Refusal error={error} />
     </div>

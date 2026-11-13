@@ -50,10 +50,10 @@ test('a call starts on the department its role suggests, and Calls narrows to on
   await needed.getByRole('button', { name: /a department…$/ }).click()
   const give = page.getByRole('form', { name: 'Give calls a department' })
   // Never greyed out (UX sweep, move 5): a press says what's missing.
-  await give.getByRole('button', { name: 'Give them the department' }).click()
+  await give.getByRole('button', { name: 'Set department' }).click()
   await expect(give.getByRole('alert')).toHaveText('Tick the calls to give a department first.')
   await give.getByRole('checkbox').first().check()
-  await give.getByRole('button', { name: 'Give them the department' }).click()
+  await give.getByRole('button', { name: 'Set department' }).click()
   await expect(give.getByRole('alert')).toHaveText('Choose the department first.')
   await give.getByLabel('Department').selectOption('Production')
   await give.getByRole('button', { name: /^Give 1 call Production$/ }).click()

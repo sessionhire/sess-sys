@@ -223,8 +223,8 @@ test('confirming a job its crew hold the day for asks first, and says after what
   // With no quote here, the task is a tap away under the stepper (ADR 0140, part 3).
   await where.getByRole('button', { name: /tasks? to do in Quoting$/ }).click()
   await where.getByRole('button', { name: /^Confirmed/ }).click()
-  await where.getByRole('button', { name: 'Confirm the job' }).click()
-  await where.getByRole('group', { name: asked }).getByRole('button', { name: 'Confirm the job' }).click()
+  await where.getByRole('button', { name: 'Confirm job' }).click()
+  await where.getByRole('group', { name: asked }).getByRole('button', { name: 'Confirm job' }).click()
   const sent = office.getByRole('region', { name: `${jobs.details} is confirmed: what was sent` })
   await expect(sent.locator('.sent-lines')).toHaveText(`Nothing was sent to Orla and Seán: their links say it's going ahead.`)
   await expect(office.locator('.job-position').first()).toContainText('Planning')
@@ -235,10 +235,10 @@ test('confirming a job its crew hold the day for asks first, and says after what
   // Next, where the client's yes is on the quote: its press lands on the Confirmed task with the question already asked,
   // its safe answer to hand.
   await office.goto(`/#jobs/${k('next')}/crew`)
-  await office.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Confirm the job' }).click()
+  await office.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Confirm job' }).click()
   const fromNext = where.getByRole('group', { name: `Confirm ${jobs.next}? The person asked to hold the day will see it's going ahead on their link. Nothing is sent to them.` })
   await expect(fromNext.getByRole('button', { name: 'Keep it as it is' })).toBeFocused()
-  await fromNext.getByRole('button', { name: 'Confirm the job' }).click()
+  await fromNext.getByRole('button', { name: 'Confirm job' }).click()
   await expect(office.getByRole('region', { name: `${jobs.next} is confirmed: what was sent` }).locator('.sent-lines')).toHaveText(
     "Nothing was sent to Orla: their link says it's going ahead."
   )
@@ -246,10 +246,10 @@ test('confirming a job its crew hold the day for asks first, and says after what
   // The quote's What happened: the client's yes asks first too, and the panel opens on the job's page.
   await office.goto(`/#jobs/${k('quote')}/quote`)
   const records = office.getByRole('region', { name: 'What happened' })
-  await records.getByRole('button', { name: 'Client accepted: confirm the job' }).click()
+  await records.getByRole('button', { name: 'Accepted: confirm job' }).click()
   await records
     .getByRole('group', { name: `Confirm ${jobs.quote}? The person asked to hold the day will see it's going ahead on their link. Nothing is sent to them.` })
-    .getByRole('button', { name: 'Confirm the job' })
+    .getByRole('button', { name: 'Confirm job' })
     .click()
   await expect(office.getByRole('region', { name: `${jobs.quote} is confirmed: what was sent` }).locator('.sent-lines')).toHaveText(
     "Nothing was sent to Seán: their link says it's going ahead."
@@ -261,10 +261,10 @@ test('confirming a job its crew hold the day for asks first, and says after what
   const follow = office.getByRole('region', { name: 'To follow up' })
   const more = follow.getByRole('button', { name: /^Show all \d+ quotes$/ })
   if (await more.count()) await more.first().click()
-  await follow.getByRole('listitem').filter({ hasText: jobs.lost }).getByRole('button', { name: 'Mark the job lost' }).click()
+  await follow.getByRole('listitem').filter({ hasText: jobs.lost }).getByRole('button', { name: 'Mark lost' }).click()
   await follow
     .getByRole('group', { name: `Marking ${jobs.lost} lost also cancels its crew calls: 1 person offered or booked will see the job didn't go ahead.` })
-    .getByRole('button', { name: 'Mark it lost' })
+    .getByRole('button', { name: 'Mark lost' })
     .click()
   await expect(office.getByRole('region', { name: 'Crew calls cancelled: what was sent' }).locator('.sent-lines')).toContainText('Nothing was sent to Orla')
   await expect(follow).not.toContainText(jobs.lost)

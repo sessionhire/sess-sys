@@ -140,7 +140,7 @@ export function UpdateBar({ unkept = 0, version }: { unkept?: number; version: s
           ` ${unkept === 1 ? "1 change hasn't" : `${unkept} changes haven't`} synced yet, and this browser keeps nothing over a reload, so loading it now loses ${unkept === 1 ? 'it' : 'them'}. It can wait until ${unkept === 1 ? "it's" : "they've"} gone.`}
       </span>
       <button type="button" className="primary" onClick={onReload}>
-        Load the new version
+        Load new version
       </button>
     </div>
   )

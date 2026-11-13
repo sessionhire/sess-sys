@@ -75,7 +75,7 @@ test("a draft's kit is pencilled on its job for other quotes to see, its days ar
   await ready(office, `#jobs/job-${id}/crew`)
   const fromQuote = office.getByRole('group', { name: 'Crew on the quote' })
   await expect(fromQuote).toContainText('2 × Rigger')
-  await fromQuote.getByRole('button', { name: 'Make the call' }).click()
+  await fromQuote.getByRole('button', { name: 'Make call' }).click()
   await expect(fromQuote).toHaveCount(0)
   await expect(office.locator('main')).toContainText('Rigger')
 

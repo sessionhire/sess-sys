@@ -301,7 +301,7 @@ test('an enquiry whose dates passed with no answer is counted on Home, folded on
   const next = page.getByRole('region', { name: 'Next' })
   await expect(page.locator('.job-position').first()).toContainText('Quoting · no answer')
   await next.getByRole('button', { name: 'Record what happened' }).click()
-  await expect(page.getByRole('region', { name: 'Status', exact: true }).getByRole('button', { name: 'The client said no' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Status', exact: true }).getByRole('button', { name: 'Client said no' })).toBeVisible()
 })
 
 test('kit never scanned out after a job is still to check back in, said the same on Home and the Board, with how long ago it ended', async ({ browser, request }) => {

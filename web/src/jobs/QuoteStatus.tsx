@@ -61,7 +61,7 @@ export function InStep({ job, want, compact }: { job: JobView; want: 'confirmed'
       {asking && question ? (
         <Confirm
           question={question}
-          yes={want === 'confirmed' ? 'Confirm the job' : 'Mark it lost'}
+          yes={want === 'confirmed' ? 'Confirm job' : 'Mark lost'}
           loss={want === 'lost'}
           no="Keep it as it is"
           onYes={go}
@@ -71,7 +71,7 @@ export function InStep({ job, want, compact }: { job: JobView; want: 'confirmed'
         // On the quote, confirming is the one thing to record next, its filled red (nextRecord); on a list (compact), one to a row,
         // it's plain, as a row's own action is (UX sweep, 6 November 2026, move 1). Losing the job is a loss, so never the red.
         <button type="button" className={want === 'confirmed' && !compact ? 'primary' : undefined} onClick={() => (question ? setAsking(true) : go())} disabled={job.pending}>
-          {want === 'confirmed' ? 'Confirm the job' : 'Mark the job lost'}
+          {want === 'confirmed' ? 'Confirm job' : 'Mark lost'}
         </button>
       )}
       <Refusal error={error} />

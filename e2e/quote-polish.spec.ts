@@ -148,7 +148,7 @@ test("a quote marked sent with no signal says its number is a guess, and prints 
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 
   await context.setOffline(true)
-  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
+  await draft.getByRole('button', { name: 'Generate PDF' }).click()
   const sent = office.getByRole('region', { name: 'Version 1' })
   await expect(sent.locator('.quote-facts')).toContainText("(once it's saved)")
   const sheet = office.locator('.print-sheet.quote-sheet')

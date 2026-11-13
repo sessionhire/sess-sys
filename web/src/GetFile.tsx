@@ -27,7 +27,7 @@ export function GetFile({
   /** What it's saved as when the server doesn't say. */
   name: string
   label: string
-  /** What is working, said once it's been a second: "Getting the PDF…". */
+  /** What is working, said once it's been a second: "Getting PDF…". */
   working: string
   className?: string
 }) {

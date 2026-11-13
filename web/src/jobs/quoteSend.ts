@@ -7,7 +7,7 @@ import { useSyncExternalStore } from 'react'
  * Next opens the Quote tab and asks the draft to send as it opens.
  */
 export interface DraftSend {
-  /** What the press says: "Send quote", "Get the PDF to send", or what stops it ("Send: 2 lines to finish"). */
+  /** What the press says: "Send quote", "Generate PDF", or what stops it ("Send: 2 lines to finish"). */
   label: string
   /** Nothing stops it: the quote is whole and saved, or saving. */
   ready: boolean

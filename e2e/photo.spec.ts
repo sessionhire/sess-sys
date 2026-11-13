@@ -34,7 +34,7 @@ test("a photo goes on a person's page in place of their initials, and comes off 
   await expect(face).toHaveAttribute('data-initials', /^O/)
   await expect(face.locator('img')).toHaveCount(0)
 
-  await page.getByText('Add a photo').locator('input[type=file]').setInputFiles({ name: 'IMG_2041.png', mimeType: 'image/png', buffer: PNG })
+  await page.getByText('Add photo').locator('input[type=file]').setInputFiles({ name: 'IMG_2041.png', mimeType: 'image/png', buffer: PNG })
   await expect(face.locator('img')).toHaveAttribute('src', new RegExp(`/api/people/orla-${id}/photo\\?v=`))
   await expect(page.getByText('Change photo')).toBeVisible()
   // Made a JPEG on the device before it went.
@@ -52,6 +52,6 @@ test("a photo goes on a person's page in place of their initials, and comes off 
   await page.getByRole('button', { name: 'Remove photo' }).click()
   await page.getByRole('button', { name: 'Take it off' }).click()
   await expect(face.locator('img')).toHaveCount(0)
-  await expect(page.getByText('Add a photo')).toBeVisible()
+  await expect(page.getByText('Add photo')).toBeVisible()
   await context.close()
 })

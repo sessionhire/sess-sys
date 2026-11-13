@@ -308,7 +308,7 @@ export function CableLabels({ m }: { m: ModelView }) {
       </div>
       <p className="hint">Print at actual size, not fitted to the page.</p>
       <button type="button" className="primary" disabled={!said || !many || printing} onClick={() => setPrinting(true)}>
-        {(many === 1 ? 'Print the label' : `Print ${plural(many || 0, 'label')}`) + (code ? '' : ' without a code')}
+        {(many === 1 ? 'Print label' : `Print ${plural(many || 0, 'label')}`) + (code ? '' : ' without a code')}
       </button>
       {printing && (
         <PrintSheet className={`cable ${layout}`} page={CABLE_LAYOUTS[layout].page}>

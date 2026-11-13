@@ -106,7 +106,7 @@ export function FromEnquiry({ status, onRead }: { status: Loaded<AssistantStatus
       </label>
       <div className="actions">
         <button type="button" onClick={() => void read()} disabled={busy || !!no || text.trim().length < 20}>
-          {late ? 'Reading…' : 'Read it with Claude'}
+          {late ? 'Reading…' : 'Read with Claude'}
         </button>
         <span className="hint" aria-live="polite">
           {busy ? (late ? 'Claude is reading it. This can take up to a minute.' : '') : (no ?? 'What you paste is sent to Anthropic to read. The app doesn’t keep it.')}
@@ -297,11 +297,11 @@ export function AdviceCard({
       <div className="actions">
         {!nothing && (
           <button type="button" className="primary" onClick={onTake} disabled={count === 0}>
-            {count === 1 ? 'Make this change' : `Make these ${count} changes`}
+            {count === 1 ? 'Make this change' : `Make ${count} changes`}
           </button>
         )}
         <button type="button" className="link" onClick={onLeave}>
-          {nothing ? 'Close' : 'Leave it as it is'}
+          {nothing ? 'Close' : 'Leave as is'}
         </button>
       </div>
     </section>

@@ -119,7 +119,7 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   // Pasting is the second way in, folded away: enquiries cc'd to operations@ are drafted by themselves.
   await form.getByText('Or paste an enquiry for Claude to read').click()
   await form.getByLabel('Paste an enquiry').fill('Hi, we have a launch at the Printworks on 4 and 5 March. Could you quote for 6 Y10Ps, 4 Spider moving heads, a hazer and two stagehands, delivered? Thanks, Liffey Brands')
-  await form.getByRole('button', { name: 'Read it with Claude' }).click()
+  await form.getByRole('button', { name: 'Read with Claude' }).click()
 
   // What Claude read fills the job in, labelled as Claude's, with what to ask the client.
   const read = form.getByRole('region', { name: 'Suggested by Claude' })
@@ -171,7 +171,7 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
     advised = false
     return route.fulfill({ json: { ok: true } })
   })
-  await form.getByRole('button', { name: /Start the quote with 4 lines/ }).click()
+  await form.getByRole('button', { name: /Start quote with 4 lines/ }).click()
   await expect(office).toHaveURL(/#jobs\/[^/]+\/quote$/)
   // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
   await expect(office.getByRole('tab', { name: 'Quote' })).toBeFocused()
@@ -210,7 +210,7 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await office.goto('/#notifications')
   const todo = office.getByRole('region', { name: 'To do, from Claude' })
   await expect(todo).toContainText('each weekday from 7am')
-  await todo.getByRole('button', { name: 'Write it now' }).click()
+  await todo.getByRole('button', { name: 'Write now' }).click()
   await expect(todo).toContainText('One quote to chase.')
   await expect(todo).toContainText('Written by Claude today at')
   expect(asked.at(-1)!.system).toContain('writing the to-do list')
@@ -224,5 +224,5 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await office.goto('/#home')
   const home = office.getByRole('region', { name: 'To do, from Claude' })
   await expect(home.getByRole('checkbox', { name: /Done: Chase the quote/ })).toBeChecked()
-  await expect(home.getByRole('button', { name: 'Write it again now' })).toBeVisible()
+  await expect(home.getByRole('button', { name: 'Write again' })).toBeVisible()
 })

@@ -178,7 +178,7 @@ export function RmsPricesCard({ view, canRead }: { view: View; canRead: boolean 
           )}
           {canRead && (
             <button type="button" className={plan ? 'secondary' : 'primary'} onClick={() => void post('read')} disabled={busy} aria-busy={busy}>
-              {plan ? 'Read the prices again' : 'Read the prices from Current RMS'}
+              {plan ? 'Read again' : 'Read prices'}
             </button>
           )}
         </div>

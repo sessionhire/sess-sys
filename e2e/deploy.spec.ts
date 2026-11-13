@@ -67,7 +67,7 @@ test('a new version waits for Load the new version, which brings it in with an u
 
   // Signal back, and Load the new version: the new build, with the change made before it now synced.
   signal = true
-  await tab.getByRole('button', { name: 'Load the new version' }).click()
+  await tab.getByRole('button', { name: 'Load new version' }).click()
   await tab.waitForFunction(() => document.querySelector('meta[name="build"]')?.getAttribute('content') === 'two', null, { timeout: 20_000 })
   await expect(tab.locator('.conn')).toHaveText('Up to date', { timeout: 20_000 })
   const all = tab.getByRole('button', { name: /^Show all \d+ places$/ })
