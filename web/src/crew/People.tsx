@@ -108,7 +108,7 @@ export function PersonRow({ person, crew }: { person: PersonView; crew: CrewView
               person.kind === 'staff' && person.approvesLeave ? 'approves time off' : null,
               person.skills.join(', '),
               // A rate this device isn't sent (ADR 0046) isn't said in the list; their page says it's hidden.
-              person.dayRateCents !== null && !person.rateHidden ? `${euro(person.dayRateCents)}/day` : null,
+              person.dayRateCents !== null && !person.rateHidden ? `own rate ${euro(person.dayRateCents)}/day` : null,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -342,7 +342,9 @@ export function PersonForm({
       />
       {seesRates && (
         <label>
-          Usual day rate <UnitBox unit="€" before><input aria-label="Usual day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} /></UnitBox>
+          Own day rate <UnitBox unit="€" before><input aria-label="Own day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} /></UnitBox>
+          {/* A rate agreed with them (ADR 0167): what offers pay where it's above the call's, never below it. Office and directors only. */}
+          <small className="hint">Only for a freelancer who has agreed a rate with us. Offers pay it where it's above the call's rate. The client is still charged the quote's price.</small>
         </label>
       )}
       <label>

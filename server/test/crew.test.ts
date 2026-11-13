@@ -1854,3 +1854,39 @@ describe('asking for the same crew again (ADR 0164)', () => {
     })
   })
 })
+
+describe('own day rates (ADR 0167)', () => {
+  async function rated(app: FastifyInstance, name: string, dayRateCents: number | null, kind: 'freelancer' | 'staff' = 'freelancer') {
+    const id = newId()
+    await send(app, 'person.upsert', { id, name, kind, email: null, phone: null, skills: [], dayRateCents, notes: '' })
+    return id
+  }
+
+  it('offers at the call rate, or at a freelancer’s own rate where it is above it or the call has none', async () => {
+    // Proves: offer.send stores the rate they'll be paid; an own rate lower than the call's never lowers it; staff never get one.
+    const app = await server()
+    const c = await call(app, { needed: 4 })
+    const above = await offer(app, c, await rated(app, 'Aoife Byrne', 30000))
+    const below = await offer(app, c, await rated(app, 'Brian Kelly', 20000))
+    const none = await offer(app, c, await rated(app, 'Ciara Walsh', null))
+    const staff = await offer(app, c, await rated(app, 'Dara Nolan', 40000, 'staff'))
+    expect((await entity<Offer>(app, 'offer', above.id)).dayRateCents).toBe(30000)
+    expect((await entity<Offer>(app, 'offer', below.id)).dayRateCents).toBe(25000)
+    expect((await entity<Offer>(app, 'offer', none.id)).dayRateCents).toBe(25000)
+    expect((await entity<Offer>(app, 'offer', staff.id)).dayRateCents).toBe(25000)
+
+    const open = await call(app, { dayRateCents: null })
+    const toAgree = await offer(app, open, await rated(app, 'Eoin Ryan', 32000))
+    expect((await entity<Offer>(app, 'offer', toAgree.id)).dayRateCents).toBe(32000)
+  })
+
+  it('keeps an unanswered offer at their own rate when the call’s rate changes, until the call’s goes above it', async () => {
+    const app = await server()
+    const c = await call(app)
+    const o = await offer(app, c, await rated(app, 'Aoife Byrne', 30000))
+    expect((await send(app, 'call.update', { id: c, dayRateCents: 26000 })).status).toBe('applied')
+    expect((await entity<Offer>(app, 'offer', o.id)).dayRateCents).toBe(30000)
+    expect((await send(app, 'call.update', { id: c, dayRateCents: 35000 })).status).toBe('applied')
+    expect((await entity<Offer>(app, 'offer', o.id)).dayRateCents).toBe(35000)
+  })
+})

@@ -466,7 +466,7 @@ export function CrewScreen() {
                               : kind === 'countered'
                                 ? o.rateHidden
                                   ? 'asks for a different rate'
-                                  : `asks ${euro(o.counterRateCents)} a day (offered ${rateText(c.dayRateCents, c.rateHidden)})`
+                                  : `asks ${euro(o.counterRateCents)} a day (offered ${rateText(o.dayRateCents, c.rateHidden)})`
                                 : kind === 'declined'
                                   ? 'declined'
                                   : "can't make it"}

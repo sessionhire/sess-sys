@@ -17,6 +17,8 @@ import {
   sameDepartment,
   eachDay,
   euro,
+  ownRateAbove,
+  quotedRateFor,
   euroText,
   firstName,
   HOLDING,
@@ -296,6 +298,8 @@ export function CallCard({
                       )}
                       {partial && <small> {daysLabel(o.days)}</small>}
                       {o.override && <small> (override)</small>}
+                      {/* Offered at their own rate rather than the call's (ADR 0167). */}
+                      {!o.rateHidden && !call.rateHidden && o.status !== 'countered' && o.dayRateCents !== null && o.dayRateCents !== call.dayRateCents && <small> own rate {euro(o.dayRateCents)}</small>}
                     </span>
                     <span className="actions">
                       <StatusPill tone={tone} pending={o.pending}>
@@ -668,8 +672,19 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const clashOf = (p: PersonView) => personConflicts(crew, p.id, call.days, call.id)
   const clashing = chosen.filter((p) => clashOf(p).length > 0)
   // Busy in their own calendar (ADR 0044): said, never in the way. It may be something they can move, and they may still say yes.
-  const own = useView().ownCalendars
+  const view = useView()
+  const own = view.ownCalendars
   const reach = useReach()
+  // Someone on their own rate above what the job allowed for (ADR 0167): the client is still charged the quote's price, so
+  // the margin may be less. Said only to those who read rates.
+  const seesRates = useSeesRates()
+  const quoted = call.projectId ? quotedRateFor(view.money.quotesOf(call.projectId)[0]?.lines ?? [], call) : undefined
+  const marginOf = (p: PersonView) => {
+    if (!seesRates || call.rateHidden || p.rateHidden) return ''
+    const above = ownRateAbove(call.dayRateCents, quoted, p)
+    if (!above) return ''
+    return `${firstName(p)}'s own rate is ${euro(above.own)} a day, above ${above.against === 'call' ? `this call's ${euro(above.allowed)}` : `the ${euro(above.allowed)} quoted for ${call.role}`}, so the margin may be less. The client is still charged the quote's price.`
+  }
   const { run, error, refuse } = useAct()
   // What the call needs (ADR 0028): those who hold it first, then those not known, then those missing one, each in the order above.
   const today = useToday()
@@ -778,6 +793,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
                     {w}
                   </small>
                 ))}
+                {marginOf(p) && <small className="warn-line">{marginOf(p)}</small>}
                 {own.warning(p.id, call.days) && <small className="warn-line">{own.warning(p.id, call.days)}. The offer can still go: it may be something they can move, and they can still say yes.</small>}
               </span>
               <button type="button" className="link" aria-label={`Take ${p.name} off`} onClick={() => (setIds((now) => now.filter((x) => x !== p.id)), refuse(''), settleRefusals(formRef.current))}>

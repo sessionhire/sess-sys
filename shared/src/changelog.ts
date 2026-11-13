@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.190.0',
+    date: '2026-11-13',
+    title: 'Crew on their own day rate',
+    what: "A freelancer who has agreed a higher day rate with us can have it on their record, as Own day rate (it was Usual day rate). Offers to them are made at their own rate where it's above the call's, or where the call has no rate yet, and that's what their page, their message and their timesheet say. The client is still charged the quote's price, and the quote's margin counts what they'll be paid. When you pick someone whose own rate is above the call's rate, or above what the quote charges for the role, a note under their name says the margin may be less. An own rate below the call's never lowers it, and staff are paid as before. Only the office and directors see own rates.",
+    prs: [361],
+    adrs: [167],
+  },
+  {
     version: '1.189.1',
     date: '2026-11-13',
     title: 'Type how many in place when picking, and buttons you can see the edge of',
