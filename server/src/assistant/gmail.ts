@@ -72,6 +72,12 @@ export class Gmail {
     return (r.messages ?? []).map(mailOf)
   }
 
+  /** A message's labels, as Gmail files it: SENT once it's in the account's Sent folder (ADR 0171). */
+  async labels(token: string, id: string): Promise<string[]> {
+    const r = await this.get<{ labelIds?: string[] }>(token, `/messages/${encodeURIComponent(id)}?format=minimal`)
+    return r.labelIds ?? []
+  }
+
   /**
    * Sends a whole message, as the bytes of an email with its headers and parts (ADR 0101), from the connected account;
    * Gmail keeps it in the account's Sent. Says what Gmail called it and its thread.

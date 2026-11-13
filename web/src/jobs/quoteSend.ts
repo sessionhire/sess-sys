@@ -57,3 +57,21 @@ export const askToSend = (jobId: string) => void asked.add(jobId)
 export function takeAskToSend(jobId: string): boolean {
   return asked.delete(jobId)
 }
+
+/**
+ * Where the email to the client is while it goes (ADR 0171), by job, so Next says the same as the email's own Send: saving
+ * the changes, sending, checking whether it went. Nothing while the box is only open.
+ */
+const going = new Map<string, string>()
+export function setSendingWords(jobId: string, words: string | undefined) {
+  if (going.get(jobId) === words) return
+  if (words) going.set(jobId, words)
+  else going.delete(jobId)
+  tell()
+}
+export function useSendingWords(jobId: string): string | undefined {
+  return useSyncExternalStore(
+    (f) => (heard.add(f), () => void heard.delete(f)),
+    () => going.get(jobId)
+  )
+}

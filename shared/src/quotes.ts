@@ -387,6 +387,10 @@ export interface QuoteEmail {
   from: string
   to: string[]
   subject: string
+  /** Whoever pressed Send, sent a copy of it (ADR 0171); null when no copy went. */
+  copyTo: string | null
+  /** When the app read it back from the mailbox's Sent folder (ADR 0171); null until it has. */
+  inSentAt: string | null
 }
 
 export interface QuoteEntities {
@@ -1043,8 +1047,61 @@ export const quoteEmailSend = z.object({
   message: text(QUOTE_EMAIL_LIMITS.message, 'The message'),
   /** The quote number the compose box showed, so a number given to another quote in the meantime is caught; null for none shown. */
   number: z.number().int().positive().nullable().optional(),
+  /**
+   * This press's own key, made when the compose box opens (ADR 0171): the same key sent twice sends once, so pressing Send
+   * again after a lost signal never emails the client twice.
+   */
+  key: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/, 'That send has no key.').optional(),
+  /** Send a copy to whoever pressed Send (ADR 0171). */
+  copy: z.boolean().optional(),
 })
 export type QuoteEmailSend = z.infer<typeof quoteEmailSend>
+
+/**
+ * Where one press of Send is (ADR 0171), asked by its key when the phone stopped waiting for the answer: gone (with the
+ * record), still going, not gone (send again, safely), or not known (the server stopped part way: look in Sent first).
+ */
+export type QuoteSendState = { state: 'sent'; email: QuoteEmail } | { state: 'sending' } | { state: 'none' } | { state: 'unsure' }
+
+/** Each address as the mail system sees it (ADR 0171): whether its domain takes email, and a likely spelling if it looks mistyped. */
+export interface QuoteAddressCheck {
+  address: string
+  /** Why it would bounce, in words; null when it looks fine or couldn't be told. */
+  problem: string | null
+  /** The address with a common domain spelt right, when it looks like a slip: "anna@gmial.com" → "anna@gmail.com". */
+  suggest: string | null
+}
+
+/** The domains people most often mistype, and the slips seen most. */
+const COMMON_DOMAINS = ['gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.co.uk', 'outlook.com', 'outlook.ie', 'live.com', 'live.ie', 'yahoo.com', 'yahoo.co.uk', 'yahoo.ie', 'icloud.com', 'me.com', 'eircom.net', 'protonmail.com', 'aol.com', 'msn.com', 'mail.com']
+const TOP_SLIPS: Record<string, string> = { con: 'com', cmo: 'com', ocm: 'com', vom: 'com', xom: 'com', comm: 'com', om: 'com', co: 'com', ei: 'ie', iw: 'ie', ue: 'ie' }
+
+/** Letters apart, counting a swap of two neighbours as one (Damerau-Levenshtein, restricted). */
+function distance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)))
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + cost)
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i]![j] = Math.min(d[i]![j]!, d[i - 2]![j - 2]! + 1)
+    }
+  return d[a.length]![b.length]!
+}
+
+/** "anna@gmial.com" → "anna@gmail.com": a common domain one or two letters off, or ".con" for ".com"; null when it looks right. */
+export function likelyAddress(address: string): string | null {
+  const at = address.lastIndexOf('@')
+  if (at < 1) return null
+  const user = address.slice(0, at)
+  const domain = address.slice(at + 1).toLowerCase()
+  if (COMMON_DOMAINS.includes(domain)) return null
+  const best = COMMON_DOMAINS.map((d) => ({ d, n: distance(domain, d) })).sort((x, y) => x.n - y.n)[0]!
+  if (best.n > 0 && best.n <= (best.d.length > 9 ? 2 : 1)) return `${user}@${best.d}`
+  const dot = domain.lastIndexOf('.')
+  const top = TOP_SLIPS[domain.slice(dot + 1)]
+  if (dot > 0 && top) return `${user}@${domain.slice(0, dot + 1)}${top}`
+  return null
+}
 
 /** What the compose box starts with, from the server. */
 export interface QuoteEmailPrefill {
@@ -1061,6 +1118,8 @@ export interface QuoteEmailPrefill {
   /** Whether it can go now; when not, why not, in words. */
   canSend: boolean
   why: string | null
+  /** Whoever is sending, for the copy to them (ADR 0171); null when they're the mailbox itself or not known. */
+  me: string | null
 }
 
 // The printed quote (ADR 0084).

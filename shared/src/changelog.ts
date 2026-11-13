@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.187.0',
+    date: '2026-11-13',
+    title: 'Sending a quote by email says where it is, and can never go twice',
+    what: "Send on the email to the client now says each step while it works (saving your changes, sending, checking whether it went), and so does Next. Once it's gone a message says who it went to, and the quote shows it's in the Sent folder of the operations mailbox. You get a copy in your own inbox unless you untick it. Addresses are checked before it goes: one whose company can't receive email is stopped with the reason, and a slip such as gmial.com is offered spelt right. If the signal drops while it's sending, pressing Send again can't email the client twice: the app first finds out whether it went. And Send no longer reloads the app when the email is open under a draft.",
+    prs: [374],
+    adrs: [171],
+  },
+  {
     version: '1.186.0',
     date: '2026-11-13',
     title: 'Tidier buttons, shorter words, and second choices you can see are buttons',

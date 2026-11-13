@@ -193,6 +193,8 @@ test('a finished quote is sent from Next: the email to the client with the PDF o
     why: null,
   }
   await office.route('**/api/quotes/*/email', (route) => (route.request().method() === 'GET' ? route.fulfill({ json: prefill }) : route.abort()))
+  // The look at each address's domain (ADR 0171) is stood in for, so no real DNS is asked.
+  await office.route('**/api/quotes/email/check?*', (route) => route.fulfill({ json: { addresses: [] } }))
   await office.goto('/#admin/connections')
   const emailing = office.getByRole('region', { name: 'The operations mailbox' }).getByRole('switch', { name: /Send quotes by email/ })
   await emailing.click()
