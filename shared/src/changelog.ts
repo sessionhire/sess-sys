@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-13',
     title: 'Count bay by bay out of the warehouse, and make twenty bays at once',
     what: "Kit you count in a bay that the record still has at the place it was all brought in at, and which hasn't been counted yet, is now moved from there rather than added on top: the count's page says Move 20 here from Warehouse. A label put on in a bay takes its item off that place the same way. When the bays are done and you count the warehouse itself, None of the other ones here fills in 0 for everything left blank. New place now takes a range, such as Bay A1 to A20, and makes each one.",
-    prs: [0],
+    prs: [383],
     adrs: [176],
   },
   {
