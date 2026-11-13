@@ -20,7 +20,7 @@
   /* Hints, labels and the tabs not open: matched by lightness, the tertiary ink, which clears AA on every surface here. */
   --muted: var(--ds-ink-tertiary);
   --line: var(--ds-line-subtle);
-  /* Round a field: 3:1 against a card in both themes (audit finding 22). */
+  /* Round a field or a button: 3:1 against a card in both themes (audit finding 22; a button's edge too, Colly 13 November 2026). */
   --field-line: var(--ds-line-control);
   /* Text on a line-coloured surface, such as the grey pill. */
   --on-line: var(--ds-ink-secondary);
@@ -223,7 +223,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .pill.cancelled { background: var(--line); color: var(--on-line); }
 .pill.bad { background: var(--bad-soft); color: var(--bad); }
 .pill.waiting { background: transparent; color: var(--muted); border: 1px dashed var(--field-line); }
-button { font: 600 var(--text-button) var(--ds-font-sans); min-height: 44px; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+button { font: 600 var(--text-button) var(--ds-font-sans); min-height: 44px; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--field-line); background: var(--panel); color: var(--ink); cursor: pointer; }
 button.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
 /* A loss: deleting everything (ADR 0019), and the yes of a question whose answer takes something away (act.tsx), as the design system
    draws an armed button. The bad tone, never the brand red, which marks the one thing to do next. 4.7:1 light, 6.9:1 dark. */
@@ -647,7 +647,7 @@ details[open] > summary::before, details[open] > summary > .chevron, .history .r
 .long-overdue-row > p { margin: 0; }
 
 /* Sign-in and account. */
-a.button, label.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; text-align: center; font: 600 var(--text-button) var(--ds-font-sans); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; }
+a.button, label.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; text-align: center; font: 600 var(--text-button) var(--ds-font-sans); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--field-line); background: var(--panel); color: var(--ink); text-decoration: none; }
 a.button.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 /* 44px touch targets: easier with gloves on or in a dark venue. */
