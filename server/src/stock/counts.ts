@@ -1,4 +1,4 @@
-import type { CommandArgs, Count } from '@sh/shared'
+import type { CommandArgs, Count, CountStart } from '@sh/shared'
 import { getPerson, personByEmail } from '../crew/store.ts'
 import type { Queryable } from '../db.ts'
 import { emit, Refused, type Ctx } from '../kernel.ts'
@@ -68,10 +68,49 @@ async function counter(ctx: Ctx, by: string | null): Promise<string | null> {
   return rows.length ? null : person.id
 }
 
-type CountCommand = 'count.record'
+const toStart = (r: Row): CountStart => ({
+  id: r.id,
+  placeId: r.place_id,
+  caseId: r.case_id,
+  by: r.counted_by,
+  startedAt: r.started_at,
+  endedAt: r.ended_at,
+})
+
+export async function getCountStart(q: Queryable, id: string) {
+  const { rows } = await q.query(
+    `SELECT id, place_id, case_id, counted_by, ${iso('started_at')} AS started_at, ${iso('ended_at')} AS ended_at FROM count_starts WHERE id = $1`,
+    [id]
+  )
+  return rows[0] ? toStart(rows[0]) : undefined
+}
+
+/** A count under way is over: discarded, or finished (ADR 0177). */
+async function endStart(ctx: Ctx, id: string) {
+  const { rows } = await ctx.tx.query(`UPDATE count_starts SET ended_at = now() WHERE id = $1 AND ended_at IS NULL RETURNING id`, [id])
+  if (rows.length) await emit(ctx, 'countStart', id, await getCountStart(ctx.tx, id))
+}
+
+type CountCommand = 'count.record' | 'count.begin' | 'count.end'
 type Handler<N extends CountCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 export const countHandlers: { [N in CountCommand]: Handler<N> } = {
+  /**
+   * A count begun on a phone (ADR 0177). Never refused for where, as a count isn't: a place it couldn't find simply never
+   * shows. Sent again, or after it was finished, it changes nothing.
+   */
+  async 'count.begin'(ctx, a) {
+    if ((await getCountStart(ctx.tx, a.id)) || (await getCount(ctx.tx, a.id))) return
+    await ctx.tx.query(
+      `INSERT INTO count_starts (id, place_id, case_id, counted_by, started_at) VALUES ($1, $2, $3, $4, LEAST($5::timestamptz, now()))`,
+      [a.id, a.placeId, a.caseId, await counter(ctx, a.by), a.startedAt]
+    )
+    await emit(ctx, 'countStart', a.id, await getCountStart(ctx.tx, a.id))
+  },
+  async 'count.end'(ctx, a) {
+    await endStart(ctx, a.id)
+  },
+
   async 'count.record'(ctx, a) {
     // Sent twice by the same phone: it's kept already.
     if (await getCount(ctx.tx, a.id)) return
@@ -105,5 +144,7 @@ export const countHandlers: { [N in CountCommand]: Handler<N> } = {
       ]
     )
     await emit(ctx, 'count', a.id, await getCount(ctx.tx, a.id))
+    // Finished: no longer under way.
+    await endStart(ctx, a.id)
   },
 }

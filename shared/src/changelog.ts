@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.195.0',
+    date: '2026-11-13',
+    title: "See who's counting where, and how far the stocktake has got",
+    what: "Starting a count now tells every phone, so the list of places to count says who is counting each one and since when, and pressing Count on a place someone else is counting asks first, suggesting you share it out by bay. The Counting page has a new Stocktake card: who's counting where right now, how many places have been counted, and how much of the numbered kit has its label, by department.",
+    prs: [0],
+    adrs: [177],
+  },
+  {
     version: '1.194.0',
     date: '2026-11-13',
     title: 'Count bay by bay out of the warehouse, and make twenty bays at once',

@@ -271,4 +271,39 @@ describe('a count', () => {
     await ok(app, m('count.record', count))
     expect((await counts(app)).get(count.id)).toEqual(count)
   })
+
+  it('says who is counting where while it is under way, until it is finished or discarded (ADR 0177)', async () => {
+    // Proves: a count begun is said to every device with who and where, once even if sent twice; finishing it (its record
+    // has the same id) or discarding it ends it; a begin arriving after its count was finished changes nothing; and the
+    // history says it in words.
+    const { app, db } = await server()
+    await warehouse(app)
+    const finished = bayA3()
+    const left = record({ placeId: 'b1' }, { by: 'cian' })
+    const begin = (c: CommandInput<'count.record'>) => m('count.begin', { id: c.id, placeId: c.placeId, caseId: c.caseId, by: c.by, startedAt: c.startedAt })
+    await ok(app, begin(finished), begin(finished), begin(left))
+    const starts = async () => {
+      const pulled = (await app.inject({ url: '/api/sync/pull?after=0' })).json() as PullResponse
+      const latest = new Map<string, Record<string, unknown>>()
+      for (const c of pulled.changes) if (c.entity === 'countStart') latest.set(c.id, c.data as Record<string, unknown>)
+      return latest
+    }
+    expect((await starts()).get(finished.id)).toEqual({ id: finished.id, placeId: 'a3', caseId: null, by: 'cian', startedAt: finished.startedAt, endedAt: null })
+    expect((await db.query(`SELECT count(*)::int AS n FROM count_starts`)).rows[0]).toEqual({ n: 2 })
+
+    await ok(app, m('count.record', finished), m('count.end', { id: left.id }), m('count.end', { id: left.id }))
+    const now = await starts()
+    expect(now.get(finished.id)!.endedAt).toEqual(expect.any(String))
+    expect(now.get(left.id)!.endedAt).toEqual(expect.any(String))
+
+    // Sent late, after its count was finished: nothing new.
+    const late = bayA3()
+    await ok(app, m('count.record', late), begin(late))
+    expect((await starts()).has(late.id)).toBe(false)
+
+    const history = (await app.inject({ url: '/api/history' })).json() as HistoryPage
+    const said = history.entries.map((e) => e.what)
+    expect(said).toContain('Cian Murphy started counting Bay A3')
+    expect(said).toContain('Discarded a count of Bay B1')
+  })
 })

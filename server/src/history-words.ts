@@ -626,6 +626,16 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       const by = kept ? kept.by : a.by
       return `${by ? `${person(by)} counted` : 'Counted'} ${a.caseId ? `what's in ${item(a.caseId)}` : placeName(a.placeId)}${said}`
     }
+    // A count begun or discarded (ADR 0177): who's counting where.
+    case 'count.begin': {
+      const kept = look('countStart', a.id)
+      const by = kept ? kept.by : a.by
+      return `${by ? `${person(by)} started counting` : 'Started counting'} ${a.caseId ? `what's in ${item(a.caseId)}` : placeName(a.placeId)}`
+    }
+    case 'count.end': {
+      const kept = look('countStart', a.id)
+      return `Discarded a count${kept ? ` of ${kept.caseId ? `what's in ${item(kept.caseId)}` : placeName(kept.placeId)}` : ''}`
+    }
     case 'timesheet.send': {
       const o = offer(a.id)
       const n = Array.isArray(a.days) ? a.days.length : 0
