@@ -89,16 +89,16 @@ test('on a desk a keyboard meets Skip to content, then the places, then the scre
   await expect(page).toHaveURL(/#stock$/)
 })
 
-test('offline on a phone the company keeps its name, and print is white round the sheet', async ({ browser }) => {
-  // Proves: with no signal the top bar's "SESSION HIRE" isn't cut short and "No signal" is whole on screen; printing in the dark theme gives a white page.
+test('offline on a phone the company keeps its logo, and print is white round the sheet', async ({ browser }) => {
+  // Proves: with no signal the top bar's logo is whole, the company's name is still there for a screen reader, and "No signal" is whole on screen; printing in the dark theme gives a white page.
   const context = await browser.newContext({ viewport: phoneSize })
   const page = await context.newPage()
   await ready(page, '#jobs')
   await page.route('**/api/sync/**', (route) => route.abort())
   await page.evaluate(() => dispatchEvent(new Event('online')))
   await expect(page.locator('.conn')).toHaveText(/^No signal/)
-  const name = page.locator('.top .brand b')
-  expect(await name.evaluate((b) => b.scrollWidth <= b.clientWidth)).toBe(true)
+  await expect(page.locator('.top .mark')).toBeInViewport({ ratio: 1 })
+  await expect(page.getByRole('link', { name: 'Session Hire: Home' })).toHaveCount(1)
   await expect(page.locator('.conn')).toBeInViewport({ ratio: 1 })
 
   await page.emulateMedia({ media: 'print' })

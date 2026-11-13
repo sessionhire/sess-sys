@@ -1,4 +1,4 @@
-import { dayLabel, PURCHASE_DETAILS_LENGTH, PURCHASE_LINK_LENGTH, PURCHASE_OPEN, PURCHASE_SETTLED, PURCHASE_STATUS_LABELS, PURCHASE_TITLE_LENGTH, newId, type OfficeDetails } from '@sh/shared'
+import { LOGO_SVG, dayLabel, PURCHASE_DETAILS_LENGTH, PURCHASE_LINK_LENGTH, PURCHASE_OPEN, PURCHASE_SETTLED, PURCHASE_STATUS_LABELS, PURCHASE_TITLE_LENGTH, newId, type OfficeDetails } from '@sh/shared'
 import type { PurchaseOnLink } from '../purchases/store.ts'
 import { CSS, fieldError, flash, h, invalid, landing, officeBlock, REFUSED, titled } from './page.ts'
 
@@ -47,7 +47,7 @@ export function renderPurchases(d: PurchasePage): string {
 </head>
 <body>
 <main>
-  <header class="top"><span class="mark">SH</span><div><b>Session Hire</b><h1>Kit to buy</h1><small>The purchase list, as the office and crew see it.</small></div></header>
+  <header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>Kit to buy</h1><small>The purchase list, as the office and crew see it.</small></div></header>
   ${officeBlock(d.office)}
   <a class="back" href="${h(d.base)}">‹ Your work</a>
   ${d.flash && !refusal ? flash(d.flash) : ''}
