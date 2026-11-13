@@ -309,7 +309,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(printed.locator('.sheet-facts')).toContainText('Quote1115')
   await expect(printed).toContainText('Please give quote 1115 as the reference.')
   await office.evaluate(() => dispatchEvent(new Event('afterprint')))
-  await v1.getByRole('button', { name: 'New version' }).click()
+  await v1.getByRole('button', { name: 'Amend quote' }).click()
   const v2 = office.getByRole('form', { name: 'Version 2, a draft' })
   await openTerms(v2)
   await v2.getByLabel('Discount, %').fill('10')

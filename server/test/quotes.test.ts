@@ -428,6 +428,25 @@ describe('deleting a quote (ADR 0135)', () => {
     expect((await quote('o1')).number).toBe(n + 1)
   })
 
+  it('lets the office drop an amendment never sent, and never a version that went or the only one (ADR 0173)', async () => {
+    const { app, quote } = await gala()
+    await ok(app, save('v1'))
+    // A job's only quote has nothing to go back to: that's an admin's delete.
+    expect(await refused(app, m('quote.drop', { id: 'v1' }))).toBe("Version 1 is the job's only quote, so there's nothing to go back to. An admin can delete it.")
+    await ok(app, m('quote.sent', { id: 'v1', on: day(-1) }), save('v2'))
+    expect(await refused(app, m('quote.drop', { id: 'v1' }))).toBe('Version 1 has gone to the client, so it stays.')
+    await ok(app, m('quote.drop', { id: 'v2' }))
+    expect(await lastOp(app, 'quote', 'v2')).toBe('delete')
+    // Sent twice, as a phone may: nothing more. Version 1 is the quote again, as the client has it.
+    await ok(app, m('quote.drop', { id: 'v2' }))
+    expect(await quote('v1')).toMatchObject({ status: 'sent', version: 1 })
+    const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
+    expect(history.entries.find((e) => e.command === 'quote.drop')?.what).toBe('Dropped the changes in version 2 of the quote for Autumn Gala, never sent')
+    // The next amendment is version 3, so putting version 2 back never finds its number taken.
+    await ok(app, save('v3'))
+    expect(await quote('v3')).toMatchObject({ version: 3, status: 'draft' })
+  })
+
   it("stops the client's link to a deleted version", async () => {
     const { app, quote } = await gala()
     await ok(app, m('quoting.online', { on: true }), save('v1'), m('quote.sent', { id: 'v1', on: day(0) }))

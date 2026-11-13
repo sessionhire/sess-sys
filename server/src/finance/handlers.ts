@@ -23,7 +23,7 @@ import { emailsOf, getClientDiscount, getCostPaid, getPackage, getProductPrice, 
  * Sending the same change twice, as a phone may, changes nothing.
  */
 
-type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'price.fromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
+type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quote.drop' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'price.fromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
@@ -249,6 +249,23 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (!deleteTyped(q, a.typed)) throw new Refused({ code: 'invalid', message: `Type ${deleteWord(q)} to delete version ${q.version} of this quote.` })
     await ctx.tx.query('UPDATE quotes SET deleted_at = now() WHERE id = $1', [a.id])
     for (const e of await emailsOf(ctx.tx, a.id)) await emitRemoved(ctx, 'quoteEmail', e)
+    await emitRemoved(ctx, 'quote', a.id)
+  },
+
+  /**
+   * Drop an amendment (ADR 0173): a draft made after a version went to the client, never sent itself. It's kept out of sight
+   * as a deleted one is, so an admin can put it back from the history, and the version the client has is the quote again.
+   */
+  async 'quote.drop'(ctx, a) {
+    const q = await getQuote(ctx.tx, a.id, true)
+    if (!q) {
+      if (await isDeleted(ctx.tx, a.id)) return
+      throw new Refused({ code: 'not-found', message: 'That quote is no longer here.' })
+    }
+    if (q.status !== 'draft') throw new Refused({ code: 'conflict', message: `Version ${q.version} has gone to the client, so it stays.` })
+    const before = (await quotesOf(ctx.tx, q.projectId)).find((v) => v.id !== q.id && v.status !== 'draft')
+    if (!before) throw new Refused({ code: 'conflict', message: `Version ${q.version} is the job's only quote, so there's nothing to go back to. An admin can delete it.` })
+    await ctx.tx.query('UPDATE quotes SET deleted_at = now() WHERE id = $1', [a.id])
     await emitRemoved(ctx, 'quote', a.id)
   },
 

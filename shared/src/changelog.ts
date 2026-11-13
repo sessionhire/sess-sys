@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.189.0',
+    date: '2026-11-13',
+    title: 'Amend quote, when the client asks for changes',
+    what: "A job waiting on the client's answer now has a third button beside Confirm job and Client said no: Amend quote. It makes the next version of the quote from the one the client has and opens it on the Quote tab to change. Until it's sent, the job is back at sending the quote: it opens on the new version, Next sends it, and the jobs list says it's being amended. The client's answer can still be recorded on the version they have. If it was a slip, Drop changes takes the new version away again. On the Quote tab, New version is now called Amend quote too.",
+    prs: [376],
+    adrs: [173],
+  },
+  {
     version: '1.188.0',
     date: '2026-11-13',
     title: 'The app tells you when a quote email bounces, is delayed or gets a reply',

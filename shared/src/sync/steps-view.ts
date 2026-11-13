@@ -174,6 +174,8 @@ export function sellingLine(s: {
   /** Days since the quote with the client was sent; undefined when none is with the client. */
   sentDays: number | undefined
   draft: boolean
+  /** The draft's version when it amends one the client has (ADR 0173). */
+  amending?: number
   /** Lines on the draft with no price. */
   unpriced: number
 }): string {
@@ -182,7 +184,7 @@ export function sellingLine(s: {
   if (s.answered) return `The client said yes${s.answeredOn ? ` ${dayLabel(s.answeredOn)}` : ''}`
   if (s.sentDays !== undefined)
     return s.sentDays === 0 ? 'Quote with the client since today' : `Quote with the client ${plural(s.sentDays, 'day')}${s.sentDays >= CHASE_AFTER_DAYS ? ' · worth a call' : ''}`
-  if (s.draft) return `Draft started${s.unpriced ? ` · ${plural(s.unpriced, 'line')} ${s.unpriced === 1 ? 'needs' : 'need'} a price` : ''}`
+  if (s.draft) return `${s.amending ? `Version ${s.amending} being amended` : 'Draft started'}${s.unpriced ? ` · ${plural(s.unpriced, 'line')} ${s.unpriced === 1 ? 'needs' : 'need'} a price` : ''}`
   return 'No quote yet'
 }
 
@@ -279,6 +281,7 @@ export function stepsView(
       stage === 'back' && daysBetween(job.span!.end, today) > SETTLED_AFTER_DAYS && (!pick || pick.stillOut === 0) && openFaults === 0
         ? `Taken as done: it ended ${dayLabel(job.span!.end)} with nothing still out`
         : undefined
+    const amending = draft && sent && !accepted && job.status !== 'confirmed' && draft.version > sent.version ? draft : undefined
     const unpriced = draft ? draft.lines.filter((l, _, all) => needsPrice(l, all)).length : 0
     const quoteFacts: StepFacts = {
       ...(sent?.sentOn ? { sentOn: sent.sentOn } : {}),
@@ -294,7 +297,11 @@ export function stepsView(
       : { nothingYet: true }
     const showFacts: StepFacts = job.span ? { starts: job.span.start, until: job.span.end } : { nothingYet: true }
     const tasks: Record<JobStep, Told> = {
-      quote: sent
+      // Amended (ADR 0173): a new version drafted after one went, with no yes yet, is the quote to send, so sending it is the
+      // task again and the job opens on it; the version the client has still takes their answer meanwhile.
+      quote: amending
+        ? { hint: `Version ${amending.version} is an amendment, not sent yet`, facts: quoteFacts }
+        : sent
         ? { auto: sent.sentOn ? `Sent ${dayLabel(sent.sentOn)}` : 'Sent', facts: quoteFacts }
         : // A confirmed job needs no quote here to be past it. A job marked quoted with no quote in the app (one from the calendars,
           // say) still has its quote to make, so Next, the stage line and the Quote tab all say so (review of 11 November 2026,
@@ -369,6 +376,7 @@ export function stepsView(
             // A new version being drafted is what's being worked on, not the one with the client.
             sentDays: sent && sent.status === 'sent' && !draft ? (sent.sentOn ? Math.max(0, daysBetween(sent.sentOn, today)) : 0) : undefined,
             draft: !!draft,
+            ...(amending ? { amending: amending.version } : {}),
             unpriced,
           })
         : undefined

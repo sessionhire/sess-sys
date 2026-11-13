@@ -10,6 +10,7 @@ import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import type { JobPart } from './JobScreen.tsx'
 import { confirmQuestion, crewOnJob, holdingTheDay, stopQuestion } from './jobStatus.ts'
+import { amendQuote } from './QuoteRecords.tsx'
 import './steps.css'
 
 /**
@@ -288,7 +289,7 @@ function OpenStep({
       </p>
       {/* The answer first, where the eye is: who it's down to can wait under it. */}
       {answering ? (
-        <ClientsAnswer key={confirmAsked ?? 'answer'} job={job} view={view} onTell={onTell} confirming={confirmAsked !== undefined} />
+        <ClientsAnswer key={confirmAsked ?? 'answer'} job={job} view={view} onTell={onTell} onPart={onPart} confirming={confirmAsked !== undefined} />
       ) : (
         <p className="hint">{step.line}</p>
       )}
@@ -359,9 +360,22 @@ function OpenStep({
  * its kit; no marks it lost, which cancels its crew calls, so that one asks first. Yes asks first too when the job's crew
  * were asked to hold the day for it, as it reaches them (ADR 0168), and opens asked when Next's Confirm the job was
  * pressed (`confirming`). Either goes on the quote that went too, when there is one waiting for an answer, so the quote
- * and the job never say different things.
+ * and the job never say different things. A third answer is changes asked for (ADR 0173): Amend quote makes the next version
+ * from the one they have and opens it on the Quote tab, and the job goes back to sending it.
  */
-function ClientsAnswer({ job, view, onTell, confirming = false }: { job: JobView; view: View; onTell: (share: Share | undefined) => void; confirming?: boolean }) {
+function ClientsAnswer({
+  job,
+  view,
+  onTell,
+  onPart,
+  confirming = false,
+}: {
+  job: JobView
+  view: View
+  onTell: (share: Share | undefined) => void
+  onPart: (p: JobPart) => void
+  confirming?: boolean
+}) {
   const access = useAccess()
   const [asking, setAsking] = useState<'yes' | 'no' | undefined>(confirming ? 'yes' : undefined)
   const { run, error } = useAct()
@@ -369,6 +383,13 @@ function ClientsAnswer({ job, view, onTell, confirming = false }: { job: JobView
   // The version that went to the client and is waiting on them; a draft is left to be finished and sent.
   const current = access.can('money') ? view.money.currentOf(job.id) : undefined
   const waiting = current && !current.invoicedOn && (current.status === 'sent' || current.status === 'accepted' || current.status === 'declined') ? current : undefined
+  // Changes asked for, before a yes (ADR 0173): the next version, made from the one the client has, or the one already started.
+  const amending = waiting ? view.money.draftOf(job.id) : undefined
+  const amendable = waiting && waiting.status !== 'accepted' ? waiting : undefined
+  const amend = () => {
+    if (amending) return onPart('quote')
+    if (amendable) void run(() => amendQuote(amendable)).then((ok) => ok && onPart('quote'))
+  }
   // Read before the press: everyone on its open calls, told it's off if it's lost; and those asked to hold the day, told it's going
   // ahead if it's confirmed. With the email Google sends those who hold an invite (ADR 0149, ADR 0168).
   const people = crewOnJob(job)
@@ -395,6 +416,7 @@ function ClientsAnswer({ job, view, onTell, confirming = false }: { job: JobView
           : waiting?.status === 'declined'
             ? 'The client turned the quote down. Mark the job lost, or confirm it if they came back.'
             : `Confirming the job puts it on the jobs calendar and holds its kit${waiting ? `, and records the yes on version ${waiting.version} of the quote` : ''}.`}
+        {amending && amendable && ` Version ${amending.version}, its amendment, isn't sent yet.`}
       </p>
       {asking === 'no' ? (
         <Confirm
@@ -418,6 +440,11 @@ function ClientsAnswer({ job, view, onTell, confirming = false }: { job: JobView
           <button type="button" onClick={() => (job.calls.some((c) => c.status === 'open') ? setAsking('no') : answer(false))} disabled={job.pending}>
             Client said no
           </button>
+          {amendable && (
+            <button type="button" onClick={amend} disabled={job.pending}>
+              {amending ? `Open version ${amending.version}` : 'Amend quote'}
+            </button>
+          )}
         </div>
       )}
       <Refusal error={error} />

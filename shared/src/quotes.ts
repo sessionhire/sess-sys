@@ -535,6 +535,11 @@ export const quoteCommandSchemas = {
    * back from the history.
    */
   'quote.delete': z.object({ id, typed: z.string().max(40) }),
+  /**
+   * Drop an amendment (ADR 0173): a draft made from a version the client already has, never sent, goes, and the version
+   * the client has is the quote again. The office's, as making it was; a job's only quote is an admin's to delete.
+   */
+  'quote.drop': z.object({ id }),
   /** The invoice for an accepted quote, written outside the app: the day and its number, or null to take it back. */
   'quote.invoiced': z.object({ id, on: day.nullable(), ref: text(60, 'The invoice number') }),
   /** The day an invoiced quote was paid, or null to take it back. */
