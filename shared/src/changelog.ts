@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.190.0',
+    version: '1.191.0',
     date: '2026-11-13',
     title: 'Cancel this job, errands that look like errands, and fixes from the map of every route through a job',
     what: "A job has a Cancel this job button beside Change details: say whether it was called off or lost, and why in a line, which is kept at the top of the office notes with the day. Errands and meetings now show only When and Who's going (and Kit and Transport for an errand), with who's going said where Next would be. Confirming a freelancer's yes with no day rate agreed now asks first. Kit or crew added to a job after its quote went to the client, or after they said yes, is now listed on the Quote tab, with Amend quote to put it on a new version. A quote the client turned down no longer reads as No quote yet: the Jobs list and the Board say Turned down, and Next opens the client's answer, to mark the job lost or amend the quote. On the Kit tab, Next no longer only opens the tab you're on: it goes on to Transport, then marks the kit and vans settled. Crew departments now use the same names as the rest of the app, Lighting and Lasers rather than LX and Laser. On a pick list, a number typed in the scan box is entered by the button beside it, rather than the button opening the camera. Going out, the pick list says what went with the kit in its cases, so it counts the same as coming back.",
     prs: [0],
+  },
+  {
+    version: '1.190.0',
+    date: '2026-11-13',
+    title: 'Crew on their own day rate',
+    what: "A freelancer who has agreed a higher day rate with us can have it on their record, as Own day rate (it was Usual day rate). Offers to them are made at their own rate where it's above the call's, or where the call has no rate yet, and that's what their page, their message and their timesheet say. The client is still charged the quote's price, and the quote's margin counts what they'll be paid. When you pick someone whose own rate is above the call's rate, or above what the quote charges for the role, a note under their name says the margin may be less. An own rate below the call's never lowers it, and staff are paid as before. Only the office and directors see own rates.",
+    prs: [361],
+    adrs: [167],
   },
   {
     version: '1.189.1',

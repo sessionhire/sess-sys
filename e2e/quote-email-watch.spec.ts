@@ -22,11 +22,15 @@ test('a quote email that bounced is said everywhere the office looks, and sent a
   // The email the server sent with Corrib Arts Week's quote, as its watcher left it: bounced for one address, and a reply.
   const sentAt = new Date(Date.now() - 2 * 60 * 60_000).toISOString()
   let bounce = true
+  // Remembered from the first pull that carries them: a later pull (after a reload, the device's own copy picks up where it
+  // left off) has only what changed since, and the email as the watcher now has it still has to come with it.
+  let arts: { id: string } | undefined
+  let quote: { id: string } | undefined
   await office.route('**/api/sync/pull?*', async (route) => {
     const res = await route.fetch()
     const body = (await res.json()) as { changes: { seq: number; entity: string; id: string; op: string; data: Record<string, unknown> }[]; cursor: number }
-    const arts = body.changes.find((c) => c.entity === 'project' && c.data.name === 'Corrib Arts Week')
-    const quote = arts && body.changes.findLast((c) => c.entity === 'quote' && c.data.projectId === arts.id && c.data.status === 'sent')
+    arts ??= body.changes.find((c) => c.entity === 'project' && c.data.name === 'Corrib Arts Week')
+    if (arts) quote ??= body.changes.findLast((c) => c.entity === 'quote' && c.data.projectId === arts!.id && c.data.status === 'sent')
     if (quote)
       body.changes.push({
         seq: body.cursor,

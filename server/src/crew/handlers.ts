@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { whatsappSetting } from '../office/store.ts'
 import { reachOf } from '../whatsapp/whatsapp.ts'
 import { queueBooked, queueCallTime, queueNotNeeded } from '../whatsapp/follow-ups.ts'
-import { ADD_A_PHASE, certificateRefusal, certificatesAfter, daysBetween, daysLabel, daysOffPhase, DEFAULT_LEVEL, MOVE_THE_PHASE, phaseDaysRule, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, OFFER_WAIT_GRACE_SECONDS, OFFER_WAIT_SECONDS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
+import { ADD_A_PHASE, certificateRefusal, certificatesAfter, daysBetween, daysLabel, daysOffPhase, DEFAULT_LEVEL, MOVE_THE_PHASE, phaseDaysRule, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, offerRateFor, OFFER_WAIT_GRACE_SECONDS, OFFER_WAIT_SECONDS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getPhase, getProject, namesForCall } from '../projects/store.ts'
 import { stopOwnCalendar } from './own-calendars.ts'
@@ -218,7 +218,12 @@ async function changeCall(ctx: Ctx, call: CrewCall, next: CrewCall, shift = 0) {
         if (asked.join() !== o.asked.join()) fields.asked = asked
       }
     }
-    if (next.dayRateCents !== call.dayRateCents && o.status === 'offered') fields.day_rate_cents = next.dayRateCents
+    // A new rate reaches an offer not yet answered, still kept up to their own rate where it's above it (ADR 0167).
+    if (next.dayRateCents !== call.dayRateCents && o.status === 'offered') {
+      const who = await getPerson(ctx.tx, o.personId)
+      const rate = who ? offerRateFor(next.dayRateCents, who) : next.dayRateCents
+      if (rate !== o.dayRateCents) fields.day_rate_cents = rate
+    }
     daysOf.set(o.id, days)
     if (Object.keys(fields).length) changes.set(o.id, fields)
   }
@@ -652,7 +657,8 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     await ctx.tx.query(
       `INSERT INTO offers (id, call_id, person_id, status, days, day_rate_cents, override, goes_at)
        VALUES ($1, $2, $3, 'offered', $4, $5, $6, now() + make_interval(secs => $7))`,
-      [a.id, call.id, person.id, JSON.stringify(days), call.dayRateCents, a.override, OFFER_WAIT_SECONDS + OFFER_WAIT_GRACE_SECONDS]
+      // At the call's rate, or the person's own where it's above it (ADR 0167): what they're offered is what they're paid.
+      [a.id, call.id, person.id, JSON.stringify(days), offerRateFor(call.dayRateCents, person), a.override, OFFER_WAIT_SECONDS + OFFER_WAIT_GRACE_SECONDS]
     )
     // On WhatsApp too, once the office sends offers there and this person hasn't turned them off (ADR 0125): queued with
     // the offer, so it goes only if the offer is made, and sent by the server once its wait is over, never holding the office up.

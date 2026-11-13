@@ -115,7 +115,7 @@ test("Add person says a bad email in a line that stays, and Tab out of Skills la
   await expect(form.getByRole('listbox', { name: 'In use' })).toBeVisible()
   await expect(form.getByRole('listbox', { name: 'In use' })).toHaveAttribute('tabindex', '-1')
   await page.keyboard.press('Tab')
-  await expect(form.getByLabel('Usual day rate €')).toBeFocused()
+  await expect(form.getByLabel('Own day rate €')).toBeFocused()
 })
 
 test("the skills on offer open above the box when it's low on a phone, clear of the tabs", async ({ browser }) => {
