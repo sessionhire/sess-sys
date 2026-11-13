@@ -26,6 +26,7 @@ import { client } from '../sync.ts'
 import { atLabel, findWhere, ProductChoices, useNewPlace, WhereChoices, whereNamed, whereProblem } from './common.tsx'
 import { LABELS, STOCK } from '../Up.tsx'
 import { StockViews } from '../Views.tsx'
+import { labelledDuringCount } from './Counts.tsx'
 import { Split } from '../Split.tsx'
 import { useLabelLogo } from '../Picture.tsx'
 import { useView } from '../view.ts'
@@ -590,6 +591,7 @@ export function ClaimLabel({
       void tryTo(async () => {
         const where = (await whereNamed(f.where, w)) ?? { placeId: null, caseId: null }
         await client.mutate('asset.add', { id, modelId: m.id, number, serial: '', ...where, notes: '', fromCount: one })
+        labelledDuringCount({ assetId: id, modelId: m.id, fromCount: one }, where)
       }).then((ok) => ok && onClaimed(id))
     if (!ask(f.where, go)) go()
   }

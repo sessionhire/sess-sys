@@ -255,7 +255,7 @@ test('a case is found by what is in it, an item in it is marked found where it i
   // A maker's QR code on the rack, a long web address: noted cut short, and it never widens the page on a phone.
   const qr = `https://www.example.com/products/racks/${'d20-amp-rack-'.repeat(8)}`
   await typeIn(page, qr)
-  await expect(said).toHaveText(`No item has ${qr.slice(0, 99)}…. It's noted on the count; put the label on its item from the Stock search afterwards.`)
+  await expect(said).toHaveText(`No item has ${qr.slice(0, 99)}…. It's noted on the count.`)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.getByRole('button', { name: 'Finish the count' }).click()
   await expect(page.locator('.facts')).toContainText('All 2 found, 1 not expected')

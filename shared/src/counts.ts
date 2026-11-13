@@ -101,6 +101,10 @@ export interface CountDraft {
   counted: Record<string, number>
   /** Products added as there though not expected, in the order added. */
   added: string[]
+  /** Items labelled on this count, each put on here as its label was scanned (ADR 0175). */
+  labelled?: string[]
+  /** The product the last label on this count went on, offered for the next. */
+  labelAs?: string
 }
 
 export interface CountEntities {

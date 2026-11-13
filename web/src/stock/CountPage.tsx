@@ -264,10 +264,10 @@ function NotExpected({ view, c, at }: { view: View; c: CountView; at: Where }) {
   )
 }
 
-/** "XLR 10 m", or "d&b Y10P, not labelled yet" for a numbered product's counted ones. */
+/** "XLR 10 m", or "d&b Y10P without a label" for a numbered product's counted ones. */
 function productLabel(w: WarehouseView, modelId: string): string {
   const m = w.models.find((x) => x.id === modelId)
-  return m ? `${m.name}${m.tracking === 'serialised' ? ', not labelled yet' : ''}` : 'A product since removed'
+  return m ? `${m.name}${m.tracking === 'serialised' ? ' without a label' : ''}` : 'A product since removed'
 }
 
 /** Counted kit: counted against recorded, how many were away, and what the fix sets it to (ADR 0030). */

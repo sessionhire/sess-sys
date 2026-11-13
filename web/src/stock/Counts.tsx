@@ -34,6 +34,7 @@ import { STOCK } from '../Up.tsx'
 import { StockViews } from '../Views.tsx'
 import { itemName, jobName, keptWords, targetName, time } from './countWords.ts'
 import { CountedKit, itemWords, Numbers } from './CountKit.tsx'
+import { LabelOnCount, labelToPut, type Labelled } from './CountLabel.tsx'
 
 export { CountPage } from './CountPage.tsx'
 
@@ -62,6 +63,8 @@ function readDraft(): CountDraft | undefined {
       unknown: Array.isArray(d.unknown) ? d.unknown : [],
       counted: d.counted && typeof d.counted === 'object' ? d.counted : {},
       added: Array.isArray(d.added) ? d.added : [],
+      labelled: Array.isArray(d.labelled) ? d.labelled : [],
+      labelAs: typeof d.labelAs === 'string' ? d.labelAs : undefined,
     }
   } catch {
     return undefined
@@ -84,6 +87,20 @@ function saveDraft(next: CountDraft | undefined) {
     kept = false
   }
   for (const fn of listeners) fn()
+}
+
+/**
+ * A label put on from the Stock search while a count of where it's kept is
+ * under way on this phone: found on that count, as if scanned there, so the
+ * count never calls it not found (ADR 0175).
+ */
+export function labelledDuringCount(l: { assetId: string; modelId: string; fromCount: boolean }, where: { placeId: string | null; caseId: string | null }) {
+  const d = draft
+  if (!d || !(where.placeId ? d.placeId === where.placeId : !!where.caseId && d.caseId === where.caseId)) return
+  if (d.scanned.includes(l.assetId)) return
+  const counted = { ...d.counted }
+  if (l.fromCount && (counted[l.modelId] ?? 0) > 0) counted[l.modelId]! -= 1
+  saveDraft({ ...d, scanned: [...d.scanned, l.assetId], labelled: [...(d.labelled ?? []), l.assetId], counted })
 }
 
 /** Signing out forgets a count in progress too, so whoever signs in next can't finish it as their own. */
@@ -303,6 +320,8 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
   const [said, setSaid] = useState<{ tone: Tone; text: string; at: number }>()
   const [typed, setTyped] = useState('')
   const [camera, setCamera] = useState(false)
+  // A label no item has, being put on its item here (ADR 0175).
+  const [labelling, setLabelling] = useState<string>()
   // A scanner's first read goes to the scan field (audit, 20 October 2026, finding 98).
   useScanKeys()
   const [discarding, setDiscarding] = useState(false)
@@ -320,8 +339,16 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
       const shown = unknownCode(code)
       if (!shown) return
       if (!was.unknown.includes(shown)) update({ unknown: [...was.unknown, shown] })
-      return say('warn', `No item has ${shown}. It's noted on the count; put the label on its item from the Stock search afterwards.`)
+      // A Session Hire label not on anything yet is put on its item here, as the count goes (ADR 0175).
+      const label = labelToPut(code)
+      if (label) {
+        // The form below says it all: no line above it repeating it.
+        setSaid(undefined)
+        return setLabelling(label)
+      }
+      return say('warn', `No item has ${shown}. It's noted on the count.`)
     }
+    if (labelling) setLabelling(undefined)
     const what = itemName(a)
     // A case's own label, read as it's opened, isn't something in it.
     if (holdsCount(w, d, a)) return say('quiet', a.id === d.caseId ? `${what} is the case being counted.` : `${what} holds the case being counted.`)
@@ -350,6 +377,24 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
             : `${what}: marked as ${a.retiredReason ? RETIRED_LABELS[a.retiredReason].toLowerCase() : 'retired'}. Bring it back once you finish.`
         )
     }
+  }
+  /** A label put on here: found, off the unlabelled count it came from, and the product offered for the next. */
+  const labelled = (l: Labelled) => {
+    const was = latest()
+    const counted = { ...was.counted }
+    // A number typed for those without a label counted this one too: it has a label now, so it's one fewer.
+    if (l.fromCount && (counted[l.modelId] ?? 0) > 0) counted[l.modelId]! -= 1
+    saveDraft({
+      ...was,
+      scanned: was.scanned.includes(l.assetId) ? was.scanned : [...was.scanned, l.assetId],
+      unknown: was.unknown.filter((c) => c !== l.number),
+      labelled: [...(was.labelled ?? []), l.assetId],
+      labelAs: l.modelId,
+      counted,
+    })
+    setLabelling(undefined)
+    const name = w.models.find((m) => m.id === l.modelId)?.name ?? 'its item'
+    say('ok', `${l.number} is on a ${name} now, and found. Scan the next label.`)
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -421,6 +466,18 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
             {said.text}
           </p>
         )}
+        {labelling && (
+          <LabelOnCount
+            key={labelling}
+            view={view}
+            number={labelling}
+            where={{ placeId: d.placeId, caseId: d.caseId }}
+            product={d.labelAs}
+            onLabelled={labelled}
+            onClose={() => setLabelling(undefined)}
+          />
+        )}
+        {(d.labelled?.length ?? 0) > 0 && <p className="hint">{plural(d.labelled!.length, 'label')} put on during this count.</p>}
         {toFind.length > 0 && <Numbers title={`Still to find (${toFind.length.toLocaleString('en-IE')})`} items={toFind} view={view} each="to find" />}
         {extra.length + d.unknown.length > 0 && (
           <div className="group">
@@ -433,7 +490,13 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
               ))}
               {d.unknown.map((code) => (
                 <li key={code}>
-                  <b>{code}</b> No item has this number.
+                  <b>{code}</b> No item has this number.{' '}
+                  {/* Only a label from a run set aside: the list keeps digits read as a number, which may have been a maker's serial. */}
+                  {view.labels.runOf(code) && labelling !== code && (
+                    <button type="button" className="link" onClick={() => setLabelling(code)}>
+                      Put it on its item
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

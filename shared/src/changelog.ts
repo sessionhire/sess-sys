@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.193.0',
+    date: '2026-11-13',
+    title: 'Put labels on as you count',
+    what: "Counting a place or a case, a new label scanned now asks which product it's on, right there: say it once and the label is on, the item is kept where you're counting, and it's counted as found. The next label offers the same product, so each one after the first is a scan and a press. Numbered kit's count box now says it's for those without a label only, and goes down by one as each label goes on, so labelled kit is never counted twice. A label put on from the Stock search while you're counting that place is found on the count too.",
+    prs: [382],
+    adrs: [175],
+  },
+  {
     version: '1.192.1',
     date: '2026-11-13',
     title: "The quote's Change terms button, and its quiet buttons, drawn like the rest",
