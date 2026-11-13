@@ -8,6 +8,7 @@ import {
   newId,
   normaliseNumber,
   parseEuro,
+  placeRange,
   plural,
   spanLabel,
   standing,
@@ -696,21 +697,27 @@ function Places({ view }: { view: View }) {
   const w = view.warehouse
   const [name, setName] = useState('')
   // Said in a green line, with the way to it, as the list may be folded past it.
-  const [added, setAdded] = useState<{ id: string; name: string }>()
+  const [added, setAdded] = useState<{ id: string; name: string; more: number; skipped: string[] }>()
   const { run, error, refuse } = useAct()
   const mayAdd = useAccess().can('stock')
+  // A range makes each place in it (ADR 0176): "Bay A1 to A20" is twenty bays.
+  const range = placeRange(name)
+  const taken = (n: string) => w.places.find((p) => p.name.trim().toLowerCase() === n.trim().toLowerCase())
   const add = (e: FormEvent) => {
     e.preventDefault()
     const n = name.trim()
     if (!n) return
-    const taken = w.places.find((p) => p.name.trim().toLowerCase() === n.toLowerCase())
-    if (taken) return refuse(`There's already a place called ${taken.name}.`)
-    const id = newId()
+    const names = range ?? [n]
+    const fresh = names.filter((x) => !taken(x))
+    if (fresh.length === 0) return refuse(names.length === 1 ? `There's already a place called ${taken(n)!.name}.` : `All ${names.length} of those places are here already.`)
+    const ids = fresh.map(() => newId())
     setAdded(undefined)
     // A refusal brings what was typed back, unless the next name has been typed since.
     setName('')
-    void run(() => client.mutate('place.upsert', { id, name: n, notes: '' })).then((ok) => {
-      if (ok) setAdded({ id, name: n })
+    void run(async () => {
+      for (const [i, x] of fresh.entries()) await client.mutate('place.upsert', { id: ids[i]!, name: x, notes: '' })
+    }).then((ok) => {
+      if (ok) setAdded({ id: ids[0]!, name: fresh[0]!, more: fresh.length - 1, skipped: names.filter((x) => taken(x) && !fresh.includes(x)) })
       else setName((now) => (now === '' ? name : now))
     })
   }
@@ -720,15 +727,23 @@ function Places({ view }: { view: View }) {
       {mayAdd && (
         <Fold label="New place" from="place">
           <form className="inline-add" onSubmit={add}>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bay A3, Van 1" aria-label="New place" />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bay A3, or Bay A1 to A20" aria-label="New place" />
             {/* The page's one next thing once the fold is open, as every list's add opens onto. */}
             <button type="submit" className="primary">
-              Add place
+              {range ? `Add ${range.length} places` : 'Add place'}
             </button>
           </form>
+          {range && (
+            <p className="hint">
+              {range.length > 3 ? `${range[0]}, ${range[1]} … ${range[range.length - 1]}` : range.join(', ')}
+              {range.some((x) => taken(x)) && `. ${plural(range.filter((x) => taken(x)).length, 'is', 'are')} here already and stay as they are`}.
+            </p>
+          )}
           {added && (
             <p className="added" role="status">
-              Added <a href={`#stock/place/${added.id}`}>{added.name}</a>.
+              Added <a href={`#stock/place/${added.id}`}>{added.name}</a>
+              {added.more > 0 && ` and ${plural(added.more, 'more place')}`}
+              {added.skipped.length > 0 && `; ${added.skipped.length.toLocaleString('en-IE')} were here already`}.
             </p>
           )}
           <Refusal error={error} />

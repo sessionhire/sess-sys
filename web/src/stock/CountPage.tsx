@@ -24,6 +24,7 @@ import { closeFault, reportFault } from './Faults.tsx'
 import { STOCK } from '../Up.tsx'
 import { isHere, itemName, jobName, keptWords, openMissing, since, time } from './countWords.ts'
 import { Numbers } from './CountKit.tsx'
+import { holdingPlace } from './countSource.ts'
 
 /**
  * A count's page (ADR 0030): what it found, each difference with its fix.
@@ -281,11 +282,26 @@ function Products({ view, c, at }: { view: View; c: CountView; at: Where }) {
     const setTo = countSetTo(p)
     const off = setTo !== null && setTo !== p.recorded
     const n = now(p.modelId)
+    // More here than recorded, and some recorded at a place never counted (all of it brought in at one place): moved from there (ADR 0176).
+    const source = off && setTo! > p.recorded && at.placeId ? holdingPlace(view, p.modelId, at) : undefined
+    const moving = source ? Math.min(setTo! - p.recorded, source.qty) : 0
     // Set only while the record is what the count was compared with: changed since (counted again, say), it's newer than the count.
-    return { p, setTo, off, toDo: off && n === p.recorded, changed: off && n !== p.recorded && n !== setTo }
+    return { p, setTo, off, source, moving, toDo: off && n === p.recorded, changed: off && n !== p.recorded && n !== setTo }
   })
+  /** The fix for one line: from the place it was all brought in at, then set to what was counted if that wasn't enough. */
+  const fix = async (r: (typeof rows)[number]) => {
+    if (r.source && r.moving > 0)
+      await client.mutate('stock.move', { modelId: r.p.modelId, fromPlaceId: r.source.placeId, fromCaseId: null, toPlaceId: at.placeId, toCaseId: null, qty: r.moving })
+    if (r.p.recorded + r.moving !== r.setTo) await set(r.p, r.setTo!)
+  }
+  const fixLabel = (r: (typeof rows)[number]) => {
+    const n = r.setTo!.toLocaleString('en-IE')
+    if (!r.source || r.moving === 0) return `Set to ${n}`
+    const from = `${r.moving.toLocaleString('en-IE')} here from ${r.source.name}`
+    return r.p.recorded + r.moving === r.setTo ? `Move ${from}` : `Move ${from}, and set to ${n}`
+  }
   const toDo = rows.filter((r) => r.toDo)
-  const words = ({ p, setTo, off, changed }: (typeof rows)[number]) => {
+  const words = ({ p, setTo, off, changed, source }: (typeof rows)[number]) => {
     if (p.counted === null) return `Not counted; ${p.recorded.toLocaleString('en-IE')} recorded.`
     const away = p.away ? `, ${p.away.toLocaleString('en-IE')} out with jobs or reported missing` : ''
     const base = `${p.counted.toLocaleString('en-IE')} counted, ${p.recorded.toLocaleString('en-IE')} recorded${away}`
@@ -294,7 +310,9 @@ function Products({ view, c, at }: { view: View; c: CountView; at: Where }) {
       return p.counted < p.recorded
         ? `${base}: the ${(p.recorded - p.counted).toLocaleString('en-IE')} not here may be among those away, so it stays as recorded.`
         : `${base}: as recorded.`
-    const said = `${base}: ${Math.abs(setTo - p.recorded).toLocaleString('en-IE')} ${setTo < p.recorded ? 'short' : 'over'}.`
+    const said = `${base}: ${Math.abs(setTo - p.recorded).toLocaleString('en-IE')} ${setTo < p.recorded ? 'short' : 'over'}.${
+      source && !changed ? ` ${source.qty.toLocaleString('en-IE')} are recorded at ${source.name}, never counted.` : ''
+    }`
     return changed ? `${said} The record has changed since: ${now(p.modelId).toLocaleString('en-IE')} now.` : said
   }
   return (
@@ -304,11 +322,11 @@ function Products({ view, c, at }: { view: View; c: CountView; at: Where }) {
       <ul className="count-lines">
         {rows.map((r) => (
           <Line key={r.p.modelId} title={productLabel(w, r.p.modelId)} href={`#stock/product/${r.p.modelId}`} said={words(r)}>
-            {r.off && r.setTo !== null && !r.changed && (r.toDo ? <Fix label={`Set to ${r.setTo.toLocaleString('en-IE')}`} act={() => set(r.p, r.setTo!)} /> : <span className="done">Set to {r.setTo.toLocaleString('en-IE')}</span>)}
+            {r.off && r.setTo !== null && !r.changed && (r.toDo ? <Fix label={fixLabel(r)} act={() => fix(r)} /> : <span className="done">Set to {r.setTo.toLocaleString('en-IE')}</span>)}
           </Line>
         ))}
       </ul>
-      {toDo.length > 1 && <Fix className="all" label={`Set all ${toDo.length} counts`} act={async () => { for (const r of toDo) await set(r.p, r.setTo!) }} />}
+      {toDo.length > 1 && <Fix className="all" label={`Set all ${toDo.length} counts`} act={async () => { for (const r of toDo) await fix(r) }} />}
     </section>
   )
 }
