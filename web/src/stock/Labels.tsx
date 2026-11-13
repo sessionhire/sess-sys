@@ -30,6 +30,7 @@ import { labelledDuringCount } from './Counts.tsx'
 import { Split } from '../Split.tsx'
 import { useLabelLogo } from '../Picture.tsx'
 import { useView } from '../view.ts'
+import { ZebraPrint } from './ZebraPrint.tsx'
 
 /**
  * Labels (ADR 0015). Numbers are set aside a run at a time (#stock/labels),
@@ -373,6 +374,7 @@ export function RunScreen({ view, id }: { view: View; id: string }) {
       <RunSummary r={r} />
       {r.firstNumber ? (
         <>
+          <ZebraRun r={r} />
           <PrintRun r={r} />
           <ForLabelMaker r={r} />
         </>
@@ -483,10 +485,10 @@ function EditRun({ r, onDone }: { r: LabelRunView; onDone: () => void }) {
   )
 }
 
-/** Some or all of a run, up to 500 at a time, from any of its numbers. */
-function PrintRun({ r }: { r: LabelRunView }) {
+/** Which of a run's numbers to print: from any of them, how many, and what's wrong with that, if anything. */
+function useRunRange(r: LabelRunView, max: number, tooMany: string) {
   const [from, setFrom] = useState(r.firstNumber)
-  const [count, setCount] = useState(String(Math.min(r.count, MAX_PRINT)))
+  const [count, setCount] = useState(String(Math.min(r.count, max)))
   const start = normaliseNumber(from)
   const offset = start ? numberValue(start) - r.first! : -1
   const n = Number(count)
@@ -495,25 +497,48 @@ function PrintRun({ r }: { r: LabelRunView }) {
       ? `From one of these: ${rangeLabel(r)}.`
       : !Number.isInteger(n) || n < 1
         ? 'How many to print?'
-        : n > MAX_PRINT
-          ? `Up to ${MAX_PRINT} at a time here. A whole roll is best sent to a label maker.`
+        : n > max
+          ? tooMany
           : offset + n > r.count
             ? `Only ${r.count - offset} from ${start} to ${r.lastNumber}.`
             : ''
   const numbers = problem ? [] : runNumbers(r, offset, offset + n)
+  const fields = (
+    <div className="grid-form">
+      <label>
+        From <input value={from} onChange={(e) => setFrom(e.target.value)} autoComplete="off" autoCapitalize="characters" />
+      </label>
+      <label>
+        How many <input type="number" inputMode="numeric" min={1} max={max} value={count} onChange={(e) => setCount(e.target.value)} />
+      </label>
+      {problem && <p className="alert wide">{problem}</p>}
+    </div>
+  )
+  return { numbers, fields }
+}
+
+/** Some or all of a run on the ZT411 (ADR 0178): the whole run at once if need be. */
+function ZebraRun({ r }: { r: LabelRunView }) {
+  const { numbers, fields } = useRunRange(r, r.count, '')
+  const labels = numbers.map((number) => ({ number }))
   return (
-    <section className="card" aria-label="Print here">
-      <h2>Print here</h2>
-      <p className="hint">On a label printer, or on A4 sheets of labels in an office printer.</p>
-      <div className="grid-form">
-        <label>
-          From <input value={from} onChange={(e) => setFrom(e.target.value)} autoComplete="off" autoCapitalize="characters" />
-        </label>
-        <label>
-          How many <input type="number" inputMode="numeric" min={1} max={MAX_PRINT} value={count} onChange={(e) => setCount(e.target.value)} />
-        </label>
-        {problem && <p className="alert wide">{problem}</p>}
-      </div>
+    <section className="card" aria-label="On the ZT411">
+      <h2>On the ZT411</h2>
+      <p className="hint">The warehouse label printer: the whole run in one go if you like, as the printer itself draws them.</p>
+      {fields}
+      <ZebraPrint labels={labels} file={`session-hire-labels-${numbers[0] ?? r.firstNumber}-to-${numbers.at(-1) ?? r.lastNumber}`} />
+    </section>
+  )
+}
+
+/** Some or all of a run, up to 500 at a time, from any of its numbers, through the browser. */
+function PrintRun({ r }: { r: LabelRunView }) {
+  const { numbers, fields } = useRunRange(r, MAX_PRINT, `Up to ${MAX_PRINT} at a time here. A whole roll goes on the ZT411, or to a label maker.`)
+  return (
+    <section className="card" aria-label="On another printer">
+      <h2>On another printer</h2>
+      <p className="hint">Another label printer, or A4 sheets of labels in an office printer, through this device's print dialog.</p>
+      {fields}
       <PrintLabels numbers={numbers} />
     </section>
   )

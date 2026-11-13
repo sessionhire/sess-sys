@@ -101,12 +101,16 @@ export function pagePolicy(scripts: readonly string[]): string {
  */
 const SENTRY_INGEST = ['https://*.ingest.sentry.io', 'https://*.ingest.de.sentry.io', 'https://*.ingest.us.sentry.io']
 
+/** Zebra Browser Print's two addresses on this computer, plain and secure. */
+const ZEBRA_BROWSER_PRINT = ['http://127.0.0.1:9100', 'https://127.0.0.1:9101']
+
 /**
  * The app shell's content security policy (audit finding 24). What the app loads: its own files, the inline theme
  * script by hash, OpenStreetMap's tiles on the venue map (ADR 0057), images from data: and blob: addresses (labels'
  * codes, photos being added), its own service worker, and its error reports going to Sentry. Inline style attributes are
  * allowed, as React and Leaflet set them; nothing else inline. Google sign-in is a link to this server, which sends the
- * browser on, so it needs nothing here.
+ * browser on, so it needs nothing here. Labels for the Zebra ZT411 go to Zebra Browser Print on the computer itself
+ * (ADR 0178), which answers only there, on 127.0.0.1.
  */
 export function appShellPolicy(scripts: readonly string[], dsn?: string): string {
   let reports = SENTRY_INGEST
@@ -124,7 +128,7 @@ export function appShellPolicy(scripts: readonly string[], dsn?: string): string
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://tile.openstreetmap.org",
     "media-src 'self' blob:",
-    `connect-src 'self' ${reports.join(' ')}`,
+    `connect-src 'self' ${[...reports, ...ZEBRA_BROWSER_PRINT].join(' ')}`,
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",

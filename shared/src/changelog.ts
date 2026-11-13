@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.197.0',
+    date: '2026-11-13',
+    title: 'Print labels on the Zebra ZT411',
+    what: "A run of labels, and an item's own label, now print on the ZT411 in the printer's own language: no print dialog, nothing to fit to the page, and a whole run at once rather than 500 at a time. On the computer the printer is set up on, with Zebra Browser Print installed, Print sends them straight to it and says how far it's got; anywhere else, Download for the ZT411 gives a file it prints. Choose the label size once and it's kept.",
+    prs: [0],
+    adrs: [178],
+  },
+  {
     version: '1.196.0',
     date: '2026-11-13',
     title: "Note the maker's serial as you label",
