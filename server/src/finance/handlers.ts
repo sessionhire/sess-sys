@@ -187,7 +187,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
   },
 
-  /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0168). */
+  /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0174). */
   async 'quoting.reducedDays'(ctx, a) {
     await ctx.tx.query(`INSERT INTO quote_settings (id, reduced_day_pct) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET reduced_day_pct = EXCLUDED.reduced_day_pct`, [QUOTE_SETTINGS_ID, a.pct])
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))

@@ -141,7 +141,7 @@ export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | un
   if (!r) return undefined
   // Sending quotes by email (ADR 0101) only once it's on, so a device or a test that knows nothing of it sees the settings as before.
   const settings: QuoteSettings = { id: r.id, nextNumber: r.next_number, terms: r.terms, bank: r.bank, ...(r.email_quotes ? { emailQuotes: true } : {}), ...(r.accept_online ? { acceptOnline: true } : {}), ...(r.own_kit_cost_pct !== null && r.own_kit_cost_pct !== undefined ? { ownKitCostPct: r.own_kit_cost_pct } : {}),
-    // Travel and warehouse days' share (ADR 0168), only once set, so a device or a test that knows nothing of it sees the settings as before.
+    // Travel and warehouse days' share (ADR 0174), only once set, so a device or a test that knows nothing of it sees the settings as before.
     ...(r.reduced_day_pct !== null && r.reduced_day_pct !== undefined ? { reducedDayPct: r.reduced_day_pct } : {}),
   }
   // Travel and subsistence (ADR 0086) once they've been set, which sets them all: until then each takes its default.

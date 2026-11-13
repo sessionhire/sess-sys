@@ -227,7 +227,7 @@ export function extrasFor(o: {
 }
 
 /**
- * Travel and warehouse days (ADR 0168): a phase of a job whose name starts with Travel ("Travel", "Travel day", "Travel
+ * Travel and warehouse days (ADR 0174): a phase of a job whose name starts with Travel ("Travel", "Travel day", "Travel
  * home") or Warehouse ("Warehouse", "Warehouse day"), when the crew get to or from work far away or work in the
  * warehouse. Crew on one are paid a share of the day rate, half unless the office says otherwise in Admin, and charged
  * the same share of their role's price.

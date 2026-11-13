@@ -257,7 +257,7 @@ describe('travel and subsistence (ADR 0086)', () => {
     expect((await settings())?.roomCents).toBeUndefined()
   })
 
-  it('keeps the share travel and warehouse days are paid at beside the rest of the settings (ADR 0168)', async () => {
+  it('keeps the share travel and warehouse days are paid at beside the rest of the settings (ADR 0174)', async () => {
     const { app } = await gala()
     const settings = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string }) => c.entity === 'quoteSettings').at(-1)?.data
     await ok(app, m('quoting.update', { nextNumber: 1115, terms: 'Terms', bank: 'Bank' }))

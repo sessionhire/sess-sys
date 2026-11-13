@@ -314,7 +314,7 @@ export interface QuoteSettings {
    */
   ownKitCostPct?: number | null
   /**
-   * Travel and warehouse days (ADR 0168): the share of a day rate a day of crew on one is paid and charged, as a
+   * Travel and warehouse days (ADR 0174): the share of a day rate a day of crew on one is paid and charged, as a
    * percentage. Left out by a server from before it, or until set, and then it's half.
    */
   reducedDayPct?: number
@@ -551,7 +551,7 @@ export const quoteCommandSchemas = {
   'quoting.online': z.object({ on: z.boolean() }),
   /** What own kit costs us to run, as a share of its price (finding 19 of the quote flow audit); null for not set. */
   'quoting.ownKit': z.object({ costPct: z.number(wrongType(OWN_KIT_HINT)).int(OWN_KIT_HINT).min(0, OWN_KIT_HINT).max(90, OWN_KIT_HINT).nullable() }),
-  /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0168), as a whole percentage. */
+  /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0174), as a whole percentage. */
   'quoting.reducedDays': z.object({ pct: z.number(wrongType(REDUCED_HINT)).int(REDUCED_HINT).min(10, REDUCED_HINT).max(100, REDUCED_HINT) }),
   /** A product's day price; null takes it off the price list. */
   'price.product': z.object({ modelId: id, dayCents: dayPrice.nullable(), rate: z.enum(RATE_RULES).optional() }),
@@ -794,7 +794,7 @@ export interface CrewToQuote {
 export interface PriceList {
   product(modelId: string): number | undefined
   role(role: string): number | undefined
-  /** A crew call's own price for a day, over its role's: a travel or warehouse day's, at its share of the role's (ADR 0168). */
+  /** A crew call's own price for a day, over its role's: a travel or warehouse day's, at its share of the role's (ADR 0174). */
   crew?(c: CrewToQuote): number | undefined
   /** A product's rate rule (ADR 0085); Daily when none is set. */
   rate?(modelId: string): RateRule | undefined

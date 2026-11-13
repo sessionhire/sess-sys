@@ -1170,7 +1170,7 @@ function AskForCrew({ job }: { job: JobView }) {
   const end = dates?.end ?? span?.end ?? ''
   const venue = phase?.venue ?? job.venue
   const today = useToday()
-  // A travel or warehouse day (ADR 0168): the rate typed is the standard one, and the call is offered its share of it.
+  // A travel or warehouse day (ADR 0174): the rate typed is the standard one, and the call is offered its share of it.
   const reduced = reducedDay(phase?.name ?? f.across)
   const pct = reducedDayPct(view.money.quoting)
   const typedRate = parseEuro(f.rate)

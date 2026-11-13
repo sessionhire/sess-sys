@@ -143,7 +143,7 @@ describe("the crew's accommodation (ADR 0156)", () => {
   })
 })
 
-describe('travel and warehouse days (ADR 0168)', () => {
+describe('travel and warehouse days (ADR 0174)', () => {
   it('knows one by its phase name', () => {
     expect(['Travel', 'travel day', ' Travel out', 'Travel home', 'Warehouse', 'warehouse day'].map(reducedDay)).toEqual(['travel', 'travel', 'travel', 'travel', 'warehouse', 'warehouse'])
     for (const n of ['Show', 'Travelling circus', '', null, undefined, 'Load in', 'Prep']) expect(reducedDay(n)).toBeUndefined()

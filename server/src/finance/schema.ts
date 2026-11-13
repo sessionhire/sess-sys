@@ -171,7 +171,7 @@ const MIGRATIONS: string[] = [
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS stay_from_km integer CHECK (stay_from_km BETWEEN 0 AND 1000);
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS room_cents integer CHECK (room_cents >= 0);
   `,
-  // Travel and warehouse days (ADR 0168): the share of a day rate a day of crew on one is paid and charged; null is half.
+  // Travel and warehouse days (ADR 0174): the share of a day rate a day of crew on one is paid and charged; null is half.
   `
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS reduced_day_pct integer CHECK (reduced_day_pct BETWEEN 10 AND 100);
   `,

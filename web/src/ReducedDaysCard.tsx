@@ -5,7 +5,7 @@ import { Pending } from './StatusPill.tsx'
 import { client } from './sync.ts'
 
 /**
- * Travel and warehouse days (ADR 0168), for the office, beside Travel and subsistence: the share of a day rate a day of
+ * Travel and warehouse days (ADR 0174), for the office, beside Travel and subsistence: the share of a day rate a day of
  * crew on a Travel or Warehouse phase is paid, and charged on the quote. Half until it's changed.
  */
 export function ReducedDaysCard({ money }: { money: MoneyView }) {
