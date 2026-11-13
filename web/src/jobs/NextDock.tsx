@@ -206,8 +206,18 @@ export function NextDock({
         break
       }
       // On the Quote tab, the answer is recorded under What happened, whose button is the one red (ADR 0140, part 4).
+      // Turned down (user flows of 13 November 2026, finding 1): the answer is in, so what's left is the job's own step, lost or
+      // amended and sent again. Losing is never the red (a loss), so Next opens the task where both are, rather than doing either.
+      const turnedDown = !!task.facts.turnedDown
       if (quoteHere && access.can('money') && view.money.currentOf(job.id))
-        return rest(yes ? 'The client said yes: confirm the job below.' : "Record the client's answer below, under What happened.", answers)
+        return rest(
+          yes
+            ? 'The client said yes: confirm the job below.'
+            : turnedDown
+              ? 'The client turned it down: mark the job lost below, or amend the quote and send it again.'
+              : "Record the client's answer below, under What happened.",
+          answers
+        )
       // Crew asked to hold the day hear it's going ahead (ADR 0168): asked first, on the task, and who was told said after.
       const holding = yes ? holdingTheDay(job, today) : []
       const asks = onConfirm && confirmQuestion(reach, job, holding) !== undefined
@@ -219,7 +229,7 @@ export function NextDock({
               : () =>
                   void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })).then((ok) => ok && holding.length > 0 && onTell?.(promptFor('job-confirmed', holding))),
           }
-        : { label: steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }
+        : { label: turnedDown ? 'Mark lost or amend' : steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }
       break
     }
     case 'crew': {

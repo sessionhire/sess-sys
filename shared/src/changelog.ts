@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.189.2',
+    date: '2026-11-13',
+    title: 'A quote the client turned down no longer reads as no quote',
+    what: "When the client turns a quote down and the job isn't marked lost yet, the Jobs list and the Board now say Turned down, mark it lost or amend, instead of No quote yet. Next opens the client's answer, where you can mark the job lost or amend the quote and send it again, rather than taking you back to the quote.",
+    prs: [0],
+  },
+  {
     version: '1.189.1',
     date: '2026-11-13',
     title: 'Type how many in place when picking, and buttons you can see the edge of',
