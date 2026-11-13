@@ -3,6 +3,27 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 13 November 2026: slow presses show they're working; the quote PDF to the phone's share sheet
+
+**Done (1.185.3, #370)**
+
+- Colly, on an iPhone: Download the quote paused with nothing moving,
+  and once the PDF opened in the app on the home screen there was no way
+  back, print or share. Download the PDF (in Next and beside Print a
+  draft) now fetches the file behind a busy press: a second press does
+  nothing, and past a second it spins and says "Getting the PDF…". On a
+  phone the file goes to the phone's share sheet (Print, Save to Files,
+  send on) and the page stays where it was; if Safari won't open the
+  sheet that long after the press, a line says the PDF is ready with a
+  Share, print or save button. A laptop saves it as before.
+- Get the PDF to send, Mark as sent and Print are busy the same way, and
+  every button that waits on the server spins after a second, from one
+  rule in the stylesheet.
+- Checked: typecheck, shared tests, the quote browser tests (one now
+  slows the PDF and checks the busy words and the download), phone
+  screenshots with a slow PDF.
+- Waiting on Colly: the design-system learnings PR (#56).
+
 ## 13 November 2026: a job's crew starts with Add a role
 
 **Done (1.185.2)**
