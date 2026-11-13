@@ -546,6 +546,7 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
 [data-s="wip"] { --s-ink: var(--tape-ink-2, var(--warn)); --s-soft: var(--panel); }
 [data-s="weak"] { --s-ink: var(--warn); --s-soft: var(--warn-soft); }
 [data-s="broken"] { --s-ink: var(--bad); --s-soft: var(--bad-soft); }
+[data-s="fixed"] { --s-ink: var(--good); --s-soft: var(--good-soft); }
 .fl-chart { display: grid; gap: 12px; min-width: 0; scroll-margin-top: 16px; }
 .fl-chart h3 { margin: 0; font-family: var(--display); font-size: 1.35rem; text-wrap: balance; }
 .fl-stages, .fl-steps, .fl-branches, .fl-routes, .fl-fixes { list-style: none; margin: 0; padding: 0; }
@@ -919,8 +920,8 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
       <div class="eyebrow"><b>03</b>User flows</div>
       <h2>Every route through a job, and where it breaks</h2>
 <div class="fl">
-  <p class="fl-intro">An arrow is the next step; “or” is another way at the same point. Every common route through the app, for each kind of person, walked on a copy of the app as it is on main (version 1.188.0, 13 November 2026) with made-up data. Nothing was sent, offered or written anywhere real. Letters show who does each step: <b>D</b> Director, <b>O</b> Office, <b>H</b> Head of dept, <b>W</b> Warehouse, <b>S</b> Staff crew, <b>F</b> Freelancer, <b>C</b> Client, <b>A</b> The app.</p>
-  <div class="fl-legend" aria-label="What the colours mean"><span class="fl-key" data-s="ok"><i></i>Works</span><span class="fl-key" data-s="live"><i></i>Real on live</span><span class="fl-key" data-s="off"><i></i>Switched off on live</span><span class="fl-key" data-s="wip"><i></i>Being built now</span><span class="fl-key" data-s="paused"><i></i>Paused</span><span class="fl-key" data-s="weak"><i></i>Needs work</span><span class="fl-key" data-s="broken"><i></i>Broken</span></div>
+  <p class="fl-intro">An arrow is the next step; “or” is another way at the same point. Every common route through the app, for each kind of person, walked on a copy of the app as it is on main (version 1.188.0, 13 November 2026) with made-up data. All ten routes found broken or weak were fixed in 1.192.0 the same day (PR #379), and Amend quote at the client’s answer is built (1.189.0). Nothing was sent, offered or written anywhere real. Letters show who does each step: <b>D</b> Director, <b>O</b> Office, <b>H</b> Head of dept, <b>W</b> Warehouse, <b>S</b> Staff crew, <b>F</b> Freelancer, <b>C</b> Client, <b>A</b> The app.</p>
+  <div class="fl-legend" aria-label="What the colours mean"><span class="fl-key" data-s="ok"><i></i>Works</span><span class="fl-key" data-s="fixed"><i></i>Fixed in 1.192.0</span><span class="fl-key" data-s="live"><i></i>Real on live</span><span class="fl-key" data-s="off"><i></i>Switched off on live</span><span class="fl-key" data-s="paused"><i></i>Paused</span></div>
   <nav class="fl-jump" aria-label="Charts"><a href="#flow-overview">The job, start to finish</a><a href="#flow-selling">Quoting and the client</a><a href="#flow-crew">Booking crew</a><a href="#flow-kit">Kit, vans and the warehouse</a><a href="#flow-people">Each person</a><a href="#flow-side">Side flows</a><a href="#flow-off">Switched off</a><a href="#flow-fixes">What to fix</a></nav>
   <article class="fl-chart" id="flow-overview">
   <h3>The job, start to finish</h3>
@@ -931,7 +932,7 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
       <ol class="fl-steps"><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Director">D</abbr></span></div>
   <p>New › pick the kind first</p>
-  <ul class="fl-branches"><li data-s="ok"><span>Gig or dry hire: name, client, venue, status, phases</span></li><li data-s="weak"><span>Errand or meeting: name, day, notes. No stages, no Next <a class="fl-ref" href="#flow-fix-5">#5</a></span><span class="fl-tag" data-s="weak">Needs work</span></li><li data-s="ok"><span>Also: New quote page, a past job, or an open Current RMS quote</span></li></ul>
+  <ul class="fl-branches"><li data-s="ok"><span>Gig or dry hire: name, client, venue, status, phases</span></li><li data-s="fixed"><span>Errand or meeting: name, day, notes. No stages, no Next <a class="fl-ref" href="#flow-fix-5">#5</a></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></li><li data-s="ok"><span>Also: New quote page, a past job, or an open Current RMS quote</span></li></ul>
 </li></ol>
     </li>
     <li class="fl-stage">
@@ -948,7 +949,7 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
 </li><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span></div>
   <p>Record the client's answer</p>
-  <ul class="fl-branches"><li data-s="ok"><span>Yes: Confirm job (asks first if crew hold the day)</span></li><li data-s="broken"><span>Turned down: the job is left half-way <a class="fl-ref" href="#flow-fix-1">#1</a></span><span class="fl-tag" data-s="broken">Broken</span></li><li data-s="wip"><span>Amend: New version today; Amend quote at the answer step</span><span class="fl-tag" data-s="wip">Being built now</span></li><li data-s="ok"><span>Dates passed with no answer: Record what happened</span></li></ul>
+  <ul class="fl-branches"><li data-s="ok"><span>Yes: Confirm job (asks first if crew hold the day)</span></li><li data-s="fixed"><span>Turned down: the job is left half-way <a class="fl-ref" href="#flow-fix-1">#1</a></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></li><li data-s="ok"><span>Amend: New version today; Amend quote at the answer step</span></li><li data-s="ok"><span>Dates passed with no answer: Record what happened</span></li></ul>
 </li></ol>
     </li>
     <li class="fl-stage">
@@ -959,8 +960,8 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
 </li><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span></div>
   <p>Kit: sort short kit by subhire</p>
-</li><li class="fl-node" data-s="weak">
-  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span><span class="fl-tag" data-s="weak">Needs work</span></div>
+</li><li class="fl-node" data-s="fixed">
+  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
   <p>Settle the kit and vans <a class="fl-ref" href="#flow-fix-4">#4</a></p><p class="fl-note">Vans and venue never asked for</p>
 </li></ol>
     </li>
@@ -999,8 +1000,8 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
     </li>
     <li class="fl-stage fl-aside">
       <h4><span class="fl-num">×</span>Stopping</h4>
-      <ol class="fl-steps"><li class="fl-node" data-s="weak">
-  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Director">D</abbr></span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <ol class="fl-steps"><li class="fl-node" data-s="fixed">
+  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Director">D</abbr></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
   <p>Change details › Status › Cancelled or Lost, at any stage <a class="fl-ref" href="#flow-fix-6">#6</a></p><p class="fl-note">Asks first and cancels the crew calls; no reason kept</p>
 </li></ol>
     </li>
@@ -1058,14 +1059,14 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
       <ol class="fl-steps fl-alt"><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span></div>
   <p>Client accepted: confirm job</p>
-</li><li class="fl-node" data-s="broken">
-  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span><span class="fl-tag" data-s="broken">Broken</span></div>
+</li><li class="fl-node" data-s="fixed">
+  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
   <p>Client turned it down, with why <a class="fl-ref" href="#flow-fix-1">#1</a></p><p class="fl-note">Job stays Quoted; list says No quote yet</p>
-</li><li class="fl-node" data-s="weak">
-  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span><span class="fl-tag" data-s="weak">Needs work</span></div>
+</li><li class="fl-node" data-s="fixed">
+  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
   <p>Mark lost <a class="fl-ref" href="#flow-fix-1">#1</a></p><p class="fl-note">Only on the quote and Money › To follow up</p>
-</li><li class="fl-node" data-s="wip">
-  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span><span class="fl-tag" data-s="wip">Being built now</span></div>
+</li><li class="fl-node" data-s="ok">
+  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span></div>
   <p>Amend quote from the answer step</p>
 </li><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span></div>
@@ -1074,8 +1075,8 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
     </li>
     <li class="fl-stage">
       <h4><span class="fl-num">6</span>After the yes</h4>
-      <ol class="fl-steps fl-alt"><li class="fl-node" data-s="weak">
-  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <ol class="fl-steps fl-alt"><li class="fl-node" data-s="fixed">
+  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
   <p>Crew or kit added later <a class="fl-ref" href="#flow-fix-2">#2</a></p><p class="fl-note">Not flagged on the accepted quote</p>
 </li><li class="fl-node" data-s="paused">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr></span><span class="fl-tag" data-s="paused">Paused</span></div>
@@ -1093,8 +1094,8 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
       <ol class="fl-steps"><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span></div>
   <p>Add a role (role, how many, days, rate, department)</p>
-</li><li class="fl-node" data-s="weak">
-  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span><span class="fl-tag" data-s="weak">Needs work</span></div>
+</li><li class="fl-node" data-s="fixed">
+  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
   <p>Rate left empty: offered as &quot;rate to agree&quot; <a class="fl-ref" href="#flow-fix-3">#3</a></p>
 </li><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span></div>
@@ -1182,8 +1183,8 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
 </li><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span></div>
   <p>Short: Sort N short opens Subhire</p>
-</li><li class="fl-node" data-s="weak">
-  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span><span class="fl-tag" data-s="weak">Needs work</span></div>
+</li><li class="fl-node" data-s="fixed">
+  <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
   <p>Book a vehicle with a driver (Transport tab) <a class="fl-ref" href="#flow-fix-4">#4</a></p><p class="fl-note">Not on Next; nothing asks for it</p>
 </li><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Office">O</abbr><abbr title="Head of dept">H</abbr></span></div>
@@ -1195,8 +1196,8 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
       <ol class="fl-steps"><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Warehouse">W</abbr></span></div>
   <p>Pick list, by department or by where it is kept</p>
-</li><li class="fl-node" data-s="weak">
-  <div class="fl-top"><span class="fl-who"><abbr title="Warehouse">W</abbr></span><span class="fl-tag" data-s="weak">Needs work</span></div>
+</li><li class="fl-node" data-s="fixed">
+  <div class="fl-top"><span class="fl-who"><abbr title="Warehouse">W</abbr></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
   <p>Type a number then Enter, or the camera <a class="fl-ref" href="#flow-fix-9">#9</a></p>
 </li><li class="fl-node" data-s="ok">
   <div class="fl-top"><span class="fl-who"><abbr title="Warehouse">W</abbr></span></div>
@@ -1234,7 +1235,7 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
   <article class="fl-chart" id="flow-people">
     <h3>Each person’s routes</h3>
     <p class="fl-lede">Where each kind of person starts and what they can reach. A button a role can’t use isn’t offered; Next says whose the step is instead.</p>
-    <div class="fl-grid"><section class="fl-card"><h4><span class="fl-who"><abbr title="Director">D</abbr></span> Directors and system admins</h4><p class="fl-how">Google sign-in, desk and phone</p><ul class="fl-routes"><li data-s="ok"><span>Everything the office does</span></li><li data-s="ok"><span>Roles: give each person theirs on their Crew page</span></li><li data-s="ok"><span>Who reads crew rates (Admin › Company)</span></li><li data-s="ok"><span>Delete or restore a quote; erase a person; start fresh</span></li><li data-s="ok"><span>Status, backups, History, What’s changed</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Office">O</abbr></span> Office and production</h4><p class="fl-how">Desk all day</p><ul class="fl-routes"><li data-s="ok"><span>New job or quote › Quote › answer › confirm</span></li><li data-s="broken"><span>Turned down › Mark lost <a class="fl-ref" href="#flow-fix-1">#1</a></span><span class="fl-tag" data-s="broken">Broken</span></li><li data-s="ok"><span>Roles › Offer › confirm yes or answer rate</span></li><li data-s="weak"><span>Kit, subhire, settle; vans <a class="fl-ref" href="#flow-fix-4">#4</a></span><span class="fl-tag" data-s="weak">Needs work</span></li><li data-s="ok"><span>Money: To follow up, Owed, Margins</span></li><li data-s="ok"><span>Admin › Connections: calendar, mailbox, RMS, WhatsApp</span></li><li data-s="ok"><span>Bring in: calendar, crew list, stock list, RMS</span></li><li data-s="ok"><span>Leave approvals</span></li><li data-s="off"><span>Timesheets to approve</span><span class="fl-tag" data-s="off">Switched off on live</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Head of dept">H</abbr></span> Heads of department</h4><p class="fl-how">Phone, show weeks</p><ul class="fl-routes"><li data-s="ok"><span>Home on their department: needs attention, today</span></li><li data-s="ok"><span>Crew: roles, offers, answers (rates if allowed)</span></li><li data-s="ok"><span>Kit and stock; pick lists; counts</span></li><li data-s="ok"><span>Quote and job details: “The office makes the quote”</span></li><li data-s="ok"><span>Board order, job tasks and who has them</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Warehouse">W</abbr></span> Warehouse (a head’s role)</h4><p class="fl-how">Phone, gloves, patchy signal</p><ul class="fl-routes"><li data-s="ok"><span>Home › Warehouse: today, to pick, still out</span></li><li data-s="ok"><span>Pick list › scan out › all out</span></li><li data-s="ok"><span>Coming back › damage, missing › deprep</span></li><li data-s="ok"><span>Labels, counts, testing, repairs, racks</span></li><li data-s="paused"><span>Label printing in one tap</span><span class="fl-tag" data-s="paused">Paused</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Staff crew">S</abbr></span> Staff crew</h4><p class="fl-how">Phone, signed in</p><ul class="fl-routes"><li data-s="ok"><span>Home › Me: offers waiting on you, my jobs</span></li><li data-s="ok"><span>Answer their own offers in the app</span></li><li data-s="ok"><span>Tick the job tasks given to them</span></li><li data-s="ok"><span>Leave and days in lieu › approver</span></li><li data-s="ok"><span>Report a fault; ask for kit; vote</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Freelancer">F</abbr></span> Freelancers</h4><p class="fl-how">Their own link, no app</p><ul class="fl-routes"><li data-s="live"><span>Google invite › link › accept, some days, rate, decline</span><span class="fl-tag" data-s="live">Real on live</span></li><li data-s="off"><span>WhatsApp offer with Yes and No</span><span class="fl-tag" data-s="off">Switched off on live</span></li><li data-s="ok"><span>Bookings, call sheet, can’t make it, calendar feed</span></li><li data-s="ok"><span>Days off, busy calendar, documents, details</span></li><li data-s="off"><span>Timesheets</span><span class="fl-tag" data-s="off">Switched off on live</span></li><li data-s="off"><span>Safer link check (sign-in by link)</span><span class="fl-tag" data-s="off">Switched off on live</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Client">C</abbr></span> The client</h4><p class="fl-how">Email from the office</p><ul class="fl-routes"><li data-s="ok"><span>Quote PDF by the office’s own email</span></li><li data-s="off"><span>Quote email from operations@</span><span class="fl-tag" data-s="off">Switched off on live</span></li><li data-s="off"><span>Accept online on the quote link</span><span class="fl-tag" data-s="off">Switched off on live</span></li><li data-s="ok"><span>Answer by reply or phone; office records it</span></li></ul></section></div>
+    <div class="fl-grid"><section class="fl-card"><h4><span class="fl-who"><abbr title="Director">D</abbr></span> Directors and system admins</h4><p class="fl-how">Google sign-in, desk and phone</p><ul class="fl-routes"><li data-s="ok"><span>Everything the office does</span></li><li data-s="ok"><span>Roles: give each person theirs on their Crew page</span></li><li data-s="ok"><span>Who reads crew rates (Admin › Company)</span></li><li data-s="ok"><span>Delete or restore a quote; erase a person; start fresh</span></li><li data-s="ok"><span>Status, backups, History, What’s changed</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Office">O</abbr></span> Office and production</h4><p class="fl-how">Desk all day</p><ul class="fl-routes"><li data-s="ok"><span>New job or quote › Quote › answer › confirm</span></li><li data-s="fixed"><span>Turned down › Mark lost <a class="fl-ref" href="#flow-fix-1">#1</a></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></li><li data-s="ok"><span>Roles › Offer › confirm yes or answer rate</span></li><li data-s="fixed"><span>Kit, subhire, settle; vans <a class="fl-ref" href="#flow-fix-4">#4</a></span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></li><li data-s="ok"><span>Money: To follow up, Owed, Margins</span></li><li data-s="ok"><span>Admin › Connections: calendar, mailbox, RMS, WhatsApp</span></li><li data-s="ok"><span>Bring in: calendar, crew list, stock list, RMS</span></li><li data-s="ok"><span>Leave approvals</span></li><li data-s="off"><span>Timesheets to approve</span><span class="fl-tag" data-s="off">Switched off on live</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Head of dept">H</abbr></span> Heads of department</h4><p class="fl-how">Phone, show weeks</p><ul class="fl-routes"><li data-s="ok"><span>Home on their department: needs attention, today</span></li><li data-s="ok"><span>Crew: roles, offers, answers (rates if allowed)</span></li><li data-s="ok"><span>Kit and stock; pick lists; counts</span></li><li data-s="ok"><span>Quote and job details: “The office makes the quote”</span></li><li data-s="ok"><span>Board order, job tasks and who has them</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Warehouse">W</abbr></span> Warehouse (a head’s role)</h4><p class="fl-how">Phone, gloves, patchy signal</p><ul class="fl-routes"><li data-s="ok"><span>Home › Warehouse: today, to pick, still out</span></li><li data-s="ok"><span>Pick list › scan out › all out</span></li><li data-s="ok"><span>Coming back › damage, missing › deprep</span></li><li data-s="ok"><span>Labels, counts, testing, repairs, racks</span></li><li data-s="paused"><span>Label printing in one tap</span><span class="fl-tag" data-s="paused">Paused</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Staff crew">S</abbr></span> Staff crew</h4><p class="fl-how">Phone, signed in</p><ul class="fl-routes"><li data-s="ok"><span>Home › Me: offers waiting on you, my jobs</span></li><li data-s="ok"><span>Answer their own offers in the app</span></li><li data-s="ok"><span>Tick the job tasks given to them</span></li><li data-s="ok"><span>Leave and days in lieu › approver</span></li><li data-s="ok"><span>Report a fault; ask for kit; vote</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Freelancer">F</abbr></span> Freelancers</h4><p class="fl-how">Their own link, no app</p><ul class="fl-routes"><li data-s="live"><span>Google invite › link › accept, some days, rate, decline</span><span class="fl-tag" data-s="live">Real on live</span></li><li data-s="off"><span>WhatsApp offer with Yes and No</span><span class="fl-tag" data-s="off">Switched off on live</span></li><li data-s="ok"><span>Bookings, call sheet, can’t make it, calendar feed</span></li><li data-s="ok"><span>Days off, busy calendar, documents, details</span></li><li data-s="off"><span>Timesheets</span><span class="fl-tag" data-s="off">Switched off on live</span></li><li data-s="off"><span>Safer link check (sign-in by link)</span><span class="fl-tag" data-s="off">Switched off on live</span></li></ul></section><section class="fl-card"><h4><span class="fl-who"><abbr title="Client">C</abbr></span> The client</h4><p class="fl-how">Email from the office</p><ul class="fl-routes"><li data-s="ok"><span>Quote PDF by the office’s own email</span></li><li data-s="off"><span>Quote email from operations@</span><span class="fl-tag" data-s="off">Switched off on live</span></li><li data-s="off"><span>Accept online on the quote link</span><span class="fl-tag" data-s="off">Switched off on live</span></li><li data-s="ok"><span>Answer by reply or phone; office records it</span></li></ul></section></div>
   </article>
   <article class="fl-chart" id="flow-side">
     <h3>Side flows</h3>
@@ -1247,78 +1248,78 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
     <dl class="fl-off"><div><dt>Quote email from operations@</dt><dd>The office downloads the PDF and emails it; Generate PDF marks it sent.</dd></div><div><dt>Clients accept online</dt><dd>The quote link says it can’t be accepted online; the client replies or rings.</dd></div><div><dt>Messages to crew</dt><dd>No WhatsApp, text or email opens for the office; the Google invite and the link carry the offer.</dd></div><div><dt>WhatsApp offers</dt><dd>Waiting on the Meta setup and number.</dd></div><div><dt>Tell crew what happens next</dt><dd>Moves and call-time changes reach crew only when the office tells them.</dd></div><div><dt>Timesheets</dt><dd>No timesheet asked for; crew pay comes from the company’s own records.</dd></div><div><dt>Safer links, Ask Claude</dt><dd>Freelancer links open without a check; Claude in the app is off.</dd></div><div><dt>Invoicing and one-tap labels</dt><dd>Paused until Colly says how invoicing and printing will work.</dd></div></dl>
   </article>
   <article class="fl-chart" id="flow-fixes">
-    <h3>Broken and weak flows, most important first</h3>
-    <p class="fl-lede">One broken, nine that need work. I’d fix 1 first (small, and it misleads the whole office), then 2 alongside the Amend quote work, then 3 and 4. Nothing here has been changed.</p>
-    <ol class="fl-fixes"><li id="flow-fix-1" data-s="broken">
-      <div class="fl-top"><span class="fl-n">1</span><span class="fl-tag" data-s="broken">Broken</span></div>
+    <h3>Broken and weak flows, and how each was fixed</h3>
+    <p class="fl-lede">One was broken and nine needed work when the map was made. All ten were fixed in version 1.192.0 on 13 November 2026 (PR #379); what each was, and what changed, is below.</p>
+    <ol class="fl-fixes"><li id="flow-fix-1" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">1</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>A turned-down quote leaves the job half-way</h4>
       <p class="fl-where">Job › Quote › What happened; Jobs list; Board; Next</p>
       <p>After Client turned it down, the job stays Quoted in the Quoting stage. The Jobs list and Board say “No quote yet”, Next on other tabs says “Open the quote”, and on the Quote tab it says the quote is “waiting on the client's answer”. Mark lost is only on the quote and under Money › To follow up. Next also kept offering the pick list for it. The quote task counts only sent or accepted quotes, so a declined one reads as no quote at all.</p>
       <p class="fl-code">shared/src/sync/steps-view.ts:253 and sellingLine at :169; web/src/jobs/NextDock.tsx:164</p>
-      <p class="fl-fix"><b>First fix:</b> Count a declined quote as sent, say “Turned down” on the list and Board, and make Next say Mark lost.</p>
-    </li><li id="flow-fix-2" data-s="weak">
-      <div class="fl-top"><span class="fl-n">2</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> A turned-down quote now counts as sent: the Jobs list and Board say “Turned down · mark it lost or amend”, and Next says Mark lost or amend, opening the client’s answer with Client said no and Amend quote.</p>
+    </li><li id="flow-fix-2" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">2</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Work added after the quote went is never flagged</h4>
       <p class="fl-where">Job › Quote, after it is sent or accepted</p>
       <p>I added a Sound engineer after the client said yes. The accepted quote and its margin stayed as they were, with no note that the job now has crew the quote does not. Only a new draft shows the difference. With invoicing to come from the quote, this is money missed. It fits with the Amend quote work going on now.</p>
       <p class="fl-code">web/src/jobs/QuoteDraft.tsx:910 (JobChangesCard shown on drafts only)</p>
-      <p class="fl-fix"><b>First fix:</b> Show the same “The job has changed” card on a sent or accepted quote, with Amend quote beside it.</p>
-    </li><li id="flow-fix-3" data-s="weak">
-      <div class="fl-top"><span class="fl-n">3</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> The quote with the client lists kit and crew new, gone or changed on the job since it went, said differently after a yes, with Amend quote beside it.</p>
+    </li><li id="flow-fix-3" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">3</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Crew can be booked with the rate still to agree</h4>
       <p class="fl-where">Job › Crew › Add a role; Offer; Confirm</p>
       <p>A role with no day rate is offered as “rate to agree”, and the yes can be confirmed with no rate. Nothing asks for it later except a timesheet, and timesheets are off on live, so the job’s crew cost and the freelancer’s pay are unknown.</p>
       <p class="fl-code">web/src/format.ts:35; web/src/jobs/NextDock.tsx (Confirm yes)</p>
-      <p class="fl-fix"><b>First fix:</b> Ask for the rate (or fill the person’s usual one) before confirming, and list bookings with no rate under Calls.</p>
-    </li><li id="flow-fix-4" data-s="weak">
-      <div class="fl-top"><span class="fl-n">4</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> Confirming a freelancer’s yes with no day rate agreed asks first, on the row and from Next.</p>
+    </li><li id="flow-fix-4" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">4</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Vans and the venue are off the path</h4>
       <p class="fl-where">Job › Kit (Settle the kit and vans) and Transport</p>
       <p>Next says “Settle the kit and vans” but opens the Kit tab, which shows no vans. A gig went through Planning with no vehicle and no venue, and nothing said so.</p>
       <p class="fl-code">web/src/jobs/NextDock.tsx:308; shared/src/sync/steps-view.ts (kit task)</p>
-      <p class="fl-fix"><b>First fix:</b> Show the vans on the settle card, and name a missing venue or vehicle in its hint before the tick.</p>
-    </li><li id="flow-fix-5" data-s="weak">
-      <div class="fl-top"><span class="fl-n">5</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> On the Kit tab Next goes on to Book transport when a gig has no vehicle, then Mark kit and vans settled; a dry hire skips Transport.</p>
+    </li><li id="flow-fix-5" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">5</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Errands and meetings get a gig’s page</h4>
       <p class="fl-where">Job page for an errand or meeting</p>
       <p>The New form asks only for a name, day and notes, but the page has all six tabs (Quote, Crew, Kit, Transport, Phases, Show pack), says Client and Venue “None yet”, and has no Next or way to say who is going.</p>
       <p class="fl-code">web/src/jobs/JobScreen.tsx (tabs); NextDock returns nothing for errands</p>
-      <p class="fl-fix"><b>First fix:</b> Give errands and meetings a short page: when, who is going, notes, and a vehicle for an errand.</p>
-    </li><li id="flow-fix-6" data-s="weak">
-      <div class="fl-top"><span class="fl-n">6</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> Errands show When, Who’s going, Kit and Transport; meetings only When and Who’s going; the dock says who’s going.</p>
+    </li><li id="flow-fix-6" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">6</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Cancelling a job is a status in a form, with no reason</h4>
       <p class="fl-where">Job › Change details › Status</p>
       <p>It asks first and cancels the crew calls, which is right, but the way there is a select in Change details and no reason is kept. A lost quote keeps why; a cancelled job does not.</p>
       <p class="fl-code">web/src/jobs/JobScreen.tsx (Change details)</p>
-      <p class="fl-fix"><b>First fix:</b> A “Cancel this job…” button with a reason, as offered before.</p>
-    </li><li id="flow-fix-7" data-s="weak">
-      <div class="fl-top"><span class="fl-n">7</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> A Cancel this job… button beside Change details: called off or lost, and why in a line, kept at the top of the office notes with the day.</p>
+    </li><li id="flow-fix-7" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">7</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Next repeats a press that goes where you are</h4>
       <p class="fl-where">Job › Kit tab on a new job</p>
       <p>On the Kit tab Next still says “Add kit to quote” and only opens the tab already open. The Quote tab already avoids this.</p>
       <p class="fl-code">web/src/jobs/NextDock.tsx:171</p>
-      <p class="fl-fix"><b>First fix:</b> Say “Add the kit below” in words while the Kit tab is open.</p>
-    </li><li id="flow-fix-8" data-s="weak">
-      <div class="fl-top"><span class="fl-n">8</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> On the Kit tab Next says to add the kit below instead of a press that opens the tab you’re on.</p>
+    </li><li id="flow-fix-8" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">8</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Departments are named two ways</h4>
       <p class="fl-where">Add a role › Department; Jobs › Filter</p>
       <p>The role form offers Audio, LX, Video, Backline, Laser, Staging; the Jobs filter offers Audio, Lighting, Video, Lasers, Staging.</p>
       <p class="fl-code">shared/src/crew-departments.ts; shared/src/job-departments.ts</p>
-      <p class="fl-fix"><b>First fix:</b> One list of names for both.</p>
-    </li><li id="flow-fix-9" data-s="weak">
-      <div class="fl-top"><span class="fl-n">9</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> Crew departments are Lighting and Lasers, as everywhere else; LX, Lights and Laser saved before read as them.</p>
+    </li><li id="flow-fix-9" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">9</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Typing a number then tapping Scan opens the camera</h4>
       <p class="fl-where">Pick list › Scan</p>
       <p>The Scan button turns the camera on; a typed number goes only with Enter or Go. Someone who types a damaged label’s number and taps Scan gets the camera.</p>
       <p class="fl-code">web/src/jobs/PickScreen.tsx:316</p>
-      <p class="fl-fix"><b>First fix:</b> When the box has a number in it, Scan takes it.</p>
-    </li><li id="flow-fix-10" data-s="weak">
-      <div class="fl-top"><span class="fl-n">10</span><span class="fl-tag" data-s="weak">Needs work</span></div>
+      <p class="fl-fix"><b>Fixed:</b> With a number typed, the button beside the box is Enter and enters it; empty, it is Scan for the camera.</p>
+    </li><li id="flow-fix-10" data-s="fixed">
+      <div class="fl-top"><span class="fl-n">10</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Going out and coming back count differently</h4>
       <p class="fl-where">Pick list</p>
       <p>Two cases and two stands went out as “4 of 4 out”; on the way back the same job said “10 out”, counting what was inside the cases.</p>
       <p class="fl-code">web/src/jobs/PickScreen.tsx (totals)</p>
-      <p class="fl-fix"><b>First fix:</b> Count the same way both ways, with the contents said apart.</p>
+      <p class="fl-fix"><b>Fixed:</b> Going out says how many more went with the kit (case contents, added on the day), so it agrees with coming back.</p>
     </li></ol>
   </article>
 </div>
