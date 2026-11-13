@@ -199,6 +199,10 @@ const MIGRATIONS: string[] = [
   ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS replied_at timestamptz;
   ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS replied_from text;
   `,
+  // Travel and warehouse days (ADR 0174): the share of a day rate a day of crew on one is paid and charged; null is half.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS reduced_day_pct integer CHECK (reduced_day_pct BETWEEN 10 AND 100);
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

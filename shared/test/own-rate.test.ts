@@ -12,6 +12,11 @@ describe('own day rates', () => {
     expect(offerRateFor(null, free(30000))).toBe(30000)
     expect(offerRateFor(null, free(null))).toBe(null)
     expect(offerRateFor(25000, { kind: 'staff', dayRateCents: 40000 })).toBe(25000)
+    // On a travel or warehouse day (ADR 0174), the same share of their own rate as the call's is of the standard.
+    expect(offerRateFor(12500, free(30000), 50)).toBe(15000)
+    expect(offerRateFor(12500, free(20000), 50)).toBe(12500)
+    expect(offerRateFor(12500, { kind: 'staff', dayRateCents: 40000 }, 50)).toBe(12500)
+    expect(ownRateAbove(12500, undefined, free(30000), 50)).toEqual({ own: 15000, allowed: 12500, against: 'call' })
   })
   it('flags an own rate above the call’s, or above the quote’s when the call has none', () => {
     expect(ownRateAbove(25000, 40000, free(30000))).toEqual({ own: 30000, allowed: 25000, against: 'call' })

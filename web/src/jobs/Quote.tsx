@@ -5,6 +5,7 @@ import {
   inRacks,
   dayLabel,
   daysWord,
+  reducedCharge,
   linesFor,
   MAX_LINES,
   money,
@@ -362,7 +363,7 @@ function FirstQuote({ view, job, plain }: { view: View; job: JobView; plain?: bo
   const unpriced = source.kit.filter((k) => m.productPrice(k.modelId) === undefined).length
   const discount = m.discountOf(job.clientId)
   const build = (withLines: boolean) => {
-    const lines = withLines ? linesFor(source.kit, source.crew, { product: m.productPrice, role: m.rolePrice, rate: m.productRate }, newId) : []
+    const lines = withLines ? linesFor(source.kit, source.crew, { product: m.productPrice, role: m.rolePrice, crew: (c) => reducedCharge(c.phase, m.rolePrice(c.role), m.quoting), rate: m.productRate }, newId) : []
     void run(() => client.mutate('quote.save', { id: newId(), projectId: job.id, lines: lines.slice(0, MAX_LINES), discountPct: discount ?? 0, notes: '' }))
   }
   return (

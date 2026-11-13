@@ -18,6 +18,7 @@ import {
   eachDay,
   euro,
   ownRateAbove,
+  ownSharePct,
   quotedRateFor,
   euroText,
   firstName,
@@ -681,7 +682,7 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
   const quoted = call.projectId ? quotedRateFor(view.money.quotesOf(call.projectId)[0]?.lines ?? [], call) : undefined
   const marginOf = (p: PersonView) => {
     if (!seesRates || call.rateHidden || p.rateHidden) return ''
-    const above = ownRateAbove(call.dayRateCents, quoted, p)
+    const above = ownRateAbove(call.dayRateCents, quoted, p, ownSharePct(call.phase, view.money.quoting))
     if (!above) return ''
     return `${firstName(p)}'s own rate is ${euro(above.own)} a day, above ${above.against === 'call' ? `this call's ${euro(above.allowed)}` : `the ${euro(above.allowed)} quoted for ${call.role}`}, so the margin may be less. The client is still charged the quote's price.`
   }

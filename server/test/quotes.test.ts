@@ -256,6 +256,19 @@ describe('travel and subsistence (ADR 0086)', () => {
     await ok(app, m('quoting.travel', { travelFromKm: 60, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, stayFromKm: 200, roomCents: null }))
     expect((await settings())?.roomCents).toBeUndefined()
   })
+
+  it('keeps the share travel and warehouse days are paid at beside the rest of the settings (ADR 0174)', async () => {
+    const { app } = await gala()
+    const settings = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string }) => c.entity === 'quoteSettings').at(-1)?.data
+    await ok(app, m('quoting.update', { nextNumber: 1115, terms: 'Terms', bank: 'Bank' }))
+    expect(await settings()).not.toHaveProperty('reducedDayPct')
+    await ok(app, m('quoting.reducedDays', { pct: 60 }))
+    expect(await settings()).toMatchObject({ nextNumber: 1115, reducedDayPct: 60 })
+    // Saving the other settings leaves it as it was.
+    await ok(app, m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today }), m('quoting.update', { nextNumber: null, terms: '', bank: '' }))
+    expect(await settings()).toMatchObject({ reducedDayPct: 60, travelFromKm: 50 })
+    expect(await refused(app, m('quoting.reducedDays', { pct: 5 }))).toMatch(/percentage/)
+  })
 })
 
 describe('the price list', () => {

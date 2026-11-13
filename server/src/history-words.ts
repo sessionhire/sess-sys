@@ -781,6 +781,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.on === true ? 'Turned on sending quotes to clients by email from the operations mailbox' : 'Turned off sending quotes by email'
     case 'quoting.ownKit':
       return typeof a.costPct === 'number' ? `Set own kit's running cost at ${a.costPct}% of its price, for the margin` : "Took off own kit's running cost, so the margin leaves own kit out"
+    case 'quoting.reducedDays':
+      return `Set travel and warehouse days at ${typeof a.pct === 'number' ? a.pct : '?'}% of the day rate, paid and charged`
     case 'quoting.online':
       return a.on === true ? 'Turned on clients accepting quotes online' : 'Turned off clients accepting quotes online'
     case QUOTE_ONLINE_ACTION: {

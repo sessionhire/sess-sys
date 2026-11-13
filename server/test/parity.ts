@@ -352,6 +352,7 @@ const CASES: Case[] = [
   c('quoting.email', { on: true }),
   c('quoting.online', { on: true }),
   c('quoting.ownKit', { costPct: 15 }),
+  c('quoting.reducedDays', { pct: 60 }),
   c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today }),
   c('quoting.travel', { travelFromKm: 80, fuelCentsPerLitre: 174.9, litresPer100Km: 9.5, perDiemCents: null, on: today }, { as: 'the fuel price the same', before: [m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: day(-3) })] }),
   c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 214.8, litresPer100Km: 10, perDiemCents: null, on: today, fuelMonth: 'October 2026', fuelAuto: false }, { as: 'read from the AA, kept from then on' }),
