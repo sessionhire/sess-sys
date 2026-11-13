@@ -89,7 +89,7 @@ describe('making one job of several', () => {
     expect(await latest<Phase>(app, 'phase', smirnoff.phase)).toMatchObject({ projectId: lx.job, name: 'Smirnoff LX' })
     // The calls follow, with the job's new name and their departments from the titles.
     expect(await latest<CrewCall>(app, 'crewCall', audio.call)).toMatchObject({ projectId: lx.job, project: 'EP', phase: 'Audio', department: 'Audio' })
-    expect(await latest<CrewCall>(app, 'crewCall', smirnoff.call)).toMatchObject({ projectId: lx.job, project: 'EP', phase: 'Smirnoff LX', department: 'LX' })
+    expect(await latest<CrewCall>(app, 'crewCall', smirnoff.call)).toMatchObject({ projectId: lx.job, project: 'EP', phase: 'Smirnoff LX', department: 'Lighting' })
     const { rows } = await db.query<{ n: number }>('SELECT count(*)::int AS n FROM projects')
     expect(rows[0]!.n).toBe(1)
     const said = (await readHistory(db, { limit: 5 })).entries.map((e) => e.what)

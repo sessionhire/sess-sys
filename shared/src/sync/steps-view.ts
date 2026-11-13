@@ -86,6 +86,8 @@ export interface StepFacts {
   /** The quote: the day it was sent, and the client's answer; a draft started; held back from this role (ADR 0042). */
   sentOn?: string
   answeredOn?: string
+  /** The quote the client has was turned down, and the job isn't marked lost yet (user flows of 13 November 2026, finding 1). */
+  turnedDown?: boolean
   draft?: boolean
   quoteHidden?: boolean
   /** Deprep: faults open on the job's kit. */
@@ -171,6 +173,8 @@ export function sellingLine(s: {
   quoteHidden: boolean
   answered: boolean
   answeredOn?: string
+  /** The client turned the quote down, on this day when it's known; the job isn't marked lost yet. */
+  turnedDown?: { on?: string }
   /** Days since the quote with the client was sent; undefined when none is with the client. */
   sentDays: number | undefined
   draft: boolean
@@ -182,6 +186,9 @@ export function sellingLine(s: {
   if (s.lapsed) return 'Dates passed, no answer'
   if (s.quoteHidden) return 'Quote: with the office'
   if (s.answered) return `The client said yes${s.answeredOn ? ` ${dayLabel(s.answeredOn)}` : ''}`
+  // Turned down and nothing new drafted: the job is still quoted, so it says what's left, not "No quote yet" (user flows of
+  // 13 November 2026, finding 1). A new version being drafted says so below instead.
+  if (s.turnedDown && !s.draft) return `Turned down${s.turnedDown.on ? ` ${dayLabel(s.turnedDown.on)}` : ''} · mark it lost or amend`
   if (s.sentDays !== undefined)
     return s.sentDays === 0 ? 'Quote with the client since today' : `Quote with the client ${plural(s.sentDays, 'day')}${s.sentDays >= CHASE_AFTER_DAYS ? ' · worth a call' : ''}`
   if (s.draft) return `${s.amending ? `Version ${s.amending} being amended` : 'Draft started'}${s.unpriced ? ` · ${plural(s.unpriced, 'line')} ${s.unpriced === 1 ? 'needs' : 'need'} a price` : ''}`
@@ -252,7 +259,10 @@ export function stepsView(
   /** Where the job is by its own records, and what the app can tell of each task for itself: done, in words, or how far along, or not needed. */
   function told(job: JobView): { stage: JobStage | 'through'; lapsed: boolean; settled: string | undefined; tasks: Record<JobStep, Told>; selling: string | undefined } {
     const quotes = money.quotesOf(job.id)
-    const sent = quotes.find((q) => q.status === 'sent' || q.status === 'accepted')
+    // A quote turned down was still sent: the quote task is done, and the answer is the one left (user flows of 13 November
+    // 2026, finding 1). Newest first, so it's the version the client answered last.
+    const sent = quotes.find((q) => q.status === 'sent' || q.status === 'accepted' || q.status === 'declined')
+    const turnedDown = sent?.status === 'declined' && !sent.invoicedOn && job.status !== 'confirmed' ? sent : undefined
     const accepted = quotes.find((q) => q.status === 'accepted')
     const draft = quotes.find((q) => q.status === 'draft')
     const crewOn = crewFill(job.calls)
@@ -285,7 +295,8 @@ export function stepsView(
     const unpriced = draft ? draft.lines.filter((l, _, all) => needsPrice(l, all)).length : 0
     const quoteFacts: StepFacts = {
       ...(sent?.sentOn ? { sentOn: sent.sentOn } : {}),
-      ...(accepted?.answeredOn ? { answeredOn: accepted.answeredOn } : {}),
+      ...(accepted?.answeredOn ? { answeredOn: accepted.answeredOn } : turnedDown?.answeredOn ? { answeredOn: turnedDown.answeredOn } : {}),
+      ...(turnedDown ? { turnedDown: true } : {}),
       ...(draft ? { draft: true } : {}),
       ...(!sentMoney ? { quoteHidden: true } : {}),
     }
@@ -316,7 +327,9 @@ export function stepsView(
       confirmed:
         job.status === 'confirmed'
           ? { auto: 'The job is confirmed', facts: quoteFacts }
-          : accepted
+          : turnedDown && !amending
+            ? { hint: `The client turned it down${turnedDown.answeredOn ? ` ${dayLabel(turnedDown.answeredOn)}` : ''}: mark it lost, or amend the quote`, facts: quoteFacts }
+            : accepted
             ? { hint: `The client said yes${accepted.answeredOn ? ` ${dayLabel(accepted.answeredOn)}` : ''}, and the job is still ${STATUS_LABELS[job.status].toLowerCase()}`, facts: quoteFacts }
             : lapsed
               ? { hint: `Its dates have passed with no answer`, facts: quoteFacts }
@@ -373,6 +386,7 @@ export function stepsView(
             quoteHidden: !sentMoney,
             answered: !!accepted,
             answeredOn: accepted?.answeredOn ?? undefined,
+            ...(turnedDown ? { turnedDown: turnedDown.answeredOn ? { on: turnedDown.answeredOn } : {} } : {}),
             // A new version being drafted is what's being worked on, not the one with the client.
             sentDays: sent && sent.status === 'sent' && !draft ? (sent.sentOn ? Math.max(0, daysBetween(sent.sentOn, today)) : 0) : undefined,
             draft: !!draft,

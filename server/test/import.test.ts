@@ -684,7 +684,7 @@ describe('bringing jobs in from Google Calendar', () => {
     // The Show is Aoife's alone, and she's in LX; the Build is hers, Seán's and Ciara's, in no one department.
     expect(f.calls.filter((c) => c.projectId === nissan.id).map((c) => [c.phase, c.department])).toEqual([
       ['Build', null],
-      ['Show', 'LX'],
+      ['Show', 'Lighting'],
     ])
   })
 

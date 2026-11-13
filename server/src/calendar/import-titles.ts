@@ -122,7 +122,7 @@ export function phasesAndNote(text: string): { phases: string[]; note: string } 
 }
 
 /** The departments whose name after " - " makes a day of the job rather than a job of its own. */
-const DAY_DEPARTMENTS: readonly string[] = ['Audio', 'LX', 'Video', 'Laser', 'LED Tech', 'Backline', 'SFX', 'Rigger']
+const DAY_DEPARTMENTS: readonly string[] = ['Audio', 'Lighting', 'Video', 'Lasers', 'LED Tech', 'Backline', 'SFX', 'Rigger']
 
 /** "Smirnoff LX" → the day "Smirnoff LX": a few words naming a department, numbering dropped. Undefined for anything else. */
 export function departmentDay(text: string): string | undefined {

@@ -514,7 +514,7 @@ describe('what each role reads', () => {
     const feed = await pull(c)
     expect(feed.reading).toBeUndefined()
     expect(feed.of('crewCall', 'sound')).toMatchObject({ department: 'Audio', dayRateCents: 32000 })
-    expect(feed.of('crewCall', 'lx')).toMatchObject({ department: 'LX' })
+    expect(feed.of('crewCall', 'lx')).toMatchObject({ department: 'Lighting' })
     expect(feed.of('person', 'niamh')).toMatchObject({ dayRateCents: 28000 })
     expect(String(feed.of('person', 'niamh').linkToken)).not.toBe('')
     expect(feed.of('timesheet', 'dara-sound')).toMatchObject({ dayRateCents: 32000, extras: [{ what: 'Taxi', cents: 2500 }] })

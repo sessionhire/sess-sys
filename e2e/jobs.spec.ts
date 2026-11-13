@@ -195,6 +195,12 @@ test('New asks what kind it is first, then only what that kind needs', async ({ 
   await expect(office.getByRole('heading', { level: 1, name: `Van run ${id}` })).toBeVisible()
   await expect(office.locator('.page-head')).toContainText('Errand')
   await expect(office.locator('.conn')).toHaveText('Up to date')
+  // Only the parts an errand uses, named for it, and the dock says who's going (user flows of 13 November 2026, finding 5).
+  const tabs = office.getByRole('tablist', { name: 'Parts of the job' })
+  await expect(tabs.getByRole('tab', { name: /When/ })).toBeVisible()
+  await expect(tabs.getByRole('tab', { name: /Who's going/ })).toBeVisible()
+  await expect(tabs.getByRole('tab', { name: /Quote|Show pack/ })).toHaveCount(0)
+  await expect(office.getByRole('region', { name: 'Next' }).first()).toContainText('Nobody is down for this errand yet.')
 })
 
 test('a client typed a letter off offers the one already here, in one press', async ({ browser }) => {

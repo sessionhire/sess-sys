@@ -231,7 +231,7 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await countOut.getByLabel('How many').fill('12')
   await countOut.getByLabel('How many').press('Enter')
   await expect(cableRow.locator('.count')).toHaveText('12 of 12 out')
-  await expect(page.locator('.pick-total')).toHaveText('13 of 14 out')
+  await expect(page.locator('.pick-total')).toHaveText('13 of 14 out. 1 more went with it, in cases or added.')
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await page.getByRole('region', { name: 'Kit' }).evaluate((el) => scrollTo(0, el.getBoundingClientRect().top + scrollY - 64))
   await page.screenshot(shot('pick-out'))

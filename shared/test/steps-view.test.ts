@@ -76,6 +76,8 @@ async function phone(sendsMoney: boolean): Promise<View> {
   job(server, 'marked', 'quoted')
   job(server, 'amended', 'quoted', 'sent', true)
   job(server, 'amendedAfterYes', 'quoted', 'accepted', true)
+  job(server, 'turnedDown', 'quoted', 'declined')
+  job(server, 'turnedDownAmended', 'quoted', 'declined', true)
   const device = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone', now: () => TODAY }).open()
   await device.sync()
   return device.view()
@@ -112,6 +114,19 @@ describe("a job's quote task", () => {
     // Once the client has said yes, a new version doesn't take the job back: the yes is what's next.
     expect(quoteTask(office, 'amendedAfterYes')).toBe('Sent Sun 18 Oct')
     expect(office.steps.of('amendedAfterYes')!.current?.key).toBe('confirmed')
+  })
+
+  it('is done once a quote turned down went, and the answer left is lost or amend (user flows of 13 November 2026, finding 1)', async () => {
+    const office = await phone(true)
+    // It was sent: never "No quote yet" on the Jobs list or the Board, and Next doesn't take the office back to the quote.
+    expect(quoteTask(office, 'turnedDown')).toBe('Sent Sun 18 Oct')
+    const steps = office.steps.of('turnedDown')!
+    expect(steps.current).toMatchObject({ key: 'confirmed', hint: 'The client turned it down: mark it lost, or amend the quote' })
+    expect(steps.current!.facts.turnedDown).toBe(true)
+    expect(steps.selling).toBe('Turned down · mark it lost or amend')
+    // Amended after the no: the new version is the one to send, as after any answer short of a yes (ADR 0173).
+    expect(quoteTask(office, 'turnedDownAmended')).toBe('Version 2 is an amendment, not sent yet')
+    expect(office.steps.of('turnedDownAmended')!.selling).toBe('Version 2 being amended')
   })
 
   it("says it's with the office, never missing, on a device that isn't sent them", async () => {

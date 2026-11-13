@@ -10,6 +10,7 @@ import {
   ratesClosedBy,
   waitingClosedBy,
   whatsappFollowsOffer,
+  yesWithNoRate,
   type CallView,
   type OfferView,
   type Person,
@@ -56,6 +57,7 @@ export function AnswerActions({
   const closing = ratesClosedBy(call, call.offers, o.id)
   const waiting = waitingClosedBy(call, call.offers, o.id)
   const full = call.openDays.length === 0
+  const noRate = yesWithNoRate(o)
   // What follows the press goes to them on WhatsApp too, where it reaches them and they'd heard of the offer (ADR 0154).
   const whatsapp = whatsappFollowsOffer(reach, call, o, o.person)
   const go = (command: 'offer.confirm' | 'offer.cancel' | 'offer.refuse', share: () => Share | undefined) => {
@@ -88,6 +90,7 @@ export function AnswerActions({
       whatsapp: whatsappFollowsOffer(reach, call, c, c.person),
     })
     const parts = [
+      noRate && `No day rate is agreed with ${who} yet: confirming books them with the rate to agree, to settle with them after.`,
       // Where their invites tell them what happens next, Google emails them the booking (ADR 0153); a WhatsApp tells them
       // too, unless they're only asked to hold the day (ADR 0154).
       bookingWords(reach, o.id, o.person, holdTheDay(call.projectId), whatsapp),
@@ -103,7 +106,7 @@ export function AnswerActions({
       <Confirm
         className="answer"
         question={`${o.status === 'countered' ? `Agree ${euro(o.counterRateCents)} a day for ${who}` : `Confirm ${who}`}? ${parts.join(' ')}`}
-        yes={o.status === 'countered' ? `Agree ${euro(o.counterRateCents)}` : asked.length ? `Confirm ${daysLabel(o.days)}` : `Confirm ${first}`}
+        yes={o.status === 'countered' ? `Agree ${euro(o.counterRateCents)}` : asked.length ? `Confirm ${daysLabel(o.days)}` : noRate ? `Confirm with no rate` : `Confirm ${first}`}
         loss
         no="Not yet"
         onYes={confirm}
@@ -150,7 +153,7 @@ export function AnswerActions({
   }
   // A yes with days not answered, or one that fills the call over a rate still asked for, is asked about first. Offers still
   // waiting that close as it fills are the end every full call has: named in the question when there is one, and said after.
-  const pressConfirm = () => (asked.length || closing.length ? setAsking('confirm') : confirm())
+  const pressConfirm = () => (asked.length || closing.length || noRate ? setAsking('confirm') : confirm())
   if (o.status === 'accepted')
     return (
       <div className="actions answer">

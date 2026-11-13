@@ -77,6 +77,7 @@ import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { askForCrewAgain, type CrewAgain } from './crewAgain.ts'
 import { confirmQuestion, crewOnJob, holdingTheDay, stopQuestion } from './jobStatus.ts'
 import { YouOnThisJob } from './YouOnThisJob.tsx'
+import { CancelJob } from './CancelJob.tsx'
 import { StepsCard } from './Steps.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { Heading } from '../Icon.tsx'
@@ -108,6 +109,13 @@ export const JOB_PARTS: readonly JobPart[] = ['quote', 'crew', 'kit', 'vans', 'p
 
 const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit', vans: 'Transport', pack: 'Show pack', quote: 'Quote' }
 
+/**
+ * An errand or a meeting is done in a day, with no quote, show pack or stages (user flows of 13 November 2026, finding 5):
+ * its page has only the parts it uses, named for it. A meeting is when and who's going; an errand can take kit and a van too.
+ */
+const KIND_PARTS: Partial<Record<ProjectKind, readonly JobPart[]>> = { errand: ['phases', 'crew', 'kit', 'vans'], meeting: ['phases', 'crew'] }
+const KIND_PART_LABELS: Partial<Record<JobPart, string>> = { phases: 'When', crew: "Who's going" }
+
 /** The part last looked at, so the office moving from job to job to book crew lands on Crew each time ("a fold remembers"). */
 const LAST_PART = 'sh.jobPart'
 
@@ -137,7 +145,8 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
   // A button the role can't use isn't drawn (audit finding 9): phases are the job's, asking for crew is crew's.
   const mayJobs = access.can('jobs')
   const mayCrew = access.can('crew')
-  const parts = JOB_PARTS.filter((p) => p !== 'quote' || seesMoney)
+  const kindParts = job ? KIND_PARTS[kindOf(job)] : undefined
+  const parts = JOB_PARTS.filter((p) => (p !== 'quote' || seesMoney) && (!kindParts || kindParts.includes(p)))
   // The part the address names, else the one picked here, else the last one looked at; a link to another part starts there.
   const [picked, setPicked] = useState<JobPart | undefined>()
   useEffect(() => setPicked(undefined), [asked, askedTask])
@@ -284,6 +293,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
             setConfirmAsked(Date.now())
           }}
           quoteHere={part === 'quote'}
+          here={part}
         />
       }
     >
@@ -303,7 +313,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
           <p className="empty">Quotes and prices are for the office and directors. A director can change your role on the Crew tab.</p>
         </section>
       )}
-      <Tabs label="Parts of the job" id="job" parts={parts} labels={PART_LABELS} current={part} counts={counts} onPick={pick} />
+      <Tabs label="Parts of the job" id="job" parts={parts} labels={kindParts ? { ...PART_LABELS, ...KIND_PART_LABELS } : PART_LABELS} current={part} counts={counts} onPick={pick} />
       <div className="job-part" role="tabpanel" id="job-part" aria-labelledby={`job-tab-${part}`}>
         {part === 'phases' && (
           <section className="card" aria-label="Phases">
@@ -626,9 +636,12 @@ function Summary({ job, view, onTell }: { job: JobView; view: View; onTell: (sha
         <EditJob job={job} view={view} onDone={() => setEditing(false)} onTell={onTell} />
       ) : (
         mayChange && (
-          <button type="button" onClick={() => setEditing(true)}>
-            Change details
-          </button>
+          <div className="actions">
+            <button type="button" onClick={() => setEditing(true)}>
+              Change details
+            </button>
+            <CancelJob job={job} onTell={onTell} />
+          </div>
         )
       )}
     </section>

@@ -1,4 +1,4 @@
-import { bouncedEmail, crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
+import { bouncedEmail, crewNext, dayLabel, firstName, kindOf, plural, ratesClosedBy, STATUS_LABELS, yesWithNoRate, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
 import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -51,6 +51,7 @@ export function NextDock({
   onPart,
   onOpenTask,
   quoteHere,
+  here,
   onTell,
   onConfirm,
 }: {
@@ -63,6 +64,8 @@ export function NextDock({
   onOpenTask: (t: JobStep) => void
   /** The job's Quote tab is open under it (ADR 0140, part 4): a draft's Send there is Next's press (ADR 0166); otherwise the dock says what's below in words. */
   quoteHere?: boolean
+  /** The tab open under the dock, so a press never only opens the tab already open (user flows of 13 November 2026, findings 4 and 7). */
+  here?: JobPart
   /**
    * Opens the Confirmed task with its question asked: Confirm the job reaches crew asked to hold the day for it, so it's asked
    * first, where the task's own answer is (ADR 0168), as a yes that ends days still asked is confirmed on its row (ADR 0152).
@@ -82,8 +85,21 @@ export function NextDock({
   const sendingWords = useSendingWords(job.id)
   const byEmail = useQuotesByEmail(view.money)
   const steps = view.steps.of(job.id)
-  // Errands and meetings have no stages, so no Next: the page is as it was.
-  if (!steps || (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands'))) return null
+  if (!steps) return null
+  // Errands and meetings have no stages, so no Next to press: the dock says who's going instead, and where to add them (user flows
+  // of 13 November 2026, finding 5), which is what the page is for.
+  if (steps.stopped && !steps.steps.some((s) => s.ownerId || s.ticked) && steps.stopped.startsWith('Errands') && !STOPPED.includes(job.status)) {
+    const going = [...new Set(job.calls.filter((c) => c.status === 'open').flatMap((c) => c.offers.filter((o) => o.status === 'confirmed' && o.person).map((o) => firstName(o.person!))))]
+    const what = kindOf(job) === 'meeting' ? 'meeting' : 'errand'
+    return (
+      <div className="next-dock" role="region" aria-label="Next" data-rest="true">
+        <p className="rest">
+          {going.length ? `Going on this ${what}: ${going.join(', ')}.` : `Nobody is down for this ${what} yet.`}{' '}
+          {access.can('crew') && <a href={`#jobs/${encodeURIComponent(job.id)}/crew`}>{going.length ? "Who's going" : 'Add who goes'}</a>}
+        </p>
+      </div>
+    )
+  }
   const href = `#jobs/${encodeURIComponent(job.id)}`
   const task = steps.current
   const stage = steps.stage
@@ -168,6 +184,8 @@ export function NextDock({
       const empty = quotes.length === 0 && !(view.kit.byJob.get(job.id)?.length) && job.calls.length === 0
       const sending = sendQuote()
       if (sending === 'composing') return rest(sendingWords ?? composingWords, answers)
+      // On the Kit tab already, the kit is added below, so the dock says so rather than a red that only opens the tab it's on.
+      if (empty && access.can('kit') && here === 'kit') return rest('Add the kit below: the quote is built from it and the crew.', answers)
       if (empty && access.can('kit')) press = { label: 'Add kit to quote', onPress: () => onPart('kit') }
       else if (sending) press = sending
       // The quote is the job's Quoting stage, worked on its own tab (ADR 0140, part 4). With that tab open, its Send or Build is the
@@ -206,8 +224,18 @@ export function NextDock({
         break
       }
       // On the Quote tab, the answer is recorded under What happened, whose button is the one red (ADR 0140, part 4).
+      // Turned down (user flows of 13 November 2026, finding 1): the answer is in, so what's left is the job's own step, lost or
+      // amended and sent again. Losing is never the red (a loss), so Next opens the task where both are, rather than doing either.
+      const turnedDown = !!task.facts.turnedDown
       if (quoteHere && access.can('money') && view.money.currentOf(job.id))
-        return rest(yes ? 'The client said yes: confirm the job below.' : "Record the client's answer below, under What happened.", answers)
+        return rest(
+          yes
+            ? 'The client said yes: confirm the job below.'
+            : turnedDown
+              ? 'The client turned it down: mark the job lost below, or amend the quote and send it again.'
+              : "Record the client's answer below, under What happened.",
+          answers
+        )
       // Crew asked to hold the day hear it's going ahead (ADR 0168): asked first, on the task, and who was told said after.
       const holding = yes ? holdingTheDay(job, today) : []
       const asks = onConfirm && confirmQuestion(reach, job, holding) !== undefined
@@ -219,7 +247,7 @@ export function NextDock({
               : () =>
                   void run(() => client.mutate('project.update', { id: job.id, status: 'confirmed' })).then((ok) => ok && holding.length > 0 && onTell?.(promptFor('job-confirmed', holding))),
           }
-        : { label: steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }
+        : { label: turnedDown ? 'Mark lost or amend' : steps.lapsed ? 'Record what happened' : "Record the client's answer", onPress: () => onOpenTask('confirmed') }
       break
     }
     case 'crew': {
@@ -258,7 +286,7 @@ export function NextDock({
         // A yes with days they haven't answered, or one that fills the call over a rate still asked for, is confirmed on its
         // row, where what confirming ends is said first (ADR 0152).
         press =
-          offer.asked?.length || ratesClosedBy(call, call.offers, offer.id).length
+          offer.asked?.length || ratesClosedBy(call, call.offers, offer.id).length || yesWithNoRate(offer)
             ? { label: `Check ${firstName(person)}'s yes · ${count}`, done: bookedDone, onPress: () => onPart('crew', { call: call.id, answer: true }) }
             : {
                 label: `Confirm ${firstName(person)}'s yes · ${count}`,
@@ -303,9 +331,23 @@ export function NextDock({
       if (!access.can('kit')) break
       const { short = 0, nothingYet } = task.facts
       // Short kit lands on its Subhire, open with the short lines ticked (ADR 0140, part 5); each one subhired takes the count down.
+      const { vans = 0 } = task.facts
+      // Kit, then how it gets there, then the tick (user flows of 13 November 2026, finding 4): from the Kit tab with no vehicle on
+      // the job a gig goes on to Transport; from Transport, or with its vehicles booked, the press opens the task to tick it settled.
+      // A dry hire is collected, so it isn't sent to Transport.
+      const settle = { label: 'Mark kit and vans settled', onPress: () => onOpenTask('kit') }
       press = short
         ? { label: `Sort ${short} short`, onPress: () => onPart('kit', { short: true }) }
-        : { label: nothingYet ? 'Add the kit' : 'Settle the kit and vans', onPress: () => onPart('kit') }
+        : nothingYet
+          ? here === 'kit'
+            ? undefined
+            : { label: 'Add the kit', onPress: () => onPart('kit') }
+          : here === 'vans' || (here === 'kit' && (vans > 0 || kindOf(job) === 'hire'))
+            ? settle
+            : here === 'kit'
+              ? { label: 'Book transport', onPress: () => onPart('vans') }
+              : { label: 'Settle the kit and vans', onPress: () => onPart('kit') }
+      if (!press) return rest('Add the kit below. Then book its transport, and Next marks the two settled.')
       break
     }
     case 'prep':
