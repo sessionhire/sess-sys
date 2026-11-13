@@ -337,3 +337,6 @@ body.native-scan #root { position: fixed; inset: var(--cam-band) 0 0 0; overflow
 .warehouse .product-photo label.button { gap: var(--ds-space-2); cursor: pointer; }
 .warehouse .product-photo label.button:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .warehouse .product-photo label.button[aria-busy="true"] { cursor: progress; }
+
+/* Labelling on a count (ADR 0175): scrolled to clear of the Finish bar and the menu bar below it. */
+.warehouse .label-on-count { scroll-margin-bottom: calc(150px + env(safe-area-inset-bottom)); margin-top: var(--ds-space-3); }

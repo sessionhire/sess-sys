@@ -124,11 +124,24 @@ export function CountedKit({
   const added = useRef<string>('')
   const { error, refuse } = useAct()
   const model = (id: string) => w.models.find((m) => m.id === id)
+  // Labelled items of each product kept here: scanned above, so never counted in its number (ADR 0175).
+  const labelledHere = new Map<string, number>()
+  for (const a of w.assets.values())
+    if (a.status === 'active' && (d.placeId ? a.placeId === d.placeId : a.caseId === d.caseId)) labelledHere.set(a.modelId, (labelledHere.get(a.modelId) ?? 0) + 1)
   useEffect(() => {
     if (!added.current) return
     document.getElementById(`count-${added.current}`)?.focus()
     added.current = ''
   }, [products.length])
+  /**
+   * What's typed while it still says what the count holds; once the count changes under it (a label put on takes one off
+   * those without a label, ADR 0175, or another tab), the count's number.
+   */
+  const shown = (modelId: string) => {
+    const text = typed[modelId]
+    const n = text === undefined ? undefined : text.trim() === '' || !Number.isInteger(Number(text)) ? undefined : Number(text)
+    return text !== undefined && n === d.counted[modelId] ? text : String(d.counted[modelId] ?? '')
+  }
   const set = (modelId: string, text: string) => {
     setTyped({ ...typed, [modelId]: text })
     const n = Number(text)
@@ -150,15 +163,21 @@ export function CountedKit({
   return (
     <section className="card counted-kit" aria-label="Counted kit">
       <h2>Counted kit</h2>
-      <p className="hint">Type how many you count of each, without looking at the record: they're compared when you finish. Leave one blank if you didn't count it.</p>
+      <p className="hint">
+        Type how many you count of each, without looking at the record: they're compared when you finish. Leave one blank if you didn't count it. For
+        numbered kit, count only those without a label: the labelled ones are scanned.
+      </p>
       {products.length === 0 && <Empty>Nothing counted is recorded here. Add a product below if there is some.</Empty>}
       {products.map((id) => {
         const m = model(id)
+        const numbered = m?.tracking === 'serialised'
+        const labelled = labelledHere.get(id) ?? 0
         return (
           <label key={id} className="count-field">
             <span>
               <b>{m?.name ?? 'A product since removed'}</b>
-              {m?.tracking === 'serialised' && <small>Not labelled yet</small>}
+              {/* Only those without a label: a counter typing every one on the shelf would count the labelled ones twice (ADR 0175). */}
+              {numbered && <small>{labelled ? `Without a label only: the ${labelled.toLocaleString('en-IE')} labelled here are scanned instead` : 'Without a label only'}</small>}
             </span>
             <input
               id={`count-${id}`}
@@ -166,9 +185,9 @@ export function CountedKit({
               inputMode="numeric"
               min={0}
               max={MAX_QTY}
-              value={typed[id] ?? String(d.counted[id] ?? '')}
+              value={shown(id)}
               onChange={(e) => set(id, e.target.value)}
-              placeholder="How many"
+              placeholder={numbered ? 'No label' : 'How many'}
             />
           </label>
         )
