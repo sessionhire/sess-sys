@@ -4,6 +4,7 @@ import { Refusal, useAct } from '../act.tsx'
 import { when } from '../format.ts'
 import { client } from '../sync.ts'
 import { ProductChoices } from './common.tsx'
+import { holdingPlace } from './countSource.ts'
 
 /**
  * A Session Hire label read on a count, as a label to put on something, not
@@ -55,6 +56,8 @@ export function LabelOnCount({
   const runOf = view.labels.runOf(number)
   const beyond = !runOf && !!view.labels.next && numberValue(number) >= numberValue(view.labels.next)
   const unlabelledHere = m ? (m.counted.find((s) => s.id === stockId(m.id, where))?.qty ?? 0) : 0
+  // None here without a label: one comes off the place it was all brought in at, never counted yet (ADR 0176).
+  const source = m && unlabelledHere === 0 && where.placeId ? holdingPlace(view, m.id, where) : undefined
 
   // A product carried over is ready to press; none yet, and it's asked for.
   useEffect(() => {
@@ -70,8 +73,12 @@ export function LabelOnCount({
     if (!m) return refuse(name.trim() ? `No product is called ${name.trim()}. Add it on the Stock page first.` : 'Which product is it on?')
     if (m.tracking !== 'serialised') return refuse(`${m.name} is counted, not numbered. Change it to numbered on its page to label them one by one.`)
     const id = newId()
-    const fromCount = unlabelledHere > 0
-    void run(() => client.mutate('asset.add', { id, modelId: m.id, number, serial: '', placeId: where.placeId, caseId: where.caseId, notes: '', fromCount })).then(
+    const fromCount = unlabelledHere > 0 || !!source
+    void run(async () => {
+      if (source && unlabelledHere === 0)
+        await client.mutate('stock.move', { modelId: m.id, fromPlaceId: source.placeId, fromCaseId: null, toPlaceId: where.placeId, toCaseId: null, qty: 1 })
+      await client.mutate('asset.add', { id, modelId: m.id, number, serial: '', placeId: where.placeId, caseId: where.caseId, notes: '', fromCount })
+    }).then(
       (ok) => ok && onLabelled({ assetId: id, modelId: m.id, number, fromCount })
     )
   }
@@ -104,7 +111,9 @@ export function LabelOnCount({
         <p className="hint wide">
           {unlabelledHere > 0
             ? `One of the ${unlabelledHere.toLocaleString('en-IE')} here without a label until now.`
-            : `None of ${m.name} are recorded here without a label, so this one is added here.`}
+            : source
+              ? `One of the ${source.qty.toLocaleString('en-IE')} at ${source.name} without a label: it comes off there and is kept here.`
+              : `None of ${m.name} are recorded here without a label, so this one is added here.`}
         </p>
       )}
       <Refusal error={error} className="wide" />

@@ -142,6 +142,7 @@ export function CountedKit({
     const n = text === undefined ? undefined : text.trim() === '' || !Number.isInteger(Number(text)) ? undefined : Number(text)
     return text !== undefined && n === d.counted[modelId] ? text : String(d.counted[modelId] ?? '')
   }
+  const blank = products.filter((id) => d.counted[id] === undefined && (typed[id] ?? '').trim() === '')
   const set = (modelId: string, text: string) => {
     setTyped({ ...typed, [modelId]: text })
     const n = Number(text)
@@ -200,6 +201,12 @@ export function CountedKit({
         <button type="submit">Add</button>
       </form>
       <Refusal error={error} />
+      {/* Emptying the place all the kit came in at, once each bay has taken its share (ADR 0176): 0 for every one left blank. */}
+      {blank.length > 1 && (
+        <button type="button" className="link" onClick={() => onChange({ ...d.counted, ...Object.fromEntries(blank.map((id) => [id, 0])) })}>
+          None of the other {blank.length.toLocaleString('en-IE')} here
+        </button>
+      )}
       <ProductChoices w={w} />
     </section>
   )

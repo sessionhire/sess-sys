@@ -99,7 +99,7 @@ export function labelledDuringCount(l: { assetId: string; modelId: string; fromC
   if (!d || !(where.placeId ? d.placeId === where.placeId : !!where.caseId && d.caseId === where.caseId)) return
   if (d.scanned.includes(l.assetId)) return
   const counted = { ...d.counted }
-  if (l.fromCount && (counted[l.modelId] ?? 0) > 0) counted[l.modelId]! -= 1
+  if ((counted[l.modelId] ?? 0) > 0) counted[l.modelId]! -= 1
   saveDraft({ ...d, scanned: [...d.scanned, l.assetId], labelled: [...(d.labelled ?? []), l.assetId], counted })
 }
 
@@ -382,8 +382,8 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
   const labelled = (l: Labelled) => {
     const was = latest()
     const counted = { ...was.counted }
-    // A number typed for those without a label counted this one too: it has a label now, so it's one fewer.
-    if (l.fromCount && (counted[l.modelId] ?? 0) > 0) counted[l.modelId]! -= 1
+    // A number typed for those without a label here counted this one too: it has a label now, so it's one fewer.
+    if ((counted[l.modelId] ?? 0) > 0) counted[l.modelId]! -= 1
     saveDraft({
       ...was,
       scanned: was.scanned.includes(l.assetId) ? was.scanned : [...was.scanned, l.assetId],

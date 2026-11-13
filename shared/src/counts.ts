@@ -210,3 +210,31 @@ export function countSummaryWords(s: CountSummary): string {
   if (problems.length === 0) return items ? `${items}, as recorded` : 'All as recorded'
   return [items, ...problems].filter(Boolean).join(', ')
 }
+
+/** The most places made at once from a range, so a slip ("Bay 1 to 1000") can't fill the list. */
+export const PLACE_RANGE_MAX = 200
+
+/**
+ * The places a range names (ADR 0176): "Bay A1 to A20", "Bay A1 to Bay A20",
+ * "Shelf 1-12" or "Rack 01 – 10", each its own name with the numbers in
+ * between, keeping the first's leading noughts ("Rack 01" … "Rack 10").
+ * Undefined for a single name, numbers alone, or a range running backwards, naming a
+ * different stem at its end ("Bay A1 to B9"), or of more than
+ * PLACE_RANGE_MAX.
+ */
+export function placeRange(text: string): string[] | undefined {
+  const m = /^(.*?)(\d+)\s*(?:to|-|–|—)\s*(.*?)(\d+)\s*$/i.exec(text.trim())
+  if (!m) return undefined
+  const [, stem, from, again, to] = m as unknown as [string, string, string, string, string]
+  // Numbers alone name no place: "1-3" is more likely a typo than three places called 1, 2 and 3.
+  if (!stem.trim()) return undefined
+  const end = again.trim().toLowerCase()
+  if (end && !stem.trim().toLowerCase().endsWith(end)) return undefined
+  const a = Number(from)
+  const b = Number(to)
+  if (!(b > a) || b - a + 1 > PLACE_RANGE_MAX) return undefined
+  const width = from.startsWith('0') ? from.length : 0
+  const names: string[] = []
+  for (let n = a; n <= b; n++) names.push(`${stem}${String(n).padStart(width, '0')}`)
+  return names
+}
