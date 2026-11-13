@@ -70,7 +70,7 @@ export function VenueMapCard({ venue }: { venue: VenueView }) {
           {mayChange && (
             <div className="actions">
               <button type="button" className="primary" onClick={() => setPlacing(true)}>
-                Put it on the map
+                Put on map
               </button>
             </div>
           )}
@@ -130,7 +130,7 @@ function PlacePin({ venue, onDone }: { venue: VenueView; onDone: () => void }) {
   return (
     <section className="card" aria-labelledby="venue-map">
       <Heading icon="venue" id="venue-map">
-        {venue.pin ? 'Move the pin' : 'Put it on the map'}
+        {venue.pin ? 'Move the pin' : 'Put on map'}
       </Heading>
       <LazyMap marks={[]} placing={draft} onPlace={setDraft} label={`Map for placing ${venue.name}: tap where it is`} />
       <p className="hint">{draft ? `Tap the map or drag the new pin to move it. Now at ${pinText(draft)}.` : 'Tap the map where it is, pick a place found, or paste a link.'}</p>
@@ -154,7 +154,7 @@ function PlacePin({ venue, onDone }: { venue: VenueView; onDone: () => void }) {
       {venue.pin && !found && (
         <div className="actions">
           <button type="button" onClick={() => void look()} disabled={looking} aria-busy={looking}>
-            Look it up again
+            Look up again
           </button>
         </div>
       )}
@@ -179,7 +179,7 @@ function PlacePin({ venue, onDone }: { venue: VenueView; onDone: () => void }) {
         </button>
         {venue.pin && (
           <button type="button" onClick={takeOff}>
-            Take it off the map
+            Remove from map
           </button>
         )}
       </div>

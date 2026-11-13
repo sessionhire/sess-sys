@@ -457,14 +457,14 @@ function Relabel({ a, w, onDone }: { a: AssetView; w: WarehouseView; onDone: () 
         <Confirm
           className="wide"
           question={`Give ${a.number} the next free number? ${a.number} is never used again, and the new number needs a label printed for it.`}
-          yes="Give it the next free number"
+          yes="Use next free number"
           onYes={() => relabel(null)}
           onNo={() => setAsking(false)}
         />
       ) : (
         <div className="actions wide">
           <button type="submit" className="primary">
-            {typed.trim() ? 'Save new label' : 'Give it the next free number'}
+            {typed.trim() ? 'Save new label' : 'Use next free number'}
           </button>
           <button type="button" onClick={onDone}>
             Cancel

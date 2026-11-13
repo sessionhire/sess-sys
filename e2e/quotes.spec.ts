@@ -93,11 +93,11 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     office.evaluate(() =>
       [...document.querySelectorAll('.app button.primary, .app a.button.primary')].filter((b) => !b.closest('.next-dock') && b.getClientRects().length > 0).map((b) => b.textContent),
     )
-  await expect(office.getByRole('button', { name: 'Build it from the job' })).toBeVisible()
+  await expect(office.getByRole('button', { name: 'Build from job' })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])
   await office.getByRole('tab', { name: /^Crew/ }).click()
-  await office.getByRole('button', { name: 'Ask for crew' }).click()
-  await expect(office.getByRole('form', { name: 'Ask for crew' })).toBeVisible()
+  await office.getByRole('button', { name: 'Add a role' }).click()
+  await expect(office.getByRole('form', { name: 'Add a role' })).toBeVisible()
   const lxOp = office.getByRole('article', { name: '1 × LX op' })
   await lxOp.locator('.call-line').click()
   await lxOp.getByRole('button', { name: 'Change', exact: true }).click()
@@ -105,7 +105,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   expect(await redsBesideTheDock()).toEqual([])
   await office.getByRole('tab', { name: 'Kit', exact: true }).click()
   await office.locator('.kit-days').getByRole('button', { name: 'Change' }).click()
-  await office.getByRole('button', { name: 'Add kit' }).click()
+  await office.getByRole('button', { name: 'Add kit', exact: true }).click()
   for (const form of ['Days to get kit ready and back', 'Add kit']) await expect(office.getByRole('form', { name: form })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])
   await office.getByRole('tab', { name: /^Transport/ }).click()
@@ -116,7 +116,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
 
   // Built from the job: its 12 Spiiders for the two days, and its LX op at the price list's €360 rather than the €280 they were booked at.
   await expect(office.getByRole('heading', { name: 'Liffey Brands Launch' })).toBeVisible()
-  await office.getByRole('button', { name: 'Build it from the job' }).click()
+  await office.getByRole('button', { name: 'Build from job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   // On a phone the lines read as a list, each opened to change it, one at a time.
   await expect(draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' })).toContainText('12 × €55.00 a day × 2 days')
@@ -211,10 +211,35 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     number: 1115,
     canSend: true,
     why: null,
+    me: null,
   }
   await office.route('**/api/quotes/*/email', (route) => (route.request().method() === 'GET' ? route.fulfill({ json: prefill }) : route.continue()))
-  await expect(draft).toContainText('it goes by email from the operations mailbox')
-  await draft.getByRole('button', { name: 'Send to the client' }).click()
+  await expect(draft).toContainText('opens the email to the client from the operations mailbox')
+  // This job is past Quoting, so its Next stays the crew's and the quote's Send is the draft's own, plain (ADR 0166). The PDF
+  // to keep is beside it, apart.
+  // Getting it is busy at once and, past a second, spins and says so (13 November 2026), then saves the file the server made.
+  // The PDF is held back until the busy words have been seen, so the check never races the file.
+  let letGo = () => {}
+  const held = new Promise<void>((r) => (letGo = r))
+  await office.route('**/api/quotes/*/pdf?download=1', async (route) => {
+    await held
+    await route.continue()
+  })
+  const getPdf = draft.getByRole('button', { name: 'Download PDF' })
+  const saved = office.waitForEvent('download')
+  await getPdf.click()
+  await expect(draft.getByRole('button', { name: 'Getting PDF…' })).toHaveAttribute('aria-busy', 'true')
+  letGo()
+  expect((await saved).suggestedFilename()).toMatch(/\.pdf$/)
+  await expect(getPdf).not.toHaveAttribute('aria-busy')
+  await office.unroute('**/api/quotes/*/pdf?download=1')
+  // A slip in a common domain is said with the fix one press away (ADR 0171); a domain that takes no email stops Send. The
+  // server's look at each domain is stood in for, so no real DNS is asked.
+  await office.route('**/api/quotes/email/check?*', (route) => {
+    const { to } = route.request().postDataJSON() as { to: string[] }
+    route.fulfill({ json: { addresses: to.map((address) => ({ address, problem: address.endsWith('@nomail.ie') ? 'nomail.ie can’t receive email, so it would bounce. Check the spelling.' : null, suggest: address === 'ruairi@gmial.com' ? 'ruairi@gmail.com' : null })) } })
+  })
+  await draft.getByRole('button', { name: 'Send quote' }).click()
   const compose = draft.getByRole('form', { name: 'Send the quote by email' })
   await expect(compose.getByLabel('To')).toHaveValue('ruairi@example.com')
   await expect(compose.getByLabel('Subject')).toHaveValue('Quote 1115 from Session Hire: Liffey Brands Launch')
@@ -226,8 +251,46 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(compose.locator('.line-problem')).toHaveCount(0)
   await compose.getByLabel('Subject').focus()
   await expect(compose.locator('.line-problem')).toHaveText('“not-an-address” doesn’t look like an email address.')
-  await compose.getByRole('button', { name: 'Cancel' }).click()
+  await compose.getByLabel('To').fill('ruairi@gmial.com')
+  await compose.getByLabel('Subject').focus()
+  await expect(compose.locator('.address-slip')).toHaveText('Did you mean ruairi@gmail.com? Use ruairi@gmail.com')
+  if (process.env.SHOTS_DIR) await compose.screenshot({ path: `${process.env.SHOTS_DIR}/quote-email-slip.png` })
+  await compose.getByRole('button', { name: 'Use ruairi@gmail.com' }).click()
+  await expect(compose.getByLabel('To')).toHaveValue('ruairi@gmail.com')
+  await expect(compose.locator('.address-slip')).toHaveCount(0)
+  await compose.getByLabel('To').fill('ruairi@nomail.ie')
+  await compose.getByLabel('Subject').focus()
+  await expect(compose.locator('.line-problem')).toHaveText('nomail.ie can’t receive email, so it would bounce. Check the spelling.')
+  await compose.getByLabel('To').fill('ruairi@example.com')
+
+  // The press with no answer (signal lost on the way): Send asks whether it went before offering itself again, and says so.
+  // Here it didn't, so pressing again is safe: the same press, with the same key, can only go once (ADR 0171).
+  const keys: string[] = []
+  let answerSend = (_: unknown) => {}
+  await office.route('**/api/quotes/*/email?*', (route) => {
+    keys.push((route.request().postDataJSON() as { key: string }).key)
+    if (keys.length === 1) return route.abort()
+    answerSend = (json) => void route.fulfill({ json })
+  })
+  await office.route('**/api/quotes/*/email/sends/*', (route) => route.fulfill({ json: { state: 'none' } }))
+  await compose.getByRole('button', { name: 'Send' }).click()
+  await expect(compose.getByRole('alert')).toHaveText('It didn’t go: nothing reached the client. Press Send to try again.')
+  if (process.env.SHOTS_DIR) await compose.screenshot({ path: `${process.env.SHOTS_DIR}/quote-email-did-not-go.png` })
+  await compose.getByRole('button', { name: 'Send' }).click()
+  // Slow: Send stays busy, says so past a second, and Next says the same.
+  await expect(compose.getByRole('button', { name: 'Sending…' })).toHaveAttribute('aria-busy', 'true')
+  await expect(compose.getByLabel('To')).toHaveAttribute('readonly', '')
+  if (process.env.SHOTS_DIR) await compose.screenshot({ path: `${process.env.SHOTS_DIR}/quote-email-sending.png` })
+  expect(keys).toHaveLength(2)
+  expect(keys[1]).toBe(keys[0])
+  const went = { id: 'e1', quoteId: 'x', projectId: 'x', version: 1, number: 1115, at: new Date().toISOString(), by: 'Office', from: 'operations@sessionhire.com', to: ['ruairi@example.com'], subject: prefill.subject, copyTo: null, inSentAt: new Date().toISOString() }
+  answerSend({ email: went })
+  // Gone: the box closes, and a toast says where it went and that it's in the mailbox's Sent folder.
   await expect(compose).toHaveCount(0)
+  await expect(office.locator('.toast').filter({ hasText: 'Quote 1115 sent to ruairi@example.com' })).toContainText('In the Sent folder of operations@sessionhire.com.')
+  if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/quote-email-sent-toast.png` })
+  await office.unroute('**/api/quotes/*/email?*')
+  await office.unroute('**/api/quotes/*/email/sends/*')
 
   // Sent another way by the office itself, then a second version with Liffey's 10% off; the first is kept as it went.
   await draft.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
@@ -240,13 +303,13 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(sentLines.getByRole('columnheader', { name: 'Amount' })).toBeVisible()
   for (const hidden of ['How many', 'Days', 'Price', 'VAT']) await expect(sentLines.getByRole('columnheader', { name: hidden })).toBeHidden()
   await expect(sentLines.locator('.line-sum').first()).toBeVisible()
-  await expect(v1.getByRole('button', { name: 'Send by email' })).toBeVisible()
+  await expect(v1.getByRole('button', { name: 'Email quote' })).toBeVisible()
   await expect(v1.locator('.quote-facts')).toContainText('Quote 1115 · Valid until')
-  await v1.getByRole('button', { name: 'Print or save as PDF' }).click()
+  await v1.getByRole('button', { name: 'Print or save PDF' }).click()
   await expect(printed.locator('.sheet-facts')).toContainText('Quote1115')
   await expect(printed).toContainText('Please give quote 1115 as the reference.')
   await office.evaluate(() => dispatchEvent(new Event('afterprint')))
-  await v1.getByRole('button', { name: 'Start a new version' }).click()
+  await v1.getByRole('button', { name: 'Amend quote' }).click()
   const v2 = office.getByRole('form', { name: 'Version 2, a draft' })
   await openTerms(v2)
   await v2.getByLabel('Discount, %').fill('10')
@@ -267,8 +330,8 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // The client's answer is what's next, so it's the quote's one filled red: sending it again and printing it are plain (move 1).
   await expect(records.getByRole('button', { name: 'Client accepted' })).toHaveClass(/\bprimary\b/)
   const sentV2 = office.getByRole('region', { name: 'Version 2' })
-  await expect(sentV2.getByRole('button', { name: 'Print or save as PDF' })).not.toHaveClass(/\bprimary\b/)
-  await expect(sentV2.getByRole('button', { name: 'Send by email' })).not.toHaveClass(/\bprimary\b/)
+  await expect(sentV2.getByRole('button', { name: 'Print or save PDF' })).not.toHaveClass(/\bprimary\b/)
+  await expect(sentV2.getByRole('button', { name: 'Email quote' })).not.toHaveClass(/\bprimary\b/)
   await records.getByRole('button', { name: 'Client accepted' }).click()
   await records.getByLabel('Invoice number').fill('SH-1050')
   await records.getByRole('button', { name: 'Mark invoiced' }).click()
@@ -281,7 +344,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.getByRole('button', { name: 'Version 1 · Sent' }).click()
   await expect(office.getByText('An older version, kept as it went to the client. The newest is version 2.')).toBeVisible()
   // While the quote that counts still waits on its payment, printing an older version isn't the next thing either.
-  await expect(office.getByRole('region', { name: 'Version 1' }).getByRole('button', { name: 'Print or save as PDF' })).not.toHaveClass(/\bprimary\b/)
+  await expect(office.getByRole('region', { name: 'Version 1' }).getByRole('button', { name: 'Print or save PDF' })).not.toHaveClass(/\bprimary\b/)
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
   // The job's tasks end on the invoice, said the same as here and a tap from it (batch 5, Q6).
@@ -355,8 +418,8 @@ test('a quote turned down: losing the job is left to record, and a loss, so noth
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
   const records = office.getByRole('region', { name: 'What happened' })
-  await expect(records.getByRole('button', { name: 'Client accepted: confirm the job' })).toBeVisible()
-  expect(await reds()).toEqual(['Client accepted: confirm the job'])
+  await expect(records.getByRole('button', { name: 'Client accepted: confirm job' })).toBeVisible()
+  expect(await reds()).toEqual(['Client accepted: confirm job'])
 
   // Turned down, with the job still quoted: marking it lost is left, which takes its crew calls, so it's plain, and printing waits.
   // Why is asked in place before it's recorded (research/quoting.md, feature 5), and shows on the answer.
@@ -369,14 +432,14 @@ test('a quote turned down: losing the job is left to record, and a loss, so noth
   await expect(records).toContainText('went with someone else')
   await expect(records).toContainText('A cheaper PA from Galway')
   await expect(records).toContainText('The client turned it down, and the job is still quoted.')
-  await expect(records.getByRole('button', { name: 'Mark the job lost' })).toBeVisible()
+  await expect(records.getByRole('button', { name: 'Mark lost' })).toBeVisible()
   expect(await reds()).toEqual([])
 
   // Recorded, nothing is left: printing it is the page's one next thing.
-  await records.getByRole('button', { name: 'Mark the job lost' }).click()
-  await expect(records.getByRole('button', { name: 'Mark the job lost' })).toHaveCount(0)
-  await expect(office.getByRole('region', { name: 'Version 1' }).getByRole('button', { name: 'Print or save as PDF' })).toHaveClass(/\bprimary\b/)
-  expect(await reds()).toEqual(['Print or save as PDF'])
+  await records.getByRole('button', { name: 'Mark lost' }).click()
+  await expect(records.getByRole('button', { name: 'Mark lost' })).toHaveCount(0)
+  await expect(office.getByRole('region', { name: 'Version 1' }).getByRole('button', { name: 'Print or save PDF' })).toHaveClass(/\bprimary\b/)
+  expect(await reds()).toEqual(['Print or save PDF'])
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
@@ -398,7 +461,7 @@ test('kit charged by the week, a line discounted, and a total agreed with the cl
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('button', { name: 'Build it from the job' }).click()
+  await office.getByRole('button', { name: 'Build from job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   // Two days out is one week charged.
   await expect(draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' })).toContainText('12 × €150.00 a week × 1 week')
@@ -443,7 +506,7 @@ test("the crew's travel to a venue far from Dublin, and their subsistence unless
   await travel.getByLabel('Fuel price, € a litre').fill('1.749')
   await travel.getByLabel('A car uses, litres for 100 km').fill('10')
   await travel.getByLabel('Per diem, € a day').fill('39.08')
-  await travel.getByRole('button', { name: 'Save travel and subsistence' }).click()
+  await travel.getByRole('button', { name: 'Save travel costs' }).click()
   await expect(office.locator('.conn')).toHaveText('Up to date')
   await expect(travel).toContainText('Set today.')
   await expect(travel).toContainText('So 100 km each way comes to €34.98 of fuel for one car.')
@@ -458,7 +521,7 @@ test("the crew's travel to a venue far from Dublin, and their subsistence unless
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('button', { name: 'Build it from the job' }).click()
+  await office.getByRole('button', { name: 'Build from job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   const extras = draft.getByRole('group', { name: 'Travel and subsistence' })
 
@@ -503,14 +566,14 @@ test('a package made on the price list goes on a quote at its price, with its ki
   await editor.getByLabel('Charged').selectOption('weekly')
   await editor.getByLabel('Price, € a week').fill('100')
   await editor.getByLabel('Anything else it includes').fill('with clips and stands')
-  await editor.getByRole('button', { name: 'Add the package' }).click()
+  await editor.getByRole('button', { name: 'Add package' }).click()
   await expect(packages).toContainText('4 × Shure SM58, with clips and stands')
   await expect(packages).toContainText('€100.00 a week')
 
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('button', { name: 'Build it from the job' }).click()
+  await office.getByRole('button', { name: 'Build from job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   await openMore(draft)
   await draft.getByRole('button', { name: 'Add a package' }).click()
@@ -544,7 +607,7 @@ test("a line short of kit hires in what it's short of, transport is added at a c
   await office.goto('/#jobs')
   await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
-  await office.getByRole('button', { name: 'Build it from the job' }).click()
+  await office.getByRole('button', { name: 'Build from job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   const summary = draft.getByRole('group', { name: 'What it comes to' })
   await expect(summary).toContainText('Expected margin')
@@ -593,7 +656,7 @@ test('Add kit takes the cursor and stays open for the next product, Done closing
   await office.getByRole('tab', { name: 'Quote' }).click()
   await office.getByRole('button', { name: 'Start one empty' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   const picker = draft.getByRole('combobox', { name: 'Kit to add' })
   await expect(picker).toBeFocused()
   await office.keyboard.type('SM58')
@@ -610,7 +673,7 @@ test('Add kit takes the cursor and stays open for the next product, Done closing
   await expect(draft.getByRole('button', { name: /Robe Spiider, change it$/ })).toBeVisible()
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
   await expect(draft.getByRole('combobox', { name: 'Kit to add' })).toHaveCount(0)
-  await expect(draft.getByRole('button', { name: 'Add kit' })).toBeVisible()
+  await expect(draft.getByRole('button', { name: 'Add kit', exact: true })).toBeVisible()
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
@@ -624,7 +687,7 @@ test("how many is typed with the product or the role, and the picker says the pr
   await office.getByRole('tab', { name: 'Quote' }).click()
   await office.getByRole('button', { name: 'Start one empty' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await expect(draft).toContainText('Type how many first, as 12 y10.')
   await office.keyboard.type('12 SM58')
   const offer = draft.getByRole('option', { name: /^12 × Shure SM58/ })
@@ -653,7 +716,7 @@ test("on a desk a line's amount and Remove sit inside the quote's card at every 
   await page.goto('/#jobs')
   await page.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
   await page.getByRole('tab', { name: 'Quote' }).click()
-  await page.getByRole('button', { name: 'Build it from the job' }).click()
+  await page.getByRole('button', { name: 'Build from job' }).click()
   const draft = page.getByRole('form', { name: 'Version 1, a draft' })
   await draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' }).click()
   for (const width of [1024, 1200, 1280, 1440, 1920]) {
@@ -679,7 +742,7 @@ test('two people on one draft keep both their changes, one of them with no signa
   await one.getByRole('tab', { name: 'Quote' }).click()
   await one.getByRole('button', { name: 'Start one empty' }).click()
   const draftOne = one.getByRole('form', { name: 'Version 1, a draft' })
-  await draftOne.getByRole('button', { name: 'Add kit' }).click()
+  await draftOne.getByRole('button', { name: 'Add kit', exact: true }).click()
   await one.keyboard.type('4 SM58')
   await one.keyboard.press('Enter')
   await expect(draftOne).toContainText('1 line added.')
@@ -735,7 +798,7 @@ test('a count before a name with digits in it is still a count, and a line given
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 
   // "8 SM58" as a whole finds the SM58 by the 8 in its name; it's still eight of it.
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await office.keyboard.type('8 SM58')
   await expect(draft.getByRole('option', { name: /^8 × Shure SM58/ })).toBeVisible()
   await office.keyboard.press('Enter')
@@ -756,7 +819,7 @@ test('a count before a name with digits in it is still a count, and a line given
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // It goes without being asked about, and the sent quote says Included.
-  await draft.getByRole('button', { name: 'Get the PDF to send' }).click()
+  await draft.getByRole('button', { name: 'Generate PDF' }).click()
   await expect(office.getByRole('dialog')).toHaveCount(0)
   await expect(office.getByRole('table').first()).toContainText('Included')
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)

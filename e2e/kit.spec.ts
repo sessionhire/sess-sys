@@ -79,7 +79,7 @@ async function uncounted(page: Page, name: string) {
 
 async function addKit(page: Page, product: string, qty: number, days = 'Whole job') {
   // Behind its button until the first line; it stays open for the next.
-  const opener = page.getByRole('button', { name: 'Add kit' })
+  const opener = page.getByRole('button', { name: 'Add kit', exact: true })
   if (await opener.count()) await opener.click()
   const form = page.getByRole('form', { name: 'Add kit' })
   await form.getByLabel('Product').fill(product)
@@ -221,7 +221,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   // The quote's kit taken off: nothing's short any more.
   await jobRow(quote).click()
   await pencilled.getByRole('button', { name: 'Change' }).click()
-  await pencilled.getByRole('button', { name: 'Take off the kit' }).click()
+  await pencilled.getByRole('button', { name: 'Remove kit' }).click()
   // Asked first, in the form, with what will happen.
   await expect(pencilled.getByRole('group', { name: /^Take 4 × .* off the kit for .*\? It's no longer held for the job, so it's free for others\.$/ })).toBeVisible()
   await pencilled.getByRole('button', { name: 'Take it off' }).click()

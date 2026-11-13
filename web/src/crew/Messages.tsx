@@ -2,6 +2,7 @@ import {
   daysLabel,
   offerRateFor,
   daysToCancel,
+  holdLeft,
   HOLDING,
   waitWords,
   invitesHeld,
@@ -15,6 +16,7 @@ import {
   tellMessage,
   toldOfBooking,
   toldOfChange,
+  toldOfConfirm,
   toldOfEnding,
   toldOfOffer,
   toldOfRefusal,
@@ -32,7 +34,7 @@ import {
   type ToldPerson,
   type WhatsAppNews,
 } from '@sh/shared'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { AdminWords } from '../AdminWords.tsx'
 import { useAccess } from '../role.ts'
@@ -68,8 +70,8 @@ export interface Tell {
   /** For a changed call: its call time moved, which Google emails those whose invites tell them what happens next (ADR 0153). */
   timeMoved?: boolean
   /**
-   * People whose rate asked for the press closed, by filling the call (ADR 0152): said among what was sent, as their offers
-   * end, and never sent this event's message.
+   * People whose rate asked for, or whose offer still waiting, the press closed by filling the call (ADR 0152, ADR 0169):
+   * said among what was sent, as their offers end, and never sent this event's message.
    */
   closed?: TellTo[]
 }
@@ -86,6 +88,15 @@ export interface Made {
 
 /** What's open at the bottom of a screen: an offer to send (with the offers just made, after Offer), or people to tell. One at a time. */
 export type Share = { kind: 'offer'; people: PersonView[]; call: CallView; made?: Made } | { kind: 'tell'; tell: Tell }
+
+/**
+ * Where a press deep in a screen opens the people to tell (ADR 0168): the job's page, or a list of quotes. A press that ends
+ * the row or the card it's on, as confirming a job from its quote does, can't open them under itself.
+ */
+export const TellHere = createContext<((share: Share | undefined) => void) | undefined>(undefined)
+
+/** The screen's own place to open the people to tell, if it has one. */
+export const useTellHere = () => useContext(TellHere)
 
 /**
  * The prompt after something the office did (audit finding 9): a message
@@ -400,6 +411,7 @@ const DONE: Partial<Record<TellEvent, (to: readonly TellTo[]) => string>> = {
   released: (to) => `${to[0]!.person.name} released`,
   'call-cancelled': () => 'Crew call cancelled',
   'job-stopped': () => 'Crew calls cancelled',
+  'job-confirmed': (to) => `${to[0]!.context.call.project} is confirmed`,
   'call-changed': () => 'Crew call changed',
   'phase-moved': () => 'Phase moved',
 }
@@ -428,8 +440,15 @@ function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
     // about a call that isn't over.
     const follows = whatsappFollowsTell(reach, t)
     const news = (n: WhatsAppNews) => ({ ...before, whatsapp: follows ? n : undefined })
-    // A rate asked for that the press closed by filling the call ends as any offer does (ADR 0152).
+    // A rate asked for, or an offer still waiting, that the press closed by filling the call ends as any offer does (ADR 0152).
     if (i >= tell.to.length) return { person: t.person, told: toldOfEnding(reach, t.person, news('not-needed')) }
+    // The client said yes to a job its crew were asked to hold the day for (ADR 0168): HOLD comes off their days, which Google
+    // emails them, as `left` of them still say it; and on WhatsApp those picked hear they're booked, the rest that it's going ahead.
+    if (tell.event === 'job-confirmed')
+      return {
+        person: t.person,
+        told: toldOfConfirm(reach, t.person, { invited: was.cancel, left: id ? holdLeft(reach, id) : 0, kept: before.kept, whatsapp: follows ? (t.context.picked ? 'booked' : 'going-ahead') : undefined }),
+      }
     // On a job the client hasn't said yes to yet, their link and their invite say to hold the day, not that they're booked (ADR 0150).
     // Days they were still asked for, outside the days booked, came off with word from Google, as the question said (ADR 0152).
     if (tell.event === 'confirmed') {
@@ -446,9 +465,11 @@ function TellSent({ tell, onClose }: { tell: Tell; onClose: () => void }) {
     return { person: t.person, told: toldOfEnding(reach, t.person, news(tell.event === 'job-stopped' ? 'job-off' : 'not-needed')) }
   })
   const many = new Set(tell.to.map((t) => t.person.id)).size > 1
+  // Picked for a job the client hasn't said yes to yet, they hold the day: nobody is booked till then (ADR 0150).
+  const holds = tell.event === 'confirmed' && holdTheDay(tell.to[0]!.context.call.projectId)
   return (
     <SentPanel
-      title={DONE[tell.event]?.(tell.to) ?? 'Done'}
+      title={holds ? `${tell.to[0]!.person.name} holds the day` : (DONE[tell.event]?.(tell.to) ?? 'Done')}
       people={people}
       links={ENDED.includes(tell.event) ? (many ? 'Their links say so, whenever they open them.' : 'Their link says so, whenever they open it.') : undefined}
       onClose={onClose}

@@ -1,4 +1,5 @@
 import {
+  bouncedEmail,
   acceptPath,
   dayLabel,
   daysWord,
@@ -34,6 +35,7 @@ import { InCurrentRms, NewVersion, nextRecord, Records } from './QuoteRecords.ts
 import { Draft } from './QuoteDraft.tsx'
 import { DeleteQuote } from './QuoteDelete.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
+import { useEmailAgainAsked } from './quoteSend.ts'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
 
 export { InStep, QuotePill } from './QuoteStatus.tsx'
@@ -104,6 +106,15 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
 
   const q = versions.find((v) => v.id === picked) ?? m.draftOf(jobId) ?? m.currentOf(jobId) ?? versions[0]
   const current = m.currentOf(jobId)
+  // The shown version's last email bounced (ADR 0172): sending it again, to the addresses put right, is the press.
+  const bounced = q ? bouncedEmail(q.emails) : undefined
+  // Next's "Fix address and resend" (ADR 0172): the email opens on the current version, at the addresses it went to.
+  const againAsked = useEmailAgainAsked(jobId)
+  useEffect(() => {
+    if (!againAsked || !current) return
+    setPicked(current.id)
+    setComposing(current.id)
+  }, [againAsked])
   const settled = versions.some((v) => v.invoicedOn)
   const jm = m.job(jobId)
   // The quote's one filled red is what to record next on the current version, under What happened (nextRecord). Sending or printing
@@ -144,7 +155,7 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
       {!q ? (
         <FirstQuote view={view} job={job} plain={onTheJob} />
       ) : q.status === 'draft' ? (
-        <Draft key={q.id} q={q} view={view} job={job} onPrint={() => setPrinting(true)} plain={onTheJob} />
+        <Draft key={q.id} q={q} view={view} job={job} onPrint={() => setPrinting(true)} printing={printing} />
       ) : (
         <>
           <section className="card" aria-label={`Version ${q.version}`}>
@@ -167,16 +178,16 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
             <Emails emails={q.emails} />
             <ClientLink q={q} on={!!m.quoting.acceptOnline} />
             {composing === q.id ? (
-              <SendQuote q={q} onSent={() => setComposing(undefined)} onCancel={() => setComposing(undefined)} />
+              <SendQuote q={q} onSent={() => setComposing(undefined)} onCancel={() => setComposing(undefined)} {...(bounced ? { after: bounced } : {})} />
             ) : (
               <div className="actions">
                 {byEmail && q.latest && (
-                  <button type="button" className={plainSend || q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
-                    {q.emails.length ? 'Send again' : 'Send by email'}
+                  <button type="button" className={(plainSend || q.emails.length) && !bounced ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
+                    {bounced ? 'Fix address and resend' : q.emails.length ? 'Send again' : 'Email quote'}
                   </button>
                 )}
-                <button type="button" className={plainSend || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} disabled={printing}>
-                  Print or save as PDF
+                <button type="button" className={plainSend || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} aria-busy={printing || undefined}>
+                  Print or save PDF
                 </button>
                 {q.latest && !settled && <NewVersion q={q} onMade={setPicked} />}
               </div>
@@ -228,7 +239,7 @@ function ClientLink({ q, on }: { q: QuoteView; on: boolean }) {
       <p className="hint">The client can accept this version online, with their name and a tick, at its own link. An emailed quote carries it.</p>
       <div className="actions">
         <button type="button" onClick={() => void navigator.clipboard?.writeText(link).then(() => setCopied(true))}>
-          {copied ? 'Copied' : "Copy the client's link"}
+          {copied ? 'Copied' : "Copy client link"}
         </button>
         <a className="button quiet" href={link} target="_blank" rel="noreferrer">
           Open it as they see it
@@ -306,7 +317,7 @@ function FirstQuote({ view, job, plain }: { view: View; job: JobView; plain?: bo
         // Where to add them, from here (audit, 5 November 2026, finding 16): a quote is built from the job's kit and crew.
         <Empty>
           The job has no kit or crew yet, so a quote would start empty. <a href={`#jobs/${encodeURIComponent(job.id)}/kit`}>Add the kit</a> or{' '}
-          <a href={`#jobs/${encodeURIComponent(job.id)}/crew`}>ask for crew</a> first, or start one empty and type the lines.
+          <a href={`#jobs/${encodeURIComponent(job.id)}/crew`}>add crew</a> first, or start one empty and type the lines.
         </Empty>
       ) : (
         <p>
@@ -326,7 +337,7 @@ function FirstQuote({ view, job, plain }: { view: View; job: JobView; plain?: bo
         {source.kit.length + source.crew.length > 0 && (
           // Plain once the job is past Quoting: its own Next, in the head, holds the page's one red (ADR 0140, part 4).
           <button type="button" className={plain ? undefined : 'primary'} onClick={() => build(true)}>
-            Build it from the job
+            Build from job
           </button>
         )}
         <button type="button" onClick={() => build(false)}>

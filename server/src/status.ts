@@ -278,7 +278,7 @@ export class Status {
       return { ...base, state: 'ok', says: `Google answers for ${link.accountEmail ?? 'the connected account'} (${plural(calendars.length, 'calendar')} it can change), ${writing}.`, ms }
     } catch (err) {
       if (err instanceof Halt && err.why === 'revoked') return { ...base, state: 'bad', says: err.problem ?? 'Google no longer accepts the app’s access.', todo: 'Connect again under Admin › Connections.' }
-      return { ...base, state: 'bad', says: `Google isn't answering for the connected account: ${err instanceof Halt ? (err.problem ?? err.why) : why(err)}`, todo: 'Try again in a few minutes. If it keeps failing, press Check the calendar under Admin › Connections.' }
+      return { ...base, state: 'bad', says: `Google isn't answering for the connected account: ${err instanceof Halt ? (err.problem ?? err.why) : why(err)}`, todo: 'Try again in a few minutes. If it keeps failing, press Check calendar under Admin › Connections.' }
     }
   }
 
@@ -297,7 +297,7 @@ export class Status {
     const at = iso(rows[0]?.last)
     if (n === 0) return { ...base, state: 'off', says: 'Nobody has shared their own calendar yet.' }
     if (problems) return { ...base, state: 'warn', says: `${problems} of ${n} couldn’t be read last time.`, todo: 'Each one’s person page says why; usually the address has changed.', at }
-    if (stale) return { ...base, state: 'warn', says: `${stale} of ${n} haven’t been read for over two days.`, todo: 'Open their person page and press Read it now.', at }
+    if (stale) return { ...base, state: 'warn', says: `${stale} of ${n} haven’t been read for over two days.`, todo: 'Open their person page and press Read now.', at }
     return { ...base, state: 'ok', says: `All ${n} read in the last two days.`, at }
   }
 

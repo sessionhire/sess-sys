@@ -169,6 +169,8 @@ describe('roles', () => {
     expect((await send(app, c, 'project.create', { id: 'gala', name: 'Autumn Gala', clientId: null, venueId: null, status: 'confirmed', notes: '' })).status).toBe('applied')
     expect((await send(app, s, 'quote.save', { id: 'q1', projectId: 'gala', lines: [], discountPct: 0, notes: '' })).status).toBe('applied')
     expect((await send(app, s, 'quote.delete', { id: 'q1', typed: 'delete' })).reason?.code).toBe('forbidden')
+    // Dropping an amendment is the office's, as making it was (ADR 0173); the server's own rules then say no to a job's only one.
+    expect((await send(app, s, 'quote.drop', { id: 'q1' })).reason?.code).toBe('conflict')
     expect((await send(app, c, 'quote.delete', { id: 'q1', typed: 'delete' })).status).toBe('applied')
     expect((await app.inject({ method: 'POST', url: '/api/quotes/q1/restore', cookies: s })).statusCode).toBe(403)
     expect((await app.inject({ method: 'POST', url: '/api/quotes/q1/restore', cookies: c })).statusCode).toBe(200)

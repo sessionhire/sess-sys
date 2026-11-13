@@ -1,5 +1,6 @@
 import { UnitBox } from '../UnitBox.tsx'
 import {
+  HOLD_WORDS,
   OFFER_WORDS,
   offerWords,
   plural,
@@ -9,8 +10,9 @@ import {
   daysOffPhase,
   MOVE_THE_PHASE,
   offPhaseLine,
+  noPhaseLine,
+  daysInNoPhase,
   phaseDaysRule,
-  departmentForRole,
   departmentOf,
   sameDepartment,
   eachDay,
@@ -26,9 +28,7 @@ import {
   parseEuro,
   personConflicts,
   REPLY_BY_AFTER,
-  suggestedReplyBy,
   type CallView,
-  type CertificateKind,
   type CommandInput,
   type CrewView,
   type OfferView,
@@ -56,10 +56,12 @@ import { Confirm, reasonOf, Refusal, useAct } from '../act.tsx'
 import { forgetPicksWaiting, offerFormId, picksWaiting, setOfferPicks } from './offerPicks.ts'
 import { refuseField, settleRefusals } from '../required.ts'
 import { Fold } from '../Fold.tsx'
+import { landOnCall } from './landOnCall.ts'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
 import { rateText } from '../format.ts'
 import { DepartmentField } from './Department.tsx'
+import { RoleField } from './RoleField.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
 import { certificateWarnings, NeedsField } from './Certificates.tsx'
@@ -67,7 +69,7 @@ import { LateLines, NoteLate } from './Late.tsx'
 import { personHref } from './PersonScreen.tsx'
 import { Avatars } from '../Picture.tsx'
 import { type Made, type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
-import { PlainContact, useReach } from './reach.tsx'
+import { PlainContact, useHoldTheDay, useReach } from './reach.tsx'
 import { AnswerActions, standsAt } from './AnswerActions.tsx'
 import { AdminWords } from '../AdminWords.tsx'
 import { dept, found, wordsOf } from './People.tsx'
@@ -169,8 +171,12 @@ export function CallCard({
   const today = useToday()
   const view = useView()
   // A call left outside its phase's days from before the rule (ADR 0159): nobody on it has an invite for those days, said at rest.
-  const phase = call.status === 'open' && call.phaseId ? view.jobs.jobs.find((j) => j.id === call.projectId)?.phases.find((p) => p.id === call.phaseId) : undefined
+  const job = call.status === 'open' && call.projectId ? view.jobs.jobs.find((j) => j.id === call.projectId) : undefined
+  const phase = call.phaseId ? job?.phases.find((p) => p.id === call.phaseId) : undefined
   const offPhase = phase ? daysOffPhase(call, phase).filter((d) => d >= today) : []
+  // A call across the job's phases holds every day from its first to its last, a gap between two phases too, which no
+  // invite is for: said at rest, as a call outside its own phase is (ADR 0159).
+  const inNoPhase = job && !call.phaseId && job.phases.length > 0 ? daysInNoPhase(call, job.phases).filter((d) => d >= today) : []
   const filled = call.openDays.length === 0
   // A yes not yet confirmed holds the place but isn't a booking, as the job's head counts it: the call says so, in amber, rather
   // than a green Filled with someone still to confirm under it (review of 11 November 2026, finding 3).
@@ -183,9 +189,12 @@ export function CallCard({
   // Booked and not yet booked side by side, everyone's state is said, so "(offered)" can't read as the pair's (audit, 20 October 2026, finding 72).
   const onIt = call.offers.filter((o) => o.person && ON_CALL.includes(o.status))
   const mixed = onIt.some((o) => o.status === 'confirmed') && onIt.some((o) => o.status !== 'confirmed')
+  // On a job the client hasn't said yes to, those picked hold the day: nobody is booked until the client says yes (ADR 0150, ADR 0168).
+  const hold = useHoldTheDay()(call.projectId)
+  const picked = hold ? ` (${HOLD_WORDS.name.toLowerCase()})` : ' (booked)'
   const who = onIt
     .slice(0, WHO_SHOWN)
-    .map((o) => `${o.person!.name}${o.status === 'confirmed' ? (mixed ? ' (booked)' : '') : ` (${STATUS[o.status][0].toLowerCase()})`}`)
+    .map((o) => `${o.person!.name}${o.status === 'confirmed' ? (mixed || hold ? picked : '') : ` (${STATUS[o.status][0].toLowerCase()})`}`)
     .join(', ')
   const more = onIt.length - WHO_SHOWN
 
@@ -218,7 +227,8 @@ export function CallCard({
         </b>
       </button>
       {/* The one word at rest on where it stands: a cancelled call kept for the record says so, and a change to it or an offer on it still on its way says that. */}
-      <StatusPill tone={!live ? 'cancelled' : filled && toConfirm === 0 ? 'confirmed' : 'pending'} pending={call.pending || call.offers.some((o) => o.pending)}>
+      {/* Filled on a job the client hasn't said yes to is in amber: its people hold the day, and nothing is settled till the client says yes. */}
+      <StatusPill tone={!live ? 'cancelled' : filled && toConfirm === 0 && !hold ? 'confirmed' : 'pending'} pending={call.pending || call.offers.some((o) => o.pending)}>
         {!live
           ? 'Cancelled'
           : `${filled ? 'Filled' : heldLabel(call)}${toConfirm > 0 ? `, ${toConfirm} to confirm` : ''}`}
@@ -250,6 +260,7 @@ export function CallCard({
         </p>
       ))}
       {phase && offPhase.length > 0 && <p className="warn-line">{offPhaseLine(offPhase, phase, today)}</p>}
+      {inNoPhase.length > 0 && <p className="warn-line">{noPhaseLine(inNoPhase, job?.phases ?? [], today)}</p>}
       <LateLines call={call} late={late} today={today} />
       {/* Someone booked who rang to say they're late, noted where their line is (ADR 0028). */}
       <NoteLate call={call} late={late} inJob={inJob} />
@@ -271,7 +282,8 @@ export function CallCard({
           {call.offers.length > 0 && (
             <ul className="offers">
               {rows.map(({ o, said }) => {
-                const [label, tone] = offerWords(o)
+                // Picked on a job the client hasn't said yes to: Hold the day, as their own page and invite say it (ADR 0150, ADR 0168).
+                const [label, tone] = hold && o.status === 'confirmed' ? [HOLD_WORDS.name, 'pending' as const] : offerWords(o)
                 const partial = o.days.length < call.days.length && (o.status === 'accepted' || o.status === 'confirmed' || o.status === 'countered')
                 const answering = o.status === 'offered' || o.status === 'countered' || o.status === 'accepted' || o.status === 'confirmed'
                 return (
@@ -312,7 +324,7 @@ export function CallCard({
                         question={
                           // The email Google sends is named, or that nothing is sent (finding 5).
                           o.status === 'confirmed'
-                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're booked for go back to it. ${endingWords(reach, o.id, 'so', o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
+                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're ${hold ? 'holding' : 'booked for'} go back to it. ${endingWords(reach, o.id, 'so', o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
                             : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn", o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
                         }
                         yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
@@ -366,7 +378,12 @@ export function CallCard({
             <EditCall
               call={call}
               inJob={inJob}
-              onDone={() => setEditing(false)}
+              onDone={() => {
+                // Saved or kept, the form folds away and the page goes back to the top of the call's card, where the change shows: on
+                // a phone the form is long and its foot, where Save is, is well below the card's line (13 November 2026).
+                setEditing(false)
+                landOnCall(call.id)
+              }}
               onSaved={(after, datesMoved) =>
                 onTell?.(promptFor('call-changed', peopleOn(after).map((t) => neededBefore(datesMoved ? forCallDays(t) : t, call)), datesMoved, [], after.callTime !== call.callTime))
               }
@@ -541,9 +558,7 @@ function EditCall({
           </label>
         </>
       )}
-      <label>
-        Role <input name="role" value={f.role} onChange={set('role')} required />
-      </label>
+      <RoleField value={f.role} onChange={(role) => setF((now) => ({ ...now, role }))} />
       <label>
         How many <input type="number" min={Math.max(1, booked)} value={f.needed} onChange={set('needed')} />
       </label>
@@ -850,119 +865,6 @@ export function OfferForm({ call, crew, onShare }: { call: CallView; crew: CrewV
           <span>Show applicants{hidden > 0 ? ` (${hidden})` : ''}</span>
         </label>
       )}
-    </form>
-  )
-}
-
-/** `onMade` hears each call's id as it's asked for, so the list can keep it in view whatever its days. */
-export function NewCall({ onMade }: { onMade?: (id: string) => void } = {}) {
-  const today = useToday()
-  const view = useView()
-  const seesRates = useSeesRates()
-  // The reply-by day is suggested from the first day until the office types or clears it (audit finding 21); the department from the role until picked (ADR 0046).
-  const blank = {
-    project: '',
-    phase: '',
-    venue: '',
-    role: '',
-    start: today,
-    end: today,
-    callTime: '',
-    needed: 1,
-    rate: '',
-    details: '',
-    replyBy: undefined as string | undefined,
-    needs: [] as CertificateKind[],
-    department: undefined as string | null | undefined,
-  }
-  const [f, setF] = useState(blank)
-  const { run, error, refuse } = useAct()
-  const set = (k: Exclude<keyof typeof blank, 'needs' | 'department'>) => (e: { target: { value: string } }) => setF({ ...f, [k]: k === 'needed' ? Number(e.target.value) : e.target.value })
-  const suggested = departmentForRole(f.role, { calls: view.crew.calls, people: view.crew.people })
-  const replyBy = f.replyBy ?? suggestedReplyBy(f.start, f.end < f.start ? f.start : f.end, today) ?? ''
-  const submit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = e.currentTarget
-    // A reason left from the last press goes; this press says its own.
-    refuse('')
-    if (!f.project.trim()) return void refuseField(form, '[name="project"]', 'Fill in the project first.')
-    if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
-    const rate = parseEuro(f.rate)
-    if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
-    // Ready for the next call on the same job and days; a refusal brings what was typed back, unless the next thing has been typed since.
-    const cleared = { ...blank, project: f.project, venue: f.venue, start: f.start, end: f.end }
-    setF(cleared)
-    const id = newId()
-    onMade?.(id)
-    void run(() =>
-      client.mutate('call.create', {
-        id,
-        project: f.project.trim(),
-        phase: f.phase.trim(),
-        venue: f.venue.trim(),
-        role: f.role.trim(),
-        start: f.start,
-        end: f.end < f.start ? f.start : f.end,
-        callTime: f.callTime || null,
-        needed: Math.max(1, f.needed),
-        dayRateCents: seesRates ? rate.cents : null,
-        details: f.details.trim(),
-        replyBy: replyBy || null,
-        needsCertificates: f.needs,
-        department: f.department === undefined ? suggested : f.department,
-      })
-    ).then((ok) => {
-      if (!ok) setF((now) => (now === cleared ? f : now))
-    })
-  }
-  return (
-    <form className="grid-form" onSubmit={submit}>
-      <label className="wide">
-        Project <input name="project" value={f.project} onChange={set('project')} placeholder="e.g. Electric Picnic" required />
-      </label>
-      <label>
-        Phase <input value={f.phase} onChange={set('phase')} placeholder="Build, Show…" />
-      </label>
-      <label>
-        Role <input name="role" value={f.role} onChange={set('role')} placeholder="Audio tech" required />
-      </label>
-      <div className="pair">
-        <label>
-          From <input type="date" value={f.start} onChange={set('start')} />
-        </label>
-        <label>
-          To <input type="date" value={f.end} min={f.start} onChange={set('end')} />
-        </label>
-      </div>
-      <label>
-        Call time <input type="time" value={f.callTime} onChange={set('callTime')} />
-      </label>
-      <label>
-        How many <input type="number" min={1} value={f.needed} onChange={set('needed')} />
-      </label>
-      {seesRates ? (
-        <label>
-          Day rate <UnitBox unit="€" before><input aria-label="Day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} placeholder="250" /></UnitBox>
-        </label>
-      ) : (
-        <p className="hint">The office sets the rate: your role doesn't see crew rates.</p>
-      )}
-      <label>
-        Venue <input value={f.venue} onChange={set('venue')} />
-      </label>
-      <DepartmentField view={view} value={f.department} suggested={suggested} onChange={(department) => setF({ ...f, department })} className="wide" />
-      <label className="wide">
-        Reply by <input type="date" name="replyBy" value={replyBy} onChange={set('replyBy')} />
-      </label>
-      <p className="hint wide">Two days before the first day, or the day before when the job is close. Clear it if there's no hurry.</p>
-      <label className="wide">
-        Details for crew <textarea rows={2} value={f.details} onChange={set('details')} placeholder="Travel, food, parking, dress" />
-      </label>
-      <NeedsField value={f.needs} onChange={(needs) => setF({ ...f, needs })} />
-      <Refusal error={error} className="wide" />
-      <button type="submit" className="primary wide">
-        Ask for crew
-      </button>
     </form>
   )
 }

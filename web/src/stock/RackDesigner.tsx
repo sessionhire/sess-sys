@@ -268,7 +268,7 @@ function Designer({ view, r }: { view: View; r: RackView }) {
             </button>
             {gaps.length > 0 && (
               <button type="button" onClick={fillGaps}>
-                Fill the gaps with blanks
+                Fill gaps with blanks
               </button>
             )}
             <CopyRack view={view} r={r} />

@@ -1,4 +1,4 @@
-import { callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
+import { LOGO_SVG, callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { getClient, getPhase, getProject, getVenue } from '../projects/store.ts'
 import { lateOnOffers } from './late.ts'
@@ -98,7 +98,7 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
 </head>
 <body>
 <main class="sheet">
-  <header class="top"><span class="mark">SH</span><div><b>Session Hire</b><small>Call sheet</small></div></header>
+  <header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><small>Call sheet</small></div></header>
   ${officeBlock(office)}
   <a class="back" href="${h(base)}">‹ Your work</a>
   <section class="head">
@@ -191,7 +191,7 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
 export function renderNoSheet(base: string, what: 'call sheet' | 'timesheet' = 'call sheet', words?: string): string {
   return `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Session Hire</title><style>${CSS}${SHEET_CSS}</style></head>
-<body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b></div></header>
+<body><main><header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b></div></header>
 <p class="flash warn">${words ? h(words) : `There's no ${what} here for you: you may not be booked on it any more, or the job has changed.`}</p>
 <a class="back" href="${h(base)}">‹ Your work</a></main></body></html>`
 }

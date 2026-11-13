@@ -110,10 +110,10 @@ export function CalendarScreen({ view, hash }: { view: View; hash: string }) {
             <a className="button" href={at({ month: now })} aria-current={thisMonth ? 'date' : undefined}>
               Today
             </a>
-            <a className="button cal-step" href={at({ month: addMonths(month, -1) })} aria-label="Previous month" title="Previous month">
+            <a className="button cal-step icon-button" href={at({ month: addMonths(month, -1) })} aria-label="Previous month" title="Previous month">
               <Icon name="back" />
             </a>
-            <a className="button cal-step" href={at({ month: addMonths(month, 1) })} aria-label="Next month" title="Next month">
+            <a className="button cal-step icon-button" href={at({ month: addMonths(month, 1) })} aria-label="Next month" title="Next month">
               <Icon name="next" />
             </a>
           </div>

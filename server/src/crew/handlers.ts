@@ -606,7 +606,7 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     if (!call) throw new Refused({ code: 'not-found', message: 'That crew call no longer exists.' })
     // Asked for again already, by a second press or another device.
     if (call.status === 'open') return
-    if (!call.stoppedOn) throw new Refused({ code: 'conflict', message: `The ${call.role} call on ${call.project} was cancelled on its own, so it stays cancelled. Ask for crew afresh.` })
+    if (!call.stoppedOn) throw new Refused({ code: 'conflict', message: `The ${call.role} call on ${call.project} was cancelled on its own, so it stays cancelled. Add the crew again.` })
     const job = call.projectId ? await getProject(ctx.tx, call.projectId) : undefined
     if (job && STOPPED.includes(job.status))
       throw new Refused({ code: 'conflict', message: `${job.name} is still ${job.status === 'lost' ? 'marked as lost' : 'cancelled'}: set it going again first.` })

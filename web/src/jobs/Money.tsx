@@ -49,6 +49,8 @@ import {
 import { Fragment, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { arrive } from '../arrival.ts'
+import { SharePanelFor, TellHere, type Share } from '../crew/Messages.tsx'
+import { RoleField } from '../crew/RoleField.tsx'
 import { Empty } from '../Empty.tsx'
 import { ShowAll } from '../Fold.tsx'
 import { Heading } from '../Icon.tsx'
@@ -185,13 +187,20 @@ export function ToFollowUp({ view }: { view: View }) {
   const today = useToday()
   const f = quotesToFollow(view.money, today, quoteWantedBy(view))
   const none = f.drafts.length + f.overDrafts.length + f.waiting.length + f.passed.length + f.outOfStep.length + f.toInvoice.length === 0
+  // Who a row's Confirm the job or Mark the job lost told, above the list, as the row goes with the press (ADR 0168).
+  const [share, setShare] = useState<Share>()
   return (
-    <section className="card quotes-to-follow" aria-label="To follow up">
-      <Heading icon="document">To follow up</Heading>
-      {/* New quote is on the title's line, as every list's add is (review of 11 November 2026, finding 7). */}
-      {none && <Empty>No quote is waiting on anyone. Start one with New quote, at the top, or from a job's page.</Empty>}
-      <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
-    </section>
+    <>
+      {share && <SharePanelFor share={share} onClose={() => setShare(undefined)} />}
+      <section className="card quotes-to-follow" aria-label="To follow up">
+        <Heading icon="document">To follow up</Heading>
+        {/* New quote is on the title's line, as every list's add is (review of 11 November 2026, finding 7). */}
+        {none && <Empty>No quote is waiting on anyone. Start one with New quote, at the top, or from a job's page.</Empty>}
+        <TellHere.Provider value={setShare}>
+          <QuoteGroups f={f} lapsed={standing(view, today)['no-answer'].length} />
+        </TellHere.Provider>
+      </section>
+    </>
   )
 }
 
@@ -337,16 +346,24 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
 export function QuotesToChase({ view }: { view: View }) {
   const today = useToday()
   const f = quotesToFollow(view.money, today)
-  if (f.chase.length + f.outOfStep.length === 0) return null
+  // Who a row's Confirm the job told, kept once the list has nothing left in it (ADR 0168).
+  const [share, setShare] = useState<Share>()
+  const panel = share && <SharePanelFor share={share} onClose={() => setShare(undefined)} />
+  if (f.chase.length + f.outOfStep.length === 0) return panel ?? null
   return (
-    <section className="card quotes-to-follow" aria-label="Quotes to follow up">
-      <Heading icon="document">Quotes to follow up</Heading>
-      <p className="hint">
-        Sent over a week ago with no answer, or answered with the job not yet in step. The app contacts nobody: ring or email the client yourself. Every
-        job's quote is on its Quote tab; Jobs finds them by Filter › Quote.
-      </p>
-      <QuoteGroups f={f} chaseOnly />
-    </section>
+    <>
+      {panel}
+      <section className="card quotes-to-follow" aria-label="Quotes to follow up">
+        <Heading icon="document">Quotes to follow up</Heading>
+        <p className="hint">
+          Sent over a week ago with no answer, or answered with the job not yet in step. The app contacts nobody: ring or email the client yourself.
+          Every job's quote is on its Quote tab; Jobs finds them by Filter › Quote.
+        </p>
+        <TellHere.Provider value={setShare}>
+          <QuoteGroups f={f} chaseOnly />
+        </TellHere.Provider>
+      </section>
+    </>
   )
 }
 
@@ -581,7 +598,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       <Refusal error={error} className="wide" />
       <div className="actions wide">
         <button type="submit" className="primary">
-          {taking.length ? `Start the quote with ${takingWords(offered)}` : 'Start the quote'}
+          {taking.length ? `Start quote with ${takingWords(offered)}` : 'Start quote'}
         </button>
         <button type="button" className="link" onClick={onCancel}>
           Cancel
@@ -1019,7 +1036,7 @@ export function PricesScreen({ view }: { view: View }) {
             onSave={(cents) => client.mutate('price.role', { role: r.role, dayCents: cents })}
           />
         ))}
-        {m.roles.length === 0 && <Empty>No roles yet: add one below, or they come as crew are asked for.</Empty>}
+        {m.roles.length === 0 && <Empty>No roles yet: add one below, or they come as crew are added to jobs.</Empty>}
         <AddRole />
       </section>
 
@@ -1051,7 +1068,7 @@ function RateRules({ view }: { view: View }) {
         price is for a week, and up to seven days out is charged once. Now: {RATE_RULES.map((r) => `${by(r)} ${RATE_LABELS[r]}`).join(', ')}.
       </p>
       <button type="button" onClick={() => void run(() => client.mutate('price.rulesFromRms', { all: false }))}>
-        Take the rules from Current RMS
+        Copy rules from Current RMS
       </button>
       <p className="hint">Gives each priced product with no rule the one its quotes in Current RMS were charged by most, once Admin has read them.</p>
       <Refusal error={error} />
@@ -1177,9 +1194,7 @@ function AddRole() {
   }
   return (
     <form className="grid-form add-role" onSubmit={add}>
-      <label>
-        Role <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Rigger" maxLength={100} />
-      </label>
+      <RoleField value={role} onChange={setRole} placeholder="e.g. Rigger" />
       <label>
         Price a day <UnitBox unit="€" before><input aria-label="€ a day" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="380" /></UnitBox>
       </label>

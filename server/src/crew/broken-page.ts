@@ -1,4 +1,4 @@
-import { newId, type OfficeDetails } from '@sh/shared'
+import { LOGO_SVG, newId, type OfficeDetails } from '@sh/shared'
 import { CSS, fieldError, flash, h, invalid, landing, officeBlock, REFUSED, titled } from './page.ts'
 
 /**
@@ -40,7 +40,7 @@ export function renderBroken(d: BrokenPage): string {
 </head>
 <body>
 <main>
-  <header class="top"><span class="mark">SH</span><div><b>Session Hire</b><h1>Broken or missing kit</h1><small>Tell the warehouse, so it's checked before it goes out again.</small></div></header>
+  <header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>Broken or missing kit</h1><small>Tell the warehouse, so it's checked before it goes out again.</small></div></header>
   ${officeBlock(d.office)}
   <a class="back" href="${h(d.base)}">‹ Your work</a>
   ${d.flash && !d.flash.field ? flash(d.flash) : ''}

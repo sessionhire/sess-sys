@@ -225,7 +225,7 @@ fix, and where the app decides it.
 
 - **What happens:** With invites on, the Offer form always ends "Pressing it also adds them to the day in Google Calendar, which emails them an invite." That is true only for a job made in the app, on days inside one of its phases, from today on. It was pressed for a job brought in from Google Calendar (every job from the two calendars is one: 903 on 16 October), and for a call that isn't part of a job (the kind made under "Crew for something not in Jobs" on Crew). Both times the form made the promise, the offer was made, and **no event was written and no email went**. Afterwards the call's card reads "Ciara Nolan · Offered · Send · Withdraw" with no line about the calendar at all: the line that would say "Invited on Google Calendar" is simply missing, which is easy to miss. Her own page still says, under that offer, "We also send a Google Calendar invite for each day to" her address. A third case: Aoife said No in Google to all three days, and the office offered her again. No email went, her three invites stayed as she left them, declined, and the office's card shows the new offer as "Offered · Said no on Google Calendar": her answer to the old offer, against the new one.
 - **What it costs:** The office believes the person has been asked, and they haven't. With messages off and WhatsApp off, nothing else reaches them either, so the offer sits "Offered" until someone notices the silence. Jobs brought in from the two calendars are most of what the app holds, so for any of them still to come this is the usual case, not the odd one (live wasn't read to count them).
-- **Fix:** Work the promise out per person from the same rule the server uses, and say the other half: "Aoife and Tommo get a calendar invite by email. Nothing is sent for this job from the app: it came from Google Calendar, so its days are the organiser's." After the press, every offer row says how the person was reached, or that they weren't ([the order to fix things](#the-order-to-fix-things), batch 1). The page's note shows only under offers that have an invite. A second offer after a No sends a fresh invitation and starts with no answer. Whether a brought-in job should send each person their own invite is [question 3](#questions-for-colly). An open change (#313, waiting on Colly's pick) takes "Crew for something not in Jobs" off Crew; calls already made without a job stay, so the form still has to tell the truth about them.
+- **Fix:** Work the promise out per person from the same rule the server uses, and say the other half: "Aoife and Tommo get a calendar invite by email. Nothing is sent for this job from the app: it came from Google Calendar, so its days are the organiser's." After the press, every offer row says how the person was reached, or that they weren't ([the order to fix things](#the-order-to-fix-things), batch 1). The page's note shows only under offers that have an invite. A second offer after a No sends a fresh invitation and starts with no answer. Whether a brought-in job should send each person their own invite is [question 3](#questions-for-colly). "Crew for something not in Jobs" is now off Crew ([ADR 0142](adr/0142-crew-are-asked-for-from-a-job.md)); calls already made without a job stay, so the form still has to tell the truth about them.
 - **Where it is decided:** `web/src/crew/Calls.tsx:654` and `:697` (the promise follows the switch alone), `server/src/calendar/events.ts:341` (brought-in jobs are left out) and `:407` (only days inside a phase, from today), `shared/src/calendar.ts:251` (`offerOnCalendar` says nothing when there is no guest row), `server/src/crew/links.ts:300` and `server/src/crew/page.ts:698` (the page's note follows the switch and an email address alone)
 - **Screenshots:** `41-office-offer-form-brought-in-job-phone.png`, `42-office-card-brought-in-job-phone.png`, `43-office-offer-form-loose-call-phone.png`, `30-office-card-mixed-answers-phone.png`
 
@@ -513,8 +513,10 @@ part, each person's own invite on a job brought in from Google Calendar
 ([ADR 0157](adr/0157-own-invites-for-jobs-brought-in.md)). It differs in
 two things: the offers already on those jobs keep none, so deploying it
 emails nobody, and each row says why, the organiser's guest or offered
-before; and calls that aren't part of a job wait on #313, which asks
-whether new ones can still be made. Finding 11, a call's days tied to its
+before; and calls that aren't part of a job waited on #313, which asked
+whether new ones could still be made. Since 1.183.1 they can't: crew are
+asked for from a job ([ADR 0142](adr/0142-crew-are-asked-for-from-a-job.md)),
+and the calls already made without one work as before. Finding 11, a call's days tied to its
 phase, is in 1.174.1
 ([ADR 0159](adr/0159-a-crew-call-keeps-to-its-phase.md)). It differs in
 one thing: the days are picked with From and To among the phase's days
@@ -533,6 +535,26 @@ Finding 17, a member of staff's own offers said to them, is in 1.181.0
 further than the fix: a job confirmed while they hold the day for it is
 said as their booking, and a change that ended their offer says why, the
 call cancelled or the job stopped.
+What was left open on the office's side is in 1.183.0
+([ADR 0168](adr/0168-confirming-a-job-its-crew-hold-the-day-for.md)): a
+call's card says "Hold the day" of those picked on a job the client hasn't
+said yes to, and confirming such a job, which Google and WhatsApp tell its
+crew of, asks first wherever it's pressed and says after what went (the
+gap ADR 0154's check left at 3). Marking a job lost from a quote asks first
+too.
+The three problems the batches' own checks left at 2 are in 1.183.2
+([ADR 0169](adr/0169-what-the-crew-offers-audit-left-at-2.md)): an
+offer's row says where the WhatsApp that followed it got to, the question
+before an Agree that fills the call names the offers still waiting that
+close with it, and a call across phases that holds a day no phase has
+says so on its card.
+
+That closes the audit. Every finding is built, and so is every problem the
+fixes' own checks left at 2 or 3, bar one that comes with a decision: crew
+for a day that isn't a show need a quick job made first (ADR 0142). What
+waits is outside the app: WhatsApp's setup in Meta, with its templates,
+and Colly trying "Tell crew what happens next" on the office's own
+addresses before turning it on.
 
 1. **Say what was sent** (findings 5, 1, 14, 18, 16, 20). One line on every
    offer row, worked out from what happened: "Invited by email, 2 days",
@@ -570,7 +592,8 @@ call cancelled or the job stopped.
    brought in, and a fresh invitation after a No. **A call's days tied to
    its phase done in 1.174.1. Undo on an offer done in 1.178.0. Asking for
    the same crew again done in 1.180.0. Staff notices said to them done in
-   1.181.0.**
+   1.181.0. Calls with no job settled in 1.183.1: crew are asked for from
+   a job.**
 
 ## Questions for Colly
 

@@ -60,7 +60,7 @@ test('asking, votes, where it is at, and a list brought in once', async ({ brows
   await expect(page.getByText(`Voted for by Kyle Test ${id}, Róisín Test ${id}.`)).toBeVisible()
   await page.getByLabel(/^Ordered/).check()
   await page.getByLabel('Notes').fill('From Reichelt, due Friday')
-  await page.getByRole('button', { name: "Save where it's at" }).click()
+  await page.getByRole('button', { name: "Save for now" }).click()
   await expect(page.locator('.title .pill').last()).toHaveText('Ordered')
   await page.evaluate(() => scrollTo(0, 0))
   await page.screenshot(shot('purchase-request-phone'))

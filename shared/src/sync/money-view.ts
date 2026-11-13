@@ -285,6 +285,12 @@ export function moneyView(
         if (was && deleteTyped(was, a.typed)) quotes.delete(a.id)
         break
       }
+      // An amendment dropped (ADR 0173): gone at once; the server refuses it for a version that went, or a job's only one.
+      case 'quote.drop': {
+        const a = m.args as CommandArgs<'quote.drop'>
+        if (quotes.get(a.id)?.status === 'draft') quotes.delete(a.id)
+        break
+      }
       case 'quote.invoiced': {
         const a = m.args as CommandArgs<'quote.invoiced'>
         const was = quotes.get(a.id)

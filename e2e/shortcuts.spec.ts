@@ -42,7 +42,7 @@ test('a day on the planner starts a quote on that day, from a card on the day', 
   await desk.goto('/#jobs/plan')
   await day.click()
   await card.getByLabel("What's the job?").fill('Card launch')
-  await card.getByRole('button', { name: 'Start the quote' }).click()
+  await card.getByRole('button', { name: 'Start quote' }).click()
   await expect(desk).toHaveURL(/#jobs\/[^/]+\/quote$/)
   // The page lands on the job's Quote tab once it's drawn (ADR 0140, part 4): pressed before then, a press can meet the page mid-scroll.
   await expect(desk.getByRole('tab', { name: 'Quote' })).toBeFocused()

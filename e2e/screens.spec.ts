@@ -199,7 +199,7 @@ async function openJob(page: Page, name: string) {
 }
 
 test('staff crew are offered nothing on a job or on Crew they could only be refused', async ({ browser }) => {
-  // Proves: staff crew, who can change only their leave and report faults, see a job's phases, kit and crew with no Change, Add kit, Add phase or Ask for crew, and Crew's calls with nothing to settle or offer and no answers to check, which are the office's (audit finding 34).
+  // Proves: staff crew, who can change only their leave and report faults, see a job's phases, kit and crew with no Change, Add kit, Add phase or Add a role, and Crew's calls with nothing to settle or offer and no answers to check, which are the office's (audit finding 34).
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await as(page, 'crew', /^Staff crew/)
   await openJob(page, 'Harbour Lights Festival')
@@ -223,7 +223,7 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await page.goto(jobAt)
   for (const part of ['Phases', 'Crew', 'Kit', 'Transport', 'Show pack']) {
     await main.getByRole('tab', { name: new RegExp(`^${part}`) }).click()
-    for (const name of ['Change', 'Change details', 'Add phase', 'Add kit', 'Ask for crew', 'Offer…', 'Running late…', 'Book a vehicle'])
+    for (const name of ['Change', 'Change details', 'Add phase', 'Add kit', 'Add a role', 'Offer…', 'Running late…', 'Book a vehicle'])
       await expect(main.getByRole('button', { name, exact: true }), `${name} on ${part}`).toHaveCount(0)
   }
   await main.getByRole('tab', { name: /^Crew/ }).click()
@@ -235,7 +235,7 @@ test('staff crew are offered nothing on a job or on Crew they could only be refu
   await page.goto('/#crew/calls')
   await expect(page.getByRole('heading', { level: 1, name: 'Calls' })).toBeVisible()
   await expect(page.getByRole('heading', { name: /^Answers to check/ })).toHaveCount(0)
-  for (const name of [/^Noted/, /^Confirm$/, /^Release$/, /^Offer…$/, /^Checked:/, /^Not right:/, /^Ask for crew$/]) await expect(main.getByRole('button', { name })).toHaveCount(0)
+  for (const name of [/^Noted/, /^Confirm$/, /^Release$/, /^Offer…$/, /^Checked:/, /^Not right:/, /^Add a role$/]) await expect(main.getByRole('button', { name })).toHaveCount(0)
   // Reporting a fault is still theirs.
   await page.goto('/#stock')
   await page.getByRole('link', { name: /Shure SM58|d&b/ }).first().click()
@@ -265,7 +265,7 @@ test('the warehouse can add kit to a job, but not change the job itself', async 
   await openJob(page, 'Harbour Lights Festival')
   const main = page.getByRole('main')
   await main.getByRole('tab', { name: 'Kit', exact: true }).click()
-  await expect(main.getByRole('button', { name: 'Add kit' })).toBeVisible()
+  await expect(main.getByRole('button', { name: 'Add kit', exact: true })).toBeVisible()
   const kit = main.getByRole('region', { name: 'Kit' })
   await expect(kit.getByRole('button', { name: 'Change', exact: true }).first()).toBeVisible()
   await main.getByRole('tab', { name: /^Phases/ }).click()

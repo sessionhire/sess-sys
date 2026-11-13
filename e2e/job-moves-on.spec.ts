@@ -37,7 +37,7 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   await expect(where.getByRole('button', { name: 'Mark it done' })).toHaveCount(0)
   await expect(where).toContainText('records the yes on version 1 of the quote')
   if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/confirm-step.png` })
-  await where.getByRole('button', { name: 'Confirm the job' }).click()
+  await where.getByRole('button', { name: 'Confirm job' }).click()
 
   // Confirmed, the job moves into Planning by its own status: the one gate between stages.
   await expect(where.locator('li[aria-current="step"] button')).toHaveAccessibleName(/^2\. Planning, the stage the job is in/)
@@ -50,6 +50,46 @@ test("the client's yes, from the job's steps, confirms the job and the quote tog
   // The quote says the same: nothing left to put in step.
   await office.goto('/#jobs/money/follow-up')
   await expect(office.getByRole('region', { name: 'To follow up' })).not.toContainText('Corrib Arts Week')
+
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test('changes asked for: Amend quote makes the next version and the job goes back to sending it (ADR 0173)', async ({ browser, request }) => {
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+
+  await office.goto('/#jobs')
+  await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
+  const next = office.getByRole('region', { name: 'Next' })
+  const where = office.getByRole('region', { name: 'Status', exact: true })
+  await office.getByRole('tab', { name: /^Phases/ }).click()
+  await next.getByRole('button', { name: "Record the client's answer" }).click()
+  // The client's three answers, side by side: yes, no, and changes.
+  const answers = where.locator('.clients-answer .step-actions')
+  await expect(answers.getByRole('button')).toHaveText(['Confirm job', 'Client said no', 'Amend quote'])
+  if (process.env.SHOTS_DIR) await where.screenshot({ path: `${process.env.SHOTS_DIR}/amend-at-the-answer.png` })
+  await answers.getByRole('button', { name: 'Amend quote' }).click()
+
+  // Version 2, a copy of what the client has, open to change on the Quote tab; sending it is the task again.
+  await expect(office.getByRole('tab', { name: /^Quote/ })).toHaveAttribute('aria-selected', 'true')
+  const v2 = office.getByRole('form', { name: 'Version 2, a draft' })
+  await expect(v2).toContainText('Amending version 1, which the client has. It stays the quote until this one is sent.')
+  await expect(next).not.toContainText("Record the client's answer")
+  await expect(office.locator('.job-position').first()).toContainText('Quoting')
+  if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/amending-version-2.png` })
+  await office.goto('/#jobs')
+  await expect(office.locator('.job-row', { hasText: 'Corrib Arts Week' })).toContainText('Version 2 being amended')
+
+  // A slip is put right in place: Drop changes asks first, and version 1 is the quote again, its answer what's next.
+  await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
+  await v2.getByRole('button', { name: 'Drop changes' }).click()
+  await expect(v2).toContainText('Drop version 2 and its changes? Version 1 stays as the client has it.')
+  if (process.env.SHOTS_DIR) await office.screenshot({ path: `${process.env.SHOTS_DIR}/drop-changes-question.png` })
+  await v2.getByRole('button', { name: 'Drop changes' }).click()
+  await expect(v2).toHaveCount(0)
+  await expect(office.getByRole('region', { name: 'Version 1' })).toBeVisible()
+  await expect(next).toContainText("Record the client's answer below, under What happened.")
 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
@@ -84,7 +124,7 @@ test('a past quote for a job already here goes on its quote, not on a second job
   await office.goto('/#jobs/money/current-rms/9')
   // The job it's for comes first; another job is the second choice.
   await expect(office.getByRole('button', { name: "Put it on Corrib Arts Week's quote" })).toHaveClass(/primary/)
-  await office.getByRole('button', { name: 'Make a new job from this' }).click()
+  await office.getByRole('button', { name: 'New job from this' }).click()
   const making = office.getByRole('region', { name: 'Make a job from this' })
   await expect(making).toContainText('which is already a job here. Making another makes the same job twice.')
   if (process.env.SHOTS_DIR) await making.screenshot({ path: `${process.env.SHOTS_DIR}/same-job-twice.png` })
@@ -93,7 +133,7 @@ test('a past quote for a job already here goes on its quote, not on a second job
   const onto = office.getByRole('region', { name: "Put it on a job's quote" })
   await expect(onto.getByLabel('The job')).toHaveValue('Corrib Arts Week')
   await expect(onto).toContainText('It has no draft, so these start one.')
-  await onto.getByRole('button', { name: /^Put 1 line on the quote$/ }).click()
+  await onto.getByRole('button', { name: /^Add 1 line to quote$/ }).click()
 
   await expect(office).toHaveURL(new RegExp(`#jobs/${jobId}/quote$`))
   const draft = office.getByRole('form', { name: 'Version 2, a draft' })

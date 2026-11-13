@@ -182,7 +182,7 @@ step where. **Bold** is a step the app does today.
 | **Enquiry logged** | O | Jobs › New job (starts as an enquiry) |
 | **Quote sent** | O, D | A job's Quote card › its quote, printed as a PDF the office sends itself |
 | **Confirmed, phases dated** | O | A job's page; the planner (Jobs › Week, Month); Google Calendar (on with the key) |
-| **Crew asked** | O, H | A job's crew card › Ask for crew |
+| **Crew asked** | O, H | A job's crew card › Add a role |
 | **Offer answered** | F, S | Their link › Offers waiting on you |
 | **Answer settled** | O | Crew › Answers to check; Home |
 | **Kit put on the job** | O, H | A job's kit card; *Kit short* on Stock and Home |

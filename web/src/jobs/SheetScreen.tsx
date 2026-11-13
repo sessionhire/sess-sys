@@ -142,7 +142,7 @@ export function SheetScreen({ view, jobId, phaseId }: { view: View; jobId: strin
             Print
           </button>
           <button type="button" onClick={copy}>
-            {copied === 'yes' ? 'Copied' : 'Copy for a WhatsApp group'}
+            {copied === 'yes' ? 'Copied' : 'Copy for WhatsApp'}
           </button>
         </div>
         {copied === 'failed' && (
@@ -306,7 +306,7 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
 
       <section className={print ? '' : 'card'} aria-label="Crew">
         <Heading icon="people">Crew</Heading>
-        {sheet.calls.length === 0 && <Empty>Crew are asked for on the job's page.</Empty>}
+        {sheet.calls.length === 0 && <Empty>Crew are added on the job's page.</Empty>}
         {sheet.calls.map((c) => (
           <article key={c.id} className="sheet-call">
             <header>

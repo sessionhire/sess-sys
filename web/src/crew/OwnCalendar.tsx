@@ -83,7 +83,7 @@ export function OwnCalendarCard({ person, view }: { person: PersonView; view: Vi
                 </label>
                 <p className="hint wide">It's read now, so a wrong address is said here. Then every few hours, on its own.</p>
                 <button type="submit" className="primary" aria-busy={reading || undefined} disabled={reading}>
-                  {reading ? 'Reading their calendar…' : 'Read their calendar'}
+                  {reading ? 'Reading calendar…' : 'Read calendar'}
                 </button>
               </form>
             </Fold>
@@ -121,7 +121,7 @@ export function OwnCalendarCard({ person, view }: { person: PersonView; view: Vi
           {mayEdit && !cal.stopping && !stopping && (
             <div className="actions">
               <button type="button" onClick={readNow} aria-busy={reading || undefined} disabled={reading}>
-                {reading ? 'Reading it…' : 'Read it now'}
+                {reading ? 'Reading it…' : 'Read now'}
               </button>
               <button type="button" className="link" onClick={() => setStopping(true)}>
                 Stop reading it

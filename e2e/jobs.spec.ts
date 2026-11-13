@@ -66,13 +66,13 @@ test('a job with its phases and crew, renamed for the crew too', async ({ browse
 
   // Crew for the build.
   await office.getByRole('tab', { name: /^Crew/ }).click()
-  await office.getByRole('button', { name: 'Ask for crew' }).click()
-  const ask = office.getByRole('form', { name: 'Ask for crew' })
+  await office.getByRole('button', { name: 'Add a role' }).click()
+  const ask = office.getByRole('form', { name: 'Add a role' })
   await ask.getByLabel('For which phase').selectOption({ label: 'Build, Mon 7 Oct to Tue 8 Oct' })
   await ask.getByLabel('Role').fill('Audio tech')
   await ask.getByLabel('How many').fill('2')
   await ask.getByLabel('Day rate €').fill('250')
-  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  await ask.getByRole('button', { name: 'Add role' }).click()
   const build = office.getByRole('article', { name: 'Build' })
   await expect(build.locator('.job b')).toHaveText('2 × Audio tech')
   // The call is one line under its phase (audit finding 16); a tap opens its days, rate and department (ADR 0046), which "Audio tech" suggests.

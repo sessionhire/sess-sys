@@ -226,7 +226,7 @@ function Choose(p: {
       )}
       {p.offline && <p className="hint">This needs signal: the app reads the calendar from Google.</p>}
       <button type="submit" className="primary" disabled={p.looking || p.offline || !p.calendarId || !isDay(p.from)}>
-        {p.looking ? 'Reading the calendar…' : 'Look at the calendar'}
+        {p.looking ? 'Reading calendar…' : 'Read calendar'}
       </button>
     </form>
   )
@@ -296,7 +296,7 @@ function Look(p: {
             : `${plural(preview.jobs.length, 'job', 'jobs')} found in ${plural(preview.events, 'event', 'events')}.`}
         </p>
         <button type="button" className="link" onClick={p.onBack} disabled={p.bringing}>
-          Choose another calendar or day
+          Change calendar or day
         </button>
       </section>
 
@@ -597,7 +597,7 @@ function Brought({ offline }: { offline: boolean }) {
         asking ? (
           <Confirm
             question={`Take back ${plural(b.jobs, 'job', 'jobs')}, their crew bookings and offers${b.people ? ` and ${plural(b.people, 'person', 'people')} added from the invites` : ''}? Anything changed on those jobs in the app goes with them.${b.kept > 0 ? ` ${keptWords(b.kept)}` : ''} The history keeps a record.`}
-            yes="Take it all back"
+            yes="Take all back"
             loss
             no="Keep it"
             onYes={take}
@@ -605,7 +605,7 @@ function Brought({ offline }: { offline: boolean }) {
           />
         ) : (
           <button type="button" disabled={s.state === 'taking' || offline} onClick={() => setAsking(true)}>
-            {s.state === 'taking' ? 'Taking back…' : 'Take it all back'}
+            {s.state === 'taking' ? 'Taking back…' : 'Take all back'}
           </button>
         )
       )}
@@ -665,13 +665,13 @@ function Done({ preview, result, onAgain }: { preview: ImportPreview; result: Im
       )}
       <div className="actions">
         <a className="button primary" href={`#jobs/plan/month/${addMonths(first, 0)}`}>
-          See them in the planner
+          Open planner
         </a>
         <a className="button" href="#jobs/tidy">
           Tidy up what came in
         </a>
         <button type="button" onClick={onAgain}>
-          Look at another calendar
+          Read another calendar
         </button>
       </div>
     </section>

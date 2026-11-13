@@ -49,11 +49,11 @@ test('a job set going again asks for the same crew with one press of Next, and s
   )
   await expect(card.locator('p.hint')).toHaveText('It comes back with nobody offered, and its Offer has the same people picked, ready to send. Nothing goes to anyone until you press Offer.')
 
-  await expect(card.getByRole('button', { name: 'Ask for the same crew again' })).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Ask same crew again' })).toBeVisible()
 
   // Next, the page's one filled button, does the same as the card's.
   const next = page.getByRole('region', { name: 'Next' })
-  await next.getByRole('button', { name: 'Ask for the same crew again' }).click()
+  await next.getByRole('button', { name: 'Ask same crew again' }).click()
   // Back, with its Offer open and the two of them picked: nothing has gone to either, and Next sends it.
   const form = page.locator('form.offer-form')
   const offer = form.getByRole('button', { name: 'Offer to 2 people' })

@@ -144,7 +144,7 @@ export function PrintRackSheet({ r }: { r: RackView }) {
   return (
     <>
       <button type="button" onClick={() => setPrinting(true)} disabled={printing || r.slots.length === 0}>
-        Print the rack sheet
+        Print rack sheet
       </button>
       {printing && createPortal(<RackSheet r={r} />, document.body)}
     </>

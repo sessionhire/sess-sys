@@ -103,7 +103,7 @@ describe('the history', () => {
       ['Dara Kelly', 'link', `Marked Dara Kelly away ${daysLabel(away)} (Family wedding)`],
       ['Dara Kelly', 'link', 'Dara Kelly accepted Audio tech on Electric Picnic'],
       ['Colly Hewson', 'staff', 'Offered Audio tech on Electric Picnic to Dara Kelly'],
-      ['Colly Hewson', 'staff', 'Asked for 1 × Audio tech for Electric Picnic (Build), Fri 2 Oct to Sun 4 Oct'],
+      ['Colly Hewson', 'staff', 'Added 1 × Audio tech to Electric Picnic (Build), Fri 2 Oct to Sun 4 Oct'],
       ['Colly Hewson', 'staff', "Saved Dara Kelly's details"],
     ])
     expect(page.entries[0]).toMatchObject({ who: { key: 'link:p1' }, device: 'Chrome on Android' })
