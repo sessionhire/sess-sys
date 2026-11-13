@@ -217,14 +217,18 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // This job is past Quoting, so its Next stays the crew's and the quote's Send is the draft's own, plain (ADR 0166). The PDF
   // to keep is beside it, apart.
   // Getting it is busy at once and, past a second, spins and says so (13 November 2026), then saves the file the server made.
+  // The PDF is held back until the busy words have been seen, so the check never races the file.
+  let letGo = () => {}
+  const held = new Promise<void>((r) => (letGo = r))
   await office.route('**/api/quotes/*/pdf?download=1', async (route) => {
-    await new Promise((r) => setTimeout(r, 1_600))
+    await held
     await route.continue()
   })
   const getPdf = draft.getByRole('button', { name: 'Download the PDF' })
   const saved = office.waitForEvent('download')
   await getPdf.click()
   await expect(draft.getByRole('button', { name: 'Getting the PDF…' })).toHaveAttribute('aria-busy', 'true')
+  letGo()
   expect((await saved).suggestedFilename()).toMatch(/\.pdf$/)
   await expect(getPdf).not.toHaveAttribute('aria-busy')
   await office.unroute('**/api/quotes/*/pdf?download=1')
