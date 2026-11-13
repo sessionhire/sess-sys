@@ -11,7 +11,8 @@ import { expect, test, type Page } from '@playwright/test'
  */
 
 const phoneSize = { width: 390, height: 844 }
-const tag = () => Math.random().toString(36).slice(2, 8)
+// Letters only: a bay's name ends in its number, so a tag ending in a digit would run into it.
+const tag = () => Array.from({ length: 6 }, () => 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]).join('')
 
 async function newProduct(page: Page, name: string, at: string, count: number, counted = false) {
   await page.goto('/#stock')
