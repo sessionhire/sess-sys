@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.192.1',
+    date: '2026-11-13',
+    title: "The quote's Change terms button, and its quiet buttons, drawn like the rest",
+    what: "On a quote, Change under Terms is now an outlined button like Download PDF beside it, with room around its word, rather than red text squeezed into a box. Accepted already, by phone? is a full-size button too, rather than small type.",
+    prs: [0],
+  },
+  {
     version: '1.192.0',
     date: '2026-11-13',
     title: 'Cancel this job, errands that look like errands, and fixes from the map of every route through a job',

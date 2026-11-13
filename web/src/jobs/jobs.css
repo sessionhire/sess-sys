@@ -410,8 +410,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-group h3, .quote-screen .quote-head { margin: 0; }
 .quote-screen .quote-head { padding-top: var(--ds-space-1); }
 .quote-screen .quote-side > .quote-head:first-child { padding-top: 0; }
-.quote-screen button.link.quiet { color: var(--on-line); font-weight: 600; font-size: var(--text-hint); text-decoration-color: var(--field-line); }
-.quote-screen .group-head button.link.quiet { margin-block: calc(-1 * var(--ds-space-2)); }
+.quote-screen button.link.quiet { color: var(--on-line); }
+/* In a group's head a quiet link-button stays small words beside the heading; everywhere else it is a quiet ghost at a button's size. */
+.quote-screen .group-head button.link.quiet { margin-block: calc(-1 * var(--ds-space-2)); font-size: var(--text-hint); text-decoration-color: var(--field-line); }
 .quote-screen .quote-main > button.link.quiet { justify-self: start; }
 /* A line reads as a row to press: what, how it's charged, what it comes to, and the mark that says it opens. */
 .quote-screen .quote-line-row { display: grid; gap: 0; min-width: 0; }
@@ -535,9 +536,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .kit-days-all .unit-box, .quote-screen .group-discount .unit-box { width: 8em; }
 .quote-screen .kit-days-all .hint { flex-basis: 100%; }
 /* The terms, two short fields to a row, then the sums and the sending. */
-.quote-screen .terms-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--ds-space-3); }
+.quote-screen .terms-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-3); }
 .quote-screen .terms-line p { margin: 0; }
-.quote-screen .terms-line .link { min-height: 44px; padding: 0; }
 .quote-screen .quote-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-3); }
 .quote-screen .quote-terms .field { min-width: 0; align-content: start; }
 .quote-screen .agreed-note { margin: var(--ds-space-half) 0 0; color: var(--ink); }
