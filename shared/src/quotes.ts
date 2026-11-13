@@ -391,6 +391,26 @@ export interface QuoteEmail {
   copyTo: string | null
   /** When the app read it back from the mailbox's Sent folder (ADR 0171); null until it has. */
   inSentAt: string | null
+  /** Its conversation in the mailbox, to open in Gmail (ADR 0172). */
+  threadId: string | null
+  /** What came back in the week it's watched (ADR 0172): a bounce, for which addresses and why in words; a delay while the
+   * mail system is still trying (gone once it bounces); and the client's replies, the latest with who from. */
+  bounced: { at: string; to: string[]; why: string } | null
+  delayed: { at: string; to: string[] } | null
+  replies: number
+  reply: { at: string; from: string } | null
+}
+
+/** How long a quote's email is watched for what comes back (ADR 0172). */
+export const QUOTE_EMAIL_WATCH_DAYS = 7
+
+/** The conversation in Gmail, opened as the mailbox (ADR 0172). */
+export const gmailThreadUrl = (e: Pick<QuoteEmail, 'from' | 'threadId'>) => (e.threadId ? `https://mail.google.com/mail/u/${encodeURIComponent(e.from)}/#all/${encodeURIComponent(e.threadId)}` : null)
+
+/** A sent version's latest email, when it bounced and nothing has gone since: what the office has to put right (ADR 0172). */
+export function bouncedEmail(emails: readonly QuoteEmail[]): QuoteEmail | undefined {
+  const latest = [...emails].sort((a, b) => b.at.localeCompare(a.at))[0]
+  return latest?.bounced ? latest : undefined
 }
 
 export interface QuoteEntities {

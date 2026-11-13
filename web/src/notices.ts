@@ -223,6 +223,11 @@ function recordPlace({ entity, id }: { entity: string; id: string }, view: View)
     // A request on the purchase list (ADR 0077), on its own page.
     case 'purchaseRequest':
       return `#stock/buy/${encodeURIComponent(id)}`
+    // What came back to a quote's email (ADR 0172): on its job's Quote tab, where the email is.
+    case 'quoteEmail': {
+      const j = view.jobs.jobs.find((x) => view.money.quotesOf(x.id).some((q) => q.emails.some((e) => e.id === id)))
+      return j ? `#jobs/${j.id}/quote` : undefined
+    }
     default:
       return undefined
   }

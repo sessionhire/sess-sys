@@ -1,4 +1,5 @@
 import {
+  bouncedEmail,
   acceptPath,
   dayLabel,
   daysWord,
@@ -34,6 +35,7 @@ import { InCurrentRms, NewVersion, nextRecord, Records } from './QuoteRecords.ts
 import { Draft } from './QuoteDraft.tsx'
 import { DeleteQuote } from './QuoteDelete.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
+import { useEmailAgainAsked } from './quoteSend.ts'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
 
 export { InStep, QuotePill } from './QuoteStatus.tsx'
@@ -104,6 +106,15 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
 
   const q = versions.find((v) => v.id === picked) ?? m.draftOf(jobId) ?? m.currentOf(jobId) ?? versions[0]
   const current = m.currentOf(jobId)
+  // The shown version's last email bounced (ADR 0172): sending it again, to the addresses put right, is the press.
+  const bounced = q ? bouncedEmail(q.emails) : undefined
+  // Next's "Fix address and resend" (ADR 0172): the email opens on the current version, at the addresses it went to.
+  const againAsked = useEmailAgainAsked(jobId)
+  useEffect(() => {
+    if (!againAsked || !current) return
+    setPicked(current.id)
+    setComposing(current.id)
+  }, [againAsked])
   const settled = versions.some((v) => v.invoicedOn)
   const jm = m.job(jobId)
   // The quote's one filled red is what to record next on the current version, under What happened (nextRecord). Sending or printing
@@ -167,12 +178,12 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
             <Emails emails={q.emails} />
             <ClientLink q={q} on={!!m.quoting.acceptOnline} />
             {composing === q.id ? (
-              <SendQuote q={q} onSent={() => setComposing(undefined)} onCancel={() => setComposing(undefined)} />
+              <SendQuote q={q} onSent={() => setComposing(undefined)} onCancel={() => setComposing(undefined)} {...(bounced ? { after: bounced } : {})} />
             ) : (
               <div className="actions">
                 {byEmail && q.latest && (
-                  <button type="button" className={plainSend || q.emails.length ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
-                    {q.emails.length ? 'Send again' : 'Email quote'}
+                  <button type="button" className={(plainSend || q.emails.length) && !bounced ? undefined : 'primary'} onClick={() => setComposing(q.id)}>
+                    {bounced ? 'Fix address and resend' : q.emails.length ? 'Send again' : 'Email quote'}
                   </button>
                 )}
                 <button type="button" className={plainSend || (byEmail && q.latest && !q.emails.length) ? undefined : 'primary'} onClick={() => setPrinting(true)} aria-busy={printing || undefined}>

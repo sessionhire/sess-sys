@@ -1,4 +1,4 @@
-import { addDays, byBoardOrder, dayLabel, rankedAfterDrop, type JobStage, JOB_STAGES, jobPosition, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
+import { addDays, bouncedEmail, byBoardOrder, dayLabel, rankedAfterDrop, type JobStage, JOB_STAGES, jobPosition, plural, spanLabel, STAGE_LABELS, standing, STANDING_HEADINGS, listHeading, type JobSteps, type JobView, type KitToCheck, type View } from '@sh/shared'
 import { useState } from 'react'
 import { client } from '../sync.ts'
 import { useAct, Refusal } from '../act.tsx'
@@ -288,9 +288,16 @@ function BoardCard({ view, steps, today, kit }: { view: View; steps: JobSteps; t
   const late = steps.steps.filter((t) => t.late)
   let line = ''
   let tone: 'warn' | 'bad' | undefined
+  // Money's records reach only those who see money, so for anyone else there's never one.
+  const current = view.money.currentOf(job.id)
+  const bounced = current?.status === 'sent' ? bouncedEmail(current.emails) : undefined
   const deprep = steps.steps.find((t) => t.key === 'deprep')
   if (steps.finished) line = deprep?.ticked ? `Deprepped ${dayLabel(deprep.ticked.at.slice(0, 10))}` : deprep?.auto ? 'Through: nothing still out' : 'Deprepped'
-  else if (steps.lapsed) {
+  else if (bounced?.bounced) {
+    // Its quote's email bounced (ADR 0172): no answer will come to it, so it's said first, for those who see money.
+    line = `Quote email bounced: ${bounced.bounced.to.join(', ')}`
+    tone = 'bad'
+  } else if (steps.lapsed) {
     line = 'Dates passed, no answer: mark it lost?'
     tone = 'bad'
   } else if (late.length) {

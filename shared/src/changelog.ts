@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.188.0',
+    date: '2026-11-13',
+    title: 'The app tells you when a quote email bounces, is delayed or gets a reply',
+    what: "For a week after a quote is emailed, the app keeps an eye on that email's conversation in the operations mailbox. If it bounces, the quote says so with the address and why (for example, the address doesn't exist), whoever sent it is told, Home shows it, and the job's Next becomes Fix address and resend, which opens the email ready to put the address right. A delay from the client's mail system is shown too, and when the client replies the quote says who replied, with a link to open it in Gmail. Only that conversation is looked at, never the rest of the mailbox.",
+    prs: [375],
+    adrs: [172],
+  },
+  {
     version: '1.187.0',
     date: '2026-11-13',
     title: 'Sending a quote by email says where it is, and can never go twice',

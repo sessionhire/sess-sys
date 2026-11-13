@@ -561,6 +561,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .compose label.tick input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
 .quote-screen .quote-emails .sent-line { display: flex; gap: var(--ds-space-2); align-items: flex-start; }
 .quote-screen .quote-emails .sent-line svg { flex: none; width: 18px; height: 18px; margin-top: 2px; }
+/* What came back (ADR 0172): a bounce in the app's bad, a delay in amber; a reply, like everything healthy, is quiet. */
+.quote-screen .quote-emails .bad-line { color: var(--bad); }
+.quote-screen .quote-emails .late-line { color: var(--warn); }
+.quote-screen .quote-emails li.bounced { border-left: 3px solid var(--bad); padding-left: var(--ds-space-2); }
 .quote-screen .quote-emails { display: grid; gap: var(--ds-space-2); margin: 0 0 var(--ds-space-3); font-size: var(--text-small); }
 .quote-screen .quote-emails small { display: block; color: var(--muted); }
 .quote-table-wrap { overflow-x: auto; overflow-y: hidden; }

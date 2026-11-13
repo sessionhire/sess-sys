@@ -185,6 +185,20 @@ const MIGRATIONS: string[] = [
     started_at timestamptz NOT NULL DEFAULT now()
   );
   `,
+  // Watching a quote's email for a week (ADR 0172): when it was last looked at, the messages already read, and what came
+  // back: a bounce (for which addresses, and why), a delay, and the client's replies.
+  `
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS looked_at timestamptz;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS seen_ids text[] NOT NULL DEFAULT '{}';
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS bounced_at timestamptz;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS bounced_to text[];
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS bounce_why text;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS delayed_at timestamptz;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS delayed_to text[];
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS replies integer NOT NULL DEFAULT 0;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS replied_at timestamptz;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS replied_from text;
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

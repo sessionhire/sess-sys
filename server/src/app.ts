@@ -68,6 +68,7 @@ import { registerWhatsAppRoutes } from './whatsapp/routes.ts'
 import { WhatsApp } from './whatsapp/whatsapp.ts'
 import { WhatsAppSender } from './whatsapp/sender.ts'
 import { registerQuoteEmailRoutes } from './finance/email-routes.ts'
+import { QuoteWatch } from './finance/quote-watch.ts'
 import { registerAcceptRoutes } from './finance/accept-routes.ts'
 import { registerStatusRoutes, Status, type OutsideLooks } from './status.ts'
 import { registerTrackerRoutes } from './trackers/routes.ts'
@@ -206,6 +207,7 @@ declare module 'fastify' {
     assistantTodo: Todo
     /** Claude reading the operations mailbox (ADR 0098); the caller starts it once the server is listening. */
     assistantMailbox: Mailbox
+    quoteWatch: QuoteWatch
     /** Sends offers on WhatsApp as they're made (ADR 0125); the caller starts its once-a-minute look. */
     whatsappSender: WhatsAppSender
     /** Wakes the calendar and WhatsApp as an offer's wait for Undo ends (ADR 0162); the caller starts it once the server is listening. */
@@ -713,6 +715,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('assistantMailbox', mailbox)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
   registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke(), logo: () => readLogo(db.reads, documents), ...(options.mx ? { mx: options.mx } : {}), ...(options.recheckMs !== undefined ? { recheckMs: options.recheckMs } : {}) })
+  // What comes back to each quote's email in its first week (ADR 0172): bounces, delays and the client's replies.
+  app.decorate('quoteWatch', new QuoteWatch(db, mailbox, () => void poke(), app.log))
   // What comes back from WhatsApp (ADR 0125, part 3): receipts, and Yes and No pressed on an offer.
   registerWhatsAppRoutes(app, { whatsapp, answers: new WhatsAppAnswers(db, whatsapp, { onChange: changed, log: app.log }) })
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.
@@ -816,6 +820,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     app.fuelUpdates.stop()
     app.assistantTodo.stop()
     app.assistantMailbox.stop()
+    app.quoteWatch.stop()
     whatsappSender.stop()
     offerWaits.stop()
     documents.stop()

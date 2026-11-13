@@ -1,4 +1,4 @@
-import { crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
+import { bouncedEmail, crewNext, dayLabel, firstName, plural, ratesClosedBy, STATUS_LABELS, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
 import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -11,7 +11,7 @@ import { useReach } from '../crew/reach.tsx'
 import { useToday } from '../view.ts'
 import { offerFormId, useOfferPicks } from '../crew/offerPicks.ts'
 import { confirmQuestion, holdingTheDay } from './jobStatus.ts'
-import { askToSend, useDraftSend, useSendingWords } from './quoteSend.ts'
+import { askToEmailAgain, askToSend, useDraftSend, useSendingWords } from './quoteSend.ts'
 import { useQuotesByEmail } from '../MailboxCard.tsx'
 import { serverUrl } from '../server.ts'
 import { GetFile } from '../GetFile.tsx'
@@ -189,6 +189,20 @@ export function NextDock({
       if (sending === 'composing') return rest(composingWords, answers)
       if (sending) {
         press = sending
+        break
+      }
+      // The quote's email bounced (ADR 0172): no answer will come to an email that never arrived, so putting the address right
+      // and sending it again comes first, until something goes after it.
+      const current = access.can('money') && !yes ? view.money.currentOf(job.id) : undefined
+      const bounce = current && byEmail ? bouncedEmail(current.emails) : undefined
+      if (bounce?.bounced) {
+        press = {
+          label: 'Fix address and resend',
+          onPress: () => {
+            askToEmailAgain(job.id)
+            onPart('quote')
+          },
+        }
         break
       }
       // On the Quote tab, the answer is recorded under What happened, whose button is the one red (ADR 0140, part 4).

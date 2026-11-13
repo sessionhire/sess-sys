@@ -1,4 +1,4 @@
-import { likelyAddress, newId, QUOTE_EMAIL_LIMITS, type QuoteAddressCheck, type QuoteEmail, type QuoteEmailPrefill, type QuoteSendState, type QuoteView } from '@sh/shared'
+import { dayLabel, gmailThreadUrl, likelyAddress, newId, QUOTE_EMAIL_LIMITS, QUOTE_EMAIL_WATCH_DAYS, type QuoteAddressCheck, type QuoteEmail, type QuoteEmailPrefill, type QuoteSendState, type QuoteView } from '@sh/shared'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { when } from '../format.ts'
 import { Icon } from '../Icon.tsx'
@@ -22,7 +22,7 @@ const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 /** "a@b.ie, c@d.ie" as typed, split into addresses. */
 const addressesOf = (typed: string) => typed.split(/[,\s;]+/).map((s) => s.trim()).filter(Boolean)
 
-export function SendQuote({ q, onSent, onCancel }: { q: QuoteView; onSent: (email: QuoteEmail) => void; onCancel: () => void }) {
+export function SendQuote({ q, onSent, onCancel, after }: { q: QuoteView; onSent: (email: QuoteEmail) => void; onCancel: () => void; /** The email that bounced, when this is it sent again (ADR 0172). */ after?: QuoteEmail }) {
   const [again, setAgain] = useState(0)
   const loaded = useAsked(true, `${q.id}-${again}`, () => getJson<QuoteEmailPrefill>(`/api/quotes/${encodeURIComponent(q.id)}/email`), again)
   return (
@@ -30,7 +30,7 @@ export function SendQuote({ q, onSent, onCancel }: { q: QuoteView; onSent: (emai
       {loaded.state === 'loading' ? (
         <p className="hint">Getting the client's details…</p>
       ) : loaded.state === 'ready' ? (
-        <Compose key={again} q={q} start={loaded.data} onSent={onSent} onCancel={onCancel} onAgain={() => setAgain((n) => n + 1)} />
+        <Compose key={again} q={q} start={after ? { ...loaded.data, to: after.to } : loaded.data} after={after} onSent={onSent} onCancel={onCancel} onAgain={() => setAgain((n) => n + 1)} />
       ) : (
         <>
           <p className="warn-line">{loaded.state === 'gone' ? loaded.error : 'The server can’t be reached, so the email can’t be put together. Try again with signal.'}</p>
@@ -63,7 +63,7 @@ const CHECKS = 20
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-function Compose({ q, start, onSent, onCancel, onAgain }: { q: QuoteView; start: QuoteEmailPrefill; onSent: (email: QuoteEmail) => void; onCancel: () => void; onAgain: () => void }) {
+function Compose({ q, start, after, onSent, onCancel, onAgain }: { q: QuoteView; start: QuoteEmailPrefill; after?: QuoteEmail; onSent: (email: QuoteEmail) => void; onCancel: () => void; onAgain: () => void }) {
   const [to, setTo] = useState(start.to.join(', '))
   const [subject, setSubject] = useState(start.subject)
   const [message, setMessage] = useState(start.message)
@@ -235,6 +235,11 @@ function Compose({ q, start, onSent, onCancel, onAgain }: { q: QuoteView; start:
         </a>
         {draft ? `. Sending marks it sent, as quote ${start.number}, and it then stays as it is.` : '.'}
       </p>
+      {after?.bounced && (
+        <p className="warn-line">
+          The last one bounced for {after.bounced.to.join(', ')}: {after.bounced.why}. Put the address right below, then send it again.
+        </p>
+      )}
       <label className="field" htmlFor={ids.to}>
         To
       </label>
@@ -306,34 +311,78 @@ function Compose({ q, start, onSent, onCancel, onAgain }: { q: QuoteView; start:
 }
 
 /**
- * The emails a quote went in, newest first, each with the PDF that went, and how far it's known to have got (ADR 0171): taken
- * by Gmail, then found in the mailbox's Sent folder, and who had a copy.
+ * The emails a quote went in, newest first, each with the PDF that went, and how far it's known to have got (ADR 0171, ADR
+ * 0172): taken by Gmail, found in the mailbox's Sent folder, who had a copy; then, in its first week, what came back: a
+ * bounce (for which address, and why), a delay while the mail system is still trying, and the client's reply, with the
+ * conversation to open in Gmail. Healthy is quiet; a delay is amber, a bounce the app's colour for bad.
  */
 export function Emails({ emails }: { emails: readonly QuoteEmail[] }) {
   if (!emails.length) return null
+  const now = Date.now()
   return (
     <ul className="plain quote-emails" aria-label="Emailed to the client">
-      {emails.map((e) => (
-        <li key={e.id}>
-          <span className="sent-line">
-            <Icon name="done" />
-            <span>
-              <b>Sent {when(e.at)}</b>
-              {e.by ? ` by ${e.by}` : ''} to {e.to.join(', ')}
+      {emails.map((e) => {
+        const gmail = gmailThreadUrl(e)
+        const until = new Date(new Date(e.at).getTime() + QUOTE_EMAIL_WATCH_DAYS * 24 * 60 * 60_000)
+        const watching = until.getTime() > now
+        return (
+          <li key={e.id} className={e.bounced ? 'bounced' : undefined}>
+            <span className="sent-line">
+              <Icon name="done" />
+              <span>
+                <b>Sent {when(e.at)}</b>
+                {e.by ? ` by ${e.by}` : ''} to {e.to.join(', ')}
+              </span>
             </span>
-          </span>
-          <small>
-            {e.inSentAt ? `In the Sent folder of ${e.from}` : `Gmail took it from ${e.from}; not yet seen in its Sent folder`}
-            {e.copyTo ? ` · a copy went to ${e.copyTo}` : ''}
-          </small>
-          <small>
-            {e.subject} ·{' '}
-            <a href={serverUrl(`/api/quotes/emails/${encodeURIComponent(e.id)}/pdf`)} target="_blank" rel="noopener">
-              The PDF that went
-            </a>
-          </small>
-        </li>
-      ))}
+            <small>
+              {e.inSentAt ? `In the Sent folder of ${e.from}` : `Gmail took it from ${e.from}; not yet seen in its Sent folder`}
+              {e.copyTo ? ` · a copy went to ${e.copyTo}` : ''}
+            </small>
+            {e.bounced && (
+              <span className="sent-line bad-line" role="status">
+                <Icon name="error" />
+                <span>
+                  <b>Bounced</b> {when(e.bounced.at)} for {e.bounced.to.join(', ')}: {e.bounced.why}.
+                </span>
+              </span>
+            )}
+            {e.delayed && (
+              <span className="sent-line late-line">
+                <Icon name="late" />
+                <span>
+                  <b>Delayed</b> for {e.delayed.to.join(', ')}: the mail system is still trying.
+                </span>
+              </span>
+            )}
+            {e.reply && (
+              <span className="sent-line">
+                <Icon name="mail" />
+                <span>
+                  <b>{e.reply.from} replied</b> {when(e.reply.at)}
+                  {e.replies > 1 ? ` (${e.replies} replies)` : ''}
+                  {gmail && (
+                    <>
+                      {' · '}
+                      <a href={gmail} target="_blank" rel="noopener">
+                        Open in Gmail
+                      </a>
+                    </>
+                  )}
+                </span>
+              </span>
+            )}
+            {!e.bounced && !e.delayed && !e.reply && (
+              <small>{watching ? `Watching for a bounce or a reply until ${dayLabel(until.toISOString().slice(0, 10))}.` : 'No bounce or reply in its first week.'}</small>
+            )}
+            <small>
+              {e.subject} ·{' '}
+              <a href={serverUrl(`/api/quotes/emails/${encodeURIComponent(e.id)}/pdf`)} target="_blank" rel="noopener">
+                The PDF that went
+              </a>
+            </small>
+          </li>
+        )
+      })}
     </ul>
   )
 }
