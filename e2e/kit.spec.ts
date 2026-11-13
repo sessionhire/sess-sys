@@ -79,7 +79,7 @@ async function uncounted(page: Page, name: string) {
 
 async function addKit(page: Page, product: string, qty: number, days = 'Whole job') {
   // Behind its button until the first line; it stays open for the next.
-  const opener = page.getByRole('button', { name: 'Add kit' })
+  const opener = page.getByRole('button', { name: 'Add kit', exact: true })
   if (await opener.count()) await opener.click()
   const form = page.getByRole('form', { name: 'Add kit' })
   await form.getByLabel('Product').fill(product)

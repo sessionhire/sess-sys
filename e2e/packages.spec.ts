@@ -79,7 +79,7 @@ test('a package and a rack go on a quote with their kit under them, and a quoteâ
   await expect(set.locator('.set-lines')).toHaveCount(0)
 
   // A rack goes on with what's built into it, in its price.
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await draft.getByLabel('Kit to add').fill(`Amp rack ${id}`)
   await draft.getByRole('option', { name: new RegExp(`Amp rack ${id}`) }).click()
   await draft.getByRole('button', { name: 'Done' }).click()
@@ -112,7 +112,7 @@ test('a package and a rack go on a quote with their kit under them, and a quoteâ
 
   // A package's kit on the job's kit list in one press.
   await ready(office, `#jobs/job-${id}/kit`)
-  await office.getByRole('button', { name: 'Add kit' }).click()
+  await office.getByRole('button', { name: 'Add kit', exact: true }).click()
   const addPackage = office.getByRole('form', { name: 'Add a package' })
   await addPackage.getByLabel('Package').selectOption({ label: `Small PA ${id}` })
   await addPackage.getByRole('button', { name: 'Add its kit' }).click()

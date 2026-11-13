@@ -117,7 +117,7 @@ test('a long draft on a phone opens folded to its groups, and picking kit there 
 
   // Picking kit: the readout is one line, and the bar stays at the foot, as on every other screen (Colly, 12 November 2026).
   await expect(office.locator('.foot')).toBeVisible()
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await expect(draft.locator('.quote-summary .figure').filter({ hasText: 'Total' })).toBeHidden()
   await expect(office.locator('.foot')).toBeVisible()
   await office.keyboard.press('Escape')

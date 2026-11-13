@@ -181,7 +181,7 @@ export function Records({ q, job, canEmail, quiet }: { q: QuoteView; job: JobVie
           ) : (
             <>
               <button type="button" className={primaryIfNext('answer')} disabled={confirms && job.pending} onClick={() => (confirmAsk ? setAskingYes(true) : accept())}>
-                {confirms ? 'Accepted: confirm job' : 'Client accepted'}
+                {confirms ? 'Client accepted: confirm job' : 'Client accepted'}
               </button>
               <button type="button" aria-expanded={!!why} onClick={() => setWhy(why ? undefined : { reason: null, note: '' })}>
                 Client turned it down

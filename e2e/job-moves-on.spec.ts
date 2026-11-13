@@ -93,7 +93,7 @@ test('a past quote for a job already here goes on its quote, not on a second job
   const onto = office.getByRole('region', { name: "Put it on a job's quote" })
   await expect(onto.getByLabel('The job')).toHaveValue('Corrib Arts Week')
   await expect(onto).toContainText('It has no draft, so these start one.')
-  await onto.getByRole('button', { name: /^Put 1 line on the quote$/ }).click()
+  await onto.getByRole('button', { name: /^Add 1 line to quote$/ }).click()
 
   await expect(office).toHaveURL(new RegExp(`#jobs/${jobId}/quote$`))
   const draft = office.getByRole('form', { name: 'Version 2, a draft' })

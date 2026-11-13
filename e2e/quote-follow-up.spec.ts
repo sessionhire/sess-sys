@@ -102,7 +102,7 @@ test('the office starts a quote from Quotes, sends it, and puts the job in step 
   await office.locator('.job-row', { hasText: 'Docklands Awards' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
   await expect(records).toContainText('Their yes confirms the job: it goes on the jobs calendar and its kit is held.')
-  await records.getByRole('button', { name: 'Accepted: confirm job' }).click()
+  await records.getByRole('button', { name: 'Client accepted: confirm job' }).click()
   await expect(records.getByRole('button', { name: 'Mark invoiced' })).toBeVisible()
   await expect(records).not.toContainText('still quoted')
   await expect(records.getByRole('button', { name: 'Confirm job' })).toHaveCount(0)

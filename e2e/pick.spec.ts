@@ -155,7 +155,7 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name: job })).toBeVisible()
   await page.getByRole('tab', { name: 'Kit', exact: true }).click()
-  await page.getByRole('button', { name: 'Add kit' }).click()
+  await page.getByRole('button', { name: 'Add kit', exact: true }).click()
   for (const [product, qty] of [
     [speaker, 2],
     [cable, 12],
@@ -177,7 +177,7 @@ test('a pick list: kit found, scanned and counted out, then back with no signal'
   // The job page's dock, in the floor's words, in the foot (Move 8 of the sweep of 6 November 2026); the scan box under the top
   // bar and the dock never cover each other at 390px.
   const dock = page.getByRole('region', { name: 'Next' })
-  await expect(dock).toHaveText('Next · Pick the kit · 0 of 14 out')
+  await expect(dock).toHaveText('Next · Pick kit · 0 of 14 out')
   const apart = async () => {
     const [scan, foot] = await Promise.all([page.locator('.scan-dock').boundingBox(), dock.boundingBox()])
     expect(scan!.y + scan!.height).toBeLessThanOrEqual(foot!.y)
@@ -386,7 +386,7 @@ test('picking on the phone: whose kit, a walk round the warehouse, notes, Undo a
   await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name: job })).toBeVisible()
   await page.getByRole('tab', { name: 'Kit', exact: true }).click()
-  await page.getByRole('button', { name: 'Add kit' }).click()
+  await page.getByRole('button', { name: 'Add kit', exact: true }).click()
   for (const [product, qty] of [
     [speaker, 2],
     [light, 2],
@@ -440,7 +440,7 @@ test('picking on the phone: whose kit, a walk round the warehouse, notes, Undo a
 
   // The cables in one tap, and undone.
   const cableRow = pickRow(page, cable)
-  await cableRow.getByRole('button', { name: 'Count out the 20' }).click()
+  await cableRow.getByRole('button', { name: 'Count out 20' }).click()
   await expect(said).toHaveText(`20 × ${cable} counted out.`)
   await expect(page.locator('.pick-total')).toHaveText('20 of 24 out')
   await page.screenshot(shot('pick-walk'))
@@ -450,7 +450,7 @@ test('picking on the phone: whose kit, a walk round the warehouse, notes, Undo a
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
   // Picking under way, the list opens on the first thing still to pick (ADR 0140, part 6), rather than at the top again.
-  await pickRow(page, cable).getByRole('button', { name: 'Count out the 20' }).click()
+  await pickRow(page, cable).getByRole('button', { name: 'Count out 20' }).click()
   await expect(said).toHaveText(`20 × ${cable} counted out.`)
   await expect(page.locator('.pick-total')).toHaveText('20 of 24 out')
   // Sent, not only on this phone, before the page is opened again.

@@ -246,7 +246,7 @@ test('confirming a job its crew hold the day for asks first, and says after what
   // The quote's What happened: the client's yes asks first too, and the panel opens on the job's page.
   await office.goto(`/#jobs/${k('quote')}/quote`)
   const records = office.getByRole('region', { name: 'What happened' })
-  await records.getByRole('button', { name: 'Accepted: confirm job' }).click()
+  await records.getByRole('button', { name: 'Client accepted: confirm job' }).click()
   await records
     .getByRole('group', { name: `Confirm ${jobs.quote}? The person asked to hold the day will see it's going ahead on their link. Nothing is sent to them.` })
     .getByRole('button', { name: 'Confirm job' })

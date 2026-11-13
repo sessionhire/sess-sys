@@ -105,7 +105,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   expect(await redsBesideTheDock()).toEqual([])
   await office.getByRole('tab', { name: 'Kit', exact: true }).click()
   await office.locator('.kit-days').getByRole('button', { name: 'Change' }).click()
-  await office.getByRole('button', { name: 'Add kit' }).click()
+  await office.getByRole('button', { name: 'Add kit', exact: true }).click()
   for (const form of ['Days to get kit ready and back', 'Add kit']) await expect(office.getByRole('form', { name: form })).toBeVisible()
   expect(await redsBesideTheDock()).toEqual([])
   await office.getByRole('tab', { name: /^Transport/ }).click()
@@ -373,8 +373,8 @@ test('a quote turned down: losing the job is left to record, and a loss, so noth
   await office.locator('.job-row', { hasText: 'Corrib Arts Week' }).click()
   await office.getByRole('tab', { name: 'Quote' }).click()
   const records = office.getByRole('region', { name: 'What happened' })
-  await expect(records.getByRole('button', { name: 'Accepted: confirm job' })).toBeVisible()
-  expect(await reds()).toEqual(['Accepted: confirm job'])
+  await expect(records.getByRole('button', { name: 'Client accepted: confirm job' })).toBeVisible()
+  expect(await reds()).toEqual(['Client accepted: confirm job'])
 
   // Turned down, with the job still quoted: marking it lost is left, which takes its crew calls, so it's plain, and printing waits.
   // Why is asked in place before it's recorded (research/quoting.md, feature 5), and shows on the answer.
@@ -611,7 +611,7 @@ test('Add kit takes the cursor and stays open for the next product, Done closing
   await office.getByRole('tab', { name: 'Quote' }).click()
   await office.getByRole('button', { name: 'Start one empty' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   const picker = draft.getByRole('combobox', { name: 'Kit to add' })
   await expect(picker).toBeFocused()
   await office.keyboard.type('SM58')
@@ -628,7 +628,7 @@ test('Add kit takes the cursor and stays open for the next product, Done closing
   await expect(draft.getByRole('button', { name: /Robe Spiider, change it$/ })).toBeVisible()
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
   await expect(draft.getByRole('combobox', { name: 'Kit to add' })).toHaveCount(0)
-  await expect(draft.getByRole('button', { name: 'Add kit' })).toBeVisible()
+  await expect(draft.getByRole('button', { name: 'Add kit', exact: true })).toBeVisible()
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
@@ -642,7 +642,7 @@ test("how many is typed with the product or the role, and the picker says the pr
   await office.getByRole('tab', { name: 'Quote' }).click()
   await office.getByRole('button', { name: 'Start one empty' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await expect(draft).toContainText('Type how many first, as 12 y10.')
   await office.keyboard.type('12 SM58')
   const offer = draft.getByRole('option', { name: /^12 × Shure SM58/ })
@@ -697,7 +697,7 @@ test('two people on one draft keep both their changes, one of them with no signa
   await one.getByRole('tab', { name: 'Quote' }).click()
   await one.getByRole('button', { name: 'Start one empty' }).click()
   const draftOne = one.getByRole('form', { name: 'Version 1, a draft' })
-  await draftOne.getByRole('button', { name: 'Add kit' }).click()
+  await draftOne.getByRole('button', { name: 'Add kit', exact: true }).click()
   await one.keyboard.type('4 SM58')
   await one.keyboard.press('Enter')
   await expect(draftOne).toContainText('1 line added.')
@@ -753,7 +753,7 @@ test('a count before a name with digits in it is still a count, and a line given
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
 
   // "8 SM58" as a whole finds the SM58 by the 8 in its name; it's still eight of it.
-  await draft.getByRole('button', { name: 'Add kit' }).click()
+  await draft.getByRole('button', { name: 'Add kit', exact: true }).click()
   await office.keyboard.type('8 SM58')
   await expect(draft.getByRole('option', { name: /^8 × Shure SM58/ })).toBeVisible()
   await office.keyboard.press('Enter')

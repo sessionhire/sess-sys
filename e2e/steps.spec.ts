@@ -62,7 +62,7 @@ test("a job's tasks, given out on its page and ticked from the list on Home", as
   await expect(where.locator('.task-list')).toHaveCount(0)
   // Pressed on a phone, it does what it says (ADR 0140): the Crew part opens on the first call with a place to fill, its Offer
   // already open with the cursor in it and in view, rather than a tab with the Offers still to find (audit, 5 November 2026, finding 1).
-  await next.getByRole('button', { name: 'Offer the Audio tech · 2 to offer' }).click()
+  await next.getByRole('button', { name: 'Offer Audio tech · 2 to offer' }).click()
   const crewTab = page.getByRole('tab', { name: /^Crew/ })
   await expect(crewTab).toHaveAttribute('aria-selected', 'true')
   const offerTo = page.getByRole('combobox', { name: 'Offer to' })
@@ -185,7 +185,7 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   await expect(call.getByRole('button', { name: /^2 × Rigger/ })).toBeFocused()
   await expect(call.locator('.who-line')).toContainText(aoife)
   // Then the place nobody's been offered: its Offer open, the cursor in it.
-  await next.getByRole('button', { name: 'Offer the Rigger · 1 to offer' }).click()
+  await next.getByRole('button', { name: 'Offer Rigger · 1 to offer' }).click()
   await expect(call.getByRole('combobox', { name: 'Offer to' })).toBeFocused()
   await pickRecord(call, 'Offer to', brian)
   await call.getByRole('button', { name: /^Offer to / }).click()
@@ -201,7 +201,7 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   await expect(next).toContainText("Confirm Brian's yes", { timeout: 8000 })
   await next.getByRole('button', { name: `Confirm Brian's yes · 1 to book` }).click()
   // Then the short kit: Subhire open with the first tick in focus; subhiring it takes the count down to nothing.
-  await next.getByRole('button', { name: 'Sort 1 short on the kit' }).click()
+  await next.getByRole('button', { name: 'Sort 1 short' }).click()
   const subhire = page.getByRole('form', { name: `Subhire what's short on ${job}` })
   await expect(subhire.getByRole('checkbox').first()).toBeFocused()
   await subhire.getByRole('checkbox').first().check()
@@ -225,7 +225,7 @@ test('a job on its first day with nothing scanned out is due out, not out, and i
   await expect(page.getByRole('status')).toHaveText('Up to date')
   await expect(page.locator('.job-position').first()).toContainText('Going out')
   // Next counts what's out, as the pick list's own dock does.
-  await page.getByRole('region', { name: 'Next' }).getByRole('link', { name: 'Pick the kit · 6 to go out' }).click()
+  await page.getByRole('region', { name: 'Next' }).getByRole('link', { name: 'Pick kit · 6 to go out' }).click()
   await expect(page.getByRole('region', { name: 'Next' })).toHaveText('Next · Due out today · 0 of 6 out')
   await expect(page.getByRole('group', { name: 'Going out or coming back' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Kit to go out' })).toBeVisible()

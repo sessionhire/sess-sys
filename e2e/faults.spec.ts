@@ -104,7 +104,7 @@ test('damaged and missing kit, reported on return, then fixed, found and written
   await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name: job })).toBeVisible()
   await page.getByRole('tab', { name: 'Kit', exact: true }).click()
-  await page.getByRole('button', { name: 'Add kit' }).click()
+  await page.getByRole('button', { name: 'Add kit', exact: true }).click()
   for (const [product, qty] of [
     [speaker, 3],
     [cable, 20],
