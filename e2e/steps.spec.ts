@@ -206,7 +206,11 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   await expect(subhire.getByRole('checkbox').first()).toBeFocused()
   await subhire.getByRole('checkbox').first().check()
   await subhire.getByRole('button', { name: 'Subhire 1 line' }).click()
-  await expect(next.getByRole('button', { name: 'Settle the kit and vans' })).toBeVisible()
+  // On the Kit tab with nothing short and no vehicle, Next goes on to Transport, then offers the tick (user flows of 13 November
+  // 2026, findings 4 and 7): never a press that only opens the tab it's on.
+  await next.getByRole('button', { name: 'Book transport' }).click()
+  await expect(page.getByRole('tab', { name: /Transport/, selected: true })).toBeVisible()
+  await expect(next.getByRole('button', { name: 'Mark kit and vans settled' })).toBeVisible()
 })
 
 test('a job on its first day with nothing scanned out is due out, not out, and its pick list has only the one way', async ({ browser, request }) => {

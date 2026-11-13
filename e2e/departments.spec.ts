@@ -28,18 +28,18 @@ test.afterAll(async ({ request }) => {
 test('a call starts on the department its role suggests, and Calls narrows to one and gives many a department at once', async ({ browser, request }) => {
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
 
-  // Asked for on its job (ADR 0142) with no department picked: the role's words say LX, and it says where that came from.
+  // Asked for on its job (ADR 0142) with no department picked: the role's words say Lighting, and it says where that came from.
   const ask = await askForCrewOn(page, await jobWithPhase(request, { name: 'Dept Test Gig', start: '2030-09-01' }))
   await ask.getByLabel('Role').fill('LX op')
-  await expect(ask.getByLabel('Department')).toHaveValue('LX')
+  await expect(ask.getByLabel('Department')).toHaveValue('Lighting')
   await expect(ask.getByText("From the role. Change it if the call is another department's.")).toBeVisible()
   await ask.getByRole('button', { name: 'Add role' }).click()
   await asked(page)
   await allCalls(page)
 
-  // Narrowed to LX, the new call is there; narrowed to Audio, it isn't.
+  // Narrowed to Lighting, the new call is there; narrowed to Audio, it isn't.
   const filter = page.getByLabel('Calls for department')
-  await filter.selectOption('LX')
+  await filter.selectOption('Lighting')
   const needed = page.locator('section', { has: page.getByRole('heading', { name: 'Coming up' }) })
   await expect(needed.getByText('Dept Test Gig')).toBeVisible()
   await filter.selectOption('Audio')
@@ -161,7 +161,7 @@ test('a head of department is told what is hidden for their role, and never show
   await page.goto('/#crew/people')
   await expect(page.getByRole('button', { name: 'Take off the filter Department: Audio' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Fionn Gallagher/ })).toHaveCount(0)
-  // Someone in Audio: their link is there to send. Someone in LX: no link tab, and nothing that would break their link.
+  // Someone in Audio: their link is there to send. Someone in Lighting: no link tab, and nothing that would break their link.
   await page.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Dara Quinn/ }).click()
   await page.getByRole('tab', { name: /^Details/ }).click()
   await expect(page.getByText('Hidden for your role')).toBeVisible()
@@ -193,7 +193,7 @@ test('a head of department is told what is hidden for their role, and never show
 })
 
 test("a head's own department is where Stock's lists and counts and the job's crew start, and a quote they aren't sent is with the office", async ({ browser, request }) => {
-  // LX's own kit beside the made-up company's Audio speaker in for repair: a moving head that failed its PAT, with a repair open.
+  // Lighting's own kit beside the made-up company's Audio speaker in for repair: a moving head that failed its PAT, with a repair open.
   const at = new Date().toISOString()
   const setUp: [string, Record<string, unknown>][] = [
     ['model.create', { id: 'lens-spot', name: 'Lens Spot', department: 'lighting', category: 'Moving heads', tracking: 'serialised', isCase: false, valueCents: null, notes: '', patMonths: 12, liftingMonths: null }],
@@ -205,12 +205,12 @@ test("a head's own department is where Stock's lists and counts and the job's cr
   expect((await res.json()).results.map((r: { status: string }) => r.status)).toEqual(['applied', 'applied', 'applied', 'applied'])
 
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
-  await asHeadOf(page, 'LX')
+  await asHeadOf(page, 'Lighting')
   await page.goto('/')
   await page.getByRole('button', { name: /^Head of department/ }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
 
-  // Stock's row counts LX's kit, as the lists it opens start on it: one of the company's two repairs, and the test it failed.
+  // Stock's row counts Lighting's kit, as the lists it opens start on it: one of the company's two repairs, and the test it failed.
   await page.goto('/#stock/repairs')
   const row = page.getByRole('navigation', { name: 'Stock pages' })
   const rowRepairs = row.getByRole('link', { name: /^Repairs/ })
@@ -219,7 +219,7 @@ test("a head's own department is where Stock's lists and counts and the job's cr
   const repairs = page.getByRole('region', { name: 'Repairs open' })
   const repairsHead = repairs.getByRole('heading', { name: /^Repairs open/ })
   await expect(repairsHead).toHaveText('Repairs open (1)')
-  await expect(repairs).toContainText('Showing LX (Lighting) only.')
+  await expect(repairs).toContainText('Showing Lighting only.')
   await expect(repairs).toContainText('Lens Spot')
   await expect(repairs).not.toContainText('d&b Y10P')
   // One tap to the rest, which Back from one of them finds as it was left (navigation.md).
@@ -229,51 +229,51 @@ test("a head's own department is where Stock's lists and counts and the job's cr
   await expect(page).toHaveURL(/#stock\/item\//)
   await page.goBack()
   await expect(repairsHead).toHaveText('Repairs open (2)')
-  await expect(repairs).not.toContainText('Showing LX (Lighting) only.')
+  await expect(repairs).not.toContainText('Showing Lighting only.')
 
-  // Kit short starts on LX's kit too: the moving heads the arts week would be short of, not Audio's speakers.
+  // Kit short starts on Lighting's kit too: the moving heads the arts week would be short of, not Audio's speakers.
   await row.getByRole('link', { name: 'Catalogue' }).click()
   const short = page.getByRole('region', { name: 'Kit short' })
-  await expect(short).toContainText('Showing LX (Lighting) only.')
+  await expect(short).toContainText('Showing Lighting only.')
   await expect(short).toContainText('Robe Spiider')
   await expect(short).not.toContainText('d&b Y10P')
-  // Opened again from the row, Repairs starts on LX's once more: the row's number is the list's as it opens.
+  // Opened again from the row, Repairs starts on Lighting's once more: the row's number is the list's as it opens.
   await rowRepairs.click()
   await expect(rowRepairs).toHaveText('Repairs 1')
   await expect(repairsHead).toHaveText('Repairs open (1)')
-  await expect(repairs).toContainText('Showing LX (Lighting) only.')
+  await expect(repairs).toContainText('Showing Lighting only.')
 
   // So does Testing.
   await row.getByRole('link', { name: /^Testing/ }).click()
   const due = page.getByRole('region', { name: 'Inspections due' })
-  await expect(due).toContainText('Showing LX (Lighting) only.')
+  await expect(due).toContainText('Showing Lighting only.')
   await expect(due.getByRole('heading', { name: /^Can't go out/ })).toHaveText("Can't go out (1)")
 
-  // A count on Home opens the list it counted: LX's for Home for LX, everyone's for Home for the warehouse, each headed with the
+  // A count on Home opens the list it counted: Lighting's for Home for Lighting, everyone's for Home for the warehouse, each headed with the
   // tile's own number.
   await page.goto('/#home')
   const showFor = page.getByRole('group', { name: 'Show for' })
   await showFor.getByRole('button', { name: 'Department' }).click()
   // The select, not the persona's "Head of department" link beside the app's name.
-  await page.getByRole('combobox', { name: /^Department/ }).selectOption('LX')
+  await page.getByRole('combobox', { name: /^Department/ }).selectOption('Lighting')
   const tile = page.locator('.standing').getByRole('link', { name: /repairs? open/ })
   await expect(tile.locator('b')).toHaveText('1')
   await tile.click()
   await expect(repairsHead).toHaveText('Repairs open (1)')
-  await expect(repairs).toContainText('Showing LX (Lighting) only.')
+  await expect(repairs).toContainText('Showing Lighting only.')
   await page.goto('/#home')
   await showFor.getByRole('button', { name: 'Warehouse' }).click()
   await expect(tile.locator('b')).toHaveText('2')
   await tile.click()
   await expect(repairsHead).toHaveText('Repairs open (2)')
-  await expect(repairs).not.toContainText('Showing LX (Lighting) only.')
+  await expect(repairs).not.toContainText('Showing Lighting only.')
   await page.goto('/#home')
   const shortTile = page.locator('.standing').getByRole('link', { name: /kit lines? short for confirmed jobs?/ })
   const shortCount = (await shortTile.locator('b').textContent())!
   await shortTile.click()
   await expect(short.getByRole('heading', { name: /^For confirmed jobs in the next fortnight/ })).toHaveText(`For confirmed jobs in the next fortnight (${shortCount})`)
-  await expect(short).not.toContainText('Showing LX (Lighting) only.')
-  // And the company's on Crew: every department's calls short of crew, though Crew starts on LX's from the tab.
+  await expect(short).not.toContainText('Showing Lighting only.')
+  // And the company's on Crew: every department's calls short of crew, though Crew starts on Lighting's from the tab.
   await page.goto('/#home')
   await showFor.getByRole('button', { name: 'Company', exact: true }).click()
   const crewTile = page.locator('.standing').getByRole('link', { name: /calls? still needs? crew/ })
@@ -284,8 +284,8 @@ test("a head's own department is where Stock's lists and counts and the job's cr
 
   // A quote this role isn't sent is with the office, never missing, on the Jobs list and the Board alike.
   await page.goto('/#jobs')
-  // The list starts on LX (Move 9 of the sweep of 6 November 2026); the wedding is everyone's.
-  await page.getByRole('button', { name: 'Take off the filter Crew department: LX' }).click()
+  // The list starts on Lighting (Move 9 of the sweep of 6 November 2026); the wedding is everyone's.
+  await page.getByRole('button', { name: 'Take off the filter Crew department: Lighting' }).click()
   // The wedding is three weeks off, past the fortnight the list starts on.
   await page.getByRole('button', { name: /^Show all \d+ coming up$/ }).click()
   await expect(page.getByRole('link', { name: /Clonmore Wedding/ }).first()).toContainText('Quote: with the office')
@@ -294,15 +294,15 @@ test("a head's own department is where Stock's lists and counts and the job's cr
   await expect(page.locator('.board-card', { hasText: 'Clonmore Wedding' })).toContainText('Quote: with the office')
   await expect(page.locator('main')).not.toContainText(/No quote yet|A draft is started/)
 
-  // The job's head says LX's own crew beside the whole job's, and its Crew tab starts on LX's calls, each saying its phase.
+  // The job's head says Lighting's own crew beside the whole job's, and its Crew tab starts on Lighting's calls, each saying its phase.
   await page.goto('/#jobs')
   await page.getByRole('link', { name: /Harbour Lights Festival/ }).first().click()
   const crewFact = page.locator('.job-facts > div', { has: page.locator('dt', { hasText: /^Crew$/ }) }).locator('dd')
-  // Fionn asked for more for the one LX op, so none of LX's is booked; five of the job's ten are.
-  await expect(crewFact).toHaveText('LX 0 of 1 · all 5 of 10')
+  // Fionn asked for more for the one LX op, so none of Lighting's is booked; five of the job's ten are.
+  await expect(crewFact).toHaveText('Lighting 0 of 1 · all 5 of 10')
   await page.getByRole('tab', { name: /^Crew/ }).click()
-  const theirs = page.getByRole('region', { name: 'LX crew' })
-  await expect(page.locator('#job-part .card').first()).toHaveAttribute('aria-label', 'LX crew')
+  const theirs = page.getByRole('region', { name: 'Lighting crew' })
+  await expect(page.locator('#job-part .card').first()).toHaveAttribute('aria-label', 'Lighting crew')
   await expect(theirs).toContainText('LX op · Show')
   await expect(page.getByRole('article', { name: 'Show' })).not.toContainText('LX op')
   await expect(page.locator('main')).not.toContainText('€')
@@ -342,28 +342,28 @@ test('Home for a department counts the leave waiting on the approver looking, wh
   const queue = page.getByRole('region', { name: 'To approve' })
   await expect(queue.getByRole('heading', { level: 2 })).toHaveText('To approve (2)')
 
-  // Cian, in Transport, waits on Aoife, an approver (ADR 0024): on Home for LX it's still hers to decide, and its count opens
-  // the whole queue rather than LX's people's (Move 3 of the sweep of 6 November 2026).
+  // Cian, in Transport, waits on Aoife, an approver (ADR 0024): on Home for Lighting it's still hers to decide, and its count opens
+  // the whole queue rather than Lighting's people's (Move 3 of the sweep of 6 November 2026).
   await page.goto('/#home')
   await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Department' }).click()
-  await page.getByLabel('Department').selectOption('LX')
+  await page.getByLabel('Department').selectOption('Lighting')
   const tile = page.locator('.standing').getByRole('link', { name: /leave requests? waiting on you/ })
   await expect(tile.locator('b')).toHaveText('2')
   await tile.click()
   await expect(queue.getByRole('heading', { level: 2 })).toHaveText('To approve (2)')
   await expect(queue).toContainText('Cian Murphy')
-  await expect(page.locator('main')).not.toContainText('Showing LX (Lighting) only.')
+  await expect(page.locator('main')).not.toContainText('Showing Lighting only.')
 })
 
 test("each role meets its own app: a head's Jobs list starts on their department, and someone booked finds theirs first", async ({ browser }) => {
-  // A head of LX: the Jobs list opens on LX, said in the filter's chip, with the way to every job (Move 9 of the sweep of 6 November 2026).
+  // A head of Lighting: the Jobs list opens on Lighting, said in the filter's chip, with the way to every job (Move 9 of the sweep of 6 November 2026).
   const head = await (await browser.newContext({ viewport: phoneSize })).newPage()
-  await asHeadOf(head, 'LX')
+  await asHeadOf(head, 'Lighting')
   await head.goto('/')
   await head.getByRole('button', { name: /^Head of department/ }).click()
   await expect(head.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
   await head.goto('/#jobs')
-  const off = head.getByRole('button', { name: 'Take off the filter Crew department: LX' })
+  const off = head.getByRole('button', { name: 'Take off the filter Crew department: Lighting' })
   await expect(off).toBeVisible()
   await expect(head.locator('.job-row', { hasText: 'Liffey Brands Launch' })).toBeVisible()
   await expect(head.locator('.job-row', { hasText: 'Brightwater Tech Summit' })).toHaveCount(0)
