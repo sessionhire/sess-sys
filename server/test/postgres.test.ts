@@ -164,7 +164,7 @@ describe.skipIf(!url)('real Postgres, many devices at once', () => {
       expect(first.entries.map((e) => [e.who.name, e.what])).toEqual([
         ['Seán Ó Briain', 'Seán Ó Briain accepted Audio tech on Electric Picnic'],
         ['Colly Hewson', 'Offered Audio tech on Electric Picnic to Seán Ó Briain'],
-        ['Colly Hewson', 'Asked for 1 × Audio tech for Electric Picnic (Build), Fri 2 Oct to Sun 4 Oct'],
+        ['Colly Hewson', 'Added 1 × Audio tech to Electric Picnic (Build), Fri 2 Oct to Sun 4 Oct'],
         ['Colly Hewson', "Saved Seán Ó Briain's details"],
       ])
       expect(first.people).toEqual([

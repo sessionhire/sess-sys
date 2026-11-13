@@ -1036,7 +1036,7 @@ export function PricesScreen({ view }: { view: View }) {
             onSave={(cents) => client.mutate('price.role', { role: r.role, dayCents: cents })}
           />
         ))}
-        {m.roles.length === 0 && <Empty>No roles yet: add one below, or they come as crew are asked for.</Empty>}
+        {m.roles.length === 0 && <Empty>No roles yet: add one below, or they come as crew are added to jobs.</Empty>}
         <AddRole />
       </section>
 

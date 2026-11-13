@@ -37,20 +37,20 @@ test("a crew call keeps to its phase's days, and goes with the phase when it mov
 
   // Asked for on the Show: its one day, said under the days, and a day past it refused on its field in the app's words.
   await office.getByRole('tab', { name: /^Crew/ }).click()
-  await office.getByRole('button', { name: 'Ask for crew' }).click()
-  const ask = office.getByRole('form', { name: 'Ask for crew' })
+  await office.getByRole('button', { name: 'Add crew' }).click()
+  const ask = office.getByRole('form', { name: 'Add crew' })
   await ask.getByLabel('For which phase').selectOption({ label: 'Show, Fri 13 Dec' })
   await expect(ask.getByLabel('From')).toHaveValue('2030-12-13')
   await expect(ask.getByLabel('From')).toHaveAccessibleDescription('Show is Fri 13 Dec 2030: crew on it are asked for that day. For another day, add a phase.')
   await ask.getByLabel('Role').fill('LX op')
   await ask.getByLabel('How many').fill('1')
   await ask.getByLabel('From').fill('2030-12-14')
-  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  await ask.getByRole('button', { name: 'Add crew' }).click()
   await expect(ask.locator('.field-refusal', { hasText: 'From can be Fri 13 Dec 2030 at the latest.' })).toBeVisible()
   await expect(office.getByRole('article', { name: '1 × LX op' })).toHaveCount(0)
   await ask.getByLabel('From').fill('2030-12-13')
   await ask.getByLabel('To', { exact: true }).fill('2030-12-13')
-  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  await ask.getByRole('button', { name: 'Add crew' }).click()
   const call = office.getByRole('article', { name: '1 × LX op' })
   await expect(call).toBeVisible()
   await expect(office.locator('.conn')).toHaveText('Up to date')
@@ -63,6 +63,8 @@ test("a crew call keeps to its phase's days, and goes with the phase when it mov
     'Show is Fri 13 Dec 2030: crew on it are asked for that day. To move the call, move the phase: its crew go with it.'
   )
   await change.getByRole('button', { name: 'Keep as it was' }).click()
+  // The form folds away and the page goes back to the call's line, not to whatever was under the form.
+  await expect(call.locator('.call-line')).toBeFocused()
 
   // The Show moves a day later. Keeping its crew's dates would leave the call on a day the Show no longer has, so that isn't offered:
   // the call goes with it.
@@ -105,19 +107,19 @@ test('a call across phases says when it holds a day no phase has (the gap ADR 01
   await expect(office.locator('.conn')).toHaveText('Up to date')
 
   await office.getByRole('tab', { name: /^Crew/ }).click()
-  await office.getByRole('button', { name: 'Ask for crew' }).click()
-  const ask = office.getByRole('form', { name: 'Ask for crew' })
+  await office.getByRole('button', { name: 'Add crew' }).click()
+  const ask = office.getByRole('form', { name: 'Add crew' })
   await ask.getByLabel('For which phase').selectOption({ label: 'Across several phases' })
   await ask.getByLabel('Which phases').fill('Build and Show')
   await ask.getByLabel('Role').fill('Rigger')
   await ask.getByLabel('How many').fill('1')
   await expect(ask.getByLabel('From')).toHaveValue('2030-12-11')
   await expect(ask.getByLabel('To', { exact: true })).toHaveValue('2030-12-13')
-  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  await ask.getByRole('button', { name: 'Add crew' }).click()
   const call = office.getByRole('article', { name: '1 × Rigger' })
   await expect(call).toBeVisible()
   await expect(call.locator('.warn-line')).toHaveText(
-    'The call holds Thu 12 Dec 2030, which no phase of the job has: crew on it are asked for that day too, with no calendar invite for it. Add a phase for that day, or ask for crew for each phase on its own.'
+    'The call holds Thu 12 Dec 2030, which no phase of the job has: crew on it are asked for that day too, with no calendar invite for it. Add a phase for that day, or add crew to each phase on its own.'
   )
 
   // A phase for that day, and the line goes.

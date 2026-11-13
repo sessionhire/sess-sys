@@ -247,7 +247,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return u ? `Removed ${person(u.personId)}'s days off, ${dates(u.start, u.end)}` : 'Removed some days off'
     }
     case 'call.create':
-      return `Asked for ${a.needed} × ${text(a.role, 'crew')} for ${text(a.project, 'a job')}${typeof a.phase === 'string' && a.phase ? ` (${a.phase})` : ''}, ${dates(a.start, a.end)}${needing(a.needsCertificates)}`
+      return `Added ${a.needed} × ${text(a.role, 'crew')} to ${text(a.project, 'a job')}${typeof a.phase === 'string' && a.phase ? ` (${a.phase})` : ''}, ${dates(a.start, a.end)}${needing(a.needsCertificates)}`
     case 'call.cancel':
       return `Cancelled the call for ${call(a.id)}`
     // Asked for again once its job was going again (ADR 0164).

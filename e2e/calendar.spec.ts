@@ -176,7 +176,7 @@ test('connecting Google Calendar, choosing its calendar, checking and disconnect
   await card.getByRole('button', { name: 'Use this calendar' }).click()
   await expect(card.getByRole('status')).toHaveText('Jobs go on Test calendar from now on.')
   expect(chosen).toEqual({ calendarId: TEST_CAL })
-  await expect(card).toContainText('Confirmed jobs go on Test calendar, written by ops@sessionhire.com, and jobs not confirmed yet go on as HOLD, short for hold the day, once crew are asked for them.')
+  await expect(card).toContainText('Confirmed jobs go on Test calendar, written by ops@sessionhire.com, and jobs not confirmed yet go on as HOLD, short for hold the day, once crew are added to them.')
   await expect(card).toContainText('4 days on it from today. Connected by Colly Hewson today at')
 
   // Check the calendar looks at the calendar itself and says what it did.
@@ -320,12 +320,12 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { name: job })).toBeVisible()
   await page.getByRole('tab', { name: /^Crew/ }).click()
-  await page.getByRole('button', { name: 'Ask for crew' }).click()
-  const ask = page.getByRole('form', { name: 'Ask for crew' })
+  await page.getByRole('button', { name: 'Add crew' }).click()
+  const ask = page.getByRole('form', { name: 'Add crew' })
   await ask.getByLabel('Role').fill('Audio tech')
   await ask.getByLabel('How many').fill('2')
   await ask.getByLabel('Day rate €').fill('250')
-  await ask.getByRole('button', { name: 'Ask for crew' }).click()
+  await ask.getByRole('button', { name: 'Add crew' }).click()
   const build = page.getByRole('article', { name: 'Build' })
   // The call is one line until it's opened (audit finding 16), and the picker is behind "Offer…".
   const call = build.getByRole('article', { name: '2 × Audio tech' })

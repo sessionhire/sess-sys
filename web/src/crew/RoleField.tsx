@@ -43,7 +43,7 @@ export function RoleField({
       onChange={onChange}
       records={roles}
       first={roles.slice(0, FIRST)}
-      firstLabel="Most asked for"
+      firstLabel="Most used"
       meta={(f) => roleLine(f.record)}
       placeholder={placeholder}
       maxLength={maxLength}
@@ -52,8 +52,8 @@ export function RoleField({
   )
 }
 
-/** The line under an offered role: how often it's been asked for and how many on the crew list do it. */
+/** The line under an offered role: how many calls it is on and how many on the crew list do it. */
 export function roleLine(r: RoleInUse): string {
-  const said = [r.calls ? `Asked for ${plural(r.calls, 'time')}` : '', r.people ? `${plural(r.people, 'person', 'people')} on the crew list` : '']
+  const said = [r.calls ? `On ${plural(r.calls, 'call')}` : '', r.people ? `${plural(r.people, 'person', 'people')} on the crew list` : '']
   return said.filter(Boolean).join(' · ') || (r.priced ? 'On the price list' : '')
 }

@@ -306,7 +306,7 @@ function FirstQuote({ view, job, plain }: { view: View; job: JobView; plain?: bo
         // Where to add them, from here (audit, 5 November 2026, finding 16): a quote is built from the job's kit and crew.
         <Empty>
           The job has no kit or crew yet, so a quote would start empty. <a href={`#jobs/${encodeURIComponent(job.id)}/kit`}>Add the kit</a> or{' '}
-          <a href={`#jobs/${encodeURIComponent(job.id)}/crew`}>ask for crew</a> first, or start one empty and type the lines.
+          <a href={`#jobs/${encodeURIComponent(job.id)}/crew`}>add crew</a> first, or start one empty and type the lines.
         </Empty>
       ) : (
         <p>

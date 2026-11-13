@@ -102,7 +102,7 @@ export function noPhaseLine(off: string[], phases: readonly { start: string; end
   const first = phases.reduce((m, p) => (p.start < m ? p.start : m), phases[0]?.start ?? '')
   const last = phases.reduce((m, p) => (p.end > m ? p.end : m), phases[0]?.end ?? '')
   const between = off.some((d) => first < d && d < last)
-  const way = between ? `Add a phase for ${one ? 'that day' : 'those days'}, or ask for crew for each phase on its own.` : "Change the call's days or add a phase."
+  const way = between ? `Add a phase for ${one ? 'that day' : 'those days'}, or add crew to each phase on its own.` : "Change the call's days or add a phase."
   return `The call holds ${daysLabel(off, today)}, which no phase of the job has: crew on it are asked for ${one ? 'that day' : 'those days'} too, with no calendar invite for ${one ? 'it' : 'them'}. ${way}`
 }
 

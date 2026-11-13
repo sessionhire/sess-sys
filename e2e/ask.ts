@@ -21,12 +21,12 @@ export async function jobWithPhase(request: APIRequestContext, job: { name: stri
   return id
 }
 
-/** Opens the job's Crew tab and its "Ask for crew" form, as the office asks for crew, and returns the form. */
+/** Opens the job's Crew tab and its "Add crew" form, as the office adds crew, and returns the form. */
 export async function askForCrewOn(page: Page, jobId: string) {
   await page.goto(`/#jobs/${jobId}/crew`)
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  await page.getByRole('button', { name: 'Ask for crew' }).click()
-  return page.getByRole('form', { name: 'Ask for crew' })
+  await page.getByRole('button', { name: 'Add crew' }).click()
+  return page.getByRole('form', { name: 'Add crew' })
 }
 
 /** Crew › Calls, with every call still needing something drawn, not only the next fortnight's. */
@@ -37,8 +37,9 @@ export async function allCalls(page: Page) {
   if (await showAll.count()) await showAll.click()
 }
 
-/** Asked: the job's form says so in a status line of its own, so the top bar's is the one that says it's saved. */
+/** Added: the form closes, the page goes to the new call's card and a pop-up says what was added; the top bar's status says it's saved. */
 export async function asked(page: Page) {
-  await expect(page.getByRole('form', { name: 'Ask for crew' }).getByRole('status')).toContainText('Asked for')
+  await expect(page.getByRole('region', { name: 'Notifications' })).toContainText('Added')
+  await expect(page.getByRole('form', { name: 'Add crew' })).toBeHidden()
   await expect(page.locator('.conn[role="status"]')).toHaveText('Up to date')
 }

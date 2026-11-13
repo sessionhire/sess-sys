@@ -318,7 +318,7 @@ export function stepsView(
         crewOn.needed === 0
           ? kindOf(job) === 'hire'
             ? { skipped: 'No crew on a dry hire', facts: crewFacts }
-            : { hint: 'No crew asked for yet', facts: crewFacts }
+            : { hint: 'No crew added yet', facts: crewFacts }
           : crewOn.booked >= crewOn.needed
             ? { auto: `All ${crewOn.needed} crew booked`, facts: crewFacts }
             : { hint: `${crewOn.booked} of ${crewOn.needed} booked${crewOn.toConfirm ? `, ${crewOn.toConfirm} to confirm` : ''}`, facts: crewFacts },

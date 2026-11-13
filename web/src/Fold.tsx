@@ -20,6 +20,7 @@ export function Fold({
   children,
   className,
   opened,
+  shut,
   from,
 }: {
   label: string
@@ -27,6 +28,11 @@ export function Fold({
   className?: string
   /** Opens it from outside, each time it changes to a new number: the job's Next button opening the offer it names (ADR 0140). */
   opened?: number
+  /**
+   * Closes it from outside, each time it changes to a new number: a form whose result lands somewhere else on the page, where the
+   * person is taken to see it (Add crew gliding to the new call's card). The focus is left to whoever closed it.
+   */
+  shut?: number
   /**
    * The list's add on the page's title line (pageAdd.ts), by its name: the form has no button of its own, and opens each time the
    * title's is pressed. Only presses from now on: one made on an earlier visit doesn't open it as the page comes back.
@@ -45,6 +51,12 @@ export function Fold({
     setKept(true)
     setOpen(true)
   }, [opened])
+  useEffect(() => {
+    if (!shut) return
+    // Not a Close press: the focus doesn't go back to the button, it goes where the result is.
+    closed.current = false
+    setOpen(false)
+  }, [shut])
   const box = useRef<HTMLDivElement>(null)
   const opener = useRef<HTMLButtonElement>(null)
   const closed = useRef(false)
