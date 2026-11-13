@@ -27,6 +27,8 @@ test("a job's parts on a phone fade where there are more, the next part shows, a
   await push(request, [
     { name: 'project.create', args: { id: `edges-${id}`, name: `Edges ${id}`, clientId: null, venueId: null, status: 'confirmed', kind: 'meeting', notes: '' } },
     { name: 'phase.add', args: { id: `edges-${id}-m`, projectId: `edges-${id}`, name: 'Meeting', start: '2031-03-04', end: '2031-03-04', venueId: null, notes: '' } },
+    { name: 'project.create', args: { id: `edges-${id}-g`, name: `Edges gig ${id}`, clientId: null, venueId: null, status: 'confirmed', kind: 'gig', notes: '' } },
+    { name: 'phase.add', args: { id: `edges-${id}-gs`, projectId: `edges-${id}-g`, name: 'Show', start: '2031-03-04', end: '2031-03-04', venueId: null, notes: '' } },
   ])
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#jobs')
@@ -37,9 +39,14 @@ test("a job's parts on a phone fade where there are more, the next part shows, a
   await expect(row).not.toContainText('Meeting · ')
   await expect(row).toContainText(' · Meeting')
 
+  // A meeting's page has only When and Who's going (user flows of 13 November 2026, finding 5), so the row of parts that's wider
+  // than a phone is a gig's.
   await row.click()
+  const meeting = page.getByRole('tablist', { name: 'Parts of the job' })
+  await expect(meeting.getByRole('tab')).toHaveCount(2)
+  await page.goto(`/#jobs/edges-${id}-g`)
   const tabs = page.getByRole('tablist', { name: 'Parts of the job' })
-  // A meeting has no stages, so it opens on Phases (ADR 0140, part 8); from the first part, the row fades on the right.
+  // From the first part, the row fades on the right.
   await tabs.getByRole('tab').first().click()
   await tabs.evaluate((el) => (el.scrollLeft = 0))
   await expect(tabs).toHaveAttribute('data-more', 'right')

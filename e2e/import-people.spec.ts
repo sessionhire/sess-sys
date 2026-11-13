@@ -89,7 +89,7 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   await expect(oisin).toContainText('Freelancer · Audio · Level 2 · 2 skills')
   await expect(oisin).toContainText("Couldn't read this phone number.")
   const ruth = rows.getByRole('listitem', { name: 'Row 4' })
-  await expect(ruth).toContainText('Freelancer · LX · Level 0 (applicant) · 1 skill')
+  await expect(ruth).toContainText('Freelancer · Lighting · Level 0 (applicant) · 1 skill')
   await expect(ruth).toContainText('+353877000103')
   // Nothing goes in while a row still has a problem.
   const bring = office.getByRole('button', { name: /^Bring in/ })
@@ -125,7 +125,7 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   const people = office.getByRole('region', { name: 'People' })
   await expect(people.getByRole('link', { name: new RegExp(`^Nuala Breen ${id}`) })).toContainText('Staff · Production · Level 3 · Production: Crew chief')
   await expect(people.getByRole('link', { name: new RegExp(`^Oisín Clarke ${id}`) })).toContainText('Audio · Level 2 · Audio: Monitors, Audio: FOH')
-  await expect(people.getByRole('link', { name: new RegExp(`^Ruth Devane ${id}`) })).toContainText('LX · Level 0')
+  await expect(people.getByRole('link', { name: new RegExp(`^Ruth Devane ${id}`) })).toContainText('Lighting · Level 0')
   // Oisín's page holds the phone as it was fixed.
   await people.getByRole('link', { name: new RegExp(`^Oisín Clarke ${id}`) }).click()
   await office.getByRole('tab', { name: /^Details/ }).click()
@@ -148,7 +148,7 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   await picker.press('Escape')
   await call.getByLabel(/^Show applicants/).check()
   await picker.fill(`Ruth Devane ${id}`)
-  await expect(call.getByRole('option', { name: new RegExp(`^Ruth Devane ${id}`) }).locator('small')).toHaveText('LX · Level 0 (LX)')
+  await expect(call.getByRole('option', { name: new RegExp(`^Ruth Devane ${id}`) }).locator('small')).toHaveText('Lighting · Level 0 (LX)')
 
   // The same file again: everyone matches, so nobody is added.
   await office.goto('/#crew/import')
