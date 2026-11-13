@@ -352,11 +352,13 @@ export const NOTICE_ENTITIES: readonly EntityName[] = [
   'crewCall',
   // A job's first kit out, told to the office as "Gone out" (UX sweep, 6 November 2026, move 12).
   'movement',
+  // What came back to a quote someone emailed: a bounce, a delay, the client's reply (ADR 0172).
+  'quoteEmail',
 ]
 export type NoticeWhy = (typeof NOTICE_WHY)[number]
 export const NOTICE_WHY_WORDS: Record<NoticeWhy, string> = {
   you: 'About you',
-  sent: 'An offer you sent',
+  sent: 'Something you sent',
   on: "A job you're on",
   made: 'A job you made',
   turn: "Your department's turn",

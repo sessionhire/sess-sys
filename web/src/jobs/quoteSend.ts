@@ -75,3 +75,19 @@ export function useSendingWords(jobId: string): string | undefined {
     () => going.get(jobId)
   )
 }
+
+/**
+ * Next asked for the email again, its last one having bounced (ADR 0172): the job's Quote tab opens the email on the
+ * current version with the addresses it went to, to put right. A count, so each press is heard once.
+ */
+const againAsked = new Map<string, number>()
+export function askToEmailAgain(jobId: string) {
+  againAsked.set(jobId, (againAsked.get(jobId) ?? 0) + 1)
+  tell()
+}
+export function useEmailAgainAsked(jobId: string): number {
+  return useSyncExternalStore(
+    (f) => (heard.add(f), () => void heard.delete(f)),
+    () => againAsked.get(jobId) ?? 0
+  )
+}

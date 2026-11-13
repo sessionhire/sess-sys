@@ -60,6 +60,8 @@ export const LATE_CLEARED_ACTION = 'late.clear-old'
 export const FUEL_FROM_AA_ACTION = 'quoting.fuel-from-aa'
 /** A quote emailed to the client from the operations mailbox (ADR 0101): the server's own record of the send. */
 export const QUOTE_EMAIL_ACTION = 'quote.email'
+/** What came back to a quote's email (ADR 0172): a bounce, a delay or the client's reply, heard by the app. */
+export const QUOTE_EMAIL_NEWS_ACTION = 'quote.emailNews'
 /** A client accepting a quote on its link (ADR 0121): the server's own change, by nobody signed in. */
 export const QUOTE_ONLINE_ACTION = 'quote.acceptedOnline'
 /** A deleted quote put back from the history (ADR 0135): a server route, since no device still has it to show while it waits. */
@@ -764,6 +766,14 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       const version = typeof q?.version === 'number' ? `version ${q.version} of ` : ''
       const to = typeof a.to === 'number' && a.to > 1 ? `, to ${a.to} addresses` : ''
       return `Emailed ${version}the quote for ${job(q?.projectId ?? a.projectId)} to the client${a.again === true ? ' again' : ''}${to}`
+    }
+    case QUOTE_EMAIL_NEWS_ACTION: {
+      const q = look('quote', a.quoteId)
+      const quote = `the quote for ${job(q?.projectId ?? a.projectId)}`
+      const who = typeof a.who === 'string' ? a.who : ''
+      if (a.kind === 'bounced') return `The email with ${quote} bounced for ${who}${typeof a.why === 'string' ? `: ${a.why}` : ''}`
+      if (a.kind === 'delayed') return `The email with ${quote} is delayed for ${who}: the mail system is still trying`
+      return `${who || 'The client'} replied to the email with ${quote}`
     }
     case 'quoting.email':
       return a.on === true ? 'Turned on sending quotes to clients by email from the operations mailbox' : 'Turned off sending quotes by email'

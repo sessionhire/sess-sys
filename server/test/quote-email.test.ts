@@ -26,6 +26,9 @@ function fakeGmail() {
   let answer = 200
   /** Whether Gmail has filed what was sent in Sent yet, as a read-back finds it. */
   let filed = true
+  /** Each conversation's messages after the sent one, as the quote watcher reads them (ADR 0172). */
+  const threads = new Map<string, Record<string, unknown>[]>()
+  const sentAt = new Map<string, number>()
   /** Held: each send waits until let go, as a slow Gmail would. */
   let hold: Promise<void> | undefined
   const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -38,7 +41,14 @@ function fakeGmail() {
       if (answer !== 200) return json({ error: { message: 'no' } }, answer)
       const { raw } = JSON.parse(String(init?.body)) as { raw: string }
       sent.push({ raw: Buffer.from(raw, 'base64url'), auth: new Headers(init?.headers).get('authorization') })
+      sentAt.set(`g${sent.length}`, Date.now())
       return json({ id: `g${sent.length}`, threadId: `t${sent.length}` })
+    }
+    const thread = url.match(/^https:\/\/gmail\.test\/threads\/(t\d+)\?format=metadata/)
+    if (thread) {
+      const n = thread[1]!.slice(1)
+      const own = { id: `g${n}`, threadId: thread[1], labelIds: ['SENT'], internalDate: String(sentAt.get(`g${n}`) ?? 0), snippet: '', payload: { headers: [{ name: 'From', value: 'Session Hire <operations@sessionhire.com>' }] } }
+      return json({ id: thread[1], messages: [own, ...(threads.get(thread[1]!) ?? [])] })
     }
     const one = url.match(/^https:\/\/gmail\.test\/messages\/(g\d+)\?format=minimal$/)
     if (one) return json({ id: one[1], labelIds: filed ? ['SENT'] : [] })
@@ -50,6 +60,9 @@ function fakeGmail() {
     sent,
     fail: (status: number) => (answer = status),
     file: (on: boolean) => (filed = on),
+    /** Something comes back into a conversation: a message with these headers and preview, now. */
+    reply: (thread: string, id: string, headers: Record<string, string>, snippet: string, labels: string[] = ['INBOX']) =>
+      threads.set(thread, [...(threads.get(thread) ?? []), { id, threadId: thread, labelIds: labels, internalDate: String(Date.now() + 1000), snippet, payload: { headers: Object.entries(headers).map(([name, value]) => ({ name, value })) } }]),
     holdSends: () => {
       let go!: () => void
       hold = new Promise((r) => (go = r))
@@ -294,6 +307,59 @@ describe('sending a quote to the client by email (ADR 0101)', () => {
       { address: 'bob@nomail.ie', problem: 'nomail.ie can’t receive email, so it would bounce. Check the spelling.', suggest: null },
       { address: 'ruairi@example.com', problem: null, suggest: null },
     ])
+  })
+
+  it('watches the email for what comes back: a delay, then a bounce, and the client’s reply, each told to the sender (ADR 0172)', async () => {
+    const s = await setup()
+    await s.send(m('quoting.email', { on: true }))
+    await s.connect([GMAIL_READ_SCOPE, GMAIL_SEND_SCOPE])
+    const start = (await s.prefill()).json() as QuoteEmailPrefill
+    const res = await s.post({ to: ['ruairi@example.com', 'accounts@example.com'], subject: start.subject, message: 'Attached.', number: start.number, key: 'press-watch-12' })
+    const { email } = res.json() as { email: QuoteEmail }
+    expect(email).toMatchObject({ threadId: 't1', bounced: null, delayed: null, replies: 0, reply: null })
+    const watch = s.app.quoteWatch
+
+    // Nothing back yet: looked at, nothing said.
+    expect(await watch.look()).toBe(1)
+    expect(await s.adam.record('quoteEmail', email.id)).toMatchObject({ bounced: null, replies: 0 })
+    // Looked at again only once its time comes: five minutes in the first hour.
+    expect(await watch.look()).toBe(0)
+
+    // The mail system is still trying for one address.
+    s.gmail.reply('t1', 'd1', { From: 'Mail Delivery Subsystem <mailer-daemon@googlemail.com>', Subject: 'Delivery Status Notification (Delay)' }, 'Message delayed. Your message to accounts@example.com has not been delivered yet. Gmail will keep trying.')
+    await s.db.query('UPDATE quote_emails SET looked_at = NULL')
+    await watch.look()
+    expect(await s.adam.record('quoteEmail', email.id)).toMatchObject({ delayed: { to: ['accounts@example.com'] }, bounced: null })
+
+    // Then it gives up: a bounce, for that address, said why in plain words; the delay is gone.
+    s.gmail.reply('t1', 'b1', { From: 'Mail Delivery Subsystem <mailer-daemon@googlemail.com>', Subject: 'Delivery Status Notification (Failure)', 'X-Failed-Recipients': 'accounts@example.com', 'Content-Type': 'multipart/report; report-type=delivery-status; boundary="x"' }, 'Address not found Your message wasn&#39;t delivered to accounts@example.com because the address couldn&#39;t be found')
+    // And the client writes back.
+    s.gmail.reply('t1', 'r1', { From: 'Ruairí Kelly <ruairi@example.com>', Subject: 'Re: ' + start.subject }, 'Thanks, looks good. Can we add a second mic?')
+    await s.db.query('UPDATE quote_emails SET looked_at = NULL')
+    await watch.look()
+    const after = (await s.adam.record('quoteEmail', email.id)) as QuoteEmail
+    expect(after.bounced).toMatchObject({ to: ['accounts@example.com'], why: 'the address doesn’t exist' })
+    expect(after.delayed).toBeNull()
+    expect(after).toMatchObject({ replies: 1, reply: { from: 'Ruairí Kelly' } })
+
+    // Said once each in the history, as the app's own, and so told to Adam, who sent it.
+    const words = ((await s.adam.history()) as HistoryPage).entries.map((e) => e.what)
+    expect(words.filter((w) => w.startsWith('The email with the quote for Liffey Brands Launch bounced'))).toEqual(['The email with the quote for Liffey Brands Launch bounced for accounts@example.com: the address doesn’t exist'])
+    expect(words).toContain('Ruairí Kelly replied to the email with the quote for Liffey Brands Launch')
+    expect(words).toContain('The email with the quote for Liffey Brands Launch is delayed for accounts@example.com: the mail system is still trying')
+    const notices = (await s.app.inject({ url: '/api/notices', cookies: s.adam.cookies })).json() as { notices: { what: string; why: string; about: { entity: string } }[] }
+    expect(notices.notices.map((n) => n.what)).toContain('The email with the quote for Liffey Brands Launch bounced for accounts@example.com: the address doesn’t exist')
+    expect(notices.notices.find((n) => n.what.includes('bounced'))).toMatchObject({ why: 'sent', about: { entity: 'quoteEmail' } })
+
+    // Read again with nothing new: nothing said twice.
+    await s.db.query('UPDATE quote_emails SET looked_at = NULL')
+    await watch.look()
+    const again = ((await s.adam.history()) as HistoryPage).entries.map((e) => e.what)
+    expect(again.length).toBe(words.length)
+
+    // A week on, it's no longer watched.
+    await s.db.query(`UPDATE quote_emails SET sent_at = now() - interval '8 days', looked_at = NULL`)
+    expect(await watch.look()).toBe(0)
   })
 
   it('gives the quote as a PDF to look at, and the PDF that went', async () => {

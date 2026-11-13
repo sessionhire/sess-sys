@@ -168,7 +168,7 @@ export async function highestNumber(q: Queryable): Promise<number> {
 
 // A quote emailed to the client (ADR 0101): the record every device sees, and the PDF that went, kept here.
 
-const QUOTE_EMAIL = `e.id, e.quote_id, e.project_id, e.version, e.number, e.sent_at, e.from_address, e.to_addresses, e.subject, e.copy_to, e.in_sent_at, coalesce(u.name, '') AS by`
+const QUOTE_EMAIL = `e.id, e.quote_id, e.project_id, e.version, e.number, e.sent_at, e.from_address, e.to_addresses, e.subject, e.copy_to, e.in_sent_at, e.thread_id, e.bounced_at, e.bounced_to, e.bounce_why, e.delayed_at, e.delayed_to, e.replies, e.replied_at, e.replied_from, coalesce(u.name, '') AS by`
 const toQuoteEmail = (r: Row): QuoteEmail => ({
   id: r.id,
   quoteId: r.quote_id,
@@ -182,6 +182,11 @@ const toQuoteEmail = (r: Row): QuoteEmail => ({
   subject: r.subject,
   copyTo: r.copy_to ?? null,
   inSentAt: r.in_sent_at ? new Date(r.in_sent_at).toISOString() : null,
+  threadId: r.thread_id ?? null,
+  bounced: r.bounced_at ? { at: new Date(r.bounced_at).toISOString(), to: r.bounced_to ?? [], why: r.bounce_why ?? '' } : null,
+  delayed: r.delayed_at && !r.bounced_at ? { at: new Date(r.delayed_at).toISOString(), to: r.delayed_to ?? [] } : null,
+  replies: r.replies ?? 0,
+  reply: r.replied_at ? { at: new Date(r.replied_at).toISOString(), from: r.replied_from ?? '' } : null,
 })
 
 export async function getQuoteEmail(q: Queryable, id: string): Promise<QuoteEmail | undefined> {
