@@ -54,6 +54,7 @@ import { Confirm, reasonOf, Refusal, useAct } from '../act.tsx'
 import { forgetPicksWaiting, offerFormId, picksWaiting, setOfferPicks } from './offerPicks.ts'
 import { refuseField, settleRefusals } from '../required.ts'
 import { Fold } from '../Fold.tsx'
+import { landOnCall } from './landOnCall.ts'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
 import { rateText } from '../format.ts'
@@ -373,7 +374,12 @@ export function CallCard({
             <EditCall
               call={call}
               inJob={inJob}
-              onDone={() => setEditing(false)}
+              onDone={() => {
+                // Saved or kept, the form folds away and the page goes back to the top of the call's card, where the change shows: on
+                // a phone the form is long and its foot, where Save is, is well below the card's line (13 November 2026).
+                setEditing(false)
+                landOnCall(call.id)
+              }}
               onSaved={(after, datesMoved) =>
                 onTell?.(promptFor('call-changed', peopleOn(after).map((t) => neededBefore(datesMoved ? forCallDays(t) : t, call)), datesMoved, [], after.callTime !== call.callTime))
               }

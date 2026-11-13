@@ -1806,7 +1806,7 @@ describe('asking for the same crew again (ADR 0164)', () => {
     expect(await entity<CrewCall>(app, 'crewCall', c)).toMatchObject({ status: 'cancelled', stoppedOn: '2026-09-28' })
     expect(await send(app, 'call.reopen', { id: rigger })).toMatchObject({
       status: 'rejected',
-      reason: { code: 'conflict', message: 'The Rigger call on Harbour Lights was cancelled on its own, so it stays cancelled. Ask for crew afresh.' },
+      reason: { code: 'conflict', message: 'The Rigger call on Harbour Lights was cancelled on its own, so it stays cancelled. Add the crew again.' },
     })
 
     expect((await send(app, 'call.reopen', { id: c })).status).toBe('applied')

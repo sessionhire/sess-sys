@@ -3,6 +3,29 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 13 November 2026: Add crew, and you see the call you added
+
+**Done (1.185.1)**
+
+- On a job's Crew tab the form that adds a crew call is Add crew, its
+  button and its name, as nobody is asked anything at that point: Offer…
+  on the call's card is what reaches people. The words around it follow:
+  "No crew added yet", "crew are added by phase and day", the quote's
+  "On the quote but not added yet", Crew's and the call sheet's empty
+  lines, the job's history ("Added 1 × Audio tech to …") and the role
+  picker's "Most used" with "On 2 calls".
+- Pressed, the form closes and the page glides to the new call's card,
+  outlined where it lands, its line taking the focus; a pop-up at the
+  bottom says what was added and that nobody has been offered it yet. On a
+  phone the card was off the top of the screen and only a grey line under
+  the form changed, so it looked as if nothing happened (Colly).
+- Change the call does the same when it closes, saved or kept as it was:
+  the page goes back to the call's line, not to whatever was under the
+  long form.
+- Checked: typecheck; the browser tests that add a call, with one at phone
+  width that the new card's line is focused and on the screen and the
+  pop-up says what was added, clear of the Next bar.
+
 ## 13 November 2026: the role on a crew call is picked from those in use
 
 **Done (1.184.0)**

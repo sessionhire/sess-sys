@@ -110,10 +110,10 @@ describe('a call across the job\'s phases holding a day none of them has (the ga
 
   it('says what the day costs and the way out: a phase for it, or a call for each phase, when it falls between two', () => {
     expect(noPhaseLine(['2026-12-12'], [build, show], '2026-11-20')).toBe(
-      'The call holds Sat 12 Dec, which no phase of the job has: crew on it are asked for that day too, with no calendar invite for it. Add a phase for that day, or ask for crew for each phase on its own.'
+      'The call holds Sat 12 Dec, which no phase of the job has: crew on it are asked for that day too, with no calendar invite for it. Add a phase for that day, or add crew to each phase on its own.'
     )
     expect(noPhaseLine(['2026-12-12', '2026-12-13'], [build, { start: '2026-12-14', end: '2026-12-14' }], '2026-11-20')).toBe(
-      'The call holds Sat 12 Dec to Sun 13 Dec, which no phase of the job has: crew on it are asked for those days too, with no calendar invite for them. Add a phase for those days, or ask for crew for each phase on its own.'
+      'The call holds Sat 12 Dec to Sun 13 Dec, which no phase of the job has: crew on it are asked for those days too, with no calendar invite for them. Add a phase for those days, or add crew to each phase on its own.'
     )
   })
 

@@ -280,7 +280,7 @@ describe('download everything', () => {
       ['Colly Hewson', 'App, device c0ffee', 'Saved the place Bay A3'],
       ['Colly Hewson', 'App, device c0ffee', "Saved Seán Ó Briain's details"],
       ['Colly Hewson', 'App, device c0ffee', 'Gave Seán Ó Briain a new private link; the old one stopped working'],
-      ['Colly Hewson', 'App, device c0ffee', 'Asked for 1 × Audio tech for Electric Picnic (Build), Fri 2 Oct to Sun 4 Oct'],
+      ['Colly Hewson', 'App, device c0ffee', 'Added 1 × Audio tech to Electric Picnic (Build), Fri 2 Oct to Sun 4 Oct'],
       ['Colly Hewson', 'App, device c0ffee', 'Offered Audio tech on Electric Picnic to Seán Ó Briain'],
       ['Seán Ó Briain', 'Private link', 'Seán Ó Briain accepted Audio tech on Electric Picnic'],
     ])

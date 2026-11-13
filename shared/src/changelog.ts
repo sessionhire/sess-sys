@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.185.1',
+    date: '2026-11-13',
+    title: 'Add crew, and you see the call you added',
+    what: "On a job's Crew tab, the button that adds a crew call is now Add crew, as nobody is asked anything yet: offers still go out from the call's card with Offer…. Pressing it closes the form and takes you up to the new call, outlined for a moment, with a note at the bottom of the screen saying what was added. On a phone that call was off the top of the screen before, so it looked as if nothing had happened. Saving or keeping a change to a call takes you back to the call the same way. The job's history says Added rather than Asked for.",
+    prs: [0],
+  },
+  {
     version: '1.185.0',
     date: '2026-11-13',
     title: "The company's logo is the app's icon and sits at the top left",

@@ -77,6 +77,8 @@ import { useMe } from '../crew/Leave.tsx'
 import { Heading } from '../Icon.tsx'
 import { useMyDepartment } from '../Narrowed.tsx'
 import { glideTo } from '../glide.ts'
+import { landOnCall } from '../crew/landOnCall.ts'
+import { showToast } from '../notices.ts'
 import { landOn } from '../places.ts'
 import { JOBS } from '../Up.tsx'
 
@@ -396,6 +398,8 @@ function CrewPart({
   onAgain: (callId: string) => void
 }) {
   const stopped = STOPPED.includes(job.status)
+  // How many calls Add crew has added: each closes its form (Fold's shut).
+  const [added, setAdded] = useState(0)
   // Going again, with calls cancelled along with it last time it stopped (ADR 0164): asked for again from here.
   const today = useToday()
   const again = !stopped && mayCrew ? stoppedCrew(job.calls, today) : undefined
@@ -478,16 +482,23 @@ function CrewPart({
           {stopped ? (
             <p className="empty">This job is {job.status === 'lost' ? 'lost' : 'cancelled'}, so it needs no crew.</p>
           ) : job.calls.length === 0 && !mayCrew ? (
-            <p className="empty">No crew asked for yet.</p>
+            <p className="empty">No crew added yet.</p>
           ) : !job.span ? (
-            <p className="empty">Add a phase first: crew are asked for by phase and day.</p>
+            <p className="empty">Add a phase first: crew are added by phase and day.</p>
           ) : (
             <>
               {/* The quote's crew are the calls cancelled with the job while those can be asked for again (ADR 0164). */}
               {!again && <CrewFromQuote job={job} view={view} />}
-              {job.calls.length === 0 && <p className="hint">No crew asked for yet.</p>}
-              <Fold label="Ask for crew">
-                <AskForCrew job={job} />
+              {job.calls.length === 0 && <p className="hint">No crew added yet.</p>}
+              {/* Added, the form closes and the page glides to the new call's card, where Offer… is (13 November 2026). */}
+              <Fold label="Add crew" shut={added}>
+                <AskForCrew
+                  job={job}
+                  onAdded={(callId) => {
+                    setAdded((n) => n + 1)
+                    landOnCall(callId)
+                  }}
+                />
               </Fold>
             </>
           )}
@@ -775,7 +786,7 @@ function CalendarLine({ job, phase, on, today }: { job: JobView; phase: PhaseVie
     case 'waiting':
       return (
         <p className="cal">
-          Goes on the calendar as {titlesLine(job.name, phase)} once the job is confirmed, or marked HOLD as soon as crew are asked for it.
+          Goes on the calendar as {titlesLine(job.name, phase)} once the job is confirmed, or marked HOLD as soon as crew are added to it.
         </p>
       )
     case 'stopped':
@@ -1154,7 +1165,7 @@ function CrewFromQuote({ job, view }: { job: JobView; view: View }) {
   return (
     <div className="kit-from-quote" role="group" aria-label="Crew on the quote">
       <p>
-        {job.calls.length ? 'On the quote but not asked for yet: ' : 'The quote has crew to ask for: '}
+        {job.calls.length ? 'On the quote but not added yet: ' : 'The quote has crew to add: '}
         {toMake.map((c) => `${c.needed} × ${c.role}`).join(', ')}.
       </p>
       <Refusal error={error} />
@@ -1166,8 +1177,8 @@ function CrewFromQuote({ job, view }: { job: JobView; view: View }) {
   )
 }
 
-/** A role the job needs, for one phase or across several. */
-function AskForCrew({ job }: { job: JobView }) {
+/** A role the job needs, for one phase or across several: a crew call added to the job, offered to people later from its card. */
+function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) => void }) {
   // The reply-by day is suggested from the first day until the office types or clears it (audit finding 21).
   const blank = {
     phaseId: undefined as string | undefined,
@@ -1198,10 +1209,9 @@ function AskForCrew({ job }: { job: JobView }) {
   const venue = phase?.venue ?? job.venue
   const today = useToday()
   const replyBy = f.replyBy ?? (start ? (suggestedReplyBy(start, end < start ? start : end, today) ?? '') : '')
-  const [asked, setAsked] = useState('')
   const { run, error, refuse } = useAct()
 
-  if (!job.span) return <p className="empty">Add a phase first: crew are asked for by phase and day.</p>
+  if (!job.span) return <p className="empty">Add a phase first: crew are added by phase and day.</p>
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
@@ -1209,26 +1219,29 @@ function AskForCrew({ job }: { job: JobView }) {
     refuse('')
     // Each said on its field, never a press that does nothing (spaces alone get past the browser's own check).
     if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
-    if (!start) return refuse('Add a phase first: crew are asked for by phase and day.')
+    if (!start) return refuse('Add a phase first: crew are added by phase and day.')
     const rate = parseEuro(f.rate)
     if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
     // Ready for the next call; a refusal brings what was typed back, unless the next thing has been typed since.
     const cleared = { ...blank, phaseId: f.phaseId }
     setF(cleared)
     setDates(undefined)
+    const id = newId()
+    const needed = Math.max(1, f.needed)
+    const role = f.role.trim()
     void run(() =>
       client.mutate('call.create', {
-        id: newId(),
+        id,
         projectId: job.id,
         phaseId: phase?.id ?? null,
         project: job.name,
         phase: phase?.name ?? f.across.trim(),
         venue: venue ? venueLabel(venue) : '',
-        role: f.role.trim(),
+        role,
         start,
         end: end < start ? start : end,
         callTime: f.callTime || null,
-        needed: Math.max(1, f.needed),
+        needed,
         // A role that doesn't read rates leaves it to the office (ADR 0046).
         dayRateCents: seesRates ? rate.cents : null,
         details: f.details.trim(),
@@ -1237,14 +1250,22 @@ function AskForCrew({ job }: { job: JobView }) {
         department: f.department === undefined ? suggested : f.department,
       })
     ).then((ok) => {
-      // Said where it was asked: the new call lands above, out of sight on a phone, and a second press would make a second call.
-      if (ok) return setAsked(`Asked for ${Math.max(1, f.needed)} × ${f.role.trim()} on ${phase?.name ?? (f.across.trim() || job.name)}, ${spanLabel({ start, end: end < start ? start : end })}. Send offers from its card above.`)
+      // Said where the person is looking: the new call lands above, out of sight on a phone, so the page goes to it and a pop-up at
+      // the bottom edge says what was added. Nobody has been asked anything yet: that is Offer…, on the card (13 November 2026).
+      if (ok) {
+        showToast({
+          id: `added-${id}`,
+          title: `Added ${needed} × ${role}`,
+          body: `${phase?.name ?? (f.across.trim() || job.name)}, ${spanLabel({ start, end: end < start ? start : end })}. Nobody offered it yet: Offer… is on its card.`,
+        })
+        return onAdded(id)
+      }
       setF((now) => (now === cleared ? f : now))
       setDates((now) => now ?? dates)
     })
   }
   return (
-    <form className="grid-form" onSubmit={submit} aria-label="Ask for crew">
+    <form className="grid-form" onSubmit={submit} aria-label="Add crew">
       <label className="wide">
         For
         <select
@@ -1322,14 +1343,9 @@ function AskForCrew({ job }: { job: JobView }) {
       </label>
       <NeedsField value={f.needs} onChange={(needs) => setF({ ...f, needs })} />
       <Refusal error={error} className="wide" />
-      {asked && !error && (
-        <p className="added wide" role="status">
-          {asked}
-        </p>
-      )}
       {/* Plain: the Next dock holds the job page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1). */}
       <button type="submit" className="wide">
-        Ask for crew
+        Add crew
       </button>
     </form>
   )
