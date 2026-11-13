@@ -223,9 +223,34 @@ export const PLACE_RANGE_MAX = 200
  * PLACE_RANGE_MAX.
  */
 export function placeRange(text: string): string[] | undefined {
-  const m = /^(.*?)(\d+)\s*(?:to|-|–|—)\s*(.*?)(\d+)\s*$/i.exec(text.trim())
-  if (!m) return undefined
-  const [, stem, from, again, to] = m as unknown as [string, string, string, string, string]
+  // Read by hand rather than by one pattern, so a long run of digits can't make it slow.
+  const s = text.trim().slice(0, 200)
+  const digitsBefore = (t: string, end: number) => {
+    let i = end
+    while (i > 0 && t.charCodeAt(i - 1) >= 48 && t.charCodeAt(i - 1) <= 57) i--
+    return i
+  }
+  const toStart = digitsBefore(s, s.length)
+  if (toStart === s.length) return undefined
+  const to = s.slice(toStart)
+  const rest = s.slice(0, toStart)
+  const lower = rest.toLowerCase()
+  // The separator nearest the end with a number just before it: "to", "-", "–" or "—".
+  let cut: { at: number; len: number } | undefined
+  for (const sep of ['to', '-', '–', '—'])
+    for (let at = lower.lastIndexOf(sep); at >= 0; at = at === 0 ? -1 : lower.lastIndexOf(sep, at - 1)) {
+      const left = rest.slice(0, at).trimEnd()
+      if (left && digitsBefore(left, left.length) < left.length) {
+        if (!cut || at > cut.at) cut = { at, len: sep.length }
+        break
+      }
+    }
+  if (!cut) return undefined
+  const left = rest.slice(0, cut.at).trimEnd()
+  const fromStart = digitsBefore(left, left.length)
+  const stem = left.slice(0, fromStart)
+  const from = left.slice(fromStart)
+  const again = rest.slice(cut.at + cut.len)
   // Numbers alone name no place: "1-3" is more likely a typo than three places called 1, 2 and 3.
   if (!stem.trim()) return undefined
   const end = again.trim().toLowerCase()
