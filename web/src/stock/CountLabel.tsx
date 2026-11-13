@@ -48,6 +48,8 @@ export function LabelOnCount({
   const w = view.warehouse
   const last = product ? w.models.find((m) => m.id === product) : undefined
   const [name, setName] = useState(last?.name ?? '')
+  // The maker's serial, if it's worth having (ADR 0175): never carried over, as each item has its own.
+  const [serial, setSerial] = useState('')
   const { run, error, refuse } = useAct()
   const field = useRef<HTMLInputElement>(null)
   const button = useRef<HTMLButtonElement>(null)
@@ -77,7 +79,7 @@ export function LabelOnCount({
     void run(async () => {
       if (source && unlabelledHere === 0)
         await client.mutate('stock.move', { modelId: m.id, fromPlaceId: source.placeId, fromCaseId: null, toPlaceId: where.placeId, toCaseId: null, qty: 1 })
-      await client.mutate('asset.add', { id, modelId: m.id, number, serial: '', placeId: where.placeId, caseId: where.caseId, notes: '', fromCount })
+      await client.mutate('asset.add', { id, modelId: m.id, number, serial: serial.trim(), placeId: where.placeId, caseId: where.caseId, notes: '', fromCount })
     }).then(
       (ok) => ok && onLabelled({ assetId: id, modelId: m.id, number, fromCount })
     )
@@ -116,6 +118,10 @@ export function LabelOnCount({
               : `None of ${m.name} are recorded here without a label, so this one is added here.`}
         </p>
       )}
+      <label className="wide">
+        Maker's serial <small>If it has one worth keeping. A scanner can read it in here.</small>
+        <input value={serial} onChange={(e) => setSerial(e.target.value)} autoComplete="off" maxLength={100} enterKeyHint="done" />
+      </label>
       <Refusal error={error} className="wide" />
       <button ref={button} type="submit" className="primary wide">
         {/* The product named, as it carries over from the last label: a shelf of something else shows here before it's pressed. */}

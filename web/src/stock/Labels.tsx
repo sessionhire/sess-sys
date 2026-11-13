@@ -570,6 +570,8 @@ export function ClaimLabel({
   const w = view.warehouse
   const [f, setF] = useState(memory.current)
   const [fromCount, setFromCount] = useState(true)
+  // The maker's serial, if it's worth having (ADR 0175): never carried over to the next label.
+  const [serial, setSerial] = useState('')
   const { run: tryTo, error, refuse } = useAct()
   const { ask, question, asking } = useNewPlace(w)
   const run = view.labels.runOf(number)
@@ -590,7 +592,7 @@ export function ClaimLabel({
     const go = () =>
       void tryTo(async () => {
         const where = (await whereNamed(f.where, w)) ?? { placeId: null, caseId: null }
-        await client.mutate('asset.add', { id, modelId: m.id, number, serial: '', ...where, notes: '', fromCount: one })
+        await client.mutate('asset.add', { id, modelId: m.id, number, serial: serial.trim(), ...where, notes: '', fromCount: one })
         labelledDuringCount({ assetId: id, modelId: m.id, fromCount: one }, where)
       }).then((ok) => ok && onClaimed(id))
     if (!ask(f.where, go)) go()
@@ -623,6 +625,10 @@ export function ClaimLabel({
       <label>
         Where it's kept{' '}
         <input list="where-choices" value={f.where} onChange={(e) => setF({ ...f, where: e.target.value })} placeholder="A place, or a case's number" disabled={asking} />
+      </label>
+      <label className="wide">
+        Maker's serial <small>If it has one worth keeping. A scanner can read it in here.</small>
+        <input value={serial} onChange={(e) => setSerial(e.target.value)} autoComplete="off" maxLength={100} disabled={asking} />
       </label>
       {countedThere > 0 && known && (
         <label className="wide tick">

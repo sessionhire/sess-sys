@@ -68,3 +68,13 @@ two things in the way.
 - Kit recorded at another place (the one place everything came in at from
   Current RMS) is the next step: labelled here, it's added here, not taken
   off that place.
+
+## The maker's serial (13 November 2026, the fifth improvement)
+
+Current RMS brought in no serials, and the kit's own serial is what an
+insurer, a maker's repair desk or the Gardaí ask for. So putting a label on,
+on a count or from the Stock search, has an optional **Maker's serial**
+box. It's never carried over to the next label, since each item has its
+own, and a keyboard scanner reads a maker's barcode straight into it. A
+serial only one item has finds that item in the Stock search, as it always
+has.
