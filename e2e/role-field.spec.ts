@@ -27,8 +27,8 @@ test('the role on a crew call offers the roles already known, and takes a new on
   const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: shots ? 2 : 1 })).newPage()
   await page.goto(`/#jobs/j-${id}/crew`)
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  await page.getByRole('button', { name: 'Add crew' }).first().click()
-  const ask = page.getByRole('form', { name: 'Add crew' })
+  await page.getByRole('button', { name: 'Add a role' }).first().click()
+  const ask = page.getByRole('form', { name: 'Add a role' })
   const role = ask.getByRole('combobox', { name: 'Role' })
 
   // A tap offers the most used; typing finds the crew list's skill in the spelling most have, and Enter takes it.
@@ -45,7 +45,7 @@ test('the role on a crew call offers the roles already known, and takes a new on
   if (shots) await page.screenshot({ path: `${shots}/role-found-phone.png` })
   await role.press('Enter')
   await expect(role).toHaveValue(`Lampie ${id}`)
-  await ask.getByRole('button', { name: 'Add crew' }).click()
+  await ask.getByRole('button', { name: 'Add role' }).click()
   // Added, the form closes and the page goes to the new call's card, out of sight above it on a phone, whose line takes the focus;
   // a pop-up at the bottom says what was added and that nobody has been offered it yet (13 November 2026).
   await expect(ask).toBeHidden()
@@ -58,7 +58,7 @@ test('the role on a crew call offers the roles already known, and takes a new on
   if (shots) await page.screenshot({ path: `${shots}/role-added-phone.png` })
 
   // Added once, it's offered first with how many calls it's on; a role nobody has used is kept as typed.
-  await page.getByRole('button', { name: 'Add crew' }).click()
+  await page.getByRole('button', { name: 'Add a role' }).click()
   await role.click()
   await expect(ask.getByRole('listbox', { name: 'Most used' })).toBeVisible()
   await role.fill(`Lampie ${id}`)
@@ -69,7 +69,7 @@ test('the role on a crew call offers the roles already known, and takes a new on
   if (shots) await page.screenshot({ path: `${shots}/role-new-phone.png` })
   await fresh.click()
   await expect(role).toHaveValue('Pyro technician')
-  await ask.getByRole('button', { name: 'Add crew' }).click()
+  await ask.getByRole('button', { name: 'Add role' }).click()
   await expect(page.getByRole('region', { name: 'Notifications' })).toContainText('Added 1 × Pyro technician')
   await expect(page.getByRole('article', { name: '1 × Pyro technician' }).locator('.call-line')).toBeFocused()
 })

@@ -37,7 +37,7 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await job.getByLabel('Call time').fill('08:00')
   await job.getByLabel('Day rate €').fill('250')
   await job.getByLabel('Details for crew').fill('Food on site. Parking at gate C.')
-  await job.getByRole('button', { name: 'Add crew' }).click()
+  await job.getByRole('button', { name: 'Add role' }).click()
   await asked(office)
   // On Crew › Calls with the rest, past the next fortnight, so under Show all.
   await allCalls(office)

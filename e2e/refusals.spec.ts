@@ -83,7 +83,7 @@ test('a price is read as meant, nonsense is refused beside the field, and cancel
   const job = await askForCrewOn(page, await jobWithPhase(request, { name: `Galway Arts ${id}`, start: '2031-07-14' }))
   await job.getByLabel('Role').fill('Rigger')
   await job.getByLabel('How many').fill('500')
-  await job.getByRole('button', { name: 'Add crew' }).click()
+  await job.getByRole('button', { name: 'Add role' }).click()
   await expect(job.getByRole('alert')).toHaveText('How many is a whole number from 1 to 100.')
   await expect(job.getByLabel('Role')).toHaveValue('Rigger')
   await expect(job.getByLabel('How many')).toHaveValue('500')
@@ -91,13 +91,13 @@ test('a price is read as meant, nonsense is refused beside the field, and cancel
 
   // "two fifty" isn't a price: said in the form, with the fields kept, and no browser dialog.
   await job.getByLabel('Day rate €').fill('two fifty')
-  await job.getByRole('button', { name: 'Add crew' }).click()
+  await job.getByRole('button', { name: 'Add role' }).click()
   await expect(job.getByRole('alert')).toHaveText('Put in a price like 250 or 1,250.50.')
   await expect(job.getByLabel('Role')).toHaveValue('Rigger')
 
   // "€1,250" is €1,250, not €1.25 (audit finding 15).
   await job.getByLabel('Day rate €').fill('€1,250')
-  await job.getByRole('button', { name: 'Add crew' }).click()
+  await job.getByRole('button', { name: 'Add role' }).click()
   await expect(job.getByRole('alert')).toHaveCount(0)
   await asked(page)
   // On Crew › Calls the call is one line under its job (audit finding 16); opened, it says its rate.

@@ -3,6 +3,19 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 13 November 2026: a job's crew starts with Add a role
+
+**Done (1.185.2)**
+
+- Colly: with no crew on a job the first step is adding the roles it
+  needs; asking people comes after. The Crew tab's empty card says "No
+  roles yet. Add the roles this job needs first; then offer each one to
+  people from its card.", its button is Add a role, the form's own button Add role, and once
+  there are roles the card under them is More roles. Crew's empty list
+  and the job's Crew fact say roles too. Offer… on each role's card is
+  still what reaches people.
+- Checked: typecheck; the browser tests that add a role.
+
 ## 13 November 2026: Add crew, and you see the call you added
 
 **Done (1.185.1)**
