@@ -50,6 +50,7 @@ import { Fragment, useId, useMemo, useState, type FormEvent, type ReactNode } fr
 import { Refusal, useAct } from '../act.tsx'
 import { arrive } from '../arrival.ts'
 import { SharePanelFor, TellHere, type Share } from '../crew/Messages.tsx'
+import { RoleField } from '../crew/RoleField.tsx'
 import { Empty } from '../Empty.tsx'
 import { ShowAll } from '../Fold.tsx'
 import { Heading } from '../Icon.tsx'
@@ -1193,9 +1194,7 @@ function AddRole() {
   }
   return (
     <form className="grid-form add-role" onSubmit={add}>
-      <label>
-        Role <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Rigger" maxLength={100} />
-      </label>
+      <RoleField value={role} onChange={setRole} placeholder="e.g. Rigger" />
       <label>
         Price a day <UnitBox unit="€" before><input aria-label="€ a day" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="380" /></UnitBox>
       </label>

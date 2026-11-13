@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.184.0',
+    date: '2026-11-13',
+    title: 'The role on a crew call is picked from the roles already used',
+    what: "When you ask for crew on a job, the Role box now offers the roles already in use as you type, as the client and venue boxes do: those asked for before, most asked for first, and the skills on the crew list, each with how often it's been asked for and how many people on the crew list have it. So \"lx\" and Enter is LX op, rather than a new spelling of it. A role nobody has asked for yet can still be typed: the last line says it will be a new role. Changing a call and adding a role to the price list work the same way.",
+    prs: [0],
+  },
+  {
     version: '1.183.2',
     date: '2026-11-12',
     title: 'Crew rows and cards say more about what crew were told',
