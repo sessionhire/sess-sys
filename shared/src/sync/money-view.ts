@@ -1,5 +1,5 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
-import { daysBetween, eachDay } from '../crew.ts'
+import { daysBetween, eachDay, tradesAs } from '../crew.ts'
 import { irishToday } from '../day.ts'
 import { STOPPED } from '../jobs.ts'
 import { DEFAULT_CREW_PER_CAR } from '../travel.ts'
@@ -818,7 +818,7 @@ export function costsCsv(money: MoneyView, period: Period): string {
       return [
         on,
         p?.name ?? '',
-        p?.company?.name ?? '',
+        p?.company ? (tradesAs(p) === 'sole-trader' ? 'Sole trader' : p.company.name) : '',
         p?.company?.vatNumber ?? '',
         c.row.call.project,
         c.row.call.role,

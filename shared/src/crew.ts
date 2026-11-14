@@ -103,11 +103,25 @@ export function departmentForRole(
 export const NOTES_LENGTH = 2000
 const level = whole(0, 5, 'The level')
 
-/** The company a freelancer trades through. VAT-registered is derived: a VAT number is held. */
+/** How a freelancer works for us: as a sole trader or through a company (ADR 0184). */
+export const TRADES_AS = ['sole-trader', 'company'] as const
+export type TradesAs = (typeof TRADES_AS)[number]
+export const TRADES_AS_LABELS: Record<TradesAs, string> = { 'sole-trader': 'Sole trader', company: 'Company' }
+
+/**
+ * How a freelancer trades (ADRs 0025, 0184): a sole trader, VAT-registered
+ * or not, with a VAT number if so; or a company, with its name, CRO number
+ * and VAT number. `as` and `vatRegistered` are optional so a copy from
+ * before they were asked reads as a company with VAT-registered derived
+ * from the number, as it always did.
+ */
 export const company = z.object({
+  as: z.enum(TRADES_AS).nullable().optional(),
   name: text(200, 'The company name'),
   vatNumber: text(40, 'The VAT number').nullable(),
   croNumber: text(40, 'The CRO number').nullable(),
+  /** A sole trader's answer to "VAT registered?": null is not asked. A company's is read from its VAT number. */
+  vatRegistered: z.boolean().nullable().optional(),
 })
 export type Company = z.infer<typeof company>
 
@@ -181,6 +195,11 @@ export const person = z.object({
   rateHidden: z.boolean().optional(),
   linkHidden: z.boolean().optional(),
   /**
+   * Set by the server alongside rateHidden (ADR 0184): how they trade, and their VAT and CRO numbers, go with their pay, so a
+   * reader who doesn't see their rate is sent none. Never stored.
+   */
+  companyHidden: z.boolean().optional(),
+  /**
    * Set by the server on what it sends staff crew and freelancers (ADR
    * 0062): someone else's email, notes and company are left out, and for a
    * freelancer their phone too. Never stored.
@@ -216,15 +235,37 @@ export function firstName(p: Pick<Person, 'name'> & Partial<Pick<Person, 'knownA
   return p.knownAs?.trim() || p.firstName?.trim() || p.name.trim().split(/\s+/)[0] || p.name
 }
 
-/** A freelancer who charges VAT: the invoicing work reads this. */
+/** A freelancer who charges VAT: the invoicing work reads this. Said yes to, or a VAT number held. */
 export function isVatRegistered(p: Pick<Person, 'company'>): boolean {
-  return !!p.company?.vatNumber?.trim()
+  return p.company?.vatRegistered === true || !!p.company?.vatNumber?.trim()
+}
+
+/**
+ * How they trade after an edit (ADR 0184): unchanged when the edit says nothing (undefined), cleared by null, and otherwise as
+ * sent, keeping sole trader or company and the VAT answer when an edit from a version that doesn't ask them leaves them out.
+ */
+export function companyAfter(was: Company | null, sent: Company | null | undefined): Company | null {
+  if (sent === undefined) return was
+  if (sent === null) return null
+  const as = sent.as !== undefined ? sent.as : (was?.as ?? undefined)
+  const vatRegistered = sent.vatRegistered !== undefined ? sent.vatRegistered : (was?.vatRegistered ?? undefined)
+  const { as: _a, vatRegistered: _v, ...rest } = sent
+  return { ...(as ? { as } : {}), ...rest, ...(vatRegistered !== undefined && vatRegistered !== null ? { vatRegistered } : {}) }
+}
+
+/** How they trade: as said, or a company for a record from before it was asked (it came in as one). Null for none. */
+export function tradesAs(p: Pick<Person, 'company'>): TradesAs | null {
+  return p.company ? (p.company.as ?? 'company') : null
 }
 
 /** "Trades as Quinn Audio Ltd, VAT-registered"; empty when there's no company. */
 export function companyLine(p: Pick<Person, 'company'>): string {
   if (!p.company) return ''
   const name = p.company.name.trim()
+  if (tradesAs(p) === 'sole-trader') {
+    const vat = isVatRegistered(p) ? 'VAT-registered' : p.company.vatRegistered === false ? 'not VAT-registered' : ''
+    return ['Sole trader', vat].filter(Boolean).join(', ')
+  }
   const parts = [name ? `Trades as ${name}` : 'Trades through a company', isVatRegistered(p) ? 'VAT-registered' : '']
   return parts.filter(Boolean).join(', ')
 }
