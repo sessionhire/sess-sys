@@ -18,8 +18,16 @@ const phone = z.string().regex(/^\+?[0-9 ()-]{6,40}$/, 'Phone numbers need digit
 const vatNumber = z.string().trim().regex(/^[A-Za-z0-9 ]{4,20}$/, 'A VAT number is letters and digits, such as IE 1234567T.')
 /** The company's postal address, a line each as written. */
 export const ADDRESS_LENGTH = 300
+/** A company's number at the Companies Registration Office: digits only, six for most companies today. */
+const croNumber = z.string().trim().regex(/^\d{1,8}$/, 'A CRO number is digits only, such as 612345.')
+/** The directors' names, as they're to be printed: "Aoife Byrne, Colm Hewson". */
+export const DIRECTORS_LENGTH = 300
+/** What the company trades as, until the office says otherwise. */
+export const TRADING_NAME = 'Session Hire'
 
 export const OFFICE_SETTING_ID = 'office'
+/** What the office's block is headed until the office names it. */
+export const OFFICE_NAME = 'Session Hire office'
 /** What heads of department read (ADR 0046): the second setting, with only `headsSeeRates` to it. */
 export const READING_SETTING_ID = 'reading'
 /** Whether the app prompts messages to crew (ADR 0048): the third setting, with only `promptMessages` to it. */
@@ -72,6 +80,16 @@ export const setting = z.object({
   /** On the "office" setting, once one is saved: the company's VAT number and address, printed on quotes. */
   vatNumber: z.string().max(20).nullable().optional(),
   address: z.string().max(ADDRESS_LENGTH).nullable().optional(),
+  /**
+   * On the "office" setting, once saved (ADR 0181): the company as the law knows it, for the foot of every quote. What
+   * it trades as ("Session Hire"), its registered name ("Session Hire Productions Limited"), its number at the CRO, its
+   * registered office, and its directors.
+   */
+  tradingName: z.string().max(200).nullable().optional(),
+  legalName: z.string().max(200).nullable().optional(),
+  croNumber: z.string().max(8).nullable().optional(),
+  registeredAddress: z.string().max(ADDRESS_LENGTH).nullable().optional(),
+  directors: z.string().max(DIRECTORS_LENGTH).nullable().optional(),
   /** On the "reading" setting (ADR 0046): a director lets heads of department see crew rates. Off unless said. */
   headsSeeRates: z.boolean().optional(),
   /**
@@ -128,6 +146,13 @@ export interface SettingEntities {
 }
 export const SETTING_ENTITY_NAMES = ['setting'] as const
 
+/** Text that may be left out: trimmed, and null when empty. */
+const optionalText = (max: number, what: string) =>
+  text(max, what)
+    .pipe(z.string().trim())
+    .nullable()
+    .transform((v) => v || null)
+
 export const officeCommandSchemas = {
   /** Set the office's details, all of them at once: there is only one office. */
   'office.update': z.object({
@@ -137,6 +162,19 @@ export const officeCommandSchemas = {
     // Optional, so a change from an app older than them leaves them as they were.
     vatNumber: vatNumber.nullable().optional(),
     address: text(ADDRESS_LENGTH, 'The address').pipe(z.string().trim()).nullable().optional(),
+  }),
+  /**
+   * The company's details for the foot of every quote (ADR 0181), all at once: what it trades as, its registered name,
+   * CRO number, registered office and directors, its VAT number, and the address it trades from. Empty is not said.
+   */
+  'company.details': z.object({
+    tradingName: optionalText(200, 'The trading name'),
+    legalName: optionalText(200, 'The registered name'),
+    croNumber: croNumber.nullable(),
+    registeredAddress: optionalText(ADDRESS_LENGTH, 'The registered office'),
+    directors: optionalText(DIRECTORS_LENGTH, "The directors' names"),
+    vatNumber: vatNumber.nullable(),
+    address: optionalText(ADDRESS_LENGTH, 'The address'),
   }),
   /** Whether heads of department see crew rates and timesheet amounts (ADR 0046). A director's to decide. */
   'reading.heads': z.object({ rates: z.boolean() }),
@@ -203,4 +241,35 @@ export interface WhatsAppStatus {
   nameStatus?: string
   /** Why the number couldn't be read, in Meta's words. */
   problem?: string
+}
+
+/** An address written a line each, said on one line: "Unit 4, Park West, Dublin 12". */
+export const addressOnOneLine = (a: string | null | undefined) =>
+  (a ?? '')
+    .trim()
+    .split(/\s*\n\s*/)
+    .filter(Boolean)
+    .join(', ')
+
+/** What the company trades as: the office's own, or "Session Hire". */
+export const tradingNameOf = (o: Pick<Setting, 'tradingName'> | null | undefined) => o?.tradingName?.trim() || TRADING_NAME
+
+/**
+ * The company as the law asks it to be named on its business letters and order forms (Companies Act 2014, section 151;
+ * ADR 0181), for the foot of a quote: "Session Hire is a trading name of Session Hire Productions Limited, registered in
+ * Ireland, number 612345. Registered office: Unit 4, Park West, Dublin 12. Directors: Aoife Byrne, Colm Hewson." What
+ * isn't set is left out; empty when nothing is.
+ */
+export function legalLine(o: Pick<Setting, 'tradingName' | 'legalName' | 'croNumber' | 'registeredAddress' | 'directors'> | null | undefined): string {
+  const trade = tradingNameOf(o)
+  const legal = o?.legalName?.trim()
+  const cro = o?.croNumber?.trim()
+  const office = addressOnOneLine(o?.registeredAddress)
+  const directors = o?.directors?.trim().replace(/\s*\n\s*/g, ', ')
+  const out: string[] = []
+  const named = legal && legal.toLowerCase() !== trade.toLowerCase() ? `${trade} is a trading name of ${legal}` : legal || (cro ? trade : '')
+  if (named) out.push(`${named}${cro ? `, registered in Ireland, number ${cro}` : ''}.`)
+  if (office) out.push(`Registered office: ${office}.`)
+  if (directors) out.push(`Directors: ${directors}.`)
+  return out.join(' ')
 }

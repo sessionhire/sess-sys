@@ -192,6 +192,12 @@ const CHECKED: Partial<Record<CommandName, Checked>> = {
     what: () => "the office's details",
     idOf: () => OFFICE_SETTING_ID,
   },
+  'company.details': {
+    entity: 'setting',
+    fields: { tradingName: 'trading name', legalName: 'registered name', croNumber: 'CRO number', registeredAddress: 'registered office', directors: 'directors', vatNumber: 'VAT number', address: 'address' },
+    what: () => "the company's details",
+    idOf: () => OFFICE_SETTING_ID,
+  },
   'quoting.update': {
     entity: 'quoteSettings',
     fields: { nextNumber: 'next quote number', terms: 'terms', bank: 'bank details' },

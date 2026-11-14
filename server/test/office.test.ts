@@ -128,6 +128,40 @@ describe('the office’s details', () => {
     expect(history.entries.map((e) => e.what)).toContain('Set the office details: Session Hire, no phone, office@sessionhire.com, VAT number IE 1234567T and an address')
   })
 
+  it('carry the company as the law names it for quotes, refuse a CRO number with letters, and clear what is left empty (ADR 0181)', async () => {
+    const { app, pages } = await company()
+    const office = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string }) => c.entity === 'setting').at(-1).data
+    const all = { tradingName: 'Session Hire', legalName: ' Session Hire Productions Limited ', croNumber: '612345', registeredAddress: 'Unit 4, Park West\nDublin 12', directors: 'Aoife Byrne, Sam Lee (British)', vatNumber: 'IE 1234567T', address: null }
+    const [bad] = await send(app, m('company.details', { ...all, croNumber: 'C612345' }))
+    expect(bad).toMatchObject({ status: 'rejected', reason: { message: 'A CRO number is digits only, such as 612345.' } })
+    // With no office row yet, it's made with the office's usual name.
+    const [ok] = await send(app, m('company.details', all))
+    expect(ok).toMatchObject({ status: 'applied' })
+    expect(await office()).toEqual({
+      id: 'office',
+      name: 'Session Hire office',
+      phone: null,
+      email: null,
+      tradingName: 'Session Hire',
+      legalName: 'Session Hire Productions Limited',
+      croNumber: '612345',
+      registeredAddress: 'Unit 4, Park West\nDublin 12',
+      directors: 'Aoife Byrne, Sam Lee (British)',
+      vatNumber: 'IE 1234567T',
+    })
+    for (const [name, html] of Object.entries(await pages())) expect(html, name).not.toContain('612345')
+    // The office card's own change keeps them.
+    await send(app, m('office.update', { name: 'Session Hire office', phone: null, email: 'office@sessionhire.com' }))
+    expect(await office()).toMatchObject({ email: 'office@sessionhire.com', croNumber: '612345', directors: 'Aoife Byrne, Sam Lee (British)' })
+    await send(app, m('company.details', { tradingName: null, legalName: null, croNumber: null, registeredAddress: '  ', directors: null, vatNumber: null, address: null }))
+    expect(await office()).toEqual({ id: 'office', name: 'Session Hire office', phone: null, email: 'office@sessionhire.com' })
+
+    const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
+    expect(history.entries.map((e) => e.what)).toContain(
+      "Set the company's details for quotes: Session Hire Productions Limited, CRO number 612345, VAT number IE 1234567T, a registered office and the directors"
+    )
+  })
+
   it('prompt no messages to crew until the office says so (ADR 0048)', async () => {
     const { app } = await company()
     const settings = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string }) => c.entity === 'setting')

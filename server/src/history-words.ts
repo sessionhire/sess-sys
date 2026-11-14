@@ -299,6 +299,10 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     }
     case 'office.update':
       return `Set the office details: ${inWords([text(a.name, 'no name'), text(a.phone, 'no phone'), text(a.email, 'no email'), ...(a.vatNumber ? [`VAT number ${text(a.vatNumber, '').trim()}`] : []), ...(a.address ? ['an address'] : [])])}`
+    case 'company.details': {
+      const said = (v: unknown) => text(v, '').trim()
+      return `Set the company's details for quotes: ${inWords([said(a.legalName) || said(a.tradingName) || 'no name', ...(said(a.croNumber) ? [`CRO number ${said(a.croNumber)}`] : []), ...(said(a.vatNumber) ? [`VAT number ${said(a.vatNumber)}`] : []), ...(said(a.registeredAddress) ? ['a registered office'] : []), ...(said(a.directors) ? ['the directors'] : [])])}`
+    }
     case 'reading.heads':
       return a.rates === true ? 'Let heads of department see crew rates' : 'Kept crew rates from heads of department'
     case 'messages.prompt':

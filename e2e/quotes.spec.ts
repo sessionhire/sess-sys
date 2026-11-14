@@ -52,12 +52,19 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     ;(window as unknown as { printed: number }).printed = 0
     window.print = () => void (window as unknown as { printed: number }).printed++
   })
-  // The company's VAT number and address, from Admin's office details, go on the printed quote.
+  // The company's details from Admin › Company go along the foot of the printed quote (ADR 0181): its VAT number, the address it trades
+  // from, and the company as the law names it.
   await office.goto('/#admin')
-  const details = office.getByRole('region', { name: 'Office details' })
-  await details.getByLabel('VAT number').fill('IE 1234567T')
-  await details.getByLabel('Address').fill('Unit 4, Docklands Business Park\nDublin 3')
-  await office.getByRole('button', { name: 'Save office details' }).click()
+  const company = office.getByRole('region', { name: 'Company details' })
+  await company.getByLabel('Registered name').fill('Session Hire Productions Limited')
+  await company.getByLabel('CRO number').fill('612345')
+  await company.getByLabel('VAT number').fill('IE 1234567T')
+  await company.getByLabel('Registered office').fill('Unit 4, Park West\nDublin 12')
+  await company.getByLabel('Address you trade from').fill('Unit 4, Docklands Business Park\nDublin 3')
+  await company.getByLabel('Directors').fill('Aoife Byrne, Sam Lee (British)')
+  await expect(company.getByRole('blockquote')).toContainText('Session Hire is a trading name of Session Hire Productions Limited, registered in Ireland, number 612345.')
+  await company.getByRole('button', { name: 'Save company details' }).click()
+  await expect(company.getByRole('button', { name: 'Save company details' })).toBeDisabled()
   // Numbers carry on from the last system's, and the terms and bank details go under every quote (ADR 0084).
   const quoting = office.getByRole('region', { name: 'Printed quotes' })
   await quoting.getByLabel('Next quote number').fill('1115')
@@ -193,6 +200,9 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(printed.locator('.sheet-facts')).toContainText('Draft quoteNot sent yet')
   await expect(printed.locator('.from')).toContainText('Unit 4, Docklands Business Park, Dublin 3')
   await expect(printed.locator('.from')).toContainText('VAT number IE 1234567T')
+  await expect(printed.locator('.from .legal')).toHaveText(
+    'Session Hire is a trading name of Session Hire Productions Limited, registered in Ireland, number 612345. Registered office: Unit 4, Park West, Dublin 12. Directors: Aoife Byrne, Sam Lee (British).'
+  )
   await expect(printed).toContainText('A deposit of 50%, €933.83, confirms the booking.')
   await expect(printed.locator('.sheet-terms')).toHaveCount(2)
   await expect.poll(() => office.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1)

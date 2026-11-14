@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.200.0',
+    date: '2026-11-14',
+    title: 'The company’s registered details on every quote',
+    what: "Admin › Company has a Company details card: the trading name, the registered name, CRO number, VAT number, registered office, the address you trade from, and the directors. They go along the foot of every quote, on the page and in the PDF, as Irish company law asks of a company's letters and order forms; the card shows the foot as it will print. The VAT number and address moved here from Office details.",
+    prs: [389],
+    adrs: [181],
+  },
+  {
     version: '1.199.0',
     date: '2026-11-14',
     title: 'The warehouse under Admin › Company',

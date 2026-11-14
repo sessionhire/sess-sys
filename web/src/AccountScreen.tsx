@@ -9,6 +9,7 @@ import { DataCard } from './DataCard.tsx'
 import { ExportCard } from './ExportCard.tsx'
 import { LabelsCard } from './LabelsCard.tsx'
 import { WarehouseCard } from './WarehouseCard.tsx'
+import { CompanyCard } from './CompanyCard.tsx'
 import { LogoCard } from './LogoCard.tsx'
 import { ListsCard } from './ListsCard.tsx'
 import { Top } from './jobs/common.tsx'
@@ -88,6 +89,7 @@ export function AccountScreen() {
             {part === 'company' && (
               <>
                 {settings && <OfficeCard office={view.office} />}
+                {settings && <CompanyCard office={view.office} />}
                 {settings && <LogoCard office={view.office} />}
                 {settings && <WarehouseCard trackers={view.trackers} />}
                 {settings && access.can('money') && <QuotingCard money={view.money} />}
