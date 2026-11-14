@@ -246,8 +246,8 @@ export interface WhatsAppStatus {
 /** An address written a line each, said on one line: "Unit 4, Park West, Dublin 12". */
 export const addressOnOneLine = (a: string | null | undefined) =>
   (a ?? '')
-    .trim()
-    .split(/\s*\n\s*/)
+    .split('\n')
+    .map((l) => l.trim())
     .filter(Boolean)
     .join(', ')
 
@@ -265,7 +265,7 @@ export function legalLine(o: Pick<Setting, 'tradingName' | 'legalName' | 'croNum
   const legal = o?.legalName?.trim()
   const cro = o?.croNumber?.trim()
   const office = addressOnOneLine(o?.registeredAddress)
-  const directors = o?.directors?.trim().replace(/\s*\n\s*/g, ', ')
+  const directors = addressOnOneLine(o?.directors)
   const out: string[] = []
   const named = legal && legal.toLowerCase() !== trade.toLowerCase() ? `${trade} is a trading name of ${legal}` : legal || (cro ? trade : '')
   if (named) out.push(`${named}${cro ? `, registered in Ireland, number ${cro}` : ''}.`)
