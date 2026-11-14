@@ -352,6 +352,8 @@ export function moneyView(
       case 'quoting.delivery': {
         const a = m.args as CommandArgs<'quoting.delivery'>
         quoting = { ...quoting, deliveryCentsPerKm: a.centsPerKm, pending: true }
+        // Taken off reads as never set, as the server gives it.
+        if (a.centsPerKm === null) delete quoting.deliveryCentsPerKm
         break
       }
       case 'quoting.ownKit': {

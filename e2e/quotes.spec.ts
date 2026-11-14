@@ -251,6 +251,9 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     route.fulfill({ json: { addresses: to.map((address) => ({ address, problem: address.endsWith('@nomail.ie') ? 'nomail.ie can’t receive email, so it would bounce. Check the spelling.' : null, suggest: address === 'ruairi@gmial.com' ? 'ruairi@gmail.com' : null })) } })
   })
   await draft.getByRole('button', { name: 'Send quote' }).click()
+  // Corrib Arts Week, a quote already sent, holds its kit (ADR 0183), so a line here is short and is asked about first.
+  await expect(draft.locator('.before-it-goes')).toContainText("short of kit on the job's days")
+  await draft.getByRole('button', { name: 'Send it anyway' }).click()
   const compose = draft.getByRole('form', { name: 'Send the quote by email' })
   await expect(compose.getByLabel('To')).toHaveValue('ruairi@example.com')
   await expect(compose.getByLabel('Subject')).toHaveValue('Quote 1115 from Session Hire: Liffey Brands Launch')
@@ -306,6 +309,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // Sent another way by the office itself, then a second version with Liffey's 10% off; the first is kept as it went.
   await draft.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
   await draft.getByRole('button', { name: 'Mark as sent', exact: true }).click()
+  await draft.getByRole('button', { name: 'Mark it sent anyway' }).click()
   const v1 = office.getByRole('region', { name: 'Version 1' })
   await expect(v1.getByText('Sent', { exact: true })).toBeVisible()
   // On a phone the version as sent is what and the amount, the rest in a line under the name (audit, 5 November 2026, finding 59).
@@ -334,6 +338,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(v2.getByLabel('Deposit, %')).toHaveValue('50')
   await v2.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
   await v2.getByRole('button', { name: 'Mark as sent', exact: true }).click()
+  await v2.getByRole('button', { name: 'Mark it sent anyway' }).click()
   await expect(office.getByRole('region', { name: 'Version 2' }).locator('.quote-facts')).toContainText('Quote 1115')
 
   // The client said yes; the office invoiced it outside the app and records that here.
