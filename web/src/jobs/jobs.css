@@ -1083,10 +1083,14 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .photo-grid button { display: block; width: 100%; min-height: 0; aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--ds-surface-inset); }
 .photo-grid img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .add-photos { display: grid; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
+/* A button as wide as its words, as every button is (Colly, 14 November 2026); its long line, once tags are chosen, wraps. */
+.add-photos > .photo-words-fold { justify-self: start; max-width: 100%; text-align: start; }
 .add-photos .refusal ul { margin: var(--ds-space-1) 0 0; padding-inline-start: var(--ds-space-4); }
 .photo-tags-field { display: grid; gap: var(--ds-space-1); }
 .photo-tags-field .pills { flex-wrap: wrap; }
 .photo-tag-new { display: flex; gap: var(--ds-space-1); }
+/* On a wide screen the typing rows stay a line's length, so Add tag sits by its field rather than across the page. */
+.photo-tag-new, .add-photos > .fold > .field, .photo-words > .field { max-width: 40rem; }
 .photo-tag-new label { flex: 1; min-width: 0; }
 .photo-tag-new input { width: 100%; }
 .app .pills button .count { color: inherit; opacity: 0.7; font-variant-numeric: tabular-nums; }

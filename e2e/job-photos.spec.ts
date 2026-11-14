@@ -62,3 +62,15 @@ test('photos go on a job several at a time, open whole, show under Jobs › Phot
   await expect(grid.getByRole('listitem')).toHaveCount(1)
   await context.close()
 })
+
+test('on a desk the photos tab’s buttons are as wide as their words, not the page', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const jobId = await jobWithPhase(context.request, { name: `Desk Photos ${id}`, start: '2026-08-29' })
+  const page = await context.newPage()
+  await page.goto(`/#jobs/${jobId}/photos`)
+  const card = page.getByRole('region', { name: 'Photos', exact: true })
+  const fold = card.getByRole('button', { name: 'Tags and a caption for them' })
+  const [button, whole] = await Promise.all([fold.boundingBox(), card.boundingBox()])
+  expect(button!.width).toBeLessThan(whole!.width / 2)
+  await context.close()
+})

@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.201.1',
+    date: '2026-11-14',
+    title: 'Tidier Photos tab on a computer',
+    what: 'On a wide screen the Photos tab’s "Tags and a caption for them" button is as wide as its words instead of stretching across the page, and the tag and caption boxes keep to a sensible width.',
+    prs: [391],
+  },
+  {
     version: '1.201.0',
     date: '2026-11-14',
     title: 'Photos of jobs',
