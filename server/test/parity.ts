@@ -1,5 +1,9 @@
 import { COMMAND_NAMES, draftBase, newId, type CommandInput, type CommandName, type Mutation, type View } from '@sh/shared'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { dirStore } from '../src/backup/store.ts'
 import { company, day, m, ok, TRACKERS_KEY, person, phone, today, year, checks, leaveSpanFrom } from './company.ts'
 
 /**
@@ -95,6 +99,8 @@ interface Case<N extends CommandName = CommandName> {
   queued?: Mutation[]
   /** Trackers' reports taken in after `before` (ADR 0107): a tracker is made only by reporting. */
   reports?: object[]
+  /** Photos put on the Autumn Gala first, by their ids (ADR 0182): a photo is put up by sending its file, not by a command. */
+  photos?: string[]
   /** Fields only the server can fill in, left out of the comparison. */
   ignore?: string[]
   /** Drift found and not put right yet: each must still be there, so whoever fixes it takes it off. */
@@ -107,9 +113,17 @@ const c = <N extends CommandName>(name: N, args: CommandInput<N>, more: Omit<Cas
  * One change made with no signal, then synced: what the device showed while
  * it waited, and what it shows once the server has applied it.
  */
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
+
 async function run(k: Case) {
-  const { app } = await company()
+  const folder = k.photos ? mkdtempSync(join(tmpdir(), 'sh-parity-')) : undefined
+  const { app } = await company(folder ? { documentStore: dirStore(folder) } : {})
   if (k.before?.length) await ok(app, ...k.before)
+  for (const id of k.photos ?? []) {
+    const q = new URLSearchParams({ client: 'office', jobId: 'gala', caption: 'Main stage', tags: '["Stage"]', thumb: String(JPEG.length), width: '2560', height: '1707' })
+    const res = await app.inject({ method: 'POST', url: `/api/job-photos/${id}?${q}`, headers: { 'content-type': 'application/octet-stream' }, payload: Buffer.concat([JPEG, JPEG]) })
+    expect(res.statusCode, res.body).toBe(200)
+  }
   for (const payload of k.reports ?? []) {
     const res = await app.inject({ method: 'POST', url: '/api/trackers/digital-matter', headers: { authorization: `Bearer ${TRACKERS_KEY}` }, payload })
     expect(res.statusCode, res.body).toBe(200)
@@ -403,6 +417,8 @@ const CASES: Case[] = [
   c('vehicle.save', { id: 'van', name: 'Big Van', registration: '241-d-101', kind: 'van', seats: 2, payloadKg: 1100, notes: 'Roof rack', checks }, { as: 'an edit' }),
   c('vehicle.save', { id: 'luton', name: 'Luton', registration: '231-D-55', kind: 'luton', seats: 3, payloadKg: 1000, notes: '', checks }, { as: 'a new one' }),
   c('vehicle.offRoad', { id: 'van', out: { since: day(3), until: day(4), note: 'Clutch' } }),
+  c('jobPhoto.save', { id: 'stage', caption: 'Main stage at dusk', tags: ['Stage', 'Lighting'] }, { photos: ['stage'] }),
+  c('jobPhoto.remove', { id: 'stage' }, { photos: ['stage', 'crowd'] }),
   c('vehicle.archive', { id: 'van', archived: true }, { before: [m('vehicleBooking.remove', { id: 'run' })] }),
   c('vehicleBooking.add', { id: 'run2', vehicleId: 'van', projectId: 'gala', phaseId: 'show', start: day(5), end: day(5), driverId: null, notes: '', override: false }),
   c('vehicleBooking.update', { id: 'run', start: day(4), end: day(4), driverId: null, notes: 'Collect from Bay A1' }),
