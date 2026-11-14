@@ -57,6 +57,8 @@ const MIGRATIONS: string[] = [
     CHECK ((home_lat IS NULL) = (home_lng IS NULL))
   );
   `,
+  // The warehouse's address (Admin › Company › Warehouse), beside its pin.
+  `ALTER TABLE tracker_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT ''`,
 ]
 
 export const TRACKERS: Module = { versionTable: 'trackers_schema_version', migrations: MIGRATIONS }

@@ -3,7 +3,6 @@ import {
   DEFAULT_TRACKER_RADIUS_M,
   MAX_TRACKER_RADIUS_M,
   MIN_TRACKER_RADIUS_M,
-  pinFromText,
   placeLine,
   plural,
   TRACKER_QUIET_DAYS,
@@ -227,62 +226,38 @@ export function TrackersCard({ view }: { view: View }) {
 }
 
 /**
- * The warehouse on the map, and how near counts as there. Nothing is saved until Save. The same pin is where the vans
- * leave from (ADR 0179), so Stock › Vehicles shows it too, without the trackers' how near.
+ * How near the warehouse or a venue counts as there. The warehouse itself, its address and pin, is kept under
+ * Admin › Company (ADR 0180), since the vans measure their drives from it too; this says where it is and links there.
  */
-export function Warehouse({ trackers, vans = false }: { trackers: TrackersView; vans?: boolean }) {
+function Warehouse({ trackers }: { trackers: TrackersView }) {
   const saved = trackers.settings
-  const [draft, setDraft] = useState<Pin | null>(saved.home)
   const [radius, setRadius] = useState(String(saved.radiusM))
-  const [pasted, setPasted] = useState('')
   const { run, error, refuse } = useAct()
   const radiusM = Number(radius)
-  const changed = draft?.lat !== saved.home?.lat || draft?.lng !== saved.home?.lng || (!vans && radiusM !== saved.radiusM)
-  const usePasted = (e: FormEvent) => {
-    e.preventDefault()
-    const p = pinFromText(pasted)
-    if (!p) return refuse('That isn\'t a map link or coordinates. Paste a Google Maps link to the warehouse, or numbers like "53.3249, -6.3368".')
-    refuse('')
-    setDraft(p)
-    setPasted('')
-  }
   const save = () => {
-    if (vans) return void run(() => client.mutate('trackers.home', { home: draft, radiusM: saved.radiusM }))
     if (!Number.isInteger(radiusM) || radiusM < MIN_TRACKER_RADIUS_M || radiusM > MAX_TRACKER_RADIUS_M)
       return refuse(`How near can be ${MIN_TRACKER_RADIUS_M} to ${MAX_TRACKER_RADIUS_M.toLocaleString('en-IE')} metres.`)
-    void run(() => client.mutate('trackers.home', { home: draft, radiusM }))
+    void run(() => client.mutate('trackers.home', { home: saved.home, radiusM }))
   }
+  const where = saved.address.trim().split(/\s*\n\s*/).filter(Boolean).join(', ')
   return (
     <fieldset className="choices">
       <legend>The warehouse</legend>
       <p className="hint">
-        {vans ? 'The vans leave from here: each drive to a venue is measured from it.' : 'Kit on no job belongs here.'} {draft ? `Tap the map or drag the pin to move it. Now at ${pinText(draft)}.` : 'Tap the map where it is, or paste a link.'}
+        Kit on no job belongs here.{' '}
+        {saved.home ? `It's at ${where || pinText(saved.home)}.` : 'It isn’t on the map yet, so no tracker can be said to be home.'}{' '}
+        <a href="#admin/company">{saved.home ? 'Change it' : 'Put it on the map'} under Admin › Company</a>.
       </p>
-      <LazyMap marks={[]} placing={draft} onPlace={setDraft} label="Map for placing the warehouse: tap where it is" />
-      <form className="paste-pin" onSubmit={usePasted} aria-label="Paste a map link">
-        <label className="field">
-          Or paste a map link or coordinates
-          <input value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="A Google Maps link, or 53.3249, -6.3368" inputMode="url" autoComplete="off" />
-        </label>
-        <button type="submit" disabled={!pasted.trim()}>
-          Use it
-        </button>
-      </form>
-      {!vans && <label className="field">
+      <label className="field">
         How near counts as there, in metres
         <input type="number" inputMode="numeric" min={MIN_TRACKER_RADIUS_M} max={MAX_TRACKER_RADIUS_M} step={10} value={radius} onChange={(e) => setRadius(e.target.value)} />
         <small>The same for the warehouse and for venues. {DEFAULT_TRACKER_RADIUS_M} m takes in a yard and a car park; a tracker's fix can be out by 50 m or more indoors.</small>
-      </label>}
+      </label>
       <Refusal error={error} />
       <div className="actions">
-        <button type="button" className="primary" onClick={save} disabled={!changed}>
-          Save the warehouse
+        <button type="button" className="primary" onClick={save} disabled={radiusM === saved.radiusM}>
+          Save how near
         </button>
-        {saved.home && (
-          <button type="button" onClick={() => void run(() => client.mutate('trackers.home', { home: null, radiusM: saved.radiusM })).then((ok) => ok && setDraft(null))}>
-            Remove from map
-          </button>
-        )}
       </div>
     </fieldset>
   )

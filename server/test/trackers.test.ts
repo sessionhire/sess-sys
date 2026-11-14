@@ -221,7 +221,15 @@ describe('where kit is against where it should be', () => {
     const again = await tracker(app, '416581')
     expect(again.place.kind).toBe('away')
     expect(Date.parse(again.placeSince)).toBeGreaterThanOrEqual(Date.parse(away.placeSince))
-    expect((await latest<TrackerSettings>(app, 'trackerSettings')).get('trackers')).toEqual({ id: 'trackers', on: true, home: WAREHOUSE, radiusM: 300 })
+    expect((await latest<TrackerSettings>(app, 'trackerSettings')).get('trackers')).toEqual({ id: 'trackers', on: true, home: WAREHOUSE, address: '', radiusM: 300 })
+  })
+
+  it('keeps the warehouse address from Admin, and a change that leaves it out keeps it (ADR 0180)', async () => {
+    const { app } = await company()
+    await ok(app, 'trackers.home', { home: WAREHOUSE, radiusM: 300, address: ' Unit 4, Park West\nDublin 12 ' })
+    expect((await latest<TrackerSettings>(app, 'trackerSettings')).get('trackers')).toMatchObject({ home: WAREHOUSE, address: 'Unit 4, Park West\nDublin 12' })
+    await ok(app, 'trackers.home', { home: WAREHOUSE, radiusM: 400 })
+    expect((await latest<TrackerSettings>(app, 'trackerSettings')).get('trackers')).toMatchObject({ address: 'Unit 4, Park West\nDublin 12', radiusM: 400 })
   })
 })
 
@@ -252,7 +260,7 @@ describe('putting trackers on items', () => {
       expect.stringMatching(/^Put Spare tracker on \S+ \(Allen & Heath dLive S5000 case\)$/),
       'Called Spare tracker “Spare tracker”',
       expect.stringMatching(/^Put tracker 416581 on \S+ \(Allen & Heath dLive S5000 case\)$/),
-      'Put the warehouse on the map for trackers, 300 m around it',
+      'Put the warehouse on the map, 300 m around it',
       'Turned on trackers',
     ])
   })

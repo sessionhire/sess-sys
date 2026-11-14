@@ -54,8 +54,9 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   })
   // The company's VAT number and address, from Admin's office details, go on the printed quote.
   await office.goto('/#admin')
-  await office.getByLabel('VAT number').fill('IE 1234567T')
-  await office.getByLabel('Address').fill('Unit 4, Docklands Business Park\nDublin 3')
+  const details = office.getByRole('region', { name: 'Office details' })
+  await details.getByLabel('VAT number').fill('IE 1234567T')
+  await details.getByLabel('Address').fill('Unit 4, Docklands Business Park\nDublin 3')
   await office.getByRole('button', { name: 'Save office details' }).click()
   // Numbers carry on from the last system's, and the terms and bank details go under every quote (ADR 0084).
   const quoting = office.getByRole('region', { name: 'Printed quotes' })

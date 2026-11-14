@@ -276,6 +276,9 @@ const CASES: Case[] = [
   // Trackers (ADR 0107): one reporting from the warehouse, with trackers on and the warehouse on the map.
   c('trackers.use', { on: true }),
   c('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 250 }, { before: TRACKERS_ON, reports: [REPORT] }),
+  // The warehouse's address (ADR 0180), from Admin › Company, then a change that leaves it out and keeps it.
+  c('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 300, address: ' Unit 4, Park West\nDublin 12 ' }, { as: 'with its address' }),
+  c('trackers.home', { home: null, radiusM: 300 }, { as: 'keeping its address', before: [m('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 300, address: 'Unit 4, Park West' })] }),
   c('tracker.attach', { id: 'digital-matter:416581', assetId: 'a1' }, { before: TRACKERS_ON, reports: [REPORT] }),
   c('tracker.attach', { id: 'digital-matter:416581', assetId: null }, { as: 'taken off', before: TRACKERS_ON, reports: [REPORT], queued: [m('tracker.attach', { id: 'digital-matter:416581', assetId: 'a1' })] }),
   c('tracker.name', { id: 'digital-matter:416581', name: ' Desk case ' }, { before: TRACKERS_ON, reports: [REPORT] }),

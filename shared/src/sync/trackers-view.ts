@@ -48,7 +48,7 @@ const byLabel = (a: TrackerView, b: TrackerView) => a.label.localeCompare(b.labe
 
 export function trackersView(entities: Partial<Tables>, outbox: readonly (Mutation & { appliedSeq?: number })[], cursor: number, warehouse: WarehouseView): TrackersView {
   // Snapshots saved before trackers existed have no tables for them.
-  let settings: TrackerSettings = entities.trackerSettings?.[TRACKER_SETTINGS_ID] ?? TRACKERS_OFF
+  let settings: TrackerSettings = { ...TRACKERS_OFF, ...entities.trackerSettings?.[TRACKER_SETTINGS_ID] }
   let settingsPending = false
   const trackers = new Map<string, Tracker & { pending: boolean }>()
   for (const t of Object.values(entities.tracker ?? {})) trackers.set(t.id, { ...t, pending: false })
@@ -62,7 +62,7 @@ export function trackersView(entities: Partial<Tables>, outbox: readonly (Mutati
         break
       case 'trackers.home': {
         const a = m.args as CommandArgs<'trackers.home'>
-        settings = { ...settings, home: a.home, radiusM: a.radiusM }
+        settings = { ...settings, home: a.home, radiusM: a.radiusM, address: a.address ?? settings.address }
         settingsPending = true
         break
       }

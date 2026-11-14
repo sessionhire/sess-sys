@@ -42,8 +42,8 @@ export async function trackerOnAsset(q: Queryable, assetId: string): Promise<Tra
 }
 
 export async function getTrackerSettings(q: Queryable): Promise<TrackerSettings> {
-  const { rows } = await q.query<{ used: boolean; home_lat: number | null; home_lng: number | null; radius_m: number }>(
-    'SELECT used, home_lat, home_lng, radius_m FROM tracker_settings WHERE id = $1',
+  const { rows } = await q.query<{ used: boolean; home_lat: number | null; home_lng: number | null; radius_m: number; address: string }>(
+    'SELECT used, home_lat, home_lng, radius_m, address FROM tracker_settings WHERE id = $1',
     [TRACKER_SETTINGS_ID]
   )
   const r = rows[0]
@@ -51,6 +51,7 @@ export async function getTrackerSettings(q: Queryable): Promise<TrackerSettings>
     id: TRACKER_SETTINGS_ID,
     on: r?.used === true,
     home: r && r.home_lat !== null && r.home_lng !== null ? { lat: r.home_lat, lng: r.home_lng } : null,
+    address: r?.address ?? '',
     radiusM: r?.radius_m ?? DEFAULT_TRACKER_RADIUS_M,
   }
 }

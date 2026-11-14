@@ -42,9 +42,10 @@ export const trackerHandlers: { [N in TrackerCommand]: Handler<N> } = {
 
   async 'trackers.home'(ctx, a) {
     await ctx.tx.query(
-      `INSERT INTO tracker_settings (id, home_lat, home_lng, radius_m) VALUES ($1, $2, $3, $4)
-       ON CONFLICT (id) DO UPDATE SET home_lat = EXCLUDED.home_lat, home_lng = EXCLUDED.home_lng, radius_m = EXCLUDED.radius_m`,
-      [TRACKER_SETTINGS_ID, a.home?.lat ?? null, a.home?.lng ?? null, a.radiusM]
+      `INSERT INTO tracker_settings (id, home_lat, home_lng, radius_m, address) VALUES ($1, $2, $3, $4, COALESCE($5, ''))
+       ON CONFLICT (id) DO UPDATE SET home_lat = EXCLUDED.home_lat, home_lng = EXCLUDED.home_lng, radius_m = EXCLUDED.radius_m,
+         address = COALESCE($5, tracker_settings.address)`,
+      [TRACKER_SETTINGS_ID, a.home?.lat ?? null, a.home?.lng ?? null, a.radiusM, a.address ?? null]
     )
     await emitSettings(ctx)
     await settleAll(ctx)

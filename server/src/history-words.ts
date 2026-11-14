@@ -325,7 +325,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'trackers.use':
       return a.on === true ? 'Turned on trackers' : 'Turned off trackers'
     case 'trackers.home':
-      return a.home ? `Put the warehouse on the map for trackers, ${typeof a.radiusM === 'number' ? `${a.radiusM.toLocaleString('en-IE')} m` : 'a little'} around it` : 'Took the warehouse off the map for trackers'
+      return a.home ? `Put the warehouse on the map, ${typeof a.radiusM === 'number' ? `${a.radiusM.toLocaleString('en-IE')} m` : 'a little'} around it` : 'Took the warehouse off the map'
     case 'tracker.attach':
       return a.assetId ? `Put ${tracker(a.id)} on ${item(a.assetId)}` : `Took ${tracker(a.id)} off its item`
     case 'tracker.name':
