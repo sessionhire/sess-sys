@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.201.2',
+    date: '2026-11-14',
+    title: 'How many boxes can be cleared',
+    what: "The How many box when adding a role or changing a call on a job's Crew tab can be emptied again: before, the 1 or 0 in it wouldn't go, so typing 2 gave 02. The same is fixed for How many days on a day in lieu and the How many on Claude's suggested quote lines. A box left empty or with something that isn't a whole number says so when you press the button.",
+    prs: [393],
+  },
+  {
     version: '1.201.1',
     date: '2026-11-14',
     title: 'Tags and captions in the photo itself',

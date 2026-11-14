@@ -229,3 +229,14 @@ export function refuseEmptyFieldsInWords() {
     { passive: true, capture: true },
   )
 }
+
+/**
+ * A number box's text read as a whole number from `min` to `max`, or undefined. Number boxes keep what was typed, not a number,
+ * so the box can be emptied to type another: a box held as a number turns empty into 0 and "2" typed after it into "02" (Colly,
+ * 14 November 2026). The number is read when the form is sent, and a refusal says so on the box.
+ */
+export function wholeIn(typed: string, min: number, max: number): number | undefined {
+  if (!typed.trim()) return undefined
+  const n = Number(typed)
+  return Number.isInteger(n) && n >= min && n <= max ? n : undefined
+}
