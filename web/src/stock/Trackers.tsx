@@ -8,6 +8,7 @@ import {
   TRACKER_QUIET_DAYS,
   trackerQuiet,
   type AssetView,
+  type Pin,
   type TrackerSetup,
   type TrackersView,
   type TrackerView,
