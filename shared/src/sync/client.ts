@@ -410,7 +410,9 @@ export class SyncClient {
       moneyView(e, o, cursor, lazy.jobs(), lazy.crew(), lazy.kit(), lazy.timesheets())
     )
     lazy.ownCalendars = part('ownCalendars', () => [], (e, o) => ownCalendarsView(e, o, cursor))
-    lazy.vehicles = part('vehicles', () => [lazy.jobs(), lazy.crew()], (e, o) => vehiclesView(e, o, cursor, lazy.jobs(), lazy.crew(), today))
+    lazy.vehicles = part('vehicles', () => [lazy.jobs(), lazy.crew(), lazy.trackers().settings.home], (e, o) =>
+      vehiclesView(e, o, cursor, lazy.jobs(), lazy.crew(), today, lazy.trackers().settings.home)
+    )
     // Whether this device is sent money (ADR 0042), which the quote's task says when it isn't.
     const sentMoney = this.state.money !== false
     lazy.steps = part('steps', () => [lazy.jobs(), lazy.crew(), lazy.kit(), lazy.moves(), lazy.money(), lazy.vehicles(), lazy.faults(), sentMoney], (e, o) =>

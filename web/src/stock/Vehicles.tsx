@@ -12,6 +12,8 @@ import {
   offRoadLine,
   ROAD_CHECKS,
   spanLabel,
+  roadWords,
+  mondayOf,
   VEHICLE_KIND_LABELS,
   VEHICLE_KINDS,
   vehicleName,
@@ -25,7 +27,9 @@ import {
   listHeading,
   TIME_GROUPS,
 } from '@sh/shared'
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type MouseEvent } from 'react'
+import { vansPlanHref } from '../jobs/PlanScreen.tsx'
+import { Warehouse } from './Trackers.tsx'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
@@ -35,7 +39,7 @@ import { useAccess } from '../role.ts'
 import { Pending, StatusPill } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { STOCK, VEHICLES } from '../Up.tsx'
-import { useToday } from '../view.ts'
+import { useToday, useWide } from '../view.ts'
 import { StockViews } from '../Views.tsx'
 import { Split } from '../Split.tsx'
 import './vehicles.css'
@@ -73,6 +77,10 @@ export function VehiclesScreen({ view }: { view: View }) {
   return (
     <div className="app warehouse">
       <Top view={view} title="Stock" views={<StockViews view={view} current="vehicles" />} heading="Vehicles" add={mayChange ? { key: 'vehicle', label: 'New vehicle' } : undefined} />
+      {/* The list, or the vehicles' planner by week or month (ADR 0179). */}
+      <div className="plan-show">
+        <VehicleShow current="list" day={today} />
+      </div>
       <Split side={<VehicleReminders view={view} />}>
         <section className="card" aria-label="Vehicles">
           <Heading icon="van">Vans and the rest</Heading>
@@ -101,6 +109,53 @@ export function VehiclesScreen({ view }: { view: View }) {
         </section>
       </Split>
     </div>
+  )
+}
+
+/**
+ * How the vehicles are shown (ADR 0179): the list, or the planner by week or by month, which picks up the days it was
+ * on. A choice of how to see the same vehicles, pressed as the planner's rows are; the address keeps it. On a phone the
+ * week opens as a list of its days, which a phone can read without scrolling sideways.
+ */
+export function VehicleShow({ current, day }: { current: 'list' | 'week' | 'month'; day: string }) {
+  const wide = useWide()
+  const go = (href: string) => (e: MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.focus()
+    location.hash = href
+  }
+  return (
+    <div className="filters" role="group" aria-label="Show the vehicles as">
+      <button type="button" aria-pressed={current === 'list'} onClick={go('#stock/vehicles')}>
+        List
+      </button>
+      <button type="button" aria-pressed={current === 'week'} onClick={go(vansPlanHref('week', mondayOf(day), !wide))}>
+        Week
+      </button>
+      <button type="button" aria-pressed={current === 'month'} onClick={go(vansPlanHref('month', day))}>
+        Month
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Where the drives are measured from (ADR 0179): the warehouse on the map, or Dublin city centre until it's there, said
+ * once above the planner so an estimate is never taken for more than it is. Those who keep the settings can put it on
+ * the map here, as on Admin › Connections › Trackers: it's the same pin.
+ */
+export function DrivesFrom({ view }: { view: View }) {
+  const may = useAccess().can('settings')
+  if (view.vehicles.from.set)
+    return <p className="hint drives-from">Drive times are estimated from the warehouse to each venue on the map, at van speeds. A drive typed on a booking is used instead.</p>
+  return (
+    <section className="card checks" aria-label="Where drives are measured from">
+      <p className="hint">Drive times are estimated from Dublin city centre until the warehouse is on the map. A drive typed on a booking is used instead.</p>
+      {may && (
+        <Fold label="Put the warehouse on the map">
+          <Warehouse trackers={view.trackers} vans />
+        </Fold>
+      )}
+    </section>
   )
 }
 
@@ -482,7 +537,7 @@ function BookingLine({ b }: { b: BookingView }) {
   return (
     <article className="van-line">
       <div>
-        <a href={`#jobs/${b.projectId}`}>
+        <a href={`#jobs/${b.projectId}/vans`}>
           <b>{b.job?.name ?? 'A job since removed'}</b>
         </a>{' '}
         <Pending pending={b.pending} />
@@ -491,6 +546,8 @@ function BookingLine({ b }: { b: BookingView }) {
           {b.driver ? ` · ${b.driver.name} driving` : ''}
           {b.hold === 'pencilled' ? ' · pencilled in' : ''}
         </p>
+        {/* Out on the road (ADR 0179). */}
+        <p className="van-road">{roadWords(b.road).join(' · ')}</p>
         {b.notes && <p>{b.notes}</p>}
       </div>
       {b.problems

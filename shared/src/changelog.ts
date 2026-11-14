@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.198.0',
+    date: '2026-11-14',
+    title: 'Vans out on the road, and a planner for the vehicles',
+    what: "Stock › Vehicles now shows the vans by week or by month as well as the list; on a phone the week is a list of its days, each van out that day with its job, who drives, and when it leaves and gets back. Each van booking works out the drive from the warehouse to the venue from the map, and with a time it's due at the venue (the crew's call if none is typed) and a time it leaves, says when it leaves the warehouse and when it's back. A van back after midnight is counted as away that day too, so a clash with the next job shows. Type the real drive on a booking if the estimate is off. Until the warehouse is put on the map, drives are measured from Dublin city centre, and the planner says so.",
+    prs: [387],
+    adrs: [179],
+  },
+  {
     version: '1.197.0',
     date: '2026-11-13',
     title: 'Print labels on the Zebra ZT411',

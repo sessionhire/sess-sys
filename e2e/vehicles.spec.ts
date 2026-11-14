@@ -171,3 +171,50 @@ test("the planner's Vans rows show one van on two jobs, and the call sheet says 
   await expect(sheetVans).toContainText('Big Van')
   await expect(sheetVans).toContainText('Cian Murphy driving')
 })
+
+test('a van out on the road says when it leaves and is back, and Stock › Vehicles plans the vans by week', async ({ browser }) => {
+  // Proves (ADR 0179): the drive is estimated from the map with the warehouse not yet set; times typed on a booking give when it leaves the
+  // warehouse and is back; the vehicle's page says it too; Stock › Vehicles has Week and Month, the week as a list of days on a phone.
+  const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await openJob(phone, 'Harbour Lights Festival')
+  await phone.getByRole('tab', { name: /^Transport/ }).click()
+  const vans = phone.getByRole('region', { name: 'Vehicles' })
+  const loadIn = vans.locator('.van-line', { hasText: 'Load in' }).first()
+  // Riverside Park in Limerick, from Dublin city centre until the warehouse is on the map.
+  await expect(loadIn.locator('.van-road')).toContainText(/about 2 h \d\d each way \(\d+ km\)/)
+  await loadIn.getByRole('button', { name: 'Change' }).click()
+  const form = vans.getByRole('form', { name: /^Change the booking of Big Van/ })
+  await expect(form).toContainText('measured from Dublin city centre until the warehouse is on the map')
+  await form.getByLabel('At the venue by').fill('07:00')
+  await form.getByLabel('Leaves the venue').fill('23:30')
+  await expect(form.locator('.van-road')).toContainText(/Leaves the warehouse about 0[34]:\d\d .* back about 0[12]:\d\d /)
+  await form.getByRole('button', { name: 'Save booking' }).click()
+  // Back after midnight, it's away a day longer, which can meet its next job: asked first, as any clash is.
+  const anyway = form.getByRole('button', { name: 'Book anyway' })
+  if (await anyway.isVisible().catch(() => false)) await anyway.click()
+  await expect(form).toHaveCount(0)
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  await expect(loadIn.locator('.van-road')).toContainText(/Leaves the warehouse about 0[34]:\d\d/)
+
+  // Typed over the map: the drive as the office knows it.
+  await loadIn.getByRole('button', { name: 'Change' }).click()
+  await vans.getByRole('form', { name: /^Change the booking of Big Van/ }).getByLabel('Drive each way, in minutes').fill('150')
+  await vans.getByRole('button', { name: 'Save booking' }).click()
+  await expect(vans.getByRole('form')).toHaveCount(0)
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  await expect(loadIn.locator('.van-road')).toContainText('Leaves the warehouse about 04:30')
+  await expect(loadIn.locator('.van-road')).toContainText('2 h 30 each way, as typed')
+
+  await ready(phone, '#stock/vehicles')
+  await phone.getByRole('group', { name: 'Show the vehicles as' }).getByRole('button', { name: 'Week' }).click()
+  await expect(phone).toHaveURL(/#stock\/vehicles\/week\/\d{4}-\d\d-\d\d\/days$/)
+  await expect(phone.getByRole('region', { name: 'The week, day by day' })).toBeVisible()
+  await expect(phone.getByRole('region', { name: 'Where drives are measured from' })).toContainText('from Dublin city centre')
+  await phone.getByRole('button', { name: 'Grid' }).click()
+  await expect(phone).toHaveURL(/#stock\/vehicles\/week\/\d{4}-\d\d-\d\d$/)
+  await expect(phone.getByRole('region', { name: /, by vehicle$/ })).toContainText('Big Van')
+  await phone.getByRole('group', { name: 'Show the vehicles as' }).getByRole('button', { name: 'Month' }).click()
+  await expect(phone).toHaveURL(/#stock\/vehicles\/month\/\d{4}-\d\d-01$/)
+  await phone.getByRole('group', { name: 'Show the vehicles as' }).getByRole('button', { name: 'List' }).click()
+  await expect(phone.getByRole('heading', { name: 'Vehicles', level: 1 })).toBeVisible()
+})

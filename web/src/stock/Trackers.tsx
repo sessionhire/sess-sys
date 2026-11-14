@@ -226,15 +226,18 @@ export function TrackersCard({ view }: { view: View }) {
   )
 }
 
-/** The warehouse on the map, and how near counts as there. Nothing is saved until Save. */
-function Warehouse({ trackers }: { trackers: TrackersView }) {
+/**
+ * The warehouse on the map, and how near counts as there. Nothing is saved until Save. The same pin is where the vans
+ * leave from (ADR 0179), so Stock › Vehicles shows it too, without the trackers' how near.
+ */
+export function Warehouse({ trackers, vans = false }: { trackers: TrackersView; vans?: boolean }) {
   const saved = trackers.settings
   const [draft, setDraft] = useState<Pin | null>(saved.home)
   const [radius, setRadius] = useState(String(saved.radiusM))
   const [pasted, setPasted] = useState('')
   const { run, error, refuse } = useAct()
   const radiusM = Number(radius)
-  const changed = draft?.lat !== saved.home?.lat || draft?.lng !== saved.home?.lng || radiusM !== saved.radiusM
+  const changed = draft?.lat !== saved.home?.lat || draft?.lng !== saved.home?.lng || (!vans && radiusM !== saved.radiusM)
   const usePasted = (e: FormEvent) => {
     e.preventDefault()
     const p = pinFromText(pasted)
@@ -244,6 +247,7 @@ function Warehouse({ trackers }: { trackers: TrackersView }) {
     setPasted('')
   }
   const save = () => {
+    if (vans) return void run(() => client.mutate('trackers.home', { home: draft, radiusM: saved.radiusM }))
     if (!Number.isInteger(radiusM) || radiusM < MIN_TRACKER_RADIUS_M || radiusM > MAX_TRACKER_RADIUS_M)
       return refuse(`How near can be ${MIN_TRACKER_RADIUS_M} to ${MAX_TRACKER_RADIUS_M.toLocaleString('en-IE')} metres.`)
     void run(() => client.mutate('trackers.home', { home: draft, radiusM }))
@@ -252,7 +256,7 @@ function Warehouse({ trackers }: { trackers: TrackersView }) {
     <fieldset className="choices">
       <legend>The warehouse</legend>
       <p className="hint">
-        Kit on no job belongs here. {draft ? `Tap the map or drag the pin to move it. Now at ${pinText(draft)}.` : 'Tap the map where it is, or paste a link.'}
+        {vans ? 'The vans leave from here: each drive to a venue is measured from it.' : 'Kit on no job belongs here.'} {draft ? `Tap the map or drag the pin to move it. Now at ${pinText(draft)}.` : 'Tap the map where it is, or paste a link.'}
       </p>
       <LazyMap marks={[]} placing={draft} onPlace={setDraft} label="Map for placing the warehouse: tap where it is" />
       <form className="paste-pin" onSubmit={usePasted} aria-label="Paste a map link">
@@ -264,11 +268,11 @@ function Warehouse({ trackers }: { trackers: TrackersView }) {
           Use it
         </button>
       </form>
-      <label className="field">
+      {!vans && <label className="field">
         How near counts as there, in metres
         <input type="number" inputMode="numeric" min={MIN_TRACKER_RADIUS_M} max={MAX_TRACKER_RADIUS_M} step={10} value={radius} onChange={(e) => setRadius(e.target.value)} />
         <small>The same for the warehouse and for venues. {DEFAULT_TRACKER_RADIUS_M} m takes in a yard and a car park; a tracker's fix can be out by 50 m or more indoors.</small>
-      </label>
+      </label>}
       <Refusal error={error} />
       <div className="actions">
         <button type="button" className="primary" onClick={save} disabled={!changed}>

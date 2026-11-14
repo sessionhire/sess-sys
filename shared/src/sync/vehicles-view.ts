@@ -15,6 +15,8 @@ import {
   type VehicleBooking,
   type VehicleEntities,
 } from '../vehicles.ts'
+import { earliestCall, roadFor, warehouseFrom, type Road } from '../road.ts'
+import type { Pin } from '../jobs.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
 import type { JobsView, JobView, PhaseView } from './jobs-view.ts'
 import { holdOf, type KitHold } from './kit-view.ts'
@@ -47,6 +49,8 @@ export interface BookingView extends VehicleBooking {
   driver: PersonView | undefined
   days: string[]
   hold: KitHold
+  /** The drive to the venue and back, and when it leaves the warehouse and is back (ADR 0179); its start and end are the days it's away. */
+  road: Road
   /** Other bookings of the same vehicle on jobs going ahead or pencilled in, and the days they share with this one. */
   clashes: { booking: BookingView; days: string[] }[]
   /** What needs sorting out from today on, worst first. Nothing for a booking that's over or holds nothing. */
@@ -67,6 +71,10 @@ export interface VehiclesView {
   clashesWith(vehicleId: string, start: string, end: string, except?: string): { booking: BookingView; days: string[] }[]
   /** Checks run out, or running out in the next 30 days, for every vehicle not retired, soonest first. */
   reminders: CheckReminder<VehicleView>[]
+  /** Where the drives are measured from (ADR 0179): the warehouse's pin, or Dublin city centre while it isn't set. */
+  from: { pin: Pin; set: boolean }
+  /** The road a booking as it stands or as it's being changed would take: for the booking form, before it's sent. */
+  roadOf(b: Pick<VehicleBooking, 'vehicleId' | 'projectId' | 'phaseId' | 'start' | 'end' | 'driveMinutes' | 'arriveBy' | 'leaveAt'>): Road
 }
 
 type Tables = { [E in keyof VehicleEntities]: Record<string, VehicleEntities[E]> }
@@ -87,7 +95,8 @@ export function vehiclesView(
   cursor: number,
   jobs: JobsView,
   crew: CrewView,
-  today: string
+  today: string,
+  warehouse: Pin | null = null
 ): VehiclesView {
   const vehicles = new Map<string, Vehicle & { pending: boolean }>()
   // Snapshots saved before vehicles existed have no tables for them.
@@ -143,6 +152,19 @@ export function vehiclesView(
   const views = new Map<string, VehicleView>()
   for (const v of vehicles.values()) views.set(v.id, { ...v, bookings: [] })
 
+  const from = warehouseFrom(warehouse)
+  const roadOf: VehiclesView['roadOf'] = (b) => {
+    const job = jobById.get(b.projectId)
+    const phase = b.phaseId ? job?.phases.find((p) => p.id === b.phaseId) : undefined
+    const venue = phase?.venue ?? job?.venue
+    return roadFor(b, {
+      from: from.pin,
+      to: venue?.pin,
+      kind: vehicles.get(b.vehicleId)?.kind ?? 'van',
+      crewCall: earliestCall(crew.calls, b.projectId, b.phaseId, b.start),
+    })
+  }
+
   const all: BookingView[] = [...bookings.values()]
     .map((b) => {
       const job = jobById.get(b.projectId)
@@ -154,6 +176,7 @@ export function vehiclesView(
         driver: b.driverId ? people.get(b.driverId) : undefined,
         days: eachDay(b.start, b.end),
         hold: job ? holdOf(job.status) : 'none',
+        road: roadOf(b),
         clashes: [],
         problems: [],
       } satisfies BookingView
@@ -165,7 +188,8 @@ export function vehiclesView(
   for (const b of live)
     for (const o of b.vehicle?.bookings ?? []) {
       if (o === b) continue
-      const days = shared(b, o)
+      // Away is away: a van driving back from Cork after midnight isn't free that morning (ADR 0179).
+      const days = shared(b.road, o.road)
       if (days.length) b.clashes.push({ booking: o, days })
     }
   // Who drives what on each day, for a driver asked to drive two at once.
@@ -195,7 +219,7 @@ export function vehiclesView(
       else warn.push(...driverUnknowns(b.driver, b.start, b.end, today))
       for (const o of driving.get(b.driver.id) ?? []) {
         if (o === b || o.vehicleId === b.vehicleId) continue
-        const days = shared(b, o).filter((d) => d >= today)
+        const days = shared(b.road, o.road).filter((d) => d >= today)
         if (days.length) warn.push(`${firstName(b.driver)} is also driving ${o.vehicle?.name ?? 'another vehicle'} on ${spanLabel({ start: days[0]!, end: days.at(-1)! })}.`)
       }
     } else if (b.driverId) warn.push('Its driver is no longer on the crew list: choose another.')
@@ -220,8 +244,10 @@ export function vehiclesView(
     clashesWith: (vehicleId, start, end, except) =>
       (views.get(vehicleId)?.bookings ?? [])
         .filter((o) => o.id !== except)
-        .map((o) => ({ booking: o, days: shared({ start, end }, o) }))
+        .map((o) => ({ booking: o, days: shared({ start, end }, o.road) }))
         .filter((c) => c.days.length > 0),
     reminders: checkReminders(kept, today),
+    from,
+    roadOf,
   }
 }

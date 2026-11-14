@@ -206,7 +206,7 @@ const CHECKED: Partial<Record<CommandName, Checked>> = {
   },
   'vehicleBooking.update': {
     entity: 'vehicleBooking',
-    fields: { vehicleId: 'vehicle', phaseId: 'phase', start: 'first day', end: 'last day', driverId: 'driver', notes: 'note' },
+    fields: { vehicleId: 'vehicle', phaseId: 'phase', start: 'first day', end: 'last day', driverId: 'driver', notes: 'note', driveMinutes: 'drive', arriveBy: 'time at the venue', leaveAt: 'time it leaves the venue' },
     what: () => 'this booking',
   },
   'purchase.update': {

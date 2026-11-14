@@ -49,6 +49,7 @@ import { PlaceScreen } from './PlaceScreen.tsx'
 import { CameraScanner, primeSound } from './Scanner.tsx'
 import { ProductScreen } from './ProductScreen.tsx'
 import { VehicleScreen, VehiclesScreen } from './Vehicles.tsx'
+import { PlanScreen } from '../jobs/PlanScreen.tsx'
 import { RackDesigner } from './RackDesigner.tsx'
 import { BringInPurchasesScreen, PurchaseScreen, PurchasesScreen } from './Purchases.tsx'
 import { RacksScreen, sizeFrom, SizeFields, sizeTypedOf, suppliersOf, whoseFrom, WhoseFields, whoseTypedOf } from './Racks.tsx'
@@ -98,6 +99,8 @@ export function StockScreen() {
   if (buy) return <PurchaseScreen key={buy} view={view} id={decodeURIComponent(buy)} />
   const [, rack] = /^#stock\/racks\/(.+)$/.exec(hash) ?? []
   if (rack) return <RackDesigner key={rack} view={view} id={decodeURIComponent(rack)} />
+  // The vehicles' planner (ADR 0179): #stock/vehicles/week/<monday>[/days], #stock/vehicles/month/<first>.
+  if (/^#stock\/vehicles\/(week|month)(\/|$)/.test(hash)) return <PlanScreen view={view} hash={hash} home="stock" />
   const [, vehicle] = /^#stock\/vehicles\/(.+)$/.exec(hash) ?? []
   if (vehicle) return <VehicleScreen key={vehicle} view={view} id={decodeURIComponent(vehicle)} />
   const [, count] = /^#stock\/count\/(.+)$/.exec(hash) ?? []

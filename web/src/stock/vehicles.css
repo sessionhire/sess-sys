@@ -22,3 +22,24 @@ p.van-state.bad, p.van-state.warn { font-weight: 600; }
 .reminders .reminder { color: var(--ink); text-decoration: none; }
 .reminders .reminder.soon p { color: var(--warn); font-weight: 600; }
 .reminders .reminder.ran-out p { color: var(--bad); font-weight: 600; }
+.van-road { font-variant-numeric: tabular-nums; }
+
+/* The vehicles' planner (ADR 0179): how they're shown and how the week is drawn, each one group on one line. */
+.plan-show { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; margin-bottom: var(--ds-space-3); }
+.app .plan-show .filters { flex-wrap: nowrap; }
+.vans-plan .plan-controls .plan-show { margin: var(--ds-space-2) 0 0; }
+/* A day it's only driving, the night before or home after midnight: hatched, as busy in their own calendar is. */
+.plan .item.driving { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--line) 80%, transparent) 0 3px, transparent 3px 7px); box-shadow: inset 3px 0 0 var(--ink), inset 0 0 0 1px var(--line); }
+.plan .item .road { font-variant-numeric: tabular-nums; }
+.plan .days-list li.van-day { display: grid; gap: var(--ds-space-1); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); background: var(--ds-surface-raised); box-shadow: inset 0 0 0 1px var(--line); }
+.plan .days-list li.van-day.clash { background: var(--bad-soft); box-shadow: inset 0 0 0 2px var(--bad); }
+.plan .days-list li.van-day.check { background: var(--warn-soft); box-shadow: inset 0 0 0 2px var(--warn); }
+.van-day > a { color: inherit; text-decoration: none; }
+.van-day p { margin: 0; display: grid; gap: 2px; }
+.van-day p a { color: inherit; font-weight: 600; }
+.van-day p small { color: var(--muted); font-size: var(--text-small); font-variant-numeric: tabular-nums; }
+.van-day p.offered { padding-left: var(--ds-space-2); border-left: 1px dashed var(--muted); }
+.van-day p.away { color: var(--muted); font-size: var(--text-small); }
+.drives-from { margin: 0 0 var(--ds-space-3); }
+.van-day p.problem { display: block; }
+.vans-plan .plan-controls { row-gap: var(--ds-space-2); }

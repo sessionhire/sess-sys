@@ -7,6 +7,7 @@ import type { JobsView } from './jobs-view.ts'
 import type { LateView } from './late-view.ts'
 import type { OwnCalendarsView } from './own-calendar-view.ts'
 import { checkOf, checkWords, ROAD_CHECKS } from '../vehicles.ts'
+import { driveWords } from '../road.ts'
 import type { VehicleView, VehiclesView } from './vehicles-view.ts'
 
 /**
@@ -146,6 +147,13 @@ export interface VanWork {
   driver: string | null
   /** On a confirmed job; otherwise pencilled in. */
   held: boolean
+  /** The road (ADR 0179): the time it leaves the warehouse when that's this day, and the time it's back when that's this day. */
+  leaves: string | null
+  back: string | null
+  /** A day it's only on the road, outside the booking's days: driving there the night before, or home after midnight. */
+  driving: 'there' | 'home' | null
+  /** The drive each way, "2 h 45", on the days it leaves or comes back; empty when not known. */
+  drive: string
 }
 
 /** One day of a vehicle's row. */
@@ -357,10 +365,17 @@ function vansOn(vehicles: VehiclesView | undefined, days: readonly string[], job
   for (const lane of vans) {
     const v = lane.vehicle
     for (const b of v.bookings) {
-      for (const d of b.days) {
+      // The days it's away (ADR 0179): the booking's, and a day either side it's driving on.
+      const r = b.road
+      for (const d of eachDay(r.start, r.end)) {
         if (!range.has(d)) continue
         const driver = b.driver ? firstName(b.driver) : null
-        at(lane, d).work.push({ bookingId: b.id, jobId: b.projectId, job: b.job?.name ?? 'A job', phase: b.phase?.name ?? '', driver, held: b.hold === 'held' })
+        const leaves = r.leaves?.day === d ? r.leaves.time : null
+        const back = r.back?.day === d ? r.back.time : null
+        const driving = d < b.start ? 'there' : d > b.end ? 'home' : null
+        const drive = r.minutes !== null && (d === r.start || d === r.end) ? driveWords(r.minutes) : ''
+        at(lane, d).work.push({ bookingId: b.id, jobId: b.projectId, job: b.job?.name ?? 'A job', phase: b.phase?.name ?? '', driver, held: b.hold === 'held', leaves, back, driving, drive })
+        if (driving) continue
         const cell = jobs.get(b.projectId)?.days[d]
         if (cell) (cell.vans ??= []).push(`${v.name}${driver ? ` (${driver})` : ''}`)
       }
