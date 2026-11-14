@@ -74,6 +74,13 @@ export const MENU: PlaceGroup[] = [
         about: 'Where the jobs are, their specs and documents',
       },
       {
+        key: 'photos',
+        icon: 'image',
+        href: '#jobs/photos',
+        label: 'Photos',
+        about: 'What shows looked like, to look back on and show clients',
+      },
+      {
         key: 'money',
         icon: 'chart',
         href: '#jobs/money',

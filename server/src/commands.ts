@@ -28,6 +28,7 @@ import { timesheetHandlers } from './crew/timesheets.ts'
 import { faultForLog, type Db, type Queryable } from './db.ts'
 import { documentHandlers } from './documents/handlers.ts'
 import { attachmentHandlers } from './documents/attachments.ts'
+import { jobPhotoHandlers } from './documents/job-photos.ts'
 import { argsToStore, erasureHandlers, refuseIfErased } from './erasure/handlers.ts'
 import { CHARACTERS, isCharacterError, Refused, type Ctx } from './kernel.ts'
 import { leaveHandlers } from './leave/handlers.ts'
@@ -83,6 +84,7 @@ const handlers: { [N in CommandName]: Handler<N> } = {
   ...documentHandlers,
   ...countHandlers,
   ...attachmentHandlers,
+  ...jobPhotoHandlers,
   ...financeHandlers,
   ...ownCalendarHandlers,
   ...vehicleHandlers,

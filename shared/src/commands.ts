@@ -17,6 +17,7 @@ import { officeCommandSchemas } from './office.ts'
 import { stockCommandSchemas } from './stock.ts'
 import { timesheetCommandSchemas } from './timesheets.ts'
 import { attachmentCommandSchemas } from './attachments.ts'
+import { jobPhotoCommandSchemas } from './job-photos.ts'
 import { quoteCommandSchemas } from './quotes.ts'
 import { ownCalendarCommandSchemas } from './own-calendar.ts'
 import { vehicleCommandSchemas } from './vehicles.ts'
@@ -53,6 +54,7 @@ export const commandSchemas = {
   ...documentCommandSchemas,
   ...countCommandSchemas,
   ...attachmentCommandSchemas,
+  ...jobPhotoCommandSchemas,
   ...quoteCommandSchemas,
   ...ownCalendarCommandSchemas,
   ...vehicleCommandSchemas,

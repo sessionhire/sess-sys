@@ -38,6 +38,7 @@ import { aliasesOf } from '@sh/shared'
 import { RACK_PART_LABELS, type RackPart } from '@sh/shared'
 import { ATTACHMENT_FILE_ACTION, ATTACHMENT_KINDS, ATTACHMENT_TITLES, attachmentTitleInSentence } from '@sh/shared'
 import { ITEM_CERTIFICATE_FILE_ACTION, ITEM_CERTIFICATE_KINDS, ITEM_CERTIFICATE_LABELS } from '@sh/shared'
+import { JOB_PHOTO_ADD_ACTION } from '@sh/shared'
 
 /**
  * The history's words (ADR 0006): what each recorded change did, said as a
@@ -735,6 +736,17 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (command === 'attachment.remove') return d ? `Removed ${whose}` : 'Removed a document'
       if (command === 'attachment.save') return `Saved ${whose}${typeof a.link === 'string' ? ', as a link' : ''}`
       return a.added ? `Added ${whose}, with its file${file}` : `${a.replaced ? 'Put a new file on' : 'Put a file on'} ${whose}${file}`
+    }
+    // Photos of jobs (ADR 0182): "Put a photo on Electric Picnic 2026: “Main stage at dusk”".
+    case JOB_PHOTO_ADD_ACTION:
+    case 'jobPhoto.save':
+    case 'jobPhoto.remove': {
+      const p = look('jobPhoto', a.id)
+      const on = job(a.jobId ?? p?.jobId)
+      const caption = typeof (a.caption ?? p?.caption) === 'string' && (a.caption ?? p?.caption) ? `: “${clip(String(a.caption ?? p?.caption))}”` : ''
+      if (command === 'jobPhoto.remove') return p ? `Took a photo off ${on}${caption}` : 'Took a photo off a job'
+      if (command === 'jobPhoto.save') return `Changed what a photo of ${on} says${caption}`
+      return `Put a photo on ${on}${caption}`
     }
     // Certificates on items (ADR 0094): "Saved the PAT certificate for SH-000123 (CM Lodestar) and 11 more items, as a link".
     case 'itemCertificate.save':

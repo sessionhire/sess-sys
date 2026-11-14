@@ -72,6 +72,7 @@ import { NotesKitListScreen, NotesKitScreen } from './NotesKit.tsx'
 import { PickScreen } from './PickScreen.tsx'
 import { SheetScreen } from './SheetScreen.tsx'
 import { BoardScreen } from './BoardScreen.tsx'
+import { PhotosScreen } from './PhotosScreen.tsx'
 import { JobViews, PlanScreen } from './PlanScreen.tsx'
 import { CalendarScreen } from './CalendarScreen.tsx'
 import { ClientScreen } from './ClientScreen.tsx'
@@ -125,6 +126,7 @@ export function JobsScreen() {
   if (hash === '#jobs/tidy') return <TidyScreen view={view} />
   if (hash === '#jobs/clients') return <ClientsScreen view={view} />
   if (hash === '#jobs/venues') return <VenuesScreen view={view} />
+  if (hash === '#jobs/photos') return <PhotosScreen view={view} />
   if (hash === '#jobs/money') return <MoneyScreen view={view} />
   // Money's parts, each at its own address (review of 11 November 2026, finding 20).
   const moneyPart = /^#jobs\/money\/(owed|margins|accountant)$/.exec(hash)?.[1] as MoneyPart | undefined

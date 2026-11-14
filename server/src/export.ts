@@ -353,6 +353,9 @@ const ABOUT: Record<string, string> = {
   rms_member_links: "Which contacts belong to which organisation or venue in Current RMS, from the last whole read (ADR 0136).",
   rms_member_reads: "Each time Current RMS's clients and venues were read: when, how many, and what went wrong if it did.",
   job_steps: "Each job's tasks given to someone, given a due date or ticked by hand: the job, the task (quote, confirmed, crew, kit, prep, show, back, deprep), who it's down to, the day it's due by, and when it was ticked and by whom. Tasks the app ticks from the job's own records aren't kept.",
+  // Photos of jobs (ADR 0182): what's said about each here, the pictures in the storage.
+  job_photos:
+    "Photos of jobs, of what each show looked like: the job, the caption and tags, its size in pixels and the storage it takes, who put it up and when. The photos stay in the storage: see Left out on purpose.",
   job_ranks: "Each job put in order by hand on the Board (ADR 0143): the job, the stage whose column it was put in order in, and its place there. A job nobody put in order isn't kept, and goes by its days.",
   // Vans and drivers (ADR 0047).
   vehicle_bookings: 'Vehicles booked on jobs: the vehicle, the job and the phase (blank for the whole job), the days, who drives, a note, and whether it was booked despite a clash.',
@@ -401,7 +404,8 @@ Left out on purpose
   on venues and clients, which open from their pages; attachments lists
   their details, and certificates on items, which open from the item's
   page; item_certificates lists their details. And photos of people and products, which show on their
-  pages: people and models say when each was put up.
+  pages: people and models say when each was put up. And photos of jobs, which show on each job's
+  Photos tab and under Jobs › Photos: job_photos lists their captions and tags.
 
 Good to know
 ------------

@@ -1,5 +1,6 @@
 import { hasEmail, holdsARole, mayChangeWhoSignsIn, mergedPerson, ownAddressRefusal, signInAbility, mergeRefusal, nameParts, offerKept, ROLE_LABELS, voteId, whoSignsInRefusal, withMainEmail, type CommandArgs, type EntityName, type Offer, type Person } from '@sh/shared'
 import { getDocument, queueFile } from '../documents/store.ts'
+import { getJobPhoto } from '../documents/job-photos.ts'
 import { emit, emitAll, emitRemoved, emitRemovedAll, Refused, type Ctx } from '../kernel.ts'
 import { getAllowanceById, getEntry, getRequest } from '../leave/store.ts'
 import { getPhases } from '../projects/store.ts'
@@ -34,6 +35,7 @@ const MOVED: readonly { table: string; column: string; entity?: EntityName; read
   { table: 'job_steps', column: 'owner_id', entity: 'jobStep', read: getStep },
   { table: 'job_steps', column: 'done_by', entity: 'jobStep', read: getStep },
   { table: 'purchase_requests', column: 'asked_by', entity: 'purchaseRequest', read: getPurchase },
+  { table: 'job_photos', column: 'added_by', entity: 'jobPhoto', read: getJobPhoto },
   // Votes for the purchase list (ADR 0077) are one a person, and are handled first.
   // Their own calendar (ADR 0044) and leave allowances have one a person, and are handled first; guests on Google
   // Calendar (ADR 0009) are one a person a day, and devices never see them.

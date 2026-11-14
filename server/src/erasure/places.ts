@@ -140,6 +140,9 @@ export const POINTERS: readonly { table: string; column: string }[] = [
   // name goes. What they wrote is about the kit, not them.
   { table: 'purchase_requests', column: 'asked_by' },
   { table: 'purchase_votes', column: 'person_id' },
+  // Who put a photo on a job (ADR 0182): the job's record, reading "Erased person" once their name goes. The photo is of the
+  // show; one of them is taken down by hand, as any photo is.
+  { table: 'job_photos', column: 'added_by' },
 ]
 
 /** Records of theirs the law asks the business to keep for a time: stripped like STRIPPED while it lasts, then gone like GONE. */
