@@ -7,6 +7,7 @@ import { countsView } from './counts-view.ts'
 import { crewView } from './crew-view.ts'
 import { documentsView } from './documents-view.ts'
 import { attachmentsView } from './attachments-view.ts'
+import { jobPhotosView } from './job-photos-view.ts'
 import { erasuresView, forgetErased, keptRecordsOf, withErasures } from './erasure-view.ts'
 import { faultsView, type FaultsView } from './faults-view.ts'
 import { inspectionsView } from './inspections-view.ts'
@@ -82,6 +83,7 @@ const LAZY = [
   'erasures',
   'documents',
   'attachments',
+  'jobPhotos',
   'counts',
   'money',
   'ownCalendars',
@@ -405,6 +407,7 @@ export class SyncClient {
     lazy.late = part('late', () => [lazy.crew(), lazy.erasures()], (e, o) => lateView(e, o, cursor, lazy.crew(), today, lazy.erasures()))
     lazy.documents = part('documents', () => [lazy.crew(), lazy.erasures()], (e, o) => documentsView(e, o, cursor, lazy.crew(), lazy.erasures()))
     lazy.attachments = part('attachments', () => [], (e, o) => attachmentsView(e, o, cursor))
+    lazy.jobPhotos = part('jobPhotos', () => [], (e, o) => jobPhotosView(e, o, cursor))
     lazy.counts = part('counts', () => [lazy.warehouse(), lazy.crew()], (e, o) => countsView(e, o, cursor, lazy.warehouse(), lazy.crew(), today))
     lazy.money = part('money', () => [lazy.jobs(), lazy.crew(), lazy.kit(), lazy.timesheets()], (e, o) =>
       moneyView(e, o, cursor, lazy.jobs(), lazy.crew(), lazy.kit(), lazy.timesheets())

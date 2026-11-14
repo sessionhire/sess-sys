@@ -17,6 +17,7 @@ import {
 import type { FastifyInstance } from 'fastify'
 import { afterEach, expect } from 'vitest'
 import { buildApp } from '../src/app.ts'
+import type { BackupStore } from '../src/backup/store.ts'
 import { pgliteDb } from '../src/db.ts'
 
 /**
@@ -94,9 +95,9 @@ export const NOTES = 'Kit list:\n4 x d&b Y10P\n10 x XLR 10 m\n2 x Mystery haze m
 /** The key the company's server takes trackers' reports with (ADR 0107). */
 export const TRACKERS_KEY = 'test-trackers-key'
 
-export async function company() {
+export async function company(more: { documentStore?: BackupStore } = {}) {
   const db = await pgliteDb()
-  const app = await buildApp({ db, trackersKey: TRACKERS_KEY })
+  const app = await buildApp({ db, trackersKey: TRACKERS_KEY, ...more })
   cleanup.push(async () => {
     await app.close()
     await db.close()

@@ -1,3 +1,4 @@
+import { JobPhotosCard } from './JobPhotos.tsx'
 import { UnitBox } from '../UnitBox.tsx'
 import {
   ADD_A_PHASE,
@@ -100,14 +101,15 @@ import { JOBS } from '../Up.tsx'
  * list beside it: the way up goes back to the list.
  */
 
-export type JobPart = 'phases' | 'crew' | 'kit' | 'vans' | 'pack' | 'quote'
+export type JobPart = 'phases' | 'crew' | 'kit' | 'vans' | 'pack' | 'photos' | 'quote'
 /**
  * In the order the job goes through them (ADR 0140, part 8): sold, crewed, kitted and vanned, then its days and the pack for
  * them. Kit and vans are tabs of their own (1.168.0): the vans were a card under a long kit list, out of sight on a phone.
+ * Photos of the show come last (ADR 0182), as they're taken after it.
  */
-export const JOB_PARTS: readonly JobPart[] = ['quote', 'crew', 'kit', 'vans', 'phases', 'pack']
+export const JOB_PARTS: readonly JobPart[] = ['quote', 'crew', 'kit', 'vans', 'phases', 'pack', 'photos']
 
-const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit', vans: 'Transport', pack: 'Show pack', quote: 'Quote' }
+const PART_LABELS: Record<JobPart, string> = { phases: 'Phases', crew: 'Crew', kit: 'Kit', vans: 'Transport', pack: 'Show pack', photos: 'Photos', quote: 'Quote' }
 
 /**
  * An errand or a meeting is done in a day, with no quote, show pack or stages (user flows of 13 November 2026, finding 5):
@@ -251,6 +253,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
     phases: job.phases.length ? String(job.phases.length) : undefined,
     crew: fill.needed ? `${fill.booked}/${fill.needed}` : undefined,
     vans: view.vehicles.ofJob(job.id).length ? String(view.vehicles.ofJob(job.id).length) : undefined,
+    photos: view.jobPhotos.of(job.id).length ? String(view.jobPhotos.of(job.id).length) : undefined,
   }
 
   return (
@@ -363,6 +366,9 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
               <Empty>Add a phase first: the pack is the crew and running order of a phase.</Empty>
             </section>
           ))}
+
+        {/* What the show looked like (ADR 0182), last, as photos come after it. */}
+        {part === 'photos' && <JobPhotosCard job={job} />}
 
         {/* Its quote, built from the kit and crew, for the roles that see money (ADR 0042): the quote itself, worked on here as the
             job's Quoting stage rather than on a page of its own (ADR 0140, part 4). */}

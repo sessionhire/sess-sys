@@ -11,7 +11,10 @@ describe('roles', () => {
   it('go from most to least: a director can do all, staff crew only their own leave, their own job steps, the purchase list and a fault', () => {
     expect(ROLE_CAN.director).toEqual(ABILITIES)
     for (const r of ROLES) for (const a of ROLE_CAN[r]) expect(ROLE_CAN.director).toContain(a)
-    expect(ROLE_CAN.crew).toEqual(['fault', 'leave', 'steps', 'ask', 'answer'])
+    expect(ROLE_CAN.crew).toEqual(['fault', 'leave', 'steps', 'ask', 'answer', 'photos'])
+    // Staff crew put photos on a job (ADR 0182); a freelancer only sees them.
+    expect(roleMayRun('crew', 'jobPhoto.save')).toBe(true)
+    expect(roleMayRun('freelancer', 'jobPhoto.save')).toBe(false)
     // Staff answer their own offers in the app (ADR 0111); a freelancer's go through their link.
     expect(roleMayRun('crew', 'offer.respond')).toBe(true)
     expect(roleMayRun('freelancer', 'offer.respond')).toBe(false)

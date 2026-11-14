@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.201.0',
+    date: '2026-11-14',
+    title: 'Photos of jobs',
+    what: "Every gig and dry hire has a Photos tab: press Add photos to pick as many as you like from your phone (or take one), with tags and a caption if you want them, and they go up one after another. Tap one to see it full size, step through the rest, change its caption and tags, or Share or save it to send to a client. Jobs › Photos shows every job's photos, newest show first, to find them by tag, client or venue. Any member of staff can add photos; whoever put one up, the office and directors can take it down.",
+    prs: [390],
+    adrs: [182],
+  },
+  {
     version: '1.200.0',
     date: '2026-11-14',
     title: 'The company’s registered details on every quote',

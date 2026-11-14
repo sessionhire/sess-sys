@@ -107,6 +107,13 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: { cacheName: 'faces', expiration: { maxEntries: 400, maxAgeSeconds: 90 * 24 * 60 * 60 }, cacheableResponse: { statuses: [200] } },
           },
+          // The small copies of jobs' photos (ADR 0182), kept as they're seen so a grid looked at shows with no signal. A photo's
+          // address never changes, so one kept is never out of date; the newest 600, for two months. The whole photo isn't kept.
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && /^\/api\/job-photos\/[^/]+\/thumb$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'job-photos', expiration: { maxEntries: 600, maxAgeSeconds: 60 * 24 * 60 * 60 }, cacheableResponse: { statuses: [200] } },
+          },
         ],
       },
     }),

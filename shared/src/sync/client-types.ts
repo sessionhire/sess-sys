@@ -7,6 +7,7 @@ import type { CountsView } from './counts-view.ts'
 import type { CrewView } from './crew-view.ts'
 import type { DocumentsView } from './documents-view.ts'
 import type { AttachmentsView } from './attachments-view.ts'
+import type { JobPhotosView } from './job-photos-view.ts'
 import type { ErasuresView } from './erasure-view.ts'
 import type { FaultsView } from './faults-view.ts'
 import type { InspectionsView } from './inspections-view.ts'
@@ -170,6 +171,8 @@ export interface View {
   documents: DocumentsView
   /** Documents kept on venues and clients, as files or links, each on its own page (ADR 0032). */
   attachments: AttachmentsView
+  /** Photos of jobs: what shows looked like, on each job and across them all (ADR 0182). */
+  jobPhotos: JobPhotosView
   /** Counts of places and cases, when each was last counted, and this week's list (ADR 0030). */
   counts: CountsView
   /** Prices, quotes, what's owed and each job's margin (ADR 0042); empty for a role the server sends no money to. */

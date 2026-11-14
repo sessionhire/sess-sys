@@ -34,6 +34,7 @@ import { describeDevice } from './devices.ts'
 import { DocumentFiles } from './documents/files.ts'
 import { registerDocumentRoutes } from './documents/routes.ts'
 import { readLogo, registerPhotoRoutes } from './documents/photos.ts'
+import { registerJobPhotoRoutes } from './documents/job-photo-routes.ts'
 import { DueErasures } from './erasure/due.ts'
 import { ErasureList } from './erasure/list.ts'
 import { everythingJson, everythingZip, exportRowCount, readEverything, zipName } from './export.ts'
@@ -687,6 +688,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   registerOwnCalendarRoutes(app, { ownCalendars })
   registerDocumentRoutes(app, { db, files: documents, onChange: changed })
   registerPhotoRoutes(app, { db, files: documents, onChange: changed })
+  registerJobPhotoRoutes(app, { db, files: documents, onChange: changed })
   registerBackupRoutes(app, backups)
   registerDataRoutes(app, { db, backups, documents, onChange: changed })
   registerPeopleImportRoutes(app, { db, onChange: changed })
