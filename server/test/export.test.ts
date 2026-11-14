@@ -123,6 +123,7 @@ describe('download everything', () => {
       'inspections',
       'item_certificate_items',
       'item_certificates',
+      'job_photos',
       'job_ranks',
       'job_steps',
       'kit_lines',
