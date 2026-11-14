@@ -49,13 +49,21 @@ test('a dry hire is quoted without venue or travel, for who asked, under the off
   await quotes.page().locator('.page-add', { hasText: 'New quote' }).click()
   const form = quotes.page().getByRole('form', { name: 'New quote' })
 
-  // A dry hire: no venue to ask for, and the days are when it's collected and brought back.
+  // A dry hire: no venue to ask for. Delivered, its days are From and To with a delivery address (ADR 0183); collected,
+  // they're Collection and Return, each with a time.
   await expect(form.getByRole('combobox', { name: 'Venue' })).toBeVisible()
-  await form.getByText('More about the enquiry').click()
   await form.getByRole('radio', { name: 'A dry hire' }).check()
   await expect(form.getByRole('combobox', { name: 'Venue' })).toHaveCount(0)
-  await expect(form.getByRole('textbox', { name: 'Collected' })).toBeVisible()
-  await expect(form.getByRole('textbox', { name: 'Brought back' })).toBeVisible()
+  await form.getByRole('radio', { name: 'Delivery' }).check()
+  await expect(form.getByRole('textbox', { name: 'From', exact: true })).toBeVisible()
+  await expect(form.getByRole('textbox', { name: 'To', exact: true })).toBeVisible()
+  await expect(form.getByLabel('Delivery address')).toBeVisible()
+  await form.getByRole('radio', { name: 'Collection' }).check()
+  await expect(form.getByLabel('Delivery address')).toHaveCount(0)
+  await expect(form.getByRole('textbox', { name: 'Collection', exact: true })).toBeVisible()
+  await expect(form.getByRole('textbox', { name: 'Return', exact: true })).toBeVisible()
+  await form.getByLabel('Collection time').fill('10:00')
+  await form.getByText('More about the enquiry').click()
   await form.getByLabel("What's the job?").fill(`Speakers for a wedding ${id}`)
   await form.getByRole('combobox', { name: 'Client' }).fill(`Bright Events ${id}`)
   await form.getByRole('combobox', { name: 'Who asked' }).fill('Ciarán Walsh')
@@ -99,10 +107,44 @@ test('a dry hire is quoted without venue or travel, for who asked, under the off
   const sheet = office.locator('.print-sheet.quote-sheet')
   await expect(sheet.locator('.sheet-to')).toContainText('Ciarán Walsh')
   await expect(sheet.locator('.sheet-to')).not.toContainText('Aoife Byrne')
+  await expect(sheet.locator('.sheet-to')).toContainText(/Collection \w{3} \d{1,2} \w{3}, 10:00/)
+  await expect(sheet.locator('.sheet-to')).toContainText('Return ')
   await expect(sheet.locator('tbody').first().locator('tr')).toHaveText([/^PA$/, 'All cabling and power included', /^Speaker stands/, /^PA speakers/])
   await expect(sheet.locator('tr.words td')).toHaveAttribute('colspan', '6')
 
   // The job is a dry hire, one Hire day, with no venue.
   await ready(office, `#jobs`)
   await expect(office.locator('main')).toContainText(`Speakers for a wedding ${id}`)
+})
+
+test("a dry hire that's delivered puts a delivery line on its quote, by the km at Admin's price (ADR 0183)", async ({ browser, request }) => {
+  const id = Date.now().toString(36)
+  const day = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10)
+  // Galway, on the map: about 160 km from Dublin as the crow flies, so over 190 by road.
+  const hire = { handover: 'delivery', outTime: '09:00', backTime: '18:00', address: 'Galway Racecourse, Ballybrit', pin: { lat: 53.2985, lng: -8.9839 } }
+  await push(request, id, [
+    ['quoting.delivery', { centsPerKm: 150 }],
+    ['project.create', { id: `dh-${id}`, name: `Delivered hire ${id}`, clientId: null, venueId: null, status: 'enquiry', kind: 'hire', notes: '', hire }],
+    ['phase.add', { id: `dh-p-${id}`, projectId: `dh-${id}`, name: 'Hire', start: day, end: day, venueId: null, notes: '' }],
+    ['quote.save', { id: `dh-q-${id}`, projectId: `dh-${id}`, lines: [], discountPct: 0, notes: '' }],
+  ])
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.addInitScript(() => void (window.print = () => undefined))
+  await ready(office, `#jobs/dh-${id}/quote`)
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  const delivery = draft.getByRole('group', { name: 'Delivery' })
+  await expect(delivery.locator('.quote-line-shut .what')).toHaveText(/^Delivery, \d{3} km from (the warehouse|Dublin)$/)
+  await expect(delivery.locator('.quote-line-shut .how')).toContainText('km × €1.50 a km')
+  await delivery.getByRole('button', { name: /where it goes$/ }).click()
+  await expect(delivery).toContainText('Delivered to Galway Racecourse, Ballybrit')
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+
+  // Printed: From and To with their times, where it's delivered, and the line.
+  await draft.getByRole('button', { name: 'Print a draft' }).click()
+  const sheet = office.locator('.print-sheet.quote-sheet')
+  await expect(sheet.locator('.sheet-to')).toContainText(/From \w{3} \d{1,2} \w{3}, 09:00/)
+  await expect(sheet.locator('.sheet-to')).toContainText(/To \w{3} \d{1,2} \w{3}, 18:00/)
+  await expect(sheet.locator('.sheet-to')).toContainText('Delivered to Galway Racecourse, Ballybrit')
+  await expect(sheet.locator('tbody').first()).toContainText(/Delivery, \d{3} km/)
+  await push(request, `${id}-off`, [['quoting.delivery', { centsPerKm: null }]])
 })

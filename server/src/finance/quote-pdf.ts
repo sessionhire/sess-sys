@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import PDFDocument from 'pdfkit'
 import {
+  NO_CHARGE,
   addressOnOneLine,
   depositCents,
   legalLine,
@@ -21,6 +22,9 @@ import {
   priceWords,
   RATE_UNIT,
   spanLabel,
+  hireWhen,
+  type HireTerms,
+  type ProjectKind,
   validUntil,
   VAT_LABELS,
   venueLabel,
@@ -56,7 +60,7 @@ import {
 export interface Sheet {
   q: Quote
   totals: QuoteTotals
-  job: { name: string; span: { start: string; end: string } | undefined; venue: Pick<Venue, 'name' | 'address'> | undefined; client: Client | undefined }
+  job: { name: string; span: { start: string; end: string } | undefined; venue: Pick<Venue, 'name' | 'address'> | undefined; client: Client | undefined; kind?: ProjectKind; hire?: HireTerms | null }
   /** Admin's office details: the address, phone, email and VAT number printed along the foot. */
   office: Setting | undefined
   quoting: Pick<QuoteSettings, 'terms' | 'bank'>
@@ -228,7 +232,10 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   let yJob = y
   yJob += label('The job', xJob, yJob, colJob) + 3
   yJob += put(job.name, xJob, yJob, colJob, { size: 10.5, font: F.bold })
-  if (job.span) yJob += put(spanLabel(job.span), xJob, yJob, colJob)
+  // A dry hire's days with their times, From and To or Collection and Return, and where it's delivered (ADR 0183).
+  const when = hireWhen(job, job.span)
+  if (when.length) for (const w of when) yJob += put(`${w.label} ${w.text}`, xJob, yJob, colJob, w.label === 'Delivered to' ? { color: MUTED } : {})
+  else if (job.span) yJob += put(spanLabel(job.span), xJob, yJob, colJob)
   if (job.venue) yJob += put(venueLabel(job.venue), xJob, yJob + 2, colJob, { color: MUTED }) + 2
   let yWhen = y
   const fact = (name: string, value: string) => {
@@ -313,7 +320,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
       const second: Cell[] = []
       if (l.includes) second.push({ s: l.includes })
       if (saved) second.push({ s: `${money(saved)} off its items’ ${money(lineCents({ ...l, discountPct: undefined, unitCents: l.fullCents! }))}`, st: { color: BRAND } })
-      const amount: Cell = { s: free ? 'Included' : money(under.length ? setCents(l, q.lines) : lineCents(l)), st: free ? { color: MUTED } : { font: F.medium } }
+      const amount: Cell = { s: free ? NO_CHARGE : money(under.length ? setCents(l, q.lines) : lineCents(l)), st: free ? { color: MUTED } : { font: F.medium } }
       const amountCell: Cell = l.discountPct ? { s: `${amount.s}\nless ${pctWord(l.discountPct)}`, st: amount.st } : amount
       row(
         [{ s: l.what, st: { font: F.medium } }, { s: String(l.qty) }, { s: byKit ? '' : daysWord(l) }, { s: byKit || free ? '' : price }, { s: VAT_LABELS[l.vat], st: { color: MUTED } }, amountCell],

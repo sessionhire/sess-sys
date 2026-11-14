@@ -28,11 +28,26 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.201.3',
+    version: '1.202.1',
     date: '2026-11-14',
     title: 'Tidier skill pills',
     what: "The skills on a person's form sit evenly in their pills: as much room before the word as after the X, and the X close to its word, as the filter pills under a list already were. The X is just as easy to press.",
     prs: [394],
+  },
+  {
+    version: '1.202.0',
+    date: '2026-11-14',
+    title: 'Dry hire delivered or collected, a delivery line by the km, and stock held once a quote is sent',
+    what: "A dry hire now asks how it gets there: Delivery or Collection. Its days are From and To for a delivery, or Collection and Return for a collection, each with a time if you want one, and the printed quote says them that way. A delivery asks for the address, finds it on the map, and puts a Delivery line on the quote by itself: the km from the warehouse at the price a km you set in Admin › Company › Dry hire delivery. Show or dry hire is now asked on New quote straight away rather than under More about the enquiry. Once a quote is sent its kit is held, as a confirmed job's is, so another quote for the same days sees it gone; a draft's kit is still only pencilled in. And a line given free now reads No charge on the quote rather than Included.",
+    prs: [392],
+    adrs: [183],
+  },
+  {
+    version: '1.201.3',
+    date: '2026-11-14',
+    title: 'Crew on a role a line each',
+    what: "On a job's Crew tab, each role lists its people one to a line, like a table: their initials, their name, where they stand (Offered, To confirm, Booked) and, at the right of their own line, what you can do about them, such as Confirm, Running late…, Release or Withdraw. Offer… now sits on the left, under the people.",
+    prs: [396],
   },
   {
     version: '1.201.2',

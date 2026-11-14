@@ -20,8 +20,6 @@ import {
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
-import { Fold } from '../Fold.tsx'
-import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 
@@ -71,15 +69,14 @@ export const lateNotesOn = (call: CallView, late: LateView | undefined) =>
 export const lateToNote = (call: CallView) =>
   call.status === 'open' ? call.offers.filter((o) => o.person && HOLDING.includes(o.status) && lateDays(o.days).length > 0) : []
 
-/** On a call's line, at rest: "Gráinne: about 30 minutes late, “Traffic on the M50”", or "Gráinne: there now". */
-export function LateLines({ call, late, today }: { call: CallView; late: LateView | undefined; today: string }) {
-  const notes = lateNotesOn(call, late)
-  if (!notes.length) return null
+/** Under someone's row on a call, at rest: "About 30 minutes late, “Traffic on the M50”", or "There now". */
+export function LateLinesFor({ offer, late, today }: { offer: OfferView; late: LateView | undefined; today: string }) {
+  const notes = offer.status === 'accepted' || offer.status === 'confirmed' ? (late?.forOffer(offer.id) ?? []) : []
   return (
     <>
       {notes.map((l) => (
         <p key={l.id} className={`late-line${l.arrivedAt ? ' there' : ''}`}>
-          {l.person ? firstName(l.person) : 'Someone'}: {lateLine(l)}
+          {lateLine(l).replace(/^./, (c) => c.toLocaleUpperCase())}
           {l.day !== today && ` (${lateDayWord(l.day, today)})`}
         </p>
       ))}
@@ -89,21 +86,23 @@ export function LateLines({ call, late, today }: { call: CallView; late: LateVie
 
 /**
  * Someone booked rang to say they're running late (ADR 0028, amended): the
- * office notes it under the call's line, with the same choices as their
- * link, in the same record, so it reaches the queue, the badge, the
- * planner and the contact's call sheet as theirs would. Only for the days
- * it can be said for now, as on the link: today, and tomorrow from 6pm.
- * On the job's page (`inJob`) its submit is plain, as the Next dock holds
- * the page's one filled red (ADR 0104; UX sweep, 6 November 2026, move 1).
+ * office notes it from their row on the call, with the same choices as their
+ * link, in the same record, so it reaches the queue, the badge, the planner
+ * and the contact's call sheet as theirs would. Only for the days it can be
+ * said for now, as on the link: today, and tomorrow from 6pm. The row's
+ * "Running late…" opens it under the row (14 November 2026: each person on a
+ * call has their own row and presses). On the job's page (`inJob`) its
+ * submit is plain, as the Next dock holds the page's one filled red (ADR
+ * 0104; UX sweep, 6 November 2026, move 1).
  */
-export function NoteLate({ call, late, inJob = false }: { call: CallView; late: LateView | undefined; inJob?: boolean }) {
-  const mayNote = useAccess().can('crew')
-  const booked = mayNote ? lateToNote(call) : []
-  if (!booked.length) return null
+export function LateFor({ call, offer, late, inJob = false, onClose }: { call: CallView; offer: OfferView; late: LateView | undefined; inJob?: boolean; onClose: () => void }) {
   return (
-    <Fold label="Running late…" className="link late-open">
-      <LateForm call={call} booked={booked} late={late} inJob={inJob} />
-    </Fold>
+    <div className="fold">
+      <LateForm call={call} booked={[offer]} late={late} inJob={inJob} />
+      <button type="button" className="link" onClick={onClose}>
+        Close
+      </button>
+    </div>
   )
 }
 

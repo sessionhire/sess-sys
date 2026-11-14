@@ -172,13 +172,13 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // Nothing faults the line while it's still being typed (design system rule 18): the readout says it's not saved, quietly.
   await expect(draft.locator('.save-state')).toHaveText('Line 4 not saved')
   await expect(draft.locator('.line-problem')).toHaveCount(0)
-  await expect(draft.locator('.warn-line')).toHaveCount(0)
+  await expect(draft.locator('.warn-line:not(.kit-note)')).toHaveCount(0)
   await office.goto('/#crew')
   await office.goBack()
   // Back, the line was left, so what stops it saving is said. Send stays in the strip and says what stops it (ADR 0140,
   // part 2), and leads to the line.
   await expect(draft.getByRole('button', { name: 'Line 4: not named yet, change it' })).toBeVisible()
-  await expect(draft.locator('.warn-line')).toContainText("Line 4: say what it's for. The rest is saved")
+  await expect(draft.locator('.warn-line:not(.kit-note)')).toContainText("Line 4: say what it's for. The rest is saved")
   await expect(draft.getByRole('group', { name: 'What it comes to' }).getByRole('button', { name: 'Send: 1 line to finish' })).toBeVisible()
   await draft.getByRole('button', { name: 'Send: 1 line to finish' }).click()
   await expect(draft.getByLabel('Line 4: price')).toHaveValue('400')
@@ -251,6 +251,9 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     route.fulfill({ json: { addresses: to.map((address) => ({ address, problem: address.endsWith('@nomail.ie') ? 'nomail.ie can’t receive email, so it would bounce. Check the spelling.' : null, suggest: address === 'ruairi@gmial.com' ? 'ruairi@gmail.com' : null })) } })
   })
   await draft.getByRole('button', { name: 'Send quote' }).click()
+  // Corrib Arts Week, a quote already sent, holds its kit (ADR 0183), so a line here is short and is asked about first.
+  await expect(draft.locator('.before-it-goes')).toContainText("short of kit on the job's days")
+  await draft.getByRole('button', { name: 'Send it anyway' }).click()
   const compose = draft.getByRole('form', { name: 'Send the quote by email' })
   await expect(compose.getByLabel('To')).toHaveValue('ruairi@example.com')
   await expect(compose.getByLabel('Subject')).toHaveValue('Quote 1115 from Session Hire: Liffey Brands Launch')
@@ -306,6 +309,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // Sent another way by the office itself, then a second version with Liffey's 10% off; the first is kept as it went.
   await draft.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
   await draft.getByRole('button', { name: 'Mark as sent', exact: true }).click()
+  await draft.getByRole('button', { name: 'Mark it sent anyway' }).click()
   const v1 = office.getByRole('region', { name: 'Version 1' })
   await expect(v1.getByText('Sent', { exact: true })).toBeVisible()
   // On a phone the version as sent is what and the amount, the rest in a line under the name (audit, 5 November 2026, finding 59).
@@ -334,6 +338,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(v2.getByLabel('Deposit, %')).toHaveValue('50')
   await v2.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
   await v2.getByRole('button', { name: 'Mark as sent', exact: true }).click()
+  await v2.getByRole('button', { name: 'Mark it sent anyway' }).click()
   await expect(office.getByRole('region', { name: 'Version 2' }).locator('.quote-facts')).toContainText('Quote 1115')
 
   // The client said yes; the office invoiced it outside the app and records that here.
@@ -816,22 +821,22 @@ test('a count before a name with digits in it is still a count, and a line given
   await expect(draft.getByRole('button', { name: /Shure SM58, change it$/ })).toContainText('8 ×')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
 
-  // A line with no price says so, and one press gives it as included: it reads Included and the readout stops counting it.
+  // A line with no price says so, and one press gives it at no charge: it reads No charge and the readout stops counting it.
   await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByRole('textbox', { name: 'Line 2: what' }).fill('Cables and power')
   await expect(draft.getByText('Needs a price, or')).toBeVisible()
   await expect(draft.getByRole('button', { name: /lines? with no price/ })).toBeVisible()
-  await draft.getByRole('button', { name: 'Line 2: included at no charge' }).click()
-  await expect(draft.locator('.quote-line .included-word')).toContainText('Included')
+  await draft.getByRole('button', { name: 'Line 2: no charge' }).click()
+  await expect(draft.locator('.quote-line .included-word')).toContainText('No charge')
   await expect(draft.getByRole('button', { name: /lines? with no price/ })).toHaveCount(0)
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(draft.getByRole('button', { name: 'Line 2: Cables and power, change it' })).toContainText('Included at no charge')
+  await expect(draft.getByRole('button', { name: 'Line 2: Cables and power, change it' })).toContainText('No charge')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
-  // It goes without being asked about, and the sent quote says Included.
+  // It goes without being asked about, and the sent quote says No charge.
   await draft.getByRole('button', { name: 'Generate PDF' }).click()
   await expect(office.getByRole('dialog')).toHaveCount(0)
-  await expect(office.getByRole('table').first()).toContainText('Included')
+  await expect(office.getByRole('table').first()).toContainText('No charge')
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })

@@ -154,6 +154,54 @@ const kitDays = z
   .min(0, "Days can't be fewer than none.")
   .max(MAX_KIT_DAYS, `Up to ${MAX_KIT_DAYS} days, please.`)
 
+/**
+ * How a dry hire's kit gets to the client and back (ADR 0183; Colly's answer to the quote flow audit's fifth question,
+ * 14 November 2026): we deliver it and bring it back, or they collect it and return it. A quote says the hire's days as
+ * From and To for a delivery, and as Collection and Return for a collection.
+ */
+export const HANDOVERS = ['delivery', 'collection'] as const
+export type Handover = (typeof HANDOVERS)[number]
+export const HANDOVER_LABELS: Record<Handover, string> = { delivery: 'Delivery', collection: 'Collection' }
+/** What the hire's first and last days are called, as the form and the quote say them. */
+export const HANDOVER_DAYS: Record<Handover, { out: string; back: string }> = {
+  delivery: { out: 'From', back: 'To' },
+  collection: { out: 'Collection', back: 'Return' },
+}
+export const DELIVERY_ADDRESS_LENGTH = 500
+const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'A time is a time of day, such as 09:30.')
+/** A dry hire's handover: which way, the times on its first and last days, and where it's delivered to with its pin. */
+export const hireTerms = z.object({
+  handover: z.enum(HANDOVERS),
+  outTime: clock.optional(),
+  backTime: clock.optional(),
+  /** Where it's delivered to: a delivery only. */
+  address: text(DELIVERY_ADDRESS_LENGTH, 'The delivery address').optional(),
+  /** The delivery address on the map, which the delivery line on the quote is measured to. */
+  pin: pin.nullable().optional(),
+})
+export type HireTerms = z.infer<typeof hireTerms>
+
+/** "Fri 20 Nov, 10:00": a day of a dry hire with its time, when it has one. */
+export const dayAndTime = (d: string, time: string | undefined) => `${dayLabel(d)}${time ? `, ${time}` : ''}`
+
+/**
+ * A dry hire's days as its quote says them (ADR 0183): From and To with their times for a delivery, Collection and Return
+ * for a collection, and the address it goes to. Empty for anything that isn't a dry hire or has no days.
+ */
+export function hireWhen(job: { kind?: ProjectKind; hire?: HireTerms | null }, span: { start: string; end: string } | undefined): { label: string; text: string }[] {
+  if (job.kind !== 'hire' || !span) return []
+  const h = job.hire ?? { handover: 'collection' as const }
+  const words = HANDOVER_DAYS[h.handover]
+  const out = [
+    { label: words.out, text: dayAndTime(span.start, h.outTime) },
+    { label: words.back, text: dayAndTime(span.end, h.backTime) },
+  ]
+  // Its lines joined with commas, split rather than matched with a pattern that could run slow on a long address.
+  const where = (h.address ?? '').split('\n').map((l) => l.trim()).filter(Boolean).join(', ')
+  if (h.handover === 'delivery' && where) out.push({ label: 'Delivered to', text: where })
+  return out
+}
+
 export const project = z.object({
   id,
   name: needed(200, "The job's name", "The job's name"),
@@ -174,6 +222,8 @@ export const project = z.object({
   prepDays: kitDays.optional(),
   /** Days its kit is held after, to come back and be checked in; missing means the usual one. */
   returnDays: kitDays.optional(),
+  /** A dry hire's handover (ADR 0183); missing on anything else, and on a dry hire from before, which was collected. */
+  hire: hireTerms.nullable().optional(),
 })
 
 /** A job's days for getting kit ready and checking it back, the usual ones when it doesn't say. */
@@ -269,6 +319,7 @@ export const jobCommandSchemas = {
       officeNotes: project.shape.officeNotes,
       prepDays: kitDays.optional(),
       returnDays: kitDays.optional(),
+      hire: hireTerms.nullable().optional(),
     })
     .refine(...somethingToChange),
   'phase.add': phase.refine(...phaseFits).refine(...phaseNotTooLong),

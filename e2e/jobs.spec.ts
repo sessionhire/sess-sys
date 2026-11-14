@@ -176,8 +176,11 @@ test('New asks what kind it is first, then only what that kind needs', async ({ 
   await form.getByLabel('Name', { exact: true }).fill(`Van run ${id}`)
 
   await form.getByRole('radio', { name: 'Dry hire' }).check()
-  await expect(form.getByLabel('Going out')).toBeVisible()
-  await expect(form.getByLabel('Coming back')).toBeVisible()
+  // Collected by default: Collection and Return, each with a time (ADR 0183).
+  await expect(form.getByRole('radio', { name: 'Collection' })).toBeChecked()
+  await expect(form.getByRole('textbox', { name: 'Collection', exact: true })).toBeVisible()
+  await expect(form.getByRole('textbox', { name: 'Return', exact: true })).toBeVisible()
+  await expect(form.getByLabel('Collection time')).toBeVisible()
   await expect(form.getByRole('group', { name: 'Phases' })).toHaveCount(0)
   await expect(form.getByRole('combobox', { name: 'Venue' })).toHaveCount(0)
   await expect(form.getByLabel('Status')).toBeVisible()

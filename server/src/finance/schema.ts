@@ -203,6 +203,10 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS reduced_day_pct integer CHECK (reduced_day_pct BETWEEN 10 AND 100);
   `,
+  // A dry hire's delivery (ADR 0183): what each km from the warehouse to the delivery address is charged; null for not set.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_cents_per_km integer CHECK (delivery_cents_per_km >= 0);
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

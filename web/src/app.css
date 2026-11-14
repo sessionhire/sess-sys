@@ -595,7 +595,7 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
   color: var(--accent-ink); font: 600 var(--text-button) var(--ds-font-sans); text-decoration: none; text-align: center;
 }
 .app button.link.quiet { color: var(--on-line); }
-.app :is(p, span, small, dd, td, th, h2, h3, .warn-line, .alert, .hint, .form-problems, .who-line, .vat-cell, .included-word, .amount, .kit-note, .save-state, .out-items, .sheet-call, .group-head) button.link {
+.app :is(p, span, small, dd, td, th, h2, h3, .warn-line, .alert, .hint, .form-problems, .vat-cell, .included-word, .amount, .kit-note, .save-state, .out-items, .sheet-call, .group-head) button.link {
   display: inline; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none;
   font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; text-align: inherit;
 }

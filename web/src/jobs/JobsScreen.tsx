@@ -84,6 +84,7 @@ import { JOBS } from '../Up.tsx'
 import { useWindowed } from '../windowed.ts'
 import { ListTools, PillGroup, useListChoices } from '../ListTools.tsx'
 import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
+import { HireFields, hireDraftOf, hireTermsOf, placed as placedOnMap, type HireDraft } from './HireFields.tsx'
 import { arrival } from '../arrival.ts'
 
 /**
@@ -782,7 +783,7 @@ interface PhaseDraft {
  */
 const KIND_FORM: Record<ProjectKind, { about: string; example: string; add: string }> = {
   gig: { about: 'Crew and kit at a venue, over a day or more', example: 'e.g. Nissan launch', add: 'Add gig' },
-  hire: { about: 'Kit going out to a client, no crew', example: 'e.g. Murt LX hire', add: 'Add dry hire' },
+  hire: { about: 'Kit delivered to a client or collected, no crew', example: 'e.g. Murt LX hire', add: 'Add dry hire' },
   errand: { about: 'A van run, a collection or a drop-off', example: 'e.g. Collect from Screwfix', add: 'Add errand' },
   meeting: { about: 'A site visit, a recce or a meeting', example: 'e.g. Ryder Cup site visit', add: 'Add meeting' },
 }
@@ -791,7 +792,8 @@ const KIND_FORM: Record<ProjectKind, { about: string; example: string; add: stri
  * Something new for the jobs (Colly, 12 November 2026): what kind it is first, then only what that kind needs.
  *
  * - A gig: its name, client and venue, where the sale stands, and its phases with their days, as every job was asked before.
- * - A dry hire: its name, the client, where it stands, and the day the kit goes out and the day it comes back: one Hire phase.
+ * - A dry hire: its name, the client, where it stands, delivered or collected, and its first and last days with their
+ *   times: one Hire phase (ADR 0183).
  * - An errand: what it is, the day, where to, and a note for whoever goes. It's going ahead, so it's added confirmed.
  * - A meeting: what it is, the day, who with and where, and a note. Added confirmed, as an errand is.
  *
@@ -805,6 +807,8 @@ function NewJob({ view }: { view: View }) {
   const blank = () => ({ name: '', client: '', venue: '', status: 'enquiry' as ProjectStatus, kind: 'gig' as ProjectKind, notes: '', start: today, end: today })
   const [f, setF] = useState(blank)
   const [phases, setPhases] = useState<PhaseDraft[]>(() => [first()])
+  // A dry hire's delivery or collection, its times and where it goes (ADR 0183).
+  const [handover, setHandover] = useState<HireDraft>(() => hireDraftOf(undefined))
   const { run, error } = useAct()
   const form = KIND_FORM[f.kind]
   // A gig and a dry hire are sold; an errand or a meeting is just done, so it has no status to ask about.
@@ -844,7 +848,9 @@ function NewJob({ view }: { view: View }) {
     void run(async () => {
       const clientId = f.kind === 'errand' ? null : await clientNamed(f.client, clients)
       const venueId = f.kind === 'hire' ? null : await venueNamed(f.venue, venues)
+      const hire = was.kind === 'hire' ? hireTermsOf(await placedOnMap(handover)) : undefined
       await client.mutate('project.create', {
+        ...(hire ? { hire } : {}),
         id,
         name: f.name.trim(),
         clientId,
@@ -939,18 +945,7 @@ function NewJob({ view }: { view: View }) {
           </button>
         </fieldset>
       )}
-      {f.kind === 'hire' && (
-        <div className="pair wide">
-          <label>
-            Going out
-            <input type="date" value={f.start} onChange={(e) => setDays({ start: e.target.value })} required />
-          </label>
-          <label>
-            Coming back
-            <input type="date" value={f.end} min={f.start} onChange={(e) => setDays({ end: e.target.value })} required />
-          </label>
-        </div>
-      )}
+      {f.kind === 'hire' && <HireFields value={handover} onChange={setHandover} days={{ start: f.start, end: f.end, set: setDays }} />}
       {!sold && (
         <>
           <label className="wide">

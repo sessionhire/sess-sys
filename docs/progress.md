@@ -3,6 +3,28 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 14 November 2026: the quote questions answered; a dry hire delivered or collected
+
+**Done (1.202.0, #392, ADR 0183)**
+
+- Colly answered the six questions left by the audit of the quote flow.
+  Grouping by department, a quote for whoever asked, and the full-colour
+  logo were already how the app works, so they stay.
+- A line given free reads No charge, on screen and on paper.
+- A sent quote holds its kit, as a confirmed job does; a draft's kit is
+  still pencilled in. Vans and pick lists still wait for the job to be
+  confirmed.
+- A dry hire asks Delivery or Collection, with a time on each day; the
+  quote says From and To, or Collection and Return. A delivery's address
+  is found on the map and puts a Delivery line on the quote: the km from
+  the warehouse at the price a km under Admin › Company › Dry hire
+  delivery.
+- Checked: typecheck, shared and server tests (new ones for the delivery
+  line, the days' words and held stock), the quote browser tests with a
+  new one for a delivered dry hire.
+- Waiting on Colly: set the price a km, and the warehouse's address, in
+  Admin › Company.
+
 ## 13 November 2026: How many typed in place on a pick list; plain buttons you can see the edge of
 
 **Done (1.189.1, #373; design system 0.17.1)**

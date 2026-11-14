@@ -375,6 +375,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (a.officeNotes !== undefined) parts.push('the office notes')
       if (a.prepDays !== undefined) parts.push(`kit held ${a.prepDays ? plural(Number(a.prepDays), 'day') : 'no days'} before, to get it ready`)
       if (a.returnDays !== undefined) parts.push(`kit held ${a.returnDays ? plural(Number(a.returnDays), 'day') : 'no days'} after, to check it back in`)
+      if (a.hire !== undefined) parts.push(a.hire && (a.hire as { handover?: string }).handover === 'delivery' ? 'the delivery, its times and address' : 'the collection and its times')
       if (parts.length === 1 && a.status === 'cancelled') return `Cancelled the job ${job(a.id)}`
       if (parts.length === 1 && a.status === 'confirmed') return `Confirmed the job ${job(a.id)}`
       return `Changed the job ${job(a.id)}: ${inWords(parts)}`
@@ -805,6 +806,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     }
     case 'quoting.email':
       return a.on === true ? 'Turned on sending quotes to clients by email from the operations mailbox' : 'Turned off sending quotes by email'
+    case 'quoting.delivery':
+      return typeof a.centsPerKm === 'number' ? `Set a dry hire's delivery at ${euro(a.centsPerKm)} a km from the warehouse` : "Took off the price of a dry hire's delivery"
     case 'quoting.ownKit':
       return typeof a.costPct === 'number' ? `Set own kit's running cost at ${a.costPct}% of its price, for the margin` : "Took off own kit's running cost, so the margin leaves own kit out"
     case 'quoting.reducedDays':

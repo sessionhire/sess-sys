@@ -1,4 +1,5 @@
 import {
+  NO_CHARGE,
   LOGO_SVG,
   ACCEPT_NAME_LENGTH,
   depositCents,
@@ -12,6 +13,7 @@ import {
   quoteNumberLabel,
   setCents,
   spanLabel,
+  hireWhen,
   VAT_LABELS,
   venueLabel,
   type OfficeDetails,
@@ -76,7 +78,7 @@ function lines(s: Sheet): string {
           // Words only (ADR 0128): as written, across the row.
           if (l.words) return `<tr class="words"><td colspan="3">${h(l.what)}</td></tr>`
           const under = linesUnder(s.q.lines, l.id)
-          const amount = l.included && !under.length ? 'Included' : money(under.length ? setCents(l, s.q.lines) : lineCents(l))
+          const amount = l.included && !under.length ? NO_CHARGE : money(under.length ? setCents(l, s.q.lines) : lineCents(l))
           const inIt = under.length ? `<small>With ${h(under.map((u) => `${u.qty} × ${u.what}`).join(', '))}</small>` : l.includes ? `<small>${h(l.includes)}</small>` : ''
           return `<tr><td>${h(l.what)}${inIt}</td><td class="n">${l.qty}</td><td class="n">${amount}</td></tr>`
         })
@@ -137,7 +139,9 @@ function form(d: AcceptPage): string {
 export function renderAcceptPage(d: AcceptPage, until: string): string {
   const s = d.sheet
   const number = quoteNumberLabel(s.q)
-  const where = [s.job.span && spanLabel(s.job.span), s.job.venue && venueLabel(s.job.venue)].filter(Boolean).join(' · ')
+  // A dry hire's days as its quote has them (ADR 0183), its times and where it's delivered.
+  const hired = hireWhen(s.job, s.job.span).map((w) => `${w.label} ${w.text}`)
+  const where = [...(hired.length ? hired : [s.job.span && spanLabel(s.job.span)]), s.job.venue && venueLabel(s.job.venue)].filter(Boolean).join(' · ')
   const terms = paymentTermsLine(s.job.client?.paymentTerms)
   const top = `<header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>${h(s.job.name)}</h1><small>${h(number ? `Quote ${number}` : 'Quote')}${
     s.job.client ? ` · for ${h(s.job.client.name)}` : ''

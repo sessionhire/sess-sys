@@ -70,6 +70,7 @@ import { FromPastJob } from './PastJobs.tsx'
 import { takeQuickDraft } from './QuickQuote.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import { InStep, QuotePill } from './Quote.tsx'
+import { HireFields, hireDraftOf, hireTermsOf, placed, type HireDraft } from './HireFields.tsx'
 
 /**
  * Money (ADR 0042), #jobs/money, on Jobs' row, where the director looks:
@@ -415,6 +416,8 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
   // Two shapes of quote (ADR 0128; audit of the quote flow, finding 10): a show has a venue, crew and travel; a dry hire is
   // collected and returned, so it asks for neither and its days are one Hire.
   const [hire, setHire] = useState(false)
+  // How a dry hire gets there and back (ADR 0183): delivery or collection, its times, and where it's delivered to.
+  const [handover, setHandover] = useState<HireDraft>(() => hireDraftOf(undefined))
   const [more, setMore] = useState(false)
   const shapeId = useId()
   // Who asked is someone at the client, or anyone at any client while no client is chosen; a new name is added to the
@@ -460,7 +463,8 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       await contactAdded(clientId, f.client, asked.by, clients)
       const venueId = hire ? null : await venueNamed(f.venue, venues)
       const kind = hire ? 'hire' : 'gig'
-      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind, notes: enquiryLine(asked.by, asked.how) })
+      const terms = hire ? hireTermsOf(await placed(handover)) : undefined
+      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: 'enquiry', kind, notes: enquiryLine(asked.by, asked.how), ...(terms ? { hire: terms } : {}) })
       // Whoever starts the quote is on its task (ADR 0127; audit of the quote flow, finding 7), with the day it's wanted by.
       if (asked.quoteBy || me) await client.mutate('jobStep.set', { projectId: id, step: 'quote', ...(asked.quoteBy ? { dueOn: asked.quoteBy } : {}), ...(me ? { ownerId: me } : {}) })
       for (const ph of phases.length && !hire ? phases : [{ name: KIND_PHASE[kind], start: f.start, end: f.end < f.start ? f.start : f.end }])
@@ -517,16 +521,37 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       <label className="wide">
         What's the job? <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required />
       </label>
+      {/* Show or dry hire, out of the fold now that a dry hire asks its own questions (ADR 0183). */}
+      <fieldset className="choices quote-shape wide">
+        <legend>What kind of job</legend>
+        {/* Each named by its shape alone, with what it means said as its description. */}
+        <label className="signal">
+          <input type="radio" name="quote-shape" checked={!hire} onChange={() => setHire(false)} aria-labelledby={`${shapeId}-show-name`} aria-describedby={`${shapeId}-show`} />
+          <span>
+            <b id={`${shapeId}-show-name`}>A show</b> <span id={`${shapeId}-show`}>At a venue, with crew and travel</span>
+          </span>
+        </label>
+        <label className="signal">
+          <input type="radio" name="quote-shape" checked={hire} onChange={() => setHire(true)} aria-labelledby={`${shapeId}-hire-name`} aria-describedby={`${shapeId}-hire`} />
+          <span>
+            <b id={`${shapeId}-hire-name`}>A dry hire</b> <span id={`${shapeId}-hire`}>Kit delivered or collected, no crew</span>
+          </span>
+        </label>
+      </fieldset>
       {!hire && <VenueField jobs={view.jobs} optional value={f.venue} onChange={(venue) => setF((now) => ({ ...now, venue }))} />}
       {!hire && <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />}
-      <div className="pair">
-        <label>
-          {hire ? 'Collected' : 'From'} <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
-        </label>
-        <label>
-          {hire ? 'Brought back' : 'To'} <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
-        </label>
-      </div>
+      {hire ? (
+        <HireFields value={handover} onChange={setHandover} days={{ start: f.start, end: f.end, set: dates }} />
+      ) : (
+        <div className="pair">
+          <label>
+            From <input type="date" value={f.start} onChange={(e) => dates({ start: e.target.value, end: f.end < e.target.value ? e.target.value : f.end })} required />
+          </label>
+          <label>
+            To <input type="date" value={f.end} min={f.start} onChange={(e) => dates({ start: f.start, end: e.target.value })} required />
+          </label>
+        </div>
+      )}
       {phases.length > 0 && !hire && (
         <p className="hint wide">
           In parts, as the enquiry gives them: {phases.map((ph) => `${ph.name} ${spanLabel(ph)}`).join(', ')}. Changing the dates makes it one Show across them instead.
@@ -534,24 +559,8 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       )}
       {/* The rest of the enquiry, folded until it's wanted (ADR 0140, part 7); open when Claude read any of it. */}
       <details className="wide more-enquiry" open={more} onToggle={(e) => setMore(e.currentTarget.open)}>
-        <summary>More about the enquiry{hire ? ': a dry hire' : ''}</summary>
+        <summary>More about the enquiry</summary>
         <div className="grid-form">
-          <fieldset className="choices quote-shape wide">
-            <legend>What kind of job</legend>
-            {/* Each named by its shape alone, with what it means said as its description. */}
-            <label className="signal">
-              <input type="radio" name="quote-shape" checked={!hire} onChange={() => setHire(false)} aria-labelledby={`${shapeId}-show-name`} aria-describedby={`${shapeId}-show`} />
-              <span>
-                <b id={`${shapeId}-show-name`}>A show</b> <span id={`${shapeId}-show`}>At a venue, with crew and travel</span>
-              </span>
-            </label>
-            <label className="signal">
-              <input type="radio" name="quote-shape" checked={hire} onChange={() => setHire(true)} aria-labelledby={`${shapeId}-hire-name`} aria-describedby={`${shapeId}-hire`} />
-              <span>
-                <b id={`${shapeId}-hire-name`}>A dry hire</b> <span id={`${shapeId}-hire`}>Kit collected and brought back, no crew</span>
-              </span>
-            </label>
-          </fieldset>
           <div className="pair">
             <label>
               {/* Short enough for its half of the row at a desk (audit of the quote flow, finding 21). */}
@@ -593,7 +602,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
       )}
       {read && lines.length === 0 && <p className="hint wide">Claude found no kit or crew to put on the quote. Add them on the quote.</p>}
       <p className="hint wide">
-        It's added to Jobs as an enquiry, and moves to quoted when you mark the quote sent. Who asked and how go in the job's notes; the day they want it by is when the Quote sent task is due. Kit, crew and the rest can be added on the quote.
+        It's added to Jobs as an enquiry, and moves to quoted when you mark the quote sent, which holds its kit. Who asked and how go in the job's notes; the day they want it by is when the Quote sent task is due. Kit, crew and the rest can be added on the quote.
       </p>
       <Refusal error={error} className="wide" />
       <div className="actions wide">
@@ -990,7 +999,7 @@ export function PricesScreen({ view }: { view: View }) {
       <section className="card" aria-label="Kit">
         <Heading icon="kit">Kit</Heading>
         <p className="hint">
-          {priced} of {plural(view.warehouse.models.length, 'product')} priced. A product with no price goes on a quote for you to price there. One priced at €0 goes on as included, at no charge, as cables and power usually are.
+          {priced} of {plural(view.warehouse.models.length, 'product')} priced. A product with no price goes on a quote for you to price there. One priced at €0 goes on as No charge, as cables and power usually are.
         </p>
         <RateRules view={view} />
         <input className="search" type="search" placeholder="Find a product" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find a product" />
