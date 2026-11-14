@@ -196,7 +196,9 @@ export function hireWhen(job: { kind?: ProjectKind; hire?: HireTerms | null }, s
     { label: words.out, text: dayAndTime(span.start, h.outTime) },
     { label: words.back, text: dayAndTime(span.end, h.backTime) },
   ]
-  if (h.handover === 'delivery' && h.address?.trim()) out.push({ label: 'Delivered to', text: h.address.trim().replace(/\s*\n\s*/g, ', ') })
+  // Its lines joined with commas, split rather than matched with a pattern that could run slow on a long address.
+  const where = (h.address ?? '').split('\n').map((l) => l.trim()).filter(Boolean).join(', ')
+  if (h.handover === 'delivery' && where) out.push({ label: 'Delivered to', text: where })
   return out
 }
 
