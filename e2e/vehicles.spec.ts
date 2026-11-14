@@ -243,7 +243,13 @@ test('the warehouse is set under Admin › Company, and the vans measure their d
   await ready(phone, '#admin/company')
   await card.getByLabel('Address').fill('Unit 9, Ballymount\nDublin 24')
   await card.getByRole('button', { name: 'Save the warehouse' }).click()
-  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  // On the server before the page is opened again, so the reload reads it back from there.
+  await expect
+    .poll(async () => {
+      const changes: { entity: string; data: { address?: string } }[] = (await (await phone.request.get('/api/sync/pull?after=0')).json()).changes
+      return changes.filter((c) => c.entity === 'trackerSettings').at(-1)?.data.address
+    })
+    .toBe('Unit 9, Ballymount\nDublin 24')
   await phone.reload()
   await expect(card.getByLabel('Address')).toHaveValue('Unit 9, Ballymount\nDublin 24')
   await expect(card).toContainText('Now at 53.32490, -6.33680')
