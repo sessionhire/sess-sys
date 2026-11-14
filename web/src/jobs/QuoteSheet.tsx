@@ -1,4 +1,5 @@
 import {
+  NO_CHARGE,
   addressOnOneLine,
   irishToday,
   legalLine,
@@ -10,6 +11,8 @@ import {
   money,
   pctWord,
   spanLabel,
+  hireWhen,
+  kindOf,
   VAT_LABELS,
   venueLabel,
   type JobView,
@@ -109,7 +112,7 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                     <td className="n">{byKit || l.included ? '' : `${money(l.unitCents)} ${priceWords(l)}`}</td>
                     <td className="n">{VAT_LABELS[l.vat]}</td>
                     <td className="n">
-                      {l.included && !under.length ? 'Included' : money(under.length ? setCents(l, lines) : lineCents(l))}
+                      {l.included && !under.length ? NO_CHARGE : money(under.length ? setCents(l, lines) : lineCents(l))}
                       {l.discountPct ? <small className="less"> less {pctWord(l.discountPct)}</small> : null}
                     </td>
                   </tr>
@@ -228,7 +231,16 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
         <div>
           <p className="sheet-label">The job</p>
           <h1>{job.name}</h1>
-          {job.span && <p>{spanLabel(job.span)}</p>}
+          {/* A dry hire's days as Colly asked (ADR 0183): From and To with their times, or Collection and Return, and where it goes. */}
+          {job.span && kindOf(job) === 'hire' ? (
+            hireWhen(job, job.span).map((w) => (
+              <p key={w.label} className={w.label === 'Delivered to' ? 'muted' : undefined}>
+                {w.label} {w.text}
+              </p>
+            ))
+          ) : job.span ? (
+            <p>{spanLabel(job.span)}</p>
+          ) : null}
           {job.venue && <p className="muted">{venueLabel(job.venue)}</p>}
         </div>
         <dl className="sheet-dates">

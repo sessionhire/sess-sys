@@ -349,6 +349,11 @@ export function moneyView(
         quoting = { ...quoting, emailQuotes: a.on, pending: true }
         break
       }
+      case 'quoting.delivery': {
+        const a = m.args as CommandArgs<'quoting.delivery'>
+        quoting = { ...quoting, deliveryCentsPerKm: a.centsPerKm, pending: true }
+        break
+      }
       case 'quoting.ownKit': {
         const a = m.args as CommandArgs<'quoting.ownKit'>
         quoting = { ...quoting, ownKitCostPct: a.costPct, pending: true }

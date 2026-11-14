@@ -172,13 +172,13 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // Nothing faults the line while it's still being typed (design system rule 18): the readout says it's not saved, quietly.
   await expect(draft.locator('.save-state')).toHaveText('Line 4 not saved')
   await expect(draft.locator('.line-problem')).toHaveCount(0)
-  await expect(draft.locator('.warn-line')).toHaveCount(0)
+  await expect(draft.locator('.warn-line:not(.kit-note)')).toHaveCount(0)
   await office.goto('/#crew')
   await office.goBack()
   // Back, the line was left, so what stops it saving is said. Send stays in the strip and says what stops it (ADR 0140,
   // part 2), and leads to the line.
   await expect(draft.getByRole('button', { name: 'Line 4: not named yet, change it' })).toBeVisible()
-  await expect(draft.locator('.warn-line')).toContainText("Line 4: say what it's for. The rest is saved")
+  await expect(draft.locator('.warn-line:not(.kit-note)')).toContainText("Line 4: say what it's for. The rest is saved")
   await expect(draft.getByRole('group', { name: 'What it comes to' }).getByRole('button', { name: 'Send: 1 line to finish' })).toBeVisible()
   await draft.getByRole('button', { name: 'Send: 1 line to finish' }).click()
   await expect(draft.getByLabel('Line 4: price')).toHaveValue('400')
@@ -816,22 +816,22 @@ test('a count before a name with digits in it is still a count, and a line given
   await expect(draft.getByRole('button', { name: /Shure SM58, change it$/ })).toContainText('8 ×')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
 
-  // A line with no price says so, and one press gives it as included: it reads Included and the readout stops counting it.
+  // A line with no price says so, and one press gives it at no charge: it reads No charge and the readout stops counting it.
   await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByRole('textbox', { name: 'Line 2: what' }).fill('Cables and power')
   await expect(draft.getByText('Needs a price, or')).toBeVisible()
   await expect(draft.getByRole('button', { name: /lines? with no price/ })).toBeVisible()
-  await draft.getByRole('button', { name: 'Line 2: included at no charge' }).click()
-  await expect(draft.locator('.quote-line .included-word')).toContainText('Included')
+  await draft.getByRole('button', { name: 'Line 2: no charge' }).click()
+  await expect(draft.locator('.quote-line .included-word')).toContainText('No charge')
   await expect(draft.getByRole('button', { name: /lines? with no price/ })).toHaveCount(0)
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(draft.getByRole('button', { name: 'Line 2: Cables and power, change it' })).toContainText('Included at no charge')
+  await expect(draft.getByRole('button', { name: 'Line 2: Cables and power, change it' })).toContainText('No charge')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
-  // It goes without being asked about, and the sent quote says Included.
+  // It goes without being asked about, and the sent quote says No charge.
   await draft.getByRole('button', { name: 'Generate PDF' }).click()
   await expect(office.getByRole('dialog')).toHaveCount(0)
-  await expect(office.getByRole('table').first()).toContainText('Included')
+  await expect(office.getByRole('table').first()).toContainText('No charge')
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })

@@ -36,6 +36,7 @@ import {
   type ProjectKind,
   STOPPED,
   spanLabel,
+  hireWhen,
   suggestedReplyBy,
   venueLabel,
   type CallView,
@@ -80,6 +81,7 @@ import { confirmQuestion, crewOnJob, holdingTheDay, stopQuestion } from './jobSt
 import { YouOnThisJob } from './YouOnThisJob.tsx'
 import { CancelJob } from './CancelJob.tsx'
 import { StepsCard } from './Steps.tsx'
+import { HireFields, hireDraftOf, hireTermsOf, placed, sameHire, type HireDraft } from './HireFields.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { Heading } from '../Icon.tsx'
 import { useMyDepartment } from '../Narrowed.tsx'
@@ -602,7 +604,9 @@ function JobLines({ job, view }: { job: JobView; view: View }) {
       </div>
       <div>
         <dt>{kindOf(job) === 'gig' ? 'When' : KIND_LABELS[kindOf(job)]}</dt>
-        <dd>{job.span ? spanLabel(job.span) : <span className="muted">No dates yet</span>}</dd>
+        <dd>
+          {job.span ? (kindOf(job) === 'hire' ? hireWhen(job, job.span).map((w) => `${w.label} ${w.text}`).join(' · ') : spanLabel(job.span)) : <span className="muted">No dates yet</span>}
+        </dd>
       </div>
       {crew.needed > 0 && (
         <div>
@@ -666,6 +670,8 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
     notes: job.notes,
     officeNotes: job.officeNotes ?? '',
   })
+  // A dry hire's delivery or collection, its times and where it goes (ADR 0183).
+  const [handover, setHandover] = useState<HireDraft>(() => hireDraftOf(job.hire))
   // Stopping a job with crew out, or confirming one its crew hold the day for, waits here until the office says so, with the
   // fields held still.
   const [asking, setAsking] = useState(false)
@@ -692,6 +698,10 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
       if (clientId !== job.clientId) changes.clientId = clientId
       const venueId = await venueNamed(f.venue, venues)
       if (venueId !== job.venueId) changes.venueId = venueId
+      if (f.kind === 'hire') {
+        const terms = hireTermsOf(await placed(handover))
+        if (!sameHire(job.hire, terms)) changes.hire = terms
+      }
       if (Object.keys(changes).length > 1) await client.mutate('project.update', changes)
     }).then((ok) => {
       if (!ok) return
@@ -735,6 +745,7 @@ function EditJob({ job, view, onDone, onTell }: { job: JobView; view: View; onDo
           ))}
         </select>
       </label>
+      {f.kind === 'hire' && <HireFields value={handover} onChange={setHandover} disabled={asking} />}
       {/* Who reads each, said where it's typed (ADR 0151, audit of 12 November 2026, finding 2): an email can't be unsent. */}
       <label className="wide">
         Notes for the crew{' '}

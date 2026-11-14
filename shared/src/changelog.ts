@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.202.0',
+    date: '2026-11-14',
+    title: 'Dry hire delivered or collected, a delivery line by the km, and stock held once a quote is sent',
+    what: "A dry hire now asks how it gets there: Delivery or Collection. Its days are From and To for a delivery, or Collection and Return for a collection, each with a time if you want one, and the printed quote says them that way. A delivery asks for the address, finds it on the map, and puts a Delivery line on the quote by itself: the km from the warehouse at the price a km you set in Admin › Company › Dry hire delivery. Show or dry hire is now asked on New quote straight away rather than under More about the enquiry. Once a quote is sent its kit is held, as a confirmed job's is, so another quote for the same days sees it gone; a draft's kit is still only pencilled in. And a line given free now reads No charge on the quote rather than Included.",
+    prs: [391],
+    adrs: [183],
+  },
+  {
     version: '1.201.0',
     date: '2026-11-14',
     title: 'Photos of jobs',

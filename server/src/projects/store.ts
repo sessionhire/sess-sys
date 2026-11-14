@@ -5,7 +5,7 @@ import type { Queryable } from '../db.ts'
 
 const CLIENT = `id, name, contacts, notes, address, payment_terms`
 const VENUE = `id, name, address, notes, lat, lng, contact`
-const PROJECT = `id, name, client_id, venue_id, status, kind, notes, office_notes, source_calendar, prep_days, return_days`
+const PROJECT = `id, name, client_id, venue_id, status, kind, notes, office_notes, source_calendar, prep_days, return_days, hire`
 const PHASE = `id, project_id, name, start_day::text, end_day::text, venue_id, notes, contact_id, local_crew`
 
 type Row = Record<string, any>
@@ -43,6 +43,8 @@ export const toProject = (r: Row): Project => ({
   prepDays: r.prep_days,
   returnDays: r.return_days,
   ...(r.source_calendar ? { sourceCalendar: r.source_calendar } : {}),
+  // Only on a dry hire that has one (ADR 0183), so other jobs read as before.
+  ...(r.hire ? { hire: r.hire } : {}),
 })
 export const toPhase = (r: Row): Phase => ({
   id: r.id,

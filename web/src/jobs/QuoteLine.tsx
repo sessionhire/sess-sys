@@ -1,5 +1,6 @@
 import { UnitBox } from '../UnitBox.tsx'
 import {
+  NO_CHARGE,
   dayLabel,
   daysWord,
   euroText,
@@ -81,7 +82,7 @@ export function GroupDiscount({ group, onApply, onCancel, refuse }: { group: str
 /** "4 × €45.00 a day × 3 days", "12 × €55.00 a week × 1 week", "€150.00 once", with a line's discount after. */
 export function chargeWords(r: QuoteLine) {
   // Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1).
-  if (r.included) return r.qty === 1 ? 'Included at no charge' : `${r.qty}, included at no charge`
+  if (r.included) return r.qty === 1 ? NO_CHARGE : `${r.qty}, ${NO_CHARGE.toLowerCase()}`
   const each = r.unitCents ? money(r.unitCents) : 'no price'
   const off = r.discountPct ? `, less ${pctWord(r.discountPct)}` : ''
   if (r.per === 'once') return `${r.qty === 1 ? '' : `${r.qty} × `}${each} once${off}`
@@ -317,7 +318,7 @@ export function LineSummary({
         {done && lineSaving(done) > 0 && <small className="package-saving">{money(lineSaving(done))} off its items</small>}
       </span>
       <span className="amount">
-        {done === undefined ? '–' : included || done.included ? 'Included' : money(total ?? lineCents(done))}
+        {done === undefined ? '–' : included ? 'Included' : done.included ? NO_CHARGE : money(total ?? lineCents(done))}
         {margin !== undefined && <small className={`line-margin${margin < 0 ? ' bad' : ''}`}>makes {money(margin)}</small>}
       </span>
       <Icon name="edit" className="opener" />
@@ -437,7 +438,7 @@ export function LineEditor(p: {
           <span className={`price included-cell${l.per === 'once' ? ' wide' : ''}`}>
             Price
             <span className="included-word">
-              Included{' '}
+              {NO_CHARGE}{' '}
               <button type="button" className="link" onClick={() => set({ included: false, price: '' })} aria-label={`Line ${n}: charge for it`} autoFocus={p.focus === 'price'}>
                 Charge for it
               </button>
@@ -496,12 +497,12 @@ export function LineEditor(p: {
           </span>
         )}
         <span className="amount">
-          {done === undefined ? '–' : l.included ? 'Included' : money(lineCents(done))}
+          {done === undefined ? '–' : l.included ? NO_CHARGE : money(lineCents(done))}
           {unpriced && (
             <small className="warn">
               Needs a price, or{' '}
-              <button type="button" className="link" onClick={() => set({ included: true, price: '' })} aria-label={`Line ${n}: included at no charge`}>
-                it's included
+              <button type="button" className="link" onClick={() => set({ included: true, price: '' })} aria-label={`Line ${n}: no charge`}>
+                no charge
               </button>
             </small>
           )}

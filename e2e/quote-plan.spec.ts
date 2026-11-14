@@ -68,7 +68,7 @@ test("a draft's kit is pencilled on its job for other quotes to see, its days ar
   const rival = office.getByRole('form', { name: 'Version 1, a draft' })
   await rival.getByRole('button', { name: 'Add kit', exact: true }).click()
   await office.keyboard.type(`SM58 ${id}`)
-  await expect(rival.getByRole('option', { name: new RegExp(`Shure SM58 ${id}`) })).toContainText('4 pencilled for other quotes')
+  await expect(rival.getByRole('option', { name: new RegExp(`Shure SM58 ${id}`) })).toContainText('4 pencilled on other drafts')
   await office.keyboard.press('Escape')
 
   // The quote's crew are made the job's calls in one press, and then there's nothing more to make.

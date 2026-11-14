@@ -67,7 +67,7 @@ export async function sheetFor(q: Queryable, quote: Quote, today: string): Promi
   return {
     q: quote,
     totals: quoteTotals(quote),
-    job: { name: project?.name ?? 'Job', span, venue: venue ?? undefined, client: client ?? undefined },
+    job: { name: project?.name ?? 'Job', span, venue: venue ?? undefined, client: client ?? undefined, ...(project?.kind ? { kind: project.kind } : {}), ...(project?.hire ? { hire: project.hire } : {}) },
     office,
     quoting: { terms: quoting?.terms ?? '', bank: quoting?.bank ?? '' },
     today,
