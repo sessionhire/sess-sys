@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 14 November 2026: the quote questions answered; a dry hire delivered or collected
 
-**Done (1.202.0, #391, ADR 0183)**
+**Done (1.202.0, #392, ADR 0183)**
 
 - Colly answered the six questions left by the audit of the quote flow.
   Grouping by department, a quote for whoever asked, and the full-colour
