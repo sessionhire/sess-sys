@@ -104,6 +104,7 @@ describe('every answer', () => {
       expect(shell, url).toContain("style-src 'self' 'unsafe-inline'")
       expect(shell, url).toContain('img-src \'self\' data: blob: https://tile.openstreetmap.org')
       expect(shell, url).toContain('https://*.ingest.de.sentry.io')
+      expect(shell, url).toContain('http://127.0.0.1:9100 https://127.0.0.1:9101')
       expect(shell, url).toContain("object-src 'none'")
     }
     const page = await policy('/f/a-link-nobody-was-given')

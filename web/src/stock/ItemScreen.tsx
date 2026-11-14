@@ -25,6 +25,7 @@ import { CertificatesCard } from './Certificates.tsx'
 import { ItemLog } from './ItemLog.tsx'
 import { CountsOf } from './Counts.tsx'
 import { PrintLabels } from './Labels.tsx'
+import { ZebraPrint } from './ZebraPrint.tsx'
 import {
   contentsLabel,
   CountHere,
@@ -272,7 +273,12 @@ function Summary({ a, w, view }: { a: AssetView; w: WarehouseView; view: View })
       {!retired &&
         mode === 'print' &&
         (a.number ? (
-          <PrintLabels numbers={[a.number]} caption={a.model?.name} code={a.model?.code || undefined} />
+          <>
+            <h2>On the ZT411</h2>
+            <ZebraPrint labels={[{ number: a.number, caption: a.model?.name, code: a.model?.code || undefined }]} file={`session-hire-label-${a.number}`} />
+            <h2>On another printer</h2>
+            <PrintLabels numbers={[a.number]} caption={a.model?.name} code={a.model?.code || undefined} />
+          </>
         ) : (
           <p className="hint">It gets its number when it syncs, and its label can be printed then.</p>
         ))}

@@ -87,3 +87,5 @@ The [stock research](../research/stock-tracking.md) (§0, §5) recommends:
   camera in the app comes with scanning out and in, next. A USB or
   Bluetooth scanner works in the Stock search already.
 - Runs are in the backups, the download of everything and the history.
+- Since [ADR 0178](0178-printing-on-the-zebra-zt411.md), labels print on the
+  warehouse's Zebra ZT411 in its own language, a whole run at once.
