@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-14',
     title: 'Tidier skill pills',
     what: "The skills on a person's form sit evenly in their pills: as much room before the word as after the X, and the X close to its word, as the filter pills under a list already were. The X is just as easy to press.",
-    prs: [0],
+    prs: [394],
   },
   {
     version: '1.201.0',
