@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-13',
     title: "Note the maker's serial as you label",
     what: "Putting a label on, whether on a count or from the Stock search, now has a box for the maker's serial number, if it has one worth keeping. It isn't carried over to the next label, and a barcode scanner can read the serial straight into it. Searching that serial later finds the item.",
-    prs: [0],
+    prs: [385],
     adrs: [175],
   },
   {
