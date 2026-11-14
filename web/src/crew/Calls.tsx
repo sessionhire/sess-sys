@@ -66,12 +66,12 @@ import { RoleField } from './RoleField.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
 import { certificateWarnings, NeedsField } from './Certificates.tsx'
-import { LateLines, NoteLate } from './Late.tsx'
+import { LateFor, LateLinesFor, lateToNote } from './Late.tsx'
 import { personHref } from './PersonScreen.tsx'
-import { Avatars } from '../Picture.tsx'
+import { Avatar, photoOf } from '../Picture.tsx'
 import { type Made, type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
 import { PlainContact, useHoldTheDay, useReach } from './reach.tsx'
-import { AnswerActions, standsAt } from './AnswerActions.tsx'
+import { standsAt, useAnswerActions } from './AnswerActions.tsx'
 import { AdminWords } from '../AdminWords.tsx'
 import { dept, found, wordsOf } from './People.tsx'
 import { RecordPicker } from '../RecordPicker.tsx'
@@ -119,14 +119,151 @@ function pickerLine(p: PersonView): string {
 /** Offered, holding or booked: the people a call's one line names. */
 const ON_CALL: readonly OfferView['status'][] = [...OPEN, ...HOLDING]
 
-/** How many on a call are named on its line at rest: the rest are counted, and listed once it's opened. */
+/** How many on a call have their row at rest: the rest are counted, and listed once it's opened. */
 const WHO_SHOWN = 8
 
 /**
- * One crew call. At rest it's one line (audit finding 16): the role, its
- * phase or days and who's on it, with where it stands as a pill beside it
- * and "Offer…" under that while there are places to fill, the picker behind
- * it until it's wanted. A tap on the line opens its days, call time and rate,
+ * One person on a call, a row of the call's rough table (14 November 2026): their face, their name with anything particular
+ * to them (some days only, an override, their own rate), their answer as a pill, and at the row's right what can be done
+ * about them: ring them, Send, Running late…, Confirm or Release a yes, Agree or Say no to a rate, Withdraw or Release.
+ * A question one of those asks, and the running late form, open under the row at its full width. Opened, the call's rows
+ * also say how each was reached and what to know (ADR 0149).
+ */
+function CrewRow({
+  o,
+  said,
+  call,
+  open,
+  hold,
+  late,
+  inJob,
+  run,
+  onShare,
+  onTell,
+}: {
+  o: OfferView
+  said: ReturnType<typeof reachOnRow>
+  call: CallView
+  open: boolean
+  hold: boolean
+  late?: LateView
+  inJob: boolean
+  run: (fn: () => Promise<unknown>) => Promise<boolean>
+  onShare: (people: PersonView[], made?: Made) => void
+  onTell?: (share: Share | undefined) => void
+}) {
+  const mayOffer = useAccess().can('crew')
+  const reach = useReach()
+  const today = useToday()
+  // Withdrawing or releasing is asked first under the row: it can't be taken back, and their link says so at once (rule 1).
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [noting, setNoting] = useState(false)
+  const answer = useAnswerActions({ o, call, run, onDone: (share) => onTell?.(share) })
+  // Picked on a job the client hasn't said yes to: Hold the day, as their own page and invite say it (ADR 0150, ADR 0168).
+  const [label, tone] = hold && o.status === 'confirmed' ? [HOLD_WORDS.name, 'pending' as const] : offerWords(o)
+  const partial = o.days.length < call.days.length && (o.status === 'accepted' || o.status === 'confirmed' || o.status === 'countered')
+  const answering = o.status === 'offered' || o.status === 'countered' || o.status === 'accepted' || o.status === 'confirmed'
+  const mayNoteLate = mayOffer && lateToNote(call).some((b) => b.id === o.id)
+  const withdraw = () => {
+    setWithdrawing(false)
+    void run(() => client.mutate('offer.cancel', { id: o.id })).then(
+      (ok) => ok && o.person && onTell?.(promptFor(HOLDING.includes(o.status) ? 'released' : 'withdrawn', [tellTo(o.person, call, o)]))
+    )
+  }
+  return (
+    <li>
+      <Avatar name={o.person?.name ?? ''} src={photoOf(o.person)} size="small" />
+      <span className="who">
+        {o.person ? (
+          <a className="link" href={personHref(o.personId)}>
+            {o.person.name}
+          </a>
+        ) : (
+          'Unknown'
+        )}
+        {partial && <small> {daysLabel(o.days)}</small>}
+        {o.override && <small> (override)</small>}
+        {/* Offered at their own rate rather than the call's (ADR 0167). */}
+        {!o.rateHidden && !call.rateHidden && o.status !== 'countered' && o.dayRateCents !== null && o.dayRateCents !== call.dayRateCents && <small> own rate {euro(o.dayRateCents)}</small>}
+      </span>
+      <StatusPill tone={tone} pending={o.pending}>
+        {label}
+      </StatusPill>
+      {/* A box, not a span, so its presses are buttons the size of any other, not links in a sentence; all of them plain, as Confirm and Release on a yes are, so no one row shouts. */}
+      <div className="actions">
+        {/* Nothing has reached them and no message opens to send (ADR 0048): ringing them is the way, so it's here in Send's place (finding 14). */}
+        {mayOffer && o.status === 'offered' && o.person && said.contact && <PlainContact person={o.person} />}
+        {/* Send opens the message for the office to send, so it's there only while messages are on (ADR 0149): off, it opened a panel saying nothing had opened. */}
+        {mayOffer && o.status === 'offered' && o.person && reach.messages && (
+          <button type="button" onClick={() => onShare([o.person as PersonView])}>
+            Send
+          </button>
+        )}
+        {/* Someone booked who rang to say they're late, noted from their own row (ADR 0028). */}
+        {mayNoteLate && !noting && (
+          <button type="button" className="late-open" aria-expanded={false} onClick={() => setNoting(true)}>
+            Running late…
+          </button>
+        )}
+        {/* A yes to confirm, or a rate to answer, settled here as on Crew's Answers to check (audit of 12 November 2026, finding 9). */}
+        {mayOffer && answer.buttons}
+        {mayOffer && (o.status === 'offered' || o.status === 'confirmed') && !withdrawing && (
+          <button type="button" onClick={() => setWithdrawing(true)}>
+            {o.status === 'confirmed' ? 'Release' : 'Withdraw'}
+          </button>
+        )}
+      </div>
+      {mayOffer && answer.question}
+      {withdrawing && (
+        <Confirm
+          question={
+            // The email Google sends is named, or that nothing is sent (finding 5).
+            o.status === 'confirmed'
+              ? `Release ${o.person?.name ?? 'them'} from this call? The days they're ${hold ? 'holding' : 'booked for'} go back to it. ${endingWords(reach, o.id, 'so', o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
+              : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn", o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
+          }
+          yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
+          loss
+          no={o.status === 'confirmed' ? 'Keep them' : 'Keep it open'}
+          onYes={withdraw}
+          onNo={() => setWithdrawing(false)}
+        />
+      )}
+      {mayNoteLate && noting && <LateFor call={call} offer={o} late={late} inJob={inJob} onClose={() => setNoting(false)} />}
+      {/* Running late, said under their row at rest (ADR 0028). */}
+      <LateLinesFor offer={o} late={late} today={today} />
+      {open &&
+        said.lines.map((l) => (
+          <small key={l.text} className={l.tone === 'warn' ? 'warn-line' : l.tone === 'bad' ? 'on-cal bad' : 'on-cal'} title={l.title}>
+            <AdminWords>{l.text}</AdminWords>
+          </small>
+        ))}
+      {/* A rate the office said no to: the offer stands at the rate offered, as their page says (ADR 0152). */}
+      {open && o.status === 'offered' && o.counterRateCents !== null && !o.rateHidden && (
+        <small className="on-cal">
+          Said no to {euro(o.counterRateCents)} a day: the offer stands at {standsAt(o.dayRateCents ?? call.dayRateCents, call.rateHidden)}.
+        </small>
+      )}
+      {/* Not known is allowed, and said on the offer (ADR 0028). */}
+      {open &&
+        answering &&
+        o.person &&
+        certificateUnknowns(o.person, needsOf(call), o.days, today).map((w) => (
+          <small key={w} className="warn-line">
+            {w}
+          </small>
+        ))}
+    </li>
+  )
+}
+
+/**
+ * One crew call. At rest (audit finding 16) it's the role with its phase or
+ * days and where it stands as a pill beside it, then a row for each person
+ * on it, roughly a table: their face, name and answer, and what can be done
+ * about them at the row's right (14 November 2026). "Offer…" is under that
+ * at the left while there are places to fill, the picker behind it until
+ * it's wanted. A tap on the line opens its days, call time and rate, everyone
  * who's been offered it, how each was reached and how they answered (ADR
  * 0149), and changing or cancelling the call.
  */
@@ -166,8 +303,6 @@ export function CallCard({
   }, [rowsOpened])
   const [editing, setEditing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
-  // The offer or booking being withdrawn, asked first on its line: it can't be taken back, and their link says so at once (rule 1).
-  const [withdrawing, setWithdrawing] = useState<string | undefined>()
   const { run, error } = useAct()
   const today = useToday()
   const view = useView()
@@ -185,33 +320,21 @@ export function CallCard({
   const live = call.status === 'open'
   // What the app sent each person by itself, and what ending their offer sends (ADR 0149).
   const reach = useReach()
-  // Who's on it, with their answer where it isn't yet a booking: "Dara Quinn (booked), Niamh Kelly (offered)". The first few at rest, then
-  // "and 17 more", which opening the line lists (audit of 18 October, finding 20).
-  // Booked and not yet booked side by side, everyone's state is said, so "(offered)" can't read as the pair's (audit, 20 October 2026, finding 72).
+  // Who's on it, a row each (14 November 2026): the first few at rest, then "Show 17 more", which opens the call to list
+  // everyone it was offered to (audit of 18 October, finding 20).
   const onIt = call.offers.filter((o) => o.person && ON_CALL.includes(o.status))
-  const mixed = onIt.some((o) => o.status === 'confirmed') && onIt.some((o) => o.status !== 'confirmed')
   // On a job the client hasn't said yes to, those picked hold the day: nobody is booked until the client says yes (ADR 0150, ADR 0168).
   const hold = useHoldTheDay()(call.projectId)
-  const picked = hold ? ` (${HOLD_WORDS.name.toLowerCase()})` : ' (booked)'
-  const who = onIt
-    .slice(0, WHO_SHOWN)
-    .map((o) => `${o.person!.name}${o.status === 'confirmed' ? (mixed || hold ? picked : '') : ` (${STATUS[o.status][0].toLowerCase()})`}`)
-    .join(', ')
   const more = onIt.length - WHO_SHOWN
 
   // How each person was reached, from what the server read back: the invite Google emailed, the offer on WhatsApp, or nothing and why.
-  const rows = open ? call.offers.map((o) => ({ o, said: reachOnRow(reach, o, call, o.person, call.offers) })) : []
+  const rows = (open ? call.offers : onIt.slice(0, WHO_SHOWN)).map((o) => ({ o, said: reachOnRow(reach, o, call, o.person, call.offers) }))
   // With every way out switched off that's the same for everyone waiting, so it's said once over them, not under each name.
-  const unsent = nothingSentLine(
+  const unsent = open && nothingSentLine(
     rows.flatMap((r) => (r.said.allOff && r.o.person ? [r.o.person] : [])),
     call.offers.filter((o) => o.status === 'offered').length
   )
 
-  const withdraw = (o: OfferView) => {
-    void run(() => client.mutate('offer.cancel', { id: o.id })).then(
-      (ok) => ok && o.person && onTell?.(promptFor(HOLDING.includes(o.status) ? 'released' : 'withdrawn', [tellTo(o.person, call, o)]))
-    )
-  }
   const cancel = () => {
     setCancelling(false)
     void run(() => client.mutate('call.cancel', { id: call.id })).then((ok) => ok && onTell?.(promptFor('call-cancelled', peopleOn(call))))
@@ -234,38 +357,7 @@ export function CallCard({
           ? 'Cancelled'
           : `${filled ? 'Filled' : heldLabel(call)}${toConfirm > 0 ? `, ${toConfirm} to confirm` : ''}`}
       </StatusPill>
-      {/* Under the line at the card's full width, not squeezed beside the pill into a column of one word a line (audit of 18 October, finding 20). */}
-      {who && (
-        <p className="who-line">
-          <Avatars names={onIt.map((o) => o.person!.name)} />
-          <span>
-            {who}
-            {more > 0 &&
-              (open ? (
-                ` and ${more} more`
-              ) : (
-                <>
-                  {' '}
-                  <button type="button" className="link" aria-expanded={false} onClick={() => setOpen(true)}>
-                    and {more} more
-                  </button>
-                </>
-              ))}
-          </span>
-        </p>
-      )}
-      {/* Lines that need acting on stay out at rest (audit finding 16): anyone short of a certificate it needs, and anyone running late (ADR 0028). */}
-      {certificateWarnings(call, today).map((w) => (
-        <p key={w} className="warn-line">
-          {w}
-        </p>
-      ))}
-      {phase && offPhase.length > 0 && <p className="warn-line">{offPhaseLine(offPhase, phase, today)}</p>}
-      {inNoPhase.length > 0 && <p className="warn-line">{noPhaseLine(inNoPhase, job?.phases ?? [], today)}</p>}
-      <LateLines call={call} late={late} today={today} />
-      {/* Someone booked who rang to say they're late, noted where their line is (ADR 0028). */}
-      <NoteLate call={call} late={late} inJob={inJob} />
-
+      {/* Opened, what the call is, over everyone it was offered to. */}
       {open && (
         <>
           <p className="facts-line">
@@ -280,92 +372,32 @@ export function CallCard({
               .join(' · ')}
           </p>
           {unsent && <p className="sent-line">{unsent}</p>}
-          {call.offers.length > 0 && (
-            <ul className="offers">
-              {rows.map(({ o, said }) => {
-                // Picked on a job the client hasn't said yes to: Hold the day, as their own page and invite say it (ADR 0150, ADR 0168).
-                const [label, tone] = hold && o.status === 'confirmed' ? [HOLD_WORDS.name, 'pending' as const] : offerWords(o)
-                const partial = o.days.length < call.days.length && (o.status === 'accepted' || o.status === 'confirmed' || o.status === 'countered')
-                const answering = o.status === 'offered' || o.status === 'countered' || o.status === 'accepted' || o.status === 'confirmed'
-                return (
-                  <li key={o.id}>
-                    <span>
-                      {o.person ? (
-                        <a className="link" href={personHref(o.personId)}>
-                          {o.person.name}
-                        </a>
-                      ) : (
-                        'Unknown'
-                      )}
-                      {partial && <small> {daysLabel(o.days)}</small>}
-                      {o.override && <small> (override)</small>}
-                      {/* Offered at their own rate rather than the call's (ADR 0167). */}
-                      {!o.rateHidden && !call.rateHidden && o.status !== 'countered' && o.dayRateCents !== null && o.dayRateCents !== call.dayRateCents && <small> own rate {euro(o.dayRateCents)}</small>}
-                    </span>
-                    <span className="actions">
-                      <StatusPill tone={tone} pending={o.pending}>
-                        {label}
-                      </StatusPill>
-                      {/* Nothing has reached them and no message opens to send (ADR 0048): ringing them is the way, so it's here in Send's place (finding 14). */}
-                      {mayOffer && o.status === 'offered' && o.person && said.contact && <PlainContact person={o.person} />}
-                      {/* Send opens the message for the office to send, so it's there only while messages are on (ADR 0149): off, it opened a panel saying nothing had opened. */}
-                      {mayOffer && o.status === 'offered' && o.person && reach.messages && (
-                        <button type="button" className="link" onClick={() => onShare([o.person as PersonView])}>
-                          Send
-                        </button>
-                      )}
-                      {mayOffer && (o.status === 'offered' || o.status === 'confirmed') && withdrawing !== o.id && (
-                        <button type="button" className="link" onClick={() => setWithdrawing(o.id)}>
-                          Withdraw
-                        </button>
-                      )}
-                    </span>
-                    {withdrawing === o.id && (
-                      <Confirm
-                        question={
-                          // The email Google sends is named, or that nothing is sent (finding 5).
-                          o.status === 'confirmed'
-                            ? `Release ${o.person?.name ?? 'them'} from this call? The days they're ${hold ? 'holding' : 'booked for'} go back to it. ${endingWords(reach, o.id, 'so', o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
-                            : `Withdraw the offer to ${o.person?.name ?? 'them'}? ${endingWords(reach, o.id, "it's withdrawn", o.person, whatsappFollowsOffer(reach, call, o, o.person))}`
-                        }
-                        yes={o.status === 'confirmed' ? `Release ${o.person ? firstName(o.person) : 'them'}` : 'Withdraw the offer'}
-                        loss
-                        no={o.status === 'confirmed' ? 'Keep them' : 'Keep it open'}
-                        onYes={() => {
-                          setWithdrawing(undefined)
-                          withdraw(o)
-                        }}
-                        onNo={() => setWithdrawing(undefined)}
-                      />
-                    )}
-                    {said.lines.map((l) => (
-                      <small key={l.text} className={l.tone === 'warn' ? 'warn-line' : l.tone === 'bad' ? 'on-cal bad' : 'on-cal'} title={l.title}>
-                        <AdminWords>{l.text}</AdminWords>
-                      </small>
-                    ))}
-                    {/* A rate the office said no to: the offer stands at the rate offered, as their page says (ADR 0152). */}
-                    {o.status === 'offered' && o.counterRateCents !== null && !o.rateHidden && (
-                      <small className="on-cal">
-                        Said no to {euro(o.counterRateCents)} a day: the offer stands at {standsAt(o.dayRateCents ?? call.dayRateCents, call.rateHidden)}.
-                      </small>
-                    )}
-                    {/* A yes to confirm, or a rate to answer, settled here as on Crew's Answers to check (audit of 12 November 2026, finding 9). */}
-                    {mayOffer && (o.status === 'accepted' || o.status === 'countered') && (
-                      <AnswerActions o={o} call={call} run={run} onDone={(share) => onTell?.(share)} />
-                    )}
-                    {/* Not known is allowed, and said on the offer (ADR 0028). */}
-                    {answering && o.person && certificateUnknowns(o.person, needsOf(call), o.days, today).map((w) => (
-                      <small key={w} className="warn-line">
-                        {w}
-                      </small>
-                    ))}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
         </>
       )}
+      {/* A row each, under the line at the card's full width (audit of 18 October, finding 20; 14 November 2026). */}
+      {rows.length > 0 && (
+        <ul className="offers crew-rows" aria-label={`Crew on ${call.needed} × ${call.role}`}>
+          {rows.map(({ o, said }) => (
+            <CrewRow key={o.id} o={o} said={said} call={call} open={open} hold={hold} late={late} inJob={inJob} run={run} onShare={onShare} onTell={onTell} />
+          ))}
+        </ul>
+      )}
+      {!open && more > 0 && (
+        <button type="button" className="link more-crew" aria-expanded={false} onClick={() => setOpen(true)}>
+          Show {more} more
+        </button>
+      )}
+      {/* Lines that need acting on stay out at rest (audit finding 16): anyone short of a certificate it needs, and anyone running late (ADR 0028). */}
+      {certificateWarnings(call, today).map((w) => (
+        <p key={w} className="warn-line">
+          {w}
+        </p>
+      ))}
+      {phase && offPhase.length > 0 && <p className="warn-line">{offPhaseLine(offPhase, phase, today)}</p>}
+      {inNoPhase.length > 0 && <p className="warn-line">{noPhaseLine(inNoPhase, job?.phases ?? [], today)}</p>}
+      {/* A row's press refused is said here, open or not. */}
+      <Refusal error={error} />
+
 
       {live && !filled && mayOffer && (
         <Fold label="Offer…" className="offer" opened={offerOpened}>
@@ -390,7 +422,6 @@ export function CallCard({
               }
             />
           )}
-          <Refusal error={error} />
           {!mayOffer ? null : cancelling ? (
             <Confirm
               question={`Cancel the call for ${call.needed} × ${call.role} on ${call.project}? ${callEndingWords(reach, call)}`}

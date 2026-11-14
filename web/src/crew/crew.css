@@ -31,14 +31,38 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .job { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .crew .job:first-of-type { border-top: 0; padding-top: 0; }
 .crew .job.is-pending { opacity: .8; }
-.crew .offers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
-.crew .offers li { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2); flex-wrap: wrap; padding: var(--ds-space-1) 0; }
-/* Wrapped under a long name, or with Ring and WhatsApp beside the pill, the row's presses stay at the right edge, where every other row has them. */
-.crew .offers li > .actions { margin-left: auto; justify-content: flex-end; }
+/* The people on a call, a row each in a rough table (14 November 2026): face, name, answer, and what can be done about them at
+   the right, the answers lined up down the card on a computer. Anything under a row (a question, running late, how they were
+   reached) runs under the name across the rest of the row. */
+.crew .crew-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; column-gap: var(--ds-space-3); }
+.crew .crew-rows > li { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; row-gap: var(--ds-space-1); padding: var(--ds-space-1) 0; border-top: 1px solid var(--line); }
+.crew .crew-rows > li:first-child { border-top: 0; }
+.crew .crew-rows > li > * { grid-column: 2 / -1; }
+.crew .crew-rows > li > .avatar { grid-column: 1; --pic: 28px; }
+.crew .crew-rows > li > .who { grid-column: 2; min-width: 0; overflow-wrap: anywhere; }
+.crew .crew-rows > li > .pill { grid-column: 3; justify-self: start; }
+.crew .crew-rows > li > .actions { grid-column: 4; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--ds-space-1) var(--ds-space-2); }
+.crew .crew-rows > li > .actions:empty { display: none; }
+/* Confirm and Release on a yes sit among the row's other presses rather than as a box of their own. */
+.crew .crew-rows > li > .actions > .answer { display: contents; }
+.crew .crew-rows > li > .actions .hint { margin: 0; font-size: var(--text-hint); }
+/* Ring, WhatsApp and a rate's Withdraw drawn as the row's other presses are, so the presses down the card read as one set. */
+.crew .crew-rows > li > .actions :is(a.link, button.link) { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--ds-space-3); border: 1px solid var(--field-line); border-radius: var(--radius-control); background: var(--panel); color: var(--ink); text-decoration: none; }
+.crew .crew-rows > li > .late-line { margin: 0; }
+/* On a phone there's no room for four columns: the answer sits beside the name, and the presses on a line under them at the right. */
+@media (max-width: 639px) {
+  .crew .crew-rows { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .crew .crew-rows > li > .avatar { grid-row: 1; }
+  .crew .crew-rows > li > .who { grid-row: 1; }
+  .crew .crew-rows > li > .pill { grid-row: 1; justify-self: end; }
+  .crew .crew-rows > li > .actions { grid-column: 1 / -1; }
+}
 .crew .offers small, .crew .who small { color: var(--muted); }
 .crew .offers small.bad { color: var(--bad); }
-.crew .offers .on-cal { flex-basis: 100%; margin-top: calc(-1 * var(--ds-space-1)); font-size: var(--text-hint); }
-.crew .offers .warn-line { flex-basis: 100%; font-size: var(--text-hint); background: var(--warn-soft); color: var(--warn); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); }
+.crew .offers .on-cal { font-size: var(--text-hint); }
+.crew .offers .warn-line { font-size: var(--text-hint); background: var(--warn-soft); color: var(--warn); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); }
+/* "Show 17 more" under the rows, which opens the call to list everyone. */
+.crew .call > button.more-crew { justify-self: start; }
 .crew .offer-form { display: grid; grid-template-columns: 1fr; gap: var(--ds-space-2); }
 /* Picked, not yet offered: what hasn't happened and the one filled button that does it, under the people it names and above
    the search, whose list stays open for the next pick. */
@@ -160,7 +184,7 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .timesheet-screen .ts-changes { margin: var(--ds-space-1) 0 0; padding-left: 1.2em; }
 .timesheet-screen .ts-total { margin: 0; font-weight: 700; }
 
-/* A crew call at rest is one line (audit finding 16): a button with the role that opens the rest of the call under it, on the right its state as a pill, who's on it under them, and "Offer…" on the right under that while there are places to fill. On the Crew tab the calls are grouped by job and then by days. */
+/* A crew call at rest is one line (audit finding 16): a button with the role that opens the rest of the call under it, on the right its state as a pill, a row for each person on it under them, and "Offer…" at the left under that while there are places to fill. On the Crew tab the calls are grouped by job and then by days. */
 .crew .call-group { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .crew .call-groups { display: grid; gap: var(--ds-space-3); }
 .crew .filled-calls .call-groups { gap: 0; }
@@ -176,14 +200,8 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .call > * { grid-column: 1 / -1; }
 .crew .call > .call-line { grid-column: 1; grid-row: 1; }
 .crew .call > .pill { grid-column: 2; grid-row: 1; justify-self: end; margin-top: var(--ds-space-2); }
-/* Who's on it under the line, across the whole card, so a long list isn't a column of one word a line beside a wide pill (audit of 18 October, finding 20). */
-.crew .call > .who-line { grid-row: 2; margin: calc(-1 * var(--ds-space-1)) 0 var(--ds-space-1); font-size: var(--text-small); line-height: 1.5; }
-.crew .call > .who-line .avatars { margin-right: var(--ds-space-2); }
-.crew .call > .who-line .avatar { --pic: 26px; }
-/* "and 17 more" sits in the sentence, its tap area grown to 44px tall without moving the line. */
-.crew .call > .who-line button.link { position: relative; min-height: 0; padding: 0; font: inherit; }
-.crew .call > .who-line button.link::after { content: ''; position: absolute; inset: -12px -4px; }
-.crew .call > button.offer { grid-column: 2; justify-self: end; }
+/* Offer… at the left, under the people, where the eye starts (14 November 2026); the row presses keep the right. */
+.crew .call > button.offer { grid-column: 1 / -1; justify-self: start; }
 .crew .call-line { display: grid; gap: var(--ds-space-half); justify-items: start; width: 100%; min-height: 44px; padding: var(--ds-space-2) 0; border: 0; border-radius: 0; background: none; color: inherit; text-align: left; font: inherit; }
 .crew .call .facts-line { margin: 0; color: var(--muted); font-size: var(--text-small); }
 /* Said once over a call's offers when nothing is sent to anyone (ADR 0149): how things stand, so it's quiet. */
@@ -203,8 +221,6 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .reminders .reminder.soon p { color: var(--warn); }
 .crew .reminders .reminder.ran-out p { color: var(--bad); }
 .crew .late-row > div:first-child { flex: 1 1 14em; }
-/* The office noting it for someone who rang: a link under the line at rest, opening the same choices as the link page as chips. */
-.crew .call > button.late-open { justify-self: start; }
 .plan .timeline .blk small.late, .plan .timeline .item small.late { color: var(--warn); font-weight: 700; }
 .sheet-screen .sheet-call li .late-line { flex-basis: 100%; }
 @media (max-width: 480px) {

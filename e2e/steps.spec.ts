@@ -183,7 +183,7 @@ test("Next books a job's crew one press at a time, its count moving on, then lan
   // Aoife's yes is confirmed in the press, and the page lands on her call with the focus on its line.
   await next.getByRole('button', { name: `Confirm Aoife's yes · 2 to book` }).click()
   await expect(call.getByRole('button', { name: /^2 × Rigger/ })).toBeFocused()
-  await expect(call.locator('.who-line')).toContainText(aoife)
+  await expect(call.locator('.offers li', { hasText: aoife })).toContainText('Booked')
   // Then the place nobody's been offered: its Offer open, the cursor in it.
   await next.getByRole('button', { name: 'Offer Rigger · 1 to offer' }).click()
   await expect(call.getByRole('combobox', { name: 'Offer to' })).toBeFocused()

@@ -57,7 +57,9 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   await call.getByRole('button', { name: /^Offer to / }).click()
   await expect(call.getByRole('alert')).toHaveText("Laoise Keane has no IPAF, which this call needs. Update their card if that's changed.")
   // Nothing was sent: the call still lists only Pádraig and Róisín, and nothing waits to sync.
-  await expect(call.locator('.who-line')).toContainText('Pádraig Kenny (booked), Róisín Farrell (offered)')
+  await expect(call.locator('.offers li')).toHaveCount(2)
+  await expect(call.locator('.offers li', { hasText: 'Pádraig Kenny' })).toContainText('Booked')
+  await expect(call.locator('.offers li', { hasText: 'Róisín Farrell' })).toContainText('Offered')
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
   // Someone whose certificates aren't known can be offered it, with a warning first; Laoise taken off the ones to offer it to.
@@ -126,18 +128,18 @@ test('a running late sent from the link shows on the Crew tab at once, and on it
   await expect(row).toContainText('Liffey Brands Shoot · Crew chief · today, call 07:30')
   await expect(badge).toHaveText(String(before + 1))
   const shoot = office.locator('.call-group', { hasText: 'Liffey Brands Shoot' })
-  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('Aoife: about 15 minutes late, “Parking”')
+  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('About 15 minutes late, “Parking”')
 
   await row.getByRole('button', { name: 'Noted: Aoife Brennan is running late' }).click()
   await expect(row).toHaveCount(0)
   await expect(badge).toHaveText(String(before))
   // Noted, it stays on the call's line until the day is over.
-  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('Aoife: about 15 minutes late, “Parking”')
+  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('About 15 minutes late, “Parking”')
 
   // "I'm here now" from the link: the line says so.
   await phone.getByRole('button', { name: "I'm here now" }).click()
   await expect(phone.getByRole('status')).toHaveText("Thanks. The office can see you're there.")
-  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('Aoife: there now')
+  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('There now')
 })
 
 test('the office notes a running late from the call line for someone who rang, and the contact sees it on their sheet', async ({ browser, request }) => {
@@ -169,7 +171,7 @@ test('the office notes a running late from the call line for someone who rang, a
   await form.getByLabel('Note, if you like').fill('Rang: stuck behind a tractor')
   await form.getByRole('button', { name: 'Note Dara as late' }).click()
   await expect(form.locator('.added')).toHaveText('Noted: Dara, about 30 minutes late, “Rang: stuck behind a tractor”.')
-  await expect(call.locator('.late-line')).toHaveText('Dara: about 30 minutes late, “Rang: stuck behind a tractor”')
+  await expect(call.locator('.offers li', { hasText: 'Dara Quinn' }).locator('.late-line')).toHaveText('About 30 minutes late, “Rang: stuck behind a tractor”')
   const answers = office.locator('section').filter({ has: office.getByRole('heading', { name: /^Answers to check/ }) })
   await expect(answers.locator('.late-row', { hasText: 'Dara Quinn' })).toContainText('Liffey Brands Shoot · Sound No.1 · today, call 08:00')
   await expect(badge).toHaveText(String(before + 1))
@@ -186,7 +188,7 @@ test('the office notes a running late from the call line for someone who rang, a
   // He turns up: the office marks him there, and the line and the sheet say so.
   // Its name starts with the words on it, so someone using voice control can say what they see.
   await form.getByRole('button', { name: 'Mark as there: Dara Quinn', exact: true }).click()
-  await expect(call.locator('.late-line')).toHaveText('Dara: there now')
+  await expect(call.locator('.offers li', { hasText: 'Dara Quinn' }).locator('.late-line')).toHaveText('There now')
   await expect(badge).toHaveText(String(before))
   await expect(office.getByRole('status')).toHaveText('Up to date')
   await phone.reload()

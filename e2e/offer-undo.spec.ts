@@ -45,7 +45,7 @@ test('Undo takes back offers just made, with nothing sent to anyone', async ({ b
   await pickRecord(form, 'Offer to', people.colm)
   await form.getByRole('button', { name: 'Offer to 2 people' }).click()
   const call = page.getByRole('article', { name: '1 × Rigger' })
-  await expect(call).toContainText(`${people.colm} (offered), ${people.fergal} (offered)`)
+  for (const name of [people.colm, people.fergal]) await expect(call.locator('.offers li', { hasText: name })).toContainText('Offered')
   // The panel says what the press did, and that it can be taken back for half a minute, the seconds counting down.
   const sent = page.getByRole('region', { name: 'Offered to 2 people: what was sent' })
   await expect(sent.locator('.offer-wait p')).toHaveText(/^They can be undone for (30|2\d) seconds\.$/)
@@ -55,7 +55,7 @@ test('Undo takes back offers just made, with nothing sent to anyone', async ({ b
   const undone = page.getByRole('region', { name: 'Undone' })
   await expect(undone).toContainText(`${people.fergal} and ${people.colm} weren't offered it after all: the app sent them nothing, and it's off their pages.`)
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  await expect(call).not.toContainText('(offered)')
+  await expect(call.locator('.offers li')).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Offer Rigger · 1 to offer' })).toBeVisible()
   await undone.getByRole('button', { name: 'Done' }).click()
   await expect(undone).toHaveCount(0)
@@ -83,5 +83,5 @@ test('Undo goes once the wait is over, and the focus with it stays on the panel'
   await expect(sent.locator('.offer-wait')).toHaveCount(0)
   await expect(sent).toBeFocused()
   // The offer stands: withdrawing it is the way now.
-  await expect(page.getByRole('article', { name: '1 × Rigger' })).toContainText(`${people.fergal} (offered)`)
+  await expect(page.getByRole('article', { name: '1 × Rigger' }).locator('.offers li', { hasText: people.fergal })).toContainText('Offered')
 })

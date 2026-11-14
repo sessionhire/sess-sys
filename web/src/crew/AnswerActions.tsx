@@ -15,7 +15,7 @@ import {
   type OfferView,
   type Person,
 } from '@sh/shared'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Confirm } from '../act.tsx'
 import { client } from '../sync.ts'
 import { promptFor, tellTo, type Share } from './Messages.tsx'
@@ -30,13 +30,12 @@ export const standsAt = (cents: number | null | undefined, hidden?: boolean) => 
  * A press that closes someone's ask, or that Google emails about, says so first; Say no keeps the offer at the rate
  * offered, and Withdraw is its own choice (audit question 6).
  */
-export function AnswerActions({
-  o,
-  call,
-  run,
-  onDone,
-  onPress,
-}: {
+export function AnswerActions(props: AnswerProps) {
+  const { buttons, question } = useAnswerActions(props)
+  return question ?? buttons
+}
+
+interface AnswerProps {
   o: OfferView
   call: CallView
   run: (fn: () => Promise<unknown>) => Promise<boolean>
@@ -44,11 +43,17 @@ export function AnswerActions({
   onDone: (share: Share | undefined) => void
   /** Just before the press goes, so a list can keep its place. */
   onPress?: () => void
-}) {
+}
+
+/**
+ * The same presses split in two, for a call's row of a person (14 November 2026): the buttons sit at the row's right with
+ * its other presses, and a question they ask goes under the row at its full width, in place of the buttons while it's asked.
+ */
+export function useAnswerActions({ o, call, run, onDone, onPress }: AnswerProps): { buttons: ReactNode; question: ReactNode } {
   const reach = useReach()
   const holdTheDay = useHoldTheDay()
   const [asking, setAsking] = useState<'confirm' | 'release' | 'refuse' | 'withdraw'>()
-  if (o.status !== 'accepted' && o.status !== 'countered') return null
+  if (o.status !== 'accepted' && o.status !== 'countered') return { buttons: null, question: null }
   const who = o.person?.name ?? 'them'
   const first = o.person ? firstName(o.person) : 'them'
   const asked = o.status === 'accepted' ? (o.asked ?? []) : []
@@ -102,35 +107,41 @@ export function AnswerActions({
         waiting.map((c) => closes(c, false))
       ),
     ].filter(Boolean)
-    return (
-      <Confirm
-        className="answer"
-        question={`${o.status === 'countered' ? `Agree ${euro(o.counterRateCents)} a day for ${who}` : `Confirm ${who}`}? ${parts.join(' ')}`}
-        yes={o.status === 'countered' ? `Agree ${euro(o.counterRateCents)}` : asked.length ? `Confirm ${daysLabel(o.days)}` : noRate ? `Confirm with no rate` : `Confirm ${first}`}
-        loss
-        no="Not yet"
-        onYes={confirm}
-        onNo={() => setAsking(undefined)}
-      />
-    )
+    return {
+      buttons: null,
+      question: (
+        <Confirm
+          className="answer"
+          question={`${o.status === 'countered' ? `Agree ${euro(o.counterRateCents)} a day for ${who}` : `Confirm ${who}`}? ${parts.join(' ')}`}
+          yes={o.status === 'countered' ? `Agree ${euro(o.counterRateCents)}` : asked.length ? `Confirm ${daysLabel(o.days)}` : noRate ? `Confirm with no rate` : `Confirm ${first}`}
+          loss
+          no="Not yet"
+          onYes={confirm}
+          onNo={() => setAsking(undefined)}
+        />
+      ),
+    }
   }
   if (asking === 'release' || asking === 'withdraw')
-    return (
-      <Confirm
-        className="answer"
-        question={
-          // The email Google sends is named, or that nothing is sent (finding 5).
-          asking === 'release'
-            ? `Release ${who} from ${call.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so', o.person, whatsapp)}`
-            : `Withdraw the offer to ${who}? ${endingWords(reach, o.id, "it's withdrawn", o.person, whatsapp)}`
-        }
-        yes={asking === 'release' ? `Release ${first}` : 'Withdraw the offer'}
-        loss
-        no={asking === 'release' ? 'Keep them' : 'Keep it open'}
-        onYes={release}
-        onNo={() => setAsking(undefined)}
-      />
-    )
+    return {
+      buttons: null,
+      question: (
+        <Confirm
+          className="answer"
+          question={
+            // The email Google sends is named, or that nothing is sent (finding 5).
+            asking === 'release'
+              ? `Release ${who} from ${call.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so', o.person, whatsapp)}`
+              : `Withdraw the offer to ${who}? ${endingWords(reach, o.id, "it's withdrawn", o.person, whatsapp)}`
+          }
+          yes={asking === 'release' ? `Release ${first}` : 'Withdraw the offer'}
+          loss
+          no={asking === 'release' ? 'Keep them' : 'Keep it open'}
+          onYes={release}
+          onNo={() => setAsking(undefined)}
+        />
+      ),
+    }
   if (asking === 'refuse') {
     const rate = o.rateHidden ? 'the rate they asked for' : `${euro(o.counterRateCents)} a day`
     const stands = standsAt(o.dayRateCents ?? call.dayRateCents, o.rateHidden || call.rateHidden)
@@ -139,49 +150,58 @@ export function AnswerActions({
     const after = full
       ? `The call has filled meanwhile, so the offer closes. ${endingWords(reach, o.id, "it's filled", o.person, whatsapp)}`
       : `The offer stands at ${stands}, for ${first} to take or turn down. ${invited ? 'Their link and their calendar invite say so, with no email.' : 'Their link says so.'}${reach.messages || invited ? '' : ' Nothing is sent to them.'}`
-    return (
-      <Confirm
-        className="answer"
-        question={`Say no to ${rate} for ${who}? ${after}`}
-        yes="Say no to the rate"
-        loss={full}
-        no="Not yet"
-        onYes={refuse}
-        onNo={() => setAsking(undefined)}
-      />
-    )
+    return {
+      buttons: null,
+      question: (
+        <Confirm
+          className="answer"
+          question={`Say no to ${rate} for ${who}? ${after}`}
+          yes="Say no to the rate"
+          loss={full}
+          no="Not yet"
+          onYes={refuse}
+          onNo={() => setAsking(undefined)}
+        />
+      ),
+    }
   }
   // A yes with days not answered, or one that fills the call over a rate still asked for, is asked about first. Offers still
   // waiting that close as it fills are the end every full call has: named in the question when there is one, and said after.
   const pressConfirm = () => (asked.length || closing.length || noRate ? setAsking('confirm') : confirm())
   if (o.status === 'accepted')
-    return (
+    return {
+      question: null,
+      buttons: (
+        <div className="actions answer">
+          {/* Plain, as a row's own action is, beside its other answer (UX sweep, 6 November 2026, move 1). */}
+          <button type="button" onClick={pressConfirm}>
+            {asked.length ? `Confirm ${daysLabel(o.days)}` : 'Confirm'}
+          </button>
+          <button type="button" onClick={() => setAsking('release')}>
+            Release
+          </button>
+        </div>
+      ),
+    }
+  return {
+    question: null,
+    buttons: (
       <div className="actions answer">
-        {/* Plain, as a row's own action is, beside its other answer (UX sweep, 6 November 2026, move 1). */}
-        <button type="button" onClick={pressConfirm}>
-          {asked.length ? `Confirm ${daysLabel(o.days)}` : 'Confirm'}
+        {o.rateHidden ? (
+          // Agreeing a rate is for someone who sees it (ADR 0046): said here, with Say no and Withdraw still to hand.
+          <p className="hint">The office agrees rates: your role doesn't see them.</p>
+        ) : (
+          <button type="button" onClick={pressConfirm}>
+            Agree {euro(o.counterRateCents)}
+          </button>
+        )}
+        <button type="button" onClick={() => setAsking('refuse')}>
+          Say no
         </button>
-        <button type="button" onClick={() => setAsking('release')}>
-          Release
+        <button type="button" className="link" onClick={() => setAsking('withdraw')}>
+          Withdraw
         </button>
       </div>
-    )
-  return (
-    <div className="actions answer">
-      {o.rateHidden ? (
-        // Agreeing a rate is for someone who sees it (ADR 0046): said here, with Say no and Withdraw still to hand.
-        <p className="hint">The office agrees rates: your role doesn't see them.</p>
-      ) : (
-        <button type="button" onClick={pressConfirm}>
-          Agree {euro(o.counterRateCents)}
-        </button>
-      )}
-      <button type="button" onClick={() => setAsking('refuse')}>
-        Say no
-      </button>
-      <button type="button" className="link" onClick={() => setAsking('withdraw')}>
-        Withdraw
-      </button>
-    </div>
-  )
+    ),
+  }
 }

@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.201.3',
+    date: '2026-11-14',
+    title: 'Crew on a role a line each',
+    what: "On a job's Crew tab, each role lists its people one to a line, like a table: their initials, their name, where they stand (Offered, To confirm, Booked) and, at the right of their own line, what you can do about them, such as Confirm, Running late…, Release or Withdraw. Offer… now sits on the left, under the people.",
+    prs: [396],
+  },
+  {
     version: '1.201.2',
     date: '2026-11-14',
     title: 'How many boxes can be cleared',
