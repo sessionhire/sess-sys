@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.201.4',
+    version: '1.202.1',
     date: '2026-11-14',
     title: "A quote line's changes aren't lost as it saves",
     what: "Changing a line on a draft quote just as the quote saved, or just as someone else's change to it came in, could put the line back as it was a moment before: a discount or how it's charged (Weekly, 3 Day Week) would quietly go back. What you change now stays, and someone else's change still comes in beside it.",
     prs: [397],
+  },
+  {
+    version: '1.202.0',
+    date: '2026-11-14',
+    title: 'Dry hire delivered or collected, a delivery line by the km, and stock held once a quote is sent',
+    what: "A dry hire now asks how it gets there: Delivery or Collection. Its days are From and To for a delivery, or Collection and Return for a collection, each with a time if you want one, and the printed quote says them that way. A delivery asks for the address, finds it on the map, and puts a Delivery line on the quote by itself: the km from the warehouse at the price a km you set in Admin › Company › Dry hire delivery. Show or dry hire is now asked on New quote straight away rather than under More about the enquiry. Once a quote is sent its kit is held, as a confirmed job's is, so another quote for the same days sees it gone; a draft's kit is still only pencilled in. And a line given free now reads No charge on the quote rather than Included.",
+    prs: [392],
+    adrs: [183],
   },
   {
     version: '1.201.3',

@@ -566,6 +566,12 @@ accept at launch. The one decision that changes the model is section 1
    (collection and return times, a deposit, ID)?
 6. **The logo:** use the one uploaded for labels on the quote too?
 
+**Answered by Colly, 14 November 2026** ([ADR 0183](adr/0183-the-quote-questions-answered.md), 1.202.0): 1, "No
+Charge"; 2, hold the stock once the quote is sent; 3, grouped by department (as built); 4, yes, by default (as built);
+5, a dry hire is delivered or collected, with From and To (or Collection and Return) and their times, and a delivery's
+address puts a Delivery line on the quote at a price a km set in Admin; 6, the same logo as the labels, in full colour
+(as built).
+
 ## What held up
 
 - **Speed.** Starting a quote 113 ms (73 ms offline); about 70 ms a kit

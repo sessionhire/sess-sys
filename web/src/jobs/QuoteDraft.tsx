@@ -1,4 +1,5 @@
 import {
+  NO_CHARGE,
   changesFromJob,
   reducedCharge,
   dayLabel,
@@ -36,6 +37,7 @@ import {
   validUntil,
   packageIncludes,
   extrasFor,
+  deliveryFor,
   travelSettingsOf,
   kindOf,
   type Pin,
@@ -77,7 +79,7 @@ import { setDraftSend, takeAskToSend } from './quoteSend.ts'
 import { serverUrl } from '../server.ts'
 import { useQuotesByEmailKnown } from '../MailboxCard.tsx'
 import { PackageEditor, type PackageStart } from './Packages.tsx'
-import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
+import { AddCrew, AddPackage, AddTransport, DELIVERY_ROW, DeliveryRow, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
 
 /**
  * A quote while it's a draft (ADR 0042, redrawn in ADR 0100): the lines as
@@ -350,7 +352,16 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     ids: Object.fromEntries(q.lines.filter((l) => l.extra).map((l) => [l.extra!, l.id])),
     newId: useStableIds(),
   })
-  const all = [...good, ...extras.lines]
+  // A dry hire's delivery (ADR 0183): a line priced by the km from the warehouse to the delivery address.
+  const delivery = deliveryFor({
+    job,
+    warehouse: view.trackers.settings.home,
+    centsPerKm: m.quoting.deliveryCentsPerKm,
+    id: q.lines.find((l) => l.extra === 'delivery')?.id,
+    newId: useStableIds(),
+  })
+  const worked = [...extras.lines, ...(delivery.line ? [delivery.line] : [])]
+  const all = [...good, ...worked]
   const totals = quoteTotals({ lines: all, discountPct: pctOk ? pct : 0, agreedCents })
   const valid = num(validFor)
   const validOk = Number.isInteger(valid) && valid >= 1 && valid <= 365
@@ -387,7 +398,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const was = q.lines.find((l) => !l.extra && l.id === lines[i]!.id)
     return was ? [was] : []
   })
-  const stored = [...sendable, ...extras.lines]
+  const stored = [...sendable, ...worked]
   // Stored: what can save is what the draft holds. Saved: and nothing is held back.
   const storedSame =
     stored.length === q.lines.length &&
@@ -428,12 +439,12 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const rack = built.length ? `a rack with ${plural(built.reduce((n, s) => n + s.qty, 0), 'thing')} in it` : ''
     const cents = m.productPrice(modelId)
     const rate = m.productRate(modelId)
-    const price = cents === undefined ? 'No price yet' : cents === 0 ? 'Included at no charge' : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
+    const price = cents === undefined ? 'No price yet' : cents === 0 ? NO_CHARGE : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
     const free = kitFree(job, modelId, wantedNow.get(modelId) ?? 0, today, kitInputs)
     const freeWords = free === undefined ? '' : free === 0 ? (wantedNow.get(modelId) ? 'no more free' : 'none free') : wantedNow.get(modelId) ? `${free} more free` : `${free} free`
-    // Other quotes for the same days (ADR 0126): said beside what's free, since pencilled kit isn't taken until confirmed.
+    // Other quotes for the same days (ADR 0126): said beside what's free, since pencilled kit isn't taken until its quote is sent (ADR 0183).
     const pencilled = free === undefined ? 0 : kitPencilled(job, modelId, today, kitInputs)
-    return [rack, price, freeWords, pencilled ? `${pencilled} pencilled for other quotes` : ''].filter(Boolean).join(' · ')
+    return [rack, price, freeWords, pencilled ? `${pencilled} pencilled on other drafts` : ''].filter(Boolean).join(' · ')
   }
   const shortLines = good.filter((l) => linesShort(l, checks, m.package(l.packageId ?? '')?.items).length > 0)
   // What it makes (ADR 0089), for the office and directors, who see quotes at all.
@@ -451,6 +462,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     beforeItGoes.push({ key: 'short', words: `${plural(shortLines.length, 'line')} short of kit on the job's days`, look: () => openLine(shortLines[0]!.id) })
   if (extras.travel.km === null && good.some((l) => l.kind === 'crew'))
     beforeItGoes.push({ key: 'travel', words: "No travel for the crew: the venue isn't on the map, so the distance isn't known", look: () => openLine(TRAVEL_ROW) })
+  if (delivery.shown && !delivery.line) beforeItGoes.push({ key: 'delivery', words: `No delivery line: ${delivery.none!.replace(/:.*$/, '')}`, look: () => openLine(DELIVERY_ROW) })
   if (job.span && job.span.start < today) beforeItGoes.push({ key: 'past', words: `The job's first day, ${dayLabel(job.span.start)}, has passed` })
   // What each line was last charged in Current RMS (ADR 0092), by the names it goes by there.
   const namesOf = (l: LineDraft) => rmsNames(l, (id) => view.warehouse.models.find((x) => x.id === id))
@@ -1015,6 +1027,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
             setOpen={openLine}
           />
         )}
+
+        {delivery.shown && <DeliveryRow delivery={delivery} job={job} open={open} setOpen={openLine} />}
 
         <div className="quote-add" role="group" aria-label="Add to the quote">
           {adding === 'kit' ? (

@@ -1,4 +1,4 @@
-import { lineCents, money, type JobChanges, type LineExtra, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS } from '@sh/shared'
+import { lineCents, money, type JobChanges, type LineExtra, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS, type Delivery, type JobView } from '@sh/shared'
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
 import { Icon } from '../Icon.tsx'
@@ -18,6 +18,49 @@ const daysSince = (from: string, today: string) => Math.round((Date.parse(`${tod
 export const TRAVEL_ROW = 'extra:travel'
 export const SUBSISTENCE_ROW = 'extra:subsistence'
 export const ACCOMMODATION_ROW = 'extra:accommodation'
+export const DELIVERY_ROW = 'extra:delivery'
+
+/**
+ * A dry hire's delivery (ADR 0183), worked out by the quote as travel is: the km from the warehouse to the delivery
+ * address at Admin's price a km, or why there's no line yet. Opening it says where it goes and how it was measured; the
+ * address itself is the job's, changed under Change details.
+ */
+export function DeliveryRow({ delivery, job, open, setOpen }: { delivery: Delivery; job: Pick<JobView, 'id' | 'hire'>; open: string | undefined; setOpen: (id: string | undefined) => void }) {
+  const d = delivery.line
+  const shown = open === DELIVERY_ROW
+  const where = job.hire?.address?.trim()
+  return (
+    <section className="quote-group quote-extras" role="group" aria-label="Delivery">
+      <div className="group-head">
+        <h3 className="group">Delivery</h3>
+      </div>
+      <div className={`quote-line-row extra${shown ? ' open' : ''}`}>
+        <button type="button" className="quote-line-shut" aria-expanded={shown} aria-label={`${d ? d.what : 'No delivery'}: where it goes`} onClick={() => setOpen(shown ? undefined : DELIVERY_ROW)}>
+          <span className="what">{d ? d.what : 'No delivery'}</span>
+          <span className="how">{d ? `${d.qty} km × ${money(d.unitCents)} a km` : (delivery.none?.replace(/: .*$/, '.') ?? '')}</span>
+          <span className="amount">{d ? money(lineCents(d)) : '–'}</span>
+          <Icon name="edit" className="opener" />
+        </button>
+        {shown && (
+          <div className="quote-line extra-open">
+            {where && <p className="lines">Delivered to {where}</p>}
+            <p className="hint">
+              {delivery.km !== null
+                ? `About ${delivery.km} km by road from ${delivery.fromWarehouse ? 'the warehouse' : 'Dublin city centre, until the warehouse is on the map in Admin › Company'}, as the vans' drives are measured.`
+                : ''}{' '}
+              <a href={`#jobs/${encodeURIComponent(job.id)}`}>Change the delivery address under Change details</a>.
+            </p>
+          </div>
+        )}
+      </div>
+      {delivery.none?.includes('Admin ›') && (
+        <p className="hint">
+          <AdminWords>{`Set the price a km in ${delivery.none.slice(delivery.none.indexOf('Admin ›'))}`}</AdminWords>
+        </p>
+      )}
+    </section>
+  )
+}
 
 /**
  * The crew's travel and subsistence (ADR 0086), worked out by the quote, as two rows like any line: the line each comes
