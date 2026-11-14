@@ -28,11 +28,18 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.201.2',
+    version: '1.201.3',
     date: '2026-11-14',
     title: 'Crew on a role a line each',
     what: "On a job's Crew tab, each role lists its people one to a line, like a table: their initials, their name, where they stand (Offered, To confirm, Booked) and, at the right of their own line, what you can do about them, such as Confirm, Running late…, Release or Withdraw. Offer… now sits on the left, under the people.",
     prs: [396],
+  },
+  {
+    version: '1.201.2',
+    date: '2026-11-14',
+    title: 'How many boxes can be cleared',
+    what: "The How many box when adding a role or changing a call on a job's Crew tab can be emptied again: before, the 1 or 0 in it wouldn't go, so typing 2 gave 02. The same is fixed for How many days on a day in lieu and the How many on Claude's suggested quote lines. A box left empty or with something that isn't a whole number says so when you press the button.",
+    prs: [393],
   },
   {
     version: '1.201.1',

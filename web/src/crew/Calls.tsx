@@ -55,7 +55,7 @@ import {
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Confirm, reasonOf, Refusal, useAct } from '../act.tsx'
 import { forgetPicksWaiting, offerFormId, picksWaiting, setOfferPicks } from './offerPicks.ts'
-import { refuseField, settleRefusals } from '../required.ts'
+import { refuseField, settleRefusals, wholeIn } from '../required.ts'
 import { Fold } from '../Fold.tsx'
 import { landOnCall } from './landOnCall.ts'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
@@ -522,7 +522,8 @@ function EditCall({
     start: call.start,
     end: call.end,
     callTime: call.callTime ?? '',
-    needed: call.needed,
+    // Kept as typed, so the box can be cleared to type another number (Colly, 14 November 2026).
+    needed: String(call.needed),
     rate: call.dayRateCents === null ? '' : euroText(call.dayRateCents),
     details: call.details,
     replyBy: call.replyBy ?? '',
@@ -530,7 +531,7 @@ function EditCall({
   // What the call needs (ADR 0028): kept apart, as it's ticks rather than text.
   const [needs, setNeeds] = useState(needsOf(call))
   const { run, error, refuse } = useAct()
-  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: k === 'needed' ? Number(e.target.value) : e.target.value })
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   const booked = Math.max(0, ...call.days.map((d) => call.heldByDay[d] ?? 0))
   const agreed = call.offers.filter((o) => o.status === 'accepted' || o.status === 'countered' || o.status === 'confirmed').length
   const rate = parseEuro(f.rate)
@@ -544,6 +545,8 @@ function EditCall({
     // Each said on its field, never a press that does nothing (spaces alone get past the browser's own check).
     if (!tied && !f.project.trim()) return void refuseField(form, '[name="project"]', 'Fill in the project first.')
     if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
+    const needed = wholeIn(f.needed, 1, 100)
+    if (needed === undefined) return void refuseField(form, '[name="needed"]', 'How many is a whole number from 1 to 100.')
     if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
     const changes: CommandInput<'call.update'> = { id: call.id }
     if (f.role.trim() !== call.role) changes.role = f.role.trim()
@@ -556,7 +559,7 @@ function EditCall({
     // Dates moved earlier can leave the reply-by day after the job; it's here to fix, as when a call is made (audit finding 21).
     if (f.replyBy && f.replyBy > end) return void refuseField(form, '[name="replyBy"]', `${REPLY_BY_AFTER} Make it ${dayLabel(end)} or before, or clear it.`)
     if ((f.callTime || null) !== call.callTime) changes.callTime = f.callTime || null
-    if (Math.max(1, f.needed) !== call.needed) changes.needed = Math.max(1, f.needed)
+    if (needed !== call.needed) changes.needed = needed
     if (rateChanged && seesRates) changes.dayRateCents = rate.cents
     if (department !== departmentOf(call)) changes.department = department
     if (f.details.trim() !== call.details) changes.details = f.details.trim()
@@ -592,7 +595,7 @@ function EditCall({
       )}
       <RoleField value={f.role} onChange={(role) => setF((now) => ({ ...now, role }))} />
       <label>
-        How many <input type="number" min={Math.max(1, booked)} value={f.needed} onChange={set('needed')} />
+        How many <input name="needed" type="number" inputMode="numeric" min={Math.max(1, booked)} value={f.needed} onChange={set('needed')} />
       </label>
       <div className="pair">
         <label>
@@ -663,7 +666,7 @@ function EditCall({
           a rate or been confirmed keep what was agreed.
         </p>
       )}
-      {f.needed > call.needed && call.openDays.length === 0 && (
+      {Number(f.needed) > call.needed && call.openDays.length === 0 && (
         <p className="hint wide">The call is filled: needing more opens it again. Anyone told it had filled gets a new offer, not the old one back.</p>
       )}
       <Refusal error={error} className="wide" />
