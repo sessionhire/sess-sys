@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-14',
     title: 'Sole trader or company',
     what: "A freelancer's details now ask whether they work for us as a sole trader or a company. A sole trader is asked whether they're VAT registered, with their VAT number if they are; a company is asked its name, CRO number and VAT number. It's optional, so nobody already on the list is held up, and their page says it in a line, such as Sole trader, VAT-registered. Like their rate, it's seen only by the office, directors and the person themself (and heads, where they're shown rates).",
-    prs: [0],
+    prs: [395],
     adrs: [184],
   },
   {
