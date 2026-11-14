@@ -24,11 +24,8 @@ test('photos go on a job several at a time, open whole, show under Jobs › Phot
   const card = page.getByRole('region', { name: 'Photos', exact: true })
   await expect(card.getByRole('heading', { name: 'Photos' })).toBeVisible()
 
-  await card.getByRole('button', { name: 'Tags and a caption for them' }).click()
-  await card.getByRole('group', { name: 'Tags for the photos you add' }).getByRole('button', { name: 'Lighting' }).click()
-  await card.getByPlaceholder('Another tag').fill(`Tent ${id}`)
-  await card.getByRole('button', { name: 'Add tag' }).click()
-  await card.getByLabel(/Caption for them/).fill('Main stage at dusk')
+  // Tags and a caption are said in the photo opened whole, not on the tab (Colly, 14 November 2026).
+  await expect(card.getByRole('button', { name: /caption/i })).toHaveCount(0)
   await card.getByText('Add photos').locator('input[type=file]').setInputFiles([
     { name: 'IMG_1.png', mimeType: 'image/png', buffer: PNG },
     { name: 'IMG_2.png', mimeType: 'image/png', buffer: PNG },
@@ -43,6 +40,12 @@ test('photos go on a job several at a time, open whole, show under Jobs › Phot
   await grid.getByRole('button', { name: /^Open photo 1 of 2/ }).click()
   const viewer = page.getByRole('dialog')
   await expect(viewer.getByText('1 of 2')).toBeVisible()
+  await viewer.getByRole('button', { name: 'Change caption and tags' }).click()
+  await viewer.getByLabel('Caption', { exact: true }).fill('Main stage at dusk')
+  await viewer.getByRole('group', { name: 'Tags' }).getByRole('button', { name: 'Lighting' }).click()
+  await viewer.getByPlaceholder('Another tag').fill(`Tent ${id}`)
+  await viewer.getByRole('button', { name: 'Add tag' }).click()
+  await viewer.getByRole('button', { name: 'Save' }).click()
   await expect(viewer.getByText('Main stage at dusk')).toBeVisible()
   await viewer.getByRole('button', { name: 'The next photo' }).click()
   await expect(viewer.getByText('2 of 2')).toBeVisible()
@@ -52,7 +55,7 @@ test('photos go on a job several at a time, open whole, show under Jobs › Phot
   await page.goto('/#jobs/photos')
   await page.getByLabel('Find photos').fill(`tent ${id}`)
   await expect(page.getByRole('heading', { name, level: 3 })).toBeVisible()
-  await expect(page.getByText('2 photos from 1 job')).toBeVisible()
+  await expect(page.getByText('1 photo from 1 job')).toBeVisible()
   await page.screenshot({ path: 'test-results/job-photos-library-phone.png', fullPage: true })
 
   await page.goto(`/#jobs/${jobId}/photos`)
@@ -63,14 +66,3 @@ test('photos go on a job several at a time, open whole, show under Jobs › Phot
   await context.close()
 })
 
-test('on a desk the photos tab’s buttons are as wide as their words, not the page', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
-  const jobId = await jobWithPhase(context.request, { name: `Desk Photos ${id}`, start: '2026-08-29' })
-  const page = await context.newPage()
-  await page.goto(`/#jobs/${jobId}/photos`)
-  const card = page.getByRole('region', { name: 'Photos', exact: true })
-  const fold = card.getByRole('button', { name: 'Tags and a caption for them' })
-  const [button, whole] = await Promise.all([fold.boundingBox(), card.boundingBox()])
-  expect(button!.width).toBeLessThan(whole!.width / 2)
-  await context.close()
-})
