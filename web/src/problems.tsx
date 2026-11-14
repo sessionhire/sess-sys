@@ -182,6 +182,11 @@ function describer(view: View): (m: Mutation) => string {
     return d ? `${d.person?.name ?? 'someone'}'s ${titleInSentence(d.title)}` : 'a document'
   }
 
+  /** The job a photo is of (ADR 0182). */
+  const photoJob = (id: unknown) => {
+    const p = view.jobPhotos.all.find((x) => x.id === id)
+    return p ? job(p.jobId) : 'a job'
+  }
   const vehicle = (id: unknown) => view.vehicles.vehicles.find((v) => v.id === id)?.name ?? 'a vehicle'
   const purchase = (id: unknown) => (typeof id === 'string' ? view.purchases.get(id)?.title : undefined) ?? 'a request'
   const quote = (id: unknown) => {
@@ -314,6 +319,10 @@ function describer(view: View): (m: Mutation) => string {
         return 'Take something out of a rack'
       case 'jobRank.set':
         return a.clear ? 'Put a column of the Board back in date order' : 'Change the order on the Board'
+      case 'jobPhoto.save':
+        return `Change what a photo of ${photoJob(a.id)} says`
+      case 'jobPhoto.remove':
+        return `Take a photo off ${photoJob(a.id)}`
       case 'jobStep.set':
         return `Change ${typeof a.step === 'string' && a.step in STEP_LABELS ? STEP_LABELS[a.step as JobStep] : 'a step'} on ${job(a.projectId)}`
       case 'tracker.archive':
