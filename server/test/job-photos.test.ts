@@ -37,7 +37,7 @@ async function company(withStore = true) {
   for (const [id, name] of [
     ['picnic', 'Electric Picnic'],
     ['picnic-lx', 'Electric Picnic LX'],
-  ])
+  ] as const)
     expect(await colly.send('project.create', { id, name, clientId: null, venueId: null, status: 'confirmed', kind: 'gig', notes: '' })).toMatchObject({ status: 'applied' })
   const put = (id: string, o: { job?: string; caption?: string; tags?: string[]; thumb?: Buffer; full?: Buffer; cookies?: Record<string, string> } = {}) => {
     const thumb = o.thumb ?? THUMB
