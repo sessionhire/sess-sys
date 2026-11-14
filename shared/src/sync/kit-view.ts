@@ -11,7 +11,8 @@ import type { ModelView, WarehouseView } from './stock-view.ts'
 /**
  * Kit on jobs (ADR 0014), worked out on a device from what it already has:
  * each line's days, how many of its product are free on them, and whether
- * it's short. Confirmed jobs hold their kit; enquiries and quotes are
+ * it's short. Confirmed jobs hold their kit, and so do jobs whose quote has
+ * been sent (ADR 0183); enquiries, whose quote is still a draft, are
  * pencilled in, checked as if they went ahead but never counted as taken;
  * cancelled and lost jobs hold nothing. Only days from today on are
  * checked, since what's past can't be short any more.
@@ -72,6 +73,16 @@ export type KitHold = 'held' | 'pencilled' | 'none'
 export function holdOf(status: ProjectStatus): KitHold {
   if (status === 'confirmed') return 'held'
   return STOPPED.includes(status) ? 'none' : 'pencilled'
+}
+
+/**
+ * What a job's status means for its stock (ADR 0183; Colly, 14 November 2026, answering the quote flow audit: "After the
+ * quote is sent hold the stock"). A quote sent makes the job quoted, and its kit is then held, counted as taken as a
+ * confirmed job's is, so another quote for the same days sees it gone. A draft's kit is on the job's list as an enquiry's,
+ * pencilled in (ADR 0126). Vans and pick lists still go by `holdOf`: held once the job is confirmed.
+ */
+export function kitHoldOf(status: ProjectStatus): KitHold {
+  return status === 'quoted' ? 'held' : holdOf(status)
 }
 
 /** Another job with the same product out on the day that matters to a line. */
@@ -289,7 +300,7 @@ export function kitView(
       job,
       phase,
       model,
-      hold: job ? holdOf(job.status) : 'none',
+      hold: job ? kitHoldOf(job.status) : 'none',
       span,
       held: span && job && heldAround(job, span),
       // Dry hire stock (ADR 0075) is all hired in, so none of it comes out of our own.

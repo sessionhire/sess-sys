@@ -155,7 +155,7 @@ export function kitFromQuote(
 
 /**
  * How many of a product are free on a job's days (research/quoting.md, feature 2), for the product picker on a quote:
- * the fewest of our own that no confirmed job holds on any of the days, with the job's days to get kit ready and check
+ * the fewest of our own that no confirmed job or sent quote holds on any of the days, with the job's days to get kit ready and check
  * it back, from today on, as `quoteKit` counts them, less what the quote already wants of it. Undefined for a job with
  * no dates or whose days are past, and for dry hire stock, which is all hired in.
  */

@@ -33,7 +33,7 @@ export interface LineDraft {
   under?: string | null
   /** A package priced as a whole: its items' total, which its price is a discount from (ADR 0116). */
   full?: number
-  /** Given at no charge on purpose: shown and printed as Included, its price not asked for (audit of the quote flow, 8 November 2026, finding 1). */
+  /** Given at no charge on purpose: shown and printed as No charge, its price not asked for (audit of the quote flow, 8 November 2026, finding 1). */
   included?: boolean
   /** Words only (ADR 0128): a heading or a note printed as written, with no numbers. */
   words?: boolean

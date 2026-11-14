@@ -84,6 +84,8 @@ const MIGRATIONS: string[] = [
   `,
   // A job's office notes (ADR 0151), which never leave the app; its notes are the crew's.
   `ALTER TABLE projects ADD COLUMN IF NOT EXISTS office_notes text NOT NULL DEFAULT '';`,
+  // A dry hire's handover (ADR 0183): delivery or collection, its times, and where it's delivered to, as one record.
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS hire jsonb;`,
 ]
 
 export const PROJECTS: Module = { versionTable: 'projects_schema_version', migrations: MIGRATIONS }

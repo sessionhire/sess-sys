@@ -193,18 +193,20 @@ describe('made-up data', () => {
     expect(view.crew.people.every((p) => drama.test(p.phone ?? ''))).toBe(true)
     expect(view.jobs.clients.every((c) => c.contacts.every((k) => drama.test(k.phone ?? '')))).toBe(true)
 
-    // Kit: speakers short between two jobs, 2 of them still out after the gala, and the quote short of moving heads, which the launch would be too if it goes ahead.
+    // Kit: speakers short between two jobs, 2 of them still out after the gala, and the quote short of moving heads; it's sent, so it holds
+    // them, and the launch is short too (ADR 0183).
     const short = view.kit.short.map((l) => [l.job?.name, l.model?.name, l.short])
-    expect(short).toHaveLength(3)
+    expect(short).toHaveLength(4)
     expect(short).toEqual(
       expect.arrayContaining([
         ['Harbour Lights Festival', 'd&b Y10P', 6],
         ['Brightwater Tech Summit', 'd&b Y10P', 6],
         ['Corrib Arts Week', 'Robe Spiider', 12],
+        ['Liffey Brands Launch', 'Robe Spiider', 12],
       ])
     )
     const launch = view.kit.lines.find((l) => l.job?.name === 'Liffey Brands Launch')!
-    expect([launch.short, launch.ifPencilled]).toEqual([0, 12])
+    expect([launch.short, launch.ifPencilled]).toEqual([12, 0])
     expect(view.kit.lines.find((l) => l.model?.name === 'ROE BP2 LED panel')).toMatchObject({ own: 0, supplier: 'Lumen Video Hire' })
 
     // The warehouse: labelled items from SH-000001 on, amps in their racks, what's still only counted, and a roll of numbers set aside.
