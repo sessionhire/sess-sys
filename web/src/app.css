@@ -523,8 +523,12 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .skills-box input:focus-visible { outline: 0; }
 .skills-box:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .skill-chips { display: contents; list-style: none; margin: 0; padding: 0; }
-.skill-chip { display: inline-flex; align-items: center; gap: var(--ds-space-half); padding-inline-start: var(--ds-space-2); border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--panel); color: var(--ink); font-size: var(--text-small); }
-.skill-chip button { display: grid; place-items: center; width: 34px; height: 34px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--muted); }
+/* A chip with its own Remove sits as a filter chip does (.list-chip): its words and its X the same 13px in from either end, the X's
+   18px square as far in from the end as from the top and bottom, and the words and the X a gap (--inline) apart. The Remove is drawn
+   34px round inside the chip (its 8px either side of the X is the gap and the inset), not the 44px square an icon button is elsewhere,
+   which stood the X a long way from its word and the end (Colly, 14 November 2026). */
+.skill-chip { display: inline-flex; align-items: center; gap: 0; padding-inline: calc(var(--icon-inset) - 1px) calc(var(--icon-inset) - 1px - (34px - var(--icon-control)) / 2); border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--panel); color: var(--ink); font-size: var(--text-small); }
+.skill-chip button { display: grid; place-items: center; width: 34px; min-width: 0; height: 34px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--muted); }
 @media (hover: hover) {
   .skill-chip button:hover { color: var(--ink); background: var(--line); }
 }
