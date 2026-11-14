@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
+import { draftBase } from '../shared/src/draft-merge.ts'
+import type { Quote } from '../shared/src/quotes.ts'
 
 /** The rarer ways to add sit under More, and the terms read as a line with Change, until opened (ADR 0140, part 4). */
 async function openMore(at: import('@playwright/test').Locator) {
@@ -795,6 +797,63 @@ test('two people on one draft keep both their changes, one of them with no signa
     await expect(draft.getByRole('button', { name: 'Line 1: Shure SM58, change it' })).toContainText('6 ×')
     await expect(draft.getByRole('button', { name: 'Line 2: d&b Y10P, change it' })).toContainText('3 ×')
   }
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test("a change from another phone arriving as a line is changed doesn't put the line back as it was (ADR 0113)", async ({ browser, request }) => {
+  // Proves: when the draft as saved elsewhere lands at the very moment a field is changed here, after the screen has
+  // drawn it and before it has taken it in, both are kept. Taking it in over the lines as they were drawn put the line
+  // back as it was before the change (a line's Charged lost, 14 November 2026).
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.goto('/#jobs')
+  await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
+  await office.getByRole('tab', { name: 'Quote' }).click()
+  await office.getByRole('button', { name: 'Build from job' }).click()
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+  await draft.getByRole('button', { name: /^Line 1: .*, change it$/ }).click()
+  await expect(draft.getByLabel('Line 1: charged')).toHaveValue('daily')
+
+  // This phone hears nothing new until let; meanwhile another phone puts notes on the draft.
+  let letThrough = () => {}
+  const held = new Promise<void>((r) => (letThrough = r))
+  await office.route('**/api/sync/pull**', async (route) => {
+    await held
+    await route.continue()
+  })
+  const { changes } = (await (await request.get('/api/sync/pull?after=0')).json()) as { changes: { entity: string; data: Quote }[] }
+  const quote = changes.filter((c) => c.entity === 'quote').at(-1)!.data
+  const other = `other-${Date.now()}`
+  const pushed = await request.post('/api/sync/push', {
+    data: {
+      clientId: other,
+      mutations: [{ id: `${other}-1`, name: 'quote.save', createdAt: new Date().toISOString(), args: { ...quote, notes: 'Load in from the back lane', base: draftBase(quote) } }],
+    },
+  })
+  expect(((await pushed.json()) as { results: { status: string }[] }).results.map((r) => r.status)).toEqual(['applied'])
+
+  // The moment the screen has drawn the other phone's change, and before it takes it in, Charged is changed here.
+  await office.evaluate(() => {
+    const form = document.querySelector('form[aria-label="Version 1, a draft"]')!
+    const seen = new MutationObserver(() => {
+      seen.disconnect()
+      const charged = form.querySelector<HTMLSelectElement>('select[aria-label="Line 1: charged"]')!
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(charged, 'weekly')
+      charged.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    seen.observe(form, { subtree: true, childList: true, characterData: true, attributes: true })
+  })
+  letThrough()
+
+  // Both are kept: the notes from the other phone, and Weekly from this one, on the screen and on the server.
+  await expect(draft.getByRole('textbox', { name: /Notes for the client/ })).toHaveValue('Load in from the back lane')
+  await expect(draft.getByLabel('Line 1: charged')).toHaveValue('weekly')
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+  await office.reload()
+  await expect(draft.getByRole('button', { name: /^Line 1: .*, change it$/ })).toContainText('a week')
+  await expect(draft.getByRole('textbox', { name: /Notes for the client/ })).toHaveValue('Load in from the back lane')
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 

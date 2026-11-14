@@ -174,6 +174,43 @@ const PACKAGE_PICK = 'package:'
 type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
 const TERM_KEYS: readonly TermKey[] = ['agreed', 'km', 'discount', 'validFor', 'deposit']
 
+/**
+ * Two people on one draft (ADR 0113): the lines on this screen with the draft as it now stands taken in. `was` is the
+ * draft as this device's typing began from: a line not touched here since takes the change, or goes if it was taken off;
+ * one typed here is kept, and named in `clash` when it was changed elsewhere too; one added elsewhere goes in after the
+ * line it followed there.
+ */
+function takeIn(lines: LineDraft[], was: QuoteView, q: QuoteView): { lines: LineDraft[]; clash: string[] } {
+  // As saving reads it: a line typed here reads as the saved one when it would save as it.
+  const same = (d: LineDraft, l: QuoteLine) => {
+    const c = checkLine(d, 1)
+    return !!c.line && sameLine(c.line, l)
+  }
+  const before = new Map(was.lines.filter((l) => !l.extra).map((l) => [l.id, l]))
+  const now = q.lines.filter((l) => !l.extra)
+  const theirs = new Map(now.map((l) => [l.id, l]))
+  const here = new Set(lines.map((d) => d.id))
+  const clash: string[] = []
+  const next: LineDraft[] = []
+  for (const d of lines) {
+    const b = before.get(d.id)
+    const t = theirs.get(d.id)
+    if (!b) next.push(d) // added here, not saved yet
+    else if (same(d, b)) {
+      if (t) next.push(toDraft(t)) // untouched here: theirs, or gone if they took it off
+    } else {
+      next.push(d)
+      if (t && !same(d, t) && !sameLine(t, b)) clash.push(d.what.trim() || 'A line')
+    }
+  }
+  now.forEach((t, i) => {
+    if (here.has(t.id) || before.has(t.id)) return
+    const after = now.slice(0, i).reverse().find((x) => next.some((d) => d.id === x.id))
+    next.splice(after ? next.findIndex((d) => d.id === after.id) + 1 : 0, 0, toDraft(t))
+  })
+  return { lines: next, clash }
+}
+
 export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view: View; job: JobView; onPrint: () => void; printing?: boolean }) {
   const today = useToday()
   const m = view.money
@@ -256,50 +293,32 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   // changed on both keeps what's typed here, and says so. Saves carry `opened` so the server does the same.
   const opened = useRef(q)
   const [bothChanged, setBothChanged] = useState<string[]>([])
-  const drawn = baseOf(q)
+  // Told apart as the server tells them (ADR 0113), so the same draft read back with its fields in another order, as the
+  // database gives them, isn't taken for a change.
+  const drawn = JSON.stringify(draftBase(q))
   useEffect(() => {
     const was = opened.current
-    if (baseOf(was) === drawn) return
+    if (JSON.stringify(draftBase(was)) === drawn) return
     opened.current = q
-    // As saving reads it: a line typed here reads as the saved one when it would save as it.
-    const same = (d: LineDraft, l: QuoteLine) => {
-      const c = checkLine(d, 1)
-      return !!c.line && sameLine(c.line, l)
-    }
-    const before = new Map(was.lines.filter((l) => !l.extra).map((l) => [l.id, l]))
-    const now = q.lines.filter((l) => !l.extra)
-    const theirs = new Map(now.map((l) => [l.id, l]))
-    const here = new Set(lines.map((d) => d.id))
-    const clash: string[] = []
-    const next: LineDraft[] = []
-    for (const d of lines) {
-      const b = before.get(d.id)
-      const t = theirs.get(d.id)
-      if (!b) next.push(d) // added here, not saved yet
-      else if (same(d, b)) {
-        if (t) next.push(toDraft(t)) // untouched here: theirs, or gone if they took it off
-      } else {
-        next.push(d)
-        if (t && !same(d, t) && !sameLine(t, b)) clash.push(d.what.trim() || 'A line')
-      }
-    }
-    now.forEach((t, i) => {
-      if (here.has(t.id) || before.has(t.id)) return
-      const after = now.slice(0, i).reverse().find((x) => next.some((d) => d.id === x.id))
-      next.splice(after ? next.findIndex((d) => d.id === after.id) + 1 : 0, 0, toDraft(t))
-    })
-    setLines(next)
+    // Taken in over what's on the screen now, not as it was when this was drawn: a key pressed between the two would
+    // otherwise be put back as it was before it, and a line's Charged or discount lost as the server's answer came in.
+    setLines((now) => takeIn(now, was, q).lines)
     const a = termsText(was)
     const z = termsText(q)
-    if (meals === a.meals) setMeals(z.meals)
-    if (rooms === a.rooms) setRooms(!!z.rooms)
-    if (kmTyped === a.kmTyped) setKmTyped(z.kmTyped)
-    if (discount === a.discount) setDiscount(z.discount)
-    if (agreed === a.agreed) setAgreed(z.agreed)
-    if (notes.trim() === a.notes.trim()) setNotes(z.notes)
-    if (validFor === a.validFor) setValidFor(z.validFor)
-    if (deposit === a.deposit) setDeposit(z.deposit)
-    if (forName === a.forName) setForName(z.forName)
+    const unless =
+      <T,>(was: T, then: T) =>
+      (now: T) =>
+        now === was ? then : now
+    setMeals(unless(a.meals, z.meals))
+    setRooms(unless(a.rooms, !!z.rooms))
+    setKmTyped(unless(a.kmTyped, z.kmTyped))
+    setDiscount(unless(a.discount, z.discount))
+    setAgreed(unless(a.agreed, z.agreed))
+    setNotes((now) => (now.trim() === a.notes.trim() ? z.notes : now))
+    setValidFor(unless(a.validFor, z.validFor))
+    setDeposit(unless(a.deposit, z.deposit))
+    setForName(unless(a.forName, z.forName))
+    const clash = takeIn(lines, was, q).clash
     if (clash.length) setBothChanged(clash)
   }, [drawn])
   const openLine = (id: string | undefined, focus: 'what' | 'price' = 'what', cost = false) => {
