@@ -78,6 +78,9 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .account .office-form label { display: grid; gap: var(--ds-space-1); font-size: var(--text-hint); color: var(--muted); }
 .account .office-form .wide { grid-column: 1 / -1; }
 .account .office-form button { justify-self: start; }
+.account .company-foot { margin-top: var(--ds-space-3); display: grid; gap: var(--ds-space-1); }
+.account .company-foot blockquote { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-left: 3px solid var(--line); font-size: var(--text-hint); display: grid; gap: var(--ds-space-1); overflow-wrap: anywhere; }
+.account .company-foot blockquote p { margin: 0; }
 
 /* The profile (ADR 0025): the department filter over the list, the level on a card, what they've worked, the form's "More", and the picker's applicants tick. */
 .crew .dept-filter { justify-self: start; }

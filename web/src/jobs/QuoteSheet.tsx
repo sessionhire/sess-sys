@@ -1,5 +1,8 @@
 import {
+  addressOnOneLine,
   irishToday,
+  legalLine,
+  tradingNameOf,
   lineCents,
   linesByGroup,
   linesUnder,
@@ -183,9 +186,12 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
   const today = irishToday()
   const made = q.sentOn ?? irishToday(new Date(q.savedAt))
   const reach = [office.details?.phone, office.details?.email].filter(Boolean).join(' · ')
-  // Who it's from, once Admin's office details have them: the company's address on one line, and its VAT number.
-  const address = office.details?.address?.trim().split(/\s*\n\s*/).filter(Boolean).join(', ')
+  // Who it's from, once Admin › Company has them (ADR 0181): what it trades as and from, its VAT number, and the company
+  // as the law asks it to be named.
+  const address = addressOnOneLine(office.details?.address)
   const vat = office.details?.vatNumber?.trim()
+  const trade = tradingNameOf(office.details)
+  const legal = legalLine(office.details)
   const to = job.client
   const contact = to ? quoteContact(to.contacts, q.forName) : undefined
   const logo = logoOf(office)
@@ -202,7 +208,7 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
     <>
       <header className="sheet-head">
         {/* The company's logo from Admin › Company › Labels, as the emailed PDF has it (ADR 0128; finding 16). */}
-        <div className="brand">{logo ? <img className="logo" src={logo} alt="Session Hire" /> : <p className="company">Session Hire</p>}</div>
+        <div className="brand">{logo ? <img className="logo" src={logo} alt={trade} /> : <p className="company">{trade}</p>}</div>
         <dl className="sheet-facts">
           <dt>{draft ? 'Draft quote' : 'Quote'}</dt>
           <dd className={draft ? undefined : 'number'}>{q.numberPending ? `${number} (once it's saved)` : number || (draft ? 'Not sent yet' : '')}</dd>
@@ -279,8 +285,9 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
         {reach && ` Questions: ${reach}.`}
       </p>
       <footer className="from">
-        <p className="company-line">{['Session Hire', address].filter(Boolean).join(' · ')}</p>
+        <p className="company-line">{[trade, address].filter(Boolean).join(' · ')}</p>
         {(reach || vat) && <p>{[reach, vat && `VAT number ${vat}`].filter(Boolean).join(' · ')}</p>}
+        {legal && <p className="legal">{legal}</p>}
       </footer>
     </>
   )

@@ -32,4 +32,11 @@ describe('quotePdf', () => {
       expect(pdf.toString('latin1')).not.toContain('/Subtype /Image')
     }
   })
+  it('carries the company as the law names it along the foot, on a quote long enough for two pages (ADR 0181)', async () => {
+    const long = { ...q, lines: Array.from({ length: 60 }, (_, i) => ({ ...lines[1], id: `l${i}`, what: `Item ${i}` })) } as Quote
+    const office = { id: 'office', name: 'Session Hire office', phone: null, email: null, tradingName: 'Session Hire', legalName: 'Session Hire Productions Limited', croNumber: '612345', registeredAddress: 'Unit 4\nDublin 12', directors: 'Aoife Byrne, Sam Lee (British)', vatNumber: 'IE 1234567T' }
+    const pdf = await quotePdf({ ...sheet(), q: long, totals: quoteTotals(long), office })
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
+    expect(pdf.toString('latin1')).toMatch(/\/Count [2-9]/)
+  })
 })

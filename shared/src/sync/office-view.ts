@@ -1,6 +1,6 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { DEFAULT_CABLE_COLOURS, type CableColourStep } from '../cable-colours.ts'
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, WHATSAPP_SETTING_ID, type WhatsAppMode, MESSAGES_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type Setting, type SettingEntities } from '../office.ts'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, WHATSAPP_SETTING_ID, type WhatsAppMode, MESSAGES_SETTING_ID, OFFICE_NAME, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type Setting, type SettingEntities } from '../office.ts'
 
 /**
  * The office's details on a device: what the server has said, with this
@@ -114,6 +114,19 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
     if (m.name === 'cables.colours') {
       cableColours = (m.args as CommandArgs<'cables.colours'>).colours
       cablesPending = true
+    }
+    if (m.name === 'company.details') {
+      // As the server keeps them: trimmed, and an empty one not said; the office's row made with its usual name if there's none.
+      const a = m.args as CommandArgs<'company.details'>
+      const next: Setting = { id: OFFICE_SETTING_ID, name: OFFICE_NAME, phone: null, email: null, ...details }
+      for (const k of ['tradingName', 'legalName', 'croNumber', 'registeredAddress', 'directors', 'vatNumber', 'address'] as const) {
+        const v = a[k]?.trim()
+        if (v) next[k] = v
+        else delete next[k]
+      }
+      details = next
+      pending = true
+      continue
     }
     if (m.name !== 'office.update') continue
     // Laid over what's known, so a change that doesn't say the VAT number or address keeps them, as the server does.

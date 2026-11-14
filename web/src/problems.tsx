@@ -365,6 +365,8 @@ function describer(view: View): (m: Mutation) => string {
         return `Note ${offer(a.id).who}'s answer on ${offer(a.id).what}`
       case 'office.update':
         return 'Set the office details'
+      case 'company.details':
+        return "Set the company's details for quotes"
       case 'client.upsert':
         return `Save the client ${str(a.name, 'a client')}`
       case 'venue.upsert':

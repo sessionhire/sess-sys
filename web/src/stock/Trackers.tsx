@@ -1,4 +1,5 @@
 import {
+  addressOnOneLine,
   batteryWords,
   DEFAULT_TRACKER_RADIUS_M,
   MAX_TRACKER_RADIUS_M,
@@ -239,7 +240,7 @@ function Warehouse({ trackers }: { trackers: TrackersView }) {
       return refuse(`How near can be ${MIN_TRACKER_RADIUS_M} to ${MAX_TRACKER_RADIUS_M.toLocaleString('en-IE')} metres.`)
     void run(() => client.mutate('trackers.home', { home: saved.home, radiusM }))
   }
-  const where = saved.address.trim().split(/\s*\n\s*/).filter(Boolean).join(', ')
+  const where = addressOnOneLine(saved.address)
   return (
     <fieldset className="choices">
       <legend>The warehouse</legend>

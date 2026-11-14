@@ -3,7 +3,10 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import PDFDocument from 'pdfkit'
 import {
+  addressOnOneLine,
   depositCents,
+  legalLine,
+  tradingNameOf,
   paymentTermsLine,
   letterDay,
   lineCents,
@@ -77,6 +80,8 @@ const PANEL = '#f4f5f7'
 const SIDE = 42.5
 const TOP = 40
 const FOOT = 62
+/** Two more small lines along the foot for the company's registered name, number, office and directors (ADR 0181). */
+const LEGAL_ROOM = 20
 
 /** Sizes in points: the body, a row's second line, a label in capitals. */
 const BODY = 9
@@ -123,11 +128,16 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   const draft = q.status === 'draft'
   const number = quoteNumberLabel(q)
   const title = draft ? `Draft quote for ${job.name}` : `Quote ${q.number ?? ''} for ${job.name}`.replace('  ', ' ')
+  // The company as Admin › Company has it (ADR 0181): what it trades as, and, when given, the company as the law asks it
+  // to be named, which takes up to two more lines along the foot.
+  const trade = tradingNameOf(office)
+  const legal = legalLine(office)
+  const foot = FOOT + (legal ? LEGAL_ROOM : 0)
   const doc = new PDFDocument({
     size: 'A4',
-    margins: { top: TOP, bottom: FOOT, left: SIDE, right: SIDE },
+    margins: { top: TOP, bottom: foot, left: SIDE, right: SIDE },
     bufferPages: true,
-    info: { Title: drawable(title), Author: 'Session Hire', Creator: 'Session Hire' },
+    info: { Title: drawable(title), Author: drawable(trade), Creator: drawable(trade) },
   })
   const chunks: Buffer[] = []
   doc.on('data', (c: Buffer) => chunks.push(c))
@@ -147,7 +157,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   const width = pageW - SIDE * 2
   const right = left + width
   /** The lowest a line of the body may sit before the foot. */
-  const floor = pageH - FOOT
+  const floor = pageH - foot
 
   type Style = { size?: number; font?: string; color?: string; align?: 'left' | 'right' | 'center'; spacing?: number; gap?: number }
   const style = ({ size = BODY, font = F.regular, color = INK }: Style) => doc.font(font).fontSize(size).fillColor(color)
@@ -191,7 +201,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
       // A file pdfkit can't read: the name in words, as with none.
     }
   }
-  if (!drawn) headBottom = y + put('Session Hire', left, y + 4, width / 2, { size: 22, font: F.display }) + 4
+  if (!drawn) headBottom = y + put(trade, left, y + 4, width / 2, { size: 22, font: F.display }) + 4
   const kicker = draft ? 'Draft quote' : 'Quote'
   const titleH = put(kicker, left + width / 2, y - 2, width / 2, { size: 26, font: F.display, align: 'right' })
   put(number || (draft ? 'Not sent yet' : ''), left + width / 2, y - 2 + titleH, width / 2, { size: 10, font: F.medium, color: draft ? MUTED : BRAND, align: 'right' })
@@ -403,16 +413,16 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   put(closing, left, y, width, { size: SMALL, color: FAINT })
 
   // The letterhead along the foot of every page: who it's from, and the page and quote when there's more than one page.
-  const address = office?.address?.trim().split(/\s*\n\s*/).filter(Boolean).join(', ')
+  const address = addressOnOneLine(office?.address)
   const vat = office?.vatNumber?.trim()
-  const from = ['Session Hire', address].filter(Boolean).join(' · ')
+  const from = [trade, address].filter(Boolean).join(' · ')
   const reachVat = [reach, vat && `VAT number ${vat}`].filter(Boolean).join(' · ')
   const pages = doc.bufferedPageRange()
   for (let i = 0; i < pages.count; i++) {
     doc.switchToPage(pages.start + i)
     const bottom = doc.page.margins.bottom
     doc.page.margins.bottom = 0
-    const yf = pageH - FOOT + 22
+    const yf = pageH - foot + 22
     rule(yf - 8)
     const where = pages.count > 1 ? `${number ? `Quote ${number} · ` : ''}Page ${i + 1} of ${pages.count}` : ''
     const textW = width - (where ? 140 : 0)
@@ -421,6 +431,10 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
     if (reachVat) {
       style({ size: SMALL, color: MUTED })
       doc.text(drawable(reachVat), left, yf + 11, { width: textW, lineBreak: false, ellipsis: true })
+    }
+    if (legal) {
+      style({ size: SMALL, color: MUTED })
+      doc.text(drawable(legal), left, yf + 22, { width: textW, height: LEGAL_ROOM - 1, lineGap: 1.2, ellipsis: true })
     }
     if (where) {
       style({ size: SMALL, color: MUTED })

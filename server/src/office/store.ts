@@ -13,6 +13,11 @@ const toSetting = (r: Row): Setting => ({
   // Only once set, so a device or a test that knows nothing of them sees the office as before.
   ...(r.id === OFFICE_SETTING_ID && r.vat_number ? { vatNumber: r.vat_number } : {}),
   ...(r.id === OFFICE_SETTING_ID && r.address ? { address: r.address } : {}),
+  ...(r.id === OFFICE_SETTING_ID && r.trading_name ? { tradingName: r.trading_name } : {}),
+  ...(r.id === OFFICE_SETTING_ID && r.legal_name ? { legalName: r.legal_name } : {}),
+  ...(r.id === OFFICE_SETTING_ID && r.cro_number ? { croNumber: r.cro_number } : {}),
+  ...(r.id === OFFICE_SETTING_ID && r.registered_address ? { registeredAddress: r.registered_address } : {}),
+  ...(r.id === OFFICE_SETTING_ID && r.directors ? { directors: r.directors } : {}),
   ...(r.id === READING_SETTING_ID ? { headsSeeRates: r.heads_see_rates === true } : {}),
   ...(r.id === MESSAGES_SETTING_ID ? { promptMessages: r.prompt_messages === true } : {}),
   ...(r.id === TIMESHEETS_SETTING_ID ? { useTimesheets: r.use_timesheets === true, timesheetsFrom: r.timesheets_from ?? null } : {}),
@@ -24,7 +29,7 @@ const toSetting = (r: Row): Setting => ({
 })
 
 export async function getSetting(q: Queryable, id: string) {
-  const { rows } = await q.query(`SELECT id, name, phone, email, vat_number, address, heads_see_rates, prompt_messages, use_timesheets, timesheets_from, use_assistant, check_links, whatsapp_mode, whatsapp_test_to, cable_colours, photo_at, logo_black_white FROM settings WHERE id = $1`, [id])
+  const { rows } = await q.query(`SELECT id, name, phone, email, vat_number, address, trading_name, legal_name, cro_number, registered_address, directors, heads_see_rates, prompt_messages, use_timesheets, timesheets_from, use_assistant, check_links, whatsapp_mode, whatsapp_test_to, cable_colours, photo_at, logo_black_white FROM settings WHERE id = $1`, [id])
   return rows[0] ? toSetting(rows[0]) : undefined
 }
 

@@ -56,6 +56,14 @@ const MIGRATIONS: string[] = [
   `,
   // Whether labels print the logo in pure black and white (ADR 0163), on the "logo" row. No value is off.
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_black_white boolean;`,
+  // The company as the law knows it, for the foot of every quote (ADR 0181), on the "office" row.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS trading_name text;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS legal_name text;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS cro_number text;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS registered_address text;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS directors text;
+  `,
 ]
 
 export const OFFICE: Module = { versionTable: 'office_schema_version', migrations: MIGRATIONS }

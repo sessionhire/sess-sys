@@ -309,6 +309,9 @@ const CASES: Case[] = [
 
   // The office.
   c('office.update', { name: 'Session Hire', phone: '+35315551234', email: 'office@sessionhire.com' }),
+  // The company's details for quotes (ADR 0181): with no office row yet, then over one, clearing what's left empty.
+  c('company.details', { tradingName: null, legalName: ' Session Hire Productions Limited ', croNumber: '612345', registeredAddress: 'Unit 4\nDublin 12', directors: 'Aoife Byrne', vatNumber: ' IE 1234567T ', address: '' }),
+  c('company.details', { tradingName: 'Session Hire', legalName: null, croNumber: null, registeredAddress: null, directors: null, vatNumber: null, address: 'Unit 9\nDublin 24' }, { as: 'over the office', before: [m('office.update', { name: 'Session Hire', phone: '+35315551234', email: 'office@sessionhire.com', vatNumber: 'IE 1234567T' })] }),
   c('reading.heads', { rates: true }),
   c('messages.prompt', { on: false }),
   c('timesheets.use', { on: true }),

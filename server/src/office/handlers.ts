@@ -1,4 +1,4 @@
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, MESSAGES_SETTING_ID, WHATSAPP_SETTING_ID, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
+import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, MESSAGES_SETTING_ID, WHATSAPP_SETTING_ID, OFFICE_NAME, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, irishToday, type CommandArgs } from '@sh/shared'
 import { emit, type Ctx } from '../kernel.ts'
 import { getSetting } from './store.ts'
 
@@ -7,7 +7,7 @@ import { getSetting } from './store.ts'
  * on every freelancer page. One office, so the command replaces them whole.
  */
 
-type OfficeCommand = 'office.update' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'links.check' | 'whatsapp.use' | 'cables.colours' | 'logo.blackWhite'
+type OfficeCommand = 'office.update' | 'company.details' | 'reading.heads' | 'messages.prompt' | 'timesheets.use' | 'assistant.use' | 'links.check' | 'whatsapp.use' | 'cables.colours' | 'logo.blackWhite'
 type Handler<N extends OfficeCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
@@ -20,6 +20,19 @@ export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
     // Left as they were by a change that doesn't say them, as one from an app older than them doesn't.
     if (a.vatNumber !== undefined) await ctx.tx.query(`UPDATE settings SET vat_number = $2 WHERE id = $1`, [OFFICE_SETTING_ID, a.vatNumber || null])
     if (a.address !== undefined) await ctx.tx.query(`UPDATE settings SET address = $2 WHERE id = $1`, [OFFICE_SETTING_ID, a.address || null])
+    await emit(ctx, 'setting', OFFICE_SETTING_ID, await getSetting(ctx.tx, OFFICE_SETTING_ID))
+  },
+
+  /** The company's details for the foot of every quote (ADR 0181). The office's row is made with its usual name if there's none yet. */
+  async 'company.details'(ctx, a) {
+    await ctx.tx.query(
+      `INSERT INTO settings (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
+      [OFFICE_SETTING_ID, OFFICE_NAME]
+    )
+    await ctx.tx.query(
+      `UPDATE settings SET trading_name = $2, legal_name = $3, cro_number = $4, registered_address = $5, directors = $6, vat_number = $7, address = $8, updated_at = now() WHERE id = $1`,
+      [OFFICE_SETTING_ID, a.tradingName, a.legalName, a.croNumber || null, a.registeredAddress, a.directors, a.vatNumber || null, a.address]
+    )
     await emit(ctx, 'setting', OFFICE_SETTING_ID, await getSetting(ctx.tx, OFFICE_SETTING_ID))
   },
 

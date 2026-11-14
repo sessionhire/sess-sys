@@ -145,7 +145,7 @@ export function VehicleShow({ current, day }: { current: 'list' | 'week' | 'mont
 export function DrivesFrom({ view }: { view: View }) {
   const may = useAccess().can('settings')
   const { address } = view.trackers.settings
-  const where = address.trim().split(/\s*\n\s*/).filter(Boolean)[0]
+  const where = address.split('\n').map((l) => l.trim()).find(Boolean)
   if (view.vehicles.from.set)
     return (
       <p className="hint drives-from">
