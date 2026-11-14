@@ -58,7 +58,7 @@ test("Next sends the offer to the people picked in it, across a job's phases", a
   await expect(sent).toContainText('Nothing was sent to Fergal and Colm: calendar invites and WhatsApp are both off.')
   await expect(sent).toContainText('Their links show the offer, whenever they open them.')
   await expect(sent).toContainText('Messages to crew are off, so no message opened for you to send.')
-  await expect(page.getByRole('article', { name: '1 × Audio - FOH' })).toContainText(`${colm} (offered), ${fergal} (offered)`)
+  for (const name of [colm, fergal]) await expect(page.getByRole('article', { name: '1 × Audio - FOH' }).locator('.offers li', { hasText: name })).toContainText('Offered')
   await expect(page.getByRole('status')).toHaveText('Up to date')
   // Every place offered, Next waits on the answers.
   await expect(next).toContainText('Every place is offered: waiting on 2 answers.')

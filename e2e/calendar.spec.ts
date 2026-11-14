@@ -453,7 +453,7 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   ).toBeVisible()
   await call.getByRole('button', { name: 'Keep it' }).click()
   // Niamh turned one of her two days down in Google, and no cancellation follows a No: she is emailed about the other.
-  await row(niamh).getByRole('button', { name: 'Withdraw' }).click()
+  await row(niamh).getByRole('button', { name: 'Release' }).click()
   await expect(
     call.getByRole('group', { name: `Release ${niamh} from this call? The days they're booked for go back to it. Google emails them that the day is cancelled, and their link says so at once.` })
   ).toBeVisible()

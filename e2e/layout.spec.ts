@@ -104,8 +104,9 @@ test('on a phone a call is one line that opens on a tap, the picker narrows as y
   await office.locator('details.filled-calls > summary').click()
   await expect(line).toHaveAttribute('aria-expanded', 'false')
   await expect(call).toContainText('Filled')
-  await expect(call.locator('.who-line')).toContainText(`Maeve Doyle ${id}`)
-  await expect(call.locator('.offers')).toHaveCount(0)
+  // Each person on it a row of their own at rest, with their answer (14 November 2026); the rate waits for a tap.
+  await expect(call.locator('.offers li', { hasText: `Maeve Doyle ${id}` })).toContainText('Booked')
+  await expect(call).not.toContainText('€260')
   await expect(call.getByRole('button', { name: 'Offer…' })).toHaveCount(0)
 
   // A tap opens it: the rate, and her answer.
@@ -256,18 +257,19 @@ test('a call says where it stands at rest, the picker only searches on Enter, an
   await soundPicker.fill('nobody by this name')
   await soundPicker.press('Enter')
   await expect(office.getByRole('region', { name: /^Send offer to/ })).toHaveCount(0)
-  await expect(sound.locator('.who-line')).toHaveCount(0)
+  await expect(sound.locator('.offers li')).toHaveCount(0)
 
   // Offered with no signal, the call's line says it's waiting to sync until the server has it.
   await context.setOffline(true)
   await sound.getByRole('button', { name: /^Offer to / }).click()
-  await expect(sound.locator('.who-line')).toHaveText(`Úna Layout ${id} (offered)`)
-  await expect(sound.locator('.pill')).toHaveText('Waiting to sync')
+  await expect(sound.locator('.offers li')).toContainText(`Úna Layout ${id}`)
+  // The call and her row both say it's waiting to sync.
+  await expect(sound.locator('.pill')).toHaveText(['Waiting to sync', 'Waiting to sync'])
   await expect(office.getByRole('status')).toContainText('No signal')
   await context.setOffline(false)
   await office.evaluate(() => dispatchEvent(new Event('online')))
   await expect(office.getByRole('status')).toHaveText('Up to date', { timeout: 20_000 })
-  await expect(sound.locator('.pill')).toHaveText('0 of 1')
+  await expect(sound.locator('.pill').first()).toHaveText('0 of 1')
 
   // On the job's page the cancelled call says so, and each phase's details open on a tap.
   await office.goto(`/#jobs/j-${id}`)

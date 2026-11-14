@@ -61,12 +61,11 @@ test('a job set going again asks for the same crew with one press of Next, and s
   await expect(next.getByRole('button', { name: 'Offer to 2 people · 2 to offer' })).toBeVisible()
   await expect(card).toHaveCount(0)
   const call = page.getByRole('article', { name: '2 × Rigger' })
-  await expect(call).not.toContainText('(offered)')
-  await expect(call).not.toContainText('(booked)')
+  await expect(call.locator('.offers li')).toHaveCount(0)
   await expect(page.getByRole('status')).toHaveText('Up to date')
 
   await offer.click()
-  await expect(call).toContainText(`${colm} (offered), ${fergal} (offered)`)
+  for (const name of [colm, fergal]) await expect(call.locator('.offers li', { hasText: name })).toContainText('Offered')
   await expect(page.getByRole('region', { name: 'Offered to 2 people: what was sent' })).toContainText('Nothing was sent to Colm and Fergal: calendar invites and WhatsApp are both off.')
   // Their offers from before the job was cancelled read as what happened to them, not as withdrawn by the office.
   await call.locator('button.call-line').click()
