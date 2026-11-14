@@ -24,7 +24,6 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { refusal, useDocumentStorage } from '../crew/Documents.tsx'
 import { Empty } from '../Empty.tsx'
-import { Fold } from '../Fold.tsx'
 import { Heading, Icon } from '../Icon.tsx'
 import { PillGroup } from '../ListTools.tsx'
 import { shrinkPhoto } from '../photo-file.ts'
@@ -154,13 +153,13 @@ interface Upload {
 }
 
 /**
- * Photos picked on the phone, sent one after another with what's said
- * about them. What didn't go stays, with why, to try again; leaving the
- * page while they're going asks first, as the rest would be lost.
+ * Photos picked on the phone, sent one after another. What's said about
+ * each, its caption and tags, is said once it's up, in the photo opened
+ * whole (Colly, 14 November 2026). What didn't go stays, with why, to try
+ * again; leaving the page while they're going asks first, as the rest
+ * would be lost.
  */
 function AddPhotos({ job }: { job: JobView }) {
-  const [tags, setTags] = useState<string[]>([])
-  const [caption, setCaption] = useState('')
   const [queue, setQueue] = useState<Upload[]>([])
   const [at, setAt] = useState<{ done: number; of: number } | undefined>()
   const [added, setAdded] = useState(0)
@@ -181,15 +180,13 @@ function AddPhotos({ job }: { job: JobView }) {
     if (!files.length || sending) return
     setError('')
     setAdded(0)
-    const words = jobPhotoWords.safeParse({ id: 'x', caption, tags })
-    if (!words.success) return setError(words.error.issues[0]?.message ?? 'Check the caption and tags.')
     const picked = files.slice(0, JOB_PHOTOS_AT_ONCE)
     const failed: Upload[] = []
     let done = 0
     setAt({ done: 0, of: picked.length })
     for (const file of picked) {
       try {
-        await sendPhoto({ id: newId(), jobId: job.id, caption: words.data.caption, tags: words.data.tags }, file)
+        await sendPhoto({ id: newId(), jobId: job.id, caption: '', tags: [] }, file)
         done++
       } catch (err) {
         failed.push({ file, error: err instanceof Error ? err.message : String(err) })
@@ -204,14 +201,6 @@ function AddPhotos({ job }: { job: JobView }) {
 
   return (
     <div className="add-photos">
-      {/* Folded, so the grid is near the top of a phone's screen; what's chosen shows on the fold's own line. */}
-      <Fold label={tags.length || caption.trim() ? `Tags and caption: ${[...tags, caption.trim()].filter(Boolean).join(', ')}` : 'Tags and a caption for them'} className="photo-words-fold">
-        <TagPicker value={tags} onChange={setTags} label="Tags for the photos you add" />
-        <label className="field">
-          Caption for them <small>(optional)</small>
-          <input value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={JOB_PHOTO_CAPTION} placeholder="Main stage at dusk" />
-        </label>
-      </Fold>
       <div className="actions">
         {/* The button is the file field's label, so it opens the phone's camera or photos as any file field does. */}
         <label className="button primary" aria-busy={sending || undefined} aria-disabled={sending || undefined}>
@@ -225,7 +214,7 @@ function AddPhotos({ job }: { job: JobView }) {
           </button>
         )}
       </div>
-      <small>Pick as many as you like from the phone, up to {JOB_PHOTOS_AT_ONCE} at a time. Each is made smaller before it goes, so it's quick on mobile data.</small>
+      <small>Pick as many as you like from the phone, up to {JOB_PHOTOS_AT_ONCE} at a time. Each is made smaller before it goes, so it's quick on mobile data. Open one to give it a caption and tags.</small>
       <div aria-live="polite">
         {sending && <p className="hint">Sending {at.of === 1 ? 'the photo' : `${at.of} photos`}: keep this page open until they're done.</p>}
         {!sending && added > 0 && <p className="added">Added {added === 1 ? 'the photo' : `${added} photos`}.</p>}

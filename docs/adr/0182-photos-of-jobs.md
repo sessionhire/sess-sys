@@ -33,9 +33,10 @@ for pictures: it is backed up nightly as a whole, sent to every phone as changes
 3. **Sent in one request with both copies**, the small one first and its length in the address, so a photo is never on
    a job without the copy its grid shows. Each is checked to be a JPEG by its first bytes.
 4. **A Photos tab on each gig and dry hire**, last, as photos come after the show. Add photos opens the phone's camera
-   or photo library with several at a time (up to 60), sent one after another with tags and a caption for the lot, and
+   or photo library with several at a time (up to 60), sent one after another, and
    what didn't go stays with why, to try again. Leaving the page while they're going asks first. Each photo opens whole
-   over the page, steps to the next, and Share or save sends it to the phone's share sheet (to WhatsApp or email a
+   over the page, steps to the next, takes its caption and tags there (Change caption and tags: Colly, 14 November 2026,
+   moved them off the tab, where a form for the whole lot pushed the photos down), and Share or save sends it to the phone's share sheet (to WhatsApp or email a
    client) or saves it on a laptop. Errands and meetings have no Photos tab.
 5. **Jobs › Photos** is every job's photos, newest show first, found by caption, tag, job, client or venue, with tags in
    Filter. It is also on the Menu.
