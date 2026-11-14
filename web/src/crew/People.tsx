@@ -375,22 +375,22 @@ export function PersonForm({
       {whoFixed && <p className="hint wide">{whoSignsInRefusal(initial!.name, whoFixed)}</p>}
       {showCompany && readsTrade && (
         <>
-          <fieldset className="wide choices trades-as">
+          <fieldset className="wide trades-as">
             <legend>
               Works for us as <span className="optional">(optional)</span>
             </legend>
             {TRADES_AS.map((t) => (
-              <label key={t}>
+              <label className="tick" key={t}>
                 <input type="radio" name={`${listId}-trades`} value={t} checked={f.tradesAs === t} onChange={() => setF((was) => ({ ...was, tradesAs: t }))} /> {TRADES_AS_LABELS[t]}
               </label>
             ))}
           </fieldset>
           {f.tradesAs === 'sole-trader' && (
             <>
-              <fieldset className="wide choices trades-as">
+              <fieldset className="wide trades-as">
                 <legend>VAT registered?</legend>
                 {(['yes', 'no'] as const).map((v) => (
-                  <label key={v}>
+                  <label className="tick" key={v}>
                     <input type="radio" name={`${listId}-vat`} value={v} checked={f.vatRegistered === v} onChange={() => setF((was) => ({ ...was, vatRegistered: v }))} /> {v === 'yes' ? 'Yes' : 'No'}
                   </label>
                 ))}
