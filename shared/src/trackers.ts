@@ -35,6 +35,8 @@ export const MAX_TRACKER_RADIUS_M = 5000
  */
 export const TRACKER_QUIET_DAYS = 3
 export const TRACKER_NAME_LENGTH = 100
+/** The warehouse's address, a line each. */
+export const WAREHOUSE_ADDRESS_LENGTH = 300
 
 /** Where a tracker last said it was. */
 export interface TrackerPosition extends Pin {
@@ -104,6 +106,8 @@ export interface TrackerSettings {
   on: boolean
   /** The warehouse, where kit on no job belongs; null until it's on the map. */
   home: Pin | null
+  /** The warehouse's address, a line each as written; empty until the office says (Admin › Company › Warehouse). */
+  address: string
   /** How near the warehouse or a venue counts as there, in metres. */
   radiusM: number
 }
@@ -116,7 +120,7 @@ export interface TrackerEntities {
 export const TRACKER_ENTITY_NAMES = ['tracker', 'trackerSettings'] as const
 
 /** The settings before anyone has changed them. */
-export const TRACKERS_OFF: TrackerSettings = { id: TRACKER_SETTINGS_ID, on: false, home: null, radiusM: DEFAULT_TRACKER_RADIUS_M }
+export const TRACKERS_OFF: TrackerSettings = { id: TRACKER_SETTINGS_ID, on: false, home: null, address: '', radiusM: DEFAULT_TRACKER_RADIUS_M }
 
 const id = z.string().min(1).max(200)
 
@@ -126,6 +130,8 @@ export const trackerCommandSchemas = {
   /** Where the warehouse is, and how near counts as there. */
   'trackers.home': z.object({
     home: pin.nullable(),
+    /** The warehouse's address. Optional, so a change from an app older than it leaves it as it was. */
+    address: text(WAREHOUSE_ADDRESS_LENGTH, 'The address').pipe(z.string().trim()).optional(),
     radiusM: z
       .number()
       .int('Say how near in whole metres.')

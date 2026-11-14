@@ -29,7 +29,6 @@ import {
 } from '@sh/shared'
 import { useState, type FormEvent, type MouseEvent } from 'react'
 import { vansPlanHref } from '../jobs/PlanScreen.tsx'
-import { Warehouse } from './Trackers.tsx'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
@@ -145,15 +144,23 @@ export function VehicleShow({ current, day }: { current: 'list' | 'week' | 'mont
  */
 export function DrivesFrom({ view }: { view: View }) {
   const may = useAccess().can('settings')
+  const { address } = view.trackers.settings
+  const where = address.trim().split(/\s*\n\s*/).filter(Boolean)[0]
   if (view.vehicles.from.set)
-    return <p className="hint drives-from">Drive times are estimated from the warehouse to each venue on the map, at van speeds. A drive typed on a booking is used instead.</p>
+    return (
+      <p className="hint drives-from">
+        Drive times are estimated from the warehouse{where ? ` (${where})` : ''} to each venue on the map, at van speeds. A drive typed on a booking is used instead.
+      </p>
+    )
   return (
     <section className="card checks" aria-label="Where drives are measured from">
       <p className="hint">Drive times are estimated from Dublin city centre until the warehouse is on the map. A drive typed on a booking is used instead.</p>
       {may && (
-        <Fold label="Put the warehouse on the map">
-          <Warehouse trackers={view.trackers} vans />
-        </Fold>
+        <div className="actions">
+          <a className="button" href="#admin/company">
+            Put the warehouse on the map
+          </a>
+        </div>
       )}
     </section>
   )

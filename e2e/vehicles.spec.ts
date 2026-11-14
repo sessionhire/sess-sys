@@ -218,3 +218,33 @@ test('a van out on the road says when it leaves and is back, and Stock › Vehic
   await phone.getByRole('group', { name: 'Show the vehicles as' }).getByRole('button', { name: 'List' }).click()
   await expect(phone.getByRole('heading', { name: 'Vehicles', level: 1 })).toBeVisible()
 })
+
+test('the warehouse is set under Admin › Company, and the vans measure their drives from it', async ({ browser }) => {
+  // Proves (ADR 0180): Stock › Vehicles links to Admin › Company while the warehouse isn't on the map; the card there takes an address and a
+  // pin (pasted, so no map search is needed), saves both, and the vans' planner then names the warehouse; the address can be changed again.
+  const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await ready(phone, '#stock/vehicles/week')
+  await phone.getByRole('region', { name: 'Where drives are measured from' }).getByRole('link', { name: 'Put the warehouse on the map' }).click()
+  await expect(phone).toHaveURL(/#admin\/company$/)
+  const card = phone.getByRole('region', { name: 'Warehouse', exact: true })
+  await card.getByLabel('Address').fill('Unit 4, Park West\nDublin 12')
+  await card.getByLabel('Or paste a map link or coordinates').fill('53.3249, -6.3368')
+  await card.getByRole('button', { name: 'Use it' }).click()
+  await expect(card).toContainText('Now at 53.32490, -6.33680')
+  await card.getByRole('button', { name: 'Save the warehouse' }).click()
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  await expect(card.getByRole('button', { name: 'Save the warehouse' })).toBeDisabled()
+
+  await ready(phone, '#stock/vehicles/week')
+  await expect(phone.locator('.drives-from')).toContainText('from the warehouse (Unit 4, Park West)')
+  await expect(phone.getByRole('region', { name: 'Where drives are measured from' })).toHaveCount(0)
+
+  // Changed again: the address alone.
+  await ready(phone, '#admin/company')
+  await card.getByLabel('Address').fill('Unit 9, Ballymount\nDublin 24')
+  await card.getByRole('button', { name: 'Save the warehouse' }).click()
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  await phone.reload()
+  await expect(card.getByLabel('Address')).toHaveValue('Unit 9, Ballymount\nDublin 24')
+  await expect(card).toContainText('Now at 53.32490, -6.33680')
+})

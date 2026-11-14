@@ -291,7 +291,7 @@ function describer(view: View): (m: Mutation) => string {
       case 'trackers.use':
         return onOff(a.on, 'trackers')
       case 'trackers.home':
-        return 'Set where the warehouse is for trackers'
+        return 'Set where the warehouse is'
       case 'tracker.attach':
         return a.assetId ? `Put ${tracker(a.id)} on ${item(a.assetId)}` : `Take ${tracker(a.id)} off its item`
       case 'tracker.name':

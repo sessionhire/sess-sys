@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.199.0',
+    date: '2026-11-14',
+    title: 'The warehouse under Admin › Company',
+    what: "Admin › Company has a Warehouse card: type its address, press Find it on the map, and check the pin, which you can drag or move by tapping the map. Change either whenever you need to. The vans measure every drive to a venue from this pin, and trackers count kit there as home. The trackers' card now just links here.",
+    prs: [388],
+    adrs: [180],
+  },
+  {
     version: '1.198.0',
     date: '2026-11-14',
     title: 'Vans out on the road, and a planner for the vehicles',
