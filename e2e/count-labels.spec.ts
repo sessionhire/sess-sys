@@ -107,7 +107,10 @@ test('labels put on as the count goes, found, and taken off those without a labe
   await page.getByRole('form', { name: `Put ${sh(first + 2)} on an item` }).getByRole('button', { name: 'Not now' }).click()
   await expect(page.locator('.said-list')).toContainText(`${sh(first + 2)} No item has this number.`)
   await page.locator('.said-list li', { hasText: sh(first + 2) }).getByRole('button', { name: 'Put it on its item' }).click()
-  await page.getByRole('form', { name: `Put ${sh(first + 2)} on an item` }).getByRole('button', { name: `Put ${sh(first + 2)} on a ${speaker}` }).click()
+  // With the maker's serial this time (ADR 0175).
+  const third = page.getByRole('form', { name: `Put ${sh(first + 2)} on an item` })
+  await third.getByLabel("Maker's serial").fill(`Y10P-${id}`)
+  await third.getByRole('button', { name: `Put ${sh(first + 2)} on a ${speaker}` }).click()
   await expect(page.locator('.count-tally')).toHaveText('3 of 3 found')
   await expect(page.locator('.said-list')).not.toContainText(sh(first + 2))
 
@@ -132,5 +135,11 @@ test('labels put on as the count goes, found, and taken off those without a labe
   await expect(page.locator('.app')).toContainText('All 4 found')
   await expect(page.locator('.app')).toContainText(`${speaker} without a label`)
   await expect(page.locator('.app')).toContainText('6 counted, 6 recorded: as recorded.')
+
+  // The serial finds its item, as a maker's serial only one item has does.
+  await page.goto('/#stock')
+  await page.getByLabel('Find').fill(`Y10P-${id}`)
+  await page.getByLabel('Find').press('Enter')
+  await expect(page.getByRole('heading', { level: 1, name: sh(first + 2) })).toBeVisible()
   await context.close()
 })
