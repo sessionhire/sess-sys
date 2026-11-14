@@ -129,7 +129,7 @@ export function vehiclesView(
       case 'vehicleBooking.add': {
         const a = m.args as CommandArgs<'vehicleBooking.add'>
         // The server refuses what it can't book: shown as asked until it says so.
-        if (!bookings.has(a.id)) bookings.set(a.id, { ...a, pending: true })
+        if (!bookings.has(a.id)) bookings.set(a.id, { ...a, driveMinutes: a.driveMinutes ?? null, arriveBy: a.arriveBy ?? null, leaveAt: a.leaveAt ?? null, pending: true })
         break
       }
       case 'vehicleBooking.update': {
