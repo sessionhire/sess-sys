@@ -28,11 +28,18 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.201.3',
+    version: '1.201.4',
     date: '2026-11-14',
     title: "A quote line's changes aren't lost as it saves",
     what: "Changing a line on a draft quote just as the quote saved, or just as someone else's change to it came in, could put the line back as it was a moment before: a discount or how it's charged (Weekly, 3 Day Week) would quietly go back. What you change now stays, and someone else's change still comes in beside it.",
     prs: [397],
+  },
+  {
+    version: '1.201.3',
+    date: '2026-11-14',
+    title: 'Crew on a role a line each',
+    what: "On a job's Crew tab, each role lists its people one to a line, like a table: their initials, their name, where they stand (Offered, To confirm, Booked) and, at the right of their own line, what you can do about them, such as Confirm, Running late…, Release or Withdraw. Offer… now sits on the left, under the people.",
+    prs: [396],
   },
   {
     version: '1.201.2',

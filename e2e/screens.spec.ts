@@ -301,7 +301,7 @@ test('Crew needed lists only the calls short of people, with the filled ones fol
   await summary.click()
   await expect(fold.locator('article.call').first()).toBeVisible()
   expect(await fold.locator('article.call').count()).toBeLessThanOrEqual(n)
-  for (const t of await fold.locator('.pill').allTextContents()) expect(t).toMatch(/^Filled/)
+  for (const t of await fold.locator('article.call > .pill').allTextContents()) expect(t).toMatch(/^Filled/)
 
   // A department whose calls are all filled says there are none short, and still has them a tap away.
   const filter = page.getByLabel('Calls for department')

@@ -42,15 +42,18 @@ test('a big call says how many it holds in words, and names the first eight acro
   const call = office.locator('.call-group', { hasText: `Volume Fest ${id}` }).getByRole('article', { name: '40 × Stagehand' })
   // The five yeses not yet confirmed hold their places, and the pill says so (review of 11 November 2026, finding 3).
   await expect(call.locator('.pill').first()).toHaveText('25 of 40, both days, 5 to confirm')
-  const who = call.locator('.who-line > span:last-child')
-  // Booked and not-yet-booked on one call, each says theirs (audit, 20 October 2026, finding 72): the first eight are booked.
-  await expect(who).toHaveText(new RegExp(`^StagehandA Volume${id} \\(booked\\), .*StagehandH Volume${id} \\(booked\\) and 17 more$`))
-  await expect(who).not.toContainText('StagehandI')
+  // A row each for the first eight, each with their answer (14 November 2026): the first eight are booked.
+  const rows = call.locator('.offers li')
+  await expect(rows).toHaveCount(8)
+  await expect(rows.first()).toContainText(`StagehandA Volume${id}`)
+  await expect(rows.first()).toContainText('Booked')
+  await expect(rows.last()).toContainText(`StagehandH Volume${id}`)
+  await expect(call).not.toContainText('StagehandI')
   // Across the card, not a column of one word a line beside the pill.
-  const [line, card] = await Promise.all([call.locator('.who-line').boundingBox(), call.boundingBox()])
+  const [line, card] = await Promise.all([rows.first().boundingBox(), call.boundingBox()])
   expect(line!.width).toBeGreaterThan(card!.width * 0.9)
-  // "and 17 more" opens the call, which lists everyone on it.
-  await call.getByRole('button', { name: 'and 17 more' }).click()
+  // "Show 17 more" opens the call, which lists everyone on it.
+  await call.getByRole('button', { name: 'Show 17 more' }).click()
   await expect(call.getByRole('button', { name: '40 × Stagehand' })).toHaveAttribute('aria-expanded', 'true')
   await expect(call.locator('.offers li')).toHaveCount(25)
   expect(await office.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(phoneSize.width)
