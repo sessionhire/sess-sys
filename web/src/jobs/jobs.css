@@ -1087,6 +1087,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .photo-tags-field { display: grid; gap: var(--ds-space-1); }
 .photo-tags-field .pills { flex-wrap: wrap; }
 .photo-tag-new { display: flex; gap: var(--ds-space-1); }
+/* On a wide screen the typing rows stay a line's length, so Add tag sits by its field rather than across the page. */
+.photo-tag-new, .photo-words > .field { max-width: 40rem; }
 .photo-tag-new label { flex: 1; min-width: 0; }
 .photo-tag-new input { width: 100%; }
 .app .pills button .count { color: inherit; opacity: 0.7; font-variant-numeric: tabular-nums; }
