@@ -340,3 +340,11 @@ body.native-scan #root { position: fixed; inset: var(--cam-band) 0 0 0; overflow
 
 /* Labelling on a count (ADR 0175): scrolled to clear of the Finish bar and the menu bar below it. */
 .warehouse .label-on-count { scroll-margin-bottom: calc(150px + env(safe-area-inset-bottom)); margin-top: var(--ds-space-3); }
+
+/* How far the stocktake has got (ADR 0177). */
+.warehouse .stocktake-line { display: grid; gap: var(--ds-space-1); margin: var(--ds-space-3) 0; }
+.warehouse .stocktake-line p { margin: 0; }
+.warehouse .stocktake-line progress { width: 100%; height: 8px; accent-color: var(--ds-chart-mark); }
+.warehouse .stocktake-depts { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--ds-space-1); }
+.warehouse .stocktake-depts li { display: flex; justify-content: space-between; gap: var(--ds-space-2); color: var(--ds-ink-secondary); }
+.warehouse .stocktake-depts .figure { font-variant-numeric: tabular-nums; }

@@ -20,7 +20,7 @@ import {
 } from '@sh/shared'
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useScanKeys } from '../scanKeys.ts'
-import { Confirm, Refusal, useAct } from '../act.tsx'
+import { act, Confirm, Refusal, useAct } from '../act.tsx'
 import { useMe } from '../crew/Leave.tsx'
 import { ShowAll } from '../Fold.tsx'
 import { Top } from '../jobs/common.tsx'
@@ -35,6 +35,7 @@ import { StockViews } from '../Views.tsx'
 import { itemName, jobName, keptWords, targetName, time } from './countWords.ts'
 import { CountedKit, itemWords, Numbers } from './CountKit.tsx'
 import { LabelOnCount, labelToPut, type Labelled } from './CountLabel.tsx'
+import { Stocktake } from './Stocktake.tsx'
 
 export { CountPage } from './CountPage.tsx'
 
@@ -136,12 +137,20 @@ export function StartCount({ view, where, label, className }: { view: View; wher
   const d = useDraft()
   const { me } = useMe(view)
   const [asking, setAsking] = useState(false)
+  // Someone else counting it already, said before a second count starts (ADR 0177).
+  const [warned, setWarned] = useState(false)
   // Counting is stock's (audit finding 9): not offered to a role without it.
   const mayCount = useAccess().can('stock')
   const w = view.warehouse
   const same = d && d.placeId === where.placeId && d.caseId === where.caseId
+  const others = view.counts.underWayAt(where).filter((u) => u.id !== d?.id)
   const start = () => {
-    saveDraft({ id: newId(), ...where, startedAt: new Date().toISOString(), by: me?.id ?? null, scanned: [], unknown: [], counted: {}, added: [] })
+    // The count under way here is discarded, for everyone else too.
+    if (d) void act(() => client.mutate('count.end', { id: d.id })).catch(() => undefined)
+    const next = { id: newId(), ...where, startedAt: new Date().toISOString(), by: me?.id ?? null, scanned: [], unknown: [], counted: {}, added: [] }
+    saveDraft(next)
+    // Said to every phone, so nobody else counts it unknowing; with no signal, it goes once there is.
+    void act(() => client.mutate('count.begin', { id: next.id, ...where, by: next.by, startedAt: next.startedAt })).catch(() => undefined)
     location.hash = '#stock/count'
   }
   if (!mayCount) return null
@@ -162,8 +171,25 @@ export function StartCount({ view, where, label, className }: { view: View; wher
       />
     )
   }
+  if (warned && others.length > 0) {
+    const o = others[0]!
+    return (
+      <Confirm
+        className="wide"
+        question={`${o.person?.name ?? 'Someone'} has been counting ${targetName(w, where)} since ${time(o.startedAt)}. Two counts of one place each put it right by what they found, so share it out by bay rather than both counting it. Count it as well?`}
+        yes="Count it as well"
+        no="Leave it to them"
+        onYes={() => (setWarned(false), d && !same ? setAsking(true) : start())}
+        onNo={() => setWarned(false)}
+      />
+    )
+  }
   return (
-    <button type="button" className={className} onClick={() => (same ? (location.hash = '#stock/count') : d ? setAsking(true) : start())}>
+    <button
+      type="button"
+      className={className}
+      onClick={() => (same ? (location.hash = '#stock/count') : others.length > 0 ? setWarned(true) : d ? setAsking(true) : start())}
+    >
       {same ? 'Keep counting' : label}
     </button>
   )
@@ -179,12 +205,18 @@ export function CountsCard({ view }: { view: View }) {
   // Places and cases alike: a case counted this week is on its page, and here.
   const monday = mondayOf(today)
   const thisWeek = view.counts.all.filter((c) => c.day >= monday)
+  // Someone counting it now says so first (ADR 0177): it's taken.
+  const dueWords = (x: { place: { id: string }; last: CountView | undefined }) => {
+    const u = view.counts.underWayAt({ placeId: x.place.id })[0]
+    if (u) return u.id === d?.id ? 'Being counted on this phone' : `${u.person?.name ?? 'Someone'} is counting it, since ${time(u.startedAt)}`
+    return x.last ? `Last counted ${dayLabel(x.last.day)} ${x.last.day.slice(0, 4)}` : 'Never counted'
+  }
   const due = (x: { place: { id: string; name: string }; last: CountView | undefined }) => (
     <li key={x.place.id} className="count-due">
       <a className="count-link" href={`#stock/place/${x.place.id}`}>
         <div>
           <b>{x.place.name}</b>
-          <p>{x.last ? `Last counted ${dayLabel(x.last.day)} ${x.last.day.slice(0, 4)}` : 'Never counted'}</p>
+          <p>{dueWords(x)}</p>
         </div>
       </a>
       <StartCount view={view} where={{ placeId: x.place.id, caseId: null }} label="Count" />
@@ -305,6 +337,7 @@ export function CountScreen({ view }: { view: View }) {
               : `No count is under way on this phone. ${NOT_YOURS.counts}`}
           </p>
         </section>
+        <Stocktake view={view} mine={undefined} />
         <CountsCard view={view} />
       </div>
     )
@@ -532,6 +565,8 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
             no="Keep counting"
             onYes={() => {
               saveDraft(undefined)
+              // No longer under way, for everyone (ADR 0177).
+              void act(() => client.mutate('count.end', { id: d.id })).catch(() => undefined)
               location.hash = d.placeId ? `#stock/place/${d.placeId}` : `#stock/item/${d.caseId}`
             }}
             onNo={() => setDiscarding(false)}

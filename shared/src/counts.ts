@@ -107,10 +107,31 @@ export interface CountDraft {
   labelAs?: string
 }
 
+/**
+ * A count under way on someone's phone (ADR 0177), said to every device so
+ * two people don't count the same bay without knowing: begun when the
+ * count starts, and over when it's finished (its record has the same id)
+ * or discarded.
+ */
+export interface CountStart {
+  /** The count's own id: its record, once finished, has the same. */
+  id: string
+  placeId: string | null
+  caseId: string | null
+  by: string | null
+  startedAt: string
+  /** When it was discarded; a finished one has its record instead. */
+  endedAt: string | null
+}
+
+/** A count begun this long ago and never finished nor discarded is left behind on some phone, and no longer said as under way. */
+export const UNDER_WAY_HOURS = 18
+
 export interface CountEntities {
   count: Count
+  countStart: CountStart
 }
-export const COUNT_ENTITY_NAMES = ['count'] as const
+export const COUNT_ENTITY_NAMES = ['count', 'countStart'] as const
 
 const many = whole(0, MAX_QTY, 'How many')
 const where = { placeId: id.nullable(), caseId: id.nullable() }
@@ -130,6 +151,10 @@ export function unknownCode(code: string): string {
 }
 
 export const countCommandSchemas = {
+  /** A count started on a phone, so others see who's counting where (ADR 0177). Sent again, it changes nothing. */
+  'count.begin': z.object({ id, ...where, by: id.nullable(), startedAt: at }).refine((c) => !!c.placeId !== !!c.caseId, { message: 'Say what is being counted: a place or a case.' }),
+  /** A count discarded: no longer under way. */
+  'count.end': z.object({ id }),
   /** Always kept, unless the place or the case never existed. The fixes are their own commands. */
   'count.record': z
     .object({

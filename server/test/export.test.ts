@@ -112,6 +112,7 @@ describe('download everything', () => {
       'client_discounts',
       'clients',
       'cost_payments',
+      'count_starts',
       'counts',
       'crew_calls',
       'document_files_to_delete',

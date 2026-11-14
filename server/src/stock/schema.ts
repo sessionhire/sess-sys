@@ -365,6 +365,19 @@ const MIGRATIONS: string[] = [
   ALTER TABLE models DROP CONSTRAINT IF EXISTS models_department_check;
   ALTER TABLE models ADD CONSTRAINT models_department_check CHECK (department IN ('audio', 'lighting', 'video', 'lasers', 'staging', 'rigging', 'power', 'other'));
   `,
+  // Counts under way (ADR 0177): who's counting where right now, so two people don't count one bay unknowing. Begun when a
+  // count starts, ended when it's discarded; one finished has a count with the same id. Who points at a person, as counts do.
+  `
+  CREATE TABLE IF NOT EXISTS count_starts (
+    id          text PRIMARY KEY,
+    place_id    text,
+    case_id     text,
+    counted_by  text REFERENCES people(id),
+    started_at  timestamptz NOT NULL,
+    ended_at    timestamptz,
+    CHECK ((place_id IS NULL) <> (case_id IS NULL))
+  );
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

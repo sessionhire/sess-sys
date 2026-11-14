@@ -485,6 +485,10 @@ function describer(view: View): (m: Mutation) => string {
       // A count (ADR 0030): turned down only when the place or case was never saved.
       case 'count.record':
         return `Record the count of ${a.placeId ? place(a.placeId) : item(a.caseId)}`
+      case 'count.begin':
+        return `Say you're counting ${a.placeId ? place(a.placeId) : item(a.caseId)}`
+      case 'count.end':
+        return 'Say a count was discarded'
       // Kept from an older version of the app, such as the old sync test's bookings. The server's reason says it's gone, so this only says where it came from.
       default:
         return 'A change from an older version of the app'

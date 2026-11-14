@@ -128,6 +128,8 @@ export const POINTERS: readonly { table: string; column: string }[] = [
   // Who counted a place or a case (ADR 0030): a warehouse record, needed for what was found where, not for who found it,
   // and no law asks for the name, so the count stays and reads "Erased person" once their name goes.
   { table: 'counts', column: 'counted_by' },
+  // Who's counting where (ADR 0177): the same, for a count under way or discarded.
+  { table: 'count_starts', column: 'counted_by' },
   // Who drove a vehicle on a job (ADR 0047): the job's record, reading "Erased person" once their name goes; erasing is
   // refused while a booking they drive hasn't ended.
   { table: 'vehicle_bookings', column: 'driver_id' },

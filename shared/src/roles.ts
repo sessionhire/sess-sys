@@ -174,6 +174,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'itemCertificate.save': 'stock',
   'itemCertificate.remove': 'stock',
   'count.record': 'stock',
+  'count.begin': 'stock',
+  'count.end': 'stock',
   // The vehicles themselves and their checks (ADR 0047), kept by whoever keeps the stock.
   'vehicle.save': 'stock',
   'vehicle.offRoad': 'stock',
