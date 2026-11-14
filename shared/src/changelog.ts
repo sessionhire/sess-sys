@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.202.1',
+    date: '2026-11-14',
+    title: "A quote line's changes aren't lost as it saves",
+    what: "Changing a line on a draft quote just as the quote saved, or just as someone else's change to it came in, could put the line back as it was a moment before: a discount or how it's charged (Weekly, 3 Day Week) would quietly go back. What you change now stays, and someone else's change still comes in beside it.",
+    prs: [397],
+  },
+  {
     version: '1.202.0',
     date: '2026-11-14',
     title: 'Dry hire delivered or collected, a delivery line by the km, and stock held once a quote is sent',
