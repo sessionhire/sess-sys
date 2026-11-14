@@ -21,6 +21,7 @@ import {
 } from '@sh/shared'
 import { useState } from 'react'
 import { when } from '../format.ts'
+import { wholeIn } from '../required.ts'
 import { Heading } from '../Icon.tsx'
 import { ProductPicker } from '../ProductPicker.tsx'
 import { useAccess } from '../role.ts'
@@ -170,17 +171,7 @@ export function Suggestions({ view, items, onChange }: { view: View; items: Offe
                 )}
                 <label>
                   How many
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={10_000}
-                    value={s.qty}
-                    onChange={(e) => {
-                      const n = Number(e.target.value)
-                      if (Number.isInteger(n) && n >= 1 && n <= 10_000) set(i, { s: { ...s, qty: n } })
-                    }}
-                  />
+                  <HowMany qty={s.qty} onQty={(qty) => set(i, { s: { ...s, qty } })} />
                 </label>
               </div>
             )}
@@ -188,6 +179,32 @@ export function Suggestions({ view, items, onChange }: { view: View; items: Offe
         )
       })}
     </ul>
+  )
+}
+
+/**
+ * A line's How many, kept as typed so it can be emptied to type another (Colly, 14 November 2026): a whole number from 1 to
+ * 10,000 counts as it's typed, and leaving the box with anything else puts back the last that counted.
+ */
+function HowMany({ qty, onQty }: { qty: number; onQty: (qty: number) => void }) {
+  const [typed, setTyped] = useState(String(qty))
+  const counts = (text: string) => wholeIn(text, 1, 10_000)
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      max={10_000}
+      value={typed}
+      onChange={(e) => {
+        setTyped(e.target.value)
+        const n = counts(e.target.value)
+        if (n !== undefined) onQty(n)
+      }}
+      onBlur={() => {
+        if (counts(typed) === undefined) setTyped(String(qty))
+      }}
+    />
   )
 }
 

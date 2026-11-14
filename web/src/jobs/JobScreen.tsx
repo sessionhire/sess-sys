@@ -53,7 +53,7 @@ import {
 } from '@sh/shared'
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
-import { refuseField } from '../required.ts'
+import { refuseField, wholeIn } from '../required.ts'
 import { NeedsField } from '../crew/Certificates.tsx'
 import { RoleField } from '../crew/RoleField.tsx'
 import { CallCard, peopleOn, promptFor, SharePanelFor, type Made, type Share } from '../crew/CrewScreen.tsx'
@@ -1219,7 +1219,8 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
     phaseId: undefined as string | undefined,
     across: '',
     role: '',
-    needed: 1,
+    // Kept as typed, so the box can be cleared to type another number (Colly, 14 November 2026); read as a number on Add role.
+    needed: '1',
     callTime: '',
     rate: '',
     details: '',
@@ -1259,6 +1260,8 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
     // Each said on its field, never a press that does nothing (spaces alone get past the browser's own check).
     if (!f.role.trim()) return void refuseField(form, '[name="role"]', 'Fill in the role first.')
     if (!start) return refuse('Add a phase first: roles are added by phase and day.')
+    const needed = wholeIn(f.needed, 1, 100)
+    if (needed === undefined) return void refuseField(form, '[name="needed"]', 'How many is a whole number from 1 to 100.')
     const rate = parseEuro(f.rate)
     if (rate.reason !== undefined) return void refuseField(form, 'input[aria-label="Day rate €"]', rate.reason)
     // Ready for the next call; a refusal brings what was typed back, unless the next thing has been typed since.
@@ -1266,7 +1269,6 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
     setF(cleared)
     setDates(undefined)
     const id = newId()
-    const needed = Math.max(1, f.needed)
     const role = f.role.trim()
     void run(() =>
       client.mutate('call.create', {
@@ -1330,7 +1332,7 @@ function AskForCrew({ job, onAdded }: { job: JobView; onAdded: (callId: string) 
       )}
       <RoleField value={f.role} onChange={(role) => setF((now) => ({ ...now, role }))} placeholder="Audio tech" />
       <label>
-        How many <input type="number" min={1} value={f.needed} onChange={(e) => setF({ ...f, needed: Number(e.target.value) })} />
+        How many <input name="needed" type="number" inputMode="numeric" min={1} value={f.needed} onChange={(e) => setF({ ...f, needed: e.target.value })} />
       </label>
       {/* Crew on a phase are asked for its days (ADR 0159): the days are picked among them, and the line says how to go further. */}
       <div className="pair">
