@@ -626,10 +626,6 @@ export function ClaimLabel({
         Where it's kept{' '}
         <input list="where-choices" value={f.where} onChange={(e) => setF({ ...f, where: e.target.value })} placeholder="A place, or a case's number" disabled={asking} />
       </label>
-      <label className="wide">
-        Maker's serial <small>If it has one worth keeping. A scanner can read it in here.</small>
-        <input value={serial} onChange={(e) => setSerial(e.target.value)} autoComplete="off" maxLength={100} disabled={asking} />
-      </label>
       {countedThere > 0 && known && (
         <label className="wide tick">
           <input type="checkbox" checked={fromCount} onChange={(e) => setFromCount(e.target.checked)} />
@@ -645,6 +641,11 @@ export function ClaimLabel({
           Put {number} on {m ? `a ${m.name}` : 'it'}
         </button>
       )}
+      {/* Below the button, so the scan-and-press of a shelf stays in reach (ADR 0175). */}
+      <label className="wide">
+        Maker's serial <small>If it has one worth keeping, before the button above. A scanner can read it in here.</small>
+        <input value={serial} onChange={(e) => setSerial(e.target.value)} autoComplete="off" maxLength={100} disabled={asking} />
+      </label>
       <ProductChoices w={w} />
       <WhereChoices w={w} />
     </form>

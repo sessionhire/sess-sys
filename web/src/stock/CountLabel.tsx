@@ -118,15 +118,16 @@ export function LabelOnCount({
               : `None of ${m.name} are recorded here without a label, so this one is added here.`}
         </p>
       )}
-      <label className="wide">
-        Maker's serial <small>If it has one worth keeping. A scanner can read it in here.</small>
-        <input value={serial} onChange={(e) => setSerial(e.target.value)} autoComplete="off" maxLength={100} enterKeyHint="done" />
-      </label>
       <Refusal error={error} className="wide" />
       <button ref={button} type="submit" className="primary wide">
         {/* The product named, as it carries over from the last label: a shelf of something else shows here before it's pressed. */}
         Put {number} on {m ? `a ${m.name}` : 'it'}
       </button>
+      {/* Below the button, so the scan-and-press of a shelf stays in reach (ADR 0175). */}
+      <label className="wide">
+        Maker's serial <small>If it has one worth keeping, before the button above. A scanner can read it in here.</small>
+        <input value={serial} onChange={(e) => setSerial(e.target.value)} autoComplete="off" maxLength={100} enterKeyHint="done" />
+      </label>
       <button type="button" className="link wide" onClick={onClose}>
         Not now
       </button>
