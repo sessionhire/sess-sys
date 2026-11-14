@@ -4,7 +4,7 @@ import type { Queryable } from '../db.ts'
 /** Reading vehicles and their bookings back as devices see them (ADR 0047). */
 
 const VEHICLE = `id, name, registration, kind, seats, payload_kg, notes, checks, off_since::text, off_until::text, off_note, archived`
-const BOOKING = `id, vehicle_id, project_id, phase_id, start_day::text, end_day::text, driver_id, notes, override`
+const BOOKING = `id, vehicle_id, project_id, phase_id, start_day::text, end_day::text, driver_id, notes, override, drive_minutes, arrive_by, leave_at`
 
 type Row = Record<string, any>
 
@@ -31,6 +31,9 @@ export const toBooking = (r: Row): VehicleBooking => ({
   driverId: r.driver_id ?? null,
   notes: r.notes,
   override: r.override,
+  driveMinutes: r.drive_minutes ?? null,
+  arriveBy: r.arrive_by ?? null,
+  leaveAt: r.leave_at ?? null,
 })
 
 export async function getVehicle(q: Queryable, id: string, lock = false) {

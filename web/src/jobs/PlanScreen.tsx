@@ -18,6 +18,7 @@ import {
   type PersonCell,
   type VanCell,
   type VanLane,
+  type VanWork,
   type Plan,
   type PlanProblem,
   type ShortSoon,
@@ -38,9 +39,9 @@ import { Top, useJobAdd } from './common.tsx'
 import { ViewFilter } from '../ListTools.tsx'
 import { QuickQuote, type QuickAt } from './QuickQuote.tsx'
 import { departmentChips, DepartmentFilter, useJobDepartments } from './Departments.tsx'
-import { Views } from '../Views.tsx'
+import { StockViews, Views } from '../Views.tsx'
 import { calendarHref } from './CalendarScreen.tsx'
-import { vehicleHref } from '../stock/Vehicles.tsx'
+import { DrivesFrom, VehicleShow, vehicleHref } from '../stock/Vehicles.tsx'
 
 /**
  * The planner (ADR 0010): a week or a month of jobs, of people, or of the
@@ -57,16 +58,33 @@ interface Place {
   rows: Rows
 }
 
-/** What the address says is on screen: #jobs/plan/week/2026-10-05, or #jobs/plan/month/2026-10-01/people, or …/vans. */
-function placeOf(hash: string, now: string): Place {
+/**
+ * Where the planner is: Jobs › Week and Month, or the vehicles' own on Stock › Vehicles (ADR 0179), which is the
+ * same days with only the vans' rows, or the week as a list of its days.
+ */
+export type PlanHome = 'jobs' | 'stock'
+
+/** What the address says is on screen: #jobs/plan/week/2026-10-05, or #jobs/plan/month/2026-10-01/people, or …/vans; #stock/vehicles/week/2026-10-05[/days]. */
+function placeOf(hash: string, now: string, home: PlanHome = 'jobs'): Place {
+  if (home === 'stock') {
+    const [, , scale, day, rows] = hash.split('/')
+    const s: Scale = scale === 'month' ? 'month' : 'week'
+    return { scale: s, day: day && isDay(day) ? day : now, rows: rows === 'days' && s === 'week' ? 'days' : 'vans' }
+  }
   const [, , scale, day, rows] = hash.split('/')
   const s: Scale = scale === 'month' ? 'month' : 'week'
   // Days is a week's way of drawing (review of 11 November 2026, finding 16): a month asked for by days is drawn by jobs.
   return { scale: s, day: day && isDay(day) ? day : now, rows: rows === 'people' || rows === 'vans' || (rows === 'days' && s === 'week') ? rows : 'jobs' }
 }
 
-function hashOf(p: Place): string {
+function hashOf(p: Place, home: PlanHome = 'jobs'): string {
+  if (home === 'stock') return vansPlanHref(p.scale, p.day, p.rows === 'days')
   return `#jobs/plan/${p.scale}/${p.scale === 'week' ? mondayOf(p.day) : addMonths(p.day, 0)}${p.rows === 'jobs' ? '' : `/${p.rows}`}`
+}
+
+/** The vehicles' planner (ADR 0179): a week, by day or as a grid, or a month. */
+export function vansPlanHref(scale: Scale, day: string, byDay = false): string {
+  return `#stock/vehicles/${scale}/${scale === 'week' ? mondayOf(day) : addMonths(day, 0)}${byDay && scale === 'week' ? '/days' : ''}`
 }
 
 const daysOf = (scale: Scale, day: string) => (scale === 'week' ? weekOf(day) : monthOf(day))
@@ -107,9 +125,10 @@ export function JobViews({ place, current }: { place?: Place; current?: 'board' 
   )
 }
 
-export function PlanScreen({ view, hash }: { view: View; hash: string }) {
+export function PlanScreen({ view, hash, home = 'jobs' }: { view: View; hash: string; home?: PlanHome }) {
   const now = useToday()
-  const place = placeOf(hash, now)
+  const stock = home === 'stock'
+  const place = placeOf(hash, now, home)
   const { scale, day, rows } = place
   const days = useMemo(() => daysOf(scale, day), [scale, day])
   // The departments picked (ADR 0137) narrow the job rows to the jobs involving one of them; people and vans stay whole.
@@ -124,7 +143,7 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
     return { ...all, jobs: all.jobs.filter((l) => (l.jobId ? !!byId.get(l.jobId) && involves(byId.get(l.jobId)!) : outside(l.key))) }
   }, [view, days, now, picked, involves])
   const [everyone, setEveryone] = useState(false)
-  const at = (changes: Partial<Place>) => hashOf({ ...place, ...changes })
+  const at = (changes: Partial<Place>) => hashOf({ ...place, ...changes }, home)
   // Jobs or people is a toggle, not a move, so it keeps focus (audit finding 22). Safari, and Firefox on a Mac, don't focus a button they press, so it takes focus itself: the Shell sees a toggle in focus and leaves it there.
   const toggle = (to: Rows) => (e: MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.focus()
@@ -134,11 +153,11 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
   const title = scale === 'week' ? `${spanLabel({ start: days[0]!, end: days.at(-1)! })} ${days.at(-1)!.slice(0, 4)}` : monthLabel(day)
   const busy = p.people.filter((l) => Object.keys(l.days).length > 0)
   const people = everyone ? p.people : busy
-  const lanes = rows === 'jobs' || rows === 'days' ? p.jobs.length : rows === 'people' ? people.length : p.vans.length
+  const lanes = rows === 'days' && stock ? p.vans.length : rows === 'jobs' || rows === 'days' ? p.jobs.length : rows === 'people' ? people.length : p.vans.length
   const rowWord = rows === 'jobs' ? 'job' : rows === 'people' ? 'person' : 'vehicle'
   // A quote can start from a day of the week (ADR 0120), for those who make quotes, on the jobs' rows where the work is: a card
   // opens on the day, as a calendar makes an event, and the day stays in view behind it (ADR 0124).
-  const quoting = useAccess().can('money') && (rows === 'jobs' || rows === 'days')
+  const quoting = useAccess().can('money') && !stock && (rows === 'jobs' || rows === 'days')
   const [quick, setQuick] = useState<QuickAt>()
 
   // On a phone the days start at today, so the day that matters most is in view: when the days change, and once there is something to show.
@@ -243,6 +262,92 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
     </div>
   )
 
+  // A row for each vehicle: the jobs it's on each day, and the road either side (ADR 0179).
+  const vanRows = p.vans.map((lane) => {
+    const joined = scale === 'month' ? joins(days, (d) => codeRun(lane.days[d], (w) => w.held)) : {}
+    return (
+      <tr key={lane.vehicle.id}>
+        <th scope="row">
+          <a href={vehicleHref(lane.vehicle.id)}>
+            <b>{lane.vehicle.name}</b>
+          </a>
+          {lane.vehicle.registration && <small>{lane.vehicle.registration}</small>}
+        </th>
+        {days.map((d) => (
+          <VanDay key={d} lane={lane} cell={lane.days[d]} scale={scale} className={dayClass(d, now, p.holidays)} join={joined[d]} />
+        ))}
+      </tr>
+    )
+  })
+
+  if (stock)
+    return (
+      <div className="app crew jobs plan vans-plan">
+        <Top view={view} title="Stock" views={<StockViews view={view} current="vehicles" />} heading={title} sub={<p>{vansSummary(p, scale)}</p>} />
+        <div className="plan-controls">
+          <div className="plan-bar">
+            <div className="steps">
+              <a className="button" href={at({ day: step(-1) })} aria-label={`Previous ${scale}`}>
+                ‹ Previous
+              </a>
+              <a className="button" href={at({ day: now })} aria-current={days.includes(now) ? 'date' : undefined}>
+                This {scale}
+              </a>
+              <a className="button" href={at({ day: step(1) })} aria-label={`Next ${scale}`}>
+                Next ›
+              </a>
+            </div>
+          </div>
+          <div className="plan-show">
+            <VehicleShow current={scale} day={day} />
+            {scale === 'week' && (
+              <div className="filters" role="group" aria-label="Draw the week">
+                <button type="button" aria-pressed={rows === 'days'} onClick={toggle('days')}>
+                  By day
+                </button>
+                <button type="button" aria-pressed={rows === 'vans'} onClick={toggle('vans')}>
+                  Grid
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <DrivesFrom view={view} />
+        <SortOut problems={[]} vanProblems={p.vanProblems} />
+        {rows === 'days' ? (
+          <VanDaysList days={days} now={now} p={p} />
+        ) : (
+          <section className="card timeline-card" ref={card}>
+            {lanes === 0 && <p className="empty">No vehicles yet: add them on the list.</p>}
+            {lanes > 0 && (
+              <div className="days-float" ref={float} aria-hidden="true" inert>
+                <div className="days-clip">
+                  <table className={`timeline ${scale}`} style={{ '--days': days.length } as CSSProperties}>
+                    <colgroup>
+                      <col className="names" />
+                    </colgroup>
+                    {head}
+                  </table>
+                </div>
+              </div>
+            )}
+            {lanes > 0 && (
+              <div className="scroller more-edges" ref={scroller} tabIndex={0} role="region" aria-label={`${title}, by vehicle`}>
+                <table className={`timeline ${scale}`} style={{ '--days': days.length } as CSSProperties}>
+                  <colgroup>
+                    <col className="names" />
+                  </colgroup>
+                  {head}
+                  <tbody>{vanRows}</tbody>
+                </table>
+              </div>
+            )}
+            <Legend rows="vans" />
+          </section>
+        )}
+      </div>
+    )
+
   return (
     <div className="app crew jobs plan">
       {/* The days shown are the page's name (ADR 0082), what's on them the line under it; moving and what the rows are sit together under that. */}
@@ -330,22 +435,7 @@ export function PlanScreen({ view, hash }: { view: View; hash: string }) {
                       )
                     })
                   : rows === 'vans'
-                    ? p.vans.map((lane) => {
-                        const joined = scale === 'month' ? joins(days, (d) => codeRun(lane.days[d], (w) => w.held)) : {}
-                        return (
-                        <tr key={lane.vehicle.id}>
-                          <th scope="row">
-                            <a href={vehicleHref(lane.vehicle.id)}>
-                              <b>{lane.vehicle.name}</b>
-                            </a>
-                            {lane.vehicle.registration && <small>{lane.vehicle.registration}</small>}
-                          </th>
-                          {days.map((d) => (
-                            <VanDay key={d} lane={lane} cell={lane.days[d]} scale={scale} className={dayClass(d, now, p.holidays)} join={joined[d]} />
-                          ))}
-                        </tr>
-                        )
-                      })
+                    ? vanRows
                     : people.map((lane) => {
                       const joined = scale === 'month' ? joins(days, (d) => codeRun(lane.days[d], (w) => w.booked)) : {}
                       return (
@@ -601,7 +691,7 @@ function VanDay({ lane, cell, scale, className, join }: { lane: VanLane; cell: V
     const first = cell.work.find((w) => w.held) ?? cell.work[0]
     const words = [
       tag && `${tag}: ${cell.problem}`,
-      ...cell.work.map((w) => `${w.held ? 'On' : 'Pencilled in for'} ${w.job}${w.phase ? `, ${w.phase}` : ''}${w.driver ? `, ${w.driver} driving` : ', no driver yet'}`),
+      ...cell.work.map((w) => `${w.driving ? `Driving ${w.driving === 'there' ? 'to' : 'back from'}` : w.held ? 'On' : 'Pencilled in for'} ${w.job}${w.phase ? `, ${w.phase}` : ''}${roadBits(w).map((b) => `, ${b.toLowerCase()}`).join('')}${w.driver ? `, ${w.driver} driving` : ', no driver yet'}`),
       offRoad,
     ]
       .filter(Boolean)
@@ -619,9 +709,15 @@ function VanDay({ lane, cell, scale, className, join }: { lane: VanLane; cell: V
     <td className={cls} title={cell.problem ?? undefined}>
       {tag && <span className="tag">{tag}</span>}
       {cell.work.map((w) => (
-        <div key={w.bookingId} className={`item ${w.held ? 'booked' : 'offered'}`}>
-          <a href={`#jobs/${w.jobId}`}>{w.job}</a>
-          <small>{[!w.held && 'Pencilled in', w.phase, w.driver ? `${w.driver} driving` : 'No driver yet'].filter(Boolean).join(' · ')}</small>
+        <div key={w.bookingId} className={`item ${w.held ? 'booked' : 'offered'}${w.driving ? ' driving' : ''}`}>
+          <a href={`#jobs/${w.jobId}/vans`}>{w.job}</a>
+          <small>{[w.driving ? (w.driving === 'there' ? 'Driving there' : 'Driving back') : '', !w.held && 'Pencilled in', w.phase, w.driver ? `${w.driver} driving` : 'No driver yet'].filter(Boolean).join(' · ')}</small>
+          {/* Out on the road (ADR 0179): when it leaves the warehouse and when it's back, on those days. */}
+          {roadBits(w).map((b) => (
+            <small key={b} className="road">
+              {b}
+            </small>
+          ))}
         </div>
       ))}
       {offRoad && (
@@ -634,6 +730,84 @@ function VanDay({ lane, cell, scale, className, join }: { lane: VanLane; cell: V
   )
 }
 
+/** "Leaves 05:10", "Back 01:40", "2 h 45 each way": the road on a van's day, where it's known (ADR 0179). */
+function roadBits(w: VanWork): string[] {
+  const out: string[] = []
+  if (w.leaves) out.push(`Leaves ${w.leaves}`)
+  if (w.back) out.push(`Back ${w.back}`)
+  if (w.drive && (w.leaves || w.back || !w.driving)) out.push(`${w.drive} each way`)
+  return out
+}
+
+/**
+ * The vehicles' week as a list of its days (ADR 0179), the phone's way, as Jobs' Days is: under each day, each vehicle
+ * out, the job, who drives, and when it leaves and is back. A vehicle with nothing on isn't listed; one off the road is.
+ */
+function VanDaysList({ days, now, p }: { days: readonly string[]; now: string; p: Plan }) {
+  return (
+    <section className="card days-list" aria-label="The week, day by day">
+      {p.vans.length === 0 && <p className="empty">No vehicles yet: add them on the list.</p>}
+      {days.map((d) => {
+        const out = p.vans.filter((lane) => lane.days[d])
+        return (
+          <div key={d} className={`day${d === now ? ' today' : ''}`} aria-current={d === now ? 'date' : undefined}>
+            <div className="day-head">
+              <h3>
+                {dayLabel(d)}
+                {d === now && <small> · Today</small>}
+                {p.holidays[d] && <small> · {p.holidays[d]}</small>}
+              </h3>
+            </div>
+            {out.length === 0 ? (
+              <p className="hint">Every vehicle in the warehouse.</p>
+            ) : (
+              <ul className="plain">
+                {out.map((lane) => {
+                  const cell = lane.days[d]!
+                  return (
+                    <li key={lane.vehicle.id} className={['van-day', cell.severity].filter(Boolean).join(' ')}>
+                      <a href={vehicleHref(lane.vehicle.id)}>
+                        <b>{lane.vehicle.name}</b>
+                      </a>
+                      {cell.severity && (
+                        <p className="problem">
+                          <StatusPill tone={cell.severity === 'clash' ? 'bad' : 'pending'}>{cell.severity === 'clash' ? 'Clash' : 'Check'}</StatusPill> {cell.problem}
+                        </p>
+                      )}
+                      {cell.work.map((w) => (
+                        <p key={w.bookingId} className={w.held ? 'booked' : 'offered'}>
+                          <a href={`#jobs/${w.jobId}/vans`}>{w.job}</a>
+                          <small>
+                            {[w.driving ? (w.driving === 'there' ? 'Driving there' : 'Driving back') : '', !w.held && 'Pencilled in', w.phase, w.driver ? `${w.driver} driving` : 'No driver yet', ...roadBits(w)]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </small>
+                        </p>
+                      ))}
+                      {cell.offRoad !== null && <p className="away">Off the road{cell.offRoad ? `: ${cell.offRoad}` : ''}</p>}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
+/** "3 vehicles out this week · 1 clash": the vehicles' week or month in a line. */
+function vansSummary(p: Plan, scale: Scale): string {
+  const out = p.vans.filter((l) => Object.values(l.days).some((c) => c.work.length > 0)).length
+  const parts = [p.vans.length === 0 ? 'No vehicles yet' : out ? `${out} of ${p.vans.length} vehicle${p.vans.length === 1 ? '' : 's'} out this ${scale}` : `No vehicle out this ${scale}`]
+  const clashes = p.vanProblems.filter((x) => x.severity === 'clash').length
+  const checks = p.vanProblems.length - clashes
+  if (clashes) parts.push(`${clashes} clash${clashes === 1 ? '' : 'es'}`)
+  if (checks) parts.push(`${checks} to check`)
+  return parts.join(' · ')
+}
+
 function Legend({ rows }: { rows: Rows }) {
   const keys: [string, string][] =
     rows === 'vans'
@@ -641,6 +815,7 @@ function Legend({ rows }: { rows: Rows }) {
           ['item booked', 'On a confirmed job'],
           ['item offered', 'Pencilled in: an enquiry or quote'],
           ['item away', 'Off the road'],
+          ['item booked driving', 'Driving there the night before, or back after midnight'],
           ['swatch clash', 'Clash: on two jobs, or booked while off the road or with a check run out'],
           ['swatch check', 'Check: would clash if the pencilled job goes ahead'],
           ['swatch holiday', 'Public holiday'],

@@ -40,6 +40,12 @@ const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS vehicle_bookings_project ON vehicle_bookings (project_id);
   CREATE INDEX IF NOT EXISTS vehicle_bookings_driver ON vehicle_bookings (driver_id);
   `,
+  // The road (ADR 0179): the drive each way as the office knows it, when it's due at the venue, and when it leaves it.
+  `
+  ALTER TABLE vehicle_bookings ADD COLUMN IF NOT EXISTS drive_minutes integer;
+  ALTER TABLE vehicle_bookings ADD COLUMN IF NOT EXISTS arrive_by text;
+  ALTER TABLE vehicle_bookings ADD COLUMN IF NOT EXISTS leave_at text;
+  `,
 ]
 
 export const VEHICLES: Module = { versionTable: 'vehicles_schema_version', migrations: MIGRATIONS }
