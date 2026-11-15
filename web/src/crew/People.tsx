@@ -29,6 +29,12 @@ import {
   sameEmail,
   whoSignsInRefusal,
   nameKey,
+  isVatRegistered,
+  tradesAs,
+  TRADES_AS,
+  TRADES_AS_LABELS,
+  type Company,
+  type TradesAs,
 } from '@sh/shared'
 import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -211,6 +217,8 @@ export function PersonForm({
     knownAs: '',
     level: String(DEFAULT_LEVEL),
     certs: blankCerts(),
+    tradesAs: '' as TradesAs | '',
+    vatRegistered: '' as '' | 'yes' | 'no',
     companyName: '',
     vatNumber: '',
     croNumber: '',
@@ -230,20 +238,24 @@ export function PersonForm({
     knownAs: p.knownAs ?? '',
     level: String(p.level),
     certs: certFieldsOf(p.certificates),
+    tradesAs: (tradesAs(p) ?? '') as TradesAs | '',
+    vatRegistered: (p.company?.vatRegistered === false ? 'no' : isVatRegistered(p) ? 'yes' : '') as '' | 'yes' | 'no',
     companyName: p.company?.name ?? '',
     vatNumber: p.company?.vatNumber ?? '',
     croNumber: p.company?.croNumber ?? '',
   })
   const [f, setF] = useState(initial ? from(initial) : blank)
   // The profile (ADR 0025) folds away on a phone, open when any of it is set; once open or shut by hand it stays so.
-  const [moreOpen] = useState(() => !!initial && (!!initial.department || !!initial.knownAs || initial.level !== DEFAULT_LEVEL || !!initial.company || Object.values(initial.certificates).some((c) => c && (c.held !== null || !!c.expires || !!c.note))))
+  const [moreOpen] = useState(() => !!initial && (!!initial.department || !!initial.knownAs || initial.level !== DEFAULT_LEVEL || Object.values(initial.certificates).some((c) => c && (c.held !== null || !!c.expires || !!c.note))))
   const listId = useId()
   const { run, error, refuse } = useAct()
   const [badEmail, setBadEmail] = useState(false)
-  const set = (k: Exclude<keyof typeof blank, 'approvesLeave' | 'certs' | 'skills' | 'skillsTyped'>) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
+  const set = (k: Exclude<keyof typeof blank, 'approvesLeave' | 'certs' | 'skills' | 'skillsTyped' | 'tradesAs' | 'vatRegistered'>) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   // Only freelancers trade through a company (ADR 0025); one a member of staff already has (from the crew list, say)
   // stays in view so it can be seen and cleared, never dropped without a word.
   const showCompany = f.kind === 'freelancer' || !!initial?.company
+  // How they trade goes with their pay (ADR 0184): asked only of a device that sees their rate, and left as it is by one that doesn't.
+  const readsTrade = seesRates && !initial?.companyHidden
   const setCert = (kind: CertificateKind, field: Partial<CertField>) => setF({ ...f, certs: { ...f.certs, [kind]: { ...f.certs[kind], ...field } } })
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -251,7 +263,13 @@ export function PersonForm({
     if (!names.firstName) return
     const rate = parseEuro(f.rate)
     if (rate.reason !== undefined) return refuse(rate.reason)
-    const company = f.companyName.trim() || f.vatNumber.trim() || f.croNumber.trim()
+    // Sole trader: the VAT answer, and the number only when registered. Company: its name, CRO and VAT numbers (ADR 0184).
+    const trade: Company | null =
+      f.tradesAs === 'sole-trader'
+        ? { as: 'sole-trader', name: '', vatNumber: (f.vatRegistered === 'yes' && f.vatNumber.trim()) || null, croNumber: null, vatRegistered: f.vatRegistered === '' ? null : f.vatRegistered === 'yes' }
+        : f.tradesAs === 'company'
+          ? { as: 'company', name: f.companyName.trim(), vatNumber: f.vatNumber.trim() || null, croNumber: f.croNumber.trim() || null, vatRegistered: null }
+          : null
     const email = f.email.trim() || null
     // Each email is one person's, as the server checks it (audit finding 12).
     const other = sameEmail(email, initial?.email) ? undefined : emailTakenBy(people, initial?.id ?? '', email)
@@ -272,7 +290,7 @@ export function PersonForm({
         knownAs: f.knownAs.trim() || null,
         level: Number(f.level),
         certificates: certificatesOf(f.certs),
-        company: showCompany && company ? { name: f.companyName.trim(), vatNumber: f.vatNumber.trim() || null, croNumber: f.croNumber.trim() || null } : null,
+        ...(readsTrade ? { company: showCompany ? trade : null } : {}),
       })
     ).then((taken) => {
       if (!taken) return
@@ -355,6 +373,50 @@ export function PersonForm({
         </select>
       </label>
       {whoFixed && <p className="hint wide">{whoSignsInRefusal(initial!.name, whoFixed)}</p>}
+      {showCompany && readsTrade && (
+        <>
+          <fieldset className="wide trades-as">
+            <legend>
+              Works for us as <span className="optional">(optional)</span>
+            </legend>
+            {TRADES_AS.map((t) => (
+              <label className="tick" key={t}>
+                <input type="radio" name={`${listId}-trades`} value={t} checked={f.tradesAs === t} onChange={() => setF((was) => ({ ...was, tradesAs: t }))} /> {TRADES_AS_LABELS[t]}
+              </label>
+            ))}
+          </fieldset>
+          {f.tradesAs === 'sole-trader' && (
+            <>
+              <fieldset className="wide trades-as">
+                <legend>VAT registered?</legend>
+                {(['yes', 'no'] as const).map((v) => (
+                  <label className="tick" key={v}>
+                    <input type="radio" name={`${listId}-vat`} value={v} checked={f.vatRegistered === v} onChange={() => setF((was) => ({ ...was, vatRegistered: v }))} /> {v === 'yes' ? 'Yes' : 'No'}
+                  </label>
+                ))}
+              </fieldset>
+              {f.vatRegistered === 'yes' && (
+                <label className="wide">
+                  VAT number <input value={f.vatNumber} onChange={set('vatNumber')} placeholder="IE1234567T" maxLength={40} autoComplete="off" spellCheck={false} />
+                </label>
+              )}
+            </>
+          )}
+          {f.tradesAs === 'company' && (
+            <>
+              <label className="wide">
+                Company name <input value={f.companyName} onChange={set('companyName')} placeholder="As registered, e.g. Quinn Audio Ltd" maxLength={200} />
+              </label>
+              <label>
+                CRO number <input value={f.croNumber} onChange={set('croNumber')} inputMode="numeric" maxLength={40} autoComplete="off" />
+              </label>
+              <label>
+                VAT number <input value={f.vatNumber} onChange={set('vatNumber')} placeholder="If registered" maxLength={40} autoComplete="off" spellCheck={false} />
+              </label>
+            </>
+          )}
+        </>
+      )}
       {f.kind === 'staff' && mayApprove && (
         <label className="wide tick">
           <input type="checkbox" checked={f.approvesLeave} onChange={(e) => setF({ ...f, approvesLeave: e.target.checked })} />
@@ -369,7 +431,7 @@ export function PersonForm({
       </label>
       <p className="hint wide">They can read these in their own data download.</p>
       <details className="wide more" open={moreOpen}>
-        <summary>More: department, level, certificates{showCompany ? ', company' : ''}</summary>
+        <summary>More: department, level, certificates</summary>
         <div className="more-grid">
           <label>
             Department <input list={listId} value={f.department} onChange={set('department')} placeholder="Audio, LX…" maxLength={60} />
@@ -421,19 +483,6 @@ export function PersonForm({
               )}
             </div>
           ))}
-          {showCompany && (
-            <>
-              <label className="wide">
-                Company <input value={f.companyName} onChange={set('companyName')} placeholder="If they trade through a company" maxLength={200} />
-              </label>
-              <label>
-                VAT number <input value={f.vatNumber} onChange={set('vatNumber')} maxLength={40} />
-              </label>
-              <label>
-                CRO number <input value={f.croNumber} onChange={set('croNumber')} maxLength={40} />
-              </label>
-            </>
-          )}
         </div>
       </details>
       <Refusal error={error} className="wide" />

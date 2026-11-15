@@ -305,7 +305,7 @@ const ABOUT: Record<string, string> = {
   offers: 'Work offered to people, and their answers; a confirmed offer is a booking.',
   // Packages (ADR 0087).
   packages: "Packages on the price list: kit quoted together at one price, with its name, the department it's listed under, its price in cents and how it's charged, the products it holds and how many of each, and anything else it includes.",
-  people: 'Staff and freelancers on the crew list: contact details, department, level, the name they go by, certificates, the company and VAT and CRO numbers they trade through, skills and rates, whether they have been archived, which staff can approve time off, and the other addresses of anyone combined with them.',
+  people: 'Staff and freelancers on the crew list: contact details, department, level, the name they go by, certificates, whether they trade as a sole trader or a company, whether a sole trader is VAT-registered, the company and VAT and CRO numbers they trade through, skills and rates, whether they have been archived, which staff can approve time off, and the other addresses of anyone combined with them.',
   // Combining people brought in twice (ADR 0055).
   person_merges: 'People made part of another, as one person: who, whom, and when. Their old private links open the one person; the links themselves are left out.',
   phases: "The parts of each job, such as Build and Show, their days, and who crew ring on the day.",

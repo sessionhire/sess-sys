@@ -5,7 +5,7 @@ import { sortByIds } from '../projects/store.ts'
 
 /** Reading crew rows back as the entities devices and pages see. */
 
-const PERSON = `id, name, first_name, last_name, kind, email, other_emails, phone, skills, day_rate_cents, notes, link_token, archived, approves_leave, department, level, known_as, certificates, company_name, company_vat_number, company_cro_number, role, photo_at, name_checked, whatsapp_off`
+const PERSON = `id, name, first_name, last_name, kind, email, other_emails, phone, skills, day_rate_cents, notes, link_token, archived, approves_leave, department, level, known_as, certificates, company_name, company_vat_number, company_cro_number, trades_as, vat_registered, role, photo_at, name_checked, whatsapp_off`
 const CALL = `id, project_id, phase_id, project, phase, venue, role, start_day::text, end_day::text, call_time, needed, day_rate_cents, details, reply_by::text, status, needs_certificates, department, stopped_on::text`
 // The offer's own WhatsApp message, newest first (ADR 0125): where Meta says it has got to. And the newest that followed it
 // (ADR 0154): that they're booked, the new call time, no longer needed, the job going ahead or off.
@@ -38,8 +38,17 @@ export const toPerson = (r: Row): Person => ({
   level: r.level ?? DEFAULT_LEVEL,
   knownAs: r.known_as ?? null,
   certificates: r.certificates ?? {},
-  // A company is there when any of its three columns is.
-  company: r.company_name || r.company_vat_number || r.company_cro_number ? { name: r.company_name ?? '', vatNumber: r.company_vat_number ?? null, croNumber: r.company_cro_number ?? null } : null,
+  // How they trade is there when any of its columns is (ADRs 0025, 0184); the two newer ones only once set, so older records read as before.
+  company:
+    r.company_name || r.company_vat_number || r.company_cro_number || r.trades_as || r.vat_registered != null
+      ? {
+          ...(r.trades_as ? { as: r.trades_as } : {}),
+          name: r.company_name ?? '',
+          vatNumber: r.company_vat_number ?? null,
+          croNumber: r.company_cro_number ?? null,
+          ...(r.vat_registered != null ? { vatRegistered: r.vat_registered } : {}),
+        }
+      : null,
   role: r.kind === 'staff' ? (r.role ?? null) : null,
   // Only once they have one (ADR 0065), so a person without is sent as before.
   ...(r.photo_at ? { photo: { at: new Date(r.photo_at).toISOString() } } : {}),

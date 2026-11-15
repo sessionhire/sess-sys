@@ -363,6 +363,12 @@ const MIGRATIONS: string[] = [
   ALTER TABLE crew_calls ADD COLUMN IF NOT EXISTS stopped_on date;
   ALTER TABLE offers ADD COLUMN IF NOT EXISTS stopped_on date;
   `,
+  // How a freelancer trades (ADR 0184): as a sole trader or a company, and a sole trader's answer to "VAT registered?".
+  // Empty on everyone from before, who read as a company when they have one, as they always did.
+  `
+  ALTER TABLE people ADD COLUMN IF NOT EXISTS trades_as text CHECK (trades_as IN ('sole-trader', 'company'));
+  ALTER TABLE people ADD COLUMN IF NOT EXISTS vat_registered boolean;
+  `,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }
