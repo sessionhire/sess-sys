@@ -807,7 +807,11 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     case 'quoting.email':
       return a.on === true ? 'Turned on sending quotes to clients by email from the operations mailbox' : 'Turned off sending quotes by email'
     case 'quoting.delivery':
-      return typeof a.centsPerKm === 'number' ? `Set a dry hire's delivery at ${euro(a.centsPerKm)} a km from the warehouse` : "Took off the price of a dry hire's delivery"
+      return typeof a.baseCents === 'number'
+        ? `Set a dry hire's delivery at ${euro(a.baseCents)} for the first ${typeof a.baseKm === 'number' ? a.baseKm : 0} km${typeof a.centsPerKm === 'number' ? `, then ${euro(a.centsPerKm)} a km` : ''}`
+        : typeof a.centsPerKm === 'number'
+          ? `Set a dry hire's delivery at ${euro(a.centsPerKm)} a km from the warehouse`
+          : "Took off the price of a dry hire's delivery"
     case 'quoting.ownKit':
       return typeof a.costPct === 'number' ? `Set own kit's running cost at ${a.costPct}% of its price, for the margin` : "Took off own kit's running cost, so the margin leaves own kit out"
     case 'quoting.reducedDays':

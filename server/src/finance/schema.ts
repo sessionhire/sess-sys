@@ -206,6 +206,8 @@ const MIGRATIONS: string[] = [
   // A dry hire's delivery (ADR 0183): what each km from the warehouse to the delivery address is charged; null for not set.
   `
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_cents_per_km integer CHECK (delivery_cents_per_km >= 0);
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_base_cents integer CHECK (delivery_base_cents >= 0);
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_base_km integer CHECK (delivery_base_km BETWEEN 0 AND 1000);
   `,
 ]
 

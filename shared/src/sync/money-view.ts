@@ -352,8 +352,12 @@ export function moneyView(
       case 'quoting.delivery': {
         const a = m.args as CommandArgs<'quoting.delivery'>
         quoting = { ...quoting, deliveryCentsPerKm: a.centsPerKm, pending: true }
+        if (a.baseCents !== undefined) quoting.deliveryBaseCents = a.baseCents
+        if (a.baseKm !== undefined) quoting.deliveryBaseKm = a.baseKm
         // Taken off reads as never set, as the server gives it.
         if (a.centsPerKm === null) delete quoting.deliveryCentsPerKm
+        if (a.baseCents === null) delete quoting.deliveryBaseCents
+        if (a.baseKm === null) delete quoting.deliveryBaseKm
         break
       }
       case 'quoting.ownKit': {

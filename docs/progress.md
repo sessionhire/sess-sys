@@ -3,6 +3,20 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 15 November 2026: dry hire delivery priced as a set amount, then by the km
+
+**Done (1.203.0, #PR, ADR 0183 amended)**
+
+- Colly asked for a delivery to be a set amount for a certain distance, and
+  each km after that at its own rate, all set in Admin. Admin › Company ›
+  Dry hire delivery now asks for the set amount, the km it covers and each
+  km after; the quote's Delivery line works it out and says how.
+- With no set amount, every km is at the price a km, as before.
+- Checked: shared tests (the sum, within and past the km covered, no price
+  a km past them), parity, and the browser test setting all three in
+  Admin and seeing the quote's line change.
+- Waiting on Colly: set the three amounts on live.
+
 ## 14 November 2026: the quote questions answered; a dry hire delivered or collected
 
 **Done (1.202.0, #392, ADR 0183)**
