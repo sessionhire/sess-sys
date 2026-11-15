@@ -227,7 +227,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     me: null,
   }
   await office.route('**/api/quotes/*/email', (route) => (route.request().method() === 'GET' ? route.fulfill({ json: prefill }) : route.continue()))
-  await expect(draft).toContainText('opens the email to the client from the operations mailbox')
+  await expect(draft).toContainText('Send quote emails it to the client from the operations mailbox')
   // This job is past Quoting, so its Next stays the crew's and the quote's Send is the draft's own, plain (ADR 0166). The PDF
   // to keep is beside it, apart.
   // Getting it is busy at once and, past a second, spins and says so (13 November 2026), then saves the file the server made.
@@ -309,7 +309,13 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.unroute('**/api/quotes/*/email/sends/*')
 
   // Sent another way by the office itself, then a second version with Liffey's 10% off; the first is kept as it went.
-  await draft.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
+  // Send in two parts: the PDF to keep or print, then, apart, what was done another way, each asking its day (14 November 2026).
+  const sendPart = draft.locator('section').filter({ has: office.getByRole('heading', { name: 'Send', exact: true }) })
+  await expect(sendPart.getByRole('group', { name: 'Done another way' }).getByRole('button')).toHaveText(['Mark as sent…', 'Mark accepted…'])
+  if (process.env.SHOTS_DIR) await sendPart.screenshot({ path: `${process.env.SHOTS_DIR}/quote-send-section.png` })
+  await draft.getByRole('button', { name: 'Mark as sent…' }).click()
+  await expect(draft.getByLabel('Sent to the client on')).toBeVisible()
+  if (process.env.SHOTS_DIR) await sendPart.screenshot({ path: `${process.env.SHOTS_DIR}/quote-send-mark-sent.png` })
   await draft.getByRole('button', { name: 'Mark as sent', exact: true }).click()
   await draft.getByRole('button', { name: 'Mark it sent anyway' }).click()
   const v1 = office.getByRole('region', { name: 'Version 1' })
@@ -338,7 +344,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(since).toContainText('€186.76 less than version 1')
   await openTerms(v2)
   await expect(v2.getByLabel('Deposit, %')).toHaveValue('50')
-  await v2.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
+  await v2.getByRole('button', { name: 'Mark as sent…' }).click()
   await v2.getByRole('button', { name: 'Mark as sent', exact: true }).click()
   await v2.getByRole('button', { name: 'Mark it sent anyway' }).click()
   await expect(office.getByRole('region', { name: 'Version 2' }).locator('.quote-facts')).toContainText('Quote 1115')
