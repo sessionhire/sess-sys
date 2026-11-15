@@ -242,14 +242,16 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const [moreOpen, setMoreOpen] = useState(false)
   const [discounting, setDiscounting] = useState<string>()
   const [sentOn, setSentOn] = useState(today)
-  const [answering, setAnswering] = useState(false)
+  // What already happened outside the app, opened to record its day: sent another way (email on), or accepted by phone.
+  const [recording, setRecording] = useState<'sent' | 'accepted'>()
+  const [acceptedOn, setAcceptedOn] = useState(today)
   // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26),
   // and so is anything else on the list of what to look at before it goes (research/quoting.md, feature 3).
   const [free, setFree] = useState<'mark' | 'email' | 'accept'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
   const emailKnown = useQuotesByEmailKnown(m)
   const canEmail = emailKnown ?? false
-  const [sending, setSending] = useState<'email' | 'other'>()
+  const [sending, setSending] = useState<'email'>()
   // One row is open to change at a time, a line's or a worked-out one's; the rest read as a list, as they'll print.
   const [open, setOpen] = useState<string>()
   // Which field the open line starts on, and whether its cost fold is wanted open: set by whatever opened it.
@@ -512,7 +514,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
       .finally(() => setMarking(false))
   }
   // Accepted by phone gets the same last look as sending (finding 18): it's the quote that becomes the invoice.
-  const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: sentOn || today }))
+  const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: acceptedOn || today }))
   const late = useLate(!!payload)
   // Kept on the device while it can't save (finding 27), and let go once it can.
   const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, rooms, kmTyped, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
@@ -1307,19 +1309,39 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           <SendQuote q={q} onSent={() => setSending(undefined)} onCancel={() => setSending(undefined)} />
         ) : (
           <>
-            {saved && q.lines.length > 0 && (!canEmail || sending === 'other') && (
+            {/* Two chunks under Send (Colly, 14 November 2026: the buttons at the foot read as one jumble). First the way it goes:
+                what Send does, said once, then the PDF to keep or print. Then, apart and quieter, what already happened
+                outside the app, each opening its day to record, so no button is a question and nothing sits off to one side. */}
+            {saved && q.lines.length > 0 && (
+              <p className="hint">
+                {canEmail
+                  ? `${sendWord} emails it to the client from the operations mailbox with the PDF attached. It becomes quote ${nextNumber} and stays as it is.`
+                  : `${sendWord} marks it sent on the day below and opens the PDF for you to send: it becomes quote ${nextNumber} and stays as it is. The app sends nothing.`}
+              </p>
+            )}
+            {saved && q.lines.length > 0 && !canEmail && (
               <div className="quote-send">
                 <label>
                   Sent to the client on
                   <input type="date" value={sentOn} max={irishToday()} onChange={(e) => setSentOn(e.target.value)} />
                 </label>
-                {canEmail && (
-                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())} aria-busy={marking || undefined}>
-                    {markLate ? 'Marking it sent…' : 'Mark as sent'}
-                  </button>
-                )}
               </div>
             )}
+            <div className="actions quote-send-row">
+              {/* The PDF as it stands, to keep or send yourself, apart from Send (ADR 0166). A draft's says so on it. */}
+              {saved && q.lines.length > 0 && (
+                <GetFile
+                  className="link"
+                  href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)}
+                  name="Quote.pdf"
+                  label="Download PDF"
+                  working="Getting PDF…"
+                />
+              )}
+              <button type="button" className="link" onClick={onPrint} disabled={!saved} aria-busy={printing || undefined}>
+                Print a draft
+              </button>
+            </div>
             {free && beforeItGoes.length > 0 && (
               <Confirm
                 className="before-it-goes"
@@ -1361,43 +1383,53 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                 )}
               </Confirm>
             )}
-            <div className="actions">
-              <button type="button" onClick={onPrint} disabled={!saved} aria-busy={printing || undefined}>
-                Print a draft
-              </button>
-              {/* The PDF as it stands, to keep or send yourself, apart from Send (ADR 0166). A draft's says so on it. */}
-              {saved && q.lines.length > 0 && (
-                <GetFile
-                  className="link"
-                  href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)}
-                  name="Quote.pdf"
-                  label="Download PDF"
-                  working="Getting PDF…"
-                />
-              )}
-              {saved && q.lines.length > 0 && canEmail && sending !== 'other' && (
-                <button type="button" className="link quiet" onClick={() => setSending('other')}>
-                  Sent another way? Mark as sent
-                </button>
-              )}
-              {saved &&
-                q.lines.length > 0 &&
-                (!answering ? (
-                  <button type="button" className="link quiet" onClick={() => setAnswering(true)}>
-                    Accepted already, by phone?
-                  </button>
-                ) : (
-                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('accept') : accept())}>
-                    Mark accepted
-                  </button>
-                ))}
-            </div>
             {saved && q.lines.length > 0 && (
-              <p className="hint">
-                {canEmail
-                  ? `Send quote, in Next, opens the email to the client from the operations mailbox with the quote attached as a PDF. Once it goes, it becomes quote ${nextNumber} and stays as it is.`
-                  : `${sendWord}, in Next, marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
-              </p>
+              <div className="quote-done" role="group" aria-labelledby={`${q.id}-done`}>
+                <h4 className="quote-subhead" id={`${q.id}-done`}>
+                  Done another way
+                </h4>
+                {!recording ? (
+                  <>
+                    <p className="hint">{canEmail ? 'Sent it yourself, or the client said yes by phone: record it here.' : 'The client said yes by phone or in person: record it here.'}</p>
+                    <div className="actions quote-send-row">
+                      {canEmail && (
+                        <button type="button" className="link quiet" onClick={() => setRecording('sent')}>
+                          Mark as sent…
+                        </button>
+                      )}
+                      <button type="button" className="link quiet" onClick={() => setRecording('accepted')}>
+                        Mark accepted…
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="quote-send">
+                    <label>
+                      {recording === 'sent' ? 'Sent to the client on' : 'Accepted on'}
+                      <input
+                        type="date"
+                        value={recording === 'sent' ? sentOn : acceptedOn}
+                        max={irishToday()}
+                        onChange={(e) => (recording === 'sent' ? setSentOn : setAcceptedOn)(e.target.value)}
+                      />
+                    </label>
+                    <div className="actions">
+                      {recording === 'sent' ? (
+                        <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())} aria-busy={marking || undefined}>
+                          {markLate ? 'Marking sent…' : 'Mark as sent'}
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => (beforeItGoes.length ? setFree('accept') : accept())}>
+                          Mark accepted
+                        </button>
+                      )}
+                      <button type="button" className="link" onClick={() => setRecording(undefined)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}
