@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.202.4',
+    version: '1.202.5',
     date: '2026-11-15',
     title: 'The latest shared colours and sizes',
     what: "The app now carries the newest version of the shared design system that its colours and sizes come from. Nothing you see moves: the changes in it are for denser screens than the phone and desk sizes this app uses, plus a few new measurements for later layout work.",
     prs: [402],
+  },
+  {
+    version: '1.202.4',
+    date: '2026-11-15',
+    title: 'The directors back at the foot of the quote PDF',
+    what: "The line naming the company along the foot of a quote PDF was cut short after its first line, so the registered office's end and the directors could fall off. The foot now grows to fit the whole line, on every page.",
+    prs: [401],
+    adrs: [181],
   },
   {
     version: '1.202.3',
