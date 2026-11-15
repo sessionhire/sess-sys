@@ -28,11 +28,11 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.200.1',
+    version: '1.202.4',
     date: '2026-11-15',
     title: 'The directors back at the foot of the quote PDF',
     what: "The line naming the company along the foot of a quote PDF was cut short after its first line, so the registered office's end and the directors could fall off. The foot now grows to fit the whole line, on every page.",
-    prs: [390],
+    prs: [401],
     adrs: [181],
   },
   {
