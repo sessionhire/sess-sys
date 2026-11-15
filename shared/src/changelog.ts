@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.204.1',
+    date: '2026-11-15',
+    title: 'Tidier skill pills',
+    what: "The skills on a person's form sit evenly in their pills: as much room before the word as after the X, and the X close to its word, as the filter pills under a list already were. The X is just as easy to press.",
+    prs: [394],
+  },
+  {
     version: '1.204.0',
     date: '2026-11-15',
     title: 'Sole trader or company',
