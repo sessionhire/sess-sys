@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-15',
     title: 'One calendar email a gig, not one a day',
     what: "Crew with invites on Google Calendar got an email for every day of a gig when something changed: four cancellations when a four-day gig was cancelled, four when they were booked or their call time moved. Now each person gets one email a gig for changes made together, and a cancellation names every day that's off (\"Nissan - Build, Sat 2 Mar to Sun 3 Mar\"). Their other days still change in their Google Calendar. New invitations still come one a day, since each is a question they answer.",
-    prs: [0],
+    prs: [399],
     adrs: [185],
   },
   {
