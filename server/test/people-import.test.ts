@@ -321,7 +321,7 @@ describe('the profile', () => {
     expect(res.statusCode).toBe(200)
     const text = new TextDecoder('utf-8', { ignoreBOM: true })
     const files = Object.fromEntries(Object.entries(unzipSync(new Uint8Array(res.rawPayload))).map(([name, data]) => [name, text.decode(data)]))
-    expect(files['README.txt']).toMatch(/people +3 rows +Staff and freelancers on the crew list: contact details, department, level, the name they go by, certificates, the company and VAT and CRO numbers/)
+    expect(files['README.txt']).toMatch(/people +3 rows +Staff and freelancers on the crew list: contact details, department, level, the name they go by, certificates, whether they trade as a sole trader or a company, whether a sole trader is VAT-registered, the company and VAT and CRO numbers/)
     const header = files['tables/people.csv']!.split('\r\n')[0]!
     for (const column of ['department', 'level', 'known_as', 'certificates', 'company_name', 'company_vat_number', 'company_cro_number']) expect(header).toContain(column)
     const json = JSON.parse(files['everything.json']!) as { people: { name: string; level: number; department: string | null }[] }
