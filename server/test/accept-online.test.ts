@@ -122,4 +122,19 @@ describe("a quote's own link for the client (ADR 0121)", () => {
     expect((await app.inject({ url: `/q/${lapsed}` })).body).toContain('The prices on this quote held until')
     expect((await accept(lapsed, { name: 'Aoife Byrne', agree: 'yes' })).statusCode).toBe(409)
   })
+
+  it("shows nothing of a version not yet sent, an amendment being drafted say, and takes nothing on it (ADR 0186)", async () => {
+    const { app, quote, accept } = await sent()
+    await ok(app, m('quoting.online', { on: true }), m('quote.save', { id: 'v2', projectId: 'gala', lines: [line({ what: 'L-Acoustics K2', qty: 10 })], discountPct: 0, notes: 'Secret note' }))
+    const draft = (await quote('v2')).acceptToken!
+    const page = await app.inject({ url: `/q/${draft}` })
+    expect(page.body).toContain("This quote hasn't been sent yet")
+    expect(page.body).not.toContain('L-Acoustics K2')
+    expect(page.body).not.toContain('Secret note')
+    expect(page.body).not.toContain('Accept the quote')
+    expect((await app.inject({ url: `/q/${draft}/pdf` })).statusCode).toBe(404)
+    expect((await accept(draft, { name: 'Aoife Byrne', agree: 'yes' })).statusCode).toBe(409)
+    // The version with the client is still the one its link accepts.
+    expect((await app.inject({ url: `/q/${(await quote('v1')).acceptToken!}` })).body).toContain('Accept the quote')
+  })
 })

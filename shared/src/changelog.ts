@@ -36,6 +36,21 @@ export const CHANGELOG: readonly Release[] = [
     adrs: [183],
   },
   {
+    version: '1.202.6',
+    date: '2026-11-15',
+    title: "A client's quote link opens without signing in",
+    what: "On a phone or computer that had opened the app before, the link to accept a quote opened the app and asked to sign in, instead of showing the client their quote. Now the link always shows the quote with its Accept button, on any device, with no sign-in. The same goes for Open it as they see it on the Quote tab and the freelancers' lost-link page. A quote that hasn't been sent yet, such as one being amended, now shows nothing of its prices on its link.",
+    prs: [403],
+    adrs: [186],
+  },
+  {
+    version: '1.202.5',
+    date: '2026-11-15',
+    title: 'The latest shared colours and sizes',
+    what: "The app now carries the newest version of the shared design system that its colours and sizes come from. Nothing you see moves: the changes in it are for denser screens than the phone and desk sizes this app uses, plus a few new measurements for later layout work.",
+    prs: [402],
+  },
+  {
     version: '1.202.4',
     date: '2026-11-15',
     title: 'The directors back at the foot of the quote PDF',
