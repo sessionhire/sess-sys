@@ -276,6 +276,7 @@ function Compose({ q, start, after, onSent, onCancel, onAgain }: { q: QuoteView;
         Message
       </label>
       <textarea id={ids.message} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={QUOTE_EMAIL_LIMITS.message} rows={9} aria-label="Message" readOnly={busy} />
+      <EmailPreview quoteId={q.id} message={message} />
       {start.me && (
         <label className="tick" htmlFor={ids.copy}>
           <input id={ids.copy} type="checkbox" checked={copy} onChange={(e) => setCopy(e.target.checked)} disabled={busy} /> Send me a copy ({start.me})
@@ -384,5 +385,63 @@ export function Emails({ emails }: { emails: readonly QuoteEmail[] }) {
         )
       })}
     </ul>
+  )
+}
+
+/**
+ * The email as the client will see it (ADR 0187): the message as typed, inside the company's layout with the summary,
+ * the button and the foot, drawn by the server. Opened on a press, and drawn again with the message as it stands. The
+ * frame grows to the email's height, so the page scrolls rather than the frame.
+ */
+function EmailPreview({ quoteId, message }: { quoteId: string; message: string }) {
+  const [html, setHtml] = useState<string | null>(null)
+  const [shown, setShown] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+  const frame = useRef<HTMLIFrameElement>(null)
+  const look = async () => {
+    setBusy(true)
+    setProblem(null)
+    try {
+      const { html: drawn } = await post<{ html: string }>(`/api/quotes/${encodeURIComponent(quoteId)}/email/preview`, { message }, 15_000)
+      setHtml(drawn)
+      setShown(message)
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : 'The email couldn’t be drawn just now. Try again in a minute.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const fit = () => {
+    const doc = frame.current?.contentDocument
+    if (frame.current && doc) frame.current.style.height = `${doc.documentElement.scrollHeight}px`
+  }
+  return (
+    <div className="email-preview">
+      <div className="actions">
+        {html === null ? (
+          <button type="button" className="link" aria-busy={busy || undefined} onClick={() => void look()}>
+            <Icon name="show" /> Look at the email
+          </button>
+        ) : (
+          <>
+            {shown !== message && (
+              <button type="button" className="link" aria-busy={busy || undefined} onClick={() => void look()}>
+                <Icon name="refresh" /> Show my changes
+              </button>
+            )}
+            <button type="button" className="link" onClick={() => setHtml(null)}>
+              Hide the email
+            </button>
+          </>
+        )}
+      </div>
+      {problem && (
+        <p className="alert" role="alert">
+          {problem}
+        </p>
+      )}
+      {html !== null && <iframe ref={frame} className="email-frame" title="The email as the client will see it" sandbox="allow-same-origin allow-popups" srcDoc={html} onLoad={fit} />}
+    </div>
   )
 }

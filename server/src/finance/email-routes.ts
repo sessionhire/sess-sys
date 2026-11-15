@@ -2,7 +2,7 @@ import { irishToday, QUOTE_EMAIL_LIMITS, quoteEmailSend, type QuoteAddressCheck,
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { describeDevice } from '../devices.ts'
 import { publicOrigin } from '../http.ts'
-import { checkAddresses, fileNameFor, prefillFor, sendQuote, sendState, sheetFor, type Mailer } from './quote-email.ts'
+import { checkAddresses, fileNameFor, prefillFor, previewFor, sendQuote, sendState, sheetFor, type Mailer } from './quote-email.ts'
 import { quotePdf } from './quote-pdf.ts'
 import { getQuote, getQuoteEmailPdf } from './store.ts'
 import { Refused, serverChange } from '../kernel.ts'
@@ -36,9 +36,20 @@ export function registerQuoteEmailRoutes(app: FastifyInstance, m: Mailer) {
       ...(req.role ? { role: req.role, reader: req.reader ?? {} } : {}),
       device: describeDevice(req.headers['user-agent']),
       clientId: typeof req.query.client === 'string' ? req.query.client : undefined,
+      origin: publicOrigin(req),
     })
     if (!sent.ok) return reply.code(sent.code).send({ error: sent.error })
     return { email: sent.email }
+  })
+
+  /** The email as the client will see it (ADR 0187), with the message as typed so far: for the compose box to show. */
+  app.post<{ Params: { id: string } }>('/api/quotes/:id/email/preview', { config: { needs: 'money' } }, async (req, reply): Promise<{ html: string } | void> => {
+    noStore(reply)
+    const message = (req.body as { message?: unknown } | undefined)?.message
+    if (typeof message !== 'string') return reply.code(400).send({ error: 'Say what the message is.' })
+    const quote = await getQuote(m.db.reads, id(req.params.id))
+    if (!quote) return reply.code(404).send({ error: 'That quote is no longer here.' })
+    return { html: await previewFor(m, quote, message.slice(0, QUOTE_EMAIL_LIMITS.message), publicOrigin(req)) }
   })
 
   /** Where one press of Send is, by its key (ADR 0171): asked by a phone that stopped waiting, before it offers Send again. */

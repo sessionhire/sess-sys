@@ -558,6 +558,8 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .compose { display: grid; gap: var(--ds-space-1); }
 .quote-screen .compose form { display: grid; gap: var(--ds-space-1); }
 .quote-screen .compose .field { margin-top: var(--ds-space-2); }
+/* The email as the client will see it (ADR 0187): drawn by the server, as tall as it is, on its own page colour. */
+.compose .email-frame { display: block; width: 100%; min-height: 320px; border: 1px solid var(--ds-line-subtle); border-radius: var(--ds-radius-panel); background: var(--ds-surface-overlay); }
 .quote-screen .compose input, .quote-screen .compose textarea { width: 100%; }
 .quote-screen .compose textarea { min-height: 11em; line-height: 1.45; }
 .quote-screen .compose .compose-from { margin: 0; }

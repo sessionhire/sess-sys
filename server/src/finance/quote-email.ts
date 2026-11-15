@@ -11,6 +11,7 @@ import type { Mailbox } from '../assistant/mailbox.ts'
 import { getSetting } from '../office/store.ts'
 import { getClient, getProject, getVenue } from '../projects/store.ts'
 import { quotePdf, type Sheet } from './quote-pdf.ts'
+import { EMAIL_PICTURE_TYPES, LOGO_CID, pictureSize, quoteEmailHtml } from './quote-email-html.ts'
 import { getQuote, getQuoteEmail, getQuoteEmailByKey, getQuoteSettings, highestNumber, quotesOf } from './store.ts'
 
 /**
@@ -46,6 +47,8 @@ export interface Mailer {
 export interface Sender extends From {
   staff?: StaffUser | null
   clientId?: string
+  /** The app's own address, for the client's link in the email's button (ADR 0121, ADR 0187). */
+  origin?: string
 }
 
 export type SendResult = { ok: true; email: QuoteEmail } | { ok: false; code: number; error: string }
@@ -123,6 +126,16 @@ export async function prefillFor(m: Mailer, quote: Quote, staff: StaffUser | nul
     why: off ? 'Sending quotes by email is off. Turn it on under Admin › Connections › The operations mailbox.' : sender.ok ? null : sender.why,
     me: staff?.email && (!sender.ok || staff.email.toLowerCase() !== sender.account.toLowerCase()) ? staff.email : null,
   }
+}
+
+/** The email as it would go (ADR 0187), with the logo written into the page, as the compose box shows it. */
+export async function previewFor(m: Mailer, quote: Quote, message: string, origin?: string): Promise<string> {
+  const today = irishToday(m.now?.())
+  const going: Quote = quote.status === 'draft' ? { ...quote, sentOn: today } : quote
+  const [sheet, number, settings, logo] = await Promise.all([sheetFor(m.db.reads, going, today), numberFor(m.db.reads, quote), getQuoteSettings(m.db.reads), m.logo?.().catch(() => undefined)])
+  const acceptUrl = settings?.acceptOnline && quote.acceptToken && origin ? `${origin}${acceptPath(quote.acceptToken)}` : null
+  const type = logo ? EMAIL_PICTURE_TYPES[logo.type] : undefined
+  return quoteEmailHtml({ sheet, number, message, fileName: fileNameFor(number, sheet.job.name), acceptUrl, logoSrc: logo && type ? `data:${type};base64,${logo.data.toString('base64')}` : null, logoSize: logo && type ? pictureSize(logo.data) : null })
 }
 
 /** A press of Send not heard of for this long, with no email from it, stopped part way: whether it went can't be told. */
@@ -244,7 +257,7 @@ async function sendHeld(m: Mailer, quoteIn: Quote, body: QuoteEmailSend, who: Se
   const today = irishToday(now)
   let quote = quoteIn
   const quoteId = quote.id
-  const { clientId = 'server', staff: _staff, ...from } = who
+  const { clientId = 'server', staff: _staff, origin: _origin, ...from } = who
   const device = /^[a-z0-9]{1,64}$/.test(clientId) ? clientId : 'server'
   const draft = quote.status === 'draft'
   // The number it goes with, checked against the one the compose box showed before anything is given (ADR 0130).
@@ -273,6 +286,11 @@ async function sendHeld(m: Mailer, quoteIn: Quote, body: QuoteEmailSend, who: Se
   const staff = who.staff ?? undefined
   // A copy to whoever pressed Send (ADR 0171), unless it's the mailbox itself or they're already on it.
   const copyTo = body.copy && staff?.email && staff.email.toLowerCase() !== sender.account.toLowerCase() && !body.to.some((a) => a.toLowerCase() === staff.email.toLowerCase()) ? staff.email : null
+  // Laid out with the logo, the summary and the client's button (ADR 0187); the text part is the message as typed.
+  const settings = await getQuoteSettings(m.db.reads)
+  const acceptUrl = settings?.acceptOnline && going.acceptToken && who.origin ? `${who.origin}${acceptPath(going.acceptToken)}` : null
+  const picture = logo && EMAIL_PICTURE_TYPES[logo.type] ? { cid: LOGO_CID, name: `logo.${logo.type === 'jpeg' ? 'jpg' : logo.type}`, type: EMAIL_PICTURE_TYPES[logo.type]!, bytes: logo.data } : null
+  const html = quoteEmailHtml({ sheet, number: quote.number ?? number, message: body.message, fileName, acceptUrl, logoSrc: picture ? `cid:${LOGO_CID}` : null, logoSize: picture ? pictureSize(picture.bytes) : null })
   const raw = mime({
     from: { name: COMPANY, address: sender.account },
     to: body.to,
@@ -281,6 +299,8 @@ async function sendHeld(m: Mailer, quoteIn: Quote, body: QuoteEmailSend, who: Se
     ...(copyTo ? { bcc: [copyTo] } : {}),
     subject: body.subject,
     text: body.message,
+    html,
+    ...(picture ? { inline: [picture] } : {}),
     attachment: { name: fileName, type: 'application/pdf', bytes: pdf },
     date: now,
   })
@@ -360,15 +380,19 @@ export interface Message {
   bcc?: string[]
   subject: string
   text: string
+  /** The same message laid out (ADR 0187), shown in place of the text by a mail program that can. */
+  html?: string
+  /** Pictures the HTML shows by content id, such as the logo, carried in the email. */
+  inline?: { cid: string; name: string; type: string; bytes: Buffer }[]
   /** Left out for a plain email, such as a freelancer's code (ADR 0114). */
   attachment?: { name: string; type: string; bytes: Buffer }
   date: Date
 }
 
-/** An email with a text part and, when there is one, an attachment, headers folded and encoded as the standards ask. */
+/** An email with a text part, an HTML part beside it when there is one, and, when there is one, an attachment, headers folded and encoded as the standards ask. */
 export function mime(msg: Message): Buffer {
-  if (!msg.attachment) return plainMime(msg)
-  const boundary = `sh-${randomBytes(12).toString('hex')}`
+  if (!msg.attachment && !msg.html) return plainMime(msg)
+  const boundary = () => `sh-${randomBytes(12).toString('hex')}`
   const headers = [
     `From: ${addressLine(msg.from)}`,
     fold('To: ', msg.to.map((a) => addressLine({ address: a }))),
@@ -377,21 +401,33 @@ export function mime(msg: Message): Buffer {
     `Subject: ${encodedWord(msg.subject)}`,
     `Date: ${msg.date.toUTCString()}`,
     'MIME-Version: 1.0',
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
   ].filter(Boolean)
+  /** A part made of parts, as its head and body. */
+  const multi = (kind: 'mixed' | 'alternative' | 'related', parts: string[]) => {
+    const b = boundary()
+    return [`Content-Type: multipart/${kind}; boundary="${b}"`, '', `--${b}`, parts.join(`\r\n--${b}\r\n`), `--${b}--`].join('\r\n')
+  }
+  const text = ['Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', lines(Buffer.from(msg.text.replace(/\r?\n/g, '\r\n'), 'utf8'))].join('\r\n')
+  // The text, and the HTML beside it with the logo it shows carried along (multipart/related), so a mail program shows the best it can.
+  let body = text
+  if (msg.html) {
+    const html = ['Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', lines(Buffer.from(msg.html.replace(/\r?\n/g, '\r\n'), 'utf8'))].join('\r\n')
+    const pictures = (msg.inline ?? []).map((p) =>
+      [`Content-Type: ${p.type}; name="${p.name}"`, `Content-Disposition: inline; filename="${p.name}"`, `Content-ID: <${p.cid}>`, 'Content-Transfer-Encoding: base64', '', lines(p.bytes)].join('\r\n')
+    )
+    body = multi('alternative', [text, pictures.length ? multi('related', [html, ...pictures]) : html])
+  }
+  if (!msg.attachment) return Buffer.from([...headers, body, ''].join('\r\n'), 'utf8')
   const plainName = msg.attachment.name.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[^\x20-\x7e]|["\\]/g, '_')
   const starName = encodeURIComponent(msg.attachment.name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
-  const parts = [
-    ['Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', lines(Buffer.from(msg.text.replace(/\r?\n/g, '\r\n'), 'utf8'))].join('\r\n'),
-    [
-      `Content-Type: ${msg.attachment.type}; name="${plainName}"`,
-      `Content-Disposition: attachment; filename="${plainName}"; filename*=UTF-8''${starName}`,
-      'Content-Transfer-Encoding: base64',
-      '',
-      lines(msg.attachment.bytes),
-    ].join('\r\n'),
-  ]
-  return Buffer.from([...headers, '', `--${boundary}`, parts.join(`\r\n--${boundary}\r\n`), `--${boundary}--`, ''].join('\r\n'), 'utf8')
+  const attached = [
+    `Content-Type: ${msg.attachment.type}; name="${plainName}"`,
+    `Content-Disposition: attachment; filename="${plainName}"; filename*=UTF-8''${starName}`,
+    'Content-Transfer-Encoding: base64',
+    '',
+    lines(msg.attachment.bytes),
+  ].join('\r\n')
+  return Buffer.from([...headers, multi('mixed', [body, attached]), ''].join('\r\n'), 'utf8')
 }
 
 /** An email with only text in it. */

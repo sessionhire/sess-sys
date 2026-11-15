@@ -88,9 +88,15 @@ function readMail(raw: Buffer) {
     .slice(1, -1)
     .map((p) => {
       const [h, ...b] = p.replace(/^\r\n/, '').split('\r\n\r\n')
-      return { head: h!, body: Buffer.from(b.join('\r\n\r\n').replace(/\s/g, ''), 'base64') }
+      return { head: h!, body: Buffer.from(b.join('\r\n\r\n').replace(/\s/g, ''), 'base64'), raw: b.join('\r\n\r\n') }
     })
   return { headers, parts }
+}
+
+/** The parts inside a multipart part, each with its head and its body decoded. */
+function inner(part: { head: string; raw: string }): { head: string; body: Buffer; raw: string }[] {
+  const boundary = part.head.match(/boundary="([^"]+)"/)![1]!
+  return readMail(Buffer.from(`Content-Type: multipart/x; boundary="${boundary}"\r\n\r\n${part.raw}`)).parts
 }
 
 async function setup() {
@@ -157,8 +163,24 @@ describe('sending a quote to the client by email (ADR 0101)', () => {
       'mime-version': '1.0',
     })
     expect(mail.parts).toHaveLength(2)
-    expect(mail.parts[0]!.head).toContain('text/plain; charset=UTF-8')
-    expect(mail.parts[0]!.body.toString('utf8')).toBe('Hi Ruairí,\r\n\r\nQuote attached as discussed.\r\n\r\nAdam')
+    // The message as typed for a mail program that shows only text, and laid out beside it (ADR 0187).
+    expect(mail.parts[0]!.head).toContain('multipart/alternative')
+    const [plain, laid] = inner(mail.parts[0]!)
+    expect(plain!.head).toContain('text/plain; charset=UTF-8')
+    expect(plain!.body.toString('utf8')).toBe('Hi Ruairí,\r\n\r\nQuote attached as discussed.\r\n\r\nAdam')
+    expect(laid!.head).toContain('text/html; charset=UTF-8')
+    const html = laid!.body.toString('utf8')
+    expect(html).toContain('<p class="sh-ink"')
+    expect(html).toContain('Hi Ruairí,')
+    expect(html).toContain('Quote attached as discussed.')
+    expect(html).toContain('€204.30')
+    expect(html).toContain(`5 March ${year}`)
+    expect(html).toContain('VAT number IE 1234567T')
+    expect(html).toContain('Quote 1115 - Liffey Brands Launch.pdf')
+    // Answers taken online: the button to the version's own link, on the app's address.
+    expect(html).toMatch(/<a href="http:\/\/[^/"]+\/q\/[A-Za-z0-9_-]{24}"[^>]*>View and accept the quote<\/a>/)
+    // No logo put up: the company's name in words, and no picture carried.
+    expect(html).not.toContain('cid:')
     expect(mail.parts[1]!.head).toContain('application/pdf; name="Quote 1115 - Liffey Brands Launch.pdf"')
     expect(mail.parts[1]!.head).toContain('Content-Disposition: attachment; filename="Quote 1115 - Liffey Brands Launch.pdf"')
     expect(mail.parts[1]!.body.subarray(0, 5).toString()).toBe('%PDF-')
