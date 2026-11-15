@@ -146,6 +146,8 @@ export function renderAcceptPage(d: AcceptPage, until: string): string {
   const top = `<header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>${h(s.job.name)}</h1><small>${h(number ? `Quote ${number}` : 'Quote')}${
     s.job.client ? ` · for ${h(s.job.client.name)}` : ''
   }</small></div></header>`
+  // A version not yet sent has no client to show it to: whoever has its link sees that, and nothing of its lines or prices (ADR 0186).
+  if (d.standing === 'draft') return page(number ? `Quote ${number}` : 'Quote', [top, standingLine(d, until), officeBlock(d.office)].join('\n'))
   const facts = `<dl class="facts">${where ? `<dt>When and where</dt><dd>${h(where)}</dd>` : ''}${s.q.sentOn ? `<dt>Sent</dt><dd>${letterDay(s.q.sentOn)}</dd>` : ''}${
     d.standing === 'open' ? `<dt>Prices hold until</dt><dd>${letterDay(until)}</dd>` : ''
   }</dl>`
