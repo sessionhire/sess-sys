@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-15',
     title: "A client's quote link opens without signing in",
     what: "On a phone or computer that had opened the app before, the link to accept a quote opened the app and asked to sign in, instead of showing the client their quote. Now the link always shows the quote with its Accept button, on any device, with no sign-in. The same goes for Open it as they see it on the Quote tab and the freelancers' lost-link page. A quote that hasn't been sent yet, such as one being amended, now shows nothing of its prices on its link.",
-    prs: [0],
+    prs: [403],
     adrs: [186],
   },
   {
