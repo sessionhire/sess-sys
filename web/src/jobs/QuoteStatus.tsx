@@ -54,7 +54,7 @@ export function InStep({ job, want, compact }: { job: JobView; want: 'confirmed'
       {!compact && (
         <p>
           {want === 'confirmed'
-            ? `The client accepted, and the job is still ${job.status === 'enquiry' ? 'an enquiry' : 'quoted'}. Confirming it puts it on the jobs calendar and holds its kit.`
+            ? `The client accepted, and the job is still ${job.status === 'enquiry' ? 'an enquiry' : 'quoted'}. Confirming it puts it on the jobs calendar${job.status === 'enquiry' ? ' and holds its kit' : ''}.`
             : `The client turned it down, and the job is still ${job.status === 'enquiry' ? 'an enquiry' : 'quoted'}. Marking it lost cancels any crew calls on it.`}
         </p>
       )}

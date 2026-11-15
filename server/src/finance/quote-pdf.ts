@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import PDFDocument from 'pdfkit'
 import {
+  NO_CHARGE,
   addressOnOneLine,
   depositCents,
   legalLine,
@@ -21,6 +22,9 @@ import {
   priceWords,
   RATE_UNIT,
   spanLabel,
+  hireWhen,
+  type HireTerms,
+  type ProjectKind,
   validUntil,
   VAT_LABELS,
   venueLabel,
@@ -56,7 +60,7 @@ import {
 export interface Sheet {
   q: Quote
   totals: QuoteTotals
-  job: { name: string; span: { start: string; end: string } | undefined; venue: Pick<Venue, 'name' | 'address'> | undefined; client: Client | undefined }
+  job: { name: string; span: { start: string; end: string } | undefined; venue: Pick<Venue, 'name' | 'address'> | undefined; client: Client | undefined; kind?: ProjectKind; hire?: HireTerms | null }
   /** Admin's office details: the address, phone, email and VAT number printed along the foot. */
   office: Setting | undefined
   quoting: Pick<QuoteSettings, 'terms' | 'bank'>
@@ -80,8 +84,8 @@ const PANEL = '#f4f5f7'
 const SIDE = 42.5
 const TOP = 40
 const FOOT = 62
-/** Two more small lines along the foot for the company's registered name, number, office and directors (ADR 0181). */
-const LEGAL_ROOM = 20
+/** The space between the lines of the company's registered name, number, office and directors along the foot (ADR 0181). */
+const LEGAL_GAP = 1.2
 
 /** Sizes in points: the body, a row's second line, a label in capitals. */
 const BODY = 9
@@ -129,13 +133,12 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   const number = quoteNumberLabel(q)
   const title = draft ? `Draft quote for ${job.name}` : `Quote ${q.number ?? ''} for ${job.name}`.replace('  ', ' ')
   // The company as Admin › Company has it (ADR 0181): what it trades as, and, when given, the company as the law asks it
-  // to be named, which takes up to two more lines along the foot.
+  // to be named, which takes as many more lines along the foot as it needs (measured once the fonts are in).
   const trade = tradingNameOf(office)
   const legal = legalLine(office)
-  const foot = FOOT + (legal ? LEGAL_ROOM : 0)
   const doc = new PDFDocument({
     size: 'A4',
-    margins: { top: TOP, bottom: foot, left: SIDE, right: SIDE },
+    margins: { top: TOP, bottom: FOOT, left: SIDE, right: SIDE },
     bufferPages: true,
     info: { Title: drawable(title), Author: drawable(trade), Creator: drawable(trade) },
   })
@@ -156,6 +159,12 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   const left = SIDE
   const width = pageW - SIDE * 2
   const right = left + width
+  // The legal line's whole height at the page's width, every line of it, and the foot made that much taller on every
+  // page, so the directors at its end are never cut off (ADR 0181).
+  const legalH = legal ? doc.font(F.regular).fontSize(SMALL).heightOfString(drawable(legal), { width, lineGap: LEGAL_GAP }) : 0
+  const foot = FOOT + (legal ? Math.ceil(legalH) + 2 : 0)
+  doc.page.margins.bottom = foot
+  ;(doc.options.margins as { bottom: number }).bottom = foot
   /** The lowest a line of the body may sit before the foot. */
   const floor = pageH - foot
 
@@ -228,7 +237,10 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   let yJob = y
   yJob += label('The job', xJob, yJob, colJob) + 3
   yJob += put(job.name, xJob, yJob, colJob, { size: 10.5, font: F.bold })
-  if (job.span) yJob += put(spanLabel(job.span), xJob, yJob, colJob)
+  // A dry hire's days with their times, From and To or Collection and Return, and where it's delivered (ADR 0183).
+  const when = hireWhen(job, job.span)
+  if (when.length) for (const w of when) yJob += put(`${w.label} ${w.text}`, xJob, yJob, colJob, w.label === 'Delivered to' ? { color: MUTED } : {})
+  else if (job.span) yJob += put(spanLabel(job.span), xJob, yJob, colJob)
   if (job.venue) yJob += put(venueLabel(job.venue), xJob, yJob + 2, colJob, { color: MUTED }) + 2
   let yWhen = y
   const fact = (name: string, value: string) => {
@@ -313,7 +325,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
       const second: Cell[] = []
       if (l.includes) second.push({ s: l.includes })
       if (saved) second.push({ s: `${money(saved)} off its items’ ${money(lineCents({ ...l, discountPct: undefined, unitCents: l.fullCents! }))}`, st: { color: BRAND } })
-      const amount: Cell = { s: free ? 'Included' : money(under.length ? setCents(l, q.lines) : lineCents(l)), st: free ? { color: MUTED } : { font: F.medium } }
+      const amount: Cell = { s: free ? NO_CHARGE : money(under.length ? setCents(l, q.lines) : lineCents(l)), st: free ? { color: MUTED } : { font: F.medium } }
       const amountCell: Cell = l.discountPct ? { s: `${amount.s}\nless ${pctWord(l.discountPct)}`, st: amount.st } : amount
       row(
         [{ s: l.what, st: { font: F.medium } }, { s: String(l.qty) }, { s: byKit ? '' : daysWord(l) }, { s: byKit || free ? '' : price }, { s: VAT_LABELS[l.vat], st: { color: MUTED } }, amountCell],
@@ -434,7 +446,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
     }
     if (legal) {
       style({ size: SMALL, color: MUTED })
-      doc.text(drawable(legal), left, yf + 22, { width: textW, height: LEGAL_ROOM - 1, lineGap: 1.2, ellipsis: true })
+      doc.text(drawable(legal), left, yf + 22, { width, lineGap: LEGAL_GAP })
     }
     if (where) {
       style({ size: SMALL, color: MUTED })

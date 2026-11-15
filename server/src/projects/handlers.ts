@@ -41,6 +41,7 @@ const PROJECT_COLUMNS = {
   officeNotes: 'office_notes',
   prepDays: 'prep_days',
   returnDays: 'return_days',
+  hire: 'hire',
 } as const
 const PHASE_COLUMNS = { name: 'name', start: 'start_day', end: 'end_day', venueId: 'venue_id', notes: 'notes', contactId: 'contact_id', localCrew: 'local_crew' } as const
 
@@ -177,8 +178,8 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     await checkClient(ctx, a.clientId)
     await checkVenue(ctx, a.venueId)
     await ctx.tx.query(
-      'INSERT INTO projects (id, name, client_id, venue_id, status, kind, notes, office_notes, prep_days, return_days) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-      [a.id, a.name, a.clientId, a.venueId, a.status, kindOf(a), a.notes, a.officeNotes ?? '', kitDaysOf(a).prep, kitDaysOf(a).back]
+      'INSERT INTO projects (id, name, client_id, venue_id, status, kind, notes, office_notes, prep_days, return_days, hire) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
+      [a.id, a.name, a.clientId, a.venueId, a.status, kindOf(a), a.notes, a.officeNotes ?? '', kitDaysOf(a).prep, kitDaysOf(a).back, a.hire ? JSON.stringify(a.hire) : null]
     )
     await emit(ctx, 'project', a.id, await getProject(ctx.tx, a.id))
   },
@@ -188,7 +189,7 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     if (!before) throw new Refused({ code: 'not-found', message: 'That job no longer exists.' })
     await checkClient(ctx, a.clientId)
     await checkVenue(ctx, a.venueId)
-    await setFields(ctx, 'projects', PROJECT_COLUMNS, a)
+    await setFields(ctx, 'projects', PROJECT_COLUMNS, { ...a, hire: a.hire === undefined ? undefined : a.hire && JSON.stringify(a.hire) })
     await emit(ctx, 'project', a.id, await getProject(ctx.tx, a.id))
     if (a.name !== undefined || a.venueId !== undefined) await renameCalls(ctx, { projectId: a.id })
     // Crew asked to hold the day hear it's confirmed, and crew asked or booked hear it's stopped, on WhatsApp (ADR 0125, HOLD).

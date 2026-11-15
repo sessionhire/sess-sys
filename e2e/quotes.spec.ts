@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
+import { draftBase } from '../shared/src/draft-merge.ts'
+import type { Quote } from '../shared/src/quotes.ts'
 
 /** The rarer ways to add sit under More, and the terms read as a line with Change, until opened (ADR 0140, part 4). */
 async function openMore(at: import('@playwright/test').Locator) {
@@ -172,13 +174,13 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // Nothing faults the line while it's still being typed (design system rule 18): the readout says it's not saved, quietly.
   await expect(draft.locator('.save-state')).toHaveText('Line 4 not saved')
   await expect(draft.locator('.line-problem')).toHaveCount(0)
-  await expect(draft.locator('.warn-line')).toHaveCount(0)
+  await expect(draft.locator('.warn-line:not(.kit-note)')).toHaveCount(0)
   await office.goto('/#crew')
   await office.goBack()
   // Back, the line was left, so what stops it saving is said. Send stays in the strip and says what stops it (ADR 0140,
   // part 2), and leads to the line.
   await expect(draft.getByRole('button', { name: 'Line 4: not named yet, change it' })).toBeVisible()
-  await expect(draft.locator('.warn-line')).toContainText("Line 4: say what it's for. The rest is saved")
+  await expect(draft.locator('.warn-line:not(.kit-note)')).toContainText("Line 4: say what it's for. The rest is saved")
   await expect(draft.getByRole('group', { name: 'What it comes to' }).getByRole('button', { name: 'Send: 1 line to finish' })).toBeVisible()
   await draft.getByRole('button', { name: 'Send: 1 line to finish' }).click()
   await expect(draft.getByLabel('Line 4: price')).toHaveValue('400')
@@ -225,7 +227,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     me: null,
   }
   await office.route('**/api/quotes/*/email', (route) => (route.request().method() === 'GET' ? route.fulfill({ json: prefill }) : route.continue()))
-  await expect(draft).toContainText('opens the email to the client from the operations mailbox')
+  await expect(draft).toContainText('Send quote emails it to the client from the operations mailbox')
   // This job is past Quoting, so its Next stays the crew's and the quote's Send is the draft's own, plain (ADR 0166). The PDF
   // to keep is beside it, apart.
   // Getting it is busy at once and, past a second, spins and says so (13 November 2026), then saves the file the server made.
@@ -251,6 +253,9 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
     route.fulfill({ json: { addresses: to.map((address) => ({ address, problem: address.endsWith('@nomail.ie') ? 'nomail.ie can’t receive email, so it would bounce. Check the spelling.' : null, suggest: address === 'ruairi@gmial.com' ? 'ruairi@gmail.com' : null })) } })
   })
   await draft.getByRole('button', { name: 'Send quote' }).click()
+  // Corrib Arts Week, a quote already sent, holds its kit (ADR 0183), so a line here is short and is asked about first.
+  await expect(draft.locator('.before-it-goes')).toContainText("short of kit on the job's days")
+  await draft.getByRole('button', { name: 'Send it anyway' }).click()
   const compose = draft.getByRole('form', { name: 'Send the quote by email' })
   await expect(compose.getByLabel('To')).toHaveValue('ruairi@example.com')
   await expect(compose.getByLabel('Subject')).toHaveValue('Quote 1115 from Session Hire: Liffey Brands Launch')
@@ -304,8 +309,15 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.unroute('**/api/quotes/*/email/sends/*')
 
   // Sent another way by the office itself, then a second version with Liffey's 10% off; the first is kept as it went.
-  await draft.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
+  // Send in two parts: the PDF to keep or print, then, apart, what was done another way, each asking its day (14 November 2026).
+  const sendPart = draft.locator('section').filter({ has: office.getByRole('heading', { name: 'Send', exact: true }) })
+  await expect(sendPart.getByRole('group', { name: 'Done another way' }).getByRole('button')).toHaveText(['Mark as sent…', 'Mark accepted…'])
+  if (process.env.SHOTS_DIR) await sendPart.screenshot({ path: `${process.env.SHOTS_DIR}/quote-send-section.png` })
+  await draft.getByRole('button', { name: 'Mark as sent…' }).click()
+  await expect(draft.getByLabel('Sent to the client on')).toBeVisible()
+  if (process.env.SHOTS_DIR) await sendPart.screenshot({ path: `${process.env.SHOTS_DIR}/quote-send-mark-sent.png` })
   await draft.getByRole('button', { name: 'Mark as sent', exact: true }).click()
+  await draft.getByRole('button', { name: 'Mark it sent anyway' }).click()
   const v1 = office.getByRole('region', { name: 'Version 1' })
   await expect(v1.getByText('Sent', { exact: true })).toBeVisible()
   // On a phone the version as sent is what and the amount, the rest in a line under the name (audit, 5 November 2026, finding 59).
@@ -332,8 +344,9 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await expect(since).toContainText('€186.76 less than version 1')
   await openTerms(v2)
   await expect(v2.getByLabel('Deposit, %')).toHaveValue('50')
-  await v2.getByRole('button', { name: 'Sent another way? Mark as sent' }).click()
+  await v2.getByRole('button', { name: 'Mark as sent…' }).click()
   await v2.getByRole('button', { name: 'Mark as sent', exact: true }).click()
+  await v2.getByRole('button', { name: 'Mark it sent anyway' }).click()
   await expect(office.getByRole('region', { name: 'Version 2' }).locator('.quote-facts')).toContainText('Quote 1115')
 
   // The client said yes; the office invoiced it outside the app and records that here.
@@ -798,6 +811,63 @@ test('two people on one draft keep both their changes, one of them with no signa
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
+test("a change from another phone arriving as a line is changed doesn't put the line back as it was (ADR 0113)", async ({ browser, request }) => {
+  // Proves: when the draft as saved elsewhere lands at the very moment a field is changed here, after the screen has
+  // drawn it and before it has taken it in, both are kept. Taking it in over the lines as they were drawn put the line
+  // back as it was before the change (a line's Charged lost, 14 November 2026).
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await office.goto('/#jobs')
+  await office.locator('.job-row', { hasText: 'Liffey Brands Launch' }).click()
+  await office.getByRole('tab', { name: 'Quote' }).click()
+  await office.getByRole('button', { name: 'Build from job' }).click()
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+  await draft.getByRole('button', { name: /^Line 1: .*, change it$/ }).click()
+  await expect(draft.getByLabel('Line 1: charged')).toHaveValue('daily')
+
+  // This phone hears nothing new until let; meanwhile another phone puts notes on the draft.
+  let letThrough = () => {}
+  const held = new Promise<void>((r) => (letThrough = r))
+  await office.route('**/api/sync/pull**', async (route) => {
+    await held
+    await route.continue()
+  })
+  const { changes } = (await (await request.get('/api/sync/pull?after=0')).json()) as { changes: { entity: string; data: Quote }[] }
+  const quote = changes.filter((c) => c.entity === 'quote').at(-1)!.data
+  const other = `other-${Date.now()}`
+  const pushed = await request.post('/api/sync/push', {
+    data: {
+      clientId: other,
+      mutations: [{ id: `${other}-1`, name: 'quote.save', createdAt: new Date().toISOString(), args: { ...quote, notes: 'Load in from the back lane', base: draftBase(quote) } }],
+    },
+  })
+  expect(((await pushed.json()) as { results: { status: string }[] }).results.map((r) => r.status)).toEqual(['applied'])
+
+  // The moment the screen has drawn the other phone's change, and before it takes it in, Charged is changed here.
+  await office.evaluate(() => {
+    const form = document.querySelector('form[aria-label="Version 1, a draft"]')!
+    const seen = new MutationObserver(() => {
+      seen.disconnect()
+      const charged = form.querySelector<HTMLSelectElement>('select[aria-label="Line 1: charged"]')!
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(charged, 'weekly')
+      charged.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    seen.observe(form, { subtree: true, childList: true, characterData: true, attributes: true })
+  })
+  letThrough()
+
+  // Both are kept: the notes from the other phone, and Weekly from this one, on the screen and on the server.
+  await expect(draft.getByRole('textbox', { name: /Notes for the client/ })).toHaveValue('Load in from the back lane')
+  await expect(draft.getByLabel('Line 1: charged')).toHaveValue('weekly')
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+  await office.reload()
+  await expect(draft.getByRole('button', { name: /^Line 1: .*, change it$/ })).toContainText('a week')
+  await expect(draft.getByRole('textbox', { name: /Notes for the client/ })).toHaveValue('Load in from the back lane')
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
 test('a count before a name with digits in it is still a count, and a line given free is Included, not asked about (audit of the quote flow, 8 November 2026, findings 1 and 2)', async ({ browser, request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
@@ -816,22 +886,22 @@ test('a count before a name with digits in it is still a count, and a line given
   await expect(draft.getByRole('button', { name: /Shure SM58, change it$/ })).toContainText('8 ×')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
 
-  // A line with no price says so, and one press gives it as included: it reads Included and the readout stops counting it.
+  // A line with no price says so, and one press gives it at no charge: it reads No charge and the readout stops counting it.
   await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByRole('textbox', { name: 'Line 2: what' }).fill('Cables and power')
   await expect(draft.getByText('Needs a price, or')).toBeVisible()
   await expect(draft.getByRole('button', { name: /lines? with no price/ })).toBeVisible()
-  await draft.getByRole('button', { name: 'Line 2: included at no charge' }).click()
-  await expect(draft.locator('.quote-line .included-word')).toContainText('Included')
+  await draft.getByRole('button', { name: 'Line 2: no charge' }).click()
+  await expect(draft.locator('.quote-line .included-word')).toContainText('No charge')
   await expect(draft.getByRole('button', { name: /lines? with no price/ })).toHaveCount(0)
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(draft.getByRole('button', { name: 'Line 2: Cables and power, change it' })).toContainText('Included at no charge')
+  await expect(draft.getByRole('button', { name: 'Line 2: Cables and power, change it' })).toContainText('No charge')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
-  // It goes without being asked about, and the sent quote says Included.
+  // It goes without being asked about, and the sent quote says No charge.
   await draft.getByRole('button', { name: 'Generate PDF' }).click()
   await expect(office.getByRole('dialog')).toHaveCount(0)
-  await expect(office.getByRole('table').first()).toContainText('Included')
+  await expect(office.getByRole('table').first()).toContainText('No charge')
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })

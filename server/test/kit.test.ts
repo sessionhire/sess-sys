@@ -297,10 +297,11 @@ describe('what a device shows', () => {
     expect(kit.suppliers).toEqual(['PRG'])
   })
 
-  it('checks enquiries and quotes as if they went ahead, without counting them as taken', async () => {
+  it('checks enquiries as if they went ahead, without counting them as taken', async () => {
     const { app, xlr } = await warehouse()
     const nissan = await job(app, 'Nissan', 'confirmed', [['Show', '2026-10-06', '2026-10-11']])
-    const quote = await job(app, 'Electric Picnic', 'quoted', [['Show', '2026-10-10', '2026-10-10']])
+    // An enquiry, its quote still a draft: a sent quote holds its kit (ADR 0183).
+    const quote = await job(app, 'Electric Picnic', 'enquiry', [['Show', '2026-10-10', '2026-10-10']])
     const cables = line(nissan.id, xlr.id, 6)
     const more = line(quote.id, xlr.id, 6)
     await ok(app, 'kit.add', cables)

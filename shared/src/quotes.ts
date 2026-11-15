@@ -65,8 +65,11 @@ export function chargedFor(rule: RateRule, out: number): number {
 export const priceWords = (l: Pick<QuoteLine, 'per' | 'rate' | 'extra'>) =>
   l.per === 'once' ? 'once' : l.extra === 'accommodation' ? 'a night' : `a ${RATE_UNIT[l.rate ?? 'daily']}`
 
+/** What a line given at no charge says on screen and on paper, where its amount goes (Colly, 14 November 2026: "No Charge"). */
+export const NO_CHARGE = 'No charge'
+
 /** The lines a quote works out for itself (ADR 0086), the crew's accommodation with them (ADR 0156). */
-export const LINE_EXTRAS = ['travel', 'subsistence', 'accommodation'] as const
+export const LINE_EXTRAS = ['travel', 'subsistence', 'accommodation', 'delivery'] as const
 export type LineExtra = (typeof LINE_EXTRAS)[number]
 
 /** A quote has room for this many lines: more than any job's kit and crew. */
@@ -160,7 +163,7 @@ export const quoteLine = z.object({
   fullCents: dayPrice.optional(),
   /**
    * Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1): cables, power, stands. Its price
-   * is nothing, it's shown and printed as Included, and it's never asked about as a line with no price. A product priced
+   * is nothing, it's shown and printed as No charge (Colly, 14 November 2026), and it's never asked about as a line with no price. A product priced
    * at €0 on the price list goes on a quote this way.
    */
   included: z.literal(true).optional(),
@@ -295,6 +298,11 @@ export interface QuoteSettings {
    */
   stayFromKm?: number
   roomCents?: number | null
+  /**
+   * A dry hire's delivery (ADR 0183): what each km from the warehouse to the delivery address is charged, in cents. Left
+   * out while not set, and then a delivery puts no line on the quote and says so.
+   */
+  deliveryCentsPerKm?: number | null
   /**
    * Whether a quote can be sent to the client by email from the operations mailbox, with its PDF attached (ADR 0101).
    * Off until the office turns it on under Admin, as every way the app reaches anyone outside is (ADR 0048). Left out by
@@ -578,6 +586,8 @@ export const quoteCommandSchemas = {
   'quoting.email': z.object({ on: z.boolean() }),
   /** Whether a client can accept a quote on its own link (ADR 0121). The office's to decide, under Admin. */
   'quoting.online': z.object({ on: z.boolean() }),
+  /** What a dry hire's delivery is charged a km from the warehouse (ADR 0183); null for not set. */
+  'quoting.delivery': z.object({ centsPerKm: euroCents(100_00, 'A km of delivery').nullable() }),
   /** What own kit costs us to run, as a share of its price (finding 19 of the quote flow audit); null for not set. */
   'quoting.ownKit': z.object({ costPct: z.number(wrongType(OWN_KIT_HINT)).int(OWN_KIT_HINT).min(0, OWN_KIT_HINT).max(90, OWN_KIT_HINT).nullable() }),
   /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0174), as a whole percentage. */

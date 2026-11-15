@@ -1,4 +1,5 @@
 import {
+  NO_CHARGE,
   changesFromJob,
   reducedCharge,
   dayLabel,
@@ -36,6 +37,7 @@ import {
   validUntil,
   packageIncludes,
   extrasFor,
+  deliveryFor,
   travelSettingsOf,
   kindOf,
   type Pin,
@@ -77,7 +79,7 @@ import { setDraftSend, takeAskToSend } from './quoteSend.ts'
 import { serverUrl } from '../server.ts'
 import { useQuotesByEmailKnown } from '../MailboxCard.tsx'
 import { PackageEditor, type PackageStart } from './Packages.tsx'
-import { AddCrew, AddPackage, AddTransport, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
+import { AddCrew, AddPackage, AddTransport, DELIVERY_ROW, DeliveryRow, JobChangesCard, transportWords, TRAVEL_ROW, TravelAndSubsistence } from './QuoteAdd.tsx'
 
 /**
  * A quote while it's a draft (ADR 0042, redrawn in ADR 0100): the lines as
@@ -174,6 +176,43 @@ const PACKAGE_PICK = 'package:'
 type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
 const TERM_KEYS: readonly TermKey[] = ['agreed', 'km', 'discount', 'validFor', 'deposit']
 
+/**
+ * Two people on one draft (ADR 0113): the lines on this screen with the draft as it now stands taken in. `was` is the
+ * draft as this device's typing began from: a line not touched here since takes the change, or goes if it was taken off;
+ * one typed here is kept, and named in `clash` when it was changed elsewhere too; one added elsewhere goes in after the
+ * line it followed there.
+ */
+function takeIn(lines: LineDraft[], was: QuoteView, q: QuoteView): { lines: LineDraft[]; clash: string[] } {
+  // As saving reads it: a line typed here reads as the saved one when it would save as it.
+  const same = (d: LineDraft, l: QuoteLine) => {
+    const c = checkLine(d, 1)
+    return !!c.line && sameLine(c.line, l)
+  }
+  const before = new Map(was.lines.filter((l) => !l.extra).map((l) => [l.id, l]))
+  const now = q.lines.filter((l) => !l.extra)
+  const theirs = new Map(now.map((l) => [l.id, l]))
+  const here = new Set(lines.map((d) => d.id))
+  const clash: string[] = []
+  const next: LineDraft[] = []
+  for (const d of lines) {
+    const b = before.get(d.id)
+    const t = theirs.get(d.id)
+    if (!b) next.push(d) // added here, not saved yet
+    else if (same(d, b)) {
+      if (t) next.push(toDraft(t)) // untouched here: theirs, or gone if they took it off
+    } else {
+      next.push(d)
+      if (t && !same(d, t) && !sameLine(t, b)) clash.push(d.what.trim() || 'A line')
+    }
+  }
+  now.forEach((t, i) => {
+    if (here.has(t.id) || before.has(t.id)) return
+    const after = now.slice(0, i).reverse().find((x) => next.some((d) => d.id === x.id))
+    next.splice(after ? next.findIndex((d) => d.id === after.id) + 1 : 0, 0, toDraft(t))
+  })
+  return { lines: next, clash }
+}
+
 export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view: View; job: JobView; onPrint: () => void; printing?: boolean }) {
   const today = useToday()
   const m = view.money
@@ -203,14 +242,16 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const [moreOpen, setMoreOpen] = useState(false)
   const [discounting, setDiscounting] = useState<string>()
   const [sentOn, setSentOn] = useState(today)
-  const [answering, setAnswering] = useState(false)
+  // What already happened outside the app, opened to record its day: sent another way (email on), or accepted by phone.
+  const [recording, setRecording] = useState<'sent' | 'accepted'>()
+  const [acceptedOn, setAcceptedOn] = useState(today)
   // A line with no price goes to the client as €0.00: sending with one is asked first (audit, 5 November 2026, finding 26),
   // and so is anything else on the list of what to look at before it goes (research/quoting.md, feature 3).
   const [free, setFree] = useState<'mark' | 'email' | 'accept'>()
   // Sending by email (ADR 0101), once the office has turned it on: the compose box, or the quiet way to say it went another way.
   const emailKnown = useQuotesByEmailKnown(m)
   const canEmail = emailKnown ?? false
-  const [sending, setSending] = useState<'email' | 'other'>()
+  const [sending, setSending] = useState<'email'>()
   // One row is open to change at a time, a line's or a worked-out one's; the rest read as a list, as they'll print.
   const [open, setOpen] = useState<string>()
   // Which field the open line starts on, and whether its cost fold is wanted open: set by whatever opened it.
@@ -256,50 +297,32 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   // changed on both keeps what's typed here, and says so. Saves carry `opened` so the server does the same.
   const opened = useRef(q)
   const [bothChanged, setBothChanged] = useState<string[]>([])
-  const drawn = baseOf(q)
+  // Told apart as the server tells them (ADR 0113), so the same draft read back with its fields in another order, as the
+  // database gives them, isn't taken for a change.
+  const drawn = JSON.stringify(draftBase(q))
   useEffect(() => {
     const was = opened.current
-    if (baseOf(was) === drawn) return
+    if (JSON.stringify(draftBase(was)) === drawn) return
     opened.current = q
-    // As saving reads it: a line typed here reads as the saved one when it would save as it.
-    const same = (d: LineDraft, l: QuoteLine) => {
-      const c = checkLine(d, 1)
-      return !!c.line && sameLine(c.line, l)
-    }
-    const before = new Map(was.lines.filter((l) => !l.extra).map((l) => [l.id, l]))
-    const now = q.lines.filter((l) => !l.extra)
-    const theirs = new Map(now.map((l) => [l.id, l]))
-    const here = new Set(lines.map((d) => d.id))
-    const clash: string[] = []
-    const next: LineDraft[] = []
-    for (const d of lines) {
-      const b = before.get(d.id)
-      const t = theirs.get(d.id)
-      if (!b) next.push(d) // added here, not saved yet
-      else if (same(d, b)) {
-        if (t) next.push(toDraft(t)) // untouched here: theirs, or gone if they took it off
-      } else {
-        next.push(d)
-        if (t && !same(d, t) && !sameLine(t, b)) clash.push(d.what.trim() || 'A line')
-      }
-    }
-    now.forEach((t, i) => {
-      if (here.has(t.id) || before.has(t.id)) return
-      const after = now.slice(0, i).reverse().find((x) => next.some((d) => d.id === x.id))
-      next.splice(after ? next.findIndex((d) => d.id === after.id) + 1 : 0, 0, toDraft(t))
-    })
-    setLines(next)
+    // Taken in over what's on the screen now, not as it was when this was drawn: a key pressed between the two would
+    // otherwise be put back as it was before it, and a line's Charged or discount lost as the server's answer came in.
+    setLines((now) => takeIn(now, was, q).lines)
     const a = termsText(was)
     const z = termsText(q)
-    if (meals === a.meals) setMeals(z.meals)
-    if (rooms === a.rooms) setRooms(!!z.rooms)
-    if (kmTyped === a.kmTyped) setKmTyped(z.kmTyped)
-    if (discount === a.discount) setDiscount(z.discount)
-    if (agreed === a.agreed) setAgreed(z.agreed)
-    if (notes.trim() === a.notes.trim()) setNotes(z.notes)
-    if (validFor === a.validFor) setValidFor(z.validFor)
-    if (deposit === a.deposit) setDeposit(z.deposit)
-    if (forName === a.forName) setForName(z.forName)
+    const unless =
+      <T,>(was: T, then: T) =>
+      (now: T) =>
+        now === was ? then : now
+    setMeals(unless(a.meals, z.meals))
+    setRooms(unless(a.rooms, !!z.rooms))
+    setKmTyped(unless(a.kmTyped, z.kmTyped))
+    setDiscount(unless(a.discount, z.discount))
+    setAgreed(unless(a.agreed, z.agreed))
+    setNotes((now) => (now.trim() === a.notes.trim() ? z.notes : now))
+    setValidFor(unless(a.validFor, z.validFor))
+    setDeposit(unless(a.deposit, z.deposit))
+    setForName(unless(a.forName, z.forName))
+    const clash = takeIn(lines, was, q).clash
     if (clash.length) setBothChanged(clash)
   }, [drawn])
   const openLine = (id: string | undefined, focus: 'what' | 'price' = 'what', cost = false) => {
@@ -331,7 +354,16 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     ids: Object.fromEntries(q.lines.filter((l) => l.extra).map((l) => [l.extra!, l.id])),
     newId: useStableIds(),
   })
-  const all = [...good, ...extras.lines]
+  // A dry hire's delivery (ADR 0183): a line priced by the km from the warehouse to the delivery address.
+  const delivery = deliveryFor({
+    job,
+    warehouse: view.trackers.settings.home,
+    centsPerKm: m.quoting.deliveryCentsPerKm,
+    id: q.lines.find((l) => l.extra === 'delivery')?.id,
+    newId: useStableIds(),
+  })
+  const worked = [...extras.lines, ...(delivery.line ? [delivery.line] : [])]
+  const all = [...good, ...worked]
   const totals = quoteTotals({ lines: all, discountPct: pctOk ? pct : 0, agreedCents })
   const valid = num(validFor)
   const validOk = Number.isInteger(valid) && valid >= 1 && valid <= 365
@@ -368,7 +400,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const was = q.lines.find((l) => !l.extra && l.id === lines[i]!.id)
     return was ? [was] : []
   })
-  const stored = [...sendable, ...extras.lines]
+  const stored = [...sendable, ...worked]
   // Stored: what can save is what the draft holds. Saved: and nothing is held back.
   const storedSame =
     stored.length === q.lines.length &&
@@ -409,12 +441,12 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const rack = built.length ? `a rack with ${plural(built.reduce((n, s) => n + s.qty, 0), 'thing')} in it` : ''
     const cents = m.productPrice(modelId)
     const rate = m.productRate(modelId)
-    const price = cents === undefined ? 'No price yet' : cents === 0 ? 'Included at no charge' : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
+    const price = cents === undefined ? 'No price yet' : cents === 0 ? NO_CHARGE : `${money(cents)} ${rate === 'weekly' ? 'a week' : 'a day'}${rate && rate !== 'daily' ? `, ${RATE_LABELS[rate]}` : ''}`
     const free = kitFree(job, modelId, wantedNow.get(modelId) ?? 0, today, kitInputs)
     const freeWords = free === undefined ? '' : free === 0 ? (wantedNow.get(modelId) ? 'no more free' : 'none free') : wantedNow.get(modelId) ? `${free} more free` : `${free} free`
-    // Other quotes for the same days (ADR 0126): said beside what's free, since pencilled kit isn't taken until confirmed.
+    // Other quotes for the same days (ADR 0126): said beside what's free, since pencilled kit isn't taken until its quote is sent (ADR 0183).
     const pencilled = free === undefined ? 0 : kitPencilled(job, modelId, today, kitInputs)
-    return [rack, price, freeWords, pencilled ? `${pencilled} pencilled for other quotes` : ''].filter(Boolean).join(' · ')
+    return [rack, price, freeWords, pencilled ? `${pencilled} pencilled on other drafts` : ''].filter(Boolean).join(' · ')
   }
   const shortLines = good.filter((l) => linesShort(l, checks, m.package(l.packageId ?? '')?.items).length > 0)
   // What it makes (ADR 0089), for the office and directors, who see quotes at all.
@@ -432,6 +464,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     beforeItGoes.push({ key: 'short', words: `${plural(shortLines.length, 'line')} short of kit on the job's days`, look: () => openLine(shortLines[0]!.id) })
   if (extras.travel.km === null && good.some((l) => l.kind === 'crew'))
     beforeItGoes.push({ key: 'travel', words: "No travel for the crew: the venue isn't on the map, so the distance isn't known", look: () => openLine(TRAVEL_ROW) })
+  if (delivery.shown && !delivery.line) beforeItGoes.push({ key: 'delivery', words: `No delivery line: ${delivery.none!.replace(/:.*$/, '')}`, look: () => openLine(DELIVERY_ROW) })
   if (job.span && job.span.start < today) beforeItGoes.push({ key: 'past', words: `The job's first day, ${dayLabel(job.span.start)}, has passed` })
   // What each line was last charged in Current RMS (ADR 0092), by the names it goes by there.
   const namesOf = (l: LineDraft) => rmsNames(l, (id) => view.warehouse.models.find((x) => x.id === id))
@@ -481,7 +514,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
       .finally(() => setMarking(false))
   }
   // Accepted by phone gets the same last look as sending (finding 18): it's the quote that becomes the invoice.
-  const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: sentOn || today }))
+  const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: acceptedOn || today }))
   const late = useLate(!!payload)
   // Kept on the device while it can't save (finding 27), and let go once it can.
   const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, rooms, kmTyped, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
@@ -997,6 +1030,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           />
         )}
 
+        {delivery.shown && <DeliveryRow delivery={delivery} job={job} open={open} setOpen={openLine} />}
+
         <div className="quote-add" role="group" aria-label="Add to the quote">
           {adding === 'kit' ? (
             <div
@@ -1274,19 +1309,39 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           <SendQuote q={q} onSent={() => setSending(undefined)} onCancel={() => setSending(undefined)} />
         ) : (
           <>
-            {saved && q.lines.length > 0 && (!canEmail || sending === 'other') && (
+            {/* Two chunks under Send (Colly, 14 November 2026: the buttons at the foot read as one jumble). First the way it goes:
+                what Send does, said once, then the PDF to keep or print. Then, apart and quieter, what already happened
+                outside the app, each opening its day to record, so no button is a question and nothing sits off to one side. */}
+            {saved && q.lines.length > 0 && (
+              <p className="hint">
+                {canEmail
+                  ? `${sendWord} emails it to the client from the operations mailbox with the PDF attached. It becomes quote ${nextNumber} and stays as it is.`
+                  : `${sendWord} marks it sent on the day below and opens the PDF for you to send: it becomes quote ${nextNumber} and stays as it is. The app sends nothing.`}
+              </p>
+            )}
+            {saved && q.lines.length > 0 && !canEmail && (
               <div className="quote-send">
                 <label>
                   Sent to the client on
                   <input type="date" value={sentOn} max={irishToday()} onChange={(e) => setSentOn(e.target.value)} />
                 </label>
-                {canEmail && (
-                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())} aria-busy={marking || undefined}>
-                    {markLate ? 'Marking it sent…' : 'Mark as sent'}
-                  </button>
-                )}
               </div>
             )}
+            <div className="actions quote-send-row">
+              {/* The PDF as it stands, to keep or send yourself, apart from Send (ADR 0166). A draft's says so on it. */}
+              {saved && q.lines.length > 0 && (
+                <GetFile
+                  className="link"
+                  href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)}
+                  name="Quote.pdf"
+                  label="Download PDF"
+                  working="Getting PDF…"
+                />
+              )}
+              <button type="button" className="link" onClick={onPrint} disabled={!saved} aria-busy={printing || undefined}>
+                Print a draft
+              </button>
+            </div>
             {free && beforeItGoes.length > 0 && (
               <Confirm
                 className="before-it-goes"
@@ -1328,43 +1383,53 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                 )}
               </Confirm>
             )}
-            <div className="actions">
-              <button type="button" onClick={onPrint} disabled={!saved} aria-busy={printing || undefined}>
-                Print a draft
-              </button>
-              {/* The PDF as it stands, to keep or send yourself, apart from Send (ADR 0166). A draft's says so on it. */}
-              {saved && q.lines.length > 0 && (
-                <GetFile
-                  className="link"
-                  href={serverUrl(`/api/quotes/${encodeURIComponent(q.id)}/pdf?download=1`)}
-                  name="Quote.pdf"
-                  label="Download PDF"
-                  working="Getting PDF…"
-                />
-              )}
-              {saved && q.lines.length > 0 && canEmail && sending !== 'other' && (
-                <button type="button" className="link quiet" onClick={() => setSending('other')}>
-                  Sent another way? Mark as sent
-                </button>
-              )}
-              {saved &&
-                q.lines.length > 0 &&
-                (!answering ? (
-                  <button type="button" className="link quiet" onClick={() => setAnswering(true)}>
-                    Accepted already, by phone?
-                  </button>
-                ) : (
-                  <button type="button" onClick={() => (beforeItGoes.length ? setFree('accept') : accept())}>
-                    Mark accepted
-                  </button>
-                ))}
-            </div>
             {saved && q.lines.length > 0 && (
-              <p className="hint">
-                {canEmail
-                  ? `Send quote, in Next, opens the email to the client from the operations mailbox with the quote attached as a PDF. Once it goes, it becomes quote ${nextNumber} and stays as it is.`
-                  : `${sendWord}, in Next, marks it sent on that day: it becomes quote ${nextNumber}, stays as it is, and opens to print or save as a PDF for you to send. The app sends nothing.`}
-              </p>
+              <div className="quote-done" role="group" aria-labelledby={`${q.id}-done`}>
+                <h4 className="quote-subhead" id={`${q.id}-done`}>
+                  Done another way
+                </h4>
+                {!recording ? (
+                  <>
+                    <p className="hint">{canEmail ? 'Sent it yourself, or the client said yes by phone: record it here.' : 'The client said yes by phone or in person: record it here.'}</p>
+                    <div className="actions quote-send-row">
+                      {canEmail && (
+                        <button type="button" className="link quiet" onClick={() => setRecording('sent')}>
+                          Mark as sent…
+                        </button>
+                      )}
+                      <button type="button" className="link quiet" onClick={() => setRecording('accepted')}>
+                        Mark accepted…
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="quote-send">
+                    <label>
+                      {recording === 'sent' ? 'Sent to the client on' : 'Accepted on'}
+                      <input
+                        type="date"
+                        value={recording === 'sent' ? sentOn : acceptedOn}
+                        max={irishToday()}
+                        onChange={(e) => (recording === 'sent' ? setSentOn : setAcceptedOn)(e.target.value)}
+                      />
+                    </label>
+                    <div className="actions">
+                      {recording === 'sent' ? (
+                        <button type="button" onClick={() => (beforeItGoes.length ? setFree('mark') : markAndPrint())} aria-busy={marking || undefined}>
+                          {markLate ? 'Marking sent…' : 'Mark as sent'}
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => (beforeItGoes.length ? setFree('accept') : accept())}>
+                          Mark accepted
+                        </button>
+                      )}
+                      <button type="button" className="link" onClick={() => setRecording(undefined)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}

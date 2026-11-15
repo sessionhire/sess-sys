@@ -29,6 +29,7 @@ import {
   listHeading,
 } from '@sh/shared'
 import { useEffect, useState, type FormEvent } from 'react'
+import { refuseField, wholeIn } from '../required.ts'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { useAuth } from '../auth.ts'
 import { Empty } from '../Empty.tsx'
@@ -439,18 +440,21 @@ function Apply({ view, me }: { view: View; me: PersonView }) {
 
 function LogLieu({ me }: { me: PersonView }) {
   const today = useToday()
-  const blank = { day: today, days: 1, note: '' }
+  // How many days kept as typed, so the box can be cleared to type another (Colly, 14 November 2026).
+  const blank = { day: today, days: '1', note: '' }
   const [f, setF] = useState(blank)
   // What was just logged, said under the button (rule 10).
   const [done, setDone] = useState('')
   const { run, error } = useAct()
-  const submit = (e: FormEvent) => {
+  const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setDone('')
-    void run(() => client.mutate('lieu.log', { id: newId(), personId: me.id, day: f.day, days: f.days, note: f.note.trim() })).then((ok) => {
+    const days = wholeIn(f.days, 1, 5)
+    if (days === undefined) return void refuseField(e.currentTarget, '[name="days"]', 'How many days is a whole number from 1 to 5.')
+    void run(() => client.mutate('lieu.log', { id: newId(), personId: me.id, day: f.day, days, note: f.note.trim() })).then((ok) => {
       if (!ok) return
       setF(blank)
-      setDone(`Logged ${f.days === 1 ? 'a day' : `${f.days} days`} in lieu for ${dayLabel(f.day)}: waiting on approval, under My requests.`)
+      setDone(`Logged ${days === 1 ? 'a day' : `${days} days`} in lieu for ${dayLabel(f.day)}: waiting on approval, under My requests.`)
     })
   }
   return (
@@ -459,7 +463,7 @@ function LogLieu({ me }: { me: PersonView }) {
         Day worked <input type="date" value={f.day} max={today} onChange={(e) => setF({ ...f, day: e.target.value })} required />
       </label>
       <label>
-        How many days <input type="number" min={1} max={5} value={f.days} onChange={(e) => setF({ ...f, days: Number(e.target.value) })} />
+        How many days <input name="days" type="number" inputMode="numeric" min={1} max={5} value={f.days} onChange={(e) => setF({ ...f, days: e.target.value })} />
       </label>
       <label className="wide">
         Note <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="What the day was" maxLength={500} />

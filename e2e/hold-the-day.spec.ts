@@ -202,9 +202,9 @@ test('confirming a job its crew hold the day for asks first, and says after what
   await expect(office.getByRole('status')).toHaveText('Up to date')
   // The call card: Orla is picked, so she holds the day, and the call isn't settled while the client hasn't said yes.
   const card = office.getByRole('article', { name: '2 × Stage manager' })
-  await expect(card).toContainText(`${orla} (hold the day)`)
-  await card.getByRole('button', { name: '2 × Stage manager' }).click()
   const hers = card.getByRole('listitem').filter({ hasText: orla })
+  await expect(hers.locator('.pill')).toHaveText('Hold the day')
+  await card.getByRole('button', { name: '2 × Stage manager' }).click()
   await expect(hers.locator('.pill')).toHaveText('Hold the day')
   await expect(card).not.toContainText('Booked')
 

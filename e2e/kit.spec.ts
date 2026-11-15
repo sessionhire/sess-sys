@@ -179,8 +179,9 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await expect(page.locator('.page-sub')).toContainText('1 product')
   await expect(page.locator('.page-sub')).not.toContainText('short')
 
-  // A quote on the festival's show day would be short if it went ahead, and the festival says so.
-  await newJob(page, quote, 'Quoted', [['Show', '2030-09-06', '2030-09-06']])
+  // An enquiry on the festival's show day, its quote not sent yet, would be short if it went ahead, and the festival says
+  // so. A sent quote would hold its kit (ADR 0183).
+  await newJob(page, quote, 'Enquiry', [['Show', '2030-09-06', '2030-09-06']])
   await addKit(page, speaker, 4)
   await kitDays(page, 0, 0)
   const pencilled = kit.getByRole('article', { name: `4 × ${speaker}` })
@@ -202,7 +203,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   const row = short.locator('.job-row', { hasText: quote })
   await expect(row).toContainText(`${speaker}: short 2`)
   await expect(row).toContainText(`${quote} · Fri 6 Sep`)
-  await expect(row.locator('.pill')).toHaveText('Quoted')
+  await expect(row.locator('.pill')).toHaveText('Enquiry')
   await expect(short.locator('.job-row', { hasText: launch })).toHaveCount(0)
   await toCard(short)
   await page.screenshot(shot('kit-stock'))
@@ -211,7 +212,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await expect(page.getByRole('heading', { level: 1, name: speaker })).toBeVisible()
   await page.getByRole('tab', { name: /^On jobs/ }).click()
   const onJobs = page.getByRole('region', { name: 'On jobs' })
-  await expect(onJobs.locator('.hint')).toHaveText('10 owned. Confirmed jobs hold them; enquiries and quotes are pencilled in.')
+  await expect(onJobs.locator('.hint')).toHaveText('10 owned. Confirmed jobs and sent quotes hold them; enquiries, with their quotes still drafts, are pencilled in.')
   await expect(onJobs.locator('.job-row b')).toHaveText([festival, launch, quote])
   const jobRow = (name: string) => onJobs.locator('.job-row').filter({ has: page.getByText(name, { exact: true }) })
   await expect(jobRow(launch).locator('.kit-note')).toHaveText('2 subhired from PRG. Enough, with none to spare.')
