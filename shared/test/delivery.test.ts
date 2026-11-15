@@ -11,7 +11,7 @@ const newId = () => `id-${++n}`
 
 describe("a dry hire's delivery line", () => {
   it('charges the km from the warehouse to the delivery address at the price a km', () => {
-    const d = deliveryFor({ job: { kind: 'hire', hire: { handover: 'delivery', address: 'Galway', pin: galway } }, warehouse, centsPerKm: 150, id: 'keep', newId })
+    const d = deliveryFor({ job: { kind: 'hire', hire: { handover: 'delivery', address: 'Galway', pin: galway } }, warehouse, price: { centsPerKm: 150 }, id: 'keep', newId })
     expect(d.shown).toBe(true)
     expect(d.none).toBeNull()
     expect(d.line).toMatchObject({ id: 'keep', kind: 'other', group: 'Delivery', per: 'once', days: 1, unitCents: 150, extra: 'delivery' })
@@ -21,21 +21,38 @@ describe("a dry hire's delivery line", () => {
   })
   it('says why there is none: no address, not on the map, no price', () => {
     const job = (hire: object) => ({ kind: 'hire' as const, hire: { handover: 'delivery' as const, ...hire } })
-    expect(deliveryFor({ job: job({}), warehouse, centsPerKm: 150, id: undefined, newId }).none).toMatch(/No delivery address/)
-    expect(deliveryFor({ job: job({ address: 'Somewhere', pin: null }), warehouse, centsPerKm: 150, id: undefined, newId }).none).toMatch(/isn't on the map/)
-    const unpriced = deliveryFor({ job: job({ address: 'Galway', pin: galway }), warehouse, centsPerKm: undefined, id: undefined, newId })
+    expect(deliveryFor({ job: job({}), warehouse, price: { centsPerKm: 150 }, id: undefined, newId }).none).toMatch(/No delivery address/)
+    expect(deliveryFor({ job: job({ address: 'Somewhere', pin: null }), warehouse, price: { centsPerKm: 150 }, id: undefined, newId }).none).toMatch(/isn't on the map/)
+    const unpriced = deliveryFor({ job: job({ address: 'Galway', pin: galway }), warehouse, price: { centsPerKm: undefined }, id: undefined, newId })
     expect(unpriced.line).toBeUndefined()
     expect(unpriced.none).toMatch(/Admin › Company › Dry hire delivery/)
   })
+  it('charges a set amount for the first km, and each km past them at the price a km', () => {
+    const job = { kind: 'hire' as const, hire: { handover: 'delivery' as const, address: 'Galway', pin: galway } }
+    const km = deliveryFor({ job, warehouse, price: { centsPerKm: 100 }, id: undefined, newId }).km!
+    const past = deliveryFor({ job, warehouse, price: { baseCents: 60_00, baseKm: 20, centsPerKm: 150 }, id: 'keep', newId })
+    expect(past.line).toMatchObject({ id: 'keep', qty: 1, per: 'once', unitCents: 60_00 + (km - 20) * 150, extra: 'delivery' })
+    expect(past.line!.what).toBe(`Delivery, ${km} km from the warehouse: the first 20 km, then ${km - 20} km at €1.50 a km`)
+    expect(past.how).toBe(`€60.00 for the first 20 km, then ${km - 20} km at €1.50 a km`)
+    // Within the km the set amount covers, it's the set amount alone, with or without a price a km.
+    const near = deliveryFor({ job, warehouse, price: { baseCents: 60_00, baseKm: 500 }, id: undefined, newId })
+    expect(near.line).toMatchObject({ qty: 1, unitCents: 60_00 })
+    expect(near.line!.what).toBe(`Delivery, ${km} km from the warehouse`)
+    expect(near.how).toBe('€60.00 for up to 500 km')
+    // Past them with no price a km, it says so rather than charge the set amount alone.
+    const unpriced = deliveryFor({ job, warehouse, price: { baseCents: 60_00, baseKm: 20 }, id: undefined, newId })
+    expect(unpriced.line).toBeUndefined()
+    expect(unpriced.none).toMatch(/No price a km past the first 20 km/)
+  })
   it('measures from Dublin until the warehouse is on the map, and says so', () => {
-    const d = deliveryFor({ job: { kind: 'hire', hire: { handover: 'delivery', address: 'Galway', pin: galway } }, warehouse: null, centsPerKm: 100, id: undefined, newId })
+    const d = deliveryFor({ job: { kind: 'hire', hire: { handover: 'delivery', address: 'Galway', pin: galway } }, warehouse: null, price: { centsPerKm: 100 }, id: undefined, newId })
     expect(d.fromWarehouse).toBe(false)
     expect(d.line!.what).toMatch(/from Dublin$/)
   })
   it('has no row for a collection, a dry hire from before, or a show', () => {
-    expect(deliveryFor({ job: { kind: 'hire', hire: { handover: 'collection' } }, warehouse, centsPerKm: 100, id: undefined, newId }).shown).toBe(false)
-    expect(deliveryFor({ job: { kind: 'hire' }, warehouse, centsPerKm: 100, id: undefined, newId }).shown).toBe(false)
-    expect(deliveryFor({ job: { kind: 'gig', hire: { handover: 'delivery', address: 'Galway', pin: galway } }, warehouse, centsPerKm: 100, id: undefined, newId }).shown).toBe(false)
+    expect(deliveryFor({ job: { kind: 'hire', hire: { handover: 'collection' } }, warehouse, price: { centsPerKm: 100 }, id: undefined, newId }).shown).toBe(false)
+    expect(deliveryFor({ job: { kind: 'hire' }, warehouse, price: { centsPerKm: 100 }, id: undefined, newId }).shown).toBe(false)
+    expect(deliveryFor({ job: { kind: 'gig', hire: { handover: 'delivery', address: 'Galway', pin: galway } }, warehouse, price: { centsPerKm: 100 }, id: undefined, newId }).shown).toBe(false)
   })
 })
 

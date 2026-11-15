@@ -377,6 +377,8 @@ const CASES: Case[] = [
   c('quoting.online', { on: true }),
   c('quoting.ownKit', { costPct: 15 }),
   c('quoting.delivery', { centsPerKm: 150 }),
+  c('quoting.delivery', { baseCents: 6000, baseKm: 20, centsPerKm: 150 }, { as: 'a set amount for the first km' }),
+  c('quoting.delivery', { baseCents: null, baseKm: null, centsPerKm: 150 }, { as: 'the set amount taken off', before: [m('quoting.delivery', { baseCents: 6000, baseKm: 20, centsPerKm: 150 })] }),
   c('quoting.delivery', { centsPerKm: null }, { as: 'taken off', before: [m('quoting.delivery', { centsPerKm: 150 })] }),
   c('quoting.reducedDays', { pct: 60 }),
   c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today }),

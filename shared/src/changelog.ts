@@ -28,12 +28,35 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.203.0',
+    version: '1.204.0',
     date: '2026-11-15',
     title: 'Sole trader or company',
     what: "A freelancer's details now ask whether they work for us as a sole trader or a company. A sole trader is asked whether they're VAT registered, with their VAT number if they are; a company is asked its name, CRO number and VAT number. It's optional, so nobody already on the list is held up, and their page says it in a line, such as Sole trader, VAT-registered. Like their rate, it's seen only by the office, directors and the person themself (and heads, where they're shown rates).",
     prs: [395],
     adrs: [184],
+  },
+  {
+    version: '1.203.0',
+    date: '2026-11-15',
+    title: 'Dry hire delivery: a set amount, then by the km',
+    what: "Admin › Company › Dry hire delivery now asks for three things: a set amount, how many km it covers, and the price of each km after that. A delivery within those km is charged the set amount; a longer one is the set amount plus each km past them, and the quote's Delivery line says how it's made up. Leave the set amount empty to charge every km at the one price, as before.",
+    prs: [400],
+    adrs: [183],
+  },
+  {
+    version: '1.202.6',
+    date: '2026-11-15',
+    title: "A client's quote link opens without signing in",
+    what: "On a phone or computer that had opened the app before, the link to accept a quote opened the app and asked to sign in, instead of showing the client their quote. Now the link always shows the quote with its Accept button, on any device, with no sign-in. The same goes for Open it as they see it on the Quote tab and the freelancers' lost-link page. A quote that hasn't been sent yet, such as one being amended, now shows nothing of its prices on its link.",
+    prs: [403],
+    adrs: [186],
+  },
+  {
+    version: '1.202.5',
+    date: '2026-11-15',
+    title: 'The latest shared colours and sizes',
+    what: "The app now carries the newest version of the shared design system that its colours and sizes come from. Nothing you see moves: the changes in it are for denser screens than the phone and desk sizes this app uses, plus a few new measurements for later layout work.",
+    prs: [402],
   },
   {
     version: '1.202.4',
