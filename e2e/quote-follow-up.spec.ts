@@ -158,6 +158,7 @@ test('before a quote goes it says what to look at, and a quote whose prices ran 
 
   const sentOn = new Date(Date.now() - 40 * 86_400_000).toISOString().slice(0, 10)
   await draft.getByLabel('Sent to the client on').fill(sentOn)
+  if (process.env.SHOTS_DIR) await draft.locator('section').filter({ has: office.getByRole('heading', { name: 'Send', exact: true }) }).screenshot({ path: `${process.env.SHOTS_DIR}/quote-send-section-email-off.png` })
   await draft.getByRole('button', { name: 'Generate PDF' }).click()
   const ask = draft.locator('.before-it-goes')
   await expect(ask).toContainText("Before it goes: No travel for the crew: the venue isn't on the map, so the distance isn't known.")

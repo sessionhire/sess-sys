@@ -28,12 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.202.2',
+    version: '1.202.3',
     date: '2026-11-15',
     title: 'One calendar email a gig, not one a day',
     what: "Crew with invites on Google Calendar got an email for every day of a gig when something changed: four cancellations when a four-day gig was cancelled, four when they were booked or their call time moved. Now each person gets one email a gig for changes made together, and a cancellation names every day that's off (\"Nissan - Build, Sat 2 Mar to Sun 3 Mar\"). Their other days still change in their Google Calendar. New invitations still come one a day, since each is a question they answer.",
     prs: [399],
     adrs: [185],
+  },
+  {
+    version: '1.202.2',
+    date: '2026-11-15',
+    title: "A quote's Send section in two tidy parts",
+    what: "At the foot of a draft quote, Send now says once what Next will do, then has Download PDF and Print a draft side by side. Below a line, under Done another way, are Mark as sent and Mark accepted for a quote sent yourself or agreed by phone: each asks for the day before it records it, and nothing sits off to the right any more.",
+    prs: [398],
   },
   {
     version: '1.202.1',
