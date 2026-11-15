@@ -1301,8 +1301,8 @@ describe('crew invites (ADR 0009)', () => {
     await s.sync()
     expect(copy(job.events.build2, 'niamh@example.com')).toMatch(/^Thanks Niamh, you said yes to Audio tech on Sun 3 Mar/)
     expect(emails(s, before)).toEqual([
-      'cancelled Conor.Walsh@example.ie 2030-03-02 Nissan - Build 1/2',
-      'cancelled Conor.Walsh@example.ie 2030-03-03 Nissan - Build 2/2',
+      // One cancellation for both his days (ADR 0185), naming them.
+      'cancelled Conor.Walsh@example.ie 2030-03-02 Nissan - Build, Sat 2 Mar to Sun 3 Mar',
     ])
   })
 
@@ -1646,7 +1646,9 @@ describe('crew invites (ADR 0009)', () => {
     before = s.google.sent.length
     await send(s, 'project.update', { id: job.jobId, name: 'Nissan Leaf' })
     await s.sync()
-    expect(emails(s, before).filter((m) => m.includes('Build 1/2')).sort()).toEqual([
+    // Each crew member hears once for the gig, on its first day of theirs (ADR 0185); Mary, a guest added by hand to the shared
+    // day, hears about that day as before.
+    expect(emails(s, before).sort()).toEqual([
       'updated Conor.Walsh@example.ie 2030-03-02 Nissan Leaf - Build 1/2',
       'updated aoife@example.com 2030-03-02 Nissan Leaf - Build 1/2',
       'updated mary@nissan.example 2030-03-02 Nissan Leaf - Build 1/2',
@@ -1657,11 +1659,12 @@ describe('crew invites (ADR 0009)', () => {
     before = s.google.sent.length
     await send(s, 'project.update', { id: job.jobId, status: 'cancelled' })
     await s.sync()
-    expect(emails(s, before).filter((m) => m.includes('Build 1/2')).sort()).toEqual([
-      'cancelled Conor.Walsh@example.ie 2030-03-02 Nissan Leaf - Build 1/2',
-      'cancelled aoife@example.com 2030-03-02 Nissan Leaf - Build 1/2',
+    // Each crew member gets one cancellation for the gig, naming every day of theirs that's off (ADR 0185).
+    expect(emails(s, before).sort()).toEqual([
+      'cancelled Conor.Walsh@example.ie 2030-03-02 Nissan Leaf - Build, Sat 2 Mar to Sun 3 Mar',
+      'cancelled aoife@example.com 2030-03-02 Nissan Leaf - Build, Sat 2 Mar to Sun 3 Mar',
       'cancelled mary@nissan.example 2030-03-02 Nissan Leaf - Build 1/2',
-      'cancelled niamh@example.com 2030-03-02 Nissan Leaf - Build 1/2',
+      'cancelled niamh@example.com 2030-03-02 Nissan Leaf - Build, Sat 2 Mar to Sun 3 Mar',
     ])
   })
 
@@ -1934,32 +1937,28 @@ describe('crew invites (ADR 0009)', () => {
     await s.sync()
     expect(titleFor(s, build1, 'niamh@example.com')).toBe('Nissan - Build 1/2, call 08:00')
     expect(emails(s, from).sort()).toEqual([
-      'cancelled Conor.Walsh@example.ie 2030-03-02 Filled by someone else: Nissan - Build 1/2',
-      'cancelled Conor.Walsh@example.ie 2030-03-03 Filled by someone else: Nissan - Build 2/2',
+      'cancelled Conor.Walsh@example.ie 2030-03-02 Filled by someone else: Nissan - Build, Sat 2 Mar to Sun 3 Mar',
     ])
 
-    // The office confirms her: Google emails her that she's booked, for each day.
+    // The office confirms her: Google emails her once that she's booked (ADR 0185), and both her days say so.
     from = s.google.sent.length
     await send(s, 'offer.confirm', { id: job.offers.niamh })
     await s.sync()
-    expect(emails(s, from).sort()).toEqual([
-      'updated niamh@example.com 2030-03-02 Booked: Nissan - Build 1/2, call 08:00',
-      'updated niamh@example.com 2030-03-03 Booked: Nissan - Build 2/2, call 08:00',
-    ])
+    expect(emails(s, from).sort()).toEqual(['updated niamh@example.com 2030-03-02 Booked: Nissan - Build 1/2, call 08:00'])
+    expect(titleFor(s, build2, 'niamh@example.com')).toBe('Booked: Nissan - Build 2/2, call 08:00')
     // Nothing more when nothing more happens.
     from = s.google.sent.length
     await s.check()
     expect(emails(s, from)).toEqual([])
 
-    // The call time moves: both booked are emailed the new one.
+    // The call time moves: both booked are emailed the new one, once each, and both their days have it.
     await send(s, 'call.update', { id: job.callId, callTime: '07:00' })
     await s.sync()
     expect(emails(s, from).sort()).toEqual([
       'updated aoife@example.com 2030-03-02 Booked: Nissan - Build 1/2, call 07:00',
-      'updated aoife@example.com 2030-03-03 Booked: Nissan - Build 2/2, call 07:00',
       'updated niamh@example.com 2030-03-02 Booked: Nissan - Build 1/2, call 07:00',
-      'updated niamh@example.com 2030-03-03 Booked: Nissan - Build 2/2, call 07:00',
     ])
+    expect(titleFor(s, build2, 'aoife@example.com')).toBe('Booked: Nissan - Build 2/2, call 07:00')
 
     // A change that isn't news to them, the details for crew, still goes quietly.
     from = s.google.sent.length
@@ -1973,20 +1972,17 @@ describe('crew invites (ADR 0009)', () => {
     const calls = s.google.calls.length
     await send(s, 'offer.cancel', { id: job.offers.aoife })
     await s.sync()
-    expect(emails(s, from).sort()).toEqual([
-      'cancelled aoife@example.com 2030-03-02 Withdrawn by the office: Nissan - Build 1/2',
-      'cancelled aoife@example.com 2030-03-03 Withdrawn by the office: Nissan - Build 2/2',
-    ])
+    expect(emails(s, from).sort()).toEqual(['cancelled aoife@example.com 2030-03-02 Withdrawn by the office: Nissan - Build, Sat 2 Mar to Sun 3 Mar'])
     expect(eventWrites(s.google.calls.slice(calls)).filter((c) => c.endsWith(`/${hers}`)).map((c) => c.split(' ')[0])).toEqual(['PUT', 'DELETE'])
     expect(titleFor(s, build1, 'aoife@example.com')).toBeUndefined()
+    expect(titleFor(s, build2, 'aoife@example.com')).toBeUndefined()
 
     // The job is cancelled: Niamh's days say so.
     from = s.google.sent.length
     await send(s, 'project.update', { id: job.jobId, status: 'cancelled' })
     await s.sync()
     expect(emails(s, from).filter((m) => m.includes('niamh@')).sort()).toEqual([
-      'cancelled niamh@example.com 2030-03-02 The job was cancelled: Nissan - Build 1/2',
-      'cancelled niamh@example.com 2030-03-03 The job was cancelled: Nissan - Build 2/2',
+      'cancelled niamh@example.com 2030-03-02 The job was cancelled: Nissan - Build, Sat 2 Mar to Sun 3 Mar',
     ])
   })
 
@@ -2015,14 +2011,13 @@ describe('crew invites (ADR 0009)', () => {
     await send(s, 'offer.respond', { id: job.offers.niamh, answer: 'decline', note: '' })
     await s.sync()
     expect(emails(s, from).sort()).toEqual([
-      'cancelled niamh@example.com 2030-03-02 You declined: Nissan - Build 1/2',
-      'cancelled niamh@example.com 2030-03-03 You declined: Nissan - Build 2/2',
+      'cancelled niamh@example.com 2030-03-02 You declined: Nissan - Build, Sat 2 Mar to Sun 3 Mar',
     ])
-    // Conor isn't on the list: his days come off as before, with a bare cancellation.
+    // Conor isn't on the list: his days come off with a cancellation that doesn't say why, still one for both (ADR 0185).
     from = s.google.sent.length
     await send(s, 'offer.cancel', { id: job.offers.conor })
     await s.sync()
-    expect(emails(s, from).sort()).toEqual(['cancelled Conor.Walsh@example.ie 2030-03-02 Nissan - Build 1/2', 'cancelled Conor.Walsh@example.ie 2030-03-03 Nissan - Build 2/2'])
+    expect(emails(s, from).sort()).toEqual(['cancelled Conor.Walsh@example.ie 2030-03-02 Nissan - Build, Sat 2 Mar to Sun 3 Mar'])
 
     // On for everyone, then off: Aoife's copies say she's booked and then go back, without an email either way.
     from = s.google.sent.length
@@ -2094,6 +2089,64 @@ describe('crew invites (ADR 0009)', () => {
     await send(s, 'project.update', { id: pencilled, status: 'confirmed' })
     await s.sync()
     expect(emails(s, later)).toEqual(['updated niamh@example.com 2030-03-05 Booked: Pencilled - Show'])
+  })
+
+  it('sends each person one notice a gig, however many of their days change at once (ADR 0185)', async () => {
+    // Proves: a freelancer on a four-day gig got four cancellations when it was cancelled, one a day, and Colly asked for one
+    // notice a gig for every kind. Each person now hears from Google once a gig in a run: the first of their days carries it,
+    // naming them all where days come off, and the rest change quietly.
+    const s = await setup()
+    const job = await invited(s)
+    const { build1, build2 } = job.events
+    // Aoife is booked on the Show too, so her days are two phases'.
+    const showCall = newId()
+    const showOffer = newId()
+    await send(s, 'call.create', {
+      id: showCall,
+      projectId: job.jobId,
+      phaseId: job.phases.show,
+      project: 'Nissan',
+      phase: 'Show',
+      venue: '',
+      role: 'Audio tech',
+      start: '2030-03-04',
+      end: '2030-03-04',
+      callTime: '17:00',
+      needed: 1,
+      dayRateCents: 25000,
+      details: '',
+      replyBy: null,
+    })
+    await send(s, 'offer.send', { id: showOffer, callId: showCall, personId: (await offer(s, job.offers.aoife)).personId, override: false })
+    await send(s, 'offer.respond', { id: showOffer, answer: 'accept', days: null, note: '' })
+    await send(s, 'offer.confirm', { id: showOffer })
+    await s.sync()
+
+    // With telling on, the office takes the call's second day off and moves its call time, in one go: Aoife, Niamh and Conor
+    // are each told once, that the day is off, and the day left takes the new call time without a second email.
+    await tell(s, 'on')
+    await s.sync()
+    let from = s.google.sent.length
+    await send(s, 'call.update', { id: job.callId, end: '2030-03-02', callTime: '07:00' })
+    await s.sync()
+    expect(emails(s, from).sort()).toEqual([
+      'cancelled Conor.Walsh@example.ie 2030-03-03 Nissan - Build 2/2, call 08:00',
+      'cancelled aoife@example.com 2030-03-03 Booked: Nissan - Build 2/2, call 08:00',
+      'cancelled niamh@example.com 2030-03-03 Nissan - Build 2/2, call 08:00',
+    ])
+    expect(titleFor(s, build1, 'aoife@example.com')).toBe('Booked: Nissan - Build 1/2, call 07:00')
+    expect(titleFor(s, build1, 'niamh@example.com')).toBe('Nissan - Build 1/2, call 07:00')
+    expect(titleFor(s, build2, 'aoife@example.com')).toBeUndefined()
+
+    // The job is cancelled: one cancellation each, Aoife's naming the job and both her days, from two phases.
+    from = s.google.sent.length
+    await send(s, 'project.update', { id: job.jobId, status: 'cancelled' })
+    await s.sync()
+    expect(emails(s, from).sort()).toEqual([
+      'cancelled Conor.Walsh@example.ie 2030-03-02 The job was cancelled: Nissan - Build 1/2',
+      'cancelled aoife@example.com 2030-03-02 The job was cancelled: Nissan, Sat 2 Mar, Mon 4 Mar',
+      'cancelled niamh@example.com 2030-03-02 The job was cancelled: Nissan - Build 1/2',
+    ])
   })
 
   it('needs a connected calendar to tell crew anything, and the right to change settings', async () => {
@@ -2207,7 +2260,8 @@ describe('crew invites (ADR 0009)', () => {
     const before = s.google.sent.length
     await s.app.inject({ method: 'POST', url: '/api/calendar/disconnect', cookies: s.colly.cookies })
     await s.sync()
-    expect(emails(s, before).filter((m) => m.startsWith('cancelled'))).toHaveLength(6)
+    // One cancellation a person for the gig (ADR 0185), not one a day.
+    expect(emails(s, before).filter((m) => m.startsWith('cancelled'))).toHaveLength(3)
     expect((await feed(s)).link).toMatchObject({ state: 'off', invites: false })
     expect(await s.poll()).toBe(0)
   })

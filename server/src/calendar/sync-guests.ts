@@ -92,13 +92,17 @@ export function sameContent(ev: GoogleEvent, body: EventBody): boolean {
  * tells them however little changed, as being picked changes only the first
  * line; `quietTitle` changes the title without telling them, where the change
  * is only to what it tells them and isn't news.
+ *
+ * `quiet` is a copy whose person has already been emailed about this job in
+ * the same run (ADR 0185): one notice a gig, so the rest of its days change
+ * without an email, unless the copy is new to them, which is an invitation.
  */
 export function withGuests(
   ev: GoogleEvent,
   body: EventBody,
   previous: GuestRow[],
   guests: GuestRow[] | undefined,
-  how: { news?: boolean; quietTitle?: boolean } = {}
+  how: { news?: boolean; quietTitle?: boolean; quiet?: boolean } = {}
 ): { body: EventBody; send: SendUpdates; quietly?: EventBody } {
   const now = ev.attendees ?? []
   if (!guests) return { body: now.length ? { ...body, attendees: now } : body, send: 'none' }
@@ -115,7 +119,7 @@ export function withGuests(
     (ev.location ?? '') !== body.location ||
     ev.start?.date !== body.start.date ||
     ev.end?.date !== body.end.date
-  const told = added || dropped || ((noticed || !!how.news) && attendees.some((a) => !a.organizer))
+  const told = how.quiet ? added || restored : added || dropped || ((noticed || !!how.news) && attendees.some((a) => !a.organizer))
   const next = { body: attendees.length ? { ...body, attendees } : body, send: told ? ('all' as const) : ('none' as const) }
   if (!told || noticed || how.news || (ev.description ?? '') === body.description) return next
   return { ...next, quietly: now.length ? { ...body, attendees: now } : body }
