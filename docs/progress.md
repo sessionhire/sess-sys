@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 15 November 2026: dry hire delivery priced as a set amount, then by the km
 
-**Done (1.203.0, #PR, ADR 0183 amended)**
+**Done (1.203.0, #400, ADR 0183 amended)**
 
 - Colly asked for a delivery to be a set amount for a certain distance, and
   each km after that at its own rate, all set in Admin. Admin › Company ›

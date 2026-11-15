@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-15',
     title: 'Dry hire delivery: a set amount, then by the km',
     what: "Admin › Company › Dry hire delivery now asks for three things: a set amount, how many km it covers, and the price of each km after that. A delivery within those km is charged the set amount; a longer one is the set amount plus each km past them, and the quote's Delivery line says how it's made up. Leave the set amount empty to charge every km at the one price, as before.",
-    prs: [0],
+    prs: [400],
     adrs: [183],
   },
   {
