@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { color } from '../shared/src/ds/tokens.js'
+import { SERVER_PAGES } from './src/serverPages.ts'
 
 /**
  * Which code this is, for error reports (ADR 0005) and the show pack, in a file of its own beside the page (version.ts),
@@ -76,8 +77,8 @@ export default defineConfig({
         // The fonts are kept too (fonts.ts), so the type is the same with no signal.
         globPatterns: ['**/*.{js,css,html,woff2}', 'version.json'],
         globIgnores: ['**/errorsSdk-*.js', ...ON_FIRST_USE.map((name) => `**/${name}-*.{js,css}`)],
-        // Freelancer links and calendar feeds come from the server, never the app shell.
-        navigateFallbackDenylist: [/^\/api\//, /^\/f\//, /^\/cal\//, /^\/adr\//],
+        // Freelancer links, a client's quote, calendar feeds and the like come from the server, never the app shell (ADR 0186).
+        navigateFallbackDenylist: SERVER_PAGES,
         // Once Reload lets the new version in, it takes the open page straight away, so the reload lands on it.
         clientsClaim: true,
         // The map's pictures (ADR 0057), kept as they're seen, so a venue's map opened before still shows with no signal.

@@ -28,11 +28,56 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.202.1',
-    date: '2026-11-14',
+    version: '1.202.7',
+    date: '2026-11-15',
     title: 'Tidier skill pills',
     what: "The skills on a person's form sit evenly in their pills: as much room before the word as after the X, and the X close to its word, as the filter pills under a list already were. The X is just as easy to press.",
     prs: [394],
+  },
+  {
+    version: '1.202.6',
+    date: '2026-11-15',
+    title: "A client's quote link opens without signing in",
+    what: "On a phone or computer that had opened the app before, the link to accept a quote opened the app and asked to sign in, instead of showing the client their quote. Now the link always shows the quote with its Accept button, on any device, with no sign-in. The same goes for Open it as they see it on the Quote tab and the freelancers' lost-link page. A quote that hasn't been sent yet, such as one being amended, now shows nothing of its prices on its link.",
+    prs: [403],
+    adrs: [186],
+  },
+  {
+    version: '1.202.5',
+    date: '2026-11-15',
+    title: 'The latest shared colours and sizes',
+    what: "The app now carries the newest version of the shared design system that its colours and sizes come from. Nothing you see moves: the changes in it are for denser screens than the phone and desk sizes this app uses, plus a few new measurements for later layout work.",
+    prs: [402],
+  },
+  {
+    version: '1.202.4',
+    date: '2026-11-15',
+    title: 'The directors back at the foot of the quote PDF',
+    what: "The line naming the company along the foot of a quote PDF was cut short after its first line, so the registered office's end and the directors could fall off. The foot now grows to fit the whole line, on every page.",
+    prs: [401],
+    adrs: [181],
+  },
+  {
+    version: '1.202.3',
+    date: '2026-11-15',
+    title: 'One calendar email a gig, not one a day',
+    what: "Crew with invites on Google Calendar got an email for every day of a gig when something changed: four cancellations when a four-day gig was cancelled, four when they were booked or their call time moved. Now each person gets one email a gig for changes made together, and a cancellation names every day that's off (\"Nissan - Build, Sat 2 Mar to Sun 3 Mar\"). Their other days still change in their Google Calendar. New invitations still come one a day, since each is a question they answer.",
+    prs: [399],
+    adrs: [185],
+  },
+  {
+    version: '1.202.2',
+    date: '2026-11-15',
+    title: "A quote's Send section in two tidy parts",
+    what: "At the foot of a draft quote, Send now says once what Next will do, then has Download PDF and Print a draft side by side. Below a line, under Done another way, are Mark as sent and Mark accepted for a quote sent yourself or agreed by phone: each asks for the day before it records it, and nothing sits off to the right any more.",
+    prs: [398],
+  },
+  {
+    version: '1.202.1',
+    date: '2026-11-14',
+    title: "A quote line's changes aren't lost as it saves",
+    what: "Changing a line on a draft quote just as the quote saved, or just as someone else's change to it came in, could put the line back as it was a moment before: a discount or how it's charged (Weekly, 3 Day Week) would quietly go back. What you change now stays, and someone else's change still comes in beside it.",
+    prs: [397],
   },
   {
     version: '1.202.0',
