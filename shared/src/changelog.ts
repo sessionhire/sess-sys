@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-15',
     title: "A quote's Send section in two tidy parts",
     what: "At the foot of a draft quote, Send now says once what Next will do, then has Download PDF and Print a draft side by side. Below a line, under Done another way, are Mark as sent and Mark accepted for a quote sent yourself or agreed by phone: each asks for the day before it records it, and nothing sits off to the right any more.",
-    prs: [0],
+    prs: [398],
   },
   {
     version: '1.202.1',
