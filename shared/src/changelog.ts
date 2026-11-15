@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.205.0',
+    date: '2026-11-15',
+    title: 'A better-looking quote email',
+    what: "The quote email now looks like it comes from the company: the logo and the red band at the top, your message, a panel with the job, the dates, the venue and the total, a red \"View and accept the quote\" button when quotes can be accepted online, and the company's details along the bottom as on the PDF. Press \"Look at the email\" under the message to see it before you send. The PDF is the same as before.",
+    prs: [404],
+    adrs: [187],
+  },
+  {
     version: '1.204.1',
     date: '2026-11-15',
     title: 'Tidier skill pills',
