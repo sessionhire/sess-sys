@@ -37,7 +37,7 @@ export function DeliveryRow({ delivery, job, open, setOpen }: { delivery: Delive
       <div className={`quote-line-row extra${shown ? ' open' : ''}`}>
         <button type="button" className="quote-line-shut" aria-expanded={shown} aria-label={`${d ? d.what : 'No delivery'}: where it goes`} onClick={() => setOpen(shown ? undefined : DELIVERY_ROW)}>
           <span className="what">{d ? d.what : 'No delivery'}</span>
-          <span className="how">{d ? `${d.qty} km × ${money(d.unitCents)} a km` : (delivery.none?.replace(/: .*$/, '.') ?? '')}</span>
+          <span className="how">{d ? delivery.how : (delivery.none?.replace(/: .*$/, '.') ?? '')}</span>
           <span className="amount">{d ? money(lineCents(d)) : '–'}</span>
           <Icon name="edit" className="opener" />
         </button>
@@ -55,7 +55,7 @@ export function DeliveryRow({ delivery, job, open, setOpen }: { delivery: Delive
       </div>
       {delivery.none?.includes('Admin ›') && (
         <p className="hint">
-          <AdminWords>{`Set the price a km in ${delivery.none.slice(delivery.none.indexOf('Admin ›'))}`}</AdminWords>
+          <AdminWords>{`Set the delivery price in ${delivery.none.slice(delivery.none.indexOf('Admin ›'))}`}</AdminWords>
         </p>
       )}
     </section>

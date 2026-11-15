@@ -358,7 +358,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const delivery = deliveryFor({
     job,
     warehouse: view.trackers.settings.home,
-    centsPerKm: m.quoting.deliveryCentsPerKm,
+    price: { baseCents: m.quoting.deliveryBaseCents, baseKm: m.quoting.deliveryBaseKm, centsPerKm: m.quoting.deliveryCentsPerKm },
     id: q.lines.find((l) => l.extra === 'delivery')?.id,
     newId: useStableIds(),
   })
