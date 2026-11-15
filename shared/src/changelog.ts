@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.202.7',
+    version: '1.203.1',
     date: '2026-11-15',
     title: 'Tidier skill pills',
     what: "The skills on a person's form sit evenly in their pills: as much room before the word as after the X, and the X close to its word, as the filter pills under a list already were. The X is just as easy to press.",
     prs: [394],
+  },
+  {
+    version: '1.203.0',
+    date: '2026-11-15',
+    title: 'Dry hire delivery: a set amount, then by the km',
+    what: "Admin › Company › Dry hire delivery now asks for three things: a set amount, how many km it covers, and the price of each km after that. A delivery within those km is charged the set amount; a longer one is the set amount plus each km past them, and the quote's Delivery line says how it's made up. Leave the set amount empty to charge every km at the one price, as before.",
+    prs: [400],
+    adrs: [183],
   },
   {
     version: '1.202.6',

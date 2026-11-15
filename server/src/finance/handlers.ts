@@ -184,7 +184,14 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
   /** What own kit costs to run, as a share of its price (finding 19 of the quote flow audit): the margin's cost for it. */
   /** What a dry hire's delivery is charged a km from the warehouse (ADR 0183). */
   async 'quoting.delivery'(ctx, a) {
-    await ctx.tx.query(`INSERT INTO quote_settings (id, delivery_cents_per_km) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET delivery_cents_per_km = EXCLUDED.delivery_cents_per_km`, [QUOTE_SETTINGS_ID, a.centsPerKm])
+    // The set amount and its km are left as they were when an app from before them sends only the price a km.
+    await ctx.tx.query(
+      `INSERT INTO quote_settings (id, delivery_cents_per_km, delivery_base_cents, delivery_base_km) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE SET delivery_cents_per_km = EXCLUDED.delivery_cents_per_km,
+         delivery_base_cents = CASE WHEN $5::boolean THEN quote_settings.delivery_base_cents ELSE EXCLUDED.delivery_base_cents END,
+         delivery_base_km = CASE WHEN $6::boolean THEN quote_settings.delivery_base_km ELSE EXCLUDED.delivery_base_km END`,
+      [QUOTE_SETTINGS_ID, a.centsPerKm, a.baseCents ?? null, a.baseKm ?? null, a.baseCents === undefined, a.baseKm === undefined]
+    )
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
   },
 

@@ -56,13 +56,26 @@ copy of it on the device (ADR 0155, ADR 0163). Those three stay as they are. The
    map it's measured from Dublin city centre and says so. With no address, no pin or no price, there's a Delivery row
    saying why, and the check before the quote goes lists it.
 
+### Amended 15 November 2026: a set amount, then each km after
+
+Colly: "For the dry hire delivery can we change the pricing rules to be a set amount (set in the admin section) for a
+certain distance, and then km after that are charged at an individual rate (also set in the admin area)."
+
+Admin › Company › Dry hire delivery now asks three things: a **set amount**, the km it **covers**, and the price of
+**each km after**. A delivery within the km covered is the set amount alone; one further is the set amount plus each km
+past them at the price a km, on one line: "Delivery, 74 km from the warehouse: the first 20 km, then 54 km at €1.50 a
+km", charged once. With no set amount every km is at the price a km, as before, so a price set under 1.202.0 still
+charges as it did. Past the km covered with no price a km, there's no line and the row says why, rather than charge the
+set amount alone for a long delivery. Stored as `quote_settings.delivery_base_cents` and `delivery_base_km`;
+`quoting.delivery` carries them, and an app from before them leaves them as they are.
+
 ## Consequences
 
 - A quoted job that's never answered holds its kit until its days pass or it's marked lost. The quotes the app makes
   have days, and Money › To follow up already lists the ones gone quiet; marking one lost frees its kit at once.
 - Made-up and real jobs already quoted hold their kit from this version on, so a kit list can turn red where it was
   amber the day before. That's the answer working, not a fault.
-- The price a km is for one way. The card says so: set it to cover the trip there and back.
+- The km are measured one way. The card says so: set the amounts to cover the trip there and back.
 - Two new things are stored: `projects.hire` (jsonb) and `quote_settings.delivery_cents_per_km`. An older app leaves
   both as they are. Nothing is sent to anyone.
 

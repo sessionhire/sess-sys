@@ -299,9 +299,12 @@ export interface QuoteSettings {
   stayFromKm?: number
   roomCents?: number | null
   /**
-   * A dry hire's delivery (ADR 0183): what each km from the warehouse to the delivery address is charged, in cents. Left
-   * out while not set, and then a delivery puts no line on the quote and says so.
+   * A dry hire's delivery (ADR 0183, priced as of 15 November 2026): a set amount in cents covering the first
+   * `deliveryBaseKm`, and each km past them at `deliveryCentsPerKm` (every km, with no set amount). Each is left out while
+   * not set; with neither, a delivery puts no line on the quote and says so.
    */
+  deliveryBaseCents?: number | null
+  deliveryBaseKm?: number | null
   deliveryCentsPerKm?: number | null
   /**
    * Whether a quote can be sent to the client by email from the operations mailbox, with its PDF attached (ADR 0101).
@@ -474,6 +477,7 @@ const quoteNumber = z.number(wrongType(NUMBER_HINT)).int(NUMBER_HINT).min(1, NUM
 /** A price agreed for the whole quote, before VAT. */
 const agreedCents = euroCents(10_000_000_00, 'The price agreed')
 const CAR_HINT = 'How many share a car is a whole number from 1 to 8.'
+const DELIVERY_KM_HINT = 'The km the set amount covers is a whole number from 0 to 1000.'
 const STAY_HINT = 'The crew stay over past a whole number of km from 0 to 1,000.'
 const KM_HINT = 'The distance is a whole number of km from 0 to 2,000.'
 const travelKm = z.number(wrongType(KM_HINT)).int(KM_HINT).min(0, KM_HINT).max(2000, KM_HINT)
@@ -586,8 +590,15 @@ export const quoteCommandSchemas = {
   'quoting.email': z.object({ on: z.boolean() }),
   /** Whether a client can accept a quote on its own link (ADR 0121). The office's to decide, under Admin. */
   'quoting.online': z.object({ on: z.boolean() }),
-  /** What a dry hire's delivery is charged a km from the warehouse (ADR 0183); null for not set. */
-  'quoting.delivery': z.object({ centsPerKm: euroCents(100_00, 'A km of delivery').nullable() }),
+  /**
+   * What a dry hire's delivery is charged (ADR 0183): a set amount covering the first so many km, and each km past them;
+   * null for not set. The set amount and its km are left as they were by an app from before them.
+   */
+  'quoting.delivery': z.object({
+    baseCents: euroCents(10_000_00, 'The set amount for a delivery').nullable().optional(),
+    baseKm: z.number(wrongType(DELIVERY_KM_HINT)).int(DELIVERY_KM_HINT).min(0, DELIVERY_KM_HINT).max(1000, DELIVERY_KM_HINT).nullable().optional(),
+    centsPerKm: euroCents(100_00, 'A km of delivery').nullable(),
+  }),
   /** What own kit costs us to run, as a share of its price (finding 19 of the quote flow audit); null for not set. */
   'quoting.ownKit': z.object({ costPct: z.number(wrongType(OWN_KIT_HINT)).int(OWN_KIT_HINT).min(0, OWN_KIT_HINT).max(90, OWN_KIT_HINT).nullable() }),
   /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0174), as a whole percentage. */
