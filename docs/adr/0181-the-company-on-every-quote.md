@@ -25,8 +25,9 @@ signs to become an order. The VAT number isn't required on a quote (only on an i
    show (name, phone and email). Under the form, the foot of a quote as it will print, and what's not given yet.
 2. **One change, `company.details`**, sets them all at once; an empty field is not said. They live on the office's
    settings row. `office.update` still takes the VAT number and address, so an older app's change keeps working.
-3. **The foot of every quote**, on the page and in the PDF, adds one line (two at most in the PDF, which leaves room for
-   them only when there is something to say): "Session Hire is a trading name of Session Hire Productions Limited,
+3. **The foot of every quote**, on the page and in the PDF, adds the company's line, wrapping as long as it needs (the
+   PDF measures it and makes its foot that much taller on every page; until 1.200.1 it was cut after two lines, which
+   dropped the directors): "Session Hire is a trading name of Session Hire Productions Limited,
    registered in Ireland, number 612345. Registered office: …. Directors: …." What isn't set is left out.
 4. **The trading name** replaces the "Session Hire" written into the sheet and the PDF: the name in place of a logo, the
    logo's alternative text, the PDF's author, and the first line of the foot.
