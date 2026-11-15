@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.205.1',
+    date: '2026-11-15',
+    title: 'Quote emails open again',
+    what: "Opening a quote's email to send it said \"Something went wrong on the server\" since the update that priced dry hire delivery as a set amount, then by the km: two of its settings never reached the live database. They are added now, so quote emails, quote PDFs and Admin's dry hire delivery card work again. A check now stops the same slip happening again.",
+    prs: [0],
+  },
+  {
     version: '1.205.0',
     date: '2026-11-15',
     title: 'A better-looking quote email',
