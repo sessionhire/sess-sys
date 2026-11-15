@@ -84,8 +84,8 @@ const PANEL = '#f4f5f7'
 const SIDE = 42.5
 const TOP = 40
 const FOOT = 62
-/** Two more small lines along the foot for the company's registered name, number, office and directors (ADR 0181). */
-const LEGAL_ROOM = 20
+/** The space between the lines of the company's registered name, number, office and directors along the foot (ADR 0181). */
+const LEGAL_GAP = 1.2
 
 /** Sizes in points: the body, a row's second line, a label in capitals. */
 const BODY = 9
@@ -133,13 +133,12 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   const number = quoteNumberLabel(q)
   const title = draft ? `Draft quote for ${job.name}` : `Quote ${q.number ?? ''} for ${job.name}`.replace('  ', ' ')
   // The company as Admin › Company has it (ADR 0181): what it trades as, and, when given, the company as the law asks it
-  // to be named, which takes up to two more lines along the foot.
+  // to be named, which takes as many more lines along the foot as it needs (measured once the fonts are in).
   const trade = tradingNameOf(office)
   const legal = legalLine(office)
-  const foot = FOOT + (legal ? LEGAL_ROOM : 0)
   const doc = new PDFDocument({
     size: 'A4',
-    margins: { top: TOP, bottom: foot, left: SIDE, right: SIDE },
+    margins: { top: TOP, bottom: FOOT, left: SIDE, right: SIDE },
     bufferPages: true,
     info: { Title: drawable(title), Author: drawable(trade), Creator: drawable(trade) },
   })
@@ -160,6 +159,12 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   const left = SIDE
   const width = pageW - SIDE * 2
   const right = left + width
+  // The legal line's whole height at the page's width, every line of it, and the foot made that much taller on every
+  // page, so the directors at its end are never cut off (ADR 0181).
+  const legalH = legal ? doc.font(F.regular).fontSize(SMALL).heightOfString(drawable(legal), { width, lineGap: LEGAL_GAP }) : 0
+  const foot = FOOT + (legal ? Math.ceil(legalH) + 2 : 0)
+  doc.page.margins.bottom = foot
+  ;(doc.options.margins as { bottom: number }).bottom = foot
   /** The lowest a line of the body may sit before the foot. */
   const floor = pageH - foot
 
@@ -441,7 +446,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
     }
     if (legal) {
       style({ size: SMALL, color: MUTED })
-      doc.text(drawable(legal), left, yf + 22, { width: textW, height: LEGAL_ROOM - 1, lineGap: 1.2, ellipsis: true })
+      doc.text(drawable(legal), left, yf + 22, { width, lineGap: LEGAL_GAP })
     }
     if (where) {
       style({ size: SMALL, color: MUTED })
