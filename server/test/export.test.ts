@@ -255,6 +255,8 @@ describe('download everything', () => {
       'photo_at',
       'name_checked',
       'whatsapp_off',
+      'trades_as',
+      'vat_registered',
     ])
     expect(people[0]).toMatchObject({
       name: 'Seán Ó Briain',

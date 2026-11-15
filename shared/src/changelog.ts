@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.203.1',
+    version: '1.204.1',
     date: '2026-11-15',
     title: 'Tidier skill pills',
     what: "The skills on a person's form sit evenly in their pills: as much room before the word as after the X, and the X close to its word, as the filter pills under a list already were. The X is just as easy to press.",
     prs: [394],
+  },
+  {
+    version: '1.204.0',
+    date: '2026-11-15',
+    title: 'Sole trader or company',
+    what: "A freelancer's details now ask whether they work for us as a sole trader or a company. A sole trader is asked whether they're VAT registered, with their VAT number if they are; a company is asked its name, CRO number and VAT number. It's optional, so nobody already on the list is held up, and their page says it in a line, such as Sole trader, VAT-registered. Like their rate, it's seen only by the office, directors and the person themself (and heads, where they're shown rates).",
+    prs: [395],
+    adrs: [184],
   },
   {
     version: '1.203.0',

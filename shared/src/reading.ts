@@ -131,7 +131,8 @@ export function sameReading(a: Reading | undefined, b: Reading | undefined): boo
 export function personAsRead(p: Person, r: Reading): Person {
   if (readsEverything(r) || p.id === r.personId) return p
   const out: Person = { ...p }
-  if (!readsRatesIn(r, p.department)) Object.assign(out, { dayRateCents: null, rateHidden: true })
+  // How they trade goes with their pay (ADR 0184): a reader who doesn't see their rate isn't sent it either.
+  if (!readsRatesIn(r, p.department)) Object.assign(out, { dayRateCents: null, rateHidden: true }, p.company ? { company: null, companyHidden: true } : {})
   if (!readsLinkOf(r, p)) Object.assign(out, { linkToken: '', linkHidden: true })
   const details = r.details ?? 'all'
   if (details !== 'all') {

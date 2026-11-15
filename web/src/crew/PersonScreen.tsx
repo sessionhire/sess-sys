@@ -287,7 +287,7 @@ function Who({ person, view }: { person: PersonView; view: View }) {
             )}
             {person.company && (
               <div>
-                <dt>Company</dt>
+                <dt>Business</dt>
                 <dd>{companyLine(person)}</dd>
               </div>
             )}

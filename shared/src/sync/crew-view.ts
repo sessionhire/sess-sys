@@ -1,6 +1,6 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { irishToday } from '../calendar.ts'
-import { certificatesAfter, daysBetween, DEFAULT_LEVEL, departmentForRole, departmentOf, eachDay, HOLDING, LIVE, movedCallSpan, nameParts, namesAfter, offerDaysAfter, OPEN, tidyDepartment, tidyNeeds, type CrewCall, type CrewEntities, type Offer, type Person, type Unavailability } from '../crew.ts'
+import { certificatesAfter, companyAfter, daysBetween, DEFAULT_LEVEL, departmentForRole, departmentOf, eachDay, HOLDING, LIVE, movedCallSpan, nameParts, namesAfter, offerDaysAfter, OPEN, tidyDepartment, tidyNeeds, type CrewCall, type CrewEntities, type Offer, type Person, type Unavailability } from '../crew.ts'
 import { certificateOf, type Document } from '../documents.ts'
 import { STOPPED, type Phase, type Project } from '../jobs.ts'
 import { leaveLabel, type LeaveRequest } from '../leave.ts'
@@ -162,7 +162,9 @@ export function crewView(
           knownAs: a.knownAs !== undefined ? a.knownAs : (was?.knownAs ?? null),
           // As the server lays them (ADR 0028).
           certificates: certificatesAfter(was?.certificates, a.certificates),
-          company: a.company !== undefined ? a.company : (was?.company ?? null),
+          // As the server lays it (ADR 0184).
+          company: companyAfter(was?.company ?? null, a.company),
+          ...(a.company === undefined && was?.companyHidden ? { companyHidden: true } : {}),
           // Set only by person.role (ADR 0034); a freelancer has none.
           role: a.kind === 'staff' ? (was?.role ?? null) : null,
           pending: true,

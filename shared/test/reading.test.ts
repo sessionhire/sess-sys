@@ -159,6 +159,15 @@ describe('what each role reads', () => {
     expect(personAsRead(lights, READS_EVERYTHING)).toBe(lights)
   })
 
+  it('sends how someone trades only to a reader who sees their rate (ADR 0184)', () => {
+    const trades = { as: 'sole-trader' as const, name: '', vatNumber: 'IE1234567T', croNumber: null, vatRegistered: true }
+    const sound = person('s', { department: 'Audio', company: trades })
+    expect(personAsRead(sound, head)).toMatchObject({ company: null, companyHidden: true })
+    expect(personAsRead(sound, readingFor('head', { personId: own, department: 'Audio', headsSeeRates: true })).company).toEqual(trades)
+    expect(personAsRead(person(own, { company: trades }), crew).company).toEqual(trades)
+    expect(personAsRead(person('n'), head).companyHidden).toBeUndefined()
+  })
+
   it("leaves rates out of calls and others' offers, and amounts out of others' timesheets", () => {
     expect(callAsRead(call('c'), crew)).toMatchObject({ dayRateCents: null, rateHidden: true })
     expect(offerAsRead(offer('o', 'other'), crew)).toMatchObject({ dayRateCents: null, counterRateCents: null, rateHidden: true })

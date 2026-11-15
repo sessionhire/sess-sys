@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { whatsappSetting } from '../office/store.ts'
 import { reachOf } from '../whatsapp/whatsapp.ts'
 import { queueBooked, queueCallTime, queueNotNeeded } from '../whatsapp/follow-ups.ts'
-import { ADD_A_PHASE, certificateRefusal, certificatesAfter, daysBetween, daysLabel, daysOffPhase, DEFAULT_LEVEL, MOVE_THE_PHASE, phaseDaysRule, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, offerRateFor, ownSharePct, QUOTE_SETTINGS_ID, OFFER_WAIT_GRACE_SECONDS, OFFER_WAIT_SECONDS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
+import { ADD_A_PHASE, certificateRefusal, certificatesAfter, companyAfter, daysBetween, daysLabel, daysOffPhase, DEFAULT_LEVEL, MOVE_THE_PHASE, phaseDaysRule, departmentForRole, eachDay, RATES_REFUSAL, tidyDepartment, HOLDING, irishToday, LIVE, movedCallSpan, namesAfter, needsOf, offerDaysAfter, REPLY_BY_AFTER, STOPPED, tidyNeeds, roleCan, ROLE_LABELS, emailInUseRefusal, emailBackRefusal, hasEmail, holdsARole, OFFER_NOT_YOURS, offerRateFor, ownSharePct, QUOTE_SETTINGS_ID, OFFER_WAIT_GRACE_SECONDS, OFFER_WAIT_SECONDS, MAX_PHASE_DAYS, mayChangeWhoSignsIn, ownAddressRefusal, sameEmail, whoSignsInRefusal, type CommandArgs, type CrewCall, type Offer, type Person, type Role } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import type { Queryable } from '../db.ts'
 import { getPhase, getProject, namesForCall } from '../projects/store.ts'
@@ -380,18 +380,22 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
     const names = namesAfter(a, was)
     // An edit from a version that knows fewer kinds keeps the newer ones, and can still clear one it knows (ADR 0028).
     const certificates = certificatesAfter(was?.certificates, a.certificates)
-    const company = a.company !== undefined ? a.company : (was?.company ?? null)
+    // How they trade goes with their pay (ADR 0184): one who doesn't read their rate keeps it as it is, as does an edit that
+    // says nothing; and one from a version that doesn't ask sole trader or company keeps what was said.
+    const company = companyAfter(was?.company ?? null, ctx.seesRates === false ? undefined : a.company)
     // The usual rate, left out by a role that doesn't read it, or sent by one as it was shown it (none), is kept as it is (ADR 0046).
     const dayRateCents = a.dayRateCents === undefined || ctx.seesRates === false ? (was?.dayRateCents ?? null) : a.dayRateCents
     await ctx.tx.query(
       `INSERT INTO people (id, name, kind, email, phone, skills, day_rate_cents, notes, link_token, approves_leave,
-                           department, level, known_as, certificates, company_name, company_vat_number, company_cro_number, first_name, last_name, name_checked)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+                           department, level, known_as, certificates, company_name, company_vat_number, company_cro_number, first_name, last_name, name_checked,
+                           trades_as, vat_registered)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, kind = EXCLUDED.kind, email = EXCLUDED.email,
          phone = EXCLUDED.phone, skills = EXCLUDED.skills, day_rate_cents = EXCLUDED.day_rate_cents, notes = EXCLUDED.notes,
          approves_leave = EXCLUDED.approves_leave, department = EXCLUDED.department, level = EXCLUDED.level, known_as = EXCLUDED.known_as,
          certificates = EXCLUDED.certificates, company_name = EXCLUDED.company_name, company_vat_number = EXCLUDED.company_vat_number,
-         company_cro_number = EXCLUDED.company_cro_number, name_checked = EXCLUDED.name_checked`,
+         company_cro_number = EXCLUDED.company_cro_number, name_checked = EXCLUDED.name_checked, trades_as = EXCLUDED.trades_as,
+         vat_registered = EXCLUDED.vat_registered`,
       [
         a.id,
         names.name,
@@ -414,6 +418,8 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
         names.lastName,
         // Once the office has checked their name (ADR 0068) it stays checked.
         a.nameChecked === true || (was?.nameChecked ?? false),
+        company?.as ?? null,
+        company?.vatRegistered ?? null,
       ]
     )
     // The address replaced stays one they're found by, and the new one isn't listed twice (audit, 5 November 2026, finding 10).
