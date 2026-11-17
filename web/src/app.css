@@ -40,13 +40,13 @@
   /* Space is the design system's 4px grid (--ds-space-N is N × 4px), so a step off it is a bug, not taste. Which step goes where is by
      job, so a page has a rhythm: tight inside a group, about twice that between groups, more again between the parts of a page. Each
      job is named here once (the design system's layout roles), and the stylesheets use a role before a step. */
-  --inline: var(--ds-space-2); /* between things side by side: an icon and its words, buttons in a row */
-  --stack: var(--ds-space-1); /* between the lines of one group: a label and its field, a heading and the line under it */
-  --group: var(--ds-space-3); /* between groups inside a part: a card's heading and its list, one row or field and the next */
-  --section: var(--ds-space-6); /* between the parts of a page: card and card, the page's head and what's under it */
+  --inline: var(--ds-space-inline); /* between things side by side: an icon and its words, buttons in a row */
+  --stack: var(--ds-space-stack); /* between the lines of one group: a label and its field, a heading and the line under it */
+  --group: var(--ds-space-group); /* between groups inside a part: a card's heading and its list, one row or field and the next */
+  --section: var(--ds-space-section); /* between the parts of a page: card and card, the page's head and what's under it */
   --record: var(--ds-space-4); /* card and card inside a record's tab, its Split and Beside columns: calmer than a list's, as ADR 0082 reads (Colly's question 7 of the sweep of 6 November 2026) */
-  --inset: var(--ds-space-4); /* inside a card or panel, from its edge */
-  --gutter: var(--ds-space-4); /* the page's edge on a phone */
+  --inset: var(--ds-space-inset); /* inside a card or panel, from its edge */
+  --gutter: var(--ds-space-gutter); /* the page's edge on a phone */
   /* A row drawn as a box inside a card (a phase's or a call's box, a fault, a test due, a van, a Home tile, a card on the Board): one
      shape wherever it is, its words a step in from its edge and its corner a step tighter than the card's. */
   --inset-box: var(--ds-space-3);
@@ -659,6 +659,11 @@ details[open] > summary::before, details[open] > summary > .chevron, .history .r
 a.button, label.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; text-align: center; font: 600 var(--text-button) var(--ds-font-sans); padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); border: 1px solid var(--field-line); background: var(--panel); color: var(--ink); text-decoration: none; }
 a.button.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
 button:disabled { opacity: .5; cursor: not-allowed; }
+/* Can't be used now (design system states.md): a plain, primary, danger or quiet button that is disabled is drawn in the disabled
+   ink on no fill, with a hairline where it had an edge, rather than faded, so a disabled primary is never a paler red that still
+   reads as the next thing to do. Busy is not disabled: it keeps its look (aria-busy, below). Link-like and special buttons keep
+   the fade above. */
+:is(button, button.primary, button.danger, button.quiet):disabled:not([aria-busy='true'], .link, .who, .run-line, .past-job) { opacity: 1; color: var(--ds-ink-disabled); background: transparent; border-color: var(--ds-line-subtle); }
 /* 44px touch targets: easier with gloves on or in a dark venue. */
 input:not([type='checkbox']):not([type='radio']), select { min-height: 44px; }
 .alert { margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-radius: var(--radius-control); background: var(--bad-soft); color: var(--bad); font-size: var(--text-small); }
@@ -1000,6 +1005,8 @@ dialog.palette::backdrop { background: var(--veil); -webkit-backdrop-filter: blu
   .palette-row:not([aria-selected='true']):hover { background: var(--ds-wash-hover); }
 }
 .palette-row[aria-selected='true'] { background: var(--ds-wash-pressed); box-shadow: inset 3px 0 0 var(--accent); }
+/* Tertiary ink on a wash steps up to secondary (design system 0.12.0): the second line was 3.5:1 on the highlighted row in the dark theme. */
+.palette-row:is([aria-selected='true'], :hover) { --muted: var(--ds-ink-secondary); }
 .palette-note { flex: none; margin: 0; padding: var(--ds-space-3); color: var(--muted); font-size: var(--text-hint); }
 .palette-list:not(:empty) ~ .palette-note { border-top: 1px solid var(--line); }
 .palette-foot { flex: none; display: flex; flex-wrap: wrap; gap: var(--ds-space-2) var(--ds-space-4); margin: 0; padding: var(--ds-space-2) var(--ds-space-3); border-top: 1px solid var(--line); color: var(--muted); font-size: var(--text-hint); }

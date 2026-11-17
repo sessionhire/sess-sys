@@ -30,10 +30,18 @@ against), `navigation.md`, `states.md`, `components.md` and `motion.md`.
 
 sess-sys takes the system's colours, as an override, with the tokens that sit
 beside them (washes, elevation, layers, motion durations) and the shared
-icons. Its own layout, type, density and components stay as they are; where
-the system has a part (the combobox, toasts), sess-sys follows its keys and
-states in its own look. Its brand red stays as "you" and burnt orange as bad,
-by decision; everything else about colour follows the grammar.
+icons. Since 30 October 2026 (Colly's call) it also takes the type (IBM Plex
+and Archivo, bundled for offline, at the touch density's text styles:
+`data-density="touch"`) and the space (every gap a `--ds-space-*` step, its
+layout roles in `web/src/app.css` pointing at the system's `space.*` roles).
+Its own layout, corners and components stay as they are; where the system
+has a part (the combobox, toasts), sess-sys follows its keys and states in
+its own look. The server-drawn pages crew and clients open from a link
+(`server/src/crew/page.ts` and the pages that share its CSS) follow the
+same type, space and roles as the app. Its brand red stays as "you" and
+burnt orange as bad, by decision; everything else about colour follows the
+grammar, including a brief green tick when the system confirms a person's
+own action (design system 0.20.0).
 
 ## Changelog and version
 
