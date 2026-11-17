@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.206.0',
+    date: '2026-11-17',
+    title: 'Home charts as a table',
+    what: 'Every chart on Home has a "Show as table" line under it that opens the same numbers as a table, day by day or week by week, for anyone who would rather read the figures or uses a screen reader.',
+    prs: [179],
+    adrs: [54],
+  },
+  {
     version: '1.205.2',
     date: '2026-11-17',
     title: 'Crew and client pages look like the app',
