@@ -16,8 +16,7 @@ import {
   hireWhen,
   VAT_LABELS,
   venueLabel,
-  type OfficeDetails,
-} from '@sh/shared'
+  type OfficeDetails, dsText } from '@sh/shared'
 import { CSS, fieldError, h, invalid, officeBlock } from '../crew/page.ts'
 import type { Sheet } from './quote-pdf.ts'
 
@@ -58,13 +57,13 @@ const page = (title: string, body: string) => `<!doctype html><html lang="en-IE"
 <meta name="robots" content="noindex"><title>${h(title)}</title><style>${CSS}${QUOTE_CSS}</style></head><body><main>${body}</main></body></html>`
 
 const QUOTE_CSS = `
-.quote-lines{width:100%;border-collapse:collapse;font-size:.95rem}.quote-lines th,.quote-lines td{padding:8px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-.quote-lines th{font-size:.8rem;color:var(--muted);font-weight:600}.quote-lines .n{text-align:right;white-space:nowrap;padding-left:12px}
-.quote-lines small{display:block;color:var(--muted)}.quote-lines tr.group th{padding-top:14px;text-transform:uppercase;letter-spacing:.06em}
+.quote-lines{width:100%;border-collapse:collapse;font-size:${dsText.touch.body.size}px}.quote-lines th,.quote-lines td{padding:8px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.quote-lines th{font-size:${dsText.touch.caption.size}px;color:var(--muted);font-weight:600}.quote-lines .n{text-align:right;white-space:nowrap;padding-left:12px}
+.quote-lines small{display:block;color:var(--muted)}.quote-lines tr.group th{padding-top:16px;text-transform:uppercase;letter-spacing:.06em}
 .totals{display:grid;grid-template-columns:1fr auto;gap:4px 16px;margin:0}.totals dt{color:var(--muted)}.totals dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
-.totals .total{font-weight:700;font-size:1.1rem;color:var(--ink)}
-.accept{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:14px}
-.agree{display:flex;gap:10px;align-items:flex-start;font-size:1rem}.agree input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--accent)}
+.totals .total{font-weight:700;font-size:${dsText.touch.title.size}px;color:var(--ink)}
+.accept{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:16px}
+.agree{display:flex;gap:12px;align-items:flex-start;font-size:${dsText.touch.body.size}px}.agree input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--accent)}
 .lines-text{white-space:pre-line}`
 
 /** The quote's lines as on the printed page: each line, a package's kit under it, by group. */

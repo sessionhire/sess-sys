@@ -80,12 +80,15 @@ export const scriptHash = (script: string) => `'sha256-${createHash('sha256').up
 /**
  * The content security policy of the server's own pages (audit finding 24): freelancers' pages, call sheets,
  * timesheets, documents and staff's sign-in. A second line behind the escaping, which already holds: nothing loads but
- * the page itself, its own style and the scripts named here by hash, and a form posts only back to this server.
+ * the page itself, its own style, its face from this server and the scripts named here by hash, and a form posts only
+ * back to this server.
  */
 export function pagePolicy(scripts: readonly string[]): string {
   return [
     "default-src 'none'",
     "style-src 'unsafe-inline'",
+    // IBM Plex Sans, from this server (crew/fonts.ts).
+    "font-src 'self'",
     `script-src ${scripts.map(scriptHash).join(' ') || "'none'"}`,
     "img-src 'self' data:",
     "form-action 'self'",

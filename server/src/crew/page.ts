@@ -2,6 +2,7 @@ import { LOGO_SVG, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irish
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
+import { FONT_FACES, FONT_STACK } from './fonts.ts'
 import { busyByDay, ENDED_WORDS, HOLD_WORDS, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, type OwnCalendar, type SinceYes } from '@sh/shared'
 import type { Ended, EndedBy } from './store.ts'
 
@@ -1050,45 +1051,46 @@ const CONTROL = `${dsSize.touch.control}px`
 const CONTROL_PAD = `${dsSpace[2]}px ${dsSpace[3]}px`
 
 export const CSS = `
-:root{${roles('light')};color-scheme:light;font:16px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+${FONT_FACES}
+:root{${roles('light')};color-scheme:light;font:${dsText.touch.body.size}px/${dsText.touch.body.leading} ${FONT_STACK}}
 @media (prefers-color-scheme:dark){:root{${roles('dark')};color-scheme:dark}}
 @media print{:root{${roles('light')};color-scheme:light}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}
-main{max-width:560px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 16px 48px;display:grid;gap:18px}
+main{max-width:560px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px 48px;display:grid;gap:24px}
 a{color:inherit;text-decoration-color:var(--accent);text-underline-offset:2px}
-.top{display:flex;gap:12px;align-items:center}.top b{display:block;text-transform:uppercase;letter-spacing:.03em}.top small{display:block;color:var(--muted)}.top h1{margin:0;font-size:1.25rem;line-height:1.2}
+.top{display:flex;gap:12px;align-items:center}.top b{display:block;text-transform:uppercase;letter-spacing:.03em}.top small{display:block;color:var(--muted)}.top h1{margin:0;font-size:${dsText.touch.title.size}px;line-height:1.2}
 .mark{height:40px;aspect-ratio:764/501;color:var(--accent);flex:none}.mark svg{display:block;width:100%;height:100%}
-h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
-section{display:grid;gap:10px}
-.offer{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px}
+h2{font-size:${dsText.touch.caption.size}px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+section{display:grid;gap:12px}
+.offer{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:12px}
 .offer.offered{border-left-color:var(--accent)}.offer.confirmed{border-left-color:var(--ink)}.offer.accepted,.offer.countered{border-left-color:var(--warn)}
-.office{margin:0;font-size:.92rem;color:var(--muted)}.office a{font-weight:600;white-space:nowrap}
+.office{margin:0;font-size:${dsText.touch.body.size}px;color:var(--muted)}.office a{font-weight:600;white-space:nowrap}
 .pull-out summary,.decline summary{color:var(--bad)}.decline[open]{display:grid;gap:8px}.pull-out[open]{display:grid;gap:8px}.tag.pulled-out{background:var(--bad-soft);color:var(--bad)}
 .buttons.one{grid-template-columns:1fr}
-.offer header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
-h3{margin:0;font-size:1.1rem}h3 span{font-weight:500;color:var(--muted)}
-.tag{font-size:.75rem;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--line);white-space:nowrap}
-.tag.offered{background:var(--accent-fill);color:#fff}.tag.confirmed,.tag.approved{background:var(--line);color:var(--ink)}.tag.accepted,.tag.countered,.tag.waiting,.tag.hold{background:var(--warn-soft);color:var(--warn)}
-.facts{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin:0}.facts dt{color:var(--muted)}.facts dd{margin:0}
-.details{margin:0;padding:10px;background:var(--bg);border-radius:8px;font-size:.92rem}
-form{display:grid;gap:10px;margin:0}
-fieldset.days{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}fieldset.days legend{font-size:.85rem;color:var(--muted);margin-bottom:4px}
-fieldset.days label{display:flex;gap:6px;align-items:center;min-height:${CONTROL};padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
-fieldset.days label.gone{opacity:.55}fieldset.days label{flex-wrap:wrap}fieldset.days .day{white-space:nowrap}fieldset.days small{flex-basis:100%;padding-left:26px;color:var(--muted)}fieldset.days input{width:20px;height:20px;accent-color:var(--accent)}
+.offer header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+h3{margin:0;font-size:${dsText.touch.title.size}px}h3 span{font-weight:500;color:var(--muted)}
+.tag{font-size:${dsText.touch.label.size}px;font-weight:700;padding:4px 8px;border-radius:999px;background:var(--line);white-space:nowrap}
+.tag.offered{background:var(--accent-fill);color:var(--on-accent)}.tag.confirmed,.tag.approved{background:var(--line);color:var(--ink)}.tag.accepted,.tag.countered,.tag.waiting,.tag.hold{background:var(--warn-soft);color:var(--warn)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:2px 16px;margin:0}.facts dt{color:var(--muted)}.facts dd{margin:0}
+.details{margin:0;padding:12px;background:var(--bg);border-radius:8px;font-size:${dsText.touch.body.size}px}
+form{display:grid;gap:12px;margin:0}
+fieldset.days{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px}fieldset.days legend{font-size:${dsText.touch.caption.size}px;color:var(--muted);margin-bottom:4px}
+fieldset.days label{display:flex;gap:8px;align-items:center;min-height:${CONTROL};padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+fieldset.days label.gone{opacity:.55}fieldset.days label{flex-wrap:wrap}fieldset.days .day{white-space:nowrap}fieldset.days small{flex-basis:100%;padding-left:28px;color:var(--muted)}fieldset.days input{width:20px;height:20px;accent-color:var(--accent)}
 .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-button{font:600 1rem system-ui,sans-serif;padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;min-height:${CONTROL}}
+button{font:600 ${dsText.touch.control.size}px/${dsText.touch.control.leading} ${FONT_STACK};padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--field-line);background:var(--panel);color:var(--ink);cursor:pointer;min-height:${CONTROL}}
 .on-enter{position:absolute;width:1px;height:1px;min-height:0;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
 /* The one thing to do next in a card is the app's primary, the brand red's fill. Giving a job up is quiet, in the bad tone, behind the fold that asks first. */
 button.yes,a.button.yes{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--on-accent)}
 button.no{background:transparent;border-color:transparent;color:var(--bad)}
-details{border-top:1px solid var(--line);padding-top:8px}summary{cursor:pointer;color:var(--muted);font-size:.92rem;padding:11px 0;min-height:44px}
+details{border-top:1px solid var(--line);padding-top:8px}summary{cursor:pointer;color:var(--muted);font-size:${dsText.touch.body.size}px;padding:12px 0;min-height:44px}
 details[open]{display:grid;gap:8px}
 /* The fields in a fold, spaced as a form's are: a browser draws what a fold holds as one box, so the fold's own gap falls only under its summary. */
 .fold{display:grid;gap:8px}
-label{display:grid;gap:4px;font-size:.9rem}input,textarea,select{font:inherit;font-size:${FIELD_TEXT};min-height:${CONTROL};padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--field-line);background:var(--bg);color:var(--ink);min-width:0;width:100%}
+label{display:grid;gap:4px;font-size:${dsText.touch.body.size}px}input,textarea,select{font:inherit;font-size:${FIELD_TEXT};min-height:${CONTROL};padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--field-line);background:var(--bg);color:var(--ink);min-width:0;width:100%}
 input[type=checkbox],input[type=radio]{min-height:0}fieldset.days input{width:20px}
 /* A field with a hint: the hint under the label, read with the field. */
-.field{display:grid;gap:4px}.hint{margin:0;color:var(--muted);font-size:.85rem}
+.field{display:grid;gap:4px}.hint{margin:0;color:var(--muted);font-size:${dsText.touch.caption.size}px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 /* A sum with its euro drawn in the box, before it, never typed, as the app's quote draws it. */
 .unit-box{display:flex;align-items:center;min-height:${CONTROL};border:1px solid var(--field-line);border-radius:8px;background:var(--bg);color:var(--ink)}
@@ -1096,58 +1098,58 @@ input[type=checkbox],input[type=radio]{min-height:0}fieldset.days input{width:20
 .unit-box input{flex:1;min-height:0;border:0;background:transparent;padding-inline-start:${dsSpace[1]}px}
 .unit-box input:focus-visible{outline:none}.unit-box:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.flash{margin:0;padding:12px 14px;border-radius:10px;font-weight:600}.flash.ok{background:var(--panel);color:var(--ink);border:1px solid var(--line)}.flash.bad{background:var(--bad-soft);color:var(--bad)}.flash.warn{background:var(--warn-soft);color:var(--warn)}
+.flash{margin:0;padding:12px 16px;border-radius:10px;font-weight:600}.flash.ok{background:var(--panel);color:var(--ink);border:1px solid var(--line)}.flash.bad{background:var(--bad-soft);color:var(--bad)}.flash.warn{background:var(--warn-soft);color:var(--warn)}
 /* A refusal about one field is the app's refusal line, under it: the bad wash, never amber, with the field's edge in the bad tone, drawn twice as heavy inside the box so the field keeps its size beside its pair. */
 .field-error{margin:-4px 0 0;padding:${CONTROL_PAD};border-radius:8px;background:var(--bad-soft);color:var(--bad)}input[aria-invalid=true],textarea[aria-invalid=true],.unit-box:has([aria-invalid=true]){border-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad)}.unit-box input[aria-invalid=true]{box-shadow:none}
-.clash,.news,.hold-line{margin:0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}.offer.confirmed.hold{border-left-color:var(--warn)}
+.clash,.news,.hold-line{margin:0;padding:12px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}.offer.confirmed.hold{border-left-color:var(--warn)}
 /* A booking's change since the yes, "07:30 (was 09:00)", and how one that ended went, as its first line: attention, as each needs a look (UX sweep, 6 November 2026, move 6). */
-.was{color:var(--warn);font-weight:600}.offer.ended{border-left-color:var(--warn)}.offer.ended h3 .news{display:block;margin-bottom:10px;font-size:1rem}
-.empty,.small{color:var(--muted);margin:0;font-size:.92rem}
-.demo-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0;padding:8px 16px;background:var(--ink);color:var(--bg);font-size:.9rem}
+.was{color:var(--warn);font-weight:600}.offer.ended{border-left-color:var(--warn)}.offer.ended h3 .news{display:block;margin-bottom:12px;font-size:${dsText.touch.body.size}px}
+.empty,.small{color:var(--muted);margin:0;font-size:${dsText.touch.body.size}px}
+.demo-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0;padding:8px 16px;background:var(--ink);color:var(--bg);font-size:${dsText.touch.body.size}px}
 .demo-bar a{color:inherit;font-weight:700;white-space:nowrap}
 /* A jump down the page (an answer's card, a section) lands under the glance, which sticks at the top: room for it as it wraps on a
    phone to two or three lines, and for one line on a wider screen (audit, 5 November 2026, finding 7). */
 html:has(.glance){scroll-padding-top:104px}@media (min-width:600px){html:has(.glance){scroll-padding-top:76px}}
-.glance{display:flex;flex-wrap:wrap;gap:4px;font-weight:600;font-size:.95rem;position:sticky;top:0;z-index:1;margin:0 -16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
+.glance{display:flex;flex-wrap:wrap;gap:4px;font-weight:600;font-size:${dsText.touch.body.size}px;position:sticky;top:0;z-index:1;margin:0 -16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
 details.later{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:0 12px}details.later[open]{padding-bottom:12px}
-details.later summary{color:var(--ink);font-size:.95rem;padding:12px 0}details.later summary .tag{margin-left:4px}details.later .offer{border:0;padding:0;background:none}
+details.later summary{color:var(--ink);font-size:${dsText.touch.body.size}px;padding:12px 0}details.later summary .tag{margin-left:4px}details.later .offer{border:0;padding:0;background:none}
 /* Giving a job up keeps its bad tone inside a folded booking too, where the row's summary rule would draw it in ink. */
 details.later :is(.pull-out,.decline) summary{color:var(--bad)}
 /* A folded row as the app draws one: the job, then role · phase · days · call under it, then where it stands. */
-details.later summary .line{display:block;margin-top:2px;color:var(--muted);font-size:.9rem;text-wrap:pretty}.me summary .line{display:block;margin-top:2px;color:var(--muted);font-size:.9rem;text-wrap:pretty}.since-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.since-list a{display:block;padding:12px;border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;background:var(--panel);color:var(--ink);text-decoration:none}.feed-fold{margin-top:12px}
+details.later summary .line{display:block;margin-top:2px;color:var(--muted);font-size:${dsText.touch.body.size}px;text-wrap:pretty}.me summary .line{display:block;margin-top:2px;color:var(--muted);font-size:${dsText.touch.body.size}px;text-wrap:pretty}.since-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.since-list a{display:block;padding:12px;border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;background:var(--panel);color:var(--ink);text-decoration:none}.feed-fold{margin-top:12px}
 .glance a{color:inherit}
 .feed{display:grid;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.feed input{color:var(--muted)}
 .feed-buttons{display:flex;gap:8px}.feed-buttons>*{flex:1}.feed-buttons .copy[hidden]{display:none}
-a.button{display:inline-flex;align-items:center;justify-content:center;min-height:${CONTROL};padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--line);background:var(--panel);font-weight:600;text-decoration:none}
+a.button{display:inline-flex;align-items:center;justify-content:center;min-height:${CONTROL};padding:${CONTROL_PAD};border-radius:8px;border:1px solid var(--field-line);background:var(--panel);font-weight:600;text-decoration:none}
 /* Pressed, and hovered where there's a pointer, as the app's buttons are: a wash over a plain or quiet one, the primary's fill darkened. A quiet
    bad one pressed keeps the lighter wash and takes an edge in its tone, as its words fall under 4.5:1 on the pressed wash. Colour only, so reduced motion has nothing to stop. */
 @media (hover:hover){button:not(.yes,.no,[aria-pressed=true]):hover,a.button:not(.yes):hover{background-image:linear-gradient(var(--wash-hover),var(--wash-hover));border-color:var(--field-line)}button.no:hover{background:var(--wash-hover)}button.yes:hover,a.button.yes:hover{filter:brightness(.92)}}
 button:not(.yes,.no):active,a.button:not(.yes):active{background-image:linear-gradient(var(--wash-pressed),var(--wash-pressed))}button.no:active{background:var(--wash-hover);border-color:var(--bad)}button.yes:active,a.button.yes:active{filter:brightness(.84)}
-.away,.closed{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.away li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 6px 6px 12px}
+.away,.closed{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.away li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 8px 8px 12px}
 /* Leave keeps where it stands, or Remove, at the end of its first line, the days and what's said of them wrapping beside it. */
 .away.leave li>span:first-child{flex:1;min-width:0}
-.away li .clash{flex-basis:100%;margin-right:6px;font-size:.92rem}.away li button{min-height:44px;padding:6px 10px;font-size:.85rem}.away small,.closed small{color:var(--muted);display:block}
-.closed li{font-size:.92rem}
+.away li .clash{flex-basis:100%;margin-right:8px;font-size:${dsText.touch.body.size}px}.away li button{min-height:44px;padding:8px 12px;font-size:${dsText.touch.caption.size}px}.away small,.closed small{color:var(--muted);display:block}
+.closed li{font-size:${dsText.touch.body.size}px}
 .add-away{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
 /* Two fields that belong together, such as From and Until: one under the other on a phone, side by side where both fit. */
-.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12em),1fr));gap:10px}.pair>div{display:grid;gap:10px;align-content:start}
-footer{display:grid;gap:6px;font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
-.sheet-link{font-weight:600;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-decoration:none}
-.me details{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 14px}.me details[open]{padding-bottom:14px}
-.me summary{padding:10px 0;list-style-position:inside}.me summary h2{display:inline;margin:0}.me form{margin-top:4px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12em),1fr));gap:12px}.pair>div{display:grid;gap:12px;align-content:start}
+footer{display:grid;gap:8px;font-size:${dsText.touch.caption.size}px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+.sheet-link{font-weight:600;padding:12px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-decoration:none}
+.me details{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 16px}.me details[open]{padding-bottom:16px}
+.me summary{padding:12px 0;list-style-position:inside}.me summary h2{display:inline;margin:0}.me form{margin-top:4px}
 .ts-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.ts-list a{display:grid;gap:2px;padding:12px 14px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none}
+.ts-list a{display:grid;gap:2px;padding:12px 16px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none}
 .ts-list a.to-send{border-left-color:var(--accent)}.ts-list a.sent{border-left-color:var(--warn)}.ts-list a.approved{border-left-color:var(--ink)}
 .ts-list small{color:var(--muted)}.ts-list b span{font-weight:500;color:var(--muted)}.ts-list a>span{font-weight:600}
 .offer.today-card{border-left-color:var(--ink)}
-.late-said{margin:0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}
-fieldset.choice{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}fieldset.choice legend{font-size:.85rem;color:var(--muted);margin-bottom:4px;padding:0}
-fieldset.choice label{display:flex;gap:6px;align-items:center;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.late-said{margin:0;padding:12px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600}
+fieldset.choice{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px}fieldset.choice legend{font-size:${dsText.touch.caption.size}px;color:var(--muted);margin-bottom:4px;padding:0}
+fieldset.choice label{display:flex;gap:8px;align-items:center;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 fieldset.choice input{width:20px;height:20px;accent-color:var(--accent)}
 .doc h3{overflow-wrap:anywhere}
 .share-cal{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
-.where ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:.92rem}
+.where ul{margin:0;padding-left:24px;display:grid;gap:8px;font-size:${dsText.touch.body.size}px}
 .again{border:0;padding:0}
 .glance a,.office a,a[href^="tel:"],.facts a,.demo-bar a,footer a{position:relative}.glance a::after,.office a::after,a[href^="tel:"]::after,.facts a::after,.demo-bar a::after,footer a::after{content:'';position:absolute;inset:-12px -4px}
 `

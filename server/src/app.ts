@@ -27,6 +27,7 @@ import { registerPeopleImportRoutes } from './crew/import.ts'
 import { registerCrewLinks } from './crew/links.ts'
 import { registerLinkCheck } from './crew/link-check.ts'
 import { COPY_SCRIPT } from './crew/page.ts'
+import { registerPageFonts } from './crew/fonts.ts'
 import { OwnCalendars, type OwnCalendarsOptions } from './crew/own-calendars.ts'
 import { registerOwnCalendarRoutes } from './crew/own-calendar-routes.ts'
 import { faultForLog, type Db, type Queryable } from './db.ts'
@@ -470,6 +471,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // A freelancer's link remembers the phones it opens on, and checks a new one once the office says (ADR 0114). The mailbox
   // that sends the code is made further down, so it's looked up when a code is asked for.
   registerLinkCheck(app, db, { mailbox: () => (app.hasDecorator('assistantMailbox') ? app.assistantMailbox : undefined) })
+
+  // The face the server's own pages are set in (crew/fonts.ts).
+  registerPageFonts(app)
 
   app.get('/api/health', { config: { public: true } }, async () => {
     const backup = backups.status()
