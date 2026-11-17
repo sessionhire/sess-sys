@@ -100,9 +100,12 @@ async function fromLink(app: FastifyInstance, token: string, fields: Record<stri
   const res = await app.inject({ method: 'POST', url: `/f/${token}/documents`, ...form(fields, file, name) })
   expect(res.statusCode).toBe(303)
   const to = new URL(res.headers.location as string, 'http://x')
-  expect(to.hash).toBe('#documents')
   const page = (await app.inject({ url: to.pathname + to.search })).body
-  return { ...flashOf(page), page }
+  const said = flashOf(page)
+  // The thanks lands on their documents; a refusal on what it's about, its field or its line, given that id once.
+  expect(to.hash).toBe(said.ok ? '#documents' : '#refused')
+  if (!said.ok) expect(page.match(/ id="refused"/g)).toHaveLength(1)
+  return { ...said, page }
 }
 
 const THANKS = "Thanks, it's gone to the office. They'll check it, and it's on your list meanwhile."
@@ -208,7 +211,15 @@ describe('what a file may be', () => {
     expect(over.json().error).toBe(FILE_TOO_BIG)
     expect((await upload('far', details, sized(12 * 1024 * 1024))).statusCode).toBe(413)
     const dara = await token('dara')
-    expect(await fromLink(app, dara, { kind: 'other', title: 'Big scan', expires: '' }, sized(MAX_FILE_BYTES + 1))).toMatchObject({ ok: false, message: FILE_TOO_BIG })
+    // Said under the file, in the form it came from, open again: the field is marked and described by its hint and then
+    // the refusal, and the page lands on it, with "Error: " first in its title (UX sweep, 6 November 2026, move 5).
+    const big = await fromLink(app, dara, { kind: 'other', title: 'Big scan', expires: '' }, sized(MAX_FILE_BYTES + 1))
+    expect(big).toMatchObject({ ok: false, message: FILE_TOO_BIG })
+    expect(big.page).toMatch(
+      /<details class="send-doc" open>[^]*<div class="field" id="refused"><label for="new-doc-file">The file<\/label>\s*<small class="hint" id="new-doc-file-hint">A PDF, or a photo of it[^<]*<\/small>\s*<input type="file" id="new-doc-file" name="file" accept="[^"]*" required aria-invalid="true" aria-describedby="new-doc-file-hint new-doc-file-error"><\/div>\s*<p class="field-error" id="new-doc-file-error" role="alert">/
+    )
+    expect(big.page).not.toContain('<p class="flash')
+    expect(big.page).toContain('<title>Error: Session Hire: your work</title>')
     expect(await fromLink(app, dara, { kind: 'other', title: 'Big scan', expires: '' }, sized(12 * 1024 * 1024))).toMatchObject({ ok: false, message: FILE_TOO_BIG })
     expect(await files()).toHaveLength(1)
   })
@@ -286,6 +297,20 @@ describe('an address anyone can post to', () => {
     })
     expect(firstLine).toBe('HTTP/1.1 404 Not Found')
   })
+
+  it("reads a phone's 11 MB photo through before saying it's too big, so the browser shows the page and not 'connection reset'", async () => {
+    // Proves (audit, 5 November 2026, finding 14): the whole form is taken in from a real link, and only then answered with the page's own words.
+    const { app, token } = await office()
+    const dara = await token('dara')
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    const { port } = app.server.address() as AddressInfo
+    const { payload, headers } = form({ kind: 'other', title: 'Big photo', expires: '' }, Buffer.concat([JPEG, Buffer.alloc(11 * 1024 * 1024)]), 'IMG_2031.JPG')
+    const res = await fetch(`http://127.0.0.1:${port}/f/${dara}/documents`, { method: 'POST', body: payload, headers, redirect: 'manual' })
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toContain('m=doc-too-big')
+    // Turned away unread, the answer closes the connection while the browser is still sending, and Chrome drops it.
+    expect(res.headers.get('connection')).not.toBe('close')
+  })
 })
 
 describe("from the freelancer's link", () => {
@@ -300,12 +325,30 @@ describe("from the freelancer's link", () => {
     expect(page).toContain('Runs out soon')
     expect(page).toContain('Send a new one')
     expect(page).toContain('enctype="multipart/form-data"')
+    // How to send the file is a hint under its label, read with the field, in each form on the page.
+    expect(page).toContain('<input type="file" id="renew-p1-file" name="file"')
+    expect(page).toContain('required aria-describedby="renew-p1-file-hint">')
+    expect(page).toContain('required aria-describedby="new-doc-file-hint">')
 
-    // A renewal turned down opens again under its card, saying why, and keeps nothing.
+    // A renewal turned down opens again under its card, saying why under the file, which the page lands on, and keeps nothing.
     const refused = await fromLink(app, padraig, { renews: 'p1', expires: day(385) }, SVG, 'card.svg')
     expect(refused).toMatchObject({ ok: false, message: WEB_FILE })
     expect(refused.page).toContain('<details open><summary>Send a new one</summary>')
     expect(refused.page).toContain('<details class="send-doc"><summary>')
+    expect(refused.page).toMatch(
+      /<div class="field" id="refused"><label for="renew-p1-file">The file<\/label>[^]*?aria-invalid="true" aria-describedby="renew-p1-file-hint renew-p1-file-error"><\/div>\s*<p class="field-error" id="renew-p1-file-error" role="alert">/
+    )
+    expect(refused.page).not.toContain('<p class="flash')
+    // A day that isn't one is said under the day.
+    const notADay = await fromLink(app, padraig, { renews: 'p1', expires: 'next year' }, HEIC)
+    expect(notADay).toMatchObject({ ok: false, message: 'Check the dates and try again.' })
+    expect(notADay.page).toMatch(
+      /<label id="refused">The new one runs out <input type="date" name="expires" min="[\d-]+" aria-invalid="true" aria-describedby="renew-p1-expires-error"><\/label><p class="field-error" id="renew-p1-expires-error" role="alert">Check the dates and try again.<\/p>/
+    )
+    // A renewal of one that's no longer on their list has no form to say it under, so it's said at the top of the section.
+    const gone = await fromLink(app, padraig, { renews: 'p9', expires: day(385) }, SVG, 'card.svg')
+    expect(gone.page).toContain(`<p class="flash bad" role="alert" id="refused">${WEB_FILE.replace(/'/g, '&#39;')}</p>`)
+    expect(gone.page).not.toContain('class="field-error')
     const sent = await fromLink(app, padraig, { renews: 'p1', expires: day(385) }, HEIC)
     expect(sent).toMatchObject({ ok: true, message: THANKS })
     expect(sent.page).toContain('With the office to check')

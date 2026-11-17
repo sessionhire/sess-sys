@@ -1,6 +1,7 @@
 import './noEval.ts'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './fonts.ts'
 import './app.css'
 import './crew/crew.css'
 import './jobs/jobs.css'
@@ -8,17 +9,50 @@ import './home/home.css'
 import { followMovedAddresses } from './addresses.ts'
 import { startErrorReporting } from './errors.ts'
 import { Opening } from './Opening.tsx'
+import { listenForSignIn } from './native.ts'
+import { openOnStart } from './start.ts'
 import { keepPlaces } from './places.ts'
+import { keepRecent } from './recent.ts'
 import { printLight } from './theme.ts'
+import { refuseEmptyFieldsInWords } from './required.ts'
+import { leaveShellForServerPage } from './serverPages.ts'
 import { watchForUpdates } from './update.tsx'
 
-followMovedAddresses()
-keepPlaces()
-printLight()
-void startErrorReporting()
-watchForUpdates()
+// A client's quote link or a freelancer's, answered by an older version's service worker as the app: let the server
+// answer it instead (ADR 0186), and start nothing here.
+if (!leaveShellForServerPage()) start()
 
-const root = createRoot(document.getElementById('root')!)
+function start() {
+  followMovedAddresses()
+  openOnStart()
+  keepPlaces()
+  keepRecent()
+  printLight()
+  refuseEmptyFieldsInWords()
+  void startErrorReporting()
+  watchForUpdates()
+  // The phone app's sign-in comes back by the app's own address (ADR 0112); the page starts again signed in, or saying why not.
+  void listenForSignIn((outcome) =>
+    location.replace('next' in outcome ? (outcome.next.startsWith('/') ? outcome.next : `/${outcome.next}`) : `/?signin=${outcome.problem}${location.hash}`)
+  )
+
+  const root = createRoot(document.getElementById('root')!)
+
+  // The app waits on its copy of the data before it draws the screens (sync.ts), which on a slow phone can be seconds: the
+  // places and the screen's shape meanwhile, never a word alone (Opening.tsx; audit, 20 October 2026, finding 11). And
+  // that's why the shell is loaded here rather than imported: should it fail, for whatever reason storage.ts hasn't
+  // caught, the page still says something.
+  root.render(<Opening />)
+  import('./Shell.tsx').then(
+    ({ Shell }) =>
+      root.render(
+        <StrictMode>
+          <Shell />
+        </StrictMode>
+      ),
+    (err: unknown) => root.render(<CouldNotStart why={err instanceof Error ? err.message : String(err)} />)
+  )
+}
 
 /** The app couldn't load its copy of the data, so a plain page says so rather than nothing at all. */
 function CouldNotStart({ why }: { why: string }) {
@@ -36,18 +70,3 @@ function CouldNotStart({ why }: { why: string }) {
     </div>
   )
 }
-
-// The app waits on its copy of the data before it draws the screens (sync.ts), which on a slow phone can be seconds: the
-// places and the screen's shape meanwhile, never a word alone (Opening.tsx; audit, 20 October 2026, finding 11). And
-// that's why the shell is loaded here rather than imported: should it fail, for whatever reason storage.ts hasn't
-// caught, the page still says something.
-root.render(<Opening />)
-import('./Shell.tsx').then(
-  ({ Shell }) =>
-    root.render(
-      <StrictMode>
-        <Shell />
-      </StrictMode>
-    ),
-  (err: unknown) => root.render(<CouldNotStart why={err instanceof Error ? err.message : String(err)} />)
-)

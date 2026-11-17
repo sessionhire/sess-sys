@@ -17,12 +17,14 @@ import { officeCommandSchemas } from './office.ts'
 import { stockCommandSchemas } from './stock.ts'
 import { timesheetCommandSchemas } from './timesheets.ts'
 import { attachmentCommandSchemas } from './attachments.ts'
+import { jobPhotoCommandSchemas } from './job-photos.ts'
 import { quoteCommandSchemas } from './quotes.ts'
 import { ownCalendarCommandSchemas } from './own-calendar.ts'
 import { vehicleCommandSchemas } from './vehicles.ts'
 import { stepCommandSchemas } from './steps.ts'
 import { rackCommandSchemas } from './racks.ts'
 import { purchaseCommandSchemas } from './purchases.ts'
+import { trackerCommandSchemas } from './trackers.ts'
 
 /**
  * Commands are what a device asks for, not rows it has already changed. The
@@ -52,12 +54,14 @@ export const commandSchemas = {
   ...documentCommandSchemas,
   ...countCommandSchemas,
   ...attachmentCommandSchemas,
+  ...jobPhotoCommandSchemas,
   ...quoteCommandSchemas,
   ...ownCalendarCommandSchemas,
   ...vehicleCommandSchemas,
   ...stepCommandSchemas,
   ...rackCommandSchemas,
   ...purchaseCommandSchemas,
+  ...trackerCommandSchemas,
 } as const
 
 export type CommandName = keyof typeof commandSchemas

@@ -195,6 +195,9 @@ export default function Rack3D({ r, held, heldModel, mayChange, bad, onHold, onP
     controls.enableDamping = false
     controls.minDistance = 300
     controls.maxDistance = 12_000
+    // A one-finger swipe up or down scrolls the page, as everywhere else on a phone: a sideways drag turns the rack and two fingers
+    // zoom (audit, 5 November 2026, finding 70; Colly's rule, no captive scroll on phones). OrbitControls sets none for itself.
+    if (matchMedia('(pointer: coarse)').matches) renderer.domElement.style.touchAction = 'pan-y'
     const rack = new THREE.Group()
     scene.add(rack)
     const ghost = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.45, depthWrite: false }))
@@ -447,7 +450,7 @@ export default function Rack3D({ r, held, heldModel, mayChange, bad, onHold, onP
         />
       )}
       <p className="hint">
-        Drag to turn it, scroll or pinch to zoom. Kit goes on the face towards you{look === 'angle' || look === 'front' ? ', the front' : look === 'rear' ? ', the back' : ''}: turn it round to put kit on the back.
+        {matchMedia('(pointer: coarse)').matches ? 'Drag sideways to turn it, pinch to zoom; a swipe up or down scrolls the page.' : 'Drag to turn it, scroll or pinch to zoom.'} Kit goes on the face towards you{look === 'angle' || look === 'front' ? ', the front' : look === 'rear' ? ', the back' : ''}: turn it round to put kit on the back.
         {size.depthGuessed ? ' No depth is given for the rack, so it is drawn 500 mm deep.' : ''}
       </p>
     </div>

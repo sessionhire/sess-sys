@@ -1,0 +1,506 @@
+import { crewFill, type JobView } from './sync/jobs-view.ts'
+import { QUOTE_SHOWS, type QuoteRow, type QuoteShow } from './sync/money-view.ts'
+import type { PersonView } from './sync/crew-view.ts'
+import { DEPARTMENT_LABELS, type Department } from './stock.ts'
+import { KIND_LABELS, PROJECT_KINDS, PROJECT_STATUSES, STATUS_LABELS, STOPPED } from './jobs.ts'
+import { JOB_STAGES, STAGE_LABELS } from './steps.ts'
+import { stageHolder, type JobSteps } from './sync/steps-view.ts'
+import { APPLICANT_LEVEL, LEVELS, levelLine } from './crew-departments.ts'
+
+/**
+ * Filter and sort for the long lists (ADR 0099): Jobs, Quotes, People,
+ * the Catalogue, Venues and Clients put in order and narrowed the same way.
+ * Each list names its ways of ordering (the first is the one it opens on)
+ * and its filters, each a few plain choices; the screen draws them with
+ * one shared part (web/src/ListTools.tsx). A filter left on "any" narrows
+ * nothing. Counts beside a choice are what the list would show with it,
+ * the list's other filters and its search as they are, so a choice with
+ * nothing in it says so before it's pressed.
+ */
+
+/** One way to put a list in order. Ties keep the list's own order. */
+export interface ListSort<T> {
+  key: string
+  label: string
+  compare: (a: T, b: T) => number
+}
+
+/** One choice in a filter, and what it keeps. */
+export interface ListOption<T> {
+  key: string
+  label: string
+  test: (item: T) => boolean
+}
+
+/** A filter: its name, the words for "any", and its choices. */
+export interface ListFilter<T> {
+  key: string
+  label: string
+  /** What it says when it narrows nothing, such as "Any status". */
+  any: string
+  options: readonly ListOption<T>[]
+}
+
+/** What's chosen on a list: the order, and each filter's choice ('' or missing for any). */
+export interface ListChoices {
+  sort: string
+  filters: Readonly<Record<string, string>>
+}
+
+/** Whether an item passes every filter but `except`, which is left out so its own choices can be counted. */
+function passes<T>(item: T, filters: readonly ListFilter<T>[], chosen: ListChoices['filters'], except?: string): boolean {
+  for (const f of filters) {
+    if (f.key === except) continue
+    const key = chosen[f.key]
+    if (!key) continue
+    const option = f.options.find((o) => o.key === key)
+    if (option && !option.test(item)) return false
+  }
+  return true
+}
+
+/** The filters actually narrowing: a choice the list no longer offers narrows nothing. */
+export function activeFilters<T>(filters: readonly ListFilter<T>[], chosen: ListChoices['filters']): { filter: ListFilter<T>; option: ListOption<T> }[] {
+  return filters.flatMap((filter) => {
+    const option = filter.options.find((o) => o.key === chosen[filter.key])
+    return option ? [{ filter, option }] : []
+  })
+}
+
+/**
+ * A sort chosen the other way round: its key with this after it, "name:desc" (Colly, 12 November 2026: a table's heads sort
+ * one way, then the other). Kept with the sort, on the device, so the list opens the way it was left.
+ */
+export const REVERSED = ':desc'
+/** The sort's own key, without which way round it runs. */
+export const sortKeyOf = (chosen: string) => (chosen.endsWith(REVERSED) ? chosen.slice(0, -REVERSED.length) : chosen)
+/** Whether the sort chosen runs the other way round from the way its name says. */
+export const sortReversed = (chosen: string) => chosen.endsWith(REVERSED)
+
+/** The sort chosen, or the list's first when the one chosen isn't offered here. */
+export function sortOf<T>(sorts: readonly ListSort<T>[], key: string): ListSort<T> | undefined {
+  const own = sortKeyOf(key)
+  return sorts.find((s) => s.key === own) ?? sorts[0]
+}
+
+/** The items that pass the filters, in the order chosen. The list's own order breaks ties, so nothing jumps about. */
+export function listed<T>(items: readonly T[], filters: readonly ListFilter<T>[], sorts: readonly ListSort<T>[], choices: ListChoices): T[] {
+  const kept = items.filter((item) => passes(item, filters, choices.filters))
+  const sort = sortOf(sorts, choices.sort)
+  if (!sort) return kept
+  const at = new Map(items.map((item, i) => [item, i]))
+  // The other way round when it was asked for, and offered: a sort no longer offered falls back to the first, the way it says.
+  const way = sortReversed(choices.sort) && sort.key === sortKeyOf(choices.sort) ? -1 : 1
+  return kept.sort((a, b) => way * sort.compare(a, b) || at.get(a)! - at.get(b)!)
+}
+
+/** How many each choice of a filter would show, the other filters as they are; `any` is the count with this filter on any. */
+export function optionCounts<T>(items: readonly T[], filters: readonly ListFilter<T>[], chosen: ListChoices['filters'], filter: ListFilter<T>): { any: number; counts: Map<string, number> } {
+  const counts = new Map<string, number>(filter.options.map((o) => [o.key, 0]))
+  let any = 0
+  for (const item of items) {
+    if (!passes(item, filters, chosen, filter.key)) continue
+    any++
+    for (const o of filter.options) if (o.test(item)) counts.set(o.key, counts.get(o.key)! + 1)
+  }
+  return { any, counts }
+}
+
+/** Names in the order a person reads them: case and fadas aside, numbers as numbers. */
+export const byName = (a: string, b: string) => a.localeCompare(b, 'en-IE', { sensitivity: 'base', numeric: true })
+
+/** Something with no value goes last whichever way the list runs. */
+const lastIfNone = <V>(a: V | undefined | null, b: V | undefined | null, compare: (a: V, b: V) => number) =>
+  a == null || a === '' ? (b == null || b === '' ? 0 : 1) : b == null || b === '' ? -1 : compare(a, b)
+
+// Jobs
+
+/**
+ * Who has a job (Colly, 12 November 2026, "assignee"): the member of staff given the open tasks of the stage it's in, as its Board
+ * card says (ADR 0144). "Split" when they're shared out, '' when nobody has been named yet, undefined when there's nothing to
+ * hand anyone: an errand, a meeting, a job through or not going ahead.
+ */
+export function assigneeOf(s: JobSteps | undefined): string | undefined {
+  const holder = s ? stageHolder(s) : undefined
+  if (!holder) return undefined
+  return holder.split ? 'Split' : (holder.owner?.name.trim() ?? '')
+}
+
+/**
+ * Where a job stands as one order (the Status column): enquiries, then quoted, then confirmed jobs by the stage they're in and
+ * through ones after, then errands and meetings, then the ones not going ahead.
+ */
+function statusRank(j: JobView, s: JobSteps | undefined): number {
+  if (STOPPED.includes(j.status)) return 100 + PROJECT_STATUSES.indexOf(j.status)
+  if (j.status !== 'confirmed') return PROJECT_STATUSES.indexOf(j.status)
+  if (!s || s.stopped) return 90
+  if (s.finished) return 80
+  return 10 + (s.stage ? JOB_STAGES.indexOf(s.stage.key) : 0)
+}
+
+/**
+ * Jobs' orders. By date runs the way the chosen tab reads: soonest first coming up, the newest first in the past. With the
+ * jobs' tasks, also by where each stands and who has it, as the table's Status and Assignee columns sort.
+ */
+export function jobSorts(newestFirst: boolean, steps?: (job: JobView) => JobSteps | undefined): ListSort<JobView>[] {
+  const start = (j: JobView) => j.span?.start
+  return [
+    {
+      key: 'date',
+      label: newestFirst ? 'Newest first' : 'Soonest first',
+      // No dates yet comes first coming up, so it isn't forgotten, and last in the past.
+      compare: (a, b) => {
+        const x = start(a)
+        const y = start(b)
+        if (!x || !y) return x === y ? 0 : (!x ? -1 : 1) * (newestFirst ? -1 : 1)
+        return newestFirst ? y.localeCompare(x) : x.localeCompare(y)
+      },
+    },
+    { key: 'name', label: 'Name, A to Z', compare: (a, b) => byName(a.name, b.name) },
+    { key: 'client', label: 'Client, A to Z', compare: (a, b) => lastIfNone(a.client?.name, b.client?.name, byName) },
+    {
+      key: 'crew',
+      label: 'Most crew still needed',
+      compare: (a, b) => {
+        const short = (j: JobView) => {
+          const f = crewFill(j.calls)
+          return f.needed - f.booked
+        }
+        return short(b) - short(a)
+      },
+    },
+    { key: 'venue', label: 'Venue, A to Z', compare: (a, b) => lastIfNone(a.venue?.name, b.venue?.name, byName) },
+    ...(steps
+      ? [
+          { key: 'status', label: 'Status', compare: (a: JobView, b: JobView) => statusRank(a, steps(a)) - statusRank(b, steps(b)) },
+          { key: 'assignee', label: 'Assignee, A to Z', compare: (a: JobView, b: JobView) => lastIfNone(assigneeOf(steps(a)), assigneeOf(steps(b)), byName) },
+        ]
+      : []),
+  ]
+}
+
+/** Jobs' filters. `kitShort` says whether a job has kit short, from the kit the device has. */
+/** A department as a filter's key: its name in lower case, so "LX" and "lx" are one. */
+export const departmentKey = (name: string) => name.trim().toLowerCase()
+
+export function jobFilters(
+  kitShort: (job: JobView) => boolean,
+  stopped: boolean,
+  steps?: (job: JobView) => JobSteps | undefined,
+  /** Whose (Move 9 of the sweep of 6 November 2026): the jobs someone is booked on, and each department's, first in the list. */
+  lens?: { mine?: (job: JobView) => boolean; departments?: readonly { name: string; test: (job: JobView) => boolean }[] },
+  /**
+   * Where each job's quote stands, for whoever reads the money (ADR 0042): a quote is part of its job, so Jobs finds them by it
+   * now Quotes isn't a page of its own (Colly, 12 November 2026). Undefined: no quote yet.
+   */
+  quoteOf?: (job: JobView) => QuoteShow | undefined
+): ListFilter<JobView>[] {
+  const crew = (j: JobView) => crewFill(j.calls)
+  // Where each job is, and its tasks late or down to nobody, so a count of them on Home opens the jobs it counted (audit, 5 November 2026, finding 20).
+  const byTasks: ListFilter<JobView>[] =
+    steps && !stopped
+      ? [
+          {
+            key: 'stage',
+            label: 'Stage',
+            any: 'Any stage',
+            options: JOB_STAGES.map((k) => ({ key: k, label: STAGE_LABELS[k], test: (j: JobView) => steps(j)?.stage?.key === k && !steps(j)?.finished })),
+          },
+          {
+            key: 'tasks',
+            label: 'Tasks',
+            any: 'Any tasks',
+            options: [
+              { key: 'late', label: 'A task late', test: (j) => !!steps(j)?.steps.some((t) => t.late) },
+              { key: 'nobody', label: 'Next task: nobody named', test: (j) => isUnowned(steps(j)) },
+              // What Home counts (Move 10 of the sweep of 6 November 2026): a job that starts within a fortnight with nobody on
+              // its next task is a signal; one months off is how the company works.
+              { key: 'nobody-soon', label: 'Next task: nobody named, starting within a fortnight', test: (j) => nobodySoon(steps(j)) },
+            ],
+          },
+        ]
+      : []
+  const whose: ListFilter<JobView>[] = [
+    ...(lens?.mine ? [{ key: 'mine', label: 'Whose', any: "Anyone's", options: [{ key: 'mine', label: 'Mine', test: lens.mine }] }] : []),
+    ...(lens?.departments?.length
+      ? [
+          {
+            key: 'department',
+            // "Crew department": a department as the crew calls name it, Production or Transport too; the Departments row above the
+            // list narrows by the five the work is sold in (ADR 0137).
+            label: 'Crew department',
+            any: 'Any crew department',
+            options: lens.departments.map((d) => ({ key: departmentKey(d.name), label: d.name, test: d.test })),
+          },
+        ]
+      : []),
+  ]
+  return [
+    ...whose,
+    {
+      key: 'status',
+      label: 'Status',
+      any: 'Any status',
+      // A job not going ahead is on a tab of its own, so the other tabs don't offer its statuses, and it offers only them.
+      options: PROJECT_STATUSES.filter((s) => STOPPED.includes(s) === stopped).map((s) => ({ key: s, label: STATUS_LABELS[s], test: (j: JobView) => j.status === s })),
+    },
+    ...(quoteOf
+      ? [
+          {
+            key: 'quote',
+            label: 'Quote',
+            any: 'Any quote',
+            options: [
+              ...QUOTE_SHOWS.filter(([k]) => k !== 'all').map(([k, label]) => ({ key: k, label, test: (j: JobView) => quoteOf(j) === k })),
+              { key: 'none', label: 'No quote yet', test: (j: JobView) => !quoteOf(j) },
+            ],
+          },
+        ]
+      : []),
+    {
+      key: 'kind',
+      label: 'Kind',
+      any: 'Any kind',
+      options: PROJECT_KINDS.map((k) => ({ key: k, label: KIND_LABELS[k], test: (j: JobView) => (j.kind ?? 'gig') === k })),
+    },
+    {
+      key: 'crew',
+      label: 'Crew',
+      any: 'Any crew',
+      options: [
+        { key: 'short', label: 'Still needs crew', test: (j) => crew(j).needed > crew(j).booked },
+        { key: 'confirm', label: 'Crew to confirm', test: (j) => crew(j).toConfirm > 0 },
+        { key: 'full', label: 'Crew all booked', test: (j) => crew(j).needed > 0 && crew(j).booked >= crew(j).needed },
+        { key: 'none', label: 'No crew asked for', test: (j) => crew(j).needed === 0 },
+      ],
+    },
+    {
+      key: 'kit',
+      label: 'Kit',
+      any: 'Any kit',
+      options: [
+        { key: 'short', label: 'Kit short', test: kitShort },
+        { key: 'enough', label: 'No kit short', test: (j) => !kitShort(j) },
+      ],
+    },
+    ...byTasks,
+  ]
+}
+
+/** Within how many days a job starts for its next task down to nobody to be a signal on Home. */
+export const NOBODY_SOON_DAYS = 14
+
+/** Being planned, starting within a fortnight (or begun), with its next task down to nobody: what Home counts. */
+export function nobodySoon(s: JobSteps | undefined): boolean {
+  return !!s && !!s.job.span && s.daysAfter === undefined && (s.daysTo ?? 0) <= NOBODY_SOON_DAYS && s.stage?.key === 'planning' && !s.finished && isUnowned(s)
+}
+
+/** Its dates passed but the job is still in Back with work open on it (Move 10 of the sweep of 6 November 2026): not finished yet. */
+export function stillInBack(s: JobSteps | undefined): boolean {
+  return !!s && s.stage?.key === 'back' && !s.finished && !s.stopped
+}
+
+/** A job whose next task nobody has been given yet. */
+export const isUnowned = (at: JobSteps | undefined) => !!at?.current && !at.finished && !at.stopped && !at.current.ownerId
+
+// Quotes
+
+export const QUOTE_SORTS: readonly ListSort<QuoteRow>[] = [
+  { key: 'changed', label: 'Last changed first', compare: (a, b) => b.changed.localeCompare(a.changed) },
+  { key: 'soonest', label: 'Job soonest first', compare: (a, b) => lastIfNone(a.job.span?.start, b.job.span?.start, (x, y) => x.localeCompare(y)) },
+  { key: 'newest', label: 'Job newest first', compare: (a, b) => lastIfNone(a.job.span?.start, b.job.span?.start, (x, y) => y.localeCompare(x)) },
+  { key: 'biggest', label: 'Biggest total first', compare: (a, b) => b.quote.totals.net - a.quote.totals.net },
+  { key: 'client', label: 'Client, A to Z', compare: (a, b) => lastIfNone(a.job.client?.name, b.job.client?.name, byName) },
+]
+
+/** Quotes' filters: when the job is, as of `today`, and whether it has lines yet. */
+export function quoteFilters(today: string): ListFilter<QuoteRow>[] {
+  return [
+    {
+      key: 'when',
+      label: 'Job',
+      any: 'Any time',
+      options: [
+        { key: 'coming', label: 'Coming up', test: (r) => !!r.job.span && r.job.span.end >= today },
+        { key: 'past', label: 'Past', test: (r) => !!r.job.span && r.job.span.end < today },
+        { key: 'undated', label: 'No dates yet', test: (r) => !r.job.span },
+      ],
+    },
+    {
+      key: 'lines',
+      label: 'Lines',
+      any: 'With lines or none',
+      options: [
+        { key: 'some', label: 'Has lines', test: (r) => r.quote.lines.length > 0 },
+        { key: 'none', label: 'No lines yet', test: (r) => r.quote.lines.length === 0 },
+      ],
+    },
+  ]
+}
+
+// People
+
+/** A person's surname as sorted: the second of the two, or the last word of a name from before they were asked for. */
+const surname = (p: PersonView) => (p.lastName?.trim() || p.name.trim().split(/\s+/).slice(1).join(' ') || p.name).trim()
+
+/** People's orders; `ahead` counts someone's bookings from today on, for "Most booked". */
+export function peopleSorts(ahead: (p: PersonView) => number, levels = true): ListSort<PersonView>[] {
+  const all: ListSort<PersonView>[] = [
+    { key: 'name', label: 'First name, A to Z', compare: (a, b) => byName(a.name, b.name) },
+    { key: 'surname', label: 'Last name, A to Z', compare: (a, b) => byName(surname(a), surname(b)) || byName(a.name, b.name) },
+    { key: 'department', label: 'Department', compare: (a, b) => lastIfNone(a.department, b.department, byName) || byName(a.name, b.name) },
+    { key: 'level', label: 'Highest level first', compare: (a, b) => b.level - a.level || byName(a.name, b.name) },
+    { key: 'booked', label: 'Most booked ahead', compare: (a, b) => ahead(b) - ahead(a) || byName(a.name, b.name) },
+  ]
+  // A reader the levels aren't sent to (audit, 5 November 2026, finding 44) isn't offered an order by them.
+  return levels ? all : all.filter((s) => s.key !== 'level')
+}
+
+/** No department, as a filter's choice; a department can't be typed with the tilde. */
+export const NO_DEPARTMENT_KEY = '~none'
+
+/** People's filters: the departments in use (and none), staff or freelancer, and level. */
+export function peopleFilters(people: readonly PersonView[]): ListFilter<PersonView>[] {
+  const departments = new Map<string, string>()
+  for (const p of people) if (p.department && !departments.has(p.department.toLowerCase())) departments.set(p.department.toLowerCase(), p.department)
+  const deptOptions: ListOption<PersonView>[] = [...departments.entries()]
+    .sort((a, b) => byName(a[1], b[1]))
+    .map(([key, label]) => ({ key, label, test: (p) => (p.department ?? '').toLowerCase() === key }))
+  if (people.some((p) => !p.department)) deptOptions.push({ key: NO_DEPARTMENT_KEY, label: 'No department', test: (p) => !p.department })
+  return [
+    { key: 'department', label: 'Department', any: 'All departments', options: deptOptions },
+    {
+      key: 'kind',
+      label: 'Type',
+      any: 'Staff and freelancers',
+      options: [
+        { key: 'staff', label: 'Staff', test: (p) => p.kind === 'staff' },
+        { key: 'freelancer', label: 'Freelancers', test: (p) => p.kind === 'freelancer' },
+      ],
+    },
+    // Not for a reader the levels aren't sent to (audit, 5 November 2026, finding 44).
+    ...(people.some((p) => p.levelHidden) ? [] : [levelFilter(people)]),
+  ]
+}
+
+function levelFilter(people: readonly PersonView[]): ListFilter<PersonView> {
+  return {
+      key: 'level',
+      label: 'Level',
+      any: 'Any level',
+      options: LEVELS.filter((l) => people.some((p) => p.level === l)).map((l) => ({ key: String(l), label: l === APPLICANT_LEVEL ? levelLine(l) : `Level ${l}`, test: (p) => p.level === l })),
+  }
+}
+
+// The catalogue
+
+/** What the catalogue's orders and filters read of a product. */
+export interface ProductForList {
+  name: string
+  category: string
+  department: Department
+  total: number
+  dryHire?: boolean
+}
+
+export const PRODUCT_SORTS: readonly ListSort<ProductForList>[] = [
+  { key: 'name', label: 'Name, A to Z', compare: (a, b) => byName(a.name, b.name) },
+  { key: 'category', label: 'Category', compare: (a, b) => lastIfNone(a.category.trim(), b.category.trim(), byName) || byName(a.name, b.name) },
+  { key: 'most', label: 'Most in stock first', compare: (a, b) => b.total - a.total },
+  { key: 'fewest', label: 'Fewest in stock first', compare: (a, b) => a.total - b.total },
+  { key: 'department', label: 'Department', compare: (a, b) => byName(DEPARTMENT_LABELS[a.department], DEPARTMENT_LABELS[b.department]) },
+]
+
+/** The catalogue's filters: ours or dry hire (once there's any dry hire), the categories in use, and how many there are. */
+export function productFilters<T extends ProductForList>(products: readonly T[]): ListFilter<T>[] {
+  const categories = new Map<string, string>()
+  for (const m of products) {
+    const c = m.category.trim()
+    if (c && !categories.has(c.toLowerCase())) categories.set(c.toLowerCase(), c)
+  }
+  const filters: ListFilter<T>[] = []
+  if (products.some((m) => m.dryHire))
+    filters.push({
+      key: 'whose',
+      label: 'Whose',
+      any: 'Ours and dry hire',
+      options: [
+        { key: 'ours', label: 'Ours', test: (m) => !m.dryHire },
+        { key: 'dryHire', label: 'Dry hire', test: (m) => !!m.dryHire },
+      ],
+    })
+  if (categories.size > 0)
+    filters.push({
+      key: 'category',
+      label: 'Category',
+      any: 'Any category',
+      options: [...categories.entries()].sort((a, b) => byName(a[1], b[1])).map(([key, label]) => ({ key, label, test: (m: T) => m.category.trim().toLowerCase() === key })),
+    })
+  filters.push({
+    key: 'stock',
+    label: 'In stock',
+    any: 'Any number',
+    options: [
+      { key: 'some', label: 'Some in stock', test: (m) => m.total > 0 },
+      { key: 'none', label: 'None in stock', test: (m) => m.total === 0 },
+    ],
+  })
+  return filters
+}
+
+// Venues and clients
+
+/** A venue or client in its list, with what the list counts of it. */
+export interface PlaceForList {
+  name: string
+  /** Its jobs, and the first day of the latest one's, for "Most recent job". */
+  jobs: number
+  lastJob: string | undefined
+  /** Jobs from today on. */
+  comingUp: number
+  docs: number
+  /** Venues only: whether it's on the map. */
+  pinned?: boolean
+}
+
+export const PLACE_SORTS: readonly ListSort<PlaceForList>[] = [
+  { key: 'name', label: 'Name, A to Z', compare: (a, b) => byName(a.name, b.name) },
+  { key: 'jobs', label: 'Most jobs first', compare: (a, b) => b.jobs - a.jobs || byName(a.name, b.name) },
+  { key: 'recent', label: 'Most recent job first', compare: (a, b) => lastIfNone(a.lastJob, b.lastJob, (x, y) => y.localeCompare(x)) },
+]
+
+/** Venues' and clients' filters; `venues` adds whether it's on the map. */
+export function placeFilters(venues: boolean): ListFilter<PlaceForList>[] {
+  const filters: ListFilter<PlaceForList>[] = [
+    {
+      key: 'jobs',
+      label: 'Jobs',
+      any: 'With jobs or none',
+      options: [
+        { key: 'coming', label: 'Has jobs coming up', test: (p) => p.comingUp > 0 },
+        { key: 'some', label: 'Has jobs', test: (p) => p.jobs > 0 },
+        { key: 'none', label: 'No jobs', test: (p) => p.jobs === 0 },
+      ],
+    },
+    {
+      key: 'docs',
+      label: 'Documents',
+      any: 'With documents or none',
+      options: [
+        { key: 'some', label: 'Has documents', test: (p) => p.docs > 0 },
+        { key: 'none', label: 'No documents', test: (p) => p.docs === 0 },
+      ],
+    },
+  ]
+  if (venues)
+    filters.push({
+      key: 'map',
+      label: 'Map',
+      any: 'On the map or not',
+      options: [
+        { key: 'on', label: 'On the map', test: (p) => !!p.pinned },
+        { key: 'off', label: 'Not on the map yet', test: (p) => !p.pinned },
+      ],
+    })
+  return filters
+}

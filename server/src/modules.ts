@@ -16,6 +16,7 @@ import { STEPS } from './steps/schema.ts'
 import { PURCHASES } from './purchases/schema.ts'
 import { RMS } from './rms/schema.ts'
 import { ASSISTANT } from './assistant/schema.ts'
+import { TRACKERS } from './trackers/schema.ts'
 
 /**
  * Every module's tables, in the order they are set up: crew calls refer to
@@ -28,10 +29,11 @@ import { ASSISTANT } from './assistant/schema.ts'
  * job's steps (ADR 0073) are given to people, and the purchase list (ADR
  * 0077) is asked for and voted on by them. The copy of Current RMS
  * (ADR 0078) refers to nothing of the app's, and nor does the count of
- * what Claude was asked (ADR 0096). The
+ * what Claude was asked (ADR 0096). Trackers (ADR 0107) are put on
+ * items, so they come after the warehouse. The
  * list of erasures (ADR 0027) refers to nothing, on purpose, and comes last.
  */
-export const MODULES: readonly Module[] = [CORE, PROJECTS, CREW, AUTH, CALENDAR, STOCK, LEAVE, OFFICE, DOCUMENTS, FINANCE, VEHICLES, STEPS, PURCHASES, RMS, ASSISTANT, ERASURE]
+export const MODULES: readonly Module[] = [CORE, PROJECTS, CREW, AUTH, CALENDAR, STOCK, LEAVE, OFFICE, DOCUMENTS, FINANCE, VEHICLES, STEPS, PURCHASES, RMS, ASSISTANT, TRACKERS, ERASURE]
 
 /** Set up or upgrade the whole database. */
 export async function migrateAll(db: Db) {

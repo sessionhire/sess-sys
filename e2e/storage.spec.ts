@@ -70,6 +70,24 @@ test('a copy kept the old way, as one record, opens with its change waiting, and
   await expect(page.getByText(bay)).toBeVisible()
 })
 
+test('a second tab says the app is open in the first, its one button as tall as a thumb', async ({ browser }) => {
+  // Proves (UX sweep, 6 November 2026, move 2): the line at the top while this tab isn't the one keeping the data has its button at
+  // 44px, as every target is, and pressing it makes this the tab that keeps the data.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const first = await context.newPage()
+  await first.goto('/#me')
+  await expect(first.locator('.conn')).toHaveText('Up to date')
+  const second = await context.newPage()
+  await second.goto('/#me')
+  const line = second.locator('.keep')
+  await expect(line).toContainText('The app is open in another tab.')
+  const use = line.getByRole('button', { name: 'Use this tab' })
+  expect((await use.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  await use.click()
+  await expect(line).toHaveCount(0)
+  await context.close()
+})
+
 test('asks the browser to keep the copy once in, and says on You whether it does (audit finding 16)', async ({ page }) => {
   // Proves: the app asks to keep its storage without being told to, says plainly on You when the browser won't promise,
   // and asking again from there, when the browser agrees, says it's kept.

@@ -57,6 +57,7 @@ test("a freelancer's page and call sheet work under theirs, the Copy button's sc
   const response = await page.goto(`/f/${dara.data.linkToken}`)
   expect(response?.headers()['content-security-policy']).toContain("default-src 'none'")
   // Shown only once its script has run.
+  await page.locator('details.feed-fold > summary').click()
   await page.getByRole('button', { name: 'Copy address' }).click()
   await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible()
 

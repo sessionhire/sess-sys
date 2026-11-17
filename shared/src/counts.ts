@@ -101,12 +101,37 @@ export interface CountDraft {
   counted: Record<string, number>
   /** Products added as there though not expected, in the order added. */
   added: string[]
+  /** Items labelled on this count, each put on here as its label was scanned (ADR 0175). */
+  labelled?: string[]
+  /** The product the last label on this count went on, offered for the next. */
+  labelAs?: string
 }
+
+/**
+ * A count under way on someone's phone (ADR 0177), said to every device so
+ * two people don't count the same bay without knowing: begun when the
+ * count starts, and over when it's finished (its record has the same id)
+ * or discarded.
+ */
+export interface CountStart {
+  /** The count's own id: its record, once finished, has the same. */
+  id: string
+  placeId: string | null
+  caseId: string | null
+  by: string | null
+  startedAt: string
+  /** When it was discarded; a finished one has its record instead. */
+  endedAt: string | null
+}
+
+/** A count begun this long ago and never finished nor discarded is left behind on some phone, and no longer said as under way. */
+export const UNDER_WAY_HOURS = 18
 
 export interface CountEntities {
   count: Count
+  countStart: CountStart
 }
-export const COUNT_ENTITY_NAMES = ['count'] as const
+export const COUNT_ENTITY_NAMES = ['count', 'countStart'] as const
 
 const many = whole(0, MAX_QTY, 'How many')
 const where = { placeId: id.nullable(), caseId: id.nullable() }
@@ -126,6 +151,10 @@ export function unknownCode(code: string): string {
 }
 
 export const countCommandSchemas = {
+  /** A count started on a phone, so others see who's counting where (ADR 0177). Sent again, it changes nothing. */
+  'count.begin': z.object({ id, ...where, by: id.nullable(), startedAt: at }).refine((c) => !!c.placeId !== !!c.caseId, { message: 'Say what is being counted: a place or a case.' }),
+  /** A count discarded: no longer under way. */
+  'count.end': z.object({ id }),
   /** Always kept, unless the place or the case never existed. The fixes are their own commands. */
   'count.record': z
     .object({
@@ -205,4 +234,57 @@ export function countSummaryWords(s: CountSummary): string {
       : `${s.found === s.expected ? `All ${n(s.expected)}` : `${n(s.found)} of ${n(s.expected)}`} found${repair > 0 ? `, ${n(repair)} in repair` : ''}`
   if (problems.length === 0) return items ? `${items}, as recorded` : 'All as recorded'
   return [items, ...problems].filter(Boolean).join(', ')
+}
+
+/** The most places made at once from a range, so a slip ("Bay 1 to 1000") can't fill the list. */
+export const PLACE_RANGE_MAX = 200
+
+/**
+ * The places a range names (ADR 0176): "Bay A1 to A20", "Bay A1 to Bay A20",
+ * "Shelf 1-12" or "Rack 01 – 10", each its own name with the numbers in
+ * between, keeping the first's leading noughts ("Rack 01" … "Rack 10").
+ * Undefined for a single name, numbers alone, or a range running backwards, naming a
+ * different stem at its end ("Bay A1 to B9"), or of more than
+ * PLACE_RANGE_MAX.
+ */
+export function placeRange(text: string): string[] | undefined {
+  // Read by hand rather than by one pattern, so a long run of digits can't make it slow.
+  const s = text.trim().slice(0, 200)
+  const digitsBefore = (t: string, end: number) => {
+    let i = end
+    while (i > 0 && t.charCodeAt(i - 1) >= 48 && t.charCodeAt(i - 1) <= 57) i--
+    return i
+  }
+  const toStart = digitsBefore(s, s.length)
+  if (toStart === s.length) return undefined
+  const to = s.slice(toStart)
+  const rest = s.slice(0, toStart)
+  const lower = rest.toLowerCase()
+  // The separator nearest the end with a number just before it: "to", "-", "–" or "—".
+  let cut: { at: number; len: number } | undefined
+  for (const sep of ['to', '-', '–', '—'])
+    for (let at = lower.lastIndexOf(sep); at >= 0; at = at === 0 ? -1 : lower.lastIndexOf(sep, at - 1)) {
+      const left = rest.slice(0, at).trimEnd()
+      if (left && digitsBefore(left, left.length) < left.length) {
+        if (!cut || at > cut.at) cut = { at, len: sep.length }
+        break
+      }
+    }
+  if (!cut) return undefined
+  const left = rest.slice(0, cut.at).trimEnd()
+  const fromStart = digitsBefore(left, left.length)
+  const stem = left.slice(0, fromStart)
+  const from = left.slice(fromStart)
+  const again = rest.slice(cut.at + cut.len)
+  // Numbers alone name no place: "1-3" is more likely a typo than three places called 1, 2 and 3.
+  if (!stem.trim()) return undefined
+  const end = again.trim().toLowerCase()
+  if (end && !stem.trim().toLowerCase().endsWith(end)) return undefined
+  const a = Number(from)
+  const b = Number(to)
+  if (!(b > a) || b - a + 1 > PLACE_RANGE_MAX) return undefined
+  const width = from.startsWith('0') ? from.length : 0
+  const names: string[] = []
+  for (let n = a; n <= b; n++) names.push(`${stem}${String(n).padStart(width, '0')}`)
+  return names
 }

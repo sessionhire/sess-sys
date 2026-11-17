@@ -10,7 +10,10 @@ import type { DocumentFiles } from './documents/files.ts'
 import type { FuelLookup } from './finance/fuel.ts'
 import { getQuoteSettings } from './finance/store.ts'
 import type { RmsReader } from './rms/reader.ts'
+import type { Mailbox } from './assistant/mailbox.ts'
 import type { Assistant } from './assistant/routes.ts'
+import type { WhatsApp } from './whatsapp/whatsapp.ts'
+import { whatsappSetting } from './office/store.ts'
 
 /**
  * Admin › Status (ADR 0093): everything the app relies on, looked at together, each in words with what to do when it
@@ -72,6 +75,10 @@ export interface StatusSources {
   rms: RmsReader
   /** Claude inside the app (ADR 0096); a test without it has no Claude check. */
   assistant?: Assistant
+  /** The operations mailbox Claude reads (ADR 0098). */
+  mailbox?: Mailbox
+  /** Offers on WhatsApp (ADR 0125); a test without it has no WhatsApp check. */
+  whatsapp?: WhatsApp
   fuel: FuelLookup
   outside: OutsideLooks
   commit?: string
@@ -129,6 +136,8 @@ export class Status {
       this.ownCalendars(),
       this.currentRms(),
       this.claude(),
+      this.mailbox(),
+      this.whatsapp(),
       this.fuel(),
       this.maps(),
     ].map((p, i) => p.catch((err): StatusCheck => ({ id: `check-${i}`, group: 'app', name: 'A check', state: 'bad', says: `This check went wrong itself: ${why(err)}` })))
@@ -269,7 +278,7 @@ export class Status {
       return { ...base, state: 'ok', says: `Google answers for ${link.accountEmail ?? 'the connected account'} (${plural(calendars.length, 'calendar')} it can change), ${writing}.`, ms }
     } catch (err) {
       if (err instanceof Halt && err.why === 'revoked') return { ...base, state: 'bad', says: err.problem ?? 'Google no longer accepts the app’s access.', todo: 'Connect again under Admin › Connections.' }
-      return { ...base, state: 'bad', says: `Google isn't answering for the connected account: ${err instanceof Halt ? (err.problem ?? err.why) : why(err)}`, todo: 'Try again in a few minutes. If it keeps failing, press Check the calendar under Admin › Connections.' }
+      return { ...base, state: 'bad', says: `Google isn't answering for the connected account: ${err instanceof Halt ? (err.problem ?? err.why) : why(err)}`, todo: 'Try again in a few minutes. If it keeps failing, press Check calendar under Admin › Connections.' }
     }
   }
 
@@ -288,7 +297,7 @@ export class Status {
     const at = iso(rows[0]?.last)
     if (n === 0) return { ...base, state: 'off', says: 'Nobody has shared their own calendar yet.' }
     if (problems) return { ...base, state: 'warn', says: `${problems} of ${n} couldn’t be read last time.`, todo: 'Each one’s person page says why; usually the address has changed.', at }
-    if (stale) return { ...base, state: 'warn', says: `${stale} of ${n} haven’t been read for over two days.`, todo: 'Open their person page and press Read it now.', at }
+    if (stale) return { ...base, state: 'warn', says: `${stale} of ${n} haven’t been read for over two days.`, todo: 'Open their person page and press Read now.', at }
     return { ...base, state: 'ok', says: `All ${n} read in the last two days.`, at }
   }
 
@@ -311,12 +320,43 @@ export class Status {
   private async claude(): Promise<StatusCheck> {
     const base = { id: 'claude', group: 'outside' as const, name: 'Claude' }
     const a = this.s.assistant
-    if (!a?.config) return { ...base, state: 'off', says: 'Not set up.', todo: 'Set ANTHROPIC_API_KEY in Railway to offer Claude on the quote screens.' }
+    if (!a?.config) return { ...base, state: 'off', says: 'Not set up.', todo: 'Set ANTHROPIC_API_KEY in Railway, for Claude to read the operations mailbox, draft quotes from enquiries and write the to-do list.' }
     const s = await a.status()
     const spent = `$${(s.spentCents / 100).toFixed(2)} of $${(s.limitCents / 100).toFixed(2)} this month, asked ${plural(s.uses, 'time')}`
     if (!s.on) return { ...base, state: 'off', says: `Set up, and turned off. ${spent}.`, todo: 'Turn it on under Admin › Company to offer it.' }
     if (s.spentCents >= s.limitCents) return { ...base, state: 'warn', says: `This month’s limit is used: ${spent}.`, todo: 'It starts again on the 1st, or raise CLAUDE_MONTHLY_LIMIT_USD in Railway.' }
     return { ...base, state: 'ok', says: `On, using ${s.model}: ${spent}.` }
+  }
+
+  /** The operations mailbox (ADR 0098): connected, and when Claude last read it. Nothing is read here. */
+  private async mailbox(): Promise<StatusCheck> {
+    const base = { id: 'mailbox', group: 'outside' as const, name: 'Operations mailbox' }
+    const m = this.s.mailbox
+    if (!m?.available) return { ...base, state: 'off', says: 'Not set up: it needs the Google key on the server, as sign-in does.', todo: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Railway.' }
+    const s = await m.status()
+    if (s.state === 'reconnect') return { ...base, state: 'bad', says: s.problem ?? 'Google stopped letting the app read it.', todo: 'Connect operations@ again under Admin › Connections.', at: s.lookedAt }
+    if (s.state !== 'on') return { ...base, state: 'off', says: 'Not connected.', todo: 'Connect operations@ under Admin › Connections, for Claude to read its mail and for quotes to be sent from it.' }
+    const looked = s.lookedAt ? `last read ${new Date(s.lookedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'not read yet'
+    if (s.problem) return { ...base, state: 'warn', says: `Reading ${s.account}, ${looked}, but the last look stopped: ${s.problem}`, todo: 'It tries again every five minutes.', at: s.lookedAt }
+    return { ...base, state: 'ok', says: `Reading ${s.account}, ${looked}${s.canSend ? ', and quotes can be sent from it' : '; connected to read only, so quotes can’t be sent from it'}.`, at: s.lookedAt }
+  }
+
+  /** WhatsApp (ADR 0125): set up, the switch, and the number as Meta has it. Nothing is sent. */
+  private async whatsapp(): Promise<StatusCheck> {
+    const base = { id: 'whatsapp', group: 'outside' as const, name: 'WhatsApp' }
+    const w = this.s.whatsapp
+    if (!w?.configured) return { ...base, state: 'off', says: 'Not set up.', todo: 'Set WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID in Railway, from Session Hire’s Meta business account, for offers to go on WhatsApp.' }
+    const { mode } = await whatsappSetting(this.s.db.reads)
+    const { value: read, ms } = await timed(() => w.number())
+    if (read.problem) return { ...base, state: 'bad', says: `Meta won’t say how the number is: ${read.problem}`, todo: 'Check WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID in Railway against Meta’s WhatsApp Manager.', ms }
+    const n = read.number!
+    const sending = mode === 'on' ? 'Offers go on WhatsApp.' : mode === 'test' ? 'Offers go on WhatsApp to the test numbers only.' : 'Turned off: nothing is sent.'
+    const said = `${n.number}${n.name ? ` as “${n.name}”` : ''}. ${sending}`
+    if (n.quality === 'RED') return { ...base, state: 'bad', says: `${said} Meta rates its messages poorly, and may stop it sending.`, todo: 'Look at WhatsApp Manager › Insights for why people blocked or reported it.', ms }
+    if (n.quality === 'YELLOW') return { ...base, state: 'warn', says: `${said} Meta’s rating of its messages has dropped.`, todo: 'Look at WhatsApp Manager › Insights.', ms }
+    if (mode !== 'off' && (!w.config?.appSecret || !w.config.verifyToken))
+      return { ...base, state: 'warn', says: `${said} Answers can’t come back yet.`, todo: 'Set WHATSAPP_APP_SECRET and WHATSAPP_VERIFY_TOKEN in Railway.', ms }
+    return { ...base, state: mode === 'off' ? 'off' : 'ok', says: said, ms }
   }
 
   private async fuel(): Promise<StatusCheck> {
@@ -341,7 +381,8 @@ export class Status {
       const { ms } = await timed(this.s.outside.maps)
       return { ...base, state: 'ok', says: 'OpenStreetMap’s search answers, for finding venues on the map.', ms }
     } catch (err) {
-      return { ...base, state: 'warn', says: `OpenStreetMap’s search isn’t answering (${why(err)}). Venues already pinned still show; finding new ones waits.`, todo: 'Nothing to do: it’s theirs, and usually back within the hour.' }
+      // Theirs to fix, not ours, so it isn't counted among what needs a look (audit, 5 November 2026, finding 82).
+      return { ...base, state: 'off', says: `OpenStreetMap’s search isn’t answering (${why(err)}), so finding new venues on the map waits. Venues already pinned still show. Nothing to do: it’s theirs, and usually back within the hour.` }
     }
   }
 }

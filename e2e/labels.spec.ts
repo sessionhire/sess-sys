@@ -39,7 +39,7 @@ async function ready(page: Page, hash = '#stock') {
 /** A numbered product with some counted at a place, not labelled yet. */
 async function newProduct(page: Page, name: string, at: string, count: number) {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   await form.getByRole('button', { name: 'Add product' }).click()
@@ -133,11 +133,11 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   await form.locator('.added a').click()
   await expect(page.getByRole('heading', { level: 1, name: `${sh(first)} to ${sh(first + 11)}` })).toBeVisible()
   await expect(page.locator('.facts')).toContainText('On itemsNone yet')
-  const print = page.getByRole('region', { name: 'Print here' })
+  const print = page.getByRole('region', { name: 'On another printer' })
   const preview = print.getByLabel('Preview').locator('.label')
   await expect(preview).toHaveCount(3)
   await expect(preview.locator('b')).toHaveText([sh(first), sh(first + 1), sh(first + 2)])
-  for (const layout of ['Label printer, 25 × 25 mm', 'A4 sheets of 65, 38 × 21 mm', 'Label printer, 50 × 25 mm']) {
+  for (const layout of ['Label printer, 25 × 25 mm', 'Label printer, 100 × 25 mm, bigger type', 'A4 sheets of 65, 38 × 21 mm', 'Label printer, 50 × 25 mm']) {
     await print.getByRole('radio', { name: layout }).check()
     await fits(preview.first())
     expect(await readQr(preview.nth(1))).toBe(sh(first + 1))
@@ -212,10 +212,9 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   await expect(added).toHaveText(`Added ${sh(first + 5)} (${speaker}) at ${bay}. Scan the next label.`)
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
-  // A number already on an item opens it, as before; one it had before says so.
+  // A number already on an item opens it, whole as a scanner reads it, with nothing to press (UX sweep, 6 November 2026, move 8).
   await find.fill(sh(first + 4))
   await expect(page.getByRole('form', { name: /^Put / })).toHaveCount(0)
-  await find.press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: sh(first + 4) })).toBeVisible()
 
   // Its own label, with its product's name, printed from its page.
@@ -225,14 +224,14 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   await expect(own).toHaveCount(1)
   await expect(own).toContainText(speaker)
   expect(await readQr(own)).toBe(sh(first + 4))
-  await page.getByRole('button', { name: 'Print the label' }).click()
+  await page.getByRole('button', { name: 'Print 1 label' }).click()
   await expect(page.locator('.print-sheet .label')).toHaveCount(1)
   await page.evaluate(() => dispatchEvent(new Event('afterprint')))
   await page.screenshot(shot('labels-item'))
 
   // Two of the three counted are labelled now, and the next free number is past the run.
   await page.getByRole('link', { name: speaker }).first().click()
-  await expect(page.locator('.page-sub')).toContainText('2 items · 1 not labelled yet')
+  await expect(page.locator('.page-sub')).toContainText('3 in all: 1 not labelled yet')
   await page.getByRole('tab', { name: /^Items/ }).click()
   const add = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Add an item', exact: true }) })
   await add.getByRole('button', { name: 'Add item' }).click()
@@ -289,5 +288,5 @@ test('numbers set aside with no signal come once the signal is back', async ({ b
   await phone.evaluate(() => dispatchEvent(new Event('online')))
   await expect(phone.locator('.conn')).toHaveText('Up to date', { timeout: 20_000 })
   await expect(phone.getByRole('heading', { level: 1 })).toHaveText(/^SH-\d{6} to SH-\d{6}$/)
-  await expect(phone.getByRole('region', { name: 'Print here' }).getByLabel('Preview').locator('.label')).toHaveCount(3)
+  await expect(phone.getByRole('region', { name: 'On another printer' }).getByLabel('Preview').locator('.label')).toHaveCount(3)
 })

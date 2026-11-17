@@ -25,6 +25,12 @@ export interface Found<P> {
 const squash = (key: string) => key.replace(/ /g, '')
 /** Found in a field: as typed, or with the spaces out of both ("sm 58" in "sm58"). */
 const within = (field: string, word: string) => field.includes(word) || squash(field).includes(squash(word))
+/**
+ * A few letters alone are the start of a word, not a piece of one (audit of the quote flow, 8 November 2026, finding
+ * 21): "das" finds DAS speakers, not Midas consoles. Longer, or with a number in it, it's found anywhere ("58" in SM58,
+ * "wedge" in Sidewedges).
+ */
+const holds = (field: string, word: string) => (/^[a-z]{1,3}$/.test(word) ? field.split(' ').some((w) => w.startsWith(word)) : within(field, word))
 
 /**
  * The products what's typed finds, best first: the name as typed, then names
@@ -43,21 +49,54 @@ export function findProducts<P extends Findable>(products: readonly P[], typed: 
     const meta = `${kitKey(p.category)} ${kitKey(DEPARTMENT_LABELS[p.department] ?? '')}`
     let rank: number
     let via: string | undefined
-    const other = others.find((o) => o.key === key) ?? others.find((o) => within(o.key, key))
+    const other = others.find((o) => o.key === key) ?? others.find((o) => holds(o.key, key))
     if (name === key || squash(name) === squash(key)) rank = 0
     else if (name.startsWith(key) || squash(name).startsWith(squash(key))) rank = 1
     else if (name.split(' ').some((w) => w.startsWith(key))) rank = 2
-    else if (within(name, key)) rank = 3
+    else if (holds(name, key)) rank = 3
     else if (other) {
       rank = other.key === key ? 0.5 : 4
       via = other.a
     } else {
       const all = [name, ...others.map((o) => o.key), meta]
-      if (!words.every((w) => all.some((f) => within(f, w)))) continue
+      if (!words.every((w) => all.some((f) => holds(f, w)))) continue
       rank = 5
-      via = others.find((o) => words.some((w) => within(o.key, w)))?.a
+      via = others.find((o) => words.some((w) => holds(o.key, w)))?.a
     }
     out.push({ f: via ? { product: p, via } : { product: p }, rank })
   }
   return out.sort((a, b) => a.rank - b.rank || a.f.product.name.localeCompare(b.f.product.name)).map((x) => x.f)
+}
+
+/** The most a count typed before a product's name can be, as a quote line's How many (lineDraft's 10,000). */
+export const MOST_COUNTED = 10_000
+
+/**
+ * How many, typed before what's looked for (research/quoting.md, feature 1): "12 y10", "12x y10", "12 × y10" and
+ * "12 * y10" are 12 of whatever "y10" finds; "12xlr" is not a count. A number and a space alone are not yet a search. Whether the number is a
+ * count or part of a name ("4 way box") is for `countedFind` to say.
+ */
+export function leadingCount(typed: string): { count: number; rest: string } | undefined {
+  const m = /^\s*(\d{1,5})(?:\s*[x×*]\s+|\s+)(\S.*)$/i.exec(typed)
+  if (!m) return undefined
+  const count = Number(m[1])
+  if (count < 1 || count > MOST_COUNTED) return undefined
+  return { count, rest: (m[2] ?? '').trim() }
+}
+
+/**
+ * What's typed in a picker that takes a count, read as a count first (audit of the quote flow, 8 November 2026, finding
+ * 2): "2 d20" is two of what "d20" finds, though "2 d20" whole would find the D20 by the 2 in its name. The whole text
+ * is what's looked for when the number is a word of a name it finds ("4 way box", "72-way split", "XLR 10 m" for
+ * "10 m xlr"), or when the rest finds nothing.
+ */
+export function countedFind<F>(typed: string, find: (text: string) => F[], nameOf: (f: F) => string): { count?: number; found: F[] } {
+  const whole = () => find(typed)
+  const counting = leadingCount(typed)
+  if (!counting) return { found: whole() }
+  const number = String(counting.count)
+  const all = whole()
+  if (all.some((f) => kitKey(nameOf(f)).split(' ').includes(number))) return { found: all }
+  const rest = find(counting.rest)
+  return rest.length ? { count: counting.count, found: rest } : { found: all }
 }

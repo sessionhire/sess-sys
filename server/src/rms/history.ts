@@ -9,9 +9,14 @@ import {
   type RmsLastCharged,
   type RmsMatches,
   type RmsMatchRow,
+  type RmsOnCalendar,
 } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
+import { describeDevice } from '../devices.ts'
+import { RMS_DATES_ACTION } from '../history-words.ts'
+import { serverChange } from '../kernel.ts'
+import { FIXED_END, FIXED_START } from './reader.ts'
 
 /**
  * Current RMS's history put to use (ADR 0092), for the office and
@@ -24,7 +29,7 @@ import type { Db, Queryable } from '../db.ts'
 
 type Row = Record<string, any>
 const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null)
-const day = (v: unknown) => (v ? new Date(v as string).toISOString().slice(0, 10) : null)
+const day = (v: unknown) => (v ? irishToday(new Date(v as string)) : null)
 
 async function jobsToMatch(q: Queryable) {
   const { rows } = await q.query<Row>(
@@ -53,6 +58,8 @@ async function allOpportunities(q: Queryable) {
 }
 
 const MOST_LINKS = 2000
+/** How alike a job here must be to an open quote to be taken as the same one: the same client, or most of its name. */
+const LOOKS_LIKE = 3
 
 export function registerRmsHistoryRoutes(app: FastifyInstance, { db }: { db: Db }) {
   app.get('/api/rms/matches', { config: { needs: 'money' } }, async (_req, reply): Promise<RmsMatches> => {
@@ -111,6 +118,99 @@ export function registerRmsHistoryRoutes(app: FastifyInstance, { db }: { db: Db 
       return n
     })
     return { linked: done }
+  })
+
+  /**
+   * The open quotes in Current RMS between two days, for the master calendar (ADR 0134): still to come, not an order,
+   * not lost, dead or cancelled (ADR 0092's rule), and not one the office set aside. One linked to a job here, or that
+   * looks like one (the same client or most of its name, on the same days), is left out, as the job is on already.
+   */
+  app.get<{ Querystring: { from?: string; to?: string } }>('/api/rms/calendar', { config: { needs: 'money' } }, async (req, reply): Promise<RmsOnCalendar[] | void> => {
+    reply.header('cache-control', 'no-store')
+    const isDay = (d: unknown): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
+    const { from, to } = req.query
+    if (!isDay(from) || !isDay(to) || to < from) return reply.code(400).send({ error: 'Ask for the days from and to, as YYYY-MM-DD.' })
+    const today = irishToday()
+    const { rows } = await db.reads.query<Row>(
+      `SELECT o.id, o.number, o.subject, o.client, o.state, o.status, o.starts_at, o.ends_at
+         FROM rms_opportunities o
+        WHERE o.starts_at IS NOT NULL
+          AND lower(o.status) NOT IN ('lost', 'dead', 'cancelled') AND lower(o.state) <> 'order'
+          AND (COALESCE(o.ends_at, o.starts_at) AT TIME ZONE 'Europe/Dublin')::date >= GREATEST($1::date, $3::date)
+          AND (o.starts_at AT TIME ZONE 'Europe/Dublin')::date <= $2::date
+          AND NOT EXISTS (SELECT 1 FROM rms_matches m JOIN projects p ON p.id = m.project_id WHERE m.opportunity_id = o.id)
+          AND NOT EXISTS (SELECT 1 FROM rms_set_aside a WHERE a.opportunity_id = o.id)
+        ORDER BY o.starts_at, o.id
+        LIMIT 500`,
+      [from, to, today]
+    )
+    if (!rows.length) return []
+    const opps = rows.map((r) => ({ id: r.id as number, subject: r.subject as string, client: r.client as string, startsAt: iso(r.starts_at), endsAt: iso(r.ends_at) }))
+    const looksLike = new Set(
+      matchOpportunities(opps, await jobsToMatch(db.reads))
+        .filter((m) => (m.candidates[0]?.score ?? 0) >= LOOKS_LIKE)
+        .map((m) => m.opportunityId)
+    )
+    return rows
+      .filter((r) => !looksLike.has(r.id))
+      .map((r) => {
+        const start = irishToday(new Date(r.starts_at))
+        const end = r.ends_at ? irishToday(new Date(r.ends_at)) : start
+        return { id: r.id, number: r.number, subject: r.subject, client: r.client, status: r.status, start, end: end < start ? start : end }
+      })
+  })
+
+  /** The office's word that an open quote isn't going ahead, so it's off the calendar (ADR 0134), or that it is after all. */
+  /**
+   * Correct a quote's days here (ADR 0138), when Current RMS has them wrong and it's easier not to change them there:
+   * { start, end } as YYYY-MM-DD, or { start: null } to go back to Current RMS's. Reading Current RMS again keeps the
+   * correction; Current RMS itself is never changed. In the history as the person's.
+   */
+  app.post<{ Params: { id: string }; Body: { start?: unknown; end?: unknown }; Querystring: { client?: string } }>(
+    '/api/rms/opportunities/:id/dates',
+    { config: { needs: 'money' } },
+    async (req, reply) => {
+      reply.header('cache-control', 'no-store')
+      const id = Number.parseInt(req.params.id, 10)
+      const isDay = (d: unknown): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T12:00:00Z`))
+      const { start, end } = req.body ?? {}
+      const back = start === null
+      if (!Number.isSafeInteger(id) || (!back && (!isDay(start) || !isDay(end))))
+        return reply.code(400).send({ error: 'Give the first and last day, as YYYY-MM-DD.' })
+      if (!back && (end as string) < (start as string)) return reply.code(400).send({ error: 'The last day can’t be before the first.' })
+      const { rows } = await db.reads.query<Row>('SELECT number FROM rms_opportunities WHERE id = $1', [id])
+      if (!rows[0]) return reply.code(404).send({ error: 'There’s no such opportunity.' })
+      const clientId = typeof req.query?.client === 'string' ? req.query.client : undefined
+      const args = back ? { id, number: rows[0].number } : { id, number: rows[0].number, start, end }
+      await serverChange(db, { name: RMS_DATES_ACTION, args, clientId, userId: req.user?.id, device: describeDevice(req.headers['user-agent']) }, async ({ tx }) => {
+        if (back) {
+          await tx.query('DELETE FROM rms_dates_fixed WHERE opportunity_id = $1', [id])
+          await tx.query('UPDATE rms_opportunities SET starts_at = rms_starts_at, ends_at = rms_ends_at WHERE id = $1', [id])
+        } else {
+          await tx.query(
+            `INSERT INTO rms_dates_fixed (opportunity_id, starts_on, ends_on, set_by) VALUES ($1, $2, $3, $4)
+             ON CONFLICT (opportunity_id) DO UPDATE SET starts_on = $2, ends_on = $3, set_by = $4, set_at = now()`,
+            [id, start, end, req.user?.email ?? '']
+          )
+          await tx.query(
+            `UPDATE rms_opportunities o SET starts_at = ${FIXED_START}, ends_at = ${FIXED_END} FROM rms_dates_fixed f WHERE f.opportunity_id = o.id AND o.id = $1`,
+            [id]
+          )
+        }
+      })
+      const { rows: now } = await db.reads.query<Row>('SELECT starts_at, ends_at FROM rms_opportunities WHERE id = $1', [id])
+      return { startsAt: iso(now[0]?.starts_at), endsAt: iso(now[0]?.ends_at), corrected: !back }
+    }
+  )
+  app.post<{ Params: { id: string }; Body: { aside?: unknown } }>('/api/rms/opportunities/:id/aside', { config: { needs: 'money' } }, async (req, reply) => {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!Number.isSafeInteger(id) || typeof req.body?.aside !== 'boolean') return reply.code(400).send({ error: 'Say whether it is set aside.' })
+    const { rows } = await db.reads.query('SELECT 1 FROM rms_opportunities WHERE id = $1', [id])
+    if (!rows.length) return reply.code(404).send({ error: 'There’s no such opportunity.' })
+    if (req.body.aside)
+      await db.query('INSERT INTO rms_set_aside (opportunity_id, set_by) VALUES ($1, $2) ON CONFLICT (opportunity_id) DO NOTHING', [id, req.user?.email ?? ''])
+    else await db.query('DELETE FROM rms_set_aside WHERE opportunity_id = $1', [id])
+    return { aside: req.body.aside }
   })
 
   /** A job's past quotes from Current RMS, and how its client's quotes went there. */

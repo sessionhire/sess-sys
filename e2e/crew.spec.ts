@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { fillName } from './names.ts'
+import { allCalls, askForCrewOn, asked, jobWithPhase } from './ask.ts'
+import { fillName, pickRecord } from './names.ts'
 
 /**
  * Crew booking end to end: the office adds a freelancer and a job and makes
@@ -20,7 +21,7 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
   // The forms sit behind their buttons until wanted (audit finding 16).
-  await office.getByRole('button', { name: 'Add person' }).click()
+  await office.getByRole('button', { name: 'New person' }).click()
   const person = office.locator('form').filter({ has: office.getByRole('button', { name: 'Add person' }) })
   await fillName(person, 'Aoife Byrne')
   await person.getByLabel('Mobile').fill('+353 87 123 4567')
@@ -29,44 +30,57 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   // The other tests share this server, so the screen can also list their people and crew calls.
   await expect(office.getByRole('region', { name: 'People' }).getByRole('link', { name: /^Aoife Byrne/ })).toBeVisible()
 
-  // A one-off, not in Jobs: the crew screen still takes the job's details as typed.
-  await office.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^Calls/ }).click()
-  await office.getByRole('button', { name: 'Ask for crew' }).click()
-  const job = office.locator('form').filter({ has: office.getByRole('button', { name: 'Ask for crew' }) })
-  await job.getByLabel('Project').fill('Electric Picnic')
-  await job.getByLabel('Phase').fill('Build')
+  // Crew are asked for from the job (ADR 0142): its Crew tab takes the role, days and rate, and the job gives its name and phase.
+  const picnic = await jobWithPhase(request, { name: 'Electric Picnic', phase: 'Build', start: '2030-08-29', end: '2030-08-31' })
+  const job = await askForCrewOn(office, picnic)
   await job.getByLabel('Role').fill('Audio tech')
-  await job.getByLabel('From').fill('2030-08-29')
-  await job.getByLabel('To', { exact: true }).fill('2030-08-31')
   await job.getByLabel('Call time').fill('08:00')
   await job.getByLabel('Day rate €').fill('250')
-  await job.getByLabel('Venue').fill('Stradbally Hall, Co. Laois')
   await job.getByLabel('Details for crew').fill('Food on site. Parking at gate C.')
-  await job.getByRole('button', { name: 'Ask for crew' }).click()
+  await job.getByRole('button', { name: 'Add role' }).click()
+  await asked(office)
+  // On Crew › Calls with the rest, past the next fortnight, so under Show all.
+  await allCalls(office)
   await expect(office.getByText('Electric Picnic').first()).toBeVisible()
-  await expect(office.getByRole('status')).toHaveText('Up to date')
 
   // The call is one line under its job until it's opened, and the picker is behind "Offer…".
   const call = office.locator('.call-group', { hasText: 'Electric Picnic' }).getByRole('article', { name: '1 × Audio tech' })
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Offer…' }).click()
-  await call.getByLabel('Offer to').selectOption({ label: 'Aoife Byrne · Level 1 (audio, monitors)' })
-  await call.getByRole('button', { name: 'Offer', exact: true }).click()
-  // The offer is made, but with messages to crew off nothing opens to send it (ADR 0048): the card says so, and where to turn them on.
-  const quietCard = office.getByRole('region', { name: 'Messages to crew are off: offer for Aoife Byrne' })
-  await expect(quietCard).toContainText('Nothing opened to send Aoife Byrne the offer.')
+  await pickRecord(call, 'Offer to', 'Aoife Byrne')
+  // Before the press the form says what pressing sends by itself (ADR 0149): with every way out off, nothing.
+  await expect(call.locator('.offer-pending')).toHaveText(
+    'Not offered yet. Pressing Offer to Aoife Byrne puts the offer on their page. Nothing is sent: calendar invites, WhatsApp and messages to crew are all off.'
+  )
+  await call.getByRole('button', { name: /^Offer to / }).click()
+  // The offer is made, and the panel says what the app sent by itself: nothing, so her number is a press away (the plain contact
+  // ADR 0048 keeps). That no message opened to send is said last, with where that's turned on.
+  const sent = office.getByRole('region', { name: 'Offered to Aoife Byrne: what was sent' })
+  await expect(sent).toContainText('Nothing was sent to Aoife: calendar invites and WhatsApp are both off.')
+  await expect(sent).toContainText('Their link shows the offer, whenever they open it.')
+  await expect(sent.getByRole('link', { name: 'Ring Aoife Byrne' })).toHaveAttribute('href', 'tel:+353871234567')
+  await expect(sent.getByRole('link', { name: 'WhatsApp Aoife Byrne' })).toHaveAttribute('href', 'https://wa.me/353871234567')
+  await expect(sent).toContainText('Messages to crew are off, so no message opened for you to send.')
   await expect(office.getByRole('status')).toHaveText('Up to date')
-  await quietCard.getByRole('link', { name: 'Admin › Company' }).click()
+  // Her row offers the same in Send's place, and the call says once that nothing was sent.
+  await expect(call.locator('.sent-line')).toHaveText('Nothing was sent to Aoife: calendar invites, WhatsApp and messages to crew are all off.')
+  await expect(call.locator('.offers').getByRole('link', { name: 'Ring Aoife Byrne' })).toBeVisible()
+  await expect(call.getByRole('button', { name: 'Send' })).toHaveCount(0)
+  await sent.getByRole('link', { name: 'Admin › Company' }).click()
   const prompt = office.getByRole('region', { name: 'Messages to crew' }).getByRole('switch', { name: 'Prompt messages to crew' })
   await expect(prompt).not.toBeChecked()
   await prompt.click()
   await expect(prompt).toBeChecked()
   await expect(office.getByRole('status')).toHaveText('Up to date')
-  await office.goto('/#crew/calls')
+  await allCalls(office)
   await call.getByRole('button', { name: '1 × Audio tech' }).click()
   await call.getByRole('button', { name: 'Send' }).click()
   const share = office.getByRole('region', { name: 'Send offer to Aoife Byrne' })
   await expect(share.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', /^https:\/\/wa\.me\/353871234567\?text=/)
+  // It opens under the call that asked, in view with the focus on it, not at the foot of the page (audit, 5 November 2026, finding 5).
+  await expect(office.locator('.call-group', { hasText: 'Electric Picnic' }).getByRole('region', { name: 'Send offer to Aoife Byrne' })).toBeVisible()
+  await expect(share).toBeInViewport()
+  await expect(share).toBeFocused()
   await expect(office.getByRole('status')).toHaveText('Up to date')
   await office.screenshot(shot('crew-office-offer'))
   const message = await share.locator('textarea').inputValue()
@@ -81,19 +95,30 @@ test('office offers a job, freelancer answers from their link', async ({ browser
   await phone.getByLabel('Sat 31 Aug').uncheck()
   await phone.getByRole('button', { name: 'Accept these days' }).click()
   await expect(phone.getByText("Thanks, you're down for it.")).toBeVisible()
+  // The page lands on the card, with its thank-you below the glance that sticks at the top, not under it (audit, 5 November 2026, finding 7).
+  const under = await phone.evaluate(() => {
+    const glance = document.querySelector('.glance')?.getBoundingClientRect().bottom ?? 0
+    return [...document.querySelectorAll('.flash')].map((f) => f.getBoundingClientRect().top - glance)
+  })
+  expect(under.length).toBeGreaterThan(0)
+  expect(Math.min(...under)).toBeGreaterThanOrEqual(0)
 
   // The office sees the answer arrive and confirms it.
   const answers = office.locator('section').filter({ has: office.getByRole('heading', { name: 'Answers to check' }) })
   await expect(answers.getByText('Aoife Byrne accepted')).toBeVisible()
   await expect(answers.getByText('Thu 29 Aug to Fri 30 Aug', { exact: false })).toBeVisible()
   await answers.locator('.row', { hasText: 'Aoife Byrne' }).getByRole('button', { name: 'Confirm' }).click()
-  await expect(call.getByText('Confirmed')).toBeVisible()
+  // The message to tell her opens in the answer's place, in view, rather than at the foot of the page (finding 5).
+  const tell = answers.getByRole('region', { name: /^Send .* to Aoife Byrne$/ })
+  await expect(tell).toBeInViewport()
+  await expect(tell).toBeFocused()
+  await expect(call.getByText('Booked')).toBeVisible()
   await office.getByRole('link', { name: 'Done' }).or(office.getByRole('button', { name: 'Done' })).click()
   await office.evaluate(() => scrollTo(0, 0))
   await office.screenshot(shot('crew-office-confirmed'))
 
   await phone.reload()
-  await expect(phone.locator('.tag.confirmed')).toHaveText('Confirmed')
+  await expect(phone.locator('.tag.confirmed')).toHaveText('Booked')
   const ics = await phone.request.get(`${link}/calendar.ics`)
   expect(await ics.text()).toContain('SUMMARY:Electric Picnic - Build')
 })

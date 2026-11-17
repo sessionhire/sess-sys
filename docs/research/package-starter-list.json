@@ -1,0 +1,1445 @@
+{
+ "source": "Current RMS export of 27 October 2026 (1,072 quotes); see package-starter-list.md",
+ "shape": "package.save: id, name, department, dayCents, rate, items [{modelId, qty}], notes; items here name the stock-list product, matched to modelId when loaded",
+ "packages": [
+  {
+   "id": "pkg-speech-pa-small",
+   "situation": "Speech and conference",
+   "name": "Speech PA, small",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B YP10 & YP Bracket",
+     "qty": 2
+    },
+    {
+     "product": "D&B D20 Amplifier",
+     "qty": 1
+    },
+    {
+     "product": "K&M Speaker Stand",
+     "qty": 2
+    },
+    {
+     "product": "Midas M32R mixing console",
+     "qty": 1
+    },
+    {
+     "product": "Shure SLX-Beta 58 Stick-Belt Pack & Headset",
+     "qty": 4
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 81,
+    "since2025": 41,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 510.0
+   }
+  },
+  {
+   "id": "pkg-speech-pa-large",
+   "situation": "Speech and conference",
+   "name": "Speech PA, large",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B YP10 & YP Bracket",
+     "qty": 4
+    },
+    {
+     "product": "D&B D20 Amplifier",
+     "qty": 2
+    },
+    {
+     "product": "K&M Speaker Stand",
+     "qty": 4
+    },
+    {
+     "product": "Midas M32R mixing console",
+     "qty": 1
+    },
+    {
+     "product": "Shure SLX-Beta 58 Stick-Belt Pack & Headset",
+     "qty": 6
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 81,
+    "since2025": 41,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 800.0
+   }
+  },
+  {
+   "id": "pkg-e3-pa",
+   "situation": "Speech and conference",
+   "name": "E3 speech PA",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B E3",
+     "qty": 4
+    },
+    {
+     "product": "D&B D20 Amplifier",
+     "qty": 1
+    },
+    {
+     "product": "K&M Speaker Stand",
+     "qty": 4
+    },
+    {
+     "product": "Midas M32R mixing console",
+     "qty": 1
+    },
+    {
+     "product": "Shure SLX-Beta 58 Stick-Belt Pack & Headset",
+     "qty": 6
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 63,
+    "since2025": 27,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 620.0
+   }
+  },
+  {
+   "id": "pkg-party-pa",
+   "situation": "Parties, DJs and small bands",
+   "name": "Party PA (YP10 + V subs)",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B YP10 & YP Bracket",
+     "qty": 4
+    },
+    {
+     "product": "D&B V subwoofer",
+     "qty": 2
+    },
+    {
+     "product": "D&B D20 Amplifier",
+     "qty": 2
+    },
+    {
+     "product": "K&M Sub Pole Stand",
+     "qty": 2
+    },
+    {
+     "product": "Midas M32R mixing console",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 182,
+    "since2025": 138,
+    "lastYear": "2027",
+    "sumOfPartsEUR": 630.0
+   }
+  },
+  {
+   "id": "pkg-party-pa-q",
+   "situation": "Parties, DJs and small bands",
+   "name": "Party PA (YP10 + Q subs)",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B YP10 & YP Bracket",
+     "qty": 4
+    },
+    {
+     "product": "D&B Q Sub",
+     "qty": 2
+    },
+    {
+     "product": "D&B D20 Amplifier",
+     "qty": 2
+    },
+    {
+     "product": "K&M Sub Pole Stand",
+     "qty": 2
+    },
+    {
+     "product": "Midas M32R mixing console",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 101,
+    "since2025": 8,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 590.0
+   }
+  },
+  {
+   "id": "pkg-max12-pa",
+   "situation": "Parties, DJs and small bands",
+   "name": "Max 12 PA",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B Max 12 speaker",
+     "qty": 4
+    },
+    {
+     "product": "D&B D20 Amplifier",
+     "qty": 2
+    },
+    {
+     "product": "Midas M32R mixing console",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 88,
+    "since2025": 37,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 240.0
+   }
+  },
+  {
+   "id": "pkg-dj-booth",
+   "situation": "Parties, DJs and small bands",
+   "name": "DJ booth",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Cdj 3000",
+     "qty": 2
+    },
+    {
+     "product": "Djm 900 nxs 2",
+     "qty": 1
+    }
+   ],
+   "notes": "DJ riser and a vocal mic if asked",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 69,
+    "since2025": 44,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 240.0
+   }
+  },
+  {
+   "id": "pkg-dj-booth-3",
+   "situation": "Parties, DJs and small bands",
+   "name": "DJ booth, three decks",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Cdj 3000",
+     "qty": 3
+    },
+    {
+     "product": "Djm 900 nxs 2",
+     "qty": 1
+    }
+   ],
+   "notes": "DJ riser and a vocal mic if asked",
+   "dayCents": 40000,
+   "rate": "weekly",
+   "evidence": {
+    "quotes": 69,
+    "since2025": 44,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 320.0
+   }
+  },
+  {
+   "id": "pkg-al90-system",
+   "situation": "Concerts and festivals",
+   "name": "AL90 system",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B AL90 loudspeaker",
+     "qty": 4
+    },
+    {
+     "product": "D&B V subwoofer",
+     "qty": 4
+    },
+    {
+     "product": "D&B D40",
+     "qty": 3
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 91,
+    "since2025": 56,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 800.0
+   }
+  },
+  {
+   "id": "pkg-y8-system",
+   "situation": "Concerts and festivals",
+   "name": "Y8 hang",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B Y8",
+     "qty": 10
+    },
+    {
+     "product": "D&B Y Base Plate/Stack Adaptor",
+     "qty": 2
+    },
+    {
+     "product": "D&B V subwoofer",
+     "qty": 6
+    },
+    {
+     "product": "D&B D80 Amplifier",
+     "qty": 4
+    },
+    {
+     "product": "socapex cable 20m",
+     "qty": 2
+    },
+    {
+     "product": "Socapex to NL4 Fan In",
+     "qty": 2
+    },
+    {
+     "product": "Socapex to NL4 Fanout",
+     "qty": 2
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 79,
+    "since2025": 38,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 1140.0
+   }
+  },
+  {
+   "id": "pkg-v-system",
+   "situation": "Concerts and festivals",
+   "name": "V-Series hang",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B V Series V8",
+     "qty": 8
+    },
+    {
+     "product": "D&B V Series V12",
+     "qty": 4
+    },
+    {
+     "product": "D&B V subwoofer",
+     "qty": 6
+    },
+    {
+     "product": "D&B D80 Amplifier",
+     "qty": 6
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 44,
+    "since2025": 44,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 1380.0
+   }
+  },
+  {
+   "id": "pkg-j-system",
+   "situation": "Concerts and festivals",
+   "name": "J-Series main stage",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B J series J 8",
+     "qty": 20
+    },
+    {
+     "product": "D&B J series J12",
+     "qty": 4
+    },
+    {
+     "product": "D&B J series Fly Frame",
+     "qty": 2
+    },
+    {
+     "product": "D&B J Series J SUB",
+     "qty": 16
+    },
+    {
+     "product": "D&B D80 Amplifier",
+     "qty": 15
+    },
+    {
+     "product": "LK Fly Loom",
+     "qty": 4
+    },
+    {
+     "product": "125 amp audio distro",
+     "qty": 2
+    },
+    {
+     "product": "Session Hire Drive Rack",
+     "qty": 1
+    },
+    {
+     "product": "Shout system",
+     "qty": 2
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 98,
+    "since2025": 48,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 710.0
+   }
+  },
+  {
+   "id": "pkg-wedges-4",
+   "situation": "Concerts and festivals",
+   "name": "Monitor wedges, 4",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B M4 Stage monitor",
+     "qty": 4
+    },
+    {
+     "product": "D&B D40",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 245,
+    "since2025": 121,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 80.0
+   }
+  },
+  {
+   "id": "pkg-wedges-8",
+   "situation": "Concerts and festivals",
+   "name": "Monitor wedges, 8",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B M4 Stage monitor",
+     "qty": 8
+    },
+    {
+     "product": "D&B D40",
+     "qty": 2
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 245,
+    "since2025": 121,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 160.0
+   }
+  },
+  {
+   "id": "pkg-iem-6",
+   "situation": "Concerts and festivals",
+   "name": "In-ears, 6 mixes",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Sennheiser 2050 dual in ear transmitter",
+     "qty": 3
+    },
+    {
+     "product": "Sennheiser 2050 Iem beltpack",
+     "qty": 6
+    },
+    {
+     "product": "Sennheiser Helical Antenna",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 85,
+    "since2025": 24,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 20.0
+   }
+  },
+  {
+   "id": "pkg-axient-4",
+   "situation": "Concerts and festivals",
+   "name": "Axient radio mics, 4",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Shure Axient Reciver",
+     "qty": 1
+    },
+    {
+     "product": "Shure Axient Antenna",
+     "qty": 2
+    },
+    {
+     "product": "Shure Axient SM58 H/H",
+     "qty": 4
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 146,
+    "since2025": 63,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 0.0
+   }
+  },
+  {
+   "id": "pkg-digico-q225",
+   "situation": "Concerts and festivals",
+   "name": "DiGiCo Quantum 225 control",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Digico Quantum 225",
+     "qty": 1
+    },
+    {
+     "product": "Digico MQ - Rack",
+     "qty": 1
+    },
+    {
+     "product": "Session Hire Drive Rack",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 82,
+    "since2025": 50,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 850.0
+   }
+  },
+  {
+   "id": "pkg-cl5",
+   "situation": "Concerts and festivals",
+   "name": "Yamaha CL5 control",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Yamaha CL5",
+     "qty": 1
+    },
+    {
+     "product": "Yamaha Rio 64",
+     "qty": 1
+    },
+    {
+     "product": "FOH Multicore CAT 6",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 72,
+    "since2025": 47,
+    "lastYear": "2027",
+    "sumOfPartsEUR": 100.0
+   }
+  },
+  {
+   "id": "pkg-pro2-split",
+   "situation": "Concerts and festivals",
+   "name": "Midas Pro2 with 3-way split",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Midas pro 2 Mixing console",
+     "qty": 1
+    },
+    {
+     "product": "48ch passive 3 way split system",
+     "qty": 1
+    },
+    {
+     "product": "Midas Dl 251 stage box",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 25,
+    "since2025": 6,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 150.0
+   }
+  },
+  {
+   "id": "pkg-72-split",
+   "situation": "Concerts and festivals",
+   "name": "72-way split",
+   "department": "audio",
+   "items": [
+    {
+     "product": "VDC 72 Way 3 WAY Passive Split",
+     "qty": 1
+    },
+    {
+     "product": "24 way Veam To male XLR",
+     "qty": 6
+    },
+    {
+     "product": "12ch xlr stage box",
+     "qty": 12
+    },
+    {
+     "product": "20m 12ch veam cable",
+     "qty": 10
+    },
+    {
+     "product": "FOH HMA",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 26,
+    "since2025": 26,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 420.0
+   }
+  },
+  {
+   "id": "pkg-dl32-cat5",
+   "situation": "Concerts and festivals",
+   "name": "DL32 stage box on Cat5",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Midas DL 32",
+     "qty": 1
+    },
+    {
+     "product": "100m Cat 5 reel",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 90,
+    "since2025": 61,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 30.0
+   }
+  },
+  {
+   "id": "pkg-stage-boxes",
+   "situation": "Concerts and festivals",
+   "name": "Stage boxes, 2",
+   "department": "audio",
+   "items": [
+    {
+     "product": "12ch xlr stage box",
+     "qty": 2
+    },
+    {
+     "product": "20m 12ch veam cable",
+     "qty": 2
+    },
+    {
+     "product": "12 way Veam to male XLR",
+     "qty": 2
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 244,
+    "since2025": 111,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 30.0
+   }
+  },
+  {
+   "id": "pkg-cables-power-s",
+   "situation": "Cables and power",
+   "name": "Power cables, small",
+   "department": "power",
+   "items": [
+    {
+     "product": "TRS 3m 16Amp",
+     "qty": 2
+    },
+    {
+     "product": "TRS 5m 16amp",
+     "qty": 2
+    },
+    {
+     "product": "TRS 10m 16Amp",
+     "qty": 2
+    },
+    {
+     "product": "TRS 20m 16Amp",
+     "qty": 2
+    },
+    {
+     "product": "16a - 13a Board",
+     "qty": 4
+    },
+    {
+     "product": "Adaptor 13a - 16a",
+     "qty": 2
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 70,
+    "since2025": 29,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 0.0
+   }
+  },
+  {
+   "id": "pkg-cables-power-l",
+   "situation": "Cables and power",
+   "name": "Power cables, large",
+   "department": "power",
+   "items": [
+    {
+     "product": "TRS 3m 16Amp",
+     "qty": 6
+    },
+    {
+     "product": "TRS 5m 16amp",
+     "qty": 6
+    },
+    {
+     "product": "TRS 10m 16Amp",
+     "qty": 8
+    },
+    {
+     "product": "TRS 20m 16Amp",
+     "qty": 4
+    },
+    {
+     "product": "16a - 13a Board",
+     "qty": 10
+    },
+    {
+     "product": "Adaptor 13a - 16a",
+     "qty": 2
+    },
+    {
+     "product": "16amp Y split",
+     "qty": 2
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 46,
+    "since2025": 20,
+    "lastYear": "2025",
+    "sumOfPartsEUR": 1.0
+   }
+  },
+  {
+   "id": "pkg-cables-speaker-s",
+   "situation": "Cables and power",
+   "name": "Speaker cables, small",
+   "department": "audio",
+   "items": [
+    {
+     "product": "NL4 cable 3M",
+     "qty": 2
+    },
+    {
+     "product": "NL4 cable 10M",
+     "qty": 2
+    },
+    {
+     "product": "Nl4 cable 20m",
+     "qty": 4
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 70,
+    "since2025": 27,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 3.0
+   }
+  },
+  {
+   "id": "pkg-cables-speaker-l",
+   "situation": "Cables and power",
+   "name": "Speaker cables, large",
+   "department": "audio",
+   "items": [
+    {
+     "product": "NL4 cable 3M",
+     "qty": 4
+    },
+    {
+     "product": "Nl4 cable 5m",
+     "qty": 6
+    },
+    {
+     "product": "NL4 cable 10M",
+     "qty": 8
+    },
+    {
+     "product": "Nl4 cable 20m",
+     "qty": 6
+    },
+    {
+     "product": "NL4 Link  cable 1m",
+     "qty": 12
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 46,
+    "since2025": 21,
+    "lastYear": "2025",
+    "sumOfPartsEUR": 8.0
+   }
+  },
+  {
+   "id": "pkg-cables-xlr-s",
+   "situation": "Cables and power",
+   "name": "XLR cables, small",
+   "department": "audio",
+   "items": [
+    {
+     "product": "xlr 3m 3 pin",
+     "qty": 8
+    },
+    {
+     "product": "xlr 5m 3 pin",
+     "qty": 8
+    },
+    {
+     "product": "xlr 10m 3 pin",
+     "qty": 10
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 64,
+    "since2025": 26,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 8.0
+   }
+  },
+  {
+   "id": "pkg-cables-xlr-l",
+   "situation": "Cables and power",
+   "name": "XLR cables, large",
+   "department": "audio",
+   "items": [
+    {
+     "product": "xlr 3m 3 pin",
+     "qty": 30
+    },
+    {
+     "product": "xlr 5m 3 pin",
+     "qty": 20
+    },
+    {
+     "product": "xlr 10m 3 pin",
+     "qty": 20
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 43,
+    "since2025": 19,
+    "lastYear": "2025",
+    "sumOfPartsEUR": 20.0
+   }
+  },
+  {
+   "id": "pkg-socapex",
+   "situation": "Cables and power",
+   "name": "Socapex run",
+   "department": "audio",
+   "items": [
+    {
+     "product": "socapex cable 20m",
+     "qty": 2
+    },
+    {
+     "product": "Socapex to NL4 Fan In",
+     "qty": 2
+    },
+    {
+     "product": "Socapex to NL4 Fanout",
+     "qty": 2
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 137,
+    "since2025": 63,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 10.0
+   }
+  },
+  {
+   "id": "pkg-dmx",
+   "situation": "Cables and power",
+   "name": "DMX cables",
+   "department": "lighting",
+   "items": [
+    {
+     "product": "3m 5 pin dmx.",
+     "qty": 10
+    },
+    {
+     "product": "5m 5 pin Dmx.",
+     "qty": 10
+    },
+    {
+     "product": "dmx 5pin 10m",
+     "qty": 6
+    },
+    {
+     "product": "dmx 5pin 20 metre",
+     "qty": 6
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 27,
+    "since2025": 19,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 0.0
+   }
+  },
+  {
+   "id": "pkg-decor-lx",
+   "situation": "Lighting",
+   "name": "Decor LX",
+   "department": "lighting",
+   "items": [
+    {
+     "product": "Astera Tube",
+     "qty": 24
+    },
+    {
+     "product": "ADJ Battery up lighters",
+     "qty": 24
+    },
+    {
+     "product": "Show Tec Helix M1100",
+     "qty": 8
+    },
+    {
+     "product": "1M H30V truss",
+     "qty": 2
+    },
+    {
+     "product": "H30V 1m base plate",
+     "qty": 2
+    }
+   ],
+   "notes": "",
+   "dayCents": 180000,
+   "rate": "weekly",
+   "evidence": {
+    "quotes": 17,
+    "since2025": 10,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 3250.0
+   }
+  },
+  {
+   "id": "pkg-uplighters",
+   "situation": "Lighting",
+   "name": "Uplighters, 16",
+   "department": "lighting",
+   "items": [
+    {
+     "product": "ADJ Battery up lighters",
+     "qty": 16
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 101,
+    "since2025": 55,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 480.0
+   }
+  },
+  {
+   "id": "pkg-front-light",
+   "situation": "Lighting",
+   "name": "Front light",
+   "department": "lighting",
+   "items": [
+    {
+     "product": "arri 1k fresnel",
+     "qty": 2
+    }
+   ],
+   "notes": "with single-channel dimmers",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 43,
+    "since2025": 24,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 40.0
+   }
+  },
+  {
+   "id": "pkg-movers",
+   "situation": "Lighting",
+   "name": "Moving heads, Lyra and Spider",
+   "department": "lighting",
+   "items": [
+    {
+     "product": "Acme Lyra Moving Head",
+     "qty": 4
+    },
+    {
+     "product": "Robe spider",
+     "qty": 12
+    },
+    {
+     "product": "Unique Haze 2",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 44,
+    "since2025": 38,
+    "lastYear": "2027",
+    "sumOfPartsEUR": 2120.0
+   }
+  },
+  {
+   "id": "pkg-stage-6",
+   "situation": "Staging, rigging and video",
+   "name": "Stage, 6 decks",
+   "department": "staging",
+   "items": [
+    {
+     "product": "Pro Lyte Stage Deck",
+     "qty": 6
+    },
+    {
+     "product": "Stage Steps",
+     "qty": 1
+    }
+   ],
+   "notes": "with legs to the height asked",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 76,
+    "since2025": 41,
+    "lastYear": "2027",
+    "sumOfPartsEUR": 225.0
+   }
+  },
+  {
+   "id": "pkg-truss-towers-4",
+   "situation": "Staging, rigging and video",
+   "name": "Truss towers, 4",
+   "department": "rigging",
+   "items": [
+    {
+     "product": "2M H30V truss",
+     "qty": 4
+    },
+    {
+     "product": "H30V 1m base plate",
+     "qty": 4
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 23,
+    "since2025": 17,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 320.0
+   }
+  },
+  {
+   "id": "pkg-motors-4",
+   "situation": "Staging, rigging and video",
+   "name": "Motors, 4 with controller",
+   "department": "rigging",
+   "items": [
+    {
+     "product": "1 Tonne CM motor",
+     "qty": 4
+    },
+    {
+     "product": "LV12 ch motor control",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 47,
+    "since2025": 24,
+    "lastYear": "2027",
+    "sumOfPartsEUR": 100.0
+   }
+  },
+  {
+   "id": "pkg-led-wall",
+   "situation": "Staging, rigging and video",
+   "name": "LED wall, Absen 3.9",
+   "department": "video",
+   "items": [
+    {
+     "product": "Absen NT 3.9",
+     "qty": 128
+    },
+    {
+     "product": "Nova star pro HD video processor",
+     "qty": 2
+    },
+    {
+     "product": "3M H30V Truss",
+     "qty": 8
+    },
+    {
+     "product": "SES 63a Distro",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 27,
+    "since2025": 23,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 5830.0
+   }
+  },
+  {
+   "id": "pkg-mic-di-small",
+   "situation": "Mic packages (words today)",
+   "name": "Mic / DI package, small",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Shure SM 58",
+     "qty": 4
+    }
+   ],
+   "notes": "4 × DI box, 4 × mic stand",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 7,
+    "since2025": 7,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 0.0
+   }
+  },
+  {
+   "id": "pkg-mic-band",
+   "situation": "Mic packages (words today)",
+   "name": "Mic package, band",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Mic Stand case 15",
+     "qty": 1
+    }
+   ],
+   "notes": "mics and DIs as per the band's spec",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 152,
+    "since2025": 61,
+    "lastYear": "2027",
+    "sumOfPartsEUR": 0.0
+   }
+  },
+  {
+   "id": "pkg-mic-festival",
+   "situation": "Mic packages (words today)",
+   "name": "Festival mic package",
+   "department": "audio",
+   "items": [
+    {
+     "product": "Mic Stand Case 25",
+     "qty": 1
+    }
+   ],
+   "notes": "mics and DIs for a festival stage, as per spec",
+   "dayCents": 500000,
+   "rate": "weekly",
+   "evidence": {
+    "quotes": 109,
+    "since2025": 56,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 0.0
+   }
+  },
+  {
+   "id": "pkg-ipsc-molesworth",
+   "situation": "Clients who book the same kit",
+   "name": "IPSC, Molesworth Street",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B YP10 & YP Bracket",
+     "qty": 4
+    },
+    {
+     "product": "D&B D20 Amplifier",
+     "qty": 1
+    },
+    {
+     "product": "D&B D80 Amplifier",
+     "qty": 1
+    },
+    {
+     "product": "K&M Speaker Stand",
+     "qty": 4
+    },
+    {
+     "product": "Midas M32R mixing console",
+     "qty": 1
+    },
+    {
+     "product": "12ch xlr stage box",
+     "qty": 1
+    },
+    {
+     "product": "10m 12ch veam cable",
+     "qty": 1
+    },
+    {
+     "product": "12 way Veam to female XLR",
+     "qty": 1
+    },
+    {
+     "product": "socapex cable 20m",
+     "qty": 2
+    },
+    {
+     "product": "Socapex to NL4 Fan In",
+     "qty": 2
+    },
+    {
+     "product": "Socapex to NL4 Fanout",
+     "qty": 2
+    },
+    {
+     "product": "NL4 Link  cable 1m",
+     "qty": 12
+    },
+    {
+     "product": "NL4 cable 3M",
+     "qty": 4
+    },
+    {
+     "product": "NL4 cable 10M",
+     "qty": 4
+    },
+    {
+     "product": "Nl4 cable 20m",
+     "qty": 6
+    },
+    {
+     "product": "xlr 5m 3 pin",
+     "qty": 10
+    },
+    {
+     "product": "xlr 10m 3 pin",
+     "qty": 10
+    },
+    {
+     "product": "TRS 10m 16Amp",
+     "qty": 2
+    },
+    {
+     "product": "TRS 20m 16Amp",
+     "qty": 2
+    },
+    {
+     "product": "10m 32amp 3Phase cable",
+     "qty": 1
+    },
+    {
+     "product": "16a - 13a Board",
+     "qty": 6
+    },
+    {
+     "product": "Adaptor 13a - 16a",
+     "qty": 1
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 18,
+    "since2025": 7,
+    "lastYear": "2026",
+    "sumOfPartsEUR": 479.2
+   }
+  },
+  {
+   "id": "pkg-nama",
+   "situation": "Clients who book the same kit",
+   "name": "NAMA event",
+   "department": "audio",
+   "items": [
+    {
+     "product": "D&B YP10 & YP Bracket",
+     "qty": 2
+    },
+    {
+     "product": "D&B D20 Amplifier",
+     "qty": 1
+    },
+    {
+     "product": "Midas M32R mixing console",
+     "qty": 1
+    },
+    {
+     "product": "Shure SLX-Beta 58 Stick-Belt Pack & Headset",
+     "qty": 6
+    },
+    {
+     "product": "NL4 cable 10M",
+     "qty": 2
+    },
+    {
+     "product": "Nl4 cable 20m",
+     "qty": 2
+    },
+    {
+     "product": "TRS 3m 16Amp",
+     "qty": 2
+    },
+    {
+     "product": "TRS 5m 16amp",
+     "qty": 2
+    },
+    {
+     "product": "TRS 10m 16Amp",
+     "qty": 2
+    },
+    {
+     "product": "16a - 13a Board",
+     "qty": 2
+    },
+    {
+     "product": "Adaptor 13a - 16a",
+     "qty": 2
+    },
+    {
+     "product": "xlr 3m 3 pin",
+     "qty": 8
+    },
+    {
+     "product": "xlr 5m 3 pin",
+     "qty": 8
+    },
+    {
+     "product": "xlr 10m 3 pin",
+     "qty": 8
+    }
+   ],
+   "notes": "",
+   "dayCents": 0,
+   "rate": "daily",
+   "evidence": {
+    "quotes": 15,
+    "since2025": 3,
+    "lastYear": "2025",
+    "sumOfPartsEUR": 608.8
+   }
+  }
+ ]
+}

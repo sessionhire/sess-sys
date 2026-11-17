@@ -1,7 +1,7 @@
 import jsQR from 'jsqr'
 import { describe, expect, it } from 'vitest'
 import { barcode, barcodeFits, labelPayload, labelsCsv, numberText, qrCode, runNumbers } from '../src/labels.ts'
-import { normaliseNumber } from '../src/stock.ts'
+import { normaliseNumber, wholeNumber } from '../src/stock.ts'
 
 /**
  * What goes on a label (ADR 0015): a QR code that any decoder reads back as
@@ -78,5 +78,19 @@ describe('cable label barcodes', () => {
     expect(barcodeFits('Ó Briain')).toBe(false)
     expect(barcodeFits('x'.repeat(41))).toBe(false)
     expect(barcode('Ó')).toBeNull()
+  })
+})
+
+describe('a whole number', () => {
+  it('is a label number with all six digits, however it is typed or read', () => {
+    for (const typed of ['SH-000123', 'sh-000123', ' SH 000123 ', 'sh000123', '000123', 'https://hire.example/a/000123', 'https://hire.example/a/000123/'])
+      expect(wholeNumber(typed)).toBe('SH-000123')
+    // What a label's QR code holds, as a scanner reads it.
+    expect(wholeNumber(labelPayload(numberText(4217)))).toBe('SH-004217')
+  })
+
+  it('is not one still being typed, nor anything that is not a label number', () => {
+    for (const typed of ['', '1', '123', '00012', 'SH-123', 'SH-00012', 'sh 12', '0001234', 'SH-0001234', 'SH-000000', '000000', 'a-0102', 'XLR-10M', '/a/123'])
+      expect(wholeNumber(typed)).toBeUndefined()
   })
 })

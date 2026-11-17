@@ -16,7 +16,7 @@ import {
   type Person,
   type PersonRecord,
 } from '@sh/shared'
-import { linkEntity, readLink } from '../calendar/store.ts'
+import { linkEntity, readLink, saveLink } from '../calendar/store.ts'
 import { getOffer, getPerson } from '../crew/store.ts'
 import { getTimesheet } from '../crew/timesheets.ts'
 import type { Queryable } from '../db.ts'
@@ -73,6 +73,10 @@ export const GONE: readonly Gone[] = [
   // Claude's to-do lists (ADR 0097), which devices never see: what Claude wrote can name anyone from a job's notes, so
   // every list goes. The next one is written the next weekday morning, or when someone asks.
   { table: 'assistant_lists', theirs: '$1::text IS NOT NULL' },
+  // What Claude read in the operations mailbox (ADR 0098), which devices never see: a thread's subject, sender, summary
+  // and questions can name anyone, so all of it goes. The threads stay linked to their jobs, and the mail is still in
+  // Gmail, read again when the thread next grows.
+  { table: 'mail_notes', theirs: '$1::text IS NOT NULL' },
   // Their address on Google Calendar invites, which devices never see. While invites are on, a day still to come keeps
   // theirs until the calendar's next run takes them off its event, and that run removes the row: gone now, it would
   // leave them on the event as a guest added by hand. Past events in Google keep theirs (ADR 0027).
@@ -124,6 +128,8 @@ export const POINTERS: readonly { table: string; column: string }[] = [
   // Who counted a place or a case (ADR 0030): a warehouse record, needed for what was found where, not for who found it,
   // and no law asks for the name, so the count stays and reads "Erased person" once their name goes.
   { table: 'counts', column: 'counted_by' },
+  // Who's counting where (ADR 0177): the same, for a count under way or discarded.
+  { table: 'count_starts', column: 'counted_by' },
   // Who drove a vehicle on a job (ADR 0047): the job's record, reading "Erased person" once their name goes; erasing is
   // refused while a booking they drive hasn't ended.
   { table: 'vehicle_bookings', column: 'driver_id' },
@@ -134,6 +140,9 @@ export const POINTERS: readonly { table: string; column: string }[] = [
   // name goes. What they wrote is about the kit, not them.
   { table: 'purchase_requests', column: 'asked_by' },
   { table: 'purchase_votes', column: 'person_id' },
+  // Who put a photo on a job (ADR 0182): the job's record, reading "Erased person" once their name goes. The photo is of the
+  // show; one of them is taken down by hand, as any photo is.
+  { table: 'job_photos', column: 'added_by' },
 ]
 
 /** Records of theirs the law asks the business to keep for a time: stripped like STRIPPED while it lasts, then gone like GONE. */
@@ -175,9 +184,10 @@ export const RECORDS: Record<PersonRecord, { table: string; madeBy: CommandName 
  * added to a person fails to compile here until it has a column (and
  * `erasedPerson` says whether it goes). The company is three columns;
  * the hidden flags (ADR 0046) are only ever on what's sent, never stored.
- * Whether their name was checked (ADR 0068) says nothing about them, and stays.
+ * Whether their name was checked (ADR 0068) says nothing about them, and stays; so does whether they turned off offers
+ * on WhatsApp (ADR 0125), with no number left to send them to.
  */
-const PERSON_COLUMNS: { [K in Exclude<keyof Person, 'id' | 'kind' | 'company' | 'rateHidden' | 'linkHidden' | 'detailsHidden' | 'photo' | 'nameChecked'>]: string } = {
+const PERSON_COLUMNS: { [K in Exclude<keyof Person, 'id' | 'kind' | 'company' | 'rateHidden' | 'companyHidden' | 'linkHidden' | 'detailsHidden' | 'levelHidden' | 'photo' | 'nameChecked' | 'whatsappOff'>]: string } = {
   name: 'name',
   firstName: 'first_name',
   lastName: 'last_name',
@@ -296,7 +306,13 @@ export async function erasePerson(ctx: Ctx, personId: string, how: EraseHow): Pr
   values.other_emails = JSON.stringify(after.otherEmails ?? [])
   values.certificates = JSON.stringify(after.certificates)
   values.link_token = `erased-${randomBytes(18).toString('base64url')}`
-  Object.assign(values, { company_name: null, company_vat_number: null, company_cro_number: null })
+  // The phones their link remembered, and any code waiting (ADR 0114): secrets of a link that no longer opens.
+  await tx.query(`DELETE FROM link_devices WHERE person_id = $1`, [personId])
+  await tx.query(`DELETE FROM link_codes WHERE person_id = $1`, [personId])
+  await tx.query(`DELETE FROM link_lost WHERE person_id = $1`, [personId])
+  // What went to them on WhatsApp (ADR 0125), with the number it went to.
+  await tx.query(`DELETE FROM whatsapp_messages WHERE person_id = $1`, [personId])
+  Object.assign(values, { company_name: null, company_vat_number: null, company_cro_number: null, trades_as: null, vat_registered: null })
   // Their photo (ADR 0065): its file went on the list of files to delete with their documents' (queueFilesOf).
   Object.assign(values, { photo_key: null, photo_type: null, photo_bytes: null, photo_at: null })
   const columns = Object.keys(values)
@@ -308,6 +324,7 @@ export async function erasePerson(ctx: Ctx, personId: string, how: EraseHow): Pr
     await tx.query(`UPDATE changes SET data = jsonb_set($2::jsonb, '{id}', to_jsonb(entity_id)) WHERE entity = 'person' AND entity_id = ANY($1::text[]) AND op = 'put'`, [merged, JSON.stringify(after)])
 
   for (const userId of await accountsOf(tx, details.emails)) await eraseAccount(ctx, userId)
+  await forgetTellTo(ctx, details.emails)
   const name = kept === null && before.name !== ERASED_NAME ? before.name : undefined
   for (const id of [personId, ...merged]) await stripHistory(tx, id, records, nameNow, { name: id === personId ? name : undefined, ...details })
   return erasure
@@ -419,6 +436,18 @@ async function eraseAccount(ctx: Ctx, userId: string) {
   }
 }
 
+/**
+ * Their address among those telling crew what happens next is being tried on (ADR 0153) goes from the list; with none
+ * left there, it's off, as it can't be tried on nobody.
+ */
+async function forgetTellTo(ctx: Ctx, emails: string[]) {
+  const link = await readLink(ctx.tx)
+  const theirs = (e: string) => emails.includes(e.trim().toLowerCase())
+  if (!link?.tellTo.some(theirs)) return
+  const tellTo = link.tellTo.filter((e) => !theirs(e))
+  await saveLink(ctx, { tellTo, ...(link.tell === 'test' && !tellTo.length ? { tell: 'off' as const } : {}) })
+}
+
 /** A regular expression that matches the text exactly, whatever is in it. */
 const literally = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** As the text sits inside JSON, so it can be found in a stored record. */
@@ -485,5 +514,5 @@ async function stripHistory(
     )
     await tx.query(`UPDATE changes SET data = regexp_replace(data::text, $1, '', 'gi')::jsonb WHERE entity = 'calendarLink' AND op = 'put' AND data::text ~* $1`, [found])
   }
-  await tx.query(`UPDATE mutations SET device = NULL WHERE client_id = ANY($1::text[])`, [[`link:${personId}`, `calendar:${personId}`]])
+  await tx.query(`UPDATE mutations SET device = NULL WHERE client_id = ANY($1::text[])`, [[`link:${personId}`, `calendar:${personId}`, `whatsapp:${personId}`]])
 }

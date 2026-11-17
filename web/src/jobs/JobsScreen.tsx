@@ -1,7 +1,14 @@
 import {
+  hasSteps,
+  HOLDING,
+  departmentKey,
+  departmentOf,
+  kitOf,
+  sameDepartment,
   crewFill,
   dayLabel,
   KIND_LABELS,
+  KIND_PHASE,
   kindOf,
   addDays,
   mondayOf,
@@ -15,32 +22,59 @@ import {
   spanLabel,
   type ClientView,
   type JobView,
+  JOB_STEPS,
+  type JobStep,
   type KitLineView,
   type ProjectKind,
   type ProjectStatus,
   type VenueView,
   type View,
+  activeFilters,
+  jobFilters,
+  departmentsOfJob,
+  JOB_DEPARTMENTS,
+  JOB_DEPARTMENT_LABELS,
+  jobDepartmentsInWords,
+  jobSorts,
+  listed,
+  sortOf,
+  sortKeyOf,
+  sortReversed,
+  REVERSED,
+  assigneeOf,
+  quoteRows,
+  type QuoteShow,
+  type ListSort,
+  PLACE_SORTS,
+  placeFilters,
+  type PlaceForList,
+  stillInBack,
 } from '@sh/shared'
-import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold } from '../Fold.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
+import { useMyDepartment } from '../Narrowed.tsx'
+import { useMe } from '../crew/Leave.tsx'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { Beside, Choices, clientNamed, JobStatusPill, Top, useHash, venueNamed } from './common.tsx'
+import { Beside, ClientField, clientNamed, NewOrNear, JobStatusPill, Top, useHash, VenueField, venueNamed, useJobAdd } from './common.tsx'
+import { JobPosition } from './JobPosition.tsx'
 import { ImportScreen } from './ImportScreen.tsx'
-import { TidyNudge, TidyScreen } from './TidyScreen.tsx'
+import { TidyScreen } from './TidyScreen.tsx'
 import { JOB_PARTS, JobScreen, type JobPart } from './JobScreen.tsx'
 import { kitShort } from './Kit.tsx'
-import { MoneyScreen, PricesScreen } from './Money.tsx'
+import { MoneyScreen, PricesScreen, type MoneyPart } from './Money.tsx'
 import { MatchScreen, PastQuoteScreen, PastQuotesScreen } from './PastQuotes.tsx'
-import { NotesKitListScreen, NotesKitNudge, NotesKitScreen } from './NotesKit.tsx'
+import { NotesKitListScreen, NotesKitScreen } from './NotesKit.tsx'
 import { PickScreen } from './PickScreen.tsx'
-import { QuoteScreen } from './Quote.tsx'
 import { SheetScreen } from './SheetScreen.tsx'
+import { BoardScreen } from './BoardScreen.tsx'
+import { PhotosScreen } from './PhotosScreen.tsx'
 import { JobViews, PlanScreen } from './PlanScreen.tsx'
+import { CalendarScreen } from './CalendarScreen.tsx'
 import { ClientScreen } from './ClientScreen.tsx'
 import { jobsAt, VenueScreen } from './VenueScreen.tsx'
 import { VenuesMapCard } from './VenueMaps.tsx'
@@ -48,16 +82,21 @@ import { Heading, Icon } from '../Icon.tsx'
 import { plain, wordsOf } from '../crew/People.tsx'
 import { JOBS } from '../Up.tsx'
 import { useWindowed } from '../windowed.ts'
+import { ListTools, PillGroup, useListChoices } from '../ListTools.tsx'
+import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
+import { HireFields, hireDraftOf, hireTermsOf, placed as placedOnMap, type HireDraft } from './HireFields.tsx'
+import { arrival } from '../arrival.ts'
 
 /**
  * Jobs (ADR 0007): every job, who it's for, where and when, made of phases.
  * A job opens on its own page (#jobs/<id>) with its phases, kit and crew,
  * its pick list on another (#jobs/<id>/pick, ADR 0017), each phase's call
  * sheet on another (#jobs/<id>/sheet/<phase>, ADR 0021), the
- * planner (#jobs/plan, ADR 0010) shows them by week or month, the clients
+ * planner (#jobs/plan, ADR 0010) shows them by week or month, the master
+ * calendar (#jobs/calendar, ADR 0123) a month with enquiries and quotes, the clients
  * and venues have a list each (#jobs/clients, #jobs/venues, ADR 0041) and
  * a page each with its documents (#jobs/venues/<id>, ADR 0032), each job's
- * quote is on #jobs/<id>/quote and money on #jobs/money (ADR 0042), jobs
+ * quote is its Quote tab, #jobs/<id>/quote, money is on #jobs/money (ADR 0042), jobs
  * already on Google Calendar can be brought in (#jobs/import, ADR 0011) and
  * what came in tidied up (#jobs/tidy, ADR 0050), and
  * the kit their notes list turned into kit lines, a job at a time
@@ -82,45 +121,72 @@ export function JobsScreen() {
   const hash = useHash()
   const wide = useWide()
   if (hash === '#jobs/plan' || hash.startsWith('#jobs/plan/')) return <PlanScreen view={view} hash={hash} />
+  if (hash === '#jobs/board') return <BoardScreen view={view} />
+  if (hash === '#jobs/calendar' || hash.startsWith('#jobs/calendar/')) return <CalendarScreen view={view} hash={hash} />
   if (hash === '#jobs/import') return <ImportScreen view={view} />
   if (hash === '#jobs/tidy') return <TidyScreen view={view} />
   if (hash === '#jobs/clients') return <ClientsScreen view={view} />
   if (hash === '#jobs/venues') return <VenuesScreen view={view} />
+  if (hash === '#jobs/photos') return <PhotosScreen view={view} />
   if (hash === '#jobs/money') return <MoneyScreen view={view} />
+  // Money's parts, each at its own address (review of 11 November 2026, finding 20).
+  const moneyPart = /^#jobs\/money\/(owed|margins|accountant)$/.exec(hash)?.[1] as MoneyPart | undefined
+  if (moneyPart) return <MoneyScreen view={view} part={moneyPart} />
+  // The quotes waiting on the office, on Money since Quotes stopped being a page of its own (Colly, 12 November 2026).
+  if (hash === '#jobs/money/follow-up') return <MoneyScreen view={view} part="follow" />
   if (hash === '#jobs/money/prices') return <PricesScreen view={view} />
   if (hash === '#jobs/money/current-rms') return <PastQuotesScreen view={view} />
   if (hash === '#jobs/money/current-rms/match') return <MatchScreen view={view} />
   if (hash.startsWith('#jobs/money/current-rms/')) return <PastQuoteScreen view={view} id={decodeURIComponent(hash.slice('#jobs/money/current-rms/'.length))} />
   if (hash === '#jobs/notes-kit') return <NotesKitListScreen view={view} />
-  if (hash.startsWith('#jobs/venues/')) return <VenueScreen view={view} id={decodeURIComponent(hash.slice('#jobs/venues/'.length))} />
-  if (hash.startsWith('#jobs/clients/')) return <ClientScreen view={view} id={decodeURIComponent(hash.slice('#jobs/clients/'.length))} />
+  // A record and the tab it's on: #jobs/venues/<id>/<part> (Move 11 of the sweep of 6 November 2026).
+  if (hash.startsWith('#jobs/venues/')) {
+    const [id = '', part] = hash.slice('#jobs/venues/'.length).split('/')
+    return <VenueScreen view={view} id={decodeURIComponent(id)} part={part} />
+  }
+  if (hash.startsWith('#jobs/clients/')) {
+    const [id = '', part] = hash.slice('#jobs/clients/'.length).split('/')
+    return <ClientScreen view={view} id={decodeURIComponent(id)} part={part} />
+  }
   const [, fromNotes] = /^#jobs\/([^/]+)\/notes-kit$/.exec(hash) ?? []
   if (fromNotes) return <NotesKitScreen view={view} jobId={decodeURIComponent(fromNotes)} />
-  const [, quote] = /^#jobs\/([^/]+)\/quote$/.exec(hash) ?? []
-  if (quote) return <QuoteScreen view={view} jobId={decodeURIComponent(quote)} />
   const [, pick] = /^#jobs\/(.+)\/pick$/.exec(hash) ?? []
   if (pick) return <PickScreen view={view} id={decodeURIComponent(pick)} />
   const [, sheetJob, sheetPhase] = /^#jobs\/([^/]+)\/sheet\/([^/]+)$/.exec(hash) ?? []
   if (sheetJob && sheetPhase) return <SheetScreen view={view} jobId={decodeURIComponent(sheetJob)} phaseId={decodeURIComponent(sheetPhase)} />
+  // A job's page with one of its tasks open, as Your tasks on Home links it (audit, 5 November 2026, finding 17).
+  const [, taskOf, taskKey] = /^#jobs\/([^/]+)\/task\/([a-z]+)$/.exec(hash) ?? []
+  if (taskOf && JOB_STEPS.includes(taskKey as JobStep)) return <JobScreen key={taskOf} view={view} id={decodeURIComponent(taskOf)} task={taskKey as JobStep} />
   // A job's page, at a part of it when the address names one.
-  const [, partOf, part] = /^#jobs\/([^/]+)\/([a-z]+)$/.exec(hash) ?? []
+  // The quote is the job's Quote tab (ADR 0140, part 4); #jobs/<id>/money, its tab's old address, opens it too.
+  const [, partOf, named] = /^#jobs\/([^/]+)\/([a-z]+)$/.exec(hash) ?? []
+  const part = named === 'money' ? 'quote' : named
   const open = partOf && JOB_PARTS.includes(part as JobPart) ? decodeURIComponent(partOf) : hash.startsWith('#jobs/') ? decodeURIComponent(hash.slice('#jobs/'.length)) : undefined
   // A job has the whole width, on a laptop too: the list beside it took a third of the desk from it. The way up goes back to the list.
   if (open) return <JobScreen key={open} view={view} id={open} part={partOf ? (part as JobPart) : undefined} />
   // On a laptop the list keeps a column of its own (audit finding 25), with its search and filter, beside the rest of the tab; on a phone it's above it.
-  if (wide)
-    return (
-      <Beside view={view} className="crew jobs" views={<JobViews />} heading="Jobs" list={<JobsCard view={view} />}>
-        <JobsRest view={view} />
-      </Beside>
-    )
+  if (wide) return <JobsBeside view={view} />
   return <JobList view={view} />
+}
+
+/**
+ * At a desk the list has the page's whole width, as a table: a job a line, its dates, client, venue, status, who has it and its crew in
+ * columns, sorted by a column's head (review of 11 November 2026, finding 14). New job's form opens over it when asked for.
+ */
+function JobsBeside({ view }: { view: View }) {
+  return (
+    <div className="app crew jobs jobs-wide">
+      <Top view={view} views={<JobViews />} heading="Jobs" add={useJobAdd()} lead={<JobSearch />} />
+      <JobsRest view={view} />
+      <JobsCard view={view} table />
+    </div>
+  )
 }
 
 function JobList({ view }: { view: View }) {
   return (
     <div className="app crew jobs">
-      <Top view={view} views={<JobViews />} heading="Jobs" />
+      <Top view={view} views={<JobViews />} heading="Jobs" add={useJobAdd()} lead={<JobSearch />} />
 
       <JobsCard view={view} phone />
 
@@ -129,47 +195,106 @@ function JobList({ view }: { view: View }) {
   )
 }
 
-/** The way to bring in jobs already on a calendar, rather than typing them as new ones; in view beside New job, open or not. */
-function BringInHint({ view }: { view: View }) {
-  if (view.calendar.link?.state !== 'on' && view.calendar.link?.state !== 'choosing') return null
-  return (
-    <p className="hint">
-      Jobs already on a Google calendar? <a href="#jobs/import">Bring them in</a> rather than typing them again.
-    </p>
-  )
+/** The list's search, kept for the tab's life so Back from a job finds the list as it was searched. */
+let jobSearch = ''
+const searchListeners = new Set<() => void>()
+const onSearch = (fn: () => void) => {
+  searchListeners.add(fn)
+  return () => void searchListeners.delete(fn)
+}
+function useJobSearch(): [string, (next: string) => void] {
+  const now = useSyncExternalStore(onSearch, () => jobSearch)
+  return [
+    now,
+    (next) => {
+      jobSearch = next
+      for (const fn of searchListeners) fn()
+    },
+  ]
 }
 
-/** Beside the list on a laptop: the nudges, and a new job. On a phone New job is at the top of the list, behind its button (audit finding 22). */
+/** Straight under the title, before the views: finding a job is the first thing most do here. */
+function JobSearch() {
+  const [search, setSearch] = useJobSearch()
+  return <input className="search" type="search" placeholder="Find a job, client or venue" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find" />
+}
+
+/** Beside the list on a laptop: the new job's form once New job is pressed. Tidying up and kit in the notes live under Menu and Admin, not here (Colly, 10 November 2026). */
 function JobsRest({ view, phone = false }: { view: View; phone?: boolean }) {
-  // Taking a job in is the office's, so a role without jobs has no New job (ADR 0034).
   const mayAdd = useAccess().can('jobs')
   return (
     <>
-      <TidyNudge view={view} />
-      <NotesKitNudge view={view} />
       {mayAdd && !phone && (
-        <section className="card">
-          <Heading icon="add">New job</Heading>
-          <NewJob view={view} />
-          <BringInHint view={view} />
+        // Beside the list, where there's room for it, as it was before New job moved to the title's line; nothing until it's pressed.
+        <section className="card new-job-card" aria-label="New job">
+          <Fold label="New job" from="job">
+            <Heading icon="add">New</Heading>
+            <NewJob view={view} />
+          </Fold>
         </section>
       )}
     </>
   )
 }
 
-/** Every client, on a page along Jobs' row (ADR 0041): each opens its own page, with its documents and its jobs. */
+/** A client or venue in its list, with what the list counts and filters by (ADR 0099). */
+type Placed<T> = PlaceForList & { of: T }
+
+/** What a list of clients or venues counts of each: its jobs, the latest one's first day, the ones still to come, its documents. */
+function placed<T extends { id: string; name: string }>(items: readonly T[], jobsOf: (item: T) => readonly JobView[], docs: (item: T) => number, today: string, pinned?: (item: T) => boolean): Placed<T>[] {
+  return items.map((of) => {
+    const jobs = jobsOf(of)
+    return {
+      of,
+      name: of.name,
+      jobs: jobs.length,
+      lastJob: jobs.reduce<string | undefined>((last, j) => (j.span && (!last || j.span.start > last) ? j.span.start : last), undefined),
+      comingUp: jobs.filter((j) => j.span && j.span.end >= today).length,
+      docs: docs(of),
+      pinned: pinned?.(of),
+    }
+  })
+}
+
+/**
+ * Every client, on a page along Jobs' row (ADR 0041): each opens its own page, with its documents and its jobs. Found by name or a
+ * contact's, and filtered and sorted as the other long lists are (ADR 0099).
+ */
 function ClientsScreen({ view }: { view: View }) {
   const { jobs, clients } = view.jobs
+  const today = useToday()
+  const [find, setFind] = useState('')
+  const [choices, setChoices] = useListChoices('clients')
+  const mayAdd = useAccess().can('jobs')
+  const filters = useMemo(() => placeFilters(false), [])
+  const all = useMemo(
+    () => placed(clients, (c) => jobs.filter((j) => j.clientId === c.id), (c) => view.attachments.of('client', c.id).length, today),
+    [clients, jobs, view.attachments, today],
+  )
+  const words = wordsOf(find)
+  const searched = words.length ? all.filter((c) => words.every((w) => plain([c.of.name, ...c.of.contacts.map((x) => x.name)].join(' ')).includes(w))) : all
+  const shown = listed(searched, filters, PLACE_SORTS, choices)
   return (
     <div className="app crew jobs">
-      <Top view={view} views={<JobViews current="clients" />} heading="Clients" />
-      <section className="card plain">
-        {clients.length === 0 && <Empty>Clients are added as you type them into a job.</Empty>}
+      <Top view={view} views={<JobViews current="clients" />} heading="Clients" add={mayAdd ? { key: 'client', label: 'New client' } : undefined} />
+      <section className="card plain" aria-label="Every client">
+        {mayAdd && (
+          <Fold label="New client" from="client">
+            <NewNamed what="client" taken={(n) => clients.find((c) => plain(c.name) === plain(n))?.name} make={(id, name) => client.mutate('client.upsert', { id, name, contacts: [], notes: '' })} href={(id) => `#jobs/clients/${id}`} />
+          </Fold>
+        )}
+        {clients.length === 0 && <Empty>Add one with New client, at the top, or type a new one into a job.</Empty>}
+        {clients.length > 0 && (
+          <>
+            <input className="search" type="search" placeholder="Name or contact" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Find a client" />
+            <ListTools name="clients" items={searched} filters={filters} sorts={PLACE_SORTS} choices={choices} onChange={setChoices} shown={shown.length} what="clients" />
+          </>
+        )}
+        {clients.length > 0 && shown.length === 0 && <p className="empty">No client matches.</p>}
         <ul className="job-list">
-          {clients.map((c) => (
-            <li key={c.id}>
-              <ClientRow c={c} jobs={jobs.filter((j) => j.clientId === c.id).length} docs={view.attachments.of('client', c.id).length} />
+          {shown.map((c) => (
+            <li key={c.of.id}>
+              <ClientRow c={c.of} jobs={c.jobs} docs={c.docs} />
             </li>
           ))}
         </ul>
@@ -179,26 +304,99 @@ function ClientsScreen({ view }: { view: View }) {
 }
 
 /**
+ * New client or New venue, opened from the title's line (Colly, 10 November 2026): the name (and a venue's address), then its own
+ * page, where the rest is filled in. A name already here is said, with the way to it, rather than made twice.
+ */
+function NewNamed({
+  what,
+  address: withAddress = false,
+  taken,
+  make,
+  href,
+}: {
+  what: 'client' | 'venue'
+  address?: boolean
+  taken: (name: string) => string | undefined
+  make: (id: string, name: string, address: string) => Promise<unknown>
+  href: (id: string) => string
+}) {
+  const [name, setName] = useState('')
+  const [address, setAddress] = useState('')
+  const { run, error, refuse } = useAct()
+  const add = (e: FormEvent) => {
+    e.preventDefault()
+    const n = name.trim()
+    if (!n) return
+    const was = taken(n)
+    if (was) return refuse(`There's already a ${what} called ${was}.`)
+    const id = newId()
+    void run(() => make(id, n, address.trim())).then((ok) => {
+      if (ok) location.hash = href(id)
+    })
+  }
+  return (
+    <form className="grid-form" onSubmit={add} aria-label={`New ${what}`}>
+      <label>
+        Name
+        <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={200} />
+      </label>
+      {withAddress && (
+        <label>
+          Address
+          <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} maxLength={500} placeholder="With the Eircode, for the map" />
+        </label>
+      )}
+      <button type="submit" className="primary">
+        Add {what}
+      </button>
+      <Refusal error={error} />
+    </form>
+  )
+}
+
+/**
  * Every venue, on a page along Jobs' row (ADR 0041), with a map of them all above the list (ADR 0057). Sixty and more is a long
- * list, so it has People's find box at its top, by name or address with or without the fadas (audit, 20 October 2026, finding 76).
+ * list, so it has People's find box at its top, by name or address with or without the fadas (audit, 20 October 2026, finding 76),
+ * and the long lists' filter and sort (ADR 0099).
  */
 function VenuesScreen({ view }: { view: View }) {
   const { jobs, venues } = view.jobs
+  const today = useToday()
   const [find, setFind] = useState('')
+  const [choices, setChoices] = useListChoices('venues')
+  const mayAdd = useAccess().can('jobs')
+  const filters = useMemo(() => placeFilters(true), [])
+  const all = useMemo(
+    () => placed(venues, (v) => jobsAt(jobs, v.id), (v) => view.attachments.of('venue', v.id).length, today, (v) => !!v.pin),
+    [venues, jobs, view.attachments, today],
+  )
   const words = wordsOf(find)
-  const shown = words.length ? venues.filter((v) => words.every((w) => plain([v.name, v.address].filter(Boolean).join(' ')).includes(w))) : venues
+  const searched = words.length ? all.filter((v) => words.every((w) => plain([v.of.name, v.of.address].filter(Boolean).join(' ')).includes(w))) : all
+  const shown = listed(searched, filters, PLACE_SORTS, choices)
   return (
     <div className="app crew jobs">
-      <Top view={view} views={<JobViews current="venues" />} heading="Venues" />
+      <Top view={view} views={<JobViews current="venues" />} heading="Venues" add={mayAdd ? { key: 'venue', label: 'New venue' } : undefined} />
+      {mayAdd && (
+        <section className="card plain" aria-label="New venue">
+          <Fold label="New venue" from="venue">
+            <NewNamed what="venue" address taken={(n) => venues.find((v) => plain(v.name) === plain(n))?.name} make={(id, name, address) => client.mutate('venue.upsert', { id, name, address, notes: '' })} href={(id) => `#jobs/venues/${id}`} />
+          </Fold>
+        </section>
+      )}
       <VenuesMapCard venues={venues} jobsAt={(id) => jobsAt(jobs, id).length} />
       <section className="card plain" aria-label="Every venue">
-        {venues.length === 0 && <Empty>Venues are added as you type them into a job.</Empty>}
-        {venues.length > 0 && <input className="search" type="search" placeholder="Name or address" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Find a venue" />}
+        {venues.length === 0 && <Empty>Add one with New venue, at the top, or type a new one into a job.</Empty>}
+        {venues.length > 0 && (
+          <>
+            <input className="search" type="search" placeholder="Name or address" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Find a venue" />
+            <ListTools name="venues" items={searched} filters={filters} sorts={PLACE_SORTS} choices={choices} onChange={setChoices} shown={shown.length} what="venues" />
+          </>
+        )}
         {venues.length > 0 && shown.length === 0 && <p className="empty">No venue matches.</p>}
         <ul className="job-list">
           {shown.map((v) => (
-            <li key={v.id}>
-              <VenueRow v={v} jobs={jobsAt(jobs, v.id).length} docs={view.attachments.of('venue', v.id).length} />
+            <li key={v.of.id}>
+              <VenueRow v={v.of} jobs={v.jobs} docs={v.docs} />
             </li>
           ))}
         </ul>
@@ -258,69 +456,179 @@ function useUnderTop(phone: boolean) {
   return card
 }
 
+/** A head's department starts the Jobs list once a tab; widened, it stays so (Move 9 of the sweep of 6 November 2026). */
+let jobsLensSet = false
+
+/**
+ * Whose a job is, for the Jobs list's first filters (Move 9 of the sweep of 6 November 2026): the jobs someone is booked on, by
+ * their own bookings (a yes waiting to be confirmed counts), and each department named on a call, a job being a department's when
+ * one of its calls is, or a line of its kit is in that department's stock. Read from what this role is sent, so it never counts
+ * more than the list holds.
+ */
+function jobLens(jobs: readonly JobView[], view: View, me: string | undefined) {
+  const mine = me ? (j: JobView) => j.calls.some((c) => c.offers.some((o) => o.personId === me && HOLDING.includes(o.status))) : undefined
+  const names = new Map<string, string>()
+  for (const j of jobs) for (const c of j.calls) {
+    const d = departmentOf(c)?.trim()
+    if (d && !names.has(departmentKey(d))) names.set(departmentKey(d), d)
+  }
+  const departments = [...names.values()]
+    .sort((a, b) => a.localeCompare(b, 'en-IE'))
+    .map((name) => {
+      const stock = kitOf(name)
+      return {
+        name,
+        test: (j: JobView) =>
+          j.calls.some((c) => sameDepartment(departmentOf(c), name)) || (!!stock && (view.kit.byJob.get(j.id) ?? []).some((l) => l.model?.department === stock)),
+      }
+    })
+  return { ...(mine && jobs.some(mine) ? { mine } : {}), departments }
+}
+
 /** Every job, searched and filtered, by week. */
-function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
+function JobsCard({ view, phone = false, table = false }: { view: View; phone?: boolean; table?: boolean }) {
   const { jobs } = view.jobs
   const [filter, setFilter] = useState<Filter>('coming')
-  const [search, setSearch] = useState('')
+  const [search] = useJobSearch()
   const [all, setAll] = useState(showingAll)
   const mayAdd = useAccess().can('jobs')
-  const card = useUnderTop(phone)
+  const card = useUnderTop(phone || table)
   const day = useToday()
+  // The departments picked (ADR 0137), as on the calendar, the planner and the Board.
+  const { picked, setPicked, involves } = useJobDepartments(view)
   // Worked out again only when the jobs, the day or what's asked for change, not on every render (audit, 20 October 2026, finding 2).
   const counts = useMemo(() => {
     const counted = new Map<Filter, number>()
-    for (const j of jobs) counted.set(filterOf(j, day), (counted.get(filterOf(j, day)) ?? 0) + 1)
+    for (const j of jobs) if (involves(j)) counted.set(filterOf(j, day), (counted.get(filterOf(j, day)) ?? 0) + 1)
     return counted
-  }, [jobs, day])
+  }, [jobs, day, involves])
   const count = (f: Filter) => counts.get(f) ?? 0
-  const { rows, shownCount, listedCount } = useMemo(() => {
+  // Filter and sort (ADR 0099): the filters narrow the tab chosen above them, and the order is the tab's own until another is picked.
+  // A count on Home of jobs with a task late, or down to nobody, opens the list on just those, its other filters off (audit, 5 November 2026, finding 20).
+  const [asked] = useState(() => arrival()?.filters)
+  // The lens (Move 9 of the sweep of 6 November 2026): a head's list opens on their department, once a tab, as Crew's and Stock's
+  // do; widened, it stays widened for the tab. A count on Home for a department passes it the same way.
+  const department = useMyDepartment()
+  const [choices, setChoices] = useListChoices('jobs', asked && { mine: '', department: '', status: '', kind: '', crew: '', kit: '', stage: '', tasks: '', ...asked })
+  // Read as it's known: a head's department can come with the first copy, after the list first drew.
+  useEffect(() => {
+    if (!department || jobsLensSet) return
+    jobsLensSet = true
+    if (!asked) setChoices({ ...choices, filters: { ...choices.filters, department: departmentKey(department) } })
+  })
+  const sorts = useMemo(() => jobSorts(filter !== 'coming', (j) => view.steps.of(j.id)), [filter, view.steps])
+  // Who they are as Home › Me and the job's "You on this job" read it: signed in, by their email; with sign-in off, their word.
+  const me = useMe(view).me?.id
+  const whose = useMemo(() => jobLens(jobs, view, me), [jobs, view, me])
+  // Where each job's quote stands, for whoever reads the money: the quote is part of its job (Colly, 12 November 2026).
+  const seesMoney = useAccess().can('money')
+  const quoteOf = useMemo(() => {
+    if (!seesMoney) return undefined
+    const by = new Map(quoteRows(view.money).map((r) => [r.job.id, r.quote.status as QuoteShow]))
+    return (j: JobView) => by.get(j.id)
+  }, [seesMoney, view.money])
+  const filters = useMemo(
+    () => jobFilters((j) => !!kitShort(view.kit.byJob.get(j.id)), filter === 'stopped', (j) => view.steps.of(j.id), whose, quoteOf),
+    [view.kit.byJob, view.steps, filter, whose, quoteOf]
+  )
+  const { rows, shownCount, listedCount, searched, byDepartment, total } = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
     const matches = (j: JobView) => {
       const text = [j.name, j.client?.name, j.venue?.name, ...j.phases.map((p) => p.venue?.name)].filter(Boolean).join(' ').toLowerCase()
       return words.every((w) => text.includes(w))
     }
-    const shown = jobs.filter((j) => filterOf(j, day) === filter && matches(j))
-    // Past jobs newest first; everything else soonest first.
-    if (filter === 'past') shown.reverse()
-    // The next fortnight, and the ones with no dates yet, until Show all; a search looks through them all.
-    const soonOnly = filter === 'coming' && !all && words.length === 0
+    const inTab = jobs.filter((j) => filterOf(j, day) === filter && matches(j))
+    // The departments row (ADR 0137) narrows before the filters, so their counts are of the jobs it leaves.
+    const searched = inTab.filter(involves)
+    const shown = listed(searched, filters, sorts, choices)
+    const byDate = sortOf(sorts, choices.sort)?.key === 'date'
+    const reversed = sortReversed(choices.sort)
+    const narrowed = activeFilters(filters, choices.filters).length > 0 || picked.length > 0
+    // The next fortnight, and the ones with no dates yet, until Show all; a search or a filter looks through them all, as does another order.
+    const soonOnly = filter === 'coming' && !all && words.length === 0 && !narrowed && byDate && !reversed
     const soonEnd = addDays(day, SOON_DAYS)
-    const listed = soonOnly ? shown.filter((j) => !j.span || j.span.start < soonEnd) : shown
-    return { rows: byWeek(listed, day), shownCount: shown.length, listedCount: listed.length }
-  }, [jobs, day, filter, search, all])
-  const win = useWindowed('jobs', rows, rowKey, 110)
+    const listedJobs = soonOnly ? shown.filter((j) => !j.span || j.span.start < soonEnd) : shown
+    // Under the heading of their week while they're by date; in any other order a week heading would come round again and again.
+    // Past opens on the jobs still in Back with work open on them, under a head of their own, before the weeks (Move 10 of the
+    // sweep of 6 November 2026): a job whose dates passed isn't finished while its Back isn't.
+    const back = filter === 'past' && byDate && !reversed ? listedJobs.filter((j) => stillInBack(view.steps.of(j.id))) : []
+    const rest = back.length ? listedJobs.filter((j) => !back.includes(j)) : listedJobs
+    const rows: Row[] = byDate
+      ? [
+          ...(back.length ? [{ week: 'back', label: `Still in Back (${back.length.toLocaleString('en-IE')})` }, ...back.map((job, n) => ({ job, n }))] : []),
+          ...byWeek(rest, day).map((r) => ('job' in r ? { ...r, n: r.n + back.length } : r)),
+        ]
+      : listedJobs.map((job, n) => ({ job, n }))
+    const byDepartment = new Map(JOB_DEPARTMENTS.map((d) => [d, inTab.filter((j) => departmentsOfJob(j, view.kit.byJob.get(j.id)).has(d)).length]))
+    // What "of" counts once the list is narrowed: every job the search finds, whenever it is, so "12 of 1,760 jobs" says how much is left out.
+    const total = words.length ? jobs.filter(matches).length : jobs.length
+    return { rows, shownCount: shown.length, listedCount: listedJobs.length, searched, byDepartment, total }
+  }, [jobs, day, filter, search, all, filters, sorts, choices, view.steps, view.kit.byJob, involves, picked])
+  const win = useWindowed(table ? 'jobs-table' : 'jobs', rows, rowKey, table ? 56 : 110)
+
+  // When, the departments and Mine are in the filter panel as pills (Colly, 10 November 2026), with the list's other filters, rather
+  // than three rows between the search and the jobs. Each one on away from the list's start shows as a chip under Filter, as every
+  // filter does, so a list that's Past or Lighting never looks like the whole of it.
+  const whenLabel = (f: Filter) => FILTERS.find(([k]) => k === f)![1]
+  const leadActive = [
+    ...(filter === 'coming' ? [] : [{ key: 'when', label: whenLabel(filter), off: () => setFilter('coming') }]),
+    ...picked.map((d) => ({ key: `department-${d}`, label: JOB_DEPARTMENT_LABELS[d], off: () => setPicked(picked.filter((x) => x !== d)) })),
+  ]
+  const lead = (
+    <>
+      <PillGroup label="When">
+        {FILTERS.map(([f, label]) => (
+          <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>
+            {label} ({count(f).toLocaleString('en-IE')})
+          </button>
+        ))}
+      </PillGroup>
+      <DepartmentFilter pills picked={picked} onChange={setPicked} count={(d) => byDepartment.get(d) ?? 0} />
+    </>
+  )
 
   return (
     <section className="card plain jobs-card" aria-label="Jobs" ref={card}>
-      {phone && mayAdd && (
-        <>
-          <Fold label="New job" className="new-job">
-            <NewJob view={view} />
-          </Fold>
-          <BringInHint view={view} />
-        </>
+      {mayAdd && phone && (
+        <Fold label="New job" from="job">
+          <NewJob view={view} />
+        </Fold>
       )}
-      <input className="search" type="search" placeholder="Find a job, client or venue" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Find" />
-      <div className="filters" role="group" aria-label="Show">
-        {FILTERS.map(([f, label]) => (
-          <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-            {label} ({count(f)})
-          </button>
-        ))}
-      </div>
-      {shownCount === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}
+      {jobs.length > 0 && (
+        <ListTools
+          name="jobs"
+          items={searched}
+          filters={filters}
+          sorts={sorts}
+          choices={choices}
+          onChange={setChoices}
+          shown={shownCount}
+          what="jobs"
+          lead={lead}
+          leadActive={leadActive}
+          onClear={() => {
+            setFilter('coming')
+            setPicked([])
+          }}
+          pills={['mine']}
+          total={total}
+        />
+      )}
+      {shownCount === 0 && searched.length > 0 && <p className="empty">No job here matches those filters.</p>}
+      {searched.length === 0 && picked.length > 0 && jobs.length > 0 && <p className="empty">No job here involves {jobDepartmentsInWords(picked)}.</p>}
+      {searched.length === 0 && picked.length === 0 && <Empty>{jobs.length === 0 && 'Add the first one under New job.'}</Empty>}
       {shownCount > 0 && listedCount === 0 && <p className="hint">Nothing in the next fortnight.</p>}
       {/* A long list (audit finding 11, ADR 0050): only the rows near the screen are drawn, and Back finds its place by them (places.ts). */}
-      <ul className="job-list windowed" ref={win.list} style={win.style}>
+      {table && listedCount > 0 && <TableHead sorts={sorts} chosen={choices.sort} onSort={(sort) => setChoices({ ...choices, sort })} />}
+      <ul className={`job-list windowed${table ? ' job-table' : ''}`} ref={win.list} style={win.style}>
         {win.rows.map((r) =>
           'job' in r ? (
             <li key={r.job.id} ref={win.row(r.job.id)} data-place={r.job.id} aria-setsize={listedCount} aria-posinset={r.n + 1}>
-              <JobRow job={r.job} kit={view.kit.byJob.get(r.job.id)} current={false} />
+              <JobRow job={r.job} kit={view.kit.byJob.get(r.job.id)} view={view} current={false} table={table} />
             </li>
           ) : (
             <li key={rowKey(r)} ref={win.row(rowKey(r))} data-place={rowKey(r)} className="week-head">
-              <h3>{r.label}</h3>
+              <h3 className="group">{r.label}</h3>
             </li>
           )
         )}
@@ -341,17 +649,95 @@ function JobsCard({ view, phone = false }: { view: View; phone?: boolean }) {
   )
 }
 
+/**
+ * The table's heads at a desk, each sorting by its column (Colly, 12 November 2026): pressed once it sorts the way the Sort
+ * select names it (A to Z, soonest first), pressed again the other way round, and again back. The one sorting is marked, with an
+ * arrow for which way, and says it in words to a screen reader.
+ */
+const TABLE_COLUMNS: [string, string][] = [
+  ['Job', 'name'],
+  ['When', 'date'],
+  ['Client', 'client'],
+  ['Venue', 'venue'],
+  ['Status', 'status'],
+  ['Assignee', 'assignee'],
+  ['Crew', 'crew'],
+]
+function TableHead({ sorts, chosen, onSort }: { sorts: readonly ListSort<JobView>[]; chosen: string; onSort: (key: string) => void }) {
+  const on = sortOf(sorts, chosen)
+  const reversed = sortReversed(chosen) && on?.key === sortKeyOf(chosen)
+  return (
+    <div className="job-table-head" role="group" aria-label="Sort by a column">
+      {TABLE_COLUMNS.map(([label, key]) => {
+        const sort = sorts.find((x) => x.key === key)
+        if (!sort) return <span key={label}>{label}</span>
+        const pressed = on?.key === key
+        return (
+          <button
+            key={label}
+            type="button"
+            aria-pressed={pressed}
+            data-way={pressed ? (reversed ? 'reversed' : 'forward') : undefined}
+            title={pressed ? `Sorted ${reversed ? `the other way from ${sort.label.toLowerCase()}` : sort.label.toLowerCase()}. Press to turn it round.` : `Sort: ${sort.label.toLowerCase()}`}
+            onClick={() => onSort(pressed && !reversed ? `${key}${REVERSED}` : key)}
+          >
+            {label}
+            {pressed && <span className="sr-only">{reversed ? ', the other way round' : `, ${sort.label.toLowerCase()}`}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** A job in the next fortnight with neither is worth a prompt; on every other row the empty line is noise (audit of 16 October, finding 8). */
 const PROMPT_DAYS = 14
 
 const sameWord = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-export function JobRow({ job, kit, current }: { job: JobView; kit: readonly KitLineView[] | undefined; current: boolean }) {
+export function JobRow({ job, kit, view, current, table = false }: { job: JobView; kit: readonly KitLineView[] | undefined; view: View; current: boolean; table?: boolean }) {
   const crew = crewFill(job.calls)
-  const short = kitShort(kit)
+  // A sale's kit would only be short if it went ahead, which its position (the quote's) doesn't say: the flag stays for it.
+  const short = job.status !== 'confirmed' ? kitShort(kit) : undefined
   const today = useToday()
   const where = [job.client?.name, job.venue?.name].filter(Boolean).join(' · ')
-  const soon = !!job.span && job.span.end >= today && job.span.start <= addDays(today, PROMPT_DAYS)
+  // An errand or a meeting never has a client to name, so it isn't prompted for one (review of 11 November 2026, finding 5).
+  const soon = hasSteps(job) && !!job.span && job.span.end >= today && job.span.start <= addDays(today, PROMPT_DAYS)
+  // The crew count once a row: when the position already says it ("Planning · 5 of 10 booked"), it isn't said again at the side.
+  const steps = view.steps.of(job.id)
+  const crewHint = steps?.steps.find((s) => s.key === 'crew')?.hint
+  const crewSaid = hasSteps(job) && !!crewHint && !!steps?.stage?.hint?.includes(crewHint)
+  const assignee = table && hasSteps(job) ? assigneeOf(steps) : undefined
+  const kindWords = kindOf(job) !== 'gig' && !sameWord(KIND_LABELS[kindOf(job)], phaseNames(job.phases)) ? `${KIND_LABELS[kindOf(job)]} · ` : ''
+  if (table)
+    return (
+      <a className="job-row in-table" href={`#jobs/${job.id}`} aria-current={current ? 'page' : undefined}>
+        <span className="c-name">
+          <b>{job.name}</b>
+          {(kindWords || job.phases.length > 0) && <small>{`${kindWords}${phaseNames(job.phases)}`.replace(/ · $/, '')}</small>}
+        </span>
+        <span className="c-when">{job.span ? spanLabel(job.span) : <span className="muted">No dates yet</span>}</span>
+        {/* An errand or a meeting never has a client to name, so its cells stay empty rather than saying "None" (finding 5). */}
+        <span className="c-client">{job.client?.name ?? (hasSteps(job) && <span className="muted">None yet</span>)}</span>
+        <span className="c-venue">{job.venue?.name ?? (hasSteps(job) && <span className="muted">None yet</span>)}</span>
+        <span className="c-where">
+          {hasSteps(job) && job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
+          {short && <small className={`flag ${short}`}>Kit short</small>}
+        </span>
+        {/* Who has the stage the job is in, as its Board card says (ADR 0144); nothing for a job with nothing to hand anyone. */}
+        <span className="c-assignee">{assignee === undefined ? null : assignee ? assignee : <span className="muted">Nobody yet</span>}</span>
+        <span className="c-crew">
+          {crew.needed > 0 ? (
+            <>
+              {crew.booked} of {crew.needed}
+              {crew.toConfirm > 0 && <small>{crew.toConfirm} to confirm</small>}
+            </>
+          ) : (
+            <span className="muted">None asked</span>
+          )}
+        </span>
+      </a>
+    )
   return (
     <a className="job-row" href={`#jobs/${job.id}`} aria-current={current ? 'page' : undefined}>
       <div>
@@ -363,12 +749,18 @@ export function JobRow({ job, kit, current }: { job: JobView; kit: readonly KitL
           {job.span ? spanLabel(job.span) : 'No dates yet'}
           {job.phases.length > 0 && ` · ${phaseNames(job.phases)}`}
         </p>
+        {/* Where the job stands, under its dates (ADR 0104; Move 7 of the sweep of 6 November 2026): the one position part, the
+            same as the job's head, Home and the Board say it, which carries a kit shortfall in its words and its tone. */}
+        {/* An errand or a meeting already says its kind and day on the line above. */}
+        {hasSteps(job) && <JobPosition job={job} view={view} />}
       </div>
       <div className="side">
-        <JobStatusPill status={job.status} pending={job.pending} />
-        {crew.needed > 0 && (
+        {/* The pill for a sale or a stopped job; once confirmed, the position says where it stands, so Confirmed isn't the biggest word. */}
+        {(job.status !== 'confirmed' || job.pending || !hasSteps(job)) && <JobStatusPill status={job.status} pending={job.pending} />}
+        {crew.needed > 0 && !crewSaid && (
           <small>
-            Crew {crew.booked} of {crew.needed}
+            {/* Booked, as the sheet, the link and Calls say it, so this line's Confirmed is only ever the job's (UX sweep, 6 November 2026, move 4). */}
+            Crew {crew.booked} of {crew.needed} booked
             {crew.toConfirm > 0 && `, ${crew.toConfirm} to confirm`}
           </small>
         )}
@@ -385,14 +777,42 @@ interface PhaseDraft {
   end: string
 }
 
-/** A new job with its first phases, all in one go. Clients and venues not yet known are added as typed. */
+/**
+ * What each kind asks for once it's picked (Colly, 12 November 2026: "ask the kind question first, and then the questions
+ * afterwards should change"). The name's example, what the day or days are called, and what Add says.
+ */
+const KIND_FORM: Record<ProjectKind, { about: string; example: string; add: string }> = {
+  gig: { about: 'Crew and kit at a venue, over a day or more', example: 'e.g. Nissan launch', add: 'Add gig' },
+  hire: { about: 'Kit delivered to a client or collected, no crew', example: 'e.g. Murt LX hire', add: 'Add dry hire' },
+  errand: { about: 'A van run, a collection or a drop-off', example: 'e.g. Collect from Screwfix', add: 'Add errand' },
+  meeting: { about: 'A site visit, a recce or a meeting', example: 'e.g. Ryder Cup site visit', add: 'Add meeting' },
+}
+
+/**
+ * Something new for the jobs (Colly, 12 November 2026): what kind it is first, then only what that kind needs.
+ *
+ * - A gig: its name, client and venue, where the sale stands, and its phases with their days, as every job was asked before.
+ * - A dry hire: its name, the client, where it stands, delivered or collected, and its first and last days with their
+ *   times: one Hire phase (ADR 0183).
+ * - An errand: what it is, the day, where to, and a note for whoever goes. It's going ahead, so it's added confirmed.
+ * - A meeting: what it is, the day, who with and where, and a note. Added confirmed, as an errand is.
+ *
+ * Clients and venues not yet known are added as typed. What's typed is kept when the kind is changed, so a slip costs nothing.
+ */
 function NewJob({ view }: { view: View }) {
   const { clients, venues } = view.jobs
   const today = useToday()
+  const kindId = useId()
   const first = (): PhaseDraft => ({ key: newId(), name: 'Show', start: today, end: today })
-  const [f, setF] = useState({ name: '', client: '', venue: '', status: 'enquiry' as ProjectStatus, kind: 'gig' as ProjectKind })
+  const blank = () => ({ name: '', client: '', venue: '', status: 'enquiry' as ProjectStatus, kind: 'gig' as ProjectKind, notes: '', start: today, end: today })
+  const [f, setF] = useState(blank)
   const [phases, setPhases] = useState<PhaseDraft[]>(() => [first()])
+  // A dry hire's delivery or collection, its times and where it goes (ADR 0183).
+  const [handover, setHandover] = useState<HireDraft>(() => hireDraftOf(undefined))
   const { run, error } = useAct()
+  const form = KIND_FORM[f.kind]
+  // A gig and a dry hire are sold; an errand or a meeting is just done, so it has no status to ask about.
+  const sold = f.kind === 'gig' || f.kind === 'hire'
   const setPhase = (key: string, changes: Partial<PhaseDraft>) =>
     setPhases(
       phases.map((p) => {
@@ -402,91 +822,147 @@ function NewJob({ view }: { view: View }) {
         return next
       })
     )
+  const setDays = (changes: Partial<{ start: string; end: string }>) =>
+    setF((now) => {
+      const next = { ...now, ...changes }
+      if (next.end < next.start) next.end = next.start
+      return next
+    })
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!f.name.trim()) return
     const id = newId()
+    const was = f
+    const wasPhases = phases
+    // The days it's on: a gig's phases as typed; a dry hire's one Hire from going out to coming back; an errand's or a meeting's one day.
+    const days =
+      f.kind === 'gig'
+        ? phases.filter((p) => p.name.trim()).map((p) => ({ name: p.name.trim(), start: p.start, end: p.end }))
+        : [{ name: KIND_PHASE[f.kind], start: f.start, end: f.kind === 'hire' ? f.end : f.start }]
     // A refusal brings what was typed back, unless the next thing has been typed since.
-    const cleared = { name: '', client: '', venue: '', status: 'enquiry' as ProjectStatus, kind: 'gig' as ProjectKind }
+    const cleared = { ...blank(), kind: f.kind }
     const clearedPhases = [first()]
     setF(cleared)
     setPhases(clearedPhases)
     void run(async () => {
-      const clientId = await clientNamed(f.client, clients)
-      const venueId = await venueNamed(f.venue, venues)
-      await client.mutate('project.create', { id, name: f.name.trim(), clientId, venueId, status: f.status, kind: f.kind, notes: '' })
-      for (const p of phases)
-        if (p.name.trim()) await client.mutate('phase.add', { id: newId(), projectId: id, name: p.name.trim(), start: p.start, end: p.end, venueId: null, notes: '' })
+      const clientId = f.kind === 'errand' ? null : await clientNamed(f.client, clients)
+      const venueId = f.kind === 'hire' ? null : await venueNamed(f.venue, venues)
+      const hire = was.kind === 'hire' ? hireTermsOf(await placedOnMap(handover)) : undefined
+      await client.mutate('project.create', {
+        ...(hire ? { hire } : {}),
+        id,
+        name: f.name.trim(),
+        clientId,
+        venueId,
+        status: sold ? f.status : 'confirmed',
+        kind: f.kind,
+        notes: sold ? '' : f.notes.trim(),
+      })
+      for (const d of days) await client.mutate('phase.add', { id: newId(), projectId: id, name: d.name, start: d.start, end: d.end, venueId: null, notes: '' })
     }).then((ok) => {
       if (ok) location.hash = `#jobs/${id}`
       else {
-        setF((now) => (now === cleared ? f : now))
-        setPhases((now) => (now === clearedPhases ? phases : now))
+        setF((now) => (now === cleared ? was : now))
+        setPhases((now) => (now === clearedPhases ? wasPhases : now))
       }
     })
   }
 
   return (
-    <form className="grid-form" onSubmit={submit}>
-      <label className="wide">
-        Job <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Nissan launch" required />
-      </label>
-      <label>
-        Client <input list="client-names" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder="Pick or add one" />
-      </label>
-      <label>
-        Venue <input list="venue-names" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} placeholder="Pick or add one" />
-      </label>
-      <label className="wide">
-        Status
-        <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as ProjectStatus })}>
-          {PROJECT_STATUSES.filter((s) => !STOPPED.includes(s)).map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
-      </label>
-      {f.status === 'confirmed' && <p className="hint wide">A confirmed job goes on the jobs calendar and holds its kit.</p>}
-      <label className="wide">
-        Kind
-        <select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as ProjectKind })}>
-          {PROJECT_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {KIND_LABELS[k]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <fieldset className="wide phase-rows">
-        <legend>Phases</legend>
-        {phases.map((p, i) => (
-          <div className="phase-row" key={p.key}>
-            <input list="phase-names" value={p.name} onChange={(e) => setPhase(p.key, { name: e.target.value })} aria-label={`Phase ${i + 1}`} placeholder="Build, Show…" />
-            <input type="date" value={p.start} onChange={(e) => setPhase(p.key, { start: e.target.value })} aria-label={`Phase ${i + 1} from`} />
-            <input type="date" value={p.end} min={p.start} onChange={(e) => setPhase(p.key, { end: e.target.value })} aria-label={`Phase ${i + 1} to`} />
-            <button type="button" className="link" onClick={() => setPhases(phases.filter((x) => x.key !== p.key))} aria-label={`Remove phase ${i + 1}`}>
-              Remove
-            </button>
-          </div>
+    <form className="grid-form new-job" onSubmit={submit} aria-label={`New ${KIND_LABELS[f.kind].toLowerCase()}`}>
+      {/* The kind first: everything under it is asked for that kind (Colly, 12 November 2026). */}
+      <fieldset className="choices new-job-kind wide">
+        <legend>What is it?</legend>
+        {PROJECT_KINDS.map((k) => (
+          <label className="signal" key={k}>
+            <input
+              type="radio"
+              name={`${kindId}-kind`}
+              value={k}
+              checked={f.kind === k}
+              onChange={() => setF((now) => ({ ...now, kind: k }))}
+              aria-labelledby={`${kindId}-${k}-name`}
+              aria-describedby={`${kindId}-${k}-about`}
+            />
+            <span>
+              <b id={`${kindId}-${k}-name`}>{KIND_LABELS[k]}</b> <span id={`${kindId}-${k}-about`}>{KIND_FORM[k].about}</span>
+            </span>
+          </label>
         ))}
-        <button
-          type="button"
-          onClick={() => {
-            const last = phases.at(-1)
-            setPhases([...phases, { key: newId(), name: '', start: last?.end ?? today, end: last?.end ?? today }])
-          }}
-        >
-          Add a phase
-        </button>
       </fieldset>
+      <label className="wide">
+        Name <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={form.example} required maxLength={200} />
+      </label>
+      {f.kind !== 'errand' && (
+        <>
+          <ClientField jobs={view.jobs} optional label={f.kind === 'meeting' ? 'Who with' : 'Client'} value={f.client} onChange={(c) => setF((now) => ({ ...now, client: c }))} />
+          <NewOrNear value={f.client} names={clients} what="client" onPick={(n) => setF({ ...f, client: n })} />
+        </>
+      )}
+      {f.kind !== 'hire' && (
+        <>
+          <VenueField jobs={view.jobs} optional label={f.kind === 'errand' ? 'Where to' : f.kind === 'meeting' ? 'Where' : 'Venue'} value={f.venue} onChange={(v) => setF((now) => ({ ...now, venue: v }))} />
+          <NewOrNear value={f.venue} names={venues} what="venue" onPick={(n) => setF({ ...f, venue: n })} />
+        </>
+      )}
+      {sold && (
+        <>
+          <label className="wide">
+            Status
+            <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as ProjectStatus })}>
+              {PROJECT_STATUSES.filter((s) => !STOPPED.includes(s)).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {f.status === 'confirmed' && <p className="hint wide">A confirmed job goes on the jobs calendar and holds its kit.</p>}
+        </>
+      )}
+      {f.kind === 'gig' && (
+        <fieldset className="wide phase-rows">
+          <legend>Phases</legend>
+          {phases.map((p, i) => (
+            <div className="phase-row" key={p.key}>
+              <input list="phase-names" value={p.name} onChange={(e) => setPhase(p.key, { name: e.target.value })} aria-label={`Phase ${i + 1}`} placeholder="Build, Show…" />
+              <input type="date" value={p.start} onChange={(e) => setPhase(p.key, { start: e.target.value })} aria-label={`Phase ${i + 1} from`} />
+              <input type="date" value={p.end} min={p.start} onChange={(e) => setPhase(p.key, { end: e.target.value })} aria-label={`Phase ${i + 1} to`} />
+              <button type="button" className="link" onClick={() => setPhases(phases.filter((x) => x.key !== p.key))} aria-label={`Remove phase ${i + 1}`}>
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              const last = phases.at(-1)
+              setPhases([...phases, { key: newId(), name: '', start: last?.end ?? today, end: last?.end ?? today }])
+            }}
+          >
+            Add a phase
+          </button>
+        </fieldset>
+      )}
+      {f.kind === 'hire' && <HireFields value={handover} onChange={setHandover} days={{ start: f.start, end: f.end, set: setDays }} />}
+      {!sold && (
+        <>
+          <label className="wide">
+            Day
+            <input type="date" value={f.start} onChange={(e) => setDays({ start: e.target.value, end: e.target.value })} required />
+          </label>
+          <label className="wide">
+            {f.kind === 'errand' ? 'Notes for whoever goes' : 'Notes'} <span className="optional">(optional)</span>
+            <textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} rows={2} maxLength={4000} placeholder={f.kind === 'errand' ? 'What to bring back, who to ask for' : 'Who is going, what to bring'} />
+          </label>
+          <p className="hint wide">It's going ahead, so it goes on the jobs calendar as soon as it's added.</p>
+        </>
+      )}
       <Refusal error={error} className="wide" />
       <button type="submit" className="primary wide">
-        Add job
+        {form.add}
       </button>
-      <Choices id="client-names" names={clients} />
-      <Choices id="venue-names" names={venues} />
       <datalist id="phase-names">
         {PHASE_NAMES.map((n) => (
           <option key={n} value={n} />

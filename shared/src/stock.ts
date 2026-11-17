@@ -40,17 +40,25 @@ const kilos = z
   .min(0, 'The weight is a number of kilos, such as 12.5.')
   .max(5000, 'The weight can be up to 5,000 kg.')
   .transform((n) => Math.round(n * 10) / 10)
+/** A cable's length in metres to a tenth, as typed: "10" or "0.5" (ADR 0106). */
+const metres = z
+  .number(wrongType('The length is a number of metres, such as 10 or 0.5.'))
+  .min(0.1, 'The length is a number of metres, such as 10 or 0.5.')
+  .max(1000, 'The length can be up to 1,000 m.')
+  .transform((n) => Math.round(n * 10) / 10)
 /** A stock code as kept: trimmed, so the phone shows what the server keeps. */
 const stockCode = text(30, 'The stock code').transform((s) => s.trim())
 /** Money in euro cents, so sums never drift. */
 const cents = euroCents(1_000_000_00, 'A value')
 
-export const DEPARTMENTS = ['audio', 'lighting', 'video', 'staging', 'rigging', 'power', 'other'] as const
+/** Lasers have their own since 9 November 2026 (ADR 0137), so a job's lasers can be told from its lighting. */
+export const DEPARTMENTS = ['audio', 'lighting', 'video', 'lasers', 'staging', 'rigging', 'power', 'other'] as const
 export type Department = (typeof DEPARTMENTS)[number]
 export const DEPARTMENT_LABELS: Record<Department, string> = {
   audio: 'Audio',
   lighting: 'Lighting',
   video: 'Video',
+  lasers: 'Lasers',
   staging: 'Staging',
   rigging: 'Rigging',
   power: 'Power',
@@ -171,6 +179,12 @@ export const model = z.object({
   powerLimitA: whole(1, 125, 'The amps').nullable().default(null),
   /** A rack part rather than kit (ADR 0079): a blank, a vent, a shelf or a drawer; null for kit. Only rack-mount products are. */
   rackPart: z.enum(RACK_PARTS).nullable().default(null),
+  /**
+   * How long one is, in metres, for a cable (ADR 0106): printed big on its
+   * cable labels with the colour the company gives that length. Null where
+   * not given, as for everything that isn't a cable.
+   */
+  lengthM: metres.nullable().default(null),
 })
 /** A product of our own that isn't a rack and has no size or stock code given (ADR 0074), as products made before racks read. */
 export const PLAIN_PRODUCT = {
@@ -191,6 +205,7 @@ export const PLAIN_PRODUCT = {
   castors: false,
   powerLimitA: null,
   rackPart: null,
+  lengthM: null,
 } as const
 
 export type Model = z.infer<typeof model> & {
@@ -298,6 +313,19 @@ export function normaliseNumber(text: string): string | undefined {
 /** Written in Session Hire's own form, "SH-000123" or "sh 123", as against digits alone, which could be any old tag (ADR 0026). */
 export const inShForm = (text: string) => /^\s*sh[\s-]*\d{1,6}\s*$/i.test(text) && normaliseNumber(text) !== undefined
 
+/**
+ * A label's number in full, all six of its digits, as a scanner reads it or
+ * a person copies it off the label: "SH-000123", "sh 000123", "000123", or
+ * the label's link ending in /a/000123. Undefined for one that's shorter,
+ * "123" or "SH-12", which may still be on its way to a longer one, so the
+ * Stock search opens an item on its own only for a whole number (UX sweep,
+ * 6 November 2026, move 8).
+ */
+export function wholeNumber(text: string): string | undefined {
+  const t = text.trim().toUpperCase()
+  return /^(?:SH[\s-]*)?\d{6}$/.test(t) || /\/A\/\d{6}\/?$/.test(t) ? normaliseNumber(t) : undefined
+}
+
 const oneOrNone = [(w: Where) => !(w.placeId && w.caseId), { message: 'Something lives at a place or in a case, not both.' }] as const
 const exactlyOne = [(w: Where) => !!w.placeId !== !!w.caseId, { message: 'Say where: a place or a case.' }] as const
 const caseIsNumbered = [
@@ -366,6 +394,7 @@ export const stockCommandSchemas = {
       castors: z.boolean().optional(),
       powerLimitA: model.shape.powerLimitA.removeDefault().optional(),
       rackPart: model.shape.rackPart.removeDefault().optional(),
+      lengthM: model.shape.lengthM.removeDefault().optional(),
     })
     .refine(...somethingToChange)
     .refine(...caseIsNumbered)

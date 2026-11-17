@@ -1,4 +1,4 @@
-import { callSheet, HOLDING, irishToday, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
+import { LOGO_SVG, callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { getClient, getPhase, getProject, getVenue } from '../projects/store.ts'
 import { lateOnOffers } from './late.ts'
@@ -43,7 +43,8 @@ export async function sheetFor(q: Queryable, personId: string, callId: string): 
 
   return callSheet(
     {
-      job: project ? { name: project.name, notes: project.notes } : { name: call.project, notes: '' },
+      // On a job the client hasn't said yes to yet, the sheet opens by saying it's to hold the day (ADR 0150).
+      job: project ? { name: project.name, notes: project.notes, hold: jobOnHold(project.status) } : { name: call.project, notes: '' },
       client: client ? { name: client.name, contacts: client.contacts } : null,
       phase: phase ? { name: phase.name, start: phase.start, end: phase.end, notes: phase.notes } : null,
       venue: venue ?? (call.venue ? { name: call.venue, address: '', notes: '' } : null),
@@ -78,6 +79,9 @@ const h = (s: unknown) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 const lines = (s: string) => h(s).replace(/\n/g, '<br>')
 const tel = (phone: string) => `<a href="tel:${h(phone.replace(/[^\d+]/g, ''))}">${h(phone)}</a>`
+/** Who to ask for at the venue (ADR 0119), in the words the app and the message use, with their number to press. */
+const venueContactHtml = (c: { name: string; role: string; phone: string | null }) =>
+  `At the venue, ask for <b>${h(c.name)}</b>${c.role ? ` (${h(c.role)})` : ''}${c.phone ? ` on ${tel(c.phone)}` : ''}.`
 
 export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails | null): string {
   const mine = s.calls.filter((c) => c.crew.some((p) => p.me))
@@ -94,13 +98,14 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
 </head>
 <body>
 <main class="sheet">
-  <header class="top"><span class="mark">SH</span><div><b>Session Hire</b><small>Call sheet</small></div></header>
+  <header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><small>Call sheet</small></div></header>
   ${officeBlock(office)}
   <a class="back" href="${h(base)}">‹ Your work</a>
   <section class="head">
     <h1>${h(s.job)}${s.phase ? ` <span>${h(s.phase)}</span>` : ''}</h1>
     <p class="when">${h(s.when)}</p>
     ${s.client ? `<p class="small">For ${h(s.client.name)}</p>` : ''}
+    ${s.hold ? `<p class="hold-line">${h(s.hold)}</p>` : ''}
   </section>
 
   ${mine
@@ -133,7 +138,9 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
   ${
     s.venue
       ? `<section><h2>Where</h2><p><b>${h(s.venue.name)}</b>${s.venue.address ? `<br>${lines(s.venue.address)}` : ''}</p>
-    <p><a class="map" href="${h(s.venue.map)}">Open the map</a></p>${s.venue.notes ? `<p class="details">${lines(s.venue.notes)}</p>` : ''}</section>`
+    <p><a class="map" href="${h(s.venue.map)}">Open the map</a></p>${s.venue.notes ? `<p class="details">${lines(s.venue.notes)}</p>` : ''}${
+      s.venue.contact ? `<p>${venueContactHtml(s.venue.contact)}</p>` : ''
+    }</section>`
       : ''
   }
 
@@ -181,11 +188,11 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
 }
 
 /** Not this person's, or the job's changed since the link was sent. */
-export function renderNoSheet(base: string, what: 'call sheet' | 'timesheet' = 'call sheet'): string {
+export function renderNoSheet(base: string, what: 'call sheet' | 'timesheet' = 'call sheet', words?: string): string {
   return `<!doctype html><html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Session Hire</title><style>${CSS}${SHEET_CSS}</style></head>
-<body><main><header class="top"><span class="mark">SH</span><div><b>Session Hire</b></div></header>
-<p class="flash warn">There's no ${what} here for you: you may not be booked on it any more, or the job has changed.</p>
+<body><main><header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b></div></header>
+<p class="flash warn">${words ? h(words) : `There's no ${what} here for you: you may not be booked on it any more, or the job has changed.`}</p>
 <a class="back" href="${h(base)}">‹ Your work</a></main></body></html>`
 }
 

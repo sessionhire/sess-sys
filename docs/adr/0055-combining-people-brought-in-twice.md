@@ -1,6 +1,6 @@
 # ADR 0055: Combining people brought in twice
 
-- **Status:** accepted
+- **Status:** accepted; amended by [ADR 0110](0110-getting-the-data-right.md) (the other phone goes into the notes)
 - **Date:** 19 October 2026
 - **Asked for by:** Colly, 19 October 2026 ("a function to combine users
   created to the same one - some have been picked up twice due to multiple

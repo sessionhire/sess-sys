@@ -1,24 +1,31 @@
 import {
   answerFromCalendar,
-  dayAnswer,
+  calendarDayId,
+  daysLabel,
   eachDay,
+  endedTitle,
   irishToday,
   newId,
+  tells,
+  toldNews,
   type CalendarCheck,
   type CalendarChoice,
   type CalendarInvites,
-  type DayAnswer,
-  type GuestResponse,
   type ImportCalendar,
 } from '@sh/shared'
 import { applyMutationIn } from '../commands.ts'
-import { getCall, getOffer } from '../crew/store.ts'
+import { endedOn, getCall, getOffer } from '../crew/store.ts'
 import { faultForLog, type Db, type Queryable } from '../db.ts'
 import { serverChange, type Ctx } from '../kernel.ts'
 import { open } from './crypto.ts'
 import { eventId, wantedEvents, type Wanted } from './events.ts'
-import { GoogleError, type Attendee, type EventBody, type Google, type GoogleEvent, type SendUpdates } from './google.ts'
+import { GoogleError, type EventBody, type Google, type GoogleEvent, type SendUpdates } from './google.ts'
 import { guestPlaces, readDays, readDaysById, readLink, saveDay, saveLink, type DayRow, type GuestRow, type Link } from './store.ts'
+import { byDay, guestsFor, knownFrom, sameContent, sameEmail, sameGuests, withGuests, type Answer, type Known } from './sync-guests.ts'
+import { apiOff, FAULT_RETRY_MS, Halt, problems, RETRY_MS } from './sync-problems.ts'
+
+export { guestsFor, withGuests } from './sync-guests.ts'
+export { Halt } from './sync-problems.ts'
 
 /**
  * The calendar sync (ADR 0008): makes the connected calendar hold exactly
@@ -75,67 +82,22 @@ export interface CalendarSyncOptions {
   writes?: boolean
 }
 
-/** After Google was busy: a minute, five, a quarter of an hour, then hourly. */
-const RETRY_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000]
-/** After a run failed on something unexpected (the database, say): a minute, five, then twenty-five; after that, the next change. */
-const FAULT_RETRY_MS = [60_000, 5 * 60_000, 25 * 60_000]
-
-const problems = {
-  revoked: (account: string | null) =>
-    `Google no longer accepts the app's access to ${account ?? 'the account'}'s calendars, so the calendar isn't being updated. Connect again to carry on.`,
-  locked: "The app's Google key has changed since the calendar was connected, so its saved access can't be used. Connect again to carry on.",
-  apiOff:
-    "The Google Calendar API is switched off in the app's Google Cloud project, so nothing can be written. Switch it on (see the setup steps), then press Check the calendar.",
-  noAccess: (calendar: string, account: string | null) =>
-    `${account ?? 'The connected account'} can't change ${calendar} any more: it may have been deleted, or its sharing changed. Choose another calendar, or give that account permission to change it again.`,
-  writesOff:
-    "Writing to Google Calendar is switched off on the server, so the app puts nothing on the calendar and invites nobody. Bringing jobs in from Google still works. To switch writing on, set CALENDAR_WRITES to on in Railway.",
-  busy: (at: Date) =>
-    `Google Calendar isn't answering, so some days are still on their way. Trying again at ${at.toLocaleTimeString('en-IE', { timeZone: 'Europe/Dublin', hour: '2-digit', minute: '2-digit' })}.`,
-  badClient:
-    "Google doesn't accept the app's own Google key (its client id and secret), so nothing can be written. Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Railway, then press Check the calendar.",
-  refused: (reason: string) => `Google turned this day down${reason ? ` (${reason})` : ''}. It is tried again when the job changes, and each night.`,
-  leftBehind: (n: number, calendar: string) =>
-    `${n === 1 ? '1 day was' : `${n} days were`} left on ${calendar}, because Google no longer accepts the app's access. Delete ${n === 1 ? 'it' : 'them'} in Google Calendar if ${n === 1 ? "it isn't" : "they aren't"} wanted.`,
-  /** An answer in Google the offer couldn't take, with the reason the link would have given. */
-  notTaken: (answer: 'accept' | 'decline', reason: string) =>
-    `Said ${answer === 'accept' ? 'yes' : 'no'} on Google Calendar, but the app couldn't take it: ${reason.replace(/^Sorry, (\w)/, (_, c: string) => c.toUpperCase())}`,
-}
-
-/** The Calendar API is switched off in the app's Google Cloud project. */
-const apiOff = (err: GoogleError) => err.reason === 'accessNotConfigured' || err.reason === 'SERVICE_DISABLED'
-
-/** Stops a run, or a request from Admin: the calendar or the account needs a person, or Google needs time. */
-export class Halt extends Error {
-  constructor(
-    readonly why: 'revoked' | 'blocked' | 'busy',
-    readonly problem: string | null
-  ) {
-    super(why)
-  }
-}
-
 type Op =
   | { kind: 'write'; wanted: Wanted; row: DayRow | undefined; event: GoogleEvent | undefined }
   | { kind: 'remove'; row: DayRow }
   | { kind: 'orphan'; event: GoogleEvent }
 
-/** The app's guests on one event, as last written or taken in: what answers in Google are compared with. */
-interface Known {
-  dayId: string
-  day: string
-  guests: GuestRow[]
+/**
+ * One notice a gig (ADR 0185): who has been emailed about which job in this run, and each person's own days coming off
+ * in it, so the one cancellation that goes can name them all.
+ */
+interface Notices {
+  sent: Set<string>
+  off: Map<string, DayRow[]>
 }
 
-/** A guest whose answer in Google differs from the one the app last took in. */
-interface Answer {
-  dayId: string
-  personId: string
-  email: string
-  response: GuestResponse
-  /** What they wrote with it in Google, if anything. */
-  comment: string
-}
+/** A person on a job, as one notice a gig counts them: by address, as Google emails them. */
+const noticeKey = (projectId: string, email: string) => `${projectId} ${email.trim().toLowerCase()}`
 
 export class CalendarSync {
   private active = false
@@ -250,8 +212,12 @@ export class CalendarSync {
       try {
         const listed = first
           ? await this.listOurs(link, { timeMin: dayBefore(today) })
-          : await this.call(link, (t) => this.options.google.listEvents(t, link.calendarId!, { mark: `sh=${link.appKey}`, updatedMin: this.since }))
-        if (first) this.known = knownFrom(await readDays(this.options.db, today), link.calendarId)
+          : (
+              await Promise.all(
+                calendarsOf(link).map((cal) => this.call(link, (t) => this.options.google.listEvents(t, cal, { mark: `sh=${link.appKey}`, updatedMin: this.since })))
+              )
+            ).flat()
+        if (first) this.known = knownFrom(await readDays(this.options.db, today), calendarsOf(link))
         this.since = margin(started)
         const taken = await this.takeAnswers(listed, today)
         if (taken) {
@@ -280,22 +246,32 @@ export class CalendarSync {
     const link = await readLink(db)
     const today = irishToday(this.now())
     const writing = link?.state === 'on' && link.calendarId !== null
-    const wanted = writing ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: null }) : new Map<string, Wanted>()
+    const wanted = writing ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: null, personal: personalCalendar(link) !== null }) : new Map<string, Wanted>()
     const rows = new Map((await readDays(db, today)).map((r) => [r.id, r]))
     let invites = 0
-    const people = new Set<string>()
+    const people = new Map<string, { email: string; days: { day: string; title: string }[] }>()
     const noEmail = new Set<string>()
     for (const w of wanted.values()) {
       const row = rows.get(w.key)
-      const on = row && row.state !== 'removed' && row.calendarId === link?.calendarId ? row.guests : []
+      const on = row && row.state !== 'removed' && row.calendarId === target(link!, w) ? row.guests : []
       for (const g of w.guests) {
         if (on.some((p) => p.personId === g.personId && sameEmail(p.email, g.email))) continue
         invites++
-        people.add(g.personId)
+        const had = people.get(g.personId) ?? { email: g.email, days: [] }
+        had.days.push({ day: w.day, title: w.title })
+        people.set(g.personId, had)
       }
       for (const name of w.noEmail) noEmail.add(name)
     }
-    return { on: link?.invites ?? false, invites, people: people.size, noEmail: [...noEmail].sort() }
+    const ids = [...people.keys()]
+    const { rows: named } = ids.length
+      ? await db.query<{ id: string; name: string }>('SELECT id, name FROM people WHERE id = ANY($1::text[])', [ids])
+      : { rows: [] as { id: string; name: string }[] }
+    const nameOf = new Map(named.map((p) => [p.id, p.name]))
+    const guests = [...people.entries()]
+      .map(([id, p]) => ({ name: nameOf.get(id) ?? p.email, email: p.email, days: p.days.sort((a, b) => a.day.localeCompare(b.day) || a.title.localeCompare(b.title)) }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email))
+    return { on: link?.invites ?? false, invites, people: people.size, noEmail: [...noEmail].sort(), guests }
   }
 
   /** The calendars the connected account can change, for picking one. */
@@ -442,7 +418,7 @@ export class CalendarSync {
       const listed = check && writing ? await this.listOurs(link, { timeMin: dayBefore(today) }, token) : undefined
       // Any answers missed since the last look go in first, since they can change what the events should say.
       if (listed && link.invites) {
-        this.known = knownFrom(rows, link.calendarId)
+        this.known = knownFrom(rows, calendarsOf(link))
         this.since = margin(started)
         if (await this.takeAnswers(listed, today)) {
           changed = true
@@ -450,7 +426,18 @@ export class CalendarSync {
         }
       }
       const byId = new Map(rows.map((r) => [r.id, r]))
-      const wanted = writing ? await wantedEvents(db, { today, appKey: link.appKey, appUrl: this.options.appUrl ?? link.appUrl }) : new Map<string, Wanted>()
+      // Every day that's on, whether or not the app writes it: a brought-in job's day is the organiser's (ADR 0157).
+      const daysOn = new Set<string>()
+      const wanted = writing
+        ? await wantedEvents(db, {
+            today,
+            appKey: link.appKey,
+            appUrl: this.options.appUrl ?? link.appUrl,
+            personal: personalCalendar(link) !== null,
+            tell: link,
+            on: daysOn,
+          })
+        : new Map<string, Wanted>()
 
       // Events changed or deleted in Google since the app wrote them, and any of the app's events it has lost track of.
       const stale = new Set<string>()
@@ -459,7 +446,8 @@ export class CalendarSync {
       const found = new Map<string, GoogleEvent>()
       const ops: Op[] = []
       if (listed) {
-        const ours = new Map(rows.filter((r) => r.state !== 'removed' && r.calendarId === link.calendarId).map((r) => [r.eventId, r]))
+        const cals = calendarsOf(link)
+        const ours = new Map(rows.filter((r) => r.state !== 'removed' && cals.includes(r.calendarId)).map((r) => [r.eventId, r]))
         const seen = new Set<string>()
         for (const ev of listed) {
           const day = ev.extendedProperties?.private?.shDay
@@ -486,7 +474,7 @@ export class CalendarSync {
         if (
           !row ||
           row.state === 'removed' ||
-          row.calendarId !== link.calendarId ||
+          row.calendarId !== target(link, w) ||
           row.contentHash !== w.hash ||
           stale.has(row.id) ||
           (check && row.state === 'failed') ||
@@ -494,21 +482,41 @@ export class CalendarSync {
         )
           ops.push({ kind: 'write', wanted: w, row, event: found.get(w.key) })
       }
-      for (const row of rows) if (row.state !== 'removed' && !wanted.has(row.id)) ops.push({ kind: 'remove', row })
+      for (const row of rows) {
+        if (row.state === 'removed' || wanted.has(row.id)) continue
+        // Invites switched off: everyone's own copies stay as they are, as their invites did on the shared day (ADR 0009).
+        if (personalRow(row) && !link.invites && link.state === 'on') continue
+        // Someone who said No to their own copy of a day that's still on keeps it, as a No, rather than being sent a
+        // cancellation for something they turned down (ADR 0009, as on the shared day before 1.163.0).
+        const saidNo = personalRow(row) && row.guests.length > 0 && row.guests.every((g) => g.response === 'declined')
+        if (saidNo && daysOn.has(calendarDayId(row.phaseId, row.day)) && row.calendarId === personalCalendar(link)) continue
+        ops.push({ kind: 'remove', row })
+      }
       const dayOf = (op: Op) => (op.kind === 'write' ? op.wanted.day : op.kind === 'remove' ? op.row.day : (op.event.extendedProperties?.private?.shDay ?? ''))
-      ops.sort((a, b) => dayOf(a).localeCompare(dayOf(b)))
+      // Days coming off a person's own calendar go first (ADR 0185): losing days is the news worth their one email, and the
+      // rest of the gig's days then change quietly, rather than an update to a day that's left hiding the days that went.
+      const offFirst = (op: Op) => (op.kind === 'remove' && personalRow(op.row) ? 0 : 1)
+      ops.sort((a, b) => offFirst(a) - offFirst(b) || dayOf(a).localeCompare(dayOf(b)))
+      // One notice a gig (ADR 0185): each person hears from Google once about a job in a run, however many of its days change.
+      const notices: Notices = { sent: new Set(), off: new Map() }
+      for (const op of ops) {
+        if (op.kind !== 'remove' || !personalRow(op.row) || !op.row.guests[0]) continue
+        const key = noticeKey(op.row.projectId, op.row.guests[0].email)
+        notices.off.set(key, [...(notices.off.get(key) ?? []), op.row])
+      }
 
       for (const [i, op] of ops.entries()) {
         if (i > 0 && this.options.gapMs !== 0) await new Promise((r) => setTimeout(r, this.options.gapMs ?? 100))
         if (op.kind === 'write') {
-          const done = await this.write(link, op.wanted, op.row, op.event)
+          const done = await this.write(link, op.wanted, op.row, op.event, notices)
           if (done === 'failed') result.failed++
           else result.written++
         } else if (op.kind === 'remove') {
-          await this.remove(link, op.row)
+          await this.remove(link, op.row, notices)
           result.removed++
         } else {
-          await this.call(link, (t) => this.options.google.deleteEvent(t, link.calendarId!, op.event.id, tell(link))).catch(ignoreGone)
+          const cal = op.event.calendarId ?? link.calendarId!
+          await this.call(link, (t) => this.options.google.deleteEvent(t, cal, op.event.id, tell(link))).catch(ignoreGone)
           result.removed++
         }
         changed = true
@@ -636,17 +644,23 @@ export class CalendarSync {
       {
         id: newId(),
         name: 'offer.respond',
-        args: answer.answer === 'accept' ? { id: offer.id, answer: 'accept', days: answer.days, note } : { id: offer.id, answer: 'decline', note },
+        args:
+          answer.answer === 'accept'
+            ? { id: offer.id, answer: 'accept', days: answer.days, note, ...(answer.asked.length ? { asked: answer.asked } : {}) }
+            : answer.answer === 'undecided'
+              ? { id: offer.id, answer: 'undecided', days: answer.days, note }
+              : { id: offer.id, answer: 'decline', note },
         createdAt: new Date().toISOString(),
       },
       { via: 'calendar' }
     )
-    return result.status === 'rejected' ? problems.notTaken(answer.answer, result.reason.message) : null
+    // A No to the days they'd said yes to is a No, as the person pressed it.
+    return result.status === 'rejected' ? problems.notTaken(answer.answer === 'accept' ? 'accept' : 'decline', result.reason.message) : null
   }
 
   /** Put one day on the calendar as it should be now, with its guests when invites are on. */
-  private async write(link: Link, w: Wanted, row: DayRow | undefined, listed: GoogleEvent | undefined): Promise<'written' | 'failed'> {
-    const calendarId = link.calendarId!
+  private async write(link: Link, w: Wanted, row: DayRow | undefined, listed: GoogleEvent | undefined, notices?: Notices): Promise<'written' | 'failed'> {
+    const calendarId = target(link, w)
     const google = this.options.google
     // Moving calendars: the old event comes off first, so no day is ever on both.
     if (row && row.state !== 'removed' && row.calendarId !== calendarId) {
@@ -658,32 +672,58 @@ export class CalendarSync {
     let generation = here ? row!.generation : 0
     // Update the event the app knows is here; otherwise put it on, reusing the same id.
     let known = here && row!.state === 'on'
+    // Asked again after saying No to their own copy (ADR 0157, the audit's finding 1): the copy they turned down comes off
+    // quietly and a new one goes, so Google emails a fresh invitation and their answer starts again. Kept, their No would
+    // stand against the new offer, and nothing would reach them.
+    const askedAgain =
+      known &&
+      w.personId !== undefined &&
+      row!.guests.some((g) => g.personId === w.personId && g.response === 'declined' && !w.guests.some((n) => n.offerId === g.offerId))
+    if (askedAgain) {
+      await this.call(link, (t) => google.deleteEvent(t, calendarId, row!.eventId, 'none')).catch(ignoreGone)
+      generation++
+      known = false
+      listed = undefined
+    }
     const day = { id: w.key, phaseId: w.phaseId, projectId: w.projectId, day: w.day, title: w.title, calendarId, contentHash: w.hash }
+    // What a person's own copy tells them that's news since it was last written (ADR 0153): being booked, or picked, or a
+    // call time that moves. Google emails it even when only the first line says so. A change to what it tells them that
+    // isn't news, or a copy that told them nothing before (telling just turned on, or off), changes its title quietly.
+    // Someone who said No to it hears no more about it.
+    const was = here && row!.state === 'on' && !askedAgain ? row! : undefined
+    const news = toldNews(was?.told, w.told) && !was!.guests.every((g) => g.response === 'declined')
+    // Already emailed about this job in this run (ADR 0185): this day changes without another email, unless it's new to them.
+    const notice = w.personId && w.guests[0] ? noticeKey(w.projectId, w.guests[0].email) : undefined
+    const quiet = notice !== undefined && !!notices?.sent.has(notice)
+    const how = { news, quietTitle: !!was && !news && (was.told ?? null) !== (w.told ?? null) && was.title === w.title, quiet }
     for (let tries = 0; tries < 5; tries++) {
-      const id = eventId(link.appKey, calendarId, w.phaseId, w.day, generation)
+      const id = eventId(link.appKey, calendarId, w.personId ? `${w.phaseId}/${w.personId}` : w.phaseId, w.day, generation)
       // Who the app last put on this very event, if it is the one it knows.
       const previous = here && generation === row!.generation ? row!.guests : []
       const guests = link.invites ? guestsFor(w, previous, known) : undefined
       try {
-        let written: { ev: GoogleEvent; guests: GuestRow[] }
-        if (known) written = await this.replace(link, id, w.body, previous, guests, listed)
+        let written: { ev: GoogleEvent; guests: GuestRow[]; send: SendUpdates }
+        if (known) written = await this.replace(link, calendarId, id, w.body, previous, guests, listed, how)
         else {
           try {
             const attendees = (guests ?? []).map((g) => ({ email: g.email }))
-            const ev = await this.call(link, (t) =>
-              google.insertEvent(t, calendarId, id, attendees.length ? { ...w.body, attendees } : w.body, attendees.length ? 'all' : 'none')
-            )
-            written = { ev, guests: guests ?? [] }
+            const send: SendUpdates = attendees.length ? 'all' : 'none'
+            const ev = await this.call(link, (t) => google.insertEvent(t, calendarId, id, attendees.length ? { ...w.body, attendees } : w.body, send))
+            written = { ev, guests: guests ?? [], send }
           } catch (err) {
             // No calendar to put it in.
             if (err instanceof GoogleError && err.problem === 'gone') throw this.blockedBy(link, err)
             // Already there, from an earlier try or deleted since: make it what it should be.
             if (!(err instanceof GoogleError) || err.problem !== 'exists') throw err
-            written = await this.replace(link, id, w.body, previous, guests, undefined)
+            written = await this.replace(link, calendarId, id, w.body, previous, guests, undefined, how)
           }
         }
         const { ev } = written
-        await this.saveDay({ ...day, eventId: id, generation, state: 'on', etag: ev.etag, htmlLink: ev.htmlLink ?? null, problem: null, guests: written.guests }, before)
+        if (notice && written.send === 'all') notices?.sent.add(notice)
+        await this.saveDay(
+          { ...day, eventId: id, generation, state: 'on', etag: ev.etag, htmlLink: ev.htmlLink ?? null, problem: null, guests: written.guests, told: w.told ?? null },
+          before
+        )
         return 'written'
       } catch (err) {
         if (err instanceof GoogleError && err.problem === 'gone') {
@@ -696,7 +736,8 @@ export class CalendarSync {
         if (err instanceof GoogleError && err.problem === 'refused') {
           this.options.report?.(err)
           await this.saveDay(
-            { ...day, eventId: id, generation, state: 'failed', etag: null, htmlLink: null, problem: problems.refused(err.reason), guests: row?.guests ?? [] },
+            // What it last told them stays what Google has, so news not written yet is still news next time.
+            { ...day, eventId: id, generation, state: 'failed', etag: null, htmlLink: null, problem: problems.refused(err.reason), guests: row?.guests ?? [], told: row?.told ?? null },
             before
           )
           return 'failed'
@@ -714,18 +755,26 @@ export class CalendarSync {
    * answer given in between isn't lost; otherwise reads it again. With
    * invites off (`guests` unset) the guest list stays as it is.
    */
-  private async replace(link: Link, id: string, body: EventBody, previous: GuestRow[], guests: GuestRow[] | undefined, listed: GoogleEvent | undefined) {
-    const calendarId = link.calendarId!
+  private async replace(
+    link: Link,
+    calendarId: string,
+    id: string,
+    body: EventBody,
+    previous: GuestRow[],
+    guests: GuestRow[] | undefined,
+    listed: GoogleEvent | undefined,
+    how: { news?: boolean; quietTitle?: boolean; quiet?: boolean } = {}
+  ) {
     const google = this.options.google
     let current = listed?.id === id ? listed : undefined
     for (let tries = 0; tries < 3; tries++) {
       const ev = current ?? (await this.call(link, (t) => google.getEvent(t, calendarId, id)))
-      const next = withGuests(ev, body, previous, guests)
+      const next = withGuests(ev, body, previous, guests, how)
       try {
         // A new crew list goes on quietly first, so only the people added or taken off hear about it.
         const quiet = next.quietly ? await this.call(link, (t) => google.updateEvent(t, calendarId, id, next.quietly!, 'none', ev.etag)) : ev
         const written = await this.call(link, (t) => google.updateEvent(t, calendarId, id, next.body, next.send, quiet.etag))
-        return { ev: written, guests: guests ?? previous }
+        return { ev: written, guests: guests ?? previous, send: next.send }
       } catch (err) {
         if (!(err instanceof GoogleError) || err.problem !== 'changed') throw err
         current = undefined
@@ -738,7 +787,12 @@ export class CalendarSync {
   /** The app's own events on the calendar being written to, from `timeMin` on; a calendar that has gone needs a person. */
   private async listOurs(link: Link, { timeMin }: { timeMin: string }, token?: string): Promise<GoogleEvent[]> {
     try {
-      return await this.call(link, (t) => this.options.google.listEvents(t, link.calendarId!, { mark: `sh=${link.appKey}`, timeMin }), token)
+      const all: GoogleEvent[] = []
+      for (const cal of calendarsOf(link)) {
+        const listed = await this.call(link, (t) => this.options.google.listEvents(t, cal, { mark: `sh=${link.appKey}`, timeMin }), token)
+        all.push(...listed.map((ev) => ({ ...ev, calendarId: cal })))
+      }
+      return all
     } catch (err) {
       if (err instanceof GoogleError && err.problem === 'gone') throw this.blockedBy(link, err)
       throw err
@@ -750,16 +804,74 @@ export class CalendarSync {
    * told it's cancelled. The day keeps its guests, so that if it comes back
    * the app still knows who it put on it.
    */
-  private async remove(link: Link, row: DayRow) {
+  private async remove(link: Link, row: DayRow, notices?: Notices) {
     try {
-      await this.call(link, (t) => this.options.google.deleteEvent(t, row.calendarId, row.eventId, tell(link)))
+      // A person's own copy only ever had them on it because of invites: they're told it's off, once a gig (ADR 0185). The
+      // first of their days to come off in a run carries the news for all of them, and the rest go quietly.
+      const notice = personalRow(row) && row.guests[0] ? noticeKey(row.projectId, row.guests[0].email) : undefined
+      const quiet = notice !== undefined && !!notices?.sent.has(notice)
+      // Why it's off, and every day that's going with it, in its title, so Google's cancellation says it (ADR 0153, 0184).
+      if (personalRow(row) && row.state === 'on' && !quiet) await this.sayWhy(link, row, (notice && notices?.off.get(notice)) || [row])
+      const send: SendUpdates = personalRow(row) ? (quiet ? 'none' : 'all') : tell(link)
+      await this.call(link, (t) => this.options.google.deleteEvent(t, row.calendarId, row.eventId, send))
+      if (notice && !quiet) notices?.sent.add(notice)
     } catch (err) {
       if (!(err instanceof GoogleError)) throw err
       // A calendar the account can no longer reach: nothing more the app can do about that day.
       const unreachable = err.problem === 'access' && row.calendarId !== link.calendarId
       if (err.problem !== 'gone' && !unreachable) throw err
     }
-    await this.saveDay({ ...row, state: 'removed', problem: null }, row)
+    // A person's own copy that's gone keeps no address: it was only ever theirs (ADR 0027, erasure).
+    await this.saveDay({ ...row, state: 'removed', problem: null, ...(personalRow(row) ? { guests: [] } : {}) }, row)
+  }
+
+  /**
+   * Before a person's own copy comes off because their offer ended, and their invites tell them what happens next
+   * (ADR 0153, audit of 12 November 2026, finding 8): its title changes, quietly, to say why, as their page does:
+   * "Filled by someone else: Nissan - Build 1/2", "Withdrawn by the office: …", "You declined: …". Google's cancellation
+   * then carries it, where a bare "cancelled" read as the job being off. A day that comes off an offer still going, or
+   * a copy that moves, keeps its title.
+   */
+  private async sayWhy(link: Link, row: DayRow, going: DayRow[]) {
+    const guest = row.guests[0]
+    if (!guest) return
+    let why: Parameters<typeof endedTitle>[1] | undefined
+    if (tells(link, guest.email)) {
+      const offer = await getOffer(this.options.db, guest.offerId)
+      const ended = offer && (offer.status === 'filled' || offer.status === 'cancelled') ? (await endedOn(this.options.db, [offer])).get(offer.id) : undefined
+      why = ended?.by ?? (offer?.status === 'declined' || offer?.status === 'pulled-out' ? offer.status : undefined)
+    }
+    // Several of their days going at once get one cancellation (ADR 0185), titled with them all: "Nissan - Build, Sat 2 Mar to
+    // Sun 3 Mar", where "Nissan - Build 1/2" would read as only the first day being off.
+    const several = going.length > 1
+    if (!why && !several) return
+    const title = several ? await this.gigTitle(going) : row.title
+    const summary = why ? endedTitle(title, why) : title
+    const google = this.options.google
+    try {
+      const ev = await this.call(link, (t) => google.getEvent(t, row.calendarId, row.eventId))
+      if (ev.status === 'cancelled') return
+      if (ev.summary === summary) return
+      await this.call(link, (t) => google.updateEvent(t, row.calendarId, row.eventId, { ...bodyOf(ev), summary }, 'none', ev.etag))
+    } catch (err) {
+      // Saying why is a kindness: the day still comes off without it.
+      if (!(err instanceof GoogleError)) throw err
+    }
+  }
+
+  /**
+   * A person's days coming off together, as one title (ADR 0185): the phase's name when they're all one phase's, else the
+   * job's, then the days.
+   */
+  private async gigTitle(going: DayRow[]): Promise<string> {
+    const first = going[0]!
+    const hold = first.title.startsWith('HOLD ') ? 'HOLD ' : ''
+    let name = first.title.replace(/ \d+\/\d+$/, '')
+    if (going.some((r) => r.phaseId !== first.phaseId)) {
+      const { rows } = await this.options.db.query<{ name: string }>('SELECT name FROM projects WHERE id = $1', [first.projectId])
+      name = rows[0] ? `${hold}${rows[0].name}` : name
+    }
+    return `${name}, ${daysLabel(going.map((r) => r.day), irishToday(this.now()))}`
   }
 
   private async saveDay(d: DayRow, before: DayRow | undefined) {
@@ -771,7 +883,7 @@ export class CalendarSync {
   private remember(d: DayRow) {
     if (!this.known) return
     for (const [id, k] of this.known) if (k.dayId === d.id) this.known.delete(id)
-    if (d.state === 'on' && d.calendarId === this.link?.calendarId && d.guests.length) this.known.set(d.eventId, { dayId: d.id, day: d.day, guests: d.guests })
+    if (d.state === 'on' && this.link && calendarsOf(this.link).includes(d.calendarId) && d.guests.length) this.known.set(d.eventId, { dayId: d.id, day: d.day, guests: d.guests })
   }
 
   /**
@@ -903,10 +1015,48 @@ export class CalendarSync {
   }
 }
 
+/** An event as Google holds it, as a body to write back with one thing changed. */
+function bodyOf(ev: GoogleEvent): EventBody {
+  return {
+    summary: ev.summary ?? '',
+    location: ev.location ?? '',
+    description: ev.description ?? '',
+    start: { date: ev.start?.date ?? '' },
+    end: { date: ev.end?.date ?? '' },
+    status: 'confirmed',
+    extendedProperties: { private: { ...(ev.extendedProperties?.private ?? {}) } },
+    guestsCanSeeOtherGuests: false,
+    guestsCanInviteOthers: false,
+    ...(ev.attendees?.length ? { attendees: ev.attendees } : {}),
+  }
+}
+
 function ignoreGone(err: unknown) {
   if (err instanceof GoogleError && err.problem === 'gone') return
   throw err
 }
+
+/**
+ * Where each person's own copy of a day goes (1.163.0): the connected account's own calendar, whose id is its address,
+ * so the jobs calendar keeps one event a day. Null with invites off, when there are none.
+ */
+function personalCalendar(link: Link): string | null {
+  return link.invites && link.accountEmail ? link.accountEmail : null
+}
+
+/** The calendar a wanted day goes on. */
+function target(link: Link, w: Pick<Wanted, 'personId'>): string {
+  return w.personId ? (personalCalendar(link) ?? link.accountEmail!) : link.calendarId!
+}
+
+/** The calendars the app's events are on: the jobs calendar, and the account's own while invites are on. */
+function calendarsOf(link: Link): string[] {
+  const personal = personalCalendar(link)
+  return [link.calendarId!, ...(personal && personal !== link.calendarId ? [personal] : [])].filter(Boolean)
+}
+
+/** A person's own copy of a day: `<phase>/<day>/<person>`. */
+const personalRow = (row: Pick<DayRow, 'id'>) => row.id.split('/').length > 2
 
 /** Guests are told about deletions only with invites on (ADR 0009). */
 const tell = (link: Link): SendUpdates => (link.invites ? 'all' : 'none')
@@ -919,94 +1069,4 @@ function dayBefore(day: string): string {
   const d = new Date(`${day}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() - 1)
   return d.toISOString()
-}
-
-/** Email addresses as Google compares them. */
-const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
-
-/** The events whose guests' answers matter: the app's days on the calendar being written to that have guests. */
-function knownFrom(rows: DayRow[], calendarId: string | null): Map<string, Known> {
-  const out = new Map<string, Known>()
-  for (const r of rows) if (r.state === 'on' && r.calendarId === calendarId && r.guests.length) out.set(r.eventId, { dayId: r.id, day: r.day, guests: r.guests })
-  return out
-}
-
-/** Each day's answer from the answers on its events. */
-function byDay(entries: [string, GuestResponse][]): Record<string, DayAnswer> {
-  const all: Record<string, GuestResponse[]> = {}
-  for (const [day, response] of entries) all[day] = [...(all[day] ?? []), response]
-  return Object.fromEntries(Object.entries(all).map(([day, responses]) => [day, dayAnswer(responses)]))
-}
-
-/**
- * Who should be on a day's event (ADR 0009): everyone offered the day or
- * booked on it, with their answers so far, and, on the same event, anyone
- * who said No to it in Google, who stays on as a No rather than being sent
- * a cancellation for something they turned down.
- */
-export function guestsFor(w: Wanted, previous: GuestRow[], sameEvent: boolean): GuestRow[] {
-  const out: GuestRow[] = w.guests.map((g) => {
-    const had = previous.find((p) => p.personId === g.personId && sameEmail(p.email, g.email))
-    return { ...g, response: had?.response ?? 'needsAction', problem: had?.offerId === g.offerId ? had.problem : null }
-  })
-  if (sameEvent) for (const p of previous) if (p.response === 'declined' && !out.some((g) => g.personId === p.personId)) out.push(p)
-  return out.sort((a, b) => a.personId.localeCompare(b.personId))
-}
-
-/** The same people on the event, for the same offers. */
-function sameGuests(a: GuestRow[], b: GuestRow[]): boolean {
-  return a.length === b.length && a.every((g, i) => g.personId === b[i]!.personId && g.offerId === b[i]!.offerId && sameEmail(g.email, b[i]!.email))
-}
-
-/** The event still says what the app wrote: its title, day, place, description and marks. */
-function sameContent(ev: GoogleEvent, body: EventBody): boolean {
-  const theirs = ev.extendedProperties?.private ?? {}
-  return (
-    ev.status === 'confirmed' &&
-    (ev.summary ?? '') === body.summary &&
-    (ev.location ?? '') === body.location &&
-    (ev.description ?? '') === body.description &&
-    ev.start?.date === body.start.date &&
-    ev.end?.date === body.end.date &&
-    Object.entries(body.extendedProperties.private).every(([k, v]) => theirs[k] === v)
-  )
-}
-
-/**
- * The event as the app wants it, with its guest list (ADR 0009): everyone
- * on it the app didn't put there stays, and so does everyone's answer.
- * With invites off (`guests` unset) the guest list stays as it is and
- * nobody is told anything. Otherwise guests are told when someone is added
- * or taken off, or the title, day or place changes, or it comes back after
- * being deleted; not when only the description does. When the description
- * changes as people are added or taken off (someone taking the last place
- * changes the crew list too), `quietly` is the event with the new
- * description and the guests as they were, to write first without telling
- * anyone, so that only the people added or taken off hear from Google.
- */
-export function withGuests(
-  ev: GoogleEvent,
-  body: EventBody,
-  previous: GuestRow[],
-  guests: GuestRow[] | undefined
-): { body: EventBody; send: SendUpdates; quietly?: EventBody } {
-  const now = ev.attendees ?? []
-  if (!guests) return { body: now.length ? { ...body, attendees: now } : body, send: 'none' }
-  const ours = [...previous, ...guests].map((g) => g.email)
-  const theirs = now.filter((a) => !ours.some((e) => sameEmail(e, a.email)))
-  const invited: Attendee[] = guests.map((g) => now.find((a) => sameEmail(a.email, g.email)) ?? { email: g.email })
-  const attendees = [...theirs, ...invited]
-  const restored = ev.status === 'cancelled'
-  const added = invited.some((a) => !now.includes(a))
-  const dropped = !restored && now.some((a) => ours.some((e) => sameEmail(e, a.email)) && !guests.some((g) => sameEmail(g.email, a.email)))
-  const noticed =
-    restored ||
-    (ev.summary ?? '') !== body.summary ||
-    (ev.location ?? '') !== body.location ||
-    ev.start?.date !== body.start.date ||
-    ev.end?.date !== body.end.date
-  const told = added || dropped || (noticed && attendees.some((a) => !a.organizer))
-  const next = { body: attendees.length ? { ...body, attendees } : body, send: told ? ('all' as const) : ('none' as const) }
-  if (!told || noticed || (ev.description ?? '') === body.description) return next
-  return { ...next, quietly: now.length ? { ...body, attendees: now } : body }
 }

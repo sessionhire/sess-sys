@@ -6,6 +6,7 @@ import {
   jobsNaming,
   namedFromAddress,
   nameKey,
+  nameParts,
   newId,
   plural,
   sameJobs,
@@ -71,36 +72,9 @@ export function tidyFor(view: View): Tidy {
   return kept.tidy
 }
 
-/** How much there is to tidy, for the line on Jobs and Crew. */
+/** How much there is to tidy. */
 export function tidyCount(t: Tidy) {
   return t.same.length + t.twice.length + t.people.length + t.venues.length + t.small.length
-}
-
-/** On Jobs, once a calendar has been brought in and there's something to tidy. */
-export function TidyNudge({ view }: { view: View }) {
-  const mayJobs = useAccess().can('jobs')
-  // Before any of the work: with nothing from a calendar there's nothing to say (audit, 20 October 2026, finding 2).
-  if (!mayJobs || !view.jobs.jobs.some((j) => j.sourceCalendar)) return null
-  return <Nudge view={view} />
-}
-
-function Nudge({ view }: { view: View }) {
-  const t = tidyFor(view)
-  const parts = [
-    t.same.length && plural(t.same.length, 'job', 'jobs') + ' brought in as several',
-    t.twice.length && plural(t.twice.length, 'person', 'people') + ' brought in twice',
-    t.people.length && plural(t.people.length, 'person', 'people') + ' named from their address',
-    t.venues.length && plural(t.venues.length, 'venue', 'venues') + ' to put on jobs',
-  ].filter(Boolean)
-  if (!parts.length) return null
-  return (
-    <section className="card notes-kit-nudge" aria-label="Tidy up what came in">
-      <Heading icon="calendar">Tidy up what came in</Heading>
-      <p>
-        From the calendars: {parts.join(', ')}. <a href="#jobs/tidy">Tidy them up</a>
-      </p>
-    </section>
-  )
 }
 
 export function TidyScreen({ view }: { view: View }) {
@@ -245,8 +219,8 @@ function Names({ people }: { people: readonly PersonView[] }) {
     <section className="card" aria-label="People named from their address">
       <Heading icon="person">People named from their address</Heading>
       <p className="hint">
-        Google had no name for these guests, so they're named from their email. That name is what call sheets, the planner and their own page show. Type their first
-        and last name.
+        Google had no name for these guests, so they're named from their email. That name is what call sheets, the planner and their own page show. Put their first
+        and last name right and Save, or Save as it is when it's already right.
       </p>
       <ShowAll items={people} limit={10} what="people">
         {(shown) => (
@@ -257,12 +231,14 @@ function Names({ people }: { people: readonly PersonView[] }) {
           </ul>
         )}
       </ShowAll>
+      <KeepNames people={people} />
     </section>
   )
 }
 
 function NameRow({ person }: { person: PersonView }) {
-  const [names, setNames] = useState<NameParts>({ firstName: '', lastName: '' })
+  // Filled from the name they have, so one that's already right is one press of Save (audit, 5 November 2026, finding 52).
+  const [names, setNames] = useState<NameParts>(() => nameParts(person))
   const { run, error, refuse } = useAct()
   const save = (e: FormEvent) => {
     e.preventDefault()
@@ -302,6 +278,41 @@ function NameRow({ person }: { person: PersonView }) {
         <button type="submit">Save</button>
       </form>
     </li>
+  )
+}
+
+/** The names left as they are, all at once: each is marked checked so the list empties (ADR 0068). */
+function KeepNames({ people }: { people: readonly PersonView[] }) {
+  const [asking, setAsking] = useState(false)
+  const { run, error } = useAct()
+  const keep = () =>
+    void run(async () => {
+      for (const p of people) {
+        const { id, kind, email, phone, skills, notes } = p
+        await client.mutate('person.upsert', { id, name: p.name, ...nameParts(p), kind, email, phone, skills, notes, nameChecked: true })
+      }
+    }).then(() => setAsking(false))
+  return (
+    <>
+      <Refusal error={error} />
+      {asking ? (
+        <Confirm
+          question={`Keep all ${plural(people.length, 'name')} as they are?`}
+          yes="Keep them"
+          no="Not now"
+          onYes={keep}
+          onNo={() => setAsking(false)}
+        >
+          <p>Each person keeps the name shown and leaves this list. A name can still be changed on their page.</p>
+        </Confirm>
+      ) : (
+        <div className="actions">
+          <button type="button" onClick={() => setAsking(true)}>
+            Keep these names
+          </button>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -473,7 +484,7 @@ function Clients({ view, words }: { view: View; words: readonly { word: string; 
         )}
         <Refusal error={error} className="wide" />
         <div className="actions wide">
-          <button type="submit" className="primary" disabled={!word.trim() || chosen.length === 0}>
+          <button type="submit" className="primary">
             Give {plural(chosen.length, 'job')} the client {who.trim() || '…'}
           </button>
         </div>

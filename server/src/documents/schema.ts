@@ -1,7 +1,7 @@
 import type { Module } from '../migrations.ts'
 
 /**
- * People's documents (ADR 0029), and those kept on venues and clients (ADR 0032). Versioned on their own
+ * People's documents (ADR 0029), those kept on venues and clients (ADR 0032), and photos of jobs (ADR 0182). Versioned on their own
  * (documents_schema_version), so they never fight the crew migrations,
  * and backed up and exported like every module's tables. Devices never
  * see where a file is kept, nor the list of files to delete.
@@ -57,6 +57,24 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS attachments_venue ON attachments (venue_id);
   CREATE INDEX IF NOT EXISTS attachments_client ON attachments (client_id);
+  `,
+  // Photos of jobs (ADR 0182): two files each, the photo and its small copy, kept as documents' are, on the same list of files
+  // to delete. Never replaced, only taken down, so the address of each stays the same for as long as it's there.
+  `
+  CREATE TABLE IF NOT EXISTS job_photos (
+    id          text PRIMARY KEY,
+    project_id  text NOT NULL REFERENCES projects(id),
+    caption     text NOT NULL DEFAULT '',
+    tags        text[] NOT NULL DEFAULT '{}',
+    file_key    text NOT NULL UNIQUE,
+    thumb_key   text NOT NULL UNIQUE,
+    width       integer NOT NULL,
+    height      integer NOT NULL,
+    bytes       integer NOT NULL,
+    added_by    text REFERENCES people(id),
+    added_at    timestamptz NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS job_photos_project ON job_photos (project_id);
   `,
 ]
 

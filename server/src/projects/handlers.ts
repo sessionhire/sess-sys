@@ -1,5 +1,5 @@
-import { departmentInWords, joinedPhaseName, kindOf, kitDaysOf, MAX_PHASE_DAYS, stepId, STOPPED, tailOf, type CommandArgs, type JobStep } from '@sh/shared'
-import { cancelCall, moveCallsWithPhase } from '../crew/handlers.ts'
+import { daysLabel, daysOffPhase, departmentInWords, irishToday, joinedPhaseName, kindOf, kitDaysOf, MAX_PHASE_DAYS, spanLabel, stepId, STOPPED, tailOf, type CommandArgs, type JobStep } from '@sh/shared'
+import { cancelCall, moveCallsWithPhase, moveStoppedCallsWithPhase } from '../crew/handlers.ts'
 import { getCall, getCalls, getPerson, openCallsFor } from '../crew/store.ts'
 import { emit, emitAll, emitRemoved, emitRemovedAll, Refused, type Ctx } from '../kernel.ts'
 import { getKitLine, kitOnPhase } from '../stock/kit.ts'
@@ -7,9 +7,12 @@ import { getFault } from '../stock/faults.ts'
 import { getMovement } from '../stock/moves.ts'
 import { dayEntity, readDaysById } from '../calendar/store.ts'
 import { getQuote } from '../finance/store.ts'
-import { getClient, getPhase, getPhases, getProject, getVenue, namesForCall } from './store.ts'
+import { getClient, paymentTermsColumn, getPhase, getPhases, getProject, getVenue, namesForCall } from './store.ts'
 import { getBooking, vehiclesOnPhase } from '../vehicles/store.ts'
+import { getJobPhoto } from '../documents/job-photos.ts'
 import { getStep } from '../steps/store.ts'
+import { memberPlan } from '../rms/members.ts'
+import { queueJobWhatsApp } from '../whatsapp/follow-ups.ts'
 
 /**
  * The job rules the server keeps, whichever device a change comes from
@@ -24,7 +27,7 @@ import { getStep } from '../steps/store.ts'
  *   them, and the others go (ADR 0050).
  */
 
-type JobCommand = 'client.upsert' | 'venue.upsert' | 'venue.pin' | 'project.create' | 'project.update' | 'phase.add' | 'phase.update' | 'phase.remove' | 'project.merge'
+type JobCommand = 'client.upsert' | 'venue.upsert' | 'venue.pin' | 'rms.fillMembers' | 'project.create' | 'project.update' | 'phase.add' | 'phase.update' | 'phase.remove' | 'project.merge'
 type Handler<N extends JobCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 /** The columns each field of a job or phase is kept in. */
@@ -35,8 +38,10 @@ const PROJECT_COLUMNS = {
   status: 'status',
   kind: 'kind',
   notes: 'notes',
+  officeNotes: 'office_notes',
   prepDays: 'prep_days',
   returnDays: 'return_days',
+  hire: 'hire',
 } as const
 const PHASE_COLUMNS = { name: 'name', start: 'start_day', end: 'end_day', venueId: 'venue_id', notes: 'notes', contactId: 'contact_id', localCrew: 'local_crew' } as const
 
@@ -107,6 +112,8 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
       [a.id, a.name, JSON.stringify(a.contacts), a.notes]
     )
     if (a.address !== undefined) await ctx.tx.query('UPDATE clients SET address = $2 WHERE id = $1', [a.id, a.address.trim()])
+    // Only when the save says (ADR 0119), so an app older than payment terms leaves them as they were.
+    if (a.paymentTerms !== undefined) await ctx.tx.query('UPDATE clients SET payment_terms = $2 WHERE id = $1', [a.id, paymentTermsColumn(a.paymentTerms)])
     await emit(ctx, 'client', a.id, await getClient(ctx.tx, a.id))
   },
 
@@ -116,6 +123,7 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, address = EXCLUDED.address, notes = EXCLUDED.notes`,
       [a.id, a.name, a.address, a.notes]
     )
+    if (a.contact !== undefined) await ctx.tx.query('UPDATE venues SET contact = $2 WHERE id = $1', [a.id, a.contact ? JSON.stringify(a.contact) : null])
     await emit(ctx, 'venue', a.id, await getVenue(ctx.tx, a.id))
     await renameCalls(ctx, { venueId: a.id })
   },
@@ -127,13 +135,51 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     await emit(ctx, 'venue', a.id, await getVenue(ctx.tx, a.id))
   },
 
+  /**
+   * Clients and venues filled in from Current RMS (ADR 0136), worked out here from the copy kept on the server just as
+   * the preview showed it: an address where there was none, contacts not on a client yet, a venue's contact where it
+   * had none; and, ticked, those on Current RMS's quotes not here yet. Nothing set here is changed.
+   */
+  async 'rms.fillMembers'(ctx, a) {
+    const plan = await memberPlan(ctx.tx)
+    if (!plan) throw new Refused({ code: 'conflict', message: 'Read the clients and venues from Current RMS first, under Admin.' })
+    for (const f of plan.clients.fill) {
+      if (f.address) await ctx.tx.query("UPDATE clients SET address = $2 WHERE id = $1 AND address = ''", [f.id, f.address])
+      if (f.contacts.length)
+        await ctx.tx.query('UPDATE clients SET contacts = contacts || $2::jsonb WHERE id = $1', [f.id, JSON.stringify(f.contacts)])
+      await emit(ctx, 'client', f.id, await getClient(ctx.tx, f.id))
+    }
+    for (const f of plan.venues.fill) {
+      if (f.address) await ctx.tx.query("UPDATE venues SET address = $2 WHERE id = $1 AND address = ''", [f.id, f.address])
+      if (f.contacts[0]) await ctx.tx.query('UPDATE venues SET contact = $2 WHERE id = $1 AND contact IS NULL', [f.id, JSON.stringify(f.contacts[0])])
+      await emit(ctx, 'venue', f.id, await getVenue(ctx.tx, f.id))
+    }
+    if (!a.add) return
+    for (const n of plan.clients.add) {
+      const id = `rms-client-${n.rmsId}`
+      const { rows: made } = await ctx.tx.query(
+        "INSERT INTO clients (id, name, contacts, notes, address) VALUES ($1, $2, $3, '', $4) ON CONFLICT (id) DO NOTHING RETURNING id",
+        [id, n.name, JSON.stringify(n.contacts), n.address]
+      )
+      if (made.length) await emit(ctx, 'client', id, await getClient(ctx.tx, id))
+    }
+    for (const n of plan.venues.add) {
+      const id = `rms-venue-${n.rmsId}`
+      const { rows: made } = await ctx.tx.query(
+        "INSERT INTO venues (id, name, address, notes, contact) VALUES ($1, $2, $3, '', $4) ON CONFLICT (id) DO NOTHING RETURNING id",
+        [id, n.name, n.address, n.contacts[0] ? JSON.stringify(n.contacts[0]) : null]
+      )
+      if (made.length) await emit(ctx, 'venue', id, await getVenue(ctx.tx, id))
+    }
+  },
+
   async 'project.create'(ctx, a) {
     if (await getProject(ctx.tx, a.id)) throw new Refused({ code: 'conflict', message: 'This job already exists.' })
     await checkClient(ctx, a.clientId)
     await checkVenue(ctx, a.venueId)
     await ctx.tx.query(
-      'INSERT INTO projects (id, name, client_id, venue_id, status, kind, notes, prep_days, return_days) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-      [a.id, a.name, a.clientId, a.venueId, a.status, kindOf(a), a.notes, kitDaysOf(a).prep, kitDaysOf(a).back]
+      'INSERT INTO projects (id, name, client_id, venue_id, status, kind, notes, office_notes, prep_days, return_days, hire) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
+      [a.id, a.name, a.clientId, a.venueId, a.status, kindOf(a), a.notes, a.officeNotes ?? '', kitDaysOf(a).prep, kitDaysOf(a).back, a.hire ? JSON.stringify(a.hire) : null]
     )
     await emit(ctx, 'project', a.id, await getProject(ctx.tx, a.id))
   },
@@ -143,12 +189,14 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     if (!before) throw new Refused({ code: 'not-found', message: 'That job no longer exists.' })
     await checkClient(ctx, a.clientId)
     await checkVenue(ctx, a.venueId)
-    await setFields(ctx, 'projects', PROJECT_COLUMNS, a)
+    await setFields(ctx, 'projects', PROJECT_COLUMNS, { ...a, hire: a.hire === undefined ? undefined : a.hire && JSON.stringify(a.hire) })
     await emit(ctx, 'project', a.id, await getProject(ctx.tx, a.id))
     if (a.name !== undefined || a.venueId !== undefined) await renameCalls(ctx, { projectId: a.id })
-    // Stopping a job takes its crew with it; starting it again doesn't bring them back.
+    // Crew asked to hold the day hear it's confirmed, and crew asked or booked hear it's stopped, on WhatsApp (ADR 0125, HOLD).
+    await queueJobWhatsApp(ctx, a.id, before.status, a.status)
+    // Stopping a job takes its crew with it, marked with the day, so they can be asked for again once it's going again (ADR 0164).
     if (a.status && STOPPED.includes(a.status) && !STOPPED.includes(before.status))
-      for (const c of await openCallsFor(ctx.tx, { projectId: a.id })) await cancelCall(ctx, c.id)
+      for (const c of await openCallsFor(ctx.tx, { projectId: a.id })) await cancelCall(ctx, c.id, irishToday())
   },
 
   async 'phase.add'(ctx, a) {
@@ -171,11 +219,22 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     const end = a.end ?? before.end
     if (start > end) throw new Refused({ code: 'invalid', message: `${before.name} would end before it starts.` })
     if (tooLong(start, end)) throw new Refused({ code: 'invalid', message: `A phase can be at most ${MAX_PHASE_DAYS} days.` })
+    // Its crew keep their dates only where the phase still has them: a call left outside its phase's days would hold its crew
+    // for days with no invite (ADR 0159). A day already outside from before isn't this change's doing.
+    if (!a.moveCrew && (start !== before.start || end !== before.end))
+      for (const c of await openCallsFor(ctx.tx, { phaseId: a.id })) {
+        const was = daysOffPhase(c, before)
+        const off = daysOffPhase(c, { start, end }).filter((d) => !was.includes(d))
+        if (off.length)
+          throw new Refused({ code: 'conflict', message: `${before.name} would be ${spanLabel({ start, end })}, leaving ${c.role} on ${daysLabel(off)} outside it: move its crew with it.` })
+      }
     await checkVenue(ctx, a.venueId)
     await checkContact(ctx, a.contactId)
     await setFields(ctx, 'phases', PHASE_COLUMNS, a)
     await emit(ctx, 'phase', a.id, await getPhase(ctx.tx, a.id))
     if (a.name !== undefined || a.venueId !== undefined) await renameCalls(ctx, { phaseId: a.id })
+    // Calls cancelled along with the job go with it whatever is asked, as nobody is on them (ADR 0164).
+    if (start !== before.start || end !== before.end) await moveStoppedCallsWithPhase(ctx, a.id, before, { start, end })
     // Asked to, the phase takes its crew with it: its open calls move by the same shift, and their offers' days too.
     if (a.moveCrew && (start !== before.start || end !== before.end)) await moveCallsWithPhase(ctx, a.id, before, { start, end })
   },
@@ -254,7 +313,13 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     for (const id of await move('faults')) await emit(ctx, 'fault', id, await getFault(ctx.tx, id))
     for (const id of await move('movements')) await emit(ctx, 'movement', id, await getMovement(ctx.tx, id))
     for (const id of await move('vehicle_bookings')) await emit(ctx, 'vehicleBooking', id, await getBooking(ctx.tx, id))
-    for (const id of await move('quotes')) await emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
+    // Photos of the show (ADR 0182) are the job kept's now.
+    for (const id of await move('job_photos')) await emit(ctx, 'jobPhoto', id, await getJobPhoto(ctx.tx, id))
+    // A deleted version moves too, but isn't sent to the devices (ADR 0135).
+    for (const id of await move('quotes')) {
+      const q = await getQuote(ctx.tx, id)
+      if (q) await emit(ctx, 'quote', id, q)
+    }
     // A job has one of each step (ADR 0073): this job's stays; a step only another had becomes this job's.
     const { rows: steps } = await ctx.tx.query<{ id: string; project_id: string; step: JobStep }>(
       'SELECT id, project_id, step FROM job_steps WHERE project_id = ANY($1::text[]) ORDER BY project_id = $2 DESC, done_at IS NULL, owner_id IS NULL, id',
@@ -266,24 +331,39 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
       if (!taken.has(r.step)) {
         taken.add(r.step)
         const to = stepId(a.id, r.step)
-        await ctx.tx.query('INSERT INTO job_steps (id, project_id, step, owner_id, done_at, done_by) SELECT $2, $3, step, owner_id, done_at, done_by FROM job_steps WHERE id = $1', [r.id, to, a.id])
+        await ctx.tx.query('INSERT INTO job_steps (id, project_id, step, owner_id, due_on, done_at, done_by) SELECT $2, $3, step, owner_id, due_on, done_at, done_by FROM job_steps WHERE id = $1', [r.id, to, a.id])
         await emit(ctx, 'jobStep', to, await getStep(ctx.tx, to))
       }
       await ctx.tx.query('DELETE FROM job_steps WHERE id = $1', [r.id])
       await emitRemoved(ctx, 'jobStep', r.id)
     }
+    // A job's place on the Board stays with the job kept; the others' go with them (ADR 0143).
+    const ranked = (await ctx.tx.query<{ project_id: string }>('DELETE FROM job_ranks WHERE project_id = ANY($1::text[]) RETURNING project_id', [ids])).rows
+    await emitRemovedAll(ctx, 'jobRank', ranked.map((r) => r.project_id))
     const days = await move('calendar_days')
     if (days.length) for (const d of await readDaysById(ctx.tx, days)) await emit(ctx, 'calendarDay', d.id, dayEntity(d))
     await ctx.tx.query('UPDATE calendar_imports SET project_id = $1 WHERE project_id = ANY($2::text[])', [a.id, ids])
     // Their notes are joined below, so what was read of them for kit is read again.
     await ctx.tx.query('DELETE FROM kit_notes_read WHERE project_id = ANY($1::text[])', [[a.id, ...ids]])
 
-    const notes = [...new Set(all.map((j) => j.notes.trim()).filter(Boolean))].join('\n\n')
-    const cut = notes.length > JOB_NOTES ? `${notes.slice(0, JOB_NOTES - 1)}…` : notes
+    // The notes for the crew and the office notes are each joined with their own kind (ADR 0151), so neither crosses over.
+    const joined = (pick: (j: (typeof all)[number]) => string) => {
+      const text = [...new Set(all.map((j) => pick(j).trim()).filter(Boolean))].join('\n\n')
+      return text.length > JOB_NOTES ? `${text.slice(0, JOB_NOTES - 1)}…` : text
+    }
     const first = <T,>(pick: (j: (typeof all)[number]) => T | null | undefined) => all.map(pick).find((v) => v !== null && v !== undefined) ?? null
     await ctx.tx.query(
-      'UPDATE projects SET name = $2, notes = $3, client_id = $4, venue_id = $5, prep_days = $6, return_days = $7 WHERE id = $1',
-      [a.id, a.name, cut, first((j) => j.clientId), first((j) => j.venueId), Math.max(...all.map((j) => kitDaysOf(j).prep)), Math.max(...all.map((j) => kitDaysOf(j).back))]
+      'UPDATE projects SET name = $2, notes = $3, client_id = $4, venue_id = $5, prep_days = $6, return_days = $7, office_notes = $8 WHERE id = $1',
+      [
+        a.id,
+        a.name,
+        joined((j) => j.notes),
+        first((j) => j.clientId),
+        first((j) => j.venueId),
+        Math.max(...all.map((j) => kitDaysOf(j).prep)),
+        Math.max(...all.map((j) => kitDaysOf(j).back)),
+        joined((j) => j.officeNotes ?? ''),
+      ]
     )
     await ctx.tx.query('DELETE FROM projects WHERE id = ANY($1::text[])', [ids])
     await emitRemovedAll(ctx, 'project', ids)

@@ -37,7 +37,10 @@ a link that works with no app and no login
 - **The running order is the phase's notes,** and the job's notes are
   shown too. Both already go on the calendar events crew are invited to
   ([ADR 0008](0008-calendar-sync.md)), so nothing new is made public. The
-  venue's notes are its access, load-in, power and parking.
+  venue's notes are its access, load-in, power and parking. Since 1.167.0
+  both boxes are called "Notes for the crew", and a job's office notes,
+  a box of their own, are never on a call sheet
+  ([ADR 0151](0151-notes-for-the-crew-and-office-notes.md)).
 - **The contact on the day is the one new thing:** a person picked for
   each phase, from anyone in the app, staff or freelancer. Their name and
   number go on everyone's sheet for the phase. It's kept on the phase and

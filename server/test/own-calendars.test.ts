@@ -391,6 +391,9 @@ describe('sharing their own calendar', () => {
       const res = await post('/calendar', { address })
       expect(res.statusCode).toBe(422)
       expect(res.body).toContain(`value="${address.replace(/&/g, '&amp;')}"`)
+      // Under the field, which is marked and joined to it, and which the page drawn again lands on.
+      expect(res.body).toMatch(/<label id="refused">Your calendar's private address <input name="address"[^>]* aria-invalid="true" aria-describedby="address-error" value="[^"]*"><\/label><p class="field-error" id="address-error" role="alert">/)
+      expect(res.body).not.toContain('<p class="flash bad"')
       return flashOf(res.body).message
     }
     expect(await words('not an address')).toBe(ADDRESS_WORDS.notAnAddress)

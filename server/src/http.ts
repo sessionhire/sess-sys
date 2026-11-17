@@ -9,6 +9,26 @@ export function publicOrigin(req: FastifyRequest): string {
   return `${proto}://${req.headers['x-forwarded-host'] ?? req.headers.host}`
 }
 
+/**
+ * Where a request came from. Behind Railway's proxy the socket is the proxy's, and the proxy adds the address it was
+ * reached from at the end of x-forwarded-for: that last one, since anything before it the sender could have written.
+ */
+export function clientAddress(req: FastifyRequest): string {
+  const forwarded = req.headers['x-forwarded-for']
+  const last = (Array.isArray(forwarded) ? forwarded.at(-1) : forwarded)?.split(',').at(-1)?.trim()
+  return last || req.socket.remoteAddress || 'unknown'
+}
+
+/**
+ * How often one address may knock at each way in (ADR 0105): signing in with Google or the passcode, and connecting a
+ * calendar or the operations mailbox. A minute's allowance, far more than people need (the whole office signing in at
+ * once from the warehouse's one address is a few dozen), and few enough that nobody can hammer them. Everything else
+ * already needs someone signed in, and is left alone: every phone in the warehouse shares one address.
+ */
+export const SIGN_IN_LIMIT = { max: 60, timeWindow: 60_000 }
+export const CONNECT_LIMIT = { max: 20, timeWindow: 60_000 }
+export const TOO_MANY = 'Too many tries from here just now. Wait a minute and try again.'
+
 export function readCookie(req: FastifyRequest, name: string): string | undefined {
   for (const part of (req.headers.cookie ?? '').split(';')) {
     const eq = part.indexOf('=')
@@ -60,12 +80,15 @@ export const scriptHash = (script: string) => `'sha256-${createHash('sha256').up
 /**
  * The content security policy of the server's own pages (audit finding 24): freelancers' pages, call sheets,
  * timesheets, documents and staff's sign-in. A second line behind the escaping, which already holds: nothing loads but
- * the page itself, its own style and the scripts named here by hash, and a form posts only back to this server.
+ * the page itself, its own style, its face from this server and the scripts named here by hash, and a form posts only
+ * back to this server.
  */
 export function pagePolicy(scripts: readonly string[]): string {
   return [
     "default-src 'none'",
     "style-src 'unsafe-inline'",
+    // IBM Plex Sans, from this server (crew/fonts.ts).
+    "font-src 'self'",
     `script-src ${scripts.map(scriptHash).join(' ') || "'none'"}`,
     "img-src 'self' data:",
     "form-action 'self'",
@@ -81,12 +104,16 @@ export function pagePolicy(scripts: readonly string[]): string {
  */
 const SENTRY_INGEST = ['https://*.ingest.sentry.io', 'https://*.ingest.de.sentry.io', 'https://*.ingest.us.sentry.io']
 
+/** Zebra Browser Print's two addresses on this computer, plain and secure. */
+const ZEBRA_BROWSER_PRINT = ['http://127.0.0.1:9100', 'https://127.0.0.1:9101']
+
 /**
  * The app shell's content security policy (audit finding 24). What the app loads: its own files, the inline theme
  * script by hash, OpenStreetMap's tiles on the venue map (ADR 0057), images from data: and blob: addresses (labels'
  * codes, photos being added), its own service worker, and its error reports going to Sentry. Inline style attributes are
  * allowed, as React and Leaflet set them; nothing else inline. Google sign-in is a link to this server, which sends the
- * browser on, so it needs nothing here.
+ * browser on, so it needs nothing here. Labels for the Zebra ZT411 go to Zebra Browser Print on the computer itself
+ * (ADR 0178), which answers only there, on 127.0.0.1.
  */
 export function appShellPolicy(scripts: readonly string[], dsn?: string): string {
   let reports = SENTRY_INGEST
@@ -104,7 +131,7 @@ export function appShellPolicy(scripts: readonly string[], dsn?: string): string
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://tile.openstreetmap.org",
     "media-src 'self' blob:",
-    `connect-src 'self' ${reports.join(' ')}`,
+    `connect-src 'self' ${[...reports, ...ZEBRA_BROWSER_PRINT].join(' ')}`,
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",

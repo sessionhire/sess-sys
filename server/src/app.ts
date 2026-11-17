@@ -1,5 +1,6 @@
 import compress from '@fastify/compress'
 import fastifyStatic from '@fastify/static'
+import rateLimit from '@fastify/rate-limit'
 import websocket from '@fastify/websocket'
 import { APP_VERSION, FEED, MONEY_ENTITY_NAMES, plural, pushRequest, documentsRead, readsEverything, readsEveryRate, roleSeesMoney, type Change, type Beat, type ClientConfig, type EntityName, type MutationResult, type Poke, type PullResponse, type PushResponse } from '@sh/shared'
 import Fastify, { LogController, type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
@@ -21,24 +22,29 @@ import { applyMutationIn, currentSeq, recordRefusal, refusedOnSight } from './co
 import { clearedSince, startedFresh } from './data/fresh.ts'
 import { registerDataRoutes } from './data/routes.ts'
 import { Feeds, type FeedsOptions } from './crew/feeds.ts'
+import { OfferWaits } from './crew/waits.ts'
 import { registerPeopleImportRoutes } from './crew/import.ts'
 import { registerCrewLinks } from './crew/links.ts'
+import { registerLinkCheck } from './crew/link-check.ts'
 import { COPY_SCRIPT } from './crew/page.ts'
+import { registerPageFonts } from './crew/fonts.ts'
 import { OwnCalendars, type OwnCalendarsOptions } from './crew/own-calendars.ts'
 import { registerOwnCalendarRoutes } from './crew/own-calendar-routes.ts'
 import { faultForLog, type Db, type Queryable } from './db.ts'
 import { describeDevice } from './devices.ts'
 import { DocumentFiles } from './documents/files.ts'
 import { registerDocumentRoutes } from './documents/routes.ts'
-import { registerPhotoRoutes } from './documents/photos.ts'
+import { readLogo, registerPhotoRoutes } from './documents/photos.ts'
+import { registerJobPhotoRoutes } from './documents/job-photo-routes.ts'
 import { DueErasures } from './erasure/due.ts'
 import { ErasureList } from './erasure/list.ts'
 import { everythingJson, everythingZip, exportRowCount, readEverything, zipName } from './export.ts'
 import { BadCursor, readHistory, recordExport } from './history.ts'
-import { appShellPolicy, inlineScripts, pagePolicy, publicOrigin, requestForLog } from './http.ts'
+import { appShellPolicy, clientAddress, inlineScripts, pagePolicy, publicOrigin, requestForLog, TOO_MANY } from './http.ts'
 import { CHARACTERS, isCharacterError, isLockBusy } from './kernel.ts'
 import { migrateAll } from './modules.ts'
 import { registerNoticeRoutes } from './notices.ts'
+import { registerAdrLink } from './adr-link.ts'
 import { reportError, reportNowAndThen, type ErrorReporting } from './monitoring.ts'
 import { keptSyncTestTables } from './schema.ts'
 import { asRead, readingOf } from './reading.ts'
@@ -48,12 +54,26 @@ import { registerItemLogRoutes } from './stock/log.ts'
 import { nominatim, registerPlaceRoutes, type PlaceSearch } from './projects/places.ts'
 import { aaFuel, FuelUpdates, registerFuelRoutes, type FuelLookup } from './finance/fuel.ts'
 import { RmsApi, type RmsConfig } from './rms/api.ts'
+import { RmsMemberReader } from './rms/members.ts'
+import { RmsPriceReader } from './rms/prices.ts'
 import { RmsReader } from './rms/reader.ts'
 import { registerRmsRoutes } from './rms/routes.ts'
 import type { ClaudeConfig } from './assistant/claude.ts'
 import { Assistant, registerAssistantRoutes } from './assistant/routes.ts'
 import { Todo } from './assistant/todo.ts'
+import type { Gmail } from './assistant/gmail.ts'
+import { Mailbox } from './assistant/mailbox.ts'
+import { registerMailboxRoutes } from './assistant/mailbox-routes.ts'
+import type { WhatsAppConfig } from './whatsapp/api.ts'
+import { WhatsAppAnswers } from './whatsapp/answers.ts'
+import { registerWhatsAppRoutes } from './whatsapp/routes.ts'
+import { WhatsApp } from './whatsapp/whatsapp.ts'
+import { WhatsAppSender } from './whatsapp/sender.ts'
+import { registerQuoteEmailRoutes } from './finance/email-routes.ts'
+import { QuoteWatch } from './finance/quote-watch.ts'
+import { registerAcceptRoutes } from './finance/accept-routes.ts'
 import { registerStatusRoutes, Status, type OutsideLooks } from './status.ts'
+import { registerTrackerRoutes } from './trackers/routes.ts'
 
 const PULL_LIMIT = 500
 /** The longest the server waits for a whole request to arrive. */
@@ -141,8 +161,18 @@ export interface AppOptions {
   currentRms?: RmsConfig
   /** Claude inside the app (ADR 0096): Anthropic's key, the model and the monthly limit. Without it, Admin says it isn't set up. */
   claude?: ClaudeConfig
+  /** Meta's WhatsApp Cloud API (ADR 0125): the token and the number's id, and the rest. Without it, Admin says it isn't set up. */
+  whatsapp?: WhatsAppConfig
+  /** Gmail for the operations mailbox (ADR 0098), when a test stands one in. */
+  gmail?: Gmail
+  /** Whether a domain takes email (ADR 0171), when a test stands in for the DNS. */
+  mx?: (domain: string) => Promise<boolean | undefined>
+  /** How long before a quote email not yet in Sent is looked for again (ADR 0171); a test sets 0. */
+  recheckMs?: number
   /** Where what the server notices about itself is reported: Sentry's (reportError) unless a test listens instead. */
   report?: typeof reportError
+  /** The key trackers' reports must carry (ADR 0107, TRACKERS_KEY). Without it, no report is taken. */
+  trackersKey?: string
   /** Admin › Status's looks outside the server (ADR 0093): the map search and GitHub. Without them, those two say so. */
   outside?: OutsideLooks
 }
@@ -172,8 +202,18 @@ declare module 'fastify' {
     ownCalendars: OwnCalendars
     /** Reading Current RMS (ADR 0078), run from Admin. */
     rms: RmsReader
+    /** Reading Current RMS's hire prices (ADR 0132), run from Admin. */
+    rmsPrices: RmsPriceReader
+    rmsMembers: RmsMemberReader
     /** Claude's to-do list each weekday morning (ADR 0097); the caller starts it once the server is listening. */
     assistantTodo: Todo
+    /** Claude reading the operations mailbox (ADR 0098); the caller starts it once the server is listening. */
+    assistantMailbox: Mailbox
+    quoteWatch: QuoteWatch
+    /** Sends offers on WhatsApp as they're made (ADR 0125); the caller starts its once-a-minute look. */
+    whatsappSender: WhatsAppSender
+    /** Wakes the calendar and WhatsApp as an offer's wait for Undo ends (ADR 0162); the caller starts it once the server is listening. */
+    offerWaits: OfferWaits
   }
 }
 
@@ -288,6 +328,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     // What devices send stays as it is: nothing sends it compressed.
     globalDecompression: false,
   })
+  // Limits on the ways in, by the address a request came from (ADR 0105): only routes that ask for one in their config
+  // (http.ts says which and why), so the sync itself, which every phone in the warehouse does from one address, never
+  // meets one. Set before any route, so its own look at each route sees them.
+  await app.register(rateLimit, {
+    global: false,
+    keyGenerator: clientAddress,
+    errorResponseBuilder: (_req, context) => Object.assign(new Error(TOO_MANY), { statusCode: context.statusCode }),
+  })
 
   const sockets = new Set<WebSocket>()
   const feeds = new Feeds(db, options.feeds)
@@ -328,10 +376,27 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // Documents' files go in the same storage as the backups, under a prefix of their own (ADR 0029).
   const documents = new DocumentFiles(db, options.documentStore ?? backupStore, { key: backupKey, log: app.log, report: (err) => reportError(err, { area: 'documents' }) })
   app.decorate('documents', documents)
+  // Offers on WhatsApp (ADR 0125): sent as they're made, and their own page says whether theirs go there.
+  const whatsapp = new WhatsApp(options.whatsapp)
+  const whatsappSender = new WhatsAppSender(db, whatsapp, { log: app.log, report: (err) => reportError(err, { area: 'whatsapp' }), onSent: () => void poke() })
+  app.decorate('whatsappSender', whatsappSender)
+  // An offer made by Offer waits so it can be undone (ADR 0162): as the wait ends, its invites and WhatsApp go.
+  const offerWaits = new OfferWaits(
+    db,
+    () => {
+      calendarSync?.kick()
+      void whatsappSender.kick()
+    },
+    (err) => reportError(err, { area: 'offer-waits' })
+  )
+  app.decorate('offerWaits', offerWaits)
   /** Something changed in the app: devices pull it, the calendar catches up, an erasure is written beside the backups, and files no document has any more are deleted. */
   const changed = () => {
     void poke()
     calendarSync?.kick()
+    // An offer just made goes on WhatsApp at the same moment as its calendar invite (ADR 0125), once its wait is over (ADR 0162).
+    void whatsappSender.kick()
+    void offerWaits.watch()
     void erasures?.keep()
     void documents.tidy()
   }
@@ -357,6 +422,18 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     const status = statusOf(err)
     if (isCharacterError(err)) {
       reply.code(status).send({ error: CHARACTERS })
+      return
+    }
+    // Too many tries says so in the words the app shows, as the passcode's own count does.
+    if (status === 429) {
+      // Connecting Google is a page visit, not a call from the app: sent back to Admin with the same words, never a page of
+      // raw JSON (audit, 5 November 2026, finding 99).
+      const visit = { '/api/calendar/connect': 'calendar', '/api/assistant/mailbox/connect': 'mailbox' }[req.routeOptions.url ?? '']
+      if (visit) {
+        reply.redirect(`/?${visit}=busy#admin/connections`, 303)
+        return
+      }
+      reply.code(429).send({ error: err.message })
       return
     }
     if (status < 500) {
@@ -391,6 +468,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   registerAuth(app, db, auth, passcode)
   // Staff's own pages need Google too, once it is on (ADR 0052).
   if (auth) guardStaffPages(app, db, auth.admins)
+  // A freelancer's link remembers the phones it opens on, and checks a new one once the office says (ADR 0114). The mailbox
+  // that sends the code is made further down, so it's looked up when a code is asked for.
+  registerLinkCheck(app, db, { mailbox: () => (app.hasDecorator('assistantMailbox') ? app.assistantMailbox : undefined) })
+
+  // The face the server's own pages are set in (crew/fonts.ts).
+  registerPageFonts(app)
 
   app.get('/api/health', { config: { public: true } }, async () => {
     const backup = backups.status()
@@ -605,34 +688,53 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   })
 
   // Freelancers' private links: no app or login needed to answer an offer.
-  registerCrewLinks(app, db, changed, feeds, { demo: !auth && !!passcode, ownCalendars })
+  registerCrewLinks(app, db, changed, feeds, { demo: !auth && !!passcode, ownCalendars, whatsapp })
   registerOwnCalendarRoutes(app, { ownCalendars })
   registerDocumentRoutes(app, { db, files: documents, onChange: changed })
   registerPhotoRoutes(app, { db, files: documents, onChange: changed })
+  registerJobPhotoRoutes(app, { db, files: documents, onChange: changed })
   registerBackupRoutes(app, backups)
   registerDataRoutes(app, { db, backups, documents, onChange: changed })
   registerPeopleImportRoutes(app, { db, onChange: changed })
   registerStockImportRoutes(app, { db, onChange: changed, round: options.stockImport })
   registerItemLogRoutes(app, { db })
   registerNoticeRoutes(app, { db })
+  registerAdrLink(app)
   registerPlaceRoutes(app, { search: options.places ?? nominatim() })
   registerFuelRoutes(app, { lookup: fuel })
   registerCalendarRoutes(app, { db, google, sync: calendarSync, secret: calendar?.clientSecret, onChange: () => void poke() })
   registerImportRoutes(app, { db, sync: calendarSync, onChange: () => void poke() })
-  const rms = new RmsReader(db, options.currentRms && new RmsApi(options.currentRms), app.log)
+  // One client for both reads, so together they keep to Current RMS's request a second.
+  const rmsApi = options.currentRms && new RmsApi(options.currentRms)
+  const rms = new RmsReader(db, rmsApi, app.log)
   app.decorate('rms', rms)
-  registerRmsRoutes(app, { db, reader: rms })
+  const rmsPrices = new RmsPriceReader(db, rmsApi, app.log)
+  app.decorate('rmsPrices', rmsPrices)
+  const rmsMembers = new RmsMemberReader(db, rmsApi, app.log)
+  app.decorate('rmsMembers', rmsMembers)
+  registerRmsRoutes(app, { db, reader: rms, prices: rmsPrices, members: rmsMembers })
   const assistant = new Assistant(db, options.claude)
   const todo = new Todo(db, assistant, app.log)
   app.decorate('assistantTodo', todo)
   registerAssistantRoutes(app, { assistant, todo })
+  const mailbox = new Mailbox(db, assistant, google, calendar?.clientSecret, () => void poke(), app.log, options.gmail)
+  app.decorate('assistantMailbox', mailbox)
+  registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
+  registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke(), logo: () => readLogo(db.reads, documents), ...(options.mx ? { mx: options.mx } : {}), ...(options.recheckMs !== undefined ? { recheckMs: options.recheckMs } : {}) })
+  // What comes back to each quote's email in its first week (ADR 0172): bounces, delays and the client's replies.
+  app.decorate('quoteWatch', new QuoteWatch(db, mailbox, () => void poke(), app.log))
+  // What comes back from WhatsApp (ADR 0125, part 3): receipts, and Yes and No pressed on an offer.
+  registerWhatsAppRoutes(app, { whatsapp, answers: new WhatsAppAnswers(db, whatsapp, { onChange: changed, log: app.log }) })
+  // The client accepts a quote on its own link (ADR 0121), while the office has it on.
+  registerAcceptRoutes(app, db, { onChange: () => void poke(), logo: () => readLogo(db.reads, documents) })
+  registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   registerStatusRoutes(
     app,
-    new Status({ db, auth, passcode, errorReporting: !!errorReporting, backups, backupStore, documents, calendar: calendarSync, rms, assistant, fuel, outside: options.outside ?? {}, commit, live: () => sockets.size })
+    new Status({ db, auth, passcode, errorReporting: !!errorReporting, backups, backupStore, documents, calendar: calendarSync, rms, assistant, mailbox, whatsapp, fuel, outside: options.outside ?? {}, commit, live: () => sockets.size })
   )
 
   // The history (ADR 0006): newest first, a page at a time, for everyone, one person or one record.
-  app.get<{ Querystring: { before?: string; limit?: string; who?: string; entity?: string; id?: string } }>('/api/history', async (req, reply) => {
+  app.get<{ Querystring: { before?: string; limit?: string; who?: string; entity?: string; id?: string; job?: string } }>('/api/history', async (req, reply) => {
     try {
       // Read by every member of staff, so in words without crew pay for a role that doesn't see it (ADR 0046), nor for a
       // head who sees only their department's (ADR 0062): the history names everyone's.
@@ -714,11 +816,19 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.addHook('onClose', async () => {
     rms.stop()
     await rms.done?.catch(() => {})
+    rmsPrices.stop()
+    rmsMembers.stop()
+    await rmsPrices.done?.catch(() => {})
+    await rmsMembers.done?.catch(() => {})
     // A backup under way is given a while to finish, or marked stopped so the next server makes it up (audit finding 54).
     await backups.close()
     app.dueErasures.stop()
     app.fuelUpdates.stop()
     app.assistantTodo.stop()
+    app.assistantMailbox.stop()
+    app.quoteWatch.stop()
+    whatsappSender.stop()
+    offerWaits.stop()
     documents.stop()
     calendarSync?.stop()
     ownCalendars.stop()

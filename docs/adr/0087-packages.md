@@ -1,6 +1,6 @@
 # ADR 0087: Packages
 
-- **Status:** accepted
+- **Status:** accepted, amended by [ADR 0116](0116-a-package-is-a-shortcut-for-its-kit.md) (a package adds its kit, itemised under its line)
 - **Date:** 28 October 2026
 - **Asked for by:** Colly, part 2 of the quoting plan ("Go for it", 28
   October 2026). This is part 2b; rate rules, discounts and an agreed price

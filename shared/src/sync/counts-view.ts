@@ -1,5 +1,5 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
-import { countSetTo, ROLLING_WEEKS, unknownCode, type Count, type CountDraft, type CountEntities, type CountItem, type CountProduct, type CountSummary } from '../counts.ts'
+import { countSetTo, ROLLING_WEEKS, UNDER_WAY_HOURS, unknownCode, type Count, type CountStart, type CountDraft, type CountEntities, type CountItem, type CountProduct, type CountSummary } from '../counts.ts'
 import type { Where } from '../stock.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
 import type { FaultsView } from './faults-view.ts'
@@ -47,9 +47,20 @@ export interface WeekList {
   places: number
 }
 
+/** A count under way on someone's phone (ADR 0177). */
+export interface UnderWay extends CountStart {
+  pending: boolean
+  what: string
+  person: PersonView | undefined
+}
+
 export interface CountsView {
   /** Newest first. */
   all: CountView[]
+  /** Counts under way on any phone, the latest begun first: neither finished, discarded, nor left for UNDER_WAY_HOURS. */
+  underWay: UnderWay[]
+  /** Those under way at a place or of a case. */
+  underWayAt(where: { placeId?: string | null; caseId?: string | null }): UnderWay[]
   byId(id: string): CountView | undefined
   /** A place's or a case's counts, newest first. */
   of(where: { placeId?: string | null; caseId?: string | null }): CountView[]
@@ -75,7 +86,8 @@ export function countsView(
   cursor: number,
   warehouse: WarehouseView,
   crew: Pick<CrewView, 'people'>,
-  today: string
+  today: string,
+  now = Date.now()
 ): CountsView {
   const counts = new Map<string, Count & { pending: boolean }>()
   for (const c of Object.values(entities.count ?? {})) counts.set(c.id, { ...c, pending: false })
@@ -103,6 +115,33 @@ export function countsView(
       }
     })
     .sort(newest)
+
+  // Under way (ADR 0177): begun, from the server or this phone's own on their way, less those ended or finished.
+  const starts = new Map<string, CountStart & { pending: boolean }>()
+  for (const c of Object.values(entities.countStart ?? {})) starts.set(c.id, { ...c, pending: false })
+  for (const m of outbox) {
+    if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
+    if (m.name === 'count.begin') {
+      const a = m.args as CommandArgs<'count.begin'>
+      if (!starts.has(a.id)) starts.set(a.id, { ...a, startedAt: new Date(a.startedAt).toISOString(), endedAt: null, pending: true })
+    } else if (m.name === 'count.end') {
+      const a = m.args as CommandArgs<'count.end'>
+      const was = starts.get(a.id)
+      if (was) starts.set(a.id, { ...was, endedAt: was.endedAt ?? new Date(now).toISOString() })
+    }
+  }
+  const since = now - UNDER_WAY_HOURS * 3_600_000
+  const underWay: UnderWay[] = [...starts.values()]
+    .filter((c) => !c.endedAt && !counts.has(c.id) && Date.parse(c.startedAt) > since)
+    .map((c) => {
+      const place = c.placeId ? places.get(c.placeId) : undefined
+      return {
+        ...c,
+        what: c.placeId ? (place?.name ?? 'a place since removed') : caseName(c.caseId ? warehouse.assets.get(c.caseId) : undefined),
+        person: c.by ? people.get(c.by) : undefined,
+      }
+    })
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt) || a.id.localeCompare(b.id))
 
   const byWhere = new Map<string, CountView[]>()
   const byItem = new Map<string, { count: CountView; item: CountItem }[]>()
@@ -132,6 +171,8 @@ export function countsView(
 
   return {
     all,
+    underWay,
+    underWayAt: (w) => underWay.filter((u) => (w.placeId ? u.placeId === w.placeId : !!w.caseId && u.caseId === w.caseId)),
     byId: (id) => all.find((c) => c.id === id),
     of,
     ofItem: (id) => byItem.get(id) ?? [],

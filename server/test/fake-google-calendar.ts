@@ -98,6 +98,8 @@ export class FakeGoogle {
   readonly lists: URLSearchParams[] = []
   /** Happens just before the next replace reaches Google, as a guest answering at that moment would. */
   beforeNextReplace: (() => void) | undefined
+  /** Only that event's next replace runs `beforeNextReplace`. */
+  replaceOnly: string | undefined
   private accounts = new Map<string, Account>()
   private codes = new Map<string, { account: string; challenge: string; redirectUri: string }>()
   private refreshTokens = new Map<string, { account: string; revoked: boolean }>()
@@ -200,9 +202,29 @@ export class FakeGoogle {
     Object.assign(ev, changes, { etag: `"${++this.n}"`, updated: this.clock().toISOString() })
   }
 
-  /** A guest answers an invite, in their own calendar or from the email. */
+  /**
+   * The app's own copies of a shared day for each person (1.163.0): events on any calendar marked with the same phase
+   * and day and a person.
+   */
+  private copiesOf(ev: FakeEvent): FakeEvent[] {
+    const mark = ev.extendedProperties?.private
+    if (!mark?.shPhase || mark.shPerson) return []
+    return [...this.events.values()].flatMap((store) =>
+      [...store.values()].filter((e) => {
+        const m = e.extendedProperties?.private
+        return e.status !== 'cancelled' && m?.shPerson && m.shPhase === mark.shPhase && m.shDay === mark.shDay
+      })
+    )
+  }
+
+  /**
+   * A guest answers an invite, in their own calendar or from the email. On a shared day of the app's, it's their own
+   * copy of that day they answer.
+   */
   respond(calendarId: string, eventId: string, email: string, responseStatus: GuestAnswer, comment?: string) {
-    const ev = this.events.get(calendarId)!.get(eventId)!
+    const shared = this.events.get(calendarId)!.get(eventId)!
+    const isGuest = (e: FakeEvent) => e.attendees?.some((a) => a.email.toLowerCase() === email.toLowerCase())
+    const ev = isGuest(shared) ? shared : (this.copiesOf(shared).find(isGuest) ?? shared)
     const guest = ev.attendees?.find((a) => a.email.toLowerCase() === email.toLowerCase())
     if (!guest) throw new Error(`${email} isn't a guest on ${ev.summary}`)
     Object.assign(guest, { responseStatus }, comment === undefined ? {} : { comment })
@@ -217,10 +239,15 @@ export class FakeGoogle {
     Object.assign(ev, { etag: `"${++this.n}"`, updated: this.clock().toISOString() })
   }
 
-  /** The guests on an event, and their answers, as `email answer`. */
+  /** The guests on an event, and their answers, as `email answer`; on a shared day of the app's, with everyone's own copies. */
   guests(calendarId: string, eventId: string): string[] {
     const ev = this.events.get(calendarId)!.get(eventId)!
-    return (ev.attendees ?? []).filter((a) => !a.organizer).map((a) => `${a.email} ${a.responseStatus}`)
+    return [ev, ...this.copiesOf(ev)].flatMap((e) => (e.attendees ?? []).filter((a) => !a.organizer).map((a) => `${a.email} ${a.responseStatus}`))
+  }
+
+  /** Each guest's own copies of a shared day, as `email: summary`. */
+  copies(calendarId: string, eventId: string): FakeEvent[] {
+    return this.copiesOf(this.events.get(calendarId)!.get(eventId)!)
   }
 
   /** Expire every short-lived access key, as an hour passing would. */
@@ -325,8 +352,12 @@ export class FakeGoogle {
       if (eventId && this.purged.has(eventId)) return apiError(410, 'deleted')
       if (!ev) return apiError(404, 'notFound')
       if (method === 'PUT') {
-        const meanwhile = this.beforeNextReplace
-        this.beforeNextReplace = undefined
+        const only = this.replaceOnly
+        const meanwhile = only === undefined || only === ev.id ? this.beforeNextReplace : undefined
+        if (meanwhile) {
+          this.beforeNextReplace = undefined
+          this.replaceOnly = undefined
+        }
         meanwhile?.()
         const ifMatch = (init?.headers as Record<string, string>)?.['if-match']
         if (ifMatch && ifMatch !== ev.etag) return apiError(412, 'conditionNotMet')

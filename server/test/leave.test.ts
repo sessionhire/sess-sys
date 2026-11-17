@@ -212,10 +212,11 @@ describe('deciding', () => {
     expect(ics.body).toContain('SUMMARY:Annual leave')
     expect(ics.body).toContain('DTSTART;VALUE=DATE:20310303')
     expect(ics.body).toContain('DTEND;VALUE=DATE:20310308')
-    // Nor from her own link: the page says it's approved leave with no Remove, and the form, if posted anyway, answers with the refusal and leaves the days off.
-    // Hers is a member of staff's page, so it opens for her Google sign-in (ADR 0052).
+    // Nor from her own link: the page lists it under Leave as approved, with no Remove, and the form, if posted anyway, answers with the refusal and leaves the days off.
+    // Hers is a member of staff's page, so it opens for her Google sign-in (ADR 0052), and her time off there is her leave (UX sweep, 6 November 2026, move 6).
     const page = (await app.inject({ url: `/f/${token}`, cookies: aoife.cookies })).body
-    expect(page).toContain('Approved leave')
+    expect(page).toContain('<h2>Leave</h2>')
+    expect(page).toMatch(/<li><span>Mon 3 Mar 2031 to Fri 7 Mar 2031 <small>Annual leave[^<]*<\/small><\/span><span class="tag approved">Approved<\/span><\/li>/)
     expect(page).not.toContain('/away/r1/remove')
     const posted = await app.inject({ method: 'POST', url: `/f/${token}/away/r1/remove`, cookies: aoife.cookies, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: '' })
     expect(posted.statusCode).toBe(303)
@@ -225,6 +226,10 @@ describe('deciding', () => {
       message: 'These days off are approved leave: cancel the leave on the Leave screen instead.',
     })
     expect(await colly.record<Unavailability>('unavailability', 'r1')).toMatchObject({ source: 'leave' })
+    // Nor can her page mark days off round the approval, even one kept from before that still has the form.
+    const marked = await app.inject({ method: 'POST', url: `/f/${token}/away`, cookies: aoife.cookies, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: 'start=2031-03-10&end=2031-03-11' })
+    expect(marked.statusCode).toBe(422)
+    expect(flashOf(marked.body)).toEqual({ ok: false, message: 'Staff ask for leave in the app, under Leave, where whoever approves time off sees it.' })
 
     // Only Aoife cancels it, and the days off go with it. Signed in, she can't say she's someone else either.
     expect(refused(await cian.send('leave.cancel', { id: 'r1' }))).toBe('Only Aoife Byrne can cancel their own request.')

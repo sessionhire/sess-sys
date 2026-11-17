@@ -130,8 +130,9 @@ export const vehicleHandlers: { [N in VehicleCommand]: Handler<N> } = {
     if (await getBooking(ctx.tx, a.id)) return
     await checkBooking(ctx, a)
     await ctx.tx.query(
-      `INSERT INTO vehicle_bookings (id, vehicle_id, project_id, phase_id, start_day, end_day, driver_id, notes, override) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [a.id, a.vehicleId, a.projectId, a.phaseId, a.start, a.end, a.driverId, a.notes.trim(), a.override]
+      `INSERT INTO vehicle_bookings (id, vehicle_id, project_id, phase_id, start_day, end_day, driver_id, notes, override, drive_minutes, arrive_by, leave_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [a.id, a.vehicleId, a.projectId, a.phaseId, a.start, a.end, a.driverId, a.notes.trim(), a.override, a.driveMinutes ?? null, a.arriveBy ?? null, a.leaveAt ?? null]
     )
     await emitBooking(ctx, a.id)
   },
@@ -149,8 +150,9 @@ export const vehicleHandlers: { [N in VehicleCommand]: Handler<N> } = {
     if (next.start > next.end) throw new Refused({ code: 'invalid', message: 'The booking ends before it starts.' })
     await checkBooking(ctx, next, was)
     await ctx.tx.query(
-      `UPDATE vehicle_bookings SET vehicle_id = $2, phase_id = $3, start_day = $4, end_day = $5, driver_id = $6, notes = $7, override = override OR $8 WHERE id = $1`,
-      [a.id, next.vehicleId, next.phaseId, next.start, next.end, next.driverId, next.notes, next.override]
+      `UPDATE vehicle_bookings SET vehicle_id = $2, phase_id = $3, start_day = $4, end_day = $5, driver_id = $6, notes = $7, override = override OR $8,
+         drive_minutes = $9, arrive_by = $10, leave_at = $11 WHERE id = $1`,
+      [a.id, next.vehicleId, next.phaseId, next.start, next.end, next.driverId, next.notes, next.override, next.driveMinutes ?? null, next.arriveBy ?? null, next.leaveAt ?? null]
     )
     await emitBooking(ctx, a.id)
   },

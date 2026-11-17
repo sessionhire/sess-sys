@@ -102,6 +102,7 @@ const MODEL_COLUMNS = {
   castors: 'castors',
   powerLimitA: 'power_limit_a',
   rackPart: 'rack_part',
+  lengthM: 'length_m',
 } as const
 
 const described = async (ctx: Ctx, assetId: string) => {
@@ -283,9 +284,9 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
     await ctx.tx.query(
       `INSERT INTO models (id, name, department, category, tracking, is_case, value_cents, notes, pat_months, lifting_months, aliases, list_id,
                            is_rack, code, units, depth_mm, weight_kg, power_w, dry_hire, supplier, hire_day_cents,
-                           rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part)
+                           rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
-               $22, $23, $24, $25, $26, $27, $28, $29)`,
+               $22, $23, $24, $25, $26, $27, $28, $29, $30)`,
       [
         a.id,
         a.name.trim(),
@@ -316,6 +317,7 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
         a.castors,
         a.powerLimitA,
         a.rackPart,
+        a.lengthM,
       ]
     )
     await emit(ctx, 'model', a.id, await getModel(ctx.tx, a.id))

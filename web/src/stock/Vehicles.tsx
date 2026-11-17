@@ -1,5 +1,7 @@
 import {
   CHECK_KINDS,
+  dayLabel,
+  plural,
   CHECK_SOON_DAYS,
   checkLabel,
   checkLine,
@@ -10,6 +12,8 @@ import {
   offRoadLine,
   ROAD_CHECKS,
   spanLabel,
+  roadWords,
+  mondayOf,
   VEHICLE_KIND_LABELS,
   VEHICLE_KINDS,
   vehicleName,
@@ -19,8 +23,12 @@ import {
   type VehicleKind,
   type VehicleView,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
+  TIME_GROUPS,
 } from '@sh/shared'
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type MouseEvent } from 'react'
+import { vansPlanHref } from '../jobs/PlanScreen.tsx'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
 import { Fold, ShowAll } from '../Fold.tsx'
@@ -30,7 +38,7 @@ import { useAccess } from '../role.ts'
 import { Pending, StatusPill } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { STOCK, VEHICLES } from '../Up.tsx'
-import { useToday } from '../view.ts'
+import { useToday, useWide } from '../view.ts'
 import { StockViews } from '../Views.tsx'
 import { Split } from '../Split.tsx'
 import './vehicles.css'
@@ -67,21 +75,26 @@ export function VehiclesScreen({ view }: { view: View }) {
   const retired = view.vehicles.all.filter((v) => v.archived)
   return (
     <div className="app warehouse">
-      <Top view={view} title="Stock" views={<StockViews view={view} current="vehicles" />} heading="Vehicles" />
+      <Top view={view} title="Stock" views={<StockViews view={view} current="vehicles" />} heading="Vehicles" add={mayChange ? { key: 'vehicle', label: 'New vehicle' } : undefined} />
+      {/* The list, or the vehicles' planner by week or month (ADR 0179). */}
+      <div className="plan-show">
+        <VehicleShow current="list" day={today} />
+      </div>
       <Split side={<VehicleReminders view={view} />}>
         <section className="card" aria-label="Vehicles">
           <Heading icon="van">Vans and the rest</Heading>
+          {/* First in the list, as every list's add is (UX sweep, 6 November 2026, move 1). */}
+          {mayChange && (
+            <Fold label="New vehicle" from="vehicle">
+              <VehicleForm onDone={(id) => (location.hash = vehicleHref(id))} />
+            </Fold>
+          )}
           {view.vehicles.vehicles.length === 0 && <Empty>Add the vans, so they can be booked on jobs with a driver.</Empty>}
           <ul className="vehicle-list">
             {view.vehicles.vehicles.map((v) => (
               <VehicleRow key={v.id} v={v} today={today} />
             ))}
           </ul>
-          {mayChange && (
-            <Fold label="Add vehicle">
-              <VehicleForm onDone={(id) => (location.hash = vehicleHref(id))} />
-            </Fold>
-          )}
           {retired.length > 0 && (
             <details className="retired">
               <summary>Retired ({retired.length})</summary>
@@ -95,6 +108,61 @@ export function VehiclesScreen({ view }: { view: View }) {
         </section>
       </Split>
     </div>
+  )
+}
+
+/**
+ * How the vehicles are shown (ADR 0179): the list, or the planner by week or by month, which picks up the days it was
+ * on. A choice of how to see the same vehicles, pressed as the planner's rows are; the address keeps it. On a phone the
+ * week opens as a list of its days, which a phone can read without scrolling sideways.
+ */
+export function VehicleShow({ current, day }: { current: 'list' | 'week' | 'month'; day: string }) {
+  const wide = useWide()
+  const go = (href: string) => (e: MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.focus()
+    location.hash = href
+  }
+  return (
+    <div className="filters" role="group" aria-label="Show the vehicles as">
+      <button type="button" aria-pressed={current === 'list'} onClick={go('#stock/vehicles')}>
+        List
+      </button>
+      <button type="button" aria-pressed={current === 'week'} onClick={go(vansPlanHref('week', mondayOf(day), !wide))}>
+        Week
+      </button>
+      <button type="button" aria-pressed={current === 'month'} onClick={go(vansPlanHref('month', day))}>
+        Month
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Where the drives are measured from (ADR 0179): the warehouse on the map, or Dublin city centre until it's there, said
+ * once above the planner so an estimate is never taken for more than it is. Those who keep the settings can put it on
+ * the map here, as on Admin › Connections › Trackers: it's the same pin.
+ */
+export function DrivesFrom({ view }: { view: View }) {
+  const may = useAccess().can('settings')
+  const { address } = view.trackers.settings
+  const where = address.split('\n').map((l) => l.trim()).find(Boolean)
+  if (view.vehicles.from.set)
+    return (
+      <p className="hint drives-from">
+        Drive times are estimated from the warehouse{where ? ` (${where})` : ''} to each venue on the map, at van speeds. A drive typed on a booking is used instead.
+      </p>
+    )
+  return (
+    <section className="card checks" aria-label="Where drives are measured from">
+      <p className="hint">Drive times are estimated from Dublin city centre until the warehouse is on the map. A drive typed on a booking is used instead.</p>
+      {may && (
+        <div className="actions">
+          <a className="button" href="#admin/company">
+            Put the warehouse on the map
+          </a>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -137,7 +205,7 @@ export function VehicleReminders({ view }: { view: View }) {
   if (!reminders.length) return null
   return (
     <section className="card reminders" aria-label="Vehicle checks running out">
-      <Heading icon="certificate">Vehicle checks running out ({reminders.length})</Heading>
+      <Heading icon="certificate">{listHeading(STANDING_HEADINGS.vehicles, reminders.length)}</Heading>
       <ShowAll items={reminders} limit={3} what="checks">
         {(rows) =>
           rows.map((r) => (
@@ -289,11 +357,34 @@ export function VehicleScreen({ view, id, bare }: { view: View; id: string; bare
       </Page>
     )
   return (
-    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare}>
+    <Page view={view} title="Stock" className="warehouse" up={up} bare={bare} heading={v.name} badge={<VehiclePills v={v} />}
+      sub={<p>{vehicleLine(v)}</p>}
+    >
       <Summary v={v} />
       <Checks v={v} />
       <Bookings v={v} />
     </Page>
+  )
+}
+
+/** "Van · 241-D-100 · 3 seats": its kind, registration and seats under its name (Move 11 of the sweep of 6 November 2026). */
+function vehicleLine(v: VehicleView): string {
+  return [VEHICLE_KIND_LABELS[v.kind], v.registration || undefined, v.seats != null ? plural(v.seats, 'seat') : undefined].filter(Boolean).join(' · ')
+}
+
+/**
+ * Its state beside its name: pending, retired, or off the road until a day, with why under it, in words as well as the pill's
+ * tone (Move 11 of the sweep of 6 November 2026; states.md: a value not plainly true is said).
+ */
+function VehiclePills({ v }: { v: VehicleView }) {
+  const today = useToday()
+  const off = v.outOfService && (v.outOfService.until === null || v.outOfService.until >= today) ? v.outOfService : null
+  return (
+    <>
+      <Pending pending={v.pending} />
+      {v.archived && <StatusPill tone="cancelled">Retired</StatusPill>}
+      {off && <StatusPill tone="pending">{off.until ? `Off the road until ${dayLabel(off.until)}` : 'Off the road'}</StatusPill>}
+    </>
   )
 }
 
@@ -308,13 +399,7 @@ function Summary({ v }: { v: VehicleView }) {
     void run(() => client.mutate('vehicle.archive', { id: v.id, archived }))
   }
   return (
-    <section className="card">
-      <header className="title">
-        <h1>{v.name}</h1>
-        <Pending pending={v.pending} />
-        {v.archived && <StatusPill tone="cancelled">Retired</StatusPill>}
-        {off && <StatusPill tone="pending">Off the road</StatusPill>}
-      </header>
+    <section className="card" aria-label="Details">
       <dl className="facts">
         <div>
           <dt>Registration</dt>
@@ -384,12 +469,14 @@ function OffRoadForm({ v, onDone }: { v: VehicleView; onDone: () => void }) {
   }
   return (
     <form className="grid-form" onSubmit={save} aria-label={`Take ${v.name} off the road`}>
-      <label>
-        Off the road from <input type="date" value={f.since} onChange={(e) => setF({ ...f, since: e.target.value })} required />
-      </label>
-      <label>
-        Back on <input type="date" value={f.until} onChange={(e) => setF({ ...f, until: e.target.value })} />
-      </label>
+      <div className="pair">
+        <label>
+          Off the road from <input type="date" value={f.since} onChange={(e) => setF({ ...f, since: e.target.value })} required />
+        </label>
+        <label>
+          Back on <input type="date" value={f.until} onChange={(e) => setF({ ...f, until: e.target.value })} />
+        </label>
+      </div>
       <label className="wide">
         Why <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. In for a new clutch" />
       </label>
@@ -397,7 +484,7 @@ function OffRoadForm({ v, onDone }: { v: VehicleView; onDone: () => void }) {
       <Refusal error={error} className="wide" />
       <div className="actions wide">
         <button type="submit" className="primary">
-          Take it off the road
+          Take off road
         </button>
         <button type="button" onClick={onDone}>
           Cancel
@@ -443,7 +530,7 @@ function Bookings({ v }: { v: VehicleView }) {
       ))}
       {gone.length > 0 && (
         <details>
-          <summary>Earlier ({gone.length})</summary>
+          <summary>{TIME_GROUPS.past} ({gone.length})</summary>
           {gone.map((b) => (
             <BookingLine key={b.id} b={b} />
           ))}
@@ -457,7 +544,7 @@ function BookingLine({ b }: { b: BookingView }) {
   return (
     <article className="van-line">
       <div>
-        <a href={`#jobs/${b.projectId}`}>
+        <a href={`#jobs/${b.projectId}/vans`}>
           <b>{b.job?.name ?? 'A job since removed'}</b>
         </a>{' '}
         <Pending pending={b.pending} />
@@ -466,6 +553,8 @@ function BookingLine({ b }: { b: BookingView }) {
           {b.driver ? ` · ${b.driver.name} driving` : ''}
           {b.hold === 'pencilled' ? ' · pencilled in' : ''}
         </p>
+        {/* Out on the road (ADR 0179). */}
+        <p className="van-road">{roadWords(b.road).join(' · ')}</p>
         {b.notes && <p>{b.notes}</p>}
       </div>
       {b.problems

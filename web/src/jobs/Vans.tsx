@@ -4,6 +4,8 @@ import {
   firstName,
   newId,
   offRoadOn,
+  roadWords,
+  driveWords,
   spanLabel,
   STOPPED,
   vehicleName,
@@ -13,6 +15,8 @@ import {
   type PersonView,
   type VehicleView,
   type View,
+  NOT_YOURS,
+  MAX_DRIVE_MINUTES,
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -33,7 +37,10 @@ import { useToday } from '../view.ts'
  * van that day, the van off the road, a driver with no licence or one not
  * recorded. A road check run out or a driver who can't drive is refused
  * here before anything is sent, as the server would; a clash or a day off
- * the road asks first, and is booked anyway if the office says so.
+ * the road asks first, and is booked anyway if the office says so. Booking
+ * is done on the job's page, under its Next dock, so the form's submit is
+ * plain: the dock holds the page's one filled red (ADR 0104; UX sweep,
+ * 6 November 2026, move 1).
  */
 
 export function VansCard({ job, view }: { job: JobView; view: View }) {
@@ -44,7 +51,8 @@ export function VansCard({ job, view }: { job: JobView; view: View }) {
     <section className="card vans" aria-label="Vehicles">
       <Heading icon="van">Vehicles</Heading>
       {stopped && bookings.length > 0 && <p className="hint">This job is {job.status}, so its vehicles are free for other jobs.</p>}
-      {bookings.length === 0 && <Empty>Book a van for the job, or for one phase of it, with a driver from the crew.</Empty>}
+      {/* A role without a button is told who books them, not told to (UX sweep, 6 November 2026, move 4). */}
+      {bookings.length === 0 && <Empty>{mayBook ? 'Book a van for the job, or for one phase of it, with a driver from the crew.' : `No vans booked yet. ${NOT_YOURS.vans}`}</Empty>}
       {bookings.map((b) => (
         <Booking key={b.id} b={b} job={job} view={view} mayBook={mayBook} />
       ))}
@@ -84,6 +92,8 @@ function Booking({ b, job, view, mayBook }: { b: BookingView; job: JobView; view
           {b.phaseId ? (b.phase?.name ?? 'A phase since removed') : 'Whole job'} · {spanLabel(b)}
           {b.driver ? ` · ${b.driver.name} driving` : ''}
         </p>
+        {/* Out on the road (ADR 0179): when it leaves the warehouse and is back, and the drive each way. */}
+        <p className="van-road">{roadWords(b.road).join(' · ')}</p>
         {b.notes && <p>{b.notes}</p>}
       </div>
       {b.problems.map((p) => (
@@ -97,6 +107,7 @@ function Booking({ b, job, view, mayBook }: { b: BookingView; job: JobView; view
         <Confirm
           question={`Take ${b.vehicle?.name ?? 'this vehicle'} off ${job.name}? It's free for other jobs on those days again.`}
           yes="Take it off"
+          loss
           onYes={() => {
             setDoing(undefined)
             void run(() => client.mutate('vehicleBooking.remove', { id: b.id }))
@@ -157,6 +168,9 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
       end: booking?.end ?? span.end,
       driverId: booking?.driverId ?? '',
       notes: booking?.notes ?? '',
+      driveMinutes: booking?.driveMinutes != null ? String(booking.driveMinutes) : '',
+      arriveBy: booking?.arriveBy ?? '',
+      leaveAt: booking?.leaveAt ?? '',
     }
   })
   const [asking, setAsking] = useState('')
@@ -164,13 +178,38 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
   const vehicles = view.vehicles.vehicles
   const drivers = driverGroups(view.crew.people, f.start, f.end, today)
   const fitted = f.start && f.end && f.start <= f.end
+  const typedDrive = f.driveMinutes.trim() === '' ? null : Number(f.driveMinutes)
+  const driveOk = typedDrive === null || (Number.isInteger(typedDrive) && typedDrive >= 0 && typedDrive <= MAX_DRIVE_MINUTES)
+  // The road as it would be (ADR 0179): the days it's away, which is what a clash is checked against.
+  const road = view.vehicles.roadOf({
+    vehicleId: f.vehicleId,
+    projectId: job.id,
+    phaseId: f.phaseId || null,
+    start: f.start,
+    end: fitted ? f.end : f.start,
+    driveMinutes: driveOk ? typedDrive : null,
+    arriveBy: f.arriveBy || null,
+    leaveAt: f.leaveAt || null,
+  })
+  // What the map makes the drive, for the field's example, whatever's typed over it.
+  const mapRoad = view.vehicles.roadOf({ vehicleId: f.vehicleId, projectId: job.id, phaseId: f.phaseId || null, start: f.start, end: f.start, driveMinutes: null, arriveBy: null, leaveAt: null })
 
   const send = (override: boolean) => {
     setAsking('')
-    const fields = { vehicleId: f.vehicleId, phaseId: f.phaseId || null, start: f.start, end: f.end, driverId: f.driverId || null, notes: f.notes.trim() }
+    const fields = {
+      vehicleId: f.vehicleId,
+      phaseId: f.phaseId || null,
+      start: f.start,
+      end: f.end,
+      driverId: f.driverId || null,
+      notes: f.notes.trim(),
+      driveMinutes: typedDrive,
+      arriveBy: f.arriveBy || null,
+      leaveAt: f.leaveAt || null,
+    }
     const sent = booking
       ? run(() => {
-          const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => booking[k as keyof typeof fields] !== v))
+          const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => (booking[k as keyof typeof fields] ?? null) !== v))
           if (!Object.keys(changed).length) return Promise.resolve()
           return client.mutate('vehicleBooking.update', { id: booking.id, ...changed, ...(override ? { override } : {}) })
         })
@@ -178,7 +217,7 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
     void sent.then((ok) => {
       if (!ok) return
       if (onDone) onDone()
-      else setF({ ...f, vehicleId: '', driverId: '', notes: '' })
+      else setF({ ...f, vehicleId: '', driverId: '', notes: '', driveMinutes: '', arriveBy: '', leaveAt: '' })
     })
   }
 
@@ -187,8 +226,9 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
     const v = view.vehicles.get(f.vehicleId)
     if (!v) return refuse('Choose a vehicle.')
     if (!fitted) return refuse('The booking ends before it starts.')
+    if (!driveOk) return refuse(`The drive each way is a whole number of minutes, up to ${MAX_DRIVE_MINUTES}, such as 165 for 2 h 45.`)
     // The law first: refused here as the server would, with the fix.
-    const moved = !booking || booking.vehicleId !== f.vehicleId || booking.start !== f.start || booking.end !== f.end
+    const moved = !booking || booking.vehicleId !== f.vehicleId || booking.start !== f.start || booking.end !== f.end || booking.road.start !== road.start || booking.road.end !== road.end
     const refused = moved ? vehicleRefusal(v, f.start, f.end, today) : null
     if (refused) return refuse(refused)
     const driver = f.driverId ? view.crew.people.find((p) => p.id === f.driverId) : undefined
@@ -198,7 +238,7 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
     }
     // The office's judgement next: another job on it, or a day off the road, asks before booking anyway.
     if (moved) {
-      const clash = view.vehicles.clashesWith(v.id, f.start, f.end, booking?.id).find((c) => c.booking.end >= today)
+      const clash = view.vehicles.clashesWith(v.id, road.start, road.end, booking?.id).find((c) => c.booking.road.end >= today)
       if (clash)
         return setAsking(
           `${vehicleName(v)} is already on ${clash.booking.job?.name ?? 'another job'} on ${spanLabel({ start: clash.days[0]!, end: clash.days.at(-1)! })}. Book it anyway to have it on both?`
@@ -241,12 +281,48 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
           ))}
         </select>
       </label>
-      <label>
-        From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} required />
+      <div className="pair">
+        <label>
+          From <input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} required />
+        </label>
+        <label>
+          To <input type="date" value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} required />
+        </label>
+      </div>
+      {/* Out on the road (ADR 0179): when it's due and when it leaves, and the drive if the map's is wrong. */}
+      <div className="pair">
+        <label>
+          At the venue by <input type="time" value={f.arriveBy} onChange={(e) => setF({ ...f, arriveBy: e.target.value })} />
+          <small>On its first day. {road.arriveFrom === 'crew' ? `Blank: the crew’s call, ${road.arriveBy}.` : 'Blank: the crew’s call, once they have one.'}</small>
+        </label>
+        <label>
+          Leaves the venue <input type="time" value={f.leaveAt} onChange={(e) => setF({ ...f, leaveAt: e.target.value })} />
+          <small>On its last day, once it’s loaded.</small>
+        </label>
+      </div>
+      <label className="wide">
+        Drive each way, in minutes
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={MAX_DRIVE_MINUTES}
+          step={5}
+          value={f.driveMinutes}
+          onChange={(e) => setF({ ...f, driveMinutes: e.target.value })}
+          placeholder={mapRoad.minutes !== null ? String(mapRoad.minutes) : 'e.g. 165'}
+        />
+        <small>
+          {mapRoad.minutes !== null
+            ? `From the map: about ${driveWords(mapRoad.minutes)} (${mapRoad.km} km)${view.vehicles.from.set ? '' : ', measured from Dublin city centre until the warehouse is on the map'}. Type the real drive if you know it.`
+            : 'The venue isn’t on the map, so the drive can’t be worked out: type it, or put the venue on the map.'}
+        </small>
       </label>
-      <label>
-        To <input type="date" value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} required />
-      </label>
+      {f.vehicleId && fitted && driveOk && road.minutes !== null && (
+        <p className="van-road hint wide" aria-live="polite">
+          {roadWords(road).join(' · ')}
+        </p>
+      )}
       <label className="wide">
         Driver
         <select value={f.driverId} onChange={(e) => setF({ ...f, driverId: e.target.value })}>
@@ -293,7 +369,7 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
         <Confirm className="wide" question={asking} yes="Book anyway" no="Don't book it" onYes={() => send(true)} onNo={() => setAsking('')} />
       ) : (
         <div className="actions wide">
-          <button type="submit" className="primary">
+          <button type="submit">
             {booking ? 'Save booking' : 'Book vehicle'}
           </button>
           {onDone && (

@@ -43,8 +43,10 @@ describe('the status of everything the app relies on (ADR 0093)', () => {
     const app = await server({ outside: { maps: async () => {}, latest: async () => APP_VERSION } })
     const s = await read(app)
     expect(s.version).toBe(APP_VERSION)
-    expect(s.checks.map((c) => c.id)).toEqual(['server', 'updates', 'database', 'sign-in', 'errors', 'live', 'backups', 'storage', 'calendar', 'own-calendars', 'current-rms', 'claude', 'fuel', 'maps'])
+    expect(s.checks.map((c) => c.id)).toEqual(['server', 'updates', 'database', 'sign-in', 'errors', 'live', 'backups', 'storage', 'calendar', 'own-calendars', 'current-rms', 'claude', 'mailbox', 'whatsapp', 'fuel', 'maps'])
     expect(check(s, 'updates')).toMatchObject({ state: 'ok' })
+    // Offers on WhatsApp (ADR 0125): not set up without Meta's token, and said what to set.
+    expect(check(s, 'whatsapp')).toMatchObject({ state: 'off', todo: expect.stringMatching(/WHATSAPP_TOKEN/) })
     // Tests keep the database in memory, which the live app never should.
     expect(check(s, 'database')).toMatchObject({ state: 'bad', says: expect.stringMatching(/memory/), todo: expect.stringMatching(/DATABASE_URL/) })
     expect(check(s, 'sign-in')).toMatchObject({ state: 'bad', todo: expect.stringMatching(/GOOGLE_CLIENT_ID/) })
@@ -71,7 +73,7 @@ describe('the status of everything the app relies on (ADR 0093)', () => {
     const app = await server({ outside: { latest: down, maps: down }, fuel: down })
     const s = await read(app)
     expect(check(s, 'updates').state).toBe('off')
-    expect(check(s, 'maps')).toMatchObject({ state: 'warn', says: expect.stringMatching(/Venues already pinned still show/) })
+    expect(check(s, 'maps')).toMatchObject({ state: 'off', says: expect.stringMatching(/Venues already pinned still show/) })
     expect(check(s, 'fuel')).toMatchObject({ state: 'warn', says: expect.stringMatching(/quotes still use it/) })
   })
 

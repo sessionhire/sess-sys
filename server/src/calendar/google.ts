@@ -98,6 +98,8 @@ export interface GoogleEvent {
   extendedProperties?: { private?: Record<string, string> }
   /** The same on every calendar the event is on, unlike `id` for events from outside Google. */
   iCalUID?: string
+  /** Which of the app's calendars it was listed from; the app's own note, not Google's. */
+  calendarId?: string
   /** Set on each day of a repeating event. */
   recurringEventId?: string
   /** `default` for an ordinary event; otherwise out of office, focus time, a birthday and the like. */
@@ -151,12 +153,12 @@ export class Google {
    * Where to send the person to connect an account. `offline` and `consent`
    * make Google hand over a lasting key every time, not just the first.
    */
-  authorizeUrl({ state, codeChallenge, redirectUri, loginHint }: { state: string; codeChallenge: string; redirectUri: string; loginHint?: string }): string {
+  authorizeUrl({ state, codeChallenge, redirectUri, loginHint, scopes = CALENDAR_SCOPES }: { state: string; codeChallenge: string; redirectUri: string; loginHint?: string; scopes?: readonly string[] }): string {
     const q = new URLSearchParams({
       client_id: this.options.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: ['openid', 'email', ...CALENDAR_SCOPES].join(' '),
+      scope: ['openid', 'email', ...scopes].join(' '),
       state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',

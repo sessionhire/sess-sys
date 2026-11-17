@@ -1,4 +1,4 @@
-import { historyDays, historyTime, makerOf, NOTICE_WHY_WORDS, plan, plural, sortOutDays, type Notice, type NoticeLine, type View } from '@sh/shared'
+import { APP_VERSION, dsTiming, historyDays, historyTime, makerOf, NOTICE_WHY_WORDS, plan, plural, releasesSince, shortSoon, sortOutDays, type Notice, type NoticeLine, type View } from '@sh/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from './auth.ts'
 import { Empty } from './Empty.tsx'
@@ -6,6 +6,7 @@ import { Icon } from './Icon.tsx'
 import { Top } from './jobs/common.tsx'
 import { QuotesToChase } from './jobs/Money.tsx'
 import { SortOut } from './jobs/PlanScreen.tsx'
+import { KitToCheck } from './stock/Trackers.tsx'
 import { TodoCard } from './TodoCard.tsx'
 import {
   dismissToast,
@@ -14,15 +15,18 @@ import {
   linesOf,
   loadNotices,
   markAllRead,
+  offerToYou,
   pauseToast,
   placeOf,
   resumeToast,
   setToastsOn,
+  showToast,
   toastsOn,
   useNotices,
   useToasts,
 } from './notices.ts'
 import { useAccess } from './role.ts'
+import { takeLoadedFrom } from './update.tsx'
 import { MENU } from './Up.tsx'
 import { useLate } from './useLate.ts'
 import { useToday, useView } from './view.ts'
@@ -38,11 +42,13 @@ import { useToday, useView } from './view.ts'
 /**
  * Where pop-ups arrive: one region, there from the start so a screen reader
  * hears each as it's added, at the bottom corner, above the phone's bar.
- * Each has one action (Open, or See them) and Dismiss, and waits while the
+ * Each has one action (Open, See them, or What's changed) and Dismiss, and waits while the
  * pointer or the keyboard is on it.
  */
 export function Toaster() {
   const toasts = useToasts()
+  // Back from loading a new version: what it changed, as the first pop-up (update.tsx).
+  useEffect(() => sayWhatChanged(), [])
   return (
     <section className="toaster" aria-label="Notifications">
       {/* Polite, as role="status" is, without being a second status on the page beside the sync state. */}
@@ -61,20 +67,47 @@ export function Toaster() {
               <b>{t.title}</b>
               <small>{t.body}</small>
             </div>
-            <div className="toast-actions">
-              {t.href && (
-                <a className="button" href={t.href} onClick={() => dismissToast(t.id)}>
+            {t.href && (
+              <div className="toast-actions">
+                <a className="button" href={t.href} onClick={() => dismissToast(t.id)} {...(t.away ? { target: '_blank', rel: 'noreferrer' } : {})}>
                   {t.action}
                 </a>
-              )}
-              <button type="button" className="toast-dismiss" onClick={() => dismissToast(t.id)} aria-label={`Dismiss: ${t.title}`}>
-                <Icon name="close" />
-              </button>
-            </div>
+              </div>
+            )}
+            {/* Last in reading order, after the action, though it sits in the top corner. */}
+            <button type="button" className="toast-dismiss icon-button" onClick={() => dismissToast(t.id)} aria-label={`Dismiss: ${t.title}`}>
+              <Icon name="close" />
+            </button>
           </div>
         ))}
       </div>
     </section>
+  )
+}
+
+/**
+ * Back from loading a new version: a toast with what came in since the version this tab was on, from the changelog
+ * (ADR 0071): the newest by name and how many more, and What's changed for the whole of each. Asked for as the toaster
+ * first draws, so its timer starts when it can be seen. It stays `timing.undo` rather than `timing.notice`: a sentence
+ * of news someone asked for takes longer than four seconds to read, and it waits while the pointer or the keyboard is
+ * on it. It shows with news pop-ups turned off, being the result of their own tap. Nothing when the version didn't
+ * change (a rebuild with no entry).
+ */
+function sayWhatChanged() {
+  const from = takeLoadedFrom()
+  if (!from) return
+  const came = releasesSince(from)
+  if (came.length === 0) return
+  const more = came.length - 1
+  showToast(
+    {
+      id: `version-${APP_VERSION}`,
+      title: `Updated to ${APP_VERSION}`,
+      body: more === 0 ? came[0]!.title : `${came[0]!.title}, and ${plural(more, 'other change')}`,
+      href: '#admin/changes',
+      action: "What's changed",
+    },
+    dsTiming.undo,
   )
 }
 
@@ -150,7 +183,15 @@ export function NoticesScreen() {
       </section>
 
       <TodoCard view={view} />
-      {ahead && <SortOut problems={ahead.problems} vanProblems={ahead.vanProblems} hint="Clashes and checks from today to four weeks out. Each goes once it's sorted." />}
+      {ahead && (
+        <SortOut
+          problems={ahead.problems}
+          vanProblems={ahead.vanProblems}
+          short={shortSoon(view.crew, today)}
+          hint="Calls short of crew in the next three days, then clashes and checks from today to four weeks out. Each goes once it's sorted."
+        />
+      )}
+      <KitToCheck view={view} />
       {seesMoney && <QuotesToChase view={view} />}
 
       {days.map((d) => lines.some((l) => l.day === d.day) && (
@@ -161,7 +202,7 @@ export function NoticesScreen() {
               .filter((l) => l.day === d.day)
               .map((l) =>
                 l.kind === 'one' ? (
-                  <NoticeRow key={l.id} notice={l.notices[0]!} day={d.day} fresh={isNew(l.notices[0]!, mark)} href={placeOf(l.notices[0]!, view)} />
+                  <NoticeRow key={l.id} notice={l.notices[0]!} day={d.day} fresh={isNew(l.notices[0]!, mark)} view={view} />
                 ) : (
                   <LineRow key={l.id} line={l} day={d.day} mark={mark} view={view} />
                 ),
@@ -173,7 +214,12 @@ export function NoticesScreen() {
   )
 }
 
-function NoticeRow({ notice: n, day, fresh, href }: { notice: Notice; day: string; fresh: boolean; href?: string }) {
+function NoticeRow({ notice: n, day, fresh, view }: { notice: Notice; day: string; fresh: boolean; view: View }) {
+  // An offer to them is said to them, and opens their own page, where it's answered (UX sweep, 6 November 2026, move 6).
+  const yours = offerToYou(n, view)
+  // Someone else's change said as what it meant for them, with the history's words under it.
+  const what = yours?.what ?? n.said ?? n.what
+  const href = yours?.href ?? placeOf(n, view)
   return (
     <li className={fresh ? 'entry notice new' : 'entry notice'}>
       <p>
@@ -184,8 +230,16 @@ function NoticeRow({ notice: n, day, fresh, href }: { notice: Notice; day: strin
             New<span className="sr-only">: </span>
           </span>
         )}
-        {href ? <a href={href}>{n.what}</a> : n.what}
+        {href ? (
+          <a href={href} {...(yours?.href ? { target: '_blank', rel: 'noreferrer' } : {})}>
+            {what}
+          </a>
+        ) : (
+          what
+        )}
       </p>
+      {n.said && <p className="for-you">{n.what}</p>}
+      {n.forYou && <p className="for-you">{n.forYou}</p>}
       <span className="meta">
         {makerOf(n)} · {NOTICE_WHY_WORDS[n.why]} · {historyTime(n.arrivedAt, day)}
       </span>
@@ -227,10 +281,21 @@ function LineRow({ line, day, mark, view }: { line: NoticeLine; day: string; mar
         <summary>Show {line.notices.length === 2 ? 'both' : `all ${line.notices.length}`}</summary>
         <ol>
           {line.notices.map((n) => {
-            const href = placeOf(n, view)
+            // Said to them here as on a line of its own: an offer to them opens their page, where it's answered.
+            const yours = offerToYou(n, view)
+            const what = yours?.what ?? n.said ?? n.what
+            const href = yours?.href ?? placeOf(n, view)
             return (
               <li key={n.id}>
-                {href ? <a href={href}>{n.what}</a> : n.what}
+                {href ? (
+                  <a href={href} {...(yours?.href ? { target: '_blank', rel: 'noreferrer' } : {})}>
+                    {what}
+                  </a>
+                ) : (
+                  what
+                )}
+                {n.said && <span className="for-you"> {n.what}</span>}
+                {n.forYou && <span className="for-you"> {n.forYou}</span>}
                 <span className="meta">
                   {' '}
                   · {makerOf(n)} · {historyTime(n.arrivedAt, day)}

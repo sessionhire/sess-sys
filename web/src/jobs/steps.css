@@ -1,49 +1,294 @@
 /*
- * A job's steps (ADR 0073): one line of steps across the job page, joined by a rule, each a dot, its name and who
- * it's down to. Done is quiet (a filled grey dot with a tick), the step the job is at is the one drawn in full ink
- * with a ring, steps to come are outlined, and a step not needed is dashed. The step opened below is selected, as a
- * tab is: the accent under it. On a phone the names give way to the dots, and the step opened below says its name.
+ * Where a job is (ADR 0073, ADR 0104): five stages across the job page, joined by a rule, each a dot and its name, at
+ * every width. Colour says how far along, in the app's own red, which means "you" and the current item (ADR 0131):
+ * passed stages are filled red with a tick and the way come is a red line, so the line reads as a bar filled up to here;
+ * the stage the job is in is ringed in red, or in amber when something in it is short and burnt orange when a task is
+ * late, the same tones its line on a list takes; stages to come stay grey outlines. Never a hue a stage: one meaning,
+ * one colour, and the stage's name says which it is. The stage opened below is selected, as a tab is: the accent under it. Under
+ * it the stage's tasks, each a row: a tick box, the name, how it stands, and a plain tag; a task opened below that.
  */
-.job-steps .steps-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-4) var(--space-12); }
+.job-steps .steps-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--ds-space-1) var(--ds-space-3); }
 .job-steps .steps-head h2 { margin: 0; }
-.steps-flow { --dot: 30px; --gap: 4px; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
-.steps-flow li { position: relative; min-width: 0; }
-/* The rule joining each dot to the next, behind the dots: it runs from the edge of one dot to the edge of the next, a little clear of
-   each, and never through a number. The part of the way already come is drawn thicker, in the
-   done tone, up to the step the job is at, so how far along the job is reads at a glance. */
-.steps-flow li + li::before { content: ''; position: absolute; z-index: 0; top: calc(var(--space-4) + var(--dot) / 2 - 1px); right: calc(50% + var(--dot) / 2 + var(--gap)); width: calc(100% - var(--dot) - 2 * var(--gap)); height: 2px; border-radius: 2px; background: var(--line); }
-.steps-flow li[data-come] + li::before { top: calc(var(--space-4) + var(--dot) / 2 - 1.5px); height: 3px; background: var(--muted); }
-.app .steps-flow button {
-  position: relative; z-index: 1; display: grid; justify-items: center; align-content: start; gap: var(--space-4); width: 100%; min-height: 44px;
-  padding: var(--space-4) var(--space-2) var(--space-8); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); text-align: center;
+/* The stage's tasks, a tap away under the stepper (ADR 0140, part 3): drawn as every fold's summary is, its chevron turned when open. */
+.app .job-steps .stage-fold, .app .job-steps .stage-fold:hover, .app .job-steps .stage-fold:active { display: flex; align-items: center; gap: var(--ds-space-2); justify-self: start; min-height: 44px; margin: 0; padding: var(--ds-space-2) 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.clients-answer { display: grid; gap: var(--ds-space-2); justify-items: start; }
+.clients-answer > p { margin: 0; }
+.stages-flow { --dot: 30px; --gap: 4px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.stages-flow li { position: relative; min-width: 0; }
+/* The rule joining each dot to the next, behind the dots, a little clear of each and never through a number. The way already come is
+   drawn thicker, in the done tone, up to the stage the job is in, so how far along the job is reads at a glance. */
+.stages-flow li + li::before { content: ''; position: absolute; z-index: 0; top: calc(var(--ds-space-1) + var(--dot) / 2 - 1px); right: calc(50% + var(--dot) / 2 + var(--gap)); width: calc(100% - var(--dot) - 2 * var(--gap)); height: 2px; border-radius: 2px; background: var(--line); }
+.stages-flow li[data-come] + li::before { top: calc(var(--ds-space-1) + var(--dot) / 2 - 1.5px); height: 3px; background: var(--accent); }
+.app .stages-flow button {
+  position: relative; z-index: 1; display: grid; justify-items: center; align-content: start; gap: var(--ds-space-1); width: 100%; min-height: 44px;
+  padding: var(--ds-space-1) var(--ds-space-half) var(--ds-space-2); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); text-align: center;
 }
-.app .steps-flow button[aria-expanded='true'] { border-bottom-color: var(--accent); color: var(--ink); }
+.app .stages-flow button[aria-expanded='true'] { border-bottom-color: var(--accent); color: var(--ink); }
 @media (hover: hover) {
-  .app .steps-flow button:hover { color: var(--ink); }
+  .app .stages-flow button:hover { color: var(--ink); }
 }
-.step-dot {
+.stage-dot {
   display: inline-flex; align-items: center; justify-content: center; width: var(--dot); height: var(--dot); border-radius: var(--radius-full);
   border: 2px solid var(--field-line); background: var(--panel); color: var(--muted); font-size: var(--text-small); font-weight: 700; font-variant-numeric: tabular-nums;
 }
-.step-dot .icon { width: 16px; height: 16px; }
-.steps-flow [data-state='done'] .step-dot { border-color: var(--muted); background: var(--muted); color: var(--panel); }
-.steps-flow [data-state='skipped'] .step-dot { border-style: dashed; }
-.steps-flow [data-state='now'] .step-dot { border-color: var(--ink); color: var(--ink); box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--ink); }
-.steps-flow[data-stopped] [data-state='now'] .step-dot { box-shadow: none; border-color: var(--field-line); color: var(--muted); }
-.step-label { font-size: var(--text-hint); font-weight: 700; line-height: 1.2; }
-.steps-flow [data-state='now'] .step-label { color: var(--ink); font-weight: 800; }
-.steps-flow [data-state='done'] .step-label { font-weight: 600; }
-.step-owner { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-pill); }
-.step-open { display: grid; gap: var(--space-8); justify-items: start; padding-top: var(--space-12); border-top: 1px solid var(--line); }
+.stage-dot .icon { width: 16px; height: 16px; }
+.stages-flow { --now: var(--accent); --now-ink: var(--accent-ink); }
+.stages-flow[data-tone='warn'] { --now: var(--warn); --now-ink: var(--warn); }
+.stages-flow[data-tone='bad'] { --now: var(--bad); --now-ink: var(--bad); }
+/* The fill behind the white tick is the deeper red, 5.7:1 with white, the brand red's ring round it. */
+.stages-flow [data-state='done'] .stage-dot { border-color: var(--accent); background: var(--accent-fill); color: var(--on-accent); }
+/* Passed with a task still open (audit, 5 November 2026, finding 4): the tick hollow, so it doesn't read as finished. */
+.stages-flow [data-state='done'][data-open] .stage-dot { border-color: var(--accent); background: var(--panel); color: var(--accent-ink); }
+.stages-flow [data-state='now'] .stage-dot { border-color: var(--now); color: var(--now-ink); box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--now); }
+.stages-flow[data-stopped] .stage-dot { box-shadow: none; border-color: var(--field-line); color: var(--muted); }
+/* A stopped job isn't going anywhere, so it keeps no colour of progress: what it got through is grey, as it was. */
+.stages-flow[data-stopped] [data-state='done'] .stage-dot { border-color: var(--muted); background: var(--muted); color: var(--panel); }
+.stages-flow[data-stopped] li[data-come] + li::before { background: var(--muted); }
+.stage-label { font-size: var(--text-hint); font-weight: 700; line-height: 1.2; }
+.stages-flow [data-state='now'] .stage-label { color: var(--now-ink); font-weight: 800; }
+.stages-flow [data-state='done'] .stage-label { font-weight: 600; }
+
+/* The stage opened: a line naming it, then its tasks. */
+.stage-open { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
+.stage-open > p { margin: 0; }
+.stage-open .stage-said { margin: 0; color: var(--muted); }
+.stage-open .stage-said b { color: var(--ink); }
+.stage-open .behind-head { margin-top: var(--ds-space-2); font-weight: 600; }
+.task-list { margin: 0; padding: 0; list-style: none; display: grid; }
+.task-list li + li { border-top: 1px solid var(--line); }
+/* The row ends in the chevron every fold has (app.css), turned while the task is open below it: open is the turn, not a wash, so the
+   open task never looks like one a pointer rests on (UX sweep, 6 November 2026, ds-2). Its tag, where a phone shows one, sits before it. */
+.app .task-list button {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; align-items: center; gap: var(--ds-space-3); width: 100%; min-height: 48px;
+  padding: var(--ds-space-2) var(--ds-space-1); border: 0; border-radius: var(--radius-control); background: none; color: var(--ink); text-align: left;
+}
+.task-tick { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--radius-full); border: 2px solid var(--field-line); background: var(--panel); color: var(--panel); }
+.task-tick .icon { width: 14px; height: 14px; }
+.task-list [data-state='done'] .task-tick { border-color: var(--muted); background: var(--muted); }
+.task-list [data-state='skipped'] .task-tick { border-style: dashed; }
+.task-list [data-state='now'] .task-tick { border-color: var(--ink); }
+.task-words { display: grid; gap: 2px; min-width: 0; }
+.task-name { font-weight: 600; }
+.task-list [data-state='done'] .task-name, .task-list [data-state='skipped'] .task-name { color: var(--muted); font-weight: 500; }
+.task-how { font-size: var(--text-small); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.task-list [data-late] .task-how { color: var(--bad); }
+/* The plain tag at the end: Done, Not needed, To do, Next, Late. Quiet for the first three; Next in ink, Late in the bad tone. */
+.task-tag { font-size: var(--text-pill); font-weight: 700; color: var(--muted); white-space: nowrap; }
+.task-list [data-state='now'] .task-tag { color: var(--ink); }
+.task-list [data-late] .task-tag { color: var(--bad); }
+
+.step-open { display: grid; gap: var(--ds-space-2); justify-items: start; padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .step-open > * { margin: 0; }
-/* The step's name first and largest, then how it stands, then what it means: the order a glance reads them in. */
+/* The task's name first and largest, then how it stands, then what it means: the order a glance reads them in (ADR 0073). It keeps a
+   card heading's size, as the title of a record of its own, beside the two kinds of head inside a card (app.css). */
 .step-open h3 { font-size: var(--text-heading); }
 .step-open .step-state { color: var(--ink); }
 .step-open .step-state[data-state='now'] { font-weight: 600; }
-.step-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-8) var(--space-12); }
+.step-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--ds-space-2) var(--ds-space-3); }
 .step-actions .field { min-width: 12rem; }
-/* A phone: the dots alone, closer; the step opened below names itself. */
+/* A phone: the names stay, smaller, so the five stages read without opening one (ADR 0104): at the 12px floor, a long one ("On the
+   job") wrapping to a second line rather than going under it (UX sweep, 6 November 2026, ds-f1). */
 @media (max-width: 639px) {
-  .steps-flow { --dot: 26px; --gap: 2px; }
-  .steps-flow .step-label, .steps-flow .step-owner { display: none; }
+  .stages-flow { --dot: 26px; --gap: 2px; }
+  .stage-label { font-size: var(--text-pill); }
+  /* The two tags that ask for something stay, Next and Late, so the word for the task to do is there on a phone too (audit,
+     5 November 2026, finding 56). Done, To do and Not needed go: the ring says those. */
+  .task-list li:not([data-state='now'], [data-late]) .task-tag { display: none; }
 }
+
+/*
+ * The one Next button (NextDock.tsx, ADR 0104): a line saying where the job is and how far, the one filled button on the page, a
+ * quiet second choice. On a desk it sits in the page head, right of the title; on a phone it goes into the foot (foot.tsx), over
+ * the places as one footer, in the thumb's reach, and stays while the page scrolls. With nothing to press it says so in the same place: a quiet dashed box, never a
+ * greyed button, never gone.
+ */
+.next-dock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ds-space-half) var(--ds-space-3); align-items: center; }
+.next-dock .line { grid-column: 1 / -1; margin: 0; font-size: var(--text-small); color: var(--muted); }
+.next-dock .line b { color: var(--ink); }
+.app .next-dock .primary { min-height: 48px; padding-inline: var(--ds-space-4); font-size: var(--text-body); white-space: nowrap; text-align: center; justify-content: center; }
+.app .next-dock .second { font-size: var(--text-small); }
+/* Nothing to press: one quiet line of words under the stage line, not a box shaped like a button that isn't there (review of 11
+   November 2026, finding 19). */
+.next-dock .rest { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: var(--text-small); }
+.next-dock .rest a { color: var(--accent-ink); }
+/*
+ * The job head's right-hand column (ADR 0161), top to bottom on the title's rhythm: the status, level with the job's name; who
+ * has it, a combobox changed where it's read; then Next. One right edge, one gap between them, the column as wide as Next. The
+ * words and the column share one grid, so the status sits on the title's own row whatever the title's height. On a phone the
+ * status stays on the title's row, who has it goes right under it, and Next is in the foot.
+ */
+/* On a phone who has it sits at the left, straight after the stage's segments and before the facts (Colly, 12 November 2026),
+   so the stage and its person read together: the sub's two parts take rows of their own around it. */
+.page-head[data-corner] { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title status' 'position position' 'owner owner' 'facts facts'; gap: var(--ds-space-2) var(--ds-space-3); align-items: start; }
+.page-head[data-corner] > .page-words { display: contents; }
+.page-head[data-corner] .page-title-row { grid-area: title; }
+.app .page-head[data-corner] .page-sub { display: contents; }
+.page-head[data-corner] .page-sub > .job-position { margin-top: 0; }
+@media (max-width: 639px) {
+  .page-head[data-corner] .page-sub > .job-position { grid-area: position; }
+  .page-head[data-corner] .page-sub > .job-facts { grid-area: facts; }
+}
+.page-head[data-corner] > .corner-status { grid-area: status; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
+.page-head[data-corner] > .corner-owner { grid-area: owner; justify-self: start; width: min(100%, 300px); }
+.page-head[data-corner] > .corner-owner .job-assignee { justify-content: flex-start; }
+@media (min-width: 640px) {
+  .page-head[data-corner] { grid-template-areas: 'title status' 'sub owner' 'sub next'; grid-template-rows: auto auto 1fr; column-gap: var(--ds-space-5); }
+  .app .page-head[data-corner] .page-sub { display: grid; grid-area: sub; align-content: start; }
+  .page-head[data-corner] > .corner-owner { justify-self: end; width: 100%; min-width: 260px; }
+  .page-head[data-corner] > .corner-owner .job-assignee { justify-content: flex-end; }
+  /* One column, so the button's right edge is the field's: the quiet second choice, when there is one, goes under it. */
+  .page-head[data-corner] > .next-dock { grid-area: next; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: none; }
+}
+.job-assignee { display: flex; align-items: center; gap: var(--ds-space-2); margin: 0; justify-content: flex-end; color: var(--ink); font-size: var(--text-small); }
+.job-assignee > .icon { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.job-assignee[data-none] { color: var(--muted); }
+.job-assignee .assignee-picker { flex: 1; min-width: 0; }
+/* The field is named for a screen reader ("Who has Planning"); the person mark in front says what it is to the eye, as on the
+   Board card's foot. */
+.job-assignee .assignee-picker > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.job-assignee .assignee-picker input { min-height: 40px; font-size: var(--text-body); }
+.job-assignee[data-none] .assignee-picker input:not(:focus)::placeholder { color: var(--muted); }
+.job-assignee .assignee-refusal { flex-basis: 100%; }
+.job-assignee:has(.assignee-refusal) { flex-wrap: wrap; }
+/* How far the task has got, in Next's button: a ring in the button's ink, filled as far as the task is done. */
+/* Inline, so it sits before the words wherever the button is drawn: in the head, and in the phone's foot. */
+.next-pie { display: inline-block; vertical-align: -3px; flex: none; width: var(--icon-control); height: var(--icon-control); border-radius: var(--radius-full); box-shadow: inset 0 0 0 2px currentColor; background: conic-gradient(currentColor calc(var(--part) * 1turn), color-mix(in srgb, currentColor 22%, transparent) 0); }
+@media (min-width: 640px) {
+  .page-head[data-actions] { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-5); align-items: start; }
+  .page-head .next-dock { justify-items: end; text-align: right; min-width: 260px; max-width: 360px; }
+  /* A long label wraps inside its button rather than running out of the dock over the job's stage line (review of 11 November
+     2026, finding 2). */
+  .app .page-head .next-dock .primary { white-space: normal; }
+}
+/* A phone: the dock is in the foot (foot.tsx), over the places, one footer: the button full width with its words centred. */
+/* The quiet second choice sits beside it on the same row, so the dock keeps a row less of the screen (audit, 5 November 2026,
+   finding 56), in the accent's ink like every other link (finding 54). A long label wraps inside the button rather than pushing the
+   second choice off. */
+.foot .next-dock .primary { grid-column: 1; width: 100%; white-space: normal; }
+.foot .next-dock .second { grid-column: 2; justify-self: end; white-space: nowrap; }
+.foot .next-dock .primary:not(:has(+ .second)) { grid-column: 1 / -1; }
+.next-dock .alert { grid-column: 1 / -1; margin: 0; }
+/* A due day passed, in the bad tone (ADR 0104), with the words saying so too. */
+@media print {
+  .next-dock { display: none; }
+}
+
+/*
+ * Where a job is on a list row (JobPosition.tsx, ADR 0104 part 2, ADR 0131): five short segments, passed in a lighter red, the
+ * one the job is in in the full red (amber when short, burnt orange when late), to come grey; then the stage's name and what is
+ * short in it. The words stay ink, so a list of jobs isn't a wall of red: the colour is only on the small bar.
+ */
+.stage-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1) var(--ds-space-2); margin-top: var(--ds-space-half); font-size: var(--text-small); color: var(--ink); }
+.stage-seg { display: inline-flex; gap: 2px; }
+.stage-seg i { display: block; width: 12px; height: 5px; border-radius: 3px; background: var(--line); }
+.stage-seg i[data-state='done'] { background: color-mix(in srgb, var(--accent) 60%, var(--panel)); }
+.stage-seg i[data-state='now'] { background: var(--accent); }
+.stage-late { color: var(--bad); font-weight: 700; }
+/* The job's position (JobPosition.tsx): quiet when nothing is short, the warn ink when crew or kit is, the bad ink when a task is late.
+   Ink, not a wash, so a list of jobs isn't a wall of colour: the tone is on the words and the segment of the stage it's in. */
+.job-position .stage-name { font-weight: 700; }
+.job-position[data-tone='warn'] .stage-words { color: var(--warn); }
+.job-position[data-tone='warn'] .stage-seg i[data-state='now'] { background: var(--warn); }
+.job-position[data-tone='bad'] .stage-words { color: var(--bad); }
+.job-position[data-tone='bad'] .stage-seg i[data-state='now'] { background: var(--bad); }
+.stage-line[data-compact] { flex-wrap: nowrap; margin: 0; font-size: var(--text-hint); color: var(--muted); white-space: nowrap; }
+.stage-line[data-compact] .stage-seg i { width: 8px; height: 4px; }
+
+/*
+ * Jobs › Board (BoardScreen.tsx, ADR 0104 part 3): a column a stage, cards soonest first, the whole row scrolling sideways where the
+ * screen is narrower than six columns (a phone shows one and a bit, so the row says it goes on). Read only: nothing drags.
+ */
+.board { display: grid; grid-template-columns: repeat(6, minmax(160px, 1fr)); gap: var(--ds-space-3); overflow-x: auto; overflow-y: hidden; padding-bottom: var(--ds-space-2); margin: 0 calc(-1 * var(--gutter)); padding-inline: var(--gutter); scroll-padding-inline: var(--gutter); }
+.board-col { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; align-content: start; gap: var(--ds-space-2); min-height: 320px; padding: var(--ds-space-2); background: var(--panel); border-radius: var(--radius-card); }
+.board-col > header { display: grid; justify-items: start; gap: 2px; padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-2); }
+.board-col > header .stage-seg { margin-bottom: var(--ds-space-1); }
+.board-col > header b { font-size: var(--text-body); }
+/* Quoting's enquiries and quotes whose dates passed with no answer (ADR 0109): folded under the column, out of the way of the ones to chase. */
+.board-lapsed { display: grid; gap: var(--ds-space-2); padding-top: var(--ds-space-2); border-top: 1px solid var(--line); }
+.board-lapsed[open] > summary { margin-bottom: var(--ds-space-1); }
+/* The one fold (app.css), its words a heading for the cards under it. */
+.board-lapsed > summary h3 { margin: 0; font: inherit; }
+/* Planning's bands by when each job starts (Move 7 of the sweep of 6 November 2026): This week and Next week open, Later folded. */
+.board-band { display: grid; gap: var(--ds-space-2); }
+.board-band + .board-band, .board-band + .board-later { padding-top: var(--ds-space-2); border-top: 1px solid var(--line); }
+.board-band-head { margin: 0; padding: 0 var(--ds-space-2); font: inherit; font-weight: 600; color: var(--muted); }
+.board-col > header small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.board-col .board-empty { margin: 0; padding: 0 var(--ds-space-2); }
+.board-col > header .board-by-date { min-height: 0; padding: 0; font-size: var(--text-small); text-align: start; }
+/* The Board's order (ADR 0143): a card's Move button sits at its top right, quiet until wanted; only it takes a drag, so a phone still scrolls by the card. */
+.board-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ds-space-2); min-width: 0; }
+.board-item { position: relative; min-width: 0; }
+/* Trello's drag (Colly, 12 November 2026): the lifted card rides above the rest, which slide aside to open its gap. */
+.board-cards[data-sorting] .board-item { transition: transform var(--ds-duration-fast) var(--ds-ease-standard); }
+.board-cards[data-sorting] .board-item[data-dragging='true'] { z-index: 3; transition: none; }
+@media (prefers-reduced-motion: reduce) { .board-cards[data-sorting] .board-item { transition: none; } }
+.board-item:has(.board-grip) .board-card > :is(b, p) { padding-inline-end: 32px; }
+.app .board-grip { position: absolute; top: 0; right: 0; border: 0; border-radius: var(--radius-box); background: none; color: var(--muted); cursor: grab; touch-action: none; }
+.app .board-grip:hover { color: var(--ink); background: var(--ds-wash-hover); }
+.app .board-grip[aria-pressed='true'] { color: var(--accent-ink); }
+/* Picked up or dragged: lifted on the dragged wash with the menu's shadow, and ringed while it waits for a place (as the rack designer's). */
+.board-item[data-dragging='true'] .board-card { background-image: linear-gradient(var(--ds-wash-dragged), var(--ds-wash-dragged)); box-shadow: var(--ds-elevation-menu); }
+.board-cards[data-holding] .board-item[data-dragging='true'] .board-card { outline: 2px solid var(--accent); outline-offset: 1px; }
+.board-item[data-dragging='true'] .board-grip { cursor: grabbing; }
+/* The card itself drags (Colly, 11 November 2026): a finger held on it picks it up rather than selecting its words or opening the
+   link's menu. */
+.board-cards[data-orderable] .board-item { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.board-cards[data-orderable] .board-item[data-dragging='true'] { cursor: grabbing; }
+/* While one is held, every other card is a place to put it. */
+.board-cards[data-holding] .board-item:not([data-dragging]) .board-card { cursor: copy; border-style: dashed; border-color: var(--field-line); }
+/* A card with who has its stage is drawn by its box (ADR 0144), so the box takes the held and drop-target looks. */
+.board-item[data-dragging='true'] .board-owned { background-image: linear-gradient(var(--ds-wash-dragged), var(--ds-wash-dragged)); box-shadow: var(--ds-elevation-menu); }
+.board-cards[data-holding] .board-item[data-dragging='true'] .board-owned { outline: 2px solid var(--accent); outline-offset: 1px; }
+.board-cards[data-holding] .board-item:not([data-dragging]) .board-owned { cursor: copy; border-style: dashed; border-color: var(--field-line); }
+.board-item .board-owned > .board-card { background-image: none; box-shadow: none; outline: 0; }
+.board-cards[data-holding] .board-item[data-dragging='true'] .board-owned > .board-card { outline: 0; }
+/* Where a dragged card will land, drawn before it's let go; nothing else moves (the design system's drag and drop). */
+.app .board-card { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: break-word; gap: 2px; padding: var(--ds-space-2) var(--inset-box); background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); color: inherit; text-decoration: none; }
+.app .board-card b { font-size: var(--text-body); line-height: 1.25; }
+.app .board-card p { margin: 0; font-size: var(--text-small); color: var(--muted); }
+.board-line { margin-top: var(--ds-space-1); font-size: var(--text-small); color: var(--muted); }
+.board-line[data-tone='warn'] { color: var(--warn); font-weight: 600; }
+.board-line[data-tone='bad'] { color: var(--bad); font-weight: 600; }
+/* Who has the stage the job is in, at the card's foot (ADR 0144): the card and its foot are one box, the link above and the
+   stage's own Down to under it, so changing who has it never opens the job. The column names the stage, so the foot is a person
+   and a name: a select with no edge until it's pointed at, still the full 44px every field is, for gloves. */
+.app .board-owned { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; background: var(--bg); border: 1px solid transparent; border-radius: var(--radius-box); }
+.app .board-owned > .board-card { background: transparent; border: 0; padding-bottom: 0; }
+.stage-owner { display: flex; align-items: center; gap: var(--ds-space-1); margin: 0; padding: 0 calc(var(--inset-box) - var(--ds-space-2)) var(--ds-space-1) var(--inset-box); font-size: var(--text-small); color: var(--muted); }
+p.stage-owner { min-height: 44px; }
+.stage-owner label { display: flex; align-items: center; gap: var(--ds-space-1); flex: 1 1 auto; min-width: 0; }
+.stage-owner .icon { flex: none; width: 16px; height: 16px; }
+.stage-owner select { flex: 1 1 auto; min-width: 0; font-size: var(--text-small); font-weight: 600; padding: 0 var(--control) 0 var(--ds-space-1); background-color: transparent; border-color: transparent; color: var(--ink); cursor: pointer; }
+.stage-owner select:hover, .stage-owner select:focus-visible { border-color: var(--field-line); }
+.stage-owner label[data-none] select, p.stage-owner[data-none] { color: var(--muted); font-weight: 400; }
+.stage-owner-refusal { flex-basis: 100%; }
+@media (hover: hover) {
+  .app .board-card:hover { border-color: var(--field-line); }
+  .app .board-card:hover b { text-decoration: underline; text-underline-offset: 3px; }
+  .app .board-owned:has(> .board-card:hover) { border-color: var(--field-line); }
+}
+@media (max-width: 639px) {
+  .board { grid-template-columns: repeat(6, 78vw); scroll-snap-type: x proximity; }
+  .board-col { scroll-snap-align: start; }
+}
+
+/* The invoice, under the tasks for whoever reads money (UX sweep, 6 November 2026, move 12): the task-list shape as a link to the Quote
+   tab, apart from the stages by a rule, amber once the job is through and not invoiced (the office's to do, not a late task). */
+.invoice-row { margin-top: var(--ds-space-2); border-top: 1px solid var(--line); }
+.app .invoice-row a {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--ds-space-3); min-height: 48px;
+  padding: var(--ds-space-2) var(--ds-space-1); color: var(--ink); text-decoration: none;
+}
+.invoice-row [data-due] .task-how, .invoice-row [data-due] .task-tag { color: var(--warn); }
+/* A Planning card's footer (Colly, 10 November 2026): whose and when at the start, the crew's and the kit's dots at the end. */
+.board-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--ds-space-1) var(--ds-space-3); margin-top: var(--ds-space-1); }
+.board-foot .board-line { flex: 1 1 auto; margin-top: 0; }
+.board-marks { display: inline-flex; gap: var(--ds-space-3); margin-left: auto; }
+.board-mark { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-small); font-weight: 600; color: var(--ink); white-space: nowrap; }
+.board-mark small { font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The design system's dot: its status's colour, hollow while there's nothing yet; the words are in its name and its hover. */
+.board-mark i { width: 9px; height: 9px; border-radius: var(--radius-full); background: var(--muted); }
+.board-mark[data-state='ok'] i { background: var(--good); }
+.board-mark[data-state='warn'] i { background: var(--warn); }
+.board-mark[data-state='bad'] i { background: var(--bad); }
+.board-mark[data-state='off'] i { background: none; box-shadow: inset 0 0 0 1.5px var(--muted); }

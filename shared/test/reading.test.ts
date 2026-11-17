@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Mutation } from '../src/commands.ts'
-import { departmentForRole, departmentOf, departmentOfPeople, type CrewCall, type Offer, type Person } from '../src/crew.ts'
+import { departmentForRole, departmentOf, departmentOfPeople, sameDepartment, type CrewCall, type Offer, type Person } from '../src/crew.ts'
 import type { PullResponse, PushRequest, PushResponse } from '../src/protocol.ts'
 import {
   callAsRead,
@@ -12,6 +12,7 @@ import {
   readsLinkOf,
   readsRatesIn,
   personAsRead,
+  projectAsRead,
   READS_EVERYTHING,
   readingFor,
   readsEverything,
@@ -108,8 +109,8 @@ describe('the department a call is given', () => {
   it("or else what the role's own words say, and none when they say nothing", () => {
     expect(departmentForRole('Sound No.1')).toBe('Audio')
     expect(departmentForRole('FOH engineer')).toBe('Audio')
-    expect(departmentForRole('LX op')).toBe('LX')
-    expect(departmentForRole('Lighting tech')).toBe('LX')
+    expect(departmentForRole('LX op')).toBe('Lighting')
+    expect(departmentForRole('Lighting tech')).toBe('Lighting')
     expect(departmentForRole('Camera op')).toBe('Video')
     expect(departmentForRole('Head rigger')).toBe('Rigger')
     expect(departmentForRole('Van driver')).toBe('Transport')
@@ -127,7 +128,10 @@ describe('the department a call is given', () => {
 
   it('reads none on a call saved before calls had one', () => {
     expect(departmentOf(call('a'))).toBeNull()
-    expect(departmentOf(call('a', { department: 'LX' }))).toBe('LX')
+    // Saved as LX before the departments were one list (user flows of 13 November 2026, finding 8): read as Lighting.
+    expect(departmentOf(call('a', { department: 'LX' }))).toBe('Lighting')
+    expect(departmentOf(call('a', { department: 'Laser' }))).toBe('Lasers')
+    expect(sameDepartment('LX', 'lighting')).toBe(true)
   })
 })
 
@@ -153,6 +157,15 @@ describe('what each role reads', () => {
     expect(personAsRead(lights, crew)).toMatchObject({ dayRateCents: null, linkToken: '', linkHidden: true, rateHidden: true })
     expect(personAsRead(person(own), crew)).toEqual(person(own))
     expect(personAsRead(lights, READS_EVERYTHING)).toBe(lights)
+  })
+
+  it('sends how someone trades only to a reader who sees their rate (ADR 0184)', () => {
+    const trades = { as: 'sole-trader' as const, name: '', vatNumber: 'IE1234567T', croNumber: null, vatRegistered: true }
+    const sound = person('s', { department: 'Audio', company: trades })
+    expect(personAsRead(sound, head)).toMatchObject({ company: null, companyHidden: true })
+    expect(personAsRead(sound, readingFor('head', { personId: own, department: 'Audio', headsSeeRates: true })).company).toEqual(trades)
+    expect(personAsRead(person(own, { company: trades }), crew).company).toEqual(trades)
+    expect(personAsRead(person('n'), head).companyHidden).toBeUndefined()
   })
 
   it("leaves rates out of calls and others' offers, and amounts out of others' timesheets", () => {
@@ -250,6 +263,16 @@ describe('what staff crew and freelancers read of other people', () => {
     expect(documentsRead(head)).toBe(true)
   })
 
+  it("sends a job's office notes only to the office, directors and heads, and its notes for the crew to everyone (ADR 0151)", () => {
+    const job = { id: 'j', name: 'Harbour Lights', clientId: null, venueId: null, status: 'quoted' as const, notes: 'Load in by the side gate.', officeNotes: 'Hold the margin at 30%.' }
+    for (const r of [crew, freelancer]) expect(projectAsRead(job, r)).toEqual({ id: 'j', name: 'Harbour Lights', clientId: null, venueId: null, status: 'quoted', notes: 'Load in by the side gate.' })
+    expect(projectAsRead(job, head)).toBe(job)
+    expect(projectAsRead(job, READS_EVERYTHING)).toBe(job)
+    // A job with none is sent as it is.
+    const none = { ...job, officeNotes: undefined }
+    expect(projectAsRead(none, crew)).toBe(none)
+  })
+
   it("sends only their own documents to staff crew and freelancers", () => {
     expect(readsDocumentOf(crew, { personId: 's' })).toBe(false)
     expect(readsDocumentOf(freelancer, { personId: own })).toBe(true)
@@ -345,7 +368,7 @@ describe('a department changed on the device', () => {
     expect(view.calls.map((c) => [c.id, c.department])).toEqual([
       ['a', 'Production'],
       ['b', 'Production'],
-      ['c', 'LX'],
+      ['c', 'Lighting'],
     ])
     expect(crewView(entities, [pending('call.department', { ids: ['c'], department: null })], 0).calls.find((c) => c.id === 'c')?.department).toBeNull()
   })

@@ -154,3 +154,8 @@ carry a pattern that would stop "€300" at the browser.
 - Two things left for later and written down here so they aren't lost:
   the right to erasure, and a "running late" note on the day, which the
   architecture promises alongside "can't make it".
+
+Later (12 November 2026, [ADR 0159](0159-a-crew-call-keeps-to-its-phase.md)):
+a call on a phase keeps to the phase's days, so "Keep their dates" is
+offered only while the phase still has every day its calls hold; when it
+wouldn't, the crew move with the phase.

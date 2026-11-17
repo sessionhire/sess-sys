@@ -24,7 +24,7 @@ export function ReadingCard({ office }: { office: OfficeView }) {
         own.
       </p>
       <label className="signal">
-        <input type="checkbox" checked={on} onChange={(e) => void run(() => client.mutate('reading.heads', { rates: e.target.checked }))} />
+        <input type="checkbox" role="switch" checked={on} onChange={(e) => void run(() => client.mutate('reading.heads', { rates: e.target.checked }))} />
         <span>
           <b>Heads of department see crew rates</b>
           <small>{on ? 'They see day rates and timesheet amounts, and can set rates and approve timesheets.' : 'Off: rates and amounts are hidden on their phones, and the office sets them.'}</small>

@@ -225,6 +225,35 @@ describe("the planner's Vans rows", () => {
     expect(gig.days['2026-10-07']!.vans).toEqual(['Big Van (Cian)'])
   })
 
+  it('keeps a van that gets back after midnight away the next day, and says when it leaves and is back (ADR 0179)', () => {
+    // The Luton on Corrib Arts in Galway, leaving the venue at 23:30 on its one day: it's back after 2 in the morning.
+    const galway = { ...entities, venue: { granary: { id: 'granary', name: 'The Granary', address: 'Galway', notes: '', pin: { lat: 53.2715, lng: -9.0533 } } } }
+    const away = {
+      ...galway,
+      project: { ...galway.project, maybe: { ...project('maybe', 'Corrib Arts', 'confirmed'), venueId: 'granary' } },
+      vehicle: { ...galway.vehicle, luton: { ...galway.vehicle.luton, outOfService: null } },
+      vehicleBooking: {
+        ...galway.vehicleBooking,
+        b3: booking('b3', { vehicleId: 'luton', projectId: 'maybe', phaseId: 'arts', start: '2026-10-10', end: '2026-10-10', driverId: 'cian', arriveBy: '09:00', leaveAt: '23:30' }),
+        b4: booking('b4', { vehicleId: 'luton', projectId: 'gig', phaseId: null, start: '2026-10-11', end: '2026-10-11', driverId: null }),
+      },
+    }
+    const crew = crewView(away, [], 0, today)
+    const jobs = jobsView(away, [], 0, crew.calls)
+    const vehicles = vehiclesView(away, [], 0, jobs, crew, today)
+    const b3 = vehicles.bookings.find((b) => b.id === 'b3')!
+    expect(b3.road).toMatchObject({ minutes: 175, leaves: { day: '2026-10-10', time: '06:05' }, back: { day: '2026-10-11', time: '02:25' }, end: '2026-10-11' })
+    expect(b3.clashes.map((c) => [c.booking.id, c.days])).toEqual([['b4', ['2026-10-11']]])
+    const p = plan({ crew, jobs, vehicles }, weekOf('2026-10-10'), today)
+    const luton = p.vans.find((l) => l.vehicle.id === 'luton')!
+    expect(luton.days['2026-10-10']!.work[0]).toMatchObject({ leaves: '06:05', back: null, driving: null, drive: '2 h 55' })
+    expect(luton.days['2026-10-11']!.work.map((w) => [w.job, w.driving, w.back])).toEqual([
+      ['Corrib Arts', 'home', '02:25'],
+      ['Harbour Lights', null, null],
+    ])
+    expect(p.vanProblems.find((x) => x.day === '2026-10-11')).toMatchObject({ vehicle: { name: 'The Luton' }, severity: 'clash' })
+  })
+
   it('has no Vans rows when the view has no vehicles', () => {
     const { crew, jobs } = seen()
     expect(plan({ crew, jobs }, weekOf(today)).vans).toEqual([])

@@ -33,7 +33,7 @@ export function FeedCard({ view, email }: { view: View; email: string }) {
     <section className="card feed" aria-labelledby="feed-title">
       <h2 id="feed-title">Your bookings in your own calendar</h2>
       <p>
-        Every job you're booked on, in Google, Apple or Outlook Calendar, kept up to date. It only shows your bookings, so it's fine in a calendar you share.
+        Every job you're booked on, in Google, Apple or Outlook Calendar, kept up to date. It shows your bookings and what each pays, so share it only with people you'd tell that to.
       </p>
       <input ref={field} readOnly value={address} aria-label="Calendar address" onFocus={(e) => e.target.select()} />
       <div className="actions">

@@ -18,7 +18,7 @@ test('the office copies a freelancer their calendar address, the same one their 
   await office.goto('/#crew/people')
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
-  await office.getByRole('button', { name: 'Add person' }).click()
+  await office.getByRole('button', { name: 'New person' }).click()
   const form = office.locator('form').filter({ has: office.getByRole('button', { name: 'Add person' }) })
   await fillName(form, 'Orla Murphy')
   await form.getByLabel('Mobile').fill('+353 86 765 4321')
@@ -40,9 +40,11 @@ test('the office copies a freelancer their calendar address, the same one their 
   const phone = await (await browser.newContext({ viewport: phoneSize, javaScriptEnabled: false })).newPage()
   await phone.goto(link)
   const bookings = phone.locator('section').filter({ has: phone.getByRole('heading', { name: 'Your bookings' }) })
+  // Set up once, so folded to a line (UX sweep, move 6b).
+  await bookings.locator('details.feed-fold > summary').click()
   await expect(bookings.getByLabel('Calendar address')).toHaveValue(feed)
   await expect(bookings.getByRole('link', { name: 'Subscribe' })).toHaveAttribute('href', feed.replace(/^http:/, 'webcal:'))
-  await expect(bookings).toContainText("It only shows your bookings, so it's fine in a calendar you share.")
+  await expect(bookings).toContainText("It shows your bookings and what each pays, so share it only with people you'd tell that to.")
   await bookings.scrollIntoViewIfNeeded()
   await phone.screenshot(shot('feed-freelancer'))
 
@@ -64,7 +66,7 @@ test('staff who also work jobs find their own bookings feed under You', async ({
   await expect(card).toHaveCount(0)
 
   await page.goto('/#crew/people')
-  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByRole('button', { name: 'New person' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add person' }) })
   await fillName(form, 'Ciara Walsh')
   await form.getByLabel('Email').fill('Ciara@SessionHire.com')

@@ -1,45 +1,43 @@
 import {
   compareCount,
-  countSetTo,
   countSummaryWords,
   dayLabel,
   holdsCount,
   itemByCode,
-  keptWithin,
-  MAX_QTY,
   mondayOf,
   newId,
-  normaliseNumber,
   plural,
   RETIRED_LABELS,
   unknownCode,
-  type AssetView,
   type CountDraft,
   type CountItem,
-  type CountProduct,
   type CountView,
   type View,
-  type WarehouseView,
   type Where,
-  type Ability,
+  STANDING_HEADINGS,
+  listHeading,
+  NOT_YOURS
 } from '@sh/shared'
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react'
+import { useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useScanKeys } from '../scanKeys.ts'
-import { Confirm, Refusal, useAct } from '../act.tsx'
+import { act, Confirm, Refusal, useAct } from '../act.tsx'
 import { useMe } from '../crew/Leave.tsx'
-import { Empty } from '../Empty.tsx'
 import { ShowAll } from '../Fold.tsx'
 import { Top } from '../jobs/common.tsx'
 import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
-import { atLabel, numberLabel, ProductChoices } from './common.tsx'
-import { closeFault, reportFault } from './Faults.tsx'
 import { CameraScanner, primeSound } from './Scanner.tsx'
 import { Heading } from '../Icon.tsx'
 import { STOCK } from '../Up.tsx'
 import { StockViews } from '../Views.tsx'
+import { itemName, jobName, keptWords, targetName, time } from './countWords.ts'
+import { CountedKit, itemWords, Numbers } from './CountKit.tsx'
+import { LabelOnCount, labelToPut, type Labelled } from './CountLabel.tsx'
+import { Stocktake } from './Stocktake.tsx'
+
+export { CountPage } from './CountPage.tsx'
 
 /**
  * Stocktakes and rolling counts (ADR 0030): the Counts card on the Stock
@@ -66,6 +64,8 @@ function readDraft(): CountDraft | undefined {
       unknown: Array.isArray(d.unknown) ? d.unknown : [],
       counted: d.counted && typeof d.counted === 'object' ? d.counted : {},
       added: Array.isArray(d.added) ? d.added : [],
+      labelled: Array.isArray(d.labelled) ? d.labelled : [],
+      labelAs: typeof d.labelAs === 'string' ? d.labelAs : undefined,
     }
   } catch {
     return undefined
@@ -88,6 +88,20 @@ function saveDraft(next: CountDraft | undefined) {
     kept = false
   }
   for (const fn of listeners) fn()
+}
+
+/**
+ * A label put on from the Stock search while a count of where it's kept is
+ * under way on this phone: found on that count, as if scanned there, so the
+ * count never calls it not found (ADR 0175).
+ */
+export function labelledDuringCount(l: { assetId: string; modelId: string; fromCount: boolean }, where: { placeId: string | null; caseId: string | null }) {
+  const d = draft
+  if (!d || !(where.placeId ? d.placeId === where.placeId : !!where.caseId && d.caseId === where.caseId)) return
+  if (d.scanned.includes(l.assetId)) return
+  const counted = { ...d.counted }
+  if ((counted[l.modelId] ?? 0) > 0) counted[l.modelId]! -= 1
+  saveDraft({ ...d, scanned: [...d.scanned, l.assetId], labelled: [...(d.labelled ?? []), l.assetId], counted })
 }
 
 /** Signing out forgets a count in progress too, so whoever signs in next can't finish it as their own. */
@@ -114,24 +128,6 @@ function useDraft(): CountDraft | undefined {
   )
 }
 
-/** "Bay A3", or "SH-000200 (Amp rack)". */
-function targetName(w: WarehouseView, x: Where): string {
-  if (x.placeId) return w.places.find((p) => p.id === x.placeId)?.name ?? 'a place since removed'
-  const c = x.caseId ? w.assets.get(x.caseId) : undefined
-  return c ? `${numberLabel(c)} (${c.model?.name ?? 'a case'})` : 'a case'
-}
-
-/** "SH-000123 d&b Y10P". */
-const itemName = (a: AssetView | undefined) => (a ? [numberLabel(a), a.model?.name].filter(Boolean).join(' ') : 'An item')
-/** "at Bay B1", "in SH-000200 (Amp rack)", or "not placed yet", for where an item was kept. */
-const keptWords = (x: Partial<Where>, w: WarehouseView) => (x.placeId || x.caseId ? `kept ${atLabel({ placeId: x.placeId ?? null, caseId: x.caseId ?? null }, w)}` : 'not placed yet')
-const jobName = (view: View, id: string | null | undefined) => view.jobs.jobs.find((j) => j.id === id)?.name ?? 'a job'
-const isHere = (a: AssetView, x: Where) => (x.placeId ? a.placeId === x.placeId : a.caseId === x.caseId)
-/** An item's open missing report: the oldest, standing for any others (audit, 20 October 2026, finding 45). */
-const openMissing = (view: View, id: string) => view.faults.ofAsset(id).find((f) => f.open && f.kind === 'missing' && !f.merged)
-/** "10:05", in Irish time. */
-const time = (iso: string) => new Date(iso).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Dublin' })
-
 /**
  * Start counting a place or a case, or carry on with the count under way
  * here. One count at a time on a phone: starting another asks first, in
@@ -141,12 +137,20 @@ export function StartCount({ view, where, label, className }: { view: View; wher
   const d = useDraft()
   const { me } = useMe(view)
   const [asking, setAsking] = useState(false)
+  // Someone else counting it already, said before a second count starts (ADR 0177).
+  const [warned, setWarned] = useState(false)
   // Counting is stock's (audit finding 9): not offered to a role without it.
   const mayCount = useAccess().can('stock')
   const w = view.warehouse
   const same = d && d.placeId === where.placeId && d.caseId === where.caseId
+  const others = view.counts.underWayAt(where).filter((u) => u.id !== d?.id)
   const start = () => {
-    saveDraft({ id: newId(), ...where, startedAt: new Date().toISOString(), by: me?.id ?? null, scanned: [], unknown: [], counted: {}, added: [] })
+    // The count under way here is discarded, for everyone else too.
+    if (d) void act(() => client.mutate('count.end', { id: d.id })).catch(() => undefined)
+    const next = { id: newId(), ...where, startedAt: new Date().toISOString(), by: me?.id ?? null, scanned: [], unknown: [], counted: {}, added: [] }
+    saveDraft(next)
+    // Said to every phone, so nobody else counts it unknowing; with no signal, it goes once there is.
+    void act(() => client.mutate('count.begin', { id: next.id, ...where, by: next.by, startedAt: next.startedAt })).catch(() => undefined)
     location.hash = '#stock/count'
   }
   if (!mayCount) return null
@@ -157,6 +161,7 @@ export function StartCount({ view, where, label, className }: { view: View; wher
         className="wide"
         question={`A count of ${other} is under way on this phone${d.scanned.length ? `, with ${plural(d.scanned.length, 'item')} scanned` : ''}. Discard it to count ${targetName(w, where)}?`}
         yes="Discard it and start"
+        loss
         no={`Carry on with ${other}`}
         onYes={start}
         onNo={() => {
@@ -166,9 +171,26 @@ export function StartCount({ view, where, label, className }: { view: View; wher
       />
     )
   }
+  if (warned && others.length > 0) {
+    const o = others[0]!
+    return (
+      <Confirm
+        className="wide"
+        question={`${o.person?.name ?? 'Someone'} has been counting ${targetName(w, where)} since ${time(o.startedAt)}. Two counts of one place each put it right by what they found, so share it out by bay rather than both counting it. Count it as well?`}
+        yes="Count it as well"
+        no="Leave it to them"
+        onYes={() => (setWarned(false), d && !same ? setAsking(true) : start())}
+        onNo={() => setWarned(false)}
+      />
+    )
+  }
   return (
-    <button type="button" className={className} onClick={() => (same ? (location.hash = '#stock/count') : d ? setAsking(true) : start())}>
-      {same ? 'Carry on counting' : label}
+    <button
+      type="button"
+      className={className}
+      onClick={() => (same ? (location.hash = '#stock/count') : others.length > 0 ? setWarned(true) : d ? setAsking(true) : start())}
+    >
+      {same ? 'Keep counting' : label}
     </button>
   )
 }
@@ -183,12 +205,18 @@ export function CountsCard({ view }: { view: View }) {
   // Places and cases alike: a case counted this week is on its page, and here.
   const monday = mondayOf(today)
   const thisWeek = view.counts.all.filter((c) => c.day >= monday)
+  // Someone counting it now says so first (ADR 0177): it's taken.
+  const dueWords = (x: { place: { id: string }; last: CountView | undefined }) => {
+    const u = view.counts.underWayAt({ placeId: x.place.id })[0]
+    if (u) return u.id === d?.id ? 'Being counted on this phone' : `${u.person?.name ?? 'Someone'} is counting it, since ${time(u.startedAt)}`
+    return x.last ? `Last counted ${dayLabel(x.last.day)} ${x.last.day.slice(0, 4)}` : 'Never counted'
+  }
   const due = (x: { place: { id: string; name: string }; last: CountView | undefined }) => (
     <li key={x.place.id} className="count-due">
       <a className="count-link" href={`#stock/place/${x.place.id}`}>
         <div>
           <b>{x.place.name}</b>
-          <p>{x.last ? `Last counted ${dayLabel(x.last.day)} ${x.last.day.slice(0, 4)}` : 'Never counted'}</p>
+          <p>{dueWords(x)}</p>
         </div>
       </a>
       <StartCount view={view} where={{ placeId: x.place.id, caseId: null }} label="Count" />
@@ -203,7 +231,7 @@ export function CountsCard({ view }: { view: View }) {
             A count of <b>{targetName(w, d)}</b> is under way on this phone{d.scanned.length ? `: ${plural(d.scanned.length, 'item')} scanned` : ''}.
           </p>
           <a className="button primary" href="#stock/count">
-            Carry on counting
+            Keep counting
           </a>
         </div>
       )}
@@ -215,7 +243,7 @@ export function CountsCard({ view }: { view: View }) {
       )}
       {week.due.length > 0 ? (
         <>
-          <h3>To count this week</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS.counts, week.due.length)}</h3>
           {/* "places to count", not "places": the Places card below has its own "Show all 9 places". */}
           <ShowAll items={week.due} limit={5} what="places to count">
             {(rows) => <ul className="job-list">{rows.map(due)}</ul>}
@@ -227,7 +255,7 @@ export function CountsCard({ view }: { view: View }) {
             <p className="done-line">This week's counts are done.</p>
             {week.next && (
               <>
-                <h3>Next, to get ahead</h3>
+                <h3 className="group">Next, to get ahead</h3>
                 <ul className="job-list">{due(week.next)}</ul>
               </>
             )}
@@ -236,7 +264,7 @@ export function CountsCard({ view }: { view: View }) {
       )}
       {thisWeek.length > 0 && (
         <>
-          <h3>Counted this week</h3>
+          <h3 className="group">Counted this week</h3>
           <CountList counts={thisWeek} />
         </>
       )}
@@ -296,13 +324,20 @@ type Tone = 'ok' | 'warn' | 'quiet'
 /** #stock/count: the count under way on this phone, or a line saying there's none. */
 export function CountScreen({ view }: { view: View }) {
   const d = useDraft()
+  const mayCount = useAccess().can('stock')
   if (!d)
     return (
       <div className="app warehouse counting">
         <Top view={view} title="Stock" views={<StockViews view={view} current="count" />} heading="Counting" />
         <section className="card plain">
-          <p className="empty">No count is under way on this phone. Start one from a place's page or a case's page, or from a place due below.</p>
+          {/* Only those who can count are told how to start one (audit, 5 November 2026, finding 74). */}
+          <p className="empty">
+            {mayCount
+              ? "No count is under way on this phone. Start one from a place's page or a case's page, or from a place due below."
+              : `No count is under way on this phone. ${NOT_YOURS.counts}`}
+          </p>
         </section>
+        <Stocktake view={view} mine={undefined} />
         <CountsCard view={view} />
       </div>
     )
@@ -318,6 +353,8 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
   const [said, setSaid] = useState<{ tone: Tone; text: string; at: number }>()
   const [typed, setTyped] = useState('')
   const [camera, setCamera] = useState(false)
+  // A label no item has, being put on its item here (ADR 0175).
+  const [labelling, setLabelling] = useState<string>()
   // A scanner's first read goes to the scan field (audit, 20 October 2026, finding 98).
   useScanKeys()
   const [discarding, setDiscarding] = useState(false)
@@ -335,8 +372,16 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
       const shown = unknownCode(code)
       if (!shown) return
       if (!was.unknown.includes(shown)) update({ unknown: [...was.unknown, shown] })
-      return say('warn', `No item has ${shown}. It's noted on the count; put the label on its item from the Stock search afterwards.`)
+      // A Session Hire label not on anything yet is put on its item here, as the count goes (ADR 0175).
+      const label = labelToPut(code)
+      if (label) {
+        // The form below says it all: no line above it repeating it.
+        setSaid(undefined)
+        return setLabelling(label)
+      }
+      return say('warn', `No item has ${shown}. It's noted on the count.`)
     }
+    if (labelling) setLabelling(undefined)
     const what = itemName(a)
     // A case's own label, read as it's opened, isn't something in it.
     if (holdsCount(w, d, a)) return say('quiet', a.id === d.caseId ? `${what} is the case being counted.` : `${what} holds the case being counted.`)
@@ -365,6 +410,24 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
             : `${what}: marked as ${a.retiredReason ? RETIRED_LABELS[a.retiredReason].toLowerCase() : 'retired'}. Bring it back once you finish.`
         )
     }
+  }
+  /** A label put on here: found, off the unlabelled count it came from, and the product offered for the next. */
+  const labelled = (l: Labelled) => {
+    const was = latest()
+    const counted = { ...was.counted }
+    // A number typed for those without a label here counted this one too: it has a label now, so it's one fewer.
+    if ((counted[l.modelId] ?? 0) > 0) counted[l.modelId]! -= 1
+    saveDraft({
+      ...was,
+      scanned: was.scanned.includes(l.assetId) ? was.scanned : [...was.scanned, l.assetId],
+      unknown: was.unknown.filter((c) => c !== l.number),
+      labelled: [...(was.labelled ?? []), l.assetId],
+      labelAs: l.modelId,
+      counted,
+    })
+    setLabelling(undefined)
+    const name = w.models.find((m) => m.id === l.modelId)?.name ?? 'its item'
+    say('ok', `${l.number} is on a ${name} now, and found. Scan the next label.`)
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -436,10 +499,22 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
             {said.text}
           </p>
         )}
+        {labelling && (
+          <LabelOnCount
+            key={labelling}
+            view={view}
+            number={labelling}
+            where={{ placeId: d.placeId, caseId: d.caseId }}
+            product={d.labelAs}
+            onLabelled={labelled}
+            onClose={() => setLabelling(undefined)}
+          />
+        )}
+        {(d.labelled?.length ?? 0) > 0 && <p className="hint">{plural(d.labelled!.length, 'label')} put on during this count.</p>}
         {toFind.length > 0 && <Numbers title={`Still to find (${toFind.length.toLocaleString('en-IE')})`} items={toFind} view={view} each="to find" />}
         {extra.length + d.unknown.length > 0 && (
           <div className="group">
-            <h3>Not as recorded ({extra.length + d.unknown.length})</h3>
+            <h3 className="group">Not as recorded ({extra.length + d.unknown.length})</h3>
             <ul className="said-list">
               {extra.map((i) => (
                 <li key={i.assetId}>
@@ -448,7 +523,13 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
               ))}
               {d.unknown.map((code) => (
                 <li key={code}>
-                  <b>{code}</b> No item has this number.
+                  <b>{code}</b> No item has this number.{' '}
+                  {/* Only a label from a run set aside: the list keeps digits read as a number, which may have been a maker's serial. */}
+                  {view.labels.runOf(code) && labelling !== code && (
+                    <button type="button" className="link" onClick={() => setLabelling(code)}>
+                      Put it on its item
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -480,9 +561,12 @@ function Counting({ view, d }: { view: View; d: CountDraft }) {
           <Confirm
             question={`Discard the count of ${name}? What was scanned and typed goes, and nothing is recorded.`}
             yes="Discard it"
+            loss
             no="Keep counting"
             onYes={() => {
               saveDraft(undefined)
+              // No longer under way, for everyone (ADR 0177).
+              void act(() => client.mutate('count.end', { id: d.id })).catch(() => undefined)
               location.hash = d.placeId ? `#stock/place/${d.placeId}` : `#stock/item/${d.caseId}`
             }}
             onNo={() => setDiscarding(false)}
@@ -515,481 +599,5 @@ function Who({ view, d, signedIn, me, onPick }: { view: View; d: CountDraft; sig
         ))}
       </select>
     </label>
-  )
-}
-
-/**
- * Items by product, each number a link to its page, as on a place's page: how many in each product's name, and its first
- * twenty numbers until Show all, as the catalogue does (audit, 20 October 2026, finding 43).
- */
-function Numbers({ title, items, view, each }: { title?: string; items: readonly CountItem[]; view: View; each: string }) {
-  const w = view.warehouse
-  const groups = new Map<string, AssetView[]>()
-  for (const i of items) {
-    const a = w.assets.get(i.assetId)
-    if (a) groups.set(a.modelId, [...(groups.get(a.modelId) ?? []), a])
-  }
-  return (
-    <div className="group">
-      {title && <h3>{title}</h3>}
-      {[...groups.values()].map((list) => (
-        <div key={list[0]!.modelId}>
-          <p className="group-name">
-            {list[0]!.model?.name ?? 'A product since removed'}{' '}
-            <small>
-              · {list.length.toLocaleString('en-IE')} {each}
-            </small>
-          </p>
-          <ShowAll items={list} limit={20} what="numbers">
-            {(shown) => (
-              <ul className="numbers">
-                {shown.map((a) => (
-                  <li key={a.id}>
-                    <a href={`#stock/item/${a.id}`}>{numberLabel(a)}</a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </ShowAll>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/** What a count said of an item scanned that wasn't as recorded, in words. */
-function itemWords(view: View, i: CountItem): string {
-  const w = view.warehouse
-  const a = w.assets.get(i.assetId)
-  switch (i.said) {
-    case 'elsewhere':
-    case 'in-case':
-      return `Found here, ${keptWords(i, w)}.`
-    case 'out':
-      return `Recorded as out with ${jobName(view, i.projectId)}.`
-    case 'missing':
-      return 'Reported missing.'
-    case 'retired':
-      return a?.retiredReason === 'mistake' ? 'Added by mistake.' : `Marked as ${a?.retiredReason ? RETIRED_LABELS[a.retiredReason].toLowerCase() : 'retired'}.`
-    default:
-      return ''
-  }
-}
-
-/**
- * Counted kit: a number per product, without the record beside it (a blind
- * count, as the research says: a counter shown 120 tends to find 120). One
- * left blank isn't counted; 0 is none there. A product that's there but
- * wasn't expected is added by name.
- */
-function CountedKit({
-  view,
-  d,
-  products,
-  onChange,
-  onAdd,
-}: {
-  view: View
-  d: CountDraft
-  products: string[]
-  onChange: (counted: Record<string, number>) => void
-  onAdd: (modelId: string) => void
-}) {
-  const w = view.warehouse
-  const [adding, setAdding] = useState('')
-  // What's typed here; a number typed in another tab shows from the count itself.
-  const [typed, setTyped] = useState<Record<string, string>>({})
-  const added = useRef<string>('')
-  const { error, refuse } = useAct()
-  const model = (id: string) => w.models.find((m) => m.id === id)
-  useEffect(() => {
-    if (!added.current) return
-    document.getElementById(`count-${added.current}`)?.focus()
-    added.current = ''
-  }, [products.length])
-  const set = (modelId: string, text: string) => {
-    setTyped({ ...typed, [modelId]: text })
-    const n = Number(text)
-    const counted = { ...d.counted }
-    if (text.trim() === '' || !Number.isInteger(n) || n < 0 || n > MAX_QTY) delete counted[modelId]
-    else counted[modelId] = n
-    onChange(counted)
-  }
-  const add = (e: FormEvent) => {
-    e.preventDefault()
-    const m = w.models.find((x) => x.name.trim().toLowerCase() === adding.trim().toLowerCase())
-    if (!m) return refuse(`No product is called ${adding.trim()}. Add it on the Stock page first.`)
-    if (products.includes(m.id)) return refuse(`${m.name} is on the count already.`)
-    refuse('')
-    added.current = m.id
-    onAdd(m.id)
-    setAdding('')
-  }
-  return (
-    <section className="card counted-kit" aria-label="Counted kit">
-      <h2>Counted kit</h2>
-      <p className="hint">Type how many you count of each, without looking at the record: they're compared when you finish. Leave one blank if you didn't count it.</p>
-      {products.length === 0 && <Empty>Nothing counted is recorded here. Add a product below if there is some.</Empty>}
-      {products.map((id) => {
-        const m = model(id)
-        return (
-          <label key={id} className="count-field">
-            <span>
-              <b>{m?.name ?? 'A product since removed'}</b>
-              {m?.tracking === 'serialised' && <small>Not labelled yet</small>}
-            </span>
-            <input
-              id={`count-${id}`}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={MAX_QTY}
-              value={typed[id] ?? String(d.counted[id] ?? '')}
-              onChange={(e) => set(id, e.target.value)}
-              placeholder="How many"
-            />
-          </label>
-        )
-      })}
-      <form className="add-product" onSubmit={add}>
-        <label className="field">
-          A product that's here but not on the list
-          <input list="product-names" value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="e.g. XLR 10 m" autoComplete="off" />
-        </label>
-        <button type="submit">Add</button>
-      </form>
-      <Refusal error={error} />
-      <ProductChoices w={w} />
-    </section>
-  )
-}
-
-/** #stock/count/<id>: what a count found, each difference with its fix, worked out against what this phone holds now. */
-export function CountPage({ view, id }: { view: View; id: string }) {
-  const c = view.counts.byId(id)
-  const up = { steps: c ? [STOCK, { href: c.placeId ? `#stock/place/${c.placeId}` : `#stock/item/${c.caseId}`, label: c.what }] : [STOCK], here: c && 'Count' }
-  if (!c)
-    return (
-      <div className="app warehouse counting">
-        <Top view={view} title="Stock" up={up} />
-        <section className="card">
-          <header className="title">
-            <h1>A count</h1>
-          </header>
-          <p className="empty">This count isn't on this device. It may still be on its way: check again once it says “Up to date”.</p>
-        </section>
-      </div>
-    )
-  const at: Where = { placeId: c.placeId, caseId: c.caseId }
-  const items = (...kinds: CountItem['said'][]) => c.items.filter((i) => kinds.includes(i.said))
-  return (
-    <div className="app warehouse counting">
-      <Top view={view} title="Stock" up={up} />
-      <section className="card">
-        <header className="title">
-          <h1>Count of {c.what}</h1>
-          <Pending pending={c.pending} />
-        </header>
-        <dl className="facts">
-          <div>
-            <dt>When</dt>
-            <dd>
-              {dayLabel(c.day)}, {time(c.startedAt)} to {time(c.finishedAt)}
-            </dd>
-          </div>
-          <div>
-            <dt>Counted by</dt>
-            <dd>{c.person?.name ?? 'Not said'}</dd>
-          </div>
-          <div className="wide">
-            <dt>What it found</dt>
-            <dd>{countSummaryWords(c.summary)}</dd>
-          </div>
-        </dl>
-      </section>
-      <NotFound view={view} c={c} at={at} list={items('not-found')} />
-      <Elsewhere view={view} at={at} list={items('elsewhere')} />
-      <NotExpected view={view} c={c} at={at} />
-      <Products view={view} c={c} at={at} />
-      <Rest view={view} c={c} />
-    </div>
-  )
-}
-
-/**
- * A fix: one existing command (or two), with its refusal under it. Held while it's being kept, so a second tap can't send it twice.
- * Not drawn for a role without what it `needs` (audit finding 9): stock's, but for reporting kit missing, which anyone can.
- */
-function Fix({ label, act, className, needs = 'stock' }: { label: string; act: () => Promise<unknown>; className?: string; needs?: Ability }) {
-  const { run, error } = useAct()
-  const [busy, setBusy] = useState(false)
-  const may = useAccess().can(needs)
-  const go = () => {
-    setBusy(true)
-    void run(act).finally(() => setBusy(false))
-  }
-  if (!may) return null
-  return (
-    <>
-      <button type="button" className={className} onClick={go} disabled={busy}>
-        {label}
-      </button>
-      <Refusal error={error} />
-    </>
-  )
-}
-
-/** A row on a count's page: what, what the count said, and its fix or what's become of it since. */
-function Line({ title, href, said, children }: { title: string; href?: string; said: ReactNode; children?: ReactNode }) {
-  return (
-    <li className="count-line">
-      <div>
-        {href ? <a href={href}>{title}</a> : <b>{title}</b>}
-        <p>{said}</p>
-      </div>
-      <div className="actions">{children}</div>
-    </li>
-  )
-}
-
-/** What's become of an item since, for a fix that's no longer to do; undefined while it is. */
-function since(view: View, a: AssetView | undefined, missingIsDone: boolean): string | undefined {
-  if (!a) return 'Not on this phone.'
-  if (a.status !== 'active') return 'Retired since.'
-  const out = view.moves.outOf(a.id)
-  if (out) return `Out with ${jobName(view, out.projectId)} now.`
-  if (openMissing(view, a.id)) return missingIsDone ? 'Reported missing.' : undefined
-  return undefined
-}
-
-function NotFound({ view, c, at, list }: { view: View; c: CountView; at: Where; list: CountItem[] }) {
-  if (list.length === 0) return null
-  const w = view.warehouse
-  const report = (a: AssetView) => reportFault({ kind: 'missing', assetId: a.id, modelId: a.modelId, qty: 1, projectId: null, usable: false, note: `Not found in the count of ${c.what}.` })
-  const rows = list.map((i) => {
-    const a = w.assets.get(i.assetId)
-    const done = since(view, a, true) ?? (a && !isHere(a, at) ? `Now ${keptWords(a, w)}.` : undefined)
-    return { i, a, done }
-  })
-  const toDo = rows.filter((r) => !r.done && r.a).map((r) => r.a!)
-  return (
-    <section className="card count-fixes" aria-label="Not found">
-      <h2>Not found ({list.length})</h2>
-      <p className="hint">Expected here and not scanned. Look again, or report it missing: it joins the repair list, and scanning it later marks it found.</p>
-      <ul className="count-lines">
-        {rows.map(({ i, a, done }) => (
-          <Line key={i.assetId} title={itemName(a)} href={a && `#stock/item/${a.id}`} said={done ?? 'Not scanned.'}>
-            {!done && a && <Fix label="Report missing" act={() => report(a)} needs="fault" />}
-          </Line>
-        ))}
-      </ul>
-      {toDo.length > 1 && <Fix className="all" label={`Report all ${toDo.length} missing`} act={async () => { for (const a of toDo) await report(a) }} needs="fault" />}
-    </section>
-  )
-}
-
-function Elsewhere({ view, at, list }: { view: View; at: Where; list: CountItem[] }) {
-  if (list.length === 0) return null
-  const w = view.warehouse
-  const move = (a: AssetView) => client.mutate('asset.move', { id: a.id, ...at })
-  const doneOf = (i: CountItem, a: AssetView | undefined) => {
-    if (a && keptWithin(a, at)) return 'Moved here.'
-    const gone = since(view, a, false)
-    if (gone || !a) return gone
-    // Moved somewhere else since the count: that's newer word than the count's, so it isn't moved back.
-    return a.placeId !== (i.placeId ?? null) || a.caseId !== (i.caseId ?? null) ? `Now ${keptWords(a, w)}.` : undefined
-  }
-  const rows = list.map((i) => {
-    const a = w.assets.get(i.assetId)
-    return { i, a, done: doneOf(i, a) }
-  })
-  const toDo = rows.filter((r) => !r.done && r.a).map((r) => r.a!)
-  return (
-    <section className="card count-fixes" aria-label="In the wrong place">
-      <h2>In the wrong place ({list.length})</h2>
-      <p className="hint">Scanned here, but recorded somewhere else. Move it here, or leave it.</p>
-      <ul className="count-lines">
-        {rows.map(({ i, a, done }) => (
-          <Line key={i.assetId} title={itemName(a)} href={a && `#stock/item/${a.id}`} said={done ?? `Was ${keptWords(i, w)}.`}>
-            {!done && a && <Fix label="Move here" act={() => move(a)} />}
-          </Line>
-        ))}
-      </ul>
-      {toDo.length > 1 && <Fix className="all" label={`Move all ${toDo.length} here`} act={async () => { for (const a of toDo) await move(a) }} />}
-    </section>
-  )
-}
-
-/** Scanned, but retired, reported missing or out with a job; and numbers no item has. */
-function NotExpected({ view, c, at }: { view: View; c: CountView; at: Where }) {
-  const w = view.warehouse
-  const list = c.items.filter((i) => i.scanned && (i.said === 'retired' || i.said === 'missing' || i.said === 'out'))
-  if (list.length === 0 && c.unknown.length === 0) return null
-  const line = (i: CountItem) => {
-    const a = w.assets.get(i.assetId)
-    const title = itemName(a)
-    const href = a && `#stock/item/${a.id}`
-    if (i.said === 'retired') {
-      const mistake = a?.retiredReason === 'mistake' || !!(a && w.mistakes.has(a.modelId))
-      const still = a?.status === 'retired'
-      return (
-        <Line key={i.assetId} title={title} href={href} said={!still ? 'Brought back.' : mistake ? 'Added by mistake, so it stays out of the stock list.' : `Marked as ${a?.retiredReason ? RETIRED_LABELS[a.retiredReason].toLowerCase() : 'retired'}, but it's here.`}>
-          {still && !mistake && a && (
-            <Fix
-              label="Bring it back and keep it here"
-              act={async () => {
-                await client.mutate('asset.reinstate', { id: a.id })
-                await client.mutate('asset.move', { id: a.id, ...at })
-              }}
-            />
-          )}
-        </Line>
-      )
-    }
-    if (i.said === 'missing') {
-      const fault = a && openMissing(view, a.id)
-      const elsewhere = !!a && a.status === 'active' && !keptWithin(a, at)
-      return (
-        <Line key={i.assetId} title={title} href={href} said={fault ? `Reported missing, but it's here${elsewhere ? `. It was ${keptWords(i, w)}` : ''}.` : 'Marked found.'}>
-          {fault && a && (
-            <Fix
-              label={elsewhere ? 'Mark found and keep it here' : 'Mark found'}
-              act={async () => {
-                await closeFault(fault, 'found')
-                if (elsewhere) await client.mutate('asset.move', { id: a.id, ...at })
-              }}
-            />
-          )}
-        </Line>
-      )
-    }
-    const out = a ? view.moves.outOf(a.id) : undefined
-    return (
-      <Line
-        key={i.assetId}
-        title={title}
-        href={href}
-        said={
-          out ? (
-            <>
-              Recorded as out with {jobName(view, out.projectId)}, but it's here. Scan it back in on <a href={`#jobs/${out.projectId}/pick`}>the job's pick list</a>.
-            </>
-          ) : (
-            'Recorded as out with a job when counted; scanned back in since.'
-          )
-        }
-      />
-    )
-  }
-  return (
-    <section className="card count-fixes" aria-label="Not expected">
-      <h2>Not expected ({list.length + c.unknown.length})</h2>
-      <ul className="count-lines">
-        {list.map(line)}
-        {c.unknown.map((code) => {
-          const now = normaliseNumber(code) ? w.byNumber.get(normaliseNumber(code)!) : undefined
-          return (
-            <Line
-              key={code}
-              title={code}
-              said={
-                now ? (
-                  `Now on ${itemName(now)}.`
-                ) : (
-                  <>
-                    No item has this number. Scan or type it in <a href="#stock">the Stock search</a> to put it on its item.
-                  </>
-                )
-              }
-            />
-          )
-        })}
-      </ul>
-    </section>
-  )
-}
-
-/** "XLR 10 m", or "d&b Y10P, not labelled yet" for a numbered product's counted ones. */
-function productLabel(w: WarehouseView, modelId: string): string {
-  const m = w.models.find((x) => x.id === modelId)
-  return m ? `${m.name}${m.tracking === 'serialised' ? ', not labelled yet' : ''}` : 'A product since removed'
-}
-
-/** Counted kit: counted against recorded, how many were away, and what the fix sets it to (ADR 0030). */
-function Products({ view, c, at }: { view: View; c: CountView; at: Where }) {
-  if (c.products.length === 0) return null
-  const w = view.warehouse
-  const here = (at.placeId ? w.places.find((p) => p.id === at.placeId)?.counted : w.assets.get(at.caseId ?? '')?.counted) ?? []
-  const now = (modelId: string) => here.find((s) => s.modelId === modelId)?.qty ?? 0
-  const set = (p: CountProduct, qty: number) => client.mutate('stock.set', { modelId: p.modelId, ...at, qty })
-  const rows = c.products.map((p) => {
-    const setTo = countSetTo(p)
-    const off = setTo !== null && setTo !== p.recorded
-    const n = now(p.modelId)
-    // Set only while the record is what the count was compared with: changed since (counted again, say), it's newer than the count.
-    return { p, setTo, off, toDo: off && n === p.recorded, changed: off && n !== p.recorded && n !== setTo }
-  })
-  const toDo = rows.filter((r) => r.toDo)
-  const words = ({ p, setTo, off, changed }: (typeof rows)[number]) => {
-    if (p.counted === null) return `Not counted; ${p.recorded.toLocaleString('en-IE')} recorded.`
-    const away = p.away ? `, ${p.away.toLocaleString('en-IE')} out with jobs or reported missing` : ''
-    const base = `${p.counted.toLocaleString('en-IE')} counted, ${p.recorded.toLocaleString('en-IE')} recorded${away}`
-    // Fewer on the shelf than recorded, but no more than are away: a loss, if any, waits until they're back, and the next count finds it.
-    if (!off || setTo === null)
-      return p.counted < p.recorded
-        ? `${base}: the ${(p.recorded - p.counted).toLocaleString('en-IE')} not here may be among those away, so it stays as recorded.`
-        : `${base}: as recorded.`
-    const said = `${base}: ${Math.abs(setTo - p.recorded).toLocaleString('en-IE')} ${setTo < p.recorded ? 'short' : 'over'}.`
-    return changed ? `${said} The record has changed since: ${now(p.modelId).toLocaleString('en-IE')} now.` : said
-  }
-  return (
-    <section className="card count-fixes" aria-label="Counted kit">
-      <h2>Counted kit</h2>
-      <p className="hint">Kit out with a job, or reported missing, stays in the count it came from, so a count is never lowered for it.</p>
-      <ul className="count-lines">
-        {rows.map((r) => (
-          <Line key={r.p.modelId} title={productLabel(w, r.p.modelId)} href={`#stock/product/${r.p.modelId}`} said={words(r)}>
-            {r.off && r.setTo !== null && !r.changed && (r.toDo ? <Fix label={`Set to ${r.setTo.toLocaleString('en-IE')}`} act={() => set(r.p, r.setTo!)} /> : <span className="done">Set to {r.setTo.toLocaleString('en-IE')}</span>)}
-          </Line>
-        ))}
-      </ul>
-      {toDo.length > 1 && <Fix className="all" label={`Set all ${toDo.length} counts`} act={async () => { for (const r of toDo) await set(r.p, r.setTo!) }} />}
-    </section>
-  )
-}
-
-/** What was as recorded, folded: found, and kit away (out with a job, already missing, in repair) that the count said nothing new about. */
-function Rest({ view, c }: { view: View; c: CountView }) {
-  const w = view.warehouse
-  const found = c.items.filter((i) => i.said === 'found' || i.said === 'in-case')
-  const away = c.items.filter((i) => !i.scanned && (i.said === 'out' || i.said === 'missing' || i.said === 'repair'))
-  if (found.length === 0 && away.length === 0) return null
-  const fault = (id: string) => view.faults.ofAsset(id).find((f) => f.kind === 'damaged' && f.open)
-  return (
-    <section className="card">
-      {found.length > 0 && (
-        <details>
-          <summary>Found ({found.length.toLocaleString('en-IE')})</summary>
-          <Numbers items={found} view={view} each="found" />
-        </details>
-      )}
-      {away.length > 0 && (
-        <details>
-          <summary>Out with jobs, missing or in repair ({away.length})</summary>
-          <ul className="count-lines">
-            {away.map((i) => {
-              const a = w.assets.get(i.assetId)
-              const said =
-                i.said === 'out'
-                  ? `Out with ${jobName(view, i.projectId)}.`
-                  : i.said === 'missing'
-                    ? 'Already reported missing.'
-                    : `In repair${a && fault(a.id)?.note ? `: ${fault(a.id)!.note}` : ''}.`
-              return <Line key={i.assetId} title={itemName(a)} href={a && `#stock/item/${a.id}`} said={said} />
-            })}
-          </ul>
-        </details>
-      )}
-    </section>
   )
 }

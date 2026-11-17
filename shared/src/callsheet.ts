@@ -1,5 +1,6 @@
 import { daysLabel, eachDay, firstName, needsLabel, tidyNeeds, type CertificateKind, type OfferStatus } from './crew.ts'
 import { mapLink, type Contact, type Venue } from './jobs.ts'
+import { HOLD_WORDS } from './words.ts'
 import { DEPARTMENTS, DEPARTMENT_LABELS, type Department } from './stock.ts'
 
 /**
@@ -16,8 +17,9 @@ import { DEPARTMENTS, DEPARTMENT_LABELS, type Department } from './stock.ts'
  * - everyone else on it: who else is on by name and role, and the
  *   contact's number. Never another person's number or rate.
  *
- * Job, phase and venue notes are shown to everyone: they already go on the
- * calendar events crew are invited to (ADR 0008).
+ * Job, phase and venue notes are shown to everyone: they are the notes for
+ * the crew, on the calendar events of everyone who has said yes (ADR 0008,
+ * ADR 0151). A job's office notes are never on a call sheet.
  */
 
 export type SheetReader = 'office' | 'contact' | 'crew'
@@ -63,11 +65,12 @@ export interface SheetVan {
 }
 
 export interface SheetInput {
-  job: { name: string; notes: string }
+  /** `hold`: the client hasn't said yes to the job yet, so its crew are asked to hold the day (ADR 0150). */
+  job: { name: string; notes: string; hold?: boolean }
   client: { name: string; contacts: readonly Contact[] } | null
   /** Null for a crew call that isn't for one phase. */
   phase: { name: string; start: string; end: string; notes: string } | null
-  venue: Pick<Venue, 'name' | 'address' | 'notes'> | null
+  venue: Pick<Venue, 'name' | 'address' | 'notes' | 'contact'> | null
   contact: SheetPerson | null
   calls: readonly SheetCall[]
   people: ReadonlyMap<string, SheetPerson>
@@ -115,12 +118,21 @@ export interface SheetCallView {
 export interface CallSheet {
   reader: SheetReader
   job: string
+  /**
+   * The client hasn't said yes yet (ADR 0150): what the sheet says first, in the reader's words, so nobody reads a sheet
+   * with their name on it as a booking. Only then.
+   */
+  hold?: string
   client: { name: string; contacts?: readonly Contact[] } | null
   phase: string
   days: string[]
   /** "Sat 3 Oct to Sun 4 Oct". */
   when: string
-  venue: { name: string; address: string; notes: string; map: string } | null
+  /**
+   * With who to ask for there (ADR 0119), for everyone: the venue's own person, whom crew ring at the door, as its
+   * notes on access already are. Their number but never their email, which is the office's to use.
+   */
+  venue: { name: string; address: string; notes: string; map: string; contact?: { name: string; role: string; phone: string | null } } | null
   contact: { name: string; phone: string | null; me: boolean } | null
   notes: { job: string; phase: string }
   calls: SheetCallView[]
@@ -207,11 +219,24 @@ export function callSheet(input: SheetInput, reader: SheetReader): CallSheet {
     days,
     when: daysLabel(days),
     venue: input.venue
-      ? { name: input.venue.name, address: addressAfter(input.venue.name, input.venue.address), notes: input.venue.notes.trim(), map: mapLink(input.venue) }
+      ? {
+          name: input.venue.name,
+          address: addressAfter(input.venue.name, input.venue.address),
+          notes: input.venue.notes.trim(),
+          map: mapLink(input.venue),
+          ...(input.venue.contact ? { contact: { name: input.venue.contact.name, role: input.venue.contact.role, phone: input.venue.contact.phone } } : {}),
+        }
       : null,
     contact: input.contact ? { name: input.contact.name, phone: input.contact.phone, me: input.contact.id === input.readerId } : null,
     notes: { job: input.job.notes.trim(), phase: input.phase?.notes.trim() ?? '' },
     calls: views,
+  }
+  if (input.job.hold) {
+    // To the crew it is about the days they hold themselves, which can be fewer than the sheet's; with no place of their own on it, the sheet's.
+    const mine = new Set(
+      calls.flatMap((c) => c.offers.filter((o) => o.personId === input.readerId && (o.status === 'accepted' || o.status === 'confirmed')).flatMap((o) => o.days.filter((d) => c.start <= d && d <= c.end)))
+    )
+    sheet.hold = reader === 'office' ? HOLD_WORDS.toOffice : HOLD_WORDS.toYou(mine.size || days.length)
   }
   const vans = (input.vans ?? [])
     .map((v) => ({ ...v, days: eachDay(v.start, v.end).filter((d) => !days.length || days.includes(d)) }))
@@ -245,6 +270,11 @@ export function callSheet(input: SheetInput, reader: SheetReader): CallSheet {
   return sheet
 }
 
+/** "At the venue, ask for Aoife Byrne (Production manager) on 087 123 4567." The same words wherever the sheet is read. */
+export function venueContactLine(c: { name: string; role: string; phone: string | null }): string {
+  return `At the venue, ask for ${c.name}${c.role ? ` (${c.role})` : ''}${c.phone ? ` on ${c.phone}` : ''}.`
+}
+
 /**
  * The sheet as a message, to paste into a crew's WhatsApp group: what
  * everyone on it may see, whoever copies it, so never anyone's number but
@@ -252,8 +282,11 @@ export function callSheet(input: SheetInput, reader: SheetReader): CallSheet {
  */
 export function callSheetText(s: CallSheet): string {
   const lines: string[] = [`${s.job}${s.phase ? `: ${s.phase}` : ''}`, s.when]
+  // Pasted where the crew read it, so in the words said to them, whoever copies it.
+  if (s.hold) lines.push(HOLD_WORDS.toYou(s.days.length))
   if (s.venue) lines.push('', `At ${s.venue.name}${s.venue.address ? `, ${s.venue.address.replace(/\s*\r?\n\s*/g, ', ')}` : ''}`, s.venue.map)
   if (s.venue?.notes) lines.push(s.venue.notes)
+  if (s.venue?.contact) lines.push(venueContactLine(s.venue.contact))
   if (s.contact) lines.push('', `On the day, ring ${s.contact.name}${s.contact.phone ? ` on ${s.contact.phone}` : ''}`)
   lines.push('')
   for (const c of s.calls) {
@@ -275,10 +308,10 @@ export function vanLine(v: NonNullable<CallSheet['vans']>[number]): string {
 }
 
 /** Sending someone the sheet on their private link, by WhatsApp, text or email. */
-export function sheetMessage(p: { name: string; knownAs?: string | null }, s: Pick<CallSheet, 'job' | 'phase' | 'when'>, link: string): { text: string; subject: string } {
+export function sheetMessage(p: { name: string; knownAs?: string | null }, s: Pick<CallSheet, 'job' | 'phase' | 'when'> & Partial<Pick<CallSheet, 'hold'>>, link: string): { text: string; subject: string } {
   const first = firstName(p)
   return {
-    text: `Hi ${first}, here's the call sheet for ${s.job}${s.phase ? ` (${s.phase})` : ''}, ${s.when}: who's on, where, and who to ring on the day.\n${link}`,
+    text: `Hi ${first}, here's the call sheet for ${s.job}${s.phase ? ` (${s.phase})` : ''}, ${s.when}: who's on, where, and who to ring on the day.${s.hold ? " It's to hold the day for now: the client hasn't said yes yet." : ''}\n${link}`,
     subject: `Call sheet: ${s.job}, ${s.when}`,
   }
 }

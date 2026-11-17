@@ -27,6 +27,8 @@ test("a job's parts on a phone fade where there are more, the next part shows, a
   await push(request, [
     { name: 'project.create', args: { id: `edges-${id}`, name: `Edges ${id}`, clientId: null, venueId: null, status: 'confirmed', kind: 'meeting', notes: '' } },
     { name: 'phase.add', args: { id: `edges-${id}-m`, projectId: `edges-${id}`, name: 'Meeting', start: '2031-03-04', end: '2031-03-04', venueId: null, notes: '' } },
+    { name: 'project.create', args: { id: `edges-${id}-g`, name: `Edges gig ${id}`, clientId: null, venueId: null, status: 'confirmed', kind: 'gig', notes: '' } },
+    { name: 'phase.add', args: { id: `edges-${id}-gs`, projectId: `edges-${id}-g`, name: 'Show', start: '2031-03-04', end: '2031-03-04', venueId: null, notes: '' } },
   ])
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#jobs')
@@ -37,8 +39,16 @@ test("a job's parts on a phone fade where there are more, the next part shows, a
   await expect(row).not.toContainText('Meeting · ')
   await expect(row).toContainText(' · Meeting')
 
+  // A meeting's page has only When and Who's going (user flows of 13 November 2026, finding 5), so the row of parts that's wider
+  // than a phone is a gig's.
   await row.click()
+  const meeting = page.getByRole('tablist', { name: 'Parts of the job' })
+  await expect(meeting.getByRole('tab')).toHaveCount(2)
+  await page.goto(`/#jobs/edges-${id}-g`)
   const tabs = page.getByRole('tablist', { name: 'Parts of the job' })
+  // From the first part, the row fades on the right.
+  await tabs.getByRole('tab').first().click()
+  await tabs.evaluate((el) => (el.scrollLeft = 0))
   await expect(tabs).toHaveAttribute('data-more', 'right')
   const open = tabs.getByRole('tab', { selected: true })
   const next = open.locator('xpath=following-sibling::*[1]')
@@ -46,8 +56,8 @@ test("a job's parts on a phone fade where there are more, the next part shows, a
   expect(after!.x + after!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
   await tabs.evaluate((el) => (el.scrollLeft = el.scrollWidth))
   await expect(tabs).toHaveAttribute('data-more', 'left')
-  // Quote, the last part, is there to be reached.
-  await expect(tabs.getByRole('tab', { name: /^Quote/ })).toBeInViewport()
+  // Show pack, the last part, is there to be reached.
+  await expect(tabs.getByRole('tab', { name: /^Show pack/ })).toBeInViewport()
 })
 
 test('Cmd-P prints the screen as it is, light and without the tabs, and a print sheet still prints alone', async ({ browser }) => {
@@ -98,7 +108,7 @@ test("Add person says a bad email in a line that stays, and Tab out of Skills la
   await page.goto('/#crew/people')
   await expect(page.getByRole('status')).toHaveText('Up to date')
   const form = page.getByRole('form', { name: 'Add person' })
-  if (!(await form.count())) await page.getByRole('button', { name: 'Add person' }).click()
+  if (!(await form.count())) await page.getByRole('button', { name: 'New person' }).click()
   await form.getByLabel('First name').fill(`Edges ${id}`)
   await form.getByLabel('Email').fill('edges.example.com')
   await form.getByRole('button', { name: 'Add person' }).click()
@@ -112,7 +122,7 @@ test("Add person says a bad email in a line that stays, and Tab out of Skills la
   await expect(form.getByRole('listbox', { name: 'In use' })).toBeVisible()
   await expect(form.getByRole('listbox', { name: 'In use' })).toHaveAttribute('tabindex', '-1')
   await page.keyboard.press('Tab')
-  await expect(form.getByLabel('Usual day rate €')).toBeFocused()
+  await expect(form.getByLabel('Own day rate €')).toBeFocused()
 })
 
 test("the skills on offer open above the box when it's low on a phone, clear of the tabs", async ({ browser }) => {
@@ -120,7 +130,7 @@ test("the skills on offer open above the box when it's low on a phone, clear of 
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await page.goto('/#crew/people')
   await expect(page.getByRole('status')).toHaveText('Up to date')
-  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByRole('button', { name: 'New person' }).click()
   const form = page.getByRole('form', { name: 'Add person' })
   const skills = form.getByRole('combobox', { name: 'Skills' })
   // The box put just above the tabs, as when the form is scrolled to there: the form moved down the screen until it is.

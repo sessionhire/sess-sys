@@ -87,6 +87,77 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS rms_matches_project ON rms_matches (project_id);
   `,
+  // An open quote the office says isn't going ahead, taken off the master calendar (ADR 0134): Current RMS's statuses
+  // can't be trusted, so this is the office's word here. Nothing in Current RMS changes.
+  `
+  CREATE TABLE IF NOT EXISTS rms_set_aside (
+    opportunity_id  integer PRIMARY KEY REFERENCES rms_opportunities(id) ON DELETE CASCADE,
+    set_by          text NOT NULL DEFAULT '',
+    set_at          timestamptz NOT NULL DEFAULT now()
+  );
+  `,
+  // Each product's hire price as Current RMS has it (ADR 0132), from the last read of its products and their rates, for
+  // filling the price list in. A copy to read: replaced whole by each read that finishes.
+  `
+  CREATE TABLE IF NOT EXISTS rms_products (
+    id               integer PRIMARY KEY,
+    name             text NOT NULL,
+    price_cents      integer CHECK (price_cents > 0),
+    rate_definition  text NOT NULL DEFAULT '',
+    read_at          timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS rms_price_reads (
+    id           bigserial PRIMARY KEY,
+    started_at   timestamptz NOT NULL,
+    finished_at  timestamptz,
+    products     integer NOT NULL DEFAULT 0,
+    error        text,
+    stopped      boolean NOT NULL DEFAULT false
+  );
+  `,
+  // Current RMS's organisations, venues and contacts (ADR 0136), from the last read of them, for filling clients and
+  // venues in. A copy to read: replaced whole by each read that finishes.
+  `
+  CREATE TABLE IF NOT EXISTS rms_members (
+    id       integer PRIMARY KEY,
+    kind     text NOT NULL CHECK (kind IN ('organisation', 'venue', 'contact')),
+    name     text NOT NULL,
+    active   boolean NOT NULL DEFAULT true,
+    address  text NOT NULL DEFAULT '',
+    email    text NOT NULL DEFAULT '',
+    phone    text NOT NULL DEFAULT ''
+  );
+  CREATE TABLE IF NOT EXISTS rms_member_links (
+    parent_id   integer NOT NULL,
+    contact_id  integer NOT NULL,
+    PRIMARY KEY (parent_id, contact_id)
+  );
+  CREATE TABLE IF NOT EXISTS rms_member_reads (
+    id           bigserial PRIMARY KEY,
+    started_at   timestamptz NOT NULL,
+    finished_at  timestamptz,
+    members      integer NOT NULL DEFAULT 0,
+    error        text,
+    stopped      boolean NOT NULL DEFAULT false
+  );
+  `,
+  // Dates the office corrected here (ADR 0138): what Current RMS says is kept in rms_starts_at and rms_ends_at, read
+  // again each time, and starts_at and ends_at are the dates to go by, the correction's when there is one. The show
+  // days Current RMS keeps beside the hire's are read too.
+  `
+  ALTER TABLE rms_opportunities ADD COLUMN IF NOT EXISTS rms_starts_at timestamptz;
+  ALTER TABLE rms_opportunities ADD COLUMN IF NOT EXISTS rms_ends_at timestamptz;
+  ALTER TABLE rms_opportunities ADD COLUMN IF NOT EXISTS show_starts_at timestamptz;
+  ALTER TABLE rms_opportunities ADD COLUMN IF NOT EXISTS show_ends_at timestamptz;
+  UPDATE rms_opportunities SET rms_starts_at = starts_at, rms_ends_at = ends_at WHERE rms_starts_at IS NULL AND rms_ends_at IS NULL;
+  CREATE TABLE IF NOT EXISTS rms_dates_fixed (
+    opportunity_id  integer PRIMARY KEY REFERENCES rms_opportunities(id) ON DELETE CASCADE,
+    starts_on       date NOT NULL,
+    ends_on         date NOT NULL CHECK (ends_on >= starts_on),
+    set_by          text NOT NULL DEFAULT '',
+    set_at          timestamptz NOT NULL DEFAULT now()
+  );
+  `,
 ]
 
 export const RMS: Module = { versionTable: 'rms_schema_version', migrations: MIGRATIONS }

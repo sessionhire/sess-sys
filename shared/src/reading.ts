@@ -1,6 +1,8 @@
 import type { CommandName } from './commands.ts'
+import { DEFAULT_LEVEL } from './crew-departments.ts'
 import { sameDepartment, type CrewCall, type Offer, type Person } from './crew.ts'
 import type { Document } from './documents.ts'
+import type { Project } from './jobs.ts'
 import type { Role } from './roles.ts'
 import type { Timesheet } from './timesheets.ts'
 
@@ -35,6 +37,8 @@ import type { Timesheet } from './timesheets.ts'
  *   saying they're away or running late, or answering an offer, and the
  *   reason they were given. The days and answers stay, so the planner and
  *   the crew screens show who's away and who's on.
+ * - **A job's office notes** (ADR 0151): the office's, directors' and heads',
+ *   as clients' documents are. The notes for the crew are everyone's.
  *
  * The server sends what's left out as nothing (a null rate, an empty link,
  * a 0 extra) with a flag saying it's hidden, so every screen can say so
@@ -96,6 +100,13 @@ export function readsRatesIn(r: Reading, department: string | null | undefined):
   return r.rates && (r.ratesBy !== 'department' || sameDepartment(department, r.department))
 }
 
+/**
+ * Whether this reader is sent the trackers on kit (ADR 0107): where the
+ * company's most expensive kit is right now is for the office, directors
+ * and heads, who look after it, and not for staff crew or freelancers.
+ */
+export const readsTrackers = (r: Reading | undefined) => !r || r.links !== 'own'
+
 /** Whether every rate there is reaches this reader, as the history and the notices need to tell figures. */
 export const readsEveryRate = (r: Reading) => r.rates && r.ratesBy !== 'department'
 
@@ -120,12 +131,13 @@ export function sameReading(a: Reading | undefined, b: Reading | undefined): boo
 export function personAsRead(p: Person, r: Reading): Person {
   if (readsEverything(r) || p.id === r.personId) return p
   const out: Person = { ...p }
-  if (!readsRatesIn(r, p.department)) Object.assign(out, { dayRateCents: null, rateHidden: true })
+  // How they trade goes with their pay (ADR 0184): a reader who doesn't see their rate isn't sent it either.
+  if (!readsRatesIn(r, p.department)) Object.assign(out, { dayRateCents: null, rateHidden: true }, p.company ? { company: null, companyHidden: true } : {})
   if (!readsLinkOf(r, p)) Object.assign(out, { linkToken: '', linkHidden: true })
   const details = r.details ?? 'all'
   if (details !== 'all') {
     const { otherEmails: _, ...rest } = out
-    Object.assign(rest, { email: null, notes: '', company: null, detailsHidden: true }, details === 'own' ? { phone: null } : {})
+    Object.assign(rest, { email: null, notes: '', company: null, detailsHidden: true, level: DEFAULT_LEVEL, levelHidden: true }, details === 'own' ? { phone: null } : {})
     // Their face goes with their phone (ADR 0065): staff crew see who they're ringing, a freelancer signed in neither.
     if (details === 'own') delete (rest as Person).photo
     return rest
@@ -157,6 +169,16 @@ export function timesheetAsRead(t: Timesheet, mine: boolean, r: Reading, callDep
   if (readsRatesIn(r, callDepartment)) return words
   const none = (extras: Timesheet['extras']) => extras.map((e) => ({ ...e, cents: 0 }))
   return { ...words, dayRateCents: null, extras: none(t.extras), sent: { ...t.sent, dayRateCents: null, extras: none(t.sent.extras) }, amountsHidden: true }
+}
+
+/**
+ * A job as this reader is sent it: its office notes left out for staff crew and freelancers (ADR 0151), who read
+ * clients' documents no more than they read these. The notes for the crew stay: they're on the call sheet already.
+ */
+export function projectAsRead<P extends Pick<Project, 'officeNotes'>>(p: P, r: Reading): P {
+  if (r.clientDocuments !== false || !p.officeNotes) return p
+  const { officeNotes: _, ...rest } = p
+  return rest as P
 }
 
 /** Whether this reader is sent someone's document: all of them, or their own only (ADR 0062). */

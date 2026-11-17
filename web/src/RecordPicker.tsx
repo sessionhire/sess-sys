@@ -1,0 +1,301 @@
+import { countedFind, kitKey, leadingCount } from '@sh/shared'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { Icon } from './Icon.tsx'
+
+/** Offers shown at once; past these a line says how many more, to type more and narrow. */
+const SHOWN = 8
+
+/** One of the company's own records, as the picker offers it. */
+export interface PickRecord {
+  id: string
+  name: string
+}
+
+/** A record found by what's typed, and the other name it was found by, if it was. */
+export interface RecordOffer<T extends PickRecord> {
+  record: T
+  via?: string
+}
+
+/** A row under the records that isn't one: "Not kit", "New product…". */
+export interface PickerAction {
+  key: string
+  label: string
+}
+
+/**
+ * Choosing one of the company's own records by typing (ADR 0070, UX sweep
+ * move 5c), in place of a long dropdown: the design system's combobox,
+ * picking one record. `find` says which records what's typed finds, in the
+ * order to offer them, and `meta` the small line under each. With nothing
+ * typed it offers the ones given first. While something is typed the first
+ * offer is highlighted, the one Enter takes; Up and Down move it, Escape
+ * closes the list and then puts back the chosen name. Enter while typing
+ * never sends the form the picker is in, even with nothing found (the trap
+ * of audit finding 5). Rows that aren't records (Not kit, New product…) are
+ * always last. Leaving the field puts the chosen name back, unless what's
+ * typed is a record's name exactly, which is then taken: what's typed is a
+ * search, not a value. At most eight are offered at once, so the list never
+ * scrolls inside the page on a phone; past them a line says how many more.
+ * With `counted`, a number typed first is how many (research/quoting.md,
+ * feature 1): "12 y10" offers what "y10" finds and picks 12 of it, unless the
+ * whole of what's typed finds something ("4 way box" is a name).
+ */
+export function RecordPicker<T extends PickRecord>({
+  label,
+  records,
+  value,
+  shownAs,
+  find,
+  meta,
+  nothingFound,
+  first = [],
+  firstLabel = 'Most like it',
+  actions = [],
+  onPick,
+  onAction,
+  disabled,
+  placeholder,
+  hint,
+  className,
+  counted,
+  autoFocus,
+  keepOpen,
+  toggle,
+  saving,
+}: {
+  label: string
+  records: readonly T[]
+  /** The chosen record's id, or '' for none. */
+  value: string
+  /** What the field says when no record is chosen but an action is, such as "Not kit". */
+  shownAs?: string
+  /** The records what's typed finds, in the order to offer them. */
+  find: (records: readonly T[], text: string) => RecordOffer<T>[]
+  /** The small line under an offer: what tells two of the same name apart. */
+  meta?: (offer: RecordOffer<T>) => string
+  /** Said when what's typed finds nothing. */
+  nothingFound: (text: string) => string
+  first?: readonly T[]
+  firstLabel?: string
+  actions?: readonly PickerAction[]
+  /** The record picked, and how many when `counted` and a number was typed before it. */
+  onPick: (id: string, count?: number) => void
+  onAction?: (key: string) => void
+  disabled?: boolean
+  placeholder?: string
+  hint?: string
+  className?: string
+  /** A number typed before what's looked for is how many of the one picked. */
+  counted?: boolean
+  /** Takes the cursor when drawn, as when Add kit opens it (audit, 5 November 2026, finding 58). */
+  autoFocus?: boolean
+  /** The list opens again after a pick, for picking several one after another (review of 11 November 2026, finding 12). */
+  keepOpen?: boolean
+  /** The combobox's chevron at the end of the box (components.md, Combobox): a press shows every offer without typing. */
+  toggle?: boolean
+  /** A pick being saved where it is, said in the chevron's place (job page head, 12 November 2026): a spinner while it's sent,
+   * then a tick once it's kept, then the chevron again. */
+  saving?: 'busy' | 'saved'
+}) {
+  const chosen = records.find((p) => p.id === value)
+  const said = chosen?.name ?? shownAs ?? ''
+  // What's typed while searching; null when the field shows what's chosen.
+  const [text, setText] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  const [moved, setMoved] = useState<number | null>(null)
+  const [heard, setHeard] = useState('')
+  const list = useRef<HTMLUListElement>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const id = useId()
+
+  const typed = text !== null && kitKey(text) !== ''
+  // "2 d20": two of what "d20" finds, the number read as a count first (audit of the quote flow, 8 November 2026, finding 2).
+  const read: { count?: number; found: RecordOffer<T>[] } = !typed ? { found: first.map((record) => ({ record })) } : counted ? countedFind(text, (t) => find(records, t), (f) => f.record.name) : { found: find(records, text) }
+  const found: RecordOffer<T>[] = read.found
+  const count = read.count
+  const offers = found.slice(0, SHOWN)
+  const more = found.length - offers.length
+  const rows: ({ kind: 'record'; f: RecordOffer<T> } | { kind: 'action'; a: PickerAction })[] = [
+    ...offers.map((f) => ({ kind: 'record' as const, f })),
+    ...actions.map((a) => ({ kind: 'action' as const, a })),
+  ]
+  const shown = open && !disabled && (rows.length > 0 || typed)
+  const active = shown ? (moved ?? (typed && offers.length ? 0 : -1)) : -1
+
+  useEffect(() => {
+    if (active >= 0) list.current?.querySelector(`[id="${id}-${active}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [active, id])
+
+  const done = () => {
+    setText(null)
+    setOpen(false)
+    setMoved(null)
+  }
+  const take = (i: number) => {
+    const row = rows[i]
+    if (!row) return
+    done()
+    if (keepOpen) setOpen(true)
+    if (row.kind === 'record') {
+      onPick(row.f.record.id, count)
+      setHeard(count ? `Chose ${count} × ${row.f.record.name}.` : `Chose ${row.f.record.name}.`)
+    } else {
+      onAction?.(row.a.key)
+      setHeard(`Chose ${row.a.label.replace(/…$/, '')}.`)
+    }
+  }
+  const key = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (!shown) return setOpen(true)
+      const last = rows.length - 1
+      if (last < 0) return
+      setMoved(e.key === 'ArrowDown' ? (active >= last ? 0 : active + 1) : active <= 0 ? last : active - 1)
+      return
+    }
+    if (e.key === 'Enter' && shown && active >= 0) {
+      e.preventDefault()
+      return take(active)
+    }
+    // Enter while searching only searches: it never sends the form for whoever was chosen before.
+    if (e.key === 'Enter' && text !== null) {
+      e.preventDefault()
+      return
+    }
+    if (e.key === 'Escape' && (shown || text !== null)) {
+      e.preventDefault()
+      e.stopPropagation()
+      // The first Escape closes the list and keeps what's typed; the next puts the chosen name back.
+      if (shown) {
+        setOpen(false)
+        setMoved(null)
+      } else setText(null)
+    }
+  }
+
+  return (
+    <div className={`picker-field${className ? ` ${className}` : ''}`}>
+      <span id={`${id}-label`}>{label}</span>
+      <div className="skills-anchor" data-toggle={toggle ? 'true' : undefined}>
+        <input
+          ref={input}
+          role="combobox"
+          aria-labelledby={`${id}-label`}
+          aria-describedby={hint ? `${id}-hint` : undefined}
+          aria-autocomplete="list"
+          aria-expanded={shown}
+          aria-controls={`${id}-list`}
+          aria-activedescendant={active >= 0 ? `${id}-${active}` : undefined}
+          value={text ?? said}
+          placeholder={placeholder}
+          disabled={disabled}
+          autoComplete="off"
+          spellCheck={false}
+          autoFocus={autoFocus}
+          onChange={(e) => {
+            setText(e.target.value)
+            setMoved(null)
+            setOpen(true)
+          }}
+          onKeyDown={key}
+          onFocus={(e) => {
+            // The chosen name is selected, so typing starts a new search and an arrow key or a click keeps it.
+            e.target.select()
+            setOpen(true)
+          }}
+          onClick={() => setOpen(true)}
+          onBlur={() => {
+            const exact = text !== null && records.find((p) => kitKey(p.name) === kitKey(text))
+            if (exact && exact.id !== value) {
+              onPick(exact.id)
+              setHeard(`Chose ${exact.name}.`)
+            }
+            done()
+          }}
+        />
+        {toggle && (
+          <span className="picker-end" data-saving={saving}>
+            {saving === 'busy' ? (
+              <span className="picker-spinner" role="status" aria-label="Saving" />
+            ) : saving === 'saved' ? (
+              <Icon name="done" className="picker-saved" label="Saved" />
+            ) : (
+              <button
+                type="button"
+                className="picker-toggle"
+                tabIndex={-1}
+                aria-label="Show all"
+                aria-expanded={shown}
+                aria-controls={`${id}-list`}
+                disabled={disabled}
+                // On the press, so the field keeps the focus it has and the list doesn't close and open again.
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  if (shown) return setOpen(false)
+                  input.current?.focus()
+                  setOpen(true)
+                }}
+              >
+                <Icon name="expand" />
+              </button>
+            )}
+          </span>
+        )}
+        <ul ref={list} className="skill-options picker-options" id={`${id}-list`} role="listbox" aria-label={typed ? 'Found' : firstLabel} hidden={!shown}>
+          {!typed && offers.length > 0 && (
+            <li className="note" role="presentation">
+              {firstLabel}
+            </li>
+          )}
+          {typed && offers.length === 0 && (
+            <li className="note" role="presentation">
+              {nothingFound(((counted ? leadingCount(text)?.rest : undefined) ?? text).trim())}
+            </li>
+          )}
+          {count && (
+            <li className="note" role="presentation">
+              {count} of the one you pick
+            </li>
+          )}
+          {rows.map((r, i) => {
+            const note =
+              i === offers.length && more > 0 ? (
+                <li key="more" className="note" role="presentation">
+                  {more.toLocaleString('en-IE')} more: type more to narrow it down
+                </li>
+              ) : null
+            const line = r.kind === 'record' ? (meta?.(r.f) ?? '') : ''
+            return [
+              note,
+              <li
+                key={r.kind === 'record' ? r.f.record.id : `action-${r.a.key}`}
+                id={`${id}-${i}`}
+                role="option"
+                aria-selected={i === active}
+                className={r.kind === 'action' ? 'new' : undefined}
+                // Chosen on the press, before the field loses focus and puts the chosen name back.
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  take(i)
+                }}
+              >
+                <span>{r.kind === 'record' ? `${count ? `${count} × ` : ''}${r.f.record.name}` : r.a.label}</span>
+                {line && <small>{line}</small>}
+              </li>,
+            ]
+          })}
+          {more > 0 && actions.length === 0 && (
+            <li className="note" role="presentation">
+              {more.toLocaleString('en-IE')} more: type more to narrow it down
+            </li>
+          )}
+        </ul>
+      </div>
+      {hint && <small id={`${id}-hint`}>{hint}</small>}
+      <span className="sr-only" aria-live="polite">
+        {heard}
+      </span>
+    </div>
+  )
+}

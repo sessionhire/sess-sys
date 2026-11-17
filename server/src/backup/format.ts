@@ -69,11 +69,13 @@ export class BackupError extends Error {}
 /**
  * Not backed up:
  * - sign-in sessions, so a restore signs everyone in afresh rather than
- *   bringing back a session that was ended after the backup was made;
+ *   bringing back a session that was ended after the backup was made; and,
+ *   for the same reason, the phones freelancers' links remember and their
+ *   codes (ADR 0114): a restore asks each phone again, if checking is on;
  * - the copy's own bookkeeping (its generation and the backup log);
  * - schema versions, which travel in the header instead.
  */
-const NOT_BACKED_UP = new Set(['sessions', 'server_meta', 'backup_runs', ...MODULES.map((m) => m.versionTable)])
+const NOT_BACKED_UP = new Set(['sessions', 'link_devices', 'link_codes', 'link_lost', 'server_meta', 'backup_runs', ...MODULES.map((m) => m.versionTable)])
 
 const INSERT_BATCH = 500
 

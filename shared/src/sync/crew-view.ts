@@ -1,10 +1,11 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { irishToday } from '../calendar.ts'
-import { certificatesAfter, daysBetween, DEFAULT_LEVEL, departmentForRole, departmentOf, eachDay, HOLDING, LIVE, movedCallSpan, nameParts, namesAfter, offerDaysAfter, OPEN, tidyDepartment, tidyNeeds, type CrewCall, type CrewEntities, type Offer, type Person, type Unavailability } from '../crew.ts'
+import { certificatesAfter, companyAfter, daysBetween, DEFAULT_LEVEL, departmentForRole, departmentOf, eachDay, HOLDING, LIVE, movedCallSpan, nameParts, namesAfter, offerDaysAfter, OPEN, tidyDepartment, tidyNeeds, type CrewCall, type CrewEntities, type Offer, type Person, type Unavailability } from '../crew.ts'
 import { certificateOf, type Document } from '../documents.ts'
 import { STOPPED, type Phase, type Project } from '../jobs.ts'
 import { leaveLabel, type LeaveRequest } from '../leave.ts'
 import { mergedPerson, withMainEmail } from '../merge-people.ts'
+import { addDays } from './plan.ts'
 
 /**
  * The crew screen's view of a device's data: what the server has said, with
@@ -66,7 +67,8 @@ const withDefaults = (p: Person): Person => ({
   ...nameParts(p),
   archived: p.archived ?? false,
   approvesLeave: p.approvesLeave ?? false,
-  department: p.department ?? null,
+  // Read in the app's own spelling: "LX" saved before is Lighting (user flows of 13 November 2026, finding 8).
+  department: p.department ? tidyDepartment(p.department) : null,
   level: p.level ?? DEFAULT_LEVEL,
   knownAs: p.knownAs ?? null,
   certificates: p.certificates ?? {},
@@ -91,12 +93,17 @@ export function crewView(
   const away = new Map<string, UnavailabilityView>()
   for (const u of Object.values(entities.unavailability ?? {})) away.set(u.id, { ...u, pending: false })
 
-  /** A call cancelled takes every offer still live on it, as the server withdraws them: the office sees it at once, not after the sync. */
-  const cancelCall = (id: string) => {
+  /**
+   * A call cancelled takes every offer still live on it, as the server withdraws them: the office sees it at once, not after
+   * the sync. One cancelled along with its job (`stoppedOn`, the day) is marked so, with those offers, for asking for the
+   * same crew again once the job is going again (ADR 0164).
+   */
+  const cancelCall = (id: string, stoppedOn?: string) => {
     const c = calls.get(id)
     if (!c) return
-    calls.set(c.id, { ...c, status: 'cancelled', pending: true })
-    for (const o of offers.values()) if (o.callId === c.id && LIVE.includes(o.status)) offers.set(o.id, { ...o, status: 'cancelled', pending: true })
+    calls.set(c.id, { ...c, status: 'cancelled', ...(stoppedOn ? { stoppedOn } : {}), pending: true })
+    for (const o of offers.values())
+      if (o.callId === c.id && LIVE.includes(o.status)) offers.set(o.id, { ...o, status: 'cancelled', ...(stoppedOn ? { stoppedOn } : {}), pending: true })
   }
 
   // Phases' dates, followed through this device's own changes, for calls that move with their phase.
@@ -112,7 +119,11 @@ export function crewView(
         if (o.status !== 'offered') continue
         days = [...newDays]
       }
-      if (days.join() !== o.days.join()) offers.set(o.id, { ...o, days, pending: true })
+      // The days still asked of someone who said yes to others move as theirs do (ADR 0152).
+      const asked = o.asked?.length ? offerDaysAfter(o.asked, oldDays, newDays, shift).filter((d) => !days.includes(d)) : undefined
+      const { asked: _was, ...rest } = o
+      if (days.join() !== o.days.join() || (asked ?? []).join() !== (o.asked ?? []).join())
+        offers.set(o.id, { ...rest, ...(asked?.length ? { asked } : {}), days, pending: true })
     }
   }
 
@@ -146,12 +157,14 @@ export function crewView(
           dayRateCents: a.dayRateCents !== undefined ? a.dayRateCents : (was?.dayRateCents ?? null),
           ...(a.dayRateCents === undefined && was?.rateHidden ? { rateHidden: true } : {}),
           approvesLeave,
-          department: a.department !== undefined ? a.department : (was?.department ?? null),
+          department: a.department !== undefined ? (a.department ? tidyDepartment(a.department) : null) : (was?.department ?? null),
           level: a.level ?? was?.level ?? DEFAULT_LEVEL,
           knownAs: a.knownAs !== undefined ? a.knownAs : (was?.knownAs ?? null),
           // As the server lays them (ADR 0028).
           certificates: certificatesAfter(was?.certificates, a.certificates),
-          company: a.company !== undefined ? a.company : (was?.company ?? null),
+          // As the server lays it (ADR 0184).
+          company: companyAfter(was?.company ?? null, a.company),
+          ...(a.company === undefined && was?.companyHidden ? { companyHidden: true } : {}),
           // Set only by person.role (ADR 0034); a freelancer has none.
           role: a.kind === 'staff' ? (was?.role ?? null) : null,
           pending: true,
@@ -221,6 +234,16 @@ export function crewView(
         if (p) people.set(p.id, { ...p, ...(a.email !== undefined ? { email: a.email } : {}), ...(a.phone !== undefined ? { phone: a.phone } : {}), pending: true })
         break
       }
+      case 'person.whatsapp': {
+        // Sent only while off, as the server sends it (ADR 0125).
+        const a = m.args as CommandArgs<'person.whatsapp'>
+        const p = people.get(a.id)
+        if (p) {
+          const { whatsappOff: _, ...rest } = p
+          people.set(p.id, { ...rest, ...(a.on ? {} : { whatsappOff: true }), pending: true })
+        }
+        break
+      }
       case 'call.create': {
         const a = m.args as CommandArgs<'call.create'>
         // A call sent without a department is given the one its role suggests, as the server will (ADR 0046).
@@ -243,12 +266,21 @@ export function crewView(
         // A job being stopped takes its crew calls with it (ADR 0007).
         const a = m.args as CommandArgs<'project.update'>
         if (!a.status || !STOPPED.includes(a.status)) break
-        for (const c of [...calls.values()]) if (c.projectId === a.id && c.status === 'open') cancelCall(c.id)
+        for (const c of [...calls.values()]) if (c.projectId === a.id && c.status === 'open') cancelCall(c.id, today)
         break
       }
       case 'call.cancel':
         cancelCall((m.args as CommandArgs<'call.cancel'>).id)
         break
+      case 'call.reopen': {
+        // Asked for again once its job is going again (ADR 0164): open, with nobody on it; its old offers stay as they ended.
+        // Only one cancelled along with its job; the server alone knows whether the job is going again, and refuses if not.
+        const c = calls.get((m.args as CommandArgs<'call.reopen'>).id)
+        if (!c || c.status !== 'cancelled' || !c.stoppedOn) break
+        const { stoppedOn: _, ...rest } = c
+        calls.set(c.id, { ...rest, status: 'open', pending: true })
+        break
+      }
       case 'call.update': {
         const a = m.args as CommandArgs<'call.update'>
         const c = calls.get(a.id)
@@ -275,7 +307,15 @@ export function crewView(
         if (!from) break
         const to = { start: a.start ?? from.start, end: a.end ?? from.end }
         phaseDates.set(a.id, to)
-        if (!a.moveCrew || (to.start === from.start && to.end === from.end)) break
+        if (to.start === from.start && to.end === from.end) break
+        // Calls cancelled along with their job always go with their phase, as nobody is on them (ADR 0164): asked for again,
+        // they're on the phase's days as it is then.
+        for (const c of [...calls.values()]) {
+          if (c.phaseId !== a.id || c.status !== 'cancelled' || !c.stoppedOn) continue
+          const span = movedCallSpan(c, from, to)
+          if (span.start !== c.start || span.end !== c.end) calls.set(c.id, { ...c, ...span, pending: true })
+        }
+        if (!a.moveCrew) break
         for (const c of [...calls.values()]) {
           if (c.phaseId !== a.id || c.status !== 'open') continue
           const span = movedCallSpan(c, from, to)
@@ -311,21 +351,54 @@ export function crewView(
         const a = m.args as CommandArgs<'offer.respond'>
         const o = offers.get(a.id)
         if (!o) break
-        const status = a.answer === 'accept' ? 'accepted' : a.answer === 'decline' ? 'declined' : a.answer === 'pullOut' ? 'pulled-out' : 'countered'
+        // Only a yes not yet confirmed goes back to being asked, as on the server.
+        if (a.answer === 'undecided' && o.status !== 'accepted') break
+        const status =
+          a.answer === 'accept' ? 'accepted' : a.answer === 'decline' ? 'declined' : a.answer === 'pullOut' ? 'pulled-out' : a.answer === 'undecided' ? 'offered' : 'countered'
         // A yes or a counter with no days chosen takes every day of the call, as on the server.
         const call = calls.get(o.callId)
-        const days = a.answer === 'accept' || a.answer === 'counter' ? (a.days ? [...new Set(a.days)].sort() : call ? eachDay(call.start, call.end) : o.days) : o.days
+        const days =
+          a.answer === 'accept' || a.answer === 'counter'
+            ? a.days
+              ? [...new Set(a.days)].sort()
+              : call
+                ? eachDay(call.start, call.end)
+                : o.days
+            : a.answer === 'undecided'
+              ? [...new Set(a.days)].sort()
+              : o.days
         // A new answer is one the office hasn't seen yet. The counter's rate, and when and how it was answered, as the server records them,
         // so a Confirm queued behind a counter agrees its rate (audit, 20 October 2026, finding 26).
         const counterRateCents = a.answer === 'counter' ? a.counterRateCents : a.answer === 'accept' ? null : o.counterRateCents
-        offers.set(o.id, { ...o, status, days, counterRateCents, note: a.note, respondedAt: m.createdAt, respondedVia: 'app', seenAt: null, pending: true })
+        // Days still asked after a Yes in Google to some (ADR 0152); any other answer is for every day.
+        const { asked: _was, ...rest } = o
+        const still = a.answer === 'accept' ? [...new Set(a.asked ?? [])].filter((d) => !days.includes(d)).sort() : []
+        const asked = still.length ? { asked: still } : {}
+        offers.set(o.id, { ...rest, ...asked, status, days, counterRateCents, note: a.note, respondedAt: m.createdAt, respondedVia: 'app', seenAt: null, pending: true })
         break
       }
       case 'offer.confirm': {
         const o = offers.get((m.args as CommandArgs<'offer.confirm'>).id)
         // Agreeing a counter makes its rate the rate, as the server does, so the timesheet's total follows at once.
         const agreed = o?.status === 'countered' && o.counterRateCents !== null ? { dayRateCents: o.counterRateCents } : {}
-        if (o) offers.set(o.id, { ...o, status: 'confirmed', ...agreed, pending: true })
+        // Confirming books the days they said yes to and ends the ask for the rest (ADR 0152).
+        if (o && (o.status === 'accepted' || o.status === 'countered')) {
+          const { asked: _ended, ...rest } = o
+          offers.set(o.id, { ...rest, status: 'confirmed', ...agreed, pending: true })
+        }
+        break
+      }
+      case 'offer.refuse': {
+        const o = offers.get((m.args as CommandArgs<'offer.refuse'>).id)
+        // The offer stands at the rate offered, for the days they asked it for, with the rate they asked for kept to say it was refused.
+        if (o?.status === 'countered') offers.set(o.id, { ...o, status: 'offered', pending: true })
+        break
+      }
+      case 'offer.undo': {
+        const o = offers.get((m.args as CommandArgs<'offer.undo'>).id)
+        // Taken back before anyone answered, as the server takes it (ADR 0162): gone, as if never made. The server alone knows
+        // whether it's still waiting; one that has gone comes back with the server's word that it must be withdrawn instead.
+        if (o && o.status === 'offered' && !o.respondedAt) offers.delete(o.id)
         break
       }
       case 'offer.cancel': {
@@ -435,16 +508,58 @@ export function answersToCheck(crew: CrewView, today: string): AnswerToCheck[] {
     if (call.status !== 'open' || call.end < today) continue
     const short = Math.max(0, ...call.days.map((d) => call.needed - (call.heldByDay[d] ?? 0)))
     for (const offer of call.offers) {
-      const unanswered = offer.status === 'offered' && !!call.replyBy && call.replyBy < today
+      // With no reply-by day (cleared, or never set), it counts as unanswered from the day before the call, so it's still chased
+      // (audit, 5 November 2026, finding 60).
+      const replyBy = call.replyBy ?? addDays(call.start, -2)
+      const unanswered = offer.status === 'offered' && replyBy < today
       const kind = (unanswered ? 'no-reply' : offer.status) as AnswerKind
       if (!ANSWER_ORDER.includes(kind)) continue
       if ((kind === 'declined' || kind === 'pulled-out' || kind === 'no-reply') && offer.seenAt) continue
       out.push({ call, offer, kind, short })
     }
   }
+  // Answers on calls in the next fortnight come first, whatever their kind, so a yes for next week isn't under a pull-out for
+  // March (audit, 5 November 2026, finding 27); within each, pull-outs first, then by the call's first day.
+  const soon = addDays(today, ANSWERS_SOON_DAYS)
+  const later = (a: AnswerToCheck) => (a.call.start <= soon ? 0 : 1)
   return out.sort(
-    (a, b) => ANSWER_ORDER.indexOf(a.kind) - ANSWER_ORDER.indexOf(b.kind) || a.call.start.localeCompare(b.call.start) || a.call.id.localeCompare(b.call.id) || a.offer.id.localeCompare(b.offer.id)
+    (a, b) =>
+      later(a) - later(b) ||
+      ANSWER_ORDER.indexOf(a.kind) - ANSWER_ORDER.indexOf(b.kind) ||
+      a.call.start.localeCompare(b.call.start) ||
+      a.call.id.localeCompare(b.call.id) ||
+      a.offer.id.localeCompare(b.offer.id)
   )
+}
+
+/** How far ahead an answer is on a call soon enough to come first in Answers to check. */
+export const ANSWERS_SOON_DAYS = 14
+
+/** How close a call still short of crew is called out first, in To sort out (audit, 5 November 2026, finding 60). */
+export const SHORT_SOON_DAYS = 3
+
+/** A call still short of crew on a day from today to three days out, how many short, and in how many days that day is. */
+export interface ShortSoon {
+  call: CallView
+  short: number
+  inDays: number
+}
+
+/**
+ * Calls still short of crew within three days, soonest first: within the
+ * fortnight, a call short in two days looked the same as one short in
+ * thirteen (audit, 5 November 2026, finding 60).
+ */
+export function shortSoon(crew: CrewView, today: string): ShortSoon[] {
+  const last = addDays(today, SHORT_SOON_DAYS)
+  const out: ShortSoon[] = []
+  for (const call of crew.calls) {
+    if (call.status !== 'open' || call.end < today || call.start > last) continue
+    const days = call.days.filter((d) => d >= today && d <= last && call.needed > (call.heldByDay[d] ?? 0))
+    if (!days.length) continue
+    out.push({ call, short: Math.max(...days.map((d) => call.needed - (call.heldByDay[d] ?? 0))), inDays: daysBetween(today, days[0]!) })
+  }
+  return out.sort((a, b) => a.inDays - b.inDays || a.call.start.localeCompare(b.call.start) || a.call.id.localeCompare(b.call.id))
 }
 
 /**

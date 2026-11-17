@@ -1,6 +1,6 @@
 # ADR 0017: Pick lists, and scanning kit out and back in
 
-- **Status:** Accepted, 30 September 2026. The fifth part of Phase 2.
+- **Status:** Accepted, 30 September 2026. The fifth part of Phase 2.; amended by [ADR 0110](0110-getting-the-data-right.md) (Undo is its own record that counts neither way)
   Picking on a phone (whose kit, the order, notes, Undo) is
   [ADR 0072](0072-picking-on-the-phone.md).
 - **Decides:** what a job's pick list shows, how kit is scanned out to a

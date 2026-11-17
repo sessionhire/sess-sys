@@ -82,3 +82,59 @@ export function addSkills(chosen: readonly string[], typed: string, known: reado
   }
   return out
 }
+
+/** A role the company already knows, for the role field on a crew call: how often it's been asked for, and by whom it's done. */
+export interface RoleInUse {
+  name: string
+  /** Calls that asked for it. */
+  calls: number
+  /** People on the crew list with it as a skill. */
+  people: number
+  /** On the price list. */
+  priced: boolean
+}
+
+/**
+ * Every role the app knows, each once whatever its case or spacing (roles
+ * read alike as departmentForRole and the price list read them): those calls
+ * have asked for, the crew list's skills and the price list's roles. The
+ * most asked for come first, then the most people have, then the rest by
+ * name, each in the spelling used most, so "LX op" stays one role rather
+ * than "lx op", "LX Op" and "LX  op" across hundreds of jobs.
+ */
+export function rolesInUse(known: {
+  calls?: readonly { role: string }[]
+  people?: readonly { skills: readonly string[]; archived?: boolean }[]
+  priced?: readonly string[]
+}): RoleInUse[] {
+  const tally = new Map<string, { calls: number; people: number; priced: boolean; spellings: Map<string, number> }>()
+  const add = (raw: string, what: 'calls' | 'people' | 'priced') => {
+    const name = raw.trim().replace(/\s+/g, ' ')
+    const key = name.toLowerCase()
+    if (!name) return
+    const t = tally.get(key) ?? { calls: 0, people: 0, priced: false, spellings: new Map<string, number>() }
+    if (what === 'priced') t.priced = true
+    else t[what]++
+    // A spelling counts more for being asked for than for being a skill, and the price list's only where nothing else has it.
+    t.spellings.set(name, (t.spellings.get(name) ?? 0) + (what === 'calls' ? 1000 : what === 'people' ? 1 : 0))
+    tally.set(key, t)
+  }
+  for (const c of known.calls ?? []) add(c.role, 'calls')
+  for (const p of known.people ?? []) {
+    if (p.archived) continue
+    const seen = new Set<string>()
+    for (const s of p.skills) {
+      const key = s.trim().replace(/\s+/g, ' ').toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      add(s, 'people')
+    }
+  }
+  for (const r of known.priced ?? []) add(r, 'priced')
+  // Alike counts take the one with a capital, so "Lampie" over "lampie".
+  const capital = (s: string) => (s[0] !== s[0]!.toLowerCase() ? 0 : 1)
+  const spelling = (s: Map<string, number>) => [...s].sort((a, b) => b[1] - a[1] || capital(a[0]) - capital(b[0]) || a[0].localeCompare(b[0]))[0]![0]
+  return [...tally.values()]
+    .map((t) => ({ name: spelling(t.spellings), calls: t.calls, people: t.people, priced: t.priced }))
+    .sort((a, b) => b.calls - a.calls || b.people - a.people || a.name.localeCompare(b.name, 'en-IE'))
+}

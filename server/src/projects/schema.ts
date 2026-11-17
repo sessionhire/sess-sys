@@ -76,6 +76,16 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE clients ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
   `,
+  // When a client pays, and who to ask for at a venue (ADR 0119). Payment terms: null for the company's own, 'before', or
+  // a number of days from the invoice. The venue's contact is one contact as a client keeps them, or null.
+  `
+  ALTER TABLE clients ADD COLUMN IF NOT EXISTS payment_terms text CHECK (payment_terms = 'before' OR payment_terms ~ '^[0-9]{1,3}$');
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS contact jsonb;
+  `,
+  // A job's office notes (ADR 0151), which never leave the app; its notes are the crew's.
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS office_notes text NOT NULL DEFAULT '';`,
+  // A dry hire's handover (ADR 0183): delivery or collection, its times, and where it's delivered to, as one record.
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS hire jsonb;`,
 ]
 
 export const PROJECTS: Module = { versionTable: 'projects_schema_version', migrations: MIGRATIONS }

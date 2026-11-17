@@ -3,6 +3,2153 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 15 November 2026: dry hire delivery priced as a set amount, then by the km
+
+**Done (1.203.0, #400, ADR 0183 amended)**
+
+- Colly asked for a delivery to be a set amount for a certain distance, and
+  each km after that at its own rate, all set in Admin. Admin › Company ›
+  Dry hire delivery now asks for the set amount, the km it covers and each
+  km after; the quote's Delivery line works it out and says how.
+- With no set amount, every km is at the price a km, as before.
+- Checked: shared tests (the sum, within and past the km covered, no price
+  a km past them), parity, and the browser test setting all three in
+  Admin and seeing the quote's line change.
+- Waiting on Colly: set the three amounts on live.
+
+## 14 November 2026: the quote questions answered; a dry hire delivered or collected
+
+**Done (1.202.0, #392, ADR 0183)**
+
+- Colly answered the six questions left by the audit of the quote flow.
+  Grouping by department, a quote for whoever asked, and the full-colour
+  logo were already how the app works, so they stay.
+- A line given free reads No charge, on screen and on paper.
+- A sent quote holds its kit, as a confirmed job does; a draft's kit is
+  still pencilled in. Vans and pick lists still wait for the job to be
+  confirmed.
+- A dry hire asks Delivery or Collection, with a time on each day; the
+  quote says From and To, or Collection and Return. A delivery's address
+  is found on the map and puts a Delivery line on the quote: the km from
+  the warehouse at the price a km under Admin › Company › Dry hire
+  delivery.
+- Checked: typecheck, shared and server tests (new ones for the delivery
+  line, the days' words and held stock), the quote browser tests with a
+  new one for a delivered dry hire.
+- Waiting on Colly: set the price a km, and the warehouse's address, in
+  Admin › Company.
+
+## 13 November 2026: How many typed in place on a pick list; plain buttons you can see the edge of
+
+**Done (1.189.1, #373; design system 0.17.1)**
+
+- Colly, on a phone in dark mode: the plain Count out button's border
+  was hard to see, and Type how many was a red button that opened a box.
+  How many is now a box beside Count out on the same line; leaving it, or
+  Enter, counts that many out (or back), with Undo on the toast. Missing,
+  coming back, takes the number itself.
+- Every plain button now has the same 3:1 edge as a box you type in; the
+  design system's button took the same edge as 0.17.1.
+- Checked: typecheck, shared tests, pick and faults browser tests, phone
+  screenshots in both themes.
+
+## 13 November 2026: Amend quote, when the client asks for changes
+
+**Done (1.189.0, #376, ADR 0173)**
+
+- Colly, from a phone at a job's Confirmed task: a third button beside
+  Confirm job and Client said no, Amend quote, that makes another draft.
+  It copies the version the client has as the next version and opens it
+  on the Quote tab. The Quote tab's New version is called Amend quote
+  too, so it's one way.
+- Until the new version is sent (and with no yes), the job is back at
+  sending the quote: it opens on the draft, Next sends it, and the Jobs
+  list and Board say "Version 2 being amended". The version the client
+  has can still take their answer.
+- The draft says which version it amends, and Drop changes (asked first)
+  takes it away again; the office can do that themselves, an admin can
+  put it back from the history.
+- Checked: typecheck, shared and server tests (new cases for an amended
+  job and for dropping), a browser test from the answer to the draft and
+  back, phone screenshots.
+
+## 13 November 2026: tidier buttons, shorter words, second choices as ghost buttons
+
+**Done (1.186.0, #372; design system 0.17.0)**
+
+- Colly: icons at either side of a button, pill or field should have the
+  same space above, below and beside them. Every icon in a control is now
+  18px and sits 13px from each edge of its 44px control; icon-only
+  controls are 44px squares; the combobox end, the search field's Close,
+  select arrows, the busy spinner and Next's pie follow the same rule.
+- A second choice that was underlined words (beside Next, Download PDF,
+  Change, Cancel and the rest) is a ghost button: red words and edge,
+  transparent with a blur behind, in both themes. Inside a sentence or a
+  table cell a press stays underlined words.
+- About 90 button labels cut to a verb and its object ("Get the PDF to
+  send" is "Generate PDF"); the full before/after list is on #372 for
+  Colly to veto any.
+- The rules went back to the design system as 0.17.0 (size.icon-inset,
+  ghost and icon-start/end buttons, a Words rule), merged on Colly's say.
+- Checked: typecheck, shared and server tests, the full browser suite,
+  on-screen measurements of icon spacing in both themes, phone screenshots.
+
+**Waiting:** Colly's veto on any of the new words.
+## 13 November 2026: slow presses show they're working; the quote PDF to the phone's share sheet
+
+**Done (1.185.3, #370)**
+
+- Colly, on an iPhone: Download the quote paused with nothing moving,
+  and once the PDF opened in the app on the home screen there was no way
+  back, print or share. Download the PDF (in Next and beside Print a
+  draft) now fetches the file behind a busy press: a second press does
+  nothing, and past a second it spins and says "Getting the PDF…". On a
+  phone the file goes to the phone's share sheet (Print, Save to Files,
+  send on) and the page stays where it was; if Safari won't open the
+  sheet that long after the press, a line says the PDF is ready with a
+  Share, print or save button. A laptop saves it as before.
+- Get the PDF to send, Mark as sent and Print are busy the same way, and
+  every button that waits on the server spins after a second, from one
+  rule in the stylesheet.
+- Checked: typecheck, shared tests, the quote browser tests (one now
+  slows the PDF and checks the busy words and the download), phone
+  screenshots with a slow PDF.
+- Waiting on Colly: the design-system learnings PR (#56).
+
+## 13 November 2026: a job's crew starts with Add a role
+
+**Done (1.185.2)**
+
+- Colly: with no crew on a job the first step is adding the roles it
+  needs; asking people comes after. The Crew tab's empty card says "No
+  roles yet. Add the roles this job needs first; then offer each one to
+  people from its card.", its button is Add a role, the form's own button Add role, and once
+  there are roles the card under them is More roles. Crew's empty list
+  and the job's Crew fact say roles too. Offer… on each role's card is
+  still what reaches people.
+- Checked: typecheck; the browser tests that add a role.
+
+## 13 November 2026: Add crew, and you see the call you added
+
+**Done (1.185.1)**
+
+- On a job's Crew tab the form that adds a crew call is Add crew, its
+  button and its name, as nobody is asked anything at that point: Offer…
+  on the call's card is what reaches people. The words around it follow:
+  "No crew added yet", "crew are added by phase and day", the quote's
+  "On the quote but not added yet", Crew's and the call sheet's empty
+  lines, the job's history ("Added 1 × Audio tech to …") and the role
+  picker's "Most used" with "On 2 calls".
+- Pressed, the form closes and the page glides to the new call's card,
+  outlined where it lands, its line taking the focus; a pop-up at the
+  bottom says what was added and that nobody has been offered it yet. On a
+  phone the card was off the top of the screen and only a grey line under
+  the form changed, so it looked as if nothing happened (Colly).
+- Change the call does the same when it closes, saved or kept as it was:
+  the page goes back to the call's line, not to whatever was under the
+  long form.
+- Checked: typecheck; the browser tests that add a call, with one at phone
+  width that the new card's line is focused and on the screen and the
+  pop-up says what was added, clear of the Next bar.
+
+## 13 November 2026: the role on a crew call is picked from those in use
+
+**Done (1.184.0)**
+
+- The Role on Ask for crew is the combobox the client and venue fields
+  are (the design system's combobox, one value). It offers the roles calls
+  have asked for, the crew list's skills and the price list's roles, each
+  once whatever its case, most asked for first, with how often each was
+  asked for and how many on the crew list have it. A new role is still
+  typed and kept, the last row saying so.
+- The same field is on Change the call and on the price list's Add a role.
+- Checked: typecheck; shared tests of the roles in use; a browser test at
+  phone width of finding a skill, Enter taking it, a call made with it and
+  a new role kept; the browser tests that fill a call's role.
+
+## 12 November 2026: what the audit of crew offers left at 2
+
+**Done (1.183.2)**
+
+- The three problems that the batches of the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md) left at 2 in
+  their heuristic checks
+  ([ADR 0169](adr/0169-what-the-crew-offers-audit-left-at-2.md)).
+- An offer's row says where the newest WhatsApp that followed it got to
+  ("A WhatsApp saying they're booked was read."), or that it wasn't sent
+  and why, on an offer that's over too.
+- The question before an Agree or Confirm that fills a call names the
+  offers still waiting that close with it, and the panel after says what
+  went to each, from the row and from Next. A Confirm with nothing else to
+  ask still goes in one press.
+- A call across a job's phases that holds a day no phase has says so on
+  its card, with the way out: a phase for the day, or a call for each
+  phase.
+- Checked: typecheck; shared tests of the row's line, the question's
+  words, the offers closed and the days no phase has; a server test of the
+  follow-up's state through Meta's receipts; a browser test of the card's
+  line going once a phase covers the day.
+
+## 12 November 2026: crew are asked for from a job
+
+**Done (1.183.1)**
+
+- Colly's "Finish the audits work" went with the recommendation on #313
+  ([ADR 0142](adr/0142-crew-are-asked-for-from-a-job.md)): the card at the
+  foot of Crew › Calls, "Crew for something not in Jobs", is gone, and
+  crew are asked for from a job's Crew tab. Calls already made from it
+  stay and work as before; putting the card back is the way back.
+- Crew › Calls' empty line says where to go, and with two parts it has no
+  "On this screen" strip on a phone.
+- Checked: typecheck; the browser tests that made calls on Crew now make
+  a job and ask on its Crew tab (`e2e/ask.ts`): crew, departments, home,
+  layout and refusals, 59 of 59.
+
+## 12 November 2026: confirming a job its crew hold the day for
+
+**Done (1.183.0)**
+
+- What the [audit of crew offers](audit-crew-offers-2026-11-12.md) left
+  open on the office's side ([ADR 0168](adr/0168-confirming-a-job-its-crew-hold-the-day-for.md)).
+- A crew call's card says "Hold the day", in amber, of the people picked on
+  a job the client hasn't said yes to, where it said "Booked".
+- Confirming such a job asks first, from its details, its Confirmed task,
+  Next (which opens the task with the question asked), a quote's "Client
+  accepted: confirm the job" and "Confirm the job" on What happened and To
+  follow up: "The 3 people asked to hold the day will see it's going
+  ahead: Google emails each of them that HOLD is off their days, and a
+  WhatsApp tells them so." The panel after says what went to whom.
+- Marking a job lost from a quote or To follow up asks first when it has
+  crew calls open, as its details and task did.
+- Checked: typecheck; shared tests of the question, the panel's sentences
+  and the messages (never "on hold"); a browser test of the card and of
+  confirming from the details, the task, Next, the quote and To follow up,
+  with the browser tests around jobs, crew and quotes.
+
+## 12 November 2026: send the quote from Next
+
+**Done (1.182.0)**
+
+- Colly's ask from a phone: a finished quote is sent from the job's Next,
+  docked over the bar ([ADR 0166](adr/0166-send-the-quote-from-next.md)).
+  Send quote opens the cover email from operations@ with the PDF attached;
+  Download the PDF sits apart; while quote email is off (as on live), Next
+  says Get the PDF to send. The draft strip's Send is plain.
+- Checked: typecheck, the quote email server test, and the quote e2e specs
+  (quotes, quote follow-up with a new test, RMS history, job moves on).
+
+## 12 November 2026: your own offers said to you, and on top of Home
+
+**Done (1.181.0)**
+
+- The last part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  finding 17 ([ADR 0165](adr/0165-your-offers-said-to-you.md)).
+- What others do to a member of staff's own offer is said to them first on
+  their notifications, with the history's words under it: "You're booked
+  as …", "Hold the day: you're down as …" and, once the client says yes,
+  "… is confirmed, so you're booked as …", "Your rate for … wasn't
+  agreed", "Your offer of … was withdrawn", "You're no longer booked as …",
+  "… was cancelled, so your offer is closed", "… didn't go ahead, so your
+  offer of … is closed". Each is read as things stood at that change. An
+  offer made to them is said to them inside a folded line too.
+- Home's Company, Department and Warehouse views have "Offers waiting on
+  you" on top, as tasks are, each row opening its job to answer it; Me
+  keeps them in Your bookings.
+- Checked: typecheck; a shared test of every sentence; server tests
+  (booked, hold the day then confirmed, a rate not agreed, withdrawn,
+  a call cancelled, a job cancelled and one lost, nobody else told), with
+  the same against a local Postgres 16; a browser test of the card on
+  each view, answered on its job.
+
+## 12 November 2026: ask for the same crew again
+
+**Done (1.180.0)**
+
+- The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  finding 19 ([ADR 0164](adr/0164-ask-for-the-same-crew-again.md)).
+- Stopping a job marks the crew calls it cancels, and the offers still open
+  or booked on them, with the day. Once the job is going again, its Crew
+  tab has a card saying what was cancelled, when and who was on it, and
+  Next says "Ask for the same crew again": the calls come back as they
+  were with nobody on them, and Offer opens on the first with the same
+  people picked. Nothing is sent until Offer, which then waits half a
+  minute for Undo. The old offers on the call read "Cancelled with the
+  job" rather than "Withdrawn by the office".
+- The server refuses to bring a call back while its job is still stopped,
+  for a call cancelled on its own, or once its days have passed. While a
+  job is stopped, its cancelled calls go with their phase when it moves.
+- Checked: typecheck; shared tests (which calls and people come back, the
+  card's words); server tests (marked on stop, the three refusals, brought
+  back once, offered again, moved with the phase); four parity cases; a new
+  browser spec (crew-again) that stops and restarts a job, reads the card,
+  presses Next, sees both people picked in Offer, offers them, and finds
+  the old rows reading "Cancelled with the job".
+
+## 12 November 2026: Undo just after Offer
+
+**Done (1.178.0)**
+
+- The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  finding 13 ([ADR 0162](adr/0162-undo-just-after-offer.md)).
+- An offer made by Offer sends nothing for 30 seconds: its calendar
+  invites and its WhatsApp wait, and a job not yet confirmed doesn't come
+  onto the calendar as "Hold the day" for it until then. The offer itself
+  is made at once, as before. As each wait ends the server wakes the
+  calendar and WhatsApp, and at start-up it picks up waits a restart cut
+  across.
+- The panel after the press says when it goes ("The invites go in 27
+  seconds.") with Undo beside it, counting down from the press. Undo takes
+  back the offers nobody has answered, as if never made, and says nothing
+  was sent. After the wait, or an answer, the server refuses Undo and says
+  to withdraw instead.
+- Checked: typecheck; shared tests for the panel's words; server tests for
+  the wait on WhatsApp (sends nothing until it's over, the watcher wakes
+  the sender, an undone offer's message is gone) and on the calendar (no
+  "Hold the day" event until the wait is over, nothing for an offer undone,
+  Undo refused after the wait, the history's words); parity cases for
+  Undo with and without a signal. A new browser spec (offer-undo) undoes
+  two offers from a job's Next button, and lets the wait run out on the
+  phone's clock with focus on Undo.
+
+## 12 November 2026: the logo in pure black and white on labels
+
+**Done (1.176.0)**
+
+- A switch on Admin › Company › Logo, "Pure black and white on labels"
+  ([ADR 0163](adr/0163-the-logo-in-pure-black-and-white-on-labels.md)), on
+  Colly's ask. Off until turned on; a company setting, in the history.
+  With it on, item, case and cable labels push every grey and colour in
+  the logo to solid black or white; quotes stay in colour; the file is
+  untouched. The card's label preview follows it. It is drawn at the
+  logo's full size on the device, like the greys since 1.175.0, so it
+  prints sharp rather than through a CSS filter.
+- Checked: the labels end-to-end test turns it on, reads every pixel of
+  an item label's and a cable label's logo as black or white, and turns
+  it off.
+
+## 12 November 2026: a crew call keeps to its phase's days
+
+**Done (1.174.1)**
+
+- The next part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  finding 11 ([ADR 0159](adr/0159-a-crew-call-keeps-to-its-phase.md)).
+- A crew call on a phase is for the phase's days, or some of them. The
+  server refuses one asked for, or changed to, a day its phase doesn't
+  have, saying the rule and the way on: add a phase for another day, or
+  move the phase, which takes its crew with it.
+- On the job's Ask for crew form with a phase picked, and on a call's
+  Change form, From and To are picked among the phase's days, with the
+  rule under them. A day typed past them is refused on its field in the
+  app's words ("From can be Fri 13 Dec 2030 at the latest."), as any date
+  field with bounds now is.
+- A phase that moves no longer offers "Keep their dates" when that would
+  leave a day of one of its calls outside it: the question says the crew
+  move with it, and why. Keeping their dates stays where the phase still
+  has every day they hold.
+- A call already left outside its phase keeps its days until they're
+  changed, and its card says what that costs: "Show is Sat 12 Dec, so
+  nobody on the call has a calendar invite for Sun 13 Dec. Change the
+  call's days or move the phase."
+- Left open: a call across several phases can hold a day between two
+  phases that no phase has, with no invite for it.
+- Checked: typecheck; shared tests (705) and server tests (1,028), with
+  new cases for asking for and changing a call within its phase, the
+  refusals past it, a call already outside it, and a phase moving with and
+  without its crew. Three older tests had asked for crew outside their
+  phase as set-up and now keep to it. A new browser spec (call-days) asks for crew on a one-day Show,
+  is refused a day past it, sees the rule on the call's Change form, and
+  moves the Show with its call; the jobs, crew, refusals, quotes,
+  offer-from-next, departments, layout and answers specs pass (35).
+
+## 12 November 2026: the crew's accommodation on quotes
+
+**Done (1.174.0)**
+
+- On Colly's ask for "a line for accommodation similar to how travel and
+  subsistence work" ([ADR 0156](adr/0156-crew-accommodation-on-quotes.md)).
+  Admin › Company › Travel and subsistence gains "Stay over after" (180 km
+  unless set) and "A room, € a night" (unset, so nothing changes until
+  it's set).
+- Past that distance a quote adds "Crew accommodation, N crew nights", a
+  room for each crew day, printed "a night"; the row's switch,
+  Accommodation provided, takes it off. Travel then counts one car trip
+  each rather than one a day. The margin takes the rooms at cost.
+- Crew invites say "Accommodation: covered" or "provided by the job" only
+  on a quote that has it, so no invite out now changes.
+- Checked: unit tests for the line, the travel once each, the defaults and
+  the printed words; the server keeps the switch and the settings, and the
+  device agrees with it; typecheck.
+- Waiting on Colly: the room price, and whether 180 km is the right line.
+## 12 November 2026: own invites for jobs brought in from Google Calendar
+
+**Done (1.173.0)**
+
+- The first part of batch 6 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  question 3 and the rest of finding 1
+  ([ADR 0157](adr/0157-own-invites-for-jobs-brought-in.md)).
+- On a job brought in from Google Calendar, each person the office offers
+  from now on gets their own copy of each day on the connected account's
+  calendar, as on the app's own jobs: HOLD before the client's yes, the
+  short invite until they say yes, a Yes for its own day, and what happens
+  next when that switch is on. The organiser's events are left alone, and
+  the app still puts no day of these jobs on the jobs calendar.
+- The offers already on these jobs keep none, so deploying this emails
+  nobody for them. Each row says why: "No invite from the app: the
+  organiser invited them in Google Calendar." for the guests brought in
+  with the job, and "…it was offered before jobs from Google Calendar
+  sent their own." for the office's own. Guests brought in with a job
+  from now on are the organiser's too.
+- Someone who said No in Google and is offered the same days again gets a
+  fresh invitation: their declined copy comes off without an email and a
+  new one goes, so their answer starts again. On every job. Anyone asked
+  again that way before this is deployed, whose new offer is still on,
+  gets theirs on the first run after it.
+- The Offer form, the panel after a press and each row read the same rule
+  as the server, so the form now promises the invite on these jobs too.
+- Left for later in batch 6: calls that aren't part of a job (whether new
+  ones can be made waits on #313), Undo on an offer, a call's days tied to
+  its phase, asking the same crew again, and staff notices said to them.
+- Checked: typecheck; shared tests (703) and server tests (1026), with
+  new cases for a brought-in job's own invites, the deploy step marking
+  each kind of older offer and emailing nobody, a No staying a No, a fresh
+  invitation after a No on a brought-in job and on one of the app's own,
+  the import marking its guests, and the words for each reason. Browser
+  specs for answers, calendar, crew, import, offer-from-next, person and
+  refusals (16 pass). A replay on a local copy with a stand-in for Google,
+  23 checks on a desk and a phone. Nothing real was sent.
+
+## 12 November 2026: WhatsApp tells crew what happens next
+
+**Done (1.172.0)**
+
+- Batch 3 of the [audit of crew offers](audit-crew-offers-2026-11-12.md),
+  its WhatsApp part: findings 4, 8 and 12, on Colly's answers to
+  questions 4 and 7 ([ADR 0154](adr/0154-whatsapp-tells-crew-what-happens-next.md)).
+  Under WhatsApp's own switch, which is off on live, so deploying this
+  sends nothing.
+- Three more messages follow an offer on WhatsApp: "you're booked" when
+  the office confirms someone on a job the client has said yes to, the
+  new call time when a call's call time changes (with HOLD while the day
+  is still theirs to hold), and "no longer needed" with why ("filled by
+  someone else", "withdrawn by the office") when an offer is filled,
+  withdrawn, released or its call cancelled. Someone picked while the
+  client hasn't said yes hears nothing then, and that they're booked when
+  the job is confirmed. Nothing for their own No or Can't make it, nor
+  about a call whose days are all past. A call time that changes again
+  before its message goes doesn't add another: the one waiting says the
+  call time as it is when it goes.
+- These, and the job's confirmed and cancelled, go to everyone asked or
+  booked whom WhatsApp reaches and who heard of the offer, whether or not
+  the offer itself went on WhatsApp (question 7). Someone whose offer
+  message is still waiting, or was turned down by Meta, and who hasn't
+  answered, hears nothing about an offer they never saw.
+- Confirm (when it asks first), Withdraw, Release, cancelling a call and
+  stopping a job say first what WhatsApp sends; the panel after each says
+  what went; the Offer form's line about a shortlist says the rest hear
+  on WhatsApp too. Each only of the people it reaches, by the server's
+  own rule.
+- The three templates, `job_booked`, `job_call_time` and `job_not_needed`,
+  are written out in [whatsapp-setup.md](whatsapp-setup.md), step 9, for
+  Meta to approve beside the three already there. None names the rate.
+- Checked: the WhatsApp tests send each message to a stand-in Meta and
+  read its blanks and buttons: booked on Confirm and at the client's yes,
+  nothing at a pick on a held job, confirmed and cancelled reaching people
+  offered before WhatsApp was on, one cancelled per person across two
+  calls, the call time once while one waits, no longer needed with why
+  for filled, released and a cancelled call, nothing for their own No or
+  Can't make it, nothing to someone who never heard of the offer, about
+  a call that's over, or while WhatsApp is off, and a booking released
+  before its message went sending no longer needed only. The words tests
+  cover each question and panel. A replay on a local copy with stand-ins
+  for Google and Meta, 21 checks, walked it through the office's presses
+  in the browser, on a desk and a phone. Nothing real is sent.
+
+**Waiting on Colly:** the three templates approved in Meta, with the
+others, before WhatsApp is turned on.
+
+## 12 November 2026: the company logo in one place
+
+**Done (1.171.0)**
+
+- Admin › Company › Logo, a card of its own after the office's details
+  ([ADR 0155](adr/0155-the-company-logo-in-one-place.md)), on Colly's ask
+  for a place to upload the logo with suggested formats and sizes. It was
+  inside Labels before; Labels keeps the cable colours.
+- The card shows the logo in colour as a quote's head has it and in black
+  as a label printer prints it, and lists what works best: SVG or PNG, at
+  least 1200 pixels across, about three or four times as wide as tall,
+  dark on see-through or white, cropped close.
+- An SVG can be put up now; the device draws it out to a 1200-pixel PNG on
+  white, as it does any logo. A small or square file still goes up, with a
+  line saying why it may print soft or small.
+- Checked: the labels end-to-end test puts up an SVG and a small PNG
+  through the new card.
+
+## 12 November 2026: crew invites tell people what happens next
+
+**Done (1.170.0)**
+
+- Batch 3 of the [audit of crew offers](audit-crew-offers-2026-11-12.md),
+  its calendar part: findings 4 and 8, on Colly's answer to question 4
+  ([ADR 0153](adr/0153-crew-invites-tell-what-happens-next.md)). The
+  WhatsApp part, three more messages and question 7, follows in its own
+  change.
+- A new switch under Admin › Connections › Google Calendar, "Tell crew
+  what happens next", with Off, "Only to the addresses below" (up to 5,
+  to try it on the office's own addresses first) and On, which asks
+  first. It starts off, so deploying this changes nothing on live, and
+  turning it on or off sends nothing by itself: the titles change quietly.
+  Each change is in the history.
+- With it on, each person's own invite says where they stand and their
+  call time in its title: "Booked: Harbour Lights Festival - Show 1/2,
+  call 07:30" once booked, "HOLD Harbour Lights Festival - Show 1/2, call
+  07:30" while picked for a job the client hasn't said yes to, and the
+  day's title with the call time while asked. Being booked or picked, and
+  a call time that moves, are emailed by Google, one email a day; their
+  own yes, the notes and the crew list are not. The days everyone sees
+  keep their titles.
+- A day that comes off someone's calendar because their offer ended says
+  why first, quietly, so Google's cancellation carries it: "Filled by
+  someone else", "Withdrawn by the office", "The job was cancelled", "The
+  job didn't go ahead", "You declined" and "Can't make it".
+- Confirm, Release, Withdraw, a cancelled call, a stopped job and a
+  changed call say what Google emails, for the people the switch
+  reaches: "Google is emailing Ciara to hold the day, as the client
+  hasn't said yes yet", "Google is emailing Aoife and Ciara the new call
+  time", "cancelled and why".
+- On a freelancer's page, an offer that was waiting on them and ended on
+  the office's side shows at the top of Offers waiting on you, saying
+  how, for a week or until its call, then goes down to Offers that ended.
+  This is so whatever the switch.
+- Erasing a person takes their address off the addresses it's tried on;
+  with none left, the switch goes off.
+- Changed from the audit's words: "You declined:" for their own No,
+  rather than "Thanks for letting us know:", the words their page and the
+  office already use.
+- Checked: the calendar tests turn it on, try it on one address and turn
+  it off in a stand-in Google, and read every email Google would send:
+  none for turning it on or off, their own yes or a change of notes; one
+  a day for being booked or picked and for a call time that moves; each
+  cancellation titled with why; nothing more for someone who said No to
+  that day in Google. The words tests cover each question and panel, the
+  page tests an ended offer at the top while it's news, an erasure test
+  the addresses, and a browser test turns the switch through its three
+  settings. The whole server suite passed (1,015 tests), and the whole
+  browser suite on GitHub. A replay on a local copy with stand-ins for
+  Google and Meta, 43 checks, walked it from off, through one address and
+  on, to off again, with the office's presses in the browser and the
+  freelancer's page on a phone. Nothing real is sent.
+
+**Next:** Colly tries it on their own address on the test calendar
+(ADR 0153, "Trying it first"), looking at how Google shows a cancelled
+day's last title, before turning it on for everyone. Then the WhatsApp
+part of batch 3, and batch 6.
+
+## 12 November 2026: a Yes counts for its own day, and saying no to a rate keeps the offer
+
+**Done (1.169.0)**
+
+- Batch 4 of the [audit of crew offers](audit-crew-offers-2026-11-12.md):
+  findings 3 and 9 and the rest of 7 and 16, on Colly's answers to
+  questions 2 and 6 ([ADR 0152](adr/0152-a-yes-counts-for-its-own-day.md)).
+- A Yes in Google counts for the day it was pressed on. The days someone
+  hasn't answered stay asked: they hold nothing, the invites still ask,
+  and their page says which days they haven't answered. A later Yes adds a
+  day and a later No drops one, until the office confirms; a No to every
+  day they'd said yes to asks them again for the rest. The history says
+  which days were said yes to and which have no answer yet.
+- Each person's copy of a day follows that day's own answer: a No to a day
+  still asked says so, and a Yes the app couldn't take says why ("Thanks
+  Niamh, but we couldn't take your yes. Sat 28 Nov has just been
+  filled."). Nothing is emailed for any of it.
+- Confirm books the days they said yes to. With days still asked, its
+  button names the days, the question before it says which invites
+  Google cancels, and the panel after says Google is emailing them, and
+  that nothing else went.
+- Someone else's yes no longer closes a rate asked for. The office's own
+  Confirm or Agree that fills the call does, naming whose ask closes
+  before the press and whose cancellation Google emails after it. A Yes
+  pressed in Google after asking for a rate is flagged on the office's
+  row. Say no on a call that filled meanwhile closes the offer, and the
+  panel and the message say it closed rather than stands.
+- Say no to a rate keeps the offer open at the rate offered, for the days
+  the rate was asked for; Withdraw is its own button. Their page says
+  "The office can't do €320 a day, so the offer stands at €280 a day.",
+  their invite asks again without naming a rate, and the office's row says
+  it. A head who doesn't read a call's rates can say no but not agree.
+- The job's own Crew tab has the same presses as Answers to check:
+  Confirm and Release on a yes, Agree, Say no and Withdraw on a rate. On a
+  job still a quote, Next leads with the quote and says "2 answers to
+  check" beside it, which opens the call's rows.
+- Changed from the audit's words: Say no keeps the days the rate was asked
+  for, not every day of the call, so nobody is invited again to a day
+  they'd left out.
+- Checked: the calendar tests press Yes and No day by day in a stand-in
+  Google and read each copy's first line, the emails Google would send
+  (none, bar the cancellations Confirm names) and the history; the
+  booking tests cover a rate left open when someone's yes fills the call,
+  Confirm and Agree closing it, Say no keeping the offer and closing it
+  on a call that filled, days still asked moving with the call, and a No
+  to the days said yes to; the device-matches-server tests cover each new
+  answer; a browser test presses each answer on a job's own rows, then
+  answers from the person's link. A day with two invites (a call across
+  two phases that day) needs a Yes on both, and a Yes on one never reads
+  as a rate question. The whole server suite passed (1,009 tests), and
+  the whole browser suite bar two that timed out while the machine was
+  busy and passed alone. A replay on a local copy with stand-ins for
+  Google and Meta, 41 checks, found the panel after Confirm saying
+  "Nothing was sent" while Google emailed a cancellation; that is fixed
+  here. Nothing real is sent.
+
+## 12 November 2026: notes for the crew, office notes, and a short invite
+
+**Done (1.167.0)**
+
+- Colly answered the seven questions of the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md) with "Go with
+  yours", so batches 3 to 6 take the recommended answers. This is batch 5,
+  finding 2 and question 1
+  ([ADR 0151](adr/0151-notes-for-the-crew-and-office-notes.md)), built
+  first because an email can't be unsent.
+- Change details on a job has two boxes, each with a line saying who reads
+  it. **Notes for the crew** is the box that was Notes, so what is in it
+  stays where crew read it: the call sheet and the jobs calendar. **Office
+  notes** is new and never leaves the app: not the calendar, a call sheet,
+  a message or a person's page. The office, directors and heads of
+  department read them; staff crew and freelancers signed in are sent the
+  job without them. The history says the office notes changed, never what
+  they say. A phase's box is Notes for the crew too. Combining two jobs
+  joins each kind of note with its own.
+- Someone only asked, or waiting on the office about a rate, gets a short
+  invite: their first two lines, the stage (with what HOLD asks), the day,
+  the venue's name and address, and the per diems and fuel, then "Once
+  you've said yes, this invite fills in with the day's sheet: the client,
+  the crew, the notes and the pick list." When they say yes, or the office
+  books them, it fills in.
+- Kept on purpose: the per diems and fuel stay in the short invite, where
+  the audit had them out. They are about the crew's own money and are on
+  neither their page nor the call sheet.
+- Nothing new is sent. On the first run after this is live, the invites of
+  people only asked are shortened once, quietly, as a description change
+  is never emailed.
+- Checked: a server test reads the invites as Google holds them for
+  someone asked, someone who asked for a rate, someone booked and someone
+  who then says yes, and holds that none of it is emailed and that the
+  office notes are on no event; a server test holds that staff crew and
+  freelancers are sent a job without its office notes, and the office,
+  directors and heads with them; the history test holds that only "the
+  office notes" is said; a browser test types office notes and reads each
+  box's line. Nothing real is sent.
+
+## 12 November 2026: hold the day, said everywhere
+
+**Done (1.166.0)**
+
+- The second batch Colly picked from the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md): findings 6, 10
+  and 15 and the first line of 7
+  ([ADR 0150](adr/0150-hold-means-hold-the-day.md)). Colly put the meaning
+  right before it was built: HOLD is short for "hold the day", the ask of
+  the crew, and never the job being on hold. Every line that explains it
+  now says so, from one set of words.
+- On a job the client hasn't said yes to, someone the office has picked
+  reads "Hold the day" where they read "Booked": on their own link, on
+  Home › Me and on their page in the app, with a line under it, "The
+  client hasn't said yes yet, so please keep the day free. Nothing is
+  booked until they do." Before they answer, the line says what a yes
+  agrees to. The same line, starting "Hold the day:", heads their call
+  sheet and the office's, and "You on this job". Home › Me counts the day
+  as "to hold", and its "Your weeks" chart draws it as waiting to confirm.
+- The office's offer message asks "can you hold the day for ...?", and its
+  message after picking someone says "we have you down for ..., so please
+  hold the day" in place of "you're confirmed". The panel after Confirm
+  says their link tells them to hold the day.
+- A person's own calendar invite greets them by the name they go by. Its
+  first line asks them to hold the day while the client hasn't said yes
+  and never says "booked" then. Someone who asked for a different rate is
+  told it is with the office and is no longer asked to press Yes or No.
+  Its second line is the day to answer by and their page, where their rate
+  is: the link was the last line, under the pick list.
+- The line under a HOLD day's title reads "HOLD means hold the day: ..."
+  where it read "ON HOLD: ...". HOLD stays in the title and before the
+  job's name on WhatsApp.
+- Nothing more is sent: every change is to words on a screen or to an
+  invite's description, which is never emailed. On the first run after
+  this is live, each person's own invite and each HOLD day from today on
+  is rewritten once, quietly.
+- Left out, on purpose: saying on the invite that a Yes pressed in Google
+  couldn't be taken (the second half of finding 16). It needs the invite
+  written from the answers Google holds, so it goes with the Answers
+  batch. The office's own card for a call still says Booked for someone it
+  has picked.
+- For Colly: the WhatsApp templates aren't in Meta yet, so
+  [the setup guide](whatsapp-setup.md) now gives `job_confirmed` as "the
+  client has said yes, so it's going ahead" in place of "it's no longer on
+  hold".
+- Checked: a server test reads each person's own invite as Google holds it
+  through an offer, a yes, a rate request, the office's pick, the day to
+  answer by passing and the client's yes, and holds that only the title
+  change is emailed; a server test reads the page and the call sheet;
+  unit tests hold the messages' words; a browser test follows one member
+  of staff through the office's messages, Home › Me, the job, the call
+  sheet and their link, before and after the client says yes; and a replay
+  on a local copy with stand-ins for Google and Meta. Nothing real is
+  sent.
+
+## 12 November 2026: crew offers say what was sent
+
+**Done (1.165.0)**
+
+- Colly picked "The two batches with no decisions" from the
+  [audit of crew offers](audit-crew-offers-2026-11-12.md). This is the
+  first, "Say what was sent" (findings 1, 5, 14, 16, 18 and 20;
+  [ADR 0149](adr/0149-the-office-is-told-what-the-app-sent.md)).
+- The Offer form says what pressing sends by itself, for the people
+  picked, by the rule the server sends by: who is emailed a calendar
+  invite, who it goes to on WhatsApp, and who gets nothing and why (no
+  email address, a job brought in from Google Calendar, a call that isn't
+  part of a job, days outside the job's phases).
+- Each offer's row says how its person was reached, from what the server
+  read back: "Invited by email, 2 days. No answer yet.", "Calendar invite
+  on its way.", "Answered on their page.", in amber that nothing has
+  reached them and why, or as a failure that Google turned the invite
+  down. A row nothing reached offers Ring and WhatsApp where Send would
+  be. With invites, WhatsApp and messages all off, the call says so once.
+- The panel after Offer, Confirm, Withdraw, Release, a cancelled or
+  changed call and a stopped job is headed by what was done and says who
+  Google emailed, who nothing reached and why, with their number a press
+  away. "Messages to crew are off" is said last.
+- The questions before Withdraw, Release, Say no to a rate, Cancel crew
+  call and marking a job cancelled or lost name the email Google sends,
+  and to how many. Where crew invites were switched off after someone was
+  invited, they say no cancellation goes and the days stay in that
+  person's calendar; where the calendar has a problem, that the email
+  goes once it's working again.
+- On a freelancer's page the note about calendar invites shows only when
+  one has gone for an offer waiting on them, and "Declined and withdrawn"
+  is "Offers that ended".
+- Nothing about what is sent changed. Not built, waiting on Colly's
+  answers to the audit's questions: a fresh invitation after a No and a
+  person's own invite on a brought-in job (question 3), and telling
+  people they're booked or that a call time moved (question 4). The form,
+  the rows and the panel say that nothing went.
+- Checked: a server test compares the rule a device reads with who the
+  server really made a guest, across six cases; 39 unit tests on the
+  wording; the whole browser suite, with the tests for offering, the
+  calendar, the Next dock and cancelling rewritten; and a replay of 14
+  steps on a local copy with stand-ins for Google and Meta, where what
+  each screen said was read against what the stand-ins were asked to
+  send. Nothing real is sent.
+
+## 12 November 2026: an audit of crew offers, from the office to the crew
+
+**Done**
+
+- [Audit, 12 November 2026: crew offers](audit-crew-offers-2026-11-12.md),
+  at Colly's ask: one offer followed from the office's press, through what
+  the app sends by itself (the Google Calendar invite, and WhatsApp when
+  it's on), to what the freelancer or member of staff sees and is told
+  afterwards, at 1.164.2. Walked on a local copy with stand-ins for Google
+  and Meta that record what they're asked to send, as the office, four
+  freelancers and a member of staff. 20 findings: no P0, 6 P1 (the form
+  promises an invite that never goes for a job brought in from Google
+  Calendar; a job's notes are emailed to everyone asked; a Yes on one
+  day's invite is taken for every day; nobody is told they're booked or
+  that their call time moved; the office is told "nothing opened to send"
+  while Google emails people; on hold is on the invite while their page
+  says Booked), 7 P2, 7 P3, in six suggested batches, with seven questions
+  for Colly. Screenshots in the project folder under
+  `screens/audit-crew-offers/`. Nothing live was touched and nobody was
+  contacted.
+- Nothing is built from it yet: Colly picks what to fix.
+- Checked: every count of what was sent is read from the stand-ins, each
+  quoted line from the screen or the invite, and each place in the code
+  against main; the Blueprint builds.
+
+## 11 November 2026: forms say what needs sorting
+
+**Done (1.159.0)**
+
+- Colly asked for a clearer error on forms and errors on each field. An
+  empty or out-of-range field already had its line under it (required.ts);
+  now every form also gets a list beside its submit button of all that's
+  left to sort, each line a press away from its field, gone once it's fixed.
+- A form's own checks say it on the field too (`refuseField`): crew calls'
+  project, role, day rate and reply-by day; the Offer's picker and Offer
+  anyway. Spaces alone no longer stop a form silently.
+- Checked: offer-from-next, leave, refusals and the full browser suite.
+
+## 11 November 2026: a crew offer that wouldn't send
+
+**Done (1.158.1)**
+
+- Colly picked two people in a call's Offer on a phone, then pressed the red
+  Next button ("Offer the Audio - FOH"), which only opened the same form
+  again; the form's own Offer button is plain and read as greyed out. With
+  people picked, Next now sends the offer to them (`offerPicks.ts`).
+- More people than places is said before it goes; a reason the offer can't
+  go shows under the Offer button; a fault in the checks is said there too.
+- Checked: new offer-from-next browser test (a call across Build, Show and
+  Break, two picked for one place), and the steps, crew, certificates,
+  layout, leave, own-calendar, calendar and refusals tests.
+
+## 11 November 2026: search as a command palette
+
+**Done (1.158.0, ADR 0147)**
+
+- Search opens over the current screen (blurred, dimmed veil) from the
+  magnifier, Ctrl K / Command K anywhere, or / at a desk; `#search` links open
+  it over Home.
+- The combobox's keys in its field; places to go with their keys before
+  anything is typed.
+- Checked: the search browser tests (phone and desk, Ctrl K in a field,
+  arrows, Enter, Escape, a press outside, the old link); screens in
+  screens/palette.
+
+## 10 November 2026: every view of the jobs filters alike
+
+**Done (1.150.0, ADR 0141 addendum)**
+
+- Board, Calendar, Week and Month: Filter as on the list (ListTools'
+  `ViewFilter`), departments and which jobs as pills, chips above the view.
+- New job on every view's title line, opening the list's form.
+- New client on Clients, New venue on Venues.
+- Checked: job-departments, master-calendar, steps, plan and the new
+  view-add browser tests; screens in screens/job-views.
+
+## 10 November 2026: Home's views, and Sort across a phone
+
+**Done (1.149.1)**
+
+- Home's Company / Department / Warehouse / Me are the area views' row
+  (Views.tsx `ViewChoice`), under the same "Views" heading; the greeting is
+  the line under the title.
+- On a phone, Sort fills the row and Filter sits at its right edge.
+- Colly: When on Jobs stays one at a time.
+- Checked: the Home, departments, steps, access, person and screens
+  browser tests; screens in screens/home-views.
+
+## 10 November 2026: the Jobs list reads top to bottom
+
+**Done (1.149.0, ADR 0141)**
+
+- A list page's add is on its title's line: New job, New product, New
+  place, New person, New vehicle, New rack; the form opens at the top of
+  the list (New job's beside it on a laptop).
+- Jobs: search under the title, then the views under a "Views" heading,
+  then Sort and Filter. Every area's views now sit under the title.
+- Coming up / Past / Not going ahead, the five departments and Mine are
+  pills in Jobs' filter panel; each one picked is a chip above the list.
+- The Google Calendar line is off the Jobs list (Menu and Admin keep it).
+- Checked: the browser tests that add to a list or use the Jobs list's
+  choices; screens in screens/list-story.
+
+**Open:** the calendar, week and Board keep their departments row on the
+page, as it is their one choice.
+
+## 10 November 2026: one job, one path, part 8: tabs in stage order
+
+**Done (1.148.0)**
+
+- The job's tabs run Quote, Crew, Kit and vans, Phases, Show pack.
+- A job opens on the tab its next task is in; one with nothing left opens
+  where it was last looked at; a link to a tab still wins.
+- Checked: steps.spec opens a job being sold on Quote and one being
+  planned on Crew; the full browser suite.
+
+## 10 November 2026: one job, one path, part 7: New quote, client first
+
+**Done (1.147.0)**
+
+- New quote is a page of its own under Quotes; To follow up's New quote
+  opens it, as the shortcut and the planner's More options already did.
+- The client first, with their past jobs and Current RMS quotes to start
+  from right under it; picking one fills the name and venue when empty.
+- Who asked, how it came, wanted by and the kind of job fold under More
+  about the enquiry.
+- Checked: past-job.spec walks the client-first page; the New quote tests
+  open the fold where they use it; screen in screens/one-path-7.
+
+**Next:** part 8, the job's tabs in stage order.
+
+## 10 November 2026: one job, one path, part 6: the pick list starts with the kit
+
+**Done (1.146.0)**
+
+- A job on its days with nothing scanned out is in Going out and its pick
+  list says "Due out today · 0 of 6 out", not "Out on the job".
+- The pick list's department chips and order buttons are one Show choice;
+  Going out or Coming back appears once something has gone out.
+- Opened partway through picking, it lands on the first row still to pick.
+- Next's "Pick the kit" carries the count.
+- Checked: new browser tests for the first day with nothing out and for
+  landing partway through; the pick test reads the Show choice; screens in
+  screens/one-path-6.
+
+**Next:** part 7, New quote as a sheet of its own, client first.
+
+## 10 November 2026: one job, one path, part 5: each press moves the count
+
+**Done (1.145.0)**
+
+- Next on a job takes the crew a step per press, with the count in the
+  button: a yes is confirmed where it is ("Confirm Aoife's yes · 1 of 2
+  booked"), the next place nobody's offered opens its Offer ("Offer the
+  Rigger · 1 of 2 offered"), a different rate goes to Crew's answers, and
+  once every place is offered it says how many answers are out. Confirming
+  sends nothing; the Crew page's message prompt opens as its own Confirm does.
+- "Sort 1 short on the kit" lands on the Kit card's Subhire, open, with the
+  short lines ticked.
+- Crew lines on a quote made from the job ("Rigger (Load in)") count against
+  their own call, so they no longer show as "not asked for yet" beside it.
+- Checked: a new browser test walks a job from a yes to confirm through to
+  the short kit; screens in screens/one-path-5.
+
+**Next:** part 6, the pick list opening on the first thing to pick.
+
+## 10 November 2026: one job, one path, part 4b: one press for the yes
+
+**Done (second half of part 4, 1.144.0)**
+
+- "Client accepted: confirm the job" records the client's yes and confirms
+  a job still being sold in the same press, said first under What happened.
+  Confirming writes the job's days to the connected calendar, as
+  confirming always has.
+- A draft's terms are one line ("10% off · prices hold 30 days · no deposit
+  · for Ruairí Kelly") with Change; they open by themselves while one needs
+  putting right.
+- Add kit and Add crew stay in front; transport, something else, words,
+  packages, saving the kit as a package and charging all kit the same days
+  are under More to add. An empty quote shows them all.
+
+**Next:** part 5, crew and kit steps that move their count on with each
+press.
+
+## 9 November 2026: one job, one path, part 4a: the quote on the job
+
+**Done (first half of part 4, 1.143.0)**
+
+- The quote is the job's Quote tab, under the job's head, stage line and
+  Next; it no longer has a page of its own. #jobs/<id>/quote opens the tab,
+  and so does the tab's old address, /money.
+- With the tab open while the job is in Quoting, Next says "Finish the
+  quote below and send it to the client" in words, so Send (or Build it
+  from the job) is the one filled red. From any other tab, Next still
+  takes you there.
+
+**Next:** the second half of part 4: accept and confirm in one press,
+terms on one line with Change, one Add box with the rarer adds under More.
+
+## 9 November 2026: one job, one path, part 3: said once
+
+**Done (part 3, 1.142.2)**
+
+- On a confirmed job, where it stands is said beside its name only; Next's
+  line says just Next. On the quote page and on a job still being sold,
+  Next's line still says it, as nothing else there does.
+- Where it is folds to its five stages and "2 tasks to do in Planning";
+  that, a stage, or a task opened from Next or Home opens them. The open
+  stage pressed again folds it. The invoice row shows folded only once it's
+  invoiced or due.
+
+**Checked:** steps, job-moves-on, person, quotes, RMS history, home,
+screens, pick, kit, crew and departments browser tests; a walk on a phone
+and a desk (project files, one-path-3).
+
+**Next:** part 4, the quote as the Quoting stage on the job page.
+
+## 9 November 2026: one job, one path, part 2: Send stays in view
+
+**Done (part 2, 1.142.1)**
+
+- A draft quote's Send (or Get the PDF to send) sits in the sticky strip
+  with the totals and never disappears. With a line unfinished it reads
+  "Send: 1 line to finish" and takes you to the line, even one already open
+  and scrolled away; pressed mid-save, it saves and then sends. The last
+  look and the email box still open under Send at the foot, and the page
+  glides there.
+- The foot keeps the date it was sent on, Print a draft, Sent another way
+  and Accepted by phone; the duplicate red button there is gone.
+
+**Checked:** the quote, quote polish and follow-up browser tests; a walk on
+a phone and a desk (screens in project files, one-path-2).
+
+**Next:** part 3, the job's head says where it stands once.
+
+## 9 November 2026: one job, one path, part 1: Next does what it says
+
+Colly walked the journey from quote to crew and the pick list and found it
+hard to follow between steps. A walk on a phone and a desk found ten places
+it loses the thread ([proposal](https://claude.ai/artifact/D9cXTUpDZPSoMBz5RoNzDP));
+Colly chose to make the job page the one path through a job, in eight parts
+(ADR 0140).
+
+**Done (part 1, 1.142.0)**
+
+- The job's Next makes the crew calls from the quote rather than opening the
+  Crew tab; Book N more crew opens the first call's Offer; Settle the kit
+  and vans lands on a tick card at the top of Kit and vans.
+- The quote page shows the job's Next once the job is past Quoting, so it
+  points on to crew and kit rather than to the invoice.
+
+**Next:** part 2, Send never disappears from the quote; then the job's head
+said once, the quote as the Quoting stage, crew and kit steps, the pick
+list, New quote as a sheet, tabs in stage order.
+
+**Assumed until Colly says otherwise:** the client's yes is the moment the
+job is confirmed; crew may be pencilled before the yes; the warehouse picks;
+invoicing stays out of the path while paused.
+
+## 9 November 2026: the quote looks like the company's own document
+
+**Done**
+
+- The printed quote and its PDF redrawn as one design (ADR 0139, 1.141.0):
+  the brand's red band, logo and "Quote" with its number, Prepared for /
+  The job / dates in three columns, lines under a shaded head with red
+  group heads, deposit beside a red total block, terms and bank side by
+  side, the company's details as a letterhead at the foot. IBM Plex Sans
+  and Archivo on both copies.
+- Printing from the browser no longer shows the browser's address, title
+  and date (the page's own margins carry the band and page count), and Save
+  as PDF offers "Quote 1115 - Job". The PDF opened from a quote, and from
+  the client's link, now carries the logo.
+
+**Checked:** the server PDF drawn with a long sample (two pages) and a short
+draft; the browser's print saved as a PDF by Chromium with its header and
+footer on, showing neither; the quote, package and quote-shape browser tests.
+
+## 9 November 2026: gear on quotes from Current RMS
+
+**Done**
+
+- A Current RMS quote's lines are matched to the stock list by the product
+  Current RMS quoted (its id, kept on each product by the stock bring-in)
+  before the name (1.140.2). Colly: putting the MSF quote's lines on its
+  job brought only the audio gear onto the kit list.
+- Each read of Current RMS reads the lines again of every quote still to
+  come (or up to a week past) and of any with no lines (1.140.1). Current
+  RMS doesn't always move a quote's updated time when lines are added, so
+  a quote first read while empty stayed blank here (Colly: the MSF quote
+  for Wednesday).
+
+**Checked:** a server test with a stand-in Current RMS.
+
+## 9 November 2026: correcting the days of a Current RMS quote
+
+**Done**
+
+- A past quote from Current RMS has Correct the days (ADR 0138, 1.140.0):
+  the office's first and last day are the days to go by everywhere, kept
+  when Current RMS is read again, with what Current RMS has said beside
+  them, and Use Current RMS's days to go back. Each change is in the
+  history. Nothing in Current RMS changes.
+- Times from Current RMS are taken as their day in Ireland everywhere: some
+  places took the UTC date, so a summer job from midnight showed (and
+  matched) a day early.
+- The show days Current RMS keeps are read too, and said on the quote when
+  they aren't its days. They show after the next read of Current RMS.
+
+**Checked:** server tests for correcting, a read keeping it, the history and
+going back (including summer time); shared tests for the Irish day; a
+browser test of the page.
+
+**Waiting on:** Colly, for an example of a quote that came in wrong, to
+confirm which of the causes it was.
+
+## 9 November 2026: clients and venues filled in from Current RMS
+
+**Done**
+
+- Admin › Connections has a Clients and venues from Current RMS card (ADR
+  0136, 1.137.0). Read them reads Current RMS's organisations, venues and
+  the contacts who belong to them.
+- Before anything changes, it says what filling in would do: addresses
+  where there are none, contacts a client hasn't got, a contact for a venue
+  with nobody, and those on Current RMS's quotes not here yet (added only
+  when ticked). Nothing typed here is changed.
+- Checked: server tests with a stand-in for Current RMS, and the card at
+  phone width.
+
+**Waiting on**
+
+- The office: Read them, look over the lists, and Fill in, on live.
+
+## 9 November 2026: hire prices filled in from Current RMS
+
+**Done**
+
+- Admin › Connections has a Hire prices from Current RMS card (ADR 0132,
+  1.136.0). Read the prices reads each product's rental price and rule
+  from Current RMS through the API, a few minutes in the background.
+- Before anything changes, it says what filling in would do: to fill in,
+  to bring up to date, set here by hand and different (kept unless
+  ticked), already the same, no hire price there, and not found here.
+- Fill in is one change in the history; the price list now knows which
+  prices came from Current RMS, so a later run follows Current RMS for
+  those and keeps the office's own.
+- Checked: 7 server tests with a stand-in for Current RMS.
+
+**Waiting on**
+
+- The office: Read the prices, look over the list, and Fill in, on live.
+
+## 9 November 2026: open Current RMS quotes on the calendar
+
+**Done**
+
+- Jobs › Calendar shows the quotes still open in Current RMS (not an order,
+  not lost, days still to come) as potentials, dashed and marked Current RMS
+  quote with number and client, opening the past quote. Ones linked to a job
+  here, or that look like one, stay off. "Not going ahead" on the past quote
+  takes one off; "Put it back on the calendar" undoes it. Nothing changes in
+  Current RMS (1.135.0, ADR 0134).
+- Checked: server, shared and browser tests for the calendar and past quotes.
+
+**Waiting on**
+
+- Nothing.
+
+## 9 November 2026: the calendar looks like Google Calendar
+
+**Done**
+
+- Jobs › Calendar now looks like the Google Calendar the office already
+  reads: smaller type, a job of several days drawn as one bar across its
+  days, today circled, Today and arrows at the top. Confirmed still solid,
+  potential still dashed. On a phone it reads like Google's schedule
+  (1.133.1, ADR 0123).
+
+**Waiting on**
+
+- Nothing.
+
+## 9 November 2026: colour on the stage line
+
+**Done**
+
+- A job's five stages fill in red up to where it is: passed stages red with
+  a tick, the line between them red, the stage it's in ringed in red, or
+  amber when crew or kit is short and orange when something is late
+  (1.133.0, ADR 0131). The small bar on the Jobs list, Home and the job's
+  head does the same, and each Board column carries the bar too.
+- One colour for progress, not one per stage: the stage's name already
+  says which, and other colours already mean short, late and healthy.
+- Checked: before and after on phone and desk, dark and light; the stages,
+  Home and Jobs tests.
+
+**Waiting on**
+
+- Colly: merging the learning in design-system #47.
+
+## 9 November 2026: answers on WhatsApp (off until launch)
+
+**Done**
+
+- The WhatsApp offer's buttons now answer it (1.129.0, ADR 0125 part 3).
+  *Yes, I can do it* accepts it, as their page would, and they get a reply
+  saying they're down for it. *No, I can't* asks once more (*Decline it* or
+  *Keep it open*). A filled or withdrawn job says so. A button counts only
+  from the number the offer went to, and once however often Meta sends it.
+- Each offer's row in Crew says "sent", "delivered" or "read on WhatsApp"
+  while it waits for an answer, or "not sent" and why.
+- STOP turns their offers on WhatsApp off; anything else written gets a
+  reply pointing to their page and the office's number.
+- The history shows these answers as theirs, "on WhatsApp".
+- Checked: 16 tests with a stand-in for Meta, including the signature,
+  repeats, a stranger's number and receipts arriving out of order.
+
+**Waiting on**
+
+- Colly: Meta's side ([steps](whatsapp-setup.md)) and which number. Then
+  test mode on Colly's phone.
+
+## 9 November 2026: a master calendar of jobs and enquiries
+
+**Done**
+
+- Jobs › Calendar shows a month a box a day, with confirmed jobs solid and
+  enquiries and quotes dashed and named, all together. Everything, Confirmed
+  or Potential at the top; jobs with no dates yet listed underneath; a day
+  opens its week on the planner. Those who see money also see whether a
+  quote has gone out. On a phone it lists the days with something on. It
+  reads only and writes nothing to Google (1.124.0, ADR 0123).
+
+**Waiting on**
+
+- Nothing.
+
+## 9 November 2026: offers go on WhatsApp by themselves (off until launch)
+
+**Done**
+
+- Colly answered the research's questions and said go. An offer now queues
+  a WhatsApp in the same change that makes it, and the server sends it to
+  Meta just after, at the same moment as the calendar invite: template
+  `job_offer` with the job's facts and Yes, No and See the details
+  buttons (1.126.0, ADR 0125).
+- Admin › Connections › Offers on WhatsApp: Off (as it starts), only to up
+  to five numbers to try it on, or On. Admin › Status reads the number's
+  state and quality from Meta, sending nothing.
+- Everyone gets offers there once on (Colly's choice); each person's page
+  has "Stop offers on WhatsApp" under their details. The office can turn
+  someone off when asked; only they turn it back on.
+- [Steps for setting up Meta's side](whatsapp-setup.md).
+
+**Waiting on**
+
+- Colly: Meta business verification, the number (new, or the office's own),
+  the template, and the four Railway variables. Then test mode on Colly's
+  phone.
+
+## 9 November 2026: job offers over WhatsApp, researched
+
+**Done**
+
+- [Job offers over WhatsApp](research/whatsapp-offers.md), at Colly's ask
+  that the app send offers itself. Recommended: Meta's WhatsApp Cloud API
+  direct (no provider, about €80 a year), an offer that sends itself when
+  the office makes it, with Yes, No and See the details buttons; Yes and
+  No answer the offer as the link does. Freelancers tick "Send my offers on
+  WhatsApp" on their link first. Behind a switch, off until launch. A plan
+  in four parts. Nothing built.
+
+**Waiting on**
+
+- Colly to pick the plan and answer the page's five questions; Meta
+  business verification and a number when building starts.
+
+## 9 November 2026: the logo goes Home, and a start screen for each person
+
+**Done**
+
+- Pressing the Session Hire logo top left goes Home from any screen, on a
+  phone and at a desk.
+- Menu › You has "Open the app on": Home, Jobs, Board, Planner, Quotes,
+  Stock or Crew. It's kept with the person's account, so every device they
+  sign in on opens there; Home stays the default, and a link still opens
+  where it points (1.123.0, ADR 0122, PR #272).
+
+**Waiting on**
+
+- Nothing.
+
+## 9 November 2026: five ideas from Rentdeck, built
+
+**Done**
+
+- Colly picked five of the eight ideas, and all five are in:
+  - A client's payment terms, printed on the quote, and who to ask for at
+    a venue, printed on the call sheet (1.120.0, ADR 0119, PR #268).
+  - "+ Quote" on each day of the planner starts a quote for that day, and
+    keys at a desk: press ? for the list (1.121.0, ADR 0120, PR #269).
+  - The client accepts a quote online from a link: the quote as sent, their
+    name and a tick (1.122.0, ADR 0121, PR #270). Behind the switch "Let
+    clients accept quotes online" under Admin › Company, **off** until
+    launch; the app sends nothing, the link goes only in an email the
+    office sends.
+- Learnings for the design system in design-system PR #45.
+
+**Waiting on**
+
+- Colly to merge design-system #45, and to turn on online acceptance at
+  launch.
+
+## 8 November 2026: Rentdeck, set beside the app
+
+**Done**
+
+- [Rentdeck, set beside Session Hire's app](research/competitor-rentdeck.md),
+  at Colly's ask: a new Dutch tool at €9.95 a month for one user, for small
+  hire firms leaving Excel. Read from its site, wiki and terms; no trial
+  opened. It is ahead on invoices, the client signing a quote online and
+  paperwork the office can redraw; the app is ahead on crew, the calendar,
+  the warehouse, jobs and quoting. Eight ideas worth taking, all small
+  except online acceptance and invoicing (paused). Nothing built.
+
+**Waiting on**
+
+- Colly to pick any of the ideas, and the page's four questions.
+
+## 8 November 2026: an audit of the quote flow, and quoting from scratch
+
+**Done**
+
+- [Audit, 8 November 2026: the quote flow](audit-quote-flow-2026-11-08.md),
+  at Colly's ask: the quote from enquiry to confirmed job, as the office
+  person fills it in, on a phone and at a desk, offline too, at 1.118.0,
+  weighed against what 1,072 Current RMS quotes look like (counted, none
+  named). 21 findings: no P0, 4 P1 (free lines can only be "needs a
+  price", a count lost when the product's name has digits, a part-typed
+  client becomes a new one, a draft's kit isn't held or seen by other
+  quotes), 13 P2, 4 P3, in seven suggested batches. Screenshots in the
+  project folder under `screens/quote-audit/`. Nothing live was touched.
+- Its second half answers "if we did it again from scratch": the quote as
+  the job's plan (its kit pencilled, its crew as calls), starting from the
+  client, one Add box, Included lines and the office's own groups, due
+  today first, dry hire as its own shape, sending as one act. Reachable in
+  steps, not a rebuild.
+
+- Colly picked batch 1, "the first 3 small ones" (#266, 1.119.0): a quote
+  line can be given as Included at no charge, and a product at €0 on the
+  price list arrives that way; a number typed before a product is how many
+  first ("2 d20" adds two); the start of one client or venue left in the
+  box takes that one, said under it with a press to keep it new.
+- On 9 November Colly asked for the rest, in order. Batch 2, the quote is
+  the job's plan (ADR 0126, 1.127.0): a draft's kit is on the job's kit
+  list as it's typed, pencilled, so other quotes see it and confirming
+  holds it; the quote's crew are made calls in one press; a line's days
+  are the days the job works, not the gap between build and show.
+- Batch 3, the quote due today comes first (ADR 0127, 1.128.0): drafts
+  in the order they're wanted, "Wanted today" leading Quotes and counted on
+  Home, drafts for jobs that are over kept apart, whoever starts a quote on
+  its task; with email off, Get the PDF to send marks it sent and opens the
+  numbered PDF; "accepted by phone" gets the same last look as sending.
+- Batch 4, the quote the way the office writes it (ADR 0128, 1.131.0):
+  each line is under the office's own heading, lines and groups move up
+  and down, a line can be words only; the quote is for who asked; the logo
+  heads the printed quote and the PDF; New quote asks show or dry hire,
+  and a dry hire has no venue, crew or travel.
+- Batch 5, found where you'd look (ADR 0129, 1.132.0): packages are found
+  in Add kit with their price and what they hold; New quote's Start from
+  is one search over this app's past jobs and Current RMS's quotes, the
+  client's last three first.
+- Batch 6, an emailed quote is sent only once Gmail has it (ADR 0130,
+  1.132.1): numbered, drawn and handed to Gmail first, marked sent after;
+  turned down, it stays a draft with its number and says so; Send waits
+  for the device's changes. Needed before email is turned on in live.
+
+- Batch 7, the last rough edges (ADR 0133, 1.134.0): a half-made line
+  holds back only itself; a long draft on a phone opens folded to its
+  groups, and picking there gets the screen; Admin › Company › Own kit in
+  the margin costs own kit at a share of its price, and until it's set the
+  margin says "own kit not costed"; a number guessed offline says so and
+  prints as a draft; the per diem said once, "Wanted by", and short words
+  found only at a word's start in the picker.
+
+**Waiting on**
+
+- The page's six questions; every finding of the audit is now fixed.
+
+## 8 November 2026: a package's price starts at its items' total
+
+**Done**
+
+- Colly: "Start with the price for the total for all items in package and
+  then allow a discount to a set price." The package editor and list show
+  what its items come to; a price of its own shows as what it takes off;
+  a package added to a quote keeps that total, and the quote on screen and
+  on paper says "€N off its items' €T" ([ADR 0116](adr/0116-a-package-is-a-shortcut-for-its-kit.md), point 2).
+
+## 8 November 2026: packages as a shortcut for their kit
+
+**Done**
+
+- Colly asked for named sets of kit as templates, then for a package to be
+  a shortcut for its gear, itemised under it (folded on screen, printed
+  open), and racks the same.
+- Built ([ADR 0116](adr/0116-a-package-is-a-shortcut-for-its-kit.md)):
+  adding a package adds its line and each product as a line under it; a
+  priced package includes its kit, an unpriced one is its kit's prices;
+  racks bring their layout's kit, included; save a quote's kit as a
+  package; add a package's kit on a job's Kit.
+
+**Waiting**
+
+- Colly chose "either, set per package" for pricing, as built.
+- The thread finding package templates in Current RMS quotes proposes a
+  starter list, loaded only once Colly approves it.
+
+## 8 November 2026: start a quote from a past job
+
+**Done**
+
+- Colly asked for old quotes as templates for related new ones, by venue
+  and client, based on what actually went out rather than what was quoted.
+- Built ([ADR 0115](adr/0115-start-a-quote-from-a-past-job.md)): New quote
+  offers up to six past jobs once the client or venue is known (both
+  first), and picking one fills the ticked lines: kit at what went out,
+  marked where it differed from the quote or went beyond it, priced from
+  today's price list.
+
+## 8 November 2026: freelancers' access
+
+**Done**
+
+- Colly asked what the rules allow for freelancers' access. Today: the
+  private link is the whole way in (ADR 0002); Google sign-in takes only
+  Session Hire's Workspace, so freelancers can't sign in; a link never runs
+  out, isn't tied to a phone, and a lost one comes back only through the
+  office. Colly picked "Link, made safer" from three ways.
+- Built ([ADR 0114](adr/0114-freelancer-links-remember-phones.md)): every
+  link remembers the phones it opens on (a cookie scoped to the link, only
+  hashes kept). A switch under Admin › Company, Freelancers' links, starts
+  off; on, a new phone needs a six-digit code emailed from the operations
+  mailbox, and `/link` emails a lost link. A never-used link opens on the
+  first phone, which is also the way back for someone with no email: the
+  office's New link.
+
+**Waiting**
+
+- Colly: turn on Check new phones at launch, with the operations mailbox
+  connected and allowed to send.
+## 8 November 2026: quoting, the six small ones and the draft fix
+
+**Done**
+
+- Colly picked the six small features and the draft fix from
+  [research/quoting.md](research/quoting.md).
+- Quantity typed with the product in Add kit ("12 y10"), and How many
+  beside the role in Add crew; each product in the picker says its price,
+  rule and how many are free on the job's days (#254, 1.110.0).
+- One check before a quote goes (no price, short of kit, no travel, first
+  day gone); a sent quote whose prices have run out says so; why a quote
+  was turned down, with a note, on the quote and in history; who asked,
+  how it came and the day the quote's wanted by on New quote, the day as
+  the Quote sent task's due day (#255, 1.111.0).
+- Two people on one draft keep both their changes: saves carry what they
+  began from and are merged line by line on the server and the device,
+  and an open draft takes in changes from elsewhere
+  ([ADR 0113](adr/0113-two-people-on-one-draft.md), #256, 1.111.1).
+
+**Waiting on**
+
+- Colly's answers to the research's seven questions, and whether to go on
+  to starting from a past quote and product companions.
+
+## 8 November 2026: what would make quoting faster, easier and more reliable
+
+**Done**
+
+- Research on Colly's ask to focus on the quoting stage:
+  [research/quoting.md](research/quoting.md). The quote flow walked on
+  made-up data, desk and phone, at 1.109.3 (screenshots in the project
+  folder under `screens/quoting-research/`), the quoting ADRs and code
+  read. Fifteen features ranked by value and effort: six small ones first
+  (quantity as kit is picked, price and free count in the picker, one
+  check before a quote goes, prices that have run out, why a quote was
+  turned down, a day the quote is due by), then starting from a past
+  quote and a product's usual companions, and a fix so two people on one
+  draft don't wipe each other's lines. No invoicing work proposed.
+
+**Waiting on**
+
+- Colly's answers to the page's seven questions, and which to build first.
+
+## 7 November 2026: batch 5 of the UX sweep, what the small moves prepared
+
+**Done**
+
+- Batch 5, on Colly's "move on to the next batch" after batch 4, built on
+  section 9's recommendations: move 12, move 5c and question 2.
+- Move 12, first part, whose turn it is (1.105.0, PR #240): a task with
+  nobody named on it says whose it is by role, from the one owner table
+  ("For the warehouse (nobody named).", `ownerByRole` in
+  shared/src/words.ts), and the Tasks filter and Home's tile say
+  "nobody named"; two hand-offs reach the people whose turn it is as
+  notifications in the app only (ADR 0058's fifth reason, "Your
+  department's turn"): a job going confirmed, to the heads of the
+  departments on its calls or kit and the warehouse's heads
+  ("Confirmed: Harbour Lights, Mon 9 Nov"), and a job's first kit out,
+  to the office ("Gone out: Harbour Lights"). Nobody is emailed.
+- Move 12, second part, the invoice tail (1.106.0, PR #241), on question 6's
+  answer, the row and the group: `invoiceOf` in
+  shared/src/sync/money-view.ts says where a job's invoice stands; Quotes
+  gains "To invoice" (confirmed, finished, accepted, not invoiced, longest
+  first), the job's tasks end on an Invoice row that opens the quote, and
+  Home has the office a "jobs through, not invoiced" count. Jobs that
+  ended before November 2026 (`INVOICES_FROM`) are "Not needed", so the
+  group starts honest rather than with every old quote. Question 9's
+  answer (tone and count, no "At risk" state) needed no change.
+- Move 5c, the record picker's half step (1.107.0, PR #242): `ProductPicker`
+  becomes `RecordPicker` (web/src/RecordPicker.tsx) with the system's
+  combobox keys, `find` and `meta` given by each use, and Offer to… on a
+  call is it: the search box and the select are one, the department,
+  level and skills the meta line with a certificate gap, "⚠ not free then"
+  and "busy in own calendar", the call's department first at rest, Show
+  applicants a checkbox under it. Enter while typing never sends the form.
+  Eight offers at most, and on a phone the list grows with the page
+  rather than scrolling inside it. Client, venue, place and supplier wait
+  for a month of use, as the sweep says.
+- Question 2, staff answer offers in the app (1.108.0, PR #243,
+  [ADR 0111](adr/0111-staff-answer-offers-in-the-app.md)): a new ability,
+  `answer`, every role but freelancer; `offer.respond` needs it and its
+  handler holds anyone without `crew` to their own offers. "You on this
+  job" has Yes / No (no asks first); some of the days and pulling out stay
+  on the link. Offer rows on Home › Me and their own page open the job.
+  Timesheets wait for their switch (ADR 0090). That ends the sweep's
+  twelve moves.
+
+## 7 November 2026: batch 4 of the UX sweep, the pages that are someone's own
+
+**Done**
+
+- Batch 4, straight after batch 3 on Colly's "And then proceed to the next
+  batch": moves 10b and 11.
+- Move 10b, first part, Home for whoever is looking (1.101.0, PR #236): one line on
+  the week above the Company view's counts ("The next seven days: 4 confirmed jobs
+  on, 2 short of crew or kit · €19,189 confirmed of €22,729 quoted for
+  November 2026", the money for whoever sees it, from Money's own
+  figures), quiet unless something in the first group stops work; the
+  Money card straight after the week ahead; Housekeeping a fold with its
+  count, closed for a director and open for everyone else, kept per
+  phone (`sh.home.housekeeping`); each count's "N more since Tuesday" from
+  this phone's last look on an earlier day (shared/src/last-look.ts,
+  `sh.home.looks`); the down-to-nobody count only for jobs starting
+  within a fortnight (the Jobs list's Tasks filter gains that option);
+  the head of the warehouse lands on the Warehouse view.
+- Move 10b, second part, what's over but not finished, and what was lost
+  (1.102.0, PR #237): Home's Today lists Just finished (n), the jobs over in the
+  last fortnight still in Back with work open (`stillInBack` in
+  shared/src/lists.ts); the Jobs list's Past opens on Still in Back (n)
+  before the weeks; Money's head gains Lost or lapsed for the month
+  (quotes turned down and lost jobs' uninvoiced quotes, `MonthMoney.lost`),
+  with the jobs whose dates passed unanswered named apart and not summed;
+  By month gains Lost; Home's Money card shows Money's own list
+  (`MoneyFacts`) in place of its sentence.
+
+- Move 11, first part, the Jobs area's record heads (1.103.0, PR #238): the client
+  and the venue take the shared page head (name, Pending beside it, a sub
+  line "Client · 2 jobs · Declan Moore" / "Venue · Dublin 1 · 2 jobs
+  here") and the shared Tabs (client: Details · Documents · Jobs; venue:
+  Details · On the map · Documents · Jobs here), addressed as
+  #jobs/clients/<id>/<part>; the quote and the pick list take the job's
+  name in the head with "Quote · version 2 · <client> · <dates>" or
+  "Pick list · <dates>" under it and the quote's pill or the job's
+  position beside it; the QUOTE kicker and the first card's h1 go.
+- Move 11, second part, the Stock area's record heads (1.104.0, PR #239): the item
+  (number and picture in the head, "Mic case 24 · Bay C2" under it, the
+  Details card and tracker over Tabs: Faults · Tests and certificates ·
+  In it · Counts · Log, as #stock/item/<id>/<part>), the place ("Place ·
+  576 items · counted …") and the vehicle ("Van · 241-D-100 · 3 seats",
+  "Off the road until …" as a pill beside its name) take the shared page
+  head; a fault drawn away from the Repairs list's state groups carries
+  its state as a pill; the record card gap is one role, `--record`
+  (16px, Colly's question 7), in app.css.
+
+**Left for later**
+
+- A Company count narrowed for a head naming their department ("2 LX
+  calls still need crew").
+
+## 7 November 2026: batch 3 of the UX sweep, where a job stands
+
+**Done**
+
+- Batch 3, on Colly's "And then proceed to the next batch" after batch 2:
+  moves 7, 8b and 9, in four PRs built in turn.
+- Move 7, first part, the task's fields (1.97.1, PR #232): each task of a job
+  carries its facts as fields beside its hint (booked, needed, short,
+  out of, still out, the show's days, the quote's sent day, faults), and
+  the Next dock and the Board choose a button or a tone from the fields,
+  never by reading the hint back. One selling sentence (`sellingLine`)
+  for the Board's card and the Jobs list's stage line: "Draft started ·
+  1 line needs a price", "Quote with the client 12 days · worth a call"
+  at Quotes' threshold, "Dates passed, no answer", "Quote: with the
+  office". A server test reads every made-up job's hints back and holds
+  each number against its field.
+- Move 7, second part, the position part (1.98.0, PR #233): `jobPosition()` in
+  shared/src/sync/position.ts and `JobPosition` (web/src/jobs/
+  JobPosition.tsx, which replaces StageLine) draw "stage · what's short
+  or waiting · owner · when" on the job head (in place of the pill once
+  confirmed), the dock's line, the Jobs row (in place of the stage line,
+  the Confirmed pill and the Kit short flag on a confirmed job), Home's
+  rows (compact), the Board's card and the pick list's head. Quiet when
+  nothing is short, warn ink when crew or kit is, bad ink when a task is
+  late or the dates passed unsold. The Board's Planning column is banded
+  This week, Next week and a folded Later (n); a column's "short" counts
+  crew as well as kit. Departures: a sale keeps its Kit short flag on the
+  row, as its position is the quote's; an errand or meeting row keeps its
+  line and draws no position. Left for later: the "In Planning since"
+  line on Where it is (no stage dates are stored), the quote's What
+  happened card, folding a meeting's Kit, Show pack and Quote.
+- Move 8b, arriving on the kit (1.99.0, PR #234): the job head's Kit fact says
+  "· 0 of 27 out" and links to the pick list for a role with the stock
+  ability; within seven days of going out the dock's quiet second slot
+  is "Pick the kit · 0 of 27 out" for that role (also on the rest line
+  when the task is another role's), the filled verb staying the
+  planner's; the pick list draws `PickDock` in the foot on a phone in
+  four wordings (pick, all out and ready to load, scan back, tick off
+  the deprep). A line in ADR 0104 says the dock is drawn there too.
+  pick.spec checks at 390px that the scan box and the dock never cover
+  each other.
+- Move 9, each role's own app (1.100.0, PR #235): the Jobs list's filters gain
+  Whose (Mine) and Department (a job is a department's when a call is,
+  or a kit line is in its stock department); a head's list starts on
+  their department once a tab, widened with the chip's take-off; a
+  "Mine (n)" chip first for anyone booked (as Home › Me reads them).
+  `YouOnThisJob` on the job page for anyone with a booking or offer on
+  it, above Where it is for a role without jobs, crew or kit, under it
+  otherwise: role, phase, days, call, venue, details, call sheet, and
+  "Can't make it any more? ›" (or "Answer it on your page ›") to their
+  link at that booking. Plain #crew lands a role without crew on
+  People. Stock opens with "Broken or missing kit · Report it ›" for a
+  role without stock. Left for later: the planner's To sort out
+  narrowing, Home's views group by role and "The company's week ›",
+  the NotYours head and role-aware Empty states, the warehouse head's
+  first landing.
+
+## 7 November 2026: batch 2 of the UX sweep, words, forms and the link
+
+**Done**
+
+- Batch 2, on Colly's "Do batch 2": moves 4, 5b and 6b, one PR each,
+  built in turn.
+- Move 4, one word table (1.96.0, PR #229): shared/src/words.ts holds
+  the words met on more than one surface, and the pills, the call sheet,
+  the link, the dock and the "not yours" sentences read it. A crew
+  booking is Booked on every surface (Colly's question 1 on its
+  recommendation), so Confirmed is only the client's yes (ADR 0103);
+  accepted is To confirm, filled is "Filled by someone else", the
+  office's take-back "Withdrawn by the office". Leave's waiting is
+  "Waiting for approval". "Still needs crew" is the one name for calls
+  short of people (Home's tile, Crew's list, the planner's key), under
+  Calls' "Coming up" card. Time groups are Coming up, Past and Not going
+  ahead (a person's Worked tab is Past). Someone else's work is one
+  sentence shape from STEP_OWNERS and NOT_YOURS (the dock's rest, Vans,
+  Counting, Quotes, the pick list, Timesheets); a colleague's hidden
+  details say "Hidden for your role". Kit lists narrowed for a head say
+  "Showing LX (Lighting) only". Menu lines have a reader's version for a
+  role without the ability; history says "Cancelled the job …". Keys,
+  wire names and stored rows are unchanged.
+- Move 5b, the app's forms (1.96.1, PR #230): `.grid-form` and the
+  Admin office form are one column under 640px, with `.pair` for From
+  and To, First and Last name and the like (ten pairs); at a desk a
+  submit spanning the grid sits at the start, as wide as its words.
+  "(optional)" is written in the label (`.optional`), and instruction
+  placeholders moved under the label as hints read with the field.
+  UnitBox moved out of the quote into `web/src/UnitBox.tsx` and app.css,
+  and the day rate fields carry € in the box. No submit is disabled:
+  Offer, That's me, Save allowance, Subhire, Give a department and Tidy's
+  Give press into a refusal in required.ts's voice; required.ts also
+  refuses a number under its min, over its max or off its step in the
+  app's words, and a wheel over a focused number blurs it. Add phase's
+  name is required.
+- Move 6b, the freelancer's page as a whole (1.97.0, PR #231): "Since
+  you said yes" opens the link with each booking whose call, days or
+  venue moved since the yes (with "was …") and each that ended, linking
+  to its card; no script. Past work and the timesheet rows are one "Work
+  done" list after the bookings, rows to send first, each with its state
+  (send, sent, approved, paid) when timesheets are on. The feed, "Let us
+  see when you're busy" and "Your documents" fold to a state line ("Not
+  shared", "Shared, 2 busy days ahead", "one runs out in 9 days") and
+  open on a flash, a problem or a typed value.
+
+## 6 November 2026: the UX cohesion sweep, and batch 1 of its moves
+
+**Done**
+
+- [UX cohesion sweep, 6 November 2026](ux-sweep-2026-11-06.md), at
+  Colly's ask (PR #218): what makes the app feel like several apps, and
+  twelve moves that make it one. Seven maps of the app, ten lenses each
+  checked by a sceptic, three programmes, two judges and a critic: 46
+  themes (5 P1, 29 P2, 12 P3) and 29 smaller findings kept, 9 dropped.
+  The moves are in five batches, with thirteen questions for Colly.
+  Screenshots are in the project folder under screens/ux-sweep/. Nothing
+  live was touched.
+- Batch 1, "Monday", on Colly's "Start with the first batch": moves 1,
+  2, 3, 5a, 6a, 8a and 10a, one PR each. Screenshots are in the project
+  folder under screens/ux-batch1/.
+- Move 1, one red button (1.88.1, PR #219): the red fill is only the
+  one next step on a screen. On a job that is the Next button, and the
+  forms opened under it are plain; on a quote it is the next thing to
+  record (one helper decides), and Send and Print turn red only once
+  nothing is left to record. An ask's yes is plain, or the bad fill when
+  it takes something away. Check on Timesheets is quiet; Checked and the
+  leave queue's Approve and Decline are plain; every list opens with its
+  add, and the add's form holds the page's one red.
+- Move 3, part 1, one count (1.89.0, PR #220): kit to check back in
+  after a job is one rule in shared (kitToCheckBackIn), read by Home,
+  Home › Warehouse's new "Still out after the job (n)", Stock and the
+  Board's Back head ("Back 12 · 6 late"). It follows ADR 0109's
+  never-scanned rule, so the count went from 3 to 7 jobs on the bench.
+  Every Home count is the length of the list it opens (standing() in
+  shared) and lands on that list's heading with the same number: a server
+  test builds all 18 lists through real mutations, and e2e taps every
+  tile. Pick lists, Kit short and Crew's calls start with the tile's
+  group; Answers to check reads "(73) · 1 running late"; damaged kit is
+  counted a repair at a time; Repairs has one name; Stock's row counts
+  show only to roles that look after stock. Late kit is amber, not bad
+  (ADR 0104 updated).
+- Move 5a, the link's forms (1.89.1, PR #221): the freelancer's link
+  takes the app's form look from the vendored tokens: 16px text and 44px
+  controls, one filled yes per card, a quiet No in the bad ink behind its
+  fold, and a refusal said under its field in the bad wash with "Error: "
+  first in the title. The redrawn page lands on the refused field through
+  #refused with no script (ADR 0002): the offer, timesheet, days off,
+  details, calendar, kit to buy, broken kit and documents forms. The day
+  rate reads "Day rate you'd do it for" with the € in the box; From and
+  Until are a pair; instructions are hints under their labels. Nothing
+  the forms post changed.
+- Move 2, one look for heads, boxes and folds (1.89.2, PR #222): inside
+  a card a head is a group (small grey capitals naming a run of rows or
+  figures, or a part of one long form) or a section (the plain heading
+  over a part with words of its own); a row drawn as a box has one inset
+  and corner (--inset-box, --radius-box); every fold is one fold, the
+  shared chevron turning as it opens, drawn as a mask over a border so a
+  high-contrast theme still shows it; an open task is the turned chevron
+  and the picked chart column an ink bar; wrong takes the bad tone and a
+  number waiting to sync is grey; hovers only where a pointer hovers.
+  Money's By month and Margin by job stack each month or job on a phone,
+  every figure named.
+- Move 3, part 2, a head's own department (1.90.0, PR #223): for a head,
+  Stock's row counts and its Repairs, Testing and Kit short lists start
+  on their department's kit (LX through lighting) under "Showing LX only.
+  Show all departments"; widening is kept per step of the tab's history
+  (places.ts), so Back finds a list as it was left and the row's count is
+  the list's as it opens. A count on Home decides where its list starts,
+  everyone's included, and a narrowed list with nothing of theirs keeps
+  its card, quiet. Leave counts by approver (ADR 0024), the Timesheets
+  count leaves out the office's, a job's CREW fact reads "LX 0 of 1 · all
+  5 of 10" with their crew first on the Crew tab, and where the device
+  isn't sent money a job says "Quote: with the office".
+- Move 6a, part 1, one home for a staff member's leave and bookings
+  (1.91.0, PR #224): a staff member's link lists their waiting and
+  approved leave (ADR 0024) and ends "Ask for leave in the app ›" instead
+  of the days-off form, and the server turns down a days-off post from a
+  staff link in the app's words, so a kept page can't post. Home › Me,
+  the reader's own person page and the link all say "Your bookings" with
+  one glance line and one row shape, from shared/src/bookings.ts (one
+  next-booking rule: a held day from today on). An offer to the reader,
+  its row and its notification open their link, where it is answered,
+  and the link's purchase card loses its "Kit to buy" kicker.
+- Move 3, part 3, one item row (1.92.0, PR #225): ItemRow draws an
+  item one way on its product's Items tab, the catalogue's Items found,
+  the Stock camera's last read and the pick list coming back: its state
+  (Missing, Damaged can't go out, a failed or overdue test as bad;
+  Damaged fit to go out as warn), "Out with <job> since <day>" (with the
+  year when it's another), where it's kept and its serial. While a scan
+  of it, or of a case it's in, is unsent, the row, the scan's answer and
+  the pick list's row and done line carry the dashed "Waiting to sync"
+  pill (MovesView.waiting and countWaiting), never amber. On a pick list
+  only the number opens the item (audit of 5 November, finding 92), and
+  Report damage opens under its row.
+- Move 10a, Home for whoever is looking (1.93.0, PR #226): the Company
+  view's first group follows the viewer's role (companyTiles). For the
+  office it is "Waiting on the office": late, answers, crew still
+  needed, timesheets, quotes worth a call, no answer and documents, with
+  the rest under Housekeeping; directors, heads and the warehouse keep
+  their order. The quotes worth a call count, for the money roles, is
+  Quotes' own chase list (quotesToFollow's chase, a week with no
+  answer) and lands on "Waiting for an answer (12) · 3 worth a call";
+  Notifications keeps its plain heading. The Menu lists Home under
+  Company with a line saying its order follows the viewer (ADRs 0033,
+  0035 and 0081 say so).
+- Move 8a, arrive on the part (1.94.0, PR #227): an address that names
+  a job's part or task lands on it however it's reached (places.ts
+  landOn, as Next does, ADR 0109): the tab row under the bar with the
+  part's tab focused, or the task's card with its name focused and its
+  own part open. Back, Forward and a reload still return to where the
+  screen was left. On a phone Stock's catalogue is headed "Catalogue
+  (n)", so the strip is back, and a typed search draws the catalogue
+  alone; a label's whole six-digit number on one item opens it
+  (wholeNumber). Coming back, Back is as wide as Missing, 16px apart.
+- Move 6a, part 2, the link says what changed (1.95.0, PR #228): a
+  booking's call time, days and venue read as they are now with what
+  was said yes to in brackets, "07:30 (was 09:00)", for a week or until
+  the call (CHANGE_SHOWN_DAYS, shared since-yes.ts, Colly's question
+  10 on its recommendation), from one bounded read of the change log
+  per page draw and no write. A booking that ended says how as its
+  card's first line, from one table (STOPPED_WORDS) that the question
+  before stopping a job reads too; the app's person page and Home › Me
+  say "Job cancelled" or "Job lost" with it. Pulling out is "Can't make
+  it" on both sides and in the history; Past work and Declined fold
+  under "Earlier (n)".
+
+**Waiting**
+
+- Colly's answers to the sweep's thirteen questions (its section 9).
+  Each move follows the recommendation until then. Batches 2 to 5 wait
+  for Colly.
+
+## 5 November 2026: an audit of every flow, by role, and batches 1 to 4 of its fixes
+
+**Done**
+
+- [Audit, 5 November 2026: every flow, by role](audit-ux-2026-11-05.md),
+  at Colly's ask: a functionality, UI and UX audit of the whole app at
+  1.77.0. Ten reviews walked 142 flows as each role, on phone and desk, in
+  both themes, on a local copy with made-up data, and a sceptic checked
+  every finding. 103 findings: no P0, 12 P1, 43 P2, 48 P3. Screenshots are
+  in the project folder under screens/audit-ux/. Nothing live was touched.
+
+- Finding 12 fixed the same day (1.77.1, PR #202): the week ahead keeps
+  every job's name on a phone.
+- Batch 1, "Next and the stages tell the truth" (1.78.0,
+  [ADR 0109](adr/0109-next-and-the-stages-tell-the-truth.md)), on Colly's
+  "Start with batch 1": findings 1, 2, 3, 4, 16, 18, 19, 22 and 25. Next
+  brings what it opens into view and offers only what the role can do,
+  and it confirms the job in one press after a yes. A job is through a
+  fortnight after it ended with nothing out, kit never scanned is a check
+  rather than "not needed", and Kit and vans settled ticks itself once the
+  job is under way. Sales whose dates passed go in a fold on the Board, a
+  housekeeping count on Home and their own group on Quotes. On the
+  audit's copy, Back went from 108 jobs to 12 and the Board from 17,780 px
+  to 7,884 px at a desk.
+- Batch 2, "keep people where they were" (1.78.1, PR #204), on Colly's
+  "Start with the next ones": findings 5, 7, 9, 31 and 87. On Crew, the
+  card to send or tell opens in the answer's place or under its call, with
+  the focus on it, and Done goes on to the next answer: on the audit's copy
+  the page stayed at 2,345 px instead of jumping to the foot of a
+  16,000 px page. The freelancer's page leaves room for its sticky line, so
+  a thank-you lands below it, and days off come back to their list. Show
+  all is kept for Back and a reload. Change details focuses its first
+  field, and the quote's refusal has a heading. No ADR: none of it changes
+  a decision.
+- Batch 3, "get the data right" (1.79.0,
+  [ADR 0110](adr/0110-getting-the-data-right.md)), on Colly's "Go for
+  batch 3": findings 8, 10, 11, 13, 15, 23, 26, 39 and 43. Undo on a pick
+  list is its own record, so it no longer reads as kit back. Scanning out
+  kit that's damaged but fit to go says so. A crew list that changes
+  someone's email keeps the old one among their other addresses, and
+  combining keeps the other phone in the notes. Every refused change has a
+  title in Not done, and Director is asked before it's given. A quote line
+  says whether its price is a day's or a week's and asks when the charge
+  changes, and a line with no price is asked about before the quote goes.
+  Timesheets are asked for only from the day they're turned on, and for
+  two months after a booking.
+- Batch 4, "heads start on their department" (1.79.1, PR #206), on Colly's
+  "Go with batch 4": findings 6, 28, 42, 47 and 62. A head's Answers to
+  check, the Crew count, People and Running out start on their own
+  department, with Show all departments; on the audit's copy the head of
+  LX's Crew count went from 76 to 8. Home's count of certificates running
+  out lands on that list. Offering a call lists its department's people
+  first. For an approver, To approve comes first on Leave with its count,
+  their own request isn't counted, and allowances fold to a row each: To
+  approve moved from 2,209 px down to 320 px, and the page from 5,381 px to
+  3,609 px. No ADR: it carries ADR 0046's start on a head's department to
+  the lists that missed it.
+- Batch 5, "phone legibility" (1.79.2, PR #207), on Colly's "Go for batch
+  5": findings 54, 55, 56, 59 and 86 (12 went in with the audit). On a
+  phone, Next and Hand it to someone share one row, taking the dock from
+  116 px to 70 px, and the link is in the accent's ink (6.5:1 dark, 5.2:1
+  light, was 4.3 and 3.7). Tasks show Next and Late again. Counts on view
+  and part tabs are no longer faded (5.1 to 6.1:1, was 3.7 to 4.0). A sent
+  quote's lines fold to the name, a line of how many, price, days and VAT,
+  and the amount, so nothing is off the right edge. Home's rows, a job's
+  map link, the map's zoom, the rack designer's units and the freelancer
+  page's links and boxes are 44 px on a touch screen. No ADR.
+- Batch 6, "long pages at real size" (1.80.0, PR #208), on Colly's
+  "Please do batch 6 & 7": findings 35, 32, 53, 36, 38 and 27. Counted
+  rows on a pick list show the one-tap count with "Type how many" behind
+  it. The freelancer page folds offers after the three to answer soonest,
+  and sent and approved timesheets under one line: on the audit's copy
+  the bookings now start at 2,280 px instead of 4,184. To follow up and
+  Accepted, unpaid stop at eight with Show all (Money 7,102 to 5,918 px).
+  Testing's two paragraphs of product names are two folds with counts,
+  opening to linked products (3,823 to 2,139 px). A bay of more than 40
+  numbers folds each product to a line, on its page (16,938 to 6,201 px)
+  and in its count (15,186 to 5,467 px). Answers to check puts calls in
+  the next fortnight first, and declines on calls already full are noted
+  in one press. No ADR.
+- Batch 7, "switches on with nothing behind them" (1.81.0, PR #209):
+  findings 49, 81, 82 and 50. Send quotes by email stays off and can't be
+  turned on until operations@ is connected allowing sending, and Send by
+  email on a quote needs both. The Claude switch waits for the server's
+  key and the to-do card hides until then. Status gives plain steps for
+  Claude and the mailbox, pointing at Admin › Connections, and a map
+  search outage is "off", not a warning. Past quotes say where they come
+  from when there are none. On this screen reads the open tab on Admin,
+  and the Menu's Admin line names the switches. No ADR.
+- Batch 8a, the office's P2s (1.82.0, PR #210), on Colly's "Go for batch
+  8": findings 14, 17, 20, 21, 24, 29 and 30. Needs attention counts jobs
+  with a task late and jobs in Planning with the next task down to nobody
+  (73 of 131 on the audit's copy), each opening the Jobs list filtered to
+  them, and Filter gains Stage and Tasks. Your tasks open on the task
+  (#jobs/<id>/task/<key>). A client or venue a letter or two off one
+  already here asks "Did you mean", and a new one says it will be added.
+  A sent quote's margins are named apart. Timesheet dates carry the year
+  as the link's do. Leave for a year not open names who to ask. The link
+  page reads a form up to 40 MB, so an 11 MB photo gets the page's own
+  "over 10 MB" message. No ADR.
+- Batch 8b, the rest of the P2s (1.83.0, PR #211): findings 33, 34, 37,
+  40, 41, 44, 45, 46, 48, 51 and 52. Damage can be reported on any item
+  back, not only the last one scanned. "No signal" shows the moment the
+  phone loses it. A product's "In all" line says how many can't go out,
+  linked. The crew-list preview says what a matched person keeps (the
+  office's type, level and rate). People search finds a phone number or
+  email. Levels are the office's too: staff and freelancers no longer see
+  them (written into ADR 0062). Home holds its cards while the phone is
+  still catching up and says so, and the all-clear says when some tiles
+  aren't yours. Signing in lands on Home. A job and a person each have
+  their own history (#history/job/<id>, #history/person/<id>), linked
+  from the foot of their page. Tidy up's name boxes start filled, with
+  "Keep all these names as they are".
+
+- The P3s, all 41, on Colly's "Work on all" (6 November), in six PRs.
+  Batch 9a, the six that matter most (1.84.0, PR #212): findings 64, 73,
+  65, 75, 60 and 72. A freelancer reports broken or missing kit from their
+  link (/f/<token>/broken), onto Repairs with their name. Calls short in
+  the next three days lead To sort out; an offer with no reply-by day is
+  chased from the day before the call. Testing a batch asks who's testing
+  first. An approved timesheet on the link says when it was paid (the
+  invoice details wait for invoicing, 20 Oct 89). The feed says it carries
+  rates (ADR 0012, Later). Cable labels with no stock code start on a QR
+  code.
+  Batch 9b, the freelancer's link (1.84.1, PR #213): findings 63, 66, 67
+  and 91. Their page prints light in a dark theme; a link with a stray
+  full stop or slash still opens; an old timesheet link says timesheets
+  are off; small slips on the day picker, glance line and documents.
+  Batch 9c, warehouse and stock (1.85.0, PR #214): findings 68, 69, 70,
+  71, 74, 92 and 93. The scanner holds off a second read of the same item;
+  kit that can't go out says so on the catalogue and on Home; the 3D rack
+  lets a phone scroll and the kit being placed sits in the phone's dock;
+  staff crew aren't shown stock work that isn't theirs; a pick list says
+  back and still out, and Stock's lists say on now, today, tomorrow.
+  Batch 9d, jobs, quotes and crew booking (1.86.0, PR #215): findings 57,
+  58, 61, 84, 88, 89, 90 and 95. Add kit stays open for the next product;
+  a freelancer is told when the call they were offered filled; a venue's
+  or client's jobs are grouped with years; the steps strip says late in
+  the bad colour; Admin pages named in words are links; the parts strip
+  no longer covers what it jumps to.
+  Batch 9e, people (1.87.0, PR #216): findings 76, 78 and 94; 77 left as
+  ADR 0082 decided. Combining keeps staff, then offers, then a real name;
+  reminders only for those who see to them; archiving someone booked says
+  what to withdraw first; archived people can be found and opened; a
+  same-name hint when adding someone.
+  Batch 9f, Home, Menu, Admin and across the app (1.88.0, PR #217):
+  findings 79, 80, 83, 85, 96 to 103. "To set up" on a new company's Home;
+  What's changed folds by month, marks what's new and links each decision
+  (/adr/<n>); an empty required field is refused in the app's words
+  (required.ts); the browser's own Print leaves the chrome out; Disconnect
+  asks; in-date checks quiet. That finishes the 5 November audit's P3s.
+
+**Waiting**
+
+- Nothing from Colly: the rest of the P3s are being worked through.
+
+## 1 November 2026: the logo, stock code, cable length and colour on labels
+
+**Done**
+
+- [ADR 0106](adr/0106-logo-length-and-colour-on-labels.md), at Colly's ask:
+  a company logo under Admin › Company › Labels, printed on every label;
+  the stock code on an item's own label; a length on each product; a
+  colour for each length (resistor order to start, the office's to
+  change); cable labels with the length in big type and its colour as a
+  word in a black band, in colour on a colour printer. 100 m pink and 150 m light blue added at Colly's ask. App 1.76.0.
+- Checked: typecheck, shared and server tests, and the browser tests for
+  labels, cable labels and the new logo test.
+
+**Waiting**
+
+- Colly to put the logo up once this is live. Colour printers were
+  researched in the thread "Print labels straight from the app"; the ZT411
+  stays the suggestion, with tape by length.
+
+## 1 November 2026: Trackers on expensive kit
+
+**Done**
+
+- [ADR 0107](adr/0107-trackers-on-expensive-kit.md) (PR #199): Digital Matter
+  trackers (the Yabby Edge Cellular recommended in the research) report
+  into the app through Digital Matter's HTTP connector, with the server's
+  key. Each tracker is made the first time it reports, every report is
+  kept, and the app works out where the item is against where it should
+  be: the warehouse, a job's venue, with a job, away on no job, or not back
+  after its job. The item's page shows it on a map; Kit to check tops
+  Notifications for whoever looks after stock; Admin › Connections ›
+  Trackers turns it on, puts the warehouse on the map and lists every
+  tracker. Off until turned on; staff crew and freelancers don't see where
+  kit is. App 1.75.0.
+- Checked: typecheck, the shared and server tests (new tracker tests for
+  both of Digital Matter's report shapes, the key, late and repeated
+  reports, each place and who sees them), and the screens in a browser
+  with made-up reports.
+
+**Waiting**
+
+- Colly to buy the trackers, set `TRACKERS_KEY` in Railway and point
+  Digital Matter's connector at the app ([setup step
+  10](sign-in-setup.md#10-trackers-on-expensive-kit)). The first real
+  report should be checked against what the app expects.
+
+## 1 November 2026: What the Security tab found
+
+**Done**
+
+- [ADR 0105](adr/0105-security-tab-and-limits-on-the-ways-in.md) (PR #197):
+  limits on the ways in (signing in with Google or the passcode, 60 a minute
+  from one address; connecting a calendar or the operations mailbox, 20),
+  by the address Railway's proxy saw, and never on the sync, which every
+  phone in the warehouse does from one address. HTML read tag by tag in one
+  place for emails, job sheets and the AA's page; a job sheet with an odd
+  character number no longer stops a bring-in. The device's copy refuses
+  "constructor" and "prototype" as well as "\_\_proto\_\_". Four patterns that
+  slowed down on long input now run in a straight line. The Blueprint checks
+  its markdown reader against cdnjs's hash and no longer reads its documents
+  back out of the page. glob held at 14.0.3 or later. App 1.74.1.
+- Checked: typecheck, the shared and server tests (new ones for each fix,
+  including a sign-in limit test and long-input timings), the web build and
+  its offline worker, and the Blueprint in a browser with the real script and
+  a tampered one.
+
+**Waiting**
+
+- Colly to look at the Security tab once main is scanned again and say
+  what's still open: the alerts from before the first pull request scan
+  can't be listed from here.
+
+## 30 October 2026: Send a quote to the client by email
+
+**Done**
+
+- [ADR 0101](adr/0101-sending-a-quote-to-the-client-by-email.md) (PR #188):
+  Send to the client on a quote, once the office turns it on under Admin ›
+  Connections › The operations mailbox. The compose box is filled in from
+  the quote and the client's contacts; the quote goes from operations@
+  with its PDF, drawn on the server to say what the printed page says;
+  sending marks the quote sent and numbers it; each email that went is
+  listed on the quote with its PDF, and in the history. The mailbox
+  connection (ADR 0098) now asks Google to send as well as read and moves
+  to Admin › Connections. App 1.71.0.
+- Checked: typecheck, the shared and server tests (a new server test sends
+  through a stood-in Gmail and reads the email back), and the browser tests
+  for quotes and Claude. The PDF looked at as an image.
+
+**Waiting**
+
+- Colly to connect operations@ again once this is live, allowing sending,
+  and to turn the switch on when ready. Stacked on PR #185 (the quote form)
+  and PR #173 (the mailbox); the version numbers move if either lands
+  under a different one.
+
+## 30 October 2026: The quote form, redrawn
+
+**Done**
+
+- [ADR 0100](adr/0100-the-quote-form-redrawn.md) (PR #185): the draft
+  quote redrawn after an in-depth review against the design system and the
+  form research (25 findings, five major). A readout strip that stays in
+  view with amber chips that open the first line needing a look; lines as
+  rows that open one at a time, the numbers on one row with the unit in
+  the box; the cost side folded under the line and saying what it holds;
+  travel and subsistence as rows; terms and sending beside the lines on a
+  laptop; a line faulted only once it's left. Every feature, name and saved
+  shape kept. App 1.69.0 (PRs #183 and #189 to #191 took 1.65.0 to 1.68.0 first).
+- Checked: typecheck, the shared and server tests, the web build, and the
+  browser tests for quotes, quote follow-up, Current RMS history, Claude,
+  access and the shell. Looked at on a phone and a laptop in both themes.
+
+**Waiting**
+
+- PR #173 (the operations mailbox) replaces Ask Claude on the draft with a
+  card of what the mail asks for.
+- The six learnings for the design system, as a PR there.
+## 29 October 2026: Claude drafts quotes from the operations mailbox
+
+**Done**
+
+- [ADR 0098](adr/0098-claude-drafts-quotes-from-the-mailbox.md), Colly's
+  change of flow: Claude reads operations@sessionhire.com (read only) every
+  five minutes once it's connected under Admin › Company. A new enquiry
+  becomes a job and a draft quote as Claude, kept up to date as the thread
+  goes on until a person changes it; then the new mail's changes are offered
+  on the quote to take or leave. Quotes lists what was read under "From the
+  operations mailbox", Admin › Status checks the connection, and the to-do
+  list hears of client mail waiting for a reply. Asking Claude in words is
+  gone; pasting an enquiry is folded away on New quote.
+- Checked: typecheck, server tests with a pretend Gmail (enquiry drafted,
+  kept up to date, changes offered after an edit, jobs linked, newsletters
+  skipped, off and disconnect), export, erasure and status, and the browser
+  test for the quote, Quotes and Admin.
+
+**Waiting on**
+
+- Colly: make operations@ a Workspace user, turn on the Gmail API and add
+  the mailbox's redirect address to the Google key, then connect it under
+  Admin › Company ([sign-in setup, step 9](sign-in-setup.md#9-connect-the-operations-mailbox)).
+
+## 30 October 2026: The job's kit from its quote
+
+**Done**
+
+- Colly asked for the kit to fill in from what was quoted, still to be
+  changed, added to and taken off (ADR 0102 point 7). Jobs made from a past
+  quote or by New quote get the quote's kit (products and package pieces,
+  hired in as quoted) on the kit list; the Kit card offers what the newest
+  quote has that the list hasn't, in one press; the quote's "The job has
+  changed" card no longer offers that kit back as new.
+- Checked: typecheck, unit tests (kitFromQuote, changesFromJob), the past
+  quote browser test now checks the kit list, and the kit, quote and
+  Claude browser tests.
+
+## 30 October 2026: A job from a past quote
+
+**Done**
+
+- Colly asked for an action on the quotes from Current RMS to make a job
+  from one, to try the app on real jobs (ADR 0102, changing ADR 0092's
+  "link and look up only"). "Make a job from this" on a past quote's page,
+  and "Make a job from it" on each unlinked one on Quotes: the job's name,
+  client, venue, days and status as Current RMS had them, and its draft
+  quote with each priced line matched to the stock list where it's the same
+  product and charged as it was there (price, rate rule, days, discount);
+  lines charged nothing offered unticked; a total agreed on the whole kept.
+  The past quote is linked to the new job. App 1.66.0 (takes the next number
+  after #185, #173 and #188).
+- Checked: typecheck, unit tests (rms-job.test.ts), a browser test from
+  the Quotes page to the job's quote, and the quote, Claude, layout and
+  access browser tests.
+
+## 30 October 2026: Filter and sort on the long lists
+
+**Done**
+
+- Colly asked for a filter and sort system on the long lists (ADR 0099,
+  PR #183): one shared part under the search on Jobs, Quotes, People, the
+  catalogue, Venues and Clients. Sort select, Filter button with a select
+  per filter (each choice with its count), filters that are on as chips
+  that take them off, "N of M" and Clear filters. Kept for the tab's life;
+  the order kept on the device. Clients get a search. App 1.65.0.
+- Checked: typecheck, unit tests for the orders, filters and counts, a
+  new browser test (lists.spec.ts), the layout test's department filter,
+  and the whole browser suite.
+
+## 30 October 2026: The big files split
+
+**Done**
+
+- Finding 114 of the [20 October audit](audit-2026-10-20.md) (PR #182):
+  the nine hand-written files over 900 lines are split along their seams
+  (Quote, stock-import, history, calendar sync, Counts, RackDesigner,
+  crew, the sync client, the import plan), code moved and not changed,
+  each old file re-exporting what it did. Three stay between 700 and 870
+  lines where one class or function is that long. App 1.64.3.
+- Checked: typecheck, shared and server tests, the web build (same lazy
+  screens), and the browser tests for quotes, racks, counts, stock and
+  calendar bring-ins.
+
+## 30 October 2026: A long stock list that keeps up
+
+**Done**
+
+- Finding 97 of the [20 October audit](audit-2026-10-20.md) (PR #181):
+  the catalogue's Show all is windowed as Jobs is (ADR 0050), so 300
+  products build a few dozen rows rather than a 30,000 px page; search
+  first and the first twenty on a laptop (five on a phone) as before.
+  Show all (every list) now keeps the page where it was: with the button
+  below the fold the browser had carried the page to the list's end.
+  App 1.64.2.
+- Checked: typecheck, a new browser test with 150 products, and the
+  stock and screens browser tests.
+
+## 30 October 2026: Major upgrades
+
+**Done**
+
+- The rest of finding 115 of the [20 October audit](audit-2026-10-20.md)
+  (PR #180): vitest 3 to 5 (both critical tinypool advisories gone), PGlite
+  0.3 to 0.5, vite 7 to 8 with the React plugin 5 to 6, @fastify/compress 8
+  to 9, concurrently 9 to 10. npm audit now shows only four low ones, all
+  in deepmerge under vite-plugin-pwa's workbox, used only while building;
+  deepmerge has no fixed version and vite-plugin-pwa 2 carries the same
+  one, so it stays at 1 until there is. App 1.64.1.
+- Left open: TypeScript 7 (later), vite-plugin-pwa 2 (when it clears the
+  advisory).
+- Checked: typecheck, shared and server tests, the web build and every
+  browser test.
+
 ## 29 October 2026: Heads see clients' documents
 
 **Done**

@@ -120,7 +120,7 @@ describe('a row of the crew list', () => {
     expect(niamh).toMatchObject({ name: 'Niamh Walsh', kind: 'staff', level: 2, phone: '+353877000002', certificates: { 'driving-licence': { held: true } }, company: null, dayRate: '', problems: [] })
     expect(niamh!.certificates).not.toHaveProperty('first-aid')
     // The notes say applicant: Level 0. A known department typed in another case takes the known spelling.
-    expect(rory).toMatchObject({ level: 0, department: 'LX', skills: [], problems: [] })
+    expect(rory).toMatchObject({ level: 0, department: 'Lighting', skills: [], problems: [] })
     // Nothing known: Level 1, no department.
     expect(sorcha).toMatchObject({ level: 1, department: null, phone: '+353877000004', problems: [] })
   })

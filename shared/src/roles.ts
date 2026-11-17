@@ -37,15 +37,15 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 /** What each role is for, in a line, where a role is chosen. */
 export const ROLE_LINES: Record<Role, string> = {
-  director: 'Everything, and the things only a director does: roles, erasing a person, starting fresh.',
+  director: 'Everything, and the things only a director does: roles, erasing a person, deleting a quote, starting fresh.',
   office: 'Jobs, crew, kit and stock, money, and the settings: calendar, office details, bringing lists in, downloads.',
   head: "Crew and their bookings, kit on jobs, stock and the warehouse, the purchase list, and jobs' steps. Not jobs themselves, nor settings.",
-  crew: "Their own leave and days in lieu, the job steps given to them, asking for kit to be bought and voting for it, and reporting a fault. They can look at the rest, but nobody else's pay, link, email, notes or documents.",
+  crew: "Their own leave and days in lieu, answering their own offers, the job steps given to them, putting photos on jobs, asking for kit to be bought and voting for it, and reporting a fault. They can look at the rest, but nobody else's pay, link, email, notes or documents.",
   freelancer: "Reporting a fault, and asking for kit to be bought and voting for it. Their offers, bookings, timesheets and days off go through their private link; they can look at the rest, but nobody else's pay, link, phone, email, notes or documents.",
 }
 
 /** The kinds of change a role can make. Each command needs exactly one. */
-export const ABILITIES = ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'money', 'settings', 'company'] as const
+export const ABILITIES = ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'money', 'settings', 'company'] as const
 export type Ability = (typeof ABILITIES)[number]
 
 /** Each kind of change, as "Only … can ___". */
@@ -58,18 +58,22 @@ const ABILITY_WORDS: Record<Ability, string> = {
   leave: 'ask for leave',
   steps: "tick off and give out a job's steps",
   ask: 'ask for kit to be bought, or vote for it',
+  answer: 'answer their own offers in the app',
+  photos: 'put photos on a job and say what they show',
   money: 'see and change prices, quotes and what is owed',
   settings: 'change settings, bring lists in or download everything',
-  company: 'change roles, erase a person or start fresh',
+  company: 'change roles, erase a person, delete a quote or start fresh',
 }
 
 /** What each role can change. A director can change everything. */
 export const ROLE_CAN: Record<Role, readonly Ability[]> = {
   director: ABILITIES,
-  office: ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'money', 'settings'],
-  head: ['crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask'],
+  office: ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'money', 'settings'],
+  head: ['crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos'],
   // Staff crew tick or hand on their own steps only (ADR 0073), which the step's handler checks on top.
-  crew: ['fault', 'leave', 'steps', 'ask'],
+  // and answer their own offers in the app (ADR 0111), which offer.respond's handler checks on top.
+  // Every member of staff puts photos on a job (ADR 0182); taking down someone else's needs jobs, which jobPhoto.remove checks on top.
+  crew: ['fault', 'leave', 'steps', 'ask', 'answer', 'photos'],
   // Anyone signed in can ask for kit to be bought and vote for it (ADR 0077); changing someone else's request needs stock, checked by the handler.
   freelancer: ['fault', 'ask'],
 }
@@ -89,14 +93,19 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'venue.upsert': 'jobs',
   'venue.pin': 'jobs',
   'client.upsert': 'jobs',
+  'rms.fillMembers': 'jobs',
   'attachment.save': 'jobs',
   'attachment.remove': 'jobs',
+  'jobPhoto.save': 'photos',
+  'jobPhoto.remove': 'photos',
 
   'person.upsert': 'crew',
   'person.level': 'crew',
   'person.newLink': 'crew',
   'person.archive': 'crew',
   'person.contact': 'crew',
+  // Offers on WhatsApp, for one person (ADR 0125): the office can only turn them off, and their link either way.
+  'person.whatsapp': 'crew',
   // Combining people brought in twice (ADR 0055): the crew's records, like an edit. One who signs in with a role needs settings too, on the server.
   'person.merge': 'crew',
   // Which of their addresses is the main one (ADR 0064): an edit of their details. For someone with a role, settings too, on the server.
@@ -108,10 +117,17 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'call.create': 'crew',
   'call.update': 'crew',
   'call.cancel': 'crew',
+  // Asking for a call again once its job is going again is the office's, as asking for it was (ADR 0164).
+  'call.reopen': 'crew',
   'call.department': 'crew',
   'offer.send': 'crew',
-  'offer.respond': 'crew',
+  // Taking back an offer just made is the office's, as making it is (ADR 0162).
+  'offer.undo': 'crew',
+  // Anyone with a role but a freelancer answers their own offers in the app (ADR 0111); the crew ability answers for anyone, as the link and the office always could.
+  'offer.respond': 'answer',
   'offer.confirm': 'crew',
+  // Saying no to a rate keeps the offer at the rate offered (ADR 0152): it names no rate, so it isn't only for those who read them.
+  'offer.refuse': 'crew',
   'offer.cancel': 'crew',
   'offer.seen': 'crew',
   'timesheet.send': 'crew',
@@ -162,6 +178,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'itemCertificate.save': 'stock',
   'itemCertificate.remove': 'stock',
   'count.record': 'stock',
+  'count.begin': 'stock',
+  'count.end': 'stock',
   // The vehicles themselves and their checks (ADR 0047), kept by whoever keeps the stock.
   'vehicle.save': 'stock',
   'vehicle.offRoad': 'stock',
@@ -180,6 +198,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
 
   // A job's steps (ADR 0073): every member of staff ticks their own; staff crew only theirs, checked by the handler.
   'jobStep.set': 'steps',
+  // The Board's order (ADR 0143): the office and the heads, who give out the steps; not staff crew, checked by the handler.
+  'jobRank.set': 'steps',
 
   // The purchase list (ADR 0077): anyone asks and votes, and changes or takes back their own (the handler checks whose);
   // saying where a request is at is stock's, and bringing a list in is settings', like every list.
@@ -194,12 +214,22 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'quote.save': 'money',
   'quote.sent': 'money',
   'quote.answer': 'money',
+  // Deleting a quote is an admin's (ADR 0135): a director or a system admin, as erasing a person is. Putting it back is a server route that needs company too.
+  'quote.delete': 'company',
+  // Dropping an amendment never sent is the office's (ADR 0173): the version the client has stays, so nothing they saw goes.
+  'quote.drop': 'money',
   'quote.invoiced': 'money',
   'quote.paid': 'money',
   'quoting.update': 'money',
   'quoting.travel': 'money',
+  'quoting.email': 'money',
+  'quoting.online': 'money',
+  'quoting.ownKit': 'money',
+  'quoting.delivery': 'money',
+  'quoting.reducedDays': 'money',
   'price.product': 'money',
   'price.rulesFromRms': 'money',
+  'price.fromRms': 'money',
   'package.save': 'money',
   'package.remove': 'money',
   'price.role': 'money',
@@ -207,6 +237,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'cost.paid': 'money',
 
   'office.update': 'settings',
+  'company.details': 'settings',
   // Whether heads of department see crew rates (ADR 0046): what a role reads is a director's to decide, like the role.
   'reading.heads': 'company',
   // Whether the app prompts messages to crew (ADR 0048): a setting, so the office's as much as a director's.
@@ -215,12 +246,26 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'timesheets.use': 'settings',
   // Whether Claude is offered inside the app (ADR 0096): a setting like timesheets.
   'assistant.use': 'settings',
+  'links.check': 'settings',
+  // Offers on WhatsApp (ADR 0125): a setting like messages to crew.
+  'whatsapp.use': 'settings',
+  'cables.colours': 'settings',
+  'logo.blackWhite': 'settings',
+  // Trackers (ADR 0107): using them, and where the warehouse is, are settings; which item each is on is stock's.
+  'trackers.use': 'settings',
+  'trackers.home': 'settings',
+  'tracker.attach': 'stock',
+  'tracker.name': 'stock',
+  'tracker.archive': 'stock',
 
   'person.role': 'company',
   'person.erase': 'company',
 }
 
 export const roleCan = (role: Role, ability: Ability) => ROLE_CAN[role].includes(ability)
+
+/** Said to someone answering another person's offer without the crew ability (ADR 0111). */
+export const OFFER_NOT_YOURS = 'You can only answer your own offers. The office answers for someone else.'
 
 /** Whether a role sees money at all (ADR 0042): without it, its devices are sent no prices or quotes. None is held to nothing. */
 export const roleSeesMoney = (role: Role | null | undefined) => !role || roleCan(role, 'money')

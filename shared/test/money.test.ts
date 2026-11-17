@@ -26,6 +26,10 @@ describe('a price typed in', () => {
     expect(parseEuro('250 €')).toEqual({ cents: 25000 })
     expect(parseEuro('EUR 250')).toEqual({ cents: 25000 })
     expect(parseEuro('250 eur')).toEqual({ cents: 25000 })
+    // Read in a straight line however many spaces come before something that isn't the sign (code scanning).
+    const started = performance.now()
+    expect(parseEuro('1' + ' '.repeat(100_000) + 'x').reason).toBe(EURO_HINT)
+    expect(performance.now() - started).toBeLessThan(500)
     expect(parseEuro(' 250 ')).toEqual({ cents: 25000 })
   })
 

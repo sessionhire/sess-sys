@@ -28,7 +28,7 @@ async function ready(page: Page, hash = '#jobs') {
 /** A product, with how many are counted in the warehouse. */
 async function newProduct(page: Page, name: string, how: 'numbered' | 'counted', count: number, department = 'Audio') {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   await form.getByLabel('Department').selectOption({ label: department })
@@ -49,9 +49,9 @@ async function newProduct(page: Page, name: string, how: 'numbered' | 'counted',
 async function newJob(page: Page, name: string, status: 'Confirmed' | 'Quoted' | 'Enquiry', phases: [string, string, string][]) {
   await page.goto('/#jobs')
   // New job waits behind its button at the top of the list on a phone (audit finding 22).
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
-  await form.getByLabel('Job').fill(name)
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(name)
   await form.getByLabel('Status').selectOption({ label: status })
   for (const [i, [phase, from, to]] of phases.entries()) {
     if (i > 0) await form.getByRole('button', { name: 'Add a phase' }).click()
@@ -59,16 +59,16 @@ async function newJob(page: Page, name: string, status: 'Confirmed' | 'Quoted' |
     await form.getByLabel(`Phase ${i + 1} from`).fill(from)
     await form.getByLabel(`Phase ${i + 1} to`).fill(to)
   }
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   // The kit is a part of the job's page of its own (ADR 0059); the page opens on it from then on.
-  await page.getByRole('tab', { name: 'Kit and vans' }).click()
+  await page.getByRole('tab', { name: 'Kit', exact: true }).click()
 }
 
 /** A product on the stock list with nothing counted yet, as most are while the list comes in. */
 async function uncounted(page: Page, name: string) {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   await form.getByLabel('Department').selectOption({ label: 'Lighting' })
@@ -79,7 +79,7 @@ async function uncounted(page: Page, name: string) {
 
 async function addKit(page: Page, product: string, qty: number, days = 'Whole job') {
   // Behind its button until the first line; it stays open for the next.
-  const opener = page.getByRole('button', { name: 'Add kit' })
+  const opener = page.getByRole('button', { name: 'Add kit', exact: true })
   if (await opener.count()) await opener.click()
   const form = page.getByRole('form', { name: 'Add kit' })
   await form.getByLabel('Product').fill(product)
@@ -160,11 +160,12 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await page.getByRole('link', { name: '‹ All jobs' }).click()
   await expect(page.locator('.job-row', { hasText: festival })).toHaveCount(0)
   await page.getByRole('button', { name: /^Show all [\d,]+ coming up$/ }).click()
-  await expect(page.locator('.job-row', { hasText: festival }).locator('.flag')).toHaveText('Kit short')
-  await expect(page.locator('.job-row', { hasText: launch }).locator('.flag')).toHaveText('Kit short')
+  await expect(page.locator('.job-row', { hasText: festival }).locator('.job-position[data-tone="warn"]')).toContainText('short')
+  await expect(page.locator('.job-row', { hasText: launch }).locator('.job-position[data-tone="warn"]')).toContainText('short')
 
   // Two subhired for the launch sorts both.
   await page.locator('.job-row', { hasText: launch }).click()
+  await page.getByRole('tab', { name: /^Kit/ }).click()
   // What's short is said once, above the lines, with one way to subhire it (audit finding 21).
   await expect(kit.locator('.short-kit .kit-state')).toHaveText('1 line short: not enough.')
   await kit.getByRole('button', { name: "Subhire what's short…" }).click()
@@ -178,8 +179,9 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await expect(page.locator('.page-sub')).toContainText('1 product')
   await expect(page.locator('.page-sub')).not.toContainText('short')
 
-  // A quote on the festival's show day would be short if it went ahead, and the festival says so.
-  await newJob(page, quote, 'Quoted', [['Show', '2030-09-06', '2030-09-06']])
+  // An enquiry on the festival's show day, its quote not sent yet, would be short if it went ahead, and the festival says
+  // so. A sent quote would hold its kit (ADR 0183).
+  await newJob(page, quote, 'Enquiry', [['Show', '2030-09-06', '2030-09-06']])
   await addKit(page, speaker, 4)
   await kitDays(page, 0, 0)
   const pencilled = kit.getByRole('article', { name: `4 × ${speaker}` })
@@ -189,6 +191,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await expect(page.locator('.job-row', { hasText: festival }).locator('.flag')).toHaveCount(0)
   await expect(page.locator('.job-row', { hasText: quote }).locator('.flag')).toHaveText('Kit short')
   await page.locator('.job-row', { hasText: festival }).click()
+  await page.getByRole('tab', { name: /^Kit/ }).click()
   await expect(state(pa)).toHaveText(`Enough, unless ${quote} goes ahead: then short 2 on Fri 6 Sep.`)
   await expect(page.locator('.conn')).toHaveText('Up to date')
   await toCard(kit)
@@ -200,7 +203,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   const row = short.locator('.job-row', { hasText: quote })
   await expect(row).toContainText(`${speaker}: short 2`)
   await expect(row).toContainText(`${quote} · Fri 6 Sep`)
-  await expect(row.locator('.pill')).toHaveText('Quoted')
+  await expect(row.locator('.pill')).toHaveText('Enquiry')
   await expect(short.locator('.job-row', { hasText: launch })).toHaveCount(0)
   await toCard(short)
   await page.screenshot(shot('kit-stock'))
@@ -209,7 +212,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await expect(page.getByRole('heading', { level: 1, name: speaker })).toBeVisible()
   await page.getByRole('tab', { name: /^On jobs/ }).click()
   const onJobs = page.getByRole('region', { name: 'On jobs' })
-  await expect(onJobs.locator('.hint')).toHaveText('10 owned. Confirmed jobs hold them; enquiries and quotes are pencilled in.')
+  await expect(onJobs.locator('.hint')).toHaveText('10 owned. Confirmed jobs and sent quotes hold them; enquiries, with their quotes still drafts, are pencilled in.')
   await expect(onJobs.locator('.job-row b')).toHaveText([festival, launch, quote])
   const jobRow = (name: string) => onJobs.locator('.job-row').filter({ has: page.getByText(name, { exact: true }) })
   await expect(jobRow(launch).locator('.kit-note')).toHaveText('2 subhired from PRG. Enough, with none to spare.')
@@ -219,7 +222,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   // The quote's kit taken off: nothing's short any more.
   await jobRow(quote).click()
   await pencilled.getByRole('button', { name: 'Change' }).click()
-  await pencilled.getByRole('button', { name: 'Take off the kit' }).click()
+  await pencilled.getByRole('button', { name: 'Remove kit' }).click()
   // Asked first, in the form, with what will happen.
   await expect(pencilled.getByRole('group', { name: /^Take 4 × .* off the kit for .*\? It's no longer held for the job, so it's free for others\.$/ })).toBeVisible()
   await pencilled.getByRole('button', { name: 'Take it off' }).click()

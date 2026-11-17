@@ -39,7 +39,7 @@ test('a device that is signed out sees only the way in, and keeps what it has wa
   // was left hanging, never sent nor failed, and the next sync waited on it (as in history.spec.ts).
   let signal = false
   await page.route('**/api/sync/push', (route) => (signal ? route.fallback() : route.abort('internetdisconnected')))
-  await page.getByRole('button', { name: 'Add place' }).click()
+  await page.getByRole('button', { name: 'New place' }).click()
   await page.getByLabel('New place').fill(bay)
   await page.getByRole('button', { name: 'Add place' }).click()
   await expect(page.locator('.conn')).toHaveText(/1 waiting/)

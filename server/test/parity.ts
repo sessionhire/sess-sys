@@ -1,6 +1,10 @@
-import { COMMAND_NAMES, newId, type CommandInput, type CommandName, type Mutation, type View } from '@sh/shared'
+import { COMMAND_NAMES, draftBase, newId, type CommandInput, type CommandName, type Mutation, type View } from '@sh/shared'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { company, day, m, ok, person, phone, today, year, checks, leaveSpanFrom } from './company.ts'
+import { dirStore } from '../src/backup/store.ts'
+import { company, day, m, ok, TRACKERS_KEY, person, phone, today, year, checks, leaveSpanFrom } from './company.ts'
 
 /**
  * The device and the server can't drift (audit, 18 October 2026, finding
@@ -93,6 +97,10 @@ interface Case<N extends CommandName = CommandName> {
   before?: Mutation[]
   /** Made on the same phone with no signal just before the change, so both wait together. */
   queued?: Mutation[]
+  /** Trackers' reports taken in after `before` (ADR 0107): a tracker is made only by reporting. */
+  reports?: object[]
+  /** Photos put on the Autumn Gala first, by their ids (ADR 0182): a photo is put up by sending its file, not by a command. */
+  photos?: string[]
   /** Fields only the server can fill in, left out of the comparison. */
   ignore?: string[]
   /** Drift found and not put right yet: each must still be there, so whoever fixes it takes it off. */
@@ -105,9 +113,21 @@ const c = <N extends CommandName>(name: N, args: CommandInput<N>, more: Omit<Cas
  * One change made with no signal, then synced: what the device showed while
  * it waited, and what it shows once the server has applied it.
  */
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
+
 async function run(k: Case) {
-  const { app } = await company()
+  const folder = k.photos ? mkdtempSync(join(tmpdir(), 'sh-parity-')) : undefined
+  const { app } = await company(folder ? { documentStore: dirStore(folder) } : {})
   if (k.before?.length) await ok(app, ...k.before)
+  for (const id of k.photos ?? []) {
+    const q = new URLSearchParams({ client: 'office', jobId: 'gala', caption: 'Main stage', tags: '["Stage"]', thumb: String(JPEG.length), width: '2560', height: '1707' })
+    const res = await app.inject({ method: 'POST', url: `/api/job-photos/${id}?${q}`, headers: { 'content-type': 'application/octet-stream' }, payload: Buffer.concat([JPEG, JPEG]) })
+    expect(res.statusCode, res.body).toBe(200)
+  }
+  for (const payload of k.reports ?? []) {
+    const res = await app.inject({ method: 'POST', url: '/api/trackers/digital-matter', headers: { authorization: `Bearer ${TRACKERS_KEY}` }, payload })
+    expect(res.statusCode, res.body).toBe(200)
+  }
   const { client, signal } = await phone(app)
   signal.on = false
   for (const q of k.queued ?? []) await client.mutate(q.name, q.args as never)
@@ -135,6 +155,16 @@ const CALL_NAMES = /^\.crew\.calls\.\d+\.(project|phase|venue)$|\.worked\.\d+\.n
 
 const DELIVERY = { id: 'd1', kind: 'other' as const, what: 'Delivery', ref: null, group: '', qty: 1, days: 1, unitCents: 15000, vat: '13.5' as const }
 
+const TRACKERS_ON = [m('trackers.use', { on: true }), m('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 300 })]
+const REPORT = { date: new Date().toISOString(), device: { sn: '416581', imei: '351234567890123' }, sqn: 1, reason: 1, lat: 53.325, lng: -6.337, posAcc: 20, analogues: [{ id: 1, val: 3600 }] }
+
+/** The crew chief's call over two days, with room for Eimear beside Aoife, offered both. */
+const twoPlaces = [m('call.update', { id: 'chief', needed: 2 }), m('offer.send', { id: 'eimear-chief', callId: 'chief', personId: 'eimear', override: false })]
+/** Her Yes in Google to the first day only (ADR 0152). */
+const saidYesToOne = m('offer.respond', { id: 'eimear-chief', answer: 'accept', days: [day(3)], asked: [day(4)], note: '' })
+/** The gala cancelled, its crew calls with it, then set going again (ADR 0164). */
+const stoppedAndGoing = [m('project.update', { id: 'gala', status: 'cancelled' }), m('project.update', { id: 'gala', status: 'confirmed' })]
+
 const CASES: Case[] = [
   // People and crew.
   c('person.upsert', { id: 'dara', name: 'Dara Quinn', kind: 'freelancer', email: 'dara@example.ie', phone: '+353861111111', skills: ['Audio', 'LX'], dayRateCents: 35000, notes: 'Prefers mornings', department: 'audio', level: 4, knownAs: 'D' }, { as: 'an edit' }),
@@ -143,20 +173,37 @@ const CASES: Case[] = [
   c('person.role', { id: 'aoife', role: 'office' }),
   c('person.archive', { id: 'eimear', archived: true }, { before: [m('offer.cancel', { id: 'eimear-sound' })] }),
   c('person.contact', { id: 'eimear', phone: '+353869999999' }),
+  c('person.whatsapp', { id: 'eimear', on: false }),
   c('unavailability.add', { id: newId(), personId: 'dara', start: day(12), end: day(13), note: 'Wedding' }),
   c('unavailability.remove', { id: 'away' }),
   c('call.create', { id: 'lx', projectId: 'gala', phaseId: 'show', project: 'Autumn Gala', phase: 'Show', venue: 'Northbank', role: 'LX op', start: day(5), end: day(5), callTime: '09:00', needed: 1, dayRateCents: 30000, details: 'Bring a torch', replyBy: day(2), department: 'lighting' }, { known: [CALL_NAMES] }),
   c('call.update', { id: 'sound', needed: 3, callTime: '07:30', details: 'Load in at the back' }),
   c('call.cancel', { id: 'chief' }, { before: [m('offer.cancel', { id: 'aoife-chief' })] }),
+  // A job cancelled takes its crew, marked with the day, and they can be asked for again once it's going again (ADR 0164).
+  c('project.update', { id: 'gala', status: 'cancelled' }, { as: 'cancelled, its crew with it' }),
+  c('call.reopen', { id: 'sound' }, { before: [...stoppedAndGoing] }),
+  c('call.reopen', { id: 'sound' }, { as: 'cancelled, going again and asked for again with no signal', queued: [...stoppedAndGoing] }),
+  c('phase.update', { id: 'show', start: day(6), end: day(6) }, { as: 'a day later while its job is cancelled, its crew call with it', before: [stoppedAndGoing[0]!] }),
   c('call.department', { ids: ['sound', 'chief'], department: 'audio' }),
   c('offer.send', { id: 'cian-sound', callId: 'sound', personId: 'cian', override: false }),
   c('offer.respond', { id: 'eimear-sound', answer: 'accept', days: null, note: 'See you there' }, { as: 'accepted' }),
   c('offer.respond', { id: 'eimear-sound', answer: 'decline', note: 'Away' }, { as: 'declined' }),
   c('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: '' }, { as: 'countered' }),
-  c('offer.respond', { id: 'dara-sound', answer: 'pullOut', note: 'Sick' }, { as: 'pulled out' }),
+  c('offer.respond', { id: 'dara-sound', answer: 'pullOut', note: 'Sick' }, { as: "can't make it" }),
   c('offer.confirm', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'accept', days: null, note: '' })] }),
   c('offer.confirm', { id: 'eimear-sound' }, { as: 'a counter noted and agreed with no signal', queued: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: 'Long days' })] }),
+  // A Yes in Google counts for its own day, and the days it didn't answer stay asked (ADR 0152).
+  c('offer.respond', { id: 'eimear-chief', answer: 'accept', days: [day(3)], asked: [day(4)], note: '' }, { as: 'a yes to one day, with the other still asked', before: twoPlaces }),
+  c('offer.respond', { id: 'eimear-chief', answer: 'undecided', days: [day(4)], note: '' }, { as: 'a no to the day said yes to, with the other still asked', before: [...twoPlaces, saidYesToOne] }),
+  c('offer.confirm', { id: 'eimear-chief' }, { as: 'a yes with a day still asked', before: [...twoPlaces, saidYesToOne] }),
+  c('phase.update', { id: 'build', start: day(4), end: day(5), moveCrew: true }, { as: 'a day later, with a day still asked of someone', before: [...twoPlaces, saidYesToOne] }),
+  // Saying no to a rate keeps the offer, at the rate offered, for every day.
+  c('offer.refuse', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: '' })] }),
+  c('offer.refuse', { id: 'eimear-sound' }, { as: 'a rate noted and said no to with no signal', queued: [m('offer.respond', { id: 'eimear-sound', answer: 'counter', counterRateCents: 36000, days: null, note: '' })] }),
   c('offer.cancel', { id: 'eimear-sound' }),
+  // Undo just after Offer takes it back as if never made, and its WhatsApp with it (ADR 0162).
+  c('offer.undo', { id: 'cian-sound' }, { before: [m('offer.send', { id: 'cian-sound', callId: 'sound', personId: 'cian', override: false })] }),
+  c('offer.undo', { id: 'cian-sound' }, { as: 'offered and undone with no signal', queued: [m('offer.send', { id: 'cian-sound', callId: 'sound', personId: 'cian', override: false })] }),
   c('offer.seen', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'decline', note: '' })] }),
   c('person.merge', { id: 'dara', from: ['niamh'] }, { before: [person('niamh', 'Dara Q', 'freelancer', { email: 'dq@example.com' })] }),
   c('person.mainEmail', { id: 'dara', email: 'dq@example.com' }, { before: [person('niamh', 'Dara Q', 'freelancer', { email: 'dq@example.com' }), m('person.merge', { id: 'dara', from: ['niamh'] })] }),
@@ -169,6 +216,8 @@ const CASES: Case[] = [
   c('project.create', { id: 'new', name: 'Winter Ball', clientId: 'bw', venueId: 'nb', status: 'enquiry', notes: '' }, { ignore: ['kind', 'prepDays', 'returnDays'] }),
   c('project.update', { id: 'gala', name: 'Autumn Gala 2026', status: 'quoted', notes: 'Black tie' }, { known: [CALL_NAMES] }),
   c('project.update', { id: 'gala', prepDays: 2, returnDays: 0 }, { as: 'days to get kit ready' }),
+  c('project.update', { id: 'gala', officeNotes: 'Pays late: chase the deposit' }, { as: 'office notes' }),
+  c('project.update', { id: 'gala', kind: 'hire', hire: { handover: 'delivery', outTime: '09:00', backTime: '18:00', address: 'Ballybrit, Galway', pin: { lat: 53.2985, lng: -8.9839 } } }, { as: 'a dry hire delivered' }),
   c('phase.add', { id: 'out', projectId: 'gala', name: 'Load out', start: day(6), end: day(6), venueId: 'nb', notes: '' }),
   c('phase.update', { id: 'show', name: 'Show day', start: day(6), end: day(6), moveCrew: true }, { known: [CALL_NAMES] }),
   c('phase.remove', { id: 'launch' }),
@@ -239,6 +288,19 @@ const CASES: Case[] = [
   // Certificates on items (ADR 0094).
   c('itemCertificate.save', { id: 'pat-cert', kind: 'pat', title: 'PAT certificate', day: today, expires: null, assetIds: ['a1'], link: 'https://example.com/pat' }),
   c('itemCertificate.remove', { id: 'pat-cert' }, { before: [m('itemCertificate.save', { id: 'pat-cert', kind: 'pat', title: 'PAT certificate', day: today, expires: null, assetIds: ['a1'], link: 'https://example.com/pat' })] }),
+  // Trackers (ADR 0107): one reporting from the warehouse, with trackers on and the warehouse on the map.
+  c('trackers.use', { on: true }),
+  c('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 250 }, { before: TRACKERS_ON, reports: [REPORT] }),
+  // The warehouse's address (ADR 0180), from Admin › Company, then a change that leaves it out and keeps it.
+  c('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 300, address: ' Unit 4, Park West\nDublin 12 ' }, { as: 'with its address' }),
+  c('trackers.home', { home: null, radiusM: 300 }, { as: 'keeping its address', before: [m('trackers.home', { home: { lat: 53.3249, lng: -6.3368 }, radiusM: 300, address: 'Unit 4, Park West' })] }),
+  c('tracker.attach', { id: 'digital-matter:416581', assetId: 'a1' }, { before: TRACKERS_ON, reports: [REPORT] }),
+  c('tracker.attach', { id: 'digital-matter:416581', assetId: null }, { as: 'taken off', before: TRACKERS_ON, reports: [REPORT], queued: [m('tracker.attach', { id: 'digital-matter:416581', assetId: 'a1' })] }),
+  c('tracker.name', { id: 'digital-matter:416581', name: ' Desk case ' }, { before: TRACKERS_ON, reports: [REPORT] }),
+  c('tracker.archive', { id: 'digital-matter:416581', archived: true }, { before: TRACKERS_ON, reports: [REPORT] }),
+  // Who's counting where (ADR 0177): a count begun, and one discarded.
+  c('count.begin', { id: 'cs1', placeId: 'wh', caseId: null, by: 'cian', startedAt: new Date().toISOString() }),
+  c('count.end', { id: 'cs1' }, { before: [m('count.begin', { id: 'cs1', placeId: 'wh', caseId: null, by: 'cian', startedAt: new Date().toISOString() })] }),
   c('count.record', {
     id: newId(),
     placeId: 'wh',
@@ -262,10 +324,17 @@ const CASES: Case[] = [
 
   // The office.
   c('office.update', { name: 'Session Hire', phone: '+35315551234', email: 'office@sessionhire.com' }),
+  // The company's details for quotes (ADR 0181): with no office row yet, then over one, clearing what's left empty.
+  c('company.details', { tradingName: null, legalName: ' Session Hire Productions Limited ', croNumber: '612345', registeredAddress: 'Unit 4\nDublin 12', directors: 'Aoife Byrne', vatNumber: ' IE 1234567T ', address: '' }),
+  c('company.details', { tradingName: 'Session Hire', legalName: null, croNumber: null, registeredAddress: null, directors: null, vatNumber: null, address: 'Unit 9\nDublin 24' }, { as: 'over the office', before: [m('office.update', { name: 'Session Hire', phone: '+35315551234', email: 'office@sessionhire.com', vatNumber: 'IE 1234567T' })] }),
   c('reading.heads', { rates: true }),
   c('messages.prompt', { on: false }),
   c('timesheets.use', { on: true }),
   c('assistant.use', { on: true }),
+  c('links.check', { on: true }),
+  c('whatsapp.use', { mode: 'test', testTo: ['+353 87 123 4567'] }),
+  c('cables.colours', { colours: [{ upToM: 2, colour: 'red' }, { upToM: 10, colour: 'green' }] }),
+  c('logo.blackWhite', { on: true }),
 
   // Leave and time in lieu.
   c('leave.request', { id: 'more-hol', personId: 'aoife', type: 'annual', ...leaveSpanFrom(40), note: 'Family' }),
@@ -295,20 +364,48 @@ const CASES: Case[] = [
   c('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' }, { as: 'a first draft' }),
   c('quote.save', { id: 'q3', projectId: 'enq', lines: [{ ...DELIVERY, discountPct: 20 }], discountPct: 0, agreedCents: 10000, notes: '' }, { as: 'a price agreed' }),
   c('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' }, { as: 'keeping the price agreed', before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, agreedCents: 10000, notes: '' })] }),
+  // Two people on one draft (ADR 0113): a change made elsewhere since this save's base stays, with this save's own.
+  c(
+    'quote.save',
+    { id: 'q3', projectId: 'enq', lines: [DELIVERY, { ...DELIVERY, id: 'd2', what: 'Collection' }], discountPct: 0, notes: '', base: draftBase({ lines: [DELIVERY], discountPct: 0, notes: '', validDays: 30, depositPct: null, agreedCents: null, mealsProvided: false, travelKm: null }) },
+    { as: 'taking in a change made elsewhere', before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' }), m('quote.save', { id: 'q3', projectId: 'enq', lines: [{ ...DELIVERY, qty: 2 }], discountPct: 5, notes: 'Doors at 7' })] }
+  ),
   c('quote.sent', { id: 'q3', on: today }, { before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' })] }),
   c('quote.sent', { id: 'q3', on: today }, { as: 'numbered after the next number set', before: [m('quoting.update', { nextNumber: 1115, terms: 'Half up front.', bank: 'IBAN IE00 0000' }), m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '', validDays: 14, depositPct: 50 })] }),
   c('quoting.update', { nextNumber: 1115, terms: 'Half up front.', bank: 'IBAN IE00 0000' }),
+  c('quoting.email', { on: true }),
+  c('quoting.online', { on: true }),
+  c('quoting.ownKit', { costPct: 15 }),
+  c('quoting.delivery', { centsPerKm: 150 }),
+  c('quoting.delivery', { baseCents: 6000, baseKm: 20, centsPerKm: 150 }, { as: 'a set amount for the first km' }),
+  c('quoting.delivery', { baseCents: null, baseKm: null, centsPerKm: 150 }, { as: 'the set amount taken off', before: [m('quoting.delivery', { baseCents: 6000, baseKm: 20, centsPerKm: 150 })] }),
+  c('quoting.delivery', { centsPerKm: null }, { as: 'taken off', before: [m('quoting.delivery', { centsPerKm: 150 })] }),
+  c('quoting.reducedDays', { pct: 60 }),
   c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today }),
   c('quoting.travel', { travelFromKm: 80, fuelCentsPerLitre: 174.9, litresPer100Km: 9.5, perDiemCents: null, on: today }, { as: 'the fuel price the same', before: [m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: day(-3) })] }),
   c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 214.8, litresPer100Km: 10, perDiemCents: null, on: today, fuelMonth: 'October 2026', fuelAuto: false }, { as: 'read from the AA, kept from then on' }),
   c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 180, litresPer100Km: 10, perDiemCents: null, on: today }, { as: 'a price typed over the AA’s', before: [m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 214.8, litresPer100Km: 10, perDiemCents: null, on: today, fuelMonth: 'October 2026' })] }),
   c('quoting.update', { nextNumber: null, terms: '', bank: '' }, { as: 'keeping travel', before: [m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today })] }),
   c('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY, { ...DELIVERY, id: 't1', what: 'Travel, 120 km each way from Dublin', group: 'Travel and subsistence', per: 'once', extra: 'travel' }], discountPct: 0, notes: '', mealsProvided: true, travelKm: 120 }, { as: 'with travel, meals provided' }),
+  c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, stayFromKm: 200, roomCents: 9500 }, { as: 'with a room price (ADR 0156)' }),
+  c('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, stayFromKm: 200, roomCents: null }, { as: 'a room price taken off', before: [m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, stayFromKm: 180, roomCents: 9500 })] }),
+  c('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY, { ...DELIVERY, id: 'a1', what: 'Crew accommodation, 4 crew nights', group: 'Travel and subsistence', qty: 4, extra: 'accommodation' }], discountPct: 0, notes: '', accommodationProvided: true }, { as: 'with rooms, the job putting the crew up' }),
   c('quote.answer', { id: 'q1', answer: 'accepted', on: today }, { as: 'accepted' }),
   c('quote.answer', { id: 'q1', answer: 'declined', on: today }, { as: 'declined' }),
+  c('quote.answer', { id: 'q1', answer: 'declined', on: today, why: 'price', note: '  Went 10% cheaper  ' }, { as: 'declined, why' }),
+  c('quote.answer', { id: 'q1', answer: 'accepted', on: today, why: 'price' }, { as: 'accepted, why left out' }),
+  c('quote.answer', { id: 'q1', answer: 'none', on: today }, { as: 'taken back, why gone', before: [m('quote.answer', { id: 'q1', answer: 'declined', on: today, why: 'dates' })] }),
   c('quote.answer', { id: 'q1', answer: 'none', on: today }, { as: 'taken back', before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
   c('quote.invoiced', { id: 'q1', on: today, ref: 'SH-1042' }, { before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
   c('quote.invoiced', { id: 'q1', on: today, ref: '  SH-77  ' }, { as: 'untidy text', before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today })] }),
+  // Deleting a version (ADR 0135): gone from the device at once, as from the server, once its number or "delete" is typed.
+  c('quote.delete', { id: 'q1', typed: ' 1 ' }, { as: 'a sent one, by its number' }),
+  c('quote.delete', { id: 'q3', typed: 'Delete' }, { as: 'a draft, by the word', before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' })] }),
+  // Dropping an amendment (ADR 0173): the draft made after one went goes from the device at once, as from the server.
+  c('quote.drop', { id: 'q4' }, {
+    as: 'an amendment',
+    before: [m('quote.save', { id: 'q3', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' }), m('quote.sent', { id: 'q3', on: today }), m('quote.save', { id: 'q4', projectId: 'enq', lines: [DELIVERY], discountPct: 0, notes: '' })],
+  }),
   c('quote.paid', { id: 'q1', on: today }, { before: [m('quote.answer', { id: 'q1', answer: 'accepted', on: today }), m('quote.invoiced', { id: 'q1', on: today, ref: 'SH-1042' })] }),
   c('price.product', { modelId: 'xlr', dayCents: 300 }),
   c('price.product', { modelId: 'y10p', dayCents: null }, { as: 'taken off' }),
@@ -325,6 +422,8 @@ const CASES: Case[] = [
   c('vehicle.save', { id: 'van', name: 'Big Van', registration: '241-d-101', kind: 'van', seats: 2, payloadKg: 1100, notes: 'Roof rack', checks }, { as: 'an edit' }),
   c('vehicle.save', { id: 'luton', name: 'Luton', registration: '231-D-55', kind: 'luton', seats: 3, payloadKg: 1000, notes: '', checks }, { as: 'a new one' }),
   c('vehicle.offRoad', { id: 'van', out: { since: day(3), until: day(4), note: 'Clutch' } }),
+  c('jobPhoto.save', { id: 'stage', caption: 'Main stage at dusk', tags: ['Stage', 'Lighting'] }, { photos: ['stage'] }),
+  c('jobPhoto.remove', { id: 'stage' }, { photos: ['stage', 'crowd'] }),
   c('vehicle.archive', { id: 'van', archived: true }, { before: [m('vehicleBooking.remove', { id: 'run' })] }),
   c('vehicleBooking.add', { id: 'run2', vehicleId: 'van', projectId: 'gala', phaseId: 'show', start: day(5), end: day(5), driverId: null, notes: '', override: false }),
   c('vehicleBooking.update', { id: 'run', start: day(4), end: day(4), driverId: null, notes: 'Collect from Bay A1' }),
@@ -333,7 +432,12 @@ const CASES: Case[] = [
   // A job's steps (ADR 0073).
   c('jobStep.set', { projectId: 'gala', step: 'deprep', ownerId: 'aoife' }, { as: 'given to someone' }),
   c('jobStep.set', { projectId: 'gala', step: 'kit', done: true, by: 'cian' }, { as: 'ticked' }),
+  c('jobStep.set', { projectId: 'gala', step: 'kit', dueOn: '2026-10-06' }, { as: 'given a day it is due by' }),
   c('jobStep.set', { projectId: 'gala', step: 'kit', done: false, ownerId: null }, { as: 'the tick and the name taken off', before: [m('jobStep.set', { projectId: 'gala', step: 'kit', ownerId: 'cian', done: true })] }),
+
+  // The Board's order (ADR 0143).
+  c('jobRank.set', { stage: 'planning', ids: ['gala'] }, { as: 'put in order' }),
+  c('jobRank.set', { stage: 'planning', ids: ['gala'], clear: true }, { as: 'back to date order', before: [m('jobRank.set', { stage: 'planning', ids: ['gala'] })] }),
 
   // The purchase list (ADR 0077).
   c('purchase.ask', { id: 'nl4t', title: '  NL4T connectors ', details: '20', link: 'thomann.de/ie/nl4t.htm', department: 'audio', by: 'aoife' }),
@@ -356,9 +460,14 @@ const CASES: Case[] = [
  * secret to show (person.newLink); an erasure takes a person's details from
  * every table on the server, and a device shows them erased while it waits
  * (person.erase, ADR 0027, tested in erasure.test.ts); and stopping a
- * freelancer's own calendar is read by the server only (ownCalendar.stop).
+ * freelancer's own calendar is read by the server only (ownCalendar.stop);
+ * and filling prices in from Current RMS works from the copy of its prices
+ * kept on the server only (price.fromRms, ADR 0132, tested in
+ * rms-prices.test.ts), as does filling clients and venues in from it
+ * (rms.fillMembers, ADR 0136, rms-members.test.ts), so the device waits for
+ * the server's answer.
  */
-const NOT_LAID_OVER: CommandName[] = ['person.newLink', 'person.erase', 'ownCalendar.stop']
+const NOT_LAID_OVER: CommandName[] = ['person.newLink', 'person.erase', 'ownCalendar.stop', 'price.fromRms', 'rms.fillMembers']
 
 /**
  * Each case builds a company of its own, a few seconds apiece, so the cases

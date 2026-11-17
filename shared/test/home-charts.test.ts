@@ -87,12 +87,14 @@ describe('my weeks', () => {
       ],
     } as unknown as CallView
     expect(myWeeks([call], 'me', today, 2).map((c) => c.parts)).toEqual([[2, 0], [1, 1]])
+    // On a job the client hasn't said yes to, a place the office picked them for is a day to hold, not a confirmed one (ADR 0150).
+    expect(myWeeks([call], 'me', today, 2, () => true).map((c) => c.parts)).toEqual([[0, 2], [0, 2]])
   })
 })
 
 describe('money by month', () => {
   it('splits quoted into confirmed and still a quote, three months back to two ahead', () => {
-    const cols = moneyByMonth([{ key: '2026-10', label: '', quoted: 5000, confirmed: 3000, invoiced: 0, costs: 0 }], today)
+    const cols = moneyByMonth([{ key: '2026-10', label: '', quoted: 5000, confirmed: 3000, invoiced: 0, costs: 0, lost: 0 }], today)
     expect(cols.map((c) => c.key)).toEqual(['2026-07', '2026-08', '2026-09', '2026-10', '2026-11', '2026-12'])
     expect(cols[3]!.parts).toEqual([3000, 2000])
     expect(cols[0]!.parts).toEqual([0, 0])

@@ -27,7 +27,7 @@ async function makePlace(page: Page) {
 
 async function newProduct(page: Page, name: string, counted?: { qty: number; at: string } | 'case') {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   if (counted === 'case') await form.getByRole('checkbox', { name: /^Holds other kit/ }).check()
@@ -63,11 +63,10 @@ async function newItems(page: Page, where: string, count: number) {
   return numbers
 }
 
-/** An item's page, found by its number as a scanner would type it. */
+/** An item's page, found by its number as a scanner would type it: the whole number opens it (UX sweep, 6 November 2026, move 8). */
 async function openItem(page: Page, number: string) {
   await page.goto('/#stock')
   await page.getByRole('searchbox', { name: 'Find' }).fill(number)
-  await page.getByRole('searchbox', { name: 'Find' }).press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: number })).toBeVisible()
 }
 
@@ -145,7 +144,8 @@ test('a place counted with no signal, its differences put right, and the week mo
   await typeIn(page, speakers[1]!)
   await expect(tally).toHaveText('2 of 3 found')
   const kit = page.getByRole('region', { name: 'Counted kit' })
-  await expect(kit).not.toContainText('20')
+  // The record's 20 isn't shown; the random tag in the names is left out, as it can hold a 20 itself.
+  expect((await kit.innerText()).replaceAll(id, '')).not.toContain('20')
   await kit.getByLabel(cable).fill('17')
   await page.getByRole('button', { name: 'Finish the count' }).click()
 
@@ -187,9 +187,8 @@ test('a place counted with no signal, its differences put right, and the week mo
   await expect(page.locator('.count', { hasText: cable })).toContainText('17')
 
   // The speaker not found: its log says so, and that it was reported missing.
-  await page.goto('/#stock')
-  await page.getByRole('searchbox', { name: 'Find' }).fill(speakers[2]!)
-  await page.getByRole('searchbox', { name: 'Find' }).press('Enter')
+  await openItem(page, speakers[2]!)
+  await page.getByRole('tab', { name: 'Log' }).click()
   const log = page.getByRole('region', { name: 'Log' })
   await expect(log).toContainText(`Not found in the count at ${bay}`)
   await expect(log).toContainText(`Reported missing: Not found in the count of ${bay}.`)
@@ -245,6 +244,7 @@ test('a case is found by what is in it, an item in it is marked found where it i
 
   // What's in the rack, counted as it's opened: its own label first.
   await openItem(page, rackNumber!)
+  await page.getByRole('tab', { name: 'Counts' }).click()
   await page.getByRole('button', { name: "Count what's in it" }).click()
   await expect(page.getByRole('heading', { level: 1, name: `Counting ${rackNumber} (${rack})` })).toBeVisible()
   await typeIn(page, rackNumber!)
@@ -255,7 +255,7 @@ test('a case is found by what is in it, an item in it is marked found where it i
   // A maker's QR code on the rack, a long web address: noted cut short, and it never widens the page on a phone.
   const qr = `https://www.example.com/products/racks/${'d20-amp-rack-'.repeat(8)}`
   await typeIn(page, qr)
-  await expect(said).toHaveText(`No item has ${qr.slice(0, 99)}…. It's noted on the count; put the label on its item from the Stock search afterwards.`)
+  await expect(said).toHaveText(`No item has ${qr.slice(0, 99)}…. It's noted on the count.`)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.getByRole('button', { name: 'Finish the count' }).click()
   await expect(page.locator('.facts')).toContainText('All 2 found, 1 not expected')

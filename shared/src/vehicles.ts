@@ -3,6 +3,7 @@ import { blocks, certificateGaps, certificateUnknowns, gapSentence, longDate } f
 import { dayLabel, daysBetween, eachDay, somethingToChange, type Person } from './crew.ts'
 import { day } from './day.ts'
 import { needed, text, whole } from './plain.ts'
+import { MAX_DRIVE_MINUTES } from './road.ts'
 
 /**
  * Vans and drivers (ADR 0047): the company's vehicles, the checks that let
@@ -20,6 +21,8 @@ import { needed, text, whole } from './plain.ts'
  */
 
 const id = z.string().min(1).max(64)
+/** A time of day, as a call time is. */
+const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'A time of day, such as 08:00.')
 
 /** What a vehicle is. A Luton is a van with a box body over the cab; a truck is over 3.5 tonnes. */
 export const VEHICLE_KINDS = ['van', 'luton', 'truck', 'car', 'trailer'] as const
@@ -133,6 +136,14 @@ export const vehicleBooking = z.object({
   notes: text(500, 'The note'),
   /** Booked despite a clash or a day off the road; kept for the history. */
   override: z.boolean(),
+  /**
+   * The road (ADR 0179): the drive each way in minutes as the office knows it, over the map's estimate; when it's due
+   * at the venue on its first day, over the crew's call; and when it leaves the venue on its last. Null while not said.
+   * Left out by a phone from before them.
+   */
+  driveMinutes: whole(0, MAX_DRIVE_MINUTES, 'The drive each way in minutes').nullable().optional(),
+  arriveBy: clock.nullable().optional(),
+  leaveAt: clock.nullable().optional(),
 })
 export type VehicleBooking = z.infer<typeof vehicleBooking>
 
@@ -171,6 +182,9 @@ export const vehicleCommandSchemas = {
       end: day.optional(),
       driverId: id.nullable().optional(),
       notes: vehicleBooking.shape.notes.optional(),
+      driveMinutes: vehicleBooking.shape.driveMinutes,
+      arriveBy: vehicleBooking.shape.arriveBy,
+      leaveAt: vehicleBooking.shape.leaveAt,
       override: z.boolean().optional(),
     })
     .refine(...somethingToChange)

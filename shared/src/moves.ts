@@ -28,6 +28,11 @@ export interface Movement {
   qty: number
   /** When it happened, by the phone's clock. */
   at: string
+  /**
+   * The movement this one takes back, for an Undo pressed beside a scan's answer (audit, 5 November 2026, finding 8): the history
+   * keeps both, as ADR 0072 has it, and neither counts as kit that went out or came back.
+   */
+  undoes?: string | null
 }
 
 export interface MoveEntities {
@@ -46,6 +51,7 @@ export const moveCommandSchemas = {
       modelId: id,
       qty: whole(1, MAX_QTY, 'How many'),
       at: z.string().datetime({ offset: true }),
+      undoes: id.nullable().optional(),
     })
     .refine((m) => m.assetId === null || m.qty === 1, { message: 'A numbered item is scanned one at a time.' }),
 } as const

@@ -24,6 +24,33 @@ export const contact = z.object({
 })
 export type Contact = z.infer<typeof contact>
 
+/**
+ * When a client pays (ADR 0119): before the job, or within so many days of the invoice (0 is "when the invoice
+ * arrives"). Printed on their quotes. None means the company's own terms, which the quote prints anyway.
+ */
+export const MAX_PAYMENT_DAYS = 120
+const PAYMENT_HINT = `Payment terms are "before the job" or a whole number of days from 0 to ${MAX_PAYMENT_DAYS}.`
+export const paymentTerms = z.union([z.literal('before'), z.number({ error: PAYMENT_HINT }).int(PAYMENT_HINT).min(0, PAYMENT_HINT).max(MAX_PAYMENT_DAYS, PAYMENT_HINT)], {
+  error: PAYMENT_HINT,
+})
+export type PaymentTerms = z.infer<typeof paymentTerms>
+/** The days offered in the picker; any other the client already has is offered too. */
+export const PAYMENT_DAYS = [0, 7, 14, 30, 60] as const
+
+/** "Payment is due within 30 days of the invoice." As the quote prints it. */
+export function paymentTermsLine(t: PaymentTerms | null | undefined): string | undefined {
+  if (t === null || t === undefined) return undefined
+  if (t === 'before') return 'Payment is due before the job.'
+  if (t === 0) return 'Payment is due when the invoice arrives.'
+  return `Payment is due within ${t} day${t === 1 ? '' : 's'} of the invoice.`
+}
+/** "30 days", as a picker or the client's page says it. */
+export function paymentTermsLabel(t: PaymentTerms): string {
+  if (t === 'before') return 'Before the job'
+  if (t === 0) return 'When the invoice arrives'
+  return `Within ${t} day${t === 1 ? '' : 's'} of the invoice`
+}
+
 export const client = z.object({
   id,
   name: needed(200, "The client's name", "The client's name"),
@@ -34,6 +61,8 @@ export const client = z.object({
    * it as it was.
    */
   address: text(500, 'The address').optional(),
+  /** When they pay (ADR 0119); null for the company's own terms. Optional, so an older app's save leaves it as it was. */
+  paymentTerms: paymentTerms.nullable().optional(),
 })
 export type Client = z.infer<typeof client>
 
@@ -44,6 +73,11 @@ export const venue = z.object({
   address: text(500, 'The address'),
   /** Access, load-in, power, parking. */
   notes: text(4000, 'The notes'),
+  /**
+   * Who to ask for on site (ADR 0119): the venue's own person, such as the production manager. Printed on every call
+   * sheet for a job there, for the crew. Null for none; optional, so an older app's save leaves it as it was.
+   */
+  contact: contact.nullable().optional(),
 })
 /** Where a venue is on the map (ADR 0057), in degrees as GPS gives them. */
 export const pin = z.object({
@@ -77,6 +111,13 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
 
 /** A job that isn't going ahead. Its crew calls are cancelled with it. */
 export const STOPPED: readonly ProjectStatus[] = ['cancelled', 'lost']
+
+/**
+ * A stopped job as the link of everyone offered or booked on it says it (UX sweep, 6 November 2026, move 6): the first
+ * line of a booking's card and its line in Offers that ended, as the client cancelling and a job that didn't go ahead
+ * are different news. The office's question before stopping a job reads what they'll see from here, so the two say one thing.
+ */
+export const STOPPED_WORDS = { cancelled: 'the job was cancelled', lost: "the job didn't go ahead" } as const satisfies Partial<Record<ProjectStatus, string>>
 
 /**
  * What kind of job it is (ADR 0037): a gig needs crew and kit on days; a
@@ -113,6 +154,54 @@ const kitDays = z
   .min(0, "Days can't be fewer than none.")
   .max(MAX_KIT_DAYS, `Up to ${MAX_KIT_DAYS} days, please.`)
 
+/**
+ * How a dry hire's kit gets to the client and back (ADR 0183; Colly's answer to the quote flow audit's fifth question,
+ * 14 November 2026): we deliver it and bring it back, or they collect it and return it. A quote says the hire's days as
+ * From and To for a delivery, and as Collection and Return for a collection.
+ */
+export const HANDOVERS = ['delivery', 'collection'] as const
+export type Handover = (typeof HANDOVERS)[number]
+export const HANDOVER_LABELS: Record<Handover, string> = { delivery: 'Delivery', collection: 'Collection' }
+/** What the hire's first and last days are called, as the form and the quote say them. */
+export const HANDOVER_DAYS: Record<Handover, { out: string; back: string }> = {
+  delivery: { out: 'From', back: 'To' },
+  collection: { out: 'Collection', back: 'Return' },
+}
+export const DELIVERY_ADDRESS_LENGTH = 500
+const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'A time is a time of day, such as 09:30.')
+/** A dry hire's handover: which way, the times on its first and last days, and where it's delivered to with its pin. */
+export const hireTerms = z.object({
+  handover: z.enum(HANDOVERS),
+  outTime: clock.optional(),
+  backTime: clock.optional(),
+  /** Where it's delivered to: a delivery only. */
+  address: text(DELIVERY_ADDRESS_LENGTH, 'The delivery address').optional(),
+  /** The delivery address on the map, which the delivery line on the quote is measured to. */
+  pin: pin.nullable().optional(),
+})
+export type HireTerms = z.infer<typeof hireTerms>
+
+/** "Fri 20 Nov, 10:00": a day of a dry hire with its time, when it has one. */
+export const dayAndTime = (d: string, time: string | undefined) => `${dayLabel(d)}${time ? `, ${time}` : ''}`
+
+/**
+ * A dry hire's days as its quote says them (ADR 0183): From and To with their times for a delivery, Collection and Return
+ * for a collection, and the address it goes to. Empty for anything that isn't a dry hire or has no days.
+ */
+export function hireWhen(job: { kind?: ProjectKind; hire?: HireTerms | null }, span: { start: string; end: string } | undefined): { label: string; text: string }[] {
+  if (job.kind !== 'hire' || !span) return []
+  const h = job.hire ?? { handover: 'collection' as const }
+  const words = HANDOVER_DAYS[h.handover]
+  const out = [
+    { label: words.out, text: dayAndTime(span.start, h.outTime) },
+    { label: words.back, text: dayAndTime(span.end, h.backTime) },
+  ]
+  // Its lines joined with commas, split rather than matched with a pattern that could run slow on a long address.
+  const where = (h.address ?? '').split('\n').map((l) => l.trim()).filter(Boolean).join(', ')
+  if (h.handover === 'delivery' && where) out.push({ label: 'Delivered to', text: where })
+  return out
+}
+
 export const project = z.object({
   id,
   name: needed(200, "The job's name", "The job's name"),
@@ -122,11 +211,19 @@ export const project = z.object({
   status: z.enum(PROJECT_STATUSES),
   /** Missing means a gig (ADR 0037). */
   kind: z.enum(PROJECT_KINDS).optional(),
-  notes: text(4000, 'The notes'),
+  /** Notes for the crew: on the call sheet, and on the calendar for anyone who has said yes (ADR 0151). */
+  notes: text(4000, 'The notes for the crew'),
+  /**
+   * Notes for the office, which never leave the app: never on the calendar, a call sheet, a message or a person's page
+   * (ADR 0151). Missing on jobs saved before, and when there are none. Left out for staff crew and freelancers signed in.
+   */
+  officeNotes: text(4000, 'The office notes').optional(),
   /** Days its kit is held before it's needed, to get it ready; missing means the usual one (ADR 0031). */
   prepDays: kitDays.optional(),
   /** Days its kit is held after, to come back and be checked in; missing means the usual one. */
   returnDays: kitDays.optional(),
+  /** A dry hire's handover (ADR 0183); missing on anything else, and on a dry hire from before, which was collected. */
+  hire: hireTerms.nullable().optional(),
 })
 
 /** A job's days for getting kit ready and checking it back, the usual ones when it doesn't say. */
@@ -143,7 +240,7 @@ export type Project = z.infer<typeof project> & {
 }
 
 /** The usual phases, in the order they happen. Any other name can be typed. */
-export const PHASE_NAMES = ['Prep', 'Load in', 'Build', 'Rehearsal', 'Show', 'Babysit', 'Load out'] as const
+export const PHASE_NAMES = ['Prep', 'Warehouse', 'Travel', 'Load in', 'Build', 'Rehearsal', 'Show', 'Babysit', 'Load out'] as const
 
 /** Longer than this is more likely a typing slip than a phase. */
 export const MAX_PHASE_DAYS = 366
@@ -162,7 +259,8 @@ export const phase = z.object({
   end: day,
   /** Null: the job's venue. */
   venueId: id.nullable(),
-  notes: text(2000, 'The notes'),
+  /** Notes for the crew, as the job's are (ADR 0151). */
+  notes: text(2000, 'The notes for the crew'),
   /**
    * Who crew ring on the day (ADR 0021): a person, whose name and number go
    * on the phase's call sheet for everyone on it. Missing on phases saved
@@ -198,6 +296,11 @@ export const jobCommandSchemas = {
   'venue.upsert': venue,
   /** Put a venue on the map, move its pin, or (null) take it off (ADR 0057). */
   'venue.pin': z.object({ id, pin: pin.nullable() }),
+  /**
+   * Fill clients and venues in from the copy of Current RMS's kept on the server (ADR 0136): gaps only, and those on
+   * its quotes not here yet added when `add` is ticked. Worked out on the server, as the preview showed it.
+   */
+  'rms.fillMembers': z.object({ add: z.boolean() }),
   'project.create': project,
   /**
    * Only the fields the person changed, so two people changing different
@@ -213,8 +316,10 @@ export const jobCommandSchemas = {
       status: project.shape.status.optional(),
       kind: z.enum(PROJECT_KINDS).optional(),
       notes: project.shape.notes.optional(),
+      officeNotes: project.shape.officeNotes,
       prepDays: kitDays.optional(),
       returnDays: kitDays.optional(),
+      hire: hireTerms.nullable().optional(),
     })
     .refine(...somethingToChange),
   'phase.add': phase.refine(...phaseFits).refine(...phaseNotTooLong),
@@ -355,8 +460,9 @@ export function jobSpan(phases: readonly Pick<Phase, 'start' | 'end'>[]): { star
 }
 
 /** "Fri 3 Oct", or "Fri 3 Oct to Sun 5 Oct". */
-export function spanLabel(s: { start: string; end: string }): string {
-  return s.start === s.end ? dayLabel(s.start) : `${dayLabel(s.start)} to ${dayLabel(s.end)}`
+/** With `today`, a day far from it says its year, as dayLabel does. */
+export function spanLabel(s: { start: string; end: string }, today?: string): string {
+  return s.start === s.end ? dayLabel(s.start, today) : `${dayLabel(s.start, today)} to ${dayLabel(s.end, today)}`
 }
 
 /**

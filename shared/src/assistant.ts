@@ -20,8 +20,6 @@ import { DEPARTMENT_LABELS, DEPARTMENTS, type Department } from './stock.ts'
 
 /** The longest enquiry read: a long email thread pasted whole. */
 export const ENQUIRY_LENGTH = 20_000
-/** The longest thing asked of a quote. */
-export const ASK_LENGTH = 2_000
 /** At most this many lines are suggested from one enquiry. */
 export const MOST_SUGGESTED = 120
 
@@ -85,6 +83,9 @@ export const enquiryReading = z.object({
   /** What the office needs to ask the client before quoting. */
   questions: some(words(300), 8),
   summary: text(1000),
+  /** Who asked, as they signed it, and the day they want the quote by (research/quoting.md, feature 6). "" when not said. */
+  asker: words(200),
+  quoteBy: dayOrNone,
 })
 export type EnquiryReading = z.infer<typeof enquiryReading>
 
@@ -104,15 +105,6 @@ export const askedLine = z.object({
 })
 export type AskedLine = z.infer<typeof askedLine>
 
-export const quoteAsk = z.object({
-  ask: z.string().trim().min(3, 'Say what to change.').max(ASK_LENGTH, `What's asked can be up to ${ASK_LENGTH.toLocaleString('en-IE')} characters.`),
-  name: z.string().max(200),
-  /** The job's days, which a line added is charged for unless asked otherwise. */
-  jobDays: z.number().min(0.5).max(365),
-  discountPct: z.number().min(0).max(100),
-  lines: z.array(askedLine).max(MAX_LINES),
-})
-export type QuoteAsk = z.infer<typeof quoteAsk>
 
 /** What Claude suggests doing to a quote: lines to add, lines to take off, and changes to lines already there. */
 export const quoteAdvice = z.object({
@@ -162,6 +154,8 @@ export const ENQUIRY_SCHEMA = obj({
   other: list(obj({ qty: int, what: str })),
   questions: list(str),
   summary: str,
+  asker: str,
+  quoteBy: date,
 })
 
 export const ADVICE_SCHEMA = obj({
@@ -183,6 +177,8 @@ export interface Pricing {
   rolePrice(role: string): number | undefined
   /** The crew roles the company has priced or booked, as written. */
   roles: readonly string[]
+  /** The product here that Current RMS knows by this id, as the stock bring-in kept it (ADR 0102). */
+  byListId?(listId: string): string | undefined
 }
 
 /** A line Claude suggested, as it would go on the quote, with how sure the match to the stock list is. */
@@ -206,6 +202,17 @@ export interface Suggestion {
   /** From the price list, or as the person said; undefined when there's no price yet. */
   cents: number | undefined
   rate: RateRule | null
+  /** What it was charged before, on a past quote from Current RMS (ADR 0102): kept whichever product is chosen for it. */
+  charged?: number
+  /** Off this line alone, as that past quote had it. */
+  discountPct?: number
+  /** Where a line from a past job came from, in a few words: "4 quoted, 6 went out" (ADR 0115). */
+  note?: string
+  /** Went out on the past job beyond what its quote had: added on site or after the quote (ADR 0115). */
+  beyond?: boolean
+  /** A package's line (ADR 0087) taken from a past quote: the package, and what it held, printed under it. */
+  packageId?: string
+  includes?: string
 }
 
 /** A kit line: matched to the stock list, named and priced as the product is when it's found. */
@@ -218,7 +225,9 @@ export function kitSuggestion(p: Pricing, key: string, said: string, dept: Depar
 /** The same suggestion with a product chosen for it, or none: its name, department and price follow the product. */
 export function withModel(p: Pricing, s: Suggestion, modelId: string | null, said?: number | null): Suggestion {
   const m = modelId ? p.model(modelId) : undefined
-  if (!m) return { ...s, modelId: null, what: s.said, cents: said ?? (s.modelId ? undefined : s.cents), rate: null }
+  if (!m) return { ...s, modelId: null, what: s.said, cents: said ?? s.charged ?? (s.modelId ? undefined : s.cents), rate: s.charged === undefined ? null : s.rate }
+  // A price charged before keeps the rule it was charged by; one from the price list takes the product's.
+  if (s.charged !== undefined) return { ...s, modelId, what: m.name, group: DEPARTMENT_LABELS[m.department], cents: said ?? s.charged }
   const rate = p.productRate(modelId!)
   return { ...s, modelId, what: m.name, group: DEPARTMENT_LABELS[m.department], cents: said ?? p.productPrice(modelId!), rate: rate && rate !== 'daily' ? rate : null }
 }
@@ -271,6 +280,10 @@ export function suggestionLine(s: Suggestion, id: string): QuoteLine {
     per: s.per,
     modelId: s.modelId,
     ...(s.rate && s.per === 'day' ? { rate: s.rate, out: s.days } : {}),
+    ...(s.discountPct ? { discountPct: s.discountPct } : {}),
+    ...(s.packageId ? { packageId: s.packageId, includes: s.includes ?? '' } : {}),
+    // A product priced at €0 on the price list is given at no charge (audit of the quote flow, 8 November 2026, finding 1).
+    ...(s.kind === 'kit' && s.modelId && s.cents === 0 && !s.packageId ? { included: true as const } : {}),
   }
 }
 
@@ -354,7 +367,7 @@ export interface TodoList {
 
 /** Where an item opens in the app. */
 export function todoHref(i: Pick<TodoItem, 'jobId' | 'where'>): string {
-  if (!i.jobId) return '#quotes'
+  if (!i.jobId) return '#jobs/money/follow-up'
   const job = `#jobs/${encodeURIComponent(i.jobId)}`
   return i.where === 'job' ? job : `${job}/${i.where}`
 }
@@ -378,3 +391,69 @@ export const TODO_SCHEMA = obj({
   summary: str,
   items: list(obj({ jobId: { type: 'string', description: 'the id of the job it is about, from the facts, or ""' }, where: { type: 'string', enum: [...TODO_WHERE] }, title: str, why: str })),
 })
+
+// --- The operations mailbox (ADR 0098) --------------------------------------------
+
+/**
+ * What a thread of email cc'd to operations@ is about, as Claude read it: a new enquiry, a job already in the app, or
+ * nothing to quote. Mail not cc'd there is never seen, so leaving the address off keeps a conversation private.
+ */
+export const MAIL_KINDS = ['enquiry', 'job', 'other'] as const
+/** The history's name for the changes Claude makes from the mailbox, where a device's code would be. */
+export const CLAUDE_CLIENT = 'claude'
+export type MailKind = (typeof MAIL_KINDS)[number]
+
+/** Claude's reading of a whole thread: what it is, the job it's about, what the client wants now, and what that changes on a quote a person has changed. */
+export const mailReading = z.object({
+  kind: z.preprocess((v) => (MAIL_KINDS.includes(v as MailKind) ? v : 'other'), z.enum(MAIL_KINDS)),
+  /** The job it's about, from those it was shown, or "". */
+  jobId: z.preprocess((v) => (typeof v === 'string' ? v.trim().slice(0, 64) : ''), z.string()),
+  /** Everything the thread asks for so far, read as one enquiry: the later mail wins where it changes the earlier. */
+  enquiry: enquiryReading,
+  /** Only when the quote's lines were given: what the latest mail changes on them. */
+  advice: quoteAdvice,
+})
+export type MailReading = z.infer<typeof mailReading>
+
+export const MAIL_SCHEMA = obj({
+  kind: { type: 'string', enum: [...MAIL_KINDS] },
+  jobId: { type: 'string', description: 'the id of the job it is about, from the jobs given, or ""' },
+  enquiry: ENQUIRY_SCHEMA,
+  advice: ADVICE_SCHEMA,
+})
+
+/** A thread from the mailbox as the screens show it. */
+export interface MailThread {
+  /** Gmail's id for the thread. */
+  id: string
+  subject: string
+  /** Who started it, as their name or address. */
+  from: string
+  /** When its latest mail came. */
+  lastAt: string
+  messages: number
+  /** What Claude read it as; 'waiting' until it has. */
+  kind: MailKind | 'waiting'
+  projectId: string | null
+  summary: string
+  questions: string[]
+  /** Claude made the job's draft quote from it and nobody has changed it since, so Claude keeps it up to date. */
+  drafting: boolean
+  /** What the latest mail changes on a quote a person has changed, to take or leave; null when there's nothing. */
+  advice: QuoteAdvice | null
+}
+
+/** The operations mailbox's connection, for Admin. */
+export interface MailboxStatus {
+  /** The server has the Google key, so the mailbox can be connected. */
+  available: boolean
+  state: 'off' | 'on' | 'reconnect'
+  account: string | null
+  /** Why it stopped, in words, when it did. */
+  problem: string | null
+  connectedAt: string | null
+  lookedAt: string | null
+  threads: number
+  /** Connected with sending allowed (ADR 0101), so quotes can go from it; false for a connection made to read only. */
+  canSend: boolean
+}

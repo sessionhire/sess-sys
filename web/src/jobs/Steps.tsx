@@ -1,99 +1,282 @@
-import { dayLabel, firstName, irishToday, type JobView, type StepView, type View } from '@sh/shared'
-import { useEffect, useState } from 'react'
-import { Refusal, useAct } from '../act.tsx'
+import { dayLabel, firstName, invoiceOf, irishToday, jobPosition, ownerByRole, plural, STAGE_OF, type JobStep, type JobView, type StageView, type StepView, type View } from '@sh/shared'
+import { useEffect, useRef, useState } from 'react'
+import { Confirm, Refusal, useAct } from '../act.tsx'
+import { promptFor, type Share } from '../crew/CrewScreen.tsx'
 import { useMe } from '../crew/Leave.tsx'
+import { useReach } from '../crew/reach.tsx'
 import { Icon } from '../Icon.tsx'
 import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import type { JobPart } from './JobScreen.tsx'
+import { confirmQuestion, crewOnJob, holdingTheDay, stopQuestion } from './jobStatus.ts'
+import { amendQuote } from './QuoteRecords.tsx'
 import './steps.css'
 
 /**
- * A job's steps (ADR 0073): the way the job goes, from the quote to the kit
- * checked and put away, as one line of steps across the top of the job
- * page, the step it's at marked, then the step picked open under it: what
- * it means, who it's down to, and its tick. The app ticks what it can tell
- * from the job's own records; the rest are ticked here. A step given to
- * someone is on their list on Home, and they hear of it in Notifications,
- * in the app only.
+ * Where a job is (ADR 0073, ADR 0104): five stages across the top of the
+ * job page, Quoting, Planning, Going out, On the job and Back, the one the
+ * job is in ringed, worked out from the job's own records and never ticked.
+ * Under the strip, the stage opened lists its tasks, each a row saying how
+ * it stands, whose it is and when it's due, done in any order; a task left
+ * open from an earlier stage is listed too, so nothing is lost when the job
+ * moves on. A task picked opens under the list: what it means, who it's
+ * down to, the day it's due by, and its tick. The app ticks what it can
+ * tell from the job's own records; the rest are ticked here. A task given
+ * to someone is on their list on Home, and they hear of it in
+ * Notifications, in the app only.
+ *
+ * The Confirmed task is the client's answer itself (ADR 0103), the one gate
+ * between stages: saying yes confirms the job (and records the yes on the
+ * quote that went), which is what puts it on the calendar and holds its
+ * kit; saying no marks it lost. A tick by hand on it would say the job was
+ * going ahead while it stayed an enquiry, so it has none. The job's one
+ * Next button lives in the page head (NextDock.tsx), not here.
  */
 
-const PART_NAMES: Partial<Record<NonNullable<StepView['part']>, string>> = { crew: 'Crew', kit: 'Kit and vans', money: 'Quote', phases: 'Phases' }
+const PART_NAMES: Partial<Record<NonNullable<StepView['part']>, string>> = { crew: 'Crew', kit: 'Kit', quote: 'Quote', phases: 'Phases' }
 
-export function StepsCard({ job, view, onPart }: { job: JobView; view: View; onPart: (p: JobPart) => void }) {
+export function StepsCard({
+  job,
+  view,
+  openTask,
+  onOpenTask,
+  onPart,
+  onTell,
+  confirmAsked,
+}: {
+  job: JobView
+  view: View
+  /** The task opened from outside (the Next dock), if any. */
+  openTask: JobStep | undefined
+  onOpenTask: (t: JobStep | undefined) => void
+  onPart: (p: JobPart) => void
+  onTell: (share: Share | undefined) => void
+  /**
+   * When Next's Confirm the job was last pressed on a job its crew hold the day for: the Confirmed task opens with its question
+   * asked, as the press reaches them (ADR 0168). Each press asks again.
+   */
+  confirmAsked?: number
+}) {
   const steps = view.steps.of(job.id)
-  const [open, setOpen] = useState<StepView['key'] | undefined>()
-  // Moving to another job opens that job's own step.
-  useEffect(() => setOpen(undefined), [job.id])
+  const [pickedStage, setPickedStage] = useState<StageView['key'] | undefined>()
+  // Folded to its stepper (ADR 0140, part 3): where the job stands is the head's to say, and the tasks are a tap away, open
+  // once a stage is pressed, a task is opened from Next or Home, or the fold is.
+  const [unfolded, setUnfolded] = useState(false)
+  // Moving to another job opens that job's own stage, folded.
+  useEffect(() => {
+    setPickedStage(undefined)
+    setUnfolded(false)
+  }, [job.id])
   if (!steps) return null
   if (steps.stopped && steps.steps.every((s) => !s.ownerId && !s.ticked)) {
     // An errand, a meeting, or a stopped job nobody had started on: a line, not a tracker.
     return (
-      <section className="card job-steps" aria-label="Steps">
+      <section className="card job-steps" aria-label="Status">
         <p className="hint">{steps.stopped}</p>
       </section>
     )
   }
-  // A slim strip until a step is opened (ADR 0082), so the job's parts are on the first screen; the hint says where it's at meanwhile.
-  const shown = steps.steps.find((s) => s.key === open)
-  const at = steps.current
-  // The way already come: every step before the one the job is at, all of them once it's through, none on a stopped job.
-  const reached = at ? steps.steps.indexOf(at) : steps.stopped ? 0 : steps.steps.length
+  const shownTask = steps.steps.find((s) => s.key === openTask)
+  // The stage open: the one picked, else the task opened from outside's, else the one the job is in; through every stage, the last.
+  const openKey = pickedStage ?? (shownTask ? STAGE_OF[shownTask.key] : undefined) ?? steps.stage?.key ?? (steps.finished ? 'back' : undefined)
+  const open = steps.stages.find((s) => s.key === openKey)
+  const atIndex = steps.stage ? steps.stages.indexOf(steps.stage) : steps.finished ? steps.stages.length : 0
+  const showing = unfolded || pickedStage !== undefined || !!shownTask
+  const pickStage = (key: StageView['key']) => {
+    // The open stage pressed again folds it.
+    if (showing && key === open?.key) return fold()
+    setPickedStage(key)
+    if (shownTask && STAGE_OF[shownTask.key] !== key) onOpenTask(undefined)
+  }
+  const fold = () => {
+    setUnfolded(false)
+    setPickedStage(undefined)
+    if (shownTask) onOpenTask(undefined)
+  }
+  // The tasks left open from an earlier stage are listed with the stage the job is in, so they're seen where the work is.
+  const behind = open && open.state === 'now' ? steps.behind : []
+  const toDo = (open?.tasks ?? []).concat(behind).filter((t) => !t.done && !t.skipped).length
+  // The stage the job is in takes the job's tone when something in it is short or late, as its line on a list does.
+  const tone = steps.stopped ? undefined : jobPosition(steps)?.tone
   return (
     <section className="card job-steps" aria-labelledby="job-steps-title">
       <header className="steps-head">
-        <h2 id="job-steps-title">Steps</h2>
-        <p className="hint">
-          {steps.stopped ??
-            (at
-              ? `${steps.done} of ${steps.of} done · at ${at.label}${at.owner ? `, ${firstName(at.owner)}` : ''}`
-              : `All ${steps.of} done`)}
-        </p>
+        <h2 id="job-steps-title">Status</h2>
+        {steps.stopped && <p className="hint">{steps.stopped}</p>}
       </header>
-      <ol className="steps-flow" data-stopped={steps.stopped ? 'true' : undefined}>
-        {steps.steps.map((s, i) => (
-          <li key={s.key} data-state={s.state} data-come={i < reached ? 'true' : undefined} aria-current={s.state === 'now' && !steps.stopped ? 'step' : undefined}>
-            <button type="button" aria-expanded={s.key === shown?.key} aria-controls="job-step-open" aria-label={stepName(s, steps.stopped !== undefined)} onClick={() => setOpen((was) => (was === s.key ? undefined : s.key))}>
-              <span className="step-dot" aria-hidden="true">
-                {s.done ? <Icon name="done" /> : s.number}
+      <ol className="stages-flow" data-stopped={steps.stopped ? 'true' : undefined} data-tone={tone}>
+        {steps.stages.map((s, i) => (
+          <li key={s.key} data-state={s.state} data-come={i < atIndex ? 'true' : undefined} data-open={s.state === 'done' && s.done < s.of ? 'true' : undefined} aria-current={s.state === 'now' ? 'step' : undefined}>
+            <button type="button" aria-expanded={showing && s.key === open?.key} aria-controls="job-stage-open" aria-label={stageName(s, steps.stopped !== undefined)} onClick={() => pickStage(s.key)}>
+              <span className="stage-dot" aria-hidden="true">
+                {s.state === 'done' ? <Icon name="done" /> : s.number}
               </span>
-              <span className="step-label" aria-hidden="true">
+              <span className="stage-label" aria-hidden="true">
                 {s.label}
-              </span>
-              <span className="step-owner" aria-hidden="true">
-                {s.owner ? firstName(s.owner) : s.skipped ? 'Not needed' : ' '}
               </span>
             </button>
           </li>
         ))}
       </ol>
-      {shown && <OpenStep key={`${job.id}.${shown.key}`} job={job} view={view} step={shown} stopped={steps.stopped !== undefined} onPart={onPart} />}
+      {open && (
+        <button type="button" className="stage-fold" aria-expanded={showing} aria-controls="job-stage-open" onClick={() => (showing ? fold() : setUnfolded(true))}>
+          {toDo ? `${plural(toDo, 'task')} to do in ${open.label}` : `Every task in ${open.label} done`}
+        </button>
+      )}
+      {open && showing && (
+        <div className="stage-open" id="job-stage-open">
+          {/* Not .stage-line, the list rows' inline line, which broke this sentence at each part on a phone (audit, 5 November 2026, finding 88). */}
+          <p className="stage-said">
+            <b>{open.label}</b>
+            {open.state === 'now' ? ' · the stage the job is in. ' : open.state === 'done' ? ' · passed. ' : ' · to come. '}
+            {open.line}
+          </p>
+          <TaskList tasks={open.tasks} shown={shownTask} onOpen={(k) => onOpenTask(shownTask?.key === k ? undefined : k)} />
+          {behind.length > 0 && (
+            <>
+              <p className="hint behind-head">Left open from before</p>
+              <TaskList tasks={behind} shown={shownTask} onOpen={(k) => onOpenTask(shownTask?.key === k ? undefined : k)} />
+            </>
+          )}
+        </div>
+      )}
+      <InvoiceRow job={job} view={view} folded={!showing} />
+      {shownTask && (
+        <OpenStep
+          key={`${job.id}.${shownTask.key}`}
+          job={job}
+          view={view}
+          step={shownTask}
+          stopped={steps.stopped !== undefined}
+          onPart={onPart}
+          onTell={onTell}
+          confirmAsked={shownTask.key === 'confirmed' ? confirmAsked : undefined}
+        />
+      )}
     </section>
   )
 }
 
-/** What a screen reader hears for a step: its number and name, how it stands, and who has it. */
-function stepName(s: StepView, stopped: boolean): string {
-  const how = s.done ? 'done' : s.skipped ? 'not needed' : s.state === 'now' && !stopped ? 'the step the job is at' : 'to do'
-  return `${s.number}. ${s.label}, ${how}${s.owner ? `, ${s.owner.name}` : ''}`
+/**
+ * The office's last step, under the tasks, for whoever reads money (UX sweep, 6 November 2026, move 12): one row in the
+ * task-list shape, worked out from the quote and never ticked, opening the Quote tab. Quiet before the job is through,
+ * amber once it is and not invoiced, "Invoiced Mon 2 Nov · paid" when done; never an amount (ADR 0042). Not a ninth task:
+ * nothing here holds a job in Back (ADR 0109).
+ */
+function InvoiceRow({ job, view, folded }: { job: JobView; view: View; folded: boolean }) {
+  const access = useAccess()
+  const today = irishToday()
+  if (!access.can('money')) return null
+  const at = invoiceOf(job, view.money.currentOf(job.id), today)
+  if (at.state === 'none') return null
+  // Folded to the stepper (ADR 0140, part 3), it stays only when it has something to say: invoiced, or due and not yet.
+  if (folded && at.state !== 'invoiced' && at.state !== 'due') return null
+  const how =
+    at.state === 'invoiced'
+      ? `Invoiced ${dayLabel(at.on, today)}${at.paidOn ? ' · paid' : ''}`
+      : at.state === 'not-needed'
+        ? 'Not needed: before the app listed invoices'
+        : at.state === 'due'
+          ? `Not invoiced yet · through since ${dayLabel(at.since, today)}`
+          : 'Not invoiced yet'
+  const done = at.state === 'invoiced' || at.state === 'not-needed'
+  return (
+    <ul className="task-list invoice-row" aria-label="Invoice">
+      <li data-state={done ? 'done' : 'to-come'} data-due={at.state === 'due' ? 'true' : undefined}>
+        <a href={`#jobs/${encodeURIComponent(job.id)}/quote`}>
+          <span className="task-tick" aria-hidden="true">
+            {done ? <Icon name="done" /> : null}
+          </span>
+          <span className="task-words">
+            <span className="task-name">Invoice</span>
+            <span className="task-how">{how}</span>
+          </span>
+          <span className="task-tag">{at.state === 'invoiced' ? (at.paidOn ? 'Paid' : 'Invoiced') : at.state === 'not-needed' ? 'Not needed' : at.state === 'due' ? 'To invoice' : 'After'}</span>
+        </a>
+      </li>
+    </ul>
+  )
 }
 
-function OpenStep({ job, view, step, stopped, onPart }: { job: JobView; view: View; step: StepView; stopped: boolean; onPart: (p: JobPart) => void }) {
+/** What a screen reader hears for a stage: its number and name, how it stands, and how far through. */
+function stageName(s: StageView, stopped: boolean): string {
+  const how = stopped ? 'stopped' : s.state === 'done' ? (s.done < s.of ? `passed with ${s.of - s.done} left open` : 'passed') : s.state === 'now' ? 'the stage the job is in' : 'to come'
+  return `${s.number}. ${s.label}, ${how}, ${s.done} of ${s.of} done`
+}
+
+/** A stage's tasks as rows (the task-list shape): the name, how it stands, whose it is and when it's due, and a plain tag. */
+function TaskList({ tasks, shown, onOpen }: { tasks: StepView[]; shown: StepView | undefined; onOpen: (k: JobStep) => void }) {
+  return (
+    <ul className="task-list">
+      {tasks.map((t) => (
+        <li key={t.key} data-state={t.state} data-late={t.late ? 'true' : undefined}>
+          <button type="button" aria-expanded={t.key === shown?.key} aria-controls="job-step-open" onClick={() => onOpen(t.key)}>
+            <span className="task-tick" aria-hidden="true">
+              {t.done ? <Icon name="done" /> : null}
+            </span>
+            <span className="task-words">
+              <span className="task-name">
+                {t.label} <Pending pending={t.pending} />
+              </span>
+              <span className="task-how">
+                {t.auto ?? (t.ticked ? `Ticked${t.ticked.by ? ` by ${firstName(t.ticked.by)}` : ''}` : (t.skipped ?? t.hint ?? ''))}
+                {t.owner && ` · ${firstName(t.owner)}`}
+                {t.dueOn && !t.done && ` · ${t.late ? 'was due' : 'by'} ${dayLabel(t.dueOn)}`}
+              </span>
+            </span>
+            <span className="task-tag">{t.done ? 'Done' : t.skipped ? 'Not needed' : t.late ? 'Late' : t.state === 'now' ? 'Next' : 'To do'}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function OpenStep({
+  job,
+  view,
+  step,
+  stopped,
+  onPart,
+  onTell,
+  confirmAsked,
+}: {
+  job: JobView
+  view: View
+  step: StepView
+  stopped: boolean
+  onPart: (p: JobPart) => void
+  onTell: (share: Share | undefined) => void
+  confirmAsked?: number | undefined
+}) {
   const access = useAccess()
   const { me } = useMe(view)
   const { run, error } = useAct()
-  // Staff crew change only their own steps (ADR 0073); the server says the same.
+  const box = useRef<HTMLDivElement>(null)
+  // Opened from the Next dock, the task comes into view and takes the focus, so the eye and the keyboard land on it; unless a
+  // question in it already has it, as Confirm the job's does when Next asks it (ADR 0168).
+  useEffect(() => {
+    box.current?.scrollIntoView({ block: 'nearest' })
+    if (!box.current?.contains(document.activeElement)) box.current?.querySelector<HTMLElement>('h3')?.focus()
+  }, [])
+  // Staff crew change only their own tasks (ADR 0073); the server says the same.
   const mayChange = access.can('steps') && (access.role !== 'crew' || (!!access.personId && step.ownerId === access.personId)) && !stopped
   const staff = view.leave.staff
-  const set = (change: { ownerId?: string | null; done?: boolean }) =>
-    run(() => client.mutate('jobStep.set', { projectId: job.id, step: step.key, ...change, by: me?.id ?? null }))
+  const set = (change: { ownerId?: string | null; dueOn?: string | null; done?: boolean }) =>
+    run(async () => {
+      await client.mutate('jobStep.set', { projectId: job.id, step: step.key, ...change, by: me?.id ?? null })
+      // A quote sent another way (by hand, from Current RMS) moves an enquiry on, as marking one sent here does (ADR 0081).
+      if (step.key === 'quote' && change.done && job.status === 'enquiry' && access.can('jobs')) await client.mutate('project.update', { id: job.id, status: 'quoted' })
+    })
+  // The client's answer is the job's own status, not a tick (ADR 0103).
+  const answering = step.key === 'confirmed' && !step.ticked && job.status !== 'confirmed' && !stopped && access.can('jobs')
   const where = step.part === 'pick' ? undefined : step.part && PART_NAMES[step.part]
-  const seesPart = step.part !== 'money' || access.can('money')
+  const seesPart = step.part !== 'quote' || access.can('money')
   return (
-    <div className="step-open" id="job-step-open" aria-live="polite">
-      <h3>
-        {step.number}. {step.label} <Pending pending={step.pending} />
+    <div className="step-open" id="job-step-open" aria-live="polite" ref={box}>
+      <h3 tabIndex={-1}>
+        {step.label} <Pending pending={step.pending} />
       </h3>
       <p className="step-state" data-state={step.state}>
         {step.auto
@@ -102,15 +285,22 @@ function OpenStep({ job, view, step, stopped, onPart }: { job: JobView; view: Vi
             ? `Ticked done${step.ticked.by ? ` by ${step.ticked.by.name}` : ''}, ${dayLabel(irishToday(new Date(step.ticked.at)))}.`
             : step.skipped
               ? `Not needed: ${step.skipped}.`
-              : `${step.hint ? `${step.hint}. ` : ''}${step.state === 'now' && !stopped ? 'This is the step the job is at.' : ''}`}
+              : `${step.hint ? `${step.hint}. ` : ''}${step.state === 'now' && !stopped ? 'This is the task to do next.' : ''}${step.dueOn ? ` ${step.late ? 'Was due' : 'Due'} by ${dayLabel(step.dueOn)}.` : ''}`}
       </p>
-      <p className="hint">{step.line}</p>
+      {/* The answer first, where the eye is: who it's down to can wait under it. */}
+      {answering ? (
+        <ClientsAnswer key={confirmAsked ?? 'answer'} job={job} view={view} onTell={onTell} onPart={onPart} confirming={confirmAsked !== undefined} />
+      ) : (
+        <p className="hint">{step.line}</p>
+      )}
+      {/* Whose it is when nobody is named: the role, from the one table (UX sweep, 6 November 2026, move 12). */}
+      {!step.owner && !step.done && !step.skipped && <p className="step-owner-line">{ownerByRole(step.key)}</p>}
       {mayChange ? (
         <div className="step-actions">
           <label className="field">
             Down to
             <select value={step.ownerId ?? ''} onChange={(e) => void set({ ownerId: e.target.value || null })}>
-              <option value="">Nobody yet</option>
+              <option value="">Nobody named</option>
               {step.owner && !staff.some((p) => p.id === step.ownerId) && <option value={step.owner.id}>{step.owner.name}</option>}
               {staff.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -125,34 +315,139 @@ function OpenStep({ job, view, step, stopped, onPart }: { job: JobView; view: Vi
               Give it to me
             </button>
           )}
+          {/* The day it's due by (ADR 0104): a date, or none. A task done needs none. */}
+          {!step.done && !step.skipped && (
+            <label className="field">
+              Due by
+              <input type="date" value={step.dueOn ?? ''} onChange={(e) => void set({ dueOn: e.target.value || null })} />
+            </label>
+          )}
           {/* What the app ticks itself has no tick to give or take; a tick given by hand on top of it stays, out of the way. */}
           {!step.auto &&
+            !answering &&
             (step.ticked ? (
               <button type="button" onClick={() => void set({ done: false })}>
-                Take the tick off
+                Untick
               </button>
             ) : (
               !step.skipped && (
-                <button type="button" className="primary" onClick={() => void set({ done: true })}>
-                  Mark {step.label.toLowerCase()} done
+                <button type="button" onClick={() => void set({ done: true })}>
+                  Mark it done
                 </button>
               )
             ))}
         </div>
       ) : (
-        <p className="step-owner-line">{step.owner ? `Down to ${step.owner.name}.` : 'Not given to anyone yet.'}</p>
+        step.owner && <p className="step-owner-line">Down to {step.owner.name}.</p>
       )}
       <Refusal error={error} />
       {step.part === 'pick' && (
         <a className="button" href={`#jobs/${encodeURIComponent(job.id)}/pick`}>
-          Open the pick list
+          Open pick list
         </a>
       )}
-      {seesPart && where && (
+      {seesPart && where && !answering && (
         <button type="button" className="link" onClick={() => onPart(step.part as JobPart)}>
           Open {where}
         </button>
       )}
+    </div>
+  )
+}
+
+/**
+ * The client's answer, on the Confirmed task (ADR 0103): yes confirms the job, which puts it on the calendar and holds
+ * its kit; no marks it lost, which cancels its crew calls, so that one asks first. Yes asks first too when the job's crew
+ * were asked to hold the day for it, as it reaches them (ADR 0168), and opens asked when Next's Confirm the job was
+ * pressed (`confirming`). Either goes on the quote that went too, when there is one waiting for an answer, so the quote
+ * and the job never say different things. A third answer is changes asked for (ADR 0173): Amend quote makes the next version
+ * from the one they have and opens it on the Quote tab, and the job goes back to sending it.
+ */
+function ClientsAnswer({
+  job,
+  view,
+  onTell,
+  onPart,
+  confirming = false,
+}: {
+  job: JobView
+  view: View
+  onTell: (share: Share | undefined) => void
+  onPart: (p: JobPart) => void
+  confirming?: boolean
+}) {
+  const access = useAccess()
+  const [asking, setAsking] = useState<'yes' | 'no' | undefined>(confirming ? 'yes' : undefined)
+  const { run, error } = useAct()
+  const today = irishToday()
+  // The version that went to the client and is waiting on them; a draft is left to be finished and sent.
+  const current = access.can('money') ? view.money.currentOf(job.id) : undefined
+  const waiting = current && !current.invoicedOn && (current.status === 'sent' || current.status === 'accepted' || current.status === 'declined') ? current : undefined
+  // Changes asked for, before a yes (ADR 0173): the next version, made from the one the client has, or the one already started.
+  const amending = waiting ? view.money.draftOf(job.id) : undefined
+  const amendable = waiting && waiting.status !== 'accepted' ? waiting : undefined
+  const amend = () => {
+    if (amending) return onPart('quote')
+    if (amendable) void run(() => amendQuote(amendable)).then((ok) => ok && onPart('quote'))
+  }
+  // Read before the press: everyone on its open calls, told it's off if it's lost; and those asked to hold the day, told it's going
+  // ahead if it's confirmed. With the email Google sends those who hold an invite (ADR 0149, ADR 0168).
+  const people = crewOnJob(job)
+  const holding = holdingTheDay(job, today)
+  const reach = useReach()
+  const confirmAsk = confirmQuestion(reach, job, holding)
+  const answer = (yes: boolean) => {
+    setAsking(undefined)
+    void run(async () => {
+      const said = yes ? 'accepted' : 'declined'
+      if (waiting && waiting.status !== said) await client.mutate('quote.answer', { id: waiting.id, answer: said, on: today })
+      await client.mutate('project.update', { id: job.id, status: yes ? 'confirmed' : 'lost' })
+    }).then((ok) => {
+      if (!ok) return
+      if (!yes) onTell(promptFor('job-stopped', people))
+      else if (holding.length) onTell(promptFor('job-confirmed', holding))
+    })
+  }
+  return (
+    <div className="clients-answer">
+      <p>
+        {waiting?.status === 'accepted'
+          ? 'The client has said yes. Confirming the job puts it on the jobs calendar and holds its kit.'
+          : waiting?.status === 'declined'
+            ? 'The client turned the quote down. Mark the job lost, or confirm it if they came back.'
+            : `Confirming the job puts it on the jobs calendar and holds its kit${waiting ? `, and records the yes on version ${waiting.version} of the quote` : ''}.`}
+        {amending && amendable && ` Version ${amending.version}, its amendment, isn't sent yet.`}
+      </p>
+      {asking === 'no' ? (
+        <Confirm
+          // What their link says once the job is lost, in its own words (UX sweep, 6 November 2026, move 6).
+          question={stopQuestion(reach, job, 'lost', people)}
+          yes="Mark lost"
+          loss
+          no="Keep it as it is"
+          onYes={() => answer(false)}
+          onNo={() => setAsking(undefined)}
+        />
+      ) : asking === 'yes' && confirmAsk ? (
+        // What confirming sends those asked to hold the day (ADR 0168): HOLD comes off their days, and WhatsApp tells them.
+        <Confirm question={confirmAsk} yes="Confirm job" no="Keep it as it is" onYes={() => answer(true)} onNo={() => setAsking(undefined)} />
+      ) : (
+        <div className="step-actions">
+          {/* Plain, as the card's other buttons are: the Next dock holds the page's one filled red (ADR 0104; audit, 5 November 2026, finding 19). */}
+          <button type="button" onClick={() => (confirmAsk ? setAsking('yes') : answer(true))} disabled={job.pending}>
+            Confirm job
+          </button>
+          <button type="button" onClick={() => (job.calls.some((c) => c.status === 'open') ? setAsking('no') : answer(false))} disabled={job.pending}>
+            Client said no
+          </button>
+          {amendable && (
+            <button type="button" onClick={amend} disabled={job.pending}>
+              {amending ? `Open version ${amending.version}` : 'Amend quote'}
+            </button>
+          )}
+        </div>
+      )}
+      <Refusal error={error} />
     </div>
   )
 }

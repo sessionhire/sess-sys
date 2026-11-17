@@ -372,8 +372,9 @@ async function bring(
       // Or, when they don't agree, the department the day is named for ("Smirnoff LX", ADR 0050).
       const department = departmentOfPeople(offers.map((o) => departments.get(o.personId))) ?? departmentInWords(names.phase ?? '')
       rows.calls.push([callId, projectId, phaseId, (j.existing?.name ?? j.name).slice(0, 200), names.phase, names.venue, 'Crew', start, end, Math.min(busiest, 100), 'open', department])
+      // Each is a guest the organiser invited to their own event, so the app sends them no invite of its own (ADR 0157).
       for (const o of offers)
-        rows.offers.push([newId(), callId, o.personId, o.status, JSON.stringify(o.days), o.status === 'offered' ? null : answered, o.status === 'offered' ? null : 'calendar'])
+        rows.offers.push([newId(), callId, o.personId, o.status, JSON.stringify(o.days), o.status === 'offered' ? null : answered, o.status === 'offered' ? null : 'calendar', 'organiser'])
       counts.crew += offers.length
     }
 
@@ -391,7 +392,7 @@ async function bring(
   await emitAll(ctx, 'phase', (await getPhases(ctx.tx, ids(rows.phases))).map((p) => ({ id: p.id, data: p })))
   await insertRows(ctx.tx, 'crew_calls', ['id', 'project_id', 'phase_id', 'project', 'phase', 'venue', 'role', 'start_day', 'end_day', 'needed', 'status', 'department'], rows.calls)
   await emitAll(ctx, 'crewCall', (await getCalls(ctx.tx, ids(rows.calls))).map((c) => ({ id: c.id, data: c })))
-  await insertRows(ctx.tx, 'offers', ['id', 'call_id', 'person_id', 'status', 'days', 'responded_at', 'responded_via'], rows.offers)
+  await insertRows(ctx.tx, 'offers', ['id', 'call_id', 'person_id', 'status', 'days', 'responded_at', 'responded_via', 'no_own_invite'], rows.offers)
   await emitAll(ctx, 'offer', (await getOffers(ctx.tx, ids(rows.offers))).map((o) => ({ id: o.id, data: o })))
   await insertRows(ctx.tx, 'calendar_imports', ['uid', 'day', 'calendar_id', 'event_id', 'title', 'project_id', 'phase_id'], rows.seen, 'ON CONFLICT (uid, day) DO NOTHING')
   return { ...counts, venues: venueIds.size, people: personIds.size }

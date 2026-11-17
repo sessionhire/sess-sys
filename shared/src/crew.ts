@@ -2,6 +2,55 @@ import { z } from 'zod'
 import { day } from './day.ts'
 import { euroCents, needed, text, whole } from './plain.ts'
 import { ROLES } from './roles.ts'
+import { DEFAULT_LEVEL, mostNamed, ROLE_WORDS, roleKey, tidyDepartment } from './crew-departments.ts'
+import { certificates, needs, needsLabel, tidyNeeds, type Certificate, type CertificateKind } from './crew-certificates.ts'
+import { dayLabel, daysLabel, eachDay, euro } from './crew-days.ts'
+
+export {
+  APPLICANT_LEVEL,
+  CREW_DEPARTMENTS,
+  DEFAULT_LEVEL,
+  departmentInWords,
+  departmentOfPeople,
+  levelLabel,
+  levelLine,
+  LEVELS,
+  sameDepartment,
+  tidyDepartment,
+} from './crew-departments.ts'
+export {
+  certificate,
+  CERTIFICATE_KINDS,
+  CERTIFICATE_LABELS,
+  CERTIFICATE_WORDS,
+  certificateName,
+  certificates,
+  certificatesAfter,
+  needsLabel,
+  tidyNeeds,
+  type Certificate,
+  type CertificateKind,
+  type Certificates,
+} from './crew-certificates.ts'
+export { fullName, NAME_ARTICLES, NAME_PARTICLES, nameParts, namesAfter, splitName, type NameParts } from './crew-names.ts'
+export {
+  ADD_A_PHASE,
+  dayLabel,
+  daysBetween,
+  daysLabel,
+  daysInNoPhase,
+  daysOffPhase,
+  eachDay,
+  euro,
+  MOVE_THE_PHASE,
+  movedCallSpan,
+  noPhaseLine,
+  offerDaysAfter,
+  offPhaseLine,
+  phaseDaysRule,
+  phaseOnlyGrew,
+  suggestedReplyBy,
+} from './crew-days.ts'
 
 /**
  * Crew booking: people, the roles a job needs (calls), the offers that fill
@@ -29,69 +78,6 @@ const cents = euroCents(100_000_00, 'A day rate')
  * their certificates and the company they trade through.
  */
 
-/** The departments the form offers as you type. Free text, so a new one needs no change here. */
-export const CREW_DEPARTMENTS = ['Audio', 'LX', 'Video', 'Backline', 'Laser', 'Transport', 'Production', 'LED Tech', 'Rigger', 'Stage Manager', 'SFX'] as const
-
-/** 0 is an applicant nobody has vetted; 1 is known; higher is more preferred. */
-export const LEVELS = [0, 1, 2, 3, 4, 5] as const
-export const APPLICANT_LEVEL = 0
-export const DEFAULT_LEVEL = 1
-export const levelLabel = (level: number) => `Level ${level}`
-/** The level with "applicant" said for 0, where nothing else on the screen says it: the crew list, the card's select and the import's preview. */
-export const levelLine = (level: number) => (level === APPLICANT_LEVEL ? `${levelLabel(level)} (applicant)` : levelLabel(level))
-
-/** A department as typed, tidied: spaces collapsed, and a known one in its own spelling, so "audio" and "Audio" are one department. Null for nothing. */
-export function tidyDepartment(typed: string): string | null {
-  const s = typed.trim().replace(/\s+/g, ' ')
-  if (!s) return null
-  return CREW_DEPARTMENTS.find((d) => d.toLowerCase() === s.toLowerCase()) ?? s
-}
-
-/** Whether two departments as typed are the same one: "audio" and "Audio " are. Nothing is never the same as anything. */
-export const sameDepartment = (a: string | null | undefined, b: string | null | undefined) => !!a?.trim() && a.trim().toLowerCase() === b?.trim().toLowerCase()
-
-/**
- * Words in a role that say its department (ADR 0046), the first that fits:
- * "Sound No.1" is audio, "LX op" is LX, "Camera" is video. A role that says
- * nothing about one, such as a stagehand, has none until someone gives it one.
- */
-const ROLE_WORDS: readonly [RegExp, (typeof CREW_DEPARTMENTS)[number]][] = [
-  [/\blaser/, 'Laser'],
-  [/\bled\b/, 'LED Tech'],
-  [/\b(sound|audio|monitors?|foh|a[12]|pa|rf|mics?)\b/, 'Audio'],
-  [/\b(lx|light(s|ing)?|lamp|follow ?spot|dimmer)\b/, 'LX'],
-  [/\b(video|camera|cam|vision|projection(ist)?|vt)\b/, 'Video'],
-  [/\b(backline|guitar tech|drum tech)\b/, 'Backline'],
-  [/\brigg(er|ers|ing)\b/, 'Rigger'],
-  [/\b(stage manager|asm|dsm|sm)\b/, 'Stage Manager'],
-  [/\b(sfx|pyro|special effects|confetti)\b/, 'SFX'],
-  [/\b(driver|transport|truck|van)\b/, 'Transport'],
-  [/\b(production|crew chief|producer|production manager|site manager|runner)\b/, 'Production'],
-]
-
-/**
- * The department some words name, from the same list: "Smirnoff LX" is LX,
- * "Audio Main" is Audio. For a job's name or a phase's, where a calendar's
- * title said which department a day was for. None when they name none.
- */
-export const departmentInWords = (words: string): (typeof CREW_DEPARTMENTS)[number] | null =>
-  ROLE_WORDS.find(([re]) => re.test(roleKey(words)))?.[1] ?? null
-
-/** What a role is called, as compared: "Sound  No.1" and "sound no.1" are one. */
-const roleKey = (role: string) => role.trim().replace(/\s+/g, ' ').toLowerCase()
-
-/** The department named most often, the first by name on a tie; none when nothing is named. */
-function mostNamed(departments: readonly (string | null)[]): string | null {
-  const counts = new Map<string, { name: string; n: number }>()
-  for (const d of departments) {
-    const name = d && tidyDepartment(d)
-    if (!name) continue
-    const was = counts.get(name.toLowerCase())
-    counts.set(name.toLowerCase(), { name: was?.name ?? name, n: (was?.n ?? 0) + 1 })
-  }
-  return [...counts.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))[0]?.name ?? null
-}
-
 /**
  * The department a call for this role most likely belongs to (ADR 0046),
  * offered when a call is made and given to calls brought in from the
@@ -113,82 +99,29 @@ export function departmentForRole(
   return ROLE_WORDS.find(([words]) => words.test(key))?.[1] ?? null
 }
 
-/**
- * The department of a call brought in from the calendar (ADR 0046), whose
- * role says only "Crew": the one more than half the people on it are in.
- * None when they're mixed, or nobody on it has one; the office gives those
- * one, many at a time, on Crew › Calls.
- */
-export function departmentOfPeople(departments: readonly (string | null | undefined)[]): string | null {
-  if (departments.length === 0) return null
-  const most = mostNamed(departments.map((d) => d ?? null))
-  if (!most) return null
-  const n = departments.filter((d) => sameDepartment(d, most)).length
-  return n * 2 > departments.length ? most : null
-}
-
 /** How much the notes hold; the crew list's notes are added to fit it. */
 export const NOTES_LENGTH = 2000
 const level = whole(0, 5, 'The level')
 
-/** Safe Pass, working at height and IPAF came with what a call needs (ADR 0028). An IPAF card's categories, such as 3a, go in its note. */
-export const CERTIFICATE_KINDS = ['first-aid', 'manual-handling', 'driving-licence', 'safe-pass', 'working-at-height', 'ipaf'] as const
-export type CertificateKind = (typeof CERTIFICATE_KINDS)[number]
-export const CERTIFICATE_LABELS: Record<CertificateKind, string> = {
-  'first-aid': 'First aid',
-  'manual-handling': 'Manual handling',
-  'driving-licence': 'Driving licence',
-  'safe-pass': 'Safe Pass',
-  'working-at-height': 'Working at height',
-  ipaf: 'IPAF',
-}
-/** Two are names, so they keep their capitals mid-sentence: "needs working at height and IPAF". */
-export const certificateName = (kind: CertificateKind) => (kind === 'safe-pass' || kind === 'ipaf' ? CERTIFICATE_LABELS[kind] : CERTIFICATE_LABELS[kind].toLowerCase())
-/** The thing itself, as a sentence says someone has it or not: "Tadhg Brady's manual handling certificate ran out". */
-export const CERTIFICATE_WORDS: Record<CertificateKind, string> = {
-  'first-aid': 'first aid certificate',
-  'manual-handling': 'manual handling certificate',
-  'driving-licence': 'driving licence',
-  'safe-pass': 'Safe Pass',
-  'working-at-height': 'working at height certificate',
-  ipaf: 'IPAF',
-}
-/** Each kind once, in the list's order, whatever order they were ticked or sent in. */
-export const tidyNeeds = (needs: readonly string[] | null | undefined): CertificateKind[] => CERTIFICATE_KINDS.filter((k) => needs?.includes(k))
-/** "working at height and IPAF". */
-export function needsLabel(needs: readonly CertificateKind[]): string {
-  const names = tidyNeeds(needs).map(certificateName)
-  return names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
-}
-const needs = z.array(z.enum(CERTIFICATE_KINDS)).max(CERTIFICATE_KINDS.length)
-
-/** One certificate: held, not held, or unknown (null), with an expiry day where there is one. */
-export const certificate = z.object({ held: z.boolean().nullable(), expires: day.nullable(), note: text(200, 'The note') })
-export type Certificate = z.infer<typeof certificate>
-/** By kind; a kind that isn't there is unknown. */
-export const certificates = z.partialRecord(z.enum(CERTIFICATE_KINDS), certificate)
-export type Certificates = z.infer<typeof certificates>
-
-/** The kinds that came with ADR 0028, which a version of the app from before can't send. */
-const LATER_KINDS: readonly CertificateKind[] = ['safe-pass', 'working-at-height', 'ipaf']
+/** How a freelancer works for us: as a sole trader or through a company (ADR 0184). */
+export const TRADES_AS = ['sole-trader', 'company'] as const
+export type TradesAs = (typeof TRADES_AS)[number]
+export const TRADES_AS_LABELS: Record<TradesAs, string> = { 'sole-trader': 'Sole trader', company: 'Company' }
 
 /**
- * A person's certificates after an edit, on the server and on a device
- * alike. This version's form sends every kind. One from before sends only
- * the three it knows, and leaves one out to clear it: so a kind left out
- * is kept only if it came later, and an edit that sends none keeps them all.
+ * How a freelancer trades (ADRs 0025, 0184): a sole trader, VAT-registered
+ * or not, with a VAT number if so; or a company, with its name, CRO number
+ * and VAT number. `as` and `vatRegistered` are optional so a copy from
+ * before they were asked reads as a company with VAT-registered derived
+ * from the number, as it always did.
  */
-export function certificatesAfter(was: Certificates | undefined, sent: Certificates | undefined): Certificates {
-  if (!sent) return was ?? {}
-  const kept = LATER_KINDS.filter((k) => was?.[k] && !(k in sent)).map((k) => [k, was![k]] as const)
-  return { ...Object.fromEntries(kept), ...sent }
-}
-
-/** The company a freelancer trades through. VAT-registered is derived: a VAT number is held. */
 export const company = z.object({
+  as: z.enum(TRADES_AS).nullable().optional(),
   name: text(200, 'The company name'),
   vatNumber: text(40, 'The VAT number').nullable(),
   croNumber: text(40, 'The CRO number').nullable(),
+  /** A sole trader's answer to "VAT registered?": null is not asked. A company's is read from its VAT number. */
+  vatRegistered: z.boolean().nullable().optional(),
 })
 export type Company = z.infer<typeof company>
 
@@ -197,72 +130,6 @@ const knownAs = text(100, 'The name they go by').nullable()
 // Trimmed, so spaces alone are no first name.
 const givenName = z.string().transform((s) => s.trim()).pipe(needed(100, 'The first name', 'A first name'))
 const familyName = z.string().transform((s) => s.trim()).pipe(text(100, 'The last name'))
-
-/**
- * Words that start a last name rather than end a first one, as Irish and
- * other names have them: "Seán Ó Briain", "Áine Nic Dhonnchadha", "Jan van
- * der Berg". Each as it's usually written, capitalised and in capitals, and
- * matched exactly, so the server's own split of the names already held
- * (crew/schema.ts) reads them the same way, whatever its database's locale.
- */
-const PARTICLES = ['ó', 'ní', 'nic', 'mac', 'mc', 'ua', 'uí', 'mhic', 'o', 'de', 'van', 'von', 'der', 'den', 'da', 'di', 'du', 'le', 'la', 'del', 'della', 'st', 'st.']
-export const NAME_PARTICLES: readonly string[] = [...new Set(PARTICLES.flatMap((w) => [w, w[0]!.toUpperCase() + w.slice(1), w.toUpperCase()]))]
-const PARTICLE = new Set(NAME_PARTICLES)
-/**
- * "an" and "na", which carry a last name on after a word that starts one: "Pádraig Mac an tSaoi", "Seosamh Mac na
- * Mara". Only after one, so a first name is never cut short by them alone (audit, 20 October 2026, finding 85).
- */
-const ARTICLES = ['an', 'na']
-export const NAME_ARTICLES: readonly string[] = [...new Set(ARTICLES.flatMap((w) => [w, w[0]!.toUpperCase() + w.slice(1), w.toUpperCase()]))]
-const ARTICLE = new Set(NAME_ARTICLES)
-
-export interface NameParts {
-  firstName: string
-  lastName: string
-}
-
-/**
- * A whole name as a first and a last name: the last word is the last name,
- * with any words before it that start one ("Ó", "Mac", "van", "Mac an"); one word is a
- * first name alone. Names typed before the two were asked for are split this
- * way, and the office corrects any it gets wrong.
- */
-export function splitName(name: string): NameParts {
-  const words = name.trim().split(/\s+/).filter(Boolean)
-  if (words.length < 2) return { firstName: words[0] ?? '', lastName: '' }
-  let i = words.length - 1
-  for (;;) {
-    if (i > 1 && PARTICLE.has(words[i - 1]!)) i--
-    else if (i > 2 && ARTICLE.has(words[i - 1]!) && PARTICLE.has(words[i - 2]!)) i -= 2
-    else break
-  }
-  return { firstName: words.slice(0, i).join(' '), lastName: words.slice(i).join(' ') }
-}
-
-/** The whole name, as lists, call sheets and messages show it: "Seán Ó Briain", or the first name alone. */
-export function fullName(p: NameParts): string {
-  return [p.firstName.trim(), p.lastName.trim()].filter(Boolean).join(' ')
-}
-
-/** A person's first and last name: as held, or split from the whole name for a record from before they were (or a copy that lacks them). */
-export function nameParts(p: { name: string; firstName?: string; lastName?: string }): NameParts {
-  return p.firstName?.trim() ? { firstName: p.firstName.trim(), lastName: p.lastName?.trim() ?? '' } : splitName(p.name)
-}
-
-/**
- * The name a change to someone's details leaves them with, on the server and
- * on a device alike. The whole name is the one sent. A first and last name
- * sent with it are kept when they make it, as the form sends them. A whole
- * name alone (an older version of the app, a calendar or crew-list bring-in),
- * or with two that no longer make it, keeps the two they have when it's the
- * name they had, and is split otherwise.
- */
-export function namesAfter(a: { name: string; firstName?: string; lastName?: string }, was: { name: string; firstName?: string; lastName?: string } | undefined): NameParts & { name: string } {
-  const sent = { firstName: a.firstName?.trim() ?? '', lastName: a.lastName?.trim() ?? '' }
-  if (sent.firstName && fullName(sent) === a.name.trim().replace(/\s+/g, ' ')) return { name: fullName(sent), ...sent }
-  const parts = was && was.name === a.name ? nameParts(was) : splitName(a.name)
-  return { name: a.name, ...parts }
-}
 
 export const person = z.object({
   id,
@@ -328,11 +195,21 @@ export const person = z.object({
   rateHidden: z.boolean().optional(),
   linkHidden: z.boolean().optional(),
   /**
+   * Set by the server alongside rateHidden (ADR 0184): how they trade, and their VAT and CRO numbers, go with their pay, so a
+   * reader who doesn't see their rate is sent none. Never stored.
+   */
+  companyHidden: z.boolean().optional(),
+  /**
    * Set by the server on what it sends staff crew and freelancers (ADR
    * 0062): someone else's email, notes and company are left out, and for a
    * freelancer their phone too. Never stored.
    */
   detailsHidden: z.boolean().optional(),
+  /**
+   * Set by the server alongside detailsHidden: their level is how much the office prefers them, and Level 0 is not vetted
+   * yet, so it's the office's, as the notes are, and sent as the default (audit, 5 November 2026, finding 44). Never stored.
+   */
+  levelHidden: z.boolean().optional(),
   /**
    * Their photo (ADR 0065): when it was put up, which makes its address
    * (photoPath). Set by the server, never by an edit; none is their
@@ -345,6 +222,11 @@ export const person = z.object({
    * aoife.byrne@…). Sent only once true; none is not yet.
    */
   nameChecked: z.boolean().optional(),
+  /**
+   * They turned off offers on WhatsApp (ADR 0125), on their own page, or the office did when they asked. Sent only once
+   * true: everyone else gets them, once the office has WhatsApp on.
+   */
+  whatsappOff: z.boolean().optional(),
 })
 export type Person = z.infer<typeof person>
 
@@ -353,15 +235,37 @@ export function firstName(p: Pick<Person, 'name'> & Partial<Pick<Person, 'knownA
   return p.knownAs?.trim() || p.firstName?.trim() || p.name.trim().split(/\s+/)[0] || p.name
 }
 
-/** A freelancer who charges VAT: the invoicing work reads this. */
+/** A freelancer who charges VAT: the invoicing work reads this. Said yes to, or a VAT number held. */
 export function isVatRegistered(p: Pick<Person, 'company'>): boolean {
-  return !!p.company?.vatNumber?.trim()
+  return p.company?.vatRegistered === true || !!p.company?.vatNumber?.trim()
+}
+
+/**
+ * How they trade after an edit (ADR 0184): unchanged when the edit says nothing (undefined), cleared by null, and otherwise as
+ * sent, keeping sole trader or company and the VAT answer when an edit from a version that doesn't ask them leaves them out.
+ */
+export function companyAfter(was: Company | null, sent: Company | null | undefined): Company | null {
+  if (sent === undefined) return was
+  if (sent === null) return null
+  const as = sent.as !== undefined ? sent.as : (was?.as ?? undefined)
+  const vatRegistered = sent.vatRegistered !== undefined ? sent.vatRegistered : (was?.vatRegistered ?? undefined)
+  const { as: _a, vatRegistered: _v, ...rest } = sent
+  return { ...(as ? { as } : {}), ...rest, ...(vatRegistered !== undefined && vatRegistered !== null ? { vatRegistered } : {}) }
+}
+
+/** How they trade: as said, or a company for a record from before it was asked (it came in as one). Null for none. */
+export function tradesAs(p: Pick<Person, 'company'>): TradesAs | null {
+  return p.company ? (p.company.as ?? 'company') : null
 }
 
 /** "Trades as Quinn Audio Ltd, VAT-registered"; empty when there's no company. */
 export function companyLine(p: Pick<Person, 'company'>): string {
   if (!p.company) return ''
   const name = p.company.name.trim()
+  if (tradesAs(p) === 'sole-trader') {
+    const vat = isVatRegistered(p) ? 'VAT-registered' : p.company.vatRegistered === false ? 'not VAT-registered' : ''
+    return ['Sole trader', vat].filter(Boolean).join(', ')
+  }
   const parts = [name ? `Trades as ${name}` : 'Trades through a company', isVatRegistered(p) ? 'VAT-registered' : '']
   return parts.filter(Boolean).join(', ')
 }
@@ -420,10 +324,15 @@ export const crewCall = z.object({
   department: department.optional(),
   /** Set by the server on what it sends a role that doesn't read rates (ADR 0046): the rate is left out. Never stored. */
   rateHidden: z.boolean().optional(),
+  /**
+   * The day it was cancelled along with its job (ADR 0164; audit of 12 November 2026, finding 19): once the job is going
+   * again, its Crew tab offers to ask for the same crew again. Absent on any other call, and once it's asked for again.
+   */
+  stoppedOn: day.optional(),
 })
 export type CrewCall = z.infer<typeof crewCall>
 /** A call's department, reading one synced before as having none. */
-export const departmentOf = (c: Pick<CrewCall, 'department'>): string | null => c.department ?? null
+export const departmentOf = (c: Pick<CrewCall, 'department'>): string | null => (c.department ? tidyDepartment(c.department) : null)
 /** What a call needs, reading one synced before as needing nothing. */
 export const needsOf = (c: Pick<CrewCall, 'needsCertificates'>): CertificateKind[] => tidyNeeds(c.needsCertificates)
 
@@ -441,12 +350,15 @@ export const OFFER_STATUSES = [
   'filled',
   /** Ops withdrew it, or the call was cancelled. */
   'cancelled',
-  /** Had accepted, or was booked, then said they can't make it any more. The office finds cover. */
+  /** Had accepted, or was booked, then said they can't make it. The office finds cover. */
   'pulled-out',
 ] as const
 export type OfferStatus = (typeof OFFER_STATUSES)[number]
 
 /** An offer is also the crew assignment once accepted and confirmed. */
+/** The WhatsApps that follow an offer (ADR 0154), as the server keeps them: going ahead, off, booked, a new call time, not needed. */
+export const WHATSAPP_AFTER = ['confirmed', 'cancelled', 'booked', 'call-time', 'not-needed'] as const
+
 export const offer = z.object({
   id,
   callId: id,
@@ -454,13 +366,22 @@ export const offer = z.object({
   status: z.enum(OFFER_STATUSES),
   /** The days this person is on for. All the call's days unless they took only some. */
   days: z.array(day),
+  /**
+   * On an offer they've said yes to in Google Calendar for some of its days: the days still asked, which they haven't
+   * answered (ADR 0152). A Yes counts for the day it was pressed on, so these hold nothing. Absent when there are none.
+   */
+  asked: z.array(day).optional(),
   /** The agreed rate; starts as the call's rate, changes if a counter is agreed. */
   dayRateCents: cents.nullable(),
+  /**
+   * The rate they asked for. On an offer back to offered, it is the rate the office said no to, with the offer standing
+   * at `dayRateCents` (ADR 0152).
+   */
   counterRateCents: cents.nullable(),
   /** What the freelancer said when answering, for ops to read. */
   note: text(1000, 'The note'),
   respondedAt: z.string().nullable(),
-  respondedVia: z.enum(['link', 'app', 'calendar', 'ops']).nullable(),
+  respondedVia: z.enum(['link', 'app', 'calendar', 'ops', 'whatsapp']).nullable(),
   /** Sent despite a clash or marked day off; kept for the audit trail. */
   override: z.boolean(),
   /**
@@ -469,8 +390,32 @@ export const offer = z.object({
    * through Confirm and Withdraw instead. Missing on offers synced before.
    */
   seenAt: z.string().nullable(),
+  /**
+   * Where the offer's WhatsApp message has got to (ADR 0125): queued, sent, delivered to their phone, read, or not sent
+   * and why. Set by the server from Meta's receipts; absent when nothing went on WhatsApp.
+   */
+  whatsapp: z.object({ state: z.enum(['queued', 'sent', 'delivered', 'read', 'failed']), at: z.string(), problem: z.string().nullable() }).optional(),
+  /**
+   * Where the newest WhatsApp that followed the offer has got to (ADR 0154; audit of 12 November 2026, at 2): that they're
+   * booked, the new call time, that they're no longer needed, or that the job is going ahead or off. Set by the server;
+   * absent when none has followed.
+   */
+  whatsappAfter: z
+    .object({ kind: z.enum(WHATSAPP_AFTER), state: z.enum(['queued', 'sent', 'delivered', 'read', 'failed']), at: z.string(), problem: z.string().nullable() })
+    .optional(),
+  /**
+   * On a job brought in from Google Calendar, an offer with no calendar invite of its own (ADR 0157): `organiser`, it came
+   * in with the job, from the guests the organiser invited; `before`, it was made before such jobs had their own. Set by
+   * the server; absent otherwise.
+   */
+  noOwnInvite: z.enum(['organiser', 'before']).optional(),
   /** Set by the server on what it sends a role that doesn't read rates (ADR 0046): both rates are left out. Never stored. */
   rateHidden: z.boolean().optional(),
+  /**
+   * The day it was cancelled along with its job (ADR 0164): it was still open or booked then, so its person is picked again
+   * when the same crew are asked for again. Absent on an offer that ended any other way.
+   */
+  stoppedOn: day.optional(),
 })
 export type Offer = z.infer<typeof offer>
 
@@ -482,12 +427,60 @@ export interface CrewEntities {
 }
 export const CREW_ENTITY_NAMES = ['person', 'unavailability', 'crewCall', 'offer'] as const
 
+/**
+ * How long an offer made by Offer can be undone, counted from the press, before its invites and WhatsApp go (ADR 0162;
+ * audit of 12 November 2026, finding 13): long enough to see a wrong pick and press Undo, short enough that nobody waits on
+ * it.
+ */
+export const OFFER_WAIT_SECONDS = 30
+/**
+ * The server holds what an offer sends this much longer than the panel offers Undo (ADR 0162), so an Undo pressed in the
+ * last second, on a slow connection, still reaches it before anything goes.
+ */
+export const OFFER_WAIT_GRACE_SECONDS = 5
+
 /** Offers that hold a person's days. */
 export const HOLDING: readonly OfferStatus[] = ['accepted', 'confirmed']
 /** Offers still waiting on someone. */
 export const OPEN: readonly OfferStatus[] = ['offered', 'countered']
 /** Offers a change to the call still reaches: waiting on someone, or holding days. */
 export const LIVE: readonly OfferStatus[] = ['offered', 'countered', 'accepted', 'confirmed']
+
+/**
+ * The rates still asked for that close unanswered if the office confirms this offer (ADR 0152). Someone's yes no longer
+ * closes a rate asked for when it fills the call: the office's Confirm does, once every day has the people it needs, so
+ * it's said before the press. Nothing when confirming leaves a day short, or the offer isn't one to confirm.
+ */
+export function ratesClosedBy<O extends Pick<Offer, 'id' | 'personId' | 'status' | 'days'>>(
+  call: Pick<CrewCall, 'start' | 'end' | 'needed'>,
+  offers: readonly O[],
+  offerId: string
+): O[] {
+  return fillsCall(call, offers, offerId) ? offers.filter((o) => o.status === 'countered' && o.id !== offerId) : []
+}
+
+/**
+ * The offers still waiting on an answer that close, filled by someone else, when the office's Confirm or Agree fills the
+ * call (audit of 12 November 2026, the gap ADR 0154 left at 2): the server closes them as the call fills, as it does at a
+ * yes that fills it, so it's said before the press, beside the rates asked for (ratesClosedBy).
+ */
+export function waitingClosedBy<O extends Pick<Offer, 'id' | 'personId' | 'status' | 'days'>>(
+  call: Pick<CrewCall, 'start' | 'end' | 'needed'>,
+  offers: readonly O[],
+  offerId: string
+): O[] {
+  return fillsCall(call, offers, offerId) ? offers.filter((o) => o.status === 'offered' && o.id !== offerId) : []
+}
+
+/** Whether confirming this offer, a yes or a rate asked for, leaves every day of the call with the people it needs, as the server reads it. */
+function fillsCall(call: Pick<CrewCall, 'start' | 'end' | 'needed'>, offers: readonly Pick<Offer, 'id' | 'personId' | 'status' | 'days'>[], offerId: string): boolean {
+  const confirming = offers.find((o) => o.id === offerId)
+  if (!confirming || (confirming.status !== 'accepted' && confirming.status !== 'countered')) return false
+  const held: Record<string, Set<string>> = {}
+  for (const d of eachDay(call.start, call.end)) held[d] = new Set()
+  for (const o of offers) if (HOLDING.includes(o.status) || o.id === offerId) for (const d of o.days) held[d]?.add(o.personId)
+  return Object.values(held).every((who) => who.size >= call.needed)
+}
 
 /** A field-by-field change must name at least one field; shared with the job and phase changes. */
 export const somethingToChange = [(u: Record<string, unknown>) => Object.keys(u).some((k) => k !== 'id' && u[k] !== undefined), { message: 'Nothing to change.' }] as const
@@ -530,6 +523,11 @@ export const crewCommandSchemas = {
     company: company.nullable().optional(),
     /** True from Jobs › Tidy up when the office names someone (ADR 0068). Never unset: left out or false, what the server has stays. */
     nameChecked: z.boolean().optional(),
+    /**
+     * The email it replaces stays one they're found by (ADR 0055), as Make main and combining keep it: a crew list brought in
+     * again with a new address for someone (audit, 5 November 2026, finding 10). Left out, a changed email replaces the old one.
+     */
+    keepEmail: z.boolean().optional(),
   }),
   /** Move a person up or down a level from their card, so the history says so by name (ADR 0025). */
   'person.level': z.object({ id, level }),
@@ -549,6 +547,11 @@ export const crewCommandSchemas = {
   'person.contact': z
     .object({ id, email: contactEmail.optional(), phone: contactPhone.optional() })
     .refine((c) => c.email !== undefined || c.phone !== undefined, { message: 'Nothing to change.' }),
+  /**
+   * Whether offers reach this person on WhatsApp (ADR 0125). Theirs to choose, on their own page; the office can turn
+   * them off when asked, but only they can turn them back on.
+   */
+  'person.whatsapp': z.object({ id, on: z.boolean() }),
   'unavailability.add': z
     .object({ id, personId: id, start: day, end: day, note: text(500, 'The note') })
     .refine((u) => u.start <= u.end, { message: 'The days off end before they start.' }),
@@ -607,6 +610,11 @@ export const crewCommandSchemas = {
     .refine((c) => !c.start || !c.end || c.start <= c.end, { message: 'The call ends before it starts.' }),
   'call.cancel': z.object({ id }),
   /**
+   * Ask for a call cancelled along with its job again, now the job is going again (ADR 0164): it's open, with nobody
+   * offered, and its old offers stay as they ended. A call cancelled on its own stays cancelled.
+   */
+  'call.reopen': z.object({ id }),
+  /**
    * Give many calls one department at once (ADR 0046), such as the calls
    * brought in from the calendar with none: "Audio" for every one ticked.
    */
@@ -614,12 +622,34 @@ export const crewCommandSchemas = {
   /**
    * Offer a call to one person. Send several for a shortlist: whoever
    * accepts first gets the place, and the rest are told it has been filled.
+   * Its invites and WhatsApp wait OFFER_WAIT_SECONDS (and the grace), so a wrong pick can be
+   * taken back first (offer.undo, ADR 0162).
    */
   'offer.send': z.object({ id, callId: id, personId: id, override: z.boolean() }),
-  /** The freelancer's answer, from their link or the app. */
+  /**
+   * Take back an offer just made, before anything of the app's has gone to its person (ADR 0162): it's gone, as if never
+   * made, with no cancellation to send. Only while it waits and nobody has answered; after that it's withdrawn instead.
+   */
+  'offer.undo': z.object({ id }),
+  /** The freelancer's answer, from their link, the app or Google Calendar. */
   'offer.respond': z.discriminatedUnion('answer', [
-    z.object({ id, answer: z.literal('accept'), days: offerDays, note: text(1000, 'The note') }),
+    z.object({
+      id,
+      answer: z.literal('accept'),
+      days: offerDays,
+      note: text(1000, 'The note'),
+      /**
+       * The days still asked, not yet answered, after a Yes in Google Calendar to some days (ADR 0152). Only the calendar
+       * sends it: an answer on their page or in the app is for every day.
+       */
+      asked: z.array(day).max(MAX_OFFER_DAYS).optional(),
+    }),
     z.object({ id, answer: z.literal('decline'), note: text(1000, 'The note') }),
+    /**
+     * A No in Google Calendar to every day they had said yes to, with days they haven't answered: the offer is open again
+     * for those days, as it was before their yes (ADR 0152). Only the calendar sends it.
+     */
+    z.object({ id, answer: z.literal('undecided'), days: z.array(day).min(1).max(MAX_OFFER_DAYS), note: text(1000, 'The note') }),
     z.object({
       id,
       answer: z.literal('counter'),
@@ -627,127 +657,23 @@ export const crewCommandSchemas = {
       days: offerDays,
       note: text(1000, 'The note'),
     }),
-    /** Can't make it any more, having accepted or been booked: the place is free again and the office finds cover. */
+    /** Can't make it, having accepted or been booked: the place is free again and the office finds cover. */
     z.object({ id, answer: z.literal('pullOut'), note: text(1000, 'The note') }),
   ]),
-  /** Ops confirm an acceptance, or agree a counter-offer at the asked rate. */
+  /**
+   * Ops confirm an acceptance, or agree a counter-offer at the asked rate. Confirming books the days they said yes to and
+   * ends the ask for any they haven't answered; once the call is full, a rate still asked for closes with it (ADR 0152).
+   */
   'offer.confirm': z.object({ id }),
+  /**
+   * Ops say no to the rate asked for (ADR 0152): the offer stands at the rate offered, for the days the rate was asked for,
+   * for them to take or turn down. Withdrawing it is offer.cancel.
+   */
+  'offer.refuse': z.object({ id }),
   'offer.cancel': z.object({ id }),
   /** The office has seen a decline or a pull-out, so it leaves "Answers to check". */
   'offer.seen': z.object({ id }),
 } as const
-
-/** Every day from start to end, inclusive. */
-export function eachDay(start: string, end: string): string[] {
-  const out: string[] = []
-  const d = new Date(`${start}T00:00:00Z`)
-  for (let i = 0; i < 400; i++) {
-    const s = d.toISOString().slice(0, 10)
-    if (s > end) break
-    out.push(s)
-    d.setUTCDate(d.getUTCDate() + 1)
-  }
-  return out
-}
-
-const dayMs = 86_400_000
-const shiftDay = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * dayMs).toISOString().slice(0, 10)
-
-/** How many days `to` is after `from`; negative when before. */
-export function daysBetween(from: string, to: string): number {
-  return Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / dayMs)
-}
-
-/**
- * The day to ask for an answer by, offered when a call is made (audit
- * finding 21): two days before the first day, or the day before when the
- * job is close, so an answer comes before the job does; none for a job
- * that's over, which a reply-by can't come after. The office can clear it
- * or pick another.
- */
-export function suggestedReplyBy(start: string, end: string, today: string): string | null {
-  if (end < today) return null
-  // Two days before only while that leaves a day to answer in; a job that starts today, or has started, wants its answers today.
-  const twoBefore = shiftDay(start, -2)
-  const day = twoBefore > today ? twoBefore : shiftDay(start, -1)
-  return day > today ? day : today
-}
-
-/**
- * Whether a phase's new span holds the whole of its old one: it got longer
- * at one end or both, but didn't move, so nothing on it needs to.
- */
-export function phaseOnlyGrew(from: { start: string; end: string }, to: { start: string; end: string }): boolean {
-  return to.start <= from.start && to.end >= from.end
-}
-
-/**
- * Where a call lands when its phase moves: shifted by the same number of
- * days as the phase's start. A call that was inside the phase stays inside
- * it, cut to the phase's new span, or given the phase's days when none of
- * its own fit; a call that was already outside its phase just moves with
- * it. A phase that only grows hasn't moved, so its calls stay where they
- * are: the crew keep the days they agreed. The server and the device's
- * view work it out the same way.
- */
-export function movedCallSpan(
-  call: { start: string; end: string },
-  from: { start: string; end: string },
-  to: { start: string; end: string }
-): { start: string; end: string } {
-  if (phaseOnlyGrew(from, to)) return { start: call.start, end: call.end }
-  const shift = daysBetween(from.start, to.start)
-  let start = shiftDay(call.start, shift)
-  let end = shiftDay(call.end, shift)
-  if (call.start < from.start || call.end > from.end) return { start, end }
-  if (start < to.start) start = to.start
-  if (end > to.end) end = to.end
-  return start > end ? { start: to.start, end: to.end } : { start, end }
-}
-
-/**
- * An offer's days once its call's days change: all the new days when it
- * held all the old ones, otherwise the days the person chose that are
- * still in range. When the whole job has moved, `shift` moves the chosen
- * days with it first, so the second day's person is still on the second
- * day. Empty means the person would be left with nothing, which the server
- * refuses for anyone booked rather than quietly un-booking them.
- */
-export function offerDaysAfter(held: readonly string[], oldDays: readonly string[], newDays: readonly string[], shift = 0): string[] {
-  if (oldDays.every((d) => held.includes(d))) return [...newDays]
-  return held.map((d) => (shift ? shiftDay(d, shift) : d)).filter((d) => newDays.includes(d))
-}
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-/**
- * "Fri 3 Oct", the way crew write dates. Built by hand so it reads the same on every phone. Given today, a day outside
- * this calendar year or more than six months from today carries its year, "Sun 25 Jan 2026", so a page that runs from
- * April to March, or a timesheet approved last year, says which year it means (audit, 20 October 2026, finding 89).
- */
-export function dayLabel(d: string, today?: string): string {
-  const date = new Date(`${d}T12:00:00Z`)
-  const label = `${WEEKDAYS[date.getUTCDay()]} ${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`
-  return today && (d.slice(0, 4) !== today.slice(0, 4) || Math.abs(daysBetween(today, d)) > HALF_A_YEAR) ? `${label} ${d.slice(0, 4)}` : label
-}
-
-/** More than this many days from today, a date says its year. */
-const HALF_A_YEAR = 183
-
-export function daysLabel(days: string[], today?: string): string {
-  if (days.length === 0) return ''
-  const sorted = [...days].sort()
-  const all = eachDay(sorted[0]!, sorted[sorted.length - 1]!)
-  const label = (d: string) => dayLabel(d, today)
-  if (all.length === sorted.length && sorted.length > 1) return `${label(sorted[0]!)} to ${label(sorted[sorted.length - 1]!)}`
-  return sorted.map(label).join(', ')
-}
-
-export function euro(c: number | null | undefined): string {
-  if (c === null || c === undefined) return 'rate to agree'
-  return `€${(c / 100).toFixed(c % 100 === 0 ? 0 : 2)}`
-}
 
 /**
  * Who a message is to. Staff are paid through payroll, so no message to
@@ -755,18 +681,64 @@ export function euro(c: number | null | undefined): string {
  */
 type Addressee = Pick<Person, 'name' | 'kind'> & Partial<Pick<Person, 'knownAs'>>
 
+/** A freelancer's own day rate at so many percent of it (ADR 0174), to the cent; null for staff or no own rate. */
+const ownAt = (p: Pick<Person, 'kind' | 'dayRateCents'>, pct: number) => (p.kind === 'freelancer' && p.dayRateCents !== null ? Math.round((p.dayRateCents * pct) / 100) : null)
+
+/**
+ * The day rate an offer is made at (ADR 0167): the call's, or a freelancer's own day rate where it's above it, or where the
+ * call has none. The client is still charged the quote's price, so the difference comes out of the margin. Staff are paid
+ * through payroll, so an own rate never applies to them; and an own rate below the call's never lowers it.
+ *
+ * On a travel or warehouse day (ADR 0174) the call's rate is already its share of the standard rate, so `pct` takes the
+ * same share of the own rate: half of it unless the office says otherwise. 100 everywhere else.
+ */
+export function offerRateFor(callCents: number | null, p: Pick<Person, 'kind' | 'dayRateCents'>, pct = 100): number | null {
+  const own = ownAt(p, pct)
+  if (own === null) return callCents
+  return callCents === null ? own : Math.max(callCents, own)
+}
+
+/**
+ * Whether picking this person costs more than the job allowed for (ADR 0167): their own rate is what they'd be offered and
+ * it's above `allowed`, the call's rate, or what the quote charges for the role when the call has none. Undefined when it
+ * isn't, or nothing is known to compare it with.
+ */
+export function ownRateAbove(
+  callCents: number | null,
+  quotedCents: number | undefined,
+  p: Pick<Person, 'kind' | 'dayRateCents'>,
+  pct = 100
+): { own: number; allowed: number; against: 'call' | 'quote' } | undefined {
+  const own = ownAt(p, pct)
+  if (own === null) return undefined
+  if (callCents !== null) return own > callCents ? { own, allowed: callCents, against: 'call' } : undefined
+  return quotedCents !== undefined && own > quotedCents ? { own, allowed: quotedCents, against: 'quote' } : undefined
+}
+
+/**
+ * A yes from a freelancer with no day rate agreed (user flows of 13 November 2026, finding 3): confirming books them with the
+ * rate still to agree, so the office is asked first. Staff aren't paid by the day, and a rate this device isn't sent is set.
+ */
+export const yesWithNoRate = (o: Pick<Offer, 'status' | 'dayRateCents'> & { rateHidden?: boolean; person?: Pick<Person, 'kind'> | null }) =>
+  o.status === 'accepted' && o.dayRateCents === null && !o.rateHidden && o.person?.kind !== 'staff'
+
 /** "€320 a day", or "rate to agree"; a rate this device isn't sent (ADR 0046) is on the person's own page instead. */
 const rateLine = (c: Pick<CrewCall, 'dayRateCents'> & Partial<Pick<CrewCall, 'rateHidden'>>) =>
   c.rateHidden ? 'The rate is on your page' : `${euro(c.dayRateCents)}${c.dayRateCents !== null ? ' a day' : ''}`
 
 /**
  * The message ops paste into WhatsApp, SMS or email. Everything a freelancer
- * needs to decide is in it; the link is for answering.
+ * needs to decide is in it; the link is for answering. For a job the client
+ * hasn't said yes to yet (`hold`), it asks them to hold the day, and says that
+ * nothing is booked until the client does (ADR 0150).
  */
-export function offerMessage(p: Addressee, c: CrewCall, link: string): string {
+export function offerMessage(p: Addressee, c: CrewCall, link: string, hold = false): string {
   const first = firstName(p)
+  const job = `${c.project}${c.phase ? ` (${c.phase})` : ''}`
   const lines = [
-    `Hi ${first}, are you free for ${c.project}${c.phase ? ` (${c.phase})` : ''}?`,
+    hold
+      ? `Hi ${first}, can you hold ${c.start === c.end ? 'the day' : 'the days'} for ${job}? The client hasn't said yes yet, so nothing is booked until they do.`
+      : `Hi ${first}, are you free for ${job}?`,
     `${c.role}, ${daysLabel(eachDay(c.start, c.end))}${c.callTime ? `, call ${c.callTime}` : ''}`,
     c.venue ? `At ${c.venue}` : '',
     p.kind === 'staff' ? '' : rateLine(c),
@@ -776,6 +748,92 @@ export function offerMessage(p: Addressee, c: CrewCall, link: string): string {
     `Accept, decline or pick days here: ${link}`,
   ]
   return lines.filter(Boolean).join('\n')
+}
+
+/** The name the offer's template is approved under in Meta's WhatsApp Manager (ADR 0125); its words are in docs/whatsapp-setup.md. */
+export const WHATSAPP_OFFER_TEMPLATE = 'job_offer'
+/** The follow-up when a job they were asked to hold the day for is confirmed, some time after (ADR 0125, HOLD). */
+export const WHATSAPP_CONFIRMED_TEMPLATE = 'job_confirmed'
+/** The word when a job they were asked for or booked on is cancelled or lost (ADR 0125, HOLD). */
+export const WHATSAPP_CANCELLED_TEMPLATE = 'job_cancelled'
+/** They're booked: the office confirmed them on a job the client has said yes to, or the client said yes after (ADR 0154). */
+export const WHATSAPP_BOOKED_TEMPLATE = 'job_booked'
+/** The call time of a call they're asked for or booked on has moved (ADR 0154). */
+export const WHATSAPP_CALL_TIME_TEMPLATE = 'job_call_time'
+/** Their offer ended on the office's side: filled by someone else, or withdrawn by the office (ADR 0154). */
+export const WHATSAPP_NOT_NEEDED_TEMPLATE = 'job_not_needed'
+/**
+ * A job the client hasn't said yes to yet: crew asked for it are asked to hold the day, and their messages say HOLD.
+ * HOLD is short for "hold the day", never the job being on hold (Colly, 12 November 2026; ADR 0150, `HOLD_WORDS`).
+ */
+export const jobOnHold = (status: string | undefined) => status === 'enquiry' || status === 'quoted'
+
+/** Where an offer's WhatsApp message has got to, in a few words for the offer's row (ADR 0125). */
+export function whatsappWords(w: NonNullable<Offer['whatsapp']>): string {
+  return { queued: 'going on WhatsApp', sent: 'sent on WhatsApp', delivered: 'delivered on WhatsApp', read: 'read on WhatsApp', failed: 'not sent on WhatsApp' }[w.state]
+}
+
+/**
+ * The blanks in the offer's WhatsApp template (ADR 0125), in order, the same facts as offerMessage's: their first name,
+ * the job, the role (with any card it needs), the days, the call time, the venue, the rate and the day to answer by.
+ * Meta takes no blank empty and none with a line break in it, so a fact not set yet says so in words.
+ */
+export function offerTemplateValues(p: Addressee, c: CrewCall, hold = false): string[] {
+  const needs = needsOf(c).length ? ` (needs ${needsLabel(needsOf(c))})` : ''
+  return [
+    firstName(p),
+    // Before the client says yes, the job leads with HOLD, as its days do on the calendar (ADR 0008).
+    heldJobWords(c, hold),
+    `${c.role}${needs}`,
+    daysLabel(eachDay(c.start, c.end)),
+    c.callTime || 'to be confirmed',
+    c.venue || 'to be confirmed',
+    p.kind === 'staff' ? 'as a member of staff' : rateLine(c),
+    c.replyBy ? dayLabel(c.replyBy) : 'as soon as you can',
+  ].map(oneLine)
+}
+
+const jobWords = (c: Pick<CrewCall, 'project' | 'phase'>) => `${c.project}${c.phase ? ` (${c.phase})` : ''}`
+/** The job as their offer named it: with HOLD before the client says yes, as the offer's message and their invites say it. */
+const heldJobWords = (c: Pick<CrewCall, 'project' | 'phase'>, hold: boolean) => `${hold ? 'HOLD ' : ''}${jobWords(c)}`
+
+/** Meta takes no blank with a line break in it, or empty. */
+const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+/** Their own days on a call: the days of their offer, or the call's when it names none. */
+const theirDays = (c: Pick<CrewCall, 'start' | 'end'>, days: readonly string[]) => daysLabel(days.length ? [...days] : eachDay(c.start, c.end))
+
+/**
+ * The blanks in the confirmed and cancelled templates (ADR 0125, HOLD): their first name, the job, and the days they
+ * were asked for, in one line each, as Meta wants them.
+ */
+export function followUpTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'start' | 'end'>, days: readonly string[]): string[] {
+  return [firstName(p), jobWords(c), theirDays(c, days)].map(oneLine)
+}
+
+/**
+ * The blanks in the booked template (ADR 0154), the facts of the offer for the days they're booked: their first name,
+ * the job, the role, the days, the call time and the venue, a fact not set yet said in words.
+ */
+export function bookedTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'role' | 'start' | 'end' | 'callTime' | 'venue'>, days: readonly string[]): string[] {
+  return [firstName(p), jobWords(c), c.role, theirDays(c, days), c.callTime || 'to be confirmed', c.venue || 'to be confirmed'].map(oneLine)
+}
+
+/**
+ * The blanks in the call time template (ADR 0154): their first name, the job, the call time as it is now, and their days.
+ * Before the client says yes, the job leads with HOLD, as it did in their offer.
+ */
+export function callTimeTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'start' | 'end' | 'callTime'>, days: readonly string[], hold = false): string[] {
+  return [firstName(p), heldJobWords(c, hold), c.callTime || 'to be confirmed', theirDays(c, days)].map(oneLine)
+}
+
+/**
+ * The blanks in the not needed template (ADR 0154): their first name, the job, their days, and why, in the words their
+ * page uses ("filled by someone else", "withdrawn by the office"). Never with HOLD: the day isn't theirs to hold any more,
+ * as their invite's last title says (endedTitle).
+ */
+export function notNeededTemplateValues(p: Addressee, c: Pick<CrewCall, 'project' | 'phase' | 'start' | 'end'>, days: readonly string[], why: string): string[] {
+  return [firstName(p), jobWords(c), theirDays(c, days), why].map(oneLine)
 }
 
 /** wa.me wants digits only, with the country code. Irish mobiles written 08x become +3538x. */
@@ -816,12 +874,19 @@ export const feedPath = (code: string) => `/cal/${code}.ics`
 export type TellEvent =
   /** Confirm, or a counter-offer agreed: it's a booking. */
   | 'confirmed'
-  /** An offer withdrawn before an answer, or a counter-offer turned down. */
+  /** An offer withdrawn before an answer, or a counter-offer withdrawn rather than answered. */
   | 'withdrawn'
+  /** The rate they asked for turned down, with the offer standing at the rate offered (ADR 0152). */
+  | 'rate-refused'
   /** Someone who had said yes, or was booked, is let go. */
   | 'released'
   /** The job is cancelled or lost, taking its crew calls with it. */
   | 'job-stopped'
+  /**
+   * The client said yes to a job its crew were asked to hold the day for (ADR 0168): those the office picked are booked,
+   * and everyone else asked hears it's going ahead.
+   */
+  | 'job-confirmed'
   /** One crew call cancelled. */
   | 'call-cancelled'
   /** The call's days, time, rate or details changed; the message reads them as they are now. */
@@ -833,13 +898,26 @@ export type TellEvent =
 
 /** What a message needs besides the person: the call as it stands, and the booking's own figures where they differ. */
 export interface TellContext {
-  call: Pick<CrewCall, 'id' | 'project' | 'phase' | 'role' | 'start' | 'end' | 'callTime' | 'venue' | 'dayRateCents'> & Partial<Pick<CrewCall, 'needsCertificates' | 'rateHidden'>>
+  call: Pick<CrewCall, 'id' | 'project' | 'phase' | 'role' | 'start' | 'end' | 'callTime' | 'venue' | 'dayRateCents'> & Partial<Pick<CrewCall, 'needsCertificates' | 'rateHidden' | 'projectId'>>
+  /** The job is one the client hasn't said yes to yet (ADR 0150): the office's pick is a hold on the day, not a booking, and the message says so. */
+  hold?: boolean
+  /** For a job confirmed while its crew held the day (ADR 0168): the office had picked them, so they're booked now. */
+  picked?: boolean
   /** For a changed call: the certificates it needed before, so the message says what it needs now, or no longer (ADR 0028). */
   neededBefore?: readonly CertificateKind[]
   /** The person's own days, when they took only some. */
   days?: readonly string[]
+  /** For a rate turned down: the rate they asked for (ADR 0152). */
+  askedRateCents?: number | null
+  /** For a rate turned down on a call that has filled meanwhile: the offer closes with it, rather than standing (ADR 0152). */
+  filled?: boolean
   /** The booking, for the timesheet's address. */
   offerId?: string
+  /**
+   * They had heard of the offer when the office pressed (ADR 0154, offerHeard): its WhatsApp went, none was made, or they'd
+   * answered. What follows it on WhatsApp goes only then.
+   */
+  heard?: boolean
   /** For a timesheet: the figures approved, in words ("2 days at €320, and €43.50 of extras: €683.50"). */
   summary?: string
   /** For a timesheet: what the office changed from what was sent, in words. */
@@ -862,19 +940,24 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
   const timesheet = `${link}/timesheet/${ctx.offerId ?? c.id}`
   const lines = (parts: (string | false | undefined | 0)[]) => parts.filter(Boolean).join('\n')
   switch (event) {
-    case 'confirmed':
+    case 'confirmed': {
+      const many = (ctx.days?.length ? ctx.days.length : eachDay(c.start, c.end).length) > 1
       return {
         text: lines([
-          `Hi ${first}, you're confirmed for ${job}.`,
+          // On a job the client hasn't agreed yet, the office's pick is a hold on the day, never "confirmed" (ADR 0150).
+          ctx.hold
+            ? `Hi ${first}, we have you down for ${job}, so please hold ${many ? 'the days' : 'the day'}. The client hasn't said yes yet: it's booked once they do.`
+            : `Hi ${first}, you're confirmed for ${job}.`,
           `${c.role}, ${when}`,
           c.venue && `At ${c.venue}`,
           rated && (c.dayRateCents !== null || c.rateHidden) && rateLine(c),
           `Your call sheet, with who's on and who to ring on the day, is here: ${link}/sheet/${c.id}`,
           'If anything changes on your side, let us know.',
         ]),
-        subject: `Confirmed: ${job}, ${when}`,
+        subject: `${ctx.hold ? 'Hold the day' : 'Confirmed'}: ${job}, ${when}`,
         what: 'confirmation',
       }
+    }
     case 'withdrawn':
       return {
         text: lines([`Hi ${first}, we've withdrawn the offer of ${c.role} on ${job}, ${when}, so there's nothing to answer.`, `Sorry for the bother, and ${next}`]),
@@ -885,16 +968,34 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
       return {
         text: lines([
           `Hi ${first}, sorry, we no longer need you for ${job}: ${c.role}, ${when}.`,
-          `It's off your page and your calendar feed, so there's nothing to do. Thanks for holding the days, and ${next}`,
+          `It's off your bookings and your calendar feed, so there's nothing to do. Thanks for holding the days, and ${next}`,
         ]),
         subject: `No longer needed: ${job}, ${when}`,
         what: 'release',
       }
+    case 'job-confirmed':
+      // Someone the office picked to hold the day is booked now; anyone else asked hears it's going ahead (ADR 0168).
+      return ctx.picked
+        ? {
+            text: lines([
+              `Hi ${first}, ${c.project} is confirmed: the client has said yes, so you're booked.`,
+              `${c.role}, ${when}`,
+              c.venue && `At ${c.venue}`,
+              `Your call sheet, with who's on and who to ring on the day, is here: ${link}/sheet/${c.id}`,
+            ]),
+            subject: `Booked: ${job}, ${when}`,
+            what: 'confirmation',
+          }
+        : {
+            text: lines([`Hi ${first}, ${c.project} is going ahead: the client has said yes.`, `${c.role}, ${when}`, `The details are on your page: ${link}`]),
+            subject: `Going ahead: ${job}, ${when}`,
+            what: 'update',
+          }
     case 'job-stopped':
       return {
         text: lines([
           `Hi ${first}, ${c.project} isn't going ahead, so ${c.role} on ${when} is off. Sorry about that.`,
-          `It's off your page and your calendar feed. Thanks, and ${next}`,
+          `It's off your bookings and your calendar feed. Thanks, and ${next}`,
         ]),
         subject: `Not going ahead: ${c.project}, ${when}`,
         what: 'cancellation',
@@ -903,7 +1004,7 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
       return {
         text: lines([
           `Hi ${first}, we no longer need ${c.role} on ${job}, ${when}, so that's off. Sorry about that.`,
-          `It's off your page and your calendar feed. Thanks, and ${next}`,
+          `It's off your bookings and your calendar feed. Thanks, and ${next}`,
         ]),
         subject: `Cancelled: ${job}, ${when}`,
         what: 'cancellation',
@@ -926,6 +1027,30 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
         what: 'change',
       }
     }
+    case 'rate-refused':
+      // The call filled while their rate was with the office: there's no offer left to take (ADR 0152).
+      if (ctx.filled)
+        return {
+          text: lines([
+            c.rateHidden || (ctx.askedRateCents ?? null) === null
+              ? `Hi ${first}, we can't agree the rate you asked for on ${job}, and ${c.role}, ${when}, has filled meanwhile, so the offer is closed.`
+              : `Hi ${first}, we can't do ${euro(ctx.askedRateCents ?? null)} a day for ${job}, and ${c.role}, ${when}, has filled meanwhile, so the offer is closed.`,
+            `Sorry, and ${next}`,
+          ]),
+          subject: `Your rate: ${job}, ${when}`,
+          what: 'answer about the rate',
+        }
+      return {
+        text: lines([
+          // Both rates where they read them; a role that doesn't sends the office's words without them (ADR 0046).
+          c.rateHidden || (ctx.askedRateCents ?? null) === null
+            ? `Hi ${first}, we can't agree the rate you asked for on ${job}, but the offer stands at the rate offered: ${c.role}, ${when}.`
+            : `Hi ${first}, we can't do ${euro(ctx.askedRateCents ?? null)} a day for ${job}, but the offer stands at ${rateLine(c)}: ${c.role}, ${when}.`,
+          `Accept, decline or pick days here: ${link}`,
+        ]),
+        subject: `Your rate: ${job}, ${when}`,
+        what: 'answer about the rate',
+      }
     case 'phase-moved':
       return {
         text: lines([

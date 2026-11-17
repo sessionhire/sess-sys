@@ -1,0 +1,122 @@
+import { irishToday, QUOTE_EMAIL_LIMITS, quoteEmailSend, type QuoteAddressCheck, type QuoteEmail, type QuoteEmailPrefill, type QuoteSendState } from '@sh/shared'
+import type { FastifyInstance, FastifyReply } from 'fastify'
+import { describeDevice } from '../devices.ts'
+import { publicOrigin } from '../http.ts'
+import { checkAddresses, fileNameFor, prefillFor, previewFor, sendQuote, sendState, sheetFor, type Mailer } from './quote-email.ts'
+import { quotePdf } from './quote-pdf.ts'
+import { getQuote, getQuoteEmailPdf } from './store.ts'
+import { Refused, serverChange } from '../kernel.ts'
+import { QUOTE_PUT_BACK_ACTION } from '../history-words.ts'
+import { restoreQuote } from './handlers.ts'
+
+/**
+ * Sending a quote by email (ADR 0101), and the quote as a PDF: for those
+ * who see money, as the quote itself is. What the compose box starts with,
+ * the send, the PDF of a quote as it stands, and the PDF that went in an
+ * earlier email.
+ */
+export function registerQuoteEmailRoutes(app: FastifyInstance, m: Mailer) {
+  const id = (s: string) => s.slice(0, 64)
+  const noStore = (reply: FastifyReply) => reply.header('cache-control', 'no-store')
+
+  app.get<{ Params: { id: string } }>('/api/quotes/:id/email', { config: { needs: 'money' } }, async (req, reply): Promise<QuoteEmailPrefill | void> => {
+    noStore(reply)
+    const quote = await getQuote(m.db.reads, id(req.params.id))
+    if (!quote) return reply.code(404).send({ error: 'That quote is no longer here.' })
+    return prefillFor(m, quote, req.user, publicOrigin(req))
+  })
+
+  app.post<{ Params: { id: string }; Querystring: { client?: string } }>('/api/quotes/:id/email', { config: { needs: 'money' } }, async (req, reply): Promise<{ email: QuoteEmail } | void> => {
+    noStore(reply)
+    const body = quoteEmailSend.safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.issues[0]?.message ?? 'Check the addresses, the subject and the message.' })
+    const sent = await sendQuote(m, id(req.params.id), body.data, {
+      userId: req.user?.id,
+      ...(req.user ? { user: { id: req.user.id, email: req.user.email }, staff: req.user } : {}),
+      ...(req.role ? { role: req.role, reader: req.reader ?? {} } : {}),
+      device: describeDevice(req.headers['user-agent']),
+      clientId: typeof req.query.client === 'string' ? req.query.client : undefined,
+      origin: publicOrigin(req),
+    })
+    if (!sent.ok) return reply.code(sent.code).send({ error: sent.error })
+    return { email: sent.email }
+  })
+
+  /** The email as the client will see it (ADR 0187), with the message as typed so far: for the compose box to show. */
+  app.post<{ Params: { id: string } }>('/api/quotes/:id/email/preview', { config: { needs: 'money' } }, async (req, reply): Promise<{ html: string } | void> => {
+    noStore(reply)
+    const message = (req.body as { message?: unknown } | undefined)?.message
+    if (typeof message !== 'string') return reply.code(400).send({ error: 'Say what the message is.' })
+    const quote = await getQuote(m.db.reads, id(req.params.id))
+    if (!quote) return reply.code(404).send({ error: 'That quote is no longer here.' })
+    return { html: await previewFor(m, quote, message.slice(0, QUOTE_EMAIL_LIMITS.message), publicOrigin(req)) }
+  })
+
+  /** Where one press of Send is, by its key (ADR 0171): asked by a phone that stopped waiting, before it offers Send again. */
+  app.get<{ Params: { id: string; key: string } }>('/api/quotes/:id/email/sends/:key', { config: { needs: 'money' } }, async (req, reply): Promise<QuoteSendState> => {
+    noStore(reply)
+    return sendState(m.db.reads, id(req.params.id), id(req.params.key), m.now?.() ?? new Date())
+  })
+
+  /** Whether the addresses typed can take email (ADR 0171), and a likely spelling for a slip, before Send is pressed. */
+  app.post('/api/quotes/email/check', { config: { needs: 'money' } }, async (req, reply): Promise<{ addresses: QuoteAddressCheck[] } | void> => {
+    noStore(reply)
+    const to = (req.body as { to?: unknown } | undefined)?.to
+    if (!Array.isArray(to) || to.some((a) => typeof a !== 'string')) return reply.code(400).send({ error: 'Say which addresses to check.' })
+    const addresses = (to as string[]).map((a) => a.trim().slice(0, 200)).filter((a) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)).slice(0, QUOTE_EMAIL_LIMITS.to)
+    return { addresses: await checkAddresses(m, addresses) }
+  })
+
+  /** The quote as it stands, as the PDF that would go: to look at before sending, or to save and send another way. */
+  /**
+   * Put a deleted version back (ADR 0135), from the history: an admin's, as deleting it was. Recorded in the history as
+   * the server's own change, by whoever asked; every device is sent it back.
+   */
+  app.post<{ Params: { id: string }; Querystring: { client?: string } }>('/api/quotes/:id/restore', { config: { needs: 'company' } }, async (req, reply) => {
+    noStore(reply)
+    const quoteId = id(req.params.id)
+    const clientId = typeof req.query.client === 'string' ? req.query.client : undefined
+    try {
+      const q = await serverChange(
+        m.db,
+        { name: QUOTE_PUT_BACK_ACTION, args: { id: quoteId }, clientId, userId: req.user?.id, device: describeDevice(req.headers['user-agent']) },
+        (ctx) => restoreQuote(ctx, quoteId)
+      )
+      m.onChange?.()
+      return { id: q.id, projectId: q.projectId, version: q.version }
+    } catch (err) {
+      if (err instanceof Refused) return reply.code(err.reason.code === 'not-found' ? 404 : 409).send({ error: err.reason.message })
+      throw err
+    }
+  })
+
+  app.get<{ Params: { id: string }; Querystring: { download?: string } }>('/api/quotes/:id/pdf', { config: { needs: 'money' } }, async (req, reply) => {
+    const quote = await getQuote(m.db.reads, id(req.params.id))
+    if (!quote) return reply.code(404).send({ error: 'That quote is no longer here.' })
+    const sheet = await sheetFor(m.db.reads, quote, irishToday(m.now?.()))
+    // With the logo, as the emailed one has it (ADR 0139): this is the PDF the office opens to print or save.
+    const logo = await m.logo?.().catch(() => undefined)
+    // ?download=1 saves it as a file, for Next's Download the PDF (ADR 0166); otherwise it opens to look at.
+    return sendPdf(reply, await quotePdf({ ...sheet, ...(logo ? { logo } : {}) }), fileNameFor(quote.number ?? null, sheet.job.name), req.query.download === '1' ? 'attachment' : 'inline')
+  })
+
+  /** The PDF that went in an email, as the client got it. */
+  app.get<{ Params: { emailId: string } }>('/api/quotes/emails/:emailId/pdf', { config: { needs: 'money' } }, async (req, reply) => {
+    const found = await getQuoteEmailPdf(m.db.reads, id(req.params.emailId))
+    if (!found) return reply.code(404).send({ error: 'That email is no longer here.' })
+    const { rows } = await m.db.reads.query<{ name: string }>('SELECT name FROM projects WHERE id = $1', [found.projectId])
+    return sendPdf(reply, found.bytes, fileNameFor(found.number, rows[0]?.name ?? 'Job'), 'attachment')
+  })
+}
+
+function sendPdf(reply: FastifyReply, data: Buffer, name: string, how: 'inline' | 'attachment') {
+  const plain = name.normalize('NFD').replace(/\p{M}/gu, '').replace(/[^\x20-\x7e]|["\\]/g, '_')
+  const encoded = encodeURIComponent(name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+  return reply
+    .type('application/pdf')
+    .header('content-disposition', `${how}; filename="${plain}"; filename*=UTF-8''${encoded}`)
+    .header('x-content-type-options', 'nosniff')
+    .header('cache-control', 'no-store')
+    .send(data)
+}
+

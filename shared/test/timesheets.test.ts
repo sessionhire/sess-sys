@@ -3,7 +3,7 @@ import type { Mutation } from '../src/commands.ts'
 import type { CrewCall, Offer, Person } from '../src/crew.ts'
 import { crewView } from '../src/sync/crew-view.ts'
 import { timesheetsView } from '../src/sync/timesheets-view.ts'
-import { noTimesheetReason, timesheetChanges, timesheetSummary, timesheetTotal, type Timesheet } from '../src/timesheets.ts'
+import { noTimesheetReason, timesheetChanges, timesheetDue, timesheetSummary, timesheetTotal, type Timesheet } from '../src/timesheets.ts'
 
 /**
  * Timesheets (ADR 0022): the days at the day rate and the extras, what the
@@ -113,6 +113,29 @@ describe('a timesheet', () => {
     expect(noTimesheetReason({ status: 'confirmed', days }, { status: 'cancelled' }, dara, '2026-09-20')).toMatch(/^This job was cancelled/)
     expect(noTimesheetReason({ status: 'confirmed', days }, open, { kind: 'staff' }, '2026-09-20')).toMatch(/^Staff are paid through payroll/)
   })
+
+  it('is only asked for from the day timesheets went on, and for two months after the booking (ADR 0110)', () => {
+    const days = ['2026-09-18', '2026-09-19']
+    const open = { status: 'open' } as const
+    const dara = { kind: 'freelancer' } as const
+    const booked = { status: 'confirmed', days } as const
+    // On the day they went on, a booking from before isn't a timesheet to chase; the office can still put one in.
+    expect(noTimesheetReason(booked, open, dara, '2026-09-25', { from: '2026-09-20' })).toMatch(/^This booking started before timesheets were used here/)
+    expect(noTimesheetReason(booked, open, dara, '2026-09-25')).toBeNull()
+    expect(noTimesheetReason(booked, open, dara, '2026-09-25', { from: '2026-09-18' })).toBeNull()
+    // Sixty days after its last day it's still asked for; the day after, it isn't.
+    expect(noTimesheetReason(booked, open, dara, '2026-11-18', { from: null })).toBeNull()
+    expect(noTimesheetReason(booked, open, dara, '2026-11-19', { from: null })).toMatch(/^This booking ended more than two months ago/)
+  })
+
+  it('counts as one to send from the evening of its last day', () => {
+    const days = ['2026-09-18', '2026-09-19']
+    expect(timesheetDue(days, '2026-09-18', '20:00')).toBe(false)
+    expect(timesheetDue(days, '2026-09-19', '17:59')).toBe(false)
+    expect(timesheetDue(days, '2026-09-19', '18:00')).toBe(true)
+    expect(timesheetDue(days, '2026-09-20', '07:00')).toBe(true)
+    expect(timesheetDue([], '2026-09-20', '07:00')).toBe(false)
+  })
 })
 
 describe("the office's timesheets", () => {
@@ -151,6 +174,15 @@ describe("the office's timesheets", () => {
     expect(ts.row('aoife-gala')?.timesheet).toBeUndefined()
     // Eimear's booking runs to 2 October: not in yet once it's over.
     expect(timesheetsView(entities, [], 0, crew, '2026-10-03').notIn.map((r) => r.person?.name)).toEqual(['Laoise Keane', 'Eimear Nolan'])
+  })
+
+  it('leaves out of Not in yet the bookings nobody is asked for (ADR 0110)', () => {
+    const crew = crewView(entities, [], 0)
+    // Turned on after Laoise's booking and before Eimear's: hers isn't chased; what was sent and approved stays.
+    const late = timesheetsView(entities, [], 0, crew, '2026-10-03', { from: '2026-09-25' })
+    expect(late.notIn.map((r) => r.person?.name)).toEqual(['Eimear Nolan'])
+    expect(late.toApprove.map((r) => r.offer.id)).toEqual(['dara-gone', 'dara-gala'])
+    expect(late.approved.map((r) => r.offer.id)).toEqual(['tadhg-gala'])
   })
 
   it('shows the office its own changes before they sync', () => {

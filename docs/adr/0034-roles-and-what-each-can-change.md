@@ -1,6 +1,6 @@
 # ADR 0034: Roles, and what each can change
 
-- **Status:** accepted
+- **Status:** accepted; amended by [ADR 0110](0110-getting-the-data-right.md) (Director is asked before it is given, and the last director is kept on the device)
 - **Date:** 11 October 2026
 - **Asked for by:** Colly, 11 October 2026 ("there's a note that the app
   needs roles and permissions. This is definitely required.")
@@ -152,3 +152,10 @@ down.
   that they read their own department's links (ADR 0046).
 - The office trial will show whether five roles fit; anything crew did
   that the roles didn't predict goes in the design system's learnings.
+
+## Later: answering in the app (7 November 2026)
+
+Staff now answer their own offers in the app as well as on their link, with
+a new ability, `answer`, that every role but freelancer has, and the server
+holding anyone without `crew` to their own offers:
+[ADR 0111](0111-staff-answer-offers-in-the-app.md).

@@ -45,7 +45,8 @@ test('the same person under two addresses is combined from her page, and another
   const office = await context.newPage()
   await office.goto(`/#crew/person/${k('work')}`)
   await expect(office.getByRole('status')).toHaveText('Up to date')
-  await expect(office.getByText(`${name} looks like the same person, brought in twice.`)).toBeVisible()
+  // No notice on their page: looking brought in twice is for Tidy up under Menu (Colly, 10 November 2026).
+  await expect(office.getByText('looks like the same person')).toHaveCount(0)
 
   // The other her is ticked to start with, under Details; combining asks first, and says what happens.
   await office.getByRole('tab', { name: /^Details/ }).click()

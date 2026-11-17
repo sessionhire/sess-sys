@@ -61,8 +61,15 @@ export function chargedFor(rule: RateRule, out: number): number {
   return days
 }
 
-/** The lines a quote works out for itself (ADR 0086). */
-export const LINE_EXTRAS = ['travel', 'subsistence'] as const
+/** How a line's price reads after the figure: "once", "a day", "a week", or "a night" for the crew's rooms (ADR 0156). */
+export const priceWords = (l: Pick<QuoteLine, 'per' | 'rate' | 'extra'>) =>
+  l.per === 'once' ? 'once' : l.extra === 'accommodation' ? 'a night' : `a ${RATE_UNIT[l.rate ?? 'daily']}`
+
+/** What a line given at no charge says on screen and on paper, where its amount goes (Colly, 14 November 2026: "No Charge"). */
+export const NO_CHARGE = 'No charge'
+
+/** The lines a quote works out for itself (ADR 0086), the crew's accommodation with them (ADR 0156). */
+export const LINE_EXTRAS = ['travel', 'subsistence', 'accommodation', 'delivery'] as const
 export type LineExtra = (typeof LINE_EXTRAS)[number]
 
 /** A quote has room for this many lines: more than any job's kit and crew. */
@@ -137,13 +144,34 @@ export const quoteLine = z.object({
   /** Off this line alone, as a percentage, before any discount off the whole quote. */
   discountPct: lineDiscount.optional(),
   /**
-   * A line the quote works out for itself (ADR 0086): the crew's travel to a venue far from Dublin, or their
-   * subsistence. Worked out again on a draft whenever what it comes from changes, so it's never typed.
+   * A line the quote works out for itself (ADR 0086): the crew's travel to a venue far from Dublin, their
+   * subsistence, or their accommodation when they stay over (ADR 0156). Worked out again on a draft whenever what it comes from changes, so it's never typed.
    */
   extra: z.enum(LINE_EXTRAS).optional(),
   /** The package a line was added from (ADR 0087), and what it held then, printed under it: "4 × Shure SM58, 2 × DI box". */
   packageId: id.optional(),
   includes: text(PACKAGE_INCLUDES_LENGTH, 'What a package includes').optional(),
+  /**
+   * The package's line this one is part of (ADR 0116): a package goes on as its line and the kit it holds, each a line
+   * under it, shown folded under it on screen and printed under it on paper.
+   */
+  under: id.optional(),
+  /**
+   * A package priced as a whole (ADR 0116): what its items come to at the price list's prices, for one, a day or a week
+   * as the line is charged, when it was added. Its price is a discount from this, and the quote says how much.
+   */
+  fullCents: dayPrice.optional(),
+  /**
+   * Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1): cables, power, stands. Its price
+   * is nothing, it's shown and printed as No charge (Colly, 14 November 2026), and it's never asked about as a line with no price. A product priced
+   * at €0 on the price list goes on a quote this way.
+   */
+  included: z.literal(true).optional(),
+  /**
+   * Words only (ADR 0128; audit of the quote flow, finding 11): a heading or a note among the lines, "All cabling and
+   * power included" or "Stage 2", printed as written with no numbers. Kept as one at nothing, charged once.
+   */
+  words: z.literal(true).optional(),
   /**
    * The cost side (ADR 0089), never printed: how many of a kit line are hired in from another company, and who from,
    * as a job's kit line has it (ADR 0014); and what the whole line costs Session Hire, before VAT. Left out, a crew line
@@ -178,6 +206,9 @@ export interface Quote {
   sentOn: string | null
   /** The day the client's answer was recorded. */
   answeredOn: string | null
+  /** Turned down, why, as the office heard it, and a note (research/quoting.md, feature 5); none for any other answer. */
+  declinedWhy?: TurnDownReason | null
+  declinedNote?: string
   /** The invoice the office wrote for it, elsewhere: the day, and its number as they wrote it. */
   invoicedOn: string | null
   invoiceRef: string
@@ -198,9 +229,38 @@ export interface Quote {
   agreedCents?: number | null
   /** The job gives the crew their meals (ADR 0086), so no subsistence is charged. */
   mealsProvided?: boolean
+  /** The job puts the crew up (ADR 0156), so no accommodation is charged. */
+  accommodationProvided?: boolean
   /** How far the venue is from Dublin city centre by road, each way, in km, as the office typed it; none takes it from the map. */
   travelKm?: number | null
+  /**
+   * Who at the client it's for (ADR 0128; audit of the quote flow, finding 6): one of the client's contacts by name, set
+   * from Who asked and changed on the draft. Empty or none prints the client's first contact, as before.
+   */
+  forName?: string
+  /**
+   * The key in the client's link to this version (ADR 0121), /q/<key>: given by the server when the version is started.
+   * The link answers only while the office has accepting online on. None on a version from before it, until then.
+   */
+  acceptToken?: string
+  /** Accepted by the client on their link (ADR 0121): the name they typed, and when. None for an answer the office recorded. */
+  acceptedOnline?: { name: string; at: string } | null
 }
+
+/**
+ * The contact a quote is addressed to (ADR 0128): the one named as who it's for, as the client has them (so their role and
+ * email come too), or just the name if they've since gone from the client; else the client's first contact.
+ */
+export function quoteContact<C extends { name: string }>(contacts: readonly C[], forName?: string): C | { name: string } | undefined {
+  const name = forName?.trim()
+  if (!name) return contacts[0]
+  return contacts.find((c) => c.name.trim() === name) ?? { name }
+}
+
+/** The client's link to a quote (ADR 0121), as a path on the app's own address. */
+export const acceptPath = (token: string) => `/q/${token}`
+/** The longest name a client can type to accept. */
+export const ACCEPT_NAME_LENGTH = 120
 
 /** Prices hold this long unless the quote says otherwise. */
 export const DEFAULT_VALID_DAYS = 30
@@ -232,6 +292,43 @@ export interface QuoteSettings {
   fuelMonth?: string | null
   /** How many of the crew share a car to a job (ADR 0086): each car load is a trip. One unless set. */
   crewPerCar?: number
+  /**
+   * Accommodation (ADR 0156): past `stayFromKm` from Dublin city centre the crew stay over, and each crew night is
+   * charged `roomCents`. Left out by a server from before it; a room price not set is null and charges nothing.
+   */
+  stayFromKm?: number
+  roomCents?: number | null
+  /**
+   * A dry hire's delivery (ADR 0183, priced as of 15 November 2026): a set amount in cents covering the first
+   * `deliveryBaseKm`, and each km past them at `deliveryCentsPerKm` (every km, with no set amount). Each is left out while
+   * not set; with neither, a delivery puts no line on the quote and says so.
+   */
+  deliveryBaseCents?: number | null
+  deliveryBaseKm?: number | null
+  deliveryCentsPerKm?: number | null
+  /**
+   * Whether a quote can be sent to the client by email from the operations mailbox, with its PDF attached (ADR 0101).
+   * Off until the office turns it on under Admin, as every way the app reaches anyone outside is (ADR 0048). Left out by
+   * a server from before it.
+   */
+  emailQuotes?: boolean
+  /**
+   * Whether a client can accept a quote on its own link (ADR 0121), and whether the link goes in the email. Off until the
+   * office turns it on under Admin, as every way the app reaches anyone outside is (ADR 0048). Left out by a server from
+   * before it.
+   */
+  acceptOnline?: boolean
+  /**
+   * What our own kit costs us to run, as a share of what it's charged at (audit of the quote flow, 8 November 2026,
+   * finding 19): wear, repairs, testing and the store. Null or left out until the office sets it, and then own kit is
+   * left out of the margin's cost, and the margin says so.
+   */
+  ownKitCostPct?: number | null
+  /**
+   * Travel and warehouse days (ADR 0174): the share of a day rate a day of crew on one is paid and charged, as a
+   * percentage. Left out by a server from before it, or until set, and then it's half.
+   */
+  reducedDayPct?: number
 }
 export const QUOTE_SETTINGS_ID = 'quoting'
 
@@ -241,6 +338,8 @@ export interface ProductPrice {
   dayCents: number
   /** How the price is charged (ADR 0085); Daily unless set. Under Weekly, `dayCents` is the price for a week. */
   rate?: RateRule
+  /** Filled in from Current RMS (ADR 0132) rather than set here by hand; left out for one set here. */
+  fromRms?: boolean
 }
 
 /** A crew role's price for a day, by the role as `roleKey` writes it, with the role as it was typed. */
@@ -284,6 +383,52 @@ export interface PackageItem {
   qty: number
 }
 
+/**
+ * A quote emailed to the client from the operations mailbox (ADR 0101): who it went to, when, by whom, and under what
+ * subject, so the quote's page says what the client was sent and when. One record a send; sending again makes another.
+ * The PDF that went, and the message's words, stay on the server, read back by their own route.
+ */
+export interface QuoteEmail {
+  id: string
+  quoteId: string
+  projectId: string
+  /** The quote's version and number as they were when it went. */
+  version: number
+  number: number | null
+  /** When it went, by the server's clock. */
+  at: string
+  /** Who pressed Send: their name, or nothing while sign-in is off. */
+  by: string
+  /** The address it went from, and the ones it went to. */
+  from: string
+  to: string[]
+  subject: string
+  /** Whoever pressed Send, sent a copy of it (ADR 0171); null when no copy went. */
+  copyTo: string | null
+  /** When the app read it back from the mailbox's Sent folder (ADR 0171); null until it has. */
+  inSentAt: string | null
+  /** Its conversation in the mailbox, to open in Gmail (ADR 0172). */
+  threadId: string | null
+  /** What came back in the week it's watched (ADR 0172): a bounce, for which addresses and why in words; a delay while the
+   * mail system is still trying (gone once it bounces); and the client's replies, the latest with who from. */
+  bounced: { at: string; to: string[]; why: string } | null
+  delayed: { at: string; to: string[] } | null
+  replies: number
+  reply: { at: string; from: string } | null
+}
+
+/** How long a quote's email is watched for what comes back (ADR 0172). */
+export const QUOTE_EMAIL_WATCH_DAYS = 7
+
+/** The conversation in Gmail, opened as the mailbox (ADR 0172). */
+export const gmailThreadUrl = (e: Pick<QuoteEmail, 'from' | 'threadId'>) => (e.threadId ? `https://mail.google.com/mail/u/${encodeURIComponent(e.from)}/#all/${encodeURIComponent(e.threadId)}` : null)
+
+/** A sent version's latest email, when it bounced and nothing has gone since: what the office has to put right (ADR 0172). */
+export function bouncedEmail(emails: readonly QuoteEmail[]): QuoteEmail | undefined {
+  const latest = [...emails].sort((a, b) => b.at.localeCompare(a.at))[0]
+  return latest?.bounced ? latest : undefined
+}
+
 export interface QuoteEntities {
   package: Package
   quote: Quote
@@ -292,20 +437,35 @@ export interface QuoteEntities {
   clientDiscount: ClientDiscount
   costPaid: CostPaid
   quoteSettings: QuoteSettings
+  quoteEmail: QuoteEmail
 }
 /**
  * Money's records. A role that can't see money (ADR 0042) is sent none of
  * them, so they never reach its phone: the server leaves them out of its
  * change feed.
  */
-export const QUOTE_ENTITY_NAMES = ['quote', 'package', 'productPrice', 'rolePrice', 'clientDiscount', 'costPaid', 'quoteSettings'] as const
+export const QUOTE_ENTITY_NAMES = ['quote', 'package', 'productPrice', 'rolePrice', 'clientDiscount', 'costPaid', 'quoteSettings', 'quoteEmail'] as const
 export const MONEY_ENTITY_NAMES: readonly string[] = QUOTE_ENTITY_NAMES
 
 /** The same role however it's typed: "Audio Tech " and "audio tech" are one price. */
 export const roleKey = (role: string) => role.trim().replace(/\s+/g, ' ').toLowerCase()
 
+// A line under a package's line that has gone (two people on one draft, ADR 0113) is kept, listed as a line of its own.
 const lines = z.array(quoteLine).max(MAX_LINES, `A quote has room for ${MAX_LINES} lines.`)
 const answer = z.enum(['accepted', 'declined', 'none'])
+
+/** Why a client turned a quote down (research/quoting.md, feature 5), as the office heard it. */
+export const TURN_DOWN_REASONS = ['price', 'dates', 'elsewhere', 'off', 'unsaid'] as const
+export type TurnDownReason = (typeof TURN_DOWN_REASONS)[number]
+export const TURN_DOWN_LABELS: Record<TurnDownReason, string> = {
+  price: 'The price',
+  dates: 'The dates',
+  elsewhere: 'Went with someone else',
+  off: 'The event is off',
+  unsaid: 'No reason given',
+}
+/** The longest note on why a quote was turned down. */
+export const TURN_DOWN_NOTE_LENGTH = 300
 const VALID_HINT = 'Prices hold for a whole number of days from 1 to 365.'
 const validDays = z.number(wrongType(VALID_HINT)).int(VALID_HINT).min(1, VALID_HINT).max(365, VALID_HINT)
 const DEPOSIT_HINT = 'A deposit is a whole percentage from 1 to 100, such as 25 or 50.'
@@ -317,9 +477,14 @@ const quoteNumber = z.number(wrongType(NUMBER_HINT)).int(NUMBER_HINT).min(1, NUM
 /** A price agreed for the whole quote, before VAT. */
 const agreedCents = euroCents(10_000_000_00, 'The price agreed')
 const CAR_HINT = 'How many share a car is a whole number from 1 to 8.'
+const DELIVERY_KM_HINT = 'The km the set amount covers is a whole number from 0 to 1000.'
+const STAY_HINT = 'The crew stay over past a whole number of km from 0 to 1,000.'
 const KM_HINT = 'The distance is a whole number of km from 0 to 2,000.'
 const travelKm = z.number(wrongType(KM_HINT)).int(KM_HINT).min(0, KM_HINT).max(2000, KM_HINT)
 const FROM_HINT = 'Travel starts at a whole number of km from 0 to 1,000.'
+/** Said when the share own kit costs to run isn't a whole number from 0 to 90. */
+const REDUCED_HINT = 'A travel or warehouse day is a whole percentage of the day rate from 10 to 100, such as 50.'
+const OWN_KIT_HINT = 'What own kit costs to run is a whole percentage from 0 to 90.'
 const FUEL_HINT = 'The fuel price is in cent a litre, from 50 to 500, such as 174.9.'
 const fuelPrice = z.number(wrongType(FUEL_HINT)).min(50, FUEL_HINT).max(500, FUEL_HINT).refine((n) => Number.isInteger(Math.round(n * 1000) / 100), FUEL_HINT)
 const USE_HINT = 'What a vehicle uses is in litres for 100 km, from 1 to 40, such as 9.5.'
@@ -348,11 +513,51 @@ export const quoteCommandSchemas = {
     // Travel and subsistence (ADR 0086), left as they were by a save from an app older than them.
     mealsProvided: z.boolean().optional(),
     travelKm: travelKm.nullable().optional(),
+    // Accommodation (ADR 0156), left as it was by a save from an app older than it.
+    accommodationProvided: z.boolean().optional(),
+    // Who it's for (ADR 0128), left as it was by a save from an app older than it.
+    forName: text(200, 'Who the quote is for').optional(),
+    /**
+     * What the draft held when this device's changes began (ADR 0113): each line's mark and the terms. The server keeps
+     * what changed elsewhere since and the save didn't touch. Left out, by an app older than it, the save is the draft.
+     */
+    base: z
+      .object({
+        lines: z.record(z.string().max(64), z.string().max(16)).refine((r) => Object.keys(r).length <= MAX_LINES, 'Too many lines.'),
+        discountPct: z.number(),
+        notes: z.string().max(2000),
+        validDays: z.number().nullable(),
+        depositPct: z.number().nullable(),
+        agreedCents: z.number().nullable(),
+        mealsProvided: z.boolean(),
+        travelKm: z.number().nullable(),
+        accommodationProvided: z.boolean().optional(),
+        forName: z.string().max(200).optional(),
+      })
+      .optional(),
   }),
   /** The office sent it to the client themselves (the app sends nothing): from now on it stays as it is. */
   'quote.sent': z.object({ id, on: day }),
   /** What the client said, as the office heard it, or "none" to take a mistaken answer back. */
-  'quote.answer': z.object({ id, answer, on: day }),
+  'quote.answer': z.object({
+    id,
+    answer,
+    on: day,
+    // Turned down, why (research/quoting.md, feature 5): optional, so an app older than it, and a quick "no", still answer.
+    why: z.enum(TURN_DOWN_REASONS).optional(),
+    note: text(TURN_DOWN_NOTE_LENGTH, 'Why it was turned down').optional(),
+  }),
+  /**
+   * Delete a version of a quote (ADR 0135): an admin's alone, with what the person typed to say they meant it, which the
+   * server checks too. It goes from every device and the client's link stops, but the server keeps it, so it can be put
+   * back from the history.
+   */
+  'quote.delete': z.object({ id, typed: z.string().max(40) }),
+  /**
+   * Drop an amendment (ADR 0173): a draft made from a version the client already has, never sent, goes, and the version
+   * the client has is the quote again. The office's, as making it was; a job's only quote is an admin's to delete.
+   */
+  'quote.drop': z.object({ id }),
   /** The invoice for an accepted quote, written outside the app: the day and its number, or null to take it back. */
   'quote.invoiced': z.object({ id, on: day.nullable(), ref: text(60, 'The invoice number') }),
   /** The day an invoiced quote was paid, or null to take it back. */
@@ -377,7 +582,27 @@ export const quoteCommandSchemas = {
     /** The AA survey a price read with "Read the AA's price" came from; null for one typed in. */
     fuelMonth: text(40, "The survey's month").nullable().optional(),
     crewPerCar: z.number(wrongType(CAR_HINT)).int(CAR_HINT).min(1, CAR_HINT).max(8, CAR_HINT).optional(),
+    // Accommodation (ADR 0156): how far before the crew stay over, and a room a night. Left as they were by an older app.
+    stayFromKm: z.number(wrongType(STAY_HINT)).int(STAY_HINT).min(0, STAY_HINT).max(1000, STAY_HINT).optional(),
+    roomCents: euroCents(1000_00, 'A room a night').nullable().optional(),
   }),
+  /** Whether quotes can be sent to the client by email from the operations mailbox (ADR 0101). The office's to decide, under Admin. */
+  'quoting.email': z.object({ on: z.boolean() }),
+  /** Whether a client can accept a quote on its own link (ADR 0121). The office's to decide, under Admin. */
+  'quoting.online': z.object({ on: z.boolean() }),
+  /**
+   * What a dry hire's delivery is charged (ADR 0183): a set amount covering the first so many km, and each km past them;
+   * null for not set. The set amount and its km are left as they were by an app from before them.
+   */
+  'quoting.delivery': z.object({
+    baseCents: euroCents(10_000_00, 'The set amount for a delivery').nullable().optional(),
+    baseKm: z.number(wrongType(DELIVERY_KM_HINT)).int(DELIVERY_KM_HINT).min(0, DELIVERY_KM_HINT).max(1000, DELIVERY_KM_HINT).nullable().optional(),
+    centsPerKm: euroCents(100_00, 'A km of delivery').nullable(),
+  }),
+  /** What own kit costs us to run, as a share of its price (finding 19 of the quote flow audit); null for not set. */
+  'quoting.ownKit': z.object({ costPct: z.number(wrongType(OWN_KIT_HINT)).int(OWN_KIT_HINT).min(0, OWN_KIT_HINT).max(90, OWN_KIT_HINT).nullable() }),
+  /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0174), as a whole percentage. */
+  'quoting.reducedDays': z.object({ pct: z.number(wrongType(REDUCED_HINT)).int(REDUCED_HINT).min(10, REDUCED_HINT).max(100, REDUCED_HINT) }),
   /** A product's day price; null takes it off the price list. */
   'price.product': z.object({ modelId: id, dayCents: dayPrice.nullable(), rate: z.enum(RATE_RULES).optional() }),
   /**
@@ -385,6 +610,12 @@ export const quoteCommandSchemas = {
    * from it. Products with a rule already set keep it unless `all`.
    */
   'price.rulesFromRms': z.object({ all: z.boolean() }),
+  /**
+   * Fill the price list in with each product's hire price from Current RMS (ADR 0132), as last read there: products
+   * with no price, and those whose price came from Current RMS before. A price set here by hand is kept unless
+   * `overwrite`.
+   */
+  'price.fromRms': z.object({ overwrite: z.boolean() }),
   /** Add or change a package (ADR 0087): its name, where it's listed, its price and rule, and what it holds. */
   'package.save': z.object({
     id,
@@ -416,14 +647,21 @@ export const lineCents = (l: Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per
 
 /**
  * What a line costs Session Hire (ADR 0089), before VAT: what's typed on it, or else, for crew, what they're booked
- * at for the days charged, and for our own kit nothing. Undefined while it isn't known: kit hired in, or anything
+ * at for the days charged, and for our own kit the share of its price it costs to run, once that's set, or nothing. Undefined while it isn't known: kit hired in, or anything
  * else, with no cost typed yet, or crew at a role nobody's been booked at.
  */
-export function lineCostOf(l: Pick<QuoteLine, 'kind' | 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'subhireQty' | 'costCents' | 'extra'>, bookedCents?: number): number | undefined {
+export function lineCostOf(
+  l: Pick<QuoteLine, 'kind' | 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'subhireQty' | 'costCents' | 'extra' | 'words'>,
+  bookedCents?: number,
+  ownKitPct?: number | null
+): number | undefined {
   if (l.costCents !== undefined) return l.costCents
   if (l.kind === 'crew') return bookedCents === undefined ? undefined : Math.round(l.qty * (l.per === 'once' ? 1 : l.days) * bookedCents)
-  if (l.kind === 'kit') return l.subhireQty ? undefined : 0
-  // Travel and subsistence go on to the crew as they're charged (ADR 0086): fuel and their per diem.
+  // Own kit costs the share the office has set of what it's charged at (finding 19 of the quote flow audit), or nothing.
+  if (l.kind === 'kit') return l.subhireQty ? undefined : ownKitPct ? Math.round((lineCents(l) * ownKitPct) / 100) : 0
+  // Words between lines charge and cost nothing.
+  if (l.words) return 0
+  // Travel, subsistence and accommodation go on to the crew as they're charged (ADR 0086, ADR 0156): fuel, their per diem, rooms.
   return l.extra ? lineCents(l) : undefined
 }
 
@@ -436,20 +674,70 @@ export interface QuoteMargin {
   pct: number | null
   /** Lines whose cost isn't known yet, left out of the cost. */
   unknown: number
+  /** Whether own kit is on it at no cost because what it costs to run isn't set, so the margin says so. */
+  ownUncosted?: true
 }
 
 /** What a quote makes (ADR 0089): what it's charged before VAT, after every discount, less what its lines cost. */
-export function quoteMargin(net: number, costs: readonly (number | undefined)[]): QuoteMargin {
+export function quoteMargin(net: number, costs: readonly (number | undefined)[], ownUncosted = false): QuoteMargin {
   const cost = costs.reduce<number>((sum, c) => sum + (c ?? 0), 0)
   const margin = net - cost
-  return { cost, margin, pct: net ? Math.round((margin / net) * 1000) / 10 : null, unknown: costs.filter((c) => c === undefined).length }
+  return { cost, margin, pct: net ? Math.round((margin / net) * 1000) / 10 : null, unknown: costs.filter((c) => c === undefined).length, ...(ownUncosted ? { ownUncosted: true as const } : {}) }
 }
+
+/** Whether a quote's margin leaves own kit uncosted: own kit is on it, with nothing typed, and no share set to cost it by. */
+export const ownKitUncosted = (lines: readonly Pick<QuoteLine, 'kind' | 'subhireQty' | 'costCents'>[], ownKitPct: number | null | undefined) =>
+  !ownKitPct && lines.some((l) => l.kind === 'kit' && !l.subhireQty && l.costCents === undefined)
 
 /** What a package holds, as printed under its line: "4 × Shure SM58, 2 × DI box, with clips and stands". */
 export function packageIncludes(p: Pick<Package, 'items' | 'notes'>, nameOf: (modelId: string) => string | undefined): string {
   const items = p.items.map((i) => `${i.qty} × ${nameOf(i.modelId) ?? 'a product no longer listed'}`).join(', ')
   const notes = p.notes.trim()
   return (items && notes ? `${items}, ${notes}` : items || notes).slice(0, PACKAGE_INCLUDES_LENGTH)
+}
+
+/** What a package's items come to at the price list's prices (ADR 0116), and how many of them have no price to count. */
+export interface PackageWorth {
+  /** For a day, or for a week when the package is charged weekly. */
+  cents: number
+  /** Items with no price, or priced for a week when the package is by the day (or the other way), left out of `cents`. */
+  unpriced: number
+}
+
+/**
+ * What a package's items come to (ADR 0116): each product's price times how many, for the package's own unit, a day or a
+ * week. A package starts at this, and a price of its own is a discount from it.
+ */
+export function packageWorth(
+  p: Pick<Package, 'items'> & { rate?: RateRule },
+  priceOf: (modelId: string) => { cents?: number; rate?: RateRule }
+): PackageWorth {
+  const unit = RATE_UNIT[p.rate ?? 'daily']
+  let cents = 0
+  let unpriced = 0
+  for (const i of p.items) {
+    const price = priceOf(i.modelId)
+    if (price.cents === undefined || RATE_UNIT[price.rate ?? 'daily'] !== unit) unpriced++
+    else cents += price.cents * i.qty
+  }
+  return { cents, unpriced }
+}
+
+/** What a package's own price takes off its items' total (ADR 0116): the euro and the percentage, to one place. */
+export function packageSaving(fullCents: number, priceCents: number): { cents: number; pct: number } | undefined {
+  if (!(fullCents > 0 && priceCents > 0 && priceCents < fullCents)) return undefined
+  const cents = fullCents - priceCents
+  return { cents, pct: Math.round((cents / fullCents) * 1000) / 10 }
+}
+
+/**
+ * What a package's line saves on its items (ADR 0116), for its days and how many, before any discount off the line or the
+ * quote: nothing unless it was priced below them.
+ */
+export function lineSaving(l: Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per' | 'fullCents'>): number {
+  if (!l.fullCents || !(l.unitCents > 0) || l.unitCents >= l.fullCents) return 0
+  const plain = { qty: l.qty, days: l.days, per: l.per }
+  return lineCents({ ...plain, unitCents: l.fullCents }) - lineCents({ ...plain, unitCents: l.unitCents })
 }
 
 export interface RateTotal {
@@ -556,6 +844,8 @@ export interface CrewToQuote {
 export interface PriceList {
   product(modelId: string): number | undefined
   role(role: string): number | undefined
+  /** A crew call's own price for a day, over its role's: a travel or warehouse day's, at its share of the role's (ADR 0174). */
+  crew?(c: CrewToQuote): number | undefined
   /** A product's rate rule (ADR 0085); Daily when none is set. */
   rate?(modelId: string): RateRule | undefined
 }
@@ -600,7 +890,7 @@ export function linesFor(kit: readonly KitToQuote[], crew: readonly CrewToQuote[
         group: 'Crew',
         qty: c.needed,
         days: Math.max(1, c.days),
-        unitCents: prices.role(c.role) ?? c.bookedCents ?? 0,
+        unitCents: prices.crew?.(c) ?? prices.role(c.role) ?? c.bookedCents ?? 0,
         vat: STANDARD_VAT,
         per: 'day',
       })
@@ -623,11 +913,24 @@ export interface JobChanges {
  * the kit line or crew call each was built from. Only how many is compared:
  * the days and prices on a quote are the office's to change, and a job's
  * dates moving says nothing about what the client is charged for.
+ *
+ * Kit put on the job from the quote (ADR 0102) wasn't built into a line, so
+ * a product the quote already has, on a line of its own or in one of its
+ * packages, isn't offered again as new.
  */
-export function changesFromJob(lines: readonly QuoteLine[], kit: readonly KitToQuote[], crew: readonly CrewToQuote[], prices: PriceList, newId: () => string): JobChanges {
+export function changesFromJob(
+  lines: readonly QuoteLine[],
+  kit: readonly KitToQuote[],
+  crew: readonly CrewToQuote[],
+  prices: PriceList,
+  newId: () => string,
+  packaged: ReadonlySet<string> = new Set()
+): JobChanges {
   const refs = new Map(lines.filter((l) => l.ref && l.kind !== 'other').map((l) => [l.ref!, l]))
+  const kitIds = new Set(kit.map((k) => k.id))
+  const quoted = new Set([...packaged, ...lines.filter((l) => l.kind === 'kit' && l.modelId && !(l.ref && kitIds.has(l.ref))).map((l) => l.modelId!)])
   const fresh = linesFor(
-    kit.filter((k) => !refs.has(k.id)),
+    kit.filter((k) => !refs.has(k.id) && !quoted.has(k.modelId)),
     crew.filter((c) => !refs.has(c.id)),
     prices,
     newId
@@ -643,17 +946,99 @@ export function changesFromJob(lines: readonly QuoteLine[], kit: readonly KitToQ
   return { added: fresh, gone, changed }
 }
 
-/** The groups a quote lists its lines under, in its order: kit by department first, then crew, then anything else. */
-export function linesByGroup<L extends Pick<QuoteLine, 'kind' | 'group'>>(lines: readonly L[]): { group: string; lines: L[] }[] {
-  const order = (l: L) => (l.kind === 'kit' ? 0 : l.kind === 'crew' ? 1 : 2)
-  const out: { group: string; lines: L[]; at: number }[] = []
+/** What a package's line comes to with the lines under it (ADR 0116): its own price, and its kit's where that's priced. */
+export function setCents(title: QuoteLine, lines: readonly QuoteLine[]): number {
+  return lineCents(title) + linesUnder(lines, title.id).reduce((n, l) => n + lineCents(l), 0)
+}
+
+/** The lines under a package's line (ADR 0116), in the quote's order. */
+export function linesUnder<L extends { id: string; under?: string | null }>(lines: readonly L[], titleId: string): L[] {
+  return lines.filter((l) => l.under === titleId && l.id !== titleId)
+}
+
+/**
+ * Whether a line still wants a price: one at nothing, unless it's given as included, a package's line whose kit is
+ * priced under it, or kit in a package priced as a whole (ADR 0116).
+ */
+export function needsPrice<L extends { id: string; unitCents: number; under?: string | null; modelId?: string | null; packageId?: string; included?: true; words?: true }>(l: L, lines: readonly L[]): boolean {
+  if (l.unitCents !== 0 || l.included || l.words) return false
+  // A package charged by its kit: the kit under it has the prices.
+  if (l.packageId && lines.some((x) => x.under === l.id && x.id !== l.id)) return false
+  const head = l.under ? lines.find((x) => x.id === l.under) : undefined
+  // Built into a rack: the rack's price is for it, whatever that is.
+  if (head && (head.unitCents > 0 || head.modelId)) return false
+  return true
+}
+
+/** A quote's lines with new ids, as a new version or a copy takes them, each still under its package's line (ADR 0116). */
+export function withNewIds<L extends { id: string; under?: string | null }>(lines: readonly L[], newId: () => string): L[] {
+  const ids = new Map(lines.map((l) => [l.id, newId()]))
+  return lines.map((l) => ({ ...l, id: ids.get(l.id)!, ...(l.under ? { under: ids.get(l.under) ?? l.under } : {}) }))
+}
+
+type Grouped = Pick<QuoteLine, 'kind' | 'group'> & { id?: string; under?: string | null; words?: true | boolean }
+
+/** Where a group sits (ADR 0128): kit groups first, then crew, then anything else; words count as kit, so a heading leads. */
+const bandOf = (l: Grouped) => (l.words || l.kind === 'kit' ? 0 : l.kind === 'crew' ? 1 : 2)
+
+/**
+ * The groups a quote lists its lines under, in its order: kit groups first, then crew, then anything else, and within
+ * each the groups and their lines in the order the office put them (ADR 0128). A group is the office's own heading, the
+ * kit's department until it's changed. Lines under a package's line (ADR 0116) are listed under it, not in a group of their own.
+ */
+export function linesByGroup<L extends Grouped>(lines: readonly L[]): { group: string; lines: L[] }[] {
+  return grouped(lines).map(({ group, lines }) => ({ group, lines }))
+}
+
+function grouped<L extends Grouped>(lines: readonly L[]): { group: string; lines: L[]; band: number }[] {
+  const out: { group: string; lines: L[]; band: number }[] = []
+  const heads = new Set(lines.filter((l) => !l.under).map((l) => l.id))
   for (const l of lines) {
+    if (l.under && heads.has(l.under)) continue
     const group = l.group || (l.kind === 'crew' ? 'Crew' : l.kind === 'other' ? 'Other' : 'Kit')
     let g = out.find((x) => x.group === group)
-    if (!g) out.push((g = { group, lines: [], at: order(l) }))
+    if (!g) out.push((g = { group, lines: [], band: bandOf(l) }))
+    else g.band = Math.min(g.band, bandOf(l))
     g.lines.push(l)
   }
-  return out.sort((a, b) => a.at - b.at).map(({ group, lines }) => ({ group, lines }))
+  return out.sort((a, b) => a.band - b.band)
+}
+
+/** The lines in the order they're shown, each package's kit straight after its line. */
+function shownOrder<L extends Grouped>(gs: readonly { lines: L[] }[], lines: readonly L[]): L[] {
+  const out = gs.flatMap((g) => g.lines.flatMap((l) => [l, ...lines.filter((u) => !!u.under && u.under === l.id && u.id !== l.id)]))
+  // Anything not reached (kit under a line that's gone) stays, at the end.
+  return [...out, ...lines.filter((l) => !out.includes(l))]
+}
+
+/**
+ * Moving a line up or down its group (ADR 0128), its kit with it if it's a package's: the lines in their new order, or
+ * undefined at the group's top or bottom.
+ */
+export function moveLine<L extends Grouped>(lines: readonly L[], id: string, by: -1 | 1): L[] | undefined {
+  const gs = grouped(lines)
+  const g = gs.find((x) => x.lines.some((l) => l.id === id))
+  if (!g) return undefined
+  const at = g.lines.findIndex((l) => l.id === id)
+  const to = at + by
+  if (to < 0 || to >= g.lines.length) return undefined
+  const moved = [...g.lines]
+  ;[moved[at], moved[to]] = [moved[to]!, moved[at]!]
+  g.lines = moved
+  return shownOrder(gs, lines)
+}
+
+/**
+ * Moving a whole group up or down (ADR 0128), past the group beside it in its band: kit groups move among kit groups,
+ * crew's among crew's. The lines in their new order, or undefined where it can't go.
+ */
+export function moveGroup<L extends Grouped>(lines: readonly L[], group: string, by: -1 | 1): L[] | undefined {
+  const gs = grouped(lines)
+  const at = gs.findIndex((g) => g.group === group)
+  const to = at + by
+  if (at < 0 || to < 0 || to >= gs.length || gs[to]!.band !== gs[at]!.band) return undefined
+  ;[gs[at], gs[to]] = [gs[to]!, gs[at]!]
+  return shownOrder(gs, lines)
 }
 
 // VAT periods and the accountant's files.
@@ -706,6 +1091,93 @@ export function csvText(header: readonly string[], rows: readonly (readonly stri
 /** Cents as an accountant's spreadsheet wants a sum: 1250.00, with no euro sign. */
 export const amount = (cents: number) => (cents / 100).toFixed(2)
 
+// Sending a quote by email (ADR 0101).
+
+/** How many addresses a quote goes to at most, and how long the subject and the message can be. */
+export const QUOTE_EMAIL_LIMITS = { to: 10, subject: 200, message: 4000 } as const
+const emailAddress = z.string().trim().email('That email address doesn’t look right.').max(200, 'An email address can be up to 200 characters.')
+/** What the office sends: the addresses, the subject and the message above the attached PDF, as typed in the compose box. */
+export const quoteEmailSend = z.object({
+  to: z.array(emailAddress).min(1, 'Say who it goes to.').max(QUOTE_EMAIL_LIMITS.to, `Up to ${QUOTE_EMAIL_LIMITS.to} addresses, please.`),
+  subject: needed(QUOTE_EMAIL_LIMITS.subject, 'The subject', 'A subject'),
+  message: text(QUOTE_EMAIL_LIMITS.message, 'The message'),
+  /** The quote number the compose box showed, so a number given to another quote in the meantime is caught; null for none shown. */
+  number: z.number().int().positive().nullable().optional(),
+  /**
+   * This press's own key, made when the compose box opens (ADR 0171): the same key sent twice sends once, so pressing Send
+   * again after a lost signal never emails the client twice.
+   */
+  key: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/, 'That send has no key.').optional(),
+  /** Send a copy to whoever pressed Send (ADR 0171). */
+  copy: z.boolean().optional(),
+})
+export type QuoteEmailSend = z.infer<typeof quoteEmailSend>
+
+/**
+ * Where one press of Send is (ADR 0171), asked by its key when the phone stopped waiting for the answer: gone (with the
+ * record), still going, not gone (send again, safely), or not known (the server stopped part way: look in Sent first).
+ */
+export type QuoteSendState = { state: 'sent'; email: QuoteEmail } | { state: 'sending' } | { state: 'none' } | { state: 'unsure' }
+
+/** Each address as the mail system sees it (ADR 0171): whether its domain takes email, and a likely spelling if it looks mistyped. */
+export interface QuoteAddressCheck {
+  address: string
+  /** Why it would bounce, in words; null when it looks fine or couldn't be told. */
+  problem: string | null
+  /** The address with a common domain spelt right, when it looks like a slip: "anna@gmial.com" → "anna@gmail.com". */
+  suggest: string | null
+}
+
+/** The domains people most often mistype, and the slips seen most. */
+const COMMON_DOMAINS = ['gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.co.uk', 'outlook.com', 'outlook.ie', 'live.com', 'live.ie', 'yahoo.com', 'yahoo.co.uk', 'yahoo.ie', 'icloud.com', 'me.com', 'eircom.net', 'protonmail.com', 'aol.com', 'msn.com', 'mail.com']
+const TOP_SLIPS: Record<string, string> = { con: 'com', cmo: 'com', ocm: 'com', vom: 'com', xom: 'com', comm: 'com', om: 'com', co: 'com', ei: 'ie', iw: 'ie', ue: 'ie' }
+
+/** Letters apart, counting a swap of two neighbours as one (Damerau-Levenshtein, restricted). */
+function distance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)))
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + cost)
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i]![j] = Math.min(d[i]![j]!, d[i - 2]![j - 2]! + 1)
+    }
+  return d[a.length]![b.length]!
+}
+
+/** "anna@gmial.com" → "anna@gmail.com": a common domain one or two letters off, or ".con" for ".com"; null when it looks right. */
+export function likelyAddress(address: string): string | null {
+  const at = address.lastIndexOf('@')
+  if (at < 1) return null
+  const user = address.slice(0, at)
+  const domain = address.slice(at + 1).toLowerCase()
+  if (COMMON_DOMAINS.includes(domain)) return null
+  const best = COMMON_DOMAINS.map((d) => ({ d, n: distance(domain, d) })).sort((x, y) => x.n - y.n)[0]!
+  if (best.n > 0 && best.n <= (best.d.length > 9 ? 2 : 1)) return `${user}@${best.d}`
+  const dot = domain.lastIndexOf('.')
+  const top = TOP_SLIPS[domain.slice(dot + 1)]
+  if (dot > 0 && top) return `${user}@${domain.slice(0, dot + 1)}${top}`
+  return null
+}
+
+/** What the compose box starts with, from the server. */
+export interface QuoteEmailPrefill {
+  /** The client's contacts' addresses. */
+  to: string[]
+  subject: string
+  message: string
+  /** The address it goes from, once the mailbox is connected. */
+  from: string | null
+  /** The PDF's name as it will be attached. */
+  fileName: string
+  /** The number the quote has, or will get when it goes. */
+  number: number
+  /** Whether it can go now; when not, why not, in words. */
+  canSend: boolean
+  why: string | null
+  /** Whoever is sending, for the copy to them (ADR 0171); null when they're the mailbox itself or not known. */
+  me: string | null
+}
+
 // The printed quote (ADR 0084).
 
 /** "1115", or "1115 · version 2" once there's more than one; nothing for a quote with no number. */
@@ -713,6 +1185,14 @@ export function quoteNumberLabel(q: Pick<Quote, 'number' | 'version'>): string {
   if (!q.number) return ''
   return q.version > 1 ? `${q.number} · version ${q.version}` : String(q.number)
 }
+
+/**
+ * What's typed to delete a version (ADR 0135): its number once it has one, so it's this quote that goes and not the one
+ * beside it; the word "delete" for one that's only ever been a draft.
+ */
+export const deleteWord = (q: Pick<Quote, 'number'>) => (q.number ? String(q.number) : 'delete')
+/** Whether what was typed is the word, give or take spaces and capitals. */
+export const deleteTyped = (q: Pick<Quote, 'number'>, typed: string) => typed.trim().toLowerCase() === deleteWord(q)
 
 /** The day after `d` by `n` days, as YYYY-MM-DD. */
 const plusDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)

@@ -1,5 +1,6 @@
 import { hasEmail, holdsARole, mayChangeWhoSignsIn, mergedPerson, ownAddressRefusal, signInAbility, mergeRefusal, nameParts, offerKept, ROLE_LABELS, voteId, whoSignsInRefusal, withMainEmail, type CommandArgs, type EntityName, type Offer, type Person } from '@sh/shared'
 import { getDocument, queueFile } from '../documents/store.ts'
+import { getJobPhoto } from '../documents/job-photos.ts'
 import { emit, emitAll, emitRemoved, emitRemovedAll, Refused, type Ctx } from '../kernel.ts'
 import { getAllowanceById, getEntry, getRequest } from '../leave/store.ts'
 import { getPhases } from '../projects/store.ts'
@@ -34,6 +35,7 @@ const MOVED: readonly { table: string; column: string; entity?: EntityName; read
   { table: 'job_steps', column: 'owner_id', entity: 'jobStep', read: getStep },
   { table: 'job_steps', column: 'done_by', entity: 'jobStep', read: getStep },
   { table: 'purchase_requests', column: 'asked_by', entity: 'purchaseRequest', read: getPurchase },
+  { table: 'job_photos', column: 'added_by', entity: 'jobPhoto', read: getJobPhoto },
   // Votes for the purchase list (ADR 0077) are one a person, and are handled first.
   // Their own calendar (ADR 0044) and leave allowances have one a person, and are handled first; guests on Google
   // Calendar (ADR 0009) are one a person a day, and devices never see them.
@@ -98,7 +100,7 @@ export const mergeHandlers = {
     await tx.query(
       `UPDATE people SET name = $2, email = $3, other_emails = $4, phone = $5, skills = $6, day_rate_cents = $7, notes = $8, archived = $9, approves_leave = $10,
          department = $11, level = $12, known_as = $13, certificates = $14, company_name = $15, company_vat_number = $16, company_cro_number = $17, role = $18,
-         first_name = $19, last_name = $20, name_checked = $21
+         first_name = $19, last_name = $20, name_checked = $21, trades_as = $22, vat_registered = $23
        WHERE id = $1`,
       [
         one.id,
@@ -122,6 +124,8 @@ export const mergeHandlers = {
         nameParts(one).firstName,
         nameParts(one).lastName,
         one.nameChecked ?? false,
+        one.company?.as ?? null,
+        one.company?.vatRegistered ?? null,
       ]
     )
     // The others' earlier copies stay in the feed, so the history still reads their names as they were.
@@ -217,6 +221,8 @@ async function moveOffers(ctx: Ctx, intoId: string, ids: string[]) {
         [kept.id, o.id]
       )
       await tx.query('DELETE FROM calendar_guests WHERE offer_id = $1', [o.id])
+      // What went on WhatsApp about it (ADR 0125) follows the offer kept, so an answer to it still finds an offer.
+      await tx.query('UPDATE whatsapp_messages SET offer_id = $1 WHERE offer_id = $2', [kept.id, o.id])
       gone.push(o.id)
     }
   }
@@ -225,6 +231,7 @@ async function moveOffers(ctx: Ctx, intoId: string, ids: string[]) {
     await emitRemovedAll(ctx, 'offer', gone)
   }
   const { rows: moved } = await tx.query<{ id: string }>('UPDATE offers SET person_id = $1 WHERE person_id = ANY($2::text[]) RETURNING id', [intoId, ids])
+  await tx.query('UPDATE whatsapp_messages SET person_id = $1 WHERE person_id = ANY($2::text[])', [intoId, ids])
   for (const m of moved) changed.add(m.id)
   const sorted = [...changed].sort()
   if (sorted.length) await emitAll(ctx, 'offer', (await getOffers(tx, sorted)).map((o) => ({ id: o.id, data: o })))

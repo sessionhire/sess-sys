@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { PullResponse, PushRequest, PushResponse } from '../src/protocol.ts'
-import { chargedFor, packageIncludes, changesFromJob, csvText, depositCents, quoteNumberLabel, validUntil, versionChanges, lineCents, linesFor, quoteLine, linesByGroup, money, quoteTotals, vatPeriodOf, type Quote, type QuoteLine } from '../src/quotes.ts'
+import { paymentTerms, paymentTermsLabel, paymentTermsLine } from '../src/jobs.ts'
+import { chargedFor, lineCostOf, ownKitUncosted, quoteMargin, packageIncludes, changesFromJob, csvText, depositCents, quoteNumberLabel, validUntil, versionChanges, lineCents, linesFor, quoteLine, linesByGroup, money, quoteTotals, vatPeriodOf, type Quote, type QuoteLine } from '../src/quotes.ts'
 import { MemoryStorage, SyncClient, type Transport } from '../src/sync/client.ts'
-import { belowZero, invoicesCsv, marginsByMonth, quoteRows, quoteRowShown, quotesToFollow, vatSummaryCsv, type JobMoney, type QuoteView } from '../src/sync/money-view.ts'
+import { belowZero, invoiceOf, invoicesCsv, marginsByMonth, quoteRows, quoteRowShown, quotesToFollow, vatSummaryCsv, type JobMoney, type QuoteView } from '../src/sync/money-view.ts'
 import type { JobView } from '../src/sync/jobs-view.ts'
 
 /**
@@ -199,6 +200,12 @@ describe('a quote against its job as the job changes', () => {
     expect(now.gone.map((l) => l.what)).toEqual(['Rigger'])
     expect(now.changed.map((c) => [c.line.what, c.line.qty, c.qty])).toEqual([['d&b Y10P', 8, 10]])
   })
+  it("doesn't offer kit put on the job from the quote, on a line of its own or in a package (ADR 0102)", () => {
+    const typed = line({ id: 't', kind: 'kit', what: 'd&b Y10P', modelId: 'y10p', qty: 8 })
+    const fromQuote = [{ id: 'k9', modelId: 'y10p', name: 'd&b Y10P', group: 'Audio', qty: 8, days: 3 }, { id: 'k8', modelId: 'sm58', name: 'Shure SM58', group: 'Audio', qty: 4, days: 3 }]
+    expect(changesFromJob([typed], fromQuote, [], prices, ids, new Set(['sm58']))).toEqual({ added: [], gone: [], changed: [] })
+    expect(changesFromJob([typed], fromQuote, [], prices, ids).added.map((l) => l.what)).toEqual(['Shure SM58'])
+  })
 })
 
 describe('VAT periods', () => {
@@ -272,6 +279,23 @@ describe('money on the device', () => {
     expect(phone.view().money.currentOf('gala')).toMatchObject({ id: 'q2', status: 'sent', pending: true })
   })
 
+  it("marks a number guessed with no signal as unsure until the server gives it, and an earlier version's as sure (finding 20)", async () => {
+    const server = new Server()
+    server.put('project', 'gala', project)
+    server.put('project', 'fair', { ...project, id: 'fair', name: 'Craft Fair' })
+    server.put('quote', 'q1', quote({ status: 'sent', answeredOn: null, invoicedOn: null, invoiceRef: '', number: 1042 }))
+    const phone = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone' }).open()
+    await phone.sync()
+    await phone.mutate('quote.save', { id: 'q2', projectId: 'gala', lines: [line({})], discountPct: 0, notes: '' })
+    await phone.mutate('quote.save', { id: 'q9', projectId: 'fair', lines: [line({})], discountPct: 0, notes: '' })
+    await phone.mutate('quote.sent', { id: 'q2', on: '2026-10-17' })
+    await phone.mutate('quote.sent', { id: 'q9', on: '2026-10-17' })
+    const m = phone.view().money
+    expect(m.quotesOf('gala')[0]).toMatchObject({ id: 'q2', number: 1042, pending: true })
+    expect(m.quotesOf('gala')[0]!.numberPending).toBeUndefined()
+    expect(m.quotesOf('fair')[0]).toMatchObject({ id: 'q9', number: 1043, numberPending: true })
+  })
+
   it("counts what's owed until it's paid, and makes the accountant's files from what's invoiced", async () => {
     const server = new Server()
     server.put('client', 'bw', { id: 'bw', name: 'Brightwater Events', contacts: [], notes: '' })
@@ -319,6 +343,25 @@ describe('money on the device', () => {
     expect(m.months.reduce((s, x) => s + x.confirmed, 0)).toBe(360000)
   })
 
+  it("sums what was lost by month: quotes turned down and a lost job's uninvoiced quote, never a cancelled one", async () => {
+    // Move 10 of the sweep of 6 November 2026: Money's "Lost or lapsed" and By month's Lost column.
+    const server = new Server()
+    server.put('client', 'bw', { id: 'bw', name: 'Brightwater Events', contacts: [], notes: '' })
+    server.put('project', 'gala', project)
+    server.put('project', 'fair', { ...project, id: 'fair', name: 'Craft Fair' })
+    server.put('project', 'lost', { ...project, id: 'lost', name: 'Went Elsewhere', status: 'lost' })
+    server.put('project', 'gone', { ...project, id: 'gone', name: 'Called Off', status: 'cancelled' })
+    server.put('quote', 'q1', quote({}))
+    server.put('quote', 'q2', quote({ id: 'q2', projectId: 'fair', status: 'declined', invoicedOn: null, invoiceRef: '' }))
+    server.put('quote', 'q3', quote({ id: 'q3', projectId: 'lost', invoicedOn: null, invoiceRef: '' }))
+    server.put('quote', 'q4', quote({ id: 'q4', projectId: 'gone', invoicedOn: null, invoiceRef: '' }))
+    const phone = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone' }).open()
+    await phone.sync()
+    const m = phone.view().money
+    expect(m.months.reduce((s, x) => s + x.lost, 0)).toBe(2 * 120000)
+    expect(m.months.reduce((s, x) => s + x.quoted, 0)).toBe(120000)
+  })
+
   it('drops money it held when its role loses it, and reads again from the start when given it back', async () => {
     const server = new Server()
     server.put('project', 'gala', project)
@@ -350,6 +393,19 @@ describe('quotes to follow up (ADR 0081)', () => {
     ({ id: `q${++n}`, status: 'sent', sentOn: null, answeredOn: null, invoicedOn: null, savedAt: '2026-10-20T10:00:00Z', ...over }) as QuoteView
   const today = '2026-10-27'
 
+  it('puts drafts in the order they are wanted, then by the job, leads with those wanted today, and keeps those for jobs over apart (ADR 0127)', () => {
+    const at = (id: string, start?: string, end = start) => ({ ...job(id, 'enquiry'), ...(start ? { span: { start, end } } : {}) }) as JobView
+    const rows = [at('No dates'), at('Show Friday', '2026-10-31'), at('Wanted Tuesday', '2026-11-20'), at('Wanted today', '2026-11-30'), at('Wanted Monday', '2026-11-10'), at('Over', '2026-10-01')].map((j) => ({ job: j, current: undefined }))
+    const wanted: Record<string, string> = { 'Wanted Tuesday': '2026-10-28', 'Wanted today': '2026-10-27', 'Wanted Monday': '2026-10-26' }
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => quote({ status: 'draft' }) }, today, (id) => wanted[id] ?? null)
+    expect(f.drafts.map((x) => x.job.name)).toEqual(['Wanted Monday', 'Wanted today', 'Wanted Tuesday', 'Show Friday', 'No dates'])
+    expect(f.due.map((x) => [x.job.name, x.wanted])).toEqual([
+      ['Wanted Monday', '2026-10-26'],
+      ['Wanted today', '2026-10-27'],
+    ])
+    expect(f.overDrafts.map((x) => x.job.name)).toEqual(['Over'])
+  })
+
   it('sorts each job by what it is waiting on, the longest waiting first', () => {
     const drafts = new Map<string, QuoteView>()
     const rows: { job: JobView; current: QuoteView | undefined }[] = [
@@ -368,10 +424,82 @@ describe('quotes to follow up (ADR 0081)', () => {
       ['Sent long ago', 17],
       ['Sent lately', 2],
     ])
+    // Only the one sent over a week ago is worth a call.
+    expect(f.chase.map((x) => x.job.name)).toEqual(['Sent long ago'])
     expect(f.outOfStep.map((x) => [x.job.name, x.want])).toEqual([
       ['Said yes', 'confirmed'],
       ['Said no', 'lost'],
     ])
+  })
+
+  it("puts a sent quote whose job's dates have passed with the jobs to mark lost, not the calls to make (ADR 0109)", () => {
+    const dated = (id: string, end: string) => ({ ...job(id, 'quoted'), span: { start: end, end } }) as JobView
+    const rows = [
+      { job: dated('Coming', '2026-11-20'), current: quote({ sentOn: '2026-10-01' }) },
+      { job: dated('Long gone', '2026-06-09'), current: quote({ sentOn: '2026-05-01' }) },
+      { job: dated('Just gone', '2026-10-25'), current: quote({ sentOn: '2026-10-20' }) },
+    ]
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, today)
+    expect(f.waiting.map((x) => x.job.name)).toEqual(['Coming'])
+    expect(f.passed.map((x) => x.job.name)).toEqual(['Just gone', 'Long gone'])
+  })
+
+  it('says when a quote waiting for an answer held its prices until a day that has passed (research/quoting.md, feature 4)', () => {
+    const rows = [
+      { job: job('Held to the 30th', 'quoted'), current: quote({ sentOn: '2026-09-27', validDays: 33 }) },
+      { job: job('Ran out', 'quoted'), current: quote({ sentOn: '2026-09-20' }) },
+      { job: job('Still holds', 'quoted'), current: quote({ sentOn: '2026-10-01', validDays: 30 }) },
+    ]
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, today)
+    expect(f.waiting.map((x) => [x.job.name, x.ranOut])).toEqual([
+      ['Ran out', '2026-10-20'],
+      ['Held to the 30th', undefined],
+      ['Still holds', undefined],
+    ])
+  })
+
+  it('counts a quote worth a call from a week after it was sent, the longest waiting first, as the first of those waiting', () => {
+    // Proves (Move 10 of the sweep of 6 November 2026): one list, which Quotes marks, Notifications lists and Home counts.
+    const rows = [
+      { job: job('Six days', 'quoted'), current: quote({ sentOn: '2026-10-21' }) },
+      { job: job('A week', 'quoted'), current: quote({ sentOn: '2026-10-20' }) },
+      { job: job('A fortnight', 'quoted'), current: quote({ sentOn: '2026-10-13' }) },
+    ]
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, today)
+    expect(f.chase.map((x) => [x.job.name, x.days])).toEqual([
+      ['A fortnight', 14],
+      ['A week', 7],
+    ])
+    expect(f.waiting.slice(0, f.chase.length)).toEqual(f.chase)
+  })
+
+  it('lists the confirmed jobs through their dates with the accepted quote not invoiced, and says where each invoice stands', () => {
+    // Proves: move 12 of the UX sweep of 6 November 2026: the office's last step, by job, from the day the list began.
+    const later = '2026-11-20'
+    const dated = (id: string, status: JobView['status'], end: string) => ({ ...job(id, status), span: { start: end, end } }) as JobView
+    const yes = (over: Partial<QuoteView> = {}) => quote({ status: 'accepted', answeredOn: '2026-11-01', paidOn: null, ...over } as Partial<QuoteView>)
+    const rows = [
+      { job: dated('Through', 'confirmed', '2026-11-10'), current: yes() },
+      { job: dated('Through longer', 'confirmed', '2026-11-08'), current: yes() },
+      { job: dated('Invoiced', 'confirmed', '2026-11-09'), current: yes({ invoicedOn: '2026-11-12' }) },
+      { job: dated('Before the list', 'confirmed', '2026-10-30'), current: yes() },
+      { job: dated('Still to come', 'confirmed', '2026-11-25'), current: yes() },
+      { job: dated('Lost after all', 'lost', '2026-11-10'), current: yes() },
+    ]
+    const f = quotesToFollow({ jobs: rows as never, draftOf: () => undefined }, later)
+    expect(f.toInvoice.map((x) => [x.job.name, x.days])).toEqual([
+      ['Through longer', 12],
+      ['Through', 10],
+    ])
+    const at = (i: number) => invoiceOf(rows[i]!.job, rows[i]!.current, later)
+    expect([0, 2, 3, 4, 5].map(at)).toEqual([
+      { state: 'due', since: '2026-11-10' },
+      { state: 'invoiced', on: '2026-11-12', paidOn: null },
+      { state: 'not-needed' },
+      { state: 'to-come' },
+      { state: 'none' },
+    ])
+    expect(invoiceOf(rows[0]!.job, quote({}), later)).toEqual({ state: 'none' })
   })
 
   it('leaves a sent quote out of waiting while a new version is being drafted', () => {
@@ -379,6 +507,22 @@ describe('quotes to follow up (ADR 0081)', () => {
     const f = quotesToFollow({ jobs: rows as never, draftOf: () => quote({ status: 'draft' }) }, today)
     expect(f.waiting).toEqual([])
     expect(f.drafts).toHaveLength(1)
+  })
+})
+
+describe("own kit in a quote's margin (finding 19 of the quote flow audit)", () => {
+  it("costs own kit at the share set of its price, hired-in kit and words as before, and says when own kit isn't costed", () => {
+    const kit = line({ kind: 'kit', qty: 2, days: 1, unitCents: 10000, per: 'day' })
+    expect(lineCostOf(kit)).toBe(0)
+    expect(lineCostOf(kit, undefined, 15)).toBe(3000)
+    expect(lineCostOf({ ...kit, costCents: 500 }, undefined, 15)).toBe(500)
+    expect(lineCostOf({ ...kit, subhireQty: 1 }, undefined, 15)).toBeUndefined()
+    expect(lineCostOf(line({ words: true, unitCents: 0 }))).toBe(0)
+    expect(ownKitUncosted([kit], null)).toBe(true)
+    expect(ownKitUncosted([kit], 15)).toBe(false)
+    expect(ownKitUncosted([{ ...kit, subhireQty: 2 }, line({})], undefined)).toBe(false)
+    expect(quoteMargin(20000, [3000], false)).toEqual({ cost: 3000, margin: 17000, pct: 85, unknown: 0 })
+    expect(quoteMargin(20000, [0], true)).toMatchObject({ pct: 100, ownUncosted: true })
   })
 })
 
@@ -433,5 +577,25 @@ describe('every quote in one list (ADR 0088)', () => {
     expect(rows.filter((r) => quoteRowShown(r, 'all', '1116')).map((r) => r.job.name)).toEqual(['Second go'])
     expect(rows.filter((r) => quoteRowShown(r, 'all', 'sh-1050')).map((r) => r.job.name)).toEqual(['Paid lately'])
     expect(rows.filter((r) => quoteRowShown(r, 'sent', 'liffey'))).toEqual([])
+  })
+})
+
+describe("a client's payment terms (ADR 0119)", () => {
+  it('reads as the quote prints it, and the company\'s own terms say nothing', () => {
+    expect(paymentTermsLine(undefined)).toBeUndefined()
+    expect(paymentTermsLine(null)).toBeUndefined()
+    expect(paymentTermsLine('before')).toBe('Payment is due before the job.')
+    expect(paymentTermsLine(0)).toBe('Payment is due when the invoice arrives.')
+    expect(paymentTermsLine(1)).toBe('Payment is due within 1 day of the invoice.')
+    expect(paymentTermsLine(30)).toBe('Payment is due within 30 days of the invoice.')
+    expect(paymentTermsLabel(14)).toBe('Within 14 days of the invoice')
+  })
+  it('takes before the job or whole days up to 120, in plain words otherwise', () => {
+    for (const ok of ['before', 0, 30, 120]) expect(paymentTerms.safeParse(ok).success).toBe(true)
+    for (const bad of [-1, 121, 2.5, 'after', '30']) {
+      const r = paymentTerms.safeParse(bad)
+      expect(r.success).toBe(false)
+      expect(r.error!.issues[0]!.message).toBe('Payment terms are "before the job" or a whole number of days from 0 to 120.')
+    }
   })
 })

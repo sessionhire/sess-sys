@@ -27,6 +27,43 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS use_timesheets boolean;`,
   // Whether Claude is offered inside the app (ADR 0096): on the "assistant" row, off until the office says.
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS use_assistant boolean;`,
+  // The colour each cable length takes (ADR 0106), on the "cables" row; and the company's logo on the "logo" row, kept as a photo is.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS cable_colours jsonb;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS photo_key text UNIQUE, ADD COLUMN IF NOT EXISTS photo_type text CHECK (photo_type IN ('jpeg', 'png', 'webp')),
+    ADD COLUMN IF NOT EXISTS photo_bytes integer, ADD COLUMN IF NOT EXISTS photo_at timestamptz;
+  `,
+  // The first day whose bookings are asked for a timesheet (ADR 0110), on the "timesheets" row. A company already using them starts
+  // from the day it last changed the switch, its best record of when they went on, and devices hear of it as the server's own bookkeeping.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS timesheets_from text;
+  WITH dated AS (
+    UPDATE settings SET timesheets_from = to_char(updated_at AT TIME ZONE 'Europe/Dublin', 'YYYY-MM-DD')
+    WHERE id = 'timesheets' AND use_timesheets AND timesheets_from IS NULL
+    RETURNING id, name, phone, email, timesheets_from
+  )
+  INSERT INTO changes (entity, entity_id, op, data)
+  SELECT 'setting', id, 'put',
+    jsonb_build_object('id', id, 'name', name, 'phone', phone, 'email', email, 'useTimesheets', true, 'timesheetsFrom', timesheets_from)
+  FROM dated;
+  `,
+  // Whether freelancers' links check a new phone with a code, and can be emailed when lost (ADR 0114): on the "links" row, off until the office says.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS check_links boolean;`,
+  // Offers on WhatsApp (ADR 0125), on the "whatsapp" row: off, test or on, and the numbers to try it on. No row is off.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp_mode text CHECK (whatsapp_mode IN ('off', 'test', 'on'));
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp_test_to text[];
+  `,
+  // Whether labels print the logo in pure black and white (ADR 0163), on the "logo" row. No value is off.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_black_white boolean;`,
+  // The company as the law knows it, for the foot of every quote (ADR 0181), on the "office" row.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS trading_name text;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS legal_name text;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS cro_number text;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS registered_address text;
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS directors text;
+  `,
 ]
 
 export const OFFICE: Module = { versionTable: 'office_schema_version', migrations: MIGRATIONS }

@@ -64,7 +64,8 @@ export function PurchasesScreen({ view }: { view: View }) {
       <Top view={view} title="Stock" views={<StockViews view={view} current="buy" />} heading="Purchase list" />
       {access.can('ask') && (
         <section className="card" aria-label="Ask for something">
-          <Fold label="Ask for something to be bought" className="primary">
+          {/* A plain fold, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1). */}
+          <Fold label="Ask for something to be bought">
             <AskForm />
           </Fold>
           <p className="hint">Everyone signed in sees the list and can vote for what they'd find most useful. Nothing is ordered until the office says so.</p>
@@ -254,7 +255,7 @@ function AskForm({ r, onDone }: { r?: PurchaseView; onDone?: () => void }) {
       )}
       <div className="actions wide">
         <button type="submit" className="primary">
-          {r ? 'Save the request' : 'Ask for it'}
+          {r ? 'Save request' : 'Ask for it'}
         </button>
         {r && (
           <button type="button" onClick={onDone}>
@@ -345,12 +346,12 @@ function About({ r }: { r: PurchaseView }) {
                 Change the request
               </button>
               {doing === 'remove' ? (
-                <Confirm question={`Take “${r.title}” off the purchase list?`} yes="Take it off" onYes={remove} onNo={() => setDoing(undefined)}>
+                <Confirm question={`Take “${r.title}” off the purchase list?`} yes="Take it off" loss onYes={remove} onNo={() => setDoing(undefined)}>
                   {r.voters.length ? <p>Its {plural(r.voters.length, 'vote')} go with it.</p> : null}
                 </Confirm>
               ) : (
                 <button type="button" onClick={() => setDoing('remove')}>
-                  Take it off the list
+                  Remove from list
                 </button>
               )}
             </div>
@@ -416,7 +417,7 @@ function WhereItsAt({ r }: { r: PurchaseView }) {
         )}
         <div className="actions wide">
           <button type="submit" className="primary" disabled={!changed}>
-            Save where it's at
+            Save for now
           </button>
         </div>
       </form>

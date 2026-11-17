@@ -1,4 +1,4 @@
-import { allowanceId, leaveBalance, type LeaveAllowance, type LeaveBalance, type LeaveRequest, type LeaveYear, type LieuEntry } from '@sh/shared'
+import { allowanceId, HOLDS_DAYS, leaveBalance, type LeaveAllowance, type LeaveBalance, type LeaveRequest, type LeaveYear, type LieuEntry } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 
 /** Reading leave rows back as the entities devices see (ADR 0024). */
@@ -78,6 +78,16 @@ export async function entriesFor(q: Queryable, personId: string, year: number) {
 /** The balance the rules check against, worked out the same way as on each device. */
 export async function balanceFor(q: Queryable, personId: string, year: number, today: string): Promise<LeaveBalance> {
   return leaveBalance(personId, year, await getAllowance(q, personId, year), await requestsFor(q, personId, year), await entriesFor(q, personId, year), today)
+}
+
+/** A person's leave still to come or under way, approved or waiting on a decision, by start day: for their link (UX sweep, 6 November 2026, move 6). */
+export async function leaveAheadFor(q: Queryable, personId: string, today: string) {
+  const { rows } = await q.query(`SELECT ${REQUEST} FROM leave_requests WHERE person_id = $1 AND status = ANY($2::text[]) AND end_day >= $3::date ORDER BY start_day, requested_at`, [
+    personId,
+    HOLDS_DAYS,
+    today,
+  ])
+  return rows.map(toRequest)
 }
 
 /** Everyone's approved leave, for the calendar feeds, by start day. */

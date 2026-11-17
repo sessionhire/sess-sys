@@ -31,6 +31,8 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS sessions_user ON sessions (user_id);
   `,
+  // The screen the app opens on for each person (ADR 0122): null is Home, the default.
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS start_screen text;`,
 ]
 
 export const AUTH: Module = { versionTable: 'auth_schema_version', migrations: MIGRATIONS }

@@ -1,4 +1,4 @@
-import type { RmsLine, RmsOpportunity, RmsProgress, RmsRun, RmsStatus } from '@sh/shared'
+import { irishToday, rmsDay, type RmsLine, type RmsOpportunity, type RmsProgress, type RmsRun, type RmsStatus } from '@sh/shared'
 import { faultForLog, type Db, type Queryable } from '../db.ts'
 import { RmsApi, RmsRefused } from './api.ts'
 
@@ -8,7 +8,9 @@ import { RmsApi, RmsRefused } from './api.ts'
  * since Current RMS gives 25 opportunities a request and the lines one
  * opportunity a request, at a request a second; after that, only the
  * opportunities changed since they were last read have their lines read
- * again, so a second read is a few minutes. One runs at a time, in the
+ * again, with every one still to come or with no lines yet (Current RMS
+ * doesn't always count a line added as a change), so a second read is a
+ * few minutes. One runs at a time, in the
  * background, and says how far it's got; it can be stopped, and what was
  * read stays.
  */
@@ -25,6 +27,8 @@ interface ApiOpportunity {
   status_name?: string | null
   starts_at?: string | null
   ends_at?: string | null
+  show_starts_at?: string | null
+  show_ends_at?: string | null
   charge_excluding_tax_total?: Num
   charge_including_tax_total?: Num
   rental_charge_total?: Num
@@ -98,6 +102,8 @@ export function opportunityOf(o: ApiOpportunity): RmsOpportunity {
     status: words(o.status_name, 60),
     startsAt: when(o.starts_at),
     endsAt: when(o.ends_at),
+    showStartsAt: when(o.show_starts_at),
+    showEndsAt: when(o.show_ends_at),
     netCents: cents(o.charge_excluding_tax_total),
     grossCents: cents(o.charge_including_tax_total),
     rentalCents: cents(o.rental_charge_total),
@@ -142,17 +148,28 @@ export function lineOf(opportunityId: number, l: ApiLine): RmsLine {
 }
 
 async function keepOpportunity(q: Queryable, o: RmsOpportunity) {
+  // What Current RMS says goes in rms_starts_at and rms_ends_at every time; starts_at and ends_at follow it unless the
+  // office corrected the days here (ADR 0138), when the correction stands: its first day from midnight, its last to 23:59.
   await q.query(
     `INSERT INTO rms_opportunities (id, number, subject, client, venue, state, status, starts_at, ends_at, net_cents, gross_cents, rental_cents,
-       sale_cents, service_cents, surcharge_cents, tax_cents, undiscounted_cents, chargeable_days, discount_category, price_category, tags, created_at, updated_at, read_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, now())
-     ON CONFLICT (id) DO UPDATE SET number = $2, subject = $3, client = $4, venue = $5, state = $6, status = $7, starts_at = $8, ends_at = $9,
+       sale_cents, service_cents, surcharge_cents, tax_cents, undiscounted_cents, chargeable_days, discount_category, price_category, tags, created_at, updated_at,
+       rms_starts_at, rms_ends_at, show_starts_at, show_ends_at, read_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $8, $9, $24, $25, now())
+     ON CONFLICT (id) DO UPDATE SET number = $2, subject = $3, client = $4, venue = $5, state = $6, status = $7,
+       starts_at = COALESCE((SELECT ${FIXED_START} FROM rms_dates_fixed f WHERE f.opportunity_id = $1), $8),
+       ends_at = COALESCE((SELECT ${FIXED_END} FROM rms_dates_fixed f WHERE f.opportunity_id = $1), $9),
        net_cents = $10, gross_cents = $11, rental_cents = $12, sale_cents = $13, service_cents = $14, surcharge_cents = $15, tax_cents = $16,
-       undiscounted_cents = $17, chargeable_days = $18, discount_category = $19, price_category = $20, tags = $21, created_at = $22, updated_at = $23, read_at = now()`,
+       undiscounted_cents = $17, chargeable_days = $18, discount_category = $19, price_category = $20, tags = $21, created_at = $22, updated_at = $23,
+       rms_starts_at = $8, rms_ends_at = $9, show_starts_at = $24, show_ends_at = $25, read_at = now()`,
     [o.id, o.number, o.subject, o.client, o.venue, o.state, o.status, o.startsAt, o.endsAt, o.netCents, o.grossCents, o.rentalCents, o.saleCents, o.serviceCents,
-      o.surchargeCents, o.taxCents, o.undiscountedCents, o.chargeableDays, o.discountCategory, o.priceCategory, JSON.stringify(o.tags), o.createdAt, o.updatedAt]
+      o.surchargeCents, o.taxCents, o.undiscountedCents, o.chargeableDays, o.discountCategory, o.priceCategory, JSON.stringify(o.tags), o.createdAt, o.updatedAt,
+      o.showStartsAt, o.showEndsAt]
   )
 }
+
+/** A corrected first day from midnight in Ireland, and its last day to 23:59, as SQL over rms_dates_fixed f. */
+export const FIXED_START = `(f.starts_on::timestamp AT TIME ZONE 'Europe/Dublin')`
+export const FIXED_END = `((f.ends_on + time '23:59')::timestamp AT TIME ZONE 'Europe/Dublin')`
 
 async function keepLines(db: Db, opportunityId: number, updatedAt: string | null, lines: RmsLine[]) {
   await db.transaction(async (tx) => {
@@ -254,6 +271,7 @@ export class RmsReader {
     try {
       // Every opportunity, in the order of their ids so none is missed as pages go by.
       const changed: { id: number; updatedAt: string | null }[] = []
+      const weekAgo = irishToday(new Date(Date.now() - 7 * 86_400_000))
       for (let page = 1; ; page++) {
         check()
         const got = await api.read<{ opportunities?: ApiOpportunity[]; meta?: Meta }>('/opportunities', {
@@ -267,15 +285,23 @@ export class RmsReader {
         progress.total = got.meta?.total_row_count ?? Math.max(progress.total, opportunities + list.length)
         const ids = list.map((o) => o.id)
         const { rows: had } = ids.length
-          ? await this.db.query<{ id: number; lines_read_for: Date | null }>('SELECT id, lines_read_for FROM rms_opportunities WHERE id = ANY($1::int[])', [ids])
+          ? await this.db.query<{ id: number; lines_read_for: Date | null; has_lines: boolean }>(
+              'SELECT o.id, o.lines_read_for, EXISTS (SELECT 1 FROM rms_lines l WHERE l.opportunity_id = o.id) AS has_lines FROM rms_opportunities o WHERE o.id = ANY($1::int[])',
+              [ids]
+            )
           : { rows: [] }
         const readFor = new Map(had.map((h) => [h.id, h.lines_read_for ? new Date(h.lines_read_for).toISOString() : null]))
+        const hasLines = new Set(had.filter((h) => h.has_lines).map((h) => h.id))
         for (const raw of list) {
           const o = opportunityOf(raw)
           await keepOpportunity(this.db, o)
           const before = readFor.get(o.id)
           const now = o.updatedAt ? new Date(o.updatedAt).toISOString() : new Date(0).toISOString()
-          if (before !== now) changed.push({ id: o.id, updatedAt: o.updatedAt })
+          // Current RMS doesn't always count a line added as the opportunity changing, so the lines of one still to come
+          // (or only just past) are read every time, and so are those of one that had none, in case they came since.
+          const last = rmsDay(o.endsAt ?? o.startsAt)
+          const toCome = last !== undefined && last >= weekAgo
+          if (before !== now || toCome || !hasLines.has(o.id)) changed.push({ id: o.id, updatedAt: o.updatedAt })
           opportunities++
           progress.done = opportunities
         }

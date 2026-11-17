@@ -1,4 +1,10 @@
 import {
+  FROM_THE_QUOTE,
+  kitFromQuote,
+  kitToMatch,
+  packageIncludes,
+  type KitToAdd,
+  type QuoteLine,
   dayLabel,
   DEFAULT_PREP_DAYS,
   DEFAULT_RETURN_DAYS,
@@ -40,7 +46,9 @@ import { NotesKitLink } from './NotesKit.tsx'
  * enough on its days once the other jobs have theirs. Worked out on this
  * device (view.kit), so it works with no signal. Short is never a reason
  * to refuse a line: the count may be unfinished, or it's about to be
- * subhired.
+ * subhired. Every form here opens on the job's page, under its Next dock,
+ * so their submits are plain: the dock holds the page's one filled red
+ * (ADR 0104; UX sweep, 6 November 2026, move 1).
  */
 
 /** "Whole job · Mon 6 Oct to Sat 11 Oct", or the phase's name and days. */
@@ -164,8 +172,8 @@ export function kitShort(lines: readonly KitLineView[] | undefined): Tone | unde
   return short ? (short.hold === 'held' ? 'bad' : 'warn') : undefined
 }
 
-/** The job page's Kit card. */
-export function KitCard({ job, view }: { job: JobView; view: View }) {
+/** The job page's Kit card. `subhireOpened` opens the short kit's Subhire each time it changes: Next's "Sort 1 short" (ADR 0140, part 5). */
+export function KitCard({ job, view, subhireOpened }: { job: JobView; view: View; subhireOpened?: number }) {
   const lines = view.kit.byJob.get(job.id) ?? []
   const today = useToday()
   // A button the role can't use isn't drawn (audit finding 9): the lines are kit's, the days held are the job's own.
@@ -190,12 +198,13 @@ export function KitCard({ job, view }: { job: JobView; view: View }) {
       {lines.length > 0 && !STOPPED.includes(job.status) && <KitDays job={job} mayChange={access.can('jobs')} />}
       {STOPPED.includes(job.status) && lines.length > 0 && <p className="hint">This job is {job.status}, so its kit is free for other jobs.</p>}
       {lines.length === 0 && <Empty>{mayKit && 'Add what the job needs from the stock list, for the whole job or one phase.'}</Empty>}
-      {short.length > 0 && <ShortKit job={job} short={short} mayChange={mayKit} />}
+      {mayKit && !STOPPED.includes(job.status) && <FromQuote job={job} view={view} lines={lines} />}
+      {short.length > 0 && <ShortKit job={job} short={short} mayChange={mayKit} opened={subhireOpened} />}
       <ShowAll items={byDepartment} limit={3} what="lines" keep={brief ? undefined : toAct}>
         {(shown) =>
           DEPARTMENTS.filter((d) => shown.some((l) => department(l) === d)).map((d) => (
             <div className="kit-group" key={d}>
-              <h3>
+              <h3 className="group">
                 <Icon name={departmentIcon(d)} />
                 {DEPARTMENT_LABELS[d]}
               </h3>
@@ -211,6 +220,7 @@ export function KitCard({ job, view }: { job: JobView; view: View }) {
       {mayKit && (
         <Fold label="Add kit">
           <AddKit job={job} view={view} lines={lines} />
+          {view.money.packages.some((p) => p.items.length) && <AddPackageKit job={job} view={view} lines={lines} />}
         </Fold>
       )}
       <ProductChoices w={view.warehouse} />
@@ -303,7 +313,7 @@ function KitDays({ job, mayChange }: { job: JobView; mayChange: boolean }) {
           </p>
           <Refusal error={error} className="wide" />
           <div className="actions wide">
-            <button type="submit" className="primary">
+            <button type="submit">
               Save kit days
             </button>
             <button
@@ -330,12 +340,12 @@ function KitDays({ job, mayChange }: { job: JobView; mayChange: boolean }) {
  * and From do. Lines with none counted yet start unticked, as the count may
  * just not be finished.
  */
-function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly KitLineView[]; mayChange: boolean }) {
+function ShortKit({ job, short, mayChange, opened }: { job: JobView; short: readonly KitLineView[]; mayChange: boolean; opened?: number }) {
   const [open, setOpen] = useState(false)
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
   const [supplier, setSupplier] = useState('')
   const [done, setDone] = useState('')
-  const { run, error } = useAct()
+  const { run, error, refuse } = useAct()
   const opener = useRef<HTMLButtonElement>(null)
   const first = useRef<HTMLInputElement>(null)
   const closed = useRef(false)
@@ -350,6 +360,10 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
     setDone('')
     setOpen(true)
   }
+  // Next's "Sort 1 short" lands here with the Subhire open, its short lines ticked and the first tick in focus (ADR 0140, part 5).
+  useEffect(() => {
+    if (opened && mayChange) start()
+  }, [opened])
   const close = () => {
     closed.current = true
     setOpen(false)
@@ -362,7 +376,8 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
   }
   const save = (e: FormEvent) => {
     e.preventDefault()
-    if (chosen.length === 0) return
+    // Never greyed out (UX sweep, 6 November 2026, move 5): a press with nothing ticked says so.
+    if (chosen.length === 0) return refuse('Tick what to subhire first.')
     const from = supplier.trim()
     const said = `Subhired what's short on ${plural(chosen.length, 'line')}${from ? ` from ${from}` : ''}.`
     void run(async () => {
@@ -378,7 +393,7 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
     })
   }
   return (
-    <div className="short-kit">
+    <div className="short-kit" id="short-kit">
       <p className={`kit-state ${held ? 'bad' : 'warn'}`}>{shortSummary(short)}</p>
       {done && !open && (
         <p className="added" role="status">
@@ -412,8 +427,8 @@ function ShortKit({ job, short, mayChange }: { job: JobView; short: readonly Kit
           </label>
           <Refusal error={error} className="wide" />
           <div className="actions wide">
-            <button type="submit" className="primary" disabled={chosen.length === 0}>
-              {chosen.length === 0 ? 'Nothing ticked' : `Subhire ${plural(chosen.length, 'line')}`}
+            <button type="submit">
+              {chosen.length === 0 ? 'Subhire' : `Subhire ${plural(chosen.length, 'line')}`}
             </button>
             <button type="button" onClick={close}>
               Cancel
@@ -551,22 +566,126 @@ function EditKit({ line, job, onDone }: { line: KitLineView; job: JobView; onDon
           className="wide"
           question={`Take ${line.qty} × ${name} off the kit for ${job.name}? It's no longer held for the job, so it's free for others.`}
           yes="Take it off"
+          loss
           onYes={remove}
           onNo={() => setRemoving(false)}
         />
       ) : (
         <div className="actions wide">
-          <button type="submit" className="primary">
+          <button type="submit">
             Save line
           </button>
           <button type="button" onClick={onDone}>
             Cancel
           </button>
           <button type="button" className="link" onClick={() => setRemoving(true)}>
-            Take off the kit
+            Remove kit
           </button>
         </div>
       )}
+    </form>
+  )
+}
+
+/** What a quote's lines want that a job's kit list hasn't got yet (ADR 0102), by the quote's packages as well as its lines. */
+export function kitToAdd(view: View, lines: readonly QuoteLine[], jobId: string): KitToAdd[] {
+  return kitFromQuote(lines, (id) => view.money.package(id)?.items, view.kit.byJob.get(jobId) ?? [])
+}
+
+/** Puts what the quote wants on the job's kit list, for the whole job, each as a line of its own. */
+export async function addKitFromQuote(jobId: string, adds: readonly KitToAdd[]): Promise<void> {
+  for (const a of adds)
+    await client.mutate('kit.add', { id: newId(), projectId: jobId, phaseId: null, modelId: a.modelId, qty: Math.min(MAX_QTY, a.qty), subhireQty: Math.min(MAX_QTY, a.subhireQty), supplier: a.supplier, notes: FROM_THE_QUOTE })
+}
+
+/**
+ * The job's kit list made to follow its draft quote while the job is pencilled in (ADR 0126): what the quote wants goes
+ * on, and what the quote put on and no longer wants comes off. Kit added or changed by hand stays as it is.
+ */
+export async function matchKitToQuote(view: View, jobId: string, lines: readonly QuoteLine[]): Promise<void> {
+  const m = kitToMatch(lines, (id) => view.money.package(id)?.items, view.kit.byJob.get(jobId) ?? [])
+  await addKitFromQuote(jobId, m.add)
+  for (const c of m.change) await client.mutate('kit.update', { id: c.id, qty: c.qty, subhireQty: c.subhireQty })
+  for (const id of m.remove) await client.mutate('kit.remove', { id })
+}
+
+/**
+ * The kit on the job's quote that isn't on its kit list yet (ADR 0102), its newest version, to put on in one press:
+ * only ever more, so what the warehouse took off or changed isn't put back without asking. Quotes are only on the
+ * devices of those who see money, so nobody else is offered it.
+ */
+function FromQuote({ job, view, lines }: { job: JobView; view: View; lines: readonly KitLineView[] }) {
+  const { run, error } = useAct()
+  const quote = view.money.quotesOf(job.id)[0]
+  if (!quote) return null
+  const adds = kitToAdd(view, quote.lines, job.id)
+  if (adds.length === 0) return null
+  const name = (id: string) => view.warehouse.models.find((m) => m.id === id)?.name ?? 'a product'
+  return (
+    <div className="kit-from-quote" role="group" aria-label="Kit on the quote">
+      <p>
+        {lines.length ? 'On the quote but not the kit list yet: ' : 'The quote has kit to put on the list: '}
+        {adds.map((a) => `${a.qty} × ${name(a.modelId)}`).join(', ')}.
+      </p>
+      <Refusal error={error} />
+      <button type="button" className="secondary" onClick={() => void run(() => addKitFromQuote(job.id, adds))}>
+        {adds.length === 1 ? 'Add to kit' : `Add ${adds.length} to kit`}
+      </button>
+      <p className="hint">For the whole job. Change or take off any of them after, as with kit added by hand.</p>
+    </div>
+  )
+}
+
+/**
+ * A package's kit on the job's kit list in one press (ADR 0116): each product it holds, for the whole job or one phase,
+ * added to a line already there for it. Packages are on the devices of those who see money, so only they are offered it.
+ */
+function AddPackageKit({ job, view, lines }: { job: JobView; view: View; lines: readonly KitLineView[] }) {
+  const packages = view.money.packages.filter((p) => p.items.length)
+  const [f, setF] = useState({ packageId: packages[0]?.id ?? '', phaseId: '' })
+  const { run, error } = useAct()
+  const [added, setAdded] = useState('')
+  const p = packages.find((x) => x.id === f.packageId)
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!p) return
+    setAdded('')
+    const phaseId = f.phaseId || null
+    void run(async () => {
+      for (const i of p.items) {
+        if (!view.warehouse.models.some((m) => m.id === i.modelId)) continue
+        const already = lines.find((l) => l.modelId === i.modelId && l.phaseId === phaseId)
+        if (already) await client.mutate('kit.update', { id: already.id, qty: Math.min(MAX_QTY, already.qty + i.qty) })
+        else await client.mutate('kit.add', { id: newId(), projectId: job.id, phaseId, modelId: i.modelId, qty: Math.min(MAX_QTY, i.qty), subhireQty: 0, supplier: '', notes: p.name.slice(0, 500) })
+      }
+    }).then((ok) => ok && setAdded(`Added what ${p.name} holds: ${plural(p.items.length, 'product')}.`))
+  }
+  return (
+    <form className="grid-form add-kit" onSubmit={submit} aria-label="Add a package">
+      <h3 className="wide">Add a package</h3>
+      <label className="wide">
+        Package
+        <select value={f.packageId} onChange={(e) => setF({ ...f, packageId: e.target.value })}>
+          {packages.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        For <ForChoice job={job} value={f.phaseId} onChange={(phaseId) => setF({ ...f, phaseId })} />
+      </label>
+      {p && <p className="hint wide">{packageIncludes(p, (id) => view.warehouse.models.find((m) => m.id === id)?.name)}. Change any of them after, as with kit added by hand.</p>}
+      <Refusal error={error} className="wide" />
+      {added && !error && (
+        <p className="added wide" role="status">
+          {added}
+        </p>
+      )}
+      <button type="submit" className="wide">
+        Add its kit
+      </button>
     </form>
   )
 }
@@ -619,7 +738,7 @@ function AddKit({ job, view, lines }: { job: JobView; view: View; lines: readonl
           {added}
         </p>
       )}
-      <button type="submit" className="primary wide">
+      <button type="submit" className="wide">
         Add to kit
       </button>
     </form>

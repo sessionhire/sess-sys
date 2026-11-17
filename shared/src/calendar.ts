@@ -1,5 +1,5 @@
 import { daysLabel, eachDay, type Offer } from './crew.ts'
-import { calendarTitles, type Phase, type Project } from './jobs.ts'
+import { calendarTitles, STOPPED_WORDS, type Phase, type Project } from './jobs.ts'
 
 /**
  * Confirmed jobs on Google Calendar (ADR 0008). One Google account, connected
@@ -42,6 +42,29 @@ export interface CalendarLink {
    * before invites existed, which means off.
    */
   invites?: boolean
+  /**
+   * Whether a person's own invites tell them what happens next (ADR 0153): that they're booked, that their call time
+   * has moved, and why a day is cancelled. Off to start, as every new way of reaching crew is; "test" tells only the
+   * addresses in `tellTo`, to try it on the office's own. Missing means off.
+   */
+  tell?: TellMode
+  /** The addresses "test" tells, at most `TELL_TO_MAX`. */
+  tellTo?: string[]
+}
+
+/** Telling crew what happens next (ADR 0153): off; only the addresses listed, for trying it; or everyone invited. */
+export const TELL_MODES = ['off', 'test', 'on'] as const
+export type TellMode = (typeof TELL_MODES)[number]
+/** At most this many addresses to try telling on, as with WhatsApp's numbers. */
+export const TELL_TO_MAX = 5
+
+/** Whether a person's own invites, sent to `email`, tell them what happens next (ADR 0153). */
+export function tells(link: Pick<CalendarLink, 'tell' | 'tellTo'> | undefined, email: string | null | undefined): boolean {
+  const mode = link?.tell ?? 'off'
+  if (mode === 'off' || !email?.trim()) return false
+  if (mode === 'on') return true
+  const to = email.trim().toLowerCase()
+  return (link?.tellTo ?? []).some((e) => e.trim().toLowerCase() === to)
 }
 
 /** A guest's answer in Google Calendar. `needsAction` is no answer yet; `tentative` is Maybe. */
@@ -110,6 +133,15 @@ export interface CalendarInvites {
   people: number
   /** Offered or booked, but with no email address in the app, so not invited. */
   noEmail: string[]
+  /** Who the invites would go to, by name, each with the address and the days' events (title and day), so the office can check before turning invites on. */
+  guests: InviteGuest[]
+}
+
+/** One person turning invites on would invite, and the days' events they would be invited to. */
+export interface InviteGuest {
+  name: string
+  email: string
+  days: { day: string; title: string }[]
 }
 
 /** "12 invites to 5 people", "1 invite to 1 person". */
@@ -119,11 +151,82 @@ export const invitesLabel = (invites: number, people: number) =>
 // Today in Ireland lives with the day itself; days before it are never changed on the calendar.
 export { irishToday } from './day.ts'
 
+/** An offer in these states puts its person on the day's event (ADR 0009), and counts as crew asked for a hold. */
+export const ASKED_STATUSES: readonly string[] = ['offered', 'countered', 'accepted', 'confirmed']
+
+/** Whether any of a job's open calls has someone asked, offered or booked. */
+export const crewAsked = (calls: readonly { status: string; offers: readonly { status: string }[] }[]) =>
+  calls.some((c) => c.status === 'open' && c.offers.some((o) => ASKED_STATUSES.includes(o.status)))
+
+/**
+ * A job the client hasn't said yes to (an enquiry, or quoted) goes on the calendar once crew are asked for it (ADR 0008,
+ * 1.162.0), so the days they're asked for are in their calendar, marked HOLD until the job is confirmed. HOLD is short
+ * for "hold the day", the ask of the crew; it is not the job that is on hold (ADR 0150).
+ */
+export const onHold = (job: Pick<Project, 'status'>, asked: boolean) => (job.status === 'enquiry' || job.status === 'quoted') && asked
+
+/** A day's title while its crew are asked to hold the day. */
+export const holdTitle = (title: string) => `HOLD ${title}`
+
+/**
+ * Where a person stands on a day, as their own invite tells them (ADR 0153): asked, said yes, booked, or picked by the
+ * office for a job the client hasn't said yes to, where they hold the day and nothing is booked yet (ADR 0150).
+ */
+export type ToldStanding = 'asked' | 'yes' | 'booked' | 'picked'
+
+/** What a person's own invite told them, as last written: where they stand, and their call time. */
+export const toldOf = (standing: ToldStanding, callTime: string | null) => `${standing}|${callTime ?? ''}`
+
+/**
+ * Whether going from what an invite told a person to what it tells them now is news that Google should email them
+ * (ADR 0153, audit of 12 November 2026, finding 4): being booked, or picked, and a call time that moves. What they did
+ * themselves, such as saying yes, isn't; nor is anything said before the invite told them where they stand, so turning
+ * telling on sends nothing by itself.
+ */
+export function toldNews(before: string | null | undefined, after: string | null | undefined): boolean {
+  if (!before || !after) return false
+  const [was = '', wasCall = ''] = before.split('|')
+  const [now = '', nowCall = ''] = after.split('|')
+  const held = (s: string) => s === 'booked' || s === 'picked'
+  return (held(now) && !held(was)) || wasCall !== nowCall
+}
+
+/**
+ * A person's own day, titled with where they stand and their call time when their invites tell them what happens next
+ * (ADR 0153), so being booked, or a call time that moves, is a change of title, which Google emails: "Booked: Nissan -
+ * Build 1/2, call 08:00". Picked for a job the client hasn't said yes to keeps the day's HOLD title: nothing is booked.
+ */
+export function toldTitle(title: string, standing: ToldStanding, callTime: string | null): string {
+  return `${standing === 'booked' ? 'Booked: ' : ''}${title}${callTime ? `, call ${callTime}` : ''}`
+}
+
+const capitalised = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+/** How an offer ended on the office's side (UX sweep, 6 November 2026, move 6). */
+export type EndedBy = 'job-cancelled' | 'job-lost' | 'withdrawn' | 'filled'
+
+/**
+ * How an offer ended, as their page says it and as the last title of their invite, so Google's cancellation carries it
+ * (ADR 0153): the client's cancelling, a job that didn't go ahead and the office taking someone off are three different
+ * news, and the person's own No or Can't make it is theirs, not the office cancelling on them.
+ */
+export const ENDED_WORDS: Record<EndedBy | 'declined' | 'pulled-out', string> = {
+  'job-cancelled': capitalised(STOPPED_WORDS.cancelled),
+  'job-lost': capitalised(STOPPED_WORDS.lost),
+  withdrawn: 'Withdrawn by the office',
+  filled: 'Filled by someone else',
+  declined: 'You declined',
+  'pulled-out': "Can't make it",
+}
+
+/** A person's own day as it comes off their calendar because their offer ended: why, then the day, without HOLD. */
+export const endedTitle = (title: string, why: keyof typeof ENDED_WORDS) => `${ENDED_WORDS[why]}: ${title.replace(/^HOLD /, '')}`
+
 /**
  * Where a phase stands with the calendar, for the job page:
  *
  * - `theirs`: the job was brought in from a calendar that keeps its events (ADR 0011);
- * - `waiting`: not going on yet, because the job isn't confirmed;
+ * - `waiting`: not going on yet, because the job isn't confirmed and nobody is asked for it;
  * - `stopped`: the job is cancelled or lost, so it is off the calendar;
  * - `past`: every day has gone, and the calendar is left as it was;
  * - `unconnected`: it would go on, but no calendar is connected;
@@ -143,13 +246,16 @@ export function phaseOnCalendar(
   phase: Pick<Phase, 'id' | 'name' | 'start' | 'end'>,
   link: CalendarLink | undefined,
   days: Readonly<Record<string, CalendarDay>>,
-  today: string
+  today: string,
+  /** Whether crew are asked for the job, which puts a job not yet confirmed on the calendar as HOLD. */
+  asked = false
 ): PhaseOnCalendar {
   if (job.sourceCalendar) return { state: 'theirs', calendar: job.sourceCalendar }
   if (job.status === 'cancelled' || job.status === 'lost') return { state: 'stopped' }
-  if (job.status !== 'confirmed') return { state: 'waiting' }
+  const hold = onHold(job, asked)
+  if (job.status !== 'confirmed' && !hold) return { state: 'waiting' }
   const all = eachDay(phase.start, phase.end)
-  const titles = calendarTitles(job.name, phase)
+  const titles = calendarTitles(job.name, phase).map((t) => (hold ? holdTitle(t) : t))
   const ahead = all.map((day, i) => ({ day, title: titles[i]! })).filter((d) => d.day >= today)
   if (ahead.length === 0) return { state: 'past' }
   if (link?.state === 'reconnect') return { state: 'paused' }
@@ -175,41 +281,68 @@ export function dayAnswer(responses: readonly GuestResponse[]): DayAnswer {
   return 'none'
 }
 
+/** What a person's answers in Google Calendar come to, as the answer to give for them on their offer (ADR 0009, ADR 0152). */
+export type AnswerFromCalendar =
+  | { answer: 'accept'; days: string[]; asked: string[] }
+  | { answer: 'decline' }
+  | { answer: 'undecided'; days: string[] }
+
 /**
- * What a person's answers in Google Calendar do to their offer (ADR 0009),
- * as the answer to give for them, if any. `answers` holds each day they are
- * a guest on; `changed`, the days whose answer has just changed.
+ * What a person's answers in Google Calendar do to their offer (ADR 0009,
+ * ADR 0152), as the answer to give for them, if any. `answers` holds each
+ * day they are a guest on; `changed`, the days whose answer has just
+ * changed.
  *
- * A Yes to any day is a yes to the offer, for all its days but those they
- * said No to; a No to every day declines. Before the office confirms, a
- * later No drops that day and a later Yes adds it back. Confirmed bookings
- * and counter-offers are the office's to change, so nothing is done.
+ * Each invite asks about one day, so a Yes counts for the day it was
+ * pressed on, when it was pressed: the offer is accepted for the days they
+ * said yes to, and the days they haven't answered stay asked. A Yes the app
+ * couldn't take isn't tried again with a later one. A No to every day
+ * declines. Before
+ * the office confirms, a later Yes adds that day and a later No drops it;
+ * a No to every day they'd said yes to, with days not yet answered, opens
+ * the offer again for those. Confirmed bookings and rates asked for are the
+ * office's to change, so nothing is done.
  */
 export function answerFromCalendar(
-  offer: Pick<Offer, 'status' | 'days'>,
+  offer: Pick<Offer, 'status' | 'days' | 'asked'>,
   callDays: readonly string[],
   answers: Readonly<Record<string, DayAnswer>>,
   changed: readonly string[]
-): { answer: 'accept'; days: string[] } | { answer: 'decline' } | undefined {
-  const asked = Object.keys(answers)
-  const no = asked.filter((d) => answers[d] === 'no')
-  const sorted = (days: string[]) => [...new Set(days)].sort()
+): AnswerFromCalendar | undefined {
+  const invited = Object.keys(answers).filter((d) => callDays.includes(d))
+  const said = (a: DayAnswer) => invited.filter((d) => answers[d] === a)
+  const sorted = (days: readonly string[]) => [...new Set(days)].sort()
+  // Days with no answer yet, or a Maybe: still to be answered.
+  const open = (days: readonly string[]) => sorted(days.filter((d) => answers[d] === 'none' || answers[d] === 'maybe'))
   if (offer.status === 'offered' || offer.status === 'declined') {
-    // Once declined, only a new Yes opens it again, as answering again on the link would.
-    const yes = offer.status === 'declined' ? changed.filter((d) => answers[d] === 'yes') : asked.filter((d) => answers[d] === 'yes')
-    if (yes.length) return { answer: 'accept', days: sorted(callDays.filter((d) => !no.includes(d))) }
-    if (offer.status === 'offered' && asked.length > 0 && no.length === asked.length) return { answer: 'decline' }
+    // Only a Yes just pressed counts, for its own day: one pressed before that the app couldn't take (the day had filled) isn't
+    // tried again with it, and once declined, only a new Yes opens the offer again, as answering again on the link would.
+    const yes = changed.filter((d) => invited.includes(d) && answers[d] === 'yes')
+    // The days they haven't answered stay asked, and so does one whose Yes from before didn't count.
+    if (yes.length) return { answer: 'accept', days: sorted(yes), asked: sorted(invited.filter((d) => !yes.includes(d) && answers[d] !== 'no')) }
+    if (offer.status === 'offered' && invited.length > 0 && said('no').length === invited.length) return { answer: 'decline' }
     return undefined
   }
   if (offer.status === 'accepted') {
-    const dropped = changed.filter((d) => answers[d] === 'no' && offer.days.includes(d))
-    const added = changed.filter((d) => answers[d] === 'yes' && !offer.days.includes(d))
-    if (!dropped.length && !added.length) return undefined
+    const asked = offer.asked ?? []
+    const now = changed.filter((d) => invited.includes(d))
+    const dropped = now.filter((d) => answers[d] === 'no' && offer.days.includes(d))
+    const added = now.filter((d) => answers[d] === 'yes' && !offer.days.includes(d))
+    // An asked day they've now answered either way is no longer asked.
+    const answered = now.filter((d) => answers[d] === 'yes' || answers[d] === 'no')
     const days = sorted([...offer.days.filter((d) => !dropped.includes(d)), ...added])
-    return days.length ? { answer: 'accept', days } : { answer: 'decline' }
+    const still = sorted(asked.filter((d) => !answered.includes(d)))
+    if (!dropped.length && !added.length && still.length === asked.length) return undefined
+    if (days.length) return { answer: 'accept', days, asked: still }
+    return still.length ? { answer: 'undecided', days: still } : { answer: 'decline' }
   }
   return undefined
 }
+
+/** Someone who asked for a different rate, then pressed Yes on their invite: which stands is for the office to find out. */
+export const COUNTERED_YES = 'Pressed Yes on Google Calendar after asking for a different rate: ring them to see which stands.'
+/** The same Yes once the office has said no to the rate: it doesn't count, and their invite asks them to answer on their page. */
+export const YES_WHILE_ASKING = "Pressed Yes on Google Calendar while asking for a different rate, so it doesn't count: their invite asks them to answer on their page."
 
 /** How one offer stands on Google Calendar, for the job page: the days its person is a guest on, and their answers. */
 export interface OfferOnCalendar {
@@ -221,7 +354,7 @@ export interface OfferOnCalendar {
 }
 
 export function offerOnCalendar(
-  offer: Pick<Offer, 'id' | 'status' | 'days'>,
+  offer: Pick<Offer, 'id' | 'status' | 'days'> & { counterRateCents?: number | null },
   days: Readonly<Record<string, CalendarDay>>,
   today: string
 ): OfferOnCalendar | undefined {
@@ -258,8 +391,13 @@ export function offerOnCalendar(
   const unmet = offer.status === 'accepted' || offer.status === 'confirmed' ? yes.filter((d) => !offer.days.includes(d)) : yes
   const warning = bookedNo.length
     ? `Said no to ${daysLabel(bookedNo)} on Google Calendar, but is booked for ${bookedNo.length === 1 ? 'it' : 'them'}. Call them to sort it out.`
-    : unmet.length
-      ? problem
-      : null
+    : offer.status === 'countered' && yes.length
+      ? // A Yes after asking for a different rate settles nothing: the rate is the office's to answer (ADR 0152).
+        COUNTERED_YES
+      : unmet.length
+        ? // A Yes with no reason against it on an offer only asked again, with the rate they asked for kept, was pressed while
+          // their rate was with the office, which then said no to it (ADR 0152): it was never theirs to count.
+          (problem ?? (offer.status === 'offered' && typeof offer.counterRateCents === 'number' ? YES_WHILE_ASKING : null))
+        : null
   return { answers, line, warning }
 }

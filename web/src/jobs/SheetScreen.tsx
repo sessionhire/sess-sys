@@ -1,8 +1,10 @@
 import {
+  SHEET_WORDS,
   callSheet,
   callSheetText,
   HOLDING,
   irishToday,
+  jobOnHold,
   lateDayWord,
   lateLine,
   sheetMessage,
@@ -18,7 +20,7 @@ import {
   type View,
 } from '@sh/shared'
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { Refusal, useAct } from '../act.tsx'
 import { linkFor, SharePanel } from '../crew/CrewScreen.tsx'
 import { Empty } from '../Empty.tsx'
@@ -43,7 +45,8 @@ export function sheetInput(view: View, job: JobView, phase: PhaseView): SheetInp
   const people = new Map<string, SheetPerson>(view.crew.people.map((p) => [p.id, { id: p.id, name: p.name, phone: p.phone }]))
   const today = irishToday()
   return {
-    job: { name: job.name, notes: job.notes },
+    // While the client hasn't said yes, the sheet opens by saying it's to hold the day (ADR 0150).
+    job: { name: job.name, notes: job.notes, hold: jobOnHold(job.status) },
     client: job.client ? { name: job.client.name, contacts: job.client.contacts } : null,
     phase: { name: phase.name, start: phase.start, end: phase.end, notes: phase.notes },
     venue: phase.venue ?? null,
@@ -70,15 +73,23 @@ export function SheetScreen({ view, jobId, phaseId }: { view: View; jobId: strin
   const phase = job?.phases.find((p) => p.id === phaseId)
   const [share, setShare] = useState<{ person: PersonView; call: CallView } | undefined>()
   const [copied, setCopied] = useState<'yes' | 'failed'>()
-  const [printing, setPrinting] = useState(false)
+  // Print pressed, or the browser's own print (Ctrl+P, the menu), which gets the same one-page sheet rather than the screen
+  // printed as it is (audit, 5 November 2026, finding 90).
+  const [printing, setPrinting] = useState<false | 'button' | 'browser'>(false)
   // Sending crew their sheet is crew's to do (audit finding 9); anyone can print it or copy it.
   const mayTell = useAccess().can('crew')
+  useEffect(() => {
+    // Drawn before the browser takes its picture of the page.
+    const before = () => flushSync(() => setPrinting((p) => p || 'browser'))
+    addEventListener('beforeprint', before)
+    return () => removeEventListener('beforeprint', before)
+  }, [])
   useEffect(() => {
     if (!printing) return
     const done = () => setPrinting(false)
     addEventListener('afterprint', done)
-    // Once the sheet is on the page.
-    const frame = requestAnimationFrame(() => print())
+    // Once the sheet is on the page; the browser's own print is already under way.
+    const frame = printing === 'button' ? requestAnimationFrame(() => print()) : 0
     return () => {
       cancelAnimationFrame(frame)
       removeEventListener('afterprint', done)
@@ -125,12 +136,13 @@ export function SheetScreen({ view, jobId, phaseId }: { view: View; jobId: strin
           {sheet.when}
           {sheet.client && ` · for ${sheet.client.name}`}
         </p>
+        {sheet.hold && <p className="warn-line">{sheet.hold}</p>}
         <div className="actions">
-          <button type="button" className="primary" onClick={() => setPrinting(true)} disabled={printing}>
+          <button type="button" className="primary" onClick={() => setPrinting('button')} disabled={!!printing}>
             Print
           </button>
           <button type="button" onClick={copy}>
-            {copied === 'yes' ? 'Copied' : 'Copy for a WhatsApp group'}
+            {copied === 'yes' ? 'Copied' : 'Copy for WhatsApp'}
           </button>
         </div>
         {copied === 'failed' && (
@@ -169,6 +181,11 @@ export function SheetScreen({ view, jobId, phaseId }: { view: View; jobId: strin
                 {sheet.when}
                 {sheet.client && ` · for ${sheet.client.name}`}
               </p>
+              {sheet.hold && (
+                <p>
+                  <b>{sheet.hold}</b>
+                </p>
+              )}
             </header>
             {sheet.contact && (
               <section>
@@ -240,7 +257,7 @@ function Contact({ view, phase, sheet }: { view: View; phase: PhaseView; sheet: 
   )
 }
 
-const STATUS_PILL: Record<'booked' | 'to confirm' | 'offered', [PillTone, string]> = { booked: ['confirmed', 'Booked'], 'to confirm': ['pending', 'To confirm'], offered: ['cancelled', 'Offered'] }
+const STATUS_PILL: Record<keyof typeof SHEET_WORDS, readonly [PillTone, string]> = { booked: [SHEET_WORDS.booked[1], SHEET_WORDS.booked[0]], 'to confirm': [SHEET_WORDS['to confirm'][1], SHEET_WORDS['to confirm'][0]], offered: [SHEET_WORDS.offered[1], SHEET_WORDS.offered[0]] }
 
 function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: readonly CallView[]; onSend?: (call: CallView, personId: string) => void; print?: boolean }) {
   return (
@@ -258,6 +275,20 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
             </a>
           )}
           {sheet.venue.notes && <p className="lines">{sheet.venue.notes}</p>}
+          {/* Who to ask for there (ADR 0119), with a number to press on a phone. */}
+          {sheet.venue.contact && (
+            <p>
+              At the venue, ask for <b>{sheet.venue.contact.name}</b>
+              {sheet.venue.contact.role && ` (${sheet.venue.contact.role})`}
+              {sheet.venue.contact.phone && (
+                <>
+                  {' on '}
+                  {print ? sheet.venue.contact.phone : <a href={`tel:${sheet.venue.contact.phone.replace(/[^+\d]/g, '')}`}>{sheet.venue.contact.phone}</a>}
+                </>
+              )}
+              .
+            </p>
+          )}
         </section>
       )}
 
@@ -275,7 +306,7 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
 
       <section className={print ? '' : 'card'} aria-label="Crew">
         <Heading icon="people">Crew</Heading>
-        {sheet.calls.length === 0 && <Empty>Crew are asked for on the job's page.</Empty>}
+        {sheet.calls.length === 0 && <Empty>Crew are added on the job's page.</Empty>}
         {sheet.calls.map((c) => (
           <article key={c.id} className="sheet-call">
             <header>
@@ -332,7 +363,7 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
           <Heading icon="kit">Kit</Heading>
           {sheet.kit.map((d) => (
             <div key={d.department} className="sheet-kit">
-              <h3>{d.department}</h3>
+              <h3 className="group">{d.department}</h3>
               <ul>
                 {d.lines.map((l) => (
                   <li key={`${l.name}${l.note}`}>

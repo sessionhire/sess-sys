@@ -48,3 +48,11 @@ hang off.
 - A new place is one row in `MENU` (web/src/MenuScreen.tsx).
 - Admin is one tap further away for the office and directors, who open it
   rarely.
+
+## Later: Home in the Menu (6 November 2026)
+
+Home has a row under Company, before Admin and History, whose line says
+its counts are ordered for whoever is looking: two people at one Company
+view can see them in different orders
+([Decision 0033](0033-home-and-finding-your-way-around.md), Move 10 of the
+UX sweep of 6 November 2026).

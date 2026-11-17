@@ -20,8 +20,6 @@ import {
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
-import { Fold } from '../Fold.tsx'
-import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday } from '../view.ts'
 
@@ -71,15 +69,14 @@ export const lateNotesOn = (call: CallView, late: LateView | undefined) =>
 export const lateToNote = (call: CallView) =>
   call.status === 'open' ? call.offers.filter((o) => o.person && HOLDING.includes(o.status) && lateDays(o.days).length > 0) : []
 
-/** On a call's line, at rest: "Gráinne: about 30 minutes late, “Traffic on the M50”", or "Gráinne: there now". */
-export function LateLines({ call, late, today }: { call: CallView; late: LateView | undefined; today: string }) {
-  const notes = lateNotesOn(call, late)
-  if (!notes.length) return null
+/** Under someone's row on a call, at rest: "About 30 minutes late, “Traffic on the M50”", or "There now". */
+export function LateLinesFor({ offer, late, today }: { offer: OfferView; late: LateView | undefined; today: string }) {
+  const notes = offer.status === 'accepted' || offer.status === 'confirmed' ? (late?.forOffer(offer.id) ?? []) : []
   return (
     <>
       {notes.map((l) => (
         <p key={l.id} className={`late-line${l.arrivedAt ? ' there' : ''}`}>
-          {l.person ? firstName(l.person) : 'Someone'}: {lateLine(l)}
+          {lateLine(l).replace(/^./, (c) => c.toLocaleUpperCase())}
           {l.day !== today && ` (${lateDayWord(l.day, today)})`}
         </p>
       ))}
@@ -89,24 +86,28 @@ export function LateLines({ call, late, today }: { call: CallView; late: LateVie
 
 /**
  * Someone booked rang to say they're running late (ADR 0028, amended): the
- * office notes it under the call's line, with the same choices as their
- * link, in the same record, so it reaches the queue, the badge, the
- * planner and the contact's call sheet as theirs would. Only for the days
- * it can be said for now, as on the link: today, and tomorrow from 6pm.
+ * office notes it from their row on the call, with the same choices as their
+ * link, in the same record, so it reaches the queue, the badge, the planner
+ * and the contact's call sheet as theirs would. Only for the days it can be
+ * said for now, as on the link: today, and tomorrow from 6pm. The row's
+ * "Running late…" opens it under the row (14 November 2026: each person on a
+ * call has their own row and presses). On the job's page (`inJob`) its
+ * submit is plain, as the Next dock holds the page's one filled red (ADR
+ * 0104; UX sweep, 6 November 2026, move 1).
  */
-export function NoteLate({ call, late }: { call: CallView; late: LateView | undefined }) {
-  const mayNote = useAccess().can('crew')
-  const booked = mayNote ? lateToNote(call) : []
-  if (!booked.length) return null
+export function LateFor({ call, offer, late, inJob = false, onClose }: { call: CallView; offer: OfferView; late: LateView | undefined; inJob?: boolean; onClose: () => void }) {
   return (
-    <Fold label="Running late…" className="link late-open">
-      <LateForm call={call} booked={booked} late={late} />
-    </Fold>
+    <div className="fold">
+      <LateForm call={call} booked={[offer]} late={late} inJob={inJob} />
+      <button type="button" className="link" onClick={onClose}>
+        Close
+      </button>
+    </div>
   )
 }
 
 /** Who rang and for which day, when there's a choice, over the form for that person and day. */
-function LateForm({ call, booked, late }: { call: CallView; booked: OfferView[]; late: LateView | undefined }) {
+function LateForm({ call, booked, late, inJob }: { call: CallView; booked: OfferView[]; late: LateView | undefined; inJob: boolean }) {
   const today = useToday()
   const [offerId, setOfferId] = useState(booked[0]!.id)
   const offer = booked.find((o) => o.id === offerId) ?? booked[0]!
@@ -145,12 +146,12 @@ function LateForm({ call, booked, late }: { call: CallView; booked: OfferView[];
         </div>
       )}
       {/* A fresh form for each person and day, filled in with what's on record, to change it. */}
-      <LateFields key={`${offer.id} ${day}`} call={call} offer={offer} day={day} said={late?.forOffer(offer.id).find((l) => l.day === day)} />
+      <LateFields key={`${offer.id} ${day}`} call={call} offer={offer} day={day} said={late?.forOffer(offer.id).find((l) => l.day === day)} inJob={inJob} />
     </>
   )
 }
 
-function LateFields({ call, offer, day, said }: { call: CallView; offer: OfferView; day: string; said: LateNote | undefined }) {
+function LateFields({ call, offer, day, said, inJob }: { call: CallView; offer: OfferView; day: string; said: LateNote | undefined; inJob: boolean }) {
   const name = offer.person!.name
   const first = firstName(offer.person!)
   const [by, setBy] = useState<LateBy | ''>(said?.by ?? '')
@@ -200,7 +201,7 @@ function LateFields({ call, offer, day, said }: { call: CallView; offer: OfferVi
         {done && <p className="added">{done}</p>}
       </div>
       <div className="actions wide">
-        <button type="submit" className="primary">
+        <button type="submit" className={inJob ? undefined : 'primary'}>
           {said ? 'Change how late' : `Note ${first} as late`}
         </button>
         {said && !said.arrivedAt && (

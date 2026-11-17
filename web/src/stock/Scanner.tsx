@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { inApp } from '../native.ts'
+import { NativeScanner } from './NativeScanner.tsx'
 
 /**
  * Scanning with the phone's camera in the app (ADR 0016). The camera stays
@@ -170,7 +172,13 @@ function cameraProblem(err: unknown): string {
  * new code as it's read. Small, when there's a form under it to fill in.
  * It turns itself off while the app is out of sight, and back on when it's back.
  */
-export function CameraScanner({ onRead, onStop, small = false }: { onRead: (code: string) => void; onStop: () => void; small?: boolean }) {
+export function CameraScanner(props: { onRead: (code: string) => void; onStop: () => void; small?: boolean }) {
+  // In the iPhone or Android app, the phone's own reader (ADR 0112).
+  return inApp() ? <NativeScanner onRead={props.onRead} onStop={props.onStop} beep={beep} /> : <PageScanner {...props} />
+}
+
+/** The camera in the page, for a browser. */
+function PageScanner({ onRead, onStop, small = false }: { onRead: (code: string) => void; onStop: () => void; small?: boolean }) {
   const video = useRef<HTMLVideoElement>(null)
   const latest = useRef(onRead)
   latest.current = onRead
@@ -196,8 +204,10 @@ export function CameraScanner({ onRead, onStop, small = false }: { onRead: (code
     let alive = true
     let stream: MediaStream | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
-    // The code in the picture, and since when and for how many looks it hasn't been found.
-    let last = { code: '', missed: 0, since: 0 }
+    // The codes in the picture lately, each with since when and for how many looks it hasn't been found. A set, not one code:
+    // with two labels in the frame the reads can go A, B, A, and A again would answer over B's answer and Undo (audit,
+    // 5 November 2026, finding 68).
+    const recent = new Map<string, { missed: number; since: number }>()
     setProblem('')
     setStarting(true)
     void (async () => {
@@ -226,18 +236,22 @@ export function CameraScanner({ onRead, onStop, small = false }: { onRead: (code
           if (v.readyState >= 2) {
             const code = (await decode(v).catch(() => undefined))?.trim()
             const now = performance.now()
+            // Every other code seen lately has missed this look; one missed for long enough has left the picture.
+            for (const [seen, x] of recent) {
+              if (seen === code) continue
+              const since = x.missed ? x.since : now
+              const missed = x.missed + 1
+              if (missed >= GONE_LOOKS && now - since >= GONE_AFTER) recent.delete(seen)
+              else recent.set(seen, { missed, since })
+            }
             if (code && alive) {
-              if (code !== last.code) {
+              if (!recent.has(code)) {
                 setRead({ code, at: now })
                 navigator.vibrate?.(60)
                 if (soundRef.current) beep()
                 latest.current(code)
               }
-              last = { code, missed: 0, since: 0 }
-            } else if (last.code) {
-              const since = last.missed ? last.since : now
-              const missed = last.missed + 1
-              last = missed >= GONE_LOOKS && now - since >= GONE_AFTER ? { code: '', missed: 0, since: 0 } : { code: last.code, missed, since }
+              recent.set(code, { missed: 0, since: 0 })
             }
           }
           timer = setTimeout(tick, EVERY)

@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { SearchPalette } from './SearchPalette.tsx'
+import { closeSearch, openSearch, useSearchOpen } from './searchOpen.ts'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
+import { APP_VERSION, dayLabel, irishToday } from '@sh/shared'
 import { AccountScreen } from './AccountScreen.tsx'
 import { useAuth } from './auth.ts'
 import { CrewBadge } from './crew/CrewBadge.tsx'
@@ -9,6 +12,7 @@ import { AreaIcon } from './home/icons.tsx'
 import { PreviewSplash, useHoldPersona, usePreview } from './home/Preview.tsx'
 // Holds every change to the person's role (ADR 0034).
 import './role.ts'
+import { FootContext, useDesk } from './foot.tsx'
 import { JobsScreen } from './jobs/JobsScreen.tsx'
 import { QuotesScreen } from './jobs/QuotesScreen.tsx'
 import { MenuScreen } from './MenuScreen.tsx'
@@ -20,7 +24,12 @@ import { StorageBanner, useUnkept } from './StorageBanner.tsx'
 import { UpdateBar } from './update.tsx'
 import { useAccess } from './role.ts'
 import { YouScreen } from './YouScreen.tsx'
+import { shortcutHint, ShortcutsSheet, usePaletteKey, useShortcuts } from './shortcuts.tsx'
 import { ChangesScreen } from './ChangesScreen.tsx'
+import { sayDaysWith } from './required.ts'
+
+// A form's refusals say a day as the rest of the app does; required.ts can't take the shared code itself (it's in the page's first script).
+sayDaysWith((day) => dayLabel(day, irishToday()))
 
 /**
  * Switches between the app's areas. The address keeps the area, and within
@@ -38,13 +47,13 @@ import { ChangesScreen } from './ChangesScreen.tsx'
  * History and You (a person's own settings), and Notifications, which the
  * bell in the top bar opens (ADR 0058). Those keep the Menu's tab.
  *
- * Quotes (ADR 0088) is a sixth, for the office and directors, in the sidebar on a desk only: a phone's bar holds five
- * (the design system's navigation), so there it's on the Menu, whose tab it keeps.
+ * Quotes (ADR 0088) was a sixth, in the sidebar on a desk. It isn't a place any more (Colly, 12 November 2026): a quote is part of
+ * its job. Its addresses still work, under Jobs' tab: #quotes/new is New quote, and the rest go on to Money › To follow up.
  */
 const AREAS = [
   { hash: '#home', label: 'Home', Screen: HomeScreen },
   { hash: '#jobs', label: 'Jobs', Screen: JobsScreen },
-  { hash: '#quotes', label: 'Quotes', Screen: QuotesScreen, desk: true },
+  { hash: '#quotes', label: 'Quotes', Screen: QuotesScreen, hidden: true },
   { hash: '#stock', label: 'Stock', Screen: StockScreen },
   { hash: '#crew', label: 'Crew', Screen: CrewScreen },
   { hash: '#menu', label: 'Menu', Screen: MenuScreen },
@@ -104,17 +113,6 @@ function useBarAway(): boolean {
   return away
 }
 
-/** From 900px across the places are a sidebar (ADR 0036), with room for more than a phone's bar. */
-const deskWide = typeof matchMedia === 'function' ? matchMedia('(min-width: 900px)') : undefined
-function useDesk(): boolean {
-  const [desk, setDesk] = useState(deskWide?.matches ?? false)
-  useEffect(() => {
-    const on = () => setDesk(deskWide?.matches ?? false)
-    deskWide?.addEventListener('change', on)
-    return () => deskWide?.removeEventListener('change', on)
-  }, [])
-  return desk
-}
 
 export function Shell() {
   const auth = useAuth()
@@ -122,6 +120,7 @@ export function Shell() {
   const persona = usePreview()
   const barAway = useBarAway()
   const desk = useDesk()
+  const [dock, setDock] = useState<HTMLElement | null>(null)
   const access = useAccess()
   const seesMoney = access.can('money')
   // A role without crew opens Crew on People: the calls and answers are the office's to-do list (audit, 20 October 2026, finding 34).
@@ -129,20 +128,35 @@ export function Shell() {
   // The demo copy opens on a choice of whose eyes to see it through (ADR 0033), and the header says whose they are.
   const demo = auth.status === 'open' && auth.passcode === true
   useHoldPersona(demo ? persona : undefined)
+  // Keys at a desk (ADR 0120): G then J for Jobs, N then Q for a new quote, ? for the list.
+  const crewOk = access.can('crew')
+  const go = useCallback((to: string) => void (location.hash = to === '#crew' && !crewOk ? '#crew/people' : to), [crewOk])
+  const keys = useShortcuts({ on: desk, money: seesMoney, go })
+  // Search is a palette over the screen (ADR 0147), from the magnifier, Ctrl K or Command K, or / at a desk.
+  const signedIn = auth.status === 'signed-in' || auth.status === 'open'
+  usePaletteKey(signedIn)
+  const searching = useSearchOpen()
   const [hash, setHash] = useState(location.hash)
   useEffect(() => {
     const on = () => setHash(location.hash)
     addEventListener('hashchange', on)
     return () => removeEventListener('hashchange', on)
   }, [])
+  // Search was a page (#search) before it was a palette: a link or bookmark to it opens the palette over Home.
+  useEffect(() => {
+    if (hash !== '#search') return
+    history.replaceState(history.state, '', '#home')
+    setHash('#home')
+    openSearch()
+  }, [hash])
   const within = (root: string) => hash === root || hash.startsWith(`${root}/`)
   // Every address starts with its area (ADR 0041), so its tab is the one it starts with; Admin, History and You keep the Menu's.
   const menu = AREAS[5]
   const under = UNDER_MENU.find((u) => within(u.hash))
   const area = under ? menu : (AREAS.find((a) => within(a.hash)) ?? AREAS[0])
-  // A place drawn in the sidebar only (Quotes) is reached from the Menu on a phone, so lights its tab there.
-  const shown = AREAS.filter((a) => !('desk' in a) || (desk && seesMoney))
-  const lit = shown.includes(area) ? area : menu
+  // Quotes' old addresses aren't drawn as a place: they're Jobs', so light its tab.
+  const shown = AREAS.filter((a) => !('hidden' in a))
+  const lit = shown.includes(area) ? area : AREAS[1]
   const Screen = under?.Screen ?? area.Screen
 
   const main = useRef<HTMLElement>(null)
@@ -158,7 +172,8 @@ export function Shell() {
       const toggled = active?.matches('[aria-pressed]') ?? false
       // Someone already typing on the new screen, in its search say, keeps their place: this runs a frame after the move, and a quick
       // hand can be in a field by then. Taking the focus away would send the rest of what they type, and their Enter, nowhere.
-      const typing = !!active && !!main.current?.contains(active) && active.matches(TYPED_INTO)
+      // A form opened by the move, its first field focused, keeps it too: New's kind, a choice of radios, comes first (ADR 0160).
+      const typing = !!active && !!main.current?.contains(active) && (active.matches(TYPED_INTO) || !!active.closest('.fold'))
       if (movedTo.current !== undefined && movedTo.current !== hash && heading && !toggled && !typing) {
         heading.el.tabIndex = -1
         heading.el.focus({ preventScroll: true })
@@ -175,7 +190,7 @@ export function Shell() {
   if (auth.status === 'signed-out')
     return (
       <>
-        <UpdateBar unkept={unkept} />
+        <UpdateBar unkept={unkept} version={APP_VERSION} />
         <main ref={main}>
           <SignIn />
         </main>
@@ -184,7 +199,7 @@ export function Shell() {
   if (demo && (!persona || persona.key === 'freelancer' || hash === '#preview'))
     return (
       <>
-        <UpdateBar unkept={unkept} />
+        <UpdateBar unkept={unkept} version={APP_VERSION} />
         <main ref={main}>
           <PreviewSplash />
         </main>
@@ -203,24 +218,32 @@ export function Shell() {
   // the foot of a phone's screen wherever it is in the page.
   return (
     <>
-      <UpdateBar unkept={unkept} />
+      <UpdateBar unkept={unkept} version={APP_VERSION} />
       <a className="skip-to-content" href={hash || '#home'} onClick={skip}>
         Skip to content
       </a>
       <StorageBanner />
-      <nav className="tabs" aria-label="Areas" hidden={barAway}>
-        {shown.map((a) => (
-          <a key={a.hash} href={areaHref(a.hash)} aria-current={a === lit ? 'page' : undefined}>
-            <AreaIcon area={a.hash} />
-            <span className="tab-word">{a.label}</span>
-            {a.hash === '#crew' && <CrewBadge />}
-          </a>
-        ))}
-      </nav>
+      {/* The foot (foot.tsx): the page's one action, when it has one, over the places, as one footer; the rail on a desk. */}
+      <footer className="foot" hidden={barAway}>
+        <div className="foot-dock" ref={setDock} />
+        <nav className="tabs" aria-label="Areas">
+          {shown.map((a) => (
+            <a key={a.hash} href={areaHref(a.hash)} aria-current={a === lit ? 'page' : undefined} title={desk ? shortcutHint(a.hash) : undefined}>
+              <AreaIcon area={a.hash} />
+              <span className="tab-word">{a.label}</span>
+              {a.hash === '#crew' && <CrewBadge />}
+            </a>
+          ))}
+        </nav>
+      </footer>
       <main ref={main}>
-        <Screen />
+        <FootContext.Provider value={dock}>
+          <Screen />
+        </FootContext.Provider>
       </main>
       <Toaster />
+      {keys.help && <ShortcutsSheet money={seesMoney} onClose={keys.close} />}
+      {searching && signedIn && <SearchPalette onGo={go} onClose={closeSearch} desk={desk} />}
     </>
   )
 }

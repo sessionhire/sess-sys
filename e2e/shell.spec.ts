@@ -31,22 +31,27 @@ async function ready(page: Page, hash: string) {
 }
 
 test('on a phone an area row is one line that scrolls, counts stand apart, and the strip is a thumb high', async ({ browser }) => {
-  // Proves: Stock's nine pages, Jobs' six and Crew's four stay one line at 390px (ADR 0082): the current page is in view, the row scrolls to the last, and the edge with more past it fades, so no page is hidden with nothing to say so (audit P2 23); a count has a gap before it ("Calls 4", not "Calls4"); the "On this screen" parts are 44px tall and drawn without the row's box.
+  // Proves: the views of Stock, Jobs and Crew stay one line at 390px (ADR 0082): the current page is in view, the row scrolls to the last, and the edge with more past it fades, so no page is hidden with nothing to say so (audit P2 23); the area's other places are on a line under it, wrapping, every one on the screen (review of 11 November 2026, finding 8); a count has a gap before it ("Calls 4", not "Calls4"); the "On this screen" parts are 44px tall and drawn without the row's box.
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
-  for (const [hash, label, current, last] of [
-    ['#stock/vehicles', 'Stock pages', /^Vehicles/, 'Purchase list'],
-    ['#jobs', 'Jobs pages', 'List', 'Money'],
-    ['#crew', 'Crew pages', /^Calls/, /^Timesheets/],
+  for (const [hash, label, current, last, also] of [
+    ['#stock/places', 'Stock pages', 'Places', 'Racks', 'Purchase list'],
+    ['#jobs', 'Jobs pages', 'List', 'Month', 'Money'],
+    ['#crew', 'Crew pages', /^Calls/, 'People', /^Timesheets/],
   ] as const) {
     await ready(page, hash)
-    const row = page.getByRole('navigation', { name: label })
-    const tops = await row.evaluate((nav) => new Set([...nav.querySelectorAll('a')].map((a) => Math.round(a.getBoundingClientRect().top))).size)
+    const nav = page.getByRole('navigation', { name: label })
+    const row = nav.locator('.views')
+    const tops = await row.evaluate((el) => new Set([...el.querySelectorAll('a')].map((a) => Math.round(a.getBoundingClientRect().top))).size)
     expect(tops, `${label} on one line`).toBe(1)
     await expect(row.getByRole('link', { name: current })).toBeInViewport({ ratio: 1 })
-    const more = await row.evaluate((nav) => nav.scrollWidth > nav.clientWidth)
+    const more = await row.evaluate((el) => el.scrollWidth > el.clientWidth)
     if (more) expect(await row.getAttribute('data-more')).not.toBe('')
     await row.getByRole('link', { name: last }).scrollIntoViewIfNeeded()
     await expect(row.getByRole('link', { name: last })).toBeInViewport({ ratio: 1 })
+    // The other places wrap rather than run off the edge.
+    const right = await nav.locator('.views-more').evaluate((p) => Math.max(...[...p.querySelectorAll('a')].map((a) => a.getBoundingClientRect().right)))
+    expect(right, `${label}'s other places on the screen`).toBeLessThanOrEqual(phoneSize.width)
+    await expect(nav.locator('.views-more').getByRole('link', { name: also })).toBeVisible()
   }
   // The Calls count, apart from its word.
   const calls = page.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^Calls/ })
@@ -84,16 +89,16 @@ test('on a desk a keyboard meets Skip to content, then the places, then the scre
   await expect(page).toHaveURL(/#stock$/)
 })
 
-test('offline on a phone the company keeps its name, and print is white round the sheet', async ({ browser }) => {
-  // Proves: with no signal the top bar's "SESSION HIRE" isn't cut short and "No signal" is whole on screen; printing in the dark theme gives a white page.
+test('offline on a phone the company keeps its logo, and print is white round the sheet', async ({ browser }) => {
+  // Proves: with no signal the top bar's logo is whole, the company's name is still there for a screen reader, and "No signal" is whole on screen; printing in the dark theme gives a white page.
   const context = await browser.newContext({ viewport: phoneSize })
   const page = await context.newPage()
   await ready(page, '#jobs')
   await page.route('**/api/sync/**', (route) => route.abort())
   await page.evaluate(() => dispatchEvent(new Event('online')))
   await expect(page.locator('.conn')).toHaveText(/^No signal/)
-  const name = page.locator('.top .brand b')
-  expect(await name.evaluate((b) => b.scrollWidth <= b.clientWidth)).toBe(true)
+  await expect(page.locator('.top .mark')).toBeInViewport({ ratio: 1 })
+  await expect(page.getByRole('link', { name: 'Session Hire: Home' })).toHaveCount(1)
   await expect(page.locator('.conn')).toBeInViewport({ ratio: 1 })
 
   await page.emulateMedia({ media: 'print' })
@@ -111,7 +116,7 @@ test('an empty list that says so in its own words says it once', async ({ browse
   await expect(page.locator('.empty', { hasText: /^No quote is waiting on anyone\./ })).toHaveCount(1)
   await expect(page.locator('.empty', { hasText: /^Nothing here yet\. (No|Nothing|Nobody)\b/ })).toHaveCount(0)
   await ready(page, '#jobs/clients')
-  await expect(page.locator('.empty')).toHaveText('Nothing here yet. Clients are added as you type them into a job.')
+  await expect(page.locator('.empty')).toHaveText('Nothing here yet. Add one with New client, at the top, or type a new one into a job.')
   expect((await request.post('/api/data/made-up')).ok()).toBe(true)
 })
 

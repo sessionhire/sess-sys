@@ -1,6 +1,7 @@
 import { AA_FUEL_PAGE, DEFAULT_LITRES_PER_100_KM, DEFAULT_TRAVEL_FROM_KM, irishToday, QUOTE_SETTINGS_ID, type FuelPriceFound } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import { faultForLog, type Db } from '../db.ts'
+import { decodeEntities, textOfHtml } from '../html-text.ts'
 import { emit, serverChange } from '../kernel.ts'
 import { FUEL_FROM_AA_ACTION } from '../history.ts'
 import { getQuoteSettings } from './store.ts'
@@ -19,14 +20,8 @@ export type FuelLookup = () => Promise<FuelPriceFound>
 
 export const AA_FUEL_URL = AA_FUEL_PAGE
 
-/** The table's words, without the page's tags. */
-const words = (html: string) =>
-  html
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;|&#160;/g, ' ')
-    .replace(/&amp;|&#038;/g, '&')
-    .replace(/\s+/g, ' ')
+/** The table's words, without the page's tags (read tag by tag, html-text.ts). */
+const words = (html: string) => decodeEntities(textOfHtml(html, () => ' ')).replace(/\s+/g, ' ')
 
 /**
  * "Irish Fuel Prices: October 2026 Petrol Diesel Pump price 198.16c 214.76c": the survey's month and its diesel pump

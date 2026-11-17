@@ -316,7 +316,19 @@ faults reported on site are waiting in the warehouse repair queue on return.
   Vehicles with their checks, booked on jobs with a driver, in the
   planner and on call sheets. Licence categories are left.
 - Client portal (view quotes, sign, pay deposit).
-- RFID, native app store builds if the PWA falls short.
+- Quoting faster, easier and more reliable: researched 8 November 2026
+  ([quoting](research/quoting.md)); fifteen features ranked, six small
+  ones first, waiting on Colly's pick.
+- RFID. Native iPhone and Android apps: researched 7 November 2026
+  ([native apps](research/native-apps.md)); recommended a Capacitor app for
+  staff, warehouse first, waiting on Colly's pick.
+- Job offers to freelancers sent by the app on WhatsApp: researched
+  9 November 2026 ([WhatsApp offers](research/whatsapp-offers.md));
+  recommended Meta's Cloud API direct, offers that send themselves with
+  Yes and No buttons, behind a switch off until launch. Colly said go the
+  same day: sending and answers built ([ADR 0125](adr/0125-offers-go-on-whatsapp-by-themselves.md)),
+  off until launch; Meta's side to set up
+  ([steps](whatsapp-setup.md)).
 - Turn off calendar-led mode once no live projects use it.
 - Claude inside the app, planned 29 October 2026 ([plan](https://claude.ai/artifact/6z9f5bSSAMGtZRvqmckD3h)):
   Colly chose inside the app only, no mailbox for now: Claude reads an
@@ -326,7 +338,11 @@ faults reported on site are waiting in the warehouse repair queue on return.
   report and the mailbox wait for later. Enquiries and quote changes built
   29 October 2026 ([ADR 0096](adr/0096-claude-inside-the-app.md)), and the
   to-do list each weekday morning and on request the same day
-  ([ADR 0097](adr/0097-claudes-to-do-list.md)).
+  ([ADR 0097](adr/0097-claudes-to-do-list.md)). Later that day Colly chose the mailbox
+  after all: Claude reads operations@sessionhire.com, copied on client mail
+  (left off to keep a thread private), and drafts quotes from the threads
+  ([ADR 0098](adr/0098-claude-drafts-quotes-from-the-mailbox.md)); asking
+  Claude in words went, and pasting an enquiry stays as the second way.
 
 ## Decisions to make before the build starts
 

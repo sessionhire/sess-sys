@@ -10,20 +10,23 @@ import {
   type Department,
   type FaultKind,
   type FaultOutcome,
+  type FaultsView,
   type FaultView,
   type Model,
   type View,
+  STANDING_HEADINGS,
+  listHeading,
 } from '@sh/shared'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { when } from '../format.ts'
 import { Empty } from '../Empty.tsx'
 import { useAccess } from '../role.ts'
-import { Pending } from '../StatusPill.tsx'
+import { Pending, StatusPill } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { numberLabel } from './common.tsx'
 import { Heading } from '../Icon.tsx'
-import { inKitOf, Narrowed, useNarrowed } from '../Narrowed.tsx'
+import { inKitOf, Narrowed, useMyKitDepartment, useNarrowed } from '../Narrowed.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
 
 /**
@@ -46,6 +49,9 @@ export function faultState(f: FaultView): string {
   if (f.kind === 'missing') return 'Missing'
   return f.usable ? 'Damaged, fit to go out' : "Damaged, can't go out"
 }
+
+/** An open report of an item damaged but fit to go out, if it has one. */
+export const usableFault = (faults: FaultsView, assetId: string) => faults.ofAsset(assetId).find((f) => f.open && f.kind === 'damaged' && f.usable)
 
 /** Closes a fault, and with an item's missing report the others like it (audit, 20 October 2026, finding 45); run through act(). */
 export async function closeFault(f: FaultView, outcome: FaultOutcome) {
@@ -198,6 +204,12 @@ export function FaultsCard({ faults, children, title = 'Faults' }: { faults: Fau
   )
 }
 
+/** A fault's state in a word: can't go out, fit to go out, or how it ended. */
+function FaultPill({ f }: { f: FaultView }) {
+  if (!f.open) return <StatusPill tone="cancelled">{f.outcome ? OUTCOME_LABELS[f.outcome] : 'Closed'}</StatusPill>
+  return f.stops ? <StatusPill tone="bad">Can't go out</StatusPill> : <StatusPill tone="pending">Fit to go out</StatusPill>
+}
+
 /** Each way of closing a fault, as a button: a verb, where OUTCOME_LABELS says how it ended. */
 const CLOSE_LABELS: Record<FaultOutcome, string> = { fixed: 'Mark fixed', 'not-faulty': 'Mark not faulty', found: 'Mark found', 'written-off': 'Write off' }
 
@@ -235,7 +247,7 @@ function FaultItem({ f, linked = false }: { f: FaultView; linked?: boolean }) {
               <b>{faultWhat(f)}</b>
             </a>
           ) : (
-            <b>{f.assetId ? faultState(f) : `${faultWhat(f)}: ${faultState(f).toLowerCase()}`}</b>
+            <b>{f.assetId ? (f.kind === 'missing' ? 'Missing' : 'Damaged') : faultWhat(f)}</b>
           )}
           <p>
             {linked && `${faultState(f)} · `}
@@ -248,10 +260,12 @@ function FaultItem({ f, linked = false }: { f: FaultView; linked?: boolean }) {
               ''
             )}
             reported {when(f.at)}
-            {!f.open && f.outcome && ` · ${OUTCOME_LABELS[f.outcome]}${f.closedAt ? ` ${when(f.closedAt)}` : ''}`}
+            {!f.open && f.outcome && (linked ? ` · ${OUTCOME_LABELS[f.outcome]}${f.closedAt ? ` ${when(f.closedAt)}` : ''}` : f.closedAt ? ` · closed ${when(f.closedAt)}` : '')}
           </p>
         </div>
-        <Pending pending={f.pending} />
+        {/* Away from the Repairs list's state groups, the state is a pill in words as well as the stripe's colour (Move 11 of the
+            sweep of 6 November 2026). */}
+        {f.pending ? <Pending pending /> : !linked && <FaultPill f={f} />}
       </header>
       {f.note && !editing && <p className="notes">{f.note}</p>}
       {f.repair && !editing && (
@@ -262,7 +276,7 @@ function FaultItem({ f, linked = false }: { f: FaultView; linked?: boolean }) {
       {!maySort ? null : editing ? (
         <EditFault f={f} onDone={() => setEditing(false)} />
       ) : closing ? (
-        <Confirm question={asks[closing].question} yes={asks[closing].yes} onYes={() => closeAs(closing)} onNo={() => setClosing(undefined)} />
+        <Confirm question={asks[closing].question} yes={asks[closing].yes} loss={closing === 'written-off'} onYes={() => closeAs(closing)} onNo={() => setClosing(undefined)} />
       ) : (
         f.open &&
         (!sorting ? (
@@ -335,29 +349,35 @@ function EditFault({ f, onDone }: { f: FaultView; onDone: () => void }) {
 /**
  * The Stock tab's repair list: every open fault, by kind, what can't go out first and then oldest first, under a heading
  * that stays in view, and narrowed to a department as the catalogue is (audit, 20 October 2026, finding 93): before a
- * load-out it's what can't go out that's wanted.
+ * load-out it's what can't go out that's wanted. Drawn only while something is open: the page says when nothing is.
  */
 export function RepairList({ view }: { view: View }) {
-  // Opened from a count on Home for a department, that department's kit, as Home counted it (audit, 20 October 2026, finding 4).
-  const [narrowed, widen] = useNarrowed('#stock/repairs')
+  // Opened from a count on Home, the kit it counted, a department's or everyone's (audit, 20 October 2026, finding 4); from
+  // anywhere else, a head's own kit, as Stock's row counts it (Move 3 of the sweep of 6 November 2026).
+  const [narrowed, widen] = useNarrowed('#stock/repairs', useMyKitDepartment())
   const [department, setDepartment] = useState<Department | 'all'>('all')
   const card = useUnderTop<HTMLElement>(true)
   const inNarrowed = view.faults.open.filter((f) => inKitOf(narrowed)(f.model))
-  if (inNarrowed.length === 0) return null
   const departmentOf = (f: FaultView): Department => f.model?.department ?? 'other'
   const present = DEPARTMENTS.filter((d) => inNarrowed.some((f) => departmentOf(f) === d))
   const chosen = department !== 'all' && present.includes(department) ? department : 'all'
   const open = chosen === 'all' ? inNarrowed : inNarrowed.filter((f) => departmentOf(f) === chosen)
   const groups: [string, FaultView[]][] = [
-    ["Damaged, can't go out", open.filter((f) => f.kind === 'damaged' && f.stops)],
+    [STANDING_HEADINGS['damaged-stopped'], open.filter((f) => f.kind === 'damaged' && f.stops)],
     ['Damaged, fit to go out', open.filter((f) => f.kind === 'damaged' && !f.stops)],
     ['Missing', open.filter((f) => f.kind === 'missing')],
   ]
   return (
-    <section className="card faults repairs" aria-label="Faults and repairs" ref={card}>
-      <Heading icon="repair">Faults and repairs</Heading>
-      <Narrowed department={narrowed} onWiden={widen} />
-      <p className="hint">Kit that can't go out is taken off what's free for jobs until it's fixed or found.</p>
+    <section className="card faults repairs" aria-label="Repairs open" ref={card}>
+      {/* One name for the list on Stock's row, Home's count, the page and the Menu, with Home's count (Move 3 of the sweep of 6 November 2026). */}
+      <Heading icon="repair">{listHeading(STANDING_HEADINGS.faults, inNarrowed.length)}</Heading>
+      <Narrowed department={narrowed} onWiden={widen} kit />
+      {/* None of their department's while others wait: said, with the way to them, rather than no card at all. */}
+      {inNarrowed.length === 0 ? (
+        <p className="empty">None of this department's kit is waiting to be repaired or found.</p>
+      ) : (
+        <p className="hint">Kit that can't go out is taken off what's free for jobs until it's fixed or found.</p>
+      )}
       {!narrowed && present.length > 1 && (
         <div className="filters" role="group" aria-label="Department">
           <button type="button" aria-pressed={chosen === 'all'} onClick={() => setDepartment('all')}>
@@ -374,9 +394,7 @@ export function RepairList({ view }: { view: View }) {
         .filter(([, faults]) => faults.length > 0)
         .map(([title, faults]) => (
           <div className="repair-group" key={title}>
-            <h3>
-              {title} ({faults.length.toLocaleString('en-IE')})
-            </h3>
+            <h3 className="group">{listHeading(title, faults.length)}</h3>
             <ul className="fault-list">
               {faults.map((f) => (
                 <FaultItem key={f.id} f={f} linked />

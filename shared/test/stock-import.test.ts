@@ -9,6 +9,7 @@ import {
   previewStockList,
   productNameOf,
   readQuantity,
+  tidyHeader,
   readStockDay,
   readStockFile,
   splitNumbers,
@@ -123,6 +124,13 @@ describe('a cell', () => {
   it('reads a quantity, several numbers to a cell, and the product’s name from make and model', () => {
     expect(['12', 'x12', '12 pcs', '12x', '1,200'].map((t) => readQuantity(t).qty)).toEqual([12, 12, 12, 12, 1200])
     expect(readQuantity('a few')).toEqual({ qty: null, problem: 'Couldn\'t read the quantity "a few". Put in a whole number, like 12.' })
+    expect(['12 off', '12 units.', '12pcs'].map((t) => readQuantity(t).qty)).toEqual([12, 12, 12])
+    // Both read in a straight line, however long the cell (code scanning).
+    const started = performance.now()
+    expect(readQuantity('1' + ' '.repeat(100_000) + 'y').qty).toBeNull()
+    expect(tidyHeader('Value ' + '('.repeat(100_000))).toBe('value')
+    expect(performance.now() - started).toBeLessThan(500)
+    expect(tidyHeader('Value (€)')).toBe('value')
     expect(splitNumbers('A1, A2;A3\nA4')).toEqual(['A1', 'A2', 'A3', 'A4'])
     expect(splitNumbers('n/a')).toEqual([])
     expect(splitNumbers(' - ')).toEqual([])

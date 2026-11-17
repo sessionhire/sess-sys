@@ -151,6 +151,26 @@ before using it for real:
 5. Tap **Turn off crew invites** when done. Nothing more is sent; the
    people invited keep their invites as they are.
 
+### Telling crew what happens next
+
+Under **Crew invites**, once they're on, **Tell crew what happens next**
+puts where each person stands and their call time in the title of their
+own invite ("Booked: Harbour Lights Festival - Show 1/2, call 06:00"), so
+Google emails them when they're booked or their call time moves, and a day
+that comes off says why ("Filled by someone else: …"). It starts off
+([ADR 0153](adr/0153-crew-invites-tell-what-happens-next.md)). To try it:
+
+1. Type your own address under **Addresses to try it on** and choose
+   **Only to the addresses below**. Your invites' titles change; no email
+   is sent for that.
+2. Offer yourself a day on the test job, press Yes in Google, then confirm
+   yourself in the app: Google emails you an update titled "Booked: …".
+3. Move the call's call time: another update, with the new time.
+4. Withdraw the offer: the cancellation is titled "Withdrawn by the
+   office: …". Look at it in Gmail and on a phone.
+5. Choose **On** for everyone, or **Off**. Neither sends anything by
+   itself.
+
 ## 6. Bring in the jobs already on the calendar
 
 The app reads the jobs on any calendar the connected account can see and
@@ -236,6 +256,113 @@ step 7, before the rest of the office signs in.
 Whoever keeps building and setting the app up goes in `SYSTEM_ADMINS`
 (step 2) before handing the directing over: an address there can change
 everything whatever their role, and nobody can take that away in the app.
+
+## 9. Connect the operations mailbox
+
+operations@sessionhire.com does two things once connected: Claude reads the
+mail copied to it and drafts quotes from it
+([Decision 0098](adr/0098-claude-drafts-quotes-from-the-mailbox.md)), and
+quotes go to clients from it when the office presses Send
+([Decision 0101](adr/0101-sending-a-quote-to-the-client-by-email.md)). The
+app asks Google to read the mailbox and send from it, and nothing more: it
+never replies to, deletes or files anything there. Copy operations@ on
+client mail to share a thread; leave it off to keep one private.
+
+1. **Make the mailbox.** In the Google Admin console
+   ([admin.google.com](https://admin.google.com)), **Directory**, **Users**,
+   **Add new user**: first name **Operations**, email
+   **operations@sessionhire.com**. It needs a licence like any user. Not a
+   group or an alias: the app can't read a group, and an alias would let
+   Claude read that person's own mail. Sign in as it once to set its
+   password, and set up 2-Step Verification if the company asks for it.
+   Keep the password in the company password manager: it's only needed
+   again to reconnect.
+
+   Optional, and the app doesn't need it: for the office to read and answer
+   operations@ mail in their own Gmail without its password, turn on
+   **Apps**, **Google Workspace**, **Gmail**, **User settings**, **Mail
+   delegation** in the Admin console. Then, signed in to Gmail as
+   operations@, **Settings**, **Accounts**, **Grant access to your
+   account**, and add each person. They switch to it from their photo, top
+   right of their own Gmail.
+2. **Let the Google key at Gmail.** In
+   [console.cloud.google.com](https://console.cloud.google.com), project
+   **Session Hire**:
+   - Search for **Gmail API**, open it and press **Enable**.
+   - **Google Auth Platform**, **Clients**, **Session Hire app**: under
+     **Authorised redirect URIs** add
+     `https://shserver-production.up.railway.app/api/assistant/mailbox/callback`
+     and save. The Client ID and secret stay the same. If the app has its
+     own address (server.letissier.ie, say), add the same path on that
+     address too, and set `PUBLIC_URL` to it in Railway so Google is always
+     sent back to the one it knows.
+   - Keep the audience **Internal**, so only company accounts can be
+     connected and Google doesn't need to review the app.
+3. **Connect it.** In the app, **Admin**, **Connections**, **The
+   operations mailbox**: **Connect operations@** and sign in to Google as
+   operations@sessionhire.com (on Google's chooser, **Use another
+   account**), and allow both things it asks for: reading mail and sending.
+   Start from the app's own address, signed in as yourself: Google sends
+   you back there, and the app answers "Sign in first." if that window
+   isn't signed in to it (a fresh private window, or starting from the
+   railway.app address when `PUBLIC_URL` is another one). A mailbox connected before sending was asked for says
+   "connected to read only": press **Connect again** and allow sending.
+4. **Sending quotes.** On the same card, turn on **Send quotes by email
+   from operations@**. A quote then has **Send to the client**, which opens
+   an email filled in from the quote and the client's contacts, with the
+   quote attached as a PDF; replies come to whoever sent it and to
+   operations@. Off, quotes are printed and sent by hand as before.
+5. **Claude.** In Railway, **shserver**, **Variables**, check
+   `ANTHROPIC_API_KEY` is there (from console.anthropic.com). Optional:
+   `CLAUDE_MONTHLY_LIMIT_USD` (50 unless set). Then in the app, **Admin**,
+   **Company**, **Claude**: **Turn Claude on**.
+6. **Check it.** Admin › Connections shows "Connected as
+   operations@sessionhire.com, to read and send", and Admin › Status shows
+   the operations mailbox. With Claude on, within about five minutes,
+   enquiries from the last week show on **Quotes** under "From the
+   operations mailbox", each with a draft quote.
+
+Nothing needs adding in Railway for the mailbox itself: it uses the same
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as sign-in. If Google shows
+"redirect_uri_mismatch" when you press Connect, the address in step 2 is
+missing or mistyped. If the app says reading was left unticked, connect
+again and tick both boxes.
+
+To stop it, press **Disconnect** under Admin › Connections, The operations
+mailbox (the app hands the key back to Google), or turn Claude off.
+
+## 10. Trackers on expensive kit
+
+Digital Matter trackers (the Yabby Edge Cellular) report where they are to
+Digital Matter's own server, which passes each report on to the app
+([Decision 0107](adr/0107-trackers-on-expensive-kit.md)). The app compares
+it with where the item should be and puts kit away from the warehouse on no
+job, or not back after its job, at the top of Notifications.
+
+1. **Give the server a key.** In Railway, **shserver**, **Variables**, add
+   `TRACKERS_KEY` with a long random value (a password manager's generator,
+   40 characters or more). Railway redeploys.
+2. **Turn trackers on.** In the app, **Admin**, **Connections**,
+   **Trackers**: tick **Use trackers**, then put the warehouse on the map
+   (tap it, drag the pin, or paste a Google Maps link) and **Save the
+   warehouse**. 300 m counts as there unless you change it.
+3. **Point Digital Matter at the app.** Open **Setting up Digital Matter**
+   on the same card: it says whether the key is set and gives the address.
+   In Digital Matter's portal (or ask the reseller who supplied the
+   trackers), add an **HTTP connector** to that address, method POST, JSON,
+   with **basic authentication**: any user name, and `TRACKERS_KEY` as the
+   password. Send the trackers' reports through it.
+4. **Put each tracker on its item.** A tracker shows on the card the first
+   time it reports. Put it on an item there by the item's number, or from
+   the item's page; name it if you like (where it's stuck, say).
+5. **Check it.** The tracker's line says when it was last heard from and
+   where. If nothing arrives, Digital Matter's connector log says why: 401
+   is the wrong key, 503 is the key not set or trackers off. Reports it
+   couldn't hand over are kept and sent again, so nothing is lost while you
+   sort it.
+
+To stop, untick **Use trackers**. Trackers carry on reporting to Digital
+Matter, which holds the reports until they're on again.
 
 ## Good to know
 

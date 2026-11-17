@@ -202,9 +202,9 @@ test('bringing in the jobs on an organiser’s calendar: look, choose, bring in'
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   const calls = await signedIn(page)
 
-  // From the Jobs tab, with Google Calendar connected.
-  await page.goto('/#jobs')
-  await page.getByRole('link', { name: 'Bring them in' }).click()
+  // From Menu, with Google Calendar connected: the Jobs list no longer offers it between its title and its jobs (Colly, 10 November 2026).
+  await page.goto('/#menu')
+  await page.getByRole('link', { name: /^Bring in from Google Calendar/ }).click()
   await expect(page).toHaveURL(/#jobs\/import$/)
   await expect(page.getByRole('heading', { name: 'Bring in from Google Calendar' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Jobs' })).toHaveAttribute('aria-current', 'page')
@@ -221,7 +221,7 @@ test('bringing in the jobs on an organiser’s calendar: look, choose, bring in'
     '141 jobs over 157 days, with 179 crew bookings and offers, from Adam and Olan, and 36 people added from the invites. 4 people added from the invites stay: named, changed or used in the app since.'
   )
   await page.screenshot(shot('import-choose'))
-  await form.getByRole('button', { name: 'Look at the calendar' }).click()
+  await form.getByRole('button', { name: 'Read calendar' }).click()
   // The request goes a moment after the press.
   await expect.poll(() => calls.looked).toEqual([{ calendarId: OPS, from: threeMonthsBack }])
 
@@ -324,20 +324,20 @@ test('bringing in the jobs on an organiser’s calendar: look, choose, bring in'
       ],
     },
   ])
-  await expect(page.getByRole('link', { name: 'See them in the planner' })).toHaveAttribute('href', /^#jobs\/plan\/month\/\d{4}-\d{2}-01$/)
+  await expect(page.getByRole('link', { name: 'Open planner' })).toHaveAttribute('href', /^#jobs\/plan\/month\/\d{4}-\d{2}-01$/)
 
   // Taking the first bring-in back: asked in the app, done in one go, and then the calendar can come in again.
-  await page.getByRole('button', { name: 'Look at another calendar' }).click()
-  await brought.getByRole('button', { name: 'Take it all back' }).click()
+  await page.getByRole('button', { name: 'Read another calendar' }).click()
+  await brought.getByRole('button', { name: 'Take all back' }).click()
   const takeBack = page.getByRole('group', { name: /^Take back 141 jobs, their crew bookings and offers and 36 people added from the invites\? .* 4 people added from the invites stay/ })
-  await takeBack.getByRole('button', { name: 'Take it all back' }).click()
+  await takeBack.getByRole('button', { name: 'Take all back' }).click()
   await expect(page.getByRole('region', { name: 'Taken back' }).getByRole('status')).toHaveText(
     'Taken back: 141 jobs, 157 days and 179 crew bookings and offers, and 36 people added from the invites. 4 people added from the invites stay: named, changed or used in the app since. Look at the calendar again to bring it in afresh.'
   )
   expect(calls.takenBack).toBe(1)
 
   // A job brought in says where its days are: on the calendar it came from, not the jobs calendar.
-  await page.goto('/#jobs/j-aviva')
+  await page.goto('/#jobs/j-aviva/phases')
   await page.locator('.phase-details summary').first().click()
   await expect(page.getByText(`Brought in from ${OPS}, which keeps its days, so the app doesn't add them to the jobs calendar.`)).toBeVisible()
 })
@@ -351,9 +351,9 @@ test('on a laptop, and when the calendar can’t be read', async ({ browser }) =
   await page.goto('/#jobs/import')
   const form = page.getByRole('form', { name: 'Calendar to bring in from' })
   await form.getByRole('radio', { name: /Aoife Byrne/ }).check()
-  await form.getByRole('button', { name: 'Look at the calendar' }).click()
+  await form.getByRole('button', { name: 'Read calendar' }).click()
   await expect(form.getByRole('alert')).toHaveText("The connected Google account can't see that calendar any more. Choose another, or share it with that account again.")
-  await expect(form.getByRole('button', { name: 'Look at the calendar' })).toBeEnabled()
+  await expect(form.getByRole('button', { name: 'Read calendar' })).toBeEnabled()
   // Nothing wider than the page.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })

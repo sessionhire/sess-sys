@@ -164,6 +164,16 @@ describe('roles', () => {
     expect((await app.inject({ url: '/api/export', cookies: s })).statusCode).toBe(200)
     expect((await app.inject({ method: 'POST', url: '/api/data/start-fresh', cookies: s, payload: { confirm: 'x' } })).statusCode).toBe(403)
     expect((await send(app, s, 'person.role', { id: 'sean', role: 'director' })).reason?.code).toBe('forbidden')
+
+    // A quote is the office's to make, but deleting one, or putting it back, is a director's (ADR 0135), even typed right.
+    expect((await send(app, c, 'project.create', { id: 'gala', name: 'Autumn Gala', clientId: null, venueId: null, status: 'confirmed', notes: '' })).status).toBe('applied')
+    expect((await send(app, s, 'quote.save', { id: 'q1', projectId: 'gala', lines: [], discountPct: 0, notes: '' })).status).toBe('applied')
+    expect((await send(app, s, 'quote.delete', { id: 'q1', typed: 'delete' })).reason?.code).toBe('forbidden')
+    // Dropping an amendment is the office's, as making it was (ADR 0173); the server's own rules then say no to a job's only one.
+    expect((await send(app, s, 'quote.drop', { id: 'q1' })).reason?.code).toBe('conflict')
+    expect((await send(app, c, 'quote.delete', { id: 'q1', typed: 'delete' })).status).toBe('applied')
+    expect((await app.inject({ method: 'POST', url: '/api/quotes/q1/restore', cookies: s })).statusCode).toBe(403)
+    expect((await app.inject({ method: 'POST', url: '/api/quotes/q1/restore', cookies: c })).statusCode).toBe(200)
   })
 
   it("let staff crew tick and hand on only the job steps that are theirs (ADR 0073)", async () => {
@@ -173,7 +183,7 @@ describe('roles', () => {
     expect((await send(app, c, 'jobStep.set', { projectId: 'j1', step: 'deprep', ownerId: 'sean' })).status).toBe('applied')
     expect((await send(app, s, 'jobStep.set', { projectId: 'j1', step: 'deprep', done: true })).status).toBe('applied')
     expect((await send(app, s, 'jobStep.set', { projectId: 'j1', step: 'kit', done: true })).reason?.message).toBe(
-      'Staff crew can change only a step that is theirs. Ask the office or a head of department to give it to you.'
+      'Staff crew can change only a task that is theirs. Ask the office or a head of department to give it to you.'
     )
     // Handed on, it isn't his to change any more.
     expect((await send(app, s, 'jobStep.set', { projectId: 'j1', step: 'deprep', ownerId: 'colly' })).status).toBe('applied')
@@ -181,6 +191,27 @@ describe('roles', () => {
     // A freelancer has no steps at all.
     expect((await send(app, c, 'person.role', { id: 'sean', role: 'freelancer' })).status).toBe('applied')
     expect((await send(app, s, 'jobStep.set', { projectId: 'j1', step: 'deprep', done: false })).reason?.message).toMatch(/^Only the office, heads of department, staff crew and directors can tick off and give out a job's steps\./)
+  })
+
+  it('let staff answer their own offers in the app, and nobody else\'s (ADR 0111)', async () => {
+    const { app, signIn, c } = await company()
+    const s = { sh_session: await signIn(sean) }
+    expect((await send(app, c, 'person.upsert', staff('aoife', 'Aoife Byrne', 'aoife@sessionhire.com'))).status).toBe('applied')
+    const call = { id: 'k1', projectId: null, phaseId: null, project: 'Culture Night', phase: '', venue: 'Northbank', role: 'Stagehand', start: '2099-09-18', end: '2099-09-18', callTime: '08:00', needed: 2, dayRateCents: null, details: '', replyBy: null }
+    expect((await send(app, c, 'call.create', call)).status).toBe('applied')
+    expect((await send(app, c, 'offer.send', { id: 'o-sean', callId: 'k1', personId: 'sean', override: false })).status).toBe('applied')
+    expect((await send(app, c, 'offer.send', { id: 'o-aoife', callId: 'k1', personId: 'aoife', override: false })).status).toBe('applied')
+    // Seán, staff crew, says yes to his own; Aoife's isn't his to answer.
+    expect((await send(app, s, 'offer.respond', { id: 'o-sean', answer: 'accept', days: null, note: '' })).status).toBe('applied')
+    expect((await send(app, s, 'offer.respond', { id: 'o-aoife', answer: 'decline', note: '' })).reason).toEqual({
+      code: 'forbidden',
+      message: 'You can only answer your own offers. The office answers for someone else.',
+    })
+    // The office answers for anyone, as it always could.
+    expect((await send(app, c, 'offer.respond', { id: 'o-aoife', answer: 'decline', note: 'Rang to say no' })).status).toBe('applied')
+    // A freelancer's offers go through their link (ADR 0051), not the app.
+    expect((await send(app, c, 'person.role', { id: 'sean', role: 'freelancer' })).status).toBe('applied')
+    expect((await send(app, s, 'offer.respond', { id: 'o-sean', answer: 'decline', note: '' })).reason?.code).toBe('forbidden')
   })
 
   it("let a system admin named in the server's settings change everything, whatever their own role (ADR 0060)", async () => {
@@ -483,7 +514,7 @@ describe('what each role reads', () => {
     const feed = await pull(c)
     expect(feed.reading).toBeUndefined()
     expect(feed.of('crewCall', 'sound')).toMatchObject({ department: 'Audio', dayRateCents: 32000 })
-    expect(feed.of('crewCall', 'lx')).toMatchObject({ department: 'LX' })
+    expect(feed.of('crewCall', 'lx')).toMatchObject({ department: 'Lighting' })
     expect(feed.of('person', 'niamh')).toMatchObject({ dayRateCents: 28000 })
     expect(String(feed.of('person', 'niamh').linkToken)).not.toBe('')
     expect(feed.of('timesheet', 'dara-sound')).toMatchObject({ dayRateCents: 32000, extras: [{ what: 'Taxi', cents: 2500 }] })
@@ -516,6 +547,22 @@ describe('what each role reads', () => {
     const feed = await pull({ sh_session: await signIn(sean) })
     expect(feed.reading).toMatchObject({ rates: false, links: 'own' })
     expect(leaks(feed, 'sean')).toEqual({ rates: [], links: [] })
+  })
+
+  it("sends a job's office notes to the office, directors and heads, and never to staff crew or freelancers (ADR 0151)", async () => {
+    const { c, signIn, ok, pull } = await crewed()
+    const office = 'Client is price sensitive: hold the margin at 30%.'
+    await ok('project.update', { id: 'gala', notes: 'Load in by the side gate.', officeNotes: office })
+    expect((await pull(c)).of('project', 'gala')).toMatchObject({ notes: 'Load in by the side gate.', officeNotes: office })
+    expect((await pull({ sh_session: await signIn(aine) })).of('project', 'gala')).toMatchObject({ officeNotes: office })
+    for (const role of ['crew', 'freelancer']) {
+      await ok('person.role', { id: 'sean', role })
+      const feed = await pull({ sh_session: await signIn(sean) })
+      // The job is there, with the notes for the crew, which are on their call sheet anyway.
+      expect(feed.of('project', 'gala')).toMatchObject({ name: 'Autumn Gala', notes: 'Load in by the side gate.' })
+      expect(feed.of('project', 'gala')).not.toHaveProperty('officeNotes')
+      expect(JSON.stringify(feed.all)).not.toContain('price sensitive')
+    }
   })
 
   it("sends a head of department their own department's links, and rates only once a director lets them", async () => {
@@ -559,6 +606,12 @@ describe('what each role reads', () => {
     await ok('offer.respond', { id: 'dara-lx', answer: 'counter', counterRateCents: 35000, days: null, note: '' })
     expect(await send(app, h, 'offer.confirm', { id: 'dara-lx' })).toMatchObject({ status: 'rejected', reason: { code: 'forbidden' } })
     expect((await pull(h)).of('offer', 'dara-lx')).toMatchObject({ status: 'countered', counterRateCents: null, rateHidden: true })
+    // Saying no to it names no rate, so it's hers to do (ADR 0152): the offer stands at the rate offered, which she still doesn't read.
+    await ok('offer.send', { id: 'niamh-build', callId: 'build', personId: 'niamh', override: false })
+    await ok('offer.respond', { id: 'niamh-build', answer: 'counter', counterRateCents: 36000, days: null, note: '' })
+    expect(await send(app, h, 'offer.refuse', { id: 'niamh-build' })).toMatchObject({ status: 'applied' })
+    expect((await pull(h)).of('offer', 'niamh-build')).toMatchObject({ status: 'offered', dayRateCents: null, counterRateCents: null, rateHidden: true })
+    expect((await pull(c)).of('offer', 'niamh-build')).toMatchObject({ status: 'offered', dayRateCents: 32000, counterRateCents: 36000 })
 
     // Only a director says whether heads see rates, and the office or a director whether messages to crew are prompted (ADR 0048).
     expect((await send(app, h, 'reading.heads', { rates: true })).reason?.code).toBe('forbidden')
@@ -596,6 +649,9 @@ describe('what each role reads', () => {
     const s = { sh_session: await signIn(sean) }
     const feed = await pull(s)
     expect(feed.of('person', 'dara')).toMatchObject({ name: 'Dara Quinn', phone: '+353871234567', email: null, notes: '', detailsHidden: true })
+    // Her level is the office's: sent as the default, said to be hidden (audit, 5 November 2026, finding 44).
+    expect(feed.of('person', 'dara')).toMatchObject({ level: 1, levelHidden: true })
+    expect(feed.of('person', 'sean')?.levelHidden).toBeUndefined()
     expect(feed.of('document', 'd-dara')).toBeUndefined()
     expect(feed.of('document', 'd-sean')).toMatchObject({ personId: 'sean' })
     expect(feed.of('unavailability', 'away')).toMatchObject({ start: day(5), note: '' })

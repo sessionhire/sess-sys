@@ -253,6 +253,122 @@ const MIGRATIONS: string[] = [
      AND (string_to_array(first_name, ' '))[cardinality(string_to_array(first_name, ' ')) - 1] = ANY(ARRAY[${NAME_PARTICLES.map((w) => `'${w}'`).join(', ')}]::text[]);
   DROP FUNCTION sh_resplit_name(text, text, text[]);
   `,
+  // The phones a freelancer's link has been opened on, and the codes that let a new one in (ADR 0114), and when a lost link was last emailed. Only hashes are kept:
+  // the cookie's secret and the code are never stored. A phone is remembered under the link it was opened with (link_hash),
+  // so a new link from the office forgets every phone. `seen` is false until the phone comes back with its cookie, which a
+  // preview fetched by WhatsApp or Mail never does.
+  `
+  CREATE TABLE IF NOT EXISTS link_devices (
+    id           text PRIMARY KEY,
+    person_id    text NOT NULL,
+    link_hash    text NOT NULL,
+    secret_hash  text NOT NULL UNIQUE,
+    device       text NOT NULL DEFAULT '',
+    seen         boolean NOT NULL DEFAULT false,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    used_at      timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS link_devices_person ON link_devices (person_id, link_hash);
+  CREATE TABLE IF NOT EXISTS link_codes (
+    person_id   text PRIMARY KEY,
+    link_hash   text NOT NULL,
+    code_hash   text NOT NULL,
+    sent_at     timestamptz NOT NULL DEFAULT now(),
+    expires_at  timestamptz NOT NULL,
+    tries       integer NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS link_lost (
+    person_id  text PRIMARY KEY,
+    sent_at    timestamptz NOT NULL
+  );
+  `,
+  // Offers on WhatsApp, for one person (ADR 0125): on unless they, or the office when asked, turned them off.
+  `ALTER TABLE people ADD COLUMN IF NOT EXISTS whatsapp_off boolean NOT NULL DEFAULT false;`,
+  // What went to crew on WhatsApp (ADR 0125): queued as the offer is made, sent by the server just after, then
+  // delivered and read as Meta says. The number it went to is kept, as it was then; Meta's id finds it again.
+  `
+  CREATE TABLE IF NOT EXISTS whatsapp_messages (
+    id            text PRIMARY KEY,
+    offer_id      text REFERENCES offers(id),
+    person_id     text NOT NULL,
+    kind          text NOT NULL,
+    to_number     text NOT NULL,
+    state         text NOT NULL CHECK (state IN ('queued', 'sent', 'delivered', 'read', 'failed')),
+    wamid         text UNIQUE,
+    problem       text,
+    made_at       timestamptz NOT NULL DEFAULT now(),
+    sent_at       timestamptz,
+    delivered_at  timestamptz,
+    read_at       timestamptz,
+    tries         integer NOT NULL DEFAULT 0,
+    tried_at      timestamptz
+  );
+  CREATE INDEX IF NOT EXISTS whatsapp_messages_queued ON whatsapp_messages (made_at) WHERE state = 'queued';
+  CREATE INDEX IF NOT EXISTS whatsapp_messages_offer ON whatsapp_messages (offer_id);
+  `,
+  // Each message Meta passes on from crew is acted on once (ADR 0125, part 3): Meta sends again when it isn't sure it
+  // got through. Only Meta's id for it and when, nothing of who or what.
+  `
+  CREATE TABLE IF NOT EXISTS whatsapp_inbound (
+    wamid        text PRIMARY KEY,
+    received_at  timestamptz NOT NULL DEFAULT now()
+  );
+  `,
+  // Offers on hold (ADR 0125, HOLD): whether an offer's message went saying HOLD, so a confirm later sends the
+  // follow-up; and the job a confirmed or cancelled message is about.
+  `
+  ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS hold boolean NOT NULL DEFAULT false;
+  ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS project_id text;
+  `,
+  // A Yes in Google Calendar counts for its own day (ADR 0152): on an offer they've said yes to for some days, the days
+  // they haven't answered, still asked and holding nothing.
+  `ALTER TABLE offers ADD COLUMN IF NOT EXISTS asked jsonb NOT NULL DEFAULT '[]';`,
+  // Each person's own invite for a job brought in from Google Calendar (ADR 0157), for offers made from now on. The ones
+  // already on such jobs stay as they were, with none, and say why: 'before', made by the office's Offer while it was told
+  // nothing is sent for such a job; 'organiser', brought in with the job from the guests the organiser invited. So this
+  // emails nobody. Devices hear of each as it was last sent them, with the mark, as the server's own bookkeeping, so their
+  // rows say why no invite went.
+  `
+  SELECT pg_advisory_xact_lock(7331);
+  ALTER TABLE offers ADD COLUMN IF NOT EXISTS no_own_invite text CHECK (no_own_invite IN ('organiser', 'before'));
+  WITH sent AS (
+    SELECT DISTINCT m.args->>'id' AS id FROM mutations m WHERE m.name = 'offer.send' AND m.status = 'applied'
+  ),
+  marked AS (
+    UPDATE offers o SET no_own_invite = CASE WHEN o.id IN (SELECT id FROM sent) THEN 'before' ELSE 'organiser' END
+      FROM crew_calls c JOIN projects p ON p.id = c.project_id
+     WHERE c.id = o.call_id AND p.source_calendar IS NOT NULL AND o.no_own_invite IS NULL
+    RETURNING o.id, o.no_own_invite
+  ),
+  latest AS (
+    SELECT DISTINCT ON (ch.entity_id) ch.entity_id, ch.op, ch.data, m.no_own_invite
+      FROM changes ch JOIN marked m ON m.id = ch.entity_id
+     WHERE ch.entity = 'offer'
+     ORDER BY ch.entity_id, ch.seq DESC
+  )
+  INSERT INTO changes (entity, entity_id, op, data)
+  SELECT 'offer', entity_id, 'put', data || jsonb_build_object('noOwnInvite', no_own_invite)
+    FROM latest WHERE op = 'put' AND data IS NOT NULL
+   ORDER BY entity_id;
+  `,
+  // Undo on an offer (ADR 0162): an offer made by Offer sends nothing until this, so a wrong pick can be taken back with
+  // no cancellation to follow. Empty on offers made before, and on any not made by Offer, which never waited.
+  `
+  ALTER TABLE offers ADD COLUMN IF NOT EXISTS goes_at timestamptz;
+  CREATE INDEX IF NOT EXISTS offers_goes_at ON offers (goes_at) WHERE goes_at IS NOT NULL;
+  `,
+  // Asking for the same crew again (ADR 0164): the day a call, and each offer still open or booked on it, was cancelled
+  // along with its job. Empty on everything cancelled before, and on anything that ended another way.
+  `
+  ALTER TABLE crew_calls ADD COLUMN IF NOT EXISTS stopped_on date;
+  ALTER TABLE offers ADD COLUMN IF NOT EXISTS stopped_on date;
+  `,
+  // How a freelancer trades (ADR 0184): as a sole trader or a company, and a sole trader's answer to "VAT registered?".
+  // Empty on everyone from before, who read as a company when they have one, as they always did.
+  `
+  ALTER TABLE people ADD COLUMN IF NOT EXISTS trades_as text CHECK (trades_as IN ('sole-trader', 'company'));
+  ALTER TABLE people ADD COLUMN IF NOT EXISTS vat_registered boolean;
+  `,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }

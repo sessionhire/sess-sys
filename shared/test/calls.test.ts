@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { commandSchemas, type Mutation } from '../src/commands.ts'
-import { dayLabel, daysLabel, MAX_OFFER_DAYS, movedCallSpan, offerDaysAfter, REPLY_BY_AFTER, suggestedReplyBy, type CrewCall, type Offer } from '../src/crew.ts'
+import {
+  dayLabel,
+  daysLabel,
+  daysInNoPhase,
+  daysOffPhase,
+  MAX_OFFER_DAYS,
+  movedCallSpan,
+  noPhaseLine,
+  offerDaysAfter,
+  offPhaseLine,
+  phaseDaysRule,
+  REPLY_BY_AFTER,
+  suggestedReplyBy,
+  type CrewCall,
+  type Offer,
+} from '../src/crew.ts'
 import { addDays } from '../src/sync/plan.ts'
 import type { Phase } from '../src/jobs.ts'
 import { crewView } from '../src/sync/crew-view.ts'
@@ -60,6 +75,54 @@ const entities = {
 }
 
 const m = (name: Mutation['name'], args: object): Mutation => ({ id: `m-${name}`, name, args, createdAt: '2026-10-01T09:00:00Z' }) as Mutation
+
+describe("a call on a phase keeps to the phase's days", () => {
+  // Finding 11 of the audit of crew offers (12 November 2026; ADR 0159), in words the office reads on the forms, the refusals and the card.
+  const show = { name: 'Show', start: '2026-12-12', end: '2026-12-12' }
+  const build = { name: 'Build', start: '2026-12-10', end: '2026-12-11' }
+  it('finds the days outside the phase', () => {
+    expect(daysOffPhase({ start: '2026-12-12', end: '2026-12-12' }, show)).toEqual([])
+    expect(daysOffPhase({ start: '2026-12-13', end: '2026-12-13' }, show)).toEqual(['2026-12-13'])
+    expect(daysOffPhase({ start: '2026-12-09', end: '2026-12-12' }, build)).toEqual(['2026-12-09', '2026-12-12'])
+  })
+  it('says the rule, and what a call already outside costs', () => {
+    expect(phaseDaysRule(show)).toBe('Show is Sat 12 Dec: crew on it are asked for that day.')
+    expect(phaseDaysRule(build)).toBe('Build is Thu 10 Dec to Fri 11 Dec: crew on it are asked for those days, or some of them.')
+    expect(offPhaseLine(['2026-12-13'], show)).toBe(
+      "Show is Sat 12 Dec, so nobody on the call has a calendar invite for Sun 13 Dec. Change the call's days or move the phase."
+    )
+    expect(offPhaseLine(['2026-12-09', '2026-12-12'], build)).toBe(
+      "Build is Thu 10 Dec to Fri 11 Dec, so nobody on the call has a calendar invite for Wed 9 Dec, Sat 12 Dec. Change the call's days or move the phase."
+    )
+  })
+})
+
+describe('a call across the job\'s phases holding a day none of them has (the gap ADR 0159 left at 2)', () => {
+  const build = { start: '2026-12-10', end: '2026-12-11' }
+  const show = { start: '2026-12-13', end: '2026-12-13' }
+
+  it('finds the days of the call that no phase has', () => {
+    expect(daysInNoPhase({ start: '2026-12-10', end: '2026-12-13' }, [build, show])).toEqual(['2026-12-12'])
+    expect(daysInNoPhase({ start: '2026-12-10', end: '2026-12-11' }, [build, show])).toEqual([])
+    // Phases out of order are read the same.
+    expect(daysInNoPhase({ start: '2026-12-09', end: '2026-12-14' }, [show, build])).toEqual(['2026-12-09', '2026-12-12', '2026-12-14'])
+  })
+
+  it('says what the day costs and the way out: a phase for it, or a call for each phase, when it falls between two', () => {
+    expect(noPhaseLine(['2026-12-12'], [build, show], '2026-11-20')).toBe(
+      'The call holds Sat 12 Dec, which no phase of the job has: crew on it are asked for that day too, with no calendar invite for it. Add a phase for that day, or add crew to each phase on its own.'
+    )
+    expect(noPhaseLine(['2026-12-12', '2026-12-13'], [build, { start: '2026-12-14', end: '2026-12-14' }], '2026-11-20')).toBe(
+      'The call holds Sat 12 Dec to Sun 13 Dec, which no phase of the job has: crew on it are asked for those days too, with no calendar invite for them. Add a phase for those days, or add crew to each phase on its own.'
+    )
+  })
+
+  it("says to change the call's days when the day is past the job's first or last phase, left by a phase that moved", () => {
+    expect(noPhaseLine(['2026-12-14'], [build, show], '2026-11-20')).toBe(
+      "The call holds Mon 14 Dec, which no phase of the job has: crew on it are asked for that day too, with no calendar invite for it. Change the call's days or add a phase."
+    )
+  })
+})
 
 describe('where a call lands when its phase moves', () => {
   it('shifts with the phase and stays inside it', () => {

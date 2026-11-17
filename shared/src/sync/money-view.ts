@@ -1,5 +1,5 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
-import { daysBetween, eachDay } from '../crew.ts'
+import { daysBetween, eachDay, tradesAs } from '../crew.ts'
 import { irishToday } from '../day.ts'
 import { STOPPED } from '../jobs.ts'
 import { DEFAULT_CREW_PER_CAR } from '../travel.ts'
@@ -7,6 +7,7 @@ import {
   amount,
   csvText,
   DEFAULT_VALID_DAYS,
+  deleteTyped,
   QUOTE_SETTINGS_ID,
   moneyMonth,
   quoteTotals,
@@ -21,13 +22,16 @@ import {
   type Package,
   type ProductPrice,
   type Quote,
+  type QuoteEmail,
   type QuoteEntities,
   type QuoteSettings,
   type RateRule,
   type QuoteTotals,
   type RolePrice,
   type VatRate,
+  validUntil,
 } from '../quotes.ts'
+import { mergeDraft } from '../draft-merge.ts'
 import { DEPARTMENT_LABELS } from '../stock.ts'
 import { timesheetTotal } from '../timesheets.ts'
 import type { CrewView } from './crew-view.ts'
@@ -47,9 +51,16 @@ import type { TimesheetRow, TimesheetsView } from './timesheets-view.ts'
 
 export interface QuoteView extends Quote {
   pending: boolean
+  /**
+   * Its number is this device's guess, made with no signal, until the server gives it (audit of the quote flow,
+   * 8 November 2026, finding 20): another device's quote sent first takes it, and this one gets the next.
+   */
+  numberPending?: true
   totals: QuoteTotals
   /** The job's newest version. An older one is kept to read, as it went to the client. */
   latest: boolean
+  /** The emails it went to the client in (ADR 0101), newest first; none for one sent another way. */
+  emails: QuoteEmail[]
 }
 
 /** A freelancer's approved timesheet as a cost, and whether they've been paid. */
@@ -91,6 +102,12 @@ export interface MonthMoney {
   invoiced: number
   /** Freelancers' approved timesheets, by the month of their last day. */
   costs: number
+  /**
+   * What was lost, net, by the month the job starts (Move 10 of the sweep of 6 November 2026): quotes turned down, and the
+   * quote on a job marked lost that wasn't invoiced. Never in Quoted. A job whose dates passed with no answer isn't in it until
+   * someone marks it lost: Money names those apart.
+   */
+  lost: number
 }
 
 export interface OwedBy {
@@ -124,7 +141,7 @@ export interface MoneyView {
   /** Every role with a price, and every role crew have been asked for, by name. */
   roles: { role: string; cents: number | undefined; booked: number | undefined }[]
   /**
-   * The day rate a crew line's crew are booked at (ADR 0089): its crew call's, else the rate anyone's been booked at
+   * The day rate a crew line's crew are booked at (ADR 0089): its crew call's, with those holding a place at their own rate (ADR 0167), else the rate anyone's been booked at
    * for its role; undefined when nobody has.
    */
   bookedRate(jobId: string, line: { ref: string | null; what: string }): number | undefined
@@ -166,6 +183,13 @@ export function moneyView(
   const discounts = new Map<string, ClientDiscount & { pending?: boolean }>(Object.values(entities.clientDiscount ?? {}).map((d) => [d.id, d]))
   const packages = new Map<string, Package & { pending: boolean }>(Object.values(entities.package ?? {}).map((p) => [p.id, { ...p, pending: false }]))
   const paid = new Map<string, CostPaid & { pending?: boolean }>(Object.values(entities.costPaid ?? {}).map((c) => [c.id, c]))
+  // The emails each quote went in (ADR 0101), newest first; the server alone makes them, so none is ever waiting here.
+  const emails = new Map<string, QuoteEmail[]>()
+  for (const e of Object.values(entities.quoteEmail ?? {}).sort((x, y) => y.at.localeCompare(x.at) || y.id.localeCompare(x.id))) {
+    const list = emails.get(e.quoteId) ?? []
+    list.push(e)
+    emails.set(e.quoteId, list)
+  }
   let quoting: QuoteSettings & { pending: boolean } = {
     ...{ id: QUOTE_SETTINGS_ID, nextNumber: null, terms: '', bank: '' },
     ...entities.quoteSettings?.[QUOTE_SETTINGS_ID],
@@ -175,9 +199,14 @@ export function moneyView(
 
   // The number a quote going out now will have, worked out as the server does (ADR 0084): an earlier version's, or the
   // next, which moves on. Another device's quote sent first can take it, and then the server's number is shown once it's in.
+  const unsure = new Set<string>()
   const numberOf = (q: Quote) => {
-    const had = q.number ?? [...quotes.values()].find((v) => v.projectId === q.projectId && v.number)?.number
+    const had = q.number ?? [...quotes.values()].find((v) => v.projectId === q.projectId && v.number && !unsure.has(v.id))?.number
     if (had) return had
+    // A number already guessed for another version of this job's quote is the same guess.
+    const guessed = [...quotes.values()].find((v) => v.projectId === q.projectId && v.number && unsure.has(v.id))?.number
+    unsure.add(q.id)
+    if (guessed) return guessed
     const n = Math.max(quoting.nextNumber ?? 1, Math.max(0, ...[...quotes.values()].map((v) => v.number ?? 0)) + 1)
     quoting = { ...quoting, nextNumber: n + 1, pending: true }
     return n
@@ -187,13 +216,16 @@ export function moneyView(
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     switch (m.name) {
       case 'quote.save': {
-        const a = m.args as CommandArgs<'quote.save'>
-        const was = quotes.get(a.id)
+        const said = m.args as CommandArgs<'quote.save'>
+        const was = quotes.get(said.id)
         if (was && was.status !== 'draft') break
+        // As the server takes in what changed elsewhere since the save's base (ADR 0113).
+        const a = was && said.base ? mergeDraft(was, said, said.base).save : said
         if (!was && [...quotes.values()].some((q) => q.projectId === a.projectId && q.status === 'draft')) break
         const versions = [...quotes.values()].filter((q) => q.projectId === a.projectId)
         const version = was?.version ?? Math.max(0, ...versions.map((q) => q.version)) + 1
         const before = was ?? versions.sort((x, y) => y.version - x.version)[0]
+        // As the server takes in what changed elsewhere since the save's base (ADR 0113).
         quotes.set(a.id, {
           id: a.id,
           projectId: was?.projectId ?? a.projectId,
@@ -216,6 +248,8 @@ export function moneyView(
           agreedCents: a.agreedCents !== undefined ? a.agreedCents : (was?.agreedCents ?? null),
           mealsProvided: a.mealsProvided ?? before?.mealsProvided ?? false,
           travelKm: a.travelKm !== undefined ? a.travelKm : (before?.travelKm ?? null),
+          ...((a.accommodationProvided ?? before?.accommodationProvided) ? { accommodationProvided: true } : {}),
+          forName: a.forName !== undefined ? a.forName : (was?.forName ?? before?.forName ?? ''),
           pending: true,
         })
         break
@@ -230,8 +264,31 @@ export function moneyView(
         const a = m.args as CommandArgs<'quote.answer'>
         const was = quotes.get(a.id)
         if (!was || was.invoicedOn) break
-        if (a.answer === 'none') quotes.set(a.id, { ...was, status: was.status === 'draft' ? 'draft' : 'sent', answeredOn: null, pending: true })
-        else quotes.set(a.id, { ...was, status: a.answer, answeredOn: a.on, sentOn: was.sentOn ?? a.on, number: was.status === 'draft' ? numberOf(was) : (was.number ?? null), pending: true })
+        if (a.answer === 'none') quotes.set(a.id, { ...was, status: was.status === 'draft' ? 'draft' : 'sent', answeredOn: null, declinedWhy: null, declinedNote: '', pending: true })
+        else
+          quotes.set(a.id, {
+            ...was,
+            status: a.answer,
+            answeredOn: a.on,
+            sentOn: was.sentOn ?? a.on,
+            number: was.status === 'draft' ? numberOf(was) : (was.number ?? null),
+            declinedWhy: a.answer === 'declined' ? (a.why ?? null) : null,
+            declinedNote: a.answer === 'declined' ? (a.note ?? '').trim() : '',
+            pending: true,
+          })
+        break
+      }
+      // Gone from this device at once (ADR 0135); putting one back waits for the server, which has it.
+      case 'quote.delete': {
+        const a = m.args as CommandArgs<'quote.delete'>
+        const was = quotes.get(a.id)
+        if (was && deleteTyped(was, a.typed)) quotes.delete(a.id)
+        break
+      }
+      // An amendment dropped (ADR 0173): gone at once; the server refuses it for a version that went, or a job's only one.
+      case 'quote.drop': {
+        const a = m.args as CommandArgs<'quote.drop'>
+        if (quotes.get(a.id)?.status === 'draft') quotes.delete(a.id)
         break
       }
       case 'quote.invoiced': {
@@ -287,6 +344,37 @@ export function moneyView(
         quoting = { ...quoting, id: QUOTE_SETTINGS_ID, nextNumber: a.nextNumber, terms: a.terms, bank: a.bank, pending: true }
         break
       }
+      case 'quoting.email': {
+        const a = m.args as CommandArgs<'quoting.email'>
+        quoting = { ...quoting, emailQuotes: a.on, pending: true }
+        break
+      }
+      case 'quoting.delivery': {
+        const a = m.args as CommandArgs<'quoting.delivery'>
+        quoting = { ...quoting, deliveryCentsPerKm: a.centsPerKm, pending: true }
+        if (a.baseCents !== undefined) quoting.deliveryBaseCents = a.baseCents
+        if (a.baseKm !== undefined) quoting.deliveryBaseKm = a.baseKm
+        // Taken off reads as never set, as the server gives it.
+        if (a.centsPerKm === null) delete quoting.deliveryCentsPerKm
+        if (a.baseCents === null) delete quoting.deliveryBaseCents
+        if (a.baseKm === null) delete quoting.deliveryBaseKm
+        break
+      }
+      case 'quoting.ownKit': {
+        const a = m.args as CommandArgs<'quoting.ownKit'>
+        quoting = { ...quoting, ownKitCostPct: a.costPct, pending: true }
+        break
+      }
+      case 'quoting.reducedDays': {
+        const a = m.args as CommandArgs<'quoting.reducedDays'>
+        quoting = { ...quoting, reducedDayPct: a.pct, pending: true }
+        break
+      }
+      case 'quoting.online': {
+        const a = m.args as CommandArgs<'quoting.online'>
+        quoting = { ...quoting, acceptOnline: a.on, pending: true }
+        break
+      }
       case 'quoting.travel': {
         const a = m.args as CommandArgs<'quoting.travel'>
         // The day the fuel price was set moves only when the price does, as on the server.
@@ -304,8 +392,12 @@ export function moneyView(
           fuelAuto: a.fuelAuto ?? quoting.fuelAuto ?? true,
           fuelMonth,
           crewPerCar: a.crewPerCar ?? quoting.crewPerCar ?? DEFAULT_CREW_PER_CAR,
+          ...(a.stayFromKm !== undefined ? { stayFromKm: a.stayFromKm } : {}),
+          ...(a.roomCents !== undefined && a.roomCents !== null ? { roomCents: a.roomCents } : {}),
           pending: true,
         }
+        // A room price taken off reads as never set, as the server gives it (ADR 0156).
+        if (a.roomCents === null) delete quoting.roomCents
         break
       }
       case 'cost.paid': {
@@ -322,7 +414,7 @@ export function moneyView(
   const byJob = new Map<string, QuoteView[]>()
   for (const q of quotes.values()) {
     const list = byJob.get(q.projectId) ?? []
-    list.push({ ...q, totals: quoteTotals(q), latest: false })
+    list.push({ ...q, totals: quoteTotals(q), latest: false, emails: emails.get(q.id) ?? [], ...(unsure.has(q.id) && q.pending ? { numberPending: true as const } : {}) })
     byJob.set(q.projectId, list)
   }
   const views = new Map<string, QuoteView>()
@@ -373,11 +465,13 @@ export function moneyView(
   const monthFor = (d: string) => {
     const { key, label } = moneyMonth(d)
     let m = months.get(key)
-    if (!m) months.set(key, (m = { key, label, quoted: 0, confirmed: 0, invoiced: 0, costs: 0 }))
+    if (!m) months.set(key, (m = { key, label, quoted: 0, confirmed: 0, invoiced: 0, costs: 0, lost: 0 }))
     return m
   }
   for (const jm of jobList) {
     const q = jm.current
+    const lost = !!q && (q.status === 'declined' || (jm.job.status === 'lost' && !q.invoicedOn))
+    if (q && lost) monthFor(jm.job.span?.start ?? q.sentOn ?? irishToday(new Date(q.madeAt))).lost += q.totals.net
     if (!q || q.status === 'declined' || jm.setAside) continue
     const m = monthFor(jm.job.span?.start ?? q.sentOn ?? irishToday(new Date(q.madeAt)))
     m.quoted += q.totals.net
@@ -457,6 +551,13 @@ export function moneyView(
     sourceOf,
     bookedRate: (jobId, line) => {
       const call = line.ref ? jobs.jobs.find((j) => j.id === jobId)?.calls.find((c) => c.id === line.ref) : undefined
+      // Those holding a place on it at their own rates (ADR 0167), the places still open at the call's: one rate a day across
+      // the call, so a crew line's cost comes to what they'll be paid.
+      const held = call ? call.offers.filter((o) => (o.status === 'accepted' || o.status === 'confirmed') && o.dayRateCents !== null).slice(0, call.needed) : []
+      if (call && held.length && (held.length >= call.needed || call.dayRateCents != null)) {
+        const open = call.needed - held.length
+        return Math.round((held.reduce((n, o) => n + o.dayRateCents!, 0) + open * (call.dayRateCents ?? 0)) / call.needed)
+      }
       if (call?.dayRateCents != null) return call.dayRateCents
       // "Audio tech (Show)": the role, without the phase it's for.
       const role = (w: string) => roleList.get(roleKey(w))?.booked
@@ -484,33 +585,105 @@ export interface QuoteToFollow {
   quote: QuoteView
   /** Days since it was last saved (a draft), sent (waiting) or answered (out of step). */
   days: number
+  /**
+   * Sent and waiting, the last day its prices held when that day has passed (research/quoting.md, feature 4): the
+   * quote's valid-until, which nothing acted on before.
+   */
+  ranOut?: string
+  /** A draft, the day the client wants it by (the job's Quote sent task's due day), if one was set (audit of the quote flow, finding 7). */
+  wanted?: string
 }
 
 export interface QuotesToFollow {
-  /** Being put together, not sent yet. */
+  /**
+   * Being put together, not sent yet, for a job still to come: by the day each is wanted (ADR 0127; audit of the quote
+   * flow, 8 November 2026, finding 7), then by the job's first day, those with neither last.
+   */
   drafts: QuoteToFollow[]
+  /** Of those, the ones wanted today or a day already passed: what to send first. Quotes leads with them, Home counts them. */
+  due: QuoteToFollow[]
+  /** Not sent, for a job whose days are over: nothing to send now, kept apart so it doesn't crowd the ones that are. */
+  overDrafts: QuoteToFollow[]
   /** Sent, with no answer yet: the longest waiting first. */
   waiting: QuoteToFollow[]
+  /**
+   * Of those waiting, the ones sent a week or more ago (`CHASE_AFTER_DAYS`): worth a call to the client, the longest
+   * waiting first. Quotes marks them, Notifications lists them and Home counts them, each from this one list (Move 10 of
+   * the sweep of 6 November 2026).
+   */
+  chase: QuoteToFollow[]
+  /** Sent, with no answer, and the job's dates have passed (ADR 0109): not a call to make, a job to mark lost. The most recent first. */
+  passed: QuoteToFollow[]
   /** Answered, but the job doesn't say so yet: accepted and not confirmed, or turned down and not marked lost. */
   outOfStep: (QuoteToFollow & { want: 'confirmed' | 'lost' })[]
+  /**
+   * The office's last step (UX sweep, 6 November 2026, move 12): confirmed jobs through their dates whose accepted quote
+   * isn't invoiced yet, the longest through first. `days` is since the job's last day.
+   */
+  toInvoice: QuoteToFollow[]
 }
 
-export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: string): QuotesToFollow {
-  const out: QuotesToFollow = { drafts: [], waiting: [], outOfStep: [] }
+/**
+ * The month the invoice row and To invoice began (November 2026, shipped on the 7th): a job that ended before it was invoiced in the accounts
+ * package, so it's "Not needed" here rather than listed, and the group starts honest instead of with every old accepted
+ * quote on day one.
+ */
+export const INVOICES_FROM = '2026-11-01'
+
+/** Where a job's invoice stands, for the quiet row under its tasks: never an amount (ADR 0042). */
+export type InvoiceState =
+  | { state: 'none' }
+  | { state: 'not-needed' }
+  | { state: 'to-come' }
+  | { state: 'due'; since: string }
+  | { state: 'invoiced'; on: string; paidOn: string | null }
+
+/** Where the invoice stands for a job and its quote that counts: nothing to say without an accepted quote. */
+export function invoiceOf(job: Pick<JobView, 'status' | 'span'>, current: Pick<QuoteView, 'status' | 'invoicedOn' | 'paidOn'> | undefined, today: string): InvoiceState {
+  if (!current || current.status !== 'accepted' || STOPPED.includes(job.status)) return { state: 'none' }
+  if (current.invoicedOn) return { state: 'invoiced', on: current.invoicedOn, paidOn: current.paidOn }
+  if (job.span && job.span.end < INVOICES_FROM) return { state: 'not-needed' }
+  if (job.status === 'confirmed' && job.span && job.span.end < today) return { state: 'due', since: job.span.end }
+  return { state: 'to-come' }
+}
+
+export function quotesToFollow(m: Pick<MoneyView, 'jobs' | 'draftOf'>, today: string, wantedBy?: (jobId: string) => string | null | undefined): QuotesToFollow {
+  const out: QuotesToFollow = { drafts: [], due: [], overDrafts: [], waiting: [], chase: [], passed: [], outOfStep: [], toInvoice: [] }
   const since = (d: string | null | undefined) => (d ? Math.max(0, daysBetween(d, today)) : 0)
   for (const { job, current } of m.jobs) {
     const stopped = STOPPED.includes(job.status)
     const draft = m.draftOf(job.id)
-    if (draft && !stopped) out.drafts.push({ job, quote: draft, days: since(irishToday(new Date(draft.savedAt))) })
+    if (draft && !stopped) {
+      const wanted = wantedBy?.(job.id) ?? undefined
+      const row = { job, quote: draft, days: since(irishToday(new Date(draft.savedAt))), ...(wanted ? { wanted } : {}) }
+      ;(job.span && job.span.end < today ? out.overDrafts : out.drafts).push(row)
+    }
     if (!current) continue
-    if (current.status === 'sent' && !stopped && !draft) out.waiting.push({ job, quote: current, days: since(current.sentOn) })
+    if (current.status === 'sent' && !stopped && !draft) {
+      const held = current.sentOn ? validUntil(current, today) : undefined
+      ;(job.span && job.span.end < today && job.status !== 'confirmed' ? out.passed : out.waiting).push({
+        job,
+        quote: current,
+        days: since(current.sentOn),
+        ...(held && held < today ? { ranOut: held } : {}),
+      })
+    }
     if (current.status === 'accepted' && !stopped && job.status !== 'confirmed') out.outOfStep.push({ job, quote: current, days: since(current.answeredOn), want: 'confirmed' })
     if (current.status === 'declined' && !stopped && !draft) out.outOfStep.push({ job, quote: current, days: since(current.answeredOn), want: 'lost' })
+    if (invoiceOf(job, current, today).state === 'due') out.toInvoice.push({ job, quote: current, days: since(job.span!.end) })
   }
   const longest = (a: QuoteToFollow, b: QuoteToFollow) => b.days - a.days || a.job.name.localeCompare(b.job.name, 'en-IE')
-  out.drafts.sort(longest)
+  // The day wanted first, then the job's first day, then those with neither; the longest untouched breaks a tie.
+  const soonest = (a: QuoteToFollow, b: QuoteToFollow) =>
+    (a.wanted ?? a.job.span?.start ?? '9999').localeCompare(b.wanted ?? b.job.span?.start ?? '9999') || longest(a, b)
+  out.drafts.sort(soonest)
+  out.due = out.drafts.filter((d) => d.wanted !== undefined && d.wanted <= today)
+  out.overDrafts.sort(longest)
   out.waiting.sort(longest)
+  out.chase = out.waiting.filter((w) => w.days >= CHASE_AFTER_DAYS)
+  out.passed.sort((a, b) => a.days - b.days || a.job.name.localeCompare(b.job.name, 'en-IE'))
   out.outOfStep.sort(longest)
+  out.toInvoice.sort(longest)
   return out
 }
 
@@ -656,7 +829,7 @@ export function costsCsv(money: MoneyView, period: Period): string {
       return [
         on,
         p?.name ?? '',
-        p?.company?.name ?? '',
+        p?.company ? (tradesAs(p) === 'sole-trader' ? 'Sole trader' : p.company.name) : '',
         p?.company?.vatNumber ?? '',
         c.row.call.project,
         c.row.call.role,

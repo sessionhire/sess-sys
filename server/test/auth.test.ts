@@ -6,6 +6,7 @@ import { buildApp } from '../src/app.ts'
 import { assertSignInKept, authFromEnv, passcodeFromEnv, passcodeWarning, type AuthConfig } from '../src/auth/config.ts'
 import { googleProvider, identityFromIdToken, type Identity, type IdentityProvider } from '../src/auth/google.ts'
 import { pgliteDb } from '../src/db.ts'
+import { SIGN_IN_LIMIT, TOO_MANY } from '../src/http.ts'
 
 /**
  * Staff sign-in, as the people involved see it: nothing but the sign-in
@@ -196,6 +197,29 @@ describe('staff sign-in', () => {
     expect(odd.back.headers.location).toBe('/')
   })
 
+  it('keeps the screen the app opens on with the account, so it follows the person to every device (ADR 0122)', async () => {
+    const { app, google } = await server()
+    const { session } = await signIn(app, google, aoife)
+    const me = async (s: string) => (await app.inject({ url: '/api/me', cookies: { sh_session: s } })).json().user
+    const choose = (s: string, start: unknown) => app.inject({ method: 'POST', url: '/api/me/start', cookies: { sh_session: s }, payload: { start } })
+    expect((await me(session!)).start).toBeUndefined()
+
+    expect((await choose(session!, '#jobs/plan')).statusCode).toBe(200)
+    // Her phone, signed in on its own, opens on the planner too.
+    const phone = (await signIn(app, google, aoife)).session!
+    expect((await me(phone)).start).toBe('#jobs/plan')
+
+    // Home is the default, so choosing it clears the choice; an address not on the list does the same.
+    await choose(phone, '#home')
+    expect((await me(session!)).start).toBeUndefined()
+    await choose(phone, '#quotes')
+    await choose(phone, 'https://elsewhere.example/')
+    expect((await me(session!)).start).toBeUndefined()
+
+    // Signed out, there's no one to keep it for.
+    expect((await app.inject({ method: 'POST', url: '/api/me/start', payload: { start: '#jobs' } })).statusCode).toBe(401)
+  })
+
   it('signs out, and a session ends when it expires or the account is switched off', async () => {
     const { app, db, google } = await server()
     let { session } = await signIn(app, google, aoife)
@@ -243,6 +267,54 @@ describe('staff sign-in', () => {
     const { session } = await signIn(app, google, aoife)
     const ws = await app.injectWS('/api/sync/live', { headers: { cookie: `sh_session=${session}` } })
     ws.terminate()
+  })
+})
+
+describe("the phone app's sign-in (ADR 0112)", () => {
+  /** The app opens Google in the phone's browser with a challenge, and the browser is sent back to the app with a code. */
+  async function viaPhone(app: FastifyInstance, google: ReturnType<typeof fakeGoogle>, identity: Identity) {
+    const verifier = randomBytes(32).toString('base64url')
+    const challenge = createHash('sha256').update(verifier).digest('base64url')
+    const start = await app.inject(`/api/auth/google/start?next=${encodeURIComponent('#stock')}&app=${challenge}`)
+    const attempt = cookie(start, 'sh_signin')!
+    const { code, state } = google.pick(identity)
+    const back = await app.inject({ url: `/api/auth/google/callback?code=${code}&state=${state}`, cookies: { sh_signin: attempt.value } })
+    return { back, verifier }
+  }
+  const claim = (app: FastifyInstance, code: string, verifier: string) =>
+    app.inject({ method: 'POST', url: '/api/auth/app/claim', payload: { code, verifier } })
+
+  it("hands the session to the app, not to the phone's browser, and the app swaps it once", async () => {
+    const { app, google } = await server()
+    const { back, verifier } = await viaPhone(app, google, aoife)
+    expect(back.statusCode).toBe(303)
+    expect(cookie(back, 'sh_session')).toBeUndefined()
+    const to = new URL(back.headers.location as string)
+    expect(to.protocol).toBe('com.sessionhire.app:')
+    const code = to.searchParams.get('code')!
+    const swapped = await claim(app, code, verifier)
+    expect(swapped.statusCode).toBe(200)
+    expect(swapped.json()).toEqual({ next: '#stock' })
+    const session = cookie(swapped, 'sh_session')!.value
+    expect((await pull(app, session)).statusCode).toBe(200)
+    // Once only.
+    expect((await claim(app, code, verifier)).statusCode).toBe(403)
+  })
+
+  it('refuses a code without the secret behind its challenge, and forgets it', async () => {
+    const { app, google } = await server()
+    const { back, verifier } = await viaPhone(app, google, aoife)
+    const code = new URL(back.headers.location as string).searchParams.get('code')!
+    const caught = await claim(app, code, randomBytes(32).toString('base64url'))
+    expect(caught.statusCode).toBe(403)
+    expect(cookie(caught, 'sh_session')).toBeUndefined()
+    expect((await claim(app, code, verifier)).statusCode).toBe(403)
+  })
+
+  it('tells the app when Google turned the account away', async () => {
+    const { app, google } = await server()
+    const { back } = await viaPhone(app, google, { ...aoife, email: 'someone@gmail.com', hostedDomain: undefined })
+    expect(back.headers.location).toBe('com.sessionhire.app://signed-in?signin=denied')
   })
 })
 
@@ -505,5 +577,22 @@ describe('sign-in settings', () => {
     await expect(assertSignInKept(db, undefined, {})).rejects.toThrow('Refusing to start without sign-in')
     await expect(assertSignInKept(db, undefined, { AUTH_MODE: 'open' })).resolves.toBeUndefined()
     await expect(assertSignInKept(db, { provider: google.provider, domains: ['sessionhire.com'], emails: [] }, {})).resolves.toBeUndefined()
+  })
+})
+
+describe('the ways in, limited by address (ADR 0105)', () => {
+  it('turns one address away after a minute’s allowance of sign-ins, in words, and lets others in', async () => {
+    const { app } = await server()
+    const from = (address: string) => app.inject({ url: '/api/auth/google/start', headers: { 'x-forwarded-for': `10.0.0.1, ${address}` } })
+    for (let i = 0; i < SIGN_IN_LIMIT.max; i++) expect((await from('203.0.113.7')).statusCode).toBe(302)
+    const refused = await from('203.0.113.7')
+    expect(refused.statusCode).toBe(429)
+    expect(refused.json()).toEqual({ error: TOO_MANY })
+    expect(refused.headers['retry-after']).toBeDefined()
+    // Only the address the proxy saw counts: another phone is counted on its own, and writing another in front gets nowhere.
+    expect((await from('198.51.100.2')).statusCode).toBe(302)
+    expect((await app.inject({ url: '/api/auth/google/start', headers: { 'x-forwarded-for': '198.51.100.9, 203.0.113.7' } })).statusCode).toBe(429)
+    // Routes that don't ask for a limit have none: every phone in the warehouse shares one address.
+    expect((await app.inject({ url: '/api/health', headers: { 'x-forwarded-for': '203.0.113.7' } })).statusCode).toBe(200)
   })
 })

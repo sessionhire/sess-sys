@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { enterPasscode, signInProblem, signInUrl, useAuth } from './auth.ts'
+import { inApp, signInFromApp } from './native.ts'
 import { client } from './sync.ts'
 import { ThemeButton } from './ThemeButton.tsx'
+import { Mark } from './Mark.tsx'
 
 const PROBLEMS = {
   denied: "That Google account isn't set up for Session Hire. Use your sessionhire.com account, or ask the office to add you.",
@@ -34,9 +36,9 @@ export function SignIn() {
     <div className="app signin">
       <header className="top">
         <div className="brand">
-          <span className="mark">SH</span>
+          <Mark />
           <span>
-            <b>Session Hire</b>
+            <b><span className="sr-only">Session Hire</span></b>
             <small className="where">Staff sign-in</small>
           </span>
         </div>
@@ -56,7 +58,17 @@ export function SignIn() {
               </p>
             )}
             <p>Use your Session Hire Google account.</p>
-            <a className="button primary" href={signInUrl(location.hash || '#jobs')}>
+            {/* Back to where they were, or Home, which starts each role on its own view; not the office's Jobs (audit, 5 November 2026, finding 48). */}
+            {/* In the phone app, Google opens in the phone's own browser and comes back to the app (ADR 0112). */}
+            <a
+              className="button primary"
+              href={signInUrl(location.hash || '#home')}
+              onClick={(e) => {
+                if (!inApp()) return
+                e.preventDefault()
+                void signInFromApp(location.hash || '#home')
+              }}
+            >
               Sign in with Google
             </a>
           </>

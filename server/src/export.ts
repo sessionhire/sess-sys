@@ -14,10 +14,12 @@ import { forEachRow, ident, tableLayout, tablesInOrder, useCanonicalOutput } fro
  */
 
 /**
- * Left out on purpose: sign-in sessions, which are secrets, and the server's
- * own bookkeeping (schema versions, which copy of the data this is).
+ * Left out on purpose: sign-in sessions and the phones a freelancer's link
+ * remembers, with any code waiting for one (ADR 0114), which are secrets, and the server's
+ * own bookkeeping (schema versions, which copy of the data this is, a quote's
+ * email while it's being sent, ADR 0171).
  */
-const NOT_EXPORTED = new Set(['sessions', 'server_meta', ...MODULES.map((m) => m.versionTable)])
+const NOT_EXPORTED = new Set(['sessions', 'link_devices', 'link_codes', 'link_lost', 'server_meta', 'quote_email_sends', ...MODULES.map((m) => m.versionTable)])
 
 /**
  * The secret in each freelancer's private link, wherever it turns up: in
@@ -27,10 +29,13 @@ const NOT_EXPORTED = new Set(['sessions', 'server_meta', ...MODULES.map((m) => m
  * though it is stored locked; devices never see it, so the feed has no copies.
  * And a freelancer's own calendar's private address (ADR 0044): whoever held
  * it could read their whole calendar. Devices never see it either; the busy
- * times stay in.
+ * times stay in. And a quote's link for its client (ADR 0121): whoever held
+ * it could accept the quote.
  */
-const SECRET_COLUMNS: Record<string, string[]> = { people: ['link_token'], person_merges: ['link_token'], calendar_link: ['refresh_token'], own_calendars: ['address'] }
-const SECRET_FIELDS: Record<string, string[]> = { person: ['linkToken'] }
+const SECRET_COLUMNS: Record<string, string[]> = { people: ['link_token'], quotes: ['accept_token'], person_merges: ['link_token'], calendar_link: ['refresh_token'], assistant_mailbox: ['refresh_token'], own_calendars: ['address'] }
+/** Not secret, but no use in a spreadsheet and far too big for one: the PDF that went with each emailed quote (ADR 0101). The backups keep it. */
+SECRET_COLUMNS.quote_emails = ['pdf_base64']
+const SECRET_FIELDS: Record<string, string[]> = { person: ['linkToken'], quote: ['acceptToken'] }
 
 type Row = Record<string, unknown>
 
@@ -235,7 +240,7 @@ function historyCsv(history: HistoryEntry[]): string {
     history.map((h) => [
       irishTime(h.madeAt),
       h.who.name,
-      h.who.kind === 'link' ? 'Private link' : h.who.kind === 'calendar' ? 'Google Calendar' : h.deviceCode ? `App, device ${h.deviceCode}` : '',
+      h.who.kind === 'link' ? 'Private link' : h.who.kind === 'calendar' ? 'Google Calendar' : h.who.kind === 'whatsapp' ? 'WhatsApp' : h.who.kind === 'claude' ? 'Claude, from the operations mailbox' : h.deviceCode ? `App, device ${h.deviceCode}` : '',
       h.device ?? '',
       h.what,
       h.outcome === 'done' ? 'Done' : 'Turned down',
@@ -263,13 +268,14 @@ const ABOUT: Record<string, string> = {
   calendar_imports: 'Each day of an event brought in from Google Calendar, and the job and phase it went into.',
   calendar_link: 'The Google calendar confirmed jobs are written to, the account that writes them, and who connected it.',
   changes: 'Every change to every record, in order: what phones and laptops receive.',
-  clients: 'Who jobs are for, with their contacts.',
+  clients: "Who jobs are for, with their contacts, the address their quotes go to, and when they pay: 'before' the job, a number of days from the invoice, or empty for the company's own terms.",
   // Money (ADR 0042).
   client_discounts: "Each client's usual discount on a quote, as a percentage.",
   cost_payments: "The day each freelancer was paid for an approved timesheet, as the office recorded it.",
   // Counts of places and cases (ADR 0030). The fixes a count led to are in the tables they changed: assets, stock and faults.
   counts:
     'Counts of places and cases: where, when they started and finished on the phone, who counted, what the count said of each item (found, not found, away, or found though kept elsewhere), the numbers no item had, each product counted against what was recorded and how many were out, and a summary in numbers.',
+  count_starts: "Counts under way on someone's phone: where, who, when it began, and when it was discarded; one finished has its count, with the same id, in counts.",
   crew_calls: 'Roles jobs need, such as 2 audio techs for Build and Show, the department each is for, and the certificates each needs, such as IPAF.',
   // People's documents (ADR 0029): the details here, the files in the storage.
   document_files_to_delete: "Files the storage still holds for documents that have gone, or for uploads that didn't finish, waiting to be deleted: the storage's name for each, when, and why one couldn't be deleted yet. Nothing says whose it was.",
@@ -299,23 +305,29 @@ const ABOUT: Record<string, string> = {
   offers: 'Work offered to people, and their answers; a confirmed offer is a booking.',
   // Packages (ADR 0087).
   packages: "Packages on the price list: kit quoted together at one price, with its name, the department it's listed under, its price in cents and how it's charged, the products it holds and how many of each, and anything else it includes.",
-  people: 'Staff and freelancers on the crew list: contact details, department, level, the name they go by, certificates, the company and VAT and CRO numbers they trade through, skills and rates, whether they have been archived, which staff can approve time off, and the other addresses of anyone combined with them.',
+  people: 'Staff and freelancers on the crew list: contact details, department, level, the name they go by, certificates, whether they trade as a sole trader or a company, whether a sole trader is VAT-registered, the company and VAT and CRO numbers they trade through, skills and rates, whether they have been archived, which staff can approve time off, and the other addresses of anyone combined with them.',
   // Combining people brought in twice (ADR 0055).
   person_merges: 'People made part of another, as one person: who, whom, and when. Their old private links open the one person; the links themselves are left out.',
   phases: "The parts of each job, such as Build and Show, their days, and who crew ring on the day.",
   places: 'Where stock is kept: the warehouse, its bays and shelves, vans.',
   product_prices: "The price list: each product's price for a day, in cents.",
-  projects: 'Jobs: who for, where, whether they are going ahead, and the calendar a job was brought in from.',
+  projects: "Jobs: who for, where, whether they are going ahead, the notes for the crew and the office's own notes, and the calendar a job was brought in from.",
   quotes:
-    "Each job's quotes, a row for each version: its lines (what, how many, days charged, the price for a day in cents and the VAT rate), the discount, the notes for the client, how many days its prices hold and any deposit, when it was sent and the quote number it was given then, the client's answer, and the invoice and payment the office recorded for it.",
-  quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details.",
+    "Each job's quotes, a row for each version: its lines (what, how many, days charged, the price for a day in cents and the VAT rate), the discount, the notes for the client, how many days its prices hold and any deposit, when it was sent and the quote number it was given then, the client's answer, with the name typed when they accepted it online and when, and the invoice and payment the office recorded for it. The key in each quote's link for the client is left out.",
+  quote_settings: "What every printed quote says: the number the next quote gets, the company's terms and its bank details; and whether quotes can be emailed to clients from the operations mailbox, and accepted by them online; and the share of a day rate travel and warehouse days are paid and charged at.",
+  quote_emails:
+    "Each quote emailed to a client from the operations mailbox: which quote, its version and number as sent, when, by whom, from and to which addresses, the subject and the message. The PDF that went is left out of this file; the app's own copy is on the quote's page.",
   role_prices: "The price list for crew: each role's price for a day, in cents. A role not here is quoted at the rate its crew were booked at.",
   running_late: "People saying on their private link that they're running late on a day they're booked, or the office noting it when they rang: how late or when they'll be there, their note, when they said they'd arrived, and when the office noted it. Shown only until the day is over, and deleted 30 days after it.",
-  settings: "The office's own details: the name, phone and email shown to freelancers on their pages, and the VAT number and address printed on quotes; whether heads of department see crew rates; and whether the app prompts messages to crew.",
+  settings: "The office's own details: the name, phone and email shown to freelancers on their pages, and the VAT number and address printed on quotes; whether heads of department see crew rates; and whether the app prompts messages to crew; the colour for each cable length, and the company logo printed on quotes and labels (its file kept with documents' files).",
   stock: 'Counted stock: how many of a product are at a place or in a case.',
   timesheets: "Freelancers' timesheets, one for each booking: the days worked at the day rate, extras such as parking or mileage, what was sent and what the office approved.",
   unavailability: "Days people can't work.",
-  users: 'Staff who have signed in with Google.',
+  // Trackers on expensive kit (ADR 0107).
+  trackers: "Trackers on kit: the maker and serial number, the name the office gave it, the item it's on, when it was first and last heard from, where it last said it was and how accurately, its battery, where that is against where the item should be and since when, and whether it's been put away.",
+  tracker_reports: 'Every report a tracker sent, as it came: when, its number, where it was and how accurately, its battery and why it reported.',
+  tracker_settings: 'Whether the company uses trackers, where the warehouse is on the map, and how near counts as there.',
+  users: 'Staff who have signed in with Google, and the screen the app opens on for each when they chose one.',
   // A job's steps (ADR 0073).
   // The purchase list (ADR 0077).
   purchase_requests:
@@ -323,17 +335,33 @@ const ABOUT: Record<string, string> = {
   purchase_votes: 'Who voted for each request on the purchase list, one vote each.',
   // Current RMS, read through its API (ADR 0078).
   assistant_lists: "Claude's to-do lists for the office and directors (ADR 0097), the last two weeks of them: when each was written, whether in the morning or on request, its summary, and each thing on it with when it was ticked done.",
+  // The operations mailbox (ADR 0098).
+  assistant_mailbox: 'The operations mailbox Claude reads: the account connected, by whom and when, from when its mail is read, and when it was last looked at. Its key is left out.',
+  mail_threads: 'Each thread of mail Claude read in the operations mailbox: what it was (an enquiry, about a job, or neither), the job it went with, how many mails, when the last came, and the lines Claude last drafted from it.',
+  mail_notes: 'What Claude read in each thread: its subject, who it was from, a summary, what to ask the client, and any changes it asks for on the quote. Emptied when anyone is erased.',
+  mail_seen: 'The mail Claude has read in the operations mailbox, by Gmail’s id and thread. Not the mail itself, which stays in Gmail.',
   assistant_uses: 'Each time Claude was asked (ADR 0096): when, what for, the model, how many tokens went in and out, and what it cost in US cents. Not the words asked or answered, and not who asked.',
   rms_lines: "The lines of each opportunity read from Current RMS: its group, product or service, how many, the price, the discount, the chargeable days and rate, the total and VAT in cents, and whether it was subhired.",
-  rms_opportunities: "Every opportunity read from Current RMS (enquiries, quotes, orders, lost and dead ones): its number, subject, client and venue by name, state, dates, totals in cents and the client's discount and price category there. No contacts.",
+  rms_opportunities: "Every opportunity read from Current RMS (enquiries, quotes, orders, lost and dead ones): its number, subject, client and venue by name, state, dates (the days to go by, the days Current RMS gives, and its show days), totals in cents and the client's discount and price category there. No contacts.",
   rms_matches: 'Each opportunity read from Current RMS that the office linked to its job: the job, who linked it and when.',
+  rms_dates_fixed: 'Each quote from Current RMS whose days the office corrected here: the first and last day, who changed them and when.',
+  rms_set_aside: 'Each open quote from Current RMS the office said is not going ahead, so it is off the master calendar: who said so and when.',
   rms_reads: 'Each time Current RMS was read: when, how many opportunities and lines, and what went wrong if it did.',
-  job_steps: "Each job's steps given to someone or ticked by hand: the job, the step (quote, confirmed, crew, kit, prep, show, back, deprep), who it's down to, and when it was ticked and by whom. Steps the app ticks from the job's own records aren't kept.",
+  rms_products: "Each product's hire price as Current RMS had it at the last whole read of its prices (ADR 0132): Current RMS's id and name, the price in cents and its rate definition.",
+  rms_price_reads: "Each time Current RMS's hire prices were read: when, how many products, and what went wrong if it did.",
+  rms_members: "Current RMS's organisations, venues and contacts as they were at the last whole read of them (ADR 0136): Current RMS's id, the kind, name, whether active, primary address, an email and a phone.",
+  rms_member_links: "Which contacts belong to which organisation or venue in Current RMS, from the last whole read (ADR 0136).",
+  rms_member_reads: "Each time Current RMS's clients and venues were read: when, how many, and what went wrong if it did.",
+  job_steps: "Each job's tasks given to someone, given a due date or ticked by hand: the job, the task (quote, confirmed, crew, kit, prep, show, back, deprep), who it's down to, the day it's due by, and when it was ticked and by whom. Tasks the app ticks from the job's own records aren't kept.",
+  // Photos of jobs (ADR 0182): what's said about each here, the pictures in the storage.
+  job_photos:
+    "Photos of jobs, of what each show looked like: the job, the caption and tags, its size in pixels and the storage it takes, who put it up and when. The photos stay in the storage: see Left out on purpose.",
+  job_ranks: "Each job put in order by hand on the Board (ADR 0143): the job, the stage whose column it was put in order in, and its place there. A job nobody put in order isn't kept, and goes by its days.",
   // Vans and drivers (ADR 0047).
   vehicle_bookings: 'Vehicles booked on jobs: the vehicle, the job and the phase (blank for the whole job), the days, who drives, a note, and whether it was booked despite a clash.',
   vehicles:
     "The company's vehicles: name, registration, kind, seats, payload in kg, notes, each check (NCT or CVRT, motor tax, insurance, service, tachograph) with whether it's needed and the day it runs out, and when one is off the road and why.",
-  venues: 'Where jobs happen: addresses, notes on access, load-in, power and parking, and where each is on the map (lat and lng, in degrees) once someone has put it there.',
+  venues: "Where jobs happen: addresses, notes on access, load-in, power and parking, who to ask for on site (name, role, mobile and email), and where each is on the map (lat and lng, in degrees) once someone has put it there.",
 }
 
 function readme(e: Everything, by?: { name: string; email: string }): string {
@@ -364,7 +392,8 @@ ${tables.join('\n')}
 
 Left out on purpose
 -------------------
-- The secrets in freelancers' private links, old and current, staff
+- The secrets in freelancers' private links, old and current, and in
+  quotes' links for clients, staff
   sign-in sessions, and the app's key to Google Calendar: whoever held this
   file could otherwise act as them.
 - The server's own bookkeeping: schema versions, and which copy of the data
@@ -375,7 +404,8 @@ Left out on purpose
   on venues and clients, which open from their pages; attachments lists
   their details, and certificates on items, which open from the item's
   page; item_certificates lists their details. And photos of people and products, which show on their
-  pages: people and models say when each was put up.
+  pages: people and models say when each was put up. And photos of jobs, which show on each job's
+  Photos tab and under Jobs › Photos: job_photos lists their captions and tags.
 
 Good to know
 ------------

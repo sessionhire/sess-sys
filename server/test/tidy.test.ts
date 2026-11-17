@@ -89,7 +89,7 @@ describe('making one job of several', () => {
     expect(await latest<Phase>(app, 'phase', smirnoff.phase)).toMatchObject({ projectId: lx.job, name: 'Smirnoff LX' })
     // The calls follow, with the job's new name and their departments from the titles.
     expect(await latest<CrewCall>(app, 'crewCall', audio.call)).toMatchObject({ projectId: lx.job, project: 'EP', phase: 'Audio', department: 'Audio' })
-    expect(await latest<CrewCall>(app, 'crewCall', smirnoff.call)).toMatchObject({ projectId: lx.job, project: 'EP', phase: 'Smirnoff LX', department: 'LX' })
+    expect(await latest<CrewCall>(app, 'crewCall', smirnoff.call)).toMatchObject({ projectId: lx.job, project: 'EP', phase: 'Smirnoff LX', department: 'Lighting' })
     const { rows } = await db.query<{ n: number }>('SELECT count(*)::int AS n FROM projects')
     expect(rows[0]!.n).toBe(1)
     const said = (await readHistory(db, { limit: 5 })).entries.map((e) => e.what)
@@ -101,9 +101,13 @@ describe('making one job of several', () => {
     const a = await job(app, 'Riverside - FLY', '2026-05-20')
     const b = await job(app, 'Riverside - FLY Travel', '2026-05-19')
     ok(await send(app, 'phase.update', { id: b.phase, name: 'Load in' }))
+    // Each kind of note is joined with its own (ADR 0151): the office's never become the crew's.
+    ok(await send(app, 'project.update', { id: a.job, notes: 'Rigging from 08:00.', officeNotes: 'Deposit paid.' }))
+    ok(await send(app, 'project.update', { id: b.job, notes: 'Two vans.', officeNotes: 'Client pays late.' }))
     ok(await send(app, 'project.merge', { id: a.job, from: [b.job], name: 'Riverside' }))
     expect(await latest<Phase>(app, 'phase', b.phase)).toMatchObject({ name: 'Load in (FLY Travel)' })
     expect(await latest<Phase>(app, 'phase', a.phase)).toMatchObject({ name: 'FLY' })
+    expect(await latest<Project>(app, 'project', a.job)).toMatchObject({ notes: 'Rigging from 08:00.\n\nTwo vans.', officeNotes: 'Deposit paid.\n\nClient pays late.' })
   })
 
   it("won't mix a job made in the app with one brought in from the calendar", async () => {

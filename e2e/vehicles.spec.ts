@@ -64,16 +64,16 @@ test('Stock › Vehicles lists the vans and their checks, and a van off the road
   // Its own page, under Stock › Vehicles.
   await luton.click()
   await expect(phone.getByRole('heading', { name: 'The Luton', level: 1 })).toBeVisible()
-  await expect(phone.locator('.title').getByText('Off the road')).toBeVisible()
+  await expect(phone.locator('.page-title-row').getByText('Off the road')).toBeVisible()
   await expect(phone.getByRole('region', { name: 'Booked on' })).toContainText('Liffey Brands Launch')
   await phone.getByRole('button', { name: 'Back on the road' }).click()
   await expect(phone.getByRole('status')).toHaveText('Up to date')
-  await expect(phone.locator('.title').getByText('Off the road')).toHaveCount(0)
+  await expect(phone.locator('.page-title-row').getByText('Off the road')).toHaveCount(0)
   await expect(phone.getByRole('button', { name: 'Off the road…' })).toBeVisible()
 
   // A van added with its CVRT already run out: counted on Stock's row, and marked in the list.
   await ready(phone, '#stock/vehicles')
-  await phone.getByRole('button', { name: 'Add vehicle' }).click()
+  await phone.getByRole('button', { name: 'New vehicle' }).click()
   const form = phone.getByRole('form', { name: 'Add a vehicle' })
   await form.getByLabel('Name').fill('Old Van')
   await form.getByLabel('Registration').fill('06-d-1234')
@@ -94,7 +94,7 @@ test('on a job, a van whose tax runs out is refused by name, and one off the roa
   // Proves: the refusal names the van and the fix, and sends nothing; off the road asks first, then books with the problem said; an unrecorded licence warns; Remove takes it off.
   const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await openJob(phone, 'Liffey Brands Launch')
-  await phone.getByRole('tab', { name: 'Kit and vans' }).click()
+  await phone.getByRole('tab', { name: /^Transport/ }).click()
   const vans = phone.getByRole('region', { name: 'Vehicles' })
   const luton = vans.locator('.van-line', { hasText: 'The Luton' })
   await expect(luton).toContainText('Dara Quinn driving')
@@ -113,6 +113,8 @@ test('on a job, a van whose tax runs out is refused by name, and one off the roa
 
   // The Luton is off the road for the festival's load in: asked first, then booked anyway.
   await openJob(phone, 'Harbour Lights Festival')
+  // It opens on its next task's part (ADR 0140, part 8); the vans are under Transport.
+  await phone.getByRole('tab', { name: /^Transport/ }).click()
   const harbour = phone.getByRole('region', { name: 'Vehicles' })
   await expect(harbour.locator('.van-line', { hasText: 'Big Van' })).toHaveCount(2)
   await harbour.getByRole('button', { name: 'Book a vehicle' }).click()
@@ -161,10 +163,94 @@ test("the planner's Vans rows show one van on two jobs, and the call sheet says 
 
   // The load in's call sheet names the van and its driver for everyone on it.
   await openJob(phone, 'Harbour Lights Festival')
+  await phone.getByRole('tab', { name: /^Phases/ }).click()
   const loadIn = phone.getByRole('article', { name: 'Load in' })
   await loadIn.locator('summary').click()
   await loadIn.getByRole('link', { name: 'Call sheet' }).click()
   const sheetVans = phone.getByRole('region', { name: 'Vehicles' })
   await expect(sheetVans).toContainText('Big Van')
   await expect(sheetVans).toContainText('Cian Murphy driving')
+})
+
+test('a van out on the road says when it leaves and is back, and Stock › Vehicles plans the vans by week', async ({ browser }) => {
+  // Proves (ADR 0179): the drive is estimated from the map with the warehouse not yet set; times typed on a booking give when it leaves the
+  // warehouse and is back; the vehicle's page says it too; Stock › Vehicles has Week and Month, the week as a list of days on a phone.
+  const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await openJob(phone, 'Harbour Lights Festival')
+  await phone.getByRole('tab', { name: /^Transport/ }).click()
+  const vans = phone.getByRole('region', { name: 'Vehicles' })
+  const loadIn = vans.locator('.van-line', { hasText: 'Load in' }).first()
+  // Riverside Park in Limerick, from Dublin city centre until the warehouse is on the map.
+  await expect(loadIn.locator('.van-road')).toContainText(/about 2 h \d\d each way \(\d+ km\)/)
+  await loadIn.getByRole('button', { name: 'Change' }).click()
+  const form = vans.getByRole('form', { name: /^Change the booking of Big Van/ })
+  await expect(form).toContainText('measured from Dublin city centre until the warehouse is on the map')
+  await form.getByLabel('At the venue by').fill('07:00')
+  await form.getByLabel('Leaves the venue').fill('23:30')
+  await expect(form.locator('.van-road')).toContainText(/Leaves the warehouse about 0[34]:\d\d .* back about 0[12]:\d\d /)
+  await form.getByRole('button', { name: 'Save booking' }).click()
+  // Back after midnight, it's away a day longer, which can meet its next job: asked first, as any clash is.
+  const anyway = form.getByRole('button', { name: 'Book anyway' })
+  if (await anyway.isVisible().catch(() => false)) await anyway.click()
+  await expect(form).toHaveCount(0)
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  await expect(loadIn.locator('.van-road')).toContainText(/Leaves the warehouse about 0[34]:\d\d/)
+
+  // Typed over the map: the drive as the office knows it.
+  await loadIn.getByRole('button', { name: 'Change' }).click()
+  await vans.getByRole('form', { name: /^Change the booking of Big Van/ }).getByLabel('Drive each way, in minutes').fill('150')
+  await vans.getByRole('button', { name: 'Save booking' }).click()
+  await expect(vans.getByRole('form')).toHaveCount(0)
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  await expect(loadIn.locator('.van-road')).toContainText('Leaves the warehouse about 04:30')
+  await expect(loadIn.locator('.van-road')).toContainText('2 h 30 each way, as typed')
+
+  await ready(phone, '#stock/vehicles')
+  await phone.getByRole('group', { name: 'Show the vehicles as' }).getByRole('button', { name: 'Week' }).click()
+  await expect(phone).toHaveURL(/#stock\/vehicles\/week\/\d{4}-\d\d-\d\d\/days$/)
+  await expect(phone.getByRole('region', { name: 'The week, day by day' })).toBeVisible()
+  await expect(phone.getByRole('region', { name: 'Where drives are measured from' })).toContainText('from Dublin city centre')
+  await phone.getByRole('button', { name: 'Grid' }).click()
+  await expect(phone).toHaveURL(/#stock\/vehicles\/week\/\d{4}-\d\d-\d\d$/)
+  await expect(phone.getByRole('region', { name: /, by vehicle$/ })).toContainText('Big Van')
+  await phone.getByRole('group', { name: 'Show the vehicles as' }).getByRole('button', { name: 'Month' }).click()
+  await expect(phone).toHaveURL(/#stock\/vehicles\/month\/\d{4}-\d\d-01$/)
+  await phone.getByRole('group', { name: 'Show the vehicles as' }).getByRole('button', { name: 'List' }).click()
+  await expect(phone.getByRole('heading', { name: 'Vehicles', level: 1 })).toBeVisible()
+})
+
+test('the warehouse is set under Admin › Company, and the vans measure their drives from it', async ({ browser }) => {
+  // Proves (ADR 0180): Stock › Vehicles links to Admin › Company while the warehouse isn't on the map; the card there takes an address and a
+  // pin (pasted, so no map search is needed), saves both, and the vans' planner then names the warehouse; the address can be changed again.
+  const phone = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await ready(phone, '#stock/vehicles/week')
+  await phone.getByRole('region', { name: 'Where drives are measured from' }).getByRole('link', { name: 'Put the warehouse on the map' }).click()
+  await expect(phone).toHaveURL(/#admin\/company$/)
+  const card = phone.getByRole('region', { name: 'Warehouse', exact: true })
+  await card.getByLabel('Address').fill('Unit 4, Park West\nDublin 12')
+  await card.getByLabel('Or paste a map link or coordinates').fill('53.3249, -6.3368')
+  await card.getByRole('button', { name: 'Use it' }).click()
+  await expect(card).toContainText('Now at 53.32490, -6.33680')
+  await card.getByRole('button', { name: 'Save the warehouse' }).click()
+  await expect(phone.getByRole('status')).toHaveText('Up to date')
+  await expect(card.getByRole('button', { name: 'Save the warehouse' })).toBeDisabled()
+
+  await ready(phone, '#stock/vehicles/week')
+  await expect(phone.locator('.drives-from')).toContainText('from the warehouse (Unit 4, Park West)')
+  await expect(phone.getByRole('region', { name: 'Where drives are measured from' })).toHaveCount(0)
+
+  // Changed again: the address alone.
+  await ready(phone, '#admin/company')
+  await card.getByLabel('Address').fill('Unit 9, Ballymount\nDublin 24')
+  await card.getByRole('button', { name: 'Save the warehouse' }).click()
+  // On the server before the page is opened again, so the reload reads it back from there.
+  await expect
+    .poll(async () => {
+      const changes: { entity: string; data: { address?: string } }[] = (await (await phone.request.get('/api/sync/pull?after=0')).json()).changes
+      return changes.filter((c) => c.entity === 'trackerSettings').at(-1)?.data.address
+    })
+    .toBe('Unit 9, Ballymount\nDublin 24')
+  await phone.reload()
+  await expect(card.getByLabel('Address')).toHaveValue('Unit 9, Ballymount\nDublin 24')
+  await expect(card).toContainText('Now at 53.32490, -6.33680')
 })

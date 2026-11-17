@@ -58,6 +58,7 @@ export function ProductPhoto({ m }: { m: ModelView }) {
           <Confirm
             question={`Take the photo of ${m.name} off? It's deleted, and its icon comes back.`}
             yes="Take it off"
+            loss
             onYes={() => {
               setRemoving(false)
               void run(() => call(m.id, { method: 'DELETE' }))
@@ -69,7 +70,7 @@ export function ProductPhoto({ m }: { m: ModelView }) {
             {/* The button is the file field's label, so it opens the phone's camera or photos as any file field does. */}
             <label className="button" aria-busy={busy}>
               <Icon name="camera" />
-              {late ? 'Sending…' : src ? 'Change photo' : 'Add a photo'}
+              {late ? 'Sending…' : src ? 'Change photo' : 'Add photo'}
               <input ref={picker} type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => void send(e.target.files?.[0])} />
             </label>
             {src && (

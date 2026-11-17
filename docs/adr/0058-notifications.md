@@ -99,3 +99,19 @@ The bell counts the lines with something new on them. A change with no
 name says where it came from (the made-up data, or the device while
 sign-in is off), as the History tab's runs do, never "Someone". The server
 still sends changes, not lines, so the 100 cap is on changes.
+
+## Later: your department's turn (7 November 2026)
+
+The UX sweep of 6 November (move 12, section 9's question 3) found the
+heads and the warehouse told nothing when the office confirms a job, and
+the office's list empty on a company of hundreds of jobs, because notices
+went only to people named on a job while tasks are owned by role. Two
+hand-offs the history already records now reach the people whose turn it
+is, widening "yours" to "your department's turn", the fifth and last
+reason: a job going confirmed, each time it goes so, to the heads of the
+departments on its calls or kit and the warehouse's heads ("Confirmed:
+Harbour Lights, Mon 9 Nov"); and a job's first kit scanned out to the
+office ("Gone out: Harbour Lights"). In the app only, as everything here
+is; nobody is emailed (ADR 0048), and never to whoever did it. A phone
+asks again after a scan only when it's the office's. If the bell gets
+noisy, `handOffs` in `server/src/notices.ts` is the one place to drop.

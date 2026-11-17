@@ -104,6 +104,115 @@ const MIGRATIONS: string[] = [
   ALTER TABLE product_prices DROP CONSTRAINT IF EXISTS product_prices_model_id_fkey;
   ALTER TABLE product_prices ADD CONSTRAINT product_prices_model_id_fkey FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE CASCADE;
   `,
+  // Sending a quote to the client by email (ADR 0101): whether the office has turned it on, and a row for each email that
+  // went: the quote as it was (version and number), when, by whom (a staff account's id, no key to it), from and to which
+  // addresses, the subject and message, what Gmail called it, and the PDF that went, as base64 text so the backups and
+  // the export, which write rows as text, carry it like any other column.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS email_quotes boolean NOT NULL DEFAULT false;
+  CREATE TABLE IF NOT EXISTS quote_emails (
+    id            text PRIMARY KEY,
+    quote_id      text NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+    project_id    text NOT NULL,
+    version       integer NOT NULL,
+    number        integer,
+    sent_at       timestamptz NOT NULL DEFAULT now(),
+    sent_by       text,
+    from_address  text NOT NULL,
+    to_addresses  text[] NOT NULL,
+    subject       text NOT NULL,
+    message       text NOT NULL DEFAULT '',
+    gmail_id      text,
+    thread_id     text,
+    pdf_base64    text NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS quote_emails_quote ON quote_emails (quote_id);
+  `,
+  // Why the client turned a quote down (research/quoting.md, feature 5): one of a few reasons, and a note, kept only
+  // while the answer is "turned down".
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS declined_why text CHECK (declined_why IN ('price', 'dates', 'elsewhere', 'off', 'unsaid'));
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS declined_note text NOT NULL DEFAULT '';
+  `,
+  // The client accepts a quote online (ADR 0121): whether the office has turned it on; each version's key for its link,
+  // given when it's started; and who accepted it there, and when. The key is the link's only credential, as a
+  // freelancer's is (ADR 0002), so it's random and unique.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS accept_online boolean NOT NULL DEFAULT false;
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accept_token text;
+  CREATE UNIQUE INDEX IF NOT EXISTS quotes_accept_token ON quotes (accept_token) WHERE accept_token IS NOT NULL;
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accepted_name text;
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
+  `,
+  // Who at the client a quote is for (ADR 0128): one of the client's contacts, by name; empty prints the first, as before.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS for_name text NOT NULL DEFAULT '';
+  `,
+  // What own kit costs to run, as a share of its price (finding 19 of the quote flow audit), for the margin; null until set.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS own_kit_cost_pct integer CHECK (own_kit_cost_pct BETWEEN 0 AND 90);
+  `,
+  // Hire prices filled in from Current RMS (ADR 0132): whether a product's price came from there, so a later fill-in
+  // follows Current RMS's changes to it and leaves one the office set by hand as it is.
+  `
+  ALTER TABLE product_prices ADD COLUMN IF NOT EXISTS from_rms boolean NOT NULL DEFAULT false;
+  `,
+  // Deleting a quote (ADR 0135): an admin's, kept on the server with when, so it can be put back from the history. A
+  // deleted draft no longer holds the job's one draft, so a new one can be started.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+  DROP INDEX IF EXISTS quotes_one_draft;
+  CREATE UNIQUE INDEX IF NOT EXISTS quotes_one_live_draft ON quotes (project_id) WHERE status = 'draft' AND deleted_at IS NULL;
+  `,
+  // The crew's accommodation (ADR 0156): on each quote, whether the job puts them up; and, set once for every quote, how
+  // far before they stay over and a room a night. A room price not set is null and charges nothing.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accommodation_provided boolean NOT NULL DEFAULT false;
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS stay_from_km integer CHECK (stay_from_km BETWEEN 0 AND 1000);
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS room_cents integer CHECK (room_cents >= 0);
+  `,
+  // Knowing a quote's email went (ADR 0171): each press of Send has a key, so the same press never sends twice; a press is
+  // held while it goes, so a second ask for it waits rather than sends; whoever sent it may get a copy; and when it was
+  // read back from the mailbox's Sent folder.
+  `
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS send_key text;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS copy_to text;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS in_sent_at timestamptz;
+  CREATE UNIQUE INDEX IF NOT EXISTS quote_emails_send_key ON quote_emails (send_key) WHERE send_key IS NOT NULL;
+  CREATE TABLE IF NOT EXISTS quote_email_sends (
+    key        text PRIMARY KEY,
+    quote_id   text NOT NULL,
+    started_at timestamptz NOT NULL DEFAULT now()
+  );
+  `,
+  // Watching a quote's email for a week (ADR 0172): when it was last looked at, the messages already read, and what came
+  // back: a bounce (for which addresses, and why), a delay, and the client's replies.
+  `
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS looked_at timestamptz;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS seen_ids text[] NOT NULL DEFAULT '{}';
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS bounced_at timestamptz;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS bounced_to text[];
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS bounce_why text;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS delayed_at timestamptz;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS delayed_to text[];
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS replies integer NOT NULL DEFAULT 0;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS replied_at timestamptz;
+  ALTER TABLE quote_emails ADD COLUMN IF NOT EXISTS replied_from text;
+  `,
+  // Travel and warehouse days (ADR 0174): the share of a day rate a day of crew on one is paid and charged; null is half.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS reduced_day_pct integer CHECK (reduced_day_pct BETWEEN 10 AND 100);
+  `,
+  // A dry hire's delivery (ADR 0183): what each km from the warehouse to the delivery address is charged; null for not set.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_cents_per_km integer CHECK (delivery_cents_per_km >= 0);
+  `,
+  // A dry hire's delivery as a set amount for the first so many km (ADR 0183, amended). Its own step: a database that had
+  // already taken the one above never runs it again, so these two were missing on live until they came as a new step.
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_base_cents integer CHECK (delivery_base_cents >= 0);
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_base_km integer CHECK (delivery_base_km BETWEEN 0 AND 1000);
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

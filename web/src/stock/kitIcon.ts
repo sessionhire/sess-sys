@@ -17,6 +17,8 @@ const BY_DEPARTMENT: Record<Department, IconName> = {
   audio: 'audio',
   lighting: 'lighting',
   video: 'video',
+  // The design system has no laser icon yet: a laser is a light, so it draws as one until it has.
+  lasers: 'lighting',
   staging: 'staging',
   rigging: 'rigging',
   power: 'power',

@@ -102,3 +102,13 @@ sign-in code.
   Railway's own record of requests, separate from the app's log, still
   sees whole addresses; only people with access to the Railway project
   can read it.
+
+## Later: the page says the rate is in it (6 November 2026)
+
+The feed keeps the rate, as decided here, for invoicing. "Safe in a shared
+calendar" meant that sharing the feed doesn't hand over answers, but the
+page said "it's fine in a calendar you share", which reads as if the rate
+weren't in it. A freelancer working for several companies who gives one of
+them the feed address would show what Session Hire pays. The page and the
+app's card now say "It shows your bookings and what each pays, so share it
+only with people you'd tell that to" (UX audit, 5 November 2026, finding 64).

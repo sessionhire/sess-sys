@@ -28,10 +28,10 @@ const MOST_DIGITS = 12
  */
 export function parseEuro(text: string): Euro {
   // "€250", "250 €", "EUR 250", "250 eur".
-  let t = text
-    .trim()
-    .replace(/^(€|eur)\s*/i, '')
-    .replace(/\s*(€|eur)$/i, '')
+  let t = text.trim().replace(/^(€|eur)\s*/i, '')
+  // Found and cut, rather than a pattern that would try every space before it.
+  const sign = /(?:€|eur)$/i.exec(t)
+  if (sign) t = t.slice(0, sign.index).trimEnd()
   if (!t) return { cents: null }
   if (t.startsWith('-')) return { reason: "A price can't be less than nothing." }
   if (!/^[\d.,\s]+$/.test(t)) return { reason: EURO_HINT }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { lineCostOf, linesFor, quoteMargin, type QuoteLine } from '../src/quotes.ts'
 import type { KitLineView, KitView } from '../src/sync/kit-view.ts'
-import { quoteKit, quoteWants } from '../src/sync/quote-kit.ts'
+import { kitFree, kitFromQuote, kitPencilled, quoteKit, quoteWants } from '../src/sync/quote-kit.ts'
 import type { ModelView } from '../src/sync/stock-view.ts'
 
 /**
@@ -31,6 +31,20 @@ describe('enough kit for a quote', () => {
     expect(quoteKit(job, new Map([['y10', 70]]), '2026-11-01', inputs([], { dryHire: true })).size).toBe(0)
     expect(quoteKit(job, new Map([['y10', 70]]), '2026-12-01', inputs([])).size).toBe(0)
     expect(quoteKit({ ...job, span: undefined }, new Map([['y10', 70]]), '2026-11-01', inputs([])).size).toBe(0)
+  })
+
+  it("says how many are free on the job's days for the picker: owned less the most held on a day, less what the quote wants", () => {
+    const lines = [other('wedding', 6, 'held', '2026-11-09', '2026-11-09'), other('expo', 3, 'pencilled', '2026-11-11', '2026-11-11'), other('gala', 10, 'held', '2026-11-10', '2026-11-11')]
+    expect(kitFree(job, 'y10', 0, '2026-11-01', inputs(lines))).toBe(4)
+    expect(kitFree(job, 'y10', 3, '2026-11-01', inputs(lines, {}, 1))).toBe(0)
+    expect(kitFree(job, 'y10', 0, '2026-11-01', inputs([], { dryHire: true }))).toBeUndefined()
+    expect(kitFree({ ...job, span: undefined }, 'y10', 0, '2026-11-01', inputs([]))).toBeUndefined()
+  })
+
+  it('says how many other quotes have pencilled in on the days, the most on one day, beside what is free (ADR 0126)', () => {
+    const lines = [other('expo', 3, 'pencilled', '2026-11-11', '2026-11-11'), other('fair', 2, 'pencilled', '2026-11-11', '2026-11-12'), other('wedding', 6, 'held', '2026-11-09', '2026-11-09'), other('gala', 4, 'pencilled', '2026-11-10', '2026-11-11')]
+    expect(kitPencilled(job, 'y10', '2026-11-01', inputs(lines))).toBe(5)
+    expect(kitPencilled({ ...job, span: undefined }, 'y10', '2026-11-01', inputs(lines))).toBe(0)
   })
 
   it("wants each kit line's own, less those hired in, and a package's pieces for each one quoted", () => {
@@ -65,5 +79,28 @@ describe("what a quote's lines cost", () => {
   it("starts a line with the job's kit hired in, and who from", () => {
     const [k] = linesFor([{ id: 'k', modelId: 'y10', name: 'Y10', group: 'Audio', qty: 4, days: 2, subhireQty: 6, supplier: ' Hire Co ' }], [], { product: () => 100, role: () => undefined }, () => 'n')
     expect(k).toMatchObject({ qty: 4, subhireQty: 4, supplier: 'Hire Co' })
+  })
+})
+
+describe("filling a job's kit list from its quote (ADR 0102)", () => {
+  const pkg = (id: string) => (id === 'pa' ? [{ modelId: 'y10', qty: 4 }, { modelId: 'sm58', qty: 2 }] : undefined)
+
+  it('adds each product quoted and the pieces of its packages, hired in as the quote has them', () => {
+    const lines = [
+      { kind: 'kit', modelId: 'y10', qty: 6, subhireQty: 2, supplier: 'Audio Hire Co' },
+      { kind: 'kit', packageId: 'pa', qty: 2 },
+      { kind: 'kit', modelId: null, qty: 3 },
+      { kind: 'crew', qty: 2 },
+    ]
+    expect(kitFromQuote(lines, pkg, [])).toEqual([
+      { modelId: 'y10', qty: 14, subhireQty: 2, supplier: 'Audio Hire Co' },
+      { modelId: 'sm58', qty: 4, subhireQty: 0, supplier: '' },
+    ])
+  })
+
+  it('only ever adds what the kit list is short of, whatever phase it is for', () => {
+    const lines = [{ kind: 'kit', modelId: 'y10', qty: 6 }, { kind: 'kit', modelId: 'sm58', qty: 2 }]
+    const kit = [{ modelId: 'y10', qty: 2, subhireQty: 0 }, { modelId: 'y10', qty: 1, subhireQty: 0 }, { modelId: 'sm58', qty: 5, subhireQty: 0 }]
+    expect(kitFromQuote(lines, pkg, kit)).toEqual([{ modelId: 'y10', qty: 3, subhireQty: 0, supplier: '' }])
   })
 })

@@ -11,7 +11,13 @@ describe('roles', () => {
   it('go from most to least: a director can do all, staff crew only their own leave, their own job steps, the purchase list and a fault', () => {
     expect(ROLE_CAN.director).toEqual(ABILITIES)
     for (const r of ROLES) for (const a of ROLE_CAN[r]) expect(ROLE_CAN.director).toContain(a)
-    expect(ROLE_CAN.crew).toEqual(['fault', 'leave', 'steps', 'ask'])
+    expect(ROLE_CAN.crew).toEqual(['fault', 'leave', 'steps', 'ask', 'answer', 'photos'])
+    // Staff crew put photos on a job (ADR 0182); a freelancer only sees them.
+    expect(roleMayRun('crew', 'jobPhoto.save')).toBe(true)
+    expect(roleMayRun('freelancer', 'jobPhoto.save')).toBe(false)
+    // Staff answer their own offers in the app (ADR 0111); a freelancer's go through their link.
+    expect(roleMayRun('crew', 'offer.respond')).toBe(true)
+    expect(roleMayRun('freelancer', 'offer.respond')).toBe(false)
     expect(roleMayRun('head', 'move.record')).toBe(true)
     expect(roleMayRun('head', 'project.update')).toBe(false)
     // A freelancer signed in reports a fault; their own offers, timesheets and days off go through their link (ADR 0051).
@@ -51,7 +57,7 @@ describe('roles', () => {
   it('say who can, and who to ask', () => {
     expect(refusalFor('freelancer', 'jobs')).toBe('Only the office and directors can change jobs, clients and venues. Your role is Freelancer; a director can change it on your person on the Crew tab.')
     expect(refusalFor('crew', 'stock')).toMatch(/^Only the office, heads of department and directors can change stock and the warehouse\./)
-    expect(refusalFor('office', 'company')).toMatch(/^Only directors can change roles, erase a person or start fresh\./)
+    expect(refusalFor('office', 'company')).toMatch(/^Only directors can change roles, erase a person, delete a quote or start fresh\./)
   })
 
   it("keep the email and type of someone who holds a role to the office and directors, and each email to one person (audit finding 12)", () => {
@@ -67,5 +73,16 @@ describe('roles', () => {
     // Someone who has left, or no email at all, takes nothing.
     expect(emailTakenBy(people, 'x', 'sean@sessionhire.com')).toBeUndefined()
     expect(emailTakenBy(people, 'x', null)).toBeUndefined()
+  })
+})
+
+describe('the Not done list', () => {
+  it('gives every change a device can send a title of its own (audit, 5 November 2026, finding 11)', async () => {
+    // A change turned down later is told apart by its title alone: the default, "A change from an older version of the app", is for
+    // changes kept from versions that are gone, never for one this version sends.
+    const { readFileSync } = await import('node:fs')
+    const problems = readFileSync(new URL('../../web/src/problems.tsx', import.meta.url), 'utf8')
+    const titled = new Set([...problems.matchAll(/case '([a-zA-Z]+\.[a-zA-Z]+)'/g)].map((m) => m[1]))
+    expect(Object.keys(COMMAND_NEEDS).filter((c) => !titled.has(c))).toEqual([])
   })
 })

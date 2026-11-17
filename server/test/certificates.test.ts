@@ -103,7 +103,7 @@ describe('an offer for a call that needs certificates', () => {
     const words = (await colly.history()).entries.map((e) => e.what)
     expect(words).toContain('Changed the call for Rigger on Harbour Lights Festival: certificates needed to Safe Pass, working at height and IPAF')
     expect(words).toContain('Changed the call for Rigger on Harbour Lights Festival: no certificates needed')
-    expect(words.find((w) => w.startsWith('Asked for 3 × Rigger'))).toMatch(/, needing working at height and IPAF$/)
+    expect(words.find((w) => w.startsWith('Added 3 × Rigger'))).toMatch(/, needing working at height and IPAF$/)
   })
 })
 

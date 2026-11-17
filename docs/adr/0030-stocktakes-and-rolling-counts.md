@@ -251,7 +251,9 @@ the week's list under "Never counted". The office:
 
 Labels go on as the baseline walks the shelves, as the research
 suggests: a number scanned that no item has is listed on the count, with
-a link to claim it in the Stock search.
+a link to claim it in the Stock search. Since 13 November 2026 a label
+is put on its item on the count itself, and counted as found
+([ADR 0175](0175-labelling-as-the-count-goes.md)).
 
 ### Erasure, Start fresh, the history and the export
 

@@ -1,0 +1,187 @@
+import { describe, expect, it } from 'vitest'
+import type { ProjectStatus } from '../src/jobs.ts'
+import type { Entities, EntityName } from '../src/model.ts'
+import type { Change, PullResponse, PushRequest, PushResponse } from '../src/protocol.ts'
+import type { QuoteStatus } from '../src/quotes.ts'
+import { MONEY_ENTITY_NAMES } from '../src/quotes.ts'
+import { MemoryStorage, SyncClient, type Transport, type View } from '../src/sync/client.ts'
+import { jobPosition } from '../src/sync/position.ts'
+import { sellingLine } from '../src/sync/steps-view.ts'
+import { PLAIN_PRODUCT, type Model } from '../src/stock.ts'
+
+/**
+ * A job's quote task as a device reads it (ADR 0104), on one that's sent
+ * money and on one that isn't (Move 3 of the sweep of 6 November 2026). A
+ * role the server sends no money (ADR 0042) holds no quote, so it can't
+ * tell a quote started from none: the task says the quote is with the
+ * office rather than that there isn't one (ADR 0046 §8). The Jobs list's
+ * line, the Board's card and the job's steps all read it from here.
+ */
+
+const TODAY = new Date('2026-10-20T09:00:00Z')
+/** A day this many days from today. */
+const day = (n: number) => new Date(Date.UTC(2026, 9, 20 + n)).toISOString().slice(0, 10)
+
+/** A company's server, which leaves money out of what it sends a role that doesn't see it, as the real one does (ADR 0042). */
+class Server implements Transport {
+  seq = 0
+  changes: Change[] = []
+  constructor(private readonly sendsMoney: boolean) {}
+  give<E extends EntityName>(entity: E, data: Entities[E] & { id: string }) {
+    this.changes.push({ seq: ++this.seq, entity, id: data.id, op: 'put', data })
+  }
+  async push(req: PushRequest): Promise<PushResponse> {
+    return { results: req.mutations.map((m) => ({ id: m.id, status: 'applied', seq: ++this.seq })) }
+  }
+  async pull(after: number): Promise<PullResponse> {
+    const changes = this.changes.filter((c) => c.seq > after && (this.sendsMoney || !MONEY_ENTITY_NAMES.includes(c.entity)))
+    return { changes, cursor: this.seq, more: false, ...(this.sendsMoney ? {} : { money: false }) }
+  }
+}
+
+/** A job in ten days' time, with a quote in the state given, or none; and a second version as a draft when it's being amended. */
+function job(server: Server, id: string, status: ProjectStatus, quote?: QuoteStatus, amended = false) {
+  server.give('project', { id, name: id, clientId: null, venueId: null, status, notes: '' })
+  server.give('phase', { id: `${id}-show`, projectId: id, name: 'Show', start: day(10), end: day(10), venueId: null, notes: '' })
+  if (quote) version(server, id, 1, quote)
+  if (amended) version(server, id, 2, 'draft')
+}
+
+/** One version of the job's quote. */
+function version(server: Server, id: string, version: number, quote: QuoteStatus) {
+  server.give('quote', {
+    id: `${id}-quote${version > 1 ? version : ''}`,
+    projectId: id,
+    version,
+    status: quote,
+    lines: [],
+    discountPct: 0,
+    notes: '',
+    madeAt: `${day(-3)}T10:00:00Z`,
+    savedAt: `${day(-3)}T10:00:00Z`,
+    sentOn: quote === 'draft' ? null : day(-2),
+    answeredOn: null,
+    invoicedOn: null,
+    invoiceRef: '',
+    paidOn: null,
+  })
+}
+
+/** The same company, as a device that's sent money and one that isn't sees it. */
+async function phone(sendsMoney: boolean): Promise<View> {
+  const server = new Server(sendsMoney)
+  job(server, 'drafted', 'enquiry', 'draft')
+  job(server, 'bare', 'enquiry')
+  job(server, 'quoted', 'quoted', 'sent')
+  job(server, 'marked', 'quoted')
+  job(server, 'amended', 'quoted', 'sent', true)
+  job(server, 'amendedAfterYes', 'quoted', 'accepted', true)
+  job(server, 'turnedDown', 'quoted', 'declined')
+  job(server, 'turnedDownAmended', 'quoted', 'declined', true)
+  const device = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone', now: () => TODAY }).open()
+  await device.sync()
+  return device.view()
+}
+
+/** The quote's task: done in words, or how it stands. */
+const quoteTask = (view: View, id: string) => {
+  const quote = view.steps.of(id)!.steps.find((s) => s.key === 'quote')!
+  return quote.auto ?? quote.hint
+}
+
+describe("a job's quote task", () => {
+  it("says what the office has started, on a device that's sent the quotes", async () => {
+    const office = await phone(true)
+    expect(['drafted', 'bare', 'quoted'].map((id) => quoteTask(office, id))).toEqual(['A draft is started', 'No quote yet', 'Sent Sun 18 Oct'])
+    expect(office.steps.of('bare')!.stage?.hint).toBe('No quote yet')
+  })
+
+  it('is still to do on a job marked quoted with no quote in the app (review of 11 November 2026, finding 1)', async () => {
+    const office = await phone(true)
+    // One from the calendars, say: Next makes the quote rather than asking for the client's answer to a quote that isn't here.
+    expect(quoteTask(office, 'marked')).toBe('No quote yet')
+    expect(office.steps.of('marked')!.current?.key).toBe('quote')
+    // A device not sent the quotes can't tell, so it takes the status's word for it.
+    expect(quoteTask(await phone(false), 'marked')).toBe('The job is quoted')
+  })
+
+  it('is the task again once the quote is amended, until the client says yes (ADR 0173)', async () => {
+    const office = await phone(true)
+    // Version 2, made from the one the client has: sending it is what's next, so the job opens on it and Next sends it.
+    expect(quoteTask(office, 'amended')).toBe('Version 2 is an amendment, not sent yet')
+    expect(office.steps.of('amended')!.current?.key).toBe('quote')
+    expect(office.steps.of('amended')!.selling).toBe('Version 2 being amended')
+    // Once the client has said yes, a new version doesn't take the job back: the yes is what's next.
+    expect(quoteTask(office, 'amendedAfterYes')).toBe('Sent Sun 18 Oct')
+    expect(office.steps.of('amendedAfterYes')!.current?.key).toBe('confirmed')
+  })
+
+  it('is done once a quote turned down went, and the answer left is lost or amend (user flows of 13 November 2026, finding 1)', async () => {
+    const office = await phone(true)
+    // It was sent: never "No quote yet" on the Jobs list or the Board, and Next doesn't take the office back to the quote.
+    expect(quoteTask(office, 'turnedDown')).toBe('Sent Sun 18 Oct')
+    const steps = office.steps.of('turnedDown')!
+    expect(steps.current).toMatchObject({ key: 'confirmed', hint: 'The client turned it down: mark it lost, or amend the quote' })
+    expect(steps.current!.facts.turnedDown).toBe(true)
+    expect(steps.selling).toBe('Turned down · mark it lost or amend')
+    // Amended after the no: the new version is the one to send, as after any answer short of a yes (ADR 0173).
+    expect(quoteTask(office, 'turnedDownAmended')).toBe('Version 2 is an amendment, not sent yet')
+    expect(office.steps.of('turnedDownAmended')!.selling).toBe('Version 2 being amended')
+  })
+
+  it("says it's with the office, never missing, on a device that isn't sent them", async () => {
+    const head = await phone(false)
+    // The quote started and the one not started read alike: this device can't tell them apart, and isn't meant to (ADR 0062).
+    expect(head.money.quotesOf('drafted')).toEqual([])
+    expect(['drafted', 'bare'].map((id) => quoteTask(head, id))).toEqual(['Quote: with the office', 'Quote: with the office'])
+    // The line on the Jobs list and the Board's card, which read the stage's hint: the client's answer is still the job's own.
+    expect(head.steps.of('bare')!.stage?.hint).toBe('Quote: with the office')
+    expect(head.steps.of('drafted')!.current).toMatchObject({ key: 'quote', hint: 'Quote: with the office' })
+    // A quoted job is done by its own status, never "Sent …", which the Board reads as the day the client was sent it.
+    expect(quoteTask(head, 'quoted')).toBe('The job is quoted')
+  })
+})
+
+describe('the selling line', () => {
+  it('reads one sentence for where the quote stands, wherever the job is listed (Move 7 of the sweep of 6 November 2026)', async () => {
+    const office = await phone(true)
+    expect(office.steps.of('drafted')!.selling).toBe('Draft started')
+    // Sent two days ago: with the client, not yet worth a call.
+    expect(office.steps.of('quoted')!.selling).toBe('Quote with the client 2 days')
+    expect(office.steps.of('quoted')!.stage?.hint).toBe('Quote with the client 2 days')
+    expect(sellingLine({ lapsed: false, quoteHidden: false, answered: false, sentDays: 12, draft: false, unpriced: 0 })).toBe('Quote with the client 12 days · worth a call')
+    expect(sellingLine({ lapsed: false, quoteHidden: false, answered: false, sentDays: undefined, draft: true, unpriced: 1 })).toBe('Draft started · 1 line needs a price')
+    expect(sellingLine({ lapsed: true, quoteHidden: true, answered: false, sentDays: 3, draft: false, unpriced: 0 })).toBe('Dates passed, no answer')
+    expect((await phone(false)).steps.of('quoted')!.selling).toBe('Quote: with the office')
+  })
+})
+
+describe("a job's position", () => {
+  it('says the stage, what is waiting and when, in one order (Move 7 of the sweep of 6 November 2026)', async () => {
+    const office = await phone(true)
+    expect(jobPosition(office.steps.of('quoted')!)).toMatchObject({ stage: 'Quoting', time: 'in 10 days', tone: undefined, text: 'Quoting · Quote with the client 2 days · in 10 days' })
+    expect(jobPosition(office.steps.of('bare')!)!.text).toBe('Quoting · No quote yet · in 10 days')
+    // A role sent no money reads the quote as the office's, never as missing.
+    expect(jobPosition((await phone(false)).steps.of('bare')!)!.text).toBe('Quoting · Quote: with the office · in 10 days')
+  })
+})
+
+describe("a job on its days with nothing scanned out (ADR 0140, part 6)", () => {
+  it('is still going out, not on the job, so the warehouse is never told the kit has gone', async () => {
+    const server = new Server(true)
+    const product = { ...PLAIN_PRODUCT, aliases: [], id: 'desk', name: 'Desk', department: 'audio', category: '', tracking: 'bulk', isCase: false, valueCents: null, notes: '', patMonths: null, liftingMonths: null, mistake: false } as Model
+    server.give('model', product)
+    for (const [id, kit] of [['today', true], ['crew-only', false]] as const) {
+      server.give('project', { id, name: id, clientId: null, venueId: null, status: 'confirmed', notes: '' })
+      server.give('phase', { id: `${id}-show`, projectId: id, name: 'Show', start: day(0), end: day(1), venueId: null, notes: '' })
+      if (kit) server.give('kitLine', { id: `${id}-kit`, projectId: id, phaseId: null, modelId: 'desk', qty: 6, subhireQty: 0, supplier: '', notes: '' })
+    }
+    const device = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone', now: () => TODAY }).open()
+    await device.sync()
+    const steps = device.view().steps
+    expect(steps.of('today')!.stage?.key).toBe('going')
+    expect(steps.of('today')!.current?.key).toBe('prep')
+    // With nothing to pick, its days are its days.
+    expect(steps.of('crew-only')!.stage?.key).toBe('on')
+  })
+})

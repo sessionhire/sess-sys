@@ -94,6 +94,14 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS calendar_imports_project ON calendar_imports (project_id);
   `,
+  // Telling crew what happens next (ADR 0153). `tell` is the switch on Admin, off to start; "test" tells only the
+  // addresses in `tell_to`. `told` is what a person's own copy of a day last told them: where they stand and their
+  // call time, so a change to either is known as news, and a copy written before it told them anything isn't.
+  `
+  ALTER TABLE calendar_link ADD COLUMN IF NOT EXISTS tell text NOT NULL DEFAULT 'off' CHECK (tell IN ('off', 'test', 'on'));
+  ALTER TABLE calendar_link ADD COLUMN IF NOT EXISTS tell_to text[] NOT NULL DEFAULT '{}';
+  ALTER TABLE calendar_days ADD COLUMN IF NOT EXISTS told text;
+  `,
 ]
 
 export const CALENDAR: Module = { versionTable: 'calendar_schema_version', migrations: MIGRATIONS }

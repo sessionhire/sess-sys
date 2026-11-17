@@ -28,6 +28,7 @@ import { timesheetHandlers } from './crew/timesheets.ts'
 import { faultForLog, type Db, type Queryable } from './db.ts'
 import { documentHandlers } from './documents/handlers.ts'
 import { attachmentHandlers } from './documents/attachments.ts'
+import { jobPhotoHandlers } from './documents/job-photos.ts'
 import { argsToStore, erasureHandlers, refuseIfErased } from './erasure/handlers.ts'
 import { CHARACTERS, isCharacterError, Refused, type Ctx } from './kernel.ts'
 import { leaveHandlers } from './leave/handlers.ts'
@@ -51,6 +52,7 @@ import { vehicleHandlers } from './vehicles/handlers.ts'
 import { stepHandlers } from './steps/handlers.ts'
 import { rackHandlers } from './stock/racks.ts'
 import { purchaseHandlers } from './purchases/handlers.ts'
+import { trackerHandlers } from './trackers/handlers.ts'
 
 /**
  * Where the server decides. Each mutation runs in its own transaction:
@@ -82,12 +84,14 @@ const handlers: { [N in CommandName]: Handler<N> } = {
   ...documentHandlers,
   ...countHandlers,
   ...attachmentHandlers,
+  ...jobPhotoHandlers,
   ...financeHandlers,
   ...ownCalendarHandlers,
   ...vehicleHandlers,
   ...stepHandlers,
   ...rackHandlers,
   ...purchaseHandlers,
+  ...trackerHandlers,
 }
 
 /** Whether this reader may make a new link for the person a change names: one whose link they're sent (ADR 0046). */

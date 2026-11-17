@@ -145,7 +145,7 @@ export function SkillsField({
               {value.map((s) => (
                 <li key={s} className="skill-chip">
                   <span>{s}</span>
-                  <button type="button" onClick={() => remove(s)} aria-label={`Remove ${s}`}>
+                  <button type="button" className="icon-button" onClick={() => remove(s)} aria-label={`Remove ${s}`}>
                     <Icon name="close" />
                   </button>
                 </li>

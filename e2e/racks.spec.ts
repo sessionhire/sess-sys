@@ -42,8 +42,15 @@ test('a rack, laid out, drawn, and a built one checked against its layout', asyn
   const page = await (await browser.newContext({ viewport: deskSize })).newPage()
   await page.goto('/#stock/racks')
   await expect(page.locator('.conn')).toHaveText('Up to date')
+  await page.getByRole('button', { name: 'New rack' }).click()
+  // Sent with no name, it's refused in the app's words under the field, which keeps the focus, not in the browser's bubble (finding 85).
   await page.getByRole('button', { name: 'Add rack' }).click()
+  await expect(page.getByLabel('Name')).toBeFocused()
+  await expect(page.getByLabel('Name')).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByRole('alert').filter({ hasText: 'Fill in the name first.' })).toBeVisible()
   await page.getByLabel('Name').fill(`Monitor rack ${id}`)
+  await expect(page.getByLabel('Name')).not.toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByText('Fill in the name first.')).toHaveCount(0)
   await page.getByLabel('Stock code').fill(`RK-${id}`)
   await page.getByLabel('Room in it, in rack units').fill('4')
   await page.getByLabel('Rail to rail depth, in mm').fill('800')
@@ -83,7 +90,7 @@ test('a rack, laid out, drawn, and a built one checked against its layout', asyn
     ['asset.add', { id: `a-${id}`, modelId: `amp-${id}`, number: null, serial: '', placeId: null, caseId: `r-${id}`, notes: '', fromCount: false }],
   ])
   await expect(layout.getByText('2 missing')).toBeVisible()
-  await page.goto(`/#stock/item/r-${id}`)
+  await page.goto(`/#stock/item/r-${id}/inside`)
   const check = page.getByRole('region', { name: 'Against its layout' })
   await expect(check.getByText(`2 × ${mon}`)).toBeVisible()
 
@@ -181,13 +188,27 @@ test('the rack designer: kit dragged in from ours and dry hire, moved, taken out
   await page.getByRole('button', { name: 'Save product' }).click()
   await expect(page.getByText('rack-mount, 3U, half width, 400 mm deep')).toBeVisible()
 
-  // The catalogue tells ours from dry hire.
+  // The catalogue tells ours from dry hire, behind Filter (ADR 0099).
   await page.goto('/#stock')
-  const whose = page.getByRole('group', { name: 'Whose' })
-  await whose.getByRole('button', { name: /^Dry hire/ }).click()
+  const catalogue = page.getByRole('region', { name: 'Catalogue' })
+  await catalogue.getByRole('button', { name: 'Filter', exact: true }).click()
+  await catalogue.getByLabel('Whose').selectOption('dryHire')
   await page.getByLabel('Find', { exact: true }).fill(id)
   await expect(page.getByRole('link', { name: new RegExp(`^${haze}`) })).toContainText('Dry hire from PRG')
   await expect(page.getByRole('link', { name: new RegExp(`^${amp}`) })).toHaveCount(0)
+
+  // On a phone the kit list is above the rack: picking one up brings the rack into view and says what's held in the foot (audit,
+  // 5 November 2026, finding 71).
+  const phone = await (await browser.newContext({ viewport: phoneSize, hasTouch: true })).newPage()
+  await phone.goto(`/#stock/racks/rack-${id}`)
+  await expect(phone.locator('.conn')).toHaveText('Up to date')
+  const phonePalette = phone.getByRole('region', { name: 'Kit to build with' })
+  await phonePalette.getByLabel('Find kit').fill(id)
+  await phonePalette.getByRole('button', { name: `Pick up ${amp}` }).click()
+  await expect(phone.locator('.foot-dock')).toContainText(`Holding ${amp}. Press where it goes.`)
+  await expect(phone.getByRole('region', { name: 'The rack' })).toBeInViewport()
+  await phone.locator('.foot-dock').getByRole('button', { name: 'Put down' }).click()
+  await expect(phone.locator('.foot-dock')).toBeEmpty()
 })
 
 test('building a rack up: half-width kit side by side, labels, groups and tape, a drawer, blanks, undo, and a copy', async ({ browser, request }) => {
@@ -245,16 +266,16 @@ test('building a rack up: half-width kit side by side, labels, groups and tape, 
   await rack.getByRole('button', { name: 'U3 front' }).click()
   await palette.getByRole('button', { name: 'Everything, to go loose' }).click()
   await palette.getByRole('button', { name: `Pick up ${xlr}` }).click()
-  await rack.getByRole('button', { name: 'Put it loose in the rack' }).click()
+  await rack.getByRole('button', { name: 'Put loose in rack' }).click()
   await rack.getByRole('button', { name: xlr }).click()
   await page.getByRole('form', { name: `${xlr} in this rack` }).getByRole('combobox', { name: 'In', exact: true }).selectOption({ label: `${drawer} at U3` })
   await page.getByRole('button', { name: `Save ${xlr}` }).click()
   await expect(rack.getByRole('heading', { name: `In the ${drawer} at U3` })).toBeVisible()
 
   // The gap left on the front is filled with a blank.
-  await page.getByRole('button', { name: 'Fill the gaps with blanks' }).click()
+  await page.getByRole('button', { name: 'Fill gaps with blanks' }).click()
   await expect(rack.getByRole('button', { name: /, U2 on the front$/ })).toHaveCount(1)
-  await expect(page.getByRole('button', { name: 'Fill the gaps with blanks' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Fill gaps with blanks' })).toHaveCount(0)
   await expect(page.locator('.conn')).toHaveText('Up to date')
   if (process.env.SHOTS) {
     await rack.getByRole('button', { name: 'In 3D' }).click()
@@ -293,7 +314,7 @@ test("a product's photo on its panel in the rack, and the rack sheet printed", a
   // A photo of its front panel, from its page, kept at its own shape.
   await page.goto(`/#stock/product/amp-${id}`)
   await expect(page.getByRole('heading', { level: 1, name: amp })).toBeVisible()
-  await page.getByText('Add a photo').locator('input[type=file]').setInputFiles({ name: 'front.png', mimeType: 'image/png', buffer: WIDE_PNG })
+  await page.getByText('Add photo').locator('input[type=file]').setInputFiles({ name: 'front.png', mimeType: 'image/png', buffer: WIDE_PNG })
   const photo = page.getByRole('img', { name: `${amp}, as it looks` })
   await expect(photo).toHaveAttribute('src', new RegExp(`/api/models/amp-${id}/photo\\?v=`))
   await expect(page.getByText('Change photo')).toBeVisible()
@@ -310,7 +331,7 @@ test("a product's photo on its panel in the rack, and the rack sheet printed", a
   await expect(panel).toHaveCSS('background-image', new RegExp(`/api/models/amp-${id}/photo`))
 
   // The rack sheet: the rack as drawn and what goes where, on paper only.
-  await page.getByRole('button', { name: 'Print the rack sheet' }).click()
+  await page.getByRole('button', { name: 'Print rack sheet' }).click()
   await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1)
   const sheet = page.locator('.print-sheet.rack-sheet')
   await expect(sheet).toBeHidden()

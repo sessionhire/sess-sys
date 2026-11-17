@@ -36,14 +36,19 @@ test("a venue opens on its own page, with its documents and its jobs, and keeps 
   await office.getByRole('link', { name: /^Northbank Conference Centre/ }).click()
   await expect(office).toHaveURL(/#jobs\/venues\//)
   await expect(office.getByRole('heading', { level: 1 })).toHaveText('Northbank Conference Centre')
+  // Its name heads the page with its kind, area and jobs under it, and its parts are tabs (Move 11 of the sweep of 6 November 2026).
+  await expect(office.locator('.page-sub')).toHaveText(/^Venue · .+ · \d+ jobs? here$/)
+  await expect(office.getByRole('tablist', { name: 'About Northbank Conference Centre' }).getByRole('tab')).toHaveText(['Details', 'On the map', 'Documents', /^Jobs here/])
   await expect(office.getByText('Loading bay 2, booked by the half hour.')).toBeVisible()
+  await office.getByRole('tab', { name: 'Jobs here' }).click()
+  await expect(office.getByRole('region', { name: 'Jobs here' }).locator('.job-row').first()).toBeVisible()
+  await office.getByRole('tab', { name: 'Documents' }).click()
 
   const docs = office.getByRole('region', { name: 'Documents' })
   await expect(docs.locator('.row.doc')).toHaveCount(3)
   const spec = docs.locator('.row.doc', { hasText: 'Tech spec' })
   await expect(spec).toContainText('link to example.com')
   await expect(spec.getByRole('link', { name: "Open the link to Northbank Conference Centre's tech spec" })).toHaveAttribute('href', 'https://example.com/made-up/northbank-tech-spec.pdf')
-  await expect(office.getByRole('region', { name: 'Jobs here' }).locator('.job-row').first()).toBeVisible()
 
   // A link that isn't a web address is refused before anything is sent.
   await docs.getByRole('button', { name: 'Add document' }).click()
@@ -93,7 +98,9 @@ test('a client opens on its own page, with its contacts, its documents and its j
   await office.getByRole('link', { name: /^Brightwater Conferences/ }).click()
   await expect(office).toHaveURL(/#jobs\/clients\//)
   await expect(office.getByRole('heading', { level: 1 })).toHaveText('Brightwater Conferences')
-  await expect(office.getByText('Declan Moore')).toBeVisible()
+  await expect(office.locator('.page-sub')).toHaveText(/^Client · \d+ jobs? · Declan Moore$/)
+  await expect(office.getByRole('region', { name: 'Details' }).getByText('Declan Moore')).toBeVisible()
+  await office.getByRole('tab', { name: 'Documents' }).click()
 
   const docs = office.getByRole('region', { name: 'Documents' })
   await expect(docs.locator('.row.doc', { hasText: 'Contract for 2026' })).toContainText('Contract · link to example.com')
@@ -106,6 +113,7 @@ test('a client opens on its own page, with its contacts, its documents and its j
   await form.getByRole('button', { name: 'Add document' }).click()
   await expect(docs.locator('.row.doc', { hasText: 'Brief' })).toContainText('Brief · link to example.com')
 
+  await office.getByRole('tab', { name: /^Jobs/ }).click()
   const jobs = office.getByRole('region', { name: 'Their jobs' })
   await expect(jobs.getByRole('link', { name: /Brightwater Tech Summit/ })).toBeVisible()
   await jobs.getByRole('link', { name: /Brightwater Tech Summit/ }).click()
@@ -114,6 +122,7 @@ test('a client opens on its own page, with its contacts, its documents and its j
   await office.getByRole('link', { name: 'Brightwater Conferences', exact: true }).click()
   await expect(office.getByRole('heading', { level: 1 })).toHaveText('Brightwater Conferences')
 
+  await office.getByRole('tab', { name: 'Details' }).click()
   await office.getByRole('button', { name: 'Change details' }).click()
   await office.getByRole('form', { name: 'Change Brightwater Conferences' }).getByLabel('Role').fill('Head of events')
   await office.getByRole('button', { name: 'Save client' }).click()

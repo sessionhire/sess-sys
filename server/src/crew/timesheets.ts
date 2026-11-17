@@ -1,6 +1,7 @@
 import { daysLabel, eachDay, irishToday, noTimesheetReason, type CommandArgs, type CrewCall, type Timesheet } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { emit, Refused, type Ctx } from '../kernel.ts'
+import { timesheetAsking } from '../office/store.ts'
 import { getCall, getOffer, getPerson } from './store.ts'
 
 /**
@@ -95,7 +96,9 @@ export const timesheetHandlers: { [N in TimesheetCommand]: Handler<N> } = {
     if (was?.status === 'approved')
       throw new Refused({ code: 'conflict', message: 'The office has already approved this timesheet. Ask them to reopen it if something needs to change.' })
     if (!was) {
-      const why = noTimesheetReason(offer, call, await getPerson(ctx.tx, offer.personId), irishToday())
+      // From their link, only a booking they're asked for (ADR 0110); the office can put one in for any.
+      const asking = ctx.via === 'link' ? ((await timesheetAsking(ctx.tx)) ?? undefined) : undefined
+      const why = noTimesheetReason(offer, call, await getPerson(ctx.tx, offer.personId), irishToday(), asking)
       if (why) throw new Refused({ code: 'conflict', message: why })
     }
     const days = [...new Set(a.days)].sort()

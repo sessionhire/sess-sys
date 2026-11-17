@@ -26,7 +26,11 @@ import { client } from '../sync.ts'
 import { atLabel, findWhere, ProductChoices, useNewPlace, WhereChoices, whereNamed, whereProblem } from './common.tsx'
 import { LABELS, STOCK } from '../Up.tsx'
 import { StockViews } from '../Views.tsx'
+import { labelledDuringCount } from './Counts.tsx'
 import { Split } from '../Split.tsx'
+import { useLabelLogo } from '../Picture.tsx'
+import { useView } from '../view.ts'
+import { ZebraPrint } from './ZebraPrint.tsx'
 
 /**
  * Labels (ADR 0015). Numbers are set aside a run at a time (#stock/labels),
@@ -43,6 +47,7 @@ import { Split } from '../Split.tsx'
 /** How labels are laid out for the printer they go through. */
 export const LAYOUTS = {
   wide: { name: 'Label printer, 50 × 25 mm', page: '50mm 25mm', perPage: 1 },
+  long: { name: 'Label printer, 100 × 25 mm, bigger type', page: '100mm 25mm', perPage: 1 },
   square: { name: 'Label printer, 25 × 25 mm', page: '25mm 25mm', perPage: 1 },
   sheet: { name: 'A4 sheets of 65, 38 × 21 mm', page: 'A4', perPage: 65 },
 } as const
@@ -77,14 +82,20 @@ function Range({ r }: { r: LabelRunView }) {
   )
 }
 
-/** One label: the QR code, the number in large type, and whose it is. */
-export function Label({ number, caption, layout }: { number: string; caption?: string; layout: Layout }) {
+/**
+ * One label: the QR code, the number in large type, and whose it is: the
+ * company's logo once there is one (ADR 0106), its name in words until
+ * then; and on an item's own label, its product and stock code. A 25 mm
+ * square has room for the logo and stock code on one line under a smaller
+ * QR code, and no name or product.
+ */
+export function Label({ number, caption, code, logo, layout }: { number: string; caption?: string; code?: string; logo?: string; layout: Layout }) {
   const { size, path } = useMemo(() => qrCode(labelPayload(number)), [number])
   // The white space a scanner needs round the code, in modules; the label's own margin adds to it.
   const quiet = 2
   const side = size + quiet * 2
   return (
-    <div className={`label ${layout}`}>
+    <div className={`label ${layout}${layout === 'square' && (logo || code) ? ' with-foot' : ''}`}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         className="qr"
@@ -98,8 +109,21 @@ export function Label({ number, caption, layout }: { number: string; caption?: s
       </svg>
       <div className="words">
         <b>{number}</b>
-        {layout !== 'square' && <small>Session Hire</small>}
-        {layout !== 'square' && caption && <small className="caption">{caption}</small>}
+        {layout === 'square' ? (
+          // Room for one short line under the code: the logo and the stock code side by side.
+          (logo || code) && (
+            <span className="foot">
+              {logo && <img className="logo" src={logo} alt="Session Hire" />}
+              {code && <small className="code">{code}</small>}
+            </span>
+          )
+        ) : (
+          <>
+            {logo ? <img className="logo" src={logo} alt="Session Hire" /> : <small>Session Hire</small>}
+            {caption && <small className="caption">{caption}</small>}
+            {code && <small className="code">{code}</small>}
+          </>
+        )}
       </div>
     </div>
   )
@@ -143,7 +167,9 @@ export function PrintSheet({ className, page, children }: { className: string; p
  * printing are they all on the page, and the printed page holds nothing
  * else.
  */
-export function PrintLabels({ numbers, caption }: { numbers: readonly string[]; caption?: string }) {
+export function PrintLabels({ numbers, caption, code }: { numbers: readonly string[]; caption?: string; code?: string }) {
+  const { office } = useView()
+  const logo = useLabelLogo(office, { pure: office.logoBlackWhite })
   const [layout, setLayout] = useState<Layout>(savedLayout)
   const [printing, setPrinting] = usePrinting()
   const choose = (l: Layout) => {
@@ -170,19 +196,19 @@ export function PrintLabels({ numbers, caption }: { numbers: readonly string[]; 
       </fieldset>
       <div className="preview" aria-label="Preview">
         {numbers.slice(0, 3).map((n) => (
-          <Label key={n} number={n} caption={caption} layout={layout} />
+          <Label key={n} number={n} caption={caption} code={code} logo={logo} layout={layout} />
         ))}
       </div>
       <p className="hint">Print at actual size, not fitted to the page.</p>
       <button type="button" className="primary" disabled={numbers.length === 0 || printing} onClick={() => setPrinting(true)}>
-        {numbers.length === 1 ? 'Print the label' : `Print ${plural(numbers.length, 'label')}`}
+        {`Print ${plural(numbers.length, 'label')}`}
       </button>
       {printing && (
         <PrintSheet className={layout} page={page}>
           {pages.map((p) => (
             <div key={p[0]} className="page">
               {p.map((n) => (
-                <Label key={n} number={n} caption={caption} layout={layout} />
+                <Label key={n} number={n} caption={caption} code={code} logo={logo} layout={layout} />
               ))}
             </div>
           ))}
@@ -203,14 +229,17 @@ export function LabelsScreen({ view }: { view: View }) {
       <Top view={view} title="Stock" views={<StockViews view={view} current="labels" />} heading="Labels" />
       <Split
         side={
+          // Not for a role that can't set them aside (audit, 5 November 2026, finding 74).
+          mayReserve && (
           <section className="card" aria-label="Set numbers aside">
             <h2>Set numbers aside</h2>
             <p className="hint">
               Numbers are set aside before their labels are printed, here or by a label maker, so no other item gets them. Once a label is stuck on,
               scan or type it in the Stock search to put it on its item.
             </p>
-            {mayReserve && <SetAside labels={view.labels} />}
+            <SetAside labels={view.labels} />
           </section>
+          )
         }
       >
         <section className="card" aria-label="Set aside">
@@ -318,7 +347,8 @@ function SetAside({ labels }: { labels: LabelsView }) {
           onNo={() => setAsking(undefined)}
         />
       ) : (
-        <button type="submit" className="primary wide">
+        // Plain, as every list's add is: the red fill is for the one next thing (UX sweep, 6 November 2026, move 1).
+        <button type="submit" className="wide">
           Set numbers aside
         </button>
       )}
@@ -344,6 +374,7 @@ export function RunScreen({ view, id }: { view: View; id: string }) {
       <RunSummary r={r} />
       {r.firstNumber ? (
         <>
+          <ZebraRun r={r} />
           <PrintRun r={r} />
           <ForLabelMaker r={r} />
         </>
@@ -401,6 +432,7 @@ function RunSummary({ r }: { r: LabelRunView }) {
         <Confirm
           question={`Cancel the run ${rangeLabel(r)}? It comes off the list, and its ${r.count === 1 ? 'number is' : `${plural(r.count, 'number')} are`} never given out again.`}
           yes="Cancel the run"
+          loss
           no="Keep it"
           onYes={cancel}
           onNo={() => setCancelling(false)}
@@ -453,10 +485,10 @@ function EditRun({ r, onDone }: { r: LabelRunView; onDone: () => void }) {
   )
 }
 
-/** Some or all of a run, up to 500 at a time, from any of its numbers. */
-function PrintRun({ r }: { r: LabelRunView }) {
+/** Which of a run's numbers to print: from any of them, how many, and what's wrong with that, if anything. */
+function useRunRange(r: LabelRunView, max: number, tooMany: string) {
   const [from, setFrom] = useState(r.firstNumber)
-  const [count, setCount] = useState(String(Math.min(r.count, MAX_PRINT)))
+  const [count, setCount] = useState(String(Math.min(r.count, max)))
   const start = normaliseNumber(from)
   const offset = start ? numberValue(start) - r.first! : -1
   const n = Number(count)
@@ -465,25 +497,48 @@ function PrintRun({ r }: { r: LabelRunView }) {
       ? `From one of these: ${rangeLabel(r)}.`
       : !Number.isInteger(n) || n < 1
         ? 'How many to print?'
-        : n > MAX_PRINT
-          ? `Up to ${MAX_PRINT} at a time here. A whole roll is best sent to a label maker.`
+        : n > max
+          ? tooMany
           : offset + n > r.count
             ? `Only ${r.count - offset} from ${start} to ${r.lastNumber}.`
             : ''
   const numbers = problem ? [] : runNumbers(r, offset, offset + n)
+  const fields = (
+    <div className="grid-form">
+      <label>
+        From <input value={from} onChange={(e) => setFrom(e.target.value)} autoComplete="off" autoCapitalize="characters" />
+      </label>
+      <label>
+        How many <input type="number" inputMode="numeric" min={1} max={max} value={count} onChange={(e) => setCount(e.target.value)} />
+      </label>
+      {problem && <p className="alert wide">{problem}</p>}
+    </div>
+  )
+  return { numbers, fields }
+}
+
+/** Some or all of a run on the ZT411 (ADR 0178): the whole run at once if need be. */
+function ZebraRun({ r }: { r: LabelRunView }) {
+  const { numbers, fields } = useRunRange(r, r.count, '')
+  const labels = numbers.map((number) => ({ number }))
   return (
-    <section className="card" aria-label="Print here">
-      <h2>Print here</h2>
-      <p className="hint">On a label printer, or on A4 sheets of labels in an office printer.</p>
-      <div className="grid-form">
-        <label>
-          From <input value={from} onChange={(e) => setFrom(e.target.value)} autoComplete="off" autoCapitalize="characters" />
-        </label>
-        <label>
-          How many <input type="number" inputMode="numeric" min={1} max={MAX_PRINT} value={count} onChange={(e) => setCount(e.target.value)} />
-        </label>
-        {problem && <p className="alert wide">{problem}</p>}
-      </div>
+    <section className="card" aria-label="On the ZT411">
+      <h2>On the ZT411</h2>
+      <p className="hint">The warehouse label printer: the whole run in one go if you like, as the printer itself draws them.</p>
+      {fields}
+      <ZebraPrint labels={labels} file={`session-hire-labels-${numbers[0] ?? r.firstNumber}-to-${numbers.at(-1) ?? r.lastNumber}`} />
+    </section>
+  )
+}
+
+/** Some or all of a run, up to 500 at a time, from any of its numbers, through the browser. */
+function PrintRun({ r }: { r: LabelRunView }) {
+  const { numbers, fields } = useRunRange(r, MAX_PRINT, `Up to ${MAX_PRINT} at a time here. A whole roll goes on the ZT411, or to a label maker.`)
+  return (
+    <section className="card" aria-label="On another printer">
+      <h2>On another printer</h2>
+      <p className="hint">Another label printer, or A4 sheets of labels in an office printer, through this device's print dialog.</p>
+      {fields}
       <PrintLabels numbers={numbers} />
     </section>
   )
@@ -540,6 +595,8 @@ export function ClaimLabel({
   const w = view.warehouse
   const [f, setF] = useState(memory.current)
   const [fromCount, setFromCount] = useState(true)
+  // The maker's serial, if it's worth having (ADR 0175): never carried over to the next label.
+  const [serial, setSerial] = useState('')
   const { run: tryTo, error, refuse } = useAct()
   const { ask, question, asking } = useNewPlace(w)
   const run = view.labels.runOf(number)
@@ -560,7 +617,8 @@ export function ClaimLabel({
     const go = () =>
       void tryTo(async () => {
         const where = (await whereNamed(f.where, w)) ?? { placeId: null, caseId: null }
-        await client.mutate('asset.add', { id, modelId: m.id, number, serial: '', ...where, notes: '', fromCount: one })
+        await client.mutate('asset.add', { id, modelId: m.id, number, serial: serial.trim(), ...where, notes: '', fromCount: one })
+        labelledDuringCount({ assetId: id, modelId: m.id, fromCount: one }, where)
       }).then((ok) => ok && onClaimed(id))
     if (!ask(f.where, go)) go()
   }
@@ -608,6 +666,11 @@ export function ClaimLabel({
           Put {number} on {m ? `a ${m.name}` : 'it'}
         </button>
       )}
+      {/* Below the button, so the scan-and-press of a shelf stays in reach (ADR 0175). */}
+      <label className="wide">
+        Maker's serial <small>If it has one worth keeping, before the button above. A scanner can read it in here.</small>
+        <input value={serial} onChange={(e) => setSerial(e.target.value)} autoComplete="off" maxLength={100} disabled={asking} />
+      </label>
       <ProductChoices w={w} />
       <WhereChoices w={w} />
     </form>

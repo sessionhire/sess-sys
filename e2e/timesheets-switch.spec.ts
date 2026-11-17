@@ -44,6 +44,10 @@ test('timesheets are hidden while off, and the office turns them on under Admin'
   await expect(toggle).not.toBeChecked()
   await toggle.click()
   await expect(toggle).toBeChecked()
+  // Asked for from today (ADR 0110), not every booking since the calendar came in; the office can move the day back.
+  const from = card.getByLabel('Ask for bookings from')
+  await expect(from).toHaveValue(new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' }))
+  await expect(card).toContainText('or ended more than 60 days ago, aren’t asked for.')
 
   await office.goto('/#crew')
   await row.getByRole('link', { name: /^Timesheets/ }).click()

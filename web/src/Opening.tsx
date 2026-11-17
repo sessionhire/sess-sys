@@ -12,7 +12,7 @@ import { AreaIcon } from './home/icons.tsx'
  * from it but the bar's pictures: the shell (Shell.tsx) replaces it whole.
  */
 
-/** The bar's five places, as Shell.tsx draws them on a phone; Quotes, on a desk, waits for the shell, which knows the role. */
+/** The bar's five places, as Shell.tsx draws them. */
 const PLACES = [
   ['#home', 'Home'],
   ['#jobs', 'Jobs'],
@@ -22,13 +22,15 @@ const PLACES = [
 ] as const
 
 /** Places reached from the Menu, which keep its tab (Shell.tsx). */
-const UNDER_MENU = ['#admin', '#history', '#me', '#notifications', '#quotes']
+const UNDER_MENU = ['#admin', '#history', '#me', '#notifications']
 
 type Shape = 'home' | 'list' | 'record' | 'menu'
 
 function placeOf(hash: string): { tab: string; shape: Shape } {
   const [root = '', next] = hash.split('/')
   if (UNDER_MENU.includes(root) || root === '#menu') return { tab: '#menu', shape: 'menu' }
+  // Quotes' old addresses (New quote among them) are Jobs' now (Colly, 12 November 2026).
+  if (root === '#quotes') return { tab: '#jobs', shape: next ? 'record' : 'list' }
   const tab = PLACES.some(([h]) => h === root) ? root : '#home'
   if (tab === '#home') return { tab, shape: 'home' }
   // A record of its own (#jobs/<id>, #stock/item/<id>, #crew/person/<id>) has a title and cards; a page of an area, a list.

@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
+import { pickRecord } from './names.ts'
 
 /**
  * The certificates a call needs, and running late (ADR 0028), end to end
@@ -38,30 +39,38 @@ test('a call needing IPAF marks who lacks it in the picker, and Offer says why i
   const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await office.goto('/#crew')
   await expect(office.getByRole('status')).toHaveText('Up to date')
+  // The calls are a windowed list (ADR 0050), drawn only near the screen, and a new screen holds its place for a moment against
+  // anything but a hand (places.ts): so the page is wheeled down to Still needs crew, as a person would, before its calls are reached.
+  await office.mouse.move(195, 400)
+  await office.mouse.wheel(0, 1200)
   const call = office.locator('.call-group', { hasText: 'Harbour Lights Festival' }).getByRole('article', { name: '2 × Rigger' })
   await call.getByRole('button', { name: /^2 × Rigger/ }).click()
   await expect(call).toContainText('needs working at height and IPAF')
   await call.getByRole('button', { name: 'Offer…' }).click()
 
-  const picker = call.getByLabel('Offer to')
-  const missing = picker.locator('optgroup[label="Missing a certificate"] option', { hasText: 'Laoise Keane' })
-  await expect(missing).toHaveCount(1)
-  await expect(missing).toContainText('no IPAF')
-  // Those not known come before those missing one.
-  await expect(picker.locator('optgroup').first()).toHaveAttribute('label', 'Not known: check first')
-
-  await picker.selectOption({ label: (await missing.textContent())!.trim() })
-  await call.getByRole('button', { name: 'Offer', exact: true }).click()
+  // The picker lists those holding what the call needs first, and says under each name what they're missing.
+  // Free first, and those doing the call's role before them (review of 11 November 2026, finding 12); holding what it needs inside that.
+  await expect(call.getByRole('listbox')).toHaveAccessibleName(/^Free (and doing .+ )?first$/)
+  await call.getByRole('combobox', { name: 'Offer to' }).fill('Laoise Keane')
+  await expect(call.getByRole('option', { name: /^Laoise Keane/ })).toContainText('no IPAF')
+  await pickRecord(call, 'Offer to', 'Laoise Keane')
+  await call.getByRole('button', { name: /^Offer to / }).click()
   await expect(call.getByRole('alert')).toHaveText("Laoise Keane has no IPAF, which this call needs. Update their card if that's changed.")
   // Nothing was sent: the call still lists only Pádraig and Róisín, and nothing waits to sync.
-  await expect(call.locator('.who-line')).toContainText('Pádraig Kenny (booked), Róisín Farrell (offered)')
+  await expect(call.locator('.offers li')).toHaveCount(2)
+  await expect(call.locator('.offers li', { hasText: 'Pádraig Kenny' })).toContainText('Booked')
+  await expect(call.locator('.offers li', { hasText: 'Róisín Farrell' })).toContainText('Offered')
   await expect(office.getByRole('status')).toHaveText('Up to date')
 
-  // Someone whose certificates aren't known can be offered it, with a warning first.
-  const dara = picker.locator('option', { hasText: 'Dara Quinn' })
-  await picker.selectOption({ label: (await dara.textContent())!.trim() })
+  // Someone whose certificates aren't known can be offered it, with a warning first; Laoise taken off the ones to offer it to.
+  await call.getByRole('button', { name: 'Take Laoise Keane off' }).click()
+  await pickRecord(call, 'Offer to', 'Dara Quinn')
   await expect(call.getByRole('alert')).toHaveCount(0)
-  await expect(call.locator('.offer-form .warn-line')).toHaveText('Working at height and IPAF not known for Dara Quinn: check before the job.')
+  // Dara's own rate is above the call's (ADR 0167), so the margin note is under their name too.
+  await expect(call.locator('.offer-form .warn-line')).toHaveText([
+    'Working at height and IPAF not known for Dara Quinn: check before the job.',
+    "Dara's own rate is €320 a day, above this call's €290, so the margin may be less. The client is still charged the quote's price.",
+  ])
 })
 
 test('the Crew tab lists certificates running out, soonest first, each with a message asking for the new card', async ({ browser }) => {
@@ -119,18 +128,18 @@ test('a running late sent from the link shows on the Crew tab at once, and on it
   await expect(row).toContainText('Liffey Brands Shoot · Crew chief · today, call 07:30')
   await expect(badge).toHaveText(String(before + 1))
   const shoot = office.locator('.call-group', { hasText: 'Liffey Brands Shoot' })
-  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('Aoife: about 15 minutes late, “Parking”')
+  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('About 15 minutes late, “Parking”')
 
   await row.getByRole('button', { name: 'Noted: Aoife Brennan is running late' }).click()
   await expect(row).toHaveCount(0)
   await expect(badge).toHaveText(String(before))
   // Noted, it stays on the call's line until the day is over.
-  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('Aoife: about 15 minutes late, “Parking”')
+  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('About 15 minutes late, “Parking”')
 
   // "I'm here now" from the link: the line says so.
   await phone.getByRole('button', { name: "I'm here now" }).click()
   await expect(phone.getByRole('status')).toHaveText("Thanks. The office can see you're there.")
-  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('Aoife: there now')
+  await expect(shoot.getByRole('article', { name: '1 × Crew chief' }).locator('.late-line')).toHaveText('There now')
 })
 
 test('the office notes a running late from the call line for someone who rang, and the contact sees it on their sheet', async ({ browser, request }) => {
@@ -162,7 +171,7 @@ test('the office notes a running late from the call line for someone who rang, a
   await form.getByLabel('Note, if you like').fill('Rang: stuck behind a tractor')
   await form.getByRole('button', { name: 'Note Dara as late' }).click()
   await expect(form.locator('.added')).toHaveText('Noted: Dara, about 30 minutes late, “Rang: stuck behind a tractor”.')
-  await expect(call.locator('.late-line')).toHaveText('Dara: about 30 minutes late, “Rang: stuck behind a tractor”')
+  await expect(call.locator('.offers li', { hasText: 'Dara Quinn' }).locator('.late-line')).toHaveText('About 30 minutes late, “Rang: stuck behind a tractor”')
   const answers = office.locator('section').filter({ has: office.getByRole('heading', { name: /^Answers to check/ }) })
   await expect(answers.locator('.late-row', { hasText: 'Dara Quinn' })).toContainText('Liffey Brands Shoot · Sound No.1 · today, call 08:00')
   await expect(badge).toHaveText(String(before + 1))
@@ -179,7 +188,7 @@ test('the office notes a running late from the call line for someone who rang, a
   // He turns up: the office marks him there, and the line and the sheet say so.
   // Its name starts with the words on it, so someone using voice control can say what they see.
   await form.getByRole('button', { name: 'Mark as there: Dara Quinn', exact: true }).click()
-  await expect(call.locator('.late-line')).toHaveText('Dara: there now')
+  await expect(call.locator('.offers li', { hasText: 'Dara Quinn' }).locator('.late-line')).toHaveText('There now')
   await expect(badge).toHaveText(String(before))
   await expect(office.getByRole('status')).toHaveText('Up to date')
   await phone.reload()

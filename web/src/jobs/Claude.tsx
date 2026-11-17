@@ -1,4 +1,6 @@
 import {
+  RATE_LABELS,
+  RATE_UNIT,
   adviceSuggestions,
   assistantBlocked,
   changeWords,
@@ -7,17 +9,20 @@ import {
   money,
   plural,
   withModel,
-  ASK_LENGTH,
   ENQUIRY_LENGTH,
   type AskedLine,
   type AssistantStatus,
   type EnquiryReading,
+  type MailThread,
   type Pricing,
   type QuoteAdvice,
   type Suggestion,
   type View,
 } from '@sh/shared'
 import { useState } from 'react'
+import { when } from '../format.ts'
+import { wholeIn } from '../required.ts'
+import { Heading } from '../Icon.tsx'
 import { ProductPicker } from '../ProductPicker.tsx'
 import { useAccess } from '../role.ts'
 import { useLate } from '../useLate.ts'
@@ -56,6 +61,7 @@ export function pricingOf(view: View): Pricing {
     productRate: view.money.productRate,
     rolePrice: view.money.rolePrice,
     roles: view.money.roles.map((r) => r.role),
+    byListId: (listId) => models.find((x) => x.listId === listId && !x.mistake)?.id,
   }
 }
 
@@ -101,7 +107,7 @@ export function FromEnquiry({ status, onRead }: { status: Loaded<AssistantStatus
       </label>
       <div className="actions">
         <button type="button" onClick={() => void read()} disabled={busy || !!no || text.trim().length < 20}>
-          {late ? 'Reading…' : 'Read it with Claude'}
+          {late ? 'Reading…' : 'Read with Claude'}
         </button>
         <span className="hint" aria-live="polite">
           {busy ? (late ? 'Claude is reading it. This can take up to a minute.' : '') : (no ?? 'What you paste is sent to Anthropic to read. The app doesn’t keep it.')}
@@ -134,12 +140,15 @@ export function Suggestions({ view, items, onChange }: { view: View; items: Offe
                 <b>
                   {s.qty} × {s.what}
                 </b>
+                {s.note && <small className={s.beyond ? 'line-note beyond' : 'line-note'}>{s.note}</small>}
                 <small>
                   {[
                     s.group || 'Other',
                     s.what !== s.said ? `written “${s.said}”` : '',
                     s.per === 'once' ? 'once' : `${s.days} ${s.days === 1 ? 'day' : 'days'}`,
-                    s.cents === undefined ? 'no price yet' : `${money(s.cents)}${s.per === 'once' ? '' : ' a day'}`,
+                    s.rate ? RATE_LABELS[s.rate] : '',
+                    s.cents === undefined ? 'no price yet' : `${money(s.cents)}${s.per === 'once' ? '' : s.rate && RATE_UNIT[s.rate] === 'week' ? ' a week' : ' a day'}`,
+                    s.discountPct ? `${s.discountPct}% off` : '',
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -162,17 +171,7 @@ export function Suggestions({ view, items, onChange }: { view: View; items: Offe
                 )}
                 <label>
                   How many
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={10_000}
-                    value={s.qty}
-                    onChange={(e) => {
-                      const n = Number(e.target.value)
-                      if (Number.isInteger(n) && n >= 1 && n <= 10_000) set(i, { s: { ...s, qty: n } })
-                    }}
-                  />
+                  <HowMany qty={s.qty} onQty={(qty) => set(i, { s: { ...s, qty } })} />
                 </label>
               </div>
             )}
@@ -180,6 +179,32 @@ export function Suggestions({ view, items, onChange }: { view: View; items: Offe
         )
       })}
     </ul>
+  )
+}
+
+/**
+ * A line's How many, kept as typed so it can be emptied to type another (Colly, 14 November 2026): a whole number from 1 to
+ * 10,000 counts as it's typed, and leaving the box with anything else puts back the last that counted.
+ */
+function HowMany({ qty, onQty }: { qty: number; onQty: (qty: number) => void }) {
+  const [typed, setTyped] = useState(String(qty))
+  const counts = (text: string) => wholeIn(text, 1, 10_000)
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      max={10_000}
+      value={typed}
+      onChange={(e) => {
+        setTyped(e.target.value)
+        const n = counts(e.target.value)
+        if (n !== undefined) onQty(n)
+      }}
+      onBlur={() => {
+        if (counts(typed) === undefined) setTyped(String(qty))
+      }}
+    />
   )
 }
 
@@ -200,71 +225,15 @@ export interface Advice {
   discount: boolean
 }
 
-/** Asking Claude to change the quote, in words. */
-export function AskClaude({
-  view,
-  status,
-  name,
-  jobDays,
-  discountPct,
-  lines,
-  onAdvice,
-}: {
-  view: View
-  status: Loaded<AssistantStatus>
-  name: string
-  jobDays: number
-  discountPct: number
-  lines: AskedLine[]
-  onAdvice: (a: Advice) => void
-}) {
-  const [ask, setAsk] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const late = useLate(busy)
-  const no = blocked(status)
-  const send = async () => {
-    setBusy(true)
-    setError('')
-    const { data, error } = await asking<QuoteAdvice>('/api/assistant/quote', { ask, name, jobDays, discountPct, lines })
-    setBusy(false)
-    if (!data) return setError(error ?? '')
-    setAsk('')
-    onAdvice({
-      advice: data,
-      add: offer(adviceSuggestions(data, pricingOf(view), jobDays)),
-      remove: Object.fromEntries(data.remove.map((id) => [id, true])),
-      change: Object.fromEntries(data.change.map((c) => [c.lineId, true])),
-      discount: data.discountPct !== null,
-    })
+/** What a thread's mail asks to change on a quote, ready for the card: each line ticked to take. */
+export function toAdvice(view: View, data: QuoteAdvice, jobDays: number): Advice {
+  return {
+    advice: data,
+    add: offer(adviceSuggestions(data, pricingOf(view), jobDays)),
+    remove: Object.fromEntries(data.remove.map((id) => [id, true])),
+    change: Object.fromEntries(data.change.map((c) => [c.lineId, true])),
+    discount: data.discountPct !== null,
   }
-  return (
-    <section className="ask-claude" aria-label="Ask Claude">
-      <label>
-        Ask Claude to change this quote
-        <textarea
-          rows={2}
-          maxLength={ASK_LENGTH}
-          value={ask}
-          onChange={(e) => setAsk(e.target.value)}
-          placeholder="Such as: add two more radio mics, make it three days, and take 10% off the lighting."
-        />
-      </label>
-      <div className="actions">
-        <button type="button" onClick={() => void send()} disabled={busy || !!no || ask.trim().length < 3}>
-          {late ? 'Asking…' : 'Ask Claude'}
-        </button>
-        <span className="hint" aria-live="polite">
-          {busy ? (late ? 'Claude is looking at the quote.' : '') : (no ?? 'Claude suggests; nothing changes until you take it.')}
-        </span>
-      </div>
-      {error && (
-        <p className="alert" role="alert">
-          {error}
-        </p>
-      )}
-    </section>
-  )
 }
 
 /** Claude's suggestions for the quote: each ticked to take, then taken in one press, or left. */
@@ -297,13 +266,13 @@ export function AdviceCard({
       {a.advice.note && <p>{a.advice.note}</p>}
       {a.add.length > 0 && (
         <>
-          <h3>To add</h3>
+          <h3 className="group">To add</h3>
           <Suggestions view={view} items={a.add} onChange={(add) => onChange({ ...a, add })} />
         </>
       )}
       {(removes.length > 0 || changes.length > 0 || a.advice.discountPct !== null) && (
         <>
-          <h3>To change</h3>
+          <h3 className="group">To change</h3>
           <ul className="plain claude-lines">
             {removes.map((id) => (
               <li key={`r-${id}`} className="claude-line">
@@ -345,13 +314,110 @@ export function AdviceCard({
       <div className="actions">
         {!nothing && (
           <button type="button" className="primary" onClick={onTake} disabled={count === 0}>
-            {count === 1 ? 'Make this change' : `Make these ${count} changes`}
+            {count === 1 ? 'Make this change' : `Make ${count} changes`}
           </button>
         )}
         <button type="button" className="link" onClick={onLeave}>
-          {nothing ? 'Close' : 'Leave it as it is'}
+          {nothing ? 'Close' : 'Leave as is'}
         </button>
       </div>
+    </section>
+  )
+}
+
+// --- The operations mailbox (ADR 0098) --------------------------------------------
+
+/** The mail Claude read, for the screens that show it; asked again when `again` changes. */
+export function useMail(offered: boolean, projectId?: string, again = 0): Loaded<{ threads: MailThread[] }> {
+  return useAsked(offered, `mail-${projectId ?? ''}`, () => getJson<{ threads: MailThread[] }>(`/api/assistant/mail${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`), again)
+}
+
+/** "Aoife Byrne, 3 mails, the last today at 09:12". */
+const threadWords = (t: MailThread) => `${t.from || 'Someone'}, ${plural(t.messages, 'mail')}, the last ${when(t.lastAt)}`
+
+/**
+ * On a draft quote: the email threads about its job, what Claude read in them, and what the latest mail asks to change
+ * on a quote someone has changed, to take in one press or leave.
+ */
+export function MailOnQuote({ view, projectId, jobDays, lines, discountPct, onTake }: { view: View; projectId: string; jobDays: number; lines: AskedLine[]; discountPct: number; onTake: (a: Advice) => void }) {
+  const [again, setAgain] = useState(0)
+  const mail = useMail(true, projectId, again)
+  const [shown, setShown] = useState<Record<string, Advice>>({})
+  const threads = mail.state === 'ready' ? mail.data.threads : []
+  if (!threads.length) return null
+  const done = async (t: MailThread) => {
+    await postJson(`/api/assistant/mail/${encodeURIComponent(t.id)}/done`, {})
+    setShown(({ [t.id]: _, ...rest }) => rest)
+    setAgain((n) => n + 1)
+  }
+  return (
+    <>
+      {threads.map((t) => {
+        const a = t.advice ? (shown[t.id] ?? toAdvice(view, t.advice, jobDays)) : undefined
+        return (
+          <section key={t.id} className="claude-advice" aria-label={`From the email “${t.subject}”`}>
+            <ByClaude>{t.drafting ? 'Drafted by Claude from the email thread, and kept up to date with it until someone changes the quote.' : 'Read by Claude in the email thread.'}</ByClaude>
+            <p>
+              <b>{t.subject || 'No subject'}</b>
+              <br />
+              <small className="hint">{threadWords(t)}</small>
+            </p>
+            {t.summary && <p>{t.summary}</p>}
+            {t.questions.length > 0 && (
+              <>
+                <h3 className="group">To ask the client</h3>
+                <ul>
+                  {t.questions.map((q) => (
+                    <li key={q}>{q}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {a && (
+              <AdviceCard
+                view={view}
+                a={a}
+                lines={lines}
+                discountPct={discountPct}
+                onChange={(next) => setShown({ ...shown, [t.id]: next })}
+                onTake={() => {
+                  onTake(a)
+                  void done(t)
+                }}
+                onLeave={() => void done(t)}
+              />
+            )}
+          </section>
+        )
+      })}
+    </>
+  )
+}
+
+/** On Money › To follow up: the threads Claude read in the last month that are enquiries or about a job, each opening its quote. */
+export function FromMailbox({ view }: { view: View }) {
+  const { offered } = useClaude(view)
+  const mail = useMail(offered)
+  const threads = mail.state === 'ready' ? mail.data.threads : []
+  if (!offered || !threads.length) return null
+  const job = (id: string | null) => (id ? view.jobs.jobs.find((j) => j.id === id) : undefined)
+  return (
+    <section className="card from-mailbox" aria-label="From the operations mailbox">
+      <Heading icon="mail">From the operations mailbox</Heading>
+      <p className="hint">Mail cc’d to operations@ in the last month. Claude drafts a quote for each new enquiry and keeps it up to date until someone changes it. Mail not cc’d there isn’t seen.</p>
+      <ul>
+        {threads.map((t) => {
+          const j = job(t.projectId)
+          return (
+            <li key={t.id}>
+              {j ? <a href={`#jobs/${encodeURIComponent(j.id)}/quote`}>{t.subject || j.name}</a> : <b>{t.subject || 'No subject'}</b>}
+              <small>
+                {[j ? (t.kind === 'enquiry' ? `New enquiry: ${j.name}` : j.name) : '', threadWords(t), t.drafting ? 'drafted by Claude' : t.advice ? 'changes to look at' : ''].filter(Boolean).join(' · ')}
+              </small>
+            </li>
+          )
+        })}
+      </ul>
     </section>
   )
 }

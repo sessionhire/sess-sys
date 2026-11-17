@@ -23,7 +23,7 @@ async function ready(page: Page, hash = '#jobs') {
 /** A numbered product, with how many are counted in the warehouse. */
 async function newProduct(page: Page, name: string, count: number) {
   await page.goto('/#stock')
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(name)
   await form.getByLabel('Department').selectOption({ label: 'Audio' })
@@ -42,18 +42,20 @@ async function newProduct(page: Page, name: string, count: number) {
 async function jobWithNotes(page: Page, name: string, notes: string) {
   await page.goto('/#jobs')
   // New job waits behind its button at the top of the list on a phone (audit finding 22).
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
-  await form.getByLabel('Job').fill(name)
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(name)
   await form.getByLabel('Status').selectOption({ label: 'Confirmed' })
   await form.getByLabel('Phase 1', { exact: true }).fill('Show')
   await form.getByLabel('Phase 1 from').fill('2030-11-10')
   await form.getByLabel('Phase 1 to').fill('2030-11-11')
-  await form.getByRole('button', { name: 'Add job' }).click()
+  await form.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   await page.getByRole('button', { name: 'Change details' }).click()
-  await page.getByLabel('Notes', { exact: true }).fill(notes)
+  await page.getByLabel('Notes for the crew', { exact: true }).fill(notes)
   await page.getByRole('button', { name: 'Save job' }).click()
+  // A new job opens on its next task's part (ADR 0140, part 8); the notes' kit is said under Kit.
+  await page.getByRole('tab', { name: /^Kit/ }).click()
   await expect(page.locator('.notes').first()).toContainText(notes.split('\n')[0]!)
 }
 
@@ -68,7 +70,7 @@ test("a job's notes become kit lines, checked first, and reading them again adds
   await newProduct(page, amp, 4)
   await jobWithNotes(page, job, `Load in from the north gate.\n\nAudio\n4 x ${speaker}\n2x D20 ${id}\n1 x Wedding arch ${id}\n\nTransport and labour\n1 x Luton van\n\n5.00pm - Crew call`)
 
-  await page.getByRole('tab', { name: 'Kit and vans' }).click()
+  await page.getByRole('tab', { name: 'Kit', exact: true }).click()
   const kit = page.getByRole('region', { name: 'Kit' })
   await expect(kit.locator('.notes-kit-link')).toContainText("The notes list 3 lines of kit; 2 aren't on the job yet, 1 with no product found.")
   await kit.getByRole('link', { name: 'Kit from the notes' }).click()
@@ -103,6 +105,7 @@ test("a job's notes become kit lines, checked first, and reading them again adds
 
   // On the job: the two lines, and nothing more to do with its notes.
   await page.getByRole('link', { name: job }).first().click()
+  await page.getByRole('tab', { name: /^Kit/ }).click()
   await expect(kit.getByRole('article', { name: `4 × ${speaker}` })).toBeVisible()
   await expect(kit.getByRole('article', { name: `2 × ${amp}` })).toBeVisible()
   await expect(kit.locator('.notes-kit-link')).toContainText('What the notes list is on the job.')
@@ -130,8 +133,7 @@ test('Kit in the notes adds every job with nothing to check in one go, with no s
   await jobWithNotes(page, sure, `Audio\n6 x ${speaker}`)
   await jobWithNotes(page, guess, `Audio\n1 x ${speaker}\n3 x D20 ${id}`)
 
-  await page.goto('/#jobs')
-  await page.getByRole('region', { name: 'Kit in the notes' }).getByRole('link', { name: 'Work through them' }).click()
+  await page.goto('/#jobs/notes-kit')
   await expect(page.getByRole('heading', { level: 1, name: 'Kit in the notes' })).toBeVisible()
   const readySection = page.getByRole('region', { name: 'Ready to add' })
   const check = page.getByRole('region', { name: 'To check' })
@@ -161,6 +163,6 @@ test('Kit in the notes adds every job with nothing to check in one go, with no s
   await ready(laptop, '#jobs')
   await laptop.getByLabel('Find').fill(sure)
   await laptop.locator('.job-row', { hasText: sure }).click()
-  await laptop.getByRole('tab', { name: 'Kit and vans' }).click()
+  await laptop.getByRole('tab', { name: 'Kit', exact: true }).click()
   await expect(laptop.getByRole('region', { name: 'Kit' }).getByRole('article', { name: `6 × ${speaker}` })).toBeVisible()
 })

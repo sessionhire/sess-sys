@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { Mutation } from '../src/commands.ts'
 import { offerMessage, tellMessage, type CrewCall, type Offer, type Person } from '../src/crew.ts'
 import { officeContact, officeLine, telHref } from '../src/office.ts'
-import { answersToCheck, crewView } from '../src/sync/crew-view.ts'
+import { answersToCheck, crewView, shortSoon } from '../src/sync/crew-view.ts'
 import { officeView } from '../src/sync/office-view.ts'
+import { DEFAULT_CABLE_COLOURS } from '../src/cable-colours.ts'
 
 /**
  * Telling people (audit findings 9 and 10): which answers wait for the
@@ -110,6 +111,18 @@ describe('answers to check', () => {
   })
 })
 
+describe('answers on calls soon', () => {
+  it('come first whatever their kind, so a pull-out for March waits under a yes for next week', () => {
+    // Proves: answers on calls in the next fortnight lead the list, each part pull-outs first and then by day (audit, 5 November 2026, finding 27).
+    const entities = {
+      person: { aoife: person('aoife', 'Aoife Byrne'), niall: person('niall', 'Niall Kerr'), dara: person('dara', 'Dara Kelly') },
+      crewCall: { soon: call('soon', '2026-10-08', '2026-10-08'), march: call('march', '2027-03-15', '2027-03-15'), edge: call('edge', '2026-10-15', '2026-10-15') },
+      offer: { out: offer('out', 'march', 'dara', 'pulled-out'), yes: offer('yes', 'soon', 'aoife', 'accepted'), no: offer('no', 'edge', 'niall', 'declined') },
+    }
+    expect(answersToCheck(crewView(entities, [], 0), today).map((a) => a.offer.id)).toEqual(['yes', 'no', 'out'])
+  })
+})
+
 describe('offers nobody has answered', () => {
   it('wait in the queue once their reply-by day has passed, until the office notes them or an answer comes', () => {
     // Proves: an offer still unanswered after its call's reply-by day is in "Answers to check" until Noted, and an answer
@@ -125,6 +138,28 @@ describe('offers nobody has answered', () => {
     expect(answersToCheck(noted, today)).toEqual([])
     const answered = crewView(entities, [m('offer.seen', { id: 'quiet' }), m('offer.respond', { id: 'quiet', answer: 'decline', note: '' })], 0)
     expect(answersToCheck(answered, today).map((a) => [a.offer.id, a.kind])).toEqual([['quiet', 'declined']])
+  })
+})
+
+describe('calls close to their day', () => {
+  it('chase an offer with no reply-by day from the day before the call, and list calls short within three days, soonest first', () => {
+    // Proves: a cleared reply-by no longer hides a silent offer, and a call short in two days isn't lost among the fortnight's
+    // (audit, 5 November 2026, finding 60).
+    const entities = {
+      person: { aoife: person('aoife', 'Aoife Byrne'), niall: person('niall', 'Niall Kerr') },
+      crewCall: {
+        tomorrow: { ...call('tomorrow', '2026-10-02', '2026-10-02'), replyBy: null },
+        later: { ...call('later', '2026-10-03', '2026-10-03'), replyBy: null },
+        week: call('week', '2026-10-08', '2026-10-08'),
+      },
+      offer: { quiet: offer('quiet', 'tomorrow', 'aoife', 'offered'), early: offer('early', 'later', 'niall', 'offered') },
+    }
+    const view = crewView(entities, [], 0)
+    expect(answersToCheck(view, today).map((a) => [a.offer.id, a.kind])).toEqual([['quiet', 'no-reply']])
+    expect(shortSoon(view, today).map((x) => [x.call.id, x.short, x.inDays])).toEqual([
+      ['tomorrow', 2, 1],
+      ['later', 2, 2],
+    ])
   })
 })
 
@@ -155,6 +190,35 @@ describe('the message after what the office did', () => {
     expect(tellMessage('call-cancelled', aoife, { call: show }, link).text).toContain('we no longer need Sound No.1 on Harbour Lights Festival (Show)')
     expect(tellMessage('call-changed', aoife, { call: { ...show, callTime: '11:00' } }, link).text).toContain('Sound No.1 is now Sat 10 Oct to Sun 11 Oct, call 11:00, at Riverside Park, Limerick, €320 a day.')
     expect(tellMessage('phase-moved', aoife, { call: { ...show, start: '2026-10-17', end: '2026-10-18' } }, link).text).toContain('has moved: Sound No.1 is now Sat 17 Oct to Sun 18 Oct, call 12:00.')
+  })
+
+  it('tells someone picked to hold the day that they are booked once the client says yes, and the rest that it is going ahead (ADR 0168)', () => {
+    const booked = tellMessage('job-confirmed', aoife, { call: show, picked: true }, link)
+    expect(booked.text.split('\n')[0]).toBe("Hi Aoife, Harbour Lights Festival is confirmed: the client has said yes, so you're booked.")
+    expect(booked.text).toContain(`${link}/sheet/show`)
+    expect(booked).toMatchObject({ subject: 'Booked: Harbour Lights Festival (Show), Sat 10 Oct to Sun 11 Oct, call 12:00', what: 'confirmation' })
+    const going = tellMessage('job-confirmed', aoife, { call: show }, link)
+    expect(going.text.split('\n')[0]).toBe('Hi Aoife, Harbour Lights Festival is going ahead: the client has said yes.')
+    expect(going).toMatchObject({ subject: 'Going ahead: Harbour Lights Festival (Show), Sat 10 Oct to Sun 11 Oct, call 12:00', what: 'update' })
+    expect(`${booked.text} ${going.text}`).not.toMatch(/on hold/i)
+  })
+
+  it("says the offer stands at the rate offered when the office can't agree the rate asked for (ADR 0152)", () => {
+    const refused = tellMessage('rate-refused', aoife, { call: show, days: ['2026-10-11'], askedRateCents: 38000 }, link)
+    expect(refused.text).toBe(
+      ["Hi Aoife, we can't do €380 a day for Harbour Lights Festival (Show), but the offer stands at €320 a day: Sound No.1, Sun 11 Oct, call 12:00.", `Accept, decline or pick days here: ${link}`].join('\n')
+    )
+    expect(refused).toMatchObject({ subject: 'Your rate: Harbour Lights Festival (Show), Sun 11 Oct, call 12:00', what: 'answer about the rate' })
+    // A role that doesn't read rates sends the office's words without them (ADR 0046).
+    const hidden = tellMessage('rate-refused', aoife, { call: { ...show, dayRateCents: null, rateHidden: true }, askedRateCents: null }, link)
+    expect(hidden.text.split('\n')[0]).toBe("Hi Aoife, we can't agree the rate you asked for on Harbour Lights Festival (Show), but the offer stands at the rate offered: Sound No.1, Sat 10 Oct to Sun 11 Oct, call 12:00.")
+    expect(hidden.text).not.toContain('€')
+    // The call filled while the rate was with the office: the offer closes with the answer, and says so (ADR 0152).
+    const closed = tellMessage('rate-refused', aoife, { call: show, days: ['2026-10-11'], askedRateCents: 38000, filled: true }, link)
+    expect(closed.text).toBe(
+      ["Hi Aoife, we can't do €380 a day for Harbour Lights Festival (Show), and Sound No.1, Sun 11 Oct, call 12:00, has filled meanwhile, so the offer is closed.", "Sorry, and we'll be in touch about the next one."].join('\n')
+    )
+    expect(tellMessage('rate-refused', aoife, { call: { ...show, dayRateCents: null, rateHidden: true }, askedRateCents: null, filled: true }, link).text).not.toContain('€')
   })
 
   it('says plainly when a changed call comes to need a certificate, or no longer needs one', () => {
@@ -199,6 +263,28 @@ describe('the message after what the office did', () => {
     expect(reopened.text).toBe(`Hi Aoife, we've reopened your timesheet for Harbour Lights Festival (Show) to sort something out. You can change it again until we approve it: ${link}/timesheet/o1`)
   })
 
+  it("asks them to hold the day while the client hasn't said yes, and never says confirmed or booked", () => {
+    // Proves: finding 6 of the audit of 12 November 2026 (ADR 0150). HOLD is short for "hold the day": the office's offer and its
+    // word after a pick ask for exactly that on a job the client hasn't agreed, and say nothing is booked until they do.
+    const offered = offerMessage(aoife, show, link, true)
+    expect(offered.split('\n').slice(0, 2)).toEqual([
+      "Hi Aoife, can you hold the days for Harbour Lights Festival (Show)? The client hasn't said yes yet, so nothing is booked until they do.",
+      'Sound No.1, Sat 10 Oct to Sun 11 Oct, call 12:00',
+    ])
+    expect(offerMessage(aoife, { ...show, end: show.start }, link, true)).toMatch(/^Hi Aoife, can you hold the day for Harbour Lights Festival \(Show\)\? /)
+    // The rest is any offer's: the role, the place, the rate and where to answer.
+    expect(offered.split('\n').slice(1)).toEqual(offerMessage(aoife, show, link).split('\n').slice(1))
+
+    const picked = tellMessage('confirmed', aoife, { call: show, days: ['2026-10-10'], offerId: 'o1', hold: true }, link)
+    expect(picked.text.split('\n')[0]).toBe("Hi Aoife, we have you down for Harbour Lights Festival (Show), so please hold the day. The client hasn't said yes yet: it's booked once they do.")
+    expect(picked).toMatchObject({ subject: 'Hold the day: Harbour Lights Festival (Show), Sat 10 Oct, call 12:00', what: 'confirmation' })
+    // Every day of the call, when they took them all.
+    expect(tellMessage('confirmed', aoife, { call: show, hold: true }, link).text).toContain(', so please hold the days. ')
+    // The rest is the confirmation's: the role and days, the place, the rate and the call sheet.
+    expect(picked.text.split('\n').slice(1)).toEqual(tellMessage('confirmed', aoife, { call: show, days: ['2026-10-10'], offerId: 'o1' }, link).text.split('\n').slice(1))
+    for (const said of [offered, picked.text, picked.subject]) expect(said).not.toMatch(/on hold|confirmed|you're booked/i)
+  })
+
   it('names no rate to staff, who are paid through payroll', () => {
     // Proves: the offer and every message the office is prompted with leave the rate out for a member of staff, as their page does (audit finding 21), and still say it to a freelancer.
     const orla = { ...person('orla', 'Orla Hayes'), kind: 'staff' as const }
@@ -237,10 +323,10 @@ describe('the office’s details', () => {
 
   it('lay this device’s own change over what the server said', () => {
     const entities = { setting: { office: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: null } } }
-    expect(officeView(entities, [], 0)).toEqual({ details: entities.setting.office, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false })
+    expect(officeView(entities, [], 0)).toEqual({ details: entities.setting.office, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, checkLinks: false, linksPending: false, whatsapp: 'off', whatsappTestTo: [], whatsappPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null, logoBlackWhite: false, logoPending: false })
     const changed = officeView(entities, [m('office.update', { name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' })], 0)
-    expect(changed).toEqual({ details: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' }, pending: true, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false })
-    expect(officeView({}, [], 0)).toEqual({ details: undefined, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, useAssistant: false, assistantPending: false })
+    expect(changed).toEqual({ details: { id: 'office', name: 'Session Hire office', phone: '01 234 5678', email: 'office@sessionhire.com' }, pending: true, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, checkLinks: false, linksPending: false, whatsapp: 'off', whatsappTestTo: [], whatsappPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null, logoBlackWhite: false, logoPending: false })
+    expect(officeView({}, [], 0)).toEqual({ details: undefined, pending: false, headsSeeRates: false, headsPending: false, promptMessages: false, messagesPending: false, useTimesheets: false, timesheetsPending: false, timesheetsFrom: null, useAssistant: false, assistantPending: false, checkLinks: false, linksPending: false, whatsapp: 'off', whatsappTestTo: [], whatsappPending: false, cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null, logoBlackWhite: false, logoPending: false })
   })
 
   it("say whether heads of department see rates (ADR 0046), with this device's own choice over the server's", () => {
@@ -268,5 +354,28 @@ describe('the office’s details', () => {
     const entities = { setting: { assistant: { id: 'assistant', name: '', phone: null, email: null, useAssistant: true } } }
     expect(officeView(entities, [], 0)).toMatchObject({ useAssistant: true, assistantPending: false })
     expect(officeView(entities, [m('assistant.use', { on: false })], 0)).toMatchObject({ useAssistant: false, assistantPending: true, timesheetsPending: false })
+  })
+
+  it('checks new phones on freelancers’ links only once the office says so (ADR 0114)', () => {
+    expect(officeView({}, [], 0)).toMatchObject({ checkLinks: false, linksPending: false })
+    expect(officeView({}, [m('links.check', { on: true })], 0)).toMatchObject({ checkLinks: true, linksPending: true })
+  })
+
+  it('sends nothing on WhatsApp until the office says, and keeps the numbers to try it on (ADR 0125)', () => {
+    expect(officeView({}, [], 0)).toMatchObject({ whatsapp: 'off', whatsappTestTo: [], whatsappPending: false })
+    expect(officeView({}, [m('whatsapp.use', { mode: 'test', testTo: ['+353 87 123 4567'] })], 0)).toMatchObject({ whatsapp: 'test', whatsappTestTo: ['+353 87 123 4567'], whatsappPending: true })
+  })
+
+  it('keeps the default cable colours until the office saves its own, and shows the logo once put up (ADR 0106)', () => {
+    expect(officeView({}, [], 0)).toMatchObject({ cableColours: DEFAULT_CABLE_COLOURS, cablesPending: false, logo: null })
+    const own = [{ upToM: 5, colour: 'red' as const }, { upToM: 10, colour: 'blue' as const }]
+    const entities = {
+      setting: { cables: { id: 'cables', name: '', phone: null, email: null, cableColours: own }, logo: { id: 'logo', name: '', phone: null, email: null, logo: { at: '2026-11-01T12:00:00.000Z' } } },
+    }
+    expect(officeView(entities, [], 0)).toMatchObject({ cableColours: own, cablesPending: false, logo: { at: '2026-11-01T12:00:00.000Z' } })
+    const mine = [{ upToM: 3, colour: 'green' as const }]
+    expect(officeView(entities, [m('cables.colours', { colours: mine })], 0)).toMatchObject({ cableColours: mine, cablesPending: true })
+    // The logo in pure black and white on labels (ADR 0163): off until said, this device's choice laid over the server's.
+    expect(officeView(entities, [m('logo.blackWhite', { on: true })], 0)).toMatchObject({ logoBlackWhite: true, logoPending: true })
   })
 })

@@ -14,8 +14,10 @@ export interface Arrival {
   hash: string
   /** The heading of the part to land on, without its count: "Answers to check". */
   part?: string
-  /** The department Home counted for. */
+  /** The department Home counted for: '' for everyone's, as the company's and the warehouse's counts are, so a head's list opens whole. */
   department?: string
+  /** The list filters the count was made with, to start the list on (audit, 5 November 2026, finding 20). */
+  filters?: Record<string, string>
 }
 
 let asked: Arrival | undefined
@@ -34,8 +36,8 @@ addEventListener('hashchange', () => {
   if (asked && asked.hash !== location.hash) asked = undefined
 })
 
-/** A heading's words without the count it ends with: "Answers to check (24)" is "Answers to check". */
-export const partLabel = (text: string) => text.replace(/\s+/g, ' ').trim().replace(/\s*\(\d[\d,]*\)$/, '')
+/** A heading's words without its count and what's said after it: "Answers to check (24) · 1 running late" is "Answers to check". */
+export const partLabel = (text: string) => text.replace(/\s+/g, ' ').trim().replace(/\s*\(\d[\d,]*\)(?: · .*)?$/, '')
 
 /** The part's heading on the screen, once it's drawn: a card's heading or a heading inside one. */
 export function partHeading(part: string): HTMLElement | undefined {

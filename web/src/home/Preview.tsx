@@ -7,6 +7,7 @@ import { client } from '../sync.ts'
 import { useLate } from '../useLate.ts'
 import { useView } from '../view.ts'
 import { saveHomeFor, type Saved } from './HomeScreen.tsx'
+import { Mark } from '../Mark.tsx'
 
 /**
  * The demo copy's way in (ADR 0033): before the app, a choice of whose
@@ -31,7 +32,7 @@ export const PERSONAS: readonly Persona[] = [
   { key: 'office', name: 'Office and production', who: 'Booking jobs and crew all day', sees: 'Crew: the answers to check, crew still needed, timesheets.' },
   { key: 'head', name: 'Head of department', who: 'Audio, LX, video or rigging', sees: 'Home for one department: its people, its kit, its leave and certificates.' },
   { key: 'warehouse', name: 'Warehouse', who: 'Getting the kit out and back', sees: "Home for the warehouse: what's going out, what's still out, what's broken." },
-  { key: 'staff', name: 'Staff crew', who: 'Employed technicians', sees: 'Home for me: my bookings, my leave.' },
+  { key: 'staff', name: 'Staff crew', who: 'Employed technicians', sees: 'Home for me: my bookings and offers to answer, my leave.' },
   { key: 'freelancer', name: 'Freelancer', who: 'Their own phone, no app, no login', sees: 'Their private page: offers to answer, bookings, timesheets.' },
 ]
 
@@ -199,9 +200,9 @@ export function PreviewSplash() {
     <div className="app preview">
       <header className="top">
         <div className="brand">
-          <span className="mark">SH</span>
+          <Mark />
           <span>
-            <b>Session Hire</b>
+            <b><span className="sr-only">Session Hire</span></b>
             <small className="where">Demo with made-up data</small>
           </span>
         </div>
@@ -210,7 +211,7 @@ export function PreviewSplash() {
         </div>
       </header>
       <h1 className="area-title">See it as…</h1>
-      <p className="hint">Pick who you are, and the app opens where that person would start. Their name, under Session Hire at the top, brings you back here to choose someone else.</p>
+      <p className="hint">Pick who you are, and the app opens where that person would start. Their name, at the top beside the logo, brings you back here to choose someone else.</p>
       <ul className="personas">
         {PERSONAS.map((p) => (
           <li key={p.key}>

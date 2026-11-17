@@ -1,3 +1,4 @@
+import { UnitBox } from '../UnitBox.tsx'
 import {
   APPLICANT_LEVEL,
   CERTIFICATE_KINDS,
@@ -18,7 +19,6 @@ import {
   type CrewView,
   type PersonView,
   type View,
-  namedFromAddress,
   fullName,
   nameParts,
   emailInUseRefusal,
@@ -28,15 +28,21 @@ import {
   ROLE_LABELS,
   sameEmail,
   whoSignsInRefusal,
+  nameKey,
+  isVatRegistered,
+  tradesAs,
+  TRADES_AS,
+  TRADES_AS_LABELS,
+  type Company,
+  type TradesAs,
 } from '@sh/shared'
-import { useId, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess, useSeesRates } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView } from '../view.ts'
 import { personHref } from './PersonScreen.tsx'
-import { useSamePeople } from './Combine.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
 import { SkillsField, withTyped } from './SkillsField.tsx'
 
@@ -49,19 +55,31 @@ import { SkillsField, withTyped } from './SkillsField.tsx'
 /** A department as compared: free text, so "audio" and "Audio" are one. */
 export const dept = (p: Pick<PersonView, 'department'>) => (p.department ?? '').toLowerCase()
 
-/** Lower case with the fadas off, so "padraig" finds Pádraig and "sean" finds Seán: names are often typed without them. */
-export const plain = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+/**
+ * Lower case with the fadas off, so "padraig" finds Pádraig and "sean" finds Seán: names are often typed without them.
+ * Apostrophes, straight or a phone's curly one, and hyphens go too, so "oconnor" and "o’connor" find O'Connor (audit,
+ * 5 November 2026, finding 41).
+ */
+export const plain = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/['’‘`´-]/g, '')
 
 /** The words typed into a search for someone. */
 export const wordsOf = (typed: string) => plain(typed).split(/\s+/).filter(Boolean)
 
 /**
  * Whether every word typed is in someone's name, the name they go by, their
- * department or a skill (audit finding 16): the picker's search and the
+ * department or a skill (audit finding 16), their email or phone: the picker's search and the
  * people list's find people the same way.
  */
 export function found(p: PersonView, words: readonly string[]): boolean {
-  const text = plain([p.name, p.knownAs, p.department, ...p.skills].filter(Boolean).join(' '))
+  // Their phone by its digits, as typed with or without the country code, and their addresses: "who's this number that rang?".
+  const digits = (p.phone ?? '').replace(/\D/g, '')
+  const phones = digits ? [digits, digits.startsWith('353') ? `0${digits.slice(3)}` : ''] : []
+  const text = plain([p.name, p.knownAs, p.department, ...p.skills, p.email, ...(p.otherEmails ?? []), ...phones].filter(Boolean).join(' '))
   return words.every((w) => text.includes(w))
 }
 
@@ -88,13 +106,15 @@ export function PersonRow({ person, crew }: { person: PersonView; crew: CrewView
           <small>
             {[
               // A role set says more than "Staff"; none set is staff crew, which is what "Staff" says (ADR 0034).
-              person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : null,
+              // Freelancer said too, so a department after it isn't read as a skill (audit, 5 November 2026, finding 94).
+              person.kind === 'staff' ? (person.role ? ROLE_LABELS[person.role] : 'Staff') : 'Freelancer',
               person.department,
-              levelLine(person.level),
+              // The office's, and not sent to staff crew or freelancers (audit, 5 November 2026, finding 44).
+              person.levelHidden ? null : levelLine(person.level),
               person.kind === 'staff' && person.approvesLeave ? 'approves time off' : null,
               person.skills.join(', '),
               // A rate this device isn't sent (ADR 0046) isn't said in the list; their page says it's hidden.
-              person.dayRateCents !== null && !person.rateHidden ? `${euro(person.dayRateCents)}/day` : null,
+              person.dayRateCents !== null && !person.rateHidden ? `own rate ${euro(person.dayRateCents)}/day` : null,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -156,8 +176,25 @@ function certificatesOf(fields: CertFields): Certificates {
   return out
 }
 
-export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial?: PersonView; submitLabel: string; onSubmit: (fields: PersonFields) => Promise<unknown>; onDone?: () => void }) {
+export function PersonForm({
+  initial,
+  submitLabel,
+  onSubmit,
+  onDone,
+  focusFirst = false,
+}: {
+  initial?: PersonView
+  submitLabel: string
+  onSubmit: (fields: PersonFields) => Promise<unknown>
+  onDone?: () => void
+  /** Opened by a press that goes as it opens (Change details): the focus goes to the first field rather than nowhere (audit, 5 November 2026, finding 87). */
+  focusFirst?: boolean
+}) {
   const access = useAccess()
+  const form = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (focusFirst) form.current?.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea')?.focus()
+  }, [focusFirst])
   // Who approves time off is a permission, so it's a director's to give once roles are on (ADR 0034); the form keeps it as it was.
   const mayApprove = access.can('company')
   // The email and type of someone who holds a role are how they sign in as it, so only the office and directors change them (audit finding 12).
@@ -180,6 +217,8 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
     knownAs: '',
     level: String(DEFAULT_LEVEL),
     certs: blankCerts(),
+    tradesAs: '' as TradesAs | '',
+    vatRegistered: '' as '' | 'yes' | 'no',
     companyName: '',
     vatNumber: '',
     croNumber: '',
@@ -199,20 +238,24 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
     knownAs: p.knownAs ?? '',
     level: String(p.level),
     certs: certFieldsOf(p.certificates),
+    tradesAs: (tradesAs(p) ?? '') as TradesAs | '',
+    vatRegistered: (p.company?.vatRegistered === false ? 'no' : isVatRegistered(p) ? 'yes' : '') as '' | 'yes' | 'no',
     companyName: p.company?.name ?? '',
     vatNumber: p.company?.vatNumber ?? '',
     croNumber: p.company?.croNumber ?? '',
   })
   const [f, setF] = useState(initial ? from(initial) : blank)
   // The profile (ADR 0025) folds away on a phone, open when any of it is set; once open or shut by hand it stays so.
-  const [moreOpen] = useState(() => !!initial && (!!initial.department || !!initial.knownAs || initial.level !== DEFAULT_LEVEL || !!initial.company || Object.values(initial.certificates).some((c) => c && (c.held !== null || !!c.expires || !!c.note))))
+  const [moreOpen] = useState(() => !!initial && (!!initial.department || !!initial.knownAs || initial.level !== DEFAULT_LEVEL || Object.values(initial.certificates).some((c) => c && (c.held !== null || !!c.expires || !!c.note))))
   const listId = useId()
   const { run, error, refuse } = useAct()
   const [badEmail, setBadEmail] = useState(false)
-  const set = (k: Exclude<keyof typeof blank, 'approvesLeave' | 'certs' | 'skills' | 'skillsTyped'>) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
+  const set = (k: Exclude<keyof typeof blank, 'approvesLeave' | 'certs' | 'skills' | 'skillsTyped' | 'tradesAs' | 'vatRegistered'>) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   // Only freelancers trade through a company (ADR 0025); one a member of staff already has (from the crew list, say)
   // stays in view so it can be seen and cleared, never dropped without a word.
   const showCompany = f.kind === 'freelancer' || !!initial?.company
+  // How they trade goes with their pay (ADR 0184): asked only of a device that sees their rate, and left as it is by one that doesn't.
+  const readsTrade = seesRates && !initial?.companyHidden
   const setCert = (kind: CertificateKind, field: Partial<CertField>) => setF({ ...f, certs: { ...f.certs, [kind]: { ...f.certs[kind], ...field } } })
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -220,7 +263,13 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
     if (!names.firstName) return
     const rate = parseEuro(f.rate)
     if (rate.reason !== undefined) return refuse(rate.reason)
-    const company = f.companyName.trim() || f.vatNumber.trim() || f.croNumber.trim()
+    // Sole trader: the VAT answer, and the number only when registered. Company: its name, CRO and VAT numbers (ADR 0184).
+    const trade: Company | null =
+      f.tradesAs === 'sole-trader'
+        ? { as: 'sole-trader', name: '', vatNumber: (f.vatRegistered === 'yes' && f.vatNumber.trim()) || null, croNumber: null, vatRegistered: f.vatRegistered === '' ? null : f.vatRegistered === 'yes' }
+        : f.tradesAs === 'company'
+          ? { as: 'company', name: f.companyName.trim(), vatNumber: f.vatNumber.trim() || null, croNumber: f.croNumber.trim() || null, vatRegistered: null }
+          : null
     const email = f.email.trim() || null
     // Each email is one person's, as the server checks it (audit finding 12).
     const other = sameEmail(email, initial?.email) ? undefined : emailTakenBy(people, initial?.id ?? '', email)
@@ -241,7 +290,7 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
         knownAs: f.knownAs.trim() || null,
         level: Number(f.level),
         certificates: certificatesOf(f.certs),
-        company: showCompany && company ? { name: f.companyName.trim(), vatNumber: f.vatNumber.trim() || null, croNumber: f.croNumber.trim() || null } : null,
+        ...(readsTrade ? { company: showCompany ? trade : null } : {}),
       })
     ).then((taken) => {
       if (!taken) return
@@ -250,13 +299,32 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
     })
   }
   return (
-    <form className="grid-form" onSubmit={submit} aria-label={initial ? `Edit ${initial.name}` : 'Add person'}>
-      <label>
-        First name <input value={f.firstName} onChange={set('firstName')} autoComplete="off" maxLength={100} required />
-      </label>
-      <label>
-        Last name <input value={f.lastName} onChange={set('lastName')} autoComplete="off" maxLength={100} />
-      </label>
+    <form className="grid-form" ref={form} onSubmit={submit} aria-label={initial ? `Edit ${initial.name}` : 'Add person'}>
+      <div className="pair">
+        <label>
+          First name <input value={f.firstName} onChange={set('firstName')} autoComplete="off" spellCheck={false} maxLength={100} required />
+        </label>
+        <label>
+          Last name <span className="optional">(optional)</span> <input value={f.lastName} onChange={set('lastName')} autoComplete="off" spellCheck={false} maxLength={100} />
+        </label>
+      </div>
+      {/* Said before a second one is made, not found later in Tidy up (audit, 5 November 2026, finding 94). */}
+      {!initial && (() => {
+        const typed = nameKey(fullName({ firstName: f.firstName.trim(), lastName: f.lastName.trim() }))
+        const already = f.lastName.trim() ? people.filter((p) => !p.archived && nameKey(p.name) === typed) : []
+        return already.length > 0 ? (
+          <p className="hint wide" role="status">
+            There's already {already.length === 1 ? 'a' : already.length} {already[0]!.name}:{' '}
+            {already.map((p, i) => (
+              <Fragment key={p.id}>
+                {i > 0 && ', '}
+                <a href={personHref(p.id)}>{p.email ?? p.phone ?? 'their page'}</a>
+              </Fragment>
+            ))}
+            . Add another only if it's someone else.
+          </p>
+        ) : null
+      })()}
       <label>
         Mobile <input type="tel" value={f.phone} onChange={set('phone')} placeholder="+353 87…" />
       </label>
@@ -292,7 +360,9 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
       />
       {seesRates && (
         <label>
-          Usual day rate € <input inputMode="decimal" value={f.rate} onChange={set('rate')} />
+          Own day rate <UnitBox unit="€" before><input aria-label="Own day rate €" inputMode="decimal" value={f.rate} onChange={set('rate')} /></UnitBox>
+          {/* A rate agreed with them (ADR 0167): what offers pay where it's above the call's, never below it. Office and directors only. */}
+          <small className="hint">Only for a freelancer who has agreed a rate with us. Offers pay it where it's above the call's rate. The client is still charged the quote's price.</small>
         </label>
       )}
       <label>
@@ -303,6 +373,50 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
         </select>
       </label>
       {whoFixed && <p className="hint wide">{whoSignsInRefusal(initial!.name, whoFixed)}</p>}
+      {showCompany && readsTrade && (
+        <>
+          <fieldset className="wide trades-as">
+            <legend>
+              Works for us as <span className="optional">(optional)</span>
+            </legend>
+            {TRADES_AS.map((t) => (
+              <label className="tick" key={t}>
+                <input type="radio" name={`${listId}-trades`} value={t} checked={f.tradesAs === t} onChange={() => setF((was) => ({ ...was, tradesAs: t }))} /> {TRADES_AS_LABELS[t]}
+              </label>
+            ))}
+          </fieldset>
+          {f.tradesAs === 'sole-trader' && (
+            <>
+              <fieldset className="wide trades-as">
+                <legend>VAT registered?</legend>
+                {(['yes', 'no'] as const).map((v) => (
+                  <label className="tick" key={v}>
+                    <input type="radio" name={`${listId}-vat`} value={v} checked={f.vatRegistered === v} onChange={() => setF((was) => ({ ...was, vatRegistered: v }))} /> {v === 'yes' ? 'Yes' : 'No'}
+                  </label>
+                ))}
+              </fieldset>
+              {f.vatRegistered === 'yes' && (
+                <label className="wide">
+                  VAT number <input value={f.vatNumber} onChange={set('vatNumber')} placeholder="IE1234567T" maxLength={40} autoComplete="off" spellCheck={false} />
+                </label>
+              )}
+            </>
+          )}
+          {f.tradesAs === 'company' && (
+            <>
+              <label className="wide">
+                Company name <input value={f.companyName} onChange={set('companyName')} placeholder="As registered, e.g. Quinn Audio Ltd" maxLength={200} />
+              </label>
+              <label>
+                CRO number <input value={f.croNumber} onChange={set('croNumber')} inputMode="numeric" maxLength={40} autoComplete="off" />
+              </label>
+              <label>
+                VAT number <input value={f.vatNumber} onChange={set('vatNumber')} placeholder="If registered" maxLength={40} autoComplete="off" spellCheck={false} />
+              </label>
+            </>
+          )}
+        </>
+      )}
       {f.kind === 'staff' && mayApprove && (
         <label className="wide tick">
           <input type="checkbox" checked={f.approvesLeave} onChange={(e) => setF({ ...f, approvesLeave: e.target.checked })} />
@@ -317,7 +431,7 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
       </label>
       <p className="hint wide">They can read these in their own data download.</p>
       <details className="wide more" open={moreOpen}>
-        <summary>More: department, level, certificates{showCompany ? ', company' : ''}</summary>
+        <summary>More: department, level, certificates</summary>
         <div className="more-grid">
           <label>
             Department <input list={listId} value={f.department} onChange={set('department')} placeholder="Audio, LX…" maxLength={60} />
@@ -369,23 +483,12 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
               )}
             </div>
           ))}
-          {showCompany && (
-            <>
-              <label className="wide">
-                Company <input value={f.companyName} onChange={set('companyName')} placeholder="If they trade through a company" maxLength={200} />
-              </label>
-              <label>
-                VAT number <input value={f.vatNumber} onChange={set('vatNumber')} maxLength={40} />
-              </label>
-              <label>
-                CRO number <input value={f.croNumber} onChange={set('croNumber')} maxLength={40} />
-              </label>
-            </>
-          )}
         </div>
       </details>
       <Refusal error={error} className="wide" />
-      <button type="submit" className={initial ? 'primary' : 'wide'}>
+      {/* Red either way, as the page's one next thing: a change being saved, or a new person once Add person has opened the form,
+          as every list's add opens onto (UX sweep, 6 November 2026, move 1). */}
+      <button type="submit" className={initial ? 'primary' : 'primary wide'}>
         {submitLabel}
       </button>
       {initial && (
@@ -394,23 +497,5 @@ export function PersonForm({ initial, submitLabel, onSubmit, onDone }: { initial
         </button>
       )}
     </form>
-  )
-}
-
-/** A quiet line while anyone brought in from the calendars is still named from their address (audit of 16 October, finding 7). */
-export function NamedFromAddress({ view }: { view: View }) {
-  const mayCrew = useAccess().can('crew')
-  const n = view.crew.people.filter(namedFromAddress).length
-  // And anyone who looks brought in twice, under two addresses (ADR 0055).
-  const twice = useSamePeople(view).length
-  if (!mayCrew || (n === 0 && twice === 0)) return null
-  const said = [
-    twice > 0 && `${twice === 1 ? '1 person looks' : `${twice.toLocaleString('en-IE')} people look`} brought in twice`,
-    n > 0 && `${n === 1 ? '1 person is' : `${n.toLocaleString('en-IE')} people are`} still named from their email address`,
-  ].filter(Boolean)
-  return (
-    <p className="hint">
-      {said.join(', and ')}. <a href="#jobs/tidy">{twice > 0 ? 'Tidy them up' : 'Give them their names'}</a>
-    </p>
   )
 }

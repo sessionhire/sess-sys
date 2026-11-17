@@ -1,6 +1,6 @@
 # ADR 0072: Picking on the phone
 
-- **Status:** accepted
+- **Status:** accepted; amended by [ADR 0110](0110-getting-the-data-right.md) (Undo is its own record that counts neither way; damaged but fit to go is said on a scan)
 - **Date:** 22 October 2026
 - **Asked for by:** Colly, 22 October 2026 ("after the gig is booked and
   gear sorted, consider the workflow for a member of warehouse staff or

@@ -1,4 +1,4 @@
-import { addDays, irishToday, newId, type CommandInput, type CommandName, type HistoryPage, type Mutation, type MutationResult, type Quote, type QuoteLine } from '@sh/shared'
+import { addDays, dayLabel, draftBase, irishToday, newId, type CommandInput, type CommandName, type HistoryPage, type Mutation, type MutationResult, type Quote, type QuoteLine } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.ts'
@@ -77,6 +77,27 @@ describe('a quote', () => {
     expect((await quote('v1')).lines[0]).toMatchObject({ qty: 10 })
   })
 
+  it('keeps what two people changed on one draft, each from what they had open (ADR 0113)', async () => {
+    const { app, quote } = await gala()
+    const a = line({ id: 'a' })
+    const b = line({ id: 'b', what: 'Shure SM58', qty: 4 })
+    await ok(app, save('v1', [a, b]))
+    const opened = draftBase(await quote('v1'))
+    // Someone else changes the first line and the discount; this save, from what was open before, changes the second.
+    await ok(app, m('quote.save', { id: 'v1', projectId: 'gala', lines: [{ ...a, qty: 12 }, b], discountPct: 10, notes: '', base: opened }))
+    await ok(app, m('quote.save', { id: 'v1', projectId: 'gala', lines: [a, { ...b, qty: 6 }, line({ id: 'c', what: 'DI box' })], discountPct: 0, notes: '', base: opened }))
+    const q = await quote('v1')
+    expect(q.lines.map((l) => [l.id, l.qty])).toEqual([
+      ['a', 12],
+      ['b', 6],
+      ['c', 8],
+    ])
+    expect(q.discountPct).toBe(10)
+    // A save with no base, from an app older than it, is the draft as it says.
+    await ok(app, save('v1', [a]))
+    expect((await quote('v1')).lines).toHaveLength(1)
+  })
+
   it("takes the client's answer, the invoice and the payment in turn, and on the version that counts", async () => {
     const { app, quote } = await gala()
     await ok(app, save('v1'), m('quote.sent', { id: 'v1', on: day(-10) }), save('v2'), m('quote.sent', { id: 'v2', on: day(-8) }))
@@ -97,8 +118,17 @@ describe('a quote', () => {
 
     // The same change twice, as a phone may send it, changes nothing more.
     await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0) }), m('quote.answer', { id: 'v2', answer: 'declined', on: day(0) }))
+    expect(await quote('v2')).toMatchObject({ status: 'declined', declinedWhy: null, declinedNote: '' })
+
+    // Why it was turned down (research/quoting.md, feature 5): kept with the answer, said in the history, gone with it.
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0), why: 'elsewhere', note: ' Went with a cheaper PA ' }))
+    expect(await quote('v2')).toMatchObject({ status: 'declined', declinedWhy: 'elsewhere', declinedNote: 'Went with a cheaper PA' })
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'none', on: day(0) }))
+    expect(await quote('v2')).toMatchObject({ status: 'sent', declinedWhy: null, declinedNote: '' })
+    await ok(app, m('quote.answer', { id: 'v2', answer: 'declined', on: day(0), why: 'price' }))
     const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
     expect(history.entries.map((e) => e.what).join('\n')).not.toMatch(/€/)
+    expect(history.entries.map((e) => e.what)).toContain(`Recorded that the client turned down version 2 of the quote for Autumn Gala on ${dayLabel(day(0))}: went with someone else`)
   })
 
   it("won't go to the client with nothing on it, or onto another job", async () => {
@@ -146,6 +176,35 @@ describe('a quote number (ADR 0084)', () => {
     await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', address: '' }))
     expect(await client()).not.toHaveProperty('address')
   })
+
+  it('keeps when a client pays (ADR 0119), which a save from an older app leaves as it was', async () => {
+    const { app } = await gala()
+    const client = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string; id: string }) => c.entity === 'client' && c.id === 'bw').at(-1).data
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events', contacts: [], notes: '', paymentTerms: 30 }))
+    expect(await client()).toMatchObject({ paymentTerms: 30 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '' }))
+    expect(await client()).toMatchObject({ name: 'Brightwater Events Ltd', paymentTerms: 30 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 'before' }))
+    expect(await client()).toMatchObject({ paymentTerms: 'before' })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 0 }))
+    expect(await client()).toMatchObject({ paymentTerms: 0 })
+    await ok(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: null }))
+    expect(await client()).not.toHaveProperty('paymentTerms')
+    const [r] = await send(app, m('client.upsert', { id: 'bw', name: 'Brightwater Events Ltd', contacts: [], notes: '', paymentTerms: 400 }))
+    expect(r).toMatchObject({ status: 'rejected' })
+  })
+
+  it("keeps who to ask for at a venue (ADR 0119), which a save from an older app leaves as it was", async () => {
+    const { app } = await gala()
+    const venue = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string; id: string }) => c.entity === 'venue' && c.id === 'hall').at(-1).data
+    const grainne = { name: 'Gráinne Nolan', role: 'Venue technical manager', email: null, phone: '+353 87 123 4567' }
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Hall', address: '', notes: '', contact: grainne }))
+    expect(await venue()).toMatchObject({ contact: grainne })
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Great Hall', address: '', notes: '' }))
+    expect(await venue()).toMatchObject({ name: 'The Great Hall', contact: grainne })
+    await ok(app, m('venue.upsert', { id: 'hall', name: 'The Great Hall', address: '', notes: '', contact: null }))
+    expect(await venue()).not.toHaveProperty('contact')
+  })
 })
 
 describe('travel and subsistence (ADR 0086)', () => {
@@ -176,6 +235,39 @@ describe('travel and subsistence (ADR 0086)', () => {
     expect(await quote('v2')).toMatchObject({ version: 2, mealsProvided: true, travelKm: 210 })
     await ok(app, m('quote.save', { id: 'v2', projectId: 'gala', lines: [line()], discountPct: 0, notes: '', mealsProvided: false, travelKm: null }))
     expect(await quote('v2')).toMatchObject({ mealsProvided: false, travelKm: null })
+  })
+
+  it("keeps whether the job puts the crew up on a quote and its next version, and the room price in the settings (ADR 0156)", async () => {
+    const { app, quote } = await gala()
+    const settings = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string }) => c.entity === 'quoteSettings').at(-1)?.data
+    await ok(app, m('quote.save', { id: 'v1', projectId: 'gala', lines: [line()], discountPct: 0, notes: '', accommodationProvided: true }))
+    expect(await quote('v1')).toMatchObject({ accommodationProvided: true })
+    await ok(app, save('v1', [line({ qty: 4 })]))
+    expect(await quote('v1')).toMatchObject({ accommodationProvided: true })
+    await ok(app, m('quote.sent', { id: 'v1', on: today }), save('v2'))
+    expect(await quote('v2')).toMatchObject({ version: 2, accommodationProvided: true })
+    await ok(app, m('quote.save', { id: 'v2', projectId: 'gala', lines: [line()], discountPct: 0, notes: '', accommodationProvided: false }))
+    expect((await quote('v2'))?.accommodationProvided).toBeUndefined()
+    await ok(app, m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, stayFromKm: 200, roomCents: 9500 }))
+    expect(await settings()).toMatchObject({ stayFromKm: 200, roomCents: 9500 })
+    // An older app's save, and the fuel switch, leave them as they were.
+    await ok(app, m('quoting.travel', { travelFromKm: 60, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, fuelAuto: false }))
+    expect(await settings()).toMatchObject({ travelFromKm: 60, stayFromKm: 200, roomCents: 9500 })
+    await ok(app, m('quoting.travel', { travelFromKm: 60, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today, stayFromKm: 200, roomCents: null }))
+    expect((await settings())?.roomCents).toBeUndefined()
+  })
+
+  it('keeps the share travel and warehouse days are paid at beside the rest of the settings (ADR 0174)', async () => {
+    const { app } = await gala()
+    const settings = async () => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes.filter((c: { entity: string }) => c.entity === 'quoteSettings').at(-1)?.data
+    await ok(app, m('quoting.update', { nextNumber: 1115, terms: 'Terms', bank: 'Bank' }))
+    expect(await settings()).not.toHaveProperty('reducedDayPct')
+    await ok(app, m('quoting.reducedDays', { pct: 60 }))
+    expect(await settings()).toMatchObject({ nextNumber: 1115, reducedDayPct: 60 })
+    // Saving the other settings leaves it as it was.
+    await ok(app, m('quoting.travel', { travelFromKm: 50, fuelCentsPerLitre: 174.9, litresPer100Km: 10, perDiemCents: 3908, on: today }), m('quoting.update', { nextNumber: null, terms: '', bank: '' }))
+    expect(await settings()).toMatchObject({ reducedDayPct: 60, travelFromKm: 50 })
+    expect(await refused(app, m('quoting.reducedDays', { pct: 5 }))).toMatch(/percentage/)
   })
 })
 
@@ -280,5 +372,100 @@ describe("a freelancer's cost", () => {
     await ok(app, m('cost.paid', { id: 'dara-sound', on: day(0) }))
     expect(await refused(app, m('timesheet.reopen', { id: 'dara-sound' }))).toBe('This timesheet is marked paid, so it stays as approved. Take the payment back on Money first.')
     await ok(app, m('cost.paid', { id: 'dara-sound', on: null }), m('timesheet.reopen', { id: 'dara-sound' }))
+  })
+})
+
+describe('deleting a quote (ADR 0135)', () => {
+  const putBack = async (app: FastifyInstance, id: string) => {
+    const res = await app.inject({ method: 'POST', url: `/api/quotes/${id}/restore` })
+    return res.statusCode === 200 ? 'done' : (res.json().error as string)
+  }
+  const pulled = async (app: FastifyInstance) => (await app.inject({ url: '/api/sync/pull?after=0' })).json().changes as { entity: string; id: string; op: string }[]
+  const lastOp = async (app: FastifyInstance, entity: string, id: string) => (await pulled(app)).filter((c) => c.entity === entity && c.id === id).at(-1)?.op
+
+  it('takes a version off every device once its number is typed, keeps it on the server, and puts it back as it was', async () => {
+    const { app, db, quote } = await gala()
+    await ok(app, save('v1'), m('quote.sent', { id: 'v1', on: day(-5) }), m('quote.answer', { id: 'v1', answer: 'accepted', on: day(-4) }))
+    const n = (await quote('v1')).number!
+    expect(n).toBeGreaterThan(0)
+
+    // Anything but its number is turned down, on the server too, so a slip never deletes one.
+    expect(await refused(app, m('quote.delete', { id: 'v1', typed: 'delete' }))).toBe(`Type ${n} to delete version 1 of this quote.`)
+    expect(await refused(app, m('quote.delete', { id: 'v1', typed: String(n + 1) }))).toBe(`Type ${n} to delete version 1 of this quote.`)
+    await ok(app, m('quote.delete', { id: 'v1', typed: ` ${n} ` }))
+    expect(await lastOp(app, 'quote', 'v1')).toBe('delete')
+    expect((await db.query<{ deleted: boolean }>('SELECT deleted_at IS NOT NULL AS deleted FROM quotes WHERE id = $1', ['v1'])).rows[0]).toEqual({ deleted: true })
+    // Sending it twice, as a phone may, changes nothing; anything else done to it finds it gone.
+    await ok(app, m('quote.delete', { id: 'v1', typed: String(n) }))
+    expect(await refused(app, m('quote.invoiced', { id: 'v1', on: day(0), ref: 'INV-1' }))).toBe('That quote is no longer here.')
+
+    // The history says who deleted which, and it comes back as it was, answer and number with it.
+    const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
+    expect(history.entries.find((e) => e.command === 'quote.delete')?.what).toBe(`Deleted version 1 of the quote for Autumn Gala, quote ${n}`)
+    expect(await putBack(app, 'v1')).toBe('done')
+    expect(await quote('v1')).toMatchObject({ id: 'v1', status: 'accepted', number: n, version: 1 })
+    expect((await app.inject({ url: '/api/history' })).json().entries[0].what).toBe('Put back version 1 of the quote for Autumn Gala, deleted before')
+  })
+
+  it('asks for the word "delete" on a version never sent, and lets the job start a new draft after it', async () => {
+    const { app, quote } = await gala()
+    await ok(app, save('v1'))
+    expect(await refused(app, m('quote.delete', { id: 'v1', typed: '' }))).toBe('Type delete to delete version 1 of this quote.')
+    await ok(app, m('quote.delete', { id: 'v1', typed: 'Delete' }))
+    // A phone that still had the draft open can't save it back.
+    expect(await refused(app, save('v1'))).toBe('This quote has been deleted. An admin can put it back from the history.')
+
+    // The next is numbered after the deleted one, so putting that back never finds its version taken.
+    await ok(app, save('v2'))
+    expect(await quote('v2')).toMatchObject({ version: 2, status: 'draft' })
+    // Two drafts can't be the job's at once.
+    expect(await putBack(app, 'v1')).toBe("Version 2 is the job's draft now, and a job has one at a time. Delete it or mark it sent first.")
+    await ok(app, m('quote.sent', { id: 'v2', on: day(0) }))
+    expect(await putBack(app, 'v1')).toBe('done')
+    expect(await quote('v1')).toMatchObject({ version: 1, status: 'draft' })
+  })
+
+  it("keeps the job's quote number, and never gives a deleted one's number to another job", async () => {
+    const { app, quote } = await gala()
+    await ok(app, save('v1'), m('quote.sent', { id: 'v1', on: day(-2) }))
+    const n = (await quote('v1')).number!
+    await ok(app, m('quote.delete', { id: 'v1', typed: String(n) }), save('v2'), m('quote.sent', { id: 'v2', on: day(0) }))
+    expect(await quote('v2')).toMatchObject({ version: 2, number: n })
+
+    await ok(
+      app,
+      m('project.create', { id: 'other', name: 'Spring Ball', clientId: 'bw', venueId: null, status: 'enquiry', notes: '' }),
+      m('quote.save', { id: 'o1', projectId: 'other', lines: [line()], discountPct: 0, notes: '' }),
+      m('quote.sent', { id: 'o1', on: day(0) })
+    )
+    expect((await quote('o1')).number).toBe(n + 1)
+  })
+
+  it('lets the office drop an amendment never sent, and never a version that went or the only one (ADR 0173)', async () => {
+    const { app, quote } = await gala()
+    await ok(app, save('v1'))
+    // A job's only quote has nothing to go back to: that's an admin's delete.
+    expect(await refused(app, m('quote.drop', { id: 'v1' }))).toBe("Version 1 is the job's only quote, so there's nothing to go back to. An admin can delete it.")
+    await ok(app, m('quote.sent', { id: 'v1', on: day(-1) }), save('v2'))
+    expect(await refused(app, m('quote.drop', { id: 'v1' }))).toBe('Version 1 has gone to the client, so it stays.')
+    await ok(app, m('quote.drop', { id: 'v2' }))
+    expect(await lastOp(app, 'quote', 'v2')).toBe('delete')
+    // Sent twice, as a phone may: nothing more. Version 1 is the quote again, as the client has it.
+    await ok(app, m('quote.drop', { id: 'v2' }))
+    expect(await quote('v1')).toMatchObject({ status: 'sent', version: 1 })
+    const history: HistoryPage = (await app.inject({ url: '/api/history' })).json()
+    expect(history.entries.find((e) => e.command === 'quote.drop')?.what).toBe('Dropped the changes in version 2 of the quote for Autumn Gala, never sent')
+    // The next amendment is version 3, so putting version 2 back never finds its number taken.
+    await ok(app, save('v3'))
+    expect(await quote('v3')).toMatchObject({ version: 3, status: 'draft' })
+  })
+
+  it("stops the client's link to a deleted version", async () => {
+    const { app, quote } = await gala()
+    await ok(app, m('quoting.online', { on: true }), save('v1'), m('quote.sent', { id: 'v1', on: day(0) }))
+    const { acceptToken, number } = await quote('v1')
+    expect((await app.inject(`/q/${acceptToken}`)).statusCode).toBe(200)
+    await ok(app, m('quote.delete', { id: 'v1', typed: String(number) }))
+    expect((await app.inject(`/q/${acceptToken}`)).statusCode).toBe(404)
   })
 })

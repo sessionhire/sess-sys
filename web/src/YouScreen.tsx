@@ -1,10 +1,11 @@
-import { ROLE_LABELS, ROLE_LINES, readsEverything, roleOfPerson, type Reading } from '@sh/shared'
+import { APP_VERSION, ROLE_LABELS, ROLE_LINES, START_SCREENS, readsEverything, roleOfPerson, type Reading, type StaffUser } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from './act.tsx'
-import { signOut, useAuth } from './auth.ts'
+import { setStartScreen, signOut, useAuth } from './auth.ts'
 import { FeedCard } from './FeedCard.tsx'
 import { askToKeep, useKept } from './kept.ts'
 import { Top } from './jobs/common.tsx'
+import { forgetRecent } from './recent.ts'
 import { useAccess } from './role.ts'
 import { forgetCountDraft } from './stock/Counts.tsx'
 import { client, storage } from './sync.ts'
@@ -17,7 +18,7 @@ import { MENU } from './Up.tsx'
 /**
  * You (#me): what's this person's own rather than the company's. Their
  * role (ADR 0034), who this device is signed in as and signing out, their own bookings' calendar
- * feed, dark or light (ADR 0036), and the device's own sync state. Reached from the Menu; the
+ * feed, the screen the app opens on for them (ADR 0122), dark or light (ADR 0036), and the device's own sync state. Reached from the Menu; the
  * company's settings stay under Admin.
  */
 export function YouScreen() {
@@ -42,6 +43,7 @@ export function YouScreen() {
     }
     // A shared or handed-back phone shouldn't keep the company's data.
     forgetCountDraft()
+    forgetRecent()
     await storage.wipe()
     location.replace('/')
   }
@@ -89,6 +91,7 @@ export function YouScreen() {
             <Confirm
               question={`${still === 1 ? "1 change hasn't" : `${still} changes haven't`} synced yet. Signing out deletes ${still === 1 ? 'it' : 'them'} from this device.`}
               yes={`Sign out and delete ${still === 1 ? 'it' : 'them'}`}
+              loss
               no="Stay signed in"
               onYes={() => void out()}
               onNo={() => setAsking(false)}
@@ -109,13 +112,20 @@ export function YouScreen() {
 
       {auth.status === 'signed-in' && <FeedCard view={view} email={auth.user.email} />}
 
+      {auth.status === 'signed-in' && <StartCard user={auth.user} />}
+
       <ThemeCard />
 
       <section className="card">
         <h2>This device</h2>
         <KeptLine />
+        {/* The app's version, which a person can name, rather than a change number, which they can't (audit, 5 November 2026, finding 97). */}
         <p className="hint">
-          Device {client.clientId.slice(-6)} · change #{view.cursor} · {waiting === 0 ? 'nothing waiting to sync' : `${waiting} waiting to sync`}
+          Device {client.clientId.slice(-6)} · version {APP_VERSION} · {waiting === 0 ? 'nothing waiting to sync' : `${waiting} waiting to sync`}
+        </p>
+        {/* What a new version changed, for everyone, not only those with Admin (finding 80). */}
+        <p>
+          <a href="#admin/changes">What's changed</a>
         </p>
       </section>
     </div>
@@ -188,6 +198,7 @@ function RoleCard() {
           <Confirm
             question="Make yourself the director and switch roles on? Everyone else becomes staff crew until you give them a role on the Crew tab."
             yes="Make me the director"
+            loss
             no="Not now"
             onYes={() => {
               setAsking(false)
@@ -247,6 +258,46 @@ const THEMES: readonly { theme: Theme; name: string; line: string }[] = [
   { theme: 'light', name: 'Light', line: 'Easier to read in daylight and the office.' },
   { theme: 'auto', name: "Match this device's setting", line: 'Dark or light as the phone or computer is set.' },
 ]
+
+/**
+ * The screen the app opens on (ADR 0122): Home unless they choose another, kept with their account so every device they
+ * sign in on opens there. Saved as it's picked, as the theme is; Quotes only for those who see money, as the bar shows it.
+ */
+function StartCard({ user }: { user: StaffUser }) {
+  const money = useAccess().can('money')
+  const [problem, setProblem] = useState('')
+  const at = user.start ?? '#home'
+  const screens = START_SCREENS.filter((s) => !('money' in s) || money || s.hash === at)
+  const pick = async (hash: (typeof START_SCREENS)[number]['hash']) => {
+    setProblem('')
+    setProblem((await setStartScreen(hash)) ?? '')
+  }
+  return (
+    <section className="card">
+      <h2>Open the app on</h2>
+      <div className="choices" role="radiogroup" aria-label="Open the app on">
+        {screens.map((s) => (
+          <label key={s.hash} className="signal">
+            <input type="radio" name="start" value={s.hash} checked={at === s.hash} onChange={() => void pick(s.hash)} />
+            <span>
+              <b>{s.label}</b>
+              <small>{s.line}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+      {problem && (
+        <p className="alert" role="alert">
+          {problem}
+        </p>
+      )}
+      <p className="hint">
+        Kept with your account, so every phone and computer you sign in on opens here. A link to a job or a page still opens where it points, and
+        the logo top left always goes Home.
+      </p>
+    </section>
+  )
+}
 
 /** Dark or light for this device (ADR 0036): the same as the button top right, with following the device's own setting as well. */
 function ThemeCard() {

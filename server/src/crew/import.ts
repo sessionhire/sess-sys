@@ -92,6 +92,9 @@ function updated(r: CrewListRow, was: Person): CommandInput<'person.upsert'> {
   const trades =
     r.company || was.company
       ? {
+          // Sole trader or company, and the VAT answer, are the app's (ADR 0184): the file doesn't say them.
+          ...(was.company?.as ? { as: was.company.as } : {}),
+          ...(was.company?.vatRegistered != null ? { vatRegistered: was.company.vatRegistered } : {}),
           name: r.company?.name || was.company?.name || '',
           vatNumber: r.company?.vatNumber ?? was.company?.vatNumber ?? null,
           croNumber: r.company?.croNumber ?? was.company?.croNumber ?? null,
@@ -104,6 +107,8 @@ function updated(r: CrewListRow, was: Person): CommandInput<'person.upsert'> {
     // The office set the kind and the level; the file's flags don't override them.
     kind: was.kind,
     email: r.email ?? was.email,
+    // A new address from the file replaces the main one, and the old one still finds them (audit, 5 November 2026, finding 10).
+    ...(r.email && was.email && r.email.trim().toLowerCase() !== was.email.trim().toLowerCase() ? { keepEmail: true } : {}),
     phone: r.phone ?? was.phone,
     skills: skills.slice(0, 30),
     dayRateCents: was.dayRateCents,

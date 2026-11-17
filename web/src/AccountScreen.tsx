@@ -3,17 +3,31 @@ import { BackupsCard } from './BackupsCard.tsx'
 import { CalendarCard } from './CalendarCard.tsx'
 import { ChangesCard } from './ChangesScreen.tsx'
 import { CurrentRmsCard } from './CurrentRmsCard.tsx'
+import { RmsMembersCard } from './RmsMembersCard.tsx'
+import { RmsPricesCard } from './RmsPricesCard.tsx'
 import { DataCard } from './DataCard.tsx'
 import { ExportCard } from './ExportCard.tsx'
+import { LabelsCard } from './LabelsCard.tsx'
+import { WarehouseCard } from './WarehouseCard.tsx'
+import { CompanyCard } from './CompanyCard.tsx'
+import { LogoCard } from './LogoCard.tsx'
 import { ListsCard } from './ListsCard.tsx'
 import { Top } from './jobs/common.tsx'
 import { MessagesCard } from './MessagesCard.tsx'
+import { LinksCard } from './LinksCard.tsx'
 import { OfficeCard } from './OfficeCard.tsx'
 import { QuotingCard } from './QuotingCard.tsx'
 import { TimesheetsUseCard } from './TimesheetsUseCard.tsx'
 import { AssistantCard } from './AssistantCard.tsx'
+import { MailboxCard } from './MailboxCard.tsx'
+import { WhatsAppCard } from './WhatsAppCard.tsx'
+import { OnlineCard } from './OnlineCard.tsx'
 import { TravelCard } from './TravelCard.tsx'
+import { OwnKitCard } from './OwnKitCard.tsx'
+import { DeliveryCard } from './DeliveryCard.tsx'
+import { ReducedDaysCard } from './ReducedDaysCard.tsx'
 import { ReadingCard } from './ReadingCard.tsx'
+import { TrackersCard } from './stock/Trackers.tsx'
 import { StatusPanel } from './StatusPanel.tsx'
 import { useAccess } from './role.ts'
 import { TabPanel, Tabs, useTab } from './Tabs.tsx'
@@ -76,9 +90,18 @@ export function AccountScreen() {
             {part === 'company' && (
               <>
                 {settings && <OfficeCard office={view.office} />}
+                {settings && <CompanyCard office={view.office} />}
+                {settings && <LogoCard office={view.office} />}
+                {settings && <WarehouseCard trackers={view.trackers} />}
                 {settings && access.can('money') && <QuotingCard money={view.money} />}
                 {settings && access.can('money') && <TravelCard money={view.money} />}
+                {settings && access.can('money') && <DeliveryCard money={view.money} />}
+                {settings && access.can('money') && <ReducedDaysCard money={view.money} />}
+                {settings && access.can('money') && <OwnKitCard money={view.money} />}
+                {settings && <LabelsCard office={view.office} />}
                 {settings && <MessagesCard office={view.office} />}
+                {settings && <LinksCard office={view.office} />}
+                {settings && access.can('money') && <OnlineCard money={view.money} />}
                 {settings && <TimesheetsUseCard office={view.office} />}
                 {settings && access.can('money') && <AssistantCard office={view.office} />}
                 {company && !access.rolesOff && <ReadingCard office={view.office} />}
@@ -87,7 +110,12 @@ export function AccountScreen() {
             {part === 'connections' && (
               <>
                 <CalendarCard view={view} available={auth.status === 'signed-in'} />
+                {access.can('money') && <MailboxCard money={view.money} />}
+                {settings && <WhatsAppCard office={view.office} />}
                 {access.can('money') && <CurrentRmsCard />}
+                {access.can('money') && <RmsPricesCard view={view} canRead={settings} />}
+                {access.can('jobs') && <RmsMembersCard view={view} canRead={settings} />}
+                {settings && <TrackersCard view={view} />}
               </>
             )}
             {part === 'data' && (

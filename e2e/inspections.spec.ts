@@ -39,7 +39,7 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
   await expect(page.locator('.conn')).toHaveText('Up to date')
 
   // The product, with three items.
-  await page.getByRole('button', { name: 'Add product' }).click()
+  await page.getByRole('button', { name: 'New product' }).click()
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add product' }) })
   await form.getByLabel('Name').fill(speaker)
   await form.getByRole('button', { name: 'Add product' }).click()
@@ -70,6 +70,7 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
   // The first one's last PAT was on paper, over a year ago: overdue.
   await page.getByRole('tab', { name: /^Items/ }).click()
   await page.getByRole('link', { name: speakers[0] }).click()
+  await page.getByRole('tab', { name: 'Tests and certificates' }).click()
   const card = page.getByRole('region', { name: 'Inspections' })
   await expect(card.locator('.due')).toContainText('PAT not recorded yet')
   await card.getByRole('button', { name: 'Record a test' }).click()
@@ -100,12 +101,18 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
 
   // A batch tested by scanning; the last with no signal.
   await expect(page.getByRole('heading', { level: 2, name: 'Test a batch' })).toBeVisible()
-  await page.getByLabel('By', { exact: true }).fill('Volt Testing Ltd')
   const said = page.getByRole('status', { name: 'Last scan' })
   const typeIn = async (number: string) => {
     await page.getByLabel('Number or serial').fill(number)
     await page.getByLabel('Number or serial').press('Enter')
   }
+  // Nobody named, nothing recorded: the tester is asked for first (audit, 5 November 2026, finding 73).
+  const tester = page.getByRole('textbox', { name: "Who's testing" })
+  await tester.fill('')
+  await typeIn(speakers[0]!)
+  await expect(said).toHaveText(`${speakers[0]} ${speaker} wasn't recorded: type who's testing first, then scan it again.`)
+  await expect(tester).toBeFocused()
+  await tester.fill('Volt Testing Ltd')
   // Each pass is held with Undo for five seconds, then recorded.
   const held = page.getByRole('status', { name: 'Held' })
   await typeIn(speakers[0]!)
@@ -131,9 +138,12 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
   await showAll()
   await expect(due.locator('li', { hasText: speakers[0]! })).toHaveCount(0)
   await expect(due.locator('li', { hasText: speakers[1]! })).toContainText('PAT failed on')
-  await expect(due).not.toContainText('Not recorded yet')
-  // Both that passed have no certificate kept yet (ADR 0094): listed, never stopped.
-  await expect(due).toContainText(`No certificate kept yet for the last test of 2 × ${speaker}`)
+  await expect(due).not.toContainText('Last test not recorded')
+  // Both that passed have no certificate kept yet (ADR 0094): listed, never stopped, folded with their count and opening to the
+  // product to open (audit, 5 November 2026, finding 36).
+  const noCert = due.locator('details', { hasText: 'No certificate for the last test (2)' })
+  await noCert.locator('summary').click()
+  await expect(noCert.getByRole('link', { name: `2 × ${speaker}` })).toBeVisible()
   await due.getByRole('link', { name: `${speakers[1]} ${speaker}` }).click()
   await expect(card.locator('.due')).toContainText('PAT failed on')
   await expect(card.locator('summary')).toHaveText('2 recorded')
@@ -146,17 +156,17 @@ test('PAT tests recorded one at a time and in a batch; failed and overdue kit ca
   // Scanning it out for a job warns.
   await page.goto('/#jobs')
   // New job waits behind its button at the top of the list on a phone (audit finding 22).
-  await page.getByRole('button', { name: 'New job', exact: true }).click()
-  const newJob = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add job' }) })
-  await newJob.getByLabel('Job').fill(job)
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const newJob = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await newJob.getByLabel('Name', { exact: true }).fill(job)
   await newJob.getByLabel('Status').selectOption({ label: 'Confirmed' })
   await newJob.getByLabel('Phase 1', { exact: true }).fill('Show')
   await newJob.getByLabel('Phase 1 from').fill(fromToday(2))
   await newJob.getByLabel('Phase 1 to').fill(fromToday(3))
-  await newJob.getByRole('button', { name: 'Add job' }).click()
+  await newJob.getByRole('button', { name: 'Add gig' }).click()
   await expect(page.getByRole('heading', { level: 1, name: job })).toBeVisible()
-  await page.getByRole('tab', { name: 'Kit and vans' }).click()
-  await page.getByRole('button', { name: 'Add kit' }).click()
+  await page.getByRole('tab', { name: 'Kit', exact: true }).click()
+  await page.getByRole('button', { name: 'Add kit', exact: true }).click()
   const kit = page.getByRole('form', { name: 'Add kit' })
   await kit.getByLabel('Product').fill(speaker)
   await kit.getByLabel('How many').fill('3')

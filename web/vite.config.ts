@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { color } from '../shared/src/ds/tokens.js'
+import { SERVER_PAGES } from './src/serverPages.ts'
 
 /**
  * Which code this is, for error reports (ADR 0005) and the show pack, in a file of its own beside the page (version.ts),
@@ -53,6 +54,8 @@ export default defineConfig({
         theme_color: '#ee3744',
         background_color: color.light.surface.ground,
         display: 'standalone',
+        // The app's own address, whatever page it was put on the home screen from: it opens on the screen the person chose under You (ADR 0122).
+        start_url: '/',
         // PNGs beside the SVG (audit finding 26), made by scripts/make-icons.mjs: a phone installs with a real icon. They fill
         // their square with the mark well inside the middle, so Android may also crop them to its own shape ("maskable")
         // rather than shrinking them onto a white tile.
@@ -71,10 +74,11 @@ export default defineConfig({
         // the rack in 3D (ADR 0076), which most phones never open: kept from the first time they're shown (lazyPart.tsx;
         // audit, 20 October 2026, finding 65). The QR code reader stays: scanning works with no signal from the first time
         // (ADR 0016), and the warehouse's iPhones need it.
-        globPatterns: ['**/*.{js,css,html}', 'version.json'],
+        // The fonts are kept too (fonts.ts), so the type is the same with no signal.
+        globPatterns: ['**/*.{js,css,html,woff2}', 'version.json'],
         globIgnores: ['**/errorsSdk-*.js', ...ON_FIRST_USE.map((name) => `**/${name}-*.{js,css}`)],
-        // Freelancer links and calendar feeds come from the server, never the app shell.
-        navigateFallbackDenylist: [/^\/api\//, /^\/f\//, /^\/cal\//],
+        // Freelancer links, a client's quote, calendar feeds and the like come from the server, never the app shell (ADR 0186).
+        navigateFallbackDenylist: SERVER_PAGES,
         // Once Reload lets the new version in, it takes the open page straight away, so the reload lands on it.
         clientsClaim: true,
         // The map's pictures (ADR 0057), kept as they're seen, so a venue's map opened before still shows with no signal.
@@ -103,6 +107,13 @@ export default defineConfig({
             urlPattern: ({ url, sameOrigin }) => sameOrigin && /^\/api\/people\/[^/]+\/photo$/.test(url.pathname),
             handler: 'CacheFirst',
             options: { cacheName: 'faces', expiration: { maxEntries: 400, maxAgeSeconds: 90 * 24 * 60 * 60 }, cacheableResponse: { statuses: [200] } },
+          },
+          // The small copies of jobs' photos (ADR 0182), kept as they're seen so a grid looked at shows with no signal. A photo's
+          // address never changes, so one kept is never out of date; the newest 600, for two months. The whole photo isn't kept.
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && /^\/api\/job-photos\/[^/]+\/thumb$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'job-photos', expiration: { maxEntries: 600, maxAgeSeconds: 60 * 24 * 60 * 60 }, cacheableResponse: { statuses: [200] } },
           },
         ],
       },

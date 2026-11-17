@@ -1,5 +1,15 @@
-import { invitesLabel, type CalendarCheck, type CalendarChoice, type CalendarInvites, type CalendarLink, type View } from '@sh/shared'
-import { useEffect, useState, type FormEvent } from 'react'
+import {
+  dayLabel,
+  invitesLabel,
+  TELL_TO_MAX,
+  type CalendarCheck,
+  type CalendarChoice,
+  type CalendarInvites,
+  type CalendarLink,
+  type TellMode,
+  type View,
+} from '@sh/shared'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm } from './act.tsx'
 import { when } from './format.ts'
 import { ask, post, serverUrl } from './server.ts'
@@ -10,14 +20,17 @@ import { useLate } from './useLate.ts'
 /**
  * Google Calendar (ADR 0008), as Admin shows it: connecting the
  * Google account that writes the jobs, choosing its calendar, how it is
- * going, crew invites (ADR 0009), and disconnecting. The connection reaches
+ * going, crew invites (ADR 0009) and what they tell crew (ADR 0153), and disconnecting. The connection reaches
  * every device through the sync like everything else, so all of them show
  * the same.
  */
 
 type Note = { ok: boolean; text: string }
-/** A question before something that reaches crew or Google: what will happen, what to do on yes, and whether it's about the crew invites, which are asked in their own group. */
-type Asking = { question: string; yes: string; no: string; go: () => void; invites?: true }
+/**
+ * A question before something that reaches crew or Google: what will happen, what to do on yes, whether it's about the
+ * crew invites or what they tell crew, which are asked in their own groups, and whether the yes is a loss.
+ */
+type Asking = { question: string; yes: string; no: string; go: () => void; invites?: true; tell?: true; loss?: true; more?: ReactNode }
 
 const OUTCOMES: Record<string, Note> = {
   connected: { ok: true, text: 'Connected to Google.' },
@@ -28,6 +41,7 @@ const OUTCOMES: Record<string, Note> = {
     text: "Google Calendar wasn't connected, because a permission was left unticked on Google's page. Connect again and allow both: seeing the list of calendars, and changing events.",
   },
   off: { ok: false, text: 'Google Calendar needs the Google key on the server first.' },
+  busy: { ok: false, text: 'Too many tries from here just now. Wait a minute and try again.' },
 }
 
 /**
@@ -70,15 +84,19 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       question={asking.question}
       yes={asking.yes}
       no={asking.no}
+      loss={asking.loss}
       onYes={() => {
         setAsking(undefined)
         asking.go()
       }}
       onNo={() => setAsking(undefined)}
-    />
+    >
+      {asking.more}
+    </Confirm>
   )
-  const question = asking?.invites ? undefined : asked
+  const question = asking?.invites || asking?.tell ? undefined : asked
   const invitesQuestion = asking?.invites ? asked : undefined
+  const tellQuestion = asking?.tell ? asked : undefined
 
   const run = async (what: () => Promise<Note | undefined>) => {
     setBusy(true)
@@ -105,6 +123,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       question: `Disconnect Google Calendar? The app takes its days${where} from today on, and hands back its access. Days before today stay.${told}`,
       yes: 'Disconnect it',
       no: 'Stay connected',
+      loss: true,
       go: () =>
         void run(async () => {
           await post<CalendarLink>('/api/calendar/disconnect')
@@ -136,6 +155,10 @@ export function CalendarCard({ view, available }: { view: View; available: boole
         <p>
           Put every day of every confirmed job on a Google calendar, from today on, kept up to date as jobs change. Connect the Google account
           that should write them, then choose its calendar.
+        </p>
+        {/* Bringing old jobs in needs the same connection, and reading is all it does (audit, 5 November 2026, finding 98). */}
+        <p className="hint">
+          Connecting is also how jobs are brought in from its calendars. Bringing in only reads: nothing goes on a calendar until you choose one here.
         </p>
         {link?.problem && <p className="alert">{link.problem}</p>}
         {noteLine}
@@ -183,7 +206,8 @@ export function CalendarCard({ view, available }: { view: View; available: boole
 
   if (link.state === 'choosing' || picking) {
     const use = (choice: CalendarChoice) => {
-      const told = invites ? ` Crew invited get an email saying the days on ${link.calendarName} are cancelled, and a new invite on ${choice.name}.` : ''
+      // Crew's own invites are on the connected account's calendar, so they stay as they are (ADR 0009).
+      const told = invites ? ' Crew keep their own invites, and nothing is sent to them.' : ''
       const go = () =>
         void run(async () => {
           await post<CalendarLink>('/api/calendar/use', { calendarId: choice.id })
@@ -232,8 +256,21 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       const missing = ahead.noEmail.length
         ? ` ${names(ahead.noEmail)} ${ahead.noEmail.length === 1 ? 'has' : 'have'} no email address in the app, so won't be invited.`
         : ''
+      // What their invites tell them stays as it was set while invites were off (ADR 0153).
+      const telling = link.tell === 'on' ? ' Their invites also tell them what happens next.' : ''
       setAsking({
-        question: `Turn on crew invites? ${now}, by email from ${link.account}, and more as crew are offered work.${missing}`,
+        question: `Turn on crew invites? ${now}, by email from ${link.account}, and more as crew are offered work.${missing}${telling}`,
+        // Who they'd reach, by name and address, with each day's event, so the office can check before anything is sent.
+        more: ahead.guests.length > 0 ? (
+          <ul className="invitees" aria-label="Who would be invited">
+            {ahead.guests.map((g) => (
+              <li key={g.email}>
+                <b>{g.name}</b> <span className="invitee-email">{g.email}</span>
+                <small>{g.days.map((d) => `${d.title} (${dayLabel(d.day, today)})`).join(', ')}</small>
+              </li>
+            ))}
+          </ul>
+        ) : undefined,
         yes: 'Turn them on',
         no: 'Not now',
         invites: true,
@@ -264,7 +301,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
     <section className={link.problem ? 'card attention' : 'card'} aria-label="Google Calendar">
       <h2>Google Calendar</h2>
       <p>
-        Confirmed jobs go on <b>{link.calendarName}</b>, written by {link.account}.
+        Confirmed jobs go on <b>{link.calendarName}</b>, written by {link.account}, and jobs not confirmed yet go on as HOLD, short for hold the day, once crew are added to them.
       </p>
       {link.problem && (
         <p className="alert" role="alert">
@@ -275,7 +312,7 @@ export function CalendarCard({ view, available }: { view: View; available: boole
       {question ?? (
         <div className="actions">
           <button type="button" onClick={() => void run(async () => ({ ok: true, text: checked(await post<CalendarCheck>('/api/calendar/check'), onIt) }))} disabled={busy}>
-            {late ? 'Checking…' : 'Check the calendar'}
+            {late ? 'Checking…' : 'Check calendar'}
           </button>
           <button type="button" onClick={() => setPicking(true)} disabled={busy}>
             Change calendar
@@ -297,13 +334,13 @@ export function CalendarCard({ view, available }: { view: View; available: boole
         <h3>Crew invites: {invites ? 'on' : 'off'}</h3>
         {invites ? (
           <p>
-            Crew offered or booked on a confirmed job are invited to its days by {link.account}. Their Yes or No in Google counts as their answer
-            within a couple of minutes.
+            Each person offered or booked gets their own invite to the job's days from {link.account}, asking if they're free, and marked HOLD while the job isn't confirmed.
+            Their Yes or No in Google counts as their answer within a couple of minutes.
           </p>
         ) : (
           <p>
-            When on, crew offered or booked on a confirmed job are invited to its days by {link.account}, and their Yes or No in Google counts as
-            their answer.
+            When on, each person offered or booked gets their own invite to the job's days from {link.account}, asking if they're free, and marked HOLD while the job isn't
+            confirmed. Their Yes or No in Google counts as their answer.
           </p>
         )}
         {invitesQuestion ??
@@ -314,7 +351,110 @@ export function CalendarCard({ view, available }: { view: View; available: boole
           ))}
         {!invites && <p className="hint">Try it on a test calendar first, with staff as the crew, to see what freelancers will get.</p>}
       </div>
+      {invites && <TellGroup link={link} busy={busy} question={tellQuestion} asking={!!asking} setAsking={setAsking} run={run} />}
     </section>
+  )
+}
+
+const TELL_CHOICES: { mode: TellMode; label: string; line: string }[] = [
+  { mode: 'off', label: 'Off', line: 'Invites ask if they’re free. After that, Google emails them only when the job’s name, its days or the place change, or a day comes off.' },
+  { mode: 'test', label: 'Only to the addresses below', line: 'For trying it out: everyone else’s invites stay as they are.' },
+  { mode: 'on', label: 'On', line: 'Everyone invited is told.' },
+]
+const TELL_STATE: Record<TellMode, string> = { off: 'off', test: 'being tried', on: 'on' }
+
+/**
+ * Whether crew's own invites tell them what happens next (ADR 0153; audit of 12 November 2026, findings 4 and 8): the
+ * title of a person's own day says where they stand and their call time, so being booked, or a call time that moves, is
+ * emailed to them by Google, and a day that comes off says why. Off to start, as every new way of reaching crew is;
+ * "Only to the addresses below" tries it on the office's own first, as WhatsApp's numbers do. On asks first, as it
+ * reaches every freelancer; nothing is sent by the switch itself.
+ */
+function TellGroup({
+  link,
+  busy,
+  question,
+  asking,
+  setAsking,
+  run,
+}: {
+  link: CalendarLink
+  busy: boolean
+  question: ReactNode
+  asking: boolean
+  setAsking: (a: Asking) => void
+  run: (what: () => Promise<Note | undefined>) => Promise<void>
+}) {
+  const mode = link.tell ?? 'off'
+  const saved = (link.tellTo ?? []).join('\n')
+  const [addresses, setAddresses] = useState(saved)
+  // What the server holds comes back as typed; another device's change shows here too.
+  useEffect(() => setAddresses(saved), [saved])
+  const listed = addresses
+    .split(/[\n,;]+/)
+    .map((e) => e.trim())
+    .filter(Boolean)
+  const save = (next: TellMode, done: string) =>
+    void run(async () => {
+      await post<CalendarLink>('/api/calendar/tell', { mode: next, to: listed })
+      return { ok: true, text: done }
+    })
+  const choose = (next: TellMode) => {
+    if (next === 'off') return save('off', 'Crew invites no longer tell crew what happens next.')
+    if (next === 'test') return save('test', `Telling crew what happens next is being tried on ${listed.length === 1 ? listed[0] : `${listed.length} addresses`}.`)
+    setAsking({
+      question:
+        'Tell crew what happens next? From now on Google emails each person invited when they’re booked or their call time moves, and a day that comes off says why. Nothing is sent now: their invites’ titles change quietly.',
+      yes: 'Turn it on',
+      no: 'Not now',
+      tell: true,
+      go: () => save('on', 'Crew invites now tell crew what happens next.'),
+    })
+  }
+  return (
+    <div className="invites" role="group" aria-label="Tell crew what happens next">
+      <h3>Tell crew what happens next: {TELL_STATE[mode]}</h3>
+      <p>
+        Each person’s own invite says where they stand and their call time, such as “Booked: Harbour Lights Festival - Show 1/2, call 08:00”. So Google
+        emails them when they’re booked or their call time moves, and a day that comes off says why, such as “Filled by someone else”.
+      </p>
+      {question ?? (
+        <div className="choices" role="radiogroup" aria-label="Who is told">
+          {TELL_CHOICES.map((c) => (
+            <label key={c.mode} className="signal">
+              <input type="radio" name="calendar-tell" value={c.mode} checked={mode === c.mode} disabled={busy || asking} onChange={() => choose(c.mode)} />
+              <span>
+                <b>{c.label}</b>
+                <small>{c.line}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          save(mode, 'The addresses are saved.')
+        }}
+      >
+        <div className="field">
+          <label htmlFor="calendar-tell-to">Addresses to try it on</label>
+          <small className="hint" id="calendar-tell-to-hint">
+            Up to {TELL_TO_MAX}, one a line, each the email address of someone in Crew, such as your own. Their invites tell them what happens next while this
+            is on “Only to the addresses below”.
+          </small>
+          <textarea
+            id="calendar-tell-to"
+            aria-describedby="calendar-tell-to-hint"
+            rows={2}
+            value={addresses}
+            onChange={(e) => setAddresses(e.target.value)}
+            placeholder="name@sessionhire.com"
+          />
+        </div>
+        <button disabled={busy || addresses === saved}>Save the addresses</button>
+      </form>
+    </div>
   )
 }
 

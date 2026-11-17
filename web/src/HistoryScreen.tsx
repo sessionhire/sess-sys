@@ -1,11 +1,15 @@
 import { deviceWords, historyDays, historyTime, runLabel, waitLabel, type HistoryEntry, type HistoryPage, type HistoryRun } from '@sh/shared'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { markSignedOut, useAuth } from './auth.ts'
+import { Refusal, useAct } from './act.tsx'
 import { Empty } from './Empty.tsx'
-import { Top } from './jobs/common.tsx'
+import { Icon } from './Icon.tsx'
+import { Top, useHash } from './jobs/common.tsx'
 import { useToday, useView } from './view.ts'
 import { useLate } from './useLate.ts'
 import { MENU } from './Up.tsx'
+import { useAccess } from './role.ts'
+import { post } from './server.ts'
 
 /**
  * The history (ADR 0006): who did what, when, on which device, whether it
@@ -21,8 +25,19 @@ const base = import.meta.env.VITE_API_BASE ?? ''
 type Person = { key: string; name: string }
 type Loaded = { state: 'loading' } | { state: 'offline' } | { state: 'ready'; entries: HistoryEntry[]; next?: string }
 
-async function fetchPage(who: string, before?: string): Promise<HistoryPage | undefined> {
-  const query = new URLSearchParams({ limit: '50', ...(who ? { who } : {}), ...(before ? { before } : {}) })
+/** One record's history (audit, 5 November 2026, finding 51): a job with its phases, calls, kit and quotes, or one person. */
+type Of = { job: string } | { person: string } | undefined
+
+/** The record the address names: #history/job/<id> or #history/person/<id>. */
+function ofHash(hash: string): Of {
+  const [, kind, id] = /^#history\/(job|person)\/(.+)$/.exec(hash) ?? []
+  if (!id) return undefined
+  return kind === 'job' ? { job: decodeURIComponent(id) } : { person: decodeURIComponent(id) }
+}
+
+async function fetchPage(who: string, of: Of, before?: string): Promise<HistoryPage | undefined> {
+  const record: Record<string, string> = !of ? {} : 'job' in of ? { job: of.job } : { entity: 'person', id: of.person }
+  const query = new URLSearchParams({ limit: '50', ...(who ? { who } : {}), ...record, ...(before ? { before } : {}) })
   const res = await fetch(`${base}/api/history?${query}`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
   if (res.status === 401) {
     markSignedOut()
@@ -36,6 +51,10 @@ export function HistoryScreen() {
   const view = useView()
   const today = useToday()
   const auth = useAuth()
+  const hash = useHash()
+  const of = useMemo(() => ofHash(hash), [hash])
+  const ofKey = of ? JSON.stringify(of) : ''
+  const ofName = !of ? undefined : 'job' in of ? view.jobs.jobs.find((j) => j.id === of.job)?.name : view.crew.people.find((p) => p.id === of.person)?.name
   const [who, setWho] = useState('')
   const [people, setPeople] = useState<Person[]>([])
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' })
@@ -52,7 +71,7 @@ export function HistoryScreen() {
     setOlder('idle')
     setOpen(new Set())
     try {
-      const page = await fetchPage(who)
+      const page = await fetchPage(who, of)
       if (!page || request !== latest.current) return
       if (page.people) setPeople(page.people)
       setLoaded({ state: 'ready', entries: page.entries, next: page.next })
@@ -60,14 +79,14 @@ export function HistoryScreen() {
       if (request === latest.current) setLoaded({ state: 'offline' })
     }
   }
-  useEffect(() => void refresh(), [who])
+  useEffect(() => void refresh(), [who, ofKey])
 
   const showOlder = async () => {
     if (loaded.state !== 'ready' || !loaded.next) return
     const request = ++latest.current
     setOlder('loading')
     try {
-      const page = await fetchPage(who, loaded.next)
+      const page = await fetchPage(who, of, loaded.next)
       if (!page || request !== latest.current) return
       setLoaded({ state: 'ready', entries: [...loaded.entries, ...page.entries], next: page.next })
       setOlder('idle')
@@ -93,9 +112,14 @@ export function HistoryScreen() {
   return (
     <div className="app history">
       {/* In the Menu (ADR 0035): a record for the directors and the office, used now and then. */}
-      <Top view={view} title="Menu" up={{ steps: [MENU], here: 'History' }} heading="History" />
+      <Top view={view} title="Menu" up={{ steps: [MENU], here: 'History' }} heading={of ? `History of ${ofName ?? (`job` in of ? 'this job' : 'this person')}` : 'History'} />
 
       <section className="card">
+        {of && (
+          <p className="hint">
+            {'job' in of ? 'Changes to the job and its phases, crew, kit, quotes and tasks.' : 'Changes to their details.'} <a href="#history">All changes</a>
+          </p>
+        )}
         <label className="field">
           Whose changes
           <select value={who} onChange={(e) => setWho(e.target.value)}>
@@ -197,9 +221,7 @@ function Run({ run: r, day, open, onToggle }: { run: HistoryRun; day: string; op
     <li className="entry run">
       <button type="button" className="run-line" aria-expanded={open} aria-controls={open ? list : undefined} onClick={onToggle}>
         <span className="what">
-          <span className="chevron" aria-hidden="true">
-            ▸
-          </span>
+          <span className="chevron" aria-hidden="true" />
           {runLabel(r)}
         </span>
         {meta.length > 0 && <span className="meta">{meta.join(' · ')}</span>}
@@ -217,7 +239,7 @@ function Run({ run: r, day, open, onToggle }: { run: HistoryRun; day: string; op
 
 /** One change. In a run the run's line says whose it is, and which device when there was only the one. */
 function Entry({ entry: e, day, inRun }: { entry: HistoryEntry; day: string; inRun?: { device: boolean } }) {
-  const how = e.who.kind === 'link' ? 'on their private link' : e.who.kind === 'calendar' ? 'on Google Calendar' : ''
+  const how = e.who.kind === 'link' ? 'on their private link' : e.who.kind === 'calendar' ? 'on Google Calendar' : e.who.kind === 'whatsapp' ? 'on WhatsApp' : e.who.kind === 'claude' ? 'from the operations mailbox' : ''
   // No name for "Someone": the top of the page says why there are none.
   const who = inRun || e.who.kind === 'unknown' ? how : [e.who.name, how].filter(Boolean).join(', ')
   const device = !inRun || inRun.device ? deviceWords(e) : ''
@@ -230,6 +252,38 @@ function Entry({ entry: e, day, inRun }: { entry: HistoryEntry; day: string; inR
         <p className="meta">Made offline; it reached the server {waitLabel(e.waitedSeconds)} later.</p>
       )}
       {e.outcome === 'turned-down' && <p className="alert">Turned down: {e.reason}</p>}
+      {(e.command === 'quote.delete' || e.command === 'quote.drop') && e.outcome === 'done' && <PutBack entry={e} />}
     </li>
+  )
+}
+
+/**
+ * A deleted quote is put back from the history (ADR 0135): the server kept it. An admin's, as deleting it was, and only
+ * while it isn't back on this device already.
+ */
+function PutBack({ entry }: { entry: HistoryEntry }) {
+  const view = useView()
+  const may = useAccess().can('company')
+  const { run, error } = useAct()
+  const [putting, setPutting] = useState(false)
+  const id = entry.records.find((r) => r.entity === 'quote')?.id
+  if (!may || !id || view.money.quote(id)) return null
+  return (
+    <div className="put-back">
+      <button
+        type="button"
+        disabled={putting}
+        aria-busy={putting}
+        onClick={() => {
+          setPutting(true)
+          // Needs signal: the server has the quote, and sends it back to every device.
+          void run(() => post(`/api/quotes/${encodeURIComponent(id)}/restore`)).finally(() => setPutting(false))
+        }}
+      >
+        <Icon name="undo" />
+        Put the quote back
+      </button>
+      <Refusal error={error} />
+    </div>
   )
 }

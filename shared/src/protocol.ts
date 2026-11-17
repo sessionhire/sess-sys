@@ -191,6 +191,32 @@ export interface StaffUser {
   email: string
   name: string
   picture?: string
+  /** The screen the app opens on for them (ADR 0122), when they chose one other than Home. */
+  start?: StartScreen
+}
+
+/**
+ * The screens a member of staff can have the app open on (ADR 0122), by their address: Home first, the default. Only the
+ * app's opening load goes there; a link to anywhere else still lands where it points.
+ */
+export const START_SCREENS = [
+  { hash: '#home', label: 'Home', line: 'The day at a glance, as it is now.' },
+  { hash: '#jobs', label: 'Jobs', line: 'The list of jobs, coming up first.' },
+  { hash: '#jobs/board', label: 'Board', line: 'Every job by the stage it is at.' },
+  { hash: '#jobs/plan', label: 'Planner', line: 'The week, job by job or person by person.' },
+  // Quotes to follow up, on Money, now Quotes isn't a page of its own (Colly, 12 November 2026): a quote is part of its job.
+  { hash: '#jobs/money/follow-up', label: 'Quotes to follow up', line: 'Quotes being written, sent and waiting.', money: true },
+  { hash: '#stock', label: 'Stock', line: 'The catalogue of kit.' },
+  { hash: '#crew', label: 'Crew', line: 'Calls, answers and the crew still needed.' },
+] as const
+
+export type StartScreen = (typeof START_SCREENS)[number]['hash']
+
+/** A screen the app can open on, or undefined for anything else (Home, the default, among them). */
+export function asStartScreen(v: unknown): StartScreen | undefined {
+  // Quotes was a start screen before it was folded into Jobs: whoever picked it opens on the quotes to follow up.
+  if (v === '#quotes') return '#jobs/money/follow-up'
+  return v !== '#home' && START_SCREENS.some((s) => s.hash === v) ? (v as StartScreen) : undefined
 }
 
 /**
@@ -260,8 +286,11 @@ export interface HistoryEntry {
   /** Why the server turned it down. */
   reason?: string
   who: {
-    /** A member of staff; a freelancer on their private link, or answering in Google Calendar (ADR 0009); or nobody known. */
-    kind: 'staff' | 'link' | 'calendar' | 'unknown'
+    /**
+     * A member of staff; a freelancer on their private link, or answering in Google Calendar (ADR 0009); Claude, from
+     * the operations mailbox (ADR 0098); or nobody known.
+     */
+    kind: 'staff' | 'link' | 'calendar' | 'whatsapp' | 'claude' | 'unknown'
     /** The person's name; "Someone" when sign-in was off. */
     name: string
     /** The filter value for this person, as in `HistoryPage.people`. */
@@ -296,9 +325,12 @@ export interface HistoryPage {
  * Why a change is news to someone (ADR 0058), most their own first: it's
  * about them (their details, bookings, leave, timesheets, documents, the
  * van they drive), an offer they sent, a job they're on (as crew, the
- * contact on the day or a driver), or a job they made in the app.
+ * contact on the day or a driver), or a job they made in the app; or, last,
+ * a hand-off that makes it their department's turn (UX sweep, 6 November
+ * 2026, move 12): a job confirmed, to the heads of its departments and the
+ * warehouse's, and a job's first kit out, to the office.
  */
-export const NOTICE_WHY = ['you', 'sent', 'on', 'made'] as const
+export const NOTICE_WHY = ['you', 'sent', 'on', 'made', 'turn'] as const
 /**
  * The tables a notification can be about: the server's notifications are changes to these (server/src/notices.ts). A pull
  * that lands a change in none of them can't have brought one, so a phone needn't ask (audit, 20 October 2026, finding 14).
@@ -318,13 +350,18 @@ export const NOTICE_ENTITIES: readonly EntityName[] = [
   'project',
   'phase',
   'crewCall',
+  // A job's first kit out, told to the office as "Gone out" (UX sweep, 6 November 2026, move 12).
+  'movement',
+  // What came back to a quote someone emailed: a bounce, a delay, the client's reply (ADR 0172).
+  'quoteEmail',
 ]
 export type NoticeWhy = (typeof NOTICE_WHY)[number]
 export const NOTICE_WHY_WORDS: Record<NoticeWhy, string> = {
   you: 'About you',
-  sent: 'An offer you sent',
+  sent: 'Something you sent',
   on: "A job you're on",
   made: 'A job you made',
+  turn: "Your department's turn",
 }
 
 /** A change someone else made to something of theirs: a history entry, with why it's theirs. */
@@ -332,6 +369,18 @@ export interface Notice extends HistoryEntry {
   why: NoticeWhy
   /** The record of theirs it changed: the one nearest them, when it changed several. */
   about: { entity: string; id: string }
+  /**
+   * What it means for them, said to them first in place of the history's
+   * words, which go under it: what someone else did to an offer of theirs
+   * (`offerNews`). "You're booked as Audio tech on …", "Your offer of … was
+   * withdrawn", "… went to Dara Kelly, so your offer is closed" (audit, 5
+   * November 2026, finding 61; audit of 12 November 2026, finding 17, when
+   * the history's "Confirmed Dara Kelly for …" was said about them, not to
+   * them).
+   */
+  said?: string
+  /** A line under the history's words saying what it means for them: a hand-off, "Confirmed: …" or "Gone out: …". */
+  forYou?: string
 }
 
 /** GET /api/notices: the last 30 days, newest first. */

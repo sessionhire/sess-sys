@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addSkills, firstPick, skillsInUse, suggestSkills } from '../src/skills.ts'
+import { addSkills, firstPick, rolesInUse, skillsInUse, suggestSkills } from '../src/skills.ts'
 
 describe('skills in use', () => {
   it('counts each once per person whatever its case, most used first, in the spelling most have', () => {
@@ -42,5 +42,31 @@ describe('adding skills', () => {
   it('stops at thirty', () => {
     const many = Array.from({ length: 30 }, (_, i) => `S${i}`)
     expect(addSkills(many, 'one more')).toHaveLength(30)
+  })
+})
+
+describe('roles in use', () => {
+  it('counts each role once whatever its case or spacing, most asked for first, in the spelling used most', () => {
+    const roles = rolesInUse({
+      calls: [{ role: 'LX op' }, { role: 'lx  op' }, { role: 'LX op' }, { role: 'Rigger' }],
+      people: [
+        { skills: ['Audio', 'rigger', 'Rigger'] },
+        { skills: ['Audio', 'LX Op'] },
+        { skills: ['Pyro'], archived: true },
+      ],
+      priced: ['Stage manager', 'RIGGER'],
+    })
+    expect(roles).toEqual([
+      { name: 'LX op', calls: 3, people: 1, priced: false },
+      { name: 'Rigger', calls: 1, people: 1, priced: true },
+      { name: 'Audio', calls: 0, people: 2, priced: false },
+      { name: 'Stage manager', calls: 0, people: 0, priced: true },
+    ])
+  })
+  it('takes the spelling with a capital when two are used alike', () => {
+    expect(rolesInUse({ people: [{ skills: ['lampie'] }, { skills: ['Lampie'] }] }).map((r) => r.name)).toEqual(['Lampie'])
+  })
+  it('leaves out blanks', () => {
+    expect(rolesInUse({ calls: [{ role: '  ' }], people: [{ skills: [''] }] })).toEqual([])
   })
 })

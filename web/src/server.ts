@@ -13,6 +13,9 @@ const base = import.meta.env.VITE_API_BASE ?? ''
 export const A_MINUTE = 60_000
 export const AS_LONG_AS_IT_TAKES = 10 * 60_000
 
+/** No answer came: no signal, or the wait ran out. What was asked may still have been done, so it's asked about, not done again. */
+export class NoAnswer extends Error {}
+
 /** The server's answer, or an error saying in words what went wrong. */
 export async function ask<T>(path: string, init?: RequestInit, waitMs = A_MINUTE): Promise<T> {
   let res: Response
@@ -20,8 +23,8 @@ export async function ask<T>(path: string, init?: RequestInit, waitMs = A_MINUTE
     res = await fetch(`${base}${path}`, { cache: 'no-store', signal: AbortSignal.timeout(waitMs), ...init })
   } catch (err) {
     // Giving up on a slow answer is not the same as no signal: the server may well finish what it was asked.
-    if ((err as Error).name === 'TimeoutError') throw new Error("The server hasn't answered yet. It may still be working on it: give it a minute, then look again.")
-    throw new Error("Couldn't reach the server. Try again when you have signal.")
+    if ((err as Error).name === 'TimeoutError') throw new NoAnswer("The server hasn't answered yet. It may still be working on it: give it a minute, then look again.")
+    throw new NoAnswer("Couldn't reach the server. Try again when you have signal.")
   }
   if (res.status === 401) {
     markSignedOut()

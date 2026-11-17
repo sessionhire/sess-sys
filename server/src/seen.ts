@@ -182,6 +182,7 @@ const CHECKED: Partial<Record<CommandName, Checked>> = {
       agreedCents: 'agreed price',
       mealsProvided: 'meals',
       travelKm: 'travel distance',
+      accommodationProvided: 'accommodation',
     },
     what: (d) => (typeof d?.version === 'number' ? `version ${d.version} of this quote` : 'this quote'),
   },
@@ -189,6 +190,12 @@ const CHECKED: Partial<Record<CommandName, Checked>> = {
     entity: 'setting',
     fields: { name: 'name', phone: 'phone number', email: 'email address', vatNumber: 'VAT number', address: 'address' },
     what: () => "the office's details",
+    idOf: () => OFFICE_SETTING_ID,
+  },
+  'company.details': {
+    entity: 'setting',
+    fields: { tradingName: 'trading name', legalName: 'registered name', croNumber: 'CRO number', registeredAddress: 'registered office', directors: 'directors', vatNumber: 'VAT number', address: 'address' },
+    what: () => "the company's details",
     idOf: () => OFFICE_SETTING_ID,
   },
   'quoting.update': {
@@ -205,7 +212,7 @@ const CHECKED: Partial<Record<CommandName, Checked>> = {
   },
   'vehicleBooking.update': {
     entity: 'vehicleBooking',
-    fields: { vehicleId: 'vehicle', phaseId: 'phase', start: 'first day', end: 'last day', driverId: 'driver', notes: 'note' },
+    fields: { vehicleId: 'vehicle', phaseId: 'phase', start: 'first day', end: 'last day', driverId: 'driver', notes: 'note', driveMinutes: 'drive', arriveBy: 'time at the venue', leaveAt: 'time it leaves the venue' },
     what: () => 'this booking',
   },
   'purchase.update': {
@@ -249,6 +256,8 @@ export async function notOverwriting<A extends Record<string, unknown>>(
   const checked = CHECKED[m.name as CommandName]
   const id = checked?.idOf ? checked.idOf(args) : args.id
   if (!checked || m.seen === undefined || typeof id !== 'string') return args
+  // A draft's save that says what it began from is merged with what changed since, line by line (ADR 0113), not turned down.
+  if (m.name === 'quote.save' && args.base !== undefined) return args
   const fields = Object.keys(checked.fields).filter((f) => args[f] !== undefined && (f !== 'dayRateCents' || opts.seesRates))
   if (!fields.length) return args
 

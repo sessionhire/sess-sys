@@ -1,8 +1,10 @@
-import { csvText, irishToday, type RmsLine, type RmsOutcome, type RmsOpportunity, type RmsOpportunityPage, type RmsOpportunityWithLines, type RmsStatus } from '@sh/shared'
+import { csvText, irishToday, rmsPricePlan, type PriceHere, type RmsMembersStatus, type RateRule, type RmsPricesStatus, type RmsLine, type RmsOutcome, type RmsOpportunity, type RmsOpportunityPage, type RmsOpportunityWithLines, type RmsStatus } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
 import { RmsRefused } from './api.ts'
 import { registerRmsHistoryRoutes } from './history.ts'
+import { memberPlan, type RmsMemberReader } from './members.ts'
+import type { RmsPriceReader } from './prices.ts'
 import type { RmsReader } from './reader.ts'
 
 /**
@@ -19,7 +21,8 @@ const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null)
 const numOrNull = (v: unknown) => (v == null ? null : Number(v))
 
 const OPPORTUNITY = `id, number, subject, client, venue, state, status, starts_at, ends_at, net_cents, gross_cents, rental_cents, sale_cents, service_cents,
-  surcharge_cents, tax_cents, undiscounted_cents, chargeable_days, discount_category, price_category, tags, created_at, updated_at`
+  surcharge_cents, tax_cents, undiscounted_cents, chargeable_days, discount_category, price_category, tags, created_at, updated_at,
+  show_starts_at, show_ends_at, rms_starts_at, rms_ends_at, EXISTS (SELECT 1 FROM rms_dates_fixed f WHERE f.opportunity_id = rms_opportunities.id) AS corrected`
 
 const toOpportunity = (r: Row): RmsOpportunity => ({
   id: r.id,
@@ -31,6 +34,9 @@ const toOpportunity = (r: Row): RmsOpportunity => ({
   status: r.status,
   startsAt: iso(r.starts_at),
   endsAt: iso(r.ends_at),
+  showStartsAt: iso(r.show_starts_at),
+  showEndsAt: iso(r.show_ends_at),
+  corrected: r.corrected ? { startsAt: iso(r.rms_starts_at), endsAt: iso(r.rms_ends_at) } : null,
   netCents: Number(r.net_cents),
   grossCents: Number(r.gross_cents),
   rentalCents: Number(r.rental_cents),
@@ -75,7 +81,7 @@ const toLine = (r: Row): RmsLine => ({
 })
 
 const euro = (cents: number) => (cents / 100).toFixed(2)
-const day = (at: string | null) => (at ? at.slice(0, 10) : '')
+const day = (at: string | null) => (at ? irishToday(new Date(at)) : '')
 
 // Whether each went ahead (ADR 0092), as rmsOutcome in shared/src/rms-history.ts says it, for asking by it.
 const STOPPED = `lower(status) IN ('lost', 'dead', 'cancelled')`
@@ -103,7 +109,37 @@ export async function findOpportunities(q: Queryable, search: string, page: numb
   return { opportunities: rows.map(toOpportunity), total: Number(count[0]?.n ?? 0), links: Object.fromEntries(linked.map((r) => [r.opportunity_id, r.project_id])) }
 }
 
-export function registerRmsRoutes(app: FastifyInstance, { db, reader }: { db: Db; reader: RmsReader }) {
+/** Hire prices from Current RMS (ADR 0132): how far a read has got, and what filling the price list in would do now. */
+export async function pricesStatus(q: Queryable, prices: RmsPriceReader): Promise<RmsPricesStatus> {
+  const kept = await prices.kept()
+  const last = await prices.last()
+  let plan: RmsPricesStatus['plan'] = null
+  if (kept.length) {
+    const { rows: models } = await q.query<{ id: string; name: string; aliases: string[]; list_id: string }>('SELECT id, name, aliases, list_id FROM models')
+    const { rows: had } = await q.query<{ model_id: string; day_cents: number; rate: RateRule | null; from_rms: boolean }>('SELECT model_id, day_cents, rate, from_rms FROM product_prices')
+    const here = new Map<string, PriceHere>(had.map((p) => [p.model_id, { dayCents: p.day_cents, ...(p.rate ? { rate: p.rate } : {}), fromRms: p.from_rms }]))
+    plan = rmsPricePlan(kept, models.map((m) => ({ id: m.id, name: m.name, aliases: m.aliases, listId: m.list_id })), (id) => here.get(id))
+  }
+  return { configured: prices.configured, running: prices.running, last, products: kept.length, plan }
+}
+
+/** Clients and venues from Current RMS (ADR 0136): how far a read has got, and what filling them in would do now. */
+export async function membersStatus(q: Queryable, members: RmsMemberReader): Promise<RmsMembersStatus> {
+  const { rows } = await q.query<{ kind: string; n: number }>('SELECT kind, count(*)::int AS n FROM rms_members GROUP BY kind')
+  const n = (k: string) => rows.find((r) => r.kind === k)?.n ?? 0
+  return {
+    configured: members.configured,
+    running: members.running,
+    last: await members.last(),
+    counts: { organisations: n('organisation'), venues: n('venue'), contacts: n('contact') },
+    plan: await memberPlan(q),
+  }
+}
+
+export function registerRmsRoutes(
+  app: FastifyInstance,
+  { db, reader, prices, members }: { db: Db; reader: RmsReader; prices: RmsPriceReader; members: RmsMemberReader }
+) {
   registerRmsHistoryRoutes(app, { db })
 
   app.get('/api/rms', { config: { needs: 'money' } }, async (_req, reply): Promise<RmsStatus> => {
@@ -131,6 +167,41 @@ export function registerRmsRoutes(app: FastifyInstance, { db, reader }: { db: Db
     return reply.send(await reader.status())
   })
 
+  // Hire prices (ADR 0132): seeing what filling in would do is money; reading Current RMS again is bringing a list in.
+  app.get('/api/rms/prices', { config: { needs: 'money' } }, async (_req, reply): Promise<RmsPricesStatus> => {
+    reply.header('cache-control', 'no-store')
+    return pricesStatus(db.reads, prices)
+  })
+
+  app.post('/api/rms/prices/read', { config: { needs: 'settings' } }, async (_req, reply) => {
+    if (!prices.configured) return reply.code(409).send({ error: 'Current RMS isn’t set up on the server yet.' })
+    if (!prices.start()) return reply.code(409).send({ error: 'The prices are already being read. It says how far it’s got below.' })
+    return reply.code(202).send(await pricesStatus(db.reads, prices))
+  })
+
+  app.post('/api/rms/prices/stop', { config: { needs: 'settings' } }, async (_req, reply) => {
+    prices.stop()
+    return reply.send(await pricesStatus(db.reads, prices))
+  })
+
+  // Clients and venues (ADR 0136): seeing what filling in would do is for those who keep jobs; reading Current RMS again is
+  // bringing a list in.
+  app.get('/api/rms/members', { config: { needs: 'jobs' } }, async (_req, reply): Promise<RmsMembersStatus> => {
+    reply.header('cache-control', 'no-store')
+    return membersStatus(db.reads, members)
+  })
+
+  app.post('/api/rms/members/read', { config: { needs: 'settings' } }, async (_req, reply) => {
+    if (!members.configured) return reply.code(409).send({ error: 'Current RMS isn’t set up on the server yet.' })
+    if (!members.start()) return reply.code(409).send({ error: 'The clients and venues are already being read. It says how far it’s got below.' })
+    return reply.code(202).send(await membersStatus(db.reads, members))
+  })
+
+  app.post('/api/rms/members/stop', { config: { needs: 'settings' } }, async (_req, reply) => {
+    members.stop()
+    return reply.send(await membersStatus(db.reads, members))
+  })
+
   app.get<{ Querystring: { q?: string; page?: string; went?: string } }>('/api/rms/opportunities', { config: { needs: 'money' } }, async (req, reply) => {
     reply.header('cache-control', 'no-store')
     const page = Math.max(1, Math.min(10_000, Number.parseInt(req.query.page ?? '1', 10) || 1))
@@ -146,7 +217,8 @@ export function registerRmsRoutes(app: FastifyInstance, { db, reader }: { db: Db
     if (!rows[0]) return reply.code(404).send({ error: 'There’s no such opportunity. It may not have been read from Current RMS yet.' })
     const { rows: lines } = await db.reads.query<Row>(`SELECT ${LINE} FROM rms_lines WHERE opportunity_id = $1 ORDER BY path COLLATE "C", id`, [id])
     const { rows: job } = await db.reads.query<Row>('SELECT p.id, p.name FROM rms_matches m JOIN projects p ON p.id = m.project_id WHERE m.opportunity_id = $1', [id])
-    return { opportunity: toOpportunity(rows[0]), lines: lines.map(toLine), job: job[0] ? { id: job[0].id, name: job[0].name } : null }
+    const { rows: aside } = await db.reads.query('SELECT 1 FROM rms_set_aside WHERE opportunity_id = $1', [id])
+    return { opportunity: toOpportunity(rows[0]), lines: lines.map(toLine), job: job[0] ? { id: job[0].id, name: job[0].name } : null, aside: aside.length > 0 }
   })
 
   /** What came in, as two spreadsheets: one row an opportunity, and one row a line. */
