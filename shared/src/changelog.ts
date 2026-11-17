@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.205.2',
+    date: '2026-11-17',
+    title: 'Crew and client pages look like the app',
+    what: "The pages crew and clients open from their link (offers, timesheets, purchases, reporting a fault, accepting a quote) are now in the app's typeface and spacing, and their plain buttons have an edge you can see in the dark. In the search, the grey second line of the highlighted row is easier to read, and a button that can't be pressed yet is drawn in grey rather than as a faded red.",
+    prs: [406],
+  },
+  {
     version: '1.205.1',
     date: '2026-11-15',
     title: 'Quote emails open again',

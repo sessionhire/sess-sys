@@ -869,7 +869,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Start from a past job (ADR 0115): the jobs like this one, each a press to start from. */
 .app .past-job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
 .app .past-job { display: grid; gap: var(--ds-space-half); width: 100%; min-height: 44px; text-align: left; padding: var(--ds-space-2) var(--ds-space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
-.app .past-job:hover { background: var(--ds-wash-hover); }
+.app .past-job:hover { background: var(--ds-wash-hover); --muted: var(--ds-ink-secondary); }
 .app .past-job small { color: var(--muted); font-size: var(--text-hint); }
 .app .past-job.chosen { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .app .claude-line .grid-form { margin: 0 0 var(--ds-space-2) calc(22px + var(--ds-space-3)); }
@@ -1028,7 +1028,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .app .job-row.in-table .c-where { display: grid; gap: var(--ds-space-half); justify-items: start; }
 .app .job-row.in-table .c-where .stage-line { margin: 0; font-size: var(--text-hint); }
 .app .job-row.in-table .muted { color: var(--muted); }
-.app .job-row.in-table:hover { background: var(--ds-wash-hover); }
+.app .job-row.in-table:hover { background: var(--ds-wash-hover); --muted: var(--ds-ink-secondary); /* tertiary steps up to secondary on a wash (design system 0.12.0) */ }
 .jobs-wide .jobs-card .week-head { top: calc(var(--under-top, 0px) + 40px); }
 @media (max-width: 1199px) {
   .jobs-wide { --job-columns: minmax(0, 2.4fr) minmax(0, 1.5fr) minmax(0, 1.5fr) 0 minmax(0, 1.8fr) minmax(0, 1.1fr) minmax(0, 0.9fr); }

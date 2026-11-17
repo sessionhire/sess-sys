@@ -71,8 +71,8 @@ export function renderBroken(d: BrokenPage): string {
 const BROKEN_CSS = `
 .back{font-weight:600}
 #report form{display:grid;gap:12px}
-fieldset{border:1px solid var(--line);border-radius:12px;padding:8px 14px;margin:0;display:grid;gap:4px}
+fieldset{border:1px solid var(--line);border-radius:12px;padding:8px 16px;margin:0;display:grid;gap:4px}
 legend{font-weight:600;padding:0 4px}
-.pick{display:flex;gap:10px;align-items:center;min-height:44px;font-weight:400}
+.pick{display:flex;gap:12px;align-items:center;min-height:44px;font-weight:400}
 .pick input{flex:none;width:20px;height:20px;accent-color:var(--accent)}
 `

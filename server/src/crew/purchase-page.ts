@@ -1,4 +1,4 @@
-import { LOGO_SVG, dayLabel, PURCHASE_DETAILS_LENGTH, PURCHASE_LINK_LENGTH, PURCHASE_OPEN, PURCHASE_SETTLED, PURCHASE_STATUS_LABELS, PURCHASE_TITLE_LENGTH, newId, type OfficeDetails } from '@sh/shared'
+import { LOGO_SVG, dayLabel, PURCHASE_DETAILS_LENGTH, PURCHASE_LINK_LENGTH, PURCHASE_OPEN, PURCHASE_SETTLED, PURCHASE_STATUS_LABELS, PURCHASE_TITLE_LENGTH, newId, type OfficeDetails, dsText } from '@sh/shared'
 import type { PurchaseOnLink } from '../purchases/store.ts'
 import { CSS, fieldError, flash, h, invalid, landing, officeBlock, REFUSED, titled } from './page.ts'
 
@@ -106,15 +106,15 @@ function row(d: PurchasePage, r: PurchaseOnLink): string {
 
 const BUY_CSS = `
 .back{font-weight:600}
-.ask{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 14px}.ask[open]{padding-bottom:14px}
-.ask summary{padding:10px 0;list-style-position:inside}.ask summary h2{display:inline;margin:0}
+.ask{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 16px}.ask[open]{padding-bottom:16px}
+.ask summary{padding:12px 0;list-style-position:inside}.ask summary h2{display:inline;margin:0}
 .buy{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .buy li{display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
 .buy li>div{flex:1;min-width:0;display:grid;gap:2px}
-.buy p{margin:0;font-size:.92rem;overflow-wrap:anywhere}.buy .meta{color:var(--muted)}.buy .notes{padding:8px 10px;background:var(--bg);border-radius:8px}
+.buy p{margin:0;font-size:${dsText.touch.body.size}px;overflow-wrap:anywhere}.buy .meta{color:var(--muted)}.buy .notes{padding:8px 12px;background:var(--bg);border-radius:8px}
 .vote button,.vote-count{display:grid;justify-items:center;min-width:3.5rem;min-height:48px;padding:4px 8px;line-height:1.15}
-.vote button b,.vote-count b{font-size:1.15rem;font-variant-numeric:tabular-nums}
-.vote button span,.vote-count span{font-size:.8rem;font-weight:600;color:var(--muted)}
+.vote button b,.vote-count b{font-size:${dsText.touch.title.size}px;font-variant-numeric:tabular-nums}
+.vote button span,.vote-count span{font-size:${dsText.touch.caption.size}px;font-weight:600;color:var(--muted)}
 .vote button[aria-pressed=true]{border-color:var(--accent);color:var(--accent-ink)}.vote button[aria-pressed=true] span{color:var(--accent-ink)}
 .vote-count{color:var(--muted)}
 .buy .tag{justify-self:start}

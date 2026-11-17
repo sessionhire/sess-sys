@@ -1,4 +1,4 @@
-import { LOGO_SVG, dayLabel, daysLabel, euro, irishToday, MAX_EXTRAS, timesheetChanges, timesheetTotal, type CrewCall, type Offer, type OfficeDetails, type Timesheet } from '@sh/shared'
+import { LOGO_SVG, dayLabel, daysLabel, euro, irishToday, MAX_EXTRAS, timesheetChanges, timesheetTotal, type CrewCall, type Offer, type OfficeDetails, type Timesheet, dsText } from '@sh/shared'
 import { CSS, fieldError, flash, invalid, landing, officeBlock, REFUSED, titled } from './page.ts'
 import { SHEET_CSS } from './sheet.ts'
 
@@ -142,6 +142,6 @@ function form(d: TimesheetPage, action: string): string {
 const TIMESHEET_CSS = `
 .timesheet .extra{display:grid;grid-template-columns:1fr 7.5em;gap:8px}
 .timesheet .extra+.extra label span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-fieldset.extras{border:0;padding:0;margin:0;display:grid;gap:8px}fieldset.extras legend{font-size:.85rem;color:var(--muted);margin-bottom:4px}
+fieldset.extras{border:0;padding:0;margin:0;display:grid;gap:8px}fieldset.extras legend{font-size:${dsText.touch.caption.size}px;color:var(--muted);margin-bottom:4px}
 .extras-list,.changes{margin:0;padding-left:1.1em;display:grid;gap:2px}.extras-list span{color:var(--muted);white-space:nowrap}
 `
