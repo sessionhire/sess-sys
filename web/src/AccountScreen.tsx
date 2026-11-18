@@ -24,6 +24,7 @@ import { WhatsAppCard } from './WhatsAppCard.tsx'
 import { OnlineCard } from './OnlineCard.tsx'
 import { TravelCard } from './TravelCard.tsx'
 import { OwnKitCard } from './OwnKitCard.tsx'
+import { MarginTargetCard } from './MarginTargetCard.tsx'
 import { DeliveryCard } from './DeliveryCard.tsx'
 import { ReducedDaysCard } from './ReducedDaysCard.tsx'
 import { ReadingCard } from './ReadingCard.tsx'
@@ -98,6 +99,7 @@ export function AccountScreen() {
                 {settings && access.can('money') && <DeliveryCard money={view.money} />}
                 {settings && access.can('money') && <ReducedDaysCard money={view.money} />}
                 {settings && access.can('money') && <OwnKitCard money={view.money} />}
+                {settings && access.can('money') && <MarginTargetCard money={view.money} />}
                 {settings && <LabelsCard office={view.office} />}
                 {settings && <MessagesCard office={view.office} />}
                 {settings && <LinksCard office={view.office} />}

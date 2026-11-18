@@ -83,6 +83,7 @@ const MODEL_COLUMNS = {
   notes: 'notes',
   patMonths: 'pat_months',
   liftingMonths: 'lifting_months',
+  marginPct: 'margin_pct',
   aliases: 'aliases',
   listId: 'list_id',
   isRack: 'is_rack',

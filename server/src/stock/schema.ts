@@ -378,6 +378,10 @@ const MIGRATIONS: string[] = [
     CHECK ((place_id IS NULL) <> (case_id IS NULL))
   );
   `,
+  // A product's own margin target (ADR 0188): what it should make a day it's charged, as a share of what one cost to buy.
+  `
+  ALTER TABLE models ADD COLUMN IF NOT EXISTS margin_pct numeric(4,1) CHECK (margin_pct BETWEEN 0.1 AND 100);
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

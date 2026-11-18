@@ -3,7 +3,7 @@ import type { Queryable } from '../db.ts'
 
 /** Reading warehouse rows back as the records devices see (ADR 0013). */
 
-const MODEL = `id, name, department, category, tracking, is_case, value_cents, notes, pat_months, lifting_months, mistake, aliases, list_id,
+const MODEL = `id, name, department, category, tracking, is_case, value_cents, notes, pat_months, lifting_months, margin_pct::float8 AS margin_pct, mistake, aliases, list_id,
   is_rack, code, units, depth_mm, weight_kg::float8 AS weight_kg, power_w, dry_hire, supplier, hire_day_cents,
   rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m::float8 AS length_m, photo_at`
 const PLACE = `id, name, notes`
@@ -27,6 +27,7 @@ export const toModel = (r: Row): Model => ({
   notes: r.notes,
   patMonths: r.pat_months,
   liftingMonths: r.lifting_months,
+  ...(r.margin_pct != null ? { marginPct: r.margin_pct } : {}),
   mistake: r.mistake,
   aliases: r.aliases ?? [],
   ...(r.list_id ? { listId: r.list_id } : {}),

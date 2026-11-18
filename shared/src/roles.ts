@@ -225,6 +225,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'quoting.email': 'money',
   'quoting.online': 'money',
   'quoting.ownKit': 'money',
+  'quoting.marginTarget': 'money',
   'quoting.delivery': 'money',
   'quoting.reducedDays': 'money',
   'price.product': 'money',

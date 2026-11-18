@@ -261,6 +261,8 @@ function describer(view: View): (m: Mutation) => string {
         return "Change what a dry hire's delivery costs"
       case 'quoting.ownKit':
         return "Change what own kit costs to run, for the margin"
+      case 'quoting.marginTarget':
+        return 'Change the margin target'
       case 'price.product':
         return a.dayCents === null ? `Take ${model(a.modelId)} off the price list` : `Price ${model(a.modelId)}`
       case 'price.rulesFromRms':

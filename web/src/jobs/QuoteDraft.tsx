@@ -47,6 +47,8 @@ import {
   kitFree,
   RATE_LABELS,
   ownKitUncosted,
+  marginMark,
+  marginTargetOf,
   quoteMargin,
   quoteWants,
   suggestionLine,
@@ -456,6 +458,12 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const ownPct = m.quoting.ownKitCostPct
   const costOf = (l: QuoteLine) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined, ownPct)
   const margin = quoteMargin(totals.net, all.map(costOf), ownKitUncosted(all, ownPct))
+  // How each kit line's margin stands against what its product should make (ADR 0188), on its discount box.
+  const markOf = (l: QuoteLine) => {
+    if (!boss || !l.modelId) return undefined
+    const model = view.warehouse.models.find((x) => x.id === l.modelId)
+    return marginMark(l, model?.valueCents, marginTargetOf(m.quoting.marginTargetPct, model?.marginPct), ownPct)
+  }
   const noCostLines = boss ? good.filter((l) => costOf(l) === undefined) : []
   // What to look at before a quote goes (research/quoting.md, feature 3), gathered at the moment it's sent or marked
   // sent, each opening where it's put right: what the client would see wrong, not the cost side, which isn't printed.
@@ -816,7 +824,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const cost = done ? costOf(done) : undefined
     return open !== l.id ? (
       <div key={l.id} className="quote-line-row">
-        <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} total={setTotal} included={included} heads={under.length > 0} set={(ch) => set(l.id, ch)} fault={c.fault} left={touched.has(l.id)} onLeave={() => touch(l.id)} />
+        <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} total={setTotal} included={included} heads={under.length > 0} margin={done && !included ? markOf(done) : undefined} set={(ch) => set(l.id, ch)} fault={c.fault} left={touched.has(l.id)} onLeave={() => touch(l.id)} />
         {kit}
       </div>
     ) : (

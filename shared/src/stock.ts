@@ -101,6 +101,15 @@ export function aliasesOf(typed: string, name = ''): string[] {
   return out
 }
 
+/** Said when the margin target isn't a percentage from 0.1 to 100 to one decimal place. */
+export const MARGIN_TARGET_HINT = 'A margin target is a percentage of what one cost to buy, from 0.1 to 100, such as 10 or 2.5.'
+/** A margin target (ADR 0188): a percentage from 0.1 to 100, to one decimal place. */
+export const marginTargetPct = z
+  .number(wrongType(MARGIN_TARGET_HINT))
+  .min(0.1, MARGIN_TARGET_HINT)
+  .max(100, MARGIN_TARGET_HINT)
+  .refine((n) => Math.abs(Math.round(n * 10) - n * 10) < 1e-9, MARGIN_TARGET_HINT)
+
 export const TRACKING = ['serialised', 'bulk'] as const
 export type Tracking = (typeof TRACKING)[number]
 
@@ -119,6 +128,11 @@ export const model = z.object({
   /** How often its items need an electrical test (PAT), and a thorough examination, in months; null for never (ADR 0020). */
   patMonths: months.default(null),
   liftingMonths: months.default(null),
+  /**
+   * What it should make a day it's charged (ADR 0188), as a percentage of what one cost to buy, when that's above the
+   * office's target for every product; null or left out to take the office's.
+   */
+  marginPct: marginTargetPct.nullable().optional(),
   /**
    * Other names it goes by (ADR 0070): what crew and the notes call it, such
    * as "58" or "Beta 58" for a Shure SM58. Found by the product picker and by
@@ -375,6 +389,7 @@ export const stockCommandSchemas = {
       notes: model.shape.notes.optional(),
       patMonths: months.optional(),
       liftingMonths: months.optional(),
+      marginPct: marginTargetPct.nullable().optional(),
       aliases: model.shape.aliases.removeDefault().optional(),
       listId: model.shape.listId,
       isRack: z.boolean().optional(),

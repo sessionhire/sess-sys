@@ -133,6 +133,7 @@ const CHECKED: Partial<Record<CommandName, Checked>> = {
       notes: 'notes',
       patMonths: 'months between PAT tests',
       liftingMonths: 'months between lifting checks',
+      marginPct: 'margin target',
       aliases: 'other names',
       listId: 'list',
       isRack: 'rack setting',

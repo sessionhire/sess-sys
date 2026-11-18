@@ -23,7 +23,7 @@ import { emailsOf, getClientDiscount, getCostPaid, getPackage, getProductPrice, 
  * Sending the same change twice, as a phone may, changes nothing.
  */
 
-type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quote.drop' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quoting.delivery' | 'quoting.reducedDays' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'price.fromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
+type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quote.drop' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quoting.marginTarget' | 'quoting.delivery' | 'quoting.reducedDays' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'price.fromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
@@ -197,6 +197,12 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
 
   async 'quoting.ownKit'(ctx, a) {
     await ctx.tx.query(`INSERT INTO quote_settings (id, own_kit_cost_pct) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET own_kit_cost_pct = EXCLUDED.own_kit_cost_pct`, [QUOTE_SETTINGS_ID, a.costPct])
+    await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
+  },
+
+  /** What every product should make a day it's charged, as a share of what one cost to buy (ADR 0188). */
+  async 'quoting.marginTarget'(ctx, a) {
+    await ctx.tx.query(`INSERT INTO quote_settings (id, margin_target_pct) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET margin_target_pct = EXCLUDED.margin_target_pct`, [QUOTE_SETTINGS_ID, a.pct])
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
   },
 

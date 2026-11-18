@@ -502,6 +502,11 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .unit-box.before .unit { padding-inline: var(--ds-space-3) 0; }
 .unit-box.before input { padding-inline-start: var(--ds-space-1); }
 .unit-box.needs { border-color: var(--warn); }
+/* A number that says how it stands (ADR 0188), such as a quote line's discount against its margin target: the box's edge
+   and a wash in the tone, green, amber or the bad tone, and its words in the title and the field's description. */
+.unit-box.tone-good { border-color: var(--good); background: var(--good-soft); }
+.unit-box.tone-short { border-color: var(--warn); background: var(--warn-soft); }
+.unit-box.tone-bad { border-color: var(--bad); background: var(--bad-soft); }
 .unit-box:has(input[aria-invalid='true']) { border-color: var(--bad); }
 .app .grid-form .unit-box { max-width: 10em; }
 /* At a desk the submit sits at the start of the form's column, as wide as its words, not across the whole grid. */

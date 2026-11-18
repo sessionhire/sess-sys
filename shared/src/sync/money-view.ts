@@ -365,6 +365,11 @@ export function moneyView(
         quoting = { ...quoting, ownKitCostPct: a.costPct, pending: true }
         break
       }
+      case 'quoting.marginTarget': {
+        const a = m.args as CommandArgs<'quoting.marginTarget'>
+        quoting = { ...quoting, marginTargetPct: a.pct, pending: true }
+        break
+      }
       case 'quoting.reducedDays': {
         const a = m.args as CommandArgs<'quoting.reducedDays'>
         quoting = { ...quoting, reducedDayPct: a.pct, pending: true }
