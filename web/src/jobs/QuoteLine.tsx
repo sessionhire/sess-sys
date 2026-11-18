@@ -12,6 +12,7 @@ import {
   STANDARD_VAT,
   VAT_LABELS,
   VAT_RATES,
+  type MarginMark,
   type QuoteLine,
   type VatRate,
   PACKAGE_INCLUDES_LENGTH,
@@ -274,6 +275,13 @@ export function CostFields({
  * A line, shut: what it is, its four everyday numbers to change in place (how many, days, price, discount), what it
  * comes to, and the pencil that opens it for everything else. Words-only lines have no numbers, so the whole row opens.
  */
+/** What a discount box's colour says (ADR 0188), for its tooltip and a screen reader. */
+const MARGIN_WORDS: Record<MarginMark, string> = {
+  good: 'Makes its margin target',
+  short: 'Between half and all of its margin target',
+  bad: 'Under half its margin target',
+}
+
 export function LineSummary({
   l,
   n,
@@ -287,6 +295,7 @@ export function LineSummary({
   fault,
   left,
   onLeave,
+  margin,
 }: {
   l: LineDraft
   n: number
@@ -304,6 +313,8 @@ export function LineSummary({
   /** Whether the line has been left, so a fault in one of its numbers may show (design system rule 18). */
   left: boolean
   onLeave: () => void
+  /** How its margin stands against its product's target (ADR 0188), shown on the discount box. */
+  margin?: MarginMark | undefined
 }) {
   const pid = useId()
   const unpriced = done !== undefined && done.unitCents === 0 && !included && !done.included && !done.words && !(heads && l.packageId)
@@ -372,8 +383,8 @@ export function LineSummary({
             <span className="quick-gap" />
           )}
           {priced ? (
-            <UnitBox unit="%">
-              <input inputMode="decimal" enterKeyHint="done" value={l.discount} onChange={(e) => set({ discount: e.target.value })} placeholder="0" aria-label={`Line ${n}: discount, %`} {...mark('discount')} />
+            <UnitBox unit="%" tone={margin} title={margin ? MARGIN_WORDS[margin] : undefined}>
+              <input inputMode="decimal" enterKeyHint="done" value={l.discount} onChange={(e) => set({ discount: e.target.value })} placeholder="0" aria-label={`Line ${n}: discount, %`} {...mark('discount')} {...(margin ? { 'aria-description': MARGIN_WORDS[margin] } : {})} />
             </UnitBox>
           ) : (
             <span className="quick-gap" />

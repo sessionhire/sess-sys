@@ -469,6 +469,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (a.valueCents !== undefined) parts.push(typeof a.valueCents === 'number' ? `value to ${valueLabel(a.valueCents)}` : 'no value')
       if (a.notes !== undefined) parts.push('the notes')
       if (a.patMonths !== undefined) parts.push(typeof a.patMonths === 'number' ? `a PAT every ${monthsText(a.patMonths)}` : 'no PAT')
+      if (a.marginPct !== undefined) parts.push(typeof a.marginPct === 'number' ? `margin target to ${a.marginPct}% of its value a day` : "the office's margin target")
       if (a.liftingMonths !== undefined)
         parts.push(typeof a.liftingMonths === 'number' ? `a thorough examination every ${monthsText(a.liftingMonths)}` : 'no thorough examination')
       if (Array.isArray(a.aliases))
@@ -814,6 +815,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
           : "Took off the price of a dry hire's delivery"
     case 'quoting.ownKit':
       return typeof a.costPct === 'number' ? `Set own kit's running cost at ${a.costPct}% of its price, for the margin` : "Took off own kit's running cost, so the margin leaves own kit out"
+    case 'quoting.marginTarget':
+      return typeof a.pct === 'number' ? `Set the margin target at ${a.pct}% of what a product cost to buy, a day` : 'Took off the margin target'
     case 'quoting.reducedDays':
       return `Set travel and warehouse days at ${typeof a.pct === 'number' ? a.pct : '?'}% of the day rate, paid and charged`
     case 'quoting.online':

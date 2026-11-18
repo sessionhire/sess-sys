@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.209.0',
+    date: '2026-11-18',
+    title: 'A quote line’s discount shows whether it still makes its margin',
+    what: 'Set a margin target in Admin › Company: what each product should make a day, as a share of what one cost to buy. On a quote, each kit line’s discount box turns green while the line makes it, orange when the discount leaves it between half and all of it, and red under half. A product can ask for more on its own page, under Change details.',
+    prs: [414],
+    adrs: [188],
+  },
+  {
     version: '1.208.3',
     date: '2026-11-18',
     title: 'A quote’s pencils line up with the department grips, and × comes first',

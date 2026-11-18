@@ -213,6 +213,10 @@ const MIGRATIONS: string[] = [
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_base_cents integer CHECK (delivery_base_cents >= 0);
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_base_km integer CHECK (delivery_base_km BETWEEN 0 AND 1000);
   `,
+  // What a product should make a day it's charged, as a share of what one cost to buy (ADR 0188).
+  `
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS margin_target_pct numeric(4,1) CHECK (margin_target_pct BETWEEN 0.1 AND 100);
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

@@ -376,6 +376,7 @@ const CASES: Case[] = [
   c('quoting.email', { on: true }),
   c('quoting.online', { on: true }),
   c('quoting.ownKit', { costPct: 15 }),
+  c('quoting.marginTarget', { pct: 2.5 }),
   c('quoting.delivery', { centsPerKm: 150 }),
   c('quoting.delivery', { baseCents: 6000, baseKm: 20, centsPerKm: 150 }, { as: 'a set amount for the first km' }),
   c('quoting.delivery', { baseCents: null, baseKm: null, centsPerKm: 150 }, { as: 'the set amount taken off', before: [m('quoting.delivery', { baseCents: 6000, baseKm: 20, centsPerKm: 150 })] }),

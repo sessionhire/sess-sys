@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { day } from './day.ts'
 import { euroCents, needed, text, wrongType } from './plain.ts'
-import { DEPARTMENTS, type Department } from './stock.ts'
+import { DEPARTMENTS, marginTargetPct, type Department } from './stock.ts'
 
 /**
  * Light finance (ADR 0042): a price list, quotes built from a job's kit and
@@ -329,6 +329,12 @@ export interface QuoteSettings {
    * percentage. Left out by a server from before it, or until set, and then it's half.
    */
   reducedDayPct?: number
+  /**
+   * What a product should make a day it's charged (ADR 0188), as a share of what one cost to buy: the default target for
+   * every product, which a product can raise on its own page. Null or left out until the office sets it, and then a
+   * quote line's discount isn't coloured.
+   */
+  marginTargetPct?: number | null
 }
 export const QUOTE_SETTINGS_ID = 'quoting'
 
@@ -601,6 +607,8 @@ export const quoteCommandSchemas = {
   }),
   /** What own kit costs us to run, as a share of its price (finding 19 of the quote flow audit); null for not set. */
   'quoting.ownKit': z.object({ costPct: z.number(wrongType(OWN_KIT_HINT)).int(OWN_KIT_HINT).min(0, OWN_KIT_HINT).max(90, OWN_KIT_HINT).nullable() }),
+  /** What every product should make a day it's charged, as a share of what one cost to buy (ADR 0188); null for not set. */
+  'quoting.marginTarget': z.object({ pct: marginTargetPct.nullable() }),
   /** The share of a day rate a travel or warehouse day is paid and charged at (ADR 0174), as a whole percentage. */
   'quoting.reducedDays': z.object({ pct: z.number(wrongType(REDUCED_HINT)).int(REDUCED_HINT).min(10, REDUCED_HINT).max(100, REDUCED_HINT) }),
   /** A product's day price; null takes it off the price list. */
@@ -663,6 +671,31 @@ export function lineCostOf(
   if (l.words) return 0
   // Travel, subsistence and accommodation go on to the crew as they're charged (ADR 0086, ADR 0156): fuel, their per diem, rooms.
   return l.extra ? lineCents(l) : undefined
+}
+
+/** How a line's margin stands against its target (ADR 0188): at or above it, from half of it up, or below half. */
+export type MarginMark = 'good' | 'short' | 'bad'
+
+/** The target a product's own page set, when it's above the office's for every product, or else the office's; null when neither is set. */
+export const marginTargetOf = (officePct: number | null | undefined, productPct: number | null | undefined): number | null =>
+  Math.max(officePct ?? 0, productPct ?? 0) || null
+
+/**
+ * How a kit line's margin stands against what the product should make (Colly, 18 November 2026; ADR 0188). The target
+ * is a share of what one cost to buy, for each one on the line and each day it's charged; the margin is what the line
+ * comes to after its discount, less what it costs. At or above the target is good, from half of it short, under half
+ * bad. Undefined for a line it doesn't fit: not our own kit, or no value or target to measure by.
+ */
+export function marginMark(
+  l: Pick<QuoteLine, 'kind' | 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'subhireQty' | 'costCents' | 'extra' | 'words' | 'included'>,
+  valueCents: number | null | undefined,
+  targetPct: number | null | undefined,
+  ownKitPct?: number | null
+): MarginMark | undefined {
+  if (l.kind !== 'kit' || l.words || l.included || l.subhireQty || !valueCents || !targetPct || l.qty <= 0) return undefined
+  const target = (valueCents * targetPct * l.qty * (l.per === 'once' ? 1 : l.days)) / 100
+  const made = lineCents(l) - (lineCostOf(l, undefined, ownKitPct) ?? 0)
+  return made >= target ? 'good' : made >= target / 2 ? 'short' : 'bad'
 }
 
 export interface QuoteMargin {

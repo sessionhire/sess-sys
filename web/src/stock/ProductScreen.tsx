@@ -5,6 +5,7 @@ import {
   euroText,
   INSPECTION_MONTHS,
   aliasesOf,
+  MARGIN_TARGET_HINT,
   MAX_MONTHS,
   MOST_ALIASES,
   MAX_QTY,
@@ -55,6 +56,7 @@ import { kitIcon } from './kitIcon.ts'
 import { ProductPhoto } from './ProductPhoto.tsx'
 import { CableLabels } from './CableLabels.tsx'
 import { STOCK } from '../Up.tsx'
+import { pctText, pctTyped } from '../MarginTargetCard.tsx'
 import { caseLabel, RackCard, sizeFrom, SizeFields, sizeLabel, sizeTypedOf, suppliersOf, weightPowerLabel, whoseFrom, WhoseFields, whoseTypedOf } from './Racks.tsx'
 
 /**
@@ -145,7 +147,9 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
   const [removing, setRemoving] = useState(false)
   const [mistaking, setMistaking] = useState(false)
   const { run, error, refuse } = useAct()
-  const mayChange = useAccess().can('stock')
+  const access = useAccess()
+  const mayChange = access.can('stock')
+  const money = access.can('money')
   const onKit = view.kit.lines.filter((l) => l.modelId === m.id)
   const unusable = view.faults.unusable(m.id)
   const racksUsing = view.racks.using(m.id)
@@ -252,6 +256,12 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
           <dt>{m.dryHire ? 'To buy one' : 'Value of one'}</dt>
           <dd>{m.valueCents === null ? 'Not given' : valueLabel(m.valueCents)}</dd>
         </div>
+        {money && !m.dryHire && (
+          <div>
+            <dt>Margin target</dt>
+            <dd>{marginTargetWords(m.marginPct, view.money.quoting.marginTargetPct)}</dd>
+          </div>
+        )}
         <div className="wide">
           <dt>In all</dt>
           <dd>
@@ -367,7 +377,16 @@ function monthsTyped(text: string): number | null {
   return Number.isInteger(n) && n >= 1 && n <= MAX_MONTHS ? n : NaN
 }
 
+/** A product's margin target in words (ADR 0188): its own, or the office's for every product, a day, of its value. */
+function marginTargetWords(own: number | null | undefined, office: number | null | undefined) {
+  if (own != null && own > (office ?? 0)) return `${own}% of its value a day`
+  return office == null ? 'Not set' : `${office}% of its value a day, the office's`
+}
+
 function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; view: View; onDone: () => void }) {
+  const money = useAccess().can('money')
+  const office = view.money.quoting.marginTargetPct ?? null
+  const [margin, setMargin] = useState(pctText(m.marginPct))
   const [f, setF] = useState({
     name: m.name,
     aliases: m.aliases.join(', '),
@@ -396,6 +415,10 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
     const value = parseEuro(f.value)
     if (value.reason !== undefined) return refuse(value.reason)
     const valueCents = value.cents
+    // Only ever above the office's target for every product (Colly, 18 November 2026; ADR 0188).
+    const marginPct = pctTyped(margin)
+    if (Number.isNaN(marginPct)) return refuse(MARGIN_TARGET_HINT)
+    if (marginPct !== null && office !== null && marginPct <= office) return refuse(`A product's margin target is above the office's ${office}%. Leave it blank to take that.`)
     // What the server would turn down, said now.
     if (f.tracking === 'bulk' && m.tracking === 'serialised' && m.items.length > 0)
       return refuse(`${m.name} has ${plural(m.items.length, 'numbered item')}, so it can't be counted only. Retire them first.`)
@@ -434,6 +457,7 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
     const changes: Partial<CommandInput<'model.update'>> = {}
     for (const k of Object.keys(next) as (keyof typeof next)[]) if (next[k] !== m[k]) (changes as Record<string, unknown>)[k] = next[k]
     if (aliases.join('\n') !== m.aliases.join('\n')) changes.aliases = aliases
+    if (money && marginPct !== (m.marginPct ?? null)) changes.marginPct = marginPct
     if (Object.keys(changes).length === 0) return onDone()
     void run(() => client.mutate('model.update', { id: m.id, ...changes })).then((ok) => ok && onDone())
   }
@@ -505,6 +529,17 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
       <label className="wide">
         {whose.dryHire ? 'To buy one, in euro' : 'Value of one, in euro'} <input inputMode="decimal" value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} />
       </label>
+      {money && !whose.dryHire && (
+        <label className="wide">
+          Margin target, a day{' '}
+          <span className="with-unit">
+            <input inputMode="decimal" value={margin} onChange={(e) => setMargin(e.target.value)} placeholder={office === null ? 'Not set' : String(office)} aria-describedby="margin-pct-hint" />%
+          </span>
+          <small id="margin-pct-hint">
+            Of its value, for each day it's charged, when it should make more than {office === null ? "the office's target" : `the office's ${office}%`}. Blank takes the office's.
+          </small>
+        </label>
+      )}
       <label className="wide">
         Notes <textarea rows={2} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />
       </label>
