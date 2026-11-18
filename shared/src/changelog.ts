@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-18',
     title: "Discount every line sits on the department's subtotal",
     what: "On a quote, Discount every line… is now on each department's subtotal line, under the lines it changes, rather than beside the department's name.",
-    prs: [0],
+    prs: [412],
   },
   {
     version: '1.208.1',
