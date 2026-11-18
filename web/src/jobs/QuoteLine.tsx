@@ -338,7 +338,7 @@ export function LineSummary({
           {l.includes && <small className="includes">{l.includes}</small>}
         </span>
         <span className="quick-fields">
-          <UnitBox unit="×">
+          <UnitBox unit="×" before>
             <input inputMode="numeric" enterKeyHint="done" value={l.qty} onChange={(e) => set({ qty: e.target.value })} aria-label={`Line ${n}: how many`} {...mark('qty')} />
           </UnitBox>
           {l.per === 'once' ? (
