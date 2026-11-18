@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-18',
     title: 'Drag a quote\'s departments into order',
     what: 'A quote\'s departments are put in order with a handle at the right of each department\'s heading, dragged as the cards on the Board are, in place of the Up and Down words. Pressing the handle and using the arrow keys works too.',
-    prs: [0],
+    prs: [408],
   },
   {
     version: '1.207.0',
