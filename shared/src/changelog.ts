@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.209.1',
+    date: '2026-11-18',
+    title: 'The Jobs table lines every column up with the job’s name',
+    what: 'At a desk, each column of the Jobs table now starts on the same line as the job’s name, instead of sitting halfway down a row when the name or venue runs to two lines.',
+    prs: [0],
+  },
+  {
     version: '1.209.0',
     date: '2026-11-18',
     title: 'A quote line’s discount shows whether it still makes its margin',
