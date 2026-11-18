@@ -446,6 +446,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
    boxes say it. */
 .quote-screen .quote-line-shut.quick { grid-template-columns: minmax(0, 1fr) auto var(--control); grid-template-areas: 'what amount mark' 'quick quick quick'; row-gap: var(--ds-space-1); padding-block: var(--ds-space-1) var(--ds-space-2); }
 .quote-screen .quote-line-shut.quick .what { cursor: pointer; }
+/* What it comes to sits on the name's line, with its notes (makes, at its kit's prices) under it, rather than the two
+   centred as a block against the name (Colly, 18 November 2026); the pencil is centred on that line. */
+.quote-screen .quote-line-shut.quick .what, .quote-screen .quote-line-shut.quick .amount { align-self: start; }
+.quote-screen .quote-line-shut.quick .opener { align-self: start; line-height: inherit; margin-block: calc((1lh - var(--control)) / 2) 0; }
 .quote-screen .quote-line-shut.quick .amount small { display: block; font-weight: 400; font-size: var(--text-hint); color: var(--muted); }
 /* The pencil reads as the mark the other rows have, at a full press's size. */
 .quote-screen .quote-line-shut.quick .opener { width: var(--control); height: var(--control); padding: 0; border: 0; background: none; color: var(--muted); }
@@ -468,7 +472,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 }
 /* On a wide screen a line is one row: name, its numbers, what it comes to, the pencil. */
 @container (min-width: 900px) {
-  .quote-screen .quote-line-shut.quick { grid-template-columns: minmax(0, 1fr) 24rem minmax(6.5em, auto) var(--control); grid-template-areas: 'what quick amount mark'; align-items: center; }
+  .quote-screen .quote-line-shut.quick { grid-template-columns: minmax(0, 1fr) 24rem minmax(6.5em, auto) var(--control); grid-template-areas: 'what quick amount mark'; align-items: start; }
+  /* The name and what it comes to sit on the boxes' middle line, the notes under it. */
+  .quote-screen .quote-line-shut.quick .what, .quote-screen .quote-line-shut.quick .amount { padding-block-start: calc((var(--control) - 1lh) / 2); }
+  .quote-screen .quote-line-shut.quick .opener { margin-block: 0; }
 }
 .quote-screen .quote-line-row.open > .quote-line-shut { background-image: linear-gradient(var(--ds-wash-pressed), var(--ds-wash-pressed)); }
 /* Open, a line is a panel inset in the card: what it is across the top, its numbers in two rows of three on a phone and one row where there's the room. */
