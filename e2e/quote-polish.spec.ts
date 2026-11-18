@@ -80,7 +80,7 @@ test('a half-made line holds back only itself, and own kit is costed once the of
   const second = await (await browser.newContext({ viewport: deskSize })).newPage()
   await ready(second, `#jobs/job-${id}/quote`)
   const theirs = second.getByRole('form', { name: 'Version 1, a draft' })
-  await expect(theirs.locator('.quote-line-shut', { has: theirs.getByRole('button', { name: 'Delivery, change it' }) })).toContainText('€60.00')
+  await expect(theirs.locator('.quote-line-shut:has([aria-label$="Delivery, change it"])')).toContainText('€60.00')
   await expect(theirs.getByRole('button', { name: /, change it$/ })).toHaveCount(2)
 
   // Admin › Company: own kit costs 15% of its price to run, and the margin takes it off: €40 of kit costs €6.

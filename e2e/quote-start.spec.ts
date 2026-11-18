@@ -49,9 +49,9 @@ test('a package is found in Add kit, and New quote starts from a Current RMS quo
   await expect(option).toContainText(`holds 4 × Shure SM58 ${id}`)
   await office.keyboard.press('Enter')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(draft.getByRole('button', { name: new RegExp(`Axient radio mics ${id}, change it$`) })).toContainText('2 ×')
+  await expect(draft.locator(`.quote-line-shut:has([aria-label$="Axient radio mics ${id}, change it"])`).getByLabel(/how many$/)).toHaveValue('2')
   await draft.getByRole('button', { name: /What’s in it/ }).first().click()
-  await expect(draft.getByRole('button', { name: new RegExp(`Shure SM58 ${id}, change it$`) })).toContainText('8')
+  await expect(draft.locator(`.quote-line-shut:has([aria-label$="Shure SM58 ${id}, change it"])`).getByLabel(/how many$/)).toHaveValue('8')
 
   // Current RMS's quotes, stood in for: the client's last ones, and one's lines.
   const asked: string[] = []

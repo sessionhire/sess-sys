@@ -156,7 +156,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   // Removed by mistake, and put back.
   await draft.getByRole('button', { name: 'Remove line 3' }).click()
   await draft.getByRole('button', { name: 'Undo' }).click()
-  await expect(draft.getByRole('button', { name: 'Line 3: Delivery, change it' })).toContainText('€150.00 once')
+  await expect(draft.getByLabel('Line 3: price, once')).toHaveValue('150')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // A deposit of half, and the prices held for 14 days.
@@ -337,7 +337,7 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await v1.getByRole('button', { name: 'Amend quote' }).click()
   const v2 = office.getByRole('form', { name: 'Version 2, a draft' })
   await openTerms(v2)
-  await v2.getByLabel('Discount, %').fill('10')
+  await v2.getByLabel('Discount, %', { exact: true }).fill('10')
   await expect(v2.locator('.quote-totals')).toContainText('Total€1,680.89')
   await expect(v2.locator('.save-state')).toHaveText('Saved')
   // What changed, to tell the client in a sentence; the deposit and days carry over.
@@ -662,7 +662,7 @@ test("a line short of kit hires in what it's short of, transport is added at a c
   await draft.getByLabel('Line 3: price').fill('180')
   await draft.getByLabel('Line 3: costs us').fill('120')
   await draft.getByRole('button', { name: 'Done' }).click()
-  await expect(draft.locator('.quote-line-shut', { has: draft.getByRole('button', { name: 'Line 3: Luton van and driver, change it' }) })).toContainText('makes €60.00')
+  await expect(draft.locator('.quote-line-shut:has([aria-label$="Line 3: Luton van and driver, change it"])')).toContainText('makes €60.00')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // The client's copy has none of it.
@@ -725,11 +725,11 @@ test("how many is typed with the product or the role, and the picker says the pr
   await expect(draft.getByRole('listbox')).toContainText('12 of the one you pick')
   await office.keyboard.press('Enter')
   await expect(draft).toContainText('1 line added.')
-  await expect(draft.locator('.quote-line-shut', { has: draft.getByRole('button', { name: /Shure SM58, change it$/ }) }).getByLabel(/how many$/)).toHaveValue('12')
+  await expect(draft.locator('.quote-line-shut:has([aria-label$="Shure SM58, change it"])').getByLabel(/how many$/)).toHaveValue('12')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
 
   await draft.getByRole('button', { name: 'Add crew' }).click()
-  await draft.getByLabel('How many').fill('2')
+  await draft.getByLabel('How many', { exact: true }).fill('2')
   await draft.getByLabel('Crew role to add').fill('Rigger')
   await draft.getByLabel('Crew role to add').press('Enter')
   // The crew line opens for its price as before, at two.
@@ -887,7 +887,7 @@ test('a count before a name with digits in it is still a count, and a line given
   await office.keyboard.type('8 SM58')
   await expect(draft.getByRole('option', { name: /^8 × Shure SM58/ })).toBeVisible()
   await office.keyboard.press('Enter')
-  await expect(draft.locator('.quote-line-shut', { has: draft.getByRole('button', { name: /Shure SM58, change it$/ }) }).getByLabel(/how many$/)).toHaveValue('8')
+  await expect(draft.locator('.quote-line-shut:has([aria-label$="Shure SM58, change it"])').getByLabel(/how many$/)).toHaveValue('8')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
 
   // A line with no price says so, and one press gives it at no charge: it reads No charge and the readout stops counting it.
@@ -900,7 +900,7 @@ test('a count before a name with digits in it is still a count, and a line given
   await expect(draft.locator('.quote-line .included-word')).toContainText('No charge')
   await expect(draft.getByRole('button', { name: /lines? with no price/ })).toHaveCount(0)
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(draft.locator('.quote-line-shut', { has: draft.getByRole('button', { name: 'Line 2: Cables and power, change it' }) })).toContainText('No charge')
+  await expect(draft.locator('.quote-line-shut:has([aria-label$="Line 2: Cables and power, change it"])')).toContainText('No charge')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // It goes without being asked about, and the sent quote says No charge.
