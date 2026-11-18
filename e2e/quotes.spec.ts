@@ -129,7 +129,9 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.getByRole('button', { name: 'Build from job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   // On a phone the lines read as a list, each opened to change it, one at a time.
-  await expect(draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' })).toContainText('12 × €55.00 a day × 2 days')
+  await expect(draft.getByLabel('Line 1: how many')).toHaveValue('12')
+  await expect(draft.getByLabel('Line 1: days charged')).toHaveValue('2')
+  await expect(draft.getByLabel('Line 1: price, a day')).toHaveValue('55')
   await draft.getByRole('button', { name: 'Line 2: LX op (Show), change it' }).click()
   await expect(draft.getByLabel('Line 2: price')).toHaveValue('360')
   await expect(draft.getByRole('group', { name: 'What it comes to' })).toContainText('Before VAT €2,040.00')
@@ -488,7 +490,8 @@ test('kit charged by the week, a line discounted, and a total agreed with the cl
   await office.getByRole('button', { name: 'Build from job' }).click()
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   // Two days out is one week charged.
-  await expect(draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' })).toContainText('12 × €150.00 a week × 1 week')
+  await expect(draft.getByLabel('Line 1: how many')).toHaveValue('12')
+  await expect(draft.getByLabel('Line 1: price, a week')).toHaveValue('150')
   await expect(draft.getByRole('group', { name: 'What it comes to' })).toContainText('Before VAT €2,520.00')
 
   // Half off the Spiiders, then a 3 Day Week for ten days out: six days charged.
@@ -649,7 +652,8 @@ test("a line short of kit hires in what it's short of, transport is added at a c
   await draft.getByLabel('Line 1: costs us').fill('2000')
   await expect(summary).not.toContainText('no cost yet')
   await draft.getByRole('button', { name: 'Done' }).click()
-  await expect(draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' })).toContainText('hired in from Hire Co')
+  // Hired in is said in the line's cost fold, not on its row: the row keeps to its four numbers.
+  await expect(draft.getByRole('button', { name: 'Line 1: Robe Spiider, change it' })).toBeVisible()
 
   // Transport, charged once, and what it costs us: the job's Luton is booked with a driver, so it's offered first.
   await openMore(draft)
@@ -658,7 +662,7 @@ test("a line short of kit hires in what it's short of, transport is added at a c
   await draft.getByLabel('Line 3: price').fill('180')
   await draft.getByLabel('Line 3: costs us').fill('120')
   await draft.getByRole('button', { name: 'Done' }).click()
-  await expect(draft.getByRole('button', { name: 'Line 3: Luton van and driver, change it' })).toContainText('makes €60.00')
+  await expect(draft.locator('.quote-line-shut', { has: draft.getByRole('button', { name: 'Line 3: Luton van and driver, change it' }) })).toContainText('makes €60.00')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // The client's copy has none of it.
@@ -721,7 +725,7 @@ test("how many is typed with the product or the role, and the picker says the pr
   await expect(draft.getByRole('listbox')).toContainText('12 of the one you pick')
   await office.keyboard.press('Enter')
   await expect(draft).toContainText('1 line added.')
-  await expect(draft.getByRole('button', { name: /Shure SM58, change it$/ })).toContainText('12 ×')
+  await expect(draft.locator('.quote-line-shut', { has: draft.getByRole('button', { name: /Shure SM58, change it$/ }) }).getByLabel(/how many$/)).toHaveValue('12')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
 
   await draft.getByRole('button', { name: 'Add crew' }).click()
@@ -795,9 +799,9 @@ test('two people on one draft keep both their changes, one of them with no signa
   await twoContext.setOffline(false)
 
   // Each takes in the other's line live, keeping its own, open as it was.
-  await expect(draftOne.getByRole('button', { name: 'Line 2: d&b Y10P, change it' })).toContainText('3 ×')
+  await expect(draftOne.getByLabel('Line 2: how many')).toHaveValue('3')
   await expect(draftOne.getByLabel('Line 1: how many')).toHaveValue('6')
-  await expect(draftTwo.getByRole('button', { name: 'Line 1: Shure SM58, change it' })).toContainText('6 ×')
+  await expect(draftTwo.getByLabel('Line 1: how many')).toHaveValue('6')
   await expect(draftTwo.getByLabel('Line 2: how many')).toHaveValue('3')
   // And neither saved its old copy back over the other's: both read so from the server.
   await expect(draftOne.locator('.save-state')).toHaveText('Saved')
@@ -805,8 +809,8 @@ test('two people on one draft keep both their changes, one of them with no signa
   for (const page of [one, two]) {
     await page.reload()
     const draft = page.getByRole('form', { name: 'Version 1, a draft' })
-    await expect(draft.getByRole('button', { name: 'Line 1: Shure SM58, change it' })).toContainText('6 ×')
-    await expect(draft.getByRole('button', { name: 'Line 2: d&b Y10P, change it' })).toContainText('3 ×')
+    await expect(draft.getByLabel('Line 1: how many')).toHaveValue('6')
+    await expect(draft.getByLabel('Line 2: how many')).toHaveValue('3')
   }
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
@@ -863,7 +867,7 @@ test("a change from another phone arriving as a line is changed doesn't put the 
   await expect(draft.getByLabel('Line 1: charged')).toHaveValue('weekly')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
   await office.reload()
-  await expect(draft.getByRole('button', { name: /^Line 1: .*, change it$/ })).toContainText('a week')
+  await expect(draft.getByLabel('Line 1: price, a week')).toBeVisible()
   await expect(draft.getByRole('textbox', { name: /Notes for the client/ })).toHaveValue('Load in from the back lane')
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
@@ -883,7 +887,7 @@ test('a count before a name with digits in it is still a count, and a line given
   await office.keyboard.type('8 SM58')
   await expect(draft.getByRole('option', { name: /^8 × Shure SM58/ })).toBeVisible()
   await office.keyboard.press('Enter')
-  await expect(draft.getByRole('button', { name: /Shure SM58, change it$/ })).toContainText('8 ×')
+  await expect(draft.locator('.quote-line-shut', { has: draft.getByRole('button', { name: /Shure SM58, change it$/ }) }).getByLabel(/how many$/)).toHaveValue('8')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
 
   // A line with no price says so, and one press gives it at no charge: it reads No charge and the readout stops counting it.
@@ -896,7 +900,7 @@ test('a count before a name with digits in it is still a count, and a line given
   await expect(draft.locator('.quote-line .included-word')).toContainText('No charge')
   await expect(draft.getByRole('button', { name: /lines? with no price/ })).toHaveCount(0)
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(draft.getByRole('button', { name: 'Line 2: Cables and power, change it' })).toContainText('No charge')
+  await expect(draft.locator('.quote-line-shut', { has: draft.getByRole('button', { name: 'Line 2: Cables and power, change it' }) })).toContainText('No charge')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // It goes without being asked about, and the sent quote says No charge.

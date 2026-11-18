@@ -8,6 +8,7 @@ import {
   linesByGroup,
   linesUnder,
   setCents,
+  groupCents,
   money,
   pctWord,
   spanLabel,
@@ -68,7 +69,7 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
             <th scope="col" className="n">Amount</th>
           </tr>
         </thead>
-        {linesByGroup(lines).map((g) => (
+        {linesByGroup(lines).map((g, _i, groups) => (
           <tbody key={g.group}>
             <tr className="group">
               <th scope="rowgroup" colSpan={6}>
@@ -135,6 +136,15 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                 </Fragment>
               )
             })}
+            {/* Each department's subtotal at its end (Colly, 18 November 2026); with one group it's the quote's subtotal. */}
+            {groups.length > 1 && (
+              <tr className="group-total">
+                <th scope="row" colSpan={5}>
+                  {g.group || KIND_WORDS[g.lines[0]!.kind]} subtotal
+                </th>
+                <td className="n">{money(groupCents(g.lines, lines))}</td>
+              </tr>
+            )}
           </tbody>
         ))}
       </table>

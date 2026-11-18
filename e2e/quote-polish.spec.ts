@@ -74,13 +74,13 @@ test('a half-made line holds back only itself, and own kit is costed once the of
   await openMore(draft)
   await draft.getByRole('button', { name: 'Add something else' }).click()
   await draft.getByRole('button', { name: 'Delivery, change it' }).click()
-  await draft.getByLabel(/: price, once$/).fill('60')
+  await draft.locator('.quote-line').getByLabel(/: price, once$/).fill('60')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
   await expect(draft.locator('.save-state')).toHaveText('Line 3 not saved')
   const second = await (await browser.newContext({ viewport: deskSize })).newPage()
   await ready(second, `#jobs/job-${id}/quote`)
   const theirs = second.getByRole('form', { name: 'Version 1, a draft' })
-  await expect(theirs.getByRole('button', { name: 'Delivery, change it' })).toContainText('€60.00')
+  await expect(theirs.locator('.quote-line-shut', { has: theirs.getByRole('button', { name: 'Delivery, change it' }) })).toContainText('€60.00')
   await expect(theirs.getByRole('button', { name: /, change it$/ })).toHaveCount(2)
 
   // Admin › Company: own kit costs 15% of its price to run, and the margin takes it off: €40 of kit costs €6.
@@ -125,7 +125,7 @@ test('a long draft on a phone opens folded to its groups, and picking kit there 
 
   // Adding crew: How many and the role line up on their boxes, the hint under both, and Add under that (Colly, 12 November 2026).
   await draft.getByRole('button', { name: 'Add crew' }).click()
-  const count = (await draft.getByLabel('How many').boundingBox())!
+  const count = (await draft.getByLabel('How many', { exact: true }).boundingBox())!
   const role = (await draft.getByLabel('Crew role to add').boundingBox())!
   const hint = (await draft.getByText("Priced from the price list, for the job's days.").boundingBox())!
   const add = (await draft.getByRole('button', { name: 'Add', exact: true }).boundingBox())!

@@ -12,6 +12,7 @@ import {
   pctWord,
   quoteNumberLabel,
   setCents,
+  groupCents,
   spanLabel,
   hireWhen,
   VAT_LABELS,
@@ -59,7 +60,7 @@ const page = (title: string, body: string) => `<!doctype html><html lang="en-IE"
 const QUOTE_CSS = `
 .quote-lines{width:100%;border-collapse:collapse;font-size:${dsText.touch.body.size}px}.quote-lines th,.quote-lines td{padding:8px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .quote-lines th{font-size:${dsText.touch.caption.size}px;color:var(--muted);font-weight:600}.quote-lines .n{text-align:right;white-space:nowrap;padding-left:12px}
-.quote-lines small{display:block;color:var(--muted)}.quote-lines tr.group th{padding-top:16px;text-transform:uppercase;letter-spacing:.06em}
+.quote-lines small{display:block;color:var(--muted)}.quote-lines tr.group-total th{text-align:left;font-weight:400;color:var(--muted)}.quote-lines tr.group-total td{font-weight:700}.quote-lines tr.group th{padding-top:16px;text-transform:uppercase;letter-spacing:.06em}
 .totals{display:grid;grid-template-columns:1fr auto;gap:4px 16px;margin:0}.totals dt{color:var(--muted)}.totals dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
 .totals .total{font-weight:700;font-size:${dsText.touch.title.size}px;color:var(--ink)}
 .accept{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:16px}
@@ -69,7 +70,8 @@ const QUOTE_CSS = `
 /** The quote's lines as on the printed page: each line, a package's kit under it, by group. */
 function lines(s: Sheet): string {
   // In the groups and order the printed page has (ADR 0128).
-  const rows = linesByGroup(s.q.lines).map(
+  const groups = linesByGroup(s.q.lines)
+  const rows = groups.map(
     ({ group: g, lines: ls }) =>
       `<tr class="group"><th colspan="3" scope="rowgroup">${h(g)}</th></tr>` +
       ls
@@ -81,7 +83,9 @@ function lines(s: Sheet): string {
           const inIt = under.length ? `<small>With ${h(under.map((u) => `${u.qty} × ${u.what}`).join(', '))}</small>` : l.includes ? `<small>${h(l.includes)}</small>` : ''
           return `<tr><td>${h(l.what)}${inIt}</td><td class="n">${l.qty}</td><td class="n">${amount}</td></tr>`
         })
-        .join('')
+        .join('') +
+      // Each department's subtotal at its end (Colly, 18 November 2026); with one group it's the quote's subtotal.
+      (groups.length > 1 ? `<tr class="group-total"><th colspan="2" scope="row">${h(g)} subtotal</th><td class="n">${money(groupCents(ls, s.q.lines))}</td></tr>` : '')
   )
   return `<table class="quote-lines"><thead><tr><th scope="col">What</th><th scope="col" class="n">How many</th><th scope="col" class="n">Amount</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
 }

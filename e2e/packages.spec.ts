@@ -65,12 +65,12 @@ test('a package and a rack go on a quote with their kit under them, and a quote�
   await draft.getByRole('button', { name: 'Add', exact: true }).click()
   await draft.getByRole('button', { name: 'Done' }).click()
   const set = draft.locator('.quote-set', { hasText: `Small PA ${id}` })
-  await expect(set.locator('.quote-line-shut').first()).toContainText('Its kit at its own prices')
+  await expect(set.locator('.quote-line-shut').first()).toContainText('at its kit’s prices')
   await expect(set.locator('.quote-line-shut').first()).toContainText('€50.00')
   await expect(set.locator('.set-lines .quote-line-shut')).toHaveCount(2)
   // Each is a line to change for this job: one more mic, and the package comes to more.
   await set.getByRole('button', { name: new RegExp(`Shure SM58 ${id}, change it`) }).click()
-  await draft.getByLabel(/^Line \d+: how many$/).fill('5')
+  await draft.locator('.quote-line').getByLabel(/^Line \d+: how many$/).fill('5')
   await draft.getByRole('button', { name: 'Done' }).click()
   await expect(set.locator('.quote-line-shut').first()).toContainText('€60.00')
   // Folded away, a press brings it back.

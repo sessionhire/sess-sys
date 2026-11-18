@@ -270,7 +270,10 @@ export function CostFields({
   )
 }
 
-/** A line, shut: what it is, how it's charged and what it comes to, with the mark that says it opens; pressing it opens it to change. */
+/**
+ * A line, shut: what it is, its four everyday numbers to change in place (how many, days, price, discount), what it
+ * comes to, and the pencil that opens it for everything else. Words-only lines have no numbers, so the whole row opens.
+ */
 export function LineSummary({
   l,
   n,
@@ -281,6 +284,10 @@ export function LineSummary({
   total,
   included,
   heads,
+  set,
+  fault,
+  left,
+  onLeave,
 }: {
   l: LineDraft
   n: number
@@ -293,7 +300,14 @@ export function LineSummary({
   heads?: boolean
   /** Kit in a package priced as a whole: no price of its own wanted. */
   included?: boolean
+  /** Changes a number in place, as the open line would. */
+  set: (c: Partial<LineDraft>) => void
+  fault?: LineFault | undefined
+  /** Whether the line has been left, so a fault in one of its numbers may show (design system rule 18). */
+  left: boolean
+  onLeave: () => void
 }) {
+  const pid = useId()
   const unpriced = done !== undefined && done.unitCents === 0 && !included && !done.included && !done.words && !(heads && l.packageId)
   // Words only (ADR 0128): printed as written, with nothing to count.
   if (l.words)
@@ -305,24 +319,85 @@ export function LineSummary({
         <Icon name="edit" className="opener" />
       </button>
     )
-  const how = done === undefined ? 'Not finished' : heads && !done.unitCents && l.packageId ? 'Its kit at its own prices' : included ? `${done.qty} in the package` : chargeWords(done)
+  const quick: LineField[] = ['qty', 'days', 'out', 'price', 'discount']
+  const shown = fault !== undefined && left && quick.includes(fault.field)
+  const mark = (f: LineField) => (shown && fault.field === f ? { 'aria-invalid': true, 'aria-describedby': pid } : {})
+  const unit = unitOf(l)
+  const dayField: 'days' | 'out' = l.rate ? 'out' : 'days'
+  const dayCount = num(l[dayField])
+  const priced = !l.included && !included
   return (
-    <button type="button" className={`quote-line-shut${done === undefined || unpriced ? ' needs' : ''}`} onClick={onOpen} autoFocus={focus} aria-label={`Line ${n}: ${l.what || 'not named yet'}, change it`}>
-      <span className="what">
-        {l.what || 'Not named yet'}
-        {l.includes && <small className="includes">{l.includes}</small>}
-      </span>
-      <span className="how">
-        {unpriced ? `${how}: needs a price` : how}
-        {done?.subhireQty ? `, ${done.subhireQty} hired in${done.supplier ? ` from ${done.supplier}` : ''}` : ''}
-        {done && lineSaving(done) > 0 && <small className="package-saving">{money(lineSaving(done))} off its items</small>}
-      </span>
-      <span className="amount">
-        {done === undefined ? '–' : included ? 'Included' : done.included ? NO_CHARGE : money(total ?? lineCents(done))}
-        {margin !== undefined && <small className={`line-margin${margin < 0 ? ' bad' : ''}`}>makes {money(margin)}</small>}
-      </span>
-      <Icon name="edit" className="opener" />
-    </button>
+    <>
+      <div
+        className={`quote-line-shut quick${done === undefined || unpriced ? ' needs' : ''}`}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onLeave()
+        }}
+      >
+        {/* The name opens the line too, for a pointer; the pencil is the way for a keyboard or a screen reader. */}
+        <span className="what" onClick={onOpen}>
+          {l.what || 'Not named yet'}
+          {l.includes && <small className="includes">{l.includes}</small>}
+        </span>
+        <span className="quick-fields">
+          <UnitBox unit="×">
+            <input inputMode="numeric" enterKeyHint="done" value={l.qty} onChange={(e) => set({ qty: e.target.value })} aria-label={`Line ${n}: how many`} {...mark('qty')} />
+          </UnitBox>
+          {l.per === 'once' ? (
+            <span className="quick-gap" />
+          ) : (
+            <UnitBox unit={dayCount === 1 ? 'day' : 'days'}>
+              <input
+                inputMode="decimal"
+                enterKeyHint="done"
+                value={l[dayField]}
+                onChange={(e) => set(l.rate ? { out: e.target.value } : { days: e.target.value })}
+                aria-label={l.rate ? `Line ${n}: days out` : `Line ${n}: days charged`}
+                {...mark(dayField)}
+              />
+            </UnitBox>
+          )}
+          {priced ? (
+            <UnitBox unit="€" before needs={unpriced}>
+              <input
+                inputMode="decimal"
+                enterKeyHint="done"
+                value={l.price}
+                onChange={(e) => set({ price: e.target.value })}
+                placeholder="0"
+                aria-label={`Line ${n}: price, ${unit === 'once' ? 'once' : `a ${unit}`}`}
+                title={unit === 'once' ? 'Price, once' : `Price a ${unit}`}
+                {...mark('price')}
+              />
+            </UnitBox>
+          ) : (
+            <span className="quick-gap" />
+          )}
+          {priced ? (
+            <UnitBox unit="%">
+              <input inputMode="decimal" enterKeyHint="done" value={l.discount} onChange={(e) => set({ discount: e.target.value })} placeholder="0" aria-label={`Line ${n}: discount, %`} {...mark('discount')} />
+            </UnitBox>
+          ) : (
+            <span className="quick-gap" />
+          )}
+        </span>
+        <span className="amount">
+          {done === undefined ? '–' : included ? 'Included' : done.included ? NO_CHARGE : money(total ?? lineCents(done))}
+          {/* A package's own notes stay with what it comes to: priced by its kit, or what its price saves on its items (ADR 0116). */}
+          {heads && l.packageId && done !== undefined && !done.unitCents && <small>at its kit’s prices</small>}
+          {done && lineSaving(done) > 0 && <small className="package-saving">{money(lineSaving(done))} off its items</small>}
+          {margin !== undefined && <small className={`line-margin${margin < 0 ? ' bad' : ''}`}>makes {money(margin)}</small>}
+        </span>
+        <button type="button" className="icon-button opener" onClick={onOpen} autoFocus={focus} aria-label={`Line ${n}: ${l.what || 'not named yet'}, change it`}>
+          <Icon name="edit" />
+        </button>
+      </div>
+      {shown && (
+        <p className="line-problem" id={pid}>
+          {fault.why}
+        </p>
+      )}
+    </>
   )
 }
 

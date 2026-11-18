@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { linesByGroup, moveGroup, moveLine, needsPrice, quoteContact } from '../src/quotes.ts'
+import { groupCents, linesByGroup, moveGroup, moveLine, needsPrice, quoteContact } from '../src/quotes.ts'
 
 /** The office's own groups and order, words-only lines, and who a quote is for (ADR 0128). */
 
@@ -70,5 +70,15 @@ describe('quoteContact', () => {
   })
   it('is the name alone once they have gone from the client', () => {
     expect(quoteContact(contacts, 'Seán')).toEqual({ name: 'Seán' })
+  })
+})
+
+describe('groupCents', () => {
+  it("adds up a group's lines, a package's kit with it, and leaves words out", () => {
+    const at = (id: string, unitCents: number, more: Record<string, unknown> = {}) =>
+      ({ id, kind: 'kit', group: 'Audio', what: id, qty: 2, days: 1, unitCents, vat: 'standard', per: 'day', ...more }) as unknown as Parameters<typeof groupCents>[0][number]
+    const all = [at('a', 6000), at('p', 0, { packageId: 'x' }), at('u', 1000, { under: 'p' }), at('w', 0, { words: true }), at('other', 500, { group: 'Video' })]
+    const audio = linesByGroup(all).find((g) => g.group === 'Audio')!.lines
+    expect(groupCents(audio, all)).toBe(12000 + 2000)
   })
 })
