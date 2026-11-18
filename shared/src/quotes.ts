@@ -951,6 +951,14 @@ export function setCents(title: QuoteLine, lines: readonly QuoteLine[]): number 
   return lineCents(title) + linesUnder(lines, title.id).reduce((n, l) => n + lineCents(l), 0)
 }
 
+/**
+ * What one group of a quote comes to (Colly, 18 November 2026): its lines, each package with its kit under it, before the
+ * quote's own discount and VAT, as the subtotal printed at the end of the group.
+ */
+export function groupCents(group: readonly QuoteLine[], lines: readonly QuoteLine[]): number {
+  return group.reduce((n, l) => n + (l.words ? 0 : setCents(l, lines)), 0)
+}
+
 /** The lines under a package's line (ADR 0116), in the quote's order. */
 export function linesUnder<L extends { id: string; under?: string | null }>(lines: readonly L[], titleId: string): L[] {
   return lines.filter((l) => l.under === titleId && l.id !== titleId)

@@ -15,6 +15,7 @@ import {
   linesByGroup,
   linesUnder,
   setCents,
+  groupCents,
   money,
   pctWord,
   quoteContact,
@@ -349,6 +350,9 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
         )
       }
     }
+    // Each department's subtotal at its end (Colly, 18 November 2026); with one group it's the quote's subtotal, printed below.
+    if (groups.length > 1)
+      row([{ s: `${g.group || KIND_WORDS[g.lines[0]!.kind]} subtotal`, st: { color: MUTED } }, { s: '' }, { s: '' }, { s: '' }, { s: '' }, { s: money(groupCents(g.lines, q.lines)), st: { font: F.medium } }], [], { line: false })
   }
 
   // What it comes to, at the right; how the booking is confirmed and paid, beside it at the left.

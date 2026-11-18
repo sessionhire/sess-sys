@@ -63,7 +63,7 @@ jobs:
 
   e2e:
     name: Browser tests (${{ matrix.shard }} of 3)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.56 cannot install its browser on ubuntu-latest (26.04)
     strategy:
       # Every third reports, so one failing doesn't hide another's.
       fail-fast: false

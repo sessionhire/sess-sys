@@ -49,13 +49,13 @@ test("a draft's kit is pencilled on its job for other quotes to see, its days ar
   await office.keyboard.type(`4 SM58 ${id}`)
   await office.keyboard.press('Enter')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(draft.getByRole('button', { name: new RegExp(`Shure SM58 ${id}, change it$`) })).toContainText('2 days')
+  await expect(draft.locator(`.quote-line-shut:has([aria-label$="Shure SM58 ${id}, change it"])`).getByLabel(/days charged$/)).toHaveValue('2')
   await draft.getByRole('button', { name: 'Add crew' }).click()
-  await draft.getByLabel('How many').fill('2')
+  await draft.getByLabel('How many', { exact: true }).fill('2')
   await draft.getByLabel('Crew role to add').fill('Rigger')
   await draft.getByLabel('Crew role to add').press('Enter')
   await draft.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(draft.getByRole('button', { name: /Rigger, change it$/ })).toContainText('2 days')
+  await expect(draft.locator('.quote-line-shut:has([aria-label$="Rigger, change it"])').getByLabel(/days charged$/)).toHaveValue('2')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // The kit is on the job's kit list already, with nothing left to add from the quote.

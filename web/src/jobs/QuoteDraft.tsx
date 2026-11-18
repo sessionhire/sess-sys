@@ -812,7 +812,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const cost = done ? costOf(done) : undefined
     return open !== l.id ? (
       <div key={l.id} className="quote-line-row">
-        <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} margin={boss && done ? lineMargin(done, cost) : undefined} total={setTotal} included={included} heads={under.length > 0} />
+        <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} margin={boss && done ? lineMargin(done, cost) : undefined} total={setTotal} included={included} heads={under.length > 0} set={(ch) => set(l.id, ch)} fault={c.fault} left={touched.has(l.id)} onLeave={() => touch(l.id)} />
         {kit}
       </div>
     ) : (
@@ -958,7 +958,9 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
         {groups.map((g) => {
           // Folded, unless a line in it is open: one being changed, or just added, is never hidden.
           const shut = isFolded(g.group, g.lines) && !g.lines.some((l) => l.id === open)
-          const groupCents = g.lines.reduce((t, l) => t + (parsed[lines.indexOf(l)]?.line ? lineCents(parsed[lines.indexOf(l)]!.line!) : 0), 0)
+          // What the group comes to as typed, each package's kit with it; a line not finished yet counts for nothing.
+          const cents = (l: LineDraft) => (parsed[lines.indexOf(l)]?.line ? lineCents(parsed[lines.indexOf(l)]!.line!) : 0)
+          const groupCents = g.lines.reduce((t, l) => t + cents(l) + linesUnder(lines, l.id).reduce((u, x) => u + cents(x), 0), 0)
           return (
           <section key={g.group} className={`quote-group${shut ? ' folded' : ''}`} role="group" aria-label={g.group}>
             <div className="group-head">
@@ -1004,6 +1006,13 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                 </div>
               )
             })}
+            {/* Each department's subtotal at its end (Colly, 18 November 2026), as the printed quote has it; one group's is the subtotal. */}
+            {!shut && groups.length > 1 && (
+              <p className="group-total">
+                <span>{g.group} subtotal</span>
+                <b>{money(groupCents)}</b>
+              </p>
+            )}
             {removedGroup === g.group && undoLine}
           </section>
           )
