@@ -18,6 +18,22 @@ async function ready(page: Page, hash: string) {
   await expect(page.locator('.conn')).toHaveText('Up to date')
 }
 
+/** How far the middle of what a line comes to (its first line, not its notes) is from the middle of the line's name. */
+async function totalOffName(page: Page) {
+  return page.locator('.quote-line-shut.quick').first().evaluate((row) => {
+    const mid = (r: DOMRect) => r.top + r.height / 2
+    const amount = row.querySelector('.amount')!
+    const range = document.createRange()
+    range.selectNodeContents(amount.firstChild!)
+    const name = row.querySelector('.what')!
+    const nameRange = document.createRange()
+    nameRange.selectNodeContents(name)
+    const pencil = row.querySelector('.opener')!.getBoundingClientRect()
+    const nameLine = nameRange.getClientRects()[0]!
+    return { total: Math.abs(mid(range.getBoundingClientRect()) - mid(nameLine)), pencil: Math.abs(mid(pencil) - mid(nameLine)) }
+  })
+}
+
 const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
 const line = (id: string, what: string, group: string, qty: number, cents: number, per: 'day' | 'once' = 'day') => ({ id, kind: 'other', what, ref: null, group, qty, days: 1, unitCents: cents, vat: '23', per })
 
@@ -31,7 +47,7 @@ async function setUp(request: APIRequestContext) {
       {
         id: `q-${id}`,
         projectId: `job-${id}`,
-        lines: [line(`a-${id}`, 'D&B D20 Amplifier', 'Audio', 2, 6_000), line(`b-${id}`, 'Shure SM58', 'Audio', 4, 1_000), line(`c-${id}`, 'Delivery', 'Transport', 1, 15_000, 'once')],
+        lines: [{ ...line(`a-${id}`, 'D&B D20 Amplifier', 'Audio', 2, 6_000), costCents: 2_000 }, line(`b-${id}`, 'Shure SM58', 'Audio', 4, 1_000), line(`c-${id}`, 'Delivery', 'Transport', 1, 15_000, 'once')],
         discountPct: 0,
         notes: '',
       },
@@ -51,13 +67,18 @@ for (const width of [320, 390]) {
     // No words under the name: the boxes say it.
     await expect(draft.getByText('2 × €60.00 a day × 1 day')).toHaveCount(0)
     await expect(audio.locator('.group-total')).toHaveText(/Audio subtotal\s*€160\.00/)
+    // What it comes to sits on the name's line, its notes under it, and the pencil on that line too (Colly, 18 November 2026).
+    await expect(audio.locator('.quote-line-shut').first().locator('.line-margin')).toBeVisible()
+    const off = await totalOffName(page)
+    expect(off.total).toBeLessThan(2)
+    expect(off.pencil).toBeLessThan(2)
     await expect(draft.getByRole('group', { name: 'Transport' }).locator('.group-total')).toHaveText(/Transport subtotal\s*€150\.00/)
 
     // Changed in place, without opening the line.
     await draft.getByLabel('Line 1: how many').fill('3')
     await draft.getByLabel('Line 1: days charged').fill('2')
     await draft.getByLabel('Line 1: discount, %').fill('10')
-    await expect(audio.locator('.quote-line-shut').first().locator('.amount')).toHaveText('€324.00')
+    await expect(audio.locator('.quote-line-shut').first().locator('.amount')).toHaveText('€324.00makes €304.00')
     await expect(audio.locator('.group-total')).toHaveText(/€364\.00/)
     // A once line has no days to change.
     await expect(draft.getByLabel(/^Line 3: days/)).toHaveCount(0)
@@ -96,6 +117,8 @@ test('on a desk the four keep their widths under the name, and on a wide screen 
     const row = draft.locator('.quote-line-shut').first()
     const box = async (s: string) => (await row.locator(s).first().boundingBox())!
     expect((await box('.quick-fields')).width).toBeLessThanOrEqual(24 * 16 + 1)
+    const off = await totalOffName(page)
+    expect(off.total).toBeLessThan(2)
     await draft.locator('.quote-main').screenshot({ path: `test-results/quick-edit-desk-${width}.png` })
     await page.close()
   }
