@@ -41,6 +41,28 @@ async function expectColumnsAligned(page: Page) {
   }
 }
 
+/** Every line's pencil, words lines too, in one column with the departments' grips, at the grip's size (Colly, 18 November 2026). */
+async function expectIconsInOneColumn(page: Page) {
+  const icons = await page.locator('.quote-grip, .quote-line-shut .opener').evaluateAll((els) =>
+    els.map((e) => {
+      const b = e.getBoundingClientRect()
+      // A words line's pencil is the svg itself, its 44px box drawn by its padding; a button's is the svg in it.
+      const svg = (e instanceof SVGElement ? e : e.querySelector('svg'))!
+      const i = svg.getBoundingClientRect()
+      const pad = parseFloat(getComputedStyle(svg).paddingLeft) + parseFloat(getComputedStyle(svg).paddingRight)
+      return { grip: e.classList.contains('quote-grip'), mid: Math.round(b.left + b.width / 2), box: Math.round(b.width), icon: Math.round(i.width - pad), iconMid: Math.round(i.left + i.width / 2) }
+    }),
+  )
+  const grip = icons.find((i) => i.grip)!
+  expect(icons.filter((i) => !i.grip).length).toBeGreaterThan(3)
+  for (const i of icons) {
+    expect(Math.abs(i.mid - grip.mid)).toBeLessThanOrEqual(1)
+    expect(Math.abs(i.iconMid - grip.iconMid)).toBeLessThanOrEqual(1)
+    expect(i.box).toBe(grip.box)
+    expect(i.icon).toBe(grip.icon)
+  }
+}
+
 /** How far the middle of what a line comes to (its first line, not its notes) is from the middle of the line's name. */
 async function totalOffName(page: Page) {
   return page.locator('.quote-line-shut.quick').first().evaluate((row) => {
@@ -60,7 +82,8 @@ async function totalOffName(page: Page) {
 const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
 const line = (id: string, what: string, group: string, qty: number, cents: number, per: 'day' | 'once' = 'day') => ({ id, kind: 'other', what, ref: null, group, qty, days: 1, unitCents: cents, vat: '23', per })
 
-async function setUp(request: APIRequestContext) {
+/** With words, a words line in a department of its own: a line with a pencil and no numbers. */
+async function setUp(request: APIRequestContext, words = false) {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
   await push(request, id, [
     ['project.create', { id: `job-${id}`, name: `Quick ${id}`, clientId: null, venueId: null, status: 'enquiry', notes: '' }],
@@ -70,7 +93,7 @@ async function setUp(request: APIRequestContext) {
       {
         id: `q-${id}`,
         projectId: `job-${id}`,
-        lines: [{ ...line(`a-${id}`, 'D&B D20 Amplifier', 'Audio', 2, 6_000), costCents: 2_000 }, line(`b-${id}`, 'Shure SM58', 'Audio', 4, 1_000), line(`c-${id}`, 'Delivery', 'Transport', 1, 15_000, 'once')],
+        lines: [{ ...line(`a-${id}`, 'D&B D20 Amplifier', 'Audio', 2, 6_000), costCents: 2_000 }, line(`b-${id}`, 'Shure SM58', 'Audio', 4, 1_000), line(`c-${id}`, 'Delivery', 'Transport', 1, 15_000, 'once'), ...(words ? [{ ...line(`d-${id}`, 'Parking on the street', 'Notes', 1, 0, 'once'), words: true }] : [])],
         discountPct: 0,
         notes: '',
       },
@@ -81,7 +104,7 @@ async function setUp(request: APIRequestContext) {
 
 for (const width of [320, 390]) {
   test(`on a ${width}px phone the numbers change on the row, the row fits, and each department ends with its subtotal`, async ({ browser, request }) => {
-    const id = await setUp(request)
+    const id = await setUp(request, true)
     const page = await (await browser.newContext({ viewport: { width, height: 844 } })).newPage()
     await ready(page, `#jobs/job-${id}/quote`)
     const draft = page.getByRole('form', { name: 'Version 1, a draft' })
@@ -90,6 +113,11 @@ for (const width of [320, 390]) {
     // No words under the name: the boxes say it.
     await expect(draft.getByText('2 × €60.00 a day × 1 day')).toHaveCount(0)
     await expect(audio.locator('.group-total')).toHaveText(/^Audio subtotal.*€160\.00$/)
+    // The × comes before how many, as the € does before the price (Colly, 18 November 2026).
+    for (const qty of await draft.getByLabel(/^Line \d+: how many$/).all()) {
+      const times = (await qty.locator('xpath=../span[@class="unit"]').boundingBox())!
+      expect(times.x).toBeLessThan((await qty.boundingBox())!.x)
+    }
     // What it comes to sits on the name's line, and the pencil on that line too; no "makes" on the row (Colly, 18 November 2026).
     await expect(audio.locator('.quote-line-shut').first()).not.toContainText('makes')
     const off = await totalOffName(page)
@@ -124,6 +152,7 @@ for (const width of [320, 390]) {
     await draft.getByLabel('Line 2: price, a day').fill('12345')
     await draft.getByLabel('Line 2: discount, %').fill('100')
     await expectColumnsAligned(page)
+    await expectIconsInOneColumn(page)
     await draft.locator(".quote-main").screenshot({ path: `test-results/quick-edit-${width}-before.png` })
     // Nothing runs off the side, and no number box clips its number.
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
@@ -138,12 +167,12 @@ for (const width of [320, 390]) {
 }
 
 test('on a desk a line is one row, and every column but the name lines up down the list', async ({ browser, request }) => {
-  const id = await setUp(request)
+  const id = await setUp(request, true)
   for (const width of [1280, 1100]) {
     const page = await (await browser.newContext({ viewport: { width, height: 900 } })).newPage()
     await ready(page, `#jobs/job-${id}/quote`)
     const draft = page.getByRole('form', { name: 'Version 1, a draft' })
-    const row = draft.locator('.quote-line-shut').first()
+    const row = draft.locator('.quote-line-shut.quick').first()
     const box = async (s: string) => (await row.locator(s).first().boundingBox())!
     // One row at 1280: the name, then the four boxes, what it comes to and the pencil, all on the name's line.
     await draft.locator('.quote-main').screenshot({ path: `test-results/quick-edit-desk-${width}.png` })
@@ -156,6 +185,7 @@ test('on a desk a line is one row, and every column but the name lines up down t
       }
     }
     await expectColumnsAligned(page)
+    await expectIconsInOneColumn(page)
     // The department's subtotal sits under what each line comes to.
     const sub = (await draft.locator('.group-total b').first().boundingBox())!
     const amount = await box('.amount')

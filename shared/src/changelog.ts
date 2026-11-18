@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.208.3',
+    date: '2026-11-18',
+    title: 'A quote’s pencils line up with the department grips, and × comes first',
+    what: 'On a quote every line’s pencil, words lines and travel too, now sits in one column with the grips you drag departments by, at the same size. How many reads × 2, with the × before the number, as the € is before the price.',
+    prs: [413],
+  },
+  {
     version: '1.208.2',
     date: '2026-11-18',
     title: "Discount every line sits on the department's subtotal",

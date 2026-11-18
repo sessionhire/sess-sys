@@ -436,7 +436,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-line-shut .how { grid-area: how; min-width: 0; font-size: var(--text-small); color: var(--muted); }
 .quote-screen .quote-line-shut .amount { grid-area: amount; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .quote-screen .quote-line-shut .amount .line-margin { display: block; text-align: right; }
-.quote-screen .quote-line-shut .opener { grid-area: mark; width: 16px; height: 16px; color: var(--muted); }
+/* Every line's pencil sits where the department's grip does (Colly, 18 November 2026): the same 18px icon in a full
+   press's box, its right edge a step past the line's, so the grip and the pencils make one column down the quote. */
+.quote-screen .quote-line-shut .opener { grid-area: mark; box-sizing: border-box; width: var(--control); height: var(--control); padding: var(--icon-inset); margin-block: calc(-1 * var(--ds-space-2)); margin-inline-end: calc(-1 * var(--ds-space-2)); color: var(--muted); }
 .quote-screen .quote-line-shut.needs .how, .quote-screen .quote-line .warn { color: var(--warn); }
 .quote-screen .group-total { display: flex; justify-content: space-between; gap: var(--ds-space-3); margin: 0; padding: var(--ds-space-2) calc(var(--control) + var(--ds-space-3)) var(--ds-space-2) 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; color: var(--muted); }
 .quote-screen .group-total b { color: var(--ink); font-weight: 700; }
@@ -457,9 +459,9 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-line-shut.quick .opener { align-self: start; line-height: inherit; margin-block: calc((1lh - var(--control)) / 2) 0; }
 .quote-screen .quote-line-shut.quick .amount small { display: block; font-weight: 400; font-size: var(--text-hint); color: var(--muted); }
 /* The pencil reads as the mark the other rows have, at a full press's size, at the right edge. */
-.quote-screen .quote-line-shut.quick .opener { justify-self: end; width: var(--control); height: var(--control); padding: 0; border: 0; background: none; color: var(--muted); }
-.quote-screen .quote-line-shut.quick .opener svg { width: 18px; height: 18px; }
-.quote-screen .quote-line-shut.quick .opener:hover { color: var(--ink); }
+.quote-screen .quote-line-shut.quick .opener { justify-self: end; padding: 0; border: 0; border-radius: var(--radius-box); background: none; color: var(--muted); }
+.quote-screen .quote-line-shut.quick .opener svg { width: var(--icon-control); height: var(--icon-control); }
+.quote-screen .quote-line-shut.quick .opener:hover { color: var(--ink); background: var(--ds-wash-hover); }
 .quote-screen .quick-fields { grid-area: quick; display: grid; grid-template-columns: var(--q-qty) var(--q-days) var(--q-price) var(--q-disc); justify-content: start; gap: var(--ds-space-1); min-width: 0; font-weight: 400; }
 .quote-screen .quick-fields .unit-box { min-width: 0; }
 .quote-screen .quick-fields input { padding-inline: var(--ds-space-2) var(--ds-space-1); font-variant-numeric: tabular-nums; }
