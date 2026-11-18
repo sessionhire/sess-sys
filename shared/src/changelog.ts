@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-18',
     title: 'The Jobs table lines every column up with the job’s name',
     what: 'At a desk, each column of the Jobs table now starts on the same line as the job’s name, instead of sitting halfway down a row when the name or venue runs to two lines.',
-    prs: [0],
+    prs: [415],
   },
   {
     version: '1.209.0',
