@@ -18,6 +18,29 @@ async function ready(page: Page, hash: string) {
   await expect(page.locator('.conn')).toHaveText('Up to date')
 }
 
+/** Every column but the name starts and ends at the same place on every line, whatever the line is called; the total and the pencil sit at the right. */
+async function expectColumnsAligned(page: Page) {
+  const cols = await page.locator('.quote-line-shut.quick').evaluateAll((rows) =>
+    rows.map((row) => {
+      const r = row.getBoundingClientRect()
+      const boxes = [...row.querySelectorAll('.quick-fields > *')].map((e) => {
+        const b = e.getBoundingClientRect()
+        return [Math.round(b.left - r.left), Math.round(b.width)]
+      })
+      const amount = row.querySelector('.amount')!.getBoundingClientRect()
+      const pencil = row.querySelector('.opener')!.getBoundingClientRect()
+      return { boxes, amountRight: Math.round(r.right - amount.right), pencilRight: Math.round(r.right - pencil.right), amountAlign: getComputedStyle(row.querySelector('.amount')!).textAlign }
+    }),
+  )
+  expect(cols.length).toBeGreaterThan(1)
+  for (const c of cols) {
+    expect(c.boxes).toEqual(cols[0]!.boxes)
+    expect(c.amountRight).toBe(cols[0]!.amountRight)
+    expect(c.amountAlign).toBe('right')
+    expect(c.pencilRight).toBeLessThanOrEqual(8)
+  }
+}
+
 /** How far the middle of what a line comes to (its first line, not its notes) is from the middle of the line's name. */
 async function totalOffName(page: Page) {
   return page.locator('.quote-line-shut.quick').first().evaluate((row) => {
@@ -67,8 +90,8 @@ for (const width of [320, 390]) {
     // No words under the name: the boxes say it.
     await expect(draft.getByText('2 × €60.00 a day × 1 day')).toHaveCount(0)
     await expect(audio.locator('.group-total')).toHaveText(/Audio subtotal\s*€160\.00/)
-    // What it comes to sits on the name's line, its notes under it, and the pencil on that line too (Colly, 18 November 2026).
-    await expect(audio.locator('.quote-line-shut').first().locator('.line-margin')).toBeVisible()
+    // What it comes to sits on the name's line, and the pencil on that line too; no "makes" on the row (Colly, 18 November 2026).
+    await expect(audio.locator('.quote-line-shut').first()).not.toContainText('makes')
     const off = await totalOffName(page)
     expect(off.total).toBeLessThan(2)
     expect(off.pencil).toBeLessThan(2)
@@ -78,7 +101,7 @@ for (const width of [320, 390]) {
     await draft.getByLabel('Line 1: how many').fill('3')
     await draft.getByLabel('Line 1: days charged').fill('2')
     await draft.getByLabel('Line 1: discount, %').fill('10')
-    await expect(audio.locator('.quote-line-shut').first().locator('.amount')).toHaveText('€324.00makes €304.00')
+    await expect(audio.locator('.quote-line-shut').first().locator('.amount')).toHaveText('€324.00')
     await expect(audio.locator('.group-total')).toHaveText(/€364\.00/)
     // A once line has no days to change.
     await expect(draft.getByLabel(/^Line 3: days/)).toHaveCount(0)
@@ -95,6 +118,12 @@ for (const width of [320, 390]) {
     await page.locator('body').click({ position: { x: 5, y: 5 } })
     await expect(draft.getByLabel('Line 2: how many')).toHaveAttribute('aria-invalid', 'true')
 
+    // The biggest numbers each box is for, 3 digits, 3, 5 and 3, fit without clipping.
+    await draft.getByLabel('Line 2: how many').fill('999')
+    await draft.getByLabel('Line 2: days charged').fill('365')
+    await draft.getByLabel('Line 2: price, a day').fill('12345')
+    await draft.getByLabel('Line 2: discount, %').fill('100')
+    await expectColumnsAligned(page)
     await draft.locator(".quote-main").screenshot({ path: `test-results/quick-edit-${width}-before.png` })
     // Nothing runs off the side, and no number box clips its number.
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
@@ -108,7 +137,7 @@ for (const width of [320, 390]) {
   })
 }
 
-test('on a desk the four keep their widths under the name, and on a wide screen a line is one row', async ({ browser, request }) => {
+test('on a desk a line is one row, and every column but the name lines up down the list', async ({ browser, request }) => {
   const id = await setUp(request)
   for (const width of [1280, 1100]) {
     const page = await (await browser.newContext({ viewport: { width, height: 900 } })).newPage()
@@ -116,10 +145,21 @@ test('on a desk the four keep their widths under the name, and on a wide screen 
     const draft = page.getByRole('form', { name: 'Version 1, a draft' })
     const row = draft.locator('.quote-line-shut').first()
     const box = async (s: string) => (await row.locator(s).first().boundingBox())!
-    expect((await box('.quick-fields')).width).toBeLessThanOrEqual(24 * 16 + 1)
-    const off = await totalOffName(page)
-    expect(off.total).toBeLessThan(2)
+    // One row at 1280: the name, then the four boxes, what it comes to and the pencil, all on the name's line.
     await draft.locator('.quote-main').screenshot({ path: `test-results/quick-edit-desk-${width}.png` })
+    if (width === 1280) {
+      const name = await box('.what')
+      for (const s of ['.unit-box', '.amount', '.opener']) {
+        const b = await box(s)
+        expect(Math.abs(b.y + b.height / 2 - (name.y + name.height / 2))).toBeLessThan(3)
+        expect(b.x).toBeGreaterThan(name.x)
+      }
+    }
+    await expectColumnsAligned(page)
+    // The department's subtotal sits under what each line comes to.
+    const sub = (await draft.locator('.group-total b').first().boundingBox())!
+    const amount = await box('.amount')
+    expect(Math.abs(sub.x + sub.width - (amount.x + amount.width))).toBeLessThan(2)
     await page.close()
   }
 })

@@ -280,7 +280,6 @@ export function LineSummary({
   done,
   onOpen,
   focus,
-  margin,
   total,
   included,
   heads,
@@ -294,7 +293,6 @@ export function LineSummary({
   done: QuoteLine | undefined
   onOpen: () => void
   focus: boolean
-  margin?: number | undefined
   /** A package's line with its kit under it (ADR 0116): what they come to together, and that its price is theirs. */
   total?: number | undefined
   heads?: boolean
@@ -386,7 +384,6 @@ export function LineSummary({
           {/* A package's own notes stay with what it comes to: priced by its kit, or what its price saves on its items (ADR 0116). */}
           {heads && l.packageId && done !== undefined && !done.unitCents && <small>at its kit’s prices</small>}
           {done && lineSaving(done) > 0 && <small className="package-saving">{money(lineSaving(done))} off its items</small>}
-          {margin !== undefined && <small className={`line-margin${margin < 0 ? ' bad' : ''}`}>makes {money(margin)}</small>}
         </span>
         <button type="button" className="icon-button opener" onClick={onOpen} autoFocus={focus} aria-label={`Line ${n}: ${l.what || 'not named yet'}, change it`}>
           <Icon name="edit" />

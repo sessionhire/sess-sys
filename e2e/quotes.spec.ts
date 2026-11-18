@@ -661,8 +661,10 @@ test("a line short of kit hires in what it's short of, transport is added at a c
   await draft.getByRole('button', { name: 'Add', exact: true }).click()
   await draft.getByLabel('Line 3: price').fill('180')
   await draft.getByLabel('Line 3: costs us').fill('120')
+  // What a line makes is said in its cost fold; the row keeps to its numbers (Colly, 18 November 2026).
+  await expect(draft.locator('.quote-line')).toContainText('makes €60.00')
   await draft.getByRole('button', { name: 'Done' }).click()
-  await expect(draft.locator('.quote-line-shut:has([aria-label$="Line 3: Luton van and driver, change it"])')).toContainText('makes €60.00')
+  await expect(draft.locator('.quote-line-shut:has([aria-label$="Line 3: Luton van and driver, change it"])')).not.toContainText('makes')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
   // The client's copy has none of it.

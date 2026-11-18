@@ -72,7 +72,7 @@ import { useLastCharged } from './rms.ts'
 import { QuotePill } from './QuoteStatus.tsx'
 import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.ts'
 import { matchKitToQuote } from './Kit.tsx'
-import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
+import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
 import { OrderedList } from './BoardOrder.tsx'
 import { Totals } from './QuoteSheet.tsx'
 import { Amending } from './QuoteRecords.tsx'
@@ -816,7 +816,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const cost = done ? costOf(done) : undefined
     return open !== l.id ? (
       <div key={l.id} className="quote-line-row">
-        <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} margin={boss && done ? lineMargin(done, cost) : undefined} total={setTotal} included={included} heads={under.length > 0} set={(ch) => set(l.id, ch)} fault={c.fault} left={touched.has(l.id)} onLeave={() => touch(l.id)} />
+        <LineSummary l={l} n={n} done={done} onOpen={() => openLine(l.id)} focus={shut === l.id} total={setTotal} included={included} heads={under.length > 0} set={(ch) => set(l.id, ch)} fault={c.fault} left={touched.has(l.id)} onLeave={() => touch(l.id)} />
         {kit}
       </div>
     ) : (
