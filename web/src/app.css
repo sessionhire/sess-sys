@@ -1026,3 +1026,18 @@ dialog.palette::backdrop { transition: opacity var(--ds-duration-slow) var(--ds-
 .app .rms-price-plan ul { margin: 0 0 var(--ds-space-2); padding-inline-start: var(--ds-space-5); }
 .app .rms-prices label.tick { display: flex; gap: var(--ds-space-3); align-items: center; min-height: 44px; cursor: pointer; }
 .app .rms-prices label.tick input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
+
+/* The 4px grid (GridOverlay.tsx): over everything, pressed through, in the system's cyan, a colour nothing in sess-sys is, since red is
+   "you" here. A fine line every 4px (space/1), a firmer one every 16px (space/4). Its rows follow the scroll from the inline style. */
+.grid-overlay {
+  --grid-fine: color-mix(in srgb, var(--ds-accent) 18%, transparent);
+  --grid-firm: color-mix(in srgb, var(--ds-accent) 45%, transparent);
+  position: fixed; inset: 0; z-index: 2147483647; pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--grid-firm) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-firm) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-fine) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-fine) 1px, transparent 1px);
+  background-size: 16px 16px, 16px 16px, 4px 4px, 4px 4px;
+}
+@media print { .grid-overlay { display: none; } }
