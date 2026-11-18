@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-18',
     title: "A quote line's total sits beside its name",
     what: "On a quote, what each line comes to now sits on the same line as its name, with what it makes underneath, and the pencil sits on that line too.",
-    prs: [0],
+    prs: [409],
   },
   {
     version: '1.207.1',
