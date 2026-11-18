@@ -440,6 +440,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-line-shut.needs .how, .quote-screen .quote-line .warn { color: var(--warn); }
 .quote-screen .group-total { display: flex; justify-content: space-between; gap: var(--ds-space-3); margin: 0; padding: var(--ds-space-2) calc(var(--control) + var(--ds-space-3)) var(--ds-space-2) 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; color: var(--muted); }
 .quote-screen .group-total b { color: var(--ink); font-weight: 700; }
+.quote-screen .group-total { align-items: center; }
+.quote-screen .group-total-what { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--ds-space-3); row-gap: var(--ds-space-1); min-width: 0; }
+.quote-screen .group-total button.link.quiet { margin-block: calc(-1 * var(--ds-space-2)); font-size: var(--text-hint); text-decoration-color: var(--field-line); }
+.quote-screen .group-total + .group-discount { padding-top: var(--ds-space-2); }
 /* A line's everyday numbers changed in place (Colly, 18 November 2026): how many, days, price and discount in boxes with
    their units, and the pencil for the rest. Every column but the name has a fixed width, each just wide enough for its
    number (3 digits, 3, 5 and 3) and its unit, so the columns line up down the list whatever a line is called; the name

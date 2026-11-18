@@ -89,7 +89,7 @@ for (const width of [320, 390]) {
 
     // No words under the name: the boxes say it.
     await expect(draft.getByText('2 × €60.00 a day × 1 day')).toHaveCount(0)
-    await expect(audio.locator('.group-total')).toHaveText(/Audio subtotal\s*€160\.00/)
+    await expect(audio.locator('.group-total')).toHaveText(/^Audio subtotal.*€160\.00$/)
     // What it comes to sits on the name's line, and the pencil on that line too; no "makes" on the row (Colly, 18 November 2026).
     await expect(audio.locator('.quote-line-shut').first()).not.toContainText('makes')
     const off = await totalOffName(page)
@@ -160,6 +160,24 @@ test('on a desk a line is one row, and every column but the name lines up down t
     const sub = (await draft.locator('.group-total b').first().boundingBox())!
     const amount = await box('.amount')
     expect(Math.abs(sub.x + sub.width - (amount.x + amount.width))).toBeLessThan(2)
+    if (width === 1280) {
+      // Discounting every line of a department is on its subtotal line, under the lines it changes (Colly, 18 November 2026).
+      const audio = draft.getByRole('group', { name: 'Audio' })
+      await expect(audio.locator('.group-head').getByRole('button', { name: 'Discount every line…' })).toHaveCount(0)
+      const total = audio.locator('.group-total')
+      const every = total.getByRole('button', { name: 'Discount every line…' })
+      const t = (await total.boundingBox())!
+      const e = (await every.boundingBox())!
+      expect(Math.abs(e.y + e.height / 2 - (t.y + t.height / 2))).toBeLessThan(3)
+      await every.click()
+      await audio.getByLabel('Discount on every Audio line, %').fill('10')
+      await audio.getByRole('button', { name: 'Apply' }).click()
+      await expect(total).toHaveText(/Audio subtotal.*€144\.00/)
+      await expect(draft.getByLabel('Line 1: discount, %')).toHaveValue('10')
+      // A department of one line has nothing to discount every line of.
+      await expect(draft.getByRole('group', { name: 'Transport' }).getByRole('button', { name: 'Discount every line…' })).toHaveCount(0)
+      await expect(draft.locator('.save-state')).toHaveText('Saved')
+    }
     await page.close()
   }
 })

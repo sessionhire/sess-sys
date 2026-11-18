@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.208.2',
+    date: '2026-11-18',
+    title: "Discount every line sits on the department's subtotal",
+    what: "On a quote, Discount every line… is now on each department's subtotal line, under the lines it changes, rather than beside the department's name.",
+    prs: [412],
+  },
+  {
     version: '1.208.1',
     date: '2026-11-18',
     title: 'Each quote line on one row, in columns',
