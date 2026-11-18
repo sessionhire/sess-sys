@@ -1049,6 +1049,34 @@ export function moveGroup<L extends Grouped>(lines: readonly L[], group: string,
   return shownOrder(gs, lines)
 }
 
+/**
+ * The groups of a quote by band (ADR 0128): kit groups, then crew's, then the rest, each a list the office can put in its
+ * own order, by dragging a group's grip (Colly, 18 November 2026). A group never leaves its band.
+ */
+export function groupBands<L extends Grouped>(lines: readonly L[]): { group: string; lines: L[] }[][] {
+  const bands: { group: string; lines: L[] }[][] = []
+  let at = -1
+  for (const g of grouped(lines)) {
+    if (g.band !== at) {
+      bands.push([])
+      at = g.band
+    }
+    bands[bands.length - 1]!.push({ group: g.group, lines: g.lines })
+  }
+  return bands
+}
+
+/** The lines with their groups in this order, each group kept in its band: what a drag of a group's grip puts down. */
+export function orderGroups<L extends Grouped>(lines: readonly L[], order: readonly string[]): L[] {
+  const gs = grouped(lines)
+  const rank = (g: string) => {
+    const i = order.indexOf(g)
+    return i < 0 ? order.length : i
+  }
+  gs.sort((a, b) => a.band - b.band || rank(a.group) - rank(b.group))
+  return shownOrder(gs, lines)
+}
+
 // VAT periods and the accountant's files.
 
 /**

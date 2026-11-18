@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupCents, linesByGroup, moveGroup, moveLine, needsPrice, quoteContact } from '../src/quotes.ts'
+import { groupBands, groupCents, linesByGroup, orderGroups, moveGroup, moveLine, needsPrice, quoteContact } from '../src/quotes.ts'
 
 /** The office's own groups and order, words-only lines, and who a quote is for (ADR 0128). */
 
@@ -80,5 +80,18 @@ describe('groupCents', () => {
     const all = [at('a', 6000), at('p', 0, { packageId: 'x' }), at('u', 1000, { under: 'p' }), at('w', 0, { words: true }), at('other', 500, { group: 'Video' })]
     const audio = linesByGroup(all).find((g) => g.group === 'Audio')!.lines
     expect(groupCents(audio, all)).toBe(12000 + 2000)
+  })
+})
+
+describe('groupBands and orderGroups', () => {
+  const ls = [kit('a', 'Monitors'), kit('b', 'FOH'), crew('c1'), kit('a2', 'Monitors', 'a'), { id: 't', kind: 'other' as const, group: 'Transport' }]
+  it('splits the groups into kit, crew and the rest', () => {
+    expect(groupBands(ls).map((b) => b.map((g) => g.group))).toEqual([['Monitors', 'FOH'], ['Crew'], ['Transport']])
+  })
+  it('puts groups in the order given, inside their band, with what is under a line kept with it', () => {
+    expect(shape(orderGroups(ls, ['FOH', 'Monitors']))).toEqual(['FOH: b', 'Monitors: a', 'Crew: c1', 'Transport: t'])
+    expect(ids(orderGroups(ls, ['FOH', 'Monitors']))).toEqual(['b', 'a', 'a2', 'c1', 't'])
+    // A crew group can't be put among the kit.
+    expect(shape(orderGroups(ls, ['Crew', 'FOH', 'Monitors']))).toEqual(['FOH: b', 'Monitors: a', 'Crew: c1', 'Transport: t'])
   })
 })

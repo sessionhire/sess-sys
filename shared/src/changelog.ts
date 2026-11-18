@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.207.1',
+    date: '2026-11-18',
+    title: 'Drag a quote\'s departments into order',
+    what: 'A quote\'s departments are put in order with a handle at the right of each department\'s heading, dragged as the cards on the Board are, in place of the Up and Down words. Pressing the handle and using the arrow keys works too.',
+    prs: [408],
+  },
+  {
     version: '1.207.0',
     date: '2026-11-18',
     title: 'Change a quote line on its row, and a subtotal for each department',

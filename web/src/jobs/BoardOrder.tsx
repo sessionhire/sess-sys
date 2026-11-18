@@ -33,9 +33,72 @@ export function OrderedCards({
   onOrder: (ids: string[], id: string) => void
   say: (words: string) => void
 }) {
-  const ids = jobs.map((s) => s.job.id)
-  const byId = new Map(jobs.map((s) => [s.job.id, s]))
-  const name = (id: string) => byId.get(id)?.job.name ?? 'The job'
+  return (
+    <OrderedList
+      items={jobs}
+      idOf={(s) => s.job.id}
+      nameOf={(s) => s.job.name}
+      where={where}
+      canOrder={canOrder}
+      render={(s, grip) => (
+        <>
+          {card(s)}
+          {grip}
+        </>
+      )}
+      onOrder={onOrder}
+      say={say}
+      helpId="board-order-help"
+      helpTitle="Drag the card, or press this and move it with the arrow keys. Cards not put in order go soonest first."
+    />
+  )
+}
+
+/**
+ * Any list a person puts in order by dragging, as the Board's cards are (above): the same lift, gap, edge scrolling, press
+ * and keys. A list whose items hold fields of their own (a quote's departments, Colly 18 November 2026) is dragged only by
+ * its grip, which the item places where it wants it.
+ */
+export function OrderedList<T>({
+  items,
+  idOf,
+  nameOf,
+  where,
+  canOrder,
+  render,
+  onOrder,
+  say,
+  gripOnly = false,
+  className = 'board-cards',
+  itemClassName = 'board-item',
+  gripClassName = '',
+  helpId,
+  helpTitle,
+}: {
+  items: readonly T[]
+  idOf: (t: T) => string
+  nameOf: (t: T) => string
+  where: string
+  canOrder: boolean
+  /** The item, with its grip to put where it goes (nothing while it can't be ordered). */
+  render: (t: T, grip: ReactNode) => ReactNode
+  onOrder: (ids: string[], id: string) => void
+  say: (words: string) => void
+  /** Dragged only by the grip, not by the item itself. */
+  gripOnly?: boolean
+  className?: string
+  itemClassName?: string
+  gripClassName?: string
+  helpId?: string
+  helpTitle?: string
+}) {
+  const jobs = items
+  const ids = jobs.map(idOf)
+  const byId = new Map(jobs.map((s) => [idOf(s), s]))
+  const name = (id: string) => {
+    const t = byId.get(id)
+    return t === undefined ? 'It' : nameOf(t)
+  }
   // Picked up by a press or a key: the order as it would be put down, drawn as it goes.
   const [held, setHeld] = useState<{ id: string; order: string[] }>()
   // Dragged: the card that's lifted. Where it goes is drawn straight onto the cards (below), as it follows the pointer.
@@ -118,8 +181,8 @@ export function OrderedCards({
   }
 
   // What the drag's listeners read, as this render has it.
-  const live = useRef({ ids, held, canOrder, putDown })
-  live.current = { ids, held, canOrder, putDown }
+  const live = useRef({ ids, held, canOrder, putDown, gripOnly })
+  live.current = { ids, held, canOrder, putDown, gripOnly }
 
   // The drag, on the group itself, so the whole card takes it (Colly, 11 November 2026). Listeners of the page's own, as a finger's
   // drag has to stop the page scrolling under it, which only a touchmove that isn't passive can do.
@@ -164,13 +227,15 @@ export function OrderedCards({
       scrolling = requestAnimationFrame(tick)
     }
     const down = (e: PointerEvent) => {
-      const { held, canOrder } = live.current
+      const { held, canOrder, gripOnly } = live.current
       const t = e.target as HTMLElement
       const item = t.closest<HTMLElement>('[data-card]')
-      if (!canOrder || held || press.current || e.button !== 0 || !item || !el.contains(item)) return
+      // Only this list's own items: a list inside one of them has its own drag.
+      if (!canOrder || held || press.current || e.button !== 0 || !item || item.parentElement !== el) return
       // Choosing who has the stage is its own control, never a drag.
       if (t.closest('.stage-owner, select, input, textarea, label')) return
       const grip = !!t.closest('.board-grip')
+      if (gripOnly && !grip) return
       const touch = e.pointerType === 'touch'
       press.current = { id: item.dataset.card!, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, pointer: e.pointerId, mode: 'armed', touch, grip, target: grip ? t.closest('.board-grip')! : item }
       // A finger on the card has to be held still first, as a swipe is the page scrolling.
@@ -250,7 +315,7 @@ export function OrderedCards({
   return (
     <div
       ref={box}
-      className="board-cards"
+      className={className}
       data-holding={held ? 'true' : undefined}
       data-orderable={canOrder ? 'true' : undefined}
       data-sorting={drag ? 'true' : undefined}
@@ -273,46 +338,41 @@ export function OrderedCards({
       {shown.map((id) => {
         const s = byId.get(id)!
         const isHeld = held?.id === id
-        return (
-          <div
-            key={id}
-            className="board-item"
-            data-card={id}
-            data-dragging={isHeld || drag?.id === id ? 'true' : undefined}
+        const grip = canOrder && (
+          <button
+            type="button"
+            className={`board-grip icon-button${gripClassName ? ` ${gripClassName}` : ''}`}
+            aria-label={held && !isHeld ? `Put ${name(held.id)} here, in place of ${name(id)}` : `Move ${name(id)}`}
+            aria-pressed={isHeld}
+            aria-describedby={held || !helpId ? undefined : helpId}
+            title={held ? undefined : helpTitle}
+            onClick={() => {
+              if (!held) pickUp(id)
+              else if (isHeld) putDown(held.order, id)
+              else into(id)
+            }}
+            onKeyDown={(e) => {
+              if (!isHeld) return
+              const keys: Record<string, number | 'top' | 'end'> = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1, Home: 'top', End: 'end' }
+              if (e.key in keys) {
+                e.preventDefault()
+                step(keys[e.key]!)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                putBack()
+              }
+            }}
+            onBlur={(e) => {
+              // Leaving the group puts a held card back; moving between its own buttons doesn't.
+              if (isHeld && !focusOn.current && !box.current?.contains(e.relatedTarget as Node | null)) putBack()
+            }}
           >
-            {card(s)}
-            {canOrder && (
-              <button
-                type="button"
-                className="board-grip icon-button"
-                aria-label={held && !isHeld ? `Put ${name(held.id)} here, in place of ${s.job.name}` : `Move ${s.job.name}`}
-                aria-pressed={isHeld}
-                aria-describedby={held ? undefined : 'board-order-help'}
-                title={held ? undefined : 'Drag the card, or press this and move it with the arrow keys. Cards not put in order go soonest first.'}
-                onClick={() => {
-                  if (!held) pickUp(id)
-                  else if (isHeld) putDown(held.order, id)
-                  else into(id)
-                }}
-                onKeyDown={(e) => {
-                  if (!isHeld) return
-                  const keys: Record<string, number | 'top' | 'end'> = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1, Home: 'top', End: 'end' }
-                  if (e.key in keys) {
-                    e.preventDefault()
-                    step(keys[e.key]!)
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault()
-                    putBack()
-                  }
-                }}
-                onBlur={(e) => {
-                  // Leaving the group puts a held card back; moving between its own buttons doesn't.
-                  if (isHeld && !focusOn.current && !box.current?.contains(e.relatedTarget as Node | null)) putBack()
-                }}
-              >
-                <Icon name="sort" />
-              </button>
-            )}
+            <Icon name="sort" />
+          </button>
+        )
+        return (
+          <div key={id} className={itemClassName} data-card={id} data-dragging={isHeld || drag?.id === id ? 'true' : undefined}>
+            {render(s, grip)}
           </div>
         )
       })}
