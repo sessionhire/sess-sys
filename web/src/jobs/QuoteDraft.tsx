@@ -996,14 +996,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                   )}
                 </button>
               </h3>
-              {g.lines.length > 1 && discounting !== g.group && (
-                <button type="button" className="link quiet" onClick={() => setDiscounting(g.group)}>
-                  Discount every line…
-                </button>
-              )}
               {grip}
             </div>
-            {discounting === g.group && <GroupDiscount group={g.group} onApply={(off) => groupDiscount(g.group, off)} onCancel={() => setDiscounting(undefined)} refuse={refuse} />}
             {!shut && g.lines.map((l) => {
               const under = linesUnder(lines, l.id)
               if (!under.length) return row(l)
@@ -1018,13 +1012,22 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                 </div>
               )
             })}
-            {/* Each department's subtotal at its end (Colly, 18 November 2026), as the printed quote has it; one group's is the subtotal. */}
-            {!shut && groups.length > 1 && (
-              <p className="group-total">
-                <span>{g.group} subtotal</span>
-                <b>{money(groupCents)}</b>
-              </p>
+            {/* Each department's subtotal at its end (Colly, 18 November 2026), as the printed quote has it; one group's is the
+                subtotal. Discounting every line sits on that line too, under the lines it changes (Colly, 18 November 2026). */}
+            {!shut && (groups.length > 1 || (g.lines.length > 1 && discounting !== g.group)) && (
+              <div className="group-total">
+                <span className="group-total-what">
+                  {groups.length > 1 && <span>{g.group} subtotal</span>}
+                  {g.lines.length > 1 && discounting !== g.group && (
+                    <button type="button" className="link quiet" onClick={() => setDiscounting(g.group)}>
+                      Discount every line…
+                    </button>
+                  )}
+                </span>
+                {groups.length > 1 && <b>{money(groupCents)}</b>}
+              </div>
             )}
+            {!shut && discounting === g.group && <GroupDiscount group={g.group} onApply={(off) => groupDiscount(g.group, off)} onCancel={() => setDiscounting(undefined)} refuse={refuse} />}
             {removedGroup === g.group && undoLine}
           </section>
           )
