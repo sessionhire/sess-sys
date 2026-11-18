@@ -29,7 +29,7 @@ async function totalOffName(page: Page) {
     const nameRange = document.createRange()
     nameRange.selectNodeContents(name)
     const pencil = row.querySelector('.opener')!.getBoundingClientRect()
-    const nameLine = nameRange.getClientRects()[0]
+    const nameLine = nameRange.getClientRects()[0]!
     return { total: Math.abs(mid(range.getBoundingClientRect()) - mid(nameLine)), pencil: Math.abs(mid(pencil) - mid(nameLine)) }
   })
 }
