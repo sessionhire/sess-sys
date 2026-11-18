@@ -13,7 +13,8 @@ import {
   irishToday,
   linesByGroup,
   linesUnder,
-  moveGroup,
+  groupBands,
+  orderGroups,
   moveLine,
   inRacks,
   lineCents,
@@ -72,6 +73,7 @@ import { QuotePill } from './QuoteStatus.tsx'
 import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.ts'
 import { matchKitToQuote } from './Kit.tsx'
 import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, lineMargin, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
+import { OrderedList } from './BoardOrder.tsx'
 import { Totals } from './QuoteSheet.tsx'
 import { Amending } from './QuoteRecords.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
@@ -691,6 +693,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     setDiscounting(undefined)
   }
   const groups = linesByGroup(lines)
+  // What a drag of a department said, for a screen reader.
+  const [saidOrder, setSaidOrder] = useState('')
   // Groups to pick from for a line: the quote's own, then the departments not used yet.
   const groupNames = [...new Set([...groups.map((g) => g.group), ...Object.values(DEPARTMENT_LABELS), 'Crew', 'Transport'])]
   const kitLines = lines.filter((l) => l.kind === 'kit' && l.per === 'day' && !l.rate).length
@@ -955,7 +959,24 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
         {claude.offered && <MailOnQuote view={view} projectId={job.id} jobDays={days} lines={asked} discountPct={pctOk ? pct : 0} onTake={takeAdvice} />}
 
         {lines.length === 0 && <Empty>No lines yet. Add kit, crew or anything else the quote is for.</Empty>}
-        {groups.map((g) => {
+        {/* Each band of groups (kit, crew, the rest) is put in the office's order by dragging a department's grip, as the Board's
+            cards are (Colly, 18 November 2026); a group never leaves its band. */}
+        {groupBands(lines).map((band, b) => (
+          <OrderedList
+            key={b}
+            items={band}
+            idOf={(g) => g.group}
+            nameOf={(g) => g.group}
+            where="the quote"
+            canOrder={band.length > 1}
+            gripOnly
+            className="quote-groups"
+            itemClassName="quote-group-item"
+            gripClassName="quote-grip"
+            helpTitle="Drag to move the department, or press this and move it with the arrow keys."
+            say={setSaidOrder}
+            onOrder={(order) => setLines((ls) => orderGroups(ls, order))}
+            render={(g, grip) => {
           // Folded, unless a line in it is open: one being changed, or just added, is never hidden.
           const shut = isFolded(g.group, g.lines) && !g.lines.some((l) => l.id === open)
           // What the group comes to as typed, each package's kit with it; a line not finished yet counts for nothing.
@@ -975,21 +996,12 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                   )}
                 </button>
               </h3>
-              {groups.length > 1 && (moveGroup(lines, g.group, -1) || moveGroup(lines, g.group, 1)) && (
-                <span className="group-move">
-                  <button type="button" className="link quiet" onClick={moved(moveGroup(lines, g.group, -1))} disabled={!moveGroup(lines, g.group, -1)} aria-label={`Move ${g.group} up`}>
-                    Up
-                  </button>
-                  <button type="button" className="link quiet" onClick={moved(moveGroup(lines, g.group, 1))} disabled={!moveGroup(lines, g.group, 1)} aria-label={`Move ${g.group} down`}>
-                    Down
-                  </button>
-                </span>
-              )}
               {g.lines.length > 1 && discounting !== g.group && (
                 <button type="button" className="link quiet" onClick={() => setDiscounting(g.group)}>
                   Discount every line…
                 </button>
               )}
+              {grip}
             </div>
             {discounting === g.group && <GroupDiscount group={g.group} onApply={(off) => groupDiscount(g.group, off)} onCancel={() => setDiscounting(undefined)} refuse={refuse} />}
             {!shut && g.lines.map((l) => {
@@ -1016,7 +1028,12 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
             {removedGroup === g.group && undoLine}
           </section>
           )
-        })}
+            }}
+          />
+        ))}
+        <p className="sr-only" aria-live="polite">
+          {saidOrder}
+        </p>
         {removed && !groups.some((g) => g.group === removedGroup) && undoLine}
         {/* A dry hire has no travel or subsistence to charge (ADR 0128; finding 10), until it has crew on it after all. */}
         {/* Nothing to say about travel on a quote with no lines yet: it waits until there's something to travel with (review of 11

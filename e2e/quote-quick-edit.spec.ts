@@ -100,3 +100,48 @@ test('on a desk the four keep their widths under the name, and on a wide screen 
     await page.close()
   }
 })
+
+test('a department is dragged into place by the grip at the right of its head, or moved with the keys', async ({ browser, request }) => {
+  const id = await setUp(request)
+  for (const width of [390, 1280]) {
+    const page = await (await browser.newContext({ viewport: { width, height: 844 } })).newPage()
+    await ready(page, `#jobs/job-${id}/quote`)
+    const draft = page.getByRole('form', { name: 'Version 1, a draft' })
+    const order = () => draft.locator('.quote-group-item .group-head h3').allTextContents()
+    await expect.poll(order).toEqual(['Audio', 'Transport'])
+    // No Up and Down links any more; the grip sits at the right of the head, in line with its name.
+    await expect(draft.getByRole('button', { name: 'Move Audio up' })).toHaveCount(0)
+    const audioHead = draft.getByRole('group', { name: 'Audio' }).locator('.group-head')
+    const grip = draft.getByRole('button', { name: 'Move Audio', exact: true })
+    const g = (await grip.boundingBox())!
+    const h = (await audioHead.locator('h3').boundingBox())!
+    const head = (await audioHead.boundingBox())!
+    expect(Math.abs(g.y + g.height / 2 - (h.y + h.height / 2))).toBeLessThan(3)
+    expect(Math.abs(g.x + g.width - (head.x + head.width))).toBeLessThan(10)
+    await audioHead.screenshot({ path: `test-results/quote-grip-${width}.png` })
+
+    if (width === 1280) {
+      // Dragged by the grip: Transport above Audio.
+      const t = (await draft.getByRole('button', { name: 'Move Transport', exact: true }).boundingBox())!
+      await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(t.x + t.width / 2, h.y - 10, { steps: 10 })
+      await page.mouse.up()
+      await expect.poll(order).toEqual(['Transport', 'Audio'])
+    } else {
+      // Pressed, then the arrow and Space: Audio below Transport.
+      await grip.click()
+      await page.keyboard.press('ArrowDown')
+      await page.keyboard.press('Space')
+      await expect.poll(order).toEqual(['Transport', 'Audio'])
+      await expect(draft.locator('[aria-live="polite"].sr-only')).toContainText('Audio put down, 2 of 2')
+      // Back, for the desk's turn.
+      await draft.getByRole('button', { name: 'Move Audio', exact: true }).click()
+      await page.keyboard.press('ArrowUp')
+      await page.keyboard.press('Space')
+      await expect.poll(order).toEqual(['Audio', 'Transport'])
+    }
+    await expect(draft.locator('.save-state')).toHaveText('Saved')
+    await page.close()
+  }
+})

@@ -414,6 +414,19 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* In a group's head a quiet link-button stays small words beside the heading; everywhere else it is a quiet ghost at a button's size. */
 .quote-screen .group-head button.link.quiet { margin-block: calc(-1 * var(--ds-space-2)); font-size: var(--text-hint); text-decoration-color: var(--field-line); }
 .quote-screen .quote-main > button.link.quiet { justify-self: start; }
+/* The departments of a band (kit, crew, the rest) are put in order by a grip at the right of each head, in line with its
+   name, dragged as the Board's cards are (Colly, 18 November 2026). The grip is a full press's size, drawn into the head's
+   line without making it taller. */
+.quote-screen .quote-groups { display: grid; gap: var(--ds-space-3); min-width: 0; }
+.quote-screen .quote-group-item { position: relative; min-width: 0; border-radius: var(--radius-box); }
+.quote-screen .group-head > h3 { margin-inline-end: auto; }
+.app .quote-screen .quote-grip { position: static; flex: none; margin-block: calc(-1 * var(--ds-space-2)); margin-inline-end: calc(-1 * var(--ds-space-2)); }
+.quote-groups[data-sorting] .quote-group-item { transition: transform var(--ds-duration-fast) var(--ds-ease-standard); }
+.quote-groups[data-sorting] .quote-group-item[data-dragging='true'] { z-index: 3; transition: none; }
+@media (prefers-reduced-motion: reduce) { .quote-groups[data-sorting] .quote-group-item { transition: none; } }
+.quote-group-item[data-dragging='true'] { background: var(--panel); background-image: linear-gradient(var(--ds-wash-dragged), var(--ds-wash-dragged)); box-shadow: var(--ds-elevation-menu); }
+.quote-groups[data-holding] .quote-group-item[data-dragging='true'] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.quote-group-item[data-dragging='true'] .quote-grip { cursor: grabbing; }
 /* A line reads as a row to press: what, how it's charged, what it comes to, and the mark that says it opens. */
 .quote-screen .quote-line-row { display: grid; gap: 0; min-width: 0; }
 .quote-screen .quote-line-row + .quote-line-row { border-top: 1px solid var(--line); }
@@ -514,8 +527,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quote-screen .quote-margin { margin: 0; }
 .quote-screen .line-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); }
 /* The office's order (ADR 0128): a line up or down its group, a group among its kind; words only, as written. */
-.quote-screen .line-move, .quote-screen .group-move { display: flex; gap: var(--ds-space-2); margin-inline-end: auto; }
-.quote-screen .group-move { margin-inline: var(--ds-space-2) auto; }
+.quote-screen .line-move { display: flex; gap: var(--ds-space-2); margin-inline-end: auto; }
 .quote-screen .quote-line-shut.words .what { font-style: italic; }
 .quote-table tr.words td { font-style: italic; }
 /* Travel and subsistence (ADR 0086) are worked out, not typed, so each is a row like a line; open, it holds the one thing the office says about this job for it. */
