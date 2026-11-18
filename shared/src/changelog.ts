@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.208.0',
+    date: '2026-11-18',
+    title: 'A 4px grid to check things line up',
+    what: "For the person who designs the app only: a switch at the foot of the sidebar on a computer lays a fine 4px grid over every screen, to check that everything lines up. It can't be pressed, everything under it works as before, and nobody else sees the switch.",
+    prs: [410],
+  },
+  {
     version: '1.207.2',
     date: '2026-11-18',
     title: "A quote line's total sits beside its name",

@@ -24,6 +24,10 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
   .tabs { flex-direction: column; justify-content: flex-start; gap: var(--ds-space-1); padding: max(var(--ds-space-4), env(safe-area-inset-top)) var(--ds-space-3) var(--ds-space-4) max(var(--ds-space-3), env(safe-area-inset-left)); }
   .tabs a { flex: none; max-width: none; min-height: 48px; display: flex; align-items: center; justify-content: flex-start; gap: var(--ds-space-3); padding: 0 var(--ds-space-3); font-size: var(--text-body); }
   .tabs .badge { position: static; margin-left: auto; }
+  /* The 4px grid's switch (GridOverlay.tsx), for the one account that has it, at the sidebar's foot, drawn as a place is. */
+  .foot:has(.grid-button) { display: flex; flex-direction: column; }
+  .grid-button { margin: auto var(--ds-space-3) max(var(--ds-space-4), env(safe-area-inset-bottom)); min-height: 48px; display: flex; align-items: center; justify-content: flex-start; gap: var(--ds-space-3); padding: 0 var(--ds-space-3); border-radius: var(--radius-tab); border-color: transparent; background: transparent; color: var(--muted); font-weight: 700; font-size: var(--text-body); text-align: left; }
+  .grid-button[aria-pressed='true'] { color: var(--ink); background: var(--ds-accent-soft); }
   /* A new version's line runs across the top, the sidebar starting under it. */
   .update ~ .foot { top: calc(56px + env(safe-area-inset-top)); }
 }

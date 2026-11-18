@@ -13,6 +13,7 @@ import { PreviewSplash, useHoldPersona, usePreview } from './home/Preview.tsx'
 // Holds every change to the person's role (ADR 0034).
 import './role.ts'
 import { FootContext, useDesk } from './foot.tsx'
+import { canSeeGrid, GridButton, GridOverlay, useGrid } from './GridOverlay.tsx'
 import { JobsScreen } from './jobs/JobsScreen.tsx'
 import { QuotesScreen } from './jobs/QuotesScreen.tsx'
 import { MenuScreen } from './MenuScreen.tsx'
@@ -120,6 +121,8 @@ export function Shell() {
   const persona = usePreview()
   const barAway = useBarAway()
   const desk = useDesk()
+  const gridAllowed = canSeeGrid(auth)
+  const [grid, toggleGrid] = useGrid(gridAllowed)
   const [dock, setDock] = useState<HTMLElement | null>(null)
   const access = useAccess()
   const seesMoney = access.can('money')
@@ -235,6 +238,7 @@ export function Shell() {
             </a>
           ))}
         </nav>
+        {desk && gridAllowed && <GridButton on={grid} onToggle={toggleGrid} />}
       </footer>
       <main ref={main}>
         <FootContext.Provider value={dock}>
@@ -244,6 +248,7 @@ export function Shell() {
       <Toaster />
       {keys.help && <ShortcutsSheet money={seesMoney} onClose={keys.close} />}
       {searching && signedIn && <SearchPalette onGo={go} onClose={closeSearch} desk={desk} />}
+      {grid && <GridOverlay />}
     </>
   )
 }
