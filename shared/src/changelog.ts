@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-18',
     title: 'Change a quote line on its row, and a subtotal for each department',
     what: 'Each line on a quote now has its number, days, price and discount in boxes on the row itself, so the everyday changes need no opening; the pencil still opens the line for everything else, and the words under the name are gone to save room. Where a quote has more than one department, each ends with its own subtotal, on the screen, on the client\'s page and in the PDF.',
-    prs: [0],
+    prs: [407],
   },
   {
     version: '1.206.0',
