@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-18',
     title: 'Each quote line on one row, in columns',
     what: "On a quote, each line is one row: its name, then how many, days, price and discount, then what it comes to and the pencil at the right. Every column lines up down the list, and the name takes the room that's left. What a line makes is no longer on the row; it's still in the line's cost when it's opened. On a phone the four boxes sit under the name, in the same columns.",
-    prs: [0],
+    prs: [411],
   },
   {
     version: '1.208.0',
