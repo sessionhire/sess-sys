@@ -4,6 +4,7 @@ import { getTimesheet } from '../crew/timesheets.ts'
 import { getClient, getProject } from '../projects/store.ts'
 import { getModel } from '../stock/store.ts'
 import { emailsOf, getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, getQuoteEmail, getQuoteSettings, getRolePrice, highestNumber, isDeleted, newAcceptToken, quotesOf, versionsEver } from './store.ts'
+import { giveQuotingToWhoStartedIt } from '../steps/handlers.ts'
 
 /**
  * Light finance (ADR 0042). The rules, wherever a change comes from:
@@ -129,6 +130,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
       ]
     )
     await emitQuote(ctx, a.id)
+    // A job's first quote: whoever starts writing it has the Quoting stage, if nobody does yet.
+    if (top === 0) await giveQuotingToWhoStartedIt(ctx, a.projectId)
   },
 
   async 'quote.sent'(ctx, a) {

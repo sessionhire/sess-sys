@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.210.0',
+    date: '2026-11-19',
+    title: 'Whoever starts a quote has the job first',
+    what: 'Start a quote from New quote, a quick quote, a past job or a new enquiry, or write the first quote for a job already in the app, and the job is down to you: your name is under its status at the top of the job, and Quoting is on your list on Home. If someone already has it, it stays theirs, and you can hand it on from the same place as before.',
+    prs: [416],
+  },
+  {
     version: '1.209.0',
     date: '2026-11-18',
     title: 'A quote line’s discount shows whether it still makes its margin',

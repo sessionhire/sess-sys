@@ -81,6 +81,40 @@ describe("a job's steps", () => {
     expect(await colly.send('jobStep.set', { projectId: 'e1', step: 'prep', done: true })).toMatchObject({ status: 'rejected', reason: { message: 'Errands and meetings have no stages.' } })
   })
 
+  it('start with the Quoting stage given to whoever starts the quote, unless someone has it already (Colly, 18 November 2026)', async () => {
+    const { colly, aoife } = await office()
+    const owners = async (id: string) =>
+      Promise.all(['quote', 'confirmed'].map(async (s) => (await colly.record<StepRecord>('jobStep', `${id}.${s}`).catch(() => undefined))?.ownerId ?? null))
+
+    // A new enquiry, as the New quote page, a quick quote or a quote from a past job makes it: Aoife started it, so it's hers.
+    await aoife.send('project.create', { id: 'q1', name: 'Longitude', clientId: null, venueId: null, status: 'enquiry', notes: '' })
+    expect(await owners('q1')).toEqual(['aoife', 'aoife'])
+    // Writing its first quote changes nothing: it's already hers, and Colly's first save doesn't take it off her.
+    await colly.send('quote.save', { id: 'q1v1', projectId: 'q1', lines: [], discountPct: 0, notes: '' })
+    expect(await owners('q1')).toEqual(['aoife', 'aoife'])
+
+    // A job already in the app with nobody on it: the first quote written for it gives the stage to who wrote it.
+    await colly.send('project.create', { id: 'q2', name: 'All Together Now', clientId: null, venueId: null, status: 'enquiry', notes: '' })
+    await colly.send('jobStep.set', { projectId: 'q2', step: 'quote', ownerId: null })
+    await colly.send('jobStep.set', { projectId: 'q2', step: 'confirmed', ownerId: null })
+    expect(await owners('q2')).toEqual([null, null])
+    await aoife.send('quote.save', { id: 'q2v1', projectId: 'q2', lines: [], discountPct: 0, notes: '' })
+    expect(await owners('q2')).toEqual(['aoife', 'aoife'])
+
+    // A stage someone was given stays theirs; a later version gives nothing.
+    await colly.send('project.create', { id: 'q3', name: 'Body and Soul', clientId: null, venueId: null, status: 'quoted', notes: '' })
+    await colly.send('jobStep.set', { projectId: 'q3', step: 'quote', ownerId: 'aoife' })
+    await colly.send('jobStep.set', { projectId: 'q3', step: 'confirmed', ownerId: null })
+    await colly.send('quote.save', { id: 'q3v1', projectId: 'q3', lines: [], discountPct: 0, notes: '' })
+    expect(await owners('q3')).toEqual(['aoife', null])
+
+    // A confirmed job is past Quoting, and errands and meetings have no stages: nobody is given anything.
+    await colly.send('project.create', { id: 'q4', name: 'Sold already', clientId: null, venueId: null, status: 'confirmed', notes: '' })
+    await colly.send('project.create', { id: 'q5', name: 'Collect the hazers', clientId: null, venueId: null, status: 'enquiry', notes: '', kind: 'errand' })
+    expect(await owners('q4')).toEqual([null, null])
+    expect(await owners('q5')).toEqual([null, null])
+  })
+
   it('are ticked by the app from the job itself, and each person has their own list, offline too', async () => {
     const { app } = await company()
     const { client, signal } = await phone(app)
