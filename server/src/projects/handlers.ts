@@ -11,6 +11,7 @@ import { getClient, paymentTermsColumn, getPhase, getPhases, getProject, getVenu
 import { getBooking, vehiclesOnPhase } from '../vehicles/store.ts'
 import { getJobPhoto } from '../documents/job-photos.ts'
 import { getStep } from '../steps/store.ts'
+import { giveQuotingToWhoStartedIt } from '../steps/handlers.ts'
 import { memberPlan } from '../rms/members.ts'
 import { queueJobWhatsApp } from '../whatsapp/follow-ups.ts'
 
@@ -182,6 +183,7 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
       [a.id, a.name, a.clientId, a.venueId, a.status, kindOf(a), a.notes, a.officeNotes ?? '', kitDaysOf(a).prep, kitDaysOf(a).back, a.hire ? JSON.stringify(a.hire) : null]
     )
     await emit(ctx, 'project', a.id, await getProject(ctx.tx, a.id))
+    await giveQuotingToWhoStartedIt(ctx, a.id)
   },
 
   async 'project.update'(ctx, a) {
