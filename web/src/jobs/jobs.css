@@ -1079,6 +1079,10 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
    under heads that sort. The heads and every row share one set of columns; venue gives way first on a narrow laptop. */
 .jobs-wide { --job-columns: minmax(0, 2.4fr) minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1.8fr) minmax(0, 1.1fr) minmax(0, 0.9fr); }
 .jobs-wide .job-table-head, .app .job-row.in-table { display: grid; grid-template-columns: var(--job-columns); gap: var(--ds-space-3); align-items: center; }
+/* Every cell starts on the job name's first line (Colly, 18 November 2026): the words sit on its baseline, and the stage
+   line and status pill, which have no words on top, from the row's top. A tall name or venue no longer floats the rest. */
+.app .job-row.in-table { align-items: first baseline; }
+.app .job-row.in-table .c-where { align-self: start; }
 .jobs-wide .job-table-head { position: sticky; top: var(--under-top, 0px); z-index: 2; padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--line); background: var(--panel); font-size: var(--text-hint); color: var(--muted); }
 .jobs-wide .job-table-head > * { font: inherit; font-weight: 600; color: inherit; text-align: left; }
 .jobs-wide .job-table-head button { min-height: 32px; padding: 0; border: 0; background: none; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
