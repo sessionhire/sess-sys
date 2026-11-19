@@ -1,4 +1,4 @@
-import { ERASED_REFUSAL, kindOf, RANK_NOT_YOURS, STATUS_LABELS, STEP_NOT_YOURS, stepId, stepOwnerRefusal, STOPPED, type CommandArgs } from '@sh/shared'
+import { ERASED_REFUSAL, kindOf, RANK_NOT_YOURS, STAGE_OF, STATUS_LABELS, STEP_NOT_YOURS, stepId, stepOwnerRefusal, STOPPED, type CommandArgs, type JobStep } from '@sh/shared'
 import { getPerson, personByEmail } from '../crew/store.ts'
 import { readErasure } from '../erasure/places.ts'
 import { emit, emitAll, emitRemovedAll, Refused, type Ctx } from '../kernel.ts'
@@ -13,6 +13,34 @@ import { getRanks, getStep } from './store.ts'
  * to someone tells them in the app only, through Notifications, which
  * read the history: nothing here emails, texts or messages anyone.
  */
+
+/**
+ * The person who starts a quote has the Quoting stage first (Colly, 18 November 2026): a gig or a dry hire made as an enquiry or
+ * quoted, or a job's first quote, gives both Quoting tasks to the signed-in member of staff who did it, so the job's corner names
+ * them from the start. Only while nobody has either task, so a stage someone was given is never taken off them, and only someone a
+ * task can be given to (staff, not archived, not erased). With sign-in off there's no one to give it to, so it waits for a name.
+ * It tells nobody: the one it's given to is the one who did it.
+ */
+export async function giveQuotingToWhoStartedIt(ctx: Ctx, projectId: string) {
+  if (!ctx.user || ctx.role === 'crew') return
+  const job = await getProject(ctx.tx, projectId)
+  if (!job || (job.status !== 'enquiry' && job.status !== 'quoted')) return
+  if (kindOf(job) !== 'gig' && kindOf(job) !== 'hire') return
+  const me = await personByEmail(ctx.tx, ctx.user.email)
+  if (!me || stepOwnerRefusal(me) || (await readErasure(ctx.tx, me.id))) return
+  const tasks = (Object.keys(STAGE_OF) as JobStep[]).filter((k) => STAGE_OF[k] === 'selling')
+  const ids = tasks.map((t) => stepId(projectId, t))
+  const { rows } = await ctx.tx.query('SELECT 1 FROM job_steps WHERE id = ANY($1::text[]) AND owner_id IS NOT NULL', [ids])
+  if (rows.length) return
+  for (const [i, step] of tasks.entries()) {
+    await ctx.tx.query(
+      `INSERT INTO job_steps (id, project_id, step, owner_id) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE SET owner_id = EXCLUDED.owner_id WHERE job_steps.owner_id IS NULL`,
+      [ids[i], projectId, step, me.id]
+    )
+    await emit(ctx, 'jobStep', ids[i]!, await getStep(ctx.tx, ids[i]!))
+  }
+}
 
 type Handler<N extends 'jobStep.set' | 'jobRank.set'> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
