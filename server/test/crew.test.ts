@@ -187,7 +187,7 @@ describe('freelancer link', () => {
     expect(none).toMatchObject({ ok: false, message: 'Tick at least one day, or press Decline.' })
     expect(landing(none.page)).toMatch(new RegExp(`^<fieldset class="days" aria-describedby="days-error-${a.id}" id="refused"><legend>Your days</legend>[^]*?</fieldset><p class="field-error" id="days-error-${a.id}" role="alert">Tick at least one day`))
     expect(cardOf(none.page, a.id)).not.toContain('class="flash')
-    expect(await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: ['2026-10-03', '2026-10-04'] })).toMatchObject({ ok: true })
+    expect(await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: ['2026-10-02', '2026-10-03'] })).toMatchObject({ ok: true })
     // Niall only asks for more money on the day still open.
     expect(await answer(app, niall.linkToken, n.id, { answer: 'counter', picker: '1', days: ['2026-10-04'], rate: '300' })).toMatchObject({ ok: true })
     expect(await entity<Offer>(app, 'offer', n.id)).toMatchObject({ status: 'countered', counterRateCents: 30000, days: ['2026-10-04'] })
@@ -226,7 +226,7 @@ describe('freelancer link', () => {
     expect(countered).toContain('<button name="answer" value="accept">Accept these days at €250 a day instead</button>')
     expect(countered).toContain('<button class="yes" name="answer" value="counter">Send rate</button>')
 
-    const accepted = await answer(app, aoife.linkToken, o.id, { answer: 'accept', picker: '1', days: ['2026-10-03', '2026-10-04'] })
+    const accepted = await answer(app, aoife.linkToken, o.id, { answer: 'accept', picker: '1', days: ['2026-10-02', '2026-10-03'] })
     expect(accepted).toMatchObject({ ok: true, message: "You're down for it at the rate offered, shown here; the rate you asked for is withdrawn. The office will confirm." })
     expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'accepted', counterRateCents: null, dayRateCents: 25000 })
   })
@@ -242,7 +242,7 @@ describe('freelancer link', () => {
     expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'offered', counterRateCents: null })
 
     expect(await answer(app, aoife.linkToken, o.id, { answer: 'implicit', picker: '1', days: ['2026-10-02', '2026-10-03'], rate: '350' })).toMatchObject({ ok: true })
-    expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'countered', counterRateCents: 35000, days: ['2026-10-03', '2026-10-04'] })
+    expect(await entity<Offer>(app, 'offer', o.id)).toMatchObject({ status: 'countered', counterRateCents: 35000, days: ['2026-10-02', '2026-10-03'] })
   })
 
   it('reads the rate as the freelancer means it, and says what to put in when it is not a price', async () => {
@@ -982,7 +982,7 @@ describe('booking rules', () => {
     expect(second.message).toContain('Already booked on Electric Picnic (Build)')
 
     // Dropping the clashing day from the first job frees her for the second.
-    await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: ['2026-10-03', '2026-10-04'] })
+    await answer(app, aoife.linkToken, a.id, { answer: 'accept', picker: '1', days: ['2026-10-02', '2026-10-03'] })
     expect(await answer(app, aoife.linkToken, b.id, { answer: 'accept' })).toMatchObject({ ok: true })
   })
 

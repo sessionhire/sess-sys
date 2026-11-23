@@ -109,7 +109,7 @@ describe('every answer', () => {
     }
     const page = await policy('/f/a-link-nobody-was-given')
     expect(page).toContain("default-src 'none'")
-    expect(page).toMatch(/script-src 'sha256-[A-Za-z0-9+/=]+';/)
+    expect(page).toMatch(/script-src (?:'sha256-[A-Za-z0-9+/=]+' ?)+;/)
     expect(page).toContain("form-action 'self'")
     for (const url of ['/api/health', '/sw.js', '/assets/missing.js', '/cal/aaaaaaaaaaaaaaaaaaaaaaaa.ics']) expect(await policy(url), url).toBe("frame-ancestors 'none'")
   })
