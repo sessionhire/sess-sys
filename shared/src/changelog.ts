@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-23',
     title: 'New crew can apply to join',
     what: 'There’s now an Apply page anyone can open, with no sign-in, to ask for work: their name, mobile, email, department, what they do, their day rate and experience. Turn it on in Admin › Company › Applications to join and share its address. What they send waits under Crew › Applications, which says if you already have them. Take on puts them on the Crew tab as an applicant at Level 0, out of Offer to… until you move them up; Turn down deletes what they sent. Nothing is ever sent to them.',
-    prs: [0],
+    prs: [418],
     adrs: [190],
   },
   {
