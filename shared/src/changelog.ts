@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.211.0',
+    date: '2026-11-23',
+    title: 'Back from a job goes to the view you were on',
+    what: 'Look at Jobs as Week, Board, Calendar or Month, open a job, and the way back (‹ All jobs at the top, Jobs in the breadcrumbs, or the Jobs tab) now takes you to that view, at the same days and with the same filters, rather than to the list; when you go straight back, the page is where you left it, scrolled to the same place. Stock and Crew remember theirs the same way. Clients, Venues, Money, Labels, Repairs, Leave and the area’s other pages now have a way back at the top too.',
+    prs: [0],
+    adrs: [189],
+  },
+  {
     version: '1.210.1',
     date: '2026-11-19',
     title: 'The Jobs table lines every column up with the job’s name',

@@ -2,13 +2,19 @@
  * The way up from a page to the one above it, in the top bar so it stays in
  * view however far down the page is scrolled (the design system's Up,
  * navigation.md). It always goes to the same parent from the same page,
- * however the person got there; the browser's own Back is history.
+ * however the person got there; the browser's own Back is history. An
+ * area's own screen is the parent as it was left: Jobs is Week if Week is
+ * where you were looking (leftAt.ts).
  *
  * On a phone it is one link to the parent, "‹ All jobs". On a desk (900px
  * and up, where the places are a sidebar) there is room to say the whole
  * way down as breadcrumbs, "Jobs › Vicar Street › Pick list", each a link
  * but the page itself. An area's own screen has neither: it is the top.
  */
+
+import type { MouseEvent, ReactNode } from 'react'
+import { leftAt } from './leftAt.ts'
+import { cameFrom } from './places.ts'
 
 export interface Step {
   href: string
@@ -44,19 +50,40 @@ export interface Trail {
   here?: string
 }
 
+/**
+ * A step's link. An area's own screen is the view it was left on (leftAt.ts), so the way up from a job opened from Week is Week, at
+ * those days, with the filters picked. And when that's the screen this one was opened from, the link is Back, so it comes back as it
+ * was left, at the same place down the list, as the browser's Back would (Colly, 23 November 2026: a home-screen app has no Back
+ * button of its own). Should Back land anywhere else, it goes on to the step after all.
+ */
+function StepLink({ step, className, children }: { step: Step; className?: string; children: ReactNode }) {
+  const href = leftAt(step.href)
+  const back = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || cameFrom() !== href) return
+    e.preventDefault()
+    addEventListener('hashchange', () => location.hash !== href && location.assign(href), { once: true })
+    history.back()
+  }
+  return (
+    <a className={className} href={href} onClick={back}>
+      {children}
+    </a>
+  )
+}
+
 export function Up({ steps, here }: Trail) {
   const parent = steps.at(-1)
   if (!parent) return null
   return (
     <div className="up">
-      <a className="up-link" href={parent.href}>
+      <StepLink step={parent} className="up-link">
         ‹ {parent.up ?? parent.label}
-      </a>
+      </StepLink>
       <nav className="crumbs" aria-label="Breadcrumb">
         <ol>
           {steps.map((s) => (
             <li key={s.href}>
-              <a href={s.href}>{s.label}</a>
+              <StepLink step={s}>{s.label}</StepLink>
             </li>
           ))}
           {here && (

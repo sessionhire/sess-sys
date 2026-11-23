@@ -45,3 +45,7 @@ away, as before.
   do with room to spare.
 - On Clients, Venues, Money and Stock's and Crew's other places, no view is
   marked in the row: the line under it marks where you are.
+
+## Later
+
+- 23 November 2026, [ADR 0189](0189-coming-back-to-the-view-you-left.md): the "Also here" pages now have their area's way up, to the view the area was left on.
