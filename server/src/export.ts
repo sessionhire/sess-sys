@@ -319,7 +319,7 @@ const ABOUT: Record<string, string> = {
     "Each quote emailed to a client from the operations mailbox: which quote, its version and number as sent, when, by whom, from and to which addresses, the subject and the message. The PDF that went is left out of this file; the app's own copy is on the quote's page.",
   role_prices: "The price list for crew: each role's price for a day, in cents. A role not here is quoted at the rate its crew were booked at.",
   running_late: "People saying on their private link that they're running late on a day they're booked, or the office noting it when they rang: how late or when they'll be there, their note, when they said they'd arrived, and when the office noted it. Shown only until the day is over, and deleted 30 days after it.",
-  settings: "The office's own details: the name, phone and email shown to freelancers on their pages, and the VAT number and address printed on quotes; whether heads of department see crew rates; and whether the app prompts messages to crew; the colour for each cable length, and the company logo printed on quotes and labels (its file kept with documents' files).",
+  settings: "The office's own details: the name, phone and email shown to freelancers on their pages, and the VAT number and address printed on quotes; whether heads of department see crew rates; and whether the app prompts messages to crew; the colour for each cable length, and the company logo printed on quotes and labels (its file kept with documents' files); and whether the public Apply page takes applications to join the crew.",
   stock: 'Counted stock: how many of a product are at a place or in a case.',
   timesheets: "Freelancers' timesheets, one for each booking: the days worked at the day rate, extras such as parking or mileage, what was sent and what the office approved.",
   unavailability: "Days people can't work.",
@@ -329,6 +329,9 @@ const ABOUT: Record<string, string> = {
   tracker_settings: 'Whether the company uses trackers, where the warehouse is on the map, and how near counts as there.',
   users: 'Staff who have signed in with Google, and the screen the app opens on for each when they chose one.',
   // A job's steps (ADR 0073).
+  // Applications to join the crew (ADR 0190).
+  applications:
+    "What people who'd like work sent from the public Apply page, until the office takes them on or turns them down, when the row goes: their name, email, phone, department, what they do, the day rate asked, sole trader or company, where they're based, their experience, and when they applied.",
   // The purchase list (ADR 0077).
   purchase_requests:
     "Kit the crew asked to be bought: what, how many and details, a link, the department, who asked (or the name a list brought in gave) and on which day, where it's at (asked for, agreed, ordered, arrived, not buying) and the office's notes.",

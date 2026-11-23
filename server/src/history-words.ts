@@ -55,6 +55,8 @@ export const IMPORT_STOCK_ACTION = 'stock.import'
 export const ERASED_AGAIN_ACTION = 'person.erase-again'
 /** And taking what an erasure kept, once the law no longer asks for it (ADR 0027). */
 export const ERASED_WHEN_DUE_ACTION = 'person.erase-due'
+/** An application to join from the public Apply page (ADR 0190): the server's own change, by nobody signed in. Only its id is kept. */
+export const APPLICATION_IN_ACTION = 'application.receive'
 /** And clearing running late 30 days after its day (ADR 0028). */
 export const LATE_CLEARED_ACTION = 'late.clear-old'
 /** And taking the fuel price from a new month of the AA's survey (ADR 0086). */
@@ -184,6 +186,16 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
   switch (command) {
     case 'person.upsert':
       return `Saved ${text(a.name, 'someone')}'s details`
+    // Applications to join (ADR 0190): who was taken on by name, as they're on the Crew tab now; one turned down by none, as
+    // what they sent is gone.
+    case APPLICATION_IN_ACTION:
+      return a.again === true ? 'An application to join came in again from the Apply page' : 'An application to join came in from the Apply page'
+    case 'application.take':
+      return `Took ${person(a.personId)} on from their application, as an applicant`
+    case 'application.drop':
+      return 'Turned down an application to join; what they sent was deleted'
+    case 'applications.use':
+      return a.on === true ? 'Turned on applications to join on the Apply page' : 'Turned off applications to join on the Apply page'
     case 'person.level':
       // An erased person's level went with the rest of their details (ADR 0027).
       return `Moved ${person(a.id)} to ${typeof a.level === 'number' ? levelLabel(a.level) : 'another level'}`

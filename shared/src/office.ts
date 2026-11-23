@@ -44,6 +44,8 @@ export const LOGO_SETTING_ID = 'logo'
 export const LINKS_SETTING_ID = 'links'
 /** Whether offers go to crew on WhatsApp by themselves (ADR 0125): the ninth setting, with only `whatsapp` and `whatsappTestTo` to it. */
 export const WHATSAPP_SETTING_ID = 'whatsapp'
+/** Whether the public Apply page takes applications (ADR 0190): the tenth setting, with only `takeApplications` to it. */
+export const APPLICATIONS_SETTING_ID = 'applications'
 
 /** Offers on WhatsApp (ADR 0125): off; only to the numbers listed, for trying it out; or to everyone who hasn't turned them off. */
 export const WHATSAPP_MODES = ['off', 'test', 'on'] as const
@@ -135,6 +137,8 @@ export const setting = z.object({
   logo: z.object({ at: z.string() }).nullable().optional(),
   /** On the "logo" setting (ADR 0163): labels print the logo in pure black and white, every grey and colour made one or the other. Off until the office says. */
   logoBlackWhite: z.boolean().optional(),
+  /** On the "applications" setting (ADR 0190): whether the public Apply page takes applications. Off until the office says. */
+  takeApplications: z.boolean().optional(),
 })
 export type Setting = z.infer<typeof setting>
 
@@ -206,6 +210,8 @@ export const officeCommandSchemas = {
   'cables.colours': z.object({ colours: cableColourList }),
   /** Whether labels print the logo in pure black and white (ADR 0163). The office's, under Admin › Company › Logo. */
   'logo.blackWhite': z.object({ on: z.boolean() }),
+  /** Whether the public Apply page takes applications to join the crew (ADR 0190). The office's, under Admin. */
+  'applications.use': z.object({ on: z.boolean() }),
 } as const
 
 /** The details when there is a way back in them: a phone or an email. A name alone is nothing to show. */

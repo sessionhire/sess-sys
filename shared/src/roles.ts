@@ -110,6 +110,9 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'person.merge': 'crew',
   // Which of their addresses is the main one (ADR 0064): an edit of their details. For someone with a role, settings too, on the server.
   'person.mainEmail': 'crew',
+  // Applications to join (ADR 0190): taking someone on, or turning them down, is the crew's records, like adding a person.
+  'application.take': 'crew',
+  'application.drop': 'crew',
   'unavailability.add': 'crew',
   'unavailability.remove': 'crew',
   // Their own calendar (ADR 0044): stopping it is the office's, like their days off. Adding one is a server route that needs crew too.
@@ -252,6 +255,8 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'whatsapp.use': 'settings',
   'cables.colours': 'settings',
   'logo.blackWhite': 'settings',
+  // Whether the public Apply page takes applications (ADR 0190): a setting like checking links.
+  'applications.use': 'settings',
   // Trackers (ADR 0107): using them, and where the warehouse is, are settings; which item each is on is stock's.
   'trackers.use': 'settings',
   'trackers.home': 'settings',

@@ -291,6 +291,8 @@ function describer(view: View): (m: Mutation) => string {
         return onOff(a.on, 'Claude in the app')
       case 'links.check':
         return onOff(a.on, "checking new phones on freelancers' links")
+      case 'applications.use':
+        return onOff(a.on, 'applications to join on the Apply page')
       case 'whatsapp.use':
         return a.mode === 'test' ? 'Try offers on WhatsApp on the test numbers' : onOff(a.mode === 'on', 'offers on WhatsApp')
       case 'cables.colours':
@@ -333,6 +335,11 @@ function describer(view: View): (m: Mutation) => string {
         return a.archived ? `Put ${tracker(a.id)} away` : `Bring ${tracker(a.id)} back into use`
       case 'person.upsert':
         return `Save ${str(a.name, 'someone')}'s details`
+      // Applications to join (ADR 0190): by name while the device still has the application.
+      case 'application.take':
+        return `Take on ${view.applications.get(str(a.id, ''))?.name ?? 'someone'} from their application`
+      case 'application.drop':
+        return `Turn down ${view.applications.get(str(a.id, ''))?.name ?? 'an application'}`
       case 'person.level':
         // An erased person's level went with the rest of their details (ADR 0027).
         return `Move ${person(a.id)} to ${typeof a.level === 'number' ? levelLabel(a.level) : 'another level'}`

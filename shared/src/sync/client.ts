@@ -28,6 +28,7 @@ import { vehiclesView } from './vehicles-view.ts'
 import { stepsView } from './steps-view.ts'
 import { racksView } from './racks-view.ts'
 import { purchasesView } from './purchases-view.ts'
+import { applicationsView } from './applications-view.ts'
 import { trackersView } from './trackers-view.ts'
 import { MONEY_ENTITY_NAMES } from '../quotes.ts'
 import { READS_EVERYTHING, sameReading } from '../reading.ts'
@@ -91,6 +92,7 @@ const LAZY = [
   'steps',
   'racks',
   'purchases',
+  'applications',
   'trackers',
 ] as const satisfies readonly (keyof View)[]
 type Lazy = (typeof LAZY)[number]
@@ -424,6 +426,7 @@ export class SyncClient {
 
     lazy.racks = part('racks', () => [lazy.warehouse()], (e, o) => racksView(e, o, cursor, lazy.warehouse()))
     lazy.purchases = part('purchases', () => [lazy.crew()], (e, o) => purchasesView(e, o, cursor, lazy.crew()))
+    lazy.applications = part('applications', () => [lazy.crew()], (e, o) => applicationsView(e, o, cursor, lazy.crew()))
     lazy.trackers = part('trackers', () => [lazy.warehouse()], (e, o) => trackersView(e, o, cursor, lazy.warehouse()))
 
     const view = {

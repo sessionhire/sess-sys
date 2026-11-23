@@ -1,3 +1,4 @@
+import { ApplicationsScreen } from './Applications.tsx'
 import {
   addDays,
   plural,
@@ -293,6 +294,8 @@ export function CrewScreen() {
   if (personId) return <PersonScreen key={personId} view={view} id={decodeURIComponent(personId)} part={personPart} onArchived={setArchivedNow} />
   // Staff leave and time in lieu (ADR 0024) have a screen of their own under Crew.
   if (hash === '#crew/leave') return <LeaveScreen view={view} />
+  // Applications to join from the public Apply page (ADR 0190), for those who read them.
+  if (hash === '#crew/applications') return <ApplicationsScreen view={view} />
   // Bringing in the crew list (ADR 0025), under Crew where the list lives (ADR 0041).
   if (hash === '#crew/import') return <ImportPeopleScreen view={view} />
 

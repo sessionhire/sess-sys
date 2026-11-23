@@ -15,6 +15,7 @@ import { ListsCard } from './ListsCard.tsx'
 import { Top } from './jobs/common.tsx'
 import { MessagesCard } from './MessagesCard.tsx'
 import { LinksCard } from './LinksCard.tsx'
+import { ApplicationsCard } from './ApplicationsCard.tsx'
 import { OfficeCard } from './OfficeCard.tsx'
 import { QuotingCard } from './QuotingCard.tsx'
 import { TimesheetsUseCard } from './TimesheetsUseCard.tsx'
@@ -103,6 +104,7 @@ export function AccountScreen() {
                 {settings && <LabelsCard office={view.office} />}
                 {settings && <MessagesCard office={view.office} />}
                 {settings && <LinksCard office={view.office} />}
+                {settings && <ApplicationsCard office={view.office} />}
                 {settings && access.can('money') && <OnlineCard money={view.money} />}
                 {settings && <TimesheetsUseCard office={view.office} />}
                 {settings && access.can('money') && <AssistantCard office={view.office} />}

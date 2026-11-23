@@ -234,6 +234,8 @@ export const PERSON_COMMANDS: Partial<Record<CommandName | DocumentAction | OwnC
   'person.merge': { names: { field: 'id' }, refused: true, keep: as },
   // That their main address changed, never to what.
   'person.mainEmail': { names: { field: 'id' }, refused: true, keep: only('id') },
+  // Taking someone on from their application (ADR 0190): ids only, the application's and the person it makes.
+  'application.take': { names: { field: 'personId' }, refused: true, keep: as },
   'unavailability.add': { names: { field: 'personId' }, refused: true, keep: only('id', 'personId') },
   'offer.send': { names: { field: 'personId' }, refused: true, keep: as },
   // Their answer stays as a record of work; what they wrote with it goes.

@@ -22,6 +22,7 @@ import { VEHICLE_ENTITY_NAMES, type VehicleEntities } from './vehicles.ts'
 import { STEP_ENTITY_NAMES, type StepEntities } from './steps.ts'
 import { RACK_ENTITY_NAMES, type RackEntities } from './racks.ts'
 import { PURCHASE_ENTITY_NAMES, type PurchaseEntities } from './purchases.ts'
+import { APPLICATION_ENTITY_NAMES, type ApplicationEntities } from './applications.ts'
 import { TRACKER_ENTITY_NAMES, type TrackerEntities } from './trackers.ts'
 import { JOB_PHOTO_ENTITY_NAMES, type JobPhotoEntities } from './job-photos.ts'
 
@@ -51,6 +52,7 @@ export interface Entities
     StepEntities,
     RackEntities,
     PurchaseEntities,
+    ApplicationEntities,
     TrackerEntities,
     JobPhotoEntities {}
 export type EntityName = keyof Entities
@@ -79,6 +81,7 @@ export const ENTITY_NAMES: readonly EntityName[] = [
   ...STEP_ENTITY_NAMES,
   ...RACK_ENTITY_NAMES,
   ...PURCHASE_ENTITY_NAMES,
+  ...APPLICATION_ENTITY_NAMES,
   ...TRACKER_ENTITY_NAMES,
   ...JOB_PHOTO_ENTITY_NAMES,
 ]
