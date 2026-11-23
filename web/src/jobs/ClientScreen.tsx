@@ -1,4 +1,5 @@
-import { PAYMENT_DAYS, paymentTermsLabel, plural, type ClientView, type Contact, type PaymentTerms, type View } from '@sh/shared'
+import { PAYMENT_DAYS, phoneShown, paymentTermsLabel, plural, type ClientView, type Contact, type PaymentTerms, type View } from '@sh/shared'
+import { PhoneField, phoneProblem } from '../PhoneField.tsx'
 import { useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -73,7 +74,7 @@ function ClientSummary({ c }: { c: ClientView }) {
               {x.phone && (
                 <>
                   <br />
-                  <a href={`tel:${x.phone.replace(/[^+\d]/g, '')}`}>{x.phone}</a>
+                  <a href={`tel:${x.phone.replace(/[^+\d]/g, '')}`}>{phoneShown(x.phone)}</a>
                 </>
               )}
               {x.email && (
@@ -121,11 +122,13 @@ const blankContact = (): Contact => ({ name: '', role: '', email: null, phone: n
 
 function EditClient({ c, onDone }: { c: ClientView; onDone: () => void }) {
   const [f, setF] = useState({ name: c.name, notes: c.notes, contacts: c.contacts, address: c.address ?? '', pays: termsKey(c.paymentTerms) })
-  const { run, error } = useAct()
-  const setContact = (i: number, changes: Partial<Contact>) => setF({ ...f, contacts: f.contacts.map((x, j) => (j === i ? { ...x, ...changes } : x)) })
+  const { run, error, refuse } = useAct()
+  const setContact = (i: number, changes: Partial<Contact>) => setF((was) => ({ ...was, contacts: was.contacts.map((x, j) => (j === i ? { ...x, ...changes } : x)) }))
   const save = (e: FormEvent) => {
     e.preventDefault()
     if (!f.name.trim()) return
+    const phoneWrong = f.contacts.map((x) => (x.name.trim() ? phoneProblem(x.phone) : undefined)).find(Boolean)
+    if (phoneWrong) return refuse(phoneWrong)
     const contacts = f.contacts
       .filter((x) => x.name.trim())
       .map((x) => ({ name: x.name.trim(), role: x.role.trim(), email: x.email?.trim() || null, phone: x.phone?.trim() || null }))
@@ -146,9 +149,7 @@ function EditClient({ c, onDone }: { c: ClientView; onDone: () => void }) {
           <label>
             Role <input value={x.role} onChange={(e) => setContact(i, { role: e.target.value })} placeholder="e.g. Producer" />
           </label>
-          <label>
-            Mobile <input type="tel" value={x.phone ?? ''} onChange={(e) => setContact(i, { phone: e.target.value })} />
-          </label>
+          <PhoneField label="Mobile" value={x.phone ?? ''} onChange={(phone) => setContact(i, { phone })} />
           <label>
             Email <input type="email" value={x.email ?? ''} onChange={(e) => setContact(i, { email: e.target.value })} />
           </label>

@@ -1,4 +1,5 @@
 import { UnitBox } from '../UnitBox.tsx'
+import { PhoneField, phoneProblem } from '../PhoneField.tsx'
 import {
   APPLICANT_LEVEL,
   CERTIFICATE_KINDS,
@@ -35,6 +36,7 @@ import {
   TRADES_AS_LABELS,
   type Company,
   type TradesAs,
+  phoneShown,
 } from '@sh/shared'
 import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -274,6 +276,8 @@ export function PersonForm({
     // Each email is one person's, as the server checks it (audit finding 12).
     const other = sameEmail(email, initial?.email) ? undefined : emailTakenBy(people, initial?.id ?? '', email)
     if (other) return refuse(emailInUseRefusal(other.name))
+    const phoneWrong = phoneProblem(f.phone)
+    if (phoneWrong) return refuse(phoneWrong)
     void run(() =>
       onSubmit({
         name: fullName(names),
@@ -318,16 +322,14 @@ export function PersonForm({
             {already.map((p, i) => (
               <Fragment key={p.id}>
                 {i > 0 && ', '}
-                <a href={personHref(p.id)}>{p.email ?? p.phone ?? 'their page'}</a>
+                <a href={personHref(p.id)}>{p.email ?? (p.phone ? phoneShown(p.phone) : 'their page')}</a>
               </Fragment>
             ))}
             . Add another only if it's someone else.
           </p>
         ) : null
       })()}
-      <label>
-        Mobile <input type="tel" value={f.phone} onChange={set('phone')} placeholder="+353 87…" />
-      </label>
+      <PhoneField label="Mobile" value={f.phone} onChange={(phone) => setF((was) => ({ ...was, phone }))} />
       <label>
         Email{' '}
         <input

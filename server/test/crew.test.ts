@@ -1673,7 +1673,9 @@ describe('correcting people (audit finding 7)', () => {
     // Folded away until wanted, with what we hold filled in.
     let page = (await app.inject({ method: 'GET', url: `/f/${aoife.linkToken}` })).body
     expect(page).toContain('<details id="details">')
-    expect(page).toContain('value="+353871234567"')
+    // Split into its country, picked, and the number as they'd give it at home (ADR 0190).
+    expect(page).toContain('<option value="353" selected>Ireland +353</option>')
+    expect(page).toContain('value="87 123 4567"')
     // Their email is shown, not offered: it's how an account finds a person, so only the office changes it (audit finding 12).
     expect(page).toContain('with the email <b>aoife@example.com</b>')
     expect(page).not.toContain('name="email"')
@@ -1695,6 +1697,13 @@ describe('correcting people (audit finding 7)', () => {
     expect(history.entries[0]).toMatchObject({ who: { kind: 'link', name: 'Aoife Byrne' }, command: 'person.contact', what: 'Aoife Byrne changed their phone number' })
     expect(JSON.stringify(history.entries[0])).not.toContain('999 8888')
 
+    // With the country picked beside it, the number is kept in full.
+    const abroad = await post(app, details, { country: '44', phone: '07700 900123' })
+    expect(abroad).toMatchObject({ ok: true })
+    expect(await colly.record<Person>('person', 'p1')).toMatchObject({ phone: '+447700900123' })
+    // A page from before, with no country, sends the number as typed.
+    expect(await post(app, details, { phone: '+353 87 999 8888' })).toMatchObject({ ok: true })
+
     // An email from a page from before is refused in plain words, with the number typed beside it kept, and nothing changed.
     const email = await post(app, details, { phone: '', email: 'aoife.byrne@example.com' })
     expect(email).toMatchObject({ ok: false, message: "Your email can't be changed here. Ask the office to change it." })
@@ -1706,7 +1715,7 @@ describe('correcting people (audit finding 7)', () => {
     expect(await post(app, details, { phone: '' })).toMatchObject({ ok: true })
     expect(await colly.record<Person>('person', 'p1')).toMatchObject({ phone: null, email: 'aoife@example.com' })
     expect(await post(app, details, { phone: '', email: 'aoife@example.com' })).toMatchObject({ ok: true, message: 'Nothing to change: those are the details we have.' })
-    expect((await colly.history()).entries.filter((e) => e.outcome !== 'turned-down')).toHaveLength(3)
+    expect((await colly.history()).entries.filter((e) => e.outcome !== 'turned-down')).toHaveLength(5) // The upsert, three numbers of theirs (one abroad, then back) and clearing it.
     // A post with no fields at all, as a half-formed one would be, clears nothing.
     expect(await post(app, details, {})).toMatchObject({ ok: true, message: 'Nothing to change: those are the details we have.' })
     expect(await colly.record<Person>('person', 'p1')).toMatchObject({ phone: null, email: 'aoife@example.com' })
@@ -1718,8 +1727,8 @@ describe('correcting people (audit finding 7)', () => {
     // described by its hint and then the refusal, and landed on.
     expect(badPhone.page).toContain('<details id="details" open>')
     expect(badPhone.page).toContain('value="ring me"')
-    expect(landing(badPhone.page)).toMatch(/^<div class="field" id="refused"><label for="phone">Mobile<\/label>\s*<small class="hint" id="phone-hint">Write your mobile with the country code/)
-    expect(badPhone.page).toMatch(/<input type="tel" id="phone" name="phone" aria-invalid="true" aria-describedby="phone-hint phone-error" value="ring me"[^>]*><\/div>\s*<p class="field-error" id="phone-error" role="alert">Phone numbers need digits only/)
+    expect(landing(badPhone.page)).toMatch(/^<div class="field" id="refused"><label for="phone">Mobile<\/label>\s*<small class="hint" id="phone-hint">Pick your country, then your number/)
+    expect(badPhone.page).toMatch(/<input type="tel" id="phone" name="phone" aria-invalid="true" aria-describedby="phone-hint phone-error" value="ring me"[^>]*><\/div><\/div>\s*<p class="field-error" id="phone-error" role="alert">Phone numbers need digits only/)
     expect(badPhone.page).not.toContain('<p class="flash')
     expect(await colly.record<Person>('person', 'p1')).toMatchObject({ phone: null, email: 'aoife@example.com' })
 

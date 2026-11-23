@@ -1,4 +1,4 @@
-import { LOGO_SVG, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
+import { LOGO_SVG, DIAL_CODES, phoneShown, splitPhone, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours, sparks } from '@sh/shared'
@@ -52,6 +52,11 @@ export const landing = (here: string | boolean | undefined) => (here ? ` id="${R
 /** A refusal about one field, under it and joined to it, in the bad wash, as the app's refusal line and the design system's invalid state are (audit, 20 October 2026, finding 90). */
 export const fieldError = (id: string, text: string) => `<p class="field-error" id="${id}" role="alert">${h(text)}</p>`
 /** The attributes a field takes while a refusal is about it: described by its hint, if it has one, and the refusal. */
+/** The country picked beside a phone number (ADR 0190): Ireland first, the number typed beside it as at home. */
+export const dialSelect = (picked: string, label: string, describedBy?: string) =>
+  `<select name="country" aria-label="${h(label)}"${describedBy ? ` aria-describedby="${describedBy}"` : ''} autocomplete="tel-country-code">${DIAL_CODES.map(
+    ([code, country]) => `<option value="${code}"${(picked || '353') === code ? ' selected' : ''}>${h(country)} +${code}</option>`
+  ).join('')}</select>`
 export const invalid = (id: string, hint?: string) => ` aria-invalid="true" aria-describedby="${hint ? `${hint} ${id}` : id}"`
 /** A page's title, which starts "Error: " while the page says a refusal, so it's the first thing a screen reader says (GOV.UK's error summary). */
 export const titled = (title: string, f?: { ok: boolean }) => (f && !f.ok ? `Error: ${title}` : title)
@@ -124,7 +129,7 @@ export function officeBlock(o: OfficeDetails | null | undefined): string {
   if (!c) return ''
   const parts = [
     h(c.name),
-    c.phone && `<a href="${h(telHref(c.phone))}">${h(c.phone)}</a>`,
+    c.phone && `<a href="${h(telHref(c.phone))}">${h(phoneShown(c.phone))}</a>`,
     c.email && `<a href="mailto:${h(c.email)}">${h(c.email)}</a>`,
   ].filter(Boolean)
   return `<p class="office">${parts.join(' · ')}</p>`
@@ -249,7 +254,7 @@ function pullOut(d: PageData, action: string) {
   const phone = officeContact(d.office)?.phone
   return `<details class="pull-out"><summary>Can't make it?</summary>
       <form method="post" action="${action}">
-        <p class="small">Tell us as soon as you can, so we can find cover.${phone ? ` Ringing ${h(phone)} is quickest.` : ''}</p>
+        <p class="small">Tell us as soon as you can, so we can find cover.${phone ? ` Ringing ${h(phoneShown(phone))} is quickest.` : ''}</p>
         <label>Why, if you like <textarea name="note" rows="2" maxlength="1000"></textarea></label>
         <button class="no" name="answer" value="pullOut">Can't make it</button>
       </form>
@@ -463,7 +468,7 @@ function lateForm(d: PageData, t: OnTheDay, last: RunningLate | undefined, ring:
         ).join('')}</fieldset>
         <label>Or the time you'll be there <input type="time" name="at" value="${h(typed ? typed.get('at') : (last?.arriveAt ?? ''))}"></label>
         <label>Note, if you like <input name="note" maxlength="${LATE_NOTE_LENGTH}" value="${h(typed ? typed.get('note') : (last?.note ?? ''))}" placeholder="e.g. traffic on the M50"></label>
-        <p class="small">Sending this needs signal.${ring ? ` If it won't go, ring ${h(ring.name)} on <a href="${h(telHref(ring.phone))}">${h(ring.phone)}</a>.` : ''}</p>
+        <p class="small">Sending this needs signal.${ring ? ` If it won't go, ring ${h(ring.name)} on <a href="${h(telHref(ring.phone))}">${h(phoneShown(ring.phone))}</a>.` : ''}</p>
         <button${last ? '' : ' class="yes"'}>Send</button>
       </form>`
 }
@@ -544,6 +549,7 @@ function details(d: PageData): string {
   // What a refused save typed, back in place of what's saved (rule 11), and a refusal of the number said under it.
   const typed = keptIn(d, 'details')
   const wrong = mine?.field === 'phone' ? 'phone-error' : undefined
+  const kept = splitPhone(d.person.phone)
   // The way to write it is a hint under the label, read with the field, rather than words after it.
   return `<section class="me">
     <details id="details"${mine ? ' open' : ''}>
@@ -552,8 +558,8 @@ function details(d: PageData): string {
       <form method="post" action="${d.base}/details#${REFUSED}">
         <p class="small">You're down as <b>${h(d.person.name)}</b>${d.person.email ? `, with the email <b>${h(d.person.email)}</b>` : ''}. Ask the office to change your name or email; your number you can fix here.</p>
         <div class="field"${landing(wrong)}><label for="phone">Mobile</label>
-          <small class="hint" id="phone-hint">Write your mobile with the country code, +353 for Ireland, so WhatsApp messages and texts reach you.</small>
-          <input type="tel" id="phone" name="phone"${wrong ? invalid(wrong, 'phone-hint') : ' aria-describedby="phone-hint"'} value="${h(typed ? typed.get('phone') : (d.person.phone ?? ''))}" maxlength="40" placeholder="e.g. +353 87 123 4567" autocomplete="tel"></div>
+          <small class="hint" id="phone-hint">Pick your country, then your number as you'd give it at home, so WhatsApp messages and texts reach you.</small>
+          <div class="dial">${dialSelect(typed?.get('country') ?? kept.country, 'Country code', 'phone-hint')}<input type="tel" id="phone" name="phone"${wrong ? invalid(wrong, 'phone-hint') : ' aria-describedby="phone-hint"'} value="${h(typed ? typed.get('phone') : kept.national)}" maxlength="40" placeholder="087 123 4567" autocomplete="tel-national"></div></div>
         ${wrong && mine ? fieldError(wrong, mine.text) : ''}
         <button>Save my number</button>
       </form>
@@ -1185,4 +1191,5 @@ fieldset.choice input{width:20px;height:20px;accent-color:var(--accent)}
 .where ul{margin:0;padding-left:24px;display:grid;gap:8px;font-size:${dsText.touch.body.size}px}
 .again{border:0;padding:0}
 .glance a,.office a,a[href^="tel:"],.facts a,.demo-bar a,footer a{position:relative}.glance a::after,.office a::after,a[href^="tel:"]::after,.facts a::after,.demo-bar a::after,footer a::after{content:'';position:absolute;inset:-12px -4px}
+.dial{display:grid;gap:${dsSpace[2]}px;grid-template-columns:fit-content(11.5rem) minmax(7rem,1fr)}.dial select{min-width:0;width:100%}
 `

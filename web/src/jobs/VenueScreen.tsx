@@ -1,4 +1,5 @@
-import { mapLink, plural, type JobView, type VenueView, type View } from '@sh/shared'
+import { mapLink, phoneShown, plural, type JobView, type VenueView, type View } from '@sh/shared'
+import { PhoneField, phoneProblem } from '../PhoneField.tsx'
 import { useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -97,7 +98,7 @@ function VenueSummary({ venue, onMap }: { venue: VenueView; onMap: () => void })
                 {venue.contact.phone && (
                   <>
                     <br />
-                    <a href={`tel:${venue.contact.phone.replace(/[^+\d]/g, '')}`}>{venue.contact.phone}</a>
+                    <a href={`tel:${venue.contact.phone.replace(/[^+\d]/g, '')}`}>{phoneShown(venue.contact.phone)}</a>
                   </>
                 )}
                 {venue.contact.email && (
@@ -137,10 +138,12 @@ function EditVenue({ venue, onDone }: { venue: VenueView; onDone: () => void }) 
     phone: was?.phone ?? '',
     email: was?.email ?? '',
   })
-  const { run, error } = useAct()
+  const { run, error, refuse } = useAct()
   const save = (e: FormEvent) => {
     e.preventDefault()
     if (!f.name.trim()) return
+    const phoneWrong = phoneProblem(f.phone)
+    if (phoneWrong) return refuse(phoneWrong)
     // No name, nobody: the other fields alone aren't someone to ask for.
     const contact = f.who.trim() ? { name: f.who.trim(), role: f.role.trim(), phone: f.phone.trim() || null, email: f.email.trim() || null } : null
     void run(() => client.mutate('venue.upsert', { id: venue.id, name: f.name.trim(), address: f.address.trim(), notes: f.notes.trim(), contact })).then(
@@ -166,9 +169,7 @@ function EditVenue({ venue, onDone }: { venue: VenueView; onDone: () => void }) 
         <label>
           Role <input value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} placeholder="e.g. Production manager" />
         </label>
-        <label>
-          Mobile <input type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
-        </label>
+        <PhoneField label="Mobile" value={f.phone} onChange={(phone) => setF((was) => ({ ...was, phone }))} />
         <label>
           Email <input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
         </label>

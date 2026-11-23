@@ -1,4 +1,5 @@
 import { officeLine, type OfficeView } from '@sh/shared'
+import { PhoneField, phoneProblem } from './PhoneField.tsx'
 import { useState, type FormEvent } from 'react'
 import { Refusal, useAct } from './act.tsx'
 import { Pending } from './StatusPill.tsx'
@@ -30,10 +31,12 @@ export function OfficeCard({ office }: { office: OfficeView }) {
     setFrom(saved)
     if (same(f, from)) setF(saved)
   }
-  const { run, error } = useAct()
+  const { run, error, refuse } = useAct()
   const shown = officeLine(details)
   const save = (e: FormEvent) => {
     e.preventDefault()
+    const phoneWrong = phoneProblem(f.phone)
+    if (phoneWrong) return refuse(phoneWrong)
     void run(() =>
       client.mutate('office.update', {
         name: f.name.trim(),
@@ -59,9 +62,7 @@ export function OfficeCard({ office }: { office: OfficeView }) {
         <label className="wide">
           Name <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} maxLength={200} placeholder="Session Hire office" />
         </label>
-        <label>
-          Phone <input type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="01 234 5678" />
-        </label>
+        <PhoneField label="Phone" value={f.phone} onChange={(phone) => setF((was) => ({ ...was, phone }))} placeholder="01 234 5678" />
         <label>
           Email <input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="office@…" />
         </label>

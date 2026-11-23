@@ -129,7 +129,7 @@ test('brings the crew list in from a file, fixing a phone in place, and shows th
   // Oisín's page holds the phone as it was fixed.
   await people.getByRole('link', { name: new RegExp(`^Oisín Clarke ${id}`) }).click()
   await office.getByRole('tab', { name: /^Details/ }).click()
-  await expect(office.getByRole('link', { name: 'Call +353877000102' })).toHaveAttribute('href', 'tel:+353877000102')
+  await expect(office.getByRole('link', { name: 'Call +353 87 700 0102' })).toHaveAttribute('href', 'tel:+353877000102')
   await expect(office.locator('.person-page .facts')).toContainText(`oisin.${id}@example.com`)
   await office.getByRole('link', { name: '‹ All people' }).click()
 

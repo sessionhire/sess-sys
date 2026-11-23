@@ -1,4 +1,4 @@
-import { LOGO_SVG, callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
+import { LOGO_SVG, phoneShown, callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { getClient, getPhase, getProject, getVenue } from '../projects/store.ts'
 import { lateOnOffers } from './late.ts'
@@ -78,7 +78,7 @@ async function kitFor(q: Queryable, projectId: string, phaseId: string | null): 
 const h = (s: unknown) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 const lines = (s: string) => h(s).replace(/\n/g, '<br>')
-const tel = (phone: string) => `<a href="tel:${h(phone.replace(/[^\d+]/g, ''))}">${h(phone)}</a>`
+const tel = (phone: string) => `<a href="tel:${h(phone.replace(/[^\d+]/g, ''))}">${h(phoneShown(phone))}</a>`
 /** Who to ask for at the venue (ADR 0119), in the words the app and the message use, with their number to press. */
 const venueContactHtml = (c: { name: string; role: string; phone: string | null }) =>
   `At the venue, ask for <b>${h(c.name)}</b>${c.role ? ` (${h(c.role)})` : ''}${c.phone ? ` on ${tel(c.phone)}` : ''}.`

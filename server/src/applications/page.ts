@@ -1,5 +1,5 @@
-import { dsSpace, CREW_DEPARTMENTS, DIAL_CODES, LOGO_SVG, TRADES_AS, TRADES_AS_LABELS, APPLICATION_ABOUT_LENGTH, APPLICATION_BASED_LENGTH, APPLICATION_SKILLS_LENGTH, type ApplyField, type ApplyForm, type OfficeDetails } from '@sh/shared'
-import { CSS, fieldError, h, invalid, officeBlock } from '../crew/page.ts'
+import { dsSpace, CREW_DEPARTMENTS, LOGO_SVG, TRADES_AS, TRADES_AS_LABELS, APPLICATION_ABOUT_LENGTH, APPLICATION_BASED_LENGTH, APPLICATION_SKILLS_LENGTH, type ApplyField, type ApplyForm, type OfficeDetails } from '@sh/shared'
+import { CSS, dialSelect, fieldError, h, invalid, officeBlock } from '../crew/page.ts'
 
 /**
  * The public Apply page (ADR 0190): someone who'd like work with us says who they are, what they do and how to reach
@@ -15,7 +15,7 @@ const foot = '</main></body></html>'
 
 /** The field a bot fills and a person never sees: off the page, out of the tab order, and named so no browser fills it. */
 const JOIN_CSS = `.trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}fieldset.choice.agree label{align-items:flex-start}fieldset.choice input{flex:none}
-textarea{min-height:${dsSpace[8] * 4}px;resize:vertical}form.apply{display:grid;gap:${dsSpace[4]}px}form.apply .dial{display:grid;gap:${dsSpace[2]}px;grid-template-columns:minmax(0,max-content) minmax(${dsSpace[16] * 2}px,1fr)}form.apply .dial select{min-width:0;max-width:100%}form.apply .pair{display:grid;gap:${dsSpace[4]}px;grid-template-columns:repeat(auto-fit,minmax(${dsSpace[16] * 3}px,1fr))}`
+textarea{min-height:${dsSpace[8] * 4}px;resize:vertical}form.apply{display:grid;gap:${dsSpace[4]}px}form.apply .pair{display:grid;gap:${dsSpace[4]}px;grid-template-columns:repeat(auto-fit,minmax(${dsSpace[16] * 3}px,1fr))}`
 
 /** Where the page stands. */
 export type JoinState = 'ask' | 'thanks' | 'off' | 'full'
@@ -80,9 +80,7 @@ ${summary}
   <div class="pair"><div>${input('firstName', 'autocomplete="given-name" maxlength="100" required')}</div><div>${input('lastName', 'autocomplete="family-name" maxlength="100" required')}</div></div>
   ${input('email', 'type="email" autocomplete="email" maxlength="200" required')}
   <div class="field"><label for="phone">${h(LABELS.phone)}</label><p class="hint" id="phone-hint">Pick your country, then your number as you'd give it at home.</p>
-    <div class="dial"><select id="country" name="country" aria-label="${h(LABELS.country)}" aria-describedby="phone-hint" autocomplete="tel-country-code">${DIAL_CODES.map(
-      ([code, country]) => `<option value="${code}"${(t.country || '353') === code ? ' selected' : ''}>${h(country)} +${code}</option>`
-    ).join('')}</select><input id="phone" name="phone" type="tel" autocomplete="tel-national" maxlength="40" required value="${h(t.phone ?? '')}"${bad('phone', 'phone-hint')}${focus('phone')}></div></div>${err('phone')}
+    <div class="dial">${dialSelect(t.country ?? '', LABELS.country, 'phone-hint')}<input id="phone" name="phone" type="tel" autocomplete="tel-national" maxlength="40" required value="${h(t.phone ?? '')}"${bad('phone', 'phone-hint')}${focus('phone')}></div></div>${err('phone')}
   ${radios('department', [...CREW_DEPARTMENTS.map((x) => [x, x] as const), ['', 'Not sure']])}
   <div class="field"><label for="skills">${h(LABELS.skills)}</label><p class="hint" id="skills-hint">Separate them with commas, such as FOH, monitors, RF, desk op.</p>
     <input id="skills" name="skills" maxlength="${APPLICATION_SKILLS_LENGTH}" value="${h(t.skills ?? '')}"${bad('skills', 'skills-hint')}${focus('skills')}></div>${err('skills')}

@@ -1,4 +1,4 @@
-import { emailsOf, keptOf, mergedPerson, mergeRefusal, nameKey, otherPhones, plural, samePeople, SAME_BECAUSE_WORDS, type PersonView, type SamePerson, type View } from '@sh/shared'
+import { emailsOf, phoneShown, keptOf, mergedPerson, mergeRefusal, nameKey, otherPhones, plural, samePeople, SAME_BECAUSE_WORDS, type PersonView, type SamePerson, type View } from '@sh/shared'
 import { useMemo, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Heading } from '../Icon.tsx'
@@ -30,7 +30,7 @@ export function useSamePeople(view: View): SamePerson<PersonView>[] {
 
 /** One line under a person's name: their addresses, staff or freelancer, and how much work they have. */
 export function whoLine(p: PersonView, offers: number) {
-  return [...emailsOf(p), p.phone, p.kind === 'staff' ? 'staff' : 'freelancer', offers ? plural(offers, 'booking or offer', 'bookings and offers') : 'nothing booked']
+  return [...emailsOf(p), p.phone && phoneShown(p.phone), p.kind === 'staff' ? 'staff' : 'freelancer', offers ? plural(offers, 'booking or offer', 'bookings and offers') : 'nothing booked']
     .filter(Boolean)
     .join(' · ')
 }
