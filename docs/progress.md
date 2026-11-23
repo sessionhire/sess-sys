@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 23 November 2026: a little celebration when a gig is settled
+
+**Done (1.214.0, #422)**
+
+- Colly asked for fireworks when crew confirm a gig, more for the crew
+  member and a smaller, quieter one for the office booking them.
+- A freelancer's yes on their own page sets off three bursts of Session
+  Hire red over "Thanks, you're down for it", once (a reload doesn't play it
+  again; changing the days of a yes plays nothing).
+- The office's Confirm or Agree on a yes, on the job's Crew tab or from
+  Next, sets off one small burst over "… is booked".
+- Nothing takes a press, it reads in dark and light, and nothing plays where
+  the phone or computer is set to reduce motion. No new libraries.
+- The design system says no confetti: logged as a narrow departure in
+  design-system #70, waiting on Colly.
+- Checked: a browser test (once, no replay, reduced motion, the office's
+  burst), the crew link tests, the page's security policy; recorded on a
+  phone in both themes and a desk (screens/celebrate in the project files).
+
 ## 15 November 2026: dry hire delivery priced as a set amount, then by the km
 
 **Done (1.203.0, #400, ADR 0183 amended)**
