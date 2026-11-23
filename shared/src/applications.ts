@@ -86,7 +86,18 @@ export function rateFrom(typed: string): number | null | undefined {
 
 /** A phone as typed: digits, spaces, brackets, dashes and a leading +, as the person form takes it. */
 export const PHONE_SHAPE = /^\+?[0-9 ()-]{6,40}$/
-export const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/**
+ * Something@somewhere.tld, read without a regular expression that backtracks, as the Apply page's text is anyone's: one @,
+ * something before it, and a dot with something either side after it, no spaces, up to 200 characters.
+ */
+export function isEmailShape(s: string): boolean {
+  if (s.length > 200 || /\s/.test(s)) return false
+  const at = s.indexOf('@')
+  if (at < 1 || at !== s.lastIndexOf('@')) return false
+  const domain = s.slice(at + 1)
+  const dot = domain.lastIndexOf('.')
+  return dot > 0 && dot < domain.length - 1
+}
 
 /** What the Apply page asks, as its fields are named. */
 export interface ApplyForm {
@@ -117,7 +128,7 @@ export function readApplyForm(f: ApplyForm): { ok: true; application: Omit<Appli
   const phone = read.phone ?? ''
   if (!firstName) errors.firstName = 'Put in your first name.'
   if (!lastName) errors.lastName = 'Put in your last name.'
-  if (!EMAIL_SHAPE.test(email) || email.length > 200) errors.email = "That doesn't look like an email address. Check it and try again."
+  if (!isEmailShape(email)) errors.email = "That doesn't look like an email address. Check it and try again."
   if (!phone || read.problem !== undefined || !PHONE_SHAPE.test(phone)) errors.phone = 'Put in a mobile number we can ring, such as 087 123 4567 or +353 87 123 4567.'
   const rate = rateFrom(f.rate)
   if (rate === undefined) errors.rate = 'Put the day rate in euro as a number, such as 250, or leave it empty.'
