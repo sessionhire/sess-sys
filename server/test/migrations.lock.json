@@ -164,6 +164,9 @@
     "7857a48bb8ce3743",
     "d2ebc66a3b04cd47"
   ],
+  "applications_schema_version": [
+    "1fe229b0611c3f60"
+  ],
   "erasure_schema_version": [
     "b7f0097eec410d25"
   ]
