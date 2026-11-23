@@ -257,6 +257,7 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'logo.blackWhite': 'settings',
   // Whether the public Apply page takes applications (ADR 0190): a setting like checking links.
   'applications.use': 'settings',
+  'applications.email': 'settings',
   // Trackers (ADR 0107): using them, and where the warehouse is, are settings; which item each is on is stock's.
   'trackers.use': 'settings',
   'trackers.home': 'settings',

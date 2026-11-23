@@ -34,7 +34,7 @@ export function ApplicationsScreen({ view }: { view: View }) {
           <Empty>No applications waiting. Each one sent from the Apply page comes in here for you to take on or turn down.</Empty>
         </section>
       ) : (
-        all.map((a) => <ApplicationCard key={a.id} a={a} mayDecide={mayCrew} />)
+        all.map((a) => <ApplicationCard key={a.id} a={a} mayDecide={mayCrew} emails={view.office.emailApplicants} />)
       )}
     </div>
   )
@@ -63,8 +63,10 @@ function ApplyLink({ office, waiting }: { office: OfficeView; waiting: number })
   return (
     <section className="card plain">
       <p className="hint">
-        Anyone with this address can apply: put it on the website or send it to someone who asks about work. Nothing is sent to them; you get in touch
-        the usual way.
+        Anyone with this address can apply: put it on the website or send it to someone who asks about work.{' '}
+        {office.emailApplicants
+          ? 'Each one is emailed when you take them on, with the link to their own page, or turn them down.'
+          : 'Nothing is sent to them; you get in touch the usual way.'}
       </p>
       <div className="actions">
         <a className="button" href={address} target="_blank" rel="noreferrer">
@@ -78,7 +80,8 @@ function ApplyLink({ office, waiting }: { office: OfficeView; waiting: number })
   )
 }
 
-function ApplicationCard({ a, mayDecide }: { a: ApplicationView; mayDecide: boolean }) {
+function ApplicationCard({ a, mayDecide, emails }: { a: ApplicationView; mayDecide: boolean; emails: boolean }) {
+  const money = useAccess().can('money')
   const { run, error } = useAct()
   const [asking, setAsking] = useState<'take' | 'drop'>()
   const take = () => {
@@ -89,7 +92,7 @@ function ApplicationCard({ a, mayDecide }: { a: ApplicationView; mayDecide: bool
         showToast({
           id: `taken-${a.id}`,
           title: `Took on ${a.name}`,
-          body: 'On the Crew tab as an applicant, Level 0: out of Offer to… until you move them up a level.',
+          body: `On the Crew tab as an applicant, Level 0: out of Offer to… until you move them up a level.${emails ? ' They’re emailed the link to their page.' : ''}`,
           href: `#crew/person/${personId}`,
           action: 'Open',
         })
@@ -98,7 +101,7 @@ function ApplicationCard({ a, mayDecide }: { a: ApplicationView; mayDecide: bool
   const drop = () => {
     setAsking(undefined)
     void run(() => client.mutate('application.drop', { id: a.id })).then((ok) => {
-      if (ok) showToast({ id: `dropped-${a.id}`, title: `Turned down ${a.name}`, body: 'What they sent is deleted. Nobody told them.' })
+      if (ok) showToast({ id: `dropped-${a.id}`, title: `Turned down ${a.name}`, body: emails ? 'What they sent is deleted. They’re emailed to say so, politely.' : 'What they sent is deleted. Nobody told them.' })
     })
   }
   return (
@@ -118,7 +121,7 @@ function ApplicationCard({ a, mayDecide }: { a: ApplicationView; mayDecide: bool
         </div>
         <div>
           <dt>Department</dt>
-          <dd>{a.department ?? 'Not sure'}</dd>
+          <dd>{a.department ?? 'None the roles name'}</dd>
         </div>
         <div>
           <dt>Mobile</dt>
@@ -144,6 +147,12 @@ function ApplicationCard({ a, mayDecide }: { a: ApplicationView; mayDecide: bool
           <dt>What they do</dt>
           <dd>{a.skills.length ? a.skills.join(', ') : 'Not said'}</dd>
         </div>
+        {money && (
+          <div className="wide">
+            <dt>Payment details</dt>
+            <dd>{a.paymentGiven ? 'Given, kept locked: on their page once you take them on' : 'Not given'}</dd>
+          </div>
+        )}
         <div className="wide">
           <dt>Based in</dt>
           <dd>{a.basedIn || 'Not said'}</dd>
@@ -156,7 +165,8 @@ function ApplicationCard({ a, mayDecide }: { a: ApplicationView; mayDecide: bool
       {mayDecide &&
         (asking === 'drop' ? (
           <Confirm question={`Turn down ${a.name}?`} yes="Turn down" no="Keep it" loss onYes={drop} onNo={() => setAsking(undefined)}>
-            What they sent is deleted and can't be brought back. Nobody tells them: ring or email them first if you'd like to.
+            What they sent is deleted and can't be brought back.{' '}
+            {emails ? 'They get a short, polite email saying we have no work for them just now.' : 'Nobody tells them: ring or email them first if you’d like to.'}
           </Confirm>
         ) : asking === 'take' ? (
           <Confirm question={`Take on ${a.name} a second time?`} yes="Take on" no="Keep it" onYes={take} onNo={() => setAsking(undefined)}>

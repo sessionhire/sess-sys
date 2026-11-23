@@ -46,8 +46,9 @@ applicant to put themselves forward.
     reads keeps it. The history says only that one was turned down.
   - Both need the crew ability. Applications are read by the office, directors and heads (who read people's details);
     a head who doesn't read rates isn't sent the rate or how they'd trade. Staff crew and freelancers get none.
-- **Nothing is sent to the person who applied**, now or at launch: they see a thank-you page, and the office gets in
-  touch the usual way. So this doesn't wait on launch.
+- **Nothing was sent to the person who applied**: they see a thank-you page, and the office gets in touch the usual way.
+  Since 1.218.0 ([ADR 0193](0193-payment-details-kept-locked.md)) they can be emailed when taken on, with their own page,
+  or turned down, behind a switch that is off until launch.
 - **Keeping junk out**, quietly: a hidden field a person never sees, a form sent back within 4 seconds of opening, or
   with no opening time, is a bot, and is shown the same thank-you with nothing kept. One address can send 10 an hour.
   One email is one application: sent again, the newer replaces it. Past 300 waiting, the page asks people to try again

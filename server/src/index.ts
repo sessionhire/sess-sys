@@ -68,6 +68,8 @@ async function main() {
     whatsapp: whatsappConfig(),
     // Trackers' reports (ADR 0107) come in only with this key, which Digital Matter's connector sends.
     trackersKey: process.env.TRACKERS_KEY?.trim() || undefined,
+    // People's payment details (ADR 0193) are locked with their own key, or the Google client secret until one is set.
+    paymentKey: process.env.PAYMENT_DETAILS_KEY?.trim() || google?.clientSecret,
     calendar: google ? { ...google, appUrl: process.env.PUBLIC_URL?.replace(/\/$/, ''), writes: process.env.CALENDAR_WRITES?.trim().toLowerCase() === 'on' } : undefined,
   })
   await assertSignInKept(db, auth)
@@ -102,6 +104,9 @@ async function main() {
   app.quoteWatch.start()
   // Offers on WhatsApp (ADR 0125): anything queued while the server was away goes now, and a look each minute after.
   app.whatsappSender.start()
+  // Emails to people who applied (ADR 0193): anything queued while the server was away goes now.
+  app.applicantEmails.start()
+  void app.applicantEmails.kick()
   // Offers still waiting to be undone as the server went down (ADR 0162): what they held goes as each wait ends.
   void app.offerWaits.watch()
   app.log.info({ db: db.kind }, db.kind === 'memory' ? 'Database: in memory (nothing is kept after a restart)' : `Database: ${db.kind}`)

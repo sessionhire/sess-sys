@@ -341,6 +341,7 @@ const CASES: Case[] = [
   c('cables.colours', { colours: [{ upToM: 2, colour: 'red' }, { upToM: 10, colour: 'green' }] }),
   c('logo.blackWhite', { on: true }),
   c('applications.use', { on: true }),
+  c('applications.email', { on: true }),
 
   // Applications to join (ADR 0190).
   c('application.take', { id: 'fionn', personId: 'fionn-byrne' }, { applied: ['fionn', 'saoirse'], ignore: ['linkToken'] }),

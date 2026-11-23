@@ -21,6 +21,7 @@ const JOIN_CSS = `.trap{position:absolute;left:-10000px;width:1px;height:1px;ove
 .pill button{display:grid;place-items:center;width:34px;height:34px;min-height:0;padding:0;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:18px;line-height:1}
 .pills-anchor{position:relative}.offers{position:absolute;z-index:2;left:0;right:0;top:calc(100% + ${dsSpace[1]}px);margin:0;padding:${dsSpace[1]}px;list-style:none;max-height:${dsSpace[16] * 4}px;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgb(0 0 0 / .18)}
 .offers li{padding:${dsSpace[2]}px ${dsSpace[3]}px;min-height:${CONTROL};display:flex;align-items:center;border-radius:6px;cursor:pointer}.offers li[aria-selected=true]{background:var(--wash-hover);outline:2px solid var(--accent);outline-offset:-2px}.offers[hidden]{display:none}
+fieldset.pay{display:grid;gap:${dsSpace[4]}px;margin:0;padding:${dsSpace[4]}px;border:1px solid var(--line);border-radius:12px}fieldset.pay legend{font-weight:700;padding:0 ${dsSpace[1]}px}
 textarea{min-height:${dsSpace[8] * 4}px;resize:vertical}form.apply{display:grid;gap:${dsSpace[4]}px}form.apply .pair{display:grid;gap:${dsSpace[4]}px;grid-template-columns:repeat(auto-fit,minmax(${dsSpace[16] * 3}px,1fr))}`
 
 /** Where the page stands. */
@@ -37,10 +38,15 @@ const LABELS: Record<ApplyField, string> = {
   tradesAs: 'How you work (optional)',
   basedIn: 'Where you’re based (optional)',
   about: 'Your experience (optional)',
+  ppsn: 'PPS number',
+  vatNumber: 'VAT number, if you’re registered',
+  accountName: 'Name on the account',
+  iban: 'IBAN',
+  bic: 'BIC (optional)',
   agree: 'Keeping your details',
 }
 
-const ORDER: ApplyField[] = ['firstName', 'lastName', 'email', 'phone', 'skills', 'rate', 'tradesAs', 'basedIn', 'about', 'agree']
+const ORDER: ApplyField[] = ['firstName', 'lastName', 'email', 'phone', 'skills', 'rate', 'tradesAs', 'basedIn', 'about', 'ppsn', 'vatNumber', 'accountName', 'iban', 'bic', 'agree']
 
 /** Each field's error, under it, and a list of them at the top that links to each (GOV.UK's error summary). */
 export function renderJoin(d: {
@@ -51,6 +57,10 @@ export function renderJoin(d: {
   issued?: string
   /** The roles offered as they type (rolesForApplicants): the trade's usual ones, the price list's and those quoted in Current RMS. */
   roles?: readonly string[]
+  /** Whether to ask for payment details: only while the server can lock them (ADR 0193). */
+  payment?: boolean
+  /** Whether they'll be emailed when the office decides (ADR 0193), which the page says before they send it. */
+  emails?: boolean
 }): string {
   const title = 'Apply to join our crew'
   if (d.state === 'off')
@@ -62,7 +72,11 @@ export function renderJoin(d: {
   if (d.state === 'thanks')
     return `${head('Thanks for applying', 'Thanks for applying')}
 <p class="flash ok" role="status">We've got your details.</p>
-<p>Someone from the office will read your application and be in touch if we have work that suits you. You don't need to send it again; if something changes, send it again with the same email and we'll keep the newer one.</p>${officeBlock(d.office)}${foot}`
+<p>${
+      d.emails
+        ? "Someone from the office will read your application, and we'll email you either way once we have: with your own page if we add you to our crew list."
+        : 'Someone from the office will read your application and be in touch if we have work that suits you.'
+    } You don't need to send it again; if something changes, send it again with the same email and we'll keep the newer one.</p>${officeBlock(d.office)}${foot}`
 
   const t = d.typed ?? {}
   const e = d.errors ?? {}
@@ -91,7 +105,12 @@ ${summary}
   <input type="hidden" name="t" value="${h(d.issued ?? '')}">
   <div class="trap" aria-hidden="true"><label for="website">Leave this empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
   <div class="pair"><div>${input('firstName', 'autocomplete="given-name" maxlength="100" required')}</div><div>${input('lastName', 'autocomplete="family-name" maxlength="100" required')}</div></div>
-  ${input('email', 'type="email" autocomplete="email" maxlength="200" required')}
+  ${
+    d.emails
+      ? `<div class="field"><label for="email">${h(LABELS.email)}</label><p class="hint" id="email-hint">We'll email you here once we've read your application, with a link to your own page if we add you to our crew list.</p>
+    <input id="email" name="email" type="email" autocomplete="email" maxlength="200" required value="${h(t.email ?? '')}"${bad('email', 'email-hint')}${focus('email')}></div>${err('email')}`
+      : input('email', 'type="email" autocomplete="email" maxlength="200" required')
+  }
   <div class="field"><label for="phone">${h(LABELS.phone)}</label><p class="hint" id="phone-hint">Pick your country, then your number as you'd give it at home.</p>
     <div class="dial">${dialSelect(t.country ?? '', LABELS.country, 'phone-hint')}<input id="phone" name="phone" type="tel" autocomplete="tel-national" maxlength="40" required value="${h(t.phone ?? '')}"${bad('phone', 'phone-hint')}${focus('phone')}></div></div>${err('phone')}
   <div class="field" data-pills><label for="skills">${h(LABELS.skills)}</label><p class="hint" id="skills-hint">Start typing and pick from the list, or type your own. Add as many as you do, such as Sound engineer, RF tech, Rigger.</p>
@@ -102,8 +121,21 @@ ${summary}
   ${input('basedIn', `autocomplete="address-level2" maxlength="${APPLICATION_BASED_LENGTH}"`)}
   <div class="field"><label for="about">${h(LABELS.about)}</label><p class="hint" id="about-hint">Recent shows, venues and companies you've worked for, tickets and certificates you hold.</p>
     <textarea id="about" name="about" maxlength="${APPLICATION_ABOUT_LENGTH}"${bad('about', 'about-hint')}>${h(t.about ?? '')}</textarea></div>${err('about')}
+  ${
+    d.payment
+      ? `<fieldset class="pay"><legend>For paying you (optional)</legend>
+    <p class="hint">So we can pay you without asking again. Only our directors and office see these, and they're kept locked. Leave them empty if you'd rather give them later.</p>
+    ${input('ppsn', 'autocomplete="off" inputmode="text" maxlength="12" spellcheck="false"')}
+    ${input('vatNumber', 'autocomplete="off" maxlength="20" spellcheck="false"')}
+    ${input('accountName', 'autocomplete="cc-name" maxlength="100"')}
+    ${input('iban', 'autocomplete="off" maxlength="42" spellcheck="false" placeholder="IE29 AIBK 9311 5212 3456 78"')}
+    ${input('bic', 'autocomplete="off" maxlength="14" spellcheck="false"')}
+  </fieldset>`
+      : ''
+  }
   <fieldset class="choice agree" id="agree"${e.agree ? ' aria-describedby="agree-error"' : ''}><legend>${h(LABELS.agree)}</legend>
     <label><input type="checkbox" name="agree" value="yes"${t.agree ? ' checked' : ''}${focus('agree')}> <span>Session Hire can keep these details to offer me work. I can ask the office to delete them at any time.</span></label></fieldset>${err('agree')}
+  ${d.emails ? `<p class="hint">Sending it, you'll get an email from us at the address above once the office has read it.</p>` : ''}
   <button class="yes">Send my application</button>
 </form>${officeBlock(d.office)}
 <script>${PILLS_SCRIPT}</script>${foot}`

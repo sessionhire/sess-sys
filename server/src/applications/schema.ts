@@ -25,6 +25,36 @@ const MIGRATIONS: string[] = [
   CREATE UNIQUE INDEX IF NOT EXISTS applications_email ON applications (lower(email));
   ALTER TABLE settings ADD COLUMN IF NOT EXISTS take_applications boolean;
   `,
+  // Payment details (ADR 0193): given on the Apply page, kept locked with the application until it's taken on, then
+  // with the person; never in the change feed. Here with the applications, as the Apply page is where most come from.
+  `
+  ALTER TABLE applications ADD COLUMN IF NOT EXISTS payment_sealed text;
+  CREATE TABLE IF NOT EXISTS payment_details (
+    person_id   text PRIMARY KEY REFERENCES people(id),
+    sealed      text NOT NULL,
+    changed_at  timestamptz NOT NULL DEFAULT now(),
+    changed_by  text NOT NULL DEFAULT ''
+  );
+  `,
+  // Emails to people who applied (ADR 0193), queued in the same change as taking them on or turning them down, so one
+  // goes only if that happened, and sent just after from the operations mailbox. Who it's to and their first name are
+  // cleared once it's gone or given up on, so a turned-down applicant's address isn't kept.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS email_applicants boolean;
+  CREATE TABLE IF NOT EXISTS applicant_emails (
+    id          text PRIMARY KEY,
+    kind        text NOT NULL CHECK (kind IN ('taken', 'declined')),
+    person_id   text,
+    to_email    text,
+    first_name  text,
+    state       text NOT NULL CHECK (state IN ('queued', 'sent', 'failed')),
+    problem     text,
+    tries       integer NOT NULL DEFAULT 0,
+    made_at     timestamptz NOT NULL DEFAULT now(),
+    sent_at     timestamptz
+  );
+  CREATE INDEX IF NOT EXISTS applicant_emails_queued ON applicant_emails (made_at) WHERE state = 'queued';
+  `,
 ]
 
 export const APPLICATIONS: Module = { versionTable: 'applications_schema_version', migrations: MIGRATIONS }

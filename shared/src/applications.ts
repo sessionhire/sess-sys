@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { hasEmail } from './roles.ts'
 import { NOTES_LENGTH, TRADES_AS, tidyDepartment, type Person, type TradesAs } from './crew.ts'
 import { departmentOfRoles } from './skills.ts'
+import { readPaymentDetails, type PaymentDetails } from './payment.ts'
 import { cleanText } from './plain.ts'
 import { phoneDigits } from './crew-import.ts'
 import { phoneWithCountry } from './phone.ts'
@@ -50,6 +51,8 @@ export interface Application {
   about: string
   /** When it came in, and when it was last sent again by the same email. */
   appliedAt: string
+  /** Whether they gave payment details (ADR 0193), which stay locked on the server; never the details themselves. */
+  paymentGiven?: boolean
   /** Set by the server for a reader who doesn't read this rate (ADR 0046): rate and trading left out. Never stored. */
   rateHidden?: boolean
 }
@@ -119,6 +122,12 @@ export interface ApplyForm {
   tradesAs: string
   basedIn: string
   about: string
+  /** For paying them (ADR 0193), all optional: kept locked, read only by those who see money. */
+  ppsn: string
+  vatNumber: string
+  accountName: string
+  iban: string
+  bic: string
   agree: boolean
 }
 
@@ -126,7 +135,9 @@ export type ApplyField = keyof ApplyForm
 
 
 /** The page's form read: the application it makes, or what's wrong with each field, in the page's own order. */
-export function readApplyForm(f: ApplyForm): { ok: true; application: Omit<Application, 'id' | 'appliedAt'> } | { ok: false; errors: Partial<Record<ApplyField, string>> } {
+export function readApplyForm(
+  f: ApplyForm
+): { ok: true; application: Omit<Application, 'id' | 'appliedAt'>; payment: PaymentDetails } | { ok: false; errors: Partial<Record<ApplyField, string>> } {
   const errors: Partial<Record<ApplyField, string>> = {}
   const line = (s: string, max: number) => cleanText(s).trim().replace(/\s+/g, ' ').slice(0, max)
   const firstName = line(f.firstName, 100)
@@ -142,10 +153,12 @@ export function readApplyForm(f: ApplyForm): { ok: true; application: Omit<Appli
   const rate = rateFrom(f.rate)
   if (rate === undefined) errors.rate = 'Put the day rate in euro as a number, such as 250, or leave it empty.'
   const tradesAs = (TRADES_AS as readonly string[]).includes(f.tradesAs) ? (f.tradesAs as TradesAs) : null
+  const payment = readPaymentDetails(f)
+  if (!payment.ok) Object.assign(errors, payment.errors)
   if (!f.agree) errors.agree = 'Tick this so we can keep your details to offer you work.'
   const skills = skillsFrom(f.skills.slice(0, APPLICATION_SKILLS_LENGTH))
   if (!skills.length) errors.skills = 'Pick or type at least one thing you do, such as Sound engineer or Rigger.'
-  if (Object.keys(errors).length) return { ok: false, errors }
+  if (Object.keys(errors).length || !payment.ok) return { ok: false, errors }
   // No department to pick (Colly, 23 November 2026): the roles they do say it, as a crew call's role does.
   const named = departmentOfRoles(skills)
   return {
@@ -162,6 +175,7 @@ export function readApplyForm(f: ApplyForm): { ok: true; application: Omit<Appli
       basedIn: line(f.basedIn, APPLICATION_BASED_LENGTH),
       about: cleanText(f.about).trim().slice(0, APPLICATION_ABOUT_LENGTH),
     },
+    payment: payment.details,
   }
 }
 

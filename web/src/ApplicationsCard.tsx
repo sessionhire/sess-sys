@@ -7,8 +7,9 @@ import { client } from './sync.ts'
 
 /**
  * Applications to join (ADR 0190), for the office: whether the public Apply page takes them. Off until the office says,
- * so the page isn't open to anyone until someone is ready to read what comes in. Nothing is ever sent to whoever applies,
- * so it doesn't wait on launch. Turning it off keeps every application already in.
+ * so the page isn't open to anyone until someone is ready to read what comes in. Turning it off keeps every application
+ * already in. Emailing them when they're taken on or turned down (ADR 0193) is a switch of its own, off until launch, as
+ * every way the app reaches anyone outside it is (ADR 0048).
  */
 export function ApplicationsCard({ office }: { office: OfficeView }) {
   const { run, error } = useAct()
@@ -21,14 +22,30 @@ export function ApplicationsCard({ office }: { office: OfficeView }) {
         Applications to join <Pending pending={office.applicationsPending} />
       </h2>
       <p>
-        A page anyone can open to apply to join the crew, with no sign-in: their name, contact details, department, what they do, their day rate and
-        experience. Each one waits under Crew › Applications, where you take them on as an applicant or turn them down. Nothing is sent to them.
+        A page anyone can open to apply to join the crew, with no sign-in: their name, contact details, what they do, their day rate, experience and,
+        if they like, their payment details. Each one waits under Crew › Applications, where you take them on as an applicant or turn them down.
       </p>
       <label className="signal">
         <input type="checkbox" role="switch" checked={on} onChange={(e) => void run(() => client.mutate('applications.use', { on: e.target.checked }))} />
         <span>
           <b>Take applications</b>
           <small>{on ? `On: anyone with the address can apply, at ${address}.` : 'Off: the page says to get in touch with the office instead.'}</small>
+        </span>
+      </label>
+      <label className="signal">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={office.emailApplicants}
+          onChange={(e) => void run(() => client.mutate('applications.email', { on: e.target.checked }))}
+        />
+        <span>
+          <b>Email people who apply</b>
+          <small>
+            {office.emailApplicants
+              ? 'On: taken on, they get an email with the link to their own page; turned down, a polite one. Sent from the operations mailbox, and the Apply page says so before they send.'
+              : 'Off: nothing is sent to them, and you get in touch the usual way. Turn it on at launch.'}
+          </small>
         </span>
       </label>
       {on && (

@@ -30,6 +30,7 @@ import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
+import { PaymentCard } from './PaymentCard.tsx'
 import { client } from '../sync.ts'
 import { CREW, PEOPLE } from '../Up.tsx'
 import { useToday } from '../view.ts'
@@ -123,7 +124,12 @@ export function PersonScreen({
             <OwnCalendarCard person={person} view={view} />
           </>
         )}
-        {part === 'details' && <Who person={person} view={view} />}
+        {part === 'details' && (
+          <>
+            <Who person={person} view={view} />
+            <PaymentCard person={person} />
+          </>
+        )}
         {part === 'documents' && (
           <section className="card" aria-label="Certificates and documents">
             <Heading icon="certificate">Certificates and documents</Heading>

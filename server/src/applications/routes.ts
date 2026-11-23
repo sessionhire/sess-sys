@@ -1,4 +1,4 @@
-import { APPLICATIONS_MOST, AV_ROLES, newId, quotedCrewRole, readApplyForm, rolesInUse, type Application, type ApplyForm } from '@sh/shared'
+import { APPLICATIONS_MOST, AV_ROLES, hasPaymentDetails, newId, quotedCrewRole, readApplyForm, rolesInUse, type Application, type ApplyForm } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Db } from '../db.ts'
@@ -6,7 +6,8 @@ import { APPLICATION_IN_ACTION } from '../history-words.ts'
 import { emit, serverChange } from '../kernel.ts'
 import { officeFor } from '../office/store.ts'
 import { renderJoin, type JoinState } from './page.ts'
-import { getApplication, takesApplications } from './store.ts'
+import { sealPayment } from '../crew/payment.ts'
+import { emailsApplicants, getApplication, takesApplications } from './store.ts'
 
 /**
  * The public Apply page (ADR 0190), at /join: no sign-in and no link, so anyone can open it, which is why it keeps out
@@ -22,14 +23,14 @@ export const JOIN_LIMIT = { max: 10, timeWindow: 60 * 60_000 }
 
 const field = (b: URLSearchParams | undefined, name: string, max: number) => String(b?.get?.(name) ?? '').slice(0, max)
 
-export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => number; onChange?: () => void } = {}) {
+export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => number; onChange?: () => void; paymentKey?: string } = {}) {
   const now = opts.now ?? (() => Date.now())
   const noStore = (reply: FastifyReply) => reply.header('cache-control', 'no-store').header('x-robots-tag', 'noindex')
   const page = async (reply: FastifyReply, state: JoinState, more: Omit<Parameters<typeof renderJoin>[0], 'state' | 'office'> = {}, code = 200) =>
     noStore(reply)
       .code(code)
       .type('text/html')
-      .send(renderJoin({ state, office: await officeFor(db.reads), issued: String(now()), roles: state === 'ask' ? await rolesForApplicants(db.reads) : [], ...more }))
+      .send(renderJoin({ state, office: await officeFor(db.reads), issued: String(now()), roles: state === 'ask' ? await rolesForApplicants(db.reads) : [], payment: !!opts.paymentKey, emails: await emailsApplicants(db.reads), ...more }))
 
   app.get('/join', async (_req, reply) => page(reply, (await takesApplications(db.reads)) ? 'ask' : 'off'))
 
@@ -50,6 +51,12 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
       tradesAs: field(b, 'tradesAs', 20),
       basedIn: field(b, 'basedIn', 200),
       about: field(b, 'about', 4000),
+      // Asked only while the server can lock them (ADR 0193): without its key, none are read.
+      ppsn: opts.paymentKey ? field(b, 'ppsn', 40) : '',
+      vatNumber: opts.paymentKey ? field(b, 'vatNumber', 40) : '',
+      accountName: opts.paymentKey ? field(b, 'accountName', 200) : '',
+      iban: opts.paymentKey ? field(b, 'iban', 60) : '',
+      bic: opts.paymentKey ? field(b, 'bic', 30) : '',
       agree: field(b, 'agree', 10) === 'yes',
     }
     const read = readApplyForm(typed)
@@ -64,7 +71,9 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
       if (Number(rows[0]?.n ?? 0) >= APPLICATIONS_MOST) return page(reply, 'full')
     }
     const id = again ?? newId()
-    await keepApplication(db, a, id, !!again)
+    // Payment details locked before they're kept (ADR 0193), and never in what devices are sent.
+    const sealed = opts.paymentKey && hasPaymentDetails(read.payment) ? sealPayment(opts.paymentKey, read.payment) : null
+    await keepApplication(db, a, id, !!again, sealed)
     // The office's devices hear of it at once.
     opts.onChange?.()
     return reply.redirect('/join/thanks', 303)
@@ -77,16 +86,16 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
  * An application kept, or the one with its email replaced: in the history as the server's own change, by nobody signed
  * in, with only the id kept there.
  */
-export async function keepApplication(db: Db, a: Omit<Application, 'id' | 'appliedAt'>, id: string, again = false) {
+export async function keepApplication(db: Db, a: Omit<Application, 'id' | 'appliedAt'>, id: string, again = false, paymentSealed: string | null = null) {
   await serverChange(db, { name: APPLICATION_IN_ACTION, args: { id, ...(again ? { again: true } : {}) } }, async (ctx) => {
     const { rows } = await ctx.tx.query<{ id: string }>(
-      `INSERT INTO applications (id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, applied_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+      `INSERT INTO applications (id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, payment_sealed, applied_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
        ON CONFLICT (lower(email)) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, email = EXCLUDED.email, phone = EXCLUDED.phone,
          department = EXCLUDED.department, skills = EXCLUDED.skills, day_rate_cents = EXCLUDED.day_rate_cents, trades_as = EXCLUDED.trades_as,
-         based_in = EXCLUDED.based_in, about = EXCLUDED.about, applied_at = now()
+         based_in = EXCLUDED.based_in, about = EXCLUDED.about, payment_sealed = EXCLUDED.payment_sealed, applied_at = now()
        RETURNING id`,
-      [id, a.firstName, a.lastName, a.email, a.phone, a.department, JSON.stringify(a.skills), a.dayRateCents, a.tradesAs, a.basedIn, a.about]
+      [id, a.firstName, a.lastName, a.email, a.phone, a.department, JSON.stringify(a.skills), a.dayRateCents, a.tradesAs, a.basedIn, a.about, paymentSealed]
     )
     const got = await getApplication(ctx.tx, rows[0]!.id)
     if (got) await emit(ctx, 'application', got.id, got)

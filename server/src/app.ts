@@ -29,6 +29,8 @@ import { registerLinkCheck } from './crew/link-check.ts'
 import { registerJoin } from './applications/routes.ts'
 import { CELEBRATE_SCRIPT, COPY_SCRIPT } from './crew/page.ts'
 import { PILLS_SCRIPT } from './applications/page.ts'
+import { OPEN_PAYMENT_KEY, registerPaymentRoutes } from './crew/payment.ts'
+import { ApplicantEmails } from './applications/emails.ts'
 import { registerPageFonts } from './crew/fonts.ts'
 import { OwnCalendars, type OwnCalendarsOptions } from './crew/own-calendars.ts'
 import { registerOwnCalendarRoutes } from './crew/own-calendar-routes.ts'
@@ -128,6 +130,11 @@ export interface AppOptions {
   pullLimit?: number
   /** Staff sign-in. Without it the API is open to anyone who can reach it, which is only for tests and trials. */
   auth?: AuthConfig
+  /**
+   * Locks people's payment details (ADR 0193): PAYMENT_DETAILS_KEY, or the Google client secret. Without it, with sign-in
+   * on, none can be kept; with sign-in off, a stand-in that is no secret, as anyone who can reach the copy is in anyway.
+   */
+  paymentKey?: string
   /** A shared passcode for a demo copy (DEMO_PASSCODE); only used while Google sign-in is off. */
   passcode?: string
   /** Where nightly backups go (ADR 0004). Without it there are none. */
@@ -217,6 +224,8 @@ declare module 'fastify' {
     quoteWatch: QuoteWatch
     /** Sends offers on WhatsApp as they're made (ADR 0125); the caller starts its once-a-minute look. */
     whatsappSender: WhatsAppSender
+    /** Emails people who applied once taken on or turned down (ADR 0193); the caller starts its once-a-minute look. */
+    applicantEmails: ApplicantEmails
     /** Wakes the calendar and WhatsApp as an offer's wait for Undo ends (ADR 0162); the caller starts it once the server is listening. */
     offerWaits: OfferWaits
   }
@@ -395,6 +404,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     (err) => reportError(err, { area: 'offer-waits' })
   )
   app.decorate('offerWaits', offerWaits)
+  // Made once the operations mailbox is, below; told of each change from here.
+  let applicantEmails: ApplicantEmails | undefined
   /** Something changed in the app: devices pull it, the calendar catches up, an erasure is written beside the backups, and files no document has any more are deleted. */
   const changed = () => {
     void poke()
@@ -404,6 +415,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     void offerWaits.watch()
     void erasures?.keep()
     void documents.tidy()
+    // Someone just taken on or turned down hears so (ADR 0193), while the office has that on.
+    void applicantEmails?.kick()
   }
   // Their own calendars (ADR 0044): read again every few hours, from the time the caller starts it.
   const ownCalendars = new OwnCalendars(db, { ...options.ownCalendars, onChange: changed, report: (err) => reportError(err, { area: 'own-calendar' }) })
@@ -724,6 +737,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   registerAssistantRoutes(app, { assistant, todo })
   const mailbox = new Mailbox(db, assistant, google, calendar?.clientSecret, () => void poke(), app.log, options.gmail)
   app.decorate('assistantMailbox', mailbox)
+  applicantEmails = new ApplicantEmails(db, mailbox, { appUrl: calendar?.appUrl ?? null, log: app.log })
+  app.decorate('applicantEmails', applicantEmails)
   registerMailboxRoutes(app, { mailbox, google, secret: calendar?.clientSecret })
   registerQuoteEmailRoutes(app, { db, mailbox, onChange: () => void poke(), logo: () => readLogo(db.reads, documents), ...(options.mx ? { mx: options.mx } : {}), ...(options.recheckMs !== undefined ? { recheckMs: options.recheckMs } : {}) })
   // What comes back to each quote's email in its first week (ADR 0172): bounces, delays and the client's replies.
@@ -733,7 +748,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.
   registerAcceptRoutes(app, db, { onChange: () => void poke(), logo: () => readLogo(db.reads, documents) })
   // The public Apply page (ADR 0190): anyone can apply to join the crew, while the office has it on.
-  registerJoin(app, db, { onChange: () => void poke() })
+  const paymentKey = options.paymentKey || (auth ? undefined : OPEN_PAYMENT_KEY)
+  registerJoin(app, db, { onChange: () => void poke(), paymentKey })
+  registerPaymentRoutes(app, db, { key: paymentKey })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   // The label printer over the internet (ADR 0191): the ZT411 connects out to the app with Zebra's WebLink.
   registerPrinterRoutes(app, { db, log: app.log, ...options.printer })
@@ -837,6 +854,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     app.assistantMailbox.stop()
     app.quoteWatch.stop()
     whatsappSender.stop()
+    applicantEmails?.stop()
     offerWaits.stop()
     documents.stop()
     calendarSync?.stop()

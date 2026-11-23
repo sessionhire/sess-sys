@@ -51,6 +51,7 @@ export interface OfficeView {
   logoPending: boolean
   /** The public Apply page takes applications to join the crew (ADR 0190). Off unless the office said. */
   takeApplications: boolean
+  emailApplicants: boolean
   /** That choice changed on this device and not yet on the server. */
   applicationsPending: boolean
 }
@@ -81,6 +82,7 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
   let logoBlackWhite = entities.setting?.[LOGO_SETTING_ID]?.logoBlackWhite === true
   let logoPending = false
   let takeApplications = entities.setting?.[APPLICATIONS_SETTING_ID]?.takeApplications === true
+  let emailApplicants = entities.setting?.[APPLICATIONS_SETTING_ID]?.emailApplicants === true
   let applicationsPending = false
   for (const m of outbox) {
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
@@ -117,6 +119,10 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
       takeApplications = (m.args as CommandArgs<'applications.use'>).on
       applicationsPending = true
     }
+    if (m.name === 'applications.email') {
+      emailApplicants = (m.args as CommandArgs<'applications.email'>).on
+      applicationsPending = true
+    }
     if (m.name === 'logo.blackWhite') {
       logoBlackWhite = (m.args as CommandArgs<'logo.blackWhite'>).on
       logoPending = true
@@ -146,5 +152,5 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
     if (args.address === null || args.address === '') delete details.address
     pending = true
   }
-  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo, logoBlackWhite, logoPending, takeApplications, applicationsPending }
+  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo, logoBlackWhite, logoPending, takeApplications, emailApplicants, applicationsPending }
 }

@@ -3,7 +3,7 @@ import type { Queryable } from '../db.ts'
 
 /** Reading applications to join back as devices see them (ADR 0190). */
 
-export const APPLICATION = `id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, applied_at`
+export const APPLICATION = `id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, applied_at, payment_sealed IS NOT NULL AS payment_given`
 
 type Row = Record<string, any>
 
@@ -20,11 +20,18 @@ export const toApplication = (r: Row): Application => ({
   basedIn: r.based_in,
   about: r.about,
   appliedAt: new Date(r.applied_at).toISOString(),
+  ...(r.payment_given ? { paymentGiven: true } : {}),
 })
 
 export async function getApplication(q: Queryable, id: string, lock = false) {
   const { rows } = await q.query(`SELECT ${APPLICATION} FROM applications WHERE id = $1${lock ? ' FOR UPDATE' : ''}`, [id])
   return rows[0] ? toApplication(rows[0]) : undefined
+}
+
+/** Whether people who apply are emailed when taken on or turned down (ADR 0193); off unless the office said. */
+export async function emailsApplicants(q: Queryable): Promise<boolean> {
+  const { rows } = await q.query<{ email_applicants: boolean | null }>(`SELECT email_applicants FROM settings WHERE id = $1`, [APPLICATIONS_SETTING_ID])
+  return rows[0]?.email_applicants === true
 }
 
 /** Whether the public Apply page takes applications (ADR 0190); off unless the office said. */

@@ -293,6 +293,8 @@ function describer(view: View): (m: Mutation) => string {
         return onOff(a.on, "checking new phones on freelancers' links")
       case 'applications.use':
         return onOff(a.on, 'applications to join on the Apply page')
+      case 'applications.email':
+        return onOff(a.on, 'emailing people who apply')
       case 'whatsapp.use':
         return a.mode === 'test' ? 'Try offers on WhatsApp on the test numbers' : onOff(a.mode === 'on', 'offers on WhatsApp')
       case 'cables.colours':

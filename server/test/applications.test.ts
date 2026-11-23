@@ -25,8 +25,8 @@ const FILLED = {
   agree: 'yes',
 }
 
-async function setUp() {
-  const { app, db } = await server()
+async function setUp(more: Parameters<typeof server>[0] = {}) {
+  const { app, db } = await server(more)
   const colly = await staff(app, db, 'Colly Hewson', WINDOWS, 'office-c0ffee')
   /** The time the page was opened, as the form carries it: a minute ago, so a person's pace. */
   const opened = () => String(Date.now() - 60_000)
@@ -195,6 +195,62 @@ describe('applying to join the crew (ADR 0190)', () => {
     expect(await pulled(colly)).toHaveLength(1)
     expect(await pulled(sean)).toEqual([])
     expect(await sean.send('application.drop', { id: 'anything' })).toMatchObject({ status: 'rejected', reason: { code: 'forbidden' } })
+  })
+
+  it('asks for payment details only while they can be locked, keeps them locked and out of the feed, and moves them to the person taken on (ADR 0193)', async () => {
+    const without = await setUp()
+    await without.colly.send('applications.use', { on: true })
+    expect((await without.app.inject({ url: '/join' })).body).not.toContain('For paying you')
+
+    const { app, db, colly, apply, waiting } = await setUp({ paymentKey: 'a test key' })
+    await colly.send('applications.use', { on: true })
+    expect((await app.inject({ url: '/join' })).body).toContain('For paying you (optional)')
+    const PAY = { ppsn: '1234567 fa', vatNumber: '', accountName: 'Aoife Ní Bhriain', iban: 'IE29 AIBK 9311 5212 3456 78', bic: 'aibkie2d' }
+    // Each wrong one is said under it, and nothing is kept.
+    const wrong = await apply({ ...FILLED, ...PAY, ppsn: '1234567X', iban: 'IE29 AIBK 9311 5212 3456 79' })
+    expect(wrong.statusCode).toBe(422)
+    expect(wrong.body).toContain("That isn&#39;t a PPS number")
+    expect(wrong.body).toContain('That IBAN doesn&#39;t add up')
+    await apply({ ...FILLED, ...PAY })
+    const [a] = await waiting()
+    const { rows: sealed } = await db.query<{ payment_sealed: string }>('SELECT payment_sealed FROM applications')
+    expect(sealed[0]!.payment_sealed).toMatch(/^p1\./)
+    expect(sealed[0]!.payment_sealed).not.toContain('1234567')
+    expect(await colly.record('application', a!.id)).toMatchObject({ paymentGiven: true })
+    const feed = async () => (await db.query<{ data: string }>(`SELECT data::text FROM changes WHERE data IS NOT NULL`)).rows.map((r) => r.data).join(' ')
+    expect(await feed()).not.toMatch(/1234567 ?fa|aibk|93115212/i)
+
+    await colly.send('application.take', { id: a!.id, personId: 'aoife' })
+    const ask = (full = false) => app.inject({ url: `/api/people/aoife/payment${full ? '?full=1' : ''}`, cookies: colly.cookies })
+    expect((await ask()).json()).toMatchObject({
+      kept: true,
+      full: false,
+      details: { ppsn: '••••••7FA', accountName: 'Aoife Ní Bhriain', iban: 'IE•• •••• … 5678', bic: 'AIBKIE2D' },
+      changedBy: 'The Apply page',
+    })
+    expect((await ask(true)).json()).toMatchObject({ full: true, details: { ppsn: '1234567FA', iban: 'IE29AIBK93115212345678' } })
+    expect(JSON.stringify(await colly.history())).toContain("Looked at Aoife Ní Bhriain's payment details in full")
+
+    // The office changes them, or takes them off; a wrong one is turned back, saying which.
+    const put = (body: Record<string, string>) => app.inject({ method: 'PUT', url: '/api/people/aoife/payment', cookies: colly.cookies, payload: body })
+    expect((await put({ ...PAY, iban: 'IE00' })).json()).toMatchObject({ errors: { iban: expect.stringContaining('IBAN') } })
+    expect((await put({ ...PAY, vatNumber: 'ie 1234567t' })).json()).toMatchObject({ kept: true, details: { vatNumber: 'IE1234567T' } })
+    expect(JSON.stringify(await colly.history())).toContain("Changed Aoife Ní Bhriain's payment details")
+    expect((await put({})).json()).toMatchObject({ kept: false })
+    expect((await db.query('SELECT 1 FROM payment_details')).rows).toEqual([])
+    expect(await feed()).not.toMatch(/1234567 ?fa|aibk|93115212/i)
+  })
+
+  it('shows payment details only to those who see money (ADR 0193)', async () => {
+    const { app, db, colly } = await setUp({ paymentKey: 'a test key' })
+    await colly.send('person.upsert', { id: 'colly', name: 'Colly Hewson', kind: 'staff', email: 'colly@sessionhire.com', ...PERSON })
+    await colly.send('person.upsert', { id: 'sean', name: 'Seán Ó Briain', kind: 'staff', email: 'sean@sessionhire.com', department: 'Audio', ...PERSON })
+    await colly.send('person.role', { id: 'colly', role: 'director' })
+    await colly.send('person.role', { id: 'sean', role: 'head' })
+    const sean = await staff(app, db, 'Sean Briain', WINDOWS, 'head-0001')
+    expect((await app.inject({ method: 'PUT', url: '/api/people/sean/payment', cookies: colly.cookies, payload: { ppsn: '1234567T' } })).statusCode).toBe(200)
+    expect((await app.inject({ url: '/api/people/sean/payment', cookies: sean.cookies })).statusCode).toBe(403)
+    expect((await app.inject({ method: 'PUT', url: '/api/people/sean/payment', cookies: sean.cookies, payload: {} })).statusCode).toBe(403)
   })
 
   it('turns a flood away once there are too many waiting', async () => {

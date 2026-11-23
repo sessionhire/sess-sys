@@ -112,6 +112,17 @@ describe('combining people brought in twice', () => {
     expect(history.entries.map((e) => e.what)).toContain('Made Aoifebyrne part of Aoife Byrne, as one person')
   })
 
+  it('keeps the payment details of the one kept, or brings the other one\'s when it had none (ADR 0193)', async () => {
+    const { app } = await server()
+    const a = await person(app, 'Nora Lynch', { email: 'nora@sessionhire.com' })
+    const b = await person(app, 'Noral', { email: 'noral@gmail.com' })
+    const put = (id: string, ppsn: string) => app.inject({ method: 'PUT', url: `/api/people/${id}/payment`, payload: { ppsn } })
+    expect((await put(a.id, '1234567T')).statusCode).toBe(200)
+    ok(await send(app, 'person.merge', { id: b.id, from: [a.id] }))
+    const got = (await app.inject({ url: `/api/people/${b.id}/payment?full=1` })).json()
+    expect(got).toMatchObject({ kept: true, details: { ppsn: '1234567T' } })
+  })
+
   it("keeps one offer when both were offered the same call, holding every day either held", async () => {
     const { app } = await server()
     const a = await person(app, 'Cian Walsh', { email: 'cian@sessionhire.com' })

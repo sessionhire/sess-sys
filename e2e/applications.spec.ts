@@ -27,7 +27,7 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
   const applicant = await (await browser.newContext({ viewport: phoneSize })).newPage()
   // A mobile of this run's own, so nobody from an earlier run is already on the Crew tab with it.
   const mobile = (n: number) => `087 ${String(Date.now() % 10_000_000 + n).padStart(7, '0').slice(-7)}`
-  const apply = async (first: string, last: string, email: string, n: number) => {
+  const apply = async (first: string, last: string, email: string, n: number, pay = false) => {
     await applicant.goto('/join')
     await expect(applicant.getByRole('heading', { name: 'Apply to join our crew' })).toBeVisible()
     await applicant.getByLabel('First name').fill(first)
@@ -45,6 +45,12 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
     await applicant.getByRole('radio', { name: 'Sole trader' }).check()
     await applicant.getByLabel(/Where you/).fill('Cork')
     await applicant.getByLabel(/Your experience/).fill('Busked lights at Indiependence for three years.')
+    if (pay) {
+      const paying = applicant.getByRole('group', { name: 'For paying you (optional)' })
+      await paying.getByLabel('PPS number').fill('1234567FA')
+      await paying.getByLabel('Name on the account').fill(`${first} ${last}`)
+      await paying.getByLabel('IBAN').fill('IE29 AIBK 9311 5212 3456 78')
+    }
     await applicant.getByRole('checkbox', { name: /can keep these details/ }).check()
     await applicant.waitForTimeout(4_500)
     await applicant.getByRole('button', { name: 'Send my application' }).click()
@@ -62,7 +68,7 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
   await expect(applicant.getByLabel('First name')).toHaveValue('Nobody')
   await applicant.screenshot({ fullPage: true, ...shot('apply-page-errors') })
 
-  await apply('Fionn', `Test${id}`, `fionn.${id}@example.com`, 1)
+  await apply('Fionn', `Test${id}`, `fionn.${id}@example.com`, 1, true)
   await apply('Saoirse', `Test${id}`, `saoirse.${id}@example.com`, 2)
 
   await office.goto('/#crew/applications')
@@ -75,6 +81,8 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
   await expect(fionn).toContainText('LX op, grandMA')
   await expect(fionn).toContainText('€240')
   await expect(fionn).toContainText('Sole trader')
+  await expect(fionn).toContainText('Given, kept locked')
+  await expect(saoirse).toContainText('Not given')
   await office.screenshot({ fullPage: true, ...shot('crew-applications') })
 
   await fionn.getByRole('button', { name: 'Take on' }).click()
@@ -93,6 +101,27 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
   const main = office.getByRole('main')
   await expect(main.getByRole('link', { name: new RegExp(`Fionn Test${id}.*Level 0 \\(applicant\\)`) })).toBeVisible()
   await expect(main.getByText(`Saoirse Test${id}`)).toHaveCount(0)
+
+  // Their payment details came with them, masked until asked for in full (ADR 0193).
+  await main.getByRole('link', { name: new RegExp(`Fionn Test${id}`) }).click()
+  await office.getByRole('tab', { name: 'Details' }).click()
+  const pay = office.getByRole('region', { name: 'Payment details' })
+  await expect(pay).toContainText('••••••7FA')
+  await expect(pay).toContainText('IE•• •••• … 5678')
+  await expect(pay).toContainText('on the Apply page')
+  await pay.getByRole('button', { name: 'Show in full' }).click()
+  await expect(pay).toContainText('1234567FA')
+  await expect(pay).toContainText('IE29 AIBK 9311 5212 3456 78')
+  await pay.getByRole('button', { name: 'Change' }).click()
+  await pay.getByLabel('IBAN').fill('IE29 AIBK 9311 5212 3456 79')
+  await pay.getByRole('button', { name: 'Save payment details' }).click()
+  await expect(pay.getByText("That IBAN doesn't add up", { exact: false })).toBeVisible()
+  await pay.getByLabel('IBAN').fill('IE29 AIBK 9311 5212 3456 78')
+  await pay.getByLabel(/VAT number/).fill('IE1234567T')
+  await pay.getByRole('button', { name: 'Save payment details' }).click()
+  await expect(pay).toContainText('IE1234567T')
+  await expect(pay).toContainText('••••••7FA')
+  await office.screenshot({ fullPage: true, ...shot('person-payment-details') })
 
   // Off again for the tests after this one: the page says to get in touch instead.
   await office.goto('/#admin/company')

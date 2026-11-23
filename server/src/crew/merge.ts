@@ -95,6 +95,14 @@ export const mergeHandlers = {
     for (const l of links) await tx.query('INSERT INTO person_merges (from_id, into_id, link_token) VALUES ($1, $2, $3) ON CONFLICT (from_id) DO NOTHING', [l.id, into.id, l.link_token])
 
     await movePhoto(ctx, into.id, ids)
+    // Payment details (ADR 0193): the one kept keeps theirs; if they had none, the newest of the others' comes with them.
+    await tx.query(
+      `UPDATE payment_details SET person_id = $1
+       WHERE person_id = (SELECT person_id FROM payment_details WHERE person_id = ANY($2::text[]) ORDER BY changed_at DESC, person_id LIMIT 1)
+         AND NOT EXISTS (SELECT 1 FROM payment_details WHERE person_id = $1)`,
+      [into.id, ids]
+    )
+    await tx.query('DELETE FROM payment_details WHERE person_id = ANY($1::text[])', [ids])
     const one = mergedPerson(into, from)
     await tx.query('DELETE FROM people WHERE id = ANY($1::text[])', [ids])
     await tx.query(
