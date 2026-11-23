@@ -46,7 +46,7 @@ type Form = URLSearchParams
  * the refusal of the change just made (r), and where: the offer's card (o)
  * or their details (s). None of it is ever drawn as words.
  */
-type Req = FastifyRequest<{ Params: { token: string; id?: string }; Querystring: { m?: string; r?: string; o?: string; s?: string } }>
+type Req = FastifyRequest<{ Params: { token: string; id?: string }; Querystring: { m?: string; r?: string; o?: string; s?: string; c?: string } }>
 
 /** Where a post's message goes: a section of its own, the running-late card (ADR 0028), their documents (ADR 0029), their days off, their own calendar (ADR 0044), or else the offer's card. */
 const SECTIONS = ['details', 'late', 'documents', 'away', 'calendar'] as const
@@ -182,7 +182,9 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const text = said?.text ?? refused
     if (text === undefined) return undefined
     const section = SECTIONS.find((x) => x === q.s)
-    return { ok: said?.ok ?? false, text, ...(q.o ? { offer: q.o } : {}), ...(section ? { section } : {}) }
+    // Sparks only for a yes just given, which the page takes off its address once they've played (23 November 2026).
+    const celebrate = q.c === '1' && (q.m === 'accepted' || q.m === 'accepted-instead')
+    return { ok: said?.ok ?? false, text, ...(q.o ? { offer: q.o } : {}), ...(section ? { section } : {}), ...(celebrate ? { celebrate } : {}) }
   }
 
   async function run<N extends CommandName>(req: FastifyRequest, personId: string, name: N, args: CommandArgs<N>): Promise<MutationResult> {
@@ -201,8 +203,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
    * resubmits. An answer names its offer, so the page lands on that card
    * with the message in it.
    */
-  const back = (reply: FastifyReply, token: string, what: Said | Refusal, offer?: string) =>
-    reply.redirect(`/f/${token}?${new URLSearchParams({ ...told(what), ...(offer ? { o: offer } : {}) })}${offer ? `#o-${offer}` : ''}`, 303)
+  const back = (reply: FastifyReply, token: string, what: Said | Refusal, offer?: string, celebrate = false) =>
+    reply.redirect(`/f/${token}?${new URLSearchParams({ ...told(what), ...(offer ? { o: offer } : {}), ...(celebrate ? { c: '1' } : {}) })}${offer ? `#o-${offer}` : ''}`, 303)
 
   /** Back to Days you can't work, with the message over the list rather than at the top of the page (audit, 5 November 2026, finding 31). */
   const toAway = (reply: FastifyReply, token: string, what: Said | Refusal) =>
@@ -463,8 +465,10 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
 
     if (result.status === 'rejected') return turnedDown(result)
     const said: Said = answer === 'accept' ? (offer.status === 'countered' ? 'accepted-instead' : 'accepted') : answer === 'decline' ? 'declined' : answer === 'pullOut' ? 'pulled-out' : 'rate-sent'
-    // A pull-out leaves the card for "Offers that ended", so its message goes at the top.
-    return back(reply, person.linkToken, said, answer === 'pullOut' ? undefined : offer.id)
+    // A pull-out leaves the card for "Offers that ended", so its message goes at the top. A first yes to an offer, not a
+    // change to the days of one already said yes to, gets a burst of sparks over its card (23 November 2026).
+    const yes = answer === 'accept' && (offer.status === 'offered' || offer.status === 'countered')
+    return back(reply, person.linkToken, said, answer === 'pullOut' ? undefined : offer.id, yes)
   })
 
   /**

@@ -17,6 +17,7 @@ import {
 } from '@sh/shared'
 import { useState, type ReactNode } from 'react'
 import { Confirm } from '../act.tsx'
+import { celebrateBooked } from '../celebrate.ts'
 import { client } from '../sync.ts'
 import { promptFor, tellTo, type Share } from './Messages.tsx'
 import { useHoldTheDay, useReach } from './reach.tsx'
@@ -68,7 +69,12 @@ export function useAnswerActions({ o, call, run, onDone, onPress }: AnswerProps)
   const go = (command: 'offer.confirm' | 'offer.cancel' | 'offer.refuse', share: () => Share | undefined) => {
     setAsking(undefined)
     onPress?.()
-    void run(() => client.mutate(command, { id: o.id })).then((ok) => ok && onDone(share()))
+    void run(() => client.mutate(command, { id: o.id })).then((ok) => {
+      if (!ok) return
+      // Booked: a small burst where it was pressed (23 November 2026).
+      if (command === 'offer.confirm') celebrateBooked()
+      onDone(share())
+    })
   }
   // The rates asked for and the offers still waiting that this fills the call over close with it, and their invites come off:
   // said among what was sent.

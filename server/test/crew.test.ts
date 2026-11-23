@@ -1,4 +1,5 @@
 import { addDays, dayLabel, daysLabel, feedCodeFor, feedPath, irishToday, MemoryStorage, newId, SyncClient, type CommandInput, type CommandName, type CrewCall, type HistoryPage, type MutationResult, type Offer, type Person } from '@sh/shared'
+import { CELEBRATE_SCRIPT } from '../src/crew/page.ts'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../src/app.ts'
@@ -291,8 +292,17 @@ describe('freelancer link', () => {
     expect(thanks.to.searchParams.get('o')).toBe(picnic.id)
     expect(thanks.to.hash).toBe(`#o-${picnic.id}`)
     let page = (await app.inject({ method: 'GET', url: thanks.to.pathname + thanks.to.search })).body
-    expect(cardOf(page, picnic.id)).toContain('<p class="flash ok" role="status">Thanks, you&#39;re down for it.')
+    // A first yes: sparks over the words, once (23 November 2026), by the script the page's policy names.
+    expect(thanks.to.searchParams.get('c')).toBe('1')
+    expect(cardOf(page, picnic.id)).toContain('<p class="flash ok" role="status" data-celebrate>Thanks, you&#39;re down for it.')
     expect(page.match(/class="flash/g)).toHaveLength(1)
+    expect(page).toContain(`<script>${CELEBRATE_SCRIPT}</script>`)
+    // Changing the days of that yes says so again, with no sparks.
+    const again = await answer(app, aoife.linkToken, picnic.id, { answer: 'accept', picker: '1', days: ['2026-10-02', '2026-10-03'] })
+    expect(again.to.searchParams.get('c')).toBeNull()
+    page = (await app.inject({ method: 'GET', url: again.to.pathname + again.to.search })).body
+    expect(page).not.toContain('data-celebrate')
+    expect(page).not.toContain(CELEBRATE_SCRIPT)
     expect(page).toContain('<title>Session Hire: your work</title>')
 
     // A refusal is an alert, in the card of the offer it's about, drawn at once with the note still in it (rule 11).

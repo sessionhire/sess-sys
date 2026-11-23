@@ -1,7 +1,7 @@
 import { LOGO_SVG, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
-import { dsColor, dsSize, dsSpace, dsText, newId, ownColours } from '@sh/shared'
+import { dsColor, dsSize, dsSpace, dsText, newId, ownColours, sparks } from '@sh/shared'
 import { FONT_FACES, FONT_STACK } from './fonts.ts'
 import { busyByDay, ENDED_WORDS, HOLD_WORDS, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, type OwnCalendar, type SinceYes } from '@sh/shared'
 import type { Ended, EndedBy } from './store.ts'
@@ -33,6 +33,8 @@ export interface Flash {
    * document's file or the day it runs out.
    */
   field?: 'rate' | 'days' | 'start' | 'end' | 'phone' | 'address' | 'file' | 'expires'
+  /** A yes just given to an offer: sparks over its card, once (23 November 2026). */
+  celebrate?: boolean
   /** Or, on a timesheet, one extra, by its place among those filled in. */
   extra?: number
 }
@@ -80,7 +82,37 @@ export interface OnTheDay {
 }
 
 /** The message after a post. A refusal is an alert, so it's read out and looks like one, and a refused post's page lands on it; a thank-you is a status. */
-export const flash = (f: { ok: boolean; text: string }) => `<p class="flash ${f.ok ? 'ok' : 'bad'}" role="${f.ok ? 'status' : 'alert'}"${landing(!f.ok)}>${h(f.text)}</p>`
+export const flash = (f: { ok: boolean; text: string; celebrate?: boolean }) =>
+  `<p class="flash ${f.ok ? 'ok' : 'bad'}" role="${f.ok ? 'status' : 'alert'}"${landing(!f.ok)}${f.ok && f.celebrate ? ' data-celebrate' : ''}>${h(f.text)}</p>`
+
+/**
+ * Sparks in the brand's reds over the words that say a yes went in (23 November 2026): the same burst as the app's
+ * (shared/src/celebrate.ts), larger, from where the words are once the page has scrolled to them. It takes the mark off
+ * the address as it plays, so going back to the page or reloading it doesn't play it again. Named by its hash in the
+ * page's policy (app.ts).
+ */
+export const CELEBRATE_SCRIPT = `
+    (function () {
+      // The server runs on tsx, which may wrap the function's inner ones to keep their names; here that's a no-op.
+      var __name = function (f) { return f };
+      var sparks = ${sparks.toString()};
+      var said = document.querySelector('.flash[data-celebrate]')
+      if (!said) return
+      try {
+        var address = new URL(location.href)
+        address.searchParams.delete('c')
+        history.replaceState(history.state, '', address.toString())
+      } catch (e) {}
+      var go = function () {
+        window.requestAnimationFrame(function () {
+          var r = said.getBoundingClientRect()
+          sparks(r.left + r.width / 2, r.top + r.height / 2, 'big')
+        })
+      }
+      if (document.readyState === 'complete') go()
+      else window.addEventListener('load', go)
+    })()
+    `
 
 /**
  * The way back to the office (audit finding 10), on every page: the phone
@@ -973,6 +1005,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
     <span>Keep this link to yourself: anyone with it can answer for you. Ask the office for a new one if it gets shared.</span>
   </footer>
 </main>
+${d.flash?.celebrate ? `<script>${CELEBRATE_SCRIPT}</script>` : ''}
 </body>
 </html>`
 }
