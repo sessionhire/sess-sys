@@ -57,6 +57,10 @@ export const ERASED_AGAIN_ACTION = 'person.erase-again'
 export const ERASED_WHEN_DUE_ACTION = 'person.erase-due'
 /** An application to join from the public Apply page (ADR 0190): the server's own change, by nobody signed in. Only its id is kept. */
 export const APPLICATION_IN_ACTION = 'application.receive'
+/** Someone's payment details given or changed by the office (ADR 0193): only whose, never what. */
+export const PAYMENT_DETAILS_ACTION = 'person.payment'
+/** Someone's payment details looked at in full (ADR 0193): who looked, and whose. */
+export const PAYMENT_SEEN_ACTION = 'person.payment-seen'
 /** And clearing running late 30 days after its day (ADR 0028). */
 export const LATE_CLEARED_ACTION = 'late.clear-old'
 /** And taking the fuel price from a new month of the AA's survey (ADR 0086). */
@@ -188,12 +192,18 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return `Saved ${text(a.name, 'someone')}'s details`
     // Applications to join (ADR 0190): who was taken on by name, as they're on the Crew tab now; one turned down by none, as
     // what they sent is gone.
+    case PAYMENT_DETAILS_ACTION:
+      return a.gone === true ? `Took ${person(a.personId)}'s payment details off` : `Changed ${person(a.personId)}'s payment details`
+    case PAYMENT_SEEN_ACTION:
+      return `Looked at ${person(a.personId)}'s payment details in full`
     case APPLICATION_IN_ACTION:
       return a.again === true ? 'An application to join came in again from the Apply page' : 'An application to join came in from the Apply page'
     case 'application.take':
       return `Took ${person(a.personId)} on from their application, as an applicant`
     case 'application.drop':
       return 'Turned down an application to join; what they sent was deleted'
+    case 'applications.email':
+      return a.on === true ? 'Turned on emailing people who apply when they’re taken on or turned down' : 'Turned off emailing people who apply'
     case 'applications.use':
       return a.on === true ? 'Turned on applications to join on the Apply page' : 'Turned off applications to join on the Apply page'
     case 'person.level':

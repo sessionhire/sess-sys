@@ -139,6 +139,8 @@ export const setting = z.object({
   logoBlackWhite: z.boolean().optional(),
   /** On the "applications" setting (ADR 0190): whether the public Apply page takes applications. Off until the office says. */
   takeApplications: z.boolean().optional(),
+  /** On the "applications" setting (ADR 0193): whether people who apply are emailed when they're taken on or turned down. Off until the office says. */
+  emailApplicants: z.boolean().optional(),
 })
 export type Setting = z.infer<typeof setting>
 
@@ -212,6 +214,8 @@ export const officeCommandSchemas = {
   'logo.blackWhite': z.object({ on: z.boolean() }),
   /** Whether the public Apply page takes applications to join the crew (ADR 0190). The office's, under Admin. */
   'applications.use': z.object({ on: z.boolean() }),
+  /** Whether people who apply are emailed when they're taken on, with their own page, or turned down (ADR 0193). Off until launch. */
+  'applications.email': z.object({ on: z.boolean() }),
 } as const
 
 /** The details when there is a way back in them: a phone or an email. A name alone is nothing to show. */

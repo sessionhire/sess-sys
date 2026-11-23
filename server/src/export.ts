@@ -332,7 +332,12 @@ const ABOUT: Record<string, string> = {
   // A job's steps (ADR 0073).
   // Applications to join the crew (ADR 0190).
   applications:
-    "What people who'd like work sent from the public Apply page, until the office takes them on or turns them down, when the row goes: their name, email, phone, department, what they do, the day rate asked, sole trader or company, where they're based, their experience, and when they applied.",
+    "What people who'd like work sent from the public Apply page, until the office takes them on or turns them down, when the row goes: their name, email, phone, department, what they do, the day rate asked, sole trader or company, where they're based, their experience, when they applied, and their payment details if they gave them, locked (ADR 0193).",
+  // Payment details and emails to people who applied (ADR 0193).
+  payment_details:
+    "Each person's PPS number, VAT number and bank account, locked: the text here can't be read without the server's key. Read on the person's page by directors and the office.",
+  applicant_emails:
+    "Emails to people who applied, sent when the office took them on or turned them down: which, when, and whether it went. Who each was for is cleared once it has gone.",
   // The purchase list (ADR 0077).
   purchase_requests:
     "Kit the crew asked to be bought: what, how many and details, a link, the department, who asked (or the name a list brought in gave) and on which day, where it's at (asked for, agreed, ordered, arrived, not buying) and the office's notes.",

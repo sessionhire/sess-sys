@@ -88,6 +88,10 @@ export const GONE: readonly Gone[] = [
   // The links of anyone they were combined with (ADR 0055), which opened them: secrets of theirs, so they go, and the
   // old links stop with their own.
   { table: 'person_merges', column: 'into_id', theirs: 'into_id = $1' },
+  // Their PPS number, VAT number and bank account (ADR 0193), which devices never see: kept to pay them, so they go at once.
+  { table: 'payment_details' },
+  // The email telling them they were taken on (ADR 0193), which devices never see: its address is theirs.
+  { table: 'applicant_emails' },
 ]
 
 /** Records of their work that stay, without what they wrote themselves. */
