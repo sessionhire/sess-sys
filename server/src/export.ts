@@ -32,7 +32,7 @@ const NOT_EXPORTED = new Set(['sessions', 'link_devices', 'link_codes', 'link_lo
  * times stay in. And a quote's link for its client (ADR 0121): whoever held
  * it could accept the quote.
  */
-const SECRET_COLUMNS: Record<string, string[]> = { people: ['link_token'], quotes: ['accept_token'], person_merges: ['link_token'], calendar_link: ['refresh_token'], assistant_mailbox: ['refresh_token'], own_calendars: ['address'] }
+const SECRET_COLUMNS: Record<string, string[]> = { people: ['link_token'], quotes: ['accept_token'], person_merges: ['link_token'], calendar_link: ['refresh_token'], assistant_mailbox: ['refresh_token'], own_calendars: ['address'], label_printers: ['secret_hash'] }
 /** Not secret, but no use in a spreadsheet and far too big for one: the PDF that went with each emailed quote (ADR 0101). The backups keep it. */
 SECRET_COLUMNS.quote_emails = ['pdf_base64']
 const SECRET_FIELDS: Record<string, string[]> = { person: ['linkToken'], quote: ['acceptToken'] }
@@ -292,6 +292,7 @@ const ABOUT: Record<string, string> = {
   kit_lines: 'Kit on jobs: how many of a product each job needs, for the whole job or one phase, and how many of those are subhired and from whom.',
   kit_names: 'Names that jobs\' notes use for kit, as chosen once in Kit from the notes: the product each means, or blank for not kit.',
   kit_notes_read: 'Jobs whose notes have been turned into kit lines, with a fingerprint of the notes as they were, so a job comes back to the list only when its notes change.',
+  label_printers: 'The label printer that prints over the internet: whether it may connect, when its setup file was made and for which address, its serial number and name, and when it was last heard from. Not its password.',
   label_runs: 'Numbers set aside for printing labels, a run at a time: the first, how many, what they were for, and when one was cancelled before any of its labels went on an item. A cancelled run is off the list, but its numbers are never given out again.',
   leave_allowances: "Each staff member's annual leave for a year: the days, what was carried over, and a note; 20 days when none is set.",
   leave_requests: 'Staff requests for annual leave and days in lieu: the days asked for and counted, and whether each was approved, declined or cancelled, by whom and why.',

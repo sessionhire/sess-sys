@@ -382,6 +382,21 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE models ADD COLUMN IF NOT EXISTS margin_pct numeric(4,1) CHECK (margin_pct BETWEEN 0.1 AND 100);
   `,
+  // The label printer over the internet (ADR 0191): the one row, "zt411". Whether it may connect; a hash of the password
+  // in its setup file (never the password); the app's address when that file was made; and, once it has connected, its
+  // serial number, so no other printer gets in with the same file, its name and when it was last heard from.
+  `
+  CREATE TABLE IF NOT EXISTS label_printers (
+    id             text PRIMARY KEY,
+    used           boolean NOT NULL DEFAULT false,
+    secret_hash    text,
+    paired_at      timestamptz,
+    paired_origin  text,
+    serial         text,
+    name           text,
+    last_seen      timestamptz
+  );
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

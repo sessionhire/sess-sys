@@ -7,7 +7,8 @@
     "start": "tsx src/index.ts",
     "backup": "tsx src/backup/cli.ts",
     "typecheck": "tsc -p .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "printer:pretend": "tsx test/fake-zt411.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

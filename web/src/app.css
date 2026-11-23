@@ -1047,3 +1047,10 @@ dialog.palette::backdrop { transition: opacity var(--ds-duration-slow) var(--ds-
   background-size: 16px 16px, 16px 16px, 4px 4px, 4px 4px;
 }
 @media print { .grid-overlay { display: none; } }
+/* The label printer over the internet (ADR 0191): its state beside Print, the pill first, then its name and what to do. */
+.printer-line { display: flex; gap: var(--ds-space-2); align-items: baseline; margin: 0; flex-wrap: wrap; }
+.printer-line > span { min-width: 0; overflow-wrap: anywhere; }
+.printer-line small { display: block; color: var(--muted); font-size: var(--text-hint); }
+.printer-status, .printer-setup { display: grid; gap: var(--ds-space-3); margin-top: var(--ds-space-3); }
+.printer-setup .warn-line { margin: 0; }
+.printer-address { overflow-wrap: anywhere; }

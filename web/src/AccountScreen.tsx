@@ -30,6 +30,7 @@ import { DeliveryCard } from './DeliveryCard.tsx'
 import { ReducedDaysCard } from './ReducedDaysCard.tsx'
 import { ReadingCard } from './ReadingCard.tsx'
 import { TrackersCard } from './stock/Trackers.tsx'
+import { LabelPrinterCard } from './LabelPrinterCard.tsx'
 import { StatusPanel } from './StatusPanel.tsx'
 import { useAccess } from './role.ts'
 import { TabPanel, Tabs, useTab } from './Tabs.tsx'
@@ -120,6 +121,7 @@ export function AccountScreen() {
                 {access.can('money') && <RmsPricesCard view={view} canRead={settings} />}
                 {access.can('jobs') && <RmsMembersCard view={view} canRead={settings} />}
                 {settings && <TrackersCard view={view} />}
+                {settings && <LabelPrinterCard />}
               </>
             )}
             {part === 'data' && (

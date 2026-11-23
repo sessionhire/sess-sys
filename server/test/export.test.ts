@@ -130,6 +130,7 @@ describe('download everything', () => {
       'kit_lines',
       'kit_names',
       'kit_notes_read',
+      'label_printers',
       'label_runs',
       'leave_allowances',
       'leave_requests',

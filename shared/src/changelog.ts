@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.213.0',
+    date: '2026-11-23',
+    title: 'The label printer prints from any phone, over the internet',
+    what: 'Once the Zebra ZT411 is set up for it, it connects to the app by itself, so Print on a run or an item sends labels to it from any phone or computer, not only the one with Zebra Browser Print. Beside Print it says whether the printer is ready, out of labels or ribbon, or has its head open. Turn it on and make the printer’s setup file under Admin › Connections › Label printer; the setup guide says the rest. It stays off until then.',
+    prs: [420],
+    adrs: [191],
+  },
+  {
     version: '1.212.1',
     date: '2026-11-23',
     title: 'The planner’s days row no longer covers the logo',
