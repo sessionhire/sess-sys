@@ -51,7 +51,7 @@ test("a person's name opens their page, with what's ahead for them and the way b
   // Her page: who she is and how to reach her, in the heading and the buttons above its parts; Coming up first.
   await expect(office).toHaveURL(new RegExp(`#crew/person/${k('ciara')}$`))
   await expect(office.getByRole('heading', { level: 1 })).toHaveText(name)
-  await expect(office.getByRole('link', { name: 'Call 087 123 4567' })).toHaveAttribute('href', 'tel:0871234567')
+  await expect(office.getByRole('link', { name: 'Call +353 87 123 4567' })).toHaveAttribute('href', 'tel:0871234567')
   await expect(office.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', 'https://wa.me/353871234567')
   await expect(office.getByRole('link', { name: 'Email' })).toHaveAttribute('href', `mailto:ciara.${id}@example.com`)
 
