@@ -1,4 +1,4 @@
-import { randomBytes, createHash, timingSafeEqual, X509Certificate } from 'node:crypto'
+import { randomBytes, scryptSync, timingSafeEqual, X509Certificate } from 'node:crypto'
 import { connect, rootCertificates, type DetailedPeerCertificate, type PeerCertificate } from 'node:tls'
 import { WEBLINK_PATH, WEBLINK_USER } from '@sh/shared'
 
@@ -28,12 +28,21 @@ import { WEBLINK_PATH, WEBLINK_USER } from '@sh/shared'
 /** A new password: 24 random bytes, written with letters and digits only, since the printer splits the entry at spaces. */
 export const newSecret = () => randomBytes(24).toString('base64url')
 
-export const hashSecret = (secret: string) => createHash('sha256').update(secret, 'utf8').digest('hex')
+/**
+ * The password as it's kept: scrypt, with a salt of its own, "scrypt:salt:hash" in hex. The password is 24 random
+ * bytes, far past guessing, so this is belt and braces; it costs a few milliseconds a connection, and the printer
+ * connects a few times a minute at most.
+ */
+export function hashSecret(secret: string): string {
+  const salt = randomBytes(16)
+  return ['scrypt', salt.toString('hex'), scryptSync(secret, salt, 32).toString('hex')].join(':')
+}
 
 /** Whether the password given is the one whose hash is kept, compared in constant time. */
-export function secretMatches(given: string, hash: string | null | undefined): boolean {
-  if (!hash) return false
-  const a = Buffer.from(hashSecret(given), 'hex')
+export function secretMatches(given: string, kept: string | null | undefined): boolean {
+  const [kind, salt, hash] = (kept ?? '').split(':')
+  if (kind !== 'scrypt' || !salt || !hash) return false
+  const a = scryptSync(given, Buffer.from(salt, 'hex'), 32)
   const b = Buffer.from(hash, 'hex')
   return a.length === b.length && timingSafeEqual(a, b)
 }
