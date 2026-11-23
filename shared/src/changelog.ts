@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-23',
     title: 'A little celebration when a gig is settled',
     what: 'When a freelancer says yes to a gig on their own page, a short burst of fireworks in Session Hire red goes off over the words that say it went in. When the office confirms someone’s yes on a job’s Crew tab, or from Next, a smaller burst goes off over “… is booked”. Each plays once, takes a second or two, never gets in the way of a tap, and doesn’t play at all on a phone or computer set to reduce motion.',
-    prs: [0],
+    prs: [422],
   },
   {
     version: '1.213.0',
