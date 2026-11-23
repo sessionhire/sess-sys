@@ -75,6 +75,7 @@ import { QuoteWatch } from './finance/quote-watch.ts'
 import { registerAcceptRoutes } from './finance/accept-routes.ts'
 import { registerStatusRoutes, Status, type OutsideLooks } from './status.ts'
 import { registerTrackerRoutes } from './trackers/routes.ts'
+import { registerPrinterRoutes, type PrinterOptions } from './printer/routes.ts'
 
 const PULL_LIMIT = 500
 /** The longest the server waits for a whole request to arrive. */
@@ -139,6 +140,8 @@ export interface AppOptions {
   documentStore?: BackupStore
   /** Which code is running, recorded in each backup. */
   commit?: string
+  /** For tests: the label printer's certificate lookup and how long it waits (ADR 0191). */
+  printer?: Omit<PrinterOptions, 'db' | 'log'>
   /** Where errors are reported (ADR 0005), which the app on each device needs to know too. */
   errorReporting?: ErrorReporting
   /** Watches the nightly backup from outside, such as Sentry (ADR 0005). */
@@ -731,6 +734,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // The public Apply page (ADR 0190): anyone can apply to join the crew, while the office has it on.
   registerJoin(app, db, { onChange: () => void poke() })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
+  // The label printer over the internet (ADR 0191): the ZT411 connects out to the app with Zebra's WebLink.
+  registerPrinterRoutes(app, { db, log: app.log, ...options.printer })
   registerStatusRoutes(
     app,
     new Status({ db, auth, passcode, errorReporting: !!errorReporting, backups, backupStore, documents, calendar: calendarSync, rms, assistant, mailbox, whatsapp, fuel, outside: options.outside ?? {}, commit, live: () => sockets.size })

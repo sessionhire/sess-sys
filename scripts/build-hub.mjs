@@ -25,6 +25,7 @@ const DOCS = [
   ['Phone field test', 'docs/field-test.md'],
   ['Switching on sign-in and Google Calendar', 'docs/sign-in-setup.md'],
   ['Switching on offers over WhatsApp', 'docs/whatsapp-setup.md'],
+  ['Setting up the ZT411 to print over the internet', 'docs/zt411-weblink-setup.md'],
   ['Design system', 'docs/design-system.md'],
   ['Backups', 'docs/backups.md'],
   ['Error alerts', 'docs/monitoring.md'],
