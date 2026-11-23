@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { hasEmail } from './roles.ts'
-import { CREW_DEPARTMENTS, NOTES_LENGTH, TRADES_AS, tidyDepartment, type Person, type TradesAs } from './crew.ts'
+import { NOTES_LENGTH, TRADES_AS, tidyDepartment, type Person, type TradesAs } from './crew.ts'
+import { departmentOfRoles } from './skills.ts'
 import { cleanText } from './plain.ts'
 import { phoneDigits } from './crew-import.ts'
 import { phoneWithCountry } from './phone.ts'
@@ -24,7 +25,7 @@ import type { CommandArgs } from './commands.ts'
  */
 
 export const APPLICATION_ABOUT_LENGTH = 2000
-export const APPLICATION_SKILLS_LENGTH = 300
+export const APPLICATION_SKILLS_LENGTH = 600
 export const APPLICATION_BASED_LENGTH = 100
 /** The most waiting at once: past it, the page says to ring the office, so a flood of junk can't fill the database. */
 export const APPLICATIONS_MOST = 300
@@ -36,9 +37,9 @@ export interface Application {
   lastName: string
   email: string
   phone: string
-  /** The department they picked, as the Crew tab spells them, or null for "not sure". */
+  /** Their department, read from the roles they do (departmentOfRoles), or null when those name none. */
   department: string | null
-  /** What they do, in their own words, split at commas into the skills a person has. */
+  /** The roles they do, picked as pills or typed, as the skills a person has. */
   skills: string[]
   /** The day rate they asked for, or null for none said. */
   dayRateCents: number | null
@@ -112,7 +113,7 @@ export interface ApplyForm {
   phone: string
   /** The country code picked beside the mobile, as its digits (353 for Ireland); empty or unknown reads as Ireland. */
   country: string
-  department: string
+  /** The roles they do, as the pills join them, or as typed with commas where the page's script didn't run. */
   skills: string
   rate: string
   tradesAs: string
@@ -140,10 +141,13 @@ export function readApplyForm(f: ApplyForm): { ok: true; application: Omit<Appli
   if (!phone || read.problem !== undefined || !PHONE_SHAPE.test(phone)) errors.phone = 'Put in a mobile number we can ring, such as 087 123 4567 with Ireland picked beside it.'
   const rate = rateFrom(f.rate)
   if (rate === undefined) errors.rate = 'Put the day rate in euro as a number, such as 250, or leave it empty.'
-  const department = (CREW_DEPARTMENTS as readonly string[]).includes(f.department) ? tidyDepartment(f.department) : null
   const tradesAs = (TRADES_AS as readonly string[]).includes(f.tradesAs) ? (f.tradesAs as TradesAs) : null
   if (!f.agree) errors.agree = 'Tick this so we can keep your details to offer you work.'
+  const skills = skillsFrom(f.skills.slice(0, APPLICATION_SKILLS_LENGTH))
+  if (!skills.length) errors.skills = 'Pick or type at least one thing you do, such as Sound engineer or Rigger.'
   if (Object.keys(errors).length) return { ok: false, errors }
+  // No department to pick (Colly, 23 November 2026): the roles they do say it, as a crew call's role does.
+  const named = departmentOfRoles(skills)
   return {
     ok: true,
     application: {
@@ -151,8 +155,8 @@ export function readApplyForm(f: ApplyForm): { ok: true; application: Omit<Appli
       lastName,
       email,
       phone,
-      department,
-      skills: skillsFrom(f.skills.slice(0, APPLICATION_SKILLS_LENGTH)),
+      department: named ? tidyDepartment(named) : null,
+      skills,
       dayRateCents: rate ?? null,
       tradesAs,
       basedIn: line(f.basedIn, APPLICATION_BASED_LENGTH),

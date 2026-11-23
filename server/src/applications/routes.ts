@@ -1,4 +1,5 @@
-import { APPLICATIONS_MOST, newId, readApplyForm, type Application, type ApplyForm } from '@sh/shared'
+import { APPLICATIONS_MOST, AV_ROLES, newId, quotedCrewRole, readApplyForm, rolesInUse, type Application, type ApplyForm } from '@sh/shared'
+import type { Queryable } from '../db.ts'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Db } from '../db.ts'
 import { APPLICATION_IN_ACTION } from '../history-words.ts'
@@ -28,7 +29,7 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
     noStore(reply)
       .code(code)
       .type('text/html')
-      .send(renderJoin({ state, office: await officeFor(db.reads), issued: String(now()), ...more }))
+      .send(renderJoin({ state, office: await officeFor(db.reads), issued: String(now()), roles: state === 'ask' ? await rolesForApplicants(db.reads) : [], ...more }))
 
   app.get('/join', async (_req, reply) => page(reply, (await takesApplications(db.reads)) ? 'ask' : 'off'))
 
@@ -44,8 +45,7 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
       email: field(b, 'email', 300),
       phone: field(b, 'phone', 60),
       country: field(b, 'country', 6),
-      department: field(b, 'department', 60),
-      skills: field(b, 'skills', 400),
+      skills: field(b, 'skills', 700),
       rate: field(b, 'rate', 20),
       tradesAs: field(b, 'tradesAs', 20),
       basedIn: field(b, 'basedIn', 200),
@@ -91,4 +91,25 @@ export async function keepApplication(db: Db, a: Omit<Application, 'id' | 'appli
     const got = await getApplication(ctx.tx, rows[0]!.id)
     if (got) await emit(ctx, 'application', got.id, got)
   })
+}
+
+/**
+ * The roles the Apply page offers as someone types (Colly, 23 November 2026): those on the price list, the crew lines
+ * quoted most in Current RMS (quotedCrewRole keeps a person's work and leaves out travel, delivery and fees), then the
+ * trade's usual ones (AV_ROLES), each spelt once, as the office spells it. Names only: no rate, and no person's name.
+ */
+export async function rolesForApplicants(q: Queryable): Promise<string[]> {
+  const priced = (await q.query<{ role: string }>('SELECT role FROM role_prices')).rows.map((r) => r.role)
+  const quoted = (
+    await q.query<{ name: string }>(
+      `SELECT name FROM rms_lines WHERE (lower(transaction_type) = 'service' OR lower(item_type) = 'service') AND name <> ''
+       GROUP BY name ORDER BY count(*) DESC, name LIMIT 300`
+    )
+  ).rows
+    .map((r) => quotedCrewRole(r.name))
+    .filter((r): r is string => !!r)
+    .slice(0, 40)
+  return rolesInUse({ priced: [...priced, ...quoted], standard: AV_ROLES })
+    .map((r) => r.name)
+    .slice(0, 150)
 }
