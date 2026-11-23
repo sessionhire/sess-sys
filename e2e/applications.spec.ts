@@ -74,6 +74,8 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
   await fionn.getByRole('button', { name: 'Take on' }).click()
   await expect(fionn).toHaveCount(0)
   await expect(office.getByText(`Took on Fionn Test${id}`)).toBeVisible()
+  // Put away, as the office would, so it doesn't sit over the next card's buttons on a phone.
+  await office.getByRole('button', { name: `Dismiss: Took on Fionn Test${id}` }).click()
 
   await saoirse.getByRole('button', { name: 'Turn down' }).click()
   await saoirse.getByRole('button', { name: 'Turn down' }).click()
