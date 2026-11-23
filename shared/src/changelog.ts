@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-23',
     title: 'Every phone number has its country beside it',
     what: 'Wherever a phone number is typed (a person’s card, a client’s contacts, a venue’s contact, the office’s own number, a freelancer’s own page and the Apply page) there’s now a country picker beside it, set to Ireland. Type the number as you would at home and it’s kept in full, so calls, texts and WhatsApp work with nothing added, and numbers show grouped, like +353 86 831 9330. Numbers saved before can be written in full in one go from Jobs › Tidy up, which lists each one first.',
-    prs: [0],
+    prs: [425],
     adrs: [192],
   },
   {
