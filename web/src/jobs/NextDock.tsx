@@ -15,6 +15,7 @@ import { askToEmailAgain, askToSend, useDraftSend, useSendingWords } from './quo
 import { useQuotesByEmail } from '../MailboxCard.tsx'
 import { serverUrl } from '../server.ts'
 import { GetFile } from '../GetFile.tsx'
+import { celebrateBooked } from '../celebrate.ts'
 
 /** Where a press of Next lands on the job page (ADR 0140): a call, with its Offer open or not, or the short kit's Subhire. */
 /** Where a press lands on the job's page: a call, opening its Offer or its rows to answer a yes or a rate (ADR 0152); or the short kit. */
@@ -296,6 +297,7 @@ export function NextDock({
                   const closed = waitingClosedBy(call, call.offers, offer.id).flatMap((c) => (c.person ? [tellTo(c.person as Person, call, c)] : []))
                   void run(() => client.mutate('offer.confirm', { id: offer.id })).then((ok) => {
                     if (!ok) return
+                    celebrateBooked()
                     onPart('crew', { call: call.id })
                     onTell?.(promptFor('confirmed', [tellTo(person, call, offer)], false, closed))
                   })
