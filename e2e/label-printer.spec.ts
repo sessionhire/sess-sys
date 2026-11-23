@@ -73,9 +73,6 @@ test('the ZT411 connects over the internet with its setup file, says how it is, 
     await expect(run.locator('.printer-line')).toContainText('Head open', { timeout: 15_000 })
     await expect(run.locator('.printer-line')).toContainText('Close the print head.')
     if (SHOTS) await run.screenshot({ path: `${SHOTS}/label-printer-head-open-phone.png` })
-  } catch (e) {
-    console.log('FIRST FAILURE', e)
-    throw e
   } finally {
     zt?.close()
     await page.goto('/#admin/connections')

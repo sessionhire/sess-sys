@@ -70,6 +70,9 @@ export class FakeZt411 {
     return `Basic ${Buffer.from(`${this.opts.user ?? 'zt411'}:${this.opts.password}`).toString('base64')}`
   }
 
+  /** Channels the server asked for but then wouldn't let in, as when it is turned off a moment after asking. */
+  refused: string[] = []
+
   /** One connection, as the printer makes it: without a password, then with it when asked. */
   private dial(protocol: string): Promise<WebSocket> {
     const attempt = (withPassword: boolean) =>
@@ -111,8 +114,10 @@ export class FakeZt411 {
       }
       const msg = JSON.parse(data.toString()) as Record<string, unknown>
       this.onMain.push(msg)
-      if (msg.open === 'v1.raw.zebra.com') void this.channel('raw')
-      if (msg.open === 'v1.config.zebra.com') void this.channel('config')
+      // A channel asked for just as the server turns the printer away is refused (503 or 401), as on a real printer.
+      const open = (kind: 'raw' | 'config') => this.channel(kind).catch((err: Error) => this.refused.push(`${kind}: ${err.message}`))
+      if (msg.open === 'v1.raw.zebra.com') void open('raw')
+      if (msg.open === 'v1.config.zebra.com') void open('config')
     })
     main.send(JSON.stringify({ discovery_b64: discoveryPacket(this.serial) }))
   }
