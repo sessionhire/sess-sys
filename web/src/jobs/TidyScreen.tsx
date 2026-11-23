@@ -1,4 +1,6 @@
 import {
+  normalisePhone,
+  phoneShown,
   clientWords,
   fullName,
   samePeople,
@@ -80,7 +82,8 @@ export function tidyCount(t: Tidy) {
 export function TidyScreen({ view }: { view: View }) {
   const t = tidyFor(view)
   const access = useAccess()
-  const nothing = tidyCount(t) === 0 && t.words.length === 0
+  const phones = useMemo(() => phoneFixes(view, (a) => access.can(a)), [view, access])
+  const nothing = tidyCount(t) === 0 && t.words.length === 0 && phones.fixes.length === 0 && phones.unread === 0
   return (
     <div className="app crew jobs import tidy">
       <Top view={view} up={{ steps: [JOBS], here: TIDY.label }} />
@@ -93,7 +96,7 @@ export function TidyScreen({ view }: { view: View }) {
           other.
         </p>
         {nothing && (
-          <Empty>Nothing to tidy: no job or person looks brought in twice, everyone has a name, and no venue or client is waiting to be put on a job.</Empty>
+          <Empty>Nothing to tidy: no job or person looks brought in twice, everyone has a name, every phone number is written in full, and no venue or client is waiting to be put on a job.</Empty>
         )}
       </section>
       {access.can('jobs') && t.same.length > 0 && <SameJobs view={view} groups={t.same} />}
@@ -103,6 +106,7 @@ export function TidyScreen({ view }: { view: View }) {
       {access.can('jobs') && t.venues.length > 0 && <Venues guesses={t.venues} />}
       {access.can('jobs') && <Clients view={view} words={t.words} />}
       {access.can('jobs') && t.small.length > 0 && <Capitals jobs={t.small} />}
+      <Phones {...phones} />
     </div>
   )
 }
@@ -531,6 +535,130 @@ function Capitals({ jobs }: { jobs: readonly JobView[] }) {
             Start {plural(jobs.length, 'name')} with a capital
           </button>
         </div>
+      )}
+    </section>
+  )
+}
+
+/** One number to write in full: where it is, as it's kept, as it will be, and the ordinary change that does it. */
+type PhoneFix = { key: string; where: string; was: string; to: string; send: () => Promise<unknown> }
+
+/** A kept number in international form, or nothing when it's that already or can't be read for sure. */
+function fullForm(kept: string | null | undefined): string | undefined {
+  const typed = (kept ?? '').trim()
+  if (!typed) return undefined
+  const read = normalisePhone(typed)
+  return read.problem === undefined && read.phone && read.phone !== typed ? read.phone : undefined
+}
+
+/**
+ * Every number the app keeps, written in full with its country code (ADR 0190, then system-wide), as the phone field
+ * now saves them: people, clients' and venues' contacts, and the office's own. Only those the app reads for sure; one it
+ * can't is counted, to fix by hand. Each is the ordinary change for its record, in the history.
+ */
+function phoneFixes(view: View, can: (a: 'crew' | 'jobs' | 'settings') => boolean): { fixes: PhoneFix[]; unread: number } {
+  const fixes: PhoneFix[] = []
+  let unread = 0
+  const count = (kept: string | null | undefined) => {
+    const typed = (kept ?? '').trim()
+    if (typed && normalisePhone(typed).problem !== undefined) unread++
+  }
+  if (can('crew'))
+    for (const p of view.crew.people) {
+      count(p.phone)
+      const to = fullForm(p.phone)
+      if (to) fixes.push({ key: `p-${p.id}`, where: p.name, was: p.phone!, to, send: () => client.mutate('person.contact', { id: p.id, phone: to }) })
+    }
+  if (can('jobs')) {
+    for (const c of view.jobs.clients) {
+      c.contacts.forEach((x) => count(x.phone))
+      if (!c.contacts.some((x) => fullForm(x.phone))) continue
+      const contacts = c.contacts.map((x) => ({ ...x, phone: fullForm(x.phone) ?? x.phone }))
+      c.contacts.forEach((x, i) => {
+        const to = fullForm(x.phone)
+        if (to)
+          fixes.push({
+            key: `c-${c.id}-${i}`,
+            where: `${x.name || 'A contact'} at ${c.name}`,
+            was: x.phone!,
+            to,
+            // Once for the client, with every contact's number, from its first contact's line.
+            send: i === c.contacts.findIndex((y) => fullForm(y.phone))
+              ? () => client.mutate('client.upsert', { id: c.id, name: c.name, contacts, notes: c.notes, address: c.address ?? '', paymentTerms: c.paymentTerms })
+              : async () => undefined,
+          })
+      })
+    }
+    for (const v of view.jobs.venues) {
+      count(v.contact?.phone)
+      const to = fullForm(v.contact?.phone)
+      if (to && v.contact)
+        fixes.push({
+          key: `v-${v.id}`,
+          where: `${v.contact.name} at ${v.name}`,
+          was: v.contact.phone!,
+          to,
+          send: () => client.mutate('venue.upsert', { id: v.id, name: v.name, address: v.address, notes: v.notes, contact: { ...v.contact!, phone: to } }),
+        })
+    }
+  }
+  const office = view.office.details
+  if (can('settings') && office) {
+    count(office.phone)
+    const to = fullForm(office.phone)
+    if (to)
+      fixes.push({ key: 'office', where: 'The office', was: office.phone!, to, send: () => client.mutate('office.update', { name: office.name, phone: to, email: office.email }) })
+  }
+  return { fixes, unread }
+}
+
+/** Numbers kept as they were typed, before the country picker: written in full with a press and a question. */
+function Phones({ fixes, unread }: { fixes: PhoneFix[]; unread: number }) {
+  const [asking, setAsking] = useState(false)
+  const { run, error } = useAct()
+  if (fixes.length === 0 && unread === 0) return null
+  const fix = () => {
+    setAsking(false)
+    void run(async () => {
+      for (const f of fixes) await f.send()
+    })
+  }
+  return (
+    <section className="card" aria-label="Phone numbers without their country code">
+      <Heading icon="phone">Phone numbers to write in full</Heading>
+      <p className="hint">
+        Every phone field now has its country beside it and keeps the number in full, so a call, a text or WhatsApp needs nothing added. These were kept as they were
+        typed. Only the way they&rsquo;re written changes.
+        {unread > 0 && ` ${plural(unread, 'number')} can't be read for sure, so ${unread === 1 ? "it's" : "they're"} left for you to fix where ${unread === 1 ? 'it is' : 'they are'}.`}
+      </p>
+      {fixes.length > 0 && (
+        <>
+          <ShowAll items={fixes} limit={5} what="numbers">
+            {(shown) => (
+              <ul className="found">
+                {shown.map((f) => (
+                  <li key={f.key}>
+                    <p>
+                      {f.where}: {f.was} → <b>{phoneShown(f.to)}</b>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </ShowAll>
+          <Refusal error={error} />
+          {asking ? (
+            <Confirm question={`Write ${plural(fixes.length, 'number')} in full?`} yes="Write them in full" no="Not now" onYes={fix} onNo={() => setAsking(false)}>
+              <p>Each is a change to its person, client, venue or the office, in the history, and can be changed again there.</p>
+            </Confirm>
+          ) : (
+            <div className="actions">
+              <button type="button" className="primary" onClick={() => setAsking(true)}>
+                Write {plural(fixes.length, 'number')} in full
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   )

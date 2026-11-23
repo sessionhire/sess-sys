@@ -1,4 +1,4 @@
-import { newId, TRADES_AS_LABELS, type ApplicationView, type OfficeView, type View } from '@sh/shared'
+import { newId, phoneShown, TRADES_AS_LABELS, type ApplicationView, type OfficeView, type View } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -123,7 +123,7 @@ function ApplicationCard({ a, mayDecide }: { a: ApplicationView; mayDecide: bool
         <div>
           <dt>Mobile</dt>
           <dd>
-            <a href={`tel:${a.phone.replace(/[^\d+]/g, '')}`}>{a.phone}</a>
+            <a href={`tel:${a.phone.replace(/[^\d+]/g, '')}`}>{phoneShown(a.phone)}</a>
           </dd>
         </div>
         <div>

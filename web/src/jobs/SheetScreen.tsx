@@ -1,4 +1,5 @@
 import {
+  phoneShown,
   SHEET_WORDS,
   callSheet,
   callSheetText,
@@ -283,7 +284,7 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
               {sheet.venue.contact.phone && (
                 <>
                   {' on '}
-                  {print ? sheet.venue.contact.phone : <a href={`tel:${sheet.venue.contact.phone.replace(/[^+\d]/g, '')}`}>{sheet.venue.contact.phone}</a>}
+                  {print ? phoneShown(sheet.venue.contact.phone) : <a href={`tel:${sheet.venue.contact.phone.replace(/[^+\d]/g, '')}`}>{phoneShown(sheet.venue.contact.phone)}</a>}
                 </>
               )}
               .
@@ -330,7 +331,7 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
                       {p.name}
                       {p.days && <span className="muted"> {p.days}</span>}
                     </span>
-                    {p.phone && (print ? <span> · {p.phone}</span> : <a href={`tel:${p.phone.replace(/[^\d+]/g, '')}`}>{p.phone}</a>)}
+                    {p.phone && (print ? <span> · {phoneShown(p.phone)}</span> : <a href={`tel:${p.phone.replace(/[^\d+]/g, '')}`}>{phoneShown(p.phone)}</a>)}
                     {p.late && <span className="late-line">{p.late}</span>}
                     {print ? p.status === 'to confirm' && <span className="muted"> · to confirm</span> : <StatusPill tone={STATUS_PILL[p.status][0]}>{STATUS_PILL[p.status][1]}</StatusPill>}
                     {!print && onSend && call && p.status !== 'offered' && (
@@ -385,7 +386,7 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
               <li key={`${c.name}${c.role}`}>
                 <b>{c.name}</b>
                 {c.role && <span className="muted"> {c.role}</span>}
-                {c.phone && (print ? <span> · {c.phone}</span> : <a href={`tel:${c.phone.replace(/[^\d+]/g, '')}`}> {c.phone}</a>)}
+                {c.phone && (print ? <span> · {phoneShown(c.phone)}</span> : <a href={`tel:${c.phone.replace(/[^\d+]/g, '')}`}> {phoneShown(c.phone)}</a>)}
                 {c.email && <span className="muted"> · {c.email}</span>}
               </li>
             ))}

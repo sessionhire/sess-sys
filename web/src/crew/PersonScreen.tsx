@@ -1,4 +1,5 @@
 import {
+  phoneShown,
   CERTIFICATE_KINDS,
   CERTIFICATE_LABELS,
   certificateState,
@@ -162,7 +163,7 @@ function Reach({ person }: { person: PersonView }) {
           {phone && (
             <a className="button" href={`tel:${phone.replace(/[^\d+]/g, '')}`}>
               <Icon name="phone" />
-              Call {phone}
+              Call {phoneShown(phone)}
             </a>
           )}
           {phone && (
@@ -313,7 +314,7 @@ function Who({ person, view }: { person: PersonView; view: View }) {
                     'Turned off. Only they can turn them back on, on their own page.'
                   ) : (
                     <>
-                      On, to {phone}
+                      On, to {phoneShown(phone)}
                       {view.office.whatsapp === 'test' ? ' if it’s one of the test numbers' : ''}.{' '}
                       {mayEdit && (
                         <button type="button" className="link" onClick={() => void run(() => client.mutate('person.whatsapp', { id: person.id, on: false }))}>

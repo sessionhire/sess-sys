@@ -1,5 +1,5 @@
 import { commandSchemas, eachDay, EURO_HINT, sinceYes, type SinceYes, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
-import { FILE_TOO_BIG, NO_FILE, WEB_FILE, WRONG_FILE } from '@sh/shared'
+import { FILE_TOO_BIG, NO_FILE, phoneWithCountry, WEB_FILE, WRONG_FILE } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { applyMutation } from '../commands.ts'
 import type { Db } from '../db.ts'
@@ -518,7 +518,11 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const typed = (name: string) => (form.has(name) ? form.get(name)!.trim().slice(0, 200) || null : undefined)
     const changes: CommandArgs<'person.contact'> = { id: person.id }
     const email = typed('email')
-    const phone = typed('phone')
+    // The number typed as at home with its country picked beside it (ADR 0190), in international form once it reads.
+    const country = typed('country')
+    const asTyped = typed('phone')
+    const read = asTyped && country ? phoneWithCountry(country, asTyped) : undefined
+    const phone = read && read.problem === undefined && read.phone ? read.phone : asTyped
     if (email !== undefined && email !== person.email) changes.email = email
     if (phone !== undefined && phone !== person.phone) changes.phone = phone
     if (changes.email === undefined && changes.phone === undefined) return inSection('details-same')

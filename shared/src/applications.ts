@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { hasEmail } from './roles.ts'
 import { CREW_DEPARTMENTS, NOTES_LENGTH, TRADES_AS, tidyDepartment, type Person, type TradesAs } from './crew.ts'
 import { cleanText } from './plain.ts'
-import { normalisePhone, phoneDigits } from './crew-import.ts'
+import { phoneDigits } from './crew-import.ts'
+import { phoneWithCountry } from './phone.ts'
 import { APPLICANT_LEVEL } from './crew-departments.ts'
 import { dayLabel } from './crew-days.ts'
 import { irishToday } from './day.ts'
@@ -122,68 +123,6 @@ export interface ApplyForm {
 
 export type ApplyField = keyof ApplyForm
 
-/**
- * The country codes the Apply page offers beside the mobile, Ireland first and then the neighbours crew most often come
- * from, then the rest by name. A number typed with its own + or 00 keeps that code, whatever is picked.
- */
-export const DIAL_CODES: readonly (readonly [code: string, country: string])[] = [
-  ['353', 'Ireland'],
-  ['44', 'United Kingdom'],
-  ...([
-    ['61', 'Australia'],
-    ['43', 'Austria'],
-    ['32', 'Belgium'],
-    ['55', 'Brazil'],
-    ['359', 'Bulgaria'],
-    ['385', 'Croatia'],
-    ['357', 'Cyprus'],
-    ['420', 'Czechia'],
-    ['45', 'Denmark'],
-    ['372', 'Estonia'],
-    ['358', 'Finland'],
-    ['33', 'France'],
-    ['49', 'Germany'],
-    ['30', 'Greece'],
-    ['36', 'Hungary'],
-    ['354', 'Iceland'],
-    ['91', 'India'],
-    ['39', 'Italy'],
-    ['371', 'Latvia'],
-    ['370', 'Lithuania'],
-    ['352', 'Luxembourg'],
-    ['356', 'Malta'],
-    ['31', 'Netherlands'],
-    ['64', 'New Zealand'],
-    ['47', 'Norway'],
-    ['48', 'Poland'],
-    ['351', 'Portugal'],
-    ['40', 'Romania'],
-    ['421', 'Slovakia'],
-    ['386', 'Slovenia'],
-    ['27', 'South Africa'],
-    ['34', 'Spain'],
-    ['46', 'Sweden'],
-    ['41', 'Switzerland'],
-    ['380', 'Ukraine'],
-    ['1', 'United States and Canada'],
-  ] as const),
-]
-
-/** Countries where a number's leading 0 is dialled from abroad too, so it's kept after the code. */
-const KEEPS_ZERO = new Set(['39'])
-
-/**
- * A mobile typed beside a country code, in international form: one typed with + or 00 keeps its own code, else the
- * picked code goes before it, less the 0 dialled only at home (087 123 4567 with Ireland is +353871234567).
- */
-export function phoneWithCountry(country: string, typed: string) {
-  const code = DIAL_CODES.some(([c]) => c === country) ? country : '353'
-  const kept = typed.slice(0, 40).trim()
-  if (!kept || /^(\+|00)/.test(kept)) return normalisePhone(kept)
-  const digits = kept.replace(/\(0\)/g, '').replace(/[\s\-().]/g, '')
-  if (!/^\d+$/.test(digits)) return { phone: kept, problem: 'not a number' }
-  return normalisePhone(`+${code}${KEEPS_ZERO.has(code) ? digits : digits.replace(/^0/, '')}`)
-}
 
 /** The page's form read: the application it makes, or what's wrong with each field, in the page's own order. */
 export function readApplyForm(f: ApplyForm): { ok: true; application: Omit<Application, 'id' | 'appliedAt'> } | { ok: false; errors: Partial<Record<ApplyField, string>> } {

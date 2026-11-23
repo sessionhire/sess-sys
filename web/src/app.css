@@ -485,6 +485,9 @@ html { scroll-padding-top: calc(var(--top-bar, 0px) + var(--on-screen, 0px) + va
 .app .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--group); align-items: end; }
 .app .grid-form label { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); }
 .app .grid-form .wide { grid-column: 1 / -1; }
+.app .phone-field { display: grid; gap: var(--stack); font-size: var(--text-hint); color: var(--muted); min-width: 0; }
+.app .phone-field .dial { display: grid; grid-template-columns: fit-content(11.5rem) minmax(7rem, 1fr); gap: var(--stack); }
+.app .phone-field select { min-width: 0; width: 100%; }
 /*
  * One form family (UX sweep, 6 November 2026, move 5). On a phone every form is one column: two inputs share a line
  * only inside a .pair, when they are one thing (From and To, First and Last name). At a desk a short answer (a count, a

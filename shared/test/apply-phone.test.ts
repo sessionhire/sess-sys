@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DIAL_CODES, phoneWithCountry } from '../src/applications.ts'
+import { DIAL_CODES, phoneWithCountry } from '../src/phone.ts'
 
 /** The mobile on the Apply page, read with the country picked beside it (ADR 0190), in the form WhatsApp and the crew list use. */
 describe('a mobile read with its country code', () => {
@@ -36,5 +36,36 @@ describe('a mobile read with its country code', () => {
     const rest = DIAL_CODES.slice(2).map(([, c]) => c)
     expect(rest).toEqual([...rest].sort())
     expect(new Set(DIAL_CODES.map(([c]) => c)).size).toBe(DIAL_CODES.length)
+  })
+})
+
+describe('a kept number shown and split for its form', () => {
+  it('shows it grouped as people say it', async () => {
+    const { phoneShown } = await import('../src/phone.ts')
+    expect(phoneShown('+353868319330')).toBe('+353 86 831 9330')
+    expect(phoneShown('+35312345678')).toBe('+353 1 234 5678')
+    expect(phoneShown('+353912345678')).toBe('+353 91 234 5678')
+    expect(phoneShown('+447700900123')).toBe('+44 7700 900123')
+    expect(phoneShown('+12125550142')).toBe('+1 212 555 0142')
+    expect(phoneShown('087 123 4567')).toBe('+353 87 123 4567')
+    expect(phoneShown('ring the office')).toBe('ring the office')
+    expect(phoneShown(null)).toBe('')
+  })
+
+  it('splits it into its country and the rest, Ireland for one it can’t read', async () => {
+    const { splitPhone } = await import('../src/phone.ts')
+    expect(splitPhone('+353868319330')).toEqual({ country: '353', national: '86 831 9330' })
+    expect(splitPhone('+447700900123')).toEqual({ country: '44', national: '7700 900123' })
+    expect(splitPhone('+35699123456')).toEqual({ country: '356', national: '99123456' })
+    expect(splitPhone('ring the office')).toEqual({ country: '353', national: 'ring the office' })
+    expect(splitPhone(null)).toEqual({ country: '353', national: '' })
+  })
+
+  it('reads back what it split', async () => {
+    const { splitPhone } = await import('../src/phone.ts')
+    for (const kept of ['+353868319330', '+447700900123', '+390612345678', '+12125550142', '+48512345678']) {
+      const { country, national } = splitPhone(kept)
+      expect(phoneWithCountry(country, national)).toEqual({ phone: kept })
+    }
   })
 })
