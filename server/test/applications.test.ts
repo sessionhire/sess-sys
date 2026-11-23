@@ -52,6 +52,17 @@ describe('applying to join the crew (ADR 0190)', () => {
     expect(open.headers['cache-control']).toBe('no-store')
   })
 
+  it('reads the mobile with the country picked beside it, and keeps the pick when a field needs fixing', async () => {
+    const { colly, apply, waiting } = await setUp()
+    await colly.send('applications.use', { on: true })
+    const wrong = await apply({ ...FILLED, country: '44', phone: '07700 900123', agree: '' })
+    expect(wrong.statusCode).toBe(422)
+    expect(wrong.body).toContain('<option value="44" selected>United Kingdom +44</option>')
+    expect(wrong.body).toContain('value="07700 900123"')
+    await apply({ ...FILLED, country: '44', phone: '07700 900123' })
+    expect((await waiting())[0]).toMatchObject({ phone: '+447700900123' })
+  })
+
   it('keeps an application as the office will read it, and says thanks', async () => {
     const { colly, apply, waiting } = await setUp()
     await colly.send('applications.use', { on: true })

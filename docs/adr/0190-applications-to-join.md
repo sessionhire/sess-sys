@@ -21,6 +21,11 @@ applicant to put themselves forward.
   department (the Crew tab's list, or Not sure), what they do (split at commas into skills), day rate, sole trader or
   company, where they're based, their experience, and their agreement that we keep the details to offer them work.
   Errors are said under each field and listed at the top, with what they typed kept.
+- **The mobile has a country picker beside it** (Colly, 23 November 2026, 1.215.0), set to Ireland, then the UK, then
+  the rest by name. The number is typed as at home and kept in international form with the picked code before it, less
+  the 0 dialled only at home (Italy keeps its 0), so `086 831 9330` with Ireland is `+353868319330`, ready for a call
+  or WhatsApp with nothing added. A number typed with its own `+` or `00` keeps its code whatever is picked. A plain
+  `<select>`, not a searchable list, as the page has no script; about forty countries, chosen for where crew come from.
 - **Off until the office turns it on**, under Admin › Company › Applications to join (`applications.use`, the
   `applications` setting). Off, the page says to get in touch with the office.
 - **Applications wait, not in People.** Each is its own record (`applications`, synced as `application`) under

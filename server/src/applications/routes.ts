@@ -43,6 +43,7 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
       lastName: field(b, 'lastName', 200),
       email: field(b, 'email', 300),
       phone: field(b, 'phone', 60),
+      country: field(b, 'country', 6),
       department: field(b, 'department', 60),
       skills: field(b, 'skills', 400),
       rate: field(b, 'rate', 20),
