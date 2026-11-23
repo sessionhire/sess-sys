@@ -61,6 +61,29 @@ describe("each opportunity's job", () => {
     expect(none).toMatchObject({ projectId: null, sure: false })
     expect(undated).toMatchObject({ projectId: null, sure: false, candidates: [] })
   })
+
+  it("doesn't suggest another client's job for starting the same day, sharing a word, or saying the same day of the week", () => {
+    const same = [
+      { id: 'truck', name: 'Coke Truck', client: 'Verve', start: '2026-12-04', end: '2026-12-06' },
+      { id: 'garden', name: 'Urban Garden Thursday 3 December', client: 'Dogpatch', start: '2026-12-03', end: '2026-12-03' },
+      { id: 'launch', name: 'Launch Party', client: 'Brightwater', start: '2026-12-04', end: '2026-12-04' },
+    ]
+    const [kpmg, hub, own] = matchOpportunities(
+      [
+        { id: 5, subject: 'KPMG Launch', client: 'Fuel', startsAt: '2026-12-04T08:00:00Z', endsAt: '2026-12-05T18:00:00Z' },
+        { id: 6, subject: 'National Cancer Mission Hub Ireland - Thursday 3 December', client: 'All-Island Cancer Research Institute', startsAt: '2026-12-03T08:00:00Z', endsAt: '2026-12-03T18:00:00Z' },
+        { id: 7, subject: 'Christmas do', client: 'Verve Live', startsAt: '2026-12-04T08:00:00Z', endsAt: '2026-12-04T18:00:00Z' },
+      ],
+      same
+    )
+    // Same first day as the Coke Truck, and "launch" in common with another client's Launch Party: offered, not suggested.
+    expect(kpmg).toMatchObject({ projectId: null, sure: false })
+    expect(kpmg!.candidates.map((c) => c.projectId)).toContain('truck')
+    expect(hub).toMatchObject({ projectId: null, sure: false })
+    expect(hub!.candidates[0]).toEqual({ projectId: 'garden', score: 1 })
+    // The same client on the same day is suggested.
+    expect(own).toMatchObject({ projectId: 'truck', sure: true })
+  })
 })
 
 describe("how a client's quotes went", () => {

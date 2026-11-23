@@ -58,8 +58,6 @@ async function allOpportunities(q: Queryable) {
 }
 
 const MOST_LINKS = 2000
-/** How alike a job here must be to an open quote to be taken as the same one: the same client, or most of its name. */
-const LOOKS_LIKE = 3
 
 export function registerRmsHistoryRoutes(app: FastifyInstance, { db }: { db: Db }) {
   app.get('/api/rms/matches', { config: { needs: 'money' } }, async (_req, reply): Promise<RmsMatches> => {
@@ -148,7 +146,8 @@ export function registerRmsHistoryRoutes(app: FastifyInstance, { db }: { db: Db 
     const opps = rows.map((r) => ({ id: r.id as number, subject: r.subject as string, client: r.client as string, startsAt: iso(r.starts_at), endsAt: iso(r.ends_at) }))
     const looksLike = new Set(
       matchOpportunities(opps, await jobsToMatch(db.reads))
-        .filter((m) => (m.candidates[0]?.score ?? 0) >= LOOKS_LIKE)
+        // Taken as the same one when a job is suggested for it: the same client, or most of its name.
+        .filter((m) => m.projectId)
         .map((m) => m.opportunityId)
     )
     return rows
