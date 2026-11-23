@@ -19,6 +19,7 @@ import { QuotesScreen } from './jobs/QuotesScreen.tsx'
 import { MenuScreen } from './MenuScreen.tsx'
 import { NoticesScreen, Toaster } from './Notices.tsx'
 import { settlePlace } from './places.ts'
+import { leftAt } from './leftAt.ts'
 import { SignIn } from './SignIn.tsx'
 import { StockScreen } from './stock/StockScreen.tsx'
 import { StorageBanner, useUnkept } from './StorageBanner.tsx'
@@ -127,7 +128,11 @@ export function Shell() {
   const access = useAccess()
   const seesMoney = access.can('money')
   // A role without crew opens Crew on People: the calls and answers are the office's to-do list (audit, 20 October 2026, finding 34).
-  const areaHref = (hash: string) => (hash === '#crew' && !access.can('crew') ? '#crew/people' : hash)
+  // Each area's tab opens on the view it was left on, the days and filters with it (leftAt.ts): Week stays Week.
+  const areaHref = (area: string) => {
+    const hash = leftAt(area)
+    return hash === '#crew' && !access.can('crew') ? '#crew/people' : hash
+  }
   // The demo copy opens on a choice of whose eyes to see it through (ADR 0033), and the header says whose they are.
   const demo = auth.status === 'open' && auth.passcode === true
   useHoldPersona(demo ? persona : undefined)

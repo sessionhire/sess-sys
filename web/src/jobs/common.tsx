@@ -9,7 +9,8 @@ import { OnThisScreen } from '../OnThisScreen.tsx'
 import { StatusPill, type PillTone } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { ThemeButton } from '../ThemeButton.tsx'
-import { Up, type Trail } from '../Up.tsx'
+import { CREW, JOBS, STOCK, Up, type Step, type Trail } from '../Up.tsx'
+import { areaOf, areaViewed } from '../leftAt.ts'
 import { useTopBar } from '../useUnderTop.ts'
 import { Icon } from '../Icon.tsx'
 import { askToAdd, askToAddOn } from '../pageAdd.ts'
@@ -119,6 +120,8 @@ export function Top({
   const notDone = useNotDone(view)
   const seenAs = useSeenAs()
   const bar = useTopBar()
+  const hash = useHash()
+  const trail = up ?? alsoHereUp(hash, views, heading)
   return (
     <>
       <header className="top" ref={bar}>
@@ -160,7 +163,7 @@ export function Top({
           <NoticesButton view={view} />
           <ThemeButton />
         </div>
-        {up && <Up {...up} />}
+        {trail && <Up {...trail} />}
         {notDone.list}
       </header>
       {/* The page's story in order (Colly, 10 November 2026): what this is and the way to add to it, then finding in it, then the
@@ -178,6 +181,20 @@ export function Top({
       <OnThisScreen />
     </>
   )
+}
+
+const AREAS: Readonly<Record<string, Step>> = { '#jobs': JOBS, '#stock': STOCK, '#crew': CREW }
+
+/**
+ * The way up from an area's other places, those on the quieter "Also here" line under its row (Views.tsx): Clients, Money, Labels,
+ * Repairs, Leave and the rest. They aren't ways of seeing the area's list but pages of their own beneath it, so they have its way up,
+ * to the area as it was left (leftAt.ts), rather than only the row to find the way back by (Colly, 23 November 2026: "sometimes
+ * there isn't a clear 'back'"). The area's own views have none: they're the top, and the row moves between them.
+ */
+function alsoHereUp(hash: string, views: ReactNode, heading: ReactNode): Trail | undefined {
+  const area = views ? areaOf(hash) : undefined
+  if (!area || areaViewed(hash)) return undefined
+  return { steps: [AREAS[area]!], here: typeof heading === 'string' ? heading : undefined }
 }
 
 /**

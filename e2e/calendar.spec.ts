@@ -433,8 +433,9 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
   await build.scrollIntoViewIfNeeded()
   await page.screenshot(shot('jobs-invites'))
 
-  // The crew screen puts it with the answers to check.
+  // The crew screen puts it with the answers to check. Crew was last seen on People, which its tab now opens on (leftAt.ts), so Calls along its row.
   await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Crew' }).click()
+  await page.getByRole('navigation', { name: 'Crew pages' }).getByRole('link', { name: /^Calls/ }).click()
   const answers = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Answers to check' }) })
   await expect(answers.locator('.row', { hasText: niamh })).toContainText(
     `${niamh} answered on Google Calendar${job} · Audio tech · booked Mon 14 Oct to Tue 15 Oct` +

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { openSearch, paletteKeys, toggleSearch } from './searchOpen.ts'
+import { leftAt } from './leftAt.ts'
 
 /**
  * Keys at a desk (ADR 0120): the office does the same few things all day, so the places and New quote are two letters away
@@ -71,7 +72,8 @@ export function useShortcuts({ on, money, go }: { on: boolean; money: boolean; g
         if (found.go === 'help') setHelp(true)
         else if (found.go === 'search') openSearch()
         else if (found.go === 'find') document.querySelector<HTMLInputElement>('main input[type="search"]:not(:disabled)')?.focus()
-        else go(found.go)
+        // G J, G S and G C go to the area as it was left, as its tab does (leftAt.ts).
+        else go(leftAt(found.go))
         return
       }
       if (!before && (key === 'G' || key === 'N')) first.current = { key, at: Date.now() }
