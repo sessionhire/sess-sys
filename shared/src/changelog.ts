@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-23',
     title: 'Payment details on the Apply page, and emailing people who apply',
     what: 'The Apply page can now take a PPS number, VAT number and bank details (name on the account, IBAN, BIC), all optional and checked as they’re typed. They’re kept locked on the server, never on phones, and only directors and the office see them: masked on the person’s Details tab, with Show in full and Change, and each look in full is in the history. They go with the person when you take them on. A new switch under Admin › Company › Applications to join, Email people who apply, starts off: on, the Apply page tells people they’ll be emailed, and they are, from the operations mailbox, with the link to their own page when you take them on, or a polite note when you turn them down.',
-    prs: [],
+    prs: [427],
     adrs: [193],
   },
   {
