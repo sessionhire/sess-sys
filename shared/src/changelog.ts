@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.212.1',
+    date: '2026-11-23',
+    title: 'The planner’s days row no longer covers the logo',
+    what: 'On a computer, scrolling Jobs by week or month slid the row of days and the Job heading over the logo and the page’s name at the top. The top of the page now stays in front, and the days row tucks under it like the rest of the page.',
+    prs: [419],
+  },
+  {
     version: '1.212.0',
     date: '2026-11-23',
     title: 'New crew can apply to join',
