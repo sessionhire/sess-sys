@@ -337,7 +337,8 @@ const CASES: Case[] = [
   c('logo.blackWhite', { on: true }),
 
   // Leave and time in lieu.
-  c('leave.request', { id: 'more-hol', personId: 'aoife', type: 'annual', ...leaveSpanFrom(40), note: 'Family' }),
+  // Forty days on is next year from late November, whose leave the office opens first (it's shut until then).
+  c('leave.request', { id: 'more-hol', personId: 'aoife', type: 'annual', ...leaveSpanFrom(40), note: 'Family' }, Number(leaveSpanFrom(40).start.slice(0, 4)) > year ? { before: [m('leave.open', { year: year + 1, by: 'aoife' })] } : undefined),
   c('leave.cancel', { id: 'hol', by: 'aoife' }),
   c('leave.decide', { id: 'hol', approved: true, reason: '', by: 'cian' }, { as: 'approved' }),
   c('leave.decide', { id: 'hol', approved: false, reason: 'Busy week', by: 'cian' }, { as: 'turned down' }),
