@@ -156,10 +156,12 @@ const CREW_WORDS = /\b(tech|techs|technician|engineer|operator|op|crew|hands?|st
  * for a line that charges for something other than a person's work (delivery, travel, a fee).
  */
 export function quotedCrewRole(name: string): string | null {
-  const t = name
-    .replace(/\s*[-–(:]\s*(per |p\/)?(day|hour|hr|shift|half day|show)\b.*$/i, '')
-    .replace(/\b(day rate|daily rate|hourly rate|per day|per hour)\b/gi, '')
-    .replace(/\s+/g, ' ')
+  // Spaces made one first, and the line cut short, so no pattern below has a run of anything to go back over.
+  const one = name.replace(/\s+/g, ' ').trim().slice(0, 120)
+  const cut = one.search(/[-–(:] ?(?:per |p\/)?(?:day|hour|hr|shift|half day|show)\b/i)
+  const t = (cut >= 0 ? one.slice(0, cut) : one)
+    .replace(/\b(?:day rate|daily rate|hourly rate|per day|per hour)\b/gi, '')
+    .replace(/ +/g, ' ')
     .trim()
   if (t.length < 2 || t.length > 60 || NOT_CREW.test(t) || /\d{2,}/.test(t)) return null
   return departmentInWords(t) || CREW_WORDS.test(t) ? t : null
