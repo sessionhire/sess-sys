@@ -85,8 +85,9 @@ html { overscroll-behavior-y: none; background: var(--bg); }
 body { margin: 0; background: var(--bg); color: var(--ink); }
 /* One column that never grows past the screen: a long name in the bar ends in … rather than pushing the page wider than the phone. */
 .app { max-width: 640px; margin: 0 auto; padding: max(var(--ds-space-3), env(safe-area-inset-top)) var(--gutter) var(--ds-space-10); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--section); }
+/* It sits above anything the page raises in its own layer (sticky table heads, a card being dragged), so the mark and the page's name are never painted over as the page scrolls under them (1.212.1). Below the new-version line and the phone's bar. */
 /* The name takes what the sync state leaves: the state keeps its one line, and a long screen name ends in … rather than wrapping, so nothing under the bar moves when the state changes. */
-.top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--ds-space-3); position: sticky; top: 0; background: var(--bg); padding-block: var(--ds-space-2); z-index: 2; }
+.top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--ds-space-3); position: sticky; top: 0; background: var(--bg); padding-block: var(--ds-space-2); z-index: 4; }
 /* A new version arrived while the app was open: one line fixed at the top until they reload. The page and its sticky header move down under it, so it hides nothing. */
 .update { position: fixed; inset: 0 0 auto 0; z-index: 5; display: flex; justify-content: center; align-items: center; gap: var(--ds-space-3); min-height: calc(56px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) var(--ds-space-4) 0; background: var(--panel); border-bottom: 1px solid var(--line); font-weight: 600; white-space: nowrap; }
 /* Its words wrap when there's more to say, such as changes a reload would lose; the button stays whole. */

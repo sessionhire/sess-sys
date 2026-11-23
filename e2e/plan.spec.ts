@@ -267,6 +267,39 @@ test('a month on a laptop, whose dates open their week', async ({ browser }) => 
   await expect(laptop.getByRole('heading', { level: 1, name: 'Jobs' })).toBeVisible()
 })
 
+test('on a laptop the days row tucks under the app bar as the page scrolls, never over the mark', async ({ browser }) => {
+  const laptop = await (await browser.newContext({ viewport: laptopSize })).newPage()
+  // A month with more jobs than the screen holds, in a month of its own, so the planner's frame runs to the foot of the screen.
+  const mutations: M[] = Array.from({ length: 30 }, (_, i): M[] => [
+    ['project.create', { id: k(`busy-${i}`), name: `Busy month ${i + 1} ${id}`, clientId: null, venueId: null, status: 'confirmed', notes: '' }],
+    ['phase.add', { id: k(`busy-${i}-show`), projectId: k(`busy-${i}`), name: 'Show', start: '2032-08-10', end: '2032-08-10', venueId: null, notes: '' }],
+  ]).flat()
+  const res = await laptop.request.post('/api/sync/push', {
+    data: { clientId: `plan-busy-${id}`, mutations: mutations.map(([name, args], i) => ({ id: `${k('busy-m')}-${i}`, name, args, createdAt: new Date().toISOString() })) },
+  })
+  expect(res.ok()).toBe(true)
+  await ready(laptop, '#jobs/plan/month/2032-08-01')
+  await expect(laptop.getByRole('rowheader', { name: `Busy month 30 ${id}` })).toBeAttached()
+  // Scroll the page until the frame and its days row run up under the bar, as they did on 23 November 2026.
+  await laptop.mouse.move(laptopSize.width / 2, laptopSize.height / 2)
+  await laptop.locator('.scroller').evaluate((el) => scrollBy(0, el.getBoundingClientRect().top - 15))
+  const frameTop = await laptop.locator('.scroller').evaluate((el) => el.getBoundingClientRect().top)
+  const mark = (await laptop.locator('.top a').first().boundingBox())!
+  expect(frameTop).toBeLessThan(mark.y + mark.height)
+  // Whatever is painted at the middle of the mark belongs to the bar, not to the table under it.
+  const at = { x: mark.x + mark.width / 2, y: mark.y + mark.height / 2 }
+  expect(await laptop.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.top, .timeline')?.className, at)).toMatch(/\btop\b/)
+  // Chromium happens to paint it so either way; the browser it was seen in followed the days row's own layer order, which the frame now keeps
+  // to itself, under a bar raised over the page's sticky heads.
+  const layers = await laptop.evaluate(() => ({
+    frame: getComputedStyle(document.querySelector('.plan .scroller')!).isolation,
+    bar: Number(getComputedStyle(document.querySelector('.top')!).zIndex),
+    head: Math.max(...[...document.querySelectorAll('.plan .timeline thead th')].map((th) => Number(getComputedStyle(th).zIndex) || 0)),
+  }))
+  expect(layers.frame).toBe('isolate')
+  expect(layers.bar).toBeGreaterThan(layers.head)
+})
+
 test('a phone on its side keeps the planner in the page, with no box to scroll up and down', async ({ browser }) => {
   // As wide as a laptop but with only a thumb: the desk's framed planner would catch it (1.108.2).
   const side = await (await browser.newContext({ viewport: { width: 932, height: 430 }, hasTouch: true, isMobile: true })).newPage()

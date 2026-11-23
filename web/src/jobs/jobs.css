@@ -79,10 +79,13 @@
    long month scrolls inside it with its days and names kept in view; a phone on its side or a tablet is as wide but has only a thumb, so
    it keeps the phone's planner. */
 .plan .scroller { position: relative; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; border: 1px solid var(--line); border-radius: 10px; }
+/* Its own layer: the days row and names sticky inside it keep their order among themselves and never rise above the app's bar as the page
+   scrolls the planner under it (1.212.1). */
+.plan .scroller { isolation: isolate; }
 @media (min-width: 900px) and (pointer: fine) { .plan .scroller { overflow: auto; overscroll-behavior: contain; max-height: calc(100dvh - var(--under-top, 72px) - var(--ds-space-10)); } }
 /* Its days row can't stick to the page from inside a sideways scroller, so on a phone a copy (PlanScreen) waits at the bar's foot, taking no
    room, and shows once the real row has gone under the bar; it scrolls sideways with the days. The desk's framed planner keeps its own. */
-.plan .days-float { position: sticky; top: var(--under-top, 72px); z-index: 4; height: 0; visibility: hidden; }
+.plan .days-float { position: sticky; top: var(--under-top, 72px); z-index: 3; height: 0; visibility: hidden; }
 .plan .days-float.on { visibility: visible; }
 .plan .days-clip { position: absolute; left: 0; right: 0; overflow: hidden; border: 1px solid var(--line); border-top: 0; background: var(--panel); box-shadow: var(--ds-elevation-menu); }
 @media (min-width: 900px) and (pointer: fine) { .plan .days-float { display: none; } }
