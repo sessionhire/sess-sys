@@ -1,4 +1,4 @@
-import { APPLICATIONS_MOST, newId, readApplyForm, type ApplyForm } from '@sh/shared'
+import { APPLICATIONS_MOST, newId, readApplyForm, type Application, type ApplyForm } from '@sh/shared'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Db } from '../db.ts'
 import { APPLICATION_IN_ACTION } from '../history-words.ts'
@@ -63,24 +63,31 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
       if (Number(rows[0]?.n ?? 0) >= APPLICATIONS_MOST) return page(reply, 'full')
     }
     const id = again ?? newId()
-    // In the history as the server's own change, by nobody signed in, with only the id kept there.
-    await serverChange(db, { name: APPLICATION_IN_ACTION, args: { id, ...(again ? { again: true } : {}) } }, async (ctx) => {
-      const { rows } = await ctx.tx.query<{ id: string }>(
-        `INSERT INTO applications (id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, applied_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
-         ON CONFLICT (lower(email)) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, email = EXCLUDED.email, phone = EXCLUDED.phone,
-           department = EXCLUDED.department, skills = EXCLUDED.skills, day_rate_cents = EXCLUDED.day_rate_cents, trades_as = EXCLUDED.trades_as,
-           based_in = EXCLUDED.based_in, about = EXCLUDED.about, applied_at = now()
-         RETURNING id`,
-        [id, a.firstName, a.lastName, a.email, a.phone, a.department, JSON.stringify(a.skills), a.dayRateCents, a.tradesAs, a.basedIn, a.about]
-      )
-      const got = await getApplication(ctx.tx, rows[0]!.id)
-      if (got) await emit(ctx, 'application', got.id, got)
-    })
+    await keepApplication(db, a, id, !!again)
     // The office's devices hear of it at once.
     opts.onChange?.()
     return reply.redirect('/join/thanks', 303)
   })
 
   app.get('/join/thanks', async (_req, reply) => page(reply, 'thanks'))
+}
+
+/**
+ * An application kept, or the one with its email replaced: in the history as the server's own change, by nobody signed
+ * in, with only the id kept there.
+ */
+export async function keepApplication(db: Db, a: Omit<Application, 'id' | 'appliedAt'>, id: string, again = false) {
+  await serverChange(db, { name: APPLICATION_IN_ACTION, args: { id, ...(again ? { again: true } : {}) } }, async (ctx) => {
+    const { rows } = await ctx.tx.query<{ id: string }>(
+      `INSERT INTO applications (id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, applied_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+       ON CONFLICT (lower(email)) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, email = EXCLUDED.email, phone = EXCLUDED.phone,
+         department = EXCLUDED.department, skills = EXCLUDED.skills, day_rate_cents = EXCLUDED.day_rate_cents, trades_as = EXCLUDED.trades_as,
+         based_in = EXCLUDED.based_in, about = EXCLUDED.about, applied_at = now()
+       RETURNING id`,
+      [id, a.firstName, a.lastName, a.email, a.phone, a.department, JSON.stringify(a.skills), a.dayRateCents, a.tradesAs, a.basedIn, a.about]
+    )
+    const got = await getApplication(ctx.tx, rows[0]!.id)
+    if (got) await emit(ctx, 'application', got.id, got)
+  })
 }

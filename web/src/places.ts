@@ -91,12 +91,24 @@ const numberOf = (state: unknown): string | undefined => {
   return typeof n === 'string' ? n : undefined
 }
 
-/** Gives the browser's current step a number of its own, keeping whatever else its state holds. */
-function number(): string {
+/**
+ * Gives the browser's current step a number of its own, keeping whatever else its state holds, and the address it was moved to
+ * from, so the way up can be Back when it goes to the screen just left (cameFrom).
+ */
+function number(from?: string): string {
   const n = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
   const state = history.state as object | null
-  history.replaceState({ ...(state && typeof state === 'object' ? state : {}), place: n }, '')
+  history.replaceState({ ...(state && typeof state === 'object' ? state : {}), place: n, ...(from === undefined ? {} : { from }) }, '')
   return n
+}
+
+/**
+ * The address this step was moved to from, when it was a move within the app: the step before it in the browser's history. The way
+ * up (Up.tsx) going there is Back, so the screen comes back as it was left, at the same place down the list (Colly, 23 November 2026).
+ */
+export function cameFrom(): string | undefined {
+  const from = (history.state as { from?: unknown } | null)?.from
+  return typeof from === 'string' ? from : undefined
 }
 
 let current = ''
@@ -159,10 +171,10 @@ export function keepPlaces() {
     })
   })
   // Runs before the screens draw the new address, so a shorter screen pulling the page up isn't taken for the last one's place.
-  addEventListener('hashchange', () => {
+  addEventListener('hashchange', (e) => {
     cancelAnimationFrame(frame)
     const back = numberOf(history.state)
-    current = back ?? number()
+    current = back ?? number(new URL(e.oldURL).hash)
     const part = arrival()?.part
     next = back ? (places[back] ?? 0) : part ? { y: 0, part } : 0
     anew = !back && !part

@@ -3,6 +3,10 @@ import { hasEmail } from './roles.ts'
 import { CREW_DEPARTMENTS, NOTES_LENGTH, TRADES_AS, tidyDepartment, type Person, type TradesAs } from './crew.ts'
 import { cleanText } from './plain.ts'
 import { normalisePhone, phoneDigits } from './crew-import.ts'
+import { APPLICANT_LEVEL } from './crew-departments.ts'
+import { dayLabel } from './crew-days.ts'
+import { irishToday } from './day.ts'
+import type { CommandArgs } from './commands.ts'
 
 /**
  * Applications to join the crew (ADR 0190). Someone who'd like work fills in
@@ -165,4 +169,27 @@ export function alreadyHave<P extends Pick<Person, 'email' | 'phone' | 'archived
 /** The notes a person taken on starts with: what they wrote, and where they're based. */
 export function notesFrom(a: Pick<Application, 'about' | 'basedIn' | 'appliedAt'>, day: string): string {
   return [`Applied on ${day}.`, a.basedIn ? `Based in ${a.basedIn}.` : '', a.about].filter(Boolean).join('\n\n').slice(0, NOTES_LENGTH)
+}
+
+/**
+ * The person an application becomes when it's taken on, as the office would add them: a freelancer, at Level 0 so they
+ * stay out of Offer to… until vetted (ADR 0025). The server saves it, and a device shows it while the change waits.
+ */
+export function applicantAsPerson(app: Application, personId: string): CommandArgs<'person.upsert'> {
+  return {
+    id: personId,
+    name: `${app.firstName} ${app.lastName}`.trim(),
+    firstName: app.firstName,
+    lastName: app.lastName,
+    kind: 'freelancer',
+    email: app.email,
+    phone: app.phone,
+    skills: app.skills,
+    dayRateCents: app.dayRateCents,
+    notes: notesFrom(app, dayLabel(irishToday(new Date(app.appliedAt)))),
+    department: app.department,
+    level: APPLICANT_LEVEL,
+    company: app.tradesAs ? { as: app.tradesAs, name: '', vatNumber: null, croNumber: null } : null,
+    nameChecked: true,
+  }
 }

@@ -8,8 +8,9 @@
  * here": Clients, Venues and Money for the roles that see it (ADR 0042);
  * Labels, Counting, Testing, Repairs, Vehicles and the Purchase list (ADR
  * 0077); Leave and Timesheets. Moving along the row is lateral, so
- * these pages have no way up: the row is how to get between them, and the
- * current one is marked. The row comes first under the bar, before the
+ * the row's pages have no way up: the row is how to get between them, and the
+ * current one is marked. The "Also here" pages are beneath the area, so they
+ * have its way up (jobs/common.tsx), to the view it was left on (leftAt.ts). The row comes first under the bar, before the
  * page's title (Top's `views`). A row longer than the screen, as on a phone,
  * stays one line and scrolls sideways: the current page is brought into
  * view, and the edge with more past it fades, so no page is hidden off the

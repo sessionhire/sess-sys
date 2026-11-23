@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.211.0',
+    version: '1.212.0',
     date: '2026-11-23',
     title: 'New crew can apply to join',
     what: 'There’s now an Apply page anyone can open, with no sign-in, to ask for work: their name, mobile, email, department, what they do, their day rate and experience. Turn it on in Admin › Company › Applications to join and share its address. What they send waits under Crew › Applications, which says if you already have them. Take on puts them on the Crew tab as an applicant at Level 0, out of Offer to… until you move them up; Turn down deletes what they sent. Nothing is ever sent to them.',
     prs: [418],
     adrs: [190],
+  },
+  {
+    version: '1.211.0',
+    date: '2026-11-23',
+    title: 'Back from a job goes to the view you were on',
+    what: 'Look at Jobs as Week, Board, Calendar or Month, open a job, and the way back (‹ All jobs at the top, Jobs in the breadcrumbs, or the Jobs tab) now takes you to that view, at the same days and with the same filters, rather than to the list; when you go straight back, the page is where you left it, scrolled to the same place. Stock and Crew remember theirs the same way. Clients, Venues, Money, Labels, Repairs, Leave and the area’s other pages now have a way back at the top too.',
+    prs: [417],
+    adrs: [189],
   },
   {
     version: '1.210.1',

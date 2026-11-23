@@ -88,9 +88,9 @@ test('on a desk the way up is breadcrumbs, from the area down to the page', asyn
   await page.goto('/#crew/import')
   await expect(crumbs.getByRole('listitem')).toHaveText(['Crew', 'Bring in the crew list'])
 
-  // A client's page sits under the list of clients, a step along Jobs' row.
+  // A client's page sits under the list of clients, a page of Jobs' "Also here" line, which has Jobs' way up (leftAt.ts).
   await page.goto('/#jobs/clients')
-  await expect(crumbs).toHaveCount(0)
+  await expect(crumbs.getByRole('listitem')).toHaveText(['Jobs', 'Clients'])
   await page.locator('a[href^="#jobs/clients/"]').first().click()
   await expect(crumbs.getByRole('link')).toHaveText(['Jobs', 'Clients'])
   await crumbs.getByRole('link', { name: 'Clients' }).click()

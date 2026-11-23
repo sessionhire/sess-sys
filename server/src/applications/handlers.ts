@@ -1,4 +1,4 @@
-import { APPLICANT_LEVEL, APPLICATIONS_SETTING_ID, dayLabel, irishToday, notesFrom, type CommandArgs } from '@sh/shared'
+import { applicantAsPerson, APPLICATIONS_SETTING_ID, type CommandArgs } from '@sh/shared'
 import { emit, emitRemoved, Refused, type Ctx } from '../kernel.ts'
 import { getSetting } from '../office/store.ts'
 import { crewHandlers } from '../crew/handlers.ts'
@@ -28,24 +28,7 @@ export const applicationHandlers: { [N in ApplicationCommand]: Handler<N> } = {
     const app = await getApplication(ctx.tx, a.id, true)
     if (!app) throw new Refused({ code: 'not-found', message: GONE })
     if (await getPerson(ctx.tx, a.personId)) throw new Refused({ code: 'conflict', message: 'That person is on the Crew tab already.' })
-    const name = `${app.firstName} ${app.lastName}`.trim()
-    // As the office would add them: a freelancer, at Level 0 so they stay out of Offer to… until vetted (ADR 0025).
-    await crewHandlers['person.upsert'](ctx, {
-      id: a.personId,
-      name,
-      firstName: app.firstName,
-      lastName: app.lastName,
-      kind: 'freelancer',
-      email: app.email,
-      phone: app.phone,
-      skills: app.skills,
-      dayRateCents: app.dayRateCents,
-      notes: notesFrom(app, dayLabel(irishToday(new Date(app.appliedAt)))),
-      department: app.department,
-      level: APPLICANT_LEVEL,
-      company: app.tradesAs ? { as: app.tradesAs, name: '', vatNumber: null, croNumber: null } : null,
-      nameChecked: true,
-    })
+    await crewHandlers['person.upsert'](ctx, applicantAsPerson(app, a.personId))
     await removeApplication(ctx, a.id)
   },
 
