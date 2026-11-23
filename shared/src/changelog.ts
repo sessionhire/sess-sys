@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.212.2',
+    date: '2026-11-23',
+    title: 'A past quote only points at a job that really looks like it',
+    what: 'A Current RMS quote with no job here offered “Put it on …’s quote” for any job that happened to start the same day, so KPMG Launch for Fuel pointed at Verve’s Coke Truck. Now it only suggests a job with the same client or most of the same name; otherwise Make job from this is the main button, and Match to jobs still lists the jobs on those days to choose from. Names like “Thursday 3 December” no longer count as words in common, and a quote with only a date in common stays on the calendar as a potential job.',
+    prs: [421],
+  },
+  {
     version: '1.212.1',
     date: '2026-11-23',
     title: 'The planner’s days row no longer covers the logo',

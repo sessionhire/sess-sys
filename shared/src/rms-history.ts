@@ -38,7 +38,13 @@ export function rmsNameKey(s: string): string {
 }
 
 /** Words that say nothing of which job it is. */
-const COMMON = new Set(['and', 'of', 'the', 'a', 'at', 'in', 'for', 'to', 'dry', 'hire', 'event', 'events', 'show', 'job', 'day', 'days', 'night', 'party', '2024', '2025', '2026', '2027'])
+const COMMON = new Set([
+  ...['and', 'of', 'the', 'a', 'at', 'in', 'on', 'for', 'to', 'dry', 'hire', 'event', 'events', 'show', 'job', 'day', 'days', 'night', 'party', '2024', '2025', '2026', '2027'],
+  // A quote's name often says its day ("Thursday 3 December"), which says nothing of which job it is.
+  ...['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+  ...['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'],
+  ...['jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec'],
+])
 const words = (s: string) => new Set(rmsNameKey(s).split(' ').filter((w) => w.length > 1 && !COMMON.has(w)))
 
 /** Whether two clients' names are the same company, as each system spells it: equal, or one starts the other ("Verve" and "Verve Live"). */
@@ -77,10 +83,14 @@ export interface RmsMatch {
 
 const addDay = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 
+/** What a job needs, besides its days, to be suggested: the same client, or most of the words of its name. */
+const KIN = 3
+
 /**
  * Each opportunity's likeliest job: one whose days meet its days (give or take a day, for getting ready), scored by
- * the client, the words of its name, and starting the same day. Sure when the best has the client or most of its
- * words, starts within a day, and no other job comes close.
+ * the client, the words of its name, and starting the same day. Only suggested with the same client or most of its
+ * name's words: the days alone, or a word or two in common, are only offered to choose from. Sure when the best has
+ * the client or most of its words, starts within a day, and no other job comes close.
  */
 export function matchOpportunities(opps: readonly RmsToMatch[], jobs: readonly JobToMatch[]): RmsMatch[] {
   const sorted = [...jobs].sort((a, b) => a.start.localeCompare(b.start))
@@ -92,6 +102,7 @@ export function matchOpportunities(opps: readonly RmsToMatch[], jobs: readonly J
     const to = addDay(end, 1)
     const said = words(o.subject)
     const candidates: RmsMatch['candidates'] = []
+    const kin = new Set<string>()
     for (const j of sorted) {
       if (j.start > to) break
       if (j.end < from) continue
@@ -99,7 +110,9 @@ export function matchOpportunities(opps: readonly RmsToMatch[], jobs: readonly J
       if (j.client && o.client && sameClient(j.client, o.client)) score += 3
       const has = words(j.name)
       const both = [...said].filter((w) => has.has(w)).length
-      if (both) score += both / Math.max(said.size, 1) >= 0.5 ? 3 : 1
+      // Most of its name: all of it, or at least two words and half. One word of two ("KPMG Launch", "Launch Party") isn't.
+      if (both) score += both === said.size || (both >= 2 && both / said.size >= 0.5) ? 3 : 1
+      if (score >= KIN) kin.add(j.id)
       if (j.start === start) score += 1
       // A job on the same days is offered whatever its name, for the office to choose; it's only suggested with more.
       candidates.push({ projectId: j.id, score })
@@ -108,7 +121,7 @@ export function matchOpportunities(opps: readonly RmsToMatch[], jobs: readonly J
     const best = candidates[0]
     const next = candidates[1]
     const sure = !!best && best.score >= 4 && (!next || best.score - next.score >= 2)
-    return { opportunityId: o.id, projectId: best && best.score > 0 ? best.projectId : null, sure, candidates: candidates.slice(0, 5) }
+    return { opportunityId: o.id, projectId: best && kin.has(best.projectId) ? best.projectId : null, sure: sure && kin.has(best!.projectId), candidates: candidates.slice(0, 5) }
   })
 }
 
