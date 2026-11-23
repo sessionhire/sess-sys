@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-23',
     title: 'Pick your country beside your mobile when applying',
     what: 'The Apply page now has a country picker beside the mobile number, set to Ireland, with the UK next and the rest by name. Someone from abroad picks their country and types their number as they would at home, and it’s kept in full with its country code, such as +353 86 831 9330, ready to ring or message with nothing to add. A number typed with its own + code is kept as it is.',
-    prs: [0],
+    prs: [424],
     adrs: [190],
   },
   {
