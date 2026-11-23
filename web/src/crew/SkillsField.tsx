@@ -1,4 +1,4 @@
-import { addSkills, firstPick, MOST_SKILLS, skillsInUse, suggestSkills } from '@sh/shared'
+import { addSkills, AV_ROLES, firstPick, MOST_SKILLS, skillsInUse, suggestSkills } from '@sh/shared'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../Icon.tsx'
 import { useView } from '../view.ts'
@@ -30,7 +30,7 @@ export function SkillsField({
   className?: string
 }) {
   const people = useView().crew.people
-  const known = useMemo(() => skillsInUse(people), [people])
+  const known = useMemo(() => knownSkills(people), [people])
   const [open, setOpen] = useState(false)
   // Where Up or Down moved the highlight; null until they do, when it's the one Enter would take anyway.
   const [moved, setMoved] = useState<number | null>(null)
@@ -214,5 +214,12 @@ const count = (n: number) => (n === 1 ? '1 skill' : `${n} skills`)
 
 /** The skills chosen with whatever is still typed in the field, as the form sends them, in the crew list's own spelling. */
 export function withTyped(skills: string[], typed: string, people: readonly { skills: readonly string[] }[]): string[] {
-  return typed.trim() ? addSkills(skills, typed, skillsInUse(people)) : skills
+  return typed.trim() ? addSkills(skills, typed, knownSkills(people)) : skills
+}
+
+/** The skills offered: those the crew list uses, the most used first, then the trade's usual roles nobody has yet (Colly, 23 November 2026). */
+function knownSkills(people: readonly { skills: readonly string[] }[]): string[] {
+  const used = skillsInUse(people)
+  const have = new Set(used.map((s) => s.toLowerCase()))
+  return [...used, ...AV_ROLES.filter((r) => !have.has(r.toLowerCase()))]
 }

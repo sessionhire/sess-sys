@@ -28,6 +28,7 @@ import { registerCrewLinks } from './crew/links.ts'
 import { registerLinkCheck } from './crew/link-check.ts'
 import { registerJoin } from './applications/routes.ts'
 import { CELEBRATE_SCRIPT, COPY_SCRIPT } from './crew/page.ts'
+import { PILLS_SCRIPT } from './applications/page.ts'
 import { registerPageFonts } from './crew/fonts.ts'
 import { OwnCalendars, type OwnCalendarsOptions } from './crew/own-calendars.ts'
 import { registerOwnCalendarRoutes } from './crew/own-calendar-routes.ts'
@@ -458,7 +459,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // The server's own pages get a strict content security policy (audit finding 24); the app shell sets its own as it's
   // served, below, and a document's file a stricter one of its own (ADR 0029). Anything else isn't a page, and needs only
   // to stay out of other sites' frames.
-  const pages = pagePolicy([COPY_SCRIPT, CELEBRATE_SCRIPT])
+  const pages = pagePolicy([COPY_SCRIPT, CELEBRATE_SCRIPT, PILLS_SCRIPT])
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-content-type-options', 'nosniff')
     if (!reply.hasHeader('content-security-policy')) {

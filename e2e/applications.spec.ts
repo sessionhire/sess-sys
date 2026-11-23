@@ -34,8 +34,13 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
     await applicant.getByLabel('Last name').fill(last)
     await applicant.getByLabel('Email').fill(email)
     await applicant.getByLabel('Mobile').fill(mobile(n))
-    await applicant.getByRole('radio', { name: 'Lighting' }).check()
-    await applicant.getByLabel('What you do').fill('LX op, grandMA')
+    // What they do as pills: one picked from the offers as it's typed, one of their own typed and left for the form to take.
+    const roles = applicant.getByRole('combobox', { name: 'What you do' })
+    await roles.pressSequentially('lx o')
+    await expect(applicant.getByRole('option', { name: 'LX op' })).toHaveAttribute('aria-selected', 'true')
+    await roles.press('Enter')
+    await expect(applicant.getByRole('list', { name: 'Chosen' })).toContainText('LX op')
+    await roles.fill('grandMA')
     await applicant.getByLabel(/Your usual day rate/).fill('240')
     await applicant.getByRole('radio', { name: 'Sole trader' }).check()
     await applicant.getByLabel(/Where you/).fill('Cork')
@@ -47,6 +52,7 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
   }
   // Left out: the agreement, so the page says so, keeping what was typed.
   await applicant.goto('/join')
+  await expect(applicant.getByRole('radio', { name: 'Lighting' })).toHaveCount(0)
   await applicant.screenshot({ fullPage: true, ...shot('apply-page') })
   await applicant.getByLabel('First name').fill('Nobody')
   await applicant.waitForTimeout(4_500)

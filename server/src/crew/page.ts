@@ -1086,7 +1086,7 @@ const roles = (theme: keyof typeof ownColours) => {
  * tall as a thumb.
  */
 const FIELD_TEXT = `max(${dsText.touch.field.size}px,1rem)`
-const CONTROL = `${dsSize.touch.control}px`
+export const CONTROL = `${dsSize.touch.control}px`
 const CONTROL_PAD = `${dsSpace[2]}px ${dsSpace[3]}px`
 
 export const CSS = `

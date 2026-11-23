@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.217.0',
+    date: '2026-11-23',
+    title: 'Pick what you do as pills when applying',
+    what: 'The Apply page no longer asks for a department. “What you do” is now picked as pills, as Skills are on a person’s card: start typing and pick from the list, or type your own. The list has the roles on the price list, the crew roles quoted most in Current RMS and about forty usual AV roles, such as Monitor engineer, LX op, Media server op and Rigger. The department is worked out from the roles they pick. The usual AV roles are offered on the crew call’s Role field and on Skills too, after the ones already in use.',
+    prs: [426],
+    adrs: [190],
+  },
+  {
     version: '1.216.0',
     date: '2026-11-23',
     title: 'Every phone number has its country beside it',

@@ -1,4 +1,4 @@
-import { plural, rolesInUse, type RoleInUse } from '@sh/shared'
+import { AV_ROLES, plural, rolesInUse, type RoleInUse } from '@sh/shared'
 import { useMemo } from 'react'
 import { NameField } from '../NameField.tsx'
 import { useView } from '../view.ts'
@@ -33,7 +33,7 @@ export function RoleField({
   const calls = view.crew.calls
   const people = view.crew.people
   const priced = view.money.roles
-  const roles = useMemo(() => rolesInUse({ calls, people, priced: priced.map((r) => r.role) }), [calls, people, priced])
+  const roles = useMemo(() => rolesInUse({ calls, people, priced: priced.map((r) => r.role), standard: AV_ROLES }), [calls, people, priced])
   return (
     <NameField<RoleInUse>
       label={label}
@@ -55,5 +55,5 @@ export function RoleField({
 /** The line under an offered role: how many calls it is on and how many on the crew list do it. */
 export function roleLine(r: RoleInUse): string {
   const said = [r.calls ? `On ${plural(r.calls, 'call')}` : '', r.people ? `${plural(r.people, 'person', 'people')} on the crew list` : '']
-  return said.filter(Boolean).join(' · ') || (r.priced ? 'On the price list' : '')
+  return said.filter(Boolean).join(' · ') || (r.priced ? 'On the price list' : r.standard ? 'A usual AV role' : '')
 }

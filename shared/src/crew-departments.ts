@@ -43,7 +43,7 @@ export const ROLE_WORDS: readonly [RegExp, (typeof CREW_DEPARTMENTS)[number]][] 
   [/\bled\b/, 'LED Tech'],
   [/\b(sound|audio|monitors?|foh|a[12]|pa|rf|mics?)\b/, 'Audio'],
   [/\b(lx|light(s|ing)?|lamp|follow ?spot|dimmer)\b/, 'Lighting'],
-  [/\b(video|camera|cam|vision|projection(ist)?|vt)\b/, 'Video'],
+  [/\b(video|camera|cam|vision|projection(ist)?|vt|media servers?)\b/, 'Video'],
   [/\b(backline|guitar tech|drum tech)\b/, 'Backline'],
   [/\brigg(er|ers|ing)\b/, 'Rigger'],
   [/\bstaging\b/, 'Staging'],

@@ -17,7 +17,6 @@ const FILLED = {
   lastName: 'Ní Bhriain',
   email: 'Aoife.NiBhriain@example.com',
   phone: '087 123 4567',
-  department: 'Audio',
   skills: 'FOH, monitors / RF',
   rate: '€250',
   tradesAs: 'sole-trader',
@@ -61,6 +60,33 @@ describe('applying to join the crew (ADR 0190)', () => {
     expect(wrong.body).toContain('value="07700 900123"')
     await apply({ ...FILLED, country: '44', phone: '07700 900123' })
     expect((await waiting())[0]).toMatchObject({ phone: '+447700900123' })
+  })
+
+  it('offers roles to pick as pills: the price list, crew quoted in Current RMS and the usual AV ones, and reads the department from them', async () => {
+    const { app, db, colly, apply, waiting } = await setUp()
+    await colly.send('applications.use', { on: true })
+    await db.query(`INSERT INTO role_prices (id, role, day_cents) VALUES ('r1', 'Desk Op', 30000)`)
+    await db.query(`INSERT INTO rms_opportunities (id) VALUES (1)`)
+    const lines = [
+      ['Monitor Engineer - per day', 'Service'],
+      ['Delivery & Collection', 'Service'],
+      ['Crew Chief', 'Service'],
+      ['MA3 Light', 'Rental'],
+    ]
+    for (const [i, [name, type]] of lines.entries()) await db.query(`INSERT INTO rms_lines (id, opportunity_id, name, transaction_type) VALUES ($1, 1, $2, $3)`, [i + 1, name, type])
+    const page = await app.inject({ url: '/join' })
+    expect(page.body).not.toContain('Your department')
+    for (const role of ['Desk Op', 'Monitor Engineer', 'Crew Chief', 'Rigger', 'Laser tech']) expect(page.body).toContain(`<option value="${role}">`)
+    for (const not of ['Delivery', 'MA3 Light']) expect(page.body).not.toContain(`<option value="${not}`)
+    // The pills are the page's one script, let in by its hash and no other.
+    expect(page.body).toContain('<script>')
+    expect(String(page.headers['content-security-policy'])).toMatch(/script-src 'sha256-[^']+' 'sha256-[^']+' 'sha256-[^']+'/)
+    // Nothing picked is a thing to fix; picked, the department is the one the roles name.
+    expect((await apply({ ...FILLED, skills: '' })).body).toContain('Pick or type at least one thing you do')
+    await apply({ ...FILLED, skills: 'Laser tech, Rigger, Laser programmer' })
+    const { rows } = await db.query<{ department: string | null }>('SELECT department FROM applications')
+    expect(rows[0]?.department).toBe('Lasers')
+    expect((await waiting())[0]?.skills).toEqual(['Laser tech', 'Rigger', 'Laser programmer'])
   })
 
   it('keeps an application as the office will read it, and says thanks', async () => {

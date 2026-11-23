@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addSkills, firstPick, rolesInUse, skillsInUse, suggestSkills } from '../src/skills.ts'
+import { addSkills, AV_ROLES, departmentOfRoles, firstPick, quotedCrewRole, rolesInUse, skillsInUse, suggestSkills } from '../src/skills.ts'
 
 describe('skills in use', () => {
   it('counts each once per person whatever its case, most used first, in the spelling most have', () => {
@@ -68,5 +68,31 @@ describe('roles in use', () => {
   })
   it('leaves out blanks', () => {
     expect(rolesInUse({ calls: [{ role: '  ' }], people: [{ skills: [''] }] })).toEqual([])
+  })
+})
+
+describe('the usual AV roles and the crew quoted in Current RMS (Colly, 23 November 2026)', () => {
+  it('offers the usual roles after those in use, in the spelling the office uses', () => {
+    const roles = rolesInUse({ calls: [{ role: 'Sound No.1' }], priced: ['monitor engineer'], standard: AV_ROLES })
+    expect(roles[0]?.name).toBe('Sound No.1')
+    expect(roles[1]).toMatchObject({ name: 'monitor engineer', priced: true, standard: true })
+    expect(roles.slice(2).every((r) => r.standard)).toBe(true)
+    expect(roles.filter((r) => r.name.toLowerCase() === 'monitor engineer')).toHaveLength(1)
+  })
+  it('says the department of each usual role but the general ones', () => {
+    const general = AV_ROLES.filter((r) => !departmentOfRoles([r]))
+    expect(general).toEqual(['Stagehand', 'Electrician', 'Power tech', 'Warehouse crew'])
+  })
+  it('reads a quoted service line as a role, leaving out what charges for something else', () => {
+    expect(quotedCrewRole('Sound Engineer - per day')).toBe('Sound Engineer')
+    expect(quotedCrewRole('LX Tech (day rate)')).toBe('LX Tech')
+    expect(quotedCrewRole('Crew Chief')).toBe('Crew Chief')
+    expect(quotedCrewRole('Stagehand')).toBe('Stagehand')
+    for (const not of ['Delivery & Collection', 'Travel', 'Van hire', 'Mileage per km', 'Accommodation', 'Consumables', 'Insurance']) expect(quotedCrewRole(not)).toBeNull()
+  })
+  it('reads the department named most by the roles someone does', () => {
+    expect(departmentOfRoles(['Monitor engineer', 'RF tech', 'Rigger'])).toBe('Audio')
+    expect(departmentOfRoles(['Runner'])).toBe('Production')
+    expect(departmentOfRoles(['Electrician'])).toBeNull()
   })
 })
