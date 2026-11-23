@@ -22,6 +22,9 @@ test.afterEach(async ({ request }) => {
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
+/** The address's hash, compared whole rather than as a pattern. */
+const hashOf = (page: Page) => new URL(page.url()).hash
+
 /** The first link on the screen to a job's own page. */
 const firstJob = (page: Page) => page.locator('main a[href^="#jobs/"]').evaluateAll((links) => links.map((a) => a.getAttribute('href')!).find((h) => /^#jobs\/[a-z0-9]{15,}(\/[a-z]+)?$/.test(h)))
 
@@ -42,22 +45,22 @@ test('on a phone, back from a job opened from Week is Week, by the way up and by
   const job = await firstJob(page)
   expect(job).toBeTruthy()
   await page.evaluate((h) => (location.hash = h), job!)
-  await expect(page).toHaveURL(new RegExp(`${job}$`))
+  await expect.poll(() => hashOf(page)).toBe(job)
 
   const up = page.locator('.top .up-link')
   await expect(up).toHaveText('‹ All jobs')
   await expect(up).toHaveAttribute('href', week)
   await up.click()
-  await expect(page).toHaveURL(new RegExp(`${week.replace(/[/]/g, '\\/')}$`))
+  await expect.poll(() => hashOf(page)).toBe(week)
   await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBeGreaterThan(200)
   // Back was used, so Forward is the job again.
   await page.goForward()
-  await expect(page).toHaveURL(new RegExp(`${job}$`))
+  await expect.poll(() => hashOf(page)).toBe(job)
 
   const tab = page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Jobs' })
   await expect(tab).toHaveAttribute('href', week)
   await tab.click()
-  await expect(page).toHaveURL(new RegExp(`${week.replace(/[/]/g, '\\/')}$`))
+  await expect.poll(() => hashOf(page)).toBe(week)
 
   await page.getByRole('navigation', { name: 'Jobs pages' }).getByRole('link', { name: 'Clients' }).click()
   await expect(page.locator('.top .up-link')).toHaveText('‹ All jobs')
