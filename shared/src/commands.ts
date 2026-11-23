@@ -24,6 +24,7 @@ import { vehicleCommandSchemas } from './vehicles.ts'
 import { stepCommandSchemas } from './steps.ts'
 import { rackCommandSchemas } from './racks.ts'
 import { purchaseCommandSchemas } from './purchases.ts'
+import { applicationCommandSchemas } from './applications.ts'
 import { trackerCommandSchemas } from './trackers.ts'
 
 /**
@@ -61,6 +62,7 @@ export const commandSchemas = {
   ...stepCommandSchemas,
   ...rackCommandSchemas,
   ...purchaseCommandSchemas,
+  ...applicationCommandSchemas,
   ...trackerCommandSchemas,
 } as const
 

@@ -27,6 +27,7 @@ import type { VehiclesView } from './vehicles-view.ts'
 import type { StepsView } from './steps-view.ts'
 import type { RacksView } from './racks-view.ts'
 import type { PurchasesView } from './purchases-view.ts'
+import type { ApplicationsView } from './applications-view.ts'
 import type { TrackersView } from './trackers-view.ts'
 import type { Reading } from '../reading.ts'
 
@@ -189,6 +190,8 @@ export interface View {
   racks: RacksView
   /** Kit the crew ask to be bought, with everyone's votes, and where each is at (ADR 0077). */
   purchases: PurchasesView
+  /** Applications to join the crew from the public Apply page, waiting on the office (ADR 0190). */
+  applications: ApplicationsView
   /** Trackers on expensive kit: where each last said it was, and what's away from where it should be (ADR 0107). */
   trackers: TrackersView
   /**

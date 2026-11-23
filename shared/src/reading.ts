@@ -2,6 +2,7 @@ import type { CommandName } from './commands.ts'
 import { DEFAULT_LEVEL } from './crew-departments.ts'
 import { sameDepartment, type CrewCall, type Offer, type Person } from './crew.ts'
 import type { Document } from './documents.ts'
+import type { Application } from './applications.ts'
 import type { Project } from './jobs.ts'
 import type { Role } from './roles.ts'
 import type { Timesheet } from './timesheets.ts'
@@ -106,6 +107,18 @@ export function readsRatesIn(r: Reading, department: string | null | undefined):
  * and heads, who look after it, and not for staff crew or freelancers.
  */
 export const readsTrackers = (r: Reading | undefined) => !r || r.links !== 'own'
+
+/**
+ * Applications to join the crew (ADR 0190): what a stranger sent, read as people's email and notes are, by the office,
+ * directors and heads of department, and never by staff crew or freelancers. A reader who doesn't read rates in the
+ * department asked for isn't sent the rate or how they'd trade (ADR 0184).
+ */
+export const readsApplications = (r: Reading | undefined) => !r || (r.details ?? 'all') === 'all'
+
+export function applicationAsRead(a: Application, r: Reading): Application {
+  if (readsRatesIn(r, a.department)) return a
+  return { ...a, dayRateCents: null, tradesAs: null, rateHidden: true }
+}
 
 /** Whether every rate there is reaches this reader, as the history and the notices need to tell figures. */
 export const readsEveryRate = (r: Reading) => r.rates && r.ratesBy !== 'department'

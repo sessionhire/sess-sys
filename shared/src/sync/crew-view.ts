@@ -1,6 +1,7 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { irishToday } from '../calendar.ts'
 import { certificatesAfter, companyAfter, daysBetween, DEFAULT_LEVEL, departmentForRole, departmentOf, eachDay, HOLDING, LIVE, movedCallSpan, nameParts, namesAfter, offerDaysAfter, OPEN, tidyDepartment, tidyNeeds, type CrewCall, type CrewEntities, type Offer, type Person, type Unavailability } from '../crew.ts'
+import { applicantAsPerson, type Application } from '../applications.ts'
 import { certificateOf, type Document } from '../documents.ts'
 import { STOPPED, type Phase, type Project } from '../jobs.ts'
 import { leaveLabel, type LeaveRequest } from '../leave.ts'
@@ -77,7 +78,7 @@ const withDefaults = (p: Person): Person => ({
 })
 
 export function crewView(
-  entities: Partial<Tables> & { phase?: Record<string, Phase>; project?: Record<string, Project>; leaveRequest?: Record<string, LeaveRequest>; document?: Record<string, Document> },
+  entities: Partial<Tables> & { phase?: Record<string, Phase>; project?: Record<string, Project>; leaveRequest?: Record<string, LeaveRequest>; document?: Record<string, Document>; application?: Record<string, Application> },
   outbox: readonly (Mutation & { appliedSeq?: number })[],
   cursor: number,
   today = irishToday()
@@ -134,42 +135,52 @@ export function crewView(
     if (cert && p) people.set(p.id, { ...p, certificates: { ...p.certificates, [cert]: { held: true, expires, note: p.certificates[cert]?.note ?? '' } }, pending: true })
   }
 
+  /** Someone added or edited. Editing someone keeps what a device doesn't own: their link, and whether they're archived. An
+   * edit that says nothing about approving leave, or about the profile (ADR 0025), keeps those too. */
+  const upsert = (a: CommandArgs<'person.upsert'>) => {
+    const was = people.get(a.id)
+    const approvesLeave = a.kind === 'staff' && (a.approvesLeave ?? was?.approvesLeave ?? false)
+    people.set(a.id, {
+      linkToken: was?.linkToken ?? '',
+      archived: was?.archived ?? false,
+      // What this device isn't sent (ADR 0046) stays hidden: an edit from a role that doesn't read the rate sends none and keeps it.
+      ...(was?.linkHidden ? { linkHidden: true } : {}),
+      // Their photo is the server's to set (ADR 0065).
+      ...(was?.photo ? { photo: was.photo } : {}),
+      ...a,
+      ...namesAfter(a, was),
+      // A name once checked stays checked (ADR 0068).
+      ...(a.nameChecked || was?.nameChecked ? { nameChecked: true } : { nameChecked: undefined }),
+      dayRateCents: a.dayRateCents !== undefined ? a.dayRateCents : (was?.dayRateCents ?? null),
+      ...(a.dayRateCents === undefined && was?.rateHidden ? { rateHidden: true } : {}),
+      approvesLeave,
+      department: a.department !== undefined ? (a.department ? tidyDepartment(a.department) : null) : (was?.department ?? null),
+      level: a.level ?? was?.level ?? DEFAULT_LEVEL,
+      knownAs: a.knownAs !== undefined ? a.knownAs : (was?.knownAs ?? null),
+      // As the server lays them (ADR 0028).
+      certificates: certificatesAfter(was?.certificates, a.certificates),
+      // As the server lays it (ADR 0184).
+      company: companyAfter(was?.company ?? null, a.company),
+      ...(a.company === undefined && was?.companyHidden ? { companyHidden: true } : {}),
+      // Set only by person.role (ADR 0034); a freelancer has none.
+      role: a.kind === 'staff' ? (was?.role ?? null) : null,
+      pending: true,
+      worked: was?.worked ?? [],
+    })
+  }
+
   for (const m of outbox) {
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     switch (m.name) {
+      case 'application.take': {
+        // Taken on from the Apply page (ADR 0190): the person they become, as the server makes them.
+        const a = m.args as CommandArgs<'application.take'>
+        const app = entities.application?.[a.id]
+        if (app && !people.has(a.personId)) upsert(applicantAsPerson(app, a.personId))
+        break
+      }
       case 'person.upsert': {
-        // Editing someone keeps what a device doesn't own: their link, and whether they're archived. An
-        // edit that says nothing about approving leave, or about the profile (ADR 0025), keeps those too.
-        const a = m.args as CommandArgs<'person.upsert'>
-        const was = people.get(a.id)
-        const approvesLeave = a.kind === 'staff' && (a.approvesLeave ?? was?.approvesLeave ?? false)
-        people.set(a.id, {
-          linkToken: was?.linkToken ?? '',
-          archived: was?.archived ?? false,
-          // What this device isn't sent (ADR 0046) stays hidden: an edit from a role that doesn't read the rate sends none and keeps it.
-          ...(was?.linkHidden ? { linkHidden: true } : {}),
-          // Their photo is the server's to set (ADR 0065).
-          ...(was?.photo ? { photo: was.photo } : {}),
-          ...a,
-          ...namesAfter(a, was),
-          // A name once checked stays checked (ADR 0068).
-          ...(a.nameChecked || was?.nameChecked ? { nameChecked: true } : { nameChecked: undefined }),
-          dayRateCents: a.dayRateCents !== undefined ? a.dayRateCents : (was?.dayRateCents ?? null),
-          ...(a.dayRateCents === undefined && was?.rateHidden ? { rateHidden: true } : {}),
-          approvesLeave,
-          department: a.department !== undefined ? (a.department ? tidyDepartment(a.department) : null) : (was?.department ?? null),
-          level: a.level ?? was?.level ?? DEFAULT_LEVEL,
-          knownAs: a.knownAs !== undefined ? a.knownAs : (was?.knownAs ?? null),
-          // As the server lays them (ADR 0028).
-          certificates: certificatesAfter(was?.certificates, a.certificates),
-          // As the server lays it (ADR 0184).
-          company: companyAfter(was?.company ?? null, a.company),
-          ...(a.company === undefined && was?.companyHidden ? { companyHidden: true } : {}),
-          // Set only by person.role (ADR 0034); a freelancer has none.
-          role: a.kind === 'staff' ? (was?.role ?? null) : null,
-          pending: true,
-          worked: was?.worked ?? [],
-        })
+        upsert(m.args as CommandArgs<'person.upsert'>)
         break
       }
       case 'person.role': {

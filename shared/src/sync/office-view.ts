@@ -1,6 +1,6 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { DEFAULT_CABLE_COLOURS, type CableColourStep } from '../cable-colours.ts'
-import { ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, WHATSAPP_SETTING_ID, type WhatsAppMode, MESSAGES_SETTING_ID, OFFICE_NAME, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type Setting, type SettingEntities } from '../office.ts'
+import { APPLICATIONS_SETTING_ID, ASSISTANT_SETTING_ID, CABLES_SETTING_ID, LINKS_SETTING_ID, LOGO_SETTING_ID, WHATSAPP_SETTING_ID, type WhatsAppMode, MESSAGES_SETTING_ID, OFFICE_NAME, OFFICE_SETTING_ID, READING_SETTING_ID, TIMESHEETS_SETTING_ID, type Setting, type SettingEntities } from '../office.ts'
 
 /**
  * The office's details on a device: what the server has said, with this
@@ -49,6 +49,10 @@ export interface OfficeView {
   logoBlackWhite: boolean
   /** That choice changed on this device and not yet on the server. */
   logoPending: boolean
+  /** The public Apply page takes applications to join the crew (ADR 0190). Off unless the office said. */
+  takeApplications: boolean
+  /** That choice changed on this device and not yet on the server. */
+  applicationsPending: boolean
 }
 
 type Tables = { [E in keyof SettingEntities]: Record<string, SettingEntities[E]> }
@@ -76,6 +80,8 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
   const logo = entities.setting?.[LOGO_SETTING_ID]?.logo ?? null
   let logoBlackWhite = entities.setting?.[LOGO_SETTING_ID]?.logoBlackWhite === true
   let logoPending = false
+  let takeApplications = entities.setting?.[APPLICATIONS_SETTING_ID]?.takeApplications === true
+  let applicationsPending = false
   for (const m of outbox) {
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     if (m.name === 'reading.heads') {
@@ -107,6 +113,10 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
       whatsappTestTo = a.testTo
       whatsappPending = true
     }
+    if (m.name === 'applications.use') {
+      takeApplications = (m.args as CommandArgs<'applications.use'>).on
+      applicationsPending = true
+    }
     if (m.name === 'logo.blackWhite') {
       logoBlackWhite = (m.args as CommandArgs<'logo.blackWhite'>).on
       logoPending = true
@@ -136,5 +146,5 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
     if (args.address === null || args.address === '') delete details.address
     pending = true
   }
-  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo, logoBlackWhite, logoPending }
+  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo, logoBlackWhite, logoPending, takeApplications, applicationsPending }
 }

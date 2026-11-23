@@ -1,4 +1,7 @@
 import {
+  applicationAsRead,
+  readsApplications,
+  type Application,
   callAsRead,
   offerAsRead,
   personAsRead,
@@ -90,6 +93,8 @@ export async function asRead<C extends { entity: string; op: 'put' | 'delete'; d
         return readsDocumentOf(reading, c.data as Document) ? [c] : []
       case 'attachment':
         return readsAttachmentOf(reading, c.data as { owner: string }) ? [c] : []
+      case 'application':
+        return readsApplications(reading) ? [{ ...c, data: applicationAsRead(c.data as Application, reading) }] : []
       case 'tracker':
       case 'trackerSettings':
         return readsTrackers(reading) ? [c] : []

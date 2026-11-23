@@ -274,3 +274,6 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .card.share .offer-wait { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2) var(--ds-space-3); }
 .card.share .offer-wait p { margin: 0; font-variant-numeric: tabular-nums; }
 .card.share .offer-wait .alert { flex-basis: 100%; }
+/* Applications to join (ADR 0190): what they do, where they're based and their experience take the card's width; their experience keeps its lines. */
+.crew .application .facts .wide { grid-column: 1 / -1; }
+.crew .application .facts .said { white-space: pre-line; }

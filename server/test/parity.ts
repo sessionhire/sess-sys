@@ -3,6 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { keepApplication } from '../src/applications/routes.ts'
 import { dirStore } from '../src/backup/store.ts'
 import { company, day, m, ok, TRACKERS_KEY, person, phone, today, year, checks, leaveSpanFrom } from './company.ts'
 
@@ -97,6 +98,8 @@ interface Case<N extends CommandName = CommandName> {
   before?: Mutation[]
   /** Made on the same phone with no signal just before the change, so both wait together. */
   queued?: Mutation[]
+  /** Applications to join sent from the Apply page first, by their ids (ADR 0190): one comes in by the page, not a command. */
+  applied?: string[]
   /** Trackers' reports taken in after `before` (ADR 0107): a tracker is made only by reporting. */
   reports?: object[]
   /** Photos put on the Autumn Gala first, by their ids (ADR 0182): a photo is put up by sending its file, not by a command. */
@@ -117,8 +120,10 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
 
 async function run(k: Case) {
   const folder = k.photos ? mkdtempSync(join(tmpdir(), 'sh-parity-')) : undefined
-  const { app } = await company(folder ? { documentStore: dirStore(folder) } : {})
+  const { app, db } = await company(folder ? { documentStore: dirStore(folder) } : {})
   if (k.before?.length) await ok(app, ...k.before)
+  for (const id of k.applied ?? [])
+    await keepApplication(db, { firstName: id, lastName: 'Byrne', email: `${id}@example.ie`, phone: '+353871234567', department: 'Lighting', skills: ['LX op'], dayRateCents: 24000, tradesAs: 'sole-trader', basedIn: 'Cork', about: 'Three summers of festivals.' }, id)
   for (const id of k.photos ?? []) {
     const q = new URLSearchParams({ client: 'office', jobId: 'gala', caption: 'Main stage', tags: '["Stage"]', thumb: String(JPEG.length), width: '2560', height: '1707' })
     const res = await app.inject({ method: 'POST', url: `/api/job-photos/${id}?${q}`, headers: { 'content-type': 'application/octet-stream' }, payload: Buffer.concat([JPEG, JPEG]) })
@@ -335,6 +340,11 @@ const CASES: Case[] = [
   c('whatsapp.use', { mode: 'test', testTo: ['+353 87 123 4567'] }),
   c('cables.colours', { colours: [{ upToM: 2, colour: 'red' }, { upToM: 10, colour: 'green' }] }),
   c('logo.blackWhite', { on: true }),
+  c('applications.use', { on: true }),
+
+  // Applications to join (ADR 0190).
+  c('application.take', { id: 'fionn', personId: 'fionn-byrne' }, { applied: ['fionn', 'saoirse'], ignore: ['linkToken'] }),
+  c('application.drop', { id: 'fionn' }, { applied: ['fionn', 'saoirse'] }),
 
   // Leave and time in lieu.
   // Forty days on is next year from late November, whose leave the office opens first (it's shut until then).

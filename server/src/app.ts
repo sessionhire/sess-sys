@@ -26,6 +26,7 @@ import { OfferWaits } from './crew/waits.ts'
 import { registerPeopleImportRoutes } from './crew/import.ts'
 import { registerCrewLinks } from './crew/links.ts'
 import { registerLinkCheck } from './crew/link-check.ts'
+import { registerJoin } from './applications/routes.ts'
 import { COPY_SCRIPT } from './crew/page.ts'
 import { registerPageFonts } from './crew/fonts.ts'
 import { OwnCalendars, type OwnCalendarsOptions } from './crew/own-calendars.ts'
@@ -727,6 +728,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   registerWhatsAppRoutes(app, { whatsapp, answers: new WhatsAppAnswers(db, whatsapp, { onChange: changed, log: app.log }) })
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.
   registerAcceptRoutes(app, db, { onChange: () => void poke(), logo: () => readLogo(db.reads, documents) })
+  // The public Apply page (ADR 0190): anyone can apply to join the crew, while the office has it on.
+  registerJoin(app, db, { onChange: () => void poke() })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   registerStatusRoutes(
     app,

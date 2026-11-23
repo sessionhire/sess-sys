@@ -1,4 +1,4 @@
-import { canApproveLeave, standing } from '@sh/shared'
+import { canApproveLeave, readsApplications, standing } from '@sh/shared'
 import type { View } from '@sh/shared'
 import { useMyDepartment } from '../Narrowed.tsx'
 import { useAccess } from '../role.ts'
@@ -28,6 +28,9 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
   // Only those they can decide, as Home counts them: one whose amounts they aren't sent waits on the office (ADR 0062; Move 3 of
   // the sweep of 6 November 2026).
   const timesheets = mayCrew ? standing(view, today).timesheets.length : 0
+  // Applications to join (ADR 0190): for those sent them, while the page takes them or any are still waiting.
+  const applications = view.applications.all.length
+  const showApplications = readsApplications(view.reading) && (view.office.takeApplications || applications > 0)
   return (
     <Views
       label="Crew pages"
@@ -39,6 +42,7 @@ export function CrewViews({ view, current }: { view: View; current: string }) {
       more={[
         { key: 'leave', href: '#crew/leave', label: 'Leave', count: leave },
         ...(view.office.useTimesheets ? [{ key: 'timesheets', href: '#crew/timesheets', label: 'Timesheets', count: timesheets }] : []),
+        ...(showApplications ? [{ key: 'applications', href: '#crew/applications', label: 'Applications', count: mayCrew ? applications : 0 }] : []),
       ]}
     />
   )

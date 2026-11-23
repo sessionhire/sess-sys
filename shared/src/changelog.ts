@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.212.0',
+    date: '2026-11-23',
+    title: 'New crew can apply to join',
+    what: 'There’s now an Apply page anyone can open, with no sign-in, to ask for work: their name, mobile, email, department, what they do, their day rate and experience. Turn it on in Admin › Company › Applications to join and share its address. What they send waits under Crew › Applications, which says if you already have them. Take on puts them on the Crew tab as an applicant at Level 0, out of Offer to… until you move them up; Turn down deletes what they sent. Nothing is ever sent to them.',
+    prs: [418],
+    adrs: [190],
+  },
+  {
     version: '1.211.0',
     date: '2026-11-23',
     title: 'Back from a job goes to the view you were on',

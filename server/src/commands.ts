@@ -52,6 +52,7 @@ import { vehicleHandlers } from './vehicles/handlers.ts'
 import { stepHandlers } from './steps/handlers.ts'
 import { rackHandlers } from './stock/racks.ts'
 import { purchaseHandlers } from './purchases/handlers.ts'
+import { applicationHandlers } from './applications/handlers.ts'
 import { trackerHandlers } from './trackers/handlers.ts'
 
 /**
@@ -91,6 +92,7 @@ const handlers: { [N in CommandName]: Handler<N> } = {
   ...stepHandlers,
   ...rackHandlers,
   ...purchaseHandlers,
+  ...applicationHandlers,
   ...trackerHandlers,
 }
 
