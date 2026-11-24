@@ -92,7 +92,8 @@ export async function asRead<C extends { entity: string; op: 'put' | 'delete'; d
       case 'document':
         return readsDocumentOf(reading, c.data as Document) ? [c] : []
       case 'attachment':
-        return readsAttachmentOf(reading, c.data as { owner: string }) ? [c] : []
+        // One made office-only after it was sent is taken off the device, rather than left as it was (ADR 0196).
+        return readsAttachmentOf(reading, c.data as { owner: string; crew?: boolean }) ? [c] : [{ ...c, op: 'delete' as const, data: null }]
       case 'application':
         return readsApplications(reading) ? [{ ...c, data: applicationAsRead(c.data as Application, reading) }] : []
       case 'tracker':

@@ -1,4 +1,4 @@
-import { LOGO_SVG, phoneShown, callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, roadTimes, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
+import { LOGO_SVG, phoneShown, callSheet, sheetDocuments, fileLabel, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, roadTimes, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { getClient, getPhase, getProject, getVenue } from '../projects/store.ts'
 import { lateOnOffers } from './late.ts'
@@ -6,6 +6,7 @@ import { CSS, officeBlock } from './page.ts'
 import { getCall, getPerson, offersForCall, openCallsFor } from './store.ts'
 import { toBooking, vehiclesFor } from '../vehicles/store.ts'
 import { roadOf } from '../vehicles/drives.ts'
+import { crewAttachments } from '../documents/attachments.ts'
 
 /**
  * A call sheet on a person's private link, /f/<token>/sheet/<call> (ADR
@@ -53,6 +54,8 @@ export async function sheetFor(q: Queryable, personId: string, callId: string): 
       calls: calls.map((c) => ({ ...c, offers: offersOf.get(c.id) ?? [] })),
       people,
       kit: reader === 'contact' && project ? await kitFor(q, project.id, phase?.id ?? null) : [],
+      // The job's documents for the crew and its venue's (ADR 0196), for everyone on it.
+      documents: sheetDocuments(await crewAttachments(q, project?.id ?? null, venue && 'id' in venue ? venue.id : null)),
       readerId: personId,
       // One said the evening before, for tomorrow, says so.
       late: late.map((l) => ({ personId: l.personId, line: l.day === today ? lateLine(l) : `${lateLine(l)} (${lateDayWord(l.day, today)})` })),
@@ -91,7 +94,7 @@ const tel = (phone: string) => `<a href="tel:${h(phone.replace(/[^\d+]/g, ''))}"
 const venueContactHtml = (c: { name: string; role: string; phone: string | null }) =>
   `At the venue, ask for <b>${h(c.name)}</b>${c.role ? ` (${h(c.role)})` : ''}${c.phone ? ` on ${tel(c.phone)}` : ''}.`
 
-export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails | null): string {
+export function renderSheet(s: CallSheet, base: string, office: OfficeDetails | null | undefined, callId: string): string {
   const mine = s.calls.filter((c) => c.crew.some((p) => p.me))
   return `<!doctype html>
 <html lang="en-IE">
@@ -157,6 +160,20 @@ export function renderSheet(s: CallSheet, base: string, office?: OfficeDetails |
   ${s.notes.phase ? `<section><h2>${h(s.phase || 'Running order')}</h2><p class="details">${lines(s.notes.phase)}</p></section>` : ''}
   ${s.notes.job ? `<section><h2>About the job</h2><p class="details">${lines(s.notes.job)}</p></section>` : ''}
 
+  ${
+    // Under the notes, as the stage plot or run sheet is what they read them against (ADR 0196). A file opens through
+    // this link, so it's theirs alone to open; a link alone opens where it's shared.
+    s.documents?.length
+      ? `<section id="documents"><h2>Documents</h2><ul class="docs">${s.documents
+          .map((d) => {
+            const href = d.file ? `${h(base)}/sheet/${encodeURIComponent(callId)}/documents/${encodeURIComponent(d.id)}` : h(d.link ?? '')
+            const about = [d.kind, d.of === 'venue' ? 'from the venue' : '', d.file ? fileLabel(d.file) : 'a link'].filter(Boolean).join(' · ')
+            return `<li><a class="sheet-link" href="${href}"${d.file ? '' : ' rel="noreferrer noopener" target="_blank"'}>${h(d.title)} ›</a><small>${h(about)}</small></li>`
+          })
+          .join('')}</ul></section>`
+      : ''
+  }
+
   <section><h2>Crew</h2>
     ${s.calls
       .map(
@@ -218,9 +235,11 @@ export const SHEET_CSS = `
 .sheet section.late{border-left:4px solid var(--warn)!important}.sheet section.late ul{margin:0;padding-left:1.1em;display:grid;gap:2px}.call small.late{color:var(--warn);font-weight:600}
 a[href^="tel:"]{white-space:nowrap}
 .map{display:inline-flex;align-items:center;min-height:44px}
+.docs{list-style:none;margin:0;padding:0;display:grid;gap:12px}.docs li{display:grid;gap:4px}.docs .sheet-link{display:flex;align-items:center;min-height:44px;box-sizing:border-box}.docs small{color:var(--muted)}
 @media print{
   :root{--bg:#fff;--panel:#fff;color-scheme:light}
   .back,footer span:last-child{display:none}
+  .docs .sheet-link{border:0;padding:0;min-height:0}
   main{max-width:none;padding:0}
   .sheet section{break-inside:avoid}
 }

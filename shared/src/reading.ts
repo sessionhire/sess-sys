@@ -201,10 +201,15 @@ export const readsDocumentOf = (r: Reading, doc: Pick<Document, 'personId'>) => 
 export const documentsRead = (r: Reading): true | string | null => ((r.documents ?? 'all') === 'all' ? true : (r.personId ?? null))
 
 /** Whether this reader is sent a venue's or client's document: a venue's always, a client's unless held back (finding 39). */
-export const readsAttachmentOf = (r: Reading, doc: { owner: string }) => doc.owner !== 'client' || r.clientDocuments !== false
+/**
+ * Whether this reader reads a document kept on a venue, client or job. Staff crew and freelancers (clientDocuments false)
+ * read only those for the crew (ADR 0196); a client's is never for them. The office, directors and heads read every one.
+ */
+export const readsAttachmentOf = (r: Reading, doc: { owner: string; crew?: boolean }) => r.clientDocuments !== false || (doc.owner !== 'client' && doc.crew !== false)
 
 /** Why someone can't open a client's document, and who can. */
-export const CLIENT_DOCUMENTS_REFUSAL = "Only the office, directors and heads of department see clients' documents, as they can carry the prices agreed. Venues' are open to everyone."
+export const CLIENT_DOCUMENTS_REFUSAL =
+  "Only the office, directors and heads of department see clients' documents, as they can carry the prices agreed, and the documents on a job or venue kept for the office. The ones for the crew are open to everyone."
 
 /** Why someone can't open another person's document, and who can. */
 export const DOCUMENTS_REFUSAL = "Only the office, directors and heads of department see other people's certificates and insurance. Your own are on your page."

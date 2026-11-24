@@ -2,6 +2,8 @@ import {
   phoneShown,
   SHEET_WORDS,
   callSheet,
+  sheetDocuments,
+  fileLabel,
   callSheetText,
   HOLDING,
   irishToday,
@@ -62,6 +64,8 @@ export function sheetInput(view: View, job: JobView, phase: PhaseView): SheetInp
     late: view.late.current
       .filter((l) => phase.calls.some((c) => c.id === l.callId))
       .map((l) => ({ personId: l.personId, line: l.day === today ? lateLine(l) : `${lateLine(l)} (${lateDayWord(l.day, today)})` })),
+    // The job's documents for the crew and its venue's (ADR 0196), as crew see them on their sheet.
+    documents: sheetDocuments([...view.attachments.of('job', job.id), ...(phase.venue ? view.attachments.of('venue', phase.venue.id) : [])]),
     // The vehicles on the phase or the whole job, and who drives (ADR 0047).
     vans: view.vehicles
       .ofJob(job.id)
@@ -309,6 +313,25 @@ function Sheet({ sheet, calls, onSend, print }: { sheet: CallSheet; calls: reado
           </>
         )}
       </section>
+
+      {sheet.documents && (
+        <section className={print ? '' : 'card'} aria-label="Documents">
+          <Heading icon="document">Documents</Heading>
+          <ul className="sheet-docs">
+            {sheet.documents.map((d) => (
+              <li key={d.id}>
+                <b>{d.title}</b>
+                <span className="muted"> {[d.kind, d.of === 'venue' && 'from the venue', d.file ? fileLabel(d.file) : 'a link'].filter(Boolean).join(' · ')}</span>
+              </li>
+            ))}
+          </ul>
+          {!print && (
+            <p className="hint">
+              Each person opens them from their own call sheet. Add or change them on the job's Show pack tab, or the venue's page.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className={print ? '' : 'card'} aria-label="Crew">
         <Heading icon="people">Crew</Heading>

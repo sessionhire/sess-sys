@@ -360,7 +360,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sheet-screen .sheet-call { display: grid; gap: var(--ds-space-1); padding-top: var(--ds-space-3); border-top: 1px solid var(--line); }
 .sheet-screen .sheet-call:first-of-type { border-top: 0; padding-top: 0; }
 .sheet-screen .sheet-call header { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: baseline; }
-.sheet-screen .sheet-call ul, .sheet-screen .sheet-kit ul, .sheet-screen .sheet-contacts { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
+.sheet-screen .sheet-call ul, .sheet-screen .sheet-docs, .sheet-screen .sheet-kit ul, .sheet-screen .sheet-contacts { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
 .sheet-screen .sheet-call li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1) var(--ds-space-2); }
 .sheet-screen .sheet-call li > span:first-child { flex: 1 1 10em; }
 /* Send and a crew phone number, a finger's 44px to hit (audit, 20 October 2026, finding 58). */

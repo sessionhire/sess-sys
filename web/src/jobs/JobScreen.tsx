@@ -72,6 +72,7 @@ import { KitCard, kitSummary } from './Kit.tsx'
 import { VansCard } from './Vans.tsx'
 import { QuotePart } from './Quote.tsx'
 import { ShowPackCard } from './ShowPack.tsx'
+import { Attachments } from './Attachments.tsx'
 import { JobPosition } from './JobPosition.tsx'
 import { NextDock, type Landing } from './NextDock.tsx'
 import { JobAssignee } from './JobAssignee.tsx'
@@ -359,6 +360,10 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
         {part === 'vans' && <VansCard job={job} view={view} />}
 
         {/* The files for the on-site box (ADR 0045), once there's a phase to have a crew and a running order. */}
+        {/* Its documents (ADR 0196), first, as what crew take to the show: those for the crew go on their call sheets. */}
+        {part === 'pack' && (
+          <Attachments owner={{ owner: 'job', id: job.id, name: job.name }} hint="Those the crew can see are on the call sheet of everyone who has said yes to a call on this job." />
+        )}
         {part === 'pack' &&
           (job.phases.length > 0 ? (
             <ShowPackCard view={view} job={job} />
