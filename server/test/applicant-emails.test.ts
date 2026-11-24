@@ -99,6 +99,35 @@ describe('emailing people who apply (ADR 0193)', () => {
     expect(JSON.stringify(await colly.history())).toContain('Turned on emailing people who apply')
   })
 
+  it("says which emails haven't gone, by who was taken on, and never an address (user flows of 24 November 2026, gap 7)", async () => {
+    const { app, db, colly, apply, idOf } = await setUp()
+    await colly.send('applications.email', { on: true })
+    await apply('Aoife', 'aoife@example.com')
+    await colly.send('application.take', { id: await idOf('aoife@example.com'), personId: 'aoife' })
+    await app.applicantEmails.kick()
+    // As the sender leaves them: one given up on for someone taken on, one for someone turned down, one still being tried.
+    await db.query(`DELETE FROM applicant_emails`)
+    await db.query(`INSERT INTO applicant_emails (id, kind, person_id, state, problem, tries, made_at) VALUES
+      ('e1', 'taken', 'aoife', 'failed', 'The mailbox couldn’t send it within a day.', 3, now() - interval '2 days'),
+      ('e2', 'declined', NULL, 'failed', 'Gmail didn’t take it.', 5, now() - interval '1 day'),
+      ('e3', 'declined', NULL, 'queued', 'The mailbox isn’t connected.', 2, now()),
+      ('e4', 'declined', NULL, 'queued', NULL, 0, now()),
+      ('e5', 'taken', 'aoife', 'failed', 'Old news.', 1, now() - interval '40 days')`)
+    const res = await app.inject({ url: '/api/applications/emails', cookies: colly.cookies })
+    expect(res.statusCode).toBe(200)
+    const { notGone } = res.json() as { notGone: { id: string; kind: string; state: string; person: { id: string; name: string } | null; problem: string }[] }
+    // Newest first; not the one only just queued, nor one from over a month ago.
+    expect(notGone.map((e) => [e.id, e.kind, e.state, e.person, e.problem])).toEqual([
+      ['e3', 'declined', 'waiting', null, 'The mailbox isn’t connected.'],
+      ['e2', 'declined', 'failed', null, 'Gmail didn’t take it.'],
+      ['e1', 'taken', 'failed', { id: 'aoife', name: 'Aoife Test' }, 'The mailbox couldn’t send it within a day.'],
+    ])
+    expect(res.body).not.toContain('example.com')
+    // One that went isn't listed.
+    await db.query(`UPDATE applicant_emails SET state = 'sent'`)
+    expect((await app.inject({ url: '/api/applications/emails', cookies: colly.cookies })).json()).toEqual({ notGone: [] })
+  })
+
   it('does not send one queued before the office turned it off again', async () => {
     const { app, db, colly, gmail } = await setUp()
     await colly.send('applications.email', { on: false })

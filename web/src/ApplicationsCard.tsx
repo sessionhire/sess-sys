@@ -1,9 +1,10 @@
-import type { OfficeView } from '@sh/shared'
+import type { MailboxStatus, OfficeView } from '@sh/shared'
 import { useState } from 'react'
 import { Refusal, useAct } from './act.tsx'
 import { applyAddress } from './crew/Applications.tsx'
 import { Pending } from './StatusPill.tsx'
 import { client } from './sync.ts'
+import { getJson, useAsked } from './jobs/rms.ts'
 
 /**
  * Applications to join (ADR 0190), for the office: whether the public Apply page takes them. Off until the office says,
@@ -15,6 +16,10 @@ export function ApplicationsCard({ office }: { office: OfficeView }) {
   const { run, error } = useAct()
   const [copied, setCopied] = useState(false)
   const on = office.takeApplications
+  // Whether the mailbox the emails go from can send (user flows of 24 November 2026, gap 7): said on the switch, as a quote's
+  // Send says it, so "On" isn't read as "they're being told" while nothing can go.
+  const mailbox = useAsked(office.emailApplicants, 'mailbox', () => getJson<MailboxStatus>('/api/assistant/mailbox'))
+  const cantSend = office.emailApplicants && mailbox.state === 'ready' && !(mailbox.data.available && mailbox.data.state === 'on' && !!mailbox.data.canSend)
   const address = applyAddress()
   return (
     <section className="card" aria-label="Applications to join">
@@ -46,6 +51,12 @@ export function ApplicationsCard({ office }: { office: OfficeView }) {
               ? 'On: taken on, they get an email with the link to their own page; turned down, a polite one. Sent from the operations mailbox, and the Apply page says so before they send.'
               : 'Off: nothing is sent to them, and you get in touch the usual way. Turn it on at launch.'}
           </small>
+          {cantSend && (
+            <small className="warn-line" role="note">
+              The operations mailbox can't send just now, so these emails wait, and are given up on after a day. Connect it under <a href="#admin/connections">Admin › Connections</a>;
+              any that didn't go are listed on <a href="#crew/applications">Crew › Applications</a>.
+            </small>
+          )}
         </span>
       </label>
       <label className="signal">

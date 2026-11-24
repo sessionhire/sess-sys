@@ -277,3 +277,9 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 /* Applications to join (ADR 0190): what they do, where they're based and their experience take the card's width; their experience keeps its lines. */
 .crew .application .facts .wide { grid-column: 1 / -1; }
 .crew .application .facts .said { white-space: pre-line; }
+/* Taken on, not vetted yet, and the emails that didn't go (user flows of 24 November 2026, gaps 6 and 7): a row each, the name
+   and what they do taking the width, Move up at the row's end. */
+.crew .applications-screen ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
+.crew .not-vetted li { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: var(--ds-space-3); }
+.crew .not-vetted li small { grid-column: 1; color: var(--muted); }
+.crew .not-vetted li button { grid-column: 2; grid-row: 1 / span 2; }

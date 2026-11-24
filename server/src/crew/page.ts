@@ -1,4 +1,4 @@
-import { LOGO_SVG, DIAL_CODES, phoneShown, splitPhone, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
+import { APPLICANT_LEVEL, LOGO_SVG, DIAL_CODES, phoneShown, splitPhone, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours, sparks, type PaymentDetails, type PaymentField } from '@sh/shared'
@@ -533,6 +533,16 @@ const asBooking: BookingOf<PageData['jobs'][number]> = (j) => [j.offer, j.call]
  * (audit, 20 October 2026, finding 48). Nothing when there's nothing to say.
  * In the words Home › Me says it in too (UX sweep, 6 November 2026, move 6).
  */
+/**
+ * For someone just taken on from the Apply page (user flows of 24 November 2026, gap 6): their page opened on "Nothing
+ * waiting right now" and "No upcoming bookings", with no word that they're new or what would help. Said while they're
+ * still an applicant with nothing offered or booked; once there's work, the work is the news.
+ */
+function newHere(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']): string {
+  if (d.person.level !== APPLICANT_LEVEL || d.person.kind !== 'freelancer' || waiting.length || booked.length) return ''
+  return `<p class="flash ok" role="note">You're on our crew list. We'll offer you work here, and you say yes or no on this page. Adding your certificates, days off and how you'd like to be paid, further down, helps us pick you.</p>`
+}
+
 function glance(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']): string {
   // Counted from the evening of the booking's last day (ADR 0110), not while they're still on site; the list below still lets them send it.
   const clock = irishClock()
@@ -1033,6 +1043,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   <header class="top"><span class="mark">${LOGO_SVG}</span><div><b>Session Hire</b><h1>Hi ${h(first)}</h1><small>This page is just for you.</small></div></header>
   ${officeBlock(d.office)}
   ${d.flash && !inCard ? flash(d.flash) : ''}
+  ${newHere(d, waiting, booked)}
 
   ${glance(d, waiting, booked)}
 

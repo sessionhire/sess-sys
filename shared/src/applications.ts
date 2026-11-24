@@ -229,3 +229,39 @@ export function applicantAsPerson(app: Application, personId: string): CommandAr
     nameChecked: true,
   }
 }
+
+/**
+ * An email to someone who applied that hasn't gone (ADR 0193; user flows of 24 November 2026, gap 7): given up on, or
+ * still waiting on the mailbox. The office was told "They're emailed the link to their page" as it pressed Take on, and
+ * nothing said when that turned out not to be so. One to someone turned down has nobody left to name: what they sent is
+ * deleted with the decision.
+ */
+export interface ApplicantEmailNotGone {
+  id: string
+  kind: 'taken' | 'declined'
+  /** Given up on, or still being tried each minute. */
+  state: 'failed' | 'waiting'
+  /** Who was taken on, while they're still on the Crew tab; null for someone turned down. */
+  person: { id: string; name: string } | null
+  /** Why, in the app's words: "The mailbox couldn’t send it within a day." */
+  problem: string
+  /** When the decision was made. */
+  madeAt: string
+}
+/** How far back the list of emails that didn't go reaches: after that it's old news, and the person has been reached or hasn't. */
+export const APPLICANT_EMAIL_NEWS_DAYS = 30
+
+/**
+ * What the office sends someone it has taken on, with their own page's address, by WhatsApp, text or email from its own
+ * phone (user flows of 24 November 2026, gap 6): the same news the app's email carries when Email people who apply is
+ * on, for when it's off or the email didn't go.
+ */
+export function welcomeWords(firstName: string, link: string, company: string): { subject: string; text: string } {
+  return {
+    subject: `You're on the ${company} crew list`,
+    text: `Hi ${firstName || 'there'}, thanks for applying to work with ${company}: we've added you to our crew list. This is your own page, where you'll see the work we offer you, say yes or no, and keep your details and days off up to date: ${link} The link is yours alone, so please don't share it.`,
+  }
+}
+
+/** Taken on and not vetted yet: a freelancer still at the applicant's level, who stays out of Offer to… until moved up (ADR 0025). */
+export const notVetted = (p: { level?: number; kind: string; archived?: boolean }) => p.kind === 'freelancer' && !p.archived && p.level === APPLICANT_LEVEL

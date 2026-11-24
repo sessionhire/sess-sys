@@ -1,4 +1,4 @@
-import { APPLICATIONS_MOST, AV_ROLES, hasPaymentDetails, newId, quotedCrewRole, readApplyForm, rolesInUse, type Application, type ApplyForm } from '@sh/shared'
+import { APPLICANT_EMAIL_NEWS_DAYS, APPLICATIONS_MOST, AV_ROLES, hasPaymentDetails, newId, quotedCrewRole, readApplyForm, rolesInUse, type ApplicantEmailNotGone, type Application, type ApplyForm } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Db } from '../db.ts'
@@ -25,6 +25,31 @@ const field = (b: URLSearchParams | undefined, name: string, max: number) => Str
 
 export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => number; onChange?: () => void; paymentKey?: string } = {}) {
   const now = opts.now ?? (() => Date.now())
+
+  /**
+   * The emails to people who applied that haven't gone, lately (user flows of 24 November 2026, gap 7), for Crew ›
+   * Applications to say so: given up on, or still waiting on the mailbox. Never an address: those are cleared.
+   */
+  app.get('/api/applications/emails', { config: { needs: 'crew' } }, async (_req, reply): Promise<{ notGone: ApplicantEmailNotGone[] }> => {
+    reply.header('cache-control', 'no-store')
+    const { rows } = await db.reads.query<{ id: string; kind: 'taken' | 'declined'; state: string; problem: string | null; made_at: Date; person_id: string | null; name: string | null }>(
+      `SELECT e.id, e.kind, e.state, e.problem, e.made_at, p.id AS person_id, p.name
+         FROM applicant_emails e LEFT JOIN people p ON p.id = e.person_id AND NOT p.archived
+        WHERE (e.state = 'failed' OR (e.state = 'queued' AND e.tries > 0)) AND e.made_at > now() - make_interval(days => $1::int)
+        ORDER BY e.made_at DESC LIMIT 50`,
+      [APPLICANT_EMAIL_NEWS_DAYS]
+    )
+    return {
+      notGone: rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        state: r.state === 'failed' ? 'failed' : 'waiting',
+        person: r.person_id && r.name ? { id: r.person_id, name: r.name } : null,
+        problem: r.problem ?? 'It didn’t go.',
+        madeAt: new Date(r.made_at).toISOString(),
+      })),
+    }
+  })
   const noStore = (reply: FastifyReply) => reply.header('cache-control', 'no-store').header('x-robots-tag', 'noindex')
   const page = async (reply: FastifyReply, state: JoinState, more: Omit<Parameters<typeof renderJoin>[0], 'state' | 'office'> = {}, code = 200) =>
     noStore(reply)
