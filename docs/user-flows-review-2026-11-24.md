@@ -97,6 +97,8 @@ optional.
 
 ### 3. A client can accept online a quote whose job was cancelled or lost
 
+**Fixed in 1.222.0** (24 November 2026).
+
 **Who:** the client and the office. **Where:** the client's quote link. **Seen**, with Clients accept online turned on locally.
 
 I took a sent quote, cancelled its job (the same change Cancel this job
@@ -115,6 +117,8 @@ the same check sits inside the accept itself. Fix it before turning the
 switch on.
 
 ### 4. What arrives from outside doesn't reach Home or the Crew badge
+
+**Fixed in 1.222.0** (24 November 2026).
 
 **Who:** the office and directors. **Where:** Home › Needs attention, the Crew tab's badge, the bell. **Seen.**
 

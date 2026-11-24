@@ -177,7 +177,8 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
  * largest (ADR 0073, steps.css), and a version on What's changed (below).
  */
 .card h3 { font-size: var(--text-small); font-weight: 700; }
-.card h3.group { font-size: var(--text-pill); line-height: var(--ds-text-label-leading); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+/* A group can head a run of cards too, as To read heads the applications: then it's the page's h2, in the same label capitals. */
+.card :is(h2, h3).group { font-size: var(--text-pill); font-weight: 700; line-height: var(--ds-text-label-leading); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 /* The page's own main thing (its list, its form) stands straight on the page under its title, not in a box of its own: a box is for a part
    that stands beside it. Two levels of boxes at most, as the design system's navigation page has it. */
 .card.plain { background: none; border: 0; border-radius: 0; padding: 0; }

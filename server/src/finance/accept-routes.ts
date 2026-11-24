@@ -1,4 +1,4 @@
-import { ACCEPT_NAME_LENGTH, irishToday, validUntil, type Quote } from '@sh/shared'
+import { ACCEPT_NAME_LENGTH, irishToday, STOPPED, validUntil, type Quote } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
 import { describeDevice } from '../devices.ts'
@@ -6,6 +6,7 @@ import { QUOTE_ONLINE_ACTION } from '../history-words.ts'
 import { SIGN_IN_LIMIT } from '../http.ts'
 import { emit, serverChange } from '../kernel.ts'
 import { officeFor } from '../office/store.ts'
+import { getProject } from '../projects/store.ts'
 import { renderAcceptClosed, renderAcceptPage, type AcceptPage, type Standing } from './accept-page.ts'
 import { fileNameFor, sheetFor } from './quote-email.ts'
 import { quotePdf } from './quote-pdf.ts'
@@ -30,9 +31,16 @@ class NotOpen extends Error {}
 
 type Req = FastifyRequest<{ Params: { token: string } }>
 
-/** Where a version stands for its client: accepted or turned down, replaced by a newer one, its prices run out, or open. */
-export async function standingOf(q: Queryable, quote: Quote, today: string): Promise<Standing> {
+/**
+ * Where a version stands for its client: its job called off, accepted or turned down, replaced by a newer one, its prices
+ * run out, or open. A job that's cancelled or lost comes first (user flows of 24 November 2026, gap 3): stopping a job
+ * frees its crew, kit and vans and leaves its quote as sent, so the link asked for a yes to a job nobody was doing. With
+ * `lock` the job's row is held, so a yes and a cancel at the same moment can't both land.
+ */
+export async function standingOf(q: Queryable, quote: Quote, today: string, lock = false): Promise<Standing> {
   if (quote.status === 'draft') return 'draft'
+  const job = await getProject(q, quote.projectId, lock)
+  if (job && STOPPED.includes(job.status)) return 'stopped'
   const versions = await quotesOf(q, quote.projectId)
   const current = versions.find((v) => v.invoicedOn) ?? versions.find((v) => v.status !== 'draft') ?? versions[0]
   if (current && current.id !== quote.id) return 'replaced'
@@ -104,7 +112,7 @@ export function registerAcceptRoutes(app: FastifyInstance, db: Db, { onChange, n
         // Looked at again inside the change, as two presses or the office's own answer could have come first.
         const now = await getQuote(ctx.tx, quote.id, true)
         // Thrown, so the history's line goes back with it: nothing was accepted.
-        if (!now || (await standingOf(ctx.tx, now, today)) !== 'open') throw new NotOpen()
+        if (!now || (await standingOf(ctx.tx, now, today, true)) !== 'open') throw new NotOpen()
         await ctx.tx.query(`UPDATE quotes SET status = 'accepted', answered_on = $2, accepted_name = $3, accepted_at = now() WHERE id = $1`, [quote.id, today, name])
         await emit(ctx, 'quote', quote.id, await getQuote(ctx.tx, quote.id))
         return true

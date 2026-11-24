@@ -1,4 +1,4 @@
-import { APPLICATION_KEPT_MONTHS, APPLICATION_WARN_DAYS, applicationGoesOn, irishToday, newId, phoneShown, TRADES_AS_LABELS, type ApplicationView, type OfficeView, type View } from '@sh/shared'
+import { listHeading, STANDING_HEADINGS, APPLICATION_KEPT_MONTHS, APPLICATION_WARN_DAYS, applicationGoesOn, irishToday, newId, phoneShown, TRADES_AS_LABELS, type ApplicationView, type OfficeView, type View } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -51,7 +51,15 @@ export function ApplicationsScreen({ view }: { view: View }) {
           <Empty>No applications waiting. Each one sent from the Apply page comes in here for you to take on or turn down.</Empty>
         </section>
       ) : (
-        all.map((a) => <ApplicationCard key={a.id} a={a} mayDecide={mayCrew} emails={view.office.emailApplicants} />)
+        <>
+          {/* The list Home's count lands on, headed with the same number (user flows of 24 November 2026, gap 4). */}
+          <section className="card plain">
+            <h2 className="group">{listHeading(STANDING_HEADINGS.applications, all.length)}</h2>
+          </section>
+          {all.map((a) => (
+            <ApplicationCard key={a.id} a={a} mayDecide={mayCrew} emails={view.office.emailApplicants} />
+          ))}
+        </>
       )}
     </div>
   )

@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.222.0',
+    date: '2026-11-24',
+    title: 'Applications and a client’s answer reach Home, and a cancelled job’s quote can’t be accepted',
+    what: 'Home now counts two things that come in from outside the app. “Applications to read” opens Crew › Applications, whose list is headed To read with the same number, and the Crew tab’s badge counts them too. “Quotes answered, jobs to put in step” opens Money › To follow up, for a quote the client has said yes or no to while the job still says otherwise. When a client says yes on their quote’s link, whoever has the job’s Quoting tasks and whoever emailed the quote get it on their bell: “Accepted online: the job, by their name. Confirm the job.” A client’s quote link for a job that has been cancelled or lost now says “This job isn’t going ahead. Get in touch if that’s changed.” and takes no yes; before, it still offered Accept the quote.',
+    prs: [433],
+  },
+  {
     version: '1.221.0',
     date: '2026-11-24',
     title: 'A delivered dry hire is planned like a delivery, and the warehouse is told how a hire is handed over',

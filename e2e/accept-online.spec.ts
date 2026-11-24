@@ -52,5 +52,10 @@ test('a client accepts a quote on its link, once the office has turned it on', a
   // The office sees who and when.
   await office.reload()
   await expect(office.getByText(/Accepted online by Aisling Byrne/)).toBeVisible()
+  // And Home says a quote was answered with its job still to put in step, opening Money › To follow up on that list (user flows
+  // of 24 November 2026, gap 4).
+  await office.goto('/#home')
+  await office.getByRole('link', { name: /^\d+ quotes? answered, jobs? to put in step/ }).click()
+  await expect(office.getByRole('heading', { name: /^Answered: put the job in step \(\d+\)$/ })).toBeVisible()
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })

@@ -234,7 +234,7 @@ function QuoteGroups({ f, chaseOnly, lapsed = 0 }: { f: ReturnType<typeof quotes
       )}
       {f.outOfStep.length > 0 && (
         <div className="follow-group">
-          <h3 className="group">Answered: put the job in step</h3>
+          <h3 className="group">{listHeading(STANDING_HEADINGS['quotes-answered'], f.outOfStep.length)}</h3>
           <ShowAll items={f.outOfStep} limit={FOLLOW_SHOWN} what="quotes" name={`${chaseOnly ? 'chase' : 'follow'} in step`}>
             {(shown) => (
               <ul className="plain">

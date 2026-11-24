@@ -71,8 +71,15 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
   await apply('Fionn', `Test${id}`, `fionn.${id}@example.com`, 1, true)
   await apply('Saoirse', `Test${id}`, `saoirse.${id}@example.com`, 2)
 
-  await office.goto('/#crew/applications')
+  // Home says there are applications to read, the Crew tab's badge counts them, and the count opens the list (user flows of
+  // 24 November 2026, gap 4): before, the only sign was a number in the Also here row on Crew.
+  await office.goto('/#home')
+  await expect(office.getByRole('link', { name: /^\d+ applications to read/ })).toBeVisible()
+  await expect(office.locator('nav a[href="#crew"] .badge').first()).toBeVisible()
+  await office.getByRole('link', { name: /^\d+ applications to read/ }).click()
   await expect(office.getByRole('heading', { name: 'Applications', level: 1 })).toBeVisible()
+  await expect(office.getByRole('heading', { name: /^To read \(\d+\)$/ })).toBeVisible()
+  if (process.env.LOOK) await office.screenshot({ path: process.env.LOOK, fullPage: true })
   const fionn = office.getByRole('region', { name: `Fionn Test${id}` })
   const saoirse = office.getByRole('region', { name: `Saoirse Test${id}` })
   // Both in, newest first, before anything is pressed, so nothing moves under the press.

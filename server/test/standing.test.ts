@@ -67,8 +67,23 @@ async function everythingWaiting() {
     m('quote.answer', { id: 'q4', answer: 'accepted', on: day(-18) }),
     // The spring launch's quote, not sent yet, wanted today (ADR 0127).
     m('quote.save', { id: 'q5', projectId: 'enq', lines: [], discountPct: 0, notes: '' }),
-    m('jobStep.set', { projectId: 'enq', step: 'quote', dueOn: day(0) })
+    m('jobStep.set', { projectId: 'enq', step: 'quote', dueOn: day(0) }),
+    // A quote the client said yes to two days ago, for a job in a month that's still only quoted.
+    m('project.create', { id: 'yes', name: 'Lakeside Wedding', clientId: 'bw', venueId: null, status: 'quoted', notes: '' }),
+    m('phase.add', { id: 'wedding', projectId: 'yes', name: 'Show', start: day(30), end: day(30), venueId: null, notes: '' }),
+    m('quote.save', { id: 'q6', projectId: 'yes', lines: [{ id: 'l6', kind: 'kit', what: 'XLR 10 m', ref: 'xlr', group: 'Audio', qty: 6, days: 1, unitCents: 500, vat: '23' }], discountPct: 0, notes: '' }),
+    m('quote.sent', { id: 'q6', on: day(-6) }),
+    m('quote.answer', { id: 'q6', answer: 'accepted', on: day(-2) }),
+    // The Apply page turned on, and someone has applied.
+    m('applications.use', { on: true })
   )
+  const applied = await app.inject({
+    method: 'POST',
+    url: '/join',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    payload: new URLSearchParams({ t: String(Date.now() - 60_000), firstName: 'Fionn', lastName: 'Walsh', email: 'fionn@example.com', phone: '087 123 4567', skills: 'LX', agree: 'yes' }).toString(),
+  })
+  expect(applied.statusCode, applied.body.slice(0, 400)).toBe(303)
   const { client } = await phone(app)
   return client.view()
 }
@@ -122,6 +137,13 @@ describe('how things stand', () => {
     expect(lists.quotes.map((q) => [q.job.id, q.days])).toEqual([['docks', 9]])
     // And the spring launch's draft, wanted today, as Quotes leads with it.
     expect(lists['quotes-due'].map((q) => [q.job.id, q.wanted])).toEqual([['enq', today]])
+    // What came in from outside (user flows of 24 November 2026, gap 4): the yes whose job is still only quoted, as Quotes ›
+    // To follow up lists it, and the application nobody has read; neither is a department's.
+    expect(lists['quotes-answered'].map((q) => [q.job.id, q.days])).toEqual([['yes', 2]])
+    expect(lists['quotes-answered'].map((q) => q.quote.id)).toEqual(quotesToFollow(view.money, today).outOfStep.map((q) => q.quote.id))
+    expect(lists.applications.map((a) => a.name)).toEqual(['Fionn Walsh'])
+    const audioOnly = standing(view, today, { department: 'Audio' })
+    expect([audioOnly['quotes-answered'].length, audioOnly.applications.length]).toEqual([0, 0])
   })
 
   it('is the list the screen it opens shows, where that screen reads a rule of its own', async () => {
