@@ -1,7 +1,9 @@
 import { commandSchemas, eachDay, EURO_HINT, sinceYes, type SinceYes, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
+import { drivesFor } from '../vehicles/drives.ts'
 import { FILE_TOO_BIG, hasPaymentDetails, maskPaymentDetails, NO_FILE, phoneWithCountry, readPaymentDetails, WEB_FILE, WRONG_FILE, type PaymentDetails, type PaymentField } from '@sh/shared'
 import { asksPpsn } from '../applications/store.ts'
 import { PAYMENT_DETAILS_ACTION } from '../history-words.ts'
+import { OWN_PAGE } from './payment.ts'
 import { serverChange } from '../kernel.ts'
 import { keepPayment, openWithKeys, sealPayment, type PaymentKeys } from './payment.ts'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
@@ -304,6 +306,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       })()),
       office: await officeFor(db),
       onTheDay,
+      drives: await drivesFor(db, person.id, now),
       demo,
       ownCalendar: await getOwnCalendar(db, person.id),
       // Crew invites on (ADR 0009) and an address to send them to: the page says who they come from, and what to do when Google holds the
@@ -347,7 +350,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
   /** Kept, or taken off, by them on their own page: in the history as theirs, and the office's card says so (ADR 0193). */
   const keepTheirs = (req: Req, person: Person, sealed: string | null) =>
     serverChange(db, { name: PAYMENT_DETAILS_ACTION, args: { personId: person.id, ...(sealed ? {} : { gone: true }) }, link: person.id, device: describeDevice(req.headers['user-agent']) }, (ctx) =>
-      keepPayment(ctx.tx, person.id, sealed, `${person.name} on their own page`)
+      keepPayment(ctx.tx, person.id, sealed, `${person.name} ${OWN_PAGE}`)
     )
 
   // Their payment details, theirs to give and correct (ADR 0193): typed afresh each time, as the page shows them only masked.

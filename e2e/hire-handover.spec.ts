@@ -82,3 +82,39 @@ test('a delivered dry hire goes on to Transport, its van drives to the delivery 
   await page.getByRole('tab', { name: /Transport/ }).click()
   await expect(page.getByRole('region', { name: 'Vehicles' })).toContainText('The client collects this hire')
 })
+
+test('whoever drives a delivery sees it under Your bookings on Home › Me, with when it leaves, though they are on no crew call', async ({ browser, request }) => {
+  // Proves (user flows of 24 November 2026, gap 5): a drive is a row of its own in Your bookings, "Driving <van>" over the
+  // job, the day and when it leaves the warehouse, opening the job's Transport tab; before, a driver with no call on the
+  // job (every dry hire delivery) had only a bell to go on. Their own page in Crew lists it the same way.
+  const id = Date.now().toString(36)
+  const out = inDays(24)
+  const plate = `242-G-${1000 + Math.floor(Math.random() * 9000)}`
+  const name = `Driver Test${id}`
+  await push(request, id, [
+    ['person.upsert', { id: `dp-${id}`, name, kind: 'staff', email: `driver-${id}@example.com`, phone: null, skills: [], dayRateCents: null, notes: '' }],
+    ['vehicle.save', { id: `dv-${id}`, name: `Drop van ${id}`, registration: plate, kind: 'van', seats: 3, payloadKg: 1200, notes: '', checks: { test: { needed: true, expires: inDays(200) } } }],
+    ['project.create', { id: `dj-${id}`, name: `Drop off ${id}`, clientId: null, venueId: null, status: 'confirmed', kind: 'hire', notes: '', hire: { handover: 'delivery', outTime: '10:00', backTime: '17:00', address: 'Galway Racecourse\nBallybrit', pin: { lat: 53.2985, lng: -8.9839 } } }],
+    ['phase.add', { id: `djp-${id}`, projectId: `dj-${id}`, name: 'Hire', start: out, end: inDays(26), venueId: null, notes: '' }],
+    ['vehicleBooking.add', { id: `db-${id}`, vehicleId: `dv-${id}`, projectId: `dj-${id}`, phaseId: null, start: out, end: out, driverId: `dp-${id}`, notes: '', override: false }],
+  ])
+  const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Up to date')
+  await page.getByRole('group', { name: 'Show for' }).getByRole('button', { name: 'Me', exact: true }).click()
+  await page.getByLabel('Your name').selectOption({ label: name })
+  await page.getByRole('button', { name: "That's me" }).click()
+
+  const card = page.locator('section', { has: page.getByRole('heading', { name: /^Your bookings/ }) })
+  const row = card.getByRole('list', { name: 'Driving' }).getByRole('link', { name: new RegExp(`^Driving Drop van ${id}`) })
+  await expect(row).toContainText(new RegExp(`Drop off ${id}\\s· \\w{3} \\d{1,2} \\w{3}\\s· leaves the warehouse about \\d\\d:\\d\\d$`))
+  await expect(card).not.toContainText('No bookings coming up.')
+  // Not today's, so Your day doesn't count it.
+  await expect(page.getByRole('heading', { name: /^Your day/ })).toHaveText('Your day')
+  await row.click()
+  await expect(page.getByRole('tab', { name: /Transport/, selected: true })).toBeVisible()
+
+  // Their page in Crew says it too.
+  await page.goto(`/#crew/person/dp-${id}`)
+  await expect(page.getByRole('list', { name: 'Driving' }).getByRole('link', { name: new RegExp(`^Driving Drop van ${id}`) })).toBeVisible()
+})

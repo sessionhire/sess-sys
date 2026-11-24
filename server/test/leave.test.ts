@@ -164,11 +164,14 @@ describe('deciding', () => {
   it('tells an approver who has since been archived so, plainly, for each thing only an approver does', async () => {
     // Proves: Colly, ticked to approve time off and then archived, signed in on his phone, is told he's been archived, not sent to
     // tick a box, on deciding leave, deciding a day in lieu, setting an allowance and opening a year: everything that needs an approver.
-    const { aoife, colly } = await company()
+    const { app, db, aoife, colly: before } = await company()
     const year = Number(today.slice(0, 4))
     expect(await aoife.send('leave.request', week('r1', 'aoife'))).toMatchObject({ status: 'applied' })
     expect(await aoife.send('lieu.log', { id: 'e1', personId: 'aoife', day: day(-2), days: 1, note: '' })).toMatchObject({ status: 'applied' })
-    expect(await colly.send('person.archive', { id: 'colly', archived: true })).toMatchObject({ status: 'applied' })
+    expect(await before.send('person.archive', { id: 'colly', archived: true })).toMatchObject({ status: 'applied' })
+    // Archiving signs a member of staff out everywhere, so the phone he was on is turned away; his Google account still lets him back in.
+    expect((await app.inject({ url: '/api/sync/pull?after=0', cookies: before.cookies })).statusCode).toBe(401)
+    const colly = await staff(app, db, 'Colly Hewson', IPHONE, 'phone-c0ffee')
     const archived = "You've been archived on the Crew tab, so you can't approve time off."
     expect(refused(await colly.send('leave.decide', { id: 'r1', approved: true, reason: '' }))).toBe(archived)
     expect(refused(await colly.send('lieu.decide', { id: 'e1', approved: true, reason: '' }))).toBe(archived)

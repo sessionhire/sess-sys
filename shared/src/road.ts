@@ -177,3 +177,43 @@ export function roadWords(r: Road): string[] {
   out.push(driveLine(r))
   return out
 }
+
+/**
+ * When a van leaves and is back, short, for the call sheet's vehicle line and a driver's own row (user flows of
+ * 24 November 2026, gap 5): "leaves the warehouse about 06:15, back about 19:30". The day is said only where it isn't
+ * the one the reader already has: a van that leaves the night before, or is back the day after. Nothing while neither
+ * time is known.
+ */
+export function roadTimes(r: Pick<Road, 'leaves' | 'back'>, b: { start: string; end: string }): string {
+  const out: string[] = []
+  if (r.leaves) out.push(`leaves the warehouse about ${r.leaves.time}${r.leaves.day !== b.start ? ` ${dayLabel(r.leaves.day)}` : ''}`)
+  if (r.back) out.push(`back about ${r.back.time}${r.back.day !== b.end || (r.leaves && b.end !== b.start) ? ` ${dayLabel(r.back.day)}` : ''}`)
+  return out.join(', ')
+}
+
+/** A drive someone is down for, as their own list says it: the van, the job, its days, and when it leaves. */
+export interface Drive {
+  id: string
+  /** "Big Van (221-D-12345)". */
+  vehicle: string
+  job: string
+  jobId: string
+  /** The booking's own days. */
+  start: string
+  end: string
+  /** The days it's away, which run into the day before or after when it leaves before midnight or is back after. */
+  awayFrom: string
+  awayTo: string
+  /** "leaves the warehouse about 06:15, back about 19:30", or '' while the times aren't known. */
+  times: string
+  /** The client hasn't said yes yet: it's pencilled in. */
+  pencilled: boolean
+}
+
+/** "Driving Big Van (221-D-12345)": a drive's heading in someone's own list. */
+export const driveTitle = (d: Pick<Drive, 'vehicle'>) => `Driving ${d.vehicle}`
+
+/** The facts under it, in order: the job, its days, when it leaves and is back, and whether it's only pencilled in. */
+export function driveFacts(d: Drive, today?: string): string[] {
+  return [d.job, d.start === d.end ? dayLabel(d.start, today) : `${dayLabel(d.start, today)} to ${dayLabel(d.end, today)}`, ...(d.times ? [d.times] : []), ...(d.pencilled ? ['pencilled in'] : [])]
+}

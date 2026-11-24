@@ -18,7 +18,8 @@ import {
   HIDDEN_FOR_YOUR_ROLE,
   TIME_GROUPS,
 } from '@sh/shared'
-import { DEFAULT_LEVEL, firstName, levelLabel, notVetted, TRADING_NAME, welcomeWords, CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
+import { DriveRows } from './DriveRows.tsx'
+import { drivesOf, DEFAULT_LEVEL, firstName, levelLabel, notVetted, TRADING_NAME, welcomeWords, CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
 import { holdsARole, ROLE_LABELS, ROLE_LINES, ROLES, roleOfPerson, signInAbility, soonestFirst, type Role } from '@sh/shared'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -449,6 +450,7 @@ function ComingUp({ person, view, own, onArchived }: { person: PersonView; view:
   const off = crew.unavailability.filter((u) => u.personId === person.id && u.end >= today)
   // In the order their link and Home › Me list them, with theirs on a job that was stopped in its place (UX sweep, 6 November 2026, move 6).
   const lines = soonestFirst<{ c: CallView; o: OfferView; job?: ProjectStatus }>([...booked, ...waiting, ...stoppedBookings(view, person.id, today)], today, asBooking)
+  const drives = drivesOf(view.vehicles, person.id, today)
   const archive = () => {
     // The same test as the server's: held days from today on, or any offer still waiting.
     const hold = booked.find(({ o }) => o.days.some((d) => d >= today)) ?? waiting[0]
@@ -473,7 +475,7 @@ function ComingUp({ person, view, own, onArchived }: { person: PersonView; view:
   return (
     <section className="card" aria-label={heading}>
       <Heading icon="calendar">{heading}</Heading>
-      {lines.length === 0 && off.length === 0 && <Empty>Nothing booked or offered, and no days off.</Empty>}
+      {lines.length === 0 && off.length === 0 && drives.length === 0 && <Empty>Nothing booked or offered, and no days off.</Empty>}
       {lines.length > 0 && (
         <ul className="job-list">
           {lines.map(({ c, o, job }) => (
@@ -483,6 +485,8 @@ function ComingUp({ person, view, own, onArchived }: { person: PersonView; view:
           ))}
         </ul>
       )}
+      {/* What they're down to drive, on a call on the job or not (user flows of 24 November 2026, gap 5). */}
+      <DriveRows drives={drives} today={today} />
       {off.map((u) => (
         <p key={u.id}>
           Off {daysLabel(eachDay(u.start, u.end))}

@@ -104,3 +104,34 @@ export function maskPaymentDetails(d: PaymentDetails): PaymentDetails {
     bic: d.bic,
   }
 }
+
+/**
+ * Where someone's payment details stand, for the places the paying is done (user flows of 24 November 2026, gap 8):
+ * whether any are held, when they last changed, and whether that was on their own page, from a link. Never the details.
+ */
+export interface PaymentStanding {
+  personId: string
+  /** When they were last given or changed. */
+  changedAt: string
+  /** Changed by them on their own page: a link can be passed on, the usual way money goes to the wrong account. */
+  own: boolean
+}
+
+export interface PaymentLine {
+  text: string
+  /** `warn` asks for a phone call before paying; `ask` is something to get; `quiet` needs nothing. */
+  tone: 'quiet' | 'ask' | 'warn'
+}
+
+/**
+ * The one line a row carries where someone decides to pay: "Payment details held", "No payment details yet: ask for
+ * them", or, when they were changed on their own page and nothing has been marked paid since, "Payment details changed
+ * on their own page 21 Nov: ring before paying". Once a payment is marked paid after the change, the office has paid to
+ * that account, and the line is quiet again.
+ */
+export function paymentLine(st: PaymentStanding | undefined, lastPaidOn: string | undefined, day: (iso: string) => string): PaymentLine {
+  if (!st) return { text: 'No payment details yet: ask for them', tone: 'ask' }
+  const changed = st.changedAt.slice(0, 10)
+  if (st.own && (!lastPaidOn || lastPaidOn <= changed)) return { text: `Payment details changed on their own page ${day(changed)}: ring before paying`, tone: 'warn' }
+  return { text: 'Payment details held', tone: 'quiet' }
+}

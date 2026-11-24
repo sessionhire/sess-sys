@@ -30,6 +30,7 @@ import { rateText } from '../format.ts'
 import { useAccess, useSeesRates } from '../role.ts'
 import { promptFor, SharePanel, SharePanelFor, type Share } from './Messages.tsx'
 import { Heading } from '../Icon.tsx'
+import { lastPaidBy, PaymentLine, usePaymentStanding } from './PaymentLine.tsx'
 import { CREW, TIMESHEETS } from '../Up.tsx'
 import { Empty } from '../Empty.tsx'
 import { inDepartment, Narrowed, useNarrowed } from '../Narrowed.tsx'
@@ -59,6 +60,10 @@ export function TimesheetsCard({ view }: { view: View }) {
   const notIn = view.timesheets.notIn.filter((r) => theirs(r.person))
   const approved = view.timesheets.approved.filter((r) => mayDecide || theirs(r.person))
   const [remind, setRemind] = useState<TimesheetRow | undefined>()
+  // Said on a sheet waiting to be checked only when there's a call to make first (user flows of 24 November 2026,
+  // gap 8): payment details changed on their own page and not paid to since. For those who see money.
+  const standing = usePaymentStanding()
+  const lastPaid = lastPaidBy(view.money)
   const lately = approved.slice(0, 5)
   // Timesheets carry pay, which a role that doesn't see rates isn't sent (ADR 0046): said once, at the top.
   const seesRates = useSeesRates()
@@ -94,6 +99,7 @@ export function TimesheetsCard({ view }: { view: View }) {
                     <Row
                       key={r.offer.id}
                       r={r}
+                      pay={<PaymentLine standing={standing} personId={r.person?.id} lastPaid={r.person ? lastPaid.get(r.person.id) : undefined} onlyWarn />}
                       action={
                         // Quiet, as every row's own action is: fifty red Checks down a busy week said nothing, so the heading's count carries
                         // how many there are (UX sweep, 6 November 2026, move 1).
@@ -150,7 +156,7 @@ export function TimesheetsCard({ view }: { view: View }) {
   )
 }
 
-function Row({ r, action }: { r: TimesheetRow; action: ReactNode }) {
+function Row({ r, action, pay }: { r: TimesheetRow; action: ReactNode; pay?: ReactNode }) {
   // The year once a day is in another or half a year off, as the freelancer's link says it (audit, 5 November 2026, finding 29).
   const today = useToday()
   return (
@@ -160,6 +166,7 @@ function Row({ r, action }: { r: TimesheetRow; action: ReactNode }) {
         <p>
           {job(r)} · {r.call.role} · {daysLabel(r.timesheet?.days ?? r.offer.days, today)}
         </p>
+        {pay}
       </div>
       <div className="actions">
         {/* Hidden for a role that doesn't see rates (ADR 0046), which the card says once, rather than a €0 on every line. */}

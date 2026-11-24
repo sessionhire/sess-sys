@@ -213,10 +213,17 @@ function ApplicationCard({ a, mayDecide, emails }: { a: ApplicationView; mayDeci
         </p>
       )}
       <GoesSoon appliedAt={a.appliedAt} />
+      {a.paymentChanged && (
+        // One email is one application, and only the email has to match for a later one to replace it (user flows of
+        // 24 November 2026, gap 9): other bank details than the first time are said, as a change on their own page is.
+        <p className="warn-line" role="note">
+          Sent again with different payment details from the first time. Before paying them, ring on a number you trust to check they’re theirs.
+        </p>
+      )}
       <dl className="facts">
         <div>
           <dt>Applied</dt>
-          <dd>{when(a.appliedAt)}</dd>
+          <dd>{a.firstAppliedAt ? `Sent again ${when(a.appliedAt)}, replacing one from ${when(a.firstAppliedAt)}` : when(a.appliedAt)}</dd>
         </div>
         <div>
           <dt>Department</dt>

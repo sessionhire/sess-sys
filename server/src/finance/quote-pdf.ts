@@ -250,6 +250,8 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   }
   fact('Date', letterDay(q.sentOn ?? today))
   fact('Valid until', letterDay(validUntil(q, today)))
+  // The client's own reference, given with their yes on their link (user flows of 24 November 2026, gap 13).
+  if (q.acceptedOnline?.ref) fact('Your reference', q.acceptedOnline.ref)
   y = Math.max(yFor, yJob, yWhen) + 18
 
   // The lines, grouped as on the page, under a shaded head that comes again at the top of each new page.

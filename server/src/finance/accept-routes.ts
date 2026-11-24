@@ -1,4 +1,4 @@
-import { ACCEPT_NAME_LENGTH, irishToday, STOPPED, validUntil, type Quote } from '@sh/shared'
+import { ACCEPT_NAME_LENGTH, ACCEPT_REF_LENGTH, irishToday, STOPPED, validUntil, type Quote } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
 import { describeDevice } from '../devices.ts'
@@ -98,8 +98,10 @@ export function registerAcceptRoutes(app: FastifyInstance, db: Db, { onChange, n
     const form = req.body instanceof URLSearchParams ? req.body : new URLSearchParams()
     const name = (form.get('name') ?? '').replace(/\s+/g, ' ').trim().slice(0, ACCEPT_NAME_LENGTH)
     const agreed = form.get('agree') === 'yes'
+    // Their own reference, a purchase order number as a rule (user flows of 24 November 2026, gap 13): theirs to give or not.
+    const ref = (form.get('ref') ?? '').replace(/\s+/g, ' ').trim().slice(0, ACCEPT_REF_LENGTH)
     const today = irishToday(now())
-    const typed = { name, agreed }
+    const typed = { name, agreed, ref }
     // Two letters at least, as a name is; the tick is the yes.
     if (name.replace(/[^\p{L}]/gu, '').length < 2) return show(req, reply, found.quote, { typed, wrong: 'name' }, 422)
     if (!agreed) return show(req, reply, found.quote, { typed, wrong: 'agree' }, 422)
@@ -113,7 +115,7 @@ export function registerAcceptRoutes(app: FastifyInstance, db: Db, { onChange, n
         const now = await getQuote(ctx.tx, quote.id, true)
         // Thrown, so the history's line goes back with it: nothing was accepted.
         if (!now || (await standingOf(ctx.tx, now, today, true)) !== 'open') throw new NotOpen()
-        await ctx.tx.query(`UPDATE quotes SET status = 'accepted', answered_on = $2, accepted_name = $3, accepted_at = now() WHERE id = $1`, [quote.id, today, name])
+        await ctx.tx.query(`UPDATE quotes SET status = 'accepted', answered_on = $2, accepted_name = $3, accepted_at = now(), accepted_ref = $4 WHERE id = $1`, [quote.id, today, name, ref || null])
         await emit(ctx, 'quote', quote.id, await getQuote(ctx.tx, quote.id))
         return true
       }

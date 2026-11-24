@@ -9,13 +9,14 @@ import {
   offRoadOn,
   serviceDue,
   vehicleRefusal,
+  vehicleName,
   vehicleUnknowns,
   type CheckReminder,
   type Vehicle,
   type VehicleBooking,
   type VehicleEntities,
 } from '../vehicles.ts'
-import { earliestCall, roadFor, warehouseFrom, type Road } from '../road.ts'
+import { earliestCall, roadFor, roadTimes, warehouseFrom, type Drive, type Road } from '../road.ts'
 import type { Pin } from '../jobs.ts'
 import type { CrewView, PersonView } from './crew-view.ts'
 import type { JobsView, JobView, PhaseView } from './jobs-view.ts'
@@ -256,4 +257,26 @@ export function vehiclesView(
     from,
     roadOf,
   }
+}
+
+/**
+ * What someone is down to drive from today on, soonest first, on jobs going ahead or pencilled in (user flows of
+ * 24 November 2026, gap 5): as their own page on the server lists them (server/src/vehicles/drives.ts), so Home › Me,
+ * their page in Crew and their link say one thing.
+ */
+export function drivesOf(vehicles: VehiclesView, personId: string, today: string): Drive[] {
+  return vehicles.bookings
+    .filter((b) => b.driverId === personId && b.hold !== 'none' && b.road.end >= today)
+    .map((b) => ({
+      id: b.id,
+      vehicle: b.vehicle ? vehicleName(b.vehicle) : 'A vehicle',
+      job: b.job?.name ?? 'A job',
+      jobId: b.projectId,
+      start: b.start,
+      end: b.end,
+      awayFrom: b.road.start,
+      awayTo: b.road.end,
+      times: roadTimes(b.road, b),
+      pencilled: b.hold !== 'held',
+    }))
 }

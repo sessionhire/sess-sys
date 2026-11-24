@@ -225,6 +225,22 @@ describe('applying to join the crew (ADR 0190)', () => {
     const feed = async () => (await db.query<{ data: string }>(`SELECT data::text FROM changes WHERE data IS NOT NULL`)).rows.map((r) => r.data).join(' ')
     expect(await feed()).not.toMatch(/1234567 ?fa|aibk|93115212/i)
 
+    // Sent again with the same payment details: said as sent again, with when the first came in, and nothing to ring about.
+    expect(await colly.record('application', a!.id)).not.toHaveProperty('firstAppliedAt')
+    await apply({ ...FILLED, ...PAY })
+    const same = (await colly.record('application', a!.id)) as { firstAppliedAt?: string; paymentChanged?: boolean; appliedAt: string }
+    expect(same.firstAppliedAt).toBeDefined()
+    expect(same.firstAppliedAt! <= same.appliedAt).toBe(true)
+    expect(same).not.toHaveProperty('paymentChanged')
+    // Sent again with another account: only the email has to match, so the card is told they differ (user flows of
+    // 24 November 2026, gap 9), never what changed, and it stays said however often it's sent after.
+    await apply({ ...FILLED, ...PAY, iban: 'IE70BOFI90001712345678' })
+    expect(await colly.record('application', a!.id)).toMatchObject({ paymentChanged: true, firstAppliedAt: same.firstAppliedAt })
+    await apply({ ...FILLED, ...PAY, iban: 'IE70BOFI90001712345678' })
+    expect(await colly.record('application', a!.id)).toMatchObject({ paymentChanged: true })
+    expect(await feed()).not.toMatch(/1234567 ?fa|aibk|bofi|93115212|90001712/i)
+    await apply({ ...FILLED, ...PAY })
+
     await colly.send('application.take', { id: a!.id, personId: 'aoife' })
     const ask = (full = false) => app.inject({ url: `/api/people/aoife/payment${full ? '?full=1' : ''}`, cookies: colly.cookies })
     expect((await ask()).json()).toMatchObject({

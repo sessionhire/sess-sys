@@ -28,6 +28,34 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.226.0',
+    date: '2026-11-24',
+    title: 'A client can give their PO number with their yes',
+    what: 'The client’s quote link now has an optional “Your PO number or reference” box beside their name. What they type is kept with their yes: the job’s Quote tab says “Accepted online by their name… Their reference: PO 4471”, and the printed quote and its PDF carry it as Your reference. Before, it came back as an email for the office to type in.',
+    prs: [435],
+  },
+  {
+    version: '1.225.1',
+    date: '2026-11-24',
+    title: 'Archiving a member of staff signs them out',
+    what: 'Archiving a member of staff now signs them out of the app on every phone and computer in the same step, and the line that says they were archived reminds you to suspend their Google account too. Before, archiving alone left their phone signed in, able to read jobs and crew phone numbers as ordinary crew.',
+    prs: [435],
+  },
+  {
+    version: '1.225.0',
+    date: '2026-11-24',
+    title: 'Payment details are said where the paying is done, and a re-sent application says so',
+    what: 'Money › Owed now carries one line under each freelancer waiting to be paid: “Payment details held”, “No payment details yet: ask for them”, or, in the warning colour, “Payment details changed on their own page 21 Nov: ring before paying”, which stays until a payment to them is marked paid after the change. Crew › Timesheets shows the warning too. When someone changes their payment details from their own link, directors and the office get it on the bell. An application sent again now says “Sent again Mon 24 Nov, replacing one from Fri 20 Nov”, and if its payment details differ from the first time the card says so and asks you to ring before paying. Only whether details are held and when they changed is shown in these places, never the details.',
+    prs: [435],
+  },
+  {
+    version: '1.224.0',
+    date: '2026-11-24',
+    title: 'Whoever drives a van is told, with when it leaves',
+    what: 'A drive now shows as its own row under Your bookings on Home › Me, on the person’s page in Crew and on their own link: “Driving Big Van” over the job, the days and when it leaves the warehouse and is back. It is there whether or not they are on a crew call for the job, so the driver of a dry hire delivery or an errand is told somewhere other than the bell. Your day counts a drive that is out today. The call sheet’s vehicle line now gives the times too: “Big Van: Aoife driving, leaves the warehouse about 06:15, back about 19:30”.',
+    prs: [435],
+  },
+  {
     version: '1.223.0',
     date: '2026-11-24',
     title: 'Someone taken on is carried forward, and an email to an applicant that didn’t go is said',

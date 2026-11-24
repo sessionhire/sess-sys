@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto'
-import { hasPaymentDetails, maskPaymentDetails, NO_PAYMENT_DETAILS, readPaymentDetails, type PaymentDetails, type PaymentDetailsShown } from '@sh/shared'
+import { hasPaymentDetails, maskPaymentDetails, NO_PAYMENT_DETAILS, readPaymentDetails, type PaymentDetails, type PaymentDetailsShown, type PaymentStanding } from '@sh/shared'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Db, Queryable } from '../db.ts'
 import { describeDevice } from '../devices.ts'
@@ -113,6 +113,9 @@ export async function keepPayment(tx: Queryable, personId: string, sealed: strin
   )
 }
 
+/** How `changed_by` ends when they changed them themselves, from their link: "Aoife Brennan on their own page". */
+export const OWN_PAGE = 'on their own page'
+
 const CANT_KEEP = "Payment details can't be kept on this copy of the app yet: it needs PAYMENT_DETAILS_KEY in the server's settings."
 
 export function registerPaymentRoutes(app: FastifyInstance, db: Db, opts: { keys: PaymentKeys; onChange?: () => void }) {
@@ -145,6 +148,14 @@ export function registerPaymentRoutes(app: FastifyInstance, db: Db, opts: { keys
       return { kept: true, details: full ? details : maskPaymentDetails(details), full, changedAt: row.changed_at.toISOString(), changedBy: row.changed_by }
     }
   )
+
+  // Where each person's stand, for the rows where paying is done (user flows of 24 November 2026, gap 8): whether any
+  // are held, when they changed and whether on their own page. Never the details, so nothing here needs unlocking.
+  app.get('/api/payment/standing', { config: { needs: 'money' } }, async (_req, reply): Promise<{ people: PaymentStanding[] }> => {
+    noStore(reply)
+    const { rows } = await db.reads.query<{ person_id: string; changed_at: Date; changed_by: string }>('SELECT person_id, changed_at, changed_by FROM payment_details')
+    return { people: rows.map((r) => ({ personId: r.person_id, changedAt: r.changed_at.toISOString(), own: r.changed_by.endsWith(OWN_PAGE) })) }
+  })
 
   app.put<{ Params: { id: string } }>('/api/people/:id/payment', { config: { needs: 'money' } }, async (req, reply): Promise<PaymentDetailsShown | void> => {
     noStore(reply)

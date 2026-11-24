@@ -3,7 +3,7 @@ import type { Queryable } from '../db.ts'
 
 /** Reading applications to join back as devices see them (ADR 0190). */
 
-export const APPLICATION = `id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, applied_at, payment_sealed IS NOT NULL AS payment_given`
+export const APPLICATION = `id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, applied_at, payment_sealed IS NOT NULL AS payment_given, first_applied_at, payment_changed`
 
 type Row = Record<string, any>
 
@@ -21,6 +21,8 @@ export const toApplication = (r: Row): Application => ({
   about: r.about,
   appliedAt: new Date(r.applied_at).toISOString(),
   ...(r.payment_given ? { paymentGiven: true } : {}),
+  ...(r.first_applied_at ? { firstAppliedAt: new Date(r.first_applied_at).toISOString() } : {}),
+  ...(r.payment_changed ? { paymentChanged: true } : {}),
 })
 
 export async function getApplication(q: Queryable, id: string, lock = false) {

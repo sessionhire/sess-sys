@@ -133,7 +133,8 @@
     "4ca0bfa8e733ad59",
     "c2a36ca15ce1e364",
     "244e106309d4b65d",
-    "7ed506324ce6c110"
+    "7ed506324ce6c110",
+    "2ec2a8f03fb97585"
   ],
   "vehicles_schema_version": [
     "3a7fd6aed7422f2e",
@@ -169,7 +170,8 @@
     "1fe229b0611c3f60",
     "2ae1a53418af9d86",
     "7a128bd35e427942",
-    "30b2c98c4330e350"
+    "30b2c98c4330e350",
+    "c64398a9a497c026"
   ],
   "erasure_schema_version": [
     "b7f0097eec410d25"

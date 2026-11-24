@@ -145,6 +145,8 @@ as whoever sent the quote.
 
 ### 5. Someone booked to drive a van isn't told
 
+**Fixed in 1.224.0** (24 November 2026).
+
 **Who:** staff crew and freelancers who drive. **Where:** Home › Me, a freelancer's page, the call sheet. **Seen.**
 
 I booked the Big Van on a job with Aoife driving. Her Home › Me listed her
@@ -215,6 +217,8 @@ yourself", with the link to her page, and counts in Admin › Status.
 
 ### 8. Payment details aren't where the paying is done, and a change isn't flagged
 
+**Fixed in 1.225.0** (24 November 2026). The warning stands until a payment to them is marked paid after the change; Timesheets carries only the warning, so a line on every row isn't noise.
+
 **Who:** the office and directors. **Where:** Money › Owed, Crew › Timesheets, a person's Details tab. **Read**, and the card seen.
 
 Bank details can now be given on the Apply page and changed by crew on
@@ -234,6 +238,8 @@ details held", "None yet: ask for them", or, in the warning colour,
 from a link goes on the bell of directors and the office.
 
 ### 9. An application sent again replaces the first, bank details and all, unchecked
+
+**Fixed in 1.225.0** (24 November 2026).
 
 **Who:** the office. **Where:** the Apply page, Crew › Applications. **Read.**
 
@@ -283,6 +289,8 @@ them, for the office to take down if they aren't wanted.
 
 ### 12. Archiving a member of staff doesn't sign them out
 
+**Fixed in 1.225.1** (24 November 2026).
+
 **Who:** directors. **Where:** a person's page. **Read.**
 
 Someone leaving now takes three separate steps that nothing connects:
@@ -298,6 +306,8 @@ in the same step, and the question says so and reminds whoever is doing it
 to suspend the Google account.
 
 ### 13. A client can only say yes online
+
+**Fixed in 1.226.0** (24 November 2026): the reference box. Turning down stays with email, as recommended.
 
 **Who:** the client. **Where:** the client's quote link. **Seen.**
 

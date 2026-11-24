@@ -262,6 +262,12 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
             <dt className="sheet-label">Valid until</dt>
             <dd>{letterDay(validUntil(q, today))}</dd>
           </div>
+          {q.acceptedOnline?.ref && (
+            <div>
+              <dt className="sheet-label">Your reference</dt>
+              <dd>{q.acceptedOnline.ref}</dd>
+            </div>
+          )}
         </dl>
       </section>
       <Lines lines={q.lines} />

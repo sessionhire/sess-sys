@@ -55,6 +55,16 @@ describe('payment details on their own page (ADR 0193)', () => {
     expect(card).toMatchObject({ kept: true, changedBy: 'Aoife Byrne on their own page' })
     expect(JSON.stringify(await colly.history())).toContain("Changed Aoife Byrne's payment details")
 
+    // Where the paying is done is told too (user flows of 24 November 2026, gap 8): that they're held, when they
+    // changed and that it was on their own page, never the details; and it's on the bell of a director, about her.
+    const standing = await app.inject({ url: '/api/payment/standing', cookies: colly.cookies })
+    expect(standing.json()).toEqual({ people: [{ personId: 'aoife', changedAt: card.changedAt, own: true }] })
+    expect(standing.body).not.toMatch(/1234567|AIBK|9311/)
+    const bell = (await app.inject({ url: '/api/notices', cookies: colly.cookies })).json() as { notices: { forYou?: string; why: string; about: { entity: string; id: string } }[] }
+    expect(bell.notices.filter((n) => n.forYou).map((n) => [n.forYou, n.why, n.about])).toEqual([
+      ['Aoife Byrne changed their payment details on their own page. Ring them before paying to a new account.', 'turn', { entity: 'person', id: 'aoife' }],
+    ])
+
     expect((await post('/payment/remove', {})).statusCode).toBe(303)
     expect((await db.query('SELECT 1 FROM payment_details')).rows).toEqual([])
   })
@@ -112,6 +122,12 @@ describe('signing a member of staff out everywhere (the breach plan)', () => {
     expect(res.json()).toEqual({ ended: 2 })
     for (const s of [phone, laptop]) expect((await app.inject({ url: '/api/me', cookies: s.cookies })).json().user ?? null).toBeNull()
     expect(JSON.stringify(await colly.history())).toContain('Signed Orla Kenny out of the app on every phone and computer (2 devices)')
+    // Archiving a member of staff signs them out in the same step (user flows of 24 November 2026, gap 12).
+    const back = await staff(app, db, 'Orla Kenny', IPHONE, 'orla-phone')
+    expect((await app.inject({ url: '/api/me', cookies: back.cookies })).json()).toMatchObject({ user: { email: 'orla@sessionhire.com' } })
+    expect(await colly.send('person.archive', { id: 'orla', archived: true })).toMatchObject({ status: 'applied' })
+    expect((await app.inject({ url: '/api/me', cookies: back.cookies })).json().user ?? null).toBeNull()
+    expect((await app.inject({ url: '/api/me', cookies: colly.cookies })).json()).toMatchObject({ user: { email: 'colly@sessionhire.com' } })
     // A freelancer has no sign-in to end.
     expect((await app.inject({ method: 'POST', url: '/api/people/aoife/sign-out', cookies: colly.cookies })).statusCode).toBe(422)
   })

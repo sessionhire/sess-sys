@@ -6,7 +6,7 @@ import { APPLICATION_IN_ACTION } from '../history-words.ts'
 import { emit, serverChange } from '../kernel.ts'
 import { officeFor } from '../office/store.ts'
 import { renderJoin, renderPrivacy, type JoinState } from './page.ts'
-import { sealPayment } from '../crew/payment.ts'
+import { openPayment, sealPayment } from '../crew/payment.ts'
 import { asksPpsn, emailsApplicants, getApplication, takesApplications } from './store.ts'
 
 /**
@@ -91,7 +91,7 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
     if (!read.ok) return page(reply, 'ask', { typed, errors: read.errors, issued: String(issued) }, 422)
     const a = read.application
     // One email is one application: the id of the one already in, if there is one, which this replaces.
-    const { rows: was } = await db.reads.query<{ id: string }>('SELECT id FROM applications WHERE lower(email) = $1', [a.email])
+    const { rows: was } = await db.reads.query<{ id: string; payment_sealed: string | null }>('SELECT id, payment_sealed FROM applications WHERE lower(email) = $1', [a.email])
     const again = was[0]?.id
     if (!again) {
       const { rows } = await db.reads.query<{ n: string }>('SELECT count(*) AS n FROM applications')
@@ -100,7 +100,12 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
     const id = again ?? newId()
     // Payment details locked before they're kept (ADR 0193), and never in what devices are sent.
     const sealed = opts.paymentKey && hasPaymentDetails(read.payment) ? sealPayment(opts.paymentKey, read.payment) : null
-    await keepApplication(db, a, id, !!again, sealed)
+    // Sent again with other payment details than the ones it replaces (user flows of 24 November 2026, gap 9): only the
+    // email has to match for one to replace another, so the card says so and the office rings before paying. Ones that
+    // can't be unlocked to compare count as different.
+    const before = was[0]?.payment_sealed && opts.paymentKey ? openPayment(opts.paymentKey, was[0].payment_sealed) : undefined
+    const differs = !!again && (was[0]?.payment_sealed ? !before || (['ppsn', 'vatNumber', 'accountName', 'iban', 'bic'] as const).some((f) => (before[f] ?? '') !== (read.payment[f] ?? '')) : false)
+    await keepApplication(db, a, id, !!again, sealed, differs)
     // The office's devices hear of it at once.
     opts.onChange?.()
     return reply.redirect('/join/thanks', 303)
@@ -121,16 +126,17 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
  * An application kept, or the one with its email replaced: in the history as the server's own change, by nobody signed
  * in, with only the id kept there.
  */
-export async function keepApplication(db: Db, a: Omit<Application, 'id' | 'appliedAt'>, id: string, again = false, paymentSealed: string | null = null) {
+export async function keepApplication(db: Db, a: Omit<Application, 'id' | 'appliedAt'>, id: string, again = false, paymentSealed: string | null = null, paymentDiffers = false) {
   await serverChange(db, { name: APPLICATION_IN_ACTION, args: { id, ...(again ? { again: true } : {}) } }, async (ctx) => {
     const { rows } = await ctx.tx.query<{ id: string }>(
       `INSERT INTO applications (id, first_name, last_name, email, phone, department, skills, day_rate_cents, trades_as, based_in, about, payment_sealed, applied_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
        ON CONFLICT (lower(email)) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, email = EXCLUDED.email, phone = EXCLUDED.phone,
          department = EXCLUDED.department, skills = EXCLUDED.skills, day_rate_cents = EXCLUDED.day_rate_cents, trades_as = EXCLUDED.trades_as,
-         based_in = EXCLUDED.based_in, about = EXCLUDED.about, payment_sealed = EXCLUDED.payment_sealed, applied_at = now()
+         based_in = EXCLUDED.based_in, about = EXCLUDED.about, payment_sealed = EXCLUDED.payment_sealed, applied_at = now(),
+         first_applied_at = COALESCE(applications.first_applied_at, applications.applied_at), payment_changed = applications.payment_changed OR $13
        RETURNING id`,
-      [id, a.firstName, a.lastName, a.email, a.phone, a.department, JSON.stringify(a.skills), a.dayRateCents, a.tradesAs, a.basedIn, a.about, paymentSealed]
+      [id, a.firstName, a.lastName, a.email, a.phone, a.department, JSON.stringify(a.skills), a.dayRateCents, a.tradesAs, a.basedIn, a.about, paymentSealed, paymentDiffers]
     )
     const got = await getApplication(ctx.tx, rows[0]!.id)
     if (got) await emit(ctx, 'application', got.id, got)

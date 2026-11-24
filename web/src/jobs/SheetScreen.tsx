@@ -9,6 +9,7 @@ import {
   lateDayWord,
   lateLine,
   sheetMessage,
+  roadTimes,
   vanLine,
   vehicleName,
   type CallSheet,
@@ -65,7 +66,11 @@ export function sheetInput(view: View, job: JobView, phase: PhaseView): SheetInp
     vans: view.vehicles
       .ofJob(job.id)
       .filter((b) => b.phaseId === null || b.phaseId === phase.id)
-      .map((b) => ({ name: b.vehicle ? vehicleName(b.vehicle) : 'A vehicle', start: b.start, end: b.end, driver: b.driver?.name ?? null, notes: b.notes })),
+      .map((b) => {
+        // When it leaves and is back, as the Transport tab says it (user flows of 24 November 2026, gap 5).
+        const times = roadTimes(b.road, b)
+        return { name: b.vehicle ? vehicleName(b.vehicle) : 'A vehicle', start: b.start, end: b.end, driver: b.driver?.name ?? null, notes: b.notes, ...(times ? { times } : {}) }
+      }),
   }
 }
 

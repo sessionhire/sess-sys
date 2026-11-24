@@ -72,8 +72,8 @@ export async function vehiclesOnPhase(q: Queryable, phaseId: string): Promise<st
 
 /** A phase's own vehicles and the whole job's, for its call sheet, with who drives. */
 export async function vehiclesFor(q: Queryable, projectId: string, phaseId: string | null) {
-  const { rows } = await q.query<{ name: string; registration: string; start_day: string; end_day: string; driver: string | null; notes: string }>(
-    `SELECT v.name, v.registration, b.start_day::text, b.end_day::text, d.name AS driver, b.notes
+  const { rows } = await q.query<Row & { name: string; registration: string; start_day: string; end_day: string; driver: string | null; notes: string }>(
+    `SELECT v.name, v.registration, d.name AS driver, b.id, b.vehicle_id, b.project_id, b.phase_id, b.start_day::text, b.end_day::text, b.driver_id, b.notes, b.override, b.drive_minutes, b.arrive_by, b.leave_at
        FROM vehicle_bookings b JOIN vehicles v ON v.id = b.vehicle_id LEFT JOIN people d ON d.id = b.driver_id
       WHERE b.project_id = $1 AND (b.phase_id IS NULL OR b.phase_id = $2)
       ORDER BY b.start_day, v.name, b.id`,

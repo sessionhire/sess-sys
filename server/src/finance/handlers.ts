@@ -241,7 +241,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (a.answer === 'none') {
       if (q.status !== 'accepted' && q.status !== 'declined') return
       // A yes given online (ADR 0121) goes with it, so the link asks again.
-      await ctx.tx.query(`UPDATE quotes SET status = 'sent', answered_on = NULL, declined_why = NULL, declined_note = '', accepted_name = NULL, accepted_at = NULL WHERE id = $1`, [a.id])
+      await ctx.tx.query(`UPDATE quotes SET status = 'sent', answered_on = NULL, declined_why = NULL, declined_note = '', accepted_name = NULL, accepted_at = NULL, accepted_ref = NULL WHERE id = $1`, [a.id])
       return emitQuote(ctx, a.id)
     }
     // Why it was turned down is kept with a "turned down" only, and a quick "no" says nothing of why.
@@ -251,7 +251,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     await refuseIfReplaced(ctx, q)
     if (q.status === 'draft' && q.lines.length === 0) throw new Refused({ code: 'invalid', message: 'This quote has no lines yet. Add what it is for first.' })
     await ctx.tx.query(`UPDATE quotes SET status = $2, answered_on = $3, sent_on = coalesce(sent_on, $3), declined_why = $4, declined_note = $5,
-       accepted_name = CASE WHEN $2 = 'accepted' THEN accepted_name END, accepted_at = CASE WHEN $2 = 'accepted' THEN accepted_at END WHERE id = $1`, [
+       accepted_name = CASE WHEN $2 = 'accepted' THEN accepted_name END, accepted_at = CASE WHEN $2 = 'accepted' THEN accepted_at END,
+       accepted_ref = CASE WHEN $2 = 'accepted' THEN accepted_ref END WHERE id = $1`, [
       a.id,
       a.answer,
       a.on,

@@ -60,6 +60,8 @@ export interface SheetVan {
   name: string
   start: string
   end: string
+  /** "leaves the warehouse about 06:15, back about 19:30" (roadTimes), where the planner has worked it out. */
+  times?: string
   driver: string | null
   notes: string
 }
@@ -145,7 +147,7 @@ export interface CallSheet {
    * is driving is what the crew need to know to get there. Only when there
    * are some.
    */
-  vans?: { name: string; days?: string; driver: string | null; notes: string }[]
+  vans?: { name: string; days?: string; driver: string | null; notes: string; times?: string }[]
 }
 
 const SHOWN: Record<SheetReader, readonly OfferStatus[]> = {
@@ -248,6 +250,7 @@ export function callSheet(input: SheetInput, reader: SheetReader): CallSheet {
       ...(v.days.length !== days.length ? { days: daysLabel(v.days) } : {}),
       driver: v.driver,
       notes: v.notes.trim(),
+      ...(v.times ? { times: v.times } : {}),
     }))
   const late = new Map(views.flatMap((c) => c.crew.filter((p) => p.late).map((p) => [p.personId, { name: p.name, phone: p.phone ?? null, line: p.late! }])))
   if (late.size) sheet.late = [...late.values()].sort((a, b) => a.name.localeCompare(b.name, 'en-IE'))
@@ -302,9 +305,13 @@ export function callSheetText(s: CallSheet): string {
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
-/** "Big Van (221-D-12345), Sat 3 Oct: Cian Murphy driving", as the sheet and its copy say it. */
+/**
+ * "Big Van (221-D-12345), Sat 3 Oct: Cian Murphy driving, leaves the warehouse about 06:15, back about 19:30", as the
+ * sheet and its copy say it: the times are what a driver, and anyone after a lift, plans their morning by (user flows
+ * of 24 November 2026, gap 5).
+ */
 export function vanLine(v: NonNullable<CallSheet['vans']>[number]): string {
-  return `${v.name}${v.days ? `, ${v.days}` : ''}: ${v.driver ? `${v.driver} driving` : 'driver to be confirmed'}${v.notes ? `. ${v.notes}` : ''}`
+  return `${v.name}${v.days ? `, ${v.days}` : ''}: ${v.driver ? `${v.driver} driving` : 'driver to be confirmed'}${v.times ? `, ${v.times}` : ''}${v.notes ? `. ${v.notes}` : ''}`
 }
 
 /** Sending someone the sheet on their private link, by WhatsApp, text or email. */

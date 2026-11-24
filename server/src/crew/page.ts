@@ -1,6 +1,7 @@
 import { APPLICANT_LEVEL, LOGO_SVG, DIAL_CODES, phoneShown, splitPhone, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
+import { driveFacts, driveTitle, type Drive } from '@sh/shared'
 import { dsColor, dsSize, dsSpace, dsText, newId, ownColours, sparks, type PaymentDetails, type PaymentField } from '@sh/shared'
 import { FONT_FACES, FONT_STACK } from './fonts.ts'
 import { busyByDay, ENDED_WORDS, HOLD_WORDS, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, type OwnCalendar, type SinceYes } from '@sh/shared'
@@ -166,6 +167,8 @@ export interface PageData {
   asking?: TimesheetAsking
   /** The office's phone and email, once set. */
   office?: OfficeDetails | null
+  /** What they're down to drive from today on (user flows of 24 November 2026, gap 5), whether or not they're on a call on the job. */
+  drives?: readonly Drive[]
   /** Bookings on today, or tomorrow from 6pm, for "Running late?" (ADR 0028). */
   onTheDay?: OnTheDay[]
   /** "Your documents" (ADR 0029), drawn by server/src/documents/page.ts. */
@@ -541,6 +544,22 @@ const asBooking: BookingOf<PageData['jobs'][number]> = (j) => [j.offer, j.call]
 function newHere(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']): string {
   if (d.person.level !== APPLICANT_LEVEL || d.person.kind !== 'freelancer' || waiting.length || booked.length) return ''
   return `<p class="flash ok" role="note">You're on our crew list. We'll offer you work here, and you say yes or no on this page. Adding your certificates, days off and how you'd like to be paid, further down, helps us pick you.</p>`
+}
+
+/**
+ * What they're down to drive (user flows of 24 November 2026, gap 5): a row each under Your bookings, with the van, the
+ * job, the days and when it leaves the warehouse, so a driver with no crew call on the job (every dry hire delivery, most
+ * errands) is told somewhere other than a bell. One that's away today says so.
+ */
+function drives(d: PageData): string {
+  const list = d.drives ?? []
+  if (!list.length) return ''
+  return `<ul class="drives" aria-label="Driving">${list
+    .map((v) => {
+      const today = v.awayFrom <= d.today && d.today <= v.awayTo
+      return `<li><b>${h(driveTitle(v))}</b>${today ? ' <span class="tag confirmed">Today</span>' : ''}<span class="line">${driveFacts(v, d.today).map(h).join(FACT_GAP)}</span></li>`
+    })
+    .join('')}</ul>`
 }
 
 function glance(d: PageData, waiting: PageData['jobs'], booked: PageData['jobs']): string {
@@ -1061,7 +1080,8 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   <section id="bookings">
     <h2>Your bookings</h2>
     ${bookings(d, booked, ending)}
-    ${booked.length ? '' : '<p class="empty">No upcoming bookings.</p>'}
+    ${drives(d)}
+    ${booked.length || d.drives?.length ? '' : '<p class="empty">No upcoming bookings.</p>'}
     ${feedBlock(d.feed)}
   </section>
 
@@ -1233,6 +1253,7 @@ details.later summary{color:var(--ink);font-size:${dsText.touch.body.size}px;pad
 details.later :is(.pull-out,.decline) summary{color:var(--bad)}
 /* A folded row as the app draws one: the job, then role · phase · days · call under it, then where it stands. */
 details.later summary .line{display:block;margin-top:2px;color:var(--muted);font-size:${dsText.touch.body.size}px;text-wrap:pretty}.me summary .line{display:block;margin-top:2px;color:var(--muted);font-size:${dsText.touch.body.size}px;text-wrap:pretty}.since-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.since-list a{display:block;padding:12px;border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;background:var(--panel);color:var(--ink);text-decoration:none}.feed-fold{margin-top:12px}
+.drives{list-style:none;margin:0;padding:0;display:grid;gap:8px}.drives li{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.drives .line{display:block;margin-top:2px;color:var(--muted);text-wrap:pretty}.drives .tag{margin-left:4px}
 .glance a{color:inherit}
 .feed{display:grid;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}.feed input{color:var(--muted)}
 .feed-buttons{display:flex;gap:8px}.feed-buttons>*{flex:1}.feed-buttons .copy[hidden]{display:none}
