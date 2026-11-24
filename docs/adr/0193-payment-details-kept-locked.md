@@ -22,8 +22,12 @@ kept, safely, for when it does.
   way its issuer checks it: a PPS number by its check letter, an IBAN by its check digits, a BIC by its shape. A name
   needs an IBAN with it and the other way round. A mistake is said under the field, as every other one on the page.
 - **Kept locked, never sent to devices.** They are sealed on the server with AES-256-GCM, under a key worked out from
-  `PAYMENT_DETAILS_KEY`, or from the Google client secret until that is set. Both live only in the server's settings, so
-  a copy of the database or a backup holds only the locked text. They go nowhere in the change feed. An application
+  `PAYMENT_DETAILS_KEY`, a random text of at least 32 characters that lives only in the server's settings, so a copy of
+  the database or a backup holds only the locked text. (Until 1.218.1 the Google client secret stood in when it wasn't
+  set; it is now only tried to unlock, so one secret leaking doesn't open both sign-in and payment details.)
+- **The key can be changed** (24 November 2026, after a security check Colly asked for): the old one goes in
+  `PAYMENT_DETAILS_KEY_OLD`; on starting, the server locks everything the old one locked, kept or still on an
+  application, again with the new one, and logs how many. Once that's in the log, the old one can go. They go nowhere in the change feed. An application
   says only that they were given (`paymentGiven`).
 - **Read only by those who see money** (directors and the office, the `money` ability), on the person's Details tab, in
   a Payment details card that asks the server each time and so needs signal. They come masked (the PPS number's last
@@ -33,6 +37,9 @@ kept, safely, for when it does.
 - **They move with the person**: taken on from an application, they go to the new person, marked as given by the Apply
   page. Combining people keeps the kept person's, or brings the newest of the others' when the kept one had none.
   Erasing someone on request deletes theirs at once.
+- **Told before they're given** (GDPR article 13): the Apply page has "How we look after your details": who keeps them
+  and how to reach them, why (including telling Revenue what was paid), who sees them, that they're in the EU, how long
+  they're kept, and the right to see, correct or delete them and to complain to the Data Protection Commission.
 - **Without a key, none are asked or kept**: the Apply page leaves the section out and the card says why. With sign-in
   off (the tests and trials) a stand-in key is used, as anyone who can reach that copy is in anyway.
 - **Not used yet.** Nothing reads them to pay anyone until invoicing is decided.
@@ -58,7 +65,7 @@ they submit that they will be emailed. Please also in that email allow them to l
 
 ## Consequences
 
-- If the Google client secret is changed before `PAYMENT_DETAILS_KEY` is set, details kept until then can't be unlocked
-  and have to be asked for again. Setting `PAYMENT_DETAILS_KEY` once (any long random text) avoids this; changing it
-  later has the same effect.
+- Until `PAYMENT_DETAILS_KEY` is set on the live server, the Apply page doesn't ask for payment details and the card
+  can't add any. Losing the key (rather than changing it as above) loses every detail it locked: keep a copy somewhere
+  safe outside the app, such as the company's password manager.
 - A freelancer can't yet give or change their own on their page: they tell the office, which changes them on the card.

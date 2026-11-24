@@ -204,7 +204,12 @@ describe('applying to join the crew (ADR 0190)', () => {
 
     const { app, db, colly, apply, waiting } = await setUp({ paymentKey: 'a test key' })
     await colly.send('applications.use', { on: true })
-    expect((await app.inject({ url: '/join' })).body).toContain('For paying you (optional)')
+    const asking = (await app.inject({ url: '/join' })).body
+    expect(asking).toContain('For paying you (optional)')
+    // What the law asks they be told as their details are taken (GDPR article 13), payment details included.
+    expect(asking).toContain('How we look after your details')
+    expect(asking).toContain('tell Revenue what we paid you')
+    expect(asking).toContain('https://www.dataprotection.ie')
     const PAY = { ppsn: '1234567 fa', vatNumber: '', accountName: 'Aoife Ní Bhriain', iban: 'IE29 AIBK 9311 5212 3456 78', bic: 'aibkie2d' }
     // Each wrong one is said under it, and nothing is kept.
     const wrong = await apply({ ...FILLED, ...PAY, ppsn: '1234567X', iban: 'IE29 AIBK 9311 5212 3456 79' })

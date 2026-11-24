@@ -131,10 +131,12 @@ export interface AppOptions {
   /** Staff sign-in. Without it the API is open to anyone who can reach it, which is only for tests and trials. */
   auth?: AuthConfig
   /**
-   * Locks people's payment details (ADR 0193): PAYMENT_DETAILS_KEY, or the Google client secret. Without it, with sign-in
-   * on, none can be kept; with sign-in off, a stand-in that is no secret, as anyone who can reach the copy is in anyway.
+   * Locks people's payment details (ADR 0193): PAYMENT_DETAILS_KEY. Without it, with sign-in on, none are asked for or
+   * kept; with sign-in off, a stand-in that is no secret, as anyone who can reach the copy is in anyway.
    */
   paymentKey?: string
+  /** Keys that locked them before (PAYMENT_DETAILS_KEY_OLD, and the Google client secret that stood in before 1.219.0): unlock only. */
+  paymentOldKeys?: readonly string[]
   /** A shared passcode for a demo copy (DEMO_PASSCODE); only used while Google sign-in is off. */
   passcode?: string
   /** Where nightly backups go (ADR 0004). Without it there are none. */
@@ -750,7 +752,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // The public Apply page (ADR 0190): anyone can apply to join the crew, while the office has it on.
   const paymentKey = options.paymentKey || (auth ? undefined : OPEN_PAYMENT_KEY)
   registerJoin(app, db, { onChange: () => void poke(), paymentKey })
-  registerPaymentRoutes(app, db, { key: paymentKey })
+  registerPaymentRoutes(app, db, { keys: { current: paymentKey, old: options.paymentOldKeys } })
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   // The label printer over the internet (ADR 0191): the ZT411 connects out to the app with Zebra's WebLink.
   registerPrinterRoutes(app, { db, log: app.log, ...options.printer })
