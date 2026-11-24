@@ -1,10 +1,11 @@
-import { LOGO_SVG, phoneShown, callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
+import { LOGO_SVG, phoneShown, callSheet, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, roadTimes, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { getClient, getPhase, getProject, getVenue } from '../projects/store.ts'
 import { lateOnOffers } from './late.ts'
 import { CSS, officeBlock } from './page.ts'
 import { getCall, getPerson, offersForCall, openCallsFor } from './store.ts'
-import { vehiclesFor } from '../vehicles/store.ts'
+import { toBooking, vehiclesFor } from '../vehicles/store.ts'
+import { roadOf } from '../vehicles/drives.ts'
 
 /**
  * A call sheet on a person's private link, /f/<token>/sheet/<call> (ADR
@@ -57,7 +58,14 @@ export async function sheetFor(q: Queryable, personId: string, callId: string): 
       late: late.map((l) => ({ personId: l.personId, line: l.day === today ? lateLine(l) : `${lateLine(l)} (${lateDayWord(l.day, today)})` })),
       // Who's driving what (ADR 0047), for everyone on it: how they get there, and who to ask about a lift.
       vans: project
-        ? (await vehiclesFor(q, project.id, phase?.id ?? null)).map((v) => ({ name: vehicleName(v), start: v.start_day, end: v.end_day, driver: v.driver, notes: v.notes }))
+        ? await Promise.all(
+            (await vehiclesFor(q, project.id, phase?.id ?? null)).map(async (v) => {
+              // When it leaves and is back, as the planner works it out (user flows of 24 November 2026, gap 5).
+              const booking = toBooking(v)
+              const times = roadTimes(await roadOf(q, booking), booking)
+              return { name: vehicleName(v), start: v.start_day, end: v.end_day, driver: v.driver, notes: v.notes, ...(times ? { times } : {}) }
+            })
+          )
         : [],
     },
     reader

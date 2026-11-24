@@ -205,6 +205,29 @@ describe('a call sheet on a private link', () => {
     expect(card(await read(`/f/${fionn}`), 'o4')).not.toContain('<p class="hold-line">')
   })
 
+  it('says when a van leaves and is back on the sheet, and lists a drive on its driver\'s own page, on a call or not', async () => {
+    const { app, token } = await festival()
+    // Grace drives and is on no call: a van and a driver, as a delivery or an errand is.
+    await ok(
+      app,
+      person('grace', 'Grace Daly', '+44 7700 900106'),
+      m('venue.pin', { id: 'riverside', pin: { lat: 52.6638, lng: -8.6267 } }),
+      m('vehicle.save', { id: 'van', name: 'Big Van', registration: '221-D-12345', kind: 'van', seats: 3, payloadKg: 1200, notes: '', checks: {} }),
+      m('vehicleBooking.add', { id: 'b1', vehicleId: 'van', projectId: 'harbour', phaseId: 'show', start: '2031-06-06', end: '2031-06-07', driverId: 'grace', notes: '', override: false, leaveAt: '23:30' })
+    )
+    // Due for the crew's earliest call, 10:00, with the drive from the map; back the drive after 23:30, so after midnight.
+    const sheet = (await page(app, `/f/${await token('dara')}/sheet/sound`)).html
+    expect(sheet).toMatch(/<li>Big Van \(221-D-12345\): Grace Daly driving, leaves the warehouse about 0\d:\d\d, back about 0\d:\d\d Sun 8 Jun<\/li>/)
+
+    const graces = (await page(app, `/f/${await token('grace')}`)).html
+    expect(graces).toMatch(/<ul class="drives" aria-label="Driving"><li><b>Driving Big Van \(221-D-12345\)<\/b><span class="line">Harbour Lights Festival\u00a0· Fri 6 Jun 2031 to Sat 7 Jun 2031\u00a0· leaves the warehouse about 0\d:\d\d, back about 0\d:\d\d Sun 8 Jun<\/span><\/li><\/ul>/)
+    expect(graces).not.toContain('No upcoming bookings.')
+    // Nobody else's page lists it, and a job that isn't going ahead drops it.
+    expect((await page(app, `/f/${await token('dara')}`)).html).not.toContain('class="drives"')
+    await ok(app, m('project.update', { id: 'harbour', status: 'cancelled' }))
+    expect((await page(app, `/f/${await token('grace')}`)).html).not.toContain('class="drives"')
+  })
+
   it('has a contact on the day only from the people in the app, and says so in the history', async () => {
     const { app } = await festival()
     const [refused] = await send(app, m('phase.update', { id: 'show', contactId: 'nobody' }))

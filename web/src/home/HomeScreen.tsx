@@ -1,5 +1,7 @@
 import { bouncedEmail, hireHandover, canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
 import { lookAgain, moreSince, sinceLabel, stillInBack, type Looks } from '@sh/shared'
+import { drivesOf, type Drive } from '@sh/shared'
+import { DriveRows } from '../crew/DriveRows.tsx'
 import { glanceParts, HOLDING, OFFER_WORDS, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asBooking, BookingRow, stoppedBookings } from '../crew/BookingRow.tsx'
@@ -815,10 +817,12 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
   const approver = canApproveLeave(me)
   const copying = useCopying()
   const weeks = myWeeks(view.crew.calls, me.id, today, 8, (c) => holdTheDay(c.projectId))
+  // What they're down to drive, whether or not they're on a call on the job (user flows of 24 November 2026, gap 5).
+  const drives = drivesOf(view.vehicles, me.id, today)
   return (
     <>
       {/* Today first, where a person looks first; leave after (audit, 5 November 2026, finding 97). */}
-      <YourDay view={view} today={today} me={me} mine={booked} />
+      <YourDay view={view} today={today} me={me} mine={booked} drives={drives.filter((d) => d.awayFrom <= today && today <= d.awayTo)} />
       <section className="card">
         {/* One name and one row for them on Home › Me, their own page and their link (UX sweep, 6 November 2026, move 6); booked and only
             accepted said apart, as on their own page (audit, 20 October 2026, finding 36): an accepted day can still go to someone else.
@@ -827,7 +831,7 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
         {copying ? (
           <p className="empty">{STILL_ARRIVING}</p>
         ) : mine.length === 0 ? (
-          <Empty>No bookings coming up.</Empty>
+          drives.length === 0 && <Empty>No bookings coming up.</Empty>
         ) : (
           <>
             <MyGlance offers={offered.length} next={nextBooking(booked, today, asBooking)} link={link} today={today} />
@@ -842,6 +846,7 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
             </ul>
           </>
         )}
+        {!copying && <DriveRows drives={drives} today={today} />}
       </section>
       {/* Only with something in it: an empty chart said nothing Your bookings hadn't (finding 97). */}
       {weeks.some((w) => w.parts.some((n) => n > 0)) && (
@@ -877,17 +882,17 @@ function ForMe({ view, today, me, onPick }: { view: View; today: string; me: Per
  * company's Today, whose jobs they may not be on (ADR 0033 §1: my bookings,
  * my leave).
  */
-function YourDay({ view, today, me, mine }: { view: View; today: string; me: PersonView; mine: readonly { c: View['crew']['calls'][number]; o: View['crew']['calls'][number]['offers'][number] }[] }) {
+function YourDay({ view, today, me, mine, drives }: { view: View; today: string; me: PersonView; mine: readonly { c: View['crew']['calls'][number]; o: View['crew']['calls'][number]['offers'][number] }[]; drives: readonly Drive[] }) {
   const copying = useCopying()
   const booked = mine.filter(({ o }) => o.status === 'confirmed')
   const on = booked.filter(({ o }) => o.days.includes(today))
   const away = view.crew.unavailability.find((u) => u.personId === me.id && u.start <= today && u.end >= today)
   return (
     <section className="card your-day">
-      <Heading icon="time">Your day{on.length > 0 && !copying ? ` (${on.length})` : ''}</Heading>
+      <Heading icon="time">Your day{on.length + drives.length > 0 && !copying ? ` (${on.length + drives.length})` : ''}</Heading>
       {copying ? (
         <p className="empty">{STILL_ARRIVING}</p>
-      ) : on.length === 0 ? (
+      ) : on.length === 0 && drives.length > 0 ? null : on.length === 0 ? (
         <p className="empty">
           {/* What's next is in the glance line over Your bookings, with its call time. */}
           {away ? (away.source === 'leave' ? 'On leave today.' : `Away today${away.note ? `: ${away.note}` : ''}.`) : 'Nothing on today.'}
@@ -911,6 +916,7 @@ function YourDay({ view, today, me, mine }: { view: View; today: string; me: Per
           ))}
         </ul>
       )}
+      {!copying && <DriveRows drives={drives} today={today} label="Driving today" />}
     </section>
   )
 }

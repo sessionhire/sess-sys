@@ -145,6 +145,8 @@ as whoever sent the quote.
 
 ### 5. Someone booked to drive a van isn't told
 
+**Fixed in 1.224.0** (24 November 2026).
+
 **Who:** staff crew and freelancers who drive. **Where:** Home › Me, a freelancer's page, the call sheet. **Seen.**
 
 I booked the Big Van on a job with Aoife driving. Her Home › Me listed her

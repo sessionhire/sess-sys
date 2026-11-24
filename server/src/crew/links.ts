@@ -1,4 +1,5 @@
 import { commandSchemas, eachDay, EURO_HINT, sinceYes, type SinceYes, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
+import { drivesFor } from '../vehicles/drives.ts'
 import { FILE_TOO_BIG, hasPaymentDetails, maskPaymentDetails, NO_FILE, phoneWithCountry, readPaymentDetails, WEB_FILE, WRONG_FILE, type PaymentDetails, type PaymentField } from '@sh/shared'
 import { asksPpsn } from '../applications/store.ts'
 import { PAYMENT_DETAILS_ACTION } from '../history-words.ts'
@@ -304,6 +305,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       })()),
       office: await officeFor(db),
       onTheDay,
+      drives: await drivesFor(db, person.id, now),
       demo,
       ownCalendar: await getOwnCalendar(db, person.id),
       // Crew invites on (ADR 0009) and an address to send them to: the page says who they come from, and what to do when Google holds the

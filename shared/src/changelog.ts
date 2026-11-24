@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.224.0',
+    date: '2026-11-24',
+    title: 'Whoever drives a van is told, with when it leaves',
+    what: 'A drive now shows as its own row under Your bookings on Home › Me, on the person’s page in Crew and on their own link: “Driving Big Van” over the job, the days and when it leaves the warehouse and is back. It is there whether or not they are on a crew call for the job, so the driver of a dry hire delivery or an errand is told somewhere other than the bell. Your day counts a drive that is out today. The call sheet’s vehicle line now gives the times too: “Big Van: Aoife driving, leaves the warehouse about 06:15, back about 19:30”.',
+    prs: [435],
+  },
+  {
     version: '1.223.0',
     date: '2026-11-24',
     title: 'Someone taken on is carried forward, and an email to an applicant that didn’t go is said',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deliveredTo, hireHandover, oneLine, DUBLIN_CENTRE, driveMinutesFor, driveWords, earliestCall, roadFor, roadKm, roadWords, warehouseFrom } from '../src/index.ts'
+import { deliveredTo, hireHandover, oneLine, DUBLIN_CENTRE, driveMinutesFor, driveWords, earliestCall, roadFor, roadKm, roadTimes, roadWords, driveFacts, driveTitle, vanLine, warehouseFrom } from '../src/index.ts'
 
 /** A van out on the road (ADR 0179): the drive from the map, typed over it, and when it leaves and is back. */
 
@@ -86,4 +86,22 @@ describe('the road a booking takes', () => {
     expect(earliestCall(calls, 'j', null, '2031-03-04')).toBe('07:00')
     expect(earliestCall(calls, 'j', 'p', '2031-03-06')).toBeNull()
   })
+
+  it('says when it leaves and is back in a short line, with the day only where it is not the booking’s own', () => {
+    const b = { start: '2031-03-04', end: '2031-03-04' }
+    expect(roadTimes(roadFor({ ...b, arriveBy: '08:00', leaveAt: '17:00' }, at), b)).toBe('leaves the warehouse about 05:15, back about 19:45')
+    expect(roadTimes(roadFor({ ...b, arriveBy: '02:00', leaveAt: '23:30' }, at), b)).toBe('leaves the warehouse about 23:15 Mon 3 Mar, back about 02:15 Wed 5 Mar')
+    const two = { start: '2031-03-04', end: '2031-03-05' }
+    expect(roadTimes(roadFor({ ...two, arriveBy: '08:00', leaveAt: '17:00' }, at), two)).toBe('leaves the warehouse about 05:15, back about 19:45 Wed 5 Mar')
+    expect(roadTimes(roadFor({ ...b, arriveBy: '08:00' }, at), b)).toBe('leaves the warehouse about 05:15')
+    expect(roadTimes(roadFor(b, at), b)).toBe('')
+  })
+
+  it('heads a driver’s own row with the van and lists the job, the days and the times', () => {
+    const d = { id: 'b', vehicle: 'Big Van (221-D-12345)', job: 'RV dry hire', jobId: 'j', start: '2031-03-04', end: '2031-03-04', awayFrom: '2031-03-04', awayTo: '2031-03-04', times: 'leaves the warehouse about 06:15', pencilled: true }
+    expect(driveTitle(d)).toBe('Driving Big Van (221-D-12345)')
+    expect(driveFacts(d)).toEqual(['RV dry hire', 'Tue 4 Mar', 'leaves the warehouse about 06:15', 'pencilled in'])
+    expect(vanLine({ name: 'Big Van', driver: 'Aoife', notes: 'Fuel it', times: d.times })).toBe('Big Van: Aoife driving, leaves the warehouse about 06:15. Fuel it')
+  })
+
 })
