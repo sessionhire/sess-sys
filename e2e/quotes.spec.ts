@@ -402,6 +402,8 @@ test('the office quotes a job, records the answer and the invoice, and sees who 
   await office.getByRole('tab', { name: 'Owed' }).click()
   const freelancers = office.getByRole('region', { name: 'Owed to freelancers' })
   await expect(freelancers).toContainText('Tadhg Brady')
+  // Where the paying is done says where his payment details stand (user flows of 24 November 2026, gap 8), and opens his Details.
+  await expect(freelancers.getByRole('link', { name: 'No payment details yet: ask for them' }).first()).toHaveAttribute('href', /^#crew\/person\/.+\/details$/)
   await freelancers.getByRole('button', { name: /^Mark Tadhg Brady paid/ }).click()
   await expect(freelancers.getByRole('group', { name: 'Paid lately' })).toContainText('Tadhg Brady')
 

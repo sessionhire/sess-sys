@@ -283,3 +283,7 @@ body:has(.foot-dock:not(:empty)) { padding-bottom: calc(68px + 112px + env(safe-
 .crew .not-vetted li { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: var(--ds-space-3); }
 .crew .not-vetted li small { grid-column: 1; color: var(--muted); }
 .crew .not-vetted li button { grid-column: 2; grid-row: 1 / span 2; }
+
+/* Where their payment details stand, under a row where someone decides to pay (user flows of 24 November 2026, gap 8). */
+.pay-line { margin-top: var(--ds-space-1); }
+.pay-line.warn-line { display: inline-block; }

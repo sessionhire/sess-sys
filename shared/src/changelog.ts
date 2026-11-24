@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.225.0',
+    date: '2026-11-24',
+    title: 'Payment details are said where the paying is done, and a re-sent application says so',
+    what: 'Money › Owed now carries one line under each freelancer waiting to be paid: “Payment details held”, “No payment details yet: ask for them”, or, in the warning colour, “Payment details changed on their own page 21 Nov: ring before paying”, which stays until a payment to them is marked paid after the change. Crew › Timesheets shows the warning too. When someone changes their payment details from their own link, directors and the office get it on the bell. An application sent again now says “Sent again Mon 24 Nov, replacing one from Fri 20 Nov”, and if its payment details differ from the first time the card says so and asks you to ring before paying. Only whether details are held and when they changed is shown in these places, never the details.',
+    prs: [436],
+  },
+  {
     version: '1.224.0',
     date: '2026-11-24',
     title: 'Whoever drives a van is told, with when it leaves',

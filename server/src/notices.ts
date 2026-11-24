@@ -21,7 +21,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { HAS_EMAIL } from './crew/store.ts'
 import type { Db, Queryable } from './db.ts'
 import { SELECT, toEntries, type DocumentsRead, type Row } from './history.ts'
-import { QUOTE_ONLINE_ACTION } from './history-words.ts'
+import { PAYMENT_DETAILS_ACTION, QUOTE_ONLINE_ACTION } from './history-words.ts'
 import { usesTimesheets } from './office/store.ts'
 import { readingOf } from './reading.ts'
 
@@ -56,7 +56,10 @@ import { readingOf } from './reading.ts'
  * Nov"); and a job's first kit scanned out, to the office ("Gone out:
  * Harbour Lights"). A client's yes on their quote's link goes the same
  * way, to whoever has the job's Quoting tasks and whoever emailed the quote
- * ("Accepted online: Harbour Lights, by Niamh Walsh. Confirm the job.").
+ * ("Accepted online: Harbour Lights, by Niamh Walsh. Confirm the job."). And
+ * payment details changed from someone's link go to directors and the
+ * office, who pay ("Aoife Brennan changed their payment details on their own
+ * page. Ring them before paying to a new account.").
  *
  * Their own changes are never news to them, on any device, nor on their
  * private link or in Google Calendar. Noting an answer (`offer.seen`) is
@@ -148,7 +151,7 @@ export async function readNotices(q: Queryable, reader: NoticeReader, rates = tr
   )
   const turns = person ? await handOffs(q, person, user, own) : []
   const told = new Map(turns.map((t) => [t.id, t.say]))
-  for (const t of turns) if (!hits.some((h) => h.id === t.id)) hits.push({ id: t.id, rank: NOTICE_WHY.indexOf('turn'), about: `project:${t.project}` })
+  for (const t of turns) if (!hits.some((h) => h.id === t.id)) hits.push({ id: t.id, rank: NOTICE_WHY.indexOf('turn'), about: t.about ?? `project:${t.project}` })
   if (hits.length === 0) return []
   const { rows } = await q.query<Row>(`${SELECT} WHERE m.id = ANY($1::text[]) ORDER BY m.received_at DESC, m.id DESC`, [hits.map((h) => h.id)])
   const byId = new Map(hits.map((h) => [h.id, h]))
@@ -276,6 +279,8 @@ interface HandOff {
   id: string
   project: string
   say: string
+  /** What it's about when that isn't a job: "person:<id>". */
+  about?: string
 }
 
 /**
@@ -305,6 +310,19 @@ export async function handOffs(q: Queryable, person: string, user: string | null
       [QUOTE_ONLINE_ACTION, NOTICE_DAYS, person, user],
     )
     out.push(...rows.map((r) => ({ id: r.id, project: r.project, say: `Accepted online: ${r.name}${r.who ? `, by ${r.who}` : ''}. Confirm the job.` })))
+  }
+  // Payment details changed from someone's link (ADR 0193), to directors and the office, who pay (user flows of
+  // 24 November 2026, gap 8): a link can be passed on, and the warning was only on that person's Details tab. Taking
+  // them off isn't news, and nor is the office's own change.
+  if (role === 'director' || role === 'office') {
+    const { rows } = await q.query<{ id: string; person: string; name: string }>(
+      `SELECT m.id, p.id AS person, p.name
+         FROM mutations m JOIN people p ON p.id = m.args->>'personId'
+        WHERE m.name = $1 AND m.status = 'applied' AND m.client_id = 'link:' || p.id AND m.args->>'gone' IS NULL
+          AND m.received_at > now() - make_interval(days => $2::int) AND p.id <> $3::text`,
+      [PAYMENT_DETAILS_ACTION, NOTICE_DAYS, person],
+    )
+    out.push(...rows.map((r) => ({ id: r.id, project: '', about: `person:${r.person}`, say: `${r.name} changed their payment details on their own page. Ring them before paying to a new account.` })))
   }
   if (!head && role !== 'office') return out
   const notMine = `m.status = 'applied' AND NOT ($1::text IS NOT NULL AND m.user_id IS NOT DISTINCT FROM $1::text) AND m.client_id <> ALL($2::text[])`

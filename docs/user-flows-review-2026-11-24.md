@@ -217,6 +217,8 @@ yourself", with the link to her page, and counts in Admin › Status.
 
 ### 8. Payment details aren't where the paying is done, and a change isn't flagged
 
+**Fixed in 1.225.0** (24 November 2026). The warning stands until a payment to them is marked paid after the change; Timesheets carries only the warning, so a line on every row isn't noise.
+
 **Who:** the office and directors. **Where:** Money › Owed, Crew › Timesheets, a person's Details tab. **Read**, and the card seen.
 
 Bank details can now be given on the Apply page and changed by crew on
@@ -236,6 +238,8 @@ details held", "None yet: ask for them", or, in the warning colour,
 from a link goes on the bell of directors and the office.
 
 ### 9. An application sent again replaces the first, bank details and all, unchecked
+
+**Fixed in 1.225.0** (24 November 2026).
 
 **Who:** the office. **Where:** the Apply page, Crew › Applications. **Read.**
 

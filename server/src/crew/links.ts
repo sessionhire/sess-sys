@@ -3,6 +3,7 @@ import { drivesFor } from '../vehicles/drives.ts'
 import { FILE_TOO_BIG, hasPaymentDetails, maskPaymentDetails, NO_FILE, phoneWithCountry, readPaymentDetails, WEB_FILE, WRONG_FILE, type PaymentDetails, type PaymentField } from '@sh/shared'
 import { asksPpsn } from '../applications/store.ts'
 import { PAYMENT_DETAILS_ACTION } from '../history-words.ts'
+import { OWN_PAGE } from './payment.ts'
 import { serverChange } from '../kernel.ts'
 import { keepPayment, openWithKeys, sealPayment, type PaymentKeys } from './payment.ts'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
@@ -349,7 +350,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
   /** Kept, or taken off, by them on their own page: in the history as theirs, and the office's card says so (ADR 0193). */
   const keepTheirs = (req: Req, person: Person, sealed: string | null) =>
     serverChange(db, { name: PAYMENT_DETAILS_ACTION, args: { personId: person.id, ...(sealed ? {} : { gone: true }) }, link: person.id, device: describeDevice(req.headers['user-agent']) }, (ctx) =>
-      keepPayment(ctx.tx, person.id, sealed, `${person.name} on their own page`)
+      keepPayment(ctx.tx, person.id, sealed, `${person.name} ${OWN_PAGE}`)
     )
 
   // Their payment details, theirs to give and correct (ADR 0193): typed afresh each time, as the page shows them only masked.

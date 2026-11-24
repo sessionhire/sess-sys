@@ -56,6 +56,7 @@ import { ShowAll } from '../Fold.tsx'
 import { Heading } from '../Icon.tsx'
 import { Sideways } from '../more.tsx'
 import { useAccess } from '../role.ts'
+import { lastPaidBy, PaymentLine, usePaymentStanding } from '../crew/PaymentLine.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
 import { JOBS, MONEY } from '../Up.tsx'
@@ -778,7 +779,11 @@ function Owed({ m }: { m: MoneyView }) {
 function Freelancers({ m }: { m: MoneyView }) {
   const today = useToday()
   const { run, error } = useAct()
+  // Whether their payment details are held, or changed on their own page since they were last paid, said where the
+  // paying is done (user flows of 24 November 2026, gap 8): the warning was only on the person's Details tab.
+  const standing = usePaymentStanding()
   if (!m.costsOwed.length && !m.costsPaid.length) return null
+  const lastPaid = lastPaidBy(m)
   const row = (c: CostRow, paid: boolean) => (
     <div key={c.row.offer.id} className="row ts-row">
       <div>
@@ -787,6 +792,7 @@ function Freelancers({ m }: { m: MoneyView }) {
           {c.row.call.project} · {c.row.call.role} · {daysLabel(c.row.timesheet?.days ?? c.row.offer.days)}
           {paid && c.paidOn && ` · paid ${dayLabel(c.paidOn)}`}
         </p>
+        {!paid && <PaymentLine standing={standing} personId={c.row.person?.id} lastPaid={c.row.person ? lastPaid.get(c.row.person.id) : undefined} />}
       </div>
       <div className="actions">
         <span className="amount">{money(c.cents)}</span>

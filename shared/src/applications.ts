@@ -67,6 +67,10 @@ export interface Application {
   appliedAt: string
   /** Whether they gave payment details (ADR 0193), which stay locked on the server; never the details themselves. */
   paymentGiven?: boolean
+  /** Sent again by the same email (user flows of 24 November 2026, gap 9): when the first one came in. Absent for one sent once. */
+  firstAppliedAt?: string
+  /** One sent again whose payment details aren't the ones it replaced: the office rings before paying. Never what changed. */
+  paymentChanged?: boolean
   /** Set by the server for a reader who doesn't read this rate (ADR 0046): rate and trading left out. Never stored. */
   rateHidden?: boolean
 }

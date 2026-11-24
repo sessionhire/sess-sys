@@ -55,6 +55,16 @@ describe('payment details on their own page (ADR 0193)', () => {
     expect(card).toMatchObject({ kept: true, changedBy: 'Aoife Byrne on their own page' })
     expect(JSON.stringify(await colly.history())).toContain("Changed Aoife Byrne's payment details")
 
+    // Where the paying is done is told too (user flows of 24 November 2026, gap 8): that they're held, when they
+    // changed and that it was on their own page, never the details; and it's on the bell of a director, about her.
+    const standing = await app.inject({ url: '/api/payment/standing', cookies: colly.cookies })
+    expect(standing.json()).toEqual({ people: [{ personId: 'aoife', changedAt: card.changedAt, own: true }] })
+    expect(standing.body).not.toMatch(/1234567|AIBK|9311/)
+    const bell = (await app.inject({ url: '/api/notices', cookies: colly.cookies })).json() as { notices: { forYou?: string; why: string; about: { entity: string; id: string } }[] }
+    expect(bell.notices.filter((n) => n.forYou).map((n) => [n.forYou, n.why, n.about])).toEqual([
+      ['Aoife Byrne changed their payment details on their own page. Ring them before paying to a new account.', 'turn', { entity: 'person', id: 'aoife' }],
+    ])
+
     expect((await post('/payment/remove', {})).statusCode).toBe(303)
     expect((await db.query('SELECT 1 FROM payment_details')).rows).toEqual([])
   })

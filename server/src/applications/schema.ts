@@ -60,6 +60,12 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE settings ADD COLUMN IF NOT EXISTS no_ppsn boolean;
   `,
+  // An application sent again (user flows of 24 November 2026, gap 9): when the first one came in, and whether the
+  // payment details on a later one differ from the ones it replaced, so the card can say so before anyone is paid.
+  `
+  ALTER TABLE applications ADD COLUMN IF NOT EXISTS first_applied_at timestamptz;
+  ALTER TABLE applications ADD COLUMN IF NOT EXISTS payment_changed boolean NOT NULL DEFAULT false;
+  `,
 ]
 
 export const APPLICATIONS: Module = { versionTable: 'applications_schema_version', migrations: MIGRATIONS }
