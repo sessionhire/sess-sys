@@ -12,6 +12,7 @@ import { dbFromEnv, faultForLog } from './db.ts'
 import { eraseAgainFromStore } from './erasure/list.ts'
 import { nominatim } from './projects/places.ts'
 import { outsideLooks } from './status.ts'
+import { paymentKeysFromEnv, resealPayments } from './crew/payment.ts'
 import { backupWatch, errorReportingFromEnv, flushReports, reportError, startErrorReporting, watchEventLoop } from './monitoring.ts'
 
 // Error reporting first, so a start-up that goes wrong is reported too (ADR 0005).
@@ -32,6 +33,7 @@ async function main() {
   const auth = authFromEnv()
   const passcode = auth ? undefined : passcodeFromEnv()
   const google = googleClientFromEnv()
+  const payment = paymentKeysFromEnv(process.env, google?.clientSecret)
   const backupStore = storeFromEnv()
   const backupKey = backupKeyFromEnv()
   // Documents' files go with the backups (ADR 0029); with none, a folder for local use and the browser tests.
@@ -68,8 +70,9 @@ async function main() {
     whatsapp: whatsappConfig(),
     // Trackers' reports (ADR 0107) come in only with this key, which Digital Matter's connector sends.
     trackersKey: process.env.TRACKERS_KEY?.trim() || undefined,
-    // People's payment details (ADR 0193) are locked with their own key, or the Google client secret until one is set.
-    paymentKey: process.env.PAYMENT_DETAILS_KEY?.trim() || google?.clientSecret,
+    // People's payment details (ADR 0193) are locked with their own key; older keys only unlock, to lock again.
+    paymentKey: payment.keys.current,
+    paymentOldKeys: payment.keys.old,
     calendar: google ? { ...google, appUrl: process.env.PUBLIC_URL?.replace(/\/$/, ''), writes: process.env.CALENDAR_WRITES?.trim().toLowerCase() === 'on' } : undefined,
   })
   await assertSignInKept(db, auth)
@@ -83,6 +86,15 @@ async function main() {
       app.log.warn({ err: faultForLog(err) }, 'Could not check the list of erasures beside the backups')
     }
     await app.erasures?.keep()
+  }
+  // Payment details locked with a key since changed are locked again with today's (ADR 0193).
+  if (payment.problem) app.log.warn(payment.problem)
+  try {
+    const { resealed, unreadable } = await resealPayments(db, payment.keys)
+    if (resealed) app.log.info({ resealed }, 'Locked payment details again with the current key')
+    if (unreadable) app.log.warn({ unreadable }, 'Some payment details could not be unlocked with any key the server has')
+  } catch (err) {
+    app.log.warn({ err: faultForLog(err) }, 'Could not lock payment details again with the current key')
   }
   // Then what an erasure kept and the law no longer asks for, as on every day from now on (ADR 0027).
   await app.dueErasures.start()

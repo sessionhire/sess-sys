@@ -1,4 +1,4 @@
-import { dsSpace, dsText, LOGO_SVG, TRADES_AS, TRADES_AS_LABELS, APPLICATION_ABOUT_LENGTH, APPLICATION_BASED_LENGTH, APPLICATION_SKILLS_LENGTH, type ApplyField, type ApplyForm, type OfficeDetails } from '@sh/shared'
+import { dsSpace, dsText, LOGO_SVG, TRADING_NAME, TRADES_AS, TRADES_AS_LABELS, APPLICATION_ABOUT_LENGTH, APPLICATION_BASED_LENGTH, APPLICATION_SKILLS_LENGTH, type ApplyField, type ApplyForm, type OfficeDetails } from '@sh/shared'
 import { CONTROL, CSS, dialSelect, fieldError, h, invalid, officeBlock } from '../crew/page.ts'
 
 /**
@@ -21,6 +21,7 @@ const JOIN_CSS = `.trap{position:absolute;left:-10000px;width:1px;height:1px;ove
 .pill button{display:grid;place-items:center;width:34px;height:34px;min-height:0;padding:0;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:18px;line-height:1}
 .pills-anchor{position:relative}.offers{position:absolute;z-index:2;left:0;right:0;top:calc(100% + ${dsSpace[1]}px);margin:0;padding:${dsSpace[1]}px;list-style:none;max-height:${dsSpace[16] * 4}px;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgb(0 0 0 / .18)}
 .offers li{padding:${dsSpace[2]}px ${dsSpace[3]}px;min-height:${CONTROL};display:flex;align-items:center;border-radius:6px;cursor:pointer}.offers li[aria-selected=true]{background:var(--wash-hover);outline:2px solid var(--accent);outline-offset:-2px}.offers[hidden]{display:none}
+details.privacy{border:1px solid var(--line);border-radius:12px;padding:${dsSpace[3]}px ${dsSpace[4]}px}details.privacy summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}details.privacy ul{margin:${dsSpace[2]}px 0 0;padding-left:1.2em;display:grid;gap:${dsSpace[2]}px}
 fieldset.pay{display:grid;gap:${dsSpace[4]}px;margin:0;padding:${dsSpace[4]}px;border:1px solid var(--line);border-radius:12px}fieldset.pay legend{font-weight:700;padding:0 ${dsSpace[1]}px}
 textarea{min-height:${dsSpace[8] * 4}px;resize:vertical}form.apply{display:grid;gap:${dsSpace[4]}px}form.apply .pair{display:grid;gap:${dsSpace[4]}px;grid-template-columns:repeat(auto-fit,minmax(${dsSpace[16] * 3}px,1fr))}`
 
@@ -124,7 +125,7 @@ ${summary}
   ${
     d.payment
       ? `<fieldset class="pay"><legend>For paying you (optional)</legend>
-    <p class="hint">So we can pay you without asking again. Only our directors and office see these, and they're kept locked. Leave them empty if you'd rather give them later.</p>
+    <p class="hint">So we can pay you without asking again, and tell Revenue what we've paid you where the law asks us to. They're kept locked, and only our directors and office can open them. Leave them empty if you'd rather give them later.</p>
     ${input('ppsn', 'autocomplete="off" inputmode="text" maxlength="12" spellcheck="false"')}
     ${input('vatNumber', 'autocomplete="off" maxlength="20" spellcheck="false"')}
     ${input('accountName', 'autocomplete="cc-name" maxlength="100"')}
@@ -133,12 +134,31 @@ ${summary}
   </fieldset>`
       : ''
   }
+  ${privacyNotice(d.office, d.payment)}
   <fieldset class="choice agree" id="agree"${e.agree ? ' aria-describedby="agree-error"' : ''}><legend>${h(LABELS.agree)}</legend>
     <label><input type="checkbox" name="agree" value="yes"${t.agree ? ' checked' : ''}${focus('agree')}> <span>Session Hire can keep these details to offer me work. I can ask the office to delete them at any time.</span></label></fieldset>${err('agree')}
   ${d.emails ? `<p class="hint">Sending it, you'll get an email from us at the address above once the office has read it.</p>` : ''}
   <button class="yes">Send my application</button>
 </form>${officeBlock(d.office)}
 <script>${PILLS_SCRIPT}</script>${foot}`
+}
+
+/**
+ * What the law asks a person be told when their details are taken (GDPR article 13): who keeps them and how to reach
+ * them, why, who sees them, where, for how long, and their rights, with the regulator they can complain to (ADR 0193).
+ */
+export function privacyNotice(office: OfficeDetails | null | undefined, payment: boolean | undefined): string {
+  const email = office?.email?.trim()
+  const ask = email ? `email <a href="mailto:${h(email)}">${h(email)}</a>` : 'get in touch with the office'
+  return `<details class="privacy"><summary>How we look after your details</summary>
+    <ul class="small">
+      <li><b>Who keeps them:</b> ${h(TRADING_NAME)}, the company you're applying to. To ask about them, ${ask}.</li>
+      <li><b>Why:</b> to read your application and, if we add you to our crew list, to offer you work${payment ? ', and to pay you and tell Revenue what we paid you where the law asks us to' : ''}.</li>
+      <li><b>Who sees them:</b> our directors and office.${payment ? ' Your PPS number and bank details are kept locked; each time someone opens them in full, that is recorded.' : ''} We don't sell or share them.</li>
+      <li><b>Where:</b> on servers in the European Union.</li>
+      <li><b>How long:</b> if we don't add you to our crew list, we delete your application and everything in it. If we do, we keep your details while you're on it, and payment records only as long as tax law asks.</li>
+      <li><b>Your rights:</b> you can ask to see, correct or delete your details at any time, and complain to the Data Protection Commission at <a href="https://www.dataprotection.ie">dataprotection.ie</a>.</li>
+    </ul></details>`
 }
 
 /**
