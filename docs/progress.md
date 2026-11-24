@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 24 November 2026: a pick list printed to pick by hand
 
-**Done (1.230.0, #PR, no ADR)**
+**Done (1.230.0, #441, no ADR)**
 
 - Colly: "Also can you build a print version of the pick list also in case
   we need to perform those manually?" A pick list's Kit card has Print to
