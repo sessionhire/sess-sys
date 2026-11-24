@@ -1,4 +1,4 @@
-import { bouncedEmail, canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
+import { bouncedEmail, hireHandover, canApproveLeave, hasSteps, crewByDay, kindOf, crewFill, departmentOf, jobsByMonth, jobsByWeek, kitByDay, kitOf, moneyByMonth, myWeeks, dayLabel, daysLabel, eachDay, firstName, leaveDaysLabel, money, moneyMonth, narrower, plural, spanLabel, standing, STANDING_HEADINGS, listHeading, STATUS_LABELS, type Department, type JobView, type PersonView, type StandingKey, type View } from '@sh/shared'
 import { lookAgain, moreSince, sinceLabel, stillInBack, type Looks } from '@sh/shared'
 import { glanceParts, HOLDING, OFFER_WORDS, nextBooking, OPEN, soonestFirst, type CallView, type OfferView, type ProjectStatus } from '@sh/shared'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -720,6 +720,8 @@ function ForWarehouse({ view, today, me }: { view: View; today: string; me: Pers
                     <p>
                       {word(p.job.span!.start)}
                       {spanLabel(p.job.span!)}
+                      {/* A dry hire says who moves it and when (user flows of 24 November 2026, gap 2). */}
+                      {hireHandover(p.job) && ` · ${hireHandover(p.job)!.out}`}
                     </p>
                   </div>
                   <div className="side">

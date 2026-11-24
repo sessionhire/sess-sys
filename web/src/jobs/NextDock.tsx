@@ -1,4 +1,4 @@
-import { bouncedEmail, crewNext, dayLabel, firstName, kindOf, plural, ratesClosedBy, STATUS_LABELS, yesWithNoRate, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
+import { bouncedEmail, crewNext, dayLabel, firstName, deliveredTo, kindOf, plural, ratesClosedBy, STATUS_LABELS, yesWithNoRate, STOPPED, stoppedCrew, waitingClosedBy, whoDoes, type JobStep, type JobSteps, type JobView, type Person, type View } from '@sh/shared'
 import type { CSSProperties } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { useAccess } from '../role.ts'
@@ -336,7 +336,7 @@ export function NextDock({
       const { vans = 0 } = task.facts
       // Kit, then how it gets there, then the tick (user flows of 13 November 2026, finding 4): from the Kit tab with no vehicle on
       // the job a gig goes on to Transport; from Transport, or with its vehicles booked, the press opens the task to tick it settled.
-      // A dry hire is collected, so it isn't sent to Transport.
+      // A dry hire the client collects isn't sent to Transport; one we deliver is, as a gig is (user flows of 24 November 2026, gap 1).
       const settle = { label: 'Mark kit and vans settled', onPress: () => onOpenTask('kit') }
       press = short
         ? { label: `Sort ${short} short`, onPress: () => onPart('kit', { short: true }) }
@@ -344,7 +344,7 @@ export function NextDock({
           ? here === 'kit'
             ? undefined
             : { label: 'Add the kit', onPress: () => onPart('kit') }
-          : here === 'vans' || (here === 'kit' && (vans > 0 || kindOf(job) === 'hire'))
+          : here === 'vans' || (here === 'kit' && (vans > 0 || (kindOf(job) === 'hire' && !deliveredTo(job))))
             ? settle
             : here === 'kit'
               ? { label: 'Book transport', onPress: () => onPart('vans') }

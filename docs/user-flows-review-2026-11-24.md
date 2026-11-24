@@ -45,6 +45,8 @@ code and I did not get it on a screen.
 
 ### 1. A delivered dry hire is never sent to Transport, and its van can't work out the drive
 
+**Fixed in 1.221.0** (24 November 2026).
+
 **Who:** the office and whoever drives. **Where:** Job › Kit and Transport, Next, Stock › Vehicles. The van **seen**, Next **read**.
 
 Since 1.202.0 a dry hire is Delivery or Collection, and a delivery puts a
@@ -69,6 +71,8 @@ tab says "Delivery to 12 Main Street, Naas, by 10:00" above the bookings. A
 collection stays as it is.
 
 ### 2. The warehouse isn't told how or when a dry hire is handed over
+
+**Fixed in 1.221.0** (24 November 2026), all but the optional "Handed over to" line.
 
 **Who:** the warehouse. **Where:** the pick list, Home › Warehouse and Today. **Seen.**
 

@@ -65,7 +65,9 @@ export interface Road {
   source: 'typed' | 'map' | null
   /** When it's due at the venue on the first day: typed on the booking, the crew's call, or null when neither is said. */
   arriveBy: string | null
-  arriveFrom: 'typed' | 'crew' | null
+  arriveFrom: 'typed' | 'crew' | 'hire' | null
+  /** Where it drives to: the venue, or the address a dry hire is delivered to (which has no venue). */
+  place: 'venue' | 'address'
   /** When it leaves the venue on the last day, as typed; null when not said. */
   leaveAt: string | null
   /** When it leaves the warehouse and when it's back, once the times and the drive are known. */
@@ -98,13 +100,21 @@ function at(day: string, minutes: number): DayTime {
  */
 export function roadFor(
   b: { start: string; end: string; driveMinutes?: number | null; arriveBy?: string | null; leaveAt?: string | null },
-  opts: { from: Pin; to: Pin | null | undefined; kind: VehicleKind; crewCall?: string | null }
+  opts: {
+    from: Pin
+    to: Pin | null | undefined
+    kind: VehicleKind
+    crewCall?: string | null
+    /** When a delivered dry hire is due there on the booking's first day: its From time going out, its To time for the run back. */
+    hireDue?: string | null
+    place?: 'venue' | 'address'
+  }
 ): Road {
   const typed = b.driveMinutes ?? null
   const km = typed === null && opts.to ? roadKm(opts.from, opts.to) : null
   const minutes = typed ?? (km === null ? null : driveMinutesFor(km, opts.kind))
-  const arriveBy = b.arriveBy ?? opts.crewCall ?? null
-  const arriveFrom = b.arriveBy ? 'typed' : opts.crewCall ? 'crew' : null
+  const arriveBy = b.arriveBy ?? opts.crewCall ?? opts.hireDue ?? null
+  const arriveFrom = b.arriveBy ? 'typed' : opts.crewCall ? 'crew' : opts.hireDue ? 'hire' : null
   const leaveAt = b.leaveAt ?? null
   const leaves = minutes !== null && arriveBy ? at(b.start, toMinutes(arriveBy) - minutes) : null
   const back = minutes !== null && leaveAt ? at(b.end, toMinutes(leaveAt) + minutes) : null
@@ -114,6 +124,7 @@ export function roadFor(
     source: typed !== null ? 'typed' : km !== null ? 'map' : null,
     arriveBy,
     arriveFrom,
+    place: opts.place ?? 'venue',
     leaveAt,
     leaves,
     back,
@@ -154,9 +165,14 @@ export function driveLine(r: Pick<Road, 'minutes' | 'km' | 'source'>): string {
  * says why, so the office knows what would tell it.
  */
 export function roadWords(r: Road): string[] {
-  if (r.minutes === null) return ['Drive not known: the venue isn’t on the map. Put it there, or type the drive.']
+  if (r.minutes === null)
+    return [
+      r.place === 'address'
+        ? 'Drive not known: the delivery address isn’t on the map. Find it under Change details, or type the drive.'
+        : 'Drive not known: the venue isn’t on the map. Put it there, or type the drive.',
+    ]
   const out: string[] = []
-  if (r.leaves) out.push(`Leaves the warehouse about ${r.leaves.time} ${dayLabel(r.leaves.day)}${r.arriveFrom === 'crew' ? ', for the crew’s call' : ''}`)
+  if (r.leaves) out.push(`Leaves the warehouse about ${r.leaves.time} ${dayLabel(r.leaves.day)}${r.arriveFrom === 'crew' ? ', for the crew’s call' : r.arriveFrom === 'hire' ? `, to be there by ${r.arriveBy}` : ''}`)
   if (r.back) out.push(`back about ${r.back.time} ${dayLabel(r.back.day)}`)
   out.push(driveLine(r))
   return out

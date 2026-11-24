@@ -1,6 +1,6 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { eachDay, firstName } from '../crew.ts'
-import { spanLabel } from '../jobs.ts'
+import { deliveredTo, spanLabel } from '../jobs.ts'
 import {
   checkReminders,
   driverRefusal,
@@ -157,11 +157,17 @@ export function vehiclesView(
     const job = jobById.get(b.projectId)
     const phase = b.phaseId ? job?.phases.find((p) => p.id === b.phaseId) : undefined
     const venue = phase?.venue ?? job?.venue
+    // A dry hire we deliver has no venue: the van drives to the delivery address, which the quote's delivery line is
+    // measured to already, and is due there at the hire's From time going out and its To time for the run back
+    // (user flows of 24 November 2026, gap 1).
+    const delivered = job && deliveredTo(job)
     return roadFor(b, {
       from: from.pin,
-      to: venue?.pin,
+      to: venue?.pin ?? (delivered ? delivered.pin : undefined),
+      place: !venue && delivered ? 'address' : 'venue',
       kind: vehicles.get(b.vehicleId)?.kind ?? 'van',
       crewCall: earliestCall(crew.calls, b.projectId, b.phaseId, b.start),
+      hireDue: delivered && job.span ? (b.start === job.span.start ? delivered.outTime : b.start === job.span.end ? delivered.backTime : null) : null,
     })
   }
 

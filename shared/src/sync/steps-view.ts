@@ -1,7 +1,7 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { dayLabel } from '../crew.ts'
 import { daysBetween } from '../crew-days.ts'
-import { kindOf, kitDaysOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
+import { dayAndTime, kindOf, kitDaysOf, STATUS_LABELS, STOPPED } from '../jobs.ts'
 import { needsPrice } from '../quotes.ts'
 import { plural } from '../stock.ts'
 import { JOB_STAGES, JOB_STEPS, LATE_BACK_AFTER_DAYS, LONG_OVERDUE_AFTER_DAYS, SETTLED_AFTER_DAYS, STAGE_LABELS, STAGE_LINES, STAGE_OF, STEP_LABELS, STEP_LINES, stepId, type JobStage, type JobStep, type StepEntities, type RankRecord, type StepRecord } from '../steps.ts'
@@ -580,7 +580,7 @@ export function kitToCheckBackIn(jobs: JobsView, steps: StepsView, moves: MovesV
         late: stopped || after === undefined || after > kitDaysOf(job).back + LATE_BACK_AFTER_DAYS,
         longOverdue: after !== undefined && after > LONG_OVERDUE_AFTER_DAYS,
         said: neverScanned ? `${neverScanned} never scanned out: check they're back` : `${pick.stillOut} of ${went} not scanned back`,
-        when: stopped ? `job ${STATUS_LABELS[job.status].toLowerCase()}` : after === undefined ? 'no dates' : after === 1 ? 'ended yesterday' : `ended ${after} days ago`,
+        when: stopped ? `job ${STATUS_LABELS[job.status].toLowerCase()}` : after === undefined ? 'no dates' : kindOf(job) === 'hire' && job.span ? `was due back ${dayAndTime(job.span.end, job.hire?.backTime)}` : after === 1 ? 'ended yesterday' : `ended ${after} days ago`,
       }
     })
     .sort((a, b) => (b.job.span?.end ?? '').localeCompare(a.job.span?.end ?? '') || a.job.name.localeCompare(b.job.name) || a.job.id.localeCompare(b.job.id))
