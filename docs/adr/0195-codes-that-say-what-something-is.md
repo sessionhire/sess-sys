@@ -22,7 +22,8 @@ as it counts, ADR 0175), so the scheme can change now at no cost.
   001 for that product. Digits and a hyphen only, always the same width: a QR code holds it at the smallest size, 21
   modules a side at the highest error correction, as for an SH- number; Code 128 holds it, and a keyboard scanner types
   it as printed. Typed by hand it reads however it's written, `123 4` or `123-4`, but the gap or hyphen is needed:
-  digits alone are an SH- number written short (`123` is SH-000123) or an old tag, as before.
+  digits alone are an SH- number written short (`123` is SH-000123) or an old tag, as before, except four digits that
+  are a product's code (below).
 - **No department letters** (Colly, 24 November 2026: "Maybe let's drop the department part. Can just keep the first
   digits for the product and the other digits for the instance of that product"). 1.229.0 put them in front,
   `AUD-0123-004`; a few hours later they went. The product number already says what it is, and a code that doesn't name
@@ -32,9 +33,11 @@ as it counts, ADR 0175), so the scheme can change now at no cost.
   reads as its code, `AUD-0123-004` as `0123-004`, for any department's letters it was given and only those.
 - **Every product has a number**, given in turn by the server. The products there already were numbered department by
   department, then by name, so each department's run together to start with; new ones take the next number. The
-  product's part on its own, `0123`, is its **product code**, on its page and found by the Stock search. It isn't
-  scanned on its own or put on a cable label, since four digits alone read as an SH- number written short; a cable label
-  carries the product's own stock code, as before.
+  product's part on its own, `0123`, is its **product code**, on its page and found by the Stock search. Scanned or
+  typed with Enter it opens the product, and a cable label carries it when the product has no stock code of its own.
+  Four digits alone were an SH- number written short; the product code comes first, as no label had been stuck on
+  anything when it was decided (Colly, 24 November 2026: "Nothing has been labelled yet so that's fine"). An SH-
+  number with its letters, `SH-0123`, still reads as one.
 - **A new item takes its product's next code**, after every one given out or set aside, so none is given twice. A code
   goes only on its own product: scanning `0001-005` to put it on a Mac Aura is refused. A code typed off a label printed
   elsewhere, past the last given, moves the next one past it.

@@ -373,6 +373,16 @@ export const MAX_ITEM_NUMBER = 999
 /** "0123", a product's part of its codes; empty until the server has given it a number. */
 export const productCode = (m: Pick<Model, 'codeNumber'>) => (m.codeNumber ? String(m.codeNumber).padStart(4, '0') : '')
 
+/**
+ * A product's code on its own, "0123" as on a bag of cables, from what a person types or a scanner reads: exactly four digits, or
+ * one of the department letters it was first printed with. A short SH- number written the same way gives way to it, since no
+ * label had been stuck on anything by then (Colly, 24 November 2026).
+ */
+export function readProductCode(text: string): string | undefined {
+  const t = text.trim().toUpperCase().replace(LETTERS_ONCE, '')
+  return /^\d{4}$/.test(t) && Number(t) > 0 ? t : undefined
+}
+
 /** "0123-004" from a product's part and an item's number. */
 export const itemCode = (prefix: string, n: number) => `${prefix}-${String(n).padStart(3, '0')}`
 

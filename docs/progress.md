@@ -11,9 +11,10 @@ waiting on someone.
   product's number and the item's, 0123-004. Codes already given out lost
   their letters, and phones hear of it; a label printed with them still
   scans. This settles the department-move question, so that card is closed.
-- The product code alone (0123) is no longer scanned or put on cable labels,
-  as four digits alone read as an SH- number written short; cable labels
-  carry the product's own stock code again.
+- The product code alone (0123) opens the product when scanned or typed,
+  and goes on a cable label when the product has no stock code of its own.
+  It comes before an SH- number written short, as nothing is labelled yet
+  (Colly: "Nothing has been labelled yet so that's fine").
 - Checked: server tests (with a test of the step that takes the letters off)
   and the stock browser tests.
 

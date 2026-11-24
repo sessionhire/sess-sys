@@ -121,11 +121,13 @@ test("a product's codes are set aside, printed, and put on items with no questio
   await claim.getByRole('button', { name: `Put ${code}-002 on a ${speaker}` }).click()
   await expect(page.locator('p.added')).toHaveText(`Added ${code}-002 (${speaker}) at ${bay}. Scan the next label.`, { timeout: 20_000 })
 
-  // Typed loosely, the code still finds its item; the product's code alone finds the product in the catalogue.
+  // Typed loosely, the code still finds its item; the product's code alone, as on a bag of cables, opens the product.
   await find.fill(`${Number(code)} 2`)
   await find.press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: `${code}-002` })).toBeVisible()
   await page.goto('/#stock')
   await page.getByLabel('Find').fill(code)
   await expect(page.getByRole('region', { name: 'Catalogue' })).toContainText(speaker)
+  await page.getByLabel('Find').press('Enter')
+  await expect(page.getByRole('heading', { level: 1, name: speaker })).toBeVisible()
 })
