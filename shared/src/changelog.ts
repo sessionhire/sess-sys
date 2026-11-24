@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.230.0',
+    date: '2026-11-24',
+    title: 'Print a pick list to pick by hand',
+    what: 'A job’s pick list prints, for picking with a pen when phones are down or there’s no signal. It prints what the screen shows, in the same order, by department or by where it’s kept, or one department only: a box to tick on each line, how many, where each is kept with the codes to circle the ones taken, and a space to write how many went. There’s room for anything that went that wasn’t on it, notes, and who picked and checked it. Coming back, it prints what’s still out to check off. Paper isn’t recorded, so the sheet says to scan or count it in on the pick list afterwards.',
+    prs: [0],
+  },
+  {
     version: '1.229.1',
     date: '2026-11-24',
     title: 'Stock codes are just numbers',

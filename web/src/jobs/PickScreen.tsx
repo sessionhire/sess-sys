@@ -23,7 +23,6 @@ import {
   type Direction,
   type FaultView,
   type JobView,
-  type PickFrom,
   type PickList,
   type PickRow,
   type View,
@@ -49,6 +48,8 @@ import { PickDock } from './NextDock.tsx'
 import { PageAction } from '../foot.tsx'
 import { JOBS } from '../Up.tsx'
 import { useUnderTop } from '../useUnderTop.ts'
+import { departmentOfRow, heldText, rowDone, walk } from './pickRows.ts'
+import { PrintPickList } from './PickSheet.tsx'
 
 /**
  * A job's pick list (ADR 0017): what its kit needs from Session Hire's
@@ -394,6 +395,8 @@ function Pick({ view, job }: { view: View; job: JobView }) {
             </select>
           </label>
         )}
+        {/* On paper, for picking or checking back by hand (Colly, 24 November 2026): what's shown, in the order shown. */}
+        {inMode.length > 0 && <PrintPickList view={view} job={job} pick={pick} rows={shown} mode={mode} part={part} byPlace={byPlace} today={today} />}
         {rows.length === 0 && (
           <Empty>
             Add the job's kit on <a href={`#jobs/${job.id}/kit`}>its page</a>.
@@ -460,9 +463,6 @@ function Pick({ view, job }: { view: View; job: JobView }) {
   )
 }
 
-/** The department a row's kit is in; a product since removed is Other. */
-const departmentOfRow = (r: PickRow): Department => r.model?.department ?? 'other'
-
 const PREFS = 'sh.pick'
 interface Prefs {
   /** Whose kit: a department, or all of it. */
@@ -520,25 +520,6 @@ function totalLine(pick: PickList, shown: PickRow[], mode: Direction, part: Depa
   const text = `${n(t.back)} back, ${n(t.out)} still out${t.missing ? `, ${n(t.missing)} missing` : ''}`
   return { text: part === 'all' ? text : `${DEPARTMENT_LABELS[part]}: ${text}`, done: t.out === 0 && t.missing === 0 }
 }
-
-/**
- * Going out, the rows still to pick under the place most of each is kept,
- * places in the stock list's order, so the list reads as a walk round the
- * warehouse; a row with nothing left to find goes last.
- */
-function walk(rows: PickRow[]): [string, PickRow[]][] {
-  const places = new Map<string, PickRow[]>()
-  const nowhere: PickRow[] = []
-  for (const r of rows) {
-    const most = r.from.reduce<PickFrom | undefined>((best, f) => (!best || f.items.length + f.counted > best.items.length + best.counted ? f : best), undefined)
-    if (most) places.set(most.where, [...(places.get(most.where) ?? []), r])
-    else nowhere.push(r)
-  }
-  const out = [...places.entries()].sort(([a], [b]) => byWhere.compare(a, b))
-  if (nowhere.length) out.push(['Nowhere in stock', nowhere])
-  return out
-}
-const byWhere = new Intl.Collator('en-IE', { numeric: true })
 
 /**
  * What the person picking needs before they start, when they didn't plan
@@ -704,18 +685,8 @@ function DamageTo({ a, job, say, beside = false }: { a: AssetView; job: JobView;
 const damagedText = (what: string, usable: boolean, many = false) =>
   `${what} reported damaged: ${usable ? `${many ? 'they' : 'it'} can still go out.` : `can't go out until ${many ? "they're" : "it's"} fixed.`}`
 
-/** "1 in Bay A2 can't go out (damaged)", the kit card's words, or "2 missing". */
-function heldText(h: PickRow['held'][number]): string {
-  const n = h.items.length.toLocaleString('en-IE')
-  if (h.why === 'missing') return `${n} missing`
-  return `${n} ${h.where === 'Not said where' ? 'not placed' : `in ${h.where}`} can't go out (${h.why === 'damaged' ? 'damaged' : 'due a test'})`
-}
-
 /** What a scan or a tap on the list did, said in the scan line at the top, where the eye already goes. */
 type Say = (tone: Tone, text: string, more?: { back?: AssetView; undo?: Undo; outOf?: OutOfCase; about?: About }) => void
-
-/** All out that's needed, or all back: nothing left to do on the row. */
-const rowDone = (row: PickRow, mode: Direction) => (mode === 'out' ? row.lines.length > 0 && row.out >= row.need : row.out === 0 && row.missing === 0)
 
 function Row({ view, row, job, mode, say, mayMove }: { view: View; row: PickRow; job: JobView; mode: Direction; say: Say; mayMove: boolean }) {
   const name = rowName(row)

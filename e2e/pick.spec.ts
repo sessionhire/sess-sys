@@ -502,3 +502,99 @@ test('a speaker scanned from a rack reported missing, then said to be out of the
   await ready(page, `#stock/item/s1${id}`)
   await expect(page.locator('.facts')).not.toContainText(rack)
 })
+
+test('a pick list printed to pick by hand, then to check back', async ({ browser }) => {
+  const id = tag()
+  const speaker = named('d&b V8', id)
+  const cable = named('Speakon 5 m', id)
+  const bay = named('Bay C1', id)
+  const job = named('Dublin Tech Summit', id)
+  const context = await browser.newContext({ viewport: phoneSize })
+  const page = await context.newPage()
+  // Printing opens the browser's own dialog; here it's counted instead.
+  await page.addInitScript(() => {
+    ;(window as unknown as { printed: number }).printed = 0
+    window.print = () => void (window as unknown as { printed: number }).printed++
+  })
+  await ready(page)
+  await newProduct(page, speaker)
+  const speakers = await newItems(page, bay, 3)
+  await newProduct(page, cable, 30)
+
+  await page.goto('/#jobs')
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Add gig' }) })
+  await form.getByLabel('Name', { exact: true }).fill(job)
+  await form.getByLabel('Status').selectOption({ label: 'Confirmed' })
+  await form.getByLabel('Phase 1', { exact: true }).fill('Show')
+  await form.getByLabel('Phase 1 from').fill(fromToday(3))
+  await form.getByLabel('Phase 1 to').fill(fromToday(4))
+  await form.getByRole('button', { name: 'Add gig' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: job })).toBeVisible()
+  await page.getByRole('tab', { name: 'Kit', exact: true }).click()
+  await page.getByRole('button', { name: 'Add kit', exact: true }).click()
+  for (const [product, qty] of [
+    [speaker, 2],
+    [cable, 8],
+  ] as const) {
+    const add = page.getByRole('form', { name: 'Add kit' })
+    await add.getByLabel('Product').fill(product)
+    await add.getByLabel('How many').fill(String(qty))
+    await add.getByRole('button', { name: 'Add to kit' }).click()
+  }
+  await page.getByRole('region', { name: 'Kit' }).getByRole('link', { name: 'Pick list' }).click()
+  await expect(page.locator('.pick-total')).toHaveText('0 of 10 out')
+
+  // Printed: only the sheet is on the paper, with a box to tick, how many, where and the codes, and a line to write on.
+  await page.getByRole('button', { name: 'Print to pick by hand' }).click()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1)
+  await page.emulateMedia({ media: 'print' })
+  const sheet = page.locator('.pick-sheet')
+  await expect(sheet).toBeVisible()
+  await expect(page.locator('.app')).toBeHidden()
+  await expect(sheet.getByRole('heading', { level: 1 })).toHaveText(job)
+  await expect(sheet.locator('.sheet-facts dt')).toHaveText('10 to go out, 2 products')
+  await expect(sheet).toContainText('In 3 days: Show')
+  const speakerLine = sheet.locator('tr', { has: page.getByText(speaker, { exact: true }) })
+  await expect(speakerLine.locator('td.n b')).toHaveText('2')
+  await expect(speakerLine).toContainText(`${bay}: 3 here`)
+  await expect(speakerLine.locator('.codes .number')).toHaveText(speakers)
+  await expect(speakerLine.locator('.box')).toHaveText('')
+  await expect(speakerLine.locator('.write .blank')).toHaveCount(1)
+  await expect(sheet.locator('tr', { has: page.getByText(cable, { exact: true }) })).toContainText('Warehouse: 30 here')
+  await expect(sheet.getByText('Picked by')).toBeVisible()
+  await expect(sheet).toContainText('Also went, not on the list')
+  // Black on white, whatever the screen's theme.
+  await expect(sheet).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(sheet).toHaveCSS('color', 'rgb(0, 0, 0)')
+  await page.setViewportSize({ width: 794, height: 1123 })
+  await page.screenshot({ fullPage: true, ...shot('pick-printed') })
+  await page.evaluate(() => dispatchEvent(new Event('afterprint')))
+  await page.emulateMedia({ media: 'screen' })
+  await page.setViewportSize(phoneSize)
+  await expect(sheet).toHaveCount(0)
+
+  // One speaker scanned out: on paper it's ticked under Already out on a fresh print, and the rest still to pick.
+  await page.getByLabel('Number or serial').fill(speakers[0]!)
+  await page.getByLabel('Number or serial').press('Enter')
+  await expect(pickRow(page, speaker).locator('.count')).toHaveText('1 of 2 out')
+  // The browser's own Print gets the same sheet.
+  await page.emulateMedia({ media: 'print' })
+  await page.evaluate(() => dispatchEvent(new Event('beforeprint')))
+  await expect(sheet.locator('.sheet-facts dt')).toHaveText('10 to go out, 2 products; 1 already out')
+  await expect(speakerLine).toContainText('1 out, 1 to go')
+  await expect(speakerLine.locator('.codes .number')).toHaveText(speakers.slice(1))
+  await page.evaluate(() => dispatchEvent(new Event('afterprint')))
+  await page.emulateMedia({ media: 'screen' })
+
+  // Coming back, it prints what's still out to check off.
+  await page.getByRole('button', { name: 'Coming back' }).click()
+  await page.getByRole('button', { name: 'Print to check back by hand' }).click()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(2)
+  await page.emulateMedia({ media: 'print' })
+  await expect(sheet.locator('.kicker')).toHaveText('Session Hire · coming back')
+  await expect(sheet.locator('.sheet-facts dt')).toHaveText('1 still out, 1 product')
+  await expect(speakerLine.locator('.codes .number')).toHaveText([speakers[0]!])
+  await expect(sheet.getByText('Checked in by')).toBeVisible()
+  await context.close()
+})
