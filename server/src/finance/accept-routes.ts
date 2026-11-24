@@ -8,6 +8,7 @@ import { emit, serverChange } from '../kernel.ts'
 import { officeFor } from '../office/store.ts'
 import { getProject } from '../projects/store.ts'
 import { renderAcceptClosed, renderAcceptPage, type AcceptPage, type Standing } from './accept-page.ts'
+import { jobAgain } from './hold.ts'
 import { fileNameFor, sheetFor } from './quote-email.ts'
 import { quotePdf } from './quote-pdf.ts'
 import { getQuote, getQuoteSettings, quoteByToken, quotesOf } from './store.ts'
@@ -117,6 +118,8 @@ export function registerAcceptRoutes(app: FastifyInstance, db: Db, { onChange, n
         if (!now || (await standingOf(ctx.tx, now, today, true)) !== 'open') throw new NotOpen()
         await ctx.tx.query(`UPDATE quotes SET status = 'accepted', answered_on = $2, accepted_name = $3, accepted_at = now(), accepted_ref = $4 WHERE id = $1`, [quote.id, today, name, ref || null])
         await emit(ctx, 'quote', quote.id, await getQuote(ctx.tx, quote.id))
+        // Said yes to, its kit holds with no end (ADR 0194).
+        await jobAgain(ctx, quote.projectId)
         return true
       }
     ).catch((err: unknown) => {

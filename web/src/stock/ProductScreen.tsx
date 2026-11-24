@@ -346,7 +346,7 @@ function OnJobs({ m, lines }: { m: ModelView; lines: readonly KitLineView[] }) {
   return (
     <section className="card" aria-label="On jobs">
       <Heading icon="calendar">On jobs</Heading>
-      <p className="hint">{m.total.toLocaleString('en-IE')} owned. Confirmed jobs and sent quotes hold them; enquiries, with their quotes still drafts, are pencilled in.</p>
+      <p className="hint">{m.total.toLocaleString('en-IE')} owned. Confirmed jobs hold them, and sent quotes for twice as long as their prices hold; enquiries, drafts and quotes past that are pencilled in.</p>
       {lines.length === 0 && <p className="empty">Not on any job coming up.</p>}
       <ul className="job-list">{lines.slice(0, 5).map(row)}</ul>
       {lines.length > 5 && (

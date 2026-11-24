@@ -5,6 +5,7 @@ import { getClient, getProject } from '../projects/store.ts'
 import { getModel } from '../stock/store.ts'
 import { emailsOf, getClientDiscount, getCostPaid, getPackage, getProductPrice, getQuote, getQuoteEmail, getQuoteSettings, getRolePrice, highestNumber, isDeleted, newAcceptToken, quotesOf, versionsEver } from './store.ts'
 import { giveQuotingToWhoStartedIt } from '../steps/handlers.ts'
+import { jobAgain } from './hold.ts'
 
 /**
  * Light finance (ADR 0042). The rules, wherever a change comes from:
@@ -27,7 +28,12 @@ import { giveQuotingToWhoStartedIt } from '../steps/handlers.ts'
 type FinanceCommand = 'quote.save' | 'quote.sent' | 'quote.delete' | 'quote.drop' | 'quoting.update' | 'quoting.travel' | 'quoting.email' | 'quoting.online' | 'quoting.ownKit' | 'quoting.marginTarget' | 'quoting.delivery' | 'quoting.reducedDays' | 'quote.answer' | 'quote.invoiced' | 'quote.paid' | 'price.product' | 'price.rulesFromRms' | 'price.fromRms' | 'package.save' | 'package.remove' | 'price.role' | 'price.client' | 'cost.paid'
 type Handler<N extends FinanceCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
-const emitQuote = async (ctx: Ctx, id: string) => emit(ctx, 'quote', id, await getQuote(ctx.tx, id))
+/** A quote to the devices, and its job when that changes how long the job's quote holds (ADR 0194). */
+const emitQuote = async (ctx: Ctx, id: string) => {
+  const q = await getQuote(ctx.tx, id)
+  await emit(ctx, 'quote', id, q)
+  if (q) await jobAgain(ctx, q.projectId)
+}
 
 async function quoteFor(ctx: Ctx, id: string): Promise<Quote> {
   const q = await getQuote(ctx.tx, id, true)
@@ -279,6 +285,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     await ctx.tx.query('UPDATE quotes SET deleted_at = now() WHERE id = $1', [a.id])
     for (const e of await emailsOf(ctx.tx, a.id)) await emitRemoved(ctx, 'quoteEmail', e)
     await emitRemoved(ctx, 'quote', a.id)
+    // A sent version taken back holds no kit (ADR 0194).
+    await jobAgain(ctx, q.projectId)
   },
 
   /**
@@ -296,6 +304,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     if (!before) throw new Refused({ code: 'conflict', message: `Version ${q.version} is the job's only quote, so there's nothing to go back to. An admin can delete it.` })
     await ctx.tx.query('UPDATE quotes SET deleted_at = now() WHERE id = $1', [a.id])
     await emitRemoved(ctx, 'quote', a.id)
+    await jobAgain(ctx, q.projectId)
   },
 
   async 'quote.invoiced'(ctx, a) {

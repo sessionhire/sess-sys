@@ -1,6 +1,8 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { byWhen, jobSpan, type Client, type JobEntities, type Phase, type Project, type Venue } from '../jobs.ts'
+import type { Quote } from '../quotes.ts'
 import { joinedPhaseName, tailOf } from '../tidy.ts'
+import { waitingQuoteHolds } from './quote-hold.ts'
 import type { CallView, OfferView } from './crew-view.ts'
 
 /**
@@ -166,6 +168,15 @@ export function jobsView(
     const list = phasesByJob.get(p.projectId) ?? []
     list.push(p)
     phasesByJob.set(p.projectId, list)
+  }
+
+  // A quote's standing changed here and not yet sent: the job's hold as the server will have it (ADR 0194).
+  const holds = waitingQuoteHolds((entities as { quote?: Record<string, Quote> }).quote, outbox, cursor, (id) => projects.get(id)?.quoteHold)
+  for (const [id, hold] of holds) {
+    const p = projects.get(id)
+    if (!p) continue
+    const { quoteHold: _, ...rest } = p
+    projects.set(id, hold ? { ...rest, quoteHold: hold } : rest)
   }
 
   const jobs: JobView[] = [...projects.values()].map((p) => {

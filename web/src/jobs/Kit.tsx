@@ -24,6 +24,8 @@ import {
   type KitLineView,
   type KitOther,
   type View,
+  kitLetGo,
+  type QuoteHold,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -257,6 +259,19 @@ function PickLink({ job, view, lines }: { job: JobView; view: View; lines: reado
   )
 }
 
+/**
+ * How long a sent quote holds the kit (ADR 0194): twice as long as its prices, then pencilled in as an enquiry's; and none
+ * once the client turned it down or it was taken back.
+ */
+function QuoteHoldLine({ hold, today }: { hold: QuoteHold; today: string }) {
+  const text = !hold.heldUntil
+    ? "The quote holds no kit now, as the client turned it down or it was taken back: it's only pencilled in."
+    : kitLetGo(hold, today)
+      ? `The quote held it until ${dayLabel(hold.heldUntil, today)}, twice as long as its prices: it's only pencilled in now, so another job can take it.`
+      : `The quote holds it until ${dayLabel(hold.heldUntil, today)}, twice as long as its prices, then it's only pencilled in.`
+  return <p className="hint">{text}</p>
+}
+
 const daysWord = (n: number) => (n === 0 ? 'no days' : n === 1 ? 'a day' : `${n} days`)
 
 /**
@@ -269,6 +284,7 @@ function KitDays({ job, mayChange }: { job: JobView; mayChange: boolean }) {
   const [f, setF] = useState({ prep: String(prep), back: String(back) })
   const { run, error, refuse } = useAct()
   const held = job.span && heldAround(job, job.span)
+  const today = useToday()
   const save = (e: FormEvent) => {
     e.preventDefault()
     const p = Number(f.prep)
@@ -298,6 +314,7 @@ function KitDays({ job, mayChange }: { job: JobView; mayChange: boolean }) {
           </button>
         )}
       </p>
+      {job.status === 'quoted' && job.quoteHold && <QuoteHoldLine hold={job.quoteHold} today={today} />}
       {editing && (
         <form className="grid-form" onSubmit={save} aria-label="Days to get kit ready and back">
           <label>
