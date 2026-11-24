@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-24',
     title: 'Freelancers can put photos on a job',
     what: 'A freelancer booked on a gig or dry hire now sees “Add photos of …” on their own page, from the first day of their booking until a week after the last. Up to ten at a time go onto the job’s Photos tab with their name on them, made smaller on their phone first, for the office and crew to see. The office can take down any that aren’t wanted, as before. Before, only staff could add photos, though freelancers are most of the people at a show.',
-    prs: [0],
+    prs: [437],
   },
   {
     version: '1.226.0',
