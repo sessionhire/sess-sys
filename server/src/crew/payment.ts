@@ -137,6 +137,8 @@ export function registerPaymentRoutes(app: FastifyInstance, db: Db, opts: { keys
       if (opened.old && opts.keys.current)
         await db.query('UPDATE payment_details SET sealed = $2 WHERE person_id = $1 AND sealed = $3', [personId, sealPayment(opts.keys.current, details), row.sealed])
       const full = req.query.full === '1'
+      // In full only for a director (Colly, 24 November 2026); with roles off, anyone signed in is one.
+      if (full && req.role && req.role !== 'director') return reply.code(403).send({ error: 'Only a director can see payment details in full.' })
       // Seeing them in full is in the history, as who looked and when, never what they saw.
       if (full)
         await serverChange(db, { name: PAYMENT_SEEN_ACTION, args: { personId }, userId: req.user?.id, device: describeDevice(req.headers['user-agent']) }, async () => {})
@@ -155,6 +157,8 @@ export function registerPaymentRoutes(app: FastifyInstance, db: Db, opts: { keys
     const read = readPaymentDetails(typed)
     if (!read.ok) return reply.code(422).send({ error: Object.values(read.errors)[0], errors: read.errors })
     const gone = !hasPaymentDetails(read.details)
+    // Taking them off is a director's, as seeing them in full is: the office only sees them masked.
+    if (gone && req.role && req.role !== 'director') return reply.code(403).send({ error: 'Only a director can take payment details off.' })
     const by = req.user?.name ?? 'The office'
     await serverChange(db, { name: PAYMENT_DETAILS_ACTION, args: { personId, ...(gone ? { gone: true } : {}) }, userId: req.user?.id, device: describeDevice(req.headers['user-agent']) }, (ctx) =>
       keepPayment(ctx.tx, personId, gone ? null : sealPayment(key, read.details), by)

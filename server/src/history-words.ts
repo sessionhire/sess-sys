@@ -31,6 +31,7 @@ import { countSummaryWords, isCountSummary } from '@sh/shared'
 import { ROLE_LABELS, type Role } from '@sh/shared'
 import { lengthLabel, LOGO_ACTIONS, OWN_CALENDAR_ACTIONS, PHOTO_ACTIONS, PRODUCT_PHOTO_ACTIONS } from '@sh/shared'
 import { LEFT_OUT_REASONS, leftOutLabel, type LeftOutReason } from '@sh/shared'
+import { APPLICATION_KEPT_MONTHS, PAYMENT_KEPT_IDLE_MONTHS } from '@sh/shared'
 import { VEHICLE_KIND_LABELS, type VehicleKind } from '@sh/shared'
 import { STAGE_LABELS, STEP_LABELS, type JobStage, type JobStep } from '@sh/shared'
 import { PURCHASE_STATUS_LABELS, type PurchaseStatus } from '@sh/shared'
@@ -61,6 +62,10 @@ export const APPLICATION_IN_ACTION = 'application.receive'
 export const PAYMENT_DETAILS_ACTION = 'person.payment'
 /** Someone's payment details looked at in full (ADR 0193): who looked, and whose. */
 export const PAYMENT_SEEN_ACTION = 'person.payment-seen'
+/** Applications nobody acted on for 6 months, gone (ADR 0193): how many, never whose. */
+export const APPLICATIONS_EXPIRED_ACTION = 'applications.expire'
+/** Payment details nobody needs any more, gone (ADR 0193): how many, never whose. */
+export const PAYMENTS_IDLE_ACTION = 'person.payment-idle'
 /** And clearing running late 30 days after its day (ADR 0028). */
 export const LATE_CLEARED_ACTION = 'late.clear-old'
 /** And taking the fuel price from a new month of the AA's survey (ADR 0086). */
@@ -194,6 +199,10 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     // what they sent is gone.
     case PAYMENT_DETAILS_ACTION:
       return a.gone === true ? `Took ${person(a.personId)}'s payment details off` : `Changed ${person(a.personId)}'s payment details`
+    case APPLICATIONS_EXPIRED_ACTION:
+      return `Deleted ${plural(Number(a.count) || 1, 'application')} to join that nobody had taken on or turned down in ${APPLICATION_KEPT_MONTHS} months`
+    case PAYMENTS_IDLE_ACTION:
+      return `Deleted the payment details of ${plural(Number(a.count) || 1, 'person', 'people')} who had left or hadn't been booked or asked for in ${PAYMENT_KEPT_IDLE_MONTHS} months`
     case PAYMENT_SEEN_ACTION:
       return `Looked at ${person(a.personId)}'s payment details in full`
     case APPLICATION_IN_ACTION:

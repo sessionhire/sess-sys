@@ -154,9 +154,9 @@ export function privacyNotice(office: OfficeDetails | null | undefined, payment:
     <ul class="small">
       <li><b>Who keeps them:</b> ${h(TRADING_NAME)}, the company you're applying to. To ask about them, ${ask}.</li>
       <li><b>Why:</b> to read your application and, if we add you to our crew list, to offer you work${payment ? ', and to pay you and tell Revenue what we paid you where the law asks us to' : ''}.</li>
-      <li><b>Who sees them:</b> our directors and office.${payment ? ' Your PPS number and bank details are kept locked; each time someone opens them in full, that is recorded.' : ''} We don't sell or share them.</li>
+      <li><b>Who sees them:</b> our directors and office.${payment ? ' Your PPS number and bank details are kept locked, shown to the office with most of each number hidden, and only a director can open them in full; each time one does, that is recorded.' : ''} We don't sell or share them.</li>
       <li><b>Where:</b> on servers in the European Union.</li>
-      <li><b>How long:</b> if we don't add you to our crew list, we delete your application and everything in it. If we do, we keep your details while you're on it, and payment records only as long as tax law asks.</li>
+      <li><b>How long:</b> if we don't add you to our crew list, we delete your application and everything in it, and an application we haven't answered within 6 months is deleted too. If we do add you, we keep your details while you're on it.${payment ? " Your PPS number and bank details are deleted when you leave our crew list, or when we haven't booked you or asked you for work in 12 months; records of what we paid you are kept only as long as tax law asks." : ''}</li>
       <li><b>Your rights:</b> you can ask to see, correct or delete your details at any time, and complain to the Data Protection Commission at <a href="https://www.dataprotection.ie">dataprotection.ie</a>.</li>
     </ul></details>`
 }

@@ -256,6 +256,18 @@ describe('applying to join the crew (ADR 0190)', () => {
     expect((await app.inject({ method: 'PUT', url: '/api/people/sean/payment', cookies: colly.cookies, payload: { ppsn: '1234567T' } })).statusCode).toBe(200)
     expect((await app.inject({ url: '/api/people/sean/payment', cookies: sean.cookies })).statusCode).toBe(403)
     expect((await app.inject({ method: 'PUT', url: '/api/people/sean/payment', cookies: sean.cookies, payload: {} })).statusCode).toBe(403)
+
+    // The office sees them masked and can type them afresh; only a director sees them in full or takes them off.
+    await colly.send('person.upsert', { id: 'orla', name: 'Orla Kenny', kind: 'staff', email: 'orla@sessionhire.com', ...PERSON })
+    await colly.send('person.role', { id: 'orla', role: 'office' })
+    const orla = await staff(app, db, 'Orla Kenny', WINDOWS, 'office-0002')
+    expect((await app.inject({ url: '/api/people/sean/payment', cookies: orla.cookies })).json()).toMatchObject({ kept: true, full: false, details: { ppsn: '•••••67T' } })
+    const inFull = await app.inject({ url: '/api/people/sean/payment?full=1', cookies: orla.cookies })
+    expect(inFull.statusCode).toBe(403)
+    expect(inFull.json().error).toBe('Only a director can see payment details in full.')
+    expect((await app.inject({ method: 'PUT', url: '/api/people/sean/payment', cookies: orla.cookies, payload: {} })).statusCode).toBe(403)
+    expect((await app.inject({ method: 'PUT', url: '/api/people/sean/payment', cookies: orla.cookies, payload: { ppsn: '1234567FA' } })).statusCode).toBe(200)
+    expect((await app.inject({ url: '/api/people/sean/payment?full=1', cookies: colly.cookies })).json()).toMatchObject({ full: true, details: { ppsn: '1234567FA' } })
   })
 
   it('turns a flood away once there are too many waiting', async () => {

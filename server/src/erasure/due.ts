@@ -1,3 +1,4 @@
+import { clearUnneededDetails } from '../crew/keeping.ts'
 import { irishToday, leaveRecordKept } from '@sh/shared'
 import { clearOldLate } from '../crew/late.ts'
 import { getPerson } from '../crew/store.ts'
@@ -106,8 +107,12 @@ export class DueErasures {
         const n = await eraseWhatIsDue(this.db, today)
         // Running late 30 days after its day goes on the same look (ADR 0028), so the database is still woken once a day.
         const late = await clearOldLate(this.db, today)
+        // Applications and payment details kept no longer than they're needed (ADR 0193).
+        const unneeded = await clearUnneededDetails(this.db)
         this.doneFor = today
-        if (n || late) this.options.changed()
+        if (unneeded.applications) this.options.log?.info({ applications: unneeded.applications }, 'Deleted applications nobody acted on for 6 months')
+        if (unneeded.payments) this.options.log?.info({ payments: unneeded.payments }, 'Deleted payment details nobody needs any more')
+        if (n || late || unneeded.applications) this.options.changed()
         if (n) this.options.log?.info({ people: n }, 'Erased what the law no longer asks to keep of people erased on request')
         if (late) this.options.log?.info({ records: late }, 'Cleared running late more than 30 days after its day')
         return n

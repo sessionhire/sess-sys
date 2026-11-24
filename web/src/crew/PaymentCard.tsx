@@ -25,7 +25,10 @@ const LABELS: Record<PaymentField, string> = {
 const FIELDS = Object.keys(LABELS) as PaymentField[]
 
 export function PaymentCard({ person }: { person: PersonView }) {
-  const money = useAccess().can('money')
+  const access = useAccess()
+  const money = access.can('money')
+  // Only a director opens them in full (Colly, 24 November 2026); the office sees them masked, and changes them by typing them afresh.
+  const seesFull = !access.role || access.role === 'director'
   const [full, setFull] = useState(false)
   const [editing, setEditing] = useState(false)
   const [again, setAgain] = useState(0)
@@ -41,14 +44,17 @@ export function PaymentCard({ person }: { person: PersonView }) {
   return (
     <section className="card payment-card" aria-label="Payment details">
       <Heading icon="locked">Payment details</Heading>
-      <p className="hint">Only directors and the office see these. They’re kept locked on the server, not on this device.</p>
+      <p className="hint">
+        {seesFull ? 'Only directors and the office see these, and only directors in full.' : 'You see these masked; only a director sees them in full.'} They’re kept locked on the server, not on
+        this device.
+      </p>
       {loaded.state === 'loading' && <p className="hint">Asking the server…</p>}
       {loaded.state === 'offline' && <p className="hint">These need signal: they aren’t kept on this device. Try again once it’s back.</p>}
       {loaded.state === 'gone' && <Refusal error={loaded.error} />}
       {shown && editing ? (
         // The form fills in from the full ones, so it waits for them.
-        shown.full || !shown.kept ? (
-          <PaymentForm person={person} was={shown.details} onDone={done} onCancel={() => (setEditing(false), setFull(false))} />
+        shown.full || !shown.kept || !seesFull ? (
+          <PaymentForm person={person} was={seesFull ? shown.details : NO_DETAILS} afresh={!seesFull && shown.kept} onDone={done} onCancel={() => (setEditing(false), setFull(false))} />
         ) : (
           <p className="hint">Asking the server…</p>
         )
@@ -73,12 +79,12 @@ export function PaymentCard({ person }: { person: PersonView }) {
             </p>
           )}
           <div className="actions">
-            {shown.kept && (
+            {shown.kept && seesFull && (
               <button type="button" onClick={() => setFull(!shown.full)} aria-pressed={shown.full}>
                 {shown.full ? 'Hide' : 'Show in full'}
               </button>
             )}
-            <button type="button" onClick={() => (setFull(true), setEditing(true))}>
+            <button type="button" onClick={() => (setFull(seesFull), setEditing(true))}>
               {shown.kept ? 'Change' : 'Add payment details'}
             </button>
           </div>
@@ -88,7 +94,9 @@ export function PaymentCard({ person }: { person: PersonView }) {
   )
 }
 
-function PaymentForm({ person, was, onDone, onCancel }: { person: PersonView; was: PaymentDetails; onDone: () => void; onCancel: () => void }) {
+const NO_DETAILS: PaymentDetails = { ppsn: '', vatNumber: '', accountName: '', iban: '', bic: '' }
+
+function PaymentForm({ person, was, afresh, onDone, onCancel }: { person: PersonView; was: PaymentDetails; afresh?: boolean; onDone: () => void; onCancel: () => void }) {
   const id = useId()
   const [f, setF] = useState<PaymentDetails>({ ...was, iban: was.iban ? ibanShown(was.iban) : '' })
   const [errors, setErrors] = useState<Partial<Record<PaymentField, string>>>({})
@@ -96,6 +104,8 @@ function PaymentForm({ person, was, onDone, onCancel }: { person: PersonView; wa
   const [busy, setBusy] = useState(false)
   const save = async (e: FormEvent) => {
     e.preventDefault()
+    // Typing afresh, an empty form would wipe details its sender can't see: taking them off is for a director.
+    if (afresh && Object.values(f).every((v) => !v.trim())) return setError('Type the new details first. Only a director can take them off.')
     setBusy(true)
     setError('')
     try {
@@ -147,7 +157,7 @@ function PaymentForm({ person, was, onDone, onCancel }: { person: PersonView; wa
       {field('accountName')}
       {field('iban', { placeholder: 'IE29 AIBK 9311 5212 3456 78' })}
       {field('bic', { placeholder: 'AIBKIE2D' })}
-      <p className="hint wide">Clear them all and save to take them off.</p>
+      <p className="hint wide">{afresh ? 'Type them all as they are now: what you save replaces what’s kept.' : 'Clear them all and save to take them off.'}</p>
       <Refusal error={error} className="wide" />
       <button type="submit" className="primary" aria-busy={busy || undefined} disabled={busy}>
         Save payment details

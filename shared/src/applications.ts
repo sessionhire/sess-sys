@@ -26,6 +26,20 @@ import type { CommandArgs } from './commands.ts'
  */
 
 export const APPLICATION_ABOUT_LENGTH = 2000
+/** An application nobody takes on or turns down goes after this many months (ADR 0193), as a turned-down one does. */
+export const APPLICATION_KEPT_MONTHS = 6
+/** Crew › Applications says it's going this many days before. */
+export const APPLICATION_WARN_DAYS = 7
+/** Payment details go once nobody has booked or asked for that person, or given them, in this many months (ADR 0193). */
+export const PAYMENT_KEPT_IDLE_MONTHS = 12
+
+/** The day an application waiting since appliedAt goes, as YYYY-MM-DD in Ireland. */
+export function applicationGoesOn(appliedAt: string): string {
+  const d = new Date(appliedAt)
+  d.setUTCMonth(d.getUTCMonth() + APPLICATION_KEPT_MONTHS)
+  return d.toISOString().slice(0, 10)
+}
+
 export const APPLICATION_SKILLS_LENGTH = 600
 export const APPLICATION_BASED_LENGTH = 100
 /** The most waiting at once: past it, the page says to ring the office, so a flood of junk can't fill the database. */
