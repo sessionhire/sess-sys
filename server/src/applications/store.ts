@@ -34,6 +34,12 @@ export async function emailsApplicants(q: Queryable): Promise<boolean> {
   return rows[0]?.email_applicants === true
 }
 
+/** Whether PPS numbers are asked for with payment details (ADR 0193); asked unless the office said not. */
+export async function asksPpsn(q: Queryable): Promise<boolean> {
+  const { rows } = await q.query<{ no_ppsn: boolean | null }>(`SELECT no_ppsn FROM settings WHERE id = $1`, [APPLICATIONS_SETTING_ID])
+  return rows[0]?.no_ppsn !== true
+}
+
 /** Whether the public Apply page takes applications (ADR 0190); off unless the office said. */
 export async function takesApplications(q: Queryable): Promise<boolean> {
   const { rows } = await q.query<{ take_applications: boolean | null }>(`SELECT take_applications FROM settings WHERE id = $1`, [APPLICATIONS_SETTING_ID])

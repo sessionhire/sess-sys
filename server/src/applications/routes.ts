@@ -5,9 +5,9 @@ import type { Db } from '../db.ts'
 import { APPLICATION_IN_ACTION } from '../history-words.ts'
 import { emit, serverChange } from '../kernel.ts'
 import { officeFor } from '../office/store.ts'
-import { renderJoin, type JoinState } from './page.ts'
+import { renderJoin, renderPrivacy, type JoinState } from './page.ts'
 import { sealPayment } from '../crew/payment.ts'
-import { emailsApplicants, getApplication, takesApplications } from './store.ts'
+import { asksPpsn, emailsApplicants, getApplication, takesApplications } from './store.ts'
 
 /**
  * The public Apply page (ADR 0190), at /join: no sign-in and no link, so anyone can open it, which is why it keeps out
@@ -30,7 +30,7 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
     noStore(reply)
       .code(code)
       .type('text/html')
-      .send(renderJoin({ state, office: await officeFor(db.reads), issued: String(now()), roles: state === 'ask' ? await rolesForApplicants(db.reads) : [], payment: !!opts.paymentKey, emails: await emailsApplicants(db.reads), ...more }))
+      .send(renderJoin({ state, office: await officeFor(db.reads), issued: String(now()), roles: state === 'ask' ? await rolesForApplicants(db.reads) : [], payment: !!opts.paymentKey, ppsn: await asksPpsn(db.reads), emails: await emailsApplicants(db.reads), ...more }))
 
   app.get('/join', async (_req, reply) => page(reply, (await takesApplications(db.reads)) ? 'ask' : 'off'))
 
@@ -40,6 +40,7 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
     // A bot: the hidden field filled, or sent back sooner than a person could, or with no time from the page at all.
     const issued = Number(field(b, 't', 20))
     if (field(b, 'website', 200).trim() || !Number.isFinite(issued) || issued <= 0 || now() - issued < FASTEST_SECONDS * 1000) return page(reply, 'thanks')
+    const ppsn = await asksPpsn(db.reads)
     const typed: ApplyForm = {
       firstName: field(b, 'firstName', 200),
       lastName: field(b, 'lastName', 200),
@@ -52,7 +53,8 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
       basedIn: field(b, 'basedIn', 200),
       about: field(b, 'about', 4000),
       // Asked only while the server can lock them (ADR 0193): without its key, none are read.
-      ppsn: opts.paymentKey ? field(b, 'ppsn', 40) : '',
+      // A PPS number only where the company uses them with Revenue (ADR 0193).
+      ppsn: opts.paymentKey && ppsn ? field(b, 'ppsn', 40) : '',
       vatNumber: opts.paymentKey ? field(b, 'vatNumber', 40) : '',
       accountName: opts.paymentKey ? field(b, 'accountName', 200) : '',
       iban: opts.paymentKey ? field(b, 'iban', 60) : '',
@@ -80,6 +82,14 @@ export function registerJoin(app: FastifyInstance, db: Db, opts: { now?: () => n
   })
 
   app.get('/join/thanks', async (_req, reply) => page(reply, 'thanks'))
+
+  // How we look after people's details (ADR 0193), for anyone, with no sign-in, so the website can link to it.
+  app.get('/privacy', async (_req, reply) =>
+    reply
+      .header('cache-control', 'no-cache')
+      .type('text/html')
+      .send(renderPrivacy(await officeFor(db.reads), await asksPpsn(db.reads)))
+  )
 }
 
 /**

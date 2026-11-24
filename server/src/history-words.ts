@@ -66,6 +66,8 @@ export const PAYMENT_SEEN_ACTION = 'person.payment-seen'
 export const APPLICATIONS_EXPIRED_ACTION = 'applications.expire'
 /** Payment details nobody needs any more, gone (ADR 0193): how many, never whose. */
 export const PAYMENTS_IDLE_ACTION = 'person.payment-idle'
+/** A member of staff signed out of the app on every device by a director (the breach plan, ADR 0193): whose, and how many. */
+export const SIGNED_OUT_EVERYWHERE_ACTION = 'person.sign-out'
 /** And clearing running late 30 days after its day (ADR 0028). */
 export const LATE_CLEARED_ACTION = 'late.clear-old'
 /** And taking the fuel price from a new month of the AA's survey (ADR 0086). */
@@ -203,6 +205,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return `Deleted ${plural(Number(a.count) || 1, 'application')} to join that nobody had taken on or turned down in ${APPLICATION_KEPT_MONTHS} months`
     case PAYMENTS_IDLE_ACTION:
       return `Deleted the payment details of ${plural(Number(a.count) || 1, 'person', 'people')} who had left or hadn't been booked or asked for in ${PAYMENT_KEPT_IDLE_MONTHS} months`
+    case SIGNED_OUT_EVERYWHERE_ACTION:
+      return `Signed ${person(a.personId)} out of the app on every phone and computer${Number(a.count) ? ` (${plural(Number(a.count), 'device')})` : ''}`
     case PAYMENT_SEEN_ACTION:
       return `Looked at ${person(a.personId)}'s payment details in full`
     case APPLICATION_IN_ACTION:
@@ -213,6 +217,8 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return 'Turned down an application to join; what they sent was deleted'
     case 'applications.email':
       return a.on === true ? 'Turned on emailing people who apply when they’re taken on or turned down' : 'Turned off emailing people who apply'
+    case 'applications.ppsn':
+      return a.on === true ? 'Turned on asking for PPS numbers with payment details' : 'Turned off asking for PPS numbers with payment details'
     case 'applications.use':
       return a.on === true ? 'Turned on applications to join on the Apply page' : 'Turned off applications to join on the Apply page'
     case 'person.level':

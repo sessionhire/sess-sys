@@ -73,9 +73,34 @@ they submit that they will be emailed. Please also in that email allow them to l
   name it was for are cleared, so a turned-down applicant's address isn't kept. The office's confirmations and toasts
   say whether they'll be emailed.
 
+### The rest of the security check
+
+Colly, 24 November 2026: "Can you also implement everything possible on the gaps please?"
+
+- **Crew keep their own**, on their page under "For paying you": they give, correct or take them off there. The page
+  shows them only masked, as the office sees them, since a link can be passed on; to correct them they type them all
+  afresh, and an empty form isn't a way to take them off (that's its own button). Their Download everything has them
+  masked too. In the history as theirs, and the office's card says "Changed on their own page" with a line to ring them
+  on the number already held before paying a new account: changing the bank account on a link that was passed on is
+  the usual way money goes to the wrong place.
+- **PPS numbers only where they're used with Revenue**: Admin › Company › Applications to join › Ask for PPS numbers
+  (`applications.ppsn`), on unless turned off, as section 262 of the Social Welfare Consolidation Act 2005 allows a
+  business to keep one only for that. Off, no form asks for one (the Apply page, their page, the card) and the
+  server keeps none sent; any already kept stay until changed or cleared.
+- **A privacy page for anyone** at `/privacy`, public, for the website to link to: what's kept about applicants and
+  crew, why, who sees it, the services and where they are, how long, and their rights. The Apply page's notice and
+  every crew page link to it.
+- **Admin › Status says whether error reports stay in the EU**: ok with Sentry's EU region (`de.sentry.io` in the
+  DSN), a warning with what to do otherwise.
+- **A director can sign a member of staff out everywhere**, on their Details tab, for a phone or computer lost or
+  stolen while signed in (sessions otherwise last as long as they're used). In the history with how many devices.
+- **The paperwork drafted** in [docs/data-protection.md](../data-protection.md): the record of processing (GDPR
+  article 30) and a breach plan, for a director to correct and adopt. Not legal advice.
+
 ## Consequences
 
 - Until `PAYMENT_DETAILS_KEY` is set on the live server, the Apply page doesn't ask for payment details and the card
   can't add any. Losing the key (rather than changing it as above) loses every detail it locked: keep a copy somewhere
   safe outside the app, such as the company's password manager.
-- A freelancer can't yet give or change their own on their page: they tell the office, which changes them on the card.
+- Data processing agreements with each service, two-step sign-in on Railway, Neon, GitHub and Google, and whether the
+  company uses PPS numbers with Revenue are the company's to settle; the app can't.

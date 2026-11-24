@@ -48,6 +48,17 @@ export function ApplicationsCard({ office }: { office: OfficeView }) {
           </small>
         </span>
       </label>
+      <label className="signal">
+        <input type="checkbox" role="switch" checked={office.askPpsn} onChange={(e) => void run(() => client.mutate('applications.ppsn', { on: e.target.checked }))} />
+        <span>
+          <b>Ask for PPS numbers</b>
+          <small>
+            {office.askPpsn
+              ? 'On: the Apply page, their own page and the Payment details card ask for one. Keep it on only if you use them with Revenue, such as for payroll or Form 46G: the law allows nothing else.'
+              : 'Off: nobody is asked for a PPS number. Any already kept stay until changed.'}
+          </small>
+        </span>
+      </label>
       {on && (
         <div className="actions">
           <a className="button" href="#crew/applications">

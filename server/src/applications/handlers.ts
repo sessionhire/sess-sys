@@ -12,7 +12,7 @@ import { keepPayment } from '../crew/payment.ts'
  * which age out). Nobody is told either way: the office gets in touch the usual way.
  */
 
-type ApplicationCommand = 'application.take' | 'application.drop' | 'applications.use' | 'applications.email'
+type ApplicationCommand = 'application.take' | 'application.drop' | 'applications.use' | 'applications.email' | 'applications.ppsn'
 type Handler<N extends ApplicationCommand> = (ctx: Ctx, args: CommandArgs<N>) => Promise<void>
 
 const GONE = 'That application has already been taken on or turned down.'
@@ -44,6 +44,16 @@ export const applicationHandlers: { [N in ApplicationCommand]: Handler<N> } = {
       `INSERT INTO settings (id, email_applicants) VALUES ($1, $2)
        ON CONFLICT (id) DO UPDATE SET email_applicants = EXCLUDED.email_applicants, updated_at = now()`,
       [APPLICATIONS_SETTING_ID, a.on]
+    )
+    await emit(ctx, 'setting', APPLICATIONS_SETTING_ID, await getSetting(ctx.tx, APPLICATIONS_SETTING_ID))
+  },
+
+  /** Whether PPS numbers are asked for (ADR 0193): only where the company uses them with Revenue, as the law allows. Turning it off stops asking; those already kept stay until changed or cleared. */
+  async 'applications.ppsn'(ctx, a) {
+    await ctx.tx.query(
+      `INSERT INTO settings (id, no_ppsn) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET no_ppsn = EXCLUDED.no_ppsn, updated_at = now()`,
+      [APPLICATIONS_SETTING_ID, !a.on]
     )
     await emit(ctx, 'setting', APPLICATIONS_SETTING_ID, await getSetting(ctx.tx, APPLICATIONS_SETTING_ID))
   },

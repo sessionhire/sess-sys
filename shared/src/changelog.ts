@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.220.0',
+    date: '2026-11-24',
+    title: 'Crew keep their own payment details, a privacy page, and signing someone out everywhere',
+    what: 'Crew can give, correct or take off their own payment details on their page, under For paying you. The page only ever shows them with most of each number hidden, and the office’s card says when they changed them, so you can ring to check before paying a new account. Admin › Company › Applications to join has Ask for PPS numbers: turn it off unless you use them with Revenue. A public page at /privacy says how everyone’s details are looked after, linked from the Apply page and every crew page. A director can sign a member of staff out of the app on every phone and computer from their Details tab, for a lost or stolen device. Admin › Status says whether error reports stay in the EU.',
+    prs: [],
+    adrs: [193],
+  },
+  {
     version: '1.219.0',
     date: '2026-11-24',
     title: 'Details kept only while they’re needed, and only directors see payment details in full',

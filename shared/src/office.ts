@@ -141,6 +141,8 @@ export const setting = z.object({
   takeApplications: z.boolean().optional(),
   /** On the "applications" setting (ADR 0193): whether people who apply are emailed when they're taken on or turned down. Off until the office says. */
   emailApplicants: z.boolean().optional(),
+  /** On the "applications" setting (ADR 0193): PPS numbers aren't asked for, where the company won't use them with Revenue. Asked unless the office says. */
+  noPpsn: z.boolean().optional(),
 })
 export type Setting = z.infer<typeof setting>
 
@@ -216,6 +218,8 @@ export const officeCommandSchemas = {
   'applications.use': z.object({ on: z.boolean() }),
   /** Whether people who apply are emailed when they're taken on, with their own page, or turned down (ADR 0193). Off until launch. */
   'applications.email': z.object({ on: z.boolean() }),
+  /** Whether PPS numbers are asked for with payment details (ADR 0193): only where the company uses them with Revenue. */
+  'applications.ppsn': z.object({ on: z.boolean() }),
 } as const
 
 /** The details when there is a way back in them: a phone or an email. A name alone is nothing to show. */

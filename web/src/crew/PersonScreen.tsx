@@ -31,6 +31,7 @@ import { Avatar, photoOf } from '../Picture.tsx'
 import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { PaymentCard } from './PaymentCard.tsx'
+import { SignOutEverywhere } from './SignOutEverywhere.tsx'
 import { client } from '../sync.ts'
 import { CREW, PEOPLE } from '../Up.tsx'
 import { useToday } from '../view.ts'
@@ -128,6 +129,7 @@ export function PersonScreen({
           <>
             <Who person={person} view={view} />
             <PaymentCard person={person} />
+            <SignOutEverywhere person={person} />
           </>
         )}
         {part === 'documents' && (

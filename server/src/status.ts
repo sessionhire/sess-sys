@@ -67,7 +67,8 @@ export interface StatusSources {
   db: Db
   auth?: AuthConfig
   passcode?: string
-  errorReporting: boolean
+  /** Error reports go to Sentry: true, or where its address says they go (its DSN's host), so the check can say whether that's the EU. */
+  errorReporting: boolean | string
   backups: Backups
   backupStore?: BackupStore
   documents: DocumentFiles
@@ -211,7 +212,14 @@ export class Status {
 
   private async errors(): Promise<StatusCheck> {
     const base = { id: 'errors', group: 'app' as const, name: 'Error reports' }
-    if (this.s.errorReporting) return { ...base, state: 'ok', says: 'Anything that goes wrong is reported to Sentry, without anyone’s personal details, and Sentry emails about it.' }
+    const on = this.s.errorReporting
+    if (on) {
+      const says = 'Anything that goes wrong is reported to Sentry, without anyone’s personal details, and Sentry emails about it.'
+      // Kept in the EU, as everything else is (the security check of 24 November 2026): Sentry's EU region is de.sentry.io.
+      if (typeof on !== 'string') return { ...base, state: 'ok', says }
+      if (/(^|\.)de\.sentry\.io$/i.test(on)) return { ...base, state: 'ok', says: `${says} Kept in the EU (Frankfurt).` }
+      return { ...base, state: 'warn', says: `${says} Not in Sentry’s EU region (${on}), so reports leave the EU.`, todo: 'Move the Sentry project to its EU region (an address with de.sentry.io) and set its new SENTRY_DSN in Railway, or sign Sentry’s EU transfer terms.' }
+    }
     return { ...base, state: 'warn', says: 'Off: nobody is told when something goes wrong on the server or a phone.', todo: 'Set SENTRY_DSN in Railway (docs/monitoring.md).' }
   }
 
