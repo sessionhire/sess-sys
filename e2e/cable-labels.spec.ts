@@ -62,17 +62,12 @@ test('cable labels print with a barcode or QR code of the stock code, which open
   await form.getByRole('button', { name: 'Add product' }).click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
 
-  // No stock code yet: a barcode says what it needs.
+  // No stock code of its own: its product code (ADR 0195) goes on the label, so it starts on a barcode of that.
   await page.getByRole('tab', { name: 'Cable labels' }).click()
   const card = page.getByRole('region', { name: 'Cable labels' })
-  // With no stock code a barcode would print empty, so it starts on a QR code (audit, 5 November 2026, finding 72).
-  await expect(card.getByRole('radio', { name: 'QR code' })).toBeChecked()
-  // Its QR code holds the name, and the name isn't printed a second time where the stock code goes (Colly, 12 November).
-  await expect(card.locator('.preview .face b').first()).toHaveText(name)
-  await expect(card.locator('.preview .face .code')).toHaveCount(0)
-  await card.getByRole('radio', { name: 'Barcode' }).check()
-  await expect(card.getByRole('note')).toContainText('it has none yet')
-  await expect(card.getByRole('button', { name: 'Print 2 labels without a code' })).toBeVisible()
+  await expect(card.getByRole('radio', { name: 'Barcode' })).toBeChecked()
+  await expect(card.locator('.preview .label.cable').getByRole('img', { name: /^Barcode for [A-Z]{3}-\d{4}$/ })).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Print 2 labels' })).toBeVisible()
   await expect(card.getByLabel('What they say')).toHaveValue(name)
 
   // Given one under Details, it goes on the label as the bars the encoder draws.

@@ -78,6 +78,7 @@ test("a product's codes are set aside, printed, and put on items with no questio
   await newProduct(page, speaker, bay, 3)
 
   // Its product code, on its page.
+  await page.getByRole('tab', { name: /^Details/ }).click()
   const code = (await page.locator('.facts div', { hasText: 'Product code' }).locator('dd').textContent())!
   expect(code).toMatch(/^AUD-\d{4}$/)
 
