@@ -3,6 +3,33 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 24 November 2026: the gaps the flows review found, closed
+
+**Done (1.221.0 to 1.226.0, #432 to #435)**
+
+- Colly asked for a full review of user and persona flows; it found 13 gaps
+  ([the review](user-flows-review-2026-11-24.md)). Colly said to go ahead:
+  eleven are closed, each marked "Fixed in" in the review.
+- 1.221.0: a delivered dry hire goes to Transport and its van works out the
+  drive; the warehouse sees how and when a dry hire is handed over.
+- 1.222.0: a client can't accept online a quote whose job was cancelled or
+  lost; what arrives from outside reaches Home and the Crew badge.
+- 1.223.0: after Take on, an applicant is carried forward; an email to an
+  applicant that fails is said so.
+- 1.224.0: whoever drives a van is told, under Your bookings, on their page
+  and on their own link, with the times.
+- 1.225.0: payment details show where the paying is done, with a warning
+  when they changed on someone's own page; an application sent again says
+  so, and whether its payment details differ.
+- 1.225.1: archiving a member of staff signs them out everywhere.
+- 1.226.0: a client can give a PO number or reference with their yes.
+- Checked: server and browser tests for each, on GitHub.
+
+**Waiting on Colly**
+
+- Gap 10: whether a sent quote that has lapsed should stop holding its kit.
+- Gap 11: whether freelancers can put photos on a job.
+
 ## 23 November 2026: a little celebration when a gig is settled
 
 **Done (1.214.0, #422)**
