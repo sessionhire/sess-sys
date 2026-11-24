@@ -2,6 +2,7 @@ import {
   NO_CHARGE,
   LOGO_SVG,
   ACCEPT_NAME_LENGTH,
+  ACCEPT_REF_LENGTH,
   depositCents,
   letterDay,
   lineCents,
@@ -50,7 +51,7 @@ export interface AcceptPage {
   base: string
   office: OfficeDetails | null
   /** What was typed, and what's wrong with it, after a post that couldn't be taken. */
-  typed?: { name: string; agreed: boolean }
+  typed?: { name: string; agreed: boolean; ref?: string }
   wrong?: 'name' | 'agree' | 'gone'
 }
 
@@ -108,7 +109,7 @@ function standingLine(d: AcceptPage, until: string): string {
       const on = q.acceptedOnline
       const when = on ? new Date(on.at) : undefined
       const at = when ? ` on ${letterDay(when.toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' }))} at ${when.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Dublin' })}` : ''
-      return `<p class="flash ok" role="status">${on ? `Accepted by ${h(on.name)}${at}. Thank you: we'll be in touch to confirm the booking.` : 'This quote has been accepted. Thank you.'}</p>`
+      return `<p class="flash ok" role="status">${on ? `Accepted by ${h(on.name)}${at}${on.ref ? `, your reference ${h(on.ref)}` : ''}. Thank you: we'll be in touch to confirm the booking.` : 'This quote has been accepted. Thank you.'}</p>`
     }
     case 'stopped':
       return `<p class="flash warn">This job isn't going ahead. Get in touch if that's changed.</p>`
@@ -135,6 +136,9 @@ function form(d: AcceptPage): string {
   <div class="field"><label for="name">Your full name</label>
     <input id="name" name="name" autocomplete="name" maxlength="${ACCEPT_NAME_LENGTH}" required value="${h(d.typed?.name ?? '')}"${wrong === 'name' ? `${invalid('name-error')} autofocus` : ''}>
     ${wrong === 'name' ? fieldError('name-error', ERRORS.name) : ''}</div>
+  <div class="field"><label for="ref">Your PO number or reference <small>(optional)</small></label>
+    <input id="ref" name="ref" autocomplete="off" maxlength="${ACCEPT_REF_LENGTH}" value="${h(d.typed?.ref ?? '')}" aria-describedby="ref-hint">
+    <small id="ref-hint" class="small">If your accounts need one on the invoice.</small></div>
   <label class="agree"><input type="checkbox" name="agree" value="yes" required${d.typed?.agreed ? ' checked' : ''}${wrong === 'agree' ? invalid('agree-error') : ''}>
     <span>I accept this quote, ${money(s.totals.gross)} including VAT, and its terms${client ? `, for ${h(client)}` : ''}.</span></label>
   ${wrong === 'agree' ? fieldError('agree-error', ERRORS.agree) : ''}

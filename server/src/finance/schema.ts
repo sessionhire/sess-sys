@@ -217,6 +217,11 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS margin_target_pct numeric(4,1) CHECK (margin_target_pct BETWEEN 0.1 AND 100);
   `,
+  // The client's own reference, a purchase order number as a rule, typed with their yes on their link (user flows of
+  // 24 November 2026, gap 13): it came back as an email for the office to type in.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accepted_ref text;
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

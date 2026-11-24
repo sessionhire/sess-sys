@@ -307,6 +307,8 @@ to suspend the Google account.
 
 ### 13. A client can only say yes online
 
+**Fixed in 1.226.0** (24 November 2026): the reference box. Turning down stays with email, as recommended.
+
 **Who:** the client. **Where:** the client's quote link. **Seen.**
 
 The page takes a name and a tick, and says "To change anything first,

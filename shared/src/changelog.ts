@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.226.0',
+    date: '2026-11-24',
+    title: 'A client can give their PO number with their yes',
+    what: 'The client’s quote link now has an optional “Your PO number or reference” box beside their name. What they type is kept with their yes: the job’s Quote tab says “Accepted online by their name… Their reference: PO 4471”, and the printed quote and its PDF carry it as Your reference. Before, it came back as an email for the office to type in.',
+    prs: [438],
+  },
+  {
     version: '1.225.1',
     date: '2026-11-24',
     title: 'Archiving a member of staff signs them out',

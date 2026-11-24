@@ -243,8 +243,11 @@ export interface Quote {
    * The link answers only while the office has accepting online on. None on a version from before it, until then.
    */
   acceptToken?: string
-  /** Accepted by the client on their link (ADR 0121): the name they typed, and when. None for an answer the office recorded. */
-  acceptedOnline?: { name: string; at: string } | null
+  /**
+   * Accepted by the client on their link (ADR 0121): the name they typed, and when, with their own reference (a purchase
+   * order number, as a rule) when they gave one. None for an answer the office recorded.
+   */
+  acceptedOnline?: { name: string; at: string; ref?: string } | null
 }
 
 /**
@@ -261,6 +264,8 @@ export function quoteContact<C extends { name: string }>(contacts: readonly C[],
 export const acceptPath = (token: string) => `/q/${token}`
 /** The longest name a client can type to accept. */
 export const ACCEPT_NAME_LENGTH = 120
+/** The longest reference (a purchase order number) a client can give with their yes. */
+export const ACCEPT_REF_LENGTH = 60
 
 /** Prices hold this long unless the quote says otherwise. */
 export const DEFAULT_VALID_DAYS = 30

@@ -43,6 +43,8 @@ test('a client accepts a quote on its link, once the office has turned it on', a
   await client.getByRole('button', { name: 'Accept the quote' }).click()
   // The browser asks for the name first, as it's required.
   await client.getByLabel('Your full name').fill('Aisling Byrne')
+  // Their own reference, for their accounts (user flows of 24 November 2026, gap 13): optional, and the office sees it with the yes.
+  await client.getByLabel('Your PO number or reference').fill('PO 4471')
   await client.getByRole('button', { name: 'Accept the quote' }).click()
   await client.getByRole('checkbox', { name: /I accept this quote/ }).check()
   await client.getByRole('button', { name: 'Accept the quote' }).click()
@@ -52,6 +54,7 @@ test('a client accepts a quote on its link, once the office has turned it on', a
   // The office sees who and when.
   await office.reload()
   await expect(office.getByText(/Accepted online by Aisling Byrne/)).toBeVisible()
+  await expect(office.getByText(/Accepted online by Aisling Byrne/)).toContainText('Their reference: PO 4471.')
   // And Home says a quote was answered with its job still to put in step, opening Money › To follow up on that list (user flows
   // of 24 November 2026, gap 4).
   await office.goto('/#home')

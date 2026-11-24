@@ -285,6 +285,13 @@ function ClientLink({ q, on }: { q: QuoteView; on: boolean }) {
     return (
       <p className="accepted-online">
         Accepted online by <b>{q.acceptedOnline.name}</b>, {dayLabel(day)} at {at.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Dublin' })}.
+        {/* Their own reference, typed with their yes (user flows of 24 November 2026, gap 13): what their accounts want on the invoice. */}
+        {q.acceptedOnline.ref && (
+          <>
+            {' '}
+            Their reference: <b>{q.acceptedOnline.ref}</b>.
+          </>
+        )}
       </p>
     )
   }
