@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-24',
     title: 'Stock codes that say what something is',
     what: 'Every item’s label now has a code that reads, such as AUD-0123-004: the department (AUD audio, LGT lighting, VID video and so on), the product’s own number, and which one of that product it is. Every product has its number, shown on its page as its product code. A product’s Items tab has Labels, to set its next codes aside and print them; scanning one puts it on that product with no need to say which. QR codes, barcodes and scanners all read them, and every SH- number still works as before.',
-    prs: [],
+    prs: [439],
     adrs: [195],
   },
   {

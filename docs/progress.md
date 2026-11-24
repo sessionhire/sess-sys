@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 24 November 2026: stock codes that say what something is
 
-**Done (1.229.0, ADR 0195)**
+**Done (1.229.0, #439, ADR 0195)**
 
 - Colly asked for stock numbers with meaning that scanners still read. An
   item's code is now the department's letters, the product's number and the
