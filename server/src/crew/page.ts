@@ -1,7 +1,7 @@
 import { LOGO_SVG, DIAL_CODES, phoneShown, splitPhone, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
-import { dsColor, dsSize, dsSpace, dsText, ibanShown, newId, ownColours, sparks, type PaymentDetails, type PaymentField } from '@sh/shared'
+import { dsColor, dsSize, dsSpace, dsText, newId, ownColours, sparks, type PaymentDetails, type PaymentField } from '@sh/shared'
 import { FONT_FACES, FONT_STACK } from './fonts.ts'
 import { busyByDay, ENDED_WORDS, HOLD_WORDS, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, type OwnCalendar, type SinceYes } from '@sh/shared'
 import type { Ended, EndedBy } from './store.ts'
@@ -600,7 +600,7 @@ function paymentSection(d: PageData): string {
   const wrong = mine && !mine.ok ? mine.field : undefined
   const fields = (Object.keys(PAY_LABELS) as PaymentField[]).filter((f) => f !== 'ppsn' || p.ppsn)
   const kept = p.masked
-  const shown = kept ? fields.filter((f) => kept[f]).map((f) => `<div><dt>${h(PAY_LABELS[f].replace(/,.*| \(.*/, ''))}</dt><dd>${h(f === 'iban' ? ibanShown(kept[f]) : kept[f])}</dd></div>`) : []
+  const shown = kept ? fields.filter((f) => kept[f]).map((f) => `<div><dt>${h(PAY_LABELS[f].replace(/,.*| \(.*/, ''))}</dt><dd>${h(kept[f])}</dd></div>`) : []
   const form = `<form method="post" action="${d.base}/payment#${REFUSED}">
         ${fields
           .map((f) => {
@@ -617,12 +617,15 @@ function paymentSection(d: PageData): string {
       <p class="small">${p.ppsn ? 'Your PPS number, VAT number and bank account' : 'Your VAT number and bank account'}, so we can pay you. They're kept locked: our office sees them with most of each number hidden, only a director can open them in full, and this page never shows them in full.</p>
       ${
         kept
-          ? `<dl class="facts">${shown.join('')}</dl>
+          ? `<dl class="pay-facts">${shown.join('')}</dl>
       <details class="again"${typed || wrong ? ' open' : ''}><summary>Change them</summary>
         <p class="small">Type them all as they are now: what you save replaces what we have, and the office is told.</p>
         ${form}
       </details>
-      <form method="post" action="${d.base}/payment/remove" class="remove"><button>Take them off</button></form>`
+      <details class="again"><summary>Take them off</summary>
+        <p class="small">We'll ask you for them again before we pay you.</p>
+        <form method="post" action="${d.base}/payment/remove" class="remove"><button>Yes, take them off</button></form>
+      </details>`
           : form
       }
     </details>
@@ -1239,7 +1242,7 @@ button:not(.yes,.no):active,a.button:not(.yes):active{background-image:linear-gr
 footer{display:grid;gap:8px;font-size:${dsText.touch.caption.size}px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
 .sheet-link{font-weight:600;padding:12px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-decoration:none}
 .me details{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 16px}.me details[open]{padding-bottom:16px}
-.me summary{padding:12px 0;list-style-position:inside}.me dl.facts{display:grid;gap:4px;margin:8px 0}.me dl.facts div{display:flex;gap:8px;flex-wrap:wrap}.me dl.facts dt{color:var(--muted)}.me dl.facts dd{margin:0;font-variant-numeric:tabular-nums}.me form.remove{margin-top:12px}.me summary h2{display:inline;margin:0}.me form{margin-top:4px}
+.me summary{padding:12px 0;list-style-position:inside}.me dl.pay-facts{display:grid;gap:4px;margin:8px 0}.me dl.pay-facts div{display:flex;gap:8px;flex-wrap:wrap}.me dl.pay-facts dt{color:var(--muted);min-width:9em}.me dl.pay-facts dd{margin:0;font-variant-numeric:tabular-nums}.me form.remove{margin-top:12px}.me summary h2{display:inline;margin:0}.me form{margin-top:4px}
 .ts-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .ts-list a{display:grid;gap:2px;padding:12px 16px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none}
 .ts-list a.to-send{border-left-color:var(--accent)}.ts-list a.sent{border-left-color:var(--warn)}.ts-list a.approved{border-left-color:var(--ink)}

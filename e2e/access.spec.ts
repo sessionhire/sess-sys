@@ -250,7 +250,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.goto(`/f/${dara.data.linkToken}`)
     await expect(page).toHaveTitle('Session Hire: your work')
     await expect(page.getByRole('main')).toHaveCount(1)
-    await page.getByText('Your details').click()
+    await page.getByText('Your details', { exact: true }).click()
+    // Their payment details (ADR 0193), whose fields are checked with the rest.
+    await page.getByText('For paying you', { exact: true }).click()
     const fields = await fieldBorders(page)
     expect(fields.length).toBeGreaterThan(3)
     for (const f of fields) expect(contrast(f.border, f.behind), `link page: ${f.field} border ${f.border} on ${f.behind}`).toBeGreaterThanOrEqual(3)
