@@ -577,7 +577,7 @@ describe.skipIf(!url)('real Postgres, many devices at once', () => {
       expect((await app.inject({ method: 'POST', url: '/api/data/made-up' })).statusCode).toBe(200)
       // Its products from the first product number, and their items from each product's first code (ADR 0195).
       const { rows: numbers } = await db.query<{ product: number; item: string }>(
-        `SELECT (SELECT min(code_number) FROM models)::int AS product, (SELECT min(substr(value, 10)) FROM identifiers WHERE kind = 'code') AS item`
+        `SELECT (SELECT min(code_number) FROM models)::int AS product, (SELECT min(substr(value, 6)) FROM identifiers WHERE kind = 'code') AS item`
       )
       expect(numbers[0]).toEqual({ product: 1, item: '001' })
     } finally {
