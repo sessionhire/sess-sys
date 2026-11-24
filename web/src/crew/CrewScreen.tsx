@@ -662,6 +662,8 @@ export function CrewScreen() {
               {archivedNow && people.get(archivedNow.id)?.archived && (
                 <p className="added">
                   Archived {archivedNow.name}.{' '}
+                  {/* Signed out with it (user flows of 24 November 2026, gap 12); their Google account is the office's to suspend, and nothing here can. */}
+                  {people.get(archivedNow.id)?.kind === 'staff' && 'They’re signed out of the app on every phone and computer. Suspend their Google account too, or they can sign back in. '}
                   <button
                     type="button"
                     className="link"

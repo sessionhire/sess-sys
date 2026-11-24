@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.225.1',
+    date: '2026-11-24',
+    title: 'Archiving a member of staff signs them out',
+    what: 'Archiving a member of staff now signs them out of the app on every phone and computer in the same step, and the line that says they were archived reminds you to suspend their Google account too. Before, archiving alone left their phone signed in, able to read jobs and crew phone numbers as ordinary crew.',
+    prs: [437],
+  },
+  {
     version: '1.225.0',
     date: '2026-11-24',
     title: 'Payment details are said where the paying is done, and a re-sent application says so',

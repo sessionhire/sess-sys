@@ -289,6 +289,8 @@ them, for the office to take down if they aren't wanted.
 
 ### 12. Archiving a member of staff doesn't sign them out
 
+**Fixed in 1.225.1** (24 November 2026).
+
 **Who:** directors. **Where:** a person's page. **Read.**
 
 Someone leaving now takes three separate steps that nothing connects:

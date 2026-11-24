@@ -122,6 +122,12 @@ describe('signing a member of staff out everywhere (the breach plan)', () => {
     expect(res.json()).toEqual({ ended: 2 })
     for (const s of [phone, laptop]) expect((await app.inject({ url: '/api/me', cookies: s.cookies })).json().user ?? null).toBeNull()
     expect(JSON.stringify(await colly.history())).toContain('Signed Orla Kenny out of the app on every phone and computer (2 devices)')
+    // Archiving a member of staff signs them out in the same step (user flows of 24 November 2026, gap 12).
+    const back = await staff(app, db, 'Orla Kenny', IPHONE, 'orla-phone')
+    expect((await app.inject({ url: '/api/me', cookies: back.cookies })).json()).toMatchObject({ user: { email: 'orla@sessionhire.com' } })
+    expect(await colly.send('person.archive', { id: 'orla', archived: true })).toMatchObject({ status: 'applied' })
+    expect((await app.inject({ url: '/api/me', cookies: back.cookies })).json().user ?? null).toBeNull()
+    expect((await app.inject({ url: '/api/me', cookies: colly.cookies })).json()).toMatchObject({ user: { email: 'colly@sessionhire.com' } })
     // A freelancer has no sign-in to end.
     expect((await app.inject({ method: 'POST', url: '/api/people/aoife/sign-out', cookies: colly.cookies })).statusCode).toBe(422)
   })

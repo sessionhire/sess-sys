@@ -477,6 +477,10 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
       }
       // Off the crew list, nobody needs their bank details any more (ADR 0193): they go now, as part of the same change.
       await ctx.tx.query('DELETE FROM payment_details WHERE person_id = $1', [person.id])
+      // A member of staff is signed out of the app everywhere in the same step (user flows of 24 November 2026, gap
+      // 12): archived alone, their phone stayed signed in, as an account that matches nobody on the Crew tab.
+      const emails = [person.email, ...(person.otherEmails ?? [])].map((e) => e?.trim().toLowerCase()).filter((e): e is string => !!e)
+      if (person.kind === 'staff' && emails.length) await ctx.tx.query('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE lower(email) = ANY($1::text[]))', [emails])
     } else if (person.email?.trim()) {
       // Back from the archive, their email must still be theirs alone, or an account could find either of them (ADR 0049).
       const { rows } = await ctx.tx.query<{ name: string }>(
