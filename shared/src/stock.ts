@@ -236,12 +236,10 @@ export type Model = z.infer<typeof model> & {
   photo?: { at: string } | null
   /**
    * Its product number (ADR 0195): four digits, given by the server in turn,
-   * the middle of its items' codes, "AUD-0123-004", never another's.
+   * the first part of its items' codes, "0123-004", never another's.
    * Null on a device until the server has given it.
    */
   codeNumber?: number | null
-  /** The department's letters its codes start with, "AUD": fixed once it has a label, so a label never goes out of date. Empty until given. */
-  codeLetters?: string
 }
 
 /** Why an item is no longer stock. `mistake` is for one that never was: it's hidden everywhere but the history. */
@@ -336,8 +334,8 @@ export function normaliseNumber(text: string): string | undefined {
 
 /**
  * Written in Session Hire's own form, "SH-000123" or "sh 123", or a code,
- * "AUD-0123-004" (ADR 0195), as against digits alone, which could be any
- * old tag (ADR 0026).
+ * "0123-004" (ADR 0195), as against digits alone, which could be any old
+ * tag (ADR 0026).
  */
 export const inShForm = (text: string) => (/^\s*sh[\s-]*\d{1,6}\s*$/i.test(text) && normaliseNumber(text) !== undefined) || readCode(text) !== undefined
 
@@ -353,58 +351,45 @@ export function wholeNumber(text: string): string | undefined {
   const t = text.trim().toUpperCase()
   if (/^(?:SH[\s-]*)?\d{6}$/.test(t) || /\/A\/\d{6}\/?$/.test(t)) return normaliseNumber(t)
   // A code is whole once its item number has all three digits, as printed.
-  return /^[A-Z]{3}[\s-]*\d{1,4}[\s-]*\d{3}$/.test(t) ? readCode(t)?.code : undefined
+  return /^(?:[A-Z]{3}[\s-]*)?\d{1,4}[\s-]+\d{3}$/.test(t) || /^[A-Z]{3}[\s-]*\d{7}$/.test(t) ? readCode(t)?.code : undefined
 }
 
 /**
- * Codes that say what something is (ADR 0195): the department's letters, the
- * product's number and the item's, "AUD-0123-004", a d&b speaker and the
- * fourth of them labelled. Capitals, digits and hyphens only, so a QR code,
- * a Code 128 barcode and a keyboard scanner all read them as printed, and
- * always the same width, so a list of them lines up.
+ * Codes that say what something is (ADR 0195): the product's number and the
+ * item's, "0123-004", a d&b speaker and the fourth of them labelled. Digits
+ * and a hyphen only, so a QR code, a Code 128 barcode and a keyboard scanner
+ * all read them as printed, and always the same width, so a list of them
+ * lines up. The hyphen tells one from an SH- number written short ("123"),
+ * and from an old tag that is digits alone. Codes first went out with the
+ * department's letters in front, "AUD-0123-004" (Colly dropped them the same
+ * day, 24 November 2026), so a label printed then still reads as its code.
  */
-export const DEPARTMENT_CODES: Record<Department, string> = {
-  audio: 'AUD',
-  lighting: 'LGT',
-  video: 'VID',
-  lasers: 'LAS',
-  staging: 'STG',
-  rigging: 'RIG',
-  power: 'PWR',
-  other: 'GEN',
-}
-const CODE_LETTERS = new Set(Object.values(DEPARTMENT_CODES))
+const LETTERS_ONCE = /^(?:AUD|LGT|VID|LAS|STG|RIG|PWR|GEN)[\s-]*/
 /** The most products there can be codes for, since their numbers are four digits. */
 export const MAX_PRODUCT_NUMBER = 9999
 /** The most items of one product there can be codes for, since their numbers are three digits. */
 export const MAX_ITEM_NUMBER = 999
 
-/** "AUD-0123", a product's part of its codes; empty until the server has given it a number. */
-export const productCode = (m: Pick<Model, 'codeNumber' | 'codeLetters'>) =>
-  m.codeNumber && m.codeLetters ? `${m.codeLetters}-${String(m.codeNumber).padStart(4, '0')}` : ''
+/** "0123", a product's part of its codes; empty until the server has given it a number. */
+export const productCode = (m: Pick<Model, 'codeNumber'>) => (m.codeNumber ? String(m.codeNumber).padStart(4, '0') : '')
 
-/** "AUD-0123-004" from a product's part and an item's number. */
+/** "0123-004" from a product's part and an item's number. */
 export const itemCode = (prefix: string, n: number) => `${prefix}-${String(n).padStart(3, '0')}`
 
 /**
- * A code as typed or scanned, in full: "AUD-0123-004", "aud 123 4",
- * "AUD0123004". The letters must be a department's, so another firm's tag
- * isn't read as one. Undefined for anything else.
+ * A code as typed or scanned, in full: "0123-004", "123 4", or one printed
+ * with letters in front before they were dropped, "AUD-0123-004". Undefined
+ * for anything else, digits alone among them.
  */
 export function readCode(text: string): { code: string; prefix: string; item: number } | undefined {
   const t = text.trim().toUpperCase()
-  const m = /^([A-Z]{3})[\s-]*(\d{4})[\s-]*(\d{3})$/.exec(t) ?? /^([A-Z]{3})[\s-]*(\d{1,4})[\s-]+(\d{1,3})$/.exec(t)
-  if (!m || !CODE_LETTERS.has(m[1]!) || Number(m[2]) === 0 || Number(m[3]) === 0) return undefined
-  const prefix = `${m[1]}-${m[2]!.padStart(4, '0')}`
-  const item = Number(m[3])
+  const lettered = LETTERS_ONCE.test(t)
+  const rest = t.replace(LETTERS_ONCE, '')
+  const m = /^(\d{1,4})[\s-]+(\d{1,3})$/.exec(rest) ?? (lettered ? /^(\d{4})(\d{3})$/.exec(rest) : null)
+  if (!m || Number(m[1]) === 0 || Number(m[2]) === 0) return undefined
+  const prefix = m[1]!.padStart(4, '0')
+  const item = Number(m[2])
   return { code: itemCode(prefix, item), prefix, item }
-}
-
-/** A product's part of its codes on its own, "AUD-0123" or "aud 123", as on a bag of cables. Undefined for anything else. */
-export function readProductCode(text: string): string | undefined {
-  const m = /^([A-Z]{3})[\s-]*(\d{1,4})$/.exec(text.trim().toUpperCase())
-  if (!m || !CODE_LETTERS.has(m[1]!) || Number(m[2]) === 0) return undefined
-  return `${m[1]}-${m[2]!.padStart(4, '0')}`
 }
 
 const oneOrNone = [(w: Where) => !(w.placeId && w.caseId), { message: 'Something lives at a place or in a case, not both.' }] as const

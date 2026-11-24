@@ -1,4 +1,4 @@
-import { barcode, barcodeFits, CABLE_COLOURS, colourForLength, lengthFromName, lengthLabel, plural, productCode, qrCode, type CableColour, type ModelView } from '@sh/shared'
+import { barcode, barcodeFits, CABLE_COLOURS, colourForLength, lengthFromName, lengthLabel, plural, qrCode, type CableColour, type ModelView } from '@sh/shared'
 import { useMemo, useState } from 'react'
 import { Heading } from '../Icon.tsx'
 import { Swatch } from '../LabelsCard.tsx'
@@ -180,7 +180,7 @@ export function CableLabels({ m }: { m: ModelView }) {
   const [layout, setLayout] = useState<CableLayout>(first.layout)
   // A barcode with nothing to hold prints no code, so a product without a stock code a barcode takes starts on a QR code,
   // keeping the device's own choice otherwise (audit, 5 November 2026, finding 72).
-  const [kind, setKind] = useState<CableCode>(() => (first.code === 'barcode' && !barcodeFits(m.code.trim() || productCode(m)) ? 'qr' : first.code))
+  const [kind, setKind] = useState<CableCode>(() => (first.code === 'barcode' && !barcodeFits(m.code.trim()) ? 'qr' : first.code))
   const [inColour, setInColour] = useState(first.colour)
   // Its own length, or one read from its name, such as "XLR 10m", until one is given.
   const named = m.lengthM === null ? lengthFromName(m.name) : null
@@ -196,8 +196,7 @@ export function CableLabels({ m }: { m: ModelView }) {
       // Remembered for this page only.
     }
   }
-  // Its own stock code, or else its product code, "AUD-0123" (ADR 0195), which the Stock search and a scan find just the same.
-  const stockCode = m.code.trim() || productCode(m)
+  const stockCode = m.code.trim()
   // A barcode holds the stock code, which the Stock search finds; a QR code holds it too, or the name where there's none.
   const code = kind === 'barcode' ? (barcodeFits(stockCode) ? stockCode : '') : kind === 'qr' ? stockCode || m.name : ''
   const noBarcode = kind === 'barcode' && !code

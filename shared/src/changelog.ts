@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.229.1',
+    date: '2026-11-24',
+    title: 'Stock codes are just numbers',
+    what: 'An item’s code is now the product’s number and then which one of that product it is, such as 0123-004, with no department letters in front. Any code already given out loses its letters, and a label printed with them still scans as before. Cable labels go back to the product’s own stock code.',
+    prs: [440],
+    adrs: [195],
+  },
+  {
     version: '1.229.0',
     date: '2026-11-24',
     title: 'Stock codes that say what something is',

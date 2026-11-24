@@ -447,7 +447,7 @@ test('someone already typing on the new screen keeps the focus', async ({ browse
   // Stock's own search: for a moment the Jobs screen, with a search of its own, is still there.
   // A short number, which waits for Enter: a whole one opens its item as soon as it's typed (UX sweep, 6 November 2026, move 8).
   const find = page.getByRole('region', { name: 'Catalogue' }).getByLabel('Find')
-  await find.fill('AUD-1-1')
+  await find.fill('1-1')
   await page.evaluate(() => {
     const w = window as unknown as Held
     window.requestAnimationFrame = w.raf
@@ -457,7 +457,7 @@ test('someone already typing on the new screen keeps the focus', async ({ browse
   await expect(find).toBeFocused()
   await find.press('Enter')
   // The made-up data's first speaker, its code written short (ADR 0195).
-  await expect(page.getByRole('heading', { level: 1, name: 'AUD-0001-001' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '0001-001' })).toBeVisible()
 })
 
 test('every field on every screen has a name, and the not-done list is a live region', async ({ browser }) => {

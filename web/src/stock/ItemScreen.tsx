@@ -434,7 +434,7 @@ function Relabel({ a, w, onDone }: { a: AssetView; w: WarehouseView; onDone: () 
     e.preventDefault()
     const t = typed.trim()
     const number = (t && normaliseNumber(t)) || null
-    if (t && !number) return refuse(`“${t}” isn't a Session Hire number: they're a code such as AUD-0123-004, or SH- and six digits.`)
+    if (t && !number) return refuse(`“${t}” isn't a Session Hire number: they're a code such as 0123-004, or SH- and six digits.`)
     if (number && number === a.number) return refuse(`${number} is its label now.`)
     // A code names its product (ADR 0195), so it goes on no other.
     const owner = number && readCode(number) ? productOfCode(number, w) : undefined

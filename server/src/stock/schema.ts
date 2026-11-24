@@ -421,6 +421,43 @@ const MIGRATIONS: string[] = [
   ALTER TABLE label_runs ADD COLUMN IF NOT EXISTS prefix text NOT NULL DEFAULT '';
   ALTER TABLE label_runs ADD CONSTRAINT label_runs_product CHECK ((model_id IS NULL) = (prefix = '') AND (model_id IS NULL OR first_number + count - 1 <= 999));
   `,
+  // Codes without the department's letters (Colly, 24 November 2026): "0123-004", the product's number and the item's.
+  // Any code given out or set aside with letters in the hours they were in loses them, and devices hear of every product's
+  // number, which the step before gave without telling them, and of every item and run whose code changed. The letters'
+  // column stays, unread.
+  `
+  SELECT pg_advisory_xact_lock(7331);
+  UPDATE identifiers SET value = substr(value, 5) WHERE kind = 'code' AND value ~ '^[A-Z]{3}-[0-9]{4}-[0-9]{3}$';
+  UPDATE label_runs SET prefix = substr(prefix, 5) WHERE prefix ~ '^[A-Z]{3}-[0-9]{4}$';
+  WITH latest AS (
+    SELECT DISTINCT ON (ch.entity, ch.entity_id) ch.entity, ch.entity_id, ch.op, ch.data
+      FROM changes ch WHERE ch.entity IN ('model', 'asset', 'labelRun')
+     ORDER BY ch.entity, ch.entity_id, ch.seq DESC
+  ),
+  models_now AS (
+    SELECT 'model' AS entity, l.entity_id, (l.data - 'codeLetters') || jsonb_build_object('codeNumber', m.code_number) AS data
+      FROM latest l JOIN models m ON m.id = l.entity_id
+     WHERE l.entity = 'model' AND l.op = 'put' AND l.data IS NOT NULL
+  ),
+  assets_now AS (
+    SELECT 'asset' AS entity, l.entity_id, l.data || jsonb_build_object(
+             'number', regexp_replace(l.data->>'number', '^[A-Z]{3}-(?=[0-9]{4}-[0-9]{3}$)', ''),
+             'formerNumbers', coalesce((SELECT jsonb_agg(regexp_replace(f.n, '^[A-Z]{3}-(?=[0-9]{4}-[0-9]{3}$)', '') ORDER BY f.i)
+                                          FROM jsonb_array_elements_text(l.data->'formerNumbers') WITH ORDINALITY f(n, i)), '[]'::jsonb)) AS data
+      FROM latest l
+     WHERE l.entity = 'asset' AND l.op = 'put' AND l.data IS NOT NULL AND (
+           l.data->>'number' ~ '^[A-Z]{3}-[0-9]{4}-[0-9]{3}$'
+        OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(l.data->'formerNumbers') f(n) WHERE f.n ~ '^[A-Z]{3}-[0-9]{4}-[0-9]{3}$'))
+  ),
+  runs_now AS (
+    SELECT 'labelRun' AS entity, l.entity_id, l.data || jsonb_build_object('prefix', substr(l.data->>'prefix', 5)) AS data
+      FROM latest l
+     WHERE l.entity = 'labelRun' AND l.op = 'put' AND l.data IS NOT NULL AND l.data->>'prefix' ~ '^[A-Z]{3}-[0-9]{4}$'
+  )
+  INSERT INTO changes (entity, entity_id, op, data)
+  SELECT entity, entity_id, 'put', data FROM (SELECT * FROM models_now UNION ALL SELECT * FROM assets_now UNION ALL SELECT * FROM runs_now) x
+   ORDER BY entity, entity_id;
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

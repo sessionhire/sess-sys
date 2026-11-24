@@ -505,7 +505,7 @@ function useRunRange(r: LabelRunView, max: number, tooMany: string) {
   const [count, setCount] = useState(String(Math.min(r.count, max)))
   const start = normaliseNumber(from)
   const code = start ? readCode(start) : undefined
-  // A product's run counts in its item numbers, "AUD-0123-004" being 4 (ADR 0195); SH- numbers in their own.
+  // A product's run counts in its item numbers, "0123-004" being 4 (ADR 0195); SH- numbers in their own.
   const offset = !start ? -1 : r.prefix ? (code?.prefix === r.prefix ? code.item - r.first! : -1) : code ? -1 : numberValue(start) - r.first!
   const n = Number(count)
   const problem =

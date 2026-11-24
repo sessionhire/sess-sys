@@ -622,7 +622,7 @@ function AddItem({ m, w }: { m: ModelView; w: WarehouseView }) {
     e.preventDefault()
     const typed = f.number.trim()
     const number = (typed && normaliseNumber(typed)) || null
-    if (typed && !number) return refuse(`“${typed}” isn't a Session Hire number: they're a code such as ${itemCode(productCode(m) || 'AUD-0123', 4)}, or SH- and six digits.`)
+    if (typed && !number) return refuse(`“${typed}” isn't a Session Hire number: they're a code such as ${itemCode(productCode(m) || '0123', 4)}, or SH- and six digits.`)
     // A code names its product (ADR 0195), so it goes on no other.
     const owner = number && readCode(number) ? productOfCode(number, w) : undefined
     if (owner && owner.id !== m.id) return refuse(`${number} is a label for ${owner.name}, not ${m.name}.`)

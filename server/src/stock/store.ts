@@ -5,7 +5,7 @@ import type { Queryable } from '../db.ts'
 
 const MODEL = `id, name, department, category, tracking, is_case, value_cents, notes, pat_months, lifting_months, margin_pct::float8 AS margin_pct, mistake, aliases, list_id,
   is_rack, code, units, depth_mm, weight_kg::float8 AS weight_kg, power_w, dry_hire, supplier, hire_day_cents,
-  rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m::float8 AS length_m, photo_at, code_number, code_letters`
+  rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m::float8 AS length_m, photo_at, code_number`
 const PLACE = `id, name, notes`
 const STOCK = `id, model_id, place_id, case_id, qty`
 // An item with its current number and the ones it had before, oldest first.
@@ -50,7 +50,6 @@ export const toModel = (r: Row): Model => ({
   rackPart: r.rack_part,
   lengthM: r.length_m,
   codeNumber: r.code_number,
-  codeLetters: r.code_letters,
   ...(r.photo_at ? { photo: { at: new Date(r.photo_at).toISOString() } } : {}),
 })
 export const toPlace = (r: Row): Place => ({ id: r.id, name: r.name, notes: r.notes })
@@ -164,9 +163,9 @@ export async function getLabelRun(q: Queryable, id: string) {
 export async function runNumbersUsed(q: Queryable, run: Pick<LabelRun, 'first' | 'count' | 'prefix'>): Promise<number> {
   if (run.first === null) return 0
   if (run.prefix) {
-    // A product's codes (ADR 0195): "AUD-0123-004", the item's number after the product's part and a hyphen.
+    // A product's codes (ADR 0195): "0123-004", the item's number after the product's part and a hyphen.
     const { rows } = await q.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM identifiers WHERE kind = 'code' AND left(value, 8) = $3 AND substr(value, 10)::int BETWEEN $1 AND $2`,
+      `SELECT count(*)::int AS n FROM identifiers WHERE kind = 'code' AND left(value, 4) = $3 AND substr(value, 6)::int BETWEEN $1 AND $2`,
       [run.first, run.first + run.count - 1, run.prefix]
     )
     return rows[0]!.n

@@ -84,7 +84,7 @@
 .label.sheet .qr { width: 17mm; height: 17mm; }
 .label.sheet b { font-size: 3mm; }
 .label.sheet small { font-size: 2mm; }
-/* A code, "AUD-0123-004" (ADR 0195), is three characters longer than an SH- number: a little smaller, so it fits beside the QR code. */
+/* A code printed with letters before 24 November 2026, "AUD-0123-004" (ADR 0195), is three characters longer than an SH- number: a little smaller, so it fits beside the QR code. */
 .label.wide b.long-number { font-size: 3.2mm; }
 .label.square b.long-number { font-size: 2.6mm; }
 .label.sheet b.long-number { font-size: 2.5mm; }

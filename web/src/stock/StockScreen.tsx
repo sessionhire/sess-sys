@@ -9,7 +9,6 @@ import {
   normaliseNumber,
   productCode,
   readCode,
-  readProductCode,
   parseEuro,
   placeRange,
   plural,
@@ -310,9 +309,7 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
     const found = itemByCode(w, code)
     // A cable label's code is its product's stock code (ADR 0095): straight to the product.
     const read = code.trim().toLowerCase()
-    // So is a product's own code on its own (ADR 0195), "AUD-0123", as on a bag of cables.
-    const own = found ? undefined : readProductCode(code) && productOfCode(code, w)
-    const coded = found ? [] : own ? [own] : w.models.filter((m) => m.code && m.code.toLowerCase() === read)
+    const coded = found ? [] : w.models.filter((m) => m.code && m.code.toLowerCase() === read)
     if (found) {
       setScanned(found.id)
       setSearch('')

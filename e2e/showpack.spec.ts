@@ -33,7 +33,7 @@ test('the crew chief’s show pack, for a phase and, with no signal, for the who
   await page.getByRole('tab', { name: 'Kit', exact: true }).click()
   await page.getByRole('link', { name: 'Pick list' }).click()
   const where = await page.getByRole('article', { name: 'd&b Y10P' }).getByRole('list', { name: 'Where to find them' }).textContent()
-  const number = /(?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3})/.exec(where ?? '')![0]
+  const number = /(?:SH-\d{6}|\d{4}-\d{3})/.exec(where ?? '')![0]
   await page.getByLabel('Number or serial').fill(number)
   await page.getByLabel('Number or serial').press('Enter')
   await expect(page.getByRole('status', { name: 'Last scan' })).toContainText(`${number} d&b Y10P`)

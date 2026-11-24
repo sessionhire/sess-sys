@@ -1,6 +1,5 @@
 import {
   aliasesOf,
-  DEPARTMENT_CODES,
   inShForm,
   itemCode,
   MAX_ITEM_NUMBER,
@@ -157,17 +156,16 @@ async function nextShNumber(ctx: Ctx): Promise<string> {
 }
 
 /**
- * A product's next code (ADR 0195), "AUD-0123-004": one after the highest
- * given out or set aside for printing, which it then is. Its letters are
- * fixed from here on, as a label now may carry them.
+ * A product's next code (ADR 0195), "0123-004": one after the highest
+ * given out or set aside for printing, which it then is.
  */
 async function nextCode(ctx: Ctx, modelId: string): Promise<string> {
-  const { rows } = await ctx.tx.query<{ code_number: number | null; code_letters: string; code_last: number }>(
-    'SELECT code_number, code_letters, code_last FROM models WHERE id = $1 FOR UPDATE',
+  const { rows } = await ctx.tx.query<{ code_number: number | null; code_last: number }>(
+    'SELECT code_number, code_last FROM models WHERE id = $1 FOR UPDATE',
     [modelId]
   )
   const m = rows[0]!
-  const prefix = productCode({ codeNumber: m.code_number, codeLetters: m.code_letters })
+  const prefix = productCode({ codeNumber: m.code_number })
   // A product past the last four-digit number, or with all its codes used: an SH- number, as before codes.
   if (!prefix || m.code_last >= MAX_ITEM_NUMBER) return nextShNumber(ctx)
   await ctx.tx.query('UPDATE models SET code_last = code_last + 1 WHERE id = $1', [modelId])
@@ -185,16 +183,15 @@ async function numberFor(ctx: Ctx, typed: string | null, modelId: string): Promi
   if (!number)
     throw new Refused({
       code: 'invalid',
-      message: `“${typed.trim()}” isn't a Session Hire number: they're a code such as AUD-0123-004, or SH- and six digits, such as SH-000123.`,
+      message: `“${typed.trim()}” isn't a Session Hire number: they're a code such as 0123-004, or SH- and six digits, such as SH-000123.`,
     })
   const code = readCode(number)
   if (code) {
-    const { rows } = await ctx.tx.query<{ id: string; name: string; code_letters: string; code_last: number }>(
-      'SELECT id, name, code_letters, code_last FROM models WHERE code_number = $1',
-      [Number(code.prefix.slice(4))]
-    )
+    const { rows } = await ctx.tx.query<{ id: string; name: string; code_last: number }>('SELECT id, name, code_last FROM models WHERE code_number = $1', [
+      Number(code.prefix),
+    ])
     const owner = rows[0]
-    if (!owner || owner.code_letters !== code.prefix.slice(0, 3))
+    if (!owner)
       throw new Refused({ code: 'not-found', message: `No product's codes start ${code.prefix}, so check the label.` })
     if (owner.id !== modelId) {
       const mine = await getModel(ctx.tx, modelId)
@@ -329,13 +326,13 @@ async function dropPrice(ctx: Ctx, modelId: string) {
   if (rows.length) await emitRemoved(ctx, 'productPrice', modelId)
 }
 
-/** A new product's number (ADR 0195), the next after every one given, and its department's letters. */
-async function giveProductNumber(ctx: Ctx, modelId: string, department: keyof typeof DEPARTMENT_CODES) {
+/** A new product's number (ADR 0195), the next after every one given. */
+async function giveProductNumber(ctx: Ctx, modelId: string) {
   const { rows } = await ctx.tx.query<{ n: number }>('SELECT coalesce(max(code_number), 0)::int + 1 AS n FROM models')
   const n = rows[0]!.n
   // Past the last four-digit number, a product goes without codes; its items take SH- numbers.
   if (n > MAX_PRODUCT_NUMBER) return
-  await ctx.tx.query('UPDATE models SET code_number = $2, code_letters = $3 WHERE id = $1', [modelId, n, DEPARTMENT_CODES[department]])
+  await ctx.tx.query('UPDATE models SET code_number = $2 WHERE id = $1', [modelId, n])
 }
 
 export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
@@ -385,7 +382,7 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
         a.lengthM,
       ]
     )
-    await giveProductNumber(ctx, a.id, a.department)
+    await giveProductNumber(ctx, a.id)
     await emit(ctx, 'model', a.id, await getModel(ctx.tx, a.id))
   },
 
@@ -441,8 +438,6 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
         k === 'name' || k === 'category' || k === 'code' ? String(a[k]).trim() : k === 'aliases' ? JSON.stringify(aliasesOf(a.aliases!.join(','), next.name)) : a[k]
       ),
     ])
-    // Its codes' letters follow its department until one is given out or set aside (ADR 0195); after that a label may carry them.
-    if (a.department !== undefined) await ctx.tx.query('UPDATE models SET code_letters = $2 WHERE id = $1 AND code_last = 0', [a.id, DEPARTMENT_CODES[a.department]])
     await emit(ctx, 'model', a.id, await getModel(ctx.tx, a.id))
   },
 
