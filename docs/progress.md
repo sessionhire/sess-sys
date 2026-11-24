@@ -3,6 +3,28 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 24 November 2026: documents on a job, for the crew
+
+**Done (1.231.0, #442, ADR 0196)**
+
+- Colly: "Is there a way to add attachments/supporting docs to a job for the
+  crew to see?" Then chose "Build all three". A job's Show pack tab now starts
+  with Documents (stage plot, run sheet, rider, site plan, something else),
+  as a file, a link or both. Each job and venue document has "Crew can see
+  it", ticked by default. A client's never can be.
+- Everyone who has said yes to a call sees a Documents section on their call
+  sheet, with the job's documents first and then the venue's. A file opens
+  only through their own link, and only while it is on their sheet. People
+  only offered the call see nothing. Staff crew and freelancers read only
+  crew documents in the app, and a document made office-only is taken off
+  their device. Combining jobs moves the documents.
+- Venue documents that were already there start ticked, because every role
+  could already read them.
+- Checked: typecheck; shared tests; server tests (5 new on the call sheet);
+  CI's server and browser tests.
+- Not done: documents on a single phase, and documents in the Crewbox show
+  pack.
+
 ## 24 November 2026: a pick list printed to pick by hand
 
 **Done (1.230.0, #441, no ADR)**
