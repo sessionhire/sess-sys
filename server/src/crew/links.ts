@@ -1,6 +1,6 @@
 import { commandSchemas, eachDay, EURO_HINT, sinceYes, type SinceYes, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
 import { drivesFor } from '../vehicles/drives.ts'
-import { FILE_TOO_BIG, hasPaymentDetails, maskPaymentDetails, NO_FILE, phoneWithCountry, readPaymentDetails, WEB_FILE, WRONG_FILE, type PaymentDetails, type PaymentField } from '@sh/shared'
+import { kindOf, linkPhotosUntil, FILE_TOO_BIG, hasPaymentDetails, maskPaymentDetails, NO_FILE, phoneWithCountry, readPaymentDetails, WEB_FILE, WRONG_FILE, type PaymentDetails, type PaymentField } from '@sh/shared'
 import { asksPpsn } from '../applications/store.ts'
 import { PAYMENT_DETAILS_ACTION } from '../history-words.ts'
 import { OWN_PAGE } from './payment.ts'
@@ -15,7 +15,7 @@ import { documentsOf } from '../documents/store.ts'
 import { publicOrigin } from '../http.ts'
 import { reportError } from '../monitoring.ts'
 import { officeFor, timesheetAsking, usesTimesheets } from '../office/store.ts'
-import { getPhase } from '../projects/store.ts'
+import { getPhase, getProjects } from '../projects/store.ts'
 import { sendFeed, type Feeds } from './feeds.ts'
 import { getLate, lateFor, lateOf } from './late.ts'
 import { renderGone, renderPage, type Flash, type Kept, type OnTheDay, type PagePayment, type PageWhatsApp } from './page.ts'
@@ -307,6 +307,24 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       office: await officeFor(db),
       onTheDay,
       drives: await drivesFor(db, person.id, now),
+      // The jobs they can put photos on (gap 11): a booking of theirs from its first day until a week after its last, where files can be kept.
+      ...(await (async () => {
+        if (!app.documents.on || person.archived) return {}
+        const open = rows.flatMap(({ offer, call }) => {
+          const until = linkPhotosUntil(offer, call, now)
+          return until && call.projectId ? [{ offerId: offer.id, jobId: call.projectId, until }] : []
+        })
+        if (!open.length) return {}
+        const named = new Map((await getProjects(db, open.map((o) => o.jobId))).map((p) => [p.id, p]))
+        const seen = new Set<string>()
+        const photos = open.flatMap((o) => {
+          const job = named.get(o.jobId)
+          if (!job || kindOf(job) === 'errand' || kindOf(job) === 'meeting' || seen.has(o.jobId)) return []
+          seen.add(o.jobId)
+          return [{ offerId: o.offerId, job: job.name, until: o.until }]
+        })
+        return photos.length ? { photos } : {}
+      })()),
       demo,
       ownCalendar: await getOwnCalendar(db, person.id),
       // Crew invites on (ADR 0009) and an address to send them to: the page says who they come from, and what to do when Google holds the

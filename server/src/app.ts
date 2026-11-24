@@ -28,6 +28,7 @@ import { registerCrewLinks } from './crew/links.ts'
 import { registerLinkCheck } from './crew/link-check.ts'
 import { registerJoin } from './applications/routes.ts'
 import { CELEBRATE_SCRIPT, COPY_SCRIPT } from './crew/page.ts'
+import { PHOTOS_SCRIPT } from './crew/photos-page.ts'
 import { PILLS_SCRIPT } from './applications/page.ts'
 import { OPEN_PAYMENT_KEY, registerPaymentRoutes } from './crew/payment.ts'
 import { registerSignOutEverywhere } from './auth/sign-out-everywhere.ts'
@@ -41,6 +42,7 @@ import { DocumentFiles } from './documents/files.ts'
 import { registerDocumentRoutes } from './documents/routes.ts'
 import { readLogo, registerPhotoRoutes } from './documents/photos.ts'
 import { registerJobPhotoRoutes } from './documents/job-photo-routes.ts'
+import { registerLinkPhotoRoutes } from './documents/link-photo-routes.ts'
 import { DueErasures } from './erasure/due.ts'
 import { ErasureList } from './erasure/list.ts'
 import { everythingJson, everythingZip, exportRowCount, readEverything, zipName } from './export.ts'
@@ -475,7 +477,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // The server's own pages get a strict content security policy (audit finding 24); the app shell sets its own as it's
   // served, below, and a document's file a stricter one of its own (ADR 0029). Anything else isn't a page, and needs only
   // to stay out of other sites' frames.
-  const pages = pagePolicy([COPY_SCRIPT, CELEBRATE_SCRIPT, PILLS_SCRIPT])
+  const pages = pagePolicy([COPY_SCRIPT, CELEBRATE_SCRIPT, PILLS_SCRIPT, PHOTOS_SCRIPT])
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-content-type-options', 'nosniff')
     if (!reply.hasHeader('content-security-policy')) {
@@ -715,6 +717,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   registerDocumentRoutes(app, { db, files: documents, onChange: changed })
   registerPhotoRoutes(app, { db, files: documents, onChange: changed })
   registerJobPhotoRoutes(app, { db, files: documents, onChange: changed })
+  registerLinkPhotoRoutes(app, { db, files: documents, onChange: changed })
   registerBackupRoutes(app, backups)
   registerDataRoutes(app, { db, backups, documents, onChange: changed })
   registerPeopleImportRoutes(app, { db, onChange: changed })

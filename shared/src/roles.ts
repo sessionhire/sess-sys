@@ -41,7 +41,7 @@ export const ROLE_LINES: Record<Role, string> = {
   office: 'Jobs, crew, kit and stock, money, and the settings: calendar, office details, bringing lists in, downloads.',
   head: "Crew and their bookings, kit on jobs, stock and the warehouse, the purchase list, and jobs' steps. Not jobs themselves, nor settings.",
   crew: "Their own leave and days in lieu, answering their own offers, the job steps given to them, putting photos on jobs, asking for kit to be bought and voting for it, and reporting a fault. They can look at the rest, but nobody else's pay, link, email, notes or documents.",
-  freelancer: "Reporting a fault, and asking for kit to be bought and voting for it. Their offers, bookings, timesheets and days off go through their private link; they can look at the rest, but nobody else's pay, link, phone, email, notes or documents.",
+  freelancer: "Reporting a fault, and asking for kit to be bought and voting for it. Their offers, bookings, timesheets, days off and photos of the jobs they're on go through their private link; they can look at the rest, but nobody else's pay, link, phone, email, notes or documents.",
 }
 
 /** The kinds of change a role can make. Each command needs exactly one. */

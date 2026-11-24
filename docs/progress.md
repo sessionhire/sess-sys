@@ -27,8 +27,11 @@ waiting on someone.
 
 **Waiting on Colly**
 
-- Gap 10: whether a sent quote that has lapsed should stop holding its kit.
-- Gap 11: whether freelancers can put photos on a job.
+- Gap 10: Colly decided (24 November): a sent quote lets its kit go after
+  double the quote period, or when the quote is cancelled, with a follow-up
+  task for the assignee the day before each. Being built.
+- Gap 11: Colly said yes. 1.227.0: freelancers put photos on a job they're
+  booked on from their own page, from its first day until a week after.
 
 ## 23 November 2026: a little celebration when a gig is settled
 

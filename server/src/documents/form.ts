@@ -10,6 +10,8 @@ export interface Form {
   fields: Record<string, string>
   /** The file chosen, if any; empty when the field was left blank, as browsers send it. */
   file?: Buffer
+  /** Every file sent as "file", in the order sent, for a form that sends several (photos from the link). */
+  files: Buffer[]
 }
 
 /** A body that isn't the form it should be. */
@@ -29,7 +31,8 @@ export function boundaryOf(contentType: string | undefined): string {
   return boundary
 }
 
-export function readForm(body: Buffer, contentType: string | undefined): Form {
+/** `files` is how many files the form may send; one, unless the page's form sends more. */
+export function readForm(body: Buffer, contentType: string | undefined, files = 1): Form {
   const boundary = boundaryOf(contentType)
   const delimiter = Buffer.from(`--${boundary}`)
   const between = Buffer.from(`\r\n--${boundary}`)
@@ -37,11 +40,11 @@ export function readForm(body: Buffer, contentType: string | undefined): Form {
   if (at < 0) throw new NotAForm('The form has no parts.')
   at += delimiter.length
   // No prototype, so a part named like one of an object's own properties is just a field.
-  const form: Form = { fields: Object.create(null) as Record<string, string> }
+  const form: Form = { fields: Object.create(null) as Record<string, string>, files: [] }
   for (let parts = 0; ; parts++) {
     // "--" after a delimiter ends the form; anything else but a line break isn't one.
     if (body.subarray(at, at + 2).toString('latin1') === '--') return form
-    if (parts >= MAX_PARTS || !body.subarray(at, at + 2).equals(CRLF)) throw new NotAForm('The form is not as the page sends it.')
+    if (parts >= MAX_PARTS + files - 1 || !body.subarray(at, at + 2).equals(CRLF)) throw new NotAForm('The form is not as the page sends it.')
     at += 2
     const headersEnd = body.indexOf(HEADERS_END, at)
     if (headersEnd < 0) throw new NotAForm('A part of the form has no end to its headers.')
@@ -56,7 +59,11 @@ export function readForm(body: Buffer, contentType: string | undefined): Form {
     if (!name) continue
     // A part with a file name is the file, whatever it's called: the name itself is never read.
     if (/(?:^|;)\s*filename\*?=/i.test(disposition)) {
-      if (name === 'file' && !form.file) form.file = Buffer.from(content)
+      if (name === 'file' && form.files.length < files) {
+        const file = Buffer.from(content)
+        form.file ??= file
+        form.files.push(file)
+      }
       continue
     }
     if (!Object.hasOwn(form.fields, name)) form.fields[name] = content.toString('utf8').slice(0, MAX_FIELD)

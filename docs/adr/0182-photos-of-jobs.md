@@ -40,7 +40,15 @@ for pictures: it is backed up nightly as a whole, sent to every phone as changes
    client) or saves it on a laptop. Errands and meetings have no Photos tab.
 5. **Jobs › Photos** is every job's photos, newest show first, found by caption, tag, job, client or venue, with tags in
    Filter. It is also on the Menu.
-6. **Who:** a new ability, `photos`, held by every staff role (director, office, head of department, staff crew): they
+6. **Freelancers too, from their own link** (Colly, 24 November 2026, gap 11 of the
+   [user flows review](../user-flows-review-2026-11-24.md): "yes they should"). A booking of theirs (accepted or
+   confirmed, on a call that is part of a gig or dry hire) has "Add photos of …" on their page from its first day until
+   a week after its last, opening `/f/<token>/photos/<booking>`. That page's one script makes each photo's two copies on
+   the phone, as the app does, and sends them in the page's form (up to ten a time); it is let in by its hash like the
+   other link pages' scripts, and without it the form stays hidden behind a line saying to send them to the office.
+   The server checks each copy is a JPEG and reads the photo's size from its own header. They go on the job with the
+   person's name, as their link's doing in the history; the office takes down any that aren't wanted, as before.
+7. **Who:** a new ability, `photos`, held by every staff role (director, office, head of department, staff crew): they
    put photos up and change captions and tags. Taking one down is for whoever put it up and the roles that change jobs.
    Everyone signed in sees them, freelancers too: they're the company's work, not anyone's details. Joining jobs moves
    the photos to the job kept; combining people moves who put them up; erasing someone leaves the photo, reading
