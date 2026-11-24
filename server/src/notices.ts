@@ -21,6 +21,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { HAS_EMAIL } from './crew/store.ts'
 import type { Db, Queryable } from './db.ts'
 import { SELECT, toEntries, type DocumentsRead, type Row } from './history.ts'
+import { QUOTE_ONLINE_ACTION } from './history-words.ts'
 import { usesTimesheets } from './office/store.ts'
 import { readingOf } from './reading.ts'
 
@@ -53,7 +54,9 @@ import { readingOf } from './reading.ts'
  * exist: a job going confirmed, to the heads of the departments on its calls
  * and kit and the warehouse's heads ("Confirmed: Harbour Lights, Mon 9
  * Nov"); and a job's first kit scanned out, to the office ("Gone out:
- * Harbour Lights").
+ * Harbour Lights"). A client's yes on their quote's link goes the same
+ * way, to whoever has the job's Quoting tasks and whoever emailed the quote
+ * ("Accepted online: Harbour Lights, by Niamh Walsh. Confirm the job.").
  *
  * Their own changes are never news to them, on any device, nor on their
  * private link or in Google Calendar. Noting an answer (`offer.seen`) is
@@ -286,9 +289,25 @@ export async function handOffs(q: Queryable, person: string, user: string | null
   const role = me[0]?.role
   const department = me[0]?.department?.trim().toLowerCase() || null
   const head = role === 'head' && department
-  if (!head && role !== 'office') return []
-  const notMine = `m.status = 'applied' AND NOT ($1::text IS NOT NULL AND m.user_id IS NOT DISTINCT FROM $1::text) AND m.client_id <> ALL($2::text[])`
   const out: HandOff[] = []
+  // A client's yes on their quote's link (ADR 0121), to whoever has the job's Quoting tasks and whoever emailed that
+  // quote (user flows of 24 November 2026, gap 4): the client's page says "We're told straight away", and the change is
+  // the server's own, to a quote, so it reached nobody's list.
+  {
+    const { rows } = await q.query<{ id: string; project: string; name: string; who: string | null }>(
+      `SELECT m.id, p.id AS project, p.name, m.args->>'name' AS who
+         FROM changes c JOIN mutations m ON m.id = c.mutation_id JOIN projects p ON p.id = m.args->>'projectId'
+        WHERE c.entity = 'quote' AND m.name = $1 AND m.status = 'applied' AND c.at > now() - make_interval(days => $2::int)
+          AND (
+            EXISTS (SELECT 1 FROM job_steps s WHERE s.project_id = p.id AND s.owner_id = $3::text AND s.step IN ('quote', 'confirmed'))
+            OR ($4::text IS NOT NULL AND EXISTS (SELECT 1 FROM quote_emails e WHERE e.quote_id = m.args->>'id' AND e.sent_by = $4::text))
+          )`,
+      [QUOTE_ONLINE_ACTION, NOTICE_DAYS, person, user],
+    )
+    out.push(...rows.map((r) => ({ id: r.id, project: r.project, say: `Accepted online: ${r.name}${r.who ? `, by ${r.who}` : ''}. Confirm the job.` })))
+  }
+  if (!head && role !== 'office') return out
+  const notMine = `m.status = 'applied' AND NOT ($1::text IS NOT NULL AND m.user_id IS NOT DISTINCT FROM $1::text) AND m.client_id <> ALL($2::text[])`
   if (head) {
     const { rows } = await q.query<{ id: string; project: string; name: string; starts: string | null }>(
       `WITH went AS (

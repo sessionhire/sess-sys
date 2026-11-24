@@ -39,6 +39,8 @@ export type Standing =
   | 'replaced'
   /** Its prices have stopped holding. */
   | 'lapsed'
+  /** Its job was cancelled or lost: there's nothing to say yes to. */
+  | 'stopped'
   /** Never sent: a link nobody should have yet. */
   | 'draft'
 
@@ -108,6 +110,8 @@ function standingLine(d: AcceptPage, until: string): string {
       const at = when ? ` on ${letterDay(when.toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' }))} at ${when.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Dublin' })}` : ''
       return `<p class="flash ok" role="status">${on ? `Accepted by ${h(on.name)}${at}. Thank you: we'll be in touch to confirm the booking.` : 'This quote has been accepted. Thank you.'}</p>`
     }
+    case 'stopped':
+      return `<p class="flash warn">This job isn't going ahead. Get in touch if that's changed.</p>`
     case 'declined':
       return `<p class="flash warn">This quote was turned down. To go ahead after all, get in touch and we'll look at it again.</p>`
     case 'replaced':

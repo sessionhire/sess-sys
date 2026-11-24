@@ -177,5 +177,7 @@ describe('how things stand', () => {
     // Every count lands on a heading of its own but the jobs' tasks, which open the Jobs list on its filters.
     const unheaded = (Object.keys(STANDING_HEADINGS) as StandingKey[]).filter((k) => !STANDING_HEADINGS[k])
     expect(unheaded).toEqual(['tasks-late', 'tasks-nobody'])
+    expect(listHeading(STANDING_HEADINGS.applications, 2)).toBe('To read (2)')
+    expect(listHeading(STANDING_HEADINGS['quotes-answered'], 1)).toBe('Answered: put the job in step (1)')
   })
 })

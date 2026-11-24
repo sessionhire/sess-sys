@@ -354,6 +354,8 @@ export const NOTICE_ENTITIES: readonly EntityName[] = [
   'movement',
   // What came back to a quote someone emailed: a bounce, a delay, the client's reply (ADR 0172).
   'quoteEmail',
+  // A client's yes on their quote's link, told to whoever has the job's Quoting tasks (user flows of 24 November 2026, gap 4).
+  'quote',
 ]
 export type NoticeWhy = (typeof NOTICE_WHY)[number]
 export const NOTICE_WHY_WORDS: Record<NoticeWhy, string> = {

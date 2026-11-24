@@ -1,4 +1,4 @@
-import { canApproveLeave } from '@sh/shared'
+import { canApproveLeave, readsApplications } from '@sh/shared'
 import { useAccess } from '../role.ts'
 import { useToday, useView } from '../view.ts'
 import { useMyDepartment } from '../Narrowed.tsx'
@@ -11,7 +11,7 @@ import { useMe } from './Leave.tsx'
  * copy, so it's right with no signal too (audit finding 9); an answer on
  * Google Calendar the app couldn't act on, to sort out; anyone running
  * late not yet noted (ADR 0028); a document sent from a link, to check
- * (ADR 0029); and, for someone who can approve time
+ * (ADR 0029); an application from the Apply page, to read (ADR 0190); and, for someone who can approve time
  * off, the leave waiting on them (ADR 0024). Certificates running out
  * aren't counted: they're known weeks ahead, and a badge always lit stops
  * being read. The office's part only for a role that can act on it
@@ -29,7 +29,9 @@ export function CrewBadge() {
   const department = useMyDepartment()
   // Not while the copy is still arriving: the count would climb under the tab (audit, 20 October 2026, finding 1).
   if (view.copying) return null
-  const n = (mayCrew ? crewToCheck(view, today, department) : 0) + (canApproveLeave(me) ? leaveToDecide(view, today, me).length : 0)
+  // Applications to read too (user flows of 24 November 2026, gap 4): the only sign of one was a number in the Also here row.
+  const applications = mayCrew && readsApplications(view.reading) ? view.applications.all.length : 0
+  const n = (mayCrew ? crewToCheck(view, today, department) : 0) + applications + (canApproveLeave(me) ? leaveToDecide(view, today, me).length : 0)
   if (n === 0) return null
   return (
     <span className="badge">

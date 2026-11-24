@@ -86,6 +86,8 @@ const NEEDS: Record<StandingKey, Ability | 'approve-leave'> = {
   quotes: 'money',
   'quotes-due': 'money',
   'to-invoice': 'money',
+  'quotes-answered': 'money',
+  applications: 'crew',
 }
 
 /**
@@ -146,6 +148,10 @@ const TILES: { [K in StandingKey]: TileSpec<K> } = {
   quotes: { one: 'quote worth a call', many: 'quotes worth a call', href: '#jobs/money/follow-up', tone: () => 'warn' },
   'quotes-due': { one: 'quote wanted today', many: 'quotes wanted today', href: '#jobs/money/follow-up' },
   'to-invoice': { one: 'job through, not invoiced', many: 'jobs through, not invoiced', href: '#jobs/money/follow-up' },
+  // What came in from outside the app (user flows of 24 November 2026, gap 4): a client's answer the job doesn't show yet, and
+  // an application from the Apply page, which is deleted unread after six months.
+  'quotes-answered': { one: 'quote answered, job to put in step', many: 'quotes answered, jobs to put in step', href: '#jobs/money/follow-up' },
+  applications: { one: 'application to read', many: 'applications to read', href: '#crew/applications' },
 }
 
 function tile<K extends StandingKey>(key: K, all: Standing): Tile {
@@ -193,7 +199,7 @@ export const SOON: FirstGroup = {
  * worth a call, the jobs whose dates passed with no answer, the jobs through and not invoiced, and the documents running out. Named for what it is, as most
  * of it isn't the next fortnight's: the warehouse's and the heads' counts are the housekeeping under it.
  */
-const OFFICE_FIRST: readonly StandingKey[] = ['late', 'answers', 'crew-needed', 'timesheets', 'quotes-due', 'quotes', 'no-answer', 'to-invoice', 'certificates']
+const OFFICE_FIRST: readonly StandingKey[] = ['late', 'answers', 'crew-needed', 'timesheets', 'quotes-answered', 'quotes-due', 'quotes', 'no-answer', 'to-invoice', 'applications', 'certificates']
 const OFFICE: FirstGroup = {
   heading: 'Waiting on the office',
   hint: "What's waiting on the office first, then the housekeeping. Each goes once it's sorted.",
@@ -203,7 +209,7 @@ const OFFICE: FirstGroup = {
 /** Which counts each view of Home shows, in order: the first is what that person reaches for first. */
 export const TILES_FOR: Record<HomeFor, readonly StandingKey[]> = {
   // The quotes worth a call beside the dates passed with no answer, the other count of what's being sold.
-  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'damaged-stopped', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'quotes-due', 'quotes', 'no-answer', 'to-invoice', 'tasks-late', 'tasks-nobody'],
+  company: ['late', 'answers', 'crew-needed', 'kit-short', 'still-out', 'to-pick', 'faults', 'damaged-stopped', 'cant-go', 'timesheets', 'leave', 'certificates', 'vehicles', 'counts', 'quotes-answered', 'quotes-due', 'quotes', 'no-answer', 'to-invoice', 'applications', 'tasks-late', 'tasks-nobody'],
   // Only what can be narrowed to a department: crew calls by their own department (ADR 0046); kit still out is the job's, not a department's.
   // Leave is whoever's waits on them, as an approver is a person (ADR 0024).
   department: ['late', 'answers', 'crew-needed', 'leave', 'timesheets', 'certificates', 'kit-short', 'faults', 'damaged-stopped', 'cant-go', 'tests-soon'],

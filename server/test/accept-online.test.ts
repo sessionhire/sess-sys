@@ -123,6 +123,24 @@ describe("a quote's own link for the client (ADR 0121)", () => {
     expect((await accept(lapsed, { name: 'Aoife Byrne', agree: 'yes' })).statusCode).toBe(409)
   })
 
+  it('takes nothing once its job is cancelled or lost, and says the job isn’t going ahead; back on, it takes a yes again (user flows of 24 November 2026, gap 3)', async () => {
+    const { app, quote, accept } = await sent()
+    await ok(app, m('quoting.online', { on: true }))
+    const token = (await quote('v1')).acceptToken!
+    for (const status of ['cancelled', 'lost'] as const) {
+      await ok(app, m('project.update', { id: 'gala', status }))
+      const page = await app.inject({ url: `/q/${token}` })
+      expect(page.body).toContain("This job isn't going ahead. Get in touch if that's changed.")
+      expect(page.body).not.toContain('Accept the quote')
+      expect((await accept(token, { name: 'Aoife Byrne', agree: 'yes' })).statusCode).toBe(409)
+      expect(await quote('v1')).toMatchObject({ status: 'sent' })
+    }
+    await ok(app, m('project.update', { id: 'gala', status: 'quoted' }))
+    expect((await app.inject({ url: `/q/${token}` })).body).toContain('Accept the quote')
+    expect((await accept(token, { name: 'Aoife Byrne', agree: 'yes' })).statusCode).toBe(303)
+    expect(await quote('v1')).toMatchObject({ status: 'accepted' })
+  })
+
   it("shows nothing of a version not yet sent, an amendment being drafted say, and takes nothing on it (ADR 0186)", async () => {
     const { app, quote, accept } = await sent()
     await ok(app, m('quoting.online', { on: true }), m('quote.save', { id: 'v2', projectId: 'gala', lines: [line({ what: 'L-Acoustics K2', qty: 10 })], discountPct: 0, notes: 'Secret note' }))

@@ -187,6 +187,26 @@ describe('notifications', () => {
     expect((await notices(colly)).notices.some((n) => n.said)).toBe(false)
   })
 
+  it("tells whoever has a job's Quoting tasks that the client said yes on the quote's link, and nobody else (user flows of 24 November 2026, gap 4)", async () => {
+    const { app, colly, aoife, notices } = await setUp()
+    const person = { phone: null, skills: [], dayRateCents: 25000, notes: '' }
+    await colly.send('person.upsert', { id: 'colly', name: 'Colly Hewson', kind: 'staff', email: 'colly@sessionhire.com', ...person } as never)
+    // Colly starts the job, so its Quoting tasks are Colly's.
+    await colly.send('project.create', { id: 'j5', name: 'Autumn Gala', clientId: null, venueId: null, status: 'enquiry', notes: '' })
+    await colly.send('phase.add', { id: 'show5', projectId: 'j5', name: 'Show', start: '2031-03-04', end: '2031-03-04', venueId: null, notes: '' })
+    const line = { id: 'l1', kind: 'kit', what: 'd&b Y10P', ref: null, group: 'Audio', qty: 8, days: 2, unitCents: 4500, vat: '23' }
+    expect((await colly.send('quote.save', { id: 'q5', projectId: 'j5', lines: [line], discountPct: 0, notes: '' } as never)).status).toBe('applied')
+    expect((await colly.send('quote.sent', { id: 'q5', on: new Date().toISOString().slice(0, 10) } as never)).status).toBe('applied')
+    expect((await colly.send('quoting.online', { on: true } as never)).status).toBe('applied')
+    const { acceptToken } = await colly.record<{ acceptToken: string }>('quote', 'q5')
+    const yes = await app.inject({ method: 'POST', url: `/q/${acceptToken}`, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: 'name=Niamh+Walsh&agree=yes' })
+    expect(yes.statusCode).toBe(303)
+    const told = (await notices(colly)).notices.filter((n) => n.forYou?.startsWith('Accepted online'))
+    expect(told.map((n) => [n.forYou, n.why, n.about])).toEqual([['Accepted online: Autumn Gala, by Niamh Walsh. Confirm the job.', 'turn', { entity: 'project', id: 'j5' }]])
+    expect((await notices(aoife)).notices.some((n) => n.forYou?.startsWith('Accepted online'))).toBe(false)
+    expect(NOTICE_ENTITIES).toContain('quote')
+  })
+
   it("tells the heads of a job's departments and the warehouse's that it's confirmed, and the office that its kit went out, once each", async () => {
     // Proves: move 12 of the UX sweep of 6 November 2026: the two hand-offs reach the people whose turn it is, in the app, once per transition per job, never to the one who did it.
     const { app, db, colly, notices } = await setUp()

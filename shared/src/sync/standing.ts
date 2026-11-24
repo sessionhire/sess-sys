@@ -3,6 +3,7 @@ import { departmentOf } from '../crew.ts'
 import { sameDepartment } from '../crew-departments.ts'
 import { runningOut, type RunningOut } from '../documents.ts'
 import { STOPPED } from '../jobs.ts'
+import { readsApplications } from '../reading.ts'
 import { nobodySoon } from '../lists.ts'
 import { STILL_NEEDS_CREW } from '../words.ts'
 import type { Department } from '../stock.ts'
@@ -135,6 +136,14 @@ export interface Standing {
   'quotes-due': QuoteToFollow[]
   /** Confirmed jobs through their dates with the accepted quote not invoiced (move 12), as Quotes › To follow up lists them. */
   'to-invoice': QuoteToFollow[]
+  /**
+   * Quotes the client has answered whose job doesn't say so yet (user flows of 24 November 2026, gap 4): a yes, online
+   * or heard by the office, with the job still to confirm, or a no with the job still to mark lost. As Quotes › To
+   * follow up lists them.
+   */
+  'quotes-answered': QuoteToFollow[]
+  /** Applications from the Apply page nobody has taken on or turned down (gap 4), for whoever is sent them; never a department's. */
+  applications: View['applications']['all']
 }
 
 export type StandingKey = keyof Standing
@@ -168,6 +177,8 @@ export const STANDING_HEADINGS = {
   quotes: 'Waiting for an answer',
   'quotes-due': 'Wanted today',
   'to-invoice': 'To invoice',
+  'quotes-answered': 'Answered: put the job in step',
+  applications: 'To read',
 } as const satisfies Record<StandingKey, string | undefined>
 
 /**
@@ -251,6 +262,8 @@ export function standing(view: View, today: string, { me, department }: Standing
     quotes: () => (department ? [] : quotesToFollow(view.money, today).chase),
     'quotes-due': () => (department ? [] : quotesToFollow(view.money, today, quoteWantedBy(view)).due),
     'to-invoice': () => (department ? [] : quotesToFollow(view.money, today).toInvoice),
+    'quotes-answered': () => (department ? [] : quotesToFollow(view.money, today).outOfStep),
+    applications: () => (department || !readsApplications(view.reading) ? [] : view.applications.all),
   }
   const kept: Partial<Standing> = {}
   const out = {} as Standing
