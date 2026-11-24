@@ -581,7 +581,7 @@ function details(d: PageData): string {
 const PAY_LABELS: Record<PaymentField, string> = { ppsn: 'PPS number', vatNumber: 'VAT number, if registered', accountName: 'Name on the account', iban: 'IBAN', bic: 'BIC (optional)' }
 const PAY_ATTRS: Record<PaymentField, string> = {
   ppsn: 'maxlength="12" placeholder="1234567FA"',
-  vatNumber: 'maxlength="20" placeholder="IE1234567T"',
+  vatNumber: 'maxlength="20" placeholder="IE6388047V"',
   accountName: 'maxlength="100" autocomplete="cc-name"',
   iban: 'maxlength="42" placeholder="IE29 AIBK 9311 5212 3456 78"',
   bic: 'maxlength="14" placeholder="AIBKIE2D"',
