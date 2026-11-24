@@ -397,6 +397,30 @@ const MIGRATIONS: string[] = [
     last_seen      timestamptz
   );
   `,
+  // Codes that say what something is (ADR 0195), "AUD-0123-004": each product's number, given in turn, department by
+  // department and by name for the products there already; the letters its codes start with, fixed
+  // once it has a label; and the highest item number given out or set aside for printing, so none is given twice. An
+  // item's code is one more label, beside SH- numbers, still one current label to an item. A product's labels set aside
+  // for printing say whose they are.
+  `
+  ALTER TABLE identifiers DROP CONSTRAINT IF EXISTS identifiers_kind_check;
+  ALTER TABLE identifiers ADD CONSTRAINT identifiers_kind_check CHECK (kind IN ('sh', 'code'));
+  CREATE UNIQUE INDEX IF NOT EXISTS identifiers_one_current ON identifiers (asset_id) WHERE retired_at IS NULL;
+  ALTER TABLE models ADD COLUMN IF NOT EXISTS code_number integer UNIQUE CHECK (code_number BETWEEN 1 AND 9999);
+  ALTER TABLE models ADD COLUMN IF NOT EXISTS code_letters text NOT NULL DEFAULT '';
+  ALTER TABLE models ADD COLUMN IF NOT EXISTS code_last integer NOT NULL DEFAULT 0 CHECK (code_last BETWEEN 0 AND 999);
+  UPDATE models m SET
+    code_number = n.n,
+    code_letters = CASE m.department WHEN 'audio' THEN 'AUD' WHEN 'lighting' THEN 'LGT' WHEN 'video' THEN 'VID' WHEN 'lasers' THEN 'LAS'
+                   WHEN 'staging' THEN 'STG' WHEN 'rigging' THEN 'RIG' WHEN 'power' THEN 'PWR' ELSE 'GEN' END
+  FROM (SELECT id, row_number() OVER (
+          ORDER BY array_position(ARRAY['audio', 'lighting', 'video', 'lasers', 'staging', 'rigging', 'power', 'other'], department), lower(name), id
+        ) AS n FROM models) n
+  WHERE m.id = n.id AND m.code_number IS NULL;
+  ALTER TABLE label_runs ADD COLUMN IF NOT EXISTS model_id text REFERENCES models(id);
+  ALTER TABLE label_runs ADD COLUMN IF NOT EXISTS prefix text NOT NULL DEFAULT '';
+  ALTER TABLE label_runs ADD CONSTRAINT label_runs_product CHECK ((model_id IS NULL) = (prefix = '') AND (model_id IS NULL OR first_number + count - 1 <= 999));
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

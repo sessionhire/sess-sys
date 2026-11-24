@@ -1,5 +1,6 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
-import { MAX_NUMBER, numberText, numberValue, type LabelEntities, type LabelRun } from '../labels.ts'
+import { MAX_NUMBER, numberText, numberValue, runNumber, type LabelEntities, type LabelRun } from '../labels.ts'
+import { readCode } from '../stock.ts'
 import type { WarehouseView } from './stock-view.ts'
 
 /**
@@ -12,7 +13,7 @@ import type { WarehouseView } from './stock-view.ts'
 
 export interface LabelRunView extends LabelRun {
   pending: boolean
-  /** "SH-000101", or empty until the server has set the numbers aside. */
+  /** "SH-000101" or "AUD-0123-001", or empty until the server has set the numbers aside. */
   firstNumber: string
   /** "SH-000600", or empty as above. */
   lastNumber: string
@@ -38,13 +39,14 @@ export function labelsView(
   warehouse: WarehouseView
 ): LabelsView {
   const runs = new Map<string, LabelRun & { pending: boolean }>()
-  // Runs saved before audit finding 19 have no cancelled flag yet.
-  for (const r of Object.values(entities.labelRun ?? {})) runs.set(r.id, { ...r, cancelled: r.cancelled ?? false, pending: false })
+  // Runs saved before audit finding 19 have no cancelled flag yet, and before ADR 0195 no product.
+  for (const r of Object.values(entities.labelRun ?? {}))
+    runs.set(r.id, { ...r, cancelled: r.cancelled ?? false, modelId: r.modelId ?? null, prefix: r.prefix ?? '', pending: false })
   for (const m of outbox) {
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
     if (m.name === 'labels.reserve') {
       const a = m.args as CommandArgs<'labels.reserve'>
-      if (!runs.has(a.id)) runs.set(a.id, { ...a, first: null, createdAt: m.createdAt, cancelled: false, pending: true })
+      if (!runs.has(a.id)) runs.set(a.id, { ...a, first: null, createdAt: m.createdAt, cancelled: false, modelId: a.modelId ?? null, prefix: '', pending: true })
     } else if (m.name === 'labels.update') {
       const a = m.args as CommandArgs<'labels.update'>
       const found = runs.get(a.id)
@@ -57,17 +59,24 @@ export function labelsView(
 
   // A cancelled run's numbers are never given out again, so they still raise the next free number.
   let highest = 0
-  for (const r of runs.values()) if (r.first !== null) highest = Math.max(highest, r.first + r.count - 1)
+  for (const r of runs.values()) if (r.first !== null && !r.prefix) highest = Math.max(highest, r.first + r.count - 1)
 
   const views: LabelRunView[] = [...runs.values()]
     .filter((r) => !r.cancelled)
     .map((r) => ({
       ...r,
-      firstNumber: r.first === null ? '' : numberText(r.first),
-      lastNumber: r.first === null ? '' : numberText(r.first + r.count - 1),
+      firstNumber: r.first === null ? '' : runNumber(r, 0),
+      lastNumber: r.first === null ? '' : runNumber(r, r.count - 1),
       used: 0,
     }))
-  const placed = views.filter((r) => r.first !== null).sort((a, b) => a.first! - b.first!)
+  const placed = views.filter((r) => r.first !== null && !r.prefix).sort((a, b) => a.first! - b.first!)
+  /** A product's runs (ADR 0195), by the product's part of their codes. */
+  const coded = new Map<string, LabelRunView[]>()
+  for (const r of views) if (r.first !== null && r.prefix) coded.set(r.prefix, [...(coded.get(r.prefix) ?? []), r])
+  const codedRunOf = (number: string) => {
+    const c = readCode(number)
+    return c && coded.get(c.prefix)?.find((r) => c.item >= r.first! && c.item < r.first! + r.count)
+  }
   /** The run holding a number: runs never overlap, so the last one starting at or before it. */
   const runAt = (n: number) => {
     let lo = 0
@@ -84,6 +93,11 @@ export function labelsView(
   }
 
   for (const number of warehouse.byNumber.keys()) {
+    if (readCode(number)) {
+      const run = codedRunOf(number)
+      if (run) run.used++
+      continue
+    }
     const n = numberValue(number)
     highest = Math.max(highest, n)
     const run = runAt(n)
@@ -93,6 +107,6 @@ export function labelsView(
   return {
     runs: views.sort((a, b) => Number(b.pending) - Number(a.pending) || b.createdAt.localeCompare(a.createdAt) || (b.first ?? 0) - (a.first ?? 0) || a.id.localeCompare(b.id)),
     next: highest < MAX_NUMBER ? numberText(highest + 1) : '',
-    runOf: (number: string) => runAt(numberValue(number)),
+    runOf: (number: string) => (readCode(number) ? codedRunOf(number) : runAt(numberValue(number))),
   }
 }

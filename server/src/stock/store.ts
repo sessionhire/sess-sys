@@ -5,14 +5,14 @@ import type { Queryable } from '../db.ts'
 
 const MODEL = `id, name, department, category, tracking, is_case, value_cents, notes, pat_months, lifting_months, margin_pct::float8 AS margin_pct, mistake, aliases, list_id,
   is_rack, code, units, depth_mm, weight_kg::float8 AS weight_kg, power_w, dry_hire, supplier, hire_day_cents,
-  rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m::float8 AS length_m, photo_at`
+  rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m::float8 AS length_m, photo_at, code_number, code_letters`
 const PLACE = `id, name, notes`
 const STOCK = `id, model_id, place_id, case_id, qty`
 // An item with its current number and the ones it had before, oldest first.
 const ASSET = `a.id, a.model_id, a.serial, a.place_id, a.case_id, a.status, a.retired_reason, a.retired_note, a.notes, a.old_number, a.pat_due::text AS pat_due,
-  (SELECT i.value FROM identifiers i WHERE i.asset_id = a.id AND i.kind = 'sh' AND i.retired_at IS NULL) AS number,
+  (SELECT i.value FROM identifiers i WHERE i.asset_id = a.id AND i.retired_at IS NULL) AS number,
   coalesce((SELECT json_agg(i.value ORDER BY i.retired_at, i.value) FROM identifiers i
-             WHERE i.asset_id = a.id AND i.kind = 'sh' AND i.retired_at IS NOT NULL), '[]') AS former`
+             WHERE i.asset_id = a.id AND i.retired_at IS NOT NULL), '[]') AS former`
 
 type Row = Record<string, any>
 
@@ -49,6 +49,8 @@ export const toModel = (r: Row): Model => ({
   powerLimitA: r.power_limit_a,
   rackPart: r.rack_part,
   lengthM: r.length_m,
+  codeNumber: r.code_number,
+  codeLetters: r.code_letters,
   ...(r.photo_at ? { photo: { at: new Date(r.photo_at).toISOString() } } : {}),
 })
 export const toPlace = (r: Row): Place => ({ id: r.id, name: r.name, notes: r.notes })
@@ -116,7 +118,7 @@ export async function oldNumberUse(q: Queryable, old: string, except: string) {
 /** Which item has had this number, now or before. */
 export async function numberUse(q: Queryable, number: string) {
   const { rows } = await q.query<{ asset_id: string; current: boolean }>(
-    `SELECT asset_id, retired_at IS NULL AS current FROM identifiers WHERE kind = 'sh' AND value = $1`,
+    `SELECT asset_id, retired_at IS NULL AS current FROM identifiers WHERE value = $1`,
     [number]
   )
   return rows[0] ? { assetId: rows[0].asset_id, current: rows[0].current } : undefined
@@ -132,13 +134,13 @@ export async function numberUse(q: Queryable, number: string) {
 export async function nextNumber(q: Queryable): Promise<number> {
   const { rows } = await q.query<{ n: number }>(
     `SELECT greatest((SELECT max(substr(value, 4)::int) FROM identifiers WHERE kind = 'sh'),
-                     (SELECT max(first_number + count - 1) FROM label_runs),
+                     (SELECT max(first_number + count - 1) FROM label_runs WHERE model_id IS NULL),
                      0)::int + 1 AS n`
   )
   return rows[0]!.n
 }
 
-const LABEL_RUN = `id, first_number, count, name, notes, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
+const LABEL_RUN = `id, first_number, count, name, notes, model_id, prefix, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
   cancelled_at IS NOT NULL AS cancelled`
 
 export const toLabelRun = (r: Row): LabelRun => ({
@@ -149,6 +151,8 @@ export const toLabelRun = (r: Row): LabelRun => ({
   notes: r.notes,
   createdAt: r.created_at,
   cancelled: r.cancelled,
+  modelId: r.model_id,
+  prefix: r.prefix,
 })
 
 export async function getLabelRun(q: Queryable, id: string) {
@@ -157,8 +161,16 @@ export async function getLabelRun(q: Queryable, id: string) {
 }
 
 /** How many of a run's numbers are on items, or were before a new label replaced them. */
-export async function runNumbersUsed(q: Queryable, run: Pick<LabelRun, 'first' | 'count'>): Promise<number> {
+export async function runNumbersUsed(q: Queryable, run: Pick<LabelRun, 'first' | 'count' | 'prefix'>): Promise<number> {
   if (run.first === null) return 0
+  if (run.prefix) {
+    // A product's codes (ADR 0195): "AUD-0123-004", the item's number after the product's part and a hyphen.
+    const { rows } = await q.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM identifiers WHERE kind = 'code' AND left(value, 8) = $3 AND substr(value, 10)::int BETWEEN $1 AND $2`,
+      [run.first, run.first + run.count - 1, run.prefix]
+    )
+    return rows[0]!.n
+  }
   const { rows } = await q.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM identifiers WHERE kind = 'sh' AND substr(value, 4)::int BETWEEN $1 AND $2`,
     [run.first, run.first + run.count - 1]

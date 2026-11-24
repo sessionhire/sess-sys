@@ -51,7 +51,7 @@ test('a round’s report of thorough examination on every motor in it, and anoth
     if (i === 0) await page.getByRole('button', { name: 'Make the place' }).click()
     if (motors.length) await expect(add.locator('.added')).not.toHaveText(`Added ${motors.at(-1)}.`)
     // The number comes back with a sync round trip, slower when the machine is busy (audit, 20 October 2026, finding 109).
-    await expect(add.locator('.added')).toHaveText(/^Added SH-\d{6}\.$/, { timeout: 20_000 })
+    await expect(add.locator('.added')).toHaveText(/^Added (?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3})\.$/, { timeout: 20_000 })
     motors.push((await add.locator('.added').textContent())!.slice(6, -1))
   }
   await page.getByRole('tab', { name: /^Details/ }).click()

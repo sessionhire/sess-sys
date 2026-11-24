@@ -3,6 +3,9 @@ import {
   MAX_QTY,
   newId,
   normaliseNumber,
+  productCode,
+  readCode,
+  readProductCode,
   plural,
   stockId,
   type AssetView,
@@ -73,6 +76,12 @@ export function whereText(x: Where, w: WarehouseView): string {
   if (x.placeId) return w.places.find((p) => p.id === x.placeId)?.name ?? ''
   if (x.caseId) return w.assets.get(x.caseId)?.number ?? ''
   return ''
+}
+
+/** The product a code names (ADR 0195), "AUD-0123-004" or "AUD-0123": undefined for an SH- number, or a code no product here has. */
+export function productOfCode(text: string, w: WarehouseView): WarehouseView['models'][number] | undefined {
+  const prefix = readCode(text)?.prefix ?? readProductCode(text)
+  return prefix ? w.models.find((m) => productCode(m) === prefix) : undefined
 }
 
 /** The item a typed or scanned number is on, now or before. */

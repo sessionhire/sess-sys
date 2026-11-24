@@ -86,7 +86,7 @@ test('brings the made-up stock list in, fixing a row in place, and shows its ite
   await expect(office.getByRole('heading', { name: 'Brought in' })).toBeVisible()
   await expect(office.getByRole('status').filter({ hasText: 'Brought in' })).toHaveText('Brought in 10 rows: 9 new products, 12 new items, 4 counts, 4 new places.')
 
-  // On the Stock tab: the products, and each item with its Session Hire number and its old one.
+  // On the Stock tab: the products, and each item with its code (ADR 0195) and its old number.
   await office.getByRole('link', { name: 'Stock tab' }).click()
   await expect(office.locator('.conn')).toHaveText('Up to date')
   await expect(stock.getByRole('button', { name: 'Show all 9 products' })).toBeVisible()
@@ -94,12 +94,12 @@ test('brings the made-up stock list in, fixing a row in place, and shows its ite
   await office.getByRole('tab', { name: /^Items/ }).click()
   const items = office.getByRole('region', { name: 'Items' })
   await expect(items.locator('.item-row')).toHaveCount(4)
-  await expect(items.locator('.item-row').first()).toContainText('SH-000505')
+  await expect(items.locator('.item-row').first()).toContainText('AUD-0001-001')
   // The old tag still finds its item, typed or scanned into the search.
   await ready(office, '#stock')
   await stock.getByRole('searchbox', { name: 'Find' }).fill('a-0102')
   await stock.getByRole('searchbox', { name: 'Find' }).press('Enter')
-  await expect(office.getByRole('heading', { level: 1, name: 'SH-000506' })).toBeVisible()
+  await expect(office.getByRole('heading', { level: 1, name: 'AUD-0001-002' })).toBeVisible()
   await expect(office.locator('.facts')).toContainText('Old numberA-0102')
   await office.getByRole('tab', { name: 'Tests and certificates' }).click()
   await expect(office.getByRole('region', { name: 'Inspections' })).toContainText('PAT due 30 Sept 2027, as the stock list says')
@@ -107,20 +107,20 @@ test('brings the made-up stock list in, fixing a row in place, and shows its ite
   // An old tag puts its item in a case too, typed or scanned.
   // The case's own number, whole, opens it with nothing to press (UX sweep, 6 November 2026, move 8).
   await ready(office, '#stock')
-  await stock.getByRole('searchbox', { name: 'Find' }).fill('SH-000503')
-  await expect(office.getByRole('heading', { level: 1, name: 'SH-000503' })).toBeVisible()
+  await stock.getByRole('searchbox', { name: 'Find' }).fill('AUD-0003-001')
+  await expect(office.getByRole('heading', { level: 1, name: 'AUD-0003-001' })).toBeVisible()
   await office.getByRole('tab', { name: 'In it' }).click()
   const put = office.locator('form').filter({ has: office.getByRole('heading', { name: 'Put an item in', exact: true }) })
   await put.getByLabel('Its number').fill('a-0102')
-  await put.getByRole('button', { name: 'Put it in SH-000503' }).click()
-  await expect(put.getByRole('status', { name: 'Put in' })).toContainText('SH-000506 (Corvo K12) is in SH-000503 now.')
-  await expect(office.getByRole('region', { name: 'In it' }).locator('.item-row', { hasText: 'SH-000506' })).toBeVisible()
+  await put.getByRole('button', { name: 'Put it in AUD-0003-001' }).click()
+  await expect(put.getByRole('status', { name: 'Put in' })).toContainText('AUD-0001-002 (Corvo K12) is in AUD-0003-001 now.')
+  await expect(office.getByRole('region', { name: 'In it' }).locator('.item-row', { hasText: 'AUD-0001-002' })).toBeVisible()
 })
 
 test('shows an item’s log: scanned out and back, a fault with no signal, and who did what once there’s signal', async ({ browser, request }) => {
   // The first speaker the list brought in, out to a job and back, by another phone.
   const pull = await (await request.get('/api/sync/pull?after=0')).json()
-  const speaker = pull.changes.find((c: { entity: string; data: { number?: string } }) => c.entity === 'asset' && c.data?.number === 'SH-000505').id as string
+  const speaker = pull.changes.find((c: { entity: string; data: { number?: string } }) => c.entity === 'asset' && c.data?.number === 'AUD-0001-001').id as string
   // After it was brought in, and before anything this test does on the phone.
   const start = Date.now()
   const after = (seconds: number) => new Date(start + seconds * 1000).toISOString()
@@ -139,7 +139,7 @@ test('shows an item’s log: scanned out and back, a fault with no signal, and w
   await ready(page, `#stock/item/${speaker}/log`)
   const log = page.getByRole('region', { name: 'Log' })
   const entries = log.locator('.log li .what')
-  await expect(entries).toHaveText(['Back in from Harbour gig', 'Out to Harbour gig', 'Added as SH-000505 at Bay A1'])
+  await expect(entries).toHaveText(['Back in from Harbour gig', 'Out to Harbour gig', 'Added as AUD-0001-001 at Bay A1'])
 
   // No signal: a fault reported here waits, and the log says so.
   await context.setOffline(true)
@@ -164,7 +164,7 @@ test('shows an item’s log: scanned out and back, a fault with no signal, and w
   // Signal back: the fault syncs, and the server fills in the rest.
   await context.setOffline(false)
   await expect(page.locator('.conn')).toHaveText('Up to date')
-  await expect(entries).toHaveText(["Reported damaged, can't go out: Grille dented", 'Back in from Harbour gig', 'Out to Harbour gig', 'Added as SH-000505 at Bay A1'])
+  await expect(entries).toHaveText(["Reported damaged, can't go out: Grille dented", 'Back in from Harbour gig', 'Out to Harbour gig', 'Added as AUD-0001-001 at Bay A1'])
   await expect(log.locator('.hint')).toHaveCount(0)
   await expect(log.locator('.log li').first()).not.toContainText('Waiting to sync')
 })
@@ -172,7 +172,7 @@ test('shows an item’s log: scanned out and back, a fault with no signal, and w
 // Proves an item's log with more than the server's page leaves nothing out when a change arrives after older entries were read.
 test('keeps an item’s long log whole when a change arrives after older entries were read', async ({ browser, request }) => {
   const pull = await (await request.get('/api/sync/pull?after=0')).json()
-  const item = pull.changes.find((c: { entity: string; data: { number?: string } }) => c.entity === 'asset' && c.data?.number === 'SH-000507').id as string
+  const item = pull.changes.find((c: { entity: string; data: { number?: string } }) => c.entity === 'asset' && c.data?.number === 'AUD-0001-003').id as string
   const serial = (n: number) => ({ id: `serial-${n}`, name: 'asset.update', args: { id: item, serial: `S${n}` }, createdAt: new Date().toISOString() })
   const send = async (from: number, to: number) => {
     const res = await request.post('/api/sync/push', { data: { clientId: 'office-laptop', mutations: Array.from({ length: to - from + 1 }, (_, i) => serial(from + i)) } })

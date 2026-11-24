@@ -1,6 +1,8 @@
 import {
   inShForm,
   normaliseNumber,
+  productCode,
+  readCode,
   plural,
   RETIRED_LABELS,
   RETIRED_REASONS,
@@ -33,6 +35,7 @@ import {
   itemNumbered,
   loopIn,
   numberLabel,
+  productOfCode,
   PutByNumber,
   SavedLine,
   useNewPlace,
@@ -417,6 +420,9 @@ function Details({ a, w, onDone }: { a: AssetView; w: WarehouseView; onDone: () 
 /** For a label that's lost or worn out. The old number stays with the item and is never used again. */
 function Relabel({ a, w, onDone }: { a: AssetView; w: WarehouseView; onDone: () => void }) {
   const [typed, setTyped] = useState('')
+  // Its product's next code (ADR 0195), or an SH- number for a product without one.
+  const coded = !!a.model && !!productCode(a.model)
+  const next = coded ? 'next code' : 'next free number'
   // Nothing typed gives it the next free number, which no label in hand has yet, and its own is never used again: that's asked first.
   const [asking, setAsking] = useState(false)
   const { run, error, refuse } = useAct()
@@ -428,8 +434,11 @@ function Relabel({ a, w, onDone }: { a: AssetView; w: WarehouseView; onDone: () 
     e.preventDefault()
     const t = typed.trim()
     const number = (t && normaliseNumber(t)) || null
-    if (t && !number) return refuse(`“${t}” isn't a Session Hire number: they're SH- and six digits, such as SH-000123.`)
+    if (t && !number) return refuse(`“${t}” isn't a Session Hire number: they're a code such as AUD-0123-004, or SH- and six digits.`)
     if (number && number === a.number) return refuse(`${number} is its label now.`)
+    // A code names its product (ADR 0195), so it goes on no other.
+    const owner = number && readCode(number) ? productOfCode(number, w) : undefined
+    if (owner && owner.id !== a.modelId) return refuse(`${number} is a label for ${owner.name}${a.model ? `, not ${a.model.name}` : ''}.`)
     const other = number ? w.byNumber.get(number) : undefined
     if (number && other) {
       return refuse(
@@ -451,7 +460,7 @@ function Relabel({ a, w, onDone }: { a: AssetView; w: WarehouseView; onDone: () 
         <input
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
-          placeholder="From the new label; empty for the next free one"
+          placeholder={`From the new label; empty for its ${next}`}
           autoComplete="off"
           autoCapitalize="characters"
           autoFocus
@@ -462,15 +471,15 @@ function Relabel({ a, w, onDone }: { a: AssetView; w: WarehouseView; onDone: () 
       {asking ? (
         <Confirm
           className="wide"
-          question={`Give ${a.number} the next free number? ${a.number} is never used again, and the new number needs a label printed for it.`}
-          yes="Use next free number"
+          question={`Give ${a.number} its ${next}? ${a.number} is never used again, and the new ${coded ? 'code' : 'number'} needs a label printed for it.`}
+          yes={`Use ${next}`}
           onYes={() => relabel(null)}
           onNo={() => setAsking(false)}
         />
       ) : (
         <div className="actions wide">
           <button type="submit" className="primary">
-            {typed.trim() ? 'Save new label' : 'Use next free number'}
+            {typed.trim() ? 'Save new label' : `Use ${next}`}
           </button>
           <button type="button" onClick={onDone}>
             Cancel

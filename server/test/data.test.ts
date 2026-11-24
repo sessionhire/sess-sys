@@ -209,16 +209,16 @@ describe('made-up data', () => {
     expect([launch.short, launch.ifPencilled]).toEqual([12, 0])
     expect(view.kit.lines.find((l) => l.model?.name === 'ROE BP2 LED panel')).toMatchObject({ own: 0, supplier: 'Lumen Video Hire' })
 
-    // The warehouse: labelled items from SH-000001 on, amps in their racks, what's still only counted, and a roll of numbers set aside.
+    // The warehouse: labelled items with their codes from AUD-0001-001 on (ADR 0195), amps in their racks, what's still only counted, and a roll of numbers set aside.
     const items = [...view.warehouse.assets.values()]
     expect(items).toHaveLength(26)
-    expect(items.map((a) => a.number).sort()[0]).toBe('SH-000001')
+    expect(items.map((a) => a.number).sort()[0]).toBe('AUD-0001-001')
     expect(items.filter((a) => a.caseId)).toHaveLength(4)
     const y10p = view.warehouse.models.find((m) => m.name === 'd&b Y10P')!
     expect([y10p.items.length, y10p.countedTotal, y10p.total]).toEqual([12, 4, 16])
     expect(view.labels.runs).toHaveLength(1)
-    expect(view.labels.runs[0]).toMatchObject({ name: 'Made-up roll', firstNumber: 'SH-000027', lastNumber: 'SH-000046' })
-    expect(view.labels.next).toBe('SH-000047')
+    expect(view.labels.runs[0]).toMatchObject({ name: 'Made-up roll', firstNumber: 'SH-000001', lastNumber: 'SH-000020' })
+    expect(view.labels.next).toBe('SH-000021')
 
     // Counts (ADR 0030): three places counted, Bay A1 with a speaker not found and a count short, as the phone's own
     // comparison says of what was scanned and counted; Van 1 never, so it's this week's.
@@ -342,11 +342,11 @@ describe('starting fresh', () => {
     expect((await app.inject({ url: '/api/me', cookies: aoife.cookies })).statusCode).toBe(200)
     expect((await pull(app, 0, aoife)).changes).toEqual([])
 
-    // Numbers start again from SH-000001, and made-up data can go in again.
+    // Codes start again from AUD-0001-001, and made-up data can go in again.
     expect((await putInMadeUpData(app, aoife)).statusCode).toBe(200)
     const office = await phone(app, aoife)
     await office.client.sync()
-    expect([...office.client.view().warehouse.assets.values()].map((a) => a.number).sort()[0]).toBe('SH-000001')
+    expect([...office.client.view().warehouse.assets.values()].map((a) => a.number).sort()[0]).toBe('AUD-0001-001')
   })
 
   it('empties every phone, and drops what one had waiting with no signal', async () => {

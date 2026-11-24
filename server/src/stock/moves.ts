@@ -70,7 +70,7 @@ export async function outWithJobs(q: Queryable, modelId: string): Promise<{ what
          FROM holders h JOIN events e ON e.asset_id = h.holder
         ORDER BY h.item, e.at DESC, e.id DESC
      )
-     SELECT (SELECT i.value FROM identifiers i WHERE i.asset_id = l.item AND i.kind = 'sh' AND i.retired_at IS NULL) AS number, p.name AS job
+     SELECT (SELECT i.value FROM identifiers i WHERE i.asset_id = l.item AND i.retired_at IS NULL) AS number, p.name AS job
        FROM latest l JOIN projects p ON p.id = l.project_id
       WHERE l.direction = 'out'
       ORDER BY number`,

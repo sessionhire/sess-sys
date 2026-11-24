@@ -49,7 +49,7 @@ export async function itemCertificateFileKeyOf(q: Queryable, id: string): Promis
 export async function certificateItemName(q: Queryable, c: ItemCertificate): Promise<string> {
   const { rows } = await q.query<{ value: string | null; name: string | null }>(
     `SELECT i.value, m.name FROM assets a LEFT JOIN models m ON m.id = a.model_id
-       LEFT JOIN identifiers i ON i.asset_id = a.id AND i.kind = 'sh' AND i.retired_at IS NULL
+       LEFT JOIN identifiers i ON i.asset_id = a.id AND i.retired_at IS NULL
       WHERE a.id = $1`,
     [c.assetIds[0]]
   )

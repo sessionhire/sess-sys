@@ -235,7 +235,8 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   await page.getByRole('tab', { name: /^Items/ }).click()
   const add = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Add an item', exact: true }) })
   await add.getByRole('button', { name: 'Add item' }).click()
-  await expect(add.locator('.added')).toHaveText(`Added ${sh(first + 12)}.`)
+  // Left empty, it takes its product's own next code (ADR 0195), so the next free SH- number is still the one after the run.
+  await expect(add.locator('.added')).toHaveText(/^Added [A-Z]{3}-\d{4}-001\.$/)
   await page.goto('/#stock/labels')
   await expect(page.getByRole('region', { name: 'Set aside' }).locator('.job-row', { hasText: roll })).toContainText('2 of 12 on items')
 
@@ -247,12 +248,12 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   await form.getByLabel('What for').fill(`Typed by mistake ${id}`)
   await form.getByRole('button', { name: 'Set numbers aside' }).click()
   await form.getByRole('button', { name: 'Set them aside' }).click()
-  await expect(form.locator('.added')).toHaveText(`Set aside ${sh(first + 13)} to ${sh(first + 52)}.`)
+  await expect(form.locator('.added')).toHaveText(`Set aside ${sh(first + 12)} to ${sh(first + 51)}.`)
   await form.locator('.added a').click()
-  await expect(page.getByRole('heading', { level: 1, name: `${sh(first + 13)} to ${sh(first + 52)}` })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: `${sh(first + 12)} to ${sh(first + 51)}` })).toBeVisible()
   await page.getByRole('button', { name: 'Cancel the run' }).click()
   await expect(
-    page.getByRole('group', { name: `Cancel the run ${sh(first + 13)} to ${sh(first + 52)}? It comes off the list, and its 40 numbers are never given out again.` })
+    page.getByRole('group', { name: `Cancel the run ${sh(first + 12)} to ${sh(first + 51)}? It comes off the list, and its 40 numbers are never given out again.` })
   ).toBeVisible()
   await page.getByRole('button', { name: 'Cancel the run' }).click()
   await expect(page).toHaveURL(/#stock\/labels$/)
@@ -261,7 +262,7 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   await form.getByLabel('How many labels').fill('1')
   await form.getByRole('button', { name: 'Set numbers aside' }).click()
   await form.getByRole('button', { name: 'Set them aside' }).click()
-  await expect(form.locator('.added')).toHaveText(`Set aside ${sh(first + 53)}.`)
+  await expect(form.locator('.added')).toHaveText(`Set aside ${sh(first + 52)}.`)
 })
 
 test('numbers set aside with no signal come once the signal is back', async ({ browser }) => {
