@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-24',
     title: 'Payment details: their own key, and the Apply page says how details are looked after',
     what: 'Payment details are now locked only with a key of their own (PAYMENT_DETAILS_KEY in the server’s settings, at least 32 characters), never the Google sign-in secret; until it’s set, the Apply page doesn’t ask for them. The key can be changed without losing anything: put the old one in PAYMENT_DETAILS_KEY_OLD and the app locks everything again with the new one when it starts. The Apply page has a “How we look after your details” section saying who keeps them, why, who sees them, where, for how long, and how to ask for them to be deleted or complain to the Data Protection Commission.',
-    prs: [],
+    prs: [428],
     adrs: [193],
   },
   {
