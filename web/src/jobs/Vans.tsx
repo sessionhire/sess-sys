@@ -1,4 +1,8 @@
 import {
+  dayAndTime,
+  deliveredTo,
+  kindOf,
+  oneLine,
   driverRefusal,
   driverUnknowns,
   firstName,
@@ -51,6 +55,7 @@ export function VansCard({ job, view }: { job: JobView; view: View }) {
     <section className="card vans" aria-label="Vehicles">
       <Heading icon="van">Vehicles</Heading>
       {stopped && bookings.length > 0 && <p className="hint">This job is {job.status}, so its vehicles are free for other jobs.</p>}
+      <HireRun job={job} />
       {/* A role without a button is told who books them, not told to (UX sweep, 6 November 2026, move 4). */}
       {bookings.length === 0 && <Empty>{mayBook ? 'Book a van for the job, or for one phase of it, with a driver from the crew.' : `No vans booked yet. ${NOT_YOURS.vans}`}</Empty>}
       {bookings.map((b) => (
@@ -70,6 +75,31 @@ export function VansCard({ job, view }: { job: JobView; view: View }) {
           </Fold>
         ))}
     </section>
+  )
+}
+
+/**
+ * How a dry hire is handed over, said where its van is booked (user flows of 24 November 2026, gap 1): a delivery says
+ * where to, by when and when it's brought back, so the van is booked for those two runs; a collection says the client
+ * comes for it, so no van is the usual answer.
+ */
+function HireRun({ job }: { job: JobView }) {
+  if (kindOf(job) !== 'hire' || !job.span || STOPPED.includes(job.status)) return null
+  const d = deliveredTo(job)
+  if (!d)
+    return (
+      <p className="hint">
+        The client collects this hire on {dayAndTime(job.span.start, job.hire?.outTime)} and returns it {dayAndTime(job.span.end, job.hire?.backTime)}, so it needs no van of ours.
+      </p>
+    )
+  const where = oneLine(d.address)
+  return (
+    <p className="hint">
+      <b>We deliver this hire</b>
+      {where ? ` to ${where}` : ''}: there by {dayAndTime(job.span.start, d.outTime)}, brought back {dayAndTime(job.span.end, d.backTime)}.{' '}
+      {job.span.start === job.span.end ? 'Book the van for the day.' : 'Book a van for the day it goes and again for the day it comes back, so it’s free in between.'}
+      {!where && ' The delivery address isn’t said yet: add it under Change details.'}
+    </p>
   )
 }
 
@@ -161,11 +191,13 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
   const [f, setF] = useState(() => {
     const phaseId = booking?.phaseId ?? ''
     const span = spanOf(phaseId)
+    // A delivery is two runs, out and back: the first booking starts on the day it goes, the next on the day it comes back.
+    const run = deliveredTo(job) && job.span ? (view.vehicles.ofJob(job.id).some((b) => b.start === job.span!.start) ? job.span.end : job.span.start) : undefined
     return {
       vehicleId: booking?.vehicleId ?? '',
       phaseId,
-      start: booking?.start ?? span.start,
-      end: booking?.end ?? span.end,
+      start: booking?.start ?? run ?? span.start,
+      end: booking?.end ?? run ?? span.end,
       driverId: booking?.driverId ?? '',
       notes: booking?.notes ?? '',
       driveMinutes: booking?.driveMinutes != null ? String(booking.driveMinutes) : '',
@@ -191,6 +223,7 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
     arriveBy: f.arriveBy || null,
     leaveAt: f.leaveAt || null,
   })
+  const toAddress = road.place === 'address'
   // What the map makes the drive, for the field's example, whatever's typed over it.
   const mapRoad = view.vehicles.roadOf({ vehicleId: f.vehicleId, projectId: job.id, phaseId: f.phaseId || null, start: f.start, end: f.start, driveMinutes: null, arriveBy: null, leaveAt: null })
 
@@ -217,7 +250,11 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
     void sent.then((ok) => {
       if (!ok) return
       if (onDone) onDone()
-      else setF({ ...f, vehicleId: '', driverId: '', notes: '', driveMinutes: '', arriveBy: '', leaveAt: '' })
+      else {
+        // A delivery's run out booked, the form moves on to the day it comes back.
+        const backRun = deliveredTo(job) && job.span && f.start === job.span.start && f.end === f.start && job.span.end !== f.start ? job.span.end : undefined
+        setF({ ...f, ...(backRun ? { start: backRun, end: backRun } : {}), vehicleId: '', driverId: '', notes: '', driveMinutes: '', arriveBy: '', leaveAt: '' })
+      }
     })
   }
 
@@ -292,12 +329,21 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
       {/* Out on the road (ADR 0179): when it's due and when it leaves, and the drive if the map's is wrong. */}
       <div className="pair">
         <label>
-          At the venue by <input type="time" value={f.arriveBy} onChange={(e) => setF({ ...f, arriveBy: e.target.value })} />
-          <small>On its first day. {road.arriveFrom === 'crew' ? `Blank: the crew’s call, ${road.arriveBy}.` : 'Blank: the crew’s call, once they have one.'}</small>
+          {toAddress ? 'At the address by' : 'At the venue by'} <input type="time" value={f.arriveBy} onChange={(e) => setF({ ...f, arriveBy: e.target.value })} />
+          <small>
+            On its first day.{' '}
+            {road.arriveFrom === 'crew'
+              ? `Blank: the crew’s call, ${road.arriveBy}.`
+              : road.arriveFrom === 'hire'
+                ? `Blank: the hire’s time that day, ${road.arriveBy}.`
+                : toAddress
+                  ? 'Blank: the hire’s time that day, once it has one.'
+                  : 'Blank: the crew’s call, once they have one.'}
+          </small>
         </label>
         <label>
-          Leaves the venue <input type="time" value={f.leaveAt} onChange={(e) => setF({ ...f, leaveAt: e.target.value })} />
-          <small>On its last day, once it’s loaded.</small>
+          {toAddress ? 'Leaves the address' : 'Leaves the venue'} <input type="time" value={f.leaveAt} onChange={(e) => setF({ ...f, leaveAt: e.target.value })} />
+          <small>On its last day, once it’s {toAddress ? 'unloaded or loaded' : 'loaded'}.</small>
         </label>
       </div>
       <label className="wide">
@@ -315,7 +361,9 @@ function BookingForm({ job, view, booking, onDone }: { job: JobView; view: View;
         <small>
           {mapRoad.minutes !== null
             ? `From the map: about ${driveWords(mapRoad.minutes)} (${mapRoad.km} km)${view.vehicles.from.set ? '' : ', measured from Dublin city centre until the warehouse is on the map'}. Type the real drive if you know it.`
-            : 'The venue isn’t on the map, so the drive can’t be worked out: type it, or put the venue on the map.'}
+            : toAddress
+              ? 'The delivery address isn’t on the map, so the drive can’t be worked out: type it, or find the address under Change details.'
+              : 'The venue isn’t on the map, so the drive can’t be worked out: type it, or put the venue on the map.'}
         </small>
       </label>
       {f.vehicleId && fitted && driveOk && road.minutes !== null && (

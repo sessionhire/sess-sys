@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.221.0',
+    date: '2026-11-24',
+    title: 'A delivered dry hire is planned like a delivery, and the warehouse is told how a hire is handed over',
+    what: 'A dry hire we deliver is now sent on to Transport by Next, as a gig is, instead of straight to settled. Its Transport tab says where it goes, by when and when it is brought back, and suggests a van for the day it goes and again for the day it comes back. The van measures its drive to the delivery address and takes the hire’s own times, so it says when to leave the warehouse; before, it said the drive was not known. A hire the client collects says so there, with no van asked for. The pick list of a dry hire now says how it is handed over: “Client collects 09:30” with the client, their contact and a number to ring, or “Deliver by 10:00” with the address and a map, and when it is due back. Home’s Going out list says the same beside a dry hire, and kit still out from a hire says when it was due back.',
+    prs: [432],
+  },
+  {
     version: '1.220.0',
     date: '2026-11-24',
     title: 'Crew keep their own payment details, a privacy page, and signing someone out everywhere',

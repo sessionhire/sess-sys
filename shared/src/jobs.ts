@@ -197,9 +197,30 @@ export function hireWhen(job: { kind?: ProjectKind; hire?: HireTerms | null }, s
     { label: words.back, text: dayAndTime(span.end, h.backTime) },
   ]
   // Its lines joined with commas, split rather than matched with a pattern that could run slow on a long address.
-  const where = (h.address ?? '').split('\n').map((l) => l.trim()).filter(Boolean).join(', ')
+  const where = oneLine(h.address)
   if (h.handover === 'delivery' && where) out.push({ label: 'Delivered to', text: where })
   return out
+}
+
+/** The handover of a dry hire we deliver ourselves, or nothing: a collection, and anything that isn't a dry hire. */
+export const deliveredTo = (job: { kind?: ProjectKind; hire?: HireTerms | null }): HireTerms | undefined =>
+  job.kind === 'hire' && job.hire?.handover === 'delivery' ? job.hire : undefined
+
+/** "12 Main Street, Naas": an address typed over several lines, on one. */
+export const oneLine = (address: string | undefined) => (address ?? '').split('\n').map((l) => l.trim()).filter(Boolean).join(', ')
+
+/**
+ * A dry hire's handover as the warehouse needs it said (user flows of 24 November 2026, gap 2): who moves the kit and at
+ * what time, going out and coming back. "Client collects 09:30", "Deliver by 10:00"; "Client returns 17:00", "We bring it
+ * back 17:00". Nothing for a job that isn't a dry hire.
+ */
+export function hireHandover(job: { kind?: ProjectKind; hire?: HireTerms | null }): { out: string; back: string; delivered: boolean } | undefined {
+  if (job.kind !== 'hire') return undefined
+  const h = job.hire ?? { handover: 'collection' as const }
+  const at = (t: string | undefined) => (t ? ` ${t}` : '')
+  return h.handover === 'delivery'
+    ? { out: h.outTime ? `Deliver by ${h.outTime}` : 'We deliver it', back: `We bring it back${at(h.backTime)}`, delivered: true }
+    : { out: `Client collects${at(h.outTime)}`, back: `Client returns${at(h.backTime)}`, delivered: false }
 }
 
 export const project = z.object({

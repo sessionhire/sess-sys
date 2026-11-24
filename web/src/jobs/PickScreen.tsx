@@ -1,4 +1,8 @@
 import {
+  hireHandover,
+  mapLink,
+  oneLine,
+  telHref,
   dayLabel,
   daysBetween,
   DEPARTMENT_LABELS,
@@ -555,12 +559,50 @@ function Brief({ view, job, today }: { view: View; job: JobView; today: string }
     if (b.phase && !van.phases.includes(b.phase.name)) van.phases.push(b.phase.name)
     vans.set(said, van)
   }
+  const hire = hireHandover(job)
+  const where = oneLine(job.hire?.address)
+  const who = job.client?.contacts[0]
   return (
     <ul className="pick-brief" aria-label="Before you start">
-      <li>
-        <b>{when}</b>: {next.name}, {dayLabel(next.start)}
-        {next.venue && ` at ${next.venue.name}`}
-      </li>
+      {hire && job.span ? (
+        // A dry hire says how it's handed over, to whom and when it's due back (user flows of 24 November 2026, gap 2): the
+        // job's page said it, and the pick list, which is what the warehouse has open, did not.
+        <>
+          <li>
+            <b>{job.span.start < today ? 'Went' : when}</b>: {hire.out}, {dayLabel(job.span.start)}
+            {hire.delivered ? (
+              where && (
+                <>
+                  {' '}
+                  to {where}{' '}
+                  <a className="muted" href={mapLink({ name: '', address: where, pin: job.hire?.pin ?? null })} target="_blank" rel="noreferrer">
+                    (map)
+                  </a>
+                </>
+              )
+            ) : (
+              <>
+                {job.client && ` · ${job.client.name}`}
+                {who && `, ${who.name}`}
+                {who?.phone && (
+                  <>
+                    {' '}
+                    <a href={telHref(who.phone)}>{who.phone}</a>
+                  </>
+                )}
+              </>
+            )}
+          </li>
+          <li>
+            <b>Due back</b>: {hire.back}, {dayLabel(job.span.end)}
+          </li>
+        </>
+      ) : (
+        <li>
+          <b>{when}</b>: {next.name}, {dayLabel(next.start)}
+          {next.venue && ` at ${next.venue.name}`}
+        </li>
+      )}
       {vans.size > 0 && (
         <li>
           <b>Going in</b>:{' '}

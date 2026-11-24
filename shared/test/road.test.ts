@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DUBLIN_CENTRE, driveMinutesFor, driveWords, earliestCall, roadFor, roadKm, roadWords, warehouseFrom } from '../src/index.ts'
+import { deliveredTo, hireHandover, oneLine, DUBLIN_CENTRE, driveMinutesFor, driveWords, earliestCall, roadFor, roadKm, roadWords, warehouseFrom } from '../src/index.ts'
 
 /** A van out on the road (ADR 0179): the drive from the map, typed over it, and when it leaves and is back. */
 
@@ -57,6 +57,26 @@ describe('the road a booking takes', () => {
     const none = roadFor({ start: '2031-03-04', end: '2031-03-04', arriveBy: '08:00' }, { ...at, to: null })
     expect(none).toMatchObject({ minutes: null, source: null, leaves: null })
     expect(roadWords(none)[0]).toMatch(/isn’t on the map/)
+  })
+
+  it('drives to a delivered dry hire’s address, due there at the hire’s time when none is typed (user flows of 24 November 2026, gap 1)', () => {
+    const r = roadFor({ start: '2031-03-04', end: '2031-03-04' }, { ...at, place: 'address', hireDue: '10:00' })
+    expect(r).toMatchObject({ arriveBy: '10:00', arriveFrom: 'hire', place: 'address' })
+    expect(roadWords(r)[0]).toBe('Leaves the warehouse about 07:15 Tue 4 Mar, to be there by 10:00')
+    // A time typed on the booking, or a crew's call, still wins.
+    expect(roadFor({ start: '2031-03-04', end: '2031-03-04', arriveBy: '09:00' }, { ...at, hireDue: '10:00' }).arriveFrom).toBe('typed')
+    const none = roadFor({ start: '2031-03-04', end: '2031-03-04' }, { ...at, to: null, place: 'address' })
+    expect(roadWords(none)[0]).toMatch(/delivery address isn’t on the map/)
+  })
+
+  it('says how a dry hire is handed over, and nothing for a gig (gap 2)', () => {
+    expect(hireHandover({ kind: 'hire', hire: { handover: 'collection', outTime: '09:30', backTime: '17:00' } })).toEqual({ out: 'Client collects 09:30', back: 'Client returns 17:00', delivered: false })
+    expect(hireHandover({ kind: 'hire', hire: { handover: 'delivery', outTime: '10:00' } })).toEqual({ out: 'Deliver by 10:00', back: 'We bring it back', delivered: true })
+    // A dry hire from before handovers was collected.
+    expect(hireHandover({ kind: 'hire' })?.out).toBe('Client collects')
+    expect(hireHandover({ kind: 'gig' })).toBeUndefined()
+    expect(deliveredTo({ kind: 'hire', hire: { handover: 'collection' } })).toBeUndefined()
+    expect(oneLine('12 Main Street\n Naas \n')).toBe('12 Main Street, Naas')
   })
 
   it('finds the earliest call of the job’s crew on the day, for its phase or the whole job', () => {
