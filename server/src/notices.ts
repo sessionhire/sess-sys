@@ -151,7 +151,15 @@ export async function readNotices(q: Queryable, reader: NoticeReader, rates = tr
   )
   const turns = person ? await handOffs(q, person, user, own) : []
   const told = new Map(turns.map((t) => [t.id, t.say]))
-  for (const t of turns) if (!hits.some((h) => h.id === t.id)) hits.push({ id: t.id, rank: NOTICE_WHY.indexOf('turn'), about: t.about ?? `project:${t.project}` })
+  // A hand-off is said as one even when the same change also touched a job they're on or made: a client's yes online sends
+  // the job again with its quote's hold (ADR 0194), which would otherwise read as a change to the job.
+  for (const t of turns) {
+    const turn = { id: t.id, rank: NOTICE_WHY.indexOf('turn'), about: t.about ?? `project:${t.project}` }
+    const at = hits.findIndex((h) => h.id === t.id)
+    if (at < 0) hits.push(turn)
+    // Only over a change to a job they're on or made: one to something of their own still says so.
+    else if (Number(hits[at]!.rank) >= NOTICE_WHY.indexOf('on')) hits[at] = turn
+  }
   if (hits.length === 0) return []
   const { rows } = await q.query<Row>(`${SELECT} WHERE m.id = ANY($1::text[]) ORDER BY m.received_at DESC, m.id DESC`, [hits.map((h) => h.id)])
   const byId = new Map(hits.map((h) => [h.id, h]))
