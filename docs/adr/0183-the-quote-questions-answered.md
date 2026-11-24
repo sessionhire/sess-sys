@@ -1,6 +1,6 @@
 # ADR 0183: The quote questions answered, and a dry hire delivered or collected
 
-- **Status:** accepted
+- **Status:** accepted; how long a sent quote holds its stock amended by [ADR 0194](0194-a-sent-quote-holds-its-kit-for-twice-its-valid-days.md)
 - **Date:** 14 November 2026
 - **Asked for by:** Colly, 14 November 2026, answering the six questions at the end of the
   [audit of the quote flow](../audit-quote-flow-2026-11-08.md):

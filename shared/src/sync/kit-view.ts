@@ -1,6 +1,6 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
 import { eachDay } from '../crew.ts'
-import { kitDaysOf, STOPPED, type ProjectStatus } from '../jobs.ts'
+import { kitDaysOf, STOPPED, type ProjectStatus, type QuoteHold } from '../jobs.ts'
 import type { KitEntities, KitLine } from '../kit.ts'
 import { DEPARTMENTS } from '../stock.ts'
 import type { FaultsView } from './faults-view.ts'
@@ -81,9 +81,19 @@ export function holdOf(status: ProjectStatus): KitHold {
  * confirmed job's is, so another quote for the same days sees it gone. A draft's kit is on the job's list as an enquiry's,
  * pencilled in (ADR 0126). Vans and pick lists still go by `holdOf`: held once the job is confirmed.
  */
-export function kitHoldOf(status: ProjectStatus): KitHold {
-  return status === 'quoted' ? 'held' : holdOf(status)
+export function kitHoldOf(status: ProjectStatus, quoteHold?: QuoteHold, today?: string): KitHold {
+  if (status !== 'quoted') return holdOf(status)
+  return kitLetGo(quoteHold, today) ? 'pencilled' : 'held'
 }
+
+/**
+ * A sent quote's kit let go (ADR 0194; Colly, 24 November 2026): held for twice the days its prices hold, then pencilled in
+ * as an enquiry's, so a quote nobody answers stops keeping the stock from the next one; and let go at once when the quote
+ * holds nothing, turned down or taken back. A cancelled or lost job holds nothing at all, as before. A job marked quoted
+ * with no quote sent in the app (one from the calendars) keeps holding: there's no day it was sent to count from.
+ */
+export const kitLetGo = (quoteHold: QuoteHold | undefined, today: string | undefined) =>
+  !!quoteHold && (!quoteHold.heldUntil || (!!today && today > quoteHold.heldUntil))
 
 /** Another job with the same product out on the day that matters to a line. */
 export interface KitOther {
@@ -300,7 +310,7 @@ export function kitView(
       job,
       phase,
       model,
-      hold: job ? kitHoldOf(job.status) : 'none',
+      hold: job ? kitHoldOf(job.status, job.quoteHold, today) : 'none',
       span,
       held: span && job && heldAround(job, span),
       // Dry hire stock (ADR 0075) is all hired in, so none of it comes out of our own.

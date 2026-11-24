@@ -222,6 +222,30 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE quotes ADD COLUMN IF NOT EXISTS accepted_ref text;
   `,
+  // How long a job's quote holds (ADR 0194), sent once to the devices for every job with a quote sent before it: from then
+  // on the job carries it whenever it's sent (projects/store.ts works it out as it's read, the same way as here).
+  `
+  WITH holds AS (
+    SELECT p.id, (SELECT CASE
+        WHEN q.deleted_at IS NULL AND q.status = 'sent' AND q.sent_on IS NOT NULL
+          THEN jsonb_build_object('validUntil', (q.sent_on + q.valid_days)::text, 'heldUntil', (q.sent_on + 2 * q.valid_days)::text)
+        WHEN q.deleted_at IS NULL AND q.status = 'accepted' THEN NULL
+        ELSE '{}'::jsonb END
+       FROM quotes q WHERE q.project_id = p.id AND q.status <> 'draft'
+      ORDER BY (q.deleted_at IS NULL) DESC, q.version DESC LIMIT 1) AS hold
+      FROM projects p
+  ),
+  latest AS (
+    SELECT DISTINCT ON (ch.entity_id) ch.entity_id, ch.op, ch.data, h.hold
+      FROM changes ch JOIN holds h ON h.id = ch.entity_id
+     WHERE ch.entity = 'project' AND h.hold IS NOT NULL
+     ORDER BY ch.entity_id, ch.seq DESC
+  )
+  INSERT INTO changes (entity, entity_id, op, data)
+  SELECT 'project', entity_id, 'put', data || jsonb_build_object('quoteHold', hold)
+    FROM latest WHERE op = 'put' AND data IS NOT NULL
+   ORDER BY entity_id;
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

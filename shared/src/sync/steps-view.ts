@@ -9,6 +9,7 @@ import type { CrewView, PersonView } from './crew-view.ts'
 import type { FaultsView } from './faults-view.ts'
 import { crewFill, type JobsView, type JobView } from './jobs-view.ts'
 import type { KitView } from './kit-view.ts'
+import { addDays } from './plan.ts'
 import { CHASE_AFTER_DAYS, type MoneyView } from './money-view.ts'
 import type { MovesView, PickList } from './pick-view.ts'
 import type { VehiclesView } from './vehicles-view.ts'
@@ -94,6 +95,12 @@ export interface StepFacts {
   faults?: number
   /** Nothing to work on yet: no crew asked for, no kit on the job, nothing to pick, no dates. */
   nothingYet?: boolean
+  /**
+   * The quote with the client, to follow up (ADR 0194): while its prices hold, the last day they do; once they've lapsed,
+   * the last day its kit is held; after that, its kit was let go and is pencilled in. The Confirmed task is due the day
+   * before the day it names, unless a day was set by hand.
+   */
+  followUp?: { on: string; about: 'prices' | 'kit' | 'letGo' }
 }
 
 export interface StageView {
@@ -161,7 +168,7 @@ export interface StepsView {
 type Tables = { [E in keyof StepEntities]: Record<string, StepEntities[E]> }
 
 /** What the app can tell of one task: done in words, how far along in words, or not needed, and the facts under each. */
-type Told = { auto?: string; hint?: string; skipped?: string; facts: StepFacts }
+type Told = { auto?: string; hint?: string; skipped?: string; facts: StepFacts; /** A day it's due by when none was set by hand. */ dueOn?: string }
 
 /**
  * Where the selling stands, in one sentence (Move 7 of the sweep of 6 November 2026): the Board's card, the Jobs list's
@@ -193,6 +200,16 @@ export function sellingLine(s: {
     return s.sentDays === 0 ? 'Quote with the client since today' : `Quote with the client ${plural(s.sentDays, 'day')}${s.sentDays >= CHASE_AFTER_DAYS ? ' · worth a call' : ''}`
   if (s.draft) return `${s.amending ? `Version ${s.amending} being amended` : 'Draft started'}${s.unpriced ? ` · ${plural(s.unpriced, 'line')} ${s.unpriced === 1 ? 'needs' : 'need'} a price` : ''}`
   return 'No quote yet'
+}
+
+/**
+ * What following up the quote is about, in words (ADR 0194): the prices about to lapse, the kit about to be let go, or the
+ * kit already let go and only pencilled in, so another job may take it.
+ */
+export function followUpHint(f: NonNullable<StepFacts['followUp']>, today: string): string {
+  if (f.about === 'prices') return `Follow up: its prices hold ${f.on === today ? 'until today' : `until ${dayLabel(f.on, today)}`}`
+  if (f.about === 'kit') return `Follow up: its prices have lapsed, and its kit is held ${f.on === today ? 'until today' : `until ${dayLabel(f.on, today)}`}`
+  return `Follow up: its kit was let go after ${dayLabel(f.on, today)}, so it's only pencilled in`
 }
 
 /** Jobs with stages: gigs and dry hires. Errands and meetings are done in a day and need none. */
@@ -300,6 +317,18 @@ export function stepsView(
       ...(draft ? { draft: true } : {}),
       ...(!sentMoney ? { quoteHidden: true } : {}),
     }
+    // The quote with the client, followed up the day before its prices lapse, then the day before its kit is let go (ADR 0194;
+    // Colly, 24 November 2026). Read from the job, so a role sent no money has the same days. A quote answered, turned
+    // down or amended says that instead, as does one whose dates have passed.
+    const hold = job.quoteHold
+    const followUp: StepFacts['followUp'] =
+      job.status !== 'quoted' || !hold?.validUntil || !hold.heldUntil || accepted || turnedDown
+        ? undefined
+        : today <= hold.validUntil
+          ? { on: hold.validUntil, about: 'prices' }
+          : today <= hold.heldUntil
+            ? { on: hold.heldUntil, about: 'kit' }
+            : { on: hold.heldUntil, about: 'letGo' }
     const crewFacts: StepFacts = { booked: crewOn.booked, needed: crewOn.needed, toConfirm: crewOn.toConfirm, ...(crewOn.needed === 0 ? { nothingYet: true } : {}) }
     const kitFacts: StepFacts = { lines: lines.length, short, vans, ...(lines.length || vans ? {} : { nothingYet: true }) }
     const pickFacts: StepFacts = pick && pick.need > 0 ? { out: wentOut, of: pick.need } : { nothingYet: true }
@@ -333,7 +362,9 @@ export function stepsView(
             ? { hint: `The client said yes${accepted.answeredOn ? ` ${dayLabel(accepted.answeredOn)}` : ''}, and the job is still ${STATUS_LABELS[job.status].toLowerCase()}`, facts: quoteFacts }
             : lapsed
               ? { hint: `Its dates have passed with no answer`, facts: quoteFacts }
-              : { hint: `Still ${STATUS_LABELS[job.status].toLowerCase()}`, facts: quoteFacts },
+              : followUp
+                ? { hint: followUpHint(followUp, today), facts: { ...quoteFacts, followUp }, dueOn: addDays(followUp.on, -1) }
+                : { hint: `Still ${STATUS_LABELS[job.status].toLowerCase()}`, facts: quoteFacts },
       crew:
         crewOn.needed === 0
           ? kindOf(job) === 'hire'
@@ -417,7 +448,8 @@ export function stepsView(
       const ticked = r?.doneAt ? { at: r.doneAt, by: r.doneBy ? people.get(r.doneBy) : undefined } : undefined
       const done = !!ticked || !!t.auto
       const skipped = done ? undefined : t.skipped
-      const dueOn = r?.dueOn ?? null
+      // A day set by hand wins over the one the app gives (ADR 0194).
+      const dueOn = r?.dueOn ?? t.dueOn ?? null
       return {
         key,
         number: i + 1,

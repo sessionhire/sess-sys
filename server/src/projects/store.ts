@@ -5,7 +5,20 @@ import type { Queryable } from '../db.ts'
 
 const CLIENT = `id, name, contacts, notes, address, payment_terms`
 const VENUE = `id, name, address, notes, lat, lng, contact`
-const PROJECT = `id, name, client_id, venue_id, status, kind, notes, office_notes, source_calendar, prep_days, return_days, hire`
+/**
+ * How long the job's quote holds (ADR 0194), from its newest version sent that's still in the app: with the client, the day
+ * its prices run to and the day its kit is held to, twice as far; turned down, or only ever sent and taken back, an empty
+ * hold that holds nothing; said yes to, or never sent, none. Worked out each time it's read, so it's never out of step
+ * with the quotes: whatever changes a quote's standing sends the job again (finance/handlers.ts, `jobAgain`).
+ */
+const QUOTE_HOLD = `(SELECT CASE
+    WHEN q.deleted_at IS NULL AND q.status = 'sent' AND q.sent_on IS NOT NULL
+      THEN jsonb_build_object('validUntil', (q.sent_on + q.valid_days)::text, 'heldUntil', (q.sent_on + 2 * q.valid_days)::text)
+    WHEN q.deleted_at IS NULL AND q.status = 'accepted' THEN NULL
+    ELSE '{}'::jsonb END
+   FROM quotes q WHERE q.project_id = projects.id AND q.status <> 'draft'
+  ORDER BY (q.deleted_at IS NULL) DESC, q.version DESC LIMIT 1) AS quote_hold`
+const PROJECT = `id, name, client_id, venue_id, status, kind, notes, office_notes, source_calendar, prep_days, return_days, hire, ${QUOTE_HOLD}`
 const PHASE = `id, project_id, name, start_day::text, end_day::text, venue_id, notes, contact_id, local_crew`
 
 type Row = Record<string, any>
@@ -45,6 +58,8 @@ export const toProject = (r: Row): Project => ({
   ...(r.source_calendar ? { sourceCalendar: r.source_calendar } : {}),
   // Only on a dry hire that has one (ADR 0183), so other jobs read as before.
   ...(r.hire ? { hire: r.hire } : {}),
+  // Only on a job with a quote sent (ADR 0194), so others read as before.
+  ...(r.quote_hold ? { quoteHold: r.quote_hold } : {}),
 })
 export const toPhase = (r: Row): Phase => ({
   id: r.id,

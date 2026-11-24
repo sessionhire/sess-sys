@@ -7,6 +7,7 @@ import { MONEY_ENTITY_NAMES } from '../src/quotes.ts'
 import { MemoryStorage, SyncClient, type Transport, type View } from '../src/sync/client.ts'
 import { jobPosition } from '../src/sync/position.ts'
 import { sellingLine } from '../src/sync/steps-view.ts'
+import { kitHoldOf } from '../src/sync/kit-view.ts'
 import { PLAIN_PRODUCT, type Model } from '../src/stock.ts'
 
 /**
@@ -183,5 +184,50 @@ describe("a job on its days with nothing scanned out (ADR 0140, part 6)", () => 
     expect(steps.of('today')!.current?.key).toBe('prep')
     // With nothing to pick, its days are its days.
     expect(steps.of('crew-only')!.stage?.key).toBe('on')
+  })
+})
+
+describe("following up a quote with the client (ADR 0194; Colly, 24 November 2026)", () => {
+  /** A quoted job whose quote was sent with its prices holding to `valid` days from today and its kit to `held`. */
+  async function followUps(sendsMoney: boolean) {
+    const server = new Server(sendsMoney)
+    const held = (id: string, valid: number, kit: number, quote: QuoteStatus = 'sent') => {
+      job(server, id, 'quoted', quote)
+      server.give('project', { id, name: id, clientId: null, venueId: null, status: 'quoted', notes: '', quoteHold: { validUntil: day(valid), heldUntil: day(kit) } })
+    }
+    held('fresh', 12, 42)
+    held('lapsed', -3, 27)
+    held('letGo', -40, -10)
+    held('turnedDown', 12, 42, 'declined')
+    const device = await new SyncClient({ storage: new MemoryStorage(), transport: server, clientId: 'phone', now: () => TODAY }).open()
+    await device.sync()
+    return device.view()
+  }
+  const confirmed = (view: View, id: string) => view.steps.of(id)!.steps.find((s) => s.key === 'confirmed')!
+
+  it('is due the day before the prices lapse, then the day before the kit is let go', async () => {
+    const office = await followUps(true)
+    expect(confirmed(office, 'fresh')).toMatchObject({ dueOn: day(11), late: false, hint: 'Follow up: its prices hold until Sun 1 Nov' })
+    expect(confirmed(office, 'fresh').facts.followUp).toEqual({ on: day(12), about: 'prices' })
+    expect(confirmed(office, 'lapsed')).toMatchObject({ dueOn: day(26), late: false, hint: 'Follow up: its prices have lapsed, and its kit is held until Mon 16 Nov' })
+    expect(confirmed(office, 'letGo')).toMatchObject({ dueOn: day(-11), late: true, hint: "Follow up: its kit was let go after Sat 10 Oct, so it's only pencilled in" })
+    // Turned down, the answer left is lost or amend, with no follow-up.
+    expect(confirmed(office, 'turnedDown').facts.followUp).toBeUndefined()
+  })
+
+  it('falls on the same days on a device sent no money, which reads them from the job', async () => {
+    const head = await followUps(false)
+    expect(confirmed(head, 'fresh')).toMatchObject({ dueOn: day(11), hint: 'Follow up: its prices hold until Sun 1 Nov' })
+    expect(confirmed(head, 'letGo').late).toBe(true)
+  })
+
+  it("lets the quote's kit go after the day it's held to, as the server says it, or at once when it holds none", () => {
+    const hold = { validUntil: '2026-11-01', heldUntil: '2026-12-01' }
+    expect(kitHoldOf('quoted', hold, '2026-12-01')).toBe('held')
+    expect(kitHoldOf('quoted', hold, '2026-12-02')).toBe('pencilled')
+    expect(kitHoldOf('quoted', {}, '2026-11-01')).toBe('pencilled')
+    // A job marked quoted with no quote sent in the app holds as before, and a confirmed job's hold has no end.
+    expect(kitHoldOf('quoted', undefined, '2027-01-01')).toBe('held')
+    expect(kitHoldOf('confirmed', hold, '2027-01-01')).toBe('held')
   })
 })

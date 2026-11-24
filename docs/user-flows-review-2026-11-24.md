@@ -274,6 +274,11 @@ drops back to pencilled in, and To follow up says "Prices lapsed: its kit
 is no longer held". The other choice is to leave it and rely on the chase
 list; that risks turning down work for kit that was never going out.
 
+**Fixed in 1.228.0** (24 November 2026), as Colly decided: "after double the
+quote period or if the quote is cancelled", with a follow-up on the
+assignee's Confirmed task the day before the prices lapse and the day before
+the kit is let go ([ADR 0194](adr/0194-a-sent-quote-holds-its-kit-for-twice-its-valid-days.md)).
+
 ### 11. Freelancers can't put photos on a job
 
 **Who:** freelancers. **Where:** Job › Photos. **Read.** For Colly to decide.

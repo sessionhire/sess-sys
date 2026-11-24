@@ -258,6 +258,23 @@ export type Project = z.infer<typeof project> & {
    * so the app doesn't write it to the jobs calendar. Only the server sets it.
    */
   sourceCalendar?: string
+  /**
+   * How long the job's quote holds (ADR 0194). Only the server sets it, from the job's newest version sent, kept off the
+   * quote so every role, sent money or not, reads the same kit as held or not and the Quoting task's follow-ups fall on
+   * the same days for all. Missing on a job with no quote sent in the app, and on one whose client said yes.
+   */
+  quoteHold?: QuoteHold
+}
+
+/**
+ * How long a job's quote holds (ADR 0194; Colly, 24 November 2026: "after double the quote period or if the quote is
+ * cancelled"). For a version with the client, its prices hold until `validUntil`, the day it was sent and its valid days
+ * on, and its kit is held for as long again, until `heldUntil`, then pencilled in as an enquiry's is. Neither day when
+ * the job's quote holds nothing: the client turned it down, or the one sent was taken back with none sent since.
+ */
+export interface QuoteHold {
+  validUntil?: string
+  heldUntil?: string
 }
 
 /** The usual phases, in the order they happen. Any other name can be typed. */

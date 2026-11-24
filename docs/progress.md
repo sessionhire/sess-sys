@@ -27,9 +27,10 @@ waiting on someone.
 
 **Waiting on Colly**
 
-- Gap 10: Colly decided (24 November): a sent quote lets its kit go after
-  double the quote period, or when the quote is cancelled, with a follow-up
-  task for the assignee the day before each. Being built.
+- Gap 10: Colly decided (24 November). 1.228.0 (ADR 0194): a sent quote
+  lets its kit go after twice its valid days, or at once when it's turned
+  down or taken back; the assignee's Confirmed task is due the day before
+  the prices lapse, then the day before the kit is let go.
 - Gap 11: Colly said yes. 1.227.0 (#437): freelancers put photos on a job they're
   booked on from their own page, from its first day until a week after.
 
