@@ -84,8 +84,8 @@ describe('certificates on items', () => {
     expect(await colly.send('itemCertificate.remove', { id: 'c2' })).toMatchObject({ status: 'applied' })
     expect(await colly.send('itemCertificate.remove', { id: 'c2' })).toMatchObject({ status: 'applied' })
     const words = (await colly.history()).entries.map((e) => e.what)
-    expect(words.some((w) => /^Saved the report of thorough examination for SH-\d{6} \(CM Lodestar 1 t\) and 2 more items, as a link$/.test(w))).toBe(true)
-    expect(words.some((w) => /^Removed “Declaration of conformity” for SH-\d{6} \(CM Lodestar 1 t\)$/.test(w))).toBe(true)
+    expect(words.some((w) => /^Saved the report of thorough examination for [A-Z]{3}-\d{4}-\d{3} \(CM Lodestar 1 t\) and 2 more items, as a link$/.test(w))).toBe(true)
+    expect(words.some((w) => /^Removed “Declaration of conformity” for [A-Z]{3}-\d{4}-\d{3} \(CM Lodestar 1 t\)$/.test(w))).toBe(true)
   })
 
   it('adds one with a file, opens it named for the item, adds items to it, and deletes the file with it', async () => {
@@ -100,7 +100,7 @@ describe('certificates on items', () => {
     const got = await open('c1')
     expect(got.statusCode).toBe(200)
     expect(got.headers['content-type']).toBe('application/pdf')
-    expect(got.headers['content-disposition']).toMatch(/filename="SH-\d{6} CM Lodestar 1 t - Report of thorough examination\.pdf"/)
+    expect(got.headers['content-disposition']).toMatch(/filename="[A-Z]{3}-\d{4}-\d{3} CM Lodestar 1 t - Report of thorough examination\.pdf"/)
     expect(got.rawPayload.equals(PDF)).toBe(true)
     expect((await open('c1', {})).statusCode).toBe(401)
 
@@ -108,7 +108,7 @@ describe('certificates on items', () => {
     expect((await upload('c1', { assets: `${motors[1]},${motors[2]}` }, Buffer.concat([PDF, Buffer.from('v2')]))).statusCode).toBe(200)
     expect((await colly.record<ItemCertificate>('itemCertificate', 'c1')).assetIds).toEqual(motors)
     expect(await files()).toHaveLength(1)
-    expect((await open('c1')).headers['content-disposition']).toMatch(/filename="SH-\d{6} CM Lodestar 1 t and 2 more - Report/)
+    expect((await open('c1')).headers['content-disposition']).toMatch(/filename="[A-Z]{3}-\d{4}-\d{3} CM Lodestar 1 t and 2 more - Report/)
 
     expect(
       await colly.send('itemCertificate.save', { id: 'c1', kind: 'lifting', title: 'Report 4471', day: '2026-10-20', expires: null, assetIds: motors, link: null } as never)
@@ -123,8 +123,8 @@ describe('certificates on items', () => {
     expect((await open('c1')).statusCode).toBe(404)
 
     const words = (await colly.history()).entries.map((e) => e.what)
-    expect(words.some((w) => /^Added the report of thorough examination for SH-\d{6} \(CM Lodestar 1 t\), with its file \(PDF, 1 KB\)$/.test(w))).toBe(true)
-    expect(words.some((w) => /^Put a new file on the report of thorough examination for SH-\d{6} \(CM Lodestar 1 t\) and 1 more item \(PDF, 1 KB\)$/.test(w))).toBe(true)
+    expect(words.some((w) => /^Added the report of thorough examination for [A-Z]{3}-\d{4}-\d{3} \(CM Lodestar 1 t\), with its file \(PDF, 1 KB\)$/.test(w))).toBe(true)
+    expect(words.some((w) => /^Put a new file on the report of thorough examination for [A-Z]{3}-\d{4}-\d{3} \(CM Lodestar 1 t\) and 1 more item \(PDF, 1 KB\)$/.test(w))).toBe(true)
   })
 
   it('counts their files as known, and starting fresh deletes them', async () => {

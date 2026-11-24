@@ -7,6 +7,9 @@ import {
   itemByCode,
   newId,
   normaliseNumber,
+  productCode,
+  readCode,
+  readProductCode,
   parseEuro,
   placeRange,
   plural,
@@ -37,7 +40,7 @@ import { Pending } from '../StatusPill.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { useToday, useView, useWide } from '../view.ts'
-import { amountLabel, atLabel, numberLabel, ScanResult, TrackingChoice } from './common.tsx'
+import { amountLabel, atLabel, numberLabel, productOfCode, ScanResult, TrackingChoice } from './common.tsx'
 import { CountPage, CountScreen } from './Counts.tsx'
 import { ItemRow } from './ItemRow.tsx'
 import { ItemScreen } from './ItemScreen.tsx'
@@ -264,7 +267,7 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
   const { q, number, exact, items } = itemsFound(w, search)
   const words = q.split(/\s+/).filter(Boolean)
   // A label that isn't on anything yet (ADR 0015): one from a run, or anything typed as a label rather than a bare number.
-  const unclaimed = number && !exact && (view.labels.runOf(number) || /^\s*sh|\/a\//i.test(search)) ? number : undefined
+  const unclaimed = number && !exact && (view.labels.runOf(number) || /^\s*sh|\/a\//i.test(search) || readCode(search)) ? number : undefined
   const searchField = useRef<HTMLInputElement>(null)
   const claimField = useRef<HTMLInputElement>(null)
   const memory = useRef<ClaimMemory>({ product: '', where: '' })
@@ -275,7 +278,7 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
   const lastRead = camera && scanned ? w.assets.get(scanned) : undefined
   const justClaimed = claimed && !search.trim() ? w.assets.get(claimed) : undefined
   const matches = (m: ModelView) => {
-    const text = `${m.name} ${m.code} ${m.category} ${DEPARTMENT_LABELS[m.department]}`.toLowerCase()
+    const text = `${m.name} ${m.code} ${productCode(m)} ${m.category} ${DEPARTMENT_LABELS[m.department]}`.toLowerCase()
     return words.every((x) => text.includes(x))
   }
   const searched = w.models.filter((m) => (department === 'all' || m.department === department) && matches(m))
@@ -307,7 +310,9 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
     const found = itemByCode(w, code)
     // A cable label's code is its product's stock code (ADR 0095): straight to the product.
     const read = code.trim().toLowerCase()
-    const coded = found ? [] : w.models.filter((m) => m.code && m.code.toLowerCase() === read)
+    // So is a product's own code on its own (ADR 0195), "AUD-0123", as on a bag of cables.
+    const own = found ? undefined : readProductCode(code) && productOfCode(code, w)
+    const coded = found ? [] : own ? [own] : w.models.filter((m) => m.code && m.code.toLowerCase() === read)
     if (found) {
       setScanned(found.id)
       setSearch('')

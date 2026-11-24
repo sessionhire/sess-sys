@@ -117,7 +117,7 @@ async function namesFor(q: Queryable, rows: Row[], assetId: string): Promise<Nam
     q.query<{ id: string; name: string }>('SELECT id, name FROM projects WHERE id = ANY($1::text[])', [ids('projectId')]),
     q.query<{ id: string; name: string }>('SELECT id, name FROM places WHERE id = ANY($1::text[])', [ids('placeId')]),
     q.query<{ id: string; number: string | null; name: string }>(
-      `SELECT a.id, m.name, (SELECT i.value FROM identifiers i WHERE i.asset_id = a.id AND i.kind = 'sh' AND i.retired_at IS NULL) AS number
+      `SELECT a.id, m.name, (SELECT i.value FROM identifiers i WHERE i.asset_id = a.id AND i.retired_at IS NULL) AS number
          FROM assets a JOIN models m ON m.id = a.model_id WHERE a.id = ANY($1::text[])`,
       [[...ids('caseId'), ...ids('assetId')]]
     ),

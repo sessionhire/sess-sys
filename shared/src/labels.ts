@@ -1,6 +1,7 @@
 import { encode } from 'uqr'
 import { z } from 'zod'
 import { text, whole } from './plain.ts'
+import { itemCode, MAX_ITEM_NUMBER } from './stock.ts'
 
 /**
  * Printing labels (ADR 0015). Numbers are set aside a run at a time before
@@ -34,6 +35,13 @@ export interface LabelRun {
   createdAt: string
   /** Cancelled before any of its labels went on an item (audit finding 19): off the list, its numbers never given out again. */
   cancelled: boolean
+  /**
+   * One product's labels (ADR 0195): its codes, "AUD-0123-004", where `first`
+   * is the item number. Null for SH- numbers, which any product can have.
+   */
+  modelId?: string | null
+  /** The product's part of the codes, "AUD-0123", as it was when they were set aside; empty for SH- numbers, or until the server has set them aside. */
+  prefix?: string
 }
 
 export interface LabelEntities {
@@ -46,7 +54,16 @@ const notes = text(2000, 'The notes')
 
 export const labelCommandSchemas = {
   /** The next free numbers, as many as asked for. The server picks them, so two devices never get the same ones. */
-  'labels.reserve': z.object({ id, count: whole(1, MAX_RUN, 'How many labels'), name, notes }),
+  'labels.reserve': z
+    .object({
+      id,
+      count: whole(1, MAX_RUN, 'How many labels'),
+      name,
+      notes,
+      /** A product's own labels, its next codes (ADR 0195); left out for SH- numbers. */
+      modelId: id.optional(),
+    })
+    .refine((a) => !a.modelId || a.count <= MAX_ITEM_NUMBER, { message: `Up to ${MAX_ITEM_NUMBER} labels for one product.` }),
   /** What a run is for. Its numbers stay as they are. */
   'labels.update': z
     .object({ id, name: name.optional(), notes: notes.optional() })
@@ -61,11 +78,15 @@ export const numberText = (n: number) => `SH-${String(n).padStart(6, '0')}`
 /** 123 from "SH-000123". */
 export const numberValue = (number: string) => Number(number.slice(3))
 
+/** The number `i` places into a run: "SH-000123", or a product's code, "AUD-0123-004". */
+export const runNumber = (run: Pick<LabelRun, 'first' | 'prefix'>, i: number) =>
+  run.prefix ? itemCode(run.prefix, run.first! + i) : numberText(run.first! + i)
+
 /** Every number in a run, in order; none until the server has set them aside. */
-export function runNumbers(run: Pick<LabelRun, 'first' | 'count'>, from = 0, upTo = run.count): string[] {
+export function runNumbers(run: Pick<LabelRun, 'first' | 'count' | 'prefix'>, from = 0, upTo = run.count): string[] {
   if (run.first === null) return []
   const out: string[] = []
-  for (let i = Math.max(0, from); i < Math.min(run.count, upTo); i++) out.push(numberText(run.first + i))
+  for (let i = Math.max(0, from); i < Math.min(run.count, upTo); i++) out.push(runNumber(run, i))
   return out
 }
 

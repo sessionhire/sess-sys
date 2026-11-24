@@ -5,8 +5,12 @@ import {
   newId,
   normaliseNumber,
   numberValue,
+  itemCode,
+  MAX_ITEM_NUMBER,
   plural,
+  productCode,
   qrCode,
+  readCode,
   runNumbers,
   stockId,
   type LabelRunView,
@@ -23,13 +27,14 @@ import { Top } from '../jobs/common.tsx'
 import { useAccess } from '../role.ts'
 import { Pending } from '../StatusPill.tsx'
 import { client } from '../sync.ts'
-import { atLabel, findWhere, ProductChoices, useNewPlace, WhereChoices, whereNamed, whereProblem } from './common.tsx'
+import { atLabel, findWhere, ProductChoices, productOfCode, useNewPlace, WhereChoices, whereNamed, whereProblem } from './common.tsx'
 import { LABELS, STOCK } from '../Up.tsx'
 import { StockViews } from '../Views.tsx'
 import { labelledDuringCount } from './Counts.tsx'
 import { Split } from '../Split.tsx'
 import { useLabelLogo } from '../Picture.tsx'
 import { useView } from '../view.ts'
+import { wholeIn } from '../required.ts'
 import { ZebraPrint } from './ZebraPrint.tsx'
 
 /**
@@ -108,7 +113,8 @@ export function Label({ number, caption, code, logo, layout }: { number: string;
         <path d={path} fill="#000" />
       </svg>
       <div className="words">
-        <b>{number}</b>
+        {/* A code is longer than an SH- number (ADR 0195), so its type is a little smaller to fit the same label. */}
+        <b className={number.length > 9 ? 'long-number' : undefined}>{number}</b>
         {layout === 'square' ? (
           // Room for one short line under the code: the logo and the stock code side by side.
           (logo || code) && (
@@ -253,7 +259,7 @@ export function LabelsScreen({ view }: { view: View }) {
                     <b>
                       <Range r={r} />
                     </b>
-                    <p>{[r.name, `set aside ${when(r.createdAt)}`].filter(Boolean).join(' · ')}</p>
+                    <p>{[productOf(r, view.warehouse)?.name, r.name, `set aside ${when(r.createdAt)}`].filter(Boolean).join(' · ')}</p>
                   </div>
                   <div className="side">
                     <Pending pending={r.pending} />
@@ -371,11 +377,11 @@ export function RunScreen({ view, id }: { view: View; id: string }) {
   return (
     <div className="app warehouse">
       <Top view={view} title="Stock" up={{ steps: [STOCK, LABELS] }} />
-      <RunSummary r={r} />
+      <RunSummary r={r} product={productOf(r, view.warehouse)} />
       {r.firstNumber ? (
         <>
-          <ZebraRun r={r} />
-          <PrintRun r={r} />
+          <ZebraRun r={r} caption={productOf(r, view.warehouse)?.name} />
+          <PrintRun r={r} caption={productOf(r, view.warehouse)?.name} />
           <ForLabelMaker r={r} />
         </>
       ) : (
@@ -387,7 +393,7 @@ export function RunScreen({ view, id }: { view: View; id: string }) {
   )
 }
 
-function RunSummary({ r }: { r: LabelRunView }) {
+function RunSummary({ r, product }: { r: LabelRunView; product?: WarehouseView['models'][number] }) {
   const [editing, setEditing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const { run, error } = useAct()
@@ -407,6 +413,14 @@ function RunSummary({ r }: { r: LabelRunView }) {
         <Pending pending={r.pending} />
       </header>
       <dl className="facts">
+        {product && (
+          <div className="wide">
+            <dt>Product</dt>
+            <dd>
+              <a href={`#stock/product/${product.id}/items`}>{product.name}</a>
+            </dd>
+          </div>
+        )}
         <div>
           <dt>How many</dt>
           <dd>{r.count.toLocaleString('en-IE')}</dd>
@@ -490,7 +504,9 @@ function useRunRange(r: LabelRunView, max: number, tooMany: string) {
   const [from, setFrom] = useState(r.firstNumber)
   const [count, setCount] = useState(String(Math.min(r.count, max)))
   const start = normaliseNumber(from)
-  const offset = start ? numberValue(start) - r.first! : -1
+  const code = start ? readCode(start) : undefined
+  // A product's run counts in its item numbers, "AUD-0123-004" being 4 (ADR 0195); SH- numbers in their own.
+  const offset = !start ? -1 : r.prefix ? (code?.prefix === r.prefix ? code.item - r.first! : -1) : code ? -1 : numberValue(start) - r.first!
   const n = Number(count)
   const problem =
     offset < 0 || offset >= r.count
@@ -518,9 +534,9 @@ function useRunRange(r: LabelRunView, max: number, tooMany: string) {
 }
 
 /** Some or all of a run on the ZT411 (ADR 0178): the whole run at once if need be. */
-function ZebraRun({ r }: { r: LabelRunView }) {
+function ZebraRun({ r, caption }: { r: LabelRunView; caption?: string }) {
   const { numbers, fields } = useRunRange(r, r.count, '')
-  const labels = numbers.map((number) => ({ number }))
+  const labels = numbers.map((number) => ({ number, caption }))
   return (
     <section className="card" aria-label="On the ZT411">
       <h2>On the ZT411</h2>
@@ -532,14 +548,14 @@ function ZebraRun({ r }: { r: LabelRunView }) {
 }
 
 /** Some or all of a run, up to 500 at a time, from any of its numbers, through the browser. */
-function PrintRun({ r }: { r: LabelRunView }) {
+function PrintRun({ r, caption }: { r: LabelRunView; caption?: string }) {
   const { numbers, fields } = useRunRange(r, MAX_PRINT, `Up to ${MAX_PRINT} at a time here. A whole roll goes on the ZT411, or to a label maker.`)
   return (
     <section className="card" aria-label="On another printer">
       <h2>On another printer</h2>
       <p className="hint">Another label printer, or A4 sheets of labels in an office printer, through this device's print dialog.</p>
       {fields}
-      <PrintLabels numbers={numbers} />
+      <PrintLabels numbers={numbers} caption={caption} />
     </section>
   )
 }
@@ -600,10 +616,13 @@ export function ClaimLabel({
   const { run: tryTo, error, refuse } = useAct()
   const { ask, question, asking } = useNewPlace(w)
   const run = view.labels.runOf(number)
-  const m = findProduct(f.product, w)
+  // A code names its product (ADR 0195), so nobody has to.
+  const coded = readCode(number)
+  const owner = coded && productOfCode(number, w)
+  const m = owner || findProduct(f.product, w)
   const known = findWhere(f.where, w)
   const countedThere = m && known ? (m.counted.find((s) => s.id === stockId(m.id, known))?.qty ?? 0) : 0
-  const beyond = !run && view.labels.next && numberValue(number) >= numberValue(view.labels.next)
+  const beyond = !coded && !run && view.labels.next && numberValue(number) >= numberValue(view.labels.next)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -613,7 +632,8 @@ export function ClaimLabel({
     if (problem) return refuse(problem)
     const id = newId()
     const one = countedThere > 0 && fromCount
-    memory.current = { product: m.name, where: f.where }
+    // A code's product isn't carried over: it's what was typed that the next label without a code needs.
+    memory.current = { product: owner ? f.product : m.name, where: f.where }
     const go = () =>
       void tryTo(async () => {
         const where = (await whereNamed(f.where, w)) ?? { placeId: null, caseId: null }
@@ -627,29 +647,43 @@ export function ClaimLabel({
     <form className="grid-form claim" onSubmit={submit} aria-label={`Put ${number} on an item`}>
       <h3 className="wide">{number} isn't on anything yet</h3>
       <p className="hint wide">
-        {run
-          ? `It's one of the labels set aside ${when(run.createdAt)}${run.name ? ` for ${run.name}` : ''}. Which product is it on?`
-          : beyond
-            ? `No label with ${number} has been printed here or given out yet, so check the label. Which product is it on?`
-            : 'Which product is it on?'}
+        {owner
+          ? `A label for ${owner.name}. Where is it kept?`
+          : coded
+            ? `No product's codes start ${coded.prefix}, so check the label. Which product is it on?`
+            : run
+              ? `It's one of the labels set aside ${when(run.createdAt)}${run.name ? ` for ${run.name}` : ''}. Which product is it on?`
+              : beyond
+                ? `No label with ${number} has been printed here or given out yet, so check the label. Which product is it on?`
+                : 'Which product is it on?'}
       </p>
-      <label>
-        Product{' '}
-        <input
-          ref={productField}
-          list="product-names"
-          value={f.product}
-          onChange={(e) => setF({ ...f, product: e.target.value })}
-          onFocus={(e) => e.target.select()}
-          placeholder="e.g. d&b Y10P"
-          autoComplete="off"
-          required
-          disabled={asking}
-        />
-      </label>
+      {!owner && (
+        <label>
+          Product{' '}
+          <input
+            ref={productField}
+            list="product-names"
+            value={f.product}
+            onChange={(e) => setF({ ...f, product: e.target.value })}
+            onFocus={(e) => e.target.select()}
+            placeholder="e.g. d&b Y10P"
+            autoComplete="off"
+            required
+            disabled={asking}
+          />
+        </label>
+      )}
       <label>
         Where it's kept{' '}
-        <input list="where-choices" value={f.where} onChange={(e) => setF({ ...f, where: e.target.value })} placeholder="A place, or a case's number" disabled={asking} />
+        {/* With no product to ask, the scan's Enter lands here, so a second Enter puts it on (ADR 0195). */}
+        <input
+          ref={owner ? productField : undefined}
+          list="where-choices"
+          value={f.where}
+          onChange={(e) => setF({ ...f, where: e.target.value })}
+          placeholder="A place, or a case's number"
+          disabled={asking}
+        />
       </label>
       {countedThere > 0 && known && (
         <label className="wide tick">
@@ -674,6 +708,104 @@ export function ClaimLabel({
       <ProductChoices w={w} />
       <WhereChoices w={w} />
     </form>
+  )
+}
+
+/** The product a run of codes is for (ADR 0195); none for SH- numbers. */
+const productOf = (r: LabelRunView, w: WarehouseView) => (r.modelId ? w.models.find((m) => m.id === r.modelId) : undefined)
+
+/**
+ * A product's own labels (ADR 0195): its next codes, set aside so no other
+ * item gets them and then printed from their run, as many as are still
+ * without a label to start with. Those set aside before are listed, with
+ * how many are on items.
+ */
+export function ProductLabels({ m, view }: { m: WarehouseView['models'][number]; view: View }) {
+  const prefix = productCode(m)
+  const runs = view.labels.runs.filter((r) => r.modelId === m.id)
+  const [count, setCount] = useState(String(Math.min(Math.max(1, m.countedTotal), MAX_ITEM_NUMBER)))
+  const [asking, setAsking] = useState<number>()
+  const { run, error, refuse } = useAct()
+  const [lastId, setLastId] = useState('')
+  const last = runs.find((r) => r.id === lastId)
+  if (!prefix) return null
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    const n = wholeIn(count, 1, MAX_ITEM_NUMBER)
+    if (n === undefined) return refuse(`How many labels? From 1 to ${MAX_ITEM_NUMBER} at a time.`)
+    setAsking(n)
+  }
+  const reserve = (n: number) => {
+    setAsking(undefined)
+    const id = newId()
+    void run(() => client.mutate('labels.reserve', { id, count: n, name: '', notes: '', modelId: m.id })).then((ok) => ok && setLastId(id))
+  }
+  return (
+    <section className="card" aria-label="Labels">
+      <h2>Labels</h2>
+      <p className="hint">
+        Its codes start {prefix}, then the item's own number: {itemCode(prefix, 1)}, {itemCode(prefix, 2)} and on. Set some aside to print them, so no other
+        item gets them, then scan each as it goes on.
+      </p>
+      {runs.length > 0 && (
+        <ul className="job-list">
+          {runs.map((r) => (
+            <li key={r.id}>
+              <a className="job-row" href={`#stock/labels/${r.id}`}>
+                <div>
+                  <b>
+                    <Range r={r} />
+                  </b>
+                  <p>{`set aside ${when(r.createdAt)}`}</p>
+                </div>
+                <div className="side">
+                  <Pending pending={r.pending} />
+                  <small>
+                    {r.used.toLocaleString('en-IE')} of {r.count.toLocaleString('en-IE')} on items
+                  </small>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="grid-form" onSubmit={submit} aria-label="Set codes aside">
+        <label>
+          How many labels
+          <input type="text" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} disabled={asking !== undefined} />
+        </label>
+        <Refusal error={error} className="wide" />
+        {last && !error && (
+          <p className="added wide" role="status">
+            {last.firstNumber ? (
+              <>
+                Set aside{' '}
+                <a href={`#stock/labels/${last.id}`}>
+                  <Range r={last} />
+                </a>
+                . Open them to print.
+              </>
+            ) : (
+              'Set aside. The codes come from the server when it syncs.'
+            )}
+          </p>
+        )}
+        {asking !== undefined ? (
+          <Confirm
+            className="wide"
+            question={`Set aside ${plural(asking, 'code')} for ${m.name}? Nothing else gets them, even if they're never printed.`}
+            yes="Set them aside"
+            no="Not yet"
+            onYes={() => reserve(asking)}
+            onNo={() => setAsking(undefined)}
+          />
+        ) : (
+          <button type="submit" className="wide">
+            Set codes aside
+          </button>
+        )}
+      </form>
+    </section>
   )
 }
 

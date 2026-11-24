@@ -1,15 +1,15 @@
-import { inShForm, newId, normaliseNumber, numberValue, stockId, wholeNumber, type View, type Where } from '@sh/shared'
+import { inShForm, newId, normaliseNumber, numberValue, readCode, stockId, wholeNumber, type View, type Where } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { when } from '../format.ts'
 import { client } from '../sync.ts'
-import { ProductChoices } from './common.tsx'
+import { ProductChoices, productOfCode } from './common.tsx'
 import { holdingPlace } from './countSource.ts'
 
 /**
  * A Session Hire label read on a count, as a label to put on something, not
- * any old code: "SH-000123" or "sh 123", or all six digits as a scanner
- * reads a label. A short run of digits could be a maker's serial, so it's
+ * any old code: "SH-000123" or "sh 123", a code, "AUD-0123-004" (ADR 0195),
+ * or all six digits as a scanner reads a label. A short run of digits could be a maker's serial, so it's
  * left as a code no item has.
  */
 export const labelToPut = (code: string): string | undefined => (inShForm(code) ? normaliseNumber(code) : wholeNumber(code))
@@ -54,9 +54,12 @@ export function LabelOnCount({
   const field = useRef<HTMLInputElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const form = useRef<HTMLFormElement>(null)
-  const m = w.models.find((x) => x.name.trim().toLowerCase() === name.trim().toLowerCase())
+  // A code names its product (ADR 0195), so nobody has to.
+  const coded = readCode(number)
+  const owner = coded && productOfCode(number, w)
+  const m = owner || w.models.find((x) => x.name.trim().toLowerCase() === name.trim().toLowerCase())
   const runOf = view.labels.runOf(number)
-  const beyond = !runOf && !!view.labels.next && numberValue(number) >= numberValue(view.labels.next)
+  const beyond = !coded && !runOf && !!view.labels.next && numberValue(number) >= numberValue(view.labels.next)
   const unlabelledHere = m ? (m.counted.find((s) => s.id === stockId(m.id, where))?.qty ?? 0) : 0
   // None here without a label: one comes off the place it was all brought in at, never counted yet (ADR 0176).
   const source = m && unlabelledHere === 0 && where.placeId ? holdingPlace(view, m.id, where) : undefined
@@ -65,7 +68,7 @@ export function LabelOnCount({
   useEffect(() => {
     // Its button clear of the Finish bar, which sits over the foot of the screen.
     form.current?.scrollIntoView?.({ block: 'nearest' })
-    if (last) button.current?.focus({ preventScroll: true })
+    if (last || owner) button.current?.focus({ preventScroll: true })
     else field.current?.focus({ preventScroll: true })
     // Once for each label: the number is what changes.
   }, [number]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -89,26 +92,33 @@ export function LabelOnCount({
     <form ref={form} className="grid-form claim label-on-count" onSubmit={submit} aria-label={`Put ${number} on an item`}>
       <h3 className="wide">{number} isn't on anything yet</h3>
       <p className="hint wide">
-        {runOf
-          ? `One of the labels set aside ${when(runOf.createdAt)}${runOf.name ? ` for ${runOf.name}` : ''}.`
-          : beyond
-            ? `No label with ${number} has been printed here or given out yet, so check the label.`
-            : ''}{' '}
-        Which product is it on? It's kept here, and counted as found.
+        {owner
+          ? `A label for ${owner.name}. It's kept here, and counted as found.`
+          : `${
+              coded
+                ? `No product's codes start ${coded.prefix}, so check the label.`
+                : runOf
+                  ? `One of the labels set aside ${when(runOf.createdAt)}${runOf.name ? ` for ${runOf.name}` : ''}.`
+                  : beyond
+                    ? `No label with ${number} has been printed here or given out yet, so check the label.`
+                    : ''
+            } Which product is it on? It's kept here, and counted as found.`.trim()}
       </p>
-      <label className="wide">
-        Product{' '}
-        <input
-          ref={field}
-          list="product-names"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onFocus={(e) => e.target.select()}
-          placeholder="e.g. d&b Y10P"
-          autoComplete="off"
-          required
-        />
-      </label>
+      {!owner && (
+        <label className="wide">
+          Product{' '}
+          <input
+            ref={field}
+            list="product-names"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            placeholder="e.g. d&b Y10P"
+            autoComplete="off"
+            required
+          />
+        </label>
+      )}
       {m?.tracking === 'serialised' && (
         <p className="hint wide">
           {unlabelledHere > 0

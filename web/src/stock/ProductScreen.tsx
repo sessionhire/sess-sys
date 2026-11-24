@@ -10,7 +10,10 @@ import {
   MOST_ALIASES,
   MAX_QTY,
   newId,
+  itemCode,
   normaliseNumber,
+  productCode,
+  readCode,
   parseEuro,
   plural,
   stillOutReason,
@@ -38,6 +41,7 @@ import {
   CountRow,
   findWhere,
   numberLabel,
+  productOfCode,
   SavedLine,
   TrackingChoice,
   useNewPlace,
@@ -55,6 +59,7 @@ import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
 import { kitIcon } from './kitIcon.ts'
 import { ProductPhoto } from './ProductPhoto.tsx'
 import { CableLabels } from './CableLabels.tsx'
+import { ProductLabels } from './Labels.tsx'
 import { STOCK } from '../Up.tsx'
 import { pctText, pctTyped } from '../MarginTargetCard.tsx'
 import { caseLabel, RackCard, sizeFrom, SizeFields, sizeLabel, sizeTypedOf, suppliersOf, weightPowerLabel, whoseFrom, WhoseFields, whoseTypedOf } from './Racks.tsx'
@@ -83,6 +88,8 @@ export function ProductScreen({ view, id, part: asked, bare }: { view: View; id:
   const parts: ProductPart[] = ['details', 'jobs', ...(m && !m.dryHire ? (['items'] as const) : []), ...(showsFaults ? (['faults'] as const) : []), 'cables']
   const [part, pick] = useTab({ parts, asked, remember: 'sh.productPart', address: (p) => `#stock/product/${id}/${p}` })
   const onJobs = view.kit.byModel.get(id) ?? []
+  // Setting codes aside is stock's, as setting numbers aside is (audit finding 9).
+  const mayLabel = useAccess().can('stock')
   if (!m)
     return (
       <Page view={view} title="Stock" className="warehouse" up={up} bare={bare}>
@@ -127,6 +134,7 @@ export function ProductScreen({ view, id, part: asked, bare }: { view: View; id:
         {part === 'items' && (
           <>
             {m.tracking === 'serialised' && <Items m={m} view={view} />}
+            {m.tracking === 'serialised' && mayLabel && <ProductLabels m={m} view={view} />}
             <Counted m={m} w={w} />
           </>
         )}
@@ -207,6 +215,12 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
           <dt>Category</dt>
           <dd>{m.category || 'None'}</dd>
         </div>
+        {productCode(m) && (
+          <div>
+            <dt>Product code</dt>
+            <dd>{productCode(m)}</dd>
+          </div>
+        )}
         {m.code && (
           <div>
             <dt>Stock code</dt>
@@ -608,7 +622,10 @@ function AddItem({ m, w }: { m: ModelView; w: WarehouseView }) {
     e.preventDefault()
     const typed = f.number.trim()
     const number = (typed && normaliseNumber(typed)) || null
-    if (typed && !number) return refuse(`“${typed}” isn't a Session Hire number: they're SH- and six digits, such as SH-000123.`)
+    if (typed && !number) return refuse(`“${typed}” isn't a Session Hire number: they're a code such as ${itemCode(productCode(m) || 'AUD-0123', 4)}, or SH- and six digits.`)
+    // A code names its product (ADR 0195), so it goes on no other.
+    const owner = number && readCode(number) ? productOfCode(number, w) : undefined
+    if (owner && owner.id !== m.id) return refuse(`${number} is a label for ${owner.name}, not ${m.name}.`)
     const other = number ? w.byNumber.get(number) : undefined
     if (number && other) {
       return refuse(
@@ -644,7 +661,7 @@ function AddItem({ m, w }: { m: ModelView; w: WarehouseView }) {
         Number <span className="optional">(optional)</span>
         {/* A hint under the label, read as the field's description, not its name (UX sweep, 6 November 2026, move 5). */}
         <span className="hint" id="item-number-hint" aria-hidden="true">
-          From its label; left empty, it takes the next free one.
+          {productCode(m) ? `From its label; left empty, it takes its next code, ${productCode(m)}-….` : 'From its label; left empty, it takes the next free one.'}
         </span>
         <input
           ref={numberField}
@@ -680,7 +697,7 @@ function AddItem({ m, w }: { m: ModelView; w: WarehouseView }) {
               Added <a href={`#stock/item/${last.id}`}>{last.number}</a>.
             </>
           ) : (
-            'Added. It gets the next free number when it syncs.'
+            'Added. It gets its code when it syncs.'
           )}
         </p>
       )}

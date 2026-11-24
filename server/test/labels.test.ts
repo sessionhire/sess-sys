@@ -139,12 +139,13 @@ describe('labels', () => {
     await ok(app, 'labels.reserve', tags)
 
     const { runs, items } = await records(app)
-    expect(items.get(first.id)?.number).toBe('SH-000001')
-    expect(runs.get(roll.id)).toMatchObject({ first: 2, count: 5, name: 'Polyester roll from Label World', notes: 'Ordered 30 Sep' })
+    // A new item takes its product's next code (ADR 0195), so SH- numbers are only ever printed ones.
+    expect(items.get(first.id)?.number).toBe('AUD-0001-001')
+    expect(runs.get(roll.id)).toMatchObject({ first: 1, count: 5, name: 'Polyester roll from Label World', notes: 'Ordered 30 Sep', modelId: null, prefix: '' })
     expect(runs.get(roll.id)?.createdAt).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/)
-    // Past the roll: SH-000002 to SH-000006 wait on labels not stuck on yet.
-    expect(items.get(next.id)?.number).toBe('SH-000007')
-    expect(runs.get(tags.id)).toMatchObject({ first: 8, count: 3 })
+    expect(items.get(next.id)?.number).toBe('AUD-0001-002')
+    // Past the roll: SH-000001 to SH-000005 wait on labels not stuck on yet.
+    expect(runs.get(tags.id)).toMatchObject({ first: 6, count: 3 })
 
     // A number typed further on moves the next ones on past it, as before.
     await ok(app, 'asset.add', item(y10p.id, 'SH-000050'))
@@ -156,9 +157,9 @@ describe('labels', () => {
     expect(entries.slice(0, 5).map((e) => e.what)).toEqual([
       'Set aside SH-000051 to SH-000052 for printing labels',
       'Added SH-000050 (d&b Y10P)',
-      'Set aside SH-000008 to SH-000010 for printing labels (Metal tags)',
-      'Added SH-000007 (d&b Y10P)',
-      'Set aside SH-000002 to SH-000006 for printing labels (Polyester roll from Label World)',
+      'Set aside SH-000006 to SH-000008 for printing labels (Metal tags)',
+      'Added AUD-0001-002 (d&b Y10P)',
+      'Set aside SH-000001 to SH-000005 for printing labels (Polyester roll from Label World)',
     ])
   })
 
@@ -177,10 +178,10 @@ describe('labels', () => {
     const res = await app.inject({ method: 'GET', url: '/api/sync/pull?after=0' })
     const counted = (res.json() as PullResponse).changes.filter((c) => c.entity === 'stock').at(-1)
     expect(counted?.data).toMatchObject({ qty: 9 })
-    // The roll's own numbers aren't given out: the next free one is after it.
-    const next = item(y10p.id, null)
-    await ok(app, 'asset.add', next)
-    expect((await records(app)).items.get(next.id)?.number).toBe('SH-000101')
+    // The roll's own numbers aren't given out: the next run starts after it.
+    const more = run(1)
+    await ok(app, 'labels.reserve', more)
+    expect((await records(app)).runs.get(more.id)).toMatchObject({ first: 101 })
   })
 
   it('stop at the last six-digit number', async () => {
@@ -191,9 +192,8 @@ describe('labels', () => {
     expect(await refused(app, 'labels.reserve', run(2))).toBe('Only 1 number is left, from SH-999999. Set aside that one at most.')
     await ok(app, 'labels.reserve', run(1))
     expect(await refused(app, 'labels.reserve', run(1))).toBe('Every six-digit number has been used or set aside.')
-    expect(await refused(app, 'asset.add', item(y10p.id, null))).toBe(
-      'Every six-digit number has been used or set aside for printing. Use the number on a printed label.'
-    )
+    // A new item takes its product's code (ADR 0195), so SH- numbers running out never stops one.
+    await ok(app, 'asset.add', item(y10p.id, null))
     await ok(app, 'asset.add', item(y10p.id, 'SH-999999'))
     // Between 1 and 10,000 at a time.
     for (const count of [0, 10_001]) expect((await send(app, 'labels.reserve', run(count))).status).toBe('rejected')
@@ -235,13 +235,10 @@ describe('labels', () => {
       [tags.id, 'put', false],
       [tags.id, 'put', true],
     ])
-    // Set aside again, and an item given the next free number: neither gets SH-000006 to SH-000008.
+    // Set aside again: the new run doesn't get SH-000006 to SH-000008.
     const again = run(2, 'Again')
     await ok(app, 'labels.reserve', again)
     expect((await records(app)).runs.get(again.id)).toMatchObject({ first: 9, count: 2, cancelled: false })
-    const next = item(y10p.id, null)
-    await ok(app, 'asset.add', next)
-    expect((await records(app)).items.get(next.id)?.number).toBe('SH-000011')
     // Cancelled again from another phone: cancelled already, so fine. Its details can't be changed any more.
     await ok(app, 'labels.cancel', { id: tags.id })
     expect(await refused(app, 'labels.update', { id: tags.id, name: 'Tags after all' })).toBe('Those labels are no longer on the list.')

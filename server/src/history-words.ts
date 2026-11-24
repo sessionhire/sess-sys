@@ -15,6 +15,7 @@ import {
   needsLabel,
   normaliseNumber,
   numberText,
+  itemCode,
   plural,
   RETIRED_LABELS,
   STATUS_LABELS,
@@ -101,7 +102,11 @@ const clip = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n - 1)}…` : 
 /** "SH-000101 to SH-000600", or "SH-000101" for one, once the server has set them aside. */
 const runRange = (r: Data | undefined) =>
   typeof r?.first === 'number' && typeof r.count === 'number'
-    ? `${numberText(r.first)}${r.count > 1 ? ` to ${numberText(r.first + r.count - 1)}` : ''}`
+    ? (() => {
+        // A product's codes (ADR 0195), or SH- numbers.
+        const at = (n: number) => (typeof r.prefix === 'string' && r.prefix ? itemCode(r.prefix, n) : numberText(n))
+        return `${at(r.first)}${r.count > 1 ? ` to ${at(r.first + r.count - 1)}` : ''}`
+      })()
     : undefined
 /** "a", "a and b", "a, b and c". */
 const inWords = (parts: string[]) => (parts.length < 2 ? (parts[0] ?? 'nothing') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`)

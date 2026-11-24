@@ -226,7 +226,7 @@ test('an item labelled with no signal gets its number when the signal is back', 
   await context.setOffline(false)
   await phone.evaluate(() => dispatchEvent(new Event('online')))
   await expect(phone.locator('.conn')).toHaveText('Up to date', { timeout: 20_000 })
-  await expect(row).toHaveText(new RegExp(`^SH-\\d{6}${cabinet}$`))
+  await expect(row).toHaveText(new RegExp(`^(?:SH-\\d{6}|[A-Z]{3}-\\d{4}-\\d{3})${cabinet}$`))
   const number = (await row.locator('b').textContent()) ?? ''
   await expect(add.locator('.added')).toHaveText(`Added ${number}.`)
 })
@@ -246,7 +246,7 @@ test('a product added by mistake is hidden with its items and counts, and its la
   await add.getByRole('button', { name: 'Add item' }).click()
   await add.getByRole('button', { name: 'Make the place' }).click()
   // The number comes back with a sync round trip, slower when the machine is busy (audit, 20 October 2026, finding 109).
-  await expect(add.locator('.added')).toHaveText(/^Added SH-\d{6}\.$/, { timeout: 20_000 })
+  await expect(add.locator('.added')).toHaveText(/^Added (?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3})\.$/, { timeout: 20_000 })
   // The question answered, the number field is ready for the next label.
   await expect(add.getByRole('textbox', { name: 'Number (optional)', exact: true })).toBeFocused()
   const number = (await add.locator('.added').textContent())!.slice(6, -1)
@@ -294,7 +294,7 @@ test('a product added by mistake is hidden with its items and counts, and its la
   await add.getByLabel("Where it's kept").fill(bay)
   await add.getByRole('button', { name: 'Add item' }).click()
   // The number comes back with a sync round trip, slower when the machine is busy (audit, 20 October 2026, finding 109).
-  await expect(add.locator('.added')).toHaveText(/^Added SH-\d{6}\.$/, { timeout: 20_000 })
+  await expect(add.locator('.added')).toHaveText(/^Added (?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3})\.$/, { timeout: 20_000 })
   await add.locator('.added a').click()
   await page.getByRole('button', { name: 'Retire' }).click()
   await page.getByRole('radio', { name: 'Added by mistake' }).check()
@@ -363,7 +363,7 @@ test('on a phone the catalogue is a part the strip names and a search has the sc
   ])
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await ready(page, `#stock/item/a-${id}`)
-  const number = (await page.getByRole('heading', { level: 1 }).textContent())!.match(/SH-\d{6}/)![0]
+  const number = (await page.getByRole('heading', { level: 1 }).textContent())!.match(/(?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3})/)![0]
 
   await ready(page)
   const strip = page.getByRole('navigation', { name: 'On this screen' })

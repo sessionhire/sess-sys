@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 24 November 2026: stock codes that say what something is
+
+**Done (1.229.0, ADR 0195)**
+
+- Colly asked for stock numbers with meaning that scanners still read. An
+  item's code is now the department's letters, the product's number and the
+  item's: AUD-0123-004. Every product has its number (its product code), the
+  ones there already numbered department by department, then by name.
+- A product's Items tab sets its next codes aside and prints them; scanning
+  one puts it on that product with no question, on a count or in the Stock
+  search. SH- numbers all still scan, and blank SH- rolls still work.
+- Checked: server tests for codes (new `server/test/codes.test.ts`) and the
+  older tests brought up to codes; browser tests on GitHub.
+
+**Waiting on Colly**
+
+- The card on what a code does when its product moves department (built as
+  recommended: the letters stay as printed once a code is out).
+
 ## 24 November 2026: the gaps the flows review found, closed
 
 **Done (1.221.0 to 1.226.0, #432 to #435)**

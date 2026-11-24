@@ -170,7 +170,7 @@ async function newItems(page: Page, where: string, count: number) {
     await makePlace(page)
     if (numbers.length) await expect(add.locator('.added')).not.toHaveText(`Added ${numbers.at(-1)}.`)
     // The number comes back with a sync round trip, slower when the machine is busy (audit, 20 October 2026, finding 109).
-    await expect(add.locator('.added')).toHaveText(/^Added SH-\d{6}\.$/, { timeout: 20_000 })
+    await expect(add.locator('.added')).toHaveText(/^Added (?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3})\.$/, { timeout: 20_000 })
     numbers.push((await add.locator('.added').textContent())!.slice(6, -1))
   }
   await expect(page.locator('.conn')).toHaveText('Up to date')

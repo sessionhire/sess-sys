@@ -1,6 +1,12 @@
 import {
   aliasesOf,
+  DEPARTMENT_CODES,
   inShForm,
+  itemCode,
+  MAX_ITEM_NUMBER,
+  MAX_PRODUCT_NUMBER,
+  productCode,
+  readCode,
   MAX_CASE_DEPTH,
   MAX_NUMBER,
   MAX_QTY,
@@ -142,16 +148,60 @@ async function mustActive(ctx: Ctx, id: string) {
   return a
 }
 
-/** A number as a person typed or scanned it, checked, or the next free one, which is never one set aside for printing (ADR 0015). */
-async function numberFor(ctx: Ctx, typed: string | null): Promise<string> {
-  if (typed === null) {
-    const n = await nextNumber(ctx.tx)
-    if (n > MAX_NUMBER)
-      throw new Refused({ code: 'conflict', message: 'Every six-digit number has been used or set aside for printing. Use the number on a printed label.' })
-    return `SH-${String(n).padStart(6, '0')}`
-  }
+/** The next free SH- number, which is never one set aside for printing (ADR 0015). */
+async function nextShNumber(ctx: Ctx): Promise<string> {
+  const n = await nextNumber(ctx.tx)
+  if (n > MAX_NUMBER)
+    throw new Refused({ code: 'conflict', message: 'Every six-digit number has been used or set aside for printing. Use the number on a printed label.' })
+  return `SH-${String(n).padStart(6, '0')}`
+}
+
+/**
+ * A product's next code (ADR 0195), "AUD-0123-004": one after the highest
+ * given out or set aside for printing, which it then is. Its letters are
+ * fixed from here on, as a label now may carry them.
+ */
+async function nextCode(ctx: Ctx, modelId: string): Promise<string> {
+  const { rows } = await ctx.tx.query<{ code_number: number | null; code_letters: string; code_last: number }>(
+    'SELECT code_number, code_letters, code_last FROM models WHERE id = $1 FOR UPDATE',
+    [modelId]
+  )
+  const m = rows[0]!
+  const prefix = productCode({ codeNumber: m.code_number, codeLetters: m.code_letters })
+  // A product past the last four-digit number, or with all its codes used: an SH- number, as before codes.
+  if (!prefix || m.code_last >= MAX_ITEM_NUMBER) return nextShNumber(ctx)
+  await ctx.tx.query('UPDATE models SET code_last = code_last + 1 WHERE id = $1', [modelId])
+  return itemCode(prefix, m.code_last + 1)
+}
+
+/**
+ * A number as a person typed or scanned it, checked, or the product's next
+ * code (ADR 0195). An SH- number is any product's; a code is only its own
+ * product's, and one never given out before raises the next free code past it.
+ */
+async function numberFor(ctx: Ctx, typed: string | null, modelId: string): Promise<string> {
+  if (typed === null) return nextCode(ctx, modelId)
   const number = normaliseNumber(typed)
-  if (!number) throw new Refused({ code: 'invalid', message: `“${typed.trim()}” isn't a Session Hire number: they're SH- and six digits, such as SH-000123.` })
+  if (!number)
+    throw new Refused({
+      code: 'invalid',
+      message: `“${typed.trim()}” isn't a Session Hire number: they're a code such as AUD-0123-004, or SH- and six digits, such as SH-000123.`,
+    })
+  const code = readCode(number)
+  if (code) {
+    const { rows } = await ctx.tx.query<{ id: string; name: string; code_letters: string; code_last: number }>(
+      'SELECT id, name, code_letters, code_last FROM models WHERE code_number = $1',
+      [Number(code.prefix.slice(4))]
+    )
+    const owner = rows[0]
+    if (!owner || owner.code_letters !== code.prefix.slice(0, 3))
+      throw new Refused({ code: 'not-found', message: `No product's codes start ${code.prefix}, so check the label.` })
+    if (owner.id !== modelId) {
+      const mine = await getModel(ctx.tx, modelId)
+      throw new Refused({ code: 'conflict', message: `${number} is a label for ${owner.name}${mine ? `, not ${mine.name}` : ''}.` })
+    }
+    if (code.item > owner.code_last) await ctx.tx.query('UPDATE models SET code_last = $2 WHERE id = $1', [modelId, code.item])
+  }
   const used = await numberUse(ctx.tx, number)
   if (used) {
     const other = await getAsset(ctx.tx, used.assetId)
@@ -177,7 +227,12 @@ async function oldNumberFor(ctx: Ctx, typed: string, assetId: string): Promise<s
 }
 
 async function attachNumber(ctx: Ctx, assetId: string, number: string) {
-  await ctx.tx.query(`INSERT INTO identifiers (id, asset_id, kind, value) VALUES ($1, $2, 'sh', $3)`, [newId(), assetId, number])
+  await ctx.tx.query(`INSERT INTO identifiers (id, asset_id, kind, value) VALUES ($1, $2, $3, $4)`, [newId(), assetId, readCode(number) ? 'code' : 'sh', number])
+}
+
+/** A label replaced (ADR 0013): its number becomes a former one, never used again, and still finds the item. */
+async function retireNumber(ctx: Ctx, assetId: string) {
+  await ctx.tx.query(`UPDATE identifiers SET retired_at = clock_timestamp() WHERE asset_id = $1 AND retired_at IS NULL`, [assetId])
 }
 
 /**
@@ -274,6 +329,15 @@ async function dropPrice(ctx: Ctx, modelId: string) {
   if (rows.length) await emitRemoved(ctx, 'productPrice', modelId)
 }
 
+/** A new product's number (ADR 0195), the next after every one given, and its department's letters. */
+async function giveProductNumber(ctx: Ctx, modelId: string, department: keyof typeof DEPARTMENT_CODES) {
+  const { rows } = await ctx.tx.query<{ n: number }>('SELECT coalesce(max(code_number), 0)::int + 1 AS n FROM models')
+  const n = rows[0]!.n
+  // Past the last four-digit number, a product goes without codes; its items take SH- numbers.
+  if (n > MAX_PRODUCT_NUMBER) return
+  await ctx.tx.query('UPDATE models SET code_number = $2, code_letters = $3 WHERE id = $1', [modelId, n, DEPARTMENT_CODES[department]])
+}
+
 export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
   async 'model.create'(ctx, a) {
     if (await getModel(ctx.tx, a.id)) throw new Refused({ code: 'conflict', message: 'This product already exists.' })
@@ -321,6 +385,7 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
         a.lengthM,
       ]
     )
+    await giveProductNumber(ctx, a.id, a.department)
     await emit(ctx, 'model', a.id, await getModel(ctx.tx, a.id))
   },
 
@@ -376,6 +441,8 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
         k === 'name' || k === 'category' || k === 'code' ? String(a[k]).trim() : k === 'aliases' ? JSON.stringify(aliasesOf(a.aliases!.join(','), next.name)) : a[k]
       ),
     ])
+    // Its codes' letters follow its department until one is given out or set aside (ADR 0195); after that a label may carry them.
+    if (a.department !== undefined) await ctx.tx.query('UPDATE models SET code_letters = $2 WHERE id = $1 AND code_last = 0', [a.id, DEPARTMENT_CODES[a.department]])
     await emit(ctx, 'model', a.id, await getModel(ctx.tx, a.id))
   },
 
@@ -394,6 +461,10 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
       throw new Refused({ code: 'conflict', message: `${m.name} has been out on jobs, which is kept for the record, so it can't be removed.` })
     if ((await faultsOf(ctx.tx, a.id)) > 0)
       throw new Refused({ code: 'conflict', message: `${m.name} has had faults reported, which are kept for the record, so it can't be removed.` })
+    // Its codes may be printed (ADR 0195), and a code always names one product.
+    const { rows: runs } = await ctx.tx.query('SELECT 1 FROM label_runs WHERE model_id = $1 LIMIT 1', [a.id])
+    if (runs.length)
+      throw new Refused({ code: 'conflict', message: `${m.name} has had labels set aside, which may be printed with its codes, so it can't be removed. Mark it as added by mistake instead.` })
     // Its photo (ADR 0083) goes on the list of files to delete with it.
     const { rows: photo } = await ctx.tx.query<{ photo_key: string | null }>('SELECT photo_key FROM models WHERE id = $1', [a.id])
     if (photo[0]?.photo_key) await queueFile(ctx.tx, photo[0].photo_key, true)
@@ -457,7 +528,7 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
     if (m.dryHire) throw new Refused({ code: 'conflict', message: dryHireRefusal(m.name) })
     await checkWhere(ctx, a)
     await checkCaseIn(ctx, a.caseId)
-    const number = await numberFor(ctx, a.number)
+    const number = await numberFor(ctx, a.number, a.modelId)
     const old = await oldNumberFor(ctx, a.oldNumber, a.id)
     await ctx.tx.query(
       `INSERT INTO assets (id, model_id, serial, place_id, case_id, status, notes, old_number, pat_due) VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8)`,
@@ -489,6 +560,12 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
     if (a.oldNumber !== undefined) set('old_number', await oldNumberFor(ctx, a.oldNumber, a.id))
     if (a.patDue !== undefined) set('pat_due', a.patDue)
     await ctx.tx.query(`UPDATE assets SET ${sets.join(', ')} WHERE id = $1`, values)
+    // Its code named the product it was (ADR 0195), so it takes the next of its new product's; the old one still finds it.
+    if (a.modelId !== undefined && a.modelId !== asset.modelId && readCode(asset.number)) {
+      const number = await nextCode(ctx, a.modelId)
+      await retireNumber(ctx, a.id)
+      await attachNumber(ctx, a.id, number)
+    }
     await emitAsset(ctx, a.id)
   },
 
@@ -502,9 +579,9 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
   },
 
   async 'asset.relabel'(ctx, a) {
-    await mustActive(ctx, a.id)
-    const number = await numberFor(ctx, a.number)
-    await ctx.tx.query(`UPDATE identifiers SET retired_at = clock_timestamp() WHERE asset_id = $1 AND kind = 'sh' AND retired_at IS NULL`, [a.id])
+    const asset = await mustActive(ctx, a.id)
+    const number = await numberFor(ctx, a.number, asset.modelId)
+    await retireNumber(ctx, a.id)
     await attachNumber(ctx, a.id, number)
     await emitAsset(ctx, a.id)
   },
