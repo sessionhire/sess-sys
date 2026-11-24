@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.231.0',
+    date: '2026-11-24',
+    title: 'Documents on a job, for the crew',
+    what: 'A job’s Show pack tab now has Documents: add a stage plot, run sheet, rider or site plan as a file or a link. Each one says whether the crew can see it. Those they can are on the call sheet of everyone who has said yes to a call on the job, and open from their own link. A venue’s documents can be for the crew too, so a floor plan or access note is on every call sheet there. Untick one to keep it for the office.',
+    prs: [442],
+    adrs: [196],
+  },
+  {
     version: '1.230.0',
     date: '2026-11-24',
     title: 'Print a pick list to pick by hand',

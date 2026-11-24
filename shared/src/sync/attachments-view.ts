@@ -1,8 +1,8 @@
-import { ATTACHMENT_KINDS, type Attachment, type AttachmentOwner } from '../attachments.ts'
+import { ATTACHMENT_KINDS, CREW_BY_DEFAULT, type Attachment, type AttachmentOwner } from '../attachments.ts'
 import type { CommandArgs, Mutation } from '../commands.ts'
 
 /**
- * Documents kept on venues and clients (ADR 0032) as a device sees them:
+ * Documents kept on venues, clients and jobs (ADRs 0032, 0196) as a device sees them:
  * the details the server has sent, with this device's own waiting changes
  * laid over them. Never the files: those open from the server, with signal.
  */
@@ -12,7 +12,7 @@ export interface AttachmentView extends Attachment {
 }
 
 export interface AttachmentsView {
-  /** A venue's or a client's, by kind, then title. */
+  /** A venue's, a client's or a job's, by kind, then title. */
   of(owner: AttachmentOwner, ownerId: string): AttachmentView[]
 }
 
@@ -33,7 +33,7 @@ export function attachmentsView(
         const was = all.get(a.id)
         // The server refuses an id already used for something else's: shown as it is until it says so.
         if (was && (was.owner !== a.owner || was.ownerId !== a.ownerId)) break
-        all.set(a.id, { ...a, file: was?.file ?? null, addedAt: was?.addedAt ?? m.createdAt, pending: true })
+        all.set(a.id, { ...a, crew: a.crew ?? was?.crew ?? CREW_BY_DEFAULT[a.owner], file: was?.file ?? null, addedAt: was?.addedAt ?? m.createdAt, pending: true })
         break
       }
       case 'attachment.remove':

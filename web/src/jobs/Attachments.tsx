@@ -4,6 +4,7 @@ import {
   ATTACHMENT_TITLES,
   attachmentDetails,
   attachmentTitleInSentence,
+  CREW_BY_DEFAULT,
   documentFileName,
   FILE_HEAD_BYTES,
   FILE_TOO_BIG,
@@ -36,8 +37,8 @@ import { useLate } from '../useLate.ts'
 import { Heading } from '../Icon.tsx'
 
 /**
- * What a venue's page and a client's page share (ADR 0032): the documents
- * kept on it, each a file, a link to where it's shared, or both, and the
+ * What a venue's page and a client's page share (ADR 0032), and a job's
+ * Show pack tab (ADR 0196): the documents kept on it, each a file, a link to where it's shared, or both, and the
  * jobs there or for them. The details and links work with no signal; a
  * file goes to the server and comes back from it, as a person's documents
  * do (ADR 0029).
@@ -52,8 +53,15 @@ export interface Owner {
   name: string
 }
 
+/** What "Crew can see it" means, for a job's and a venue's (ADR 0196). */
+const CREW_SEE: Record<Exclude<AttachmentOwner, 'client'>, string> = {
+  job: "On the call sheet of everyone who has said yes to a call on this job. Untick for the office's eyes only.",
+  venue: "On the call sheet of everyone who has said yes to a call at this venue. Untick for the office's eyes only.",
+}
+
 /** What the empty list suggests, for each. */
 const NONE_YET: Record<AttachmentOwner, string> = {
+  job: 'None yet: a stage plot, run sheet, rider or site plan, or a link to where they share them. Those for the crew are on their call sheet.',
   venue: "None yet: the venue's tech spec, floor plan, power and rigging details, or a link to where they share them.",
   client: 'None yet: their contract, purchase orders, a brief or brand guidelines, or a link to where they share them.',
 }
@@ -67,7 +75,7 @@ async function sendFile(details: AttachmentDetails, file: File) {
   if (file.size > MAX_FILE_BYTES) throw new Error(FILE_TOO_BIG)
   const found = fileTypeOf(new Uint8Array(await file.slice(0, FILE_HEAD_BYTES).arrayBuffer()))
   if ('refused' in found) throw new Error(found.refused)
-  const q = new URLSearchParams({ client: client.clientId, owner: details.owner, ownerId: details.ownerId, kind: details.kind, title: details.title, link: details.link ?? '' })
+  const q = new URLSearchParams({ client: client.clientId, owner: details.owner, ownerId: details.ownerId, kind: details.kind, title: details.title, link: details.link ?? '', crew: details.crew ? '1' : '0' })
   let res: Response
   try {
     res = await fetch(`${base}/api/attachments/${encodeURIComponent(details.id)}/file?${q}`, {
@@ -102,8 +110,8 @@ async function openFile(owner: Owner, doc: AttachmentView) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
-/** The documents card on a venue's or client's page. */
-export function Attachments({ owner }: { owner: Owner }) {
+/** The documents card on a venue's, client's or job's page; `hint` says where those for the crew go. */
+export function Attachments({ owner, hint }: { owner: Owner; hint?: string }) {
   const view = useView()
   const docs = view.attachments.of(owner.owner, owner.id)
   const storage = useDocumentStorage()
@@ -113,6 +121,7 @@ export function Attachments({ owner }: { owner: Owner }) {
   return (
     <section className="card documents" aria-label="Documents">
       <Heading icon="document">Documents</Heading>
+      {hint && docs.length > 0 && <p className="hint">{hint}</p>}
       {docs.length === 0 && <Empty>{NONE_YET[owner.owner]}</Empty>}
       {docs.map((d) =>
         changing === d.id && mayChange ? (
@@ -140,7 +149,11 @@ function AttachmentLine({ owner, doc, onChange }: { owner: Owner; doc: Attachmen
     <div className="row doc">
       <div>
         <b>{doc.title}</b>
-        <p>{[ATTACHMENT_KIND_LABELS[doc.kind], doc.file && fileLabel(doc.file), doc.link && `link to ${linkHost(doc.link)}`].filter(Boolean).join(' · ')}</p>
+        <p>
+          {[ATTACHMENT_KIND_LABELS[doc.kind], doc.file && fileLabel(doc.file), doc.link && `link to ${linkHost(doc.link)}`, owner.owner !== 'client' && (doc.crew ? 'crew see it' : 'office only')]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
       </div>
       <Pending pending={doc.pending} />
       <div className="actions">
@@ -191,8 +204,8 @@ function AttachmentForm({ owner, doc, onDone }: { owner: Owner; doc?: Attachment
   const storage = useDocumentStorage()
   const kinds: readonly AttachmentKind[] = ATTACHMENT_KINDS_OF[owner.owner]
   const first = kinds[0]!
-  const blank = { kind: first, title: ATTACHMENT_TITLES[first], link: '' }
-  const [f, setF] = useState(doc ? { kind: doc.kind, title: doc.title, link: doc.link ?? '' } : blank)
+  const blank = { kind: first, title: ATTACHMENT_TITLES[first], link: '', crew: CREW_BY_DEFAULT[owner.owner] }
+  const [f, setF] = useState(doc ? { kind: doc.kind, title: doc.title, link: doc.link ?? '', crew: doc.crew } : blank)
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const late = useLate(busy)
@@ -204,7 +217,7 @@ function AttachmentForm({ owner, doc, onDone }: { owner: Owner; doc?: Attachment
     setF((was) => ({ ...was, kind, title: !was.title.trim() || was.title === ATTACHMENT_TITLES[was.kind] ? ATTACHMENT_TITLES[kind] : was.title }))
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    const parsed = attachmentDetails.safeParse({ id: doc?.id ?? newId(), owner: owner.owner, ownerId: owner.id, kind: f.kind, title: f.title.trim(), link: f.link.trim() || null })
+    const parsed = attachmentDetails.safeParse({ id: doc?.id ?? newId(), owner: owner.owner, ownerId: owner.id, kind: f.kind, title: f.title.trim(), link: f.link.trim() || null, crew: f.crew })
     if (!parsed.success) return refuse(parsed.error.issues[0]?.message ?? 'Check the details and try again.')
     if (!file && !parsed.data.link && !doc?.file) return refuse(storage?.files === false ? 'Add the link to it: files wait on the storage being set up.' : 'Add the link to it, or choose its file.')
     setBusy(true)
@@ -241,6 +254,15 @@ function AttachmentForm({ owner, doc, onDone }: { owner: Owner; doc?: Attachment
           {doc?.file ? 'A new file, to replace the one it has' : 'Or the file'}
           <input ref={picker} type="file" accept={ACCEPT} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           <small>A PDF, or a photo (JPEG, PNG, WebP or HEIC), up to 10 MB. Sending a file needs signal.</small>
+        </label>
+      )}
+      {owner.owner !== 'client' && (
+        <label className="wide tick">
+          <input type="checkbox" checked={f.crew} onChange={(e) => setF({ ...f, crew: e.target.checked })} />
+          <span>
+            Crew can see it
+            <small>{CREW_SEE[owner.owner]}</small>
+          </span>
         </label>
       )}
       <Refusal error={error} className="wide" />

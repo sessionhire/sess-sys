@@ -1,6 +1,8 @@
 import { daysLabel, eachDay, firstName, needsLabel, tidyNeeds, type CertificateKind, type OfferStatus } from './crew.ts'
 import { mapLink, type Contact, type Venue } from './jobs.ts'
 import { HOLD_WORDS } from './words.ts'
+import type { FileType } from './documents.ts'
+import { ATTACHMENT_KINDS, ATTACHMENT_KIND_LABELS, type Attachment } from './attachments.ts'
 import { DEPARTMENTS, DEPARTMENT_LABELS, type Department } from './stock.ts'
 
 /**
@@ -66,6 +68,37 @@ export interface SheetVan {
   notes: string
 }
 
+/**
+ * A document for the crew (ADR 0196), the job's or the venue's: what it is, and how it opens, its file through the
+ * reader's own link, or the link to where it's shared.
+ */
+export interface SheetDocument {
+  id: string
+  title: string
+  /** "Stage plot", "Floor plan". */
+  kind: string
+  /** "the job" or "the venue", for a line under its title. */
+  of: 'job' | 'venue'
+  file: { type: FileType; bytes: number } | null
+  link: string | null
+}
+
+/** The documents for the crew on a sheet (ADR 0196): the job's, then the venue's, each by kind and title; never one for the office alone. */
+export function sheetDocuments(docs: readonly Pick<Attachment, 'id' | 'owner' | 'kind' | 'title' | 'file' | 'link' | 'crew'>[]): SheetDocument[] {
+  const order = (d: (typeof docs)[number]) => (d.owner === 'job' ? 0 : 1)
+  return docs
+    .filter((d) => d.crew && d.owner !== 'client' && (d.file || d.link))
+    .sort((a, b) => order(a) - order(b) || ATTACHMENT_KINDS.indexOf(a.kind) - ATTACHMENT_KINDS.indexOf(b.kind) || a.title.localeCompare(b.title, 'en-IE') || a.id.localeCompare(b.id))
+    .map((d) => ({
+      id: d.id,
+      title: d.title,
+      kind: d.kind === 'other' ? '' : ATTACHMENT_KIND_LABELS[d.kind],
+      of: d.owner === 'job' ? ('job' as const) : ('venue' as const),
+      file: d.file ? { type: d.file.type, bytes: d.file.bytes } : null,
+      link: d.link,
+    }))
+}
+
 export interface SheetInput {
   /** `hold`: the client hasn't said yes to the job yet, so its crew are asked to hold the day (ADR 0150). */
   job: { name: string; notes: string; hold?: boolean }
@@ -78,6 +111,8 @@ export interface SheetInput {
   people: ReadonlyMap<string, SheetPerson>
   /** The phase's own kit and the whole job's. */
   kit: readonly SheetKitLine[]
+  /** The job's documents for the crew and its venue's (ADR 0196), the job's first. */
+  documents?: readonly SheetDocument[]
   /** Who is reading, so their own line stands out; not for the office. */
   readerId?: string
   /** Who said they're running late, with the line to show (ADR 0028), already narrowed to what's still showing. */
@@ -148,6 +183,8 @@ export interface CallSheet {
    * are some.
    */
   vans?: { name: string; days?: string; driver: string | null; notes: string; times?: string }[]
+  /** The documents for the crew (ADR 0196), for everyone on it; only when there are some. */
+  documents?: SheetDocument[]
 }
 
 const SHOWN: Record<SheetReader, readonly OfferStatus[]> = {
@@ -252,6 +289,7 @@ export function callSheet(input: SheetInput, reader: SheetReader): CallSheet {
       notes: v.notes.trim(),
       ...(v.times ? { times: v.times } : {}),
     }))
+  if (input.documents?.length) sheet.documents = [...input.documents]
   const late = new Map(views.flatMap((c) => c.crew.filter((p) => p.late).map((p) => [p.personId, { name: p.name, phone: p.phone ?? null, line: p.late! }])))
   if (late.size) sheet.late = [...late.values()].sort((a, b) => a.name.localeCompare(b.name, 'en-IE'))
   if (reader !== 'crew') {
@@ -302,6 +340,11 @@ export function callSheetText(s: CallSheet): string {
   }
   if (s.notes.phase) lines.push('', s.notes.phase)
   if (s.notes.job) lines.push('', s.notes.job)
+  // A file opens through each person's own link, so the copy names it; a link goes as it is (ADR 0196).
+  if (s.documents?.length) {
+    lines.push('', 'Documents (on your call sheet):')
+    for (const d of s.documents) lines.push(d.link && !d.file ? `${d.title}: ${d.link}` : d.title)
+  }
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 

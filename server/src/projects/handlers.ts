@@ -9,6 +9,7 @@ import { dayEntity, readDaysById } from '../calendar/store.ts'
 import { getQuote } from '../finance/store.ts'
 import { getClient, paymentTermsColumn, getPhase, getPhases, getProject, getVenue, namesForCall } from './store.ts'
 import { getBooking, vehiclesOnPhase } from '../vehicles/store.ts'
+import { getAttachment } from '../documents/attachments.ts'
 import { getJobPhoto } from '../documents/job-photos.ts'
 import { getStep } from '../steps/store.ts'
 import { giveQuotingToWhoStartedIt } from '../steps/handlers.ts'
@@ -317,6 +318,8 @@ export const projectHandlers: { [N in JobCommand]: Handler<N> } = {
     for (const id of await move('vehicle_bookings')) await emit(ctx, 'vehicleBooking', id, await getBooking(ctx.tx, id))
     // Photos of the show (ADR 0182) are the job kept's now.
     for (const id of await move('job_photos')) await emit(ctx, 'jobPhoto', id, await getJobPhoto(ctx.tx, id))
+    // And its documents (ADR 0196).
+    for (const id of await move('attachments')) await emit(ctx, 'attachment', id, await getAttachment(ctx.tx, id))
     // A deleted version moves too, but isn't sent to the devices (ADR 0135).
     for (const id of await move('quotes')) {
       const q = await getQuote(ctx.tx, id)

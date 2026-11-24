@@ -442,7 +442,7 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     if (!person) return gone(reply)
     const sheet = await sheetFor(db, person.id, req.params.id ?? '')
     if (!sheet) return reply.code(404).type('text/html').send(renderNoSheet(base(req, person.linkToken)))
-    return reply.type('text/html').send(renderSheet(sheet, base(req, person.linkToken), await officeFor(db)))
+    return reply.type('text/html').send(renderSheet(sheet, base(req, person.linkToken), await officeFor(db), req.params.id ?? ''))
   })
 
   /** A booking's timesheet page, with a message, and with what a refused post typed drawn back into the form. */

@@ -3,9 +3,11 @@ import type { StoredFileInfo } from './documents.ts'
 import { needed } from './plain.ts'
 
 /**
- * Documents kept on a venue or a client (ADR 0032): a venue's tech spec,
- * floor plan and health and safety pack; a client's contract, purchase
- * orders and brief. Each is a file, kept as people's documents are (ADR
+ * Documents kept on a venue, a client or a job (ADRs 0032 and 0196): a
+ * venue's tech spec, floor plan and health and safety pack; a client's
+ * contract, purchase orders and brief; a job's stage plot, run sheet and
+ * rider. A job's and a venue's can be for the crew too, and are then on
+ * the call sheet of everyone who has said yes to a call there. Each is a file, kept as people's documents are (ADR
  * 0029), or a link to where it's shared (a Dropbox or Google Drive page),
  * or both. The code calls them attachments, to keep them apart from
  * people's documents, which run out and are personal data; these are
@@ -15,22 +17,27 @@ import { needed } from './plain.ts'
 const id = z.string().min(1).max(64)
 
 /** What a document can be kept on. */
-export const ATTACHMENT_OWNERS = ['venue', 'client'] as const
+export const ATTACHMENT_OWNERS = ['venue', 'client', 'job'] as const
 export type AttachmentOwner = (typeof ATTACHMENT_OWNERS)[number]
 
 /** The kinds each can have, in the order they're offered. */
 export const ATTACHMENT_KINDS_OF = {
   venue: ['tech-spec', 'floor-plan', 'rigging', 'power', 'access', 'health-safety', 'other'],
   client: ['contract', 'purchase-order', 'brief', 'brand', 'insurance-terms', 'other'],
+  job: ['stage-plot', 'run-sheet', 'rider', 'site-plan', 'other'],
 } as const satisfies Record<AttachmentOwner, readonly string[]>
 
-export const ATTACHMENT_KINDS = [...new Set([...ATTACHMENT_KINDS_OF.venue, ...ATTACHMENT_KINDS_OF.client])] as [
+export const ATTACHMENT_KINDS = [...new Set([...ATTACHMENT_KINDS_OF.job, ...ATTACHMENT_KINDS_OF.venue, ...ATTACHMENT_KINDS_OF.client])] as [
   (typeof ATTACHMENT_KINDS_OF)[AttachmentOwner][number],
   ...(typeof ATTACHMENT_KINDS_OF)[AttachmentOwner][number][],
 ]
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number]
 
 export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
+  'stage-plot': 'Stage plot',
+  'run-sheet': 'Run sheet',
+  rider: 'Rider',
+  'site-plan': 'Site plan',
   'tech-spec': 'Tech spec',
   'floor-plan': 'Floor plan',
   rigging: 'Rigging',
@@ -47,6 +54,10 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
 
 /** The title each kind starts with, which can be changed; one for something else is typed. */
 export const ATTACHMENT_TITLES: Record<AttachmentKind, string> = {
+  'stage-plot': 'Stage plot',
+  'run-sheet': 'Run sheet',
+  rider: 'Tech rider',
+  'site-plan': 'Site plan',
   'tech-spec': 'Tech spec',
   'floor-plan': 'Floor plan',
   rigging: 'Rigging plot',
@@ -86,8 +97,16 @@ export interface Attachment {
   link: string | null
   /** The file's type and size, never its name or where it's kept; null for a link alone. */
   file: StoredFileInfo | null
+  /**
+   * For the crew too (ADR 0196): on the call sheet of everyone who has said yes to a call on the job or at the venue, and
+   * read by staff crew and freelancers in the app. Off, only the office, directors and heads see it. A client's never is.
+   */
+  crew: boolean
   addedAt: string
 }
+
+/** Whether a document of this owner's starts as one for the crew: a job's and a venue's do, a client's never can. */
+export const CREW_BY_DEFAULT: Record<AttachmentOwner, boolean> = { job: true, venue: true, client: false }
 
 export interface AttachmentEntities {
   attachment: Attachment
@@ -103,8 +122,11 @@ export const attachmentDetails = z
     kind: z.enum(ATTACHMENT_KINDS),
     title: needed(100, 'The title', 'A title'),
     link: attachmentLink.nullable(),
+    // Absent from a change a device saved before ADR 0196: what the owner's start as.
+    crew: z.boolean().optional(),
   })
   .refine((a) => (ATTACHMENT_KINDS_OF[a.owner] as readonly string[]).includes(a.kind), { message: "That kind of document isn't one for here.", path: ['kind'] })
+  .refine((a) => !(a.owner === 'client' && a.crew), { message: "A client's documents are only for the office: they can carry the prices agreed.", path: ['crew'] })
 export type AttachmentDetails = z.infer<typeof attachmentDetails>
 
 export const attachmentCommandSchemas = {

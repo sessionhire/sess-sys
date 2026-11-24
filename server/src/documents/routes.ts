@@ -35,6 +35,7 @@ import { linkSend, officeFile } from './actions.ts'
 import { FileGone, FileLocked, NotKept, type DocumentFiles } from './files.ts'
 import { NotAForm, readForm } from './form.ts'
 import { renderNoFile } from './page.ts'
+import { sheetFor } from '../crew/sheet.ts'
 import { fileKeyOf, getDocument } from './store.ts'
 import { attachmentFile, attachmentFileKeyOf, getAttachment, ownerName } from './attachments.ts'
 import { certificateItemName, getItemCertificate, itemCertificateFile, itemCertificateFileKeyOf } from '../stock/certificates.ts'
@@ -63,7 +64,7 @@ const LINK_ROUTE_LIMIT = 40 * 1024 * 1024 + 256 * 1024
 type Said = 'doc-sent' | 'doc-no-file' | 'doc-too-big' | 'doc-web-page' | 'doc-not-a-file' | 'doc-not-on' | 'doc-not-yours' | 'doc-not-kept' | 'check-the-dates' | 'try-again'
 
 type OfficeReq = FastifyRequest<{ Params: { id: string }; Querystring: { client?: string; personId?: string; kind?: string; title?: string; expires?: string } }>
-type AttachmentReq = FastifyRequest<{ Params: { id: string }; Querystring: { client?: string; owner?: string; ownerId?: string; kind?: string; title?: string; link?: string } }>
+type AttachmentReq = FastifyRequest<{ Params: { id: string }; Querystring: { client?: string; owner?: string; ownerId?: string; kind?: string; title?: string; link?: string; crew?: string } }>
 type CertificateReq = FastifyRequest<{
   Params: { id: string }
   Querystring: { client?: string; kind?: string; title?: string; day?: string; expires?: string; link?: string; assets?: string }
@@ -143,7 +144,7 @@ export function registerDocumentRoutes(app: FastifyInstance, { db, files, onChan
       }
     })
 
-    /** The office puts a file on a venue's or client's document (ADR 0032), with its details, as for a person's. */
+    /** The office puts a file on a venue's, client's or job's document (ADRs 0032, 0196), with its details, as for a person's. */
     scope.post('/api/attachments/:id/file', { bodyLimit: ROUTE_LIMIT, config: { needs: 'jobs' } }, async (req: AttachmentReq, reply) => {
       if (!files.on) return reply.code(409).send({ error: FILES_WAIT_LINK })
       const body = req.body
@@ -152,7 +153,7 @@ export function registerDocumentRoutes(app: FastifyInstance, { db, files, onChan
       const found = fileTypeOf(body.subarray(0, FILE_HEAD_BYTES))
       if ('refused' in found) return reply.code(415).send({ error: found.refused })
       const q = req.query
-      const details = attachmentDetails.safeParse({ id: req.params.id, owner: q.owner, ownerId: q.ownerId, kind: q.kind, title: q.title, link: q.link || null })
+      const details = attachmentDetails.safeParse({ id: req.params.id, owner: q.owner, ownerId: q.ownerId, kind: q.kind, title: q.title, link: q.link || null, ...(q.crew === undefined ? {} : { crew: q.crew === '1' }) })
       if (!details.success) return reply.code(400).send({ error: details.error.issues[0]?.message ?? 'Check the details and try again.' })
       try {
         await attachmentFile(db, files, details.data, body, found.type, { clientId: q.client, userId: req.user?.id, device: describeDevice(req.headers['user-agent']) })
@@ -303,6 +304,29 @@ export function registerDocumentRoutes(app: FastifyInstance, { db, files, onChan
         return back('doc-sent')
       }
     )
+
+    /**
+     * A document for the crew on their call sheet (ADR 0196): only one on the sheet as they'd see it now, so one made
+     * office-only, a call they've left, or a job that's off is "not found", as one that doesn't exist.
+     */
+    scope.get('/f/:token/sheet/:call/documents/:id', async (req: FastifyRequest<{ Params: { token: string; call: string; id: string } }>, reply) => {
+      noStore(reply)
+      const person = await personByToken(db, req.params.token)
+      if (!person) return reply.code(404).type('text/html').send(renderGone())
+      const base = `/f/${person.linkToken}`
+      const sheet = await sheetFor(db, person.id, req.params.call)
+      const shown = sheet?.documents?.find((d) => d.id === req.params.id && d.file)
+      const doc = shown ? await getAttachment(db, shown.id) : undefined
+      const key = doc ? await attachmentFileKeyOf(db, doc.id) : null
+      if (!doc || !doc.file || !key) return reply.code(404).type('text/html').send(renderNoFile(base, "There's no file here: it isn't on your call sheet now, or it has gone."))
+      if (!files.on) return reply.code(404).type('text/html').send(renderNoFile(base, "Files can't be opened here just now. Ask the office for a copy."))
+      try {
+        return sendFile(reply, await files.read(key), doc.file.type, documentFileName((await ownerName(db, doc.owner, doc.ownerId)) ?? '', doc.title, doc.file.type))
+      } catch (err) {
+        if (err instanceof FileGone || err instanceof FileLocked) return reply.code(404).type('text/html').send(renderNoFile(base, "This file can't be opened just now. Ask the office for a copy."))
+        throw err
+      }
+    })
 
     /** One of their own documents' files; anyone else's is "not found", as one that doesn't exist. */
     scope.get('/f/:token/documents/:id', async (req: LinkReq, reply) => {

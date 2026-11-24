@@ -1,7 +1,7 @@
 import type { Module } from '../migrations.ts'
 
 /**
- * People's documents (ADR 0029), those kept on venues and clients (ADR 0032), and photos of jobs (ADR 0182). Versioned on their own
+ * People's documents (ADR 0029), those kept on venues, clients (ADR 0032) and jobs (ADR 0196), and photos of jobs (ADR 0182). Versioned on their own
  * (documents_schema_version), so they never fight the crew migrations,
  * and backed up and exported like every module's tables. Devices never
  * see where a file is kept, nor the list of files to delete.
@@ -75,6 +75,17 @@ const MIGRATIONS: string[] = [
     added_at    timestamptz NOT NULL
   );
   CREATE INDEX IF NOT EXISTS job_photos_project ON job_photos (project_id);
+  `,
+  // Documents on a job, and documents for the crew (ADR 0196): a third owner, still exactly one of the three, and whether
+  // crew see it. A venue's already there were open to every role, so they stay so; a client's never are.
+  `
+  ALTER TABLE attachments ADD COLUMN IF NOT EXISTS project_id text REFERENCES projects(id);
+  ALTER TABLE attachments ADD COLUMN IF NOT EXISTS crew boolean NOT NULL DEFAULT false;
+  UPDATE attachments SET crew = true WHERE venue_id IS NOT NULL;
+  ALTER TABLE attachments DROP CONSTRAINT IF EXISTS attachments_check;
+  ALTER TABLE attachments ADD CONSTRAINT attachments_one_owner CHECK (num_nonnulls(venue_id, client_id, project_id) = 1);
+  ALTER TABLE attachments ADD CONSTRAINT attachments_client_office CHECK (client_id IS NULL OR NOT crew);
+  CREATE INDEX IF NOT EXISTS attachments_project ON attachments (project_id);
   `,
 ]
 

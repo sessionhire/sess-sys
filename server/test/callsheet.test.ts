@@ -3,6 +3,11 @@ import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.ts'
 import { pgliteDb, type Db } from '../src/db.ts'
+import { dirStore, type BackupStore } from '../src/backup/store.ts'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { readingFor, readsAttachmentOf } from '@sh/shared'
 
 /**
  * Call sheets on a person's private link (ADR 0021): only for a call
@@ -15,9 +20,9 @@ afterEach(async () => {
   cleanup = []
 })
 
-async function server() {
+async function server(options: { documentStore?: BackupStore } = {}) {
   const db = await pgliteDb()
-  const app = await buildApp({ db })
+  const app = await buildApp({ db, ...options })
   cleanup.push(async () => {
     await app.close()
     await db.close()
@@ -67,8 +72,8 @@ const booked = (offerId: string, callId: string, personId: string) => [
 ]
 
 /** A festival's show days: a contact on the day, two booked, one accepted, one only offered, and some kit. Confirmed, unless the client hasn't said yes yet. */
-async function festival(status: 'confirmed' | 'quoted' = 'confirmed') {
-  const { app, db } = await server()
+async function festival(status: 'confirmed' | 'quoted' = 'confirmed', options: { documentStore?: BackupStore } = {}) {
+  const { app, db } = await server(options)
   await ok(
     app,
     m('client.upsert', { id: 'shannon', name: 'Shannonside Festivals', contacts: [{ name: 'Niamh Walsh', role: 'Producer', email: null, phone: '+44 7700 900200' }], notes: '' }),
@@ -239,5 +244,89 @@ describe('a call sheet on a private link', () => {
       ['Changed Show on Harbour Lights Festival: the contact on the day to someone', 'turned-down'],
       ['Changed Show on Harbour Lights Festival: the contact on the day to Aoife Brennan', 'done'],
     ])
+  })
+})
+
+describe('documents for the crew on the call sheet (ADR 0196)', () => {
+  const PDF = Buffer.from('%PDF-1.4\n% Made up for a test: not a real stage plot.\n')
+
+  async function withDocuments() {
+    const dir = mkdtempSync(join(tmpdir(), 'sh-sheet-docs-'))
+    cleanup.push(async () => rmSync(dir, { recursive: true, force: true }))
+    const f = await festival('confirmed', { documentStore: dirStore(dir) })
+    const res = await f.app.inject({
+      method: 'POST',
+      url: `/api/attachments/plot/file?${new URLSearchParams({ client: 'office', owner: 'job', ownerId: 'harbour', kind: 'stage-plot', title: 'Main stage plot', link: '' })}`,
+      headers: { 'content-type': 'application/octet-stream' },
+      payload: PDF,
+    })
+    expect(res.statusCode).toBe(200)
+    await ok(
+      f.app,
+      // The office's own, a venue's for the crew, a venue's kept for the office, and a client's.
+      m('attachment.save', { id: 'budget', owner: 'job', ownerId: 'harbour', kind: 'other', title: 'Production budget', link: 'https://example.com/budget', crew: false }),
+      m('attachment.save', { id: 'access', owner: 'venue', ownerId: 'riverside', kind: 'access', title: 'North gate access', link: 'https://example.com/access' }),
+      m('attachment.save', { id: 'power', owner: 'venue', ownerId: 'riverside', kind: 'power', title: 'Generator hire terms', link: 'https://example.com/power', crew: false }),
+      m('attachment.save', { id: 'contract', owner: 'client', ownerId: 'shannon', kind: 'contract', title: 'Festival contract', link: 'https://example.com/contract' })
+    )
+    return f
+  }
+
+  it("lists the job's and the venue's for the crew on everyone's sheet, and opens a file only through the sheet's own link", async () => {
+    // Proves: the job's come first, then the venue's; one kept for the office and a client's are never on it; a file opens through the person's link while it's on their sheet, and not for someone only offered the job.
+    const { app, token } = await withDocuments()
+    const dara = await token('dara')
+    const { html } = await page(app, `/f/${dara}/sheet/sound`)
+    expect(html).toContain('<h2>Documents</h2>')
+    expect(html).toContain(`/f/${dara}/sheet/sound/documents/plot"`)
+    expect(html).toContain('href="https://example.com/access"')
+    expect(html.indexOf('Main stage plot')).toBeLessThan(html.indexOf('North gate access'))
+    expect(html).toContain("Stage plot · PDF")
+    expect(html).toContain('from the venue')
+    for (const text of ['Production budget', 'Generator hire terms', 'Festival contract']) expect(html).not.toContain(text)
+
+    const file = await app.inject({ url: `/f/${dara}/sheet/sound/documents/plot` })
+    expect(file.statusCode).toBe(200)
+    expect(file.headers['content-type']).toBe('application/pdf')
+    expect(file.rawPayload.equals(PDF)).toBe(true)
+    // Not one kept for the office, by its id, nor through someone else's call, nor for someone only offered a call.
+    expect((await app.inject({ url: `/f/${dara}/sheet/sound/documents/budget` })).statusCode).toBe(404)
+    expect((await app.inject({ url: `/f/${dara}/sheet/hands/documents/plot` })).statusCode).toBe(404)
+    expect((await app.inject({ url: `/f/${await token('fionn')}/sheet/lx/documents/plot` })).statusCode).toBe(404)
+  })
+
+  it('takes one off the sheet, and closes its file, once the office keeps it for itself', async () => {
+    const { app, token } = await withDocuments()
+    const dara = await token('dara')
+    await ok(app, m('attachment.save', { id: 'plot', owner: 'job', ownerId: 'harbour', kind: 'stage-plot', title: 'Main stage plot', link: null, crew: false }))
+    expect((await page(app, `/f/${dara}/sheet/sound`)).html).not.toContain('Main stage plot')
+    expect((await app.inject({ url: `/f/${dara}/sheet/sound/documents/plot` })).statusCode).toBe(404)
+  })
+
+  it('moves them with the job when two jobs are combined', async () => {
+    const { app, token } = await withDocuments()
+    await ok(
+      app,
+      m('project.create', { id: 'harbour-lx', name: 'Harbour Lights Festival LX', clientId: 'shannon', venueId: 'riverside', status: 'confirmed', notes: '' }),
+      m('attachment.save', { id: 'rider', owner: 'job', ownerId: 'harbour-lx', kind: 'rider', title: 'Headliner rider', link: 'https://example.com/rider' }),
+      m('project.merge', { id: 'harbour', from: ['harbour-lx'], name: 'Harbour Lights Festival' })
+    )
+    expect((await page(app, `/f/${await token('dara')}/sheet/sound`)).html).toContain('Headliner rider')
+  })
+
+  it('refuses a client\'s document for the crew', async () => {
+    const { app } = await withDocuments()
+    const [r] = await send(app, m('attachment.save', { id: 'po', owner: 'client', ownerId: 'shannon', kind: 'purchase-order', title: 'PO', link: 'https://example.com/po', crew: true }))
+    expect(r).toMatchObject({ status: 'rejected' })
+  })
+
+  it('gives staff crew and freelancers only those for the crew, and the office every one', () => {
+    for (const role of ['crew', 'freelancer'] as const) {
+      const r = readingFor(role)
+      expect(readsAttachmentOf(r, { owner: 'job', crew: true })).toBe(true)
+      expect(readsAttachmentOf(r, { owner: 'venue', crew: false })).toBe(false)
+      expect(readsAttachmentOf(r, { owner: 'client', crew: false })).toBe(false)
+    }
+    for (const role of ['office', 'director', 'head'] as const) expect(readsAttachmentOf(readingFor(role), { owner: 'job', crew: false })).toBe(true)
   })
 })
