@@ -1,5 +1,5 @@
 import type { CommandArgs, Mutation } from '../commands.ts'
-import { normaliseNumber, stockId, type Asset, type Model, type Place, type Stock, type StockEntities, type Where } from '../stock.ts'
+import { DEPARTMENT_CODES, MAX_PRODUCT_NUMBER, normaliseNumber, stockId, type Asset, type Model, type Place, type Stock, type StockEntities, type Where } from '../stock.ts'
 
 /**
  * The Stock tab's view of a device's data (ADR 0013): what the server has
@@ -141,7 +141,11 @@ export function warehouseView(entities: Partial<Tables>, outbox: readonly (Mutat
     switch (m.name) {
       case 'model.create': {
         const a = m.args as CommandArgs<'model.create'>
-        if (!models.has(a.id)) models.set(a.id, { ...a, ...checks(a), pending: true })
+        // Its product number as the server will give it (ADR 0195): the next after every product's, with its department's letters.
+        if (models.has(a.id)) break
+        const n = Math.max(0, ...[...models.values()].map((x) => x.codeNumber ?? 0)) + 1
+        const coded = n <= MAX_PRODUCT_NUMBER ? { codeNumber: n, codeLetters: DEPARTMENT_CODES[a.department] } : {}
+        models.set(a.id, { ...a, ...checks(a), ...coded, pending: true })
         break
       }
       case 'model.update': {
