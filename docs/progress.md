@@ -3,6 +3,23 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 24 November 2026: a pick list printed to pick by hand
+
+**Done (1.230.0, #441, no ADR)**
+
+- Colly: "Also can you build a print version of the pick list also in case
+  we need to perform those manually?" A pick list's Kit card has Print to
+  pick by hand. It prints what the screen shows, in the same order (by
+  department, by where it's kept, or one department only): a box to tick,
+  how many, where each is kept with the item codes to circle, a line to
+  write how many went, what's already out at the end, room for extras and
+  notes, and who picked and checked it. Coming back, Print to check back by
+  hand lists what's still out. Ctrl+P on the page prints the same sheet.
+- Paper isn't recorded: the foot says to scan or count it in on the pick
+  list afterwards.
+- Checked: the pick list browser tests, with a new one that prints going
+  out and coming back; an A4 PDF looked at.
+
 ## 24 November 2026: stock codes without the department letters
 
 **Done (1.229.1, #440, ADR 0195 revised)**
