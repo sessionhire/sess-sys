@@ -350,8 +350,8 @@ export const inShForm = (text: string) => (/^\s*sh[\s-]*\d{1,6}\s*$/i.test(text)
 export function wholeNumber(text: string): string | undefined {
   const t = text.trim().toUpperCase()
   if (/^(?:SH[\s-]*)?\d{6}$/.test(t) || /\/A\/\d{6}\/?$/.test(t)) return normaliseNumber(t)
-  // A code is whole once its item number has all three digits, as printed.
-  return /^(?:[A-Z]{3}[\s-]*)?\d{1,4}[\s-]+\d{3}$/.test(t) || /^[A-Z]{3}[\s-]*\d{7}$/.test(t) ? readCode(t)?.code : undefined
+  // A code is whole with all seven of its digits, as printed: "0123-004", not "5-004", which may be the end of one.
+  return /^(?:[A-Z]{3}[\s-]*)?\d{4}[\s-]+\d{3}$/.test(t) || /^[A-Z]{3}[\s-]*\d{7}$/.test(t) ? readCode(t)?.code : undefined
 }
 
 /**

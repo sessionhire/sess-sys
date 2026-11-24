@@ -163,8 +163,8 @@ describe('codes', () => {
     // Digits alone are an SH- number written short, or an old tag; another firm's letters, or none of the item's number, aren't ours.
     expect(['123', '0123004'].map(normaliseNumber)).toEqual(['SH-000123', undefined])
     expect(['ABC-0123-004', '0000-001', '0123-000', '12345-1'].map(normaliseNumber)).toEqual(Array(4).fill(undefined))
-    // Only all three of the item's digits make it whole, as a label has them.
-    expect(['0123-004', '123 004', '0123-4', 'AUD-0123-004'].map(wholeNumber)).toEqual(['0123-004', '0123-004', undefined, '0123-004'])
+    // Only all seven digits make it whole, as a label has them.
+    expect(['0123-004', '0123 004', '123-004', '0123-4', 'AUD-0123-004'].map(wholeNumber)).toEqual(['0123-004', '0123-004', undefined, undefined, '0123-004'])
     expect(inShForm('123 4')).toBe(true)
     expect(inShForm('0123')).toBe(false)
   })
