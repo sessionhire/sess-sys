@@ -342,6 +342,7 @@ const CASES: Case[] = [
   c('logo.blackWhite', { on: true }),
   c('applications.use', { on: true }),
   c('applications.email', { on: true }),
+  c('applications.ppsn', { on: false }),
 
   // Applications to join (ADR 0190).
   c('application.take', { id: 'fionn', personId: 'fionn-byrne' }, { applied: ['fionn', 'saoirse'], ignore: ['linkToken'] }),
