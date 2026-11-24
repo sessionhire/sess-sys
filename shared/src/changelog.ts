@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-24',
     title: 'A sent quote holds its kit for twice as long as its prices',
     what: 'A sent quote still holds its kit, but no longer for ever: it holds it for twice the days its prices hold (60 days for the usual 30), then the kit is only pencilled in, so another job can take it. A quote turned down or taken back lets its kit go at once; a yes holds it as before. Whoever has the Quoting stage has a follow-up on the job’s Confirmed task, due the day before the prices lapse and then the day before the kit is let go, on their list on Home. The job’s Kit tab says how long the quote holds the kit.',
-    prs: [0],
+    prs: [438],
     adrs: [194],
   },
   {
