@@ -212,7 +212,7 @@ test('short where two jobs share the days, sorted by subhire, with a quote penci
   await expect(page.getByRole('heading', { level: 1, name: speaker })).toBeVisible()
   await page.getByRole('tab', { name: /^On jobs/ }).click()
   const onJobs = page.getByRole('region', { name: 'On jobs' })
-  await expect(onJobs.locator('.hint')).toHaveText('10 owned. Confirmed jobs and sent quotes hold them; enquiries, with their quotes still drafts, are pencilled in.')
+  await expect(onJobs.locator('.hint')).toHaveText('10 owned. Confirmed jobs hold them, and sent quotes for twice as long as their prices hold; enquiries, drafts and quotes past that are pencilled in.')
   await expect(onJobs.locator('.job-row b')).toHaveText([festival, launch, quote])
   const jobRow = (name: string) => onJobs.locator('.job-row').filter({ has: page.getByText(name, { exact: true }) })
   await expect(jobRow(launch).locator('.kit-note')).toHaveText('2 subhired from PRG. Enough, with none to spare.')
