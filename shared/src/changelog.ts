@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.223.0',
+    date: '2026-11-24',
+    title: 'Someone taken on is carried forward, and an email to an applicant that didn’t go is said',
+    what: 'Crew › Applications now lists “Taken on, not vetted yet” under the applications to read, each with Move up, so nobody sits out of Offer to… unnoticed. A new person’s page opens with a “New on the crew list” card that says they are at Level 0 and offers to send them their own page by WhatsApp, text or email, or to copy it, with the words filled in, and to move them up to Level 1. Their own page now tells them they are on the crew list and that adding certificates, days off and how they are paid helps, where it used to say only that nothing was waiting. If an email to an applicant couldn’t be sent, Crew › Applications says whose under “Emails that didn’t go” with a link to send their page yourself, and the Applications to join switch says when the operations mailbox can’t send.',
+    prs: [434],
+  },
+  {
     version: '1.222.0',
     date: '2026-11-24',
     title: 'Applications and a client’s answer reach Home, and a cancelled job’s quote can’t be accepted',

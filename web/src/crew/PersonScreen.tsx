@@ -18,7 +18,7 @@ import {
   HIDDEN_FOR_YOUR_ROLE,
   TIME_GROUPS,
 } from '@sh/shared'
-import { CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
+import { DEFAULT_LEVEL, firstName, levelLabel, notVetted, TRADING_NAME, welcomeWords, CERTIFICATE_SOON_DAYS, certificateName, daysBetween, dayLabel, whatsappNumber } from '@sh/shared'
 import { holdsARole, ROLE_LABELS, ROLE_LINES, ROLES, roleOfPerson, signInAbility, soonestFirst, type Role } from '@sh/shared'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -38,7 +38,7 @@ import { useToday } from '../view.ts'
 import { CombineWith } from './Combine.tsx'
 import { asBooking, BookingRow, stoppedBookings } from './BookingRow.tsx'
 import { useMe } from './Leave.tsx'
-import { linkFor } from './Messages.tsx'
+import { linkFor, SendButtons } from './Messages.tsx'
 import { PersonForm } from './People.tsx'
 import { Documents } from './Documents.tsx'
 import { useFeedAddress } from './feed.ts'
@@ -109,6 +109,7 @@ export function PersonScreen({
     >
       <Reach person={person} />
       <Warnings person={person} />
+      <NewOnTheList person={person} emails={view.office.emailApplicants} />
       <Tabs
         label={`About ${person.name}`}
         id="person"
@@ -195,6 +196,36 @@ function Warnings({ person }: { person: PersonView }) {
   return person.archived ? (
     <p className="warn-line">Archived: kept for the record, and offered no work. Bring them back from the Archived list on Crew.</p>
   ) : null
+}
+
+/**
+ * Someone taken on and not vetted yet (user flows of 24 November 2026, gap 6): after Take on nothing carried them
+ * forward. Their page's address was two taps away as Copy link, and nothing said they were out of Offer to… until
+ * moved up. Whichever part is open, for whoever can do either: send them their page from this phone, with the words
+ * filled in, and move them up a level once vetted, which is when this goes.
+ */
+function NewOnTheList({ person, emails }: { person: PersonView; emails: boolean }) {
+  const mayCrew = useAccess().can('crew')
+  const { run, error } = useAct()
+  if (!mayCrew || !notVetted(person) || person.levelHidden) return null
+  const link = person.linkHidden ? '' : linkFor(person)
+  const words = welcomeWords(person.firstName || firstName(person), link, TRADING_NAME)
+  return (
+    <section className="card" aria-label="New on the crew list">
+      <Heading icon="person">New on the crew list</Heading>
+      <p>
+        {levelLine(person.level)}: not vetted yet, so out of Offer to… until you move them up a level.{' '}
+        {emails ? 'They’re emailed the link to their page when taken on; send it again here if it didn’t reach them.' : 'Nothing has been sent to them: send them their page, where they keep their details, days off and documents.'}
+      </p>
+      <div className="actions">
+        {link && <SendButtons person={person} text={words.text} subject={words.subject} inJob />}
+        <button type="button" onClick={() => void run(() => client.mutate('person.level', { id: person.id, level: DEFAULT_LEVEL }))}>
+          Move up to {levelLabel(DEFAULT_LEVEL)}
+        </button>
+      </div>
+      <Refusal error={error} />
+    </section>
+  )
 }
 
 /** Their photo, what the office keeps about them, and changing it. */

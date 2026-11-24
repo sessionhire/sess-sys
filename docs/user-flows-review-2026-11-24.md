@@ -164,6 +164,8 @@ Home › Me and on a freelancer's page; the call sheet's vehicle line gains
 
 ### 6. After Take on, nothing carries an applicant forward
 
+**Fixed in 1.223.0** (24 November 2026). The offer to send their page stays until they are moved up a level, since the app doesn't record a link being opened.
+
 **Who:** the applicant, the office and heads. **Where:** Crew › Applications, the person's page, their own link. **Seen.**
 
 Take on works and the toast says they're on the Crew tab at Level 0. Then
@@ -191,6 +193,8 @@ our crew list. We'll offer you work here; adding your certificates and
 days off helps us pick you."
 
 ### 7. An email to an applicant can fail and nobody hears
+
+**Fixed in 1.223.0** (24 November 2026), all but the count in Admin › Status.
 
 **Who:** the applicant and the office. **Where:** Admin › Company › Applications to join, Crew › Applications. **Read.**
 

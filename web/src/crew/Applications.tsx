@@ -1,4 +1,4 @@
-import { listHeading, STANDING_HEADINGS, APPLICATION_KEPT_MONTHS, APPLICATION_WARN_DAYS, applicationGoesOn, irishToday, newId, phoneShown, TRADES_AS_LABELS, type ApplicationView, type OfficeView, type View } from '@sh/shared'
+import { APPLICANT_LEVEL, DEFAULT_LEVEL, levelLine, notVetted, type ApplicantEmailNotGone, listHeading, STANDING_HEADINGS, APPLICATION_KEPT_MONTHS, APPLICATION_WARN_DAYS, applicationGoesOn, irishToday, newId, phoneShown, TRADES_AS_LABELS, type ApplicationView, type OfficeView, type View } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -9,6 +9,7 @@ import { useAccess } from '../role.ts'
 import { rateText } from '../format.ts'
 import { client } from '../sync.ts'
 import { CrewViews } from './CrewViews.tsx'
+import { getJson, useAsked } from '../jobs/rms.ts'
 
 /**
  * Applications to join the crew (ADR 0190), at #crew/applications: what people who'd like work sent from the public
@@ -61,7 +62,78 @@ export function ApplicationsScreen({ view }: { view: View }) {
           ))}
         </>
       )}
+      {mayCrew && <EmailsNotGone />}
+      {mayCrew && <NotVetted view={view} />}
     </div>
+  )
+}
+
+/**
+ * Emails to people who applied that haven't gone (user flows of 24 November 2026, gap 7): Take on says they're emailed
+ * the link to their page, and when the mailbox couldn't send it nothing said so. Asked of the server, so only with
+ * signal; with none, or nothing to say, the card isn't there.
+ */
+function EmailsNotGone() {
+  const loaded = useAsked(true, 'applicant-emails', () => getJson<{ notGone: ApplicantEmailNotGone[] }>('/api/applications/emails'))
+  const list = loaded.state === 'ready' ? loaded.data.notGone : []
+  if (!list.length) return null
+  return (
+    <section className="card" aria-label="Emails that didn't go">
+      <Heading icon="mail">Emails that didn't go ({list.length})</Heading>
+      <ul className="plain">
+        {list.map((e) => (
+          <li key={e.id}>
+            <p className="warn-line" role="note">
+              {e.kind === 'taken' ? (
+                e.person ? (
+                  <>
+                    <b>{e.person.name}</b>'s email with the link to their page {e.state === 'failed' ? "didn't go" : "hasn't gone yet"}. {e.problem}{' '}
+                    {e.state === 'failed' ? <a href={`#crew/person/${e.person.id}`}>Send their page yourself</a> : 'It’s tried again each minute for a day.'}
+                  </>
+                ) : (
+                  <>An email to someone taken on {when(e.madeAt)} {e.state === 'failed' ? "didn't go" : "hasn't gone yet"}. {e.problem}</>
+                )
+              ) : (
+                <>
+                  The email to someone turned down {when(e.madeAt)} {e.state === 'failed' ? "didn't go" : "hasn't gone yet"}. {e.problem}{' '}
+                  {e.state === 'failed' && 'What they sent is deleted, so there’s nobody to write to.'}
+                </>
+              )}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * Taken on and not vetted yet (gap 6): nothing listed who was still waiting to be moved up a level, so someone taken on
+ * could sit out of Offer to… for good. Each opens their page, where their link is sent, and moves up in a press.
+ */
+function NotVetted({ view }: { view: View }) {
+  const { run, error } = useAct()
+  const people = view.crew.people.filter((p) => notVetted(p) && !p.levelHidden)
+  if (!people.length) return null
+  return (
+    <section className="card" aria-label="Taken on, not vetted yet">
+      <Heading icon="people">Taken on, not vetted yet ({people.length})</Heading>
+      <p className="hint">At {levelLine(APPLICANT_LEVEL)} they're on the crew list and out of Offer to…. Move someone up once you're happy to offer them work.</p>
+      <ul className="plain not-vetted">
+        {people.map((p) => (
+          <li key={p.id}>
+            <a href={`#crew/person/${p.id}`}>
+              <b>{p.name}</b>
+            </a>
+            <small>{[p.department, p.skills.slice(0, 3).join(', ')].filter(Boolean).join(' · ') || 'No department or skills yet'}</small>
+            <button type="button" onClick={() => void run(() => client.mutate('person.level', { id: p.id, level: DEFAULT_LEVEL }))}>
+              Move up<span className="sr-only"> {p.name}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <Refusal error={error} />
+    </section>
   )
 }
 
@@ -117,7 +189,8 @@ function ApplicationCard({ a, mayDecide, emails }: { a: ApplicationView; mayDeci
         showToast({
           id: `taken-${a.id}`,
           title: `Took on ${a.name}`,
-          body: `On the Crew tab as an applicant, Level 0: out of Offer to… until you move them up a level.${emails ? ' They’re emailed the link to their page.' : ''}`,
+          // What happens next is on their page (user flows of 24 November 2026, gap 6): their link to send, and moving them up.
+          body: `On the Crew tab as an applicant, Level 0: out of Offer to… until you move them up a level. ${emails ? 'They’re emailed the link to their page.' : 'Open their page to send them their link.'}`,
           href: `#crew/person/${personId}`,
           action: 'Open',
         })

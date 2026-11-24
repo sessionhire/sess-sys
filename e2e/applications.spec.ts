@@ -101,6 +101,9 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
   await saoirse.getByRole('button', { name: 'Turn down' }).click()
   await saoirse.getByRole('button', { name: 'Turn down' }).click()
   await expect(saoirse).toHaveCount(0)
+  // Taken on and not vetted yet is a list of its own here (user flows of 24 November 2026, gap 6), so nobody sits out of
+  // Offer to… unnoticed.
+  await expect(office.getByRole('region', { name: 'Taken on, not vetted yet' }).getByRole('link', { name: `Fionn Test${id}` })).toBeVisible()
 
   // Fionn is on the Crew tab as an applicant.
   await office.goto('/#crew/people')
@@ -111,6 +114,19 @@ test('applying on the Apply page, then taken on or turned down under Crew › Ap
 
   // Their payment details came with them, masked until asked for in full (ADR 0193).
   await main.getByRole('link', { name: new RegExp(`Fionn Test${id}`) }).click()
+  // His page says he's new and not vetted, with his own page ready to send from this phone, the words filled in (gap 6).
+  const fresh = office.getByRole('region', { name: 'New on the crew list' })
+  await expect(fresh).toContainText('Level 0 (applicant): not vetted yet')
+  await expect(fresh.getByRole('button', { name: 'Move up to Level 1' })).toBeVisible()
+  const whatsapp = decodeURIComponent((await fresh.getByRole('link', { name: 'WhatsApp' }).getAttribute('href')) ?? '')
+  expect(whatsapp).toContain('Hi Fionn, thanks for applying to work with Session Hire')
+  const own = whatsapp.match(/https?:\/\/\S+\/f\/[A-Za-z0-9_-]+/)?.[0] ?? ''
+  expect(own).not.toBe('')
+  // And his own page tells him he's on the list and what helps, rather than only "Nothing waiting".
+  const his = await office.context().newPage()
+  await his.goto(new URL(own).pathname)
+  await expect(his.getByRole('note').filter({ hasText: "You're on our crew list" })).toBeVisible()
+  await his.close()
   await office.getByRole('tab', { name: 'Details' }).click()
   const pay = office.getByRole('region', { name: 'Payment details' })
   await expect(pay).toContainText('••••••7FA')
