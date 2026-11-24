@@ -28,12 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.230.0',
+    version: '1.231.0',
     date: '2026-11-24',
     title: 'Documents on a job, for the crew',
     what: 'A job’s Show pack tab now has Documents: add a stage plot, run sheet, rider or site plan as a file or a link. Each one says whether the crew can see it. Those they can are on the call sheet of everyone who has said yes to a call on the job, and open from their own link. A venue’s documents can be for the crew too, so a floor plan or access note is on every call sheet there. Untick one to keep it for the office.',
     prs: [442],
     adrs: [196],
+  },
+  {
+    version: '1.230.0',
+    date: '2026-11-24',
+    title: 'Print a pick list to pick by hand',
+    what: 'A job’s pick list prints, for picking with a pen when phones are down or there’s no signal. It prints what the screen shows, in the same order, by department or by where it’s kept, or one department only: a box to tick on each line, how many, where each is kept with the codes to circle the ones taken, and a space to write how many went. There’s room for anything that went that wasn’t on it, notes, and who picked and checked it. Coming back, it prints what’s still out to check off. Paper isn’t recorded, so the sheet says to scan or count it in on the pick list afterwards.',
+    prs: [441],
   },
   {
     version: '1.229.1',
