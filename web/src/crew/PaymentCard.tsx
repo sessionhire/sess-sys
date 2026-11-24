@@ -5,6 +5,7 @@ import { markSignedOut } from '../auth.ts'
 import { Heading } from '../Icon.tsx'
 import { getJson, useAsked } from '../jobs/rms.ts'
 import { useAccess } from '../role.ts'
+import { useView } from '../view.ts'
 
 const base = import.meta.env.VITE_API_BASE ?? ''
 
@@ -26,6 +27,8 @@ const FIELDS = Object.keys(LABELS) as PaymentField[]
 
 export function PaymentCard({ person }: { person: PersonView }) {
   const access = useAccess()
+  // A PPS number only where the company uses them with Revenue (ADR 0193): off, the form doesn't ask for one.
+  const askPpsn = useView().office.askPpsn
   const money = access.can('money')
   // Only a director opens them in full (Colly, 24 November 2026); the office sees them masked, and changes them by typing them afresh.
   const seesFull = !access.role || access.role === 'director'
@@ -54,7 +57,7 @@ export function PaymentCard({ person }: { person: PersonView }) {
       {shown && editing ? (
         // The form fills in from the full ones, so it waits for them.
         shown.full || !shown.kept || !seesFull ? (
-          <PaymentForm person={person} was={seesFull ? shown.details : NO_DETAILS} afresh={!seesFull && shown.kept} onDone={done} onCancel={() => (setEditing(false), setFull(false))} />
+          <PaymentForm person={person} was={seesFull ? shown.details : NO_DETAILS} afresh={!seesFull && shown.kept} ppsn={askPpsn || !!shown.details.ppsn} onDone={done} onCancel={() => (setEditing(false), setFull(false))} />
         ) : (
           <p className="hint">Asking the server…</p>
         )
@@ -78,6 +81,10 @@ export function PaymentCard({ person }: { person: PersonView }) {
               {shown.changedBy ? (/apply page/i.test(shown.changedBy) ? ' on the Apply page' : ` by ${shown.changedBy}`) : ''}.
             </p>
           )}
+          {shown.kept && shown.changedBy?.endsWith('on their own page') && (
+            // Changed from a link, which can be passed on: the usual way money is sent to the wrong account, so said where it's read.
+            <p className="warn-line">Changed on their own page. Before paying to a new account, ring them on the number you already have to check it’s theirs.</p>
+          )}
           <div className="actions">
             {shown.kept && seesFull && (
               <button type="button" onClick={() => setFull(!shown.full)} aria-pressed={shown.full}>
@@ -96,7 +103,7 @@ export function PaymentCard({ person }: { person: PersonView }) {
 
 const NO_DETAILS: PaymentDetails = { ppsn: '', vatNumber: '', accountName: '', iban: '', bic: '' }
 
-function PaymentForm({ person, was, afresh, onDone, onCancel }: { person: PersonView; was: PaymentDetails; afresh?: boolean; onDone: () => void; onCancel: () => void }) {
+function PaymentForm({ person, was, afresh, ppsn = true, onDone, onCancel }: { person: PersonView; was: PaymentDetails; afresh?: boolean; ppsn?: boolean; onDone: () => void; onCancel: () => void }) {
   const id = useId()
   const [f, setF] = useState<PaymentDetails>({ ...was, iban: was.iban ? ibanShown(was.iban) : '' })
   const [errors, setErrors] = useState<Partial<Record<PaymentField, string>>>({})
@@ -152,7 +159,7 @@ function PaymentForm({ person, was, afresh, onDone, onCancel }: { person: Person
   )
   return (
     <form className="grid-form" onSubmit={(e) => void save(e)} aria-label={`Payment details for ${person.name}`}>
-      {field('ppsn', { placeholder: '1234567FA' })}
+      {ppsn && field('ppsn', { placeholder: '1234567FA' })}
       {field('vatNumber', { placeholder: 'IE1234567T' })}
       {field('accountName')}
       {field('iban', { placeholder: 'IE29 AIBK 9311 5212 3456 78' })}

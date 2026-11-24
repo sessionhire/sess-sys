@@ -30,6 +30,7 @@ import { registerJoin } from './applications/routes.ts'
 import { CELEBRATE_SCRIPT, COPY_SCRIPT } from './crew/page.ts'
 import { PILLS_SCRIPT } from './applications/page.ts'
 import { OPEN_PAYMENT_KEY, registerPaymentRoutes } from './crew/payment.ts'
+import { registerSignOutEverywhere } from './auth/sign-out-everywhere.ts'
 import { ApplicantEmails } from './applications/emails.ts'
 import { registerPageFonts } from './crew/fonts.ts'
 import { OwnCalendars, type OwnCalendarsOptions } from './crew/own-calendars.ts'
@@ -708,7 +709,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   })
 
   // Freelancers' private links: no app or login needed to answer an offer.
-  registerCrewLinks(app, db, changed, feeds, { demo: !auth && !!passcode, ownCalendars, whatsapp })
+  const paymentKey = options.paymentKey || (auth ? undefined : OPEN_PAYMENT_KEY)
+  registerCrewLinks(app, db, changed, feeds, { demo: !auth && !!passcode, ownCalendars, whatsapp, paymentKeys: { current: paymentKey, old: options.paymentOldKeys } })
   registerOwnCalendarRoutes(app, { ownCalendars })
   registerDocumentRoutes(app, { db, files: documents, onChange: changed })
   registerPhotoRoutes(app, { db, files: documents, onChange: changed })
@@ -750,15 +752,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // The client accepts a quote on its own link (ADR 0121), while the office has it on.
   registerAcceptRoutes(app, db, { onChange: () => void poke(), logo: () => readLogo(db.reads, documents) })
   // The public Apply page (ADR 0190): anyone can apply to join the crew, while the office has it on.
-  const paymentKey = options.paymentKey || (auth ? undefined : OPEN_PAYMENT_KEY)
   registerJoin(app, db, { onChange: () => void poke(), paymentKey })
   registerPaymentRoutes(app, db, { keys: { current: paymentKey, old: options.paymentOldKeys } })
+  registerSignOutEverywhere(app, db)
   registerTrackerRoutes(app, { db, key: options.trackersKey, onChange: () => void poke() })
   // The label printer over the internet (ADR 0191): the ZT411 connects out to the app with Zebra's WebLink.
   registerPrinterRoutes(app, { db, log: app.log, ...options.printer })
   registerStatusRoutes(
     app,
-    new Status({ db, auth, passcode, errorReporting: !!errorReporting, backups, backupStore, documents, calendar: calendarSync, rms, assistant, mailbox, whatsapp, fuel, outside: options.outside ?? {}, commit, live: () => sockets.size })
+    new Status({ db, auth, passcode, errorReporting: errorReporting ? (URL.canParse(errorReporting.dsn) ? new URL(errorReporting.dsn).host : true) : false, backups, backupStore, documents, calendar: calendarSync, rms, assistant, mailbox, whatsapp, fuel, outside: options.outside ?? {}, commit, live: () => sockets.size })
   )
 
   // The history (ADR 0006): newest first, a page at a time, for everyone, one person or one record.

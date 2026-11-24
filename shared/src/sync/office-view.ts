@@ -52,6 +52,8 @@ export interface OfficeView {
   /** The public Apply page takes applications to join the crew (ADR 0190). Off unless the office said. */
   takeApplications: boolean
   emailApplicants: boolean
+  /** PPS numbers are asked for with payment details (ADR 0193). */
+  askPpsn: boolean
   /** That choice changed on this device and not yet on the server. */
   applicationsPending: boolean
 }
@@ -83,6 +85,7 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
   let logoPending = false
   let takeApplications = entities.setting?.[APPLICATIONS_SETTING_ID]?.takeApplications === true
   let emailApplicants = entities.setting?.[APPLICATIONS_SETTING_ID]?.emailApplicants === true
+  let askPpsn = entities.setting?.[APPLICATIONS_SETTING_ID]?.noPpsn !== true
   let applicationsPending = false
   for (const m of outbox) {
     if (m.appliedSeq !== undefined && m.appliedSeq <= cursor) continue
@@ -123,6 +126,10 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
       emailApplicants = (m.args as CommandArgs<'applications.email'>).on
       applicationsPending = true
     }
+    if (m.name === 'applications.ppsn') {
+      askPpsn = (m.args as CommandArgs<'applications.ppsn'>).on
+      applicationsPending = true
+    }
     if (m.name === 'logo.blackWhite') {
       logoBlackWhite = (m.args as CommandArgs<'logo.blackWhite'>).on
       logoPending = true
@@ -152,5 +159,5 @@ export function officeView(entities: Partial<Tables>, outbox: readonly (Mutation
     if (args.address === null || args.address === '') delete details.address
     pending = true
   }
-  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo, logoBlackWhite, logoPending, takeApplications, emailApplicants, applicationsPending }
+  return { details, pending, headsSeeRates, headsPending, promptMessages, messagesPending, useTimesheets, timesheetsPending, timesheetsFrom, useAssistant, assistantPending, checkLinks, linksPending, whatsapp, whatsappTestTo, whatsappPending, cableColours, cablesPending, logo, logoBlackWhite, logoPending, takeApplications, emailApplicants, askPpsn, applicationsPending }
 }

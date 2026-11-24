@@ -2,12 +2,12 @@
  * Addresses the server answers itself, never the app (ADR 0186): the API,
  * a freelancer's link (ADR 0002), their lost-link page (ADR 0114), a
  * client's quote (ADR 0121), calendar feeds, the decision records and the
- * Apply page (ADR 0190). The
+ * Apply page (ADR 0190) and the privacy page (ADR 0193). The
  * service worker leaves them to the network (vite.config.ts), so a phone
  * or laptop that has opened the app before still gets the page a client
  * or freelancer gets, with no sign-in.
  */
-export const SERVER_PAGES: RegExp[] = [/^\/api\//, /^\/f\//, /^\/q\//, /^\/cal\//, /^\/adr\//, /^\/link(\/|\?|$)/, /^\/join(\/|\?|$)/]
+export const SERVER_PAGES: RegExp[] = [/^\/api\//, /^\/f\//, /^\/q\//, /^\/cal\//, /^\/adr\//, /^\/link(\/|\?|$)/, /^\/join(\/|\?|$)/, /^\/privacy(\/|\?|$)/]
 
 const SHELL_LEFT = 'sh.shellLeftFor'
 

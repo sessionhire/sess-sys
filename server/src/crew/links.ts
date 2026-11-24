@@ -1,5 +1,9 @@
 import { commandSchemas, eachDay, EURO_HINT, sinceYes, type SinceYes, normaliseNumber, PURCHASE_OPEN, feedCodeFor, feedPath, HOLDING, isDay, LATE_BY, lateDays, MAX_EXTRAS, newId, noTimesheetReason, OPEN, parseEuro, type CommandArgs, type CommandName, type LateBy, type CrewCall, type MutationResult, type Offer, type Person, type TimesheetExtra } from '@sh/shared'
-import { FILE_TOO_BIG, NO_FILE, phoneWithCountry, WEB_FILE, WRONG_FILE } from '@sh/shared'
+import { FILE_TOO_BIG, hasPaymentDetails, maskPaymentDetails, NO_FILE, phoneWithCountry, readPaymentDetails, WEB_FILE, WRONG_FILE, type PaymentDetails, type PaymentField } from '@sh/shared'
+import { asksPpsn } from '../applications/store.ts'
+import { PAYMENT_DETAILS_ACTION } from '../history-words.ts'
+import { serverChange } from '../kernel.ts'
+import { keepPayment, openWithKeys, sealPayment, type PaymentKeys } from './payment.ts'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { applyMutation } from '../commands.ts'
 import type { Db } from '../db.ts'
@@ -12,7 +16,7 @@ import { officeFor, timesheetAsking, usesTimesheets } from '../office/store.ts'
 import { getPhase } from '../projects/store.ts'
 import { sendFeed, type Feeds } from './feeds.ts'
 import { getLate, lateFor, lateOf } from './late.ts'
-import { renderGone, renderPage, type Flash, type Kept, type OnTheDay, type PageWhatsApp } from './page.ts'
+import { renderGone, renderPage, type Flash, type Kept, type OnTheDay, type PagePayment, type PageWhatsApp } from './page.ts'
 import { renderNoSheet, renderSheet, sheetFor } from './sheet.ts'
 import { awayFor, endedOn, getAway, getCall, getOffer, getPerson, heldByCall, heldElsewhereIn, jobsNotYetAgreed, offersFor, personByToken, yesLogs } from './store.ts'
 import { renderTimesheet, type TimesheetPage } from './timesheet-page.ts'
@@ -49,7 +53,7 @@ type Form = URLSearchParams
 type Req = FastifyRequest<{ Params: { token: string; id?: string }; Querystring: { m?: string; r?: string; o?: string; s?: string; c?: string } }>
 
 /** Where a post's message goes: a section of its own, the running-late card (ADR 0028), their documents (ADR 0029), their days off, their own calendar (ADR 0044), or else the offer's card. */
-const SECTIONS = ['details', 'late', 'documents', 'away', 'calendar'] as const
+const SECTIONS = ['details', 'late', 'documents', 'away', 'calendar', 'payment'] as const
 
 const today = (at = new Date()) => at.toLocaleDateString('sv-SE', { timeZone: 'Europe/Dublin' })
 
@@ -80,6 +84,11 @@ const SAID = {
   // Their own details.
   'details-same': { ok: true, text: 'Nothing to change: those are the details we have.' },
   'details-saved': { ok: true, text: 'Saved. The office has your new details.' },
+  // Their payment details (ADR 0193).
+  'payment-saved': { ok: true, text: "Saved. They're locked, and the office can see you changed them." },
+  'payment-removed': { ok: true, text: "Taken off. We'll ask you for them again before we pay you." },
+  'payment-empty': { ok: false, text: 'Type your details first, or leave them as they are.' },
+  'payment-off': { ok: false, text: "Payment details can't be kept here just now. Give them to the office instead." },
   'whatsapp-on': { ok: true, text: 'Done: your offers will come on WhatsApp too.' },
   'whatsapp-off': { ok: true, text: "Done: no more offers on WhatsApp. They'll still be here, and the office may still message you itself." },
   // Days they can't work.
@@ -156,7 +165,7 @@ type Refusal = Extract<MutationResult, { status: 'rejected' }>
 const told = (what: Said | Refusal): Record<string, string> => (typeof what === 'string' ? { m: what } : { r: what.id })
 
 /** `demo`: the passcode-locked demo copy (ADR 0033), whose freelancer pages say so and lead back to choosing whose eyes to see the app through. */
-export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => void, feeds: Feeds, { demo = false, ownCalendars, whatsapp }: { demo?: boolean; ownCalendars?: OwnCalendars; whatsapp?: WhatsApp } = {}) {
+export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => void, feeds: Feeds, { demo = false, ownCalendars, whatsapp, paymentKeys }: { demo?: boolean; ownCalendars?: OwnCalendars; whatsapp?: WhatsApp; paymentKeys?: PaymentKeys } = {}) {
   app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) =>
     done(null, new URLSearchParams(String(body)))
   )
@@ -307,6 +316,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       })()),
       // Offers on WhatsApp (ADR 0125): said, with the way to turn them off or on, once the office sends them to this person's number.
       whatsapp: await whatsappFor(person),
+      // Their payment details (ADR 0193), masked, while the server can lock new ones.
+      payment: await paymentFor(person),
       // A member of staff's time off is their leave (ADR 0024), read from the requests rather than the days it marks off.
       ...(person.kind === 'staff' ? { leave: await leaveAheadFor(db, person.id, now) } : {}),
       // Their documents (ADR 0029), with forms to send a new one where the server can keep files.
@@ -324,6 +335,58 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
     const to = await whatsapp.reach(db, { ...person, whatsappOff: false })
     return to ? { on: !person.whatsappOff, to: person.phone ?? '' } : undefined
   }
+
+  /** Their payment details for their page (ADR 0193): masked, and only while the server can lock new ones. */
+  async function paymentFor(person: Person): Promise<PagePayment | undefined> {
+    if (!paymentKeys?.current || person.archived) return undefined
+    const { rows } = await db.query<{ sealed: string }>('SELECT sealed FROM payment_details WHERE person_id = $1', [person.id])
+    const opened = rows[0] ? openWithKeys(paymentKeys, rows[0].sealed) : undefined
+    return { ppsn: (await asksPpsn(db)) || !!opened?.details.ppsn, ...(opened ? { masked: maskPaymentDetails(opened.details) } : {}) }
+  }
+
+  /** Kept, or taken off, by them on their own page: in the history as theirs, and the office's card says so (ADR 0193). */
+  const keepTheirs = (req: Req, person: Person, sealed: string | null) =>
+    serverChange(db, { name: PAYMENT_DETAILS_ACTION, args: { personId: person.id, ...(sealed ? {} : { gone: true }) }, link: person.id, device: describeDevice(req.headers['user-agent']) }, (ctx) =>
+      keepPayment(ctx.tx, person.id, sealed, `${person.name} on their own page`)
+    )
+
+  // Their payment details, theirs to give and correct (ADR 0193): typed afresh each time, as the page shows them only masked.
+  app.post('/f/:token/payment', async (req: Req, reply) => {
+    noStore(reply)
+    const person = await personByToken(db, req.params.token)
+    if (!person || person.archived) return gone(reply)
+    const toSection = (what: Said) => reply.redirect(`/f/${person.linkToken}?${new URLSearchParams({ ...told(what), s: 'payment' })}#payment`, 303)
+    const key = paymentKeys?.current
+    if (!key) return toSection('payment-off')
+    const form = (req.body ?? new URLSearchParams()) as Form
+    const ppsn = await asksPpsn(db)
+    const typed = Object.fromEntries(
+      (['ppsn', 'vatNumber', 'accountName', 'iban', 'bic'] as const).map((f) => [f, f === 'ppsn' && !ppsn ? '' : (form.get(f) ?? '').slice(0, 200)])
+    ) as unknown as PaymentDetails
+    const kept = { form: 'payment', values: form }
+    const read = readPaymentDetails(typed)
+    if (!read.ok) {
+      const [field, text] = Object.entries(read.errors)[0] as [PaymentField, string]
+      return refused(req, reply, person, { id: '', status: 'rejected', reason: { code: 'invalid', message: text } }, kept, { section: 'payment', field })
+    }
+    // Empty is not a way to take them off by mistake: that's its own button.
+    if (!hasPaymentDetails(read.details)) return refused(req, reply, person, 'payment-empty', kept, { section: 'payment' })
+    await keepTheirs(req, person, sealPayment(key, read.details))
+    onChange()
+    return toSection('payment-saved')
+  })
+
+  app.post('/f/:token/payment/remove', async (req: Req, reply) => {
+    noStore(reply)
+    const person = await personByToken(db, req.params.token)
+    if (!person || person.archived) return gone(reply)
+    const { rows } = await db.query('SELECT 1 FROM payment_details WHERE person_id = $1', [person.id])
+    if (rows.length) {
+      await keepTheirs(req, person, null)
+      onChange()
+    }
+    return reply.redirect(`/f/${person.linkToken}?${new URLSearchParams({ ...told('payment-removed'), s: 'payment' })}#payment`, 303)
+  })
 
   app.get('/f/:token', async (req: Req, reply) => {
     noStore(reply)
@@ -773,6 +836,8 @@ export function registerCrewLinks(app: FastifyInstance, db: Db, onChange: () => 
       documents: await documentsOf(db, person.id),
       // When they're busy, as read from their own calendar (ADR 0044); its address stays out, as their link does.
       ownCalendar: (await getOwnCalendar(db, person.id)) ?? null,
+      // Their payment details (ADR 0193), masked as on the page, since the link can be passed on: in full, they ask the office.
+      paymentDetails: (await paymentFor(person))?.masked ?? null,
       // What they asked to be bought, and what they voted for (ADR 0108).
       purchases: await purchasesFor(db, person.id).then((all) => ({
         asked: all.filter((r) => r.askedBy === person.id).map(({ askerName: _a, mine: _m, ...r }) => r),

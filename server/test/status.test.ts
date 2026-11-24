@@ -62,6 +62,14 @@ describe('the status of everything the app relies on (ADR 0093)', () => {
     for (const c of s.checks) if (c.state === 'bad' || c.state === 'warn') expect(c.todo, c.id).toBeTruthy()
   })
 
+  it('says whether error reports stay in the EU (ADR 0193)', async () => {
+    const outside = { maps: async () => {}, latest: async () => APP_VERSION }
+    const eu = await read(await server({ outside, errorReporting: { dsn: 'https://abc@o1.ingest.de.sentry.io/2', environment: 'trial' } }))
+    expect(check(eu, 'errors')).toMatchObject({ state: 'ok', says: expect.stringMatching(/in the EU/) })
+    const us = await read(await server({ outside, errorReporting: { dsn: 'https://abc@o1.ingest.us.sentry.io/2', environment: 'trial' } }))
+    expect(check(us, 'errors')).toMatchObject({ state: 'warn', says: expect.stringMatching(/leave the EU/), todo: expect.stringMatching(/de\.sentry\.io/) })
+  })
+
   it('says when main has a newer version than the server runs, and what to do', async () => {
     const app = await server({ outside: { latest: async () => bump(APP_VERSION) } })
     const updates = check(await read(app), 'updates')

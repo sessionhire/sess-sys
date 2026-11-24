@@ -55,6 +55,11 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS applicant_emails_queued ON applicant_emails (made_at) WHERE state = 'queued';
   `,
+  // PPS numbers not asked for (ADR 0193, 24 November 2026), where the company won't use them with Revenue: a business may
+  // keep one only for that. Asked unless the office says.
+  `
+  ALTER TABLE settings ADD COLUMN IF NOT EXISTS no_ppsn boolean;
+  `,
 ]
 
 export const APPLICATIONS: Module = { versionTable: 'applications_schema_version', migrations: MIGRATIONS }

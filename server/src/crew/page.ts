@@ -1,7 +1,7 @@
 import { LOGO_SVG, DIAL_CODES, phoneShown, splitPhone, dayLabel, daysLabel, eachDay, euro, firstName, HOLDING, irishClock, noTimesheetReason, timesheetDue, timesheetTotal, type TimesheetAsking, type CrewCall, type Offer, type Person, type Timesheet, type Unavailability } from '@sh/shared'
 import { bookingLine, FACT_GAP, glanceParts, leaveLabel, nextBooking, nextDayOf, soonestFirst, wholeFact, type BookingOf, type GlancePart, type LeaveRequest } from '@sh/shared'
 import { LATE_BY, LATE_BY_LABELS, LATE_NOTE_LENGTH, lateDayWord, lateLine, needsLabel, needsOf, officeContact, telHref, type OfficeDetails, type RunningLate } from '@sh/shared'
-import { dsColor, dsSize, dsSpace, dsText, newId, ownColours, sparks } from '@sh/shared'
+import { dsColor, dsSize, dsSpace, dsText, newId, ownColours, sparks, type PaymentDetails, type PaymentField } from '@sh/shared'
 import { FONT_FACES, FONT_STACK } from './fonts.ts'
 import { busyByDay, ENDED_WORDS, HOLD_WORDS, isNews, LEAVE_WORDS, OFFER_WORDS_TO_YOU, type OwnCalendar, type SinceYes } from '@sh/shared'
 import type { Ended, EndedBy } from './store.ts'
@@ -26,13 +26,13 @@ export interface Flash {
   text: string
   offer?: string
   /** Their details, the running-late card for the offer (ADR 0028), their documents (ADR 0029), their days off, or their own calendar (ADR 0044). */
-  section?: 'details' | 'late' | 'documents' | 'away' | 'calendar'
+  section?: 'details' | 'late' | 'documents' | 'away' | 'calendar' | 'payment'
   /**
    * A refusal about one field, said under it rather than at the top of the card or section (audit, 20 October 2026,
    * finding 90): an offer's rate or days, a day off's first or last day, their mobile, their calendar's address, or a
    * document's file or the day it runs out.
    */
-  field?: 'rate' | 'days' | 'start' | 'end' | 'phone' | 'address' | 'file' | 'expires'
+  field?: 'rate' | 'days' | 'start' | 'end' | 'phone' | 'address' | 'file' | 'expires' | PaymentField
   /** A yes just given to an offer: sparks over its card, once (23 November 2026). */
   celebrate?: boolean
   /** Or, on a timesheet, one extra, by its place among those filled in. */
@@ -187,6 +187,16 @@ export interface PageData {
   whatsapp?: PageWhatsApp
   /** A member of staff's leave still to come, approved or waiting (ADR 0024); absent for a freelancer, whose time off is days off. */
   leave?: LeaveRequest[]
+  /** Their payment details (ADR 0193), masked, while the server can lock them; absent, the section isn't drawn. */
+  payment?: PagePayment
+}
+
+/** Their payment details on their page (ADR 0193): only ever masked here, since anyone holding the link could read the page. */
+export interface PagePayment {
+  /** What's kept, masked as the office sees it; undefined when none are. */
+  masked?: PaymentDetails
+  /** Whether a PPS number is asked for: only where the company uses them with Revenue. */
+  ppsn: boolean
 }
 
 /** Offers on WhatsApp on their page (ADR 0125): whether they get them, and the number they go to, as they wrote it. */
@@ -564,6 +574,60 @@ function details(d: PageData): string {
         <button>Save my number</button>
       </form>
       ${whatsappForm(d)}
+    </details>
+  </section>`
+}
+
+const PAY_LABELS: Record<PaymentField, string> = { ppsn: 'PPS number', vatNumber: 'VAT number, if registered', accountName: 'Name on the account', iban: 'IBAN', bic: 'BIC (optional)' }
+const PAY_ATTRS: Record<PaymentField, string> = {
+  ppsn: 'maxlength="12" placeholder="1234567FA"',
+  vatNumber: 'maxlength="20" placeholder="IE6388047V"',
+  accountName: 'maxlength="100" autocomplete="cc-name"',
+  iban: 'maxlength="42" placeholder="IE29 AIBK 9311 5212 3456 78"',
+  bic: 'maxlength="14" placeholder="AIBKIE2D"',
+}
+
+/**
+ * Their payment details, theirs to give and correct (ADR 0193; the security check of 24 November 2026: a right to see
+ * and correct them). Only ever masked here, as the office sees them: the page opens from a link, which may be passed
+ * on, so it never shows them in full; to correct them they type them afresh. Taking them off is theirs too.
+ */
+function paymentSection(d: PageData): string {
+  const p = d.payment
+  if (!p) return ''
+  const mine = d.flash?.section === 'payment' ? d.flash : undefined
+  const typed = keptIn(d, 'payment')
+  const wrong = mine && !mine.ok ? mine.field : undefined
+  const fields = (Object.keys(PAY_LABELS) as PaymentField[]).filter((f) => f !== 'ppsn' || p.ppsn)
+  const kept = p.masked
+  const shown = kept ? fields.filter((f) => kept[f]).map((f) => `<div><dt>${h(PAY_LABELS[f].replace(/,.*| \(.*/, ''))}</dt><dd>${h(kept[f])}</dd></div>`) : []
+  const form = `<form method="post" action="${d.base}/payment#${REFUSED}">
+        ${fields
+          .map((f) => {
+            const bad = wrong === f
+            return `<div class="field"${landing(bad)}><label for="pay-${f}">${h(PAY_LABELS[f])}</label><input id="pay-${f}" name="${f}" autocomplete="off" spellcheck="false" ${PAY_ATTRS[f]} value="${h(typed?.get(f) ?? '')}"${bad ? invalid(`pay-${f}-error`) : ''}></div>${bad && mine ? fieldError(`pay-${f}-error`, mine.text) : ''}`
+          })
+          .join('\n        ')}
+        <button>${kept ? 'Save my new details' : 'Save my details'}</button>
+      </form>`
+  return `<section class="me" id="payment">
+    <details${mine ? ' open' : ''}>
+      <summary><h2>For paying you</h2> <span class="line">${kept ? 'Given' : 'Not given yet'}</span></summary>
+      ${mine && !wrong ? flash(mine) : ''}
+      <p class="small">${p.ppsn ? 'Your PPS number, VAT number and bank account' : 'Your VAT number and bank account'}, so we can pay you. They're kept locked: our office sees them with most of each number hidden, only a director can open them in full, and this page never shows them in full.</p>
+      ${
+        kept
+          ? `<dl class="pay-facts">${shown.join('')}</dl>
+      <details class="again"${typed || wrong ? ' open' : ''}><summary>Change them</summary>
+        <p class="small">Type them all as they are now: what you save replaces what we have, and the office is told.</p>
+        ${form}
+      </details>
+      <details class="again"><summary>Take them off</summary>
+        <p class="small">We'll ask you for them again before we pay you.</p>
+        <form method="post" action="${d.base}/payment/remove" class="remove"><button>Yes, take them off</button></form>
+      </details>`
+          : form
+      }
     </details>
   </section>`
 }
@@ -950,7 +1014,7 @@ export function renderPage(d: PageData): string {
   const inCard =
     d.flash?.section === 'late'
       ? (d.onTheDay ?? []).some((t) => t.offer.id === d.flash?.offer)
-      : [...waiting, ...booked, ...ending, ...endedWaiting].some((j) => j.offer.id === d.flash?.offer) || d.flash?.section === 'details' || d.flash?.section === 'documents' || d.flash?.section === 'away' || d.flash?.section === 'calendar'
+      : [...waiting, ...booked, ...ending, ...endedWaiting].some((j) => j.offer.id === d.flash?.offer) || d.flash?.section === 'details' || d.flash?.section === 'documents' || d.flash?.section === 'away' || d.flash?.section === 'calendar' || d.flash?.section === 'payment'
 
   return `<!doctype html>
 <html lang="en-IE">
@@ -1002,12 +1066,14 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   ${d.purchases === undefined ? '' : brokenBlock(d.base)}
 
   ${details(d)}
+  ${paymentSection(d)}
 
 
   ${turned.length ? `<section><h2>Offers that ended</h2>${overList(turned.map((j) => earlierLine(j, ended(j.offer, d.ended.get(j.offer.id), d.today), d.today)))}</section>` : ''}
 
   <footer>
     <a href="${d.base}/data.json">Download everything we hold on you</a>
+    <a href="/privacy">How we look after your details</a>
     <span>Keep this link to yourself: anyone with it can answer for you. Ask the office for a new one if it gets shared.</span>
   </footer>
 </main>
@@ -1176,7 +1242,7 @@ button:not(.yes,.no):active,a.button:not(.yes):active{background-image:linear-gr
 footer{display:grid;gap:8px;font-size:${dsText.touch.caption.size}px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
 .sheet-link{font-weight:600;padding:12px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-decoration:none}
 .me details{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 16px}.me details[open]{padding-bottom:16px}
-.me summary{padding:12px 0;list-style-position:inside}.me summary h2{display:inline;margin:0}.me form{margin-top:4px}
+.me summary{padding:12px 0;list-style-position:inside}.me dl.pay-facts{display:grid;gap:4px;margin:8px 0}.me dl.pay-facts div{display:flex;gap:8px;flex-wrap:wrap}.me dl.pay-facts dt{color:var(--muted);min-width:9em}.me dl.pay-facts dd{margin:0;font-variant-numeric:tabular-nums}.me form.remove{margin-top:12px}.me summary h2{display:inline;margin:0}.me form{margin-top:4px}
 .ts-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .ts-list a{display:grid;gap:2px;padding:12px 16px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none}
 .ts-list a.to-send{border-left-color:var(--accent)}.ts-list a.sent{border-left-color:var(--warn)}.ts-list a.approved{border-left-color:var(--ink)}
