@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.219.0',
+    date: '2026-11-24',
+    title: 'Details kept only while they’re needed, and only directors see payment details in full',
+    what: 'An application nobody has taken on or turned down for 6 months is now deleted, and Crew › Applications warns on it for its last week. Payment details are deleted when someone is taken off the crew list, or once nobody has booked or asked for them in 12 months. Only a director can press Show in full: the office still sees them with most of each number hidden, and changes them by typing them in again. The Apply page’s “How we look after your details” says all of this.',
+    prs: [],
+    adrs: [193],
+  },
+  {
     version: '1.218.1',
     date: '2026-11-24',
     title: 'Payment details: their own key, and the Apply page says how details are looked after',

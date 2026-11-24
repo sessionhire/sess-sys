@@ -475,6 +475,8 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
           hold.status === 'confirmed' ? `is booked on ${hold.project}; withdraw their booking on the job's crew first` : hold.status === 'accepted' ? `has accepted ${hold.project}; release them first` : `has an open offer for ${hold.project}; withdraw it first`
         throw new Refused({ code: 'conflict', message: `${person.name} ${what}.` })
       }
+      // Off the crew list, nobody needs their bank details any more (ADR 0193): they go now, as part of the same change.
+      await ctx.tx.query('DELETE FROM payment_details WHERE person_id = $1', [person.id])
     } else if (person.email?.trim()) {
       // Back from the archive, their email must still be theirs alone, or an account could find either of them (ADR 0049).
       const { rows } = await ctx.tx.query<{ name: string }>(

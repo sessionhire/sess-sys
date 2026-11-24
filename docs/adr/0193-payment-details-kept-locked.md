@@ -34,6 +34,16 @@ kept, safely, for when it does.
   three, the IBAN's country and last four; the name, BIC and VAT number as they are, since they are on every invoice).
   Show in full asks again and goes in the history as "Looked at …'s payment details in full", never with what was
   seen. Change puts them in or corrects them, which also goes in the history; clearing them all takes them off.
+- **Only a director sees them in full** (Colly, 24 November 2026, after the security check: "Build all three"). The
+  office sees them masked and changes them by typing them afresh, since its form can't be filled from details it may
+  not see; only a director can take them off altogether. The server refuses both to anyone else, not only the page.
+- **Kept only while needed** (the same day). Once a day, with the erasures: an application nobody has taken on or
+  turned down for 6 months is deleted as a turned-down one is, and Crew › Applications says so on it for its last week;
+  payment details are deleted once nobody has booked, offered or asked for that person in 12 months and they were last
+  given or changed over 12 months ago, so details given ahead of a first booking get a year too. Taking someone off
+  the crew list (archiving them) deletes theirs at once, in the same change, so bringing them back means asking again.
+  Each daily clear-out that removes something is one history entry saying how many, never whose. The Apply page's
+  "How long" says all of this.
 - **They move with the person**: taken on from an application, they go to the new person, marked as given by the Apply
   page. Combining people keeps the kept person's, or brings the newest of the others' when the kept one had none.
   Erasing someone on request deletes theirs at once.

@@ -1,4 +1,4 @@
-import { newId, phoneShown, TRADES_AS_LABELS, type ApplicationView, type OfficeView, type View } from '@sh/shared'
+import { APPLICATION_KEPT_MONTHS, APPLICATION_WARN_DAYS, applicationGoesOn, irishToday, newId, phoneShown, TRADES_AS_LABELS, type ApplicationView, type OfficeView, type View } from '@sh/shared'
 import { useState } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -16,6 +16,23 @@ import { CrewViews } from './CrewViews.tsx'
  * Offer to… until someone vets them, and opens nothing for them; Turn down deletes what they sent. Neither tells the
  * person anything: the office rings or emails them the usual way.
  */
+
+/**
+ * An application nobody acts on goes after 6 months (ADR 0193), as a turned-down one does: said on it for its last week,
+ * so the office can still decide it.
+ */
+function GoesSoon({ appliedAt }: { appliedAt: string }) {
+  const goes = applicationGoesOn(appliedAt)
+  const today = irishToday()
+  const left = Math.round((Date.parse(goes) - Date.parse(today)) / 86_400_000)
+  if (left > APPLICATION_WARN_DAYS) return null
+  const day = new Date(`${goes}T12:00:00Z`).toLocaleDateString('en-IE', { weekday: 'long', day: 'numeric', month: 'long' })
+  return (
+    <p className="warn-line" role="note">
+      Waiting {APPLICATION_KEPT_MONTHS} months: it’s deleted {left <= 0 ? 'today' : `on ${day}`} unless you take them on or turn them down first.
+    </p>
+  )
+}
 
 /** The page's address for crew to apply at, as the app is open on: the server's own page (ADR 0186). */
 export const applyAddress = () => `${location.origin}/join`
@@ -114,6 +131,7 @@ function ApplicationCard({ a, mayDecide, emails }: { a: ApplicationView; mayDeci
           rather than take them on twice.
         </p>
       )}
+      <GoesSoon appliedAt={a.appliedAt} />
       <dl className="facts">
         <div>
           <dt>Applied</dt>
