@@ -209,10 +209,10 @@ describe('made-up data', () => {
     expect([launch.short, launch.ifPencilled]).toEqual([12, 0])
     expect(view.kit.lines.find((l) => l.model?.name === 'ROE BP2 LED panel')).toMatchObject({ own: 0, supplier: 'Lumen Video Hire' })
 
-    // The warehouse: labelled items with their codes from AUD-0001-001 on (ADR 0195), amps in their racks, what's still only counted, and a roll of numbers set aside.
+    // The warehouse: labelled items with their codes from 0001-001 on (ADR 0195), amps in their racks, what's still only counted, and a roll of numbers set aside.
     const items = [...view.warehouse.assets.values()]
     expect(items).toHaveLength(26)
-    expect(items.map((a) => a.number).sort()[0]).toBe('AUD-0001-001')
+    expect(items.map((a) => a.number).sort()[0]).toBe('0001-001')
     expect(items.filter((a) => a.caseId)).toHaveLength(4)
     const y10p = view.warehouse.models.find((m) => m.name === 'd&b Y10P')!
     expect([y10p.items.length, y10p.countedTotal, y10p.total]).toEqual([12, 4, 16])
@@ -342,11 +342,11 @@ describe('starting fresh', () => {
     expect((await app.inject({ url: '/api/me', cookies: aoife.cookies })).statusCode).toBe(200)
     expect((await pull(app, 0, aoife)).changes).toEqual([])
 
-    // Codes start again from AUD-0001-001, and made-up data can go in again.
+    // Codes start again from 0001-001, and made-up data can go in again.
     expect((await putInMadeUpData(app, aoife)).statusCode).toBe(200)
     const office = await phone(app, aoife)
     await office.client.sync()
-    expect([...office.client.view().warehouse.assets.values()].map((a) => a.number).sort()[0]).toBe('AUD-0001-001')
+    expect([...office.client.view().warehouse.assets.values()].map((a) => a.number).sort()[0]).toBe('0001-001')
   })
 
   it('empties every phone, and drops what one had waiting with no signal', async () => {

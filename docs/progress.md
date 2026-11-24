@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 24 November 2026: stock codes without the department letters
+
+**Done (1.229.1, #440, ADR 0195 revised)**
+
+- Colly: "Maybe let's drop the department part." A code is now the
+  product's number and the item's, 0123-004. Codes already given out lost
+  their letters, and phones hear of it; a label printed with them still
+  scans. This settles the department-move question, so that card is closed.
+- The product code alone (0123) opens the product when scanned or typed,
+  and goes on a cable label when the product has no stock code of its own.
+  It comes before an SH- number written short, as nothing is labelled yet
+  (Colly: "Nothing has been labelled yet so that's fine").
+- Checked: server tests (with a test of the step that takes the letters off)
+  and the stock browser tests.
+
 ## 24 November 2026: stock codes that say what something is
 
 **Done (1.229.0, #439, ADR 0195)**
@@ -16,11 +31,6 @@ waiting on someone.
   search. SH- numbers all still scan, and blank SH- rolls still work.
 - Checked: server tests for codes (new `server/test/codes.test.ts`) and the
   older tests brought up to codes; browser tests on GitHub.
-
-**Waiting on Colly**
-
-- The card on what a code does when its product moves department (built as
-  recommended: the letters stay as printed once a code is out).
 
 ## 24 November 2026: the gaps the flows review found, closed
 

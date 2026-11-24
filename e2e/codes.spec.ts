@@ -6,7 +6,7 @@ import { createRequire } from 'node:module'
  * code on its page, its next codes set aside from its Items tab and printed
  * in each layout, each fitting its label and its QR code reading back as the
  * code; then one scanned in the Stock search goes on that product with no
- * question about which, and the product's code alone opens the product.
+ * question about which, and the product's code alone finds the product.
  */
 
 const shot = (name: string) => (process.env.SHOTS ? { path: `docs/hub/img/${name}.png` } : undefined)
@@ -80,7 +80,7 @@ test("a product's codes are set aside, printed, and put on items with no questio
   // Its product code, on its page.
   await page.getByRole('tab', { name: /^Details/ }).click()
   const code = (await page.locator('.facts div', { hasText: 'Product code' }).locator('dd').textContent())!
-  expect(code).toMatch(/^AUD-\d{4}$/)
+  expect(code).toMatch(/^\d{4}$/)
 
   // Its next codes set aside from the Items tab: as many as are still without a label.
   await page.getByRole('tab', { name: /^Items/ }).click()
@@ -121,11 +121,13 @@ test("a product's codes are set aside, printed, and put on items with no questio
   await claim.getByRole('button', { name: `Put ${code}-002 on a ${speaker}` }).click()
   await expect(page.locator('p.added')).toHaveText(`Added ${code}-002 (${speaker}) at ${bay}. Scan the next label.`, { timeout: 20_000 })
 
-  // Typed loosely, the code still finds its item; the product's code alone finds the product.
-  await find.fill(`${code.toLowerCase().replace('-', ' ')} 2`)
+  // Typed loosely, the code still finds its item; the product's code alone, as on a bag of cables, opens the product.
+  await find.fill(`${Number(code)} 2`)
   await find.press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: `${code}-002` })).toBeVisible()
   await page.goto('/#stock')
   await page.getByLabel('Find').fill(code)
   await expect(page.getByRole('region', { name: 'Catalogue' })).toContainText(speaker)
+  await page.getByLabel('Find').press('Enter')
+  await expect(page.getByRole('heading', { level: 1, name: speaker })).toBeVisible()
 })

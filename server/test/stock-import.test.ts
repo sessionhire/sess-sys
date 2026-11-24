@@ -160,18 +160,18 @@ describe('bringing the list in', () => {
     expect(res.json()).toEqual({ rows: 10, skipped: 0, products: 9, items: 12, counted: 4, places: 4, changed: 0 } satisfies StockListResult)
     // Numbers kept go in as they are; the rest take their product's next code (ADR 0195); the cases first, so the amps have somewhere to go.
     expect(await items(db)).toEqual([
-      { number: 'AUD-0001-001', product: 'Corvo K12', old: 'A-0101', serial: 'CK12-0101', place: 'Bay A1', inside: null, due: '2027-09-30' },
-      { number: 'AUD-0001-002', product: 'Corvo K12', old: 'A-0102', serial: 'CK12-0102', place: 'Bay A1', inside: null, due: '2027-09-30' },
-      { number: 'AUD-0001-003', product: 'Corvo K12', old: 'A-0103', serial: 'CK12-0103', place: 'Bay A1', inside: null, due: '2027-09-30' },
-      { number: 'AUD-0001-004', product: 'Corvo K12', old: 'A-0104', serial: 'CK12-0104', place: 'Bay A1', inside: null, due: '2027-09-30' },
-      { number: 'AUD-0003-001', product: 'Amp rack 1', old: '', serial: '', place: 'Bay A1', inside: null, due: null },
-      { number: 'AUD-0005-001', product: 'Cable trunk 1', old: '', serial: '', place: 'Bay B2', inside: null, due: null },
-      { number: 'LGT-0006-001', product: 'Brightline Spot 7', old: '', serial: 'BL7-001', place: 'Bay C1', inside: null, due: '2027-01-15' },
-      { number: 'LGT-0006-002', product: 'Brightline Spot 7', old: '', serial: 'BL7-002', place: 'Bay C1', inside: null, due: '2027-01-15' },
-      { number: 'LGT-0006-003', product: 'Brightline Spot 7', old: '', serial: 'BL7-003', place: 'Bay C1', inside: null, due: '2027-01-15' },
-      { number: 'PWR-0007-001', product: 'Halden D32', old: '', serial: 'HD32-77', place: 'Bay C1', inside: null, due: '2027-09-30' },
-      { number: 'SH-000501', product: 'Corvo PA4', old: '', serial: 'CPA4-2201', place: null, inside: 'AUD-0003-001', due: '2027-03-01' },
-      { number: 'SH-000502', product: 'Corvo PA4', old: '', serial: 'CPA4-2202', place: null, inside: 'AUD-0003-001', due: '2027-03-01' },
+      { number: '0001-001', product: 'Corvo K12', old: 'A-0101', serial: 'CK12-0101', place: 'Bay A1', inside: null, due: '2027-09-30' },
+      { number: '0001-002', product: 'Corvo K12', old: 'A-0102', serial: 'CK12-0102', place: 'Bay A1', inside: null, due: '2027-09-30' },
+      { number: '0001-003', product: 'Corvo K12', old: 'A-0103', serial: 'CK12-0103', place: 'Bay A1', inside: null, due: '2027-09-30' },
+      { number: '0001-004', product: 'Corvo K12', old: 'A-0104', serial: 'CK12-0104', place: 'Bay A1', inside: null, due: '2027-09-30' },
+      { number: '0003-001', product: 'Amp rack 1', old: '', serial: '', place: 'Bay A1', inside: null, due: null },
+      { number: '0005-001', product: 'Cable trunk 1', old: '', serial: '', place: 'Bay B2', inside: null, due: null },
+      { number: '0006-001', product: 'Brightline Spot 7', old: '', serial: 'BL7-001', place: 'Bay C1', inside: null, due: '2027-01-15' },
+      { number: '0006-002', product: 'Brightline Spot 7', old: '', serial: 'BL7-002', place: 'Bay C1', inside: null, due: '2027-01-15' },
+      { number: '0006-003', product: 'Brightline Spot 7', old: '', serial: 'BL7-003', place: 'Bay C1', inside: null, due: '2027-01-15' },
+      { number: '0007-001', product: 'Halden D32', old: '', serial: 'HD32-77', place: 'Bay C1', inside: null, due: '2027-09-30' },
+      { number: 'SH-000501', product: 'Corvo PA4', old: '', serial: 'CPA4-2201', place: null, inside: '0003-001', due: '2027-03-01' },
+      { number: 'SH-000502', product: 'Corvo PA4', old: '', serial: 'CPA4-2202', place: null, inside: '0003-001', due: '2027-03-01' },
     ])
     const { rows: models } = await db.query(
       'SELECT name, department, category, tracking, is_case, value_cents, pat_months, notes FROM models ORDER BY name'
@@ -186,7 +186,7 @@ describe('bringing the list in', () => {
     expect(counts).toEqual([
       { product: 'Stage deck 2x1', place: 'Yard', qty: 6 },
       { product: 'Truss 2 m', place: 'Yard', qty: 8 },
-      { product: 'XLR cable 10 m', place: 'AUD-0005-001', qty: 24 },
+      { product: 'XLR cable 10 m', place: '0005-001', qty: 24 },
       { product: 'XLR cable 10 m', place: 'Bay B2', qty: 120 },
     ])
     // The history: a line for each command, all Colly's from her phone, and one for the import.
@@ -196,8 +196,8 @@ describe('bringing the list in', () => {
     expect(said).toContain('Saved the place Bay A1')
     expect(said).toContain('Added the product Corvo K12 (Audio, numbered)')
     expect(said).toContain('Added SH-000501 (Corvo PA4)')
-    expect(said).toContain('Put SH-000501 (Corvo PA4) in AUD-0003-001 (Amp rack 1)')
-    expect(said).toContain('Counted 24 × XLR cable 10 m in AUD-0005-001 (Cable trunk 1)')
+    expect(said).toContain('Put SH-000501 (Corvo PA4) in 0003-001 (Amp rack 1)')
+    expect(said).toContain('Counted 24 × XLR cable 10 m in 0005-001 (Cable trunk 1)')
     expect(said).toHaveLength(1 + 4 + 9 + 12 + 2 + 4)
   })
 
@@ -251,7 +251,7 @@ describe('bringing the list in', () => {
     expect(again).toMatchObject({ places: [], counts: { products: 5, items: 12, problems: 0 } })
     await bringAllIn(third.app, third.colly.cookies, again)
     // The same codes but for the products' numbers, as Stage deck 2x1 was added here first and took one (ADR 0195).
-    const shape = async (db: typeof once.db) => (await items(db)).map((i) => i.number.replace(/-\d{4}-/, '-'))
+    const shape = async (db: typeof once.db) => (await items(db)).map((i) => i.number.replace(/^\d{4}-/, ''))
     expect(await shape(third.db)).toEqual(await shape(once.db))
   })
 
@@ -272,10 +272,10 @@ describe('bringing the list in', () => {
       'XLR cable 10 m,,,118,,,Bay B2,',
     ].join('\n')
     const p = await preview(app, colly.cookies, later)
-    expect(p.rows.map((r) => r.does)).toEqual([['AUD-0001-001: moves to Bay C1 and notes added to'], ['Counts 118 at Bay B2 (120 there now)']])
+    expect(p.rows.map((r) => r.does)).toEqual([['0001-001: moves to Bay C1 and notes added to'], ['Counts 118 at Bay B2 (120 there now)']])
     expect(p.counts).toMatchObject({ updates: 2, items: 0, products: 0 })
     expect((await bringIn(app, colly.cookies, choices(p))).json()).toMatchObject({ changed: 1, counted: 1 })
-    expect((await items(db)).find((i) => i.number === 'AUD-0001-001')).toMatchObject({ place: 'Bay C1' })
+    expect((await items(db)).find((i) => i.number === '0001-001')).toMatchObject({ place: 'Bay C1' })
     expect((await db.query(`SELECT notes FROM assets WHERE old_number = 'A-0101'`)).rows[0]).toEqual({ notes: 'Grille dented' })
     expect((await db.query(`SELECT count(*)::int AS n FROM stock s JOIN models m ON m.id = s.model_id WHERE m.name = 'Truss 2 m'`)).rows[0]).toEqual({ n: 1 })
   })
@@ -424,14 +424,14 @@ describe('an item’s old number and PAT due day', () => {
     const add = (id: string, more: object) => colly.send('asset.add', { id, modelId: model, number: null, serial: '', placeId: null, caseId: null, notes: '', fromCount: false, ...more })
     expect(await add(a, { oldNumber: 'A-0101', patDue: '2027-09-30' })).toMatchObject({ status: 'applied' })
     // One item to an old tag, whatever the capitals, and never a Session Hire number.
-    expect(refused(await add(b, { oldNumber: 'a-0101' }))).toBe('a-0101 is already the old number of AUD-0001-001 (Corvo K12).')
+    expect(refused(await add(b, { oldNumber: 'a-0101' }))).toBe('a-0101 is already the old number of 0001-001 (Corvo K12).')
     expect(refused(await add(b, { oldNumber: 'SH-000123' }))).toBe("SH-000123 is a Session Hire number. Put it on as the item's label, not as its old number.")
     expect(refused(await colly.send('asset.update', { id: a, patDue: '2027-02-31' }))).toBe("That isn't a real date.")
     // An older app's add says nothing of either: it has none.
     expect(await add(b, {})).toMatchObject({ status: 'applied' })
     expect(await colly.record('asset', b)).toMatchObject({ oldNumber: '', patDue: null })
     expect(await colly.send('asset.update', { id: b, oldNumber: 'A-0102', patDue: '2027-01-15' })).toMatchObject({ status: 'applied' })
-    expect((await colly.history()).entries[0]!.what).toBe('Changed AUD-0001-002 (Corvo K12): old number to A-0102 and PAT due 15 Jan 2027')
+    expect((await colly.history()).entries[0]!.what).toBe('Changed 0001-002 (Corvo K12): old number to A-0102 and PAT due 15 Jan 2027')
     expect(await colly.record('asset', a)).toMatchObject({ oldNumber: 'A-0101', patDue: '2027-09-30' })
   })
 })
@@ -480,15 +480,15 @@ describe('an item’s log, the server’s part', () => {
     ])
     expect(page.entries.map((e) => itemLogWords(e.event))).toEqual([
       'Changed its serial to CK12-0101',
-      'New label AUD-0002-002, replacing AUD-0002-001',
+      'New label 0002-002, replacing 0002-001',
       'Passed its PAT, tested by Sparky Testing',
       'Marked fixed',
       'Repair notes: New driver fitted',
       "Reported damaged back from Nissan launch, can't go out: Blown driver",
       'Back in from Nissan launch',
-      'Out to Nissan launch, in AUD-0001-001 (Amp rack)',
-      'Put in AUD-0001-001 (Amp rack)',
-      'Added as AUD-0002-001 at Bay A1',
+      'Out to Nissan launch, in 0001-001 (Amp rack)',
+      'Put in 0001-001 (Amp rack)',
+      'Added as 0002-001 at Bay A1',
     ])
     // Keyed as the phone keys what it holds, so the two parts join without doubling.
     expect(page.entries.find((e) => e.event.kind === 'back')).toMatchObject({ key: 'movement:back-1', at: at(18), device: 'Safari on iPhone', from: 'server' })

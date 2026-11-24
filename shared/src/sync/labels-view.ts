@@ -13,7 +13,7 @@ import type { WarehouseView } from './stock-view.ts'
 
 export interface LabelRunView extends LabelRun {
   pending: boolean
-  /** "SH-000101" or "AUD-0123-001", or empty until the server has set the numbers aside. */
+  /** "SH-000101" or "0123-001", or empty until the server has set the numbers aside. */
   firstNumber: string
   /** "SH-000600", or empty as above. */
   lastNumber: string

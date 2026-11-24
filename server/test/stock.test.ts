@@ -130,11 +130,11 @@ describe('numbers', () => {
     const { app, y10p } = await warehouse()
     const [a, b, c, d] = [item(y10p.id), item(y10p.id), item(y10p.id, { number: 'sh 500' }), item(y10p.id)]
     for (const x of [a, b, c, d]) await ok(app, 'asset.add', x)
-    // Its product's next code (ADR 0195): d&b Y10P is the first audio product, AUD-0001.
-    expect((await asset(app, a.id))?.number).toBe('AUD-0001-001')
-    expect((await asset(app, b.id))?.number).toBe('AUD-0001-002')
+    // Its product's next code (ADR 0195): d&b Y10P is the first audio product, 0001.
+    expect((await asset(app, a.id))?.number).toBe('0001-001')
+    expect((await asset(app, b.id))?.number).toBe('0001-002')
     expect((await asset(app, c.id))?.number).toBe('SH-000500')
-    expect((await asset(app, d.id))?.number).toBe('AUD-0001-003')
+    expect((await asset(app, d.id))?.number).toBe('0001-003')
   })
 
   it('never uses a number twice, even once its label is replaced', async () => {
@@ -152,7 +152,7 @@ describe('numbers', () => {
     )
     // A new label with no number typed is its product's next code (ADR 0195).
     await ok(app, 'asset.relabel', { id: a.id, number: null })
-    expect(await asset(app, a.id)).toMatchObject({ number: 'AUD-0001-001', formerNumbers: ['SH-000123', 'SH-000124'] })
+    expect(await asset(app, a.id)).toMatchObject({ number: '0001-001', formerNumbers: ['SH-000123', 'SH-000124'] })
 
     expect(await refused(app, 'asset.add', item(y10p.id, { number: 'Y10P-7' }))).toMatch(/isn't a Session Hire number/)
   })
@@ -163,11 +163,11 @@ describe('numbers', () => {
     await ok(app, 'asset.add', a)
     await ok(app, 'asset.retire', { id: a.id, reason: 'lost', note: 'Left at the RDS' })
     expect(await asset(app, a.id)).toMatchObject({ status: 'retired', retiredReason: 'lost', retiredNote: 'Left at the RDS', placeId: null })
-    expect(await refused(app, 'asset.move', { id: a.id, placeId: bay.id, caseId: null })).toBe('AUD-0001-001 (d&b Y10P) is retired. Bring it back first.')
-    expect(await refused(app, 'asset.add', item(y10p.id, { number: 'aud 1 1' }))).toBe('AUD-0001-001 is already in use (d&b Y10P).')
+    expect(await refused(app, 'asset.move', { id: a.id, placeId: bay.id, caseId: null })).toBe('0001-001 (d&b Y10P) is retired. Bring it back first.')
+    expect(await refused(app, 'asset.add', item(y10p.id, { number: 'aud 1 1' }))).toBe('0001-001 is already in use (d&b Y10P).')
 
     await ok(app, 'asset.reinstate', { id: a.id })
-    expect(await asset(app, a.id)).toMatchObject({ status: 'active', retiredReason: null, number: 'AUD-0001-001' })
+    expect(await asset(app, a.id)).toMatchObject({ status: 'active', retiredReason: null, number: '0001-001' })
   })
 })
 
@@ -217,11 +217,11 @@ describe('cases', () => {
     await ok(app, 'stock.set', { modelId: xlr.id, placeId: null, caseId: inner.id, qty: 10 })
 
     expect(await refused(app, 'asset.move', { id: outer.id, placeId: null, caseId: inner.id })).toBe(
-      'AUD-0003-002 is inside it, and nothing can go inside itself.'
+      '0003-002 is inside it, and nothing can go inside itself.'
     )
     expect(await refused(app, 'asset.move', { id: outer.id, placeId: null, caseId: outer.id })).toMatch(/nothing can go inside itself/)
     expect(await refused(app, 'asset.move', { id: bay.id, placeId: null, caseId: amp.id })).toBe('That item no longer exists.')
-    expect(await refused(app, 'asset.move', { id: inner.id, placeId: null, caseId: amp.id })).toBe("AUD-0001-001 (d&b Y10P) doesn't hold other kit.")
+    expect(await refused(app, 'asset.move', { id: inner.id, placeId: null, caseId: amp.id })).toBe("0001-001 (d&b Y10P) doesn't hold other kit.")
 
     // Moving the outer case leaves everything in it where it is: inside.
     const van = place('Van 1')
@@ -232,11 +232,11 @@ describe('cases', () => {
 
     // Nothing is retired with kit still in it, and a case with kit in it stays a case.
     expect(await refused(app, 'asset.retire', { id: inner.id, reason: 'scrapped', note: '' })).toBe(
-      'AUD-0003-002 still holds 1 item and 10 counted. Empty it first.'
+      '0003-002 still holds 1 item and 10 counted. Empty it first.'
     )
     expect(await refused(app, 'model.update', { id: rack.id, isCase: false })).toBe('2 cases of Amp rack have kit in them. Empty them first.')
     expect(await refused(app, 'asset.update', { id: inner.id, modelId: y10p.id })).toBe(
-      "AUD-0003-002 has kit in it, and d&b Y10P doesn't hold other kit. Empty it first."
+      "0003-002 has kit in it, and d&b Y10P doesn't hold other kit. Empty it first."
     )
   })
 
@@ -338,12 +338,12 @@ describe('added by mistake', () => {
     expect(await refused(app, 'model.mistake', { id: y10p.id })).toBe('d&b Y10P is on the kit for Nissan launch. Take it off that job first.')
     await ok(app, 'kit.remove', { id: line.id })
     await scan({ assetId: a.id, modelId: y10p.id }, 'out')
-    expect(await refused(app, 'model.mistake', { id: y10p.id })).toBe('d&b Y10P is out with Nissan launch (AUD-0001-001). Scan it back first.')
+    expect(await refused(app, 'model.mistake', { id: y10p.id })).toBe('d&b Y10P is out with Nissan launch (0001-001). Scan it back first.')
     await scan({ assetId: a.id, modelId: y10p.id }, 'in')
     await scan({ modelId: xlr.id, qty: 5 }, 'out')
     expect(await refused(app, 'model.mistake', { id: xlr.id })).toBe('XLR 10 m is out with Nissan launch (5 counted). Scan it back first.')
     await ok(app, 'asset.move', { id: a.id, placeId: null, caseId: box.id })
-    expect(await refused(app, 'model.mistake', { id: rack.id })).toBe('AUD-0003-001 still holds 1 item. Empty it first.')
+    expect(await refused(app, 'model.mistake', { id: rack.id })).toBe('0003-001 still holds 1 item. Empty it first.')
 
     // Marked: its items retired as a mistake, its counts gone, and nothing more can be done as it.
     await ok(app, 'model.mistake', { id: y10p.id })
@@ -371,11 +371,11 @@ describe('added by mistake', () => {
     await ok(app, 'asset.reinstate', { id: box.id })
 
     const { entries } = await readHistory(db)
-    expect(entries.slice(0, 2).map((e) => e.what)).toEqual(['Brought back AUD-0003-001 (Amp rack)', 'Retired AUD-0003-001 (Amp rack): added by mistake'])
+    expect(entries.slice(0, 2).map((e) => e.what)).toEqual(['Brought back 0003-001 (Amp rack)', 'Retired 0003-001 (Amp rack): added by mistake'])
     expect(entries.find((e) => e.command === 'model.mistake')).toMatchObject({ what: 'Marked the product d&b Y10P as added by mistake', outcome: 'done' })
     expect(entries.find((e) => e.command === 'model.mistake' && e.outcome === 'turned-down')).toMatchObject({
       what: 'Marked the product Amp rack as added by mistake',
-      reason: 'AUD-0003-001 still holds 1 item. Empty it first.',
+      reason: '0003-001 still holds 1 item. Empty it first.',
     })
   })
 
@@ -402,7 +402,7 @@ describe('added by mistake', () => {
     await scan(picnic, { assetId: b.id, modelId: y10p.id }, 'out')
     expect(await refused(app, 'model.mistake', { id: y10p.id })).toBe('d&b Y10P is out with 2 jobs (Electric Picnic, Nissan launch). Scan it back first.')
     await scan(picnic, { assetId: b.id, modelId: y10p.id }, 'in')
-    expect(await refused(app, 'model.mistake', { id: y10p.id })).toBe('d&b Y10P is out with Nissan launch (AUD-0001-001). Scan it back first.')
+    expect(await refused(app, 'model.mistake', { id: y10p.id })).toBe('d&b Y10P is out with Nissan launch (0001-001). Scan it back first.')
 
     // Reported missing from the job ends its time out, as a scan back would, for an item and for counted kit.
     await missing(nissan, { assetId: a.id, modelId: y10p.id })
@@ -463,8 +463,8 @@ describe('on a device', () => {
     phone.signal.on = true
     await phone.client.sync()
     w = phone.client.view().warehouse
-    expect(w.assets.get(amp)).toMatchObject({ number: 'AUD-0001-001', pending: false, inCase: expect.objectContaining({ number: 'SH-000777' }) })
-    expect(w.assets.get(spare)).toMatchObject({ number: 'AUD-0001-002', pending: false })
+    expect(w.assets.get(amp)).toMatchObject({ number: '0001-001', pending: false, inCase: expect.objectContaining({ number: 'SH-000777' }) })
+    expect(w.assets.get(spare)).toMatchObject({ number: '0001-002', pending: false })
     expect(w.models.find((m) => m.id === y10p.id)).toMatchObject({ countedTotal: 3, total: 5 })
   })
 
@@ -504,10 +504,10 @@ describe('on a device', () => {
     await agree({})
     // Out on its own; then put in a case that went out with another job after: the case takes it along.
     await scan(nissan, { assetId: a.id, modelId: y10p.id }, 'out')
-    await agree({ 'd&b Y10P': ['AUD-0001-001 with Nissan launch'] })
+    await agree({ 'd&b Y10P': ['0001-001 with Nissan launch'] })
     await ok(app, 'asset.move', { id: a.id, placeId: null, caseId: box.id })
     await scan(picnic, { assetId: box.id, modelId: rack.id }, 'out')
-    await agree({ 'd&b Y10P': ['AUD-0001-001 with Electric Picnic'] })
+    await agree({ 'd&b Y10P': ['0001-001 with Electric Picnic'] })
     // The case back with it still inside: back too.
     await scan(picnic, { assetId: box.id, modelId: rack.id }, 'in')
     await agree({})
@@ -518,13 +518,13 @@ describe('on a device', () => {
     await scan(picnic, { modelId: xlr.id, qty: 4 }, 'out')
     await scan(nissan, { modelId: xlr.id, qty: 2 }, 'in')
     await agree({
-      'd&b Y10P': ['AUD-0001-001 with Electric Picnic', 'AUD-0001-002 with Nissan launch'],
+      'd&b Y10P': ['0001-001 with Electric Picnic', '0001-002 with Nissan launch'],
       'XLR 10 m': ['4 counted with Electric Picnic', '3 counted with Nissan launch'],
     })
     // Reported missing from the job: its time out ends, for an item and for counted kit, and stays ended once it's found.
     const lost = await missing(nissan, { assetId: b.id, modelId: y10p.id })
     await missing(nissan, { modelId: xlr.id, qty: 3 })
-    await agree({ 'd&b Y10P': ['AUD-0001-001 with Electric Picnic'], 'XLR 10 m': ['4 counted with Electric Picnic'] })
+    await agree({ 'd&b Y10P': ['0001-001 with Electric Picnic'], 'XLR 10 m': ['4 counted with Electric Picnic'] })
     await ok(app, 'fault.close', { id: lost, outcome: 'found', at: at() })
     await scan(picnic, { assetId: box.id, modelId: rack.id }, 'in')
     await scan(picnic, { modelId: xlr.id, qty: 4 }, 'in')
@@ -532,7 +532,7 @@ describe('on a device', () => {
 
     // Taken out of the case, an item goes by its own last scan again: out with the first job until it's scanned back.
     await ok(app, 'asset.move', { id: a.id, placeId: bay.id, caseId: null })
-    await agree({ 'd&b Y10P': ['AUD-0001-001 with Nissan launch'] })
+    await agree({ 'd&b Y10P': ['0001-001 with Nissan launch'] })
     await scan(nissan, { assetId: a.id, modelId: y10p.id }, 'in')
     await agree({})
 
@@ -610,10 +610,10 @@ describe('the history', () => {
       'Added the product Amp rack (Audio, numbered, holds other kit)',
       'Added SH-000200 (Amp rack) at Bay A3',
       // The number it got then, though it has had another since.
-      'Added AUD-0001-001 (d&b Y10P) at Bay A3',
-      'Put a new label on d&b Y10P: AUD-0001-002, replacing AUD-0001-001',
-      'Put AUD-0001-002 (d&b Y10P) in SH-000200 (Amp rack)',
-      'Changed AUD-0001-002 (d&b Y10P): serial to Y10P-4471',
+      'Added 0001-001 (d&b Y10P) at Bay A3',
+      'Put a new label on d&b Y10P: 0001-002, replacing 0001-001',
+      'Put 0001-002 (d&b Y10P) in SH-000200 (Amp rack)',
+      'Changed 0001-002 (d&b Y10P): serial to Y10P-4471',
       'Counted 40 × XLR 10 m at Bay A3',
       'Moved 10 × XLR 10 m from Bay A3 to SH-000200 (Amp rack)',
       'Changed the product XLR 10 m: no category and value to €12.50',

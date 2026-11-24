@@ -78,7 +78,7 @@ export function whereText(x: Where, w: WarehouseView): string {
   return ''
 }
 
-/** The product a code names (ADR 0195), "AUD-0123-004" or "AUD-0123": undefined for an SH- number, or a code no product here has. */
+/** The product a code names (ADR 0195), "0123-004" or "0123": undefined for an SH- number, or a code no product here has. */
 export function productOfCode(text: string, w: WarehouseView): WarehouseView['models'][number] | undefined {
   const prefix = readCode(text)?.prefix ?? readProductCode(text)
   return prefix ? w.models.find((m) => productCode(m) === prefix) : undefined

@@ -66,7 +66,7 @@ test('cable labels print with a barcode or QR code of the stock code, which open
   await page.getByRole('tab', { name: 'Cable labels' }).click()
   const card = page.getByRole('region', { name: 'Cable labels' })
   await expect(card.getByRole('radio', { name: 'Barcode' })).toBeChecked()
-  await expect(card.locator('.preview .label.cable').getByRole('img', { name: /^Barcode for [A-Z]{3}-\d{4}$/ })).toBeVisible()
+  await expect(card.locator('.preview .label.cable').getByRole('img', { name: /^Barcode for \d{4}$/ })).toBeVisible()
   await expect(card.getByRole('button', { name: 'Print 2 labels' })).toBeVisible()
   await expect(card.getByLabel('What they say')).toHaveValue(name)
 

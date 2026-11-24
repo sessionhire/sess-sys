@@ -1,7 +1,7 @@
 import jsQR from 'jsqr'
 import { describe, expect, it } from 'vitest'
 import { barcode, barcodeFits, labelPayload, labelsCsv, numberText, qrCode, runNumbers } from '../src/labels.ts'
-import { normaliseNumber, wholeNumber } from '../src/stock.ts'
+import { normaliseNumber, readProductCode, wholeNumber } from '../src/stock.ts'
 
 /**
  * What goes on a label (ADR 0015): a QR code that any decoder reads back as
@@ -92,5 +92,18 @@ describe('a whole number', () => {
   it('is not one still being typed, nor anything that is not a label number', () => {
     for (const typed of ['', '1', '123', '00012', 'SH-123', 'SH-00012', 'sh 12', '0001234', 'SH-0001234', 'SH-000000', '000000', 'a-0102', 'XLR-10M', '/a/123'])
       expect(wholeNumber(typed)).toBeUndefined()
+  })
+})
+
+describe("a product's code on its own", () => {
+  it('is four digits, or the letters it was first printed with, and nothing else', () => {
+    expect(readProductCode('0123')).toBe('0123')
+    expect(readProductCode(' 0123 ')).toBe('0123')
+    expect(readProductCode('AUD-0123')).toBe('0123')
+    expect(readProductCode('0000')).toBeUndefined()
+    expect(readProductCode('123')).toBeUndefined()
+    expect(readProductCode('0123-004')).toBeUndefined()
+    expect(readProductCode('SH-0123')).toBeUndefined()
+    expect(readProductCode('000123')).toBeUndefined()
   })
 })

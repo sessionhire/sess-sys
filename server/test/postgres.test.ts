@@ -577,7 +577,7 @@ describe.skipIf(!url)('real Postgres, many devices at once', () => {
       expect((await app.inject({ method: 'POST', url: '/api/data/made-up' })).statusCode).toBe(200)
       // Its products from the first product number, and their items from each product's first code (ADR 0195).
       const { rows: numbers } = await db.query<{ product: number; item: string }>(
-        `SELECT (SELECT min(code_number) FROM models)::int AS product, (SELECT min(substr(value, 10)) FROM identifiers WHERE kind = 'code') AS item`
+        `SELECT (SELECT min(code_number) FROM models)::int AS product, (SELECT min(substr(value, 6)) FROM identifiers WHERE kind = 'code') AS item`
       )
       expect(numbers[0]).toEqual({ product: 1, item: '001' })
     } finally {
@@ -605,7 +605,7 @@ describe.skipIf(!url)('real Postgres, many devices at once', () => {
       }
       // The PAT due day read back as a day, and old numbers kept; the same file again finds everything as it says.
       const { rows: k12 } = await db.query<{ id: string; old: string; due: string }>(
-        `SELECT a.id, a.old_number AS old, a.pat_due::text AS due FROM assets a JOIN identifiers i ON i.asset_id = a.id WHERE i.value = 'AUD-0001-001'`
+        `SELECT a.id, a.old_number AS old, a.pat_due::text AS due FROM assets a JOIN identifiers i ON i.asset_id = a.id WHERE i.value = '0001-001'`
       )
       expect(k12[0]).toMatchObject({ old: 'A-0101', due: '2027-09-30' })
       expect((await preview()).counts).toMatchObject({ rows: 10, unchanged: 10, problems: 0 })
@@ -630,8 +630,8 @@ describe.skipIf(!url)('real Postgres, many devices at once', () => {
       expect(second.entries.map((e) => itemLogWords(e.event))).toEqual([
         'Repair notes: Earth lifted',
         'Reported damaged back from Harbour gig, fit to go out: Hums',
-        'Out to Harbour gig, in AUD-0003-001 (Amp rack 1)',
-        'Put in AUD-0003-001 (Amp rack 1)',
+        'Out to Harbour gig, in 0003-001 (Amp rack 1)',
+        'Put in 0003-001 (Amp rack 1)',
         'Added as SH-000501',
       ])
     } finally {

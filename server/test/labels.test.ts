@@ -140,10 +140,10 @@ describe('labels', () => {
 
     const { runs, items } = await records(app)
     // A new item takes its product's next code (ADR 0195), so SH- numbers are only ever printed ones.
-    expect(items.get(first.id)?.number).toBe('AUD-0001-001')
+    expect(items.get(first.id)?.number).toBe('0001-001')
     expect(runs.get(roll.id)).toMatchObject({ first: 1, count: 5, name: 'Polyester roll from Label World', notes: 'Ordered 30 Sep', modelId: null, prefix: '' })
     expect(runs.get(roll.id)?.createdAt).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/)
-    expect(items.get(next.id)?.number).toBe('AUD-0001-002')
+    expect(items.get(next.id)?.number).toBe('0001-002')
     // Past the roll: SH-000001 to SH-000005 wait on labels not stuck on yet.
     expect(runs.get(tags.id)).toMatchObject({ first: 6, count: 3 })
 
@@ -158,7 +158,7 @@ describe('labels', () => {
       'Set aside SH-000051 to SH-000052 for printing labels',
       'Added SH-000050 (d&b Y10P)',
       'Set aside SH-000006 to SH-000008 for printing labels (Metal tags)',
-      'Added AUD-0001-002 (d&b Y10P)',
+      'Added 0001-002 (d&b Y10P)',
       'Set aside SH-000001 to SH-000005 for printing labels (Polyester roll from Label World)',
     ])
   })

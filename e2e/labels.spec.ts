@@ -236,7 +236,7 @@ test('set aside, printed, sent to a label maker, and put on items by scanning', 
   const add = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Add an item', exact: true }) })
   await add.getByRole('button', { name: 'Add item' }).click()
   // Left empty, it takes its product's own next code (ADR 0195), so the next free SH- number is still the one after the run.
-  await expect(add.locator('.added')).toHaveText(/^Added [A-Z]{3}-\d{4}-001\.$/)
+  await expect(add.locator('.added')).toHaveText(/^Added \d{4}-001\.$/)
   await page.goto('/#stock/labels')
   await expect(page.getByRole('region', { name: 'Set aside' }).locator('.job-row', { hasText: roll })).toContainText('2 of 12 on items')
 

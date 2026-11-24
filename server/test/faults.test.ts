@@ -255,9 +255,9 @@ describe('reports', () => {
     expect(faults.get(damaged.id)).toMatchObject({ usable: true, note: 'Grille dented, rattles at high level', repair: 'Grille knocked back out; sounds fine.', outcome: 'fixed' })
     const { entries } = await readHistory(db)
     expect(entries.filter((e) => e.command === 'fault.update' && e.outcome === 'done').map((e) => e.what)).toEqual([
-      'Changed the fault on AUD-0001-002 (d&b Y10P): where it was last seen',
-      "Changed the fault on AUD-0001-001 (d&b Y10P): what's wrong",
-      'Changed the fault on AUD-0001-001 (d&b Y10P): fit to go out and the repair notes',
+      'Changed the fault on 0001-002 (d&b Y10P): where it was last seen',
+      "Changed the fault on 0001-001 (d&b Y10P): what's wrong",
+      'Changed the fault on 0001-001 (d&b Y10P): fit to go out and the repair notes',
     ])
     expect(faults.get(damaged.id)!.closedAt).toMatch(/Z$/)
     expect(faults.get(missing.id)).toMatchObject({ usable: false, note: 'Last seen in the van', outcome: 'found' })

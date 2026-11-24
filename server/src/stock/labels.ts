@@ -24,20 +24,19 @@ async function emitRun(ctx: Ctx, id: string) {
 }
 
 /**
- * A product's own labels (ADR 0195): its next codes, "AUD-0123-004" on,
- * after every one given out or set aside, so a printed label is only ever
- * its own. Its letters are fixed from here on.
+ * A product's own labels (ADR 0195): its next codes, "0123-004" on, after
+ * every one given out or set aside, so a printed label is only ever its own.
  */
 async function reserveCodes(ctx: Ctx, id: string, modelId: string, count: number, name: string, notes: string) {
-  const { rows } = await ctx.tx.query<{ name: string; tracking: string; dry_hire: boolean; mistake: boolean; code_number: number | null; code_letters: string; code_last: number }>(
-    'SELECT name, tracking, dry_hire, mistake, code_number, code_letters, code_last FROM models WHERE id = $1 FOR UPDATE',
+  const { rows } = await ctx.tx.query<{ name: string; tracking: string; dry_hire: boolean; mistake: boolean; code_number: number | null; code_last: number }>(
+    'SELECT name, tracking, dry_hire, mistake, code_number, code_last FROM models WHERE id = $1 FOR UPDATE',
     [modelId]
   )
   const m = rows[0]
   if (!m || m.mistake) throw new Refused({ code: 'not-found', message: 'That product no longer exists.' })
   if (m.tracking !== 'serialised') throw new Refused({ code: 'conflict', message: `${m.name} is counted, not numbered. Change it to numbered to label them one by one.` })
   if (m.dry_hire) throw new Refused({ code: 'conflict', message: `${m.name} is dry hire, hired in when it's needed, so it has no labels of its own.` })
-  const prefix = productCode({ codeNumber: m.code_number, codeLetters: m.code_letters })
+  const prefix = productCode({ codeNumber: m.code_number })
   if (!prefix) throw new Refused({ code: 'conflict', message: `${m.name} has no product number, so its labels are SH- numbers. Set those aside on the Labels page.` })
   const left = MAX_ITEM_NUMBER - m.code_last
   if (count > left)

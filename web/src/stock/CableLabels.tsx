@@ -196,7 +196,7 @@ export function CableLabels({ m }: { m: ModelView }) {
       // Remembered for this page only.
     }
   }
-  // Its own stock code, or else its product code, "AUD-0123" (ADR 0195), which the Stock search and a scan find just the same.
+  // Its own stock code, or else its product code, "0123" (ADR 0195), which the Stock search and a scan find just the same.
   const stockCode = m.code.trim() || productCode(m)
   // A barcode holds the stock code, which the Stock search finds; a QR code holds it too, or the name where there's none.
   const code = kind === 'barcode' ? (barcodeFits(stockCode) ? stockCode : '') : kind === 'qr' ? stockCode || m.name : ''

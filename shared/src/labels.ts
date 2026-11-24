@@ -36,11 +36,11 @@ export interface LabelRun {
   /** Cancelled before any of its labels went on an item (audit finding 19): off the list, its numbers never given out again. */
   cancelled: boolean
   /**
-   * One product's labels (ADR 0195): its codes, "AUD-0123-004", where `first`
+   * One product's labels (ADR 0195): its codes, "0123-004", where `first`
    * is the item number. Null for SH- numbers, which any product can have.
    */
   modelId?: string | null
-  /** The product's part of the codes, "AUD-0123", as it was when they were set aside; empty for SH- numbers, or until the server has set them aside. */
+  /** The product's part of the codes, "0123", as it was when they were set aside; empty for SH- numbers, or until the server has set them aside. */
   prefix?: string
 }
 
@@ -78,7 +78,7 @@ export const numberText = (n: number) => `SH-${String(n).padStart(6, '0')}`
 /** 123 from "SH-000123". */
 export const numberValue = (number: string) => Number(number.slice(3))
 
-/** The number `i` places into a run: "SH-000123", or a product's code, "AUD-0123-004". */
+/** The number `i` places into a run: "SH-000123", or a product's code, "0123-004". */
 export const runNumber = (run: Pick<LabelRun, 'first' | 'prefix'>, i: number) =>
   run.prefix ? itemCode(run.prefix, run.first! + i) : numberText(run.first! + i)
 

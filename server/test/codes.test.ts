@@ -10,7 +10,6 @@ import {
   inShForm,
   normaliseNumber,
   productCode,
-  readProductCode,
   wholeNumber,
   type MutationResult,
   type PullResponse,
@@ -23,13 +22,14 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.ts'
 import { pgliteDb } from '../src/db.ts'
 import { readHistory } from '../src/history.ts'
+import { STOCK } from '../src/stock/schema.ts'
 
 /**
- * Codes that say what something is (ADR 0195): "AUD-0123-004", the
- * department's letters, the product's number and the item's. Products get
- * their numbers in turn; a product's labels are set aside for printing as its
- * next codes; a code goes only on its own product; and the letters are fixed
- * once a code is out, so a label never goes out of date.
+ * Codes that say what something is (ADR 0195): "0123-004", the product's
+ * number and the item's. Products get their numbers in turn; a product's
+ * labels are set aside for printing as its next codes; a code goes only on
+ * its own product; and a code printed in the hours they had the department's
+ * letters in front, "0123-004", still reads as its code.
  */
 
 let cleanup: (() => Promise<void>)[] = []
@@ -144,26 +144,29 @@ async function warehouse() {
 }
 
 describe('codes', () => {
-  it('give each product its number in turn, with its department letters', async () => {
+  it('give each product its number in turn, whatever its department', async () => {
     const { app, y10p, mac, xlr } = await warehouse()
     const models = await products(app)
-    expect([y10p, mac, xlr].map((m) => productCode(models.get(m.id)!))).toEqual(['AUD-0001', 'LGT-0002', 'AUD-0003'])
+    expect([y10p, mac, xlr].map((m) => productCode(models.get(m.id)!))).toEqual(['0001', '0002', '0003'])
   })
 
   it('read however they are typed or scanned', () => {
-    expect(['AUD-0123-004', 'aud 123 4', 'AUD0123004', ' aud-0123-004 ', 'LGT 1 1'].map(normaliseNumber)).toEqual([
-      'AUD-0123-004',
-      'AUD-0123-004',
-      'AUD-0123-004',
-      'AUD-0123-004',
-      'LGT-0001-001',
+    expect(['0123-004', '123 4', ' 0123-004 ', '1-1', 'AUD-0123-004', 'aud0123004', 'lgt 123 4'].map(normaliseNumber)).toEqual([
+      '0123-004',
+      '0123-004',
+      '0123-004',
+      '0001-001',
+      '0123-004',
+      '0123-004',
+      '0123-004',
     ])
-    // Another firm's letters, or none of the item's number, aren't ours.
-    expect(['ABC-0123-004', 'AUD-0123', 'AUD-0000-001', 'AUD-0123-000', 'AUD-12345-1'].map(normaliseNumber)).toEqual(Array(5).fill(undefined))
-    // Only all three of the item's digits make it whole, as a label has them.
-    expect(['AUD-0123-004', 'aud 123 004', 'AUD-0123-4'].map(wholeNumber)).toEqual(['AUD-0123-004', 'AUD-0123-004', undefined])
-    expect(['AUD-0123', 'aud 123', 'AUD-0123-004'].map(readProductCode)).toEqual(['AUD-0123', 'AUD-0123', undefined])
-    expect(inShForm('aud 123 4')).toBe(true)
+    // Digits alone are an SH- number written short, or an old tag; another firm's letters, or none of the item's number, aren't ours.
+    expect(['123', '0123004'].map(normaliseNumber)).toEqual(['SH-000123', undefined])
+    expect(['ABC-0123-004', '0000-001', '0123-000', '12345-1'].map(normaliseNumber)).toEqual(Array(4).fill(undefined))
+    // Only all seven digits make it whole, as a label has them.
+    expect(['0123-004', '0123 004', '123-004', '0123-4', 'AUD-0123-004'].map(wholeNumber)).toEqual(['0123-004', '0123-004', undefined, undefined, '0123-004'])
+    expect(inShForm('123 4')).toBe(true)
+    expect(inShForm('0123')).toBe(false)
   })
 
   it("set aside a product's next codes for printing, which go only on that product", async () => {
@@ -176,26 +179,26 @@ describe('codes', () => {
     await ok(app, 'asset.add', next)
 
     let { runs, items } = await records(app)
-    expect(items.get(first.id)?.number).toBe('AUD-0001-001')
-    expect(runs.get(roll.id)).toMatchObject({ first: 2, count: 10, modelId: y10p.id, prefix: 'AUD-0001' })
-    // Past the roll: AUD-0001-002 to -011 wait on labels not stuck on yet.
-    expect(items.get(next.id)?.number).toBe('AUD-0001-012')
+    expect(items.get(first.id)?.number).toBe('0001-001')
+    expect(runs.get(roll.id)).toMatchObject({ first: 2, count: 10, modelId: y10p.id, prefix: '0001' })
+    // Past the roll: 0001-002 to -011 wait on labels not stuck on yet.
+    expect(items.get(next.id)?.number).toBe('0001-012')
 
     // A printed one scanned goes on its own product, never another.
-    const scanned = item(y10p.id, 'aud 1 5', { placeId: place.id })
+    const scanned = item(y10p.id, '1 5', { placeId: place.id })
     await ok(app, 'asset.add', scanned)
-    expect(await refused(app, 'asset.add', item(mac.id, 'AUD-0001-006'))).toBe('AUD-0001-006 is a label for d&b Y10P, not Mac Aura.')
-    expect(await refused(app, 'asset.add', item(y10p.id, 'VID-0001-001'))).toBe("No product's codes start VID-0001, so check the label.")
-    expect(await refused(app, 'asset.add', item(y10p.id, 'AUD-0001-005'))).toBe('AUD-0001-005 is already in use (d&b Y10P).')
+    expect(await refused(app, 'asset.add', item(mac.id, '0001-006'))).toBe('0001-006 is a label for d&b Y10P, not Mac Aura.')
+    expect(await refused(app, 'asset.add', item(y10p.id, '0099-001'))).toBe("No product's codes start 0099, so check the label.")
+    expect(await refused(app, 'asset.add', item(y10p.id, '0001-005'))).toBe('0001-005 is already in use (d&b Y10P).')
     // One never given out, typed off a label printed elsewhere: the next free code moves past it.
-    await ok(app, 'asset.add', item(y10p.id, 'AUD-0001-040'))
+    await ok(app, 'asset.add', item(y10p.id, '0001-040'))
     const after = item(y10p.id, null)
     await ok(app, 'asset.add', after)
     ;({ runs, items } = await records(app))
-    expect(items.get(after.id)?.number).toBe('AUD-0001-041')
+    expect(items.get(after.id)?.number).toBe('0001-041')
 
     // Cancelled only while none is on an item.
-    expect(await refused(app, 'labels.cancel', { id: roll.id })).toBe("One of the labels AUD-0001-002 to AUD-0001-011 is on an item, so the run can't be cancelled.")
+    expect(await refused(app, 'labels.cancel', { id: roll.id })).toBe("One of the labels 0001-002 to 0001-011 is on an item, so the run can't be cancelled.")
     // A product with labels set aside is kept, since they may be printed.
     expect(await refused(app, 'model.remove', { id: y10p.id })).toMatch(/has numbered items/)
     const spare = product('Spare', 'other')
@@ -206,7 +209,7 @@ describe('codes', () => {
     )
 
     const { entries } = await readHistory(db)
-    expect(entries.map((e) => e.what)).toContain('Set aside AUD-0001-002 to AUD-0001-011 for printing labels')
+    expect(entries.map((e) => e.what)).toContain('Set aside 0001-002 to 0001-011 for printing labels')
   })
 
   it('are only for numbered products of our own, up to 999 of each', async () => {
@@ -222,15 +225,34 @@ describe('codes', () => {
     expect((await records(app)).items.get(extra.id)?.number).toBe('SH-000001')
   })
 
-  it('keep their letters once one is given out, so a label never goes out of date', async () => {
-    const { app, y10p, mac } = await warehouse()
-    // Nothing printed yet: the letters follow the department.
-    await ok(app, 'model.update', { id: mac.id, department: 'video' })
-    expect(productCode((await products(app)).get(mac.id)!)).toBe('VID-0002')
-    await ok(app, 'asset.add', item(y10p.id, null))
-    await ok(app, 'model.update', { id: y10p.id, department: 'video' })
-    const models = await products(app)
-    expect([models.get(y10p.id)?.department, productCode(models.get(y10p.id)!)]).toEqual(['video', 'AUD-0001'])
+  it('lose the letters any were given with, and devices hear of it', async () => {
+    const { app, db, y10p } = await warehouse()
+    const first = item(y10p.id, null)
+    await ok(app, 'asset.add', first)
+    const roll = run(3, y10p.id)
+    await ok(app, 'labels.reserve', roll)
+    const moved = item(y10p.id, null)
+    await ok(app, 'asset.add', moved)
+    await ok(app, 'asset.relabel', { id: moved.id, number: null })
+    // As 1.229.0 left them, letters in front.
+    await db.exec(`
+      UPDATE identifiers SET value = 'AUD-' || value WHERE kind = 'code';
+      UPDATE label_runs SET prefix = 'AUD-' || prefix WHERE prefix <> '';
+      INSERT INTO changes (entity, entity_id, op, data)
+      SELECT entity, entity_id, 'put', jsonb_set(data, '{number}', to_jsonb('AUD-' || (data->>'number')))
+        FROM changes WHERE entity = 'asset' AND seq = (SELECT max(seq) FROM changes c WHERE c.entity_id = changes.entity_id);
+    `)
+    await db.exec(STOCK.migrations.at(-1)!)
+    const { rows } = await db.query<{ value: string }>(`SELECT value FROM identifiers WHERE kind = 'code' ORDER BY value`)
+    expect(rows.map((r) => r.value)).toEqual(['0001-001', '0001-005', '0001-006'])
+    const { runs, items } = await records(app)
+    expect(runs.get(roll.id)?.prefix).toBe('0001')
+    expect(items.get(first.id)?.number).toBe('0001-001')
+    expect(items.get(moved.id)).toMatchObject({ number: '0001-006', formerNumbers: ['0001-005'] })
+    expect(productCode((await products(app)).get(y10p.id)!)).toBe('0001')
+    // A label printed with them still finds its item.
+    const phone = await device(app)
+    expect(phone.client.view().warehouse.byNumber.get(normaliseNumber('AUD-0001-001')!)?.id).toBe(first.id)
   })
 
   it("give an item put down as another product that product's next code, and the old one still finds it", async () => {
@@ -238,7 +260,7 @@ describe('codes', () => {
     const wrong = item(y10p.id, null)
     await ok(app, 'asset.add', wrong)
     await ok(app, 'asset.update', { id: wrong.id, modelId: mac.id })
-    expect((await records(app)).items.get(wrong.id)).toMatchObject({ number: 'LGT-0002-001', formerNumbers: ['AUD-0001-001'] })
+    expect((await records(app)).items.get(wrong.id)).toMatchObject({ number: '0002-001', formerNumbers: ['0001-001'] })
     // An SH- label says nothing of the product, so it stays.
     const sh = item(y10p.id, 'SH-000123')
     await ok(app, 'asset.add', sh)
@@ -252,12 +274,12 @@ describe('codes', () => {
     const roll = run(5, y10p.id)
     await phone.client.mutate('labels.reserve', roll)
     await phone.client.sync()
-    await phone.client.mutate('asset.add', item(y10p.id, 'AUD-0001-002'))
+    await phone.client.mutate('asset.add', item(y10p.id, '0001-002'))
     await phone.client.sync()
     const labels = phone.client.view().labels
-    expect(labels.runs.map((r) => [r.firstNumber, r.lastNumber, r.used])).toEqual([['AUD-0001-001', 'AUD-0001-005', 1]])
-    expect(labels.runOf('AUD-0001-004')?.id).toBe(roll.id)
-    expect(labels.runOf('AUD-0001-006')).toBeUndefined()
+    expect(labels.runs.map((r) => [r.firstNumber, r.lastNumber, r.used])).toEqual([['0001-001', '0001-005', 1]])
+    expect(labels.runOf('0001-004')?.id).toBe(roll.id)
+    expect(labels.runOf('0001-006')).toBeUndefined()
     // SH- numbers are as they were.
     expect(labels.next).toBe('SH-000001')
   })

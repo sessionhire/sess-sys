@@ -8,7 +8,7 @@ import { holdingPlace } from './countSource.ts'
 
 /**
  * A Session Hire label read on a count, as a label to put on something, not
- * any old code: "SH-000123" or "sh 123", a code, "AUD-0123-004" (ADR 0195),
+ * any old code: "SH-000123" or "sh 123", a code, "0123-004" (ADR 0195),
  * or all six digits as a scanner reads a label. A short run of digits could be a maker's serial, so it's
  * left as a code no item has.
  */

@@ -65,13 +65,13 @@ const field = (x: number, y: number, h: number, w: number, text: string, align: 
  */
 const qr = (x: number, y: number, mag: number, number: string) => `^FO${x},${Math.max(0, y - 10)}^BQN,2,${mag}^FDHA,${zplText(labelPayload(number))}^FS`
 
-/** The modules a side of a number's QR code: 21 for "SH-000123" at the most error correction, 25 for a code, "AUD-0123-004" (ADR 0195). */
+/** The modules a side of a number's QR code: 21 for "SH-000123" at the most error correction, and for a code, "0123-004" (ADR 0195). */
 const qrModules = (number: string) => qrCode(labelPayload(number)).size
 
 /** The biggest module size, in dots, that fits a number's QR code into `mm`. */
 const magFor = (mm: number, number: string) => Math.max(1, Math.min(10, Math.floor(dots(mm) / qrModules(number))))
 
-/** A code is longer than an SH- number, so its type is a little smaller to fit the same label (ADR 0195). */
+/** A number longer than an SH- one (codes printed with letters before 24 November 2026) gets type a little smaller to fit the same label (ADR 0195). */
 const longNumber = (number: string) => number.length > 9
 
 const graphic = (x: number, y: number, g: ZplGraphic) => {

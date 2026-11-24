@@ -267,7 +267,9 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
   const { q, number, exact, items } = itemsFound(w, search)
   const words = q.split(/\s+/).filter(Boolean)
   // A label that isn't on anything yet (ADR 0015): one from a run, or anything typed as a label rather than a bare number.
-  const unclaimed = number && !exact && (view.labels.runOf(number) || /^\s*sh|\/a\//i.test(search) || readCode(search)) ? number : undefined
+  // A product's code on its own, "0123" as on a bag of cables (ADR 0195), opens the product, before any SH- number written short.
+  const own = readProductCode(search) ? productOfCode(search, w) : undefined
+  const unclaimed = number && !exact && !own && (view.labels.runOf(number) || /^\s*sh|\/a\//i.test(search) || readCode(search)) ? number : undefined
   const searchField = useRef<HTMLInputElement>(null)
   const claimField = useRef<HTMLInputElement>(null)
   const memory = useRef<ClaimMemory>({ product: '', where: '' })
@@ -294,7 +296,8 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
   // A scanner types a label's number and Enter: straight to the item, or to saying what a new label is on.
   const go = (e: FormEvent) => {
     e.preventDefault()
-    if (exact) location.hash = `#stock/item/${exact.id}`
+    if (own) location.hash = `#stock/product/${own.id}`
+    else if (exact) location.hash = `#stock/item/${exact.id}`
     else if (unclaimed) claimField.current?.focus()
     else if (items.length === 1) location.hash = `#stock/item/${items[0]!.id}`
     else if (shown.length === 1) location.hash = `#stock/product/${shown[0]!.id}`
@@ -307,11 +310,11 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
   }
   // Read by the camera: an item's label or its maker's serial shows it under the camera, which stays on; a product's stock code opens the product; a label on nothing yet asks what it's on.
   const onRead = (code: string) => {
-    const found = itemByCode(w, code)
+    // A product's code on its own (ADR 0195), as on a bag of cables, is the product, before any SH- number written short.
+    const own = readProductCode(code) ? productOfCode(code, w) : undefined
+    const found = own ? undefined : itemByCode(w, code)
     // A cable label's code is its product's stock code (ADR 0095): straight to the product.
     const read = code.trim().toLowerCase()
-    // So is a product's own code on its own (ADR 0195), "AUD-0123", as on a bag of cables.
-    const own = found ? undefined : readProductCode(code) && productOfCode(code, w)
     const coded = found ? [] : own ? [own] : w.models.filter((m) => m.code && m.code.toLowerCase() === read)
     if (found) {
       setScanned(found.id)

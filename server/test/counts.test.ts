@@ -134,7 +134,7 @@ describe('a count', () => {
     expect(await refused(app, m('count.record', record({ caseId: 'never' })))).toBe(
       "The case counted was never added to the stock list, so the count wasn't kept. Add it, then count it again."
     )
-    expect(await refused(app, m('count.record', record({ caseId: 's1' })))).toBe("AUD-0001-001 (d&b Y10P) doesn't hold other kit, so the count wasn't kept.")
+    expect(await refused(app, m('count.record', record({ caseId: 's1' })))).toBe("0001-001 (d&b Y10P) doesn't hold other kit, so the count wasn't kept.")
     await ok(
       app,
       m('model.create', { id: 'flight', name: 'Flight case', department: 'audio', category: '', tracking: 'serialised', isCase: true, valueCents: null, notes: '' }),
@@ -198,13 +198,13 @@ describe('a count', () => {
     const history = (await app.inject({ url: '/api/history' })).json() as HistoryPage
     expect(history.entries.slice(0, 3).map((e) => e.what)).toEqual([
       'Counted Bay B1: All as recorded',
-      "Counted what's in AUD-0002-001 (Amp rack): 1 in the wrong place",
+      "Counted what's in 0002-001 (Amp rack): 1 in the wrong place",
       'Cian Murphy counted Bay A3: 2 of 3 found, 1 not found, 1 count short',
     ])
     const log = async (id: string) =>
       ((await app.inject({ url: `/api/stock/items/${id}/log` })).json() as ItemLogPage).entries.filter((e) => e.event.kind === 'counted').map((e) => [e.key, e.event])
     expect(await log('s1')).toEqual([
-      [`count:${ofRack.id}`, { kind: 'counted', where: { case: 'AUD-0002-001 (Amp rack)' }, found: true, kept: { place: 'Bay B1' } }],
+      [`count:${ofRack.id}`, { kind: 'counted', where: { case: '0002-001 (Amp rack)' }, found: true, kept: { place: 'Bay B1' } }],
       [`count:${count.id}`, { kind: 'counted', where: { place: 'Bay A3' }, found: true }],
     ])
     expect(await log('s2')).toEqual([[`count:${count.id}`, { kind: 'counted', where: { place: 'Bay A3' }, found: false }]])

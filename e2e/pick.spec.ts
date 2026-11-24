@@ -115,7 +115,7 @@ async function newItems(page: Page, where: string, count: number) {
     await makePlace(page)
     if (numbers.length) await expect(add.locator('.added')).not.toHaveText(`Added ${numbers.at(-1)}.`)
     // The number comes back with a sync round trip, slower when the machine is busy (audit, 20 October 2026, finding 109).
-    await expect(add.locator('.added')).toHaveText(/^Added (?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3})\.$/, { timeout: 20_000 })
+    await expect(add.locator('.added')).toHaveText(/^Added (?:SH-\d{6}|\d{4}-\d{3})\.$/, { timeout: 20_000 })
     const number = (await add.locator('.added').textContent())!.slice(6, -1)
     expect(numbers).not.toContain(number)
     numbers.push(number)
@@ -486,7 +486,7 @@ test('a speaker scanned from a rack reported missing, then said to be out of the
 
   const page = await (await browser.newContext({ viewport: phoneSize })).newPage()
   await ready(page, `#stock/item/r${id}`)
-  const rack = (await page.getByRole('heading', { level: 1 }).textContent())!.match(/(?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3})/)![0]
+  const rack = (await page.getByRole('heading', { level: 1 }).textContent())!.match(/(?:SH-\d{6}|\d{4}-\d{3})/)![0]
   await ready(page, `#jobs/next${id}/pick`)
   await page.getByLabel('Number or serial').fill(`E8-1-${id}`)
   await page.getByLabel('Number or serial').press('Enter')
@@ -494,7 +494,7 @@ test('a speaker scanned from a rack reported missing, then said to be out of the
   await expect(said).toContainText(`It was out with Lost rack job ${id}; now it's out with Next job ${id}.`)
   await expect(said).toContainText(`${rack}, the case it's kept in, was reported missing; it's marked found since this was in it.`)
   await page.getByRole('button', { name: `It's not in ${rack} any more` }).click()
-  await expect(said).toHaveText(/^(?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3}) is out of (?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3}), and (?:SH-\d{6}|[A-Z]{3}-\d{4}-\d{3}) is reported missing again\.$/)
+  await expect(said).toHaveText(/^(?:SH-\d{6}|\d{4}-\d{3}) is out of (?:SH-\d{6}|\d{4}-\d{3}), and (?:SH-\d{6}|\d{4}-\d{3}) is reported missing again\.$/)
   await expect(page.locator('.conn')).toHaveText('Up to date')
   // The rack is missing again, with its note; the speaker isn't in it.
   await ready(page, `#stock/item/r${id}`)
