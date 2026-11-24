@@ -287,6 +287,8 @@ holding the phones on site are mostly left out.
 and a week after, going onto the job's Photos tab marked with who sent
 them, for the office to take down if they aren't wanted.
 
+**Fixed in 1.227.0** (24 November 2026), as recommended: Colly said "yes they should".
+
 ### 12. Archiving a member of staff doesn't sign them out
 
 **Fixed in 1.225.1** (24 November 2026).

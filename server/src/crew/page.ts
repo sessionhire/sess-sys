@@ -169,6 +169,8 @@ export interface PageData {
   office?: OfficeDetails | null
   /** What they're down to drive from today on (user flows of 24 November 2026, gap 5), whether or not they're on a call on the job. */
   drives?: readonly Drive[]
+  /** The bookings whose job they can put photos on now (user flows of 24 November 2026, gap 11), one a job, with the last day they can. */
+  photos?: readonly { offerId: string; job: string; until: string }[]
   /** Bookings on today, or tomorrow from 6pm, for "Running late?" (ADR 0028). */
   onTheDay?: OnTheDay[]
   /** "Your documents" (ADR 0029), drawn by server/src/documents/page.ts. */
@@ -999,6 +1001,19 @@ function leaveBlock(d: PageData, leave: readonly LeaveRequest[], booked: PageDat
 }
 
 /** The way to the purchase list (ADR 0108): kit they'd find useful, asked for and voted on from their own link. */
+/**
+ * The way to put photos on a job they're working or have just worked (gap 11): a line for each, after Work done, as
+ * photos come during the show and after it. Nothing when no booking can take them.
+ */
+function photosBlock(d: PageData): string {
+  if (!d.photos?.length) return ''
+  return `<section id="photos">
+    <h2>Photos of the job</h2>
+    ${d.photos.map((p) => `<a class="sheet-link" href="${d.base}/photos/${encodeURIComponent(p.offerId)}">Add photos of ${h(p.job)} ›</a>`).join('\n    ')}
+    <p class="small">What it looked like, for us to look back on and show clients. Until a week after your last day on it.</p>
+  </section>`
+}
+
 function purchasesBlock(base: string, open: number): string {
   return `<section id="buy">
     <a class="sheet-link" href="${base}/buy">The purchase list${open ? `: ${open} asked for` : ''} ›</a>
@@ -1086,6 +1101,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
   </section>
 
   ${workDone(d, past)}
+  ${photosBlock(d)}
 
   ${isStaff(d.person) ? leaveBlock(d, d.leave ?? [], booked) : awayBlock(d, booked)}
 

@@ -18,6 +18,8 @@ export interface Who {
   clientId?: string
   userId?: string
   device?: string
+  /** Whose own link it came by, when it wasn't the app: the history says so. */
+  link?: string
 }
 
 /** The history's record of the action, filled in once the change knows whether the document was new and had a file. */

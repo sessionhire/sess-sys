@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { cleanText, text } from './plain.ts'
+import { addDays } from './sync/plan.ts'
 import { roleCan, type Role } from './roles.ts'
 
 /**
@@ -16,6 +17,11 @@ import { roleCan, type Role } from './roles.ts'
  * "photos" ability); taking one down is for whoever put it up and for the
  * roles that change jobs. Everyone signed in sees them, freelancers too:
  * they're pictures of the company's work, not of anyone's details.
+ *
+ * Freelancers, who are most of the people at a show, put theirs up from
+ * their own link (Colly, 24 November 2026): on a booking, from its first
+ * day until a week after its last, onto the job with their name, for the
+ * office to take down if one isn't wanted.
  */
 
 const id = z.string().min(1).max(64)
@@ -26,6 +32,28 @@ export const JOB_PHOTO_SIDE = 2560
 export const JOB_PHOTO_THUMB_SIDE = 720
 /** How many can be picked at once; a show's worth, sent one after another. */
 export const JOB_PHOTOS_AT_ONCE = 60
+
+/** How many go from someone's own link in one send: the page posts them as one form, so it stays a size a phone on site can send. */
+export const LINK_PHOTOS_AT_ONCE = 10
+/** How long after a booking's last day its photos can still be put up from the link. */
+export const LINK_PHOTO_DAYS_AFTER = 7
+
+/**
+ * The last day someone can put photos on a booking's job from their own link, or nothing when they can't: the booking
+ * is theirs to work (accepted or confirmed) on a call that's going ahead on a job, from its first day until a week
+ * after its last.
+ */
+export function linkPhotosUntil(
+  offer: { status: string; days: readonly string[] },
+  call: { status: string; projectId: string | null; start: string; end: string },
+  today: string,
+): string | undefined {
+  if ((offer.status !== 'accepted' && offer.status !== 'confirmed') || call.status !== 'open' || !call.projectId) return undefined
+  const days = [...offer.days].sort()
+  const first = days[0] ?? call.start
+  const until = addDays(days[days.length - 1] ?? call.end, LINK_PHOTO_DAYS_AFTER)
+  return today >= first && today <= until ? until : undefined
+}
 
 export const JOB_PHOTO_CAPTION = 300
 export const JOB_PHOTO_TAG = 40

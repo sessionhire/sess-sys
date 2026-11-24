@@ -80,6 +80,8 @@ export interface Sent {
   width: number
   height: number
   email?: string
+  /** Who sent it from their own link, which has no signed-in address to find them by. */
+  personId?: string
 }
 
 /**
@@ -96,7 +98,7 @@ export function addJobPhoto(db: Db, files: DocumentFiles, details: JobPhotoDetai
         const job = await getProject(ctx.tx, details.jobId, true)
         if (!job) throw new Refused({ code: 'not-found', message: 'That job is no longer in the app.' })
         if (await getJobPhoto(ctx.tx, details.id)) throw new Refused({ code: 'conflict', message: 'That photo is already on a job.' })
-        const me = sent.email ? await personByEmail(ctx.tx, sent.email) : undefined
+        const me = sent.personId ? { id: sent.personId } : sent.email ? await personByEmail(ctx.tx, sent.email) : undefined
         await claimFile(ctx.tx, fullKey)
         await claimFile(ctx.tx, thumbKey)
         await ctx.tx.query(
