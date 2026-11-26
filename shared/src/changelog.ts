@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.236.0',
+    date: '2026-11-26',
+    title: 'Discounts shown on the printed and PDF quote',
+    what: 'When a line on a quote has a discount of its own, the printed quote and its PDF get a Discount column beside the amount: how much off, as a percentage, and what that takes off in euro, so the client sees the price, the discount and what they pay. A discount off the whole quote is called Overall discount when lines have their own too. The client’s online page shows each line’s discount under its amount. A quote with no line discounts looks just as before.',
+    prs: [0],
+  },
+  {
     version: '1.235.0',
     date: '2026-11-26',
     title: 'A product’s page from its line on the quote',

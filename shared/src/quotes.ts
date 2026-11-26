@@ -678,6 +678,19 @@ export const lineCents = (l: Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per
   Math.round(l.qty * (l.per === 'once' ? 1 : l.days) * l.unitCents * (1 - (l.discountPct ?? 0) / 100))
 
 /**
+ * What a line's own discount takes off it, in cents (Colly, 26 November 2026): the amount before the discount less the amount
+ * after it. Nothing for a line with no discount, given at no charge, or with no price.
+ */
+export function lineDiscountCents(l: Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'included' | 'words'>): number {
+  if (!l.discountPct || l.included || l.words || !(l.unitCents > 0)) return 0
+  return lineCents({ ...l, discountPct: undefined }) - lineCents(l)
+}
+
+/** Whether any line of a quote has a discount of its own to show, so the printed quote gives discounts a column (Colly, 26 November 2026). */
+export const anyLineDiscount = (lines: readonly Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'included' | 'words'>[]) =>
+  lines.some((l) => lineDiscountCents(l) > 0)
+
+/**
  * What a line costs Session Hire (ADR 0089), before VAT: what's typed on it, or else, for crew, what they're booked
  * at for the days charged, and for our own kit the share of its price it costs to run, once that's set, or nothing. Undefined while it isn't known: kit hired in, or anything
  * else, with no cost typed yet, or crew at a role nobody's been booked at.

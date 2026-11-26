@@ -715,7 +715,6 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media screen and (max-width: 639px) {
   .quote-lines :is(th, td):not(:first-child, :last-child) { display: none; }
   .quote-lines .line-sum { display: block; }
-  .quote-lines td .less { display: none; }
 }
 /* Money's By month and Margin by job on a phone (the same finding): a row a month or a job, its name across the top and its figures
    under it two to a line, each under its column's name, so every figure reads on a phone with nothing off the right edge. A month's
@@ -799,6 +798,7 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .quote-sheet .quote-table tr.words td { font-style: normal; font-weight: 400; color: var(--sheet-muted); }
   .quote-sheet .quote-table small { font-size: 7.6pt; }
   .quote-sheet .quote-table .package-saving { color: var(--sheet-brand); }
+  .quote-sheet .quote-table td.discount, .quote-sheet .quote-table td.discount small { color: var(--sheet-brand); }
   .quote-sheet .quote-table tr.set-head td { border-bottom: 0; }
   .quote-sheet .quote-table tr.set-line td { padding-top: 2pt; padding-bottom: 2pt; font-size: 7.6pt; font-weight: 400; color: var(--sheet-muted); border-bottom: 0; }
   .quote-sheet .quote-table tr.set-line td:first-child { padding-left: 18pt; position: relative; }

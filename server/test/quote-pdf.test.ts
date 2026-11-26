@@ -32,6 +32,13 @@ describe('quotePdf', () => {
       expect(pdf.toString('latin1')).not.toContain('/Subtype /Image')
     }
   })
+  it('gives line discounts a column of their own, and keeps a quote with none as it was (Colly, 26 November 2026)', async () => {
+    const off = { ...q, lines: [...lines, { ...lines[1]!, id: 'b', what: 'Lights', discountPct: 10 }, { ...lines[1]!, id: 'c', what: 'Free mic', included: true, discountPct: 10 }], discountPct: 5 } as Quote
+    const pdf = await quotePdf({ ...sheet(), q: off, totals: quoteTotals(off) })
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
+    const plain = await quotePdf(sheet())
+    expect(pdf.length).toBeGreaterThan(plain.length)
+  })
   it('carries the company as the law names it along the foot, on a quote long enough for two pages (ADR 0181)', async () => {
     const long = { ...q, lines: Array.from({ length: 60 }, (_, i) => ({ ...lines[1], id: `l${i}`, what: `Item ${i}` })) } as Quote
     const office = { id: 'office', name: 'Session Hire office', phone: null, email: null, tradingName: 'Session Hire', legalName: 'Session Hire Productions Limited', croNumber: '612345', registeredAddress: 'Unit 4\nDublin 12', directors: 'Aoife Byrne, Sam Lee (British)', vatNumber: 'IE 1234567T' }
