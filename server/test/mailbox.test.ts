@@ -221,6 +221,32 @@ describe('Claude reading the operations mailbox (ADR 0098)', () => {
     expect(await (await s.app.inject({ url: '/api/assistant/mailbox' })).json()).toMatchObject({ state: 'off' })
     expect(s.google.asked.some((u) => u.includes('/revoke'))).toBe(true)
   })
+
+  it('reads from the moment Claude is turned on, not the mail from before (ADR 0198)', async () => {
+    const s = await setup(() => ({ kind: 'other' }))
+    const after = () => {
+      const asked = s.google.asked.filter((u) => u.startsWith('https://gmail.test/messages'))
+      return Number(new URL(asked.at(-1)!).searchParams.get('q')!.replace('after:', '')) * 1000
+    }
+    // Connected while on: from now, not a week back.
+    const connectedAt = Date.now()
+    await s.connect()
+    expect(after()).toBeGreaterThanOrEqual(Math.floor(connectedAt / 1000) * 1000)
+
+    // Off for a while, then on again: what came while it was off is left alone.
+    await ok(s.app, m('assistant.use', { on: false }))
+    await s.db.query(`UPDATE assistant_mailbox SET read_after = now() - interval '20 days'`)
+    const onAt = Date.now()
+    await ok(s.app, m('assistant.use', { on: true }))
+    await s.mailbox.look()
+    expect(after()).toBeGreaterThanOrEqual(Math.floor(onAt / 1000) * 1000)
+
+    // Saying on again while it's on moves nothing.
+    const { rows: before } = await s.db.query<{ read_after: Date }>('SELECT read_after FROM assistant_mailbox')
+    await ok(s.app, m('assistant.use', { on: true }))
+    const { rows: still } = await s.db.query<{ read_after: Date }>('SELECT read_after FROM assistant_mailbox')
+    expect(still[0]!.read_after).toEqual(before[0]!.read_after)
+  })
 })
 
 describe('reading an email', () => {

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.232.1',
+    date: '2026-11-26',
+    title: 'Claude reads the mailbox from when it’s turned on',
+    what: 'When Claude is turned on under Admin › Company, it reads the operations mailbox from that moment on. Mail that came before, or while it was off, is left alone, so turning it on doesn’t make a job and a draft quote for every enquiry since the mailbox was connected.',
+    prs: [445],
+    adrs: [198],
+  },
+  {
     version: '1.232.0',
     date: '2026-11-26',
     title: 'Replacement values from Current RMS',

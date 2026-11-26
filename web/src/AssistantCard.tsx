@@ -59,7 +59,8 @@ export function AssistantCard({ office }: { office: OfficeView }) {
         </p>
       )}
       <p className="hint">
-        It reads the operations mailbox once that’s connected under <a href="#admin/connections">Connections</a>.
+        It reads the operations mailbox once that’s connected under <a href="#admin/connections">Connections</a>, from the moment it’s turned on: mail that came
+        before, or while it was off, is left alone.
       </p>
       <Refusal error={error} />
     </section>
