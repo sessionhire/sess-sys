@@ -133,7 +133,7 @@ test("a dry hire that's delivered puts a delivery line on its quote, by the km a
   await ready(office, `#jobs/dh-${id}/quote`)
   const draft = office.getByRole('form', { name: 'Version 1, a draft' })
   const delivery = draft.getByRole('group', { name: 'Delivery and collection' })
-  await expect(delivery.locator('.quote-line-shut .what')).toHaveText(/^Delivery and collection by van, \d{3} km from (the warehouse|Dublin)$/)
+  await expect(delivery.locator('.quote-line-shut .what')).toHaveText(/^Van, delivery and collection, \d{3} km from (the warehouse|Dublin)$/)
   await expect(delivery.locator('.quote-line-shut .how')).toContainText('km × €1.50 a km')
   await expect(delivery.getByRole('radio', { name: 'Van' })).toBeChecked()
   await delivery.getByRole('button', { name: /where it goes$/ }).click()
@@ -146,7 +146,7 @@ test("a dry hire that's delivered puts a delivery line on its quote, by the km a
   await expect(sheet.locator('.sheet-to')).toContainText(/From \w{3} \d{1,2} \w{3}, 09:00/)
   await expect(sheet.locator('.sheet-to')).toContainText(/To \w{3} \d{1,2} \w{3}, 18:00/)
   await expect(sheet.locator('.sheet-to')).toContainText('Delivered to Galway Racecourse, Ballybrit')
-  await expect(sheet.locator('tbody').first()).toContainText(/Delivery and collection by van, \d{3} km/)
+  await expect(sheet.locator('tbody').first()).toContainText(/Van, delivery and collection, \d{3} km/)
   await office.evaluate(() => dispatchEvent(new Event('afterprint')))
 
   // Admin › Company: a set amount covers the first 20 km, and each km after is €1.50 (Colly, 15 November 2026).
@@ -158,7 +158,7 @@ test("a dry hire that's delivered puts a delivery line on its quote, by the km a
   await card.getByRole('button', { name: 'Save' }).click()
   await expect(card).toContainText('Now: €60.00 for up to 20 km, then €1.50 a km.')
   await ready(office, `#jobs/dh-${id}/quote`)
-  await expect(delivery.locator('.quote-line-shut .what')).toHaveText(/^Delivery and collection by van, \d{3} km from (the warehouse|Dublin): the first 20 km, then \d{3} km at €1\.50 a km$/)
+  await expect(delivery.locator('.quote-line-shut .what')).toHaveText(/^Dublin flat fee, then \d{3} km at €1\.50 a km$/)
   await expect(delivery.locator('.quote-line-shut .how')).toContainText('€60.00 for the first 20 km, then')
   await push(request, `${id}-off`, [['quoting.delivery', { baseCents: null, baseKm: null, centsPerKm: null }]])
 })
@@ -186,10 +186,14 @@ test('any quote can go by van or truck, a truck priced for the job (ADR 0201)', 
   await delivery.getByLabel("The truck's price for this job, before VAT").fill('950')
   await expect(delivery.locator('.quote-line-shut .what')).toHaveText('Delivery and collection by truck')
   await expect(delivery.locator('.quote-line-shut .amount')).toHaveText('€950.00')
+  // Only delivered (Colly, 26 November 2026): the line says so.
+  await delivery.getByRole('radio', { name: 'Delivery only' }).check()
+  await expect(delivery.locator('.quote-line-shut .what')).toHaveText('Delivery only by truck')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
   // Kept: read again, it's still the truck at its price.
   await office.reload()
   await ready(office, `#jobs/dt-${id}/quote`)
   await expect(delivery.getByRole('radio', { name: 'Truck' })).toBeChecked()
+  await expect(delivery.getByRole('radio', { name: 'Delivery only' })).toBeChecked()
   await expect(delivery.locator('.quote-line-shut .amount')).toHaveText('€950.00')
 })

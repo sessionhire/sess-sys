@@ -1,5 +1,5 @@
 import type { HireTerms, Pin, ProjectKind } from './jobs.ts'
-import { money, STANDARD_VAT, type DeliveryBy, type QuoteLine } from './quotes.ts'
+import { money, STANDARD_VAT, type DeliveryBy, type DeliveryTrips, DEFAULT_ONE_WAY_PCT, type QuoteLine } from './quotes.ts'
 import { roadKm, warehouseFrom } from './road.ts'
 
 /**
@@ -35,6 +35,9 @@ export interface DeliveryPrice {
 export const DELIVERY_BY_LABELS: Record<DeliveryBy, string> = { none: 'No delivery', van: 'Van', truck: 'Truck' }
 
 export const DELIVERY_GROUP = 'Delivery and collection'
+export const DELIVERY_TRIPS_LABELS: Record<DeliveryTrips, string> = { both: 'Delivery and collection', delivery: 'Delivery only', collection: 'Collection only' }
+/** The van's line within the km the set amount covers (Colly, 26 November 2026: "called dublin flat fee"). */
+export const FLAT_FEE = 'Dublin flat fee'
 
 /** Where the prices are set, as the quote points to it. */
 export const DELIVERY_WHERE = 'Admin › Company › Delivery and collection'
@@ -51,6 +54,8 @@ export interface Delivery {
   shown: boolean
   /** What the quote says, or what it starts on. */
   by: DeliveryBy
+  /** There and back, or one way only. */
+  trips: DeliveryTrips
   line: QuoteLine | undefined
   km: number | null
   /** Measured from the warehouse's own pin, not Dublin city centre standing in for it. */
@@ -74,6 +79,10 @@ export function deliveryFor(o: {
   truckCents?: number | null | undefined
   /** What the quote says; left out, it's what the job starts on. */
   by?: DeliveryBy | null | undefined
+  /** There and back, or one way only; left out is both. */
+  trips?: DeliveryTrips | null | undefined
+  /** A one-way van trip's share of the price; left out is half. */
+  oneWayPct?: number | null | undefined
   id: string | undefined
   newId: () => string
 }): Delivery {
@@ -82,7 +91,11 @@ export function deliveryFor(o: {
   const h = o.job.hire
   const to: Delivery['to'] = hire ? 'address' : 'venue'
   const by = o.by ?? deliveryByDefault(o.job)
-  const nothing = { line: undefined, km: null, fromWarehouse: from.set, to, how: '' } as const
+  const trips = o.trips ?? 'both'
+  const oneWay = trips !== 'both'
+  const pct = oneWay ? (o.oneWayPct ?? DEFAULT_ONE_WAY_PCT) : 100
+  const only = oneWay ? `, ${trips} only` : ''
+  const nothing = { line: undefined, km: null, fromWarehouse: from.set, to, how: '', trips } as const
   // A dry hire the client collects (or one from before the question) has nobody to deliver it.
   if (hire && h?.handover !== 'delivery') return { ...nothing, shown: false, by, none: null }
   if (by === 'none') return { ...nothing, shown: true, by, none: null }
@@ -106,8 +119,9 @@ export function deliveryFor(o: {
   // A truck is priced for each job, as the office types it, so it needs no distance: the km are said when they're known.
   if (by === 'truck') {
     const none = missing ?? (o.truckCents == null ? "No price for the truck yet: trucks are priced for each job, so type this one's." : null)
-    if (none) return { shown: true, by, line: undefined, km, fromWarehouse: from.set, to, none, how: '' }
-    return { shown: true, by, line: lineOf(`Delivery and collection by truck${at}`, 1, o.truckCents!), km, fromWarehouse: from.set, to, none: null, how: 'Priced for this job' }
+    if (none) return { shown: true, by, trips, line: undefined, km, fromWarehouse: from.set, to, none, how: '' }
+    const what = oneWay ? `${trips === 'delivery' ? 'Delivery' : 'Collection'} only by truck` : 'Delivery and collection by truck'
+    return { shown: true, by, trips, line: lineOf(`${what}${at}`, 1, o.truckCents!), km, fromWarehouse: from.set, to, none: null, how: 'Priced for this job' }
   }
   const { baseCents, centsPerKm: rate } = o.price
   const baseKm = baseCents == null ? 0 : (o.price.baseKm ?? 0)
@@ -123,14 +137,17 @@ export function deliveryFor(o: {
         : over > 0 && rate == null
           ? `No van price a km past the first ${baseKm} km set yet: set it in ${DELIVERY_WHERE}.`
           : null)
-  if (none || km === null) return { shown: true, by, line: undefined, km, fromWarehouse: from.set, to, none, how: '' }
+  if (none || km === null) return { shown: true, by, trips, line: undefined, km, fromWarehouse: from.set, to, none, how: '' }
   const each = (n: number) => `${n} km at ${money(rate ?? 0)} a km`
   // No set amount: every km at the price a km, as a line of so many km.
   const byTheKm = baseCents == null
-  const how = byTheKm ? `${km} km × ${money(rate!)} a km` : over > 0 ? `${money(baseCents)} for the first ${baseKm} km, then ${each(over)}` : `${money(baseCents)} for up to ${baseKm} km`
-  const what = `Delivery and collection by van${at}`
+  // One way only is a share of the price there and back (half, until Admin says otherwise).
+  const share = (cents: number) => Math.round((cents * pct) / 100)
+  const half = oneWay ? `, ${pct}% one way` : ''
+  const how = (byTheKm ? `${km} km × ${money(rate!)} a km` : over > 0 ? `${money(baseCents)} for the first ${baseKm} km, then ${each(over)}` : `${money(baseCents)} for up to ${baseKm} km`) + half
+  // Within the set amount's km it's the Dublin flat fee; past them, the fee and each km after.
   const line = byTheKm
-    ? lineOf(what, Math.min(km, 10_000), rate!)
-    : lineOf(over > 0 ? `${what}: the first ${baseKm} km, then ${each(over)}` : what, 1, baseCents + over * (rate ?? 0))
-  return { shown: true, by, line, km, fromWarehouse: from.set, to, none: null, how }
+    ? lineOf(`Van${oneWay ? `, ${trips} only` : ', delivery and collection'}${at}`, Math.min(km, 10_000), share(rate!))
+    : lineOf(`${FLAT_FEE}${over > 0 ? `, then ${each(over)}` : ''}${only}`, 1, share(baseCents + over * (rate ?? 0)))
+  return { shown: true, by, trips, line, km, fromWarehouse: from.set, to, none: null, how }
 }
