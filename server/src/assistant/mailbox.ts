@@ -52,7 +52,6 @@ const LOOK_MS = 5 * 60_000
 /** At most this many threads are read in one look, so a full mailbox is caught up over a few looks, not one long one. */
 const MOST_THREADS = 6
 /** Mail from this long before the mailbox was connected is read too, so enquiries already in hand get their quotes. */
-const BACK_DAYS = 7
 /** A thread is cut to its latest mails, and Claude's ask to this many characters of them. */
 const MOST_MAILS = 20
 const THREAD_LENGTH = 40_000
@@ -109,11 +108,11 @@ export class Mailbox {
 
   /**
    * The account as connected, its key locked, with what Google let the app do (ADR 0101: reading, and sending if it was
-   * allowed); reading starts a week back the first time, and carries on where it was after.
+   * allowed); reading starts from now the first time (ADR 0198), and carries on where it was after.
    */
   async connected(c: { email: string; sub: string; sealedKey: string; by: string | null; scopes?: readonly string[] }) {
     const before = await this.row()
-    const from = before?.read_after && before.account_sub === c.sub ? before.read_after : new Date(this.now().getTime() - BACK_DAYS * 86_400_000)
+    const from = before?.read_after && before.account_sub === c.sub ? before.read_after : this.now()
     await this.db.query(
       `INSERT INTO assistant_mailbox (id, state, account_email, account_sub, refresh_token, problem, connected_by, connected_at, read_after, scopes)
        VALUES ($1, 'on', $2, $3, $4, NULL, $5, $6, $7, $8)

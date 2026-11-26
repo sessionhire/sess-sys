@@ -3,6 +3,17 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 26 November 2026: Claude reads the mailbox from when it's turned on
+
+**Done (1.232.1, #445, ADR 0198)**
+
+- Colly, before turning Claude on for the first time: "Start from now
+  please". Turning Claude on now sets the operations mailbox to read from
+  that moment, so it doesn't work through every mail since 2 November. A
+  mailbox connected for the first time reads from then too.
+- Checked: typecheck; server mailbox tests (1 new) and assistant tests.
+- Waiting on Colly: turn Claude on under Admin › Company once this is live.
+
 ## 26 November 2026: rental prices and replacement values from Current RMS
 
 **Done (1.232.0, #443, ADR 0197)**

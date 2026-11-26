@@ -73,8 +73,14 @@ export const officeHandlers: { [N in OfficeCommand]: Handler<N> } = {
     await emit(ctx, 'setting', TIMESHEETS_SETTING_ID, await getSetting(ctx.tx, TIMESHEETS_SETTING_ID))
   },
 
-  /** Whether Claude is offered inside the app (ADR 0096). Only shows or hides it: nothing Claude suggested and someone took changes. */
+  /**
+   * Whether Claude is offered inside the app (ADR 0096). Only shows or hides it: nothing Claude suggested and someone took
+   * changes. Turned on, it reads the operations mailbox from that moment (ADR 0198): mail that came while it was off,
+   * or before it was ever on, is left alone, so turning it on isn't a backlog of every enquiry since the mailbox came in.
+   */
   async 'assistant.use'(ctx, a) {
+    const was = await getSetting(ctx.tx, ASSISTANT_SETTING_ID)
+    if (a.on && !was?.useAssistant) await ctx.tx.query(`UPDATE assistant_mailbox SET read_after = now()`)
     await ctx.tx.query(
       `INSERT INTO settings (id, use_assistant) VALUES ($1, $2)
        ON CONFLICT (id) DO UPDATE SET use_assistant = EXCLUDED.use_assistant, updated_at = now()`,
