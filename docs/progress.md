@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 26 November 2026: rental prices and replacement values from Current RMS
 
-**In review (1.232.0, ADR 0197)**
+**In review (1.232.0, #443, ADR 0197)**
 
 - Colly: "use the pricing in Current RMS to populate the rental prices in the
   new system, and also see if it's possible to populate the replacement

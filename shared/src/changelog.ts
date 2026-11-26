@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-26',
     title: 'Replacement values from Current RMS',
     what: 'Admin › Connections › Prices and replacement values from Current RMS now brings in each product’s replacement charge with its hire price. It only fills in products that have no replacement value yet, so one you have typed is never changed. The card lists them before anything changes, and one press fills in both.',
-    prs: [0],
+    prs: [443],
     adrs: [197],
   },
   {
