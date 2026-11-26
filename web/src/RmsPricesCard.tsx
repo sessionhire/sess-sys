@@ -1,4 +1,4 @@
-import { hirePriceLabel, plural, type RmsPriceRow, type RmsPricesStatus, type View } from '@sh/shared'
+import { hirePriceLabel, plural, valueLabel, type RmsPriceRow, type RmsPricesStatus, type RmsValueRow, type View } from '@sh/shared'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Refusal, useAct } from './act.tsx'
 import { markSignedOut } from './auth.ts'
@@ -22,7 +22,8 @@ type Loaded = { state: 'loading' } | { state: 'offline' } | { state: 'ready'; st
 const STAGE_WORDS = { products: "Reading Current RMS's products", rates: 'Reading the price of each' } as const
 
 /** The price list as it stands, so the card asks again once a fill-in or a price typed elsewhere reaches it. */
-const pricesKey = (view: View) => view.warehouse.models.map((m) => `${m.id}:${view.money.productPrice(m.id) ?? ''}:${view.money.productRate(m.id) ?? ''}`).join(',')
+const pricesKey = (view: View) =>
+  view.warehouse.models.map((m) => `${m.id}:${view.money.productPrice(m.id) ?? ''}:${view.money.productRate(m.id) ?? ''}:${m.valueCents ?? ''}`).join(',')
 
 export function RmsPricesCard({ view, canRead }: { view: View; canRead: boolean }) {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' })
@@ -74,7 +75,7 @@ export function RmsPricesCard({ view, canRead }: { view: View; canRead: boolean 
   if (loaded.state === 'offline')
     return (
       <section className="card">
-        <h2>Hire prices from Current RMS</h2>
+        <h2>Prices and replacement values from Current RMS</h2>
         <p className="hint">Can't read Current RMS's prices without signal.</p>
       </section>
     )
@@ -84,19 +85,22 @@ export function RmsPricesCard({ view, canRead }: { view: View; canRead: boolean 
 
   const { plan, last, running: progress } = status
   const writes = plan ? plan.fill.length + plan.update.length + (overwrite ? plan.differs.length : 0) : 0
+  const values = plan?.values.fill.length ?? 0
+  const what = [writes ? plural(writes, 'price') : '', values ? plural(values, 'replacement value') : ''].filter(Boolean).join(' and ')
   const fill = () =>
     void run(async () => {
       await client.mutate('price.fromRms', { overwrite })
-      setNote({ ok: true, text: `Filling in ${plural(writes, 'price')}. The lists here catch up as the server takes it.` })
+      setNote({ ok: true, text: `Filling in ${what}. The lists here catch up as the server takes it.` })
       setOverwrite(false)
     })
 
   return (
     <section className="card rms-prices" aria-labelledby="rms-prices-title">
-      <h2 id="rms-prices-title">Hire prices from Current RMS</h2>
+      <h2 id="rms-prices-title">Prices and replacement values from Current RMS</h2>
       <p>
-        Fills in the price list from each product's rental price in Current RMS, and how it's charged there: Daily, 3 Day Week or Weekly. A product is found by the
-        Current RMS id it came in with, else by its name or another name it goes by. Nothing changes in Current RMS.
+        Fills in the price list from each product's rental price in Current RMS, and how it's charged there: Daily, 3 Day Week or Weekly. Its replacement charge
+        fills in the replacement value of a product that has none yet. A product is found by the Current RMS id it came in with, else by its name or another name it
+        goes by. Nothing changes in Current RMS.
       </p>
       {progress ? (
         <div role="status">
@@ -152,6 +156,14 @@ export function RmsPricesCard({ view, canRead }: { view: View; canRead: boolean 
             >
               <Names names={plan.unmatched.map((x) => x.name)} />
             </Part>
+            <Part n={plan.values.fill.length} title={plan.values.fill.length === 1 ? 'replacement value to fill in' : 'replacement values to fill in'} hint="These products have no replacement value here yet; Current RMS's replacement charge fills it in.">
+              <ValueRows rows={plan.values.fill} />
+            </Part>
+            <Part
+              n={plan.values.kept}
+              title={plan.values.kept === 1 ? 'replacement value set here, and different' : 'replacement values set here, and different'}
+              hint="A replacement value typed here always stays. Change it on the product's page."
+            />
             <Part n={plan.notInRms} title={plan.notInRms === 1 ? 'product here that Current RMS doesn’t have' : 'products here that Current RMS doesn’t have'} />
           </ul>
           {plan.differs.length > 0 && (
@@ -172,8 +184,8 @@ export function RmsPricesCard({ view, canRead }: { view: View; canRead: boolean 
       {!progress && (
         <div className="row">
           {plan && (
-            <button type="button" className="primary" onClick={fill} disabled={writes === 0}>
-              {writes === 0 ? 'Nothing to fill in' : `Fill in ${plural(writes, 'price')}`}
+            <button type="button" className="primary" onClick={fill} disabled={!what}>
+              {what ? `Fill in ${what}` : 'Nothing to fill in'}
             </button>
           )}
           {canRead && (
@@ -224,6 +236,19 @@ function Rows({ rows }: { rows: readonly RmsPriceRow[] }) {
           {r.rmsName && ` (${r.rmsName} in Current RMS)`}: {r.was ? `${hirePriceLabel(r.was.dayCents, r.was.rate ?? 'daily')} here, ` : ''}
           {hirePriceLabel(r.dayCents, r.rate)}
           {r.was ? ' in Current RMS' : ''}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ValueRows({ rows }: { rows: readonly RmsValueRow[] }) {
+  return (
+    <ul className="hint">
+      {rows.map((r) => (
+        <li key={r.modelId}>
+          <b>{r.name}</b>
+          {r.rmsName && ` (${r.rmsName} in Current RMS)`}: {valueLabel(r.valueCents)}
         </li>
       ))}
     </ul>

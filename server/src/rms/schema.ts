@@ -158,6 +158,11 @@ const MIGRATIONS: string[] = [
     set_at          timestamptz NOT NULL DEFAULT now()
   );
   `,
+  // Each product's replacement charge as Current RMS has it (ADR 0197), read with its hire price, for filling in
+  // replacement values where a product has none.
+  `
+  ALTER TABLE rms_products ADD COLUMN IF NOT EXISTS replacement_cents integer CHECK (replacement_cents > 0);
+  `,
 ]
 
 export const RMS: Module = { versionTable: 'rms_schema_version', migrations: MIGRATIONS }
