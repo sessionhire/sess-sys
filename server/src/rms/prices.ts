@@ -4,7 +4,8 @@ import { RmsRefused, type RmsApi } from './api.ts'
 
 /**
  * Reading each product's hire price from Current RMS (ADR 0132), for filling
- * the price list in. Current RMS lists its products a hundred a request; a
+ * the price list in, and its replacement charge, for filling in replacement
+ * values where there are none (ADR 0197). Current RMS lists its products a hundred a request; a
  * product's rates (store-wide, and the office's own store's where it has
  * one) come with it where Current RMS includes them, else from its own
  * request, a second apiece, so a read of three hundred products takes a few
@@ -32,6 +33,7 @@ interface ApiProduct {
   name?: string | null
   active?: boolean
   allowed_stock_type_name?: string | null
+  replacement_charge?: Num
   rental_rates?: ApiRate[] | null
 }
 interface Meta {
@@ -99,10 +101,10 @@ export class RmsPriceReader {
 
   /** The copy from the last whole read. */
   async kept(): Promise<RmsProductPrice[]> {
-    const { rows } = await this.db.reads.query<{ id: number; name: string; price_cents: number | null; rate_definition: string }>(
-      'SELECT id, name, price_cents, rate_definition FROM rms_products ORDER BY id'
+    const { rows } = await this.db.reads.query<{ id: number; name: string; price_cents: number | null; rate_definition: string; replacement_cents: number | null }>(
+      'SELECT id, name, price_cents, rate_definition, replacement_cents FROM rms_products ORDER BY id'
     )
-    return rows.map((r) => ({ id: r.id, name: r.name, priceCents: r.price_cents, rateDefinition: r.rate_definition }))
+    return rows.map((r) => ({ id: r.id, name: r.name, priceCents: r.price_cents, rateDefinition: r.rate_definition, replacementCents: r.replacement_cents }))
   }
 
   /** Start a read in the background. False when one is already running or there's no key. */
@@ -153,7 +155,7 @@ export class RmsPriceReader {
       for (const p of hired) {
         check()
         const rates = Array.isArray(p.rental_rates) ? p.rental_rates : ((await api.read<{ rates?: ApiRate[] }>(`/products/${p.id}/rates`)).rates ?? [])
-        found.push({ id: p.id, name: (p.name ?? '').slice(0, 200), ...hireRate(rates) })
+        found.push({ id: p.id, name: (p.name ?? '').slice(0, 200), ...hireRate(rates), replacementCents: cents(p.replacement_charge) || null })
         read++
         progress.done = read
       }
@@ -162,7 +164,13 @@ export class RmsPriceReader {
       await this.db.transaction(async (tx) => {
         await tx.query('DELETE FROM rms_products')
         for (const f of found)
-          await tx.query('INSERT INTO rms_products (id, name, price_cents, rate_definition) VALUES ($1, $2, $3, $4)', [f.id, f.name, f.priceCents, f.rateDefinition])
+          await tx.query('INSERT INTO rms_products (id, name, price_cents, rate_definition, replacement_cents) VALUES ($1, $2, $3, $4, $5)', [
+            f.id,
+            f.name,
+            f.priceCents,
+            f.rateDefinition,
+            f.replacementCents ?? null,
+          ])
       })
       this.log?.info({ products: read }, "Read Current RMS's hire prices")
     } catch (err) {

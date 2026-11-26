@@ -3,6 +3,26 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 26 November 2026: rental prices and replacement values from Current RMS
+
+**In review (1.232.0, #443, ADR 0197)**
+
+- Colly: "use the pricing in Current RMS to populate the rental prices in the
+  new system, and also see if it's possible to populate the replacement
+  costs". Hire prices were already built (ADR 0132) but never run on live;
+  Colly runs Admin › Connections › Read prices, then Fill in.
+- The same read now keeps each product's replacement charge and fills in the
+  replacement value of products with none (or nought). A value typed here is
+  never changed. The card is now "Prices and replacement values from
+  Current RMS".
+- Current RMS has a replacement charge for 190 of 309 products. The other
+  119 are being priced by hand from European shops that deliver to Ireland,
+  with a source link and a confidence for each; an 11-row sample waits on
+  Colly. No scraper in the app: Thomann refuses AI crawlers in robots.txt and
+  Gear4music refuses automated requests.
+- Checked: typecheck; shared tests; server rms-prices tests (1 new); the
+  card's browser test.
+
 ## 24 November 2026: documents on a job, for the crew
 
 **Done (1.231.0, #442, ADR 0196)**

@@ -115,10 +115,12 @@ export async function pricesStatus(q: Queryable, prices: RmsPriceReader): Promis
   const last = await prices.last()
   let plan: RmsPricesStatus['plan'] = null
   if (kept.length) {
-    const { rows: models } = await q.query<{ id: string; name: string; aliases: string[]; list_id: string }>('SELECT id, name, aliases, list_id FROM models')
+    const { rows: models } = await q.query<{ id: string; name: string; aliases: string[]; list_id: string; value_cents: number | null }>(
+      'SELECT id, name, aliases, list_id, value_cents FROM models'
+    )
     const { rows: had } = await q.query<{ model_id: string; day_cents: number; rate: RateRule | null; from_rms: boolean }>('SELECT model_id, day_cents, rate, from_rms FROM product_prices')
     const here = new Map<string, PriceHere>(had.map((p) => [p.model_id, { dayCents: p.day_cents, ...(p.rate ? { rate: p.rate } : {}), fromRms: p.from_rms }]))
-    plan = rmsPricePlan(kept, models.map((m) => ({ id: m.id, name: m.name, aliases: m.aliases, listId: m.list_id })), (id) => here.get(id))
+    plan = rmsPricePlan(kept, models.map((m) => ({ id: m.id, name: m.name, aliases: m.aliases, listId: m.list_id, valueCents: m.value_cents })), (id) => here.get(id))
   }
   return { configured: prices.configured, running: prices.running, last, products: kept.length, plan }
 }

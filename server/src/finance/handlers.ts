@@ -379,21 +379,24 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
   /**
    * The price list filled in from Current RMS's hire prices (ADR 0132), as Admin last read them, worked out the way the
    * preview showed it (rmsPricePlan): products with no price, and those whose price came from Current RMS before; one
-   * set here by hand only when asked to. Each written is marked as from Current RMS.
+   * set here by hand only when asked to. Each written is marked as from Current RMS. Replacement charges fill in the
+   * replacement value of products with none (ADR 0197).
    */
   async 'price.fromRms'(ctx, a) {
-    const { rows: rms } = await ctx.tx.query<{ id: number; name: string; price_cents: number | null; rate_definition: string }>(
-      'SELECT id, name, price_cents, rate_definition FROM rms_products'
+    const { rows: rms } = await ctx.tx.query<{ id: number; name: string; price_cents: number | null; rate_definition: string; replacement_cents: number | null }>(
+      'SELECT id, name, price_cents, rate_definition, replacement_cents FROM rms_products'
     )
     if (!rms.length) throw new Refused({ code: 'conflict', message: 'Read the prices from Current RMS first, under Admin.' })
-    const { rows: models } = await ctx.tx.query<{ id: string; name: string; aliases: string[]; list_id: string }>('SELECT id, name, aliases, list_id FROM models')
+    const { rows: models } = await ctx.tx.query<{ id: string; name: string; aliases: string[]; list_id: string; value_cents: number | null }>(
+      'SELECT id, name, aliases, list_id, value_cents FROM models'
+    )
     const { rows: had } = await ctx.tx.query<{ model_id: string; day_cents: number; rate: RateRule | null; from_rms: boolean }>(
       'SELECT model_id, day_cents, rate, from_rms FROM product_prices'
     )
     const prices = new Map<string, PriceHere>(had.map((p) => [p.model_id, { dayCents: p.day_cents, ...(p.rate ? { rate: p.rate } : {}), fromRms: p.from_rms }]))
     const plan = rmsPricePlan(
-      rms.map((r): RmsProductPrice => ({ id: r.id, name: r.name, priceCents: r.price_cents, rateDefinition: r.rate_definition })),
-      models.map((m) => ({ id: m.id, name: m.name, aliases: m.aliases, listId: m.list_id })),
+      rms.map((r): RmsProductPrice => ({ id: r.id, name: r.name, priceCents: r.price_cents, rateDefinition: r.rate_definition, replacementCents: r.replacement_cents })),
+      models.map((m) => ({ id: m.id, name: m.name, aliases: m.aliases, listId: m.list_id, valueCents: m.value_cents })),
       (id) => prices.get(id)
     )
     for (const w of rmsPriceWrites(plan, a.overwrite)) {
@@ -403,6 +406,11 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
         [w.modelId, w.dayCents, w.rate]
       )
       await emit(ctx, 'productPrice', w.modelId, await getProductPrice(ctx.tx, w.modelId))
+    }
+    // Replacement values (ADR 0197): only where a product has none, so one typed here is never changed.
+    for (const v of plan.values.fill) {
+      const { rows: set } = await ctx.tx.query('UPDATE models SET value_cents = $2 WHERE id = $1 AND (value_cents IS NULL OR value_cents = 0) RETURNING 1', [v.modelId, v.valueCents])
+      if (set.length) await emit(ctx, 'model', v.modelId, await getModel(ctx.tx, v.modelId))
     }
   },
 

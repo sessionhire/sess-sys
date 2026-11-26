@@ -49,13 +49,13 @@ function fakeRms() {
     157: [rate('30.0', 'Daily Rate')],
   }
   const products = [
-    { id: 151, name: 'd&b Y10P', rental_rates: prices[151] },
+    { id: 151, name: 'd&b Y10P', replacement_charge: '2500.0', rental_rates: prices[151] },
     { id: 152, name: 'Shure SM 58', rental_rates: prices[152] },
     { id: 153, name: '100m Lighting multi core' },
-    { id: 154, name: 'Gaffer tape' },
+    { id: 154, name: 'Gaffer tape', replacement_charge: '8.0' },
     { id: 155, name: 'Mystery haze machine' },
     { id: 156, name: 'Batteries AA', allowed_stock_type_name: 'Sale' },
-    { id: 157, name: 'DI box' },
+    { id: 157, name: 'DI box', replacement_charge: '90.0' },
   ]
   const fetch = (async (input: URL | string, init?: RequestInit) => {
     const url = new URL(String(input))
@@ -100,7 +100,7 @@ async function office(withRms = true) {
 
 type Cmd = { [N in CommandName]: [N, CommandInput<N>] }[CommandName]
 
-const model = (id: string, name: string, more: { aliases?: string[]; listId?: string } = {}): Cmd => [
+const model = (id: string, name: string, more: { aliases?: string[]; listId?: string; valueCents?: number | null } = {}): Cmd => [
   'model.create',
   { id, name, department: 'audio', category: '', tracking: 'bulk', isCase: false, valueCents: null, notes: '', ...more },
 ]
@@ -121,8 +121,8 @@ describe('hire prices from Current RMS', () => {
     expect(rms.asked.filter((a) => a.path.endsWith('/rates')).map((a) => a.path)).toEqual(['/products/153/rates', '/products/154/rates', '/products/155/rates', '/products/157/rates'])
     const status = await get<RmsPricesStatus>('/api/rms/prices')
     expect(status).toMatchObject({ configured: true, running: null, products: 6, last: { products: 6, error: null, stopped: false } })
-    // Nothing on the stock list yet: everything priced is unmatched.
-    expect(status.plan?.unmatched.map((u) => u.name)).toEqual(['100m Lighting multi core', 'd&b Y10P', 'DI box', 'Mystery haze machine', 'Shure SM 58'])
+    // Nothing on the stock list yet: everything with a price or a replacement charge is unmatched.
+    expect(status.plan?.unmatched.map((u) => u.name)).toEqual(['100m Lighting multi core', 'd&b Y10P', 'DI box', 'Gaffer tape', 'Mystery haze machine', 'Shure SM 58'])
   })
 
   it('fills in what has no price, keeps one set by hand unless ticked, follows Current RMS for its own, and says so in History', async () => {
@@ -174,9 +174,30 @@ describe('hire prices from Current RMS', () => {
 
     const history: HistoryPage = await get('/api/history?limit=20')
     expect(history.entries.filter((e) => e.command === 'price.fromRms').map((e) => e.what)).toEqual([
-      'Filled in hire prices from Current RMS, over prices set here too',
-      'Filled in hire prices from Current RMS',
+      'Filled in hire prices and replacement values from Current RMS, over prices set here too',
+      'Filled in hire prices and replacement values from Current RMS',
     ])
+  })
+
+  it('fills in a replacement value only where a product has none, even one with no hire price', async () => {
+    const { app, get, post, send } = await office()
+    await send(model('y10p', 'd&b Y10P'), model('tape', 'Gaffer tape', { valueCents: 0 }), model('di', 'DI box', { valueCents: 12000 }))
+    await post('/api/rms/prices/read')
+    await app.rmsPrices.done
+
+    const { plan } = await get<RmsPricesStatus>('/api/rms/prices')
+    expect(plan!.values.fill.map((v) => [v.modelId, v.valueCents])).toEqual([
+      ['y10p', 250000],
+      ['tape', 800],
+    ])
+    // The DI box's 120 typed here stays.
+    expect(plan!.values.kept).toBe(1)
+
+    await send(['price.fromRms', { overwrite: true }])
+    const pulled = (await get<{ changes: { entity: string; id: string; data: { valueCents: number | null } | null }[] }>('/api/sync/pull?after=0')).changes
+    const value = (id: string) => pulled.filter((c) => c.entity === 'model' && c.id === id).at(-1)?.data?.valueCents
+    expect([value('y10p'), value('tape'), value('di')]).toEqual([250000, 800, 12000])
+    expect((await get<RmsPricesStatus>('/api/rms/prices')).plan!.values).toEqual({ fill: [], kept: 1 })
   })
 
   it('turns a fill-in down before the prices have been read', async () => {

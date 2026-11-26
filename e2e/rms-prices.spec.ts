@@ -25,6 +25,7 @@ const status: RmsPricesStatus = {
     unmatched: [{ id: 155, name: 'Mystery haze machine' }],
     noPrice: [{ modelId: 'tape', name: 'Gaffer tape' }],
     notInRms: 12,
+    values: { fill: [{ modelId: 'y10p', name: 'd&b Y10P', rmsName: '', valueCents: 250000 }], kept: 3 },
   },
 }
 
@@ -33,19 +34,23 @@ test('the card says what filling in would do before anything changes', async ({ 
   await page.route('**/api/rms/prices', (route) => route.fulfill({ json: status }))
   await page.route('**/api/rms', (route) => route.fulfill({ json: { configured: true, subdomain: 'sessionhire', running: null, last: null, opportunities: 0, lines: 0 } }))
   await page.goto('/#admin/connections')
-  const card = page.getByRole('region', { name: 'Hire prices from Current RMS' })
+  const card = page.getByRole('region', { name: 'Prices and replacement values from Current RMS' })
   await expect(card).toBeVisible()
   await expect(card.getByText('180 already the same')).toBeVisible()
-  await expect(card.getByRole('button', { name: 'Fill in 3 prices' })).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Fill in 3 prices and 1 replacement value' })).toBeVisible()
 
-  await card.getByText('to fill in').click()
+  await card.getByText('to fill in').first().click()
   await expect(card.getByText('€150 a week, Weekly')).toBeVisible()
   await expect(card.getByText('(100m Lighting multi core in Current RMS)')).toBeVisible()
   await card.getByText('set here by hand, and different').click()
   await expect(card.getByText('€25 a day, Daily here, €30 a day, Daily in Current RMS')).toBeVisible()
 
+  await card.getByText('replacement value to fill in').click()
+  await expect(card.getByText('€2,500')).toBeVisible()
+  await expect(card.getByText('3 replacement values set here, and different')).toBeVisible()
+
   await card.getByLabel("Use Current RMS's price for the one set here too").check()
-  await expect(card.getByRole('button', { name: 'Fill in 4 prices' })).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Fill in 4 prices and 1 replacement value' })).toBeVisible()
 
   // Nothing wider than the phone: the lists grow the page.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

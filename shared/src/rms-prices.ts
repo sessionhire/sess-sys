@@ -12,6 +12,10 @@ import { valueLabel } from './stock.ts'
  * kept on it (ADR 0056), else by its name or one of its other names. A
  * price someone set here is kept unless they tick to take Current RMS's
  * over it; one that came from Current RMS before follows Current RMS.
+ *
+ * Each product's replacement charge comes with it, and fills in the
+ * product's replacement value where it has none yet; a value here is
+ * never changed by it.
  */
 
 /** A product as Current RMS prices it for hire, kept on the server from the last read. */
@@ -23,6 +27,8 @@ export interface RmsProductPrice {
   priceCents: number | null
   /** Current RMS's rate definition, as it names it: "3 Day Week Rate". */
   rateDefinition: string
+  /** Its replacement charge in cents; null where Current RMS has none (or nought). */
+  replacementCents?: number | null
 }
 
 /** Current RMS's three rate definitions, as the app's rules (ADR 0085). Anything else isn't one the app can charge by. */
@@ -43,6 +49,8 @@ export interface PriceModel {
   aliases?: readonly string[]
   /** Current RMS's id, as the stock bring-in kept it. */
   listId?: string
+  /** Its replacement value here; null (or nought) is none yet. */
+  valueCents?: number | null
 }
 
 export interface PriceHere {
@@ -64,6 +72,15 @@ export interface RmsPriceRow {
   was?: { dayCents: number; rate?: RateRule }
 }
 
+/** A product with no replacement value here that Current RMS has one for. */
+export interface RmsValueRow {
+  modelId: string
+  name: string
+  /** Its name in Current RMS, where it differs. */
+  rmsName: string
+  valueCents: number
+}
+
 export interface RmsPricePlan {
   /** Matched, with no price here yet. */
   fill: RmsPriceRow[]
@@ -73,12 +90,17 @@ export interface RmsPricePlan {
   differs: RmsPriceRow[]
   /** Already the same here. */
   same: number
-  /** In Current RMS with a hire price, but no product here goes by its name or id. */
+  /** In Current RMS with a hire price or replacement charge, but no product here goes by its name or id. */
   unmatched: { id: number; name: string }[]
   /** Matched, but Current RMS has no hire price for it, or charges it by a rule the app doesn't have. */
   noPrice: { modelId: string; name: string }[]
   /** Products here Current RMS has nothing for. */
   notInRms: number
+  /**
+   * Replacement values: filled in only where a product has none here, so a value someone typed is never changed.
+   * `kept` counts those with a value here that differs from Current RMS's.
+   */
+  values: { fill: RmsValueRow[]; kept: number }
 }
 
 const key = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -92,23 +114,28 @@ export function rmsPricePlan(rms: readonly RmsProductPrice[], models: readonly P
   for (const m of models) for (const a of m.aliases ?? []) if (!byName.has(key(a))) byName.set(key(a), m)
   for (const m of models) byName.set(key(m.name), m)
 
-  const plan: RmsPricePlan = { fill: [], update: [], differs: [], same: 0, unmatched: [], noPrice: [], notInRms: 0 }
+  const plan: RmsPricePlan = { fill: [], update: [], differs: [], same: 0, unmatched: [], noPrice: [], notInRms: 0, values: { fill: [], kept: 0 } }
   const matched = new Set<string>()
   // By id first, so a renamed product isn't taken by another's name.
   const order = [...rms].sort((a, b) => Number(!byListId.has(String(a.id))) - Number(!byListId.has(String(b.id))) || a.id - b.id)
   for (const p of order) {
     const m = byListId.get(String(p.id)) ?? byName.get(key(p.name))
     if (!m || matched.has(m.id)) {
-      if (!m && p.priceCents) plan.unmatched.push({ id: p.id, name: p.name })
+      if (!m && (p.priceCents || p.replacementCents)) plan.unmatched.push({ id: p.id, name: p.name })
       continue
     }
     matched.add(m.id)
+    const rmsName = key(p.name) === key(m.name) ? '' : p.name
+    if (p.replacementCents) {
+      if (!m.valueCents) plan.values.fill.push({ modelId: m.id, name: m.name, rmsName, valueCents: p.replacementCents })
+      else if (m.valueCents !== p.replacementCents) plan.values.kept++
+    }
     const rule = ruleOfRateDefinition(p.rateDefinition)
     if (!p.priceCents || !rule) {
       plan.noPrice.push({ modelId: m.id, name: m.name })
       continue
     }
-    const row: RmsPriceRow = { modelId: m.id, name: m.name, rmsName: key(p.name) === key(m.name) ? '' : p.name, dayCents: p.priceCents, rate: rule }
+    const row: RmsPriceRow = { modelId: m.id, name: m.name, rmsName, dayCents: p.priceCents, rate: rule }
     const here = prices(m.id)
     if (!here) plan.fill.push(row)
     else if (here.dayCents === p.priceCents && (here.rate ?? 'daily') === rule) plan.same++
@@ -126,6 +153,7 @@ export function rmsPricePlan(rms: readonly RmsProductPrice[], models: readonly P
   plan.differs.sort(byNameOrder)
   plan.unmatched.sort(byNameOrder)
   plan.noPrice.sort(byNameOrder)
+  plan.values.fill.sort(byNameOrder)
   return plan
 }
 
