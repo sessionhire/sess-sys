@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 26 November 2026: a thread Claude can't read is set aside
 
-**Done (1.232.2, ADR 0199)**
+**Done (1.232.2, #446, ADR 0199)**
 
 - Colly: "The integration is quite opaque at the moment." Looking into it
   found that one thread Claude couldn't read stopped every look at the
