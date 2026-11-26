@@ -1,6 +1,6 @@
 # ADR 0201: Delivery and collection on every quote, by van or truck
 
-- **Status:** accepted
+- **Status:** accepted; amended the same day with the Dublin flat fee and delivery or collection only (below)
 - **Date:** 26 November 2026
 - **Asked for by:** Colly, 26 November 2026: "Can you add a section to the quote for delivery/collection. Stipulate Van
   or Truck, if Van then base price is 160 within Dublin and then charge additional for distances travelled more than
@@ -42,3 +42,17 @@ Admin › Company › Dry hire delivery. Nothing else could have one, and there 
 - The van's prices are one set for every quote. A second van size, or a truck rate card, would be a new set of fields
   here, and the truck's per-job box would stay as the override.
 - Delivery is charged one way's measure for there and back, as before: the prices are set to cover both.
+
+## Amended, 26 November 2026: the Dublin flat fee, and one way only
+
+Colly: "can you change the delivery and collection quote item to be called dublin flat fee, and have an option to
+stipulate delivery and/or collection in case they only need things delivered for example".
+
+- **The van's line is the Dublin flat fee**: "Dublin flat fee" within the km the set amount covers, "Dublin flat fee,
+  then 12 km at €1.00 a km" past them. With no set amount (every km at the price a km) it reads "Van, delivery and
+  collection, 40 km from the warehouse". A truck's line says which way: "Delivery and collection by truck", "Delivery
+  only by truck".
+- **Which way** (`quotes.delivery_trips`): Delivery and collection, Delivery only or Collection only, under the vehicle
+  choice; null is both, so no quote changes. A van one way is a share of its price there and back, set under Admin as
+  One way only (`quote_settings.delivery_one_way_pct`, 10 to 100) and half until set: the van's set amount covers the
+  trip there and back, and a one-way job uses about half the driving. A truck's typed price is the job's, whichever way.

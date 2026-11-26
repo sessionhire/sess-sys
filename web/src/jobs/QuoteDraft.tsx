@@ -40,6 +40,7 @@ import {
   extrasFor,
   deliveryFor,
   type DeliveryBy,
+  type DeliveryTrips,
   travelSettingsOf,
   kindOf,
   type Pin,
@@ -127,6 +128,7 @@ interface Typed {
   /** Left out by a device from before delivery and collection (ADR 0201). */
   by?: DeliveryBy | null
   truck?: string
+  trips?: DeliveryTrips | null
   discount: string
   agreed: string
   notes: string
@@ -135,7 +137,7 @@ interface Typed {
   forName?: string
 }
 const baseOf = (q: QuoteView) =>
-  JSON.stringify([q.lines, q.discountPct, q.agreedCents ?? null, q.notes, q.validDays ?? null, q.depositPct ?? null, q.mealsProvided ?? false, q.travelKm ?? null, q.forName ?? '', q.accommodationProvided ?? false, q.deliveryBy ?? null, q.deliveryCents ?? null])
+  JSON.stringify([q.lines, q.discountPct, q.agreedCents ?? null, q.notes, q.validDays ?? null, q.depositPct ?? null, q.mealsProvided ?? false, q.travelKm ?? null, q.forName ?? '', q.accommodationProvided ?? false, q.deliveryBy ?? null, q.deliveryCents ?? null, q.deliveryTrips ?? null])
 function readTyped(): Record<string, Typed> {
   try {
     return JSON.parse(sessionStorage.getItem(TYPED_STORE) ?? '{}') as Record<string, Typed>
@@ -166,6 +168,7 @@ const termsText = (q: QuoteView) => ({
   kmTyped: q.travelKm == null ? '' : String(q.travelKm),
   by: q.deliveryBy ?? null,
   truck: q.deliveryCents == null ? '' : euroText(q.deliveryCents),
+  trips: q.deliveryTrips ?? null,
   discount: q.discountPct ? String(q.discountPct) : '',
   agreed: q.agreedCents == null ? '' : euroText(q.agreedCents),
   notes: q.notes,
@@ -237,6 +240,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const [rooms, setRooms] = useState(kept?.rooms ?? q.accommodationProvided ?? false)
   // Delivery and collection (ADR 0201): null until picked here, when the quote takes what the job starts on.
   const [deliveryBy, setDeliveryBy] = useState<DeliveryBy | null>(kept ? (kept.by ?? null) : (q.deliveryBy ?? null))
+  const [trips, setTrips] = useState<DeliveryTrips | null>(kept ? (kept.trips ?? null) : (q.deliveryTrips ?? null))
   const [truckTyped, setTruckTyped] = useState(kept?.truck ?? (q.deliveryCents == null ? '' : euroText(q.deliveryCents)))
   const [kmTyped, setKmTyped] = useState(kept?.kmTyped ?? (q.travelKm == null ? '' : String(q.travelKm)))
   const [discount, setDiscount] = useState(kept?.discount ?? (q.discountPct ? String(q.discountPct) : ''))
@@ -334,6 +338,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     setKmTyped(unless(a.kmTyped, z.kmTyped))
     setDeliveryBy(unless(a.by, z.by))
     setTruckTyped(unless(a.truck, z.truck))
+    setTrips(unless(a.trips, z.trips))
     setDiscount(unless(a.discount, z.discount))
     setAgreed(unless(a.agreed, z.agreed))
     setNotes((now) => (now.trim() === a.notes.trim() ? z.notes : now))
@@ -382,6 +387,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     price: { baseCents: m.quoting.deliveryBaseCents, baseKm: m.quoting.deliveryBaseKm, centsPerKm: m.quoting.deliveryCentsPerKm },
     by: deliveryBy,
     truckCents,
+    trips,
+    oneWayPct: m.quoting.deliveryOneWayPct,
     id: q.lines.find((l) => l.extra === 'delivery')?.id,
     newId: useStableIds(),
   })
@@ -433,6 +440,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     rooms === (q.accommodationProvided ?? false) &&
     deliveryBy === (q.deliveryBy ?? null) &&
     truckCents === (q.deliveryCents ?? null) &&
+    trips === (q.deliveryTrips ?? null) &&
     kmRead === (q.travelKm ?? null) &&
     pct === q.discountPct &&
     agreedCents === (q.agreedCents ?? null) &&
@@ -506,7 +514,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   // the page saves what's waiting at once. Saving goes through the device's queue, so it works with no signal.
   const payload =
     !storedSame && !termKey
-      ? { id: q.id, projectId: job.id, lines: stored.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, accommodationProvided: rooms, deliveryBy, deliveryCents: truckCents, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
+      ? { id: q.id, projectId: job.id, lines: stored.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, accommodationProvided: rooms, deliveryBy, deliveryCents: truckCents, deliveryTrips: trips, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
       : undefined
   const waiting = useRef(payload)
   waiting.current = payload
@@ -549,7 +557,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: acceptedOn || today }))
   const late = useLate(!!payload)
   // Kept on the device while it can't save (finding 27), and let go once it can.
-  const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, rooms, kmTyped, by: deliveryBy, truck: truckTyped, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
+  const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, rooms, kmTyped, by: deliveryBy, truck: truckTyped, trips, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
   useEffect(() => keepTyped(q.id, typed ? (JSON.parse(typed) as Typed) : undefined), [typed])
 
   const days = jobDays(job)
@@ -1098,6 +1106,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
             open={open}
             setOpen={openLine}
             setBy={setDeliveryBy}
+            setTrips={setTrips}
             truck={truckTyped}
             setTruck={setTruckTyped}
             truckProblem={termErr('truck')}

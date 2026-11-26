@@ -28,11 +28,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.236.0',
+    version: '1.237.0',
     date: '2026-11-26',
     title: 'Discounts shown on the printed and PDF quote',
     what: 'When a line on a quote has a discount of its own, the printed quote and its PDF get a Discount column beside the amount: how much off, as a percentage, and what that takes off in euro, so the client sees the price, the discount and what they pay. A discount off the whole quote is called Overall discount when lines have their own too. The client’s online page shows each line’s discount under its amount. A quote with no line discounts looks just as before.',
     prs: [451],
+  },
+  {
+    version: '1.236.0',
+    date: '2026-11-26',
+    title: 'Dublin flat fee, and delivery or collection only',
+    what: "The van's line on a quote is now called Dublin flat fee, with any km past it added after. Below Van or Truck you can now pick Delivery and collection, Delivery only or Collection only. A van one way is half its price unless you change that under Admin › Company › Delivery and collection, in One way only. A truck stays at the price you type for the job.",
+    prs: [450],
+    adrs: [201],
   },
   {
     version: '1.235.0',

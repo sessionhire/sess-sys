@@ -1,4 +1,4 @@
-import { MAX_LINES, type DeliveryBy, type Quote, type QuoteLine } from './quotes.ts'
+import { MAX_LINES, type DeliveryBy, type DeliveryTrips, type Quote, type QuoteLine } from './quotes.ts'
 
 /**
  * Two people on one draft keep both their changes (ADR 0113). A save says what the draft held when the device's
@@ -68,9 +68,10 @@ export interface DraftBase {
   /** Left out by an app older than delivery and collection (ADR 0201). */
   deliveryBy?: DeliveryBy | null
   deliveryCents?: number | null
+  deliveryTrips?: DeliveryTrips | null
 }
 
-type DraftTerms = Pick<Quote, 'lines' | 'discountPct' | 'notes' | 'validDays' | 'depositPct' | 'agreedCents' | 'mealsProvided' | 'travelKm' | 'forName' | 'accommodationProvided' | 'deliveryBy' | 'deliveryCents'>
+type DraftTerms = Pick<Quote, 'lines' | 'discountPct' | 'notes' | 'validDays' | 'depositPct' | 'agreedCents' | 'mealsProvided' | 'travelKm' | 'forName' | 'accommodationProvided' | 'deliveryBy' | 'deliveryCents' | 'deliveryTrips'>
 
 export function draftBase(q: DraftTerms): DraftBase {
   return {
@@ -86,6 +87,7 @@ export function draftBase(q: DraftTerms): DraftBase {
     accommodationProvided: q.accommodationProvided ?? false,
     deliveryBy: q.deliveryBy ?? null,
     deliveryCents: q.deliveryCents ?? null,
+    deliveryTrips: q.deliveryTrips ?? null,
   }
 }
 
@@ -103,6 +105,7 @@ export interface DraftSave {
   accommodationProvided?: boolean
   deliveryBy?: DeliveryBy | null
   deliveryCents?: number | null
+  deliveryTrips?: DeliveryTrips | null
 }
 
 /**
@@ -166,6 +169,7 @@ export function mergeDraft<S extends DraftSave>(now: DraftTerms, save: S, base: 
     merged.accommodationProvided = base.accommodationProvided === undefined ? save.accommodationProvided : pick(save.accommodationProvided, base.accommodationProvided, nowBase.accommodationProvided ?? false)
   if (save.deliveryBy !== undefined) merged.deliveryBy = base.deliveryBy === undefined ? save.deliveryBy : pick(save.deliveryBy, base.deliveryBy, nowBase.deliveryBy ?? null)
   if (save.deliveryCents !== undefined) merged.deliveryCents = base.deliveryCents === undefined ? save.deliveryCents : pick(save.deliveryCents, base.deliveryCents, nowBase.deliveryCents ?? null)
+  if (save.deliveryTrips !== undefined) merged.deliveryTrips = base.deliveryTrips === undefined ? save.deliveryTrips : pick(save.deliveryTrips, base.deliveryTrips, nowBase.deliveryTrips ?? null)
   if (save.forName !== undefined) merged.forName = base.forName === undefined ? save.forName : pick(save.forName, base.forName, nowBase.forName ?? '')
   return { save: merged, both }
 }
