@@ -62,33 +62,36 @@ export class Assistant {
   async refusal(): Promise<{ code: number; error: string } | undefined> {
     const s = await this.status()
     if (!s.configured) return { code: 409, error: 'Claude isn’t set up on the server yet: it needs ANTHROPIC_API_KEY in Railway.' }
-    if (!s.on) return { code: 409, error: 'Claude is turned off. The office can turn it on under Admin › Company.' }
+    if (!s.on) return { code: 409, error: 'Claude is turned off. The office can turn it on under Admin › Claude.' }
     if (s.spentCents >= s.limitCents) return { code: 429, error: 'Claude has used this month’s limit, so it can’t be asked again until the 1st.' }
     return undefined
   }
 
   /** Asks, counts what it cost whatever came back, and reads the answer against the schema leniently. */
-  async run<T extends z.ZodTypeAny>(kind: string, asked: Parameters<Ask>[0], reading: T): Promise<z.infer<T>> {
+  async run<T extends z.ZodTypeAny>(kind: string, asked: Parameters<Ask>[0], reading: T, tally?: { cents: number }): Promise<z.infer<T>> {
     let answer: Answer
     try {
       answer = await this.ask!(asked)
     } catch (err) {
-      if (err instanceof NoAnswer && err.used) await this.count(kind, err.used, false)
+      if (err instanceof NoAnswer && err.used) await this.count(kind, err.used, false, tally)
       throw err instanceof NoAnswer ? err : new NoAnswer('Claude didn’t answer. Try again in a minute.')
     }
     const read = reading.safeParse(answer.json)
-    await this.count(kind, answer, read.success)
+    await this.count(kind, answer, read.success, tally)
     if (!read.success) throw new NoAnswer('Claude’s answer couldn’t be read. Try again.')
     return read.data
   }
 
-  private async count(kind: string, used: Omit<Answer, 'json'>, ok: boolean) {
+  /** Counts an ask toward the month; `tally`, when given, is told what it cost (Admin › Claude's log, ADR 0200). */
+  private async count(kind: string, used: Omit<Answer, 'json'>, ok: boolean, tally?: { cents: number }) {
+    const cents = costCents(this.config!.model, used.inputTokens, used.outputTokens)
+    if (tally) tally.cents += cents
     await this.db.query(`INSERT INTO assistant_uses (kind, model, input_tokens, output_tokens, cost_cents, ok) VALUES ($1, $2, $3, $4, $5, $6)`, [
       kind,
       used.model,
       used.inputTokens,
       used.outputTokens,
-      costCents(this.config!.model, used.inputTokens, used.outputTokens),
+      cents,
       ok,
     ])
   }

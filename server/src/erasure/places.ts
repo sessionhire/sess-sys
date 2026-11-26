@@ -77,6 +77,8 @@ export const GONE: readonly Gone[] = [
   // and questions can name anyone, so all of it goes. The threads stay linked to their jobs, and the mail is still in
   // Gmail, read again when the thread next grows.
   { table: 'mail_notes', theirs: '$1::text IS NOT NULL' },
+  // Claude's log of what it read (ADR 0200): a subject, a sender or Claude's reason can name anyone, so all of it goes.
+  { table: 'mail_reads', theirs: '$1::text IS NOT NULL' },
   // Their address on Google Calendar invites, which devices never see. While invites are on, a day still to come keeps
   // theirs until the calendar's next run takes them off its event, and that run removes the row: gone now, it would
   // leave them on the event as a guest added by hand. Past events in Google keep theirs (ADR 0027).

@@ -12,6 +12,7 @@ import { PillGroup, ViewFilter } from '../ListTools.tsx'
 import { JobViews } from './PlanScreen.tsx'
 import './steps.css'
 import { departmentChips, DepartmentFilter, useJobDepartments } from './Departments.tsx'
+import { ClaudeMark } from './Claude.tsx'
 
 /**
  * Jobs › Board (ADR 0104, part 3): a column per stage, a card per job,
@@ -323,6 +324,7 @@ function BoardCard({ view, steps, today, kit }: { view: View; steps: JobSteps; t
       <a className="board-card" href={`#jobs/${encodeURIComponent(job.id)}`}>
         <b>{job.name}</b>
         <p>{[where, when].filter(Boolean).join(' · ')}</p>
+        <ClaudeMark view={view} of="jobs" id={job.id} />
         {(line || marks.length > 0) && (
           <span className="board-foot">
             {line && (

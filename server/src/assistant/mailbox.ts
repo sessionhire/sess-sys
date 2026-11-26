@@ -17,7 +17,12 @@ import {
   type Department,
   type EnquiryReading,
   type MailboxStatus,
+  type ClaudeLog,
+  type ClaudeMade,
   type MailKind,
+  type MailReading,
+  type ReadDecision,
+  type ReadDid,
   type MailThread,
   type Pricing,
   type QuoteAdvice,
@@ -54,6 +59,8 @@ const LOOK_MS = 5 * 60_000
 const MOST_THREADS = 6
 /** A thread Claude can't read is tried this many times at the same mail, then set aside until new mail comes on it (ADR 0199). */
 const MOST_TRIES = 3
+/** Claude's log keeps this many days (ADR 0200). */
+export const LOG_DAYS = 90
 /** A thread is cut to its latest mails, and Claude's ask to this many characters of them. */
 const MOST_MAILS = 20
 const THREAD_LENGTH = 40_000
@@ -71,6 +78,8 @@ type Row = Record<string, any>
 
 export class Mailbox {
   private timer: NodeJS.Timeout | undefined
+  /** The read under way, which what Claude makes is written down on (ADR 0200). Reads go one at a time. */
+  private doing: ReadLog | undefined
   private looking: Promise<number> | undefined
   private access: { token: string; until: number } | undefined
 
@@ -201,17 +210,19 @@ export class Mailbox {
       const threads = [...new Set(fresh.map((m) => m.threadId).reverse())].slice(0, MOST_THREADS)
       for (const t of threads) {
         if (await this.assistant.refusal()) break
+        const log: ReadLog = { did: [], tally: { cents: 0 } }
         try {
-          await this.readThread(token, t)
+          await this.readThread(token, t, log)
           await this.db.query('DELETE FROM mail_failures WHERE thread_id = $1', [t])
         } catch (err) {
           // Google turning the app away stops the look; anything else is this thread's, and the rest are read (ADR 0199).
           if (err instanceof GoogleError) throw err
-          await this.failed(t, err)
+          await this.failed(t, err, log)
         }
         read++
       }
       await this.db.query('UPDATE assistant_mailbox SET looked_at = $2, problem = NULL WHERE id = $1', [MAILBOX_ID, this.now()])
+      await this.db.query(`DELETE FROM mail_reads WHERE at < $1::timestamptz - make_interval(days => $2::int)`, [this.now(), LOG_DAYS])
     } catch (err) {
       await this.stopped(err, 'read')
       throw err
@@ -225,7 +236,7 @@ export class Mailbox {
    * A thread Claude couldn't read (ADR 0199): counted, and after three tries in a row at the same mail, set aside by
    * marking its mail seen, so it isn't asked about (and paid for) every five minutes. New mail on it starts it again.
    */
-  private async failed(threadId: string, err: unknown): Promise<void> {
+  private async failed(threadId: string, err: unknown, log: ReadLog): Promise<void> {
     const why = err instanceof NoAnswer ? err.message : 'The app turned down what Claude made from it.'
     this.log?.warn({ err: err instanceof Error ? err.message : String(err), threadId }, 'Claude could not read a thread from the operations mailbox')
     let mails: Mail[] = []
@@ -240,22 +251,62 @@ export class Mailbox {
        RETURNING tries`,
       [threadId, mails.length, why.slice(0, 500), this.now()]
     )
-    if ((rows[0]?.tries ?? 0) < MOST_TRIES || !mails.length) return
+    const tries = rows[0]?.tries ?? 0
+    const aside = tries >= MOST_TRIES && mails.length > 0
+    const reason = aside
+      ? `Couldn’t be read ${tries} times, so it’s set aside until new mail comes on it. Quote it by hand, or paste it into New quote.`
+      : `Couldn’t be read (try ${tries} of ${MOST_TRIES}); it’s tried again at the next look.`
     await this.db.transaction(async (tx) => {
+      await this.logRead(tx, { threadId, mails, decision: aside ? 'set-aside' : 'failed', projectId: null, reason, log, problem: why })
+      if (!aside) return
       await tx.query('UPDATE mail_failures SET set_aside = true WHERE thread_id = $1', [threadId])
       await tx.query('INSERT INTO mail_seen (id, thread_id) SELECT unnest($1::text[]), $2 ON CONFLICT DO NOTHING', [mails.map((m) => m.id), threadId])
     })
   }
 
+  /** One line of Claude's log (ADR 0200): who and what the thread was, what Claude decided and why, what it did and cost. */
+  private async logRead(
+    q: Queryable,
+    r: { threadId: string; mails: Mail[]; decision: ReadDecision; projectId: string | null; reason: string; log: ReadLog; problem?: string }
+  ): Promise<void> {
+    const first = r.mails[0]
+    await q.query(
+      `INSERT INTO mail_reads (at, thread_id, subject, sender, messages, decision, project_id, reason, did, cost_cents, problem) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        this.now(),
+        r.threadId,
+        (first?.subject ?? '').slice(0, 300),
+        first ? senderOf(r.mails.find((m) => !isOwn(m.from))?.from ?? first.from) : '',
+        r.mails.length,
+        r.decision,
+        r.projectId,
+        r.reason.slice(0, 500),
+        JSON.stringify(r.log.did),
+        r.log.tally.cents,
+        r.problem ?? null,
+      ]
+    )
+  }
+
   /** Reads a whole thread with Claude and acts on it: a new job and its draft, a draft kept up to date, or changes offered. */
-  async readThread(token: string, threadId: string): Promise<void> {
+  async readThread(token: string, threadId: string, log: ReadLog = { did: [], tally: { cents: 0 } }): Promise<void> {
+    this.doing = log
+    try {
+      await this.readThreadNow(token, threadId, log)
+    } finally {
+      this.doing = undefined
+    }
+  }
+
+  private async readThreadNow(token: string, threadId: string, log: ReadLog): Promise<void> {
     const mails = (await this.gmail.thread(token, threadId)).slice(-MOST_MAILS)
     if (!mails.length) return
     const known = (await this.db.reads.query<Row>('SELECT * FROM mail_threads WHERE id = $1', [threadId])).rows[0]
     const last = mails[mails.length - 1]!
     const outside = !isOwn(last.from)
-    const done = async (kind: MailKind, projectId: string | null, notes: Notes | null, drafted?: unknown) => {
+    const done = async (kind: MailKind, projectId: string | null, notes: Notes | null, drafted?: unknown, decision: ReadDecision = kind, reason = '') => {
       await this.db.transaction(async (tx) => {
+        await this.logRead(tx, { threadId, mails, decision, projectId, reason: reason || reading?.reason || '', log })
         await tx.query(
           `INSERT INTO mail_threads (id, project_id, kind, messages, last_at, last_outside, drafted_lines, read_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            ON CONFLICT (id) DO UPDATE SET project_id = $2, kind = $3, messages = $4, last_at = $5, last_outside = $6, drafted_lines = CASE WHEN $9 THEN $7 ELSE mail_threads.drafted_lines END, read_at = $8`,
@@ -271,7 +322,8 @@ export class Mailbox {
       })
     }
     // A newsletter or a receipt is never an enquiry, and isn't worth asking about.
-    if (!known && mails.every((m) => m.bulk)) return done('other', null, null)
+    let reading: MailReading | undefined
+    if (!known && mails.every((m) => m.bulk)) return done('other', null, null, undefined, 'skipped', 'A newsletter or receipt, so it wasn’t sent to Claude.')
 
     const job = known?.project_id ? await jobOf(this.db.reads, known.project_id) : undefined
     const quote = job ? await currentQuote(this.db.reads, job.id) : undefined
@@ -282,27 +334,34 @@ export class Mailbox {
     const jobs = job ? [] : await openJobs(this.db.reads, today)
     const system = mailSystem(today, names, job ? { id: job.id, name: job.name } : undefined, jobs)
     const user = [`<thread>\n${threadText(mails)}\n</thread>`, shown ? `<quote>\n${JSON.stringify({ status: quote!.status, discountPct: quote!.discountPct, lines: shown })}\n</quote>` : ''].filter(Boolean).join('\n')
-    const reading = await this.assistant.run('mail', { system, user, schema: MAIL_SCHEMA, maxTokens: 10_000 }, mailReading)
+    reading = await this.assistant.run('mail', { system, user, schema: MAIL_SCHEMA, maxTokens: 10_000 }, mailReading, log.tally)
 
     const notes = (advice: QuoteAdvice | null): Notes => ({
       subject: mails[0]!.subject.slice(0, 300),
       sender: senderOf(mails.find((m) => !isOwn(m.from))?.from ?? mails[0]!.from),
-      summary: reading.enquiry.summary,
-      questions: reading.enquiry.questions,
+      summary: reading!.enquiry.summary,
+      questions: reading!.enquiry.questions,
       advice,
     })
     if (job) {
       if (drafting) {
         const lines = await this.linesFor(reading.enquiry, job.days)
-        if (!same(lines.map(withoutId), quote!.lines.map(withoutId))) await this.claude('quote.save', { id: quote!.id, projectId: job.id, lines, discountPct: quote!.discountPct, notes: quote!.notes })
-        if (!job.days) await this.addPhases(job.id, reading.enquiry)
+        if (!same(lines.map(withoutId), quote!.lines.map(withoutId))) {
+          await this.claude('quote.save', { id: quote!.id, projectId: job.id, lines, discountPct: quote!.discountPct, notes: quote!.notes })
+          log.did.push({ what: 'redraft', id: quote!.id })
+        }
+        if (!job.days && (await this.addPhases(job.id, reading.enquiry))) log.did.push({ what: 'days', id: job.id })
         return done(known!.kind, job.id, notes(null), await linesOf(this.db.reads, quote!.id))
       }
       const advice = shown ? adviceFor(reading.advice, shown) : null
       const any = advice && (advice.add.length || advice.remove.length || advice.change.length || advice.discountPct != null)
+      if (any && quote) log.did.push({ what: 'offered', id: quote.id })
       return done(known!.kind, job.id, notes(any ? advice : null))
     }
-    if (reading.kind === 'job' && jobs.some((j) => j.id === reading.jobId)) return done('job', reading.jobId, notes(null))
+    if (reading.kind === 'job' && jobs.some((j) => j.id === reading!.jobId)) {
+      log.did.push({ what: 'linked', id: reading.jobId })
+      return done('job', reading.jobId, notes(null))
+    }
     if (reading.kind !== 'enquiry') return done('other', null, notes(null))
     const made = await this.draft(reading.enquiry, mails)
     return done('enquiry', made.projectId, notes(null), await linesOf(this.db.reads, made.quoteId))
@@ -312,14 +371,18 @@ export class Mailbox {
   private async draft(r: EnquiryReading, mails: Mail[]): Promise<{ projectId: string; quoteId: string }> {
     const clientId = r.client ? await this.named('clients', 'client.upsert', r.client) : null
     const venueId = r.venue ? await this.named('venues', 'venue.upsert', r.venue) : null
+    const did = this.doing?.did
     const id = newId()
     const first = mails[0]!
     const notes = `Enquiry by email to operations@ from ${first.from}, ${irishToday(new Date(first.at))}: “${first.subject}”. Job and quote drafted by Claude; check both.`.slice(0, 4000)
     await this.claude('project.create', { id, name: r.name || first.subject.slice(0, 200) || 'Enquiry by email', clientId, venueId, status: 'enquiry', kind: 'gig', notes })
+    did?.push({ what: 'job', id })
     const days = await this.addPhases(id, r)
+    if (days) did?.push({ what: 'days', id })
     const quoteId = newId()
     const discount = clientId ? (await this.db.reads.query<{ pct: string }>('SELECT pct FROM client_discounts WHERE client_id = $1', [clientId])).rows[0]?.pct : undefined
     await this.claude('quote.save', { id: quoteId, projectId: id, lines: await this.linesFor(r, days), discountPct: discount === undefined ? 0 : Number(discount), notes: '' })
+    did?.push({ what: 'quote', id: quoteId })
     return { projectId: id, quoteId }
   }
 
@@ -337,6 +400,7 @@ export class Mailbox {
     const id = newId()
     if (command === 'client.upsert') await this.claude('client.upsert', { id, name, contacts: [], notes: '' })
     else await this.claude('venue.upsert', { id, name, address: '', notes: '' })
+    this.doing?.did.push({ what: command === 'client.upsert' ? 'client' : 'venue', id })
     return id
   }
 
@@ -377,6 +441,62 @@ export class Mailbox {
     }))
   }
 
+  /** Claude's log (ADR 0200): the reads of the last LOG_DAYS, newest first, all or one kind, and how many of each. */
+  async readLog(show: 'all' | 'made' | 'aside' | 'problems' = 'all'): Promise<ClaudeLog> {
+    const since = [this.now(), LOG_DAYS]
+    const where = { all: 'TRUE', made: `EXISTS (SELECT 1 FROM jsonb_array_elements(did) e WHERE e->>'what' <> 'linked')`, aside: `decision IN ('other', 'skipped')`, problems: `decision IN ('failed', 'set-aside')` }
+    const { rows } = await this.db.reads.query<Row>(
+      `SELECT * FROM mail_reads WHERE at >= $1::timestamptz - make_interval(days => $2::int) AND ${where[show]} ORDER BY at DESC, id DESC LIMIT 300`,
+      since
+    )
+    const { rows: n } = await this.db.reads.query<Row>(
+      `SELECT count(*)::int AS all, count(*) FILTER (WHERE ${where.made})::int AS made, count(*) FILTER (WHERE ${where.aside})::int AS aside,
+              count(*) FILTER (WHERE ${where.problems})::int AS problems
+         FROM mail_reads WHERE at >= $1::timestamptz - make_interval(days => $2::int)`,
+      since
+    )
+    return {
+      days: LOG_DAYS,
+      counts: { all: n[0]?.all ?? 0, made: n[0]?.made ?? 0, aside: n[0]?.aside ?? 0, problems: n[0]?.problems ?? 0 },
+      reads: rows.map((r) => ({
+        id: Number(r.id),
+        at: new Date(r.at).toISOString(),
+        threadId: r.thread_id,
+        subject: r.subject,
+        from: r.sender,
+        messages: r.messages,
+        decision: r.decision,
+        projectId: r.project_id,
+        reason: r.reason,
+        did: r.did ?? [],
+        costCents: r.cost_cents,
+        problem: r.problem,
+      })),
+    }
+  }
+
+  /**
+   * What Claude made that only Claude has touched since (ADR 0200): jobs whose job and quotes nobody else has changed, and
+   * clients and venues it added that nobody has edited. Read from the history, so nothing new is kept.
+   */
+  async made(): Promise<ClaudeMade> {
+    const { rows } = await this.db.reads.query<{ entity: string; id: string }>(
+      `WITH ours AS (
+         SELECT DISTINCT c.entity, c.entity_id AS id FROM mutations m JOIN changes c ON c.mutation_id = m.id
+          WHERE m.client_id = $1 AND m.status = 'applied' AND m.name IN ('project.create', 'client.upsert', 'venue.upsert')
+            AND c.entity IN ('project', 'client', 'venue') AND c.op = 'put' AND m.received_at >= $2::timestamptz - make_interval(days => $3::int)
+       )
+       SELECT o.entity, o.id FROM ours o
+        WHERE NOT EXISTS (SELECT 1 FROM changes c JOIN mutations m ON m.id = c.mutation_id WHERE c.entity_id = o.id AND c.entity = o.entity AND m.client_id <> $1)
+          AND (o.entity <> 'project' OR (
+            EXISTS (SELECT 1 FROM projects p WHERE p.id = o.id)
+            AND NOT EXISTS (SELECT 1 FROM quotes q JOIN changes c ON c.entity = 'quote' AND c.entity_id = q.id JOIN mutations m ON m.id = c.mutation_id WHERE q.project_id = o.id AND m.client_id <> $1)))`,
+      [CLAUDE_CLIENT, this.now(), LOG_DAYS]
+    )
+    const of = (e: string) => rows.filter((r) => r.entity === e).map((r) => r.id)
+    return { jobs: of('project'), clients: of('client'), venues: of('venue') }
+  }
+
   /** The changes offered from a thread were taken or left: either way they go. */
   async adviceDone(threadId: string): Promise<boolean> {
     const { rows } = await this.db.query('UPDATE mail_notes SET advice = NULL WHERE thread_id = $1 RETURNING thread_id', [threadId])
@@ -395,6 +515,12 @@ export class Mailbox {
     clearInterval(this.timer)
     this.timer = undefined
   }
+}
+
+/** What one read did and cost, written down as it goes, for Claude's log (ADR 0200). */
+interface ReadLog {
+  did: ReadDid[]
+  tally: { cents: number }
 }
 
 interface Notes {

@@ -25,6 +25,7 @@ import { wholeIn } from '../required.ts'
 import { Heading } from '../Icon.tsx'
 import { ProductPicker } from '../ProductPicker.tsx'
 import { useAccess } from '../role.ts'
+import { useClaudeMade } from '../claudeMade.ts'
 import { useLate } from '../useLate.ts'
 import { getJson, postJson, useAsked, type Loaded } from './rms.ts'
 
@@ -77,6 +78,23 @@ async function asking<T>(url: string, body: unknown): Promise<{ data?: T; error?
   if (l.state === 'ready') return { data: l.data }
   if (l.state === 'gone') return { error: l.error }
   return { error: 'Claude didn’t answer in time, or there’s no signal. Try again.' }
+}
+
+/**
+ * The mark on a job, client or venue Claude made from the operations mailbox that nobody has changed since (ADR 0200):
+ * "Drafted by Claude" until someone changes the job or its quote, "Added by Claude" until someone edits the client or
+ * venue. Quiet, as a note beside the status, not a colour of its own: it says whose the first draft was, not that
+ * anything is wrong. Only where Claude is offered.
+ */
+export function ClaudeMark({ view, of, id }: { view: View; of: 'jobs' | 'clients' | 'venues'; id: string }) {
+  const access = useAccess()
+  const made = useClaudeMade(view.office.useAssistant && access.can('money'))
+  if (!made[of].has(id)) return null
+  return (
+    <small className="flag claude-mark" title={of === 'jobs' ? 'Claude made this from the operations mailbox, and nobody has changed the job or its quote since. Check both.' : 'Claude added this from the operations mailbox, and nobody has changed it since. Check it.'}>
+      {of === 'jobs' ? 'Drafted by Claude' : 'Added by Claude'}
+    </small>
+  )
 }
 
 /** The label on everything Claude suggests, so it's never taken for what someone typed. */
@@ -397,6 +415,7 @@ export function MailOnQuote({ view, projectId, jobDays, lines, discountPct, onTa
 /** On Money › To follow up: the threads Claude read in the last month that are enquiries or about a job, each opening its quote. */
 export function FromMailbox({ view }: { view: View }) {
   const { offered } = useClaude(view)
+  const canSee = useAccess().can('settings')
   const mail = useMail(offered)
   const threads = mail.state === 'ready' ? mail.data.threads : []
   if (!offered || !threads.length) return null
@@ -404,7 +423,17 @@ export function FromMailbox({ view }: { view: View }) {
   return (
     <section className="card from-mailbox" aria-label="From the operations mailbox">
       <Heading icon="mail">From the operations mailbox</Heading>
-      <p className="hint">Mail cc’d to operations@ in the last month. Claude drafts a quote for each new enquiry and keeps it up to date until someone changes it. Mail not cc’d there isn’t seen.</p>
+      <p className="hint">
+        Mail cc’d to operations@ in the last month. Claude drafts a quote for each new enquiry and keeps it up to date until someone changes it. Mail not cc’d
+        there isn’t seen.
+        {/* Everything it read, the mail it took to be nothing to quote included, and why (ADR 0200). */}
+        {canSee && (
+          <>
+            {' '}
+            <a href="#admin/claude">Everything Claude read, and why</a>
+          </>
+        )}
+      </p>
       <ul>
         {threads.map((t) => {
           const j = job(t.projectId)

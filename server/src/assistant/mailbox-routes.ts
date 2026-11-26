@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import type { MailboxStatus, MailThread } from '@sh/shared'
+import type { ClaudeLog, ClaudeMade, MailboxStatus, MailThread } from '@sh/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { faultForLog } from '../db.ts'
 import { clearCookie, CONNECT_LIMIT, publicOrigin, readCookie, setCookie } from '../http.ts'
@@ -82,6 +82,19 @@ export function registerMailboxRoutes(app: FastifyInstance, { mailbox, google, s
     reply.header('cache-control', 'no-store')
     const projectId = typeof req.query.projectId === 'string' && req.query.projectId ? req.query.projectId.slice(0, 64) : undefined
     return { threads: await mailbox.threads(projectId) }
+  })
+
+  /** Claude's log (ADR 0200): every thread it read lately, what it decided and why, what it made, and what it cost. */
+  app.get<{ Querystring: { show?: string } }>('/api/assistant/log', { config: { needs: 'money' } }, async (req, reply): Promise<ClaudeLog> => {
+    reply.header('cache-control', 'no-store')
+    const show = (['all', 'made', 'aside', 'problems'] as const).find((s) => s === req.query.show) ?? 'all'
+    return mailbox.readLog(show)
+  })
+
+  /** What Claude made that nobody has changed since (ADR 0200), for the marks on jobs, clients and venues. */
+  app.get('/api/assistant/made', { config: { needs: 'money' } }, async (_req, reply): Promise<ClaudeMade> => {
+    reply.header('cache-control', 'no-store')
+    return mailbox.made()
   })
 
   /** The changes a thread's mail asks for were taken or left on the quote. */

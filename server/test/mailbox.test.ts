@@ -1,4 +1,4 @@
-import { newId, type CommandInput, type CommandName, type EnquiryReading, type MailboxStatus, type MailReading, type MailThread, type Mutation, type QuoteAdvice } from '@sh/shared'
+import { newId, type ClaudeLog, type ClaudeMade, type CommandInput, type CommandName, type EnquiryReading, type MailboxStatus, type MailReading, type MailThread, type Mutation, type QuoteAdvice } from '@sh/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from '../src/app.ts'
@@ -6,6 +6,7 @@ import type { Ask, Asked } from '../src/assistant/claude.ts'
 import { bodyOf, Gmail, withoutQuoted } from '../src/assistant/gmail.ts'
 import { seal } from '../src/calendar/crypto.ts'
 import { pgliteDb } from '../src/db.ts'
+import { handOffs } from '../src/notices.ts'
 
 /**
  * Claude reading the operations mailbox (ADR 0098): a new enquiry becomes
@@ -293,6 +294,88 @@ describe('a thread Claude can’t read (ADR 0199)', () => {
     broken = false
     await s.mailbox.look()
     expect((await (await s.app.inject({ url: '/api/assistant/mailbox' })).json()).failing).toEqual([])
+  })
+})
+
+describe('what Claude did, for the office to see (ADR 0200)', () => {
+  const log = async (app: FastifyInstance, show = 'all') => (await app.inject({ url: `/api/assistant/log?show=${show}` })).json() as ClaudeLog
+  const made = async (app: FastifyInstance) => (await app.inject({ url: '/api/assistant/made' })).json() as ClaudeMade
+
+  it('logs every thread read: what Claude took it to be and why, what it made, and what it cost', async () => {
+    const s = await setup((a) =>
+      a.user.includes('Y10P') ? { kind: 'enquiry', reason: 'Aoife asks for a quote for a launch.', enquiry: launch } : { kind: 'other', reason: 'A supplier’s invoice, not a client asking for anything.' }
+    )
+    s.mail({ id: 'm1', threadId: 't1', from: 'Aoife Byrne <aoife@nissan.ie>', subject: 'Launch in March', text: 'Could you quote for 8 Y10Ps on 4 and 5 March?' })
+    s.mail({ id: 'm2', threadId: 'inv', from: 'accounts@supplier.ie', subject: 'Invoice 42', text: 'Please find attached.' })
+    s.mail({ id: 'm3', threadId: 'news', from: 'news@shop.ie', subject: 'Sale on now', text: 'Big sale!', bulk: true })
+    await s.connect()
+
+    const all = await log(s.app)
+    expect(all.counts).toEqual({ all: 3, made: 1, aside: 2, problems: 0 })
+    const { rows: job } = await s.db.query<{ id: string; client_id: string; venue_id: string }>('SELECT id, client_id, venue_id FROM projects')
+    const { rows: quote } = await s.db.query<{ id: string }>('SELECT id FROM quotes')
+    const enquiry = all.reads.find((r) => r.threadId === 't1')!
+    expect(enquiry).toMatchObject({ subject: 'Launch in March', from: 'Aoife Byrne', messages: 1, decision: 'enquiry', projectId: job[0]!.id, reason: 'Aoife asks for a quote for a launch.', problem: null })
+    expect(enquiry.did).toEqual([
+      { what: 'client', id: job[0]!.client_id },
+      { what: 'venue', id: job[0]!.venue_id },
+      { what: 'job', id: job[0]!.id },
+      { what: 'days', id: job[0]!.id },
+      { what: 'quote', id: quote[0]!.id },
+    ])
+    expect(enquiry.costCents).toBeGreaterThan(0)
+    expect(all.reads.find((r) => r.threadId === 'inv')).toMatchObject({ decision: 'other', reason: 'A supplier’s invoice, not a client asking for anything.', did: [] })
+    // A newsletter isn't sent to Claude, so it costs nothing, and says so.
+    expect(all.reads.find((r) => r.threadId === 'news')).toMatchObject({ decision: 'skipped', costCents: 0, subject: 'Sale on now' })
+    expect((await log(s.app, 'made')).reads.map((r) => r.threadId)).toEqual(['t1'])
+    expect((await log(s.app, 'aside')).reads.map((r) => r.threadId).sort()).toEqual(['inv', 'news'])
+
+    // Claude asked for the reason in the same answer, not a second time.
+    expect(s.asked).toHaveLength(2)
+    expect(JSON.stringify(s.asked[0]!.schema)).toContain('"reason"')
+
+    // Marked as Claude's until someone changes them: the client edited loses its mark, the job and venue keep theirs.
+    expect(await made(s.app)).toEqual({ jobs: [job[0]!.id], clients: [job[0]!.client_id], venues: [job[0]!.venue_id] })
+    await ok(s.app, m('client.upsert', { id: job[0]!.client_id, name: 'Nissan Ireland', contacts: [], notes: 'Checked' } as never))
+    expect(await made(s.app)).toEqual({ jobs: [job[0]!.id], clients: [], venues: [job[0]!.venue_id] })
+    // Someone changing the quote ends the job's mark.
+    const { rows: q } = await s.db.query<{ id: string; lines: unknown; discount_pct: string }>('SELECT id, lines, discount_pct FROM quotes')
+    await ok(s.app, m('quote.save', { id: q[0]!.id, projectId: job[0]!.id, lines: q[0]!.lines, discountPct: 10, notes: 'Checked' } as never))
+    expect((await made(s.app)).jobs).toEqual([])
+
+    // Erasing anyone empties the log, as it does what Claude read.
+    await s.db.query(`DELETE FROM mail_reads`)
+    expect((await log(s.app)).reads).toEqual([])
+  })
+
+  it('logs a thread it couldn’t read, with why, under Problems', async () => {
+    const s = await setup(() => {
+      throw new Error('overloaded')
+    })
+    s.mail({ id: 'm1', threadId: 'broken', from: 'Aoife <a@b.ie>', subject: 'Broken', text: 'Broken thread' })
+    await s.connect()
+    await s.mailbox.look()
+    await s.mailbox.look()
+    const problems = await log(s.app, 'problems')
+    expect(problems.reads.map((r) => [r.decision, r.subject, r.problem])).toEqual([
+      ['set-aside', 'Broken', 'Claude didn’t answer. Try again in a minute.'],
+      ['failed', 'Broken', 'Claude didn’t answer. Try again in a minute.'],
+      ['failed', 'Broken', 'Claude didn’t answer. Try again in a minute.'],
+    ])
+    expect(problems.reads[0]!.reason).toContain('set aside')
+  })
+
+  it('tells directors and the office of each new enquiry Claude made, on their bell', async () => {
+    const s = await setup(() => ({ kind: 'enquiry', enquiry: launch }))
+    const person = { phone: null, skills: [], dayRateCents: null, notes: '' }
+    await ok(s.app, m('person.upsert', { id: 'niamh', name: 'Niamh', kind: 'staff', email: 'niamh@sessionhire.com', ...person } as never), m('person.role', { id: 'niamh', role: 'office' } as never))
+    await ok(s.app, m('person.upsert', { id: 'sean', name: 'Seán', kind: 'freelancer', email: null, ...person } as never))
+    s.mail({ id: 'm1', threadId: 't1', from: 'Aoife Byrne <aoife@nissan.ie>', subject: 'Launch in March', text: 'Could you quote for 8 Y10Ps?' })
+    await s.connect()
+    expect((await handOffs(s.db.reads, 'niamh', null, [])).map((h) => h.say)).toEqual([
+      'New enquiry from the operations mailbox: Nissan launch. Claude drafted the job and its quote; check both.',
+    ])
+    expect(await handOffs(s.db.reads, 'sean', null, [])).toEqual([])
   })
 })
 

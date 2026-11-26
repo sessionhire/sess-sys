@@ -91,6 +91,7 @@ import { landOnCall } from '../crew/landOnCall.ts'
 import { showToast } from '../notices.ts'
 import { landOn } from '../places.ts'
 import { JOBS } from '../Up.tsx'
+import { ClaudeMark } from './Claude.tsx'
 
 /**
  * One job: what it is, the stage it's in and the tasks inside it, who each
@@ -271,6 +272,7 @@ export function JobScreen({ view, id, part: asked, task: askedTask }: { view: Vi
         <>
           <div className="corner-status">
             <JobStatusPill status={job.status} pending={job.pending} />
+            <ClaudeMark view={view} of="jobs" id={job.id} />
           </div>
           {steps && (
             <div className="corner-owner">

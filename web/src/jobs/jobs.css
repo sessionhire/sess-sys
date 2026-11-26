@@ -1243,3 +1243,23 @@ dialog.photo-viewer[open] { display: flex; flex-direction: column; }
 .photo-viewer-about p { margin: 0; }
 .photo-words { display: grid; gap: var(--ds-space-2); }
 @media (prefers-reduced-motion: no-preference) { dialog.photo-viewer[open] { animation: delete-quote-in var(--ds-duration-slow) var(--ds-ease-emphasized-enter); } }
+
+/* Claude's own (ADR 0200): the quiet mark on what it made that nobody has changed, what it's doing now under its
+   switch, and its log of what it read. No colour of its own: the pills carry the tone, healthy stays quiet. */
+.app .claude-mark { color: var(--muted); font-size: var(--text-hint); white-space: nowrap; }
+.app .board-card .claude-mark { display: block; }
+.app .corner-status .claude-mark, .app .page-badge .claude-mark { display: block; margin-top: var(--ds-space-1); }
+.app .page-head[data-corner] > .corner-status:has(.claude-mark) { flex-direction: column; align-items: flex-end; justify-content: center; }
+.app .claude-now { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-2); margin: var(--ds-space-3) 0; }
+.app .claude-now span:last-child { flex: 1 1 16rem; overflow-wrap: anywhere; }
+.app .claude-log .pills { margin: var(--ds-space-3) 0; }
+.app .claude-reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.app .claude-read { padding: var(--ds-space-3) 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.app .claude-read-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--ds-space-2); }
+.app .claude-read-head b { min-width: 0; }
+.app .claude-read-head .pill { flex: none; }
+.app .claude-read > small { display: block; margin-top: var(--ds-space-1); }
+.app .claude-read p { margin: var(--ds-space-2) 0 0; }
+.app .claude-read-problem { color: var(--warn); }
+.app .claude-did { margin: var(--ds-space-2) 0 0; padding-left: var(--ds-space-5); }
+.app .claude-did li { margin: var(--ds-space-1) 0; }

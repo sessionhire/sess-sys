@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.233.0',
+    date: '2026-11-26',
+    title: 'See what Claude read, what it did, and why',
+    what: 'Claude has its own part of Admin. Under its switch, a line says what it’s doing now: reading the operations mailbox and when it last looked, or why it isn’t. Below that, What Claude read lists every email thread it read in the last 90 days. Each shows what Claude took it to be and why, what it made or changed, and what that cost, so a mail it took to be nothing to quote can be found. A job Claude drafted says “Drafted by Claude” until someone changes it or its quote, and a client or venue it added says “Added by Claude” until someone edits it. Directors and the office get a notification for each new enquiry it makes.',
+    prs: [0],
+    adrs: [200],
+  },
+  {
     version: '1.232.2',
     date: '2026-11-26',
     title: 'One mail Claude can’t read no longer holds up the rest',

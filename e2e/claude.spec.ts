@@ -100,9 +100,9 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await quotes.page().locator('.page-add', { hasText: 'New quote' }).click()
   await expect(office.getByRole('region', { name: 'From an enquiry' })).toHaveCount(0)
 
-  // Turned on under Admin › Company.
-  await office.goto('/#admin')
-  const card = office.getByRole('region', { name: 'Claude' })
+  // Turned on under Admin › Claude (ADR 0200), with what it's doing now and what it read under the switch.
+  await office.goto('/#admin/claude')
+  const card = office.getByRole('region', { name: 'Claude', exact: true })
   const toggle = card.getByRole('switch', { name: /Turn Claude on/ })
   await expect(toggle).not.toBeChecked()
   await toggle.click()
@@ -110,6 +110,8 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await expect(card).toContainText('This month: $0.00 of $50.00')
   // The mailbox is connected under Connections (ADR 0101); this test server has no Google key, so it can't be here.
   await expect(card).toContainText('once that’s connected under Connections')
+  await expect(card.getByRole('status')).toContainText('The operations mailbox isn’t connected')
+  await expect(office.getByRole('region', { name: 'What Claude read' })).toContainText('Nothing read yet')
   await office.goto('/#admin/connections')
   await expect(office.getByRole('region', { name: 'The operations mailbox' })).toContainText('needs the Google key')
 
@@ -196,8 +198,8 @@ test('the office turns Claude on, pastes an enquiry, and sees what the mailbox a
   await expect(draft.getByLabel('Discount, %', { exact: true })).toHaveValue('10')
   await expect(draft.locator('.save-state')).toHaveText('Saved')
 
-  // What it cost is counted under Admin.
-  await office.goto('/#admin')
+  // What it cost is counted under Admin › Claude.
+  await office.goto('/#admin/claude')
   await expect(card).toContainText('asked once')
 
   // On Quotes, the threads Claude read, each opening its job's quote.

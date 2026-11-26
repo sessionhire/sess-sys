@@ -139,6 +139,7 @@ describe('download everything', () => {
       'lieu_entries',
       'mail_failures',
       'mail_notes',
+      'mail_reads',
       'mail_seen',
       'mail_threads',
       'models',

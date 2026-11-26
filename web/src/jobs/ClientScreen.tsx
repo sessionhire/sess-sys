@@ -9,6 +9,7 @@ import { Attachments, JobsCard } from './Attachments.tsx'
 import { Page } from './common.tsx'
 import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
 import { CLIENTS, JOBS } from '../Up.tsx'
+import { ClaudeMark } from './Claude.tsx'
 
 /**
  * One client on a page of its own (ADR 0032, #jobs/clients/<id>): who to talk
@@ -37,7 +38,12 @@ export function ClientScreen({ view, id, part: asked }: { view: View; id: string
     )
   const jobs = view.jobs.jobs.filter((j) => j.clientId === found.id)
   return (
-    <Page view={view} title="Client" className="crew jobs" up={up} heading={found.name} badge={<Pending pending={found.pending} />} sub={clientLine(found, jobs.length)}>
+    <Page view={view} title="Client" className="crew jobs" up={up} heading={found.name} badge={
+        <>
+          <Pending pending={found.pending} />
+          <ClaudeMark view={view} of="clients" id={found.id} />
+        </>
+      } sub={clientLine(found, jobs.length)}>
       <Tabs label={`About ${found.name}`} id="client" parts={CLIENT_PARTS} labels={CLIENT_LABELS} current={part} counts={{ jobs: jobs.length || undefined }} onPick={pick} />
       <TabPanel id="client" current={part}>
         {part === 'details' && <ClientSummary c={found} />}

@@ -331,7 +331,7 @@ export class Status {
     if (!a?.config) return { ...base, state: 'off', says: 'Not set up.', todo: 'Set ANTHROPIC_API_KEY in Railway, for Claude to read the operations mailbox, draft quotes from enquiries and write the to-do list.' }
     const s = await a.status()
     const spent = `$${(s.spentCents / 100).toFixed(2)} of $${(s.limitCents / 100).toFixed(2)} this month, asked ${plural(s.uses, 'time')}`
-    if (!s.on) return { ...base, state: 'off', says: `Set up, and turned off. ${spent}.`, todo: 'Turn it on under Admin › Company to offer it.' }
+    if (!s.on) return { ...base, state: 'off', says: `Set up, and turned off. ${spent}.`, todo: 'Turn it on under Admin › Claude to offer it.' }
     if (s.spentCents >= s.limitCents) return { ...base, state: 'warn', says: `This month’s limit is used: ${spent}.`, todo: 'It starts again on the 1st, or raise CLAUDE_MONTHLY_LIMIT_USD in Railway.' }
     return { ...base, state: 'ok', says: `On, using ${s.model}: ${spent}.` }
   }

@@ -32,6 +32,7 @@ import { ReadingCard } from './ReadingCard.tsx'
 import { TrackersCard } from './stock/Trackers.tsx'
 import { LabelPrinterCard } from './LabelPrinterCard.tsx'
 import { StatusPanel } from './StatusPanel.tsx'
+import { ClaudeLogCard } from './ClaudeLog.tsx'
 import { useAccess } from './role.ts'
 import { TabPanel, Tabs, useTab } from './Tabs.tsx'
 import { useView } from './view.ts'
@@ -40,8 +41,8 @@ import { MENU } from './Up.tsx'
 /** The company's settings, at #admin from the Menu: how sign-in stands, the office, Google Calendar, backups and data, made-up data and starting fresh, Current RMS (ADR 0078), the way to where each list is brought in (ADR 0041), and the app's version with what changed in it (ADR 0071). A person's own things (their role, signing out, their feed, this device) are under You (YouScreen.tsx). */
 
 /** Admin in parts (ADR 0082), one at a time: the company, what it's connected to, its data, and how everything it relies on stands (ADR 0093). */
-type AdminPart = 'company' | 'connections' | 'data' | 'status'
-const ADMIN_LABELS: Record<AdminPart, string> = { company: 'Company', connections: 'Connections', data: 'Data', status: 'Status' }
+type AdminPart = 'company' | 'connections' | 'claude' | 'data' | 'status'
+const ADMIN_LABELS: Record<AdminPart, string> = { company: 'Company', connections: 'Connections', claude: 'Claude', data: 'Data', status: 'Status' }
 
 export function AccountScreen() {
   const auth = useAuth()
@@ -51,7 +52,9 @@ export function AccountScreen() {
   const settings = access.can('settings')
   const company = access.can('company')
   const shown = auth.status === 'signed-in' || auth.status === 'open'
-  const parts: AdminPart[] = !shown ? [] : settings ? ['company', 'connections', 'data', 'status'] : company ? ['company', 'data'] : []
+  // Claude has its own part (ADR 0200): its switch, what it's doing now, and what it read, for those who see money.
+  const claude = settings && access.can('money')
+  const parts: AdminPart[] = !shown ? [] : settings ? ['company', 'connections', ...(claude ? (['claude'] as const) : []), 'data', 'status'] : company ? ['company', 'data'] : []
   const [part, pick] = useTab({ parts: parts.length ? parts : (['company'] as AdminPart[]), asked, remember: 'sh.adminPart', address: (p) => `#admin/${p}` })
 
   return (
@@ -108,7 +111,6 @@ export function AccountScreen() {
                 {settings && <ApplicationsCard office={view.office} />}
                 {settings && access.can('money') && <OnlineCard money={view.money} />}
                 {settings && <TimesheetsUseCard office={view.office} />}
-                {settings && access.can('money') && <AssistantCard office={view.office} />}
                 {company && !access.rolesOff && <ReadingCard office={view.office} />}
               </>
             )}
@@ -122,6 +124,12 @@ export function AccountScreen() {
                 {access.can('jobs') && <RmsMembersCard view={view} canRead={settings} />}
                 {settings && <TrackersCard view={view} />}
                 {settings && <LabelPrinterCard />}
+              </>
+            )}
+            {part === 'claude' && claude && (
+              <>
+                <AssistantCard office={view.office} />
+                <ClaudeLogCard view={view} />
               </>
             )}
             {part === 'data' && (

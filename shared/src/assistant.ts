@@ -43,7 +43,7 @@ export interface AssistantStatus {
 export function assistantBlocked(s: AssistantStatus | undefined): string | null {
   if (!s) return 'Claude needs signal.'
   if (!s.configured) return 'Claude isn’t set up on the server yet.'
-  if (!s.on) return 'Claude is turned off under Admin › Company.'
+  if (!s.on) return 'Claude is turned off under Admin › Claude.'
   if (s.spentCents >= s.limitCents) return 'Claude has used this month’s limit. It starts again on the 1st.'
   return null
 }
@@ -408,6 +408,8 @@ export const mailReading = z.object({
   kind: z.preprocess((v) => (MAIL_KINDS.includes(v as MailKind) ? v : 'other'), z.enum(MAIL_KINDS)),
   /** The job it's about, from those it was shown, or "". */
   jobId: z.preprocess((v) => (typeof v === 'string' ? v.trim().slice(0, 64) : ''), z.string()),
+  /** Why Claude read it as it did, in a sentence for the office (ADR 0200); "" from an answer without one. */
+  reason: words(300),
   /** Everything the thread asks for so far, read as one enquiry: the later mail wins where it changes the earlier. */
   enquiry: enquiryReading,
   /** Only when the quote's lines were given: what the latest mail changes on them. */
@@ -418,9 +420,59 @@ export type MailReading = z.infer<typeof mailReading>
 export const MAIL_SCHEMA = obj({
   kind: { type: 'string', enum: [...MAIL_KINDS] },
   jobId: { type: 'string', description: 'the id of the job it is about, from the jobs given, or ""' },
+  reason: { type: 'string', description: 'one plain sentence for the office on why you read it as this kind, and as about that job; no code words' },
   enquiry: ENQUIRY_SCHEMA,
   advice: ADVICE_SCHEMA,
 })
+
+/**
+ * What Claude decided a thread was, each time it read it (ADR 0200): a new enquiry, about a job, not for a quote; a
+ * newsletter or receipt that wasn't sent to it; or one it couldn't read, to be tried again or set aside.
+ */
+export const READ_DECISIONS = ['enquiry', 'job', 'other', 'skipped', 'failed', 'set-aside'] as const
+export type ReadDecision = (typeof READ_DECISIONS)[number]
+
+/** One thing Claude did from a read, by the id of what it made or changed. */
+export interface ReadDid {
+  what: 'job' | 'client' | 'venue' | 'days' | 'quote' | 'redraft' | 'offered' | 'linked'
+  id: string
+}
+
+/** One read of a thread, as Admin › Claude lists it (ADR 0200). No mail text: the mail stays in Gmail. */
+export interface ClaudeRead {
+  id: number
+  at: string
+  threadId: string
+  subject: string
+  from: string
+  messages: number
+  decision: ReadDecision
+  projectId: string | null
+  /** Claude's one sentence on why; or, for one it didn't read, the app's. */
+  reason: string
+  did: ReadDid[]
+  /** What that read cost, in US cents. */
+  costCents: number
+  /** Why it couldn't be read, when it couldn't. */
+  problem: string | null
+}
+
+/** Admin › Claude's log, newest first, and how much there is of each kind in the days it covers. */
+export interface ClaudeLog {
+  reads: ClaudeRead[]
+  days: number
+  counts: Record<'all' | 'made' | 'aside' | 'problems', number>
+}
+
+/**
+ * What Claude made that nobody has changed since (ADR 0200), for the "Drafted by Claude" and "Added by Claude" marks:
+ * jobs whose job and quotes only Claude has touched, and clients and venues it added that nobody has edited.
+ */
+export interface ClaudeMade {
+  jobs: string[]
+  clients: string[]
+  venues: string[]
+}
 
 /** A thread from the mailbox as the screens show it. */
 export interface MailThread {
