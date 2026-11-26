@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.236.0',
+    date: '2026-11-26',
+    title: 'Dublin flat fee, and delivery or collection only',
+    what: "The van's line on a quote is now called Dublin flat fee, with any km past it added after. Below Van or Truck you can now pick Delivery and collection, Delivery only or Collection only. A van one way is half its price unless you change that under Admin › Company › Delivery and collection, in One way only. A truck stays at the price you type for the job.",
+    prs: [450],
+    adrs: [201],
+  },
+  {
     version: '1.235.0',
     date: '2026-11-26',
     title: 'A product’s page from its line on the quote',

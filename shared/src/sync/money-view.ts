@@ -250,6 +250,7 @@ export function moneyView(
           travelKm: a.travelKm !== undefined ? a.travelKm : (before?.travelKm ?? null),
           ...((a.accommodationProvided ?? before?.accommodationProvided) ? { accommodationProvided: true } : {}),
           ...((a.deliveryBy !== undefined ? a.deliveryBy : before?.deliveryBy) ? { deliveryBy: (a.deliveryBy !== undefined ? a.deliveryBy : before?.deliveryBy)! } : {}),
+          ...((a.deliveryTrips !== undefined ? a.deliveryTrips : before?.deliveryTrips) ? { deliveryTrips: (a.deliveryTrips !== undefined ? a.deliveryTrips : before?.deliveryTrips)! } : {}),
           ...((a.deliveryCents !== undefined ? a.deliveryCents : before?.deliveryCents) != null ? { deliveryCents: (a.deliveryCents !== undefined ? a.deliveryCents : before?.deliveryCents)! } : {}),
           forName: a.forName !== undefined ? a.forName : (was?.forName ?? before?.forName ?? ''),
           pending: true,
@@ -360,6 +361,8 @@ export function moneyView(
         if (a.centsPerKm === null) delete quoting.deliveryCentsPerKm
         if (a.baseCents === null) delete quoting.deliveryBaseCents
         if (a.baseKm === null) delete quoting.deliveryBaseKm
+        if (a.oneWayPct !== undefined) quoting.deliveryOneWayPct = a.oneWayPct
+        if (a.oneWayPct === null) delete quoting.deliveryOneWayPct
         break
       }
       case 'quoting.ownKit': {

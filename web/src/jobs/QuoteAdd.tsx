@@ -1,4 +1,4 @@
-import { lineCents, money, type JobChanges, type LineExtra, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS, type Delivery, type JobView, type DeliveryBy, DELIVERY_BY, DELIVERY_BY_LABELS, DELIVERY_GROUP } from '@sh/shared'
+import { lineCents, money, type JobChanges, type LineExtra, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS, type Delivery, type JobView, type DeliveryBy, DELIVERY_BY, DELIVERY_BY_LABELS, DELIVERY_GROUP, type DeliveryTrips, DELIVERY_TRIPS, DELIVERY_TRIPS_LABELS, FLAT_FEE } from '@sh/shared'
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
 import { Icon } from '../Icon.tsx'
@@ -32,6 +32,7 @@ export function DeliveryRow(p: {
   open: string | undefined
   setOpen: (id: string | undefined) => void
   setBy: (by: DeliveryBy) => void
+  setTrips: (t: DeliveryTrips) => void
   truck: string
   setTruck: (s: string) => void
   truckProblem: string | undefined
@@ -42,13 +43,14 @@ export function DeliveryRow(p: {
   const shown = p.open === DELIVERY_ROW
   const where = delivery.to === 'address' ? p.job.hire?.address?.trim() : undefined
   const name = useId()
+  const tripsName = useId()
   const truckId = useId()
   const pick = (by: DeliveryBy) => {
     p.setBy(by)
     // A truck has no price until one is typed, so its box opens with it.
     p.setOpen(by === 'truck' ? DELIVERY_ROW : by === 'none' ? undefined : p.open)
   }
-  const what = d ? d.what : delivery.by === 'truck' ? 'Delivery and collection by truck' : 'Delivery and collection by van'
+  const what = d ? d.what : delivery.by === 'truck' ? 'Truck' : FLAT_FEE
   return (
     <section className="quote-group quote-extras" role="group" aria-label={DELIVERY_GROUP}>
       <div className="group-head">
@@ -64,6 +66,18 @@ export function DeliveryRow(p: {
           </label>
         ))}
       </div>
+      {delivery.by !== 'none' && (
+        <div className="choices delivery-by" role="radiogroup" aria-label="Which way">
+          {DELIVERY_TRIPS.map((t) => (
+            <label key={t} className="signal">
+              <input type="radio" name={tripsName} checked={delivery.trips === t} onChange={() => p.setTrips(t)} />
+              <span>
+                <b>{DELIVERY_TRIPS_LABELS[t]}</b>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
       {delivery.by !== 'none' && (
         <div className={`quote-line-row extra${shown ? ' open' : ''}`}>
           <button type="button" className="quote-line-shut" aria-expanded={shown} aria-label={`${what}: ${delivery.by === 'truck' ? 'its price' : 'where it goes'}`} onClick={() => p.setOpen(shown ? undefined : DELIVERY_ROW)}>
@@ -94,7 +108,7 @@ export function DeliveryRow(p: {
                       {p.truckProblem}
                     </small>
                   ) : (
-                    <small>Trucks are priced for each job: there and back, before VAT.</small>
+                    <small>Trucks are priced for each job: the trip as it's asked for, before VAT.</small>
                   )}
                 </label>
               )}
