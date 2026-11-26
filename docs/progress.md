@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 26 November 2026: seeing what Claude read and did
 
-**Done (1.233.0, ADR 0200)**
+**Done (1.233.0, #447, ADR 0200)**
 
 - Colly chose all four ways of making Claude's work visible. Admin › Claude
   now holds the switch, with a line saying what Claude is doing now, and the
