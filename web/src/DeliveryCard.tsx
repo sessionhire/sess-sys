@@ -5,8 +5,10 @@ import { Pending } from './StatusPill.tsx'
 import { client } from './sync.ts'
 
 /**
- * What a dry hire's delivery is charged (ADR 0183). A dry hire's quote puts a Delivery line on by itself, measured by
- * road from the warehouse to the delivery address. Colly, 15 November 2026: "a set amount (set in the admin section) for
+ * What a van's delivery and collection is charged (ADR 0183, ADR 0201). A quote that goes by van puts a Delivery and
+ * collection line on by itself, measured by road from the warehouse to the delivery address or venue. Colly, 26 November
+ * 2026: €160 within Dublin (25 km), then €1 a km, editable here. A truck is priced for each job on its quote, so it has
+ * nothing here. Colly, 15 November 2026: "a set amount (set in the admin section) for
  * a certain distance, and then km after that are charged at an individual rate (also set in the admin area)". So: a set
  * amount, the km it covers, and the price of each km past them. With no set amount every km is at the price a km; with
  * neither, a delivery puts no line on and the quote says why.
@@ -59,16 +61,16 @@ export function DeliveryCard({ money: m }: { money: MoneyView }) {
   const { deliveryBaseCents: b, deliveryBaseKm: k, deliveryCentsPerKm: r } = m.quoting
   const now =
     b == null && r == null
-      ? 'Not set yet, so no delivery is charged.'
+      ? 'Not set yet, so no van delivery is charged.'
       : b == null
         ? `Now: every km at ${money(r!)}.`
         : `Now: ${money(b)} for up to ${k ?? 0} km, then ${r == null ? 'no price set for each km after, so a longer delivery is not charged until it is' : `${money(r)} a km`}.`
   return (
     <section className="card office" aria-labelledby="delivery-title">
-      <h2 id="delivery-title">Dry hire delivery</h2>
+      <h2 id="delivery-title">Delivery and collection</h2>
       <p>
-        A dry hire we deliver gets a Delivery line on its quote by itself, measured by road from the warehouse to the delivery address: the set amount covers
-        the first so many km, and each km after that is charged at its own price. Collections have none.
+        A quote that goes by van gets a Delivery and collection line by itself, measured by road from the warehouse to the delivery address or venue: the set
+        amount covers the first so many km, and each km after that is charged at its own price. A truck is priced for each job, on its quote.
       </p>
       <form className="office-form" onSubmit={save} aria-describedby="delivery-now">
         <label>

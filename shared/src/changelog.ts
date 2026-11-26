@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.234.0',
+    date: '2026-11-26',
+    title: 'Delivery and collection on every quote, by van or truck',
+    what: "Every quote now has a Delivery and collection section where you pick No delivery, Van or Truck. A van is measured by road from the warehouse to the venue, or to a dry hire's delivery address, and charged €160 for the first 25 km (within Dublin), then €1 for each km after. Change those three figures under Admin › Company › Delivery and collection. A truck is priced for each job, so you type its price on the quote. A dry hire we deliver starts on Van as before, and a show starts on No delivery, so quotes you've already written come to the same.",
+    prs: [448],
+    adrs: [201],
+  },
+  {
     version: '1.233.0',
     date: '2026-11-26',
     title: 'See what Claude read, what it did, and why',

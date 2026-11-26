@@ -258,7 +258,7 @@ function describer(view: View): (m: Mutation) => string {
       case 'quoting.reducedDays':
         return 'Change what travel and warehouse days are paid'
       case 'quoting.delivery':
-        return "Change what a dry hire's delivery costs"
+        return "Change what a van's delivery and collection costs"
       case 'quoting.ownKit':
         return "Change what own kit costs to run, for the margin"
       case 'quoting.marginTarget':

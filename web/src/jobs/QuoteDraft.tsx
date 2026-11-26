@@ -39,6 +39,7 @@ import {
   packageIncludes,
   extrasFor,
   deliveryFor,
+  type DeliveryBy,
   travelSettingsOf,
   kindOf,
   type Pin,
@@ -122,6 +123,9 @@ interface Typed {
   /** Left out by a device from before accommodation (ADR 0156). */
   rooms?: boolean
   kmTyped: string
+  /** Left out by a device from before delivery and collection (ADR 0201). */
+  by?: DeliveryBy | null
+  truck?: string
   discount: string
   agreed: string
   notes: string
@@ -130,7 +134,7 @@ interface Typed {
   forName?: string
 }
 const baseOf = (q: QuoteView) =>
-  JSON.stringify([q.lines, q.discountPct, q.agreedCents ?? null, q.notes, q.validDays ?? null, q.depositPct ?? null, q.mealsProvided ?? false, q.travelKm ?? null, q.forName ?? '', q.accommodationProvided ?? false])
+  JSON.stringify([q.lines, q.discountPct, q.agreedCents ?? null, q.notes, q.validDays ?? null, q.depositPct ?? null, q.mealsProvided ?? false, q.travelKm ?? null, q.forName ?? '', q.accommodationProvided ?? false, q.deliveryBy ?? null, q.deliveryCents ?? null])
 function readTyped(): Record<string, Typed> {
   try {
     return JSON.parse(sessionStorage.getItem(TYPED_STORE) ?? '{}') as Record<string, Typed>
@@ -159,6 +163,8 @@ const termsText = (q: QuoteView) => ({
   meals: q.mealsProvided ?? false,
   rooms: q.accommodationProvided ?? false,
   kmTyped: q.travelKm == null ? '' : String(q.travelKm),
+  by: q.deliveryBy ?? null,
+  truck: q.deliveryCents == null ? '' : euroText(q.deliveryCents),
   discount: q.discountPct ? String(q.discountPct) : '',
   agreed: q.agreedCents == null ? '' : euroText(q.agreedCents),
   notes: q.notes,
@@ -177,8 +183,8 @@ const jobDays = (job: JobView) => workDays(job)
 const PACKAGE_PICK = 'package:'
 
 /** The fields of the terms that can be wrong, in the order their faults are said; `km` is the distance on the travel row. */
-type TermKey = 'agreed' | 'km' | 'discount' | 'validFor' | 'deposit'
-const TERM_KEYS: readonly TermKey[] = ['agreed', 'km', 'discount', 'validFor', 'deposit']
+type TermKey = 'agreed' | 'km' | 'truck' | 'discount' | 'validFor' | 'deposit'
+const TERM_KEYS: readonly TermKey[] = ['agreed', 'km', 'truck', 'discount', 'validFor', 'deposit']
 
 /**
  * Two people on one draft (ADR 0113): the lines on this screen with the draft as it now stands taken in. `was` is the
@@ -228,6 +234,9 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const [meals, setMeals] = useState(kept?.meals ?? q.mealsProvided ?? false)
   // The job puts the crew up (ADR 0156), so no accommodation is charged.
   const [rooms, setRooms] = useState(kept?.rooms ?? q.accommodationProvided ?? false)
+  // Delivery and collection (ADR 0201): null until picked here, when the quote takes what the job starts on.
+  const [deliveryBy, setDeliveryBy] = useState<DeliveryBy | null>(kept ? (kept.by ?? null) : (q.deliveryBy ?? null))
+  const [truckTyped, setTruckTyped] = useState(kept?.truck ?? (q.deliveryCents == null ? '' : euroText(q.deliveryCents)))
   const [kmTyped, setKmTyped] = useState(kept?.kmTyped ?? (q.travelKm == null ? '' : String(q.travelKm)))
   const [discount, setDiscount] = useState(kept?.discount ?? (q.discountPct ? String(q.discountPct) : ''))
   // A price agreed for the whole (ADR 0085) stands in for the discount percentage while it's there.
@@ -320,6 +329,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     setMeals(unless(a.meals, z.meals))
     setRooms(unless(a.rooms, !!z.rooms))
     setKmTyped(unless(a.kmTyped, z.kmTyped))
+    setDeliveryBy(unless(a.by, z.by))
+    setTruckTyped(unless(a.truck, z.truck))
     setDiscount(unless(a.discount, z.discount))
     setAgreed(unless(a.agreed, z.agreed))
     setNotes((now) => (now.trim() === a.notes.trim() ? z.notes : now))
@@ -347,6 +358,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const agreedRead = agreed.trim() ? parseEuro(agreed) : undefined
   const agreedCents = agreedRead?.cents ?? null
   const kmRead = kmTyped.trim() ? num(kmTyped) : null
+  const truckRead = truckTyped.trim() ? parseEuro(truckTyped) : undefined
+  const truckCents = truckRead?.reason ? (q.deliveryCents ?? null) : (truckRead?.cents ?? null)
   const kmOk = kmRead === null || (Number.isInteger(kmRead) && kmRead >= 0 && kmRead <= 2000)
   const extras = extrasFor({
     lines: good,
@@ -361,8 +374,11 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   // A dry hire's delivery (ADR 0183): a line priced by the km from the warehouse to the delivery address.
   const delivery = deliveryFor({
     job,
+    venue: pinOf(job),
     warehouse: view.trackers.settings.home,
     price: { baseCents: m.quoting.deliveryBaseCents, baseKm: m.quoting.deliveryBaseKm, centsPerKm: m.quoting.deliveryCentsPerKm },
+    by: deliveryBy,
+    truckCents,
     id: q.lines.find((l) => l.extra === 'delivery')?.id,
     newId: useStableIds(),
   })
@@ -376,6 +392,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const termProblems: Partial<Record<TermKey, string>> = {}
   if (agreedRead?.reason) termProblems.agreed = `The price agreed: ${agreedRead.reason}`
   else if (agreedCents !== null && agreedCents > totals.subtotal) termProblems.agreed = `The price agreed is more than the lines come to (${money(totals.subtotal)}). Agree a lower price, or change the lines.`
+  if (truckRead?.reason) termProblems.truck = `The truck's price: ${truckRead.reason}`
   if (!kmOk) termProblems.km = 'The distance is a whole number of km from 0 to 2,000, or nothing to take it from the map.'
   if (!pctOk) termProblems.discount = 'A discount is a percentage from 0 to 100, such as 10 or 12.5.'
   if (!validOk) termProblems.validFor = 'Prices hold for a whole number of days from 1 to 365.'
@@ -411,6 +428,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     stored.every((l, i) => sameLine(l, q.lines[i]!)) &&
     meals === (q.mealsProvided ?? false) &&
     rooms === (q.accommodationProvided ?? false) &&
+    deliveryBy === (q.deliveryBy ?? null) &&
+    truckCents === (q.deliveryCents ?? null) &&
     kmRead === (q.travelKm ?? null) &&
     pct === q.discountPct &&
     agreedCents === (q.agreedCents ?? null) &&
@@ -474,7 +493,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     beforeItGoes.push({ key: 'short', words: `${plural(shortLines.length, 'line')} short of kit on the job's days`, look: () => openLine(shortLines[0]!.id) })
   if (extras.travel.km === null && good.some((l) => l.kind === 'crew'))
     beforeItGoes.push({ key: 'travel', words: "No travel for the crew: the venue isn't on the map, so the distance isn't known", look: () => openLine(TRAVEL_ROW) })
-  if (delivery.shown && !delivery.line) beforeItGoes.push({ key: 'delivery', words: `No delivery line: ${delivery.none!.replace(/:.*$/, '')}`, look: () => openLine(DELIVERY_ROW) })
+  if (delivery.shown && delivery.none) beforeItGoes.push({ key: 'delivery', words: `No delivery line: ${delivery.none.replace(/:.*$/, '')}`, look: () => openLine(DELIVERY_ROW) })
   if (job.span && job.span.start < today) beforeItGoes.push({ key: 'past', words: `The job's first day, ${dayLabel(job.span.start)}, has passed` })
   // What each line was last charged in Current RMS (ADR 0092), by the names it goes by there.
   const namesOf = (l: LineDraft) => rmsNames(l, (id) => view.warehouse.models.find((x) => x.id === id))
@@ -484,7 +503,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   // the page saves what's waiting at once. Saving goes through the device's queue, so it works with no signal.
   const payload =
     !storedSame && !termKey
-      ? { id: q.id, projectId: job.id, lines: stored.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, accommodationProvided: rooms, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
+      ? { id: q.id, projectId: job.id, lines: stored.slice(0, MAX_LINES), discountPct: pct, agreedCents, notes, validDays: valid, depositPct: dep, mealsProvided: meals, accommodationProvided: rooms, deliveryBy, deliveryCents: truckCents, travelKm: kmRead, forName: forName.trim(), base: draftBase(opened.current) }
       : undefined
   const waiting = useRef(payload)
   waiting.current = payload
@@ -527,7 +546,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const accept = () => void run(() => client.mutate('quote.answer', { id: q.id, answer: 'accepted', on: acceptedOn || today }))
   const late = useLate(!!payload)
   // Kept on the device while it can't save (finding 27), and let go once it can.
-  const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, rooms, kmTyped, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
+  const typed = !saved && problem ? JSON.stringify({ base: baseOf(q), lines, meals, rooms, kmTyped, by: deliveryBy, truck: truckTyped, discount, agreed, notes, validFor, deposit, forName } satisfies Typed) : ''
   useEffect(() => keepTyped(q.id, typed ? (JSON.parse(typed) as Typed) : undefined), [typed])
 
   const days = jobDays(job)
@@ -1067,7 +1086,19 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           />
         )}
 
-        {delivery.shown && <DeliveryRow delivery={delivery} job={job} open={open} setOpen={openLine} />}
+        {delivery.shown && (
+          <DeliveryRow
+            delivery={delivery}
+            job={job}
+            open={open}
+            setOpen={openLine}
+            setBy={setDeliveryBy}
+            truck={truckTyped}
+            setTruck={setTruckTyped}
+            truckProblem={termErr('truck')}
+            onLeaveTruck={() => touch('truck')}
+          />
+        )}
 
         <div className="quote-add" role="group" aria-label="Add to the quote">
           {adding === 'kit' ? (
