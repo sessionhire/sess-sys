@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 26 November 2026: rental prices and replacement values from Current RMS
 
-**In review (1.232.0, #443, ADR 0197)**
+**Done (1.232.0, #443, ADR 0197)**
 
 - Colly: "use the pricing in Current RMS to populate the rental prices in the
   new system, and also see if it's possible to populate the replacement
@@ -22,6 +22,9 @@ waiting on someone.
   Gear4music refuses automated requests.
 - Checked: typecheck; shared tests; server rms-prices tests (1 new); the
   card's browser test.
+- Waiting on Colly: run Read prices then Fill in on live; review
+  replacement-costs-2026-11-26.csv (29 High, 47 Medium, 43 Low; CL5,
+  grandMA3 light and "Alley Tube" left blank) and say with or without VAT.
 
 ## 24 November 2026: documents on a job, for the crew
 
