@@ -1,5 +1,5 @@
 import type { HireTerms, Pin, ProjectKind } from './jobs.ts'
-import { money, STANDARD_VAT, type DeliveryBy, type DeliveryTrips, DEFAULT_ONE_WAY_PCT, type QuoteLine } from './quotes.ts'
+import { money, STANDARD_VAT, type DeliveryBy, type DeliveryTrips, type QuoteLine } from './quotes.ts'
 import { roadKm, warehouseFrom } from './road.ts'
 
 /**
@@ -81,8 +81,6 @@ export function deliveryFor(o: {
   by?: DeliveryBy | null | undefined
   /** There and back, or one way only; left out is both. */
   trips?: DeliveryTrips | null | undefined
-  /** A one-way van trip's share of the price; left out is half. */
-  oneWayPct?: number | null | undefined
   id: string | undefined
   newId: () => string
 }): Delivery {
@@ -93,7 +91,8 @@ export function deliveryFor(o: {
   const by = o.by ?? deliveryByDefault(o.job)
   const trips = o.trips ?? 'both'
   const oneWay = trips !== 'both'
-  const pct = oneWay ? (o.oneWayPct ?? DEFAULT_ONE_WAY_PCT) : 100
+  // Admin's van prices are for one trip (Colly, 26 November 2026: "70 euro each way"): delivery and collection is two.
+  const trips_ = oneWay ? 1 : 2
   const only = oneWay ? `, ${trips} only` : ''
   const nothing = { line: undefined, km: null, fromWarehouse: from.set, to, how: '', trips } as const
   // A dry hire the client collects (or one from before the question) has nobody to deliver it.
@@ -141,13 +140,11 @@ export function deliveryFor(o: {
   const each = (n: number) => `${n} km at ${money(rate ?? 0)} a km`
   // No set amount: every km at the price a km, as a line of so many km.
   const byTheKm = baseCents == null
-  // One way only is a share of the price there and back (half, until Admin says otherwise).
-  const share = (cents: number) => Math.round((cents * pct) / 100)
-  const half = oneWay ? `, ${pct}% one way` : ''
-  const how = (byTheKm ? `${km} km × ${money(rate!)} a km` : over > 0 ? `${money(baseCents)} for the first ${baseKm} km, then ${each(over)}` : `${money(baseCents)} for up to ${baseKm} km`) + half
-  // Within the set amount's km it's the Dublin flat fee; past them, the fee and each km after.
+  const twice = oneWay ? '' : ', two trips'
+  const how = (byTheKm ? `${km} km × ${money(rate!)} a km` : over > 0 ? `${money(baseCents)} for the first ${baseKm} km, then ${each(over)}` : `${money(baseCents)} for up to ${baseKm} km`) + (oneWay ? ', one trip' : `, each way${twice}`)
+  // Within the set amount's km it's the Dublin flat fee; past them, the fee and each km after. A trip each way.
   const line = byTheKm
-    ? lineOf(`Van${oneWay ? `, ${trips} only` : ', delivery and collection'}${at}`, Math.min(km, 10_000), share(rate!))
-    : lineOf(`${FLAT_FEE}${over > 0 ? `, then ${each(over)}` : ''}${only}`, 1, share(baseCents + over * (rate ?? 0)))
+    ? lineOf(`Van${oneWay ? `, ${trips} only` : ', delivery and collection'}${at}`, Math.min(km * trips_, 10_000), rate!)
+    : lineOf(`${FLAT_FEE}${over > 0 ? `, then ${each(over)}` : ''}${oneWay ? only : ', delivery and collection'}`, trips_, baseCents + over * (rate ?? 0))
   return { shown: true, by, trips, line, km, fromWarehouse: from.set, to, none: null, how }
 }

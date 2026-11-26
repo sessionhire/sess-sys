@@ -56,3 +56,12 @@ stipulate delivery and/or collection in case they only need things delivered for
   choice; null is both, so no quote changes. A van one way is a share of its price there and back, set under Admin as
   One way only (`quote_settings.delivery_one_way_pct`, 10 to 100) and half until set: the van's set amount covers the
   trip there and back, and a one-way job uses about half the driving. A truck's typed price is the job's, whichever way.
+
+## Amended again, 26 November 2026: a price a trip
+
+Colly: "The flat fee Dublin delivery costs are wrong. It should be 70 euro each way not 35 euro each way". Admin's van
+prices had been read as there and back, with one way at half (€70 set, so €35 one way). They're now **for one trip**:
+a delivery only or collection only is one trip, delivery and collection is two (the line's quantity is 2, so €70 set
+reads 2 × €70 = €140), and km past the flat fee are charged on each trip. The One way only share is taken out
+(`quote_settings.delivery_one_way_pct` stays in the database, unread). No setting changes on live: the €70 there is now
+€70 each way.
