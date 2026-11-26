@@ -11,6 +11,8 @@ import {
   paymentTermsLine,
   letterDay,
   lineCents,
+  lineDiscountCents,
+  anyLineDiscount,
   lineSaving,
   linesByGroup,
   linesUnder,
@@ -255,14 +257,25 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
   y = Math.max(yFor, yJob, yWhen) + 18
 
   // The lines, grouped as on the page, under a shaded head that comes again at the top of each new page.
+  // A Discount column, before the amount, only when a line has a discount of its own (Colly, 26 November 2026): what it takes
+  // off and by how much, so the amount reads as the price after it. A quote with none keeps the five columns it had.
+  const discounts = anyLineDiscount(q.lines)
   const cols = [
     { name: 'What', w: 0, align: 'left' as const },
     { name: 'How many', w: 58, align: 'right' as const },
     { name: 'Days', w: 34, align: 'right' as const },
-    { name: 'Price', w: 84, align: 'right' as const },
+    { name: 'Price', w: discounts ? 80 : 84, align: 'right' as const },
     { name: 'VAT', w: 34, align: 'right' as const },
-    { name: 'Amount', w: 76, align: 'right' as const },
+    ...(discounts ? [{ name: 'Discount', w: 62, align: 'right' as const }] : []),
+    { name: 'Amount', w: discounts ? 72 : 76, align: 'right' as const },
   ]
+  /** A line's discount cell: the percentage, and what it takes off under it; empty for a line with none. */
+  const discountCell = (l: QuoteLine, st: Style = {}): Cell[] => {
+    if (!discounts) return []
+    const off = lineDiscountCents(l)
+    // The percentage first: a minus sign before the amount would let a long one break after it.
+    return [off ? { s: `${pctWord(l.discountPct!)} off\n${money(off)}`, st: { color: BRAND, ...st } } : { s: '' }]
+  }
   const pad = 6
   cols[0]!.w = width - cols.slice(1).reduce((s, c) => s + c.w, 0)
   const xs = cols.reduce<number[]>((a, c, i) => [...a, i ? a[i - 1]! + cols[i - 1]!.w : left], [])
@@ -329,9 +342,8 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
       if (l.includes) second.push({ s: l.includes })
       if (saved) second.push({ s: `${money(saved)} off its items’ ${money(lineCents({ ...l, discountPct: undefined, unitCents: l.fullCents! }))}`, st: { color: BRAND } })
       const amount: Cell = { s: free ? NO_CHARGE : money(under.length ? setCents(l, q.lines) : lineCents(l)), st: free ? { color: MUTED } : { font: F.medium } }
-      const amountCell: Cell = l.discountPct ? { s: `${amount.s}\nless ${pctWord(l.discountPct)}`, st: amount.st } : amount
       row(
-        [{ s: l.what, st: { font: F.medium } }, { s: String(l.qty) }, { s: byKit ? '' : daysWord(l) }, { s: byKit || free ? '' : price }, { s: VAT_LABELS[l.vat], st: { color: MUTED } }, amountCell],
+        [{ s: l.what, st: { font: F.medium } }, { s: String(l.qty) }, { s: byKit ? '' : daysWord(l) }, { s: byKit || free ? '' : price }, { s: VAT_LABELS[l.vat], st: { color: MUTED } }, ...discountCell(l), amount],
         second,
         { line: !under.length }
       )
@@ -345,6 +357,7 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
             { s: priced ? daysWord(u) : '', st: small },
             { s: priced ? `${money(u.unitCents)} a ${RATE_UNIT[u.rate ?? 'daily']}` : '', st: small },
             { s: '' },
+            ...discountCell(u, { size: SMALL }),
             { s: priced ? money(lineCents(u)) : 'Included', st: small },
           ],
           [],
@@ -354,14 +367,14 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
     }
     // Each department's subtotal at its end (Colly, 18 November 2026); with one group it's the quote's subtotal, printed below.
     if (groups.length > 1)
-      row([{ s: `${g.group || KIND_WORDS[g.lines[0]!.kind]} subtotal`, st: { color: MUTED } }, { s: '' }, { s: '' }, { s: '' }, { s: '' }, { s: money(groupCents(g.lines, q.lines)), st: { font: F.medium } }], [], { line: false })
+      row([{ s: `${g.group || KIND_WORDS[g.lines[0]!.kind]} subtotal`, st: { color: MUTED } }, { s: '' }, { s: '' }, { s: '' }, { s: '' }, ...(discounts ? [{ s: '' }] : []), { s: money(groupCents(g.lines, q.lines)), st: { font: F.medium } }], [], { line: false })
   }
 
   // What it comes to, at the right; how the booking is confirmed and paid, beside it at the left.
   const sums: [string, string][] = []
   if (totals.discount > 0) {
     sums.push(['Subtotal', money(totals.subtotal)])
-    sums.push([q.agreedCents != null ? `Agreed discount, ${pctWord(totals.discountPct)}` : `Discount, ${pctWord(totals.discountPct)}`, `-${money(totals.discount)}`])
+    sums.push([q.agreedCents != null ? `Agreed discount, ${pctWord(totals.discountPct)}` : `${discounts ? 'Overall discount' : 'Discount'}, ${pctWord(totals.discountPct)}`, `-${money(totals.discount)}`])
   }
   sums.push(['Before VAT', money(totals.net)])
   for (const r of totals.rates) sums.push([`VAT at ${VAT_LABELS[r.rate]}${totals.rates.length > 1 ? ` on ${money(r.net)}` : ''}`, money(r.vat)])

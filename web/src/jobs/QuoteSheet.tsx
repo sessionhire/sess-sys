@@ -5,6 +5,8 @@ import {
   legalLine,
   tradingNameOf,
   lineCents,
+  lineDiscountCents,
+  anyLineDiscount,
   linesByGroup,
   linesUnder,
   setCents,
@@ -50,6 +52,23 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
   // A package's kit (ADR 0116) is folded under its line on screen, a press away, and printed under it on paper.
   const [shown, setShown] = useState<ReadonlySet<string>>(() => new Set())
   if (!lines.length) return <Empty>No lines.</Empty>
+  // A Discount column before the amount only when a line has a discount of its own (Colly, 26 November 2026), as the PDF has it.
+  const discounts = anyLineDiscount(lines)
+  const cols = discounts ? 7 : 6
+  const discountCell = (l: QuoteLine) => {
+    if (!discounts) return null
+    const off = lineDiscountCents(l)
+    return (
+      <td className="n discount">
+        {off > 0 && (
+          <>
+            {pctWord(l.discountPct!)} off
+            <small>−{money(off)}</small>
+          </>
+        )}
+      </td>
+    )
+  }
   const toggle = (id: string) =>
     setShown((now) => {
       const next = new Set(now)
@@ -66,13 +85,14 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
             <th scope="col" className="n">Days</th>
             <th scope="col" className="n">Price</th>
             <th scope="col" className="n">VAT</th>
+            {discounts && <th scope="col" className="n">Discount</th>}
             <th scope="col" className="n">Amount</th>
           </tr>
         </thead>
         {linesByGroup(lines).map((g, _i, groups) => (
           <tbody key={g.group}>
             <tr className="group">
-              <th scope="rowgroup" colSpan={6}>
+              <th scope="rowgroup" colSpan={cols}>
                 {g.group || KIND_WORDS[g.lines[0]!.kind]}
               </th>
             </tr>
@@ -81,7 +101,7 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
               if (l.words)
                 return (
                   <tr key={l.id} className="words">
-                    <td colSpan={6}>{l.what}</td>
+                    <td colSpan={cols}>{l.what}</td>
                   </tr>
                 )
               const under = linesUnder(lines, l.id)
@@ -112,10 +132,8 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                     <td className="n">{byKit ? '' : l.per === 'once' ? '' : l.rate === 'weekly' ? `${l.days} wk` : l.days.toLocaleString('en-IE')}</td>
                     <td className="n">{byKit || l.included ? '' : `${money(l.unitCents)} ${priceWords(l)}`}</td>
                     <td className="n">{VAT_LABELS[l.vat]}</td>
-                    <td className="n">
-                      {l.included && !under.length ? NO_CHARGE : money(under.length ? setCents(l, lines) : lineCents(l))}
-                      {l.discountPct ? <small className="less"> less {pctWord(l.discountPct)}</small> : null}
-                    </td>
+                    {discountCell(l)}
+                    <td className="n">{l.included && !under.length ? NO_CHARGE : money(under.length ? setCents(l, lines) : lineCents(l))}</td>
                   </tr>
                   {under.map((u) => {
                     const priced = u.unitCents > 0 && !u.included
@@ -129,6 +147,7 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                         <td className="n">{priced && u.per !== 'once' ? (u.rate === 'weekly' ? `${u.days} wk` : u.days.toLocaleString('en-IE')) : ''}</td>
                         <td className="n">{priced ? `${money(u.unitCents)} a ${RATE_UNIT[u.rate ?? 'daily']}` : ''}</td>
                         <td className="n" />
+                        {discountCell(u)}
                         <td className="n">{priced ? money(lineCents(u)) : 'Included'}</td>
                       </tr>
                     )
@@ -139,7 +158,7 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
             {/* Each department's subtotal at its end (Colly, 18 November 2026); with one group it's the quote's subtotal. */}
             {groups.length > 1 && (
               <tr className="group-total">
-                <th scope="row" colSpan={5}>
+                <th scope="row" colSpan={cols - 1}>
                   {g.group || KIND_WORDS[g.lines[0]!.kind]} subtotal
                 </th>
                 <td className="n">{money(groupCents(g.lines, lines))}</td>
@@ -152,7 +171,9 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
   )
 }
 
-export function Totals({ totals, agreed }: { totals: QuoteTotals; agreed: boolean }) {
+export function Totals({ totals, agreed, lines = [] }: { totals: QuoteTotals; agreed: boolean; lines?: readonly QuoteLine[] }) {
+  // Beside a Discount column on the lines, the discount off the whole is named apart from them (Colly, 26 November 2026).
+  const overall = anyLineDiscount(lines) ? 'Overall discount' : 'Discount'
   return (
     <dl className="quote-totals">
       {totals.discount > 0 && (
@@ -162,7 +183,7 @@ export function Totals({ totals, agreed }: { totals: QuoteTotals; agreed: boolea
             <dd>{money(totals.subtotal)}</dd>
           </div>
           <div>
-            <dt>{agreed ? `Agreed discount, ${pctWord(totals.discountPct)}` : `Discount, ${pctWord(totals.discountPct)}`}</dt>
+            <dt>{agreed ? `Agreed discount, ${pctWord(totals.discountPct)}` : `${overall}, ${pctWord(totals.discountPct)}`}</dt>
             <dd>−{money(totals.discount)}</dd>
           </div>
         </>
@@ -283,7 +304,7 @@ export function QuoteSheet({ q, job, office, quoting }: { q: QuoteView; job: Job
             {pays && <p className="deposit pays">{pays}</p>}
           </div>
         )}
-        <Totals totals={q.totals} agreed={q.agreedCents != null} />
+        <Totals totals={q.totals} agreed={q.agreedCents != null} lines={q.lines} />
       </div>
       {q.notes && (
         <section className="sheet-notes">

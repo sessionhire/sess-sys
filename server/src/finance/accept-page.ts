@@ -6,6 +6,8 @@ import {
   depositCents,
   letterDay,
   lineCents,
+  lineDiscountCents,
+  anyLineDiscount,
   linesByGroup,
   linesUnder,
   money,
@@ -82,7 +84,11 @@ function lines(s: Sheet): string {
           // Words only (ADR 0128): as written, across the row.
           if (l.words) return `<tr class="words"><td colspan="3">${h(l.what)}</td></tr>`
           const under = linesUnder(s.q.lines, l.id)
-          const amount = l.included && !under.length ? NO_CHARGE : money(under.length ? setCents(l, s.q.lines) : lineCents(l))
+          const off = lineDiscountCents(l)
+          // A line's own discount under its amount (Colly, 26 November 2026), as the printed quote has it in its own column.
+          const amount =
+            (l.included && !under.length ? NO_CHARGE : money(under.length ? setCents(l, s.q.lines) : lineCents(l))) +
+            (off ? `<small>${pctWord(l.discountPct!)} off, −${money(off)}</small>` : '')
           const inIt = under.length ? `<small>With ${h(under.map((u) => `${u.qty} × ${u.what}`).join(', '))}</small>` : l.includes ? `<small>${h(l.includes)}</small>` : ''
           return `<tr><td>${h(l.what)}${inIt}</td><td class="n">${l.qty}</td><td class="n">${amount}</td></tr>`
         })
@@ -96,7 +102,7 @@ function lines(s: Sheet): string {
 function totals(s: Sheet): string {
   const t = s.totals
   const row = (dt: string, dd: string, cls = '') => `<dt${cls}>${dt}</dt><dd${cls}>${dd}</dd>`
-  return `<dl class="totals">${t.discount > 0 ? row('Subtotal', money(t.subtotal)) + row(`Discount, ${pctWord(t.discountPct)}`, `−${money(t.discount)}`) : ''}${row('Before VAT', money(t.net))}${t.rates
+  return `<dl class="totals">${t.discount > 0 ? row('Subtotal', money(t.subtotal)) + row(`${anyLineDiscount(s.q.lines) ? 'Overall discount' : 'Discount'}, ${pctWord(t.discountPct)}`, `−${money(t.discount)}`) : ''}${row('Before VAT', money(t.net))}${t.rates
     .map((r) => row(`VAT at ${VAT_LABELS[r.rate]}`, money(r.vat)))
     .join('')}${row('Total', money(t.gross), ' class="total"')}</dl>`
 }
