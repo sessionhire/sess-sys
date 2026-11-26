@@ -79,6 +79,7 @@ import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, linesShort, Li
 import { OrderedList } from './BoardOrder.tsx'
 import { Totals } from './QuoteSheet.tsx'
 import { Amending } from './QuoteRecords.tsx'
+import { ProductSheet } from '../stock/ProductSheet.tsx'
 import { SendQuote } from './QuoteEmail.tsx'
 import { setDraftSend, takeAskToSend } from './quoteSend.ts'
 import { serverUrl } from '../server.ts'
@@ -270,6 +271,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   // Which field the open line starts on, and whether its cost fold is wanted open: set by whatever opened it.
   const [focusField, setFocusField] = useState<'what' | 'price'>('what')
   const [wantCost, setWantCost] = useState(false)
+  // A line's product open in a sheet over the quote, beside the form rather than in it, so the product page's own forms aren't the quote's.
+  const [looking, setLooking] = useState<string>()
   // The line just shut, which keeps the focus so the keyboard carries on from it.
   const [shut, setShut] = useState<string>()
   const [removed, setRemoved] = useState<{ line: LineDraft; at: number; under: LineDraft[] }>()
@@ -870,6 +873,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           suppliers={view.kit.suppliers}
           wantCost={wantCost}
           included={included || (under.length > 0 && !!l.packageId)}
+          onProduct={l.modelId && view.warehouse.models.some((x) => x.id === l.modelId) ? () => setLooking(l.modelId!) : undefined}
           {...(l.under ? {} : { groups: groupNames, onMove: { up: moved(moveLine(lines, l.id, -1)), down: moved(moveLine(lines, l.id, 1)) } })}
         />
       </div>
@@ -886,6 +890,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const removedGroup = removed ? linesByGroup([removed.line])[0]!.group : undefined
 
   return (
+    <>
     <form
       ref={under}
       className={`quote-draft${adding === 'kit' || adding === 'crew' ? ' picking' : ''}`}
@@ -1503,6 +1508,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
         )}
       </section>
     </form>
+    {looking && <ProductSheet view={view} id={looking} onClose={() => setLooking(undefined)} />}
+    </>
   )
 }
 

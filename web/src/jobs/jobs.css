@@ -1268,3 +1268,25 @@ dialog.photo-viewer[open] { display: flex; flex-direction: column; }
 .app .claude-read-problem { color: var(--warn); }
 .app .claude-did { margin: var(--ds-space-2) 0 0; padding-left: var(--ds-space-5); }
 .app .claude-did li { margin: var(--ds-space-1) 0; }
+
+/* A line's product page from the quote (ProductSheet.tsx): the design system's sheet, from the end on a tablet or desk and over
+   the whole screen on a phone. The sheet scrolls as one with its bar held at the top, so nothing in it scrolls inside something
+   else that scrolls; the quote stays where it was under the veil. */
+.quote-screen .quote-line > .line-product { margin: calc(-1 * var(--ds-space-2)) 0 0; font-size: var(--text-hint); }
+.quote-screen .quote-line > .line-product button.link { min-height: 44px; }
+dialog.product-sheet { position: fixed; inset: 0; width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; padding: 0; border: 0; background: var(--bg); color: var(--ink); overflow: auto; overscroll-behavior: contain; }
+dialog.product-sheet::backdrop { background: var(--ds-veil); }
+@media (min-width: 600px) {
+  dialog.product-sheet { inset: 0 0 0 auto; width: min(680px, calc(100vw - var(--ds-space-8))); border-left: 1px solid var(--ds-line-strong); box-shadow: var(--ds-elevation-modal); }
+}
+.product-sheet-bar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: flex-end; align-items: center; gap: var(--ds-space-2); padding: var(--ds-space-2) var(--gutter); padding-top: max(var(--ds-space-2), env(safe-area-inset-top)); background: var(--bg); border-bottom: 1px solid var(--line); }
+dialog.product-sheet > .app.in-sheet { max-width: none; margin: 0; padding: var(--ds-space-3) var(--gutter) max(var(--ds-space-6), env(safe-area-inset-bottom)); }
+/* It slides its own width in from the end, and settles with the system's sheet timing; with reduced motion travel is 0, so it fades. */
+@media (prefers-reduced-motion: no-preference) {
+  dialog.product-sheet { transition: opacity var(--ds-duration-slow) var(--ds-ease-emphasized-enter), translate var(--ds-duration-slow) var(--ds-ease-emphasized-enter); }
+  dialog.product-sheet::backdrop { transition: opacity var(--ds-duration-slow) var(--ds-ease-standard); }
+  @starting-style {
+    dialog.product-sheet[open] { opacity: 0; translate: calc(100% * var(--ds-motion-travel)) 0; }
+    dialog.product-sheet[open]::backdrop { opacity: 0; }
+  }
+}
