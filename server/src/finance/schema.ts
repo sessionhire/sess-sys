@@ -255,6 +255,12 @@ const MIGRATIONS: string[] = [
   UPDATE quote_settings SET delivery_base_cents = 16000, delivery_base_km = 25, delivery_cents_per_km = 100
    WHERE delivery_base_cents IS NULL AND delivery_cents_per_km IS NULL;
   `,
+  // Delivery or collection only (ADR 0201, amended, Colly 26 November 2026), null for both; and a one-way van trip's
+  // share of the price there and back, null for half.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS delivery_trips text CHECK (delivery_trips IN ('both', 'delivery', 'collection'));
+  ALTER TABLE quote_settings ADD COLUMN IF NOT EXISTS delivery_one_way_pct integer CHECK (delivery_one_way_pct BETWEEN 10 AND 100);
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

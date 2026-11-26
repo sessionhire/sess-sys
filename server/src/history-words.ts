@@ -851,7 +851,7 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       return a.on === true ? 'Turned on sending quotes to clients by email from the operations mailbox' : 'Turned off sending quotes by email'
     case 'quoting.delivery':
       return typeof a.baseCents === 'number'
-        ? `Set a van's delivery and collection at ${euro(a.baseCents)} for the first ${typeof a.baseKm === 'number' ? a.baseKm : 0} km${typeof a.centsPerKm === 'number' ? `, then ${euro(a.centsPerKm)} a km` : ''}`
+        ? `Set a van's delivery and collection at ${euro(a.baseCents)} for the first ${typeof a.baseKm === 'number' ? a.baseKm : 0} km${typeof a.centsPerKm === 'number' ? `, then ${euro(a.centsPerKm)} a km` : ''}${typeof a.oneWayPct === 'number' ? `, one way at ${a.oneWayPct}%` : ''}`
         : typeof a.centsPerKm === 'number'
           ? `Set a van's delivery and collection at ${euro(a.centsPerKm)} a km from the warehouse`
           : "Took off the price of a van's delivery and collection"

@@ -100,6 +100,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
       if (a.accommodationProvided !== undefined) await ctx.tx.query('UPDATE quotes SET accommodation_provided = $2 WHERE id = $1', [a.id, a.accommodationProvided])
       if (a.deliveryBy !== undefined) await ctx.tx.query('UPDATE quotes SET delivery_by = $2 WHERE id = $1', [a.id, a.deliveryBy])
       if (a.deliveryCents !== undefined) await ctx.tx.query('UPDATE quotes SET delivery_cents = $2 WHERE id = $1', [a.id, a.deliveryCents])
+      if (a.deliveryTrips !== undefined) await ctx.tx.query('UPDATE quotes SET delivery_trips = $2 WHERE id = $1', [a.id, a.deliveryTrips])
       if (a.forName !== undefined) await ctx.tx.query('UPDATE quotes SET for_name = $2 WHERE id = $1', [a.id, a.forName.trim()])
       return emitQuote(ctx, a.id)
     }
@@ -113,8 +114,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     // Numbered after every version the job has had, a deleted one too (ADR 0135).
     const top = (await versionsEver(ctx.tx, a.projectId)).top
     await ctx.tx.query(
-      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name, accommodation_provided, delivery_by, delivery_cents)
-       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name, accommodation_provided, delivery_by, delivery_cents, delivery_trips)
+       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [
         a.id,
         a.projectId,
@@ -138,6 +139,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
         // How it's delivered (ADR 0201), and a truck's price, are the job's too.
         a.deliveryBy !== undefined ? a.deliveryBy : (before?.deliveryBy ?? null),
         a.deliveryCents !== undefined ? a.deliveryCents : (before?.deliveryCents ?? null),
+        a.deliveryTrips !== undefined ? a.deliveryTrips : (before?.deliveryTrips ?? null),
       ]
     )
     await emitQuote(ctx, a.id)
@@ -206,6 +208,7 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
          delivery_base_km = CASE WHEN $6::boolean THEN quote_settings.delivery_base_km ELSE EXCLUDED.delivery_base_km END`,
       [QUOTE_SETTINGS_ID, a.centsPerKm, a.baseCents ?? null, a.baseKm ?? null, a.baseCents === undefined, a.baseKm === undefined]
     )
+    if (a.oneWayPct !== undefined) await ctx.tx.query('UPDATE quote_settings SET delivery_one_way_pct = $2 WHERE id = $1', [QUOTE_SETTINGS_ID, a.oneWayPct])
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
   },
 
