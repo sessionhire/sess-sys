@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 26 November 2026: a product's page from the quote
 
-**Done (1.234.0, #449)**
+**Done (1.235.0, #449)**
 
 - Colly asked to open a product's page from the quote screen, as a dialog
   or pop-up. An open kit line on a quote has Product page under its name: the

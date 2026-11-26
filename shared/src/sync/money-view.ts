@@ -249,6 +249,8 @@ export function moneyView(
           mealsProvided: a.mealsProvided ?? before?.mealsProvided ?? false,
           travelKm: a.travelKm !== undefined ? a.travelKm : (before?.travelKm ?? null),
           ...((a.accommodationProvided ?? before?.accommodationProvided) ? { accommodationProvided: true } : {}),
+          ...((a.deliveryBy !== undefined ? a.deliveryBy : before?.deliveryBy) ? { deliveryBy: (a.deliveryBy !== undefined ? a.deliveryBy : before?.deliveryBy)! } : {}),
+          ...((a.deliveryCents !== undefined ? a.deliveryCents : before?.deliveryCents) != null ? { deliveryCents: (a.deliveryCents !== undefined ? a.deliveryCents : before?.deliveryCents)! } : {}),
           forName: a.forName !== undefined ? a.forName : (was?.forName ?? before?.forName ?? ''),
           pending: true,
         })
