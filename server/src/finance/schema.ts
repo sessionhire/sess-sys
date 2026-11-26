@@ -246,6 +246,15 @@ const MIGRATIONS: string[] = [
     FROM latest WHERE op = 'put' AND data IS NOT NULL
    ORDER BY entity_id;
   `,
+  // Delivery and collection on every quote (ADR 0201): none, by van or by truck (null for what the job starts on), and
+  // a truck's price for the job. A van's delivery takes Colly's prices of 26 November 2026 where none were set yet:
+  // €160 within Dublin (25 km from the warehouse), then €1 a km.
+  `
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS delivery_by text CHECK (delivery_by IN ('none', 'van', 'truck'));
+  ALTER TABLE quotes ADD COLUMN IF NOT EXISTS delivery_cents integer CHECK (delivery_cents >= 0);
+  UPDATE quote_settings SET delivery_base_cents = 16000, delivery_base_km = 25, delivery_cents_per_km = 100
+   WHERE delivery_base_cents IS NULL AND delivery_cents_per_km IS NULL;
+  `,
 ]
 
 export const FINANCE: Module = { versionTable: 'finance_schema_version', migrations: MIGRATIONS }

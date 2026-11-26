@@ -1,4 +1,4 @@
-import { lineCents, money, type JobChanges, type LineExtra, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS, type Delivery, type JobView } from '@sh/shared'
+import { lineCents, money, type JobChanges, type LineExtra, RATE_UNIT, type Package, FUEL_PRICE_FRESH_DAYS, type Extras, VEHICLE_KIND_LABELS, type Delivery, type JobView, type DeliveryBy, DELIVERY_BY, DELIVERY_BY_LABELS, DELIVERY_GROUP } from '@sh/shared'
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { AdminWords } from '../AdminWords.tsx'
 import { Icon } from '../Icon.tsx'
@@ -21,41 +21,97 @@ export const ACCOMMODATION_ROW = 'extra:accommodation'
 export const DELIVERY_ROW = 'extra:delivery'
 
 /**
- * A dry hire's delivery (ADR 0183), worked out by the quote as travel is: the km from the warehouse to the delivery
- * address at Admin's price a km, or why there's no line yet. Opening it says where it goes and how it was measured; the
- * address itself is the job's, changed under Change details.
+ * Delivery and collection (ADR 0183, ADR 0201), worked out by the quote as travel is. The quote says No delivery, Van or
+ * Truck (Colly, 26 November 2026). A van is the km from the warehouse at Admin's prices; a truck is priced for each job,
+ * so its price is typed here. Opening the row says where it goes and how it was measured; the address or venue itself is
+ * the job's, changed under Change details.
  */
-export function DeliveryRow({ delivery, job, open, setOpen }: { delivery: Delivery; job: Pick<JobView, 'id' | 'hire'>; open: string | undefined; setOpen: (id: string | undefined) => void }) {
+export function DeliveryRow(p: {
+  delivery: Delivery
+  job: Pick<JobView, 'id' | 'hire'>
+  open: string | undefined
+  setOpen: (id: string | undefined) => void
+  setBy: (by: DeliveryBy) => void
+  truck: string
+  setTruck: (s: string) => void
+  truckProblem: string | undefined
+  onLeaveTruck: () => void
+}) {
+  const { delivery } = p
   const d = delivery.line
-  const shown = open === DELIVERY_ROW
-  const where = job.hire?.address?.trim()
+  const shown = p.open === DELIVERY_ROW
+  const where = delivery.to === 'address' ? p.job.hire?.address?.trim() : undefined
+  const name = useId()
+  const truckId = useId()
+  const pick = (by: DeliveryBy) => {
+    p.setBy(by)
+    // A truck has no price until one is typed, so its box opens with it.
+    p.setOpen(by === 'truck' ? DELIVERY_ROW : by === 'none' ? undefined : p.open)
+  }
+  const what = d ? d.what : delivery.by === 'truck' ? 'Delivery and collection by truck' : 'Delivery and collection by van'
   return (
-    <section className="quote-group quote-extras" role="group" aria-label="Delivery">
+    <section className="quote-group quote-extras" role="group" aria-label={DELIVERY_GROUP}>
       <div className="group-head">
-        <h3 className="group">Delivery</h3>
+        <h3 className="group">{DELIVERY_GROUP}</h3>
       </div>
-      <div className={`quote-line-row extra${shown ? ' open' : ''}`}>
-        <button type="button" className="quote-line-shut" aria-expanded={shown} aria-label={`${d ? d.what : 'No delivery'}: where it goes`} onClick={() => setOpen(shown ? undefined : DELIVERY_ROW)}>
-          <span className="what">{d ? d.what : 'No delivery'}</span>
-          <span className="how">{d ? delivery.how : (delivery.none?.replace(/: .*$/, '.') ?? '')}</span>
-          <span className="amount">{d ? money(lineCents(d)) : '–'}</span>
-          <Icon name="edit" className="opener" />
-        </button>
-        {shown && (
-          <div className="quote-line extra-open">
-            {where && <p className="lines">Delivered to {where}</p>}
-            <p className="hint">
-              {delivery.km !== null
-                ? `About ${delivery.km} km by road from ${delivery.fromWarehouse ? 'the warehouse' : 'Dublin city centre, until the warehouse is on the map in Admin › Company'}, as the vans' drives are measured.`
-                : ''}{' '}
-              <a href={`#jobs/${encodeURIComponent(job.id)}`}>Change the delivery address under Change details</a>.
-            </p>
-          </div>
-        )}
+      <div className="choices delivery-by" role="radiogroup" aria-label="How it goes">
+        {DELIVERY_BY.map((by) => (
+          <label key={by} className="signal">
+            <input type="radio" name={name} checked={delivery.by === by} onChange={() => pick(by)} />
+            <span>
+              <b>{DELIVERY_BY_LABELS[by]}</b>
+            </span>
+          </label>
+        ))}
       </div>
+      {delivery.by !== 'none' && (
+        <div className={`quote-line-row extra${shown ? ' open' : ''}`}>
+          <button type="button" className="quote-line-shut" aria-expanded={shown} aria-label={`${what}: ${delivery.by === 'truck' ? 'its price' : 'where it goes'}`} onClick={() => p.setOpen(shown ? undefined : DELIVERY_ROW)}>
+            <span className="what">{what}</span>
+            <span className="how">{d ? delivery.how : (delivery.none?.replace(/: .*$/, '.') ?? '')}</span>
+            <span className="amount">{d ? money(lineCents(d)) : '–'}</span>
+            <Icon name="edit" className="opener" />
+          </button>
+          {shown && (
+            <div className="quote-line extra-open">
+              {delivery.by === 'truck' && (
+                <label className="field extra-km">
+                  The truck's price
+                  <UnitBox unit="€" before>
+                    <input
+                      inputMode="decimal"
+                      value={p.truck}
+                      onChange={(e) => p.setTruck(e.target.value)}
+                      onBlur={p.onLeaveTruck}
+                      aria-label="The truck's price for this job, before VAT"
+                      aria-invalid={p.truckProblem ? true : undefined}
+                      aria-describedby={p.truckProblem ? truckId : undefined}
+                      autoFocus
+                    />
+                  </UnitBox>
+                  {p.truckProblem ? (
+                    <small className="error" id={truckId}>
+                      {p.truckProblem}
+                    </small>
+                  ) : (
+                    <small>Trucks are priced for each job: there and back, before VAT.</small>
+                  )}
+                </label>
+              )}
+              {where && <p className="lines">Delivered to {where}</p>}
+              <p className="hint">
+                {delivery.km !== null
+                  ? `About ${delivery.km} km by road from ${delivery.fromWarehouse ? 'the warehouse' : 'Dublin city centre, until the warehouse is on the map in Admin › Company'}, as the vans' drives are measured.`
+                  : ''}{' '}
+                <a href={`#jobs/${encodeURIComponent(p.job.id)}`}>{delivery.to === 'address' ? 'Change the delivery address' : 'Change the venue'} under Change details</a>.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
       {delivery.none?.includes('Admin ›') && (
         <p className="hint">
-          <AdminWords>{`Set the delivery price in ${delivery.none.slice(delivery.none.indexOf('Admin ›'))}`}</AdminWords>
+          <AdminWords>{`Set the van's price in ${delivery.none.slice(delivery.none.indexOf('Admin ›'))}`}</AdminWords>
         </p>
       )}
     </section>

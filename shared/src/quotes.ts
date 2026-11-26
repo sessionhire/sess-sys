@@ -69,6 +69,13 @@ export const priceWords = (l: Pick<QuoteLine, 'per' | 'rate' | 'extra'>) =>
 export const NO_CHARGE = 'No charge'
 
 /** The lines a quote works out for itself (ADR 0086), the crew's accommodation with them (ADR 0156). */
+/** What can take a delivery out and bring it back (ADR 0201). */
+export const DELIVERY_VEHICLES = ['van', 'truck'] as const
+export type DeliveryVehicle = (typeof DELIVERY_VEHICLES)[number]
+/** What a quote says about delivery and collection (ADR 0201): none, or which vehicle. */
+export const DELIVERY_BY = ['none', ...DELIVERY_VEHICLES] as const
+export type DeliveryBy = (typeof DELIVERY_BY)[number]
+
 export const LINE_EXTRAS = ['travel', 'subsistence', 'accommodation', 'delivery'] as const
 export type LineExtra = (typeof LINE_EXTRAS)[number]
 
@@ -231,6 +238,13 @@ export interface Quote {
   mealsProvided?: boolean
   /** The job puts the crew up (ADR 0156), so no accommodation is charged. */
   accommodationProvided?: boolean
+  /**
+   * Delivery and collection (ADR 0201): none, by van or by truck. Left out until the office picks, when the quote takes
+   * what the job starts on (a dry hire we deliver goes by van, anything else has none).
+   */
+  deliveryBy?: DeliveryBy
+  /** A truck's delivery and collection is priced for each job (Colly, 26 November 2026): its price in cents, typed on the quote. */
+  deliveryCents?: number | null
   /** How far the venue is from Dublin city centre by road, each way, in km, as the office typed it; none takes it from the map. */
   travelKm?: number | null
   /**
@@ -526,6 +540,9 @@ export const quoteCommandSchemas = {
     travelKm: travelKm.nullable().optional(),
     // Accommodation (ADR 0156), left as it was by a save from an app older than it.
     accommodationProvided: z.boolean().optional(),
+    // Delivery and collection (ADR 0201): null for what the job starts on; left as it was by a save from an app older than it.
+    deliveryBy: z.enum(DELIVERY_BY).nullable().optional(),
+    deliveryCents: euroCents(100_000_00, 'The truck’s price').nullable().optional(),
     // Who it's for (ADR 0128), left as it was by a save from an app older than it.
     forName: text(200, 'Who the quote is for').optional(),
     /**
@@ -543,6 +560,8 @@ export const quoteCommandSchemas = {
         mealsProvided: z.boolean(),
         travelKm: z.number().nullable(),
         accommodationProvided: z.boolean().optional(),
+        deliveryBy: z.enum(DELIVERY_BY).nullable().optional(),
+        deliveryCents: z.number().nullable().optional(),
         forName: z.string().max(200).optional(),
       })
       .optional(),

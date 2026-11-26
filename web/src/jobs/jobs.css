@@ -471,6 +471,11 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
    name, dragged as the Board's cards are (Colly, 18 November 2026). The grip is a full press's size, drawn into the head's
    line without making it taller. */
 .quote-screen .quote-groups { display: grid; gap: var(--ds-space-3); min-width: 0; }
+/* Delivery and collection (ADR 0201): No delivery, Van or Truck in a row of 44px choices that wraps, never clipping a word. */
+.quote-screen .delivery-by { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-block: var(--ds-space-2); }
+.quote-screen .delivery-by .signal { flex: 1 0 auto; align-items: center; min-height: 44px; padding: var(--ds-space-1) var(--ds-space-2); gap: var(--ds-space-2); white-space: nowrap; }
+.quote-screen .delivery-by .signal input { width: 18px; height: 18px; margin-top: 0; flex: none; }
+.quote-screen .delivery-by .signal b { overflow-wrap: normal; }
 .quote-screen .quote-group-item { position: relative; min-width: 0; border-radius: var(--radius-box); }
 .quote-screen .group-head > h3 { margin-inline-end: auto; }
 .app .quote-screen .quote-grip { position: static; flex: none; margin-block: calc(-1 * var(--ds-space-2)); margin-inline-end: calc(-1 * var(--ds-space-2)); }

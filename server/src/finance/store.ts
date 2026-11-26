@@ -7,7 +7,7 @@ import type { Queryable } from '../db.ts'
 type Row = Record<string, any>
 
 const QUOTE = `id, project_id, version, status, lines, discount_pct, notes, made_at, saved_at,
-  sent_on::text AS sent_on, answered_on::text AS answered_on, invoiced_on::text AS invoiced_on, invoice_ref, paid_on::text AS paid_on, number, valid_days, deposit_pct, agreed_cents, meals_provided, accommodation_provided, travel_km, declined_why, declined_note,
+  sent_on::text AS sent_on, answered_on::text AS answered_on, invoiced_on::text AS invoiced_on, invoice_ref, paid_on::text AS paid_on, number, valid_days, deposit_pct, agreed_cents, meals_provided, accommodation_provided, delivery_by, delivery_cents, travel_km, declined_why, declined_note,
   accept_token, accepted_name, accepted_at, accepted_ref, for_name`
 
 const toQuote = (r: Row): Quote => ({
@@ -33,6 +33,9 @@ const toQuote = (r: Row): Quote => ({
   travelKm: r.travel_km ?? null,
   // The crew's accommodation (ADR 0156), only once the job puts them up, so a device or a test that knows nothing of it sees the quote as before.
   ...(r.accommodation_provided ? { accommodationProvided: true } : {}),
+  // Delivery and collection (ADR 0201), only once the office has picked, likewise.
+  ...(r.delivery_by ? { deliveryBy: r.delivery_by } : {}),
+  ...(r.delivery_cents !== null && r.delivery_cents !== undefined ? { deliveryCents: r.delivery_cents } : {}),
   declinedWhy: r.declined_why ?? null,
   declinedNote: r.declined_note ?? '',
   // Who it's for (ADR 0128), only once set, so a device or a test that knows nothing of it sees the quote as before.

@@ -98,6 +98,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
       if (a.mealsProvided !== undefined) await ctx.tx.query('UPDATE quotes SET meals_provided = $2 WHERE id = $1', [a.id, a.mealsProvided])
       if (a.travelKm !== undefined) await ctx.tx.query('UPDATE quotes SET travel_km = $2 WHERE id = $1', [a.id, a.travelKm])
       if (a.accommodationProvided !== undefined) await ctx.tx.query('UPDATE quotes SET accommodation_provided = $2 WHERE id = $1', [a.id, a.accommodationProvided])
+      if (a.deliveryBy !== undefined) await ctx.tx.query('UPDATE quotes SET delivery_by = $2 WHERE id = $1', [a.id, a.deliveryBy])
+      if (a.deliveryCents !== undefined) await ctx.tx.query('UPDATE quotes SET delivery_cents = $2 WHERE id = $1', [a.id, a.deliveryCents])
       if (a.forName !== undefined) await ctx.tx.query('UPDATE quotes SET for_name = $2 WHERE id = $1', [a.id, a.forName.trim()])
       return emitQuote(ctx, a.id)
     }
@@ -111,8 +113,8 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
     // Numbered after every version the job has had, a deleted one too (ADR 0135).
     const top = (await versionsEver(ctx.tx, a.projectId)).top
     await ctx.tx.query(
-      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name, accommodation_provided)
-       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      `INSERT INTO quotes (id, project_id, version, status, lines, discount_pct, notes, valid_days, deposit_pct, agreed_cents, meals_provided, travel_km, accept_token, for_name, accommodation_provided, delivery_by, delivery_cents)
+       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
       [
         a.id,
         a.projectId,
@@ -133,6 +135,9 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
         (a.forName ?? before?.forName ?? '').trim(),
         // Whether the job puts the crew up (ADR 0156) is the job's too.
         a.accommodationProvided ?? before?.accommodationProvided ?? false,
+        // How it's delivered (ADR 0201), and a truck's price, are the job's too.
+        a.deliveryBy !== undefined ? a.deliveryBy : (before?.deliveryBy ?? null),
+        a.deliveryCents !== undefined ? a.deliveryCents : (before?.deliveryCents ?? null),
       ]
     )
     await emitQuote(ctx, a.id)
