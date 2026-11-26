@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-26',
     title: 'A cable’s length beside its name',
     what: 'A cable’s length now shows after its name everywhere: on its page, the stock list, pick lists, the job’s kit, call sheets and quotes. Its page says its length, or lets you give it there and then. Change details and New product ask for a cable’s length right under its name, and if the name has a length in it, one press moves it to the Length box. “XLR” 5 m long and “XLR” 10 m long can now be two products, so the length needn’t be in the name. Menu › Lengths in names lists every product with a length in its name and moves the ones you pick into their Length, after you check them.',
-    prs: [0],
+    prs: [452],
     adrs: [202],
   },
   {
