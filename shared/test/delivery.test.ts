@@ -17,7 +17,7 @@ describe('delivery and collection on a quote', () => {
     expect(d.by).toBe('van')
     expect(d.none).toBeNull()
     expect(d.line).toMatchObject({ id: 'keep', kind: 'other', group: 'Delivery and collection', per: 'once', days: 1, unitCents: 150, extra: 'delivery' })
-    expect(d.line!.qty).toBe(d.km)
+    expect(d.line!.qty).toBe(d.km! * 2)
     expect(d.km).toBeGreaterThan(200)
     expect(d.line!.what).toBe(`Van, delivery and collection, ${d.km} km from the warehouse`)
   })
@@ -29,17 +29,17 @@ describe('delivery and collection on a quote', () => {
     expect(unpriced.line).toBeUndefined()
     expect(unpriced.none).toMatch(/Admin › Company › Delivery and collection/)
   })
-  it("charges Colly's €160 within 25 km, then each km past them", () => {
+  it("charges Colly's €70 a trip within 25 km, then each km past them, a trip each way", () => {
     const km = deliveryFor({ job: hire, warehouse, price: { centsPerKm: 100 }, id: undefined, newId }).km!
-    const past = deliveryFor({ job: hire, warehouse, price: { baseCents: 160_00, baseKm: 25, centsPerKm: 100 }, id: 'keep', newId })
-    expect(past.line).toMatchObject({ id: 'keep', qty: 1, per: 'once', unitCents: 160_00 + (km - 25) * 100, extra: 'delivery' })
-    expect(past.line!.what).toBe(`Dublin flat fee, then ${km - 25} km at €1.00 a km`)
-    expect(past.how).toBe(`€160.00 for the first 25 km, then ${km - 25} km at €1.00 a km`)
+    const past = deliveryFor({ job: hire, warehouse, price: { baseCents: 70_00, baseKm: 25, centsPerKm: 100 }, id: 'keep', newId })
+    expect(past.line).toMatchObject({ id: 'keep', qty: 2, per: 'once', unitCents: 70_00 + (km - 25) * 100, extra: 'delivery' })
+    expect(past.line!.what).toBe(`Dublin flat fee, then ${km - 25} km at €1.00 a km, delivery and collection`)
+    expect(past.how).toBe(`€70.00 for the first 25 km, then ${km - 25} km at €1.00 a km, each way, two trips`)
     // Within the km the set amount covers, it's the set amount alone.
-    const near = deliveryFor({ job: hire, warehouse, price: { baseCents: 160_00, baseKm: 500 }, id: undefined, newId })
-    expect(near.line).toMatchObject({ qty: 1, unitCents: 160_00 })
-    expect(near.how).toBe('€160.00 for up to 500 km')
-    expect(near.line!.what).toBe('Dublin flat fee')
+    const near = deliveryFor({ job: hire, warehouse, price: { baseCents: 70_00, baseKm: 500 }, id: undefined, newId })
+    expect(near.line).toMatchObject({ qty: 2, unitCents: 70_00 })
+    expect(near.how).toBe('€70.00 for up to 500 km, each way, two trips')
+    expect(near.line!.what).toBe('Dublin flat fee, delivery and collection')
     // Past them with no price a km, it says so rather than charge the set amount alone.
     const unpriced = deliveryFor({ job: hire, warehouse, price: { baseCents: 160_00, baseKm: 25 }, id: undefined, newId })
     expect(unpriced.line).toBeUndefined()
@@ -56,7 +56,7 @@ describe('delivery and collection on a quote', () => {
     expect(before).toMatchObject({ shown: true, by: 'none', line: undefined, none: null })
     const van = deliveryFor({ job: gig, venue: galway, warehouse, price: { baseCents: 160_00, baseKm: 25, centsPerKm: 100 }, by: 'van', id: undefined, newId })
     expect(van.to).toBe('venue')
-    expect(van.line!.what).toMatch(/^Dublin flat fee, then \d+ km at €1\.00 a km$/)
+    expect(van.line!.what).toMatch(/^Dublin flat fee, then \d+ km at €1\.00 a km, delivery and collection$/)
     const nowhere = deliveryFor({ job: gig, venue: null, warehouse, price: { centsPerKm: 100 }, by: 'van', id: undefined, newId })
     expect(nowhere.none).toMatch(/venue isn't on the map/)
   })
@@ -70,16 +70,18 @@ describe('delivery and collection on a quote', () => {
     const unmapped = deliveryFor({ job: { kind: 'gig' }, venue: null, warehouse, price: {}, by: 'truck', truckCents: 950_00, id: undefined, newId })
     expect(unmapped.line!.what).toBe('Delivery and collection by truck')
   })
-  it('charges a delivery or a collection only at the one-way share, half unless Admin says', () => {
+  it('charges a delivery or a collection only as one trip: €70 each way, €140 both (Colly, 26 November 2026)', () => {
     const dublin = { lat: 53.35, lng: -6.26 }
-    const price = { baseCents: 160_00, baseKm: 25, centsPerKm: 100 }
+    const price = { baseCents: 70_00, baseKm: 25, centsPerKm: 100 }
     const gig = { kind: 'gig' as const }
     const there = deliveryFor({ job: gig, venue: dublin, warehouse, price, by: 'van', trips: 'delivery', id: undefined, newId })
-    expect(there.line).toMatchObject({ qty: 1, unitCents: 80_00 })
+    expect(there.line).toMatchObject({ qty: 1, unitCents: 70_00 })
     expect(there.line!.what).toBe('Dublin flat fee, delivery only')
-    expect(there.how).toBe('€160.00 for up to 25 km, 50% one way')
-    const back = deliveryFor({ job: gig, venue: dublin, warehouse, price, by: 'van', trips: 'collection', oneWayPct: 60, id: undefined, newId })
-    expect(back.line).toMatchObject({ unitCents: 96_00 })
+    expect(there.how).toBe('€70.00 for up to 25 km, one trip')
+    const back = deliveryFor({ job: gig, venue: dublin, warehouse, price, by: 'van', trips: 'collection', id: undefined, newId })
+    expect(back.line).toMatchObject({ qty: 1, unitCents: 70_00 })
+    const both = deliveryFor({ job: gig, venue: dublin, warehouse, price, by: 'van', id: undefined, newId })
+    expect(both.line!.qty * both.line!.unitCents).toBe(140_00)
     expect(back.line!.what).toBe('Dublin flat fee, collection only')
     // A truck is the price typed, whichever way.
     const truck = deliveryFor({ job: gig, venue: null, warehouse, price, by: 'truck', trips: 'delivery', truckCents: 400_00, id: undefined, newId })

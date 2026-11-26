@@ -137,7 +137,7 @@ export async function paidOnFor(q: Queryable, timesheetIds: readonly string[]): 
 /** What every printed quote says (ADR 0084), once anything about it is saved or a number given. */
 export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | undefined> {
   const { rows } = await q.query<Row>(
-    `SELECT id, next_number, terms, bank, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on::text AS fuel_set_on, fuel_auto, fuel_month, crew_per_car, stay_from_km, room_cents, email_quotes, accept_online, own_kit_cost_pct, reduced_day_pct, margin_target_pct::float8 AS margin_target_pct, delivery_cents_per_km, delivery_base_cents, delivery_base_km, delivery_one_way_pct
+    `SELECT id, next_number, terms, bank, travel_from_km, fuel_cents_per_litre, litres_per_100_km, per_diem_cents, fuel_set_on::text AS fuel_set_on, fuel_auto, fuel_month, crew_per_car, stay_from_km, room_cents, email_quotes, accept_online, own_kit_cost_pct, reduced_day_pct, margin_target_pct::float8 AS margin_target_pct, delivery_cents_per_km, delivery_base_cents, delivery_base_km
      FROM quote_settings WHERE id = $1`,
     [QUOTE_SETTINGS_ID]
   )
@@ -152,7 +152,6 @@ export async function getQuoteSettings(q: Queryable): Promise<QuoteSettings | un
     ...(r.delivery_cents_per_km !== null && r.delivery_cents_per_km !== undefined ? { deliveryCentsPerKm: r.delivery_cents_per_km } : {}),
     ...(r.delivery_base_cents !== null && r.delivery_base_cents !== undefined ? { deliveryBaseCents: r.delivery_base_cents } : {}),
     ...(r.delivery_base_km !== null && r.delivery_base_km !== undefined ? { deliveryBaseKm: r.delivery_base_km } : {}),
-    ...(r.delivery_one_way_pct !== null && r.delivery_one_way_pct !== undefined ? { deliveryOneWayPct: r.delivery_one_way_pct } : {}),
   }
   // Travel and subsistence (ADR 0086) once they've been set, which sets them all: until then each takes its default.
   if (r.travel_from_km === null) return settings
