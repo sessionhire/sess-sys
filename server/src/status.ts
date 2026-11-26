@@ -346,6 +346,25 @@ export class Status {
     if (s.state !== 'on') return { ...base, state: 'off', says: 'Not connected.', todo: 'Connect operations@ under Admin › Connections, for Claude to read its mail and for quotes to be sent from it.' }
     const looked = s.lookedAt ? `last read ${new Date(s.lookedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'not read yet'
     if (s.problem) return { ...base, state: 'warn', says: `Reading ${s.account}, ${looked}, but the last look stopped: ${s.problem}`, todo: 'It tries again every five minutes.', at: s.lookedAt }
+    // A thread Claude couldn't read (ADR 0199): the rest are still read, so it's a warning, not a stop.
+    const aside = s.failing.filter((f) => f.setAside)
+    const trying = s.failing.filter((f) => !f.setAside)
+    if (s.failing.length) {
+      const latest = s.failing[0]!
+      const says = [
+        `Reading ${s.account}, ${looked}.`,
+        aside.length ? `${plural(aside.length, 'thread')} Claude couldn’t read after three tries ${aside.length === 1 ? 'was' : 'were'} set aside this week.` : '',
+        trying.length ? `${plural(trying.length, 'thread')} couldn’t be read and will be tried again.` : '',
+        `The latest: ${latest.problem}`,
+      ]
+      return {
+        ...base,
+        state: 'warn',
+        says: says.filter(Boolean).join(' '),
+        todo: 'A thread set aside is read again when new mail comes on it. Until then, quote it by hand or paste it into New quote’s “Or paste an enquiry for Claude to read”.',
+        at: s.lookedAt,
+      }
+    }
     return { ...base, state: 'ok', says: `Reading ${s.account}, ${looked}${s.canSend ? ', and quotes can be sent from it' : '; connected to read only, so quotes can’t be sent from it'}.`, at: s.lookedAt }
   }
 

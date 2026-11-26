@@ -137,6 +137,7 @@ describe('download everything', () => {
       'leave_requests',
       'leave_years',
       'lieu_entries',
+      'mail_failures',
       'mail_notes',
       'mail_seen',
       'mail_threads',

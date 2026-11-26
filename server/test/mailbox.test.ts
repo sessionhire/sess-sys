@@ -249,6 +249,53 @@ describe('Claude reading the operations mailbox (ADR 0098)', () => {
   })
 })
 
+describe('a thread Claude can’t read (ADR 0199)', () => {
+  it('is tried three times without holding the rest back, then set aside until new mail comes on it', async () => {
+    const s = await setup((a) => {
+      if (a.user.includes('Broken')) throw new Error('overloaded')
+      return { kind: 'other' }
+    })
+    s.mail({ id: 'm1', threadId: 'broken', from: 'a@b.ie', subject: 'Broken', text: 'Broken thread' })
+    s.mail({ id: 'm2', threadId: 'fine', from: 'c@d.ie', subject: 'Fine', text: 'A fine thread' })
+    await s.connect()
+    // The broken thread, read first, doesn't stop the one after it.
+    expect(s.asked.map((a) => a.user.includes('Broken'))).toEqual([true, false])
+    const status = async () => (await s.app.inject({ url: '/api/assistant/mailbox' })).json() as MailboxStatus
+    expect((await status()).failing).toMatchObject([{ tries: 1, setAside: false, problem: 'Claude didn’t answer. Try again in a minute.' }])
+    const check = async () => ((await s.app.inject({ url: '/api/status?again=1' })).json() as { checks: { id: string; state: string; says: string }[] }).checks.find((c) => c.id === 'mailbox')!
+    expect(await check()).toMatchObject({ state: 'warn' })
+
+    await s.mailbox.look()
+    await s.mailbox.look()
+    expect(s.asked.filter((a) => a.user.includes('Broken'))).toHaveLength(3)
+    expect((await status()).failing).toMatchObject([{ tries: 3, setAside: true }])
+    expect((await check()).says).toContain('set aside')
+
+    // Set aside: not asked about (or paid for) again.
+    await s.mailbox.look()
+    expect(s.asked.filter((a) => a.user.includes('Broken'))).toHaveLength(3)
+
+    // New mail on it starts it again, from one try.
+    s.mail({ id: 'm3', threadId: 'broken', from: 'a@b.ie', subject: 'Re: Broken', text: 'Any news?' })
+    await s.mailbox.look()
+    expect(s.asked.filter((a) => a.user.includes('Broken'))).toHaveLength(4)
+    expect((await status()).failing).toMatchObject([{ tries: 1, setAside: false }])
+  })
+
+  it('is forgotten once it reads', async () => {
+    let broken = true
+    const s = await setup((a) => {
+      if (broken && a.user.includes('Broken')) throw new Error('overloaded')
+      return { kind: 'other' }
+    })
+    s.mail({ id: 'm1', threadId: 'broken', from: 'a@b.ie', subject: 'Broken', text: 'Broken thread' })
+    await s.connect()
+    broken = false
+    await s.mailbox.look()
+    expect((await (await s.app.inject({ url: '/api/assistant/mailbox' })).json()).failing).toEqual([])
+  })
+})
+
 describe('reading an email', () => {
   it('takes the text part, or the HTML as text, without what it quotes', () => {
     expect(bodyOf({ mimeType: 'text/html', body: { data: b64('<p>Hi&nbsp;there</p><p>Two <b>mics</b></p>') } })).toBe('Hi there\nTwo mics')

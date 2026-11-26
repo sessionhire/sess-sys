@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.232.2',
+    date: '2026-11-26',
+    title: 'One mail Claude can’t read no longer holds up the rest',
+    what: 'If Claude can’t read an email thread in the operations mailbox, it now carries on with the other mail instead of stopping, and gives up on that thread after three tries, so it isn’t paid for again every five minutes. New mail on the thread brings it back. Admin › Status warns when this happens, with why.',
+    prs: [446],
+    adrs: [199],
+  },
+  {
     version: '1.232.1',
     date: '2026-11-26',
     title: 'Claude reads the mailbox from when it’s turned on',
