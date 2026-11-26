@@ -10,6 +10,7 @@ import { Page } from './common.tsx'
 import { TabPanel, Tabs, useTab } from '../Tabs.tsx'
 import { JOBS, VENUES } from '../Up.tsx'
 import { VenueMapCard } from './VenueMaps.tsx'
+import { ClaudeMark } from './Claude.tsx'
 
 /**
  * One venue on a page of its own (ADR 0032, #jobs/venues/<id>): where it is,
@@ -54,7 +55,12 @@ export function VenueScreen({ view, id, part: asked }: { view: View; id: string;
     )
   const jobs = jobsAt(view.jobs.jobs, venue.id)
   return (
-    <Page view={view} title="Venue" className="crew jobs" up={up} heading={venue.name} badge={<Pending pending={venue.pending} />} sub={venueLine(venue, jobs.length)}>
+    <Page view={view} title="Venue" className="crew jobs" up={up} heading={venue.name} badge={
+        <>
+          <Pending pending={venue.pending} />
+          <ClaudeMark view={view} of="venues" id={venue.id} />
+        </>
+      } sub={venueLine(venue, jobs.length)}>
       <Tabs label={`About ${venue.name}`} id="venue" parts={VENUE_PARTS} labels={VENUE_LABELS} current={part} counts={{ jobs: jobs.length || undefined }} onPick={pick} />
       <TabPanel id="venue" current={part}>
         {part === 'details' && <VenueSummary venue={venue} onMap={() => pick('map')} />}

@@ -92,6 +92,26 @@ const MIGRATIONS: string[] = [
     set_aside  boolean NOT NULL DEFAULT false
   );
   `,
+  // Claude's log (ADR 0200): each time a thread was read, what Claude decided and why, what it made or changed, what it
+  // cost, and any problem. Its subject, sender and reason can name anyone, so erasing anyone empties it, as mail_notes;
+  // kept 90 days. No mail text.
+  `
+  CREATE TABLE IF NOT EXISTS mail_reads (
+    id          bigserial PRIMARY KEY,
+    at          timestamptz NOT NULL DEFAULT now(),
+    thread_id   text NOT NULL,
+    subject     text NOT NULL DEFAULT '',
+    sender      text NOT NULL DEFAULT '',
+    messages    integer NOT NULL DEFAULT 0,
+    decision    text NOT NULL CHECK (decision IN ('enquiry', 'job', 'other', 'skipped', 'failed', 'set-aside')),
+    project_id  text,
+    reason      text NOT NULL DEFAULT '',
+    did         jsonb NOT NULL DEFAULT '[]',
+    cost_cents  integer NOT NULL DEFAULT 0,
+    problem     text
+  );
+  CREATE INDEX IF NOT EXISTS mail_reads_at ON mail_reads (at);
+  `,
 ]
 
 export const ASSISTANT: Module = { versionTable: 'assistant_schema_version', migrations: MIGRATIONS }

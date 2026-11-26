@@ -86,6 +86,7 @@ import { ListTools, PillGroup, useListChoices } from '../ListTools.tsx'
 import { DepartmentFilter, useJobDepartments } from './Departments.tsx'
 import { HireFields, hireDraftOf, hireTermsOf, placed as placedOnMap, type HireDraft } from './HireFields.tsx'
 import { arrival } from '../arrival.ts'
+import { ClaudeMark } from './Claude.tsx'
 
 /**
  * Jobs (ADR 0007): every job, who it's for, where and when, made of phases.
@@ -294,7 +295,7 @@ function ClientsScreen({ view }: { view: View }) {
         <ul className="job-list">
           {shown.map((c) => (
             <li key={c.of.id}>
-              <ClientRow c={c.of} jobs={c.jobs} docs={c.docs} />
+              <ClientRow view={view} c={c.of} jobs={c.jobs} docs={c.docs} />
             </li>
           ))}
         </ul>
@@ -396,7 +397,7 @@ function VenuesScreen({ view }: { view: View }) {
         <ul className="job-list">
           {shown.map((v) => (
             <li key={v.of.id}>
-              <VenueRow v={v.of} jobs={v.jobs} docs={v.docs} />
+              <VenueRow view={view} v={v.of} jobs={v.jobs} docs={v.docs} />
             </li>
           ))}
         </ul>
@@ -723,6 +724,7 @@ export function JobRow({ job, kit, view, current, table = false }: { job: JobVie
         <span className="c-where">
           {hasSteps(job) && job.status === 'confirmed' && !job.pending ? <JobPosition job={job} view={view} /> : <JobStatusPill status={job.status} pending={job.pending} />}
           {short && <small className={`flag ${short}`}>Kit short</small>}
+          <ClaudeMark view={view} of="jobs" id={job.id} />
         </span>
         {/* Who has the stage the job is in, as its Board card says (ADR 0144); nothing for a job with nothing to hand anyone. */}
         <span className="c-assignee">{assignee === undefined ? null : assignee ? assignee : <span className="muted">Nobody yet</span>}</span>
@@ -765,6 +767,7 @@ export function JobRow({ job, kit, view, current, table = false }: { job: JobVie
           </small>
         )}
         {short && <small className={`flag ${short}`}>Kit short</small>}
+        <ClaudeMark view={view} of="jobs" id={job.id} />
       </div>
     </a>
   )
@@ -973,7 +976,7 @@ function NewJob({ view }: { view: View }) {
 }
 
 /** A client in the list: opens their own page, with their documents and their jobs (ADR 0032). */
-function ClientRow({ c, jobs, docs }: { c: ClientView; jobs: number; docs: number }) {
+function ClientRow({ view, c, jobs, docs }: { view: View; c: ClientView; jobs: number; docs: number }) {
   return (
     <a className="job-row" href={`#jobs/clients/${encodeURIComponent(c.id)}`}>
       <div>
@@ -986,13 +989,14 @@ function ClientRow({ c, jobs, docs }: { c: ClientView; jobs: number; docs: numbe
       </div>
       <div className="side">
         <Pending pending={c.pending} />
+        <ClaudeMark view={view} of="clients" id={c.id} />
       </div>
     </a>
   )
 }
 
 /** A venue in the list: opens its own page, with its documents and its jobs (ADR 0032). */
-function VenueRow({ v, jobs, docs }: { v: VenueView; jobs: number; docs: number }) {
+function VenueRow({ view, v, jobs, docs }: { view: View; v: VenueView; jobs: number; docs: number }) {
   return (
     <a className="job-row" href={`#jobs/venues/${encodeURIComponent(v.id)}`}>
       <div>
@@ -1006,6 +1010,7 @@ function VenueRow({ v, jobs, docs }: { v: VenueView; jobs: number; docs: number 
       </div>
       <div className="side">
         <Pending pending={v.pending} />
+        <ClaudeMark view={view} of="venues" id={v.id} />
       </div>
     </a>
   )

@@ -349,6 +349,7 @@ const ABOUT: Record<string, string> = {
   mail_threads: 'Each thread of mail Claude read in the operations mailbox: what it was (an enquiry, about a job, or neither), the job it went with, how many mails, when the last came, and the lines Claude last drafted from it.',
   mail_notes: 'What Claude read in each thread: its subject, who it was from, a summary, what to ask the client, and any changes it asks for on the quote. Emptied when anyone is erased.',
   mail_failures: 'Each thread in the operations mailbox Claude couldn’t read (ADR 0199): how many times in a row, at how many mails, why, and whether it was set aside until new mail comes. Not the mail, its subject or who it was from.',
+  mail_reads: "Claude's log (ADR 0200): each time it read a thread in the operations mailbox, when, the subject, who from, how many mails, what it decided and why, what it made or changed, what that cost in US cents, and any problem. Kept 90 days, and emptied when anyone is erased.",
   mail_seen: 'The mail Claude has read in the operations mailbox, by Gmail’s id and thread. Not the mail itself, which stays in Gmail.',
   assistant_uses: 'Each time Claude was asked (ADR 0096): when, what for, the model, how many tokens went in and out, and what it cost in US cents. Not the words asked or answered, and not who asked.',
   rms_lines: "The lines of each opportunity read from Current RMS: its group, product or service, how many, the price, the discount, the chargeable days and rate, the total and VAT in cents, and whether it was subhired.",

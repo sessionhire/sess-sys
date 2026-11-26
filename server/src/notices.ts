@@ -1,4 +1,5 @@
 import {
+  CLAUDE_CLIENT,
   dayLabel,
   documentsRead,
   HOLDING,
@@ -331,6 +332,17 @@ export async function handOffs(q: Queryable, person: string, user: string | null
       [PAYMENT_DETAILS_ACTION, NOTICE_DAYS, person],
     )
     out.push(...rows.map((r) => ({ id: r.id, project: '', about: `person:${r.person}`, say: `${r.name} changed their payment details on their own page. Ring them before paying to a new account.` })))
+  }
+  // A new enquiry Claude made from the operations mailbox (ADR 0200), to directors and the office, who quote: Claude is
+  // nobody's account, so its new jobs reached nobody's list.
+  if (role === 'director' || role === 'office') {
+    const { rows } = await q.query<{ id: string; project: string; name: string }>(
+      `SELECT m.id, p.id AS project, p.name
+         FROM mutations m JOIN projects p ON p.id = m.args->>'id'
+        WHERE m.name = 'project.create' AND m.status = 'applied' AND m.client_id = $1 AND m.received_at > now() - make_interval(days => $2::int)`,
+      [CLAUDE_CLIENT, NOTICE_DAYS],
+    )
+    out.push(...rows.map((r) => ({ id: r.id, project: r.project, say: `New enquiry from the operations mailbox: ${r.name}. Claude drafted the job and its quote; check both.` })))
   }
   if (!head && role !== 'office') return out
   const notMine = `m.status = 'applied' AND NOT ($1::text IS NOT NULL AND m.user_id IS NOT DISTINCT FROM $1::text) AND m.client_id <> ALL($2::text[])`

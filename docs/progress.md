@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 26 November 2026: seeing what Claude read and did
+
+**Done (1.233.0, #447, ADR 0200)**
+
+- Colly chose all four ways of making Claude's work visible. Admin › Claude
+  now holds the switch, with a line saying what Claude is doing now, and the
+  log "What Claude read": every thread, with what Claude decided and why,
+  what it made, what it cost, and any problem. Jobs Claude drafted say
+  "Drafted by Claude", and clients and venues it added say "Added by
+  Claude", until someone changes them. Directors and the office are told on
+  their bell of each new enquiry Claude made.
+- Checked: typecheck; server mailbox tests (3 new), plus the export,
+  erasure, notices, status and assistant tests; the Claude browser test;
+  screenshots in project files, claude-visibility/.
+
 ## 26 November 2026: a thread Claude can't read is set aside
 
 **Done (1.232.2, #446, ADR 0199)**
