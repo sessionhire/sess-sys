@@ -438,6 +438,8 @@ export function LineEditor(p: {
   groups?: readonly string[]
   /** Moving it up or down its group (ADR 0128), where it can go. */
   onMove?: { up?: (() => void) | undefined; down?: (() => void) | undefined }
+  /** Opens its product's page in a sheet over the quote, for a line that's a product in the catalogue. */
+  onProduct?: (() => void) | undefined
 }) {
   const { l, n, done, fault, set, onRemove, onDone } = p
   const groupId = useId()
@@ -483,6 +485,13 @@ export function LineEditor(p: {
         />
       </label>
       {problem(['what'])}
+      {p.onProduct && (
+        <p className="line-product">
+          <button type="button" className="link" onClick={p.onProduct} aria-haspopup="dialog" aria-label={`Line ${n}: open its product page`}>
+            Product page
+          </button>
+        </p>
+      )}
       {p.groups && (
         <label className="what group-field">
           Under

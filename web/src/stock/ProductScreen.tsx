@@ -77,7 +77,7 @@ import { caseLabel, RackCard, sizeFrom, SizeFields, sizeLabel, sizeTypedOf, supp
 type ProductPart = 'details' | 'jobs' | 'items' | 'faults' | 'cables'
 const PRODUCT_LABELS: Record<ProductPart, string> = { details: 'Details', jobs: 'On jobs', items: 'Items', faults: 'Faults', cables: 'Cable labels' }
 
-export function ProductScreen({ view, id, part: asked, bare }: { view: View; id: string; part?: string; bare?: boolean }) {
+export function ProductScreen({ view, id, part: asked, bare, inSheet }: { view: View; id: string; part?: string; bare?: boolean; inSheet?: boolean }) {
   const w = view.warehouse
   const m = w.models.find((x) => x.id === id)
   const mistake = w.mistakes.get(id)
@@ -86,7 +86,9 @@ export function ProductScreen({ view, id, part: asked, bare }: { view: View; id:
   const showsFaults = !!m && (m.tracking === 'bulk' || m.countedTotal > 0 || faults.length > 0)
   // Dry hire stock (ADR 0075) has none of its own to list.
   const parts: ProductPart[] = ['details', 'jobs', ...(m && !m.dryHire ? (['items'] as const) : []), ...(showsFaults ? (['faults'] as const) : []), 'cables']
-  const [part, pick] = useTab({ parts, asked, remember: 'sh.productPart', address: (p) => `#stock/product/${id}/${p}` })
+  // In a sheet over a quote (ProductSheet.tsx), its parts change without changing the quote's address.
+  bare ||= inSheet
+  const [part, pick] = useTab({ parts, asked, remember: 'sh.productPart', address: inSheet ? undefined : (p) => `#stock/product/${id}/${p}` })
   const onJobs = view.kit.byModel.get(id) ?? []
   // Setting codes aside is stock's, as setting numbers aside is (audit finding 9).
   const mayLabel = useAccess().can('stock')

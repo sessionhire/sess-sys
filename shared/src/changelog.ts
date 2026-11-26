@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.234.0',
+    date: '2026-11-26',
+    title: 'A product’s page from its line on the quote',
+    what: 'Open a kit line on a quote and press Product page under its name: the product’s page opens over the quote, from the side on a laptop and over the whole screen on a phone, with its details, the jobs it’s on, its items and its faults. Close it, or press Escape, and you’re back on the line where you left it. Full page takes you to the product’s own page.',
+    prs: [449],
+  },
+  {
     version: '1.233.0',
     date: '2026-11-26',
     title: 'See what Claude read, what it did, and why',

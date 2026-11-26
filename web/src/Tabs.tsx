@@ -107,7 +107,8 @@ export function useTab<K extends string>({
   asked?: string
   /** The localStorage key for the last part looked at (a wire name of this app's). */
   remember: string
-  address: (p: K) => string
+  /** The page's address for a part. None where the parts are in a sheet over another page, whose address stays as it is. */
+  address?: ((p: K) => string) | undefined
 }): [K, (p: K) => void] {
   const [picked, setPicked] = useState<K | undefined>()
   useEffect(() => setPicked(undefined), [asked])
@@ -126,7 +127,7 @@ export function useTab<K extends string>({
     } catch {
       // As above.
     }
-    history.replaceState(history.state, '', address(p))
+    if (address) history.replaceState(history.state, '', address(p))
   }
   return [current, pick]
 }
