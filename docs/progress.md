@@ -3,6 +3,20 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 26 November 2026: a thread Claude can't read is set aside
+
+**Done (1.232.2, ADR 0199)**
+
+- Colly: "The integration is quite opaque at the moment." Looking into it
+  found that one thread Claude couldn't read stopped every look at the
+  mailbox, was paid for again every five minutes, and Status still showed
+  green. Now the look carries on, the thread is set aside after three tries
+  until new mail comes on it, and Status warns with the reason.
+- Checked: typecheck; server mailbox tests (2 new), export and status tests.
+- Waiting on Colly: which ways of showing Claude's work to build next (a
+  log of what it read and did, a status line on the switch, a "Drafted by
+  Claude" mark, notifications).
+
 ## 26 November 2026: Claude reads the mailbox from when it's turned on
 
 **Done (1.232.1, #445, ADR 0198)**

@@ -456,4 +456,9 @@ export interface MailboxStatus {
   threads: number
   /** Connected with sending allowed (ADR 0101), so quotes can go from it; false for a connection made to read only. */
   canSend: boolean
+  /**
+   * Threads Claude couldn't read in the last week (ADR 0199), newest first: how many tries in a row, why, when, and
+   * whether it was set aside after three until new mail comes on it.
+   */
+  failing: { tries: number; problem: string; at: string; setAside: boolean }[]
 }

@@ -79,6 +79,19 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE assistant_mailbox ADD COLUMN IF NOT EXISTS scopes text[] NOT NULL DEFAULT '{}';
   `,
+  // A thread Claude couldn't read (ADR 0199): how many times in a row, at how many mails, and why, in words with no
+  // names in them. After three tries it's set aside until new mail comes on it, so one thread can't hold the rest
+  // back or be paid for every five minutes.
+  `
+  CREATE TABLE IF NOT EXISTS mail_failures (
+    thread_id  text PRIMARY KEY,
+    messages   integer NOT NULL DEFAULT 0,
+    tries      integer NOT NULL DEFAULT 0,
+    problem    text NOT NULL DEFAULT '',
+    at         timestamptz NOT NULL DEFAULT now(),
+    set_aside  boolean NOT NULL DEFAULT false
+  );
+  `,
 ]
 
 export const ASSISTANT: Module = { versionTable: 'assistant_schema_version', migrations: MIGRATIONS }

@@ -1,6 +1,6 @@
 # ADR 0098: Claude drafts quotes from the operations mailbox
 
-- **Status:** accepted; point 2's starting point amended by [ADR 0198](0198-claude-reads-the-mailbox-from-when-it-is-turned-on.md) (from when Claude is turned on)
+- **Status:** accepted; point 2's starting point amended by [ADR 0198](0198-claude-reads-the-mailbox-from-when-it-is-turned-on.md) (from when Claude is turned on); a thread Claude can't read is set aside after three tries by [ADR 0199](0199-a-thread-claude-cannot-read-is-set-aside.md)
 - **Date:** 29 October 2026
 - **Asked for by:** Colly, 29 October 2026: "I'd like claude to monitor the
   operations@sessionhire.com mailbox - which will be cc'd on all

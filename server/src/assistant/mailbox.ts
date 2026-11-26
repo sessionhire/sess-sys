@@ -30,6 +30,7 @@ import { open } from '../calendar/crypto.ts'
 import { GoogleError, type Google } from '../calendar/google.ts'
 import { applyMutation } from '../commands.ts'
 import type { Db, Queryable } from '../db.ts'
+import { NoAnswer } from './claude.ts'
 import { Gmail, GMAIL_SEND_SCOPE, type Mail } from './gmail.ts'
 import { COMPANY, enquiryRules, adviceRules, NOT_INSTRUCTIONS, type Assistant } from './routes.ts'
 
@@ -51,7 +52,8 @@ import { COMPANY, enquiryRules, adviceRules, NOT_INSTRUCTIONS, type Assistant } 
 const LOOK_MS = 5 * 60_000
 /** At most this many threads are read in one look, so a full mailbox is caught up over a few looks, not one long one. */
 const MOST_THREADS = 6
-/** Mail from this long before the mailbox was connected is read too, so enquiries already in hand get their quotes. */
+/** A thread Claude can't read is tried this many times at the same mail, then set aside until new mail comes on it (ADR 0199). */
+const MOST_TRIES = 3
 /** A thread is cut to its latest mails, and Claude's ask to this many characters of them. */
 const MOST_MAILS = 20
 const THREAD_LENGTH = 40_000
@@ -94,6 +96,12 @@ export class Mailbox {
   async status(): Promise<MailboxStatus> {
     const r = await this.row()
     const { rows } = await this.db.reads.query<{ n: number }>(`SELECT count(*)::int AS n FROM mail_threads WHERE kind <> 'other'`)
+    const failing = (
+      await this.db.reads.query<{ tries: number; problem: string; at: Date; set_aside: boolean }>(
+        `SELECT tries, problem, at, set_aside FROM mail_failures WHERE at >= $1::timestamptz - interval '7 days' ORDER BY at DESC`,
+        [this.now()]
+      )
+    ).rows
     return {
       available: this.available,
       state: (r?.state as MailboxStatus['state']) ?? 'off',
@@ -103,6 +111,7 @@ export class Mailbox {
       lookedAt: r?.looked_at ? new Date(r.looked_at).toISOString() : null,
       threads: rows[0]?.n ?? 0,
       canSend: r?.state === 'on' && maySend(r),
+      failing: failing.map((f) => ({ tries: f.tries, problem: f.problem, at: new Date(f.at).toISOString(), setAside: f.set_aside })),
     }
   }
 
@@ -192,7 +201,14 @@ export class Mailbox {
       const threads = [...new Set(fresh.map((m) => m.threadId).reverse())].slice(0, MOST_THREADS)
       for (const t of threads) {
         if (await this.assistant.refusal()) break
-        await this.readThread(token, t)
+        try {
+          await this.readThread(token, t)
+          await this.db.query('DELETE FROM mail_failures WHERE thread_id = $1', [t])
+        } catch (err) {
+          // Google turning the app away stops the look; anything else is this thread's, and the rest are read (ADR 0199).
+          if (err instanceof GoogleError) throw err
+          await this.failed(t, err)
+        }
         read++
       }
       await this.db.query('UPDATE assistant_mailbox SET looked_at = $2, problem = NULL WHERE id = $1', [MAILBOX_ID, this.now()])
@@ -203,6 +219,32 @@ export class Mailbox {
       if (read) this.onChange()
     }
     return read
+  }
+
+  /**
+   * A thread Claude couldn't read (ADR 0199): counted, and after three tries in a row at the same mail, set aside by
+   * marking its mail seen, so it isn't asked about (and paid for) every five minutes. New mail on it starts it again.
+   */
+  private async failed(threadId: string, err: unknown): Promise<void> {
+    const why = err instanceof NoAnswer ? err.message : 'The app turned down what Claude made from it.'
+    this.log?.warn({ err: err instanceof Error ? err.message : String(err), threadId }, 'Claude could not read a thread from the operations mailbox')
+    let mails: Mail[] = []
+    try {
+      mails = (await this.gmail.thread(await this.token((await this.row()) ?? {}), threadId)).slice(-MOST_MAILS)
+    } catch {
+      // Counted all the same.
+    }
+    const { rows } = await this.db.query<{ tries: number }>(
+      `INSERT INTO mail_failures (thread_id, messages, tries, problem, at) VALUES ($1, $2, 1, $3, $4)
+       ON CONFLICT (thread_id) DO UPDATE SET tries = CASE WHEN mail_failures.messages = $2 THEN mail_failures.tries + 1 ELSE 1 END, messages = $2, problem = $3, at = $4, set_aside = false
+       RETURNING tries`,
+      [threadId, mails.length, why.slice(0, 500), this.now()]
+    )
+    if ((rows[0]?.tries ?? 0) < MOST_TRIES || !mails.length) return
+    await this.db.transaction(async (tx) => {
+      await tx.query('UPDATE mail_failures SET set_aside = true WHERE thread_id = $1', [threadId])
+      await tx.query('INSERT INTO mail_seen (id, thread_id) SELECT unnest($1::text[]), $2 ON CONFLICT DO NOTHING', [mails.map((m) => m.id), threadId])
+    })
   }
 
   /** Reads a whole thread with Claude and acts on it: a new job and its draft, a draft kept up to date, or changes offered. */
