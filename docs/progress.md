@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 26 November 2026: discounts on the printed and PDF quote
+
+**Done (1.237.0, #451)**
+
+- Colly asked for the discount on PDF quotes. When a line has a discount of
+  its own, the PDF and the browser's printed sheet get a Discount column
+  before Amount: the percentage off and, under it, what it takes off in
+  euro, in the brand red. The amount is the price after it. The whole-quote
+  discount reads "Overall discount" when lines have their own too. The
+  client's online page shows each line's discount under its amount. A quote
+  with no line discounts looks as it did.
+- Checked: typecheck; shared tests (new line-discount tests) and the quote
+  PDF test; sample PDFs with and without discounts in project files,
+  quote-discounts/.
+
 ## 26 November 2026: a product's page from the quote
 
 **Done (1.235.0, #449)**
