@@ -26,7 +26,8 @@ import {
   type PickList,
   type PickRow,
   type View,
-  NOT_YOURS
+  NOT_YOURS,
+  shownName,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FocusEvent, type FormEvent } from 'react'
 import { glideTo } from '../glide.ts'
@@ -90,8 +91,8 @@ interface Undo {
 }
 
 /** "SH-000123 d&b Y10P". */
-const itemName = (a: AssetView) => [a.number || 'An item', a.model?.name].filter(Boolean).join(' ')
-const rowName = (r: PickRow) => r.model?.name ?? 'A product since removed'
+const itemName = (a: AssetView) => [a.number || 'An item', shownName(a.model)].filter(Boolean).join(' ')
+const rowName = (r: PickRow) => shownName(r.model) ?? 'A product since removed'
 
 /** Everything in a case, however deep. */
 function inside(c: AssetView, seen = new Set<string>()): number {

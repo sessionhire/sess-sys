@@ -22,6 +22,7 @@ import {
   type SheetInput,
   type SheetPerson,
   type View,
+  shownName,
 } from '@sh/shared'
 import { useEffect, useState } from 'react'
 import { createPortal, flushSync } from 'react-dom'
@@ -59,7 +60,7 @@ export function sheetInput(view: View, job: JobView, phase: PhaseView): SheetInp
     people,
     kit: (view.kit.byJob.get(job.id) ?? [])
       .filter((l) => l.phaseId === null || l.phaseId === phase.id)
-      .map((l) => ({ department: l.model?.department ?? 'other', name: l.model?.name ?? 'A product', qty: l.qty, subhireQty: l.subhireQty, supplier: l.supplier })),
+      .map((l) => ({ department: l.model?.department ?? 'other', name: shownName(l.model) ?? 'A product', qty: l.qty, subhireQty: l.subhireQty, supplier: l.supplier })),
     // Who on it is running late (ADR 0028); one said the evening before, for tomorrow, says so.
     late: view.late.current
       .filter((l) => phase.calls.some((c) => c.id === l.callId))

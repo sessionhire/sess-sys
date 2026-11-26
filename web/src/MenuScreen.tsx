@@ -186,6 +186,14 @@ export const MENU: PlaceGroup[] = [
         about: 'Kit the crew ask to be bought, and their votes',
       },
       {
+        key: 'lengths',
+        icon: 'cable',
+        href: '#stock/lengths',
+        label: 'Lengths in names',
+        about: 'Move cable lengths out of product names into their own field',
+        needs: ['stock'],
+      },
+      {
         key: 'import-stock',
         icon: 'download',
         href: '#stock/import',

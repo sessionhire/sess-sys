@@ -1,4 +1,4 @@
-import { acrossFor, RACK_ACROSS_LABELS, RACK_SIDE_LABELS, TAPE_COLOUR_LABELS, TAPE_COLOUR_SWATCHES, unitsAt, type RackView, type SlotView } from '@sh/shared'
+import { acrossFor, RACK_ACROSS_LABELS, RACK_SIDE_LABELS, TAPE_COLOUR_LABELS, TAPE_COLOUR_SWATCHES, unitsAt, type RackView, type SlotView, nameWithLength, shownName } from '@sh/shared'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Groups } from './RackDesigner.tsx'
@@ -31,7 +31,7 @@ function Tape({ s }: { s: SlotView }) {
 }
 
 function What({ s }: { s: SlotView }) {
-  const name = s.model?.name ?? 'A product no longer listed'
+  const name = shownName(s.model) ?? 'A product no longer listed'
   return (
     <>
       {s.label ? (
@@ -60,7 +60,7 @@ export function RackSheet({ r }: { r: RackView }) {
     <div className="print-sheet rack-sheet warehouse">
       <header>
         <p className="kicker">Rack sheet · printed {today()}</p>
-        <h1>{r.model.name}</h1>
+        <h1>{nameWithLength(r.model)}</h1>
         {facts.length > 0 && <p>{facts.join(' · ')}</p>}
         <LayoutTotals r={r} />
       </header>

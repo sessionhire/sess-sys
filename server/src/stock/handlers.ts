@@ -36,6 +36,7 @@ import {
   getStock,
   levelsIn,
   nameTaken,
+  productTaken,
   nextNumber,
   numberUse,
   oldNumberUse,
@@ -338,7 +339,7 @@ async function giveProductNumber(ctx: Ctx, modelId: string) {
 export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
   async 'model.create'(ctx, a) {
     if (await getModel(ctx.tx, a.id)) throw new Refused({ code: 'conflict', message: 'This product already exists.' })
-    const taken = await nameTaken(ctx.tx, 'models', a.name.trim(), a.id)
+    const taken = await productTaken(ctx.tx, { name: a.name.trim(), lengthM: a.lengthM }, a.id)
     if (taken) throw new Refused({ code: 'conflict', message: `There's already a product called ${taken}.` })
     const code = a.code.trim()
     const coded = code && (await codeTaken(ctx.tx, code, a.id))
@@ -389,9 +390,10 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
   async 'model.update'(ctx, a) {
     const m = await mustModel(ctx, a.id, true)
     const next = { ...m, ...Object.fromEntries(Object.entries(a).filter(([, v]) => v !== undefined)) }
-    if (a.name !== undefined) {
-      next.name = a.name.trim()
-      const taken = await nameTaken(ctx.tx, 'models', next.name, a.id)
+    if (a.name !== undefined) next.name = a.name.trim()
+    // A name and a length together make a product (ADR 0202), so a new length is checked as a new name is.
+    if (a.name !== undefined || a.lengthM !== undefined) {
+      const taken = await productTaken(ctx.tx, { name: next.name, lengthM: next.lengthM }, a.id)
       if (taken) throw new Refused({ code: 'conflict', message: `There's already a product called ${taken}.` })
     }
     if (a.code !== undefined) {

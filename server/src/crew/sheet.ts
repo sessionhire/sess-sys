@@ -1,4 +1,4 @@
-import { LOGO_SVG, phoneShown, callSheet, sheetDocuments, fileLabel, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, roadTimes, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
+import { LOGO_SVG, nameWithLength, phoneShown, callSheet, sheetDocuments, fileLabel, HOLDING, irishToday, jobOnHold, lateDayWord, lateLine, roadTimes, vanLine, vehicleName, type CallSheet, type OfficeDetails, type SheetKitLine, type SheetPerson } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 import { getClient, getPhase, getProject, getVenue } from '../projects/store.ts'
 import { lateOnOffers } from './late.ts'
@@ -77,13 +77,13 @@ export async function sheetFor(q: Queryable, personId: string, callId: string): 
 
 /** The phase's kit and the whole job's, as a crew chief loads the van. */
 async function kitFor(q: Queryable, projectId: string, phaseId: string | null): Promise<SheetKitLine[]> {
-  const { rows } = await q.query<{ name: string; department: SheetKitLine['department']; qty: number; subhire_qty: number; supplier: string }>(
-    `SELECT m.name, m.department, k.qty, k.subhire_qty, k.supplier
+  const { rows } = await q.query<{ name: string; length_m: number | string | null; department: SheetKitLine['department']; qty: number; subhire_qty: number; supplier: string }>(
+    `SELECT m.name, m.length_m, m.department, k.qty, k.subhire_qty, k.supplier
        FROM kit_lines k JOIN models m ON m.id = k.model_id
       WHERE k.project_id = $1 AND (k.phase_id IS NULL OR k.phase_id = $2)`,
     [projectId, phaseId]
   )
-  return rows.map((r) => ({ name: r.name, department: r.department, qty: r.qty, subhireQty: r.subhire_qty, supplier: r.supplier }))
+  return rows.map((r) => ({ name: nameWithLength({ name: r.name, lengthM: r.length_m === null ? null : Number(r.length_m) }), department: r.department, qty: r.qty, subhireQty: r.subhire_qty, supplier: r.supplier }))
 }
 
 const h = (s: unknown) =>

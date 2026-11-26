@@ -24,8 +24,11 @@ import {
   type View,
   listed,
   PRODUCT_SORTS,
+  productNameKey,
   productFilters,
   wholeNumber,
+  shownName,
+  nameWithLength,
 } from '@sh/shared'
 import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -55,6 +58,7 @@ import { VehicleScreen, VehiclesScreen } from './Vehicles.tsx'
 import { PlanScreen } from '../jobs/PlanScreen.tsx'
 import { RackDesigner } from './RackDesigner.tsx'
 import { BringInPurchasesScreen, PurchaseScreen, PurchasesScreen } from './Purchases.tsx'
+import { asksLength, LengthField, LengthTidyScreen } from './CableLength.tsx'
 import { RacksScreen, sizeFrom, SizeFields, sizeTypedOf, suppliersOf, whoseFrom, WhoseFields, whoseTypedOf } from './Racks.tsx'
 import './stock.css'
 import { PLACES, STOCK, type Trail } from '../Up.tsx'
@@ -96,6 +100,7 @@ export function StockScreen() {
   if (hash === '#stock/count') return <CountScreen view={view} />
   if (hash === '#stock/vehicles') return <VehiclesScreen view={view} />
   if (hash === '#stock/racks') return <RacksScreen view={view} />
+  if (hash === '#stock/lengths') return <LengthTidyScreen view={view} />
   if (hash === '#stock/buy') return <PurchasesScreen view={view} />
   if (hash === '#stock/buy/bring-in') return <BringInPurchasesScreen view={view} />
   const [, buy] = /^#stock\/buy\/(.+)$/.exec(hash) ?? []
@@ -146,7 +151,7 @@ export function StockScreen() {
 /** Where an open product, item or place sits under Stock, for the breadcrumbs beside the catalogue. */
 function recordTrail(view: View, kind: string | undefined, id: string): Trail {
   const w = view.warehouse
-  if (kind === 'product') return { steps: [STOCK], here: w.models.find((m) => m.id === id)?.name }
+  if (kind === 'product') return { steps: [STOCK], here: shownName(w.models.find((m) => m.id === id)) }
   if (kind === 'place') return { steps: [STOCK, PLACES], here: w.places.find((p) => p.id === id)?.name }
   const a = w.assets.get(id)
   if (!a) return { steps: [STOCK] }
@@ -280,7 +285,7 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
   const lastRead = camera && scanned ? w.assets.get(scanned) : undefined
   const justClaimed = claimed && !search.trim() ? w.assets.get(claimed) : undefined
   const matches = (m: ModelView) => {
-    const text = `${m.name} ${m.code} ${productCode(m)} ${m.category} ${DEPARTMENT_LABELS[m.department]}`.toLowerCase()
+    const text = `${nameWithLength(m)} ${m.code} ${productCode(m)} ${m.category} ${DEPARTMENT_LABELS[m.department]}`.toLowerCase()
     return words.every((x) => text.includes(x))
   }
   const searched = w.models.filter((m) => (department === 'all' || m.department === department) && matches(m))
@@ -387,7 +392,7 @@ function StockCard({ view, current, onSearching }: { view: View; current?: strin
       )}
       {justClaimed && (
         <p className="added" role="status">
-          Added <a href={`#stock/item/${justClaimed.id}`}>{justClaimed.number}</a> ({justClaimed.model?.name ?? 'an item'})
+          Added <a href={`#stock/item/${justClaimed.id}`}>{justClaimed.number}</a> ({shownName(justClaimed.model) ?? 'an item'})
           {(justClaimed.placeId || justClaimed.caseId) && ` ${atLabel(justClaimed, w)}`}. Scan the next label.
         </p>
       )}
@@ -456,7 +461,7 @@ function ProductRows({ rows, current }: { rows: readonly ModelView[]; current: s
           <a className="job-row" href={`#stock/product/${m.id}`} aria-current={m.id === current ? 'page' : undefined}>
             <Thumb icon={kitIcon(m)} src={productPhotoOf(m)} />
             <div>
-              <b>{m.name}</b>
+              <b>{nameWithLength(m)}</b>
               <p>{[m.category, DEPARTMENT_LABELS[m.department]].filter(Boolean).join(' · ')}</p>
             </div>
             <div className="side">
@@ -619,13 +624,12 @@ function NewProduct({ view, department }: { view: View; department: Department }
   const [f, setF] = useState(blank)
   const [whose, setWhose] = useState(whoseTypedOf())
   const [size, setSize] = useState(sizeTypedOf())
+  const cable = asksLength(f.name, f.category, size.length)
   const { run, error, refuse } = useAct()
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const name = f.name.trim()
     if (!name) return
-    const taken = w.models.find((m) => m.name.trim().toLowerCase() === name.toLowerCase())
-    if (taken) return refuse(`There's already a product called ${taken.name}.`)
     const value = parseEuro(f.value)
     if (value.reason !== undefined) return refuse(value.reason)
     const valueCents = value.cents
@@ -633,6 +637,9 @@ function NewProduct({ view, department }: { view: View; department: Department }
     if (!owned.whose) return refuse(owned.reason)
     const sized = sizeFrom(size, w.models)
     if (!sized.size) return refuse(sized.reason)
+    // A name and a length together make a product (ADR 0202): "XLR" 5 m long and "XLR" 10 m long are two.
+    const taken = w.models.find((m) => productNameKey(m) === productNameKey({ name, lengthM: sized.size.lengthM }))
+    if (taken) return refuse(`There's already a product called ${nameWithLength(taken)}.`)
     const id = newId()
     const args = {
       ...owned.whose,
@@ -661,8 +668,9 @@ function NewProduct({ view, department }: { view: View; department: Department }
   return (
     <form className="grid-form" onSubmit={submit}>
       <label className="wide">
-        Name <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. d&b Y10P, XLR 10 m, Amp rack" required />
+        Name <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. d&b Y10P, XLR, Amp rack" required />
       </label>
+      {cable && <LengthField name={f.name} length={size.length} onChange={(n) => (setF({ ...f, name: n.name }), setSize({ ...size, length: n.length }))} />}
       <label>
         Department
         <select value={f.department} onChange={(e) => setF({ ...f, department: e.target.value as Department })}>
@@ -690,7 +698,7 @@ function NewProduct({ view, department }: { view: View; department: Department }
           onChange={(e) => setF({ ...f, value: e.target.value })}
         />
       </label>
-      <SizeFields f={size} onChange={setSize} rack={false} />
+      <SizeFields f={size} onChange={setSize} rack={false} lengthAbove={cable} />
       <Refusal error={error} className="wide" />
       <button type="submit" className="primary wide">
         Add product

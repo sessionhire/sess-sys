@@ -17,6 +17,7 @@ import {
   type ItemCertificateKind,
   type ItemCertificateView,
   type View,
+  shownName,
 } from '@sh/shared'
 import { useRef, useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -93,7 +94,7 @@ async function openFile(a: AssetView, c: ItemCertificateView) {
   const url = URL.createObjectURL(await res.blob())
   const link = document.createElement('a')
   link.href = url
-  link.download = documentFileName([numberLabel(a), a.model?.name].filter(Boolean).join(' '), c.title, c.file.type)
+  link.download = documentFileName([numberLabel(a), shownName(a.model)].filter(Boolean).join(' '), c.title, c.file.type)
   document.body.append(link)
   link.click()
   link.remove()

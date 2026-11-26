@@ -599,7 +599,7 @@ async function openJobs(q: Queryable, today: string): Promise<{ id: string; name
 
 /** The stock list and the price list, as the device has them, so Claude's lines are matched and priced as on the screen. */
 export async function pricingFrom(q: Queryable): Promise<Pricing> {
-  const models = (await q.query<{ id: string; name: string; department: Department; aliases: string[] }>('SELECT id, name, department, aliases FROM models')).rows
+  const models = (await q.query<{ id: string; name: string; department: Department; aliases: string[]; lengthM: number | null }>('SELECT id, name, department, aliases, length_m::float8 AS "lengthM" FROM models')).rows
   const prices = new Map((await q.query<{ model_id: string; day_cents: number; rate: RateRule | null }>('SELECT model_id, day_cents, rate FROM product_prices')).rows.map((p) => [p.model_id, p]))
   const roles = (await q.query<{ role: string; day_cents: number | null }>('SELECT role, day_cents FROM role_prices UNION ALL SELECT DISTINCT role, NULL::integer FROM crew_calls')).rows
   const byId = new Map(models.map((m) => [m.id, m]))

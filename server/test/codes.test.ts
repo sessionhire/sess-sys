@@ -242,7 +242,7 @@ describe('codes', () => {
       SELECT entity, entity_id, 'put', jsonb_set(data, '{number}', to_jsonb('AUD-' || (data->>'number')))
         FROM changes WHERE entity = 'asset' AND seq = (SELECT max(seq) FROM changes c WHERE c.entity_id = changes.entity_id);
     `)
-    await db.exec(STOCK.migrations.at(-1)!)
+    await db.exec(STOCK.migrations.at(-2)!)
     const { rows } = await db.query<{ value: string }>(`SELECT value FROM identifiers WHERE kind = 'code' ORDER BY value`)
     expect(rows.map((r) => r.value)).toEqual(['0001-001', '0001-005', '0001-006'])
     const { runs, items } = await records(app)

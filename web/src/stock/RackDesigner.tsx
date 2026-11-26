@@ -6,6 +6,8 @@ import {
   type RackSide,
   type RackView,
   type View,
+  nameWithLength,
+  shownName,
 } from '@sh/shared'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -43,7 +45,7 @@ export { Groups } from './RackSlots.tsx'
 
 export function RackDesigner({ view, id, bare }: { view: View; id: string; bare?: boolean }) {
   const r = view.racks.of(id)
-  const up = { steps: [STOCK, RACKS, ...(r ? [{ href: `#stock/product/${r.model.id}`, label: r.model.name }] : [])], here: 'Design' }
+  const up = { steps: [STOCK, RACKS, ...(r ? [{ href: `#stock/product/${r.model.id}`, label: nameWithLength(r.model) }] : [])], here: 'Design' }
   if (!r)
     return (
       <Page view={view} title="Stock" className="warehouse" up={up} bare={bare}>
@@ -96,7 +98,7 @@ function SideCut({ r, bad }: { r: RackView; bad: ReadonlySet<string | undefined>
   return (
     <figure className="rack-side-cut">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby="side-cut-title">
-        <title id="side-cut-title">{`${r.model.name} from the side, ${size.depth} mm rail to rail${size.depthGuessed ? ' (no depth given, drawn at 500 mm)' : ''}`}</title>
+        <title id="side-cut-title">{`${nameWithLength(r.model)} from the side, ${size.depth} mm rail to rail${size.depthGuessed ? ' (no depth given, drawn at 500 mm)' : ''}`}</title>
         <rect className="cut-case" x={pad} y={pad} width={size.depth} height={size.height} />
         {Array.from({ length: size.units + 1 }, (_, i) => (
           <line key={i} className="cut-unit" x1={pad} x2={pad + size.depth} y1={pad + i * RACK_U} y2={pad + i * RACK_U} />
@@ -111,7 +113,7 @@ function SideCut({ r, bad }: { r: RackView; bad: ReadonlySet<string | undefined>
             <g key={s.id} className={`cut-thing${bad.has(s.id) ? ' bad' : ''}${s.model?.dryHire ? ' hired' : ''}${s.model?.depthMm === null ? ' guessed' : ''}`}>
               <rect x={x} y={pad + (s.top! - 1) * RACK_U + 1} width={deep} height={units * RACK_U - 2} />
               <text x={x + 8} y={pad + (s.top! - 1) * RACK_U + (units * RACK_U) / 2} dominantBaseline="middle">
-                {s.model?.name ?? '?'}
+                {shownName(s.model) ?? '?'}
               </text>
             </g>
           )
@@ -255,7 +257,7 @@ function Designer({ view, r }: { view: View; r: RackView }) {
   return (
     <div className="rack-designer">
       <section className="card designer-head" aria-labelledby="designer-title">
-        <h1 id="designer-title">{r.model.name}</h1>
+        <h1 id="designer-title">{nameWithLength(r.model)}</h1>
         <p className="rack-totals">{[r.model.code, sizeLabel(r.model) || 'No size given yet: give its rack units on its page'].filter(Boolean).join(' · ')}</p>
         <LayoutTotals r={r} />
         {mayChange && (

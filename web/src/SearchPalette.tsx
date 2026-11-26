@@ -1,4 +1,4 @@
-import { plural, quoteNumberLabel, spanLabel, type View } from '@sh/shared'
+import { plural, quoteNumberLabel, spanLabel, type View, shownName } from '@sh/shared'
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent } from 'react'
 import { personHref } from './crew/PersonScreen.tsx'
 import { plain, wordsOf } from './crew/People.tsx'
@@ -115,7 +115,7 @@ const productFound = (m: Product): Omit<Found, 'first'> => ({
 const itemFound = (a: Item): Omit<Found, 'first'> => ({
   key: a.id,
   href: `#stock/item/${encodeURIComponent(a.id)}`,
-  title: `${a.number || 'No number yet'} · ${a.model?.name ?? 'Unknown product'}`,
+  title: `${a.number || 'No number yet'} · ${shownName(a.model) ?? 'Unknown product'}`,
   line: [a.serial ? `Serial ${a.serial}` : '', a.oldNumber ? `Old tag ${a.oldNumber}` : '', a.at ? `at ${a.at.name}` : ''].filter(Boolean).join(' · '),
 })
 

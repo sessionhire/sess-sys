@@ -11,6 +11,8 @@ import {
   type RetiredReason,
   type View,
   type WarehouseView,
+  nameWithLength,
+  shownName,
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -98,7 +100,7 @@ export function ItemScreen({ view, id, part: asked, bare }: { view: View; id: st
       view={view}
       title="Stock"
       className="warehouse"
-      up={{ steps: a.model && !a.model.mistake ? [STOCK, { href: `#stock/product/${a.model.id}`, label: a.model.name }] : [STOCK], here: numberLabel(a) }}
+      up={{ steps: a.model && !a.model.mistake ? [STOCK, { href: `#stock/product/${a.model.id}`, label: nameWithLength(a.model) }] : [STOCK], here: numberLabel(a) }}
       bare={bare}
       picture={<Thumb icon={kitIcon(a.model)} src={productPhotoOf(a.model)} size="large" />}
       heading={<span className="number">{numberLabel(a)}</span>}
@@ -152,7 +154,7 @@ export function ItemScreen({ view, id, part: asked, bare }: { view: View; id: st
 /** "Mic case 24 · Bay C2": what it is and where, under its number, as a product's page says its department and kind. */
 function itemLine(a: AssetView, w: WarehouseView): string {
   const where = a.status === 'retired' ? undefined : a.inCase ? `in ${a.inCase.number || 'a case'}` : a.at ? a.at.name : whereLabel(a, w)
-  return [a.model?.name ?? 'Removed', where].filter(Boolean).join(' · ')
+  return [shownName(a.model) ?? 'Removed', where].filter(Boolean).join(' · ')
 }
 
 type Mode = 'move' | 'details' | 'label' | 'print' | 'retire'
@@ -176,7 +178,7 @@ function Summary({ a, w, view }: { a: AssetView; w: WarehouseView; view: View })
       <dl className="facts">
         <div>
           <dt>Product</dt>
-          <dd>{a.model ? a.model.mistake ? a.model.name : <a href={`#stock/product/${a.model.id}`}>{a.model.name}</a> : 'Removed'}</dd>
+          <dd>{a.model ? a.model.mistake ? nameWithLength(a.model) : <a href={`#stock/product/${a.model.id}`}>{nameWithLength(a.model)}</a> : 'Removed'}</dd>
         </div>
         <div>
           <dt>Serial</dt>
@@ -206,14 +208,14 @@ function Summary({ a, w, view }: { a: AssetView; w: WarehouseView; view: View })
           <div className="wide">
             <dt>Built into</dt>
             <dd>
-              <a href={`#stock/item/${a.inRack.id}`}>{numberLabel(a.inRack)}</a> ({a.inRack.model?.name}), and goes out with it
+              <a href={`#stock/item/${a.inRack.id}`}>{numberLabel(a.inRack)}</a> ({shownName(a.inRack.model)}), and goes out with it
             </dd>
           </div>
         )}
         {a.inRack && a.inRack.id === a.caseId && (
           <div className="wide">
             <dt>Built into</dt>
-            <dd>{a.inRack.model?.name}, and goes out with it</dd>
+            <dd>{shownName(a.inRack.model)}, and goes out with it</dd>
           </div>
         )}
         {out && (
@@ -251,7 +253,7 @@ function Summary({ a, w, view }: { a: AssetView; w: WarehouseView; view: View })
       <Refusal error={error} />
       {retired ? (
         a.model?.mistake ? (
-          <p className="hint">{a.model.name} was marked as added by mistake, so this is kept for the history only.</p>
+          <p className="hint">{nameWithLength(a.model)} was marked as added by mistake, so this is kept for the history only.</p>
         ) : (
           mayChange && (
             <div className="actions">
@@ -278,9 +280,9 @@ function Summary({ a, w, view }: { a: AssetView; w: WarehouseView; view: View })
         (a.number ? (
           <>
             <h2>On the ZT411</h2>
-            <ZebraPrint labels={[{ number: a.number, caption: a.model?.name, code: a.model?.code || undefined }]} file={`session-hire-label-${a.number}`} />
+            <ZebraPrint labels={[{ number: a.number, caption: shownName(a.model), code: a.model?.code || undefined }]} file={`session-hire-label-${a.number}`} />
             <h2>On another printer</h2>
-            <PrintLabels numbers={[a.number]} caption={a.model?.name} code={a.model?.code || undefined} />
+            <PrintLabels numbers={[a.number]} caption={shownName(a.model)} code={a.model?.code || undefined} />
           </>
         ) : (
           <p className="hint">It gets its number when it syncs, and its label can be printed then.</p>
@@ -295,7 +297,7 @@ function WhereLink({ a }: { a: AssetView }) {
   const c = a.inCase!
   return (
     <>
-      In <a href={`#stock/item/${c.id}`}>{numberLabel(c)}</a> ({c.model?.name ?? 'a case'})
+      In <a href={`#stock/item/${c.id}`}>{numberLabel(c)}</a> ({shownName(c.model) ?? 'a case'})
       {c.at && (
         <>
           , <a href={`#stock/place/${c.at.id}`}>{c.at.name}</a>
@@ -438,15 +440,15 @@ function Relabel({ a, w, onDone }: { a: AssetView; w: WarehouseView; onDone: () 
     if (number && number === a.number) return refuse(`${number} is its label now.`)
     // A code names its product (ADR 0195), so it goes on no other.
     const owner = number && readCode(number) ? productOfCode(number, w) : undefined
-    if (owner && owner.id !== a.modelId) return refuse(`${number} is a label for ${owner.name}${a.model ? `, not ${a.model.name}` : ''}.`)
+    if (owner && owner.id !== a.modelId) return refuse(`${number} is a label for ${owner.name}${a.model ? `, not ${nameWithLength(a.model)}` : ''}.`)
     const other = number ? w.byNumber.get(number) : undefined
     if (number && other) {
       return refuse(
         other.id === a.id
           ? `${number} was its label before, and a number is never used twice. Use another label.`
           : other.number === number
-            ? `${number} is already in use (${other.model?.name ?? 'another item'}).`
-            : `${number} was used before (${other.model?.name ?? 'another item'}, now ${numberLabel(other)}), and a number is never used twice. Use another label.`
+            ? `${number} is already in use (${shownName(other.model) ?? 'another item'}).`
+            : `${number} was used before (${shownName(other.model) ?? 'another item'}, now ${numberLabel(other)}), and a number is never used twice. Use another label.`
       )
     }
     if (!number && a.number) return setAsking(true)
@@ -550,7 +552,7 @@ function Inside({ c, w }: { c: AssetView; w: WarehouseView }) {
             <li key={i.id}>
               <a className="item-row" href={`#stock/item/${i.id}`}>
                 <div>
-                  <b>{numberLabel(i)}</b> {i.model?.name}
+                  <b>{numberLabel(i)}</b> {shownName(i.model)}
                   {i.model?.isCase && (i.items.length > 0 || i.counted.length > 0) && <p>{contentsLabel(i)}</p>}
                 </div>
                 <Pending pending={i.pending} />
@@ -561,7 +563,7 @@ function Inside({ c, w }: { c: AssetView; w: WarehouseView }) {
       )}
       {c.counted.map((s) => (
         <CountRow key={s.id} s={s} w={w} onSaid={setSaid}>
-          × {s.model ? <a href={`#stock/product/${s.model.id}`}>{s.model.name}</a> : 'a product since removed'}
+          × {s.model ? <a href={`#stock/product/${s.model.id}`}>{nameWithLength(s.model)}</a> : 'a product since removed'}
           {s.model?.tracking === 'serialised' && <small>, not labelled yet</small>}
         </CountRow>
       ))}
@@ -574,7 +576,7 @@ function Inside({ c, w }: { c: AssetView; w: WarehouseView }) {
           button={`Put it in ${numberLabel(c)}`}
           why={(item) => (item.caseId === c.id ? `${item.number} is in here already.` : loopIn(item.id, c.id, w))}
           to={{ placeId: null, caseId: c.id }}
-          done={(item) => `${item.number} (${item.model?.name ?? 'an item'}) is in ${numberLabel(c)} now.`}
+          done={(item) => `${item.number} (${shownName(item.model) ?? 'an item'}) is in ${numberLabel(c)} now.`}
         />
       )}
       <CountHere w={w} at={{ placeId: null, caseId: c.id }} title="Count what's in it" onSaid={setSaid} />

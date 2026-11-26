@@ -56,6 +56,8 @@ import {
   type AskedLine,
   MOST_LAST_CHARGED_NAMES,
   draftBase,
+  nameWithLength,
+  shownName,
 } from '@sh/shared'
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -458,7 +460,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     if (modelId.startsWith(PACKAGE_PICK)) {
       const p = m.package(modelId.slice(PACKAGE_PICK.length))
       if (!p) return ''
-      const holds = packageIncludes(p, (id) => view.warehouse.models.find((x) => x.id === id)?.name)
+      const holds = packageIncludes(p, (id) => shownName(view.warehouse.models.find((x) => x.id === id)))
       const price = p.dayCents ? `${money(p.dayCents)} ${p.rate === 'weekly' ? 'a week' : 'a day'}` : 'its kit at its own prices'
       return [price, holds && `holds ${holds}`].filter(Boolean).join(' · ')
     }
@@ -573,7 +575,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const rate = m.productRate(modelId)
     addLine({
       kind: 'kit',
-      what: model.name,
+      what: nameWithLength(model),
       ref: null,
       modelId,
       group: DEPARTMENT_LABELS[model.department],
@@ -598,7 +600,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           const x = view.warehouse.models.find((y) => y.id === id)
           if (!x) return []
           return [
-            { ...rackLine, id: newId(), what: x.name, modelId: id, group: DEPARTMENT_LABELS[x.department], qty: String(n * count), price: euroText(0), rate: null, under: rackLine.id },
+            { ...rackLine, id: newId(), what: nameWithLength(x), modelId: id, group: DEPARTMENT_LABELS[x.department], qty: String(n * count), price: euroText(0), rate: null, under: rackLine.id },
           ]
         })
         return [...ls, ...kids].slice(0, MAX_LINES)
@@ -641,7 +643,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           ...blank,
           id: newId(),
           kind: 'kit',
-          what: model.name,
+          what: nameWithLength(model),
           modelId: i.modelId,
           group: DEPARTMENT_LABELS[model.department],
           qty: String(i.qty * count),
@@ -842,7 +844,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const underDone = under.map((u) => parsed[lines.indexOf(u)]?.line)
     const setTotal = done && under.length && underDone.every(Boolean) ? lineCents(done) + underDone.reduce((t, u) => t + lineCents(u!), 0) : undefined
     const included = !!done && !needsPrice(done, good) && done.unitCents === 0 && !!l.under
-    const kit = done && <KitNote l={done} checks={checks} items={under.length ? undefined : m.package(l.packageId ?? '')?.items} names={(id) => view.warehouse.models.find((x) => x.id === id)?.name} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} span={job.span} />
+    const kit = done && <KitNote l={done} checks={checks} items={under.length ? undefined : m.package(l.packageId ?? '')?.items} names={(id) => shownName(view.warehouse.models.find((x) => x.id === id))} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} span={job.span} />
     const cost = done ? costOf(done) : undefined
     return open !== l.id ? (
       <div key={l.id} className="quote-line-row">

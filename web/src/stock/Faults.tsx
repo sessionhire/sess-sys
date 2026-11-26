@@ -16,6 +16,7 @@ import {
   type View,
   STANDING_HEADINGS,
   listHeading,
+  shownName,
 } from '@sh/shared'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -40,8 +41,8 @@ import { useUnderTop } from '../useUnderTop.ts'
 
 /** "SH-000123 d&b Y10P", or "3 × XLR 10 m". */
 export function faultWhat(f: FaultView): string {
-  if (f.assetId) return [f.asset ? numberLabel(f.asset) : 'An item', f.model?.name].filter(Boolean).join(' ')
-  return `${f.qty.toLocaleString('en-IE')} × ${f.model?.name ?? 'a product since removed'}`
+  if (f.assetId) return [f.asset ? numberLabel(f.asset) : 'An item', shownName(f.model)].filter(Boolean).join(' ')
+  return `${f.qty.toLocaleString('en-IE')} × ${shownName(f.model) ?? 'a product since removed'}`
 }
 
 /** "Damaged, can't go out", "Damaged, fit to go out", or "Missing". */

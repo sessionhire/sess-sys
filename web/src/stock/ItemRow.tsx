@@ -1,4 +1,4 @@
-import { RETIRED_LABELS, type AssetView, type View } from '@sh/shared'
+import { RETIRED_LABELS, type AssetView, type View, shownName } from '@sh/shared'
 import { Fragment } from 'react'
 import { dayOf } from '../format.ts'
 import { productPhotoOf, Thumb } from '../Picture.tsx'
@@ -83,7 +83,7 @@ export function ItemRow({
       {product && <Thumb icon={kitIcon(a.model)} src={productPhotoOf(a.model)} />}
       <div>
         {job ? <a href={href}>{numberLabel(a)}</a> : <b>{numberLabel(a)}</b>}
-        {product && ` ${a.model?.name ?? 'A product since removed'}`}
+        {product && ` ${shownName(a.model) ?? 'A product since removed'}`}
         <p>
           {factsOf(view, a, job, note).map((f, i) => (
             <Fragment key={i}>

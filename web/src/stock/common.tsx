@@ -14,6 +14,7 @@ import {
   type Tracking,
   type WarehouseView,
   type Where,
+  shownName,
 } from '@sh/shared'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
@@ -57,7 +58,7 @@ export function whereLabel(x: Where, w: WarehouseView): string {
   if (x.placeId) return w.places.find((p) => p.id === x.placeId)?.name ?? 'A place since removed'
   if (x.caseId) {
     const c = w.assets.get(x.caseId)
-    return c ? `In ${numberLabel(c)} (${c.model?.name ?? 'a case'})${c.at ? `, ${c.at.name}` : ''}` : 'In a case'
+    return c ? `In ${numberLabel(c)} (${shownName(c.model) ?? 'a case'})${c.at ? `, ${c.at.name}` : ''}` : 'In a case'
   }
   return 'Not placed yet'
 }
@@ -66,7 +67,7 @@ export function whereLabel(x: Where, w: WarehouseView): string {
 export function atLabel(x: Where, w: WarehouseView): string {
   if (x.caseId) {
     const c = w.assets.get(x.caseId)
-    return c ? `in ${numberLabel(c)} (${c.model?.name ?? 'a case'})` : 'in a case'
+    return c ? `in ${numberLabel(c)} (${shownName(c.model) ?? 'a case'})` : 'in a case'
   }
   return x.placeId ? `at ${whereLabel(x, w)}` : 'nowhere yet'
 }
@@ -102,7 +103,7 @@ export function itemToPut(code: string, w: WarehouseView): { item: AssetView; pr
   if (!item) return { problem: typed ? `No item has the number ${typed}.` : `Nothing has the code ${code.trim()}.` }
   if (typed && item.number !== typed && item.formerNumbers.includes(typed)) return { problem: `${typed} was an old label. That item is ${numberLabel(item)} now.` }
   if (item.retiredReason === 'mistake') return { problem: mistakeLabel(item) }
-  if (item.status !== 'active') return { problem: `${item.number} (${item.model?.name ?? 'an item'}) is retired. Bring it back first.` }
+  if (item.status !== 'active') return { problem: `${item.number} (${shownName(item.model) ?? 'an item'}) is retired. Bring it back first.` }
   return { item }
 }
 
@@ -144,7 +145,7 @@ export function whereProblem(text: string, w: WarehouseView): string | undefined
   const found = w.byNumber.get(number)
   if (!found) return `No case has the number ${number}.`
   if (found.retiredReason === 'mistake') return `${number} was added by mistake.`
-  return found.model?.isCase ? `${number} is retired, so nothing can go in it.` : `${number} (${found.model?.name ?? 'an item'}) doesn't hold other kit.`
+  return found.model?.isCase ? `${number} is retired, so nothing can go in it.` : `${number} (${shownName(found.model) ?? 'an item'}) doesn't hold other kit.`
 }
 
 /**
@@ -329,7 +330,7 @@ export function PutByNumber({ w, heading, label, button, why, to, done }: {
 }
 
 /** "SH-000123 (d&b Y10P) was added by mistake.", for a label that's on nothing real. */
-export const mistakeLabel = (a: AssetView) => `${numberLabel(a)} (${a.model?.name ?? 'an item'}) was added by mistake.`
+export const mistakeLabel = (a: AssetView) => `${numberLabel(a)} (${shownName(a.model) ?? 'an item'}) was added by mistake.`
 
 /** Why an item can't go into a case, when it can't: it's that case, or the case is already inside it. The server says the same. */
 export function loopIn(itemId: string, caseId: string, w: WarehouseView): string | undefined {
@@ -353,7 +354,7 @@ export function WhereChoices({ w }: { w: WarehouseView }) {
         .filter((c) => c.number)
         .map((c) => (
           <option key={c.id} value={c.number}>
-            {`${c.model?.name ?? 'Case'}${c.at ? `, ${c.at.name}` : ''}`}
+            {`${shownName(c.model) ?? 'Case'}${c.at ? `, ${c.at.name}` : ''}`}
           </option>
         ))}
     </datalist>
@@ -397,7 +398,7 @@ export function CountRow({ s, w, children, onSaid }: { s: StockView; w: Warehous
   const { ask, question, asking } = useNewPlace(w)
   // Counting and moving are stock's (audit finding 9): a role without it reads how many are where.
   const mayCount = useAccess().can('stock')
-  const name = s.model?.name ?? 'them'
+  const name = shownName(s.model) ?? 'them'
   const open = (next: 'count' | 'move') => {
     refuse('')
     onSaid('')
@@ -413,7 +414,7 @@ export function CountRow({ s, w, children, onSaid }: { s: StockView; w: Warehous
       void run(() => client.mutate('stock.set', { modelId: s.modelId, placeId: s.placeId, caseId: s.caseId, qty: n })).then((ok) => {
         if (!ok) return
         setMode(undefined)
-        onSaid(`Counted ${howMany(n, s.model?.name ?? 'kit')} ${at}.`)
+        onSaid(`Counted ${howMany(n, shownName(s.model) ?? 'kit')} ${at}.`)
       })
       return
     }
@@ -437,7 +438,7 @@ export function CountRow({ s, w, children, onSaid }: { s: StockView; w: Warehous
         if (!ok) return
         setMode(undefined)
         setTo('')
-        onSaid(`Moved ${howMany(n, s.model?.name ?? 'kit')} to ${to.trim()}.`)
+        onSaid(`Moved ${howMany(n, shownName(s.model) ?? 'kit')} to ${to.trim()}.`)
       })
     if (!ask(to, go)) go()
   }

@@ -14,6 +14,7 @@ import {
   type TrackersView,
   type TrackerView,
   type View,
+  shownName,
 } from '@sh/shared'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -173,7 +174,7 @@ export function KitToCheck({ view }: { view: View }) {
           <div className="row problem" key={t.id}>
             <div>
               <b>
-                {t.asset ? `${numberLabel(t.asset)} (${t.asset.model?.name ?? 'an item'})` : t.label}
+                {t.asset ? `${numberLabel(t.asset)} (${shownName(t.asset.model) ?? 'an item'})` : t.label}
               </b>{' '}
               <StatusPill tone={pill.tone}>{pill.words}</StatusPill>
               <p>
@@ -331,7 +332,7 @@ function TrackerRow({ t, view }: { t: TrackerView; view: View }) {
         <p>
           {t.asset ? (
             <>
-              On <a href={`#stock/item/${encodeURIComponent(t.asset.id)}`}>{numberLabel(t.asset)}</a> ({t.asset.model?.name ?? 'an item'}).{' '}
+              On <a href={`#stock/item/${encodeURIComponent(t.asset.id)}`}>{numberLabel(t.asset)}</a> ({shownName(t.asset.model) ?? 'an item'}).{' '}
             </>
           ) : t.archived ? '' : 'On no item. '}
           {heardLine(t)}.{t.asset ? ` ${placeLine(t.place, today)}.` : ''}

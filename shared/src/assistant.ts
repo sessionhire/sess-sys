@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isDay } from './day.ts'
+import { nameWithLength } from './cable-colours.ts'
 import type { KitMatcher, MatchHow } from './kit-notes.ts'
 import { chargedFor, LINE_KINDS, LINE_PER, MAX_LINES, roleKey, STANDARD_VAT, type LineKind, type LinePer, type QuoteLine, type RateRule } from './quotes.ts'
 import { DEPARTMENT_LABELS, DEPARTMENTS, type Department } from './stock.ts'
@@ -227,9 +228,9 @@ export function withModel(p: Pricing, s: Suggestion, modelId: string | null, sai
   const m = modelId ? p.model(modelId) : undefined
   if (!m) return { ...s, modelId: null, what: s.said, cents: said ?? s.charged ?? (s.modelId ? undefined : s.cents), rate: s.charged === undefined ? null : s.rate }
   // A price charged before keeps the rule it was charged by; one from the price list takes the product's.
-  if (s.charged !== undefined) return { ...s, modelId, what: m.name, group: DEPARTMENT_LABELS[m.department], cents: said ?? s.charged }
+  if (s.charged !== undefined) return { ...s, modelId, what: nameWithLength(m), group: DEPARTMENT_LABELS[m.department], cents: said ?? s.charged }
   const rate = p.productRate(modelId!)
-  return { ...s, modelId, what: m.name, group: DEPARTMENT_LABELS[m.department], cents: said ?? p.productPrice(modelId!), rate: rate && rate !== 'daily' ? rate : null }
+  return { ...s, modelId, what: nameWithLength(m), group: DEPARTMENT_LABELS[m.department], cents: said ?? p.productPrice(modelId!), rate: rate && rate !== 'daily' ? rate : null }
 }
 
 /** A crew line, under the company's own name for the role when it's plainly the same one. */

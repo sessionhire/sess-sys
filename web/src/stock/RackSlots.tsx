@@ -9,6 +9,7 @@ import {
   type RackView,
   type SlotView,
   type TapeColour,
+  shownName,
 } from '@sh/shared'
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { holderName, holdersIn, slotName } from './rack-look.ts'
@@ -75,7 +76,7 @@ export function SlotDetails({ r, s, onSave }: { r: RackView; s: SlotView; onSave
   return (
     <form className="grid-form slot-details" onSubmit={submit} aria-label={`${slotName(s)} in this rack`}>
       <label>
-        Label <input value={f.label} maxLength={40} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder={s.model?.name ?? 'As written on it'} />
+        Label <input value={f.label} maxLength={40} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder={shownName(s.model) ?? 'As written on it'} />
       </label>
       <label>
         Group

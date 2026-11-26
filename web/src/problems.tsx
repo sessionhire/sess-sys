@@ -1,4 +1,4 @@
-import { dayLabel, DEPARTMENT_LABELS, levelLabel, normaliseNumber, quoteNumberLabel, ROLE_LABELS, spanLabel, STEP_LABELS, type JobStep, type Department, type Mutation, type Role, type View } from '@sh/shared'
+import { dayLabel, DEPARTMENT_LABELS, levelLabel, normaliseNumber, quoteNumberLabel, ROLE_LABELS, spanLabel, STEP_LABELS, type JobStep, type Department, type Mutation, type Role, type View, shownName } from '@sh/shared'
 import { attachmentTitleInSentence, titleInSentence } from '@sh/shared'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { reasonOf } from './act.tsx'
@@ -150,13 +150,13 @@ function describer(view: View): (m: Mutation) => string {
   const model = (id: unknown) => (w.models.find((m) => m.id === id) ?? (typeof id === 'string' ? w.mistakes.get(id) : undefined))?.name ?? 'a product'
   const item = (id: unknown) => {
     const a = typeof id === 'string' ? w.assets.get(id) : undefined
-    return a ? `${a.number || 'an item'} (${a.model?.name ?? 'a product'})` : 'an item'
+    return a ? `${a.number || 'an item'} (${shownName(a.model) ?? 'a product'})` : 'an item'
   }
   const place = (id: unknown) => w.places.find((p) => p.id === id)?.name ?? 'a place'
   const where = (placeId: unknown, caseId: unknown) => (placeId ? ` at ${place(placeId)}` : caseId ? ` in ${item(caseId)}` : '')
   const kitLine = (id: unknown) => {
     const l = view.kit.lines.find((x) => x.id === id)
-    return { model: l?.model?.name ?? 'a product', job: l?.job?.name ?? 'a job' }
+    return { model: shownName(l?.model) ?? 'a product', job: l?.job?.name ?? 'a job' }
   }
   const faultOn = (id: unknown) => {
     const f = view.faults.all.find((x) => x.id === id)

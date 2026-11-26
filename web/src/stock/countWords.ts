@@ -1,3 +1,4 @@
+import { shownName } from '@sh/shared'
 import type { AssetView, View, WarehouseView, Where } from '@sh/shared'
 import { atLabel, numberLabel } from './common.tsx'
 
@@ -10,11 +11,11 @@ import { atLabel, numberLabel } from './common.tsx'
 export function targetName(w: WarehouseView, x: Where): string {
   if (x.placeId) return w.places.find((p) => p.id === x.placeId)?.name ?? 'a place since removed'
   const c = x.caseId ? w.assets.get(x.caseId) : undefined
-  return c ? `${numberLabel(c)} (${c.model?.name ?? 'a case'})` : 'a case'
+  return c ? `${numberLabel(c)} (${shownName(c.model) ?? 'a case'})` : 'a case'
 }
 
 /** "SH-000123 d&b Y10P". */
-export const itemName = (a: AssetView | undefined) => (a ? [numberLabel(a), a.model?.name].filter(Boolean).join(' ') : 'An item')
+export const itemName = (a: AssetView | undefined) => (a ? [numberLabel(a), shownName(a.model)].filter(Boolean).join(' ') : 'An item')
 /** "at Bay B1", "in SH-000200 (Amp rack)", or "not placed yet", for where an item was kept. */
 export const keptWords = (x: Partial<Where>, w: WarehouseView) => (x.placeId || x.caseId ? `kept ${atLabel({ placeId: x.placeId ?? null, caseId: x.caseId ?? null }, w)}` : 'not placed yet')
 export const jobName = (view: View, id: string | null | undefined) => view.jobs.jobs.find((j) => j.id === id)?.name ?? 'a job'

@@ -352,3 +352,9 @@ body.native-scan #root { position: fixed; inset: var(--cam-band) 0 0 0; overflow
 .warehouse .stocktake-depts { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--ds-space-1); }
 .warehouse .stocktake-depts li { display: flex; justify-content: space-between; gap: var(--ds-space-2); color: var(--ds-ink-secondary); }
 .warehouse .stocktake-depts .figure { font-variant-numeric: tabular-nums; }
+
+/* A cable's length under its name (ADR 0202): the box sized for a number, its hint and Move button below it. */
+.warehouse .length-field small { display: block; }
+.warehouse .length-field small .link { min-height: 44px; }
+.warehouse .length-fact .length-add { margin-top: var(--ds-space-2); max-width: 20em; }
+.warehouse .length-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
