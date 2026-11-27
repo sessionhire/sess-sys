@@ -51,6 +51,8 @@ const key = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
 
 const PRODUCT = /product|name|item|model|description/i
 const NEW = /\bnew\b|to use|suggested|replacement|value|price|cost/i
+/** The one mark between a pasted name and its value; the spaces round it are trimmed off after. */
+const MARK = /[\t;:,]/g
 const OLD = /\bnow\b|\bold\b|\bwas\b|current|before|rms figure|\bno\.?$/i
 
 /**
@@ -87,17 +89,17 @@ export function readValueList(text: string): { rows: ValueListRow[]; problem?: u
   // that's left reads as euro, so "Xone:92, 1299" is the Xone:92 at €1,299 and "DM3, 1,999" is €1,999.
   lines.forEach((l, i) => {
     if (!l.trim()) return
-    for (const m of l.matchAll(/\s*[\t;:,]\s*/g)) {
+    for (const m of l.matchAll(MARK)) {
       const name = l.slice(0, m.index).trim()
-      const value = l.slice(m.index + m[0].length).trim()
+      const value = l.slice(m.index + 1).trim()
       if (name && /\d/.test(value) && parseEuro(value).reason === undefined) {
         rows.push({ row: i + 1, name, text: value })
         return
       }
     }
     // No euro after any mark: what follows the last one is the value, said as one that can't be read.
-    const last = [...l.matchAll(/\s*[\t;:,]\s*/g)].pop()
-    rows.push(last ? { row: i + 1, name: l.slice(0, last.index).trim(), text: l.slice(last.index + last[0].length).trim() } : { row: i + 1, name: l.trim(), text: '' })
+    const last = [...l.matchAll(MARK)].pop()
+    rows.push(last ? { row: i + 1, name: l.slice(0, last.index).trim(), text: l.slice(last.index + 1).trim() } : { row: i + 1, name: l.trim(), text: '' })
   })
   return { rows }
 }
