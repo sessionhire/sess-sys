@@ -186,6 +186,14 @@ describe('the message after what the office did', () => {
 
     expect(tellMessage('withdrawn', aoife, { call: show }, link).text).toContain("we've withdrawn the offer of Sound No.1 on Harbour Lights Festival (Show), Sat 10 Oct to Sun 11 Oct, call 12:00")
     expect(tellMessage('released', aoife, { call: show }, link).text).toContain('we no longer need you for Harbour Lights Festival (Show)')
+    // Let go after saying no on Google Calendar to a booked day: their No is taken, and thanked for (27 November 2026).
+    expect(tellMessage('released', aoife, { call: show, saidNo: ['2026-10-11'] }, link)).toEqual({
+      text:
+        "Hi Aoife, thanks for letting us know you can't do Sun 11 Oct.\n" +
+        "We've taken you off Harbour Lights Festival (Show): Sound No.1, Sat 10 Oct to Sun 11 Oct, call 12:00. It's off your bookings and your calendar feed, so there's nothing to do, and we'll be in touch about the next one.",
+      subject: 'Taken off: Harbour Lights Festival (Show), Sat 10 Oct to Sun 11 Oct, call 12:00',
+      what: 'release',
+    })
     expect(tellMessage('job-stopped', aoife, { call: show }, link).text).toMatch(/^Hi Aoife, Harbour Lights Festival isn't going ahead, so Sound No\.1 on Sat 10 Oct to Sun 11 Oct, call 12:00 is off\./)
     expect(tellMessage('call-cancelled', aoife, { call: show }, link).text).toContain('we no longer need Sound No.1 on Harbour Lights Festival (Show)')
     expect(tellMessage('call-changed', aoife, { call: { ...show, callTime: '11:00' } }, link).text).toContain('Sound No.1 is now Sat 10 Oct to Sun 11 Oct, call 11:00, at Riverside Park, Limerick, €320 a day.')

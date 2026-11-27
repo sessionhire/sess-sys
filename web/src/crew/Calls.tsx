@@ -1,5 +1,6 @@
 import { UnitBox } from '../UnitBox.tsx'
 import {
+  bookedDaysSaidNo,
   HOLD_WORDS,
   OFFER_WORDS,
   offerWords,
@@ -71,7 +72,7 @@ import { personHref } from './PersonScreen.tsx'
 import { Avatar, photoOf } from '../Picture.tsx'
 import { type Made, type Share, type TellTo, peopleOn, promptFor, tellTo } from './Messages.tsx'
 import { PlainContact, useHoldTheDay, useReach } from './reach.tsx'
-import { standsAt, useAnswerActions } from './AnswerActions.tsx'
+import { saidNoTo, standsAt, useAnswerActions } from './AnswerActions.tsx'
 import { AdminWords } from '../AdminWords.tsx'
 import { dept, found, wordsOf } from './People.tsx'
 import { RecordPicker } from '../RecordPicker.tsx'
@@ -167,7 +168,13 @@ function CrewRow({
   const withdraw = () => {
     setWithdrawing(false)
     void run(() => client.mutate('offer.cancel', { id: o.id })).then(
-      (ok) => ok && o.person && onTell?.(promptFor(HOLDING.includes(o.status) ? 'released' : 'withdrawn', [tellTo(o.person, call, o)]))
+      // A release after their No on Google thanks them for saying (27 November 2026).
+      (ok) =>
+        ok &&
+        o.person &&
+        onTell?.(
+          promptFor(HOLDING.includes(o.status) ? 'released' : 'withdrawn', [saidNoTo(tellTo(o.person, call, o), bookedDaysSaidNo(o, reach.calendar.days, reach.today))])
+        )
     )
   }
   return (

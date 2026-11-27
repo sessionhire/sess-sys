@@ -76,3 +76,18 @@ the maker's page can fill most of those in, and say how sure it is.
 - The line of items to check is kept while the app is open, not saved: closing the app loses what wasn't added yet,
   but not what was.
 - Products are the warehouse's: what a link adds is recorded in History as added on Add products by that freelancer.
+
+## Later: a laptop's webcam (1.240.0, PR #457)
+
+A file field with `capture` opens the camera on a phone but only the files on a laptop, so on a laptop Add products
+could only upload. Where the pointer is fine (a mouse or trackpad), the page is secure and a camera is listed, the
+first card now offers **Use the webcam** beside **Upload photos**: the live picture (not mirrored, so a label reads
+the right way round), **Take photo**, the photos of this item so far, each with ×, and **Look this item up**, which
+sends up to three as one item, as picking several files does. The camera stays on for the next item; closing it with
+photos taken starts them rather than losing them. An item being checked gets **Photograph its label**, which takes one
+and closes. Phones keep the one button that opens the camera.
+
+The freelancers' link page `/f/<link>/add` got the same in 1.241.0 (PR #458), at Colly's ask: its hashed script
+offers **Use the webcam** on a laptop with a camera, takes up to three photos with thumbnails (data: images, which the
+page's policy allows) each with ×, and sends them with any uploaded ones through the same shrinking. The camera's
+picture is a MediaStream on the video, which the page's `default-src 'none'` doesn't stop.

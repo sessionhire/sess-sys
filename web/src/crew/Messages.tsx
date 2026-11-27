@@ -557,7 +557,8 @@ function SendTo({
       <textarea readOnly value={text} rows={6} />
       <div className="actions">
         <SendButtons key={person.id} person={person} text={text} subject={subject} inJob={inJob} />
-        <button type="button" className="link" onClick={onClose}>
+        {/* Done is plain, as on the other panels here: in the accent's outline it read as a red, losing press (27 November 2026). */}
+        <button type="button" onClick={onClose}>
           Done
         </button>
       </div>
@@ -649,11 +650,12 @@ function TellOne({
       {message}
       <div className="actions">
         {buttons}
-        <button type="button" className="link" onClick={onNext}>
+        {/* Plain, as Done is on the other panels here: in the accent's outline it read as a red, losing press (27 November 2026). */}
+        <button type="button" onClick={onNext}>
           {more ? 'Done, next' : 'Done'}
         </button>
         {more && (
-          <button type="button" className="link" onClick={onNext}>
+          <button type="button" className="link quiet" onClick={onNext}>
             Skip
           </button>
         )}

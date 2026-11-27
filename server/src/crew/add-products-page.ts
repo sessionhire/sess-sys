@@ -73,7 +73,7 @@ export const ADD_PHOTOS_SCRIPT = `
     (function () {
       var form = document.getElementById('add-item')
       if (!form || !window.createImageBitmap || !window.DataTransfer || !window.File || !HTMLCanvasElement.prototype.toBlob) return
-      var pick = document.getElementById('pick'), out = document.getElementById('copies'), said = document.getElementById('photo-status'), button = form.querySelector('button')
+      var pick = document.getElementById('pick'), out = document.getElementById('copies'), said = document.getElementById('photo-status'), button = form.querySelector('button:not([type=button])')
       try { new DataTransfer().items.add(new File([''], 'a.jpg')) } catch (e) { return }
       form.hidden = false
       document.getElementById('no-script').hidden = true
@@ -92,9 +92,77 @@ export const ADD_PHOTOS_SCRIPT = `
         var n = pick.files.length
         said.textContent = !n ? '' : n > ${MOST_PRODUCT_PHOTOS} ? 'The first ${MOST_PRODUCT_PHOTOS} go.' : n + (n === 1 ? ' photo' : ' photos') + ' chosen.'
       })
+      // A laptop's webcam (a file field opens only the files there): its live picture, Take photo, and what was taken.
+      var taken = [], stream = null, cam = document.getElementById('cam'), video = document.getElementById('cam-video')
+      var shots = document.getElementById('cam-shots'), take = document.getElementById('cam-take')
+      var stop = function () { if (stream) stream.getTracks().forEach(function (t) { t.stop() }); stream = null; video.srcObject = null }
+      var show = function () {
+        shots.textContent = ''
+        shots.hidden = !taken.length
+        taken.forEach(function (t, n) {
+          var li = document.createElement('li'), img = document.createElement('img'), x = document.createElement('button')
+          img.src = t.small
+          img.alt = n ? 'Another photo of it' : 'The item'
+          x.type = 'button'
+          x.textContent = '\u00d7'
+          x.setAttribute('aria-label', 'Take out photo ' + (n + 1))
+          x.addEventListener('click', function () { taken.splice(n, 1); show() })
+          li.appendChild(img)
+          li.appendChild(x)
+          shots.appendChild(li)
+        })
+        take.disabled = taken.length >= ${MOST_PRODUCT_PHOTOS}
+        if (stream || taken.length)
+          said.textContent = !taken.length ? "Hold the item up to the camera and take a photo, then one of its maker's label if it has one."
+            : taken.length >= ${MOST_PRODUCT_PHOTOS} ? 'Three photos is the most for one item: ' + button.textContent.toLowerCase() + '.'
+            : (taken.length === 1 ? 'One photo' : 'Two photos') + ' of this item. Take its label too, or ' + button.textContent.toLowerCase() + '.'
+      }
+      var media = navigator.mediaDevices
+      if (window.isSecureContext && media && media.getUserMedia && media.enumerateDevices && window.matchMedia && matchMedia('(pointer: fine)').matches)
+        media.enumerateDevices().then(function (ds) {
+          if (!ds.some(function (d) { return d.kind === 'videoinput' })) return
+          document.getElementById('cam-pick').hidden = false
+          pick.removeAttribute('capture')
+          document.getElementById('pick-said').textContent = 'Or upload photos of it'
+        }).catch(function () {})
+      document.getElementById('cam-open').addEventListener('click', function () {
+        said.textContent = 'Turning the camera on…'
+        media.getUserMedia({ audio: false, video: { width: { ideal: 1920 }, height: { ideal: 1080 } } }).then(function (s) {
+          stream = s
+          video.srcObject = s
+          cam.hidden = false
+          document.getElementById('cam-pick').hidden = true
+          show()
+          take.focus()
+        }).catch(function (err) {
+          var name = err && err.name
+          said.textContent = name === 'NotAllowedError' ? 'The camera is blocked for this site. Allow it from the camera icon in the address bar, or upload photos instead.'
+            : name === 'NotReadableError' ? 'Another app is using the camera (a video call, perhaps). Close it and try again, or upload photos.'
+            : "The camera didn't start. Try again, or upload photos instead."
+        })
+      })
+      take.addEventListener('click', function () {
+        if (!stream || !video.videoWidth || taken.length >= ${MOST_PRODUCT_PHOTOS}) return
+        var c = document.createElement('canvas'), t = document.createElement('canvas')
+        c.width = video.videoWidth
+        c.height = video.videoHeight
+        c.getContext('2d').drawImage(video, 0, 0)
+        t.width = 144
+        t.height = Math.round(144 * c.height / c.width)
+        t.getContext('2d').drawImage(c, 0, 0, t.width, t.height)
+        c.toBlob(function (b) { if (b) { taken.push({ blob: b, small: t.toDataURL('image/jpeg', 0.7) }); show() } }, 'image/jpeg', 0.92)
+      })
+      document.getElementById('cam-close').addEventListener('click', function () {
+        stop()
+        cam.hidden = true
+        document.getElementById('cam-pick').hidden = false
+        said.textContent = taken.length ? (taken.length === 1 ? 'One photo' : taken.length + ' photos') + ' taken.' : ''
+      })
+      window.addEventListener('pagehide', stop)
       form.addEventListener('submit', function (e) {
         e.preventDefault()
-        var files = Array.prototype.slice.call(pick.files, 0, ${MOST_PRODUCT_PHOTOS})
+        var files = taken.map(function (t) { return t.blob }).concat(Array.prototype.slice.call(pick.files)).slice(0, ${MOST_PRODUCT_PHOTOS})
+        stop()
         var typed = form.querySelector('[name=typed]').value.trim()
         if (!files.length && typed.length < 2) { said.textContent = 'Take a photo of it, or type what it is.'; pick.focus(); return }
         button.disabled = true
@@ -127,7 +195,13 @@ export function renderAddStart(d: AddStart): string {
     <p id="no-script" class="small">This browser can't get photos ready to send from here. Type what it is instead.</p>
     <form id="add-item" method="post" enctype="multipart/form-data" action="${h(d.base)}/add/read" hidden>
       <input type="hidden" name="id" value="${h(newId())}">
-      <label>Photos of it <input id="pick" type="file" accept="image/*" capture="environment" multiple></label>
+      <div id="cam-pick" hidden><button type="button" id="cam-open" class="yes">Use the webcam</button></div>
+      <div id="cam" role="group" aria-label="Webcam" hidden>
+        <video id="cam-video" muted playsinline autoplay aria-hidden="true"></video>
+        <div class="cam-buttons"><button type="button" id="cam-take" class="yes">Take photo</button><button type="button" id="cam-close">Close camera</button></div>
+      </div>
+      <ul id="cam-shots" aria-label="Photos of this item" hidden></ul>
+      <label><span id="pick-said">Photos of it</span> <input id="pick" type="file" accept="image/*" capture="environment" multiple></label>
       <input id="copies" type="file" name="file" multiple hidden tabindex="-1" aria-hidden="true">
       <label>Or what it is <span class="small">(optional with a photo)</span> <input name="typed" maxlength="300" autocomplete="off" placeholder="e.g. Shure SM58"></label>
       <p id="photo-status" class="small" role="status"></p>
@@ -217,6 +291,14 @@ const ADD_CSS = `
 .typed-only{margin-top:16px}
 #add-item input[type=file]:not([hidden]){min-height:44px;width:100%}
 #photo-status:empty{display:none}
+#cam-pick[hidden],#cam[hidden],#cam-shots[hidden]{display:none}
+#cam:not([hidden]){display:grid;gap:8px}
+#cam video{width:100%;max-width:560px;aspect-ratio:16/9;background:#000;border-radius:12px;justify-self:center}
+.cam-buttons{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+#cam-shots{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+#cam-shots li{display:flex;gap:4px;align-items:center}
+#cam-shots img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+#cam-shots button{min-width:44px;min-height:44px;padding:0}
 fieldset{border:1px solid var(--line);border-radius:12px;padding:8px 16px;margin:0;display:grid;gap:4px}
 legend{font-weight:600;padding:0 4px}
 .pick{display:flex;gap:12px;align-items:center;min-height:44px;font-weight:400}

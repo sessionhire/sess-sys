@@ -1,5 +1,6 @@
 import {
   askEndingWords,
+  bookedDaysSaidNo,
   bookingWords,
   daysLabel,
   endingWords,
@@ -20,7 +21,7 @@ import { useState, type ReactNode } from 'react'
 import { Confirm } from '../act.tsx'
 import { celebrateBooked } from '../celebrate.ts'
 import { client } from '../sync.ts'
-import { promptFor, tellTo, type Share } from './Messages.tsx'
+import { promptFor, tellTo, type Share, type TellTo } from './Messages.tsx'
 import { useHoldTheDay, useReach } from './reach.tsx'
 
 /** The rate an offer stands at once the office has said no to the one asked for, as their page says it (ADR 0152). */
@@ -213,6 +214,9 @@ export function useAnswerActions({ o, call, run, onDone, onPress }: AnswerProps)
   }
 }
 
+/** A release's message to someone who said no to booked days: it thanks them for saying (27 November 2026). */
+export const saidNoTo = (to: TellTo, days: readonly string[]): TellTo => (days.length ? { ...to, context: { ...to.context, saidNo: days } } : to)
+
 /**
  * What the office presses on a No in Google Calendar to days someone is booked for (27 November 2026): ring them, then
  * Noted, which keeps them booked and settles that No, or Release, asked first, which frees their place as Release does on
@@ -221,6 +225,7 @@ export function useAnswerActions({ o, call, run, onDone, onPress }: AnswerProps)
 export function BookedNoActions({ o, call, days, run, onDone, onPress, children }: AnswerProps & { days: string[]; children?: ReactNode }) {
   const reach = useReach()
   const [asking, setAsking] = useState(false)
+  const saidNo = bookedDaysSaidNo(o, reach.calendar.days, reach.today)
   const who = o.person?.name ?? 'them'
   const first = o.person ? firstName(o.person) : 'them'
   const keep = () => {
@@ -230,7 +235,8 @@ export function BookedNoActions({ o, call, days, run, onDone, onPress, children 
   const release = () => {
     setAsking(false)
     onPress?.()
-    void run(() => client.mutate('offer.cancel', { id: o.id })).then((ok) => ok && onDone(o.person ? promptFor('released', [tellTo(o.person, call, o)]) : undefined))
+    // Their No is what's taken, so the message thanks them for it rather than saying they're no longer needed.
+    void run(() => client.mutate('offer.cancel', { id: o.id })).then((ok) => ok && onDone(o.person ? promptFor('released', [saidNoTo(tellTo(o.person, call, o), saidNo)]) : undefined))
   }
   if (asking)
     return (
