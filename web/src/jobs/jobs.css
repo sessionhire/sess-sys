@@ -1331,3 +1331,105 @@ dialog.product-sheet > .app.in-sheet { max-width: none; margin: 0; padding: var(
     dialog.product-sheet[open]::backdrop { opacity: 0; }
   }
 }
+
+/* The LED screen builder (ScreenSheet.tsx and ScreenBuilder.tsx; ADR 0207), in the same sheet as a line's product page: the whole
+   screen on a phone, from the end beyond it, and from 1000px wide enough for the questions and what they come to side by side. It
+   scrolls as one, never a part of it inside another: its name and Close are held at the top and what the screen comes to, with Add to
+   quote, at the foot, so the way on and the way out are in reach wherever it's scrolled to. */
+dialog.screen-sheet[open] { display: flex; flex-direction: column; }
+@media (min-width: 1000px) {
+  dialog.screen-sheet { width: min(1080px, calc(100vw - var(--ds-space-8))); }
+}
+.screen-sheet-bar { justify-content: space-between; flex: none; }
+.screen-sheet-bar h2 { margin: 0; min-width: 0; font-size: var(--text-heading); font-weight: 700; line-height: var(--ds-text-title-leading); }
+.screen-sheet-body { flex: 1 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); padding: var(--ds-space-4) var(--gutter) 0; }
+.screen-sheet-body > .hint { padding-bottom: var(--ds-space-4); }
+/* The questions, then what they come to, then the foot at the sheet's bottom edge however little is above it. */
+.screen-builder { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr; row-gap: var(--section); min-width: 0; }
+.screen-asks { display: grid; gap: var(--section); align-content: start; min-width: 0; }
+/* Each question is a part of the form with a head of its own: its name in the ink, read before the fields under it. */
+dialog.screen-sheet .screen-ask { display: grid; gap: var(--ds-space-2); min-width: 0; }
+dialog.screen-sheet .screen-ask > legend { margin-bottom: var(--ds-space-2); font-size: var(--text-small); font-weight: 700; color: var(--ink); }
+.screen-field { display: grid; gap: var(--stack); min-width: 0; font-size: var(--text-hint); color: var(--muted); }
+.screen-field input { width: 100%; }
+/* Two answers that are one thing share a line, on a phone too: width and height, across and down. A refusal under either takes
+   the whole line below them, and the second box keeps its place beside the first. */
+.screen-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; gap: var(--ds-space-2) var(--group); align-items: end; }
+.screen-pair > .field-refusal { margin: 0; }
+@media (min-width: 600px) {
+  .screen-pair { grid-template-columns: repeat(2, minmax(0, 12rem)); }
+}
+.screen-builder .choices .signal { gap: var(--ds-space-3); padding: var(--ds-space-2) var(--ds-space-3); min-height: 44px; align-items: center; }
+.screen-builder .choices .signal input { flex: none; margin: 0; }
+.screen-builder .choices .signal span span { display: block; color: var(--muted); font-size: var(--text-small); overflow-wrap: anywhere; }
+.screen-builder .choices .signal:has(input:checked) { border-color: var(--field-line); }
+/* What's asked of a panel the first time it's used, in a box under the panel it's about. */
+.screen-panel-facts { display: grid; gap: var(--group); padding: var(--inset-box); border: 1px solid var(--line); border-radius: var(--radius-box); background: var(--panel); }
+.screen-panel-facts-head { margin: 0; font-size: var(--text-small); }
+.screen-panel-facts-head b { display: block; overflow-wrap: anywhere; }
+.screen-panel-facts-head span { color: var(--muted); font-size: var(--text-hint); }
+.screen-count input { max-width: 6rem; }
+.screen-kept { margin: 0; }
+/* What it takes: the screen's figures, how it hangs or stands, then the kit, a row to a part. */
+.screen-answer { display: grid; gap: var(--group); align-content: start; min-width: 0; padding-top: var(--section); border-top: 1px solid var(--line); }
+dialog.screen-sheet .screen-answer > h3 { margin: 0; font-size: var(--text-pill); font-weight: 700; line-height: var(--ds-text-label-leading); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.screen-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: var(--ds-space-3) var(--ds-space-4); margin: 0; }
+.screen-facts > div { min-width: 0; }
+.screen-facts dt { font-size: var(--text-hint); color: var(--muted); }
+.screen-facts dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.screen-facts dd small { display: block; font-weight: 400; font-size: var(--text-hint); color: var(--muted); }
+.screen-facts .unknown dd { font-weight: 400; color: var(--muted); }
+.screen-how { display: grid; gap: var(--ds-space-2); }
+.screen-how p { margin: 0; font-size: var(--text-small); }
+.screen-parts { list-style: none; margin: 0; padding: 0; display: grid; border-bottom: 1px solid var(--line); }
+.screen-part { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-3); align-items: center; padding: var(--ds-space-1) 0 var(--ds-space-3); border-top: 1px solid var(--line); }
+.screen-part-name { display: flex; align-items: center; gap: var(--ds-space-3); min-height: 44px; min-width: 0; color: var(--ink); cursor: pointer; }
+.screen-part-name:has(input:disabled) { cursor: default; }
+.screen-part-name input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
+.screen-part .amount { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.screen-part.off .amount { font-weight: 400; color: var(--muted); }
+/* No price on the price list: in the tone the quote flags its line in, not as an amount. */
+.screen-part .amount.unpriced { font-weight: 400; color: var(--warn); }
+/* A part's kit and the reason for its count sit under its name, in from the tick box. */
+.screen-part-what { grid-column: 1 / -1; display: grid; gap: var(--ds-space-1); min-width: 0; padding-inline-start: calc(22px + var(--ds-space-3)); }
+.screen-part-what p { margin: 0; font-size: var(--text-small); overflow-wrap: anywhere; }
+.screen-part-what .how { font-size: var(--text-hint); color: var(--muted); }
+.screen-part-what .check { color: var(--warn); }
+.screen-part.off .screen-part-items, .screen-part.off .screen-part-pick { color: var(--muted); }
+.screen-part-pick { display: flex; align-items: center; gap: var(--ds-space-2); }
+.screen-part-pick span { flex: none; white-space: nowrap; }
+.screen-part-pick select { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+/* Changing a screen says what the change does to the quote before it's made. */
+.screen-changes { display: grid; gap: var(--ds-space-1); padding: var(--ds-space-3); border-radius: var(--radius-box); background: var(--ds-surface-inset); font-size: var(--text-small); }
+.screen-changes-head { margin: 0; font-size: var(--text-hint); color: var(--muted); }
+.screen-changes ul { margin: 0; padding-inline-start: var(--ds-space-4); display: grid; gap: var(--ds-space-half); }
+.screen-changes p { margin: 0; }
+.screen-working ul { margin: 0; padding-inline-start: var(--ds-space-4); display: grid; gap: var(--ds-space-1); font-size: var(--text-small); color: var(--muted); }
+.screen-working summary { font-size: var(--text-small); }
+/* The foot: what the screen comes to, or what's still to give, over the way on and the way out. */
+.screen-foot { position: sticky; bottom: 0; z-index: 4; align-self: end; display: grid; gap: var(--ds-space-2); margin-inline: calc(-1 * var(--gutter)); padding: var(--ds-space-3) var(--gutter) max(var(--ds-space-3), env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg); }
+.screen-comes-to { margin: 0; font-variant-numeric: tabular-nums; }
+.screen-comes-to b { font-size: var(--text-heading); }
+.screen-comes-to small, .screen-comes-to .still { font-size: var(--text-small); color: var(--muted); }
+.screen-comes-to small.unpriced { color: var(--warn); }
+.screen-foot .actions > .primary { flex: 1 1 auto; }
+/* What's to sort first (required.ts) goes in after the button that was pressed: a line of its own under the buttons. */
+.screen-foot .actions > .form-problems { order: 1; flex: 1 0 100%; }
+@media (min-width: 600px) {
+  .screen-foot .actions > .primary { flex: 0 0 auto; min-width: 12em; }
+  .screen-foot .actions > .screen-remove { margin-inline-start: auto; }
+}
+@media (min-width: 1000px) {
+  .screen-builder { grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: var(--ds-space-8); }
+  .screen-answer { padding-top: 0; border-top: 0; padding-inline-start: var(--ds-space-8); border-inline-start: 1px solid var(--line); }
+  .screen-foot { grid-column: 1 / -1; }
+}
+/* A screen's own line on the quote (ScreenRow): what its kit comes to, said as that. */
+.quote-screen .quote-line-shut.screen-head .amount small { display: block; font-weight: 400; font-size: var(--text-hint); color: var(--muted); }
+@media (hover: hover) {
+  .quote-screen button.quote-line-shut.screen-head:hover { background: var(--ds-wash-hover); }
+}
+/* On a phone its panels and pixels take the row's whole width under its name, not a narrow column beside what it comes to. */
+@container (max-width: 619px) {
+  .quote-screen .quote-line-shut.screen-head { grid-template-areas: 'what amount mark' 'how how how'; }
+}

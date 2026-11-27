@@ -9,6 +9,7 @@ import {
   anyLineDiscount,
   linesByGroup,
   linesUnder,
+  headsKit,
   setCents,
   groupCents,
   money,
@@ -105,7 +106,7 @@ export function Lines({ lines }: { lines: readonly QuoteLine[] }) {
                   </tr>
                 )
               const under = linesUnder(lines, l.id)
-              const byKit = under.length > 0 && !l.unitCents && !!l.packageId
+              const byKit = under.length > 0 && !l.unitCents && headsKit(l)
               const open = shown.has(l.id)
               return (
                 <Fragment key={l.id}>

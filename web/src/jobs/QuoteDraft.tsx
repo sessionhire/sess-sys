@@ -78,11 +78,14 @@ import { useLastCharged } from './rms.ts'
 import { QuotePill } from './QuoteStatus.tsx'
 import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.ts'
 import { matchKitToQuote } from './Kit.tsx'
-import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, linesShort, LineSummary, rmsNames, UnitBox } from './QuoteLine.tsx'
+import { GroupDiscount, KitNote, LastCharged, lastOf, LineEditor, linesShort, LineSummary, rmsNames, ScreenRow, UnitBox } from './QuoteLine.tsx'
 import { OrderedList } from './BoardOrder.tsx'
 import { Totals } from './QuoteSheet.tsx'
 import { Amending } from './QuoteRecords.tsx'
 import { ProductSheet } from '../stock/ProductSheet.tsx'
+import type { ScreenDraft } from './ScreenBuilder.tsx'
+import { ScreenSheet } from './ScreenSheet.tsx'
+import type { ScreenSet } from './screenLines.ts'
 import { SendQuote } from './QuoteEmail.tsx'
 import { setDraftSend, takeAskToSend } from './quoteSend.ts'
 import { serverUrl } from '../server.ts'
@@ -187,6 +190,8 @@ const jobDays = (job: JobView) => workDays(job)
 
 /** A package offered in Add kit (ADR 0129), told from a product by the start of its id. */
 const PACKAGE_PICK = 'package:'
+/** The LED screen builder, found in Add kit too (ADR 0207): no product's id. */
+const SCREEN_PICK = 'screen:builder'
 
 /** The fields of the terms that can be wrong, in the order their faults are said; `km` is the distance on the travel row. */
 type TermKey = 'agreed' | 'km' | 'truck' | 'discount' | 'validFor' | 'deposit'
@@ -279,6 +284,12 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const [wantCost, setWantCost] = useState(false)
   // A line's product open in a sheet over the quote, beside the form rather than in it, so the product page's own forms aren't the quote's.
   const [looking, setLooking] = useState<string>()
+  // The LED screen builder open in its sheet (ADR 0207): for a new screen, or the one whose line this is.
+  const [screening, setScreening] = useState<{ was?: string; count?: number }>()
+  // What was typed of a new screen when the sheet was last shut without adding it, opened on again while this quote is open.
+  const keptScreen = useRef<ScreenDraft | undefined>(undefined)
+  // The screen just put on the quote, or changed there: the page goes to its line and says what was done.
+  const [landed, setLanded] = useState<{ id: string; title: string; body: string }>()
   // The line just shut, which keeps the focus so the keyboard carries on from it.
   const [shut, setShut] = useState<string>()
   const [removed, setRemoved] = useState<{ line: LineDraft; at: number; under: LineDraft[] }>()
@@ -351,6 +362,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     if (clash.length) setBothChanged(clash)
   }, [drawn])
   const openLine = (id: string | undefined, focus: 'what' | 'price' = 'what', cost = false) => {
+    // An LED screen's own line is changed in its builder (ADR 0207): its counts are worked out, not typed.
+    if (id && lines.some((l) => l.id === id && l.screen)) return setScreening({ was: id })
     if (open && open !== id) touch(open)
     setFocusField(focus)
     setWantCost(cost)
@@ -463,6 +476,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
   const kitInputs = { kit: view.kit, models: (id: string) => view.warehouse.models.find((x) => x.id === id), unusable: view.faults.unusable, lateOut: view.moves.lateOut }
   const wantedNow = quoteWants(good, (id) => m.package(id)?.items)
   const aboutKit = (modelId: string) => {
+    // The LED screen builder (ADR 0207).
+    if (modelId === SCREEN_PICK) return 'asks its size, its panel and whether it’s hung or ground stacked, then adds the kit that makes it'
     // A package (ADR 0129): what it holds and what it's charged.
     if (modelId.startsWith(PACKAGE_PICK)) {
       const p = m.package(modelId.slice(PACKAGE_PICK.length))
@@ -670,11 +685,17 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     setAdding(undefined)
   }
   // Packages are found in Add kit with the products (ADR 0129; audit of the quote flow, finding 12), each marked as one.
+  // So is the LED screen builder (ADR 0207), by the names a screen goes by: whoever types "led wall" into Add kit is asking for it.
   const kitFinds = useMemo(
-    () => [...view.warehouse.models, ...m.packages.map((p) => ({ id: PACKAGE_PICK + p.id, name: p.name, department: p.department, category: 'Package', aliases: [] }))],
+    () => [
+      ...view.warehouse.models,
+      ...m.packages.map((p) => ({ id: PACKAGE_PICK + p.id, name: p.name, department: p.department, category: 'Package', aliases: [] })),
+      { id: SCREEN_PICK, name: 'LED screen', department: 'video' as const, category: 'Screen builder', aliases: ['LED wall', 'Video wall', 'Screen builder'] },
+    ],
     [view.warehouse.models, m.packages]
   )
-  const pickKit = (id: string, count = 1) => (id.startsWith(PACKAGE_PICK) ? addPackage(id.slice(PACKAGE_PICK.length), count, true) : addKit(id, count))
+  const pickKit = (id: string, count?: number) =>
+    id === SCREEN_PICK ? setScreening(count ? { count } : {}) : id.startsWith(PACKAGE_PICK) ? addPackage(id.slice(PACKAGE_PICK.length), count ?? 1, true) : addKit(id, count ?? 1)
   // The quote's kit, as a package to start the next one from (ADR 0116): each product once, with how many.
   const kitStart = (): PackageStart => {
     const qty = new Map<string, number>()
@@ -718,6 +739,50 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     setLines((ls) => [...ls.slice(0, removed.at), removed.line, ...removed.under, ...ls.slice(removed.at)])
     setRemoved(undefined)
   }
+  // An LED screen (ADR 0207): the builder, in a sheet, makes its line and the kit under it (screenLines.ts). The screen being
+  // changed is its line and that kit as they are here, typed changes and all.
+  const screenHead = screening?.was ? lines.find((l) => l.id === screening.was && l.screen) : undefined
+  const screenWas: ScreenSet | undefined = screenHead && { head: screenHead, under: linesUnder(lines, screenHead.id) }
+  // How many of a product are free for a screen: beyond what the rest of the quote wants, the screen's own kit left out.
+  const wantedBesides = screenHead ? quoteWants(good.filter((l) => l.id !== screenHead.id && l.under !== screenHead.id), (id) => m.package(id)?.items) : wantedNow
+  const screenFree = (modelId: string) => kitFree(job, modelId, wantedBesides.get(modelId) ?? 0, today, kitInputs)
+  const landScreen = (set: ScreenSet) => {
+    const was = screenWas
+    setLines((ls) => {
+      const at = was ? ls.findIndex((l) => l.id === was.head.id) : -1
+      if (at < 0) return [...ls, set.head, ...set.under].slice(0, MAX_LINES)
+      // Changed, it keeps its place: its line where it was, its kit after it.
+      const rest = ls.filter((l) => l.id !== was!.head.id && l.under !== was!.head.id)
+      const before = ls.slice(0, at).filter((l) => l.under !== was!.head.id).length
+      return [...rest.slice(0, before), set.head, ...set.under, ...rest.slice(before)]
+    })
+    keptScreen.current = undefined
+    // Its kit is shown under it, and its group open, so what went on the quote is seen.
+    setShownSets((now) => new Set(now).add(set.head.id))
+    fold(set.head.group, false)
+    if (open) touch(open)
+    setOpen(undefined)
+    setAdding(undefined)
+    setScreening(undefined)
+    const name = `${Number(set.head.qty) > 1 ? `${set.head.qty} × ` : ''}${set.head.what}`
+    const unpriced = set.under.filter((u) => !u.included && !parseEuro(u.price).cents).length
+    setLanded({
+      id: set.head.id,
+      title: `${was ? 'Changed' : 'Added'} ${name}`,
+      body: `${plural(set.under.length, 'line')} of kit under it, in ${set.head.group}.${unpriced ? ` ${plural(unpriced, 'line')} with no price yet.` : ''}`,
+    })
+  }
+  // Said where the person is looking (as a new crew role is, 13 November 2026): the page goes to the screen's line, which takes
+  // the focus the sheet gave up, and a pop-up says what went on the quote.
+  useEffect(() => {
+    if (!landed) return
+    const at = under.current?.querySelector<HTMLElement>(`[data-screen-head="${landed.id}"]`)
+    // To the middle, as the quote's own jumps go: the top of the page is under the quote's totals, which stay in view.
+    if (at) glideTo(at, { block: 'center', focus: at, mark: at })
+    // Fetched when needed, as the quote's email does: notices.ts reaches the job screens through the messages, a loop otherwise
+    // (imported here, the app's files were read in an order it couldn't start from once a device held its copy).
+    void import('../notices.ts').then(({ showToast }) => showToast({ id: `screen-${landed.id}-${Date.now()}`, title: landed.title, body: landed.body }))
+  }, [landed])
   const allKitDays = () => {
     const d = num(kitDays)
     if (!(d >= 0.5 && d <= 365 && Number.isInteger(d * 2))) return refuse('Days charged is a number of days, in halves, from 0.5 to 365.')
@@ -849,6 +914,13 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     const c = parsed[n - 1]!
     const done = c.line
     const underDone = under.map((u) => parsed[lines.indexOf(u)]?.line)
+    // An LED screen's own line (ADR 0207) comes to its kit and opens its builder: there's nothing on it to type.
+    if (l.screen)
+      return (
+        <div key={l.id} className="quote-line-row">
+          <ScreenRow l={l} n={n} total={underDone.every(Boolean) ? underDone.reduce((t, u) => t + lineCents(u!), 0) : undefined} onOpen={() => setScreening({ was: l.id })} />
+        </div>
+      )
     const setTotal = done && under.length && underDone.every(Boolean) ? lineCents(done) + underDone.reduce((t, u) => t + lineCents(u!), 0) : undefined
     const included = !!done && !needsPrice(done, good) && done.unitCents === 0 && !!l.under
     const kit = done && <KitNote l={done} checks={checks} items={under.length ? undefined : m.package(l.packageId ?? '')?.items} names={(id) => shownName(view.warehouse.models.find((x) => x.id === id))} onHire={l.modelId ? (k) => hireIn(l, k) : undefined} full={open === l.id} span={job.span} />
@@ -1023,6 +1095,9 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
           // What the group comes to as typed, each package's kit with it; a line not finished yet counts for nothing.
           const cents = (l: LineDraft) => (parsed[lines.indexOf(l)]?.line ? lineCents(parsed[lines.indexOf(l)]!.line!) : 0)
           const groupCents = g.lines.reduce((t, l) => t + cents(l) + linesUnder(lines, l.id).reduce((u, x) => u + cents(x), 0), 0)
+          // The lines a discount on every line would change: the group's own and the kit under them that's in the group, as an LED
+          // screen's is (ADR 0207), so a screen alone in its group can still be discounted in one go.
+          const inGroup = lines.filter((l) => l.group === g.group).length
           return (
           <section key={g.group} className={`quote-group${shut ? ' folded' : ''}`} role="group" aria-label={g.group}>
             <div className="group-head">
@@ -1055,11 +1130,11 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
             })}
             {/* Each department's subtotal at its end (Colly, 18 November 2026), as the printed quote has it; one group's is the
                 subtotal. Discounting every line sits on that line too, under the lines it changes (Colly, 18 November 2026). */}
-            {!shut && (groups.length > 1 || (g.lines.length > 1 && discounting !== g.group)) && (
+            {!shut && (groups.length > 1 || (inGroup > 1 && discounting !== g.group)) && (
               <div className="group-total">
                 <span className="group-total-what">
                   {groups.length > 1 && <span>{g.group} subtotal</span>}
-                  {g.lines.length > 1 && discounting !== g.group && (
+                  {inGroup > 1 && discounting !== g.group && (
                     <button type="button" className="link quiet" onClick={() => setDiscounting(g.group)}>
                       Discount every line…
                     </button>
@@ -1136,7 +1211,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                 hint={
                   kitPicks
                     ? `${plural(kitPicks, 'line')} added. Pick the next, or Done.`
-                    : `Type how many first, as 12 y10. Priced from the price list; free counts are for the job's days.${m.packages.length ? ' Packages are found here too.' : ''}`
+                    : `Type how many first, as 12 y10. Priced from the price list; free counts are for the job's days. ${m.packages.length ? 'Packages and the LED screen builder' : 'The LED screen builder'} ${m.packages.length ? 'are' : 'is'} found here too.`
                 }
               />
               <button type="button" className="link" onClick={() => setAdding(undefined)}>
@@ -1175,6 +1250,11 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                     Add a package
                   </button>
                 )}
+                {/* The LED screen builder (ADR 0207): three questions in a sheet, then the screen and the kit that makes it. */}
+                <button type="button" aria-haspopup="dialog" onClick={() => setScreening({})} disabled={full}>
+                  <Icon name="add" />
+                  Add LED screen
+                </button>
                 <button type="button" onClick={() => setAdding('transport')} disabled={full}>
                   <Icon name="add" />
                   Add transport
@@ -1519,6 +1599,21 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
       </section>
     </form>
     {looking && <ProductSheet view={view} id={looking} onClose={() => setLooking(undefined)} />}
+    {screening && (
+      <ScreenSheet
+        view={view}
+        days={days}
+        free={screenFree}
+        room={MAX_LINES - lines.length}
+        was={screenWas}
+        count={screening.count}
+        kept={screenWas ? undefined : keptScreen.current}
+        onKeep={(draft) => (keptScreen.current = draft)}
+        onDone={landScreen}
+        onRemove={screenWas ? () => remove(screenWas.head) : undefined}
+        onClose={() => setScreening(undefined)}
+      />
+    )}
     </>
   )
 }

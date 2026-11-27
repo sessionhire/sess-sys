@@ -89,8 +89,10 @@ function lines(s: Sheet): string {
           const amount =
             (l.included && !under.length ? NO_CHARGE : money(under.length ? setCents(l, s.q.lines) : lineCents(l))) +
             (off ? `<small>${pctWord(l.discountPct!)} off, −${money(off)}</small>` : '')
-          const inIt = under.length ? `<small>With ${h(under.map((u) => `${u.qty} × ${u.what}`).join(', '))}</small>` : l.includes ? `<small>${h(l.includes)}</small>` : ''
-          return `<tr><td>${h(l.what)}${inIt}</td><td class="n">${l.qty}</td><td class="n">${amount}</td></tr>`
+          // An LED screen (ADR 0207) says what it is, its panels and pixels, before the kit that makes it.
+          const about = l.screen && l.includes ? `<small>${h(l.includes)}</small>` : ''
+          const inIt = under.length ? `<small>With ${h(under.map((u) => `${u.qty} × ${u.what}`).join(', '))}</small>` : l.includes && !about ? `<small>${h(l.includes)}</small>` : ''
+          return `<tr><td>${h(l.what)}${about}${inIt}</td><td class="n">${l.qty}</td><td class="n">${amount}</td></tr>`
         })
         .join('') +
       // Each department's subtotal at its end (Colly, 18 November 2026); with one group it's the quote's subtotal.

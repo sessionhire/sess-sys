@@ -272,6 +272,37 @@ describe('products and places', () => {
     ])
   })
 
+  it("keeps an LED panel's size on its product, put right or taken away, and says so in the history (ADR 0207)", async () => {
+    const { app, db } = await warehouse()
+    const panel = (name: string, extra: Partial<Model> = {}) => product(name, { department: 'video', category: 'Video equipment', tracking: 'bulk', ...extra })
+    // Given as the product is made, or later, as the screen builder on a quote does the first time a panel is used.
+    const absen = panel('Absen NT 3.9', { panel: { widthMm: 500, heightMm: 500, pixelsW: 128, pixelsH: 128 } })
+    const roe = panel('ROE CB5')
+    await ok(app, 'model.create', absen)
+    await ok(app, 'model.create', roe)
+    const kept = async (id: string) => (await all<Model>(app, 'model')).get(id)?.panel
+    expect(await kept(absen.id)).toEqual({ widthMm: 500, heightMm: 500, pixelsW: 128, pixelsH: 128 })
+    // Not a panel until it has a size: nothing is kept for it, as for a speaker.
+    expect(await kept(roe.id)).toBeUndefined()
+    // Its pixels can be left out, both of them.
+    await ok(app, 'model.update', { id: roe.id, panel: { widthMm: 600, heightMm: 1200 } })
+    expect(await kept(roe.id)).toEqual({ widthMm: 600, heightMm: 1200, pixelsW: null, pixelsH: null })
+    expect(await refused(app, 'model.update', { id: roe.id, panel: { widthMm: 600, heightMm: 1200, pixelsW: 104, pixelsH: null } })).toBe('Give the pixels both across and down, or neither.')
+    expect(await refused(app, 'model.update', { id: roe.id, panel: { widthMm: 10, heightMm: 1200 } })).toBe("A panel's width in mm is a whole number from 50 to 3,000.")
+    expect(await kept(roe.id)).toEqual({ widthMm: 600, heightMm: 1200, pixelsW: null, pixelsH: null })
+    // A change to anything else leaves it be, and null takes it away: not a panel after all.
+    await ok(app, 'model.update', { id: absen.id, weightKg: 7.5, powerW: 160 })
+    expect(await kept(absen.id)).toEqual({ widthMm: 500, heightMm: 500, pixelsW: 128, pixelsH: 128 })
+    await ok(app, 'model.update', { id: absen.id, panel: null })
+    expect(await kept(absen.id)).toBeUndefined()
+    const { entries } = await readHistory(db)
+    expect(entries.filter((e) => e.command === 'model.update' && e.outcome !== 'turned-down').map((e) => e.what)).toEqual([
+      'Changed the product Absen NT 3.9: not an LED panel',
+      'Changed the product Absen NT 3.9: its size',
+      'Changed the product ROE CB5: its panel size to 600 × 1,200 mm',
+    ])
+  })
+
   it('keeps names unique and removes only what has nothing left', async () => {
     const { app, y10p, xlr, bay } = await warehouse()
     expect(await refused(app, 'model.create', product('D&B y10p'))).toBe("There's already a product called d&b Y10P.")

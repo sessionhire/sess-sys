@@ -46,6 +46,20 @@ const metres = z
   .min(0.1, 'The length is a number of metres, such as 10 or 0.5.')
   .max(1000, 'The length can be up to 1,000 m.')
   .transform((n) => Math.round(n * 10) / 10)
+/**
+ * What makes a product an LED panel (ADR 0207): one cabinet's size in mm, and how many pixels it has across and down
+ * where they're known. Asked once, by the screen builder on a quote or on the product's page, since a stock list says
+ * neither; a screen is then worked out from it in whole panels.
+ */
+export const panelFacts = z
+  .object({
+    widthMm: whole(50, 3000, "A panel's width in mm"),
+    heightMm: whole(50, 3000, "A panel's height in mm"),
+    pixelsW: whole(1, 4000, 'The pixels across').nullable().default(null),
+    pixelsH: whole(1, 4000, 'The pixels down').nullable().default(null),
+  })
+  .refine((p) => (p.pixelsW === null) === (p.pixelsH === null), 'Give the pixels both across and down, or neither.')
+export type PanelFacts = z.infer<typeof panelFacts>
 /** A stock code as kept: trimmed, so the phone shows what the server keeps. */
 const stockCode = text(30, 'The stock code').transform((s) => s.trim())
 /** Money in euro cents, so sums never drift. */
@@ -199,6 +213,11 @@ export const model = z.object({
    * not given, as for everything that isn't a cable.
    */
   lengthM: metres.nullable().default(null),
+  /**
+   * An LED panel's size and pixels (ADR 0207), which the screen builder on a quote works a screen out from. Null or
+   * left out for everything that isn't one.
+   */
+  panel: panelFacts.nullable().optional(),
 })
 /** A product of our own that isn't a rack and has no size or stock code given (ADR 0074), as products made before racks read. */
 export const PLAIN_PRODUCT = {
@@ -478,6 +497,7 @@ export const stockCommandSchemas = {
       powerLimitA: model.shape.powerLimitA.removeDefault().optional(),
       rackPart: model.shape.rackPart.removeDefault().optional(),
       lengthM: model.shape.lengthM.removeDefault().optional(),
+      panel: panelFacts.nullable().optional(),
     })
     .refine(...somethingToChange)
     .refine(...caseIsNumbered)

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.244.0',
+    date: '2026-11-27',
+    title: 'Build an LED screen on a quote',
+    what: "A quote has a new way to add kit: Add LED screen, beside the other ways to add under the lines, and found in Add kit by typing led screen. It asks how big the screen is in metres, which panel it's built from, with the panels we own first and the one used last time already chosen, and whether it's hung or ground stacked. As you answer, it lists the kit from the stock list that makes the screen, each part with why it's that many and what it comes to: panels and fly bars, then truss, motors and motor control for a hung screen or truss uprights and base plates for a ground stack, then a processor and power distro. Every part is ticked to begin with: untick one to leave it off, or choose another product for it. A ground stack says how many uprights it stands against, the wind it holds to outdoors and any ballast it wants. Add to quote puts the screen on as one line that comes to its kit, with that kit under it, in an LED screen group, and the client's quote shows its panels and pixels. Press the screen's line to change it later: it says what the change does to the quote, and by how much, before you make it. A panel's size is asked the first time it's used and kept on its product, whose page now shows it. It's a first pass to quote from, not a structural check, and it doesn't add cables, slings, shackles or ballast.",
+    prs: [465],
+    adrs: [207],
+  },
+  {
     version: '1.243.0',
     date: '2026-11-27',
     title: 'Claude checks replacement values',

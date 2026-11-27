@@ -32,7 +32,7 @@ The spine every gig and dry hire follows. Each stage is worked out from the reco
 From an enquiry to the client's answer. Every box that would reach the client is switched off on live, so the office sends the PDF itself and types in the answer.
 
 1. **Start**: Next: Add kit to quote [O] (see 7) (On the Kit tab it still says this) → Make a quote: Build from job / Start one empty [O]
-2. **Draft**: Lines, discounts, travel, packages, terms [O] → Lines with no price hold Send back [A]
+2. **Draft**: Lines, discounts, travel, packages, an LED screen, terms [O] → Lines with no price hold Send back [A]
 3. **Send**: Email from operations@ with the PDF [O] *(switched off on live)* → Watched a week for a bounce, delay or reply [A] *(switched off on live)* → Generate PDF: marks it sent, office emails it [O]
 4. **Client**: Opens the quote link and accepts online [C] *(switched off on live)* (Off: the link says it can't be accepted online, reply or ring) → Replies by email or phone [C]
 5. **Answer**: Client accepted: confirm job [O] → Client turned it down, with why [O] *(fixed in 1.192.0)* (see 1) (Job stays Quoted; list says No quote yet) → Mark lost [O] *(fixed in 1.192.0)* (see 1) (Only on the quote and Money › To follow up) → Amend quote from the answer step [O] → Take the answer back [O]

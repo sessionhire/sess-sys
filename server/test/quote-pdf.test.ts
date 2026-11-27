@@ -39,6 +39,20 @@ describe('quotePdf', () => {
     const plain = await quotePdf(sheet())
     expect(pdf.length).toBeGreaterThan(plain.length)
   })
+  it('prints an LED screen as one line that comes to its kit, with that kit under it (ADR 0207)', async () => {
+    const screen: QuoteLine[] = [
+      { id: 's', kind: 'kit', what: 'LED screen 5 × 3 m, hung', ref: null, group: 'LED screen', qty: 1, days: 2, unitCents: 0, vat: '23', modelId: null, includes: '10 panels wide by 6 high · 1,280 × 768 pixels', screen: { panel: 'absen', cols: 10, rows: 6, stands: 'hung' } },
+      { id: 'p', kind: 'kit', what: 'Absen NT 3.9', ref: null, group: 'LED screen', qty: 60, days: 2, unitCents: 2_000, vat: '23', modelId: 'absen', under: 's' },
+      { id: 'b', kind: 'kit', what: 'Absen fly bar', ref: null, group: 'LED screen', qty: 10, days: 2, unitCents: 500, vat: '23', modelId: 'bar', under: 's' },
+    ]
+    const built = { ...q, lines: screen } as Quote
+    // With no price of its own it's charged by its kit: 60 panels and 10 bars for two days.
+    expect(quoteTotals(built).net).toBe(250_000)
+    const pdf = await quotePdf({ ...sheet(), q: built, totals: quoteTotals(built) })
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
+    const alone = { ...q, lines: screen.slice(0, 1) } as Quote
+    expect(pdf.length).toBeGreaterThan((await quotePdf({ ...sheet(), q: alone, totals: quoteTotals(alone) })).length)
+  })
   it('carries the company as the law names it along the foot, on a quote long enough for two pages (ADR 0181)', async () => {
     const long = { ...q, lines: Array.from({ length: 60 }, (_, i) => ({ ...lines[1], id: `l${i}`, what: `Item ${i}` })) } as Quote
     const office = { id: 'office', name: 'Session Hire office', phone: null, email: null, tradingName: 'Session Hire', legalName: 'Session Hire Productions Limited', croNumber: '612345', registeredAddress: 'Unit 4\nDublin 12', directors: 'Aoife Byrne, Sam Lee (British)', vatNumber: 'IE 1234567T' }

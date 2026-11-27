@@ -31,7 +31,8 @@ function nameOf(field: Field): string {
   let words = ''
   if (label) {
     const copy = label.cloneNode(true) as HTMLElement
-    copy.querySelectorAll('input, select, textarea, small, .hint, .optional').forEach((n) => n.remove())
+    // Nor the unit drawn in its box (UnitBox.tsx), which would read on as part of the name: "Widthm".
+    copy.querySelectorAll('input, select, textarea, small, .hint, .optional, .unit').forEach((n) => n.remove())
     words = copy.textContent ?? ''
   }
   words = (words || field.getAttribute('aria-label') || '').replace(/\s+/g, ' ').replace(/[\s:*]+$/, '').trim()
@@ -189,6 +190,15 @@ export function refuseField(form: HTMLFormElement | null | undefined, selector: 
 /** Takes a form's own refusals away, as when what they were about changes some other way than typing in the field. */
 export function settleRefusals(form: HTMLFormElement | null | undefined) {
   form?.querySelectorAll<Field>('[data-refused-by="form"]').forEach(clear)
+}
+
+/**
+ * Takes one field's own refusal away, where something other than the field itself answers it: a group of options is
+ * refused under its last one, and picking any of them settles it.
+ */
+export function settleField(form: HTMLFormElement | null | undefined, selector: string) {
+  const field = form?.querySelector<Field>(selector)
+  if (field?.dataset.refusedBy === 'form') clear(field)
 }
 
 export function refuseEmptyFieldsInWords() {

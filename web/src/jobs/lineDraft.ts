@@ -1,4 +1,4 @@
-import { euroText, parseEuro, type LinePer, type LineKind, type QuoteLine, type VatRate, chargedFor, type RateRule, SUPPLIER_LENGTH, RATE_LABELS } from '@sh/shared'
+import { euroText, parseEuro, type LinePer, type LineKind, type LineScreen, type QuoteLine, type VatRate, chargedFor, type RateRule, SUPPLIER_LENGTH, RATE_LABELS } from '@sh/shared'
 
 /**
  * A quote's line as it's being typed (ADR 0042): the numbers as text until
@@ -37,6 +37,8 @@ export interface LineDraft {
   included?: boolean
   /** Words only (ADR 0128): a heading or a note printed as written, with no numbers. */
   words?: boolean
+  /** An LED screen (ADR 0207): the answers it was built from, which the builder opens on again. Its kit is the lines under it. */
+  screen?: LineScreen
 }
 export const toDraft = (l: QuoteLine): LineDraft => ({
   id: l.id,
@@ -62,6 +64,7 @@ export const toDraft = (l: QuoteLine): LineDraft => ({
   ...(l.fullCents ? { full: l.fullCents } : {}),
   ...(l.included ? { included: true } : {}),
   ...(l.words ? { words: true } : {}),
+  ...(l.screen ? { screen: l.screen } : {}),
 })
 /** The same line, saved as what's typed reads: a field the app before this didn't write counts as its default. */
 export const sameLine = (a: QuoteLine, b: QuoteLine) =>
@@ -88,7 +91,9 @@ export const sameLine = (a: QuoteLine, b: QuoteLine) =>
   (a.under ?? null) === (b.under ?? null) &&
   (a.fullCents ?? 0) === (b.fullCents ?? 0) &&
   !!a.included === !!b.included &&
-  !!a.words === !!b.words
+  !!a.words === !!b.words &&
+  sameScreen(a.screen, b.screen)
+const sameScreen = (a: LineScreen | undefined, b: LineScreen | undefined) => (!a || !b ? !a === !b : a.panel === b.panel && a.cols === b.cols && a.rows === b.rows && a.stands === b.stands)
 export const num = (s: string) => Number(s.trim().replace(',', '.'))
 
 /** The field of a typed line that stops it saving, so the error can sit by its cause (design system rule 18). */
@@ -147,6 +152,7 @@ export function checkLine(d: LineDraft, n: number): { line: QuoteLine; fault?: u
       ...(d.under ? { under: d.under } : {}),
       ...(d.full && d.packageId ? { fullCents: d.full } : {}),
       ...(d.included ? { included: true as const } : {}),
+      ...(d.screen ? { screen: d.screen } : {}),
     },
   }
 }

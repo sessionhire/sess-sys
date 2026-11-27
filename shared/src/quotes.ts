@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { day } from './day.ts'
-import { euroCents, needed, text, wrongType } from './plain.ts'
+import { euroCents, needed, text, whole, wrongType } from './plain.ts'
 import { DEPARTMENTS, marginTargetPct, type Department } from './stock.ts'
 
 /**
@@ -123,6 +123,29 @@ export const SUPPLIER_LENGTH = 200
 /** Room for what a package holds, as printed under its line. */
 export const PACKAGE_INCLUDES_LENGTH = 1000
 
+/** How an LED screen stands (ADR 0207): hung from truss on motors, or stood on the floor against truss uprights on base plates. */
+export const SCREEN_STANDS = ['hung', 'ground'] as const
+export type ScreenStands = (typeof SCREEN_STANDS)[number]
+export const SCREEN_STANDS_LABELS: Record<ScreenStands, string> = { hung: 'Hung', ground: 'Ground stacked' }
+/** The group an LED screen and its kit are listed under on a quote, until the office moves them. */
+export const SCREEN_GROUP = 'LED screen'
+/** The most panels across and down a screen is built from: 200 m of half-metre panels, which is more than any truss holds. */
+export const MOST_SCREEN_COLS = 400
+export const MOST_SCREEN_ROWS = 200
+
+/**
+ * The answers an LED screen was built from (ADR 0207), kept on its line so that pressing it opens the builder on them
+ * again: which panel, how many across and down for one screen, and how it stands. The line's quantity is how many
+ * screens like it. Its kit is the lines under it, counted for all of them.
+ */
+export const lineScreen = z.object({
+  panel: id,
+  cols: whole(1, MOST_SCREEN_COLS, 'Panels across'),
+  rows: whole(1, MOST_SCREEN_ROWS, 'Panels down'),
+  stands: z.enum(SCREEN_STANDS),
+})
+export type LineScreen = z.infer<typeof lineScreen>
+
 export const quoteLine = z.object({
   id,
   kind: z.enum(LINE_KINDS),
@@ -166,6 +189,11 @@ export const quoteLine = z.object({
    * under it, shown folded under it on screen and printed under it on paper.
    */
   under: id.optional(),
+  /**
+   * An LED screen (ADR 0207): the line the screen builder made, with the answers it was built from. Its kit is the
+   * lines under it at their own prices, as for a package charged by its kit, and it has no price of its own.
+   */
+  screen: lineScreen.optional(),
   /**
    * A package priced as a whole (ADR 0116): what its items come to at the price list's prices, for one, a day or a week
    * as the line is charged, when it was added. Its price is a discount from this, and the quote says how much.
@@ -1042,13 +1070,19 @@ export function linesUnder<L extends { id: string; under?: string | null }>(line
 }
 
 /**
- * Whether a line still wants a price: one at nothing, unless it's given as included, a package's line whose kit is
- * priced under it, or kit in a package priced as a whole (ADR 0116).
+ * A line that stands for the kit under it and may have no price of its own (ADR 0116): a package, or an LED screen
+ * (ADR 0207). With no price it is charged by its kit, each line under it at its own price.
  */
-export function needsPrice<L extends { id: string; unitCents: number; under?: string | null; modelId?: string | null; packageId?: string; included?: true; words?: true }>(l: L, lines: readonly L[]): boolean {
+export const headsKit = (l: { packageId?: string | null; screen?: unknown }): boolean => !!l.packageId || !!l.screen
+
+/**
+ * Whether a line still wants a price: one at nothing, unless it's given as included, a package's or a screen's line
+ * whose kit is priced under it, or kit in a package priced as a whole (ADR 0116).
+ */
+export function needsPrice<L extends { id: string; unitCents: number; under?: string | null; modelId?: string | null; packageId?: string; screen?: unknown; included?: true; words?: true }>(l: L, lines: readonly L[]): boolean {
   if (l.unitCents !== 0 || l.included || l.words) return false
-  // A package charged by its kit: the kit under it has the prices.
-  if (l.packageId && lines.some((x) => x.under === l.id && x.id !== l.id)) return false
+  // A package or a screen charged by its kit: the kit under it has the prices.
+  if (headsKit(l) && lines.some((x) => x.under === l.id && x.id !== l.id)) return false
   const head = l.under ? lines.find((x) => x.id === l.under) : undefined
   // Built into a rack: the rack's price is for it, whatever that is.
   if (head && (head.unitCents > 0 || head.modelId)) return false
