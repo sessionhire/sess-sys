@@ -8,6 +8,7 @@ import {
   draftOf,
   MOST_PRODUCT_PHOTOS,
   newId,
+  productNameKey,
   PRODUCT_PHOTO_SIDE,
   READ_PHOTO_SIDE,
   type Department,
@@ -67,6 +68,8 @@ interface Item {
   cents?: number
   error?: string
   draft: ProductDraft
+  /** The draft as it was last filled in (from what was typed, or by Claude), so what the person changed since is told apart. */
+  base: ProductDraft
   /** Products already on the list it might be. */
   alike: string[]
 }
@@ -128,10 +131,11 @@ async function read(key: string, view: View) {
   }
   const r = l.data.reading
   const filled = draftOf(r, view.warehouse.categories)
-  // What someone typed into the form while it was being read stays as they typed it.
-  const typed = Object.fromEntries(Object.entries(now.draft).filter(([k, v]) => v !== (blankDraft(now.draft.department) as unknown as Record<string, unknown>)[k]))
+  // What someone changed in the form while it was being read stays as they changed it.
+  const base = now.base as unknown as Record<string, unknown>
+  const typed = Object.fromEntries(Object.entries(now.draft).filter(([k, v]) => v !== base[k]))
   const alike = alikeProducts(view.warehouse.models, { name: r.name, maker: r.maker, model: r.model, sameAs: r.sameAs, lengthM: r.lengthM }).map((m) => m.id)
-  update(key, { status: 'ready', reading: r, cents: l.data.cents, draft: { ...filled, ...typed }, alike })
+  update(key, { status: 'ready', reading: r, cents: l.data.cents, draft: { ...filled, ...typed }, base: filled, alike })
   if (!line.open) change({ open: key })
 }
 
@@ -156,7 +160,7 @@ export function AddProductsScreen({ view }: { view: View }) {
       return
     }
     const key = newId()
-    const item: Item = { key, photos, typed: what, status: reads ? 'reading' : 'by-hand', draft: { ...blankDraft(department), name: what }, alike: [] }
+    const item: Item = { key, photos, typed: what, status: reads ? 'reading' : 'by-hand', draft: { ...blankDraft(department), name: what }, base: { ...blankDraft(department), name: what }, alike: [] }
     change({ items: [...line.items, item], open: reads ? line.open : (line.open ?? key) })
     if (reads) void read(key, view)
   }
@@ -269,7 +273,9 @@ function CheckItem({ view, item }: { view: View; item: Item }) {
   const top = useRef<HTMLDivElement>(null)
   const alike = item.alike.map((id) => w.models.find((m) => m.id === id)).filter((m): m is ModelView => !!m && !m.mistake)
   const r = item.reading
-  useEffect(() => top.current?.scrollIntoView({ block: 'nearest' }), [])
+  useEffect(() => {
+    top.current?.scrollIntoView({ block: 'nearest' })
+  }, [])
 
   const next = (left: Item[]) => left.find((i) => i.status === 'ready')?.key ?? left.find((i) => i.status !== 'reading')?.key ?? null
   const done = (also?: Added) => {
@@ -293,8 +299,8 @@ function CheckItem({ view, item }: { view: View; item: Item }) {
     const made = addArgsOf(f, id)
     if (made.reason !== undefined) return refuse(made.reason)
     const { args } = made
-    const key = (s: string) => s.trim().toLowerCase()
-    const taken = w.models.find((m) => !m.mistake && key(m.name) === key(args.name) && (m.lengthM ?? null) === args.lengthM)
+    // A name and a length make a product (ADR 0202): "XLR" 10 m long is "XLR 10m".
+    const taken = w.models.find((m) => !m.mistake && productNameKey(m) === productNameKey(args))
     if (taken) return refuse(`There's already a product called ${taken.name}${taken.lengthM ? ` (${taken.lengthM} m)` : ''}. Open it below if this is one.`)
     const ok = await run(() => client.mutate('model.add', args))
     if (!ok) return

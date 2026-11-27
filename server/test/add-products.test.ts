@@ -105,8 +105,8 @@ describe('adding products (ADR 0203)', () => {
     expect((await put('sm58')).statusCode).toBe(200)
     expect((await model('sm58'))?.photo_key).toBeTruthy()
     // Not a second time, nor on a product already looked over, nor taking one down.
-    expect((await put('sm58')).statusCode).toBe(409)
-    expect((await put('ours')).statusCode).toBe(409)
+    expect((await put('sm58')).statusCode).toBe(403)
+    expect((await put('ours')).statusCode).toBe(403)
     expect((await app.inject({ method: 'DELETE', url: '/api/models/sm58/photo?client=phonebeef', cookies: sean.cookies })).statusCode).toBe(403)
   })
 
@@ -140,7 +140,7 @@ describe('adding products (ADR 0203)', () => {
     const { app, colly } = await company({ answer: { ...reading, weightKg: -2, department: 'sound', sources: [{ title: 'x', url: 'javascript:alert(1)' }], tracking: 'lots' } })
     await colly.send('assistant.use', { on: true })
     const got = (await app.inject({ method: 'POST', url: '/api/products/read', cookies: colly.cookies, payload: { photos: [], typed: 'SM58' } })).json() as ProductRead
-    expect(got.reading).toMatchObject({ weightKg: null, department: 'other', tracking: 'serialised', sources: [{ title: 'x', url: '' }] })
+    expect(got.reading).toMatchObject({ weightKg: null, department: 'other', tracking: 'serialised', sources: [] })
   })
 })
 

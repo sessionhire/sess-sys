@@ -207,7 +207,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
         try {
           await o.put(idOf(req), body, found.type, who(req), req)
         } catch (err) {
-          if (err instanceof Refused) return reply.code(409).send({ error: err.reason.message })
+          if (err instanceof Refused) return reply.code(err.reason.code === 'forbidden' ? 403 : 409).send({ error: err.reason.message })
           if (err instanceof NotKept) return reply.code(502).send({ error: err.message })
           throw err
         }
