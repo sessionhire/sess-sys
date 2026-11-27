@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.242.0',
+    date: '2026-11-27',
+    title: 'Set replacement values from a list',
+    what: "Admin › Data has a new card, Replacement values from a list. After a price check, choose the sheet (or paste lines such as \u201cYamaha DM3, 1,999\u201d) and it shows every product's value from what to what, and anything it couldn't find or read, before one press sets them. Unlike the stock import, it replaces a value already there. Each change is in the history.",
+    prs: [460],
+    adrs: [204],
+  },
+  {
     version: '1.241.1',
     date: '2026-11-27',
     title: 'The message after releasing someone who said no',
