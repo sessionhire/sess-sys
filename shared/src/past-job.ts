@@ -4,6 +4,7 @@ import { STOPPED, type ProjectStatus } from './jobs.ts'
 import { headsKit, MAX_LINES, type QuoteLine } from './quotes.ts'
 import { DEPARTMENT_LABELS } from './stock.ts'
 import { nameWithLength } from './cable-colours.ts'
+import { namesAlike, sameClient } from './rms-history.ts'
 
 /**
  * Start a quote from a past job (ADR 0115). A new quote for a client or a venue the company has worked for before
@@ -21,36 +22,55 @@ export interface PastJobRef {
   span: { start: string; end: string } | undefined
 }
 
-/** How a past job matches the new one: the same client and venue, the same venue, or the same client. */
-export type PastMatch = 'both' | 'venue' | 'client'
-export const PAST_MATCH_WORDS: Record<PastMatch, string> = { both: 'Same client and venue', venue: 'Same venue', client: 'Same client' }
+/** What a past job has in common with the new one: its client, its venue, or a name like it. */
+export type PastMatch = 'client' | 'venue' | 'name'
+const MATCH_ORDER: readonly PastMatch[] = ['client', 'venue', 'name']
+
+/** What matched, said as the list shows it: "Same client, venue and name", "Same venue", "Similar name". */
+export function pastMatchWords(matched: readonly PastMatch[]): string {
+  const same = MATCH_ORDER.filter((m) => matched.includes(m))
+  if (!same.length) return ''
+  if (same.length === 1 && same[0] === 'name') return 'Similar name'
+  return `Same ${same.length === 1 ? same[0] : `${same.slice(0, -1).join(', ')} and ${same.at(-1)}`}`
+}
 
 /** How many past jobs are offered at most: the closest matches, latest first. */
 export const MOST_PAST_JOBS = 6
 
 /**
- * Past jobs like the new one, closest first: the same client and venue, then the same venue, then the same client, the
- * latest of each first. Only jobs that are over and went ahead, and that have something to start from.
+ * Past jobs like the new one, the most in common first: its client, its venue and a name like it (Colly, 27 November
+ * 2026), so a job that shares all three comes before one that shares two, then one; the latest first among those that
+ * share as many. Only jobs that are over and went ahead, and that have something to start from.
  */
 export function pastJobsLike<J extends PastJobRef>(
   jobs: readonly J[],
-  want: { clientId: string | null; venueId: string | null },
+  want: { clientId: string | null; venueId: string | null; name?: string },
   today: string,
   useful: (jobId: string) => boolean,
   most = MOST_PAST_JOBS
-): { job: J; match: PastMatch }[] {
-  if (!want.clientId && !want.venueId) return []
-  const rank: Record<PastMatch, number> = { both: 0, venue: 1, client: 2 }
-  const out: { job: J; match: PastMatch }[] = []
+): { job: J; matched: PastMatch[] }[] {
+  const name = want.name?.trim() ?? ''
+  if (!want.clientId && !want.venueId && !name) return []
+  const out: { job: J; matched: PastMatch[] }[] = []
   for (const job of jobs) {
     if (!job.span || job.span.end >= today || STOPPED.includes(job.status)) continue
-    const client = !!want.clientId && job.clientId === want.clientId
-    const venue = !!want.venueId && job.venueId === want.venueId
-    if (!client && !venue) continue
-    if (!useful(job.id)) continue
-    out.push({ job, match: client && venue ? 'both' : venue ? 'venue' : 'client' })
+    const matched: PastMatch[] = []
+    if (want.clientId && job.clientId === want.clientId) matched.push('client')
+    if (want.venueId && job.venueId === want.venueId) matched.push('venue')
+    if (name && namesAlike(job.name, name)) matched.push('name')
+    if (!matched.length || !useful(job.id)) continue
+    out.push({ job, matched })
   }
-  return out.sort((a, b) => rank[a.match] - rank[b.match] || b.job.span!.end.localeCompare(a.job.span!.end)).slice(0, most)
+  return out.sort((a, b) => b.matched.length - a.matched.length || b.job.span!.end.localeCompare(a.job.span!.end)).slice(0, most)
+}
+
+/** What a Current RMS quote has in common with the new one, as a past job's is read: its client, venue and name. */
+export function rmsMatched(o: { client: string; venue?: string | null; subject: string }, want: { client: string; venue: string; name: string }): PastMatch[] {
+  const matched: PastMatch[] = []
+  if (want.client.trim() && o.client && sameClient(o.client, want.client)) matched.push('client')
+  if (want.venue.trim() && o.venue && sameClient(o.venue, want.venue)) matched.push('venue')
+  if (want.name.trim() && o.subject && namesAlike(o.subject, want.name)) matched.push('name')
+  return matched
 }
 
 /** A product on a past job: how many its kit list had (and of those hired in), and how many of its own went out. */

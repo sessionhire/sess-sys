@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matcherFor, pastJobsLike, pastJobSuggestions, suggestionLine, type PastJobRef, type Pricing, type QuoteLine } from '../src/index.ts'
+import { matcherFor, pastJobsLike, pastMatchWords, rmsMatched, pastJobSuggestions, suggestionLine, type PastJobRef, type Pricing, type QuoteLine } from '../src/index.ts'
 
 /**
  * Start a quote from a past job (ADR 0115): jobs like the new one, closest first, and what each needed, taken at what
@@ -40,14 +40,33 @@ describe('pastJobsLike', () => {
     job('ahead', 'acme', 'rds', '2026-12-01', 'confirmed'),
     job('neither', 'x', 'y', '2026-05-01'),
   ]
-  it('puts the same client and venue first, then the venue, then the client, latest first', () => {
+  it('puts the most in common first, latest first among those with as much', () => {
     const r = pastJobsLike(jobs, { clientId: 'acme', venueId: 'rds' }, '2026-11-08', () => true)
-    expect(r.map((x) => [x.job.id, x.match])).toEqual([
-      ['both-new', 'both'],
-      ['both-old', 'both'],
-      ['venue-new', 'venue'],
-      ['client-old', 'client'],
+    expect(r.map((x) => [x.job.id, x.matched])).toEqual([
+      ['both-new', ['client', 'venue']],
+      ['both-old', ['client', 'venue']],
+      ['venue-new', ['venue']],
+      ['client-old', ['client']],
     ])
+  })
+  it('counts a name like it as a match, so all three come before two', () => {
+    const named = [
+      { ...job('a', 'acme', 'rds', '2026-02-01'), name: 'Nissan Launch 2025' },
+      { ...job('b', 'acme', 'rds', '2026-08-01'), name: 'Christmas party' },
+      { ...job('c', 'other', 'elsewhere', '2026-09-01'), name: 'Nissan launch' },
+      { ...job('d', 'other', 'rds', '2026-10-01'), name: 'Launch party' },
+    ]
+    const r = pastJobsLike(named, { clientId: 'acme', venueId: 'rds', name: 'Nissan Launch' }, '2026-11-08', () => true)
+    expect(r.map((x) => [x.job.id, x.matched])).toEqual([
+      ['a', ['client', 'venue', 'name']],
+      ['b', ['client', 'venue']],
+      ['d', ['venue']],
+      ['c', ['name']],
+    ])
+  })
+  it('finds jobs by name alone, before a client or venue is known', () => {
+    const named = [{ ...job('a', 'acme', 'rds', '2026-02-01'), name: 'Web Summit 2025' }, { ...job('b', 'x', 'y', '2026-03-01'), name: 'Summit dinner' }]
+    expect(pastJobsLike(named, { clientId: null, venueId: null, name: 'Web Summit' }, '2026-11-08', () => true).map((x) => x.job.id)).toEqual(['a'])
   })
   it('leaves out jobs that are not over, did not go ahead, or have nothing to start from', () => {
     const r = pastJobsLike(jobs, { clientId: 'acme', venueId: null }, '2026-11-08', (id) => id !== 'both-old')
@@ -55,6 +74,19 @@ describe('pastJobsLike', () => {
   })
   it('offers none for a new client at a new venue', () => {
     expect(pastJobsLike(jobs, { clientId: null, venueId: null }, '2026-11-08', () => true)).toEqual([])
+  })
+})
+
+describe('pastMatchWords and rmsMatched', () => {
+  it('says what matched', () => {
+    expect(pastMatchWords(['name', 'client', 'venue'])).toBe('Same client, venue and name')
+    expect(pastMatchWords(['venue'])).toBe('Same venue')
+    expect(pastMatchWords(['client', 'name'])).toBe('Same client and name')
+    expect(pastMatchWords(['name'])).toBe('Similar name')
+  })
+  it('reads a Current RMS quote the same way', () => {
+    expect(rmsMatched({ client: 'Verve Live Ltd', venue: 'The RDS', subject: 'Coke Truck Tour' }, { client: 'Verve Live', venue: 'RDS', name: 'Coke truck tour' })).toEqual(['client', 'venue', 'name'])
+    expect(rmsMatched({ client: 'Fuel', venue: '', subject: 'KPMG Launch' }, { client: 'Verve', venue: 'RDS', name: 'Launch party' })).toEqual([])
   })
 })
 

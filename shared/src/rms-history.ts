@@ -47,6 +47,20 @@ const COMMON = new Set([
 ])
 const words = (s: string) => new Set(rmsNameKey(s).split(' ').filter((w) => w.length > 1 && !COMMON.has(w)))
 
+/**
+ * Whether two jobs' names are alike: most of the words that say which job it is are in both. All of them, or at least
+ * two and half of the longer name's ("Nissan Launch" and "Nissan Launch Dublin"); one word of two ("KPMG Launch" and
+ * "Launch Party") isn't. Years, days and words like "show" are left out, so "Web Summit 2025" is "Web Summit".
+ */
+export function namesAlike(a: string, b: string): boolean {
+  const x = words(a)
+  const y = words(b)
+  const most = Math.max(x.size, y.size)
+  if (!most) return false
+  const both = [...x].filter((w) => y.has(w)).length
+  return both === most || (both >= 2 && both / most >= 0.5)
+}
+
 /** Whether two clients' names are the same company, as each system spells it: equal, or one starts the other ("Verve" and "Verve Live"). */
 export function sameClient(a: string, b: string): boolean {
   const x = rmsNameKey(a)

@@ -28,12 +28,20 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.244.0',
+    version: '1.245.0',
     date: '2026-11-27',
     title: 'Build an LED screen on a quote',
     what: "A quote has a new way to add kit: Add LED screen, beside the other ways to add under the lines, and found in Add kit by typing led screen. It asks how big the screen is in metres, which panel it's built from, with the panels we own first and the one used last time already chosen, and whether it's hung or ground stacked. As you answer, it lists the kit from the stock list that makes the screen, each part with why it's that many and what it comes to: panels and fly bars, then truss, motors and motor control for a hung screen or truss uprights and base plates for a ground stack, then a processor and power distro. Every part is ticked to begin with: untick one to leave it off, or choose another product for it. A ground stack says how many uprights it stands against, the wind it holds to outdoors and any ballast it wants. Add to quote puts the screen on as one line that comes to its kit, with that kit under it, in an LED screen group, and the client's quote shows its panels and pixels. Press the screen's line to change it later: it says what the change does to the quote, and by how much, before you make it. A panel's size is asked the first time it's used and kept on its product, whose page now shows it. It's a first pass to quote from, not a structural check, and it doesn't add cables, slings, shackles or ballast.",
-    prs: [465],
+    prs: [466],
     adrs: [207],
+  },
+  {
+    version: '1.244.0',
+    date: '2026-11-27',
+    title: 'Start a quote from a similar past gig',
+    what: "A job's Quote tab now has Start from a past gig: on Make a quote, on a draft with no lines yet, and under More to add as Add from a past gig once it has some. It lists past gigs with the same client, the same venue or a similar name, the ones with the most in common first, each saying what matched (Same client, venue and name; Same venue; Similar name). Pick one to see its lines, as much kit as actually went out, untick any you don't want, and add them to this quote, after any already on it. The client's past quotes in Current RMS are listed too. New quote's Start from list now counts a similar name as well, and ranks the same way.",
+    prs: [465],
+    adrs: [115],
   },
   {
     version: '1.243.0',

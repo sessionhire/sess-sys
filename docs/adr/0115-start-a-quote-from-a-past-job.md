@@ -58,3 +58,29 @@ kit list holds what was hired in.
 - Quotes from Current RMS are not offered here: they have no pick list. A
   job made from one (ADR 0102) is, once it's over.
 - "Quote it again" from a job's own page is left for later, if asked for.
+
+## Amended 27 November 2026: by name too, and on a job's own quote
+
+Colly asked for the start-from list on the quote page itself, matching the
+venue, the client or the name, "the more matches the higher in the list".
+
+- A past job's name counts as a match when most of the words that say
+  which job it is are in both (`namesAlike` in `rms-history.ts`, the rule
+  that already links Current RMS quotes to jobs): all of them, or at least
+  two and half of the longer name's. Years, weekdays, months and words like
+  "show" or "party" don't count, so "Web Summit 2025" is "Web Summit", and
+  "KPMG Launch" isn't "Launch Party".
+- Jobs are ranked by how many of the three they share, then latest first.
+  The old order (both, then venue, then client) is the same ranking for
+  two of the three. Each says what matched: "Same client, venue and name",
+  "Same venue", "Similar name".
+- Current RMS's quotes in the list are ranked the same way, by client,
+  venue and name, ahead of their own latest-first order; with no client yet
+  they're asked for by the job's name.
+- The list is now on a job's own Quote tab as well as New quote: on Make a
+  quote (it starts the quote with the lines picked, and puts their kit on
+  the job's kit list as New quote does, ADR 0102), open on an empty draft,
+  and under More as "Add from a past gig" once the draft has lines, which
+  adds the lines picked after those already on. The job itself is never
+  offered.
+- "Quote it again" from a job's own page, left for later above, is this.
