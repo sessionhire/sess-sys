@@ -3,6 +3,21 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 27 November 2026: replacement values from a list
+
+**Done (1.242.0, #460, ADR 0204)**
+
+- Colly, after the web price check: "You can build that function now."
+- Admin › Data › Replacement values from a list: choose the price check's
+  sheet saved as CSV, or paste "name, value" lines. Every change shows from
+  what to what, with names not found and values that can't be read listed
+  apart, before one press sets them. Unlike the stock import and the Current
+  RMS fill, values already set are replaced. Each change is in History.
+- Checked: shared tests (6 new), typecheck, the card's browser test at phone
+  size, and both price-check files read in full (22 of 22; 190 rows).
+- Waiting on Colly: choose high-confidence-22-to-update.csv on live and press
+  Set. Once all products are on the list, run the price sweep again.
+
 ## 26 November 2026: discounts on the printed and PDF quote
 
 **Done (1.237.0, #451)**
