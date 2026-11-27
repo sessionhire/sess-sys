@@ -239,3 +239,67 @@ test('on a phone, no webcam button: the one field opens the camera', async ({ br
   await expect(page.locator('.add-photo input[type=file]')).toHaveAttribute('capture', 'environment')
   await expect(page.getByRole('button', { name: 'Use the webcam' })).toHaveCount(0)
 })
+
+test("on a laptop, a freelancer's link takes the item's photos with the webcam, under the page's strict policy", async ({ browser, request }) => {
+  const id = Math.random().toString(36).slice(2, 8)
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const page = await (await browser.newContext({ viewport: { width: 1280, height: 860 } })).newPage()
+  await page.goto('/#admin/claude')
+  const toggle = page.getByRole('region', { name: 'Claude', exact: true }).getByRole('switch', { name: /Turn Claude on/ })
+  await toggle.click()
+  await expect(toggle).toBeChecked()
+  const res = await request.post('/api/sync/push', {
+    data: {
+      clientId: `e2e${id}`,
+      mutations: [{ id: `${id}fl`, name: 'person.upsert', args: { id: `p${id}`, name: `Webcam Freelancer ${id}`, kind: 'freelancer', email: `cam-${id}@example.com`, phone: null, skills: [], dayRateCents: 30000, notes: '' }, createdAt: new Date().toISOString() }],
+    },
+  })
+  expect((await res.json()).results[0].status).toBe('applied')
+  const { changes } = (await (await request.get('/api/sync/pull?after=0')).json()) as { changes: { entity: string; id: string; data: { linkToken: string } }[] }
+  const link = `/f/${changes.filter((c) => c.entity === 'person' && c.id === `p${id}`).pop()!.data.linkToken}`
+
+  const laptop = await (await browser.newContext({ viewport: { width: 1280, height: 860 } })).newPage()
+  const refused: string[] = []
+  laptop.on('console', (m) => {
+    if (m.type() === 'error') refused.push(m.text())
+  })
+  await laptop.addInitScript(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1280
+    canvas.height = 720
+    const g = canvas.getContext('2d')!
+    const draw = () => {
+      g.fillStyle = '#4a5058'
+      g.fillRect(0, 0, 1280, 720)
+      g.fillStyle = '#d8d8d8'
+      g.fillRect(500, 200, 280, 320)
+    }
+    setInterval(draw, 50)
+    draw()
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: {
+        getUserMedia: async () => canvas.captureStream(20),
+        enumerateDevices: async () => [{ kind: 'videoinput', deviceId: '', groupId: '', label: '' }],
+      },
+    })
+  })
+  await laptop.goto(`${link}/add`)
+  await expect(laptop.getByRole('heading', { name: 'An item at a time' })).toBeVisible()
+  await expect(laptop.locator('#pick')).not.toHaveAttribute('capture')
+  await laptop.getByRole('button', { name: 'Use the webcam' }).click()
+  const cam = laptop.getByRole('group', { name: 'Webcam' })
+  await expect(laptop.locator('#photo-status')).toContainText('Hold the item up to the camera')
+  await cam.getByRole('button', { name: 'Take photo' }).click()
+  await cam.getByRole('button', { name: 'Take photo' }).click()
+  const taken = laptop.getByRole('list', { name: 'Photos of this item' })
+  await expect(taken.getByRole('img')).toHaveCount(2)
+  await expect(laptop.locator('#photo-status')).toContainText('Two photos of this item. Take its label too, or read it.')
+  await taken.getByRole('button', { name: 'Take out photo 2' }).click()
+  await expect(taken.getByRole('img')).toHaveCount(1)
+  if (shots) await laptop.screenshot({ path: `${shots}/add-products-link-webcam-desk.png` })
+  await laptop.getByRole('button', { name: 'Read it' }).click()
+  await expect(laptop.getByText('Suggested by Claude.')).toBeVisible()
+  await expect(laptop.getByLabel(/^Name/)).toHaveValue('Shure SM58')
+  expect(refused.filter((t) => /Content Security Policy|Refused/i.test(t))).toEqual([])
+})
