@@ -1525,6 +1525,21 @@ describe('crew invites (ADR 0009)', () => {
     })
     // Nothing done for her: the office decides.
     expect((await s.colly.history()).entries.filter((e: HistoryEntry) => e.who.kind === 'calendar')).toEqual([])
+
+    // Noted (27 November 2026): kept booked, and that No is settled; nothing is sent to her.
+    const sentBefore = s.google.sent.length
+    await send(s, 'offer.seen', { id: job.offers.aoife, days: ['2030-03-03'] })
+    expect(await offer(s, job.offers.aoife)).toMatchObject({ status: 'confirmed', days: ['2030-03-02', '2030-03-03'], notedNo: ['2030-03-03'] })
+    expect(await onCalendar(s, job.offers.aoife)).toMatchObject({ warning: null, bookedNo: [], line: 'On Google Calendar: no to Sun 3 Mar; no answer yet for Sat 2 Mar.' })
+    expect((await s.colly.history()).entries[0]!.what).toBe('Noted that Aoife Byrne said no on Google Calendar to Sun 3 Mar of Audio tech on Nissan, and kept them booked')
+    await s.sync()
+    expect(emails(s, sentBefore)).toEqual([])
+    // A No to her other day is new, so it comes in again.
+    s.later(2)
+    s.google.respond(TEST_CAL, job.events.build1, 'aoife@example.com', 'declined')
+    expect(await s.poll()).toBe(1)
+    expect(await offer(s, job.offers.aoife)).toMatchObject({ status: 'confirmed' })
+    expect(await onCalendar(s, job.offers.aoife)).toMatchObject({ warning: 'Said no to Sat 2 Mar on Google Calendar, but is booked for it. Call them to sort it out.', bookedNo: ['2030-03-02'] })
   })
 
   it('looks for answers without waking the database until one has changed', async () => {

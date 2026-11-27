@@ -391,6 +391,11 @@ export const offer = z.object({
    */
   seenAt: z.string().nullable(),
   /**
+   * Booked days they said no to on Google Calendar that the office noted and kept them booked for (27 November 2026), so
+   * that No is no longer something to sort out. Only on an offer with some.
+   */
+  notedNo: z.array(day).optional(),
+  /**
    * Where the offer's WhatsApp message has got to (ADR 0125): queued, sent, delivered to their phone, read, or not sent
    * and why. Set by the server from Meta's receipts; absent when nothing went on WhatsApp.
    */
@@ -671,8 +676,12 @@ export const crewCommandSchemas = {
    */
   'offer.refuse': z.object({ id }),
   'offer.cancel': z.object({ id }),
-  /** The office has seen a decline or a pull-out, so it leaves "Answers to check". */
-  'offer.seen': z.object({ id }),
+  /**
+   * The office has seen a decline or a pull-out, so it leaves "Answers to check". With days, a No on Google Calendar to
+   * days they're booked for, noted and kept booked (27 November 2026): those days' No leaves the list, a No to any other
+   * day still comes in. Releasing them instead is offer.cancel.
+   */
+  'offer.seen': z.object({ id, days: z.array(day).max(MAX_OFFER_DAYS).optional() }),
 } as const
 
 /**

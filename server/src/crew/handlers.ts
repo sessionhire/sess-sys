@@ -67,7 +67,7 @@ async function setOffer(ctx: Ctx, id: string, fields: Partial<Record<string, unk
   const keys = Object.keys(fields)
   await ctx.tx.query(
     `UPDATE offers SET ${keys.map((k, i) => `${k} = $${i + 2}`).join(', ')} WHERE id = $1`,
-    [id, ...keys.map((k) => (k === 'days' || k === 'asked' ? JSON.stringify(fields[k]) : fields[k]))]
+    [id, ...keys.map((k) => (k === 'days' || k === 'asked' || k === 'noted_no' ? JSON.stringify(fields[k]) : fields[k]))]
   )
   await emitOffer(ctx, id)
 }
@@ -825,6 +825,15 @@ export const crewHandlers: { [N in CrewCommand]: Handler<N> } = {
   async 'offer.seen'(ctx, a) {
     const offer = await getOffer(ctx.tx, a.id)
     if (!offer) throw new Refused({ code: 'not-found', message: 'That offer no longer exists.' })
+    // A No on Google to days they're booked for, noted and kept booked (27 November 2026): those days join the ones noted,
+    // and only days they're still booked for, so a No to another day still comes in. Twice is the same as once.
+    if (a.days) {
+      if (offer.status !== 'confirmed') return
+      const noted = [...new Set([...(offer.notedNo ?? []), ...a.days.filter((d) => offer.days.includes(d))])].sort()
+      if (noted.length === (offer.notedNo ?? []).length) return
+      await setOffer(ctx, offer.id, { noted_no: noted })
+      return
+    }
     // Noted once is noted: a second device's Noted changes nothing.
     if (offer.seenAt) return
     await setOffer(ctx, offer.id, { seen_at: new Date().toISOString() })

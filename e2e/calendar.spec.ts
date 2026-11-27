@@ -441,6 +441,12 @@ test('crew invites: turned on from Admin, with answers from Google on the job pa
     `${niamh} answered on Google Calendar${job} · Audio tech · booked Mon 14 Oct to Tue 15 Oct` +
       'Said no to Tue 15 Oct on Google Calendar, but is booked for it. Call them to sort it out.'
   )
+  // It can be settled there (27 November 2026): Noted keeps her booked, Release asks first as it does on the job.
+  const niamhAnswer = answers.locator('.row', { hasText: niamh })
+  await expect(niamhAnswer.getByRole('button', { name: `Noted: keep ${niamh} booked for Tue 15 Oct` })).toBeVisible()
+  await niamhAnswer.getByRole('button', { name: 'Release' }).click()
+  await expect(niamhAnswer.getByRole('group', { name: new RegExp(`^Release ${niamh} from ${job}\\? Their place goes back to the call\\.`) })).toBeVisible()
+  await niamhAnswer.getByRole('button', { name: 'Keep them' }).click()
 
   // Back on the job, a press that takes something away says first what Google emails, and to how many (ADR 0149).
   await page.goto(jobPage)

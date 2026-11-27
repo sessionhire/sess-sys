@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.239.1',
+    date: '2026-11-27',
+    title: 'Clear a No on Google Calendar from someone booked',
+    what: "When someone booked for a job says no to a day of it on Google Calendar, Crew › Calls › Answers to check says so, but it had only Open job, so it stayed there for good. It now has Ring, Noted and Release. Noted keeps them booked and takes it off the list, and a No to another of their days still comes in; Release asks first, then frees their place, as Release on the job does.",
+    prs: [0],
+  },
+  {
     version: '1.239.0',
     date: '2026-11-27',
     title: 'Add products from a photo',

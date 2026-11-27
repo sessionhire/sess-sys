@@ -210,6 +210,8 @@ const CASES: Case[] = [
   c('offer.undo', { id: 'cian-sound' }, { before: [m('offer.send', { id: 'cian-sound', callId: 'sound', personId: 'cian', override: false })] }),
   c('offer.undo', { id: 'cian-sound' }, { as: 'offered and undone with no signal', queued: [m('offer.send', { id: 'cian-sound', callId: 'sound', personId: 'cian', override: false })] }),
   c('offer.seen', { id: 'eimear-sound' }, { before: [m('offer.respond', { id: 'eimear-sound', answer: 'decline', note: '' })] }),
+  // A No on Google to a booked day, noted with them kept booked (27 November 2026).
+  c('offer.seen', { id: 'eimear-sound', days: [day(3)] }, { as: 'a booked No noted', before: [m('offer.respond', { id: 'eimear-sound', answer: 'accept', days: null, note: '' }), m('offer.confirm', { id: 'eimear-sound' })] }),
   c('person.merge', { id: 'dara', from: ['niamh'] }, { before: [person('niamh', 'Dara Q', 'freelancer', { email: 'dq@example.com' })] }),
   c('person.mainEmail', { id: 'dara', email: 'dq@example.com' }, { before: [person('niamh', 'Dara Q', 'freelancer', { email: 'dq@example.com' }), m('person.merge', { id: 'dara', from: ['niamh'] })] }),
 

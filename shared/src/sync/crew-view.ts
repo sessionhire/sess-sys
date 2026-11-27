@@ -419,7 +419,16 @@ export function crewView(
         break
       }
       case 'offer.seen': {
-        const o = offers.get((m.args as CommandArgs<'offer.seen'>).id)
+        const a = m.args as CommandArgs<'offer.seen'>
+        const o = offers.get(a.id)
+        // A No on Google to booked days, noted and kept booked (27 November 2026), as the server takes it.
+        if (a.days) {
+          if (o && o.status === 'confirmed') {
+            const noted = [...new Set([...(o.notedNo ?? []), ...a.days.filter((d) => o.days.includes(d))])].sort()
+            if (noted.length !== (o.notedNo ?? []).length) offers.set(o.id, { ...o, notedNo: noted, pending: true })
+          }
+          break
+        }
         if (o && !o.seenAt) offers.set(o.id, { ...o, seenAt: m.createdAt, pending: true })
         break
       }

@@ -8,6 +8,7 @@ import {
   firstName,
   invitesHeld,
   ratesClosedBy,
+  telHref,
   waitingClosedBy,
   whatsappFollowsOffer,
   yesWithNoRate,
@@ -210,4 +211,53 @@ export function useAnswerActions({ o, call, run, onDone, onPress }: AnswerProps)
       </div>
     ),
   }
+}
+
+/**
+ * What the office presses on a No in Google Calendar to days someone is booked for (27 November 2026): ring them, then
+ * Noted, which keeps them booked and settles that No, or Release, asked first, which frees their place as Release does on
+ * the job. Before, the row had only Open job, so it stood in Answers to check with no way to clear it.
+ */
+export function BookedNoActions({ o, call, days, run, onDone, onPress, children }: AnswerProps & { days: string[]; children?: ReactNode }) {
+  const reach = useReach()
+  const [asking, setAsking] = useState(false)
+  const who = o.person?.name ?? 'them'
+  const first = o.person ? firstName(o.person) : 'them'
+  const keep = () => {
+    onPress?.()
+    void run(() => client.mutate('offer.seen', { id: o.id, days }))
+  }
+  const release = () => {
+    setAsking(false)
+    onPress?.()
+    void run(() => client.mutate('offer.cancel', { id: o.id })).then((ok) => ok && onDone(o.person ? promptFor('released', [tellTo(o.person, call, o)]) : undefined))
+  }
+  if (asking)
+    return (
+      <Confirm
+        className="answer"
+        question={`Release ${who} from ${call.project}? Their place goes back to the call. ${endingWords(reach, o.id, 'so', o.person, whatsappFollowsOffer(reach, call, o, o.person))}`}
+        yes={`Release ${first}`}
+        loss
+        no="Keep them"
+        onYes={release}
+        onNo={() => setAsking(false)}
+      />
+    )
+  return (
+    <div className="actions answer">
+      {o.person?.phone && (
+        <a className="button" href={telHref(o.person.phone)}>
+          Ring
+        </a>
+      )}
+      <button type="button" onClick={keep} aria-label={`Noted: keep ${who} booked for ${daysLabel(days)}`} title="Keeps them booked; a No to any other day still comes here">
+        Noted
+      </button>
+      <button type="button" onClick={() => setAsking(true)}>
+        Release
+      </button>
+      {children}
+    </div>
+  )
 }
