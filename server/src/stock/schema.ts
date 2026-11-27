@@ -464,6 +464,10 @@ const MIGRATIONS: string[] = [
   DROP INDEX IF EXISTS models_name;
   CREATE UNIQUE INDEX IF NOT EXISTS models_name ON models (lower(name), coalesce(length_m, 0)) WHERE NOT mistake;
   `,
+  // Products added on Stock › Add products (ADR 0203) by someone who doesn't run the stock, waiting for someone who does to look them over.
+  `
+  ALTER TABLE models ADD COLUMN IF NOT EXISTS to_check boolean NOT NULL DEFAULT false;
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

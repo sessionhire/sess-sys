@@ -148,6 +148,23 @@ export function warehouseView(entities: Partial<Tables>, outbox: readonly (Mutat
         models.set(a.id, { ...a, ...checks(a), ...coded, pending: true })
         break
       }
+      case 'model.add': {
+        // As model.create (ADR 0203). Whether it waits to be checked is the server's to say, by who added it.
+        const a = m.args as CommandArgs<'model.add'>
+        if (models.has(a.id)) break
+        const n = Math.max(0, ...[...models.values()].map((x) => x.codeNumber ?? 0)) + 1
+        const coded = n <= MAX_PRODUCT_NUMBER ? { codeNumber: n } : {}
+        models.set(a.id, { ...a, ...checks(a), ...coded, pending: true })
+        break
+      }
+      case 'model.checked': {
+        const found = models.get((m.args as CommandArgs<'model.checked'>).id)
+        if (found) {
+          const { toCheck: _, ...rest } = found
+          models.set(found.id, { ...rest, pending: true })
+        }
+        break
+      }
       case 'model.update': {
         const a = m.args as CommandArgs<'model.update'>
         const found = models.get(a.id)

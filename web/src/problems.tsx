@@ -409,6 +409,10 @@ function describer(view: View): (m: Mutation) => string {
         return `Remove ${phase(a.id).name} from ${phase(a.id).job}`
       case 'model.create':
         return `Add the product ${str(a.name, 'a product')}`
+      case 'model.add':
+        return `Add the product ${str(a.name, 'a product')}`
+      case 'model.checked':
+        return `Mark ${model(a.id)} as looked over`
       case 'model.update':
         return `Change the product ${model(a.id)}`
       case 'model.remove':

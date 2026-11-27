@@ -129,6 +129,8 @@ export function StockViews({ view, current }: { view: View; current: string }) {
         { key: 'repairs', href: '#stock/repairs', label: 'Repairs', count: count(lists.faults.length) },
         { key: 'vehicles', href: '#stock/vehicles', label: 'Vehicles', count: count(vehicles) },
         { key: 'buy', href: '#stock/buy', label: 'Purchase list' },
+        // Anyone adds products (ADR 0203); whoever runs the stock sees how many others added are waiting to be looked over.
+        { key: 'add', href: '#stock/add', label: 'Add products', count: count(view.warehouse.models.filter((m) => m.toCheck && !m.mistake).length) },
       ]}
     />
   )

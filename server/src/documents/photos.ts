@@ -10,6 +10,7 @@ import {
   MAX_FILE_BYTES,
   mayChangePhoto,
   mayChangeProductPhoto,
+  mayAddProducts,
   NO_FILE,
   NOT_A_PHOTO,
   PHOTO_ACTIONS,
@@ -113,12 +114,15 @@ export function removePhoto(db: Db, id: string, who: Who) {
 const NO_PRODUCT = () => new Refused({ code: 'not-found', message: "That product isn't in the stock list any more." })
 
 /** A photo put on a product (ADR 0083), in place of the one it had. */
-export function putProductPhoto(db: Db, files: DocumentFiles, id: string, data: Buffer, type: PhotoType, who: Who) {
+export function putProductPhoto(db: Db, files: DocumentFiles, id: string, data: Buffer, type: PhotoType, who: Who, firstOnly = false) {
   const args = { id, type, bytes: data.length }
   return withFile(files, data, (key) =>
     serverChange(db, { name: PRODUCT_PHOTO_ACTIONS.put, args, ...who }, async (ctx) => {
-      if (!(await getModel(ctx.tx, id, true))) throw NO_PRODUCT()
+      const m = await getModel(ctx.tx, id, true)
+      if (!m) throw NO_PRODUCT()
       const old = await photoOf(ctx.tx, id, 'models')
+      // Someone who adds products but doesn't run the stock (ADR 0203) gives the photo of one they've just added, and only its first.
+      if (firstOnly && (old || !m.toCheck)) throw new Refused({ code: 'forbidden', message: PRODUCT_PHOTO_REFUSAL })
       await claimFile(ctx.tx, key)
       await ctx.tx.query('UPDATE models SET photo_key = $2, photo_type = $3, photo_bytes = $4, photo_at = now() WHERE id = $1', [id, key, type, data.length])
       if (old) await queueFile(ctx.tx, old.key, true)
@@ -184,9 +188,11 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
       /** Whose it is: the id in the address, or the one record a fixed address is for. */
       idOf?: (req: Req) => string
       allowed: (req: Req) => boolean
+      /** Who may take it down, when not whoever may put it up. */
+      removable?: (req: Req) => boolean
       refusal: string
       reads: (req: Req) => Promise<boolean>
-      put: (id: string, data: Buffer, type: PhotoType, who: Who) => Promise<unknown>
+      put: (id: string, data: Buffer, type: PhotoType, who: Who, req: Req) => Promise<unknown>
       remove: (id: string, who: Who) => Promise<unknown>
     }) => {
       const idOf = o.idOf ?? ((req: Req) => req.params.id)
@@ -199,9 +205,9 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
         const found = fileTypeOf(body.subarray(0, FILE_HEAD_BYTES))
         if ('refused' in found || !isPhotoType(found.type)) return reply.code(415).send({ error: NOT_A_PHOTO })
         try {
-          await o.put(idOf(req), body, found.type, who(req))
+          await o.put(idOf(req), body, found.type, who(req), req)
         } catch (err) {
-          if (err instanceof Refused) return reply.code(409).send({ error: err.reason.message })
+          if (err instanceof Refused) return reply.code(err.reason.code === 'forbidden' ? 403 : 409).send({ error: err.reason.message })
           if (err instanceof NotKept) return reply.code(502).send({ error: err.message })
           throw err
         }
@@ -210,7 +216,7 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
       })
 
       scope.delete(o.path, async (req: Req, reply) => {
-        if (!o.allowed(req)) return reply.code(403).send({ error: o.refusal })
+        if (!(o.removable ?? o.allowed)(req)) return reply.code(403).send({ error: o.refusal })
         try {
           await o.remove(idOf(req), who(req))
         } catch (err) {
@@ -257,10 +263,12 @@ export function registerPhotoRoutes(app: FastifyInstance, { db, files, onChange 
     routes({
       path: '/api/models/:id/photo',
       table: 'models',
-      allowed: (req) => mayChangeProductPhoto(req.role),
+      // Anyone who adds products (ADR 0203) gives the first photo of one they've added; changing or taking one down is stock's.
+      allowed: (req) => mayChangeProductPhoto(req.role) || mayAddProducts(req.role),
+      removable: (req) => mayChangeProductPhoto(req.role),
       refusal: PRODUCT_PHOTO_REFUSAL,
       reads: async () => true,
-      put: (id, data, type, w) => putProductPhoto(db, files, id, data, type, w),
+      put: (id, data, type, w, req) => putProductPhoto(db, files, id, data, type, w, !mayChangeProductPhoto(req.role)),
       remove: (id, w) => removeProductPhoto(db, id, w),
     })
     // The company's logo (ADR 0106): one, on the "logo" setting; everyone signed in reads it, as anyone prints labels.

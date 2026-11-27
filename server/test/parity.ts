@@ -232,6 +232,10 @@ const CASES: Case[] = [
 
   // Stock.
   c('model.create', { id: 'sharpy', name: 'Clay Paky Sharpy', department: 'lighting', category: 'Moving heads', tracking: 'serialised', isCase: false, valueCents: 400000, notes: '' }),
+  // Add products (ADR 0203).
+  c('model.add', { id: 'sm58', name: 'Shure SM58', department: 'audio', category: 'Microphones', tracking: 'serialised', isCase: false, valueCents: 11000, notes: '', patMonths: null, aliases: ['58'], weightKg: 0.3, lengthM: null }),
+  c('model.add', { id: 'nl4', name: 'NL4 cable', department: 'audio', category: 'Cables', tracking: 'bulk', isCase: false, valueCents: null, notes: '', lengthM: 10, patMonths: null }, { as: 'a cable by length' }),
+  c('model.checked', { id: 'xlr' }),
   c('model.update', { id: 'xlr', name: 'XLR 10m', category: 'Cable', valueCents: 1500 }),
   c('model.remove', { id: 'unused' }, { before: [m('model.create', { id: 'unused', name: 'Old desk', department: 'audio', category: 'Desks', tracking: 'bulk', isCase: false, valueCents: null, notes: '' })] }),
   c('model.mistake', { id: 'unused' }, { before: [m('model.create', { id: 'unused', name: 'Old desk', department: 'audio', category: 'Desks', tracking: 'bulk', isCase: false, valueCents: null, notes: '' })] }),

@@ -205,6 +205,7 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
   const hidden = [m.items.length > 0 && plural(m.items.length, 'item'), m.countedTotal > 0 && `${m.countedTotal.toLocaleString('en-IE')} counted`].filter(Boolean)
   return (
     <section className="card" aria-label="Details">
+      {m.toCheck && <LookOver m={m} />}
       <ProductPhoto m={m} />
       <dl className="facts">
         {m.aliases.length > 0 && (
@@ -807,5 +808,25 @@ function NewCount({ m, w, onSaid }: { m: ModelView; w: WarehouseView; onSaid: (t
         </button>
       )}
     </form>
+  )
+}
+
+/** Added on Add products by someone who doesn't run the stock (ADR 0203): said at the top, with the one thing to do about it. */
+function LookOver({ m }: { m: ModelView }) {
+  const mayStock = useAccess().can('stock')
+  const { run, error } = useAct()
+  return (
+    <div className="look-over" role="note">
+      <p>
+        <b>Added on Add products, not looked over yet.</b>{' '}
+        {mayStock ? 'Check its details and change anything wrong, then say it looks right.' : 'Someone who runs the stock will look over it.'}
+      </p>
+      {mayStock && (
+        <button type="button" onClick={() => void run(() => client.mutate('model.checked', { id: m.id }))}>
+          Looks right
+        </button>
+      )}
+      <Refusal error={error} />
+    </div>
   )
 }
